@@ -1,0 +1,36 @@
+[
+    {
+        "id": "21708434-a6be-4261-8464-0efc9bb80043",
+        "pid": null,
+        "nama": "Dashboard",
+        "icon": "dripicons-meter",
+        "urutan": 1,
+        "urutan_path": null,
+        "link": "",
+        "pid_path": null,
+        "sub": [
+            {
+                "id": "dd697ca7-6d1a-4ee9-8187-226c52b9be17",
+                "pid": "21708434-a6be-4261-8464-0efc9bb80043",
+                "nama": "Menu",
+                "icon": "dripicons-list",
+                "urutan": 1,
+                "urutan_path": null,
+                "link": "",
+                "pid_path": "21708434-a6be-4261-8464-0efc9bb80043",
+                "child": [
+                    {
+                        "id": "feb77a07-6551-4d63-82fb-122912a98192",
+                        "pid": "dd697ca7-6d1a-4ee9-8187-226c52b9be17",
+                        "nama": "Ringkasan",
+                        "icon": "dripicons-graph-bar",
+                        "urutan": 1,
+                        "urutan_path": null,
+                        "link": "dashboard",
+                        "pid_path": "21708434-a6be-4261-8464-0efc9bb80043,dd697ca7-6d1a-4ee9-8187-226c52b9be17"
+                    }
+                ]
+            }
+        ]
+    }
+]

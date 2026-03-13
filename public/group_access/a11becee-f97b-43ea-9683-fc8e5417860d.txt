@@ -1,0 +1,70 @@
+[
+    {
+        "id": "32361898-c607-11ec-9240-809133ff6caa",
+        "pid": "",
+        "nama": "Settings",
+        "icon": "icon-fa fas fa-cog",
+        "urutan": 1,
+        "urutan_path": "",
+        "link": "MetricaSetting",
+        "pid_path": "131ca369-c607-11ec-9240-809133ff6caa",
+        "sub": [
+            {
+                "id": "452446c4-23cd-4964-a539-087010d8add3",
+                "pid": "32361898-c607-11ec-9240-809133ff6caa",
+                "nama": "Data Center",
+                "icon": "icon-fa fas fa-database",
+                "urutan": 2,
+                "urutan_path": ",02",
+                "link": null,
+                "pid_path": "",
+                "child": [
+                    {
+                        "id": "a10f4cc8-cc69-442a-bd4b-e5bf5d9dce81",
+                        "pid": "452446c4-23cd-4964-a539-087010d8add3",
+                        "nama": "Reservasi Cabang",
+                        "icon": "dripicons-calendar",
+                        "urutan": 7,
+                        "urutan_path": ",02,07",
+                        "link": "reservasicabang",
+                        "pid_path": null
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "id": "21708434-a6be-4261-8464-0efc9bb80043",
+        "pid": null,
+        "nama": "Dashboard",
+        "icon": "dripicons-meter",
+        "urutan": 1,
+        "urutan_path": null,
+        "link": "",
+        "pid_path": null,
+        "sub": [
+            {
+                "id": "dd697ca7-6d1a-4ee9-8187-226c52b9be17",
+                "pid": "21708434-a6be-4261-8464-0efc9bb80043",
+                "nama": "Menu",
+                "icon": "dripicons-list",
+                "urutan": 1,
+                "urutan_path": null,
+                "link": "",
+                "pid_path": "21708434-a6be-4261-8464-0efc9bb80043",
+                "child": [
+                    {
+                        "id": "feb77a07-6551-4d63-82fb-122912a98192",
+                        "pid": "dd697ca7-6d1a-4ee9-8187-226c52b9be17",
+                        "nama": "Ringkasan",
+                        "icon": "dripicons-graph-bar",
+                        "urutan": 1,
+                        "urutan_path": null,
+                        "link": "dashboard",
+                        "pid_path": "21708434-a6be-4261-8464-0efc9bb80043,dd697ca7-6d1a-4ee9-8187-226c52b9be17"
+                    }
+                ]
+            }
+        ]
+    }
+]

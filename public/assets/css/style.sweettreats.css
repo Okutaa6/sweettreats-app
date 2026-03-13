@@ -1,0 +1,435 @@
+
+
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap');
+
+/* ==========================================================================
+   1. CSS CUSTOM PROPERTIES (Brand Colors)
+   ========================================================================== */
+:root {
+    --brown:            rgb(70, 21, 0);
+    --brown-hover:      rgb(105, 56, 35);
+    --brown-light:      rgb(208, 196, 191);
+    --brown-bg:         rgb(250, 245, 243);
+    --brown-cream:      rgb(230, 217, 200);
+    --brown-row-hover:  rgb(230, 210, 200);
+}
+
+
+/* ==========================================================================
+   2. TOPBAR / HEADER
+   ========================================================================== */
+.topbar {
+    background-color: #ffffff !important;
+}
+.topbar .nav-link {
+    background-color: #ffffff !important;
+    color: var(--brown) !important;
+}
+.topbar-left {
+    background-color: #ffffff !important;
+}
+.topbar .nav-user-name,
+.topbar h4 {
+    color: var(--brown) !important;
+}
+.topbar .nav-link:hover {
+    color: var(--brown-hover) !important;
+}
+.topbar .dripicons-menu,
+.topbar .dripicons-user {
+    color: var(--brown) !important;
+}
+.topbar .dropdown-menu {
+    background-color: #ffffff !important;
+    border-color: var(--brown-light) !important;
+}
+.topbar .dropdown-item {
+    color: var(--brown) !important;
+}
+.topbar .dropdown-item:hover,
+.topbar .dropdown-item:active {
+    color: var(--brown-hover) !important;
+    background-color: var(--brown-bg) !important;
+}
+.navbar-custom {
+    background: #ffffff !important;
+}
+.navbar-custom .nav-link {
+    color: var(--brown) !important;
+}
+
+
+/* ==========================================================================
+   3. SIDEBAR — Parent & Child
+   ========================================================================== */
+.left-sidenav,
+.main-icon-menu,
+.main-menu-inner,
+.left-sidenav .nav-link,
+.nav-item .nav-link {
+    color: var(--brown) !important;
+    font-family: 'Montserrat', sans-serif !important;
+    font-weight: 600 !important;
+}
+
+/* Parent sidebar background */
+.left-sidenav,
+.main-icon-menu,
+.main-icon-menu .nav-link {
+    background-color: var(--brown-light) !important;
+}
+
+/* Child sidebar background */
+.main-menu-inner,
+.main-menu-inner .nav-link {
+    background-color: var(--brown-cream) !important;
+}
+
+.title-box-icon,
+.title-box {
+    background-color: var(--brown-cream) !important;
+    color: var(--brown) !important;
+    font-family: 'Montserrat', sans-serif !important;
+    font-weight: 700 !important;
+}
+
+.left-sidenav .nav-link i {
+    color: var(--brown) !important;
+}
+
+.main-icon-menu .nav-link {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    text-align: center !important;
+}
+
+.left-sidenav .nav-link:hover,
+.nav-item .nav-link:hover {
+    color: var(--brown-hover) !important;
+    text-decoration: none !important;
+}
+.left-sidenav .nav-link:hover span,
+.nav-item .nav-link:hover span {
+    text-decoration: underline !important;
+    text-decoration-thickness: 1px !important;
+    text-underline-offset: 4px !important;
+}
+.left-sidenav .nav-link:hover i {
+    color: var(--brown-hover) !important;
+}
+
+.main-menu-inner .menu-body .nav-item .nav-link.active,
+.main-menu-inner .menu-body .nav-item .nav-link.active i {
+    color: var(--brown-hover) !important;
+}
+
+/* child sidebar sub-menu links */
+.main-menu-inner .menu-body .nav-item ul li > a {
+    color: var(--brown) !important;
+}
+.main-menu-inner .menu-body .nav-item ul li > a:hover {
+    color: var(--brown-hover) !important;
+}
+
+
+/* ==========================================================================
+   4. SIDEBAR — Collapse Button
+   ========================================================================== */
+.left-sidenav {
+    position: relative;
+}
+
+.sidebar-collapse-btn {
+    position: absolute;
+    top: 50%;
+    right: -14px;
+    transform: translateY(-50%);
+    z-index: 999;
+    width: 50px;
+    height: 50px;
+    background-color: var(--brown-cream) !important;
+    border: 2px solid var(--brown-light) !important;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 2px 0 6px rgba(70, 21, 0, 0.15);
+    transition: background-color 0.2s ease;
+}
+.sidebar-collapse-btn:hover {
+    background-color: var(--brown-light) !important;
+}
+.sidebar-collapse-btn i {
+    color: var(--brown) !important;
+    font-size: 13px;
+}
+.sidebar-collapse-btn.is-collapsed i {
+    transform: rotate(180deg);
+}
+
+
+/* ==========================================================================
+   5. SIDEBAR — Collapsed State
+   ========================================================================== */
+.main-menu-inner {
+    overflow: hidden;
+}
+.main-menu-inner.collapsed {
+    width: 0 !important;
+    min-width: 0 !important;
+    max-width: 0 !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    opacity: 0;
+    pointer-events: none;
+}
+
+body.sidebar-collapsed .left-sidenav .main-icon-menu .nav-link.active:before {
+    display: none !important;
+}
+body.sidebar-collapsed .left-sidenav {
+    width: 70px !important;
+    min-width: 70px !important;
+    max-width: 70px !important;
+    flex: 0 0 70px !important;
+}
+body.sidebar-collapsed .page-content {
+    margin-left: 20px !important;
+}
+body.sidebar-collapsed .page-content .container-fluid {
+    padding-left: 0 !important;
+}
+
+
+/* ==========================================================================
+   6. PAGE TITLE & BREADCRUMB
+   ========================================================================== */
+.page-title,
+.page-title-box .page-title {
+    color: var(--brown) !important;
+}
+
+.breadcrumb .breadcrumb-item a,
+.breadcrumb .breadcrumb-item.active,
+.breadcrumb a {
+    color: var(--brown) !important;
+}
+
+
+/* ==========================================================================
+   7. BUTTONS
+   ========================================================================== */
+
+/* --- Primary — Dark Brown --- */
+.btn-primary {
+    background-color: var(--brown) !important;
+    border: 1px solid var(--brown) !important;
+    color: #ffffff !important;
+    box-shadow: 0 2px 6px 0 rgba(70, 21, 0, 0.4) !important;
+}
+.btn-primary:hover,
+.btn-primary:focus,
+.btn-primary.focus {
+    background-color: var(--brown-hover) !important;
+    border-color: var(--brown-hover) !important;
+    color: #ffffff !important;
+    box-shadow: 0 2px 6px 0 rgba(105, 56, 35, 0.5) !important;
+}
+.btn-primary:active,
+.btn-primary.active,
+.btn-primary:not(:disabled):not(.disabled):active,
+.btn-primary:not(:disabled):not(.disabled).active,
+.show > .btn-primary.dropdown-toggle {
+    background-color: var(--brown) !important;
+    border-color: var(--brown) !important;
+    color: #ffffff !important;
+    box-shadow: none !important;
+}
+.btn-primary:not(:disabled):not(.disabled):active:focus,
+.btn-primary:focus {
+    box-shadow: 0 0 0 2px rgba(70, 21, 0, 0.3) !important;
+}
+
+/* --- Warning — Light Brown / Cream ("Back" button) --- */
+.btn-warning {
+    background-color: var(--brown-light) !important;
+    border: 1px solid var(--brown-light) !important;
+    color: var(--brown) !important;
+    box-shadow: none !important;
+}
+.btn-warning:hover,
+.btn-warning:focus,
+.btn-warning:active,
+.btn-warning.active,
+.btn-warning:not(:disabled):not(.disabled):active,
+.show > .btn-warning.dropdown-toggle {
+    background-color: var(--brown-light) !important;
+    border-color: var(--brown-light) !important;
+    color: var(--brown) !important;
+    box-shadow: none !important;
+}
+
+
+/* ==========================================================================
+   8. FORMS — Input, Select, Select2
+   ========================================================================== */
+.form-control {
+    color: var(--brown) !important;
+    border-color: var(--brown-light) !important;
+}
+.form-control:focus {
+    border-color: var(--brown) !important;
+    box-shadow: 0 0 0 0.2rem rgba(70, 21, 0, 0.15) !important;
+    color: var(--brown) !important;
+}
+
+.select2-container--default .select2-selection--single {
+    border-color: var(--brown-light) !important;
+}
+.select2-container--default .select2-selection--single .select2-selection__rendered {
+    color: var(--brown) !important;
+}
+.select2-container--default .select2-results__option {
+    color: var(--brown) !important;
+}
+.select2-container--default .select2-results__option--highlighted,
+.select2-container--default .select2-results__option:hover {
+    background-color: rgb(59, 116, 240) !important;
+    color: rgb(254, 254, 254) !important;
+}
+
+
+/* ==========================================================================
+   9. CARD
+   ========================================================================== */
+.card-header {
+    background-color: var(--brown-bg) !important;
+    border-color: var(--brown-light) !important;
+}
+.card-title {
+    color: var(--brown) !important;
+    font-weight: 600 !important;
+    margin: 0 !important;
+}
+
+
+/* ==========================================================================
+   10. TABLE — General
+   ========================================================================== */
+.table,
+.table th,
+.table td {
+    color: var(--brown) !important;
+    border-color: var(--brown-light) !important;
+}
+
+/* Override template blue thead */
+.table thead th,
+.table-bordered thead th,
+.table-bordered thead td {
+    background-color: var(--brown) !important;
+    color: #ffffff !important;
+    border-color: #ffffff !important;
+    font-weight: 600 !important;
+}
+
+/* Striped rows — hanya untuk tabel data (table-hover/table-striped) */
+.table-hover tbody tr:nth-child(even),
+.table-striped tbody tr:nth-child(even) {
+    background-color: var(--brown-bg) !important;
+}
+.table-hover tbody tr:nth-child(odd),
+.table-striped tbody tr:nth-child(odd) {
+    background-color: #ffffff !important;
+}
+
+/* Override template hover */
+.table-hover tbody tr:hover {
+    background-color: var(--brown-row-hover) !important;
+}
+
+.table-responsive {
+    overflow-x: auto;
+    overflow-y: visible;
+    width: 100%;
+}
+
+
+/* ==========================================================================
+   11. CUSTOM CHECKBOX & SWITCH
+   ========================================================================== */
+.custom-control-label {
+    color: var(--brown) !important;
+}
+.custom-checkbox .custom-control-input:checked ~ .custom-control-label::before {
+    background-color: var(--brown) !important;
+    border-color: var(--brown) !important;
+}
+.custom-control-input:focus ~ .custom-control-label::before {
+    box-shadow: 0 0 0 0.2rem rgba(70, 21, 0, 0.25) !important;
+}
+
+
+
+/* ==========================================================================
+   13. TABLE — Doctor Schedule (Jadwal Doctor)
+   ========================================================================== */
+.table-jadwal-doctor {
+    table-layout: fixed;
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.80rem;
+}
+
+.table-jadwal-doctor col.c-no      { width: 5%;  }
+.table-jadwal-doctor col.c-hari    { width: 20%; }
+.table-jadwal-doctor col.c-cabang  { width: 20%; }
+.table-jadwal-doctor col.c-mulai   { width: 18%; }
+.table-jadwal-doctor col.c-selesai { width: 18%; }
+.table-jadwal-doctor col.c-action  { width: 19%; }
+
+.table-jadwal-doctor thead th {
+    background-color: var(--brown) !important;
+    color: #fff !important;
+    font-weight: 600 !important;
+    font-size: 0.78rem;
+    text-align: left;
+    vertical-align: middle;
+    padding: 9px 6px;
+    border-color: rgb(237, 237, 237) !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.table-jadwal-doctor tbody td {
+    vertical-align: middle;
+    text-align: center;
+    color: var(--brown) !important;
+    padding: 7px 6px;
+    height: 46px;
+    border-color: var(--brown-light) !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.table-jadwal-doctor tbody td:nth-child(1),
+.table-jadwal-doctor tbody td:nth-child(2),
+.table-jadwal-doctor tbody td:nth-child(3),
+.table-jadwal-doctor thead th:nth-child(1),
+.table-jadwal-doctor thead th:nth-child(2),
+.table-jadwal-doctor thead th:nth-child(3) {
+    text-align: left;
+}
+
+.table-jadwal-doctor tbody tr:nth-child(even) {
+    background-color: var(--brown-bg);
+}
+.table-jadwal-doctor tbody tr:hover {
+    background-color: var(--brown-row-hover) !important;
+}
