@@ -84,50 +84,53 @@ class DocServiceController extends Controller
 
     // Detail CRUD (sub-service)
 
-    public function detailStore($serviceId)
-    {
-        request()->validate([
-            'name'             => 'required|max:255',
-            'duration_minutes' => 'required|numeric|min:1',
-            'price'            => 'required|numeric|min:0',
-        ]);
+   public function detailStore($serviceId)
+{
+    request()->validate([
+        'name'             => 'required|max:255',
+        'code_service'     => 'nullable|max:100',
+        'duration_minutes' => 'required|numeric|min:1',
+        'price'            => 'required|numeric|min:0',
+    ]);
 
-        RawDocServiceDetail::create([
-            'raw_doc_service_id' => $serviceId,
-            'name'               => request('name'),
-            'duration_minutes'   => request('duration_minutes'),
-            'price'              => request('price'),
-            'sort_order'         => request('sort_order', 0),
-            'is_active'          => 1,
-            'created_at'         => now(),
-            'created_by'         => session('user_id'),
-        ]);
+    RawDocServiceDetail::create([
+        'raw_doc_service_id' => $serviceId,
+        'name'               => request('name'),
+        'code_service'       => request('code_service') ?: null,
+        'duration_minutes'   => request('duration_minutes'),
+        'price'              => request('price'),
+        'sort_order'         => request('sort_order', 0),
+        'is_active'          => 1,
+        'created_at'         => now(),
+        'created_by'         => session('user_id'),
+    ]);
 
-        return redirect()->route('rawdocservice.edit', $serviceId)->with('success', 'Sub-detail berhasil ditambahkan');
-    }
+    return redirect()->route('rawdocservice.edit', $serviceId)->with('success', 'Sub-detail berhasil ditambahkan');
+}
 
     public function detailUpdate($serviceId, $detailId)
-    {
-        request()->validate([
-            'name'             => 'required|max:255',
-            'duration_minutes' => 'required|numeric|min:1',
-            'price'            => 'required|numeric|min:0',
-        ]);
+{
+    request()->validate([
+        'name'             => 'required|max:255',
+        'code_service'     => 'nullable|max:100',
+        'duration_minutes' => 'required|numeric|min:1',
+        'price'            => 'required|numeric|min:0',
+    ]);
 
-        $detail = RawDocServiceDetail::where('raw_doc_service_id', $serviceId)->findOrFail($detailId);
-        $detail->update([
-            'name'             => request('name'),
-            'duration_minutes' => request('duration_minutes'),
-            'price'            => request('price'),
-            'sort_order'       => request('sort_order', $detail->sort_order),
-            'is_active'        => request('is_active', 1),
-            'updated_at'       => now(),
-            'updated_by'       => session('user_id'),
-        ]);
+    $detail = RawDocServiceDetail::where('raw_doc_service_id', $serviceId)->findOrFail($detailId);
+    $detail->update([
+        'name'             => request('name'),
+        'code_service'     => request('code_service') ?: null, //new
+        'duration_minutes' => request('duration_minutes'),
+        'price'            => request('price'),
+        'sort_order'       => request('sort_order', $detail->sort_order),
+        'is_active'        => request('is_active', 1),
+        'updated_at'       => now(),
+        'updated_by'       => session('user_id'),
+    ]);
 
-        return redirect()->route('rawdocservice.edit', $serviceId)->with('success', 'Sub-detail berhasil diubah');
-    }
-
+    return redirect()->route('rawdocservice.edit', $serviceId)->with('success', 'Sub-detail berhasil diubah');
+}
     public function detailDestroy($serviceId, $detailId)
     {
         $detail = RawDocServiceDetail::where('raw_doc_service_id', $serviceId)->findOrFail($detailId);

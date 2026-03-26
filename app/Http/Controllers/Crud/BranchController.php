@@ -26,11 +26,13 @@ class BranchController extends Controller
     public function store()
     {
         request()->validate([
-            'name' => 'required|max:255',
+            'name'           => 'required|max:255',
+            'target_tahunan' => 'nullable|numeric|min:0',   // ← BARU
         ]);
 
         RawBranch::create([
-            'name' => request('name'),
+            'name'           => request('name'),
+            'target_tahunan' => request('target_tahunan') ?: null,   // ← BARU
         ]);
 
         return redirect()->route('rawbranch')->with('success', 'Cabang berhasil ditambahkan');
@@ -46,12 +48,14 @@ class BranchController extends Controller
     public function update($id)
     {
         request()->validate([
-            'name' => 'required|max:255',
+            'name'           => 'required|max:255',
+            'target_tahunan' => 'nullable|numeric|min:0',   // ← BARU
         ]);
 
         $branch = RawBranch::findOrFail($id);
         $branch->update([
-            'name' => request('name'),
+            'name'           => request('name'),
+            'target_tahunan' => request('target_tahunan') ?: null,   // ← BARU
         ]);
 
         return redirect()->route('rawbranch')->with('success', 'Cabang berhasil diubah');

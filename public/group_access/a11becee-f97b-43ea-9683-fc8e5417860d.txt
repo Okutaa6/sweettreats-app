@@ -20,6 +20,16 @@
                 "pid_path": "",
                 "child": [
                     {
+                        "id": "478bae36-6a93-4c40-9505-89e215546e39",
+                        "pid": "452446c4-23cd-4964-a539-087010d8add3",
+                        "nama": "Reservation",
+                        "icon": "dripicons-calendar",
+                        "urutan": 4,
+                        "urutan_path": "01,02,04",
+                        "link": "rawreservation",
+                        "pid_path": ""
+                    },
+                    {
                         "id": "a10f4cc8-cc69-442a-bd4b-e5bf5d9dce81",
                         "pid": "452446c4-23cd-4964-a539-087010d8add3",
                         "nama": "Reservasi Cabang",
@@ -53,6 +63,16 @@
                 "link": "",
                 "pid_path": "21708434-a6be-4261-8464-0efc9bb80043",
                 "child": [
+                    {
+                        "id": "d4e03a8f-3b36-4744-94f7-69081eab1c5f",
+                        "pid": "dd697ca7-6d1a-4ee9-8187-226c52b9be17",
+                        "nama": "Reservasi",
+                        "icon": "dripicons-calendar",
+                        "urutan": 2,
+                        "urutan_path": null,
+                        "link": "rawreservation",
+                        "pid_path": "21708434-a6be-4261-8464-0efc9bb80043,dd697ca7-6d1a-4ee9-8187-226c52b9be17"
+                    },
                     {
                         "id": "feb77a07-6551-4d63-82fb-122912a98192",
                         "pid": "dd697ca7-6d1a-4ee9-8187-226c52b9be17",

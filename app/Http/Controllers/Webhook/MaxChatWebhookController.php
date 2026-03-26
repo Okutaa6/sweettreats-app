@@ -134,7 +134,7 @@ class MaxChatWebhookController extends Controller
                 }
             }
 
-            // ── 5. Kalau ada keyword yang cocok → insert Stat_Leads ──────────
+            // ── 5. Kalau ada keyword yang cocok → insert Stat_Leads 
             if ($matched) {
                 DB::table('raw_cus_journey')->insert([
                     'id'              => (string) Str::uuid(),

@@ -108,6 +108,7 @@
                                     <tr>
                                         <th width="5%">No</th>
                                         <th>Nama Sub-detail</th>
+                                        <th width="15%">Kode Service</th>
                                         <th width="15%">Durasi (Menit)</th>
                                         <th width="18%">Harga</th>
                                         <th width="8%">Urutan</th>
@@ -125,6 +126,7 @@
                                                     <span class="badge badge-secondary ml-1">Nonaktif</span>
                                                 @endif
                                             </td>
+                                            <td>{{ $detail->code_service ?? '-' }}</td>  
                                             <td>{{ $detail->duration_minutes }} menit</td>
                                             <td>Rp {{ number_format($detail->price, 0, ',', '.') }}</td>
                                             <td>{{ $detail->sort_order }}</td>
@@ -138,6 +140,7 @@
                                                     style="padding:2px 8px"
                                                     data-id="{{ $detail->id }}"
                                                     data-name="{{ $detail->name }}"
+                                                    data-code="{{ $detail->code_service }}"  
                                                     data-duration="{{ $detail->duration_minutes }}"
                                                     data-price="{{ $detail->price }}"
                                                     data-sort="{{ $detail->sort_order }}"
@@ -158,7 +161,7 @@
                                         </tr>
                                     @empty
                                         <tr>
-                                            <td colspan="7" class="text-center text-muted">
+                                            <td colspan="8" class="text-center text-muted"> {{-- ← colspan 8 karena ada kolom baru --}}
                                                 Belum ada sub-detail. Klik "Tambah Sub-detail" untuk mulai.
                                             </td>
                                         </tr>
@@ -187,6 +190,13 @@
                             <label>Nama Sub-detail <span class="text-danger">*</span></label>
                             <input type="text" class="form-control" name="name"
                                 placeholder="Contoh: Scaling Kelas 2" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Kode Service</label>
+                            <input type="text" class="form-control" name="code_service"
+                                placeholder="Contoh: SC-001">
+                            <small class="text-muted">Opsional — kode unik untuk identifikasi sub service</small>
                         </div>
                         <div class="form-row">
                             <div class="form-group col-md-6">
@@ -228,6 +238,13 @@
                         <div class="form-group">
                             <label>Nama Sub-detail <span class="text-danger">*</span></label>
                             <input type="text" class="form-control" name="name" id="editName" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Kode Service</label>
+                            <input type="text" class="form-control" name="code_service" id="editCodeService"
+                                placeholder="Contoh: SC-001">
+                            <small class="text-muted">Opsional — kode unik untuk identifikasi sub service</small>
                         </div>
                         <div class="form-row">
                             <div class="form-group col-md-6">
@@ -297,10 +314,11 @@
 
         // pas klik tombol edit detail → isi form modal dari data-attribute
         $(document).on('click', '.btn-edit-detail', function() {
-            const id       = $(this).data('id');
-            const baseUrl  = '{{ route("rawdocservice.detail.update", [$service->id, "__ID__"]) }}';
+            const id      = $(this).data('id');
+            const baseUrl = '{{ route("rawdocservice.detail.update", [$service->id, "__ID__"]) }}';
 
             $('#editName').val($(this).data('name'));
+            $('#editCodeService').val($(this).data('code'));  //new
             $('#editDuration').val($(this).data('duration'));
             $('#editPrice').val($(this).data('price'));
             $('#editSort').val($(this).data('sort'));

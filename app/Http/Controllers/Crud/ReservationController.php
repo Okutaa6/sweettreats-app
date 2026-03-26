@@ -27,6 +27,15 @@ class ReservationController extends Controller
         $query = RawCusReservation::with('branch', 'customer', 'doctor', 'services.docService', 'promo')
             ->withCount('services');
 
+        // ── Filter cabang berdasarkan session user ───────────────────────────
+        // Kalau user punya raw_branch_id di session → paksa filter ke cabang itu
+        // Kalau NULL (admin/superadmin) → bebas lihat semua
+        $sessionBranch = session('raw_branch_id');
+        if ($sessionBranch) {
+            $query->where('raw_branch_id', $sessionBranch);
+            $filterBranch = $sessionBranch; // supaya dropdown filter ikut terkunci
+        }
+
         // Terapkan Filter
         if ($filterSearch) {
             $query->whereHas('customer', function($q) use ($filterSearch) {
@@ -52,11 +61,14 @@ class ReservationController extends Controller
 
         $reservations = $query->orderBy('date', 'desc')->paginate($perPage);
 
-        // Data pendukung untuk dropdown & calendar
-        $branches = RawBranch::orderBy('name')->get();
+        // Kalau user terkunci ke 1 cabang, dropdown hanya tampilkan cabang itu
+        $branches = $sessionBranch
+            ? RawBranch::where('id', $sessionBranch)->get()
+            : RawBranch::orderBy('name')->get();
+
         $doctors  = RawDoctor::orderBy('name')->get();
         $statuses = RawCusReservation::statusOptions();
-        $calendarReservations = $query->get(); // Ambil semua data terfilter untuk kalender
+        $calendarReservations = $query->get();
 
         return view('crud.reservation.list', compact(
             'reservations',
@@ -73,13 +85,17 @@ class ReservationController extends Controller
         ));
     }
 
-    
-
     public function create()
     {
-        $branches = RawBranch::orderBy('name')->get();
+        $sessionBranch = session('raw_branch_id');
+
+        // Kalau user terkunci ke 1 cabang, dropdown hanya tampilkan cabang itu
+        $branches  = $sessionBranch
+            ? RawBranch::where('id', $sessionBranch)->get()
+            : RawBranch::orderBy('name')->get();
+
         $customers = RawCustomer::orderBy('name')->get();
-        $doctors = RawDoctor::orderBy('name')->get();
+        $doctors   = RawDoctor::orderBy('name')->get();
 
         return view('crud.reservation.new', compact('branches', 'customers', 'doctors'));
     }
@@ -87,23 +103,23 @@ class ReservationController extends Controller
     public function store()
     {
         request()->validate([
-            'raw_branch_id' => 'required',
+            'raw_branch_id'   => 'required',
             'raw_customer_id' => 'required',
-            'raw_doctor_id' => 'required',
-            'date' => 'required|date',
-            'start_hour' => 'required',
-            'end_hour' => 'required',
+            'raw_doctor_id'   => 'required',
+            'date'            => 'required|date',
+            'start_hour'      => 'required',
+            'end_hour'        => 'required',
         ]);
 
         RawCusReservation::create([
-            'raw_branch_id' => request('raw_branch_id'),
+            'raw_branch_id'   => request('raw_branch_id'),
             'raw_customer_id' => request('raw_customer_id'),
-            'raw_doctor_id' => request('raw_doctor_id'),
-            'date' => request('date'),
-            'start_hour' => request('start_hour'),
-            'end_hour' => request('end_hour'),
-            'is_waiting' => request('is_waiting', 0),
-            'created_at' => now(),
+            'raw_doctor_id'   => request('raw_doctor_id'),
+            'date'            => request('date'),
+            'start_hour'      => request('start_hour'),
+            'end_hour'        => request('end_hour'),
+            'is_waiting'      => request('is_waiting', 0),
+            'created_at'      => now(),
         ]);
 
         return redirect()->route('rawreservation')->with('success', 'Reservasi berhasil ditambahkan');
@@ -112,16 +128,22 @@ class ReservationController extends Controller
     public function edit($id)
     {
         $reservation = RawCusReservation::with('branch', 'customer', 'doctor', 'promo')->findOrFail($id);
-        $branches = RawBranch::orderBy('name')->get();
-        $customers = RawCustomer::orderBy('name')->get();
-        $doctors = RawDoctor::orderBy('name')->get();
+
+        $sessionBranch = session('raw_branch_id');
+
+        // Kalau user terkunci ke 1 cabang, dropdown hanya tampilkan cabang itu
+        $branches  = $sessionBranch
+            ? RawBranch::where('id', $sessionBranch)->get()
+            : RawBranch::orderBy('name')->get();
+
+        $customers   = RawCustomer::orderBy('name')->get();
+        $doctors     = RawDoctor::orderBy('name')->get();
         $docServices = RawDocService::orderBy('name')->get();
 
         $services = RawCusResService::with('doctor', 'docService', 'serviceDetail')
             ->where('raw_cus_reservation_id', $id)
             ->get();
 
-        // Hitung total durasi berdasarkan sub-detail (jika ada) atau durasi default layanan
         $totalDuration = $services->sum(function($item) {
             return $item->serviceDetail ? $item->serviceDetail->duration_minutes : ($item->docService->duration_minutes ?? 0);
         });
@@ -140,31 +162,30 @@ class ReservationController extends Controller
     public function update($id)
     {
         request()->validate([
-            'raw_branch_id' => 'required',
+            'raw_branch_id'   => 'required',
             'raw_customer_id' => 'required',
-            'raw_doctor_id' => 'required',
-            'date' => 'required|date',
-            'start_hour' => 'required',
-            'end_hour' => 'required',
+            'raw_doctor_id'   => 'required',
+            'date'            => 'required|date',
+            'start_hour'      => 'required',
+            'end_hour'        => 'required',
         ]);
 
         $reservation = RawCusReservation::findOrFail($id);
 
         \Illuminate\Support\Facades\DB::transaction(function () use ($reservation, $id) {
             $reservation->update([
-                'raw_branch_id' => request('raw_branch_id'),
+                'raw_branch_id'   => request('raw_branch_id'),
                 'raw_customer_id' => request('raw_customer_id'),
-                'raw_doctor_id' => request('raw_doctor_id'),
-                'date' => request('date'),
-                'start_hour' => request('start_hour'),
-                'end_hour' => request('end_hour'),
-                'status' => request('status', 'pending'),
-                'is_waiting' => request('is_waiting', 0),
-                'updated_at' => now(),
-                'updated_by' => session('user_id'),
+                'raw_doctor_id'   => request('raw_doctor_id'),
+                'date'            => request('date'),
+                'start_hour'      => request('start_hour'),
+                'end_hour'        => request('end_hour'),
+                'status'          => request('status', 'pending'),
+                'is_waiting'      => request('is_waiting', 0),
+                'updated_at'      => now(),
+                'updated_by'      => session('user_id'),
             ]);
 
-            // Sinkronisasi Layanan (Sync Services)
             RawCusResService::where('raw_cus_reservation_id', $id)->delete();
             $servicesInput = request('services', []);
             foreach ($servicesInput as $svcId => $data) {
@@ -182,14 +203,12 @@ class ReservationController extends Controller
         return redirect()->route('rawreservation.edit', $id)->with('success', 'Reservasi berhasil diubah');
     }
 
-    //Update field status, follow_up_h_min_1, follow_up_h, follow_up_h_min_1_jam, keterangan_kehadiran secara inline (AJAX)
     public function updateInline($id)
     {
         $reservation = RawCusReservation::findOrFail($id);
 
-        $field = request('field');
-        $value = request('value');
-
+        $field   = request('field');
+        $value   = request('value');
         $allowed = ['status', 'follow_up_h_min_1', 'follow_up_h', 'follow_up_h_min_1_jam', 'keterangan_kehadiran'];
 
         if (!in_array($field, $allowed)) {
@@ -197,7 +216,7 @@ class ReservationController extends Controller
         }
 
         $reservation->update([
-            $field      => $value,
+            $field       => $value,
             'updated_at' => now(),
             'updated_by' => session('user_id'),
         ]);
@@ -217,7 +236,6 @@ class ReservationController extends Controller
         return redirect()->route('rawreservation')->with('success', 'Reservasi berhasil dihapus');
     }
 
-    //komisi approve & pay (new)
     public function commissionApprove($reservationId, $commissionId)
     {
         $commission = \App\Models\RawCommission::where('raw_cus_reservation_id', $reservationId)
@@ -240,19 +258,17 @@ class ReservationController extends Controller
             ->with('success', 'Komisi berhasil ditandai sebagai dibayar');
     }
 
-    // === Reservation Service (Child CRUD) ===
-
     public function serviceStore($reservationId)
     {
         request()->validate([
-            'raw_doctor_id' => 'required',
+            'raw_doctor_id'      => 'required',
             'raw_doc_service_id' => 'required',
         ]);
 
         RawCusResService::create([
             'raw_cus_reservation_id' => $reservationId,
-            'raw_doctor_id' => request('raw_doctor_id'),
-            'raw_doc_service_id' => request('raw_doc_service_id'),
+            'raw_doctor_id'          => request('raw_doctor_id'),
+            'raw_doc_service_id'     => request('raw_doc_service_id'),
         ]);
 
         return redirect()->route('rawreservation.edit', $reservationId)->with('success', 'Layanan berhasil ditambahkan');

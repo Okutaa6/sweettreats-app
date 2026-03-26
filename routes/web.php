@@ -17,6 +17,7 @@ use App\Http\Middleware\AuthGuard;
 use App\Http\Middleware\IsLoggedIn;
 use App\Http\Controllers\Crud\AffiliateController; //new
 use App\Http\Controllers\Crud\PromoController; //new
+use App\Http\Controllers\Crud\KeywordController; //new  
 
 
 
@@ -298,6 +299,14 @@ Route::middleware([AuthGuard::class])->group(function () {
     Route::get('rawpromo/{id}', [PromoController::class, 'edit'])->name('rawpromo.edit');
     Route::put('rawpromo/{id}', [PromoController::class, 'update'])->name('rawpromo.update');
     Route::delete('rawpromo/{id}', [PromoController::class, 'destroy'])->name('rawpromo.destroy');
+
+    // CRUD - Keyword //new
+    Route::get('rawkeyword', [KeywordController::class, 'index'])->name('rawkeyword');
+    Route::get('rawkeyword/new', [KeywordController::class, 'create'])->name('rawkeyword.new');
+    Route::post('rawkeyword/new', [KeywordController::class, 'store'])->name('rawkeyword.store');
+    Route::get('rawkeyword/{id}', [KeywordController::class, 'edit'])->name('rawkeyword.edit');
+    Route::put('rawkeyword/{id}', [KeywordController::class, 'update'])->name('rawkeyword.update');
+    Route::delete('rawkeyword/{id}', [KeywordController::class, 'destroy'])->name('rawkeyword.destroy');
 
     // CRUD - Customer
     Route::get('rawcustomer', [CustomerController::class, 'index'])->name('rawcustomer');

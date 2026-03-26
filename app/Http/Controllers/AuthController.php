@@ -21,19 +21,17 @@ class AuthController extends Controller
     {
         // CAPTCHA VALIDATION DISABLED FOR DEVELOPMENT
         // $result = $this->_captcha();
-
         // if (!$result->success) {
         //     return redirect()->back()->with('error', 'Captcha verification failed')->withInput();
         // }
 
-        // validate the request
         $this->validate(request(), [
-            'email' => 'required|email',
+            'email'    => 'required|email',
             'password' => 'required'
         ]);
 
         $data = [
-            'email' => request('email'),
+            'email'    => request('email'),
             'password' => request('password')
         ];
 
@@ -41,21 +39,23 @@ class AuthController extends Controller
             ->join('group_path', 'users.group_id', '=', 'group_path.id')
             ->where(['email' => $data['email'], 'status' => 1])
             ->first();
+
         $sysprofile = SysProfile::select('systitle', 'syslogo', 'sysname')->first();
 
         if ($user) {
             if (password_verify($data['password'], $user->password)) {
                 session([
-                    'id' => $user->id,
-                    'group_id' => $user->group_id,
-                    'expires_in' => time() + 3600,
-                    'name' => $user->nama,
-                    'systitle' => $sysprofile->systitle,
-                    'syslogo' => $sysprofile->syslogo,
-                    'sysname' => $sysprofile->sysname,
-                    'isLoggedIn' => true
+                    'id'             => $user->id,
+                    'group_id'       => $user->group_id,
+                    'expires_in'     => time() + 3600,
+                    'name'           => $user->nama,
+                    'systitle'       => $sysprofile->systitle,
+                    'syslogo'        => $sysprofile->syslogo,
+                    'sysname'        => $sysprofile->sysname,
+                    'isLoggedIn'     => true,
+                    'raw_branch_id'  => $user->raw_branch_id,  // ← BARU
                 ]);
-                // update last login
+
                 Users::where('id', $user->id)->update(['last_login' => date('Y-m-d H:i:s')]);
 
                 return redirect()->to($user->landing_page);
@@ -116,7 +116,7 @@ class AuthController extends Controller
     public function resetPasswordProcess($token)
     {
         $this->validate(request(), [
-            'password' => 'required|min:6',
+            'password'              => 'required|min:6',
             'password_confirmation' => 'required|same:password'
         ]);
 
@@ -124,7 +124,7 @@ class AuthController extends Controller
 
         if ($user) {
             Users::where('reset_token', $token)->update([
-                'password' => password_hash(request('password'), PASSWORD_DEFAULT),
+                'password'    => password_hash(request('password'), PASSWORD_DEFAULT),
                 'reset_token' => null
             ]);
 
@@ -143,12 +143,12 @@ class AuthController extends Controller
     private function _captcha()
     {
         $recaptcha = request('g-recaptcha-response');
-        $secret = env('CAPTCHA_SECRET_KEY');
+        $secret    = env('CAPTCHA_SECRET_KEY');
 
-        $client = new Client();
+        $client   = new Client();
         $response = $client->post('https://www.google.com/recaptcha/api/siteverify', [
             'form_params' => [
-                'secret' => $secret,
+                'secret'   => $secret,
                 'response' => $recaptcha
             ]
         ]);

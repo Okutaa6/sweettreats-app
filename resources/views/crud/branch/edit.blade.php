@@ -50,6 +50,20 @@
                                             @endif
                                         </td>
                                     </tr>
+                                    {{-- ← BARU --}}
+                                    <tr>
+                                        <td>Target Tahunan (Rp)</td>
+                                        <td>
+                                            <input class="form-control {{ $errors->has('target_tahunan') ? 'is-invalid' : '' }}"
+                                                type="number" name="target_tahunan" min="0"
+                                                value="{{ old('target_tahunan', $branch->target_tahunan) }}"
+                                                placeholder="Contoh: 500000000" />
+                                            <small class="text-muted">Kosongkan jika belum ada target</small>
+                                            @if ($errors->has('target_tahunan'))
+                                                <div class="invalid-feedback">{{ $errors->first('target_tahunan') }}</div>
+                                            @endif
+                                        </td>
+                                    </tr>
                                     <tr>
                                         <td>&nbsp;</td>
                                         <td>

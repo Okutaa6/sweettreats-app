@@ -1,10 +1,8 @@
 @extends('layouts.app')
 
-
 @section('content')
 
     <div class="container-fluid">
-        <!-- Page-Title -->
         <div class="row">
             <div class="col-sm-12">
                 <div class="page-title-box">
@@ -45,11 +43,26 @@
                                             @endif
                                         </td>
                                     </tr>
+                                    {{-- ← BARU --}}
+                                    <tr>
+                                        <td>Target Tahunan (Rp)</td>
+                                        <td>
+                                            <input class="form-control {{ $errors->has('target_tahunan') ? 'is-invalid' : '' }}"
+                                                type="number" name="target_tahunan" min="0"
+                                                value="{{ old('target_tahunan') }}"
+                                                placeholder="Contoh: 500000000" />
+                                            <small class="text-muted">Kosongkan jika belum ada target</small>
+                                            @if ($errors->has('target_tahunan'))
+                                                <div class="invalid-feedback">{{ $errors->first('target_tahunan') }}</div>
+                                            @endif
+                                        </td>
+                                    </tr>
                                     <tr>
                                         <td>&nbsp;</td>
                                         <td>
-                                            <button class="btn btn-primary" type="submit"><i class="fa fa-save"></i>
-                                                Simpan</button>
+                                            <button class="btn btn-primary" type="submit">
+                                                <i class="fa fa-save"></i> Simpan
+                                            </button>
                                         </td>
                                     </tr>
                                 </table>
