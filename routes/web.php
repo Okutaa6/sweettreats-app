@@ -111,7 +111,7 @@ Route::post('/reservasi', function () {
         ]);
     }
 
-        // Insert journey: status reservasi masuk
+        // Insert journey: status reservasi masuk (lewat raw_customer)
         \Illuminate\Support\Facades\DB::table('raw_cus_journey')->insert([
             'id'              => \Illuminate\Support\Str::uuid()->toString(),
             'raw_customer_id' => $customer->id,
@@ -119,6 +119,22 @@ Route::post('/reservasi', function () {
             'created_at'      => now(),
         ]);
 
+        // Cek nomor ini juga ada di raw_contact
+        // Kalau ada, insert Stat_Rsv juga dari sisi contact
+        $contact = \Illuminate\Support\Facades\DB::table('raw_contact')
+            ->where('phone', request('phone'))
+            ->first();
+
+        if ($contact) {
+            // Stat_New & Stat_Leads mungkin udah ada dari webhook
+            // Di sini kita tambahin Stat_Rsv dari sisi contact
+            \Illuminate\Support\Facades\DB::table('raw_cus_journey')->insert([
+                'id'             => \Illuminate\Support\Str::uuid()->toString(),
+                'raw_contact_id' => $contact->id,
+                'journey_label'  => 'Stat_Rsv',
+                'created_at'     => now(),
+            ]);
+        }
         // Buat komisi kalo ada promo sama koc/afiiliate
         if (request('promo_id')) {
             $promo = \App\Models\RawPromo::with('affiliate')->find(request('promo_id'));

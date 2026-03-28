@@ -75,23 +75,28 @@
                                         </td>
                                     </tr>
                                     <tr>
-                                        <td>Cabang</td>
-                                        <td>
-                                            <select
-                                                id="branchSelect2"
-                                                class="select2 form-control {{ $errors->has('raw_branch_id') ? 'is-invalid' : '' }}"
-                                                name="raw_branch_id">
-                                                <option value="">- Pilih Cabang -</option>
-                                                @foreach ($branches as $branch)
-                                                    <option value="{{ $branch->id }}"
-                                                        {{ $reservation->raw_branch_id == $branch->id ? 'selected' : '' }}>
-                                                        {{ $branch->name }}</option>
-                                                @endforeach
-                                            </select>
-                                            @if ($errors->has('raw_branch_id'))
-                                                <div class="invalid-feedback">{{ $errors->first('raw_branch_id') }}</div>
-                                            @endif
-                                        </td>
+                                    <td>Cabang</td>
+                                    <td>
+                                        <select
+                                            id="branchSelect2"
+                                            class="select2 form-control {{ $errors->has('raw_branch_id') ? 'is-invalid' : '' }}"
+                                            name="raw_branch_id">
+                                            <option value="">- Pilih Cabang -</option>
+                                            @foreach ($branches as $branch)
+                                                <option value="{{ $branch->id }}"
+                                                    {{ $reservation->raw_branch_id == $branch->id ? 'selected' : '' }}>
+                                                    {{ $branch->name }}</option>
+                                            @endforeach
+                                        </select>
+                                        @if ($errors->has('raw_branch_id'))
+                                            <div class="invalid-feedback">{{ $errors->first('raw_branch_id') }}</div>
+                                        @endif
+                                        {{-- ← BARU: notice reschedule cabang --}}
+                                        <div id="branchChangeNotice" class="alert alert-warning mt-2 mb-0" style="display:none; font-size:13px;">
+                                            <i class="fa fa-exclamation-triangle"></i>
+                                            <strong>Perhatian!</strong> Jika cabang dipindahkan, data pasien tidak akan terlihat atau ditransfer ke cabang baru.
+                                        </div>
+                                    </td>
                                     </tr>
                                     <tr>
                                         <td>Tanggal</td>
@@ -277,10 +282,22 @@
 @endsection
 
 @section('js')
+
+
     {{-- Flatpickr untuk date picker dengan restrict hari dokter --}}
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script>
+
+        // Notice muncul saat cabang diganti
+            const originalBranchId = '{{ $reservation->raw_branch_id }}';
+            $('#branchSelect2').on('change', function () {
+                if ($(this).val() !== originalBranchId) {
+                    $('#branchChangeNotice').show();
+                } else {
+                    $('#branchChangeNotice').hide();
+                }
+            });
         function deleteReservation() {
             Swal.fire({
                 title: 'Apakah Anda Yakin?',
