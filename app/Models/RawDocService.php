@@ -15,6 +15,9 @@ class RawDocService extends Model
     protected $fillable = [
         'id',
         'name',
+      
+        'category',     
+        'sort_order',  
         'duration_minutes',
         'price',
         'created_at',
@@ -29,17 +32,28 @@ class RawDocService extends Model
 
     protected $casts = [
         'duration_minutes' => 'double',
-        'price' => 'double',
-        'created_at' => 'datetime',
-        'updated_at' => 'datetime',
+        'price'            => 'double',
+        'sort_order'       => 'integer', // BARU
+        'created_at'       => 'datetime',
+        'updated_at'       => 'datetime',
     ];
+
+    // new: daftar kategori layanan
+    public static function categories(): array
+    {
+        return [
+            'estetika'   => 'Estetika',
+            'standar'    => 'Perawatan Standar',
+            'pembedahan' => 'Pembedahan',
+            'lainnya'    => 'Lainnya',
+        ];
+    }
 
     public function reservationServices()
     {
         return $this->hasMany(RawCusResService::class, 'raw_doc_service_id', 'id');
     }
 
-    // relasi ke sub-detail perawatan
     public function details()
     {
         return $this->hasMany(RawDocServiceDetail::class, 'raw_doc_service_id', 'id')
@@ -48,7 +62,6 @@ class RawDocService extends Model
             ->orderBy('name');
     }
 
-    // semua detail termasuk yang nonaktif (buat admin)
     public function allDetails()
     {
         return $this->hasMany(RawDocServiceDetail::class, 'raw_doc_service_id', 'id')

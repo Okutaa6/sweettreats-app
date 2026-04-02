@@ -21,200 +21,227 @@
         @include('layouts.notif')
 
         {{-- Reservation Info Section --}}
-        <div class="row">
-            <div class="col-md-12">
-                <div class="card">
-                    <div class="card-header">
-                        <h4 class="card-title">Informasi Reservasi</h4>
-                    </div>
-                    <div class="card-body">
-                        <div class="table-responsive">
-                            <form method="post" action="{{ route('rawreservation.update', $reservation->id) }}">
-                                @csrf
-                                @method('PUT')
+        <form method="post" action="{{ route('rawreservation.update', $reservation->id) }}">
+            @csrf
+            @method('PUT')
 
-                                <a href="{{ route('rawreservation') }}" class="btn btn-sm btn-warning"
-                                    style="margin-bottom: 20px;"><i class="fa fa-arrow-left"></i> Kembali</a>
+            <div class="row mb-3">
+                <div class="col-12">
+                    <a href="{{ route('rawreservation') }}" class="btn btn-sm btn-warning"><i class="fa fa-arrow-left"></i> Kembali</a>
+                </div>
+            </div>
 
-                                <table class="table table-bordered" width="100%" cellspacing="0">
-                                    <tr>
-                                        <td width="20%">Customer</td>
-                                        <td>
-                                            <select
-                                                class="select2 form-control {{ $errors->has('raw_customer_id') ? 'is-invalid' : '' }}"
-                                                name="raw_customer_id">
-                                                <option value="">- Pilih Customer -</option>
-                                                @foreach ($customers as $customer)
-                                                    <option value="{{ $customer->id }}"
-                                                        {{ $reservation->raw_customer_id == $customer->id ? 'selected' : '' }}>
-                                                        {{ $customer->name }}</option>
-                                                @endforeach
-                                            </select>
-                                            @if ($errors->has('raw_customer_id'))
-                                                <div class="invalid-feedback">{{ $errors->first('raw_customer_id') }}</div>
-                                            @endif
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td>Doctor</td>
-                                        <td>
-                                            <select
-                                                id="doctorSelect2"
-                                                class="select2 form-control {{ $errors->has('raw_doctor_id') ? 'is-invalid' : '' }}"
-                                                name="raw_doctor_id">
-                                                <option value="">- Pilih Doctor -</option>
-                                                @foreach ($doctors as $doctor)
-                                                    <option value="{{ $doctor->id }}"
-                                                        {{ $reservation->raw_doctor_id == $doctor->id ? 'selected' : '' }}>
-                                                        {{ $doctor->name }}</option>
-                                                @endforeach
-                                            </select>
-                                            @if ($errors->has('raw_doctor_id'))
-                                                <div class="invalid-feedback">{{ $errors->first('raw_doctor_id') }}</div>
-                                            @endif
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                    <td>Cabang</td>
-                                    <td>
-                                        <select
-                                            id="branchSelect2"
-                                            class="select2 form-control {{ $errors->has('raw_branch_id') ? 'is-invalid' : '' }}"
-                                            name="raw_branch_id">
-                                            <option value="">- Pilih Cabang -</option>
-                                            @foreach ($branches as $branch)
-                                                <option value="{{ $branch->id }}"
-                                                    {{ $reservation->raw_branch_id == $branch->id ? 'selected' : '' }}>
-                                                    {{ $branch->name }}</option>
-                                            @endforeach
-                                        </select>
-                                        @if ($errors->has('raw_branch_id'))
-                                            <div class="invalid-feedback">{{ $errors->first('raw_branch_id') }}</div>
-                                        @endif
-                                        {{-- ← BARU: notice reschedule cabang --}}
-                                        <div id="branchChangeNotice" class="alert alert-warning mt-2 mb-0" style="display:none; font-size:13px;">
-                                            <i class="fa fa-exclamation-triangle"></i>
-                                            <strong>Perhatian!</strong> Jika cabang dipindahkan, data pasien tidak akan terlihat atau ditransfer ke cabang baru.
+            <div class="row">
+                {{-- Kolom Kiri (Info Utama) --}}
+                <div class="col-lg-8">
+                    <div class="card">
+                        <div class="card-header">
+                            <h4 class="card-title">
+                                Informasi Reservasi
+                                @if($reservation->created_at && \Carbon\Carbon::parse($reservation->created_at)->diffInHours(\Carbon\Carbon::now()) < 6)
+                                    <span class="badge badge-success ml-2" style="font-size:0.75rem; vertical-align: middle;"><i class="fa fa-star"></i> Baru</span>
+                                @endif
+                            </h4>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6 form-group">
+                                    <label>Customer</label>
+                                    <select class="select2 form-control {{ $errors->has('raw_customer_id') ? 'is-invalid' : '' }}" name="raw_customer_id">
+                                        <option value="">- Pilih Customer -</option>
+                                        @foreach ($customers as $customer)
+                                            <option value="{{ $customer->id }}" {{ $reservation->raw_customer_id == $customer->id ? 'selected' : '' }}>
+                                                {{ $customer->name }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                    @if ($errors->has('raw_customer_id'))
+                                        <div class="invalid-feedback">{{ $errors->first('raw_customer_id') }}</div>
+                                    @endif
+                                </div>
+                                <div class="col-md-6 form-group">
+                                    <label>Dokter</label>
+                                    <select id="doctorSelect2" class="select2 form-control {{ $errors->has('raw_doctor_id') ? 'is-invalid' : '' }}" name="raw_doctor_id">
+                                        <option value="">- Pilih Doctor -</option>
+                                        @foreach ($doctors as $doctor)
+                                            <option value="{{ $doctor->id }}" {{ $reservation->raw_doctor_id == $doctor->id ? 'selected' : '' }}>
+                                                {{ $doctor->name }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                    @if ($errors->has('raw_doctor_id'))
+                                        <div class="invalid-feedback">{{ $errors->first('raw_doctor_id') }}</div>
+                                    @endif
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Cabang</label>
+                                <select id="branchSelect2" class="select2 form-control {{ $errors->has('raw_branch_id') ? 'is-invalid' : '' }}" name="raw_branch_id">
+                                    <option value="">- Pilih Cabang -</option>
+                                    @foreach ($branches as $branch)
+                                        <option value="{{ $branch->id }}" {{ $reservation->raw_branch_id == $branch->id ? 'selected' : '' }}>
+                                            {{ $branch->name }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                                @if ($errors->has('raw_branch_id'))
+                                    <div class="invalid-feedback">{{ $errors->first('raw_branch_id') }}</div>
+                                @endif
+                                <div id="branchChangeNotice" class="alert alert-warning mt-2 mb-0" style="display:none; font-size:13px;">
+                                    <i class="fa fa-exclamation-triangle"></i>
+                                    <strong>Perhatian!</strong> Jika cabang dipindahkan, data pasien tidak akan terlihat atau ditransfer ke cabang baru.
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6 form-group">
+                                    <label>Tanggal</label>
+                                    <input class="form-control {{ $errors->has('date') ? 'is-invalid' : '' }}" type="text" id="datePickerReschedule" name="date" value="{{ old('date', $reservation->date ? $reservation->date->format('Y-m-d') : '') }}" placeholder="Pilih tanggal..." readonly />
+                                    <small id="datePickerInfo" class="text-muted">Pilih dokter dan cabang terlebih dahulu.</small>
+                                    @if ($errors->has('date'))
+                                        <div class="invalid-feedback">{{ $errors->first('date') }}</div>
+                                    @endif
+                                </div>
+                                <div class="col-md-6 form-group">
+                                    <label>Jam</label>
+                                    <div id="slotPickerWrap">
+                                        <button type="button" class="btn btn-outline-primary btn-sm mb-2" id="loadSlotsBtn" onclick="loadSlots()">
+                                            <i class="fa fa-clock"></i> Cek Slot Tersedia
+                                        </button>
+                                        <div id="selectedTimeDisplay" style="font-weight:600;color:#333">
+                                            Jadwal aktif: <span id="currentTime">{{ \Illuminate\Support\Str::substr($reservation->start_hour, 0, 5) }} - {{ \Illuminate\Support\Str::substr($reservation->end_hour, 0, 5) }}</span>
                                         </div>
-                                    </td>
-                                    </tr>
-                                    <tr>
-                                        <td>Tanggal</td>
-                                        <td>
-                                            <input class="form-control {{ $errors->has('date') ? 'is-invalid' : '' }}"
-                                                type="text" id="datePickerReschedule" name="date"
-                                                value="{{ old('date', $reservation->date ? $reservation->date->format('Y-m-d') : '') }}"
-                                                placeholder="Pilih tanggal..." readonly />
-                                            <small id="datePickerInfo" class="text-muted">Pilih dokter dan cabang terlebih dahulu untuk melihat jadwal tersedia</small>
-                                            @if ($errors->has('date'))
-                                                <div class="invalid-feedback">{{ $errors->first('date') }}</div>
+                                        <input type="hidden" name="start_hour" id="startHourInput" value="{{ old('start_hour', $reservation->start_hour) }}" />
+                                        <input type="hidden" name="end_hour" id="endHourInput" value="{{ old('end_hour', $reservation->end_hour) }}" />
+                                        @if ($errors->has('start_hour'))
+                                            <div class="text-danger" style="font-size:0.85em;margin-top:4px">{{ $errors->first('start_hour') }}</div>
+                                        @endif
+                                    </div>
+                                </div>
+                            </div>
+                            <div id="slotsContainer" style="margin-top:10px"></div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h4 class="card-title">Layanan Perawatan</h4>
+                        </div>
+                        <div class="card-body">
+                            @if($reservation->lainnya_text)
+                                <div class="form-group mb-3">
+                                    <label>Keluhan Awal Pasien</label>
+                                    <div class="alert alert-warning mb-0" style="font-size:0.9rem;">
+                                        <i class="fa fa-comment-dots"></i>
+                                        <strong>{{ $reservation->lainnya_text }}</strong>
+                                    </div>
+                                    <small class="text-muted">Ini keluhan yang ditulis pasien saat reservasi online. Tentukan perawatan yang sesuai di bawah ini.</small>
+                                </div>
+                            @endif
+
+                            <div id="serviceChecklist">
+                                <span class="text-muted"><i class="fa fa-spinner fa-spin"></i> Memuat layanan...</span>
+                            </div>
+                            <script>
+                                window.initialDoctorId = '{{ $reservation->raw_doctor_id ?? "" }}';
+                                @php
+                                    $mappedServices = $services->groupBy('raw_doc_service_id')
+                                        ->mapWithKeys(function ($group, $serviceId) {
+                                            return [
+                                                $serviceId => [
+                                                    'detail_ids' => $group->pluck('raw_doc_service_detail_id')->filter()->values()->all(),
+                                                    'details'    => $group->filter(function($item) { return $item->raw_doc_service_detail_id != null; })->map(function($item) {
+                                                        return [
+                                                            'id'       => $item->raw_doc_service_detail_id,
+                                                            'quantity' => $item->quantity ?? 1
+                                                        ];
+                                                    })->values()->all()
+                                                ]
+                                            ];
+                                        });
+                                @endphp
+                                window.existingServices = @json($mappedServices);
+                            </script>
+                            <div id="totalDurationInfo" class="mt-3 alert alert-info" style="font-size:0.9em; display:none;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                {{-- Kolom Kanan (Aksi & Info Tambahan) --}}
+                <div class="col-lg-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h4 class="card-title">Aksi & Status</h4>
+                        </div>
+                        <div class="card-body">
+                            <div class="form-group">
+                                <label>Status Reservasi</label>
+                                <select class="form-control" name="status">
+                                    @foreach (\App\Models\RawCusReservation::statusOptions() as $key => $opt)
+                                        <option value="{{ $key }}" {{ $reservation->status == $key ? 'selected' : '' }}>
+                                            {{ $opt['label'] }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Keterangan Tambahan</label>
+                                <textarea class="form-control {{ $errors->has('keterangan') ? 'is-invalid' : '' }}" name="keterangan" rows="4" placeholder="Tambahkan keterangan tambahan jika ada...">{{ old('keterangan', $reservation->keterangan) }}</textarea>
+                                @if ($errors->has('keterangan'))
+                                    <div class="invalid-feedback" style="display:block">{{ $errors->first('keterangan') }}</div>
+                                @endif
+                            </div>
+                            <div class="d-flex" style="gap: 8px;">
+                                <button class="btn btn-primary flex-grow-1" type="submit"><i class="fa fa-save"></i> Simpan</button>
+                                <button type="button" class="btn btn-outline-danger" onclick="deleteReservation()"><i class="fa fa-trash"></i></button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h4 class="card-title">Informasi Promo</h4>
+                        </div>
+                        <div class="card-body">
+                            <div class="form-group">
+                                <label>Gunakan Promo</label>
+                                <select class="select2 form-control" name="raw_promo_id">
+                                    <option value="">- Tanpa Promo -</option>
+                                    @foreach ($promos as $promo)
+                                        <option value="{{ $promo->id }}" {{ old('raw_promo_id', $reservation->raw_promo_id) == $promo->id ? 'selected' : '' }}>
+                                            {{ $promo->promo_code }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            @if($reservation->promo)
+                                <div class="mt-2">
+                                    <ul class="list-unstyled">
+                                        <li><strong>Kode:</strong> <span class="badge badge-info">{{ $reservation->promo->promo_code }}</span></li>
+                                        <li><strong>Diskon:</strong>
+                                            @if($reservation->promo->discount_type == 'percent')
+                                                {{ $reservation->promo->discount_value }}%
+                                            @else
+                                                Rp {{ number_format($reservation->promo->discount_value, 0, ',', '.') }}
                                             @endif
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td>Jam Mulai</td>
-                                        <td>
-                                            {{-- Slot picker otomatis cek jadwal saat reschedule --}}
-                                            <div id="slotPickerWrap">
-                                                @if($totalDuration > 0)
-                                                    <span class="badge badge-info" style="margin-bottom:8px;display:inline-block">
-                                                        <i class="fa fa-clock"></i> Total durasi perawatan: {{ $totalDuration }} menit
-                                                    </span><br>
-                                                @else
-                                                    <span class="badge badge-warning" style="margin-bottom:8px;display:inline-block">
-                                                        <i class="fa fa-exclamation-triangle"></i> Belum ada perawatan — durasi default 30 menit
-                                                    </span><br>
-                                                @endif
-                                                <button type="button" class="btn btn-outline-primary btn-sm" id="loadSlotsBtn" onclick="loadSlots()">
-                                                    <i class="fa fa-clock"></i> Cek Slot Tersedia
-                                                </button>
-                                                <div id="slotsContainer" style="margin-top:10px"></div>
-                                            </div>
-                                            {{-- hidden inputs yang dikirim ke server --}}
-                                            <input type="hidden" name="start_hour" id="startHourInput"
-                                                value="{{ old('start_hour', $reservation->start_hour) }}" />
-                                            <input type="hidden" name="end_hour" id="endHourInput"
-                                                value="{{ old('end_hour', $reservation->end_hour) }}" />
-                                            {{-- tampilkan jam yang sedang aktif --}}
-                                            <div id="selectedTimeDisplay" style="margin-top:8px;font-weight:600;color:#333">
-                                                Jadwal aktif: <span id="currentTime">{{ \Illuminate\Support\Str::substr($reservation->start_hour, 0, 5) }} - {{ \Illuminate\Support\Str::substr($reservation->end_hour, 0, 5) }}</span>
-                                            </div>
-                                            @if ($errors->has('start_hour'))
-                                                <div class="text-danger" style="font-size:0.85em;margin-top:4px">{{ $errors->first('start_hour') }}</div>
-                                            @endif
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td>Jam Selesai</td>
-                                        <td>
-                                            <span class="text-muted" style="font-size:0.9em">Otomatis terisi saat pilih slot di atas</span>
-                                            <span id="endHourDisplay" style="margin-left:8px;font-weight:600">{{ \Illuminate\Support\Str::substr($reservation->end_hour, 0, 5) }}</span>
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td>Status</td>
-                                        <td>
-                                            <select class="form-control" name="status">
-                                                @foreach (\App\Models\RawCusReservation::statusOptions() as $key => $opt)
-                                                    <option value="{{ $key }}"
-                                                        {{ $reservation->status == $key ? 'selected' : '' }}>
-                                                        {{ $opt['label'] }}
-                                                    </option>
-                                                @endforeach
-                                            </select>
-                                        </td>
-                                    </tr>
-
-                                    {{-- Layanan checklist langsung di form --}}
-                                    <tr>
-                                        <td valign="top" style="padding-top:14px">Layanan</td>
-                                        <td>
-                                            {{-- checklist layanan di-render JS berdasarkan dokter yang dipilih --}}
-                                            {{-- data awal dari PHP dipass ke JS via JSON --}}
-                                            <div id="serviceChecklist">
-                                                <span class="text-muted"><i class="fa fa-spinner fa-spin"></i> Memuat layanan...</span>
-                                            </div>
-
-                                            {{-- data reservasi saat ini (untuk restore state setelah render) --}}
-                                            <script>
-                                                // inject nilai awal dari PHP — tidak bergantung pada select2 timing
-                                                window.initialDoctorId = '{{ $reservation->raw_doctor_id ?? "" }}';
-                                                window.existingServices = @json(
-                                                    $services->mapWithKeys(fn($s) => [
-                                                        $s->raw_doc_service_id => [
-                                                            'detail_id' => $s->raw_doc_service_detail_id,
-                                                        ]
-                                                    ])
-                                                );
-                                            </script>
-
-                                            {{-- total durasi hitung otomatis --}}
-                                            <div id="totalDurationInfo" class="mt-2" style="font-size:0.85em; color:#666"></div>
-                                        </td>
-                                    </tr>
-
-                                    <tr>
-                                        <td>&nbsp;</td>
-                                        <td>
-                                            <button class="btn btn-primary" type="submit"><i class="fa fa-save"></i>
-                                                Simpan</button>
-                                            <button type="button" class="btn btn-outline-info"
-                                                onclick="deleteReservation()"><i class="fa fa-trash"></i>
-                                                Hapus</button>
-                                        </td>
-                                    </tr>
-                                </table>
-                            </form>
-                            <form action="{{ route('rawreservation.destroy', $reservation->id) }}" method="POST"
-                                id="deleteReservation">
-                                @csrf
-                                @method('DELETE')
-                            </form>
+                                        </li>
+                                        @if($reservation->promo->affiliate)
+                                            <li><strong>Affiliate:</strong> {{ $reservation->promo->affiliate->name }}</li>
+                                        @endif
+                                    </ul>
+                                </div>
+                            @else
+                                <p class="text-muted small">Reservasi ini tidak menggunakan promo.</p>
+                            @endif
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
+        </form>
+
+        <form action="{{ route('rawreservation.destroy', $reservation->id) }}" method="POST" id="deleteReservation" style="display: none;">
+            @csrf
+            @method('DELETE')
+        </form>
 
         {{-- Komisi --}}
 @if($reservation->commission)
@@ -320,31 +347,35 @@
         function updateTotalDuration() {
             let total = 0;
             let names = [];
-
+    
             $('.svc-checkbox:checked').each(function() {
-                const svcId     = $(this).data('svc-id');
-                const detailSel = $('#detailWrap_' + svcId + ' .svc-detail-select');
-                const defDur    = parseFloat($(this).data('default-dur')) || 0;
-
-                let dur = defDur;
-                if (detailSel.length && detailSel.val()) {
-                    dur = parseFloat(detailSel.find('option:selected').data('dur')) || defDur;
+                const svcId = $(this).data('svc-id');
+                const detailCheckboxes = $('#detailWrap_' + svcId + ' .svc-detail-checkbox:checked');
+                const defDur = parseFloat($(this).data('default-dur')) || 0;
+    
+                let subServiceDurations = 0;
+                if (detailCheckboxes.length > 0) {
+                    detailCheckboxes.each(function() {
+                        const detailId = $(this).val();
+                        const qtyStr = $('input[name="services[' + svcId + '][qty][' + detailId + ']"]').val();
+                        const qty = parseInt(qtyStr) || 1;
+                        subServiceDurations += (parseFloat($(this).data('dur')) || 0) * qty;
+                    });
                 }
-
-                total += dur;
+    
+                total += (subServiceDurations > 0) ? subServiceDurations : defDur;
                 names.push($(this).data('svc-name'));
             });
-
             if (total > 0) {
                 $('#totalDurationInfo').html(
                     '<i class="fa fa-clock text-info"></i> '
                     + '<strong>Total durasi: ' + total + ' menit</strong>'
                     + ' (' + names.join(', ') + ')'
-                );
+                ).show();
             } else {
-                $('#totalDurationInfo').html('<span class="text-muted">Belum ada layanan dipilih</span>');
+                $('#totalDurationInfo').html('Belum ada layanan dipilih').hide();
             }
-
+    
             // auto-refresh slot karena durasi berubah
             totalDuration = total || {{ $totalDuration ?? 30 }};
             if (allSlots.length > 0) reRenderSlots();
@@ -364,9 +395,9 @@
 
             let html = '';
             services.forEach(function(svc) {
-                const existing    = (window.existingServices || {})[svc.id] || null;
-                const isChecked   = existing !== null;
-                const existDetail = existing ? existing.detail_id : '';
+                const existing       = (window.existingServices || {})[svc.id] || null;
+                const isChecked      = existing !== null;
+                const existDetailIds = existing ? (existing.detail_ids || []) : [];
                 const bg          = isChecked ? '#f0fff4' : '#fff';
                 const border      = isChecked ? '#b2dfdb' : '#e3e6f0';
 
@@ -402,29 +433,55 @@
                 html += '<div class="svc-detail-wrap mt-2" id="detailWrap_' + svc.id + '" '
                       + 'style="' + (isChecked ? '' : 'display:none') + '">';
                 html += '<div class="d-flex flex-wrap" style="gap:10px">';
-
-                // dropdown sub-detail (opsional)
-                html += '<div style="min-width:220px; flex:1">';
-                html += '<label class="small text-muted mb-1">Sub-detail Perawatan <span class="text-muted">(opsional)</span></label>';
+                
+                html += '<div style="flex:1; min-width: 100%;">';
 
                 if (svc.details && svc.details.length > 0) {
-                    html += '<select name="services[' + svc.id + '][detail_id]" '
-                          + 'class="form-control form-control-sm svc-detail-select" '
-                          + 'data-svc-id="' + svc.id + '" '
-                          + 'data-default-dur="' + svc.duration_minutes + '" '
-                          + 'data-default-price="' + svc.price + '">';
-                    html += '<option value="">- Pakai default (' + svc.name + ') -</option>';
+                    // Cek apakah ada sub-detail yang sudah dicentang untuk membuka area ini otomatis
+                    const hasCheckedDetail = svc.details.some(function(d) { return (existDetailIds || []).includes(d.id); });
+                    const collapseClass = hasCheckedDetail ? 'show' : '';
+                    
+                    html += '<div class="d-flex align-items-center justify-content-between mb-1">';
+                    html += '  <label class="small text-muted mb-0">Sub-detail Perawatan <span class="text-muted">(opsional)</span></label>';
+                    html += '  <a href="#collapseSubSvc_' + svc.id + '" data-toggle="collapse" class="small text-primary" style="text-decoration:none;"><i class="fa fa-list"></i> Tampilkan/Sembunyikan</a>';
+                    html += '</div>';
+
+                    // Wrap dalam collapse dan beri max-height dengan scrollbar
+                    html += '<div class="collapse ' + collapseClass + '" id="collapseSubSvc_' + svc.id + '">';
+                    
+                    // Input pencarian sub-detail
+                    html += '<div class="mb-1 mt-1">';
+                    html += '<input type="text" class="form-control form-control-sm sub-detail-search" placeholder="Cari sub-detail..." data-target="#listSubSvc_' + svc.id + '">';
+                    html += '</div>';
+
+                    html += '<div class="sub-service-checklist mt-1" id="listSubSvc_' + svc.id + '" style="display: flex; flex-direction: column; gap: 5px; max-height: 180px; overflow-y: auto; border: 1px solid #e3e6f0; padding: 10px; border-radius: 5px; background: #fafafa;">';
+                    
                     svc.details.forEach(function(d) {
-                        const sel = existDetail === d.id ? 'selected' : '';
-                        html += '<option value="' + d.id + '" '
+                        const existingDetail = existing && existing.details ? existing.details.find(function(e) { return e.id == d.id; }) : null;
+                        const isDetailChecked = !!existingDetail || (existDetailIds || []).includes(d.id);
+                        const qty = existingDetail ? (existingDetail.quantity || 1) : 1;
+                        const safeName = d.name.replace(/"/g, '&quot;').toLowerCase();
+                        
+                        html += '<div class="d-flex align-items-center justify-content-between mb-1 sub-detail-item" data-name="' + safeName + '">';
+                        html += '<div class="custom-control custom-checkbox">';
+                        html += '<input type="checkbox" class="custom-control-input svc-detail-checkbox" '
+                              + 'id="svc_detail_' + d.id + '" '
+                              + 'name="services[' + svc.id + '][detail_id][]" '
+                              + 'value="' + d.id + '" '
+                              + 'data-svc-id="' + svc.id + '" '
                               + 'data-dur="' + d.duration_minutes + '" '
-                              + 'data-price="' + d.price + '" '
-                              + sel + '>'
-                              + d.name + ' (' + d.duration_minutes + ' mnt — Rp ' + Number(d.price).toLocaleString('id-ID') + ')'
-                              + '</option>';
+                              + (isDetailChecked ? 'checked' : '') + '>';
+                        html += '<label class="custom-control-label" style="cursor:pointer;" for="svc_detail_' + d.id + '">'
+                              + d.name + ' <small class="text-muted">(' + d.duration_minutes + ' mnt — Rp ' + Number(d.price).toLocaleString('id-ID') + ')</small>'
+                              + '</label></div>';
+                              
+                        html += '<div style="width: 80px; ' + (isDetailChecked ? '' : 'display:none;') + '" id="qty_wrap_' + d.id + '">';
+                        html += '<input type="number" name="services[' + svc.id + '][qty][' + d.id + ']" value="' + qty + '" class="form-control form-control-sm qty-input" min="1" placeholder="Qty">';
+                        html += '</div></div>';
                     });
-                    html += '</select>';
+                    html += '</div></div>';
                 } else {
+                    html += '<label class="small text-muted mb-1">Sub-detail Perawatan <span class="text-muted">(opsional)</span></label>';
                     html += '<div class="form-control form-control-sm bg-light text-muted" style="cursor:not-allowed">'
                           + 'Belum ada sub-detail — <a href="/rawdocservice/' + svc.id + '" target="_blank">Tambah di sini</a>'
                           + '</div>';
@@ -435,14 +492,6 @@
             });
 
             $('#serviceChecklist').html(html);
-
-            // kalau ada sub-detail yang sudah dipilih sebelumnya, update badge-nya
-            services.forEach(function(svc) {
-                const detailSel = $('#detailWrap_' + svc.id + ' .svc-detail-select');
-                if (detailSel.length && detailSel.val()) {
-                    detailSel.trigger('change');
-                }
-            });
 
             updateTotalDuration();
         }
@@ -500,30 +549,49 @@
 
             if (checked) {
                 wrap.show();
-                row.css('background', '#f0fff4').css('border-color', '#b2dfdb');
+                row.css('background', '#f0fff4').css('border-color', '#b2dfdb'); 
             } else {
                 wrap.hide();
-                wrap.find('select').val('');
+                wrap.find('input[type="checkbox"]').prop('checked', false); // Uncheck all sub-services
                 row.css('background', '#fff').css('border-color', '#e3e6f0');
             }
 
             updateTotalDuration();
         });
 
-        // pas sub-detail berubah → update badge durasi & harga
-        $(document).on('change', '.svc-detail-select', function() {
-            const svcId    = $(this).data('svc-id');
-            const selected = $(this).find('option:selected');
-            const defDur   = $(this).data('default-dur');
-            const defPrice = $(this).data('default-price');
-
-            const dur   = $(this).val() ? selected.data('dur')   : defDur;
-            const price = $(this).val() ? selected.data('price') : defPrice;
-
-            $('#svcDurBadge_' + svcId).html('<i class="fa fa-clock"></i> ' + dur + ' menit');
-            $('#svcPriceBadge_' + svcId).html('<i class="fa fa-tag"></i> Rp ' + Number(price).toLocaleString('id-ID'));
-
+        // pas sub-detail (checkbox) berubah -> update total durasi
+        $(document).on('change', '.svc-detail-checkbox', function() {
+            const isChecked = $(this).is(':checked');
+            const detailId = $(this).val();
+            const qtyWrap = $('#qty_wrap_' + detailId);
+            
+            if (isChecked) {
+                qtyWrap.show();
+            } else {
+                qtyWrap.hide();
+            }
+            
             updateTotalDuration();
+        });
+
+        // Update durasi saat input quantity diubah
+        $(document).on('input change', '.qty-input', function() {
+            updateTotalDuration();
+        });
+
+        // Fitur pencarian sub-detail
+        $(document).on('input', '.sub-detail-search', function() {
+            const keyword = $(this).val().toLowerCase();
+            const targetId = $(this).data('target');
+            
+            $(targetId).find('.sub-detail-item').each(function() {
+                const name = String($(this).data('name') || '');
+                if (name.includes(keyword)) {
+                    $(this).removeClass('d-none').addClass('d-flex');
+                } else {
+                    $(this).removeClass('d-flex').addClass('d-none');
+                }
+            });
         });
         // END LAYANAN CHECKLIST
 

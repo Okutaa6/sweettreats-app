@@ -9,10 +9,10 @@
                 <div class="float-right">
                     <ol class="breadcrumb">
                         <li class="breadcrumb-item"><a>CRUD</a></li>
-                        <li class="breadcrumb-item active">Promo</li>
+                        <li class="breadcrumb-item active">Referral</li>
                     </ol>
                 </div>
-                <h4 class="page-title">Promo</h4>
+                <h4 class="page-title">Referral</h4>
             </div>
         </div>
     </div>
@@ -32,7 +32,7 @@
                             <thead>
                                 <tr>
                                     <th width="5%">No</th>
-                                    <th>Kode Promo</th>
+                                    <th>Kode Referral</th>
                                     <th>Affiliate</th>
                                     <th>Tipe</th>
                                     <th>Nilai Diskon</th>
@@ -46,7 +46,13 @@
                                     <tr>
                                         <td>{{ $promos->firstItem() + $key }}</td>
                                         <td><strong>{{ $row->promo_code }}</strong></td>
-                                        <td>{{ $row->affiliate->name ?? '<span class="text-muted">-</span>' }}</td>
+                                        <td>
+                                            @if($row->affiliate)
+                                                {{ $row->affiliate->name }}
+                                            @else
+                                                <span class="text-muted">-</span>
+                                            @endif
+                                        </td>
                                         <td>{{ $row->discount_type == 'nominal' ? 'Nominal' : 'Persentase' }}</td>
                                         <td>
                                             @if($row->discount_type == 'nominal')

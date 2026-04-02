@@ -32,6 +32,7 @@
                                 <tr>
                                     <th width="5%">No</th>
                                     <th>Nama</th>
+                                    <th>Role</th>
                                     <th>Phone</th>
                                     <th>Info Bank</th>
                                     <th>Komisi %</th>
@@ -45,6 +46,15 @@
                                     <tr>
                                         <td>{{ $affiliates->firstItem() + $key }}</td>
                                         <td>{{ $row->name }}</td>
+                                        <td>
+                                            @php
+                                                $roleLabels = ['pasien' => 'info', 'influencer' => 'warning', 'dokter' => 'success'];
+                                                $roleColor  = $roleLabels[$row->role] ?? 'secondary';
+                                            @endphp
+                                            <span class="badge badge-{{ $roleColor }}">
+                                                {{ ucfirst($row->role ?? 'pasien') }}
+                                            </span>
+                                        </td>
                                         <td>{{ $row->phone ?? '-' }}</td>
                                         <td>{{ $row->bank_account_info ?? '-' }}</td>
                                         <td>{{ $row->commission_rate }}%</td>

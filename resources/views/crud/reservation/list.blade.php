@@ -16,75 +16,134 @@
         </div>
     </div>
 
+    <div id="newReservationToast" style="position: fixed; top: 80px; right: 20px; z-index: 1050; display: none; min-width: 350px; max-width: 400px;">
+        <div class="toast-header" style="background: #28a745; color: white; padding: 8px 12px; border-top-left-radius: 8px; border-top-right-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
+            <strong class="mr-auto"><i class="fa fa-bell"></i> Reservasi Baru Masuk</strong>
+            <button type="button" class="ml-2 mb-1 close" onclick="$('#newReservationToast').fadeOut()" aria-label="Close">
+                <span aria-hidden="true" style="color: white;">&times;</span>
+            </button>
+        </div>
+        <div id="toastBody" class="toast-body" style="background: #f8f9fa; padding: 16px; border-bottom-left-radius: 8px; border-bottom-right-radius: 8px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); font-size: 1.1em; color: #333;">
+            <!-- Content will be injected by JS -->
+        </div>
+    </div>
+
     @include('layouts.notif')
 
     <div class="row">
         <div class="col-md-12">
             <div class="card">
-                <div class="table-responsive">
                 <div class="card-body" style="zoom: 0.65;">
 
-                    {{-- ── Form filter ── --}}
-                    <form method="GET" action="{{ route('rawreservation') }}" id="filterForm">
-                        <input type="hidden" name="view" id="filterView" value="{{ request('view', 'list') }}">
-                        <div class="row mb-3 flex-nowrap" style="row-gap:8px; min-width: 1400px;">
-                            <div class="col-3" style="min-width: 250px;">
-                                <input type="text" class="form-control form-control-sm"
-                                    name="search" placeholder="Cari nama / no. HP..."
-                                    value="{{ $filterSearch }}">
-                            </div>
-                            <div class="col-2" style="min-width: 150px;">
-                                <select class="form-control form-control-sm" name="branch_id">
-                                    <option value="">Semua Cabang</option>
-                                    @foreach ($branches as $b)
-                                        <option value="{{ $b->id }}" {{ $filterBranch == $b->id ? 'selected' : '' }}>
-                                            {{ $b->name }}
-                                        </option>
-                                    @endforeach
-                                </select>
-                            </div>
-                            <div class="col-2" style="min-width: 150px;">
-                                <select class="form-control form-control-sm" name="doctor_id">
-                                    <option value="">Semua Dokter</option>
-                                    @foreach ($doctors as $d)
-                                        <option value="{{ $d->id }}" {{ $filterDoctor == $d->id ? 'selected' : '' }}>
-                                            {{ $d->name }}
-                                        </option>
-                                    @endforeach
-                                </select>
-                            </div>
-                            <div class="col-2" style="min-width: 150px;">
-                                <select class="form-control form-control-sm" name="status">
-                                    <option value="">Semua Status</option>
-                                    @foreach ($statuses as $k => $opt)
-                                        <option value="{{ $k }}" {{ $filterStatus == $k ? 'selected' : '' }}>
-                                            {{ $opt['label'] }}
-                                        </option>
-                                    @endforeach
-                                </select>
-                            </div>
-                            <div class="col-1" style="min-width:160px">
-                                <input type="date" class="form-control form-control-sm"
-                                    name="date_from" value="{{ $filterDateFrom }}">
-                            </div>
-                            <div class="col-1" style="min-width:160px">
-                                <input type="date" class="form-control form-control-sm"
-                                    name="date_to" value="{{ $filterDateTo }}">
-                            </div>
-                            <div class="col-1 d-flex" style="min-width:120px">
-                                <button type="submit" class="btn btn-sm btn-primary mr-1 flex-fill">
-                                    <i class="fa fa-search"></i> Filter
-                                </button>
-                                <a href="{{ route('rawreservation') }}" class="btn btn-sm btn-warning" title="Reset Filter">
-                                    <i class="fa fa-times"></i>
-                                </a>
-                            </div>
+                    @php 
+                        $hasFilter = $filterSearch || $filterBranch || $filterDoctor || $filterStatus || $filterDateFrom || $filterDateTo || $filterPromo || $filterAffiliate || request('new');
+                    @endphp
+
+                    {{-- ── Toolbar: Tambah + Filter Button + Tab toggle ── --}}
+                    <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap" style="gap:8px;">
+                        <div class="d-flex align-items-center" style="gap:8px;">
+                            <a href="{{ route('rawreservation.new') }}" class="btn btn-sm btn-primary">
+                                <i class="fa fa-plus"></i> Tambah
+                            </a>
+                            <button class="btn btn-sm {{ $hasFilter ? 'btn-secondary' : 'btn-outline-secondary' }}" type="button" data-toggle="collapse" data-target="#filterCollapse" aria-expanded="{{ $hasFilter ? 'true' : 'false' }}">
+                                <i class="fa fa-filter"></i> {{ $hasFilter ? 'Filter Aktif' : 'Filter' }}
+                            </button>
                         </div>
-                    </form>
+                        <div class="view-tab-group" style="font-size: 1.2em;">
+                            <a href="{{ route('rawreservation', array_merge(request()->except(['new', 'view']), ['view' => 'list'])) }}" class="view-tab {{ !request('new') && request('view', 'list') !== 'cal' ? 'active' : '' }}">
+                                <i class="fa fa-list"></i> List
+                            </a>
+                            <a href="{{ route('rawreservation', array_merge(request()->except(['new', 'view']), ['new' => 1, 'view' => 'list'])) }}" class="view-tab {{ request('new') ? 'active' : '' }}">
+                                <i class="fa fa-star"></i> Reservasi Baru
+                            </a>
+                            <a href="{{ route('rawreservation', array_merge(request()->except(['new', 'view']), ['view' => 'cal'])) }}" class="view-tab {{ request('view') === 'cal' ? 'active' : '' }}">
+                                <i class="fa fa-calendar"></i> Kalender
+                            </a>
+                        </div>
+                    </div>
+
+                    {{-- ── Form filter (Collapsible) ── --}}
+                    <div class="collapse {{ $hasFilter ? 'show' : '' }}" id="filterCollapse">
+                        <div class="card card-body mb-3 border-0" style="background-color: #f8f9fa; border-radius: 8px;">
+                            <form method="GET" action="{{ route('rawreservation') }}" id="filterForm" class="mb-0">
+                                <input type="hidden" name="view" value="{{ request('view', 'list') }}">
+                                @if(request('new'))
+                                <input type="hidden" name="new" value="1">
+                                @endif
+                                <div class="row" style="row-gap:12px;">
+                                    <div class="col-md-3">
+                                        <label class="small mb-1 font-weight-bold" style="color: #461500;">Pencarian</label>
+                                        <input type="text" class="form-control form-control-sm" name="search" placeholder="Nama / No. HP..." value="{{ $filterSearch }}">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="small mb-1 font-weight-bold" style="color: #461500;">Cabang</label>
+                                        <select class="form-control form-control-sm" name="branch_id">
+                                            <option value="">Semua Cabang</option>
+                                            @foreach ($branches as $b)
+                                                <option value="{{ $b->id }}" {{ $filterBranch == $b->id ? 'selected' : '' }}>{{ $b->name }}</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="small mb-1 font-weight-bold" style="color: #461500;">Dokter</label>
+                                        <select class="form-control form-control-sm" name="doctor_id">
+                                            <option value="">Semua Dokter</option>
+                                            @foreach ($doctors as $d)
+                                                <option value="{{ $d->id }}" {{ $filterDoctor == $d->id ? 'selected' : '' }}>{{ $d->name }}</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="small mb-1 font-weight-bold" style="color: #461500;">Status</label>
+                                        <select class="form-control form-control-sm" name="status">
+                                            <option value="">Semua Status</option>
+                                            @foreach ($statuses as $k => $opt)
+                                                <option value="{{ $k }}" {{ $filterStatus == $k ? 'selected' : '' }}>{{ $opt['label'] }}</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="small mb-1 font-weight-bold" style="color: #461500;">Tanggal Mulai</label>
+                                        <input type="date" class="form-control form-control-sm" name="date_from" value="{{ $filterDateFrom }}">
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="small mb-1 font-weight-bold" style="color: #461500;">Tanggal Akhir</label>
+                                        <input type="date" class="form-control form-control-sm" name="date_to" value="{{ $filterDateTo }}">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="small mb-1 font-weight-bold" style="color: #461500;">Promo</label>
+                                        <select class="form-control form-control-sm" name="promo_id">
+                                            <option value="">Semua Promo</option>
+                                            @foreach ($promos as $p)
+                                                <option value="{{ $p->id }}" {{ $filterPromo == $p->id ? 'selected' : '' }}>{{ $p->promo_code }}</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="small mb-1 font-weight-bold" style="color: #461500;">Affiliate</label>
+                                        <select class="form-control form-control-sm" name="affiliate_id">
+                                            <option value="">Semua Affiliate</option>
+                                            @foreach ($affiliates as $a)
+                                                <option value="{{ $a->id }}" {{ $filterAffiliate == $a->id ? 'selected' : '' }}>{{ $a->name }}</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                    <div class="col-md-2 d-flex align-items-end">
+                                        <button type="submit" class="btn btn-sm btn-primary w-100 mr-1">
+                                            Filter
+                                        </button>
+                                        <a href="{{ route('rawreservation') }}" class="btn btn-sm btn-outline-danger" title="Reset Filter">
+                                            <i class="fa fa-times"></i>
+                                        </a>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
 
                     {{-- ── Info hasil filter ── --}}
-                    @if ($filterBranch || $filterDoctor || $filterStatus || $filterDateFrom || $filterDateTo || $filterSearch)
-                        <div class="mb-2" style="font-size 1.25rem; color:#666">
+                    @if ($hasFilter)
+                        <div class="mb-3" style="font-size: 1.15rem; color:#666">
                             <i class="fa fa-filter text-primary"></i>
                             Menampilkan <strong>{{ $reservations->total() }}</strong> reservasi
                             @if ($filterSearch) · cari "<em>{{ $filterSearch }}</em>" @endif
@@ -92,69 +151,117 @@
                             @if ($filterDoctor) · dokter: <em>{{ $doctors->firstWhere('id', $filterDoctor)?->name }}</em> @endif
                             @if ($filterStatus) · status: <em>{{ $statuses[$filterStatus]['label'] ?? $filterStatus }}</em> @endif
                             @if ($filterDateFrom || $filterDateTo) · tanggal: <em>{{ $filterDateFrom ?: '...' }} — {{ $filterDateTo ?: '...' }}</em> @endif
+                            @if ($filterPromo) · promo: <em>{{ $promos->firstWhere('id', $filterPromo)?->promo_code }}</em> @endif
+                            @if ($filterAffiliate) · affiliate: <em>{{ $affiliates->firstWhere('id', $filterAffiliate)?->name }}</em> @endif
+                            @if (request('new')) · <span class="badge badge-success">Reservasi Baru</span> @endif
                         </div>
                     @endif
-
-                    {{-- ── Toolbar: Tambah + Tab toggle ── --}}
-                    <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap" style="gap:8px;">
-                        <a href="{{ route('rawreservation.new') }}" class="btn btn-sm btn-primary">
-                            <i class="fa fa-plus"></i> Tambah
-                        </a>
-                        <div class="view-tab-group">
-                            <button class="view-tab active" id="tabList" onclick="switchTab('list')">
-                                <i class="fa fa-list"></i> List
-                            </button>
-                            <button class="view-tab" id="tabCal" onclick="switchTab('cal')">
-                                <i class="fa fa-calendar"></i> Kalender
-                            </button>
-                        </div>
-                    </div>
 
                     {{-- ══════════════════════════════════════
                          TAB: LIST
                     ══════════════════════════════════════ --}}
-                    <div id="viewList">
+                    <div id="viewList" style="{{ request('view', 'list') === 'cal' ? 'display:none;' : '' }}">
+                        <div class="table-responsive">
                         <table class="table table-bordered table-hover" cellspacing="0" style="font-size:0.85rem; white-space: nowrap;">
                             <thead>
                                 <tr>
-                                    <th width="3%">No</th>
                                     <th>Customer</th>
+                                    <th>No Telepon</th>
                                     <th>Dokter</th>
                                     <th>Cabang</th>
                                     <th>Tanggal</th>
                                     <th>Jam</th>
                                     <th>Perawatan</th>
+                                    <th>Keterangan</th>
                                     <th>Promo</th>
+                                    <th>Klaim</th>
                                     <th>Status</th>
                                     <th>FU H-1</th>
                                     <th>FU H</th>
-                                    <th>FU -1 Jam</th>
                                     <th>Kehadiran</th>
                                     <th width="5%" class="text-center">Action</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @foreach ($reservations as $key => $row)
-                                    @php $si = $row->status_info; @endphp
-                                    <tr>
-                                        <td>{{ $reservations->firstItem() + $key }}</td>
-                                        <td>{{ $row->customer->name ?? '-' }}</td>
+                                    @php 
+                                        $si = $row->status_info; 
+                                        // Cek apakah data ini dibuat kurang dari 6 jam yang lalu
+                                        $isNew = false;
+                                        if (!empty($row->created_at)) {
+                                            $isNew = \Carbon\Carbon::parse($row->created_at)->diffInHours(\Carbon\Carbon::now()) < 6;
+                                        }
+                                    @endphp
+                                    <tr style="{{ $isNew ?'background-color: #e6f7ff !important;' : '' }}" {!! $isNew ? 'title="Data baru masuk"' : '' !!}>
+                                        <td style="white-space: normal; min-width: 150px;">
+                                            {{ $row->customer->name ?? '-' }}
+                                            @if($isNew)
+                                                <span class="badge badge-success ml-1" style="font-size:0.75rem;"><i class="fa fa-star"></i> Baru</span>
+                                            @endif
+                                        </td>
+                                        <td>{{ $row->customer->phone ?? '-' }}</td>
                                         <td>{{ $row->doctor->name ?? '-' }}</td>
                                         <td>{{ $row->branch->name ?? '-' }}</td>
                                         <td>{{ $row->date ? $row->date->format('d/m/Y') : '-' }}</td>
                                         <td nowrap>{{ \Carbon\Carbon::parse($row->start_hour)->format('H:i') }} - {{ \Carbon\Carbon::parse($row->end_hour)->format('H:i') }}</td>
-                                        <td style="white-space: normal; min-width: 200px;">
-                                            @forelse ($row->services as $svc)
-                                                <span class="badge badge-light border" style="font-size:0.75rem;margin:1px">
-                                                    {{ $svc->docService->name ?? '-' }}
+                                        <td style="white-space: normal; min-width: 220px;">
+                                        @php
+                                            $uniqueServiceNames = $row->services->map(function($svc) {
+                                                return $svc->docService->name ?? null;
+                                            })->filter()->unique();
+                                        @endphp
+                                        @foreach ($uniqueServiceNames as $serviceName)
+                                            <span class="badge badge-light border" style="font-size:0.75rem;margin:1px">
+                                                {{ $serviceName }}
+                                            </span>
+                                        @endforeach
+                                        @if($row->lainnya_text)
+                                            <div style="margin-top:4px;">
+                                                <span class="badge badge-warning" style="font-size:0.72rem; white-space:normal; text-align:left; padding:3px 6px;">
+                                                    <i class="fa fa-comment-dots"></i>
+                                                    Keluhan: {{ $row->lainnya_text }}
                                                 </span>
-                                            @empty
-                                                <span class="text-muted">-</span>
-                                            @endforelse
-                                        </td>
+                                            </div>
+                                        @endif
+                                        @if($uniqueServiceNames->isEmpty() && !$row->lainnya_text)
+                                            <span class="text-muted">-</span>
+                                        @endif
+                                    </td>
+                                    <td style="white-space: normal; min-width: 150px;">
+                                        <textarea class="form-control form-control-sm inline-update" 
+                                            data-id="{{ $row->id }}" data-field="keterangan" 
+                                            rows="2" placeholder="Isi keterangan...">{{ $row->keterangan }}</textarea>
+                                    </td>
                                         <td>
                                             @if($row->promo)
                                                 <span class="badge badge-info" style="font-size:0.75rem">{{ $row->promo->promo_code }}</span>
+                                            @else
+                                                <span class="text-muted" style="font-size:0.8rem">-</span>
+                                            @endif
+                                        </td>
+                                        <td>
+                                            @if($row->raw_promo_id)
+                                                @if($row->promo_klaim)
+                                                    {{-- Sudah diklaim --}}
+                                                    <span class="badge badge-success">
+                                                        <i class="fa fa-check"></i> Diklaim
+                                                    </span>
+                                                    <small class="text-muted d-block" style="font-size:0.7rem">
+                                                        {{ $row->promo_klaim_by ? 'oleh: ' . (\App\Models\Users::find($row->promo_klaim_by)->name ?? '-') : '' }}
+                                                    </small>
+                                                @else
+                                                    {{-- Belum diklaim — tampilkan tombol --}}
+                                                    <form method="POST"
+                                                        action="{{ route('rawreservation.klaim', $row->id) }}"
+                                                        onsubmit="return confirm('Konfirmasi klaim promo untuk reservasi ini?')">
+                                                        @csrf
+                                                        @method('PATCH')
+                                                        <button type="submit" class="btn btn-sm btn-warning"
+                                                            style="padding:2px 8px; font-size:0.75rem">
+                                                            <i class="fa fa-tag"></i> Klaim
+                                                        </button>
+                                                    </form>
+                                                @endif
                                             @else
                                                 <span class="text-muted" style="font-size:0.8rem">-</span>
                                             @endif
@@ -189,16 +296,6 @@
                                         </td>
                                         <td>
                                             <select class="form-control form-control-sm inline-update" style="min-width:110px"
-                                                data-id="{{ $row->id }}" data-field="follow_up_h_min_1_jam">
-                                                <option value="">-- --</option>
-                                                <option value="confirm"    {{ $row->follow_up_h_min_1_jam == 'confirm'    ? 'selected' : '' }}>✅ Confirm</option>
-                                                <option value="reschedule" {{ $row->follow_up_h_min_1_jam == 'reschedule' ? 'selected' : '' }}>🔄 Reschedule</option>
-                                                <option value="cancel"     {{ $row->follow_up_h_min_1_jam == 'cancel'     ? 'selected' : '' }}>❌ Cancel</option>
-                                                <option value="no_respon"  {{ $row->follow_up_h_min_1_jam == 'no_respon'  ? 'selected' : '' }}>📵 No Respon</option>
-                                            </select>
-                                        </td>
-                                        <td>
-                                            <select class="form-control form-control-sm inline-update" style="min-width:110px"
                                                 data-id="{{ $row->id }}" data-field="keterangan_kehadiran">
                                                 <option value="">-- --</option>
                                                 <option value="hadir"       {{ $row->keterangan_kehadiran == 'hadir'       ? 'selected' : '' }}>✅ Hadir</option>
@@ -217,13 +314,14 @@
                                 @endforeach
                             </tbody>
                         </table>
+                        </div>
                         {{ $reservations->links() }}
                     </div>
 
                     {{-- ══════════════════════════════════════
                          TAB: CALENDAR
                     ══════════════════════════════════════ --}}
-                    <div id="viewCal" style="display:none;">
+                    <div id="viewCal" style="{{ request('view', 'list') === 'cal' ? '' : 'display:none;' }}">
                         <div class="d-flex align-items-center justify-content-center mb-3" style="gap:8px;">
                             <button class="btn btn-sm btn-warning" id="prevMonth"><i class="fa fa-chevron-left"></i></button>
                             <span id="monthLabel" style="font-weight:700; font-size:1.50rem; color:rgb(70,21,0); min-width:160px; text-align:center;"></span>
@@ -247,7 +345,6 @@
                     </div>
 
                 </div>
-                </div>
             </div>
         </div>
     </div>
@@ -263,7 +360,7 @@
                 </h5>
                 <button type="button" class="close" data-dismiss="modal" style="color:#fff; opacity:1; font-size:1.4rem;">&times;</button>
             </div>
-            <div class="modal-body" style="padding:24px;">
+            <div class="modal-body" style="padding:16px 24px;">
                 <table class="table table-sm mb-0" style="font-size:0.88rem;">
                     <tbody id="modalBody"></tbody>
                 </table>
@@ -325,7 +422,7 @@
 .cal-event-top .ev-time   { color:rgb(70,21,0); font-weight:700; font-size: 1.05rem; display: flex; align-items: flex-start; }
 .cal-event-top .ev-sep    { display: none; }
 .cal-event-top .ev-name   { font-size: 1.05rem; color: rgb(80,50,30); line-height: 1.2; display: flex; align-items: flex-start; }
-.cal-event-top .ev-doctor { font-size: 1.05rem; color:rgb(80,50,30); display: flex; align-items: flex-start; }
+.cal-event-top .ev-doctor { font-size: 0.95rem; color: rgb(120,80,60); display: flex; align-items: flex-start; margin-top: 2px; }
     
 .cal-event-top i {
     font-size: 1rem !important;
@@ -335,6 +432,11 @@
     flex-shrink: 0;
     margin-top: 3px;
 }
+
+.cal-event-top .ev-header { display: flex; justify-content: space-between; align-items: center; width: 100%; }
+.cal-event-top .ev-icons { display: flex; gap: 6px; }
+.cal-event-top .ev-icon { font-size: 0.9rem; color: #888; }
+.cal-event-top .ev-icon i { margin-right: 2px; }
 
 /* Bottom: status bar */
 .cal-event-status {
@@ -374,35 +476,55 @@
 .cal-legend-txt { font-size:0.72rem; font-weight:600; color:rgb(70,21,0); margin-right:8px; }
 
 /* ── Modal ── */
-#modalBody tr td:first-child { font-weight:600; color:rgb(70,21,0); width:38%; white-space:nowrap; }
+#modalBody tr td:first-child { font-weight:600; color:rgb(70,21,0); width:30%; white-space:nowrap; }
 #modalBody tr td { border-color:rgb(208,196,191) !important; vertical-align:middle; }
+.modal-hover-row:hover td { background-color: rgb(250,245,243) !important; }
 </style>
 @endsection
 
 @section('js')
 <script>
-function switchTab(tab) {
-    const isCal = tab === 'cal';
-    document.getElementById('viewList').style.display = isCal ? 'none' : '';
-    document.getElementById('viewCal').style.display  = isCal ? ''     : 'none';
-    document.getElementById('tabList').classList.toggle('active', !isCal);
-    document.getElementById('tabCal').classList.toggle('active',  isCal);
-    const viewInput = document.getElementById('filterView');
-    if (viewInput) viewInput.value = tab;
-    if (isCal) {
-        curYear = today.getFullYear();
-        curMonth = today.getMonth();
-        renderCalendar(curYear, curMonth);
-    }
-}
 
-const RAW_RESERVATIONS = @json($calendarReservations).map(r => {
+@php
+    $calReservationsMapped = $calendarReservations->map(function($r) {
+        $r->is_new = $r->created_at ? \Carbon\Carbon::parse($r->created_at)->diffInHours(\Carbon\Carbon::now()) < 6 : false;
+        return $r;
+    });
+@endphp
+const RAW_RESERVATIONS = @json($calReservationsMapped).map(r => {
     if (r.date) {
         const d = new Date(r.date);
         r.date = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
     }
     return r;
 });
+
+const STATUS_OPTIONS = @json(\App\Models\RawCusReservation::statusOptions());
+const FU_OPTIONS = {
+    '': '-- --',
+    'confirm': '✅ Confirm',
+    'reschedule': '🔄 Reschedule',
+    'cancel': '❌ Cancel',
+    'no_respon': '📵 No Respon'
+};
+const KEHADIRAN_OPTIONS = {
+    '': '-- --',
+    'hadir': '✅ Hadir',
+    'tidak_hadir': '❌ Tidak Hadir',
+    'reschedule': '🔄 Reschedule',
+    'cancel': '❌ Cancel'
+};
+
+function createSelect(options, field, selectedValue, reservationId) {
+    let html = `<select class="form-control form-control-sm inline-update" data-id="${reservationId}" data-field="${field}" style="min-width:120px;">`;
+    for (const key in options) {
+        const label = typeof options[key] === 'object' ? options[key].label : options[key];
+        const isSelected = key == selectedValue ? 'selected' : '';
+        html += `<option value="${key}" ${isSelected}>${label}</option>`;
+    }
+    html += `</select>`;
+    return html;
+}
 
 const STATUS_CFG = {
     pending:   { label:'Menunggu Konfirmasi',      cls:'ev-pending',   style: 'background:rgb(255,243,205); color:rgb(110,70,0);' },
@@ -440,10 +562,23 @@ function makeEventCard(ev) {
     const nowDate = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
 
     const cfg    = STATUS_CFG[ev.status] || { label: ev.status||'-', cls:'ev-default' };
-    const jam    = (ev.start_hour||'').substring(0, 5) + ' - ' + (ev.end_hour||'').substring(0, 5);
+    const jam    = (ev.start_hour||'').substring(0, 5);
     const jamSelesai = (ev.end_hour||'').substring(0, 5);
     const nama   = ev.customer ? ev.customer.name : '-';
-    const dokter = ev.doctor   ? ev.doctor.name   : '-';
+    const dokter = ev.doctor ? ev.doctor.name : '-';
+
+    let servicesHTML = '';
+    if (ev.services && ev.services.length > 0) {
+        const serviceNames = ev.services.map(s => s.doc_service ? s.doc_service.name : '').filter(Boolean).join(', ');
+        servicesHTML = `<span class="ev-icon" title="${serviceNames}"><i class="fa fa-stethoscope"></i></span>`;
+    } else if (ev.lainnya_text) {
+        servicesHTML = `<span class="ev-icon" title="Keluhan: ${ev.lainnya_text}"><i class="fa fa-comment-dots"></i></span>`;
+    }
+
+    let promoHTML = '';
+    if (ev.promo) {
+        promoHTML = `<span class="ev-icon" title="Promo: ${ev.promo.promo_code}"><i class="fa fa-tag"></i></span>`;
+    }
 
     // Deteksi apakah waktu sudah terlewat (Hari ini lewat jam selesai, atau memang sudah lewat hari)
     let isPast = false;
@@ -453,16 +588,28 @@ function makeEventCard(ev) {
         isPast = true;
     }
 
+    let newBadgeHtml = '';
+    let newBgStyle = '';
+    if (ev.is_new) {
+        newBadgeHtml = `<span class="badge badge-success ml-1" style="font-size:0.85rem; padding: 2px 4px; vertical-align: middle;"><i class="fa fa-star"></i> Baru</span>`;
+        newBgStyle = 'background-color: #e6f7ff !important;';
+    }
+
     const wrapper = document.createElement('div');
     wrapper.className = 'cal-event-wrapper ' + cfg.cls + (isPast ? ' ev-past' : '');
 
     const card = document.createElement('div');
     card.className = 'cal-event-card';
     card.innerHTML = `
-        <div class="cal-event-top">
-            <span class="ev-time"><i class="fa fa-clock"></i>${jam}</span>
-            <span class="ev-sep">|</span>
-            <span class="ev-name"><i class="fa fa-user"></i>${nama}</span>
+        <div class="cal-event-top" style="${newBgStyle}">
+            <div class="ev-header">
+                <span class="ev-time"><i class="fa fa-clock"></i>${jam}</span>
+                <div class="ev-icons">
+                    ${servicesHTML}
+                    ${promoHTML}
+                </div>
+            </div>
+            <span class="ev-name"><i class="fa fa-user"></i>${nama} ${newBadgeHtml}</span>
             <span class="ev-doctor"><i class="fa fa-user-md"></i>${dokter}</span>
         </div>
         <div class="cal-event-status">${cfg.label}</div>
@@ -522,22 +669,65 @@ function renderCalendar(year, month) {
     }
 }
 
-// ── Fungsi modal tidak diubah dari versi sebelumnya ──
-
 function showModal(ev) {
     const cfg = STATUS_CFG[ev.status] || { label: ev.status || '-', style: 'background:#eee;color:#333' };
     const tgl = ev.date ? ev.date.substring(0,10).split('-').reverse().join('/') : '-';
     const jam = (ev.start_hour||'').substring(0,5) + ' – ' + (ev.end_hour||'').substring(0,5);
+
+    let servicesHtml = ev.services.map(svc => {
+        return `<span class="badge badge-light border" style="font-size:0.75rem;margin:1px">${svc.doc_service ? svc.doc_service.name : '-'}</span>`;
+    }).join(' ');
+    if (ev.lainnya_text) {
+        servicesHtml += `<div style="margin-top:4px;">
+            <span class="badge badge-warning" style="font-size:0.72rem; white-space:normal; text-align:left; padding:3px 6px;">
+                <i class="fa fa-comment-dots"></i> Keluhan: ${ev.lainnya_text}
+            </span>
+        </div>`;
+    }
+    if (!servicesHtml) servicesHtml = '<span class="text-muted">-</span>';
+
+    let promoHtml = ev.promo ? `<span class="badge badge-info" style="font-size:0.75rem">${ev.promo.promo_code}</span>` : '<span class="text-muted">-</span>';
+
+    let klaimHtml = '<span class="text-muted">-</span>';
+    if (ev.raw_promo_id) {
+        if (ev.promo_klaim) {
+            klaimHtml = `<span class="badge badge-success"><i class="fa fa-check"></i> Diklaim</span>`;
+        } else {
+            const klaimRoute = '{{ route("rawreservation.klaim", ["id" => ":id"]) }}'.replace(':id', ev.id);
+            klaimHtml = `
+                <form method="POST" action="${klaimRoute}" onsubmit="return confirm('Konfirmasi klaim promo untuk reservasi ini?')">
+                    <input type="hidden" name="_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="_method" value="PATCH">
+                    <button type="submit" class="btn btn-sm btn-warning" style="padding:2px 8px; font-size:0.75rem">
+                        <i class="fa fa-tag"></i> Klaim
+                    </button>
+                </form>
+            `;
+        }
+    }
+
+    const statusSelect = createSelect(STATUS_OPTIONS, 'status', ev.status, ev.id);
+    const fu1Select = createSelect(FU_OPTIONS, 'follow_up_h_min_1', ev.follow_up_h_min_1, ev.id);
+    const fuHSelect = createSelect(FU_OPTIONS, 'follow_up_h', ev.follow_up_h, ev.id);
+    const kehadiranSelect = createSelect(KEHADIRAN_OPTIONS, 'keterangan_kehadiran', ev.keterangan_kehadiran, ev.id);
+
     document.getElementById('modalBody').innerHTML = `
         <tr><td>Customer</td><td>${ev.customer ? ev.customer.name : '-'}</td></tr>
         <tr><td>Dokter</td><td>${ev.doctor ? ev.doctor.name : '-'}</td></tr>
         <tr><td>Cabang</td><td>${ev.branch ? ev.branch.name : '-'}</td></tr>
         <tr><td>Tanggal</td><td>${tgl}</td></tr>
         <tr><td>Jam</td><td>${jam}</td></tr>
-        <tr><td>Status</td><td><span class="badge" style="${cfg.style} font-size:0.85rem; padding:5px 10px;">${cfg.label}</span></td></tr>
+        <tr style="border-top: 2px solid #ddd;"><td valign="top">Perawatan</td><td style="white-space:normal;">${servicesHtml}</td></tr>
+        <tr><td>Promo</td><td>${promoHtml}</td></tr>
+        <tr><td>Klaim</td><td>${klaimHtml}</td></tr>
+        <tr style="border-top: 2px solid #ddd;"><td>Status</td><td>${statusSelect}</td></tr>
+        <tr><td>FU H-1</td><td>${fu1Select}</td></tr>
+        <tr><td>FU H</td><td>${fuHSelect}</td></tr>
+        <tr><td>Kehadiran</td><td>${kehadiranSelect}</td></tr>
     `;
-    const searchName = ev.customer ? encodeURIComponent(ev.customer.name) : '';
-    document.getElementById('modalDetailBtn').href = '{{ route("rawreservation") }}?search=' + searchName;
+    const detailRoute = '{{ route("rawreservation.edit", ["id" => ":id"]) }}'.replace(':id', ev.id);
+    document.getElementById('modalDetailBtn').href = detailRoute;
+    document.getElementById('modalDetailBtn').innerHTML = '<i class="fa fa-edit"></i> Detail / Edit Reservasi';
     document.getElementById('modalDetailBtn').style.display = '';
     $('#eventModal').modal('show');
 }
@@ -546,25 +736,30 @@ function showAllModal(dateKey, events) {
     const tgl = dateKey.split('-').reverse().join('/');
     const header = `
         <tr style="background:rgb(250,245,243);">
-            <th colspan="5" style="border-top:none; color:rgb(70,21,0); font-weight:700; font-size:0.95rem;">Reservasi Tanggal: ${tgl}</th>
+            <th colspan="4" style="border-top:none; color:rgb(70,21,0); font-weight:700; font-size:0.95rem;">Reservasi Tanggal: ${tgl}</th>
         </tr>
         <tr style="background:#f1f1f1; font-weight:bold;">
             <th style="border-top:1px solid #dee2e6;">Jam</th>
             <th style="border-top:1px solid #dee2e6;">Nama Customer</th>
             <th style="border-top:1px solid #dee2e6;">Nama Dokter</th>
             <th style="border-top:1px solid #dee2e6;">Status</th>
-            <th style="border-top:1px solid #dee2e6;" class="text-center">Lihat Pasien</th>
         </tr>
     `;
     const rows = events.map(ev => {
         const cfg = STATUS_CFG[ev.status] || { label: ev.status || '-', style: 'background:#eee;color:#333' };
-        const searchName = ev.customer ? encodeURIComponent(ev.customer.name) : '';
-        return `<tr>
+        
+        let newBadgeHtml = '';
+        let newBgStyle = '';
+        if (ev.is_new) {
+            newBadgeHtml = `<span class="badge badge-success ml-1" style="font-size:0.65rem;"><i class="fa fa-star"></i> Baru</span>`;
+            newBgStyle = 'background-color: #e6f7ff !important;';
+        }
+        
+        return `<tr class="modal-hover-row" style="cursor:pointer; ${newBgStyle}" onclick="openSingleModal('${ev.id}')" title="Klik untuk melihat detail / ubah status">
             <td>${(ev.start_hour||'').substring(0,5)} - ${(ev.end_hour||'').substring(0,5)}</td>
-            <td>${ev.customer ? ev.customer.name : '-'}</td>
+            <td>${ev.customer ? ev.customer.name : '-'}${newBadgeHtml}</td>
             <td>${ev.doctor ? ev.doctor.name : '-'}</td>
             <td><span class="badge" style="${cfg.style} font-size:0.75rem; padding:4px 8px;">${cfg.label}</span></td>
-            <td class="text-center"><a href="{{ route('rawreservation') }}?search=${searchName}" class="btn btn-info btn-sm" style="padding:2px 6px;" title="Lihat Pasien"><i class="fa fa-eye"></i></a></td>
         </tr>`;
     }).join('');
     document.getElementById('modalBody').innerHTML = header + rows;
@@ -572,13 +767,16 @@ function showAllModal(dateKey, events) {
     $('#eventModal').modal('show');
 }
 
+function openSingleModal(id) {
+    const ev = RAW_RESERVATIONS.find(r => r.id === id);
+    if (ev) {
+        showModal(ev);
+    }
+}
+
 document.getElementById('prevMonth').addEventListener('click', () => { curMonth--; if (curMonth<0){curMonth=11;curYear--;} renderCalendar(curYear,curMonth); });
 document.getElementById('nextMonth').addEventListener('click', () => { curMonth++; if (curMonth>11){curMonth=0;curYear++;} renderCalendar(curYear,curMonth); });
 document.getElementById('todayBtn').addEventListener('click', () => { curYear=today.getFullYear(); curMonth=today.getMonth(); renderCalendar(curYear,curMonth); });
-
-$(document).ready(function() {
-    switchTab('{{ request('view', 'list') }}');
-});
 
 $(document).on('change', '.inline-update', function () {
     const id = $(this).data('id'), field = $(this).data('field'), value = $(this).val(), $sel = $(this);
@@ -591,5 +789,69 @@ $(document).on('change', '.inline-update', function () {
         complete: () => $sel.prop('disabled', false),
     });
 });
+
+// Real-time notification polling
+// Gunakan waktu server untuk menghindari notifikasi berulang akibat perbedaan zona waktu (WIB vs UTC)
+let lastCheckTimestamp = '{!! now()->toDateTimeString() !!}';
+let toastTimeout;
+
+function checkNewReservations() {
+    $.get('/api/reservation/check-new', { since: lastCheckTimestamp }, function(response) {
+        if (response) {
+            // Always update timestamp to server's time to stay in sync
+            if (response.server_time) {
+                lastCheckTimestamp = response.server_time;
+            }
+
+            if (response.new_count > 0) {
+                const latest = response.latest;
+                const toastBody = document.getElementById('toastBody');
+                
+                let message = `Ada <strong>${response.new_count}</strong> reservasi baru.`;
+                if (latest && latest.customer) {
+                    message += `<br>Terbaru dari: <strong>${latest.customer.name}</strong> di cabang <strong>${latest.branch ? latest.branch.name : ''}</strong>`;
+                }
+                
+                @if(request('new'))
+                    message += `<br><a href="javascript:void(0)" onclick="window.location.reload()" style="font-weight:bold; color: #0056b3;"><i class="fa fa-sync"></i> Muat ulang data &raquo;</a>`;
+                @else
+                    message += `<br><a href="{{ route('rawreservation') }}?new=1" style="font-weight:bold; color: #0056b3;">Lihat sekarang &raquo;</a>`;
+                @endif
+                
+                toastBody.innerHTML = message;
+                
+                // Play a sound
+                try {
+                    const audio = new Audio('https://cdn.jsdelivr.net/gh/scottschiller/SoundManager2@master/demo/mp3/blip.mp3');
+                    audio.play();
+                } catch (e) {
+                    console.warn("Could not play notification sound.", e);
+                }
+
+                // Show toast
+                $('#newReservationToast').fadeIn();
+                
+                // Auto-hide setelah 8 detik (8000 ms)
+                if (toastTimeout) clearTimeout(toastTimeout);
+                toastTimeout = setTimeout(() => {
+                    $('#newReservationToast').fadeOut();
+                }, 7000);
+            }
+        }
+    }).fail(function() {
+        console.error("Failed to check for new reservations.");
+    });
+}
+
+// Poll every 20 seconds
+setInterval(checkNewReservations, 20000);
+
+// Render kalender saat halaman dimuat jika tab kalender sedang aktif
+$(document).ready(function() {
+    if (document.getElementById('viewCal').style.display !== 'none') {
+        renderCalendar(curYear, curMonth);
+    }
+});
+
 </script>
 @endsection

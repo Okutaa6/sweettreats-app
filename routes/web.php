@@ -15,26 +15,15 @@ use App\Http\Controllers\Crud\ReservasiCabangController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Middleware\AuthGuard;
 use App\Http\Middleware\IsLoggedIn;
-use App\Http\Controllers\Crud\AffiliateController; //new
-use App\Http\Controllers\Crud\PromoController; //new
-use App\Http\Controllers\Crud\KeywordController; //new  
+use App\Http\Controllers\Crud\AffiliateController;
+use App\Http\Controllers\Crud\PromoController;
+use App\Http\Controllers\Crud\KeywordController;
+use App\Http\Controllers\Crud\ReportReferralController;
 
-
-
-/*
-|--------------------------------------------------------------------------
-| Web Routes
-|--------------------------------------------------------------------------
-|
-| Here is where you can register web routes for your application. These
-| routes are loaded by the RouteServiceProvider and all of them will
-| be assigned to the "web" middleware group. Make something great!
-|
-*/
 
 Route::get('/', function () {
-    $services = \App\Models\RawDocService::orderBy('name')->get();
-    $branches = \App\Models\RawBranch::orderBy('name')->get();
+    $services    = \App\Models\RawDocService::orderBy('name')->get();
+    $branches    = \App\Models\RawBranch::orderBy('name')->get();
     $branchCount = $branches->count();
     return view('landing', compact('services', 'branches', 'branchCount'));
 })->name('home');
@@ -45,126 +34,203 @@ Route::get('/reservasi', function () {
 })->name('landing.reservation');
 
 Route::post('/reservasi', function () {
-    request()->validate([
-    'name'             => 'required|max:255',
-    'phone'            => 'required|max:20',
-    'jenis_kelamin'    => 'required|in:L,P', //new
-    'tanggal_lahir'    => 'required|date|before:today', //new
-    'email'            => 'required|email|max:100',  //new
-    'raw_doctor_id'    => 'required|exists:raw_doctor,id',
-    'raw_branch_id'    => 'required|exists:raw_branch,id',
-    'reservation_date' => 'required|date|after_or_equal:today',
-    'reservation_time' => 'required',
-    'services'         => 'required|array|min:1',
-    'promo_id' => 'nullable|exists:raw_promo,id', //new
-]);
 
-    // Calculate total duration from selected services
+
+    $patientType = request('patient_type'); // 'baru' atau 'lama'
+    $isLainnya   = empty(request('services')) && !empty(request('lainnya_text'));
+
+    // Validasi dasar (selalu wajib)
+    $rules = [
+        'raw_doctor_id'    => 'required|exists:raw_doctor,id',
+        'raw_branch_id'    => 'required|exists:raw_branch,id',
+        'reservation_date' => 'required|date|after_or_equal:today',
+        'reservation_time' => 'required',
+        'promo_id'         => 'nullable|exists:raw_promo,id',
+        'patient_type'     => 'required|in:baru,lama',
+    ];
+
+    // Validasi perawatan: salah satu harus ada
+    if ($isLainnya) {
+        // Kategori Lainnya: services boleh kosong, tapi lainnya_text wajib
+        $rules['lainnya_text'] = 'required|string|max:200';
+        $rules['services']     = 'nullable|array';
+    } else {
+        // Kategori normal: services wajib ada
+        $rules['services']     = 'required|array|min:1';
+        $rules['lainnya_text'] = 'nullable|string|max:200';
+    }
+
+    // Validasi data diri: tergantung tipe pasien
+    if ($patientType === 'lama') {
+        // Pasien lama: cukup existing_customer_id
+        $rules['existing_customer_id'] = 'required|exists:raw_customer,id';
+    } else {
+        // Pasien baru: semua field wajib diisi
+        $rules['name']          = 'required|max:255';
+        $rules['phone']         = 'required|max:20';
+        $rules['email']         = 'required|email|max:100';
+        $rules['jenis_kelamin'] = 'required|in:L,P';
+        $rules['tanggal_lahir'] = 'required|date|before:today';
+    }
+
+    // Jalankan validasi
+    request()->validate($rules, [
+        // Pesan error yang lebih jelas
+        'services.required'            => 'Pilih perawatan terlebih dahulu.',
+        'lainnya_text.required'        => 'Ceritakan keluhan kamu terlebih dahulu.',
+        'existing_customer_id.required'=> 'Data pasien lama tidak ditemukan. Coba cek nomor HP kamu.',
+        'name.required'                => 'Nama lengkap wajib diisi.',
+        'phone.required'               => 'Nomor WhatsApp wajib diisi.',
+        'email.required'               => 'Email wajib diisi.',
+        'jenis_kelamin.required'       => 'Jenis kelamin wajib dipilih.',
+        'tanggal_lahir.required'       => 'Tanggal lahir wajib diisi.',
+    ]);
+
+    // ================================================================
+    // AMBIL DATA CUSTOMER
+    // ================================================================
+    if ($patientType === 'lama') {
+        // Pasien lama: ambil dari DB langsung
+        $customer = \App\Models\RawCustomer::findOrFail(request('existing_customer_id'));
+    } else {
+        // Pasien baru: cari atau buat baru berdasarkan nomor HP
+        $customer = \App\Models\RawCustomer::firstOrCreate(
+            ['phone' => request('phone')],
+            [
+                'name'           => request('name'),
+                'email'          => request('email'),
+                'jenis_kelamin'  => request('jenis_kelamin'),
+                'tanggal_lahir'  => request('tanggal_lahir'),
+                'tanggal_daftar' => now()->toDateString(),
+                'source_app'     => 'website',
+                'channel'        => 'landing-page',
+            ]
+        );
+    }
+
+    // ================================================================
+    // HITUNG DURASI & SERVICE RECORDS
+    // ================================================================
     $totalDuration = 0;
     $serviceRecords = [];
-    foreach (request('services') as $serviceId) {
-        $docService = \App\Models\RawDocService::find($serviceId);
-        if ($docService) {
-            $totalDuration += $docService->duration_minutes;
-            $serviceRecords[] = $docService;
+
+    if ($isLainnya) {
+        // Kategori lainnya: tidak ada service spesifik
+        // Gunakan durasi default 30 menit
+        $totalDuration = 30;
+    } else {
+        foreach (request('services') as $serviceId) {
+            $docService = \App\Models\RawDocService::find($serviceId);
+            if ($docService) {
+                $totalDuration += $docService->duration_minutes;
+                $serviceRecords[] = $docService;
+            }
         }
     }
 
-    // Compute end_hour from start + total duration
+    // Hitung jam selesai
     $startHour = \Carbon\Carbon::parse(request('reservation_time'));
-    $endHour = $startHour->copy()->addMinutes($totalDuration);
+    $endHour   = $startHour->copy()->addMinutes($totalDuration ?: 30);
 
-    // Find or create customer
-    $customer = \App\Models\RawCustomer::firstOrCreate(
-    ['phone' => request('phone')],
-    [
-        'name'           => request('name'),
-        'email'          => request('email'),
-        'jenis_kelamin'  => request('jenis_kelamin'), //new
-        'tanggal_lahir'  => request('tanggal_lahir'), //new
-        'tanggal_daftar' => now()->toDateString(),
-        'source_app'     => 'website',
-        'channel'        => 'landing-page',
-    ]
-);
-
-    // Create reservation with start and end hour
+    // ================================================================
+    // BUAT RESERVASI
+    // ================================================================
     $reservation = \App\Models\RawCusReservation::create([
         'raw_customer_id' => $customer->id,
         'raw_doctor_id'   => request('raw_doctor_id'),
         'raw_branch_id'   => request('raw_branch_id'),
-        'raw_promo_id'    => request('promo_id') ?: null,  //new
+        'raw_promo_id'    => request('promo_id') ?: null,
         'date'            => request('reservation_date'),
         'start_hour'      => $startHour->format('H:i'),
         'end_hour'        => $endHour->format('H:i'),
         'status'          => 'pending',
         'is_waiting'      => false,
+        'lainnya_text'    => $isLainnya ? request('lainnya_text') : null, 
         'created_at'      => now(),
     ]);
 
-    // Attach selected services
-    foreach ($serviceRecords as $docService) {
-        \App\Models\RawCusResService::create([
-            'raw_cus_reservation_id' => $reservation->id,
-            'raw_doctor_id' => request('raw_doctor_id'),
-            'raw_doc_service_id' => $docService->id,
+    // ================================================================
+    // ATTACH SERVICES
+    // ================================================================
+    if ($isLainnya) {
+        // Untuk kategori lainnya: simpan sebagai catatan
+        // Cari service "Lainnya" di DB kalau ada, atau skip
+        $lainnyaService = \App\Models\RawDocService::where('category', 'lainnya')->first();
+        if ($lainnyaService) {
+            \App\Models\RawCusResService::create([
+                'raw_cus_reservation_id' => $reservation->id,
+                'raw_doctor_id'          => request('raw_doctor_id'),
+                'raw_doc_service_id'     => $lainnyaService->id,
+                // Simpan teks keluhan jika ada field-nya
+            ]);
+        }
+    } else {
+        foreach ($serviceRecords as $docService) {
+            \App\Models\RawCusResService::create([
+                'raw_cus_reservation_id' => $reservation->id,
+                'raw_doctor_id'          => request('raw_doctor_id'),
+                'raw_doc_service_id'     => $docService->id,
+            ]);
+        }
+    }
+
+    // ================================================================
+    // INSERT JOURNEY
+    // ================================================================
+    \Illuminate\Support\Facades\DB::table('raw_cus_journey')->insert([
+        'id'              => \Illuminate\Support\Str::uuid()->toString(),
+        'raw_customer_id' => $customer->id,
+        'journey_label'   => 'Stat_Rsv',
+        'created_at'      => now(),
+    ]);
+
+    $contact = \Illuminate\Support\Facades\DB::table('raw_contact')
+        ->where('phone', $customer->phone)
+        ->first();
+
+    if ($contact) {
+        \Illuminate\Support\Facades\DB::table('raw_cus_journey')->insert([
+            'id'             => \Illuminate\Support\Str::uuid()->toString(),
+            'raw_contact_id' => $contact->id,
+            'journey_label'  => 'Stat_Rsv',
+            'created_at'     => now(),
         ]);
     }
 
-        // Insert journey: status reservasi masuk (lewat raw_customer)
-        \Illuminate\Support\Facades\DB::table('raw_cus_journey')->insert([
-            'id'              => \Illuminate\Support\Str::uuid()->toString(),
-            'raw_customer_id' => $customer->id,
-            'journey_label'   => 'Stat_Rsv',
-            'created_at'      => now(),
-        ]);
+    // ================================================================
+    // BUAT KOMISI (kalau ada promo)
+    // ================================================================
+    if (request('promo_id')) {
+        $promo = \App\Models\RawPromo::with('affiliate')->find(request('promo_id'));
+        if ($promo && $promo->affiliate) {
+            $totalHarga = 0;
+            foreach ($serviceRecords as $svc) {
+                $totalHarga += $svc->price ?? 0;
+            }
 
-        // Cek nomor ini juga ada di raw_contact
-        // Kalau ada, insert Stat_Rsv juga dari sisi contact
-        $contact = \Illuminate\Support\Facades\DB::table('raw_contact')
-            ->where('phone', request('phone'))
-            ->first();
+            // Pastikan kita mengambil angka dari single objek, bukan dari Collection
+            $affiliate = $promo->affiliate instanceof \Illuminate\Support\Collection ? $promo->affiliate->first() : $promo->affiliate;
+            $commissionRate = $affiliate ? ($affiliate->commission_rate ?? 0) : 0;
+            $commissionAmount = round($totalHarga * ($commissionRate / 100), 2);
 
-        if ($contact) {
-            // Stat_New & Stat_Leads mungkin udah ada dari webhook
-            // Di sini kita tambahin Stat_Rsv dari sisi contact
-            \Illuminate\Support\Facades\DB::table('raw_cus_journey')->insert([
-                'id'             => \Illuminate\Support\Str::uuid()->toString(),
-                'raw_contact_id' => $contact->id,
-                'journey_label'  => 'Stat_Rsv',
-                'created_at'     => now(),
+            \Illuminate\Support\Facades\DB::table('raw_commission')->insert([
+                'id'                     => \Illuminate\Support\Str::uuid()->toString(),
+                'raw_affiliate_id'       => $promo->affiliate->id,
+                'raw_cus_reservation_id' => $reservation->id,
+                'amount'                 => $commissionAmount,
+                'status'                 => 'pending',
+                'created_at'             => now(),
             ]);
         }
-        // Buat komisi kalo ada promo sama koc/afiiliate
-        if (request('promo_id')) {
-            $promo = \App\Models\RawPromo::with('affiliate')->find(request('promo_id'));
-            if ($promo && $promo->affiliate) {
-                // Hitung total harga dari services
-                $totalHarga = 0;
-                foreach ($serviceRecords as $svc) {
-                    $totalHarga += $svc->price ?? 0;
-                }
+    }
 
-                // Hitung komisi dari commis    sion_rate affiliate
-                $commissionAmount = round($totalHarga * ($promo->affiliate->commission_rate / 100), 2);
-
-                \Illuminate\Support\Facades\DB::table('raw_commission')->insert([
-                    'id'                      => \Illuminate\Support\Str::uuid()->toString(),
-                    'raw_affiliate_id'        => $promo->affiliate->id,
-                    'raw_cus_reservation_id'  => $reservation->id,
-                    'amount'                  => $commissionAmount,
-                    'status'                  => 'pending',
-                    'created_at'              => now(),
-                ]);
-            }
-        }
-
-    return redirect('/reservasi/riwayat?phone=' . urlencode(request('phone')))
+    return redirect('/reservasi/riwayat?phone=' . urlencode($customer->phone))
         ->with('success', 'Reservasi berhasil dibuat! Tim kami akan menghubungi kamu untuk konfirmasi.');
+
 })->name('landing.reservation.store');
 
 Route::get('/reservasi/riwayat', function () {
-    $phone = request('phone');
+    $phone        = request('phone');
     $reservations = collect();
 
     if ($phone) {
@@ -184,17 +250,17 @@ Route::get('/reservasi/riwayat', function () {
 Route::prefix('api/reservation')->group(function () {
     $ctrl = \App\Http\Controllers\Api\ReservationApiController::class;
     Route::get('services', [$ctrl, 'getServices']);
-    Route::get('doctors-by-service/{branchId}/{serviceId}', [$ctrl, 'getDoctorsByService']); // baru
+    Route::get('doctors-by-service/{branchId}/{serviceId}', [$ctrl, 'getDoctorsByService']);
     Route::get('doctors/{branchId}', [$ctrl, 'getDoctorsByBranch']);
-    Route::get('branches/{doctorId}', [$ctrl, 'getBranchesByDoctor']); // cabang by dokter
-    Route::get('services-by-doctor/{doctorId}', [$ctrl, 'getServicesByDoctor']); // layanan by dokter
+    Route::get('branches/{doctorId}', [$ctrl, 'getBranchesByDoctor']);
+    Route::get('services-by-doctor/{doctorId}', [$ctrl, 'getServicesByDoctor']);
     Route::get('dates/{branchId}/{doctorId}', [$ctrl, 'getAvailableDates']);
     Route::get('slots/{branchId}/{doctorId}/{date}', [$ctrl, 'getTimeSlots']);
+    Route::get('check-customer', [$ctrl, 'checkCustomerByPhone']);
+    Route::get('check-new', [$ctrl, 'checkNew']);
 });
 
-//new
 Route::get('api/promo/validate', [PromoController::class, 'validate_promo'])->name('api.promo.validate');
-
 
 Route::middleware([AuthGuard::class])->group(function () {
 
@@ -257,12 +323,10 @@ Route::middleware([AuthGuard::class])->group(function () {
     Route::put('rawdoctor/{id}', [DoctorController::class, 'update'])->name('rawdoctor.update');
     Route::delete('rawdoctor/{id}', [DoctorController::class, 'destroy'])->name('rawdoctor.destroy');
 
-    // CRUD - Doctor Schedule (nested under Doctor)
     Route::post('rawdoctor/{doctorId}/schedule', [DoctorController::class, 'scheduleStore'])->name('rawdoctor.schedule.store');
     Route::put('rawdoctor/{doctorId}/schedule/{scheduleId}', [DoctorController::class, 'scheduleUpdate'])->name('rawdoctor.schedule.update');
     Route::delete('rawdoctor/{doctorId}/schedule/{scheduleId}', [DoctorController::class, 'scheduleDestroy'])->name('rawdoctor.schedule.destroy');
-    Route::post('rawdoctor/{doctorId}/services', [DoctorController::class, 'servicesUpdate'])->name('rawdoctor.services.update'); //new
-
+    Route::post('rawdoctor/{doctorId}/services', [DoctorController::class, 'servicesUpdate'])->name('rawdoctor.services.update');
 
     // CRUD - Reservation
     Route::get('rawreservation', [ReservationController::class, 'index'])->name('rawreservation');
@@ -271,11 +335,10 @@ Route::middleware([AuthGuard::class])->group(function () {
     Route::get('rawreservation/{id}', [ReservationController::class, 'edit'])->name('rawreservation.edit');
     Route::put('rawreservation/{id}', [ReservationController::class, 'update'])->name('rawreservation.update');
     Route::delete('rawreservation/{id}', [ReservationController::class, 'destroy'])->name('rawreservation.destroy');
-    Route::patch('rawreservation/{id}/inline', [ReservationController::class, 'updateInline'])->name('rawreservation.inline'); //new
-    Route::patch('rawreservation/{reservationId}/commission/{commissionId}/approve', [ReservationController::class, 'commissionApprove'])->name('rawreservation.commission.approve');//new
-    Route::patch('rawreservation/{reservationId}/commission/{commissionId}/pay', [ReservationController::class, 'commissionPay'])->name('rawreservation.commission.pay'); //new
-
-    // CRUD - Reservation Service (nested under Reservation)
+    Route::patch('rawreservation/{id}/inline', [ReservationController::class, 'updateInline'])->name('rawreservation.inline');
+    Route::patch('rawreservation/{reservationId}/commission/{commissionId}/approve', [ReservationController::class, 'commissionApprove'])->name('rawreservation.commission.approve');
+    Route::patch('rawreservation/{reservationId}/commission/{commissionId}/pay', [ReservationController::class, 'commissionPay'])->name('rawreservation.commission.pay');
+    Route::patch('rawreservation/{id}/klaim', [ReservationController::class, 'klaimPromo'])->name('rawreservation.klaim');
     Route::post('rawreservation/{reservationId}/service', [ReservationController::class, 'serviceStore'])->name('rawreservation.service.store');
     Route::delete('rawreservation/{reservationId}/service/{serviceId}', [ReservationController::class, 'serviceDestroy'])->name('rawreservation.service.destroy');
 
@@ -287,7 +350,6 @@ Route::middleware([AuthGuard::class])->group(function () {
     Route::put('rawdocservice/{id}', [DocServiceController::class, 'update'])->name('rawdocservice.update');
     Route::delete('rawdocservice/{id}', [DocServiceController::class, 'destroy'])->name('rawdocservice.destroy');
 
-    // routes sub-detail perawatan
     Route::post('rawdocservice/{id}/detail', [DocServiceController::class, 'detailStore'])->name('rawdocservice.detail.store');
     Route::put('rawdocservice/{id}/detail/{detailId}', [DocServiceController::class, 'detailUpdate'])->name('rawdocservice.detail.update');
     Route::delete('rawdocservice/{id}/detail/{detailId}', [DocServiceController::class, 'detailDestroy'])->name('rawdocservice.detail.destroy');
@@ -299,8 +361,10 @@ Route::middleware([AuthGuard::class])->group(function () {
     Route::get('rawbranch/{id}', [BranchController::class, 'edit'])->name('rawbranch.edit');
     Route::put('rawbranch/{id}', [BranchController::class, 'update'])->name('rawbranch.update');
     Route::delete('rawbranch/{id}', [BranchController::class, 'destroy'])->name('rawbranch.destroy');
+    Route::post('rawbranch/{id}/target', [BranchController::class, 'saveTarget'])->name('rawbranch.target');
 
-    // CRUD - Affiliate new
+
+    // CRUD - Affiliate
     Route::get('rawaffiliate', [AffiliateController::class, 'index'])->name('rawaffiliate');
     Route::get('rawaffiliate/new', [AffiliateController::class, 'create'])->name('rawaffiliate.new');
     Route::post('rawaffiliate/new', [AffiliateController::class, 'store'])->name('rawaffiliate.store');
@@ -308,7 +372,7 @@ Route::middleware([AuthGuard::class])->group(function () {
     Route::put('rawaffiliate/{id}', [AffiliateController::class, 'update'])->name('rawaffiliate.update');
     Route::delete('rawaffiliate/{id}', [AffiliateController::class, 'destroy'])->name('rawaffiliate.destroy');
 
-    // CRUD - Promo new
+    // CRUD - Promo
     Route::get('rawpromo', [PromoController::class, 'index'])->name('rawpromo');
     Route::get('rawpromo/new', [PromoController::class, 'create'])->name('rawpromo.new');
     Route::post('rawpromo/new', [PromoController::class, 'store'])->name('rawpromo.store');
@@ -316,7 +380,7 @@ Route::middleware([AuthGuard::class])->group(function () {
     Route::put('rawpromo/{id}', [PromoController::class, 'update'])->name('rawpromo.update');
     Route::delete('rawpromo/{id}', [PromoController::class, 'destroy'])->name('rawpromo.destroy');
 
-    // CRUD - Keyword //new
+    // CRUD - Keyword
     Route::get('rawkeyword', [KeywordController::class, 'index'])->name('rawkeyword');
     Route::get('rawkeyword/new', [KeywordController::class, 'create'])->name('rawkeyword.new');
     Route::post('rawkeyword/new', [KeywordController::class, 'store'])->name('rawkeyword.store');
@@ -332,12 +396,11 @@ Route::middleware([AuthGuard::class])->group(function () {
     Route::put('rawcustomer/{id}', [CustomerController::class, 'update'])->name('rawcustomer.update');
     Route::delete('rawcustomer/{id}', [CustomerController::class, 'destroy'])->name('rawcustomer.destroy');
 
-    //CRUD - reservasicabang
-        Route::get('reservasicabang', [ReservasiCabangController::class, 'index'])->name('reservasicabang');
-
+    // CRUD - Reservasi Cabang
+    Route::get('reservasicabang', [ReservasiCabangController::class, 'index'])->name('reservasicabang');
 });
-
-
+    // Report Referral
+    Route::get('report-referral', [ReportReferralController::class, 'index'])->name('report.referral');
 
 Route::middleware([IsLoggedIn::class])->group(function () {
     Route::prefix('signin')->group(function () {
@@ -351,4 +414,5 @@ Route::middleware([IsLoggedIn::class])->group(function () {
     Route::get('reset-password/{token}', [AuthController::class, 'resetPassword'])->name('reset-password');
     Route::post('reset-password/{token}', [AuthController::class, 'resetPasswordProcess'])->name('reset-password.process');
 });
+
 Route::get('signout', [AuthController::class, 'logout'])->name('signout');

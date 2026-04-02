@@ -13,18 +13,25 @@ class RawCustomer extends Model
     protected $table = 'raw_customer';
 
     protected $fillable = [
-    'source_app',
-    'channel', 
-    'name',
-    'phone',
-    'email',           // tambah
-    'jenis_kelamin',   // tambah
-    'tanggal_lahir',   // tambah
-    'nik',             // tambah
-    'tempat_lahir',    // tambah
-    'alamat',          // tambah
-    'tanggal_daftar',  // tambah
-];
+        'source_app',
+        'channel',
+        'name',
+        'phone',
+        'email',
+        'jenis_kelamin',
+        'tanggal_lahir',
+        'nik',
+        'tempat_lahir',
+        'alamat',
+        'tanggal_daftar',
+        'raw_branch_id',
+        'raw_doc_service_id',
+        'raw_doctor_id',
+        'pasien_baru_lama',
+        'raw_promo_id',
+        'catatan',
+    ];
+
     public $incrementing = false;
     public $timestamps = false;
     protected $keyType = 'string';
@@ -37,5 +44,25 @@ class RawCustomer extends Model
     public function reservations()
     {
         return $this->hasMany(RawCusReservation::class, 'raw_customer_id', 'id');
+    }
+
+    public function branch()
+    {
+        return $this->belongsTo(RawBranch::class, 'raw_branch_id', 'id');
+    }
+
+    public function docService()
+    {
+        return $this->belongsTo(RawDocService::class, 'raw_doc_service_id', 'id');
+    }
+
+    public function promo()
+    {
+        return $this->belongsTo(RawPromo::class, 'raw_promo_id', 'id');
+    }
+
+    public function doctor()
+    {
+        return $this->belongsTo(RawDoctor::class, 'raw_doctor_id', 'id');
     }
 }

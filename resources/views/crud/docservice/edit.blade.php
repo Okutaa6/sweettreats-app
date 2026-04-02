@@ -33,21 +33,67 @@
                                 @method('PUT')
 
                                 <a href="{{ route('rawdocservice') }}" class="btn btn-sm btn-warning"
-                                    style="margin-bottom: 20px;"><i class="fa fa-arrow-left"></i> Kembali</a>
+                                    style="margin-bottom: 20px;">
+                                    <i class="fa fa-arrow-left"></i> Kembali
+                                </a>
 
                                 <table class="table table-bordered" width="100%" cellspacing="0">
                                     <tr>
-                                        <td width="20%">Nama Layanan</td>
+                                        <td width="20%">Nama Layanan <span class="text-danger">*</span></td>
                                         <td>
                                             <input class="form-control {{ $errors->has('name') ? 'is-invalid' : '' }}"
-                                                type="text" name="name" value="{{ old('name', $service->name) }}" />
+                                                type="text" name="name"
+                                                value="{{ old('name', $service->name) }}" />
                                             @if ($errors->has('name'))
                                                 <div class="invalid-feedback">{{ $errors->first('name') }}</div>
                                             @endif
                                         </td>
                                     </tr>
+
+                                    {{-- ================================================ --}}
+                                    {{-- KATEGORI - BARU: dropdown kategori & sort_order  --}}
+                                    {{-- Admin bisa ganti kategori kapan saja dari sini   --}}
+                                    {{-- ================================================ --}}
                                     <tr>
-                                        <td>Durasi Default (Menit)</td>
+                                        <td>Kategori <span class="text-danger">*</span></td>
+                                        <td>
+                                            <select class="form-control {{ $errors->has('category') ? 'is-invalid' : '' }}"
+                                                name="category">
+                                                <option value="">-- Pilih Kategori --</option>
+                                                @foreach ($categories as $key => $label)
+                                                    <option value="{{ $key }}"
+                                                        {{-- Tampilkan nilai yang tersimpan di DB --}}
+                                                        {{ old('category', $service->category) === $key ? 'selected' : '' }}>
+                                                        {{ $label }}
+                                                    </option>
+                                                @endforeach
+                                            </select>
+                                            <small class="text-muted">
+                                                Menentukan di grup mana layanan ini muncul di form reservasi pasien
+                                            </small>
+                                            @if ($errors->has('category'))
+                                                <div class="invalid-feedback">{{ $errors->first('category') }}</div>
+                                            @endif
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>Urutan Tampil</td>
+                                        <td>
+                                            <input class="form-control {{ $errors->has('sort_order') ? 'is-invalid' : '' }}"
+                                                type="number" name="sort_order" min="0"
+                                                value="{{ old('sort_order', $service->sort_order) }}" />
+                                            <small class="text-muted">
+                                                Angka kecil tampil lebih dulu dalam kategorinya
+                                            </small>
+                                            @if ($errors->has('sort_order'))
+                                                <div class="invalid-feedback">{{ $errors->first('sort_order') }}</div>
+                                            @endif
+                                        </td>
+                                    </tr>
+                                    {{-- ================================================ --}}
+
+                                    <tr>
+                                        <td>Durasi Default (Menit) <span class="text-danger">*</span></td>
                                         <td>
                                             <input class="form-control {{ $errors->has('duration_minutes') ? 'is-invalid' : '' }}"
                                                 type="number" name="duration_minutes" min="1"
@@ -61,8 +107,8 @@
                                     <tr>
                                         <td>Harga Default (Rp)</td>
                                         <td>
-                                            <input class="form-control {{ $errors->has('price') ? 'is-invalid' : '' }}"
-                                                type="number" name="price" min="0"
+                                            <input class="form-control price-input {{ $errors->has('price') ? 'is-invalid' : '' }}"
+                                                type="text" inputmode="numeric" name="price"
                                                 value="{{ old('price', $service->price) }}" />
                                             <small class="text-muted">Dipakai kalau sub-detail belum dipilih admin</small>
                                             @if ($errors->has('price'))
@@ -73,8 +119,12 @@
                                     <tr>
                                         <td>&nbsp;</td>
                                         <td>
-                                            <button class="btn btn-primary" type="submit"><i class="fa fa-save"></i> Simpan</button>
-                                            <button type="button" class="btn btn-outline-danger" onclick="deleteData()"><i class="fa fa-trash"></i> Hapus</button>
+                                            <button class="btn btn-primary" type="submit">
+                                                <i class="fa fa-save"></i> Simpan
+                                            </button>
+                                            <button type="button" class="btn btn-outline-danger" onclick="deleteData()">
+                                                <i class="fa fa-trash"></i> Hapus
+                                            </button>
                                         </td>
                                     </tr>
                                 </table>
@@ -89,7 +139,7 @@
             </div>
         </div>
 
-        {{-- Sub-detail Perawatan --}}
+        {{-- Sub-detail Perawatan (tidak berubah) --}}
         <div class="row">
             <div class="col-md-12">
                 <div class="card">
@@ -126,7 +176,7 @@
                                                     <span class="badge badge-secondary ml-1">Nonaktif</span>
                                                 @endif
                                             </td>
-                                            <td>{{ $detail->code_service ?? '-' }}</td>  
+                                            <td>{{ $detail->code_service ?? '-' }}</td>
                                             <td>{{ $detail->duration_minutes }} menit</td>
                                             <td>Rp {{ number_format($detail->price, 0, ',', '.') }}</td>
                                             <td>{{ $detail->sort_order }}</td>
@@ -140,7 +190,7 @@
                                                     style="padding:2px 8px"
                                                     data-id="{{ $detail->id }}"
                                                     data-name="{{ $detail->name }}"
-                                                    data-code="{{ $detail->code_service }}"  
+                                                    data-code="{{ $detail->code_service }}"
                                                     data-duration="{{ $detail->duration_minutes }}"
                                                     data-price="{{ $detail->price }}"
                                                     data-sort="{{ $detail->sort_order }}"
@@ -161,7 +211,7 @@
                                         </tr>
                                     @empty
                                         <tr>
-                                            <td colspan="8" class="text-center text-muted"> {{-- ← colspan 8 karena ada kolom baru --}}
+                                            <td colspan="8" class="text-center text-muted">
                                                 Belum ada sub-detail. Klik "Tambah Sub-detail" untuk mulai.
                                             </td>
                                         </tr>
@@ -191,7 +241,6 @@
                             <input type="text" class="form-control" name="name"
                                 placeholder="Contoh: Scaling Kelas 2" required>
                         </div>
-                        
                         <div class="form-group">
                             <label>Kode Service</label>
                             <input type="text" class="form-control" name="code_service"
@@ -205,7 +254,7 @@
                             </div>
                             <div class="form-group col-md-6">
                                 <label>Harga (Rp) <span class="text-danger">*</span></label>
-                                <input type="number" class="form-control" name="price" min="0" value="0" required>
+                                <input type="text" inputmode="numeric" class="form-control price-input" name="price" value="0" required>
                             </div>
                         </div>
                         <div class="form-group">
@@ -239,12 +288,11 @@
                             <label>Nama Sub-detail <span class="text-danger">*</span></label>
                             <input type="text" class="form-control" name="name" id="editName" required>
                         </div>
-                        
                         <div class="form-group">
                             <label>Kode Service</label>
                             <input type="text" class="form-control" name="code_service" id="editCodeService"
                                 placeholder="Contoh: SC-001">
-                            <small class="text-muted">Opsional — kode unik untuk identifikasi sub service</small>
+                            <small class="text-muted">Opsional</small>
                         </div>
                         <div class="form-row">
                             <div class="form-group col-md-6">
@@ -253,7 +301,7 @@
                             </div>
                             <div class="form-group col-md-6">
                                 <label>Harga (Rp) <span class="text-danger">*</span></label>
-                                <input type="number" class="form-control" name="price" id="editPrice" min="0" required>
+                                <input type="text" inputmode="numeric" class="form-control price-input" name="price" id="editPrice" required>
                             </div>
                         </div>
                         <div class="form-row">
@@ -312,13 +360,12 @@
             })
         }
 
-        // pas klik tombol edit detail → isi form modal dari data-attribute
-        $(document).on('click', '.btn-edit-detail', function() {
+        $(document).on('click', '.btn-edit-detail', function () {
             const id      = $(this).data('id');
             const baseUrl = '{{ route("rawdocservice.detail.update", [$service->id, "__ID__"]) }}';
 
             $('#editName').val($(this).data('name'));
-            $('#editCodeService').val($(this).data('code'));  //new
+            $('#editCodeService').val($(this).data('code'));
             $('#editDuration').val($(this).data('duration'));
             $('#editPrice').val($(this).data('price'));
             $('#editSort').val($(this).data('sort'));
@@ -326,6 +373,33 @@
             $('#editDetailForm').attr('action', baseUrl.replace('__ID__', id));
 
             $('#editDetailModal').modal('show');
+        });
+
+        // --- Price Formatting ---
+        function formatNumber(n) {
+            if (typeof n !== 'string') n = String(n);
+            return n.replace(/\D/g, "").replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+        }
+
+        function unformatNumber(n) {
+            return String(n).replace(/\./g, "");
+        }
+
+        // Initial format for all price inputs
+        $('.price-input').each(function() {
+            $(this).val(formatNumber($(this).val()));
+        });
+
+        // Format on input
+        $(document).on('input', '.price-input', function(e){
+            $(this).val(formatNumber($(this).val()));
+        });
+
+        // Before submitting any form, unformat its price inputs
+        $('form').on('submit', function() {
+            $(this).find('.price-input').each(function() {
+                $(this).val(unformatNumber($(this).val()));
+            });
         });
     </script>
 @endsection

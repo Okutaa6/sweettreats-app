@@ -9,7 +9,7 @@ class AffiliateController extends Controller
 {
     public function index()
     {
-        $perPage = $this->perPage;
+        $perPage    = $this->perPage;
         $affiliates = RawAffiliate::withCount('promos', 'commissions')
             ->orderBy('name')
             ->paginate($perPage);
@@ -25,16 +25,18 @@ class AffiliateController extends Controller
     public function store()
     {
         request()->validate([
-            'name'            => 'required|max:255',
-            'phone'           => 'nullable|max:20',
-            'bank_account_info' => 'nullable|max:255',
-            'commission_rate' => 'required|numeric|min:0|max:100',
-            'is_active'       => 'nullable',
+            'name'             => 'required|max:255',
+            'role' => 'required|in:' . implode(',', array_keys(RawAffiliate::roles())),
+            'phone'            => 'nullable|max:20',
+            'bank_account_info'=> 'nullable|max:255',
+            'commission_rate'  => 'required|numeric|min:0|max:100',
+            'is_active'        => 'nullable',
         ]);
 
         RawAffiliate::create([
             'id'               => \Illuminate\Support\Str::uuid()->toString(),
             'name'             => request('name'),
+            'role'             => request('role', 'pasien'),
             'phone'            => request('phone'),
             'bank_account_info'=> request('bank_account_info'),
             'commission_rate'  => request('commission_rate'),
@@ -54,15 +56,17 @@ class AffiliateController extends Controller
     public function update($id)
     {
         request()->validate([
-            'name'            => 'required|max:255',
-            'phone'           => 'nullable|max:20',
-            'bank_account_info' => 'nullable|max:255',
-            'commission_rate' => 'required|numeric|min:0|max:100',
+            'name'             => 'required|max:255',
+            'role' => 'required|in:' . implode(',', array_keys(RawAffiliate::roles())),
+            'phone'            => 'nullable|max:20',
+            'bank_account_info'=> 'nullable|max:255',
+            'commission_rate'  => 'required|numeric|min:0|max:100',
         ]);
 
         $affiliate = RawAffiliate::findOrFail($id);
         $affiliate->update([
             'name'             => request('name'),
+            'role'             => request('role', $affiliate->role),
             'phone'            => request('phone'),
             'bank_account_info'=> request('bank_account_info'),
             'commission_rate'  => request('commission_rate'),

@@ -16,17 +16,19 @@ class DashboardController extends Controller
   public function index()
   {
     $today = Carbon::today();
+    $sessionBranch = session('raw_branch_id');
 
     // Summary cards
-    $todayCount = RawCusReservation::where('date', $today)->count();
-    $pendingCount = RawCusReservation::where('status', RawCusReservation::STATUS_PENDING)->count();
-    $waitlistToday = RawCusReservation::where('date', $today)->where('status', RawCusReservation::STATUS_WAITLIST)->count();
-    $ongoingToday = RawCusReservation::where('date', $today)->where('status', RawCusReservation::STATUS_ONGOING)->count();
+    $todayCount = RawCusReservation::where('date', $today)->when($sessionBranch, fn($q) => $q->where('raw_branch_id', $sessionBranch))->count();
+    $pendingCount = RawCusReservation::where('status', RawCusReservation::STATUS_PENDING)->when($sessionBranch, fn($q) => $q->where('raw_branch_id', $sessionBranch))->count();
+    $waitlistToday = RawCusReservation::where('date', $today)->where('status', RawCusReservation::STATUS_WAITLIST)->when($sessionBranch, fn($q) => $q->where('raw_branch_id', $sessionBranch))->count();
+    $ongoingToday = RawCusReservation::where('date', $today)->where('status', RawCusReservation::STATUS_ONGOING)->when($sessionBranch, fn($q) => $q->where('raw_branch_id', $sessionBranch))->count();
 
     // Chart: tren 7 hari terakhir
     $trendData = RawCusReservation::select(DB::raw('DATE(date) as tgl'), DB::raw('COUNT(*) as total'))
       ->where('date', '>=', $today->copy()->subDays(6))
       ->where('date', '<=', $today)
+      ->when($sessionBranch, fn($q) => $q->where('raw_branch_id', $sessionBranch))
       ->groupBy('tgl')
       ->orderBy('tgl')
       ->get();
@@ -44,6 +46,7 @@ class DashboardController extends Controller
     // Chart: donut status hari ini
     $statusData = RawCusReservation::select('status', DB::raw('COUNT(*) as total'))
       ->where('date', $today)
+      ->when($sessionBranch, fn($q) => $q->where('raw_branch_id', $sessionBranch))
       ->groupBy('status')
       ->get();
 
@@ -63,6 +66,7 @@ class DashboardController extends Controller
     // Tabel reservasi hari ini
     $todayReservations = RawCusReservation::with(['customer', 'doctor', 'branch', 'services.docService'])
       ->where('date', $today)
+      ->when($sessionBranch, fn($q) => $q->where('raw_branch_id', $sessionBranch))
       ->orderBy('start_hour')
       ->get();
 
@@ -88,6 +92,12 @@ class DashboardController extends Controller
     $query = RawCusReservation::with(['customer', 'doctor', 'branch'])
       ->withCount('services');
 
+    $sessionBranch = session('raw_branch_id');
+    if ($sessionBranch) {
+      $query->where('raw_branch_id', $sessionBranch);
+      request()->merge(['branch' => $sessionBranch]); // Kunci filter agar tampilan terselect otomatis
+    }
+
     // Filters
     if (request('status')) {
       $query->where('status', request('status'));
@@ -108,7 +118,9 @@ class DashboardController extends Controller
     $reservations = $query->orderByDesc('date')->orderBy('start_hour')->paginate(20)->withQueryString();
 
     $doctors = RawDoctor::orderBy('name')->get();
-    $branches = RawBranch::orderBy('name')->get();
+    $branches = $sessionBranch
+        ? RawBranch::where('id', $sessionBranch)->get()
+        : RawBranch::orderBy('name')->get();
 
     return view('dashboard.reservasi', compact('reservations', 'doctors', 'branches'));
   }
@@ -121,6 +133,7 @@ class DashboardController extends Controller
     $reservations = RawCusReservation::with(['customer', 'doctor', 'branch', 'services.docService'])
       ->where('date', Carbon::today())
       ->where('status', RawCusReservation::STATUS_WAITLIST)
+      ->when(session('raw_branch_id'), fn($q) => $q->where('raw_branch_id', session('raw_branch_id')))
       ->orderBy('start_hour')
       ->get();
 
@@ -135,6 +148,7 @@ class DashboardController extends Controller
     $reservations = RawCusReservation::with(['customer', 'doctor', 'branch', 'services.docService'])
       ->where('date', Carbon::today())
       ->where('status', RawCusReservation::STATUS_ONGOING)
+      ->when(session('raw_branch_id'), fn($q) => $q->where('raw_branch_id', session('raw_branch_id')))
       ->orderBy('start_hour')
       ->get();
 
@@ -148,6 +162,7 @@ class DashboardController extends Controller
   {
     $reservations = RawCusReservation::with(['customer', 'doctor', 'branch', 'services.docService'])
       ->where('status', RawCusReservation::STATUS_PENDING)
+      ->when(session('raw_branch_id'), fn($q) => $q->where('raw_branch_id', session('raw_branch_id')))
       ->orderByDesc('date')
       ->orderBy('start_hour')
       ->get();

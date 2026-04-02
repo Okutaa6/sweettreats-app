@@ -15,6 +15,7 @@ class RawAffiliate extends Model
         'id',
         'name',
         'phone',
+        'role',
         'bank_account_info',
         'commission_rate',
         'is_active',
@@ -26,6 +27,15 @@ class RawAffiliate extends Model
         'is_active'       => 'boolean',
         'created_at'      => 'datetime',
     ];
+
+    public static function roles(): array
+    {
+        return [
+            'pasien'      => 'Pasien',
+            'influencer'  => 'Influencer',
+            'dokter'      => 'Dokter',
+        ];
+    }
 
     public function promos()
     {

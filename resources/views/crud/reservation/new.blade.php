@@ -118,6 +118,15 @@
                                             @endif
                                         </td>
                                     </tr>
+                                <tr>
+                                    <td valign="top" style="padding-top:12px">Keterangan</td>
+                                    <td>
+                                        <textarea class="form-control {{ $errors->has('keterangan') ? 'is-invalid' : '' }}" name="keterangan" rows="3" placeholder="Tambahkan keterangan reservasi...">{{ old('keterangan') }}</textarea>
+                                        @if ($errors->has('keterangan'))
+                                            <div class="invalid-feedback">{{ $errors->first('keterangan') }}</div>
+                                        @endif
+                                    </td>
+                                </tr>
                                     <tr>
                                         <td>Waiting List</td>
                                         <td>

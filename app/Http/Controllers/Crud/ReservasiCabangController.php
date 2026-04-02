@@ -23,7 +23,8 @@ class ReservasiCabangController extends Controller
 
     $query = RawCusReservation::with('branch', 'customer', 'doctor')
         ->withCount('services')
-        ->orderBy('date', 'desc');
+        ->orderBy('date', 'desc')
+        ->orderBy('start_hour', 'desc');
 
     // Jika user punya cabang, filter by cabang tersebut
     if (!empty($user->raw_branch_id)) {
@@ -129,12 +130,28 @@ class ReservasiCabangController extends Controller
             $servicesInput = request('services', []);
             foreach ($servicesInput as $svcId => $data) {
                 if (isset($data['checked'])) {
-                    RawCusResService::create([
-                        'raw_cus_reservation_id'    => $id,
-                        'raw_doctor_id'             => request('raw_doctor_id'),
-                        'raw_doc_service_id'        => $svcId,
-                        'raw_doc_service_detail_id' => $data['detail_id'] ?? null,
-                    ]);
+                    $detailIds = $data['detail_id'] ?? [];
+
+                    if (!empty($detailIds) && is_array($detailIds)) {
+                        foreach ($detailIds as $detailId) {
+                            $qty = $data['qty'][$detailId] ?? 1;
+                            RawCusResService::create([
+                                'raw_cus_reservation_id'    => $id,
+                                'raw_doctor_id'             => request('raw_doctor_id'),
+                                'raw_doc_service_id'        => $svcId,
+                                'raw_doc_service_detail_id' => $detailId,
+                                'quantity'                  => $qty,
+                            ]);
+                        }
+                    } else {
+                        RawCusResService::create([
+                            'raw_cus_reservation_id'    => $id,
+                            'raw_doctor_id'             => request('raw_doctor_id'),
+                            'raw_doc_service_id'        => $svcId,
+                            'raw_doc_service_detail_id' => null,
+                            'quantity'                  => 1,
+                        ]);
+                    }
                 }
             }
         });

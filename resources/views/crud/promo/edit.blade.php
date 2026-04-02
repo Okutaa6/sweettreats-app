@@ -9,11 +9,11 @@
                 <div class="float-right">
                     <ol class="breadcrumb">
                         <li class="breadcrumb-item"><a>CRUD</a></li>
-                        <li class="breadcrumb-item"><a href="{{ route('rawpromo') }}">Promo</a></li>
+                        <li class="breadcrumb-item"><a href="{{ route('rawpromo') }}">Referral</a></li>
                         <li class="breadcrumb-item active">Detail</li>
                     </ol>
                 </div>
-                <h4 class="page-title">Detail Promo</h4>
+                <h4 class="page-title">Detail Referral</h4>
             </div>
         </div>
     </div>
@@ -34,7 +34,7 @@
 
                         <table class="table table-bordered" width="100%">
                             <tr>
-                                <td width="30%">Kode Promo <span class="text-danger">*</span></td>
+                                <td width="30%">Kode Referral <span class="text-danger">*</span></td>
                                 <td>
                                     <input class="form-control" type="text" name="promo_code"
                                         value="{{ old('promo_code', $promo->promo_code) }}"

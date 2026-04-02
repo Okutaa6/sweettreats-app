@@ -30,4 +30,9 @@ class RawBranch extends Model
     {
         return $this->hasMany(RawCusReservation::class, 'raw_branch_id', 'id');
     }
+
+    public function targets()
+    {
+        return $this->hasMany(RawBranchTarget::class, 'cabang_id', 'id');
+    }
 }

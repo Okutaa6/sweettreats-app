@@ -13,9 +13,16 @@ class DoctorController extends Controller
     {
         $perPage = $this->perPage;
 
-        $doctors = RawDoctor::withCount('schedules', 'reservations')
-            ->orderBy('name')
-            ->paginate($perPage);
+        $sessionBranch = session('raw_branch_id');
+        $query = RawDoctor::withCount('schedules', 'reservations')->orderBy('name');
+
+        if ($sessionBranch) {
+            $query->whereHas('schedules', function ($q) use ($sessionBranch) {
+                $q->where('raw_branch_id', $sessionBranch);
+            });
+        }
+
+        $doctors = $query->paginate($perPage);
 
         return view('crud.doctor.list', compact('doctors'));
     }
@@ -41,7 +48,10 @@ class DoctorController extends Controller
     public function edit($id)
     {
         $doctor = RawDoctor::findOrFail($id);
-        $branches = RawBranch::orderBy('name')->get();
+        $sessionBranch = session('raw_branch_id');
+        $branches = $sessionBranch
+            ? RawBranch::where('id', $sessionBranch)->get()
+            : RawBranch::orderBy('name')->get();
 
         $schedules = RawDoctorSchedule::with('branch')
             ->where('raw_doctor_id', $id)

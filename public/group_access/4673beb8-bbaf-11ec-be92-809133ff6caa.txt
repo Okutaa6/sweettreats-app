@@ -60,17 +60,7 @@
                         "pid_path": ""
                     },
                     {
-                        "id": "a10f4cc8-cc69-442a-bd4b-e5bf5d9dce81",
-                        "pid": "452446c4-23cd-4964-a539-087010d8add3",
-                        "nama": "Reservasi Cabang",
-                        "icon": "dripicons-calendar",
-                        "urutan": 7,
-                        "urutan_path": ",02,07",
-                        "link": "reservasicabang",
-                        "pid_path": null
-                    },
-                    {
-                        "id": "a12b8452-361b-4075-a39a-df4e1cae4b34",
+                        "id": "a137f865-56bc-477a-920b-f23e8fbba7e8",
                         "pid": "452446c4-23cd-4964-a539-087010d8add3",
                         "nama": "Affiliate",
                         "icon": "dripicons-user",
@@ -80,7 +70,7 @@
                         "pid_path": null
                     },
                     {
-                        "id": "a12baa77-41f3-44ff-a733-0f6704390608",
+                        "id": "a1386866-5e7f-4097-8948-16a63653c6d6",
                         "pid": "452446c4-23cd-4964-a539-087010d8add3",
                         "nama": "Promo",
                         "icon": "dripicons-card",
@@ -90,7 +80,7 @@
                         "pid_path": null
                     },
                     {
-                        "id": "a14a0c48-0e81-4f1b-92ac-00d0309ad906",
+                        "id": "a1519790-7502-4e3e-b0a3-575304c11f54",
                         "pid": "452446c4-23cd-4964-a539-087010d8add3",
                         "nama": "Keyword",
                         "icon": "dripicons-bookmarks",
@@ -134,7 +124,7 @@
                     {
                         "id": "a10e65fc-bc6a-4210-8509-97eed93d5042",
                         "pid": "e10e4cd1-137d-46d7-bb0f-7864cfc5a4fc",
-                        "nama": "Setting",
+                        "nama": "setting",
                         "icon": "icon-fa fas fa-cog",
                         "urutan": 4,
                         "urutan_path": ",04",

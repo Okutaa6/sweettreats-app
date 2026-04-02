@@ -23,7 +23,7 @@ class ReservationApiController extends Controller
     public function getServices()
     {
         $services = RawDocService::orderBy('name')
-            ->get(['id', 'name', 'duration_minutes']);
+            ->get(['id', 'name', 'duration_minutes', 'category', 'sort_order']);
 
         return response()->json($services);
     }
@@ -64,8 +64,12 @@ class ReservationApiController extends Controller
         $dayNames = [1 => 'Senin', 2 => 'Selasa', 3 => 'Rabu', 4 => 'Kamis', 5 => 'Jumat', 6 => 'Sabtu', 7 => 'Minggu'];
         $dates = [];
 
-for ($i = 0; $i < 90; $i++) {
-              $date = Carbon::today()->addDays($i);
+        // Batasi tanggal mulai minimal 1 Mei tahun ini
+        $minDate = Carbon::create(Carbon::today()->year, 5, 1);
+        $startDate = Carbon::today()->max($minDate);
+
+        for ($i = 0; $i < 90; $i++) {
+            $date = $startDate->copy()->addDays($i);
             $dayOfWeek = $date->dayOfWeekIso; // 1=Senin ... 7=Minggu
 
             if (in_array($dayOfWeek, $scheduleDays)) {
@@ -209,5 +213,69 @@ for ($i = 0; $i < 90; $i++) {
             ->get(['id', 'name']);
 
         return response()->json($branches);
+    }
+    /**
+ * GET /api/reservation/check-customer?phone=08xxx
+ * Cek apakah nomor HP sudah terdaftar sebagai pasien
+ */
+public function checkCustomerByPhone(Request $request)
+{
+    $phone = trim($request->get('phone', ''));
+
+    if (!$phone) {
+        return response()->json(['found' => false, 'message' => 'Nomor HP tidak boleh kosong']);
+    }
+
+    // Cari customer berdasarkan nomor HP
+    // Coba exact match dulu, terus coba variasi format
+    $customer = \App\Models\RawCustomer::where('phone', $phone)
+        ->orWhere('phone', ltrim($phone, '0') ? '0' . ltrim($phone, '0') : $phone)
+        ->first();
+
+    if (!$customer) {
+        return response()->json([
+            'found'   => false,
+            'message' => 'Nomor HP tidak ditemukan. Silakan daftar sebagai Pasien Baru.'
+        ]);
+    }
+
+    return response()->json([
+        'found'          => true,
+        'customer_id'    => $customer->id,
+        'name'           => $customer->name,
+        'phone'          => $customer->phone,
+        'email'          => $customer->email ?? '',
+        'jenis_kelamin'  => $customer->jenis_kelamin ?? '',
+        'tanggal_lahir'  => $customer->tanggal_lahir
+                                ? \Carbon\Carbon::parse($customer->tanggal_lahir)->format('Y-m-d')
+                                : '',
+    ]);
+}
+
+    /**
+     * GET /api/reservation/check-new
+     * Cek apakah ada reservasi baru masuk sejak pengecekan terakhir
+     */
+    public function checkNew(Request $request)
+    {
+        $serverTime = now();
+        $since = $request->get('since', $serverTime->toDateTimeString());
+
+        $query = RawCusReservation::with('customer', 'branch')
+            ->where('created_at', '>', $since);
+
+        // Filter berdasarkan cabang user jika ada
+        $sessionBranch = session('raw_branch_id');
+        if ($sessionBranch) {
+            $query->where('raw_branch_id', $sessionBranch);
+        }
+
+        $newReservations = $query->orderBy('created_at', 'desc')->get();
+
+        return response()->json([
+            'new_count'   => $newReservations->count(),
+            'latest'      => $newReservations->first(),
+            'server_time' => $serverTime->toDateTimeString(),
+        ]);
     }
 }

@@ -23,8 +23,11 @@ class ReservationController extends Controller
         $filterStatus   = request('status');
         $filterDateFrom = request('date_from');
         $filterDateTo   = request('date_to');
+        $filterPromo     = request('promo_id');
+        $filterAffiliate = request('affiliate_id');
+        $filterNew       = request('new');
 
-        $query = RawCusReservation::with('branch', 'customer', 'doctor', 'services.docService', 'promo')
+        $query = RawCusReservation::with('branch', 'customer', 'doctor', 'services.docService', 'promo.affiliate')
             ->withCount('services');
 
         // ── Filter cabang berdasarkan session user ───────────────────────────
@@ -58,8 +61,23 @@ class ReservationController extends Controller
         if ($filterDateTo) {
             $query->whereDate('date', '<=', $filterDateTo);
         }
+        if ($filterPromo) {
+            $query->where('raw_promo_id', $filterPromo);
+        }
+        if ($filterAffiliate) {
+            $query->whereHas('promo', function($q) use ($filterAffiliate) {
+                $q->where('raw_affiliate_id', $filterAffiliate);
+            });
+        }
+        if ($filterNew) {
+            $query->where('created_at', '>=', now()->subHours(6));
+        }
 
-        $reservations = $query->orderBy('date', 'desc')->paginate($perPage);
+        // Clone the query for calendar view before applying pagination
+        $calendarQuery = clone $query;
+        $reservations = $query->orderBy('date', 'desc')
+            ->orderBy('start_hour', 'desc')
+            ->paginate($perPage);
 
         // Kalau user terkunci ke 1 cabang, dropdown hanya tampilkan cabang itu
         $branches = $sessionBranch
@@ -68,7 +86,10 @@ class ReservationController extends Controller
 
         $doctors  = RawDoctor::orderBy('name')->get();
         $statuses = RawCusReservation::statusOptions();
-        $calendarReservations = $query->get();
+        $calendarReservations = $calendarQuery->orderBy('date', 'asc')->orderBy('start_hour', 'asc')->get(); // Get all results for calendar
+
+        $promos     = \App\Models\RawPromo::orderBy('promo_code')->get();
+        $affiliates = \App\Models\RawAffiliate::orderBy('name')->get();
 
         return view('crud.reservation.list', compact(
             'reservations',
@@ -78,16 +99,27 @@ class ReservationController extends Controller
             'filterStatus',
             'filterDateFrom',
             'filterDateTo',
+            'filterPromo',      // new  
+            'filterAffiliate',  // new
             'branches',
             'doctors',
             'statuses',
-            'calendarReservations'
+            'calendarReservations',
+            'promos',           // new
+            'affiliates'         // new
         ));
     }
 
     public function create()
     {
         $sessionBranch = session('raw_branch_id');
+
+        // Fallback Database
+        $userId = session('user_id') ?? session('id');
+        if (!$sessionBranch && $userId) {
+            $user = \App\Models\Users::find($userId);
+            $sessionBranch = $user->raw_branch_id ?? null;
+        }
 
         // Kalau user terkunci ke 1 cabang, dropdown hanya tampilkan cabang itu
         $branches  = $sessionBranch
@@ -118,6 +150,7 @@ class ReservationController extends Controller
             'date'            => request('date'),
             'start_hour'      => request('start_hour'),
             'end_hour'        => request('end_hour'),
+            'keterangan'      => request('keterangan'),
             'is_waiting'      => request('is_waiting', 0),
             'created_at'      => now(),
         ]);
@@ -127,9 +160,16 @@ class ReservationController extends Controller
 
     public function edit($id)
     {
-        $reservation = RawCusReservation::with('branch', 'customer', 'doctor', 'promo')->findOrFail($id);
+        $reservation = RawCusReservation::with('branch', 'customer', 'doctor', 'promo', 'commission.affiliate')->findOrFail($id);
 
         $sessionBranch = session('raw_branch_id');
+
+        // Fallback Database
+        $userId = session('user_id') ?? session('id');
+        if (!$sessionBranch && $userId) {
+            $user = \App\Models\Users::find($userId);
+            $sessionBranch = $user->raw_branch_id ?? null;
+        }
 
         // Kalau user terkunci ke 1 cabang, dropdown hanya tampilkan cabang itu
         $branches  = $sessionBranch
@@ -139,6 +179,7 @@ class ReservationController extends Controller
         $customers   = RawCustomer::orderBy('name')->get();
         $doctors     = RawDoctor::orderBy('name')->get();
         $docServices = RawDocService::orderBy('name')->get();
+        $promos      = \App\Models\RawPromo::where('is_active', 1)->orderBy('promo_code')->get();
 
         $services = RawCusResService::with('doctor', 'docService', 'serviceDetail')
             ->where('raw_cus_reservation_id', $id)
@@ -154,6 +195,7 @@ class ReservationController extends Controller
             'customers',
             'doctors',
             'docServices',
+            'promos',
             'services',
             'totalDuration'
         ));
@@ -168,6 +210,8 @@ class ReservationController extends Controller
             'date'            => 'required|date',
             'start_hour'      => 'required',
             'end_hour'        => 'required',
+            'keterangan'      => 'nullable|string|max:65535',
+            'raw_promo_id'    => 'nullable|exists:raw_promo,id',
         ]);
 
         $reservation = RawCusReservation::findOrFail($id);
@@ -181,21 +225,44 @@ class ReservationController extends Controller
                 'start_hour'      => request('start_hour'),
                 'end_hour'        => request('end_hour'),
                 'status'          => request('status', 'pending'),
+                'keterangan'      => request('keterangan'),
+                'raw_promo_id'    => request('raw_promo_id'),
                 'is_waiting'      => request('is_waiting', 0),
                 'updated_at'      => now(),
                 'updated_by'      => session('user_id'),
             ]);
 
+            // Hapus semua layanan yang ada untuk reservasi ini
             RawCusResService::where('raw_cus_reservation_id', $id)->delete();
             $servicesInput = request('services', []);
+
             foreach ($servicesInput as $svcId => $data) {
+                // Jika checkbox layanan utama dicentang
                 if (isset($data['checked'])) {
-                    RawCusResService::create([
-                        'raw_cus_reservation_id'    => $id,
-                        'raw_doctor_id'             => request('raw_doctor_id'),
-                        'raw_doc_service_id'        => $svcId,
-                        'raw_doc_service_detail_id' => $data['detail_id'] ?? null,
-                    ]);
+                    $detailIds = $data['detail_id'] ?? [];
+
+                    // Jika ada sub-layanan yang dipilih (berupa array checkbox)
+                    if (!empty($detailIds) && is_array($detailIds)) {
+                        foreach ($detailIds as $detailId) {
+                            $qty = $data['qty'][$detailId] ?? 1;
+                            RawCusResService::create([
+                                'raw_cus_reservation_id'    => $id,
+                                'raw_doctor_id'             => request('raw_doctor_id'),
+                                'raw_doc_service_id'        => $svcId,
+                                'raw_doc_service_detail_id' => $detailId,
+                                'quantity'                  => $qty,
+                            ]);
+                        }
+                    } else {
+                        // Jika tidak ada sub-layanan yang dipilih, simpan layanan utamanya saja
+                        RawCusResService::create([
+                            'raw_cus_reservation_id'    => $id,
+                            'raw_doctor_id'             => request('raw_doctor_id'),
+                            'raw_doc_service_id'        => $svcId,
+                            'raw_doc_service_detail_id' => null,
+                            'quantity'                  => 1,
+                        ]);
+                    }
                 }
             }
         });
@@ -209,12 +276,11 @@ class ReservationController extends Controller
 
         $field   = request('field');
         $value   = request('value');
-        $allowed = ['status', 'follow_up_h_min_1', 'follow_up_h', 'follow_up_h_min_1_jam', 'keterangan_kehadiran'];
-
+        $allowed = ['status', 'follow_up_h_min_1', 'follow_up_h', 'keterangan_kehadiran', 'promo_klaim', 'keterangan'];        
         if (!in_array($field, $allowed)) {
             return response()->json(['success' => false, 'message' => 'Field tidak valid'], 422);
         }
-
+    
         $reservation->update([
             $field       => $value,
             'updated_at' => now(),
@@ -224,16 +290,48 @@ class ReservationController extends Controller
         return response()->json(['success' => true]);
     }
 
+    public function klaimPromo($id)
+{
+    $reservation = RawCusReservation::findOrFail($id);
+
+    // Cek apa reservasi punya promo
+    if (!$reservation->raw_promo_id) {
+        return back()->with('error', 'Reservasi ini tidak menggunakan promo');
+    }
+
+    // Cek apa udah pernah diklaim
+    if ($reservation->promo_klaim) {
+        return back()->with('error', 'Promo ini sudah diklaim sebelumnya');
+    }
+
+    $reservation->update([
+        'promo_klaim'    => 1,
+        'promo_klaim_by' => session('user_id'),
+        'updated_at'     => now(),
+        'updated_by'     => session('user_id'),
+    ]);
+
+    return back()->with('success', 'Promo berhasil diklaim!');
+}
+
     public function destroy($id)
     {
-        $reservation = RawCusReservation::findOrFail($id);
+        $reservation = RawCusReservation::with('commission', 'services')->findOrFail($id);
 
-        if ($reservation->services()->count() > 0) {
-            return redirect()->route('rawreservation')->with('error', 'Data tidak dapat dihapus karena masih memiliki layanan');
-        }
+        \Illuminate\Support\Facades\DB::transaction(function () use ($reservation) {
+            // 1. Hapus komisi yang terkait (penyebab utama error)
+            if ($reservation->commission) {
+                $reservation->commission->delete();
+            }
 
-        $reservation->delete();
-        return redirect()->route('rawreservation')->with('success', 'Reservasi berhasil dihapus');
+            // 2. Hapus layanan yang terkait
+            $reservation->services()->delete();
+
+            // 3. Hapus reservasi itu sendiri
+            $reservation->delete();
+        });
+
+        return redirect()->route('rawreservation')->with('success', 'Reservasi berhasil dihapus.');
     }
 
     public function commissionApprove($reservationId, $commissionId)

@@ -43,6 +43,20 @@
                                 </td>
                             </tr>
                             <tr>
+                                <td>Role <span class="text-danger">*</span></td>
+                                <td>
+                                    <select class="form-control" name="role">
+                                        @foreach(App\Models\RawAffiliate::roles() as $key => $label)
+                                            <option value="{{ $key }}"
+                                                {{ old('role', $affiliate->role ?? 'pasien') == $key ? 'selected' : '' }}>
+                                                {{ $label }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                    <small class="text-muted">Role menentukan jenis pemilik kode referral ini</small>
+                                </td>
+                            </tr>
+                            <tr>
                                 <td>No. WhatsApp</td>
                                 <td>
                                     <input class="form-control" type="text" name="phone"
