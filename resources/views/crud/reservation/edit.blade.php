@@ -2,58 +2,62 @@
 
 @section('content')
     <div class="container-fluid">
-        <!-- Page-Title -->
+        {{-- Page Head --}}
+        @php
+            $isNewReservation = $reservation->created_at && \Carbon\Carbon::parse($reservation->created_at)->diffInHours(\Carbon\Carbon::now()) < 6;
+        @endphp
         <div class="row">
             <div class="col-sm-12">
                 <div class="page-title-box">
-                    <div class="float-right">
-                        <ol class="breadcrumb">
-                            <li class="breadcrumb-item"><a>CRUD</a></li>
-                            <li class="breadcrumb-item"><a href="{{ route('rawreservation') }}">Reservation</a></li>
-                            <li class="breadcrumb-item active">Detail</li>
-                        </ol>
-                    </div>
-                    <h4 class="page-title">Detail Reservation</h4>
+                    <h4 class="page-title">
+                        Detail Reservasi
+                        @if($isNewReservation)
+                            <span class="st-card__badge-new"><i class="fa fa-star"></i> Baru</span>
+                        @endif
+                    </h4>
                 </div>
             </div>
         </div>
 
         @include('layouts.notif')
 
+        <div class="mb-3">
+            <a href="{{ route('rawreservation') }}" class="st-btn-back"><i class="fa fa-arrow-left"></i> Kembali</a>
+        </div>
+
         {{-- Reservation Info Section --}}
         <form method="post" action="{{ route('rawreservation.update', $reservation->id) }}">
             @csrf
             @method('PUT')
 
-            <div class="row mb-3">
-                <div class="col-12">
-                    <a href="{{ route('rawreservation') }}" class="btn btn-sm btn-warning"><i class="fa fa-arrow-left"></i> Kembali</a>
-                </div>
-            </div>
-
             <div class="row">
                 {{-- Kolom Kiri (Info Utama) --}}
                 <div class="col-lg-8">
-                    <div class="card">
-                        <div class="card-header">
-                            <h4 class="card-title">
-                                Informasi Reservasi
-                                @if($reservation->created_at && \Carbon\Carbon::parse($reservation->created_at)->diffInHours(\Carbon\Carbon::now()) < 6)
-                                    <span class="badge badge-success ml-2" style="font-size:0.75rem; vertical-align: middle;"><i class="fa fa-star"></i> Baru</span>
-                                @endif
-                            </h4>
+                    <div class="st-card">
+                        <div class="st-card__head">
+                            <div class="st-card__title-wrap">
+                                <span class="st-card__icon"><i class="fa fa-calendar-alt"></i></span>
+                                <h4 class="st-card__title">Informasi Reservasi</h4>
+                            </div>
                         </div>
-                        <div class="card-body">
+                        <div class="st-card__body">
                             <div class="row">
                                 <div class="col-md-6 form-group">
-                                    <label>Customer</label>
-                                    <select class="select2 form-control {{ $errors->has('raw_customer_id') ? 'is-invalid' : '' }}" name="raw_customer_id">
-                                        <option value="">- Pilih Customer -</option>
-                                        @foreach ($customers as $customer)
-                                            <option value="{{ $customer->id }}" {{ $reservation->raw_customer_id == $customer->id ? 'selected' : '' }}>
-                                                {{ $customer->name }}
+                                    <label>Pasien</label>
+                                    @if(!$reservation->customer)
+                                        <div class="st-alert st-alert--warning st-alert--compact">
+                                            <i class="fa fa-exclamation-triangle st-alert__icon"></i>
+                                            <div class="st-alert__body">Pasien telah dihapus. Pilih pasien pengganti di bawah.</div>
+                                        </div>
+                                    @endif
+                                    <select class="form-control {{ $errors->has('raw_customer_id') ? 'is-invalid' : '' }}" name="raw_customer_id" id="customerSelect">
+                                        @if($reservation->customer)
+                                            <option value="{{ $reservation->customer->id }}" selected>
+                                                {{ $reservation->customer->name }} ({{ $reservation->customer->phone ?: '-' }})
                                             </option>
-                                        @endforeach
+                                        @else
+                                            <option value="">- Cari Pasien -</option>
+                                        @endif
                                     </select>
                                     @if ($errors->has('raw_customer_id'))
                                         <div class="invalid-feedback">{{ $errors->first('raw_customer_id') }}</div>
@@ -87,9 +91,9 @@
                                 @if ($errors->has('raw_branch_id'))
                                     <div class="invalid-feedback">{{ $errors->first('raw_branch_id') }}</div>
                                 @endif
-                                <div id="branchChangeNotice" class="alert alert-warning mt-2 mb-0" style="display:none; font-size:13px;">
-                                    <i class="fa fa-exclamation-triangle"></i>
-                                    <strong>Perhatian!</strong> Jika cabang dipindahkan, data pasien tidak akan terlihat atau ditransfer ke cabang baru.
+                                <div id="branchChangeNotice" class="st-alert st-alert--warning mt-2 mb-0" style="display:none;">
+                                    <i class="fa fa-exclamation-triangle st-alert__icon"></i>
+                                    <div class="st-alert__body"><strong>Perhatian!</strong> Jika cabang dipindahkan, data pasien tidak akan terlihat atau ditransfer ke cabang baru.</div>
                                 </div>
                             </div>
                             <div class="row">
@@ -104,35 +108,40 @@
                                 <div class="col-md-6 form-group">
                                     <label>Jam</label>
                                     <div id="slotPickerWrap">
-                                        <button type="button" class="btn btn-outline-primary btn-sm mb-2" id="loadSlotsBtn" onclick="loadSlots()">
+                                        <button type="button" class="st-btn-outline" id="loadSlotsBtn" onclick="loadSlots()" style="margin-bottom:8px;">
                                             <i class="fa fa-clock"></i> Cek Slot Tersedia
                                         </button>
-                                        <div id="selectedTimeDisplay" style="font-weight:600;color:#333">
-                                            Jadwal aktif: <span id="currentTime">{{ \Illuminate\Support\Str::substr($reservation->start_hour, 0, 5) }} - {{ \Illuminate\Support\Str::substr($reservation->end_hour, 0, 5) }}</span>
+                                        <div class="st-slot-info" id="selectedTimeDisplay">
+                                            <i class="fa fa-bookmark"></i>
+                                            <span class="st-slot-info-label">Jadwal aktif</span>
+                                            <span class="st-slot-info-value" id="currentTime">{{ \Illuminate\Support\Str::substr($reservation->start_hour, 0, 5) }} – {{ \Illuminate\Support\Str::substr($reservation->end_hour, 0, 5) }}</span>
                                         </div>
                                         <input type="hidden" name="start_hour" id="startHourInput" value="{{ old('start_hour', $reservation->start_hour) }}" />
                                         <input type="hidden" name="end_hour" id="endHourInput" value="{{ old('end_hour', $reservation->end_hour) }}" />
                                         @if ($errors->has('start_hour'))
-                                            <div class="text-danger" style="font-size:0.85em;margin-top:4px">{{ $errors->first('start_hour') }}</div>
+                                            <div class="invalid-feedback" style="display:block">{{ $errors->first('start_hour') }}</div>
                                         @endif
                                     </div>
                                 </div>
                             </div>
-                            <div id="slotsContainer" style="margin-top:10px"></div>
+                            <div id="slotsContainer"></div>
                         </div>
                     </div>
 
-                    <div class="card">
-                        <div class="card-header">
-                            <h4 class="card-title">Layanan Perawatan</h4>
+                    <div class="st-card">
+                        <div class="st-card__head">
+                            <div class="st-card__title-wrap">
+                                <span class="st-card__icon"><i class="fa fa-tooth"></i></span>
+                                <h4 class="st-card__title">Layanan Perawatan</h4>
+                            </div>
                         </div>
-                        <div class="card-body">
+                        <div class="st-card__body">
                             @if($reservation->lainnya_text)
-                                <div class="form-group mb-3">
+                                <div class="form-group">
                                     <label>Keluhan Awal Pasien</label>
-                                    <div class="alert alert-warning mb-0" style="font-size:0.9rem;">
-                                        <i class="fa fa-comment-dots"></i>
-                                        <strong>{{ $reservation->lainnya_text }}</strong>
+                                    <div class="st-alert st-alert--warning">
+                                        <i class="fa fa-comment-dots st-alert__icon"></i>
+                                        <div class="st-alert__body"><strong>{{ $reservation->lainnya_text }}</strong></div>
                                     </div>
                                     <small class="text-muted">Ini keluhan yang ditulis pasien saat reservasi online. Tentukan perawatan yang sesuai di bawah ini.</small>
                                 </div>
@@ -161,18 +170,21 @@
                                 @endphp
                                 window.existingServices = @json($mappedServices);
                             </script>
-                            <div id="totalDurationInfo" class="mt-3 alert alert-info" style="font-size:0.9em; display:none;"></div>
+                            <div id="totalDurationInfo" class="st-total-duration" style="display:none;"></div>
                         </div>
                     </div>
                 </div>
 
                 {{-- Kolom Kanan (Aksi & Info Tambahan) --}}
                 <div class="col-lg-4">
-                    <div class="card">
-                        <div class="card-header">
-                            <h4 class="card-title">Aksi & Status</h4>
+                    <div class="st-card">
+                        <div class="st-card__head">
+                            <div class="st-card__title-wrap">
+                                <span class="st-card__icon"><i class="fa fa-sliders-h"></i></span>
+                                <h4 class="st-card__title">Aksi &amp; Status</h4>
+                            </div>
                         </div>
-                        <div class="card-body">
+                        <div class="st-card__body">
                             <div class="form-group">
                                 <label>Status Reservasi</label>
                                 <select class="form-control" name="status">
@@ -190,18 +202,6 @@
                                     <div class="invalid-feedback" style="display:block">{{ $errors->first('keterangan') }}</div>
                                 @endif
                             </div>
-                            <div class="d-flex" style="gap: 8px;">
-                                <button class="btn btn-primary flex-grow-1" type="submit"><i class="fa fa-save"></i> Simpan</button>
-                                <button type="button" class="btn btn-outline-danger" onclick="deleteReservation()"><i class="fa fa-trash"></i></button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="card">
-                        <div class="card-header">
-                            <h4 class="card-title">Informasi Promo</h4>
-                        </div>
-                        <div class="card-body">
                             <div class="form-group">
                                 <label>Gunakan Promo</label>
                                 <select class="select2 form-control" name="raw_promo_id">
@@ -214,24 +214,33 @@
                                 </select>
                             </div>
                             @if($reservation->promo)
-                                <div class="mt-2">
-                                    <ul class="list-unstyled">
-                                        <li><strong>Kode:</strong> <span class="badge badge-info">{{ $reservation->promo->promo_code }}</span></li>
-                                        <li><strong>Diskon:</strong>
+                                <ul class="st-kv-list">
+                                    <li>
+                                        <strong>Kode</strong>
+                                        <span class="st-pill st-pill--info">{{ $reservation->promo->promo_code }}</span>
+                                    </li>
+                                    <li>
+                                        <strong>Diskon</strong>
+                                        <span>
                                             @if($reservation->promo->discount_type == 'percent')
                                                 {{ $reservation->promo->discount_value }}%
                                             @else
                                                 Rp {{ number_format($reservation->promo->discount_value, 0, ',', '.') }}
                                             @endif
+                                        </span>
+                                    </li>
+                                    @if($reservation->promo->affiliate)
+                                        <li>
+                                            <strong>Affiliate</strong>
+                                            <span>{{ $reservation->promo->affiliate->name }}</span>
                                         </li>
-                                        @if($reservation->promo->affiliate)
-                                            <li><strong>Affiliate:</strong> {{ $reservation->promo->affiliate->name }}</li>
-                                        @endif
-                                    </ul>
-                                </div>
-                            @else
-                                <p class="text-muted small">Reservasi ini tidak menggunakan promo.</p>
+                                    @endif
+                                </ul>
                             @endif
+                            <div class="st-btn-row">
+                                <button class="st-btn-brand" type="submit"><i class="fa fa-save"></i> Simpan Perubahan</button>
+                                <button type="button" class="st-btn-danger-outline" onclick="deleteReservation()" title="Hapus reservasi"><i class="fa fa-trash"></i></button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -244,67 +253,74 @@
         </form>
 
         {{-- Komisi --}}
-@if($reservation->commission)
-@php $comm = $reservation->commission; $commOpt = \App\Models\RawCommission::statusOptions()[$comm->status] ?? []; @endphp
-<div class="row">
-    <div class="col-md-12">
-        <div class="card">
-            <div class="card-header">
-                <h4 class="card-title">Komisi Affiliate</h4>
+        @if($reservation->commission)
+            @php $comm = $reservation->commission; $commOpt = \App\Models\RawCommission::statusOptions()[$comm->status] ?? []; @endphp
+            @php
+                $commPillClass = match($comm->status) {
+                    'pending'  => 'st-pill--warning',
+                    'approved' => 'st-pill--info',
+                    'paid'     => 'st-pill--success',
+                    default    => 'st-pill--neutral',
+                };
+            @endphp
+            <div class="row">
+                <div class="col-md-12">
+                    <div class="st-card">
+                        <div class="st-card__head">
+                            <div class="st-card__title-wrap">
+                                <span class="st-card__icon"><i class="fa fa-hand-holding-usd"></i></span>
+                                <h4 class="st-card__title">Komisi Affiliate</h4>
+                            </div>
+                        </div>
+                        <div class="st-card__body" style="padding: 0;">
+                            <table class="st-kv-table">
+                                <tbody>
+                                    <tr>
+                                        <td>Affiliate</td>
+                                        <td>{{ $comm->affiliate->name ?? '-' }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Kode Promo</td>
+                                        <td>{{ $reservation->promo->promo_code ?? '-' }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Jumlah Komisi</td>
+                                        <td><strong>Rp {{ number_format($comm->amount, 0, ',', '.') }}</strong></td>
+                                    </tr>
+                                    <tr>
+                                        <td>Status Komisi</td>
+                                        <td>
+                                            <span class="st-pill {{ $commPillClass }}">{{ $commOpt['label'] ?? $comm->status }}</span>
+                                        </td>
+                                    </tr>
+                                    @if($comm->status === 'pending')
+                                        <tr>
+                                            <td>Tindakan</td>
+                                            <td>
+                                                <form method="POST" action="{{ route('rawreservation.commission.approve', [$reservation->id, $comm->id]) }}" class="m-0">
+                                                    @csrf @method('PATCH')
+                                                    <button class="st-btn-brand" type="submit"><i class="fa fa-check"></i> Approve Komisi</button>
+                                                </form>
+                                            </td>
+                                        </tr>
+                                    @elseif($comm->status === 'approved')
+                                        <tr>
+                                            <td>Tindakan</td>
+                                            <td>
+                                                <form method="POST" action="{{ route('rawreservation.commission.pay', [$reservation->id, $comm->id]) }}" class="m-0">
+                                                    @csrf @method('PATCH')
+                                                    <button class="st-btn-brand" type="submit"><i class="fa fa-money-bill-wave"></i> Tandai Sudah Dibayar</button>
+                                                </form>
+                                            </td>
+                                        </tr>
+                                    @endif
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
             </div>
-            <div class="card-body">
-                <table class="table table-bordered">
-                    <tr>
-                        <td width="25%">Affiliate</td>
-                        <td>{{ $comm->affiliate->name ?? '-' }}</td>
-                    </tr>
-                    <tr>
-                        <td>Kode Promo</td>
-                        <td>{{ $reservation->promo->promo_code ?? '-' }}</td>
-                    </tr>
-                    <tr>
-                        <td>Jumlah Komisi</td>
-                        <td><strong>Rp {{ number_format($comm->amount, 0, ',', '.') }}</strong></td>
-                    </tr>
-                    <tr>
-                        <td>Status Komisi</td>
-                        <td>
-                            <span class="badge badge-{{ $commOpt['color'] ?? 'secondary' }}">
-                                {{ $commOpt['label'] ?? $comm->status }}
-                            </span>
-                        </td>
-                    </tr>
-                    @if($comm->status === 'pending')
-                    <tr>
-                        <td></td>
-                        <td>
-                            <form method="POST" action="{{ route('rawreservation.commission.approve', [$reservation->id, $comm->id]) }}">
-                                @csrf @method('PATCH')
-                                <button class="btn btn-primary btn-sm" type="submit">
-                                    ✅ Approve Komisi
-                                </button>
-                            </form>
-                        </td>
-                    </tr>
-                    @elseif($comm->status === 'approved')
-                    <tr>
-                        <td></td>
-                        <td>
-                            <form method="POST" action="{{ route('rawreservation.commission.pay', [$reservation->id, $comm->id]) }}">
-                                @csrf @method('PATCH')
-                                <button class="btn btn-success btn-sm" type="submit">
-                                    💰 Tandai Sudah Dibayar
-                                </button>
-                            </form>
-                        </td>
-                    </tr>
-                    @endif
-                </table>
-            </div>
-        </div>
-    </div>
-</div>
-@endif
+        @endif
 
 @endsection
 
@@ -368,9 +384,9 @@
             });
             if (total > 0) {
                 $('#totalDurationInfo').html(
-                    '<i class="fa fa-clock text-info"></i> '
+                    '<i class="fa fa-clock"></i> '
                     + '<strong>Total durasi: ' + total + ' menit</strong>'
-                    + ' (' + names.join(', ') + ')'
+                    + '<span style="color:var(--text-subtle);font-weight:500;margin-left:6px;">(' + names.join(', ') + ')</span>'
                 ).show();
             } else {
                 $('#totalDurationInfo').html('Belum ada layanan dipilih').hide();
@@ -393,19 +409,16 @@
                 return;
             }
 
-            let html = '';
+            let html = '<div class="st-service-list">';
             services.forEach(function(svc) {
                 const existing       = (window.existingServices || {})[svc.id] || null;
                 const isChecked      = existing !== null;
                 const existDetailIds = existing ? (existing.detail_ids || []) : [];
-                const bg          = isChecked ? '#f0fff4' : '#fff';
-                const border      = isChecked ? '#b2dfdb' : '#e3e6f0';
 
-                html += '<div class="service-row mb-2 p-2" '
-                      + 'style="border:1px solid ' + border + '; border-radius:6px; background:' + bg + '" '
+                html += '<div class="st-service-row ' + (isChecked ? 'is-checked' : '') + '" '
                       + 'id="svcRow_' + svc.id + '">';
 
-                html += '<div class="d-flex align-items-center flex-wrap" style="gap:10px">';
+                html += '<div class="st-service-row__top">';
 
                 // checkbox layanan
                 html += '<div class="custom-control custom-checkbox">'
@@ -427,14 +440,12 @@
                 html += '<span class="badge badge-light text-muted" id="svcPriceBadge_' + svc.id + '">'
                       + '<i class="fa fa-tag"></i> Rp ' + Number(svc.price).toLocaleString('id-ID') + '</span>';
 
-                html += '</div>'; // end d-flex
+                html += '</div>'; // end st-service-row__top
 
                 // baris sub-detail — muncul kalau diceklis
-                html += '<div class="svc-detail-wrap mt-2" id="detailWrap_' + svc.id + '" '
+                html += '<div class="svc-detail-wrap" id="detailWrap_' + svc.id + '" '
                       + 'style="' + (isChecked ? '' : 'display:none') + '">';
-                html += '<div class="d-flex flex-wrap" style="gap:10px">';
-                
-                html += '<div style="flex:1; min-width: 100%;">';
+                html += '<div>';
 
                 if (svc.details && svc.details.length > 0) {
                     // Cek apakah ada sub-detail yang sudah dicentang untuk membuka area ini otomatis
@@ -451,10 +462,10 @@
                     
                     // Input pencarian sub-detail
                     html += '<div class="mb-1 mt-1">';
-                    html += '<input type="text" class="form-control form-control-sm sub-detail-search" placeholder="Cari sub-detail..." data-target="#listSubSvc_' + svc.id + '">';
+                    html += '<input type="text" class="sub-detail-search" placeholder="Cari sub-detail..." data-target="#listSubSvc_' + svc.id + '">';
                     html += '</div>';
 
-                    html += '<div class="sub-service-checklist mt-1" id="listSubSvc_' + svc.id + '" style="display: flex; flex-direction: column; gap: 5px; max-height: 180px; overflow-y: auto; border: 1px solid #e3e6f0; padding: 10px; border-radius: 5px; background: #fafafa;">';
+                    html += '<div class="sub-service-checklist mt-1" id="listSubSvc_' + svc.id + '">';
                     
                     svc.details.forEach(function(d) {
                         const existingDetail = existing && existing.details ? existing.details.find(function(e) { return e.id == d.id; }) : null;
@@ -475,8 +486,9 @@
                               + d.name + ' <small class="text-muted">(' + d.duration_minutes + ' mnt — Rp ' + Number(d.price).toLocaleString('id-ID') + ')</small>'
                               + '</label></div>';
                               
-                        html += '<div style="width: 80px; ' + (isDetailChecked ? '' : 'display:none;') + '" id="qty_wrap_' + d.id + '">';
-                        html += '<input type="number" name="services[' + svc.id + '][qty][' + d.id + ']" value="' + qty + '" class="form-control form-control-sm qty-input" min="1" placeholder="Qty">';
+                        html += '<div class="d-flex align-items-center" style="gap:6px; ' + (isDetailChecked ? '' : 'display:none;') + '" id="qty_wrap_' + d.id + '">';
+                        html += '<small class="text-muted" style="white-space:nowrap;">Qty</small>';
+                        html += '<input type="number" name="services[' + svc.id + '][qty][' + d.id + ']" value="' + qty + '" class="form-control form-control-sm qty-input" min="1" placeholder="Qty" style="width:80px;">';
                         html += '</div></div>';
                     });
                     html += '</div></div>';
@@ -487,9 +499,10 @@
                           + '</div>';
                 }
 
-                html += '</div></div></div>'; // end sub-detail wrap
+                html += '</div></div>'; // end sub-detail wrap
                 html += '</div>'; // end service-row
             });
+            html += '</div>'; // end st-service-list
 
             $('#serviceChecklist').html(html);
 
@@ -549,11 +562,11 @@
 
             if (checked) {
                 wrap.show();
-                row.css('background', '#f0fff4').css('border-color', '#b2dfdb'); 
+                row.addClass('is-checked');
             } else {
                 wrap.hide();
                 wrap.find('input[type="checkbox"]').prop('checked', false); // Uncheck all sub-services
-                row.css('background', '#fff').css('border-color', '#e3e6f0');
+                row.removeClass('is-checked');
             }
 
             updateTotalDuration();
@@ -704,10 +717,10 @@
 
             const selectedEnd = selectedStart ? addMinutes(selectedStart, totalDuration) : null;
 
-            let html = '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px">';
+            let html = '<div class="st-slots">';
 
             allSlots.forEach(function(slot) {
-                let btnClass, extraAttr = '', label;
+                let variant, extraAttr = '', label;
                 const slotStart = slot.time;
 
                 // Apakah slot ini masuk dalam range durasi yang sedang dipilih user?
@@ -722,43 +735,42 @@
                     && slotWouldConflict(slotStart, bookedRanges);
 
                 if (slot.is_booked) {
-                    btnClass  = 'btn btn-sm btn-danger';
+                    variant   = 'st-slot--booked';
                     extraAttr = 'disabled';
-                    label     = slotStart + ' <small>(Terisi)</small>';
+                    label     = slotStart + ' <small>Terisi</small>';
                 } else if (slot.is_past) {
-                    btnClass  = 'btn btn-sm btn-secondary';
+                    variant   = 'st-slot--past';
                     extraAttr = 'disabled';
-                    label     = slotStart + ' <small>(Lewat)</small>';
+                    label     = slotStart + ' <small>Lewat</small>';
                 } else if (wouldConflict) {
-                    // slot ini ada tapi kalau dipilih durasinya akan tabrak booking
-                    btnClass  = 'btn btn-sm btn-warning';
+                    variant   = 'st-slot--conflict';
                     extraAttr = 'disabled title="Jika dipilih, durasi ' + totalDuration + ' menit akan menabrak jadwal lain"';
-                    label     = slotStart + ' <small>(Konflik durasi)</small>';
+                    label     = slotStart + ' <small>Konflik</small>';
                 } else if (isSelectedSlot) {
-                    btnClass  = 'btn btn-sm btn-primary';
-                    label     = slotStart + ' <small>(Dipilih)</small>';
+                    variant = 'st-slot--selected';
+                    label   = slotStart + ' <small>Dipilih</small>';
                 } else if (isInSelectedRange) {
-                    btnClass  = 'btn btn-sm btn-danger';
+                    variant   = 'st-slot--preview';
                     extraAttr = 'disabled';
-                    label     = slotStart + ' <small>(Akan terisi)</small>';
-                } else {
-                    btnClass  = 'btn btn-sm btn-success';
                     label     = slotStart;
+                } else {
+                    variant = 'st-slot--available';
+                    label   = slotStart;
                 }
 
-                html += '<button type="button" class="slot-btn ' + btnClass + '" '
+                html += '<button type="button" class="st-slot ' + variant + '" '
                       + extraAttr
                       + ' data-start="' + slotStart + '">'
                       + label + '</button>';
             });
 
             html += '</div>';
-            html += '<small class="text-muted d-block mt-2">'
-                  + '<span class="badge badge-primary">Dipilih</span> &nbsp;'
-                  + '<span class="badge badge-success">Tersedia</span> &nbsp;'
-                  + '<span class="badge badge-warning">Konflik durasi</span> &nbsp;'
-                  + '<span class="badge badge-danger">Terisi / Akan terisi</span>'
-                  + '</small>';
+            html += '<div class="st-slot-legend">'
+                  + '<span class="st-slot-legend-item"><span class="st-slot-legend-dot st-slot-legend-dot--available"></span>Tersedia</span>'
+                  + '<span class="st-slot-legend-item"><span class="st-slot-legend-dot st-slot-legend-dot--selected"></span>Dipilih</span>'
+                  + '<span class="st-slot-legend-item"><span class="st-slot-legend-dot st-slot-legend-dot--conflict"></span>Konflik durasi</span>'
+                  + '<span class="st-slot-legend-item"><span class="st-slot-legend-dot st-slot-legend-dot--booked"></span>Terisi</span>'
+                  + '</div>';
 
             $('#slotsContainer').html(html);
         }
@@ -796,7 +808,7 @@
         }
 
         // Klik slot
-        $(document).on('click', '.slot-btn:not([disabled])', function() {
+        $(document).on('click', '.st-slot:not([disabled])', function() {
             selectedStart = $(this).data('start');
             const end     = addMinutes(selectedStart, totalDuration);
 
@@ -878,5 +890,19 @@
             }
         });
         // ===== END SLOT PICKER =====
+
+        // ===== CUSTOMER SELECT2 AJAX =====
+        $('#customerSelect').select2({
+            placeholder: '- Cari Pasien -',
+            allowClear: true,
+            minimumInputLength: 2,
+            ajax: {
+                url: '{{ route("api.customer.search") }}',
+                dataType: 'json',
+                delay: 300,
+                data: function(params) { return { q: params.term }; },
+                processResults: function(data) { return { results: data }; }
+            }
+        });
     </script>
 @endsection

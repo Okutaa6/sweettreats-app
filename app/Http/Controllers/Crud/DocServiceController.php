@@ -49,7 +49,7 @@ class DocServiceController extends Controller
             'duration_minutes' => request('duration_minutes'),
             'price'            => request('price'),
             'created_at'       => now(),
-            'created_by'       => session('user_id'),
+            'created_by'       => session('id'),
         ]);
 
         return redirect()->route('rawdocservice')->with('success', 'Layanan berhasil ditambahkan');
@@ -85,7 +85,7 @@ class DocServiceController extends Controller
             'duration_minutes' => request('duration_minutes'),
             'price'            => request('price'),
             'updated_at'       => now(),
-            'updated_by'       => session('user_id'),
+            'updated_by'       => session('id'),
         ]);
 
         return redirect()->route('rawdocservice.edit', $id)->with('success', 'Layanan berhasil diubah');
@@ -122,7 +122,7 @@ class DocServiceController extends Controller
             'sort_order'         => request('sort_order', 0),
             'is_active'          => 1,
             'created_at'         => now(),
-            'created_by'         => session('user_id'),
+            'created_by'         => session('id'),
         ]);
 
         return redirect()->route('rawdocservice.edit', $serviceId)->with('success', 'Sub-detail berhasil ditambahkan');
@@ -146,7 +146,7 @@ class DocServiceController extends Controller
             'sort_order'       => request('sort_order', $detail->sort_order),
             'is_active'        => request('is_active', 1),
             'updated_at'       => now(),
-            'updated_by'       => session('user_id'),
+            'updated_by'       => session('id'),
         ]);
 
         return redirect()->route('rawdocservice.edit', $serviceId)->with('success', 'Sub-detail berhasil diubah');

@@ -5,12 +5,6 @@
     <div class="row">
         <div class="col-sm-12">
             <div class="page-title-box">
-                <div class="float-right">
-                    <ol class="breadcrumb">
-                        <li class="breadcrumb-item"><a>Report</a></li>
-                        <li class="breadcrumb-item active">Report Referral</li>
-                    </ol>
-                </div>
                 <h4 class="page-title">Report Referral</h4>
             </div>
         </div>
@@ -20,130 +14,86 @@
 
     <div class="row">
         <div class="col-md-12">
-            <div class="card">
-                <div class="card-body" style="zoom:0.85">
+            <div class="st-card">
+                <div class="st-card__body">
 
-                    {{-- ── Filter ── --}}
-                    <form method="GET" action="{{ route('report.referral') }}" class="mb-3">
-                        <div class="row" style="gap:8px; row-gap:8px;">
+                    {{-- Filter --}}
+                    <form method="GET" action="{{ route('report.referral') }}" class="st-filter-bar mb-3" style="flex-wrap:wrap; gap:8px;">
+                        <select class="form-control form-control-sm" name="affiliate_id" style="min-width:200px; flex:1;">
+                            <option value="">Semua Affiliate</option>
+                            @foreach($affiliates as $a)
+                                <option value="{{ $a->id }}" {{ $filterAffiliate == $a->id ? 'selected' : '' }}>
+                                    {{ $a->name }} @if($a->role)({{ ucfirst($a->role) }})@endif
+                                </option>
+                            @endforeach
+                        </select>
 
-                            {{-- Filter Affiliate --}}
-                            <div class="col" style="min-width:200px">
-                                <select class="form-control form-control-sm" name="affiliate_id">
-                                    <option value="">Semua Affiliate</option>
-                                    @foreach($affiliates as $a)
-                                        <option value="{{ $a->id }}"
-                                            {{ $filterAffiliate == $a->id ? 'selected' : '' }}>
-                                            {{ $a->name }}
-                                            @if($a->role)
-                                                ({{ ucfirst($a->role) }})
-                                            @endif
-                                        </option>
-                                    @endforeach
-                                </select>
-                            </div>
+                        <select class="form-control form-control-sm" name="branch_id" style="min-width:160px; flex:1;">
+                            <option value="">Semua Cabang</option>
+                            @foreach($branches as $b)
+                                <option value="{{ $b->id }}" {{ $filterBranch == $b->id ? 'selected' : '' }}>{{ $b->name }}</option>
+                            @endforeach
+                        </select>
 
-                            {{-- Filter Cabang --}}
-                            <div class="col" style="min-width:160px">
-                                <select class="form-control form-control-sm" name="branch_id">
-                                    <option value="">Semua Cabang</option>
-                                    @foreach($branches as $b)
-                                        <option value="{{ $b->id }}"
-                                            {{ $filterBranch == $b->id ? 'selected' : '' }}>
-                                            {{ $b->name }}
-                                        </option>
-                                    @endforeach
-                                </select>
-                            </div>
+                        <input type="date" class="form-control form-control-sm" name="date_from" value="{{ $filterDateFrom }}" style="min-width:150px; flex:1;">
+                        <input type="date" class="form-control form-control-sm" name="date_to" value="{{ $filterDateTo }}" style="min-width:150px; flex:1;">
 
-                            {{-- Filter Tanggal --}}
-                            <div class="col" style="min-width:150px">
-                                <input type="date" class="form-control form-control-sm"
-                                    name="date_from" value="{{ $filterDateFrom }}"
-                                    placeholder="Dari tanggal">
-                            </div>
-                            <div class="col" style="min-width:150px">
-                                <input type="date" class="form-control form-control-sm"
-                                    name="date_to" value="{{ $filterDateTo }}"
-                                    placeholder="Sampai tanggal">
-                            </div>
+                        <select class="form-control form-control-sm" name="klaim" style="min-width:150px; flex:1;">
+                            <option value="">Semua Status Klaim</option>
+                            <option value="1" {{ $filterKlaim === '1' ? 'selected' : '' }}>Sudah Diklaim</option>
+                            <option value="0" {{ $filterKlaim === '0' ? 'selected' : '' }}>Belum Diklaim</option>
+                        </select>
 
-                            {{-- Filter Klaim --}}
-                            <div class="col" style="min-width:150px">
-                                <select class="form-control form-control-sm" name="klaim">
-                                    <option value="">Semua Status Klaim</option>
-                                    <option value="1" {{ $filterKlaim === '1' ? 'selected' : '' }}>
-                                        ✅ Sudah Diklaim
-                                    </option>
-                                    <option value="0" {{ $filterKlaim === '0' ? 'selected' : '' }}>
-                                        ⬜ Belum Diklaim
-                                    </option>
-                                </select>
-                            </div>
-
-                            {{-- Tombol --}}
-                            <div class="col d-flex" style="min-width:120px; gap:4px">
-                                <button type="submit" class="btn btn-sm btn-primary flex-fill">
-                                    <i class="fa fa-search"></i> Filter
-                                </button>
-                                <a href="{{ route('report.referral') }}" class="btn btn-sm btn-warning"
-                                    title="Reset">
-                                    <i class="fa fa-times"></i>
-                                </a>
-                            </div>
-
+                        <div class="d-flex" style="gap:4px;">
+                            <button type="submit" class="st-btn-brand"><i class="fa fa-search"></i> Filter</button>
+                            <a href="{{ route('report.referral') }}" class="st-btn-outline-brown" title="Reset"><i class="fa fa-times"></i></a>
                         </div>
                     </form>
 
-                    {{-- ── Summary Cards ── --}}
+                    {{-- Summary Cards --}}
                     <div class="row mb-3">
                         <div class="col-md-3">
-                            <div class="card bg-primary text-white mb-0">
-                                <div class="card-body py-2 px-3">
-                                    <div style="font-size:0.8rem">Total Reservasi</div>
-                                    <div style="font-size:1.4rem; font-weight:700">
-                                        {{ $reservations->total() }}
-                                    </div>
+                            <div class="st-dash-card">
+                                <div class="st-dash-card__icon" style="background:var(--st-confirmed-bg); color:var(--st-confirmed-text);"><i class="fa fa-calendar-check"></i></div>
+                                <div>
+                                    <div class="st-dash-card__value">{{ $reservations->total() }}</div>
+                                    <div class="st-dash-card__label">Total Reservasi</div>
                                 </div>
                             </div>
                         </div>
                         <div class="col-md-3">
-                            <div class="card bg-success text-white mb-0">
-                                <div class="card-body py-2 px-3">
-                                    <div style="font-size:0.8rem">Sudah Diklaim</div>
-                                    <div style="font-size:1.4rem; font-weight:700">
-                                        {{ $reservations->getCollection()->where('promo_klaim', 1)->count() }}
-                                    </div>
+                            <div class="st-dash-card">
+                                <div class="st-dash-card__icon" style="background:var(--st-completed-bg); color:var(--st-completed-text);"><i class="fa fa-check-circle"></i></div>
+                                <div>
+                                    <div class="st-dash-card__value">{{ $reservations->getCollection()->where('promo_klaim', 1)->count() }}</div>
+                                    <div class="st-dash-card__label">Sudah Diklaim</div>
                                 </div>
                             </div>
                         </div>
                         <div class="col-md-3">
-                            <div class="card bg-warning text-white mb-0">
-                                <div class="card-body py-2 px-3">
-                                    <div style="font-size:0.8rem">Belum Diklaim</div>
-                                    <div style="font-size:1.4rem; font-weight:700">
-                                        {{ $reservations->getCollection()->where('promo_klaim', 0)->count() }}
-                                    </div>
+                            <div class="st-dash-card">
+                                <div class="st-dash-card__icon" style="background:var(--st-pending-bg); color:var(--st-pending-text);"><i class="fa fa-clock"></i></div>
+                                <div>
+                                    <div class="st-dash-card__value">{{ $reservations->getCollection()->where('promo_klaim', 0)->count() }}</div>
+                                    <div class="st-dash-card__label">Belum Diklaim</div>
                                 </div>
                             </div>
                         </div>
                         <div class="col-md-3">
-                            <div class="card bg-info text-white mb-0">
-                                <div class="card-body py-2 px-3">
-                                    <div style="font-size:0.8rem">Total Komisi</div>
-                                    <div style="font-size:1.1rem; font-weight:700">
-                                        Rp {{ number_format($totalKomisi, 0, ',', '.') }}
-                                    </div>
+                            <div class="st-dash-card">
+                                <div class="st-dash-card__icon" style="background:var(--st-confirmed-bg); color:var(--st-confirmed-text);"><i class="fa fa-coins"></i></div>
+                                <div>
+                                    <div class="st-dash-card__value" style="font-size:1.1rem;">Rp {{ number_format($totalKomisi, 0, ',', '.') }}</div>
+                                    <div class="st-dash-card__label">Total Komisi</div>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    {{-- ── Tabel ── --}}
-                    <div class="table-responsive">
-                        <table class="table table-bordered table-hover"
-                            style="font-size:0.85rem; white-space:nowrap;">
-                            <thead class="thead-dark">
+                    {{-- Table --}}
+                    <div class="st-table-wrap--scroll">
+                        <table class="st-table st-table--compact">
+                            <thead>
                                 <tr>
                                     <th width="4%">No</th>
                                     <th>Affiliate</th>
@@ -152,7 +102,7 @@
                                     <th>Pasien</th>
                                     <th>Cabang</th>
                                     <th>Tanggal</th>
-                                    <th style="white-space:normal; min-width:150px">Perawatan</th>
+                                    <th style="min-width:150px">Perawatan</th>
                                     <th>Komisi</th>
                                     <th>Klaim</th>
                                     <th>Klaim Oleh</th>
@@ -161,152 +111,113 @@
                             <tbody>
                                 @forelse($reservations as $key => $row)
                                     @php
-                                        $affiliate = $row->promo->affiliate ?? null;
+                                        $affiliate  = $row->promo->affiliate ?? null;
                                         $commission = $row->commission ?? null;
-                                        $klaimBy = null;
-                                        if ($row->promo_klaim_by) {
-                                            $klaimBy = \App\Models\Users::find($row->promo_klaim_by);
-                                        }
+                                        $klaimBy    = $row->promo_klaim_by ? \App\Models\Users::find($row->promo_klaim_by) : null;
                                     @endphp
                                     <tr>
-                                        <td>{{ $reservations->firstItem() + $key }}</td>
-
-                                        {{-- Affiliate --}}
+                                        <td class="st-num">{{ $reservations->firstItem() + $key }}</td>
                                         <td>
                                             @if($affiliate)
-                                                <strong>{{ $affiliate->name }}</strong>
+                                                <span class="st-primary">{{ $affiliate->name }}</span>
                                             @else
-                                                <span class="text-muted">-</span>
+                                                <span class="st-muted">-</span>
                                             @endif
                                         </td>
-
-                                        {{-- Role --}}
                                         <td>
                                             @if($affiliate && $affiliate->role)
                                                 @php
-                                                    $roleColor = [
-                                                        'pasien'     => 'info',
-                                                        'influencer' => 'warning',
-                                                        'dokter'     => 'success',
-                                                    ][$affiliate->role] ?? 'secondary';
+                                                    $rolePill = ['pasien' => 'st-pill--info', 'influencer' => 'st-pill--warning', 'dokter' => 'st-pill--success'][$affiliate->role] ?? 'st-pill--neutral';
                                                 @endphp
-                                                <span class="badge badge-{{ $roleColor }}">
-                                                    {{ ucfirst($affiliate->role) }}
-                                                </span>
+                                                <span class="st-pill st-pill--plain {{ $rolePill }}">{{ ucfirst($affiliate->role) }}</span>
                                             @else
-                                                <span class="text-muted">-</span>
+                                                <span class="st-muted">-</span>
                                             @endif
                                         </td>
-
-                                        {{-- Kode Referral --}}
                                         <td>
                                             @if($row->promo)
-                                                <span class="badge badge-primary" style="font-size:0.8rem">
-                                                    {{ $row->promo->promo_code }}
-                                                </span>
+                                                <span class="st-pill st-pill--plain st-pill--primary">{{ $row->promo->promo_code }}</span>
                                             @else
-                                                <span class="text-muted">-</span>
+                                                <span class="st-muted">-</span>
                                             @endif
                                         </td>
-
-                                        {{-- Pasien --}}
                                         <td>{{ $row->customer->name ?? '-' }}</td>
-
-                                        {{-- Cabang --}}
                                         <td>{{ $row->branch->name ?? '-' }}</td>
-
-                                        {{-- Tanggal --}}
-                                        <td>
-                                            {{ $row->date ? $row->date->format('d/m/Y') : '-' }}
-                                        </td>
-
-                                        {{-- Perawatan --}}
-                                        <td style="white-space:normal">
+                                        <td><span class="st-date">{{ $row->date ? $row->date->format('d/m/Y') : '-' }}</span></td>
+                                        <td style="white-space:normal;">
                                             @foreach($row->services as $svc)
-                                                <span class="badge badge-light border"
-                                                    style="font-size:0.72rem; margin:1px">
+                                                <span class="st-pill st-pill--plain st-pill--light" style="font-size:0.72rem; margin:1px;">
                                                     {{ $svc->docService->name ?? '-' }}
                                                 </span>
                                             @endforeach
                                             @if($row->lainnya_text)
-                                                <span class="badge badge-warning"
-                                                    style="font-size:0.72rem; margin:1px; white-space:normal">
+                                                <span class="st-pill st-pill--plain st-pill--warning" style="font-size:0.72rem; margin:1px;">
                                                     {{ $row->lainnya_text }}
                                                 </span>
                                             @endif
                                         </td>
-
-                                        {{-- Komisi --}}
                                         <td>
                                             @if($commission)
-                                                <strong style="color:#28a745">
+                                                <strong style="color:var(--st-completed-text);">
                                                     Rp {{ number_format($commission->amount, 0, ',', '.') }}
                                                 </strong>
                                                 <br>
                                                 @php
-                                                    $commOpt = \App\Models\RawCommission::statusOptions()[$commission->status] ?? [];
+                                                    $commOpt   = \App\Models\RawCommission::statusOptions()[$commission->status] ?? [];
+                                                    $commPills = ['success' => 'st-pill--success', 'warning' => 'st-pill--warning', 'danger' => 'st-pill--danger', 'info' => 'st-pill--info'];
+                                                    $commPill  = $commPills[$commOpt['color'] ?? ''] ?? 'st-pill--neutral';
                                                 @endphp
-                                                <span class="badge badge-{{ $commOpt['color'] ?? 'secondary' }}"
-                                                    style="font-size:0.7rem">
+                                                <span class="st-pill {{ $commPill }}" style="font-size:0.7rem;">
                                                     {{ $commOpt['label'] ?? $commission->status }}
                                                 </span>
                                             @else
-                                                <span class="text-muted">-</span>
+                                                <span class="st-muted">-</span>
                                             @endif
                                         </td>
-
-                                        {{-- Status Klaim --}}
-                                        <td class="text-center">
+                                        <td class="st-center">
                                             @if($row->promo_klaim)
-                                                <span class="badge badge-success">
-                                                    <i class="fa fa-check"></i> Diklaim
-                                                </span>
+                                                <span class="st-pill st-pill--success"><i class="fa fa-check"></i> Diklaim</span>
                                             @else
-                                                <span class="badge badge-secondary">
-                                                    Belum
-                                                </span>
+                                                <span class="st-pill st-pill--neutral">Belum</span>
                                             @endif
                                         </td>
-
-                                        {{-- Klaim Oleh --}}
                                         <td>
                                             @if($row->promo_klaim && $klaimBy)
                                                 {{ $klaimBy->name ?? '-' }}
                                             @else
-                                                <span class="text-muted">-</span>
+                                                <span class="st-muted">-</span>
                                             @endif
                                         </td>
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="11" class="text-center text-muted py-4">
-                                            <i class="fa fa-inbox fa-2x d-block mb-2"></i>
-                                            Tidak ada data referral ditemukan
+                                        <td colspan="11" class="text-center py-4">
+                                            <div class="st-muted">
+                                                <i class="fa fa-inbox fa-2x d-block mb-2"></i>
+                                                Tidak ada data referral ditemukan
+                                            </div>
                                         </td>
                                     </tr>
                                 @endforelse
                             </tbody>
-
-                            {{-- Total Row --}}
                             @if($reservations->count() > 0)
                             <tfoot>
-                                <tr class="table-info font-weight-bold">
-                                    <td colspan="8" class="text-right">
+                                <tr>
+                                    <td colspan="8" class="text-right" style="font-weight:700; background:var(--cream-header);">
                                         Total Komisi (halaman ini):
                                     </td>
-                                    <td>
+                                    <td style="font-weight:700; background:var(--cream-header); color:var(--st-completed-text);">
                                         Rp {{ number_format(
                                             $reservations->getCollection()->sum(fn($r) => $r->commission->amount ?? 0),
                                             0, ',', '.'
                                         ) }}
                                     </td>
-                                    <td colspan="2"></td>
+                                    <td colspan="2" style="background:var(--cream-header);"></td>
                                 </tr>
                             </tfoot>
                             @endif
                         </table>
                     </div>
-
                     {{ $reservations->links() }}
 
                 </div>

@@ -1,19 +1,10 @@
 @extends('layouts.app')
 
 @section('content')
-
     <div class="container-fluid">
-        <!-- Page-Title -->
         <div class="row">
             <div class="col-sm-12">
                 <div class="page-title-box">
-                    <div class="float-right">
-                        <ol class="breadcrumb">
-                            <li class="breadcrumb-item"><a>CRUD</a></li>
-                            <li class="breadcrumb-item"><a href="{{ route('rawdoctor') }}">Doctor</a></li>
-                            <li class="breadcrumb-item active">Tambah</li>
-                        </ol>
-                    </div>
                     <h4 class="page-title">Tambah Doctor</h4>
                 </div>
             </div>
@@ -22,40 +13,47 @@
         @include('layouts.notif')
 
         <div class="row">
-            <div class="col-md-12">
-                <div class="card">
-                    <div class="card-body">
-                        <div class="table-responsive">
-                            <form method="post" action="{{ route('rawdoctor.store') }}">
-                                @csrf
-                                <a href="{{ route('rawdoctor') }}" class="btn btn-sm btn-warning"
-                                    style="margin-bottom: 20px;">
-                                    <i class="fa fa-arrow-left"></i> Kembali
-                                </a>
+            <div class="col-md-8">
+                <div class="st-card">
+                    <div class="st-card__body">
+                        <form method="post" action="{{ route('rawdoctor.store') }}" enctype="multipart/form-data">
+                            @csrf
+                            <a href="{{ route('rawdoctor') }}" class="st-btn-outline-brown mb-3 d-inline-block">
+                                <i class="fa fa-arrow-left"></i> Kembali
+                            </a>
 
-                                <table class="table table-bordered" id="dataTable" width="100%" cellspacing="0">
-                                    <tr>
-                                        <td width="20%">Nama</td>
-                                        <td>
-                                            <input class="form-control {{ $errors->has('name') ? 'is-invalid' : '' }}"
-                                                type="text" name="name" value="{{ old('name') }}" />
-                                            @if ($errors->has('name'))
-                                                <div class="invalid-feedback">
-                                                    {{ $errors->first('name') }}
-                                                </div>
-                                            @endif
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td>&nbsp;</td>
-                                        <td>
-                                            <button class="btn btn-primary" type="submit"><i class="fa fa-save"></i>
-                                                Simpan</button>
-                                        </td>
-                                    </tr>
-                                </table>
-                            </form>
-                        </div>
+                            <table class="st-table">
+                                <tr>
+                                    <td width="20%" style="font-weight:600;">Nama</td>
+                                    <td>
+                                        <input class="form-control {{ $errors->has('name') ? 'is-invalid' : '' }}"
+                                            type="text" name="name" value="{{ old('name') }}" />
+                                        @if ($errors->has('name'))
+                                            <div class="invalid-feedback">{{ $errors->first('name') }}</div>
+                                        @endif
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="font-weight:600;">Foto</td>
+                                    <td>
+                                        <input class="form-control {{ $errors->has('photo') ? 'is-invalid' : '' }}"
+                                            type="file" name="photo" accept="image/jpeg,image/png,image/webp" />
+                                        <small class="text-muted">Opsional. Format JPG/PNG/WebP, maksimal 2 MB.</small>
+                                        @if ($errors->has('photo'))
+                                            <div class="invalid-feedback">{{ $errors->first('photo') }}</div>
+                                        @endif
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td></td>
+                                    <td>
+                                        <button class="st-btn-brand" type="submit">
+                                            <i class="fa fa-save"></i> Simpan
+                                        </button>
+                                    </td>
+                                </tr>
+                            </table>
+                        </form>
                     </div>
                 </div>
             </div>

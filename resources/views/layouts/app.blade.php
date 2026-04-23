@@ -21,14 +21,14 @@
 
     <!-- App css -->
     <link href="{{ asset('assets/css/bootstrap.min.css') }}" rel="stylesheet" type="text/css" />
-    <link href="{{ asset('assets/css/icons.css') }}" rel="stylesheet" type="text/css" />
+    <link href="{{ asset('assets/css/icons.min.css') }}" rel="stylesheet" type="text/css" />
     <link href="{{ asset('assets/css/metisMenu.min.css') }}" rel="stylesheet" type="text/css" />
     <link href="{{ asset('assets/css/style.css') }}" rel="stylesheet" type="text/css" />
-    <link href="{{ asset('assets/css/customize.css') }}" rel="stylesheet" type="text/css" />
     <link href="{{ asset('assets/plugins/multi-select/multi-select.css') }}" media="screen" rel="stylesheet"
         type="text/css">
     <link rel="stylesheet" href="{{ asset('assets/plugins/datatables/dataTables.dataTables.min.css') }}">
-    <link rel="stylesheet" href="{{ asset('assets/css/style.sweettreats.css') }}">
+    <link rel="stylesheet" href="{{ asset('assets/css/style.sweettreats.css') }}?v={{ @filemtime(public_path('assets/css/style.sweettreats.css')) ?: '1' }}">
+    <link rel="stylesheet" href="{{ asset('assets/css/components.sweettreats.css') }}?v={{ @filemtime(public_path('assets/css/components.sweettreats.css')) ?: '1' }}">
     @yield('css')
 </head>
 
@@ -74,16 +74,135 @@
             <script src="{{ asset('assets/pages/jquery.forms-advanced.js') }}"></script>
             <script src="{{ asset('assets/plugins/datatables/dataTables.min.js') }}"></script>
             <!-- App js -->
-            <script src="{{ asset('assets/js/app.js') }}"></script>
+            <script src="{{ asset('assets/js/app.js') }}?v={{ @filemtime(public_path('assets/js/app.js')) ?: '1' }}"></script>
+
+            {{-- Clickable table rows --}}
+            <script>
+            $(document).on('click', '.st-table--clickable tbody tr[data-href]', function(e) {
+                if ($(e.target).closest('a, button, input, select, textarea').length) return;
+                window.location = $(this).data('href');
+            });
+            </script>
+
+            {{-- Notification polling --}}
+            <script>
+            (function(){
+                var pollInterval = 30000;
+                var notifCountEl = document.getElementById('notifCount');
+                var notifListEl  = document.getElementById('notifList');
+                var markAllBtn   = document.getElementById('markAllRead');
+
+                function escNotif(str) {
+                    if (!str) return '';
+                    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+                }
+
+                function timeAgo(dateStr) {
+                    var diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
+                    if (diff < 60) return 'Baru saja';
+                    if (diff < 3600) return Math.floor(diff / 60) + 'm lalu';
+                    if (diff < 86400) return Math.floor(diff / 3600) + 'j lalu';
+                    return Math.floor(diff / 86400) + 'h lalu';
+                }
+
+                function typeIcon(type) {
+                    var icons = {reservation:'dripicons-calendar',status_change:'dripicons-toggles',commission:'dripicons-wallet',system:'dripicons-gear'};
+                    return icons[type] || 'dripicons-bell';
+                }
+
+                function fetchNotifications() {
+                    $.get("{{ route('api.notifications') }}", function(data) {
+                        if (data.count > 0) {
+                            notifCountEl.textContent = data.count > 99 ? '99+' : data.count;
+                            notifCountEl.style.display = '';
+                        } else {
+                            notifCountEl.style.display = 'none';
+                        }
+
+                        if (data.notifications.length === 0) {
+                            notifListEl.innerHTML = '<div class="text-center text-muted py-3" style="font-size:0.8rem;">Tidak ada notifikasi baru</div>';
+                            return;
+                        }
+
+                        var html = '';
+                        data.notifications.forEach(function(n) {
+                            html += '<a href="' + (n.link || '#') + '" class="dropdown-item d-flex align-items-start notif-item" data-id="' + n.id + '" style="white-space:normal;padding:10px 15px;border-bottom:1px solid #f0f0f0;">';
+                            html += '<i class="' + typeIcon(n.type) + ' mr-2 mt-1" style="font-size:1rem;color:#888;"></i>';
+                            html += '<div style="flex:1;min-width:0;">';
+                            html += '<div style="font-size:0.82rem;font-weight:600;color:#333;">' + escNotif(n.title) + '</div>';
+                            if (n.body) html += '<div style="font-size:0.75rem;color:#777;margin-top:2px;">' + escNotif(n.body) + '</div>';
+                            html += '<div style="font-size:0.7rem;color:#aaa;margin-top:3px;">' + timeAgo(n.created_at) + '</div>';
+                            html += '</div></a>';
+                        });
+                        notifListEl.innerHTML = html;
+                    }).fail(function(){});
+                }
+
+                $(document).on('click', '.notif-item', function() {
+                    var id = $(this).data('id');
+                    if (id) {
+                        $.ajax({ url: "{{ url('api/notifications') }}/" + id + "/read", method: 'PATCH', headers: {'X-CSRF-TOKEN': '{{ csrf_token() }}'} });
+                    }
+                });
+
+                if (markAllBtn) {
+                    markAllBtn.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        $.post("{{ route('api.notifications.read-all') }}", {_token: '{{ csrf_token() }}'}, function() {
+                            notifCountEl.style.display = 'none';
+                            notifListEl.innerHTML = '<div class="text-center text-muted py-3" style="font-size:0.8rem;">Tidak ada notifikasi baru</div>';
+                        });
+                    });
+                }
+
+                fetchNotifications();
+                setInterval(fetchNotifications, pollInterval);
+            })();
+            </script>
 
             <!-- custom script -->
             @yield('js')
+
+            {{-- Remember pagination state of list pages, restore on Kembali --}}
+            <script>
+            (function () {
+                const path = window.location.pathname.replace(/^\/+|\/+$/g, '').split('/').filter(Boolean);
+                const segment = path[0] || '';
+                if (!segment) return;
+
+                const isListPage = path.length === 1; // mis. /customer atau /rawreservation
+                if (isListPage) {
+                    try { sessionStorage.setItem('lastListUrl:' + segment, window.location.href); } catch (e) {}
+                    return; // di halaman list, tidak perlu rewrite tombol kembali
+                }
+
+                // Halaman edit/detail → rewrite tombol Kembali ke list URL terakhir
+                const saved = sessionStorage.getItem('lastListUrl:' + segment);
+                if (!saved) return;
+
+                document.querySelectorAll('a[href]').forEach(function (a) {
+                    try {
+                        const u = new URL(a.href, window.location.origin);
+                        if (u.origin !== window.location.origin) return;
+                        const aPath = u.pathname.replace(/^\/+|\/+$/g, '').split('/').filter(Boolean);
+                        // Cocokkan: link 1 segmen, segmen sama dengan halaman saat ini, tanpa query
+                        if (aPath.length === 1 && aPath[0] === segment && !u.search) {
+                            a.href = saved;
+                        }
+                    } catch (e) {}
+                });
+            })();
+            </script>
 
             <!-- footer -->
             @include('layouts.footer')
             <!-- footer -->
         </div>
     </div>
+
+    {{-- Floating button untuk kirim keluhan (visible for Sales role only) --}}
+    @include('layouts._complaint_floating')
 </body>
 
 </html>

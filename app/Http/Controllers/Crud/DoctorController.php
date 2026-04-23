@@ -13,6 +13,9 @@ class DoctorController extends Controller
     {
         $perPage = $this->perPage;
 
+        $filterSearch = request('search');
+        $filterBranch = request('branch_id');
+
         $sessionBranch = session('raw_branch_id');
         $query = RawDoctor::withCount('schedules', 'reservations')->orderBy('name');
 
@@ -20,11 +23,21 @@ class DoctorController extends Controller
             $query->whereHas('schedules', function ($q) use ($sessionBranch) {
                 $q->where('raw_branch_id', $sessionBranch);
             });
+        } elseif ($filterBranch) {
+            $query->whereHas('schedules', function ($q) use ($filterBranch) {
+                $q->where('raw_branch_id', $filterBranch);
+            });
         }
 
-        $doctors = $query->paginate($perPage);
+        if ($filterSearch) {
+            $query->where('name', 'like', "%{$filterSearch}%");
+        }
 
-        return view('crud.doctor.list', compact('doctors'));
+        $doctors = $query->paginate($perPage)->withQueryString();
+
+        $branches = $sessionBranch ? collect() : RawBranch::orderBy('name')->get();
+
+        return view('crud.doctor.list', compact('doctors', 'branches', 'filterSearch', 'filterBranch'));
     }
 
     public function create()
@@ -35,14 +48,34 @@ class DoctorController extends Controller
     public function store()
     {
         request()->validate([
-            'name' => 'required|max:255',
+            'name'  => 'required|max:255',
+            'photo' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
         ]);
 
-        RawDoctor::create([
+        $doctor = RawDoctor::create([
             'name' => request('name'),
         ]);
 
+        if (request()->hasFile('photo')) {
+            $filename = $this->saveDoctorPhoto(request()->file('photo'), $doctor->id);
+            $doctor->update(['photo' => $filename]);
+        }
+
         return redirect()->route('rawdoctor')->with('success', 'Doctor berhasil ditambahkan');
+    }
+
+    private function saveDoctorPhoto($file, string $doctorId): string
+    {
+        $uploadDir = public_path('uploads/doctors');
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0755, true);
+        }
+
+        $extension = strtolower($file->getClientOriginalExtension());
+        $filename  = $doctorId . '_' . time() . '.' . $extension;
+        $file->move($uploadDir, $filename);
+
+        return $filename;
     }
 
     public function edit($id)
@@ -65,7 +98,45 @@ class DoctorController extends Controller
             ->pluck('raw_doc_service_id')
             ->toArray();
 
-        return view('crud.doctor.edit', compact('doctor', 'schedules', 'branches', 'allServices', 'doctorServiceIds'));
+        $leaves = \Illuminate\Support\Facades\DB::table('raw_doctor_leave')
+            ->where('raw_doctor_id', $id)
+            ->orderByDesc('start_date')
+            ->get();
+
+        return view('crud.doctor.edit', compact('doctor', 'schedules', 'branches', 'allServices', 'doctorServiceIds', 'leaves'));
+    }
+
+    // === Doctor Leave (Cuti) ===
+
+    public function leaveStore($doctorId)
+    {
+        request()->validate([
+            'start_date' => 'required|date',
+            'end_date'   => 'required|date|after_or_equal:start_date',
+            'reason'     => 'nullable|max:255',
+        ]);
+
+        \Illuminate\Support\Facades\DB::table('raw_doctor_leave')->insert([
+            'id'            => \Illuminate\Support\Str::uuid()->toString(),
+            'raw_doctor_id' => $doctorId,
+            'start_date'    => request('start_date'),
+            'end_date'      => request('end_date'),
+            'reason'        => request('reason'),
+            'created_by'    => session('id'),
+            'created_at'    => now(),
+        ]);
+
+        return redirect()->route('rawdoctor.edit', $doctorId)->with('success', 'Cuti berhasil ditambahkan');
+    }
+
+    public function leaveDestroy($doctorId, $leaveId)
+    {
+        \Illuminate\Support\Facades\DB::table('raw_doctor_leave')
+            ->where('raw_doctor_id', $doctorId)
+            ->where('id', $leaveId)
+            ->delete();
+
+        return redirect()->route('rawdoctor.edit', $doctorId)->with('success', 'Cuti berhasil dihapus');
     }
 
     public function servicesUpdate($doctorId)
@@ -82,7 +153,7 @@ class DoctorController extends Controller
             'id'                => \Illuminate\Support\Str::uuid()->toString(),
             'raw_doctor_id'     => $doctorId,
             'raw_doc_service_id'=> $serviceId,
-            'created_by'        => session('user_id'),
+            'created_by'        => session('id'),
             'created_at'        => now(),
         ]);
     }
@@ -93,16 +164,50 @@ class DoctorController extends Controller
 
     public function update($id)
     {
+        $isSales = session('group_name') === 'Sales';
+
         request()->validate([
-            'name' => 'required|max:255',
+            'name'  => 'required|max:255',
+            'photo' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
         ]);
 
         $doctor = RawDoctor::findOrFail($id);
-        $doctor->update([
-            'name' => request('name'),
-        ]);
+        $data   = ['name' => request('name')];
+
+        // Sales tidak boleh upload/ganti foto
+        if (!$isSales && request()->hasFile('photo')) {
+            if ($doctor->photo) {
+                $oldPath = public_path('uploads/doctors/' . $doctor->photo);
+                if (is_file($oldPath)) {
+                    @unlink($oldPath);
+                }
+            }
+            $data['photo'] = $this->saveDoctorPhoto(request()->file('photo'), $doctor->id);
+        }
+
+        $doctor->update($data);
 
         return redirect()->route('rawdoctor.edit', $id)->with('success', 'Doctor berhasil diubah');
+    }
+
+    public function deletePhoto($id)
+    {
+        if (session('group_name') === 'Sales') {
+            return redirect()->route('rawdoctor.edit', $id)
+                ->with('error', 'Anda tidak memiliki akses untuk menghapus foto dokter.');
+        }
+
+        $doctor = RawDoctor::findOrFail($id);
+
+        if ($doctor->photo) {
+            $path = public_path('uploads/doctors/' . $doctor->photo);
+            if (is_file($path)) {
+                @unlink($path);
+            }
+            $doctor->update(['photo' => null]);
+        }
+
+        return redirect()->route('rawdoctor.edit', $id)->with('success', 'Foto dokter berhasil dihapus');
     }
 
     public function destroy($id)
@@ -141,7 +246,7 @@ class DoctorController extends Controller
             'day' => request('day'),
             'start_hour' => request('start_hour'),
             'end_hour' => request('end_hour'),
-            'created_by' => session('user_id'),
+            'created_by' => session('id'),
             'created_at' => now(),
         ]);
 
@@ -165,7 +270,7 @@ class DoctorController extends Controller
             'day' => request('day'),
             'start_hour' => request('start_hour'),
             'end_hour' => request('end_hour'),
-            'updated_by' => session('user_id'),
+            'updated_by' => session('id'),
             'updated_at' => now(),
         ]);
 
@@ -180,5 +285,58 @@ class DoctorController extends Controller
         $schedule->delete();
 
         return redirect()->route('rawdoctor.edit', $doctorId)->with('success', 'Jadwal berhasil dihapus');
+    }
+
+    public function schedulesJson($doctorId)
+    {
+        $schedules = RawDoctorSchedule::with('branch')
+            ->where('raw_doctor_id', $doctorId)
+            ->get();
+
+        $dayNames = [1 => 'Senin', 2 => 'Selasa', 3 => 'Rabu', 4 => 'Kamis', 5 => 'Jumat', 6 => 'Sabtu', 7 => 'Minggu'];
+        $branchColors = ['#42a5f5', '#66bb6a', '#ffa726', '#ab47bc', '#ef5350', '#26c6da'];
+
+        $branchColorMap = [];
+        $colorIdx = 0;
+
+        $events = $schedules->map(function ($s) use ($dayNames, $branchColors, &$branchColorMap, &$colorIdx) {
+            if (!isset($branchColorMap[$s->raw_branch_id])) {
+                $branchColorMap[$s->raw_branch_id] = $branchColors[$colorIdx % count($branchColors)];
+                $colorIdx++;
+            }
+
+            return [
+                'id'        => $s->id,
+                'title'     => ($s->branch->name ?? '-') . "\n" . substr($s->start_hour, 0, 5) . '-' . substr($s->end_hour, 0, 5),
+                'daysOfWeek'=> [$s->day % 7], // FullCalendar: 0=Sun, 1=Mon. DB: 1=Mon, 7=Sun
+                'startTime' => substr($s->start_hour, 0, 5),
+                'endTime'   => substr($s->end_hour, 0, 5),
+                'color'     => $branchColorMap[$s->raw_branch_id],
+                'extendedProps' => [
+                    'branch_id'   => $s->raw_branch_id,
+                    'branch_name' => $s->branch->name ?? '-',
+                    'day'         => $s->day,
+                    'day_name'    => $dayNames[$s->day] ?? '-',
+                ],
+            ];
+        });
+
+        return response()->json($events);
+    }
+
+    public function scheduleUpdateAjax($doctorId, $scheduleId)
+    {
+        $schedule = RawDoctorSchedule::where('raw_doctor_id', $doctorId)
+            ->findOrFail($scheduleId);
+
+        $schedule->update([
+            'day'        => request('day'),
+            'start_hour' => request('start_hour'),
+            'end_hour'   => request('end_hour'),
+            'updated_by' => session('id'),
+            'updated_at' => now(),
+        ]);
+
+        return response()->json(['success' => true]);
     }
 }

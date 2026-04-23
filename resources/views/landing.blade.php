@@ -1385,7 +1385,7 @@
                 </div>
             </div>
             <div class="footer-bottom">
-                <p>&copy; {{ date('Y') }} Sweet Treats Dental Clinic. All rights reserved.</p>
+                <p>&copy; {{ date('Y') }} Sweet Treats Dental Clinic. All rights reserved. | <a href="{{ route('affiliate.login') }}" style="color:#ccc;">Portal Afiliasi</a></p>
             </div>
         </div>
     </footer>

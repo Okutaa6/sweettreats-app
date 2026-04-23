@@ -52,7 +52,7 @@
                     {
                         "id": "66d9388c-dc7d-42f8-9770-ac990f42cfa0",
                         "pid": "452446c4-23cd-4964-a539-087010d8add3",
-                        "nama": "Customer",
+                        "nama": "Pasien",
                         "icon": "dripicons-user",
                         "urutan": 2,
                         "urutan_path": "01,02,02",

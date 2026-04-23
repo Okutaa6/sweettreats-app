@@ -8,13 +8,16 @@ use App\Models\RawCustomer;
 use App\Models\RawCusReservation;
 use App\Models\RawCusResService;
 use App\Models\RawDoctor;
+use App\Models\RawDoctorSchedule;
 use App\Models\RawDocService;
+use App\Models\RawCommission;
+use App\Models\RawPromo;
 
 class ReservationController extends Controller
 {
     public function index()
     {
-        $perPage = $this->perPage ?? 10;
+        $perPage = in_array((int) request('per_page'), [10, 25, 50, 100]) ? (int) request('per_page') : 10;
 
         // Ambil input filter
         $filterSearch   = request('search');
@@ -72,10 +75,15 @@ class ReservationController extends Controller
         if ($filterNew) {
             $query->where('created_at', '>=', now()->subHours(6));
         }
+        $filterReservationId = request('reservation_id');
+        if ($filterReservationId) {
+            $query->where('id', $filterReservationId);
+        }
 
         // Clone the query for calendar view before applying pagination
         $calendarQuery = clone $query;
         $reservations = $query->orderBy('date', 'desc')
+            ->orderBy('raw_doctor_id')
             ->orderBy('start_hour', 'desc')
             ->paginate($perPage);
 
@@ -84,9 +92,16 @@ class ReservationController extends Controller
             ? RawBranch::where('id', $sessionBranch)->get()
             : RawBranch::orderBy('name')->get();
 
-        $doctors  = RawDoctor::orderBy('name')->get();
+        if ($sessionBranch) {
+            $doctorIds = RawDoctorSchedule::where('raw_branch_id', $sessionBranch)
+                ->distinct()->pluck('raw_doctor_id');
+            $doctors = RawDoctor::whereIn('id', $doctorIds)->orderBy('name')->get();
+        } else {
+            $doctors = RawDoctor::orderBy('name')->get();
+        }
+
         $statuses = RawCusReservation::statusOptions();
-        $calendarReservations = $calendarQuery->orderBy('date', 'asc')->orderBy('start_hour', 'asc')->get(); // Get all results for calendar
+        $calendarReservations = $calendarQuery->orderBy('date', 'asc')->orderBy('raw_doctor_id')->orderBy('start_hour', 'asc')->get();
 
         $promos     = \App\Models\RawPromo::orderBy('promo_code')->get();
         $affiliates = \App\Models\RawAffiliate::orderBy('name')->get();
@@ -106,7 +121,8 @@ class ReservationController extends Controller
             'statuses',
             'calendarReservations',
             'promos',           // new
-            'affiliates'         // new
+            'affiliates',        // new
+            'perPage'
         ));
     }
 
@@ -115,7 +131,7 @@ class ReservationController extends Controller
         $sessionBranch = session('raw_branch_id');
 
         // Fallback Database
-        $userId = session('user_id') ?? session('id');
+        $userId = session('id');
         if (!$sessionBranch && $userId) {
             $user = \App\Models\Users::find($userId);
             $sessionBranch = $user->raw_branch_id ?? null;
@@ -126,10 +142,10 @@ class ReservationController extends Controller
             ? RawBranch::where('id', $sessionBranch)->get()
             : RawBranch::orderBy('name')->get();
 
-        $customers = RawCustomer::orderBy('name')->get();
         $doctors   = RawDoctor::orderBy('name')->get();
+        $customers = RawCustomer::orderBy('name')->get();
 
-        return view('crud.reservation.new', compact('branches', 'customers', 'doctors'));
+        return view('crud.reservation.new', compact('branches', 'doctors', 'customers'));
     }
 
     public function store()
@@ -165,7 +181,7 @@ class ReservationController extends Controller
         $sessionBranch = session('raw_branch_id');
 
         // Fallback Database
-        $userId = session('user_id') ?? session('id');
+        $userId = session('id');
         if (!$sessionBranch && $userId) {
             $user = \App\Models\Users::find($userId);
             $sessionBranch = $user->raw_branch_id ?? null;
@@ -176,7 +192,6 @@ class ReservationController extends Controller
             ? RawBranch::where('id', $sessionBranch)->get()
             : RawBranch::orderBy('name')->get();
 
-        $customers   = RawCustomer::orderBy('name')->get();
         $doctors     = RawDoctor::orderBy('name')->get();
         $docServices = RawDocService::orderBy('name')->get();
         $promos      = \App\Models\RawPromo::where('is_active', 1)->orderBy('promo_code')->get();
@@ -192,7 +207,6 @@ class ReservationController extends Controller
         return view('crud.reservation.edit', compact(
             'reservation',
             'branches',
-            'customers',
             'doctors',
             'docServices',
             'promos',
@@ -229,7 +243,7 @@ class ReservationController extends Controller
                 'raw_promo_id'    => request('raw_promo_id'),
                 'is_waiting'      => request('is_waiting', 0),
                 'updated_at'      => now(),
-                'updated_by'      => session('user_id'),
+                'updated_by'      => session('id'),
             ]);
 
             // Hapus semua layanan yang ada untuk reservasi ini
@@ -265,6 +279,44 @@ class ReservationController extends Controller
                     }
                 }
             }
+
+            // Buat komisi affiliate jika promo dipilih dan belum ada commission
+            $promoId = request('raw_promo_id');
+            $existingCommission = RawCommission::where('raw_cus_reservation_id', $id)->first();
+
+            if ($promoId && !$existingCommission) {
+                $promo = RawPromo::with('affiliate')->find($promoId);
+                if ($promo && $promo->affiliate) {
+                    $totalHarga = 0;
+                    $serviceRecords = RawCusResService::where('raw_cus_reservation_id', $id)
+                        ->get()
+                        ->map(function ($svc) {
+                            $detail = $svc->raw_doc_service_detail_id
+                                ? \App\Models\RawDocServiceDetail::find($svc->raw_doc_service_detail_id)
+                                : null;
+                            return $detail ? (object)['price' => ($detail->price ?? 0) * ($svc->quantity ?? 1)] : null;
+                        })->filter();
+
+                    foreach ($serviceRecords as $svc) {
+                        $totalHarga += $svc->price ?? 0;
+                    }
+
+                    $commissionRate = $promo->affiliate->commission_rate ?? 0;
+                    $commissionAmount = round($totalHarga * ($commissionRate / 100), 2);
+
+                    RawCommission::create([
+                        'id'                     => \Illuminate\Support\Str::uuid()->toString(),
+                        'raw_affiliate_id'       => $promo->affiliate->id,
+                        'raw_cus_reservation_id' => $id,
+                        'amount'                 => $commissionAmount,
+                        'status'                 => 'pending',
+                        'created_at'             => now(),
+                    ]);
+                }
+            } elseif (!$promoId && $existingCommission) {
+                // Hapus komisi jika promo dihapus
+                $existingCommission->delete();
+            }
         });
 
         return redirect()->route('rawreservation.edit', $id)->with('success', 'Reservasi berhasil diubah');
@@ -284,7 +336,7 @@ class ReservationController extends Controller
         $reservation->update([
             $field       => $value,
             'updated_at' => now(),
-            'updated_by' => session('user_id'),
+            'updated_by' => session('id'),
         ]);
 
         return response()->json(['success' => true]);
@@ -306,9 +358,9 @@ class ReservationController extends Controller
 
     $reservation->update([
         'promo_klaim'    => 1,
-        'promo_klaim_by' => session('user_id'),
+        'promo_klaim_by' => session('id'),
         'updated_at'     => now(),
-        'updated_by'     => session('user_id'),
+        'updated_by'     => session('id'),
     ]);
 
     return back()->with('success', 'Promo berhasil diklaim!');
@@ -339,7 +391,19 @@ class ReservationController extends Controller
         $commission = \App\Models\RawCommission::where('raw_cus_reservation_id', $reservationId)
             ->findOrFail($commissionId);
 
-        $commission->update(['status' => 'approved']);
+        if ($commission->status !== 'pending') {
+            return redirect()->route('rawreservation.edit', $reservationId)
+                ->with('error', 'Komisi harus berstatus pending untuk di-approve');
+        }
+
+        $commission->update(['status' => 'approved', 'updated_at' => now()]);
+
+        \App\Models\AdminNotification::notify(
+            'commission',
+            'Komisi Di-approve',
+            'Komisi Rp ' . number_format($commission->amount) . ' telah di-approve oleh ' . session('name'),
+            url("crud/reservation/{$reservationId}/edit")
+        );
 
         return redirect()->route('rawreservation.edit', $reservationId)
             ->with('success', 'Komisi berhasil di-approve');
@@ -350,10 +414,19 @@ class ReservationController extends Controller
         $commission = \App\Models\RawCommission::where('raw_cus_reservation_id', $reservationId)
             ->findOrFail($commissionId);
 
-        $commission->update(['status' => 'paid']);
+        if ($commission->status !== 'approved') {
+            return redirect()->route('rawreservation.edit', $reservationId)
+                ->with('error', 'Komisi harus berstatus approved sebelum dibayar');
+        }
 
-        return redirect()->route('rawreservation.edit', $reservationId)
-            ->with('success', 'Komisi berhasil ditandai sebagai dibayar');
+        $commission->update(['status' => 'paid', 'updated_at' => now()]);
+
+        \App\Models\AdminNotification::notify(
+            'commission',
+            'Komisi Dibayar',
+            'Komisi Rp ' . number_format($commission->amount) . ' telah dibayar oleh ' . session('name'),
+            url("crud/reservation/{$reservationId}/edit")
+        );
     }
 
     public function serviceStore($reservationId)

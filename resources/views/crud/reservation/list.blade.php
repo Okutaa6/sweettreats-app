@@ -5,26 +5,18 @@
     <div class="row">
         <div class="col-sm-12">
             <div class="page-title-box">
-                <div class="float-right">
-                    <ol class="breadcrumb">
-                        <li class="breadcrumb-item"><a>CRUD</a></li>
-                        <li class="breadcrumb-item active">Reservation</li>
-                    </ol>
-                </div>
                 <h4 class="page-title">Reservation</h4>
             </div>
         </div>
     </div>
 
-    <div id="newReservationToast" style="position: fixed; top: 80px; right: 20px; z-index: 1050; display: none; min-width: 350px; max-width: 400px;">
-        <div class="toast-header" style="background: #28a745; color: white; padding: 8px 12px; border-top-left-radius: 8px; border-top-right-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
-            <strong class="mr-auto"><i class="fa fa-bell"></i> Reservasi Baru Masuk</strong>
-            <button type="button" class="ml-2 mb-1 close" onclick="$('#newReservationToast').fadeOut()" aria-label="Close">
-                <span aria-hidden="true" style="color: white;">&times;</span>
-            </button>
+    <div id="newReservationToast" class="st-toast-floating">
+        <div class="st-toast-floating__header">
+            <strong><i class="fa fa-bell"></i> Reservasi Baru Masuk</strong>
+            <button type="button" class="close" onclick="$('#newReservationToast').fadeOut()" aria-label="Close">&times;</button>
         </div>
-        <div id="toastBody" class="toast-body" style="background: #f8f9fa; padding: 16px; border-bottom-left-radius: 8px; border-bottom-right-radius: 8px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); font-size: 1.1em; color: #333;">
-            <!-- Content will be injected by JS -->
+        <div id="toastBody" class="st-toast-floating__body">
+            {{-- Content injected by JS --}}
         </div>
     </div>
 
@@ -33,21 +25,25 @@
     <div class="row">
         <div class="col-md-12">
             <div class="card">
-                <div class="card-body" style="zoom: 0.65;">
+                <div class="card-body">
 
-                    @php 
-                        $hasFilter = $filterSearch || $filterBranch || $filterDoctor || $filterStatus || $filterDateFrom || $filterDateTo || $filterPromo || $filterAffiliate || request('new');
+                    @php
+                        $hasFilter = $filterSearch || $filterBranch || $filterDoctor || $filterStatus || $filterDateFrom || $filterDateTo || $filterPromo || $filterAffiliate || request('new') || request('reservation_id');
+                        $showBranchColumn = $branches->count() > 1;
                     @endphp
 
                     {{-- ── Toolbar: Tambah + Filter Button + Tab toggle ── --}}
                     <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap" style="gap:8px;">
                         <div class="d-flex align-items-center" style="gap:8px;">
-                            <a href="{{ route('rawreservation.new') }}" class="btn btn-sm btn-primary">
+                            <a href="{{ route('rawreservation.new') }}" class="st-btn-brand">
                                 <i class="fa fa-plus"></i> Tambah
                             </a>
-                            <button class="btn btn-sm {{ $hasFilter ? 'btn-secondary' : 'btn-outline-secondary' }}" type="button" data-toggle="collapse" data-target="#filterCollapse" aria-expanded="{{ $hasFilter ? 'true' : 'false' }}">
+                            <button class="st-btn-outline-brown {{ $hasFilter ? 'is-active' : '' }}" type="button" data-toggle="collapse" data-target="#filterCollapse" aria-expanded="{{ $hasFilter ? 'true' : 'false' }}">
                                 <i class="fa fa-filter"></i> {{ $hasFilter ? 'Filter Aktif' : 'Filter' }}
                             </button>
+                            <a href="{{ route('export.reservasi', request()->only(['status','branch','doctor','date_from','date_to','promo','affiliate'])) }}" class="st-btn-outline-brown">
+                                <i class="fa fa-download"></i> Export CSV
+                            </a>
                         </div>
                         <div class="view-tab-group" style="font-size: 1.2em;">
                             <a href="{{ route('rawreservation', array_merge(request()->except(['new', 'view']), ['view' => 'list'])) }}" class="view-tab {{ !request('new') && request('view', 'list') !== 'cal' ? 'active' : '' }}">
@@ -64,19 +60,23 @@
 
                     {{-- ── Form filter (Collapsible) ── --}}
                     <div class="collapse {{ $hasFilter ? 'show' : '' }}" id="filterCollapse">
-                        <div class="card card-body mb-3 border-0" style="background-color: #f8f9fa; border-radius: 8px;">
+                        <div class="st-filter-panel">
+                            <div class="st-filter-panel__header">
+                                <i class="fa fa-sliders-h"></i> Filter Lanjutan
+                            </div>
                             <form method="GET" action="{{ route('rawreservation') }}" id="filterForm" class="mb-0">
                                 <input type="hidden" name="view" value="{{ request('view', 'list') }}">
                                 @if(request('new'))
                                 <input type="hidden" name="new" value="1">
                                 @endif
-                                <div class="row" style="row-gap:12px;">
-                                    <div class="col-md-3">
-                                        <label class="small mb-1 font-weight-bold" style="color: #461500;">Pencarian</label>
+                                <div class="row" style="row-gap:14px;">
+                                    <div class="col-md-{{ $showBranchColumn ? '3' : '4' }}">
+                                        <label class="st-filter-label">Pencarian</label>
                                         <input type="text" class="form-control form-control-sm" name="search" placeholder="Nama / No. HP..." value="{{ $filterSearch }}">
                                     </div>
+                                    @if($showBranchColumn)
                                     <div class="col-md-3">
-                                        <label class="small mb-1 font-weight-bold" style="color: #461500;">Cabang</label>
+                                        <label class="st-filter-label">Cabang</label>
                                         <select class="form-control form-control-sm" name="branch_id">
                                             <option value="">Semua Cabang</option>
                                             @foreach ($branches as $b)
@@ -84,8 +84,9 @@
                                             @endforeach
                                         </select>
                                     </div>
-                                    <div class="col-md-3">
-                                        <label class="small mb-1 font-weight-bold" style="color: #461500;">Dokter</label>
+                                    @endif
+                                    <div class="col-md-{{ $showBranchColumn ? '3' : '4' }}">
+                                        <label class="st-filter-label">Dokter</label>
                                         <select class="form-control form-control-sm" name="doctor_id">
                                             <option value="">Semua Dokter</option>
                                             @foreach ($doctors as $d)
@@ -93,8 +94,8 @@
                                             @endforeach
                                         </select>
                                     </div>
-                                    <div class="col-md-3">
-                                        <label class="small mb-1 font-weight-bold" style="color: #461500;">Status</label>
+                                    <div class="col-md-{{ $showBranchColumn ? '3' : '4' }}">
+                                        <label class="st-filter-label">Status</label>
                                         <select class="form-control form-control-sm" name="status">
                                             <option value="">Semua Status</option>
                                             @foreach ($statuses as $k => $opt)
@@ -103,15 +104,15 @@
                                         </select>
                                     </div>
                                     <div class="col-md-2">
-                                        <label class="small mb-1 font-weight-bold" style="color: #461500;">Tanggal Mulai</label>
+                                        <label class="st-filter-label">Tanggal Mulai</label>
                                         <input type="date" class="form-control form-control-sm" name="date_from" value="{{ $filterDateFrom }}">
                                     </div>
                                     <div class="col-md-2">
-                                        <label class="small mb-1 font-weight-bold" style="color: #461500;">Tanggal Akhir</label>
+                                        <label class="st-filter-label">Tanggal Akhir</label>
                                         <input type="date" class="form-control form-control-sm" name="date_to" value="{{ $filterDateTo }}">
                                     </div>
                                     <div class="col-md-3">
-                                        <label class="small mb-1 font-weight-bold" style="color: #461500;">Promo</label>
+                                        <label class="st-filter-label">Promo</label>
                                         <select class="form-control form-control-sm" name="promo_id">
                                             <option value="">Semua Promo</option>
                                             @foreach ($promos as $p)
@@ -120,7 +121,7 @@
                                         </select>
                                     </div>
                                     <div class="col-md-3">
-                                        <label class="small mb-1 font-weight-bold" style="color: #461500;">Affiliate</label>
+                                        <label class="st-filter-label">Affiliate</label>
                                         <select class="form-control form-control-sm" name="affiliate_id">
                                             <option value="">Semua Affiliate</option>
                                             @foreach ($affiliates as $a)
@@ -129,12 +130,14 @@
                                         </select>
                                     </div>
                                     <div class="col-md-2 d-flex align-items-end">
-                                        <button type="submit" class="btn btn-sm btn-primary w-100 mr-1">
-                                            Filter
-                                        </button>
-                                        <a href="{{ route('rawreservation') }}" class="btn btn-sm btn-outline-danger" title="Reset Filter">
-                                            <i class="fa fa-times"></i>
-                                        </a>
+                                        <div class="st-filter-actions">
+                                            <button type="submit" class="st-filter-submit">
+                                                <i class="fa fa-search"></i> Terapkan
+                                            </button>
+                                            <a href="{{ route('rawreservation') }}" class="st-filter-reset" title="Reset Filter">
+                                                <i class="fa fa-times"></i>
+                                            </a>
+                                        </div>
                                     </div>
                                 </div>
                             </form>
@@ -143,17 +146,36 @@
 
                     {{-- ── Info hasil filter ── --}}
                     @if ($hasFilter)
-                        <div class="mb-3" style="font-size: 1.15rem; color:#666">
-                            <i class="fa fa-filter text-primary"></i>
+                        @php
+                            $chips = [];
+                            $removeUrl = function(array $keys) {
+                                return url()->current() . '?' . http_build_query(array_merge(request()->except(array_merge($keys, ['page'])), []));
+                            };
+                            $fmtDate = function($d) { return $d ? \Carbon\Carbon::parse($d)->format('d/m/Y') : '...'; };
+                            if ($filterSearch)   $chips[] = ['label' => 'Cari: '    . $filterSearch, 'url' => $removeUrl(['search'])];
+                            if ($filterBranch)   $chips[] = ['label' => 'Cabang: '  . ($branches->firstWhere('id', $filterBranch)?->name ?? '-'), 'url' => $removeUrl(['branch_id'])];
+                            if ($filterDoctor)   $chips[] = ['label' => 'Dokter: '  . ($doctors->firstWhere('id', $filterDoctor)?->name ?? '-'), 'url' => $removeUrl(['doctor_id'])];
+                            if ($filterStatus)   $chips[] = ['label' => 'Status: '  . ($statuses[$filterStatus]['label'] ?? $filterStatus), 'url' => $removeUrl(['status'])];
+                            if ($filterDateFrom || $filterDateTo) $chips[] = ['label' => 'Tgl: ' . $fmtDate($filterDateFrom) . '–' . $fmtDate($filterDateTo), 'url' => $removeUrl(['date_from','date_to'])];
+                            if ($filterPromo)    $chips[] = ['label' => 'Promo: '   . ($promos->firstWhere('id', $filterPromo)?->promo_code ?? '-'), 'url' => $removeUrl(['promo_id'])];
+                            if ($filterAffiliate)$chips[] = ['label' => 'Affiliate: '. ($affiliates->firstWhere('id', $filterAffiliate)?->name ?? '-'), 'url' => $removeUrl(['affiliate_id'])];
+                            if (request('new'))  $chips[] = ['label' => 'Reservasi Baru', 'url' => $removeUrl(['new'])];
+                            if (request('reservation_id')) $chips[] = ['label' => 'Reservasi Spesifik', 'url' => $removeUrl(['reservation_id'])];
+                        @endphp
+                        @if (count($chips))
+                            <div class="st-filter-chips">
+                                <span class="st-filter-chips__label"><i class="fa fa-filter"></i> Filter aktif:</span>
+                                @foreach ($chips as $chip)
+                                    <span class="st-filter-chip">
+                                        {{ $chip['label'] }}
+                                        <a href="{{ $chip['url'] }}" title="Hapus filter">&times;</a>
+                                    </span>
+                                @endforeach
+                            </div>
+                        @endif
+                        <div class="st-info-count">
+                            <i class="fa fa-list"></i>
                             Menampilkan <strong>{{ $reservations->total() }}</strong> reservasi
-                            @if ($filterSearch) · cari "<em>{{ $filterSearch }}</em>" @endif
-                            @if ($filterBranch) · cabang: <em>{{ $branches->firstWhere('id', $filterBranch)?->name }}</em> @endif
-                            @if ($filterDoctor) · dokter: <em>{{ $doctors->firstWhere('id', $filterDoctor)?->name }}</em> @endif
-                            @if ($filterStatus) · status: <em>{{ $statuses[$filterStatus]['label'] ?? $filterStatus }}</em> @endif
-                            @if ($filterDateFrom || $filterDateTo) · tanggal: <em>{{ $filterDateFrom ?: '...' }} — {{ $filterDateTo ?: '...' }}</em> @endif
-                            @if ($filterPromo) · promo: <em>{{ $promos->firstWhere('id', $filterPromo)?->promo_code }}</em> @endif
-                            @if ($filterAffiliate) · affiliate: <em>{{ $affiliates->firstWhere('id', $filterAffiliate)?->name }}</em> @endif
-                            @if (request('new')) · <span class="badge badge-success">Reservasi Baru</span> @endif
                         </div>
                     @endif
 
@@ -161,25 +183,24 @@
                          TAB: LIST
                     ══════════════════════════════════════ --}}
                     <div id="viewList" style="{{ request('view', 'list') === 'cal' ? 'display:none;' : '' }}">
-                        <div class="table-responsive">
-                        <table class="table table-bordered table-hover" cellspacing="0" style="font-size:0.85rem; white-space: nowrap;">
+                        <div class="st-table-wrap st-table-wrap--scroll">
+                        <table class="st-table st-table--clickable" cellspacing="0" style="white-space: nowrap;">
                             <thead>
                                 <tr>
-                                    <th>Customer</th>
+                                    <th>Hari &amp; Tanggal</th>
+                                    <th>Pasien</th>
                                     <th>No Telepon</th>
                                     <th>Dokter</th>
-                                    <th>Cabang</th>
-                                    <th>Tanggal</th>
+                                    @if($showBranchColumn)<th>Cabang</th>@endif
                                     <th>Jam</th>
                                     <th>Perawatan</th>
-                                    <th>Keterangan</th>
+                                    <th style="min-width:180px;">Keterangan</th>
                                     <th>Promo</th>
                                     <th>Klaim</th>
                                     <th>Status</th>
                                     <th>FU H-1</th>
                                     <th>FU H</th>
                                     <th>Kehadiran</th>
-                                    <th width="5%" class="text-center">Action</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -192,18 +213,36 @@
                                             $isNew = \Carbon\Carbon::parse($row->created_at)->diffInHours(\Carbon\Carbon::now()) < 6;
                                         }
                                     @endphp
-                                    <tr style="{{ $isNew ?'background-color: #e6f7ff !important;' : '' }}" {!! $isNew ? 'title="Data baru masuk"' : '' !!}>
-                                        <td style="white-space: normal; min-width: 150px;">
-                                            {{ $row->customer->name ?? '-' }}
+                                    <tr class="st-row st-row--{{ $row->status }} {{ $isNew ? 'st-row-new' : '' }}"
+                                        data-href="{{ route('rawreservation.edit', $row->id) }}"
+                                        {!! $isNew ? 'title="Data baru masuk — klik untuk detail"' : 'title="Klik baris untuk detail"' !!}>
+                                        @php
+                                            $hariList = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+                                            $hariNama = $row->date ? $hariList[$row->date->dayOfWeek] : '';
+                                        @endphp
+                                        <td nowrap><span class="st-date">{{ $row->date ? $hariNama . ', ' . $row->date->format('d M Y') : '-' }}</span></td>
+                                        <td style="white-space: normal; min-width: 170px;">
+                                            @if($row->customer)
+                                                <span class="st-primary">{{ $row->customer->name }}</span>
+                                            @else
+                                                <span style="color:#B23A3A;" title="Pasien telah dihapus, assign ulang di halaman edit"><i class="fa fa-exclamation-triangle"></i> Pasien Terhapus</span>
+                                            @endif
                                             @if($isNew)
-                                                <span class="badge badge-success ml-1" style="font-size:0.75rem;"><i class="fa fa-star"></i> Baru</span>
+                                                <span class="st-pill st-pill--success ml-1"><i class="fa fa-star"></i> Baru</span>
                                             @endif
                                         </td>
-                                        <td>{{ $row->customer->phone ?? '-' }}</td>
+                                        <td class="st-tnum">{{ $row->customer->phone ?? '-' }}</td>
                                         <td>{{ $row->doctor->name ?? '-' }}</td>
-                                        <td>{{ $row->branch->name ?? '-' }}</td>
-                                        <td>{{ $row->date ? $row->date->format('d/m/Y') : '-' }}</td>
-                                        <td nowrap>{{ \Carbon\Carbon::parse($row->start_hour)->format('H:i') }} - {{ \Carbon\Carbon::parse($row->end_hour)->format('H:i') }}</td>
+                                        @if($showBranchColumn)
+                                        <td>
+                                            @if($row->branch)
+                                                <span class="st-branch-chip">{{ $row->branch->name }}</span>
+                                            @else
+                                                <span class="st-muted">-</span>
+                                            @endif
+                                        </td>
+                                        @endif
+                                        <td nowrap><span class="st-time">{{ \Carbon\Carbon::parse($row->start_hour)->format('H:i') }} – {{ \Carbon\Carbon::parse($row->end_hour)->format('H:i') }}</span></td>
                                         <td style="white-space: normal; min-width: 220px;">
                                         @php
                                             $uniqueServiceNames = $row->services->map(function($svc) {
@@ -211,20 +250,20 @@
                                             })->filter()->unique();
                                         @endphp
                                         @foreach ($uniqueServiceNames as $serviceName)
-                                            <span class="badge badge-light border" style="font-size:0.75rem;margin:1px">
+                                            <span class="st-pill st-pill--neutral st-pill--plain" style="margin:1px 2px 1px 0;">
                                                 {{ $serviceName }}
                                             </span>
                                         @endforeach
                                         @if($row->lainnya_text)
                                             <div style="margin-top:4px;">
-                                                <span class="badge badge-warning" style="font-size:0.72rem; white-space:normal; text-align:left; padding:3px 6px;">
+                                                <span class="st-pill st-pill--warning st-pill--plain" style="white-space:normal; text-align:left;">
                                                     <i class="fa fa-comment-dots"></i>
                                                     Keluhan: {{ $row->lainnya_text }}
                                                 </span>
                                             </div>
                                         @endif
                                         @if($uniqueServiceNames->isEmpty() && !$row->lainnya_text)
-                                            <span class="text-muted">-</span>
+                                            <span style="color: var(--text-subtle);">-</span>
                                         @endif
                                     </td>
                                     <td style="white-space: normal; min-width: 150px;">
@@ -234,21 +273,21 @@
                                     </td>
                                         <td>
                                             @if($row->promo)
-                                                <span class="badge badge-info" style="font-size:0.75rem">{{ $row->promo->promo_code }}</span>
+                                                <span class="st-pill st-pill--info st-pill--plain">{{ $row->promo->promo_code }}</span>
                                             @else
-                                                <span class="text-muted" style="font-size:0.8rem">-</span>
+                                                <span style="color: var(--text-subtle);">-</span>
                                             @endif
                                         </td>
                                         <td>
                                             @if($row->raw_promo_id)
                                                 @if($row->promo_klaim)
                                                     {{-- Sudah diklaim --}}
-                                                    <span class="badge badge-success">
+                                                    <span class="st-pill st-pill--success">
                                                         <i class="fa fa-check"></i> Diklaim
                                                     </span>
-                                                    <small class="text-muted d-block" style="font-size:0.7rem">
+                                                    <span class="st-meta">
                                                         {{ $row->promo_klaim_by ? 'oleh: ' . (\App\Models\Users::find($row->promo_klaim_by)->name ?? '-') : '' }}
-                                                    </small>
+                                                    </span>
                                                 @else
                                                     {{-- Belum diklaim — tampilkan tombol --}}
                                                     <form method="POST"
@@ -256,14 +295,13 @@
                                                         onsubmit="return confirm('Konfirmasi klaim promo untuk reservasi ini?')">
                                                         @csrf
                                                         @method('PATCH')
-                                                        <button type="submit" class="btn btn-sm btn-warning"
-                                                            style="padding:2px 8px; font-size:0.75rem">
+                                                        <button type="submit" class="st-quick-btn st-quick-btn--warning">
                                                             <i class="fa fa-tag"></i> Klaim
                                                         </button>
                                                     </form>
                                                 @endif
                                             @else
-                                                <span class="text-muted" style="font-size:0.8rem">-</span>
+                                                <span style="color: var(--text-subtle);">-</span>
                                             @endif
                                         </td>
                                         <td>
@@ -274,25 +312,39 @@
                                                 @endforeach
                                             </select>
                                         </td>
+                                        @php
+                                            $waPhone = $row->customer?->phone ? preg_replace('/[^0-9]/', '', $row->customer->phone) : '';
+                                            if ($waPhone && str_starts_with($waPhone, '0')) $waPhone = '62' . substr($waPhone, 1);
+                                        @endphp
                                         <td>
-                                            <select class="form-control form-control-sm inline-update" style="min-width:110px"
-                                                data-id="{{ $row->id }}" data-field="follow_up_h_min_1">
-                                                <option value="">-- --</option>
-                                                <option value="confirm"    {{ $row->follow_up_h_min_1 == 'confirm'    ? 'selected' : '' }}>✅ Confirm</option>
-                                                <option value="reschedule" {{ $row->follow_up_h_min_1 == 'reschedule' ? 'selected' : '' }}>🔄 Reschedule</option>
-                                                <option value="cancel"     {{ $row->follow_up_h_min_1 == 'cancel'     ? 'selected' : '' }}>❌ Cancel</option>
-                                                <option value="no_respon"  {{ $row->follow_up_h_min_1 == 'no_respon'  ? 'selected' : '' }}>📵 No Respon</option>
-                                            </select>
+                                            <div class="d-flex align-items-center" style="gap:4px;">
+                                                <select class="form-control form-control-sm inline-update" style="min-width:110px"
+                                                    data-id="{{ $row->id }}" data-field="follow_up_h_min_1">
+                                                    <option value="">-- --</option>
+                                                    <option value="confirm"    {{ $row->follow_up_h_min_1 == 'confirm'    ? 'selected' : '' }}>✅ Confirm</option>
+                                                    <option value="reschedule" {{ $row->follow_up_h_min_1 == 'reschedule' ? 'selected' : '' }}>🔄 Reschedule</option>
+                                                    <option value="cancel"     {{ $row->follow_up_h_min_1 == 'cancel'     ? 'selected' : '' }}>❌ Cancel</option>
+                                                    <option value="no_respon"  {{ $row->follow_up_h_min_1 == 'no_respon'  ? 'selected' : '' }}>📵 No Respon</option>
+                                                </select>
+                                                @if($waPhone)
+                                                    <a href="https://wa.me/{{ $waPhone }}" target="_blank" class="st-icon-btn st-icon-btn--success" title="Follow up via WhatsApp"><i class="fab fa-whatsapp"></i></a>
+                                                @endif
+                                            </div>
                                         </td>
                                         <td>
-                                            <select class="form-control form-control-sm inline-update" style="min-width:110px"
-                                                data-id="{{ $row->id }}" data-field="follow_up_h">
-                                                <option value="">-- --</option>
-                                                <option value="confirm"    {{ $row->follow_up_h == 'confirm'    ? 'selected' : '' }}>✅ Confirm</option>
-                                                <option value="reschedule" {{ $row->follow_up_h == 'reschedule' ? 'selected' : '' }}>🔄 Reschedule</option>
-                                                <option value="cancel"     {{ $row->follow_up_h == 'cancel'     ? 'selected' : '' }}>❌ Cancel</option>
-                                                <option value="no_respon"  {{ $row->follow_up_h == 'no_respon'  ? 'selected' : '' }}>📵 No Respon</option>
-                                            </select>
+                                            <div class="d-flex align-items-center" style="gap:4px;">
+                                                <select class="form-control form-control-sm inline-update" style="min-width:110px"
+                                                    data-id="{{ $row->id }}" data-field="follow_up_h">
+                                                    <option value="">-- --</option>
+                                                    <option value="confirm"    {{ $row->follow_up_h == 'confirm'    ? 'selected' : '' }}>✅ Confirm</option>
+                                                    <option value="reschedule" {{ $row->follow_up_h == 'reschedule' ? 'selected' : '' }}>🔄 Reschedule</option>
+                                                    <option value="cancel"     {{ $row->follow_up_h == 'cancel'     ? 'selected' : '' }}>❌ Cancel</option>
+                                                    <option value="no_respon"  {{ $row->follow_up_h == 'no_respon'  ? 'selected' : '' }}>📵 No Respon</option>
+                                                </select>
+                                                @if($waPhone)
+                                                    <a href="https://wa.me/{{ $waPhone }}" target="_blank" class="st-icon-btn st-icon-btn--success" title="Follow up via WhatsApp"><i class="fab fa-whatsapp"></i></a>
+                                                @endif
+                                            </div>
                                         </td>
                                         <td>
                                             <select class="form-control form-control-sm inline-update" style="min-width:110px"
@@ -304,43 +356,51 @@
                                                 <option value="cancel"      {{ $row->keterangan_kehadiran == 'cancel'      ? 'selected' : '' }}>❌ Cancel</option>
                                             </select>
                                         </td>
-                                        <td nowrap class="text-center">
-                                            <a href="{{ route('rawreservation.edit', $row->id) }}"
-                                                class="btn btn-info" style="padding:2px 6px" title="Detail">
-                                                <i class="fa fa-eye"></i>
-                                            </a>
-                                        </td>
                                     </tr>
                                 @endforeach
                             </tbody>
                         </table>
                         </div>
-                        {{ $reservations->links() }}
+                        <div class="st-pagination-bar">
+                            <div class="st-perpage">
+                                <span>Tampilkan</span>
+                                <select onchange="window.location.href=this.value;">
+                                    @foreach([10, 25, 50, 100] as $pp)
+                                        <option value="{{ route('rawreservation', array_merge(request()->all(), ['per_page' => $pp, 'page' => 1])) }}" {{ $perPage == $pp ? 'selected' : '' }}>{{ $pp }}</option>
+                                    @endforeach
+                                </select>
+                                <span>data per halaman</span>
+                            </div>
+                            <div>{{ $reservations->appends(request()->all())->links() }}</div>
+                        </div>
                     </div>
 
                     {{-- ══════════════════════════════════════
                          TAB: CALENDAR
                     ══════════════════════════════════════ --}}
                     <div id="viewCal" style="{{ request('view', 'list') === 'cal' ? '' : 'display:none;' }}">
-                        <div class="d-flex align-items-center justify-content-center mb-3" style="gap:8px;">
-                            <button class="btn btn-sm btn-warning" id="prevMonth"><i class="fa fa-chevron-left"></i></button>
-                            <span id="monthLabel" style="font-weight:700; font-size:1.50rem; color:rgb(70,21,0); min-width:160px; text-align:center;"></span>
-                            <button class="btn btn-sm btn-warning" id="nextMonth"><i class="fa fa-chevron-right"></i></button>
-                            <button class="btn btn-sm btn-primary ml-2" id="todayBtn" style="font-size: 1.25    rem;">Hari Ini </button>
-                        </div>
-                        <div class="cal-grid cal-header">
-                            @foreach(['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'] as $d)
-                                <div class="cal-dow">{{ $d }}</div>
-                            @endforeach
-                        </div>
-                        <div class="cal-grid cal-body" id="calBody"></div>
-                        <div class="cal-legend mt-2" style="font-size: 2.50rem;">
-                            <span class="cal-legend-dot" style="background:rgb(243,199,77)"></span><span class="cal-legend-txt">Menunggu Konfirmasi</span>
-                            <span class="cal-legend-dot" style="background:rgb(30,202,184)"></span><span class="cal-legend-txt">DIkonfirmasi</span>
-                            <span class="cal-legend-dot" style="background:#7c3aed"></span><span class="cal-legend-txt">Waiting List</span>
-                            <span class="cal-legend-dot" style="background:rgb(77,121,246)"></span><span class="cal-legend-txt">Berlangsung</span>
-                            <span class="cal-legend-dot" style="background:rgb(241,100,108)"></span><span class="cal-legend-txt">Dibatalkan</span>
-                            <span class="cal-legend-dot" style="background:#2e7d32"></span><span class="cal-legend-txt">Selesai</span>
+                        <div class="st-cal-wrap">
+                            <div class="st-cal-toolbar">
+                                <div class="st-cal-toolbar__nav">
+                                    <button class="st-cal-nav-btn" id="prevMonth" title="Bulan sebelumnya"><i class="fa fa-chevron-left"></i></button>
+                                    <span class="st-cal-month-label" id="monthLabel"></span>
+                                    <button class="st-cal-nav-btn" id="nextMonth" title="Bulan berikutnya"><i class="fa fa-chevron-right"></i></button>
+                                </div>
+                                <button class="st-cal-today-btn" id="todayBtn"><i class="fa fa-crosshairs"></i> Hari Ini</button>
+                            </div>
+                            <div class="st-cal-grid st-cal-grid--head">
+                                @foreach(['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'] as $d)
+                                    <div class="st-cal-dow">{{ $d }}</div>
+                                @endforeach
+                            </div>
+                            <div class="st-cal-grid" id="calBody"></div>
+                            <div class="st-cal-legend">
+                                <span class="st-cal-legend-item"><span class="st-cal-legend-dot st-cal-legend-dot--pending"></span>Menunggu Konfirmasi</span>
+                                <span class="st-cal-legend-item"><span class="st-cal-legend-dot st-cal-legend-dot--confirmed"></span>Dikonfirmasi</span>
+                                <span class="st-cal-legend-item"><span class="st-cal-legend-dot st-cal-legend-dot--waitlist"></span>Waiting List</span>
+                                <span class="st-cal-legend-item"><span class="st-cal-legend-dot st-cal-legend-dot--cancelled"></span>Dibatalkan</span>
+                                <span class="st-cal-legend-item"><span class="st-cal-legend-dot st-cal-legend-dot--completed"></span>Selesai</span>
+                            </div>
                         </div>
                     </div>
 
@@ -351,25 +411,33 @@
 </div>
 
 {{-- Modal --}}
-<div class="modal fade" id="eventModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered modal-lg">
-        <div class="modal-content" style="border-radius:12px; border:none; overflow:hidden;">
-            <div class="modal-header" style="background:rgb(70,21,0); border:none;">
-                <h5 class="modal-title" style="color:#fff; font-weight:700;">
-                    <i class="fa fa-calendar-check mr-2"></i> Detail Reservasi
-                </h5>
-                <button type="button" class="close" data-dismiss="modal" style="color:#fff; opacity:1; font-size:1.4rem;">&times;</button>
+<div class="modal fade st-modal" id="eventModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="st-modal-header">
+                <div class="st-title-wrap">
+                    <svg class="st-title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                        <line x1="16" y1="2" x2="16" y2="6"/>
+                        <line x1="8" y1="2" x2="8" y2="6"/>
+                        <line x1="3" y1="10" x2="21" y2="10"/>
+                    </svg>
+                    <div>
+                        <h5 class="st-modal-title">Detail Reservasi</h5>
+                        <p class="st-modal-subtitle" id="modalSubtitle"></p>
+                    </div>
+                </div>
+                <button type="button" class="st-modal-close" data-dismiss="modal" aria-label="Close">&times;</button>
             </div>
-            <div class="modal-body" style="padding:16px 24px;">
-                <table class="table table-sm mb-0" style="font-size:0.88rem;">
-                    <tbody id="modalBody"></tbody>
-                </table>
-            </div>
-            <div class="modal-footer" style="border-top:1px solid rgb(208,196,191); background:rgb(250,245,243);">
-                <a href="#" id="modalDetailBtn" class="btn btn-primary btn-sm">
-                    <i class="fa fa-eye"></i> Lihat Pasien
-                </a>
-                <button type="button" class="btn btn-warning btn-sm" data-dismiss="modal">Tutup</button>
+            <div class="st-modal-body" id="modalBody"></div>
+            <div class="st-modal-footer">
+                <p class="st-footer-note" id="modalFooterNote">Klik jadwal pasien untuk lihat detail reservasi</p>
+                <div style="display:flex; gap:8px; align-items:center;">
+                    <a href="#" id="modalDetailBtn" class="btn btn-primary btn-sm" style="display:none;">
+                        <i class="fa fa-edit"></i> Detail / Edit
+                    </a>
+                    <button type="button" class="st-btn-tutup" id="modalCloseBtn" data-dismiss="modal">Tutup</button>
+                </div>
             </div>
         </div>
     </div>
@@ -378,102 +446,43 @@
 
 @section('css')
 <style>
-/* ── Tab toggle ── */
-.view-tab-group { display:flex; border:1px solid rgb(208,196,191); border-radius:6px; overflow:hidden; }
-.view-tab { padding:5px 16px; font-size:0.82rem; font-weight:600; background:#fff; color:rgb(70,21,0); border:none; cursor:pointer; transition:background .15s,color .15s; outline:none; }
-.view-tab:not(:last-child) { border-right:1px solid rgb(208,196,191); }
-.view-tab.active { background:rgb(70,21,0); color:#fff; }
-.view-tab:not(.active):hover { background:rgb(250,245,243); }
-
-/* ── Calendar grid ── */
-.cal-grid { display:grid; grid-template-columns:repeat(7,1fr); border-left:1px solid rgb(208,196,191); border-top:1px solid rgb(208,196,191); }
-.cal-header .cal-dow { background:rgb(70,21,0); color:#fff; text-align:center; font-weight:700; font-size:1rem; padding:8px 0; border-right:1px solid rgba(255,255,255,0.2); border-bottom:1px solid rgb(208,196,191); letter-spacing:.04em; }
-.cal-day { border-right:1px solid rgb(208,196,191); border-bottom:1px solid rgb(208,196,191); min-height:130px; padding:4px 4px 6px; background:#fff; position:relative; transition:background .15s; }
-.cal-day:hover { background:rgb(250,245,243); }
-.cal-day.other-month { background:rgb(250,245,243); opacity:.6; }
-.cal-day.today { background:rgb(255,248,245); }
-.cal-day.today .cal-date { background:rgb(70,21,0); color:#fff; border-radius:50%; width:28px; height:28px; display:inline-flex; align-items:center; justify-content:center; }
-.cal-date { font-size:0.95rem; font-weight:700; color:rgb(70,21,0); margin-bottom:4px; display:inline-block; line-height:1; }
-.other-month .cal-date { color:rgb(180,150,140); }
-
-/* ── Event card (new design) ── */
-.cal-event-wrapper { margin-bottom:3px; }
-.cal-event-card {
-    border-radius: 5px;
-    cursor: pointer;
-    overflow: hidden;
-    border-left: 4px solid transparent;
-    transition: filter .15s, transform .1s;
-    background: #fff;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.10);
-}
-.cal-event-card:hover { filter:brightness(.93); transform:translateX(1px); }
-
-/* Top row: jam | nama | dokter */
-.cal-event-top {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
+/* ── Tab toggle (brand-cream, konsisten dengan components.sweettreats.css) ── */
+.view-tab-group {
+    display: inline-flex;
+    align-items: center;
     gap: 2px;
-    padding: 6px 8px;
+    padding: 4px;
+    background: var(--cream-header);
+    border: 1px solid var(--divider-strong);
+    border-radius: 8px;
+    font-family: 'Montserrat', sans-serif;
+}
+.view-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px;
+    font-size: 12px;
     font-weight: 600;
-    color: rgb(40,20,10);
+    color: var(--text-muted);
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    text-decoration: none !important;
+    transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+    outline: none;
 }
-.cal-event-top .ev-time   { color:rgb(70,21,0); font-weight:700; font-size: 1.05rem; display: flex; align-items: flex-start; }
-.cal-event-top .ev-sep    { display: none; }
-.cal-event-top .ev-name   { font-size: 1.05rem; color: rgb(80,50,30); line-height: 1.2; display: flex; align-items: flex-start; }
-.cal-event-top .ev-doctor { font-size: 0.95rem; color: rgb(120,80,60); display: flex; align-items: flex-start; margin-top: 2px; }
-    
-.cal-event-top i {
-    font-size: 1rem !important;
-    margin-right: 5px;
-    width: 16px;
-    text-align: center;
-    flex-shrink: 0;
-    margin-top: 3px;
+.view-tab:hover {
+    color: #ffffff;
+    background: var(--brown);
+    text-decoration: none !important;
 }
-
-.cal-event-top .ev-header { display: flex; justify-content: space-between; align-items: center; width: 100%; }
-.cal-event-top .ev-icons { display: flex; gap: 6px; }
-.cal-event-top .ev-icon { font-size: 0.9rem; color: #888; }
-.cal-event-top .ev-icon i { margin-right: 2px; }
-
-/* Bottom: status bar */
-.cal-event-status {
-    font-size: 0.85rem;
-    font-weight: 700;
-    text-align: center;
-    padding: 2px 4px;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
+.view-tab.active {
+    background: var(--brown);
+    color: #ffffff;
+    box-shadow: 0 1px 3px rgba(61, 26, 0, 0.08);
 }
-
-/* Status variants */
-.ev-pending   > .cal-event-card { border-color:rgb(243,199,77); }
-.ev-pending   .cal-event-status { background:rgb(255,243,205); color:rgb(110,70,0); }
-.ev-confirmed > .cal-event-card { border-color:rgb(30,202,184); }
-.ev-confirmed .cal-event-status { background:rgb(195,248,240); color:rgb(0,80,65); }
-.ev-cancelled > .cal-event-card { border-color:rgb(241,100,108); opacity: 0.6; }
-.ev-cancelled .cal-event-top { text-decoration: line-through; }
-.ev-cancelled .cal-event-status { background:rgb(255,205,210); color:rgb(140,20,30); }
-.ev-done      > .cal-event-card { border-color:#2e7d32;  }
-.ev-done      .cal-event-status { background:#e8f5e9; color:#2e7d32; }
-.ev-ongoing   > .cal-event-card { border-color:rgb(77,121,246) }
-.ev-ongoing   .cal-event-status { background:rgb(210,225,255); color:rgb(20,50,160) }
-.ev-waitlist  > .cal-event-card { border-color:#7c3aed; }
-.ev-waitlist  .cal-event-status { background:#ede9fe; color:#7c3aed; }
-.ev-default   > .cal-event-card { border-color:rgb(180,160,150); }
-.ev-default   .cal-event-status { background:rgb(225,215,210); color:rgb(70,21,0); }
-
-.ev-past > .cal-event-card { opacity: 0.45; filter: grayscale(0.3); }
-
-.cal-more { font-size:0.68rem; color:rgb(105,56,35); cursor:pointer; font-weight:600; padding:1px 4px; display:block; }
-.cal-more:hover { text-decoration:underline; }
-
-/* ── Legend ── */
-.cal-legend { display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-top:8px; }
-.cal-legend-dot { width:10px; height:10px; border-radius:50%; display:inline-block; flex-shrink:0; }
-.cal-legend-txt { font-size:0.72rem; font-weight:600; color:rgb(70,21,0); margin-right:8px; }
 
 /* ── Modal ── */
 #modalBody tr td:first-child { font-weight:600; color:rgb(70,21,0); width:30%; white-space:nowrap; }
@@ -484,6 +493,12 @@
 
 @section('js')
 <script>
+function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+        .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
 
 @php
     $calReservationsMapped = $calendarReservations->map(function($r) {
@@ -516,7 +531,7 @@ const KEHADIRAN_OPTIONS = {
 };
 
 function createSelect(options, field, selectedValue, reservationId) {
-    let html = `<select class="form-control form-control-sm inline-update" data-id="${reservationId}" data-field="${field}" style="min-width:120px;">`;
+    let html = `<select class="form-control form-control-sm inline-update" data-id="${reservationId}" data-field="${field}" data-value="${selectedValue || ''}" style="min-width:120px;">`;
     for (const key in options) {
         const label = typeof options[key] === 'object' ? options[key].label : options[key];
         const isSelected = key == selectedValue ? 'selected' : '';
@@ -527,14 +542,14 @@ function createSelect(options, field, selectedValue, reservationId) {
 }
 
 const STATUS_CFG = {
-    pending:   { label:'Menunggu Konfirmasi',      cls:'ev-pending',   style: 'background:rgb(255,243,205); color:rgb(110,70,0);' },
-    confirmed: { label:'DIkonfirmasi', cls:'ev-confirmed', style: 'background:rgb(195,248,240); color:rgb(0,80,65);' },
-    waitlist:  { label:'Waiting List', cls:'ev-waitlist',  style: 'background:#ede9fe; color:#7c3aed;' },
-    ongoing:   { label:'Berlangsung',   cls:'ev-ongoing',   style: 'background:rgb(210,225,255); color:rgb(20,50,160);' },
-    cancelled: { label:'Dibatalkan',    cls:'ev-cancelled', style: 'background:rgb(255,205,210); color:rgb(140,20,30);' },
-    done:      { label:'Selesai',       cls:'ev-done',      style: 'background:#e8f5e9; color:#2e7d32;' },
-    completed: { label:'Selesai',       cls:'ev-done',      style: 'background:#e8f5e9; color:#2e7d32;' },
-    selesai:   { label:'Selesai',       cls:'ev-done',      style: 'background:#e8f5e9; color:#2e7d32;' },
+    pending:   { label:'Menunggu Konfirmasi', cls:'st-cal-event--pending' },
+    confirmed: { label:'Dikonfirmasi',        cls:'st-cal-event--confirmed' },
+    waitlist:  { label:'Waiting List',        cls:'st-cal-event--waitlist' },
+    ongoing:   { label:'Berlangsung',         cls:'st-cal-event--ongoing' },
+    cancelled: { label:'Dibatalkan',          cls:'st-cal-event--cancelled' },
+    done:      { label:'Selesai',             cls:'st-cal-event--completed' },
+    completed: { label:'Selesai',             cls:'st-cal-event--completed' },
+    selesai:   { label:'Selesai',             cls:'st-cal-event--completed' },
 };
 
 const MONTHS_ID = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
@@ -561,26 +576,26 @@ function makeEventCard(ev) {
     const nowTime = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
     const nowDate = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
 
-    const cfg    = STATUS_CFG[ev.status] || { label: ev.status||'-', cls:'ev-default' };
+    const cfg    = STATUS_CFG[ev.status] || { label: ev.status||'-', cls:'st-cal-event--default' };
     const jam    = (ev.start_hour||'').substring(0, 5);
     const jamSelesai = (ev.end_hour||'').substring(0, 5);
-    const nama   = ev.customer ? ev.customer.name : '-';
-    const dokter = ev.doctor ? ev.doctor.name : '-';
+    const nama   = ev.customer ? escapeHtml(ev.customer.name) : '<span class="text-danger">Pasien Terhapus</span>';
+    const dokter = ev.doctor ? escapeHtml(ev.doctor.name) : '-';
 
     let servicesHTML = '';
     if (ev.services && ev.services.length > 0) {
-        const serviceNames = ev.services.map(s => s.doc_service ? s.doc_service.name : '').filter(Boolean).join(', ');
-        servicesHTML = `<span class="ev-icon" title="${serviceNames}"><i class="fa fa-stethoscope"></i></span>`;
+        const serviceNames = ev.services.map(s => s.doc_service ? escapeHtml(s.doc_service.name) : '').filter(Boolean).join(', ');
+        servicesHTML = `<i class="fa fa-stethoscope" title="${serviceNames}"></i>`;
     } else if (ev.lainnya_text) {
-        servicesHTML = `<span class="ev-icon" title="Keluhan: ${ev.lainnya_text}"><i class="fa fa-comment-dots"></i></span>`;
+        servicesHTML = `<i class="fa fa-comment-dots" title="Keluhan: ${escapeHtml(ev.lainnya_text)}"></i>`;
     }
 
     let promoHTML = '';
     if (ev.promo) {
-        promoHTML = `<span class="ev-icon" title="Promo: ${ev.promo.promo_code}"><i class="fa fa-tag"></i></span>`;
+        promoHTML = `<i class="fa fa-tag" title="Promo: ${escapeHtml(ev.promo.promo_code)}"></i>`;
     }
 
-    // Deteksi apakah waktu sudah terlewat (Hari ini lewat jam selesai, atau memang sudah lewat hari)
+    // Deteksi apakah waktu sudah terlewat
     let isPast = false;
     if (ev.date < nowDate) {
         isPast = true;
@@ -588,33 +603,33 @@ function makeEventCard(ev) {
         isPast = true;
     }
 
-    let newBadgeHtml = '';
-    let newBgStyle = '';
-    if (ev.is_new) {
-        newBadgeHtml = `<span class="badge badge-success ml-1" style="font-size:0.85rem; padding: 2px 4px; vertical-align: middle;"><i class="fa fa-star"></i> Baru</span>`;
-        newBgStyle = 'background-color: #e6f7ff !important;';
-    }
-
     const wrapper = document.createElement('div');
-    wrapper.className = 'cal-event-wrapper ' + cfg.cls + (isPast ? ' ev-past' : '');
+    wrapper.className = 'st-cal-event-wrap';
 
     const card = document.createElement('div');
-    card.className = 'cal-event-card';
+    card.className = 'st-cal-event ' + cfg.cls
+        + (isPast ? ' st-cal-event--past' : '')
+        + (ev.is_new ? ' st-cal-event--new' : '');
+
+    const iconsHtml = (servicesHTML || promoHTML)
+        ? `<span class="st-cal-event__icons">${servicesHTML}${promoHTML}</span>`
+        : '';
+    const newBadge = ev.is_new
+        ? ` <span class="st-card__badge-new" style="font-size:8px;padding:1px 5px;"><i class="fa fa-star"></i></span>`
+        : '';
+
     card.innerHTML = `
-        <div class="cal-event-top" style="${newBgStyle}">
-            <div class="ev-header">
-                <span class="ev-time"><i class="fa fa-clock"></i>${jam}</span>
-                <div class="ev-icons">
-                    ${servicesHTML}
-                    ${promoHTML}
-                </div>
+        <div class="st-cal-event__top">
+            <div class="st-cal-event__header">
+                <span class="st-cal-event__time"><i class="fa fa-clock"></i>${jam}</span>
+                ${iconsHtml}
             </div>
-            <span class="ev-name"><i class="fa fa-user"></i>${nama} ${newBadgeHtml}</span>
-            <span class="ev-doctor"><i class="fa fa-user-md"></i>${dokter}</span>
+            <span class="st-cal-event__name"><i class="fa fa-user"></i>${nama}${newBadge}</span>
+            <span class="st-cal-event__doctor"><i class="fa fa-user-md"></i>${dokter}</span>
         </div>
-        <div class="cal-event-status">${cfg.label}</div>
+        <div class="st-cal-event__status">${cfg.label}</div>
     `;
-    card.addEventListener('click', () => showModal(ev));
+    card.addEventListener('click', () => { lastAllModalCtx = null; showModal(ev); });
     wrapper.appendChild(card);
     return wrapper;
 }
@@ -630,24 +645,24 @@ function renderCalendar(year, month) {
 
     for (let i = 0; i < 42; i++) {
         const cell = document.createElement('div');
-        cell.className = 'cal-day';
+        cell.className = 'st-cal-day';
         let dayNum, dateObj;
         if (i < firstDay) {
             dayNum  = daysInPrev - firstDay + 1 + i;
             dateObj = new Date(year, month-1, dayNum);
-            cell.classList.add('other-month');
+            cell.classList.add('st-cal-day--other');
         } else if (i >= firstDay + daysInMonth) {
             dayNum  = i - firstDay - daysInMonth + 1;
             dateObj = new Date(year, month+1, dayNum);
-            cell.classList.add('other-month');
+            cell.classList.add('st-cal-day--other');
         } else {
             dayNum  = i - firstDay + 1;
             dateObj = new Date(year, month, dayNum);
         }
-        if (dateObj.toDateString() === today.toDateString()) cell.classList.add('today');
+        if (dateObj.toDateString() === today.toDateString()) cell.classList.add('st-cal-day--today');
 
         const dateDiv = document.createElement('div');
-        dateDiv.innerHTML = `<span class="cal-date">${dayNum}</span>`;
+        dateDiv.innerHTML = `<span class="st-cal-date">${dayNum}</span>`;
         cell.appendChild(dateDiv);
 
         const yy  = dateObj.getFullYear();
@@ -660,7 +675,7 @@ function renderCalendar(year, month) {
 
         if (events.length > 2) {
             const more = document.createElement('span');
-            more.className   = 'cal-more';
+            more.className   = 'st-cal-more';
             more.textContent = `+${events.length - 2} lainnya`;
             more.addEventListener('click', () => showAllModal(key, events));
             cell.appendChild(more);
@@ -675,18 +690,18 @@ function showModal(ev) {
     const jam = (ev.start_hour||'').substring(0,5) + ' – ' + (ev.end_hour||'').substring(0,5);
 
     let servicesHtml = ev.services.map(svc => {
-        return `<span class="badge badge-light border" style="font-size:0.75rem;margin:1px">${svc.doc_service ? svc.doc_service.name : '-'}</span>`;
+        return `<span class="badge badge-light border" style="font-size:0.75rem;margin:1px">${svc.doc_service ? escapeHtml(svc.doc_service.name) : '-'}</span>`;
     }).join(' ');
     if (ev.lainnya_text) {
         servicesHtml += `<div style="margin-top:4px;">
             <span class="badge badge-warning" style="font-size:0.72rem; white-space:normal; text-align:left; padding:3px 6px;">
-                <i class="fa fa-comment-dots"></i> Keluhan: ${ev.lainnya_text}
+                <i class="fa fa-comment-dots"></i> Keluhan: ${escapeHtml(ev.lainnya_text)}
             </span>
         </div>`;
     }
     if (!servicesHtml) servicesHtml = '<span class="text-muted">-</span>';
 
-    let promoHtml = ev.promo ? `<span class="badge badge-info" style="font-size:0.75rem">${ev.promo.promo_code}</span>` : '<span class="text-muted">-</span>';
+    let promoHtml = ev.promo ? `<span class="badge badge-info" style="font-size:0.75rem">${escapeHtml(ev.promo.promo_code)}</span>` : '<span class="text-muted">-</span>';
 
     let klaimHtml = '<span class="text-muted">-</span>';
     if (ev.raw_promo_id) {
@@ -711,66 +726,173 @@ function showModal(ev) {
     const fuHSelect = createSelect(FU_OPTIONS, 'follow_up_h', ev.follow_up_h, ev.id);
     const kehadiranSelect = createSelect(KEHADIRAN_OPTIONS, 'keterangan_kehadiran', ev.keterangan_kehadiran, ev.id);
 
+    let waPhone = (ev.customer && ev.customer.phone) ? String(ev.customer.phone).replace(/[^0-9]/g, '') : '';
+    if (waPhone && waPhone.startsWith('0')) waPhone = '62' + waPhone.substring(1);
+    const waBtn = waPhone
+        ? `<a href="https://wa.me/${waPhone}" target="_blank" class="btn btn-success btn-sm" style="padding:4px 7px; margin-left:4px;" title="Follow up via WhatsApp"><i class="fab fa-whatsapp"></i></a>`
+        : '';
+    const fu1Cell = `<div class="d-flex align-items-center">${fu1Select}${waBtn}</div>`;
+    const fuHCell = `<div class="d-flex align-items-center">${fuHSelect}${waBtn}</div>`;
+
+    document.getElementById('modalSubtitle').textContent = `${tgl} · ${jam}`;
     document.getElementById('modalBody').innerHTML = `
-        <tr><td>Customer</td><td>${ev.customer ? ev.customer.name : '-'}</td></tr>
-        <tr><td>Dokter</td><td>${ev.doctor ? ev.doctor.name : '-'}</td></tr>
-        <tr><td>Cabang</td><td>${ev.branch ? ev.branch.name : '-'}</td></tr>
-        <tr><td>Tanggal</td><td>${tgl}</td></tr>
-        <tr><td>Jam</td><td>${jam}</td></tr>
-        <tr style="border-top: 2px solid #ddd;"><td valign="top">Perawatan</td><td style="white-space:normal;">${servicesHtml}</td></tr>
-        <tr><td>Promo</td><td>${promoHtml}</td></tr>
-        <tr><td>Klaim</td><td>${klaimHtml}</td></tr>
-        <tr style="border-top: 2px solid #ddd;"><td>Status</td><td>${statusSelect}</td></tr>
-        <tr><td>FU H-1</td><td>${fu1Select}</td></tr>
-        <tr><td>FU H</td><td>${fuHSelect}</td></tr>
-        <tr><td>Kehadiran</td><td>${kehadiranSelect}</td></tr>
+        <div style="padding:16px 22px;">
+        <table class="table table-sm mb-0" style="font-size:0.88rem;">
+            <tbody>
+                <tr><td>Pasien</td><td>${ev.customer ? escapeHtml(ev.customer.name) : '<span class="text-danger">Pasien Terhapus</span>'}</td></tr>
+                <tr><td>Dokter</td><td>${ev.doctor ? escapeHtml(ev.doctor.name) : '-'}</td></tr>
+                <tr><td>Cabang</td><td>${ev.branch ? escapeHtml(ev.branch.name) : '-'}</td></tr>
+                <tr><td>Tanggal</td><td>${tgl}</td></tr>
+                <tr><td>Jam</td><td>${jam}</td></tr>
+                <tr style="border-top: 2px solid #ddd;"><td valign="top">Perawatan</td><td style="white-space:normal;">${servicesHtml}</td></tr>
+                <tr><td>Promo</td><td>${promoHtml}</td></tr>
+                <tr><td>Klaim</td><td>${klaimHtml}</td></tr>
+                <tr><td valign="top">Keterangan</td><td style="white-space:normal;">
+                    <textarea class="form-control form-control-sm inline-update" rows="2"
+                        data-id="${ev.id}" data-field="keterangan"
+                        placeholder="Isi keterangan...">${ev.keterangan ? escapeHtml(ev.keterangan) : ''}</textarea>
+                </td></tr>
+                <tr style="border-top: 2px solid #ddd;"><td>Status</td><td>${statusSelect}</td></tr>
+                <tr><td>FU H-1</td><td>${fu1Cell}</td></tr>
+                <tr><td>FU H</td><td>${fuHCell}</td></tr>
+                <tr><td>Kehadiran</td><td>${kehadiranSelect}</td></tr>
+            </tbody>
+        </table>
+        </div>
     `;
     const detailRoute = '{{ route("rawreservation.edit", ["id" => ":id"]) }}'.replace(':id', ev.id);
     document.getElementById('modalDetailBtn').href = detailRoute;
     document.getElementById('modalDetailBtn').innerHTML = '<i class="fa fa-edit"></i> Detail / Edit Reservasi';
     document.getElementById('modalDetailBtn').style.display = '';
+    document.getElementById('modalFooterNote').style.visibility = 'hidden';
     $('#eventModal').modal('show');
 }
 
-function showAllModal(dateKey, events) {
-    const tgl = dateKey.split('-').reverse().join('/');
-    const header = `
-        <tr style="background:rgb(250,245,243);">
-            <th colspan="4" style="border-top:none; color:rgb(70,21,0); font-weight:700; font-size:0.95rem;">Reservasi Tanggal: ${tgl}</th>
-        </tr>
-        <tr style="background:#f1f1f1; font-weight:bold;">
-            <th style="border-top:1px solid #dee2e6;">Jam</th>
-            <th style="border-top:1px solid #dee2e6;">Nama Customer</th>
-            <th style="border-top:1px solid #dee2e6;">Nama Dokter</th>
-            <th style="border-top:1px solid #dee2e6;">Status</th>
-        </tr>
-    `;
-    const rows = events.map(ev => {
-        const cfg = STATUS_CFG[ev.status] || { label: ev.status || '-', style: 'background:#eee;color:#333' };
-        
-        let newBadgeHtml = '';
-        let newBgStyle = '';
-        if (ev.is_new) {
-            newBadgeHtml = `<span class="badge badge-success ml-1" style="font-size:0.65rem;"><i class="fa fa-star"></i> Baru</span>`;
-            newBgStyle = 'background-color: #e6f7ff !important;';
+const STATUS_DOT_MAP = {
+    'pending':   's-menunggu',
+    'waitlist':  's-waitlist',
+    'confirmed': 's-dikonfirmasi',
+    'ongoing':   's-dikonfirmasi',
+    'done':      's-selesai',
+    'completed': 's-selesai',
+    'selesai':   's-selesai',
+    'cancelled': 's-batal',
+    'cancel':    's-batal',
+    'dibatalkan':'s-batal',
+};
+
+function statusDotClass(status) {
+    if (!status) return 's-default';
+    const key = String(status).toLowerCase();
+    return STATUS_DOT_MAP[key] || 's-default';
+}
+
+function formatLongDate(dateKey) {
+    const [y, m, d] = dateKey.split('-').map(Number);
+    const dt = new Date(y, m - 1, d);
+    const days  = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+    const months = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+    return `${days[dt.getDay()]}, ${d.toString().padStart(2,'0')} ${months[m-1]} ${y}`;
+}
+
+let lastAllModalCtx = null;
+
+function setCloseBtnTutup() {
+    const $btn = $('#modalCloseBtn');
+    $btn.text('Tutup').attr('data-dismiss', 'modal').off('click.kembali');
+}
+function setCloseBtnKembali() {
+    const $btn = $('#modalCloseBtn');
+    $btn.text('← Kembali').removeAttr('data-dismiss').off('click.kembali').on('click.kembali', function (e) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        if (lastAllModalCtx) {
+            const ctx = lastAllModalCtx; // simpan dulu, akan di-overwrite oleh showAllModal
+            const fresh = ctx.events.map(ev =>
+                RAW_RESERVATIONS.find(r => String(r.id) === String(ev.id)) || ev
+            );
+            showAllModal(ctx.dateKey, fresh);
         }
-        
-        return `<tr class="modal-hover-row" style="cursor:pointer; ${newBgStyle}" onclick="openSingleModal('${ev.id}')" title="Klik untuk melihat detail / ubah status">
-            <td>${(ev.start_hour||'').substring(0,5)} - ${(ev.end_hour||'').substring(0,5)}</td>
-            <td>${ev.customer ? ev.customer.name : '-'}${newBadgeHtml}</td>
-            <td>${ev.doctor ? ev.doctor.name : '-'}</td>
-            <td><span class="badge" style="${cfg.style} font-size:0.75rem; padding:4px 8px;">${cfg.label}</span></td>
-        </tr>`;
+    });
+}
+
+function showAllModal(dateKey, events) {
+    lastAllModalCtx = { dateKey, events };
+    setCloseBtnTutup();
+    document.getElementById('modalSubtitle').textContent =
+        `${formatLongDate(dateKey)} · ${events.length} jadwal`;
+
+    const rows = events.map(ev => {
+        const cfg = STATUS_CFG[ev.status] || { label: ev.status || '-' };
+        const dotClass = statusDotClass(ev.status);
+
+        const services = (ev.services || []).map(s => {
+            const name = (s.doc_service && s.doc_service.name) || s.name || '-';
+            return `<span class="st-perawatan-badge">${escapeHtml(name)}</span>`;
+        });
+        if (ev.lainnya_text) {
+            services.push(`<span class="st-perawatan-badge">${escapeHtml(ev.lainnya_text)}</span>`);
+        }
+        const perawatanHtml = services.length
+            ? `<div class="st-perawatan-wrap">${services.join('')}</div>`
+            : `<span class="text-muted">-</span>`;
+
+        const newBadge = ev.is_new
+            ? ` <span class="badge badge-success" style="font-size:0.62rem;"><i class="fa fa-star"></i> Baru</span>`
+            : '';
+
+        const jam = `${(ev.start_hour||'').substring(0,5)}–${(ev.end_hour||'').substring(0,5)}`;
+        const pasien = ev.customer ? escapeHtml(ev.customer.name) : '<span class="text-danger">Pasien Terhapus</span>';
+        const dokter = ev.doctor ? escapeHtml(ev.doctor.name) : '-';
+
+        const stLower = String(ev.status||'').toLowerCase();
+        const cancelledClass = (stLower === 'cancelled' || stLower === 'dibatalkan' || stLower === 'cancel') ? 'is-cancelled' : '';
+
+        return `
+            <tr class="${cancelledClass}" onclick="openSingleModal('${ev.id}')" title="Klik untuk lihat detail">
+                <td><span class="st-time">${jam}</span></td>
+                <td>
+                    <div class="st-pasien-name">${pasien}${newBadge}</div>
+                    <div class="st-pasien-sub">${dokter}</div>
+                </td>
+                <td>${perawatanHtml}</td>
+                <td>
+                    <span class="st-status-wrap">
+                        <span class="st-status-dot ${dotClass}"></span>
+                        ${escapeHtml(cfg.label || '-')}
+                    </span>
+                </td>
+            </tr>
+        `;
     }).join('');
-    document.getElementById('modalBody').innerHTML = header + rows;
+
+    document.getElementById('modalBody').innerHTML = `
+        <table class="st-list-table">
+            <thead>
+                <tr>
+                    <th>Jam</th>
+                    <th>Pasien &amp; Dokter</th>
+                    <th>Perawatan</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+        </table>
+    `;
     document.getElementById('modalDetailBtn').style.display = 'none';
+    document.getElementById('modalFooterNote').style.visibility = 'visible';
     $('#eventModal').modal('show');
 }
+
+$(document).on('hidden.bs.modal', '#eventModal', function () {
+    lastAllModalCtx = null;
+});
 
 function openSingleModal(id) {
     const ev = RAW_RESERVATIONS.find(r => r.id === id);
     if (ev) {
         showModal(ev);
+        if (lastAllModalCtx) setCloseBtnKembali();
     }
 }
 
@@ -778,13 +900,44 @@ document.getElementById('prevMonth').addEventListener('click', () => { curMonth-
 document.getElementById('nextMonth').addEventListener('click', () => { curMonth++; if (curMonth>11){curMonth=0;curYear++;} renderCalendar(curYear,curMonth); });
 document.getElementById('todayBtn').addEventListener('click', () => { curYear=today.getFullYear(); curMonth=today.getMonth(); renderCalendar(curYear,curMonth); });
 
+// Sync data-value attribute for pill-style value-based coloring
+function syncInlineSelectValue($el) {
+    if ($el.is('select')) {
+        $el.attr('data-value', $el.val() || '');
+    }
+}
+$('.inline-update').each(function () { syncInlineSelectValue($(this)); });
+
 $(document).on('change', '.inline-update', function () {
     const id = $(this).data('id'), field = $(this).data('field'), value = $(this).val(), $sel = $(this);
+    syncInlineSelectValue($sel);
     $sel.prop('disabled', true);
     $.ajax({
         url: '/rawreservation/' + id + '/inline', method: 'PATCH',
         data: { _token: '{{ csrf_token() }}', field, value },
-        success:  () => { $sel.css('border-color','#28a745'); setTimeout(() => $sel.css('border-color',''), 1500); },
+        success:  () => {
+            $sel.css('border-color','#28a745');
+            setTimeout(() => $sel.css('border-color',''), 1500);
+
+            // 1) update in-memory data
+            const rec = (typeof RAW_RESERVATIONS !== 'undefined')
+                ? RAW_RESERVATIONS.find(r => String(r.id) === String(id)) : null;
+            if (rec) rec[field] = value;
+
+            // 2) sync semua input/select dengan data-id & data-field yg sama (tabel ↔ modal)
+            $(`.inline-update[data-id="${id}"][data-field="${field}"]`).each(function () {
+                if (this !== $sel[0]) {
+                    if ($(this).is('textarea, input')) $(this).val(value);
+                    else $(this).val(value);
+                    syncInlineSelectValue($(this));
+                }
+            });
+
+            // 3) jika status berubah, re-render kalender supaya dot/warna ikut update
+            if (field === 'status' && typeof renderCalendar === 'function') {
+                renderCalendar(curYear, curMonth);
+            }
+        },
         error:    () => alert('Gagal menyimpan, coba lagi.'),
         complete: () => $sel.prop('disabled', false),
     });
@@ -809,7 +962,7 @@ function checkNewReservations() {
                 
                 let message = `Ada <strong>${response.new_count}</strong> reservasi baru.`;
                 if (latest && latest.customer) {
-                    message += `<br>Terbaru dari: <strong>${latest.customer.name}</strong> di cabang <strong>${latest.branch ? latest.branch.name : ''}</strong>`;
+                    message += `<br>Terbaru dari: <strong>${escapeHtml(latest.customer.name)}</strong> di cabang <strong>${latest.branch ? escapeHtml(latest.branch.name) : ''}</strong>`;
                 }
                 
                 @if(request('new'))
@@ -851,6 +1004,26 @@ $(document).ready(function() {
     if (document.getElementById('viewCal').style.display !== 'none') {
         renderCalendar(curYear, curMonth);
     }
+});
+
+// Row-click navigation — seluruh baris jadi clickable kecuali pada interactive child
+$(document).on('click', '.st-table--clickable tbody tr[data-href]', function (e) {
+    // Abaikan klik yang asalnya dari elemen interaktif di dalam row
+    if (e.target.closest('input, select, textarea, button, a, label, form')) return;
+    const href = $(this).data('href');
+    if (!href) return;
+    if (e.ctrlKey || e.metaKey || e.button === 1) {
+        window.open(href, '_blank');
+    } else {
+        window.location.href = href;
+    }
+});
+// Middle-click / Ctrl+click → buka tab baru (mouseup agar dapat tombol tengah)
+$(document).on('auxclick', '.st-table--clickable tbody tr[data-href]', function (e) {
+    if (e.button !== 1) return;
+    if (e.target.closest('input, select, textarea, button, a, label, form')) return;
+    e.preventDefault();
+    window.open($(this).data('href'), '_blank');
 });
 
 </script>

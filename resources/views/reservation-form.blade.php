@@ -224,6 +224,21 @@
             font-weight: 600;
         }
 
+        /* Doctor cards */
+        .doctor-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .doctor-card { display: flex; align-items: center; gap: 14px; padding: 16px; background: #fffaf5; border: 2px solid rgba(70,21,0,0.08); border-radius: 14px; cursor: pointer; transition: all 0.3s; }
+        .doctor-card:hover { border-color: rgba(70,21,0,0.25); background: #fef5ed; transform: translateY(-2px); }
+        .doctor-card.selected { border-color: #461500; background: linear-gradient(135deg, #461500, #6b2400); color: #fff; transform: translateY(-2px); box-shadow: 0 8px 20px rgba(70,21,0,0.2); }
+        .doctor-avatar { width: 44px; height: 44px; border-radius: 50%; background: linear-gradient(135deg, #e8d5c4, #d4b89a); display: flex; align-items: center; justify-content: center; font-size: 1.1rem; color: #461500; font-weight: 800; flex-shrink: 0; transition: all 0.3s; overflow: hidden; }
+        .doctor-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .doctor-card.selected .doctor-avatar { background: rgba(255,255,255,0.2); color: #fff; }
+        .doctor-info { flex: 1; min-width: 0; }
+        .doctor-name { font-size: 0.9rem; font-weight: 700; color: #461500; transition: color 0.3s; }
+        .doctor-card.selected .doctor-name { color: #fff; }
+        .doctor-days { font-size: 0.72rem; font-weight: 600; color: #8b7a6b; margin-top: 3px; transition: color 0.3s; }
+        .doctor-card.selected .doctor-days { color: rgba(255,255,255,0.75); }
+        .doctor-empty { grid-column: 1 / -1; text-align: center; padding: 24px; color: #8b7a6b; font-size: 0.9rem; }
+
         .btn-submit { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; padding: 16px; background: linear-gradient(135deg, #461500, #6b2400); color: #fff; border: none; border-radius: 14px; font-family: 'Montserrat', sans-serif; font-size: 1rem; font-weight: 800; cursor: pointer; transition: all 0.3s ease; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 12px; }
         .btn-submit:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(70,21,0,0.35); }
         .btn-submit:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
@@ -262,23 +277,54 @@
 
 
         @media (max-width: 640px) {
-            .form-card { padding: 28px 20px; }
+            .container { padding: 0 16px; }
+            .navbar { padding: 0 16px; }
+            .navbar-inner { height: 60px; }
+            .navbar-brand { font-size: 1.2rem; }
+            .btn-back { padding: 8px 14px; font-size: 0.78rem; }
+            .form-section { padding: 32px 0 60px; }
+            .form-header { margin-bottom: 28px; }
+            .form-header h1 { font-size: 1.5rem; }
+            .form-header p { font-size: 0.88rem; }
+            .form-card { padding: 24px 16px; border-radius: 18px; }
             .form-row { grid-template-columns: 1fr; }
             .services-select-grid { grid-template-columns: 1fr; }
-            .category-grid { grid-template-columns: 1fr 1fr; }
-            .patient-type-grid { grid-template-columns: 1fr 1fr; }
-            .form-header h1 { font-size: 1.8rem; }
-            .steps { flex-wrap: wrap; }
+            .category-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+            .category-btn { padding: 12px 12px; font-size: 0.78rem; gap: 8px; }
+            .category-icon { width: 28px; height: 28px; font-size: 0.75rem; }
+            .patient-type-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+            .patient-type-btn { padding: 16px 12px; }
+            .patient-type-btn .btn-title { font-size: 0.85rem; }
+            .patient-type-icon { width: 40px; height: 40px; font-size: 1rem; }
+            .steps { gap: 6px; }
+            .step { padding: 6px 10px; font-size: 0.68rem; }
             .step span { display: none; }
-            .slots-grid { grid-template-columns: repeat(3, 1fr); }
-            .date-pill { min-width: unset; padding: 12px 8px; }
-            .modal-body, .modal-header, .modal-footer { padding-left: 20px; padding-right: 20px; }
+            .step-num { width: 20px; height: 20px; font-size: 0.65rem; }
+            .form-group label { font-size: 0.8rem; }
+            .form-control { padding: 12px 14px; font-size: 0.88rem; border-radius: 12px; }
+            .doctor-grid { grid-template-columns: 1fr; }
+            .doctor-card { padding: 14px; }
+            .date-grid { grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 8px; }
+            .date-pill { padding: 10px 6px; border-radius: 12px; }
+            .date-pill .date-num { font-size: 0.95rem; }
+            .date-pill .date-day { font-size: 0.68rem; }
+            .slots-grid { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+            .slot { padding: 12px 6px; font-size: 0.82rem; border-radius: 10px; }
+            .duration-summary { padding: 14px 16px; flex-wrap: wrap; gap: 12px; }
+            .duration-summary .summary-label { font-size: 0.65rem; }
+            .duration-summary .summary-value { font-size: 0.95rem; }
+            .btn-submit { padding: 14px; font-size: 0.9rem; border-radius: 12px; }
+            .modal-box { border-radius: 18px; margin: 16px; }
+            .modal-body, .modal-header, .modal-footer { padding-left: 18px; padding-right: 18px; }
+            .modal-header h2 { font-size: 1.2rem; }
+            .preview-row { font-size: 0.82rem; }
         }
     </style>
 </head>
 
 <body>
 
+    <nav class="navbar">
         <div class="navbar-inner">
             <a href="https://sweettreats.id/" class="navbar-brand">
                 <span>Sweet Treats</span>
@@ -287,6 +333,7 @@
                 <i class="fa-solid fa-arrow-left"></i> Kembali
             </a>
         </div>
+    </nav>
 
 
 
@@ -374,9 +421,10 @@
                     <div class="chain-section" id="doctorSection">
                         <div class="form-group">
                             <label>Pilih Dokter <span class="required">*</span></label>
-                            <select name="raw_doctor_id" id="doctorSelect" class="form-control">
-                            <option value="" hidden selected>-- Pilih Dokter --</option>                            
-                        </select>
+                            <input type="hidden" name="raw_doctor_id" id="doctorValue">
+                            <div class="doctor-grid" id="doctorGrid">
+                                <!-- populated by JS -->
+                            </div>
                         </div>
                     </div>
 
@@ -680,7 +728,7 @@
                         $('.category-btn').removeClass('active');
                         activeCategory = null;
                     }
-                    if (s === 'doctor') { $('#doctorSelect').html('<option value="" hidden selected>-- Pilih Dokter --</option>'); }                   
+                    if (s === 'doctor') { $('#doctorGrid').empty(); $('#doctorValue').val(''); }
                     if (s === 'date')   { $('#dateGrid').empty(); $('#reservationDate').val(''); selectedDate = null; allDates = []; }
                     if (s === 'slot')   { $('#slotsGrid').empty(); $('#reservationTime').val(''); selectedTime = null; }
                     if (s === 'customer') {
@@ -755,7 +803,7 @@
                     html += '<input type="radio" name="services[]" value="' + svc.id + '" id="svc_' + svc.id + '" class="service-select-check" data-duration="' + svc.duration_minutes + '" data-name="' + svc.name + '">';
                     html += '<label for="svc_' + svc.id + '"><span class="check-icon"><i class="fa-solid fa-check"></i></span>';
                     html += '<span class="service-info"><span class="service-name">' + svc.name + '</span>';
-                    html += '<span class="service-meta"><span>' + svc.duration_minutes + ' menit</span></span></span></label></div>';
+                    html += '<span class="service-meta"><span>Est. ' + svc.duration_minutes + ' menit</span></span></span></label></div>';
                 });
                 $('#servicesSelectGrid').html(html);
             }
@@ -796,21 +844,34 @@
                 resetFrom('doctor');
                 setStep(3);
                 $('#doctorSection').addClass('visible');
-                $('#doctorSelect').html('<option value=""  hidden selected>Memuat dokter...</option>');
+                $('#doctorGrid').html('<div class="loading"><i class="fa-solid fa-spinner"></i> Memuat dokter...</div>');
                 if (activeCategory === 'lainnya') {
                     const firstSvc = servicesData[0];
                     if (firstSvc) { $.getJSON(BASE + '/doctors-by-service/' + branchId + '/' + firstSvc.id, populateDoctors); }
-                    else { $('#doctorSelect').html('<option value="">Tidak ada dokter tersedia</option>'); }
+                    else { $('#doctorGrid').html('<div class="doctor-empty">Tidak ada dokter tersedia</div>'); }
                 } else {
                     $.getJSON(BASE + '/doctors-by-service/' + branchId + '/' + firstServiceId, populateDoctors);
                 }
             }
 
             function populateDoctors(data) {
-                if (data.length === 0) { $('#doctorSelect').html('<option value="">Tidak ada dokter tersedia</option>'); return; }
-                let opts = '<option value=""  hidden selected>-- Pilih Dokter --</option>';
-                data.forEach(function (d) { opts += '<option value="' + d.id + '">' + d.name + '</option>'; });
-                $('#doctorSelect').html(opts);
+                if (data.length === 0) { $('#doctorGrid').html('<div class="doctor-empty"><i class="fa-solid fa-user-doctor" style="font-size:2rem;display:block;margin-bottom:8px;color:#c0b0a0;"></i>Tidak ada dokter tersedia</div>'); return; }
+                let html = '';
+                data.forEach(function (d) {
+                    const initials = d.name.split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase();
+                    const daysText = d.days && d.days.length ? d.days.join(', ') : 'Jadwal belum diset';
+                    const nameSafe = d.name.replace(/"/g, '&quot;');
+                    const avatar   = d.photo_url
+                        ? '<img src="' + d.photo_url + '" alt="' + nameSafe + '" onerror="this.parentNode.innerHTML=\'' + initials + '\';">'
+                        : initials;
+                    html += '<div class="doctor-card" data-id="' + d.id + '" data-name="' + nameSafe + '">'
+                        + '<div class="doctor-avatar">' + avatar + '</div>'
+                        + '<div class="doctor-info">'
+                        + '<div class="doctor-name">' + d.name + '</div>'
+                        + '<div class="doctor-days"><i class="fa-regular fa-calendar"></i> ' + daysText + '</div>'
+                        + '</div></div>';
+                });
+                $('#doctorGrid').html(html);
             }
 
             $(document).on('change', '.service-select-check', function () { checkServiceSelected(); });
@@ -828,8 +889,11 @@
                 });
             });
 
-            $('#doctorSelect').on('change', function () {
-                const doctorId = $(this).val();
+            $(document).on('click', '.doctor-card', function () {
+                $('.doctor-card').removeClass('selected');
+                $(this).addClass('selected');
+                $('#doctorValue').val($(this).data('id'));
+                const doctorId = $(this).data('id');
                 const branchId = $('#branchSelect').val();
                 resetFrom('date');
                 if (!doctorId) { setStep(3); return; }
@@ -844,7 +908,7 @@
 
             $(document).on('click', '.date-pill', function () {
                 const date = $(this).data('date');
-                const branchId = $('#branchSelect').val(), doctorId = $('#doctorSelect').val();
+                const branchId = $('#branchSelect').val(), doctorId = $('#doctorValue').val();
                 resetFrom('slot');
                 $('.date-pill').removeClass('selected');
                 $(this).addClass('selected');
@@ -910,7 +974,7 @@
                 }
 
                 const ok = serviceOk
-                    && $('#doctorSelect').val()
+                    && $('#doctorValue').val()
                     && $('#reservationDate').val()
                     && $('#reservationTime').val()
                     && $('#branchSelect').val()
@@ -981,9 +1045,9 @@
                     $('#existingCustomerId').val(res.customer_id);
                     $('#namaLama').val(res.name);
                     $('#phoneLama').val(res.phone);
-                    $('#emailLama').val(res.email || '-');
-                    $('#jenisKelaminLama').val(res.jenis_kelamin === 'L' ? 'Laki-laki' : res.jenis_kelamin === 'P' ? 'Perempuan' : '-');
-                    $('#tanggalLahirLama').val(res.tanggal_lahir || '-');
+                    $('#emailLama').val('-');
+                    $('#jenisKelaminLama').val('-');
+                    $('#tanggalLahirLama').val('-');
 
                     $('#phoneCheckStatus').html(
                         '<div class="found-alert"><i class="fa-solid fa-circle-check"></i> Data ditemukan! Silakan periksa data di bawah.</div>'
@@ -1080,7 +1144,7 @@
 
         function showPreview() {
             const branchText = $('#branchSelect option:selected').text();
-            const doctorText = $('#doctorSelect option:selected').text();
+            const doctorText = $('.doctor-card.selected').data('name') || '-';
             const dateText   = $('.date-pill.selected').data('label') || $('#reservationDate').val();
             const timeText   = $('#reservationTime').val();
             const patientType = $('#patientTypeInput').val();

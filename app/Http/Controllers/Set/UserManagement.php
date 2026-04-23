@@ -40,14 +40,14 @@ class UserManagement extends Controller
             'group_id' => 'required'
         ]);
 
-        $data = request()->all();
-        unset($data['confirmNewPass']);
-        unset($data['_token']);
-
-        $data['password'] = bcrypt($data['password']);
-        $data['status'] = 1;
-
-        Users::create($data);
+        Users::create([
+            'nama'          => request('nama'),
+            'email'         => request('email'),
+            'password'      => bcrypt(request('password')),
+            'group_id'      => request('group_id'),
+            'raw_branch_id' => request('raw_branch_id'),
+            'status'        => 1,
+        ]);
 
         return redirect()->route('setusermanagement')->with('success', 'User berhasil ditambahkan');
     }
@@ -69,12 +69,14 @@ class UserManagement extends Controller
             'group_id' => 'required'
         ]);
 
-        $data = request()->all();
-        unset($data['_token']);
-        unset($data['_method']);
-
         $user = Users::find($id);
-        $user->update($data);
+        $user->update([
+            'nama'          => request('nama'),
+            'email'         => request('email'),
+            'group_id'      => request('group_id'),
+            'raw_branch_id' => request('raw_branch_id'),
+            'status'        => request('status', $user->status),
+        ]);
 
         return redirect()->route('setusermanagement')->with('success', 'User berhasil diubah');
     }
@@ -106,14 +108,10 @@ class UserManagement extends Controller
             'password_confirmation' => 'required|same:password'
         ]);
 
-        $data = request()->all();
-        unset($data['password_confirmation']);
-        unset($data['_token']);
-
-        $data['password'] = bcrypt($data['password']);
-
         $user = Users::find($id);
-        $user->update($data);
+        $user->update([
+            'password' => bcrypt(request('password')),
+        ]);
 
         return redirect()->route('setusermanagement')->with('success', 'Password berhasil diubah');
     }

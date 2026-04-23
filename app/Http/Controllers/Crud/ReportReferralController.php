@@ -15,8 +15,8 @@ class ReportReferralController extends Controller
         // Filter dari request
         $filterAffiliate = request('affiliate_id');
         $filterBranch    = request('branch_id');
-        $filterDateFrom  = request('date_from');
-        $filterDateTo    = request('date_to');
+        $filterDateFrom  = request('date_from', now()->startOfMonth()->format('Y-m-d'));
+        $filterDateTo    = request('date_to', now()->format('Y-m-d'));
         $filterKlaim     = request('klaim'); // '' | '0' | '1'
 
         $sessionBranch = session('raw_branch_id');

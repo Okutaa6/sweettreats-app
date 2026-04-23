@@ -13,7 +13,7 @@
             height: 'auto',
             position: 'right',
             size: "7px",
-            color: '#e0e5f1',
+            color: 'rgb(230, 217, 200)',
             opacity: 1,
             wheelStep: 5,
             touchScrollStep: 50

@@ -204,8 +204,11 @@ class Group extends Controller
 
         // write to file
         $filecontent = json_encode($access_data, JSON_PRETTY_PRINT);
-        $filepath = public_path('group_access/' . $id . '.txt');
+        $filepath = storage_path('app/group_access/' . $id . '.txt');
         file_put_contents($filepath, $filecontent);
+
+        // Invalidate sidebar cache for this group
+        \Illuminate\Support\Facades\Cache::forget('group_access_' . $id);
 
         return true;
     }

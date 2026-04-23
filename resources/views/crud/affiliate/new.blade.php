@@ -1,18 +1,10 @@
 @extends('layouts.app')
 
 @section('content')
-
 <div class="container-fluid">
     <div class="row">
         <div class="col-sm-12">
             <div class="page-title-box">
-                <div class="float-right">
-                    <ol class="breadcrumb">
-                        <li class="breadcrumb-item"><a>CRUD</a></li>
-                        <li class="breadcrumb-item"><a href="{{ route('rawaffiliate') }}">Affiliate</a></li>
-                        <li class="breadcrumb-item active">Tambah</li>
-                    </ol>
-                </div>
                 <h4 class="page-title">Tambah Affiliate</h4>
             </div>
         </div>
@@ -21,18 +13,18 @@
     @include('layouts.notif')
 
     <div class="row">
-        <div class="col-md-12">
-            <div class="card">
-                <div class="card-body">
+        <div class="col-md-8">
+            <div class="st-card">
+                <div class="st-card__body">
                     <form method="POST" action="{{ route('rawaffiliate.store') }}">
                         @csrf
-                        <a href="{{ route('rawaffiliate') }}" class="btn btn-sm btn-warning mb-3">
+                        <a href="{{ route('rawaffiliate') }}" class="st-btn-outline-brown mb-3 d-inline-block">
                             <i class="fa fa-arrow-left"></i> Kembali
                         </a>
 
-                        <table class="table table-bordered" width="100%">
+                        <table class="st-table">
                             <tr>
-                                <td width="25%">Nama <span class="text-danger">*</span></td>
+                                <td width="25%" style="font-weight:600;">Nama <span class="text-danger">*</span></td>
                                 <td>
                                     <input class="form-control {{ $errors->has('name') ? 'is-invalid' : '' }}"
                                         type="text" name="name" value="{{ old('name') }}" required />
@@ -42,12 +34,11 @@
                                 </td>
                             </tr>
                             <tr>
-                                <td>Role <span class="text-danger">*</span></td>
+                                <td style="font-weight:600;">Role <span class="text-danger">*</span></td>
                                 <td>
                                     <select class="form-control" name="role">
                                         @foreach(App\Models\RawAffiliate::roles() as $key => $label)
-                                            <option value="{{ $key }}"
-                                                {{ old('role', 'pasien') == $key ? 'selected' : '' }}>
+                                            <option value="{{ $key }}" {{ old('role', 'pasien') == $key ? 'selected' : '' }}>
                                                 {{ $label }}
                                             </option>
                                         @endforeach
@@ -56,14 +47,14 @@
                                 </td>
                             </tr>
                             <tr>
-                                <td>No. WhatsApp</td>
+                                <td style="font-weight:600;">No. WhatsApp</td>
                                 <td>
                                     <input class="form-control" type="text" name="phone"
                                         value="{{ old('phone') }}" placeholder="08xxxxxxxxxx" />
                                 </td>
                             </tr>
                             <tr>
-                                <td>Info Rekening Bank</td>
+                                <td style="font-weight:600;">Info Rekening Bank</td>
                                 <td>
                                     <input class="form-control" type="text" name="bank_account_info"
                                         value="{{ old('bank_account_info') }}"
@@ -71,7 +62,7 @@
                                 </td>
                             </tr>
                             <tr>
-                                <td>Commission Rate (%) <span class="text-danger">*</span></td>
+                                <td style="font-weight:600;">Commission Rate (%) <span class="text-danger">*</span></td>
                                 <td>
                                     <div class="input-group">
                                         <input class="form-control {{ $errors->has('commission_rate') ? 'is-invalid' : '' }}"
@@ -87,7 +78,7 @@
                                 </td>
                             </tr>
                             <tr>
-                                <td>Status</td>
+                                <td style="font-weight:600;">Status</td>
                                 <td>
                                     <div class="custom-control custom-switch">
                                         <input type="hidden" name="is_active" value="0">
@@ -100,7 +91,7 @@
                             <tr>
                                 <td></td>
                                 <td>
-                                    <button class="btn btn-primary" type="submit">
+                                    <button class="st-btn-brand" type="submit">
                                         <i class="fa fa-save"></i> Simpan
                                     </button>
                                 </td>

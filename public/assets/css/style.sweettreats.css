@@ -3,17 +3,470 @@
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap');
 
 /* ==========================================================================
-   1. CSS CUSTOM PROPERTIES (Brand Colors)
+   1. CSS CUSTOM PROPERTIES (Brand Colors & Component Tokens)
    ========================================================================== */
 :root {
-    --brown:            rgb(70, 21, 0);
-    --brown-hover:      rgb(105, 56, 35);
+    /* Brand palette (Sweet Treats Official Web Color Guide) */
+    --brown:            #461500;   /* Main theme brown */
+    --brown-2:          #6B4433;   /* Gradient / medium */
+    --brown-3:          #7D5B4C;   /* Accent lighter */
+    --brown-pale:       #D0C4BF;   /* Warm beige */
+    --ink:              #000000;
+    --ink-2:            #5A5A5A;   /* Neutral accent */
+
+    /* Legacy aliases — masih dipakai di banyak tempat */
+    --brown-hover:      #6B4433;
     --brown-light:      rgb(208, 196, 191);
     --brown-bg:         rgb(250, 245, 243);
     --brown-cream:      rgb(230, 217, 200);
     --brown-row-hover:  rgb(230, 210, 200);
+
+    /* Component tokens — dipakai oleh components.sweettreats.css (.st-table dll) */
+    --cream-surface:    #FFFFFF;
+    --cream-header:     #FAF7F4;
+    --cream-hover:      #F7F1E9;
+    --divider-soft:     #F2EDE5;
+    --divider-strong:   #EBE3D8;
+    --text-primary:     #2D1810;
+    --text-muted:       #6B4423;
+    --text-subtle:      #9B8578;
+    --shadow-card:      0 1px 2px rgba(61, 26, 0, 0.03), 0 2px 8px -2px rgba(61, 26, 0, 0.04);
+    --shadow-card-lg:   0 4px 16px rgba(61, 26, 0, 0.06), 0 2px 6px rgba(61, 26, 0, 0.04);
+    --radius-md:        8px;
+    --radius-lg:        12px;
+    --radius-pill:      999px;
+
+    /* ── Semantic status palette — earthy, warm, harmoni dengan brown brand ── */
+    /* Pending / Menunggu — warm amber */
+    --st-pending-bg:    #FFF4E1;
+    --st-pending-bg-2:  #FFFBF2;  /* row tint (very subtle) */
+    --st-pending-text:  #A05A00;
+    --st-pending-border:#F5D9A8;
+    --st-pending-accent:#E89520;
+
+    /* Confirmed / Dikonfirmasi — dusty teal */
+    --st-confirmed-bg:    #E3F0EE;
+    --st-confirmed-bg-2:  #F3FAF8;
+    --st-confirmed-text:  #0F6E66;
+    --st-confirmed-border:#B8DCD6;
+    --st-confirmed-accent:#148F85;
+
+    /* Waitlist — dusty violet */
+    --st-waitlist-bg:    #EFE7F5;
+    --st-waitlist-bg-2:  #F9F5FC;
+    --st-waitlist-text:  #5C2E8F;
+    --st-waitlist-border:#D6C4E8;
+    --st-waitlist-accent:#7C3AED;
+
+    /* Completed / Selesai — sage green */
+    --st-completed-bg:    #E6EFE3;
+    --st-completed-bg-2:  #F5F9F3;
+    --st-completed-text:  #3F6B2E;
+    --st-completed-border:#C3D8BA;
+    --st-completed-accent:#5B8C42;
+
+    /* Cancelled / Dibatalkan — muted terracotta */
+    --st-cancelled-bg:    #F7E6E1;
+    --st-cancelled-bg-2:  #FCF3F0;
+    --st-cancelled-text:  #9A3820;
+    --st-cancelled-border:#EAC8BD;
+    --st-cancelled-accent:#C54A2E;
+
+    /* Brand accent (info / branch chip) — warm honey */
+    --st-brand-bg:      #FBF3E3;
+    --st-brand-text:    #8B5A1C;
+    --st-brand-border:  #F0DFB8;
 }
 
+
+/* Page background */
+body {
+    background-color: #F6F4F1 !important;
+}
+
+/* ============================================================
+   SWEETTREATS TOOLBAR BUTTONS (Tambah / Filter / Export)
+   ============================================================ */
+.st-btn-brand,
+.st-btn-outline-brown {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 12.5px;
+    font-weight: 700;
+    padding: 9px 16px;
+    border-radius: 8px;
+    letter-spacing: 0.3px;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    text-decoration: none !important;
+    line-height: 1;
+    border: 1px solid transparent;
+}
+
+.st-btn-brand {
+    background: linear-gradient(180deg, #5C2A0A 0%, #3D1A00 100%);
+    color: #FFFFFF !important;
+    border-color: #3D1A00;
+    box-shadow: 0 2px 6px rgba(61, 26, 0, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+.st-btn-brand:hover {
+    background: linear-gradient(180deg, #6B3510 0%, #4A2005 100%);
+    border-color: #4A2005;
+    color: #FFFFFF !important;
+    text-decoration: none !important;
+    box-shadow: 0 4px 12px rgba(61, 26, 0, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+    transform: translateY(-1px);
+}
+.st-btn-brand:active {
+    transform: translateY(0);
+    box-shadow: 0 1px 3px rgba(61, 26, 0, 0.16);
+}
+.st-btn-brand i, .st-btn-brand svg { color: #FFFFFF; }
+
+.st-btn-outline-brown {
+    background: #FFFFFF;
+    color: #5C2A0A !important;
+    border-color: #EBE3D8;
+    box-shadow: 0 1px 2px rgba(61, 26, 0, 0.04);
+}
+.st-btn-outline-brown:hover {
+    background: #FBF7F0;
+    border-color: #D6C4A8;
+    color: #3D1A00 !important;
+    text-decoration: none !important;
+    box-shadow: 0 2px 6px rgba(61, 26, 0, 0.08);
+    transform: translateY(-1px);
+}
+.st-btn-outline-brown:active {
+    transform: translateY(0);
+}
+.st-btn-outline-brown.is-active {
+    background: #FBF3E3;
+    border-color: #E89520;
+    color: #8B5A1C !important;
+}
+.st-btn-outline-brown.is-active i { color: #8B5A1C; }
+.st-btn-outline-brown i { color: #5C2A0A; transition: color 0.2s; }
+
+/* ============================================================
+   SWEETTREATS HEADER (split: brown brand panel + white actions)
+   ============================================================ */
+.st-topbar {
+    background: #FFFFFF !important;
+    padding: 0 !important;
+    box-shadow:
+        0 1px 0 #F0EBE4,
+        0 8px 24px -8px rgba(61, 26, 0, 0.08) !important;
+    border: none !important;
+    height: 96px !important;
+    min-height: 96px !important;
+    position: fixed !important;
+    top: 0; left: 0; right: 0;
+    z-index: 1000;
+    overflow: visible;
+}
+
+.st-header-card {
+    background: transparent;
+    border-radius: 0;
+    box-shadow: none;
+    padding: 0 28px 0 0;            /* left padding handled by .st-brand */
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    font-family: 'Montserrat', sans-serif;
+    height: 96px;
+    min-height: 96px;
+}
+
+/* Brand — dark brown panel, full-height, extends into topbar flush left */
+.topbar .st-brand,
+.st-topbar .st-brand,
+.st-brand {
+    display: flex !important;
+    align-items: center !important;
+    gap: 14px !important;
+    text-decoration: none !important;
+    flex-shrink: 0 !important;
+    width: 300px !important;
+    padding: 0 20px !important;
+    height: 96px !important;
+    background: linear-gradient(135deg, #6B4433 0%, #461500 55%, #2D0E00 100%) !important;
+    position: relative !important;
+    transition: filter 0.2s ease !important;
+}
+.st-brand:hover { text-decoration: none !important; filter: brightness(1.08); }
+/* Soft diagonal seam between brown panel and white area */
+.st-brand::after {
+    content: '';
+    position: absolute;
+    top: 0; bottom: 0; right: -14px;
+    width: 14px;
+    background: linear-gradient(90deg, rgba(45, 14, 0, 0.18) 0%, rgba(45, 14, 0, 0) 100%);
+    pointer-events: none;
+}
+.st-brand-logo {
+    width: 56px; height: 56px;
+    background: #FFFFFF;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    padding: 6px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+.st-brand-logo img { width: 100%; height: 100%; object-fit: contain; }
+.st-brand-text { line-height: 1.15; }
+.st-brand-name {
+    font-size: 13px;
+    font-weight: 800;
+    color: #FFFFFF;
+    letter-spacing: -0.2px;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+}
+.st-brand-sub {
+    font-size: 9.5px;
+    font-weight: 700;
+    color: var(--brown-pale);
+    letter-spacing: 1.5px;
+    margin-top: 3px;
+    text-transform: uppercase;
+}
+
+/* Greeting — sits on the white side */
+.st-greeting {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: var(--brown);
+    font-size: 13.5px;
+    font-weight: 500;
+    padding-left: 28px;
+    height: 96px;
+}
+.st-greeting svg { color: var(--brown-2); flex-shrink: 0; }
+.st-greeting strong { color: var(--brown); font-weight: 800; }
+.st-greeting > span {
+    padding-left: 4px;
+}
+
+/* Right actions — white side */
+.st-topbar .st-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding-left: 20px;
+    padding-right: 0;
+    border-left: 1px solid var(--divider-soft);
+    height: 56px;
+    align-self: center;
+    margin-left: auto;              /* keep actions pinned right even bila greeting di-hide */
+}
+
+.st-topbar .st-icon-btn {
+    width: 42px; height: 42px;
+    background: var(--cream-header);
+    border: 1px solid var(--divider-soft);
+    border-radius: 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--brown);
+    cursor: pointer;
+    position: relative;
+    transition: background 0.15s, transform 0.1s, border-color 0.15s;
+    padding: 0;
+}
+.st-topbar .st-icon-btn:hover {
+    background: var(--cream-hover);
+    border-color: var(--brown-pale);
+    color: var(--brown);
+}
+.st-topbar .st-icon-btn:active { transform: scale(0.97); }
+
+.st-love-icon {
+    background: transparent;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    color: #E8801C;
+    display: inline-flex;
+    align-items: center;
+    transition: transform 0.15s;
+}
+.st-love-icon:hover { transform: scale(1.1); }
+.st-love-icon:active { transform: scale(0.9); }
+.st-love-icon.is-active svg { color: #E0353F; fill: #E0353F; stroke: #E0353F; }
+.st-icon-btn::after { display: none !important; } /* hide bootstrap caret */
+.st-icon-badge {
+    position: absolute;
+    top: -4px; right: -4px;
+    background: #E0353F;
+    color: #FFFFFF;
+    font-size: 9px;
+    font-weight: 700;
+    min-width: 16px;
+    height: 16px;
+    border-radius: 999px;
+    padding: 0 4px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid #FFFFFF;
+}
+
+/* User profile */
+.st-user-wrap { position: relative; }
+.st-user {
+    display: flex !important;
+    align-items: center;
+    gap: 10px;
+    padding: 4px 10px 4px 4px;
+    border-radius: 10px;
+    text-decoration: none !important;
+    transition: background 0.15s;
+}
+.st-user:hover { background: var(--cream-hover); text-decoration: none !important; }
+.st-user::after { display: none !important; }
+.st-user-avatar {
+    width: 38px; height: 38px;
+    background: linear-gradient(135deg, var(--brown-2) 0%, var(--brown) 100%);
+    color: #FFFFFF;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 15px;
+    flex-shrink: 0;
+    box-shadow: 0 2px 6px rgba(70, 21, 0, 0.22);
+}
+.st-user-meta { line-height: 1.15; }
+.st-user-name {
+    font-size: 13px;
+    font-weight: 800;
+    color: var(--brown);
+}
+.st-user-role {
+    font-size: 10.5px;
+    font-weight: 600;
+    color: var(--brown-2);
+    margin-top: 1px;
+}
+.st-user-caret { color: var(--brown-2); font-size: 18px; }
+
+/* User dropdown menu */
+.st-user-menu {
+    min-width: 240px !important;
+    border: none !important;
+    border-radius: 14px !important;
+    padding: 0 !important;
+    box-shadow: 0 12px 32px rgba(61, 26, 0, 0.14) !important;
+    margin-top: 10px !important;
+    overflow: hidden;
+    font-family: 'Montserrat', sans-serif;
+}
+.st-user-menu-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 18px 14px;
+    background: #FFFFFF;
+}
+.st-user-menu-head .st-user-avatar { width: 42px; height: 42px; font-size: 16px; }
+.st-user-menu-head .st-user-name { font-size: 14px; font-weight: 800; color: #1C0A00; }
+.st-user-menu-head .st-user-role {
+    font-size: 10px;
+    font-weight: 700;
+    color: #E8801C;
+    letter-spacing: 1.4px;
+    margin-top: 2px;
+}
+.st-user-menu-divider {
+    height: 1px;
+    background: #F0E6D6;
+    margin: 0 18px;
+}
+.st-user-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 18px;
+    color: #5C2A0A;
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none !important;
+    transition: background 0.15s, color 0.15s;
+}
+.st-user-menu-item:hover {
+    background: #FAF3E8;
+    color: #3D1A00;
+}
+.st-user-menu-item svg { color: #E0353F; flex-shrink: 0; }
+
+/* Push page-content below the new header card */
+.page-wrapper {
+    padding-top: 96px !important;
+    background: #F6F4F1;
+}
+
+/* Tight vertical rhythm: hilangkan gap kosong antara topbar dan konten pertama */
+.page-content {
+    padding: 0 0 40px 0 !important;
+    min-height: calc(100vh - 96px) !important;
+}
+.page-content > .container-fluid {
+    padding: 14px 20px 0 20px !important;
+}
+.page-content > .container-fluid > .row:first-child {
+    margin: 0 !important;
+}
+.page-content > .container-fluid > .row > .col-md-12,
+.page-content > .container-fluid > .row > .col-sm-12 {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+}
+.page-content .card {
+    margin-bottom: 0 !important;
+}
+
+/* Seam divider: garis tipis yang "menyatukan" header + sidebar secara visual */
+.left-sidenav {
+    border-right: 1px solid #F0EBE4;
+}
+
+/* Kedua sidebar (icon parent + child) di-fix tepat di bawah header, tanpa gap */
+.left-sidenav .main-icon-menu {
+    top: 96px !important;
+    height: calc(100vh - 96px) !important;
+    padding: 0 !important;
+    box-shadow: inset 0 1px 0 #F0EBE4;
+}
+.left-sidenav .main-icon-menu .nav {
+    margin-top: 0 !important;
+    padding-top: 30px !important;
+}
+.main-menu-inner {
+    top: 96px !important;
+    height: calc(100vh - 96px) !important;
+}
+.main-menu-inner .menu-body {
+    margin-top: 0 !important;
+    padding-top: 30px !important;
+    height: calc(100vh - 96px) !important;
+}
+
+@media (max-width: 768px) {
+    .st-greeting { display: none; }
+    .st-user-meta { display: none; }
+    .st-brand { padding: 0 20px 0 18px; gap: 10px; }
+    .st-brand-text { display: none; }
+    .st-brand::after { display: none; }
+}
 
 /* ==========================================================================
    2. TOPBAR / HEADER
@@ -76,7 +529,12 @@
 .left-sidenav,
 .main-icon-menu,
 .main-icon-menu .nav-link {
-    background-color: var(--brown-light) !important;
+    background-color: var(--brown-cream) !important;
+}
+
+/* Garis pembatas vertikal antara icon parent bar dan child sidebar */
+.left-sidenav:not(.no-icon-bar) .main-icon-menu {
+    border-right: 1px solid #5C2A0A !important;
 }
 
 /* Child sidebar background */
@@ -93,6 +551,20 @@
     font-weight: 700 !important;
 }
 
+.title-box .menu-title,
+.menu-title {
+    color: var(--brown) !important;
+    font-weight: 800 !important;
+    font-family: 'Montserrat', sans-serif !important;
+    letter-spacing: 0.4px !important;
+}
+
+/* Jarak antar grup (mis. Data Center → User Access) */
+.main-menu-inner .menu-body .title-box + ul + .title-box,
+.main-menu-inner .menu-body ul + .title-box {
+    margin-top: 28px !important;
+}
+
 .left-sidenav .nav-link i {
     color: var(--brown) !important;
 }
@@ -104,34 +576,91 @@
     text-align: center !important;
 }
 
-.left-sidenav .nav-link:hover,
-.nav-item .nav-link:hover {
-    color: var(--brown-hover) !important;
-    text-decoration: none !important;
-}
-.left-sidenav .nav-link:hover span,
-.nav-item .nav-link:hover span {
-    text-decoration: underline !important;
-    text-decoration-thickness: 1px !important;
-    text-underline-offset: 4px !important;
-}
-.left-sidenav .nav-link:hover i {
-    color: var(--brown-hover) !important;
-}
-
-.main-menu-inner .menu-body .nav-item .nav-link.active,
-.main-menu-inner .menu-body .nav-item .nav-link.active i {
-    color: var(--brown-hover) !important;
-}
-
-/* child sidebar sub-menu links */
+/* Sidebar nav-link: pill rounded */
+.main-menu-inner .menu-body .nav-item .nav-link,
 .main-menu-inner .menu-body .nav-item ul li > a {
+    border-radius: 10px !important;
+    margin: 2px 8px 2px 0 !important;
+    padding: 9px 14px !important;
+    transition: background-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease !important;
     color: var(--brown) !important;
 }
+
+/* Hover: cokelat tipis (krem) + garis cokelat di kiri */
+.main-menu-inner .menu-body .nav-item .nav-link:hover,
 .main-menu-inner .menu-body .nav-item ul li > a:hover {
-    color: var(--brown-hover) !important;
+    background-color: #F5E6D0 !important;
+    color: var(--brown) !important;
+    text-decoration: none !important;
+    border-left: 3px solid #3D1A00 !important;
+    padding-left: 11px !important;
+}
+.main-menu-inner .menu-body .nav-item .nav-link:hover i,
+.main-menu-inner .menu-body .nav-item ul li > a:hover i {
+    color: var(--brown) !important;
+}
+.main-menu-inner .menu-body .nav-item .nav-link:hover span,
+.main-menu-inner .menu-body .nav-item ul li > a:hover span {
+    color: var(--brown) !important;
+    text-decoration: none !important;
 }
 
+/* Active (halaman aktif) — pill cream lembut dengan teks/icon cokelat */
+.main-menu-inner .menu-body .nav-item .nav-link.active,
+.main-menu-inner .menu-body .nav-item ul li > a.active,
+.main-menu-inner .menu-body .nav-item .nav-link.active:hover,
+.main-menu-inner .menu-body .nav-item ul li > a.active:hover {
+    background-color: #FAF3E8 !important;
+    color: #3D1A00 !important;
+    border: 1px solid #E8C4A0 !important;
+    border-left: 3px solid #3D1A00 !important;
+    padding-left: 12px !important;
+    box-shadow: 0 2px 8px rgba(61, 26, 0, 0.06) !important;
+    text-decoration: none !important;
+}
+.main-menu-inner .menu-body .nav-item .nav-link.active i,
+.main-menu-inner .menu-body .nav-item ul li > a.active i,
+.main-menu-inner .menu-body .nav-item .nav-link.active:hover i,
+.main-menu-inner .menu-body .nav-item ul li > a.active:hover i {
+    color: #3D1A00 !important;
+}
+.main-menu-inner .menu-body .nav-item .nav-link.active span,
+.main-menu-inner .menu-body .nav-item ul li > a.active span,
+.main-menu-inner .menu-body .nav-item .nav-link.active:hover span,
+.main-menu-inner .menu-body .nav-item ul li > a.active:hover span {
+    color: #3D1A00 !important;
+    font-weight: 700 !important;
+}
+.main-menu-inner .menu-body .nav-item .nav-link.active .badge {
+    background-color: #E8801C !important;
+    color: #FFFFFF !important;
+}
+
+
+/* ==========================================================================
+   3b. SIDEBAR — No Icon Bar (single parent groups)
+   Saat user hanya punya 1 parent menu, icon bar di-hide dan child sidebar
+   geser ke kiri menggantikan posisinya supaya tidak ada gap kosong.
+   ========================================================================== */
+.left-sidenav.no-icon-bar {
+    min-width: 300px !important;
+    max-width: 300px !important;
+}
+.left-sidenav.no-icon-bar .main-menu-inner {
+    left: 0 !important;
+}
+.left-sidenav.no-icon-bar .menu-body .nav-item .nav-link,
+.left-sidenav.no-icon-bar .menu-body .nav-item ul li > a {
+    font-size: 15px !important;
+    padding: 12px 18px !important;
+}
+.left-sidenav.no-icon-bar .menu-body .nav-item .nav-link i,
+.left-sidenav.no-icon-bar .menu-body .nav-item ul li > a i {
+    font-size: 17px !important;
+}
+.left-sidenav.no-icon-bar .menu-body .menu-label {
+    font-size: 13px !important;
+}
 
 /* ==========================================================================
    4. SIDEBAR — Collapse Button
@@ -166,7 +695,7 @@
     font-size: 13px;
 }
 .sidebar-collapse-btn.is-collapsed i {
-    transform: rotate(180deg);
+    transform: rotate(0deg);
 }
 
 
@@ -202,6 +731,36 @@ body.sidebar-collapsed .page-content {
 }
 body.sidebar-collapsed .page-content .container-fluid {
     padding-left: 0 !important;
+}
+
+/* ── Fully hidden state: sidebar 0, button jadi setengah lingkaran di tepi kiri ── */
+body.sidebar-hidden .left-sidenav {
+    width: 0 !important;
+    min-width: 0 !important;
+    max-width: 0 !important;
+    flex: 0 0 0 !important;
+    overflow: visible !important;
+}
+body.sidebar-hidden .left-sidenav > *:not(.sidebar-collapse-btn) {
+    display: none !important;
+}
+body.sidebar-hidden .page-content {
+    margin-left: 0 !important;
+}
+body.sidebar-hidden .sidebar-collapse-btn {
+    position: fixed !important;
+    top: 50% !important;
+    left: 0 !important;
+    right: auto !important;
+    transform: translateY(-50%) !important;
+    width: 26px !important;
+    height: 52px !important;
+    border-radius: 0 26px 26px 0 !important;
+    border-left: none !important;
+    box-shadow: 3px 0 10px rgba(70, 21, 0, 0.25);
+}
+body.sidebar-hidden .sidebar-collapse-btn i {
+    transform: rotate(180deg) !important;
 }
 
 
@@ -306,6 +865,18 @@ body.sidebar-collapsed .page-content .container-fluid {
 /* ==========================================================================
    9. CARD
    ========================================================================== */
+.card:not(.auth-card) {
+    background-color: transparent !important;
+    box-shadow: none !important;
+    border: none !important;
+}
+.page-title-box {
+    display: none !important;
+}
+.card:not(.auth-card) > .card-body {
+    background-color: transparent !important;
+    padding: 0 !important;
+}
 .card-header {
     background-color: var(--brown-bg) !important;
     border-color: var(--brown-light) !important;
@@ -318,7 +889,11 @@ body.sidebar-collapsed .page-content .container-fluid {
 
 
 /* ==========================================================================
-   10. TABLE — General
+   10. TABLE — General  [DEPRECATED]
+   --------------------------------------------------------------------------
+   Style tabel lama untuk halaman yang belum dimigrasi ke `.st-table`
+   (lihat components.sweettreats.css section 1). Akan dihapus setelah semua
+   list view selesai dirollout.
    ========================================================================== */
 .table,
 .table th,
@@ -376,7 +951,10 @@ body.sidebar-collapsed .page-content .container-fluid {
 
 
 /* ==========================================================================
-   13. TABLE — Doctor Schedule (Jadwal Doctor)
+   13. TABLE — Doctor Schedule (Jadwal Doctor)  [DEPRECATED]
+   --------------------------------------------------------------------------
+   Pindah ke `.st-table--doctor-schedule` di components.sweettreats.css.
+   Akan dihapus setelah doctor/list.blade.php dimigrasi.
    ========================================================================== */
 .table-jadwal-doctor {
     table-layout: fixed;
@@ -432,4 +1010,377 @@ body.sidebar-collapsed .page-content .container-fluid {
 }
 .table-jadwal-doctor tbody tr:hover {
     background-color: var(--brown-row-hover) !important;
+}
+/* ============================================================
+   AUTH PAGES (login / forgot password / reset password)
+   ============================================================ */
+.auth-body {
+    font-family: 'Montserrat', sans-serif;
+    background: var(--cream, #FAF3E8);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 32px 16px;
+    position: relative;
+    overflow: hidden;
+}
+
+.auth-card {
+    width: 100%;
+    max-width: 440px;
+    background: #FFFFFF;
+    border-radius: 24px;
+    padding: 48px 44px 40px;
+    box-shadow: 0 20px 60px rgba(61, 26, 0, 0.12), 0 4px 16px rgba(61, 26, 0, 0.06);
+    position: relative;
+    z-index: 1;
+    animation: authFadeUp 0.5s ease both;
+}
+
+
+.auth-card .card-header-brand {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 32px;
+}
+.auth-card .logo-wrap {
+    width: 80px;
+    height: 80px;
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px;
+    margin-bottom: 18px;
+    box-shadow: 0 8px 24px rgba(61, 26, 0, 0.30);
+}
+.auth-card .logo-wrap img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    border-radius: 12px;
+}
+.auth-card .card-title {
+    font-size: 22px;
+    font-weight: 800;
+    color: #3D1A00;
+    margin-bottom: 4px;
+    text-align: center;
+}
+.auth-card .card-subtitle {
+    font-size: 12px;
+    font-weight: 500;
+    color: #C47A4A;
+    text-align: center;
+    margin-top: 4px;
+    letter-spacing: 0.5px;
+}
+
+.auth-card .divider {
+    width: 100%;
+    height: 1px;
+    background: #F5E6D0;
+    margin-bottom: 28px;
+}
+
+.auth-card .field-group { margin-bottom: 20px; }
+
+.auth-card .field-label {
+    display: block;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: #5C2A0A;
+    margin-bottom: 8px;
+}
+
+.auth-card .input-wrap { position: relative; }
+.auth-card .input-wrap svg.field-icon {
+    position: absolute;
+    left: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #5C2A0A;
+    pointer-events: none;
+}
+.auth-card .input-wrap input {
+    width: 100%;
+    height: 50px;
+    padding: 0 16px 0 44px;
+    border: 1.5px solid #5C2A0A;
+    border-radius: 12px;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    color: #1C0A00;
+    background: none;
+    transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+    outline: none;
+}
+.auth-card .input-wrap input::placeholder { color: #5C2A0A; font-weight: 400; }
+.auth-card .input-wrap input:focus {
+    border-color: #7B3A14;
+    background: #FFFFFF;
+    box-shadow: 0 0 0 3px rgba(92, 42, 10, 0.09);
+}
+.auth-card .input-wrap input.is-invalid { border-color: #D85A5A; background: #FFF8F8; }
+
+.auth-card .field-error {
+    font-size: 11px;
+    font-weight: 600;
+    color: #C0392B;
+    margin-top: 6px;
+    padding-left: 2px;
+}
+
+.auth-card .forgot-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #9A4A1E;
+    text-decoration: none;
+    margin-top: 6px;
+    margin-bottom: 20px;
+    transition: color 0.2s;
+}
+.auth-card .forgot-link:hover { color: #5C2A0A; text-decoration: underline; }
+
+.auth-card .recaptcha-wrap { margin-bottom: 24px; }
+
+.auth-card .btn-auth {
+    width: 100%;
+    height: 52px;
+    border: none;
+    border-radius: 12px;
+    background: #3D1A00;
+    color: #FFFFFF;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    transition: background 0.2s, transform 0.1s, box-shadow 0.2s;
+    box-shadow: 0 4px 18px rgba(61, 26, 0, 0.28);
+}
+.auth-card .btn-auth:hover { background: #5C2A0A; box-shadow: 0 6px 22px rgba(61, 26, 0, 0.38); }
+.auth-card .btn-auth:active { transform: scale(0.99); }
+
+.auth-card .back-link {
+    display: block;
+    text-align: center;
+    margin-top: 18px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #9A4A1E;
+    text-decoration: none;
+    transition: color 0.2s;
+}
+.auth-card .back-link:hover { color: #5C2A0A; text-decoration: underline; }
+
+.auth-card .footer-note {
+    margin-top: 24px;
+    text-align: center;
+    font-size: 11px;
+    font-weight: 500;
+    color: #5C2A0A;
+}
+
+/* ============================================================
+   SWEETTREATS MODAL (Detail Reservasi list card)
+   ============================================================ */
+.st-modal .modal-dialog { max-width: 760px; }
+.st-modal .modal-content {
+    border: none;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 24px 60px rgba(61, 26, 0, 0.25);
+    font-family: 'Montserrat', sans-serif;
+}
+
+.st-modal-header {
+    background: #3D1A00;
+    color: #FFFFFF;
+    padding: 18px 24px 16px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+.st-modal-header .st-title-wrap { display: flex; align-items: flex-start; gap: 12px; }
+.st-modal-header .st-title-icon {
+    width: 22px; height: 22px;
+    flex-shrink: 0;
+    margin-top: 2px;
+    color: #FFFFFF;
+}
+.st-modal-title {
+    font-size: 16px;
+    font-weight: 800;
+    color: #FFFFFF;
+    margin: 0 0 4px;
+    line-height: 1.2;
+}
+.st-modal-subtitle {
+    font-size: 12px;
+    font-weight: 500;
+    color: #E8C4A0;
+    margin: 0;
+    letter-spacing: 0.2px;
+}
+.st-modal-close {
+    background: transparent;
+    border: none;
+    color: #FFFFFF;
+    font-size: 22px;
+    line-height: 1;
+    cursor: pointer;
+    opacity: 0.9;
+    padding: 0 4px;
+    transition: opacity 0.15s;
+}
+.st-modal-close:hover { opacity: 1; }
+
+.st-modal-body { padding: 0; background: #FFFFFF; }
+
+.st-list-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+.st-list-table thead th {
+    background: #FAF3E8;
+    color: #5C2A0A;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 1.4px;
+    text-transform: uppercase;
+    text-align: left;
+    padding: 12px 22px;
+    border: none;
+    border-bottom: 1px solid #F5E6D0;
+}
+.st-list-table tbody td {
+    padding: 18px 22px;
+    border-bottom: 1px solid #F5E6D0;
+    vertical-align: middle;
+    color: #3D1A00;
+    background: #FFFFFF;
+    transition: background 0.15s;
+}
+.st-list-table tbody tr { cursor: pointer; }
+.st-list-table tbody tr:hover td { background: #FBF6EE; }
+.st-list-table tbody tr:last-child td { border-bottom: none; }
+
+.st-time {
+    font-weight: 800;
+    color: #1C0A00;
+    font-size: 13px;
+    white-space: nowrap;
+}
+.st-pasien-name {
+    font-weight: 600;
+    color: #1C0A00;
+    font-size: 13.5px;
+    line-height: 1.3;
+}
+.st-pasien-sub {
+    font-size: 11.5px;
+    color: #9A4A1E;
+    font-weight: 500;
+    margin-top: 2px;
+}
+.st-perawatan-wrap { display: flex; flex-wrap: wrap; gap: 6px; }
+.st-perawatan-badge {
+    display: inline-block;
+    background: #F5E6D0;
+    color: #5C2A0A;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 5px 11px;
+    border-radius: 999px;
+    white-space: nowrap;
+}
+.st-status-wrap {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 700;
+    color: #1C0A00;
+    font-size: 12.5px;
+}
+.st-status-dot {
+    width: 9px; height: 9px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    box-shadow: 0 0 0 2px rgba(0,0,0,0.04);
+}
+.st-status-dot.s-menunggu     { background: #F5C518; }
+.st-status-dot.s-waitlist     { background: #7C3AED; }
+.st-status-dot.s-dikonfirmasi { background: #2EC4B6; }
+.st-status-dot.s-selesai      { background: #1FAE52; }
+.st-status-dot.s-batal        { background: #D85A5A; }
+.st-status-dot.s-default      { background: #B0A99F; }
+
+.st-list-table tbody tr.is-cancelled td { opacity: 0.55; background: #FBF6EE; }
+.st-list-table tbody tr.is-cancelled .st-time,
+.st-list-table tbody tr.is-cancelled .st-pasien-name,
+.st-list-table tbody tr.is-cancelled .st-pasien-sub,
+.st-list-table tbody tr.is-cancelled .st-perawatan-badge,
+.st-list-table tbody tr.is-cancelled .st-status-wrap {
+    text-decoration: line-through;
+    text-decoration-thickness: 1.5px;
+}
+
+.st-modal-footer {
+    background: #FAF3E8;
+    padding: 14px 22px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    border-top: 1px solid #F5E6D0;
+}
+.st-footer-note {
+    font-size: 11.5px;
+    font-style: italic;
+    color: #3D1A00;
+    margin: 0;
+}
+.st-btn-tutup {
+    background: transparent;
+    border: 1.5px solid #3D1A00;
+    color: #3D1A00;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    padding: 8px 22px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+.st-btn-tutup:hover { background: #F5E6D0; color: #5C2A0A; }
+
+/* ==========================================================================
+   Merged from customize.css
+   ========================================================================== */
+.icon-fa {
+  font-size: 24px !important;
+  color: #86a3f7;
+}
+
+.equal-height {
+  display: flex;
+  flex-wrap: wrap;
 }

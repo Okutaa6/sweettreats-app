@@ -6,97 +6,71 @@
     <title>{{ $sysprofile['systitle'] }}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <!-- App favicon -->
     <link rel="shortcut icon" href="{{ asset('sysprofile/' . $sysprofile['syslogo']) }}">
-
-    <!-- App css -->
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="{{ asset('assets/css/bootstrap.min.css') }}" rel="stylesheet" type="text/css" />
-    <link href="{{ asset('assets/css/icons.css') }}" rel="stylesheet" type="text/css" />
-    <link href="{{ asset('assets/css/style.css') }}" rel="stylesheet" type="text/css" />
+    <link href="{{ asset('assets/css/style.sweettreats.css') }}?v={{ @filemtime(public_path('assets/css/style.sweettreats.css')) ?: '1' }}" rel="stylesheet" type="text/css" />
     <script src="https://www.google.com/recaptcha/api.js" async defer></script>
 </head>
 
-<body class="account-body">
-    <!-- Log In page -->
-    <div class="row vh-100 ">
-        <div class="col-12 align-self-center">
-            <div class="auth-page">
-                <div class="card auth-card shadow-lg">
-                    <div class="card-body">
-                        <div class="px-3">
-                            <div class="auth-logo-box">
-                                <a href="#" class="logo logo-admin">
-                                    <img src="{{ asset('sysprofile/' . $sysprofile['syslogo']) }}" height="55"
-                                        alt="logo" class="auth-logo" style="border-radius: 16px; padding:8px">
-                                </a>
-                            </div>
-                            <!--end auth-logo-box-->
-                            <div class="text-center auth-logo-text">
-                                <h4 class="mt-0 mb-3 mt-5">Forgot Password</h4>
-                                <p class="text-muted ">{{ $sysprofile['systitle'] }}</p>
-                            </div>
-                            @include('layouts.notif')
+<body class="auth-body">
 
-                            <!--end auth-logo-text-->
-                            <form class="form-horizontal auth-form my-4" action="{{ route('forgot-password.process') }}"
-                                method="post">
-                                @csrf
-                                <div class="form-group">
-                                    <label for="email">Email</label>
-                                    <div class="input-group mb-3">
-                                        <span class="auth-form-icon">
-                                            <i class="dripicons-user"></i>
-                                        </span>
-                                        <input type="email" name="email" value="{{ old('email') }}"
-                                            class="form-control @error('email') is-invalid @enderror" id="email"
-                                            placeholder="Enter email">
-                                    </div>
-                                    @error('email')
-                                        <small class="form-text text-danger">{{ $message }}</small>
-                                    @enderror
-                                </div>
-                                <!--end form-group-->
+    <div class="auth-card">
 
-                                <div class="form-group mt-4">
-                                    <div class="g-recaptcha" data-sitekey="{{ env('CAPTCHA_SITE_KEY') }}"></div>
-                                </div>
-
-                                <div class="form-group mb-0 row">
-                                    <div class="col-12 mt-2">
-                                        <button type="submit"
-                                            class="btn btn-primary btn-round btn-block waves-effect waves-light">Kirim
-                                            Link
-                                            <i class="fas fa-envelope ml-1"></i></button>
-                                    </div>
-                                    <!--end col-->
-                                </div>
-                                <!--end form-group-->
-                            </form>
-                            <!--end form-->
-                        </div>
-                        <!--end /div-->
-
-                    </div>
-                    <!--end card-body-->
-                </div>
-                <!--end card-->
-                <!--end account-social-->
+        <div class="card-header-brand">
+            <div class="logo-wrap">
+                <img src="{{ asset('sysprofile/' . $sysprofile['syslogo']) }}" alt="Logo">
             </div>
-            <!--end auth-page-->
+            <h1 class="card-title">Forgot Password</h1>
+            <p class="card-subtitle">Sweet Treats Dental Clinic</p>
         </div>
-        <!--end col-->
+
+        <div class="divider"></div>
+
+        @include('layouts.notif')
+
+        <form action="{{ route('forgot-password.process') }}" method="post" autocomplete="off">
+            @csrf
+
+            <div class="field-group">
+                <label class="field-label" for="email">Email</label>
+                <div class="input-wrap">
+                    <svg class="field-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>
+                    </svg>
+                    <input type="email" name="email" id="email"
+                           value="{{ old('email') }}"
+                           class="@error('email') is-invalid @enderror"
+                           placeholder="Masukkan email">
+                </div>
+                @error('email')
+                    <div class="field-error">{{ $message }}</div>
+                @enderror
+            </div>
+
+            <div class="recaptcha-wrap">
+                <div class="g-recaptcha" data-sitekey="{{ env('CAPTCHA_SITE_KEY') }}"></div>
+            </div>
+
+            <button type="submit" class="btn-auth">
+                Kirim Link
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>
+                </svg>
+            </button>
+
+            <a href="http://127.0.0.1:8000/signin" class="back-link">← Kembali ke Login</a>
+
+            <p class="footer-note">© {{ date('Y') }} Sweet Treats Dental Clinic</p>
+        </form>
     </div>
-    <!--end row-->
-    <!-- End Log In page -->
 
     <script>
-        // when enter key is pressed
         document.addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
-                document.querySelector('.btn').click();
+                document.querySelector('.btn-auth').click();
             }
         });
     </script>
 </body>
-
 </html>

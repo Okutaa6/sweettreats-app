@@ -1,66 +1,26 @@
 @extends('layouts.app')
 
-@section('css')
-    <style>
-        .status-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-            padding: 4px 10px;
-            border-radius: 6px;
-            font-size: 12px;
-            font-weight: 600;
-        }
-
-        .quick-btn {
-            padding: 4px 10px;
-            border-radius: 6px;
-            border: none;
-            cursor: pointer;
-            font-size: 12px;
-            font-weight: 600;
-            transition: opacity .2s;
-        }
-
-        .quick-btn:hover {
-            opacity: .8;
-        }
-
-        .page-card {
-            border: none;
-            border-radius: 10px;
-            box-shadow: 0 2px 12px rgba(0, 0, 0, .08);
-        }
-    </style>
-@endsection
-
 @section('content')
     <div class="container-fluid">
         <div class="row">
             <div class="col-sm-12">
                 <div class="page-title-box">
-                    <div class="float-right">
-                        <ol class="breadcrumb">
-                            <li class="breadcrumb-item"><a href="{{ route('dashboard') }}">Dashboard</a></li>
-                            <li class="breadcrumb-item active">Waiting List</li>
-                        </ol>
-                    </div>
                     <h4 class="page-title">
-                        <i class="fa fa-list-ol text-purple mr-2"></i>
+                        <i class="fa fa-list-ol mr-2" style="color:#7C3AED"></i>
                         Waiting List Hari Ini
                     </h4>
                 </div>
             </div>
         </div>
 
-        <div class="card page-card">
-            <div class="card-body">
-                <div class="table-responsive">
-                    <table class="table table-hover mb-0">
+        <div class="st-card">
+            <div class="st-card__body">
+                <div class="st-table-wrap--scroll">
+                    <table class="st-table">
                         <thead>
                             <tr>
                                 <th>Jam</th>
-                                <th>Customer</th>
+                                <th>Pasien</th>
                                 <th>Dokter</th>
                                 <th>Cabang</th>
                                 <th>Layanan</th>
@@ -72,37 +32,40 @@
                             @forelse ($reservations as $res)
                                 @php $si = $res->status_info; @endphp
                                 <tr id="row-{{ $res->id }}">
-                                    <td><strong>{{ $res->start_hour }} - {{ $res->end_hour }}</strong></td>
+                                    <td class="st-tnum"><strong>{{ $res->start_hour }} - {{ $res->end_hour }}</strong></td>
                                     <td>{{ $res->customer->name ?? '-' }}</td>
                                     <td>{{ $res->doctor->name ?? '-' }}</td>
                                     <td>{{ $res->branch->name ?? '-' }}</td>
                                     <td>
                                         @foreach ($res->services as $svc)
-                                            <span class="badge badge-light">{{ $svc->docService->name ?? '-' }}</span>
+                                            <span class="st-pill st-pill--plain st-pill--light" style="font-size:0.72rem;margin:1px;">{{ $svc->docService->name ?? '-' }}</span>
                                         @endforeach
                                     </td>
                                     <td>
-                                        <span class="status-badge" id="badge-{{ $res->id }}"
-                                            style="background:{{ $si['bg'] }};color:{{ $si['color'] }}">
+                                        <span class="st-pill st-pill--neutral" id="badge-{{ $res->id }}">
                                             <i class="fa {{ $si['icon'] }}"></i> {{ $si['label'] }}
                                         </span>
                                     </td>
-                                    <td nowrap>
-                                        <button class="quick-btn text-white" style="background:#1565c0"
-                                            onclick="quickStatus('{{ $res->id }}','confirmed')">
-                                            <i class="fa fa-check"></i> Konfirmasi
-                                        </button>
-                                        <button class="quick-btn text-white" style="background:#dc2626"
-                                            onclick="quickStatus('{{ $res->id }}','cancelled')">
-                                            <i class="fa fa-times"></i> Batal
-                                        </button>
+                                    <td>
+                                        <div class="d-flex" style="gap:4px;">
+                                            <button class="st-quick-btn st-quick-btn--info"
+                                                onclick="quickStatus('{{ $res->id }}','confirmed')">
+                                                <i class="fa fa-check"></i> Konfirmasi
+                                            </button>
+                                            <button class="st-quick-btn st-quick-btn--danger"
+                                                onclick="quickStatus('{{ $res->id }}','cancelled')">
+                                                <i class="fa fa-times"></i> Batal
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="7" class="text-center text-muted py-4">
-                                        <i class="fa fa-check-circle fa-2x mb-2 d-block" style="color:#7c3aed"></i>
-                                        Tidak ada waiting list hari ini
+                                    <td colspan="7" class="text-center py-4">
+                                        <div class="st-muted">
+                                            <i class="fa fa-check-circle fa-2x mb-2 d-block" style="color:#7C3AED"></i>
+                                            Tidak ada waiting list hari ini
+                                        </div>
                                     </td>
                                 </tr>
                             @endforelse
@@ -116,27 +79,18 @@
 
 @section('js')
     <script>
+        var PILL_MAP = {pending:'st-pill--warning',confirmed:'st-pill--info',completed:'st-pill--success',cancelled:'st-pill--danger',waitlist:'st-pill--neutral'};
         function quickStatus(id, status) {
             $.ajax({
                 url: '/dashboard/reservasi/' + id + '/status',
                 method: 'PATCH',
-                data: {
-                    status: status,
-                    _token: '{{ csrf_token() }}'
-                },
+                data: { status: status, _token: '{{ csrf_token() }}' },
                 success: function(res) {
-                    var badge = $('#badge-' + id);
-                    badge.css({
-                        background: res.bg,
-                        color: res.color
-                    });
-                    badge.html('<i class="fa ' + res.icon + '"></i> ' + res.label);
-                    $('#row-' + id + ' td:last').html(
-                        '<span class="text-muted"><i class="fa fa-check-circle"></i> Updated</span>');
+                    $('#badge-' + id).attr('class', 'st-pill ' + (PILL_MAP[status] || 'st-pill--neutral'))
+                        .html('<i class="fa ' + res.icon + '"></i> ' + res.label);
+                    $('#row-' + id + ' td:last').html('<span class="st-muted"><i class="fa fa-check-circle"></i> Updated</span>');
                 },
-                error: function() {
-                    alert('Gagal mengubah status');
-                }
+                error: function() { alert('Gagal mengubah status'); }
             });
         }
     </script>

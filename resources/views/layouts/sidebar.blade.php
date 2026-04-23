@@ -1,14 +1,13 @@
 
 
-<div class="left-sidenav">
+<div class="left-sidenav {{ hasMultipleParents() ? '' : 'no-icon-bar' }}">
+    @if(hasMultipleParents())
     <div class="main-icon-menu">
         <nav class="nav">
-                </button>
             {!! getSidebarParent() !!}
-         <button class="nav-link button-menu-mobile waves-effect waves-light">
-        <i class="dripicons-menu"></i>
         </nav>
     </div>
+    @endif
 
     <div class="main-menu-inner" id="mainMenuInner">
         <div class="menu-body slimscroll">
@@ -28,19 +27,57 @@
         const menu = document.getElementById('mainMenuInner');
         const body = document.body;
 
-        // Simpan state ke localStorage agar persisten
-        const isCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
-        if (isCollapsed) {
-            menu.classList.add('collapsed');
-            btn.classList.add('is-collapsed');
-            body.classList.add('sidebar-collapsed');
+        // Untuk user single-parent (no-icon-bar), skip state 'collapsed' karena icon bar sudah tidak ada
+        const hasIconBar = !document.querySelector('.left-sidenav.no-icon-bar');
+        const STATES = hasIconBar
+            ? ['normal', 'hidden']
+            : ['normal', 'hidden'];
+
+        function applyState(state) {
+            menu.classList.toggle('collapsed', state === 'collapsed' || state === 'hidden');
+            body.classList.toggle('sidebar-collapsed', state === 'collapsed');
+            body.classList.toggle('sidebar-hidden', state === 'hidden');
+            btn.classList.toggle('is-collapsed', state === 'collapsed');
+            localStorage.setItem('sidebarState', state);
         }
 
+        let current = localStorage.getItem('sidebarState');
+        if (!STATES.includes(current)) {
+            // backward compat: lama menyimpan sidebarCollapsed=true/false
+            current = localStorage.getItem('sidebarCollapsed') === 'true' ? 'collapsed' : 'normal';
+        }
+        applyState(current);
+
         btn.addEventListener('click', function () {
-            const collapsed = menu.classList.toggle('collapsed');
-            btn.classList.toggle('is-collapsed', collapsed);
-            body.classList.toggle('sidebar-collapsed', collapsed);
-            localStorage.setItem('sidebarCollapsed', collapsed);
+            // Saat sudah hidden, klik lagi = kembali ke normal (sidebar muncul)
+            if (current === 'hidden') {
+                current = 'normal';
+            } else {
+                const idx = STATES.indexOf(current);
+                current = STATES[(idx + 1) % STATES.length];
+            }
+            applyState(current);
+        });
+    })();
+
+    // Parent switcher: klik icon parent → ganti pane child yang ditampilkan
+    (function () {
+        const parentLinks = document.querySelectorAll('.main-icon-menu .nav-link[data-parent-target]');
+        if (!parentLinks.length) return;
+
+        parentLinks.forEach(function (link) {
+            link.addEventListener('click', function (e) {
+                e.preventDefault();
+                const targetId = link.getAttribute('data-parent-target');
+
+                parentLinks.forEach(function (l) { l.classList.remove('active'); });
+                link.classList.add('active');
+
+                document.querySelectorAll('.main-menu-inner .main-icon-menu-pane')
+                    .forEach(function (pane) { pane.classList.remove('active'); });
+                const target = document.getElementById(targetId);
+                if (target) target.classList.add('active');
+            });
         });
     })();
 </script>

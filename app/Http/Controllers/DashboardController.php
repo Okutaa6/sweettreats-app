@@ -22,7 +22,7 @@ class DashboardController extends Controller
     $todayCount = RawCusReservation::where('date', $today)->when($sessionBranch, fn($q) => $q->where('raw_branch_id', $sessionBranch))->count();
     $pendingCount = RawCusReservation::where('status', RawCusReservation::STATUS_PENDING)->when($sessionBranch, fn($q) => $q->where('raw_branch_id', $sessionBranch))->count();
     $waitlistToday = RawCusReservation::where('date', $today)->where('status', RawCusReservation::STATUS_WAITLIST)->when($sessionBranch, fn($q) => $q->where('raw_branch_id', $sessionBranch))->count();
-    $ongoingToday = RawCusReservation::where('date', $today)->where('status', RawCusReservation::STATUS_ONGOING)->when($sessionBranch, fn($q) => $q->where('raw_branch_id', $sessionBranch))->count();
+    $confirmedToday = RawCusReservation::where('date', $today)->where('status', RawCusReservation::STATUS_CONFIRMED)->when($sessionBranch, fn($q) => $q->where('raw_branch_id', $sessionBranch))->count();
 
     // Chart: tren 7 hari terakhir
     $trendData = RawCusReservation::select(DB::raw('DATE(date) as tgl'), DB::raw('COUNT(*) as total'))
@@ -63,10 +63,11 @@ class DashboardController extends Controller
       }
     }
 
-    // Tabel reservasi hari ini
+    // Tabel reservasi hari ini (group by dokter, lalu jam)
     $todayReservations = RawCusReservation::with(['customer', 'doctor', 'branch', 'services.docService'])
       ->where('date', $today)
       ->when($sessionBranch, fn($q) => $q->where('raw_branch_id', $sessionBranch))
+      ->orderBy('raw_doctor_id')
       ->orderBy('start_hour')
       ->get();
 
@@ -74,7 +75,7 @@ class DashboardController extends Controller
       'todayCount',
       'pendingCount',
       'waitlistToday',
-      'ongoingToday',
+      'confirmedToday',
       'trendLabels',
       'trendValues',
       'donutLabels',
@@ -115,7 +116,7 @@ class DashboardController extends Controller
       $query->where('date', '<=', request('date_to'));
     }
 
-    $reservations = $query->orderByDesc('date')->orderBy('start_hour')->paginate(20)->withQueryString();
+    $reservations = $query->orderByDesc('date')->orderBy('raw_doctor_id')->orderBy('start_hour')->paginate(20)->withQueryString();
 
     $doctors = RawDoctor::orderBy('name')->get();
     $branches = $sessionBranch
@@ -134,6 +135,7 @@ class DashboardController extends Controller
       ->where('date', Carbon::today())
       ->where('status', RawCusReservation::STATUS_WAITLIST)
       ->when(session('raw_branch_id'), fn($q) => $q->where('raw_branch_id', session('raw_branch_id')))
+      ->orderBy('raw_doctor_id')
       ->orderBy('start_hour')
       ->get();
 
@@ -147,8 +149,9 @@ class DashboardController extends Controller
   {
     $reservations = RawCusReservation::with(['customer', 'doctor', 'branch', 'services.docService'])
       ->where('date', Carbon::today())
-      ->where('status', RawCusReservation::STATUS_ONGOING)
+      ->where('status', RawCusReservation::STATUS_CONFIRMED)
       ->when(session('raw_branch_id'), fn($q) => $q->where('raw_branch_id', session('raw_branch_id')))
+      ->orderBy('raw_doctor_id')
       ->orderBy('start_hour')
       ->get();
 
@@ -164,6 +167,7 @@ class DashboardController extends Controller
       ->where('status', RawCusReservation::STATUS_PENDING)
       ->when(session('raw_branch_id'), fn($q) => $q->where('raw_branch_id', session('raw_branch_id')))
       ->orderByDesc('date')
+      ->orderBy('raw_doctor_id')
       ->orderBy('start_hour')
       ->get();
 
@@ -184,11 +188,25 @@ class DashboardController extends Controller
       return response()->json(['error' => 'Status tidak valid'], 422);
     }
 
+    $oldStatus = $reservation->status;
+
     $reservation->update([
       'status' => $newStatus,
       'updated_at' => now(),
-      'updated_by' => session('user_id'),
+      'updated_by' => session('id'),
     ]);
+
+    \App\Models\AuditLog::record('status_change', "Reservasi status: {$oldStatus} → {$newStatus}", $reservation, ['status' => $oldStatus]);
+
+    // Push notification for status change
+    $customerName = $reservation->customer->name ?? 'Unknown';
+    \App\Models\AdminNotification::notify(
+      'status_change',
+      "Status Reservasi: {$oldStatus} → {$newStatus}",
+      "Reservasi {$customerName} diubah oleh " . session('name'),
+      url("crud/reservation/{$reservation->id}/edit"),
+      $reservation->raw_branch_id
+    );
 
     $si = $reservation->status_info;
 

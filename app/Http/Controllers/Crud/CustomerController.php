@@ -7,6 +7,7 @@ use App\Models\RawBranch;
 use App\Models\RawCustomer;
 use App\Models\RawDocService;
 use App\Models\RawDoctor;
+use App\Models\RawDoctorSchedule;
 use App\Models\RawPromo;
 
 class CustomerController extends Controller
@@ -18,15 +19,26 @@ class CustomerController extends Controller
         $filterSearch  = request('search');
         $filterService = request('service_id');
         $filterDoctor  = request('doctor_id');
+        $filterBranch  = request('branch_id');
+
+        $sessionBranch = session('raw_branch_id');
 
         $query = RawCustomer::with([
-            'reservations' => function ($q) {
-                $q->orderBy('date', 'desc');
-            },
-            'reservations.branch',
-            'reservations.doctor',
-            'reservations.services.docService',
+            'branch',
+            'latestReservation.branch',
+            'latestReservation.doctor',
+            'latestReservation.services.docService',
         ])->withCount('reservations');
+
+        // Sales hanya lihat pasien cabangnya sendiri
+        if ($sessionBranch) {
+            $query->where('raw_branch_id', $sessionBranch);
+        }
+
+        // Admin: filter cabang manual
+        if (!$sessionBranch && $filterBranch) {
+            $query->where('raw_branch_id', $filterBranch);
+        }
 
         if ($filterSearch) {
             $query->where(function($q) use ($filterSearch) {
@@ -48,29 +60,78 @@ class CustomerController extends Controller
             });
         }
 
-        $customers = $query->orderBy('name')->paginate($perPage)->withQueryString();
+        $customers = $query
+            ->addSelect(['latest_reservation_date' => \App\Models\RawCusReservation::select('date')
+                ->whereColumn('raw_customer_id', 'raw_customer.id')
+                ->orderByDesc('date')
+                ->limit(1)
+            ])
+            ->orderByDesc('latest_reservation_date')
+            ->orderBy('created_at')
+            ->paginate($perPage)->withQueryString();
         $services  = RawDocService::orderBy('name')->get();
-        $doctors   = RawDoctor::orderBy('name')->get();
+        $branches  = $sessionBranch ? collect() : RawBranch::orderBy('name')->get();
 
-        return view('crud.customer.list', compact('customers', 'services', 'doctors', 'filterSearch', 'filterService', 'filterDoctor'));
+        if ($sessionBranch) {
+            $doctorIds = RawDoctorSchedule::where('raw_branch_id', $sessionBranch)
+                ->distinct()->pluck('raw_doctor_id');
+            $doctors = RawDoctor::whereIn('id', $doctorIds)->orderBy('name')->get();
+        } else {
+            $doctors = RawDoctor::orderBy('name')->get();
+        }
+
+        return view('crud.customer.list', compact('customers', 'services', 'doctors', 'branches', 'filterSearch', 'filterService', 'filterDoctor', 'filterBranch'));
+    }
+
+    public function search()
+    {
+        $term = request('q', '');
+        $query = RawCustomer::query();
+
+        if ($term) {
+            $query->where(function ($q) use ($term) {
+                $q->where('name', 'like', "%{$term}%")
+                  ->orWhere('phone', 'like', "%{$term}%");
+            });
+        }
+
+        $customers = $query->orderBy('name')->limit(20)->get(['id', 'name', 'phone']);
+
+        return response()->json($customers->map(fn($c) => [
+            'id'   => $c->id,
+            'text' => $c->name . ' (' . ($c->phone ?: '-') . ')',
+        ]));
     }
 
     public function create()
     {
+        $sessionBranch = session('raw_branch_id');
         $branches = RawBranch::orderBy('name')->get();
         $services = RawDocService::orderBy('name')->get();
-        $doctors  = RawDoctor::orderBy('name')->get();
         $promos   = RawPromo::where('is_active', 1)->orderBy('promo_code')->get();
+        $userBranch = $sessionBranch ? RawBranch::find($sessionBranch) : null;
 
-        return view('crud.customer.new', compact('branches', 'services', 'doctors', 'promos'));
+        if ($userBranch) {
+            $doctorIds = RawDoctorSchedule::where('raw_branch_id', $userBranch->id)
+                ->distinct()->pluck('raw_doctor_id');
+            $doctors = RawDoctor::whereIn('id', $doctorIds)->orderBy('name')->get();
+        } else {
+            $doctors = RawDoctor::orderBy('name')->get();
+        }
+
+        return view('crud.customer.new', compact('branches', 'services', 'doctors', 'promos', 'userBranch'));
     }
 
     public function store()
     {
         request()->validate([
             'name'       => 'required|max:255',
-            'phone'      => 'nullable|max:20',
+            'phone'      => 'required|regex:/^0[0-9]{9,14}$/|unique:raw_customer,phone',
             'source_app' => 'nullable|max:255',
+        ], [
+            'phone.required' => 'No. WhatsApp wajib diisi.',
+            'phone.regex'  => 'Format nomor tidak valid. Harus diawali 0 dan minimal 10 digit (contoh: 08123456789).',
+            'phone.unique' => 'Nomor ini sudah terdaftar di sistem.',
         ]);
 
         RawCustomer::create([
@@ -92,7 +153,7 @@ class CustomerController extends Controller
             'catatan'            => request('catatan'),
         ]);
 
-        return redirect()->route('rawcustomer')->with('success', 'Customer berhasil ditambahkan');
+        return redirect()->route('rawcustomer')->with('success', 'Pasien berhasil ditambahkan');
     }
 
     public function edit($id)
@@ -106,10 +167,25 @@ class CustomerController extends Controller
             'reservations.services.docService',
         ])->findOrFail($id);
 
+        $sessionBranch = session('raw_branch_id');
+        $userBranch = $sessionBranch ? RawBranch::find($sessionBranch) : null;
+
+        // Sales tidak boleh akses pasien cabang lain
+        if ($sessionBranch && $customer->raw_branch_id && $customer->raw_branch_id !== $sessionBranch) {
+            return redirect()->route('rawcustomer')->with('error', 'Anda tidak memiliki akses ke pasien cabang lain.');
+        }
+
         $branches = RawBranch::orderBy('name')->get();
         $services = RawDocService::orderBy('name')->get();
-        $doctors  = RawDoctor::orderBy('name')->get();
         $promos   = RawPromo::where('is_active', 1)->orderBy('promo_code')->get();
+
+        if ($userBranch) {
+            $doctorIds = RawDoctorSchedule::where('raw_branch_id', $userBranch->id)
+                ->distinct()->pluck('raw_doctor_id');
+            $doctors = RawDoctor::whereIn('id', $doctorIds)->orderBy('name')->get();
+        } else {
+            $doctors = RawDoctor::orderBy('name')->get();
+        }
 
         $totalKunjungan = $customer->reservations->count();
         $totalSelesai   = $customer->reservations->where('status', 'completed')->count();
@@ -132,18 +208,54 @@ class CustomerController extends Controller
             $customer->pasien_baru_lama = $hasCompleted ? 'lama' : 'baru';
         }
 
+        // Journey timeline
+        $journeys = \Illuminate\Support\Facades\DB::table('raw_cus_journey')
+            ->where('raw_customer_id', $id)
+            ->orderByDesc('created_at')
+            ->get();
+
+        // Also get contact-based journeys if phone matches
+        $contactJourneys = collect();
+        if ($customer->phone) {
+            $contact = \Illuminate\Support\Facades\DB::table('raw_contact')
+                ->where('phone', $customer->phone)
+                ->first();
+            if ($contact) {
+                $contactJourneys = \Illuminate\Support\Facades\DB::table('raw_cus_journey')
+                    ->where('raw_contact_id', $contact->id)
+                    ->orderByDesc('created_at')
+                    ->get();
+            }
+        }
+
+        $timeline = $journeys->merge($contactJourneys)
+            ->sortByDesc('created_at')
+            ->values();
+
         return view('crud.customer.edit', compact(
             'customer', 'branches', 'services', 'doctors', 'promos',
-            'totalKunjungan', 'totalSelesai', 'totalSpending'
+            'totalKunjungan', 'totalSelesai', 'totalSpending', 'timeline',
+            'userBranch'
         ));
     }
 
     public function update($id)
     {
+        $sessionBranch = session('raw_branch_id');
+        if ($sessionBranch) {
+            $customer = RawCustomer::findOrFail($id);
+            if ($customer->raw_branch_id && $customer->raw_branch_id !== $sessionBranch) {
+                return redirect()->route('rawcustomer')->with('error', 'Anda tidak memiliki akses ke pasien cabang lain.');
+            }
+        }
+
         request()->validate([
             'name'       => 'required|max:255',
-            'phone'      => 'nullable|max:20',
+            'phone'      => 'nullable|regex:/^0[0-9]{9,14}$/|unique:raw_customer,phone,' . $id,
             'source_app' => 'nullable|max:255',
+        ], [
+            'phone.regex'  => 'Format nomor tidak valid. Harus diawali 0 dan minimal 10 digit (contoh: 08123456789).',
+            'phone.unique' => 'Nomor ini sudah terdaftar di pasien lain.',
         ]);
 
         $customer = RawCustomer::findOrFail($id);
@@ -166,22 +278,27 @@ class CustomerController extends Controller
             'catatan'            => request('catatan'),
         ]);
 
-        return redirect()->route('rawcustomer.edit', $id)->with('success', 'Customer berhasil diubah');
+        return redirect()->route('rawcustomer.edit', $id)->with('success', 'Pasien berhasil diubah');
     }
 
     public function destroy($id)
     {
+        $sessionBranch = session('raw_branch_id');
         $customer = RawCustomer::findOrFail($id);
 
-        if ($customer->reservations()->count() > 0) {
-            return redirect()->route('rawcustomer')->with('error', 'Data tidak dapat dihapus karena masih memiliki reservasi');
+        if ($sessionBranch && $customer->raw_branch_id && $customer->raw_branch_id !== $sessionBranch) {
+            return redirect()->route('rawcustomer')->with('error', 'Anda tidak memiliki akses ke pasien cabang lain.');
         }
 
-        if ($customer->journeys()->count() > 0) {
-            return redirect()->route('rawcustomer')->with('error', 'Data tidak dapat dihapus karena masih memiliki journey');
-        }
+        // Detach reservasi (set customer ke NULL, reservasi tetap ada)
+        $customer->reservations()->update(['raw_customer_id' => null]);
+
+        // Detach journey
+        \Illuminate\Support\Facades\DB::table('raw_cus_journey')
+            ->where('raw_customer_id', $id)
+            ->update(['raw_customer_id' => null]);
 
         $customer->delete();
-        return redirect()->route('rawcustomer')->with('success', 'Customer berhasil dihapus');
+        return redirect()->route('rawcustomer')->with('success', 'Pasien berhasil dihapus. Reservasi terkait tetap tersimpan.');
     }
 }

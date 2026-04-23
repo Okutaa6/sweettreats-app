@@ -1,0 +1,2557 @@
+/* ==========================================================================
+   SweetTreats — Component Library
+   --------------------------------------------------------------------------
+   Reusable UI components yang dipakai lintas halaman admin panel.
+   Mengandalkan CSS custom properties dari style.sweettreats.css (:root tokens).
+
+   Sections:
+     1. TABLE SYSTEM          (.st-table, varian, wrapper scroll)
+     2. STATUS PILLS          (.st-pill + modifier warna)
+     3. ACTION BUTTONS        (.st-icon-btn, .st-quick-btn)
+     4. DASHBOARD CARDS       (.st-dash-card + sub-elemen)
+     5. EMPTY STATES          (.st-empty)
+     6. FLOATING TOAST        (.st-toast-floating)
+     7. MODAL REFINEMENTS     (.st-modal)
+     8. FILTER PANEL          (.st-filter-panel, .st-filter-chips)
+     9. FILTER CHIPS          (.st-filter-chips)
+    10. INFO COUNT            (.st-info-count)
+    11. VIEW TABS             (.st-view-tabs)
+    12. PAGINATION            (.pagination overrides, .st-perpage, .st-pagination-bar)
+    13. FOOTER                (.footer brand-tinted)
+    14. PAGE HEAD             (.st-page-head, .st-breadcrumb)
+    15. CARD SYSTEM           (.st-card__head, .st-card__body, form scoping)
+    16. ALERTS                (.st-alert + modifiers)
+    17. BUTTONS EXTRA         (.st-btn-back, .st-btn-outline, .st-btn-ghost)
+    18. SLOT PICKER           (.st-slots, .st-slot + state)
+    19. SERVICE CHECKLIST     (.st-service-row, .st-total-duration)
+    20. KEY-VALUE TABLE       (.st-kv-table, .st-kv-list)
+    21. CALENDAR              (.st-cal-wrap, .st-cal-grid, .st-cal-event + state)
+   ========================================================================== */
+
+
+/* ==========================================================================
+   0. LAYOUT GUARDS
+   --------------------------------------------------------------------------
+   Fix untuk halaman yang pakai flex layout (page-content, card, card-body)
+   supaya tabel lebar tidak mendorong parent keluar viewport.
+   `min-width: 0` memberi izin flex item untuk shrink di bawah content size.
+   ========================================================================== */
+.page-content,
+.page-wrapper,
+.page-content .card,
+.page-content .card-body,
+.page-content .col,
+.page-content [class^="col-"],
+.page-content [class*=" col-"] {
+    min-width: 0;
+}
+
+
+/* ==========================================================================
+   1. TABLE SYSTEM
+   ========================================================================== */
+
+/* Wrapper dengan horizontal scroll — menggantikan zoom hack */
+.st-table-wrap {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    background: transparent;
+    border: none;
+    border-radius: 12px;
+    box-shadow: none;
+    overflow: hidden;
+}
+
+.st-table-wrap--scroll {
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+    max-width: 100%;
+    /* Tinggi maksimum: viewport dikurangi topbar (96) + toolbar/tabs/filter area (~220) */
+    max-height: calc(100vh - 260px);
+}
+
+/* Scrollbar styling (WebKit) */
+.st-table-wrap--scroll::-webkit-scrollbar {
+    height: 8px;
+    width: 8px;
+}
+.st-table-wrap--scroll::-webkit-scrollbar-track {
+    background: var(--cream-header);
+}
+.st-table-wrap--scroll::-webkit-scrollbar-thumb {
+    background: var(--divider-strong);
+    border-radius: 4px;
+}
+.st-table-wrap--scroll::-webkit-scrollbar-thumb:hover {
+    background: var(--text-subtle);
+}
+
+/* Core table */
+.st-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 13px;
+    color: var(--text-primary);
+    background: var(--cream-surface);
+    margin: 0;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+/* Header — gradient cream + muted label yang subtle */
+.st-table thead th {
+    background: linear-gradient(180deg, #5C2A0A 0%, #3D1A00 100%) !important;
+    color: #ffffff !important;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 10.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    padding: 15px 18px;
+    text-align: left;
+    vertical-align: middle;
+    border: none !important;
+    border-bottom: 1px solid var(--divider-soft) !important;
+    white-space: nowrap;
+    /* Sticky: thead menempel di atas saat user scroll body tabel */
+    position: sticky;
+    top: 0;
+    z-index: 5;
+}
+/* Rounded corners on header */
+.st-table thead th:first-child {
+    border-top-left-radius: 12px;
+}
+.st-table thead th:last-child {
+    border-top-right-radius: 12px;
+}
+/* Rounded corners on last row */
+.st-table tbody tr:last-child td:first-child {
+    border-bottom-left-radius: 12px;
+}
+.st-table tbody tr:last-child td:last-child {
+    border-bottom-right-radius: 12px;
+}
+
+/* Subtle shadow line at thead bottom */
+.st-table thead th::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -2px;
+    height: 2px;
+    background: linear-gradient(180deg, rgba(61, 26, 0, 0.04) 0%, transparent 100%);
+    pointer-events: none;
+}
+
+/* Body cells — generous padding, subtle divider */
+.st-table tbody td {
+    padding: 15px 18px;
+    color: var(--text-primary) !important;
+    font-size: 13px;
+    font-weight: 400;
+    background: var(--cream-surface);
+    border: none !important;
+    border-bottom: 1px solid var(--divider-soft) !important;
+    vertical-align: middle;
+    transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.st-table tbody tr:last-child td {
+    border-bottom: none !important;
+}
+
+/* Hover — no zebra stripes, smooth transition */
+.st-table tbody tr {
+    transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.st-table tbody tr:hover td {
+    background: var(--cream-hover) !important;
+}
+
+/* Row highlight — data baru masuk */
+.st-table tbody tr.st-row-new td {
+    background: rgba(230, 247, 255, 1) !important;
+}
+.st-table tbody tr.st-row-new td:first-child {
+    box-shadow: inset 3px 0 0 var(--st-pending-accent);
+}
+
+/* --- Clickable rows (row-to-edit navigation) --- */
+.st-table--clickable tbody tr {
+    cursor: pointer;
+    transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.st-table--clickable tbody tr:hover td {
+    background: var(--cream-hover) !important;
+}
+.st-table--clickable tbody tr:active td {
+    background: #F0E7D8 !important;
+}
+
+/* --- Status-based row accent: clean 3px left border bar only, no bg tint --- */
+/* Scoped untuk tidak override .st-row-new (new = amber priority) */
+
+.st-table tbody tr.st-row--pending:not(.st-row-new) td:first-child {
+    box-shadow: inset 3px 0 0 var(--st-pending-accent);
+}
+.st-table tbody tr.st-row--confirmed:not(.st-row-new) td:first-child {
+    box-shadow: inset 3px 0 0 var(--st-confirmed-accent);
+}
+.st-table tbody tr.st-row--waitlist:not(.st-row-new) td:first-child {
+    box-shadow: inset 3px 0 0 var(--st-waitlist-accent);
+}
+.st-table tbody tr.st-row--completed:not(.st-row-new) td:first-child {
+    box-shadow: inset 3px 0 0 var(--st-completed-accent);
+}
+.st-table tbody tr.st-row--cancelled:not(.st-row-new) td:first-child {
+    box-shadow: inset 3px 0 0 var(--st-cancelled-accent);
+}
+
+/* Completed: text subtle-muted (data sudah final) */
+.st-table tbody tr.st-row--completed:not(.st-row-new) td {
+    color: var(--text-subtle);
+}
+.st-table tbody tr.st-row--completed:not(.st-row-new) td .st-primary {
+    color: var(--text-muted);
+}
+
+/* Cancelled: data "mati" — muted text, no bg change */
+.st-table tbody tr.st-row--cancelled:not(.st-row-new) td {
+    color: var(--text-subtle);
+}
+.st-table tbody tr.st-row--cancelled:not(.st-row-new) td .st-primary {
+    color: var(--text-muted);
+    text-decoration: line-through;
+    text-decoration-color: var(--text-subtle);
+    text-decoration-thickness: 1px;
+}
+
+/* First/last cell corner alignment (no rounding on cells — handled by wrapper) */
+.st-table tbody tr td:first-child,
+.st-table thead tr th:first-child {
+    padding-left: 22px;
+}
+.st-table tbody tr td:last-child,
+.st-table thead tr th:last-child {
+    padding-right: 22px;
+}
+
+/* Numeric columns (right-aligned, tabular figures) */
+.st-table .st-num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+}
+
+/* Centered columns */
+.st-table .st-center {
+    text-align: center;
+}
+
+/* Primary text — slightly heavier nama kolom utama */
+.st-table .st-primary {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+/* Secondary/metadata text — subtle under primary */
+.st-table .st-meta {
+    font-size: 11.5px;
+    color: var(--text-subtle);
+    margin-top: 2px;
+    display: block;
+}
+
+/* Tabular numerals — telp, tanggal, jam (align kolom vertikal) */
+.st-table .st-tnum {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+    letter-spacing: 0.2px;
+}
+
+/* Muted cell — untuk kolom yang statusnya sekunder */
+.st-table .st-muted {
+    color: var(--text-subtle);
+}
+
+/* Branch chip — warm honey tint, brand-accent */
+.st-table .st-branch-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px 4px 9px;
+    border-radius: var(--radius-pill);
+    background: var(--st-brand-bg);
+    color: var(--st-brand-text);
+    font-size: 11.5px;
+    font-weight: 600;
+    border: 1px solid var(--st-brand-border);
+    white-space: nowrap;
+    line-height: 1.3;
+}
+.st-table .st-branch-chip::before {
+    content: "\f041";
+    font-family: "Font Awesome 5 Free", "FontAwesome";
+    font-weight: 900;
+    font-size: 10px;
+    color: var(--st-brand-text);
+    opacity: 0.75;
+}
+
+/* Date cell — tanggal bold, accent ke primary text */
+.st-table .st-date {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+    color: var(--text-primary);
+    font-weight: 700;
+    letter-spacing: -0.1px;
+}
+
+/* Time range — jam reservasi dengan icon clock subtle */
+.st-table .st-time {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+    color: var(--text-muted);
+    font-weight: 600;
+    font-size: 12.5px;
+    padding: 3px 8px;
+    background: var(--cream-header);
+    border-radius: 6px;
+    border: 1px solid var(--divider-soft);
+    white-space: nowrap;
+}
+
+/* ----- Inline editable selects in table cells & modal (status / FU / kehadiran) ----- */
+.st-table select.inline-update,
+.st-table .inline-update select,
+.st-modal-body select.inline-update,
+.st-modal-body .inline-update select {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 28px 6px 12px;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 11.5px;
+    font-weight: 600;
+    line-height: 1.3;
+    color: var(--text-muted);
+    background-color: #F5F0EA;
+    border: 1px solid var(--divider-strong);
+    border-radius: var(--radius-pill);
+    cursor: pointer;
+    min-height: 30px;
+    height: auto;
+    box-shadow: none;
+    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+    /* Custom chevron */
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none' stroke='%236B4423' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='3 5 6 8 9 5'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 9px center;
+    background-size: 10px 10px;
+}
+.st-table select.inline-update:hover,
+.st-modal-body select.inline-update:hover {
+    border-color: var(--text-muted);
+    background-color: #EFE8DE;
+}
+.st-table select.inline-update:focus,
+.st-modal-body select.inline-update:focus {
+    outline: none;
+    border-color: var(--brown);
+    box-shadow: 0 0 0 3px rgba(70, 21, 0, 0.08);
+}
+
+/* Status select — value-based coloring (JS syncs [data-value]) */
+.st-table select.inline-update[data-field="status"][data-value="pending"],
+.st-modal-body select.inline-update[data-field="status"][data-value="pending"] {
+    background-color: var(--st-pending-bg);
+    color: var(--st-pending-text);
+    border-color: var(--st-pending-border);
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none' stroke='%23A05A00' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='3 5 6 8 9 5'/></svg>");
+    box-shadow: 0 1px 2px rgba(232, 149, 32, 0.08);
+}
+.st-table select.inline-update[data-field="status"][data-value="confirmed"],
+.st-modal-body select.inline-update[data-field="status"][data-value="confirmed"] {
+    background-color: var(--st-confirmed-bg);
+    color: var(--st-confirmed-text);
+    border-color: var(--st-confirmed-border);
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none' stroke='%230F6E66' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='3 5 6 8 9 5'/></svg>");
+    box-shadow: 0 1px 2px rgba(20, 143, 133, 0.08);
+}
+.st-table select.inline-update[data-field="status"][data-value="waitlist"],
+.st-modal-body select.inline-update[data-field="status"][data-value="waitlist"] {
+    background-color: var(--st-waitlist-bg);
+    color: var(--st-waitlist-text);
+    border-color: var(--st-waitlist-border);
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none' stroke='%235C2E8F' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='3 5 6 8 9 5'/></svg>");
+    box-shadow: 0 1px 2px rgba(124, 58, 237, 0.08);
+}
+.st-table select.inline-update[data-field="status"][data-value="completed"],
+.st-modal-body select.inline-update[data-field="status"][data-value="completed"] {
+    background-color: var(--st-completed-bg);
+    color: var(--st-completed-text);
+    border-color: var(--st-completed-border);
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none' stroke='%233F6B2E' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='3 5 6 8 9 5'/></svg>");
+    box-shadow: 0 1px 2px rgba(91, 140, 66, 0.08);
+}
+.st-table select.inline-update[data-field="status"][data-value="cancelled"],
+.st-modal-body select.inline-update[data-field="status"][data-value="cancelled"] {
+    background-color: var(--st-cancelled-bg);
+    color: var(--st-cancelled-text);
+    border-color: var(--st-cancelled-border);
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none' stroke='%239A3820' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='3 5 6 8 9 5'/></svg>");
+    box-shadow: 0 1px 2px rgba(197, 74, 46, 0.08);
+}
+
+/* FU (follow-up) selects — color by action */
+.st-table select.inline-update[data-value="confirm"],
+.st-modal-body select.inline-update[data-value="confirm"] {
+    background-color: var(--st-completed-bg);
+    color: var(--st-completed-text);
+    border-color: var(--st-completed-border);
+}
+.st-table select.inline-update[data-value="reschedule"],
+.st-modal-body select.inline-update[data-value="reschedule"] {
+    background-color: var(--st-pending-bg);
+    color: var(--st-pending-text);
+    border-color: var(--st-pending-border);
+}
+.st-table select.inline-update[data-value="cancel"],
+.st-modal-body select.inline-update[data-value="cancel"] {
+    background-color: var(--st-cancelled-bg);
+    color: var(--st-cancelled-text);
+    border-color: var(--st-cancelled-border);
+}
+.st-table select.inline-update[data-value="no_respon"],
+.st-modal-body select.inline-update[data-value="no_respon"] {
+    background-color: #F0E8DC;
+    color: var(--text-muted);
+    border-color: var(--divider-strong);
+}
+.st-table select.inline-update[data-value="hadir"],
+.st-modal-body select.inline-update[data-value="hadir"] {
+    background-color: var(--st-completed-bg);
+    color: var(--st-completed-text);
+    border-color: var(--st-completed-border);
+}
+.st-table select.inline-update[data-value="tidak_hadir"],
+.st-modal-body select.inline-update[data-value="tidak_hadir"] {
+    background-color: var(--st-cancelled-bg);
+    color: var(--st-cancelled-text);
+    border-color: var(--st-cancelled-border);
+}
+
+/* Textarea keterangan in-cell & modal */
+.st-table textarea.inline-update,
+.st-modal-body textarea.inline-update {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 11.5px;
+    border: 1px solid var(--divider-strong);
+    border-radius: 6px;
+    padding: 6px 8px;
+    background: var(--cream-surface);
+    color: var(--text-primary);
+    resize: vertical;
+    min-height: 32px;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.st-table textarea.inline-update:focus,
+.st-modal-body textarea.inline-update:focus {
+    outline: none;
+    border-color: var(--brown);
+    box-shadow: 0 0 0 3px rgba(70, 21, 0, 0.08);
+}
+
+/* --- Variant: compact (dashboard widget) --- */
+.st-table--compact thead th {
+    padding: 10px 14px;
+    font-size: 10px;
+}
+.st-table--compact tbody td {
+    padding: 10px 14px;
+    font-size: 12px;
+}
+.st-table--compact tbody tr td:first-child,
+.st-table--compact thead tr th:first-child {
+    padding-left: 16px;
+}
+.st-table--compact tbody tr td:last-child,
+.st-table--compact thead tr th:last-child {
+    padding-right: 16px;
+}
+
+/* --- Variant: doctor schedule (fixed columns) --- */
+.st-table--doctor-schedule {
+    table-layout: fixed;
+}
+.st-table--doctor-schedule col.c-no      { width: 5%;  }
+.st-table--doctor-schedule col.c-hari    { width: 20%; }
+.st-table--doctor-schedule col.c-cabang  { width: 20%; }
+.st-table--doctor-schedule col.c-mulai   { width: 18%; }
+.st-table--doctor-schedule col.c-selesai { width: 18%; }
+.st-table--doctor-schedule col.c-action  { width: 19%; }
+.st-table--doctor-schedule tbody td {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+
+/* ==========================================================================
+   2. STATUS PILLS
+   ========================================================================== */
+.st-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: var(--radius-pill);
+    font-family: 'Montserrat', sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+    line-height: 1.4;
+    white-space: nowrap;
+    border: 1px solid transparent;
+}
+
+/* Dot indicator */
+.st-pill::before {
+    content: "";
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+    flex-shrink: 0;
+}
+
+.st-pill--success {
+    background: var(--st-completed-bg);
+    color: var(--st-completed-text);
+    border-color: var(--st-completed-border);
+}
+
+.st-pill--warning {
+    background: var(--st-pending-bg);
+    color: var(--st-pending-text);
+    border-color: var(--st-pending-border);
+}
+
+.st-pill--danger {
+    background: var(--st-cancelled-bg);
+    color: var(--st-cancelled-text);
+    border-color: var(--st-cancelled-border);
+}
+
+.st-pill--info {
+    background: var(--st-confirmed-bg);
+    color: var(--st-confirmed-text);
+    border-color: var(--st-confirmed-border);
+}
+
+.st-pill--neutral {
+    background: #F5F0EA;
+    color: var(--text-muted);
+    border-color: var(--divider-strong);
+}
+
+/* Additional pill variants for badge migration */
+.st-pill--dark {
+    background: #2D1810;
+    color: #FFFFFF;
+    border-color: #2D1810;
+}
+
+.st-pill--primary {
+    background: #E8F0F5;
+    color: #1E5A8C;
+    border-color: #D0E2EE;
+}
+
+.st-pill--secondary {
+    background: #F5F0EA;
+    color: var(--text-muted);
+    border-color: var(--divider-strong);
+}
+
+.st-pill--light {
+    background: #FAFAF8;
+    color: var(--text-muted);
+    border-color: var(--divider-strong);
+}
+
+/* Pill tanpa titik (untuk label, bukan status) */
+.st-pill--plain::before {
+    display: none;
+}
+
+
+/* ==========================================================================
+   3. ACTION BUTTONS (icon buttons di kolom Aksi)
+   ========================================================================== */
+.st-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    border: 1px solid var(--divider-soft);
+    background: var(--cream-surface);
+    color: var(--text-muted);
+    border-radius: 7px;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    font-size: 13px;
+    text-decoration: none !important;
+    box-shadow: 0 1px 2px rgba(61, 26, 0, 0.03);
+}
+
+.st-icon-btn:hover {
+    background: var(--cream-hover);
+    color: var(--brown);
+    border-color: var(--divider-strong);
+    text-decoration: none !important;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(61, 26, 0, 0.08);
+}
+.st-icon-btn:active { transform: translateY(0); }
+
+.st-icon-btn--danger {
+    background: var(--st-cancelled-bg-2);
+    color: var(--st-cancelled-text);
+    border-color: var(--st-cancelled-border);
+}
+.st-icon-btn--danger:hover {
+    background: var(--st-cancelled-bg);
+    color: var(--st-cancelled-text);
+    border-color: var(--st-cancelled-border);
+}
+
+.st-icon-btn--success {
+    background: var(--st-completed-bg-2);
+    color: var(--st-completed-text);
+    border-color: var(--st-completed-border);
+}
+.st-icon-btn--success:hover {
+    background: var(--st-completed-bg);
+    color: var(--st-completed-text);
+    border-color: var(--st-completed-border);
+}
+
+/* Group of action buttons */
+.st-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+/* Small button (mini inline actions) */
+.st-quick-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 11px;
+    border-radius: 7px;
+    border: 1px solid var(--divider-strong);
+    background: var(--cream-surface);
+    color: var(--text-muted);
+    font-family: 'Montserrat', sans-serif;
+    font-size: 11.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    text-decoration: none !important;
+    box-shadow: 0 1px 2px rgba(61, 26, 0, 0.03);
+}
+.st-quick-btn:hover {
+    background: var(--cream-hover);
+    color: var(--brown);
+    text-decoration: none !important;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(61, 26, 0, 0.08);
+}
+.st-quick-btn--success {
+    background: var(--st-completed-bg);
+    color: var(--st-completed-text);
+    border-color: var(--st-completed-border);
+}
+.st-quick-btn--warning {
+    background: var(--st-pending-bg);
+    color: var(--st-pending-text);
+    border-color: var(--st-pending-border);
+}
+.st-quick-btn--danger {
+    background: var(--st-cancelled-bg);
+    color: var(--st-cancelled-text);
+    border-color: var(--st-cancelled-border);
+}
+.st-quick-btn--info {
+    background: var(--st-confirmed-bg);
+    color: var(--st-confirmed-text);
+    border-color: var(--st-confirmed-border);
+}
+.st-quick-btn--purple {
+    background: #EDE9FE;
+    color: #5B21B6;
+    border-color: #DDD6FE;
+}
+
+
+/* ==========================================================================
+   3b. TABS (registration tabs, view switcher)
+   ========================================================================== */
+.st-tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 2px solid var(--divider-soft);
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+}
+.st-tabs a {
+    padding: 10px 16px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-subtle);
+    text-decoration: none !important;
+    border-bottom: 3px solid transparent;
+    margin-bottom: -2px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: color 0.15s, border-color 0.15s;
+}
+.st-tabs a:hover { color: var(--brown); }
+.st-tabs a.active {
+    color: var(--brown);
+    border-bottom-color: var(--brown);
+}
+.st-tabs .st-tab-count {
+    background: var(--cream-header);
+    padding: 1px 7px;
+    font-size: 11px;
+    border-radius: 8px;
+}
+.st-tabs a.active .st-tab-count {
+    background: var(--brown);
+    color: #FFFFFF;
+}
+
+/* Row highlight for pending items */
+.st-table tbody tr.st-row--pending-highlight td {
+    background: #FFF8E1;
+}
+
+/* Approve/Reject mini buttons */
+.st-btn-approve {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--st-completed-bg);
+    color: var(--st-completed-text);
+    border: 1px solid var(--st-completed-border);
+    padding: 4px 10px;
+    font-size: 12px;
+    font-weight: 700;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: filter 0.15s;
+}
+.st-btn-approve:hover { filter: brightness(0.92); }
+
+.st-btn-reject {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--st-cancelled-bg);
+    color: var(--st-cancelled-text);
+    border: 1px solid var(--st-cancelled-border);
+    padding: 4px 10px;
+    font-size: 12px;
+    font-weight: 700;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: filter 0.15s;
+}
+.st-btn-reject:hover { filter: brightness(0.92); }
+
+/* Filter bar (inline form) */
+.st-filter-bar {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+    font-family: 'Montserrat', sans-serif;
+}
+.st-filter-bar select,
+.st-filter-bar input[type="text"] {
+    padding: 6px 12px;
+    border: 1px solid var(--divider-soft);
+    border-radius: 6px;
+    font-size: 13px;
+    background: var(--cream-surface);
+    color: var(--text-primary);
+    transition: border-color 0.15s;
+}
+.st-filter-bar select:focus,
+.st-filter-bar input[type="text"]:focus {
+    border-color: var(--brown-pale);
+    outline: none;
+}
+.st-filter-bar label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    color: var(--text-subtle);
+    margin: 0;
+}
+
+
+/* ==========================================================================
+   4. DASHBOARD CARDS
+   ========================================================================== */
+.st-dash-card {
+    background: var(--cream-surface);
+    border: 1px solid var(--divider-strong);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-card);
+    padding: 20px 22px;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    font-family: 'Montserrat', sans-serif;
+}
+
+.st-dash-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-card-lg);
+}
+
+.st-dash-card__header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.st-dash-card__icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+    background: var(--cream-header);
+    color: var(--brown);
+}
+
+.st-dash-card__icon--success { background: #E8F5E9; color: #2E7D32; }
+.st-dash-card__icon--warning { background: #FFF4E1; color: #B26B00; }
+.st-dash-card__icon--danger  { background: #FDECEC; color: #B23A3A; }
+.st-dash-card__icon--info    { background: #E8F0F5; color: #1E5A8C; }
+
+.st-dash-card__body {
+    flex: 1;
+    min-width: 0;
+}
+
+.st-dash-card__value {
+    font-size: 26px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0;
+    line-height: 1.2;
+    font-variant-numeric: tabular-nums;
+}
+
+.st-dash-card__label {
+    font-size: 12px;
+    color: var(--text-subtle);
+    margin: 2px 0 0;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+
+
+/* ==========================================================================
+   5. EMPTY STATES
+   ========================================================================== */
+.st-empty {
+    padding: 48px 24px;
+    text-align: center;
+    font-family: 'Montserrat', sans-serif;
+    color: var(--text-subtle);
+}
+
+.st-empty__icon {
+    font-size: 40px;
+    color: var(--divider-strong);
+    margin-bottom: 12px;
+    display: block;
+}
+
+.st-empty__title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin: 0 0 4px;
+}
+
+.st-empty__desc {
+    font-size: 12px;
+    color: var(--text-subtle);
+    margin: 0;
+}
+
+
+/* ==========================================================================
+   6. FLOATING TOAST (notifikasi inline)
+   ========================================================================== */
+.st-toast-floating {
+    position: fixed;
+    top: 90px;
+    right: 24px;
+    z-index: 1050;
+    min-width: 340px;
+    max-width: 420px;
+    background: var(--cream-surface);
+    border: 1px solid var(--divider-strong);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-card-lg);
+    font-family: 'Montserrat', sans-serif;
+    overflow: hidden;
+    display: none;
+}
+
+.st-toast-floating__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    background: #2E7D32;
+    color: #FFFFFF;
+    font-weight: 600;
+    font-size: 13px;
+}
+
+.st-toast-floating__header .close {
+    background: transparent;
+    border: none;
+    color: #FFFFFF;
+    opacity: 0.8;
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0 4px;
+}
+.st-toast-floating__header .close:hover {
+    opacity: 1;
+}
+
+.st-toast-floating__body {
+    padding: 14px 16px;
+    font-size: 13px;
+    color: var(--text-primary);
+    background: var(--cream-surface);
+}
+
+
+/* ==========================================================================
+   7. MODAL REFINEMENTS (Detail Reservasi, dll)
+   ========================================================================== */
+.st-modal .modal-content {
+    border: none;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-card-lg);
+    overflow: hidden;
+    font-family: 'Montserrat', sans-serif;
+}
+
+.st-modal .modal-header {
+    background: var(--brown);
+    color: #FFFFFF;
+    border: none;
+    padding: 16px 22px;
+}
+
+.st-modal .modal-header .modal-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: #FFFFFF;
+    margin: 0;
+}
+
+.st-modal .modal-header .close {
+    color: #FFFFFF;
+    opacity: 0.85;
+    text-shadow: none;
+}
+.st-modal .modal-header .close:hover { opacity: 1; }
+
+.st-modal .modal-body {
+    padding: 20px 22px;
+    background: var(--cream-surface);
+}
+
+.st-modal .modal-footer {
+    border-top: 1px solid var(--divider-soft);
+    padding: 14px 22px;
+    background: var(--cream-header);
+}
+
+
+/* ==========================================================================
+   8. FILTER PANEL (collapsible filter form)
+   ========================================================================== */
+.st-filter-panel {
+    background: linear-gradient(180deg, #FFFFFF 0%, #FDFBF7 100%);
+    border: 1px solid var(--divider-soft);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-card);
+    padding: 20px 22px;
+    margin-bottom: 14px;
+    font-family: 'Montserrat', sans-serif;
+}
+
+.st-filter-panel__header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+    margin-bottom: 14px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--divider-soft);
+}
+
+.st-filter-label {
+    font-size: 10.5px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    margin-bottom: 5px;
+    display: block;
+}
+
+/* Scoped form control polish inside filter panel */
+.st-filter-panel .form-control,
+.st-filter-panel .form-control-sm,
+.st-filter-panel select.form-control,
+.st-filter-panel select.form-control-sm {
+    border: 1px solid var(--divider-strong);
+    border-radius: 6px;
+    background: var(--cream-surface);
+    color: var(--text-primary);
+    font-family: 'Montserrat', sans-serif;
+    font-size: 12.5px;
+    padding: 7px 10px;
+    height: auto;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.st-filter-panel .form-control:focus,
+.st-filter-panel .form-control-sm:focus {
+    border-color: var(--brown);
+    box-shadow: 0 0 0 3px rgba(70, 21, 0, 0.08);
+    outline: none;
+}
+.st-filter-panel .form-control::placeholder {
+    color: var(--text-subtle);
+    font-weight: 400;
+}
+
+/* Filter action buttons */
+.st-filter-panel .st-filter-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+}
+
+.st-filter-panel .st-filter-submit {
+    flex: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 9px 14px;
+    border-radius: 8px;
+    background: linear-gradient(180deg, #5C2A0A 0%, #3D1A00 100%);
+    color: #FFFFFF !important;
+    border: 1px solid #3D1A00;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 2px 6px rgba(61, 26, 0, 0.12);
+}
+.st-filter-panel .st-filter-submit:hover {
+    background: linear-gradient(180deg, #6B3510 0%, #4A2005 100%);
+    box-shadow: 0 3px 10px rgba(61, 26, 0, 0.18);
+    transform: translateY(-1px);
+}
+
+.st-filter-panel .st-filter-reset {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border-radius: 6px;
+    background: var(--cream-surface);
+    color: var(--text-muted);
+    border: 1px solid var(--divider-strong);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    text-decoration: none !important;
+}
+.st-filter-panel .st-filter-reset:hover {
+    background: #FDECEC;
+    color: #B23A3A;
+    border-color: #F5C6C6;
+}
+
+
+/* ==========================================================================
+   9. FILTER CHIPS (active filters display)
+   ========================================================================== */
+.st-filter-chips {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 10px;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 12px;
+}
+
+.st-filter-chips__label {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    color: var(--text-muted);
+    font-weight: 600;
+    font-size: 11.5px;
+    margin-right: 2px;
+}
+
+.st-filter-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px;
+    border-radius: var(--radius-pill);
+    background: var(--cream-hover);
+    color: var(--text-muted);
+    font-weight: 600;
+    font-size: 11.5px;
+    border: 1px solid var(--divider-strong);
+    line-height: 1.4;
+}
+.st-filter-chip a {
+    color: var(--text-muted);
+    text-decoration: none !important;
+    line-height: 1;
+    font-size: 15px;
+    opacity: 0.6;
+    transition: opacity 0.15s ease, color 0.15s ease;
+    margin-left: 2px;
+}
+.st-filter-chip a:hover {
+    opacity: 1;
+    color: #B23A3A;
+    text-decoration: none !important;
+}
+
+
+/* ==========================================================================
+   10. INFO COUNT / RESULT SUMMARY
+   ========================================================================== */
+.st-info-count {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 12px;
+    color: var(--text-subtle);
+    margin-bottom: 12px;
+    font-weight: 500;
+}
+.st-info-count i {
+    color: var(--text-muted);
+}
+.st-info-count strong {
+    color: var(--text-primary);
+    font-weight: 700;
+}
+
+
+/* ==========================================================================
+   11. VIEW TABS (List / Reservasi Baru / Kalender dll)
+   ========================================================================== */
+.st-view-tabs {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 4px;
+    background: linear-gradient(180deg, #F7F1E9 0%, #F2EBE1 100%);
+    border: 1px solid var(--divider-soft);
+    border-radius: 10px;
+    box-shadow: inset 0 1px 2px rgba(61, 26, 0, 0.03);
+}
+
+.st-view-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    border-radius: 7px;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+    background: transparent;
+    border: none;
+    text-decoration: none !important;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    cursor: pointer;
+}
+
+.st-view-tab:hover {
+    color: #ffffff;
+    background: var(--brown);
+    text-decoration: none !important;
+}
+
+.st-view-tab.active {
+    background: var(--brown);
+    color: #ffffff;
+    box-shadow: 0 2px 6px rgba(61, 26, 0, 0.1), 0 1px 2px rgba(61, 26, 0, 0.06);
+}
+
+
+/* ==========================================================================
+   12. PAGINATION (Bootstrap .pagination override — brand brown)
+   ========================================================================== */
+.pagination {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin: 0;
+    padding: 0;
+    font-family: 'Montserrat', sans-serif;
+}
+
+.pagination .page-item {
+    list-style: none;
+}
+
+.pagination .page-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 32px;
+    height: 32px;
+    padding: 0 10px;
+    border-radius: 7px !important;
+    border: 1px solid var(--divider-soft) !important;
+    background: var(--cream-surface) !important;
+    color: var(--text-muted) !important;
+    font-size: 12px;
+    font-weight: 600;
+    box-shadow: 0 1px 2px rgba(61, 26, 0, 0.03);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    margin: 0 !important;
+}
+
+.pagination .page-link:hover {
+    background: var(--cream-hover) !important;
+    color: var(--brown) !important;
+    border-color: var(--divider-strong) !important;
+    box-shadow: 0 2px 6px rgba(61, 26, 0, 0.06);
+    transform: translateY(-1px);
+}
+
+.pagination .page-item.active .page-link {
+    background: linear-gradient(180deg, #5C2A0A 0%, #3D1A00 100%) !important;
+    border-color: #3D1A00 !important;
+    color: #FFFFFF !important;
+    box-shadow: 0 2px 6px rgba(61, 26, 0, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+.pagination .page-item.active .page-link:hover {
+    color: #FFFFFF !important;
+    transform: translateY(-1px);
+    box-shadow: 0 3px 10px rgba(61, 26, 0, 0.22);
+}
+
+.pagination .page-item.disabled .page-link {
+    background: var(--cream-header) !important;
+    color: var(--text-subtle) !important;
+    border-color: var(--divider-soft) !important;
+    cursor: not-allowed;
+    box-shadow: none;
+    opacity: 0.6;
+}
+
+/* Per-page selector area ("Tampilkan X data") */
+.st-perpage {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 12px;
+    color: var(--text-subtle);
+    font-weight: 500;
+}
+.st-perpage select {
+    appearance: none;
+    -webkit-appearance: none;
+    padding: 6px 26px 6px 10px;
+    border-radius: 7px;
+    border: 1px solid var(--divider-soft);
+    background: var(--cream-surface);
+    color: var(--text-muted);
+    font-family: 'Montserrat', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    height: 32px;
+    box-shadow: 0 1px 2px rgba(61, 26, 0, 0.03);
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none' stroke='%236B4423' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='3 5 6 8 9 5'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 9px center;
+    background-size: 10px 10px;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.st-perpage select:hover {
+    border-color: var(--divider-strong);
+    background-color: var(--cream-hover);
+}
+.st-perpage select:focus {
+    outline: none;
+    border-color: var(--brown);
+    box-shadow: 0 0 0 3px rgba(70, 21, 0, 0.08);
+}
+
+/* Pagination row wrapper (per-page kiri + pagination kanan) */
+.st-pagination-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 16px 0 8px 0;
+    margin-top: 8px;
+    border-top: 1px solid var(--divider-soft);
+}
+
+
+/* ==========================================================================
+   14. PAGE HEAD (breadcrumb + title)
+   --------------------------------------------------------------------------
+   Menggantikan `.page-title-box` default dengan header halaman yang bersih.
+   Dipakai di halaman detail / edit / form.
+   ========================================================================== */
+.st-page-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px 0 16px 0;
+    margin-bottom: 10px;
+    border-bottom: 1px solid var(--divider-soft);
+    font-family: 'Montserrat', sans-serif;
+    flex-wrap: wrap;
+}
+.st-page-head__title {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--brown);
+    letter-spacing: 0.1px;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+}
+.st-page-head__title::before {
+    content: '';
+    width: 4px;
+    height: 18px;
+    border-radius: 3px;
+    background: linear-gradient(180deg, #8B5A1C 0%, #5C2A0A 100%);
+    display: inline-block;
+}
+.st-breadcrumb {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11.5px;
+    color: var(--text-subtle);
+    font-weight: 500;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+.st-breadcrumb a,
+.st-breadcrumb li a {
+    color: var(--text-muted);
+    text-decoration: none !important;
+    transition: color 0.15s ease;
+}
+.st-breadcrumb a:hover {
+    color: var(--brown);
+}
+.st-breadcrumb li {
+    display: inline-flex;
+    align-items: center;
+}
+.st-breadcrumb li + li::before {
+    content: '/';
+    margin: 0 8px;
+    color: var(--divider-strong);
+    font-weight: 400;
+}
+.st-breadcrumb li.active,
+.st-breadcrumb li[aria-current="page"] {
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+
+/* ==========================================================================
+   15. CARD SYSTEM
+   --------------------------------------------------------------------------
+   Pengganti `.card > .card-header > .card-title` bawaan template.
+   Surface cream, header tipis (bukan brown banner), body lapang.
+   ========================================================================== */
+.st-card {
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-lg, 12px);
+    box-shadow: none;
+    margin-bottom: 18px;
+    font-family: 'Montserrat', sans-serif;
+    overflow: hidden;
+    transition: box-shadow 0.2s ease;
+}
+.st-card:hover {
+    box-shadow: 0 2px 8px rgba(61, 26, 0, 0.06), 0 1px 3px rgba(61, 26, 0, 0.04);
+}
+.st-card__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 14px 22px;
+    background: linear-gradient(180deg, #FCFAF6 0%, #F7F1E9 100%);
+    border-bottom: 1px solid var(--divider-soft);
+}
+.st-card__title-wrap {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+.st-card__icon {
+    width: 30px;
+    height: 30px;
+    border-radius: 7px;
+    background: linear-gradient(180deg, #FBF3E3 0%, #F3E5C9 100%);
+    border: 1px solid #EDE0BE;
+    color: var(--brown);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    flex-shrink: 0;
+}
+.st-card__title {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--brown);
+    letter-spacing: 0.2px;
+    text-transform: uppercase;
+}
+.st-card__sub {
+    font-size: 11px;
+    color: var(--text-subtle);
+    font-weight: 500;
+    margin-top: 2px;
+}
+.st-card__badge-new {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: linear-gradient(180deg, #FFF4E1 0%, #FBE6BC 100%);
+    color: #A05A00;
+    border: 1px solid #F5D9A8;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+}
+.st-card__body {
+    padding: 20px 22px;
+    background: none !important;
+}
+.st-card__body--tight {
+    padding: 14px 18px;
+}
+.st-card__foot {
+    padding: 12px 22px 16px 22px;
+    border-top: 1px solid var(--divider-soft);
+    background: #FCFAF6;
+}
+
+/* Form control polish — scoped ke .st-card supaya markup Bootstrap existing jalan */
+.st-card .form-control,
+.st-card .form-control-sm,
+.st-card select.form-control,
+.st-card textarea.form-control {
+    border: 1px solid var(--divider-strong);
+    border-radius: 7px;
+    background: var(--cream-surface);
+    color: var(--text-primary);
+    font-family: 'Montserrat', sans-serif;
+    font-size: 13px;
+    padding: 9px 12px;
+    height: auto;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    box-shadow: 0 1px 2px rgba(61, 26, 0, 0.02);
+}
+.st-card .form-control:focus,
+.st-card .form-control-sm:focus,
+.st-card textarea.form-control:focus {
+    border-color: var(--brown);
+    box-shadow: 0 0 0 3px rgba(70, 21, 0, 0.08);
+    outline: none;
+}
+.st-card .form-control::placeholder {
+    color: var(--text-subtle);
+    font-weight: 400;
+}
+.st-card .form-control.is-invalid {
+    border-color: #C54A2E;
+    box-shadow: 0 0 0 3px rgba(197, 74, 46, 0.08);
+}
+.st-card label,
+.st-card .form-group > label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 10.5px;
+    font-weight: 700;
+    color: var(--text-muted);
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+.st-card .form-group {
+    margin-bottom: 16px;
+}
+.st-card small.text-muted {
+    font-size: 11px;
+    color: var(--text-subtle) !important;
+}
+.st-card .invalid-feedback {
+    font-size: 11px;
+    color: #C54A2E;
+    margin-top: 4px;
+}
+
+/* Select2 polish inside cards */
+.st-card .select2-container--default .select2-selection--single {
+    border: 1px solid var(--divider-strong);
+    border-radius: 7px;
+    background: var(--cream-surface);
+    height: 38px;
+    padding: 4px 10px;
+    box-shadow: 0 1px 2px rgba(61, 26, 0, 0.02);
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.st-card .select2-container--default.select2-container--focus .select2-selection--single,
+.st-card .select2-container--default.select2-container--open .select2-selection--single {
+    border-color: var(--brown);
+    box-shadow: 0 0 0 3px rgba(70, 21, 0, 0.08);
+}
+.st-card .select2-container--default .select2-selection--single .select2-selection__rendered {
+    color: var(--text-primary);
+    font-family: 'Montserrat', sans-serif;
+    font-size: 13px;
+    line-height: 28px;
+    padding-left: 0;
+}
+.st-card .select2-container--default .select2-selection--single .select2-selection__arrow {
+    height: 36px;
+}
+
+
+/* ==========================================================================
+   16. ALERTS / INLINE NOTES
+   --------------------------------------------------------------------------
+   Pengganti `.alert alert-*` dengan versi yang konsisten dengan token.
+   ========================================================================== */
+.st-alert {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 11px 14px;
+    border-radius: 8px;
+    font-size: 12.5px;
+    font-family: 'Montserrat', sans-serif;
+    line-height: 1.5;
+    border: 1px solid transparent;
+    margin-bottom: 12px;
+}
+.st-alert__icon {
+    flex-shrink: 0;
+    font-size: 14px;
+    margin-top: 1px;
+}
+.st-alert__body { flex: 1; min-width: 0; }
+.st-alert__body strong { font-weight: 700; }
+
+.st-alert--warning {
+    background: var(--st-pending-bg, #FFF4E1);
+    border-color: var(--st-pending-border, #F5D9A8);
+    color: var(--st-pending-text, #A05A00);
+}
+.st-alert--info {
+    background: #E8F0F5;
+    border-color: #C9DCE8;
+    color: #1E5A8C;
+}
+.st-alert--danger {
+    background: var(--st-cancelled-bg, #F7E6E1);
+    border-color: #EBCEC4;
+    color: var(--st-cancelled-text, #9A3820);
+}
+.st-alert--success {
+    background: var(--st-completed-bg, #E6EFE3);
+    border-color: #C9DCC1;
+    color: var(--st-completed-text, #3F6B2E);
+}
+.st-alert--quote {
+    background: #FBF8F2;
+    border-color: var(--divider-soft);
+    color: var(--text-primary);
+    font-style: italic;
+}
+.st-alert--compact { padding: 8px 12px; font-size: 12px; }
+
+
+/* ==========================================================================
+   17. BUTTONS (extras — back, outline danger, ghost)
+   --------------------------------------------------------------------------
+   Sudah ada `.st-btn-brand` di style.sweettreats.css; tambahan variant di sini.
+   ========================================================================== */
+.st-btn-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px 7px 10px;
+    border-radius: 7px;
+    background: var(--cream-surface);
+    color: var(--text-muted);
+    border: 1px solid var(--divider-strong);
+    font-family: 'Montserrat', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    text-decoration: none !important;
+    box-shadow: 0 1px 2px rgba(61, 26, 0, 0.03);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.st-btn-back:hover {
+    background: var(--cream-hover);
+    color: var(--brown);
+    border-color: var(--brown);
+    transform: translateX(-2px);
+    text-decoration: none !important;
+}
+.st-btn-back i { font-size: 11px; }
+
+.st-btn-outline {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 9px 14px;
+    border-radius: 7px;
+    background: var(--cream-surface);
+    color: var(--brown);
+    border: 1px solid var(--brown);
+    font-family: 'Montserrat', sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.2px;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    text-decoration: none !important;
+}
+.st-btn-outline:hover {
+    background: var(--brown);
+    color: #FFFFFF !important;
+    box-shadow: 0 2px 8px rgba(61, 26, 0, 0.18);
+    transform: translateY(-1px);
+    text-decoration: none !important;
+}
+
+.st-btn-danger-outline {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 9px 14px;
+    border-radius: 7px;
+    background: var(--cream-surface);
+    color: var(--st-cancelled-text, #9A3820);
+    border: 1px solid #EBCEC4;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.st-btn-danger-outline:hover {
+    background: var(--st-cancelled-bg, #F7E6E1);
+    border-color: var(--st-cancelled-accent, #C54A2E);
+    color: var(--st-cancelled-accent, #C54A2E);
+    transform: translateY(-1px);
+}
+
+.st-btn-ghost {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-muted);
+    border: 1px solid transparent;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s ease;
+    text-decoration: none !important;
+}
+.st-btn-ghost:hover {
+    background: var(--cream-hover);
+    color: var(--brown);
+    text-decoration: none !important;
+}
+
+/* Button row di footer card */
+.st-btn-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.st-btn-row > .st-btn-brand,
+.st-btn-row > .st-btn-outline {
+    flex: 1;
+    min-width: 0;
+}
+
+
+/* ==========================================================================
+   18. SLOT PICKER (time slots untuk reschedule reservasi)
+   ========================================================================== */
+.st-slot-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    background: var(--cream-header);
+    border: 1px solid var(--divider-soft);
+    border-radius: 8px;
+    font-size: 13px;
+    color: var(--text-primary);
+    font-weight: 600;
+    margin-bottom: 10px;
+}
+.st-slot-info i { color: var(--brown); font-size: 13px; }
+.st-slot-info-label {
+    font-size: 10.5px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    margin-right: 4px;
+}
+.st-slot-info-value { color: var(--brown); font-weight: 700; }
+
+.st-slots {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 8px;
+    margin-top: 12px;
+}
+.st-slot {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 9px 8px;
+    border-radius: 7px;
+    border: 1px solid var(--divider-strong);
+    background: var(--cream-surface);
+    color: var(--text-primary);
+    font-family: 'Montserrat', sans-serif;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+}
+.st-slot small {
+    font-size: 9.5px;
+    font-weight: 500;
+    margin-left: 4px;
+    opacity: 0.85;
+}
+.st-slot:not(:disabled):hover {
+    background: var(--cream-hover);
+    border-color: var(--brown);
+    color: var(--brown);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(61, 26, 0, 0.08);
+}
+.st-slot--available {
+    background: var(--st-completed-bg);
+    border-color: #C9DCC1;
+    color: var(--st-completed-text);
+}
+.st-slot--available:hover {
+    background: #D8E8D1;
+    border-color: var(--st-completed-accent);
+    color: var(--st-completed-text);
+}
+.st-slot--selected {
+    background: linear-gradient(180deg, #5C2A0A 0%, #3D1A00 100%);
+    border-color: #3D1A00;
+    color: #FFFFFF;
+    box-shadow: 0 2px 8px rgba(61, 26, 0, 0.22);
+}
+.st-slot--selected:hover {
+    background: linear-gradient(180deg, #6B3510 0%, #4A2005 100%);
+    color: #FFFFFF;
+}
+.st-slot--preview {
+    background: var(--st-cancelled-bg);
+    border-color: #EBCEC4;
+    color: var(--st-cancelled-text);
+    cursor: not-allowed;
+}
+.st-slot--booked {
+    background: #F5E1DD;
+    border-color: #E8C8C0;
+    color: #9A3820;
+    cursor: not-allowed;
+    opacity: 0.75;
+}
+.st-slot--booked::after {
+    content: '';
+    position: absolute;
+    left: 8px;
+    right: 8px;
+    top: 50%;
+    height: 1px;
+    background: currentColor;
+    opacity: 0.5;
+}
+.st-slot--past {
+    background: var(--cream-header);
+    border-color: var(--divider-soft);
+    color: var(--text-subtle);
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+.st-slot--conflict {
+    background: var(--st-pending-bg);
+    border-color: var(--st-pending-border);
+    color: var(--st-pending-text);
+    cursor: not-allowed;
+}
+.st-slot:disabled { cursor: not-allowed; }
+
+.st-slot-legend {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px dashed var(--divider-soft);
+    font-size: 11px;
+    color: var(--text-subtle);
+}
+.st-slot-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-weight: 600;
+}
+.st-slot-legend-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 3px;
+    flex-shrink: 0;
+    border: 1px solid transparent;
+}
+.st-slot-legend-dot--available { background: var(--st-completed-bg); border-color: #C9DCC1; }
+.st-slot-legend-dot--selected  { background: #5C2A0A; }
+.st-slot-legend-dot--conflict  { background: var(--st-pending-bg); border-color: var(--st-pending-border); }
+.st-slot-legend-dot--booked    { background: #F5E1DD; border-color: #E8C8C0; }
+
+
+/* ==========================================================================
+   19. SERVICE CHECKLIST (layanan perawatan di reservation edit)
+   ========================================================================== */
+.st-service-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.st-service-row {
+    border: 1px solid var(--divider-soft);
+    border-radius: 9px;
+    background: var(--cream-surface);
+    padding: 12px 14px;
+    transition: all 0.15s ease;
+}
+.st-service-row:hover {
+    border-color: var(--divider-strong);
+    background: #FDFBF7;
+}
+.st-service-row.is-checked {
+    border-color: var(--st-completed-accent);
+    background: var(--st-completed-bg);
+    box-shadow: inset 3px 0 0 var(--st-completed-accent);
+}
+.st-service-row__top {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+.st-service-row .custom-control-label {
+    font-size: 13px;
+    color: var(--text-primary);
+    cursor: pointer;
+}
+.st-service-row .custom-control-label strong {
+    font-weight: 700;
+    color: var(--text-primary);
+}
+.st-service-row .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 9px;
+    border-radius: 999px;
+    background: var(--cream-header);
+    color: var(--text-muted) !important;
+    border: 1px solid var(--divider-soft);
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+}
+.st-service-row .badge i { font-size: 10px; }
+.st-service-row .svc-detail-wrap {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px dashed var(--divider-soft);
+}
+.st-service-row .sub-service-checklist {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    max-height: 200px;
+    overflow-y: auto;
+    border: 1px solid var(--divider-soft) !important;
+    background: var(--cream-surface) !important;
+    border-radius: 7px;
+    padding: 10px 12px !important;
+}
+.st-service-row .sub-detail-search {
+    font-size: 12px;
+    padding: 7px 10px;
+    border: 1px solid var(--divider-strong);
+    border-radius: 6px;
+    background: var(--cream-surface);
+    color: var(--text-primary);
+}
+.st-service-row .sub-detail-search:focus {
+    border-color: var(--brown);
+    box-shadow: 0 0 0 3px rgba(70, 21, 0, 0.06);
+    outline: none;
+}
+.st-service-row .sub-detail-item .custom-control-label {
+    font-size: 12px;
+    color: var(--text-primary);
+}
+.st-service-row .sub-detail-item .custom-control-label small {
+    color: var(--text-subtle) !important;
+    font-size: 10.5px;
+}
+
+.st-total-duration {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 11px 14px;
+    border-radius: 8px;
+    background: var(--cream-header);
+    border: 1px solid var(--divider-soft);
+    color: var(--text-primary);
+    font-size: 12.5px;
+    font-weight: 600;
+    margin-top: 14px;
+}
+.st-total-duration i {
+    color: var(--brown);
+    font-size: 13px;
+}
+
+
+/* ==========================================================================
+   20. KEY-VALUE TABLE (untuk detail sections — komisi, info promo, dll)
+   ========================================================================== */
+.st-kv-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-family: 'Montserrat', sans-serif;
+}
+.st-kv-table tr { border: none; }
+.st-kv-table td {
+    padding: 11px 14px;
+    border-bottom: 1px solid var(--divider-soft);
+    font-size: 12.5px;
+    color: var(--text-primary);
+    vertical-align: middle;
+}
+.st-kv-table tr:last-child td { border-bottom: none; }
+.st-kv-table td:first-child {
+    width: 30%;
+    font-size: 10.5px;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    background: var(--cream-header);
+    border-right: 1px solid var(--divider-soft);
+    white-space: nowrap;
+}
+.st-kv-table td strong {
+    color: var(--brown);
+    font-weight: 700;
+}
+.st-kv-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 12.5px;
+    color: var(--text-primary);
+}
+.st-kv-list li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--divider-soft);
+}
+.st-kv-list li:last-child { border-bottom: none; }
+.st-kv-list li strong {
+    font-size: 10.5px;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+
+
+/* ==========================================================================
+   21. CALENDAR (month grid + event cards + toolbar)
+   --------------------------------------------------------------------------
+   Menggantikan inline CSS di reservation/list.blade.php (section "cal-*").
+   ========================================================================== */
+.st-cal-wrap {
+    background: var(--cream-surface);
+    border: 1px solid var(--divider-soft);
+    border-radius: var(--radius-lg, 12px);
+    box-shadow: var(--shadow-card);
+    padding: 18px 18px 16px 18px;
+    font-family: 'Montserrat', sans-serif;
+}
+
+.st-cal-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding-bottom: 14px;
+    margin-bottom: 14px;
+    border-bottom: 1px solid var(--divider-soft);
+    flex-wrap: wrap;
+}
+.st-cal-toolbar__nav {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+.st-cal-nav-btn {
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    border-radius: 7px;
+    background: var(--cream-surface);
+    color: var(--text-muted);
+    border: 1px solid var(--divider-strong);
+    font-size: 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 1px 2px rgba(61, 26, 0, 0.03);
+}
+.st-cal-nav-btn:hover {
+    background: var(--cream-hover);
+    color: var(--brown);
+    border-color: var(--brown);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(61, 26, 0, 0.08);
+}
+.st-cal-month-label {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--brown);
+    letter-spacing: 0.2px;
+    min-width: 180px;
+    text-align: center;
+}
+.st-cal-today-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    border-radius: 7px;
+    background: linear-gradient(180deg, #5C2A0A 0%, #3D1A00 100%);
+    color: #FFFFFF;
+    border: 1px solid #3D1A00;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(61, 26, 0, 0.18);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.st-cal-today-btn:hover {
+    background: linear-gradient(180deg, #6B3510 0%, #4A2005 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 3px 10px rgba(61, 26, 0, 0.22);
+    color: #FFFFFF;
+}
+
+/* Grid */
+.st-cal-grid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    border-left: 1px solid var(--divider-soft);
+    border-top: 1px solid var(--divider-soft);
+    border-radius: 8px;
+    overflow: hidden;
+}
+.st-cal-grid--head .st-cal-dow {
+    background: var(--brown);
+    color: #ffffff;
+    text-align: center;
+    font-weight: 700;
+    font-size: 11px;
+    padding: 11px 6px;
+    border-right: 1px solid var(--divider-soft);
+    border-bottom: 1px solid var(--divider-soft);
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+.st-cal-day {
+    border-right: 1px solid var(--divider-soft);
+    border-bottom: 1px solid var(--divider-soft);
+    min-height: 130px;
+    padding: 6px 6px 8px;
+    background: var(--cream-surface);
+    position: relative;
+    transition: background 0.15s ease;
+    min-width: 0;
+}
+.st-cal-day:hover {
+    background: #FDFBF7;
+}
+.st-cal-day--other {
+    background: var(--cream-header);
+    opacity: 0.55;
+}
+.st-cal-day--today {
+    background: #FFF9F2;
+}
+.st-cal-date {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 5px;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    line-height: 1;
+}
+.st-cal-day--today .st-cal-date {
+    background: linear-gradient(180deg, #5C2A0A 0%, #3D1A00 100%);
+    color: #FFFFFF;
+    box-shadow: 0 2px 6px rgba(61, 26, 0, 0.22);
+}
+.st-cal-day--other .st-cal-date {
+    color: var(--text-subtle);
+}
+
+/* Event card */
+.st-cal-event-wrap { margin-bottom: 3px; }
+.st-cal-event {
+    border-radius: 6px;
+    cursor: pointer;
+    overflow: hidden;
+    border-left: 3px solid transparent;
+    transition: transform 0.12s ease, box-shadow 0.15s ease;
+    background: var(--cream-surface);
+    box-shadow: 0 1px 2px rgba(61, 26, 0, 0.06);
+    border: 1px solid var(--divider-soft);
+}
+.st-cal-event:hover {
+    transform: translateX(1px);
+    box-shadow: 0 2px 6px rgba(61, 26, 0, 0.12);
+}
+.st-cal-event__top {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    padding: 5px 7px 4px 7px;
+}
+.st-cal-event__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+}
+.st-cal-event__time {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--brown);
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-variant-numeric: tabular-nums;
+}
+.st-cal-event__time i { font-size: 9px; }
+.st-cal-event__icons {
+    display: inline-flex;
+    gap: 5px;
+    color: var(--text-subtle);
+}
+.st-cal-event__icons i { font-size: 9px; }
+.st-cal-event__name {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-primary);
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.st-cal-event__name i { font-size: 9px; color: var(--text-subtle); }
+.st-cal-event__doctor {
+    font-size: 10px;
+    color: var(--text-subtle);
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.st-cal-event__doctor i { font-size: 9px; }
+.st-cal-event__status {
+    font-size: 9px;
+    font-weight: 700;
+    text-align: center;
+    padding: 3px 6px;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    border-top: 1px solid rgba(0, 0, 0, 0.04);
+}
+
+/* Status variants — use earthy palette tokens */
+.st-cal-event--pending { border-left-color: var(--st-pending-accent); }
+.st-cal-event--pending .st-cal-event__status {
+    background: var(--st-pending-bg);
+    color: var(--st-pending-text);
+}
+.st-cal-event--confirmed { border-left-color: var(--st-confirmed-accent); }
+.st-cal-event--confirmed .st-cal-event__status {
+    background: var(--st-confirmed-bg);
+    color: var(--st-confirmed-text);
+}
+.st-cal-event--waitlist { border-left-color: var(--st-waitlist-accent); }
+.st-cal-event--waitlist .st-cal-event__status {
+    background: var(--st-waitlist-bg);
+    color: var(--st-waitlist-text);
+}
+.st-cal-event--completed,
+.st-cal-event--done { border-left-color: var(--st-completed-accent); }
+.st-cal-event--completed .st-cal-event__status,
+.st-cal-event--done .st-cal-event__status {
+    background: var(--st-completed-bg);
+    color: var(--st-completed-text);
+}
+.st-cal-event--cancelled { border-left-color: var(--st-cancelled-accent); opacity: 0.65; }
+.st-cal-event--cancelled .st-cal-event__top { text-decoration: line-through; }
+.st-cal-event--cancelled .st-cal-event__status {
+    background: var(--st-cancelled-bg);
+    color: var(--st-cancelled-text);
+}
+.st-cal-event--ongoing { border-left-color: #4D79F6; }
+.st-cal-event--ongoing .st-cal-event__status {
+    background: #E3EBFF;
+    color: #1E3A8A;
+}
+.st-cal-event--default { border-left-color: var(--divider-strong); }
+.st-cal-event--default .st-cal-event__status {
+    background: var(--cream-header);
+    color: var(--text-muted);
+}
+.st-cal-event--past { opacity: 0.45; filter: grayscale(0.3); }
+.st-cal-event--new .st-cal-event__top {
+    background: linear-gradient(180deg, #FFF4E1 0%, #FFFBF2 100%);
+}
+
+.st-cal-more {
+    display: block;
+    font-size: 10px;
+    color: var(--brown);
+    cursor: pointer;
+    font-weight: 700;
+    padding: 2px 5px;
+    border-radius: 4px;
+    transition: background 0.15s ease;
+}
+.st-cal-more:hover {
+    background: var(--cream-hover);
+}
+
+.st-cal-legend {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 14px;
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid var(--divider-soft);
+}
+.st-cal-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+}
+.st-cal-legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 3px;
+    flex-shrink: 0;
+}
+.st-cal-legend-dot--pending   { background: var(--st-pending-accent); }
+.st-cal-legend-dot--confirmed { background: var(--st-confirmed-accent); }
+.st-cal-legend-dot--waitlist  { background: var(--st-waitlist-accent); }
+.st-cal-legend-dot--completed { background: var(--st-completed-accent); }
+.st-cal-legend-dot--cancelled { background: var(--st-cancelled-accent); }
+
+
+/* ==========================================================================
+   13. FOOTER (brand-tinted)
+   ========================================================================== */
+.footer {
+    border-top: 1px solid var(--divider-soft) !important;
+    background: transparent !important;
+    padding: 18px 24px !important;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 12px;
+    color: var(--text-subtle) !important;
+    letter-spacing: 0.2px;
+}
+.footer .text-muted {
+    color: var(--text-subtle) !important;
+}
+.footer .text-danger,
+.footer .mdi-heart {
+    color: #C54A2E !important;
+}
+
+
+/* ==========================================================================
+   22. EXECUTIVE DASHBOARD
+   ========================================================================== */
+
+/* Summary card — center-aligned variant for exec summary */
+.st-exec-summary {
+    text-align: center;
+    padding: 24px 20px;
+}
+.st-exec-summary .st-dash-card__label {
+    text-transform: none;
+    font-size: 13px;
+    letter-spacing: 0;
+    margin-bottom: 6px;
+}
+.st-exec-summary .st-dash-card__value {
+    font-size: 28px;
+}
+
+/* Funnel bars */
+.st-funnel-bar {
+    height: 36px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    padding: 0 12px;
+    color: #FFFFFF;
+    font-weight: 600;
+    font-size: 0.85rem;
+    margin-bottom: 6px;
+    transition: width 0.5s;
+    font-family: 'Montserrat', sans-serif;
+}
+
+/* Progress target bar */
+.st-progress-target {
+    height: 8px;
+    border-radius: 4px;
+    background: var(--divider-soft);
+    overflow: hidden;
+}
+.st-progress-target .bar {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.5s;
+}
+
+/* Rank number badge */
+.st-rank-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--cream-header);
+    color: var(--brown);
+    font-weight: 700;
+    font-size: 0.75rem;
+    margin-right: 8px;
+    flex-shrink: 0;
+}
+
+/* Section heading inside cards */
+.st-section-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: -20px -22px 16px;
+    padding: 14px 22px;
+    font-family: 'Montserrat', sans-serif;
+    background: linear-gradient(180deg, #FCFAF6 0%, #F7F1E9 100%);
+    border-bottom: 1px solid var(--divider-soft);
+}
+.st-section-title i {
+    color: var(--brown);
+    margin-right: 6px;
+}
+.st-card__head .st-section-title {
+    margin: 0;
+    padding: 0;
+    background: none;
+    border-bottom: none;
+}
+
+/* Commission summary rows */
+.st-kv-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 0;
+}
+.st-kv-row__label {
+    font-size: 13px;
+    color: var(--text-subtle);
+}
+.st-kv-row__value {
+    font-size: 13px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+
+/* ==========================================================================
+   Responsive helpers
+   ========================================================================== */
+@media (max-width: 768px) {
+    .st-table thead th,
+    .st-table tbody td {
+        padding: 12px 14px;
+    }
+    .st-table tbody tr td:first-child,
+    .st-table thead tr th:first-child { padding-left: 16px; }
+    .st-table tbody tr td:last-child,
+    .st-table thead tr th:last-child { padding-right: 16px; }
+
+    .st-dash-card { padding: 16px 18px; }
+    .st-dash-card__value { font-size: 22px; }
+
+    .st-toast-floating {
+        right: 12px;
+        left: 12px;
+        min-width: 0;
+        max-width: none;
+    }
+}

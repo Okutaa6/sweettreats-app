@@ -40,15 +40,19 @@ class AuthGuard
             return $next($request);
         }
 
+        // Skip RBAC for utility routes (already behind auth middleware)
+        $skipRbac = ['export', 'api', 'auditlog', 'executive', 'complaint'];
+        if (in_array($controller, $skipRbac)) {
+            session(['expires_in' => time() + 3600]);
+            return $next($request);
+        }
+
         // Check if user has access to the controller
         $groupAccess = GroupAccess::join('access_path', 'group_access.access_id', '=', 'access_path.id')
             ->where('group_id', $group_id)
             ->where('link', $controller)
             ->first();
             
-        // BYPASS SEMENTARA: Izinkan semua akses
-        return $next($request);
-
         if (empty($groupAccess)) { // user doesn't have access
             $landingPage = GroupPath::where('id', $group_id)->first();
             

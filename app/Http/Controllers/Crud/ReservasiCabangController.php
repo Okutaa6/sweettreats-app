@@ -24,6 +24,7 @@ class ReservasiCabangController extends Controller
     $query = RawCusReservation::with('branch', 'customer', 'doctor')
         ->withCount('services')
         ->orderBy('date', 'desc')
+        ->orderBy('raw_doctor_id')
         ->orderBy('start_hour', 'desc');
 
     // Jika user punya cabang, filter by cabang tersebut
@@ -39,10 +40,9 @@ class ReservasiCabangController extends Controller
     public function create()
     {
         $branches = RawBranch::orderBy('name')->get();
-        $customers = RawCustomer::orderBy('name')->get();
         $doctors = RawDoctor::orderBy('name')->get();
 
-        return view('crud.reservation.new', compact('branches', 'customers', 'doctors'));
+        return view('crud.reservation.new', compact('branches', 'doctors'));
     }
 
     public function store()
@@ -74,7 +74,6 @@ class ReservasiCabangController extends Controller
     {
         $reservation = RawCusReservation::with('branch', 'customer', 'doctor', 'promo')->findOrFail($id);
         $branches = RawBranch::orderBy('name')->get();
-        $customers = RawCustomer::orderBy('name')->get();
         $doctors = RawDoctor::orderBy('name')->get();
         $docServices = RawDocService::orderBy('name')->get();
 
@@ -90,7 +89,6 @@ class ReservasiCabangController extends Controller
         return view('crud.reservation.edit', compact(
             'reservation',
             'branches',
-            'customers',
             'doctors',
             'docServices',
             'services',
@@ -122,7 +120,7 @@ class ReservasiCabangController extends Controller
                 'status' => request('status', 'pending'),
                 'is_waiting' => request('is_waiting', 0),
                 'updated_at' => now(),
-                'updated_by' => session('user_id'),
+                'updated_by' => session('id'),
             ]);
 
             // Sinkronisasi Layanan (Sync Services)

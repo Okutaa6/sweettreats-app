@@ -15,11 +15,17 @@ class RawDoctor extends Model
     protected $fillable = [
         'id',
         'name',
+        'photo',
     ];
 
     public $incrementing = false;
     public $timestamps = false;
     protected $keyType = 'string';
+
+    public function getPhotoUrlAttribute(): ?string
+    {
+        return $this->photo ? asset('uploads/doctors/' . $this->photo) : null;
+    }
 
     /**
      * Jadwal dokter (per cabang & hari)

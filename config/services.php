@@ -31,4 +31,10 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
+    'maxchat' => [
+        'webhook_token' => env('MAXCHAT_WEBHOOK_TOKEN'),
+        'api_url'       => env('MAXCHAT_API_URL'),
+        'api_key'       => env('MAXCHAT_API_KEY'),
+    ],
+
 ];

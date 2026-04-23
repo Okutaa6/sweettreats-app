@@ -46,6 +46,11 @@ class RawCustomer extends Model
         return $this->hasMany(RawCusReservation::class, 'raw_customer_id', 'id');
     }
 
+    public function latestReservation()
+    {
+        return $this->hasOne(RawCusReservation::class, 'raw_customer_id', 'id')->latestOfMany('date');
+    }
+
     public function branch()
     {
         return $this->belongsTo(RawBranch::class, 'raw_branch_id', 'id');

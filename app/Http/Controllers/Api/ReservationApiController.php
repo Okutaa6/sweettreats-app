@@ -45,9 +45,33 @@ class ReservationApiController extends Controller
 
         $doctors = RawDoctor::whereIn('id', $doctorIdsAtBranch)
             ->orderBy('name')
-            ->get(['id', 'name']);
+            ->get(['id', 'name', 'photo']);
 
-        return response()->json($doctors);
+        // Tambahkan info hari praktek di cabang ini
+        $dayNames = ['', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
+        $schedules = RawDoctorSchedule::where('raw_branch_id', $branchId)
+            ->whereIn('raw_doctor_id', $doctorIdsAtBranch)
+            ->orderBy('day')
+            ->get();
+
+        $result = $doctors->map(function ($doc) use ($schedules, $dayNames) {
+            $days = $schedules->where('raw_doctor_id', $doc->id)
+                ->pluck('day')
+                ->unique()
+                ->map(fn($d) => $dayNames[$d] ?? '')
+                ->filter()
+                ->values()
+                ->toArray();
+
+            return [
+                'id'        => $doc->id,
+                'name'      => $doc->name,
+                'days'      => $days,
+                'photo_url' => $doc->photo_url,
+            ];
+        });
+
+        return response()->json($result);
     }
     /**
 
@@ -61,6 +85,11 @@ class ReservationApiController extends Controller
             ->unique()
             ->toArray();
 
+        // Ambil semua cuti dokter
+        $leaves = \Illuminate\Support\Facades\DB::table('raw_doctor_leave')
+            ->where('raw_doctor_id', $doctorId)
+            ->get(['start_date', 'end_date']);
+
         $dayNames = [1 => 'Senin', 2 => 'Selasa', 3 => 'Rabu', 4 => 'Kamis', 5 => 'Jumat', 6 => 'Sabtu', 7 => 'Minggu'];
         $dates = [];
 
@@ -73,6 +102,16 @@ class ReservationApiController extends Controller
             $dayOfWeek = $date->dayOfWeekIso; // 1=Senin ... 7=Minggu
 
             if (in_array($dayOfWeek, $scheduleDays)) {
+                // Skip kalau dokter sedang cuti di tanggal ini
+                $isOnLeave = false;
+                foreach ($leaves as $leave) {
+                    if ($date->between(Carbon::parse($leave->start_date), Carbon::parse($leave->end_date))) {
+                        $isOnLeave = true;
+                        break;
+                    }
+                }
+                if ($isOnLeave) continue;
+
                 $dates[] = [
                     'date'  => $date->format('Y-m-d'),
                     'label' => $dayNames[$dayOfWeek] . ', ' . $date->format('d M Y'),
@@ -173,9 +212,15 @@ class ReservationApiController extends Controller
 
         $doctors = RawDoctor::whereIn('id', $doctorIds)
             ->orderBy('name')
-            ->get(['id', 'name']);
+            ->get(['id', 'name', 'photo']);
 
-        return response()->json($doctors);
+        $result = $doctors->map(fn($doc) => [
+            'id'        => $doc->id,
+            'name'      => $doc->name,
+            'photo_url' => $doc->photo_url,
+        ]);
+
+        return response()->json($result);
     }
 
     /**
@@ -240,15 +285,10 @@ public function checkCustomerByPhone(Request $request)
     }
 
     return response()->json([
-        'found'          => true,
-        'customer_id'    => $customer->id,
-        'name'           => $customer->name,
-        'phone'          => $customer->phone,
-        'email'          => $customer->email ?? '',
-        'jenis_kelamin'  => $customer->jenis_kelamin ?? '',
-        'tanggal_lahir'  => $customer->tanggal_lahir
-                                ? \Carbon\Carbon::parse($customer->tanggal_lahir)->format('Y-m-d')
-                                : '',
+        'found'       => true,
+        'customer_id' => $customer->id,
+        'name'        => $customer->name,
+        'phone'       => $customer->phone,
     ]);
 }
 

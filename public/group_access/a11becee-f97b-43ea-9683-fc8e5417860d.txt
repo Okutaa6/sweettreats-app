@@ -28,16 +28,6 @@
                         "urutan_path": "01,02,04",
                         "link": "rawreservation",
                         "pid_path": ""
-                    },
-                    {
-                        "id": "a10f4cc8-cc69-442a-bd4b-e5bf5d9dce81",
-                        "pid": "452446c4-23cd-4964-a539-087010d8add3",
-                        "nama": "Reservasi Cabang",
-                        "icon": "dripicons-calendar",
-                        "urutan": 7,
-                        "urutan_path": ",02,07",
-                        "link": "reservasicabang",
-                        "pid_path": null
                     }
                 ]
             }

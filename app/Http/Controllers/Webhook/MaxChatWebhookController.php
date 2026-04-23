@@ -9,9 +9,21 @@ use Illuminate\Support\Str;
 
 class MaxChatWebhookController extends Controller
 {
+    public function __construct()
+    {
+        // Verify webhook token on all methods
+        $this->middleware(function ($request, $next) {
+            $token = config('services.maxchat.webhook_token');
+            if ($token && $request->header('X-Webhook-Token') !== $token) {
+                return response()->json(['error' => 'Unauthorized'], 401);
+            }
+            return $next($request);
+        });
+    }
+
     public function contact(Request $request)
     {
-        //  1. Validasi payload 
+        //  1. Validasi payload
         $validated = $request->validate([
             'id'                   => 'required|string',
             'name'                 => 'required|string',

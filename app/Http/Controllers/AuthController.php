@@ -19,11 +19,10 @@ class AuthController extends Controller
 
     public function loginProcess()
     {
-        // CAPTCHA VALIDATION DISABLED FOR DEVELOPMENT
-        // $result = $this->_captcha();
-        // if (!$result->success) {
-        //     return redirect()->back()->with('error', 'Captcha verification failed')->withInput();
-        // }
+// $result = $this->_captcha();
+// if (!$result->success) {
+//     return redirect()->back()->with('error', 'Captcha verification failed')->withInput();
+// }
 
         $this->validate(request(), [
             'email'    => 'required|email',
@@ -35,7 +34,7 @@ class AuthController extends Controller
             'password' => request('password')
         ];
 
-        $user = Users::select('users.*', 'group_path.landing_page')
+        $user = Users::select('users.*', 'group_path.landing_page', 'group_path.nama as group_name')
             ->join('group_path', 'users.group_id', '=', 'group_path.id')
             ->where(['email' => $data['email'], 'status' => 1])
             ->first();
@@ -47,16 +46,19 @@ class AuthController extends Controller
                 session([
                     'id'             => $user->id,
                     'group_id'       => $user->group_id,
+                    'group_name'     => $user->group_name,
                     'expires_in'     => time() + 3600,
                     'name'           => $user->nama,
                     'systitle'       => $sysprofile->systitle,
                     'syslogo'        => $sysprofile->syslogo,
                     'sysname'        => $sysprofile->sysname,
                     'isLoggedIn'     => true,
-                    'raw_branch_id'  => $user->raw_branch_id,  // ← BARU
+                    'raw_branch_id'  => $user->raw_branch_id,
                 ]);
 
                 Users::where('id', $user->id)->update(['last_login' => date('Y-m-d H:i:s')]);
+
+                \App\Models\AuditLog::record('login', 'User login: ' . $user->nama);
 
                 return redirect()->to($user->landing_page);
             } else {
@@ -136,6 +138,7 @@ class AuthController extends Controller
 
     public function logout()
     {
+        \App\Models\AuditLog::record('logout', 'User logout: ' . session('name'));
         session()->flush();
         return redirect()->route('signin');
     }

@@ -1,22 +1,51 @@
 <?php
 
+function getGroupAccessData()
+{
+    $groupId = session('group_id');
+    $cacheKey = 'group_access_' . $groupId;
+
+    return \Illuminate\Support\Facades\Cache::remember($cacheKey, 300, function () use ($groupId) {
+        $filepath = storage_path('app/group_access/' . $groupId . '.txt');
+        if (!file_exists($filepath)) {
+            return null;
+        }
+        return json_decode(file_get_contents($filepath), true);
+    });
+}
+
+function hasMultipleParents()
+{
+    $data = getGroupAccessData();
+    return is_array($data) && count($data) > 1;
+}
+
 function getSidebarParent()
 {
     $controller = request()->segment(1);
 
-    $filepath = public_path('group_access/' . session('group_id') . '.txt');
+    $data = getGroupAccessData();
 
-    if (file_exists($filepath)) {
-        $filecontent = file_get_contents($filepath);
-        $data = json_decode($filecontent, true);
+    if ($data !== null) {
 
         $result = '';
         if ($data) {
+            $anyActive = false;
             foreach ($data as $row) {
-                // Check if current controller matches any child link in this parent group
-                $active = isParentActive($row, $controller) ? 'active' : '';
+                if (isParentActive($row, $controller)) { $anyActive = true; break; }
+            }
 
-                $result .= '<a href="#' . htmlspecialchars($row['link']) . '" class="nav-link ' . $active . '" data-toggle="tooltip-custom" data-placement="top" title="" data-original-title="' . htmlspecialchars($row['nama']) . '">' . PHP_EOL;
+            $first = true;
+            foreach ($data as $row) {
+                $isActive = isParentActive($row, $controller);
+                // If no parent matches current controller, mark first parent active by default
+                if (!$anyActive && $first) { $isActive = true; }
+                $active = $isActive ? 'active' : '';
+                $first = false;
+
+                $paneId = 'pane-' . htmlspecialchars($row['id']);
+
+                $result .= '<a href="#' . $paneId . '" class="nav-link ' . $active . '" data-parent-target="' . $paneId . '" data-toggle="tooltip-custom" data-placement="top" title="" data-original-title="' . htmlspecialchars($row['nama']) . '">' . PHP_EOL;
                 $result .= '<i class="' . htmlspecialchars($row['icon']) . '"></i>' . PHP_EOL;
                 $result .= '</a>' . PHP_EOL;
             }
@@ -31,19 +60,25 @@ function getSidebarChild()
 {
     $controller = request()->segment(1);
 
-    $filepath = public_path('group_access/' . session('group_id') . '.txt');
-    if (file_exists($filepath)) {
-        $filecontent = file_get_contents($filepath);
-        $data = json_decode($filecontent, true);
+    $data = getGroupAccessData();
 
+    if ($data !== null) {
         $result = '';
         if ($data) {
+            $anyActive = false;
             foreach ($data as $row) {
-                // Check if current controller matches any child link in this parent group
-                $active = isParentActive($row, $controller) ? 'active' : '';
+                if (isParentActive($row, $controller)) { $anyActive = true; break; }
+            }
+
+            $first = true;
+            foreach ($data as $row) {
+                $isActive = isParentActive($row, $controller);
+                if (!$anyActive && $first) { $isActive = true; }
+                $active = $isActive ? 'active' : '';
+                $first = false;
 
                 if (isset($row['sub']) && !empty($row['sub'])) {
-                    $result .= '<div id="' . htmlspecialchars($row['link']) . '" class="main-icon-menu-pane ' . $active . '">' . PHP_EOL;
+                    $result .= '<div id="pane-' . htmlspecialchars($row['id']) . '" class="main-icon-menu-pane ' . $active . '">' . PHP_EOL;
                     foreach ($row['sub'] as $subrow) {
                         $result .= '<div class="title-box">' . PHP_EOL;
                         $result .= '<h6 class="menu-title">' . htmlspecialchars($subrow['nama']) . '</h6>' . PHP_EOL;

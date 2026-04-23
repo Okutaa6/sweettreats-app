@@ -1,113 +1,86 @@
 <!DOCTYPE html>
 <html lang="en">
-<meta charset="utf-8" />
-<title>{{ $sysprofile['systitle'] }}</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<!-- App favicon -->
-<link rel="shortcut icon" href="{{ asset('sysprofile/' . $sysprofile['syslogo']) }}">
+<head>
+    <meta charset="utf-8" />
+    <title>{{ $sysprofile['systitle'] }}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<!-- App css -->
-<link href="{{ asset('assets/css/bootstrap.min.css') }}" rel="stylesheet" type="text/css" />
-<link href="{{ asset('assets/css/icons.css') }}" rel="stylesheet" type="text/css" />
-<link href="{{ asset('assets/css/style.css') }}" rel="stylesheet" type="text/css" />
-<script src="https://www.google.com/recaptcha/api.js" async defer></script>
+    <link rel="shortcut icon" href="{{ asset('sysprofile/' . $sysprofile['syslogo']) }}">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="{{ asset('assets/css/bootstrap.min.css') }}" rel="stylesheet" type="text/css" />
+    <link href="{{ asset('assets/css/style.sweettreats.css') }}?v={{ @filemtime(public_path('assets/css/style.sweettreats.css')) ?: '1' }}" rel="stylesheet" type="text/css" />
+    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
 </head>
 
-<body class="account-body">
-    <!-- Reset Password page -->
-    <div class="row vh-100 ">
-        <div class="col-12 align-self-center">
-            <div class="auth-page">
-                <div class="card auth-card shadow-lg">
-                    <div class="card-body">
-                        <div class="px-3">
-                            <div class="auth-logo-box">
-                                <a href="#" class="logo logo-admin">
-                                    <img src="{{ asset('sysprofile/' . $sysprofile['syslogo']) }}" height="55"
-                                        alt="logo" class="auth-logo" style="border-radius: 16px; padding:8px">
-                                </a>
-                            </div>
-                            <!--end auth-logo-box-->
-                            <div class="text-center auth-logo-text">
-                                <h4 class="mt-0 mb-3 mt-5">Reset Password</h4>
-                                <p class="text-muted ">{{ $sysprofile['systitle'] }}</p>
-                            </div>
-                            @include('layouts.notif')
+<body class="auth-body">
 
-                            <!--end auth-logo-text-->
-                            <form class="form-horizontal auth-form my-4"
-                                action="{{ route('reset-password.process', $token) }}" method="post">
-                                @csrf
+    <div class="auth-card">
 
-                                <div class="form-group">
-                                    <label for="password">New Password</label>
-                                    <div class="input-group mb-3">
-                                        <span class="auth-form-icon">
-                                            <i class="dripicons-lock"></i>
-                                        </span>
-                                        <input type="password" name="password"
-                                            class="form-control @error('password') is-invalid @enderror" id="password"
-                                            placeholder="Enter new password">
-                                    </div>
-                                    @error('password')
-                                        <small class="form-text text-danger">{{ $message }}</small>
-                                    @enderror
-                                </div>
-                                <!--end form-group-->
-
-                                <div class="form-group">
-                                    <label for="password_confirmation">Confirm New Password</label>
-                                    <div class="input-group mb-3">
-                                        <span class="auth-form-icon">
-                                            <i class="dripicons-lock"></i>
-                                        </span>
-                                        <input type="password" name="password_confirmation" class="form-control"
-                                            id="password_confirmation" placeholder="Confirm new password">
-                                    </div>
-                                </div>
-                                <!--end form-group-->
-
-                                <div class="form-group mt-4">
-                                    <div class="g-recaptcha" data-sitekey="{{ env('CAPTCHA_SITE_KEY') }}"></div>
-                                </div>
-
-                                <div class="form-group mb-0 row">
-                                    <div class="col-12 mt-2">
-                                        <button type="submit"
-                                            class="btn btn-primary btn-round btn-block waves-effect waves-light">Reset
-                                            Password
-                                            <i class="fas fa-key ml-1"></i></button>
-                                    </div>
-                                    <!--end col-->
-                                </div>
-                                <!--end form-group-->
-                            </form>
-                            <!--end form-->
-                        </div>
-                        <!--end /div-->
-
-                    </div>
-                    <!--end card-body-->
-                </div>
-                <!--end card-->
-                <!--end account-social-->
+        <div class="card-header-brand">
+            <div class="logo-wrap">
+                <img src="{{ asset('sysprofile/' . $sysprofile['syslogo']) }}" alt="Logo">
             </div>
-            <!--end auth-page-->
+            <h1 class="card-title">Reset Password</h1>
+            <p class="card-subtitle">{{ $sysprofile['systitle'] }}</p>
         </div>
-        <!--end col-->
+
+        <div class="divider"></div>
+
+        @include('layouts.notif')
+
+        <form action="{{ route('reset-password.process', $token) }}" method="post" autocomplete="off">
+            @csrf
+
+            <div class="field-group">
+                <label class="field-label" for="password">New Password</label>
+                <div class="input-wrap">
+                    <svg class="field-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                    </svg>
+                    <input type="password" name="password" id="password"
+                           class="@error('password') is-invalid @enderror"
+                           placeholder="Masukkan password baru">
+                </div>
+                @error('password')
+                    <div class="field-error">{{ $message }}</div>
+                @enderror
+            </div>
+
+            <div class="field-group">
+                <label class="field-label" for="password_confirmation">Confirm New Password</label>
+                <div class="input-wrap">
+                    <svg class="field-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                    </svg>
+                    <input type="password" name="password_confirmation" id="password_confirmation"
+                           placeholder="Konfirmasi password baru">
+                </div>
+            </div>
+
+            <div class="recaptcha-wrap">
+                <div class="g-recaptcha" data-sitekey="{{ env('CAPTCHA_SITE_KEY') }}"></div>
+            </div>
+
+            <button type="submit" class="btn-auth">
+                Reset Password
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/>
+                </svg>
+            </button>
+
+            <a href="{{ url('login') }}" class="back-link">← Kembali ke Login</a>
+
+            <p class="footer-note">© {{ date('Y') }} Sweet Treats Dental Clinic</p>
+        </form>
     </div>
-    <!--end row-->
-    <!-- End Reset Password page -->
 
     <script>
-        // when enter key is pressed
         document.addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
-                document.querySelector('.btn').click();
+                document.querySelector('.btn-auth').click();
             }
         });
     </script>
 </body>
-
 </html>

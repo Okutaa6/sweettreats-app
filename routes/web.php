@@ -33,207 +33,56 @@ Route::get('/reservasi', function () {
     return view('reservation-form', compact('branches'));
 })->name('landing.reservation');
 
-Route::post('/reservasi', function () {
+Route::post('/reservasi', [\App\Http\Controllers\LandingReservationController::class, 'store'])
+    ->middleware('throttle:5,1')
+    ->name('landing.reservation.store');
 
+// Affiliate Portal
+Route::prefix('affiliate')->group(function () {
+    $portal = \App\Http\Controllers\AffiliatePortalController::class;
 
-    $patientType = request('patient_type'); // 'baru' atau 'lama'
-    $isLainnya   = empty(request('services')) && !empty(request('lainnya_text'));
+    // Public
+    Route::get('login',  [$portal, 'login'])->name('affiliate.login');
+    Route::post('login', [$portal, 'loginProcess'])->name('affiliate.login.process');
+    Route::get('register',  [$portal, 'register'])->name('affiliate.register');
+    Route::post('register', [$portal, 'registerProcess'])->name('affiliate.register.process');
+    Route::get('logout', [$portal, 'logout'])->name('affiliate.logout');
 
-    // Validasi dasar (selalu wajib)
-    $rules = [
-        'raw_doctor_id'    => 'required|exists:raw_doctor,id',
-        'raw_branch_id'    => 'required|exists:raw_branch,id',
-        'reservation_date' => 'required|date|after_or_equal:today',
-        'reservation_time' => 'required',
-        'promo_id'         => 'nullable|exists:raw_promo,id',
-        'patient_type'     => 'required|in:baru,lama',
-    ];
+    // Portal (session guard via controller)
+    Route::get('dashboard', [$portal, 'dashboard'])->name('affiliate.dashboard');
 
-    // Validasi perawatan: salah satu harus ada
-    if ($isLainnya) {
-        // Kategori Lainnya: services boleh kosong, tapi lainnya_text wajib
-        $rules['lainnya_text'] = 'required|string|max:200';
-        $rules['services']     = 'nullable|array';
-    } else {
-        // Kategori normal: services wajib ada
-        $rules['services']     = 'required|array|min:1';
-        $rules['lainnya_text'] = 'nullable|string|max:200';
-    }
+    // Profile — MUST be declared before content/{id}/* to avoid wildcard capture
+    Route::get('profile',       [$portal, 'profile'])->name('affiliate.profile');
+    Route::put('profile',       [$portal, 'profileUpdate'])->name('affiliate.profile.update');
+    Route::post('profile/photo',[$portal, 'profilePhoto'])->name('affiliate.profile.photo');
+    Route::put('profile/pin',   [$portal, 'profilePin'])->name('affiliate.profile.pin');
 
-    // Validasi data diri: tergantung tipe pasien
-    if ($patientType === 'lama') {
-        // Pasien lama: cukup existing_customer_id
-        $rules['existing_customer_id'] = 'required|exists:raw_customer,id';
-    } else {
-        // Pasien baru: semua field wajib diisi
-        $rules['name']          = 'required|max:255';
-        $rules['phone']         = 'required|max:20';
-        $rules['email']         = 'required|email|max:100';
-        $rules['jenis_kelamin'] = 'required|in:L,P';
-        $rules['tanggal_lahir'] = 'required|date|before:today';
-    }
+    // Content
+    Route::get('content',            [$portal, 'contentIndex'])->name('affiliate.content');
+    Route::post('content',           [$portal, 'contentStore'])->name('affiliate.content.store');
+    Route::get('content/{id}/edit',  [$portal, 'contentEdit'])->name('affiliate.content.edit');
+    Route::put('content/{id}',       [$portal, 'contentUpdate'])->name('affiliate.content.update');
+    Route::delete('content/{id}',    [$portal, 'contentDelete'])->name('affiliate.content.delete');
 
-    // Jalankan validasi
-    request()->validate($rules, [
-        // Pesan error yang lebih jelas
-        'services.required'            => 'Pilih perawatan terlebih dahulu.',
-        'lainnya_text.required'        => 'Ceritakan keluhan kamu terlebih dahulu.',
-        'existing_customer_id.required'=> 'Data pasien lama tidak ditemukan. Coba cek nomor HP kamu.',
-        'name.required'                => 'Nama lengkap wajib diisi.',
-        'phone.required'               => 'Nomor WhatsApp wajib diisi.',
-        'email.required'               => 'Email wajib diisi.',
-        'jenis_kelamin.required'       => 'Jenis kelamin wajib dipilih.',
-        'tanggal_lahir.required'       => 'Tanggal lahir wajib diisi.',
-    ]);
-
-    // ================================================================
-    // AMBIL DATA CUSTOMER
-    // ================================================================
-    if ($patientType === 'lama') {
-        // Pasien lama: ambil dari DB langsung
-        $customer = \App\Models\RawCustomer::findOrFail(request('existing_customer_id'));
-    } else {
-        // Pasien baru: cari atau buat baru berdasarkan nomor HP
-        $customer = \App\Models\RawCustomer::firstOrCreate(
-            ['phone' => request('phone')],
-            [
-                'name'           => request('name'),
-                'email'          => request('email'),
-                'jenis_kelamin'  => request('jenis_kelamin'),
-                'tanggal_lahir'  => request('tanggal_lahir'),
-                'tanggal_daftar' => now()->toDateString(),
-                'source_app'     => 'website',
-                'channel'        => 'landing-page',
-            ]
-        );
-    }
-
-    // ================================================================
-    // HITUNG DURASI & SERVICE RECORDS
-    // ================================================================
-    $totalDuration = 0;
-    $serviceRecords = [];
-
-    if ($isLainnya) {
-        // Kategori lainnya: tidak ada service spesifik
-        // Gunakan durasi default 30 menit
-        $totalDuration = 30;
-    } else {
-        foreach (request('services') as $serviceId) {
-            $docService = \App\Models\RawDocService::find($serviceId);
-            if ($docService) {
-                $totalDuration += $docService->duration_minutes;
-                $serviceRecords[] = $docService;
-            }
-        }
-    }
-
-    // Hitung jam selesai
-    $startHour = \Carbon\Carbon::parse(request('reservation_time'));
-    $endHour   = $startHour->copy()->addMinutes($totalDuration ?: 30);
-
-    // ================================================================
-    // BUAT RESERVASI
-    // ================================================================
-    $reservation = \App\Models\RawCusReservation::create([
-        'raw_customer_id' => $customer->id,
-        'raw_doctor_id'   => request('raw_doctor_id'),
-        'raw_branch_id'   => request('raw_branch_id'),
-        'raw_promo_id'    => request('promo_id') ?: null,
-        'date'            => request('reservation_date'),
-        'start_hour'      => $startHour->format('H:i'),
-        'end_hour'        => $endHour->format('H:i'),
-        'status'          => 'pending',
-        'is_waiting'      => false,
-        'lainnya_text'    => $isLainnya ? request('lainnya_text') : null, 
-        'created_at'      => now(),
-    ]);
-
-    // ================================================================
-    // ATTACH SERVICES
-    // ================================================================
-    if ($isLainnya) {
-        // Untuk kategori lainnya: simpan sebagai catatan
-        // Cari service "Lainnya" di DB kalau ada, atau skip
-        $lainnyaService = \App\Models\RawDocService::where('category', 'lainnya')->first();
-        if ($lainnyaService) {
-            \App\Models\RawCusResService::create([
-                'raw_cus_reservation_id' => $reservation->id,
-                'raw_doctor_id'          => request('raw_doctor_id'),
-                'raw_doc_service_id'     => $lainnyaService->id,
-                // Simpan teks keluhan jika ada field-nya
-            ]);
-        }
-    } else {
-        foreach ($serviceRecords as $docService) {
-            \App\Models\RawCusResService::create([
-                'raw_cus_reservation_id' => $reservation->id,
-                'raw_doctor_id'          => request('raw_doctor_id'),
-                'raw_doc_service_id'     => $docService->id,
-            ]);
-        }
-    }
-
-    // ================================================================
-    // INSERT JOURNEY
-    // ================================================================
-    \Illuminate\Support\Facades\DB::table('raw_cus_journey')->insert([
-        'id'              => \Illuminate\Support\Str::uuid()->toString(),
-        'raw_customer_id' => $customer->id,
-        'journey_label'   => 'Stat_Rsv',
-        'created_at'      => now(),
-    ]);
-
-    $contact = \Illuminate\Support\Facades\DB::table('raw_contact')
-        ->where('phone', $customer->phone)
-        ->first();
-
-    if ($contact) {
-        \Illuminate\Support\Facades\DB::table('raw_cus_journey')->insert([
-            'id'             => \Illuminate\Support\Str::uuid()->toString(),
-            'raw_contact_id' => $contact->id,
-            'journey_label'  => 'Stat_Rsv',
-            'created_at'     => now(),
-        ]);
-    }
-
-    // ================================================================
-    // BUAT KOMISI (kalau ada promo)
-    // ================================================================
-    if (request('promo_id')) {
-        $promo = \App\Models\RawPromo::with('affiliate')->find(request('promo_id'));
-        if ($promo && $promo->affiliate) {
-            $totalHarga = 0;
-            foreach ($serviceRecords as $svc) {
-                $totalHarga += $svc->price ?? 0;
-            }
-
-            // Pastikan kita mengambil angka dari single objek, bukan dari Collection
-            $affiliate = $promo->affiliate instanceof \Illuminate\Support\Collection ? $promo->affiliate->first() : $promo->affiliate;
-            $commissionRate = $affiliate ? ($affiliate->commission_rate ?? 0) : 0;
-            $commissionAmount = round($totalHarga * ($commissionRate / 100), 2);
-
-            \Illuminate\Support\Facades\DB::table('raw_commission')->insert([
-                'id'                     => \Illuminate\Support\Str::uuid()->toString(),
-                'raw_affiliate_id'       => $promo->affiliate->id,
-                'raw_cus_reservation_id' => $reservation->id,
-                'amount'                 => $commissionAmount,
-                'status'                 => 'pending',
-                'created_at'             => now(),
-            ]);
-        }
-    }
-
-    return redirect('/reservasi/riwayat?phone=' . urlencode($customer->phone))
-        ->with('success', 'Reservasi berhasil dibuat! Tim kami akan menghubungi kamu untuk konfirmasi.');
-
-})->name('landing.reservation.store');
+    // Rewards
+    Route::get('rewards', [$portal, 'rewards'])->name('affiliate.rewards');
+    Route::post('rewards/{tierId}/claim', [$portal, 'claimReward'])->name('affiliate.reward.claim');
+});
 
 Route::get('/reservasi/riwayat', function () {
     $phone        = request('phone');
     $reservations = collect();
 
     if ($phone) {
+        // Only allow if user just submitted a reservation (phone stored in session via redirect)
+        // or if the session has a matching success flash (comes from POST /reservasi redirect)
+        if (!session()->has('success') && !session()->has('_riwayat_phone')) {
+            return redirect()->route('landing.reservation')->with('error', 'Silakan reservasi terlebih dahulu.');
+        }
+
+        // Store phone in session for page refreshes within the same session
+        session(['_riwayat_phone' => $phone]);
+
         $customer = \App\Models\RawCustomer::where('phone', $phone)->first();
         if ($customer) {
             $reservations = \App\Models\RawCusReservation::where('raw_customer_id', $customer->id)
@@ -247,7 +96,7 @@ Route::get('/reservasi/riwayat', function () {
 })->name('landing.reservation.history');
 
 // API endpoints for reservation chain filter
-Route::prefix('api/reservation')->group(function () {
+Route::prefix('api/reservation')->middleware('throttle:60,1')->group(function () {
     $ctrl = \App\Http\Controllers\Api\ReservationApiController::class;
     Route::get('services', [$ctrl, 'getServices']);
     Route::get('doctors-by-service/{branchId}/{serviceId}', [$ctrl, 'getDoctorsByService']);
@@ -260,9 +109,19 @@ Route::prefix('api/reservation')->group(function () {
     Route::get('check-new', [$ctrl, 'checkNew']);
 });
 
-Route::get('api/promo/validate', [PromoController::class, 'validate_promo'])->name('api.promo.validate');
+Route::get('api/promo/validate', [PromoController::class, 'validate_promo'])->middleware('throttle:30,1')->name('api.promo.validate');
 
 Route::middleware([AuthGuard::class])->group(function () {
+
+    // Complaint (Sales → kirim + lihat miliknya; Super Admin/Admin General → lihat semua + kelola status)
+    Route::prefix('complaint')->group(function () {
+        $complaint = \App\Http\Controllers\ComplaintController::class;
+        Route::get('/',               [$complaint, 'index'])->name('complaint.index');
+        Route::post('/',              [$complaint, 'store'])->name('complaint.store');
+        Route::patch('{id}/advance',  [$complaint, 'advanceStatus'])->name('complaint.advance');
+        Route::patch('{id}/reply',    [$complaint, 'reply'])->name('complaint.reply');
+        Route::delete('{id}',         [$complaint, 'destroy'])->name('complaint.destroy');
+    });
 
     // Employee Dashboard
     Route::prefix('dashboard')->group(function () {
@@ -272,6 +131,13 @@ Route::middleware([AuthGuard::class])->group(function () {
         Route::get('/berlangsung', [DashboardController::class, 'berlangsung'])->name('dashboard.berlangsung');
         Route::get('/menunggu', [DashboardController::class, 'menungguKonfirmasi'])->name('dashboard.menunggu');
         Route::patch('/reservasi/{id}/status', [DashboardController::class, 'updateStatus'])->name('dashboard.update-status');
+        Route::get('/executive', [\App\Http\Controllers\ExecutiveDashboardController::class, 'index'])->name('dashboard.executive');
+    });
+
+    // Export
+    Route::prefix('export')->group(function () {
+        Route::get('reservasi', [\App\Http\Controllers\ExportController::class, 'reservations'])->name('export.reservasi');
+        Route::get('komisi', [\App\Http\Controllers\ExportController::class, 'commissions'])->name('export.komisi');
     });
 
     // Access
@@ -304,6 +170,14 @@ Route::middleware([AuthGuard::class])->group(function () {
     Route::get('setgroup/access/{id}', [Group::class, 'access'])->name('setgroup.access');
     Route::put('setgroup/access/{id}', [Group::class, 'accessProcess'])->name('setgroup.access.process');
 
+    // Notifications
+    Route::get('api/notifications', [\App\Http\Controllers\NotificationController::class, 'index'])->name('api.notifications');
+    Route::patch('api/notifications/{id}/read', [\App\Http\Controllers\NotificationController::class, 'markRead'])->name('api.notifications.read');
+    Route::post('api/notifications/read-all', [\App\Http\Controllers\NotificationController::class, 'markAllRead'])->name('api.notifications.read-all');
+
+    // Audit Log
+    Route::get('auditlog', [\App\Http\Controllers\AuditLogController::class, 'index'])->name('auditlog');
+
     // System Profile
     Route::get('setsystemprofile', [SystemProfile::class, 'index'])->name('setsysprofile');
     Route::get('setsystemprofile/new', [SystemProfile::class, 'create'])->name('setsysprofile.new');
@@ -322,11 +196,16 @@ Route::middleware([AuthGuard::class])->group(function () {
     Route::get('rawdoctor/{id}', [DoctorController::class, 'edit'])->name('rawdoctor.edit');
     Route::put('rawdoctor/{id}', [DoctorController::class, 'update'])->name('rawdoctor.update');
     Route::delete('rawdoctor/{id}', [DoctorController::class, 'destroy'])->name('rawdoctor.destroy');
+    Route::delete('rawdoctor/{id}/photo', [DoctorController::class, 'deletePhoto'])->name('rawdoctor.photo.delete');
 
     Route::post('rawdoctor/{doctorId}/schedule', [DoctorController::class, 'scheduleStore'])->name('rawdoctor.schedule.store');
     Route::put('rawdoctor/{doctorId}/schedule/{scheduleId}', [DoctorController::class, 'scheduleUpdate'])->name('rawdoctor.schedule.update');
     Route::delete('rawdoctor/{doctorId}/schedule/{scheduleId}', [DoctorController::class, 'scheduleDestroy'])->name('rawdoctor.schedule.destroy');
+    Route::get('rawdoctor/{doctorId}/schedules-json', [DoctorController::class, 'schedulesJson'])->name('rawdoctor.schedules.json');
+    Route::patch('rawdoctor/{doctorId}/schedule/{scheduleId}/ajax', [DoctorController::class, 'scheduleUpdateAjax'])->name('rawdoctor.schedule.ajax');
     Route::post('rawdoctor/{doctorId}/services', [DoctorController::class, 'servicesUpdate'])->name('rawdoctor.services.update');
+    Route::post('rawdoctor/{doctorId}/leave', [DoctorController::class, 'leaveStore'])->name('rawdoctor.leave.store');
+    Route::delete('rawdoctor/{doctorId}/leave/{leaveId}', [DoctorController::class, 'leaveDestroy'])->name('rawdoctor.leave.destroy');
 
     // CRUD - Reservation
     Route::get('rawreservation', [ReservationController::class, 'index'])->name('rawreservation');
@@ -368,6 +247,8 @@ Route::middleware([AuthGuard::class])->group(function () {
     Route::get('rawaffiliate', [AffiliateController::class, 'index'])->name('rawaffiliate');
     Route::get('rawaffiliate/new', [AffiliateController::class, 'create'])->name('rawaffiliate.new');
     Route::post('rawaffiliate/new', [AffiliateController::class, 'store'])->name('rawaffiliate.store');
+    Route::patch('rawaffiliate/{id}/approve', [AffiliateController::class, 'approve'])->name('rawaffiliate.approve');
+    Route::patch('rawaffiliate/{id}/reject', [AffiliateController::class, 'reject'])->name('rawaffiliate.reject');
     Route::get('rawaffiliate/{id}', [AffiliateController::class, 'edit'])->name('rawaffiliate.edit');
     Route::put('rawaffiliate/{id}', [AffiliateController::class, 'update'])->name('rawaffiliate.update');
     Route::delete('rawaffiliate/{id}', [AffiliateController::class, 'destroy'])->name('rawaffiliate.destroy');
@@ -395,12 +276,21 @@ Route::middleware([AuthGuard::class])->group(function () {
     Route::get('rawcustomer/{id}', [CustomerController::class, 'edit'])->name('rawcustomer.edit');
     Route::put('rawcustomer/{id}', [CustomerController::class, 'update'])->name('rawcustomer.update');
     Route::delete('rawcustomer/{id}', [CustomerController::class, 'destroy'])->name('rawcustomer.destroy');
+    Route::get('api/customer/search', [CustomerController::class, 'search'])->name('api.customer.search');
 
     // CRUD - Reservasi Cabang
     Route::get('reservasicabang', [ReservasiCabangController::class, 'index'])->name('reservasicabang');
-});
+
     // Report Referral
     Route::get('report-referral', [ReportReferralController::class, 'index'])->name('report.referral');
+
+    // Content Review (KOC/KOL)
+    Route::get('content-review', [\App\Http\Controllers\Set\ContentReviewController::class, 'index'])->name('content.review');
+    Route::get('content-review/{id}/edit', [\App\Http\Controllers\Set\ContentReviewController::class, 'edit'])->name('content.review.edit');
+    Route::put('content-review/{id}', [\App\Http\Controllers\Set\ContentReviewController::class, 'update'])->name('content.review.update');
+    Route::patch('content-review/{id}/approve', [\App\Http\Controllers\Set\ContentReviewController::class, 'approve'])->name('content.review.approve');
+    Route::patch('content-review/{id}/reject', [\App\Http\Controllers\Set\ContentReviewController::class, 'reject'])->name('content.review.reject');
+});
 
 Route::middleware([IsLoggedIn::class])->group(function () {
     Route::prefix('signin')->group(function () {

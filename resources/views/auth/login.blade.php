@@ -6,121 +6,87 @@
     <title>{{ $sysprofile['systitle'] }}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <!-- App favicon -->
     <link rel="shortcut icon" href="{{ asset('sysprofile/' . $sysprofile['syslogo']) }}">
-
-    <!-- App css -->
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="{{ asset('assets/css/bootstrap.min.css') }}" rel="stylesheet" type="text/css" />
-    <link href="{{ asset('assets/css/icons.css') }}" rel="stylesheet" type="text/css" />
-    <link href="{{ asset('assets/css/style.css') }}" rel="stylesheet" type="text/css" />
+    <link href="{{ asset('assets/css/style.sweettreats.css') }}?v={{ @filemtime(public_path('assets/css/style.sweettreats.css')) ?: '1' }}" rel="stylesheet" type="text/css" />
     <script src="https://www.google.com/recaptcha/api.js" async defer></script>
 </head>
 
-<body class="account-body">
-    <!-- Log In page -->
-    <div class="row vh-100 ">
-        <div class="col-12 align-self-center">
-            <div class="auth-page">
-                <div class="card auth-card shadow-lg">
-                    <div class="card-body">
-                        <div class="px-3">
-                            <div class="auth-logo-box">
-                                <a href="#" class="logo logo-admin">
-                                    <img src="{{ asset('sysprofile/' . $sysprofile['syslogo']) }}" height="55"
-                                        alt="logo" class="auth-logo" style="border-radius: 16px; padding:8px">
-                                </a>
-                            </div>
-                            <!--end auth-logo-box-->
-                            <div class="text-center auth-logo-text">
-                                <h4 class="mt-0 mb-3 mt-5">Login</h4>
-                                <p class="text-muted ">{{ $sysprofile['systitle'] }}</p>
-                            </div>
-                            @include('layouts.notif')
+<body class="auth-body">
 
-                            <!--end auth-logo-text-->
-                            <form class="form-horizontal auth-form my-4" action="{{ route('signin') }}" method="post">
-                                @csrf
-                                <div class="form-group">
-                                    <label for="email">Email</label>
-                                    <div class="input-group mb-3">
-                                        <span class="auth-form-icon">
-                                            <i class="dripicons-user"></i>
-                                        </span>
-                                        <input type="email" name="email" value="{{ old('email') }}"
-                                            class="form-control @error('email') is-invalid @enderror" id="email"
-                                            placeholder="Enter email">
-                                    </div>
-                                    @error('email')
-                                        <small class="form-text text-danger">{{ $message }}</small>
-                                    @enderror
-                                </div>
-                                <!--end form-group-->
+    <div class="auth-card">
 
-                                <div class="form-group">
-                                    <label for="password">Password</label>
-                                    <div class="input-group mb-3">
-                                        <span class="auth-form-icon">
-                                            <i class="dripicons-lock"></i>
-                                        </span>
-                                        <input type="password" name="password" value="{{ old('password') }}"
-                                            class="form-control @error('password') is-invalid @enderror" id="password"
-                                            placeholder="Enter password">
-                                    </div>
-                                    @error('password')
-                                        <small class="form-text text-danger">{{ $message }}</small>
-                                    @enderror
-                                </div>
-                                <!--end form-group-->
-
-                                <div class="form-group row">
-                                    <div class="col-sm-6">
-                                        <a href="{{ url('forgot-password') }}" class="text-muted font-13"><i
-                                                class="dripicons-lock"></i>
-                                            Forgot password?</a>
-                                    </div>
-                                    <div class="col-sm-6">
-                                    </div>
-                                </div>
-
-                                <div class="form-group mt-4">
-                                    <div class="g-recaptcha" data-sitekey="{{ env('CAPTCHA_SITE_KEY') }}"></div>
-                                </div>
-
-                                <div class="form-group mb-0 row">
-                                    <div class="col-12 mt-2">
-                                        <button type="submit"
-                                            class="btn btn-primary btn-round btn-block waves-effect waves-light">Log In
-                                            <i class="fas fa-sign-in-alt ml-1"></i></button>
-                                    </div>
-                                    <!--end col-->
-                                </div>
-                                <!--end form-group-->
-                            </form>
-                            <!--end form-->
-                        </div>
-                        <!--end /div-->
-
-                    </div>
-                    <!--end card-body-->
-                </div>
-                <!--end card-->
-                <!--end account-social-->
+        <div class="card-header-brand">
+            <div class="logo-wrap">
+                <img src="{{ asset('sysprofile/' . $sysprofile['syslogo']) }}" alt="Logo">
             </div>
-            <!--end auth-page-->
+            <h1 class="card-title">Login Admin</h1>
+            <p class="card-subtitle">Sweet Treats Dental Clinic</p>
         </div>
-        <!--end col-->
+
+        <div class="divider"></div>
+
+        @include('layouts.notif')
+
+        <form action="{{ route('signin') }}" method="post" autocomplete="off">
+            @csrf
+
+            <div class="field-group">
+                <label class="field-label" for="email">Email</label>
+                <div class="input-wrap">
+                    <svg class="field-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+                    </svg>
+                    <input type="email" name="email" id="email"
+                           value="{{ old('email') }}"
+                           class="@error('email') is-invalid @enderror"
+                           placeholder="Masukkan email">
+                </div>
+                @error('email')
+                    <div class="field-error">{{ $message }}</div>
+                @enderror
+            </div>
+
+            <div class="field-group">
+                <label class="field-label" for="password">Password</label>
+                <div class="input-wrap">
+                    <svg class="field-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                    </svg>
+                    <input type="password" name="password" id="password"
+                           class="@error('password') is-invalid @enderror"
+                           placeholder="Masukkan password">
+                </div>
+                @error('password')
+                    <div class="field-error">{{ $message }}</div>
+                @enderror
+            </div>
+
+            <a href="{{ url('forgot-password') }}" class="forgot-link">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                </svg>
+                Lupa password?
+            </a>
+
+            <button type="submit" class="btn-auth">
+                Masuk
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/>
+                </svg>
+            </button>
+
+            <p class="footer-note">© {{ date('Y') }} Sweet Treats Dental Clinic</p>
+        </form>
     </div>
-    <!--end row-->
-    <!-- End Log In page -->
 
     <script>
-        // when enter key is pressed
         document.addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
-                document.querySelector('.btn').click();
+                document.querySelector('.btn-auth').click();
             }
         });
     </script>
 </body>
-
 </html>
