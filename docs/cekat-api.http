@@ -1,0 +1,95 @@
+crud - reservat### =====================================================================
+### SweetTreats Open API — Cekat — request siap-klik
+### Pakai ekstensi VSCode "REST Client" (humao.rest-client):
+### klik "Send Request" yang muncul di atas tiap blok ###.
+###
+### Ganti @token dengan token sandbox dari:
+###   php artisan apiclient:issue Cekat sandbox
+### Lokal: jalankan dulu `php artisan serve` (default 127.0.0.1:8000).
+### =====================================================================
+
+@base = http://127.0.0.1:8000
+@token = 5eeaa25fc03376e92651ff9f3ca0bb560dc46de244c098dd051851f93207fd7c
+
+### ---------------------------------------------------------------------
+### 1. AUTH GAGAL — tanpa token → harus 401 UNAUTHORIZED
+### ---------------------------------------------------------------------
+GET {{base}}/apicekatdev/service_range?codes=SVC006
+
+### ---------------------------------------------------------------------
+### 2. service_range (sukses) — min/max harga per kode treatment
+### ---------------------------------------------------------------------
+GET {{base}}/apicekatdev/service_range?codes=SVC001,SVC002
+Authorization: Bearer {{token}}
+
+### ---------------------------------------------------------------------
+### 3. customer_profile (sukses) — nomor sengaja "kotor" utk uji normalisasi
+### ---------------------------------------------------------------------
+POST {{base}}/apicekatdev/customer_profile
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "cabang": "Bintaro",
+  "nama": "Budi Uji",
+  "no_telpon": "+62 812-3456-7890",
+  "treatment": "SVC001",
+  "intent": "Stat_Leads"
+}
+
+### ---------------------------------------------------------------------
+### 4. customer_profile (VALIDATION_ERROR) — no_telpon kosong → 422
+### ---------------------------------------------------------------------
+POST {{base}}/apicekatdev/customer_profile
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "cabang": "Bintaro", "nama": "reza fauzi", "no_telpon": "082130292683" }
+
+### ---------------------------------------------------------------------
+### 5. jadwal_dokter (sukses) — ganti cabang & tanggal sesuai data
+### ---------------------------------------------------------------------
+GET {{base}}/apicekatdev/jadwal_dokter?cabang=Bintaro&tanggal=2026-05-20
+Authorization: Bearer {{token}}
+
+### ---------------------------------------------------------------------
+### 5b. jadwal_dokter — "dokter Bintaro hari Selasa siapa aja" (ringkas)
+### ---------------------------------------------------------------------
+GET {{base}}/apicekatdev/jadwal_dokter?cabang=Bintaro&hari=selasa
+Authorization: Bearer {{token}}
+
+### ---------------------------------------------------------------------
+### 6. reservation (sukses) — slot terverifikasi kosong (cek via Blok 5)
+### ---------------------------------------------------------------------
+POST {{base}}/apicekatdev/reservation
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "cabang": "Bintaro",
+  "nama": "Budi Uji",
+  "no_telpon": "081234567890",
+  "treatment": "SVC001",
+  "date": "2026-05-19",
+  "start_hour": "10:00",
+  "end_hour": "10:30"
+}
+
+### ---------------------------------------------------------------------
+### 7. reservation — sama persis Blok 6. Klik Blok 6 lalu Blok 7 berkali-kali:
+###    tiap kali dokter lain yg bisa SVC001 & kosong dipakai; saat semua
+###    penuh → 409 SLOT_UNAVAILABLE. pasien_baru_lama tetap "lama".
+### ---------------------------------------------------------------------
+POST {{base}}/apicekatdev/reservation
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "cabang": "Bintaro",
+  "nama": "Budi Uji",
+  "no_telpon": "081234567890",
+  "treatment": "SVC001",
+  "date": "2026-05-19",
+  "start_hour": "10:00",
+  "end_hour": "10:30"
+}
