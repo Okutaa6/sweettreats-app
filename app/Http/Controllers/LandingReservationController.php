@@ -2,198 +2,263 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\ResolvesDoctorAvailability;
+use App\Http\Controllers\Concerns\ResolvesPatientContact;
 use App\Models\RawCustomer;
 use App\Models\RawCusReservation;
 use App\Models\RawCusResService;
 use App\Models\RawDocService;
 use App\Models\RawPromo;
-use Carbon\Carbon;
+use App\Support\Phone;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
 use App\Models\AdminNotification;
 use Illuminate\Support\Str;
 
 class LandingReservationController extends Controller
 {
+    use ResolvesPatientContact;
+    use ResolvesDoctorAvailability;
+
     public function store()
     {
-        $patientType = request('patient_type');
-        $isLainnya   = empty(request('services')) && !empty(request('lainnya_text'));
-
+        // ── Validasi global ──────────────────────────────────────────────
         $rules = [
-            'raw_doctor_id'    => 'required|exists:raw_doctor,id',
             'raw_branch_id'    => 'required|exists:raw_branch,id',
             'reservation_date' => 'required|date|after_or_equal:today',
-            'reservation_time' => 'required',
+            'default_start'    => 'required',
+            'phone'            => 'required|regex:/^0[0-9]{9,14}$/',
             'promo_id'         => 'nullable|exists:raw_promo,id',
-            'patient_type'     => 'required|in:baru,lama',
+            'patients'         => 'required|array|min:1',
         ];
 
-        if ($isLainnya) {
-            $rules['lainnya_text'] = 'required|string|max:200';
-            $rules['services']     = 'nullable|array';
-        } else {
-            $rules['services']     = 'required|array|min:1';
-            $rules['lainnya_text'] = 'nullable|string|max:200';
-        }
-
-        if ($patientType === 'lama') {
-            $rules['existing_customer_id'] = 'required|exists:raw_customer,id';
-        } else {
-            $rules['name']          = 'required|max:255';
-            $rules['phone']         = 'required|regex:/^0[0-9]{9,14}$/';
-            $rules['email']         = 'required|email|max:100';
-            $rules['jenis_kelamin'] = 'required|in:L,P';
-            $rules['tanggal_lahir'] = 'required|date|before:today';
-        }
-
-        request()->validate($rules, [
-            'services.required'            => 'Pilih perawatan terlebih dahulu.',
-            'lainnya_text.required'        => 'Ceritakan keluhan kamu terlebih dahulu.',
-            'existing_customer_id.required'=> 'Data pasien lama tidak ditemukan. Coba cek nomor HP kamu.',
-            'name.required'                => 'Nama lengkap wajib diisi.',
-            'phone.required'               => 'Nomor WhatsApp wajib diisi.',
-            'phone.regex'                  => 'Nomor tidak valid. Harus diawali 0 dan minimal 10 digit.',
-            'email.required'               => 'Email wajib diisi.',
-            'jenis_kelamin.required'       => 'Jenis kelamin wajib dipilih.',
-            'tanggal_lahir.required'       => 'Tanggal lahir wajib diisi.',
+        $validator = Validator::make(request()->all(), $rules, [
+            'phone.required'    => 'Nomor WhatsApp wajib diisi.',
+            'phone.regex'       => 'Nomor tidak valid. Harus diawali 0 dan minimal 10 digit.',
+            'patients.required' => 'Pilih minimal 1 pasien.',
+            'patients.min'      => 'Pilih minimal 1 pasien.',
         ]);
 
-        $result = DB::transaction(function () use ($patientType, $isLainnya) {
-            // Get or create customer
-            if ($patientType === 'lama') {
-                $customer = RawCustomer::findOrFail(request('existing_customer_id'));
-            } else {
-                $customer = RawCustomer::firstOrCreate(
-                    ['phone' => request('phone')],
-                    [
-                        'name'           => request('name'),
-                        'email'          => request('email'),
-                        'jenis_kelamin'  => request('jenis_kelamin'),
-                        'tanggal_lahir'  => request('tanggal_lahir'),
-                        'tanggal_daftar' => now()->toDateString(),
-                        'source_app'     => 'website',
-                        'channel'        => 'landing-page',
-                    ]
-                );
+        // ── Validasi tiap pasien (per item, supaya pesan jelas) ──────────
+        $validator->after(function ($v) {
+            $phoneNorm = Phone::normalize(request('phone'));
+            $patients  = request('patients', []);
+
+            if (! is_array($patients) || count($patients) === 0) {
+                return;
             }
 
-            // Calculate duration & collect service records
-            $totalDuration = 0;
-            $serviceRecords = [];
+            foreach ($patients as $i => $p) {
+                $label = 'Pasien #' . ($i + 1);
+                $type  = $p['type'] ?? null;
 
-            if ($isLainnya) {
-                $totalDuration = 30;
-            } else {
-                foreach (request('services') as $serviceId) {
-                    $docService = RawDocService::find($serviceId);
-                    if ($docService) {
-                        $totalDuration += $docService->duration_minutes;
-                        $serviceRecords[] = $docService;
+                if (empty($p['raw_doctor_id'])) {
+                    $v->errors()->add("patients.$i", "$label: dokter belum dipilih.");
+                }
+
+                $hasServices = ! empty($p['services']) && is_array($p['services']);
+                $hasLainnya  = ! empty($p['lainnya_text']);
+                if (! $hasServices && ! $hasLainnya) {
+                    $v->errors()->add("patients.$i", "$label: pilih perawatan atau isi keluhan.");
+                }
+
+                if ($type === 'existing') {
+                    $cust = RawCustomer::find($p['existing_customer_id'] ?? null);
+                    if (! $cust) {
+                        $v->errors()->add("patients.$i", "$label: data pasien tidak ditemukan.");
+                    } elseif (
+                        $phoneNorm === null
+                        || Phone::normalize($cust->phone) !== $phoneNorm
+                    ) {
+                        // Anti-injeksi: pasien existing harus ber-nomor sama.
+                        $v->errors()->add("patients.$i", "$label: pasien tidak terdaftar di nomor ini.");
                     }
-                }
-            }
-
-            $startHour = Carbon::parse(request('reservation_time'));
-            $endHour   = $startHour->copy()->addMinutes($totalDuration ?: 30);
-
-            // Create reservation
-            $reservation = RawCusReservation::create([
-                'raw_customer_id' => $customer->id,
-                'raw_doctor_id'   => request('raw_doctor_id'),
-                'raw_branch_id'   => request('raw_branch_id'),
-                'raw_promo_id'    => request('promo_id') ?: null,
-                'date'            => request('reservation_date'),
-                'start_hour'      => $startHour->format('H:i'),
-                'end_hour'        => $endHour->format('H:i'),
-                'status'          => 'pending',
-                'is_waiting'      => false,
-                'lainnya_text'    => $isLainnya ? request('lainnya_text') : null,
-                'created_at'      => now(),
-            ]);
-
-            // Attach services
-            if ($isLainnya) {
-                $lainnyaService = RawDocService::where('category', 'lainnya')->first();
-                if ($lainnyaService) {
-                    RawCusResService::create([
-                        'raw_cus_reservation_id' => $reservation->id,
-                        'raw_doctor_id'          => request('raw_doctor_id'),
-                        'raw_doc_service_id'     => $lainnyaService->id,
-                    ]);
-                }
-            } else {
-                foreach ($serviceRecords as $docService) {
-                    RawCusResService::create([
-                        'raw_cus_reservation_id' => $reservation->id,
-                        'raw_doctor_id'          => request('raw_doctor_id'),
-                        'raw_doc_service_id'     => $docService->id,
-                    ]);
-                }
-            }
-
-            // Insert journey
-            DB::table('raw_cus_journey')->insert([
-                'id'              => Str::uuid()->toString(),
-                'raw_customer_id' => $customer->id,
-                'journey_label'   => 'Stat_Rsv',
-                'created_at'      => now(),
-            ]);
-
-            $contact = DB::table('raw_contact')
-                ->where('phone', $customer->phone)
-                ->first();
-
-            if ($contact) {
-                DB::table('raw_cus_journey')->insert([
-                    'id'             => Str::uuid()->toString(),
-                    'raw_contact_id' => $contact->id,
-                    'journey_label'  => 'Stat_Rsv',
-                    'created_at'     => now(),
-                ]);
-            }
-
-            // Create commission if promo used
-            if (request('promo_id')) {
-                $promo = RawPromo::with('affiliate')->find(request('promo_id'));
-                if ($promo && $promo->affiliate) {
-                    $totalHarga = 0;
-                    foreach ($serviceRecords as $svc) {
-                        $totalHarga += $svc->price ?? 0;
+                } elseif ($type === 'new') {
+                    if (empty($p['name'])) {
+                        $v->errors()->add("patients.$i", "$label: nama wajib diisi.");
                     }
-
-                    $affiliate = $promo->affiliate instanceof \Illuminate\Support\Collection
-                        ? $promo->affiliate->first()
-                        : $promo->affiliate;
-                    $commissionRate = $affiliate ? ($affiliate->commission_rate ?? 0) : 0;
-                    $commissionAmount = round($totalHarga * ($commissionRate / 100), 2);
-
-                    DB::table('raw_commission')->insert([
-                        'id'                     => Str::uuid()->toString(),
-                        'raw_affiliate_id'       => $promo->affiliate->id,
-                        'raw_cus_reservation_id' => $reservation->id,
-                        'amount'                 => $commissionAmount,
-                        'status'                 => 'pending',
-                        'created_at'             => now(),
-                    ]);
+                    if (empty($p['jenis_kelamin']) || ! in_array($p['jenis_kelamin'], ['L', 'P'], true)) {
+                        $v->errors()->add("patients.$i", "$label: jenis kelamin wajib dipilih.");
+                    }
+                    if (empty($p['tanggal_lahir'])) {
+                        $v->errors()->add("patients.$i", "$label: tanggal lahir wajib diisi.");
+                    }
+                    if (
+                        ! empty($p['relasi'])
+                        && ! in_array($p['relasi'], ['diri_sendiri', 'pasangan', 'anak', 'orang_tua', 'lainnya'], true)
+                    ) {
+                        $v->errors()->add("patients.$i", "$label: relasi tidak valid.");
+                    }
+                } else {
+                    $v->errors()->add("patients.$i", "$label: tipe pasien tidak valid.");
                 }
             }
-
-            return ['customer' => $customer, 'reservation' => $reservation];
         });
 
-        $customer    = $result['customer'];
-        $reservation = $result['reservation'];
+        $validator->validate();
 
-        // Push admin notification for new reservation
+        $branchId = request('raw_branch_id');
+        $date     = request('reservation_date');
+        $start    = request('default_start');
+        $promoId  = request('promo_id') ?: null;
+        $phone    = Phone::normalize(request('phone')) ?: request('phone');
+
+        $result = DB::transaction(function () use ($branchId, $date, $start, $promoId, $phone) {
+            // 1 raw_contact untuk seluruh submission (1 nomor). Self-healing
+            // adoption pasien lama ber-nomor sama terjadi di sini.
+            $contact   = $this->resolveContact($phone, null, 'website', 'landing-page');
+            $contactId = $contact->id;
+
+            // ── Resolve tiap pasien (customer) + siapkan item utk slot ──
+            $rows = []; // index => [customer, doctor_id, services[], lainnya_text, duration]
+            foreach (request('patients') as $i => $p) {
+                $doctorId = $p['raw_doctor_id'];
+                $services = array_values(array_filter($p['services'] ?? [])); // ids
+                $lainnya  = empty($services) && ! empty($p['lainnya_text']);
+
+                if (($p['type'] ?? null) === 'existing') {
+                    $customer = RawCustomer::findOrFail($p['existing_customer_id']);
+                    if ($customer->raw_contact_id !== $contactId) {
+                        $customer->raw_contact_id = $contactId;
+                        $customer->save();
+                    }
+                } else {
+                    $customer = RawCustomer::create([
+                        'raw_contact_id'   => $contactId,
+                        'relasi'           => $p['relasi'] ?? 'diri_sendiri',
+                        'name'             => $p['name'],
+                        'phone'            => $phone,
+                        'email'            => $p['email'] ?? null,
+                        'jenis_kelamin'    => $p['jenis_kelamin'] ?? null,
+                        'tanggal_lahir'    => $p['tanggal_lahir'] ?? null,
+                        'tanggal_daftar'   => now()->toDateString(),
+                        'pasien_baru_lama' => 'baru',
+                        'source_app'       => 'website',
+                        'channel'          => 'landing-page',
+                    ]);
+                }
+
+                $rows[$i] = [
+                    'customer'     => $customer,
+                    'doctor_id'    => $doctorId,
+                    'services'     => $services,
+                    'lainnya_text' => $lainnya ? $p['lainnya_text'] : null,
+                    'lainnya'      => $lainnya,
+                    'duration'     => $this->patientDuration($doctorId, $services, $lainnya),
+                ];
+            }
+
+            // ── Alokasikan jam otomatis (authoritative, server-side) ─────
+            $items = [];
+            foreach ($rows as $i => $r) {
+                $items[] = ['key' => $i, 'doctor_id' => $r['doctor_id'], 'duration' => $r['duration']];
+            }
+            $assigned = $this->assignFamilySlots($branchId, $date, $items, $start);
+
+            // ── Buat reservasi per pasien ────────────────────────────────
+            $reservations = [];
+            $lainnyaSvc   = RawDocService::where('category', 'lainnya')->first();
+
+            foreach ($rows as $i => $r) {
+                $slot     = $assigned[$i] ?? ['start' => null, 'end' => null, 'waiting' => true];
+                $isWaiting = ! empty($slot['waiting']);
+
+                $reservation = RawCusReservation::create([
+                    'raw_customer_id' => $r['customer']->id,
+                    'raw_doctor_id'   => $r['doctor_id'],
+                    'raw_branch_id'   => $branchId,
+                    'raw_promo_id'    => $promoId,
+                    'date'            => $date,
+                    'start_hour'      => $isWaiting ? null : $slot['start'],
+                    'end_hour'        => $isWaiting ? null : $slot['end'],
+                    'status'          => 'pending',
+                    'is_waiting'      => $isWaiting,
+                    'lainnya_text'    => $r['lainnya_text'],
+                    'created_at'      => now(),
+                ]);
+
+                // Layanan
+                if ($r['lainnya']) {
+                    if ($lainnyaSvc) {
+                        RawCusResService::create([
+                            'raw_cus_reservation_id' => $reservation->id,
+                            'raw_doctor_id'          => $r['doctor_id'],
+                            'raw_doc_service_id'     => $lainnyaSvc->id,
+                        ]);
+                    }
+                } else {
+                    foreach ($r['services'] as $sid) {
+                        RawCusResService::create([
+                            'raw_cus_reservation_id' => $reservation->id,
+                            'raw_doctor_id'          => $r['doctor_id'],
+                            'raw_doc_service_id'     => $sid,
+                        ]);
+                    }
+                }
+
+                // Journey customer-level (per pasien).
+                DB::table('raw_cus_journey')->insert([
+                    'id'              => Str::uuid()->toString(),
+                    'raw_customer_id' => $r['customer']->id,
+                    'journey_label'   => 'Stat_Rsv',
+                    'created_at'      => now(),
+                ]);
+
+                // Komisi affiliate (per reservasi) kalau pakai promo.
+                if ($promoId) {
+                    $promo = RawPromo::with('affiliate')->find($promoId);
+                    if ($promo && $promo->affiliate) {
+                        $totalHarga = 0;
+                        foreach ($r['services'] as $sid) {
+                            $svc = RawDocService::find($sid);
+                            $totalHarga += $svc->price ?? 0;
+                        }
+                        $affiliate = $promo->affiliate instanceof \Illuminate\Support\Collection
+                            ? $promo->affiliate->first()
+                            : $promo->affiliate;
+                        $rate   = $affiliate ? ($affiliate->commission_rate ?? 0) : 0;
+                        $amount = round($totalHarga * ($rate / 100), 2);
+
+                        DB::table('raw_commission')->insert([
+                            'id'                     => Str::uuid()->toString(),
+                            'raw_affiliate_id'       => $promo->affiliate->id,
+                            'raw_cus_reservation_id' => $reservation->id,
+                            'amount'                 => $amount,
+                            'status'                 => 'pending',
+                            'created_at'             => now(),
+                        ]);
+                    }
+                }
+
+                $reservations[] = $reservation;
+            }
+
+            // Journey contact-level: 1x per submission (funnel nomor).
+            DB::table('raw_cus_journey')->insert([
+                'id'             => Str::uuid()->toString(),
+                'raw_contact_id' => $contactId,
+                'journey_label'  => 'Stat_Rsv',
+                'created_at'     => now(),
+            ]);
+
+            return [
+                'reservations' => $reservations,
+                'names'        => collect($rows)->map(fn ($r) => $r['customer']->name)->all(),
+            ];
+        });
+
+        $count = count($result['reservations']);
+        $names = implode(', ', $result['names']);
+
         AdminNotification::notify(
             'reservation',
-            'Reservasi Baru: ' . $customer->name,
-            'Reservasi baru dari ' . $customer->name . ' (' . $customer->phone . ')',
-            url('rawreservation?reservation_id=' . $reservation->id),
-            request('raw_branch_id')
+            "Reservasi Baru: {$count} pasien ({$phone})",
+            "Reservasi baru untuk {$names} di nomor {$phone}",
+            url('rawreservation'),
+            $branchId
         );
 
-        return redirect('/reservasi/riwayat?phone=' . urlencode($customer->phone))
-            ->with('success', 'Reservasi berhasil dibuat! Tim kami akan menghubungi kamu untuk konfirmasi.');
+        return redirect('/reservasi/riwayat?phone=' . urlencode($phone))
+            ->with('success', "{$count} reservasi berhasil dibuat! Tim kami akan menghubungi kamu untuk konfirmasi.");
     }
 }

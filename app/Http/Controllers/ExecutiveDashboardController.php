@@ -63,8 +63,17 @@ class ExecutiveDashboardController extends Controller
         $totalPct     = $totalTarget > 0 ? round(($totalRevenue / $totalTarget) * 100, 1) : 0;
 
         // ── Funnel: Stat_New → Stat_Leads → Stat_Rsv (bulan ini) ──
+        // Stat_New/Leads = level contact (funnel nomor). Stat_Rsv ditulis
+        // ganda (contact-level + customer-level) sejak model 1-nomor-banyak-
+        // pasien; hitung Stat_Rsv per raw_customer_id saja supaya tidak
+        // menggelembung ~2x dibanding new/leads.
         $funnel = DB::table('raw_cus_journey')
-            ->select('journey_label', DB::raw('COUNT(DISTINCT COALESCE(raw_customer_id, raw_contact_id)) as total'))
+            ->select('journey_label', DB::raw(
+                "COUNT(DISTINCT CASE
+                    WHEN journey_label = 'Stat_Rsv' THEN raw_customer_id
+                    ELSE COALESCE(raw_customer_id, raw_contact_id)
+                END) as total"
+            ))
             ->whereIn('journey_label', ['Stat_New', 'Stat_Leads', 'Stat_Rsv'])
             ->whereBetween('created_at', [$startOfMonth, $endOfMonth])
             ->groupBy('journey_label')

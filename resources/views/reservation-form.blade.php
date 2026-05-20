@@ -58,7 +58,7 @@
         .form-control:read-only { background: #f5f0eb; color: #6b4a30; cursor: default; }
         select.form-control { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%23461500' viewBox='0 0 16 16'%3E%3Cpath d='M1.646 4.646a.5.5 0 01.708 0L8 10.293l5.646-5.647a.5.5 0 01.708.708l-6 6a.5.5 0 01-.708 0l-6-6a.5.5 0 010-.708z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 18px center; padding-right: 44px; }
         select.form-control:disabled { background-color: #f5f0eb; color: #6b4a30; cursor: default; }
-        #tanggalLahirInput[readonly] { cursor: pointer; background: #fffaf5; }
+        #apTgl[readonly] { cursor: pointer; background: #fffaf5; }
         .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
 
         .chain-section { display: none; animation: fadeIn 0.4s ease; }
@@ -73,7 +73,20 @@
         .category-btn.active { border-color: #461500; background: linear-gradient(135deg, #461500, #6b2400); color: #fff; }
         .category-icon { width: 32px; height: 32px; border-radius: 50%; background: rgba(70,21,0,0.08); display: flex; align-items: center; justify-content: center; font-size: 0.85rem; flex-shrink: 0; transition: all 0.3s; }
         .category-btn.active .category-icon { background: rgba(255,255,255,0.2); color: #fff; }
+        .category-btn.category-featured { grid-column: 1 / -1; font-size: 0.95rem; padding: 16px 20px; }
         .category-hint { font-size: 0.78rem; color: #8b7a6b; margin-bottom: 12px; font-weight: 600; }
+
+        /* Branch cards */
+        .branch-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .branch-card { display: flex; align-items: center; gap: 12px; padding: 16px 18px; background: #fffaf5; border: 2px solid rgba(70,21,0,0.1); border-radius: 14px; cursor: pointer; font-family: 'Montserrat', sans-serif; font-size: 0.88rem; font-weight: 700; color: #5a3a20; transition: all 0.3s; text-align: left; width: 100%; }
+        .branch-card:hover { border-color: rgba(70,21,0,0.3); background: #fef5ed; }
+        .branch-card.active { border-color: #461500; background: linear-gradient(135deg, #461500, #6b2400); color: #fff; }
+        .branch-card .branch-icon { width: 34px; height: 34px; border-radius: 50%; background: rgba(70,21,0,0.08); display: flex; align-items: center; justify-content: center; font-size: 0.9rem; flex-shrink: 0; transition: all 0.3s; }
+        .branch-card.active .branch-icon { background: rgba(255,255,255,0.2); color: #fff; }
+
+        /* Behel terlaris badge */
+        .terlaris-badge { display: inline-block; font-size: 0.58rem; font-weight: 800; background: #c0392b; color: #fff; padding: 2px 8px; border-radius: 20px; margin-left: 10px; vertical-align: middle; letter-spacing: 0.4px; text-transform: uppercase; }
+        .category-btn.active .terlaris-badge { background: rgba(255,255,255,0.3); }
         .service-list-area { display: none; animation: fadeIn 0.3s ease; }
         .service-list-area.visible { display: block; }
 
@@ -120,6 +133,23 @@
         .slot .slot-status { font-size: 0.65rem; font-weight: 600; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.3px; }
         .slot.booked .slot-status { color: #c45200; }
         .slot.selected .slot-status { color: rgba(255,255,255,0.8); }
+
+        /* Session-grouped accordion (Pagi/Siang/Sore) */
+        .slot-sessions { display: flex; flex-direction: column; gap: 10px; }
+        .slot-session { border: 1px solid rgba(70,21,0,0.12); border-radius: 14px; background: #fffaf5; overflow: hidden; transition: border-color 0.2s; }
+        .slot-session.empty { opacity: 0.55; }
+        .session-header { width: 100%; display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; background: transparent; border: 0; cursor: pointer; font-size: 0.92rem; font-weight: 700; color: #461500; font-family: inherit; }
+        .session-header:hover { background: rgba(70,21,0,0.03); }
+        .session-header .session-title { display: flex; align-items: center; gap: 10px; }
+        .session-header .session-range { font-size: 0.72rem; font-weight: 500; color: #8b7a6b; margin-left: 4px; }
+        .session-header .session-count { font-size: 0.72rem; font-weight: 700; color: #6b2400; background: rgba(70,21,0,0.06); padding: 4px 10px; border-radius: 999px; margin-right: 10px; }
+        .slot-session.empty .session-count { color: #b0a090; background: #f5f0eb; }
+        .session-header .chev { transition: transform 0.2s; color: #8b7a6b; }
+        .slot-session[aria-expanded="false"] .chev { transform: rotate(-90deg); }
+        .slot-session[aria-expanded="false"] .session-slots { display: none; }
+        .session-slots { padding: 0 14px 14px; display: grid; grid-template-columns: repeat(auto-fill, minmax(95px, 1fr)); gap: 8px; }
+        .session-slots .slot { padding: 12px 6px; font-size: 0.88rem; }
+        .session-empty-hint { padding: 0 18px 16px; font-size: 0.78rem; color: #8b7a6b; font-style: italic; }
 
         /* Duration summary */
         .duration-summary { background: linear-gradient(135deg,#fef5ed,#fef0e2); border: 1px solid rgba(70,21,0,0.08); border-radius: 14px; padding: 16px 20px; margin-top: 16px; display: none; }
@@ -224,6 +254,40 @@
             font-weight: 600;
         }
 
+        /* Daftar pilihan pasien (1 nomor banyak pasien) */
+        /* Daftar pasien (1 nomor → banyak pasien) */
+        .patient-choice-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 4px; }
+        .pc-row { background: #fffaf5; border: 2px solid rgba(70,21,0,0.10); border-radius: 12px; padding: 12px 14px; color: #461500; }
+        .pc-row.pc-new { border-style: dashed; border-color: rgba(70,21,0,0.25); background: #fff7ef; }
+        .pc-head { display: flex; align-items: center; gap: 12px; cursor: pointer; font-size: 0.92rem; justify-content: flex-start; line-height: 1.4; }
+        .pc-head > span:first-child, .pc-head > label, .pc-head input + span { flex: 1; }
+        .pc-head input[type=checkbox] { accent-color: #461500; width: 18px; height: 18px; flex-shrink: 0; margin: 0; cursor: pointer; }
+        .pc-head strong { vertical-align: middle; }
+        .pc-head small { color: #8b7a6b; font-weight: 500; vertical-align: middle; margin-left: 4px; }
+        .pc-badge { background: #461500; color: #fff; border-radius: 6px; padding: 1px 6px; font-size: 0.66rem; font-weight: 700; letter-spacing: .4px; }
+        .pc-remove { color: #b91c1c; font-weight: 800; text-decoration: none; font-size: 1.05rem; padding: 0 6px; }
+        .pc-meta { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 8px; font-size: 0.82rem; }
+        .pc-meta a { color: #461500; font-weight: 700; text-decoration: underline; }
+        .pc-ok { color: #16a34a; font-weight: 700; }
+        .pc-wait { color: #b45309; font-weight: 600; }
+        .pc-pending { color: #8b7a6b; font-style: italic; }
+        .pc-empty { color: #8b7a6b; font-size: 0.85rem; padding: 12px; text-align: center; border: 1px dashed rgba(70,21,0,0.2); border-radius: 12px; }
+        .pc-override { display: flex; gap: 12px; margin-top: 10px; flex-wrap: wrap; }
+        .pc-override > label, .pc-override > .pc-override-svc { flex: 1; min-width: 180px; font-size: 0.8rem; color: #8b7a6b; font-weight: 600; display: flex; flex-direction: column; gap: 6px; }
+        .pc-override select { font-size: 0.85rem; }
+        .pc-override-svc .pc-svc-title { color: #8b7a6b; font-size: 0.8rem; font-weight: 600; }
+        .pc-override-svc .pc-svc-title small { font-weight: 500; color: #a89888; }
+        .pc-override-services { display: flex; flex-direction: column; max-height: 140px; overflow-y: auto; background: #fff; border: 1.5px solid rgba(70,21,0,0.15); border-radius: 8px; }
+        .pc-svc-chk label { display: flex; align-items: center; gap: 8px; padding: 6px 10px; cursor: pointer; transition: background 0.15s; font-size: 0.82rem; font-weight: 500; color: #5a3a20; margin: 0; line-height: 1.3; }
+        .pc-svc-chk + .pc-svc-chk label { border-top: 1px solid rgba(70,21,0,0.06); }
+        .pc-svc-chk input[type=checkbox] { accent-color: #461500; width: 15px; height: 15px; margin: 0; flex-shrink: 0; cursor: pointer; }
+        .pc-svc-chk label:hover { background: #fffaf5; }
+        .pc-svc-chk input:checked ~ .pc-svc-name { color: #461500; font-weight: 700; }
+        .add-patient-btn { width: 100%; margin-top: 12px; padding: 12px; background: #fff; color: #461500; border: 2px dashed rgba(70,21,0,0.35); border-radius: 12px; font-family: 'Montserrat',sans-serif; font-weight: 700; font-size: 0.88rem; cursor: pointer; }
+        .add-patient-btn:hover { background: #fef5ed; }
+        .add-patient-form { margin-top: 12px; padding: 14px; background: #fffaf5; border: 1px solid #e6d5c4; border-radius: 12px; }
+        .btn-cancel-add { background: #f0e8e0; color: #461500; border: none; border-radius: 12px; padding: 0 18px; font-weight: 700; font-family: 'Montserrat',sans-serif; cursor: pointer; }
+
         /* Doctor cards */
         .doctor-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
         .doctor-card { display: flex; align-items: center; gap: 14px; padding: 16px; background: #fffaf5; border: 2px solid rgba(70,21,0,0.08); border-radius: 14px; cursor: pointer; transition: all 0.3s; }
@@ -289,30 +353,62 @@
             .form-card { padding: 24px 16px; border-radius: 18px; }
             .form-row { grid-template-columns: 1fr; }
             .services-select-grid { grid-template-columns: 1fr; }
+
+            /* Step indicator mobile — inactive/done = hanya circle, active = pill + label */
+            .steps { gap: 4px; flex-wrap: nowrap; }
+            .step { padding: 5px 6px; background: transparent; font-size: 0.7rem; }
+            .step.done { background: transparent; }
+            .step.active { padding: 7px 12px; background: linear-gradient(135deg, #461500, #6b2400); }
+            .step span { display: none; }
+            .step.active span { display: inline; }
+            .step-num { width: 22px; height: 22px; font-size: 0.66rem; }
+            .step.done .step-num { background: #2e7d32; color: #fff; }
+
+            /* Branch grid — 1 kolom di layar sempit */
+            .branch-grid { grid-template-columns: 1fr; gap: 10px; }
+            .branch-card { padding: 14px 16px; font-size: 0.85rem; }
+
+            /* Kategori */
             .category-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
-            .category-btn { padding: 12px 12px; font-size: 0.78rem; gap: 8px; }
+            .category-btn { padding: 12px 10px; font-size: 0.78rem; gap: 8px; }
             .category-icon { width: 28px; height: 28px; font-size: 0.75rem; }
+            .category-btn.category-featured { padding: 14px 14px; font-size: 0.85rem; }
+            .terlaris-badge { font-size: 0.54rem; padding: 2px 6px; margin-left: 6px; }
+
+            /* Patient type */
             .patient-type-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
             .patient-type-btn { padding: 16px 12px; }
             .patient-type-btn .btn-title { font-size: 0.85rem; }
             .patient-type-icon { width: 40px; height: 40px; font-size: 1rem; }
-            .steps { gap: 6px; }
-            .step { padding: 6px 10px; font-size: 0.68rem; }
-            .step span { display: none; }
-            .step-num { width: 20px; height: 20px; font-size: 0.65rem; }
+
+            /* Form */
             .form-group label { font-size: 0.8rem; }
             .form-control { padding: 12px 14px; font-size: 0.88rem; border-radius: 12px; }
+
+            /* Doctor */
             .doctor-grid { grid-template-columns: 1fr; }
             .doctor-card { padding: 14px; }
-            .date-grid { grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 8px; }
-            .date-pill { padding: 10px 6px; border-radius: 12px; }
+
+            /* Date */
+            .date-grid { grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 8px; }
+            .date-pill { padding: 10px 6px; border-radius: 12px; min-height: 64px; }
             .date-pill .date-num { font-size: 0.95rem; }
             .date-pill .date-day { font-size: 0.68rem; }
-            .slots-grid { grid-template-columns: repeat(3, 1fr); gap: 8px; }
-            .slot { padding: 12px 6px; font-size: 0.82rem; border-radius: 10px; }
+
+            /* Slot sessions — 3 kolom, tap target lebih besar */
+            .session-header { padding: 14px 16px; min-height: 52px; }
+            .session-slots { grid-template-columns: repeat(3, 1fr); padding: 0 10px 12px; gap: 8px; }
+            .session-slots .slot { padding: 13px 4px; font-size: 0.82rem; border-radius: 10px; min-height: 44px; }
+
+            /* Chain section spacing */
+            .chain-section + .chain-section { margin-top: 20px; }
+
+            /* Duration */
             .duration-summary { padding: 14px 16px; flex-wrap: wrap; gap: 12px; }
             .duration-summary .summary-label { font-size: 0.65rem; }
             .duration-summary .summary-value { font-size: 0.95rem; }
+
+            /* Submit & modal */
             .btn-submit { padding: 14px; font-size: 0.9rem; border-radius: 12px; }
             .modal-box { border-radius: 18px; margin: 16px; }
             .modal-body, .modal-header, .modal-footer { padding-left: 18px; padding-right: 18px; }
@@ -377,15 +473,23 @@
 
                     <div class="form-group" id="branchGroup">
                         <label>Pilih Cabang <span class="required">*</span></label>
-                        <select name="raw_branch_id" id="branchSelect" class="form-control">
-                        <option value="" hidden selected>-- Pilih Cabang --</option>
+                        {{-- Hidden select untuk value tracking di JS yang sudah ada --}}
+                        <select name="raw_branch_id" id="branchSelect" style="display:none">
+                            <option value="" selected></option>
                             @foreach ($branches as $branch)
-                                <option value="{{ $branch->id }}"
-                                    {{ request('cabang') && strtolower($branch->name) === strtolower(request('cabang')) ? 'selected' : '' }}>
-                                    {{ $branch->name }}
-                                </option>
+                                <option value="{{ $branch->id }}">{{ $branch->name }}</option>
                             @endforeach
                         </select>
+                        <div id="branchGrid" class="branch-grid">
+                            @foreach ($branches as $branch)
+                                <button type="button" class="branch-card"
+                                        data-id="{{ $branch->id }}"
+                                        data-name="{{ $branch->name }}">
+                                    <span class="branch-icon"><i class="fa-solid fa-location-dot"></i></span>
+                                    <span>{{ $branch->name }}</span>
+                                </button>
+                            @endforeach
+                        </div>
                         <div id="branchLocked" style="display:none; padding:14px 18px; background:#f5f0eb; border:2px solid rgba(70,21,0,0.15); border-radius:14px; font-weight:700; color:#461500;"></div>
                     </div>
 
@@ -404,16 +508,6 @@
                                         Jelaskan keluhanmu, tim kami akan membantu menentukan perawatan yang tepat.
                                     </small>
                                 </div>
-                            </div>
-                        </div>
-                        <div class="duration-summary" id="durationSummary">
-                            <div class="summary-item">
-                                <div class="summary-label">Estimasi Durasi</div>
-                                <div class="summary-value" id="totalDuration">0 menit</div>
-                            </div>
-                            <div class="summary-item">
-                                <div class="summary-label">Est. Selesai Pukul</div>
-                                <div class="summary-value" id="endTime">-</div>
                             </div>
                         </div>
                     </div>
@@ -439,160 +533,118 @@
                     <div class="chain-section" id="slotSection">
                         <div class="form-group">
                             <label>Jadwal <span class="required">*</span></label>
-                            <div id="slotsGrid" class="slots-grid"></div>
+                            <div id="slotsGrid" class="slot-sessions"></div>
                             <input type="hidden" name="reservation_time" id="reservationTime">
+                        </div>
+                        <div class="duration-summary" id="durationSummary">
+                            <div class="summary-item">
+                                <div class="summary-label">Estimasi Durasi</div>
+                                <div class="summary-value" id="totalDuration">0 menit</div>
+                            </div>
+                            <div class="summary-item">
+                                <div class="summary-label">Est. Selesai Pukul</div>
+                                <div class="summary-value" id="endTime">-</div>
+                            </div>
                         </div>
                     </div>
 
-                    
                     <div class="chain-section" id="customerSection">
 
-                        <div class="form-group">
-                            <label>Apakah kamu pasien baru? <span class="required">*</span></label>
-                            <div class="patient-type-grid">
-
-                                <button type="button" class="patient-type-btn" id="btnPasienBaru"
-                                    onclick="selectPatientType('baru')">
-                                    <span class="patient-type-icon">
-                                        <i class="fa-solid fa-user-plus"></i>
-                                    </span>
-                                    <span class="btn-title">Pasien Baru</span>
-                                    <span class="btn-desc">Belum pernah ke sini</span>
+                        {{-- 1 nomor → banyak pasien. Jadwal di atas (cabang/
+                             perawatan/dokter/tanggal/jam) jadi DEFAULT semua
+                             pasien; jam tiap pasien disusun otomatis. --}}
+                        <div class="phone-check-box">
+                            <label>Masukkan Nomor WhatsApp Kamu <span class="required">*</span></label>
+                            <div style="display:flex; gap:8px; align-items:center;">
+                                <input type="text" id="phoneCheckInput" class="form-control"
+                                    placeholder="08xxxxxxxxxx" oninput="resetPhoneCheck()">
+                                <button type="button" id="btnCekHP" onclick="cekNomorHP()"
+                                    style="background:#461500;color:white;border:none;border-radius:10px;padding:14px 18px;font-size:0.85rem;font-family:'Montserrat',sans-serif;font-weight:700;cursor:pointer;white-space:nowrap;">
+                                    Cek
                                 </button>
-
-                                <button type="button" class="patient-type-btn" id="btnPasienLama"
-                                    onclick="selectPatientType('lama')">
-                                    <span class="patient-type-icon">
-                                        <i class="fa-solid fa-user-check"></i>
-                                    </span>
-                                    <span class="btn-title">Pasien Lama</span>
-                                    <span class="btn-desc">Sudah pernah ke sini</span>
-                                </button>
-
                             </div>
+                            <div id="phoneCheckStatus" style="margin-top:10px;"></div>
                         </div>
 
-                        <div class="patient-form-area" id="pasienLamaArea">
-                            <div class="phone-check-box">
-                                <label>Masukkan Nomor WhatsApp Kamu <span class="required">*</span></label>
-                                <div style="display:flex; gap:8px; align-items:center;">
-                                    <input type="text" id="phoneCheckInput" class="form-control"
-                                        placeholder="08xxxxxxxxxx"
-                                        oninput="resetPhoneCheck()">
-                                    <button type="button" id="btnCekHP"
-                                        onclick="cekNomorHP()"
-                                        style="background:#461500;color:white;border:none;border-radius:10px;padding:14px 18px;font-size:0.85rem;font-family:'Montserrat',sans-serif;font-weight:700;cursor:pointer;white-space:nowrap;">
-                                        Cek
-                                    </button>
-                                </div>
-                                {{-- Status hasil cek --}}
-                                <div id="phoneCheckStatus" style="margin-top:10px;"></div>
-                            </div>
-
-                            {{-- Form data diri pasien lama (muncul setelah ditemukan, read-only) --}}
-                            <div id="pasienLamaForm" style="display:none;">
-                                <div class="form-row">
-                                    <div class="form-group">
-                                        <label>Nama Lengkap</label>
-                                        <input type="text" id="namaLama" class="form-control" readonly>
-                                    </div>
-                                    <div class="form-group">
-                                        <label>No. WhatsApp</label>
-                                        <input type="text" id="phoneLama" class="form-control" readonly>
-                                    </div>
-                                </div>
-                                <div class="form-row">
-                                    <div class="form-group">
-                                        <label>Email</label>
-                                        <input type="text" id="emailLama" class="form-control" readonly>
-                                    </div>
-                                    <div class="form-group">
-                                        <label>Jenis Kelamin</label>
-                                        <input type="text" id="jenisKelaminLama" class="form-control" readonly>
-                                    </div>
-                                </div>
-                                <div class="form-group" style="max-width:50%;">
-                                    <label>Tanggal Lahir</label>
-                                    <input type="text" id="tanggalLahirLama" class="form-control" readonly>
-                                </div>
-                                <small style="color:#8b7a6b;font-size:0.78rem;display:block;margin-bottom:16px;">
-                                    <i class="fa-solid fa-circle-info"></i>
-                                    Data diambil dari sistem. Jika ada yang tidak sesuai, hubungi staff kami.
-                                </small>
-                            </div>
-                        </div>
-
-                        <div class="patient-form-area" id="pasienBaruArea">
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label>Nama Lengkap </span></label>
-                                    <input type="text" name="name" id="nameInput" class="form-control"
-                                        placeholder="Masukkan nama lengkap">
-                                </div>
-                                <div class="form-group">
-                                    <label>No. WhatsApp </span></label>
-                                    <input type="text" name="phone" id="phoneInput" class="form-control"
-                                        placeholder="08xxxxxxxxxx">
-                                </div>
-                            </div>
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label>Email </span></label>
-                                    <input type="email" name="email" id="emailInput" class="form-control"
-                                        placeholder="email@contoh.com">
-                                </div>
-                                <div class="form-group">
-                                    <label>Jenis Kelamin </span></label>
-                                    <select name="jenis_kelamin" id="jenisKelaminInput" class="form-control">
-                                        <option value="">-- Pilih --</option>
-                                        <option value="L">Laki-laki</option>
-                                        <option value="P">Perempuan</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label>Tanggal Lahir </span></label>
-                                    <input type="text" name="tanggal_lahir" id="tanggalLahirInput"
-                                        class="form-control" placeholder="Pilih tanggal lahir" readonly>
-                                </div>
-                                <div class="form-group">
-                                    <label>Kode Promo <span style="color:#8b7a6b;font-weight:400;font-size:0.75rem;text-transform:none">(opsional)</span></label>
-                                    <div style="display:flex;gap:8px;align-items:center">
-                                        <input type="text" name="promo_code" id="promoInput" class="form-control"
-                                            style="text-transform:uppercase">
-                                        <button type="button" id="checkPromoBtn" onclick="checkPromo()"
-                                            style="background:#461500;color:white;border:none;border-radius:8px;padding:14px 18px;font-size:0.85rem;font-family:'Montserrat',sans-serif;font-weight:700;cursor:pointer;white-space:nowrap">
-                                            Cek
-                                        </button>
-                                    </div>
-                                    <div id="promoStatus" style="margin-top:6px;font-size:0.82rem"></div>
-                                    <input type="hidden" name="promo_id" id="promoIdInput" value="">
-                                </div>
-                            </div>
-                        </div>
-
-                        {{-- Kode promo untuk pasien lama --}}
-                        <div class="patient-form-area" id="pasienLamaPromoArea">
+                        <div id="patientPanel" style="display:none;">
                             <div class="form-group">
-                                <label>Kode Promo <span style="color:#8b7a6b;font-weight:400;font-size:0.75rem;text-transform:none">(opsional)</span></label>
+                                <label>Untuk siapa reservasi ini? <span class="required">*</span>
+                                    <span style="color:#8b7a6b;font-weight:400;font-size:0.75rem;text-transform:none">(bisa lebih dari 1)</span>
+                                </label>
+                                <div id="patientList" class="patient-choice-list"></div>
+                            </div>
+
+                            <button type="button" class="add-patient-btn" id="addPatientBtn"
+                                onclick="RES.toggleAddForm(true)">
+                                <i class="fa-solid fa-user-plus"></i> Tambah pasien baru di nomor ini
+                            </button>
+
+                            {{-- Form tambah pasien baru (inline, bisa diulang) --}}
+                            <div id="addPatientForm" class="add-patient-form" style="display:none;">
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label>Nama Lengkap <span class="required">*</span></label>
+                                        <input type="text" id="apName" class="form-control" placeholder="Nama pasien">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Pasien ini adalah</label>
+                                        <select id="apRelasi" class="form-control">
+                                            <option value="diri_sendiri">Diri sendiri</option>
+                                            <option value="pasangan">Pasangan (suami/istri)</option>
+                                            <option value="anak" selected>Anak</option>
+                                            <option value="orang_tua">Orang tua</option>
+                                            <option value="lainnya">Lainnya</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label>Jenis Kelamin <span class="required">*</span></label>
+                                        <select id="apJk" class="form-control">
+                                            <option value="">-- Pilih --</option>
+                                            <option value="L">Laki-laki</option>
+                                            <option value="P">Perempuan</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Tanggal Lahir <span class="required">*</span></label>
+                                        <input type="text" id="apTgl" class="form-control"
+                                            placeholder="Pilih tanggal lahir" readonly>
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label>Email <span style="color:#8b7a6b;font-weight:400;font-size:0.75rem;text-transform:none">(opsional)</span></label>
+                                        <input type="email" id="apEmail" class="form-control" placeholder="email@contoh.com">
+                                    </div>
+                                </div>
+                                <div style="display:flex;gap:8px;">
+                                    <button type="button" class="btn-submit" style="flex:1" onclick="RES.commitAddPatient()">
+                                        <i class="fa-solid fa-check"></i> Tambahkan pasien
+                                    </button>
+                                    <button type="button" class="btn-cancel-add" onclick="RES.toggleAddForm(false)">Batal</button>
+                                </div>
+                                <div id="apStatus" style="margin-top:6px;font-size:0.82rem;"></div>
+                            </div>
+
+                            <div class="form-group" style="margin-top:18px;">
+                                <label>Kode Promo <span style="color:#8b7a6b;font-weight:400;font-size:0.75rem;text-transform:none">(opsional, berlaku semua pasien)</span></label>
                                 <div style="display:flex;gap:8px;align-items:center">
-                                    <input type="text" name="promo_code" id="promoInputLama" class="form-control"
-                                    style="text-transform:uppercase">
-                                    <button type="button" onclick="checkPromoLama()"
-                                        id="checkPromoBtnLama"
+                                    <input type="text" name="promo_code" id="promoInput" class="form-control" style="text-transform:uppercase">
+                                    <button type="button" id="checkPromoBtn" onclick="checkPromo()"
                                         style="background:#461500;color:white;border:none;border-radius:8px;padding:14px 18px;font-size:0.85rem;font-family:'Montserrat',sans-serif;font-weight:700;cursor:pointer;white-space:nowrap">
                                         Cek
                                     </button>
                                 </div>
-                                <div id="promoStatusLama" style="margin-top:6px;font-size:0.82rem"></div>
-                                <input type="hidden" name="promo_id" id="promoIdInputLama" value="">
+                                <div id="promoStatus" style="margin-top:6px;font-size:0.82rem"></div>
                             </div>
                         </div>
 
-                        {{-- Hidden fields untuk data pasien lama yang dikirim ke server --}}
-                        <input type="hidden" name="existing_customer_id" id="existingCustomerId" value="">
-                        <input type="hidden" name="patient_type" id="patientTypeInput" value="">
+                        {{-- Hidden global fields untuk server (patients[] di-inject saat submit) --}}
+                        <input type="hidden" name="phone" id="phoneInput" value="">
+                        <input type="hidden" name="default_start" id="defaultStartInput" value="">
+                        <input type="hidden" name="promo_id" id="promoIdInput" value="">
+                        <div id="patientsHiddenWrap"></div>
 
                         <button type="button" class="btn-submit" id="previewBtn" disabled onclick="showPreview()">
                             <i class="fa-solid fa-eye"></i> Preview Reservasi
@@ -601,7 +653,7 @@
                             <i class="fa-solid fa-shield-halved"></i>
                             Tim kami akan menghubungi kamu untuk konfirmasi jadwal via WhatsApp
                         </p>
-            
+
                     </div>
 
                 </form>
@@ -628,6 +680,7 @@
 
     <script>
     let activeCategory = null;
+    let effectiveDuration = 0; // durasi dari server (override per-dokter), 0 = fallback ke data-duration service
 
     $(function () {
         const BASE = '/api/reservation';
@@ -638,12 +691,14 @@
         let currentMonthIndex = 0;
 
             const categoryIcons = {
+                'behel'      : 'fa-solid fa-teeth',
                 'estetika'   : 'fa-solid fa-star',
                 'standar'    : 'fa-solid fa-tooth',
                 'pembedahan' : 'fa-solid fa-syringe',
                 'lainnya'    : 'fa-solid fa-ellipsis',
             };
             const categoryLabels = {
+                'behel'      : 'Behel',
                 'estetika'   : 'Estetika',
                 'standar'    : 'Perawatan Standar',
                 'pembedahan' : 'Pembedahan',
@@ -651,7 +706,7 @@
             };
 
             function buildCategoryButtons(data) {
-                const fixedOrder = ['estetika', 'standar', 'pembedahan', 'lainnya'];
+                const fixedOrder = ['behel', 'estetika', 'standar', 'pembedahan', 'lainnya'];
                 const extraCategories = [...new Set(data.map(s => s.category).filter(Boolean))]
                     .filter(cat => !fixedOrder.includes(cat));
                 const allCategories = [...fixedOrder, ...extraCategories];
@@ -659,7 +714,8 @@
                 allCategories.forEach(function (cat) {
                     const icon  = categoryIcons[cat]  || 'fa-solid fa-circle-dot';
                     const label = categoryLabels[cat] || cat.charAt(0).toUpperCase() + cat.slice(1);
-                    html += `<button type="button" class="category-btn" data-category="${cat}">
+                    const featured = cat === 'behel' ? ' category-featured' : '';
+                    html += `<button type="button" class="category-btn${featured}" data-category="${cat}">
                         <span class="category-icon"><i class="${icon}"></i></span>
                         <span>${label}</span>
                     </button>`;
@@ -677,8 +733,7 @@
                 return v ? decodeURIComponent(v.pop()) : '';
             }
 
-            if (getCookie('st_name'))  $('#nameInput').val(getCookie('st_name'));
-            if (getCookie('st_phone')) $('#phoneInput').val(getCookie('st_phone'));
+            if (getCookie('st_phone')) $('#phoneCheckInput').val(getCookie('st_phone'));
 
             function setStep(num) {
                 $('.step').each(function () {
@@ -693,6 +748,9 @@
                 let total = 0;
                 if (activeCategory === 'lainnya') {
                     total = 30;
+                } else if (effectiveDuration > 0) {
+                    // Prioritas: durasi efektif dari server (sudah perhitungkan override per-dokter)
+                    total = effectiveDuration;
                 } else {
                     $('input[name="services[]"]:checked').each(function () {
                         total += parseInt($(this).data('duration')) || 0;
@@ -717,6 +775,10 @@
             function resetFrom(section) {
                 const order = ['service','doctor','date','slot','customer'];
                 const idx   = order.indexOf(section);
+                // Durasi efektif hanya valid setelah doctor + slot diambil. Reset kalau user mundur sebelum itu.
+                if (idx <= order.indexOf('slot')) {
+                    effectiveDuration = 0;
+                }
                 for (let i = idx; i < order.length; i++) {
                     const s = order[i];
                     $('#' + s + 'Section').removeClass('visible');
@@ -732,28 +794,22 @@
                     if (s === 'date')   { $('#dateGrid').empty(); $('#reservationDate').val(''); selectedDate = null; allDates = []; }
                     if (s === 'slot')   { $('#slotsGrid').empty(); $('#reservationTime').val(''); selectedTime = null; }
                     if (s === 'customer') {
-                        // STEP 3: reset pilihan tipe pasien juga
-                        resetPatientType();
+                        // Reset panel daftar pasien (model 1-nomor-banyak-pasien)
+                        if (window.RES) RES.resetPanel();
                     }
                 }
                 $('#durationSummary').removeClass('visible');
                 $('#previewBtn').prop('disabled', true);
             }
 
-            function resetPatientType() {
-                $('#btnPasienBaru, #btnPasienLama').removeClass('active');
-                $('#pasienBaruArea, #pasienLamaArea, #pasienLamaPromoArea').removeClass('visible');
-                $('#patientTypeInput').val('');
-                $('#existingCustomerId').val('');
-                // Reset form pasien baru
-                $('#nameInput, #phoneInput, #emailInput').val('');
-                $('#jenisKelaminInput').val('');
-                $('#tanggalLahirInput').val('');
-                // Reset form pasien lama
-                $('#phoneCheckInput').val('');
-                $('#phoneCheckStatus').html('');
-                $('#pasienLamaForm').hide();
-                $('#namaLama, #phoneLama, #emailLama, #jenisKelaminLama, #tanggalLahirLama').val('');
+            function scrollToSection(id, delay) {
+                setTimeout(function () {
+                    const el = document.getElementById(id);
+                    if (!el) return;
+                    const offset = window.innerWidth < 640 ? 76 : 24;
+                    const top = el.getBoundingClientRect().top + window.pageYOffset - offset;
+                    window.scrollTo({ top, behavior: 'smooth' });
+                }, delay || 80);
             }
 
             function renderMonthDates() {
@@ -819,6 +875,7 @@
                 $('#lainnyaText').val('');
                 resetFrom('doctor');
                 $('#serviceListArea').addClass('visible');
+                scrollToSection('serviceListArea', 60);
                 if (category === 'lainnya') {
                     $('#servicesSelectGrid').hide();
                     $('#lainnyaInputArea').addClass('visible');
@@ -840,10 +897,11 @@
                     firstServiceId = checked.first().val();
                 }
                 if (!serviceOk) { resetFrom('doctor'); setStep(2); updateDurationSummary(); return; }
-                updateDurationSummary();
                 resetFrom('doctor');
+                updateDurationSummary();
                 setStep(3);
                 $('#doctorSection').addClass('visible');
+                scrollToSection('doctorSection');
                 $('#doctorGrid').html('<div class="loading"><i class="fa-solid fa-spinner"></i> Memuat dokter...</div>');
                 if (activeCategory === 'lainnya') {
                     const firstSvc = servicesData[0];
@@ -877,12 +935,20 @@
             $(document).on('change', '.service-select-check', function () { checkServiceSelected(); });
             $(document).on('input', '#lainnyaText', function () { checkServiceSelected(); checkSubmit(); });
 
+            $(document).on('click', '.branch-card', function () {
+                const $card = $(this);
+                $('.branch-card').removeClass('active');
+                $card.addClass('active');
+                $('#branchSelect').val($card.data('id')).trigger('change');
+            });
+
             $('#branchSelect').on('change', function () {
                 const branchId = $(this).val();
                 resetFrom('service');
                 if (!branchId) { setStep(1); return; }
                 setStep(2);
                 $('#serviceSection').addClass('visible');
+                scrollToSection('serviceSection');
                 $.getJSON(BASE + '/services', function (data) {
                     servicesData = data;
                     buildCategoryButtons(data);
@@ -899,6 +965,7 @@
                 if (!doctorId) { setStep(3); return; }
                 setStep(4);
                 $('#dateSection').addClass('visible');
+                scrollToSection('dateSection');
                 $('#dateGrid').html('<div class="loading"><i class="fa-solid fa-spinner"></i> Memuat jadwal...</div>');
                 $.getJSON(BASE + '/dates/' + branchId + '/' + doctorId, function (data) {
                     if (data.length === 0) { $('#dateGrid').html('<div class="empty-state"><i class="fa-regular fa-calendar-xmark"></i> Tidak ada jadwal tersedia</div>'); return; }
@@ -909,25 +976,106 @@
             $(document).on('click', '.date-pill', function () {
                 const date = $(this).data('date');
                 const branchId = $('#branchSelect').val(), doctorId = $('#doctorValue').val();
+                const serviceId = $('input[name="services[]"]:checked').val() || '';
                 resetFrom('slot');
                 $('.date-pill').removeClass('selected');
                 $(this).addClass('selected');
                 selectedDate = date;
                 $('#reservationDate').val(date);
                 $('#slotSection').addClass('visible');
+                scrollToSection('slotSection');
                 $('#slotsGrid').html('<div class="loading"><i class="fa-solid fa-spinner"></i> Memuat slot waktu...</div>');
-                $.getJSON(BASE + '/slots/' + branchId + '/' + doctorId + '/' + date, function (data) {
-                    if (!data.slots || data.slots.length === 0) { $('#slotsGrid').html('<div class="empty-state"><i class="fa-regular fa-clock"></i> Tidak ada slot tersedia</div>'); return; }
-                    let html = '';
-                    data.slots.forEach(function (slot) {
-                        let cls = 'slot', statusText = 'Tersedia';
-                        if (slot.is_booked) { cls += ' booked'; statusText = 'Terisi'; }
-                        else if (slot.is_past) { cls += ' past'; statusText = 'Lewat'; }
-                        html += '<div class="' + cls + '" data-time="' + slot.time + '" data-end="' + slot.end_time + '">';
-                        html += '<div>' + slot.label + '</div><div class="slot-status">' + statusText + '</div></div>';
+
+                const url = BASE + '/slots/' + branchId + '/' + doctorId + '/' + date
+                          + (serviceId ? ('?service_id=' + encodeURIComponent(serviceId)) : '');
+
+                $.getJSON(url, function (data) {
+                    if (!data.slots || data.slots.length === 0) {
+                        $('#slotsGrid').html('<div class="empty-state"><i class="fa-regular fa-clock"></i> Tidak ada slot tersedia</div>');
+                        return;
+                    }
+
+                    // Update durasi dari server (authoritative, sudah pertimbangkan override per dokter)
+                    if (data.slot_interval) {
+                        effectiveDuration = parseInt(data.slot_interval) || 0;
+                        updateDurationSummary();
+                    }
+
+                    $('#slotsGrid').html(renderSlotSessions(data.sessions || {}));
+
+                    // Auto-expand: sesi pertama yang punya slot tersedia; kalau tak ada, sesi pertama yg punya slot sama sekali
+                    const $sessions = $('#slotsGrid .slot-session');
+                    let expanded = false;
+                    $sessions.each(function () {
+                        const avail = parseInt($(this).data('available')) || 0;
+                        if (!expanded && avail > 0) {
+                            $(this).attr('aria-expanded', 'true');
+                            expanded = true;
+                        } else {
+                            $(this).attr('aria-expanded', 'false');
+                        }
                     });
-                    $('#slotsGrid').html(html);
+                    if (!expanded && $sessions.length) {
+                        $sessions.first().attr('aria-expanded', 'true');
+                    }
                 });
+            });
+
+            function renderSlotSessions(sessions) {
+                const order = ['pagi', 'siang', 'sore'];
+                let html = '';
+                order.forEach(function (key) {
+                    const sess = sessions[key];
+                    if (!sess) return;
+                    const slots = sess.slots || [];
+                    const availCount = sess.available_count || 0;
+                    const totalCount = sess.total_count || 0;
+                    const isEmpty = totalCount === 0;
+                    const isFull = !isEmpty && availCount === 0;
+
+                    const badgeText = isEmpty
+                        ? 'Tidak ada jadwal'
+                        : (isFull ? 'Penuh' : availCount + ' tersedia');
+
+                    html += '<div class="slot-session' + (isEmpty || isFull ? ' empty' : '') + '"'
+                         + ' data-session="' + key + '"'
+                         + ' data-available="' + availCount + '"'
+                         + ' aria-expanded="false">';
+
+                    html += '<button type="button" class="session-header"'
+                          + (isEmpty ? ' disabled' : '') + '>';
+                    html += '<span class="session-title"><span>' + sess.label + '</span>'
+                          + '<span class="session-range">' + sess.range + '</span></span>';
+                    html += '<span style="display:flex;align-items:center;">'
+                          + '<span class="session-count">' + badgeText + '</span>'
+                          + '<i class="fa-solid fa-chevron-down chev"></i></span>';
+                    html += '</button>';
+
+                    if (isEmpty) {
+                        html += '<div class="session-empty-hint">Dokter tidak praktik di sesi ini.</div>';
+                    } else {
+                        html += '<div class="session-slots">';
+                        slots.forEach(function (slot) {
+                            let cls = 'slot', statusText = 'Tersedia';
+                            if (slot.is_booked) { cls += ' booked'; statusText = 'Terisi'; }
+                            else if (slot.is_past) { cls += ' past'; statusText = 'Lewat'; }
+                            html += '<div class="' + cls + '" data-time="' + slot.time + '" data-end="' + slot.end_time + '">';
+                            html += '<div>' + slot.label + '</div><div class="slot-status">' + statusText + '</div></div>';
+                        });
+                        html += '</div>';
+                    }
+
+                    html += '</div>';
+                });
+                return html;
+            }
+
+            // Toggle expand/collapse sesi
+            $(document).on('click', '.session-header', function (e) {
+                const $sess = $(this).closest('.slot-session');
+                if ($(this).is(':disabled')) return;
+                const expanded = $sess.attr('aria-expanded') === 'true';
+                $sess.attr('aria-expanded', expanded ? 'false' : 'true');
             });
 
             $(document).on('click', '.slot:not(.booked):not(.past)', function () {
@@ -938,32 +1086,15 @@
                 updateDurationSummary();
                 setStep(5);
                 $('#customerSection').addClass('visible');
+                scrollToSection('customerSection');
                 checkSubmit();
             });
 
             window.checkSubmit = function () {
-                const patientType = $('#patientTypeInput').val();
-                const promoCode   = $('#promoInput').val().trim();
-                const promoCodeLama = $('#promoInputLama').val().trim();
-
-                let customerOk = false;
-
-                if (patientType === 'baru') {
-                    // Pasien baru: semua field wajib diisi
-                    const promoOk = promoCode === '' || (promoCode !== '' && promoFilled && promoValid);
-                    customerOk = $('#nameInput').val().trim()
-                        && $('#phoneInput').val().trim()
-                        && $('#emailInput').val().trim()
-                        && $('#jenisKelaminInput').val()
-                        && $('#tanggalLahirInput').val()
-                        && promoOk;
-                    if (promoCode !== '' && !promoFilled) {
-                        $('#promoStatus').html('<span style="color:#f59e0b">⚠️ Klik "Cek" untuk validasi kode promo</span>');
-                    }
-                } else if (patientType === 'lama') {
-                    // Pasien lama: cukup cek customer ID sudah ada (dari hasil cek HP)
-                    const promoLamaOk = promoCodeLama === '' || (promoCodeLama !== '' && promoFilledLama && promoValidLama);
-                    customerOk = $('#existingCustomerId').val() !== '' && promoLamaOk;
+                const promoCode = $('#promoInput').val().trim();
+                const promoOk   = promoCode === '' || (promoFilled && promoValid);
+                if (promoCode !== '' && !promoFilled) {
+                    $('#promoStatus').html('<span style="color:#f59e0b">⚠️ Klik "Cek" untuk validasi kode promo</span>');
                 }
 
                 let serviceOk = false;
@@ -973,18 +1104,19 @@
                     serviceOk = $('input[name="services[]"]:checked').length > 0;
                 }
 
+                // Minimal 1 pasien terpilih/ditambah (model 1-nomor-banyak-pasien).
+                const patientOk = window.RES && RES.selectedCount() > 0;
+
                 const ok = serviceOk
                     && $('#doctorValue').val()
                     && $('#reservationDate').val()
                     && $('#reservationTime').val()
                     && $('#branchSelect').val()
-                    && customerOk;
+                    && patientOk
+                    && promoOk;
 
                 $('#previewBtn').prop('disabled', !ok);
             };
-
-            $('#nameInput, #phoneInput, #emailInput').on('input', function () { checkSubmit(); });
-            $('#jenisKelaminInput, #tanggalLahirInput').on('change', function () { checkSubmit(); });
 
             // URL param preselect cabang
             const urlParams = new URLSearchParams(window.location.search);
@@ -1000,7 +1132,7 @@
                     }
                 });
                 if (matchedId) {
-                    $('#branchSelect').hide();
+                    $('#branchGrid').hide();
                     $('#branchLocked').html('<i class="fa-solid fa-location-dot" style="color:#461500;margin-right:6px"></i>' + matchedName).show();
                     setStep(2);
                     resetFrom('service');
@@ -1013,76 +1145,254 @@
             }
         });
 
-        function selectPatientType(type) {
-            $('#patientTypeInput').val(type);
-            $('#btnPasienBaru, #btnPasienLama').removeClass('active');
-            $('#pasienBaruArea, #pasienLamaArea, #pasienLamaPromoArea').removeClass('visible');
+        /* ───────── Modul Multi-Pasien (1 nomor → banyak pasien) ───────── */
+        const RELASI_LABEL = { diri_sendiri:'Diri sendiri', pasangan:'Pasangan', anak:'Anak', orang_tua:'Orang tua', lainnya:'Lainnya' };
+        function escapeHtml(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
 
-            if (type === 'baru') {
-                $('#btnPasienBaru').addClass('active');
-                $('#pasienBaruArea').addClass('visible');
-            } else {
-                $('#btnPasienLama').addClass('active');
-                $('#pasienLamaArea').addClass('visible');
-            }
-            checkSubmit();
-        }
+        window.RES = {
+            phone:'', existing:[], sel:{}, newp:[], seq:0, doctors:[], services:[], _t:null,
 
-        function cekNomorHP() {
-            const phone = $('#phoneCheckInput').val().trim();
-            if (!phone) {
-                $('#phoneCheckStatus').html('<div class="not-found-alert"><i class="fa-solid fa-circle-exclamation"></i> Masukkan nomor HP terlebih dahulu</div>');
-                return;
-            }
+            defaults() {
+                const sids = $('input[name="services[]"]:checked').map(function(){return $(this).val();}).get();
+                return {
+                    branchId:   $('#branchSelect').val(),
+                    date:       $('#reservationDate').val(),
+                    start:      $('#reservationTime').val(),
+                    doctorId:   $('#doctorValue').val(),
+                    doctorName: $('.doctor-card.selected').data('name') || '-',
+                    serviceIds: sids,
+                    lainnya:    (typeof activeCategory !== 'undefined' && activeCategory === 'lainnya'),
+                    lainnyaText:$('#lainnyaText').val().trim()
+                };
+            },
 
-            // Loading state
-            $('#btnCekHP').text('Mengecek...').prop('disabled', true);
-            $('#phoneCheckStatus').html('<div style="color:#8b7a6b;font-size:0.85rem;padding:8px 0"><i class="fa-solid fa-spinner fa-spin"></i> Mencari data...</div>');
+            selectedCount() { return Object.keys(this.sel).length + this.newp.length; },
 
-            $.get('/api/reservation/check-customer', { phone: phone }, function (res) {
-                if (res.found) {
-                    // Pasien ditemukan → isi form read-only
-                    $('#existingCustomerId').val(res.customer_id);
-                    $('#namaLama').val(res.name);
-                    $('#phoneLama').val(res.phone);
-                    $('#emailLama').val('-');
-                    $('#jenisKelaminLama').val('-');
-                    $('#tanggalLahirLama').val('-');
+            resetPanel() {
+                this.phone=''; this.existing=[]; this.sel={}; this.newp=[]; this.seq=0;
+                $('#phoneCheckInput').val(''); $('#phoneCheckStatus').html('');
+                $('#patientPanel').hide(); $('#patientList').html('');
+                $('#patientsHiddenWrap').empty(); this.toggleAddForm(false);
+                if (window.checkSubmit) checkSubmit();
+            },
 
-                    $('#phoneCheckStatus').html(
-                        '<div class="found-alert"><i class="fa-solid fa-circle-check"></i> Data ditemukan! Silakan periksa data di bawah.</div>'
-                    );
-                    $('#pasienLamaForm').show();
-                    // Tampilkan juga field promo untuk pasien lama
-                    $('#pasienLamaPromoArea').addClass('visible');
-                } else {
-                    // Tidak ditemukan
-                    $('#existingCustomerId').val('');
-                    $('#pasienLamaForm').hide();
-                    $('#pasienLamaPromoArea').removeClass('visible');
-                    $('#phoneCheckStatus').html(
-                        '<div class="not-found-alert"><i class="fa-solid fa-circle-exclamation"></i> ' + res.message + '</div>'
-                    );
+            check() {
+                const phone = $('#phoneCheckInput').val().trim();
+                if (!phone) { $('#phoneCheckStatus').html('<div class="not-found-alert"><i class="fa-solid fa-circle-exclamation"></i> Masukkan nomor HP terlebih dahulu</div>'); return; }
+                const d = this.defaults();
+                if (!d.branchId || !d.doctorId || !d.date || !d.start) {
+                    $('#phoneCheckStatus').html('<div class="not-found-alert"><i class="fa-solid fa-circle-exclamation"></i> Lengkapi cabang, perawatan, dokter, tanggal & jam dulu.</div>'); return;
                 }
-                checkSubmit();
-            }).fail(function () {
-                $('#phoneCheckStatus').html('<div class="not-found-alert"><i class="fa-solid fa-circle-exclamation"></i> Gagal menghubungi server, coba lagi.</div>');
-                checkSubmit();
-            }).always(function () {
-                $('#btnCekHP').text('Cek').prop('disabled', false);
-            });
-        }
+                const self = this;
+                $('#btnCekHP').text('Mengecek...').prop('disabled', true);
+                $('#phoneCheckStatus').html('<div style="color:#8b7a6b;font-size:0.85rem;padding:8px 0"><i class="fa-solid fa-spinner fa-spin"></i> Mencari data...</div>');
+                if (!self.doctors.length) $.getJSON('/api/reservation/doctors/' + d.branchId, function(x){ self.doctors = x || []; });
+                if (!self.services.length) $.getJSON('/api/reservation/services', function(x){ self.services = x || []; });
 
-        // Reset state jika nomor HP diubah setelah dicek
+                $.get('/api/reservation/check-customer', { phone: phone }, function (res) {
+                    self.phone = phone; self.sel = {}; self.newp = []; self.seq = 0;
+                    self.existing = (res.found && res.patients) ? res.patients : [];
+                    $('#phoneCheckStatus').html(
+                        '<div class="found-alert"><i class="fa-solid fa-circle-check"></i> ' +
+                        (self.existing.length ? 'Nomor ditemukan. Centang pasien yang ikut, atau tambah pasien baru.' : 'Nomor baru. Tambahkan data pasien di bawah.') +
+                        '</div>'
+                    );
+                    $('#patientPanel').show();
+                    self.render();
+                    if (!self.existing.length) self.toggleAddForm(true);
+                }).fail(function () {
+                    $('#phoneCheckStatus').html('<div class="not-found-alert"><i class="fa-solid fa-circle-exclamation"></i> Gagal menghubungi server, coba lagi.</div>');
+                }).always(function () {
+                    $('#btnCekHP').text('Cek').prop('disabled', false);
+                });
+            },
+
+            toggleAddForm(show) {
+                if (show) { $('#addPatientForm').slideDown(120); $('#addPatientBtn').hide(); $('#apName').focus(); }
+                else { $('#addPatientForm').slideUp(120); $('#addPatientBtn').show(); $('#apStatus').html(''); $('#apName,#apEmail,#apTgl').val(''); $('#apJk').val(''); $('#apRelasi').val('anak'); }
+            },
+
+            commitAddPatient() {
+                const name = $('#apName').val().trim(), jk = $('#apJk').val(), tgl = $('#apTgl').val();
+                if (!name) { $('#apStatus').html('<span style="color:#dc2626">Nama wajib diisi.</span>'); return; }
+                if (!jk)   { $('#apStatus').html('<span style="color:#dc2626">Jenis kelamin wajib dipilih.</span>'); return; }
+                if (!tgl)  { $('#apStatus').html('<span style="color:#dc2626">Tanggal lahir wajib diisi.</span>'); return; }
+                this.newp.push({ key:'n'+(++this.seq), name:name, relasi:$('#apRelasi').val(), jk:jk, tgl:tgl,
+                    email:$('#apEmail').val().trim(), ov:false, doctorId:null, serviceIds:null, lainnya:null, slot:null });
+                this.toggleAddForm(false); this.render(); this.recompute();
+            },
+
+            removeNew(key) { this.newp = this.newp.filter(function(p){return p.key!==key;}); this.render(); this.recompute(); },
+
+            toggleExisting(cid, on) {
+                if (on) this.sel[cid] = { ov:false, doctorId:null, serviceIds:null, lainnya:null, slot:null };
+                else delete this.sel[cid];
+                this.render(); this.recompute();
+            },
+
+            entry(kind, id) { return kind==='e' ? this.sel[id] : this.newp.find(function(p){return p.key===id;}); },
+
+            toggleOverride(kind, id) {
+                const e = this.entry(kind, id); if (!e) return;
+                e.ov = !e.ov;
+                if (e.ov && e.doctorId === null) { const d=this.defaults(); e.doctorId=d.doctorId; e.serviceIds=d.serviceIds.slice(); e.lainnya=d.lainnya; }
+                this.render(); this.recompute();
+            },
+
+            setOverride(kind, id, field, val) {
+                const e = this.entry(kind, id); if (!e) return;
+                if (field==='doctor')   e.doctorId  = val;
+                if (field==='services') { e.serviceIds = val; e.lainnya = false; }
+                this.recompute();
+            },
+
+            payload() {
+                const d = this.defaults(), list = [], self = this;
+                this.existing.forEach(function(p){
+                    const e = self.sel[p.customer_id]; if (!e) return;
+                    list.push({ key:'e:'+p.customer_id, doctor_id:e.ov?e.doctorId:d.doctorId,
+                        services:e.ov?(e.serviceIds||[]):d.serviceIds, lainnya:e.ov?!!e.lainnya:d.lainnya });
+                });
+                this.newp.forEach(function(p){
+                    list.push({ key:'n:'+p.key, doctor_id:p.ov?p.doctorId:d.doctorId,
+                        services:p.ov?(p.serviceIds||[]):d.serviceIds, lainnya:p.ov?!!p.lainnya:d.lainnya });
+                });
+                return { branch_id:d.branchId, date:d.date, default_start:d.start, patients:list, _token:$('input[name=_token]').val() };
+            },
+
+            recompute() {
+                if (window.checkSubmit) checkSubmit();
+                if (this.selectedCount()===0) return;
+                const self = this;
+                clearTimeout(this._t);
+                this._t = setTimeout(function(){
+                    $.ajax({ url:'/api/reservation/plan-schedule', method:'POST', data:self.payload() })
+                    .done(function(res){
+                        const map = {};
+                        (res.patients||[]).forEach(function(a){ map[a.key]=a; });
+                        self.renderTimes(map);
+                    });
+                }, 250);
+            },
+
+            renderTimes(map) {
+                const self = this;
+                this.existing.forEach(function(p){ const e=self.sel[p.customer_id]; if(e) e.slot = map['e:'+p.customer_id]||null; });
+                this.newp.forEach(function(p){ p.slot = map['n:'+p.key]||null; });
+                $('#patientList .pc-time').each(function(){ $(this).html(self.timeHtml(map[$(this).data('k')])); });
+            },
+
+            timeHtml(a) {
+                if (!a) return '<span class="pc-pending">menghitung…</span>';
+                if (a.waiting) return '<span class="pc-wait">⏳ ' + escapeHtml(a.reason||'Tim akan konfirmasi jam') + '</span>';
+                return '<span class="pc-ok"><i class="fa-solid fa-clock"></i> ' + a.start + '–' + a.end + '</span>';
+            },
+
+            overrideHtml(kind, id, e) {
+                const d = this.defaults();
+                const docId = e.ov ? (e.doctorId||d.doctorId) : d.doctorId;
+                let docs = '<option value="">- pilih dokter -</option>';
+                this.doctors.forEach(function(x){ docs += '<option value="'+x.id+'"'+(x.id===docId?' selected':'')+'>'+escapeHtml(x.name)+'</option>'; });
+                const selSvc = (e.ov ? (e.serviceIds||[]) : d.serviceIds).map(String);
+                const gridId = 'ovsvc_' + kind + '_' + id;
+                let svc = '';
+                this.services.forEach(function(x){
+                    const sid = String(x.id);
+                    const chkId = gridId + '_' + sid;
+                    const checked = selSvc.indexOf(sid) > -1 ? ' checked' : '';
+                    svc += '<div class="pc-svc-chk">'
+                        + '<label for="'+chkId+'">'
+                        + '<input type="checkbox" id="'+chkId+'" value="'+sid+'"'+checked
+                        + ' onchange="RES.collectOvSvc(\''+kind+'\',\''+id+'\')">'
+                        + '<span class="pc-svc-name">'+escapeHtml(x.name)+'</span></label>'
+                        + '</div>';
+                });
+                return '<div class="pc-override">'
+                    + '<label>Dokter<select class="form-control" onchange="RES.setOverride(\''+kind+'\',\''+id+'\',\'doctor\',this.value)">'+docs+'</select></label>'
+                    + '<div class="pc-override-svc">'
+                    +   '<span class="pc-svc-title">Perawatan <small>(bisa pilih &gt;1)</small></span>'
+                    +   '<div class="pc-override-services" id="'+gridId+'">'+svc+'</div>'
+                    + '</div>'
+                    + '</div>';
+            },
+
+            collectOvSvc(kind, id) {
+                const gridId = 'ovsvc_' + kind + '_' + id;
+                const arr = $('#' + gridId + ' input[type=checkbox]:checked').map(function(){ return $(this).val(); }).get();
+                this.setOverride(kind, id, 'services', arr);
+            },
+
+            render() {
+                const self = this; let h = '';
+                this.existing.forEach(function(p){
+                    const on = !!self.sel[p.customer_id];
+                    const rel = RELASI_LABEL[p.relasi] || 'Pasien';
+                    const dob = p.tanggal_lahir ? ' · ' + p.tanggal_lahir : '';
+                    h += '<div class="pc-row">'
+                      + '<label class="pc-head"><input type="checkbox" '+(on?'checked':'')+' onclick="RES.toggleExisting(\''+p.customer_id+'\',this.checked)">'
+                      + '<span><strong>'+escapeHtml(p.name)+'</strong><small> ('+rel+dob+')</small></span></label>';
+                    if (on) {
+                        const e = self.sel[p.customer_id];
+                        h += '<div class="pc-meta"><span class="pc-time" data-k="e:'+p.customer_id+'">'+self.timeHtml(e.slot)+'</span>'
+                          + '<a href="#" onclick="event.preventDefault();RES.toggleOverride(\'e\',\''+p.customer_id+'\')">'+(e.ov?'Pakai default':'Ubah perawatan/dokter')+'</a></div>';
+                        if (e.ov) h += self.overrideHtml('e', p.customer_id, e);
+                    }
+                    h += '</div>';
+                });
+                this.newp.forEach(function(p){
+                    const rel = RELASI_LABEL[p.relasi] || 'Pasien';
+                    h += '<div class="pc-row pc-new">'
+                      + '<div class="pc-head"><span><strong>'+escapeHtml(p.name)+'</strong> <small class="pc-badge">BARU</small> <small>('+rel+(p.tgl?' · '+p.tgl:'')+')</small></span>'
+                      + '<a href="#" class="pc-remove" onclick="event.preventDefault();RES.removeNew(\''+p.key+'\')">&times;</a></div>'
+                      + '<div class="pc-meta"><span class="pc-time" data-k="n:'+p.key+'">'+self.timeHtml(p.slot)+'</span>'
+                      + '<a href="#" onclick="event.preventDefault();RES.toggleOverride(\'n\',\''+p.key+'\')">'+(p.ov?'Pakai default':'Ubah perawatan/dokter')+'</a></div>';
+                    if (p.ov) h += self.overrideHtml('n', p.key, p);
+                    h += '</div>';
+                });
+                if (!h) h = '<div class="pc-empty">Belum ada pasien dipilih. Centang pasien atau “Tambah pasien baru di nomor ini”.</div>';
+                $('#patientList').html(h);
+                if (window.checkSubmit) checkSubmit();
+            },
+
+            injectAndSubmit() {
+                const d = this.defaults(), self = this;
+                const wrap = $('#patientsHiddenWrap').empty();
+                let i = 0;
+                const add = function(n,v){ wrap.append($('<input type="hidden">').attr('name','patients['+i+']['+n+']').val(v)); };
+                const addSvc = function(arr){ (arr||[]).forEach(function(s){ wrap.append($('<input type="hidden">').attr('name','patients['+i+'][services][]').val(s)); }); };
+
+                this.existing.forEach(function(p){
+                    const e = self.sel[p.customer_id]; if (!e) return;
+                    add('type','existing'); add('existing_customer_id', p.customer_id);
+                    add('raw_doctor_id', e.ov?e.doctorId:d.doctorId);
+                    if (e.ov ? e.lainnya : d.lainnya) add('lainnya_text', d.lainnyaText || 'Konsultasi');
+                    else addSvc(e.ov?(e.serviceIds||[]):d.serviceIds);
+                    i++;
+                });
+                this.newp.forEach(function(p){
+                    add('type','new'); add('name',p.name); add('relasi',p.relasi);
+                    add('jenis_kelamin',p.jk); add('tanggal_lahir',p.tgl); add('email',p.email||'');
+                    add('raw_doctor_id', p.ov?p.doctorId:d.doctorId);
+                    if (p.ov ? p.lainnya : d.lainnya) add('lainnya_text', d.lainnyaText || 'Konsultasi');
+                    else addSvc(p.ov?(p.serviceIds||[]):d.serviceIds);
+                    i++;
+                });
+
+                $('#phoneInput').val(self.phone);
+                $('#defaultStartInput').val(d.start);
+                $('#reservationForm').submit();
+            }
+        };
+
+        function cekNomorHP() { RES.check(); }
         function resetPhoneCheck() {
-            $('#existingCustomerId').val('');
-            $('#phoneCheckStatus').html('');
-            $('#pasienLamaForm').hide();
-            $('#pasienLamaPromoArea').removeClass('visible');
-            checkSubmit();
+            RES.phone=''; RES.existing=[]; RES.sel={}; RES.newp=[];
+            $('#phoneCheckStatus').html(''); $('#patientPanel').hide(); $('#patientList').html('');
+            RES.toggleAddForm(false);
+            if (window.checkSubmit) checkSubmit();
         }
 
-        // Promo untuk pasien baru
+        /* Promo: 1 kode, berlaku semua pasien */
         let promoValid = false, promoFilled = false;
         window.checkPromo = function () {
             const code = $('#promoInput').val().trim().toUpperCase();
@@ -1097,6 +1407,7 @@
                     $('#promoStatus').html('<span style="color:#16a34a;font-weight:600">' + msg + '</span>');
                 } else {
                     promoValid = false; promoFilled = true;
+                    $('#promoIdInput').val('');
                     $('#promoStatus').html('<span style="color:#dc2626">❌ ' + res.message + '</span>');
                 }
                 checkSubmit();
@@ -1112,96 +1423,31 @@
             checkSubmit();
         });
 
-        // Promo untuk pasien lama
-        let promoValidLama = false, promoFilledLama = false;
-        window.checkPromoLama = function () {
-            const code = $('#promoInputLama').val().trim().toUpperCase();
-            if (!code) { $('#promoStatusLama').html('<span style="color:#dc2626">⚠️ Masukkan kode promo terlebih dahulu</span>'); return; }
-            $('#checkPromoBtnLama').text('Mengecek...').prop('disabled', true);
-            $.get('/api/promo/validate', { code: code }, function (res) {
-                if (res.valid) {
-                    promoValidLama = true; promoFilledLama = true;
-                    $('#promoIdInputLama').val(res.promo_id ?? '');
-                    let msg = '✅ ' + res.message;
-                    msg += res.valid_until ? ' <span style="color:#6b7280;font-weight:500">· Berlaku s/d ' + res.valid_until + '</span>' : ' <span style="color:#6b7280;font-weight:500">· Berlaku selamanya</span>';
-                    $('#promoStatusLama').html('<span style="color:#16a34a;font-weight:600">' + msg + '</span>');
-                } else {
-                    promoValidLama = false; promoFilledLama = true;
-                    $('#promoStatusLama').html('<span style="color:#dc2626">❌ ' + res.message + '</span>');
-                }
-                checkSubmit();
-            }).fail(function () {
-                promoValidLama = false;
-                $('#promoStatusLama').html('<span style="color:#dc2626">❌ Gagal mengecek promo</span>');
-                checkSubmit();
-            }).always(function () { $('#checkPromoBtnLama').text('Cek').prop('disabled', false); });
-        };
-        $('#promoInputLama').on('input', function () {
-            promoValidLama = false; promoFilledLama = false;
-            $('#promoIdInputLama').val(''); $('#promoStatusLama').html('');
-            checkSubmit();
-        });
-
         function showPreview() {
+            const d = RES.defaults();
             const branchText = $('#branchSelect option:selected').text();
-            const doctorText = $('.doctor-card.selected').data('name') || '-';
-            const dateText   = $('.date-pill.selected').data('label') || $('#reservationDate').val();
-            const timeText   = $('#reservationTime').val();
-            const patientType = $('#patientTypeInput').val();
+            const dateText   = $('.date-pill.selected').data('label') || d.date;
+            const promoCode  = $('#promoInput').val().trim().toUpperCase();
+            const promoMsg   = promoValid ? $('#promoStatus').text().replace('✅ ', '') : null;
 
-            // Ambil data sesuai tipe pasien
-            let name, phone, email, jenisKel, tglLahir, promoCode, promoMsg;
-            if (patientType === 'lama') {
-                name      = $('#namaLama').val();
-                phone     = $('#phoneLama').val();
-                email     = $('#emailLama').val();
-                jenisKel  = $('#jenisKelaminLama').val();
-                tglLahir  = $('#tanggalLahirLama').val();
-                promoCode = $('#promoInputLama').val().trim().toUpperCase();
-                promoMsg  = promoValidLama ? $('#promoStatusLama').text().replace('✅ ', '') : null;
-            } else {
-                name      = $('#nameInput').val();
-                phone     = $('#phoneInput').val();
-                email     = $('#emailInput').val();
-                jenisKel  = $('#jenisKelaminInput').val() === 'L' ? 'Laki-laki' : 'Perempuan';
-                tglLahir  = $('#tanggalLahirInput').val();
-                promoCode = $('#promoInput').val().trim().toUpperCase();
-                promoMsg  = promoValid ? $('#promoStatus').text().replace('✅ ', '') : null;
+            function svcName(id){ const s=RES.services.find(function(x){return String(x.id)===String(id);}); return s?s.name:id; }
+            function row(label, rel, slot, ov, doctorId, serviceIds, lainnya){
+                const docName = ov ? ((RES.doctors.find(function(x){return x.id===doctorId;})||{}).name || '-') : d.doctorName;
+                const svc = lainnya ? 'Lainnya' : (ov ? (serviceIds||[]).map(svcName).join(', ') : d.serviceIds.map(svcName).join(', '));
+                const t = slot ? (slot.waiting ? '⏳ '+escapeHtml(slot.reason||'tim konfirmasi') : slot.start+'–'+slot.end) : '-';
+                return '<div class="preview-row"><span class="preview-label">'+escapeHtml(label)+'<br><small style="color:#8b7a6b">'+escapeHtml(rel)+'</small></span>'
+                     + '<span class="preview-value">'+escapeHtml(svc)+'<br><small>'+escapeHtml(docName)+' · '+t+'</small></span></div>';
             }
-
-            let svcHtml = '', totalDuration = 0;
-            if (activeCategory === 'lainnya') {
-                const txt = $('#lainnyaText').val().trim();
-                svcHtml = '<div class="svc-item"><span class="svc-name">Lainnya: ' + txt + '</span><span class="svc-detail">~30 menit</span></div>';
-                totalDuration = 30;
-            } else {
-                $('input[name="services[]"]:checked').each(function () {
-                    const n = $(this).data('name'), d = parseInt($(this).data('duration'));
-                    totalDuration += d;
-                    svcHtml += '<div class="svc-item"><span class="svc-name">' + n + '</span><span class="svc-detail">' + d + ' menit</span></div>';
-                });
-            }
-
-            const parts = timeText.split(':');
-            const endMin = parseInt(parts[0]) * 60 + parseInt(parts[1]) + totalDuration;
-            const endH = String(Math.floor(endMin / 60)).padStart(2, '0');
-            const endM = String(endMin % 60).padStart(2, '0');
 
             let html = '';
-            html += '<div class="preview-row"><span class="preview-label">Tipe Pasien</span><span class="preview-value" style="color:' + (patientType === 'lama' ? '#1565c0' : '#2e7d32') + '">' + (patientType === 'lama' ? 'Pasien Lama' : 'Pasien Baru') + '</span></div>';
-            html += '<div class="preview-row"><span class="preview-label">Nama</span><span class="preview-value">' + name + '</span></div>';
-            html += '<div class="preview-row"><span class="preview-label">WhatsApp</span><span class="preview-value">' + phone + '</span></div>';
-            if (email && email !== '-') html += '<div class="preview-row"><span class="preview-label">Email</span><span class="preview-value">' + email + '</span></div>';
-            html += '<div class="preview-row"><span class="preview-label">Jenis Kelamin</span><span class="preview-value">' + jenisKel + '</span></div>';
-            html += '<div class="preview-row"><span class="preview-label">Tanggal Lahir</span><span class="preview-value">' + tglLahir + '</span></div>';
-            if (promoCode && (promoValid || promoValidLama)) { html += '<div class="preview-row"><span class="preview-label">Promo</span><span class="preview-value" style="color:#16a34a;font-weight:600">' + promoCode + ' — ' + promoMsg + '</span></div>'; }
             html += '<div class="preview-row"><span class="preview-label">Cabang</span><span class="preview-value">' + branchText + '</span></div>';
-            html += '<div class="preview-row"><span class="preview-label">Perawatan</span><span class="preview-value"></span></div>';
-            html += '<div class="preview-services">' + svcHtml + '</div>';
-            html += '<div class="preview-row"><span class="preview-label">Dokter</span><span class="preview-value">' + doctorText + '</span></div>';
             html += '<div class="preview-row"><span class="preview-label">Tanggal</span><span class="preview-value">' + dateText + '</span></div>';
-            html += '<div class="preview-row"><span class="preview-label">Jam</span><span class="preview-value">' + timeText + ' — ' + endH + ':' + endM + '</span></div>';
-            html += '<div class="preview-total"><span>Estimasi Durasi</span><span>' + totalDuration + ' menit</span></div>';
+            if (promoCode && promoValid) html += '<div class="preview-row"><span class="preview-label">Promo</span><span class="preview-value" style="color:#16a34a;font-weight:600">' + promoCode + ' — ' + promoMsg + '</span></div>';
+            html += '<div class="preview-row"><span class="preview-label" style="font-weight:700">Pasien (' + RES.selectedCount() + ')</span><span class="preview-value"></span></div>';
+            RES.existing.forEach(function(p){ const e=RES.sel[p.customer_id]; if(!e) return;
+                html += row(p.name, RELASI_LABEL[p.relasi]||'Pasien', e.slot, e.ov, e.doctorId, e.serviceIds, e.ov?e.lainnya:d.lainnya); });
+            RES.newp.forEach(function(p){
+                html += row(p.name+' (baru)', RELASI_LABEL[p.relasi]||'Pasien', p.slot, p.ov, p.doctorId, p.serviceIds, p.ov?p.lainnya:d.lainnya); });
 
             $('#previewBody').html(html);
             $('#previewModal').addClass('show');
@@ -1214,32 +1460,19 @@
             if (btn.disabled) return;
             btn.disabled = true;
             btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Memproses...';
-
-            // Jika pasien lama, salin promo dari field lama ke field utama
-            if ($('#patientTypeInput').val() === 'lama') {
-                $('input[name="promo_code"]').first().val($('#promoInputLama').val());
-                $('input[name="promo_id"]').first().val($('#promoIdInputLama').val());
-            }
-
-            function setCookie(n, v, d) {
-                const dt = new Date();
-                dt.setTime(dt.getTime() + (d * 24 * 60 * 60 * 1000));
-                document.cookie = n + '=' + encodeURIComponent(v) + ';expires=' + dt.toUTCString() + ';path=/';
-            }
-            setCookie('st_name', $('#nameInput').val() || $('#namaLama').val(), 30);
-            setCookie('st_phone', $('#phoneInput').val() || $('#phoneLama').val(), 30);
-            $('#reservationForm').submit();
+            const x = new Date(); x.setTime(x.getTime() + (30*864e5));
+            document.cookie = 'st_phone=' + encodeURIComponent(RES.phone) + ';expires=' + x.toUTCString() + ';path=/';
+            RES.injectAndSubmit();
         }
 
         $(document).on('click', '.modal-overlay', function (e) { if (e.target === this) closePreview(); });
 
-        flatpickr("#tanggalLahirInput", {
+        flatpickr("#apTgl", {
             locale: "id",
             dateFormat: "Y-m-d",
             maxDate: "today",
             yearRange: [1940, new Date().getFullYear() - 1],
-            disableMobile: true,
-            onChange: function () { checkSubmit(); }
+            disableMobile: true
         });
     </script>
 </body>
