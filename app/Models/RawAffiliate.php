@@ -26,9 +26,21 @@ class RawAffiliate extends Model
         'raw_doctor_id',
         'raw_doc_service_id',
         'reward_program',
+        'reward_program_started_at',
         'pin',
         'role',
         'type',
+        'referral_scope',
+        'behel_type',
+        'kol_kategori',
+        'rencana_perawatan',
+        'kol_progress',
+        'kol_status_relasi',
+        'followers_count',
+        'rate_card',
+        'contact_person',
+        'tanggal_approach',
+        'feedback',
         'bank_account_info',
         'commission_rate',
         'is_active',
@@ -38,9 +50,12 @@ class RawAffiliate extends Model
     ];
 
     protected $casts = [
-        'commission_rate' => 'decimal:2',
-        'is_active'       => 'boolean',
-        'created_at'      => 'datetime',
+        'commission_rate'           => 'decimal:2',
+        'is_active'                 => 'boolean',
+        'created_at'                => 'datetime',
+        'reward_program_started_at' => 'datetime',
+        'tanggal_approach'          => 'date',
+        'followers_count'           => 'integer',
     ];
 
     const REG_STATUS_PENDING  = 'pending';
@@ -62,6 +77,74 @@ class RawAffiliate extends Model
             'koc' => 'KOC',
             'kol' => 'KOL',
         ];
+    }
+
+    // ─── Referral Scope (Behel vs Non-Behel) ────────────────────────────
+    const SCOPE_BEHEL     = 'behel';
+    const SCOPE_NON_BEHEL = 'non_behel';
+
+    public static function referralScopes(): array
+    {
+        return [
+            self::SCOPE_BEHEL => [
+                'label'             => 'Pasien Behel',
+                'short'             => 'Behel',
+                'desc'              => 'Untuk pasien yang sudah/sedang menjalani perawatan behel di Sweet Treats. Eligible untuk Program Rewards.',
+                'icon'              => 'fa-tooth',
+                'voucher_amount'    => 100000,  // diskon utk pasien yg pakai kode
+                'commission_amount' => 100000,  // komisi per pasien yg datang
+                'claim_min_patients'=> 5,       // minimal 5 pasien baru untuk klaim 500k komisi
+                'has_reward_program'=> true,
+                'allowed_service_filter' => ['category' => 'behel'],
+            ],
+            self::SCOPE_NON_BEHEL => [
+                'label'             => 'Pasien Perawatan Standar',
+                'short'             => 'Non-Behel',
+                'desc'              => 'Untuk pasien yang ambil perawatan Scaling, Whitening, PSA, atau Veneer. Tanpa program rewards.',
+                'icon'              => 'fa-spa',
+                'voucher_amount'    => 50000,
+                'commission_amount' => 50000,
+                'claim_min_patients'=> 10,      // minimal 10 pasien untuk klaim 500k komisi
+                'has_reward_program'=> false,
+                // Validasi by service NAME (kategori service di DB tidak cukup spesifik):
+                'allowed_service_names' => ['Scaling', 'Whitening', 'PSA (Perawatan Saluran Akar)', 'Veneer'],
+            ],
+        ];
+    }
+
+    public function scopeConfig(): ?array
+    {
+        return self::referralScopes()[$this->referral_scope] ?? null;
+    }
+
+    public function isBehelScope(): bool
+    {
+        return $this->referral_scope === self::SCOPE_BEHEL;
+    }
+
+    public function isNonBehelScope(): bool
+    {
+        return $this->referral_scope === self::SCOPE_NON_BEHEL;
+    }
+
+    public function voucherAmount(): int
+    {
+        return (int) ($this->scopeConfig()['voucher_amount'] ?? 0);
+    }
+
+    public function commissionAmountPerPatient(): int
+    {
+        return (int) ($this->scopeConfig()['commission_amount'] ?? 0);
+    }
+
+    public function claimMinPatients(): int
+    {
+        return (int) ($this->scopeConfig()['claim_min_patients'] ?? 0);
+    }
+
+    public function hasRewardProgram(): bool
+    {
+        return (bool) ($this->scopeConfig()['has_reward_program'] ?? false);
     }
 
     public static function registrationStatusOptions(): array
@@ -107,8 +190,8 @@ class RawAffiliate extends Model
             ],
             'above_12x' => [
                 'name'          => 'Gold Mates',
-                'content_count' => 13,
-                'content_desc'  => '>12× Kontrol + >12 Video',
+                'content_count' => 15,
+                'content_desc'  => '15× Kontrol + 15 Video',
                 'reward'        => 'FREE Retainer + Whitening',
                 'icon'          => 'fa-crown',
                 'color'         => '#d4a84b',
@@ -132,6 +215,91 @@ class RawAffiliate extends Model
             'youtube'   => 'YouTube',
             'facebook'  => 'Facebook',
             'twitter'   => 'Twitter / X',
+        ];
+    }
+
+    // ─── KOL-specific options (Fase 2E) ─────────────────────────────────
+
+    public static function kolKategoriOptions(): array
+    {
+        return [
+            'komika_standup'       => 'Komika / Stand Up',
+            'musisi_penyanyi'      => 'Musisi / Penyanyi',
+            'influencer'           => 'Influencer',
+            'content_creator'      => 'Content Creator',
+            'athlete'              => 'Atlet',
+            'aktris'               => 'Aktris',
+            'aktor'                => 'Aktor',
+            'moms_content_creator' => 'Moms Content Creator',
+        ];
+    }
+
+    public static function kolProgressOptions(): array
+    {
+        return [
+            'akan_di_approach'     => ['label' => 'Akan Di-approach',     'color' => 'neutral', 'icon' => 'fa-bullseye'],
+            'waiting_confirmation' => ['label' => 'Menunggu Konfirmasi',  'color' => 'warning', 'icon' => 'fa-hourglass-half'],
+            'no_respon'            => ['label' => 'No Respon',            'color' => 'danger',  'icon' => 'fa-circle-xmark'],
+            'confirm'              => ['label' => 'Confirm',              'color' => 'info',    'icon' => 'fa-check'],
+            'done'                 => ['label' => 'Done',                 'color' => 'success', 'icon' => 'fa-check-double'],
+        ];
+    }
+
+    public static function kolStatusRelasiOptions(): array
+    {
+        return [
+            'baru'              => ['label' => 'Baru',              'color' => 'info'],
+            'pernah_kerja_sama' => ['label' => 'Pernah Kerja Sama', 'color' => 'success'],
+            'rekomendasi'       => ['label' => 'Rekomendasi',       'color' => 'warning'],
+        ];
+    }
+
+    public function isKol(): bool
+    {
+        return $this->type === 'kol';
+    }
+
+    public function isKoc(): bool
+    {
+        return $this->type === 'koc';
+    }
+
+    public function scopeConfirmedSosmed($query)
+    {
+        return $query->where('koc_sosmed_confirmed', 1);
+    }
+
+    public function scopeWithApprovedContent($query)
+    {
+        return $query->whereHas('contents', function ($q) {
+            $q->where('status', AffiliateContent::STATUS_APPROVED);
+        });
+    }
+    public function setSosmedConfirmed(bool $confirmed, ?string $userId = null): void
+    {
+        $this->koc_sosmed_confirmed    = $confirmed;
+        $this->koc_sosmed_confirmed_at = $confirmed ? now() : null;
+        $this->koc_sosmed_confirmed_by = $confirmed ? $userId : null;
+        $this->save();
+    }
+    /**
+     * Daftar tipe behel spesifik untuk affiliate registration (Behel scope).
+     * Daftar ini terpisah dari raw_doc_service karena variannya lebih spesifik
+     * (kombinasi material + tipe braces + GP/SP).
+     */
+    public static function behelTypes(): array
+    {
+        return [
+            'self_ligating_metal_sp' => 'Self Ligating Metal Braces (Spesialis)',
+            'self_ligating_metal_gp' => 'Self Ligating Metal Braces (GP)',
+            'stellar_metal_sp'       => 'Stellar Metal Braces (Spesialis)',
+            'stellar_metal_gp'       => 'Stellar Metal Braces (GP)',
+            'signature_metal_sp'     => 'Signature Metal Braces (Spesialis)',
+            'signature_metal_gp'     => 'Signature Metal Braces (GP)',
+            'signature_ceramic_sp'   => 'Signature Ceramic Braces (Spesialis)',
+            'signature_ceramic_gp'   => 'Signature Ceramic Braces (GP)',
+            'deluxe_metal'           => 'Deluxe Metal (Spesialis)',
+            'ceramic_braces_gp'      => 'Ceramic Braces (GP)',
         ];
     }
 
@@ -175,9 +343,18 @@ class RawAffiliate extends Model
         return $this->hasMany(AffiliateRewardClaim::class, 'raw_affiliate_id', 'id');
     }
 
+    /**
+     * Jumlah konten approved untuk PROGRAM yang sedang berjalan.
+     * Kalau reward_program_started_at di-set → hanya count konten created_at >= started_at
+     * (supaya saat affiliate switch program setelah claim, counter reset dari 0).
+     */
     public function approvedContentCount(): int
     {
-        return $this->contents()->where('status', AffiliateContent::STATUS_APPROVED)->count();
+        $q = $this->contents()->where('status', AffiliateContent::STATUS_APPROVED);
+        if ($this->reward_program_started_at) {
+            $q->where('created_at', '>=', $this->reward_program_started_at);
+        }
+        return $q->count();
     }
 
     public function currentTier(): ?AffiliateRewardTier
@@ -198,5 +375,125 @@ class RawAffiliate extends Model
             ->where('required_content_count', '>', $count)
             ->orderBy('required_content_count')
             ->first();
+    }
+
+    // ─── Reward Program Lock (Fase 2C) ──────────────────────────────────
+
+    /**
+     * Mapping `reward_program` (3x/12x/above_12x) → AffiliateRewardTier record di DB
+     * (matched by required_content_count).
+     */
+    public function chosenTier(): ?AffiliateRewardTier
+    {
+        if (!$this->reward_program) return null;
+        $rewardCfg = self::rewardTiers()[$this->reward_program] ?? null;
+        if (!$rewardCfg) return null;
+
+        return AffiliateRewardTier::active()
+            ->where('required_content_count', $rewardCfg['content_count'])
+            ->first();
+    }
+
+    /**
+     * Klaim aktif untuk program yang sedang berjalan (eligible / claimed,
+     * tapi belum used). Kalau ada → user TIDAK boleh switch program.
+     */
+    public function activeRewardClaim(): ?AffiliateRewardClaim
+    {
+        $tier = $this->chosenTier();
+        if (!$tier) return null;
+
+        return AffiliateRewardClaim::where('raw_affiliate_id', $this->id)
+            ->where('affiliate_reward_tier_id', $tier->id)
+            ->whereIn('status', [AffiliateRewardClaim::STATUS_ELIGIBLE, AffiliateRewardClaim::STATUS_CLAIMED])
+            ->orderByDesc('created_at')
+            ->first();
+    }
+
+    /**
+     * Boleh switch ke program lain?
+     * Aturan: hanya bisa kalau (a) belum pilih program sama sekali, ATAU
+     * (b) klaim untuk program saat ini sudah status='used' (admin selesai proses).
+     */
+    public function canSwitchProgram(): bool
+    {
+        if (!$this->reward_program) return true;
+        return $this->activeRewardClaim() === null;
+    }
+
+    /**
+     * Progress program saat ini sebagai array siap-render:
+     * ['count' => X, 'required' => Y, 'percent' => Z, 'achieved' => bool]
+     */
+    public function currentProgramProgress(): ?array
+    {
+        $tier = $this->chosenTier();
+        if (!$tier) return null;
+
+        $count    = $this->approvedContentCount();
+        $required = (int) $tier->required_content_count;
+        $percent  = $required > 0 ? min(100, (int) round(($count / $required) * 100)) : 0;
+
+        return [
+            'count'    => $count,
+            'required' => $required,
+            'percent'  => $percent,
+            'achieved' => $count >= $required,
+            'tier'     => $tier,
+        ];
+    }
+
+    // ─── Commission Claim Helpers (Fase 2D) ─────────────────────────────
+
+    /**
+     * Commissions yang eligible untuk dibatch claim:
+     * - Belum masuk batch lain (di-cek lewat NOT EXISTS subquery ke commission_claim_item)
+     * - Status BUKAN 'paid' (sudah dibayar) dan BUKAN 'rejected'
+     */
+    public function claimableCommissions()
+    {
+        return RawCommission::where('raw_affiliate_id', $this->id)
+            ->whereNotIn('status', ['paid', 'rejected'])
+            ->whereNotIn('id', function ($q) {
+                $q->select('raw_commission_id')->from('commission_claim_item');
+            });
+    }
+
+    public function claimableCount(): int
+    {
+        return $this->claimableCommissions()->count();
+    }
+
+    public function claimableAmount(): float
+    {
+        return (float) $this->claimableCommissions()->sum('amount');
+    }
+
+    /**
+     * Boleh request klaim baru?
+     * Syarat: jumlah commission eligible >= claim_min_patients (5 behel / 10 non-behel)
+     * DAN tidak ada batch in-progress (request/in_review/approved/transferred).
+     */
+    public function canRequestCommissionClaim(): bool
+    {
+        if (!$this->referral_scope) return false;
+        if ($this->pendingClaimBatch()) return false;
+        return $this->claimableCount() >= $this->claimMinPatients();
+    }
+
+    /**
+     * Batch yang masih in-progress (belum completed). Hanya 1 di-allow at any time.
+     */
+    public function pendingClaimBatch(): ?CommissionClaimBatch
+    {
+        return CommissionClaimBatch::where('raw_affiliate_id', $this->id)
+            ->whereNotIn('status', [CommissionClaimBatch::STATUS_COMPLETED])
+            ->orderByDesc('created_at')
+            ->first();
+    }
+
+    public function claimBatches()
+    {
+        return $this->hasMany(CommissionClaimBatch::class, 'raw_affiliate_id', 'id');
     }
 }

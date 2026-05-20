@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\AffiliateContent;
 use App\Models\AffiliateRewardClaim;
 use App\Models\AffiliateRewardTier;
+use App\Models\CommissionClaimBatch;
+use App\Models\CommissionClaimItem;
 use App\Models\RawAffiliate;
 use App\Models\RawBranch;
 use App\Models\RawCommission;
@@ -63,45 +65,58 @@ class AffiliatePortalController extends Controller
             return redirect()->route('affiliate.dashboard');
         }
 
-        $bracesServices = [
-            'Signature Metal',
-            'Signature Metal SP',
-            'Self Ligating Metal',
-            'Self Ligating Clear',
-            'Deluxe Metal',
-            'Stellar Metal',
-            'Ceramic Braces',
-            'Shappire Braces',
-        ];
-
         $branches = RawBranch::orderBy('name')->get();
         $doctors  = RawDoctor::orderBy('name')->get();
-        $services = RawDocService::whereIn('name', $bracesServices)
-            ->orderBy('sort_order')
-            ->orderBy('name')
-            ->get();
 
-        return view('affiliate.register', compact('branches', 'doctors', 'services'));
+        // Behel scope: gunakan custom list (terpisah dari raw_doc_service)
+        $behelTypes = RawAffiliate::behelTypes();
+
+        // Non-behel scope: dropdown service Scaling/Whitening/PSA/Veneer dari raw_doc_service
+        $nonBehelNames = RawAffiliate::referralScopes()[RawAffiliate::SCOPE_NON_BEHEL]['allowed_service_names'] ?? [];
+        $servicesNonBehel = RawDocService::whereIn('name', $nonBehelNames)
+            ->orderBy('sort_order')->orderBy('name')->get();
+
+        return view('affiliate.register', compact(
+            'branches', 'doctors', 'behelTypes', 'servicesNonBehel'
+        ));
     }
 
     public function registerProcess()
     {
+        $scopeKeys     = array_keys(RawAffiliate::referralScopes());
         $rewardKeys    = array_keys(RawAffiliate::rewardPrograms());
         $platformKeys  = array_keys(RawAffiliate::socialPlatforms());
+        $behelKeys     = array_keys(RawAffiliate::behelTypes());
 
         request()->validate([
+            'referral_scope'     => 'required|in:' . implode(',', $scopeKeys),
             'name'               => 'required|max:255',
             'email'              => 'required|email|max:255',
             'phone'              => 'required|max:20|unique:raw_affiliate,phone',
-            'raw_doc_service_id' => 'required|exists:raw_doc_service,id',
+            // behel_type wajib kalau scope=behel
+            'behel_type'         => 'required_if:referral_scope,' . RawAffiliate::SCOPE_BEHEL . '|nullable|in:' . implode(',', $behelKeys),
+            // raw_doc_service_id wajib kalau scope=non_behel
+            'raw_doc_service_id' => 'required_if:referral_scope,' . RawAffiliate::SCOPE_NON_BEHEL . '|nullable|exists:raw_doc_service,id',
             'raw_branch_id'      => 'required|exists:raw_branch,id',
             'raw_doctor_id'      => 'required|exists:raw_doctor,id',
-            'reward_program'     => 'required|in:' . implode(',', $rewardKeys),
+            // reward_program HANYA wajib kalau scope = behel
+            'reward_program'     => 'required_if:referral_scope,' . RawAffiliate::SCOPE_BEHEL . '|nullable|in:' . implode(',', $rewardKeys),
             'social_platform'    => 'required|in:' . implode(',', $platformKeys),
             'social_username'    => 'required|max:100',
         ], [
-            'phone.unique' => 'Nomor WhatsApp ini sudah terdaftar. Silakan login atau hubungi admin.',
+            'phone.unique'                => 'Nomor WhatsApp ini sudah terdaftar. Silakan login atau hubungi admin.',
+            'reward_program.required_if'  => 'Pilih salah satu Tier untuk Pasien Behel.',
+            'referral_scope.required'     => 'Pilih dulu jenis perawatan kamu.',
+            'behel_type.required_if'      => 'Pilih jenis behel yang kamu pasang.',
+            'raw_doc_service_id.required_if' => 'Pilih jenis perawatan kamu.',
         ]);
+
+        $isBehel = request('referral_scope') === RawAffiliate::SCOPE_BEHEL;
+
+        // Defensive: kosongkan field yg tidak relevan dengan scope.
+        $rewardProgram   = $isBehel ? request('reward_program') : null;
+        $behelType       = $isBehel ? request('behel_type') : null;
+        $rawDocServiceId = $isBehel ? null : request('raw_doc_service_id');
 
         RawAffiliate::create([
             'id'                  => Str::uuid()->toString(),
@@ -110,8 +125,10 @@ class AffiliatePortalController extends Controller
             'phone'               => request('phone'),
             'raw_branch_id'       => request('raw_branch_id'),
             'raw_doctor_id'       => request('raw_doctor_id'),
-            'raw_doc_service_id'  => request('raw_doc_service_id'),
-            'reward_program'      => request('reward_program'),
+            'raw_doc_service_id'  => $rawDocServiceId,
+            'behel_type'          => $behelType,
+            'reward_program'      => $rewardProgram,
+            'referral_scope'      => request('referral_scope'),
             'social_platform'     => request('social_platform'),
             'social_username'     => request('social_username'),
             'role'                => 'pasien',
@@ -184,10 +201,115 @@ class AffiliatePortalController extends Controller
 
         $promos = $affiliate->promos()->where('is_active', 1)->get();
 
+        // Fase 2D: claim eligibility + batch history
+        $scopeCfg        = $affiliate->scopeConfig();
+        $claimableCount  = $affiliate->claimableCount();
+        $claimableAmount = $affiliate->claimableAmount();
+        $minPatients     = $affiliate->claimMinPatients();
+        $canClaim        = $affiliate->canRequestCommissionClaim();
+        $pendingBatch    = $affiliate->pendingClaimBatch();
+        $batchHistory    = CommissionClaimBatch::where('raw_affiliate_id', $affiliate->id)
+            ->orderByDesc('created_at')
+            ->limit(10)
+            ->get();
+
         return view('affiliate.commissions', compact(
             'affiliate', 'commissions', 'promos',
-            'pendingTotal', 'approvedTotal', 'paidTotal', 'rejectedTotal'
+            'pendingTotal', 'approvedTotal', 'paidTotal', 'rejectedTotal',
+            'scopeCfg', 'claimableCount', 'claimableAmount', 'minPatients',
+            'canClaim', 'pendingBatch', 'batchHistory'
         ));
+    }
+
+    /**
+     * KOC click "Klaim Komisi" → bundle commissions eligible jadi 1 batch.
+     */
+    public function requestCommissionClaim()
+    {
+        $affiliate = $this->getAffiliate();
+        if (!$affiliate) return redirect()->route('affiliate.login');
+
+        if (!$affiliate->canRequestCommissionClaim()) {
+            $reason = $affiliate->pendingClaimBatch()
+                ? 'Kamu masih punya klaim yang belum selesai. Tunggu sampai status "Selesai" sebelum bikin klaim baru.'
+                : 'Belum memenuhi syarat. Butuh minimal ' . $affiliate->claimMinPatients() . ' pasien commission untuk klaim 500k.';
+            return back()->with('error', $reason);
+        }
+
+        $minPatients = $affiliate->claimMinPatients();
+
+        \Illuminate\Support\Facades\DB::transaction(function () use ($affiliate, $minPatients) {
+            // Ambil tepat $minPatients commissions tertua yang eligible (FIFO)
+            $commissions = $affiliate->claimableCommissions()
+                ->orderBy('created_at')
+                ->limit($minPatients)
+                ->get();
+
+            $batchId  = (string) \Illuminate\Support\Str::uuid();
+            $totalAmt = $commissions->sum('amount');
+
+            CommissionClaimBatch::create([
+                'id'               => $batchId,
+                'raw_affiliate_id' => $affiliate->id,
+                'referral_scope'   => $affiliate->referral_scope,
+                'patient_count'    => $commissions->count(),
+                'total_amount'     => $totalAmt,
+                'status'           => CommissionClaimBatch::STATUS_REQUESTED,
+                'requested_at'     => now(),
+                'created_at'       => now(),
+            ]);
+
+            foreach ($commissions as $c) {
+                CommissionClaimItem::create([
+                    'id'                        => (string) \Illuminate\Support\Str::uuid(),
+                    'commission_claim_batch_id' => $batchId,
+                    'raw_commission_id'         => $c->id,
+                    'amount'                    => $c->amount,
+                    'created_at'                => now(),
+                ]);
+            }
+        });
+
+        return redirect()->route('affiliate.commissions')
+            ->with('success', 'Klaim komisi 500k berhasil diajukan. Tim Sweet Treats akan konfirmasi dalam 4-5 hari kerja via WhatsApp.');
+    }
+
+    /**
+     * KOC konfirmasi sudah terima transfer → batch jadi completed.
+     */
+    public function confirmCommissionClaim($batchId)
+    {
+        $affiliate = $this->getAffiliate();
+        if (!$affiliate) return redirect()->route('affiliate.login');
+
+        $batch = CommissionClaimBatch::where('id', $batchId)
+            ->where('raw_affiliate_id', $affiliate->id)
+            ->first();
+
+        if (!$batch) {
+            return redirect()->route('affiliate.commissions')->with('error', 'Klaim tidak ditemukan.');
+        }
+
+        if ($batch->status !== CommissionClaimBatch::STATUS_TRANSFERRED) {
+            return redirect()->route('affiliate.commissions')
+                ->with('error', 'Klaim ini belum di-transfer atau sudah selesai.');
+        }
+
+        \Illuminate\Support\Facades\DB::transaction(function () use ($batch) {
+            $batch->update([
+                'status'       => CommissionClaimBatch::STATUS_COMPLETED,
+                'completed_at' => now(),
+                'updated_at'   => now(),
+            ]);
+
+            // Mark all linked commissions sebagai 'paid'
+            $commissionIds = CommissionClaimItem::where('commission_claim_batch_id', $batch->id)
+                ->pluck('raw_commission_id');
+            RawCommission::whereIn('id', $commissionIds)->update(['status' => 'paid']);
+        });
+
+        return redirect()->route('affiliate.commissions')
+            ->with('success', 'Terima kasih! Klaim komisi sudah selesai. Sampai ketemu di klaim berikutnya.');
     }
 
     public function contentIndex()
@@ -419,23 +541,35 @@ class AffiliatePortalController extends Controller
         if (!$affiliate) return redirect()->route('affiliate.login');
 
         $tiers         = AffiliateRewardTier::active()->get();
-        $approvedCount = $affiliate->approvedContentCount();
+        $approvedCount = $affiliate->approvedContentCount();          // already filtered by program_started_at
         $claims        = $affiliate->rewardClaims()->get()->keyBy('affiliate_reward_tier_id');
 
-        foreach ($tiers as $tier) {
-            if ($approvedCount >= $tier->required_content_count && !$claims->has($tier->id)) {
-                $claim = AffiliateRewardClaim::create([
-                    'id'                       => Str::uuid()->toString(),
-                    'raw_affiliate_id'         => $affiliate->id,
-                    'affiliate_reward_tier_id' => $tier->id,
-                    'status'                   => AffiliateRewardClaim::STATUS_ELIGIBLE,
-                    'created_at'               => now(),
-                ]);
-                $claims->put($tier->id, $claim);
-            }
+        // Auto-create eligible claim HANYA untuk tier yang dipilih (bukan iterate semua tier).
+        // Ini yang bikin program-lock bekerja: walaupun count >= 3 (Bronze), kalau pilih Silver
+        // affiliate tidak bisa klaim Bronze karena tidak ada eligible record dibuat untuknya.
+        $chosenTier = $affiliate->chosenTier();
+        if ($chosenTier
+            && $approvedCount >= $chosenTier->required_content_count
+            && !$claims->has($chosenTier->id)
+        ) {
+            $claim = AffiliateRewardClaim::create([
+                'id'                       => Str::uuid()->toString(),
+                'raw_affiliate_id'         => $affiliate->id,
+                'affiliate_reward_tier_id' => $chosenTier->id,
+                'status'                   => AffiliateRewardClaim::STATUS_ELIGIBLE,
+                'created_at'               => now(),
+            ]);
+            $claims->put($chosenTier->id, $claim);
         }
 
-        return view('affiliate.rewards', compact('affiliate', 'tiers', 'approvedCount', 'claims'));
+        $progress       = $affiliate->currentProgramProgress();
+        $canSwitch      = $affiliate->canSwitchProgram();
+        $allRewardCfg   = RawAffiliate::rewardTiers();
+
+        return view('affiliate.rewards', compact(
+            'affiliate', 'tiers', 'approvedCount', 'claims',
+            'chosenTier', 'progress', 'canSwitch', 'allRewardCfg'
+        ));
     }
 
     public function claimReward($tierId)
@@ -448,10 +582,17 @@ class AffiliatePortalController extends Controller
             return redirect()->route('affiliate.rewards')->with('error', 'Tier reward tidak ditemukan.');
         }
 
+        // LOCK: hanya boleh klaim tier YANG DIPILIH affiliate (Fase 2C).
+        $chosenTier = $affiliate->chosenTier();
+        if (!$chosenTier || $chosenTier->id !== $tier->id) {
+            return redirect()->route('affiliate.rewards')
+                ->with('error', 'Kamu hanya bisa klaim reward untuk tier yang sudah kamu pilih. Selesaikan dulu program saat ini sebelum bisa pindah ke tier lain.');
+        }
+
         $approvedCount = $affiliate->approvedContentCount();
         if ($approvedCount < $tier->required_content_count) {
             return redirect()->route('affiliate.rewards')
-                ->with('error', 'Kamu belum memenuhi syarat untuk reward ini.');
+                ->with('error', 'Kamu belum memenuhi syarat untuk reward ini. Butuh ' . $tier->required_content_count . ' konten approved.');
         }
 
         $claim = AffiliateRewardClaim::where('raw_affiliate_id', $affiliate->id)
@@ -479,6 +620,38 @@ class AffiliatePortalController extends Controller
 
         return redirect()->route('affiliate.rewards')
             ->with('success', 'Reward berhasil diklaim, admin akan memproses.');
+    }
+
+    /**
+     * Switch ke program reward baru (setelah klaim sebelumnya selesai/used).
+     * Reset reward_program_started_at = now() supaya counter konten mulai dari 0.
+     */
+    public function switchRewardProgram()
+    {
+        $affiliate = $this->getAffiliate();
+        if (!$affiliate) return redirect()->route('affiliate.login');
+
+        $rewardKeys = array_keys(RawAffiliate::rewardPrograms());
+        request()->validate([
+            'reward_program' => 'required|in:' . implode(',', $rewardKeys),
+        ]);
+
+        if (!$affiliate->canSwitchProgram()) {
+            return redirect()->route('affiliate.rewards')
+                ->with('error', 'Tidak bisa pindah program — selesaikan dulu klaim untuk program saat ini (tunggu admin proses sampai reward "sudah dipakai").');
+        }
+
+        $affiliate->update([
+            'reward_program'            => request('reward_program'),
+            'reward_program_started_at' => now(),
+        ]);
+
+        $newCfg = RawAffiliate::rewardTiers()[request('reward_program')] ?? null;
+        $msg = $newCfg
+            ? 'Program berhasil di-switch ke ' . $newCfg['name'] . '. Counter konten dimulai dari 0.'
+            : 'Program berhasil di-switch.';
+
+        return redirect()->route('affiliate.rewards')->with('success', $msg);
     }
 
     protected function getAffiliate(): ?RawAffiliate

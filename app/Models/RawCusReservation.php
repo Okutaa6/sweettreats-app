@@ -30,9 +30,10 @@ class RawCusReservation extends Model
         'updated_at',
         'updated_by',
         'raw_promo_id',             //tambah
+        'marketing_promo_id',
         'total_reservasi',          // tambah
-        'lainnya_text',  
-        'promo_klaim',    
+        'lainnya_text',
+        'promo_klaim',
         'promo_klaim_by',
     ];
 
@@ -71,7 +72,13 @@ class RawCusReservation extends Model
     {
         return $this->belongsTo(RawPromo::class, 'raw_promo_id', 'id');
     }
-    //new   
+
+    public function marketingPromo()
+    {
+        return $this->belongsTo(MarketingPromo::class, 'marketing_promo_id', 'id');
+    }
+
+    //new
     public function commission()
     {
         return $this->hasOne(RawCommission::class, 'raw_cus_reservation_id', 'id');

@@ -68,6 +68,15 @@
         }
         .sm-reward-status-pill.chosen { background: var(--tier-gradient); color: #fff; }
         .sm-reward-status-pill.locked { background: rgba(70,21,0,0.06); color: #8b7a6b; }
+        .sm-reward-status-pill.claimed { background: linear-gradient(135deg, #fff3cd, #ffe69b); color: #856404; }
+        .sm-reward-status-pill.used    { background: linear-gradient(135deg, #c8e6c9, #a5d6a7); color: #2e7d32; }
+
+        .sm-reward-meta {
+            display: flex; flex-wrap: wrap; gap: 16px;
+            font-size: 0.78rem; color: #8b7a6b;
+            margin-bottom: 14px;
+        }
+        .sm-reward-meta strong { color: #461500; font-weight: 700; }
 
         .sm-reward-progress { margin-top: 8px; }
         .sm-reward-progress-label {
@@ -101,6 +110,47 @@
             color: #2e7d32; font-size: 0.88rem; font-weight: 700;
             display: flex; align-items: center; gap: 10px;
         }
+
+        /* Action buttons */
+        .sm-action-row { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+        .sm-btn-claim {
+            display: inline-flex; align-items: center; gap: 8px;
+            padding: 12px 22px; border: none; cursor: pointer;
+            border-radius: 12px; font-family: 'Montserrat', sans-serif;
+            font-weight: 800; font-size: 0.9rem;
+            background: var(--tier-gradient); color: #fff;
+            text-transform: uppercase; letter-spacing: 0.4px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+            transition: all 0.2s;
+        }
+        .sm-btn-claim:hover { transform: translateY(-2px); box-shadow: 0 12px 28px rgba(0,0,0,0.2); }
+
+        /* Switch program section */
+        .sm-switch-card {
+            background: linear-gradient(135deg, #fff, #fef5ed);
+            border: 2px dashed rgba(70,21,0,0.2);
+            border-radius: 22px;
+            padding: 26px;
+            margin-bottom: 20px;
+        }
+        .sm-switch-card h4 {
+            color: #461500; font-weight: 900; font-size: 1.05rem;
+            margin-bottom: 6px;
+            display: flex; align-items: center; gap: 10px;
+        }
+        .sm-switch-card p { font-size: 0.88rem; color: #6b4a30; line-height: 1.55; margin-bottom: 16px; }
+        .sm-switch-options { display: grid; gap: 10px; }
+        .sm-switch-options label {
+            display: flex; align-items: center; gap: 12px;
+            padding: 14px 16px;
+            background: #fff;
+            border: 2px solid rgba(70,21,0,0.08);
+            border-radius: 12px;
+            cursor: pointer; transition: all 0.2s;
+        }
+        .sm-switch-options label:hover { border-color: rgba(70,21,0,0.25); }
+        .sm-switch-options input[type="radio"] { accent-color: #461500; }
+        .sm-switch-options input[type="radio"]:checked + .sm-switch-info { color: #461500; font-weight: 700; }
 
         .sm-info-box {
             padding: 22px; border-radius: 22px;
@@ -148,14 +198,16 @@
             @endif
 
             @php
-                $chosenKey = $affiliate->reward_program;
-                $chosenTier = $affiliate->rewardTier();
-                $allTiers = \App\Models\RawAffiliate::rewardTiers();
+                $chosenKey      = $affiliate->reward_program;
+                $chosenTierCfg  = $affiliate->rewardTier();         // config dari rewardTiers() helper
+                $chosenTierDb   = $chosenTier;                       // dari controller (DB record)
+                $chosenClaim    = $chosenTierDb ? ($claims[$chosenTierDb->id] ?? null) : null;
+                $claimStatus    = $chosenClaim?->status;
             @endphp
 
             {{-- HERO --}}
             <div class="sm-hero"
-                @if($chosenTier) style="--tier-gradient: {{ $chosenTier['gradient'] }}; --tier-color: {{ $chosenTier['color'] }};" @endif>
+                @if($chosenTierCfg) style="--tier-gradient: {{ $chosenTierCfg['gradient'] }}; --tier-color: {{ $chosenTierCfg['color'] }};" @endif>
                 <div class="sm-hero-deco sm-hero-deco-1"></div>
                 <div class="sm-hero-deco sm-hero-deco-2"></div>
                 <div class="sm-hero-grid">
@@ -166,25 +218,67 @@
                         </div>
                         <h1 class="sm-hero-name">Reward Behel Journey</h1>
                         <p class="sm-hero-sub">
-                            Setiap konten yang kamu posting bikin perjalanan behel kamu makin berharga. Yuk lihat progress dan reward yang menanti di akhir perawatan!
+                            Setiap konten yang kamu posting bikin perjalanan behel kamu makin berharga. Selesaikan tier yang kamu pilih untuk klaim reward!
                         </p>
                     </div>
                     <div class="sm-hero-avatar">
                         <div class="sm-hero-avatar-initial">
-                            <i class="fa-solid {{ $chosenTier['icon'] ?? 'fa-trophy' }}"></i>
+                            <i class="fa-solid {{ $chosenTierCfg['icon'] ?? 'fa-trophy' }}"></i>
                         </div>
-                        @if($chosenTier)
+                        @if($chosenTierCfg)
                             <div class="sm-hero-tier-badge">
-                                <i class="fa-solid {{ $chosenTier['icon'] }}"></i>
-                                {{ $chosenTier['name'] }}
+                                <i class="fa-solid {{ $chosenTierCfg['icon'] }}"></i>
+                                {{ $chosenTierCfg['name'] }}
                             </div>
                         @endif
                     </div>
                 </div>
             </div>
 
+            {{-- SWITCH PROGRAM CARD — muncul kalau bisa switch (selesai claim used, atau belum pernah pilih) --}}
+            @if($canSwitch)
+                <div class="sm-switch-card">
+                    <h4>
+                        <i class="fa-solid fa-shuffle"></i>
+                        @if($chosenKey)
+                            Pilih Program Selanjutnya
+                        @else
+                            Pilih Program Reward Kamu
+                        @endif
+                    </h4>
+                    <p>
+                        @if($chosenKey)
+                            Selamat! Program <strong>{{ $chosenTierCfg['name'] ?? '-' }}</strong> kamu sudah selesai diproses.
+                            Sekarang kamu boleh ambil program berikutnya — counter konten akan dimulai dari 0.
+                        @else
+                            Pilih satu tier sebagai komitmen kamu. Setelah dipilih, <strong>tidak bisa diganti</strong> sampai program selesai diklaim.
+                        @endif
+                    </p>
+                    <form method="POST" action="{{ route('affiliate.reward.switch') }}">
+                        @csrf
+                        <div class="sm-switch-options">
+                            @foreach($allRewardCfg as $key => $cfg)
+                                @if($key !== $chosenKey)
+                                    <label>
+                                        <input type="radio" name="reward_program" value="{{ $key }}" required>
+                                        <span class="sm-switch-info" style="flex:1;">
+                                            <i class="fa-solid {{ $cfg['icon'] }}" style="color:{{ $cfg['color'] }}; margin-right:6px;"></i>
+                                            <strong>{{ $cfg['name'] }}</strong>
+                                            <span style="color:#8b7a6b; font-weight:600;">— {{ $cfg['content_desc'] }} → {{ $cfg['reward'] }}</span>
+                                        </span>
+                                    </label>
+                                @endif
+                            @endforeach
+                        </div>
+                        <button type="submit" class="sm-btn-claim" style="margin-top: 16px; background: linear-gradient(135deg,#461500,#6b2400);">
+                            <i class="fa-solid fa-check"></i> Pilih Program Ini
+                        </button>
+                    </form>
+                </div>
+            @endif
+
             {{-- REWARD TIERS --}}
-            @if(!$chosenKey)
+            @if(!$chosenKey && !$canSwitch)
                 <div class="sm-card sm-card-empty">
                     <div class="sm-empty-icon"><i class="fa-solid fa-circle-info"></i></div>
                     <div class="sm-empty-title">Kamu belum pilih tier reward</div>
@@ -193,14 +287,15 @@
             @endif
 
             <div class="sm-reward-grid">
-                @foreach($allTiers as $key => $tier)
+                @foreach($allRewardCfg as $key => $tier)
                     @php
                         $isChosen = $key === $chosenKey;
                         $targetCount = $tier['content_count'];
-                        $progress = $isChosen && $targetCount > 0
-                            ? min(100, (int) round(($approvedCount / $targetCount) * 100))
+                        $currentCount = $isChosen ? $approvedCount : 0;
+                        $tierProgress = ($isChosen && $targetCount > 0)
+                            ? min(100, (int) round(($currentCount / $targetCount) * 100))
                             : 0;
-                        $done = $isChosen && $approvedCount >= $targetCount;
+                        $done = $isChosen && $currentCount >= $targetCount;
                     @endphp
 
                     <div class="sm-reward-card {{ $isChosen ? 'is-chosen' : 'is-locked' }}"
@@ -219,42 +314,89 @@
                             </div>
                             <div>
                                 @if($isChosen)
-                                    <span class="sm-reward-status-pill chosen">
-                                        <i class="fa-solid fa-check"></i> Tier Kamu
-                                    </span>
+                                    @if($claimStatus === \App\Models\AffiliateRewardClaim::STATUS_USED)
+                                        <span class="sm-reward-status-pill used">
+                                            <i class="fa-solid fa-check-double"></i> Selesai
+                                        </span>
+                                    @elseif($claimStatus === \App\Models\AffiliateRewardClaim::STATUS_CLAIMED)
+                                        <span class="sm-reward-status-pill claimed">
+                                            <i class="fa-solid fa-clock"></i> Diproses
+                                        </span>
+                                    @else
+                                        <span class="sm-reward-status-pill chosen">
+                                            <i class="fa-solid fa-check"></i> Tier Aktif
+                                        </span>
+                                    @endif
                                 @else
                                     <span class="sm-reward-status-pill locked">
-                                        <i class="fa-solid fa-lock"></i> Tidak Dipilih
+                                        <i class="fa-solid fa-lock"></i>
+                                        @if($chosenKey)
+                                            Selesaikan Tier Aktif Dulu
+                                        @else
+                                            Tidak Dipilih
+                                        @endif
                                     </span>
                                 @endif
                             </div>
                         </div>
 
                         @if($isChosen)
-                            <div class="sm-reward-progress">
-                                <div class="sm-reward-progress-label">
-                                    <span>Progress Konten</span>
-                                    <span><strong>{{ min($approvedCount, $targetCount) }}</strong> / {{ $targetCount }} approved</span>
-                                </div>
-                                <div class="sm-reward-progress-track">
-                                    <div class="sm-reward-progress-bar" style="width: {{ $progress }}%;"></div>
-                                </div>
-                            </div>
-
-                            @if($done)
-                                <div class="sm-reward-done">
-                                    <i class="fa-solid fa-sparkles"></i>
-                                    Yeay! Target konten sudah tercapai. Reward siap diklaim di akhir perawatan.
+                            {{-- Meta info: counter start date --}}
+                            @if($affiliate->reward_program_started_at)
+                                <div class="sm-reward-meta">
+                                    <span><i class="fa-solid fa-calendar-day"></i> Counter dimulai: <strong>{{ $affiliate->reward_program_started_at->translatedFormat('d M Y') }}</strong></span>
+                                    @if($claimStatus === \App\Models\AffiliateRewardClaim::STATUS_CLAIMED)
+                                        <span><i class="fa-solid fa-paper-plane"></i> Diklaim: <strong>{{ $chosenClaim?->claimed_at?->translatedFormat('d M Y') ?? '-' }}</strong></span>
+                                    @endif
                                 </div>
                             @endif
 
-                            <div class="sm-reward-lock-note">
-                                <i class="fa-solid fa-lock"></i>
-                                <div>
-                                    <strong>Reward diklaim di akhir perawatan.</strong>
-                                    Sweet Treats akan memproses reward kamu saat waktunya lepas behel. Terus posting konten dan nikmati prosesnya ya!
+                            <div class="sm-reward-progress">
+                                <div class="sm-reward-progress-label">
+                                    <span>Progress Konten Approved</span>
+                                    <span><strong>{{ min($currentCount, $targetCount) }}</strong> / {{ $targetCount }}</span>
+                                </div>
+                                <div class="sm-reward-progress-track">
+                                    <div class="sm-reward-progress-bar" style="width: {{ $tierProgress }}%;"></div>
                                 </div>
                             </div>
+
+                            {{-- Status-driven action area --}}
+                            @if($claimStatus === \App\Models\AffiliateRewardClaim::STATUS_USED)
+                                <div class="sm-reward-done">
+                                    <i class="fa-solid fa-circle-check"></i>
+                                    Reward sudah dipakai. Yuk pilih program berikutnya di atas!
+                                </div>
+                            @elseif($claimStatus === \App\Models\AffiliateRewardClaim::STATUS_CLAIMED)
+                                <div class="sm-reward-lock-note">
+                                    <i class="fa-solid fa-hourglass-half"></i>
+                                    <div>
+                                        <strong>Klaim kamu sedang diproses admin.</strong>
+                                        Admin akan menghubungi kamu via WhatsApp untuk pengaturan jadwal reward.
+                                    </div>
+                                </div>
+                            @elseif($done)
+                                <div class="sm-reward-done">
+                                    <i class="fa-solid fa-sparkles"></i>
+                                    Yeay! Target konten sudah tercapai. Klaim reward kamu sekarang!
+                                </div>
+                                <div class="sm-action-row">
+                                    <form method="POST" action="{{ route('affiliate.reward.claim', $chosenTierDb->id ?? '') }}">
+                                        @csrf
+                                        <button type="submit" class="sm-btn-claim">
+                                            <i class="fa-solid fa-gift"></i> Klaim {{ $tier['reward'] }}
+                                        </button>
+                                    </form>
+                                </div>
+                            @else
+                                <div class="sm-reward-lock-note">
+                                    <i class="fa-solid fa-camera"></i>
+                                    <div>
+                                        <strong>Yuk lanjut posting konten!</strong>
+                                        Butuh <strong>{{ $targetCount - $currentCount }}</strong> konten approved lagi untuk klaim reward.
+                                    </div>
+                                </div>
+                            @endif
                         @endif
                     </div>
                 @endforeach
@@ -264,11 +406,11 @@
             <div class="sm-info-box">
                 <h3><i class="fa-solid fa-circle-info"></i> Ketentuan Program</h3>
                 <ul>
-                    <li>Tier Sweet Mates dipilih di awal program dan <strong>tidak bisa diubah</strong>.</li>
+                    <li>Tier dipilih di awal dan <strong>tidak bisa diubah</strong> sampai reward kamu selesai diklaim & diproses admin.</li>
+                    <li>Setelah reward selesai dipakai, kamu boleh pilih program berikutnya — counter konten dimulai dari 0 lagi.</li>
                     <li>Setiap konten harus di-review dan di-approve admin untuk dihitung.</li>
-                    <li>Reward hanya dapat diklaim di <strong>akhir perawatan</strong> (saat lepas behel).</li>
+                    <li>Hanya konten yang dikirim <strong>setelah counter dimulai</strong> yang dihitung untuk program saat ini.</li>
                     <li>Mention <strong>@sweet.treats.dental</strong> di caption kontenmu supaya verifikasi lebih cepat.</li>
-                    <li>Hubungi admin Sweet Treats jika ada pertanyaan terkait reward kamu.</li>
                 </ul>
             </div>
 

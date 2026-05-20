@@ -112,6 +112,49 @@
             .sm-ref-item { flex-wrap: wrap; }
             .sm-ref-right { width: 100%; text-align: left; margin-top: 8px; padding-left: 58px; }
         }
+
+        /* Claim Section (Fase 2D) */
+        .sm-claim-card { background: linear-gradient(135deg, #fff, #fef5ed); border: 1.5px solid rgba(70,21,0,0.1); }
+        .sm-claim-progress { padding: 16px 18px; border-radius: 14px; background: #fff; border: 1px solid rgba(70,21,0,0.06); }
+        .sm-claim-progress-head { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 12px; gap: 12px; flex-wrap: wrap; }
+        .sm-claim-progress-label { font-size: 0.72rem; font-weight: 700; color: #8b7a6b; text-transform: uppercase; letter-spacing: 0.5px; }
+        .sm-claim-progress-value { font-size: 1.4rem; font-weight: 900; color: #461500; line-height: 1.1; }
+        .sm-claim-progress-value strong { color: #2e7d32; font-size: 1.7rem; }
+        .sm-claim-progress-amount { font-size: 1.1rem; font-weight: 800; color: #461500; line-height: 1.1; }
+        .sm-claim-progress-track { height: 12px; background: rgba(70,21,0,0.08); border-radius: 50px; overflow: hidden; }
+        .sm-claim-progress-bar { height: 100%; background: linear-gradient(90deg, #c68a56, #461500); border-radius: 50px; transition: width 0.6s ease; }
+        .sm-claim-ready { margin-top: 14px; padding: 12px 14px; background: linear-gradient(135deg, #e8f5e9, #c8e6c9); border-radius: 12px; color: #1b5e20; font-size: 0.86rem; font-weight: 700; display: flex; align-items: center; gap: 10px; }
+        .sm-claim-hint { margin-top: 14px; padding: 12px 14px; background: linear-gradient(135deg, #fef5ed, #fef0e2); border: 1px dashed rgba(70,21,0,0.2); border-radius: 12px; color: #6b4a30; font-size: 0.84rem; line-height: 1.5; display: flex; align-items: flex-start; gap: 10px; }
+        .sm-claim-hint i { color: #c45200; margin-top: 2px; flex-shrink: 0; }
+        .sm-claim-hint strong { color: #461500; }
+
+        .sm-btn-claim { display: inline-flex; align-items: center; gap: 10px; padding: 14px 24px; background: linear-gradient(135deg, #461500, #6b2400); color: #fff; border: none; border-radius: 12px; font-family: 'Montserrat', sans-serif; font-weight: 800; font-size: 0.92rem; cursor: pointer; text-transform: uppercase; letter-spacing: 0.4px; transition: all 0.2s; box-shadow: 0 6px 18px rgba(70,21,0,0.25); }
+        .sm-btn-claim:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(70,21,0,0.32); }
+        .sm-btn-claim--success { background: linear-gradient(135deg, #2e7d32, #1b5e20); box-shadow: 0 6px 18px rgba(46,125,50,0.3); }
+
+        /* Pending batch */
+        .sm-pending-batch { padding: 18px 20px; border-radius: 14px; background: linear-gradient(135deg, #fff8e1, #fff3cd); border: 1px solid rgba(245,124,0,0.25); }
+        .sm-pending-batch-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; gap: 10px; flex-wrap: wrap; }
+        .sm-pending-batch-label { font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: #6b4a30; }
+        .sm-pending-batch-pill { display: inline-flex; padding: 4px 12px; border-radius: 50px; font-size: 0.7rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; }
+        .sm-pending-batch-pill-warning { background: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
+        .sm-pending-batch-pill-info    { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        .sm-pending-batch-pill-success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .sm-pending-batch-pill-neutral { background: #e9ecef; color: #495057; border: 1px solid #ced4da; }
+        .sm-pending-batch-amount { font-size: 1.6rem; font-weight: 900; color: #461500; line-height: 1.1; }
+        .sm-pending-batch-meta { font-size: 0.78rem; color: #8b7a6b; margin-top: 4px; }
+        .sm-pending-batch-desc { margin-top: 10px; padding: 10px 12px; background: rgba(255,255,255,0.6); border-radius: 10px; font-size: 0.82rem; color: #6b4a30; line-height: 1.5; }
+        .sm-claim-link { display: inline-flex; align-items: center; gap: 6px; margin-top: 10px; padding: 8px 14px; background: #fff; border: 1px solid #461500; color: #461500; border-radius: 50px; font-size: 0.8rem; font-weight: 700; text-decoration: none; }
+        .sm-claim-link:hover { background: #461500; color: #fff; }
+
+        /* Batch history */
+        .sm-batch-history { margin-top: 20px; padding-top: 16px; border-top: 1px dashed rgba(70,21,0,0.15); }
+        .sm-batch-history-title { font-size: 0.78rem; font-weight: 800; color: #461500; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+        .sm-batch-history-list { display: grid; gap: 8px; }
+        .sm-batch-history-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: #fff; border: 1px solid rgba(70,21,0,0.06); border-radius: 10px; gap: 10px; flex-wrap: wrap; }
+        .sm-batch-history-amount { font-size: 0.95rem; font-weight: 800; color: #461500; }
+        .sm-batch-history-meta { font-size: 0.74rem; color: #8b7a6b; margin-top: 2px; }
+        .sm-batch-history-pill { padding: 3px 10px; border-radius: 50px; font-size: 0.68rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.4px; }
     </style>
 </head>
 <body>
@@ -218,6 +261,110 @@
                     </div>
                 </div>
             </div>
+
+            {{-- ─── CLAIM SECTION (Fase 2D) ─── --}}
+            @if($scopeCfg)
+                <div class="sm-card sm-claim-card">
+                    <div class="sm-card-title">
+                        <i class="fa-solid fa-hand-holding-dollar"></i>
+                        Klaim Komisi
+                    </div>
+
+                    @php
+                        $minPat       = $minPatients;
+                        $countNow     = $claimableCount;
+                        $progressPct  = $minPat > 0 ? min(100, (int) round(($countNow / $minPat) * 100)) : 0;
+                        $remaining    = max(0, $minPat - $countNow);
+                    @endphp
+
+                    {{-- Pending batch info (kalau ada batch yg belum completed) --}}
+                    @if($pendingBatch)
+                        @php $pbStatus = \App\Models\CommissionClaimBatch::statusOptions()[$pendingBatch->status]; @endphp
+                        <div class="sm-pending-batch">
+                            <div class="sm-pending-batch-head">
+                                <span class="sm-pending-batch-label">Klaim sedang diproses</span>
+                                <span class="sm-pending-batch-pill sm-pending-batch-pill-{{ $pbStatus['color'] }}">{{ $pbStatus['label'] }}</span>
+                            </div>
+                            <div class="sm-pending-batch-amount">Rp {{ number_format($pendingBatch->total_amount, 0, ',', '.') }}</div>
+                            <div class="sm-pending-batch-meta">
+                                {{ $pendingBatch->patient_count }} pasien · diajukan {{ $pendingBatch->requested_at->translatedFormat('d M Y') }}
+                            </div>
+                            <div class="sm-pending-batch-desc">{{ $pbStatus['desc'] }}</div>
+
+                            @if($pendingBatch->status === \App\Models\CommissionClaimBatch::STATUS_TRANSFERRED)
+                                @if($pendingBatch->tx_proof_path)
+                                    <a href="{{ asset('uploads/commission_proof/' . $pendingBatch->tx_proof_path) }}" target="_blank" class="sm-claim-link">
+                                        <i class="fa-solid fa-file-image"></i> Lihat Bukti Transfer
+                                    </a>
+                                @endif
+                                <form method="POST" action="{{ route('affiliate.commissions.confirm', $pendingBatch->id) }}" class="mt-3">
+                                    @csrf
+                                    <button type="submit" class="sm-btn-claim sm-btn-claim--success" onclick="return confirm('Konfirmasi sudah terima transfer Rp {{ number_format($pendingBatch->total_amount, 0, ',', '.') }}?')">
+                                        <i class="fa-solid fa-check-double"></i> Konfirmasi Sudah Terima
+                                    </button>
+                                </form>
+                            @endif
+                        </div>
+                    @else
+                        {{-- Progress to claim --}}
+                        <div class="sm-claim-progress">
+                            <div class="sm-claim-progress-head">
+                                <div>
+                                    <div class="sm-claim-progress-label">Pasien terkumpul</div>
+                                    <div class="sm-claim-progress-value"><strong>{{ $countNow }}</strong> / {{ $minPat }}</div>
+                                </div>
+                                <div class="text-right">
+                                    <div class="sm-claim-progress-label">Total claimable</div>
+                                    <div class="sm-claim-progress-amount">Rp {{ number_format($claimableAmount, 0, ',', '.') }}</div>
+                                </div>
+                            </div>
+                            <div class="sm-claim-progress-track">
+                                <div class="sm-claim-progress-bar" style="width:{{ $progressPct }}%"></div>
+                            </div>
+                            @if($canClaim)
+                                <div class="sm-claim-ready">
+                                    <i class="fa-solid fa-sparkles"></i>
+                                    Yeay! Kamu bisa klaim sekarang. Pilih tombol di bawah untuk ajukan ke tim.
+                                </div>
+                                <form method="POST" action="{{ route('affiliate.commissions.claim') }}" class="mt-3">
+                                    @csrf
+                                    <button type="submit" class="sm-btn-claim" onclick="return confirm('Ajukan klaim Rp {{ number_format($scopeCfg['commission_amount'] * $minPat, 0, ',', '.') }} ({{ $minPat }} pasien)?')">
+                                        <i class="fa-solid fa-hand-holding-dollar"></i>
+                                        Klaim Rp {{ number_format($scopeCfg['commission_amount'] * $minPat, 0, ',', '.') }}
+                                    </button>
+                                </form>
+                            @else
+                                <div class="sm-claim-hint">
+                                    <i class="fa-solid fa-info-circle"></i>
+                                    Butuh <strong>{{ $remaining }} pasien lagi</strong> untuk bisa klaim Rp {{ number_format($scopeCfg['commission_amount'] * $minPat, 0, ',', '.') }}.
+                                    Setiap pasien yang pakai kode kamu = Rp {{ number_format($scopeCfg['commission_amount'], 0, ',', '.') }} komisi.
+                                </div>
+                            @endif
+                        </div>
+                    @endif
+
+                    {{-- Batch history --}}
+                    @if($batchHistory->isNotEmpty())
+                        <div class="sm-batch-history">
+                            <div class="sm-batch-history-title"><i class="fa-solid fa-clock-rotate-left"></i> Riwayat Klaim</div>
+                            <div class="sm-batch-history-list">
+                                @foreach($batchHistory as $b)
+                                    @php $bs = \App\Models\CommissionClaimBatch::statusOptions()[$b->status]; @endphp
+                                    <div class="sm-batch-history-item">
+                                        <div class="sm-batch-history-info">
+                                            <div class="sm-batch-history-amount">Rp {{ number_format($b->total_amount, 0, ',', '.') }}</div>
+                                            <div class="sm-batch-history-meta">
+                                                {{ $b->patient_count }} pasien · {{ $b->requested_at->translatedFormat('d M Y') }}
+                                            </div>
+                                        </div>
+                                        <span class="sm-batch-history-pill sm-pending-batch-pill-{{ $bs['color'] }}">{{ $bs['label'] }}</span>
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
+                    @endif
+                </div>
+            @endif
 
             {{-- RIWAYAT --}}
             <div class="sm-card">

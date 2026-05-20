@@ -49,6 +49,14 @@
                             <option value="none" {{ $filterType === 'none' ? 'selected' : '' }}>Tanpa Tipe</option>
                         </select>
 
+                        <label>KOL Progress</label>
+                        <select name="kol_progress" onchange="this.form.submit();">
+                            <option value="all" {{ ($filterKolProgress ?? 'all') === 'all' ? 'selected' : '' }}>Semua</option>
+                            @foreach(\App\Models\RawAffiliate::kolProgressOptions() as $key => $opt)
+                                <option value="{{ $key }}" {{ ($filterKolProgress ?? '') === $key ? 'selected' : '' }}>{{ $opt['label'] }}</option>
+                            @endforeach
+                        </select>
+
                         <label>Cari</label>
                         <input type="text" name="q" value="{{ $search }}" placeholder="Nama atau nomor HP...">
                         <button type="submit" class="st-btn-brand">
@@ -61,8 +69,11 @@
                         @endif
 
                         <div class="ml-auto d-flex" style="gap:6px;">
-                            <a href="{{ route('rawaffiliate.new') }}" class="st-btn-brand">
-                                <i class="fa fa-plus"></i> Tambah Manual
+                            <a href="{{ route('rawaffiliate.new') }}?type=koc" class="st-btn-brand">
+                                <i class="fa fa-user-plus"></i> Tambah KOC
+                            </a>
+                            <a href="{{ route('rawaffiliate.new') }}?type=kol" class="st-btn-brand" style="background:linear-gradient(135deg,#c45200,#8b3a00);">
+                                <i class="fa fa-star"></i> Tambah KOL
                             </a>
                             <a href="{{ route('export.komisi') }}" class="st-btn-outline-brown">
                                 <i class="fa fa-download"></i> Export Komisi CSV
@@ -77,6 +88,7 @@
                                     <th width="4%">No</th>
                                     <th>Nama</th>
                                     <th>Role / Tipe</th>
+                                    <th>Scope</th>
                                     <th>Phone</th>
                                     <th>Komisi</th>
                                     <th>Promo</th>
@@ -87,7 +99,7 @@
                             <tbody>
                                 @forelse ($affiliates as $key => $row)
                                     <tr class="st-row-clickable {{ $row->registration_status === 'pending' ? 'st-row--pending-highlight' : '' }}"
-                                        data-href="{{ route('rawaffiliate.edit', $row->id) }}"
+                                        data-href="{{ route('rawaffiliate.edit', ['id' => $row->id, 'return' => request()->fullUrl()]) }}"
                                         style="cursor:pointer;">
                                         <td class="st-num">{{ $affiliates->firstItem() + $key }}</td>
                                         <td>
@@ -106,6 +118,35 @@
                                             </span>
                                             @if($row->type)
                                                 <span class="st-pill st-pill--plain st-pill--dark">{{ strtoupper($row->type) }}</span>
+                                            @endif
+                                        </td>
+                                        <td>
+                                            @php $scopeCfg = $row->scopeConfig(); @endphp
+                                            @if($scopeCfg)
+                                                <span class="st-pill st-pill--plain {{ $row->isBehelScope() ? 'st-pill--info' : 'st-pill--success' }}">
+                                                    {{ $scopeCfg['short'] }}
+                                                </span>
+                                            @else
+                                                <span class="st-muted" style="font-size:11px;">—</span>
+                                            @endif
+                                            @if($row->isKol())
+                                                @php
+                                                    $progressOpt = $row->kol_progress ? \App\Models\RawAffiliate::kolProgressOptions()[$row->kol_progress] ?? null : null;
+                                                    $kategori    = $row->kol_kategori ? \App\Models\RawAffiliate::kolKategoriOptions()[$row->kol_kategori] ?? null : null;
+                                                @endphp
+                                                @if($progressOpt)
+                                                    <br><span class="st-pill st-pill--plain st-pill--{{ $progressOpt['color'] }} mt-1" style="font-size:10px;">
+                                                        {{ $progressOpt['label'] }}
+                                                    </span>
+                                                @endif
+                                                @if($kategori)
+                                                    <br><small class="text-muted" style="font-size:10px;">{{ $kategori }}</small>
+                                                @endif
+                                                @if($row->followers_count)
+                                                    <br><small class="text-muted" style="font-size:10px;">
+                                                        <i class="fa fa-users"></i> {{ number_format($row->followers_count, 0, ',', '.') }} followers
+                                                    </small>
+                                                @endif
                                             @endif
                                         </td>
                                         <td class="st-tnum">{{ $row->phone ?? '-' }}</td>
@@ -192,6 +233,13 @@
                                                                                 <strong>{{ \App\Models\RawAffiliate::rewardPrograms()[$row->reward_program] ?? $row->reward_program }}</strong>
                                                                             </div>
                                                                         @endif
+                                                                        @if($row->referral_scope)
+                                                                            @php $regScopeCfg = \App\Models\RawAffiliate::referralScopes()[$row->referral_scope] ?? null; @endphp
+                                                                            <div style="margin-top:8px; padding-top:8px; border-top:1px dashed var(--st-border);">
+                                                                                <i class="fas {{$regScopeCfg['icon'] ?? 'fa-tag' }} mr-1" style="color:var(--st-primary);"></i>
+                                                                                Mendaftar sebagai: <strong>{{ $regScopeCfg['label'] ?? $row->referral_scope }}</strong>
+                                                                            </div>
+                                                                        @endif
                                                                     </div>
                                                                     <div class="form-group">
                                                                         <label>Type <span class="text-danger">*</span></label>
@@ -201,6 +249,19 @@
                                                                             <option value="kol">KOL (Key Opinion Leader)</option>
                                                                         </select>
                                                                         <small class="text-muted">Tentukan kategori berdasarkan reach &amp; pengaruh sosial media.</small>
+                                                                    </div>
+                                                                    <div class="form-group">
+                                                                        <label>Referral Scope <span class="text-danger">*</span></label>
+                                                                        <select name="referral_scope" class="form-control" required>
+                                                                            <option value="">-- Pilih Scope --</option>
+                                                                            @foreach(\App\Models\RawAffiliate::referralScopes() as $sKey => $sCfg)
+                                                                                <option value="{{ $sKey }}"
+                                                                                    {{ $row->referral_scope === $sKey ? 'selected' : '' }}>
+                                                                                    {{ $sCfg['label'] }} (voucher Rp {{ number_format($sCfg['voucher_amount'], 0, ',', '.') }})
+                                                                                </option>
+                                                                            @endforeach
+                                                                        </select>
+                                                                        <small class="text-muted">Default ikut pilihan saat pendaftaran. Voucher amount akan otomatis ikut scope ini.</small>
                                                                     </div>
                                                                     <div class="form-group">
                                                                         <label>PIN 6 Digit <span class="text-danger">*</span></label>
@@ -271,7 +332,7 @@
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="8" class="text-center py-4">
+                                        <td colspan="9" class="text-center py-4">
                                             <div class="st-muted">
                                                 <i class="fa fa-inbox fa-2x mb-2 d-block"></i>
                                                 Tidak ada referral untuk filter ini.

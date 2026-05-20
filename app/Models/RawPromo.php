@@ -14,6 +14,7 @@ class RawPromo extends Model
     protected $fillable = [
         'id',
         'raw_affiliate_id',
+        'referral_scope',
         'promo_code',
         'discount_type',
         'discount_value',
@@ -54,5 +55,10 @@ class RawPromo extends Model
             return round($total * ($this->discount_value / 100), 2);
         }
         return min((float) $this->discount_value, $total);
+    }
+
+    public function scopeConfig(): ?array
+    {
+        return RawAffiliate::referralScopes()[$this->referral_scope] ?? null;
     }
 }
