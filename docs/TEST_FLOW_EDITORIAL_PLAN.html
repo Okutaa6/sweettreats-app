@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Test Flow — Editorial Plan (Fase 3) · Sweet Treats</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<style>
+    *,*::before,*::after { margin:0; padding:0; box-sizing:border-box; }
+    :root {
+        --brand:#a85432; --brand-2:#c4683f; --brand-3:#d4825c;
+        --cream:#fbe7d6; --cream-2:#fdf6ef; --cream-3:#f0d4be;
+        --bg:#fffbf5; --text:#5a2d18; --muted:#7d4429; --border:#f0d4be;
+        --pass:#2e7d32; --pass-bg:#e8f5e9; --fail:#c62828; --fail-bg:#ffebee;
+        --warn:#f57c00; --warn-bg:#fff3cd; --info:#1565c0; --info-bg:#e3f2fd;
+    }
+    html { scroll-behavior: smooth; }
+    body { font-family:'Montserrat',sans-serif; color:var(--text); background:var(--bg); line-height:1.55; }
+
+    .layout { display:grid; grid-template-columns:280px 1fr; min-height:100vh; }
+    .sidebar { background:linear-gradient(180deg,var(--brand) 0%, #7d4429 100%); color:#fff; padding:24px 20px; position:sticky; top:0; height:100vh; overflow-y:auto; }
+    .main { padding:32px 48px; max-width:1100px; }
+
+    .brand { display:flex; align-items:center; gap:10px; margin-bottom:6px; padding-bottom:16px; border-bottom:1px solid rgba(255,255,255,0.15); }
+    .brand-name { font-size:1.1rem; font-weight:900; }
+    .brand-sub { font-size:0.7rem; opacity:0.8; letter-spacing:1px; text-transform:uppercase; }
+
+    .progress-card { background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.12); border-radius:12px; padding:14px; margin:18px 0; }
+    .progress-label { font-size:0.7rem; opacity:0.85; text-transform:uppercase; letter-spacing:0.5px; font-weight:700; margin-bottom:6px; }
+    .progress-numbers { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px; }
+    .progress-current { font-size:1.5rem; font-weight:900; }
+    .progress-total { font-size:0.85rem; opacity:0.8; }
+    .progress-track { height:6px; background:rgba(255,255,255,0.15); border-radius:50px; overflow:hidden; }
+    .progress-bar { height:100%; background:linear-gradient(90deg, #fbbc04, #34a853); border-radius:50px; transition:width 0.4s ease; }
+    .progress-stats { display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:10px; }
+    .progress-stat { padding:6px 8px; border-radius:6px; font-size:0.72rem; font-weight:700; text-align:center; }
+    .progress-stat.pass-stat { background:rgba(76,175,80,0.25); color:#a5d6a7; }
+    .progress-stat.fail-stat { background:rgba(239,83,80,0.25); color:#ef9a9a; }
+
+    .nav-section { margin-top:18px; }
+    .nav-section-title { font-size:0.7rem; opacity:0.7; text-transform:uppercase; letter-spacing:1px; font-weight:700; padding:10px 8px 6px; }
+    .nav-link { display:flex; align-items:center; gap:10px; padding:8px 12px; border-radius:8px; font-size:0.84rem; font-weight:600; opacity:0.85; cursor:pointer; text-decoration:none; color:#fff; transition:all 0.15s; }
+    .nav-link:hover { background:rgba(255,255,255,0.08); opacity:1; }
+    .nav-link.active { background:rgba(255,255,255,0.15); opacity:1; }
+    .nav-link i { font-size:0.78rem; opacity:0.7; width:14px; text-align:center; }
+    .nav-link .nav-mini-progress { margin-left:auto; font-size:0.68rem; padding:2px 6px; border-radius:50px; background:rgba(255,255,255,0.15); font-weight:800; min-width:36px; text-align:center; }
+
+    .sidebar-actions { margin-top:24px; padding-top:16px; border-top:1px solid rgba(255,255,255,0.15); display:flex; flex-direction:column; gap:6px; }
+    .sb-btn { display:flex; align-items:center; gap:8px; padding:9px 12px; border-radius:8px; font-size:0.78rem; font-weight:700; cursor:pointer; border:1px solid rgba(255,255,255,0.2); background:transparent; color:#fff; font-family:inherit; transition:all 0.15s; }
+    .sb-btn:hover { background:rgba(255,255,255,0.1); }
+    .sb-btn.danger { border-color:rgba(239,83,80,0.5); color:#ffabab; }
+    .sb-btn.danger:hover { background:rgba(239,83,80,0.18); }
+
+    .doc-header { padding:28px; background:linear-gradient(135deg,var(--brand),#7d4429); color:#fff; border-radius:18px; margin-bottom:32px; box-shadow:0 12px 32px rgba(168,84,50,0.18); position:relative; overflow:hidden; }
+    .doc-header::before { content:''; position:absolute; top:-40px; right:-40px; width:160px; height:160px; border-radius:50%; background:rgba(255,255,255,0.06); }
+    .doc-header::after  { content:''; position:absolute; bottom:-30px; left:30%; width:120px; height:120px; border-radius:50%; background:rgba(255,255,255,0.04); }
+    .doc-title { font-size:1.7rem; font-weight:900; letter-spacing:-0.01em; margin-bottom:6px; display:flex; align-items:center; gap:14px; position:relative; }
+    .doc-meta { font-size:0.82rem; opacity:0.9; display:flex; gap:18px; flex-wrap:wrap; position:relative; }
+    .doc-meta i { opacity:0.7; margin-right:4px; }
+
+    .alert { padding:14px 18px; border-radius:12px; font-size:0.86rem; margin-bottom:18px; display:flex; gap:12px; align-items:flex-start; line-height:1.5; }
+    .alert i { font-size:1rem; margin-top:2px; flex-shrink:0; }
+    .alert-info { background:var(--info-bg); color:var(--info); border-left:3px solid var(--info); }
+    .alert-warn { background:var(--warn-bg); color:#856404; border-left:3px solid var(--warn); }
+    .alert-success { background:var(--pass-bg); color:#1b5e20; border-left:3px solid var(--pass); }
+
+    h2 { font-size:1.4rem; font-weight:900; color:var(--brand); margin-top:42px; margin-bottom:16px; padding-bottom:10px; border-bottom:2px solid var(--cream); display:flex; align-items:center; gap:10px; }
+    h2 .h2-num { background:var(--brand-2); color:#fff; width:32px; height:32px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:0.8rem; font-weight:800; }
+    h3 { font-size:1.05rem; font-weight:800; color:var(--brand); margin-top:24px; margin-bottom:12px; display:flex; align-items:center; gap:8px; }
+    h3 i { color:var(--brand-2); font-size:0.9rem; }
+
+    .pre-req-table { width:100%; border-collapse:separate; border-spacing:0; margin-bottom:16px; background:#fff; border-radius:10px; overflow:hidden; box-shadow:0 4px 14px rgba(168,84,50,0.06); border:1px solid var(--border); }
+    .pre-req-table th { background:var(--cream-2); color:var(--brand); padding:11px 14px; text-align:left; font-size:0.74rem; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; }
+    .pre-req-table td { padding:11px 14px; border-top:1px solid var(--border); font-size:0.86rem; }
+    .pre-req-table td code { background:var(--cream); padding:2px 7px; border-radius:5px; font-size:0.78rem; font-weight:700; color:var(--brand); }
+    .pre-req-table .num-col { width:50px; text-align:center; font-weight:800; color:var(--brand); }
+
+    .test { background:#fff; border:1px solid var(--border); border-radius:14px; padding:18px 20px; margin-bottom:14px; transition:all 0.15s; box-shadow:0 2px 8px rgba(168,84,50,0.04); }
+    .test:hover { box-shadow:0 8px 22px rgba(168,84,50,0.08); }
+    .test.is-pass { border-color:var(--pass); background:linear-gradient(135deg, #fff, #f1f8f1); }
+    .test.is-fail { border-color:var(--fail); background:linear-gradient(135deg, #fff, #fef4f4); }
+
+    .test-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; }
+    .test-id { display:inline-flex; align-items:center; gap:8px; }
+    .test-id-pill { background:var(--brand); color:#fff; padding:4px 10px; border-radius:6px; font-size:0.72rem; font-weight:800; letter-spacing:0.5px; }
+    .test.is-pass .test-id-pill { background:var(--pass); }
+    .test.is-fail .test-id-pill { background:var(--fail); }
+    .test-title { font-size:0.98rem; font-weight:800; color:var(--brand); }
+
+    .verdict { display:flex; gap:6px; }
+    .verdict-btn { padding:6px 14px; border-radius:50px; font-size:0.72rem; font-weight:800; text-transform:uppercase; letter-spacing:0.4px; cursor:pointer; border:2px solid var(--border); background:#fff; color:var(--muted); transition:all 0.15s; font-family:inherit; }
+    .verdict-btn:hover { border-color:var(--brand); color:var(--brand); }
+    .verdict-btn.pass-btn.active { background:var(--pass); border-color:var(--pass); color:#fff; }
+    .verdict-btn.fail-btn.active { background:var(--fail); border-color:var(--fail); color:#fff; }
+
+    .test-body { display:grid; grid-template-columns:auto 1fr; gap:6px 14px; font-size:0.86rem; }
+    .test-body dt { font-weight:800; color:var(--muted); text-transform:uppercase; font-size:0.7rem; letter-spacing:0.5px; padding-top:3px; align-self:start; white-space:nowrap; }
+    .test-body dd { line-height:1.55; }
+    .test-body dd ol { padding-left:18px; }
+    .test-body dd ol li { margin-bottom:4px; }
+    .test-body dd code { background:var(--cream-2); padding:1px 6px; border-radius:4px; font-size:0.78rem; font-weight:700; color:var(--brand); }
+    .test-body dd strong { color:var(--brand); }
+
+    .test-notes { margin-top:10px; padding-top:10px; border-top:1px dashed var(--border); }
+    .test-notes label { font-size:0.7rem; font-weight:800; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; display:block; margin-bottom:4px; }
+    .test-notes textarea { width:100%; padding:8px 12px; border:1px solid var(--border); border-radius:8px; font-family:inherit; font-size:0.84rem; resize:vertical; min-height:36px; background:#fffdfa; color:var(--text); }
+    .test-notes textarea:focus { outline:none; border-color:var(--brand); }
+
+    .summary { background:#fff; border:1px solid var(--border); border-radius:14px; padding:24px; margin-top:32px; }
+    .summary-title { font-size:1.05rem; font-weight:900; color:var(--brand); margin-bottom:16px; display:flex; align-items:center; gap:8px; }
+    .summary-table { width:100%; border-collapse:collapse; }
+    .summary-table th, .summary-table td { padding:11px 14px; text-align:left; font-size:0.86rem; border-bottom:1px solid var(--border); }
+    .summary-table th { background:var(--cream-2); color:var(--brand); font-weight:800; font-size:0.74rem; text-transform:uppercase; letter-spacing:0.5px; }
+    .summary-table td.num { text-align:center; font-weight:800; }
+    .summary-table .total-row { background:var(--cream); font-weight:900; }
+    .summary-table .total-row td { border-top:2px solid var(--brand); }
+    .summary-num.pass-num { color:var(--pass); }
+    .summary-num.fail-num { color:var(--fail); }
+
+    .bug-template { background:#1e1e2e; color:#cdd6f4; padding:18px 20px; border-radius:10px; font-family:'Courier New',monospace; font-size:0.82rem; line-height:1.7; overflow-x:auto; margin-top:12px; }
+    .bug-template .lbl { color:#fab387; }
+
+    .footer { margin-top:48px; padding-top:24px; border-top:1px solid var(--border); text-align:center; font-size:0.78rem; color:var(--muted); }
+
+    @media (max-width: 900px) {
+        .layout { grid-template-columns:1fr; }
+        .sidebar { position:relative; height:auto; }
+        .main { padding:20px; }
+    }
+
+    @media print {
+        body { background:#fff; }
+        .sidebar { display:none; }
+        .layout { grid-template-columns:1fr; }
+        .main { padding:0; max-width:100%; }
+        .test { page-break-inside:avoid; box-shadow:none; border:1px solid #ccc; }
+        .verdict-btn { display:none; }
+        .verdict::after { content:'Pass: ☐  Fail: ☐'; color:#333; font-weight:700; font-size:0.86rem; }
+        .test-notes textarea { min-height:50px; border:1px solid #999; }
+        .doc-header { background:#a85432 !important; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+        h2 { page-break-after:avoid; }
+        h3 { page-break-after:avoid; }
+        .alert { page-break-inside:avoid; }
+        .summary { page-break-inside:avoid; }
+    }
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+    <aside class="sidebar">
+        <div class="brand">
+            <div>
+                <div class="brand-name">Sweet Treats</div>
+                <div class="brand-sub">QA · Editorial Plan</div>
+            </div>
+        </div>
+
+        <div class="progress-card">
+            <div class="progress-label"><i class="fa-solid fa-chart-line"></i> Progress Test</div>
+            <div class="progress-numbers">
+                <span class="progress-current" id="progressCurrent">0</span>
+                <span class="progress-total">/ <span id="progressTotal">0</span> done</span>
+            </div>
+            <div class="progress-track">
+                <div class="progress-bar" id="progressBar" style="width:0%"></div>
+            </div>
+            <div class="progress-stats">
+                <div class="progress-stat pass-stat"><i class="fa-solid fa-check"></i> <span id="passCount">0</span> Pass</div>
+                <div class="progress-stat fail-stat"><i class="fa-solid fa-xmark"></i> <span id="failCount">0</span> Fail</div>
+            </div>
+        </div>
+
+        <div class="nav-section">
+            <div class="nav-section-title">Sections</div>
+            <a href="#prereq"  class="nav-link"><i class="fa-solid fa-list-check"></i> Pre-Requisites</a>
+            <a href="#fase3a"  class="nav-link"><i class="fa-solid fa-database"></i> 3A — Foundation <span class="nav-mini-progress" data-section="3A">0/3</span></a>
+            <a href="#fase3b"  class="nav-link"><i class="fa-solid fa-tags"></i> 3B — Konten Pillar <span class="nav-mini-progress" data-section="3B">0/6</span></a>
+            <a href="#fase3c"  class="nav-link"><i class="fa-solid fa-calendar-days"></i> 3C — EP Kalender <span class="nav-mini-progress" data-section="3C">0/13</span></a>
+            <a href="#fase3d"  class="nav-link"><i class="fa-solid fa-bullseye"></i> 3D — Breakdown <span class="nav-mini-progress" data-section="3D">0/10</span></a>
+            <a href="#fase3e"  class="nav-link"><i class="fa-solid fa-bullhorn"></i> 3E — Campaign <span class="nav-mini-progress" data-section="3E">0/10</span></a>
+            <a href="#bonus"   class="nav-link"><i class="fa-solid fa-palette"></i> Bonus / Visual <span class="nav-mini-progress" data-section="BN">0/5</span></a>
+            <a href="#summary" class="nav-link"><i class="fa-solid fa-clipboard-check"></i> Summary</a>
+        </div>
+
+        <div class="sidebar-actions">
+            <button type="button" class="sb-btn" onclick="window.print()"><i class="fa-solid fa-print"></i> Print / Save PDF</button>
+            <button type="button" class="sb-btn" onclick="exportResults()"><i class="fa-solid fa-download"></i> Export Result (JSON)</button>
+            <button type="button" class="sb-btn danger" onclick="resetAll()"><i class="fa-solid fa-rotate-left"></i> Reset Semua</button>
+        </div>
+    </aside>
+
+    <main class="main">
+
+        <div class="doc-header">
+            <h1 class="doc-title"><i class="fa-solid fa-pen-fancy"></i> Test Flow — Editorial Plan</h1>
+            <div class="doc-meta">
+                <span><i class="fa-solid fa-code-branch"></i> Fase 3 (A/B/C/D/E) + Breakdown Refactor</span>
+                <span><i class="fa-solid fa-calendar-day"></i> Versi 2026-05-02</span>
+                <span><i class="fa-solid fa-clock"></i> Estimasi 1.5-2 jam</span>
+                <span><i class="fa-solid fa-list-check"></i> 47 test cases</span>
+            </div>
+        </div>
+
+        <div class="alert alert-info">
+            <i class="fa-solid fa-circle-info"></i>
+            <div>
+                <strong>Cara pakai:</strong> Klik tombol <em>Pass</em> atau <em>Fail</em> di setiap test. Progress otomatis ke-save di browser. Bisa export hasil JSON via tombol "Export Result" di sidebar, atau print sebagai PDF.
+                Pastikan dokumen test flow Marketing (Fase 1+2) sudah selesai sebelum mulai ini.
+            </div>
+        </div>
+
+        <section id="prereq">
+            <h2><span class="h2-num"><i class="fa-solid fa-list-check"></i></span> Pre-Requisites</h2>
+
+            <h3><i class="fa-solid fa-database"></i> 1. Run SQL files (urutan penting!)</h3>
+            <p style="font-size:0.86rem; color:var(--muted); margin-bottom:10px;">
+                Login ke phpMyAdmin pada DB production, jalankan file-file berikut <strong>berurutan</strong> dari folder <code>database/sql/</code>:
+            </p>
+            <table class="pre-req-table">
+                <thead>
+                    <tr><th class="num-col">#</th><th>File</th><th>Apa yang dilakukan</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td class="num-col">1</td><td><code>2026_05_02_editorial_plan.sql</code></td><td>Bikin tabel <code>ep_konten_pillar</code>, <code>ep_konten</code>, <code>ep_campaign_framework</code>, <code>ep_campaign_week</code> + 22 default pillar (auto-seed)</td></tr>
+                    <tr><td class="num-col">2</td><td><code>2026_05_02_breakdown_refactor.sql</code></td><td>Tambah <code>is_breakdown</code>, <code>lokasi</code>, <code>acc_by</code> ke <code>ep_konten</code>; drop tabel <code>ep_breakdown</code> (refactor — breakdown jadi flag)</td></tr>
+                </tbody>
+            </table>
+            <div class="alert alert-success" style="margin-top:8px;">
+                <i class="fa-solid fa-shield-halved"></i>
+                <div>Semua SQL <strong>idempotent</strong> — kalau sudah pernah dijalankan, akan skip otomatis (tidak error).</div>
+            </div>
+
+            <h3><i class="fa-solid fa-bars"></i> 2. Setup Sidebar Menu (manual via UI Admin)</h3>
+            <p style="font-size:0.86rem; color:var(--muted); margin-bottom:10px;">
+                Setelah SQL selesai, daftarkan 4 menu baru via <strong>Setting → Akses Menu</strong> (<code>/setaccess</code>):
+            </p>
+            <table class="pre-req-table">
+                <thead><tr><th>Menu</th><th>Link</th><th>Icon</th><th>Untuk Grup</th></tr></thead>
+                <tbody>
+                    <tr><td><strong>Konten Pillar</strong></td><td><code>konten-pillar</code></td><td><code>fa fa-tags</code></td><td>Creative, Admin</td></tr>
+                    <tr><td><strong>EP Konten</strong></td><td><code>ep-konten</code></td><td><code>fa fa-calendar-days</code></td><td>Creative, Admin</td></tr>
+                    <tr><td><strong>Breakdown Konten</strong></td><td><code>ep-breakdown</code></td><td><code>fa fa-bullseye</code></td><td>Creative, Admin</td></tr>
+                    <tr><td><strong>Campaign Framework</strong></td><td><code>ep-campaign</code></td><td><code>fa fa-bullhorn</code></td><td>Creative, Admin</td></tr>
+                </tbody>
+            </table>
+            <p style="font-size:0.86rem; margin-top:10px;">
+                Setelah daftarin di access path, masuk ke <strong>Setting → Grup User</strong> (<code>/setgroup</code>), kasih akses 4 menu baru ke grup yang relevan.
+            </p>
+
+            <h3><i class="fa-solid fa-user-shield"></i> 3. Test Account & Concept</h3>
+            <ul style="margin-left:24px; font-size:0.88rem; color:var(--text);">
+                <li>Akun admin dengan akses penuh</li>
+                <li>Familiar dengan konsep <strong>Editorial Plan</strong> — calendar konten harian/mingguan</li>
+                <li>Familiar dengan konsep <strong>Breakdown Konten</strong> — versi richer dari konten EP, untuk Promo/Event/Project khusus, otomatis muncul di kalender dengan badge 🎯</li>
+                <li>Familiar dengan konsep <strong>Campaign Framework</strong> — gambaran besar campaign per bulan dengan breakdown weekly</li>
+            </ul>
+        </section>
+
+        <div id="testContainer"></div>
+
+        <section id="summary" class="summary">
+            <div class="summary-title"><i class="fa-solid fa-clipboard-check"></i> Hasil Akhir Test</div>
+            <table class="summary-table" id="summaryTable">
+                <thead>
+                    <tr><th>Modul</th><th class="num">Total</th><th class="num">Pass</th><th class="num">Fail</th><th class="num">Pending</th></tr>
+                </thead>
+                <tbody id="summaryBody"></tbody>
+            </table>
+
+            <div class="summary-title" style="margin-top:24px;"><i class="fa-solid fa-bug"></i> Bug Reporting Template</div>
+            <p style="font-size:0.84rem; color:var(--muted);">Kalau ada test yang fail, mohon laporkan dengan format:</p>
+            <pre class="bug-template"><span class="lbl">Test ID    :</span> T-X.X
+<span class="lbl">Browser    :</span> Chrome 120 / Firefox / dll
+<span class="lbl">URL        :</span> [URL halaman saat error]
+<span class="lbl">Steps      :</span> [langkah yang dilakukan]
+<span class="lbl">Expected   :</span> [yang seharusnya]
+<span class="lbl">Actual     :</span> [yang terjadi]
+<span class="lbl">Screenshot :</span> [attach kalau ada]
+<span class="lbl">Console err:</span> [F12 → Console tab, copy error]</pre>
+        </section>
+
+        <div class="alert alert-warn" style="margin-top:32px;">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            <div>
+                <strong>Catatan untuk tester:</strong>
+                <ol style="margin-left:18px; margin-top:6px;">
+                    <li><strong>JANGAN test di production langsung</strong> — minimal staging environment.</li>
+                    <li><strong>Backup DB sebelum test</strong> — beberapa test bikin data baru (konten EP, breakdown, campaign).</li>
+                    <li><strong>Test sequential per Fase</strong> — beberapa test depend on previous (mis. Fase 3D test setelah ada konten regular, Fase 3E setelah ada campaign).</li>
+                    <li>Buka <strong>DevTools Console</strong> (F12) untuk lihat error JS kalau ada flow stuck.</li>
+                    <li>Kalau ada masalah dengan icon Instagram/TikTok yang tidak render → konfirmasi <strong>Font Awesome 6 CDN</strong> bisa diakses dari browser tester.</li>
+                </ol>
+            </div>
+        </div>
+
+        <div class="footer">
+            Versi dokumen: 2026-05-02 · Disiapkan oleh Tim Dev SweetTreats · <a href="#" onclick="window.scrollTo({top:0,behavior:'smooth'});return false;" style="color:var(--brand);">↑ Kembali ke atas</a>
+        </div>
+
+    </main>
+</div>
+
+<script>
+const TESTS = [
+    // ─── FASE 3A — FOUNDATION ─────────────────────────────────────
+    { id:'3A.1', section:'3A', sectionTitle:'Fase 3A — Foundation (Database + 22 Default Pillar)', sectionIcon:'fa-database', anchor:'fase3a',
+      title:'Verifikasi 22 default pillar ke-seed otomatis',
+      steps:['Login admin', 'Buka <code>/konten-pillar</code>'],
+      expected:'List nampilin 22 pillar default: Pic, Testimoni, Star, Promo, Sult, Fact, Science, Niche Konten, Greetings, Awareness Beauty, Interest Content, Female, Paid Ads, Boost Post Ads, Dark Boost Ads, Message Conversion Female, Message Conversion Casual, Engagement, Branding, Awareness Content, Traffic Content, Live. Semua status Aktif.' },
+    { id:'3A.2', section:'3A', title:'Verifikasi tabel-tabel EP terbentuk (DB level)',
+      steps:['Buka phpMyAdmin', 'Navigasi ke DB sweettreats', 'Cek tabel <code>ep_konten_pillar</code>, <code>ep_konten</code>, <code>ep_konten_pillar_pivot</code>, <code>ep_campaign_framework</code>, <code>ep_campaign_week</code>'],
+      expected:'5 tabel ada dengan struktur yang sesuai. Kolom <code>ep_konten</code>: id, judul, deskripsi, platforms (json), tipe_konten, is_breakdown, lokasi, acc_by, status, prioritas, dll.' },
+    { id:'3A.3', section:'3A', title:'Verifikasi tabel ep_breakdown SUDAH DROPPED (refactor)',
+      steps:['Di phpMyAdmin, cek apakah tabel <code>ep_breakdown</code> dan <code>ep_breakdown_pillar_pivot</code> masih ada'],
+      expected:'2 tabel TIDAK ada (sudah dropped). Kolom <code>ep_konten.ep_breakdown_id</code> juga TIDAK ada. (Breakdown sekarang flag, bukan tabel terpisah.)' },
+
+    // ─── FASE 3B — KONTEN PILLAR ─────────────────────────────────
+    { id:'3B.1', section:'3B', sectionTitle:'Fase 3B — Konten Pillar Master', sectionIcon:'fa-tags', anchor:'fase3b',
+      title:'Akses page Konten Pillar',
+      steps:['Klik menu <strong>Konten Pillar</strong> di sidebar'],
+      expected:'Halaman load dengan title "Konten Pillar", tombol "+ Tambah Pillar" di kanan atas, summary "Aktif: 22 / Nonaktif: 0", filter search + status, list 22 default pillar.' },
+    { id:'3B.2', section:'3B', title:'Tambah pillar baru dengan warna custom',
+      steps:['Klik "+ Tambah Pillar"', 'Isi: Nama "Edukasi Behel", Urutan 23, Warna <code>#c4683f</code>, Aktif ON', 'Save'],
+      expected:'Redirect ke list, flash success "Pillar Edukasi Behel ditambahkan." Row baru muncul dengan dot warna coral, slug auto-gen <code>edukasi-behel</code>.' },
+    { id:'3B.3', section:'3B', title:'Edit pillar — warna preview live',
+      steps:['Klik pillar dari T-3B.2', 'Ganti warna ke <code>#10b981</code> (hijau)', 'Cek swatch preview di sebelah input warna', 'Save'],
+      expected:'Swatch preview ke-update real-time saat ngetik hex valid. Setelah save, row di list nampilin dot hijau.' },
+    { id:'3B.4', section:'3B', title:'Filter active vs inactive',
+      steps:['Edit salah satu pillar default (mis. "Live")', 'Set Aktif OFF, save', 'Di list, filter dropdown pilih "Nonaktif"'],
+      expected:'Hanya pillar yang nonaktif yang muncul. Reset filter → semua muncul lagi.' },
+    { id:'3B.5', section:'3B', title:'Hapus pillar yang belum dipakai → SUKSES',
+      steps:['Hapus pillar "Edukasi Behel" (yang baru dibuat di T-3B.2)', 'Konfirmasi popup'],
+      expected:'Pillar terhapus dari list, flash success "Pillar dihapus."' },
+    { id:'3B.6', section:'3B', title:'Hapus pillar yang DIPAKAI → DITOLAK',
+      steps:['Bikin 1 EP konten yang pakai pillar "Promo" (lewat /ep-konten quick-add — lihat T-3C.5)', 'Coba hapus pillar "Promo" di /konten-pillar'],
+      expected:'Error message: "Tidak bisa dihapus — masih dipakai di X konten EP. Set Nonaktif saja kalau mau hide."' },
+
+    // ─── FASE 3C — EP KONTEN CALENDAR ─────────────────────────────
+    { id:'3C.1', section:'3C', sectionTitle:'Fase 3C — EP Konten Bulanan/Mingguan (Calendar)', sectionIcon:'fa-calendar-days', anchor:'fase3c',
+      title:'Akses calendar — bulan ini default',
+      steps:['Klik menu <strong>EP Konten</strong> di sidebar'],
+      expected:'Calendar grid 7×N tampil, judul "Editorial Plan" + label bulan ini (mis. "Mei 2026"), tombol Hari Ini + ‹ › navigasi + tombol "+ Tambah".' },
+    { id:'3C.2', section:'3C', title:'Navigasi bulan',
+      steps:['Klik tombol ›', 'Klik tombol ›', 'Klik "Hari Ini"'],
+      expected:'Klik › → bulan depan (URL berubah <code>?month=X&year=Y</code>). Klik "Hari Ini" → kembali ke bulan sekarang.' },
+    { id:'3C.3', section:'3C', title:'Platform tabs (5 tab)',
+      steps:['Klik tab "IG Feeds"', 'Klik tab "TikTok"', 'Klik tab "Semua"'],
+      expected:'5 tab muncul: <strong>Semua / IG Feeds / IG Reels / IG Stories / TikTok</strong>. Tab aktif highlight coral. Konten yang punya platform itu di <code>platforms</code> JSON akan muncul di tab tersebut. Tab "Semua" menampilkan semua.' },
+    { id:'3C.4', section:'3C', title:'Icon Instagram + TikTok render benar',
+      steps:['Cek icon di tab IG Feeds, IG Reels, IG Stories, TikTok'],
+      expected:'Icon Instagram (kotak retro) + TikTok (musical note) render normal. Kalau kelihatan kotak kosong → masalah CDN Font Awesome 6.' },
+    { id:'3C.5', section:'3C', title:'Quick-add modal dari empty cell',
+      steps:['Click cell kosong (mis. tanggal 10 di bulan ini)', 'Modal popup muncul'],
+      expected:'Modal terbuka dengan label tanggal di header (mis. "10 Mei 2026"). Field judul auto-focus. Pillar section default collapsed.' },
+    { id:'3C.6', section:'3C', title:'Quick-add: isi konten + simpan & tutup',
+      steps:['Di modal, isi judul "Test Konten Hari Ini"', 'Centang platform IG Feeds + IG Reels (pill berubah warna pink)', 'Pilih tipe Carousel (pill kuning)', 'Pilih status Draft', 'Click "Pilih Pillar" → pilih Promo + Fact (chip colored muncul)', 'Klik "Simpan & Tutup"'],
+      expected:'SweetAlert success muncul (1.2 detik), modal close, page reload. Card baru muncul di tanggal 10 dengan title + status pill + pillar pills colored.' },
+    { id:'3C.7', section:'3C', title:'Quick-add: simpan & tambah lagi (batch entry)',
+      steps:['Click cell tanggal 11', 'Isi judul "Konten Hari 1", set platform IG Feeds + status Riset', 'Klik "Simpan & Tambah Lagi"', 'Modal TIDAK close — judul ke-clear, pillar reset, tapi tanggal+platform+status TETAP', 'Isi judul "Konten Hari 2"', 'Klik "Simpan & Tambah Lagi"', 'Klik "Simpan & Tutup" untuk akhir'],
+      expected:'Bisa input multi konten back-to-back tanpa tutup-buka modal. Setelah final close + reload, 3 card muncul (1 di tgl 10 + 2 di tgl 11).' },
+    { id:'3C.8', section:'3C', title:'Pillar collapsible — search filter',
+      steps:['Buka quick-add modal lagi', 'Click trigger pillar (pertama kali dipakai → expand)', 'Ketik "promo" di search'],
+      expected:'Trigger row expand, panel muncul dengan search input auto-focus. Saat ketik "promo" → daftar pillar filter realtime, hanya pillar yang ada kata "promo" muncul (Promo, Boost Post Ads kalau ada, dll).' },
+    { id:'3C.9', section:'3C', title:'Filter button (collapse panel)',
+      steps:['Click tombol "Filter" di toolbar', 'Panel dropdown muncul', 'Pilih status "Draft"', 'Click luar panel'],
+      expected:'Tombol filter berubah jadi coral pill saat panel terbuka. Filter status auto-submit. Click luar → panel close. Badge count muncul di tombol Filter (mis. "1") kalau ada filter aktif.' },
+    { id:'3C.10', section:'3C', title:'Filter periode chip — Hari Ini / Bulan Ini / Bulan Depan',
+      steps:['Cek apakah ada chip periode di toolbar (kalau implemented)', 'Atau pakai filter date'],
+      expected:'<em>(Optional — kalau quick chip belum implemented, skip.)</em>' },
+    { id:'3C.11', section:'3C', title:'Click konten card → ke edit page Notion-style',
+      steps:['Click salah satu card konten di calendar'],
+      expected:'Buka edit page <code>/ep-konten/{id}</code> dengan layout Notion: title besar di atas, property rows (icon + label + widget), body sections (Script, Caption, Visual Plan, dll dengan icon).' },
+    { id:'3C.12', section:'3C', title:'Edit konten Notion-style — pilih platform multi',
+      steps:['Di edit page, scroll ke "Platform"', 'Centang IG Feeds + IG Reels (kalau belum)', 'Save'],
+      expected:'Pill platform yang di-check ke-highlight pink. Save sukses → kembali ke edit page dengan flash success "Konten berhasil diubah."' },
+    { id:'3C.13', section:'3C', title:'Edit Notion-style — collapsible pillar dengan chip removable',
+      steps:['Click trigger pillar di edit page', 'Pilih 3 pillar', 'Save → reload', 'Cek chips di trigger row', 'Click "×" di salah satu chip'],
+      expected:'Pillar chip muncul colored di trigger row. Click "×" → un-select pillar tanpa harus buka panel. Save → tersimpan.' },
+
+    // ─── FASE 3D — BREAKDOWN KONTEN ──────────────────────────────
+    { id:'3D.1', section:'3D', sectionTitle:'Fase 3D — Breakdown Konten (Refactored as Flag)', sectionIcon:'fa-bullseye', anchor:'fase3d',
+      title:'Akses page Breakdown — info banner',
+      steps:['Klik menu <strong>Breakdown Konten</strong> di sidebar'],
+      expected:'Halaman load dengan title "Breakdown Konten" + badge "khusus" coral. Info banner di atas: "Breakdown adalah konten EP khusus untuk Promo, Event, atau Project tertentu — punya field tambahan (lokasi, ACC). Otomatis muncul di Kalender EP dengan badge 🎯 Khusus di tanggal upload."' },
+    { id:'3D.2', section:'3D', title:'Tambah breakdown — semua field lengkap',
+      steps:['Klik "+ Tambah Breakdown"', 'Pastikan badge "🎯 Mode: Konten Khusus" muncul di header', 'Isi: judul "Promo 5.5 Teaser", tanggal upload <strong>tanggal H+3 hari</strong>, platform IG Reels, tipe Video/Reels, status Draft, lokasi "Studio Pamulang", ACC by "Andi", pillar Promo + Fact', 'Save'],
+      expected:'Form Notion-style sama dengan EP konten + field <strong>Lokasi</strong> dan <strong>ACC By</strong> visible. Save → flash success "Breakdown ... ditambahkan & otomatis muncul di kalender EP."' },
+    { id:'3D.3', section:'3D', title:'DB verify — is_breakdown=1',
+      steps:['Buka phpMyAdmin → tabel <code>ep_konten</code>', 'Cari row dengan judul "Promo 5.5 Teaser"', 'Cek kolom <code>is_breakdown</code>'],
+      expected:'Row ada dengan <code>is_breakdown = 1</code>, <code>lokasi = "Studio Pamulang"</code>, <code>acc_by = "Andi"</code>.' },
+    { id:'3D.4', section:'3D', title:'Breakdown muncul di calendar EP — badge 🎯',
+      steps:['Buka <code>/ep-konten</code>', 'Navigasi ke tanggal H+3', 'Cek apakah card "Promo 5.5 Teaser" muncul'],
+      expected:'Card muncul dengan emoji 🎯 di prefix judul, background gradient subtle (sedikit warna peach), border-left 4px (lebih tebal dari konten regular).' },
+    { id:'3D.5', section:'3D', title:'Breakdown muncul di tab platform yang relevan',
+      steps:['Di calendar, click tab "IG Reels"'],
+      expected:'Card "Promo 5.5 Teaser" tetap muncul (karena platforms include ig_reels). Click tab "TikTok" → card hilang (karena tidak include tiktok).' },
+    { id:'3D.6', section:'3D', title:'Kind chip "🎯 Khusus" — filter only breakdown',
+      steps:['Di calendar, click chip "🎯 Khusus" di toolbar'],
+      expected:'Hanya konten breakdown yang muncul di calendar (konten EP regular hidden). Chip "Khusus" highlight gradient coral.' },
+    { id:'3D.7', section:'3D', title:'Kind chip "Regular" — hide breakdown',
+      steps:['Click chip "Regular"'],
+      expected:'Hanya konten regular yang muncul (breakdown hidden). Card "Promo 5.5 Teaser" tidak muncul.' },
+    { id:'3D.8', section:'3D', title:'Click breakdown card di calendar → ke ep-breakdown/edit',
+      steps:['Reset chip ke "Semua"', 'Click card "Promo 5.5 Teaser" di calendar'],
+      expected:'Buka URL <code>/ep-breakdown/{id}</code> (BUKAN <code>/ep-konten/{id}</code>) — edit page breakdown dengan badge "🎯 Khusus" di header. Field lokasi + ACC visible.' },
+    { id:'3D.9', section:'3D', title:'Edit breakdown — ubah tanggal',
+      steps:['Di edit breakdown, ubah tanggal upload jadi H+5', 'Save', 'Buka calendar EP'],
+      expected:'Card pindah otomatis ke tanggal H+5. (Karena underlying data sama-sama ep_konten.)' },
+    { id:'3D.10', section:'3D', title:'Hapus breakdown → hilang dari list & calendar',
+      steps:['Edit breakdown', 'Click tombol trash di header', 'Konfirmasi popup'],
+      expected:'Flash success "Breakdown dihapus dari kalender EP." Row hilang dari /ep-breakdown list dan calendar.' },
+
+    // ─── FASE 3E — CAMPAIGN FRAMEWORK ────────────────────────────
+    { id:'3E.1', section:'3E', sectionTitle:'Fase 3E — Campaign Framework (Yearly Grid + Weekly Breakdown)', sectionIcon:'fa-bullhorn', anchor:'fase3e',
+      title:'Akses page Campaign — yearly grid 12 bulan',
+      steps:['Klik menu <strong>Campaign Framework</strong> di sidebar'],
+      expected:'Halaman load dengan title "Campaign Framework" + label "Tahun [tahun ini]". Grid 12 box (Januari–Desember), 4 kolom × 3 baris. Tombol "+ Tambah Campaign" di kanan atas + year selector dropdown.' },
+    { id:'3E.2', section:'3E', title:'Year selector — pilih tahun lain',
+      steps:['Click dropdown year', 'Pilih tahun lain'],
+      expected:'URL berubah <code>?tahun=Y</code>, grid me-load campaign tahun tersebut. Tahun yang belum ada datanya → grid kosong dengan placeholder "+ Tambah campaign" per bulan.' },
+    { id:'3E.3', section:'3E', title:'Tambah campaign baru',
+      steps:['Click "+ Tambah Campaign"', 'Isi: judul "Sweet Surprise 5.5", pilih bulan Mei, tahun saat ini, status Aktif', 'Big idea: "Promo Sweet Surprise untuk member loyal"', 'Target: "10 booking + 1000 reach IG"', 'Save'],
+      expected:'Form Notion-style. Default 4 weeks pre-rendered (Minggu 1, 2, 3, 4). Save → redirect ke list, campaign muncul di box bulan Mei dengan badge status hijau.' },
+    { id:'3E.4', section:'3E', title:'Edit campaign — isi weekly breakdown',
+      steps:['Click campaign dari T-3E.3', 'Di edit page, scroll ke "Breakdown Mingguan"', 'Minggu 1 — Fokus: "Teaser & build hype", Deliverables: "1 reels teaser, 2 stories"', 'Minggu 2 — Fokus: "Soft launch", Deliverables: "3 carousel posts"', 'Save'],
+      expected:'4 week cards pre-rendered. Setelah save → kembali ke edit page, weekly data tersimpan + ke-load di card.' },
+    { id:'3E.5', section:'3E', title:'Tambah Minggu ke-5 (max 5)',
+      steps:['Di edit page, click tombol "+ Tambah Minggu"', 'Card minggu ke-5 muncul dengan tombol "×" untuk hapus', 'Isi: Fokus "Closing & evaluasi"', 'Click "+ Tambah Minggu" lagi'],
+      expected:'Minggu 5 muncul. Click tambah lagi → SweetAlert info "Maksimal 5 minggu per campaign." Tombol Tambah ke-disable functionally.' },
+    { id:'3E.6', section:'3E', title:'Hapus minggu — auto-renumber',
+      steps:['Click tombol "×" di minggu ke-5', 'Save'],
+      expected:'Minggu 5 hilang. Save → tersimpan dengan 4 minggu. (Renumber tidak applicable karena yang dihapus minggu terakhir.)' },
+    { id:'3E.7', section:'3E', title:'Campaign muncul di yearly grid dengan info',
+      steps:['Buka <code>/ep-campaign</code>'],
+      expected:'Box Mei nampilin card "Sweet Surprise 5.5" dengan: name, big idea preview, status pill hijau, "4 minggu" + "0 konten" (kalau belum link konten EP).' },
+    { id:'3E.8', section:'3E', title:'Link konten EP ke campaign',
+      steps:['Buka <code>/ep-konten</code>', 'Edit salah satu konten yang ada', 'Di property "Campaign", pilih "Sweet Surprise 5.5"', 'Save', 'Kembali ke <code>/ep-campaign</code>'],
+      expected:'Box Mei → card "Sweet Surprise 5.5" sekarang nampilin "1 konten" (count update dari konten EP yang link ke campaign ini).' },
+    { id:'3E.9', section:'3E', title:'Hapus campaign yang TIDAK terkait konten → SUKSES',
+      steps:['Bikin campaign baru "Test Delete"', 'Hapus tanpa link konten apa-apa'],
+      expected:'Campaign terhapus, flash success.' },
+    { id:'3E.10', section:'3E', title:'Hapus campaign yang DIPAKAI → DITOLAK',
+      steps:['Coba hapus "Sweet Surprise 5.5" yang sudah punya 1 konten EP terkait'],
+      expected:'Error: "Tidak bisa dihapus — masih dipakai di X konten EP. Lepas linkage di EP Konten dulu."' },
+
+    // ─── BONUS — VISUAL & UX ─────────────────────────────────────
+    { id:'BN.1', section:'BN', sectionTitle:'Bonus — Visual / UX / Theme', sectionIcon:'fa-palette', anchor:'bonus',
+      title:'Coral theme aktif di semua page Marketing',
+      steps:['Buka <code>/ep-konten</code>, <code>/ep-breakdown</code>, <code>/ep-campaign</code>, <code>/konten-pillar</code> berurutan', 'Cek warna brand di topbar logo + tombol + table head'],
+      expected:'Topbar logo background <strong>terracotta dark</strong> (#a85432). Tombol "Tambah" coral. Sidebar item aktif coral border-left. Konsisten di semua marketing page.' },
+    { id:'BN.2', section:'BN', title:'Sales pages tetap coklat (theme tidak bocor)',
+      steps:['Buka <code>/rawreservation</code> (Sales page)'],
+      expected:'Topbar logo + tombol tetap brown coklat (default theme). Theme marketing TIDAK bocor ke pages Sales.' },
+    { id:'BN.3', section:'BN', title:'Calendar responsive di mobile',
+      steps:['Buka <code>/ep-konten</code> di browser mobile (atau resize browser ke <600px)', 'Cek apakah grid masih readable'],
+      expected:'Calendar tetap 7 kolom tapi cell lebih kecil. Day number 12px, card padding compact. Toolbar (tabs + filter) wrap multi-line. Modal quick-add full-width.' },
+    { id:'BN.4', section:'BN', title:'Pillar warna custom + auto-hash',
+      steps:['Di /ep-konten calendar, lihat card konten yang punya pillar', 'Cek apakah pill pillar berwarna'],
+      expected:'Pillar yang sudah set warna custom (mis. T-3B.2) → pakai warna itu. Pillar tanpa warna → auto-generate warna pastel HSL hash-based (konsisten per nama).' },
+    { id:'BN.5', section:'BN', title:'Breakdown badge visual differentiation',
+      steps:['Di calendar, lihat 2 jenis konten side-by-side: regular vs breakdown'],
+      expected:'Breakdown card: <strong>🎯 emoji</strong> di prefix judul, background gradient subtle peach, border-left 4px. Regular card: tanpa emoji, background putih plain, border-left 3px.' },
+];
+
+const SECTIONS = [
+    { key:'3A', label:'Fase 3A — Foundation' },
+    { key:'3B', label:'Fase 3B — Konten Pillar' },
+    { key:'3C', label:'Fase 3C — EP Kalender' },
+    { key:'3D', label:'Fase 3D — Breakdown Konten' },
+    { key:'3E', label:'Fase 3E — Campaign Framework' },
+    { key:'BN', label:'Bonus / Visual' },
+];
+
+const STORAGE_KEY = 'sweetTreatsTestFlow_EP_v1';
+const STATE = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+
+function saveState() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(STATE));
+    updateProgress();
+}
+function getState(id) {
+    return STATE[id] || { verdict:null, notes:'' };
+}
+function setVerdict(id, verdict) {
+    if (!STATE[id]) STATE[id] = { verdict:null, notes:'' };
+    STATE[id].verdict = STATE[id].verdict === verdict ? null : verdict;
+    saveState();
+    renderTest(id);
+}
+function setNotes(id, notes) {
+    if (!STATE[id]) STATE[id] = { verdict:null, notes:'' };
+    STATE[id].notes = notes;
+    saveState();
+}
+
+function renderTests() {
+    const container = document.getElementById('testContainer');
+    let html = '';
+    let currentSection = null;
+
+    TESTS.forEach(t => {
+        if (t.section !== currentSection) {
+            currentSection = t.section;
+            html += `<section id="${t.anchor}" style="margin-top:42px;">
+                <h2><span class="h2-num"><i class="fa-solid ${t.sectionIcon}"></i></span> ${t.sectionTitle}</h2>
+            </section>`;
+        }
+
+        const state = getState('T-' + t.id);
+        const passClass = state.verdict === 'pass' ? 'is-pass' : '';
+        const failClass = state.verdict === 'fail' ? 'is-fail' : '';
+
+        const stepsHtml = t.steps.map(s => `<li>${s}</li>`).join('');
+        const goalHtml = t.goal ? `<dt>Goal</dt><dd>${t.goal}</dd>` : '';
+
+        html += `
+        <div class="test ${passClass} ${failClass}" id="test-${t.id}">
+            <div class="test-head">
+                <div class="test-id">
+                    <span class="test-id-pill">T-${t.id}</span>
+                    <span class="test-title">${t.title}</span>
+                </div>
+                <div class="verdict">
+                    <button type="button" class="verdict-btn pass-btn ${state.verdict === 'pass' ? 'active' : ''}" onclick="setVerdict('T-${t.id}', 'pass')"><i class="fa-solid fa-check"></i> Pass</button>
+                    <button type="button" class="verdict-btn fail-btn ${state.verdict === 'fail' ? 'active' : ''}" onclick="setVerdict('T-${t.id}', 'fail')"><i class="fa-solid fa-xmark"></i> Fail</button>
+                </div>
+            </div>
+            <dl class="test-body">
+                ${goalHtml}
+                <dt>Steps</dt><dd><ol>${stepsHtml}</ol></dd>
+                <dt>Expected</dt><dd>${t.expected}</dd>
+            </dl>
+            <div class="test-notes">
+                <label for="notes-${t.id}">Catatan / Bug detail</label>
+                <textarea id="notes-${t.id}" oninput="setNotes('T-${t.id}', this.value)" placeholder="Tulis catatan kalau ada hal yang perlu di-flag...">${state.notes || ''}</textarea>
+            </div>
+        </div>`;
+    });
+
+    container.innerHTML = html;
+}
+
+function renderTest(id) {
+    const t = TESTS.find(t => 'T-' + t.id === id);
+    if (!t) return;
+    const el = document.getElementById('test-' + t.id);
+    if (!el) return;
+    const state = getState(id);
+    el.classList.toggle('is-pass', state.verdict === 'pass');
+    el.classList.toggle('is-fail', state.verdict === 'fail');
+    const passBtn = el.querySelector('.pass-btn');
+    const failBtn = el.querySelector('.fail-btn');
+    passBtn.classList.toggle('active', state.verdict === 'pass');
+    failBtn.classList.toggle('active', state.verdict === 'fail');
+}
+
+function updateProgress() {
+    const total = TESTS.length;
+    let pass = 0, fail = 0;
+    TESTS.forEach(t => {
+        const state = getState('T-' + t.id);
+        if (state.verdict === 'pass') pass++;
+        else if (state.verdict === 'fail') fail++;
+    });
+    const done = pass + fail;
+    const pct = total > 0 ? (done / total * 100) : 0;
+
+    document.getElementById('progressCurrent').textContent = done;
+    document.getElementById('progressTotal').textContent = total;
+    document.getElementById('progressBar').style.width = pct + '%';
+    document.getElementById('passCount').textContent = pass;
+    document.getElementById('failCount').textContent = fail;
+
+    SECTIONS.forEach(sec => {
+        const tests = TESTS.filter(t => t.section === sec.key);
+        let done = 0;
+        tests.forEach(t => {
+            const s = getState('T-' + t.id);
+            if (s.verdict === 'pass' || s.verdict === 'fail') done++;
+        });
+        const el = document.querySelector(`[data-section="${sec.key}"]`);
+        if (el) el.textContent = `${done}/${tests.length}`;
+    });
+
+    const summaryBody = document.getElementById('summaryBody');
+    let totalTotal = 0, totalPass = 0, totalFail = 0;
+    let bodyHtml = '';
+    SECTIONS.forEach(sec => {
+        const tests = TESTS.filter(t => t.section === sec.key);
+        let p = 0, f = 0;
+        tests.forEach(t => {
+            const s = getState('T-' + t.id);
+            if (s.verdict === 'pass') p++;
+            else if (s.verdict === 'fail') f++;
+        });
+        const pending = tests.length - p - f;
+        totalTotal += tests.length; totalPass += p; totalFail += f;
+        bodyHtml += `<tr>
+            <td>${sec.label}</td>
+            <td class="num">${tests.length}</td>
+            <td class="num summary-num pass-num">${p}</td>
+            <td class="num summary-num fail-num">${f}</td>
+            <td class="num">${pending}</td>
+        </tr>`;
+    });
+    bodyHtml += `<tr class="total-row">
+        <td><strong>TOTAL</strong></td>
+        <td class="num">${totalTotal}</td>
+        <td class="num summary-num pass-num">${totalPass}</td>
+        <td class="num summary-num fail-num">${totalFail}</td>
+        <td class="num">${totalTotal - totalPass - totalFail}</td>
+    </tr>`;
+    summaryBody.innerHTML = bodyHtml;
+}
+
+function exportResults() {
+    const data = {
+        exportedAt: new Date().toISOString(),
+        document: 'Editorial Plan Test Flow (Fase 3)',
+        results: TESTS.map(t => ({
+            id: 'T-' + t.id,
+            section: t.section,
+            title: t.title,
+            verdict: getState('T-' + t.id).verdict || 'pending',
+            notes: getState('T-' + t.id).notes || '',
+        })),
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `test-results-EP-${new Date().toISOString().slice(0,10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+function resetAll() {
+    if (!confirm('Reset SEMUA progress test? Tindakan ini tidak bisa di-undo.')) return;
+    localStorage.removeItem(STORAGE_KEY);
+    Object.keys(STATE).forEach(k => delete STATE[k]);
+    renderTests();
+    updateProgress();
+}
+
+function setupScrollSpy() {
+    const links = document.querySelectorAll('.nav-link');
+    const sections = ['prereq','fase3a','fase3b','fase3c','fase3d','fase3e','bonus','summary'];
+
+    function onScroll() {
+        const scrollPos = window.scrollY + 120;
+        let activeIdx = 0;
+        sections.forEach((id, i) => {
+            const el = document.getElementById(id);
+            if (el && el.offsetTop <= scrollPos) activeIdx = i;
+        });
+        links.forEach((l, i) => l.classList.toggle('active', i === activeIdx));
+    }
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+}
+
+renderTests();
+updateProgress();
+setupScrollSpy();
+</script>
+
+</body>
+</html>

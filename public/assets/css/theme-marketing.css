@@ -1,0 +1,1845 @@
+/* ==========================================================================
+   THEME: Marketing (Teal / Lime — Fresh Brand Palette)
+   ==========================================================================
+   Active when <body data-theme="marketing">.
+   Loaded for all pages but rules are scoped — no impact on Sales/default theme.
+
+   Brand:
+   - Main:      #13928e (teal)
+   - Secondary: #89c541 (lime green) — accent untuk approve / active state
+
+   Palette derived:
+   - Primary deep:   #0e6e6b  (dark teal — text accent, brand panel)
+   - Primary mid:    #13928e  (brand main — buttons, table head, link)
+   - Primary bright: #1aaaa5  (hover state)
+   - Primary light:  #c4ebe9  (pill bg, divider)
+   - Primary pale:   #e6f5f4  (subtle backgrounds)
+   - Page bg:        #f4faf9  (very pale teal — page background)
+   - Edge depth:     #0a4f4d  (deep teal — border depth, dark text)
+
+   Secondary (lime):
+   - Lime main:    #89c541
+   - Lime hover:   #9bd456
+   - Lime deep:    #6ea433
+   - Lime pale:    #eaf5da
+   ========================================================================== */
+
+body[data-theme="marketing"] {
+    /* Override brown vars — semua var(--brown*) auto pick up teal */
+    --brown:           #0e6e6b;
+    --brown-2:         #13928e;
+    --brown-3:         #1aaaa5;
+    --brown-pale:      #c4ebe9;
+    --brown-hover:     #13928e;
+    --brown-light:     rgba(196, 235, 233, 0.4);
+    --brown-bg:        #f4faf9;
+    --brown-cream:     #e6f5f4;
+    --brown-row-hover: #dcefee;
+
+    /* Component tokens */
+    --cream-surface:   #ffffff;
+    --cream-header:    #f4faf9;
+    --cream-hover:     #e6f5f4;
+    --divider-soft:    #c4ebe9;
+    --divider-strong:  #c4ebe9;
+    --text-primary:    #0a4f4d;
+    --text-muted:      #0e6e6b;
+
+    /* Brand chip / info accent */
+    --st-brand-bg:     #e6f5f4;
+    --st-brand-text:   #0e6e6b;
+    --st-brand-border: #c4ebe9;
+
+    /* Secondary lime tokens */
+    --mk-lime:         #89c541;
+    --mk-lime-hover:   #9bd456;
+    --mk-lime-deep:    #6ea433;
+    --mk-lime-pale:    #eaf5da;
+
+    /* Generic --st-* tokens (dipakai blade pakai fallback brown) */
+    --st-primary:      #0e6e6b;
+    --st-muted:        #7a9290;
+    --st-accent:       #c4ebe9;
+    --st-border:       #c4ebe9;
+    --st-bg:           #f4faf9;
+}
+
+/* ── Page background — pure white ──────────────────────────────────── */
+body[data-theme="marketing"] {
+    background-color: #ffffff !important;
+}
+body[data-theme="marketing"] .page-wrapper,
+body[data-theme="marketing"] .page-content {
+    background: #ffffff !important;
+}
+
+/* ── Primary button — GRADIENT teal ─────────────────────────────────── */
+body[data-theme="marketing"] .st-btn-brand {
+    background: linear-gradient(180deg, #13928e 0%, #0a4f4d 100%) !important;
+    border-color: #0a4f4d !important;
+    box-shadow: 0 2px 6px rgba(19, 146, 142, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+body[data-theme="marketing"] .st-btn-brand:hover {
+    background: linear-gradient(180deg, #1aaaa5 0%, #0e6e6b 100%) !important;
+    border-color: #0e6e6b !important;
+    box-shadow: 0 4px 12px rgba(19, 146, 142, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.14);
+}
+body[data-theme="marketing"] .st-btn-brand:active {
+    background: linear-gradient(180deg, #0e6e6b 0%, #0a4f4d 100%) !important;
+    box-shadow: 0 1px 3px rgba(19, 146, 142, 0.18);
+}
+
+/* ── Outline button ─────────────────────────────────────────────────── */
+body[data-theme="marketing"] .st-btn-outline-brown {
+    color: #0e6e6b !important;
+    border-color: #c4ebe9 !important;
+}
+body[data-theme="marketing"] .st-btn-outline-brown:hover {
+    background: #f4faf9 !important;
+    border-color: #13928e !important;
+    color: #0e6e6b !important;
+}
+
+/* ── Card section icons ─────────────────────────────────────────────── */
+body[data-theme="marketing"] .st-card__icon {
+    background: #e6f5f4;
+    border-color: #c4ebe9;
+    color: #0e6e6b;
+}
+
+/* ── Section titles ─────────────────────────────────────────────────── */
+body[data-theme="marketing"] .st-section-title i {
+    color: #13928e;
+}
+
+/* ── Page title ─────────────────────────────────────────────────────── */
+body[data-theme="marketing"] .page-title-box .page-title,
+body[data-theme="marketing"] .page-title {
+    color: #0e6e6b;
+}
+
+/* ── Form labels (filter & form bar) — bright teal accent ───────────── */
+/* Bootstrap .text-muted hardcoded #6c757d — paksa teal di marketing.
+   Cover label, .text-muted, dan summary text di header card. */
+body[data-theme="marketing"] .st-card label,
+body[data-theme="marketing"] .st-card .form-group > label,
+body[data-theme="marketing"] label.text-muted,
+body[data-theme="marketing"] .st-card label.text-muted {
+    color: #0e6e6b !important;
+}
+
+/* Header summary text ("Total: X klaim/promo", "Lihat promo:", dll) */
+body[data-theme="marketing"] .text-muted,
+body[data-theme="marketing"] .text-muted strong,
+body[data-theme="marketing"] .text-muted i {
+    color: #0e6e6b !important;
+}
+/* ── Content text on WHITE bg → hitam ───────────────────────────────── */
+/* Card body bg sudah pale teal (#f4faf9) — biar teks teal di situ.
+   Tapi yang bg PUTIH (table tbody, input field) → text hitam supaya jelas. */
+
+/* Table row text */
+body[data-theme="marketing"] .st-table tbody td,
+body[data-theme="marketing"] .st-table tbody td .st-primary,
+body[data-theme="marketing"] .st-table tbody td .st-num {
+    color: #000000 !important;
+}
+
+/* Input value text (input/textarea/select bg putih default) */
+body[data-theme="marketing"] .st-card .form-control,
+body[data-theme="marketing"] .st-card input[type="text"],
+body[data-theme="marketing"] .st-card input[type="email"],
+body[data-theme="marketing"] .st-card input[type="number"],
+body[data-theme="marketing"] .st-card input[type="date"],
+body[data-theme="marketing"] .st-card input[type="datetime-local"],
+body[data-theme="marketing"] .st-card input[type="tel"],
+body[data-theme="marketing"] .st-card input[type="search"],
+body[data-theme="marketing"] .st-card input[type="url"],
+body[data-theme="marketing"] .st-card input[type="password"],
+body[data-theme="marketing"] .st-card textarea,
+body[data-theme="marketing"] .st-card select {
+    color: #000000 !important;
+}
+
+/* Tetap muted untuk small/footer text */
+body[data-theme="marketing"] small.text-muted,
+body[data-theme="marketing"] .footer .text-muted {
+    color: #7a9290 !important;
+}
+
+/* ── Tabs (registration_status) ─────────────────────────────────────── */
+body[data-theme="marketing"] .st-tabs a {
+    color: #7a9290 !important;            /* muted teal-grey for inactive */
+}
+body[data-theme="marketing"] .st-tabs a:hover {
+    color: #13928e !important;
+}
+body[data-theme="marketing"] .st-tabs a.active,
+body[data-theme="marketing"] .st-tab.active {
+    color: #0e6e6b !important;
+    border-bottom-color: #13928e !important;
+}
+/* Tab count badge — inactive */
+body[data-theme="marketing"] .st-tabs .st-tab-count,
+body[data-theme="marketing"] .st-tab-count {
+    background: #e6f5f4 !important;
+    color: #0e6e6b !important;
+}
+/* Tab count badge — active (override var(--brown) leak) */
+body[data-theme="marketing"] .st-tabs a.active .st-tab-count {
+    background: #13928e !important;
+    color: #ffffff !important;
+}
+
+/* ── Approve button — GRADIENT lime (secondary accent) ──────────────── */
+body[data-theme="marketing"] .st-btn-approve {
+    background: linear-gradient(180deg, #89c541 0%, #6ea433 100%) !important;
+    color: #ffffff !important;
+    border-color: #6ea433 !important;
+    box-shadow: 0 2px 6px rgba(137, 197, 65, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+body[data-theme="marketing"] .st-btn-approve:hover {
+    background: linear-gradient(180deg, #9bd456 0%, #89c541 100%) !important;
+    border-color: #6ea433 !important;
+    box-shadow: 0 4px 12px rgba(137, 197, 65, 0.30), inset 0 1px 0 rgba(255, 255, 255, 0.14);
+}
+
+/* ── Brand-style pills ──────────────────────────────────────────────── */
+body[data-theme="marketing"] .st-pill--info {
+    background: #e6f5f4;
+    color: #0e6e6b;
+    border-color: #c4ebe9;
+}
+
+/* ── Filter bar focus ───────────────────────────────────────────────── */
+body[data-theme="marketing"] .st-filter-bar select:focus,
+body[data-theme="marketing"] .st-filter-bar input[type="text"]:focus {
+    border-color: #13928e;
+    box-shadow: 0 0 0 3px rgba(19, 146, 142, 0.12);
+}
+
+/* ── Form focus rings ───────────────────────────────────────────────── */
+body[data-theme="marketing"] .form-control:focus {
+    border-color: #13928e;
+    box-shadow: 0 0 0 0.2rem rgba(19, 146, 142, 0.15);
+}
+
+/* ── Custom switch (active state) — lime accent ─────────────────────── */
+body[data-theme="marketing"] .custom-control-input:checked ~ .custom-control-label::before {
+    background-color: #89c541;
+    border-color: #6ea433;
+}
+
+/* ── Cards — pale teal panel biar ga nyaru dengan page bg putih ─────── */
+/* .st-card di base CSS = transparent + no border + no shadow.
+   Di marketing page bg sudah putih, jadi card kelihatan "hilang".
+   Kasih tint + border + shadow halus supaya card jelas terangkat. */
+body[data-theme="marketing"] .st-card {
+    background: #f4faf9 !important;
+    border: 1px solid #c4ebe9 !important;
+    box-shadow: 0 1px 3px rgba(19, 146, 142, 0.04), 0 4px 12px rgba(19, 146, 142, 0.05) !important;
+}
+body[data-theme="marketing"] .st-card:hover {
+    box-shadow: 0 2px 6px rgba(19, 146, 142, 0.06), 0 6px 16px rgba(19, 146, 142, 0.08) !important;
+}
+/* Card head (kalau ada) — slightly darker pale teal */
+body[data-theme="marketing"] .st-card__head {
+    background: linear-gradient(180deg, #f4faf9 0%, #e6f5f4 100%) !important;
+    border-bottom-color: #c4ebe9 !important;
+}
+body[data-theme="marketing"] .st-card__foot {
+    background: #f4faf9 !important;
+    border-top-color: #c4ebe9 !important;
+}
+
+/* ── Margin panel di promo form ─────────────────────────────────────── */
+body[data-theme="marketing"] .st-margin-panel {
+    background: #f4faf9;
+    border-color: #c4ebe9;
+}
+body[data-theme="marketing"] .st-margin-panel__label {
+    color: #0e6e6b;
+}
+body[data-theme="marketing"] .st-margin-panel__value {
+    color: #0e6e6b;
+}
+body[data-theme="marketing"] .st-margin-panel__divider {
+    background: #c4ebe9;
+}
+
+/* ── Type-card (KOC/KOL selector) ───────────────────────────────────── */
+body[data-theme="marketing"] input[type="radio"]:checked + .st-type-card {
+    border-color: #13928e;
+    box-shadow: 0 8px 22px rgba(19, 146, 142, 0.15);
+}
+body[data-theme="marketing"] .st-type-card i {
+    color: #13928e !important;
+}
+
+/* ── Marketing-promo status select pill (Aktif state) ───────────────── */
+body[data-theme="marketing"] .st-status-select[data-status="aktif"] {
+    background-color: #eaf5da;
+    color: #6ea433;
+    border-color: #89c541;
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   HARDCODED OVERRIDES — table / pagination / brand panel
+   ───────────────────────────────────────────────────────────────────── */
+
+/* ── Table thead — GRADIENT teal (top → bottom) ─────────────────────── */
+body[data-theme="marketing"] .st-table thead th {
+    background: linear-gradient(180deg, #13928e 0%, #0a4f4d 100%) !important;
+    color: #fff !important;
+}
+body[data-theme="marketing"] .st-table thead th::after {
+    background: linear-gradient(180deg, rgba(10, 79, 77, 0.04) 0%, transparent 100%) !important;
+}
+
+/* ── Filter submit button — GRADIENT teal ───────────────────────────── */
+body[data-theme="marketing"] .st-filter-panel .st-filter-submit {
+    background: linear-gradient(180deg, #13928e 0%, #0a4f4d 100%) !important;
+    border-color: #0a4f4d !important;
+    box-shadow: 0 2px 6px rgba(19, 146, 142, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.10);
+}
+body[data-theme="marketing"] .st-filter-panel .st-filter-submit:hover {
+    background: linear-gradient(180deg, #1aaaa5 0%, #0e6e6b 100%) !important;
+    box-shadow: 0 3px 10px rgba(19, 146, 142, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+/* ── Pagination active page — GRADIENT teal ─────────────────────────── */
+body[data-theme="marketing"] .pagination .page-item.active .page-link {
+    background: linear-gradient(180deg, #13928e 0%, #0a4f4d 100%) !important;
+    border-color: #0a4f4d !important;
+    color: #fff !important;
+}
+body[data-theme="marketing"] .pagination .page-link {
+    color: #0e6e6b;
+}
+
+/* ── Slot picker selected (di reservasi form) — GRADIENT teal ───────── */
+body[data-theme="marketing"] .st-slot--selected {
+    background: linear-gradient(180deg, #13928e 0%, #0a4f4d 100%) !important;
+    border-color: #0a4f4d !important;
+}
+body[data-theme="marketing"] .st-slot-legend-dot--selected {
+    background: linear-gradient(180deg, #13928e 0%, #0a4f4d 100%) !important;
+}
+
+/* ── Calendar today highlight — GRADIENT teal ───────────────────────── */
+body[data-theme="marketing"] .st-cal-day--today .st-cal-date {
+    background: linear-gradient(180deg, #13928e 0%, #0a4f4d 100%) !important;
+    color: #fff !important;
+}
+
+/* ── Active row click highlight ─────────────────────────────────────── */
+body[data-theme="marketing"] .st-table--clickable tbody tr:active td {
+    background: #e6f5f4 !important;
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   SIDEBAR BACKGROUND — pure white
+   Override hardcoded var(--brown-cream) di style.sweettreats.css
+   ───────────────────────────────────────────────────────────────────── */
+body[data-theme="marketing"] .left-sidenav,
+body[data-theme="marketing"] .main-icon-menu,
+body[data-theme="marketing"] .main-icon-menu .nav-link,
+body[data-theme="marketing"] .main-menu-inner,
+body[data-theme="marketing"] .main-menu-inner .nav-link,
+body[data-theme="marketing"] .title-box,
+body[data-theme="marketing"] .title-box-icon {
+    background-color: #ffffff !important;
+}
+
+/* Garis tipis di samping sidebar child — pale teal */
+body[data-theme="marketing"] .left-sidenav {
+    border-right: none !important;
+}
+body[data-theme="marketing"] .left-sidenav:not(.no-icon-bar) .main-icon-menu {
+    border-right: none !important;
+}
+body[data-theme="marketing"] .main-menu-inner {
+    border-right: 1px solid rgb(196, 235, 233) !important;
+}
+
+/* FA5/FA6 syntax compatibility shim
+   Project pakai FA5, tapi user di settacces sering input FA6 syntax (fa-solid/fa-regular/fa-brands)
+   atau cuma `fa` tanpa `fas`. Kedua case ini default ke font-weight 400 → glyph kosong.
+   Alias-kan jadi font-family + weight yang benar agar render normal.
+*/
+body[data-theme="marketing"] .left-sidenav i.fa-solid,
+body[data-theme="marketing"] .main-menu-inner i.fa-solid,
+body[data-theme="marketing"] .main-icon-menu i.fa-solid,
+body[data-theme="marketing"] .left-sidenav i.fa:not(.fas):not(.far):not(.fab),
+body[data-theme="marketing"] .main-menu-inner i.fa:not(.fas):not(.far):not(.fab),
+body[data-theme="marketing"] .main-icon-menu i.fa:not(.fas):not(.far):not(.fab) {
+    font-family: 'Font Awesome 5 Free' !important;
+    font-weight: 900 !important;
+}
+body[data-theme="marketing"] .left-sidenav i.fa-regular,
+body[data-theme="marketing"] .main-menu-inner i.fa-regular,
+body[data-theme="marketing"] .main-icon-menu i.fa-regular {
+    font-family: 'Font Awesome 5 Free' !important;
+    font-weight: 400 !important;
+}
+body[data-theme="marketing"] .left-sidenav i.fa-brands,
+body[data-theme="marketing"] .main-menu-inner i.fa-brands,
+body[data-theme="marketing"] .main-icon-menu i.fa-brands {
+    font-family: 'Font Awesome 5 Brands' !important;
+    font-weight: 400 !important;
+}
+
+/* Slimscroll thumb override (inline style di-set JS, butuh !important) */
+body[data-theme="marketing"] .slimScrollBar {
+    background: #ffffff !important;
+}
+body[data-theme="marketing"] .slimScrollRail {
+    background: #ffffff !important;
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   TOPBAR / SIDEBAR BRAND PANEL — SOLID dark teal
+   ───────────────────────────────────────────────────────────────────── */
+body[data-theme="marketing"] .topbar .st-brand,
+body[data-theme="marketing"] .st-topbar .st-brand,
+body[data-theme="marketing"] .st-brand {
+    background: linear-gradient(180deg, #13928e 0%, #0a4f4d 100%) !important;
+}
+body[data-theme="marketing"] .st-brand::after {
+    background: linear-gradient(90deg, rgba(10, 79, 77, 0.22) 0%, rgba(10, 79, 77, 0) 100%) !important;
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   SIDEBAR ACTIVE ITEM — teal panel + lime accent border
+   ───────────────────────────────────────────────────────────────────── */
+body[data-theme="marketing"] .main-menu-inner .menu-body .nav-item .nav-link.active,
+body[data-theme="marketing"] .main-menu-inner .menu-body .nav-item ul li > a.active,
+body[data-theme="marketing"] .main-menu-inner .menu-body .nav-item .nav-link.active:hover,
+body[data-theme="marketing"] .main-menu-inner .menu-body .nav-item ul li > a.active:hover {
+    background-color: #f4faf9 !important;
+    color: #0e6e6b !important;
+    border: 1px solid #c4ebe9 !important;
+    border-left: 3px solid #89c541 !important;
+    box-shadow: 0 2px 8px rgba(19, 146, 142, 0.06) !important;
+}
+body[data-theme="marketing"] .main-menu-inner .menu-body .nav-item .nav-link.active i,
+body[data-theme="marketing"] .main-menu-inner .menu-body .nav-item ul li > a.active i,
+body[data-theme="marketing"] .main-menu-inner .menu-body .nav-item .nav-link.active:hover i,
+body[data-theme="marketing"] .main-menu-inner .menu-body .nav-item ul li > a.active:hover i {
+    color: #13928e !important;
+}
+body[data-theme="marketing"] .main-menu-inner .menu-body .nav-item .nav-link.active span,
+body[data-theme="marketing"] .main-menu-inner .menu-body .nav-item ul li > a.active span,
+body[data-theme="marketing"] .main-menu-inner .menu-body .nav-item .nav-link.active:hover span,
+body[data-theme="marketing"] .main-menu-inner .menu-body .nav-item ul li > a.active:hover span {
+    color: #0e6e6b !important;
+}
+
+/* Sidebar section title */
+body[data-theme="marketing"] .main-menu-inner .menu-body .menu-title {
+    color: #0e6e6b !important;
+}
+
+/* Sidebar nav-link hover (non-active) — override peach + dark-brown leak */
+body[data-theme="marketing"] .main-menu-inner .menu-body .nav-item .nav-link:hover,
+body[data-theme="marketing"] .main-menu-inner .menu-body .nav-item ul li > a:hover {
+    background-color: #e6f5f4 !important;
+    color: #13928e !important;
+    border-left: 3px solid #13928e !important;
+}
+body[data-theme="marketing"] .main-menu-inner .menu-body .nav-item .nav-link:hover i,
+body[data-theme="marketing"] .main-menu-inner .menu-body .nav-item ul li > a:hover i {
+    color: #13928e !important;
+}
+body[data-theme="marketing"] .main-menu-inner .menu-body .nav-item .nav-link:hover span,
+body[data-theme="marketing"] .main-menu-inner .menu-body .nav-item ul li > a:hover span {
+    color: #13928e !important;
+}
+
+/* ==================================================================
+   EP KONTEN / BREAKDOWN / CAMPAIGN — page-specific styles
+   (di-pindah dari inline <style> di blade file biar terpusat)
+   ================================================================== */
+
+
+/* ── resources/views/crud/ep-konten/calendar.blade.php ───────────────────────────────────────────── */
+    /* Helper: hash-based color generator (server-side fallback for pillar tanpa color) */
+    /* Calendar header */
+    .ep-cal-header { display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap; margin-bottom:18px; padding:18px 20px; background:#fff; border-radius:14px; border:1px solid #c4ebe9; box-shadow:0 2px 8px rgba(19, 146, 142,0.04); }
+    .ep-cal-meta { font-size:13px; color:#0a4f4d; display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:4px; }
+    .ep-cal-month-pill { background:linear-gradient(135deg,#f4faf9,#e6f5f4); padding:6px 14px; border-radius:50px; font-weight:800; color:#0e6e6b; font-size:13px; }
+    .ep-cal-meta-sep { color:#7a9290; }
+    .ep-cal-meta-text strong { color:#0e6e6b; }
+    .ep-cal-actions { display:flex; gap:8px; align-items:center; }
+    .ep-cal-nav-btn { display:inline-flex; align-items:center; gap:6px; padding:8px 14px; border:1px solid #c4ebe9; border-radius:10px; background:#fff; color:#0e6e6b; font-weight:700; font-size:13px; text-decoration:none; transition:all .2s; }
+    .ep-cal-nav-btn:hover { background:#f4faf9; color:#0e6e6b; text-decoration:none; }
+    .ep-cal-nav-btn.is-disabled { opacity:.5; pointer-events:none; }
+    .ep-cal-nav-arrow { padding:8px 12px; }
+
+    /* Toolbar (tabs + filters) */
+    .ep-cal-toolbar { display:flex; justify-content:space-between; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:14px; padding:10px 12px; background:#fff; border-radius:12px; border:1px solid #c4ebe9; }
+    .ep-cal-tabs { display:flex; gap:4px; flex-wrap:wrap; }
+    .ep-cal-tab { display:inline-flex; align-items:center; gap:7px; padding:7px 14px; border-radius:50px; font-size:13px; font-weight:700; color:#0a4f4d; text-decoration:none; transition:all .2s; }
+    .ep-cal-tab:hover { background:#f4faf9; color:#0e6e6b; text-decoration:none; }
+    .ep-cal-tab.is-active { background:#0e6e6b; color:#fff; box-shadow:0 4px 10px rgba(19, 146, 142,0.18); }
+    .ep-cal-tab.is-active:hover { background:#0e6e6b; color:#fff; }
+    .ep-cal-tab i { font-size:11px; }
+
+    /* Kind chips (Regular vs Khusus) */
+    .ep-cal-kind-chips { display:flex; gap:4px; flex-wrap:wrap; padding-top:4px; }
+    .ep-cal-kind-chip { display:inline-flex; align-items:center; gap:5px; padding:4px 11px; border-radius:50px; font-size:11px; font-weight:700; color:#0a4f4d; text-decoration:none; background:transparent; border:1.5px solid transparent; transition:all .15s; }
+    .ep-cal-kind-chip:hover { background:#f4faf9; color:#0e6e6b; text-decoration:none; }
+    .ep-cal-kind-chip.is-active { background:#f4faf9; border-color:#13928e; color:#0e6e6b; }
+    .ep-cal-kind-chip.is-khusus.is-active { background:linear-gradient(135deg,#13928e,#0e6e6b); color:#fff; border-color:#0e6e6b; }
+    .ep-cal-kind-chip i { font-size:9px; }
+
+    /* Breakdown card di calendar (border accent) */
+    .ep-cal-card.is-breakdown { border-left-width:4px !important; background:linear-gradient(180deg, #fff 0%, #f4faf9 100%); }
+    .ep-cal-card.is-breakdown:hover { background:linear-gradient(180deg, #f4faf9 0%, #e6f5f4 100%); }
+    .ep-cal-khusus-badge { display:inline-block; vertical-align:middle; margin-right:3px; font-size:10px; }
+
+    /* Filter row — minimalist */
+    .ep-cal-filter-row { display:flex; align-items:center; gap:8px; margin:0; position:relative; }
+    .ep-search-wrap { position:relative; display:inline-flex; align-items:center; }
+    .ep-search-icon { position:absolute; left:11px; color:#0e6e6b; font-size:11px; pointer-events:none; }
+    .ep-search-input { padding:7px 14px 7px 30px; border:1px solid #c4ebe9; border-radius:50px; font-size:13px; min-width:200px; outline:none; background:#fff; transition:all .2s; color:#0a4f4d; }
+    .ep-search-input:focus { border-color:#13928e; box-shadow:0 0 0 3px rgba(19, 146, 142,0.12); }
+
+    .ep-filter-trigger { display:inline-flex; align-items:center; gap:7px; padding:7px 14px; border:1px solid #c4ebe9; border-radius:50px; background:#fff; color:#0a4f4d; font-size:13px; font-weight:700; cursor:pointer; transition:all .15s; position:relative; }
+    .ep-filter-trigger:hover { background:#f4faf9; color:#0e6e6b; border-color:#13928e; }
+    .ep-filter-trigger.is-open { background:#0e6e6b; color:#fff; border-color:#0e6e6b; }
+    .ep-filter-badge { background:#13928e; color:#fff; padding:1px 8px; border-radius:50px; font-size:10px; font-weight:800; min-width:18px; text-align:center; }
+    .ep-filter-trigger.is-open .ep-filter-badge { background:#fff; color:#0e6e6b; }
+
+    .ep-filter-panel { display:none; position:absolute; right:0; top:calc(100% + 8px); z-index:50; background:#fff; border:1px solid #c4ebe9; border-radius:12px; box-shadow:0 12px 36px rgba(19, 146, 142,0.18); padding:14px; min-width:240px; }
+    .ep-filter-panel.is-open { display:block; }
+    .ep-filter-row { display:flex; flex-direction:column; gap:4px; margin-bottom:10px; }
+    .ep-filter-row:last-of-type { margin-bottom:0; }
+    .ep-filter-row label { font-size:11px; font-weight:800; color:#0a4f4d; text-transform:uppercase; letter-spacing:0.5px; margin:0; }
+    .ep-filter-row select { padding:7px 10px; border:1px solid #c4ebe9; border-radius:8px; font-size:12.5px; background:#fff; color:#0a4f4d; outline:none; cursor:pointer; }
+    .ep-filter-row select:focus { border-color:#13928e; }
+    .ep-filter-reset-btn { display:flex; align-items:center; justify-content:center; gap:6px; margin-top:12px; padding:8px; border-radius:8px; background:#f4faf9; color:#13928e; text-decoration:none; font-size:12px; font-weight:700; transition:background .15s; }
+    .ep-filter-reset-btn:hover { background:#e6f5f4; color:#0e6e6b; text-decoration:none; }
+
+    /* Pillar collapsible (di modal) */
+    .ep-pillar-trigger { display:flex; align-items:center; gap:8px; padding:8px 12px; border:1.5px solid #c4ebe9; border-radius:10px; background:#fff; cursor:pointer; transition:all .15s; min-height:42px; margin-top:6px; }
+    .ep-pillar-trigger:hover { border-color:#13928e; background:#f4faf9; }
+    .ep-pillar-trigger.is-open { border-color:#13928e; box-shadow:0 0 0 3px rgba(19, 146, 142,0.1); border-radius:10px 10px 0 0; }
+    .ep-pillar-selected { flex:1; display:flex; flex-wrap:wrap; gap:4px; align-items:center; min-height:24px; }
+    .ep-pillar-empty { color:#7a9290; font-size:13px; font-style:italic; }
+    .ep-pillar-chip { display:inline-flex; align-items:center; gap:5px; padding:3px 10px; border-radius:50px; font-size:11.5px; font-weight:700; color:#fff; }
+    .ep-pillar-chip-x { cursor:pointer; opacity:.7; font-size:10px; padding:0 2px; }
+    .ep-pillar-chip-x:hover { opacity:1; }
+    .ep-pillar-toggle-btn { background:transparent; border:none; color:#0e6e6b; cursor:pointer; padding:4px 6px; transition:transform .2s; }
+    .ep-pillar-trigger.is-open .ep-pillar-toggle-btn { transform:rotate(180deg); }
+
+    .ep-pillar-panel { border:1.5px solid #13928e; border-top:none; border-radius:0 0 10px 10px; background:#fff; padding:12px; max-height:280px; overflow-y:auto; }
+    .ep-pillar-search-wrap { position:relative; margin-bottom:10px; }
+    .ep-pillar-search-wrap .ep-search-icon { position:absolute; left:11px; top:50%; transform:translateY(-50%); color:#0e6e6b; font-size:11px; }
+    .ep-pillar-search { width:100%; padding:7px 10px 7px 30px; border:1px solid #c4ebe9; border-radius:8px; font-size:13px; outline:none; background:#f4faf9; color:#0a4f4d; }
+    .ep-pillar-search:focus { border-color:#13928e; background:#fff; }
+    .ep-pillar-list { gap:5px; }
+    .ep-pillar-list .ep-quick-pill[data-hidden="true"] { display:none; }
+
+    /* Calendar grid */
+    .ep-cal-wrap { background:#fff; border-radius:14px; border:1px solid #c4ebe9; overflow:hidden; box-shadow:0 2px 12px rgba(19, 146, 142,0.04); }
+    .ep-cal-grid { display:grid; grid-template-columns:repeat(7, minmax(0, 1fr)); }
+
+    .ep-cal-dayname { padding:12px 14px; background:#f4faf9; color:#0a4f4d; font-weight:800; font-size:11px; text-transform:uppercase; letter-spacing:1px; border-right:1px solid #c4ebe9; border-bottom:2px solid #c4ebe9; }
+    .ep-cal-dayname:last-child { border-right:none; }
+    .ep-cal-dayname.is-weekend { color:#0e6e6b; background:#e6f5f4; }
+
+    .ep-cal-cell { position:relative; min-height:130px; padding:8px; border-right:1px solid #c4ebe9; border-bottom:1px solid #c4ebe9; cursor:pointer; transition:background .15s; display:flex; flex-direction:column; gap:6px; }
+    .ep-cal-cell:nth-child(7n) { border-right:none; }
+    .ep-cal-cell:hover { background:#f4faf9; }
+    .ep-cal-cell.is-out-month { background:#fafafa; opacity:.55; }
+    .ep-cal-cell.is-out-month:hover { background:#f5f5f5; }
+    .ep-cal-cell.is-today { background:#f4faf9; box-shadow:inset 3px 0 0 #13928e; }
+    .ep-cal-cell.is-today:hover { background:#e6f5f4; }
+    .ep-cal-cell.is-weekend { background:#ffffff; }
+    .ep-cal-cell.is-weekend.is-out-month { background:#f8f8f8; }
+
+    .ep-cal-cell-head { display:flex; align-items:center; gap:6px; padding:0 2px; }
+    .ep-cal-day-num { font-weight:800; color:#0a4f4d; font-size:14px; }
+    .ep-cal-cell.is-today .ep-cal-day-num { color:#13928e; font-size:16px; }
+    .ep-cal-day-mlabel { font-size:10px; font-weight:800; color:#0e6e6b; text-transform:uppercase; }
+    .ep-cal-day-count { margin-left:auto; background:#e6f5f4; color:#0a4f4d; padding:1px 7px; border-radius:50px; font-size:10px; font-weight:800; }
+
+    .ep-cal-cell-body { display:flex; flex-direction:column; gap:4px; flex:1; min-height:0; }
+
+    /* Card di calendar */
+    .ep-cal-card { background:#fff; border:1px solid #c4ebe9; border-left:3px solid #13928e; border-radius:7px; padding:6px 8px; text-decoration:none; color:#0a4f4d; transition:all .15s; display:block; }
+    .ep-cal-card:hover { background:#f4faf9; transform:translateY(-1px); box-shadow:0 4px 10px rgba(19, 146, 142,0.12); text-decoration:none; color:#0a4f4d; }
+    .ep-cal-card-title { font-size:11.5px; font-weight:700; color:#0a4f4d; line-height:1.3; overflow:hidden; text-overflow:ellipsis; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
+    .ep-cal-card-meta { display:flex; gap:4px; align-items:center; flex-wrap:wrap; margin-top:4px; }
+    .ep-cal-status { display:inline-flex; align-items:center; gap:4px; padding:2px 7px; border-radius:50px; font-size:9.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.3px; }
+    .ep-cal-status-dot { width:5px; height:5px; border-radius:50%; }
+    .ep-cal-card-tags { display:flex; gap:3px; flex-wrap:wrap; margin-top:4px; }
+    .ep-cal-tag { display:inline-block; padding:1.5px 7px; border-radius:50px; font-size:9.5px; font-weight:700; line-height:1.4; }
+
+    /* Platform-color variants untuk ep-cal-card (override default putih).
+       Specificity dinaikkan dengan kombinasi 2 class supaya menang dari `.ep-cal-card.is-breakdown`. */
+    .ep-cal-card.ep-cal-card--ig-post  { background:#dbeafe; border-color:#bfdbfe; color:#1e3a8a; }
+    .ep-cal-card.ep-cal-card--ig-post  .ep-cal-card-title { color:#1e3a8a; }
+    .ep-cal-card.ep-cal-card--ig-post:hover { background:#bfdbfe; color:#1e3a8a; }
+
+    .ep-cal-card.ep-cal-card--ig-story { background:#d1fae5; border-color:#a7f3d0; color:#065f46; }
+    .ep-cal-card.ep-cal-card--ig-story .ep-cal-card-title { color:#065f46; }
+    .ep-cal-card.ep-cal-card--ig-story:hover { background:#a7f3d0; color:#065f46; }
+
+    .ep-cal-card.ep-cal-card--tiktok   { background:#fef3c7; border-color:#fde68a; color:#854d0e; }
+    .ep-cal-card.ep-cal-card--tiktok   .ep-cal-card-title { color:#854d0e; }
+    .ep-cal-card.ep-cal-card--tiktok:hover { background:#fde68a; color:#854d0e; }
+
+    /* Add button (floating per cell, shown on hover) */
+    .ep-cal-add-btn { position:absolute; right:6px; bottom:6px; width:22px; height:22px; border-radius:50%; border:none; background:#13928e; color:#fff; cursor:pointer; opacity:0; transition:all .15s; font-size:10px; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 6px rgba(19, 146, 142,0.3); }
+    .ep-cal-cell:hover .ep-cal-add-btn { opacity:1; }
+    .ep-cal-add-btn:hover { background:#0e6e6b; transform:scale(1.1); }
+    .ep-cal-cell.is-out-month .ep-cal-add-btn { display:none; }
+
+    /* Modal quick-add: pill checkboxes */
+    .ep-quick-pills { display:flex; flex-wrap:wrap; gap:6px; }
+    .ep-quick-pill { position:relative; cursor:pointer; margin:0; }
+    .ep-quick-pill input { position:absolute; opacity:0; width:0; height:0; }
+    .ep-quick-pill span { display:inline-flex; align-items:center; gap:5px; padding:6px 12px; border-radius:50px; font-size:12px; font-weight:600; background:#f8f8f8; color:#666; border:1.5px solid transparent; transition:all .15s; }
+    .ep-quick-pill:hover span { background:var(--pill-bg, #e6f5f4); color:var(--pill-text, #0a4f4d); }
+    .ep-quick-pill input:checked + span { background:var(--pill-bg, #e6f5f4); color:var(--pill-text, #0a4f4d); border-color:var(--pill-text, #13928e); font-weight:700; box-shadow:0 2px 6px rgba(0,0,0,0.06); }
+
+    @media (max-width: 900px) {
+        .ep-cal-header { flex-direction:column; align-items:flex-start; }
+        .ep-cal-cell { min-height:100px; padding:6px; }
+        .ep-cal-card-title { font-size:10.5px; }
+        .ep-cal-tab { padding:6px 10px; font-size:12px; }
+    }
+    @media (max-width: 600px) {
+        .ep-cal-cell { min-height:80px; }
+        .ep-cal-day-num { font-size:12px; }
+        .ep-cal-card { padding:4px 6px; }
+        .ep-cal-card-title { font-size:10px; }
+    }
+
+/* ── resources/views/crud/ep-konten/_form.blade.php ───────────────────────────────────────────── */
+    /* ───────── Notion-style page ───────── */
+    .note-page { background:#fff; border-radius:14px; border:1px solid #c4ebe9; padding:36px 48px; margin-bottom:20px; box-shadow:0 2px 12px rgba(19, 146, 142,0.04); }
+
+    /* Title */
+    .note-title-wrap { margin-bottom:24px; }
+    .note-title-input { width:100%; border:none; outline:none; background:transparent; font-size:32px; font-weight:900; color:#0a4f4d; line-height:1.2; padding:0; font-family:'Montserrat',sans-serif; }
+    .note-title-input::placeholder { color:#7a9290; font-weight:800; }
+    .note-title-input.is-invalid { border-bottom:2px solid #c62828; }
+
+    /* Properties */
+    .note-props { display:flex; flex-direction:column; gap:6px; }
+    .note-prop { display:grid; grid-template-columns:180px 1fr; gap:14px; align-items:flex-start; padding:6px 0; min-height:34px; }
+    .note-prop-key { display:flex; align-items:center; gap:8px; font-size:13px; font-weight:600; color:#0a4f4d; padding-top:6px; }
+    .note-prop-key i { color:#0e6e6b; width:14px; text-align:center; font-size:12px; }
+    .note-prop-val { min-width:0; }
+    .note-prop-input { width:100%; max-width:380px; border:1.5px solid transparent; outline:none; padding:6px 10px; border-radius:6px; font-size:13.5px; color:#0a4f4d; background:transparent; font-family:'Montserrat',sans-serif; transition:all .15s; }
+    .note-prop-input:hover { background:#f4faf9; }
+    .note-prop-input:focus { background:#fff; border-color:#13928e; box-shadow:0 0 0 3px rgba(19, 146, 142,0.1); }
+    .note-prop-select { padding-right:24px; cursor:pointer; }
+
+    /* Pill components (reused dari calendar modal) */
+    .ep-quick-pills { display:flex; flex-wrap:wrap; gap:5px; }
+    .ep-quick-pill { position:relative; cursor:pointer; margin:0; }
+    .ep-quick-pill input { position:absolute; opacity:0; width:0; height:0; }
+    .ep-quick-pill span { display:inline-flex; align-items:center; gap:5px; padding:5px 11px; border-radius:50px; font-size:12px; font-weight:600; background:#f8f8f8; color:#888; border:1.5px solid transparent; transition:all .15s; }
+    .ep-quick-pill:hover span { background:var(--pill-bg, #e6f5f4); color:var(--pill-text, #0a4f4d); }
+    .ep-quick-pill input:checked + span { background:var(--pill-bg, #e6f5f4); color:var(--pill-text, #0a4f4d); border-color:var(--pill-text, #13928e); font-weight:700; }
+    .status-dot { width:6px; height:6px; border-radius:50%; }
+
+    /* Pillar trigger */
+    .ep-pillar-trigger { display:flex; align-items:center; gap:8px; padding:5px 10px; border:1.5px solid transparent; border-radius:6px; background:transparent; cursor:pointer; min-height:34px; transition:all .15s; max-width:600px; }
+    .ep-pillar-trigger:hover { background:#f4faf9; }
+    .ep-pillar-trigger.is-open { border-color:#13928e; background:#fff; box-shadow:0 0 0 3px rgba(19, 146, 142,0.1); border-radius:6px 6px 0 0; }
+    .ep-pillar-selected { flex:1; display:flex; flex-wrap:wrap; gap:4px; align-items:center; min-height:22px; }
+    .ep-pillar-empty { color:#7a9290; font-size:13px; font-style:italic; }
+    .ep-pillar-chip { display:inline-flex; align-items:center; gap:5px; padding:3px 10px; border-radius:50px; font-size:11.5px; font-weight:700; color:#fff; }
+    .ep-pillar-chip-x { cursor:pointer; opacity:.7; font-size:10px; padding:0 2px; }
+    .ep-pillar-chip-x:hover { opacity:1; }
+    .ep-pillar-toggle-btn { background:transparent; border:none; color:#0e6e6b; cursor:pointer; padding:2px 6px; transition:transform .2s; font-size:11px; }
+    .ep-pillar-trigger.is-open .ep-pillar-toggle-btn { transform:rotate(180deg); }
+
+    .ep-pillar-panel { border:1.5px solid #13928e; border-top:none; border-radius:0 0 6px 6px; background:#fff; padding:12px; max-width:600px; max-height:280px; overflow-y:auto; }
+    .ep-pillar-search-wrap { position:relative; margin-bottom:10px; }
+    .ep-pillar-search-wrap .ep-search-icon { position:absolute; left:11px; top:50%; transform:translateY(-50%); color:#0e6e6b; font-size:11px; }
+    .ep-pillar-search { width:100%; padding:7px 10px 7px 30px; border:1px solid #c4ebe9; border-radius:8px; font-size:13px; outline:none; background:#f4faf9; color:#0a4f4d; }
+    .ep-pillar-search:focus { border-color:#13928e; background:#fff; }
+    .ep-pillar-list .ep-quick-pill[data-hidden="true"] { display:none; }
+
+    /* Divider */
+    .note-divider { height:1px; background:#c4ebe9; margin:24px 0; }
+
+    /* Tabs (Detail Konten / Foto Gambar) */
+    .note-tabs { display:flex; gap:4px; border-bottom:1.5px solid #c4ebe9; margin:20px 0 24px; padding:0; }
+    .note-tab { display:inline-flex; align-items:center; gap:8px; padding:10px 18px; background:transparent; border:none; border-bottom:2.5px solid transparent; margin-bottom:-1.5px; color:#7a9290; font-size:13.5px; font-weight:600; font-family:'Montserrat',sans-serif; cursor:pointer; transition:all .15s; border-radius:8px 8px 0 0; }
+    .note-tab i { font-size:13px; }
+    .note-tab:hover { color:#0a4f4d; background:#f4faf9; }
+    .note-tab.is-active { color:#13928e; border-bottom-color:#13928e; font-weight:700; background:transparent; }
+    .note-tab-badge { display:inline-flex; align-items:center; justify-content:center; min-width:20px; height:20px; padding:0 6px; border-radius:50px; background:#13928e; color:#fff; font-size:11px; font-weight:700; line-height:1; }
+    .note-tab-pane { display:none; }
+    .note-tab-pane.is-active { display:block; }
+
+    /* Body sections */
+    .note-body { display:flex; flex-direction:column; gap:18px; }
+    .note-body-field { display:flex; flex-direction:column; gap:8px; }
+    .note-body-label { display:flex; align-items:center; gap:8px; font-size:12px; font-weight:700; color:#0a4f4d; text-transform:uppercase; letter-spacing:0.5px; }
+    .note-body-label i { color:#0e6e6b; font-size:11px; }
+    .note-body-input { width:100%; border:1.5px solid transparent; outline:none; padding:10px 14px; border-radius:8px; font-size:14px; color:#0a4f4d; background:#f4faf9; font-family:'Montserrat',sans-serif; resize:vertical; transition:all .15s; line-height:1.55; }
+    .note-body-input:hover { background:#e6f5f4; }
+    .note-body-input:focus { background:#fff; border-color:#13928e; box-shadow:0 0 0 3px rgba(19, 146, 142,0.1); }
+    .note-body-input::placeholder { color:#7a9290; font-style:italic; }
+
+    @media (max-width: 800px) {
+        .note-page { padding:24px 20px; }
+        .note-title-input { font-size:24px; }
+        .note-prop { grid-template-columns:140px 1fr; gap:8px; }
+        .note-prop-key { font-size:12px; }
+    }
+
+/* ── resources/views/crud/ep-konten/edit.blade.php ───────────────────────────────────────────── */
+    .note-page-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; gap:10px; flex-wrap:wrap; }
+    .note-back-link { display:inline-flex; align-items:center; gap:6px; color:#0a4f4d; font-size:13px; font-weight:600; text-decoration:none; padding:6px 12px; border-radius:8px; background:#fff; border:1px solid #c4ebe9; transition:all .15s; }
+    .note-back-link:hover { background:#f4faf9; color:#0e6e6b; text-decoration:none; }
+    .note-page-meta { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+    .note-status-pill { display:inline-flex; align-items:center; gap:6px; padding:5px 14px; border-radius:50px; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; }
+    .note-meta-item { font-size:12px; color:#0a4f4d; display:inline-flex; align-items:center; gap:5px; }
+    .note-meta-item i { font-size:11px; opacity:.7; }
+    .note-action-btn { width:32px; height:32px; border-radius:8px; background:#fff; border:1px solid #c4ebe9; color:#13928e; cursor:pointer; transition:all .15s; }
+    .note-action-btn:hover { background:#f4faf9; border-color:#13928e; }
+
+    .note-save-bar { display:flex; justify-content:flex-end; gap:10px; padding:14px 20px; background:#fff; border:1px solid #c4ebe9; border-radius:14px; box-shadow:0 -4px 12px rgba(19, 146, 142,0.06); position:sticky; bottom:16px; z-index:30; }
+
+/* ── resources/views/crud/ep-konten/list.blade.php ───────────────────────────────────────────── */
+    .st-status-select {
+        border: 1px solid transparent;
+        padding: 4px 26px 4px 12px;
+        border-radius: 12px;
+        font-weight: 600;
+        font-size: 12px;
+        cursor: pointer;
+        background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%23a85432' d='M0 0l5 6 5-6z'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 8px center;
+        appearance: none;
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        transition: opacity .15s, transform .15s;
+    }
+    .st-status-select[data-status="draft"]       { background-color: #f3f4f6; color: #4b5563; border-color: #d1d5db; }
+    .st-status-select[data-status="riset"]       { background-color: #dbeafe; color: #1e40af; border-color: #93c5fd; }
+    .st-status-select[data-status="progress"]    { background-color: #fff3cd; color: #856404; border-color: #ffeeba; }
+    .st-status-select[data-status="revisi"]      { background-color: #fde2e2; color: #991b1b; border-color: #fca5a5; }
+    .st-status-select[data-status="done_revisi"] { background-color: #cffafe; color: #155e75; border-color: #67e8f9; }
+    .st-status-select[data-status="on_hold"]     { background-color: #e9ecef; color: #495057; border-color: #ced4da; }
+    .st-status-select[data-status="selesai"]     { background-color: #d4edda; color: #155724; border-color: #c3e6cb; }
+    .st-status-select:hover    { opacity: .85; }
+    .st-status-select:disabled { opacity: .5; cursor: wait; }
+
+/* ── resources/views/crud/ep-konten/new.blade.php ───────────────────────────────────────────── */
+    .note-save-bar { display:flex; justify-content:flex-end; gap:10px; padding:14px 20px; background:#fff; border:1px solid #c4ebe9; border-radius:14px; box-shadow:0 -4px 12px rgba(19, 146, 142,0.06); position:sticky; bottom:16px; z-index:30; }
+
+/* ── resources/views/crud/ep-breakdown/list.blade.php ───────────────────────────────────────────── */
+    .bd-khusus-label { display:inline-block; vertical-align:middle; font-size:11px; font-weight:800; padding:3px 10px; background:linear-gradient(135deg,#13928e,#0e6e6b); color:#fff; border-radius:50px; text-transform:uppercase; letter-spacing:0.5px; margin-left:8px; }
+    .bd-khusus-pill { display:inline-flex; align-items:center; gap:4px; padding:3px 10px; border-radius:50px; background:linear-gradient(135deg,#13928e,#0e6e6b); color:#fff; font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:0.4px; }
+    .bd-khusus-mini-pill { display:inline-block; padding:1px 8px; border-radius:50px; background:linear-gradient(135deg,#13928e,#0e6e6b); color:#fff; font-size:10px; font-weight:800; vertical-align:middle; }
+
+    .bd-info-banner { background:linear-gradient(135deg,#f4faf9,#e6f5f4); border:1px solid #c4ebe9; border-radius:12px; padding:14px 18px; margin-bottom:16px; display:flex; gap:12px; align-items:flex-start; font-size:13px; color:#0a4f4d; line-height:1.55; }
+    .bd-info-banner i { color:#13928e; font-size:16px; margin-top:2px; flex-shrink:0; }
+    .bd-info-banner a { color:#0e6e6b; font-weight:700; text-decoration:underline; }
+
+    .bd-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:14px; }
+    .bd-card { display:block; background:#fff; padding:18px; border-radius:14px; border:1px solid #c4ebe9; box-shadow:0 2px 8px rgba(19, 146, 142,0.04); transition:all .15s; text-decoration:none; color:inherit; }
+    .bd-card:hover { transform:translateY(-2px); box-shadow:0 12px 28px rgba(19, 146, 142,0.12); text-decoration:none; color:inherit; }
+    .bd-card-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; gap:8px; }
+    .bd-card-status { display:inline-flex; align-items:center; gap:6px; padding:4px 12px; border-radius:50px; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; }
+    .bd-card-title { font-size:15px; font-weight:800; color:#0a4f4d; line-height:1.3; margin-bottom:10px; }
+    .bd-card-meta { display:flex; flex-wrap:wrap; gap:10px; font-size:12px; color:#0a4f4d; margin-bottom:8px; }
+    .bd-card-meta i { color:#0e6e6b; font-size:11px; margin-right:3px; }
+    .bd-card-platforms { display:flex; flex-wrap:wrap; gap:4px; margin-top:6px; }
+    .bd-platform-pill { display:inline-block; padding:1.5px 8px; border-radius:50px; font-size:10px; font-weight:700; }
+    .bd-card-pillars { display:flex; flex-wrap:wrap; gap:4px; margin-top:8px; }
+    .bd-pillar-pill { display:inline-block; padding:2px 9px; border-radius:50px; font-size:10.5px; font-weight:700; color:#fff; }
+    .status-dot { width:6px; height:6px; border-radius:50%; }
+
+    .bd-empty { grid-column:1 / -1; text-align:center; padding:60px 20px; background:#fff; border:2px dashed #c4ebe9; border-radius:14px; }
+
+    .ep-cal-header { display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap; margin-bottom:18px; padding:18px 20px; background:#fff; border-radius:14px; border:1px solid #c4ebe9; box-shadow:0 2px 8px rgba(19, 146, 142,0.04); }
+    .ep-cal-meta { font-size:13px; color:#0a4f4d; display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:4px; }
+    .ep-cal-meta-sep { color:#7a9290; }
+    .ep-cal-meta-text strong { color:#0e6e6b; }
+    .ep-cal-toolbar { margin-bottom:14px; padding:10px 12px; background:#fff; border-radius:12px; border:1px solid #c4ebe9; }
+    .ep-cal-filter-row { display:flex; align-items:center; gap:8px; margin:0; flex-wrap:wrap; }
+    .ep-search-wrap { position:relative; display:inline-flex; align-items:center; flex:1; min-width:200px; }
+    .ep-search-icon { position:absolute; left:11px; color:#0e6e6b; font-size:11px; pointer-events:none; }
+    .ep-search-input { padding:7px 14px 7px 30px; border:1px solid #c4ebe9; border-radius:50px; font-size:13px; outline:none; background:#fff; transition:all .2s; color:#0a4f4d; width:100%; }
+    .ep-search-input:focus { border-color:#13928e; box-shadow:0 0 0 3px rgba(19, 146, 142,0.12); }
+    .ep-cal-nav-btn { display:inline-flex; align-items:center; gap:6px; padding:7px 14px; border:1px solid #c4ebe9; border-radius:50px; background:#fff; color:#0e6e6b; font-weight:700; font-size:12.5px; text-decoration:none; transition:all .2s; }
+    .ep-cal-nav-btn:hover { background:#f4faf9; color:#0e6e6b; text-decoration:none; }
+
+/* ── resources/views/crud/ep-breakdown/edit.blade.php ───────────────────────────────────────────── */
+    .note-page-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; gap:10px; flex-wrap:wrap; }
+    .note-back-link { display:inline-flex; align-items:center; gap:6px; color:#0a4f4d; font-size:13px; font-weight:600; text-decoration:none; padding:6px 12px; border-radius:8px; background:#fff; border:1px solid #c4ebe9; transition:all .15s; }
+    .note-back-link:hover { background:#f4faf9; color:#0e6e6b; text-decoration:none; }
+    .note-page-meta { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+    .note-status-pill { display:inline-flex; align-items:center; gap:6px; padding:5px 14px; border-radius:50px; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; }
+    .note-meta-item { font-size:12px; color:#0a4f4d; display:inline-flex; align-items:center; gap:5px; }
+    .note-meta-item i { font-size:11px; opacity:.7; }
+    .note-action-btn { width:32px; height:32px; border-radius:8px; background:#fff; border:1px solid #c4ebe9; color:#13928e; cursor:pointer; transition:all .15s; }
+    .note-action-btn:hover { background:#f4faf9; border-color:#13928e; }
+    .note-save-bar { display:flex; justify-content:flex-end; gap:10px; padding:14px 20px; background:#fff; border:1px solid #c4ebe9; border-radius:14px; box-shadow:0 -4px 12px rgba(19, 146, 142,0.06); position:sticky; bottom:16px; z-index:30; }
+    .bd-mode-pill { display:inline-flex; align-items:center; gap:5px; padding:6px 14px; border-radius:50px; background:linear-gradient(135deg,#13928e,#0e6e6b); color:#fff; font-size:11px; font-weight:800; letter-spacing:0.3px; }
+
+/* ── resources/views/crud/ep-breakdown/new.blade.php ───────────────────────────────────────────── */
+    .note-save-bar { display:flex; justify-content:flex-end; gap:10px; padding:14px 20px; background:#fff; border:1px solid #c4ebe9; border-radius:14px; box-shadow:0 -4px 12px rgba(19, 146, 142,0.06); position:sticky; bottom:16px; z-index:30; }
+    .bd-mode-pill { display:inline-flex; align-items:center; gap:5px; padding:6px 14px; border-radius:50px; background:linear-gradient(135deg,#13928e,#0e6e6b); color:#fff; font-size:12px; font-weight:800; letter-spacing:0.3px; }
+
+/* ── resources/views/crud/ep-campaign/list.blade.php ───────────────────────────────────────────── */
+    .ep-cal-header { display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap; margin-bottom:18px; padding:18px 20px; background:#fff; border-radius:14px; border:1px solid #c4ebe9; box-shadow:0 2px 8px rgba(19, 146, 142,0.04); }
+    .ep-cal-meta { font-size:13px; color:#0a4f4d; display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:4px; }
+    .ep-cal-month-pill { background:linear-gradient(135deg,#f4faf9,#e6f5f4); padding:6px 14px; border-radius:50px; font-weight:800; color:#0e6e6b; font-size:13px; }
+    .ep-cal-meta-sep { color:#7a9290; }
+    .ep-cal-meta-text strong { color:#0e6e6b; }
+    .ep-cal-actions { display:flex; gap:8px; align-items:center; }
+    .ep-cal-year-select { padding:8px 14px; border:1px solid #c4ebe9; border-radius:10px; background:#fff; color:#0e6e6b; font-weight:700; font-size:13px; cursor:pointer; outline:none; }
+    .ep-cal-year-select:focus { border-color:#13928e; }
+
+    /* Year grid: 12 months → 4 cols × 3 rows */
+    .cmp-year-grid { display:grid; grid-template-columns:repeat(4, 1fr); gap:12px; }
+    @media (max-width: 1100px) { .cmp-year-grid { grid-template-columns:repeat(3, 1fr); } }
+    @media (max-width: 800px)  { .cmp-year-grid { grid-template-columns:repeat(2, 1fr); } }
+    @media (max-width: 500px)  { .cmp-year-grid { grid-template-columns:1fr; } }
+
+    .cmp-month { background:#fff; border:1px solid #c4ebe9; border-radius:14px; padding:14px; min-height:140px; display:flex; flex-direction:column; gap:8px; transition:all .15s; }
+    .cmp-month.is-empty { background:#f4faf9; }
+    .cmp-month-head { display:flex; justify-content:space-between; align-items:center; padding-bottom:8px; border-bottom:1.5px solid #c4ebe9; margin-bottom:4px; }
+    .cmp-month-name { font-size:13px; font-weight:800; color:#0e6e6b; text-transform:uppercase; letter-spacing:0.5px; }
+    .cmp-month-count { background:#e6f5f4; color:#0a4f4d; padding:2px 9px; border-radius:50px; font-size:11px; font-weight:800; }
+
+    .cmp-card { display:block; padding:10px 12px; background:#f4faf9; border-radius:8px; text-decoration:none; color:inherit; transition:all .15s; }
+    .cmp-card:hover { background:#e6f5f4; text-decoration:none; color:inherit; transform:translateY(-1px); box-shadow:0 4px 10px rgba(19, 146, 142,0.12); }
+    .cmp-card-name { font-size:13px; font-weight:800; color:#0a4f4d; line-height:1.3; }
+    .cmp-card-idea { font-size:11.5px; color:#0a4f4d; margin-top:3px; line-height:1.4; font-style:italic; }
+    .cmp-card-meta { display:flex; flex-wrap:wrap; gap:5px; align-items:center; margin-top:6px; font-size:10.5px; color:#0a4f4d; }
+    .cmp-card-status { display:inline-block; padding:1.5px 7px; border-radius:50px; font-size:9.5px; font-weight:800; text-transform:uppercase; letter-spacing:0.3px; }
+    .cmp-card-weeks, .cmp-card-kontens { display:inline-flex; align-items:center; gap:3px; padding:1.5px 7px; border-radius:50px; background:#fff; color:#0a4f4d; font-weight:700; }
+    .cmp-card-weeks i, .cmp-card-kontens i { font-size:9px; }
+
+    .cmp-month-add { display:flex; align-items:center; justify-content:center; gap:6px; padding:12px; background:transparent; border:1.5px dashed #c4ebe9; border-radius:8px; color:#7a9290; font-size:12px; font-weight:600; text-decoration:none; transition:all .15s; }
+    .cmp-month-add:hover { border-color:#13928e; color:#0e6e6b; background:#f4faf9; text-decoration:none; }
+
+/* ── resources/views/crud/ep-campaign/_form.blade.php ───────────────────────────────────────────── */
+    /* Reuse Notion-style classes */
+    .note-page { background:#fff; border-radius:14px; border:1px solid #c4ebe9; padding:36px 48px; margin-bottom:20px; box-shadow:0 2px 12px rgba(19, 146, 142,0.04); }
+    .note-title-wrap { margin-bottom:24px; }
+    .note-title-input { width:100%; border:none; outline:none; background:transparent; font-size:32px; font-weight:900; color:#0a4f4d; line-height:1.2; padding:0; font-family:'Montserrat',sans-serif; }
+    .note-title-input::placeholder { color:#7a9290; font-weight:800; }
+
+    .note-props { display:flex; flex-direction:column; gap:6px; }
+    .note-prop { display:grid; grid-template-columns:180px 1fr; gap:14px; align-items:flex-start; padding:6px 0; min-height:34px; }
+    .note-prop-key { display:flex; align-items:center; gap:8px; font-size:13px; font-weight:600; color:#0a4f4d; padding-top:6px; }
+    .note-prop-key i { color:#0e6e6b; width:14px; text-align:center; font-size:12px; }
+    .note-prop-val { min-width:0; }
+    .note-prop-input { width:100%; max-width:380px; border:1.5px solid transparent; outline:none; padding:6px 10px; border-radius:6px; font-size:13.5px; color:#0a4f4d; background:transparent; font-family:'Montserrat',sans-serif; transition:all .15s; }
+    .note-prop-input:hover { background:#f4faf9; }
+    .note-prop-input:focus { background:#fff; border-color:#13928e; box-shadow:0 0 0 3px rgba(19, 146, 142,0.1); }
+    .note-prop-select { padding-right:24px; cursor:pointer; }
+
+    .ep-quick-pills { display:flex; flex-wrap:wrap; gap:5px; }
+    .ep-quick-pill { position:relative; cursor:pointer; margin:0; }
+    .ep-quick-pill input { position:absolute; opacity:0; width:0; height:0; }
+    .ep-quick-pill span { display:inline-flex; align-items:center; gap:5px; padding:5px 11px; border-radius:50px; font-size:12px; font-weight:600; background:#f8f8f8; color:#888; border:1.5px solid transparent; transition:all .15s; }
+    .ep-quick-pill:hover span { background:var(--pill-bg, #e6f5f4); color:var(--pill-text, #0a4f4d); }
+    .ep-quick-pill input:checked + span { background:var(--pill-bg, #e6f5f4); color:var(--pill-text, #0a4f4d); border-color:var(--pill-text, #13928e); font-weight:700; }
+    .status-dot { width:6px; height:6px; border-radius:50%; }
+
+    .note-divider { height:1px; background:#c4ebe9; margin:24px 0; }
+    .note-body { display:flex; flex-direction:column; gap:18px; }
+    .note-body-field { display:flex; flex-direction:column; gap:8px; }
+    .note-body-label { display:flex; align-items:center; gap:8px; font-size:12px; font-weight:700; color:#0a4f4d; text-transform:uppercase; letter-spacing:0.5px; }
+    .note-body-label i { color:#0e6e6b; font-size:11px; }
+    .note-body-input { width:100%; border:1.5px solid transparent; outline:none; padding:10px 14px; border-radius:8px; font-size:14px; color:#0a4f4d; background:#f4faf9; font-family:'Montserrat',sans-serif; resize:vertical; transition:all .15s; line-height:1.55; }
+    .note-body-input:hover { background:#e6f5f4; }
+    .note-body-input:focus { background:#fff; border-color:#13928e; box-shadow:0 0 0 3px rgba(19, 146, 142,0.1); }
+    .note-body-input::placeholder { color:#7a9290; font-style:italic; }
+
+    /* Weekly breakdown — card per minggu */
+    .cmp-week-section { display:flex; flex-direction:column; gap:14px; }
+    .cmp-week-header { display:flex; justify-content:space-between; align-items:flex-start; gap:14px; }
+    .cmp-week-title { font-size:14px; font-weight:800; color:#0a4f4d; display:flex; align-items:center; gap:8px; }
+    .cmp-week-title i { color:#13928e; }
+    .cmp-week-sub { font-size:12px; color:#0a4f4d; margin-top:3px; }
+    .cmp-week-add-btn { display:inline-flex; align-items:center; gap:6px; padding:7px 14px; border:1.5px dashed #13928e; border-radius:50px; background:#fff; color:#13928e; font-weight:700; font-size:12px; cursor:pointer; transition:all .15s; }
+    .cmp-week-add-btn:hover { background:#f4faf9; border-style:solid; }
+
+    .cmp-week-card { background:#f4faf9; border-radius:12px; border:1.5px solid #c4ebe9; padding:14px 18px; display:flex; flex-direction:column; gap:10px; transition:all .15s; position:relative; }
+    .cmp-week-card:hover { border-color:#13928e; box-shadow:0 4px 12px rgba(19, 146, 142,0.06); }
+    .cmp-week-card-head { display:flex; justify-content:space-between; align-items:center; gap:10px; }
+    .cmp-week-card-num { display:inline-flex; align-items:center; gap:8px; font-size:13px; font-weight:800; color:#0e6e6b; }
+    .cmp-week-num-pill { background:#13928e; color:#fff; width:28px; height:28px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:13px; font-weight:800; }
+    .cmp-week-remove-btn { background:transparent; border:none; color:#7a9290; cursor:pointer; font-size:14px; padding:4px 8px; border-radius:6px; transition:all .15s; }
+    .cmp-week-remove-btn:hover { color:#c62828; background:#fde2e2; }
+
+    .cmp-week-row { display:flex; flex-direction:column; gap:6px; }
+    .cmp-week-label { font-size:11px; font-weight:700; color:#0a4f4d; text-transform:uppercase; letter-spacing:0.5px; }
+    .cmp-week-input { width:100%; border:1px solid transparent; outline:none; padding:8px 12px; border-radius:6px; font-size:13.5px; color:#0a4f4d; background:#fff; font-family:'Montserrat',sans-serif; transition:all .15s; }
+    .cmp-week-input:focus { border-color:#13928e; box-shadow:0 0 0 3px rgba(19, 146, 142,0.08); }
+    textarea.cmp-week-input { resize:vertical; line-height:1.55; }
+
+    @media (max-width: 800px) {
+        .note-page { padding:24px 20px; }
+        .note-title-input { font-size:24px; }
+        .note-prop { grid-template-columns:140px 1fr; gap:8px; }
+        .cmp-week-header { flex-direction:column; align-items:flex-start; }
+    }
+
+/* ── resources/views/crud/ep-campaign/edit.blade.php ───────────────────────────────────────────── */
+    .note-page-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; gap:10px; flex-wrap:wrap; }
+    .note-back-link { display:inline-flex; align-items:center; gap:6px; color:#0a4f4d; font-size:13px; font-weight:600; text-decoration:none; padding:6px 12px; border-radius:8px; background:#fff; border:1px solid #c4ebe9; transition:all .15s; }
+    .note-back-link:hover { background:#f4faf9; color:#0e6e6b; text-decoration:none; }
+    .note-page-meta { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+    .note-status-pill { display:inline-flex; align-items:center; gap:6px; padding:5px 14px; border-radius:50px; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; }
+    .note-meta-item { font-size:12px; color:#0a4f4d; display:inline-flex; align-items:center; gap:5px; }
+    .note-meta-item i { font-size:11px; opacity:.7; }
+    .note-action-btn { width:32px; height:32px; border-radius:8px; background:#fff; border:1px solid #c4ebe9; color:#13928e; cursor:pointer; transition:all .15s; }
+    .note-action-btn:hover { background:#f4faf9; border-color:#13928e; }
+    .note-save-bar { display:flex; justify-content:flex-end; gap:10px; padding:14px 20px; background:#fff; border:1px solid #c4ebe9; border-radius:14px; box-shadow:0 -4px 12px rgba(19, 146, 142,0.06); position:sticky; bottom:16px; z-index:30; }
+
+/* ── resources/views/crud/ep-campaign/new.blade.php ───────────────────────────────────────────── */
+    .note-save-bar { display:flex; justify-content:flex-end; gap:10px; padding:14px 20px; background:#fff; border:1px solid #c4ebe9; border-radius:14px; box-shadow:0 -4px 12px rgba(19, 146, 142,0.06); position:sticky; bottom:16px; z-index:30; }
+
+
+/* =====================================================================
+   FINAL OVERRIDE — Teks "data" pada bg putih jadi HITAM
+   Khusus theme marketing. Icon (<i>) dan section title biarkan teal.
+   ===================================================================== */
+
+/* Note-page form (calendar/breakdown/campaign edit & new) */
+body[data-theme="marketing"] .note-title-input,
+body[data-theme="marketing"] .note-prop-key,
+body[data-theme="marketing"] .note-prop-input,
+body[data-theme="marketing"] .note-prop-select,
+body[data-theme="marketing"] .note-body-input,
+body[data-theme="marketing"] .note-meta-item,
+body[data-theme="marketing"] .note-back-link {
+    color: #000000 !important;
+}
+
+/* Calendar meta + cards */
+body[data-theme="marketing"] .ep-cal-meta,
+body[data-theme="marketing"] .ep-cal-meta-text strong,
+body[data-theme="marketing"] .ep-cal-day-num,
+body[data-theme="marketing"] .ep-cal-card,
+body[data-theme="marketing"] .ep-cal-card-title,
+body[data-theme="marketing"] .ep-search-input,
+body[data-theme="marketing"] .ep-pillar-search,
+body[data-theme="marketing"] .ep-filter-row select {
+    color: #000000 !important;
+}
+
+/* Breakdown cards */
+body[data-theme="marketing"] .bd-info-banner,
+body[data-theme="marketing"] .bd-info-banner div,
+body[data-theme="marketing"] .bd-info-banner strong,
+body[data-theme="marketing"] .bd-info-banner a,
+body[data-theme="marketing"] .bd-card-title,
+body[data-theme="marketing"] .bd-card-meta {
+    color: #000000 !important;
+}
+
+/* Campaign cards & weekly */
+body[data-theme="marketing"] .cmp-card-name,
+body[data-theme="marketing"] .cmp-card-idea,
+body[data-theme="marketing"] .cmp-card-meta,
+body[data-theme="marketing"] .cmp-week-input,
+body[data-theme="marketing"] .cmp-week-sub {
+    color: #000000 !important;
+}
+
+/* Table cell date / plain text wrapped in span/strong */
+body[data-theme="marketing"] .st-table tbody td span,
+body[data-theme="marketing"] .st-table tbody td strong,
+body[data-theme="marketing"] .st-table tbody td small {
+    color: #000000 !important;
+}
+
+/* Icons yang TETAP teal (umumnya yang ada di banner/info, bukan label form) */
+body[data-theme="marketing"] .bd-info-banner i,
+body[data-theme="marketing"] .ep-cal-meta i {
+    color: #0e6e6b !important;
+}
+
+/* Label form di note-page (Konten Pillar, Platform, dll + DESKRIPSI SINGKAT) — text + icon hitam */
+body[data-theme="marketing"] .note-prop-key,
+body[data-theme="marketing"] .note-prop-key i,
+body[data-theme="marketing"] .note-body-label,
+body[data-theme="marketing"] .note-body-label i,
+body[data-theme="marketing"] .note-meta-item,
+body[data-theme="marketing"] .note-meta-item i,
+body[data-theme="marketing"] .note-back-link,
+body[data-theme="marketing"] .note-back-link i {
+    color: #000000 !important;
+}
+
+/* Note-title-input placeholder & value → hitam */
+body[data-theme="marketing"] .note-title-input,
+body[data-theme="marketing"] .note-title-input::placeholder {
+    color: #000000 !important;
+}
+
+/* Page titles (Breakdown Konten, Editorial Plan, dll) → hitam */
+body[data-theme="marketing"] .page-title-box .page-title,
+body[data-theme="marketing"] .page-title {
+    color: #000000 !important;
+}
+
+/* Greeting di tema marketing — accent teal-lime, title gelap */
+body[data-theme="marketing"] .st-greeting,
+body[data-theme="marketing"] .st-greeting span,
+body[data-theme="marketing"] .st-greeting strong,
+body[data-theme="marketing"] .st-greeting-title,
+body[data-theme="marketing"] .st-greeting-sub,
+body[data-theme="marketing"] .st-greeting-sub strong {
+    color: #0a4f4d !important;
+}
+body[data-theme="marketing"] .st-greeting-accent {
+    background: linear-gradient(90deg, #13928e 0%, #89c541 100%) !important;
+    -webkit-background-clip: text !important;
+    background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+}
+body[data-theme="marketing"] .st-greeting-sub {
+    color: #7a9290 !important;
+}
+
+/* Empty state text + icon (.bd-empty / .st-empty / .ep-empty) — paksa hitam */
+body[data-theme="marketing"] .bd-empty,
+body[data-theme="marketing"] .bd-empty > div,
+body[data-theme="marketing"] .bd-empty p,
+body[data-theme="marketing"] .bd-empty i,
+body[data-theme="marketing"] .ep-empty,
+body[data-theme="marketing"] .ep-empty > div,
+body[data-theme="marketing"] .ep-empty p,
+body[data-theme="marketing"] .ep-empty i,
+body[data-theme="marketing"] .st-empty,
+body[data-theme="marketing"] .st-empty__title,
+body[data-theme="marketing"] .st-empty__desc,
+body[data-theme="marketing"] .st-empty__icon,
+body[data-theme="marketing"] .st-empty__icon i,
+body[data-theme="marketing"] .st-empty i {
+    color: #000000 !important;
+}
+
+/* Tab inactive (IG Feeds, IG Reels, IG Stories, TikTok dll) → hitam.
+   Tab aktif tetap putih dgn bg teal (sudah di-handle sendiri). */
+body[data-theme="marketing"] .ep-cal-tab:not(.is-active) {
+    color: #000000 !important;
+}
+body[data-theme="marketing"] .ep-cal-tab:not(.is-active) i {
+    color: #000000 !important;
+}
+
+/* Filter meta (".5 konten bulan ini · Filter: Semua Platform") → hitam */
+body[data-theme="marketing"] .ep-cal-meta-text,
+body[data-theme="marketing"] .ep-cal-meta-text strong,
+body[data-theme="marketing"] .ep-cal-meta-sep {
+    color: #000000 !important;
+}
+
+/* Pill dark (KOL/KOC di rawaffiliate) — di marketing pakai teal supaya kontras.
+   Selector pakai .st-table tbody td .st-pill--dark untuk MENANG dari rule "td span hitam" di atas. */
+body[data-theme="marketing"] .st-pill--dark,
+body[data-theme="marketing"] .st-table tbody td .st-pill--dark,
+body[data-theme="marketing"] .st-table tbody td span.st-pill--dark {
+    background: #0a4f4d !important;
+    color: #ffffff !important;
+    border-color: #0a4f4d !important;
+}
+
+/* ── KOL & KOC Branch Pills ─────────────────────────────────────────────
+   Dipakai di: KOL Bulan Ini, KOL Existing, Daftar KOC, Sweet Mates
+   Tiap cabang punya warna khas supaya gampang di-scan visually. */
+
+body[data-theme="marketing"] .st-pill--branch-bintaro {
+    background: #eaf3de;
+    color: #173404;
+    border-color: #c0dd97;
+}
+body[data-theme="marketing"] .st-pill--branch-cinere {
+    background: #faece7;
+    color: #4a1b0c;
+    border-color: #f5c4b3;
+}
+body[data-theme="marketing"] .st-pill--branch-kalideres {
+    background: #fcebeb;
+    color: #501313;
+    border-color: #f7c1c1;
+}
+body[data-theme="marketing"] .st-pill--branch-pamulang {
+    background: #eeedfe;
+    color: #26215c;
+    border-color: #cecbf6;
+}
+body[data-theme="marketing"] .st-pill--branch-sunter {
+    background: #fbeaf0;
+    color: #4b1528;
+    border-color: #f4c0d1;
+}
+body[data-theme="marketing"] .st-pill--branch-default {
+    background: #f1efe8;
+    color: #2c2c2a;
+    border-color: #d3d1c7;
+}
+
+/* ── KOL/KOC Page — Tab Navigation (Bulan Ini / Existing / dll) ────── */
+body[data-theme="marketing"] .st-page-tabs {
+    display: flex;
+    gap: 6px;
+    padding: 10px 16px;
+    background: #f4faf9;
+    border-bottom: 1px solid #c4ebe9;
+    flex-wrap: wrap;
+}
+body[data-theme="marketing"] .st-page-tab {
+    padding: 7px 14px;
+    font-size: 13px;
+    color: #0e6e6b;
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.15s ease;
+}
+body[data-theme="marketing"] .st-page-tab:hover {
+    background: #e6f5f4;
+    color: #0e6e6b;
+    text-decoration: none;
+}
+body[data-theme="marketing"] .st-page-tab.active {
+    background: linear-gradient(180deg, #13928e 0%, #0e6e6b 100%);
+    color: #ffffff;
+    font-weight: 500;
+    box-shadow: 0 2px 6px rgba(19, 146, 142, 0.18);
+}
+
+/* ── Branch summary cards (5 kartu cabang di header) ─────────────────── */
+body[data-theme="marketing"] .st-branch-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px;
+    padding: 14px 16px;
+    border-bottom: 1px solid #c4ebe9;
+}
+body[data-theme="marketing"] .st-branch-card {
+    background: #ffffff;
+    border: 1px solid #c4ebe9;
+    border-radius: 6px;
+    padding: 10px 12px;
+    text-decoration: none;
+    transition: all 0.15s ease;
+    display: block;
+}
+body[data-theme="marketing"] .st-branch-card:hover {
+    border-color: #13928e;
+    background: #f4faf9;
+    text-decoration: none;
+    transform: translateY(-1px);
+}
+body[data-theme="marketing"] .st-branch-card.is-active {
+    border: 2px solid #13928e;
+    background: #ffffff;
+    padding: 9px 11px;
+}
+body[data-theme="marketing"] .st-branch-card__label {
+    font-size: 11px;
+    color: #7a9290;
+    margin-bottom: 4px;
+    font-weight: 500;
+}
+body[data-theme="marketing"] .st-branch-card__value {
+    font-size: 20px;
+    font-weight: 500;
+    color: #0e6e6b;
+    line-height: 1.2;
+}
+body[data-theme="marketing"] .st-branch-card.is-active .st-branch-card__value {
+    color: #13928e;
+}
+
+/* ── Active branch indicator pill (di filter bar) ───────────────────── */
+body[data-theme="marketing"] .st-active-branch {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    background: #c4ebe9;
+    color: #0a4f4d;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+/* ── Empty state (kalau tidak ada KOL) ──────────────────────────────── */
+body[data-theme="marketing"] .st-empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: #7a9290;
+}
+body[data-theme="marketing"] .st-empty-state i {
+    font-size: 48px;
+    color: #c4ebe9;
+    margin-bottom: 12px;
+}
+body[data-theme="marketing"] .st-empty-state__title {
+    font-size: 15px;
+    color: #0a4f4d;
+    margin-bottom: 6px;
+}
+body[data-theme="marketing"] .st-empty-state__desc {
+    font-size: 13px;
+    color: #7a9290;
+}
+
+/* ── Responsive — di layar kecil, kartu cabang jadi 2 kolom ─────────── */
+@media (max-width: 768px) {
+    body[data-theme="marketing"] .st-branch-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* ── KOC Tab Filter (Semua / Confirmed / Sudah Submit Konten) ──────────── */
+body[data-theme="marketing"] .koc-tab-filter {
+    display: flex;
+    gap: 4px;
+    padding: 10px 20px;
+    background: #f4faf9;
+    border-bottom: 1px solid #c4ebe9;
+    flex-wrap: wrap;
+}
+body[data-theme="marketing"] .koc-tab-filter__btn {
+    padding: 7px 14px;
+    font-size: 12px;
+    color: #0e6e6b;
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.15s ease;
+    cursor: pointer;
+}
+body[data-theme="marketing"] .koc-tab-filter__btn:hover {
+    background: #e6f5f4;
+    color: #0e6e6b;
+    text-decoration: none;
+}
+body[data-theme="marketing"] .koc-tab-filter__btn.is-active {
+    background: linear-gradient(180deg, #13928e 0%, #0e6e6b 100%);
+    color: #ffffff;
+    font-weight: 500;
+    box-shadow: 0 2px 6px rgba(19, 146, 142, 0.18);
+}
+body[data-theme="marketing"] .koc-tab-filter__count {
+    background: #def5ef;
+    color: #0e6e6b;
+    padding: 1px 7px;
+    border-radius: 999px;
+    font-size: 11px;
+}
+body[data-theme="marketing"] .koc-tab-filter__btn.is-active .koc-tab-filter__count {
+    background: rgba(255, 255, 255, 0.25);
+    color: #ffffff;
+}
+ 
+ 
+/* ── KOC Sosmed Confirmed — Inline Checkbox ────────────────────────────── */
+body[data-theme="marketing"] .koc-sosmed-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    user-select: none;
+}
+body[data-theme="marketing"] .koc-sosmed-toggle input[type="checkbox"] {
+    margin: 0;
+    cursor: pointer;
+    accent-color: #13928e;
+}
+body[data-theme="marketing"] .koc-sosmed-toggle__label {
+    font-size: 11px;
+    color: #7a9290;
+}
+body[data-theme="marketing"] .koc-sosmed-toggle--checked .koc-sosmed-toggle__label {
+    color: #173404;
+    font-weight: 500;
+}
+body[data-theme="marketing"] .koc-sosmed-toggle.is-saving {
+    opacity: 0.5;
+    pointer-events: none;
+}
+ 
+ 
+/* ── KOC Tier Badge (Bronze / Silver / Gold) ───────────────────────────── */
+body[data-theme="marketing"] .koc-tier-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-weight: 700;
+    border: 1px solid transparent;
+    line-height: 1;
+}
+body[data-theme="marketing"] .koc-tier-badge i {
+    font-size: 13px;
+}
+body[data-theme="marketing"] .koc-tier-badge--bronze {
+    background: #fce4c2;
+    color: #8a4a14;
+    border-color: #f0c896;
+}
+body[data-theme="marketing"] .koc-tier-badge--bronze i { color: #c97b3d; }
+
+body[data-theme="marketing"] .koc-tier-badge--silver {
+    background: #e5e7eb;
+    color: #374151;
+    border-color: #c8ccd2;
+}
+body[data-theme="marketing"] .koc-tier-badge--silver i { color: #6b7280; }
+
+body[data-theme="marketing"] .koc-tier-badge--gold {
+    background: #fce89f;
+    color: #7a5810;
+    border-color: #ecc861;
+}
+body[data-theme="marketing"] .koc-tier-badge--gold i { color: #c9912c; }
+
+body[data-theme="marketing"] .koc-tier-badge--none {
+    background: #f1f3f5;
+    color: #6c757d;
+    border-color: #dee2e6;
+    font-weight: 600;
+}
+
+
+/* ── Konten counter button (jumlah posting approved) ────────────────────── */
+body[data-theme="marketing"] .koc-content-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: linear-gradient(180deg, #ffffff 0%, #f4faf9 100%);
+    color: #0a4f4d;
+    font-size: 11.5px;
+    font-weight: 700;
+    padding: 5px 12px;
+    border: 1px solid #13928e;
+    border-radius: 8px;
+    text-decoration: none;
+    cursor: pointer;
+    box-shadow: 0 1px 2px rgba(10, 79, 77, 0.08);
+    transition: all .15s ease;
+    line-height: 1;
+    font-family: inherit;
+}
+body[data-theme="marketing"] .koc-content-pill i {
+    font-size: 11px;
+    color: #13928e;
+}
+body[data-theme="marketing"] .koc-content-pill:hover,
+body[data-theme="marketing"] .koc-content-pill:focus {
+    background: linear-gradient(180deg, #13928e 0%, #0a4f4d 100%);
+    color: #ffffff;
+    border-color: #0a4f4d;
+    box-shadow: 0 3px 8px rgba(10, 79, 77, 0.18);
+    transform: translateY(-1px);
+    text-decoration: none;
+    outline: none;
+}
+body[data-theme="marketing"] .koc-content-pill:hover i,
+body[data-theme="marketing"] .koc-content-pill:focus i {
+    color: #ffffff;
+}
+body[data-theme="marketing"] .koc-content-pill:active {
+    transform: translateY(0);
+    box-shadow: 0 1px 2px rgba(10, 79, 77, 0.12);
+}
+
+
+/* ── Sweet Mates Stat Cards (header summary) ──────────────────────────── */
+body[data-theme="marketing"] .sm-stat-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    padding: 14px 20px;
+    border-bottom: 1px solid #c4ebe9;
+}
+body[data-theme="marketing"] .sm-stat-card {
+    background: #f9fafb;
+    border: 0.5px solid #e5e7eb;
+    padding: 10px 12px;
+    border-radius: 6px;
+}
+body[data-theme="marketing"] .sm-stat-card__label {
+    font-size: 11px;
+    color: #7a9290;
+    margin-bottom: 4px;
+}
+body[data-theme="marketing"] .sm-stat-card__value {
+    font-size: 20px;
+    font-weight: 500;
+    color: #0e6e6b;
+}
+
+
+/* ── Sweet Mates Tier Tab Filter ──────────────────────────────────────── */
+body[data-theme="marketing"] .sm-tier-tabs {
+    display: flex;
+    gap: 4px;
+    padding: 10px 20px;
+    background: #f4faf9;
+    border-bottom: 1px solid #c4ebe9;
+    flex-wrap: wrap;
+}
+body[data-theme="marketing"] .sm-tier-tab {
+    padding: 7px 14px;
+    font-size: 12px;
+    color: #0e6e6b;
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.15s ease;
+    cursor: pointer;
+}
+body[data-theme="marketing"] .sm-tier-tab:hover {
+    background: #e6f5f4;
+    color: #0e6e6b;
+    text-decoration: none;
+}
+body[data-theme="marketing"] .sm-tier-tab.is-active {
+    background: linear-gradient(180deg, #13928e 0%, #0e6e6b 100%);
+    color: #ffffff;
+    font-weight: 500;
+    box-shadow: 0 2px 6px rgba(19, 146, 142, 0.18);
+}
+body[data-theme="marketing"] .sm-tier-tab__count {
+    background: #def5ef;
+    color: #0e6e6b;
+    padding: 1px 7px;
+    border-radius: 999px;
+    font-size: 11px;
+}
+body[data-theme="marketing"] .sm-tier-tab.is-active .sm-tier-tab__count {
+    background: rgba(255, 255, 255, 0.25);
+    color: #ffffff;
+}
+body[data-theme="marketing"] .sm-tier-tab--special {
+    margin-left: 8px;
+    padding-left: 14px;
+    border-left: 1px solid #e5e7eb;
+}
+body[data-theme="marketing"] .sm-tier-tab--special .sm-tier-tab__count {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+
+/* ── Tier Badges (Bronze/Silver/Gold) — match koc-tier-badge style ───── */
+body[data-theme="marketing"] .sm-tier-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-weight: 700;
+    border: 1px solid transparent;
+    line-height: 1;
+}
+body[data-theme="marketing"] .sm-tier-badge i {
+    font-size: 13px;
+}
+body[data-theme="marketing"] .sm-tier-badge--bronze {
+    background: #fce4c2;
+    color: #8a4a14;
+    border-color: #f0c896;
+}
+body[data-theme="marketing"] .sm-tier-badge--bronze i { color: #c97b3d; }
+
+body[data-theme="marketing"] .sm-tier-badge--silver {
+    background: #e5e7eb;
+    color: #374151;
+    border-color: #c8ccd2;
+}
+body[data-theme="marketing"] .sm-tier-badge--silver i { color: #6b7280; }
+
+body[data-theme="marketing"] .sm-tier-badge--gold {
+    background: #fce89f;
+    color: #7a5810;
+    border-color: #ecc861;
+}
+body[data-theme="marketing"] .sm-tier-badge--gold i { color: #c9912c; }
+
+
+/* ── Promo Code Display ───────────────────────────────────────────────── */
+body[data-theme="marketing"] .sm-promo-code {
+    background: #fef3c7;
+    color: #92400e;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-family: 'Courier New', monospace;
+    font-weight: 500;
+    display: inline-block;
+}
+
+
+/* ── Progress Bar (Konten Achievement) ────────────────────────────────── */
+body[data-theme="marketing"] .sm-progress {
+    width: 100%;
+}
+body[data-theme="marketing"] .sm-progress__header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 3px;
+    font-size: 11px;
+}
+body[data-theme="marketing"] .sm-progress__current {
+    color: #1f2937;
+    font-weight: 500;
+}
+body[data-theme="marketing"] .sm-progress__current--achieved {
+    color: #173404;
+}
+body[data-theme="marketing"] .sm-progress__total {
+    color: #7a9290;
+}
+body[data-theme="marketing"] .sm-progress__percent {
+    margin-left: auto;
+    font-weight: 500;
+}
+body[data-theme="marketing"] .sm-progress__percent--achieved {
+    color: #173404;
+}
+body[data-theme="marketing"] .sm-progress__percent--in-progress {
+    color: #92400e;
+}
+body[data-theme="marketing"] .sm-progress__bar {
+    height: 6px;
+    background: #e5e7eb;
+    border-radius: 3px;
+    overflow: hidden;
+}
+body[data-theme="marketing"] .sm-progress__fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.3s ease;
+}
+body[data-theme="marketing"] .sm-progress__fill--achieved {
+    background: linear-gradient(90deg, #97c459 0%, #639922 100%);
+}
+body[data-theme="marketing"] .sm-progress__fill--in-progress {
+    background: linear-gradient(90deg, #fac775 0%, #ba7517 100%);
+}
+
+
+/* ── Status Badges ────────────────────────────────────────────────────── */
+body[data-theme="marketing"] .sm-status-badge {
+    font-size: 11px;
+    padding: 3px 9px;
+    border-radius: 4px;
+    font-weight: 500;
+}
+body[data-theme="marketing"] .sm-status-badge--eligible {
+    background: #dbeafe;
+    color: #1e3a8a;
+}
+body[data-theme="marketing"] .sm-status-badge--claimed {
+    background: #dcfce7;
+    color: #14532d;
+}
+body[data-theme="marketing"] .sm-status-badge--in-progress {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+
+/* ── Responsive ────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+    body[data-theme="marketing"] .sm-stat-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* ── resources/views/crud/kol/_existing_monthly.blade.php ─────────────────
+   Tampilan bulanan KOL Existing — accordion dengan light marketing-theme cards. */
+
+.kol-monthly-wrap { overflow:hidden; }
+
+.kol-monthly-toggle {
+    width:100%;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    padding:14px 20px;
+    background:#fff;
+    border:none;
+    border-bottom:1px solid transparent;
+    cursor:pointer;
+    text-align:left;
+    transition:background .15s;
+}
+.kol-monthly-toggle:hover { background:#f4faf9; }
+.kol-monthly-toggle.is-open { border-bottom-color:#c4ebe9; background:#f4faf9; }
+.kol-monthly-toggle__left { display:inline-flex; align-items:center; gap:10px; color:#0a4f4d; font-size:14px; font-weight:700; }
+.kol-monthly-toggle__chevron { font-size:11px; color:#0e6e6b; transition:transform .2s; }
+.kol-monthly-toggle.is-open .kol-monthly-toggle__chevron { transform:rotate(90deg); }
+.kol-monthly-toggle__title { letter-spacing:.2px; }
+.kol-monthly-toggle__right { display:inline-flex; align-items:center; gap:8px; color:#7a9290; font-size:12px; font-weight:600; }
+.kol-monthly-toggle__count { padding:3px 10px; border-radius:50px; background:#e6f5f4; color:#0e6e6b; font-weight:700; }
+.kol-monthly-toggle__hint  { color:#b0843b; cursor:help; }
+
+/* Light marketing-theme body — konsisten dengan top card */
+.kol-monthly-body {
+    background:#f4faf9;
+    color:#0a4f4d;
+    padding:14px 16px 18px;
+    border-top:1px solid #c4ebe9;
+}
+
+.kol-monthly-empty {
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    padding:30px;
+    color:#7a9290;
+    font-size:13px;
+}
+
+/* Year filter pills — di atas list bulan */
+.kol-monthly-yearfilter {
+    display:flex;
+    align-items:center;
+    gap:14px;
+    flex-wrap:wrap;
+    margin-bottom:16px;
+    padding:10px 14px;
+    background:#fff;
+    border:1px solid #c4ebe9;
+    border-radius:10px;
+    box-shadow:0 1px 2px rgba(19, 146, 142, 0.04);
+}
+.kol-monthly-yearfilter__label {
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    font-size:11px;
+    font-weight:800;
+    color:#7a9290;
+    text-transform:uppercase;
+    letter-spacing:0.6px;
+    white-space:nowrap;
+}
+.kol-monthly-yearfilter__label i { color:#0e6e6b; font-size:11px; }
+.kol-monthly-yearfilter__pills {
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px;
+    flex:1;
+}
+
+.kol-monthly-yearpill {
+    display:inline-flex;
+    align-items:center;
+    gap:7px;
+    padding:6px 14px;
+    background:#f4faf9;
+    border:1.5px solid #c4ebe9;
+    border-radius:50px;
+    font-family:inherit;
+    font-size:12.5px;
+    font-weight:700;
+    color:#0a4f4d;
+    cursor:pointer;
+    transition:all .15s ease;
+    white-space:nowrap;
+}
+.kol-monthly-yearpill:hover {
+    background:#e6f5f4;
+    border-color:#13928e;
+    color:#0a4f4d;
+    transform:translateY(-1px);
+}
+.kol-monthly-yearpill__year { letter-spacing:0.3px; }
+.kol-monthly-yearpill__count {
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    min-width:22px;
+    height:18px;
+    padding:0 6px;
+    border-radius:50px;
+    background:#e6f5f4;
+    color:#0e6e6b;
+    font-size:10.5px;
+    font-weight:800;
+    line-height:1;
+    transition:all .15s;
+}
+
+.kol-monthly-yearpill.is-active {
+    background:#13928e;
+    border-color:#13928e;
+    color:#fff;
+    box-shadow:0 2px 8px rgba(19, 146, 142, 0.25);
+}
+.kol-monthly-yearpill.is-active:hover {
+    background:#0e6e6b;
+    border-color:#0e6e6b;
+    color:#fff;
+}
+.kol-monthly-yearpill.is-active .kol-monthly-yearpill__count {
+    background:rgba(255, 255, 255, 0.22);
+    color:#fff;
+}
+
+.kol-monthly-year { margin-bottom:0; }
+.kol-monthly-year[hidden] { display:none; }
+
+.kol-monthly-section { margin-bottom:14px; }
+.kol-monthly-section:last-child { margin-bottom:0; }
+.kol-monthly-section__header {
+    display:flex;
+    align-items:center;
+    gap:8px;
+    padding:6px 8px;
+    margin-bottom:8px;
+    font-size:12px;
+    font-weight:700;
+    color:#0a4f4d;
+    text-transform:capitalize;
+    background:transparent;
+    border:none;
+    border-radius:6px;
+    cursor:pointer;
+    text-align:left;
+    transition:background .15s;
+}
+.kol-monthly-section__header:hover { background:#e6f5f4; }
+.kol-monthly-section__chevron {
+    color:#0e6e6b;
+    font-size:10px;
+    transition:transform .2s;
+}
+.kol-monthly-section__header:not(.is-open) .kol-monthly-section__chevron { transform:rotate(-90deg); }
+.kol-monthly-section__count {
+    margin-left:6px;
+    padding:1px 7px;
+    border-radius:50px;
+    background:#e6f5f4;
+    color:#0e6e6b;
+    font-size:10.5px;
+    font-weight:700;
+}
+
+.kol-monthly-grid {
+    display:grid;
+    grid-template-columns:repeat(auto-fill, minmax(150px, 1fr));
+    gap:8px;
+}
+
+.kol-mc {
+    display:flex;
+    flex-direction:column;
+    gap:4px;
+    padding:10px 11px;
+    background:#ffffff;
+    border:1px solid #c4ebe9;
+    border-radius:7px;
+    color:#0a4f4d;
+    text-decoration:none;
+    transition:all .15s;
+    overflow:hidden;
+    box-shadow:0 1px 2px rgba(19, 146, 142, 0.04);
+}
+.kol-mc:hover {
+    background:#fff;
+    border-color:#13928e;
+    color:#0a4f4d;
+    text-decoration:none;
+    transform:translateY(-1px);
+    box-shadow:0 4px 10px rgba(19, 146, 142, 0.12);
+}
+.kol-mc__head { display:flex; align-items:center; }
+.kol-mc__handle {
+    font-size:12.5px;
+    font-weight:700;
+    color:#0a4f4d;
+    line-height:1.25;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+    max-width:100%;
+}
+.kol-mc__meta {
+    font-size:10.5px;
+    color:#7a9290;
+    line-height:1.3;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+}
+.kol-mc__title {
+    font-size:12px;
+    color:#0a4f4d;
+    line-height:1.35;
+    margin-top:3px;
+    display:-webkit-box;
+    -webkit-line-clamp:2;
+    -webkit-box-orient:vertical;
+    overflow:hidden;
+    text-overflow:ellipsis;
+}
+.kol-mc__tags { display:flex; flex-wrap:wrap; gap:3px; margin-top:5px; }
+.kol-mc__tag {
+    display:inline-block;
+    padding:1px 7px;
+    border-radius:4px;
+    font-size:9.5px;
+    font-weight:700;
+    line-height:1.5;
+    border:1px solid transparent;
+    white-space:nowrap;
+}
+/* Branch tags reuse st-pill--branch-* warna pastel yang sudah didefinisikan di atas. */
+.kol-monthly-body .st-pill--branch-bintaro,
+.kol-monthly-body .st-pill--branch-cinere,
+.kol-monthly-body .st-pill--branch-kalideres,
+.kol-monthly-body .st-pill--branch-pamulang,
+.kol-monthly-body .st-pill--branch-sunter,
+.kol-monthly-body .st-pill--branch-default { border-width:1px; border-style:solid; }
+
+/* Status/progress color variants — pastel light untuk match palette marketing */
+.kol-mc__tag--success { background:#d1fae5; color:#065f46; border-color:#a7f3d0; }
+.kol-mc__tag--info    { background:#dbeafe; color:#1e3a8a; border-color:#bfdbfe; }
+.kol-mc__tag--warning { background:#fef3c7; color:#854d0e; border-color:#fde68a; }
+.kol-mc__tag--danger  { background:#fee2e2; color:#991b1b; border-color:#fecaca; }
+.kol-mc__tag--neutral { background:#f1efe8; color:#5f5e5a; border-color:#d3d1c7; }
+
+@media (max-width: 600px) {
+    .kol-monthly-grid { grid-template-columns:repeat(auto-fill, minmax(140px, 1fr)); }
+    .kol-monthly-toggle { padding:12px 14px; }
+    .kol-monthly-body { padding:12px; }
+}

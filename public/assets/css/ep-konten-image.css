@@ -1,0 +1,675 @@
+/* ─────────────────────────────────────────────────────────────
+   EP Konten — Foto/Gambar Section Styles
+   Reuse warna design system: brand #0a4f4d, accent #c4ebe9
+   ───────────────────────────────────────────────────────────── */
+
+.ep-img-section {
+    margin: 16px 0 20px;
+    padding: 0;
+}
+
+.ep-img-section__header {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #0a4f4d;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid #e2eded;
+}
+
+.ep-img-section__header i {
+    color: #13928e;
+}
+
+.ep-img-empty-state {
+    padding: 16px;
+    background: #f4faf9;
+    border: 1px dashed #c4ebe9;
+    border-radius: 8px;
+    color: #7a9290;
+    font-size: 13px;
+    text-align: center;
+}
+
+/* ─── Dropzone ───────────────────────────────────────────── */
+.ep-img-dropzone {
+    border: 2px dashed #c4ebe9;
+    border-radius: 10px;
+    background: #fafdfd;
+    padding: 22px 16px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 150ms ease;
+    outline: none;
+}
+
+.ep-img-dropzone:hover,
+.ep-img-dropzone:focus-visible {
+    border-color: #13928e;
+    background: #f4faf9;
+}
+
+.ep-img-dropzone.is-dragover {
+    border-style: solid;
+    border-color: #0a4f4d;
+    background: #e6f5f4;
+    transform: scale(1.005);
+}
+
+.ep-img-dropzone__icon {
+    font-size: 28px;
+    color: #13928e;
+    margin-bottom: 6px;
+    display: block;
+}
+
+.ep-img-dropzone__title {
+    margin: 0 0 4px;
+    color: #324e4d;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.ep-img-dropzone__title a {
+    color: #0a4f4d;
+    text-decoration: underline;
+    font-weight: 700;
+}
+
+.ep-img-dropzone__hint {
+    color: #889d9c;
+    font-size: 11px;
+}
+
+/* ─── Progress bar ───────────────────────────────────────── */
+.ep-img-progress {
+    margin-top: 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    background: #fff;
+    border: 1px solid #e2eded;
+    border-radius: 6px;
+}
+
+.ep-img-progress__bar {
+    flex: 1;
+    height: 6px;
+    background: #f0f5f5;
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.ep-img-progress__fill {
+    height: 100%;
+    width: 30%;
+    background: linear-gradient(90deg, #13928e, #0a4f4d);
+    border-radius: 3px;
+    transition: width 200ms;
+}
+
+.ep-img-progress__fill.is-indeterminate {
+    width: 30%;
+    animation: ep-img-indeterminate 1.2s infinite ease-in-out;
+}
+
+@keyframes ep-img-indeterminate {
+    0%   { margin-left: -30%; }
+    100% { margin-left: 100%; }
+}
+
+.ep-img-progress__text {
+    font-size: 12px;
+    color: #5a7271;
+    white-space: nowrap;
+}
+
+/* ─── Carousel container (Instagram-feed style) ─────────── */
+.ep-img-carousel {
+    position: relative;
+    margin-top: 12px;
+    background: #fff;
+    border: 1px solid #e8efee;
+    border-radius: 10px;
+    overflow: hidden;
+    transition: border-color 150ms;
+}
+
+.ep-img-carousel:hover {
+    border-color: #c4ebe9;
+}
+
+.ep-img-list {
+    /* container slides — semua slide ada di sini, hanya .is-active yang tampil */
+    position: relative;
+}
+
+.ep-img-empty-list {
+    padding: 40px 14px;
+    color: #889d9c;
+    font-size: 13px;
+    text-align: center;
+}
+
+.ep-img-empty-list i {
+    margin-right: 6px;
+}
+
+/* ─── Slide (1 foto) ────────────────────────────────────── */
+.ep-img-slide {
+    display: none;
+}
+
+.ep-img-slide.is-active {
+    display: block;
+    animation: ep-img-slide-fade 220ms ease;
+}
+
+@keyframes ep-img-slide-fade {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+/* Media area — gambar besar Instagram-style. Aspect ratio fleksibel,
+   max-height supaya tidak terlalu panjang di portrait. */
+.ep-img-slide__media {
+    position: relative;
+    background: #f0f5f5;
+    text-align: center;
+    line-height: 0;
+    cursor: zoom-in;
+}
+
+.ep-img-slide__media img {
+    display: block;
+    width: 100%;
+    max-height: 560px;
+    object-fit: contain;
+    background: #fafbfb;
+}
+
+/* Action bar di bawah image */
+.ep-img-slide__bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 10px 14px 8px;
+    flex-wrap: wrap;
+}
+
+.ep-img-slide__bar-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    flex: 1;
+    min-width: 0;
+}
+
+.ep-img-slide__bar-right {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.ep-img-name {
+    font-weight: 600;
+    color: #213635;
+    font-size: 13px;
+    max-width: 320px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ep-img-size {
+    font-size: 11px;
+    color: #889d9c;
+}
+
+.ep-img-slide__sub {
+    padding: 0 14px 10px;
+    font-size: 11px;
+    color: #889d9c;
+}
+
+.ep-img-meta {
+    color: #7a9290;
+}
+
+/* Komentar review (approved / revisi) — tampil di __sub di bawah action bar.
+   Warna mengikuti status slide (data-status) supaya selaras dengan badge. */
+.ep-img-review-comment {
+    margin-top: 6px;
+    font-size: 12px;
+    padding: 6px 10px;
+    border-radius: 4px;
+    border-left: 3px solid;
+}
+
+.ep-img-review-comment i {
+    margin-right: 4px;
+}
+
+.ep-img-slide[data-status="revisi"] .ep-img-review-comment {
+    color: #b03a3a;
+    background: #fdf6f6;
+    border-left-color: #e89090;
+}
+.ep-img-slide[data-status="revisi"] .ep-img-review-comment i {
+    color: #c25555;
+}
+
+.ep-img-slide[data-status="approved"] .ep-img-review-comment {
+    color: #1d6e44;
+    background: #f0fbf5;
+    border-left-color: #6fbe8c;
+}
+.ep-img-slide[data-status="approved"] .ep-img-review-comment i {
+    color: #2e7d32;
+}
+
+/* ─── Badge ─────────────────────────────────────────────── */
+.ep-img-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 99px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+}
+
+.ep-img-badge--warning {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.ep-img-badge--success {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.ep-img-badge--danger {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+/* Tombol X kecil di dalam badge untuk reset status ke pending. */
+.ep-img-badge__clear {
+    margin-left: 4px;
+    padding: 0;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(0, 0, 0, 0.08);
+    color: inherit;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    line-height: 1;
+    opacity: 0.75;
+    transition: opacity 120ms, background 120ms;
+}
+
+.ep-img-badge__clear:hover {
+    opacity: 1;
+    background: rgba(0, 0, 0, 0.18);
+}
+
+/* ─── Action icons ──────────────────────────────────────── */
+.ep-img-icon-btn {
+    width: 30px;
+    height: 30px;
+    border: none;
+    background: transparent;
+    color: #5a7271;
+    border-radius: 50%;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    transition: all 120ms;
+    font-size: 13px;
+}
+
+.ep-img-icon-btn:hover {
+    background: #f0f5f5;
+    color: #0a4f4d;
+}
+
+.ep-img-icon-btn--danger:hover {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+/* ─── Review panel (inline expand) ──────────────────────
+   Default: warna netral / brand teal (saat masih PENDING).
+   Saat foto sudah berstatus 'revisi', panel pakai soft rose
+   lewat modifier .ep-img-review-panel--revisi (di-toggle JS/Blade
+   berdasarkan data-status row). Saat 'approved' pakai soft green. */
+.ep-img-review-panel {
+    margin: 0 12px 10px;
+    padding: 12px;
+    background: #f4faf9;
+    border: 1px solid #c4ebe9;
+    border-radius: 6px;
+
+    /* Smooth slide-down + fade saat panel di-toggle (lihat [hidden] state).
+       overflow:hidden supaya content ke-clip waktu max-height collapse,
+       dan border-width ikut di-animate biar tidak ada garis 2px tertinggal. */
+    overflow: hidden;
+    max-height: 800px;
+    opacity: 1;
+    transition: max-height 260ms cubic-bezier(0.4, 0, 0.2, 1),
+                opacity 180ms ease,
+                margin-top 260ms cubic-bezier(0.4, 0, 0.2, 1),
+                margin-bottom 260ms cubic-bezier(0.4, 0, 0.2, 1),
+                padding-top 260ms cubic-bezier(0.4, 0, 0.2, 1),
+                padding-bottom 260ms cubic-bezier(0.4, 0, 0.2, 1),
+                border-top-width 260ms cubic-bezier(0.4, 0, 0.2, 1),
+                border-bottom-width 260ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ep-img-slide[data-status="revisi"] .ep-img-review-panel {
+    background: #fdf6f6;
+    border-color: #f5c0c0;
+}
+
+.ep-img-slide[data-status="approved"] .ep-img-review-panel {
+    background: #f0fbf5;
+    border-color: #b9e8cb;
+}
+
+/* Override default `[hidden]` { display:none } supaya transisi tetap jalan.
+   Element tetap di flow tapi collapse ke 0 lewat max-height/padding/margin/border. */
+.ep-img-review-panel[hidden] {
+    display: block;
+    max-height: 0;
+    margin-top: 0;
+    margin-bottom: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    border-top-width: 0;
+    border-bottom-width: 0;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.ep-img-review-panel__heading {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: #0a4f4d;
+    margin-bottom: 8px;
+}
+
+.ep-img-slide[data-status="revisi"] .ep-img-review-panel__heading {
+    color: #8a3a3a;
+}
+
+.ep-img-slide[data-status="approved"] .ep-img-review-panel__heading {
+    color: #1d6e44;
+}
+
+.ep-img-review-note {
+    width: 100%;
+    border: 1px solid #d4e5e4;
+    border-radius: 4px;
+    padding: 6px 8px;
+    font-size: 12px;
+    font-family: inherit;
+    color: #213635;
+    background: #fff;
+    resize: vertical;
+}
+
+.ep-img-review-note:focus {
+    outline: none;
+    border-color: #13928e;
+    box-shadow: 0 0 0 2px rgba(19, 146, 142, 0.15);
+}
+
+.ep-img-slide[data-status="revisi"] .ep-img-review-note {
+    border-color: #e8c8c8;
+}
+.ep-img-slide[data-status="revisi"] .ep-img-review-note:focus {
+    border-color: #c25555;
+    box-shadow: 0 0 0 2px rgba(194, 85, 85, 0.15);
+}
+
+.ep-img-review-panel__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 6px;
+    margin-top: 10px;
+}
+
+.ep-img-rbtn {
+    border: 1px solid transparent;
+    border-radius: 4px;
+    padding: 5px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 120ms;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.ep-img-rbtn--cancel {
+    background: transparent;
+    color: #6a6a6a;
+}
+
+.ep-img-rbtn--cancel:hover {
+    background: #f0f0f0;
+}
+
+.ep-img-rbtn--approve {
+    background: #16a34a;
+    color: #fff;
+}
+
+.ep-img-rbtn--approve:hover {
+    background: #15803d;
+}
+
+.ep-img-rbtn--revisi {
+    background: #dc2626;
+    color: #fff;
+}
+
+.ep-img-rbtn--revisi:hover {
+    background: #b91c1c;
+}
+
+/* ─── Carousel navigation (prev/next, dots, counter) ─────
+   Hanya tampil saat carousel punya >1 slide (.has-multi).
+   Strategy: nav button = vertical strip yg menutupi area gambar saja
+   (top:0 → bottom:80px supaya tidak overlap dengan action bar).
+   Visible circular button di tengah strip via ::before. */
+.ep-img-nav {
+    position: absolute;
+    top: 0;
+    bottom: 80px;
+    width: 50px;
+    background: transparent;
+    border: none;
+    color: #fff;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    opacity: 0;
+    transition: opacity 150ms;
+    z-index: 3;
+}
+
+.ep-img-carousel:hover .ep-img-nav,
+.ep-img-nav:focus-visible {
+    opacity: 1;
+}
+
+.ep-img-nav::before {
+    content: '';
+    position: absolute;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.5);
+    transition: background 150ms, transform 150ms;
+}
+
+.ep-img-nav:hover::before {
+    background: rgba(0, 0, 0, 0.72);
+    transform: scale(1.08);
+}
+
+.ep-img-nav i {
+    position: relative;
+    z-index: 1;
+}
+
+.ep-img-nav--prev { left: 0; }
+.ep-img-nav--next { right: 0; }
+
+.ep-img-nav[hidden] { display: none; }
+
+/* Dots indicator overlaid di bawah gambar.
+   Diparent-kan ke .ep-img-slide__media via JS supaya posisi tetap menempel
+   ke gambar walau review-panel di-expand (jika di-parent ke carousel, dots
+   ikut "jatuh" ke area panel saat panel terbuka). */
+.ep-img-dots {
+    position: absolute;
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 6px;
+    padding: 5px 10px;
+    background: rgba(0, 0, 0, 0.4);
+    border-radius: 999px;
+    z-index: 2;
+}
+
+.ep-img-dots[hidden] { display: none; }
+
+.ep-img-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.55);
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    transition: background 150ms, transform 150ms;
+}
+
+.ep-img-dot.is-active {
+    background: #fff;
+    transform: scale(1.15);
+}
+
+.ep-img-dot:hover {
+    background: rgba(255, 255, 255, 0.85);
+}
+
+/* Counter "3 / 5" di pojok kanan atas area gambar */
+.ep-img-counter {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    padding: 3px 10px;
+    background: rgba(0, 0, 0, 0.55);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+    border-radius: 999px;
+    z-index: 2;
+    letter-spacing: 0.04em;
+}
+
+.ep-img-counter[hidden] { display: none; }
+
+/* ─── Lightbox modal ────────────────────────────────────── */
+.ep-img-lightbox {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.85);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 30px;
+}
+
+.ep-img-lightbox[hidden] {
+    display: none;
+}
+
+.ep-img-lightbox img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+    border-radius: 4px;
+}
+
+.ep-img-lightbox__close {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+    border: none;
+    cursor: pointer;
+    font-size: 18px;
+    transition: background 120ms;
+}
+
+.ep-img-lightbox__close:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+/* ─── Mobile responsive ─────────────────────────────────── */
+@media (max-width: 600px) {
+    .ep-img-slide__media img {
+        max-height: 420px;
+    }
+    .ep-img-slide__bar {
+        padding: 8px 10px 6px;
+    }
+    .ep-img-slide__bar-left {
+        gap: 6px;
+    }
+    .ep-img-name {
+        max-width: 160px;
+    }
+    .ep-img-slide__bar-right {
+        margin-left: auto;
+    }
+    .ep-img-review-panel__actions {
+        flex-wrap: wrap;
+    }
+    .ep-img-dots {
+        bottom: 8px;
+    }
+}

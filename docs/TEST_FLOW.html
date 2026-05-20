@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Test Flow — Marketing Refactor (Fase 1 + Fase 2) · Sweet Treats</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<style>
+    *,*::before,*::after { margin:0; padding:0; box-sizing:border-box; }
+    :root {
+        --brand:#461500; --brand-2:#6b2400; --brand-3:#8b3a00;
+        --cream:#fef5ed; --cream-2:#fef0e2; --cream-3:#fce8d4;
+        --bg:#fffaf5; --text:#3a2a1a; --muted:#8b7a6b; --border:rgba(70,21,0,0.1);
+        --pass:#2e7d32; --pass-bg:#e8f5e9; --fail:#c62828; --fail-bg:#ffebee;
+        --warn:#f57c00; --warn-bg:#fff3cd; --info:#1565c0; --info-bg:#e3f2fd;
+    }
+    html { scroll-behavior: smooth; }
+    body { font-family:'Montserrat',sans-serif; color:var(--text); background:var(--bg); line-height:1.55; }
+
+    /* ── Layout ─────────────────────────────────── */
+    .layout { display:grid; grid-template-columns:280px 1fr; min-height:100vh; }
+    .sidebar { background:linear-gradient(180deg,var(--brand) 0%, var(--brand-2) 100%); color:#fff; padding:24px 20px; position:sticky; top:0; height:100vh; overflow-y:auto; }
+    .main { padding:32px 48px; max-width:1100px; }
+
+    /* ── Sidebar ────────────────────────────────── */
+    .brand { display:flex; align-items:center; gap:10px; margin-bottom:6px; padding-bottom:16px; border-bottom:1px solid rgba(255,255,255,0.15); }
+    .brand-name { font-size:1.1rem; font-weight:900; }
+    .brand-sub { font-size:0.7rem; opacity:0.8; letter-spacing:1px; text-transform:uppercase; }
+
+    .progress-card { background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.12); border-radius:12px; padding:14px; margin:18px 0; }
+    .progress-label { font-size:0.7rem; opacity:0.85; text-transform:uppercase; letter-spacing:0.5px; font-weight:700; margin-bottom:6px; }
+    .progress-numbers { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px; }
+    .progress-current { font-size:1.5rem; font-weight:900; }
+    .progress-total { font-size:0.85rem; opacity:0.8; }
+    .progress-track { height:6px; background:rgba(255,255,255,0.15); border-radius:50px; overflow:hidden; }
+    .progress-bar { height:100%; background:linear-gradient(90deg, #fbbc04, #34a853); border-radius:50px; transition:width 0.4s ease; }
+    .progress-stats { display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:10px; }
+    .progress-stat { padding:6px 8px; border-radius:6px; font-size:0.72rem; font-weight:700; text-align:center; }
+    .progress-stat.pass-stat { background:rgba(76,175,80,0.25); color:#a5d6a7; }
+    .progress-stat.fail-stat { background:rgba(239,83,80,0.25); color:#ef9a9a; }
+
+    .nav-section { margin-top:18px; }
+    .nav-section-title { font-size:0.7rem; opacity:0.7; text-transform:uppercase; letter-spacing:1px; font-weight:700; padding:10px 8px 6px; }
+    .nav-link { display:flex; align-items:center; gap:10px; padding:8px 12px; border-radius:8px; font-size:0.84rem; font-weight:600; opacity:0.85; cursor:pointer; text-decoration:none; color:#fff; transition:all 0.15s; }
+    .nav-link:hover { background:rgba(255,255,255,0.08); opacity:1; }
+    .nav-link.active { background:rgba(255,255,255,0.15); opacity:1; }
+    .nav-link i { font-size:0.78rem; opacity:0.7; width:14px; text-align:center; }
+    .nav-link .nav-mini-progress { margin-left:auto; font-size:0.68rem; padding:2px 6px; border-radius:50px; background:rgba(255,255,255,0.15); font-weight:800; min-width:36px; text-align:center; }
+
+    .sidebar-actions { margin-top:24px; padding-top:16px; border-top:1px solid rgba(255,255,255,0.15); display:flex; flex-direction:column; gap:6px; }
+    .sb-btn { display:flex; align-items:center; gap:8px; padding:9px 12px; border-radius:8px; font-size:0.78rem; font-weight:700; cursor:pointer; border:1px solid rgba(255,255,255,0.2); background:transparent; color:#fff; font-family:inherit; transition:all 0.15s; }
+    .sb-btn:hover { background:rgba(255,255,255,0.1); }
+    .sb-btn.danger { border-color:rgba(239,83,80,0.5); color:#ffabab; }
+    .sb-btn.danger:hover { background:rgba(239,83,80,0.18); }
+
+    /* ── Main content ───────────────────────────── */
+    .doc-header { padding:24px 28px; background:linear-gradient(135deg,var(--brand),var(--brand-2)); color:#fff; border-radius:18px; margin-bottom:32px; box-shadow:0 12px 32px rgba(70,21,0,0.18); }
+    .doc-title { font-size:1.6rem; font-weight:900; letter-spacing:-0.01em; margin-bottom:6px; display:flex; align-items:center; gap:14px; }
+    .doc-meta { font-size:0.82rem; opacity:0.85; display:flex; gap:18px; flex-wrap:wrap; }
+    .doc-meta i { opacity:0.7; margin-right:4px; }
+
+    .alert { padding:14px 18px; border-radius:12px; font-size:0.86rem; margin-bottom:18px; display:flex; gap:12px; align-items:flex-start; line-height:1.5; }
+    .alert i { font-size:1rem; margin-top:2px; flex-shrink:0; }
+    .alert-info { background:var(--info-bg); color:var(--info); border-left:3px solid var(--info); }
+    .alert-warn { background:var(--warn-bg); color:#856404; border-left:3px solid var(--warn); }
+
+    h2 { font-size:1.4rem; font-weight:900; color:var(--brand); margin-top:42px; margin-bottom:16px; padding-bottom:10px; border-bottom:2px solid var(--cream-2); display:flex; align-items:center; gap:10px; }
+    h2 .h2-num { background:var(--brand); color:#fff; width:32px; height:32px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:0.8rem; font-weight:800; }
+    h3 { font-size:1.05rem; font-weight:800; color:var(--brand); margin-top:24px; margin-bottom:12px; display:flex; align-items:center; gap:8px; }
+    h3 i { color:var(--brand-3); font-size:0.9rem; }
+
+    /* ── Pre-req tables ─────────────────────────── */
+    .pre-req-table { width:100%; border-collapse:separate; border-spacing:0; margin-bottom:16px; background:#fff; border-radius:10px; overflow:hidden; box-shadow:0 4px 14px rgba(70,21,0,0.05); border:1px solid var(--border); }
+    .pre-req-table th { background:var(--cream); color:var(--brand); padding:11px 14px; text-align:left; font-size:0.74rem; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; }
+    .pre-req-table td { padding:11px 14px; border-top:1px solid var(--border); font-size:0.86rem; }
+    .pre-req-table td code { background:var(--cream-2); padding:2px 7px; border-radius:5px; font-size:0.78rem; font-weight:700; color:var(--brand); }
+    .pre-req-table .num-col { width:50px; text-align:center; font-weight:800; color:var(--brand); }
+
+    /* ── Test cards ─────────────────────────────── */
+    .test { background:#fff; border:1px solid var(--border); border-radius:14px; padding:18px 20px; margin-bottom:14px; transition:all 0.15s; box-shadow:0 2px 8px rgba(70,21,0,0.04); }
+    .test:hover { box-shadow:0 8px 22px rgba(70,21,0,0.08); }
+    .test.is-pass { border-color:var(--pass); background:linear-gradient(135deg, #fff, #f1f8f1); }
+    .test.is-fail { border-color:var(--fail); background:linear-gradient(135deg, #fff, #fef4f4); }
+
+    .test-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; }
+    .test-id { display:inline-flex; align-items:center; gap:8px; }
+    .test-id-pill { background:var(--brand); color:#fff; padding:4px 10px; border-radius:6px; font-size:0.72rem; font-weight:800; letter-spacing:0.5px; }
+    .test.is-pass .test-id-pill { background:var(--pass); }
+    .test.is-fail .test-id-pill { background:var(--fail); }
+    .test-title { font-size:0.98rem; font-weight:800; color:var(--brand); }
+
+    .verdict { display:flex; gap:6px; }
+    .verdict-btn { padding:6px 14px; border-radius:50px; font-size:0.72rem; font-weight:800; text-transform:uppercase; letter-spacing:0.4px; cursor:pointer; border:2px solid var(--border); background:#fff; color:var(--muted); transition:all 0.15s; font-family:inherit; }
+    .verdict-btn:hover { border-color:var(--brand); color:var(--brand); }
+    .verdict-btn.pass-btn.active { background:var(--pass); border-color:var(--pass); color:#fff; }
+    .verdict-btn.fail-btn.active { background:var(--fail); border-color:var(--fail); color:#fff; }
+
+    .test-body { display:grid; grid-template-columns:auto 1fr; gap:6px 14px; font-size:0.86rem; }
+    .test-body dt { font-weight:800; color:var(--muted); text-transform:uppercase; font-size:0.7rem; letter-spacing:0.5px; padding-top:3px; align-self:start; white-space:nowrap; }
+    .test-body dd { line-height:1.55; }
+    .test-body dd ol { padding-left:18px; }
+    .test-body dd ol li { margin-bottom:4px; }
+    .test-body dd code { background:var(--cream); padding:1px 6px; border-radius:4px; font-size:0.78rem; font-weight:700; color:var(--brand); }
+    .test-body dd strong { color:var(--brand); }
+
+    .test-notes { margin-top:10px; padding-top:10px; border-top:1px dashed var(--border); }
+    .test-notes label { font-size:0.7rem; font-weight:800; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; display:block; margin-bottom:4px; }
+    .test-notes textarea { width:100%; padding:8px 12px; border:1px solid var(--border); border-radius:8px; font-family:inherit; font-size:0.84rem; resize:vertical; min-height:36px; background:#fffdfa; color:var(--text); }
+    .test-notes textarea:focus { outline:none; border-color:var(--brand); }
+
+    /* ── Summary table ──────────────────────────── */
+    .summary { background:#fff; border:1px solid var(--border); border-radius:14px; padding:24px; margin-top:32px; }
+    .summary-title { font-size:1.05rem; font-weight:900; color:var(--brand); margin-bottom:16px; display:flex; align-items:center; gap:8px; }
+    .summary-table { width:100%; border-collapse:collapse; }
+    .summary-table th, .summary-table td { padding:11px 14px; text-align:left; font-size:0.86rem; border-bottom:1px solid var(--border); }
+    .summary-table th { background:var(--cream); color:var(--brand); font-weight:800; font-size:0.74rem; text-transform:uppercase; letter-spacing:0.5px; }
+    .summary-table td.num { text-align:center; font-weight:800; }
+    .summary-table .total-row { background:var(--cream-2); font-weight:900; }
+    .summary-table .total-row td { border-top:2px solid var(--brand); }
+    .summary-num.pass-num { color:var(--pass); }
+    .summary-num.fail-num { color:var(--fail); }
+
+    /* ── Bug template ───────────────────────────── */
+    .bug-template { background:#1e1e2e; color:#cdd6f4; padding:18px 20px; border-radius:10px; font-family:'Courier New',monospace; font-size:0.82rem; line-height:1.7; overflow-x:auto; margin-top:12px; }
+    .bug-template .lbl { color:#fab387; }
+
+    .footer { margin-top:48px; padding-top:24px; border-top:1px solid var(--border); text-align:center; font-size:0.78rem; color:var(--muted); }
+
+    /* ── Mobile ─────────────────────────────────── */
+    @media (max-width: 900px) {
+        .layout { grid-template-columns:1fr; }
+        .sidebar { position:relative; height:auto; }
+        .main { padding:20px; }
+    }
+
+    /* ── Print ──────────────────────────────────── */
+    @media print {
+        body { background:#fff; }
+        .sidebar { display:none; }
+        .layout { grid-template-columns:1fr; }
+        .main { padding:0; max-width:100%; }
+        .test { page-break-inside:avoid; box-shadow:none; border:1px solid #ccc; }
+        .verdict-btn { display:none; }
+        .verdict::after { content:'Pass: ☐  Fail: ☐'; color:#333; font-weight:700; font-size:0.86rem; }
+        .test-notes textarea { min-height:50px; border:1px solid #999; }
+        .doc-header { background:#461500 !important; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+        h2 { page-break-after:avoid; }
+        h3 { page-break-after:avoid; }
+        .alert { page-break-inside:avoid; }
+        .summary { page-break-inside:avoid; }
+    }
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+    <!-- ─── SIDEBAR ─────────────────────────────────── -->
+    <aside class="sidebar">
+        <div class="brand">
+            <div>
+                <div class="brand-name">Sweet Treats</div>
+                <div class="brand-sub">QA Test Flow</div>
+            </div>
+        </div>
+
+        <div class="progress-card">
+            <div class="progress-label"><i class="fa-solid fa-chart-line"></i> Progress Test</div>
+            <div class="progress-numbers">
+                <span class="progress-current" id="progressCurrent">0</span>
+                <span class="progress-total">/ <span id="progressTotal">0</span> done</span>
+            </div>
+            <div class="progress-track">
+                <div class="progress-bar" id="progressBar" style="width:0%"></div>
+            </div>
+            <div class="progress-stats">
+                <div class="progress-stat pass-stat"><i class="fa-solid fa-check"></i> <span id="passCount">0</span> Pass</div>
+                <div class="progress-stat fail-stat"><i class="fa-solid fa-xmark"></i> <span id="failCount">0</span> Fail</div>
+            </div>
+        </div>
+
+        <div class="nav-section">
+            <div class="nav-section-title">Sections</div>
+            <a href="#prereq"  class="nav-link"><i class="fa-solid fa-list-check"></i> Pre-Requisites</a>
+            <a href="#fase1"   class="nav-link"><i class="fa-solid fa-tag"></i> Fase 1 — Promo <span class="nav-mini-progress" data-section="1">0/10</span></a>
+            <a href="#fase2a"  class="nav-link"><i class="fa-solid fa-user-tag"></i> Fase 2A — Scope <span class="nav-mini-progress" data-section="2A">0/10</span></a>
+            <a href="#fase2b"  class="nav-link"><i class="fa-solid fa-shield-halved"></i> Fase 2B — Validation <span class="nav-mini-progress" data-section="2B">0/6</span></a>
+            <a href="#fase2c"  class="nav-link"><i class="fa-solid fa-trophy"></i> Fase 2C — Reward Lock <span class="nav-mini-progress" data-section="2C">0/8</span></a>
+            <a href="#fase2d"  class="nav-link"><i class="fa-solid fa-hand-holding-dollar"></i> Fase 2D — Klaim 500k <span class="nav-mini-progress" data-section="2D">0/12</span></a>
+            <a href="#fase2e"  class="nav-link"><i class="fa-solid fa-star"></i> Fase 2E — KOL <span class="nav-mini-progress" data-section="2E">0/8</span></a>
+            <a href="#edge"    class="nav-link"><i class="fa-solid fa-bug"></i> Edge Cases <span class="nav-mini-progress" data-section="EC">0/9</span></a>
+            <a href="#summary" class="nav-link"><i class="fa-solid fa-clipboard-check"></i> Summary</a>
+        </div>
+
+        <div class="sidebar-actions">
+            <button type="button" class="sb-btn" onclick="window.print()"><i class="fa-solid fa-print"></i> Print / Save PDF</button>
+            <button type="button" class="sb-btn" onclick="exportResults()"><i class="fa-solid fa-download"></i> Export Result (JSON)</button>
+            <button type="button" class="sb-btn danger" onclick="resetAll()"><i class="fa-solid fa-rotate-left"></i> Reset Semua</button>
+        </div>
+    </aside>
+
+    <!-- ─── MAIN CONTENT ────────────────────────────── -->
+    <main class="main">
+
+        <div class="doc-header">
+            <h1 class="doc-title"><i class="fa-solid fa-flask"></i> Test Flow — Marketing Refactor</h1>
+            <div class="doc-meta">
+                <span><i class="fa-solid fa-code-branch"></i> Fase 1 + Fase 2 (A/B/C/D/E)</span>
+                <span><i class="fa-solid fa-calendar-day"></i> Versi 2026-05-02</span>
+                <span><i class="fa-solid fa-clock"></i> Estimasi 2-3 jam</span>
+                <span><i class="fa-solid fa-list-check"></i> 63 test cases</span>
+            </div>
+        </div>
+
+        <div class="alert alert-info">
+            <i class="fa-solid fa-circle-info"></i>
+            <div>
+                <strong>Cara pakai dokumen ini:</strong> Klik tombol <em>Pass</em> atau <em>Fail</em> di setiap test. Progress otomatis ke-save di browser (LocalStorage). Bisa di-export hasil tes via tombol "Export Result" di sidebar, atau di-print sebagai PDF.
+            </div>
+        </div>
+
+        <!-- ── PRE-REQUISITES ──────────────────────── -->
+        <section id="prereq">
+            <h2><span class="h2-num"><i class="fa-solid fa-list-check"></i></span> Pre-Requisites</h2>
+
+            <h3><i class="fa-solid fa-database"></i> 1. Run SQL files (urutan penting!)</h3>
+            <p style="font-size:0.86rem; color:var(--muted); margin-bottom:10px;">
+                Login ke phpMyAdmin pada DB production, jalankan file-file berikut <strong>berurutan</strong> dari folder <code>database/sql/</code>:
+            </p>
+            <table class="pre-req-table">
+                <thead>
+                    <tr><th class="num-col">#</th><th>File</th><th>Apa yang dilakukan</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td class="num-col">1</td><td><code>2026_05_02_marketing_promo.sql</code></td><td>Bikin tabel <code>marketing_promo</code>, <code>marketing_promo_branch</code> + kolom <code>marketing_promo_id</code> di reservasi</td></tr>
+                    <tr><td class="num-col">2</td><td><code>2026_05_02_referral_scope.sql</code></td><td>Tambah kolom <code>referral_scope</code> ke <code>raw_affiliate</code> &amp; <code>raw_promo</code></td></tr>
+                    <tr><td class="num-col">3</td><td><code>2026_05_02_reward_program_lock.sql</code></td><td>Tambah kolom <code>reward_program_started_at</code></td></tr>
+                    <tr><td class="num-col">4</td><td><code>2026_05_02_quick_fixes.sql</code></td><td>Update Gold tier 13→15 + tambah <code>behel_type</code></td></tr>
+                    <tr><td class="num-col">5</td><td><code>2026_05_02_kol_detail.sql</code></td><td>Tambah 8 kolom KOL (kategori, progress, dll)</td></tr>
+                    <tr><td class="num-col">6</td><td><code>2026_05_02_commission_claim.sql</code></td><td>Bikin tabel <code>commission_claim_batch</code> &amp; <code>commission_claim_item</code></td></tr>
+                </tbody>
+            </table>
+            <div class="alert alert-info" style="margin-top:8px;">
+                <i class="fa-solid fa-shield-halved"></i>
+                <div>Semua SQL <strong>idempotent</strong> — kalau sudah pernah dijalankan, akan skip otomatis (tidak error). Aman di-rerun.</div>
+            </div>
+
+            <h3><i class="fa-solid fa-bars"></i> 2. Setup Sidebar Menu (manual via UI Admin)</h3>
+            <p style="font-size:0.86rem; color:var(--muted); margin-bottom:10px;">
+                Setelah SQL selesai, daftarkan 2 menu baru via <strong>Setting → Akses Menu</strong> (<code>/setaccess</code>):
+            </p>
+            <table class="pre-req-table">
+                <thead><tr><th>Menu</th><th>Link</th><th>Icon</th><th>Untuk Grup</th></tr></thead>
+                <tbody>
+                    <tr><td><strong>Promo</strong> (Marketing)</td><td><code>marketing-promo</code></td><td><code>fa fa-tag</code></td><td>Sales, Head Sales, Admin</td></tr>
+                    <tr><td><strong>Klaim Komisi</strong></td><td><code>commission-claim</code></td><td><code>fa fa-hand-holding-dollar</code></td><td>Creative, Admin, Finance</td></tr>
+                </tbody>
+            </table>
+            <p style="font-size:0.86rem; margin-top:10px;">
+                Lalu rename menu lama: edit menu yang link-nya <code>rawpromo</code> → ubah Nama dari "Promo" → <strong>"Kode Referral"</strong>.
+            </p>
+            <p style="font-size:0.86rem;">
+                Setelah daftarin di access path, masuk ke <strong>Setting → Grup User</strong> (<code>/setgroup</code>), kasih akses 2 menu baru ke grup yang relevan.
+            </p>
+
+            <h3><i class="fa-solid fa-user-shield"></i> 3. Test Account</h3>
+            <p style="font-size:0.86rem; color:var(--muted);">Pastikan tester punya:</p>
+            <ul style="margin-left:24px; font-size:0.88rem; color:var(--text);">
+                <li>Akun admin dengan akses penuh (super admin / admin)</li>
+                <li>Akun affiliate test (kalau belum ada, buat via flow di Fase 2A)</li>
+                <li>Min. 1 cabang & 1 dokter sudah ada di DB</li>
+                <li>Pasien dummy untuk simulasi reservasi</li>
+            </ul>
+        </section>
+
+        <!-- ════════ TESTS WILL BE INJECTED HERE BY JS ═══════════ -->
+        <div id="testContainer"></div>
+
+        <!-- ── SUMMARY ────────────────────────── -->
+        <section id="summary" class="summary">
+            <div class="summary-title"><i class="fa-solid fa-clipboard-check"></i> Hasil Akhir Test</div>
+            <table class="summary-table" id="summaryTable">
+                <thead>
+                    <tr><th>Modul</th><th class="num">Total</th><th class="num">Pass</th><th class="num">Fail</th><th class="num">Pending</th></tr>
+                </thead>
+                <tbody id="summaryBody"></tbody>
+            </table>
+
+            <div class="summary-title" style="margin-top:24px;"><i class="fa-solid fa-bug"></i> Bug Reporting Template</div>
+            <p style="font-size:0.84rem; color:var(--muted);">Kalau ada test yang fail, mohon laporkan dengan format:</p>
+            <pre class="bug-template"><span class="lbl">Test ID    :</span> T-X.X
+<span class="lbl">Browser    :</span> Chrome 120 / Firefox / dll
+<span class="lbl">URL        :</span> [URL halaman saat error]
+<span class="lbl">Steps      :</span> [langkah yang dilakukan]
+<span class="lbl">Expected   :</span> [yang seharusnya]
+<span class="lbl">Actual     :</span> [yang terjadi]
+<span class="lbl">Screenshot :</span> [attach kalau ada]
+<span class="lbl">Console err:</span> [F12 → Console tab, copy error]</pre>
+        </section>
+
+        <div class="alert alert-warn" style="margin-top:32px;">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            <div>
+                <strong>Catatan untuk tester:</strong>
+                <ol style="margin-left:18px; margin-top:6px;">
+                    <li><strong>JANGAN test di production langsung</strong> — minimal staging environment.</li>
+                    <li><strong>Backup DB sebelum test</strong> — beberapa test bikin data baru.</li>
+                    <li><strong>Test sequential</strong> — beberapa test depend on previous test.</li>
+                    <li>Buka <strong>DevTools Console</strong> (F12) untuk lihat error JS kalau ada flow stuck.</li>
+                    <li>Pakai <strong>incognito/private window</strong> untuk multi-role (admin vs affiliate) supaya session tidak bentrok.</li>
+                </ol>
+            </div>
+        </div>
+
+        <div class="footer">
+            Versi dokumen: 2026-05-02 · Disiapkan oleh Tim Dev SweetTreats · <a href="#" onclick="window.scrollTo({top:0,behavior:'smooth'});return false;" style="color:var(--brand);">↑ Kembali ke atas</a>
+        </div>
+
+    </main>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// TEST DATA — semua 63 test cases
+// ═══════════════════════════════════════════════════════
+const TESTS = [
+    // ─── FASE 1 ──────────────────────────────────────
+    { id:'1.1', section:'1', sectionTitle:'Fase 1 — Promo Marketing (CRUD + Integrasi Reservasi)', sectionIcon:'fa-tag', anchor:'fase1',
+      title:'Akses page Promo',
+      goal:'Page baru <code>/marketing-promo</code> bisa diakses lewat sidebar',
+      steps:['Login admin', 'Klik menu <strong>Promo</strong> di sidebar'],
+      expected:'Halaman load dengan title "Promo", ada tombol "+ Tambah Promo" di kanan atas, ada filter (search/campaign/status/cabang/aktif pada tgl), ada quick chips (Semua/Hari Ini/Bulan Ini/Bulan Depan)' },
+    { id:'1.2', section:'1', title:'Tambah Promo baru',
+      goal:'Bisa buat promo dengan field lengkap',
+      steps:['Klik "+ Tambah Promo"', 'Isi: Nama "Test Promo Bulanan", Campaign "Promo Bulanan", Detail "test detail", Periode (hari ini s/d 30 hari ke depan), Status "Aktif", Harga Normal 5.000.000, Harga Promo 3.500.000, COGS 2.000.000, Cabang kosongkan (= semua cabang)', 'Klik Simpan'],
+      expected:'Redirect ke list, flash success "Promo berhasil ditambahkan", row baru muncul dengan margin <strong>Rp 1.500.000 (42.86%)</strong> otomatis, badge Aktif, label "Semua Cabang"' },
+    { id:'1.3', section:'1', title:'Margin negatif harus tampil merah',
+      steps:['Tambah promo lain dengan Harga Promo 1.000.000 + COGS 1.500.000', 'Cek display margin di form (otomatis kalkulasi) dan di list'],
+      expected:'Panel margin di form: angka <strong>berwarna merah</strong> dengan tanda minus. Di list, kolom Margin teks merah.' },
+    { id:'1.4', section:'1', title:'Edit promo',
+      steps:['Klik nama promo dari T-1.2', 'Ubah Harga Promo jadi 4.000.000', 'Save'],
+      expected:'Redirect kembali ke edit, flash success, margin baru ke-update otomatis (4.000.000 - 2.000.000 = Rp 2.000.000 / 50%)' },
+    { id:'1.5', section:'1', title:'Inline status edit dari list',
+      steps:['Di list, klik dropdown status di kolom Status pada row T-1.2', 'Pilih "Selesai"', 'Konfirmasi di SweetAlert popup'],
+      expected:'Popup "Berhasil" muncul (1.5 detik auto-close), pill berubah warna jadi abu-abu "Selesai" tanpa reload halaman' },
+    { id:'1.6', section:'1', title:'Filter "Bulan Depan"',
+      steps:['Klik chip "Bulan Depan"', 'Cek hasil'],
+      expected:'Hanya promo dengan periode overlap bulan depan yang muncul. URL berubah (mengandung <code>?periode=next_month</code>). Chip "Bulan Depan" highlighted hijau.' },
+    { id:'1.7', section:'1', title:'Filter "Aktif pada tanggal" custom',
+      steps:['Pilih tanggal di field "Aktif pada tgl" (mis. tanggal di tengah periode promo)', 'Klik tombol Filter'],
+      expected:'Hanya promo yang periode-nya cover tanggal itu yang muncul' },
+    { id:'1.8', section:'1', title:'Promo per cabang specific',
+      steps:['Tambah promo baru, di field Cabang pilih "Bintaro" + "Cinere" saja', 'Save', 'Cek di list'],
+      expected:'Row baru muncul dengan 2 pill biru "Bintaro" dan "Cinere" (bukan "Semua Cabang")' },
+    { id:'1.9', section:'1', title:'Promo picker di reservasi',
+      steps:['Buka reservasi existing (atau bikin baru) di <code>/rawreservation/{id}</code>', 'Pastikan reservasi pakai cabang yang termasuk promo dari T-1.8 dan tanggal di periode promo', 'Cek dropdown "Promo" di form edit'],
+      expected:'Dropdown muncul dengan promo yang sesuai cabang & periode. Format: "Nama Promo — Rp 1.500.000". Promo dari cabang lain TIDAK muncul.' },
+    { id:'1.10', section:'1', title:'Save reservasi dengan promo',
+      steps:['Pilih salah satu promo dari dropdown', 'Save reservasi', 'Reload page edit'],
+      expected:'Promo tersimpan. Muncul card info "Promo" dengan nama, campaign, harga promo, voucher tambahan. DB: cek kolom <code>raw_cus_reservation.marketing_promo_id</code> ke-isi UUID promo.' },
+
+    // ─── FASE 2A ──────────────────────────────────────
+    { id:'2A.1', section:'2A', sectionTitle:'Fase 2A — Referral Scope (Pendaftaran Affiliate)', sectionIcon:'fa-user-tag', anchor:'fase2a',
+      title:'Wizard pendaftaran sebagai Pasien Behel',
+      steps:['Buka <code>/affiliate/register</code> di incognito', '<strong>Step 1</strong>: pilih "Pasien Behel" → Lanjut', '<strong>Step 2</strong>: isi nama "Test Behel", email/phone unik, jenis behel "Stellar Metal Braces (GP)", cabang & dokter → Lanjut', '<strong>Step 3</strong>: pilih Tier "Silver Mates" (12x) → Lanjut', '<strong>Step 4</strong>: pilih platform IG, username "@testbehel", cek summary box, klik "Daftar Sekarang"'],
+      expected:'Stepper di atas nampilin 4 step (Jenis, Data Diri, Tier, Sosmed). Setelah submit, redirect ke <code>/affiliate/thank-you</code> (tampilan baru: hero coklat, animated check, 4 langkah numbered, button login)' },
+    { id:'2A.2', section:'2A', title:'Wizard pendaftaran sebagai Pasien Non-Behel',
+      steps:['Buka <code>/affiliate/register</code> lagi (incognito)', '<strong>Step 1</strong>: pilih "Pasien Perawatan Standar" → Lanjut', '<strong>Step 2</strong>: isi data + jenis perawatan harus dropdown "Scaling/Whitening/PSA/Veneer" (BUKAN behel)', 'Klik Lanjut → harus LANGSUNG ke Step 4 (skip Step 3 Tier)'],
+      expected:'Step "Tier" di stepper hilang otomatis. Step 4 (sosmed) langsung muncul. Submit sukses ke thank-you.' },
+    { id:'2A.3', section:'2A', title:'Validasi: Non-Behel TIDAK boleh isi Tier',
+      steps:['Pakai DB inspector → cek row affiliate Non-Behel dari T-2A.2'],
+      expected:'<code>reward_program</code> = NULL (tidak nyangkut). <code>referral_scope</code> = <code>non_behel</code>. <code>behel_type</code> = NULL.' },
+    { id:'2A.4', section:'2A', title:'Validasi: phone unique',
+      steps:['Coba daftar lagi dengan nomor WA yang sama dari T-2A.1'],
+      expected:'Error message muncul: "Nomor WhatsApp ini sudah terdaftar. Silakan login atau hubungi admin."' },
+    { id:'2A.5', section:'2A', title:'Admin lihat pendaftar baru',
+      steps:['Login admin', 'Buka <code>/rawaffiliate</code>', 'Tab "Menunggu Review"'],
+      expected:'2 pendaftar dari T-2A.1 dan T-2A.2 muncul. Kolom <strong>Scope</strong> nampilin pill "Behel" dan "Non-Behel".' },
+    { id:'2A.6', section:'2A', title:'Approve pendaftar — voucher 100k untuk Behel',
+      steps:['Klik tombol ✅ approve di row pendaftar Behel (T-2A.1)', 'Modal muncul — pilih Type "KOC", Scope (default sudah Behel dari registrasi), set PIN 6 digit "123456"', 'Klik Setujui'],
+      expected:'Flash success: "...Promo code: TEST...100 (voucher Rp 100.000)...". Cek DB <code>raw_promo</code>: row baru dengan <code>discount_value = 100000</code> dan <code>referral_scope = \'behel\'</code>.' },
+    { id:'2A.7', section:'2A', title:'Approve pendaftar — voucher 50k untuk Non-Behel',
+      steps:['Approve pendaftar Non-Behel (T-2A.2) dengan PIN "654321"'],
+      expected:'Flash success nampilin "voucher Rp 50.000". DB row promo dengan <code>discount_value = 50000</code> dan <code>referral_scope = \'non_behel\'</code>.' },
+    { id:'2A.8', section:'2A', title:'Login portal affiliate',
+      steps:['Logout admin', 'Buka <code>/affiliate/login</code>', 'Login pakai phone + PIN dari T-2A.6'],
+      expected:'Berhasil masuk dashboard. Sidebar nampilin menu Dashboard/Komisi/Konten/Rewards/Profil.' },
+    { id:'2A.9', section:'2A', title:'Edit affiliate dari admin: ubah scope auto-sync',
+      steps:['Login admin → buka edit affiliate dari T-2A.6 (Behel)', 'Ubah Referral Scope dari "Behel" → "Non-Behel"', 'Save', 'DB inspector → cek <code>raw_promo</code> milik affiliate ini'],
+      expected:'Field <code>raw_promo.referral_scope</code> ikut update jadi <code>non_behel</code>. Display "Komisi per Pasien" di edit page berubah dari Rp 100.000 jadi Rp 50.000, dan "Min. Klaim" dari 5 jadi 10 pasien. <strong>⚠️ REVERT scope balik ke Behel setelah test.</strong>' },
+    { id:'2A.10', section:'2A', title:'Tambah kode referral dari edit affiliate',
+      steps:['Di edit affiliate Behel, klik "+ Tambah Kode" di card Kode Referral', 'Modal muncul — kosongkan field Kode (auto-generate)', 'Klik Simpan Kode'],
+      expected:'Flash success "Kode referral baru ditambahkan: TEST200 (voucher Rp 100.000)". Row baru muncul di tabel Kode Promo affiliate ini.' },
+
+    // ─── FASE 2B ──────────────────────────────────────
+    { id:'2B.1', section:'2B', sectionTitle:'Fase 2B — Service Validation + Komisi Nominal', sectionIcon:'fa-shield-halved', anchor:'fase2b',
+      title:'Buat reservasi pakai kode Behel + service Behel = SUKSES',
+      steps:['Buka <code>/rawreservation/{id}</code> — pilih reservasi yang servicenya "Pemasangan Behel" (kategori behel)', 'Di dropdown "Gunakan Kode Referral" pilih kode dari T-2A.6 (Behel scope)', 'Save'],
+      expected:'Save sukses, flash "Reservasi berhasil diubah". DB: <code>raw_commission</code> row baru tercipta dengan <code>amount = 100000</code> (bukan kalkulasi rate%).' },
+    { id:'2B.2', section:'2B', title:'Reservasi pakai kode Behel + service NON-Behel = ERROR',
+      steps:['Buka reservasi yang servicenya HANYA Scaling (tidak ada behel)', 'Pilih kode referral Behel', 'Save'],
+      expected:'Validasi GAGAL. Form reload dengan error merah di bawah dropdown: "Kode \'TEST100\' hanya valid untuk perawatan PEMASANGAN BEHEL. Layanan yang dipilih saat ini tidak termasuk behel."' },
+    { id:'2B.3', section:'2B', title:'Reservasi pakai kode Non-Behel + service Scaling = SUKSES',
+      steps:['Pakai reservasi dengan service Scaling', 'Pilih kode dari T-2A.7 (Non-Behel scope)', 'Save'],
+      expected:'Save sukses. Commission <code>amount = 50000</code>.' },
+    { id:'2B.4', section:'2B', title:'Reservasi pakai kode Non-Behel + service Behel = ERROR',
+      steps:['Pakai reservasi dengan service Pemasangan Behel', 'Pilih kode Non-Behel', 'Save'],
+      expected:'Error: "Kode \'...\' hanya valid untuk perawatan: Scaling, Whitening, PSA (Perawatan Saluran Akar), Veneer."' },
+    { id:'2B.5', section:'2B', title:'Dropdown kode referral nampilin scope info',
+      steps:['Di form edit reservasi, lihat dropdown "Gunakan Kode Referral"'],
+      expected:'Tiap option nampilin format: "TEST100 — Behel · Voucher Rp 100.000". Helper text di bawah dropdown menjelaskan validasi.' },
+    { id:'2B.6', section:'2B', title:'Hapus kode dari reservasi → commission ikut terhapus',
+      steps:['Buka reservasi dari T-2B.1 (sudah ada commission)', 'Set dropdown kode jadi "- Tanpa Kode Referral -"', 'Save'],
+      expected:'DB: row <code>raw_commission</code> untuk reservasi ini hilang (deleted)' },
+
+    // ─── FASE 2C ──────────────────────────────────────
+    { id:'2C.1', section:'2C', sectionTitle:'Fase 2C — Reward Program Lock', sectionIcon:'fa-trophy', anchor:'fase2c',
+      title:'Affiliate baru: counter dimulai dari 0',
+      steps:['Approve affiliate Behel baru dengan tier Silver (12x) di T-2A.6', 'Login portal affiliate', 'Buka <code>/affiliate/rewards</code>'],
+      expected:'Tier Silver "Tier Aktif" di-highlight, progress 0/12. Tier Bronze (3) dan Gold (15) ter-lock dengan label "Selesaikan Tier Aktif Dulu". DB: <code>raw_affiliate.reward_program_started_at</code> = waktu approve.' },
+    { id:'2C.2', section:'2C', title:'LOCK: Tidak bisa klaim Bronze meski count cukup',
+      steps:['Manual DB: insert 3 row di <code>affiliate_content</code> untuk affiliate ini, status=\'approved\', created_at = now()', 'Reload <code>/affiliate/rewards</code>'],
+      expected:'Bronze TETAP locked (button claim TIDAK muncul). Silver progress 3/12, masih dengan hint "Butuh 9 konten approved lagi".' },
+    { id:'2C.3', section:'2C', title:'Achieve Silver → tombol Klaim muncul',
+      steps:['Manual DB: insert 9 row lagi di <code>affiliate_content</code> (total 12), semua approved', 'Reload <code>/affiliate/rewards</code>'],
+      expected:'Silver progress bar full (100%), pesan "Yeay! Target konten sudah tercapai", tombol "Klaim FREE Retainer + Scaling" muncul.' },
+    { id:'2C.4', section:'2C', title:'Klik Klaim → status berubah jadi "Diproses"',
+      steps:['Klik tombol Klaim', 'DB: cek <code>affiliate_reward_claim</code>'],
+      expected:'Row baru status=\'claimed\'. Di UI: pill "Diproses" muncul dengan icon clock, ada pesan "Klaim kamu sedang diproses admin."' },
+    { id:'2C.5', section:'2C', title:'Switch Program TIDAK boleh sebelum admin set \'used\'',
+      steps:['Cek apakah card "Switch Program" muncul di <code>/affiliate/rewards</code>'],
+      expected:'TIDAK muncul (canSwitch = false karena claim masih in-progress)' },
+    { id:'2C.6', section:'2C', title:'Admin mark claim \'used\' → bisa Switch Program',
+      steps:['Manual DB: <code>UPDATE affiliate_reward_claim SET status=\'used\' WHERE...</code>', 'Reload <code>/affiliate/rewards</code>'],
+      expected:'Pill berubah jadi "Selesai" (hijau), pesan "Reward sudah dipakai. Pilih program berikutnya". Card "Pilih Program Selanjutnya" muncul di atas dengan dropdown radio Bronze/Gold (exclude Silver yang sudah).' },
+    { id:'2C.7', section:'2C', title:'Switch ke Bronze → counter reset 0/3',
+      steps:['Pilih radio Bronze', 'Klik "Pilih Program Ini"'],
+      expected:'Flash success "Program berhasil di-switch ke Bronze Mates. Counter konten dimulai dari 0." Bronze sekarang "Tier Aktif" dengan progress 0/3 (meski sebelumnya ada 12 content approved — counter di-filter by <code>reward_program_started_at</code> baru). DB: <code>raw_affiliate.reward_program_started_at</code> ke-update ke waktu switch.' },
+    { id:'2C.8', section:'2C', title:'Insert 3 content baru → tombol klaim Bronze muncul',
+      steps:['Insert 3 row baru di <code>affiliate_content</code> dengan <code>created_at = NOW()</code> (HARUS lebih baru dari <code>reward_program_started_at</code>)', 'Reload rewards page'],
+      expected:'Progress 3/3 ✅, button "Klaim FREE Scaling" muncul' },
+
+    // ─── FASE 2D ──────────────────────────────────────
+    { id:'2D.1', section:'2D', sectionTitle:'Fase 2D — Commission Claim System (500k)', sectionIcon:'fa-hand-holding-dollar', anchor:'fase2d',
+      title:'Belum cukup → tombol Klaim disabled, hint muncul',
+      steps:['Login portal affiliate (Behel) yang baru ada 2 commission', 'Buka <code>/affiliate/commissions</code>'],
+      expected:'Card "Klaim Komisi" muncul dengan progress 2/5, hint kuning "Butuh <strong>3 pasien lagi</strong> untuk bisa klaim Rp 500.000". TIDAK ada tombol klaim.' },
+    { id:'2D.2', section:'2D', title:'Cukup 5 pasien Behel → tombol Klaim 500k muncul',
+      steps:['Generate 3 reservasi+commission lagi (manual atau via T-2B.1)', 'Reload <code>/affiliate/commissions</code>'],
+      expected:'Progress 5/5, pesan hijau "Yeay! Kamu bisa klaim sekarang", tombol <strong>"Klaim Rp 500.000"</strong> muncul dengan icon hand.' },
+    { id:'2D.3', section:'2D', title:'Submit klaim → batch tercipta',
+      steps:['Klik tombol klaim', 'Confirm di popup', 'DB: cek tabel <code>commission_claim_batch</code> dan <code>commission_claim_item</code>'],
+      expected:'Row batch baru status=\'requested\', total_amount=500000, patient_count=5. 5 row item terkait di <code>commission_claim_item</code>. Flash success "Klaim komisi 500k berhasil diajukan. Tim Sweet Treats akan konfirmasi dalam 4-5 hari kerja via WhatsApp."' },
+    { id:'2D.4', section:'2D', title:'Tidak bisa klaim 2x (anti double-claim)',
+      steps:['Reload <code>/affiliate/commissions</code> setelah T-2D.3'],
+      expected:'Section "Klaim Komisi" sekarang nampilin "Klaim sedang diproses" (warna kuning) dengan status "Diajukan" + total Rp 500.000. TIDAK ada tombol klaim baru.' },
+    { id:'2D.5', section:'2D', title:'Admin lihat batch baru',
+      steps:['Login admin (yang ada akses Klaim Komisi)', 'Buka menu <strong>Klaim Komisi</strong> (<code>/commission-claim</code>)'],
+      expected:'Batch dari T-2D.3 muncul di paling atas (status pill kuning "Diajukan"). Summary atas nampilin "Diajukan: 1".' },
+    { id:'2D.6', section:'2D', title:'Admin take review → status In Review',
+      steps:['Klik row batch → halaman detail', 'Klik tombol "Ambil Review (Jadi PJ)"'],
+      expected:'Flash success. Status berubah jadi "Direview" (info pill biru). Field "PJ" ke-isi nama admin.' },
+    { id:'2D.7', section:'2D', title:'Admin approve → status Approved',
+      steps:['Isi catatan "Sudah confirm via WA" (opsional)', 'Klik "Approve & Ajukan ke Finance"'],
+      expected:'Status jadi "Disetujui". Form upload bukti transfer muncul.' },
+    { id:'2D.8', section:'2D', title:'Upload bukti transfer',
+      steps:['Pilih file gambar (JPG/PNG, max 4MB)', 'Set tanggal transfer', 'Klik "Upload Bukti & Mark Transferred"'],
+      expected:'Status jadi "Transferred". Tombol "Lihat Bukti Transfer" muncul. File tersimpan di <code>public/uploads/commission_proof/{batch_id}_{timestamp}.{ext}</code>.' },
+    { id:'2D.9', section:'2D', title:'KOC konfirmasi terima',
+      steps:['Logout admin, login kembali sebagai KOC', 'Buka <code>/affiliate/commissions</code>', 'Cek section Klaim — harus ada link "Lihat Bukti Transfer" + tombol "Konfirmasi Sudah Terima"', 'Klik konfirmasi'],
+      expected:'Flash success "Terima kasih! Klaim komisi sudah selesai." Status batch jadi "Selesai". DB: 5 commission yang masuk batch berubah status=\'paid\'.' },
+    { id:'2D.10', section:'2D', title:'Bisa request klaim lagi setelah completed',
+      steps:['Generate 5 commission baru lagi', 'Buka <code>/affiliate/commissions</code>'],
+      expected:'Tombol "Klaim Rp 500.000" muncul lagi (karena pendingClaimBatch sudah tidak ada).' },
+    { id:'2D.11', section:'2D', title:'Force complete (kalau KOC tidak respon)',
+      steps:['Sebagai admin, di batch yang status "Transferred", klik "Force Complete"'],
+      expected:'Konfirmasi popup, lalu status batch jadi "Selesai" tanpa perlu KOC confirm.' },
+    { id:'2D.12', section:'2D', title:'Non-Behel butuh 10 pasien',
+      steps:['Login affiliate Non-Behel (T-2A.7) yang baru 9 commission', 'Buka <code>/affiliate/commissions</code>'],
+      expected:'Progress 9/10, hint "Butuh 1 pasien lagi".' },
+
+    // ─── FASE 2E ──────────────────────────────────────
+    { id:'2E.1', section:'2E', sectionTitle:'Fase 2E — KOL Detail Extension', sectionIcon:'fa-star', anchor:'fase2e',
+      title:'Tambah KOL manual',
+      steps:['Admin buka <code>/rawaffiliate</code>', 'Klik tombol <strong>"+ Tambah KOL"</strong> (warna orange-coklat)', 'Cek form'],
+      expected:'Form muncul dengan radio "KOL" sudah ter-pilih. Card "Detail KOL" terbuka (tidak di-hide). Card "Sosial Media" nampilin field Followers.' },
+    { id:'2E.2', section:'2E', title:'Switch KOC ↔ KOL di form',
+      steps:['Di form Tambah, klik radio "KOC"', 'Lalu klik radio "KOL"'],
+      expected:'Saat klik KOC: card "Detail KOL" + field Followers hilang. Saat klik KOL: muncul lagi. Border tipe yang dipilih ke-highlight.' },
+    { id:'2E.3', section:'2E', title:'Save KOL dengan field lengkap',
+      steps:['Pilih KOL', 'Isi: Nama "Test KOL", Phone, Email, Platform IG, Username "@testkol", Followers 50000, Kategori "Influencer", Progress "Akan Di-approach", Status Relasi "Baru", Rate Card "5-10jt", Contact Person "Manager Andi", Tanggal Approach hari ini, Feedback "Akun bagus, follower aktif"', 'Klik Simpan Affiliate'],
+      expected:'Redirect ke list, flash success "Affiliate berhasil ditambahkan". DB: row baru di <code>raw_affiliate</code> dengan <code>type=\'kol\'</code>, <code>registration_status=\'approved\'</code> (manual entry langsung approved), semua field KOL ter-isi.' },
+    { id:'2E.4', section:'2E', title:'KOL muncul di list dengan info lengkap',
+      steps:['Di list <code>/rawaffiliate</code>, cari row "Test KOL"'],
+      expected:'Kolom "Role / Tipe" nampilin pill "KOL". Kolom "Scope" nampilin: pill progress "Akan Di-approach" (abu-abu), label kategori "Influencer", "👥 50.000 followers".' },
+    { id:'2E.5', section:'2E', title:'Filter list by KOL Progress',
+      steps:['Di filter bar, dropdown "KOL Progress" pilih "Akan Di-approach"', 'Submit'],
+      expected:'Hanya KOL dengan progress = akan_di_approach yang muncul.' },
+    { id:'2E.6', section:'2E', title:'Edit KOL — semua field bisa di-update',
+      steps:['Buka edit KOL dari T-2E.3', 'Cek apakah ada section "Detail KOL" di table info', 'Ubah Progress jadi "Confirm", Status Relasi "Pernah Kerja Sama"', 'Save'],
+      expected:'Section "Detail KOL" muncul karena type=kol. Setelah save, list nampilin pill progress baru "Confirm" (warna info biru) + label "Pernah Kerja Sama".' },
+    { id:'2E.7', section:'2E', title:'Edit KOC — section KOL TIDAK muncul',
+      steps:['Buka edit affiliate KOC manapun'],
+      expected:'Section "Detail KOL" TIDAK ada (di-hide karena type≠kol)' },
+    { id:'2E.8', section:'2E', title:'Edit affiliate: Email + Feedback bisa diisi',
+      steps:['Di edit affiliate (KOC atau KOL), isi field Email & Feedback', 'Save'],
+      expected:'Tersimpan, ke-load lagi setelah reload page.' },
+
+    // ─── EDGE CASES ──────────────────────────────────
+    { id:'EC.1', section:'EC', sectionTitle:'Edge Cases & Validations', sectionIcon:'fa-bug', anchor:'edge',
+      title:'TERLARIS badge dihapus',
+      steps:['Buka public reservation form <code>/reservasi</code> di incognito', 'Pilih cabang'],
+      expected:'Tombol "Behel" tetap ada di kategori, tapi TIDAK ada badge merah "Terlaris" lagi.' },
+    { id:'EC.2', section:'EC', title:'Kode referral di reservasi: helper text muncul',
+      steps:['Edit reservasi, scroll ke dropdown "Gunakan Kode Referral"'],
+      expected:'Helper text di bawah dropdown menjelaskan: "Kode <strong>Behel</strong> hanya valid untuk Pemasangan Behel. Kode <strong>Non-Behel</strong> hanya untuk Scaling, Whitening, PSA, atau Veneer."' },
+    { id:'EC.3', section:'EC', title:'Promo Marketing card display di reservasi',
+      steps:['Buka edit reservasi yang sudah ada <code>marketing_promo_id</code>'],
+      expected:'Di bawah dropdown promo muncul info card hijau dengan: Promo (nama), Campaign, Harga Promo, Voucher Tambahan (kalau ada).' },
+    { id:'EC.4', section:'EC', title:'Kode Referral sudah di-rename',
+      steps:['Buka <code>/rawpromo</code> (yang sebelumnya disebut "Promo")', 'Cek title page'],
+      expected:'Title sekarang "Kode Referral" (bukan "Promo"). Begitu juga untuk new dan edit.' },
+    { id:'EC.5', section:'EC', title:'Approve modal nampilin scope info dari registrasi',
+      steps:['Daftar affiliate baru → tunggu di pending', 'Sebagai admin, klik approve'],
+      expected:'Modal nampilin scope yang dipilih saat registrasi (mis. "Mendaftar sebagai: Pasien Behel"). Field Referral Scope di form approve sudah pre-selected sesuai.' },
+    { id:'EC.6', section:'EC', title:'Wizard registrasi: phone validation di Step 4',
+      steps:['Daftar dengan phone yang sudah dipakai', 'Submit di Step 4'],
+      expected:'Validasi error muncul ("Nomor WhatsApp ini sudah terdaftar"), wizard JUMP balik otomatis ke layer error untuk user perbaiki.' },
+    { id:'EC.7', section:'EC', title:'Komisi calc: pakai nominal scope, bukan percentage',
+      steps:['Set <code>commission_rate</code> affiliate ke 50% di DB (manual)', 'Buat reservasi+commission lewat T-2B.1', 'Cek DB <code>raw_commission.amount</code>'],
+      expected:'Amount = 100000 (nominal scope behel), BUKAN total × 50%. Field <code>commission_rate</code> di-ignore untuk affiliate yang punya scope.' },
+    { id:'EC.8', section:'EC', title:'Force-submit form Behel tanpa pilih Tier → ditolak',
+      steps:['Daftar Behel', 'Lewati Step 3 dengan trick (mis. ubah JS state) atau submit langsung tanpa pilih reward_program'],
+      expected:'Server-side validation tolak: "Pilih salah satu Tier untuk Pasien Behel."' },
+    { id:'EC.9', section:'EC', title:'Force-submit form Non-Behel dengan Tier → reward_program di-ignore',
+      steps:['Daftar Non-Behel', 'Inject <code>reward_program=12x</code> lewat URL/devtools', 'Submit'],
+      expected:'Sukses submit, tapi DB <code>reward_program</code> = NULL (defensive null di controller)' },
+];
+
+// Section labels (urut)
+const SECTIONS = [
+    { key:'1',  label:'Fase 1 — Promo Marketing' },
+    { key:'2A', label:'Fase 2A — Referral Scope' },
+    { key:'2B', label:'Fase 2B — Service Validation' },
+    { key:'2C', label:'Fase 2C — Reward Program Lock' },
+    { key:'2D', label:'Fase 2D — Commission Claim' },
+    { key:'2E', label:'Fase 2E — KOL Detail' },
+    { key:'EC', label:'Edge Cases' },
+];
+
+// ═══════════════════════════════════════════════════════
+// RENDER & STATE
+// ═══════════════════════════════════════════════════════
+const STORAGE_KEY = 'sweetTreatsTestFlow_v1';
+const STATE = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+
+function saveState() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(STATE));
+    updateProgress();
+}
+
+function getState(id) {
+    return STATE[id] || { verdict:null, notes:'' };
+}
+
+function setVerdict(id, verdict) {
+    if (!STATE[id]) STATE[id] = { verdict:null, notes:'' };
+    STATE[id].verdict = STATE[id].verdict === verdict ? null : verdict;
+    saveState();
+    renderTest(id);
+}
+
+function setNotes(id, notes) {
+    if (!STATE[id]) STATE[id] = { verdict:null, notes:'' };
+    STATE[id].notes = notes;
+    saveState();
+}
+
+function renderTests() {
+    const container = document.getElementById('testContainer');
+    let html = '';
+    let currentSection = null;
+
+    TESTS.forEach(t => {
+        if (t.section !== currentSection) {
+            currentSection = t.section;
+            const secInfo = SECTIONS.find(s => s.key === t.section);
+            html += `<section id="${t.anchor}" style="margin-top:42px;">
+                <h2><span class="h2-num"><i class="fa-solid ${t.sectionIcon}"></i></span> ${t.sectionTitle}</h2>
+            </section>`;
+        }
+
+        const state = getState('T-' + t.id);
+        const passClass = state.verdict === 'pass' ? 'is-pass' : '';
+        const failClass = state.verdict === 'fail' ? 'is-fail' : '';
+
+        const stepsHtml = t.steps.map(s => `<li>${s}</li>`).join('');
+        const goalHtml = t.goal ? `<dt>Goal</dt><dd>${t.goal}</dd>` : '';
+
+        html += `
+        <div class="test ${passClass} ${failClass}" id="test-${t.id}">
+            <div class="test-head">
+                <div class="test-id">
+                    <span class="test-id-pill">T-${t.id}</span>
+                    <span class="test-title">${t.title}</span>
+                </div>
+                <div class="verdict">
+                    <button type="button" class="verdict-btn pass-btn ${state.verdict === 'pass' ? 'active' : ''}" onclick="setVerdict('T-${t.id}', 'pass')"><i class="fa-solid fa-check"></i> Pass</button>
+                    <button type="button" class="verdict-btn fail-btn ${state.verdict === 'fail' ? 'active' : ''}" onclick="setVerdict('T-${t.id}', 'fail')"><i class="fa-solid fa-xmark"></i> Fail</button>
+                </div>
+            </div>
+            <dl class="test-body">
+                ${goalHtml}
+                <dt>Steps</dt><dd><ol>${stepsHtml}</ol></dd>
+                <dt>Expected</dt><dd>${t.expected}</dd>
+            </dl>
+            <div class="test-notes">
+                <label for="notes-${t.id}">Catatan / Bug detail</label>
+                <textarea id="notes-${t.id}" oninput="setNotes('T-${t.id}', this.value)" placeholder="Tulis catatan kalau ada hal yang perlu di-flag...">${state.notes || ''}</textarea>
+            </div>
+        </div>`;
+    });
+
+    container.innerHTML = html;
+}
+
+function renderTest(id) {
+    const t = TESTS.find(t => 'T-' + t.id === id);
+    if (!t) return;
+    const el = document.getElementById('test-' + t.id);
+    if (!el) return;
+    const state = getState(id);
+    el.classList.toggle('is-pass', state.verdict === 'pass');
+    el.classList.toggle('is-fail', state.verdict === 'fail');
+    const passBtn = el.querySelector('.pass-btn');
+    const failBtn = el.querySelector('.fail-btn');
+    passBtn.classList.toggle('active', state.verdict === 'pass');
+    failBtn.classList.toggle('active', state.verdict === 'fail');
+}
+
+function updateProgress() {
+    const total = TESTS.length;
+    let pass = 0, fail = 0;
+    TESTS.forEach(t => {
+        const state = getState('T-' + t.id);
+        if (state.verdict === 'pass') pass++;
+        else if (state.verdict === 'fail') fail++;
+    });
+    const done = pass + fail;
+    const pct = total > 0 ? (done / total * 100) : 0;
+
+    document.getElementById('progressCurrent').textContent = done;
+    document.getElementById('progressTotal').textContent = total;
+    document.getElementById('progressBar').style.width = pct + '%';
+    document.getElementById('passCount').textContent = pass;
+    document.getElementById('failCount').textContent = fail;
+
+    // Per-section mini-progress
+    SECTIONS.forEach(sec => {
+        const tests = TESTS.filter(t => t.section === sec.key);
+        let done = 0;
+        tests.forEach(t => {
+            const s = getState('T-' + t.id);
+            if (s.verdict === 'pass' || s.verdict === 'fail') done++;
+        });
+        const el = document.querySelector(`[data-section="${sec.key}"]`);
+        if (el) el.textContent = `${done}/${tests.length}`;
+    });
+
+    // Summary table
+    const summaryBody = document.getElementById('summaryBody');
+    let totalTotal = 0, totalPass = 0, totalFail = 0;
+    let bodyHtml = '';
+    SECTIONS.forEach(sec => {
+        const tests = TESTS.filter(t => t.section === sec.key);
+        let p = 0, f = 0;
+        tests.forEach(t => {
+            const s = getState('T-' + t.id);
+            if (s.verdict === 'pass') p++;
+            else if (s.verdict === 'fail') f++;
+        });
+        const pending = tests.length - p - f;
+        totalTotal += tests.length; totalPass += p; totalFail += f;
+        bodyHtml += `<tr>
+            <td>${sec.label}</td>
+            <td class="num">${tests.length}</td>
+            <td class="num summary-num pass-num">${p}</td>
+            <td class="num summary-num fail-num">${f}</td>
+            <td class="num">${pending}</td>
+        </tr>`;
+    });
+    bodyHtml += `<tr class="total-row">
+        <td><strong>TOTAL</strong></td>
+        <td class="num">${totalTotal}</td>
+        <td class="num summary-num pass-num">${totalPass}</td>
+        <td class="num summary-num fail-num">${totalFail}</td>
+        <td class="num">${totalTotal - totalPass - totalFail}</td>
+    </tr>`;
+    summaryBody.innerHTML = bodyHtml;
+}
+
+function exportResults() {
+    const data = {
+        exportedAt: new Date().toISOString(),
+        results: TESTS.map(t => ({
+            id: 'T-' + t.id,
+            section: t.section,
+            title: t.title,
+            verdict: getState('T-' + t.id).verdict || 'pending',
+            notes: getState('T-' + t.id).notes || '',
+        })),
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `test-results-${new Date().toISOString().slice(0,10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+function resetAll() {
+    if (!confirm('Reset SEMUA progress test? Tindakan ini tidak bisa di-undo.')) return;
+    localStorage.removeItem(STORAGE_KEY);
+    Object.keys(STATE).forEach(k => delete STATE[k]);
+    renderTests();
+    updateProgress();
+}
+
+// Active nav link based on scroll
+function setupScrollSpy() {
+    const links = document.querySelectorAll('.nav-link');
+    const sections = ['prereq','fase1','fase2a','fase2b','fase2c','fase2d','fase2e','edge','summary'];
+
+    function onScroll() {
+        const scrollPos = window.scrollY + 120;
+        let activeIdx = 0;
+        sections.forEach((id, i) => {
+            const el = document.getElementById(id);
+            if (el && el.offsetTop <= scrollPos) activeIdx = i;
+        });
+        links.forEach((l, i) => l.classList.toggle('active', i === activeIdx));
+    }
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+}
+
+// Init
+renderTests();
+updateProgress();
+setupScrollSpy();
+</script>
+
+</body>
+</html>
