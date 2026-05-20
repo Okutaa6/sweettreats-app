@@ -15,6 +15,8 @@ class RawCustomer extends Model
     protected $fillable = [
         'source_app',
         'channel',
+        'raw_contact_id',
+        'relasi',
         'name',
         'phone',
         'email',
@@ -35,6 +37,11 @@ class RawCustomer extends Model
     public $incrementing = false;
     public $timestamps = false;
     protected $keyType = 'string';
+
+    public function contact()
+    {
+        return $this->belongsTo(RawContact::class, 'raw_contact_id', 'id');
+    }
 
     public function journeys()
     {

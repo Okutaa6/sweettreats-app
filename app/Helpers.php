@@ -105,6 +105,18 @@ function getSidebarChild()
 }
 
 /**
+ * Normalisasi nomor telepon ke 08xxxxxxxxx (null bila tak valid).
+ * Wrapper tipis untuk App\Support\Phone::normalize agar bisa dipakai
+ * di Blade / kode legacy tanpa import.
+ */
+if (!function_exists('normalize_phone')) {
+    function normalize_phone(?string $raw): ?string
+    {
+        return \App\Support\Phone::normalize($raw);
+    }
+}
+
+/**
  * Check if a parent menu group contains a child link matching the current controller
  */
 function isParentActive($parentRow, $controller)

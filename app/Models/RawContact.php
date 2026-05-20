@@ -31,4 +31,13 @@ class RawContact extends Model
     {
         return $this->hasMany(RawCusJourney::class, 'raw_contact_id', 'id');
     }
+
+    /**
+     * Semua pasien (raw_customer) yang menempel ke nomor ini.
+     * 1 contact = 1 nomor; banyak pasien boleh share.
+     */
+    public function patients()
+    {
+        return $this->hasMany(RawCustomer::class, 'raw_contact_id', 'id');
+    }
 }

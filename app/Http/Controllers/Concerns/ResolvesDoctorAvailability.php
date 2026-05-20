@@ -1,0 +1,425 @@
+<?php
+
+namespace App\Http\Controllers\Concerns;
+
+use App\Models\RawDocService;
+use App\Models\RawDoctorSchedule;
+use App\Models\RawDoctorScheduleException;
+use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
+
+/**
+ * Logika ketersediaan jadwal & slot dokter (recurring + exception + cuti).
+ *
+ * Dipisah jadi trait supaya dipakai bersama oleh ReservationApiController
+ * (route /api/reservation/*) dan ApiCekatController (endpoint vendor) tanpa
+ * duplikasi. Method compute* mengembalikan array MENTAH — pemanggil yang
+ * membungkus jadi JSON response sesuai kebutuhannya.
+ */
+trait ResolvesDoctorAvailability
+{
+    /**
+     * Tanggal tersedia 90 hari ke depan (min 1 Mei tahun ini), sudah
+     * memperhitungkan recurring schedule, exception, dan cuti dokter.
+     *
+     * @return array<int, array{date:string,label:string,day:int}>
+     */
+    protected function computeAvailableDates($branchId, $doctorId): array
+    {
+        $scheduleDays = RawDoctorSchedule::where('raw_branch_id', $branchId)
+            ->where('raw_doctor_id', $doctorId)
+            ->pluck('day')
+            ->unique()
+            ->toArray();
+
+        // Ambil semua cuti dokter
+        $leaves = DB::table('raw_doctor_leave')
+            ->where('raw_doctor_id', $doctorId)
+            ->get(['start_date', 'end_date']);
+
+        $exceptions = collect();
+        if (config('features.flexible_scheduling')) {
+            $exceptions = RawDoctorScheduleException::where('raw_doctor_id', $doctorId)
+                ->where('raw_branch_id', $branchId)
+                ->whereIn('type', ['add', 'replace'])
+                ->pluck('type', 'date');
+        }
+
+        $dayNames = [1 => 'Senin', 2 => 'Selasa', 3 => 'Rabu', 4 => 'Kamis', 5 => 'Jumat', 6 => 'Sabtu', 7 => 'Minggu'];
+        $dates = [];
+
+        // Batasi tanggal mulai minimal 1 Mei tahun ini
+        $minDate = Carbon::create(Carbon::today()->year, 5, 1);
+        $startDate = Carbon::today()->max($minDate);
+
+        for ($i = 0; $i < 535; $i++) {
+            $date = $startDate->copy()->addDays($i);
+            $dayOfWeek = $date->dayOfWeekIso; // 1=Senin ... 7=Minggu
+            $dateStr = $date->format('Y-m-d');
+
+            $hasRecurring  = in_array($dayOfWeek, $scheduleDays);
+            $hasException  = $exceptions->has($dateStr);
+
+            if (!$hasRecurring && !$hasException) {
+                continue;
+            }
+
+            // Skip kalau dokter sedang cuti di tanggal ini (leave menang)
+            $isOnLeave = false;
+            foreach ($leaves as $leave) {
+                if ($date->between(Carbon::parse($leave->start_date), Carbon::parse($leave->end_date))) {
+                    $isOnLeave = true;
+                    break;
+                }
+            }
+            if ($isOnLeave) continue;
+
+            $dates[] = [
+                'date'  => $dateStr,
+                'label' => $dayNames[$dayOfWeek] . ', ' . $date->format('d M Y'),
+                'day'   => $dayOfWeek,
+            ];
+        }
+
+        return $dates;
+    }
+
+    /**
+     * Slot waktu untuk (cabang, dokter, tanggal) tertentu.
+     *
+     * $opts: service_id, duration (int explicit), exclude_id,
+     *        reservation_table (default 'raw_cus_reservation' — sandbox
+     *        kirim 'raw_cus_reservation_dev' supaya cek bentrok ke data dev).
+     *
+     * @return array{slots:array,sessions:array,slot_interval:int}
+     */
+    protected function computeTimeSlots($branchId, $doctorId, $date, array $opts = []): array
+    {
+        $carbonDate = Carbon::parse($date);
+
+        $serviceId        = $opts['service_id'] ?? null;
+        $explicitDuration = (int) ($opts['duration'] ?? 0);
+        $excludeId        = $opts['exclude_id'] ?? null;
+        $reservationTable = $opts['reservation_table'] ?? 'raw_cus_reservation';
+
+        // === 1. Resolve working ranges untuk tanggal ini ===
+        $ranges = $this->resolveWorkingRanges($branchId, $doctorId, $date);
+
+        if ($ranges->isEmpty()) {
+            return [
+                'slots'         => [],
+                'sessions'      => [],
+                'slot_interval' => 0,
+            ];
+        }
+
+        // === 2. Resolve durasi slot ===
+        $duration = $this->resolveDuration($doctorId, $serviceId, $explicitDuration ?: null);
+
+        // === 3. Reservasi yang udah ada di tanggal ini ===
+        $bookedRanges = $this->resolveBookedRanges($doctorId, $date, $reservationTable, $excludeId);
+
+        // === 4. Generate slot ===
+        $slots = [];
+
+        foreach ($ranges as $range) {
+            $start = Carbon::parse($range['start_hour']);
+            $end   = Carbon::parse($range['end_hour']);
+
+            while ($start->copy()->addMinutes($duration)->lte($end)) {
+                $slotStart = $start->format('H:i');
+                $slotEnd   = $start->copy()->addMinutes($duration)->format('H:i');
+
+                $isBooked = false;
+                foreach ($bookedRanges as $r) {
+                    if ($slotStart < $r['end'] && $slotEnd > $r['start']) {
+                        $isBooked = true;
+                        break;
+                    }
+                }
+
+                $isPast = $carbonDate->isToday() && Carbon::now()->format('H:i') > $slotStart;
+
+                $slots[] = [
+                    'time'      => $slotStart,
+                    'end_time'  => $slotEnd,
+                    'label'     => $slotStart,
+                    'is_booked' => $isBooked,
+                    'is_past'   => $isPast,
+                    'available' => !$isBooked && !$isPast,
+                ];
+
+                $start->addMinutes($duration);
+            }
+        }
+
+        // === 5. Group per sesi (Pagi / Siang / Sore) ===
+        $sessions = [
+            'pagi'  => ['label' => 'Pagi',  'range' => 'sebelum 12:00', 'slots' => []],
+            'siang' => ['label' => 'Siang', 'range' => '12:00 – 16:59', 'slots' => []],
+            'sore'  => ['label' => 'Sore',  'range' => '17:00 ke atas',  'slots' => []],
+        ];
+
+        foreach ($slots as $slot) {
+            $h = (int) substr($slot['time'], 0, 2);
+            if ($h < 12) {
+                $sessions['pagi']['slots'][] = $slot;
+            } elseif ($h < 17) {
+                $sessions['siang']['slots'][] = $slot;
+            } else {
+                $sessions['sore']['slots'][] = $slot;
+            }
+        }
+
+        foreach ($sessions as $key => $s) {
+            $sessions[$key]['available_count'] = collect($s['slots'])->where('available', true)->count();
+            $sessions[$key]['total_count']     = count($s['slots']);
+        }
+
+        return [
+            'slots'         => $slots,
+            'sessions'      => $sessions,
+            'slot_interval' => $duration,
+        ];
+    }
+
+    /**
+     * Resolve duration efektif untuk pasangan (doctor, service).
+     * Prioritas: explicit duration → pivot duration_minutes → service.duration_minutes → 30.
+     */
+    protected function resolveDuration($doctorId, $serviceId = null, $explicitDuration = null): int
+    {
+        if ($explicitDuration !== null && $explicitDuration > 0) {
+            return (int) $explicitDuration;
+        }
+
+        if (!$serviceId) {
+            return 30;
+        }
+
+        if (config('features.flexible_scheduling')) {
+            $pivot = DB::table('raw_doctor_service')
+                ->where('raw_doctor_id', $doctorId)
+                ->where('raw_doc_service_id', $serviceId)
+                ->first();
+
+            if ($pivot && $pivot->duration_minutes !== null) {
+                return (int) round($pivot->duration_minutes);
+            }
+        }
+
+        $service = RawDocService::find($serviceId);
+        if ($service && $service->duration_minutes !== null) {
+            return (int) round($service->duration_minutes);
+        }
+
+        return 30;
+    }
+
+    /**
+     * Durasi total perawatan seorang pasien (jumlah durasi tiap service;
+     * "Lainnya"/kosong = 30 menit). Prioritas durasi: pivot per-dokter →
+     * service.duration_minutes → 30 (via resolveDuration).
+     *
+     * @param array<int,mixed> $serviceIds
+     */
+    protected function patientDuration($doctorId, array $serviceIds, bool $lainnya): int
+    {
+        if ($lainnya) {
+            return 30;
+        }
+        $total = 0;
+        foreach ($serviceIds as $sid) {
+            if (! $sid) {
+                continue;
+            }
+            $total += $this->resolveDuration($doctorId, $sid);
+        }
+        return $total > 0 ? $total : 30;
+    }
+
+    /**
+     * Working ranges (jam praktik) dokter di sebuah tanggal — recurring
+     * schedule + exception add/replace (kalau fitur flexible aktif).
+     *
+     * @return \Illuminate\Support\Collection<int,array{start_hour:string,end_hour:string}>
+     */
+    protected function resolveWorkingRanges($branchId, $doctorId, $date)
+    {
+        $dayOfWeek = Carbon::parse($date)->dayOfWeekIso;
+
+        $ranges = RawDoctorSchedule::where('raw_branch_id', $branchId)
+            ->where('raw_doctor_id', $doctorId)
+            ->where('day', $dayOfWeek)
+            ->orderBy('start_hour')
+            ->get()
+            ->map(fn($s) => [
+                'start_hour' => $s->start_hour,
+                'end_hour'   => $s->end_hour,
+            ]);
+
+        if (config('features.flexible_scheduling')) {
+            $exceptions = RawDoctorScheduleException::where('raw_doctor_id', $doctorId)
+                ->where('raw_branch_id', $branchId)
+                ->where('date', $date)
+                ->get();
+
+            $replaceExceptions = $exceptions->where('type', RawDoctorScheduleException::TYPE_REPLACE);
+            $addExceptions     = $exceptions->where('type', RawDoctorScheduleException::TYPE_ADD);
+
+            if ($replaceExceptions->isNotEmpty()) {
+                $ranges = $replaceExceptions->map(fn($e) => [
+                    'start_hour' => $e->start_hour,
+                    'end_hour'   => $e->end_hour,
+                ]);
+            }
+
+            $ranges = $ranges->concat(
+                $addExceptions->map(fn($e) => [
+                    'start_hour' => $e->start_hour,
+                    'end_hour'   => $e->end_hour,
+                ])
+            )->sortBy('start_hour')->values();
+        }
+
+        return $ranges;
+    }
+
+    /**
+     * Rentang [start,end] (H:i) yang sudah ter-booking utk dokter+tanggal.
+     *
+     * @return array<int,array{start:string,end:string}>
+     */
+    protected function resolveBookedRanges($doctorId, $date, string $reservationTable = 'raw_cus_reservation', $excludeId = null): array
+    {
+        return DB::table($reservationTable)
+            ->where('raw_doctor_id', $doctorId)
+            ->where('date', $date)
+            ->whereNotNull('start_hour')
+            ->whereNotNull('end_hour')
+            ->when($excludeId, fn($q) => $q->where('id', '!=', $excludeId))
+            ->get()
+            ->map(fn($r) => [
+                'start' => Carbon::parse($r->start_hour)->format('H:i'),
+                'end'   => Carbon::parse($r->end_hour)->format('H:i'),
+            ])->toArray();
+    }
+
+    /**
+     * Alokasikan jam untuk SEKUMPULAN pasien (1 nomor / keluarga) dalam 1
+     * tanggal. Tiap pasien punya dokter & durasi sendiri.
+     *
+     * Aturan:
+     *  - Pasien dgn dokter SAMA → disusun berurutan (tidak saling tabrak).
+     *  - Pasien dgn dokter BEDA → dihitung dari jadwal dokter itu sendiri
+     *    (timeline antar dokter independen / paralel).
+     *  - Tidak pernah menabrak reservasi existing (resolveBookedRanges) atau
+     *    anggota keluarga lain yang sudah dialokasikan.
+     *  - Default mulai = $defaultStart; kalau dokter itu tak punya slot di
+     *    >= $defaultStart, ambil slot paling awal hari itu; kalau dokter tak
+     *    praktik / penuh → waiting=true (tim konfirmasi).
+     *
+     * @param array<int,array{key:mixed,doctor_id:string,duration:int}> $items
+     * @return array<mixed,array{start:?string,end:?string,waiting:bool,reason:?string}>
+     */
+    protected function assignFamilySlots(
+        $branchId,
+        string $date,
+        array $items,
+        ?string $defaultStart = null,
+        string $reservationTable = 'raw_cus_reservation'
+    ): array {
+        $isToday = Carbon::parse($date)->isToday();
+        $nowHi   = Carbon::now()->format('H:i');
+        $result  = [];
+
+        // Cache per dokter: ranges, booked (existing), consumed (keluarga ini),
+        // dan cursor (jam selesai pasien terakhir dokter itu).
+        $byDoctor = [];
+
+        foreach ($items as $item) {
+            $doctorId = $item['doctor_id'];
+            $duration = max(1, (int) $item['duration']);
+            $key      = $item['key'];
+
+            if (!isset($byDoctor[$doctorId])) {
+                $byDoctor[$doctorId] = [
+                    'ranges'   => $this->resolveWorkingRanges($branchId, $doctorId, $date),
+                    'booked'   => $this->resolveBookedRanges($doctorId, $date, $reservationTable),
+                    'consumed' => [],
+                    'cursor'   => null,
+                ];
+            }
+            $D = &$byDoctor[$doctorId];
+
+            if ($D['ranges']->isEmpty()) {
+                $result[$key] = ['start' => null, 'end' => null, 'waiting' => true,
+                    'reason' => 'Dokter tidak praktik di tanggal ini'];
+                continue;
+            }
+
+            $lowerBound = $D['cursor'] ?: ($defaultStart ?: '00:00');
+            if ($isToday && $nowHi > $lowerBound) {
+                $lowerBound = $nowHi;
+            }
+
+            $chosen = $this->firstFreeStart($D, $duration, $lowerBound);
+
+            // Fallback: tidak ada slot >= lowerBound → coba paling awal hari
+            // itu (tetap hormati now kalau hari ini).
+            if ($chosen === null && $D['cursor'] === null) {
+                $earliest = ($isToday && $nowHi > '00:00') ? $nowHi : '00:00';
+                $chosen   = $this->firstFreeStart($D, $duration, $earliest);
+            }
+
+            if ($chosen === null) {
+                $result[$key] = ['start' => null, 'end' => null, 'waiting' => true,
+                    'reason' => 'Slot dokter penuh di tanggal ini'];
+                continue;
+            }
+
+            $end = Carbon::parse($chosen)->addMinutes($duration)->format('H:i');
+            $D['consumed'][] = ['start' => $chosen, 'end' => $end];
+            $D['cursor']     = $end;
+
+            $result[$key] = ['start' => $chosen, 'end' => $end, 'waiting' => false, 'reason' => null];
+        }
+
+        return $result;
+    }
+
+    /**
+     * Cari start paling awal (>= $lowerBound) dengan durasi $duration yang
+     * muat di salah satu working range dan tidak tabrakan booked/consumed.
+     * Kandidat di-generate dgn step = $duration (konsisten dgn grid slot).
+     */
+    private function firstFreeStart(array $D, int $duration, string $lowerBound): ?string
+    {
+        foreach ($D['ranges'] as $range) {
+            $cursor = Carbon::parse($range['start_hour']);
+            $rangeEnd = Carbon::parse($range['end_hour']);
+
+            while ($cursor->copy()->addMinutes($duration)->lte($rangeEnd)) {
+                $s = $cursor->format('H:i');
+                $e = $cursor->copy()->addMinutes($duration)->format('H:i');
+
+                if ($s >= $lowerBound && !$this->overlaps($s, $e, $D['booked'], $D['consumed'])) {
+                    return $s;
+                }
+                $cursor->addMinutes($duration);
+            }
+        }
+        return null;
+    }
+
+    /** True kalau [$s,$e) menabrak salah satu rentang booked/consumed. */
+    private function overlaps(string $s, string $e, array $booked, array $consumed): bool
+    {
+        foreach (array_merge($booked, $consumed) as $r) {
+            if ($s < $r['end'] && $e > $r['start']) {
+                return true;
+            }
+        }
+        return false;
+    }
+}
