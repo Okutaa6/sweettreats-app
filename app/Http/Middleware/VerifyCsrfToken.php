@@ -12,6 +12,11 @@ class VerifyCsrfToken extends Middleware
      * @var array<int, string>
      */
     protected $except = [
-        //
+        'koc/*/doctor',
+        'koc/*/behel-type',
+        'koc/*/feedback',
+        'koc/*/confirm-sosmed',
+        'apicekat/*',
+        'apicekatdev/*',
     ];
 }

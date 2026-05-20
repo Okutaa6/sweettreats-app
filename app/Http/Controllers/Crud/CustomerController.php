@@ -30,9 +30,16 @@ class CustomerController extends Controller
             'latestReservation.services.docService',
         ])->withCount('reservations');
 
-        // Sales hanya lihat pasien cabangnya sendiri
+        // Sales hanya lihat pasien cabangnya sendiri.
+        // Termasuk pasien yang raw_branch_id-nya NULL tapi pernah ada reservasi
+        // di cabang ini — safety net untuk data lama yang belum ter-migrasi.
         if ($sessionBranch) {
-            $query->where('raw_branch_id', $sessionBranch);
+            $query->where(function ($q) use ($sessionBranch) {
+                $q->where('raw_branch_id', $sessionBranch)
+                  ->orWhereHas('reservations', function ($r) use ($sessionBranch) {
+                      $r->where('raw_branch_id', $sessionBranch);
+                  });
+            });
         }
 
         // Admin: filter cabang manual
@@ -88,6 +95,19 @@ class CustomerController extends Controller
         $term = request('q', '');
         $query = RawCustomer::query();
 
+        // Scope ke cabang user kalau dia terkunci ke 1 cabang.
+        // Sales cabang Sunter hanya bisa cari pasien Sunter, dst.
+        // Termasuk pasien orphan (raw_branch_id NULL) yang pernah reservasi di cabang ini.
+        $sessionBranch = session('raw_branch_id');
+        if ($sessionBranch) {
+            $query->where(function ($q) use ($sessionBranch) {
+                $q->where('raw_branch_id', $sessionBranch)
+                  ->orWhereHas('reservations', function ($r) use ($sessionBranch) {
+                      $r->where('raw_branch_id', $sessionBranch);
+                  });
+            });
+        }
+
         if ($term) {
             $query->where(function ($q) use ($term) {
                 $q->where('name', 'like', "%{$term}%")
@@ -108,9 +128,8 @@ class CustomerController extends Controller
         return response()->json($customers->map(function ($c) use ($relasiLabel) {
             $rel = $relasiLabel[$c->relasi] ?? null;
             return [
-                'id'    => $c->id,
-                'phone' => $c->phone ?: '',
-                'text'  => $c->name
+                'id'   => $c->id,
+                'text' => $c->name
                     . ($rel ? ' · ' . $rel : '')
                     . ' (' . ($c->phone ?: '-') . ')',
             ];
@@ -184,9 +203,15 @@ class CustomerController extends Controller
         $sessionBranch = session('raw_branch_id');
         $userBranch = $sessionBranch ? RawBranch::find($sessionBranch) : null;
 
-        // Sales tidak boleh akses pasien cabang lain
-        if ($sessionBranch && $customer->raw_branch_id && $customer->raw_branch_id !== $sessionBranch) {
-            return redirect()->route('rawcustomer')->with('error', 'Anda tidak memiliki akses ke pasien cabang lain.');
+        // Sales tidak boleh akses pasien cabang lain.
+        // Allow kalau: (a) pasien punya branch sama dengan session, ATAU
+        //              (b) pasien orphan (NULL) tapi pernah reservasi di cabang session.
+        if ($sessionBranch) {
+            $sameBranch     = $customer->raw_branch_id === $sessionBranch;
+            $hasReservation = $customer->reservations->contains('raw_branch_id', $sessionBranch);
+            if (!$sameBranch && !$hasReservation) {
+                return redirect()->route('rawcustomer')->with('error', 'Anda tidak memiliki akses ke pasien cabang lain.');
+            }
         }
 
         $branches = RawBranch::orderBy('name')->get();
@@ -257,8 +282,10 @@ class CustomerController extends Controller
     {
         $sessionBranch = session('raw_branch_id');
         if ($sessionBranch) {
-            $customer = RawCustomer::findOrFail($id);
-            if ($customer->raw_branch_id && $customer->raw_branch_id !== $sessionBranch) {
+            $customer = RawCustomer::with('reservations')->findOrFail($id);
+            $sameBranch     = $customer->raw_branch_id === $sessionBranch;
+            $hasReservation = $customer->reservations->contains('raw_branch_id', $sessionBranch);
+            if (!$sameBranch && !$hasReservation) {
                 return redirect()->route('rawcustomer')->with('error', 'Anda tidak memiliki akses ke pasien cabang lain.');
             }
         }
@@ -298,10 +325,14 @@ class CustomerController extends Controller
     public function destroy($id)
     {
         $sessionBranch = session('raw_branch_id');
-        $customer = RawCustomer::findOrFail($id);
+        $customer = RawCustomer::with('reservations')->findOrFail($id);
 
-        if ($sessionBranch && $customer->raw_branch_id && $customer->raw_branch_id !== $sessionBranch) {
-            return redirect()->route('rawcustomer')->with('error', 'Anda tidak memiliki akses ke pasien cabang lain.');
+        if ($sessionBranch) {
+            $sameBranch     = $customer->raw_branch_id === $sessionBranch;
+            $hasReservation = $customer->reservations->contains('raw_branch_id', $sessionBranch);
+            if (!$sameBranch && !$hasReservation) {
+                return redirect()->route('rawcustomer')->with('error', 'Anda tidak memiliki akses ke pasien cabang lain.');
+            }
         }
 
         // Detach reservasi (set customer ke NULL, reservasi tetap ada)

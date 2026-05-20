@@ -159,4 +159,31 @@ class DocServiceController extends Controller
 
         return redirect()->route('rawdocservice.edit', $serviceId)->with('success', 'Sub-detail berhasil dihapus');
     }
+
+    public function detailReorder($serviceId)
+    {
+        $order = request()->input('order', []);
+        if (! is_array($order) || empty($order)) {
+            return response()->json(['status' => 'error', 'message' => 'Parameter order wajib berupa array berisi id detail.'], 422);
+        }
+
+        $detailIds = RawDocServiceDetail::where('raw_doc_service_id', $serviceId)->pluck('id')->all();
+
+        $position = 1;
+        foreach ($order as $detailId) {
+            if (! in_array($detailId, $detailIds, true)) {
+                continue;
+            }
+            RawDocServiceDetail::where('raw_doc_service_id', $serviceId)
+                ->where('id', $detailId)
+                ->update([
+                    'sort_order' => $position,
+                    'updated_at' => now(),
+                    'updated_by' => session('id'),
+                ]);
+            $position++;
+        }
+
+        return response()->json(['status' => 'success']);
+    }
 }

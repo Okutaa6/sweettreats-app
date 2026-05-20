@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Crud;
 use App\Http\Controllers\Controller;
 use App\Models\RawDoctor;
 use App\Models\RawDoctorSchedule;
+use App\Models\RawDoctorScheduleException;
 use App\Models\RawBranch;
 
 class DoctorController extends Controller
@@ -93,9 +94,18 @@ class DoctorController extends Controller
             ->get();
 
             //new
-        $allServices     = \App\Models\RawDocService::orderBy('name')->get();
-        $doctorServiceIds = \App\Models\RawDoctorService::where('raw_doctor_id', $id)
-            ->pluck('raw_doc_service_id')
+        $allServices     = \App\Models\RawDocService::with(['allDetails'])->orderBy('name')->get();
+        $doctorServicePivots = \App\Models\RawDoctorService::where('raw_doctor_id', $id)
+            ->get()
+            ->keyBy('raw_doc_service_id');
+        $doctorServiceIds = $doctorServicePivots->keys()->toArray();
+        // map: service_id => duration_minutes (nullable) dari pivot
+        $doctorServiceDurations = $doctorServicePivots->map(fn($p) => $p->duration_minutes)->toArray();
+
+        // Per-doctor sub-detail duration overrides
+        $doctorDetailDurations = \App\Models\RawDoctorServiceDetail::where('raw_doctor_id', $id)
+            ->get()
+            ->mapWithKeys(fn($p) => [$p->raw_doc_service_detail_id => $p->duration_minutes])
             ->toArray();
 
         $leaves = \Illuminate\Support\Facades\DB::table('raw_doctor_leave')
@@ -103,7 +113,16 @@ class DoctorController extends Controller
             ->orderByDesc('start_date')
             ->get();
 
-        return view('crud.doctor.edit', compact('doctor', 'schedules', 'branches', 'allServices', 'doctorServiceIds', 'leaves'));
+        $exceptions = RawDoctorScheduleException::with('branch')
+            ->where('raw_doctor_id', $id)
+            ->orderByDesc('date')
+            ->get();
+
+        return view('crud.doctor.edit', compact(
+            'doctor', 'schedules', 'branches',
+            'allServices', 'doctorServiceIds', 'doctorServiceDurations', 'doctorDetailDurations',
+            'leaves', 'exceptions'
+        ));
     }
 
     // === Doctor Leave (Cuti) ===
@@ -140,27 +159,144 @@ class DoctorController extends Controller
     }
 
     public function servicesUpdate($doctorId)
-{
-    $doctor = RawDoctor::findOrFail($doctorId);
+    {
+        $doctor = RawDoctor::findOrFail($doctorId);
 
-    // Hapus semua service lama
-    \App\Models\RawDoctorService::where('raw_doctor_id', $doctorId)->delete();
+        // Hapus semua service lama
+        \App\Models\RawDoctorService::where('raw_doctor_id', $doctorId)->delete();
 
-    // Insert service baru yang diceklist
-    $services = request('services', []);
-    foreach ($services as $serviceId) {
-        \Illuminate\Support\Facades\DB::table('raw_doctor_service')->insert([
-            'id'                => \Illuminate\Support\Str::uuid()->toString(),
-            'raw_doctor_id'     => $doctorId,
-            'raw_doc_service_id'=> $serviceId,
-            'created_by'        => session('id'),
-            'created_at'        => now(),
-        ]);
+        // Insert service baru yang diceklist
+        $services = request('services', []);
+        // Map service_id => durasi override (nullable)
+        // Format input: services_duration[$serviceId] = '10' / '' / null
+        $durations = request('services_duration', []);
+
+        foreach ($services as $serviceId) {
+            $dur = null;
+            if (config('features.flexible_scheduling')) {
+                $rawDur = $durations[$serviceId] ?? null;
+                $dur    = ($rawDur === null || $rawDur === '') ? null : (float) $rawDur;
+            }
+
+            \Illuminate\Support\Facades\DB::table('raw_doctor_service')->insert([
+                'id'                => \Illuminate\Support\Str::uuid()->toString(),
+                'raw_doctor_id'     => $doctorId,
+                'raw_doc_service_id'=> $serviceId,
+                'duration_minutes'  => $dur,
+                'created_by'        => session('id'),
+                'created_at'        => now(),
+            ]);
+        }
+
+        // Per-doctor sub-detail duration overrides
+        // Format input: details_duration[$detailId] = '15' / '' / null
+        if (config('features.flexible_scheduling')) {
+            \App\Models\RawDoctorServiceDetail::where('raw_doctor_id', $doctorId)->delete();
+
+            // Whitelist sub-detail IDs yang parent service-nya dicentang (anti-orphan)
+            $allowedDetailIds = \App\Models\RawDocServiceDetail::whereIn('raw_doc_service_id', $services)
+                ->pluck('id')
+                ->all();
+
+            $detailDurations = request('details_duration', []);
+            foreach ($detailDurations as $detailId => $rawDur) {
+                if ($rawDur === null || $rawDur === '') {
+                    continue; // skip kosong (= pakai default)
+                }
+                if (!in_array($detailId, $allowedDetailIds, true)) {
+                    continue; // skip kalau parent service tidak dicentang
+                }
+                \Illuminate\Support\Facades\DB::table('raw_doctor_service_detail')->insert([
+                    'id'                       => \Illuminate\Support\Str::uuid()->toString(),
+                    'raw_doctor_id'            => $doctorId,
+                    'raw_doc_service_detail_id'=> $detailId,
+                    'duration_minutes'         => (float) $rawDur,
+                    'created_by'               => session('id'),
+                    'created_at'               => now(),
+                ]);
+            }
+        }
+
+        return redirect()->route('rawdoctor.edit', $doctorId)
+            ->with('success', 'Service dokter berhasil diperbarui');
     }
 
-    return redirect()->route('rawdoctor.edit', $doctorId)
-        ->with('success', 'Service dokter berhasil diperbarui');
-}
+    // === Doctor Schedule Exception (pengecualian jadwal per tanggal) ===
+
+    public function exceptionStore($doctorId)
+    {
+        abort_unless(config('features.flexible_scheduling'), 404);
+
+        request()->validate([
+            'raw_branch_id' => 'required',
+            'date'          => 'required|date',
+            'type'          => 'required|in:replace,add',
+            'start_hour'    => 'required',
+            'end_hour'      => 'required|after:start_hour',
+            'reason'        => 'nullable|max:255',
+        ]);
+
+        RawDoctor::findOrFail($doctorId);
+
+        RawDoctorScheduleException::create([
+            'raw_doctor_id' => $doctorId,
+            'raw_branch_id' => request('raw_branch_id'),
+            'date'          => request('date'),
+            'type'          => request('type'),
+            'start_hour'    => request('start_hour'),
+            'end_hour'      => request('end_hour'),
+            'reason'        => request('reason'),
+            'created_by'    => session('id'),
+            'created_at'    => now(),
+        ]);
+
+        return redirect()->route('rawdoctor.edit', $doctorId)
+            ->with('success', 'Pengecualian jadwal berhasil ditambahkan');
+    }
+
+    public function exceptionUpdate($doctorId, $exceptionId)
+    {
+        abort_unless(config('features.flexible_scheduling'), 404);
+
+        request()->validate([
+            'raw_branch_id' => 'required',
+            'date'          => 'required|date',
+            'type'          => 'required|in:replace,add',
+            'start_hour'    => 'required',
+            'end_hour'      => 'required|after:start_hour',
+            'reason'        => 'nullable|max:255',
+        ]);
+
+        $exception = RawDoctorScheduleException::where('raw_doctor_id', $doctorId)
+            ->findOrFail($exceptionId);
+
+        $exception->update([
+            'raw_branch_id' => request('raw_branch_id'),
+            'date'          => request('date'),
+            'type'          => request('type'),
+            'start_hour'    => request('start_hour'),
+            'end_hour'      => request('end_hour'),
+            'reason'        => request('reason'),
+            'updated_by'    => session('id'),
+            'updated_at'    => now(),
+        ]);
+
+        return redirect()->route('rawdoctor.edit', $doctorId)
+            ->with('success', 'Pengecualian jadwal berhasil diubah');
+    }
+
+    public function exceptionDestroy($doctorId, $exceptionId)
+    {
+        abort_unless(config('features.flexible_scheduling'), 404);
+
+        $exception = RawDoctorScheduleException::where('raw_doctor_id', $doctorId)
+            ->findOrFail($exceptionId);
+
+        $exception->delete();
+
+        return redirect()->route('rawdoctor.edit', $doctorId)
+            ->with('success', 'Pengecualian jadwal berhasil dihapus');
+    }
 
     public function update($id)
     {

@@ -13,10 +13,17 @@ class ContentReviewController extends Controller
 {
     public function index()
     {
-        $filterStatus   = request('status', 'pending');
-        $filterType     = request('type', 'all');
-        $filterPlatform = request('platform', 'all');
-        $search         = trim((string) request('q', ''));
+        $filterStatus      = request('status', 'pending');
+        $filterType        = request('type', 'all');
+        $filterPlatform    = request('platform', 'all');
+        $filterAffiliateId = request('affiliate_id');
+        $search            = trim((string) request('q', ''));
+
+        // Kalau di-link dari KOC list (?affiliate_id=...) — tampilkan semua status
+        // affiliate tsb supaya admin bisa lihat full history-nya.
+        if ($filterAffiliateId && !request()->has('status')) {
+            $filterStatus = 'all';
+        }
 
         $query = AffiliateContent::with(['affiliate', 'reviewer'])
             ->orderByDesc('created_at');
@@ -37,6 +44,10 @@ class ContentReviewController extends Controller
             $query->where('platform', $filterPlatform);
         }
 
+        if ($filterAffiliateId) {
+            $query->where('raw_affiliate_id', $filterAffiliateId);
+        }
+
         if ($search !== '') {
             $query->whereHas('affiliate', function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
@@ -45,10 +56,11 @@ class ContentReviewController extends Controller
         }
 
         $contents = $query->paginate(20)->appends([
-            'status'   => $filterStatus,
-            'type'     => $filterType,
-            'platform' => $filterPlatform,
-            'q'        => $search,
+            'status'       => $filterStatus,
+            'type'         => $filterType,
+            'platform'     => $filterPlatform,
+            'affiliate_id' => $filterAffiliateId,
+            'q'            => $search,
         ]);
 
         $counts = [

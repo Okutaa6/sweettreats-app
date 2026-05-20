@@ -17,8 +17,20 @@ use App\Http\Middleware\AuthGuard;
 use App\Http\Middleware\IsLoggedIn;
 use App\Http\Controllers\Crud\AffiliateController;
 use App\Http\Controllers\Crud\PromoController;
+use App\Http\Controllers\Crud\MarketingPromoController;
+use App\Http\Controllers\Crud\CommissionClaimController;
+use App\Http\Controllers\Crud\KontenPillarController;
+use App\Http\Controllers\Crud\EpKontenController;
+use App\Http\Controllers\Crud\EpKontenImageController;
+use App\Http\Controllers\Crud\EpBreakdownController;
+use App\Http\Controllers\Crud\EpCampaignController;
 use App\Http\Controllers\Crud\KeywordController;
 use App\Http\Controllers\Crud\ReportReferralController;
+use App\Http\Controllers\Crud\KolController;
+use App\Http\Controllers\Crud\KocController;
+use App\Http\Controllers\Crud\SweetMatesController;
+use App\Http\Controllers\Crud\PettyCashController;
+use App\Http\Controllers\Crud\CashDepositController;
 
 
 Route::get('/', function () {
@@ -46,6 +58,7 @@ Route::prefix('affiliate')->group(function () {
     Route::post('login', [$portal, 'loginProcess'])->name('affiliate.login.process');
     Route::get('register',  [$portal, 'register'])->name('affiliate.register');
     Route::post('register', [$portal, 'registerProcess'])->name('affiliate.register.process');
+    Route::get('thank-you', [$portal, 'thankYou'])->name('affiliate.thankyou');
     Route::get('logout', [$portal, 'logout'])->name('affiliate.logout');
 
     // Portal (session guard via controller)
@@ -67,6 +80,12 @@ Route::prefix('affiliate')->group(function () {
     // Rewards
     Route::get('rewards', [$portal, 'rewards'])->name('affiliate.rewards');
     Route::post('rewards/{tierId}/claim', [$portal, 'claimReward'])->name('affiliate.reward.claim');
+    Route::post('rewards/switch', [$portal, 'switchRewardProgram'])->name('affiliate.reward.switch');
+
+    // Commissions
+    Route::get('commissions', [$portal, 'commissions'])->name('affiliate.commissions');
+    Route::post('commissions/claim',                   [$portal, 'requestCommissionClaim'])->name('affiliate.commissions.claim');
+    Route::post('commissions/claim/{batchId}/confirm', [$portal, 'confirmCommissionClaim'])->name('affiliate.commissions.confirm');
 });
 
 Route::get('/reservasi/riwayat', function () {
@@ -208,12 +227,16 @@ Route::middleware([AuthGuard::class])->group(function () {
     Route::post('rawdoctor/{doctorId}/leave', [DoctorController::class, 'leaveStore'])->name('rawdoctor.leave.store');
     Route::delete('rawdoctor/{doctorId}/leave/{leaveId}', [DoctorController::class, 'leaveDestroy'])->name('rawdoctor.leave.destroy');
 
+    if (config('features.flexible_scheduling')) {
+        Route::post('rawdoctor/{doctorId}/exception', [DoctorController::class, 'exceptionStore'])->name('rawdoctor.exception.store');
+        Route::put('rawdoctor/{doctorId}/exception/{exceptionId}', [DoctorController::class, 'exceptionUpdate'])->name('rawdoctor.exception.update');
+        Route::delete('rawdoctor/{doctorId}/exception/{exceptionId}', [DoctorController::class, 'exceptionDestroy'])->name('rawdoctor.exception.destroy');
+    }
+
     // CRUD - Reservation
     Route::get('rawreservation', [ReservationController::class, 'index'])->name('rawreservation');
     Route::get('rawreservation/new', [ReservationController::class, 'create'])->name('rawreservation.new');
     Route::post('rawreservation/new', [ReservationController::class, 'store'])->name('rawreservation.store');
-    // Daftarkan pasien baru di sebuah nomor (1 nomor banyak pasien).
-    // Harus sebelum route wildcard {id} agar tidak tertangkap olehnya.
     Route::post('rawreservation/quick-patient', [ReservationController::class, 'storeQuickPatient'])->name('rawreservation.quickpatient');
     Route::get('rawreservation/{id}', [ReservationController::class, 'edit'])->name('rawreservation.edit');
     Route::put('rawreservation/{id}', [ReservationController::class, 'update'])->name('rawreservation.update');
@@ -236,6 +259,7 @@ Route::middleware([AuthGuard::class])->group(function () {
     Route::post('rawdocservice/{id}/detail', [DocServiceController::class, 'detailStore'])->name('rawdocservice.detail.store');
     Route::put('rawdocservice/{id}/detail/{detailId}', [DocServiceController::class, 'detailUpdate'])->name('rawdocservice.detail.update');
     Route::delete('rawdocservice/{id}/detail/{detailId}', [DocServiceController::class, 'detailDestroy'])->name('rawdocservice.detail.destroy');
+    Route::post('rawdocservice/{id}/detail/reorder', [DocServiceController::class, 'detailReorder'])->name('rawdocservice.detail.reorder');
 
     // CRUD - Branch
     Route::get('rawbranch', [BranchController::class, 'index'])->name('rawbranch');
@@ -253,17 +277,59 @@ Route::middleware([AuthGuard::class])->group(function () {
     Route::post('rawaffiliate/new', [AffiliateController::class, 'store'])->name('rawaffiliate.store');
     Route::patch('rawaffiliate/{id}/approve', [AffiliateController::class, 'approve'])->name('rawaffiliate.approve');
     Route::patch('rawaffiliate/{id}/reject', [AffiliateController::class, 'reject'])->name('rawaffiliate.reject');
+    Route::post('rawaffiliate/{id}/promo', [AffiliateController::class, 'addPromo'])->name('rawaffiliate.add-promo');
     Route::get('rawaffiliate/{id}', [AffiliateController::class, 'edit'])->name('rawaffiliate.edit');
     Route::put('rawaffiliate/{id}', [AffiliateController::class, 'update'])->name('rawaffiliate.update');
     Route::delete('rawaffiliate/{id}', [AffiliateController::class, 'destroy'])->name('rawaffiliate.destroy');
+    Route::get('kol',                 [KolController::class, 'index'])->name('kol');
+    Route::get('kol/existing',        [KolController::class, 'existing'])->name('kol.existing');
+    Route::get('kol/csv-template',    [KolController::class, 'downloadCsvTemplate'])->name('kol.csv-template');
+    Route::post('kol/import-csv',     [KolController::class, 'importCsv'])->name('kol.import-csv');
+    Route::patch('kol/{id}/progress', [KolController::class, 'updateProgress'])->name('kol.update-progress');
+    Route::patch('kol/{id}/rencana-perawatan', [KolController::class, 'updateRencanaPerawatan'])->name('kol.update-rencana-perawatan');
+    Route::patch('kol/{id}/feedback', [KolController::class, 'updateFeedback'])->name('kol.update-feedback');
+    Route::patch('kol/{id}/status-relasi', [KolController::class, 'updateStatusRelasi'])->name('kol.update-status-relasi');
+    Route::get('koc', [KocController::class, 'index'])->name('koc');
+    Route::get('koc/csv-template', [KocController::class, 'downloadCsvTemplate'])->name('koc.csv-template');
+    Route::post('koc/import-csv',  [KocController::class, 'importCsv'])->name('koc.import-csv');
+    Route::patch('koc/{id}/confirm-sosmed', [KocController::class, 'toggleSosmedConfirmed'])->name('koc.confirm-sosmed');
+    Route::patch('koc/{id}/doctor', [KocController::class, 'updateDoctor'])->name('koc.update-doctor');
+    Route::patch('koc/{id}/behel-type', [KocController::class, 'updateBehelType'])->name('koc.update-behel-type');
+    Route::patch('koc/{id}/feedback', [KocController::class, 'updateFeedback'])->name('koc.update-feedback');
+    Route::get('koc/{id}/contents', [KocController::class, 'contents'])->name('koc.contents');
 
-    // CRUD - Promo
+    // CRUD - Petty Cash (kas kecil — imprest/dana tetap)
+    Route::get('pettycash',                       [PettyCashController::class, 'index'])->name('pettycash');
+    Route::post('pettycash/expense',              [PettyCashController::class, 'store'])->name('pettycash.expense');
+    Route::post('pettycash/topup',                [PettyCashController::class, 'topup'])->name('pettycash.topup');
+    Route::delete('pettycash/transaction/{id}',   [PettyCashController::class, 'destroy'])->name('pettycash.destroy');
+    Route::post('pettycash/period/{id}/close',    [PettyCashController::class, 'close'])->name('pettycash.close');
+
+    // CRUD - Setoran (cash deposit dari pasien)
+    Route::get('setoran',                         [CashDepositController::class, 'index'])->name('setoran');
+    Route::post('setoran/payment',                [CashDepositController::class, 'storePayment'])->name('setoran.payment');
+    Route::post('setoran/setor',                  [CashDepositController::class, 'storeSetor'])->name('setoran.setor');
+    Route::delete('setoran/transaction/{id}',     [CashDepositController::class, 'destroy'])->name('setoran.destroy');
+
+
+     // CRUD - Kode Referral (sebelumnya "Promo")
     Route::get('rawpromo', [PromoController::class, 'index'])->name('rawpromo');
     Route::get('rawpromo/new', [PromoController::class, 'create'])->name('rawpromo.new');
     Route::post('rawpromo/new', [PromoController::class, 'store'])->name('rawpromo.store');
     Route::get('rawpromo/{id}', [PromoController::class, 'edit'])->name('rawpromo.edit');
     Route::put('rawpromo/{id}', [PromoController::class, 'update'])->name('rawpromo.update');
     Route::delete('rawpromo/{id}', [PromoController::class, 'destroy'])->name('rawpromo.destroy');
+
+    // CRUD - Marketing Promo (Promo umum dari Head Sales — Promo Bulanan, Sweet Surprise, dll)
+    Route::get('marketing-promo',         [MarketingPromoController::class, 'index'])->name('marketingpromo');
+    Route::get('marketing-promo/new',     [MarketingPromoController::class, 'create'])->name('marketingpromo.new');
+    Route::post('marketing-promo/new',    [MarketingPromoController::class, 'store'])->name('marketingpromo.store');
+    Route::get('marketing-promo/{id}',    [MarketingPromoController::class, 'edit'])->name('marketingpromo.edit');
+    Route::put('marketing-promo/{id}',    [MarketingPromoController::class, 'update'])->name('marketingpromo.update');
+    Route::delete('marketing-promo/{id}', [MarketingPromoController::class, 'destroy'])->name('marketingpromo.destroy');
+    Route::patch('marketing-promo/{id}/status', [MarketingPromoController::class, 'updateStatus'])->name('marketingpromo.status');
+    Route::get('api/marketing-promo/active', [MarketingPromoController::class, 'apiActiveByBranch'])
+        ->middleware('throttle:60,1')->name('api.marketingpromo.active');
 
     // CRUD - Keyword
     Route::get('rawkeyword', [KeywordController::class, 'index'])->name('rawkeyword');
@@ -288,6 +354,58 @@ Route::middleware([AuthGuard::class])->group(function () {
     // Report Referral
     Route::get('report-referral', [ReportReferralController::class, 'index'])->name('report.referral');
 
+    // Commission Claim Batch (Fase 2D — admin/PJ side)
+    Route::get('commission-claim',                   [CommissionClaimController::class, 'index'])->name('commissionclaim');
+    Route::get('commission-claim/{id}',              [CommissionClaimController::class, 'show'])->name('commissionclaim.show');
+    Route::patch('commission-claim/{id}/take',       [CommissionClaimController::class, 'takeReview'])->name('commissionclaim.take');
+    Route::patch('commission-claim/{id}/approve',    [CommissionClaimController::class, 'approveBatch'])->name('commissionclaim.approve');
+    Route::post('commission-claim/{id}/upload',      [CommissionClaimController::class, 'uploadProof'])->name('commissionclaim.upload');
+    Route::patch('commission-claim/{id}/complete',   [CommissionClaimController::class, 'forceComplete'])->name('commissionclaim.complete');
+
+    // Editorial Plan — Konten Pillar (Fase 3B — master pillar)
+    Route::get('konten-pillar',         [KontenPillarController::class, 'index'])->name('kontenpillar');
+    Route::get('konten-pillar/new',     [KontenPillarController::class, 'create'])->name('kontenpillar.new');
+    Route::post('konten-pillar/new',    [KontenPillarController::class, 'store'])->name('kontenpillar.store');
+    Route::get('konten-pillar/{id}',    [KontenPillarController::class, 'edit'])->name('kontenpillar.edit');
+    Route::put('konten-pillar/{id}',    [KontenPillarController::class, 'update'])->name('kontenpillar.update');
+    Route::delete('konten-pillar/{id}', [KontenPillarController::class, 'destroy'])->name('kontenpillar.destroy');
+
+    // Editorial Plan — EP Konten Bulanan/Mingguan (Fase 3C)
+    Route::get('ep-konten',                [EpKontenController::class, 'index'])->name('epkonten');
+    Route::get('ep-konten/new',            [EpKontenController::class, 'create'])->name('epkonten.new');
+    Route::post('ep-konten/new',           [EpKontenController::class, 'store'])->name('epkonten.store');
+    Route::get('ep-konten/{id}',           [EpKontenController::class, 'edit'])->name('epkonten.edit');
+    Route::put('ep-konten/{id}',           [EpKontenController::class, 'update'])->name('epkonten.update');
+    Route::delete('ep-konten/{id}',        [EpKontenController::class, 'destroy'])->name('epkonten.destroy');
+    Route::patch('ep-konten/{id}/status',  [EpKontenController::class, 'updateStatus'])->name('epkonten.status');
+    Route::post('api/ep-konten/quick',     [EpKontenController::class, 'quickStore'])->name('epkonten.quick-store');
+
+    // EP Konten — Upload foto + workflow review (Fase 3C+)
+    // PENTING: semua URL diawali "ep-konten/" supaya inherit RBAC dari ep-konten
+    // (AuthGuard cek segment(1) → kalau "ep-konten-image" akan di-redirect karena
+    // tidak terdaftar di tabel group_access).
+    Route::post('ep-konten/{id}/images',                  [EpKontenImageController::class, 'store'])->name('ep-konten.images.store');
+    Route::get('ep-konten/{id}/images',                   [EpKontenImageController::class, 'index'])->name('ep-konten.images.index');
+    Route::patch('ep-konten/image/{id}/review',           [EpKontenImageController::class, 'review'])->name('ep-konten-image.review');
+    Route::delete('ep-konten/image/{id}',                 [EpKontenImageController::class, 'destroy'])->name('ep-konten-image.destroy');
+    Route::get('ep-konten/image/{id}/download',           [EpKontenImageController::class, 'download'])->name('ep-konten-image.download');
+
+    // Editorial Plan — Breakdown Konten (Fase 3D)
+    Route::get('ep-breakdown',         [EpBreakdownController::class, 'index'])->name('epbreakdown');
+    Route::get('ep-breakdown/new',     [EpBreakdownController::class, 'create'])->name('epbreakdown.new');
+    Route::post('ep-breakdown/new',    [EpBreakdownController::class, 'store'])->name('epbreakdown.store');
+    Route::get('ep-breakdown/{id}',    [EpBreakdownController::class, 'edit'])->name('epbreakdown.edit');
+    Route::put('ep-breakdown/{id}',    [EpBreakdownController::class, 'update'])->name('epbreakdown.update');
+    Route::delete('ep-breakdown/{id}', [EpBreakdownController::class, 'destroy'])->name('epbreakdown.destroy');
+
+    // Editorial Plan — Campaign Framework (Fase 3E)
+    Route::get('ep-campaign',         [EpCampaignController::class, 'index'])->name('epcampaign');
+    Route::get('ep-campaign/new',     [EpCampaignController::class, 'create'])->name('epcampaign.new');
+    Route::post('ep-campaign/new',    [EpCampaignController::class, 'store'])->name('epcampaign.store');
+    Route::get('ep-campaign/{id}',    [EpCampaignController::class, 'edit'])->name('epcampaign.edit');
+    Route::put('ep-campaign/{id}',    [EpCampaignController::class, 'update'])->name('epcampaign.update');
+    Route::delete('ep-campaign/{id}', [EpCampaignController::class, 'destroy'])->name('epcampaign.destroy');
+
     // Content Review (KOC/KOL)
     Route::get('content-review', [\App\Http\Controllers\Set\ContentReviewController::class, 'index'])->name('content.review');
     Route::get('content-review/{id}/edit', [\App\Http\Controllers\Set\ContentReviewController::class, 'edit'])->name('content.review.edit');
@@ -295,6 +413,9 @@ Route::middleware([AuthGuard::class])->group(function () {
     Route::patch('content-review/{id}/approve', [\App\Http\Controllers\Set\ContentReviewController::class, 'approve'])->name('content.review.approve');
     Route::patch('content-review/{id}/reject', [\App\Http\Controllers\Set\ContentReviewController::class, 'reject'])->name('content.review.reject');
 });
+
+    // CRUD - Sweet Mates (Program Rewards)
+    Route::get('sweet-mates', [SweetMatesController::class, 'index'])->name('sweetmates');
 
 Route::middleware([IsLoggedIn::class])->group(function () {
     Route::prefix('signin')->group(function () {

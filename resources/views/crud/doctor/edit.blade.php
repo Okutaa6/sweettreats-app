@@ -153,42 +153,44 @@
                                                 action="{{ route('rawdoctor.schedule.update', [$doctor->id, $schedule->id]) }}">
                                                 @csrf @method('PUT')
                                                 <div class="modal-header">
-                                                    <h5 class="modal-title">Edit Jadwal</h5>
+                                                    <h5 class="modal-title"><i class="fa fa-pencil" style="margin-right:6px;opacity:.8;"></i> Edit Jadwal — {{ $doctor->name }}</h5>
                                                     <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
                                                 </div>
                                                 <div class="modal-body">
-                                                    <div class="form-group">
-                                                        <label style="font-weight:600;">Hari</label>
-                                                        <select class="form-control" name="day" required>
-                                                            @foreach ($dayNames as $num => $name)
-                                                                <option value="{{ $num }}"
-                                                                    {{ $schedule->day == $num ? 'selected' : '' }}>
-                                                                    {{ $name }}
-                                                                </option>
-                                                            @endforeach
-                                                        </select>
-                                                    </div>
-                                                    <div class="form-group">
-                                                        <label style="font-weight:600;">Cabang</label>
-                                                        <select class="form-control" name="raw_branch_id" required>
-                                                            <option value="">- Pilih Cabang -</option>
-                                                            @foreach ($branches as $branch)
-                                                                <option value="{{ $branch->id }}"
-                                                                    {{ $schedule->raw_branch_id == $branch->id ? 'selected' : '' }}>
-                                                                    {{ $branch->name }}
-                                                                </option>
-                                                            @endforeach
-                                                        </select>
-                                                    </div>
-                                                    <div class="form-group">
-                                                        <label style="font-weight:600;">Jam Mulai</label>
-                                                        <input type="time" class="form-control" name="start_hour"
-                                                            value="{{ $schedule->start_hour }}" required>
-                                                    </div>
-                                                    <div class="form-group">
-                                                        <label style="font-weight:600;">Jam Selesai</label>
-                                                        <input type="time" class="form-control" name="end_hour"
-                                                            value="{{ $schedule->end_hour }}" required>
+                                                    <div class="row">
+                                                        <div class="col-md-6">
+                                                            <div class="form-group">
+                                                                <label>Hari <span class="text-danger">*</span></label>
+                                                                <select class="form-control form-control-sm" name="day" required>
+                                                                    @foreach ($dayNames as $num => $name)
+                                                                        <option value="{{ $num }}" {{ $schedule->day == $num ? 'selected' : '' }}>{{ $name }}</option>
+                                                                    @endforeach
+                                                                </select>
+                                                            </div>
+                                                        </div>
+                                                        <div class="col-md-6">
+                                                            <div class="form-group">
+                                                                <label>Cabang <span class="text-danger">*</span></label>
+                                                                <select class="form-control form-control-sm" name="raw_branch_id" required>
+                                                                    <option value="">- Pilih Cabang -</option>
+                                                                    @foreach ($branches as $branch)
+                                                                        <option value="{{ $branch->id }}" {{ $schedule->raw_branch_id == $branch->id ? 'selected' : '' }}>{{ $branch->name }}</option>
+                                                                    @endforeach
+                                                                </select>
+                                                            </div>
+                                                        </div>
+                                                        <div class="col-md-6">
+                                                            <div class="form-group">
+                                                                <label>Jam Mulai <span class="text-danger">*</span></label>
+                                                                <input type="time" class="form-control form-control-sm" name="start_hour" step="300" value="{{ $schedule->start_hour }}" required>
+                                                            </div>
+                                                        </div>
+                                                        <div class="col-md-6">
+                                                            <div class="form-group">
+                                                                <label>Jam Selesai <span class="text-danger">*</span></label>
+                                                                <input type="time" class="form-control form-control-sm" name="end_hour" step="300" value="{{ $schedule->end_hour }}" required>
+                                                            </div>
+                                                        </div>
                                                     </div>
                                                 </div>
                                                 <div class="modal-footer">
@@ -214,21 +216,84 @@
         <div class="st-card mb-3">
             <div class="st-card__body">
                 <h6 class="st-section-title"><i class="fa fa-stethoscope"></i> Perawatan yang Bisa Dilakukan</h6>
+                <p class="small text-muted mb-2" style="font-size:11px;">
+                    Centang perawatan yang dilayani dokter ini. Kolom <strong>Durasi (mnt)</strong> opsional — isi kalau dokter ini butuh durasi berbeda dari default service. Kosongkan = pakai durasi default.
+                    @if(config('features.flexible_scheduling'))
+                        <br>Untuk perawatan yang punya sub-detail, klik <em>"Durasi sub-detail per dokter"</em> di bawah perawatan untuk mengatur durasi per sub-detail.
+                    @endif
+                </p>
                 <form method="POST" action="{{ route('rawdoctor.services.update', $doctor->id) }}">
                     @csrf
                     <div class="row">
                         @foreach ($allServices as $service)
-                            <div class="col-md-4 mb-2">
-                                <div class="custom-control custom-checkbox">
-                                    <input type="checkbox" class="custom-control-input"
-                                        id="svc_{{ $service->id }}" name="services[]"
-                                        value="{{ $service->id }}"
-                                        {{ in_array($service->id, $doctorServiceIds) ? 'checked' : '' }}>
-                                    <label class="custom-control-label" for="svc_{{ $service->id }}">
-                                        <strong>{{ $service->name }}</strong>
-                                        <small class="text-muted d-block">{{ $service->duration_minutes }} menit</small>
-                                    </label>
+                            @php
+                                $isChecked = in_array($service->id, $doctorServiceIds);
+                                $override  = $doctorServiceDurations[$service->id] ?? null;
+                            @endphp
+                            <div class="col-md-6 mb-2">
+                                <div class="d-flex align-items-center" style="gap:8px;">
+                                    <div class="custom-control custom-checkbox" style="flex:1;">
+                                        <input type="checkbox" class="custom-control-input doctor-service-check"
+                                            id="svc_{{ $service->id }}" name="services[]"
+                                            value="{{ $service->id }}"
+                                            data-target="dur_{{ $service->id }}"
+                                            data-subdetails="subdetails_{{ $service->id }}"
+                                            {{ $isChecked ? 'checked' : '' }}>
+                                        <label class="custom-control-label" for="svc_{{ $service->id }}">
+                                            <strong>{{ $service->name }}</strong>
+                                            <small class="text-muted d-block">Default: {{ rtrim(rtrim(number_format($service->duration_minutes, 2), '0'), '.') }} menit</small>
+                                        </label>
+                                    </div>
+                                    @if(config('features.flexible_scheduling'))
+                                    <input type="number"
+                                        id="dur_{{ $service->id }}"
+                                        name="services_duration[{{ $service->id }}]"
+                                        class="form-control form-control-sm"
+                                        style="width:90px; flex:0 0 90px;"
+                                        min="5" step="5"
+                                        placeholder="{{ rtrim(rtrim(number_format($service->duration_minutes, 2), '0'), '.') }}"
+                                        value="{{ $override !== null ? rtrim(rtrim(number_format($override, 2), '0'), '.') : '' }}"
+                                        {{ $isChecked ? '' : 'disabled' }}>
+                                    @endif
                                 </div>
+
+                                @if(config('features.flexible_scheduling') && $service->allDetails->isNotEmpty())
+                                    @php
+                                        $hasAnyDetailOverride = $service->allDetails->contains(fn($d) => isset($doctorDetailDurations[$d->id]) && $doctorDetailDurations[$d->id] !== null);
+                                    @endphp
+                                    <div class="subdetail-block" id="subdetails_{{ $service->id }}"
+                                        style="margin-left:24px; margin-top:8px; padding:8px 10px; background:#fdf8f1; border:1px solid #f0e3d2; border-radius:8px; {{ $isChecked ? '' : 'display:none;' }}">
+                                        <button type="button" class="btn-toggle-subdetail" data-target="subdetail-list-{{ $service->id }}"
+                                            style="background:none; border:none; padding:0; font-size:11px; color:#6b4c1e; cursor:pointer; font-weight:600; text-transform:none; letter-spacing:normal;">
+                                            <i class="fa fa-chevron-{{ $hasAnyDetailOverride ? 'down' : 'right' }}"></i>
+                                            Durasi sub-detail per dokter ({{ $service->allDetails->count() }})
+                                            @if($hasAnyDetailOverride)
+                                                <span class="badge badge-warning" style="font-size:9px; margin-left:4px;">ada override</span>
+                                            @endif
+                                        </button>
+                                        <div id="subdetail-list-{{ $service->id }}"
+                                            style="margin-top:8px; {{ $hasAnyDetailOverride ? '' : 'display:none;' }}">
+                                            @foreach($service->allDetails as $detail)
+                                                @php
+                                                    $detailOverride = $doctorDetailDurations[$detail->id] ?? null;
+                                                @endphp
+                                                <div class="d-flex align-items-center" style="gap:6px; margin-bottom:4px;">
+                                                    <span style="flex:1; font-size:11px; color:#5b3d18;">
+                                                        {{ $detail->name }}
+                                                        <small class="text-muted">(default {{ rtrim(rtrim(number_format($detail->duration_minutes, 2), '0'), '.') }} mnt)</small>
+                                                    </span>
+                                                    <input type="number"
+                                                        name="details_duration[{{ $detail->id }}]"
+                                                        class="form-control form-control-sm"
+                                                        style="width:70px; font-size:11px;"
+                                                        min="5" step="5"
+                                                        placeholder="{{ rtrim(rtrim(number_format($detail->duration_minutes, 2), '0'), '.') }}"
+                                                        value="{{ $detailOverride !== null ? rtrim(rtrim(number_format($detailOverride, 2), '0'), '.') : '' }}">
+                                                </div>
+                                            @endforeach
+                                        </div>
+                                    </div>
+                                @endif
                             </div>
                         @endforeach
                     </div>
@@ -239,6 +304,42 @@
                 </form>
             </div>
         </div>
+
+        <script>
+            document.querySelectorAll('.doctor-service-check').forEach(function (cb) {
+                cb.addEventListener('change', function () {
+                    const target = document.getElementById(cb.dataset.target);
+                    if (target) {
+                        target.disabled = !cb.checked;
+                        if (!cb.checked) target.value = '';
+                    }
+                    // Toggle sub-detail block visibility (kalau ada)
+                    const subBlock = document.getElementById(cb.dataset.subdetails);
+                    if (subBlock) {
+                        subBlock.style.display = cb.checked ? '' : 'none';
+                        if (!cb.checked) {
+                            // clear semua override sub-detail kalau service tidak dicentang
+                            subBlock.querySelectorAll('input[type=number]').forEach(function (inp) { inp.value = ''; });
+                        }
+                    }
+                });
+            });
+
+            // Toggle expand/collapse sub-detail list
+            document.querySelectorAll('.btn-toggle-subdetail').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    const list = document.getElementById(btn.dataset.target);
+                    if (!list) return;
+                    const isHidden = list.style.display === 'none';
+                    list.style.display = isHidden ? '' : 'none';
+                    const icon = btn.querySelector('i');
+                    if (icon) {
+                        icon.classList.toggle('fa-chevron-right', !isHidden);
+                        icon.classList.toggle('fa-chevron-down', isHidden);
+                    }
+                });
+            });
+        </script>
 
         {{-- Cuti Dokter --}}
         <div class="st-card">
@@ -325,6 +426,146 @@
                 </div>
             </div>
         </div>
+
+        {{-- Jadwal Khusus (disabled until flexible_scheduling feature is approved) --}}
+        @if(config('features.flexible_scheduling'))
+        <div class="st-card mt-3">
+            <div class="st-card__body">
+                <h6 class="st-section-title"><i class="fa fa-calendar-plus"></i> Jadwal Khusus</h6>
+
+                {{-- Info box --}}
+                <div style="background:#fef9f0; border:1px solid #f0d9a8; border-radius:10px; padding:12px 16px; margin-bottom:20px; display:flex; gap:10px; align-items:flex-start;">
+                    <i class="fa fa-lightbulb-o" style="color:#b07d2a; margin-top:2px; flex-shrink:0;"></i>
+                    <span style="font-size:12px; color:#6b4c1e; line-height:1.6;">
+                        Gunakan bagian ini bila ada tanggal tertentu yang jadwalnya <strong>berbeda dari jadwal mingguan biasa</strong> dokter —
+                        misalnya dokter pulang lebih awal, masuk di hari yang biasanya libur, atau ada perubahan jam mendadak.
+                    </span>
+                </div>
+
+                {{-- Form tambah --}}
+                <form method="post" action="{{ route('rawdoctor.exception.store', $doctor->id) }}" class="exc-add-form mb-4">
+                    @csrf
+
+                    {{-- Baris 1: tipe (radio card) --}}
+                    <div class="mb-3">
+                        <label style="font-weight:700; font-size:12px; display:block; margin-bottom:8px;">Situasinya apa? <span class="text-danger">*</span></label>
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                            <label class="exc-type-card" id="exc-card-replace">
+                                <input type="radio" name="type" value="replace" checked style="display:none;">
+                                <div style="display:flex; gap:10px; align-items:flex-start;">
+                                    <span style="font-size:1.3rem; line-height:1;">🕐</span>
+                                    <div>
+                                        <div style="font-weight:700; font-size:12px; color:#461500;">Jam Berbeda dari Biasanya</div>
+                                        <div style="font-size:11px; color:#7a6a5a; margin-top:2px; line-height:1.4;">Dokter tetap kerja di hari itu, tapi jam mulai atau selesainya berbeda dari jadwal rutin</div>
+                                    </div>
+                                </div>
+                            </label>
+                            <label class="exc-type-card" id="exc-card-add">
+                                <input type="radio" name="type" value="add" style="display:none;">
+                                <div style="display:flex; gap:10px; align-items:flex-start;">
+                                    <span style="font-size:1.3rem; line-height:1;">📅</span>
+                                    <div>
+                                        <div style="font-weight:700; font-size:12px; color:#461500;">Hari Tambahan</div>
+                                        <div style="font-size:11px; color:#7a6a5a; margin-top:2px; line-height:1.4;">Dokter buka di tanggal ini, padahal hari itu biasanya libur</div>
+                                    </div>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    {{-- Baris 2: tanggal + cabang + jam --}}
+                    <div class="row">
+                        <div class="col-md-2">
+                            <label style="font-weight:600; font-size:12px;">Tanggal <span class="text-danger">*</span></label>
+                            <input type="date" name="date" class="form-control form-control-sm" required>
+                        </div>
+                        <div class="col-md-2">
+                            <label style="font-weight:600; font-size:12px;">Cabang <span class="text-danger">*</span></label>
+                            <select name="raw_branch_id" class="form-control form-control-sm" required>
+                                <option value="">- Pilih -</option>
+                                @foreach ($branches as $branch)
+                                    <option value="{{ $branch->id }}">{{ $branch->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label style="font-weight:600; font-size:12px;">Jam Mulai <span class="text-danger">*</span></label>
+                            <input type="time" name="start_hour" class="form-control form-control-sm" step="300" required>
+                        </div>
+                        <div class="col-md-2">
+                            <label style="font-weight:600; font-size:12px;">Jam Selesai <span class="text-danger">*</span></label>
+                            <input type="time" name="end_hour" class="form-control form-control-sm" step="300" required>
+                        </div>
+                        <div class="col-md-2">
+                            <label style="font-weight:600; font-size:12px;">Catatan <small class="text-muted">(opsional)</small></label>
+                            <input type="text" name="reason" class="form-control form-control-sm" placeholder="Mis: Dokter ada acara" maxlength="255">
+                        </div>
+                        <div class="col-md-2 d-flex align-items-end">
+                            <button type="submit" class="st-btn-brand w-100" style="font-size:12px; padding:6px 12px;">
+                                <i class="fa fa-plus"></i> Simpan Jadwal Khusus
+                            </button>
+                        </div>
+                    </div>
+                </form>
+
+                {{-- Tabel data --}}
+                <div class="st-table-wrap--scroll">
+                    <table class="st-table st-table--compact">
+                        <thead>
+                            <tr>
+                                <th width="4%">No</th>
+                                <th>Tanggal</th>
+                                <th>Cabang</th>
+                                <th>Situasi</th>
+                                <th>Jam Kerja</th>
+                                <th>Catatan</th>
+                                <th width="8%">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @forelse($exceptions as $i => $ex)
+                                <tr>
+                                    <td class="st-num">{{ $i + 1 }}</td>
+                                    <td><span class="st-date">{{ \Carbon\Carbon::parse($ex->date)->isoFormat('dddd, D MMM Y') }}</span></td>
+                                    <td>{{ $ex->branch->name ?? '-' }}</td>
+                                    <td>
+                                        @if ($ex->type === 'replace')
+                                            <span style="display:inline-flex; align-items:center; gap:4px; background:#fff8e1; color:#7a5c00; border:1px solid #ffe082; border-radius:20px; padding:3px 10px; font-size:11px; font-weight:700;">
+                                                🕐 Jam Berbeda
+                                            </span>
+                                        @else
+                                            <span style="display:inline-flex; align-items:center; gap:4px; background:#e8f5e9; color:#2e7d32; border:1px solid #a5d6a7; border-radius:20px; padding:3px 10px; font-size:11px; font-weight:700;">
+                                                📅 Hari Tambahan
+                                            </span>
+                                        @endif
+                                    </td>
+                                    <td style="font-weight:600;">{{ substr($ex->start_hour, 0, 5) }} – {{ substr($ex->end_hour, 0, 5) }}</td>
+                                    <td style="color:#7a6a5a;">{{ $ex->reason ?: '-' }}</td>
+                                    <td>
+                                        <button class="st-icon-btn" title="Edit"
+                                            onclick="openEditException('{{ $ex->id }}','{{ $ex->raw_branch_id }}','{{ $ex->date }}','{{ $ex->type }}','{{ substr($ex->start_hour,0,5) }}','{{ substr($ex->end_hour,0,5) }}','{{ addslashes($ex->reason) }}')">
+                                            <i class="fa fa-pencil" style="color:#461500"></i>
+                                        </button>
+                                        <button class="st-icon-btn" onclick="deleteException('{{ $ex->id }}')" title="Hapus">
+                                            <i class="fa fa-trash" style="color:#B23A3A"></i>
+                                        </button>
+                                        <form method="post" action="{{ route('rawdoctor.exception.destroy', [$doctor->id, $ex->id]) }}"
+                                            id="deleteException{{ $ex->id }}">
+                                            @csrf @method('DELETE')
+                                        </form>
+                                    </td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="7" class="text-center st-muted">Belum ada jadwal khusus</td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        @endif {{-- features.flexible_scheduling --}}
     </div>
 
     {{-- Add Schedule Modal --}}
@@ -334,39 +575,49 @@
                 <form method="POST" action="{{ route('rawdoctor.schedule.store', $doctor->id) }}">
                     @csrf
                     <div class="modal-header">
-                        <h5 class="modal-title">Tambah Jadwal — {{ $doctor->name }}</h5>
+                        <h5 class="modal-title"><i class="fa fa-calendar-plus" style="margin-right:6px;opacity:.8;"></i> Tambah Jadwal — {{ $doctor->name }}</h5>
                         <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
                     </div>
                     <div class="modal-body">
-                        <div class="form-group">
-                            <label style="font-weight:600;">Hari</label>
-                            <select class="form-control" name="day" required>
-                                <option value="">- Pilih Hari -</option>
-                                <option value="1">Senin</option>
-                                <option value="2">Selasa</option>
-                                <option value="3">Rabu</option>
-                                <option value="4">Kamis</option>
-                                <option value="5">Jumat</option>
-                                <option value="6">Sabtu</option>
-                                <option value="7">Minggu</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label style="font-weight:600;">Cabang</label>
-                            <select class="form-control" name="raw_branch_id" required>
-                                <option value="">- Pilih Cabang -</option>
-                                @foreach ($branches as $branch)
-                                    <option value="{{ $branch->id }}">{{ $branch->name }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label style="font-weight:600;">Jam Mulai</label>
-                            <input type="time" class="form-control" name="start_hour" required>
-                        </div>
-                        <div class="form-group">
-                            <label style="font-weight:600;">Jam Selesai</label>
-                            <input type="time" class="form-control" name="end_hour" required>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label>Hari <span class="text-danger">*</span></label>
+                                    <select class="form-control form-control-sm" name="day" required>
+                                        <option value="">- Pilih Hari -</option>
+                                        <option value="1">Senin</option>
+                                        <option value="2">Selasa</option>
+                                        <option value="3">Rabu</option>
+                                        <option value="4">Kamis</option>
+                                        <option value="5">Jumat</option>
+                                        <option value="6">Sabtu</option>
+                                        <option value="7">Minggu</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label>Cabang <span class="text-danger">*</span></label>
+                                    <select class="form-control form-control-sm" name="raw_branch_id" required>
+                                        <option value="">- Pilih Cabang -</option>
+                                        @foreach ($branches as $branch)
+                                            <option value="{{ $branch->id }}">{{ $branch->name }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label>Jam Mulai <span class="text-danger">*</span></label>
+                                    <input type="time" class="form-control form-control-sm" name="start_hour" step="300" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label>Jam Selesai <span class="text-danger">*</span></label>
+                                    <input type="time" class="form-control form-control-sm" name="end_hour" step="300" required>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -412,5 +663,173 @@
             confirmButtonText: 'Ya, Hapus!', cancelButtonText: 'Batal',
         }).then((result) => { if (result.isConfirmed) { $('#deleteLeave' + id).submit(); } })
     }
+
+    @if(config('features.flexible_scheduling'))
+    function deleteException(id) {
+        Swal.fire({
+            title: 'Hapus Jadwal Khusus?', text: "Data yang dihapus tidak dapat dikembalikan!",
+            icon: 'warning', showCancelButton: true, confirmButtonColor: '#461500', cancelButtonColor: '#aaa',
+            confirmButtonText: 'Ya, Hapus!', cancelButtonText: 'Batal',
+        }).then((result) => { if (result.isConfirmed) { $('#deleteException' + id).submit(); } })
+    }
+
+    // Radio card styling untuk type selection
+    document.querySelectorAll('.exc-type-card input[type=radio]').forEach(function (radio) {
+        radio.addEventListener('change', function () {
+            document.querySelectorAll('.exc-type-card').forEach(c => c.classList.remove('exc-type-card--active'));
+            if (this.checked) this.closest('.exc-type-card').classList.add('exc-type-card--active');
+        });
+    });
+    // Set active state on load (replace is checked by default)
+    document.querySelectorAll('.exc-type-card input[type=radio]:checked').forEach(function (r) {
+        r.closest('.exc-type-card').classList.add('exc-type-card--active');
+    });
+
+    // Edit exception modal
+    function openEditException(id, branchId, date, type, startHour, endHour, reason) {
+        document.getElementById('editExcId').value       = id;
+        document.getElementById('editExcBranch').value   = branchId;
+        document.getElementById('editExcDate').value     = date;
+        document.getElementById('editExcStart').value    = startHour;
+        document.getElementById('editExcEnd').value      = endHour;
+        document.getElementById('editExcReason').value   = reason;
+        // Set radio + visual active state
+        document.querySelectorAll('#editExceptionModal .exc-type-card').forEach(c => {
+            const r = c.querySelector('input[type=radio]');
+            r.checked = (r.value === type);
+            c.classList.toggle('exc-type-card--active', r.checked);
+        });
+        document.getElementById('editExcAction').value =
+            '{{ route("rawdoctor.exception.update", [$doctor->id, "__ID__"]) }}'.replace('__ID__', id);
+        $('#editExceptionModal').modal('show');
+    }
+
+    document.querySelectorAll('#editExceptionModal .exc-type-card input[type=radio]').forEach(function (radio) {
+        radio.addEventListener('change', function () {
+            document.querySelectorAll('#editExceptionModal .exc-type-card').forEach(c => c.classList.remove('exc-type-card--active'));
+            if (this.checked) this.closest('.exc-type-card').classList.add('exc-type-card--active');
+        });
+    });
+
+    document.getElementById('editExcSubmit').addEventListener('click', function () {
+        document.getElementById('editExceptionForm').action = document.getElementById('editExcAction').value;
+        document.getElementById('editExceptionForm').submit();
+    });
+    @endif {{-- features.flexible_scheduling --}}
 </script>
+
+@if(config('features.flexible_scheduling'))
+{{-- Edit Exception Modal --}}
+<div class="modal fade" id="editExceptionModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header" style="background:#461500; color:#fff; border-radius:8px 8px 0 0;">
+                <h5 class="modal-title" style="font-size:14px; font-weight:700;">
+                    <i class="fa fa-pencil"></i> Edit Jadwal Khusus
+                </h5>
+                <button type="button" class="close" data-dismiss="modal" style="color:#fff; opacity:1;">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="editExceptionForm" method="post">
+                    @csrf @method('PUT')
+                    <input type="hidden" id="editExcId" name="_exc_id">
+                    <input type="hidden" id="editExcAction">
+
+                    <div class="mb-3">
+                        <label style="font-weight:700; font-size:12px; display:block; margin-bottom:8px;">Situasinya apa? <span class="text-danger">*</span></label>
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                            <label class="exc-type-card">
+                                <input type="radio" name="type" value="replace" style="display:none;">
+                                <div style="display:flex; gap:10px; align-items:flex-start;">
+                                    <span style="font-size:1.3rem; line-height:1;">🕐</span>
+                                    <div>
+                                        <div style="font-weight:700; font-size:12px; color:#461500;">Jam Berbeda dari Biasanya</div>
+                                        <div style="font-size:11px; color:#7a6a5a; margin-top:2px; line-height:1.4;">Dokter tetap kerja, tapi jam berbeda dari jadwal rutin</div>
+                                    </div>
+                                </div>
+                            </label>
+                            <label class="exc-type-card">
+                                <input type="radio" name="type" value="add" style="display:none;">
+                                <div style="display:flex; gap:10px; align-items:flex-start;">
+                                    <span style="font-size:1.3rem; line-height:1;">📅</span>
+                                    <div>
+                                        <div style="font-weight:700; font-size:12px; color:#461500;">Hari Tambahan</div>
+                                        <div style="font-size:11px; color:#7a6a5a; margin-top:2px; line-height:1.4;">Dokter buka di tanggal ini, padahal hari itu biasanya libur</div>
+                                    </div>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-3">
+                            <label style="font-weight:600; font-size:12px;">Tanggal <span class="text-danger">*</span></label>
+                            <input type="date" name="date" id="editExcDate" class="form-control form-control-sm" required>
+                        </div>
+                        <div class="col-md-3">
+                            <label style="font-weight:600; font-size:12px;">Cabang <span class="text-danger">*</span></label>
+                            <select name="raw_branch_id" id="editExcBranch" class="form-control form-control-sm" required>
+                                <option value="">- Pilih -</option>
+                                @foreach ($branches as $branch)
+                                    <option value="{{ $branch->id }}">{{ $branch->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label style="font-weight:600; font-size:12px;">Jam Mulai <span class="text-danger">*</span></label>
+                            <input type="time" name="start_hour" id="editExcStart" class="form-control form-control-sm" step="300" required>
+                        </div>
+                        <div class="col-md-2">
+                            <label style="font-weight:600; font-size:12px;">Jam Selesai <span class="text-danger">*</span></label>
+                            <input type="time" name="end_hour" id="editExcEnd" class="form-control form-control-sm" step="300" required>
+                        </div>
+                        <div class="col-md-2">
+                            <label style="font-weight:600; font-size:12px;">Catatan</label>
+                            <input type="text" name="reason" id="editExcReason" class="form-control form-control-sm" maxlength="255">
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="st-btn-outline-brown" data-dismiss="modal">Batal</button>
+                <button type="button" id="editExcSubmit" class="st-btn-brand">
+                    <i class="fa fa-save"></i> Simpan Perubahan
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+@endif {{-- features.flexible_scheduling --}}
+
+<style>
+    /* Radio card — override global uppercase label */
+    .exc-type-card {
+        display: block;
+        padding: 12px 14px;
+        border: 2px solid #e8ddd4;
+        border-radius: 10px;
+        cursor: pointer;
+        transition: all 0.2s;
+        background: #fffaf5;
+        margin: 0;
+    }
+    .exc-type-card:hover { border-color: #c0946a; background: #fef5ec; }
+    .exc-type-card--active { border-color: #461500 !important; background: #fef5ec !important; box-shadow: 0 0 0 3px rgba(70,21,0,0.08); }
+    .exc-type-card * { text-transform: none !important; letter-spacing: normal !important; }
+    .exc-type-card label { font-weight: 400 !important; margin: 0; }
+
+    /* Consistent modal styling */
+    .modal-content { border-radius: 12px; overflow: hidden; border: none; box-shadow: 0 10px 40px rgba(0,0,0,0.18); }
+    .modal-header { background: linear-gradient(135deg, #461500, #6b2400) !important; padding: 14px 20px; border-bottom: none; }
+    .modal-header .modal-title { color: #fff !important; font-size: 14px !important; font-weight: 700; }
+    .modal-header .close { color: #fff !important; opacity: 0.8; text-shadow: none; }
+    .modal-header .close:hover { opacity: 1; }
+    .modal-body { padding: 20px; }
+    .modal-body .form-group { margin-bottom: 14px; }
+    .modal-body .form-group label { font-size: 12px; font-weight: 600; margin-bottom: 4px; }
+    .modal-footer { border-top: 1px solid #f0e8e0; padding: 12px 20px; }
+</style>
+
 @endsection

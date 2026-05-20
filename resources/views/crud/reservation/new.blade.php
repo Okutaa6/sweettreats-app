@@ -35,7 +35,7 @@
                                         <option value="">- Cari Pasien -</option>
                                         @foreach ($customers as $customer)
                                             @if(old('raw_customer_id') == $customer->id)
-                                                <option value="{{ $customer->id }}" data-phone="{{ $customer->phone ?? '' }}" selected>
+                                                <option value="{{ $customer->id }}" selected>
                                                     {{ $customer->name }} ({{ $customer->phone ?: '-' }})
                                                 </option>
                                             @endif
@@ -53,18 +53,14 @@
 
                                     <div id="quickPatientBox" class="qp-card" style="display:none;">
                                         <div class="qp-card__head">
-                                            <span id="qpCardTitle"><i class="fa fa-user-plus"></i> Pasien Baru</span>
+                                            <span><i class="fa fa-user-plus"></i> Pasien Baru di Nomor Ini</span>
                                             <button type="button" class="qp-close" id="qpCloseBtn" aria-label="Tutup">&times;</button>
                                         </div>
                                         <div class="qp-card__body">
                                             <div class="row">
-                                                <div class="col-md-6 form-group">
+                                                <div class="col-md-12 form-group">
                                                     <label>Nama Pasien <span class="qp-req">*</span></label>
                                                     <input type="text" id="qpName" class="form-control" placeholder="Nama lengkap pasien">
-                                                </div>
-                                                <div class="col-md-6 form-group">
-                                                    <label>No. HP <span class="qp-req">*</span></label>
-                                                    <input type="text" id="qpPhone" class="form-control" placeholder="08xxxxxxxxxx">
                                                 </div>
                                                 <div class="col-md-4 form-group">
                                                     <label>Jenis Kelamin</label>
@@ -263,7 +259,6 @@
             padding:9px 18px; font-weight:700; font-size:.85rem; cursor:pointer;
         }
         .st-btn-ghost:hover { background:#e6dacc; }
-        #qpTgl[readonly] { cursor: pointer; background: #fffaf5; }
     </style>
     <script>
         // ===== LAYANAN CHECKLIST =====
@@ -299,8 +294,18 @@
                 $('#totalDurationInfo').html('Belum ada layanan dipilih').hide();
             }
 
-            totalDuration = total || 30;
-            if (allSlots.length > 0) reRenderSlots();
+            const newDuration = total || 30;
+            const durationChanged = newDuration !== totalDuration;
+            totalDuration = newDuration;
+
+            if (allSlots.length > 0) {
+                if (durationChanged) {
+                    // interval slot tergantung durasi → harus re-fetch dari API
+                    loadSlots();
+                } else {
+                    reRenderSlots();
+                }
+            }
 
             // refresh end_hour kalau sudah ada start yang dipilih
             if (selectedStart) {
@@ -327,6 +332,12 @@
                 const isChecked      = existing !== null;
                 const existDetailIds = existing ? (existing.detail_ids || []) : [];
 
+                // Prefer durasi efektif per-dokter (dari pivot raw_doctor_service) kalau ada,
+                // fallback ke durasi global service.
+                const effectiveDur = (svc.effective_duration_minutes !== undefined && svc.effective_duration_minutes !== null)
+                    ? svc.effective_duration_minutes
+                    : svc.duration_minutes;
+
                 html += '<div class="st-service-row ' + (isChecked ? 'is-checked' : '') + '" id="svcRow_' + svc.id + '">';
                 html += '<div class="st-service-row__top">';
                 html += '<div class="custom-control custom-checkbox">'
@@ -336,13 +347,13 @@
                       + 'value="1" '
                       + 'data-svc-id="' + svc.id + '" '
                       + 'data-svc-name="' + svc.name + '" '
-                      + 'data-default-dur="' + svc.duration_minutes + '" '
+                      + 'data-default-dur="' + effectiveDur + '" '
                       + (isChecked ? 'checked' : '') + '>'
                       + '<label class="custom-control-label" for="svc_' + svc.id + '">'
                       + '<strong>' + svc.name + '</strong>'
                       + '</label></div>';
                 html += '<span class="badge badge-light text-muted svc-dur-badge" id="svcDurBadge_' + svc.id + '">'
-                      + '<i class="fa fa-clock"></i> ' + svc.duration_minutes + ' menit</span>';
+                      + '<i class="fa fa-clock"></i> ' + effectiveDur + ' menit</span>';
                 html += '<span class="badge badge-light text-muted" id="svcPriceBadge_' + svc.id + '">'
                       + '<i class="fa fa-tag"></i> Rp ' + Number(svc.price).toLocaleString('id-ID') + '</span>';
                 html += '</div>';
@@ -374,15 +385,18 @@
 
                         html += '<div class="d-flex align-items-center justify-content-between mb-1 sub-detail-item" data-name="' + safeName + '">';
                         html += '<div class="custom-control custom-checkbox">';
+                        const detailDur = (d.effective_duration_minutes !== undefined && d.effective_duration_minutes !== null)
+                            ? d.effective_duration_minutes
+                            : d.duration_minutes;
                         html += '<input type="checkbox" class="custom-control-input svc-detail-checkbox" '
                               + 'id="svc_detail_' + d.id + '" '
                               + 'name="services[' + svc.id + '][detail_id][]" '
                               + 'value="' + d.id + '" '
                               + 'data-svc-id="' + svc.id + '" '
-                              + 'data-dur="' + d.duration_minutes + '" '
+                              + 'data-dur="' + detailDur + '" '
                               + (isDetailChecked ? 'checked' : '') + '>';
                         html += '<label class="custom-control-label" style="cursor:pointer;" for="svc_detail_' + d.id + '">'
-                              + d.name + ' <small class="text-muted">(' + d.duration_minutes + ' mnt — Rp ' + Number(d.price).toLocaleString('id-ID') + ')</small>'
+                              + d.name + ' <small class="text-muted">(' + detailDur + ' mnt — Rp ' + Number(d.price).toLocaleString('id-ID') + ')</small>'
                               + '</label></div>';
 
                         html += '<div class="d-flex align-items-center" style="gap:6px; ' + (isDetailChecked ? '' : 'display:none;') + '" id="qty_wrap_' + d.id + '">';
@@ -643,7 +657,11 @@
             $('#loadSlotsBtn').html('<i class="fa fa-spinner fa-spin"></i> Memuat...').prop('disabled', true);
             $('#slotsContainer').html('');
 
-            fetch('/api/reservation/slots/' + branchId + '/' + doctorId + '/' + date)
+            const durationParam = (totalDuration && totalDuration > 0)
+                ? ('?duration=' + encodeURIComponent(totalDuration))
+                : '';
+
+            fetch('/api/reservation/slots/' + branchId + '/' + doctorId + '/' + date + durationParam)
                 .then(function(r) {
                     if (!r.ok) throw new Error('HTTP ' + r.status);
                     return r.json();
@@ -732,13 +750,6 @@
         // ===== END SLOT PICKER =====
 
         // ===== CUSTOMER SELECT2 AJAX =====
-        // Cache id -> phone supaya panel quick-add bisa prefill nomor pasien
-        // yang dipilih (tanpa nanya nomor 2x).
-        window.qpPhones = window.qpPhones || {};
-        $('#customerSelect option').each(function () {
-            const v = $(this).val(); const p = $(this).data('phone');
-            if (v && p) window.qpPhones[v] = p;
-        });
         $('#customerSelect').select2({
             placeholder: '- Cari Pasien -',
             allowClear: true,
@@ -748,10 +759,7 @@
                 dataType: 'json',
                 delay: 300,
                 data: function(params) { return { q: params.term }; },
-                processResults: function(data) {
-                    (data || []).forEach(function (r) { if (r.id) window.qpPhones[r.id] = r.phone || ''; });
-                    return { results: data };
-                }
+                processResults: function(data) { return { results: data }; }
             }
         });
 
@@ -761,39 +769,37 @@
             maxDate: 'today', disableMobile: true
         });
 
-        function qpSelectedPhone() {
-            const id = $('#customerSelect').val();
-            return id ? (window.qpPhones[id] || '') : '';
-        }
-        function qpApplyContext() {
-            const phone = qpSelectedPhone();
-            if (phone) {
-                $('#qpCardTitle').html('<i class="fa fa-user-plus"></i> Pasien Baru di Nomor ' + phone);
-                $('#qpPhone').val(phone).prop('readonly', true).attr('title', 'Otomatis ikut nomor pasien terpilih');
-            } else {
-                $('#qpCardTitle').html('<i class="fa fa-user-plus"></i> Pasien Baru');
-                $('#qpPhone').val('').prop('readonly', false).removeAttr('title');
-            }
-        }
-        function qpOpen()  { qpApplyContext(); $('#quickPatientBox').slideDown(150); $('#toggleQuickPatient').hide(); $('#qpName').focus(); }
+        function qpOpen()  { $('#quickPatientBox').slideDown(150); $('#toggleQuickPatient').hide(); $('#qpName').focus(); }
         function qpClose() { $('#quickPatientBox').slideUp(150); $('#toggleQuickPatient').show(); $('#qpStatus').empty(); }
 
         $('#toggleQuickPatient').on('click', function (e) { e.preventDefault(); qpOpen(); });
         $('#qpCloseBtn, #qpCancelBtn').on('click', function () { qpClose(); });
 
+        function qpExtractPhoneFromSelected() {
+            const text = $('#customerSelect option:selected').text() || '';
+            const m = text.match(/\(([^)]+)\)\s*$/);
+            const phone = m ? m[1].trim() : '';
+            return phone && phone !== '-' ? phone : '';
+        }
+
         $('#qpSaveBtn').on('click', function () {
             const $btn = $(this);
+            const phone = qpExtractPhoneFromSelected();
             const payload = {
                 _token:        $('input[name=_token]').first().val(),
                 name:          $('#qpName').val().trim(),
-                phone:         $('#qpPhone').val().trim(),
+                phone:         phone,
                 email:         $('#qpEmail').val().trim(),
                 jenis_kelamin: $('#qpJk').val(),
                 tanggal_lahir: $('#qpTgl').val(),
                 relasi:        $('#qpRelasi').val()
             };
-            if (!payload.name || !payload.phone) {
-                $('#qpStatus').html('<span class="qp-msg qp-err">Nama &amp; No. HP wajib diisi.</span>');
+            if (!payload.name) {
+                $('#qpStatus').html('<span class="qp-msg qp-err">Nama pasien wajib diisi.</span>');
+                return;
+            }
+            if (!payload.phone) {
+                $('#qpStatus').html('<span class="qp-msg qp-err">Pilih pasien lama dulu untuk mengambil nomor HP.</span>');
                 return;
             }
             const html = $btn.html();
@@ -801,7 +807,7 @@
             $.post('{{ route("rawreservation.quickpatient") }}', payload, function (res) {
                 const opt = new Option(res.text, res.id, true, true);
                 $('#customerSelect').append(opt).trigger('change');
-                $('#qpName,#qpPhone,#qpEmail').val('');
+                $('#qpName,#qpEmail').val('');
                 if ($('#qpTgl')[0]._flatpickr) $('#qpTgl')[0]._flatpickr.clear();
                 $('#qpStatus').html('<span class="qp-msg qp-ok"><i class="fa fa-check-circle"></i> Pasien ditambahkan &amp; dipilih.</span>');
                 setTimeout(qpClose, 900);

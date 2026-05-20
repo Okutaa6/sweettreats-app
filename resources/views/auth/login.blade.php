@@ -9,7 +9,7 @@
     <link rel="shortcut icon" href="{{ asset('sysprofile/' . $sysprofile['syslogo']) }}">
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="{{ asset('assets/css/bootstrap.min.css') }}" rel="stylesheet" type="text/css" />
-    <link href="{{ asset('assets/css/style.sweettreats.css') }}?v={{ @filemtime(public_path('assets/css/style.sweettreats.css')) ?: '1' }}" rel="stylesheet" type="text/css" />
+    <link href="{{ asset('assets/css/style.sweettreats2.css') }}?v={{ @filemtime(public_path('assets/css/style.sweettreats.css')) ?: '1' }}" rel="stylesheet" type="text/css" />
     <script src="https://www.google.com/recaptcha/api.js" async defer></script>
 </head>
 

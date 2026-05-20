@@ -23,6 +23,25 @@
         $stComplaintBadge = 0;
         $stComplaintTitle = null;
     }
+
+    // ─── Dynamic greeting subtitle berdasarkan waktu ─────────────────────
+    $stNowMinutes = (int) (\Carbon\Carbon::now()->hour * 60 + \Carbon\Carbon::now()->minute);
+    if ($stNowMinutes >= 300 && $stNowMinutes < 720) {          // 05:00–11:59
+        $stGreetPrefix = 'Selamat pagi,';
+        $stGreetSuffix = 'Semoga harimu menyenangkan!';
+    } elseif ($stNowMinutes >= 720 && $stNowMinutes < 800) {    // 12:00–13:19
+        $stGreetPrefix = 'Selamat siang,';
+        $stGreetSuffix = 'Jangan lupa istirahat ya!';
+    } elseif ($stNowMinutes >= 800 && $stNowMinutes < 900) {    // 13:20–14:59
+        $stGreetPrefix = 'Selamat siang,';
+        $stGreetSuffix = 'Yuk Lanjut Kerja!';
+    } elseif ($stNowMinutes >= 900 && $stNowMinutes < 1080) {   // 15:00–17:59
+        $stGreetPrefix = 'Selamat sore,';
+        $stGreetSuffix = 'Sudah minum air putih belum?';
+    } else {                                                     // 18:00–04:59
+        $stGreetPrefix = 'Selamat malam,';
+        $stGreetSuffix = 'Terima kasih sudah kerja keras hari ini!';
+    }
 @endphp
 
 <div class="topbar st-topbar">
@@ -41,24 +60,43 @@
 
         {{-- Greeting --}}
         <div class="st-greeting">
-            <button type="button" id="stLoveBtn" class="st-love-icon" title="Suka">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-                </svg>
-            </button>
-            <script>
-            (function () {
-                const btn = document.getElementById('stLoveBtn');
-                if (!btn) return;
-                if (localStorage.getItem('stLoveActive') === '1') btn.classList.add('is-active');
-                btn.addEventListener('click', function () {
-                    const active = btn.classList.toggle('is-active');
-                    localStorage.setItem('stLoveActive', active ? '1' : '0');
-                });
-            })();
-            </script>
-            <span>Semangat ya kerjanya, <strong>{{ $stUserName }}</strong></span>
+            <div class="st-greeting-text">
+                <div class="st-greeting-title">
+                    Selamat Datang di <span class="st-greeting-accent">Data Center</span>
+                    <span class="st-greeting-wave">👋</span>
+                </div>
+                <div class="st-greeting-sub" id="stGreetingSub" data-username="{{ $stUserName }}">
+                    {{ $stGreetPrefix }} <strong>{{ $stUserName }}</strong>. {{ $stGreetSuffix }}
+                </div>
+            </div>
         </div>
+        <script>
+        (function () {
+            var el = document.getElementById('stGreetingSub');
+            if (!el) return;
+            var userName = el.dataset.username || 'User';
+
+            function escUser(s) {
+                return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;')
+                                .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+            }
+
+            function renderGreeting() {
+                var now  = new Date();
+                var mins = now.getHours() * 60 + now.getMinutes();
+                var prefix, suffix;
+                if      (mins >= 300 && mins < 720)  { prefix = 'Selamat pagi,';  suffix = 'Semoga harimu menyenangkan!'; }
+                else if (mins >= 720 && mins < 800)  { prefix = 'Selamat siang,'; suffix = 'Jangan lupa istirahat ya!'; }
+                else if (mins >= 800 && mins < 900)  { prefix = 'Selamat siang,'; suffix = 'Yuk Lanjut Kerja!'; }
+                else if (mins >= 900 && mins < 1080) { prefix = 'Selamat sore,';  suffix = 'Sudah minum air putih belum?'; }
+                else                                  { prefix = 'Selamat malam,'; suffix = 'Terima kasih sudah kerja keras hari ini!'; }
+                el.innerHTML = prefix + ' <strong>' + escUser(userName) + '</strong>. ' + suffix;
+            }
+
+            renderGreeting();              // sinkronkan ke jam browser saat load
+            setInterval(renderGreeting, 60000); // refresh tiap 60 detik
+        })();
+        </script>
 
         {{-- Right actions --}}
         <div class="st-actions">

@@ -16,6 +16,7 @@ class RawDoctorService extends Model
         'id',
         'raw_doctor_id',
         'raw_doc_service_id',
+        'duration_minutes',
         'created_at',
         'created_by',
         'updated_at',
@@ -27,9 +28,23 @@ class RawDoctorService extends Model
     protected $keyType = 'string';
 
     protected $casts = [
-        'created_at' => 'datetime',
-        'updated_at' => 'datetime',
+        'duration_minutes' => 'double',
+        'created_at'       => 'datetime',
+        'updated_at'       => 'datetime',
     ];
+
+    /**
+     * Durasi efektif: override di pivot kalau ada, kalau tidak fallback ke global service.
+     */
+    public function getEffectiveDurationAttribute(): ?float
+    {
+        if ($this->duration_minutes !== null) {
+            return (float) $this->duration_minutes;
+        }
+        return $this->service?->duration_minutes !== null
+            ? (float) $this->service->duration_minutes
+            : null;
+    }
 
     /**
      * Relasi ke dokter

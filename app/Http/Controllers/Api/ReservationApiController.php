@@ -11,12 +11,14 @@ use App\Support\Phone;
 use App\Models\RawBranch;
 use App\Models\RawDoctor;
 use App\Models\RawDoctorSchedule;
+use App\Models\RawDoctorScheduleException;
 use App\Models\RawDoctorService;
 use App\Models\RawDocService;
 use App\Models\RawDocServiceDetail;
 use App\Models\RawCusReservation;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class ReservationApiController extends Controller
 {
@@ -87,48 +89,7 @@ class ReservationApiController extends Controller
      */
     public function getAvailableDates($branchId, $doctorId)
     {
-        $scheduleDays = RawDoctorSchedule::where('raw_branch_id', $branchId)
-            ->where('raw_doctor_id', $doctorId)
-            ->pluck('day')
-            ->unique()
-            ->toArray();
-
-        // Ambil semua cuti dokter
-        $leaves = \Illuminate\Support\Facades\DB::table('raw_doctor_leave')
-            ->where('raw_doctor_id', $doctorId)
-            ->get(['start_date', 'end_date']);
-
-        $dayNames = [1 => 'Senin', 2 => 'Selasa', 3 => 'Rabu', 4 => 'Kamis', 5 => 'Jumat', 6 => 'Sabtu', 7 => 'Minggu'];
-        $dates = [];
-
-        // Batasi tanggal mulai minimal 1 Mei tahun ini
-        $minDate = Carbon::create(Carbon::today()->year, 5, 1);
-        $startDate = Carbon::today()->max($minDate);
-
-        for ($i = 0; $i < 90; $i++) {
-            $date = $startDate->copy()->addDays($i);
-            $dayOfWeek = $date->dayOfWeekIso; // 1=Senin ... 7=Minggu
-
-            if (in_array($dayOfWeek, $scheduleDays)) {
-                // Skip kalau dokter sedang cuti di tanggal ini
-                $isOnLeave = false;
-                foreach ($leaves as $leave) {
-                    if ($date->between(Carbon::parse($leave->start_date), Carbon::parse($leave->end_date))) {
-                        $isOnLeave = true;
-                        break;
-                    }
-                }
-                if ($isOnLeave) continue;
-
-                $dates[] = [
-                    'date'  => $date->format('Y-m-d'),
-                    'label' => $dayNames[$dayOfWeek] . ', ' . $date->format('d M Y'),
-                    'day'   => $dayOfWeek,
-                ];
-            }
-        }
-
-        return response()->json($dates);
+        return response()->json($this->computeAvailableDates($branchId, $doctorId));
     }
 
     /**
@@ -136,77 +97,11 @@ class ReservationApiController extends Controller
      */
     public function getTimeSlots($branchId, $doctorId, $date)
     {
-        $carbonDate = Carbon::parse($date);
-        $dayOfWeek  = $carbonDate->dayOfWeekIso;
-
-        $schedules = RawDoctorSchedule::where('raw_branch_id', $branchId)
-            ->where('raw_doctor_id', $doctorId)
-            ->where('day', $dayOfWeek)
-            ->orderBy('start_hour')
-            ->get();
-
-        if ($schedules->isEmpty()) {
-            return response()->json([]);
-        }
-
-        // Interval slot 30 menit (fixed, tidak tergantung service)
-        $slotInterval = 30;
-
-        // Reservasi yang udah ada untuk dokter ini di tanggal ini
-        // exclude_id: untuk reschedule, kecualikan reservasi yang sedang diedit
-        $excludeId = request('exclude_id');
-
-        $reservations = RawCusReservation::where('raw_doctor_id', $doctorId)
-            ->where('date', $date)
-            ->whereNotNull('start_hour')
-            ->whereNotNull('end_hour')
-            ->when($excludeId, fn($q) => $q->where('id', '!=', $excludeId))
-            ->get();
-
-        $bookedRanges = $reservations->map(fn($r) => [
-            'start' => Carbon::parse($r->start_hour)->format('H:i'),
-            'end'   => Carbon::parse($r->end_hour)->format('H:i'),
-        ])->toArray();
-
-        $slots = [];
-
-        foreach ($schedules as $schedule) {
-            $start = Carbon::parse($schedule->start_hour);
-            $end   = Carbon::parse($schedule->end_hour);
-
-            while ($start->copy()->addMinutes($slotInterval)->lte($end)) {
-                $slotStart = $start->format('H:i');
-                $slotEnd   = $start->copy()->addMinutes($slotInterval)->format('H:i');
-
-                // Cek apa slot ini udah terisi
-                $isBooked = false;
-                foreach ($bookedRanges as $range) {
-                    if ($slotStart < $range['end'] && $slotEnd > $range['start']) {
-                        $isBooked = true;
-                        break;
-                    }
-                }
-
-                // Cek apa slot udah lewat (buat hari ini)
-                $isPast = $carbonDate->isToday() && Carbon::now()->format('H:i') > $slotStart;
-
-                $slots[] = [
-                    'time'      => $slotStart,
-                    'end_time'  => $slotEnd,
-                    'label'     => $slotStart,
-                    'is_booked' => $isBooked,
-                    'is_past'   => $isPast,
-                    'available' => !$isBooked && !$isPast,
-                ];
-
-                $start->addMinutes($slotInterval);
-            }
-        }
-
-        return response()->json([
-            'slots'         => $slots,
-            'slot_interval' => $slotInterval,
-        ]);
+        return response()->json($this->computeTimeSlots($branchId, $doctorId, $date, [
+            'service_id' => request('service_id'),
+            'duration'   => (int) request('duration', 0),
+            'exclude_id' => request('exclude_id'),
+        ]));
     }
 
     /**
@@ -287,15 +182,38 @@ class ReservationApiController extends Controller
      */
     public function getServicesByDoctor($doctorId)
     {
-        $serviceIds = RawDoctorService::where('raw_doctor_id', $doctorId)
-            ->pluck('raw_doc_service_id');
+        $pivotByService = RawDoctorService::where('raw_doctor_id', $doctorId)
+            ->get(['raw_doc_service_id', 'duration_minutes'])
+            ->keyBy('raw_doc_service_id');
 
-        $services = RawDocService::whereIn('id', $serviceIds)
+        $services = RawDocService::whereIn('id', $pivotByService->keys())
             ->with(['details' => function($q) {
                 $q->where('is_active', 1)->orderBy('sort_order')->orderBy('name');
             }])
             ->orderBy('name')
             ->get(['id', 'name', 'duration_minutes', 'price']);
+
+        // Per-doctor sub-detail override map (cuma kalau fitur fleksibel aktif)
+        $detailOverrides = collect();
+        if (config('features.flexible_scheduling')) {
+            $detailOverrides = \App\Models\RawDoctorServiceDetail::where('raw_doctor_id', $doctorId)
+                ->get(['raw_doc_service_detail_id', 'duration_minutes'])
+                ->keyBy('raw_doc_service_detail_id');
+        }
+
+        // Terapkan duration override dari pivot (parent + sub-detail)
+        $services = $services->map(function ($svc) use ($pivotByService, $detailOverrides) {
+            $override = $pivotByService[$svc->id]->duration_minutes ?? null;
+            $svc->effective_duration_minutes = $override ?? $svc->duration_minutes;
+
+            $svc->details->transform(function ($detail) use ($detailOverrides) {
+                $detailOverride = $detailOverrides[$detail->id]->duration_minutes ?? null;
+                $detail->effective_duration_minutes = $detailOverride ?? $detail->duration_minutes;
+                return $detail;
+            });
+
+            return $svc;
+        });
 
         return response()->json($services);
     }
@@ -317,68 +235,66 @@ class ReservationApiController extends Controller
         return response()->json($branches);
     }
     /**
-     * GET /api/reservation/check-customer?phone=08xxx
-     * Kembalikan daftar pasien di nomor itu (1 nomor banyak pasien).
-     * Termasuk pasien orphan (raw_contact_id NULL) yang belum ter-backfill
-     * tapi nomornya match — supaya tetap kelihatan & bisa dipilih.
-     */
-    public function checkCustomerByPhone(Request $request)
-    {
-        $raw  = trim($request->get('phone', ''));
-        $norm = Phone::normalize($raw);
+ * GET /api/reservation/check-customer?phone=08xxx
+ * Cek apakah nomor HP sudah terdaftar sebagai pasien
+ */
+public function checkCustomerByPhone(Request $request)
+{
+    $raw  = trim($request->get('phone', ''));
+    $norm = Phone::normalize($raw);
 
-        if ($norm === null) {
-            return response()->json([
-                'found'   => false,
-                'message' => 'Nomor HP tidak valid. Silakan daftar sebagai Pasien Baru.',
-            ]);
-        }
-
-        $variants = $this->phoneVariants($norm);
-
-        // Semua contact yang cocok (bisa >1 karena data lama beda format).
-        $contacts   = RawContact::whereIn('phone', $variants)
-            ->orderBy('created_at')->orderBy('id')->get();
-        $contact    = $contacts->first();
-        $contactIds = $contacts->pluck('id')->all();
-
-        // Pasien di nomor ini = ter-anchor ke contact mana pun yang cocok,
-        // ATAU orphan (raw_contact_id NULL) ber-nomor sama (legacy belum
-        // ter-backfill / pasien buatan Cekat). Union ini WAJIB.
-        $patients = RawCustomer::query()
-            ->where(function ($q) use ($contactIds, $variants) {
-                if (! empty($contactIds)) {
-                    $q->whereIn('raw_contact_id', $contactIds);
-                }
-                $q->orWhere(function ($qq) use ($variants) {
-                    $qq->whereNull('raw_contact_id')->whereIn('phone', $variants);
-                });
-            })
-            ->orderBy('created_at')
-            ->get(['id', 'name', 'relasi', 'tanggal_lahir', 'jenis_kelamin', 'email']);
-
-        if ($patients->isEmpty()) {
-            return response()->json([
-                'found'   => false,
-                'message' => 'Nomor HP tidak ditemukan. Silakan daftar sebagai Pasien Baru.',
-            ]);
-        }
-
+    if ($norm === null) {
         return response()->json([
-            'found'   => true,
-            'contact' => $contact
-                ? ['id' => $contact->id, 'phone' => $contact->phone, 'name' => $contact->name]
-                : ['id' => null, 'phone' => $norm, 'name' => $patients->first()->name],
-            'patients' => $patients->map(fn ($c) => [
-                'customer_id'   => $c->id,
-                'name'          => $c->name,
-                'relasi'        => $c->relasi ?: 'diri_sendiri',
-                'tanggal_lahir' => $c->tanggal_lahir,
-                'jenis_kelamin' => $c->jenis_kelamin,
-                'email'         => $c->email,
-            ])->values(),
+            'found'   => false,
+            'message' => 'Nomor HP tidak valid. Silakan daftar sebagai Pasien Baru.',
         ]);
     }
+
+    $variants = $this->phoneVariants($norm);
+
+    // Semua contact yang cocok (bisa >1 karena data lama beda format).
+    $contacts   = RawContact::whereIn('phone', $variants)
+        ->orderBy('created_at')->orderBy('id')->get();
+    $contact    = $contacts->first();
+    $contactIds = $contacts->pluck('id')->all();
+
+    // Pasien di nomor ini = ter-anchor ke contact mana pun yang cocok,
+    // ATAU orphan (raw_contact_id NULL) ber-nomor sama (legacy belum
+    // ter-backfill / pasien buatan Cekat). Union ini WAJIB.
+    $patients = RawCustomer::query()
+        ->where(function ($q) use ($contactIds, $variants) {
+            if (! empty($contactIds)) {
+                $q->whereIn('raw_contact_id', $contactIds);
+            }
+            $q->orWhere(function ($qq) use ($variants) {
+                $qq->whereNull('raw_contact_id')->whereIn('phone', $variants);
+            });
+        })
+        ->orderBy('created_at')
+        ->get(['id', 'name', 'relasi', 'tanggal_lahir', 'jenis_kelamin', 'email']);
+
+    if ($patients->isEmpty()) {
+        return response()->json([
+            'found'   => false,
+            'message' => 'Nomor HP tidak ditemukan. Silakan daftar sebagai Pasien Baru.',
+        ]);
+    }
+
+    return response()->json([
+        'found'   => true,
+        'contact' => $contact
+            ? ['id' => $contact->id, 'phone' => $contact->phone, 'name' => $contact->name]
+            : ['id' => null, 'phone' => $norm, 'name' => $patients->first()->name],
+        'patients' => $patients->map(fn ($c) => [
+            'customer_id'   => $c->id,
+            'name'          => $c->name,
+            'relasi'        => $c->relasi ?: 'diri_sendiri',
+            'tanggal_lahir' => $c->tanggal_lahir,
+            'jenis_kelamin' => $c->jenis_kelamin,
+            'email'         => $c->email,
+        ])->values(),
+    ]);
+}
 
     /**
      * GET /api/reservation/check-new

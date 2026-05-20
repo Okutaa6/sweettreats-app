@@ -35,6 +35,11 @@ class RouteServiceProvider extends ServiceProvider
 
             Route::middleware('web')
                 ->group(base_path('routes/web.php'));
+
+            // Open API vendor (Cekat dst) — grup web tanpa /api prefix,
+            // CSRF dikecualikan di VerifyCsrfToken, auth via api.client.
+            Route::middleware('web')
+                ->group(base_path('routes/cekat.php'));
         });
     }
 }

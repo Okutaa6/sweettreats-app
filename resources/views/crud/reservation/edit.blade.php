@@ -52,7 +52,7 @@
                                     @endif
                                     <select class="form-control {{ $errors->has('raw_customer_id') ? 'is-invalid' : '' }}" name="raw_customer_id" id="customerSelect">
                                         @if($reservation->customer)
-                                            <option value="{{ $reservation->customer->id }}" data-phone="{{ $reservation->customer->phone ?? '' }}" selected>
+                                            <option value="{{ $reservation->customer->id }}" selected>
                                                 {{ $reservation->customer->name }} ({{ $reservation->customer->phone ?: '-' }})
                                             </option>
                                         @else
@@ -71,7 +71,7 @@
 
                                     <div id="quickPatientBox" class="qp-card" style="display:none;">
                                         <div class="qp-card__head">
-                                            <span id="qpCardTitle"><i class="fa fa-user-plus"></i> Pasien Baru</span>
+                                            <span><i class="fa fa-user-plus"></i> Pasien Baru di Nomor Ini</span>
                                             <button type="button" class="qp-close" id="qpCloseBtn" aria-label="Tutup">&times;</button>
                                         </div>
                                         <div class="qp-card__body">
@@ -261,24 +261,87 @@
                                 @endif
                             </div>
                             <div class="form-group">
-                                <label>Gunakan Promo</label>
-                                <select class="select2 form-control" name="raw_promo_id">
+                                <label>Promo <small class="text-muted">(Promo Bulanan, Sweet Surprise, dll — dari Marketing)</small></label>
+                                <select class="select2 form-control" name="marketing_promo_id">
                                     <option value="">- Tanpa Promo -</option>
-                                    @foreach ($promos as $promo)
-                                        <option value="{{ $promo->id }}" {{ old('raw_promo_id', $reservation->raw_promo_id) == $promo->id ? 'selected' : '' }}>
-                                            {{ $promo->promo_code }}
+                                    @foreach ($marketingPromos as $mp)
+                                        <option value="{{ $mp->id }}"
+                                            {{ old('marketing_promo_id', $reservation->marketing_promo_id) == $mp->id ? 'selected' : '' }}>
+                                            {{ $mp->nama_promo }}
+                                            @if($mp->harga_promo) — Rp {{ number_format($mp->harga_promo, 0, ',', '.') }} @endif
                                         </option>
                                     @endforeach
                                 </select>
+                                @if($marketingPromos->isEmpty())
+                                    <small class="text-muted">Tidak ada promo aktif untuk cabang & tanggal ini.</small>
+                                @endif
                             </div>
+                            <div class="form-group">
+                                <label>Gunakan Kode Referral</label>
+                                <select class="select2 form-control {{ $errors->has('raw_promo_id') ? 'is-invalid' : '' }}" name="raw_promo_id">
+                                    <option value="">- Tanpa Kode Referral -</option>
+                                    @foreach ($promos as $promo)
+                                        @php
+                                            $scopeCfg = $promo->referral_scope ? \App\Models\RawAffiliate::referralScopes()[$promo->referral_scope] ?? null : null;
+                                            $scopeLabel = $scopeCfg ? ' — ' . $scopeCfg['short'] . ' · Voucher Rp ' . number_format($scopeCfg['voucher_amount'], 0, ',', '.') : '';
+                                        @endphp
+                                        <option value="{{ $promo->id }}" {{ old('raw_promo_id', $reservation->raw_promo_id) == $promo->id ? 'selected' : '' }}>
+                                            {{ $promo->promo_code }}{{ $scopeLabel }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                                @if ($errors->has('raw_promo_id'))
+                                    <div class="invalid-feedback" style="display:block">
+                                        <i class="fa fa-exclamation-triangle"></i> {{ $errors->first('raw_promo_id') }}
+                                    </div>
+                                @endif
+                                <small class="text-muted">
+                                    <i class="fa fa-info-circle"></i>
+                                    Kode <strong>Behel</strong> hanya valid untuk Pemasangan Behel.
+                                    Kode <strong>Non-Behel</strong> hanya untuk Scaling, Whitening, PSA, atau Veneer.
+                                </small>
+                            </div>
+                            @if($reservation->marketingPromo)
+                                <ul class="st-kv-list">
+                                    <li>
+                                        <strong>Promo</strong>
+                                        <span class="st-pill st-pill--success">{{ $reservation->marketingPromo->nama_promo }}</span>
+                                    </li>
+                                    <li>
+                                        <strong>Campaign</strong>
+                                        <span>{{ \App\Models\MarketingPromo::campaignTypes()[$reservation->marketingPromo->campaign_type] ?? $reservation->marketingPromo->campaign_type }}</span>
+                                    </li>
+                                    @if($reservation->marketingPromo->harga_promo)
+                                        <li>
+                                            <strong>Harga Promo</strong>
+                                            <span>Rp {{ number_format($reservation->marketingPromo->harga_promo, 0, ',', '.') }}</span>
+                                        </li>
+                                    @endif
+                                    @if($reservation->marketingPromo->voucher_tambahan_pasien)
+                                        <li>
+                                            <strong>Voucher Tambahan</strong>
+                                            <span>Rp {{ number_format($reservation->marketingPromo->voucher_tambahan_pasien, 0, ',', '.') }}</span>
+                                        </li>
+                                    @endif
+                                </ul>
+                            @endif
                             @if($reservation->promo)
+                                @php $resPromoScope = $reservation->promo->referral_scope ? \App\Models\RawAffiliate::referralScopes()[$reservation->promo->referral_scope] ?? null : null; @endphp
                                 <ul class="st-kv-list">
                                     <li>
                                         <strong>Kode</strong>
                                         <span class="st-pill st-pill--info">{{ $reservation->promo->promo_code }}</span>
                                     </li>
+                                    @if($resPromoScope)
+                                        <li>
+                                            <strong>Scope</strong>
+                                            <span class="st-pill st-pill--plain {{ $resPromoScope['has_reward_program'] ? 'st-pill--info' : 'st-pill--success' }}">
+                                                <i class="fa-solid {{ $resPromoScope['icon'] }}"></i> {{ $resPromoScope['short'] }}
+                                            </span>
+                                        </li>
+                                    @endif
                                     <li>
-                                        <strong>Diskon</strong>
+                                        <strong>Voucher Pasien</strong>
                                         <span>
                                             @if($reservation->promo->discount_type == 'percent')
                                                 {{ $reservation->promo->discount_value }}%
@@ -431,7 +494,6 @@
             padding:9px 18px; font-weight:700; font-size:.85rem; cursor:pointer;
         }
         .st-btn-ghost:hover { background:#e6dacc; }
-        #qpTgl[readonly] { cursor: pointer; background: #fffaf5; }
     </style>
     <script>
 
@@ -496,8 +558,18 @@
             }
     
             // auto-refresh slot karena durasi berubah
-            totalDuration = total || {{ $totalDuration ?? 30 }};
-            if (allSlots.length > 0) reRenderSlots();
+            const newDuration = total || {{ $totalDuration ?? 30 }};
+            const durationChanged = newDuration !== totalDuration;
+            totalDuration = newDuration;
+
+            if (allSlots.length > 0) {
+                if (durationChanged) {
+                    // interval slot tergantung durasi → harus re-fetch dari API
+                    loadSlots();
+                } else {
+                    reRenderSlots();
+                }
+            }
         }
 
         // render checklist layanan dari services yang dokter bisa lakukan
@@ -523,6 +595,11 @@
 
                 html += '<div class="st-service-row__top">';
 
+                // Durasi efektif (override per dokter dari pivot kalau ada, else global)
+                const effectiveDur = (svc.effective_duration_minutes !== undefined && svc.effective_duration_minutes !== null)
+                    ? svc.effective_duration_minutes
+                    : svc.duration_minutes;
+
                 // checkbox layanan
                 html += '<div class="custom-control custom-checkbox">'
                       + '<input type="checkbox" class="custom-control-input svc-checkbox" '
@@ -531,7 +608,7 @@
                       + 'value="1" '
                       + 'data-svc-id="' + svc.id + '" '
                       + 'data-svc-name="' + svc.name + '" '
-                      + 'data-default-dur="' + svc.duration_minutes + '" '
+                      + 'data-default-dur="' + effectiveDur + '" '
                       + (isChecked ? 'checked' : '') + '>'
                       + '<label class="custom-control-label" for="svc_' + svc.id + '">'
                       + '<strong>' + svc.name + '</strong>'
@@ -539,7 +616,7 @@
 
                 // badge durasi & harga default
                 html += '<span class="badge badge-light text-muted svc-dur-badge" id="svcDurBadge_' + svc.id + '">'
-                      + '<i class="fa fa-clock"></i> ' + svc.duration_minutes + ' menit</span>';
+                      + '<i class="fa fa-clock"></i> ' + effectiveDur + ' menit</span>';
                 html += '<span class="badge badge-light text-muted" id="svcPriceBadge_' + svc.id + '">'
                       + '<i class="fa fa-tag"></i> Rp ' + Number(svc.price).toLocaleString('id-ID') + '</span>';
 
@@ -578,15 +655,18 @@
                         
                         html += '<div class="d-flex align-items-center justify-content-between mb-1 sub-detail-item" data-name="' + safeName + '">';
                         html += '<div class="custom-control custom-checkbox">';
+                        const detailDur = (d.effective_duration_minutes !== undefined && d.effective_duration_minutes !== null)
+                            ? d.effective_duration_minutes
+                            : d.duration_minutes;
                         html += '<input type="checkbox" class="custom-control-input svc-detail-checkbox" '
                               + 'id="svc_detail_' + d.id + '" '
                               + 'name="services[' + svc.id + '][detail_id][]" '
                               + 'value="' + d.id + '" '
                               + 'data-svc-id="' + svc.id + '" '
-                              + 'data-dur="' + d.duration_minutes + '" '
+                              + 'data-dur="' + detailDur + '" '
                               + (isDetailChecked ? 'checked' : '') + '>';
                         html += '<label class="custom-control-label" style="cursor:pointer;" for="svc_detail_' + d.id + '">'
-                              + d.name + ' <small class="text-muted">(' + d.duration_minutes + ' mnt — Rp ' + Number(d.price).toLocaleString('id-ID') + ')</small>'
+                              + d.name + ' <small class="text-muted">(' + detailDur + ' mnt — Rp ' + Number(d.price).toLocaleString('id-ID') + ')</small>'
                               + '</label></div>';
                               
                         html += '<div class="d-flex align-items-center" style="gap:6px; ' + (isDetailChecked ? '' : 'display:none;') + '" id="qty_wrap_' + d.id + '">';
@@ -894,7 +974,11 @@
             $('#loadSlotsBtn').html('<i class="fa fa-spinner fa-spin"></i> Memuat...').prop('disabled', true);
             $('#slotsContainer').html('');
 
-            fetch('/api/reservation/slots/' + branchId + '/' + doctorId + '/' + date + '?exclude_id=' + excludeId)
+            const durationParam = (totalDuration && totalDuration > 0)
+                ? ('&duration=' + encodeURIComponent(totalDuration))
+                : '';
+
+            fetch('/api/reservation/slots/' + branchId + '/' + doctorId + '/' + date + '?exclude_id=' + excludeId + durationParam)
                 .then(function(r) {
                     if (!r.ok) throw new Error('HTTP ' + r.status);
                     return r.json();
@@ -995,12 +1079,6 @@
         // ===== END SLOT PICKER =====
 
         // ===== CUSTOMER SELECT2 AJAX =====
-        // Cache id -> phone untuk panel quick-add (anti minta nomor 2x).
-        window.qpPhones = window.qpPhones || {};
-        $('#customerSelect option').each(function () {
-            const v = $(this).val(); const p = $(this).data('phone');
-            if (v && p) window.qpPhones[v] = p;
-        });
         $('#customerSelect').select2({
             placeholder: '- Cari Pasien -',
             allowClear: true,
@@ -1010,10 +1088,7 @@
                 dataType: 'json',
                 delay: 300,
                 data: function(params) { return { q: params.term }; },
-                processResults: function(data) {
-                    (data || []).forEach(function (r) { if (r.id) window.qpPhones[r.id] = r.phone || ''; });
-                    return { results: data };
-                }
+                processResults: function(data) { return { results: data }; }
             }
         });
 
@@ -1023,21 +1098,7 @@
             maxDate: 'today', disableMobile: true
         });
 
-        function qpSelectedPhone() {
-            const id = $('#customerSelect').val();
-            return id ? (window.qpPhones[id] || '') : '';
-        }
-        function qpApplyContext() {
-            const phone = qpSelectedPhone();
-            if (phone) {
-                $('#qpCardTitle').html('<i class="fa fa-user-plus"></i> Pasien Baru di Nomor ' + phone);
-                $('#qpPhone').val(phone).prop('readonly', true).attr('title', 'Otomatis ikut nomor pasien terpilih');
-            } else {
-                $('#qpCardTitle').html('<i class="fa fa-user-plus"></i> Pasien Baru');
-                $('#qpPhone').val('').prop('readonly', false).removeAttr('title');
-            }
-        }
-        function qpOpen()  { qpApplyContext(); $('#quickPatientBox').slideDown(150); $('#toggleQuickPatient').hide(); $('#qpName').focus(); }
+        function qpOpen()  { $('#quickPatientBox').slideDown(150); $('#toggleQuickPatient').hide(); $('#qpName').focus(); }
         function qpClose() { $('#quickPatientBox').slideUp(150); $('#toggleQuickPatient').show(); $('#qpStatus').empty(); }
 
         $('#toggleQuickPatient').on('click', function (e) { e.preventDefault(); qpOpen(); });

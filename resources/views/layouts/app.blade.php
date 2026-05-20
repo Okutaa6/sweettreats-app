@@ -5,6 +5,7 @@
     <meta charset="utf-8" />
     <title>Dashboard Monitoring System</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
 
     <!-- App favicon -->
     <link rel="shortcut icon" href="{{ asset('sysprofile/' . session('syslogo')) }}">
@@ -29,10 +30,24 @@
     <link rel="stylesheet" href="{{ asset('assets/plugins/datatables/dataTables.dataTables.min.css') }}">
     <link rel="stylesheet" href="{{ asset('assets/css/style.sweettreats.css') }}?v={{ @filemtime(public_path('assets/css/style.sweettreats.css')) ?: '1' }}">
     <link rel="stylesheet" href="{{ asset('assets/css/components.sweettreats.css') }}?v={{ @filemtime(public_path('assets/css/components.sweettreats.css')) ?: '1' }}">
+    <link rel="stylesheet" href="{{ asset('assets/css/theme-marketing.css') }}?v={{ @filemtime(public_path('assets/css/theme-marketing.css')) ?: '1' }}">
     @yield('css')
 </head>
+@php
+    // Theme detection — Marketing pages dapat accent teal (vs default brown untuk Sales/operasional).
+    // Future EP routes (editorial-plan, breakdown-konten, campaign-framework) sudah di-anticipate.
+    $marketingRoutes = [
+        'rawaffiliate', 'rawkeyword', 'rawpromo', 'report-referral',
+        'commission-claim', 'content-review',
+        'konten-pillar', 'ep-konten', 'ep-breakdown', 'ep-campaign',
+        'kol', 'koc',
+        'sweet-mates',
+    ];
+    $currentSegment = request()->segment(1);
+    $bodyTheme = in_array($currentSegment, $marketingRoutes, true) ? 'marketing' : 'default';
+@endphp
 
-<body>
+<body data-theme="{{ $bodyTheme }}">
 
     <!-- Top Bar Start -->
     @include('layouts.header')

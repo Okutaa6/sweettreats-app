@@ -254,6 +254,57 @@ body {
     padding-left: 4px;
 }
 
+/* Two-line greeting: punchy title + light subtitle */
+.st-greeting-text {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    line-height: 1.2;
+    padding-left: 6px;
+}
+.st-greeting-title {
+    font-size: 17px;
+    font-weight: 800;
+    color: var(--brown);
+    letter-spacing: -0.2px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+.st-greeting-wave {
+    display: inline-block;
+    transform-origin: 70% 70%;
+    animation: stGreetWave 2.4s ease-in-out infinite;
+    font-size: 18px;
+}
+@keyframes stGreetWave {
+    0%, 60%, 100% { transform: rotate(0deg); }
+    10% { transform: rotate(14deg); }
+    20% { transform: rotate(-8deg); }
+    30% { transform: rotate(14deg); }
+    40% { transform: rotate(-4deg); }
+    50% { transform: rotate(10deg); }
+}
+.st-greeting-accent {
+    background: linear-gradient(90deg, #c45200 0%, #8a2e02 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    font-weight: 800;
+}
+.st-greeting-sub {
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--brown-2);
+    font-style: italic;
+    opacity: 0.85;
+}
+.st-greeting-sub strong {
+    font-weight: 700;
+    color: var(--brown);
+    font-style: normal;
+}
+
 /* Right actions — white side */
 .st-topbar .st-actions {
     display: flex;
@@ -537,6 +588,14 @@ body {
     border-right: 1px solid #5C2A0A !important;
 }
 
+/* Disable diamond ":before" indikator pada icon parent active —
+   default theme nge-render kotak putih ber-rotate 45° di posisi 53px yang nutupin divider. */
+.left-sidenav .main-icon-menu .nav-link.active:before,
+.left-sidenav .main-icon-menu .nav-link:hover:before {
+    display: none !important;
+    content: none !important;
+}
+
 /* Child sidebar background */
 .main-menu-inner,
 .main-menu-inner .nav-link {
@@ -648,6 +707,7 @@ body {
 }
 .left-sidenav.no-icon-bar .main-menu-inner {
     left: 0 !important;
+    width: 300px !important;
 }
 .left-sidenav.no-icon-bar .menu-body .nav-item .nav-link,
 .left-sidenav.no-icon-bar .menu-body .nav-item ul li > a {
