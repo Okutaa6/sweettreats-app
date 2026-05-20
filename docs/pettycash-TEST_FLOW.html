@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Test Flow — Petty Cash · Sweet Treats</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<style>
+    *,*::before,*::after { margin:0; padding:0; box-sizing:border-box; }
+    :root {
+        --brand:#461500; --brand-2:#6b2400; --brand-3:#8b3a00;
+        --cream:#fef5ed; --cream-2:#fef0e2; --cream-3:#fce8d4;
+        --bg:#fffaf5; --text:#3a2a1a; --muted:#8b7a6b; --border:rgba(70,21,0,0.1);
+        --pass:#2e7d32; --pass-bg:#e8f5e9; --fail:#c62828; --fail-bg:#ffebee;
+        --warn:#f57c00; --warn-bg:#fff3cd; --info:#1565c0; --info-bg:#e3f2fd;
+    }
+    html { scroll-behavior: smooth; }
+    body { font-family:'Montserrat',sans-serif; color:var(--text); background:var(--bg); line-height:1.55; }
+
+    .layout { display:grid; grid-template-columns:280px 1fr; min-height:100vh; }
+    .sidebar { background:linear-gradient(180deg,var(--brand) 0%, var(--brand-2) 100%); color:#fff; padding:24px 20px; position:sticky; top:0; height:100vh; overflow-y:auto; }
+    .main { padding:32px 48px; max-width:1100px; }
+
+    .brand { display:flex; align-items:center; gap:10px; margin-bottom:6px; padding-bottom:16px; border-bottom:1px solid rgba(255,255,255,0.15); }
+    .brand-name { font-size:1.1rem; font-weight:900; }
+    .brand-sub { font-size:0.7rem; opacity:0.8; letter-spacing:1px; text-transform:uppercase; }
+
+    .progress-card { background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.12); border-radius:12px; padding:14px; margin:18px 0; }
+    .progress-label { font-size:0.7rem; opacity:0.85; text-transform:uppercase; letter-spacing:0.5px; font-weight:700; margin-bottom:6px; }
+    .progress-numbers { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px; }
+    .progress-current { font-size:1.5rem; font-weight:900; }
+    .progress-total { font-size:0.85rem; opacity:0.8; }
+    .progress-track { height:6px; background:rgba(255,255,255,0.15); border-radius:50px; overflow:hidden; }
+    .progress-bar { height:100%; background:linear-gradient(90deg, #fbbc04, #34a853); border-radius:50px; transition:width 0.4s ease; }
+    .progress-stats { display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:10px; }
+    .progress-stat { padding:6px 8px; border-radius:6px; font-size:0.72rem; font-weight:700; text-align:center; }
+    .progress-stat.pass-stat { background:rgba(76,175,80,0.25); color:#a5d6a7; }
+    .progress-stat.fail-stat { background:rgba(239,83,80,0.25); color:#ef9a9a; }
+
+    .nav-section { margin-top:18px; }
+    .nav-section-title { font-size:0.7rem; opacity:0.7; text-transform:uppercase; letter-spacing:1px; font-weight:700; padding:10px 8px 6px; }
+    .nav-link { display:flex; align-items:center; gap:10px; padding:8px 12px; border-radius:8px; font-size:0.84rem; font-weight:600; opacity:0.85; cursor:pointer; text-decoration:none; color:#fff; transition:all 0.15s; }
+    .nav-link:hover { background:rgba(255,255,255,0.08); opacity:1; }
+    .nav-link.active { background:rgba(255,255,255,0.15); opacity:1; }
+    .nav-link i { font-size:0.78rem; opacity:0.7; width:14px; text-align:center; }
+    .nav-link .nav-mini-progress { margin-left:auto; font-size:0.68rem; padding:2px 6px; border-radius:50px; background:rgba(255,255,255,0.15); font-weight:800; min-width:36px; text-align:center; }
+
+    .sidebar-actions { margin-top:24px; padding-top:16px; border-top:1px solid rgba(255,255,255,0.15); display:flex; flex-direction:column; gap:6px; }
+    .sb-btn { display:flex; align-items:center; gap:8px; padding:9px 12px; border-radius:8px; font-size:0.78rem; font-weight:700; cursor:pointer; border:1px solid rgba(255,255,255,0.2); background:transparent; color:#fff; font-family:inherit; transition:all 0.15s; }
+    .sb-btn:hover { background:rgba(255,255,255,0.1); }
+    .sb-btn.danger { border-color:rgba(239,83,80,0.5); color:#ffabab; }
+    .sb-btn.danger:hover { background:rgba(239,83,80,0.18); }
+
+    .doc-header { padding:24px 28px; background:linear-gradient(135deg,var(--brand),var(--brand-2)); color:#fff; border-radius:18px; margin-bottom:32px; box-shadow:0 12px 32px rgba(70,21,0,0.18); }
+    .doc-title { font-size:1.6rem; font-weight:900; letter-spacing:-0.01em; margin-bottom:6px; display:flex; align-items:center; gap:14px; }
+    .doc-meta { font-size:0.82rem; opacity:0.85; display:flex; gap:18px; flex-wrap:wrap; }
+    .doc-meta i { opacity:0.7; margin-right:4px; }
+
+    .alert { padding:14px 18px; border-radius:12px; font-size:0.86rem; margin-bottom:18px; display:flex; gap:12px; align-items:flex-start; line-height:1.5; }
+    .alert i { font-size:1rem; margin-top:2px; flex-shrink:0; }
+    .alert-info { background:var(--info-bg); color:var(--info); border-left:3px solid var(--info); }
+    .alert-warn { background:var(--warn-bg); color:#856404; border-left:3px solid var(--warn); }
+
+    h2 { font-size:1.4rem; font-weight:900; color:var(--brand); margin-top:42px; margin-bottom:16px; padding-bottom:10px; border-bottom:2px solid var(--cream-2); display:flex; align-items:center; gap:10px; }
+    h2 .h2-num { background:var(--brand); color:#fff; width:32px; height:32px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:0.8rem; font-weight:800; }
+    h3 { font-size:1.05rem; font-weight:800; color:var(--brand); margin-top:24px; margin-bottom:12px; display:flex; align-items:center; gap:8px; }
+    h3 i { color:var(--brand-3); font-size:0.9rem; }
+
+    .pre-req-table { width:100%; border-collapse:separate; border-spacing:0; margin-bottom:16px; background:#fff; border-radius:10px; overflow:hidden; box-shadow:0 4px 14px rgba(70,21,0,0.05); border:1px solid var(--border); }
+    .pre-req-table th { background:var(--cream); color:var(--brand); padding:11px 14px; text-align:left; font-size:0.74rem; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; }
+    .pre-req-table td { padding:11px 14px; border-top:1px solid var(--border); font-size:0.86rem; }
+    .pre-req-table td code { background:var(--cream-2); padding:2px 7px; border-radius:5px; font-size:0.78rem; font-weight:700; color:var(--brand); }
+    .pre-req-table .num-col { width:50px; text-align:center; font-weight:800; color:var(--brand); }
+
+    .test { background:#fff; border:1px solid var(--border); border-radius:14px; padding:18px 20px; margin-bottom:14px; transition:all 0.15s; box-shadow:0 2px 8px rgba(70,21,0,0.04); }
+    .test:hover { box-shadow:0 8px 22px rgba(70,21,0,0.08); }
+    .test.is-pass { border-color:var(--pass); background:linear-gradient(135deg, #fff, #f1f8f1); }
+    .test.is-fail { border-color:var(--fail); background:linear-gradient(135deg, #fff, #fef4f4); }
+
+    .test-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; }
+    .test-id { display:inline-flex; align-items:center; gap:8px; }
+    .test-id-pill { background:var(--brand); color:#fff; padding:4px 10px; border-radius:6px; font-size:0.72rem; font-weight:800; letter-spacing:0.5px; }
+    .test.is-pass .test-id-pill { background:var(--pass); }
+    .test.is-fail .test-id-pill { background:var(--fail); }
+    .test-title { font-size:0.98rem; font-weight:800; color:var(--brand); }
+
+    .verdict { display:flex; gap:6px; }
+    .verdict-btn { padding:6px 14px; border-radius:50px; font-size:0.72rem; font-weight:800; text-transform:uppercase; letter-spacing:0.4px; cursor:pointer; border:2px solid var(--border); background:#fff; color:var(--muted); transition:all 0.15s; font-family:inherit; }
+    .verdict-btn:hover { border-color:var(--brand); color:var(--brand); }
+    .verdict-btn.pass-btn.active { background:var(--pass); border-color:var(--pass); color:#fff; }
+    .verdict-btn.fail-btn.active { background:var(--fail); border-color:var(--fail); color:#fff; }
+
+    .test-body { display:grid; grid-template-columns:auto 1fr; gap:6px 14px; font-size:0.86rem; }
+    .test-body dt { font-weight:800; color:var(--muted); text-transform:uppercase; font-size:0.7rem; letter-spacing:0.5px; padding-top:3px; align-self:start; white-space:nowrap; }
+    .test-body dd { line-height:1.55; }
+    .test-body dd ol { padding-left:18px; }
+    .test-body dd ol li { margin-bottom:4px; }
+    .test-body dd code { background:var(--cream); padding:1px 6px; border-radius:4px; font-size:0.78rem; font-weight:700; color:var(--brand); }
+    .test-body dd strong { color:var(--brand); }
+
+    .test-notes { margin-top:10px; padding-top:10px; border-top:1px dashed var(--border); }
+    .test-notes label { font-size:0.7rem; font-weight:800; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; display:block; margin-bottom:4px; }
+    .test-notes textarea { width:100%; padding:8px 12px; border:1px solid var(--border); border-radius:8px; font-family:inherit; font-size:0.84rem; resize:vertical; min-height:36px; background:#fffdfa; color:var(--text); }
+    .test-notes textarea:focus { outline:none; border-color:var(--brand); }
+
+    .summary { background:#fff; border:1px solid var(--border); border-radius:14px; padding:24px; margin-top:32px; }
+    .summary-title { font-size:1.05rem; font-weight:900; color:var(--brand); margin-bottom:16px; display:flex; align-items:center; gap:8px; }
+    .summary-table { width:100%; border-collapse:collapse; }
+    .summary-table th, .summary-table td { padding:11px 14px; text-align:left; font-size:0.86rem; border-bottom:1px solid var(--border); }
+    .summary-table th { background:var(--cream); color:var(--brand); font-weight:800; font-size:0.74rem; text-transform:uppercase; letter-spacing:0.5px; }
+    .summary-table td.num { text-align:center; font-weight:800; }
+    .summary-table .total-row { background:var(--cream-2); font-weight:900; }
+    .summary-table .total-row td { border-top:2px solid var(--brand); }
+    .summary-num.pass-num { color:var(--pass); }
+    .summary-num.fail-num { color:var(--fail); }
+
+    .bug-template { background:#1e1e2e; color:#cdd6f4; padding:18px 20px; border-radius:10px; font-family:'Courier New',monospace; font-size:0.82rem; line-height:1.7; overflow-x:auto; margin-top:12px; }
+    .bug-template .lbl { color:#fab387; }
+
+    .footer { margin-top:48px; padding-top:24px; border-top:1px solid var(--border); text-align:center; font-size:0.78rem; color:var(--muted); }
+
+    @media (max-width: 900px) {
+        .layout { grid-template-columns:1fr; }
+        .sidebar { position:relative; height:auto; }
+        .main { padding:20px; }
+    }
+    @media print {
+        body { background:#fff; }
+        .sidebar { display:none; }
+        .layout { grid-template-columns:1fr; }
+        .main { padding:0; max-width:100%; }
+        .test { page-break-inside:avoid; box-shadow:none; border:1px solid #ccc; }
+        .verdict-btn { display:none; }
+        .verdict::after { content:'Pass: \2610  Fail: \2610'; color:#333; font-weight:700; font-size:0.86rem; }
+        .test-notes textarea { min-height:50px; border:1px solid #999; }
+        .doc-header { background:#461500 !important; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+        h2 { page-break-after:avoid; }
+        h3 { page-break-after:avoid; }
+        .alert { page-break-inside:avoid; }
+        .summary { page-break-inside:avoid; }
+    }
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+    <aside class="sidebar">
+        <div class="brand">
+            <div>
+                <div class="brand-name">Sweet Treats</div>
+                <div class="brand-sub">Petty Cash — QA</div>
+            </div>
+        </div>
+
+        <div class="progress-card">
+            <div class="progress-label"><i class="fa-solid fa-chart-line"></i> Progress Test</div>
+            <div class="progress-numbers">
+                <span class="progress-current" id="progressCurrent">0</span>
+                <span class="progress-total">/ <span id="progressTotal">0</span> done</span>
+            </div>
+            <div class="progress-track">
+                <div class="progress-bar" id="progressBar" style="width:0%"></div>
+            </div>
+            <div class="progress-stats">
+                <div class="progress-stat pass-stat"><i class="fa-solid fa-check"></i> <span id="passCount">0</span> Pass</div>
+                <div class="progress-stat fail-stat"><i class="fa-solid fa-xmark"></i> <span id="failCount">0</span> Fail</div>
+            </div>
+        </div>
+
+        <div class="nav-section">
+            <div class="nav-section-title">Sections</div>
+            <a href="#prereq" class="nav-link"><i class="fa-solid fa-list-check"></i> Pre-Requisites</a>
+            <a href="#sec-a" class="nav-link"><i class="fa-solid fa-database"></i> A — DB Schema &amp; Migration <span class="nav-mini-progress" data-section="A">0/4</span></a>
+            <a href="#sec-b" class="nav-link"><i class="fa-solid fa-house"></i> B — Halaman Utama &amp; Filter <span class="nav-mini-progress" data-section="B">0/5</span></a>
+            <a href="#sec-c" class="nav-link"><i class="fa-solid fa-arrow-down-up-across-line"></i> C — Top up Saldo <span class="nav-mini-progress" data-section="C">0/4</span></a>
+            <a href="#sec-d" class="nav-link"><i class="fa-solid fa-minus"></i> D — Pengeluaran (Cash Out) <span class="nav-mini-progress" data-section="D">0/5</span></a>
+            <a href="#sec-e" class="nav-link"><i class="fa-solid fa-calendar-days"></i> E — Carry-Forward &amp; Periode <span class="nav-mini-progress" data-section="E">0/4</span></a>
+            <a href="#sec-ec" class="nav-link"><i class="fa-solid fa-bug"></i> Edge Cases <span class="nav-mini-progress" data-section="EC">0/3</span></a>
+            <a href="#summary" class="nav-link"><i class="fa-solid fa-clipboard-check"></i> Summary</a>
+        </div>
+
+        <div class="sidebar-actions">
+            <button type="button" class="sb-btn" onclick="window.print()"><i class="fa-solid fa-print"></i> Print / Save PDF</button>
+            <button type="button" class="sb-btn" onclick="exportResults()"><i class="fa-solid fa-download"></i> Export Result (JSON)</button>
+            <button type="button" class="sb-btn danger" onclick="resetAll()"><i class="fa-solid fa-rotate-left"></i> Reset Semua</button>
+        </div>
+    </aside>
+
+    <main class="main">
+
+        <div class="doc-header">
+            <h1 class="doc-title"><i class="fa-solid fa-cash-register"></i> Test Flow — Petty Cash</h1>
+            <div class="doc-meta">
+                <span><i class="fa-solid fa-money-bill-trend-up"></i> Buku kas kecil (imprest)</span>
+                <span><i class="fa-solid fa-calendar-day"></i> Versi 2026-05-20</span>
+                <span><i class="fa-solid fa-clock"></i> Estimasi 30-45 menit</span>
+                <span><i class="fa-solid fa-list-check"></i> 25 test cases</span>
+            </div>
+        </div>
+
+        <div class="alert alert-info">
+            <i class="fa-solid fa-circle-info"></i>
+            <div>
+                <strong>Cara pakai:</strong> Klik <em>Pass</em>/<em>Fail</em> tiap test — progress otomatis ke-save di browser (LocalStorage), bisa di-export JSON / print PDF. Ini uji <strong>UI + Database</strong> halaman <code>/pettycash</code>. Jalankan di <strong>LOKAL</strong> atau <strong>STAGING (copy prod)</strong> — <u>jangan langsung di produksi</u> karena membuat data transaksi nyata.
+            </div>
+        </div>
+
+        <div class="alert alert-warn">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            <div>
+                <strong>Konsep imprest (dana tetap):</strong> saldo dipatok di <code>float_amount</code> (default Rp 1.500.000). Setiap top up mengisi saldo kembali ke nilai itu. Saldo berjalan <strong>tidak disimpan permanen</strong> — dihitung saat render dari <code>opening_balance + Σ(cash_in − cash_out)</code>. Carry-forward: opening bulan baru = closing bulan lalu.
+            </div>
+        </div>
+
+        <section id="prereq">
+            <h2><span class="h2-num"><i class="fa-solid fa-list-check"></i></span> Pre-Requisites</h2>
+
+            <h3><i class="fa-solid fa-database"></i> 1. Jalankan 1 SQL Migration</h3>
+            <p style="font-size:0.86rem; color:var(--muted); margin-bottom:10px;">
+                phpMyAdmin → DB lokal <code>sweettreats</code> / staging → tab SQL → tempel <strong>seluruh isi file</strong> berurutan dari <code>database/sql/</code>:
+            </p>
+            <table class="pre-req-table">
+                <thead><tr><th class="num-col">#</th><th>File</th><th>Apa yang dilakukan</th></tr></thead>
+                <tbody>
+                    <tr><td class="num-col">1</td><td><code>2026_05_20_petty_cash.sql</code></td><td>Bikin 2 tabel (<code>petty_cash_periods</code>, <code>petty_cash_transactions</code>) + ALTER auto-upgrade kolom <code>created_by varchar(36)</code> + seed periode pertama dengan <code>opening_balance = 0</code></td></tr>
+                </tbody>
+            </table>
+            <div class="alert alert-warn" style="margin-top:8px;">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+                <div><strong>Backup dulu</strong> sebelum jalankan (phpMyAdmin → Export). File ini <strong>idempoten</strong>: aman dijalankan berapa kali pun. Mencakup <code>CREATE IF NOT EXISTS</code> + <code>ALTER MODIFY</code> + <code>UPDATE</code> kondisional (reset opening 0 hanya untuk periode tanpa transaksi).</div>
+            </div>
+
+            <h3><i class="fa-solid fa-server"></i> 2. Nyalakan & siapkan</h3>
+            <table class="pre-req-table">
+                <thead><tr><th>Langkah</th><th>Perintah</th></tr></thead>
+                <tbody>
+                    <tr><td>Bersihkan cache view + route</td><td><code>php artisan view:clear &amp;&amp; php artisan route:clear</code></td></tr>
+                    <tr><td>Nyalakan server lokal</td><td><code>php artisan serve</code> (→ <code>http://127.0.0.1:8000</code>)</td></tr>
+                    <tr><td>Halaman Petty Cash (login dulu)</td><td><code>http://127.0.0.1:8000/pettycash</code></td></tr>
+                    <tr><td>Tambah menu di sidebar (opsional)</td><td>via SQL <code>group_access</code> atau Setting → Akses → Save (path <code>pettycash</code>)</td></tr>
+                </tbody>
+            </table>
+
+            <h3><i class="fa-solid fa-flask"></i> 3. Data uji yang disiapkan</h3>
+            <table class="pre-req-table">
+                <thead><tr><th>Butuh</th><th>Cara</th></tr></thead>
+                <tbody>
+                    <tr><td>User login (catat UUID-nya)</td><td><code>SELECT id, name FROM users LIMIT 5;</code> → catat <code>id</code> (UUID) — akan muncul di kolom <code>created_by</code></td></tr>
+                    <tr><td>Periode awal seharusnya muncul</td><td><code>SELECT * FROM petty_cash_periods;</code> → 1 baris dengan <code>opening_balance=0</code>, <code>float_amount=1500000</code></td></tr>
+                    <tr><td>Ledger awal kosong</td><td><code>SELECT COUNT(*) FROM petty_cash_transactions;</code> → 0</td></tr>
+                </tbody>
+            </table>
+            <div class="alert alert-info" style="margin-top:8px;">
+                <i class="fa-solid fa-circle-info"></i>
+                <div>Cleanup setelah test: <code>DELETE FROM petty_cash_transactions; DELETE FROM petty_cash_periods;</code> lalu re-run migration. <strong>Hati-hati:</strong> ini hapus SEMUA data — pakai filter <code>WHERE description LIKE 'TEST%'</code> kalau prod.</div>
+            </div>
+        </section>
+
+        <div id="testContainer"></div>
+
+        <section id="summary" class="summary">
+            <div class="summary-title"><i class="fa-solid fa-clipboard-check"></i> Hasil Akhir Test</div>
+            <table class="summary-table" id="summaryTable">
+                <thead><tr><th>Modul</th><th class="num">Total</th><th class="num">Pass</th><th class="num">Fail</th><th class="num">Pending</th></tr></thead>
+                <tbody id="summaryBody"></tbody>
+            </table>
+
+            <div class="summary-title" style="margin-top:24px;"><i class="fa-solid fa-bug"></i> Bug Reporting Template</div>
+            <p style="font-size:0.84rem; color:var(--muted);">Kalau ada test yang fail, laporkan dengan format:</p>
+            <pre class="bug-template"><span class="lbl">Test ID    :</span> T-X.X
+<span class="lbl">Environment:</span> Lokal / Staging  ·  Browser + versi (utk UI bug: sebut HP/desktop)
+<span class="lbl">Aksi       :</span> [URL + tombol/form yang di-klik]
+<span class="lbl">Expected   :</span> [yang seharusnya]
+<span class="lbl">Actual     :</span> [yang terjadi + screenshot/log]
+<span class="lbl">Cek DB     :</span> [hasil query verifikasi kalau relevan]</pre>
+        </section>
+
+        <div class="alert alert-warn" style="margin-top:32px;">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            <div>
+                <strong>Catatan untuk tester:</strong>
+                <ol style="margin-left:18px; margin-top:6px;">
+                    <li>Jalankan di <strong>LOKAL/STAGING</strong>, bukan produksi (test ini membuat transaksi nyata).</li>
+                    <li>Pakai keterangan <code>TEST - xxx</code> di setiap input → mudah filter &amp; cleanup nanti.</li>
+                    <li>Verifikasi DB: phpMyAdmin atau <code>php artisan tinker</code> (query ada di tiap test).</li>
+                    <li>Section D (pengeluaran) bergantung sama Section C (top up dulu supaya saldo ada).</li>
+                    <li>Tes di <strong>desktop</strong> dulu; ulangi alur inti (C.1–C.4, D.1–D.4) di <strong>HP</strong> untuk cek responsif (modal harusnya scroll-able dan full-width).</li>
+                </ol>
+            </div>
+        </div>
+
+        <div class="footer">
+            Versi dokumen: 2026-05-20 · Fitur Petty Cash (Kas Kecil) · Disiapkan oleh Tim Dev SweetTreats · <a href="#" onclick="window.scrollTo({top:0,behavior:'smooth'});return false;" style="color:var(--brand);">↑ Kembali ke atas</a>
+        </div>
+
+    </main>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// TEST DATA — Petty Cash
+// ═══════════════════════════════════════════════════════
+const TESTS = [
+    // ─── A. DB SCHEMA & MIGRATION ────────────────────
+    { id:'A.1', section:'A', anchor:'sec-a', sectionTitle:'A — DB Schema & Migration', sectionIcon:'fa-database',
+      title:'Migration sukses & tabel terbentuk',
+      goal:'File SQL idempoten — jalankan sekali atau berkali-kali hasilnya sama.',
+      steps:['phpMyAdmin → DB target → tab SQL → tempel isi <code>2026_05_20_petty_cash.sql</code> → Go', 'Cek tabel: <code>SHOW TABLES LIKE "petty_cash%";</code>'],
+      expected:'2 tabel muncul: <code>petty_cash_periods</code> dan <code>petty_cash_transactions</code>. Tidak ada error SQL.' },
+
+    { id:'A.2', section:'A',
+      title:'Kolom created_by adalah varchar(36) (bukan int)',
+      goal:'session("id") di project adalah UUID — kolom harus varchar(36) supaya tidak truncated.',
+      steps:['<code>SHOW COLUMNS FROM petty_cash_transactions LIKE "created_by";</code>'],
+      expected:'<code>Type</code> = <code>varchar(36)</code>, <code>Null</code> = <code>YES</code>, default <code>NULL</code>. Kalau masih <code>int(11)</code>, jalankan ulang SQL migration (ada ALTER auto-upgrade).' },
+
+    { id:'A.3', section:'A',
+      title:'Seed periode pertama dengan opening_balance = 0',
+      steps:['<code>SELECT period_year, period_month, opening_balance, float_amount FROM petty_cash_periods;</code>'],
+      expected:'1 baris (atau lebih) dengan: <code>opening_balance</code> = <strong>0.00</strong>, <code>float_amount</code> = <strong>1500000.00</strong>, <code>period_year/month</code> = bulan/tahun saat ini.' },
+
+    { id:'A.4', section:'A',
+      title:'Idempoten — re-run tidak duplicate',
+      goal:'File migration aman dijalankan berkali-kali tanpa merusak data.',
+      steps:['Catat jumlah row: <code>SELECT COUNT(*) FROM petty_cash_periods;</code>', 'Jalankan ULANG SQL migration', 'Cek jumlah lagi'],
+      expected:'Jumlah row TIDAK berubah. Tidak ada error (CREATE pakai IF NOT EXISTS, INSERT pakai WHERE NOT EXISTS, ALTER aman walau kolom sudah benar).' },
+
+    // ─── B. HALAMAN UTAMA & FILTER ────────────────────
+    { id:'B.1', section:'B', anchor:'sec-b', sectionTitle:'B — Halaman Utama & Filter', sectionIcon:'fa-house',
+      title:'Buka /pettycash → langsung tampil bulan ini',
+      steps:['Login dulu, lalu buka <code>http://127.0.0.1:8000/pettycash</code>', 'Lihat header dan badge'],
+      expected:'Header tulis "Petty cash" + <code>Periode berjalan · [Bulan Tahun Ini]</code>. Badge hijau "Bulan berjalan · dapat diubah" muncul di kanan.' },
+
+    { id:'B.2', section:'B',
+      title:'4 Summary cards muncul dengan nilai awal Rp 0',
+      goal:'Karena belum ada transaksi, semua nilai harusnya 0.',
+      steps:['Lihat baris 4 kartu di atas tabel'],
+      expected:'4 kartu: <strong>Saldo awal</strong> Rp 0 · <strong>Total cash in</strong> Rp 0 (hijau) · <strong>Total cash out</strong> Rp 0 (merah) · <strong>Saldo akhir</strong> Rp 0 (highlight brown gradient).' },
+
+    { id:'B.3', section:'B',
+      title:'Tabel transaksi kosong → muncul empty state',
+      steps:['Lihat tabel utama'],
+      expected:'Tabel hanya berisi 1 baris "Saldo awal" (highlight cream) dengan Rp 0. Di bawahnya: empty state ikon folder + teks "Belum ada transaksi bulan ini. Saldo awal: Rp 0. Lakukan <strong>Top up saldo</strong> dulu untuk mulai mencatat pengeluaran."' },
+
+    { id:'B.4', section:'B',
+      title:'Filter Tahun & Bulan',
+      steps:['Pilih <strong>Tahun</strong> selain tahun ini → form auto-submit', 'Pilih <strong>Bulan</strong> berbeda', 'Klik tombol "Bulan ini" untuk balik'],
+      expected:'URL berubah (<code>?tahun=2025&bulan=12</code>). Halaman re-render dengan periode terpilih. Badge berubah jadi "Bulan lampau · read-only" (tombol Top up &amp; Pengeluaran disembunyikan). Klik "Bulan ini" → kembali ke bulan berjalan + tombol muncul lagi.' },
+
+    { id:'B.5', section:'B',
+      title:'Filter "Cari keterangan"',
+      goal:'Setelah ada beberapa transaksi (lakukan setelah Section C/D).',
+      steps:['Ketik kata kunci di kolom Cari (mis. "top")', 'Submit', 'Reset dengan tombol X'],
+      expected:'Tabel ter-filter — hanya tampilkan row yang keterangan-nya mengandung kata kunci. Summary cards <strong>tetap</strong> menampilkan total seluruh transaksi periode (bukan hasil filter). Tombol X menghilang setelah reset.' },
+
+    // ─── C. TOP UP SALDO ────────────────────
+    { id:'C.1', section:'C', anchor:'sec-c', sectionTitle:'C — Top up Saldo', sectionIcon:'fa-arrow-down-up-across-line',
+      title:'Modal Top up terbuka & nominal saran auto-isi',
+      goal:'Saran nominal = float - saldo sekarang (kembalikan ke imprest).',
+      steps:['Klik tombol <strong>Top up saldo</strong> (outline hijau)'],
+      expected:'Modal muncul dengan judul "Top up Saldo". Saldo sekarang Rp 0 + float Rp 1.500.000 → saran nominal <strong>Rp 1.500.000</strong> (auto-fill di field nominal). Ada banner kuning di atas yang menjelaskan saran top up.' },
+
+    { id:'C.2', section:'C',
+      title:'Submit top up Rp 1.500.000 → saldo naik',
+      steps:['Di modal: tanggal hari ini, keterangan kosong (default), nominal Rp 1.500.000 → klik <strong>Top up Saldo</strong>'],
+      expected:'Redirect ke halaman utama dengan toast hijau "Top up saldo berhasil dicatat". <strong>Summary cards:</strong> Saldo awal Rp 0, Total cash in Rp 1.500.000 (hijau), Total cash out Rp 0, Saldo akhir <strong>Rp 1.500.000</strong>.' },
+
+    { id:'C.3', section:'C',
+      title:'Baris top up tampil dengan highlight hijau + badge "top up"',
+      steps:['Lihat tabel transaksi'],
+      expected:'Baris baru di bawah "Saldo awal" dengan: ikon <i class="fa fa-arrow-down-up-across-line"></i>, keterangan "Top up kasir" (default), badge hijau "top up", cash in Rp 1.500.000, cash out kosong, saldo Rp 1.500.000. Background row gradient hijau muda.' },
+
+    { id:'C.4', section:'C',
+      title:'Verifikasi DB created_by terisi UUID user',
+      steps:['<code>SELECT id, description, amount, is_topup, created_by FROM petty_cash_transactions ORDER BY id DESC LIMIT 1;</code>'],
+      expected:'1 baris terbaru: <code>direction = "in"</code>, <code>is_topup = 1</code>, <code>amount = 1500000.00</code>, <code>created_by</code> = UUID user yang login (cocok dengan <code>users.id</code> kamu).' },
+
+    // ─── D. PENGELUARAN (CASH OUT) ────────────────────
+    { id:'D.1', section:'D', anchor:'sec-d', sectionTitle:'D — Pengeluaran (Cash Out)', sectionIcon:'fa-minus',
+      title:'Modal Pengeluaran terbuka',
+      steps:['Klik tombol <strong>+ Pengeluaran</strong> (filled brown)'],
+      expected:'Modal "Tambah Pengeluaran" muncul. Field: Tanggal (default hari ini), Keterangan (kosong, required), Nominal (kosong, required). Field "No. nota / referensi" <strong>TIDAK</strong> ada (sudah dihapus).' },
+
+    { id:'D.2', section:'D',
+      title:'Validasi: submit kosong → error',
+      steps:['Modal terbuka, langsung klik <strong>Simpan Pengeluaran</strong> tanpa isi apa-apa'],
+      expected:'Browser-level validation: field "Keterangan" dan/atau "Nominal" highlight merah / muncul pesan "Mohon isi kolom ini". Form tidak submit ke server.' },
+
+    { id:'D.3', section:'D',
+      title:'Submit pengeluaran valid → saldo turun',
+      steps:['Tanggal hari ini, Keterangan "TEST - Bayar Listrik", Nominal 250000', 'Klik <strong>Simpan Pengeluaran</strong>'],
+      expected:'Toast hijau "Pengeluaran berhasil ditambahkan". Summary cards update: Total cash out <strong>Rp 250.000</strong> (merah), Saldo akhir <strong>Rp 1.250.000</strong>. Tabel: baris baru dengan keterangan "TEST - Bayar Listrik", cash out Rp 250.000 (merah), saldo Rp 1.250.000.' },
+
+    { id:'D.4', section:'D',
+      title:'Format Rupiah otomatis di input nominal',
+      steps:['Buka modal Pengeluaran lagi', 'Ketik <code>1234567</code> di field Nominal'],
+      expected:'Input auto-format jadi <code>1.234.567</code> (separator titik). Saat submit, value yang dikirim ke server adalah <code>1234567</code> (tanpa separator). Tutup modal tanpa simpan.' },
+
+    { id:'D.5', section:'D',
+      title:'Hapus transaksi (soft delete)',
+      steps:['Hover row "TEST - Bayar Listrik" → klik ikon <i class="fa fa-trash"></i> di kolom paling kanan', 'Konfirmasi dialog → OK'],
+      expected:'Row hilang dari tabel. Summary update: Saldo akhir kembali Rp 1.500.000. <strong>Cek DB:</strong> <code>SELECT id, description, deleted_at FROM petty_cash_transactions WHERE description LIKE "TEST%";</code> → row masih ada tapi <code>deleted_at</code> sudah terisi timestamp (soft delete — audit trail aman).' },
+
+    // ─── E. CARRY-FORWARD & PERIODE ────────────────────
+    { id:'E.1', section:'E', anchor:'sec-e', sectionTitle:'E — Carry-Forward & Periode', sectionIcon:'fa-calendar-days',
+      title:'Ganti ke bulan depan → periode otomatis dibuat',
+      goal:'ensurePeriod() auto-create periode + carry-forward opening_balance.',
+      steps:['Asumsikan bulan sekarang Mei 2026, saldo akhir Mei = Rp 1.500.000', 'Filter ke Tahun 2026 + Bulan 6 (Juni)', 'Lihat summary + cek DB'],
+      expected:'Periode Juni 2026 auto-dibuat (cek <code>SELECT * FROM petty_cash_periods WHERE period_year=2026 AND period_month=6;</code>). Saldo awal Juni = Rp 1.500.000 (carry-forward dari Mei). Tabel transaksi Juni kosong. Badge "Bulan lampau / berjalan / akan datang" sesuai konteks.' },
+
+    { id:'E.2', section:'E',
+      title:'Periode lampau read-only (tombol disembunyikan)',
+      steps:['Filter ke bulan/tahun MASA LALU (mis. Januari 2025)', 'Lihat tombol Top up / Pengeluaran'],
+      expected:'Tombol "Top up saldo" dan "+ Pengeluaran" <strong>tidak muncul</strong>. Tabel transaksi tetap tampil (kalau ada data), tapi tanpa tombol hapus di kolom paling kanan. Badge "Bulan lampau · read-only".' },
+
+    { id:'E.3', section:'E',
+      title:'Carry-forward bekerja saat sudah ada transaksi',
+      goal:'Closing bulan lalu = opening bulan ini.',
+      steps:['Pastikan bulan sekarang punya saldo akhir non-zero (mis. Rp 1.250.000)', 'Ganti ke bulan depan (filter)', 'Cek opening_balance'],
+      expected:'Opening bulan depan = Rp 1.250.000 (sama dengan closing bulan sekarang). Cek DB: <code>SELECT period_year, period_month, opening_balance FROM petty_cash_periods ORDER BY period_year DESC, period_month DESC;</code> menunjukkan rantai opening yang konsisten.' },
+
+    { id:'E.4', section:'E',
+      title:'Periode baru tanpa transaksi → empty state dengan saldo awal benar',
+      steps:['Buka periode bulan depan (yang baru ke-create)'],
+      expected:'Summary cards: Saldo awal = carry-forward (mis. Rp 1.250.000), Cash in/out Rp 0, Saldo akhir = saldo awal (Rp 1.250.000). Tabel tampil baris "Saldo awal" + empty state "Belum ada transaksi bulan ini. Saldo awal: Rp 1.250.000. Klik <strong>+ Pengeluaran</strong> atau <strong>Top up saldo</strong> untuk mulai mencatat."' },
+
+    // ─── EC. EDGE CASES ────────────────────
+    { id:'EC.1', section:'EC', anchor:'sec-ec', sectionTitle:'Edge Cases', sectionIcon:'fa-bug',
+      title:'Cash out > saldo (tidak diblokir, tapi saldo bisa negatif)',
+      goal:'Sistem tidak memaksa saldo selalu positif — user bertanggung jawab. Tapi UI harus tetap render OK.',
+      steps:['Saldo sekarang mis. Rp 100.000', 'Tambah pengeluaran Rp 500.000'],
+      expected:'Transaksi tetap masuk (tidak ada blokir validasi). Saldo akhir jadi <strong>Rp -400.000</strong>. UI render OK tanpa crash. (Kalau mau ada peringatan, itu enhancement future — saat ini tidak diblokir.)' },
+
+    { id:'EC.2', section:'EC',
+      title:'Modal di mobile (responsif)',
+      goal:'Field input dan tombol bisa diakses dengan nyaman di HP.',
+      steps:['Buka /pettycash di HP (atau DevTools mode mobile)', 'Klik Top up / Pengeluaran → modal terbuka', 'Coba submit'],
+      expected:'Modal full-width, field dan tombol cukup besar untuk tap (min 40px height). Modal scroll-able kalau konten melebihi viewport. Tombol Tutup (X) terjangkau. Format Rupiah tetap kerja di input.' },
+
+    { id:'EC.3', section:'EC',
+      title:'Try akses periode tertutup (is_closed=1) via URL',
+      goal:'Periode tertutup harus read-only walaupun di-akses paksa.',
+      steps:['Tutup periode manual via DB: <code>UPDATE petty_cash_periods SET is_closed=1 WHERE period_year=YEAR(CURDATE()) AND period_month=MONTH(CURDATE());</code>', 'Refresh halaman /pettycash'],
+      expected:'Badge berubah jadi merah "Periode ditutup · read-only". Tombol Top up &amp; Pengeluaran disembunyikan. Coba force POST ke <code>/pettycash/expense</code> via Postman dengan period_id yang sama → respon <strong>403 Forbidden</strong> (abortIfReadOnly).' },
+];
+
+const SECTIONS = [
+    { key:'A',  label:'A — DB Schema & Migration' },
+    { key:'B',  label:'B — Halaman Utama & Filter' },
+    { key:'C',  label:'C — Top up Saldo' },
+    { key:'D',  label:'D — Pengeluaran (Cash Out)' },
+    { key:'E',  label:'E — Carry-Forward & Periode' },
+    { key:'EC', label:'Edge Cases' },
+];
+
+// ═══════════════════════════════════════════════════════
+// RENDER & STATE  (kerangka sama dengan TEST_FLOW.html)
+// ═══════════════════════════════════════════════════════
+const STORAGE_KEY = 'pettyCashTestFlow_v1';
+const STATE = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+
+function saveState() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(STATE));
+    updateProgress();
+}
+function getState(id) { return STATE[id] || { verdict:null, notes:'' }; }
+function setVerdict(id, verdict) {
+    if (!STATE[id]) STATE[id] = { verdict:null, notes:'' };
+    STATE[id].verdict = STATE[id].verdict === verdict ? null : verdict;
+    saveState();
+    renderTest(id);
+}
+function setNotes(id, notes) {
+    if (!STATE[id]) STATE[id] = { verdict:null, notes:'' };
+    STATE[id].notes = notes;
+    saveState();
+}
+
+function renderTests() {
+    const container = document.getElementById('testContainer');
+    let html = '';
+    let currentSection = null;
+
+    TESTS.forEach(t => {
+        if (t.section !== currentSection) {
+            currentSection = t.section;
+            html += `<section id="${t.anchor}" style="margin-top:42px;">
+                <h2><span class="h2-num"><i class="fa-solid ${t.sectionIcon}"></i></span> ${t.sectionTitle}</h2>
+            </section>`;
+        }
+        const state = getState('T-' + t.id);
+        const passClass = state.verdict === 'pass' ? 'is-pass' : '';
+        const failClass = state.verdict === 'fail' ? 'is-fail' : '';
+        const stepsHtml = t.steps.map(s => `<li>${s}</li>`).join('');
+        const goalHtml = t.goal ? `<dt>Goal</dt><dd>${t.goal}</dd>` : '';
+
+        html += `
+        <div class="test ${passClass} ${failClass}" id="test-${t.id}">
+            <div class="test-head">
+                <div class="test-id">
+                    <span class="test-id-pill">T-${t.id}</span>
+                    <span class="test-title">${t.title}</span>
+                </div>
+                <div class="verdict">
+                    <button type="button" class="verdict-btn pass-btn ${state.verdict === 'pass' ? 'active' : ''}" onclick="setVerdict('T-${t.id}', 'pass')"><i class="fa-solid fa-check"></i> Pass</button>
+                    <button type="button" class="verdict-btn fail-btn ${state.verdict === 'fail' ? 'active' : ''}" onclick="setVerdict('T-${t.id}', 'fail')"><i class="fa-solid fa-xmark"></i> Fail</button>
+                </div>
+            </div>
+            <dl class="test-body">
+                ${goalHtml}
+                <dt>Steps</dt><dd><ol>${stepsHtml}</ol></dd>
+                <dt>Expected</dt><dd>${t.expected}</dd>
+            </dl>
+            <div class="test-notes">
+                <label for="notes-${t.id}">Catatan / Bug detail</label>
+                <textarea id="notes-${t.id}" oninput="setNotes('T-${t.id}', this.value)" placeholder="Tulis catatan kalau ada hal yang perlu di-flag...">${state.notes || ''}</textarea>
+            </div>
+        </div>`;
+    });
+    container.innerHTML = html;
+}
+
+function renderTest(id) {
+    const t = TESTS.find(t => 'T-' + t.id === id);
+    if (!t) return;
+    const el = document.getElementById('test-' + t.id);
+    if (!el) return;
+    const state = getState(id);
+    el.classList.toggle('is-pass', state.verdict === 'pass');
+    el.classList.toggle('is-fail', state.verdict === 'fail');
+    el.querySelector('.pass-btn').classList.toggle('active', state.verdict === 'pass');
+    el.querySelector('.fail-btn').classList.toggle('active', state.verdict === 'fail');
+}
+
+function updateProgress() {
+    const total = TESTS.length;
+    let pass = 0, fail = 0;
+    TESTS.forEach(t => {
+        const s = getState('T-' + t.id);
+        if (s.verdict === 'pass') pass++;
+        else if (s.verdict === 'fail') fail++;
+    });
+    const done = pass + fail;
+    const pct = total > 0 ? (done / total * 100) : 0;
+    document.getElementById('progressCurrent').textContent = done;
+    document.getElementById('progressTotal').textContent = total;
+    document.getElementById('progressBar').style.width = pct + '%';
+    document.getElementById('passCount').textContent = pass;
+    document.getElementById('failCount').textContent = fail;
+
+    SECTIONS.forEach(sec => {
+        const tests = TESTS.filter(t => t.section === sec.key);
+        let d = 0;
+        tests.forEach(t => {
+            const s = getState('T-' + t.id);
+            if (s.verdict === 'pass' || s.verdict === 'fail') d++;
+        });
+        const el = document.querySelector(`[data-section="${sec.key}"]`);
+        if (el) el.textContent = `${d}/${tests.length}`;
+    });
+
+    let totalTotal = 0, totalPass = 0, totalFail = 0, bodyHtml = '';
+    SECTIONS.forEach(sec => {
+        const tests = TESTS.filter(t => t.section === sec.key);
+        let p = 0, f = 0;
+        tests.forEach(t => {
+            const s = getState('T-' + t.id);
+            if (s.verdict === 'pass') p++;
+            else if (s.verdict === 'fail') f++;
+        });
+        const pending = tests.length - p - f;
+        totalTotal += tests.length; totalPass += p; totalFail += f;
+        bodyHtml += `<tr>
+            <td>${sec.label}</td>
+            <td class="num">${tests.length}</td>
+            <td class="num summary-num pass-num">${p}</td>
+            <td class="num summary-num fail-num">${f}</td>
+            <td class="num">${pending}</td>
+        </tr>`;
+    });
+    bodyHtml += `<tr class="total-row">
+        <td><strong>TOTAL</strong></td>
+        <td class="num">${totalTotal}</td>
+        <td class="num summary-num pass-num">${totalPass}</td>
+        <td class="num summary-num fail-num">${totalFail}</td>
+        <td class="num">${totalTotal - totalPass - totalFail}</td>
+    </tr>`;
+    document.getElementById('summaryBody').innerHTML = bodyHtml;
+}
+
+function exportResults() {
+    const data = {
+        exportedAt: new Date().toISOString(),
+        results: TESTS.map(t => ({
+            id: 'T-' + t.id,
+            section: t.section,
+            title: t.title,
+            verdict: getState('T-' + t.id).verdict || 'pending',
+            notes: getState('T-' + t.id).notes || '',
+        })),
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `pettycash-test-results-${new Date().toISOString().slice(0,10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+function resetAll() {
+    if (!confirm('Reset SEMUA progress test? Tindakan ini tidak bisa di-undo.')) return;
+    localStorage.removeItem(STORAGE_KEY);
+    Object.keys(STATE).forEach(k => delete STATE[k]);
+    renderTests();
+    updateProgress();
+}
+
+function setupScrollSpy() {
+    const links = document.querySelectorAll('.nav-link');
+    const sections = ['prereq','sec-a','sec-b','sec-c','sec-d','sec-e','sec-ec','summary'];
+    function onScroll() {
+        const scrollPos = window.scrollY + 120;
+        let activeIdx = 0;
+        sections.forEach((id, i) => {
+            const el = document.getElementById(id);
+            if (el && el.offsetTop <= scrollPos) activeIdx = i;
+        });
+        links.forEach((l, i) => l.classList.toggle('active', i === activeIdx));
+    }
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+}
+
+renderTests();
+updateProgress();
+setupScrollSpy();
+</script>
+
+</body>
+</html>
