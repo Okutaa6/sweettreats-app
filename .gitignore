@@ -17,3 +17,8 @@ yarn-error.log
 /.fleet
 /.idea
 /.vscode
+
+# Backup snapshot file per-versi (mis. "Helpers v1.5.2.php") — disimpan
+# di disk dev untuk referensi, tidak boleh ke-commit ke history.
+* v*.*.*.php
+* v*.*.*.blade.php
