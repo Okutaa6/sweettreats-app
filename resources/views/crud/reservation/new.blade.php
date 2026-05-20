@@ -35,7 +35,7 @@
                                         <option value="">- Cari Pasien -</option>
                                         @foreach ($customers as $customer)
                                             @if(old('raw_customer_id') == $customer->id)
-                                                <option value="{{ $customer->id }}" selected>
+                                                <option value="{{ $customer->id }}" data-phone="{{ $customer->phone ?? '' }}" selected>
                                                     {{ $customer->name }} ({{ $customer->phone ?: '-' }})
                                                 </option>
                                             @endif
@@ -44,6 +44,64 @@
                                     @if ($errors->has('raw_customer_id'))
                                         <div class="invalid-feedback">{{ $errors->first('raw_customer_id') }}</div>
                                     @endif
+                                    <div class="qp-trigger-wrap">
+                                        <small class="text-muted">1 nomor bisa punya banyak pasien (mis. anak / pasangan).</small>
+                                        <button type="button" class="qp-trigger" id="toggleQuickPatient">
+                                            <i class="fa fa-user-plus"></i> Tambah pasien baru di nomor ini
+                                        </button>
+                                    </div>
+
+                                    <div id="quickPatientBox" class="qp-card" style="display:none;">
+                                        <div class="qp-card__head">
+                                            <span id="qpCardTitle"><i class="fa fa-user-plus"></i> Pasien Baru</span>
+                                            <button type="button" class="qp-close" id="qpCloseBtn" aria-label="Tutup">&times;</button>
+                                        </div>
+                                        <div class="qp-card__body">
+                                            <div class="row">
+                                                <div class="col-md-6 form-group">
+                                                    <label>Nama Pasien <span class="qp-req">*</span></label>
+                                                    <input type="text" id="qpName" class="form-control" placeholder="Nama lengkap pasien">
+                                                </div>
+                                                <div class="col-md-6 form-group">
+                                                    <label>No. HP <span class="qp-req">*</span></label>
+                                                    <input type="text" id="qpPhone" class="form-control" placeholder="08xxxxxxxxxx">
+                                                </div>
+                                                <div class="col-md-4 form-group">
+                                                    <label>Jenis Kelamin</label>
+                                                    <select id="qpJk" class="form-control">
+                                                        <option value="">- Pilih -</option>
+                                                        <option value="L">Laki-laki</option>
+                                                        <option value="P">Perempuan</option>
+                                                    </select>
+                                                </div>
+                                                <div class="col-md-4 form-group">
+                                                    <label>Tanggal Lahir</label>
+                                                    <input type="text" id="qpTgl" class="form-control" placeholder="Pilih tanggal" readonly>
+                                                </div>
+                                                <div class="col-md-4 form-group">
+                                                    <label>Pasien ini adalah</label>
+                                                    <select id="qpRelasi" class="form-control">
+                                                        <option value="diri_sendiri">Diri sendiri</option>
+                                                        <option value="pasangan">Pasangan</option>
+                                                        <option value="anak" selected>Anak</option>
+                                                        <option value="orang_tua">Orang tua</option>
+                                                        <option value="lainnya">Lainnya</option>
+                                                    </select>
+                                                </div>
+                                                <div class="col-md-12 form-group">
+                                                    <label>Email <span class="qp-opt">(opsional)</span></label>
+                                                    <input type="email" id="qpEmail" class="form-control" placeholder="email@contoh.com">
+                                                </div>
+                                            </div>
+                                            <div id="qpStatus" class="qp-status"></div>
+                                            <div class="qp-actions">
+                                                <button type="button" id="qpCancelBtn" class="st-btn-ghost">Batal</button>
+                                                <button type="button" id="qpSaveBtn" class="st-btn-brand">
+                                                    <i class="fa fa-check"></i> Simpan &amp; Pilih Pasien
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                                 <div class="col-md-6 form-group">
                                     <label>Dokter</label>
@@ -162,6 +220,51 @@
 @section('js')
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <style>
+        /* Quick-add pasien (1 nomor → banyak pasien) */
+        .qp-trigger-wrap { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:6px; }
+        .qp-trigger-wrap small { color:#8b7a6b; }
+        .qp-trigger {
+            display:inline-flex; align-items:center; gap:7px;
+            background:#fff; color:#461500; border:1.5px dashed rgba(70,21,0,.35);
+            border-radius:9px; padding:7px 14px; font-size:.82rem; font-weight:700;
+            cursor:pointer; transition:.15s;
+        }
+        .qp-trigger:hover { background:#fff4e8; border-color:#461500; }
+        .qp-card {
+            margin-top:12px; border:1px solid #e6d5c4; border-radius:12px;
+            background:#fffaf5; overflow:hidden;
+            box-shadow:0 6px 18px rgba(70,21,0,.06);
+        }
+        .qp-card__head {
+            display:flex; align-items:center; justify-content:space-between;
+            padding:11px 16px; background:linear-gradient(135deg,#461500,#6b2400);
+            color:#fff; font-weight:700; font-size:.9rem;
+        }
+        .qp-card__head i { margin-right:7px; }
+        .qp-close {
+            background:transparent; border:none; color:#fff; font-size:1.25rem;
+            line-height:1; cursor:pointer; opacity:.85; padding:0 4px;
+        }
+        .qp-close:hover { opacity:1; }
+        .qp-card__body { padding:16px; }
+        .qp-card__body label { font-size:.78rem; font-weight:700; color:#5b4636; margin-bottom:4px; }
+        .qp-card__body .form-control { border-radius:9px; border-color:#e0d5c8; }
+        .qp-card__body .form-control:focus { border-color:#461500; box-shadow:0 0 0 .15rem rgba(70,21,0,.12); }
+        .qp-req { color:#dc2626; }
+        .qp-opt { color:#8b7a6b; font-weight:400; font-size:.72rem; }
+        .qp-actions { display:flex; justify-content:flex-end; gap:10px; margin-top:6px; }
+        .qp-status { min-height:20px; margin:4px 0 2px; font-size:.82rem; }
+        .qp-msg { display:inline-flex; align-items:center; gap:6px; font-weight:600; }
+        .qp-ok  { color:#16a34a; }
+        .qp-err { color:#dc2626; }
+        .st-btn-ghost {
+            background:#f0e8e0; color:#5b4636; border:none; border-radius:9px;
+            padding:9px 18px; font-weight:700; font-size:.85rem; cursor:pointer;
+        }
+        .st-btn-ghost:hover { background:#e6dacc; }
+        #qpTgl[readonly] { cursor: pointer; background: #fffaf5; }
+    </style>
     <script>
         // ===== LAYANAN CHECKLIST =====
         function updateTotalDuration() {
@@ -629,6 +732,13 @@
         // ===== END SLOT PICKER =====
 
         // ===== CUSTOMER SELECT2 AJAX =====
+        // Cache id -> phone supaya panel quick-add bisa prefill nomor pasien
+        // yang dipilih (tanpa nanya nomor 2x).
+        window.qpPhones = window.qpPhones || {};
+        $('#customerSelect option').each(function () {
+            const v = $(this).val(); const p = $(this).data('phone');
+            if (v && p) window.qpPhones[v] = p;
+        });
         $('#customerSelect').select2({
             placeholder: '- Cari Pasien -',
             allowClear: true,
@@ -638,8 +748,72 @@
                 dataType: 'json',
                 delay: 300,
                 data: function(params) { return { q: params.term }; },
-                processResults: function(data) { return { results: data }; }
+                processResults: function(data) {
+                    (data || []).forEach(function (r) { if (r.id) window.qpPhones[r.id] = r.phone || ''; });
+                    return { results: data };
+                }
             }
+        });
+
+        // ===== QUICK ADD PASIEN DI NOMOR INI =====
+        flatpickr('#qpTgl', {
+            dateFormat: 'Y-m-d', altInput: true, altFormat: 'd M Y',
+            maxDate: 'today', disableMobile: true
+        });
+
+        function qpSelectedPhone() {
+            const id = $('#customerSelect').val();
+            return id ? (window.qpPhones[id] || '') : '';
+        }
+        function qpApplyContext() {
+            const phone = qpSelectedPhone();
+            if (phone) {
+                $('#qpCardTitle').html('<i class="fa fa-user-plus"></i> Pasien Baru di Nomor ' + phone);
+                $('#qpPhone').val(phone).prop('readonly', true).attr('title', 'Otomatis ikut nomor pasien terpilih');
+            } else {
+                $('#qpCardTitle').html('<i class="fa fa-user-plus"></i> Pasien Baru');
+                $('#qpPhone').val('').prop('readonly', false).removeAttr('title');
+            }
+        }
+        function qpOpen()  { qpApplyContext(); $('#quickPatientBox').slideDown(150); $('#toggleQuickPatient').hide(); $('#qpName').focus(); }
+        function qpClose() { $('#quickPatientBox').slideUp(150); $('#toggleQuickPatient').show(); $('#qpStatus').empty(); }
+
+        $('#toggleQuickPatient').on('click', function (e) { e.preventDefault(); qpOpen(); });
+        $('#qpCloseBtn, #qpCancelBtn').on('click', function () { qpClose(); });
+
+        $('#qpSaveBtn').on('click', function () {
+            const $btn = $(this);
+            const payload = {
+                _token:        $('input[name=_token]').first().val(),
+                name:          $('#qpName').val().trim(),
+                phone:         $('#qpPhone').val().trim(),
+                email:         $('#qpEmail').val().trim(),
+                jenis_kelamin: $('#qpJk').val(),
+                tanggal_lahir: $('#qpTgl').val(),
+                relasi:        $('#qpRelasi').val()
+            };
+            if (!payload.name || !payload.phone) {
+                $('#qpStatus').html('<span class="qp-msg qp-err">Nama &amp; No. HP wajib diisi.</span>');
+                return;
+            }
+            const html = $btn.html();
+            $btn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Menyimpan...');
+            $.post('{{ route("rawreservation.quickpatient") }}', payload, function (res) {
+                const opt = new Option(res.text, res.id, true, true);
+                $('#customerSelect').append(opt).trigger('change');
+                $('#qpName,#qpPhone,#qpEmail').val('');
+                if ($('#qpTgl')[0]._flatpickr) $('#qpTgl')[0]._flatpickr.clear();
+                $('#qpStatus').html('<span class="qp-msg qp-ok"><i class="fa fa-check-circle"></i> Pasien ditambahkan &amp; dipilih.</span>');
+                setTimeout(qpClose, 900);
+            }).fail(function (xhr) {
+                let msg = 'Gagal menyimpan pasien.';
+                if (xhr.responseJSON && xhr.responseJSON.errors) {
+                    msg = Object.values(xhr.responseJSON.errors).map(function (a) { return a[0]; }).join(' ');
+                }
+                $('#qpStatus').html('<span class="qp-msg qp-err">' + msg + '</span>');
+            }).always(function () {
+                $btn.prop('disabled', false).html(html);
+            });
         });
     </script>
 @endsection

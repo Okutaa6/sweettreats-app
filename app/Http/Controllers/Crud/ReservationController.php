@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Crud;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Concerns\ResolvesPatientContact;
+use App\Support\Phone;
 use App\Models\RawBranch;
 use App\Models\RawCustomer;
 use App\Models\RawCusReservation;
@@ -15,6 +17,8 @@ use App\Models\RawPromo;
 
 class ReservationController extends Controller
 {
+    use ResolvesPatientContact;
+
     public function index()
     {
         $perPage = in_array((int) request('per_page'), [10, 25, 50, 100]) ? (int) request('per_page') : 10;
@@ -146,6 +150,62 @@ class ReservationController extends Controller
         $customers = RawCustomer::orderBy('name')->get();
 
         return view('crud.reservation.new', compact('branches', 'doctors', 'customers'));
+    }
+
+    /**
+     * Daftarkan pasien baru DI sebuah nomor (bisa nomor yang sudah punya
+     * pasien lain). Dipakai tombol "+ Pasien baru di nomor ini" pada form
+     * tambah/edit reservasi. Return JSON {id,text} untuk di-inject ke
+     * select2 customer.
+     */
+    public function storeQuickPatient()
+    {
+        $data = request()->validate([
+            'name'          => 'required|max:255',
+            'phone'         => 'required|regex:/^0[0-9]{9,14}$/',
+            'email'         => 'nullable|email|max:100',
+            'jenis_kelamin' => 'nullable|in:L,P',
+            'tanggal_lahir' => 'nullable|date|before:today',
+            'relasi'        => 'nullable|in:diri_sendiri,pasangan,anak,orang_tua,lainnya',
+        ], [
+            'name.required'  => 'Nama pasien wajib diisi.',
+            'phone.required' => 'Nomor HP wajib diisi.',
+            'phone.regex'    => 'Nomor tidak valid (diawali 0, 10-15 digit).',
+        ]);
+
+        $sessionBranch = session('raw_branch_id');
+        $phone = Phone::normalize($data['phone']) ?: $data['phone'];
+
+        $customer = \Illuminate\Support\Facades\DB::transaction(function () use ($data, $phone, $sessionBranch) {
+            $contact = $this->resolveContact($phone, $data['name'], 'admin', 'admin');
+
+            return RawCustomer::create([
+                'raw_contact_id'   => $contact->id,
+                'relasi'           => $data['relasi'] ?? 'diri_sendiri',
+                'name'             => $data['name'],
+                'phone'            => $phone,
+                'email'            => $data['email'] ?? null,
+                'jenis_kelamin'    => $data['jenis_kelamin'] ?? null,
+                'tanggal_lahir'    => $data['tanggal_lahir'] ?? null,
+                'tanggal_daftar'   => now()->toDateString(),
+                'pasien_baru_lama' => 'baru',
+                'raw_branch_id'    => $sessionBranch ?: null,
+                'source_app'       => 'admin',
+                'channel'          => 'admin',
+            ]);
+        });
+
+        $relLabel = [
+            'diri_sendiri' => 'Diri sendiri', 'pasangan' => 'Pasangan',
+            'anak' => 'Anak', 'orang_tua' => 'Orang tua', 'lainnya' => 'Lainnya',
+        ][$customer->relasi] ?? null;
+
+        return response()->json([
+            'id'   => $customer->id,
+            'text' => $customer->name
+                . ($relLabel ? ' · ' . $relLabel : '')
+                . ' (' . $customer->phone . ')',
+        ]);
     }
 
     public function store()

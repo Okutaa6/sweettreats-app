@@ -105,6 +105,7 @@ Route::prefix('api/reservation')->middleware('throttle:60,1')->group(function ()
     Route::get('services-by-doctor/{doctorId}', [$ctrl, 'getServicesByDoctor']);
     Route::get('dates/{branchId}/{doctorId}', [$ctrl, 'getAvailableDates']);
     Route::get('slots/{branchId}/{doctorId}/{date}', [$ctrl, 'getTimeSlots']);
+    Route::post('plan-schedule', [$ctrl, 'planSchedule']);
     Route::get('check-customer', [$ctrl, 'checkCustomerByPhone']);
     Route::get('check-new', [$ctrl, 'checkNew']);
 });
@@ -211,6 +212,9 @@ Route::middleware([AuthGuard::class])->group(function () {
     Route::get('rawreservation', [ReservationController::class, 'index'])->name('rawreservation');
     Route::get('rawreservation/new', [ReservationController::class, 'create'])->name('rawreservation.new');
     Route::post('rawreservation/new', [ReservationController::class, 'store'])->name('rawreservation.store');
+    // Daftarkan pasien baru di sebuah nomor (1 nomor banyak pasien).
+    // Harus sebelum route wildcard {id} agar tidak tertangkap olehnya.
+    Route::post('rawreservation/quick-patient', [ReservationController::class, 'storeQuickPatient'])->name('rawreservation.quickpatient');
     Route::get('rawreservation/{id}', [ReservationController::class, 'edit'])->name('rawreservation.edit');
     Route::put('rawreservation/{id}', [ReservationController::class, 'update'])->name('rawreservation.update');
     Route::delete('rawreservation/{id}', [ReservationController::class, 'destroy'])->name('rawreservation.destroy');

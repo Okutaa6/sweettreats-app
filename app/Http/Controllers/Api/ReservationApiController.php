@@ -3,6 +3,11 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Concerns\ResolvesDoctorAvailability;
+use App\Http\Controllers\Concerns\ResolvesPatientContact;
+use App\Models\RawContact;
+use App\Models\RawCustomer;
+use App\Support\Phone;
 use App\Models\RawBranch;
 use App\Models\RawDoctor;
 use App\Models\RawDoctorSchedule;
@@ -15,6 +20,9 @@ use Illuminate\Http\Request;
 
 class ReservationApiController extends Controller
 {
+    use ResolvesDoctorAvailability;
+    use ResolvesPatientContact;
+
     // FLOW BARU: Cabang → Perawatan → Dokter → Jadwal
   
     /*
@@ -202,6 +210,55 @@ class ReservationApiController extends Controller
     }
 
     /**
+     * POST /api/reservation/plan-schedule
+     * Hitung jam otomatis untuk SEKUMPULAN pasien (1 nomor / keluarga).
+     * Dipakai form publik untuk preview jam sebelum konfirmasi.
+     *
+     * Body: { branch_id, date, default_start, patients:[
+     *   { key, doctor_id, services:[id..], lainnya:bool } ] }
+     */
+    public function planSchedule(Request $request)
+    {
+        $data = $request->validate([
+            'branch_id'            => 'required',
+            'date'                 => 'required|date',
+            'default_start'        => 'nullable',
+            'patients'             => 'required|array|min:1',
+            'patients.*.key'       => 'required',
+            'patients.*.doctor_id' => 'required',
+            'patients.*.services'  => 'nullable|array',
+            'patients.*.lainnya'   => 'nullable',
+        ]);
+
+        $items = [];
+        $durations = [];
+        foreach ($data['patients'] as $p) {
+            $dur = $this->patientDuration(
+                $p['doctor_id'], $p['services'] ?? [], !empty($p['lainnya'])
+            );
+            $durations[$p['key']] = $dur;
+            $items[] = [
+                'key'       => $p['key'],
+                'doctor_id' => $p['doctor_id'],
+                'duration'  => $dur,
+            ];
+        }
+
+        $assigned = $this->assignFamilySlots(
+            $data['branch_id'], $data['date'], $items, $data['default_start'] ?? null
+        );
+
+        $out = [];
+        foreach ($assigned as $key => $a) {
+            $out[] = array_merge(
+                ['key' => $key, 'duration' => $durations[$key] ?? null], $a
+            );
+        }
+
+        return response()->json(['patients' => $out]);
+    }
+
+    /**
      * GET /api/reservation/doctors/{branchId}
      */
     public function getDoctorsByBranch($branchId)
@@ -260,37 +317,68 @@ class ReservationApiController extends Controller
         return response()->json($branches);
     }
     /**
- * GET /api/reservation/check-customer?phone=08xxx
- * Cek apakah nomor HP sudah terdaftar sebagai pasien
- */
-public function checkCustomerByPhone(Request $request)
-{
-    $phone = trim($request->get('phone', ''));
+     * GET /api/reservation/check-customer?phone=08xxx
+     * Kembalikan daftar pasien di nomor itu (1 nomor banyak pasien).
+     * Termasuk pasien orphan (raw_contact_id NULL) yang belum ter-backfill
+     * tapi nomornya match — supaya tetap kelihatan & bisa dipilih.
+     */
+    public function checkCustomerByPhone(Request $request)
+    {
+        $raw  = trim($request->get('phone', ''));
+        $norm = Phone::normalize($raw);
 
-    if (!$phone) {
-        return response()->json(['found' => false, 'message' => 'Nomor HP tidak boleh kosong']);
-    }
+        if ($norm === null) {
+            return response()->json([
+                'found'   => false,
+                'message' => 'Nomor HP tidak valid. Silakan daftar sebagai Pasien Baru.',
+            ]);
+        }
 
-    // Cari customer berdasarkan nomor HP
-    // Coba exact match dulu, terus coba variasi format
-    $customer = \App\Models\RawCustomer::where('phone', $phone)
-        ->orWhere('phone', ltrim($phone, '0') ? '0' . ltrim($phone, '0') : $phone)
-        ->first();
+        $variants = $this->phoneVariants($norm);
 
-    if (!$customer) {
+        // Semua contact yang cocok (bisa >1 karena data lama beda format).
+        $contacts   = RawContact::whereIn('phone', $variants)
+            ->orderBy('created_at')->orderBy('id')->get();
+        $contact    = $contacts->first();
+        $contactIds = $contacts->pluck('id')->all();
+
+        // Pasien di nomor ini = ter-anchor ke contact mana pun yang cocok,
+        // ATAU orphan (raw_contact_id NULL) ber-nomor sama (legacy belum
+        // ter-backfill / pasien buatan Cekat). Union ini WAJIB.
+        $patients = RawCustomer::query()
+            ->where(function ($q) use ($contactIds, $variants) {
+                if (! empty($contactIds)) {
+                    $q->whereIn('raw_contact_id', $contactIds);
+                }
+                $q->orWhere(function ($qq) use ($variants) {
+                    $qq->whereNull('raw_contact_id')->whereIn('phone', $variants);
+                });
+            })
+            ->orderBy('created_at')
+            ->get(['id', 'name', 'relasi', 'tanggal_lahir', 'jenis_kelamin', 'email']);
+
+        if ($patients->isEmpty()) {
+            return response()->json([
+                'found'   => false,
+                'message' => 'Nomor HP tidak ditemukan. Silakan daftar sebagai Pasien Baru.',
+            ]);
+        }
+
         return response()->json([
-            'found'   => false,
-            'message' => 'Nomor HP tidak ditemukan. Silakan daftar sebagai Pasien Baru.'
+            'found'   => true,
+            'contact' => $contact
+                ? ['id' => $contact->id, 'phone' => $contact->phone, 'name' => $contact->name]
+                : ['id' => null, 'phone' => $norm, 'name' => $patients->first()->name],
+            'patients' => $patients->map(fn ($c) => [
+                'customer_id'   => $c->id,
+                'name'          => $c->name,
+                'relasi'        => $c->relasi ?: 'diri_sendiri',
+                'tanggal_lahir' => $c->tanggal_lahir,
+                'jenis_kelamin' => $c->jenis_kelamin,
+                'email'         => $c->email,
+            ])->values(),
         ]);
     }
-
-    return response()->json([
-        'found'       => true,
-        'customer_id' => $customer->id,
-        'name'        => $customer->name,
-        'phone'       => $customer->phone,
-    ]);
-}
 
     /**
      * GET /api/reservation/check-new

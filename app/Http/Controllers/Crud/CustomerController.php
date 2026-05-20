@@ -95,12 +95,26 @@ class CustomerController extends Controller
             });
         }
 
-        $customers = $query->orderBy('name')->limit(20)->get(['id', 'name', 'phone']);
+        $customers = $query->orderBy('name')->limit(20)->get(['id', 'name', 'phone', 'relasi']);
 
-        return response()->json($customers->map(fn($c) => [
-            'id'   => $c->id,
-            'text' => $c->name . ' (' . ($c->phone ?: '-') . ')',
-        ]));
+        $relasiLabel = [
+            'diri_sendiri' => 'Diri sendiri',
+            'pasangan'     => 'Pasangan',
+            'anak'         => 'Anak',
+            'orang_tua'    => 'Orang tua',
+            'lainnya'      => 'Lainnya',
+        ];
+
+        return response()->json($customers->map(function ($c) use ($relasiLabel) {
+            $rel = $relasiLabel[$c->relasi] ?? null;
+            return [
+                'id'    => $c->id,
+                'phone' => $c->phone ?: '',
+                'text'  => $c->name
+                    . ($rel ? ' · ' . $rel : '')
+                    . ' (' . ($c->phone ?: '-') . ')',
+            ];
+        }));
     }
 
     public function create()
