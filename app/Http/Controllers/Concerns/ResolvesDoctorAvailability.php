@@ -113,8 +113,8 @@ trait ResolvesDoctorAvailability
             ];
         }
 
-        // === 2. Resolve durasi slot ===
-        $duration = $this->resolveDuration($doctorId, $serviceId, $explicitDuration ?: null);
+        // === 2. Resolve durasi slot (durasi override per-cabang) ===
+        $duration = $this->resolveDuration($doctorId, $serviceId, $explicitDuration ?: null, $branchId);
 
         // === 3. Reservasi yang udah ada di tanggal ini ===
         $bookedRanges = $this->resolveBookedRanges($doctorId, $date, $reservationTable, $excludeId);
@@ -184,10 +184,15 @@ trait ResolvesDoctorAvailability
     }
 
     /**
-     * Resolve duration efektif untuk pasangan (doctor, service).
-     * Prioritas: explicit duration → pivot duration_minutes → service.duration_minutes → 30.
+     * Resolve duration efektif untuk (doctor, service) di SEBUAH CABANG.
+     * Prioritas: explicit duration → override per-dokter PER-CABANG
+     * (raw_doctor_branch_service_duration) → service.duration_minutes → 30.
+     *
+     * $branchId WAJIB diisi supaya override per-cabang terbaca; kalau null
+     * (caller belum punya konteks cabang) langsung fallback ke durasi
+     * default service — aman, tidak bocor antar cabang.
      */
-    protected function resolveDuration($doctorId, $serviceId = null, $explicitDuration = null): int
+    protected function resolveDuration($doctorId, $serviceId = null, $explicitDuration = null, $branchId = null): int
     {
         if ($explicitDuration !== null && $explicitDuration > 0) {
             return (int) $explicitDuration;
@@ -197,14 +202,15 @@ trait ResolvesDoctorAvailability
             return 30;
         }
 
-        if (config('features.flexible_scheduling')) {
-            $pivot = DB::table('raw_doctor_service')
+        if (config('features.flexible_scheduling') && $branchId) {
+            $branchDur = DB::table('raw_doctor_branch_service_duration')
                 ->where('raw_doctor_id', $doctorId)
+                ->where('raw_branch_id', $branchId)
                 ->where('raw_doc_service_id', $serviceId)
-                ->first();
+                ->value('duration_minutes');
 
-            if ($pivot && $pivot->duration_minutes !== null) {
-                return (int) round($pivot->duration_minutes);
+            if ($branchDur !== null) {
+                return (int) round($branchDur);
             }
         }
 
@@ -218,12 +224,12 @@ trait ResolvesDoctorAvailability
 
     /**
      * Durasi total perawatan seorang pasien (jumlah durasi tiap service;
-     * "Lainnya"/kosong = 30 menit). Prioritas durasi: pivot per-dokter →
-     * service.duration_minutes → 30 (via resolveDuration).
+     * "Lainnya"/kosong = 30 menit). Prioritas durasi: override per-dokter
+     * PER-CABANG → service.duration_minutes → 30 (via resolveDuration).
      *
      * @param array<int,mixed> $serviceIds
      */
-    protected function patientDuration($doctorId, array $serviceIds, bool $lainnya): int
+    protected function patientDuration($doctorId, array $serviceIds, bool $lainnya, $branchId = null): int
     {
         if ($lainnya) {
             return 30;
@@ -233,7 +239,7 @@ trait ResolvesDoctorAvailability
             if (! $sid) {
                 continue;
             }
-            $total += $this->resolveDuration($doctorId, $sid);
+            $total += $this->resolveDuration($doctorId, $sid, null, $branchId);
         }
         return $total > 0 ? $total : 30;
     }

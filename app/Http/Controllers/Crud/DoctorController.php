@@ -95,17 +95,33 @@ class DoctorController extends Controller
 
             //new
         $allServices     = \App\Models\RawDocService::with(['allDetails'])->orderBy('name')->get();
-        $doctorServicePivots = \App\Models\RawDoctorService::where('raw_doctor_id', $id)
-            ->get()
-            ->keyBy('raw_doc_service_id');
-        $doctorServiceIds = $doctorServicePivots->keys()->toArray();
-        // map: service_id => duration_minutes (nullable) dari pivot
-        $doctorServiceDurations = $doctorServicePivots->map(fn($p) => $p->duration_minutes)->toArray();
+        // Capability (perawatan yang dilayani dokter) — UNIVERSAL, bukan per-cabang.
+        $doctorServiceIds = \App\Models\RawDoctorService::where('raw_doctor_id', $id)
+            ->pluck('raw_doc_service_id')->toArray();
 
-        // Per-doctor sub-detail duration overrides
-        $doctorDetailDurations = \App\Models\RawDoctorServiceDetail::where('raw_doctor_id', $id)
+        // Cabang tempat dokter ini punya jadwal (target editing durasi per-cabang).
+        // Sales yang terkunci 1 cabang → hanya cabang itu.
+        $doctorBranchIds = RawDoctorSchedule::where('raw_doctor_id', $id)
+            ->distinct()->pluck('raw_branch_id')->toArray();
+        if ($sessionBranch) {
+            $doctorBranchIds = array_values(array_intersect($doctorBranchIds, [$sessionBranch]));
+        }
+        $doctorBranches = RawBranch::whereIn('id', $doctorBranchIds)->orderBy('name')->get();
+
+        // Durasi override PER-CABANG: [branchId][serviceId] => durasi.
+        $branchServiceDurations = \Illuminate\Support\Facades\DB::table('raw_doctor_branch_service_duration')
+            ->where('raw_doctor_id', $id)
             ->get()
-            ->mapWithKeys(fn($p) => [$p->raw_doc_service_detail_id => $p->duration_minutes])
+            ->groupBy('raw_branch_id')
+            ->map(fn($rows) => $rows->pluck('duration_minutes', 'raw_doc_service_id')->toArray())
+            ->toArray();
+
+        // Durasi override sub-detail PER-CABANG: [branchId][detailId] => durasi.
+        $branchDetailDurations = \Illuminate\Support\Facades\DB::table('raw_doctor_branch_detail_duration')
+            ->where('raw_doctor_id', $id)
+            ->get()
+            ->groupBy('raw_branch_id')
+            ->map(fn($rows) => $rows->pluck('duration_minutes', 'raw_doc_service_detail_id')->toArray())
             ->toArray();
 
         $leaves = \Illuminate\Support\Facades\DB::table('raw_doctor_leave')
@@ -120,7 +136,8 @@ class DoctorController extends Controller
 
         return view('crud.doctor.edit', compact(
             'doctor', 'schedules', 'branches',
-            'allServices', 'doctorServiceIds', 'doctorServiceDurations', 'doctorDetailDurations',
+            'allServices', 'doctorServiceIds',
+            'doctorBranches', 'branchServiceDurations', 'branchDetailDurations',
             'leaves', 'exceptions'
         ));
     }
@@ -161,64 +178,89 @@ class DoctorController extends Controller
     public function servicesUpdate($doctorId)
     {
         $doctor = RawDoctor::findOrFail($doctorId);
+        $userId = session('id');
 
-        // Hapus semua service lama
-        \App\Models\RawDoctorService::where('raw_doctor_id', $doctorId)->delete();
-
-        // Insert service baru yang diceklist
+        // ── 1. Capability (perawatan yang dilayani dokter) — UNIVERSAL ──
+        // Tidak menyimpan durasi di sini lagi; durasi pindah ke per-cabang.
         $services = request('services', []);
-        // Map service_id => durasi override (nullable)
-        // Format input: services_duration[$serviceId] = '10' / '' / null
-        $durations = request('services_duration', []);
-
+        \App\Models\RawDoctorService::where('raw_doctor_id', $doctorId)->delete();
         foreach ($services as $serviceId) {
-            $dur = null;
-            if (config('features.flexible_scheduling')) {
-                $rawDur = $durations[$serviceId] ?? null;
-                $dur    = ($rawDur === null || $rawDur === '') ? null : (float) $rawDur;
-            }
-
             \Illuminate\Support\Facades\DB::table('raw_doctor_service')->insert([
                 'id'                => \Illuminate\Support\Str::uuid()->toString(),
                 'raw_doctor_id'     => $doctorId,
                 'raw_doc_service_id'=> $serviceId,
-                'duration_minutes'  => $dur,
-                'created_by'        => session('id'),
+                'duration_minutes'  => null, // legacy column — durasi kini per-cabang
+                'created_by'        => $userId,
                 'created_at'        => now(),
             ]);
         }
 
-        // Per-doctor sub-detail duration overrides
-        // Format input: details_duration[$detailId] = '15' / '' / null
+        // ── 2. Durasi override PER-CABANG ──────────────────────────────
+        // Format input: services_duration[$branchId][$serviceId] = '10' / ''
+        //               details_duration[$branchId][$detailId]   = '15' / ''
+        // Delete-then-insert HANYA untuk cabang yang dikirim di form (jadi
+        // Sales yang terkunci 1 cabang tidak menghapus durasi cabang lain).
         if (config('features.flexible_scheduling')) {
-            \App\Models\RawDoctorServiceDetail::where('raw_doctor_id', $doctorId)->delete();
-
-            // Whitelist sub-detail IDs yang parent service-nya dicentang (anti-orphan)
             $allowedDetailIds = \App\Models\RawDocServiceDetail::whereIn('raw_doc_service_id', $services)
-                ->pluck('id')
-                ->all();
+                ->pluck('id')->all();
 
-            $detailDurations = request('details_duration', []);
-            foreach ($detailDurations as $detailId => $rawDur) {
-                if ($rawDur === null || $rawDur === '') {
-                    continue; // skip kosong (= pakai default)
+            $svcDurByBranch    = request('services_duration', []);
+            $detailDurByBranch = request('details_duration', []);
+            $branchIds = array_unique(array_merge(
+                array_keys($svcDurByBranch), array_keys($detailDurByBranch)
+            ));
+
+            foreach ($branchIds as $branchId) {
+                // service-level
+                \Illuminate\Support\Facades\DB::table('raw_doctor_branch_service_duration')
+                    ->where('raw_doctor_id', $doctorId)
+                    ->where('raw_branch_id', $branchId)
+                    ->delete();
+                foreach (($svcDurByBranch[$branchId] ?? []) as $serviceId => $rawDur) {
+                    if ($rawDur === null || $rawDur === '') {
+                        continue; // kosong = pakai durasi default service
+                    }
+                    if (!in_array($serviceId, $services, true)) {
+                        continue; // skip kalau service tidak dicentang
+                    }
+                    \Illuminate\Support\Facades\DB::table('raw_doctor_branch_service_duration')->insert([
+                        'id'                 => \Illuminate\Support\Str::uuid()->toString(),
+                        'raw_doctor_id'      => $doctorId,
+                        'raw_branch_id'      => $branchId,
+                        'raw_doc_service_id' => $serviceId,
+                        'duration_minutes'   => (float) $rawDur,
+                        'created_by'         => $userId,
+                        'created_at'         => now(),
+                    ]);
                 }
-                if (!in_array($detailId, $allowedDetailIds, true)) {
-                    continue; // skip kalau parent service tidak dicentang
+
+                // sub-detail
+                \Illuminate\Support\Facades\DB::table('raw_doctor_branch_detail_duration')
+                    ->where('raw_doctor_id', $doctorId)
+                    ->where('raw_branch_id', $branchId)
+                    ->delete();
+                foreach (($detailDurByBranch[$branchId] ?? []) as $detailId => $rawDur) {
+                    if ($rawDur === null || $rawDur === '') {
+                        continue;
+                    }
+                    if (!in_array($detailId, $allowedDetailIds, true)) {
+                        continue; // skip kalau parent service tidak dicentang
+                    }
+                    \Illuminate\Support\Facades\DB::table('raw_doctor_branch_detail_duration')->insert([
+                        'id'                       => \Illuminate\Support\Str::uuid()->toString(),
+                        'raw_doctor_id'            => $doctorId,
+                        'raw_branch_id'            => $branchId,
+                        'raw_doc_service_detail_id'=> $detailId,
+                        'duration_minutes'         => (float) $rawDur,
+                        'created_by'               => $userId,
+                        'created_at'               => now(),
+                    ]);
                 }
-                \Illuminate\Support\Facades\DB::table('raw_doctor_service_detail')->insert([
-                    'id'                       => \Illuminate\Support\Str::uuid()->toString(),
-                    'raw_doctor_id'            => $doctorId,
-                    'raw_doc_service_detail_id'=> $detailId,
-                    'duration_minutes'         => (float) $rawDur,
-                    'created_by'               => session('id'),
-                    'created_at'               => now(),
-                ]);
             }
         }
 
         return redirect()->route('rawdoctor.edit', $doctorId)
-            ->with('success', 'Service dokter berhasil diperbarui');
+            ->with('success', 'Perawatan & durasi dokter berhasil diperbarui');
     }
 
     // === Doctor Schedule Exception (pengecualian jadwal per tanggal) ===

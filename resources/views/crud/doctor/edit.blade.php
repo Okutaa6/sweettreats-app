@@ -212,83 +212,98 @@
             </div>
         </div>
 
-        {{-- Doctor Services --}}
+        {{-- Doctor Services + Durasi per Cabang --}}
         <div class="st-card mb-3">
             <div class="st-card__body">
-                <h6 class="st-section-title"><i class="fa fa-stethoscope"></i> Perawatan yang Bisa Dilakukan</h6>
+                @php $fmtDur = fn($n) => rtrim(rtrim(number_format((float) $n, 2), '0'), '.'); @endphp
+                <h6 class="st-section-title"><i class="fa fa-stethoscope"></i> Perawatan &amp; Durasi per Cabang</h6>
                 <p class="small text-muted mb-2" style="font-size:11px;">
-                    Centang perawatan yang dilayani dokter ini. Kolom <strong>Durasi (mnt)</strong> opsional — isi kalau dokter ini butuh durasi berbeda dari default service. Kosongkan = pakai durasi default.
+                    Centang perawatan yang dilayani dokter ini — <strong>berlaku universal</strong> di semua cabang.
                     @if(config('features.flexible_scheduling'))
-                        <br>Untuk perawatan yang punya sub-detail, klik <em>"Durasi sub-detail per dokter"</em> di bawah perawatan untuk mengatur durasi per sub-detail.
+                        Kolom <strong>Durasi</strong> diatur <strong>per cabang</strong>: pilih cabang di bawah lalu isi durasinya. Ubah durasi di satu cabang <strong>tidak</strong> memengaruhi cabang lain. Kosongkan = pakai durasi default service.
                     @endif
                 </p>
                 <form method="POST" action="{{ route('rawdoctor.services.update', $doctor->id) }}">
                     @csrf
+
+                    @if(config('features.flexible_scheduling'))
+                        @if($doctorBranches->isEmpty())
+                            <div class="alert alert-warning" style="font-size:11px; padding:8px 12px;">
+                                <i class="fa fa-exclamation-triangle"></i>
+                                Dokter ini belum punya jadwal di cabang mana pun — durasi per cabang belum bisa diatur. Tambahkan jadwal dulu. Centang perawatan tetap bisa disimpan.
+                            </div>
+                        @else
+                            <div class="form-group" style="max-width:300px;">
+                                <label style="font-weight:600; font-size:12px;">Atur durasi untuk cabang</label>
+                                <select id="durationBranchSel" class="form-control form-control-sm">
+                                    @foreach($doctorBranches as $b)
+                                        <option value="{{ $b->id }}">{{ $b->name }}</option>
+                                    @endforeach
+                                </select>
+                                <small class="text-muted" style="font-size:10px;">Durasi tiap cabang tersimpan terpisah.</small>
+                            </div>
+                        @endif
+                    @endif
+
                     <div class="row">
                         @foreach ($allServices as $service)
-                            @php
-                                $isChecked = in_array($service->id, $doctorServiceIds);
-                                $override  = $doctorServiceDurations[$service->id] ?? null;
-                            @endphp
+                            @php $isChecked = in_array($service->id, $doctorServiceIds); @endphp
                             <div class="col-md-6 mb-2">
                                 <div class="d-flex align-items-center" style="gap:8px;">
                                     <div class="custom-control custom-checkbox" style="flex:1;">
                                         <input type="checkbox" class="custom-control-input doctor-service-check"
                                             id="svc_{{ $service->id }}" name="services[]"
                                             value="{{ $service->id }}"
-                                            data-target="dur_{{ $service->id }}"
+                                            data-service="{{ $service->id }}"
                                             data-subdetails="subdetails_{{ $service->id }}"
                                             {{ $isChecked ? 'checked' : '' }}>
                                         <label class="custom-control-label" for="svc_{{ $service->id }}">
                                             <strong>{{ $service->name }}</strong>
-                                            <small class="text-muted d-block">Default: {{ rtrim(rtrim(number_format($service->duration_minutes, 2), '0'), '.') }} menit</small>
+                                            <small class="text-muted d-block">Default: {{ $fmtDur($service->duration_minutes) }} menit</small>
                                         </label>
                                     </div>
-                                    @if(config('features.flexible_scheduling'))
-                                    <input type="number"
-                                        id="dur_{{ $service->id }}"
-                                        name="services_duration[{{ $service->id }}]"
-                                        class="form-control form-control-sm"
-                                        style="width:90px; flex:0 0 90px;"
-                                        min="5" step="5"
-                                        placeholder="{{ rtrim(rtrim(number_format($service->duration_minutes, 2), '0'), '.') }}"
-                                        value="{{ $override !== null ? rtrim(rtrim(number_format($override, 2), '0'), '.') : '' }}"
-                                        {{ $isChecked ? '' : 'disabled' }}>
+                                    @if(config('features.flexible_scheduling') && $doctorBranches->isNotEmpty())
+                                        @foreach($doctorBranches as $bi => $b)
+                                            @php $ov = $branchServiceDurations[$b->id][$service->id] ?? null; @endphp
+                                            <input type="number"
+                                                name="services_duration[{{ $b->id }}][{{ $service->id }}]"
+                                                class="form-control form-control-sm dur-svc-input"
+                                                data-branch="{{ $b->id }}" data-service="{{ $service->id }}"
+                                                style="width:90px; flex:0 0 90px; {{ $bi === 0 ? '' : 'display:none;' }}"
+                                                min="5" step="5"
+                                                placeholder="{{ $fmtDur($service->duration_minutes) }}"
+                                                value="{{ $ov !== null ? $fmtDur($ov) : '' }}"
+                                                {{ $isChecked ? '' : 'disabled' }}>
+                                        @endforeach
                                     @endif
                                 </div>
 
-                                @if(config('features.flexible_scheduling') && $service->allDetails->isNotEmpty())
-                                    @php
-                                        $hasAnyDetailOverride = $service->allDetails->contains(fn($d) => isset($doctorDetailDurations[$d->id]) && $doctorDetailDurations[$d->id] !== null);
-                                    @endphp
+                                @if(config('features.flexible_scheduling') && $service->allDetails->isNotEmpty() && $doctorBranches->isNotEmpty())
                                     <div class="subdetail-block" id="subdetails_{{ $service->id }}"
                                         style="margin-left:24px; margin-top:8px; padding:8px 10px; background:#fdf8f1; border:1px solid #f0e3d2; border-radius:8px; {{ $isChecked ? '' : 'display:none;' }}">
                                         <button type="button" class="btn-toggle-subdetail" data-target="subdetail-list-{{ $service->id }}"
                                             style="background:none; border:none; padding:0; font-size:11px; color:#6b4c1e; cursor:pointer; font-weight:600; text-transform:none; letter-spacing:normal;">
-                                            <i class="fa fa-chevron-{{ $hasAnyDetailOverride ? 'down' : 'right' }}"></i>
-                                            Durasi sub-detail per dokter ({{ $service->allDetails->count() }})
-                                            @if($hasAnyDetailOverride)
-                                                <span class="badge badge-warning" style="font-size:9px; margin-left:4px;">ada override</span>
-                                            @endif
+                                            <i class="fa fa-chevron-right"></i>
+                                            Durasi sub-detail per cabang ({{ $service->allDetails->count() }})
                                         </button>
-                                        <div id="subdetail-list-{{ $service->id }}"
-                                            style="margin-top:8px; {{ $hasAnyDetailOverride ? '' : 'display:none;' }}">
+                                        <div id="subdetail-list-{{ $service->id }}" style="margin-top:8px; display:none;">
                                             @foreach($service->allDetails as $detail)
-                                                @php
-                                                    $detailOverride = $doctorDetailDurations[$detail->id] ?? null;
-                                                @endphp
                                                 <div class="d-flex align-items-center" style="gap:6px; margin-bottom:4px;">
                                                     <span style="flex:1; font-size:11px; color:#5b3d18;">
                                                         {{ $detail->name }}
-                                                        <small class="text-muted">(default {{ rtrim(rtrim(number_format($detail->duration_minutes, 2), '0'), '.') }} mnt)</small>
+                                                        <small class="text-muted">(default {{ $fmtDur($detail->duration_minutes) }} mnt)</small>
                                                     </span>
-                                                    <input type="number"
-                                                        name="details_duration[{{ $detail->id }}]"
-                                                        class="form-control form-control-sm"
-                                                        style="width:70px; font-size:11px;"
-                                                        min="5" step="5"
-                                                        placeholder="{{ rtrim(rtrim(number_format($detail->duration_minutes, 2), '0'), '.') }}"
-                                                        value="{{ $detailOverride !== null ? rtrim(rtrim(number_format($detailOverride, 2), '0'), '.') : '' }}">
+                                                    @foreach($doctorBranches as $bi => $b)
+                                                        @php $dov = $branchDetailDurations[$b->id][$detail->id] ?? null; @endphp
+                                                        <input type="number"
+                                                            name="details_duration[{{ $b->id }}][{{ $detail->id }}]"
+                                                            class="form-control form-control-sm dur-detail-input"
+                                                            data-branch="{{ $b->id }}"
+                                                            style="width:70px; font-size:11px; {{ $bi === 0 ? '' : 'display:none;' }}"
+                                                            min="5" step="5"
+                                                            placeholder="{{ $fmtDur($detail->duration_minutes) }}"
+                                                            value="{{ $dov !== null ? $fmtDur($dov) : '' }}">
+                                                    @endforeach
                                                 </div>
                                             @endforeach
                                         </div>
@@ -299,26 +314,39 @@
                     </div>
                     <hr style="border-color:var(--divider-soft)">
                     <button type="submit" class="st-btn-brand">
-                        <i class="fa fa-save"></i> Simpan Perubahan Service
+                        <i class="fa fa-save"></i> Simpan Perubahan
                     </button>
                 </form>
             </div>
         </div>
 
         <script>
+            // Branch selector → tampilkan hanya input durasi cabang terpilih.
+            (function () {
+                const sel = document.getElementById('durationBranchSel');
+                function applyBranch(bid) {
+                    document.querySelectorAll('.dur-svc-input, .dur-detail-input').forEach(function (inp) {
+                        inp.style.display = (inp.dataset.branch === bid) ? '' : 'none';
+                    });
+                }
+                if (sel) {
+                    sel.addEventListener('change', function () { applyBranch(sel.value); });
+                    applyBranch(sel.value);
+                }
+            })();
+
+            // Centang/uncentang perawatan → enable/disable input durasi service
+            // itu di SEMUA cabang + toggle blok sub-detail.
             document.querySelectorAll('.doctor-service-check').forEach(function (cb) {
                 cb.addEventListener('change', function () {
-                    const target = document.getElementById(cb.dataset.target);
-                    if (target) {
-                        target.disabled = !cb.checked;
-                        if (!cb.checked) target.value = '';
-                    }
-                    // Toggle sub-detail block visibility (kalau ada)
+                    document.querySelectorAll('.dur-svc-input[data-service="' + cb.dataset.service + '"]').forEach(function (inp) {
+                        inp.disabled = !cb.checked;
+                        if (!cb.checked) inp.value = '';
+                    });
                     const subBlock = document.getElementById(cb.dataset.subdetails);
                     if (subBlock) {
                         subBlock.style.display = cb.checked ? '' : 'none';
                         if (!cb.checked) {
-                            // clear semua override sub-detail kalau service tidak dicentang
                             subBlock.querySelectorAll('input[type=number]').forEach(function (inp) { inp.value = ''; });
                         }
                     }

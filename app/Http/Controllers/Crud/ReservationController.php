@@ -368,19 +368,23 @@ class ReservationController extends Controller
             ->where('raw_cus_reservation_id', $id)
             ->get();
 
-        // Resolve durasi per item.
-        // Priority: (sub-detail per-dokter override) → sub-detail global → (parent per-dokter override) → parent global.
+        // Resolve durasi per item — override durasi dokter PER-CABANG
+        // (raw_branch_id reservasi ini). Priority: (sub-detail override
+        // per-cabang) → sub-detail global → (parent override per-cabang) → parent global.
         $doctorIds = $services->pluck('raw_doctor_id')->filter()->unique();
+        $resvBranchId = $reservation->raw_branch_id;
 
-        $pivotDurations = \Illuminate\Support\Facades\DB::table('raw_doctor_service')
+        $pivotDurations = \Illuminate\Support\Facades\DB::table('raw_doctor_branch_service_duration')
             ->whereIn('raw_doctor_id', $doctorIds)
+            ->where('raw_branch_id', $resvBranchId)
             ->get(['raw_doctor_id', 'raw_doc_service_id', 'duration_minutes'])
             ->keyBy(fn($row) => $row->raw_doctor_id . '|' . $row->raw_doc_service_id);
 
         $detailPivotDurations = collect();
         if (config('features.flexible_scheduling')) {
-            $detailPivotDurations = \Illuminate\Support\Facades\DB::table('raw_doctor_service_detail')
+            $detailPivotDurations = \Illuminate\Support\Facades\DB::table('raw_doctor_branch_detail_duration')
                 ->whereIn('raw_doctor_id', $doctorIds)
+                ->where('raw_branch_id', $resvBranchId)
                 ->get(['raw_doctor_id', 'raw_doc_service_detail_id', 'duration_minutes'])
                 ->keyBy(fn($row) => $row->raw_doctor_id . '|' . $row->raw_doc_service_detail_id);
         }

@@ -129,7 +129,8 @@ class ReservationApiController extends Controller
         $durations = [];
         foreach ($data['patients'] as $p) {
             $dur = $this->patientDuration(
-                $p['doctor_id'], $p['services'] ?? [], !empty($p['lainnya'])
+                $p['doctor_id'], $p['services'] ?? [], !empty($p['lainnya']),
+                $data['branch_id']
             );
             $durations[$p['key']] = $dur;
             $items[] = [
@@ -176,38 +177,46 @@ class ReservationApiController extends Controller
     }
 
     /**
-     * GET /api/reservation/services-by-doctor/{doctorId}
-     * Kembalikan layanan yang bisa dilakukan dokter ini (via pivot raw_doctor_service)
-     * Termasuk sub-detail tiap layanan
+     * GET /api/reservation/services-by-doctor/{doctorId}?branch_id=...
+     * Kembalikan layanan yang bisa dilakukan dokter ini (capability universal
+     * via pivot raw_doctor_service). Durasi efektif dihitung PER-CABANG bila
+     * branch_id dikirim — override durasi dokter berbeda tiap cabang.
      */
-    public function getServicesByDoctor($doctorId)
+    public function getServicesByDoctor($doctorId, Request $request)
     {
-        $pivotByService = RawDoctorService::where('raw_doctor_id', $doctorId)
-            ->get(['raw_doc_service_id', 'duration_minutes'])
-            ->keyBy('raw_doc_service_id');
+        $branchId = $request->query('branch_id');
 
-        $services = RawDocService::whereIn('id', $pivotByService->keys())
+        $serviceIds = RawDoctorService::where('raw_doctor_id', $doctorId)
+            ->pluck('raw_doc_service_id');
+
+        $services = RawDocService::whereIn('id', $serviceIds)
             ->with(['details' => function($q) {
                 $q->where('is_active', 1)->orderBy('sort_order')->orderBy('name');
             }])
             ->orderBy('name')
             ->get(['id', 'name', 'duration_minutes', 'price']);
 
-        // Per-doctor sub-detail override map (cuma kalau fitur fleksibel aktif)
+        // Override durasi PER-CABANG (cuma kalau fitur fleksibel aktif &
+        // branch diketahui). Tanpa branch → pakai durasi default service.
+        $svcOverrides    = collect();
         $detailOverrides = collect();
-        if (config('features.flexible_scheduling')) {
-            $detailOverrides = \App\Models\RawDoctorServiceDetail::where('raw_doctor_id', $doctorId)
-                ->get(['raw_doc_service_detail_id', 'duration_minutes'])
-                ->keyBy('raw_doc_service_detail_id');
+        if (config('features.flexible_scheduling') && $branchId) {
+            $svcOverrides = DB::table('raw_doctor_branch_service_duration')
+                ->where('raw_doctor_id', $doctorId)
+                ->where('raw_branch_id', $branchId)
+                ->pluck('duration_minutes', 'raw_doc_service_id');
+            $detailOverrides = DB::table('raw_doctor_branch_detail_duration')
+                ->where('raw_doctor_id', $doctorId)
+                ->where('raw_branch_id', $branchId)
+                ->pluck('duration_minutes', 'raw_doc_service_detail_id');
         }
 
-        // Terapkan duration override dari pivot (parent + sub-detail)
-        $services = $services->map(function ($svc) use ($pivotByService, $detailOverrides) {
-            $override = $pivotByService[$svc->id]->duration_minutes ?? null;
+        $services = $services->map(function ($svc) use ($svcOverrides, $detailOverrides) {
+            $override = $svcOverrides[$svc->id] ?? null;
             $svc->effective_duration_minutes = $override ?? $svc->duration_minutes;
 
             $svc->details->transform(function ($detail) use ($detailOverrides) {
-                $detailOverride = $detailOverrides[$detail->id]->duration_minutes ?? null;
+                $detailOverride = $detailOverrides[$detail->id] ?? null;
                 $detail->effective_duration_minutes = $detailOverride ?? $detail->duration_minutes;
                 return $detail;
             });

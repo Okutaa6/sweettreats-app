@@ -144,7 +144,7 @@ class LandingReservationController extends Controller
                     'services'     => $services,
                     'lainnya_text' => $lainnya ? $p['lainnya_text'] : null,
                     'lainnya'      => $lainnya,
-                    'duration'     => $this->patientDuration($doctorId, $services, $lainnya),
+                    'duration'     => $this->patientDuration($doctorId, $services, $lainnya, $branchId),
                 ];
             }
 
