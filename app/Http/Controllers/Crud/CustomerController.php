@@ -3,15 +3,23 @@
 namespace App\Http\Controllers\Crud;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Concerns\ResolvesPatientContact;
 use App\Models\RawBranch;
 use App\Models\RawCustomer;
 use App\Models\RawDocService;
 use App\Models\RawDoctor;
 use App\Models\RawDoctorSchedule;
 use App\Models\RawPromo;
+use App\Support\OmnicareEncounters;
+use App\Support\Phone;
+use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class CustomerController extends Controller
 {
+    use ResolvesPatientContact;
+
     public function index()
     {
         $perPage = $this->perPage;
@@ -30,20 +38,11 @@ class CustomerController extends Controller
             'latestReservation.services.docService',
         ])->withCount('reservations');
 
-        // Sales hanya lihat pasien cabangnya sendiri.
-        // Termasuk pasien yang raw_branch_id-nya NULL tapi pernah ada reservasi
-        // di cabang ini — safety net untuk data lama yang belum ter-migrasi.
-        if ($sessionBranch) {
-            $query->where(function ($q) use ($sessionBranch) {
-                $q->where('raw_branch_id', $sessionBranch)
-                  ->orWhereHas('reservations', function ($r) use ($sessionBranch) {
-                      $r->where('raw_branch_id', $sessionBranch);
-                  });
-            });
-        }
-
-        // Admin: filter cabang manual
-        if (!$sessionBranch && $filterBranch) {
+        // Akses cross-cabang: SEMUA staff cabang bisa melihat pasien cabang
+        // mana pun (cegah duplikasi saat pasien pindah cabang & jaga
+        // konsistensi data utk Omnicare matching). Filter manual per cabang
+        // tetap tersedia di UI untuk siapa pun.
+        if ($filterBranch) {
             $query->where('raw_branch_id', $filterBranch);
         }
 
@@ -76,16 +75,11 @@ class CustomerController extends Controller
             ->orderByDesc('latest_reservation_date')
             ->orderBy('created_at')
             ->paginate($perPage)->withQueryString();
-        $services  = RawDocService::orderBy('name')->get();
-        $branches  = $sessionBranch ? collect() : RawBranch::orderBy('name')->get();
-
-        if ($sessionBranch) {
-            $doctorIds = RawDoctorSchedule::where('raw_branch_id', $sessionBranch)
-                ->distinct()->pluck('raw_doctor_id');
-            $doctors = RawDoctor::whereIn('id', $doctorIds)->orderBy('name')->get();
-        } else {
-            $doctors = RawDoctor::orderBy('name')->get();
-        }
+        $services = RawDocService::orderBy('name')->get();
+        // Dropdown filter cabang & dokter selalu tampil untuk semua user
+        // (Sales pun boleh filter cross-cabang).
+        $branches = RawBranch::orderBy('name')->get();
+        $doctors  = RawDoctor::orderBy('name')->get();
 
         return view('crud.customer.list', compact('customers', 'services', 'doctors', 'branches', 'filterSearch', 'filterService', 'filterDoctor', 'filterBranch'));
     }
@@ -95,18 +89,9 @@ class CustomerController extends Controller
         $term = request('q', '');
         $query = RawCustomer::query();
 
-        // Scope ke cabang user kalau dia terkunci ke 1 cabang.
-        // Sales cabang Sunter hanya bisa cari pasien Sunter, dst.
-        // Termasuk pasien orphan (raw_branch_id NULL) yang pernah reservasi di cabang ini.
-        $sessionBranch = session('raw_branch_id');
-        if ($sessionBranch) {
-            $query->where(function ($q) use ($sessionBranch) {
-                $q->where('raw_branch_id', $sessionBranch)
-                  ->orWhereHas('reservations', function ($r) use ($sessionBranch) {
-                      $r->where('raw_branch_id', $sessionBranch);
-                  });
-            });
-        }
+        // Cross-cabang: staff cabang mana pun bisa menemukan pasien cabang
+        // mana pun (cegah duplikasi saat pasien pindah & masalah matching
+        // Omnicare). Tidak ada filter per session branch di sini.
 
         if ($term) {
             $query->where(function ($q) use ($term) {
@@ -157,34 +142,45 @@ class CustomerController extends Controller
 
     public function store()
     {
+        // Model 1-nomor-banyak-pasien: nomor BOLEH duplikat (keluarga / pasien
+        // pindah cabang). Tidak ada `unique:raw_customer,phone` lagi — pasien
+        // baru dilink ke raw_contact existing via ResolvesPatientContact.
         request()->validate([
             'name'       => 'required|max:255',
-            'phone'      => 'required|regex:/^0[0-9]{9,14}$/|unique:raw_customer,phone',
+            'phone'      => 'required|regex:/^0[0-9]{9,14}$/',
             'source_app' => 'nullable|max:255',
+            'relasi'     => 'nullable|in:diri_sendiri,pasangan,anak,orang_tua,lainnya',
         ], [
             'phone.required' => 'No. WhatsApp wajib diisi.',
-            'phone.regex'  => 'Format nomor tidak valid. Harus diawali 0 dan minimal 10 digit (contoh: 08123456789).',
-            'phone.unique' => 'Nomor ini sudah terdaftar di sistem.',
+            'phone.regex'    => 'Format nomor tidak valid. Harus diawali 0 dan minimal 10 digit (contoh: 08123456789).',
         ]);
 
-        RawCustomer::create([
-            'name'               => request('name'),
-            'phone'              => request('phone'),
-            'email'              => request('email'),
-            'jenis_kelamin'      => request('jenis_kelamin'),
-            'tanggal_lahir'      => request('tanggal_lahir') ?: null,
-            'nik'                => request('nik'),
-            'tempat_lahir'       => request('tempat_lahir'),
-            'alamat'             => request('alamat'),
-            'tanggal_daftar'     => request('tanggal_daftar') ?: null,
-            'source_app'         => request('source_app'),
-            'raw_branch_id'      => request('raw_branch_id') ?: null,
-            'raw_doc_service_id' => request('raw_doc_service_id') ?: null,
-            'raw_doctor_id'      => request('raw_doctor_id') ?: null,
-            'pasien_baru_lama'   => request('pasien_baru_lama'),
-            'raw_promo_id'       => request('raw_promo_id') ?: null,
-            'catatan'            => request('catatan'),
-        ]);
+        $phone = Phone::normalize(request('phone')) ?: request('phone');
+
+        DB::transaction(function () use ($phone) {
+            $contact = $this->resolveContact($phone, request('name'), 'admin', 'admin');
+
+            RawCustomer::create([
+                'raw_contact_id'     => $contact->id,
+                'relasi'             => request('relasi') ?: 'diri_sendiri',
+                'name'               => request('name'),
+                'phone'              => $phone,
+                'email'              => request('email'),
+                'jenis_kelamin'      => request('jenis_kelamin'),
+                'tanggal_lahir'      => request('tanggal_lahir') ?: null,
+                'nik'                => request('nik'),
+                'tempat_lahir'       => request('tempat_lahir'),
+                'alamat'             => request('alamat'),
+                'tanggal_daftar'     => request('tanggal_daftar') ?: null,
+                'source_app'         => request('source_app'),
+                'raw_branch_id'      => request('raw_branch_id') ?: null,
+                'raw_doc_service_id' => request('raw_doc_service_id') ?: null,
+                'raw_doctor_id'      => request('raw_doctor_id') ?: null,
+                'pasien_baru_lama'   => request('pasien_baru_lama'),
+                'raw_promo_id'       => request('raw_promo_id') ?: null,
+                'catatan'            => request('catatan'),
+            ]);
+        });
 
         return redirect()->route('rawcustomer')->with('success', 'Pasien berhasil ditambahkan');
     }
@@ -203,16 +199,9 @@ class CustomerController extends Controller
         $sessionBranch = session('raw_branch_id');
         $userBranch = $sessionBranch ? RawBranch::find($sessionBranch) : null;
 
-        // Sales tidak boleh akses pasien cabang lain.
-        // Allow kalau: (a) pasien punya branch sama dengan session, ATAU
-        //              (b) pasien orphan (NULL) tapi pernah reservasi di cabang session.
-        if ($sessionBranch) {
-            $sameBranch     = $customer->raw_branch_id === $sessionBranch;
-            $hasReservation = $customer->reservations->contains('raw_branch_id', $sessionBranch);
-            if (!$sameBranch && !$hasReservation) {
-                return redirect()->route('rawcustomer')->with('error', 'Anda tidak memiliki akses ke pasien cabang lain.');
-            }
-        }
+        // Akses cross-cabang: edit pasien diizinkan dari cabang mana pun
+        // (cegah duplikasi saat pasien pindah & konsistensi Omnicare).
+        // Hapus (destroy) tetap terkunci ke cabang asal.
 
         $branches = RawBranch::orderBy('name')->get();
         $services = RawDocService::orderBy('name')->get();
@@ -247,29 +236,9 @@ class CustomerController extends Controller
             $customer->pasien_baru_lama = $hasCompleted ? 'lama' : 'baru';
         }
 
-        // Journey timeline
-        $journeys = \Illuminate\Support\Facades\DB::table('raw_cus_journey')
-            ->where('raw_customer_id', $id)
-            ->orderByDesc('created_at')
-            ->get();
-
-        // Also get contact-based journeys if phone matches
-        $contactJourneys = collect();
-        if ($customer->phone) {
-            $contact = \Illuminate\Support\Facades\DB::table('raw_contact')
-                ->where('phone', $customer->phone)
-                ->first();
-            if ($contact) {
-                $contactJourneys = \Illuminate\Support\Facades\DB::table('raw_cus_journey')
-                    ->where('raw_contact_id', $contact->id)
-                    ->orderByDesc('created_at')
-                    ->get();
-            }
-        }
-
-        $timeline = $journeys->merge($contactJourneys)
-            ->sortByDesc('created_at')
-            ->values();
+        // Timeline perjalanan pasien — gabungan lintas sistem
+        // (journey/lead + reservasi Data Center + perawatan nyata Omnicare).
+        $timeline = $this->buildTimeline($customer);
 
         return view('crud.customer.edit', compact(
             'customer', 'branches', 'services', 'doctors', 'promos',
@@ -278,46 +247,144 @@ class CustomerController extends Controller
         ));
     }
 
-    public function update($id)
+    /**
+     * Bangun timeline kronologis pasien dari semua sumber yang ada:
+     *   - journey/lead  (raw_cus_journey — funnel marketing/sales)
+     *   - reservasi     (raw_cus_reservation — Data Center)
+     *   - perawatan     (omnicare_sales_detail via customer_omnicare_link)
+     *
+     * Event Omnicare di-skip dengan aman bila tabel integrasi belum ada
+     * (mis. kode ter-upload tapi SQL belum dijalankan).
+     *
+     * @return array<int,object> diurut terbaru dulu
+     */
+    private function buildTimeline(RawCustomer $customer): array
     {
-        $sessionBranch = session('raw_branch_id');
-        if ($sessionBranch) {
-            $customer = RawCustomer::with('reservations')->findOrFail($id);
-            $sameBranch     = $customer->raw_branch_id === $sessionBranch;
-            $hasReservation = $customer->reservations->contains('raw_branch_id', $sessionBranch);
-            if (!$sameBranch && !$hasReservation) {
-                return redirect()->route('rawcustomer')->with('error', 'Anda tidak memiliki akses ke pasien cabang lain.');
+        $events = [];
+        $mk = fn($date, $type, $title, $detail, $icon, $color, $bg, $amount = null, $tag = null) => (object) [
+            'date'   => $date instanceof Carbon ? $date : Carbon::parse($date),
+            'type'   => $type,
+            'title'  => $title,
+            'detail' => $detail,
+            'icon'   => $icon,
+            'color'  => $color,
+            'bg'     => $bg,
+            'amount' => $amount,
+            'tag'    => $tag,
+        ];
+
+        // ── Journey / lead ────────────────────────────────────────────────
+        $journeyCfg = [
+            'Stat_New'   => ['Tercatat sebagai kontak baru', 'fa-user-plus', '#1E5A8C', '#E8F0F5'],
+            'Stat_Leads' => ['Menjadi leads',                'fa-comments',  '#B26B00', '#FFF4E1'],
+            'Stat_Rsv'   => ['Tercatat membuat reservasi',   'fa-bullseye',  '#2E7D32', '#E8F5E9'],
+        ];
+        $contactId = $customer->raw_contact_id;
+        if (! $contactId && $customer->phone) {
+            $contactId = DB::table('raw_contact')->where('phone', $customer->phone)->value('id');
+        }
+        $journeys = DB::table('raw_cus_journey')
+            ->where('raw_customer_id', $customer->id)
+            ->when($contactId, fn($q) => $q->orWhere('raw_contact_id', $contactId))
+            ->get();
+        foreach ($journeys as $j) {
+            $cfg = $journeyCfg[$j->journey_label]
+                ?? [$j->journey_label, 'fa-circle', '#6B4423', '#F5F0EA'];
+            $tag = ($j->raw_contact_id && ! $j->raw_customer_id) ? 'via Contact' : null;
+            $events[] = $mk($j->created_at, 'journey', $cfg[0],
+                'Tahap funnel marketing/sales', $cfg[1], $cfg[2], $cfg[3], null, $tag);
+        }
+
+        // ── Reservasi Data Center ─────────────────────────────────────────
+        foreach ($customer->reservations as $r) {
+            $detail = $r->doctor->name ?? 'Dokter belum ditentukan';
+            if ($r->status) {
+                $detail .= ' · status: ' . $r->status;
+            }
+            $events[] = $mk($r->date, 'reservation',
+                'Reservasi' . ($r->branch->name ? ' — ' . $r->branch->name : ''),
+                $detail, 'fa-calendar-day', '#6B4423', '#F5F0EA');
+        }
+
+        // ── Perawatan nyata (Omnicare) ────────────────────────────────────
+        if (Schema::hasTable('customer_omnicare_link') && Schema::hasTable('omnicare_sales_detail')) {
+            $pid = DB::table('customer_omnicare_link')
+                ->where('raw_customer_id', $customer->id)->value('omnicare_pid');
+            if ($pid) {
+                $lines = DB::table('omnicare_sales_detail')
+                    ->where('p_id', $pid)
+                    ->whereNotNull('encounter_id')->where('encounter_id', '<>', '')
+                    ->select('encounter_id', 'trx_date', 'place_id', 'branch_name', 'doctor',
+                             'net_sell_price', 'item_type', 'item_name', 'qty_sold', 'payment_status')
+                    ->get();
+                foreach (OmnicareEncounters::group($lines) as $enc) {
+                    $events[] = $mk($enc['trx_date'], 'treatment',
+                        'Perawatan' . ($enc['branch_name'] ? ' — ' . $enc['branch_name'] : ''),
+                        \Illuminate\Support\Str::limit(implode(' · ', $enc['items']), 150),
+                        'fa-tooth', '#1f7a3d', '#E8F5E9',
+                        $enc['revenue'], $enc['doctor'] ?: null);
+                }
             }
         }
 
+        // Terbaru dulu (konsisten dengan tampilan sebelumnya)
+        usort($events, fn($a, $b) => $b->date->timestamp <=> $a->date->timestamp);
+
+        return $events;
+    }
+
+    public function update($id)
+    {
+        // Akses cross-cabang: update pasien diizinkan dari cabang mana pun.
+        // (Hapus tetap terkunci — lihat destroy().)
+        //
+        // Model 1-nomor-banyak-pasien: nomor BOLEH duplikat antar pasien
+        // (keluarga / pindah cabang). Tidak ada unique constraint lagi —
+        // raw_contact_id di-resolve via ResolvesPatientContact.
         request()->validate([
             'name'       => 'required|max:255',
-            'phone'      => 'nullable|regex:/^0[0-9]{9,14}$/|unique:raw_customer,phone,' . $id,
+            'phone'      => 'nullable|regex:/^0[0-9]{9,14}$/',
             'source_app' => 'nullable|max:255',
+            'relasi'     => 'nullable|in:diri_sendiri,pasangan,anak,orang_tua,lainnya',
         ], [
-            'phone.regex'  => 'Format nomor tidak valid. Harus diawali 0 dan minimal 10 digit (contoh: 08123456789).',
-            'phone.unique' => 'Nomor ini sudah terdaftar di pasien lain.',
+            'phone.regex' => 'Format nomor tidak valid. Harus diawali 0 dan minimal 10 digit (contoh: 08123456789).',
         ]);
 
-        $customer = RawCustomer::findOrFail($id);
-        $customer->update([
-            'name'               => request('name'),
-            'phone'              => request('phone'),
-            'email'              => request('email'),
-            'jenis_kelamin'      => request('jenis_kelamin'),
-            'tanggal_lahir'      => request('tanggal_lahir') ?: null,
-            'nik'                => request('nik'),
-            'tempat_lahir'       => request('tempat_lahir'),
-            'alamat'             => request('alamat'),
-            'tanggal_daftar'     => request('tanggal_daftar') ?: null,
-            'source_app'         => request('source_app'),
-            'raw_branch_id'      => request('raw_branch_id') ?: null,
-            'raw_doc_service_id' => request('raw_doc_service_id') ?: null,
-            'raw_doctor_id'      => request('raw_doctor_id') ?: null,
-            'pasien_baru_lama'   => request('pasien_baru_lama'),
-            'raw_promo_id'       => request('raw_promo_id') ?: null,
-            'catatan'            => request('catatan'),
-        ]);
+        $customer  = RawCustomer::findOrFail($id);
+        $rawPhone  = request('phone');
+        $newPhone  = $rawPhone ? (Phone::normalize($rawPhone) ?: $rawPhone) : null;
+        $phoneChanged = $newPhone !== $customer->phone;
+
+        DB::transaction(function () use ($customer, $newPhone, $phoneChanged) {
+            $contactId = $customer->raw_contact_id;
+
+            // Re-resolve contact kalau nomor berubah atau pasien masih orphan.
+            if ($newPhone && ($phoneChanged || ! $contactId)) {
+                $contact   = $this->resolveContact($newPhone, request('name'), 'admin', 'admin');
+                $contactId = $contact->id;
+            }
+
+            $customer->update([
+                'raw_contact_id'     => $contactId,
+                'relasi'             => request('relasi') ?: ($customer->relasi ?: 'diri_sendiri'),
+                'name'               => request('name'),
+                'phone'              => $newPhone,
+                'email'              => request('email'),
+                'jenis_kelamin'      => request('jenis_kelamin'),
+                'tanggal_lahir'      => request('tanggal_lahir') ?: null,
+                'nik'                => request('nik'),
+                'tempat_lahir'       => request('tempat_lahir'),
+                'alamat'             => request('alamat'),
+                'tanggal_daftar'     => request('tanggal_daftar') ?: null,
+                'source_app'         => request('source_app'),
+                'raw_branch_id'      => request('raw_branch_id') ?: null,
+                'raw_doc_service_id' => request('raw_doc_service_id') ?: null,
+                'raw_doctor_id'      => request('raw_doctor_id') ?: null,
+                'pasien_baru_lama'   => request('pasien_baru_lama'),
+                'raw_promo_id'       => request('raw_promo_id') ?: null,
+                'catatan'            => request('catatan'),
+            ]);
+        });
 
         return redirect()->route('rawcustomer.edit', $id)->with('success', 'Pasien berhasil diubah');
     }
@@ -327,11 +394,14 @@ class CustomerController extends Controller
         $sessionBranch = session('raw_branch_id');
         $customer = RawCustomer::with('reservations')->findOrFail($id);
 
+        // HAPUS tetap terkunci ke cabang asal (safety net cross-cabang).
+        // Akses lihat/edit/pakai pasien diizinkan dari cabang mana pun,
+        // tapi delete-permanen hanya boleh oleh staff cabang asal pasien.
         if ($sessionBranch) {
             $sameBranch     = $customer->raw_branch_id === $sessionBranch;
             $hasReservation = $customer->reservations->contains('raw_branch_id', $sessionBranch);
             if (!$sameBranch && !$hasReservation) {
-                return redirect()->route('rawcustomer')->with('error', 'Anda tidak memiliki akses ke pasien cabang lain.');
+                return redirect()->route('rawcustomer')->with('error', 'Hapus pasien hanya bisa oleh staff cabang asal pasien.');
             }
         }
 

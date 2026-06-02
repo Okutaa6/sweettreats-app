@@ -12,7 +12,31 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule): void
     {
-        // $schedule->command('inspire')->hourly();
+        // Omnicare sync — daily 02:00 (3-day overlap window untuk catch late entries).
+        // withoutOverlapping mencegah dua run barengan kalau sync sebelumnya belum
+        // selesai; runInBackground supaya kerja tidak blocking ke command lain.
+        $schedule->command('omnicare:sync')
+            ->dailyAt('02:00')
+            ->withoutOverlapping(120) // lock 120 menit max
+            ->runInBackground()
+            ->appendOutputTo(storage_path('logs/omnicare-cron.log'));
+
+        // Match-patients — daily 02:45, di antara sync & reconcile.
+        // Link customer baru (SweetTreats) ↔ pasien baru (Omnicare). Idempoten:
+        // hanya proses yang belum ter-link. Reconcile butuh link ini fresh.
+        $schedule->command('omnicare:match-patients')
+            ->dailyAt('02:45')
+            ->withoutOverlapping(30)
+            ->runInBackground()
+            ->appendOutputTo(storage_path('logs/omnicare-cron.log'));
+
+        // Reconcile — daily 03:00, setelah sync 02:00 punya data fresh.
+        // Cocokkan reservasi ↔ encounter; conflict masuk antrian review manual.
+        $schedule->command('omnicare:reconcile')
+            ->dailyAt('03:00')
+            ->withoutOverlapping(60)
+            ->runInBackground()
+            ->appendOutputTo(storage_path('logs/omnicare-cron.log'));
     }
 
     /**

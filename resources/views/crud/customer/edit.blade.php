@@ -279,33 +279,38 @@
             </div>
         </div>
 
-        {{-- Journey Timeline --}}
+        {{-- Timeline Perjalanan Pasien — gabungan lintas sistem --}}
         <div class="st-card">
             <div class="st-card__body">
                 <h6 class="st-section-title"><i class="fa fa-route"></i> Timeline Perjalanan Pasien</h6>
-                @if(isset($timeline) && $timeline->isNotEmpty())
+                <p class="st-muted" style="font-size:0.78rem; margin-top:-6px; margin-bottom:14px;">
+                    Kontak &amp; lead, reservasi Data Center, dan perawatan nyata dari Omnicare —
+                    digabung kronologis (terbaru di atas).
+                </p>
+                @if(!empty($timeline))
                     <div style="position:relative; padding-left:30px; border-left:3px solid var(--divider-soft);">
                         @foreach($timeline as $event)
-                            @php
-                                $label = $event->journey_label;
-                                $colors = [
-                                    'Stat_New'   => ['bg' => '#E8F0F5', 'color' => '#1E5A8C', 'icon' => 'fa-user-plus'],
-                                    'Stat_Leads' => ['bg' => '#FFF4E1', 'color' => '#B26B00', 'icon' => 'fa-comments'],
-                                    'Stat_Rsv'   => ['bg' => '#E8F5E9', 'color' => '#2E7D32', 'icon' => 'fa-calendar-check'],
-                                ];
-                                $cfg = $colors[$label] ?? ['bg' => '#F5F0EA', 'color' => '#6B4423', 'icon' => 'fa-circle'];
-                            @endphp
                             <div style="position:relative; margin-bottom:16px;">
-                                <div style="position:absolute; left:-40px; top:4px; width:20px; height:20px; border-radius:50%; background:{{ $cfg['bg'] }}; border:2px solid {{ $cfg['color'] }}; display:flex; align-items:center; justify-content:center;">
-                                    <i class="fa {{ $cfg['icon'] }}" style="font-size:9px; color:{{ $cfg['color'] }}"></i>
+                                <div style="position:absolute; left:-40px; top:4px; width:20px; height:20px; border-radius:50%; background:{{ $event->bg }}; border:2px solid {{ $event->color }}; display:flex; align-items:center; justify-content:center;">
+                                    <i class="fa {{ $event->icon }}" style="font-size:9px; color:{{ $event->color }}"></i>
                                 </div>
-                                <div style="background:{{ $cfg['bg'] }}; border-radius:8px; padding:10px 14px; display:inline-block;">
-                                    <strong style="color:{{ $cfg['color'] }}">{{ $label }}</strong>
+                                <div style="background:{{ $event->bg }}; border-radius:8px; padding:10px 14px; display:inline-block; max-width:100%;">
+                                    <strong style="color:{{ $event->color }}">{{ $event->title }}</strong>
                                     <span style="font-size:0.8rem; margin-left:8px; color:var(--text-subtle)">
-                                        {{ \Carbon\Carbon::parse($event->created_at)->format('d/m/Y H:i') }}
+                                        {{ $event->date->format('d/m/Y') }}
                                     </span>
-                                    @if($event->raw_contact_id && !$event->raw_customer_id)
-                                        <span class="st-pill st-pill--light ml-1" style="font-size:0.7rem">via Contact</span>
+                                    @if($event->amount !== null)
+                                        <span style="font-size:0.8rem; font-weight:700; margin-left:8px; color:{{ $event->color }}">
+                                            Rp {{ number_format((float) $event->amount, 0, ',', '.') }}
+                                        </span>
+                                    @endif
+                                    @if($event->tag)
+                                        <span class="st-pill st-pill--light ml-1" style="font-size:0.7rem">{{ $event->tag }}</span>
+                                    @endif
+                                    @if($event->detail)
+                                        <div style="font-size:0.78rem; color:var(--text-subtle); margin-top:3px;">
+                                            {{ $event->detail }}
+                                        </div>
                                     @endif
                                 </div>
                             </div>

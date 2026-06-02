@@ -161,12 +161,168 @@ class ExecutiveDashboardController extends Controller
 
         $statusOptions = RawCusReservation::statusOptions();
 
+        // ── OMNICARE DATA (live mirror) ──
+        $omnicare = $this->buildOmnicareSection($startOfMonth, $endOfMonth);
+
         return view('dashboard.executive', compact(
             'year', 'month', 'branches',
             'branchData', 'totalRevenue', 'totalTarget', 'totalCount', 'totalPct',
             'funnelData', 'topServices', 'topDoctors',
             'trendLabels', 'trendRevenue', 'trendCount',
-            'commissionSummary', 'statusDist', 'statusOptions'
+            'commissionSummary', 'statusDist', 'statusOptions',
+            'omnicare'
         ));
+    }
+
+    /**
+     * Prepare Omnicare mirror-table widgets for the executive dashboard.
+     * Date range follows the user-selected month/year filter.
+     */
+    private function buildOmnicareSection(Carbon $startOfMonth, Carbon $endOfMonth): array
+    {
+        $startYmd = $startOfMonth->format('Y-m-d');
+        // Cap end at today (no future projection for in-progress month)
+        $endYmd = min($endOfMonth->format('Y-m-d'), Carbon::now()->format('Y-m-d'));
+
+        // ── Summary cards ──
+        $summary = DB::table('omnicare_sales_detail')
+            ->whereBetween('trx_date', [$startYmd, $endYmd])
+            ->selectRaw('
+                COALESCE(SUM(net_sell_price), 0) AS gross_revenue,
+                COALESCE(SUM(net_profit), 0)    AS net_profit,
+                COALESCE(SUM(discount), 0)      AS total_discount,
+                COUNT(*)                         AS total_lines,
+                COUNT(DISTINCT encounter_id)     AS total_visits,
+                COUNT(DISTINCT p_id)             AS unique_patients
+            ')
+            ->first();
+
+        // ── Per-branch breakdown ──
+        // Left-join omnicare_location agar branch tanpa sales bulan ini tetap muncul (revenue 0).
+        $perBranch = DB::table('omnicare_location as ol')
+            ->leftJoin('omnicare_sales_detail as os', function ($j) use ($startYmd, $endYmd) {
+                $j->on('os.place_id', '=', 'ol.id')
+                  ->whereBetween('os.trx_date', [$startYmd, $endYmd]);
+            })
+            ->whereIn('ol.id', config('omnicare.active_branches', []))
+            ->selectRaw('
+                ol.id AS place_id,
+                ol.name AS branch_name,
+                ol.is_parent,
+                COALESCE(SUM(os.net_sell_price), 0) AS revenue,
+                COALESCE(SUM(os.net_profit), 0)    AS profit,
+                COUNT(os.trx_id)                    AS transactions,
+                COUNT(DISTINCT os.encounter_id)     AS visits,
+                MAX(os.trx_date)                    AS last_trx_date
+            ')
+            ->groupBy('ol.id', 'ol.name', 'ol.is_parent')
+            ->orderByDesc('revenue')
+            ->get();
+
+        // Add freshness indicator: stale kalau last sales >= 7 hari yang lalu
+        $today = Carbon::now()->startOfDay();
+        $perBranch->transform(function ($row) use ($today) {
+            $daysSinceLast = $row->last_trx_date
+                ? $today->diffInDays(Carbon::parse($row->last_trx_date))
+                : null;
+            $row->days_since_last = $daysSinceLast;
+            $row->status = $daysSinceLast === null ? 'no_data'
+                : ($daysSinceLast >= 7 ? 'stale'
+                : ($daysSinceLast >= 3 ? 'warning' : 'active'));
+            return $row;
+        });
+
+        // ── Top 10 procedures ──
+        $topProcedures = DB::table('omnicare_sales_detail')
+            ->whereBetween('trx_date', [$startYmd, $endYmd])
+            ->where('item_type', 'P')
+            ->selectRaw('
+                item_code,
+                item_name,
+                SUM(qty_sold) AS qty,
+                SUM(net_sell_price) AS revenue
+            ')
+            ->groupBy('item_code', 'item_name')
+            ->orderByDesc('qty')
+            ->limit(10)
+            ->get();
+
+        // ── Top 10 doctors by Omnicare revenue ──
+        $topDoctors = DB::table('omnicare_sales_detail as os')
+            ->leftJoin('raw_doctor as rd', 'rd.omnicare_doc_id', '=', 'os.doc_reff_id')
+            ->whereBetween('os.trx_date', [$startYmd, $endYmd])
+            ->whereNotNull('os.doc_reff_id')
+            ->where('os.doc_reff_id', '!=', '')
+            ->selectRaw('
+                os.doc_reff_id,
+                COALESCE(rd.name, os.doctor) AS display_name,
+                rd.id AS sweettreats_doctor_id,
+                SUM(os.net_sell_price) AS revenue,
+                COUNT(DISTINCT os.encounter_id) AS visits,
+                COUNT(*) AS line_items
+            ')
+            ->groupBy('os.doc_reff_id', 'display_name', 'rd.id')
+            ->orderByDesc('revenue')
+            ->limit(10)
+            ->get();
+
+        // ── Daily revenue trend (last 30 days from end date) ──
+        $trendStart = Carbon::parse($endYmd)->subDays(29);
+        $dailyRows = DB::table('omnicare_sales_detail')
+            ->whereBetween('trx_date', [$trendStart->format('Y-m-d'), $endYmd])
+            ->selectRaw('trx_date, SUM(net_sell_price) AS revenue, COUNT(DISTINCT encounter_id) AS visits')
+            ->groupBy('trx_date')
+            ->orderBy('trx_date')
+            ->get()
+            ->keyBy(fn($r) => Carbon::parse($r->trx_date)->format('Y-m-d'));
+
+        $trendLabels = [];
+        $trendRevenue = [];
+        $trendVisits = [];
+        for ($i = 29; $i >= 0; $i--) {
+            $d = Carbon::parse($endYmd)->subDays($i);
+            $key = $d->format('Y-m-d');
+            $trendLabels[] = $d->format('d M');
+            $trendRevenue[] = (float) ($dailyRows->get($key)->revenue ?? 0);
+            $trendVisits[] = (int) ($dailyRows->get($key)->visits ?? 0);
+        }
+
+        // ── Payment status distribution ──
+        // Note: `lines` reserved word di MariaDB — pakai `line_count`.
+        $paymentStatus = DB::table('omnicare_sales_detail')
+            ->whereBetween('trx_date', [$startYmd, $endYmd])
+            ->selectRaw('payment_status, COUNT(*) AS line_count, SUM(net_sell_price) AS revenue')
+            ->groupBy('payment_status')
+            ->get();
+
+        // ── Last sync info ──
+        $lastSync = DB::table('omnicare_sync_log')
+            ->where('endpoint', '/get/sales_detail')
+            ->orderByDesc('id')
+            ->first();
+
+        $syncStats = DB::table('omnicare_sync_log')
+            ->selectRaw('
+                MAX(finished_at) AS last_run,
+                SUM(CASE WHEN status = "success" THEN 1 ELSE 0 END) AS success_count,
+                SUM(CASE WHEN status = "error" THEN 1 ELSE 0 END) AS error_count
+            ')
+            ->where('started_at', '>=', Carbon::now()->subDays(1))
+            ->first();
+
+        return [
+            'summary'        => $summary,
+            'perBranch'      => $perBranch,
+            'topProcedures'  => $topProcedures,
+            'topDoctors'     => $topDoctors,
+            'trendLabels'    => $trendLabels,
+            'trendRevenue'   => $trendRevenue,
+            'trendVisits'    => $trendVisits,
+            'paymentStatus'  => $paymentStatus,
+            'lastSync'       => $lastSync,
+            'syncStats'      => $syncStats,
+            'rangeStart'     => $startYmd,
+            'rangeEnd'       => $endYmd,
+        ];
     }
 }

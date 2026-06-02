@@ -730,9 +730,12 @@ body {
 }
 
 .sidebar-collapse-btn {
-    position: absolute;
+    /* position:fixed — supaya tombol selalu di tengah viewport, tidak ikut
+       memanjang bersama halaman yang sangat tinggi. */
+    position: fixed;
     top: 50%;
-    right: -14px;
+    left: 264px;
+    right: auto;
     transform: translateY(-50%);
     z-index: 999;
     width: 50px;

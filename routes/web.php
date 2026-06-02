@@ -152,6 +152,24 @@ Route::middleware([AuthGuard::class])->group(function () {
         Route::get('/menunggu', [DashboardController::class, 'menungguKonfirmasi'])->name('dashboard.menunggu');
         Route::patch('/reservasi/{id}/status', [DashboardController::class, 'updateStatus'])->name('dashboard.update-status');
         Route::get('/executive', [\App\Http\Controllers\ExecutiveDashboardController::class, 'index'])->name('dashboard.executive');
+        Route::get('/sales', [\App\Http\Controllers\SalesDashboardController::class, 'index'])->name('dashboard.sales');
+    });
+
+    // Sales Report — rekap penjualan periodik (data Omnicare)
+    Route::prefix('report')->group(function () {
+        // /report → redirect ke report sales (dipakai sidebar menu, link='report')
+        Route::get('/', fn() => redirect()->route('report.sales'))->name('report.index');
+        Route::get('/sales', [\App\Http\Controllers\SalesReportController::class, 'index'])->name('report.sales');
+        Route::get('/sales/export', [\App\Http\Controllers\SalesReportController::class, 'export'])->name('report.sales.export');
+        // Executive Report — admin only (gate di controller); analitik bulanan revenue & target
+        Route::get('/executive', [\App\Http\Controllers\ExecutiveReportController::class, 'index'])->name('report.executive');
+    });
+
+    // Rekonsiliasi — reservasi SweetTreats ↔ encounter Omnicare (link='reconcile')
+    Route::prefix('reconcile')->group(function () {
+        Route::get('/', [\App\Http\Controllers\ReconciliationController::class, 'index'])->name('reconcile.index');
+        Route::post('/{id}/link', [\App\Http\Controllers\ReconciliationController::class, 'link'])->name('reconcile.link');
+        Route::post('/{id}/noshow', [\App\Http\Controllers\ReconciliationController::class, 'noshow'])->name('reconcile.noshow');
     });
 
     // Export
