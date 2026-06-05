@@ -117,6 +117,18 @@ if (!function_exists('normalize_phone')) {
 }
 
 /**
+ * True kalau user yang sedang login adalah Super Admin (berdasarkan
+ * session('group_name')). Dipakai di Blade & controller untuk gating
+ * fitur admin (mis. kelola sumber dana / fund_sources).
+ */
+if (!function_exists('isSuperAdmin')) {
+    function isSuperAdmin(): bool
+    {
+        return session('group_name') === 'Super Admin';
+    }
+}
+
+/**
  * Check if a parent menu group contains a child link matching the current controller
  */
 function isParentActive($parentRow, $controller)
@@ -135,5 +147,41 @@ function isParentActive($parentRow, $controller)
         }
     }
     return false;
+}
+
+/**
+ * True kalau group yang sedang login punya akses ke menu node dengan
+ * `link` tertentu (mis. 'report/executive'). Checkbox-driven: granting
+ * menu lewat UI Akses → group_access → access:rebuild bikin fungsi ini
+ * return true, TANPA perlu hardcode nama group di controller.
+ *
+ * Dipakai untuk gate sub-halaman yang AuthGuard tidak bisa bedakan
+ * (AuthGuard hanya cek segment-1 URL). Super Admin selalu lolos.
+ *
+ * @param  string  $link  nilai access_path.link, mis. 'report/executive'
+ */
+if (!function_exists('hasMenuAccess')) {
+    function hasMenuAccess(string $link): bool
+    {
+        if (isSuperAdmin()) {
+            return true;
+        }
+
+        $data = getGroupAccessData();
+        if (!is_array($data)) {
+            return false;
+        }
+
+        foreach ($data as $parent) {
+            foreach ($parent['sub'] ?? [] as $sub) {
+                foreach ($sub['child'] ?? [] as $child) {
+                    if (($child['link'] ?? null) === $link) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
 }
 
