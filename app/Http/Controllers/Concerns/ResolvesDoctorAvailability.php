@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Concerns;
 
 use App\Models\RawDocService;
+use App\Models\RawDocServiceDetail;
 use App\Models\RawDoctorSchedule;
 use App\Models\RawDoctorScheduleException;
 use Carbon\Carbon;
@@ -98,6 +99,7 @@ trait ResolvesDoctorAvailability
         $carbonDate = Carbon::parse($date);
 
         $serviceId        = $opts['service_id'] ?? null;
+        $detailId         = $opts['detail_id'] ?? null;
         $explicitDuration = (int) ($opts['duration'] ?? 0);
         $excludeId        = $opts['exclude_id'] ?? null;
         $reservationTable = $opts['reservation_table'] ?? 'raw_cus_reservation';
@@ -113,8 +115,8 @@ trait ResolvesDoctorAvailability
             ];
         }
 
-        // === 2. Resolve durasi slot (durasi override per-cabang) ===
-        $duration = $this->resolveDuration($doctorId, $serviceId, $explicitDuration ?: null, $branchId);
+        // === 2. Resolve durasi slot (durasi override per-cabang + sub-detail) ===
+        $duration = $this->resolveDuration($doctorId, $serviceId, $explicitDuration ?: null, $branchId, $detailId);
 
         // === 3. Reservasi yang udah ada di tanggal ini ===
         $bookedRanges = $this->resolveBookedRanges($doctorId, $date, $reservationTable, $excludeId);
@@ -184,18 +186,58 @@ trait ResolvesDoctorAvailability
     }
 
     /**
-     * Resolve duration efektif untuk (doctor, service) di SEBUAH CABANG.
+     * Resolve duration efektif untuk (doctor, service[, detail]) di SEBUAH CABANG.
      * Prioritas: explicit duration → override per-dokter PER-CABANG
      * (raw_doctor_branch_service_duration) → service.duration_minutes → 30.
      *
+     * Bila $detailId diisi, prioritas chain SUB-LAYANAN dipakai dulu:
+     *  1. explicit duration
+     *  2. override sub-layanan per-dokter PER-CABANG (raw_doctor_branch_detail_duration) — fitur flexible
+     *  3. override sub-layanan per-dokter (raw_doctor_service_detail)
+     *  4. raw_doc_service_detail.duration_minutes
+     * lalu fallback ke chain SERVICE INDUK:
+     *  5. override service per-dokter PER-CABANG (raw_doctor_branch_service_duration) — fitur flexible
+     *  6. raw_doc_service.duration_minutes
+     *  7. 30
+     *
      * $branchId WAJIB diisi supaya override per-cabang terbaca; kalau null
      * (caller belum punya konteks cabang) langsung fallback ke durasi
-     * default service — aman, tidak bocor antar cabang.
+     * default service/detail — aman, tidak bocor antar cabang.
      */
-    protected function resolveDuration($doctorId, $serviceId = null, $explicitDuration = null, $branchId = null): int
+    protected function resolveDuration($doctorId, $serviceId = null, $explicitDuration = null, $branchId = null, $detailId = null): int
     {
         if ($explicitDuration !== null && $explicitDuration > 0) {
             return (int) $explicitDuration;
+        }
+
+        // === SUB-LAYANAN chain (kalau $detailId diisi) ===
+        if ($detailId) {
+            if (config('features.flexible_scheduling') && $branchId) {
+                $detailBranchDur = DB::table('raw_doctor_branch_detail_duration')
+                    ->where('raw_doctor_id', $doctorId)
+                    ->where('raw_branch_id', $branchId)
+                    ->where('raw_doc_service_detail_id', $detailId)
+                    ->value('duration_minutes');
+
+                if ($detailBranchDur !== null) {
+                    return (int) round($detailBranchDur);
+                }
+            }
+
+            // legacy fallback: override sub-layanan per-dokter (tanpa cabang)
+            $detailDoctorDur = DB::table('raw_doctor_service_detail')
+                ->where('raw_doctor_id', $doctorId)
+                ->where('raw_doc_service_detail_id', $detailId)
+                ->value('duration_minutes');
+
+            if ($detailDoctorDur !== null) {
+                return (int) round($detailDoctorDur);
+            }
+
+            $detail = RawDocServiceDetail::find($detailId);
+            if ($detail && $detail->duration_minutes !== null) {
+                return (int) round($detail->duration_minutes);
+            }
         }
 
         if (!$serviceId) {
@@ -303,6 +345,13 @@ trait ResolvesDoctorAvailability
             ->where('date', $date)
             ->whereNotNull('start_hour')
             ->whereNotNull('end_hour')
+            // Reservasi yang DIBATALKAN tidak lagi menahan slot — jamnya
+            // otomatis kembali tersedia untuk pasien lain. Baris dgn status
+            // NULL (data lama) tetap dianggap terisi supaya tidak salah bebas.
+            ->where(function ($q) {
+                $q->where('status', '!=', \App\Models\RawCusReservation::STATUS_CANCELLED)
+                  ->orWhereNull('status');
+            })
             ->when($excludeId, fn($q) => $q->where('id', '!=', $excludeId))
             ->get()
             ->map(fn($r) => [

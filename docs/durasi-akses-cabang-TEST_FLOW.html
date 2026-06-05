@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Test Flow — Durasi Per-Cabang & Akses Pasien Cross-Cabang · Sweet Treats</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<style>
+    *,*::before,*::after { margin:0; padding:0; box-sizing:border-box; }
+    :root {
+        --brand:#461500; --brand-2:#6b2400; --brand-3:#8b3a00;
+        --cream:#fef5ed; --cream-2:#fef0e2; --cream-3:#fce8d4;
+        --bg:#fffaf5; --text:#3a2a1a; --muted:#8b7a6b; --border:rgba(70,21,0,0.1);
+        --pass:#2e7d32; --pass-bg:#e8f5e9; --fail:#c62828; --fail-bg:#ffebee;
+        --warn:#f57c00; --warn-bg:#fff3cd; --info:#1565c0; --info-bg:#e3f2fd;
+    }
+    html { scroll-behavior: smooth; }
+    body { font-family:'Montserrat',sans-serif; color:var(--text); background:var(--bg); line-height:1.55; }
+
+    .layout { display:grid; grid-template-columns:280px 1fr; min-height:100vh; }
+    .sidebar { background:linear-gradient(180deg,var(--brand) 0%, var(--brand-2) 100%); color:#fff; padding:24px 20px; position:sticky; top:0; height:100vh; overflow-y:auto; }
+    .main { padding:32px 48px; max-width:1100px; }
+
+    .brand { display:flex; align-items:center; gap:10px; margin-bottom:6px; padding-bottom:16px; border-bottom:1px solid rgba(255,255,255,0.15); }
+    .brand-name { font-size:1.1rem; font-weight:900; }
+    .brand-sub { font-size:0.7rem; opacity:0.8; letter-spacing:1px; text-transform:uppercase; }
+
+    .progress-card { background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.12); border-radius:12px; padding:14px; margin:18px 0; }
+    .progress-label { font-size:0.7rem; opacity:0.85; text-transform:uppercase; letter-spacing:0.5px; font-weight:700; margin-bottom:6px; }
+    .progress-numbers { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px; }
+    .progress-current { font-size:1.5rem; font-weight:900; }
+    .progress-total { font-size:0.85rem; opacity:0.8; }
+    .progress-track { height:6px; background:rgba(255,255,255,0.15); border-radius:50px; overflow:hidden; }
+    .progress-bar { height:100%; background:linear-gradient(90deg, #fbbc04, #34a853); border-radius:50px; transition:width 0.4s ease; }
+    .progress-stats { display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:10px; }
+    .progress-stat { padding:6px 8px; border-radius:6px; font-size:0.72rem; font-weight:700; text-align:center; }
+    .progress-stat.pass-stat { background:rgba(76,175,80,0.25); color:#a5d6a7; }
+    .progress-stat.fail-stat { background:rgba(239,83,80,0.25); color:#ef9a9a; }
+
+    .nav-section { margin-top:18px; }
+    .nav-section-title { font-size:0.7rem; opacity:0.7; text-transform:uppercase; letter-spacing:1px; font-weight:700; padding:10px 8px 6px; }
+    .nav-link { display:flex; align-items:center; gap:10px; padding:8px 12px; border-radius:8px; font-size:0.84rem; font-weight:600; opacity:0.85; cursor:pointer; text-decoration:none; color:#fff; transition:all 0.15s; }
+    .nav-link:hover { background:rgba(255,255,255,0.08); opacity:1; }
+    .nav-link.active { background:rgba(255,255,255,0.15); opacity:1; }
+    .nav-link i { font-size:0.78rem; opacity:0.7; width:14px; text-align:center; }
+    .nav-link .nav-mini-progress { margin-left:auto; font-size:0.68rem; padding:2px 6px; border-radius:50px; background:rgba(255,255,255,0.15); font-weight:800; min-width:36px; text-align:center; }
+
+    .sidebar-actions { margin-top:24px; padding-top:16px; border-top:1px solid rgba(255,255,255,0.15); display:flex; flex-direction:column; gap:6px; }
+    .sb-btn { display:flex; align-items:center; gap:8px; padding:9px 12px; border-radius:8px; font-size:0.78rem; font-weight:700; cursor:pointer; border:1px solid rgba(255,255,255,0.2); background:transparent; color:#fff; font-family:inherit; transition:all 0.15s; }
+    .sb-btn:hover { background:rgba(255,255,255,0.1); }
+    .sb-btn.danger { border-color:rgba(239,83,80,0.5); color:#ffabab; }
+    .sb-btn.danger:hover { background:rgba(239,83,80,0.18); }
+
+    .doc-header { padding:24px 28px; background:linear-gradient(135deg,var(--brand),var(--brand-2)); color:#fff; border-radius:18px; margin-bottom:32px; box-shadow:0 12px 32px rgba(70,21,0,0.18); }
+    .doc-title { font-size:1.6rem; font-weight:900; letter-spacing:-0.01em; margin-bottom:6px; display:flex; align-items:center; gap:14px; }
+    .doc-meta { font-size:0.82rem; opacity:0.85; display:flex; gap:18px; flex-wrap:wrap; }
+    .doc-meta i { opacity:0.7; margin-right:4px; }
+
+    .alert { padding:14px 18px; border-radius:12px; font-size:0.86rem; margin-bottom:18px; display:flex; gap:12px; align-items:flex-start; line-height:1.5; }
+    .alert i { font-size:1rem; margin-top:2px; flex-shrink:0; }
+    .alert-info { background:var(--info-bg); color:var(--info); border-left:3px solid var(--info); }
+    .alert-warn { background:var(--warn-bg); color:#856404; border-left:3px solid var(--warn); }
+
+    h2 { font-size:1.4rem; font-weight:900; color:var(--brand); margin-top:42px; margin-bottom:16px; padding-bottom:10px; border-bottom:2px solid var(--cream-2); display:flex; align-items:center; gap:10px; }
+    h2 .h2-num { background:var(--brand); color:#fff; width:32px; height:32px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:0.8rem; font-weight:800; }
+    h3 { font-size:1.05rem; font-weight:800; color:var(--brand); margin-top:24px; margin-bottom:12px; display:flex; align-items:center; gap:8px; }
+    h3 i { color:var(--brand-3); font-size:0.9rem; }
+
+    .pre-req-table { width:100%; border-collapse:separate; border-spacing:0; margin-bottom:16px; background:#fff; border-radius:10px; overflow:hidden; box-shadow:0 4px 14px rgba(70,21,0,0.05); border:1px solid var(--border); }
+    .pre-req-table th { background:var(--cream); color:var(--brand); padding:11px 14px; text-align:left; font-size:0.74rem; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; }
+    .pre-req-table td { padding:11px 14px; border-top:1px solid var(--border); font-size:0.86rem; }
+    .pre-req-table td code { background:var(--cream-2); padding:2px 7px; border-radius:5px; font-size:0.78rem; font-weight:700; color:var(--brand); }
+    .pre-req-table .num-col { width:50px; text-align:center; font-weight:800; color:var(--brand); }
+
+    .test { background:#fff; border:1px solid var(--border); border-radius:14px; padding:18px 20px; margin-bottom:14px; transition:all 0.15s; box-shadow:0 2px 8px rgba(70,21,0,0.04); }
+    .test:hover { box-shadow:0 8px 22px rgba(70,21,0,0.08); }
+    .test.is-pass { border-color:var(--pass); background:linear-gradient(135deg, #fff, #f1f8f1); }
+    .test.is-fail { border-color:var(--fail); background:linear-gradient(135deg, #fff, #fef4f4); }
+
+    .test-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; }
+    .test-id { display:inline-flex; align-items:center; gap:8px; }
+    .test-id-pill { background:var(--brand); color:#fff; padding:4px 10px; border-radius:6px; font-size:0.72rem; font-weight:800; letter-spacing:0.5px; }
+    .test.is-pass .test-id-pill { background:var(--pass); }
+    .test.is-fail .test-id-pill { background:var(--fail); }
+    .test-title { font-size:0.98rem; font-weight:800; color:var(--brand); }
+
+    .verdict { display:flex; gap:6px; }
+    .verdict-btn { padding:6px 14px; border-radius:50px; font-size:0.72rem; font-weight:800; text-transform:uppercase; letter-spacing:0.4px; cursor:pointer; border:2px solid var(--border); background:#fff; color:var(--muted); transition:all 0.15s; font-family:inherit; }
+    .verdict-btn:hover { border-color:var(--brand); color:var(--brand); }
+    .verdict-btn.pass-btn.active { background:var(--pass); border-color:var(--pass); color:#fff; }
+    .verdict-btn.fail-btn.active { background:var(--fail); border-color:var(--fail); color:#fff; }
+
+    .test-body { display:grid; grid-template-columns:auto 1fr; gap:6px 14px; font-size:0.86rem; }
+    .test-body dt { font-weight:800; color:var(--muted); text-transform:uppercase; font-size:0.7rem; letter-spacing:0.5px; padding-top:3px; align-self:start; white-space:nowrap; }
+    .test-body dd { line-height:1.55; }
+    .test-body dd ol { padding-left:18px; }
+    .test-body dd ol li { margin-bottom:4px; }
+    .test-body dd code { background:var(--cream); padding:1px 6px; border-radius:4px; font-size:0.78rem; font-weight:700; color:var(--brand); }
+    .test-body dd strong { color:var(--brand); }
+
+    .test-notes { margin-top:10px; padding-top:10px; border-top:1px dashed var(--border); }
+    .test-notes label { font-size:0.7rem; font-weight:800; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; display:block; margin-bottom:4px; }
+    .test-notes textarea { width:100%; padding:8px 12px; border:1px solid var(--border); border-radius:8px; font-family:inherit; font-size:0.84rem; resize:vertical; min-height:36px; background:#fffdfa; color:var(--text); }
+    .test-notes textarea:focus { outline:none; border-color:var(--brand); }
+
+    .summary { background:#fff; border:1px solid var(--border); border-radius:14px; padding:24px; margin-top:32px; }
+    .summary-title { font-size:1.05rem; font-weight:900; color:var(--brand); margin-bottom:16px; display:flex; align-items:center; gap:8px; }
+    .summary-table { width:100%; border-collapse:collapse; }
+    .summary-table th, .summary-table td { padding:11px 14px; text-align:left; font-size:0.86rem; border-bottom:1px solid var(--border); }
+    .summary-table th { background:var(--cream); color:var(--brand); font-weight:800; font-size:0.74rem; text-transform:uppercase; letter-spacing:0.5px; }
+    .summary-table td.num { text-align:center; font-weight:800; }
+    .summary-table .total-row { background:var(--cream-2); font-weight:900; }
+    .summary-table .total-row td { border-top:2px solid var(--brand); }
+    .summary-num.pass-num { color:var(--pass); }
+    .summary-num.fail-num { color:var(--fail); }
+
+    .bug-template { background:#1e1e2e; color:#cdd6f4; padding:18px 20px; border-radius:10px; font-family:'Courier New',monospace; font-size:0.82rem; line-height:1.7; overflow-x:auto; margin-top:12px; }
+    .bug-template .lbl { color:#fab387; }
+
+    .footer { margin-top:48px; padding-top:24px; border-top:1px solid var(--border); text-align:center; font-size:0.78rem; color:var(--muted); }
+
+    @media (max-width: 900px) {
+        .layout { grid-template-columns:1fr; }
+        .sidebar { position:relative; height:auto; }
+        .main { padding:20px; }
+    }
+    @media print {
+        body { background:#fff; }
+        .sidebar { display:none; }
+        .layout { grid-template-columns:1fr; }
+        .main { padding:0; max-width:100%; }
+        .test { page-break-inside:avoid; box-shadow:none; border:1px solid #ccc; }
+        .verdict-btn { display:none; }
+        .verdict::after { content:'Pass: \2610  Fail: \2610'; color:#333; font-weight:700; font-size:0.86rem; }
+        .test-notes textarea { min-height:50px; border:1px solid #999; }
+        .doc-header { background:#461500 !important; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+        h2 { page-break-after:avoid; }
+        h3 { page-break-after:avoid; }
+        .alert { page-break-inside:avoid; }
+        .summary { page-break-inside:avoid; }
+    }
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+    <aside class="sidebar">
+        <div class="brand">
+            <div>
+                <div class="brand-name">Sweet Treats</div>
+                <div class="brand-sub">Durasi & Akses Per-Cabang — QA</div>
+            </div>
+        </div>
+
+        <div class="progress-card">
+            <div class="progress-label"><i class="fa-solid fa-chart-line"></i> Progress Test</div>
+            <div class="progress-numbers">
+                <span class="progress-current" id="progressCurrent">0</span>
+                <span class="progress-total">/ <span id="progressTotal">0</span> done</span>
+            </div>
+            <div class="progress-track">
+                <div class="progress-bar" id="progressBar" style="width:0%"></div>
+            </div>
+            <div class="progress-stats">
+                <div class="progress-stat pass-stat"><i class="fa-solid fa-check"></i> <span id="passCount">0</span> Pass</div>
+                <div class="progress-stat fail-stat"><i class="fa-solid fa-xmark"></i> <span id="failCount">0</span> Fail</div>
+            </div>
+        </div>
+
+        <div class="nav-section">
+            <div class="nav-section-title">Sections</div>
+            <a href="#prereq" class="nav-link"><i class="fa-solid fa-list-check"></i> Pre-Requisites</a>
+            <a href="#sec-a" class="nav-link"><i class="fa-solid fa-database"></i> A — Skema &amp; Backfill SQL <span class="nav-mini-progress" data-section="A">0/4</span></a>
+            <a href="#sec-b" class="nav-link"><i class="fa-solid fa-user-doctor"></i> B — UI Edit Dokter Per-Cabang <span class="nav-mini-progress" data-section="B">0/4</span></a>
+            <a href="#sec-c" class="nav-link"><i class="fa-solid fa-clock"></i> C — Durasi Terbaca di Form Reservasi <span class="nav-mini-progress" data-section="C">0/5</span></a>
+            <a href="#sec-d" class="nav-link"><i class="fa-solid fa-users-between-lines"></i> D — Akses Pasien Cross-Cabang <span class="nav-mini-progress" data-section="D">0/7</span></a>
+            <a href="#sec-e" class="nav-link"><i class="fa-solid fa-bug"></i> E — Edge Cases <span class="nav-mini-progress" data-section="E">0/3</span></a>
+            <a href="#sec-f" class="nav-link"><i class="fa-solid fa-magnifying-glass"></i> F — Audit Duplikat Pasien <span class="nav-mini-progress" data-section="F">0/3</span></a>
+            <a href="#summary" class="nav-link"><i class="fa-solid fa-clipboard-check"></i> Summary</a>
+        </div>
+
+        <div class="sidebar-actions">
+            <button type="button" class="sb-btn" onclick="window.print()"><i class="fa-solid fa-print"></i> Print / Save PDF</button>
+            <button type="button" class="sb-btn" onclick="exportResults()"><i class="fa-solid fa-download"></i> Export Result (JSON)</button>
+            <button type="button" class="sb-btn danger" onclick="resetAll()"><i class="fa-solid fa-rotate-left"></i> Reset Semua</button>
+        </div>
+    </aside>
+
+    <main class="main">
+
+        <div class="doc-header">
+            <h1 class="doc-title"><i class="fa-solid fa-clock"></i> Test Flow — Durasi Per-Cabang &amp; Akses Pasien Cross-Cabang</h1>
+            <div class="doc-meta">
+                <span><i class="fa-solid fa-code-branch"></i> Durasi dokter per-cabang + akses pasien cross-cabang</span>
+                <span><i class="fa-solid fa-calendar-day"></i> Versi 2026-05-23</span>
+                <span><i class="fa-solid fa-clock"></i> Estimasi 40-55 menit</span>
+                <span><i class="fa-solid fa-list-check"></i> 26 test cases</span>
+            </div>
+        </div>
+
+        <div class="alert alert-info">
+            <i class="fa-solid fa-circle-info"></i>
+            <div>
+                <strong>Cara pakai:</strong> Klik <em>Pass</em>/<em>Fail</em> tiap test — progress otomatis ke-save di browser (LocalStorage), bisa di-export JSON / print PDF. Test ini menguji <strong>UI + Database</strong>. Jalankan di <strong>LOKAL</strong> atau <strong>STAGING (copy prod)</strong> — <u>jangan langsung di produksi</u> karena membuat & mengubah data nyata. Hanya Section <strong>F (Audit Duplikat)</strong> yang aman read-only utk dijalankan langsung di prod.
+            </div>
+        </div>
+
+        <div class="alert alert-warn">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            <div>
+                <strong>Prasyarat fitur live di environment uji:</strong> multi-pasien (<code>raw_contact_id</code>, <code>relasi</code>), Flexible Scheduling (<code>raw_doctor_schedule_exception</code>, kolom <code>duration_minutes</code> di pivot), dan akun login ber-<code>session('raw_branch_id')</code> (Sales cabang) harus sudah berjalan. Test flow ini menguji <em>tambahan</em> di atas: durasi per-cabang + akses pasien cross-cabang.
+            </div>
+        </div>
+
+        <section id="prereq">
+            <h2><span class="h2-num"><i class="fa-solid fa-list-check"></i></span> Pre-Requisites</h2>
+
+            <h3><i class="fa-solid fa-database"></i> 1. Jalankan 1 SQL</h3>
+            <p style="font-size:0.86rem; color:var(--muted); margin-bottom:10px;">
+                phpMyAdmin → DB lokal <code>sweettreats</code> / staging → tab SQL → tempel <strong>seluruh isi file</strong>:
+            </p>
+            <table class="pre-req-table">
+                <thead><tr><th class="num-col">#</th><th>File</th><th>Apa yang dilakukan</th></tr></thead>
+                <tbody>
+                    <tr><td class="num-col">1</td><td><code>database/sql/2026_05_21_per_branch_doctor_duration.sql</code></td><td>Bikin 2 tabel <code>raw_doctor_branch_service_duration</code> + <code>raw_doctor_branch_detail_duration</code> (UNIQUE per dokter+cabang+service/detail) + backfill (salin durasi lama ke tiap cabang dokter punya jadwal). Idempoten.</td></tr>
+                </tbody>
+            </table>
+            <div class="alert alert-warn" style="margin-top:8px;">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+                <div><strong>Backup DB dulu</strong> sebelum jalankan. Backfill <strong>tidak menghapus</strong> apa pun & aman dijalankan ulang.</div>
+            </div>
+
+            <h3><i class="fa-solid fa-file-code"></i> 2. File kode yang harus sudah ter-upload</h3>
+            <p style="font-size:0.86rem; color:var(--muted); margin-bottom:10px;">Yakinkan ke-7 file ini sudah ada di lokal/staging (timpa versi lama):</p>
+            <table class="pre-req-table">
+                <thead><tr><th>File</th><th>Untuk fitur</th></tr></thead>
+                <tbody>
+                    <tr><td><code>app/Http/Controllers/Concerns/ResolvesDoctorAvailability.php</code></td><td>Durasi per-cabang (resolveDuration + patientDuration menerima $branchId)</td></tr>
+                    <tr><td><code>app/Http/Controllers/Api/ReservationApiController.php</code></td><td>API <code>services-by-doctor</code> terima <code>?branch_id</code>; planSchedule kirim branch</td></tr>
+                    <tr><td><code>app/Http/Controllers/Crud/DoctorController.php</code></td><td>Edit dokter: load durasi per-cabang, simpan ke 2 tabel baru</td></tr>
+                    <tr><td><code>app/Http/Controllers/Crud/ReservationController.php</code></td><td>Reservasi edit: durasi sesuai cabang reservasi + create() load semua pasien</td></tr>
+                    <tr><td><code>app/Http/Controllers/Crud/CustomerController.php</code></td><td>Akses pasien cross-cabang (index/search/edit/update buka; destroy terkunci) + <strong>BUG FIX</strong>: hapus <code>unique:raw_customer,phone</code> di store/update — pakai <code>ResolvesPatientContact</code> trait (multi-pasien 1 nomor)</td></tr>
+                    <tr><td><code>app/Http/Controllers/LandingReservationController.php</code></td><td>store() kirim branchId ke patientDuration</td></tr>
+                    <tr><td><code>resources/views/crud/doctor/edit.blade.php</code></td><td>UI dropdown "Atur durasi untuk cabang" + input nested per cabang</td></tr>
+                    <tr><td><code>resources/views/crud/reservation/new.blade.php</code></td><td>JS fetch <code>services-by-doctor?branch_id=…</code> (BUG FIX)</td></tr>
+                    <tr><td><code>resources/views/crud/reservation/edit.blade.php</code></td><td>Sama dgn new.blade.php</td></tr>
+                </tbody>
+            </table>
+
+            <h3><i class="fa-solid fa-server"></i> 3. Nyalakan & siapkan akun uji</h3>
+            <table class="pre-req-table">
+                <thead><tr><th>Langkah</th><th>Perintah / catatan</th></tr></thead>
+                <tbody>
+                    <tr><td>Bersihkan cache view</td><td><code>php artisan view:clear</code></td></tr>
+                    <tr><td>Nyalakan server lokal</td><td><code>php artisan serve</code> (→ <code>http://127.0.0.1:8000</code>)</td></tr>
+                    <tr><td>Akun login uji</td><td>1 akun Sales <strong>cabang A</strong> (mis. Bintaro) + 1 akun Sales <strong>cabang B</strong> (mis. Pamulang) + 1 akun Super Admin (tidak terkunci cabang)</td></tr>
+                    <tr><td>Data minimum</td><td>1 dokter yang praktik di ≥ 2 cabang (cek via <code>SELECT raw_branch_id, COUNT(*) FROM raw_doctor_schedule WHERE raw_doctor_id='&lt;ID&gt;' GROUP BY raw_branch_id</code>)</td></tr>
+                </tbody>
+            </table>
+            <div class="alert alert-info" style="margin-top:8px;">
+                <i class="fa-solid fa-circle-info"></i>
+                <div>Setelah selesai test, kembalikan durasi yg di-edit (Section B & C) ke nilai awalnya supaya tidak mengganggu data nyata. Kalau di STAGING (clone prod), boleh dibiarkan.</div>
+            </div>
+        </section>
+
+        <div id="testContainer"></div>
+
+        <section id="summary" class="summary">
+            <div class="summary-title"><i class="fa-solid fa-clipboard-check"></i> Hasil Akhir Test</div>
+            <table class="summary-table" id="summaryTable">
+                <thead><tr><th>Modul</th><th class="num">Total</th><th class="num">Pass</th><th class="num">Fail</th><th class="num">Pending</th></tr></thead>
+                <tbody id="summaryBody"></tbody>
+            </table>
+
+            <div class="summary-title" style="margin-top:24px;"><i class="fa-solid fa-bug"></i> Bug Reporting Template</div>
+            <p style="font-size:0.84rem; color:var(--muted);">Kalau ada test yang fail, laporkan dengan format:</p>
+            <pre class="bug-template"><span class="lbl">Test ID    :</span> T-X.X
+<span class="lbl">Environment:</span> Lokal / Staging  ·  Browser + versi (utk UI bug: sebut HP/desktop)
+<span class="lbl">Request    :</span> [method + URL + body]
+<span class="lbl">Expected   :</span> [yang seharusnya]
+<span class="lbl">Actual     :</span> [status code + body response]
+<span class="lbl">Cek DB     :</span> [hasil query verifikasi kalau relevan]</pre>
+        </section>
+
+        <div class="alert alert-warn" style="margin-top:32px;">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            <div>
+                <strong>Catatan untuk tester:</strong>
+                <ol style="margin-left:18px; margin-top:6px;">
+                    <li>Jalankan di <strong>LOKAL/STAGING</strong>, kecuali Section <strong>F (audit)</strong> yang read-only & aman di prod.</li>
+                    <li>Section B & C <strong>mengubah durasi dokter</strong> — catat nilai awal sebelum diubah, kembalikan di akhir test (kecuali di staging).</li>
+                    <li>Verifikasi DB: phpMyAdmin atau <code>php artisan tinker</code> (setiap test punya query cek).</li>
+                    <li>Section C BERGANTUNG ke Section B (durasi yg di-set di B dipakai test di C). Jangan dilompati.</li>
+                    <li>Section D butuh <strong>2 akun login</strong>: Sales cabang A & Sales cabang B (biasanya logout-login). Test cross-cabang dari perspektif tiap akun.</li>
+                    <li>Kalau ada test fail di Section C, hampir pasti karena cache view — coba <code>php artisan view:clear</code> dan hard-refresh browser (Ctrl+Shift+R).</li>
+                </ol>
+            </div>
+        </div>
+
+        <div class="footer">
+            Versi dokumen: 2026-05-23 · Durasi Per-Cabang & Akses Pasien Cross-Cabang · Disiapkan oleh Tim Dev SweetTreats · <a href="#" onclick="window.scrollTo({top:0,behavior:'smooth'});return false;" style="color:var(--brand);">↑ Kembali ke atas</a>
+        </div>
+
+    </main>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// TEST DATA — Durasi Per-Cabang & Akses Pasien Cross-Cabang
+// ═══════════════════════════════════════════════════════
+const TESTS = [
+    // ─── A. SKEMA & BACKFILL SQL ─────────────────────
+    { id:'A.1', section:'A', sectionTitle:'A — Skema &amp; Backfill SQL', sectionIcon:'fa-database', anchor:'sec-a',
+      title:'Jalankan SQL → 2 tabel baru ada',
+      goal:'Tabel branch-duration terbentuk + index siap dipakai',
+      steps:['Backup DB dulu (Export di phpMyAdmin)', 'Jalankan <code>database/sql/2026_05_21_per_branch_doctor_duration.sql</code> (paste seluruh isi)', 'Verifikasi: <code>SHOW TABLES LIKE "raw_doctor_branch%";</code>'],
+      expected:'Muncul 2 tabel: <code>raw_doctor_branch_service_duration</code> &amp; <code>raw_doctor_branch_detail_duration</code>. Tidak ada error. Index UNIQUE <code>uniq_doctor_branch_service</code> &amp; <code>uniq_doctor_branch_detail</code> ada (<code>SHOW INDEX</code>).' },
+    { id:'A.2', section:'A', title:'Backfill ✓ — durasi lama tersalin per cabang',
+      goal:'Tiap durasi override lama disalin ke SETIAP cabang dokter punya jadwal',
+      steps:['Hitung sebelum: <code>SELECT COUNT(*) FROM raw_doctor_service WHERE duration_minutes IS NOT NULL;</code> = <strong>N</strong>', 'Hitung sesudah: <code>SELECT COUNT(*) FROM raw_doctor_branch_service_duration;</code>'],
+      expected:'Count branch_service_duration ≥ N × (rata-rata cabang per dokter). Untuk dokter yg praktik di 2 cabang: 1 baris lama → 2 baris branch (sama durasi). Tidak ada baris lama yg ter-modifikasi.' },
+    { id:'A.3', section:'A', title:'Idempoten — re-run tidak menambah',
+      steps:['Catat <code>SELECT COUNT(*) FROM raw_doctor_branch_service_duration;</code>', 'Jalankan SQL ulang sekali', 'Hitung lagi'],
+      expected:'Jumlah <strong>tidak berubah</strong> (INSERT IGNORE skip karena unique key). Tidak ada error.' },
+    { id:'A.4', section:'A', title:'Capability raw_doctor_service tidak terhapus',
+      goal:'Daftar perawatan yg dilayani dokter tetap universal',
+      steps:['Hitung sebelum &amp; sesudah jalankan SQL: <code>SELECT COUNT(*) FROM raw_doctor_service;</code>'],
+      expected:'Jumlah <strong>SAMA</strong>. Kolom <code>duration_minutes</code> lama di raw_doctor_service tidak di-drop (legacy, dibiarkan). Form reservasi tetap menampilkan service list per dokter normal.' },
+
+    // ─── B. UI EDIT DOKTER PER-CABANG ────────────────
+    { id:'B.1', section:'B', sectionTitle:'B — UI Edit Dokter Per-Cabang', sectionIcon:'fa-user-doctor', anchor:'sec-b',
+      title:'Section "Durasi per Cabang" + dropdown cabang muncul',
+      goal:'UI baru tampil utk dokter yg praktik di ≥1 cabang',
+      steps:['Login Super Admin', 'Buka edit dokter yg praktik di ≥2 cabang (mis. <code>/rawdoctor/&lt;id&gt;</code>)', 'Scroll ke section <strong>"Perawatan &amp; Durasi per Cabang"</strong>'],
+      expected:'Section ada. Dropdown <strong>"Atur durasi untuk cabang"</strong> berisi semua cabang dokter itu. Checkbox perawatan (capability) tetap satu set (universal). Input durasi muncul di samping tiap perawatan, default tampil cabang pertama.' },
+    { id:'B.2', section:'B', title:'Set durasi cabang A → simpan → cek DB',
+      goal:'Save per-cabang tersimpan ke tabel branch-duration',
+      steps:['Di dropdown cabang, pilih cabang A (mis. Bintaro)', 'Pilih 1 perawatan terkontrol (mis. "Konsultasi", catat default-nya), centang kalau belum, isi durasi = <strong>45</strong>', 'Klik <em>Simpan Perubahan</em>', 'Verifikasi DB: <code>SELECT duration_minutes FROM raw_doctor_branch_service_duration WHERE raw_doctor_id=&lt;ID&gt; AND raw_branch_id=&lt;ID_BINTARO&gt; AND raw_doc_service_id=&lt;ID_KONSULTASI&gt;;</code>'],
+      expected:'Hasil = <strong>45</strong>. Sukses banner muncul. Re-load halaman → input durasi cabang A tetap menunjukkan 45.' },
+    { id:'B.3', section:'B', title:'Cabang B independent (tidak ikut berubah)',
+      goal:'Bug utama: ubah cabang A jangan bocor ke B',
+      steps:['Di halaman edit dokter yg sama, ganti dropdown cabang ke <strong>cabang B</strong> (mis. Cinere)', 'Lihat input durasi perawatan "Konsultasi"'],
+      expected:'Durasi cabang B <strong>TIDAK</strong> berubah jadi 45 — tetap default service atau nilai cabang B sebelumnya (kosong/placeholder). DB: <code>SELECT duration_minutes FROM raw_doctor_branch_service_duration WHERE raw_doctor_id=&lt;ID&gt; AND raw_branch_id=&lt;ID_CINERE&gt; AND raw_doc_service_id=&lt;ID_KONSULTASI&gt;;</code> = NULL atau nilai lama Cinere, BUKAN 45.' },
+    { id:'B.4', section:'B', title:'Uncheck perawatan → input durasi disable di semua cabang',
+      steps:['Uncheck perawatan "Konsultasi" (capability)', 'Lihat input durasi "Konsultasi" di tiap cabang via dropdown'],
+      expected:'Input durasi "Konsultasi" di SEMUA cabang ter-disable + nilainya ter-clear (visual). Centang kembali → input durasi enable lagi.' },
+
+    // ─── C. DURASI TERBACA DI FORM RESERVASI ─────────
+    { id:'C.1', section:'C', sectionTitle:'C — Durasi Terbaca di Form Reservasi', sectionIcon:'fa-clock', anchor:'sec-c',
+      title:'Admin reservasi cabang A → durasi override tampil',
+      goal:'Bug fix: <code>services-by-doctor?branch_id=X</code> baca override per-cabang',
+      steps:['Pastikan B.2 sudah set durasi Konsultasi dokter Y di cabang A = 45 menit', 'Buka <code>/rawreservation/new</code>', 'Pilih cabang A, pilih dokter Y, centang perawatan Konsultasi', 'Lihat total durasi tampil + cek Network tab: request ke <code>/api/reservation/services-by-doctor/&lt;id&gt;?branch_id=&lt;A&gt;</code>'],
+      expected:'Total durasi = <strong>45 menit</strong> (BUKAN durasi default service). Request memuat <code>?branch_id=</code>. Response JSON: <code>effective_duration_minutes: 45</code>.' },
+    { id:'C.2', section:'C', title:'Ganti ke cabang B → durasi kembali default',
+      steps:['Tanpa refresh, ganti dropdown cabang ke B (yg tidak di-override)', 'Pilih dokter Y lagi (kalau tersedia di B) + perawatan Konsultasi', 'Cek durasi total'],
+      expected:'Durasi = <strong>default service Konsultasi</strong> (mis. 30 mnt) — BUKAN 45. Request baru ke API dgn <code>?branch_id=&lt;B&gt;</code>. Response: <code>effective_duration_minutes</code> = default service.' },
+    { id:'C.3', section:'C', title:'Balik ke cabang A → kembali 45 menit (cache refresh)',
+      goal:'Pastikan tidak ada stale cache JS/browser',
+      steps:['Ganti dropdown cabang ke A lagi', 'Pilih dokter Y + Konsultasi'],
+      expected:'Durasi kembali ke <strong>45 menit</strong>. Tiap ganti cabang JS fetch ulang services-by-doctor dgn branch_id terbaru.' },
+    { id:'C.4', section:'C', title:'Edit reservasi existing → pakai durasi cabang reservasi',
+      steps:['Buat 1 reservasi di cabang A dgn dokter Y + Konsultasi (durasi seharusnya 45)', 'Buka edit reservasi itu (<code>/rawreservation/&lt;id&gt;</code>)'],
+      expected:'Total durasi yg ditampilkan di edit = <strong>45 menit</strong> (sesuai cabang reservasi). Cek <code>ReservationController::edit()</code> baca <code>raw_doctor_branch_service_duration</code> filtered by <code>$reservation-&gt;raw_branch_id</code>.' },
+    { id:'C.5', section:'C', title:'Public form /reservasi → slot grid pakai durasi per-cabang',
+      goal:'Slot picker juga ikut override cabang',
+      steps:['Buka <code>/reservasi</code>', 'Pilih cabang A → perawatan Konsultasi → dokter Y → tanggal → lihat slot grid'],
+      expected:'Interval slot = <strong>45 menit</strong> (mis. 10:00, 10:45, 11:30…). Pilih cabang B sebagai pembanding → interval kembali default. Endpoint <code>/api/reservation/slots/{B}/{D}/{date}</code> sudah pass branchId di path → resolveDuration baca per-cabang.' },
+
+    // ─── D. AKSES PASIEN CROSS-CABANG ────────────────
+    { id:'D.1', section:'D', sectionTitle:'D — Akses Pasien Cross-Cabang', sectionIcon:'fa-users-between-lines', anchor:'sec-d',
+      title:'Sales cabang A lihat semua pasien di /rawcustomer',
+      goal:'Buka list cross-cabang (sebelumnya Sales hanya lihat cabangnya)',
+      steps:['Login akun <strong>Sales cabang A</strong>', 'Buka <code>/rawcustomer</code>'],
+      expected:'List menampilkan pasien dari SEMUA cabang (tidak hanya cabang A). Pagination + total wajar. Dropdown filter <strong>"Cabang"</strong> tampil &amp; berisi semua cabang.' },
+    { id:'D.2', section:'D', title:'Filter cabang dropdown berfungsi',
+      steps:['Masih sebagai Sales A di <code>/rawcustomer</code>', 'Pilih filter cabang = <strong>cabang B</strong>'],
+      expected:'List hanya menampilkan pasien <code>raw_branch_id = B</code>. URL ber-querystring <code>?branch_id=&lt;B&gt;</code>. Reset filter → semua kembali tampil.' },
+    { id:'D.3', section:'D', title:'Search reservasi: pasien cabang lain bisa dipilih',
+      goal:'Cegah duplikasi saat pasien pindah cabang / Omnicare matching',
+      steps:['Sales A buka <code>/rawreservation/new</code>', 'Di field Pasien, ketik nama pasien yg <strong>raw_branch_id=B</strong>'],
+      expected:'Pasien cabang B muncul di hasil select2 (sebelumnya tidak muncul utk Sales A). Pilih dia → tetap bisa simpan reservasi (reservasi tercatat raw_branch_id=A meskipun pasien ber-raw_branch_id=B).' },
+    { id:'D.4', section:'D', title:'Edit pasien cabang lain → diizinkan',
+      steps:['Sales A buka <code>/rawcustomer/&lt;id-pasien-cabang-B&gt;</code>'],
+      expected:'Form edit pasien terbuka normal (tidak ada redirect "tidak memiliki akses"). Ubah nama/email → simpan → sukses. DB: data ter-update.' },
+    { id:'D.5', section:'D', title:'Hapus pasien cabang lain → DITOLAK (safety)',
+      goal:'Destroy tetap terkunci ke cabang asal',
+      steps:['Sales A coba HAPUS pasien cabang B (tombol Hapus / DELETE <code>/rawcustomer/&lt;id&gt;</code>)'],
+      expected:'Hapus DITOLAK. Pesan error: <em>"Hapus pasien hanya bisa oleh staff cabang asal pasien."</em> Redirect kembali ke <code>/rawcustomer</code>. DB: pasien <strong>tidak terhapus</strong>.' },
+    { id:'D.6', section:'D', title:'Tambah pasien baru di Data Center dgn nomor yang SUDAH ADA di cabang lain → SUKSES',
+      goal:'Inti bug yg dilaporkan staf: Sunter→Kalideres / Sunter→Bintaro pindah cabang',
+      steps:['Cari 1 pasien existing di DB cabang B (catat nama &amp; nomor HP)', 'Login akun <strong>Sales cabang A</strong>', 'Buka <code>/rawcustomer/new</code>', 'Isi nama BEDA + nomor HP SAMA dengan pasien cabang B + jenis kelamin + tanggal lahir → Simpan'],
+      expected:'Pasien BARU tersimpan (tidak ada error <em>"Nomor ini sudah terdaftar di sistem"</em>). Redirect ke <code>/rawcustomer</code> dengan flash success. DB: 2 baris <code>raw_customer</code> ber-phone sama, beda nama, <strong>raw_contact_id sama</strong> (auto-link ke contact existing). View <code>v_contact_patient_conflicts</code> menampilkan nomor ini (nomor dengan &gt;1 pasien beda nama).' },
+    { id:'D.7', section:'D', title:'Edit pasien: ubah nomor jadi yg dipakai pasien lain → SUKSES',
+      goal:'Form edit pasien juga tidak block phone duplikat',
+      steps:['Sales A buka edit pasien P1 di <code>/rawcustomer/&lt;id&gt;</code>', 'Ubah field <strong>No. WhatsApp</strong> jadi nomor yang sudah dipakai pasien lain P2 → Simpan'],
+      expected:'Update sukses (tidak ada error <em>"Nomor ini sudah terdaftar di pasien lain"</em>). DB: P1.phone = P2.phone, dan <code>raw_contact_id</code> P1 ter-update ke contact-nya P2 (otomatis ter-link). Riwayat reservasi P1 tetap aman (tidak terhapus / berpindah).' },
+
+    // ─── E. EDGE CASES ───────────────────────────────
+    { id:'E.1', section:'E', sectionTitle:'E — Edge Cases', sectionIcon:'fa-bug', anchor:'sec-e',
+      title:'Pasien orphan (raw_branch_id NULL) tetap muncul di list',
+      steps:['<code>SELECT id, name FROM raw_customer WHERE raw_branch_id IS NULL LIMIT 5;</code>', 'Buka <code>/rawcustomer</code> sbg Sales/Admin'],
+      expected:'Pasien orphan muncul di list (sebelumnya orphan kadang tersembunyi). Bisa di-edit. Hapus orphan oleh Sales A → DITOLAK (orphan tidak punya cabang asal, fallback ke aturan destroy → tidak ada same-branch match → tetap ditolak). Aman.' },
+    { id:'E.2', section:'E', title:'Sub-detail duration per-cabang berfungsi',
+      goal:'Override sub-detail juga ikut per-cabang',
+      steps:['Edit dokter Y di cabang A: di "Sub-detail per dokter" set durasi sub-detail SD1 = 25 menit (Section B-style)', 'Buka <code>/rawreservation/new</code> → pilih cabang A + dokter Y + sub-detail SD1', 'Bandingkan ke cabang B yg tidak override'],
+      expected:'Di cabang A: durasi efektif sub-detail = 25 menit. Di cabang B: durasi efektif = default sub-detail. DB: 2 tabel <code>raw_doctor_branch_detail_duration</code> jadi sumber utama.' },
+    { id:'E.3', section:'E', title:'Sales cabang vs Super Admin: dropdown cabang di edit dokter',
+      goal:'Sales yg terkunci cabang hanya lihat cabangnya',
+      steps:['Login <strong>Sales cabang A</strong> → buka edit dokter Y (yg praktik di A+B)', 'Catat opsi dropdown "Atur durasi untuk cabang"', 'Logout, login Super Admin, buka dokter sama'],
+      expected:'Sales A: dropdown HANYA berisi cabang A (filtered by session). Super Admin: dropdown berisi SEMUA cabang dokter (A + B). Capability checkbox tetap satu set di kedua kasus.' },
+
+    // ─── F. AUDIT DUPLIKAT PASIEN (read-only, aman di PROD) ───────
+    { id:'F.1', section:'F', sectionTitle:'F — Audit Duplikat Pasien', sectionIcon:'fa-magnifying-glass', anchor:'sec-f',
+      title:'AUDIT 1: Ringkasan duplikat lintas cabang',
+      goal:'Cek skala masalah duplikasi (aman read-only utk prod)',
+      steps:['Buka phpMyAdmin pada DB target (lokal / staging / <strong>boleh prod</strong> — query read-only)', 'Tab SQL → paste &amp; jalankan:<br><code>SELECT "Total pasien", COUNT(*) FROM raw_customer<br>UNION ALL<br>SELECT "Nama+DOB sama lintas cabang", COUNT(*) FROM (SELECT LOWER(TRIM(name)) n, tanggal_lahir FROM raw_customer WHERE name&lt;&gt;"" AND tanggal_lahir IS NOT NULL GROUP BY n, tanggal_lahir HAVING COUNT(*)&gt;1 AND COUNT(DISTINCT raw_branch_id)&gt;1) x;</code>'],
+      expected:'Output: total pasien + jumlah grup duplikat. Catat angka grup duplikat. Kalau &gt;0 → ada masalah duplikasi yg perlu di-merge.' },
+    { id:'F.2', section:'F', title:'AUDIT 2: Detail per kasus duplikat (untuk siapkan merge)',
+      goal:'Dapatkan UUID lengkap + field per record untuk merge plan',
+      steps:['Tab SQL → paste &amp; jalankan (query lengkap ada di pesan dev):<br><code>SELECT LOWER(TRIM(c.name)) AS nama, c.tanggal_lahir, c.id AS full_id, b.name AS cabang, c.phone, c.email, c.nik, c.tempat_lahir, (SELECT COUNT(*) FROM raw_cus_reservation r WHERE r.raw_customer_id=c.id) AS resv, (SELECT MAX(date) FROM raw_cus_reservation r WHERE r.raw_customer_id=c.id) AS last_resv, c.created_at FROM raw_customer c LEFT JOIN raw_branch b ON b.id=c.raw_branch_id WHERE (LOWER(TRIM(c.name)), c.tanggal_lahir) IN (SELECT LOWER(TRIM(x.name)), x.tanggal_lahir FROM raw_customer x WHERE x.name&lt;&gt;"" AND x.tanggal_lahir IS NOT NULL GROUP BY LOWER(TRIM(x.name)), x.tanggal_lahir HAVING COUNT(*)&gt;1 AND COUNT(DISTINCT x.raw_branch_id)&gt;1) ORDER BY nama, c.tanggal_lahir, resv DESC;</code>', 'Export hasil ke CSV (phpMyAdmin → Export)'],
+      expected:'Tabel detail tampil tiap pasangan duplikat (2 baris per orang sama). Tiap baris: full_id (UUID), cabang, jumlah reservasi, last_resv. Export sukses ke CSV.' },
+    { id:'F.3', section:'F', title:'Kirim hasil ke tim dev untuk siapkan merge SQL prod',
+      goal:'Merge SQL khusus prod (UUID prod berbeda dari lokal!)',
+      steps:['Kirim CSV / paste tabel hasil F.2 ke tim dev (Ekky / Claude)', 'Tunggu merge SQL kustom prod (dengan field migration utk NIK/tempat_lahir kalau ada)', 'Backup DB prod → review merge SQL → preview di dalam <code>START TRANSACTION</code> → <code>COMMIT</code> kalau verifikasi OK; <code>ROLLBACK</code> kalau aneh'],
+      expected:'Setelah merge, jalankan ULANG AUDIT 1 di prod → grup duplikat lintas cabang = <strong>0</strong>. Jumlah <code>raw_customer</code> berkurang sebanyak duplikat (bukan delete reservasi — cuma re-point FK). Riwayat reservasi pasien primary lengkap = gabungan keduanya.' },
+];
+
+const SECTIONS = [
+    { key:'A', label:'A — Skema & Backfill SQL' },
+    { key:'B', label:'B — UI Edit Dokter Per-Cabang' },
+    { key:'C', label:'C — Durasi Terbaca di Form Reservasi' },
+    { key:'D', label:'D — Akses Pasien Cross-Cabang' },
+    { key:'E', label:'E — Edge Cases' },
+    { key:'F', label:'F — Audit Duplikat Pasien' },
+];
+
+// ═══════════════════════════════════════════════════════
+// RENDER & STATE  (kerangka sama dengan TEST_FLOW.html)
+// ═══════════════════════════════════════════════════════
+const STORAGE_KEY = 'durasiAksesCabangTestFlow_v1';
+const STATE = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+
+function saveState() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(STATE));
+    updateProgress();
+}
+function getState(id) { return STATE[id] || { verdict:null, notes:'' }; }
+function setVerdict(id, verdict) {
+    if (!STATE[id]) STATE[id] = { verdict:null, notes:'' };
+    STATE[id].verdict = STATE[id].verdict === verdict ? null : verdict;
+    saveState();
+    renderTest(id);
+}
+function setNotes(id, notes) {
+    if (!STATE[id]) STATE[id] = { verdict:null, notes:'' };
+    STATE[id].notes = notes;
+    saveState();
+}
+
+function renderTests() {
+    const container = document.getElementById('testContainer');
+    let html = '';
+    let currentSection = null;
+
+    TESTS.forEach(t => {
+        if (t.section !== currentSection) {
+            currentSection = t.section;
+            html += `<section id="${t.anchor}" style="margin-top:42px;">
+                <h2><span class="h2-num"><i class="fa-solid ${t.sectionIcon}"></i></span> ${t.sectionTitle}</h2>
+            </section>`;
+        }
+        const state = getState('T-' + t.id);
+        const passClass = state.verdict === 'pass' ? 'is-pass' : '';
+        const failClass = state.verdict === 'fail' ? 'is-fail' : '';
+        const stepsHtml = t.steps.map(s => `<li>${s}</li>`).join('');
+        const goalHtml = t.goal ? `<dt>Goal</dt><dd>${t.goal}</dd>` : '';
+
+        html += `
+        <div class="test ${passClass} ${failClass}" id="test-${t.id}">
+            <div class="test-head">
+                <div class="test-id">
+                    <span class="test-id-pill">T-${t.id}</span>
+                    <span class="test-title">${t.title}</span>
+                </div>
+                <div class="verdict">
+                    <button type="button" class="verdict-btn pass-btn ${state.verdict === 'pass' ? 'active' : ''}" onclick="setVerdict('T-${t.id}', 'pass')"><i class="fa-solid fa-check"></i> Pass</button>
+                    <button type="button" class="verdict-btn fail-btn ${state.verdict === 'fail' ? 'active' : ''}" onclick="setVerdict('T-${t.id}', 'fail')"><i class="fa-solid fa-xmark"></i> Fail</button>
+                </div>
+            </div>
+            <dl class="test-body">
+                ${goalHtml}
+                <dt>Steps</dt><dd><ol>${stepsHtml}</ol></dd>
+                <dt>Expected</dt><dd>${t.expected}</dd>
+            </dl>
+            <div class="test-notes">
+                <label for="notes-${t.id}">Catatan / Bug detail</label>
+                <textarea id="notes-${t.id}" oninput="setNotes('T-${t.id}', this.value)" placeholder="Tulis catatan kalau ada hal yang perlu di-flag...">${state.notes || ''}</textarea>
+            </div>
+        </div>`;
+    });
+    container.innerHTML = html;
+}
+
+function renderTest(id) {
+    const t = TESTS.find(t => 'T-' + t.id === id);
+    if (!t) return;
+    const el = document.getElementById('test-' + t.id);
+    if (!el) return;
+    const state = getState(id);
+    el.classList.toggle('is-pass', state.verdict === 'pass');
+    el.classList.toggle('is-fail', state.verdict === 'fail');
+    el.querySelector('.pass-btn').classList.toggle('active', state.verdict === 'pass');
+    el.querySelector('.fail-btn').classList.toggle('active', state.verdict === 'fail');
+}
+
+function updateProgress() {
+    const total = TESTS.length;
+    let pass = 0, fail = 0;
+    TESTS.forEach(t => {
+        const s = getState('T-' + t.id);
+        if (s.verdict === 'pass') pass++;
+        else if (s.verdict === 'fail') fail++;
+    });
+    const done = pass + fail;
+    const pct = total > 0 ? (done / total * 100) : 0;
+    document.getElementById('progressCurrent').textContent = done;
+    document.getElementById('progressTotal').textContent = total;
+    document.getElementById('progressBar').style.width = pct + '%';
+    document.getElementById('passCount').textContent = pass;
+    document.getElementById('failCount').textContent = fail;
+
+    SECTIONS.forEach(sec => {
+        const tests = TESTS.filter(t => t.section === sec.key);
+        let d = 0;
+        tests.forEach(t => {
+            const s = getState('T-' + t.id);
+            if (s.verdict === 'pass' || s.verdict === 'fail') d++;
+        });
+        const el = document.querySelector(`[data-section="${sec.key}"]`);
+        if (el) el.textContent = `${d}/${tests.length}`;
+    });
+
+    let totalTotal = 0, totalPass = 0, totalFail = 0, bodyHtml = '';
+    SECTIONS.forEach(sec => {
+        const tests = TESTS.filter(t => t.section === sec.key);
+        let p = 0, f = 0;
+        tests.forEach(t => {
+            const s = getState('T-' + t.id);
+            if (s.verdict === 'pass') p++;
+            else if (s.verdict === 'fail') f++;
+        });
+        const pending = tests.length - p - f;
+        totalTotal += tests.length; totalPass += p; totalFail += f;
+        bodyHtml += `<tr>
+            <td>${sec.label}</td>
+            <td class="num">${tests.length}</td>
+            <td class="num summary-num pass-num">${p}</td>
+            <td class="num summary-num fail-num">${f}</td>
+            <td class="num">${pending}</td>
+        </tr>`;
+    });
+    bodyHtml += `<tr class="total-row">
+        <td><strong>TOTAL</strong></td>
+        <td class="num">${totalTotal}</td>
+        <td class="num summary-num pass-num">${totalPass}</td>
+        <td class="num summary-num fail-num">${totalFail}</td>
+        <td class="num">${totalTotal - totalPass - totalFail}</td>
+    </tr>`;
+    document.getElementById('summaryBody').innerHTML = bodyHtml;
+}
+
+function exportResults() {
+    const data = {
+        exportedAt: new Date().toISOString(),
+        results: TESTS.map(t => ({
+            id: 'T-' + t.id,
+            section: t.section,
+            title: t.title,
+            verdict: getState('T-' + t.id).verdict || 'pending',
+            notes: getState('T-' + t.id).notes || '',
+        })),
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `durasi-akses-cabang-test-results-${new Date().toISOString().slice(0,10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+function resetAll() {
+    if (!confirm('Reset SEMUA progress test? Tindakan ini tidak bisa di-undo.')) return;
+    localStorage.removeItem(STORAGE_KEY);
+    Object.keys(STATE).forEach(k => delete STATE[k]);
+    renderTests();
+    updateProgress();
+}
+
+function setupScrollSpy() {
+    const links = document.querySelectorAll('.nav-link');
+    const sections = ['prereq','sec-a','sec-b','sec-c','sec-d','sec-e','sec-f','summary'];
+    function onScroll() {
+        const scrollPos = window.scrollY + 120;
+        let activeIdx = 0;
+        sections.forEach((id, i) => {
+            const el = document.getElementById(id);
+            if (el && el.offsetTop <= scrollPos) activeIdx = i;
+        });
+        links.forEach((l, i) => l.classList.toggle('active', i === activeIdx));
+    }
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+}
+
+renderTests();
+updateProgress();
+setupScrollSpy();
+</script>
+
+</body>
+</html>
