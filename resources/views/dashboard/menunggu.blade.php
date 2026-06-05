@@ -95,9 +95,26 @@
                     $('#badge-' + id).attr('class', 'st-pill ' + (PILL_MAP[status] || 'st-pill--neutral'))
                         .html('<i class="fa ' + res.icon + '"></i> ' + res.label);
                     $('#row-' + id + ' td:last').html('<span class="st-muted"><i class="fa fa-check-circle"></i> Updated</span>');
+                    if (res.waitlist_prompt) { showWaitlistPrompt(res.waitlist_prompt); }
                 },
                 error: function() { alert('Gagal mengubah status'); }
             });
+        }
+
+        // Slot kosong akibat cancel → tawarkan assign pasien waiting list.
+        function showWaitlistPrompt(p) {
+            var msg = 'Slot dr. ' + p.doctor + ' tanggal ' + p.date + ' kini kosong. Ada '
+                    + p.count + ' pasien di waiting list. Assign sekarang?';
+            if (window.Swal) {
+                Swal.fire({
+                    title: 'Slot kosong — ada waiting list!',
+                    text: msg, icon: 'info',
+                    showCancelButton: true, confirmButtonColor: '#461500', cancelButtonColor: '#aaa',
+                    confirmButtonText: 'Lihat Waiting List', cancelButtonText: 'Nanti', reverseButtons: true,
+                }).then(function (r) { if (r.isConfirmed) window.location.href = p.url; });
+            } else if (confirm(msg)) {
+                window.location.href = p.url;
+            }
         }
     </script>
 @endsection

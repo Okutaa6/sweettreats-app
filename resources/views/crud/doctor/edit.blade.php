@@ -15,7 +15,29 @@
         {{-- Doctor Info --}}
         <div class="st-card mb-3">
             <div class="st-card__body">
-                <h6 class="st-section-title"><i class="fa fa-user-md"></i> Informasi Doctor</h6>
+                <div class="d-flex align-items-start justify-content-between flex-wrap" style="gap:12px; margin-bottom:14px;">
+                    <h6 class="st-section-title mb-0"><i class="fa fa-user-md"></i> Informasi Doctor</h6>
+                    <div class="st-doctor-toggle-box">
+                        <div class="st-doctor-toggle-box__caption">
+                            <i class="fa fa-power-off"></i>
+                            <span>Status Dokter</span>
+                            <i class="fa fa-circle-info st-doctor-toggle-box__help"
+                               title="Saat Nonaktif: dokter ini tidak muncul di dropdown form reservasi baru. Reservasi yang sudah terjadwal tetap valid."></i>
+                        </div>
+                        <div class="st-doctor-toggle-wrap">
+                            <span class="st-doctor-toggle-wrap__label {{ $doctor->is_active ? '' : 'is-inactive' }}" id="doctorToggleLabel">
+                                {{ $doctor->is_active ? 'Aktif' : 'Nonaktif' }}
+                            </span>
+                            <label class="st-toggle-switch">
+                                <input type="checkbox" id="doctorActiveToggle" {{ $doctor->is_active ? 'checked' : '' }}>
+                                <span class="st-toggle-switch__slider"></span>
+                            </label>
+                        </div>
+                        <div class="st-doctor-toggle-box__hint">
+                            Geser untuk {{ $doctor->is_active ? 'menonaktifkan' : 'mengaktifkan' }} dokter.
+                        </div>
+                    </div>
+                </div>
                 <form method="post" action="{{ route('rawdoctor.update', $doctor->id) }}" enctype="multipart/form-data">
                     @csrf
                     @method('PUT')
@@ -84,6 +106,9 @@
                 </form>
                 <form action="{{ route('rawdoctor.destroy', $doctor->id) }}" method="POST" id="deleteDoctor">
                     @csrf @method('DELETE')
+                </form>
+                <form action="{{ route('rawdoctor.toggle-active', $doctor->id) }}" method="POST" id="toggleDoctorActiveForm">
+                    @csrf @method('PATCH')
                 </form>
                 @if ($doctor->photo && !$stIsSales)
                     <form action="{{ route('rawdoctor.photo.delete', $doctor->id) }}" method="POST" id="deleteDoctorPhoto">
@@ -676,6 +701,56 @@
         }).then((result) => { if (result.isConfirmed) { $('#deleteDoctorPhoto').submit(); } })
     }
 
+    // Toggle switch aktif/nonaktif dokter — konfirmasi dulu sebelum submit,
+    // revert kalau user batal supaya UI tidak ngambang.
+    // Catatan: `prop('checked', ...)` di jQuery TIDAK fire 'change', jadi
+    // tidak perlu flag anti-recursion — revert aman langsung.
+    $(document).on('change', '#doctorActiveToggle', function () {
+        var $tgl = $(this);
+        var willActivate = this.checked;
+        var $label = $('#doctorToggleLabel');
+
+        var title, text, confirmLbl, icon;
+        if (willActivate) {
+            title      = 'Aktifkan dokter?';
+            text       = 'Dokter akan kembali muncul di dropdown form reservasi baru.';
+            confirmLbl = 'Ya, Aktifkan';
+            icon       = 'question';
+        } else {
+            title      = 'Nonaktifkan dokter?';
+            text       = 'Dokter tidak akan muncul lagi di form reservasi baru. Reservasi yang sudah terjadwal tetap valid. Lanjutkan?';
+            confirmLbl = 'Ya, Nonaktifkan';
+            icon       = 'warning';
+        }
+
+        $tgl.prop('disabled', true);
+
+        Swal.fire({
+            title: title,
+            text: text,
+            icon: icon,
+            showCancelButton: true,
+            confirmButtonColor: '#461500',
+            cancelButtonColor: '#aaa',
+            confirmButtonText: confirmLbl,
+            cancelButtonText: 'Batal',
+            reverseButtons: true,
+            allowOutsideClick: false,
+        }).then(function (result) {
+            if (result.isConfirmed) {
+                // Submit form — server akan toggle, redirect kembali ke halaman ini
+                $('#toggleDoctorActiveForm').submit();
+            } else {
+                // Revert toggle ke state sebelumnya — aman, tidak fire change lagi.
+                $tgl.prop('checked', !willActivate);
+                $tgl.prop('disabled', false);
+                $label
+                    .text(!willActivate ? 'Aktif' : 'Nonaktif')
+                    .toggleClass('is-inactive', willActivate); // willActivate=true → state asli Nonaktif
+            }
+        });
+    });
+
     function deleteSchedule(id) {
         Swal.fire({
             title: 'Hapus Jadwal?', text: "Data yang dihapus tidak dapat dikembalikan!",
@@ -858,6 +933,101 @@
     .modal-body .form-group { margin-bottom: 14px; }
     .modal-body .form-group label { font-size: 12px; font-weight: 600; margin-bottom: 4px; }
     .modal-footer { border-top: 1px solid #f0e8e0; padding: 12px 20px; }
+
+    /* Container box untuk toggle status dokter + caption + hint */
+    .st-doctor-toggle-box {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 6px;
+        padding: 10px 14px;
+        background: #faf6ef;
+        border: 1px solid #ead9c2;
+        border-radius: 10px;
+        min-width: 220px;
+    }
+    .st-doctor-toggle-box__caption {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 11px;
+        font-weight: 700;
+        color: #5C2A0A;
+        text-transform: uppercase;
+        letter-spacing: .4px;
+    }
+    .st-doctor-toggle-box__caption i.fa-power-off { color: #8b5a2b; font-size: 11px; }
+    .st-doctor-toggle-box__help {
+        color: #8b7a6b;
+        font-size: 11px;
+        cursor: help;
+        margin-left: 2px;
+    }
+    .st-doctor-toggle-box__hint {
+        font-size: 11px;
+        color: #8b7a6b;
+        font-style: italic;
+    }
+
+    /* Toggle switch aktif/nonaktif dokter */
+    .st-doctor-toggle-wrap {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .st-doctor-toggle-wrap__label {
+        font-size: 13px;
+        font-weight: 700;
+        color: #3D1A00;
+        min-width: 56px;
+        text-align: right;
+        transition: color .2s;
+    }
+    .st-doctor-toggle-wrap__label.is-inactive { color: #991b1b; }
+
+    .st-toggle-switch {
+        position: relative;
+        display: inline-block;
+        width: 48px;
+        height: 26px;
+        cursor: pointer;
+        margin: 0;
+    }
+    .st-toggle-switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+        position: absolute;
+    }
+    .st-toggle-switch__slider {
+        position: absolute;
+        inset: 0;
+        background: #d4c5b1;
+        border-radius: 13px;
+        transition: background .25s;
+    }
+    .st-toggle-switch__slider::before {
+        content: "";
+        position: absolute;
+        width: 20px;
+        height: 20px;
+        left: 3px;
+        bottom: 3px;
+        background: #ffffff;
+        border-radius: 50%;
+        transition: transform .25s;
+        box-shadow: 0 1px 3px rgba(0,0,0,.18);
+    }
+    .st-toggle-switch input:checked + .st-toggle-switch__slider {
+        background: #16a34a;
+    }
+    .st-toggle-switch input:checked + .st-toggle-switch__slider::before {
+        transform: translateX(22px);
+    }
+    .st-toggle-switch input:disabled + .st-toggle-switch__slider {
+        opacity: .5;
+        cursor: wait;
+    }
 </style>
 
 @endsection

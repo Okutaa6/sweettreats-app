@@ -405,6 +405,23 @@ class DoctorController extends Controller
         return redirect()->route('rawdoctor')->with('success', 'Doctor berhasil dihapus');
     }
 
+    /**
+     * Toggle status aktif/nonaktif dokter.
+     * Dokter nonaktif tidak muncul di dropdown form reservasi baru,
+     * tapi reservasi lama yg sudah pakai dokter ini tetap valid.
+     *
+     * URL: PATCH /rawdoctor/{id}/toggle-active
+     */
+    public function toggleActive($id)
+    {
+        $doctor = RawDoctor::findOrFail($id);
+        $doctor->update(['is_active' => ! $doctor->is_active]);
+
+        $label = $doctor->is_active ? 'diaktifkan' : 'dinonaktifkan';
+        return redirect()->route('rawdoctor.edit', $id)
+            ->with('success', "Dokter {$doctor->name} berhasil {$label}.");
+    }
+
     // === Doctor Schedule (Child CRUD) ===
 
     public function scheduleStore($doctorId)

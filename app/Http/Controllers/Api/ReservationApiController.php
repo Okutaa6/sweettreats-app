@@ -54,6 +54,7 @@ class ReservationApiController extends Controller
             ->pluck('raw_doctor_id');
 
         $doctors = RawDoctor::whereIn('id', $doctorIdsAtBranch)
+            ->where('is_active', 1)
             ->orderBy('name')
             ->get(['id', 'name', 'photo']);
 
@@ -164,6 +165,7 @@ class ReservationApiController extends Controller
             ->pluck('raw_doctor_id');
 
         $doctors = RawDoctor::whereIn('id', $doctorIds)
+            ->where('is_active', 1)
             ->orderBy('name')
             ->get(['id', 'name', 'photo']);
 

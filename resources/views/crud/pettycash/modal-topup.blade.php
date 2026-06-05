@@ -5,8 +5,12 @@
     Saran nominal otomatis = float_amount - saldo sekarang (kembalikan ke imprest).
 --}}
 @php
-    $suggested = (int) round($summary['suggested_topup']);
-    $kind      = $kind ?? 'petty_cash';
+    $suggested          = (int) round($summary['suggested_topup']);
+    $kind               = $kind ?? 'petty_cash';
+    $fundSourcesGrouped = $fundSourcesGrouped ?? collect();
+    // Top up imprest hanya boleh ke sumber Cash — uang baru selalu masuk
+    // sebagai cash dulu. Pindah ke Bank/E-Wallet dilakukan via Transfer.
+    $cashSources = $fundSourcesGrouped->get(\App\Models\FundSource::CAT_CASH, collect());
 @endphp
 <div class="pc-modal" id="pcModalTopup" role="dialog" aria-modal="true">
     <div class="pc-modal__dialog">
@@ -51,6 +55,23 @@
                            value="{{ number_format($suggested, 0, ',', '.') }}"
                            placeholder="0">
                     <input type="hidden" name="amount" id="topupAmount" value="{{ $suggested }}" required>
+                </div>
+
+                <div class="pc-form-row">
+                    <label>Simpan ke <span class="text-danger">*</span></label>
+                    <select name="fund_source_id" required class="pc-input pc-source-select">
+                        <option value="">— Pilih sumber dana —</option>
+                        @foreach($cashSources as $fs)
+                            <option value="{{ $fs->id }}"
+                                    data-color="{{ $fs->effectiveBrandColor() }}"
+                                    data-short="{{ $fs->effectiveShortLabel() }}"
+                                    data-logo="{{ $fs->logo_url }}">{{ $fs->name }}</option>
+                        @endforeach
+                    </select>
+                    <small class="pc-muted">
+                        Top up hanya ke sumber <strong>Cash</strong>. Untuk isi saldo Bank / E-Wallet, transfer dari Cash di rincian saldo.
+                    </small>
+                    <div class="pc-source-preview" data-pc-source-preview></div>
                 </div>
             </div>
 

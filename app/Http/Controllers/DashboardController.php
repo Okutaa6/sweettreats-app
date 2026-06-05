@@ -210,6 +210,27 @@ class DashboardController extends Controller
 
     $si = $reservation->status_info;
 
+    // Saat reservasi DIBATALKAN, slotnya kosong → cek apakah ada pasien
+    // waiting list untuk dokter+tanggal yang sama, lalu kirim info supaya
+    // frontend menawarkan admin untuk assign mereka.
+    $waitlistPrompt = null;
+    if ($newStatus === RawCusReservation::STATUS_CANCELLED) {
+      $count = RawCusReservation::waitlistCandidatesFor($reservation->raw_doctor_id, $reservation->date);
+      if ($count > 0) {
+        $waitlistPrompt = [
+          'count'  => $count,
+          'doctor' => $reservation->doctor->name ?? 'dokter ini',
+          'date'   => $reservation->date ? Carbon::parse($reservation->date)->format('d M Y') : '-',
+          'url'    => route('rawreservation', [
+            'view'      => 'waitlist',
+            'doctor_id' => $reservation->raw_doctor_id,
+            'date_from' => $reservation->date ? Carbon::parse($reservation->date)->format('Y-m-d') : null,
+            'date_to'   => $reservation->date ? Carbon::parse($reservation->date)->format('Y-m-d') : null,
+          ]),
+        ];
+      }
+    }
+
     return response()->json([
       'success' => true,
       'status' => $newStatus,
@@ -217,6 +238,7 @@ class DashboardController extends Controller
       'icon' => $si['icon'],
       'color' => $si['color'],
       'bg' => $si['bg'],
+      'waitlist_prompt' => $waitlistPrompt,
     ]);
   }
 }

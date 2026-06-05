@@ -40,7 +40,7 @@ class ReservasiCabangController extends Controller
     public function create()
     {
         $branches = RawBranch::orderBy('name')->get();
-        $doctors = RawDoctor::orderBy('name')->get();
+        $doctors = RawDoctor::active()->orderBy('name')->get();
 
         return view('crud.reservation.new', compact('branches', 'doctors'));
     }
@@ -74,7 +74,11 @@ class ReservasiCabangController extends Controller
     {
         $reservation = RawCusReservation::with('branch', 'customer', 'doctor', 'promo')->findOrFail($id);
         $branches = RawBranch::orderBy('name')->get();
-        $doctors = RawDoctor::orderBy('name')->get();
+        // Edit: dokter aktif + dokter yang sedang ditugaskan (walau nonaktif).
+        $doctors = RawDoctor::where(function ($q) use ($reservation) {
+                $q->where('is_active', 1)
+                  ->orWhere('id', $reservation->raw_doctor_id);
+            })->orderBy('name')->get();
         $docServices = RawDocService::orderBy('name')->get();
 
         $services = RawCusResService::with('doctor', 'docService', 'serviceDetail')

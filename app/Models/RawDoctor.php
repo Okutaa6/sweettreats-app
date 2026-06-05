@@ -16,6 +16,11 @@ class RawDoctor extends Model
         'id',
         'name',
         'photo',
+        'is_active',
+    ];
+
+    protected $casts = [
+        'is_active' => 'boolean',
     ];
 
     public $incrementing = false;
@@ -25,6 +30,16 @@ class RawDoctor extends Model
     public function getPhotoUrlAttribute(): ?string
     {
         return $this->photo ? asset('uploads/doctors/' . $this->photo) : null;
+    }
+
+    /**
+     * Scope: hanya dokter aktif.
+     * Dipakai di dropdown form reservasi baru & endpoint API publik.
+     * Dokter nonaktif tetap valid untuk reservasi yang sudah terjadwal.
+     */
+    public function scopeActive($query)
+    {
+        return $query->where('is_active', 1);
     }
 
     /**
@@ -71,5 +86,30 @@ class RawDoctor extends Model
             'raw_doctor_id',
             'raw_doc_service_id'
         );
+    }
+
+    /**
+     * Resolve dokter dari input bebas vendor (ID / nama persis / nama LIKE).
+     * Dipakai endpoint Open API (mis. Cekat customer_profile.dokter).
+     * Return null bila input kosong / tak ada match.
+     */
+    public static function resolveByIdOrName(?string $dokter): ?self
+    {
+        $d = trim((string) $dokter);
+        if ($d === '') {
+            return null;
+        }
+
+        $byId = self::find($d);
+        if ($byId) {
+            return $byId;
+        }
+
+        $byName = self::whereRaw('LOWER(name) = ?', [mb_strtolower($d)])->first();
+        if ($byName) {
+            return $byName;
+        }
+
+        return self::where('name', 'like', '%' . $d . '%')->first();
     }
 }

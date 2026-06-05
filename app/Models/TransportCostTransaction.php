@@ -22,24 +22,33 @@ class TransportCostTransaction extends Model
         'description',
         'direction',
         'amount',
+        'fund_source_id',
         'is_topup',
+        'is_transfer',
         'ref_no',
         'created_by',
     ];
 
     protected $casts = [
-        'period_id'  => 'integer',
-        'trx_date'   => 'date',
-        'amount'     => 'decimal:2',
-        'is_topup'   => 'boolean',
-        'created_at' => 'datetime',
-        'updated_at' => 'datetime',
-        'deleted_at' => 'datetime',
+        'period_id'      => 'integer',
+        'trx_date'       => 'date',
+        'amount'         => 'decimal:2',
+        'fund_source_id' => 'integer',
+        'is_topup'       => 'boolean',
+        'is_transfer'    => 'boolean',
+        'created_at'     => 'datetime',
+        'updated_at'     => 'datetime',
+        'deleted_at'     => 'datetime',
     ];
 
     public function period()
     {
         return $this->belongsTo(TransportCostPeriod::class, 'period_id', 'id');
+    }
+
+    public function fundSource()
+    {
+        return $this->belongsTo(FundSource::class, 'fund_source_id', 'id');
     }
 
     public function scopeActive($q)

@@ -46,11 +46,20 @@
                             </a>
                         </div>
                         <div class="view-tab-group" style="font-size: 1.2em;">
-                            <a href="{{ route('rawreservation', array_merge(request()->except(['new', 'view']), ['view' => 'list'])) }}" class="view-tab {{ !request('new') && request('view', 'list') !== 'cal' ? 'active' : '' }}">
+                            <a href="{{ route('rawreservation', array_merge(request()->except(['new', 'view']), ['view' => 'list'])) }}" class="view-tab {{ !request('new') && request('view', 'list') === 'list' ? 'active' : '' }}">
                                 <i class="fa fa-list"></i> List
                             </a>
                             <a href="{{ route('rawreservation', array_merge(request()->except(['new', 'view']), ['new' => 1, 'view' => 'list'])) }}" class="view-tab {{ request('new') ? 'active' : '' }}">
                                 <i class="fa fa-star"></i> Reservasi Baru
+                                @if(($newCount ?? 0) > 0)
+                                    <span class="view-tab-badge">{{ $newCount }}</span>
+                                @endif
+                            </a>
+                            <a href="{{ route('rawreservation', array_merge(request()->except(['new', 'view']), ['view' => 'waitlist'])) }}" class="view-tab {{ request('view') === 'waitlist' ? 'active' : '' }}">
+                                <i class="fa fa-hourglass-half"></i> Waiting List
+                                @if(($waitlistCount ?? 0) > 0)
+                                    <span class="view-tab-badge">{{ $waitlistCount }}</span>
+                                @endif
                             </a>
                             <a href="{{ route('rawreservation', array_merge(request()->except(['new', 'view']), ['view' => 'cal'])) }}" class="view-tab {{ request('view') === 'cal' ? 'active' : '' }}">
                                 <i class="fa fa-calendar"></i> Kalender
@@ -242,7 +251,17 @@
                                             @endif
                                         </td>
                                         @endif
-                                        <td nowrap><span class="st-time">{{ \Carbon\Carbon::parse($row->start_hour)->format('H:i') }} – {{ \Carbon\Carbon::parse($row->end_hour)->format('H:i') }}</span></td>
+                                        <td nowrap>
+                                            @if($row->start_hour && $row->end_hour)
+                                                <span class="st-time">{{ \Carbon\Carbon::parse($row->start_hour)->format('H:i') }} – {{ \Carbon\Carbon::parse($row->end_hour)->format('H:i') }}</span>
+                                            @elseif(!empty($row->slot_available))
+                                                <span class="st-pill st-pill--success" title="Dokter {{ $row->doctor->name ?? '' }} kini punya slot kosong di tanggal ini — klik baris untuk pilih jam & konfirmasi">
+                                                    <i class="fa fa-bolt"></i> Slot tersedia{{ $row->slot_start ? ' · ' . $row->slot_start : '' }}
+                                                </span>
+                                            @else
+                                                <span class="st-muted" title="Belum ada slot — masih waiting list">—</span>
+                                            @endif
+                                        </td>
                                         <td style="white-space: normal; min-width: 220px;">
                                         @php
                                             $uniqueServiceNames = $row->services->map(function($svc) {
@@ -483,6 +502,22 @@
     color: #ffffff;
     box-shadow: 0 1px 3px rgba(61, 26, 0, 0.08);
 }
+.view-tab-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    margin-left: 4px;
+    border-radius: 9px;
+    background: #f59e0b;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1;
+}
+.view-tab.active .view-tab-badge { background: #fff; color: #b45309; }
 
 /* ── Modal ── */
 #modalBody tr td:first-child { font-weight:600; color:rgb(70,21,0); width:30%; white-space:nowrap; }

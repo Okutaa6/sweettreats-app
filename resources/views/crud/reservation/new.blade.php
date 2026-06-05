@@ -197,13 +197,18 @@
                                 @endif
                             </div>
                             <div class="form-group">
+                                {{-- Banner waiting list: muncul otomatis saat jadwal di tanggal ini penuh. --}}
+                                <div id="waitingBanner" style="display:none; background:#fef9e7; border:1px solid #f5d97b; color:#7a5b00; border-radius:8px; padding:10px 14px; margin-bottom:10px; font-size:13px;">
+                                    <i class="fa fa-hourglass-half"></i>
+                                    Jadwal di tanggal ini sudah penuh. Pasien dapat masuk <strong>waiting list</strong> — slot akan dipilih nanti saat ada yang cancel / reschedule.
+                                </div>
                                 <div class="custom-control custom-checkbox">
                                     <input type="checkbox" class="custom-control-input" id="is_waiting" name="is_waiting" value="1" {{ old('is_waiting') ? 'checked' : '' }}>
                                     <label class="custom-control-label" for="is_waiting">Masukkan ke waiting list</label>
                                 </div>
                             </div>
                             <div class="st-btn-row">
-                                <button class="st-btn-brand" type="submit"><i class="fa fa-save"></i> Simpan Reservasi</button>
+                                <button class="st-btn-brand" type="submit" id="submitReservationBtn"><i class="fa fa-save"></i> <span id="submitReservationLabel">Simpan Reservasi</span></button>
                             </div>
                         </div>
                     </div>
@@ -438,7 +443,14 @@
                 '<span class="text-muted"><i class="fa fa-spinner fa-spin"></i> Memuat layanan dokter...</span>'
             );
 
-            fetch('/api/reservation/services-by-doctor/' + doctorId)
+            // branch_id WAJIB dikirim supaya API baca override durasi
+            // per-dokter PER-CABANG (raw_doctor_branch_service_duration).
+            // Tanpa ini, durasi yang diatur di edit-dokter tidak terbaca
+            // dan API fallback ke durasi default service.
+            const branchId = $('#branchSelect2').val() || '';
+            const url = '/api/reservation/services-by-doctor/' + doctorId
+                      + (branchId ? '?branch_id=' + encodeURIComponent(branchId) : '');
+            fetch(url)
                 .then(function(r) {
                     if (!r.ok) throw new Error('HTTP ' + r.status);
                     return r.json();
@@ -570,13 +582,54 @@
                 .catch(function() { initDatePicker([]); });
         }
 
+        // ── Auto waiting-list ────────────────────────────────────────────────
+        // Saat jadwal di tanggal terpilih PENUH (tak ada slot tersedia), checkbox
+        // "Masukkan ke waiting list" otomatis dicentang + banner muncul. User tetap
+        // bisa override manual. waitingAuto menandai centang yang di-set otomatis,
+        // supaya bisa dilepas lagi kalau pindah ke tanggal yang ada slotnya.
+        let waitingAuto = false;
+
+        function syncWaitingUI(isFull) {
+            const cb = document.getElementById('is_waiting');
+            const on = cb ? cb.checked : false;
+            const banner = document.getElementById('waitingBanner');
+            if (banner) banner.style.display = isFull ? 'block' : 'none';
+            const lbl = document.getElementById('submitReservationLabel');
+            if (lbl) lbl.textContent = on ? 'Masukkan ke Waiting List' : 'Simpan Reservasi';
+            const icon = document.querySelector('#submitReservationBtn i');
+            if (icon) icon.className = on ? 'fa fa-hourglass-half' : 'fa fa-save';
+        }
+
+        function refreshWaitingState(isFull) {
+            const cb = document.getElementById('is_waiting');
+            if (!cb) return;
+            if (isFull && !cb.checked) { cb.checked = true; waitingAuto = true; }
+            else if (!isFull && waitingAuto) { cb.checked = false; waitingAuto = false; }
+            syncWaitingUI(isFull);
+        }
+
+        function slotsAreFull() {
+            // Penuh = sudah pernah load slot (allSlots terisi) tapi tak ada satupun
+            // yang tersedia, ATAU memang tidak ada slot sama sekali untuk jadwal ini.
+            if (!allSlots || allSlots.length === 0) return true;
+            return !allSlots.some(function (s) { return !s.is_booked && !s.is_past; });
+        }
+
+        // Override manual oleh user → jangan auto-lepas lagi.
+        $(document).on('change', '#is_waiting', function () {
+            waitingAuto = false;
+            syncWaitingUI(slotsAreFull());
+        });
+
         function renderSlots(data) {
             allSlots = data.slots || [];
             if (allSlots.length === 0) {
                 $('#slotsContainer').html('<span class="text-muted">Tidak ada slot tersedia untuk jadwal ini</span>');
+                refreshWaitingState(true);
                 return;
             }
             reRenderSlots();
+            refreshWaitingState(slotsAreFull());
         }
 
         function reRenderSlots() {
@@ -685,6 +738,12 @@
             $('#endHourInput').val(end);
             $('#currentTime').text(selectedStart + ' – ' + end);
             $('#selectedTimeDisplay').show();
+
+            // Pilih slot ber-jam → batalkan mode waiting list (kalau tadi auto/centang).
+            const cb = document.getElementById('is_waiting');
+            if (cb && cb.checked) { cb.checked = false; }
+            waitingAuto = false;
+            syncWaitingUI(false);
 
             reRenderSlots();
         });

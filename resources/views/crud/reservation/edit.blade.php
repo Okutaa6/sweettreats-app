@@ -711,7 +711,14 @@
                 '<span class="text-muted"><i class="fa fa-spinner fa-spin"></i> Memuat layanan dokter...</span>'
             );
 
-            fetch('/api/reservation/services-by-doctor/' + doctorId)
+            // branch_id WAJIB dikirim supaya API baca override durasi
+            // per-dokter PER-CABANG (raw_doctor_branch_service_duration).
+            // Tanpa ini, durasi yang diatur di edit-dokter tidak terbaca
+            // dan API fallback ke durasi default service.
+            const branchId = $('#branchSelect2').val() || '';
+            const url = '/api/reservation/services-by-doctor/' + doctorId
+                      + (branchId ? '?branch_id=' + encodeURIComponent(branchId) : '');
+            fetch(url)
                 .then(function(r) {
                     if (!r.ok) throw new Error('HTTP ' + r.status);
                     return r.json();
@@ -1068,6 +1075,27 @@
 
         // Saat load pertama: pakai window.initialDoctorId dari PHP — tidak bergantung select2 timing
         $(document).ready(function() {
+            @if(session('waitlist_prompt'))
+            // Reservasi baru saja dibatalkan & ada pasien waiting list untuk
+            // dokter+tanggal yang sama → tawarkan untuk meng-assign mereka.
+            @php $wp = session('waitlist_prompt'); @endphp
+            (function () {
+                var p = @json($wp);
+                var msg = 'Slot dr. ' + p.doctor + ' tanggal ' + p.date + ' kini kosong. Ada '
+                        + p.count + ' pasien di waiting list. Assign sekarang?';
+                if (window.Swal) {
+                    Swal.fire({
+                        title: 'Slot kosong — ada waiting list!',
+                        text: msg, icon: 'info',
+                        showCancelButton: true, confirmButtonColor: '#461500', cancelButtonColor: '#aaa',
+                        confirmButtonText: 'Lihat Waiting List', cancelButtonText: 'Nanti', reverseButtons: true,
+                    }).then(function (r) { if (r.isConfirmed) window.location.href = p.url; });
+                } else if (confirm(msg)) {
+                    window.location.href = p.url;
+                }
+            })();
+            @endif
+
             const initialDoctorId = window.initialDoctorId || $('#doctorSelect2').val();
             if (initialDoctorId) {
                 loadBranchesByDoctor(initialDoctorId);

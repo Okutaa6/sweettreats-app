@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Crud;
 
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Concerns\ResolvesPatientContact;
+use App\Http\Controllers\Concerns\ResolvesDoctorAvailability;
 use App\Support\Phone;
 use App\Models\RawBranch;
 use App\Models\RawCustomer;
@@ -20,10 +21,14 @@ use App\Models\MarketingPromo;
 class ReservationController extends Controller
 {
     use ResolvesPatientContact;
+    use ResolvesDoctorAvailability;
 
     public function index()
     {
         $perPage = in_array((int) request('per_page'), [10, 25, 50, 100]) ? (int) request('per_page') : 10;
+
+        // Tab view: 'list' (default) | 'cal' | 'waitlist'. 'new' = filter chip, bukan tab terpisah.
+        $view = request('view', 'list');
 
         // Ambil input filter
         $filterSearch   = request('search');
@@ -86,12 +91,66 @@ class ReservationController extends Controller
             $query->where('id', $filterReservationId);
         }
 
+        // ── Tab waitlist segregation ─────────────────────────────────────────
+        // Tab 'waitlist' = HANYA status waitlist. Tab lain (list/cal/new) =
+        // exclude waitlist supaya pasien yg masih antri tidak muncul di list utama.
+        if ($view === 'waitlist') {
+            $query->where('status', RawCusReservation::STATUS_WAITLIST);
+        } else {
+            $query->where(function ($q) {
+                $q->where('status', '!=', RawCusReservation::STATUS_WAITLIST)
+                  ->orWhereNull('status');
+            });
+        }
+
         // Clone the query for calendar view before applying pagination
+        // (clone DI SINI supaya $calendarQuery ikut exclude waitlist)
         $calendarQuery = clone $query;
-        $reservations = $query->orderBy('date', 'desc')
-            ->orderBy('raw_doctor_id')
-            ->orderBy('start_hour', 'desc')
-            ->paginate($perPage);
+
+        if ($view === 'waitlist') {
+            // Waitlist tidak punya start_hour → urutkan FIFO per tanggal
+            $reservations = $query->orderBy('date', 'asc')
+                ->orderBy('created_at', 'asc')
+                ->paginate($perPage);
+
+            // Tandai pasien waitlist yang dokter+tanggalnya KINI punya slot
+            // kosong (mis. akibat reservasi lain di-cancel). Hanya halaman aktif
+            // yang dihitung supaya tidak berat. resolveBookedRanges sudah
+            // mengabaikan reservasi cancelled, jadi slot yg bebas ikut terdeteksi.
+            foreach ($reservations as $res) {
+                $res->slot_available = false;
+                $res->slot_start = null;
+
+                if (! $res->raw_doctor_id || ! $res->date) {
+                    continue;
+                }
+
+                $serviceIds = $res->services->pluck('raw_doc_service_id')->filter()->all();
+                $duration   = $this->patientDuration(
+                    $res->raw_doctor_id,
+                    $serviceIds,
+                    ! empty($res->lainnya_text),
+                    $res->raw_branch_id
+                );
+
+                $assigned = $this->assignFamilySlots(
+                    $res->raw_branch_id,
+                    $res->date->format('Y-m-d'),
+                    [['key' => 0, 'doctor_id' => $res->raw_doctor_id, 'duration' => $duration]]
+                );
+
+                $slot = $assigned[0] ?? ['waiting' => true, 'start' => null];
+                if (empty($slot['waiting'])) {
+                    $res->slot_available = true;
+                    $res->slot_start = $slot['start'] ?? null;
+                }
+            }
+        } else {
+            $reservations = $query->orderBy('date', 'desc')
+                ->orderBy('raw_doctor_id')
+                ->orderBy('start_hour', 'desc')
+                ->paginate($perPage);
+        }
 
         // Kalau user terkunci ke 1 cabang, dropdown hanya tampilkan cabang itu
         $branches = $sessionBranch
@@ -112,6 +171,22 @@ class ReservationController extends Controller
         $promos     = \App\Models\RawPromo::orderBy('promo_code')->get();
         $affiliates = \App\Models\RawAffiliate::orderBy('name')->get();
 
+        // Badge count untuk tab Waiting List (di-scope ke session branch)
+        $waitlistCount = RawCusReservation::query()
+            ->when($sessionBranch, fn ($q) => $q->where('raw_branch_id', $sessionBranch))
+            ->where('status', RawCusReservation::STATUS_WAITLIST)
+            ->count();
+
+        // Badge count untuk tab Reservasi Baru (created < 6 jam, exclude waitlist)
+        $newCount = RawCusReservation::query()
+            ->when($sessionBranch, fn ($q) => $q->where('raw_branch_id', $sessionBranch))
+            ->where('created_at', '>=', now()->subHours(6))
+            ->where(function ($q) {
+                $q->where('status', '!=', RawCusReservation::STATUS_WAITLIST)
+                  ->orWhereNull('status');
+            })
+            ->count();
+
         return view('crud.reservation.list', compact(
             'reservations',
             'filterSearch',
@@ -120,7 +195,7 @@ class ReservationController extends Controller
             'filterStatus',
             'filterDateFrom',
             'filterDateTo',
-            'filterPromo',      // new  
+            'filterPromo',      // new
             'filterAffiliate',  // new
             'branches',
             'doctors',
@@ -128,7 +203,10 @@ class ReservationController extends Controller
             'calendarReservations',
             'promos',           // new
             'affiliates',        // new
-            'perPage'
+            'perPage',
+            'view',
+            'waitlistCount',
+            'newCount'
         ));
     }
 
@@ -150,18 +228,20 @@ class ReservationController extends Controller
 
         // Doctor: kalau user terkunci cabang → hanya dokter yang punya schedule di cabang itu.
         // Pakai pola sama dengan index() supaya konsisten.
+        // Form reservasi BARU hanya menampilkan dokter aktif (->active()).
         if ($sessionBranch) {
             $doctorIds = RawDoctorSchedule::where('raw_branch_id', $sessionBranch)
                 ->distinct()->pluck('raw_doctor_id');
-            $doctors = RawDoctor::whereIn('id', $doctorIds)->orderBy('name')->get();
+            $doctors = RawDoctor::whereIn('id', $doctorIds)->active()->orderBy('name')->get();
         } else {
-            $doctors = RawDoctor::orderBy('name')->get();
+            $doctors = RawDoctor::active()->orderBy('name')->get();
         }
 
-        // Customer: filter by raw_branch_id kalau user terkunci cabang.
-        $customers = $sessionBranch
-            ? RawCustomer::where('raw_branch_id', $sessionBranch)->orderBy('name')->get()
-            : RawCustomer::orderBy('name')->get();
+        // Customer: cross-cabang — staff cabang mana pun bisa lihat & pilih
+        // pasien dari cabang lain (cegah duplikasi saat pasien pindah cabang).
+        // Pre-load ini hanya untuk old() repopulation; lookup utama via
+        // select2 AJAX ke CustomerController::search yang juga cross-cabang.
+        $customers = RawCustomer::orderBy('name')->get();
 
         return view('crud.reservation.new', compact('branches', 'doctors', 'customers'));
     }
@@ -224,13 +304,15 @@ class ReservationController extends Controller
 
     public function store()
     {
+        $isWaiting = (int) request('is_waiting', 0) === 1;
+
         request()->validate([
             'raw_branch_id'      => 'required',
             'raw_customer_id'    => 'required',
             'raw_doctor_id'      => 'required',
             'date'               => 'required|date',
-            'start_hour'         => 'required',
-            'end_hour'           => 'required',
+            'start_hour'         => 'required_unless:is_waiting,1',
+            'end_hour'           => 'required_unless:is_waiting,1',
             'keterangan'         => 'nullable|string|max:65535',
             'raw_promo_id'       => 'nullable|exists:raw_promo,id',
             'marketing_promo_id' => 'nullable|exists:marketing_promo,id',
@@ -249,16 +331,19 @@ class ReservationController extends Controller
 
         $reservationId = null;
 
-        \Illuminate\Support\Facades\DB::transaction(function () use (&$reservationId) {
+        \Illuminate\Support\Facades\DB::transaction(function () use (&$reservationId, $isWaiting) {
             $reservation = RawCusReservation::create([
                 'raw_branch_id'      => request('raw_branch_id'),
                 'raw_customer_id'    => request('raw_customer_id'),
                 'raw_doctor_id'      => request('raw_doctor_id'),
                 'date'               => request('date'),
-                'start_hour'         => request('start_hour'),
-                'end_hour'           => request('end_hour'),
+                'start_hour'         => $isWaiting ? null : request('start_hour'),
+                'end_hour'           => $isWaiting ? null : request('end_hour'),
                 'keterangan'         => request('keterangan'),
-                'is_waiting'         => request('is_waiting', 0),
+                'is_waiting'         => $isWaiting ? 1 : 0,
+                'status'             => $isWaiting
+                    ? RawCusReservation::STATUS_WAITLIST
+                    : RawCusReservation::STATUS_PENDING,
                 'raw_promo_id'       => request('raw_promo_id'),
                 'marketing_promo_id' => request('marketing_promo_id'),
                 'created_at'         => now(),
@@ -353,7 +438,13 @@ class ReservationController extends Controller
             ? RawBranch::where('id', $sessionBranch)->get()
             : RawBranch::orderBy('name')->get();
 
-        $doctors     = RawDoctor::orderBy('name')->get();
+        // Edit reservasi: tampilkan dokter aktif + dokter yang sedang ditugaskan
+        // di reservasi ini (walau sudah nonaktif) supaya pilihan lama tetap valid.
+        $doctors     = RawDoctor::where(function ($q) use ($reservation) {
+                $q->where('is_active', 1)
+                  ->orWhere('id', $reservation->raw_doctor_id);
+            })
+            ->orderBy('name')->get();
         $docServices = RawDocService::orderBy('name')->get();
         $promos      = \App\Models\RawPromo::where('is_active', 1)->orderBy('promo_code')->get();
 
@@ -540,7 +631,29 @@ class ReservationController extends Controller
             }
         });
 
-        return redirect()->route('rawreservation.edit', $id)->with('success', 'Reservasi berhasil diubah');
+        $redirect = redirect()->route('rawreservation.edit', $id)->with('success', 'Reservasi berhasil diubah');
+
+        // Kalau reservasi baru saja DIBATALKAN, slotnya kosong → tawarkan
+        // assign pasien waiting list di dokter+tanggal yang sama.
+        if (request('status') === RawCusReservation::STATUS_CANCELLED) {
+            $reservation->refresh();
+            $count = RawCusReservation::waitlistCandidatesFor($reservation->raw_doctor_id, $reservation->date);
+            if ($count > 0) {
+                $redirect->with('waitlist_prompt', [
+                    'count'  => $count,
+                    'doctor' => $reservation->doctor->name ?? 'dokter ini',
+                    'date'   => $reservation->date ? \Carbon\Carbon::parse($reservation->date)->format('d M Y') : '-',
+                    'url'    => route('rawreservation', [
+                        'view'      => 'waitlist',
+                        'doctor_id' => $reservation->raw_doctor_id,
+                        'date_from' => $reservation->date ? \Carbon\Carbon::parse($reservation->date)->format('Y-m-d') : null,
+                        'date_to'   => $reservation->date ? \Carbon\Carbon::parse($reservation->date)->format('Y-m-d') : null,
+                    ]),
+                ]);
+            }
+        }
+
+        return $redirect;
     }
 
     /**

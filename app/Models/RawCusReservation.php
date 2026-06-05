@@ -106,4 +106,23 @@ class RawCusReservation extends Model
     {
         return self::statusOptions()[$this->status] ?? self::statusOptions()[self::STATUS_PENDING];
     }
+
+    /**
+     * Jumlah pasien waiting list yang menunggu dokter+tanggal tertentu.
+     * Dipakai saat sebuah reservasi DIBATALKAN → slotnya kosong → sistem
+     * menawarkan untuk meng-assign pasien yang sudah antri di dokter &
+     * tanggal yang sama.
+     */
+    public static function waitlistCandidatesFor($doctorId, $date, $branchId = null): int
+    {
+        if (! $doctorId || ! $date) {
+            return 0;
+        }
+
+        return static::where('status', self::STATUS_WAITLIST)
+            ->where('raw_doctor_id', $doctorId)
+            ->whereDate('date', $date)
+            ->when($branchId, fn ($q) => $q->where('raw_branch_id', $branchId))
+            ->count();
+    }
 }

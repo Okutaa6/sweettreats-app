@@ -31,6 +31,7 @@ use App\Http\Controllers\Crud\KocController;
 use App\Http\Controllers\Crud\SweetMatesController;
 use App\Http\Controllers\Crud\PettyCashController;
 use App\Http\Controllers\Crud\CashDepositController;
+use App\Http\Controllers\Crud\FundSourceController;
 
 
 Route::get('/', function () {
@@ -235,6 +236,7 @@ Route::middleware([AuthGuard::class])->group(function () {
     Route::put('rawdoctor/{id}', [DoctorController::class, 'update'])->name('rawdoctor.update');
     Route::delete('rawdoctor/{id}', [DoctorController::class, 'destroy'])->name('rawdoctor.destroy');
     Route::delete('rawdoctor/{id}/photo', [DoctorController::class, 'deletePhoto'])->name('rawdoctor.photo.delete');
+    Route::patch('rawdoctor/{id}/toggle-active', [DoctorController::class, 'toggleActive'])->name('rawdoctor.toggle-active');
 
     Route::post('rawdoctor/{doctorId}/schedule', [DoctorController::class, 'scheduleStore'])->name('rawdoctor.schedule.store');
     Route::put('rawdoctor/{doctorId}/schedule/{scheduleId}', [DoctorController::class, 'scheduleUpdate'])->name('rawdoctor.schedule.update');
@@ -320,8 +322,15 @@ Route::middleware([AuthGuard::class])->group(function () {
     Route::get('pettycash',                       [PettyCashController::class, 'index'])->name('pettycash');
     Route::post('pettycash/expense',              [PettyCashController::class, 'store'])->name('pettycash.expense');
     Route::post('pettycash/topup',                [PettyCashController::class, 'topup'])->name('pettycash.topup');
+    Route::post('pettycash/transfer',             [PettyCashController::class, 'transfer'])->name('pettycash.transfer');
     Route::delete('pettycash/transaction/{id}',   [PettyCashController::class, 'destroy'])->name('pettycash.destroy');
     Route::post('pettycash/period/{id}/close',    [PettyCashController::class, 'close'])->name('pettycash.close');
+
+    // CRUD - Fund Sources (sumber dana: cash / bank / e-wallet) — Super Admin
+    Route::get('fund-sources',                    [FundSourceController::class, 'index'])->name('fundsource');
+    Route::post('fund-sources',                   [FundSourceController::class, 'store'])->name('fundsource.store');
+    Route::post('fund-sources/{id}',              [FundSourceController::class, 'update'])->name('fundsource.update');
+    Route::post('fund-sources/{id}/toggle',       [FundSourceController::class, 'toggle'])->name('fundsource.toggle');
 
     // CRUD - Setoran (cash deposit dari pasien)
     Route::get('setoran',                         [CashDepositController::class, 'index'])->name('setoran');

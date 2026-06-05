@@ -66,7 +66,7 @@ class AffiliatePortalController extends Controller
         }
 
         $branches = RawBranch::orderBy('name')->get();
-        $doctors  = RawDoctor::orderBy('name')->get();
+        $doctors  = RawDoctor::active()->orderBy('name')->get();
 
         // Behel scope: gunakan custom list (terpisah dari raw_doc_service)
         $behelTypes = RawAffiliate::behelTypes();
