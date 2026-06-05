@@ -265,6 +265,21 @@ class OmnicareClient
                     continue;
                 }
 
+                // 598 = Invalid JSON response (server returned HTML/garbage).
+                // Hampir selalu transient: gateway timeout, 502/503 di balik
+                // proxy, atau overload sementara. Retry dengan backoff cegah
+                // silent drop yang dulu hilangkan data Kalideres 24 bulan.
+                if ($parsed->code === 598 && $attempt < $this->retryAttempts) {
+                    Log::channel('omnicare')->warning('Invalid JSON, retrying', [
+                        'endpoint'    => $endpoint,
+                        'params'      => $queryParams,
+                        'http_status' => $parsed->httpStatus,
+                        'attempt'     => $attempt,
+                    ]);
+                    usleep($this->retryDelayMs * 1000);
+                    continue;
+                }
+
                 $durationMs = (int) ((microtime(true) - $startedAt) * 1000);
                 Log::channel('omnicare')->info('Omnicare API call', [
                     'endpoint'    => $endpoint,
@@ -277,11 +292,19 @@ class OmnicareClient
                 ]);
 
                 return $parsed;
-            } catch (ConnectionException $e) {
+            } catch (\Throwable $e) {
+                // Sebelumnya hanya catch ConnectionException — bocor untuk
+                // DNS error / SSL handshake / Guzzle RequestException, dll.
+                // Itu bikin sync_log stuck 'running' di prod (insiden 04 Jun 2026
+                // — doctor_list crash semua 5 cabang, halt seluruh sync chain).
+                // Broaden ke Throwable supaya semua HTTP-related error ter-retry
+                // dan akhirnya return OmnicareResponse 599 yang ter-handle sync.
                 $lastException = $e;
-                Log::channel('omnicare')->warning('Connection error, retrying', [
+                $type = $e instanceof ConnectionException ? 'connection' : get_class($e);
+                Log::channel('omnicare')->warning('HTTP error, retrying', [
                     'endpoint' => $endpoint,
                     'attempt'  => $attempt,
+                    'type'     => $type,
                     'error'    => $e->getMessage(),
                 ]);
                 if ($attempt < $this->retryAttempts) {

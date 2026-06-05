@@ -97,6 +97,17 @@ class SyncOmnicare extends Command
                     'error' => $e->getMessage(),
                     'trace' => $e->getTraceAsString(),
                 ]);
+                // Safety net: kalau sync method crash sebelum finishSyncLog,
+                // sync_log bisa stuck 'running' selamanya (insiden 04 Jun 2026).
+                // Tutup paksa semua 'running' rows untuk cabang ini.
+                DB::table('omnicare_sync_log')
+                    ->where('place_id', $placeId)
+                    ->where('status', 'running')
+                    ->update([
+                        'status'        => 'error',
+                        'error_message' => 'Branch sync threw: ' . substr($e->getMessage(), 0, 200),
+                        'finished_at'   => now(),
+                    ]);
             }
         }
 
@@ -264,11 +275,42 @@ class SyncOmnicare extends Command
 
                 $best = DoctorNameMatcher::bestMatch($docName, $candidates);
                 if ($best !== null) {
-                    DB::table('raw_doctor')
-                        ->where('id', $best['id'])
-                        ->whereNull('omnicare_doc_id')
-                        ->update(['omnicare_doc_id' => $docId]);
-                    $autoLinked++;
+                    // Auto-link wrapped in try/catch — APA PUN yang terjadi
+                    // (duplicate, race, OPcache lag, unique constraint, dll),
+                    // exception TIDAK BOLEH bocor & abort syncDoctorList.
+                    // Insiden 04 Jun 2026: SQLException disini halt seluruh sync chain.
+                    try {
+                        $alreadyTaken = DB::table('raw_doctor')
+                            ->where('omnicare_doc_id', $docId)
+                            ->exists();
+
+                        if (! $alreadyTaken) {
+                            $affected = DB::table('raw_doctor')
+                                ->where('id', $best['id'])
+                                ->whereNull('omnicare_doc_id')
+                                ->update(['omnicare_doc_id' => $docId]);
+                            if ($affected > 0) {
+                                $autoLinked++;
+                            }
+                        } else {
+                            Log::channel('omnicare')->info('Auto-link skipped (taken)', [
+                                'omnicare_doc_id'   => $docId,
+                                'omnicare_doc_name' => $docName,
+                                'best_match'        => $best['id'],
+                                'place_id'          => $placeId,
+                            ]);
+                        }
+                    } catch (\Throwable $e) {
+                        // Whatever happens — duplicate, schema mismatch, etc —
+                        // log dan lanjut. JANGAN biarkan auto-link blokir sync.
+                        Log::channel('omnicare')->warning('Auto-link failed (suppressed)', [
+                            'omnicare_doc_id'   => $docId,
+                            'omnicare_doc_name' => $docName,
+                            'best_match'        => $best['id'] ?? null,
+                            'place_id'          => $placeId,
+                            'error'             => $e->getMessage(),
+                        ]);
+                    }
                 }
             }
             $count++;
@@ -388,6 +430,7 @@ class SyncOmnicare extends Command
         ]);
 
         try {
+            $failedChunks = [];
             foreach ($chunks as [$chunkStart, $chunkEnd]) {
                 foreach ($this->client->paginate('/get/sales_detail', [
                     'place' => $placeId,
@@ -396,9 +439,12 @@ class SyncOmnicare extends Command
                 ]) as $resp) {
                     if (! $resp->isSuccess()) {
                         if (! $resp->isEmpty()) {
-                            $this->finishSyncLog($logId, 'error', $totalCount, $pageCount, $resp->message);
-                            $this->error("    ✗ {$resp->code}: {$resp->message}");
-                            return;
+                            // Chunk gagal — TANDAI tapi LANJUT ke chunk berikutnya.
+                            // Mencegah satu chunk gagal mengorbankan sisa range.
+                            // Status akhir = 'partial' (bukan 'error') supaya
+                            // visibility tetap ada di omnicare_sync_log.
+                            $failedChunks[] = "{$chunkStart}-{$chunkEnd}: {$resp->code} {$resp->message}";
+                            $this->warn("    ⚠ chunk {$chunkStart}-{$chunkEnd} gagal: {$resp->code} {$resp->message} — lanjut");
                         }
                         break;
                     }
@@ -462,8 +508,14 @@ class SyncOmnicare extends Command
             throw $e;
         }
 
-        $this->finishSyncLog($logId, 'success', $totalCount, $pageCount);
-        $this->line("    ✓ {$totalCount} sales rows (across {$pageCount} pages)");
+        if (! empty($failedChunks)) {
+            $msg = count($failedChunks) . ' chunk gagal: ' . implode(' | ', $failedChunks);
+            $this->finishSyncLog($logId, 'partial', $totalCount, $pageCount, $msg);
+            $this->warn("    ⚠ {$totalCount} rows (partial — " . count($failedChunks) . " chunk gagal, lihat omnicare_sync_log)");
+        } else {
+            $this->finishSyncLog($logId, 'success', $totalCount, $pageCount);
+            $this->line("    ✓ {$totalCount} sales rows (across {$pageCount} pages)");
+        }
     }
 
     private function syncProductSales(string $placeId, string $startYmd, string $endYmd): void
@@ -477,6 +529,7 @@ class SyncOmnicare extends Command
             'start' => $startYmd, 'end' => $endYmd,
         ]);
 
+        $failedChunks = [];
         try {
             foreach ($chunks as [$chunkStart, $chunkEnd]) {
                 $snapshotDate = N::dateFromYmd($chunkEnd) ?? now()->format('Y-m-d');
@@ -488,9 +541,8 @@ class SyncOmnicare extends Command
                 ]) as $resp) {
                     if (! $resp->isSuccess()) {
                         if (! $resp->isEmpty()) {
-                            $this->finishSyncLog($logId, 'error', $totalCount, $pageCount, $resp->message);
-                            $this->error("    ✗ {$resp->code}: {$resp->message}");
-                            return;
+                            $failedChunks[] = "{$chunkStart}-{$chunkEnd}: {$resp->code} {$resp->message}";
+                            $this->warn("    ⚠ chunk {$chunkStart}-{$chunkEnd} gagal: {$resp->code} {$resp->message} — lanjut");
                         }
                         break;
                     }
@@ -538,8 +590,14 @@ class SyncOmnicare extends Command
             throw $e;
         }
 
-        $this->finishSyncLog($logId, 'success', $totalCount, $pageCount);
-        $this->line("    ✓ {$totalCount} product rows (across {$pageCount} pages)");
+        if (! empty($failedChunks)) {
+            $msg = count($failedChunks) . ' chunk gagal: ' . implode(' | ', $failedChunks);
+            $this->finishSyncLog($logId, 'partial', $totalCount, $pageCount, $msg);
+            $this->warn("    ⚠ {$totalCount} rows (partial — " . count($failedChunks) . " chunk gagal)");
+        } else {
+            $this->finishSyncLog($logId, 'success', $totalCount, $pageCount);
+            $this->line("    ✓ {$totalCount} product rows (across {$pageCount} pages)");
+        }
     }
 
     // ────────────────────────────────────────────────────────────────
