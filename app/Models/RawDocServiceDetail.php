@@ -38,9 +38,40 @@ class RawDocServiceDetail extends Model
         'updated_at'       => 'datetime',
     ];
 
-    // relasi ke parent 
+    // relasi ke parent
     public function docService()
     {
         return $this->belongsTo(RawDocService::class, 'raw_doc_service_id', 'id');
+    }
+
+    /**
+     * Resolve sub-layanan dari input bebas vendor (kode code_service / nama
+     * persis / nama LIKE) — opsional dibatasi ke service induk tertentu.
+     * Dipakai endpoint Open API (mis. Cekat jadwal_dokter.sub_service).
+     * Hanya cari yang is_active=1. Return null bila tak ditemukan.
+     */
+    public static function resolveByTreatment(?string $treatment, ?string $parentServiceId = null): ?self
+    {
+        $t = trim((string) $treatment);
+        if ($t === '') {
+            return null;
+        }
+
+        $base = self::query()->where('is_active', 1);
+        if ($parentServiceId) {
+            $base->where('raw_doc_service_id', $parentServiceId);
+        }
+
+        $byCode = (clone $base)->whereRaw('UPPER(code_service) = ?', [strtoupper($t)])->first();
+        if ($byCode) {
+            return $byCode;
+        }
+
+        $byName = (clone $base)->whereRaw('LOWER(name) = ?', [mb_strtolower($t)])->first();
+        if ($byName) {
+            return $byName;
+        }
+
+        return $base->where('name', 'like', '%' . $t . '%')->first();
     }
 }

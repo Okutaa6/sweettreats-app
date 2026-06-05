@@ -176,9 +176,10 @@
             <a href="#prereq" class="nav-link"><i class="fa-solid fa-list-check"></i> Pre-Requisites</a>
             <a href="#sec-a" class="nav-link"><i class="fa-solid fa-shield-halved"></i> A — Auth &amp; Konvensi <span class="nav-mini-progress" data-section="A">0/4</span></a>
             <a href="#sec-b" class="nav-link"><i class="fa-solid fa-tags"></i> B — service_range <span class="nav-mini-progress" data-section="B">0/3</span></a>
-            <a href="#sec-c" class="nav-link"><i class="fa-solid fa-user-plus"></i> C — customer_profile <span class="nav-mini-progress" data-section="C">0/5</span></a>
-            <a href="#sec-d" class="nav-link"><i class="fa-solid fa-calendar-days"></i> D — jadwal_dokter <span class="nav-mini-progress" data-section="D">0/5</span></a>
-            <a href="#sec-e" class="nav-link"><i class="fa-solid fa-calendar-check"></i> E — reservation <span class="nav-mini-progress" data-section="E">0/6</span></a>
+            <a href="#sec-c" class="nav-link"><i class="fa-solid fa-user-plus"></i> C — customer_profile <span class="nav-mini-progress" data-section="C">0/6</span></a>
+            <a href="#sec-d" class="nav-link"><i class="fa-solid fa-calendar-days"></i> D — jadwal_dokter <span class="nav-mini-progress" data-section="D">0/7</span></a>
+            <a href="#sec-e" class="nav-link"><i class="fa-solid fa-calendar-check"></i> E — reservation <span class="nav-mini-progress" data-section="E">0/8</span></a>
+            <a href="#sec-f" class="nav-link"><i class="fa-solid fa-magnifying-glass"></i> F — Discovery <span class="nav-mini-progress" data-section="F">0/2</span></a>
             <a href="#sec-ec" class="nav-link"><i class="fa-solid fa-bug"></i> Edge Cases <span class="nav-mini-progress" data-section="EC">0/3</span></a>
             <a href="#summary" class="nav-link"><i class="fa-solid fa-clipboard-check"></i> Summary</a>
         </div>
@@ -195,10 +196,10 @@
         <div class="doc-header">
             <h1 class="doc-title"><i class="fa-solid fa-plug"></i> Test Flow — Open API Cekat</h1>
             <div class="doc-meta">
-                <span><i class="fa-solid fa-code-branch"></i> 4 endpoint + sandbox</span>
-                <span><i class="fa-solid fa-calendar-day"></i> Versi 2026-05-16</span>
-                <span><i class="fa-solid fa-clock"></i> Estimasi 30-45 menit</span>
-                <span><i class="fa-solid fa-list-check"></i> 26 test cases</span>
+                <span><i class="fa-solid fa-code-branch"></i> 7 endpoint + sandbox + discovery</span>
+                <span><i class="fa-solid fa-calendar-day"></i> Versi 2026-05-23 (v1.4)</span>
+                <span><i class="fa-solid fa-clock"></i> Estimasi 45-60 menit</span>
+                <span><i class="fa-solid fa-list-check"></i> 33 test cases</span>
             </div>
         </div>
 
@@ -222,6 +223,7 @@
                     <tr><td class="num-col">1</td><td><code>2026_05_16_cekat_service_code.sql</code></td><td>Kolom <code>code</code> di <code>raw_doc_service</code> + isi SVC001–SVC011</td></tr>
                     <tr><td class="num-col">2</td><td><code>2026_05_16_cekat_dev_tables.sql</code></td><td>5 tabel <code>_dev</code> (sandbox)</td></tr>
                     <tr><td class="num-col">3</td><td><code>2026_05_16_api_clients.sql</code></td><td>Tabel <code>api_clients</code> (kredensial vendor)</td></tr>
+                    <tr><td class="num-col">4</td><td><code>2026_05_21_per_branch_doctor_duration.sql</code></td><td>2 tabel durasi per-cabang (<code>raw_doctor_branch_service_duration</code> &amp; <code>raw_doctor_branch_detail_duration</code>) — <strong>wajib</strong> untuk fitur <code>sub_service</code> v1.1</td></tr>
                 </tbody>
             </table>
 
@@ -338,7 +340,11 @@ const TESTS = [
       expected:'HTTP <strong>422</strong> <code>VALIDATION_ERROR</code>, message <strong>Bahasa Indonesia</strong> "Field no_telpon wajib diisi." — dan tidak ada baris baru di DB' },
     { id:'C.5', section:'C', title:'Cabang/treatment ngawur → tetap tersimpan',
       steps:['Blok 3 tapi <code>cabang:"XYZ"</code>, <code>treatment:"NGAWUR"</code>', 'Send'],
-      expected:'Tetap HTTP <strong>200</strong> (lead tetap ditangkap), tapi <code>branch_matched:false</code> &amp; <code>treatment_matched:false</code>' },
+      expected:'Tetap HTTP <strong>200</strong> (lead tetap ditangkap), tapi <code>branch_matched:false</code> &amp; <code>treatment_matched:false</code> &amp; <code>doctor_matched:false</code>' },
+    { id:'C.6', section:'C', title:'Field dokter (v1.2) — preferensi lead',
+      goal:'AI sebut nama dokter di chat → tersimpan otomatis di profil customer',
+      steps:['Blok <strong>3b</strong>: tambah <code>"dokter":"Elvia"</code> (atau nama dokter lain yg ada) di body', 'Send'],
+      expected:'HTTP <strong>200</strong> + <code>doctor_matched:true</code>. Cek <code>SELECT raw_doctor_id FROM raw_customer_dev WHERE phone=...</code> — terisi ID dokter ter-resolve. Nama ngawur → <code>doctor_matched:false</code> (non-fatal, data tetap tersimpan)' },
 
     // ─── D. jadwal_dokter ────────────────────────────
     { id:'D.1', section:'D', sectionTitle:'D — jadwal_dokter', sectionIcon:'fa-calendar-days', anchor:'sec-d',
@@ -358,6 +364,13 @@ const TESTS = [
     { id:'D.5', section:'D', title:'Cabang tak dikenal → 422',
       steps:['<code>?cabang=TidakAda123</code>', 'Send'],
       expected:'HTTP <strong>422</strong> <code>BRANCH_NOT_FOUND</code>' },
+    { id:'D.6', section:'D', title:'sub_service (v1.1) — durasi sub-treatment',
+      goal:'Slot pakai durasi sub-treatment (per dokter × per cabang), bukan service induk',
+      steps:['Blok <strong>5c</strong>: <code>?cabang=Bintaro&amp;tanggal=YYYY-MM-DD&amp;service=SVC001&amp;sub_service=Control%20Metal%20Braces</code>', 'Send'],
+      expected:'HTTP <strong>200</strong>; response top-level punya <code>service_id</code> &amp; <code>sub_service_id</code> (BUKAN null). Tiap dokter <code>slots.slot_interval</code> sesuai durasi sub-detail (dari chain <code>raw_doctor_branch_detail_duration</code> → <code>raw_doc_service_detail</code>)' },
+    { id:'D.7', section:'D', title:'sub_service tanpa service → 422',
+      steps:['<code>?cabang=Bintaro&amp;sub_service=Metal</code> (TANPA param <code>service</code>)', 'Send'],
+      expected:'HTTP <strong>422</strong> <code>VALIDATION_ERROR</code> "Parameter sub_service harus disertai service induk..."' },
 
     // ─── E. reservation ──────────────────────────────
     { id:'E.1', section:'E', sectionTitle:'E — reservation', sectionIcon:'fa-calendar-check', anchor:'sec-e',
@@ -380,6 +393,23 @@ const TESTS = [
     { id:'E.6', section:'E', title:'Isolasi: reservasi masuk _dev',
       steps:['Setelah E.1, cek DB:', '<code>SELECT COUNT(*) FROM raw_cus_reservation_dev;</code> &amp; <code>... raw_cus_reservation;</code>'],
       expected:'<code>raw_cus_reservation_dev</code> bertambah; <code>raw_cus_reservation</code> (asli/jadwal klinik) <strong>TIDAK</strong> berubah' },
+    { id:'E.7', section:'E', title:'GET /reservation/{id} — cek status (v1.4)',
+      goal:'AI Cekat jawab "udah dikonfirmasi belum?" tanpa harus telepon admin',
+      steps:['Copy <code>reservation_id</code> dari respons E.1', 'Buka Blok <strong>7b</strong> di .http, paste ID di akhir URL', 'Send'],
+      expected:'HTTP <strong>200</strong>, response berisi <code>status</code> (mis. <code>"pending"</code>) + <code>status_label</code> (mis. <code>"Menunggu Konfirmasi"</code>) + <code>date</code>/<code>start_hour</code>/<code>end_hour</code>/<code>branch</code>/<code>doctor</code>/<code>customer</code>/<code>services[]</code>' },
+    { id:'E.8', section:'E', title:'GET /reservation/{id} — ID ngawur → 404',
+      steps:['Blok <strong>7c</strong>: <code>GET .../reservation/id-ngawur-12345</code>', 'Send'],
+      expected:'HTTP <strong>404</strong> <code>NOT_FOUND</code>, message <code>"Reservasi tidak ditemukan: id-ngawur-12345"</code>' },
+
+    // ─── F. DISCOVERY (v1.3 — endpoint baru utk no back-and-forth) ────
+    { id:'F.1', section:'F', sectionTitle:'F — Discovery (treatments / branches)', sectionIcon:'fa-magnifying-glass', anchor:'sec-f',
+      title:'GET /treatments — daftar service + sub + kode',
+      goal:'Vendor refresh mapping otomatis (saat staff tambah treatment baru, AI Cekat langsung tahu)',
+      steps:['Blok <strong>8</strong>: <code>GET {{base}}/apicekatdev/treatments</code>', 'Send'],
+      expected:'HTTP <strong>200</strong>, <code>data.treatments[]</code> tiap item ada <code>id</code>, <code>code</code> (boleh null), <code>name</code>, <code>category</code>, <code>price</code>, <code>duration_minutes</code>, <code>sub_services[]</code>. Jumlah harus sama dengan service aktif di CMS' },
+    { id:'F.2', section:'F', title:'GET /branches — daftar cabang aktif',
+      steps:['Blok <strong>9</strong>: <code>GET {{base}}/apicekatdev/branches</code>', 'Send'],
+      expected:'HTTP <strong>200</strong>, <code>data.branches[]</code> = daftar cabang dengan <code>id</code> &amp; <code>name</code>' },
 
     // ─── EC. EDGE CASES ──────────────────────────────
     { id:'EC.1', section:'EC', sectionTitle:'Edge Cases', sectionIcon:'fa-bug', anchor:'sec-ec',
@@ -402,6 +432,7 @@ const SECTIONS = [
     { key:'C',  label:'C — customer_profile' },
     { key:'D',  label:'D — jadwal_dokter' },
     { key:'E',  label:'E — reservation' },
+    { key:'F',  label:'F — Discovery (treatments / branches)' },
     { key:'EC', label:'Edge Cases' },
 ];
 
@@ -570,7 +601,7 @@ function resetAll() {
 
 function setupScrollSpy() {
     const links = document.querySelectorAll('.nav-link');
-    const sections = ['prereq','sec-a','sec-b','sec-c','sec-d','sec-e','sec-ec','summary'];
+    const sections = ['prereq','sec-a','sec-b','sec-c','sec-d','sec-e','sec-f','sec-ec','summary'];
     function onScroll() {
         const scrollPos = window.scrollY + 120;
         let activeIdx = 0;

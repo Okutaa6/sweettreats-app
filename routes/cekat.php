@@ -22,6 +22,10 @@ Route::prefix('apicekat')
         Route::get('service_range',     [ApiCekatController::class, 'serviceRange']);
         Route::get('jadwal_dokter',     [ApiCekatController::class, 'jadwalDokter']);
         Route::post('reservation',      [ApiCekatController::class, 'reservation']);
+        Route::get('reservation/{id}',  [ApiCekatController::class, 'reservationShow']);
+        // Discovery (P1) — vendor refresh mapping otomatis tanpa back-and-forth
+        Route::get('treatments',        [ApiCekatController::class, 'treatmentsIndex']);
+        Route::get('branches',          [ApiCekatController::class, 'branchesIndex']);
     });
 
 Route::prefix('apicekatdev')
@@ -31,4 +35,8 @@ Route::prefix('apicekatdev')
         Route::get('service_range',     [ApiCekatController::class, 'serviceRange']);
         Route::get('jadwal_dokter',     [ApiCekatController::class, 'jadwalDokter']);
         Route::post('reservation',      [ApiCekatController::class, 'reservation']);
+        Route::get('reservation/{id}',  [ApiCekatController::class, 'reservationShow']);
+        // Discovery (P1) — vendor refresh mapping otomatis tanpa back-and-forth
+        Route::get('treatments',        [ApiCekatController::class, 'treatmentsIndex']);
+        Route::get('branches',          [ApiCekatController::class, 'branchesIndex']);
     });

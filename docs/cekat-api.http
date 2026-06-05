@@ -9,7 +9,12 @@ crud - reservat### =============================================================
 ### =====================================================================
 
 @base = http://127.0.0.1:8000
-@token = 5eeaa25fc03376e92651ff9f3ca0bb560dc46de244c098dd051851f93207fd7c
+@token = ISI_TOKEN_SANDBOX_DI_SINI
+
+# Tanggal dinamis (REST Client native):
+#   {{$datetime "YYYY-MM-DD" 7 d}}  = 7 hari dari sekarang.
+# Variabel ini di-evaluasi setiap "Send Request" → SELALU di masa depan,
+# tak perlu edit manual. Format: "YYYY-MM-DD" + offset (N + unit: d/w/M/y).
 
 ### ---------------------------------------------------------------------
 ### 1. AUTH GAGAL — tanpa token → harus 401 UNAUTHORIZED
@@ -38,6 +43,22 @@ Content-Type: application/json
 }
 
 ### ---------------------------------------------------------------------
+### 3b. customer_profile + field dokter (v1.2) — preferensi dokter lead
+### ---------------------------------------------------------------------
+POST {{base}}/apicekatdev/customer_profile
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "cabang": "Bintaro",
+  "nama": "Budi Uji + Dokter",
+  "no_telpon": "081234567899",
+  "treatment": "SVC001",
+  "dokter": "Elvia",
+  "intent": "Stat_Leads"
+}
+
+### ---------------------------------------------------------------------
 ### 4. customer_profile (VALIDATION_ERROR) — no_telpon kosong → 422
 ### ---------------------------------------------------------------------
 POST {{base}}/apicekatdev/customer_profile
@@ -59,7 +80,23 @@ GET {{base}}/apicekatdev/jadwal_dokter?cabang=Bintaro&hari=selasa
 Authorization: Bearer {{token}}
 
 ### ---------------------------------------------------------------------
-### 6. reservation (sukses) — slot terverifikasi kosong (cek via Blok 5)
+### 5c. jadwal_dokter + sub_service (v1.1) — slot pakai durasi sub-treatment
+###     Tanggal: dinamis = 7 hari dari sekarang (tak perlu edit manual).
+### ---------------------------------------------------------------------
+GET {{base}}/apicekatdev/jadwal_dokter?cabang=Bintaro&tanggal={{$datetime "YYYY-MM-DD" 7 d}}&service=SVC001&sub_service=Control%20Metal%20Braces
+Authorization: Bearer {{token}}
+
+### ---------------------------------------------------------------------
+### 5d. sub_service TANPA service induk → 422 VALIDATION_ERROR
+### ---------------------------------------------------------------------
+GET {{base}}/apicekatdev/jadwal_dokter?cabang=Bintaro&sub_service=Metal
+Authorization: Bearer {{token}}
+
+### ---------------------------------------------------------------------
+### 6. reservation (sukses)
+###    Tanggal dinamis (+14 hari). JIKA gagal 409 SLOT_UNAVAILABLE →
+###    jalankan Blok 5c dulu pakai tanggal sama, lihat slot kosong, lalu
+###    sesuaikan start_hour/end_hour di sini (durasi=slot_interval).
 ### ---------------------------------------------------------------------
 POST {{base}}/apicekatdev/reservation
 Authorization: Bearer {{token}}
@@ -70,7 +107,7 @@ Content-Type: application/json
   "nama": "Budi Uji",
   "no_telpon": "081234567890",
   "treatment": "SVC001",
-  "date": "2026-05-19",
+  "date": "{{$datetime "YYYY-MM-DD" 14 d}}",
   "start_hour": "10:00",
   "end_hour": "10:30"
 }
@@ -89,7 +126,36 @@ Content-Type: application/json
   "nama": "Budi Uji",
   "no_telpon": "081234567890",
   "treatment": "SVC001",
-  "date": "2026-05-19",
+  "date": "{{$datetime "YYYY-MM-DD" 14 d}}",
   "start_hour": "10:00",
   "end_hour": "10:30"
 }
+
+### ---------------------------------------------------------------------
+### 7b. GET reservation status (v1.4) — copy reservation_id dari respons Blok 6
+###     lalu paste di akhir URL. Cek field "status" & "status_label".
+### ---------------------------------------------------------------------
+GET {{base}}/apicekatdev/reservation/PASTE_RESERVATION_ID_DARI_BLOK_6
+Authorization: Bearer {{token}}
+
+### ---------------------------------------------------------------------
+### 7c. GET reservation status — ID ngawur → 404 NOT_FOUND
+### ---------------------------------------------------------------------
+GET {{base}}/apicekatdev/reservation/id-ngawur-12345
+Authorization: Bearer {{token}}
+
+### =====================================================================
+### DISCOVERY ENDPOINTS (v1.3) — vendor refresh mapping otomatis
+### =====================================================================
+
+### ---------------------------------------------------------------------
+### 8. GET /treatments — daftar service + sub_service + kode aktif
+### ---------------------------------------------------------------------
+GET {{base}}/apicekatdev/treatments
+Authorization: Bearer {{token}}
+
+### ---------------------------------------------------------------------
+### 9. GET /branches — daftar cabang aktif
+### ---------------------------------------------------------------------
+GET {{base}}/apicekatdev/branches
+Authorization: Bearer {{token}}

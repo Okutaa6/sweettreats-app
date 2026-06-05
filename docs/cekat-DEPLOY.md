@@ -74,8 +74,14 @@ Urut, satu per satu (buka file, copy isi, tab SQL → Go):
    sesuaikan jika nama treatment di prod beda).
 2. **`2026_05_16_cekat_dev_tables.sql`** — buat 5 tabel `_dev` (sandbox).
 3. **`2026_05_16_api_clients.sql`** — buat tabel `api_clients` (kredensial vendor).
+4. **`2026_05_21_per_branch_doctor_duration.sql`** — buat 2 tabel durasi per-cabang
+   (`raw_doctor_branch_service_duration` & `raw_doctor_branch_detail_duration`) +
+   backfill dari tabel legacy. **Wajib untuk fitur `sub_service` (v1.1)** di
+   endpoint `/jadwal_dokter`. SQL ini idempoten (aman dijalankan ulang).
 
-Cek: `SELECT id,name,code FROM raw_doc_service;` → kolom `code` terisi.
+Cek:
+- `SELECT id,name,code FROM raw_doc_service;` → kolom `code` terisi.
+- `SHOW TABLES LIKE 'raw_doctor_branch_%';` → 2 tabel muncul.
 
 ---
 
@@ -94,8 +100,40 @@ php artisan config:clear
 
 Verifikasi route hidup:
 ```bash
-php artisan route:list | grep apicekat      # harus muncul 8 route
+php artisan route:list | grep apicekat      # harus muncul 14 route (7 live + 7 sandbox)
 ```
+7 endpoint per environment: `customer_profile`, `service_range`, `jadwal_dokter`,
+`reservation`, **`reservation/{id}`** (cek status v1.4), **`treatments`** (discovery v1.3),
+**`branches`** (discovery v1.3).
+
+---
+
+## 4. PRE-DEPLOY — BACKUP & ROLLBACK PLAN
+
+### 4.1 Backup wajib SEBELUM jalankan SQL apa pun
+phpMyAdmin → DB `u695655413_app_sweettreat` → tab **Export** → format SQL →
+Custom → centang **"Add DROP TABLE"** → simpan file `backup_pre_cekat_YYYYMMDD.sql`.
+Simpan minimal 2 minggu.
+
+> SQL #4 (`per_branch_doctor_duration`) berisi **backfill data** dari tabel
+> legacy. Kalau backfill salah, tidak bisa di-undo otomatis — backup wajib.
+
+### 4.2 Rollback bila ada masalah
+
+| Masalah | Langkah revert |
+|---|---|
+| Route Cekat error / break route lain | Hapus `routes/cekat.php`, hapus `Route::middleware('web')->group(base_path('routes/cekat.php'));` di `RouteServiceProvider.php`, jalankan `php artisan route:clear`. Route lama tetap utuh. |
+| Tabel `api_clients` / `_dev` / `raw_doctor_branch_*` perlu dihapus | `DROP TABLE api_clients, raw_contact_dev, raw_customer_dev, raw_cus_journey_dev, raw_cus_reservation_dev, raw_cus_res_service_dev, raw_doctor_branch_service_duration, raw_doctor_branch_detail_duration;` |
+| Kolom `code` di `raw_doc_service` mau dihapus | `ALTER TABLE raw_doc_service DROP INDEX uniq_doc_service_code, DROP COLUMN code;` |
+| Vendor (mis. Cekat) bermasalah | `UPDATE api_clients SET is_active=0 WHERE name='Cekat';` (instan, tidak perlu deploy) |
+| Korupsi data total | Restore dari backup §4.1. |
+
+### 4.3 Pengingat untuk tim dev
+- **Sebelum commit & push**: pastikan `docs/cekat-api.http` di-revert ke
+  `@token = ISI_TOKEN_SANDBOX_DI_SINI` dan baris `Authorization: Bearer {{token}}`
+  (tester biasanya paste token literal saat tes lokal). Token JANGAN masuk git.
+- Tester lokal: kalau setelah tes mau bersihkan `_dev`, jalankan
+  `TRUNCATE raw_contact_dev; TRUNCATE raw_customer_dev; TRUNCATE raw_cus_journey_dev; TRUNCATE raw_cus_reservation_dev; TRUNCATE raw_cus_res_service_dev;`
 
 ---
 

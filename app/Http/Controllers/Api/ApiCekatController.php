@@ -6,6 +6,7 @@ use App\Http\Controllers\Concerns\ResolvesDoctorAvailability;
 use App\Http\Controllers\Controller;
 use App\Models\RawBranch;
 use App\Models\RawDocService;
+use App\Models\RawDocServiceDetail;
 use App\Models\RawDoctor;
 use App\Models\RawDoctorSchedule;
 use App\Models\RawDoctorService;
@@ -87,6 +88,9 @@ class ApiCekatController extends Controller
             'nama'          => 'nama',
             'no_telpon'     => 'no_telpon',
             'treatment'     => 'treatment',
+            'dokter'        => 'dokter',
+            'service'       => 'service',
+            'sub_service'   => 'sub_service',
             'intent'        => 'intent',
             'date'          => 'date',
             'start_hour'    => 'start_hour',
@@ -171,6 +175,7 @@ class ApiCekatController extends Controller
             'nama'      => 'required|string|max:255',
             'no_telpon' => 'required|string',
             'treatment' => 'nullable|string',
+            'dokter'    => 'nullable|string',
             'intent'    => 'nullable|string|max:255',
         ]);
         if ($v->fails()) {
@@ -191,13 +196,18 @@ class ApiCekatController extends Controller
         $service        = RawDocService::resolveByTreatment((string) $request->input('treatment', ''));
         $treatmentMatch = (bool) $service;
 
+        // Dokter preferensi lead (opsional, non-fatal). Resolusi ID→nama→LIKE
+        // lewat static method di RawDoctor (konsisten dengan pola model lain).
+        $doctor        = RawDoctor::resolveByIdOrName($request->input('dokter'));
+        $doctorMatched = (bool) $doctor;
+
         $contactTable  = $this->tableName('raw_contact');
         $customerTable = $this->tableName('raw_customer');
         $journeyTable  = $this->tableName('raw_cus_journey');
 
         $result = DB::transaction(function () use (
             $contactTable, $customerTable, $journeyTable,
-            $phone, $name, $intent, $branch, $service
+            $phone, $name, $intent, $branch, $service, $doctor
         ) {
             // --- raw_contact: upsert by phone (pola MaxChat) ---
             $contact = DB::table($contactTable)->where('phone', $phone)->first();
@@ -223,6 +233,7 @@ class ApiCekatController extends Controller
                 $upd = ['name' => $name];
                 if ($branch)  $upd['raw_branch_id']      = $branch->id;
                 if ($service) $upd['raw_doc_service_id'] = $service->id;
+                if ($doctor)  $upd['raw_doctor_id']      = $doctor->id;
                 if ($intent) {
                     $upd['catatan'] = trim(($customer->catatan ? $customer->catatan . ' | ' : '') . 'Intent: ' . $intent);
                 }
@@ -237,6 +248,7 @@ class ApiCekatController extends Controller
                     'phone'              => $phone,
                     'raw_branch_id'      => $branch?->id,
                     'raw_doc_service_id' => $service?->id,
+                    'raw_doctor_id'      => $doctor?->id,
                     'pasien_baru_lama'   => 'baru',
                     'catatan'            => $intent ? 'Intent: ' . $intent : null,
                     'created_at'         => now(),
@@ -260,6 +272,7 @@ class ApiCekatController extends Controller
             'raw_customer_id'   => $result['customer_id'],
             'branch_matched'    => $branchMatched,
             'treatment_matched' => $treatmentMatch,
+            'doctor_matched'    => $doctorMatched,
             'sandbox'           => $this->sandbox,
         ]);
     }
@@ -318,10 +331,42 @@ class ApiCekatController extends Controller
             }
         }
 
-        // Service (opsional) → untuk durasi slot
+        // Service (opsional) → untuk durasi slot. Strict: kalau dikirim tapi
+        // tidak ke-resolve → 422 (vendor harus tahu treatment-nya tak ada).
         $serviceId = null;
         if ($request->filled('service')) {
             $serviceId = optional(RawDocService::resolveByTreatment((string) $request->input('service')))->id;
+            if (! $serviceId) {
+                return $this->fail(
+                    'TREATMENT_NOT_FOUND',
+                    'Treatment (service) tidak dikenali: ' . $request->input('service'),
+                    422
+                );
+            }
+        }
+
+        // Sub-service (opsional) → memengaruhi durasi slot lewat chain detail
+        // (raw_doctor_branch_detail_duration → raw_doctor_service_detail →
+        // raw_doc_service_detail.duration_minutes).
+        // WAJIB disertai `service` induk supaya tidak ambigu (nama sub-layanan
+        // bisa muncul di beberapa service induk).
+        $detailId = null;
+        if ($request->filled('sub_service')) {
+            if (! $serviceId) {
+                return $this->fail(
+                    'VALIDATION_ERROR',
+                    'Parameter `service` wajib diisi bila `sub_service` diisi (sub-layanan selalu milik satu treatment induk).',
+                    422
+                );
+            }
+            $detail = RawDocServiceDetail::resolveByTreatment(
+                (string) $request->input('sub_service'),
+                $serviceId
+            );
+            if (! $detail) {
+                return $this->fail('TREATMENT_NOT_FOUND', 'Sub-treatment tidak dikenali di service ini: ' . $request->input('sub_service'), 422);
+            }
+            $detailId = $detail->id;
         }
 
         // Jadwal recurring semua dokter di cabang ini → sumber practice_days
@@ -333,10 +378,11 @@ class ApiCekatController extends Controller
             ->map(fn ($g) => $g->pluck('day')->unique()->sort()->values()->all());
 
         $doctors = RawDoctor::whereIn('id', $daysByDoctor->keys())
+            ->where('is_active', 1)
             ->orderBy('name')
             ->get(['id', 'name', 'photo']);
 
-        $data = $doctors->map(function ($doc) use ($branch, $tanggal, $serviceId, $hariNum, $daysByDoctor, $dayNames) {
+        $data = $doctors->map(function ($doc) use ($branch, $tanggal, $serviceId, $detailId, $hariNum, $daysByDoctor, $dayNames) {
             $days = $daysByDoctor[$doc->id] ?? [];
 
             // filter hari: lewati dokter yang tidak praktik di hari itu
@@ -367,6 +413,7 @@ class ApiCekatController extends Controller
             if ($tanggal) {
                 $row['slots'] = $this->computeTimeSlots($branch->id, $doc->id, $tanggal, [
                     'service_id' => $serviceId,
+                    'detail_id'  => $detailId,
                 ]);
             }
 
@@ -374,9 +421,11 @@ class ApiCekatController extends Controller
         })->filter()->values();
 
         return $this->ok([
-            'branch'  => ['id' => $branch->id, 'name' => $branch->name],
-            'hari'    => $hariNum ? $dayNames[$hariNum] : null,
-            'doctors' => $data,
+            'branch'         => ['id' => $branch->id, 'name' => $branch->name],
+            'hari'           => $hariNum ? $dayNames[$hariNum] : null,
+            'service_id'     => $serviceId,
+            'sub_service_id' => $detailId,
+            'doctors'        => $data,
         ]);
     }
 
@@ -532,5 +581,124 @@ class ApiCekatController extends Controller
             'raw_doctor_id'    => $chosenDoctorId,
             'sandbox'          => $this->sandbox,
         ], 201);
+    }
+
+    // =====================================================================
+    // GET reservation/{id} — cek status reservasi (utk follow-up customer)
+    // Pasangan natural dari POST /reservation. AI Cekat panggil ini saat
+    // customer tanya "udah dikonfirmasi belum?". Sandbox baca _dev.
+    // =====================================================================
+    public function reservationShow(Request $request, string $id): JsonResponse
+    {
+        $this->boot($request);
+
+        $r = DB::table($this->tableName('raw_cus_reservation'))
+            ->where('id', $id)
+            ->first();
+
+        if (! $r) {
+            return $this->fail('NOT_FOUND', 'Reservasi tidak ditemukan: ' . $id, 404);
+        }
+
+        $branch   = $r->raw_branch_id   ? RawBranch::find($r->raw_branch_id)   : null;
+        $doctor   = $r->raw_doctor_id   ? RawDoctor::find($r->raw_doctor_id)   : null;
+        $customer = $r->raw_customer_id
+            ? DB::table($this->tableName('raw_customer'))->where('id', $r->raw_customer_id)->first()
+            : null;
+
+        $services = DB::table($this->tableName('raw_cus_res_service'))
+            ->where('raw_cus_reservation_id', $id)
+            ->get();
+
+        $serviceIds = $services->pluck('raw_doc_service_id')->filter()->unique()->all();
+        $serviceMap = $serviceIds
+            ? RawDocService::whereIn('id', $serviceIds)->get(['id', 'code', 'name'])->keyBy('id')
+            : collect();
+
+        $statusLabels = [
+            'pending'   => 'Menunggu Konfirmasi',
+            'confirmed' => 'Dikonfirmasi',
+            'waitlist'  => 'Waiting List',
+            'completed' => 'Selesai',
+            'cancelled' => 'Dibatalkan',
+        ];
+
+        return $this->ok([
+            'reservation_id' => $r->id,
+            'status'         => $r->status,
+            'status_label'   => $statusLabels[$r->status] ?? $r->status,
+            'date'           => $r->date,
+            'start_hour'     => $r->start_hour ? substr((string) $r->start_hour, 0, 5) : null,
+            'end_hour'       => $r->end_hour   ? substr((string) $r->end_hour, 0, 5)   : null,
+            'branch'         => $branch ? ['id' => $branch->id, 'name' => $branch->name] : null,
+            'doctor'         => $doctor ? ['id' => $doctor->id, 'name' => $doctor->name] : null,
+            'customer'       => $customer ? [
+                'id'    => $customer->id,
+                'name'  => $customer->name,
+                'phone' => $customer->phone,
+            ] : null,
+            'services' => $services->map(fn ($s) => [
+                'service_id'     => $s->raw_doc_service_id,
+                'code'           => optional($serviceMap[$s->raw_doc_service_id] ?? null)->code,
+                'name'           => optional($serviceMap[$s->raw_doc_service_id] ?? null)->name,
+                'sub_service_id' => $s->raw_doc_service_detail_id,
+            ])->values(),
+            'keterangan'           => $r->keterangan,
+            'keterangan_kehadiran' => $r->keterangan_kehadiran ?? null,
+            'sandbox'              => $this->sandbox,
+        ]);
+    }
+
+    // =====================================================================
+    // GET treatments — discovery: daftar service + sub-service + kode aktif
+    // Vendor refresh mapping otomatis saat staff tambah/ubah treatment baru.
+    // Read-only, identik live & sandbox.
+    // =====================================================================
+    public function treatmentsIndex(Request $request): JsonResponse
+    {
+        $this->boot($request);
+
+        $services = RawDocService::with(['details' => function ($q) {
+            $q->where('is_active', 1)->orderBy('sort_order')->orderBy('name');
+        }])
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get(['id', 'code', 'name', 'category', 'duration_minutes', 'price']);
+
+        $data = $services->map(fn ($s) => [
+            'id'               => $s->id,
+            'code'             => $s->code,
+            'name'             => $s->name,
+            'category'         => $s->category,
+            'duration_minutes' => $s->duration_minutes !== null ? (float) $s->duration_minutes : null,
+            'price'            => $s->price !== null ? (float) $s->price : null,
+            'sub_services'     => $s->details->map(fn ($d) => [
+                'id'               => $d->id,
+                'code'             => $d->code_service,
+                'name'             => $d->name,
+                'duration_minutes' => $d->duration_minutes !== null ? (float) $d->duration_minutes : null,
+                'price'            => $d->price !== null ? (float) $d->price : null,
+            ])->values(),
+        ])->values();
+
+        return $this->ok(['treatments' => $data]);
+    }
+
+    // =====================================================================
+    // GET branches — discovery: daftar cabang aktif
+    // Read-only, identik live & sandbox.
+    // =====================================================================
+    public function branchesIndex(Request $request): JsonResponse
+    {
+        $this->boot($request);
+
+        $branches = RawBranch::orderBy('name')->get(['id', 'name']);
+
+        return $this->ok([
+            'branches' => $branches->map(fn ($b) => [
+                'id'   => $b->id,
+                'name' => $b->name,
+            ])->values(),
+        ]);
     }
 }
