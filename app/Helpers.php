@@ -129,6 +129,91 @@ if (!function_exists('isSuperAdmin')) {
 }
 
 /**
+ * True kalau user yang sedang login adalah Admin General. Dipakai bareng
+ * isSuperAdmin() untuk gate fitur admin-level (mis. "Kelola Halaman" untuk
+ * atur mode akses View Only per role).
+ */
+if (!function_exists('isAdminGeneral')) {
+    function isAdminGeneral(): bool
+    {
+        return session('group_name') === 'Admin General';
+    }
+}
+
+/**
+ * True kalau user boleh mengatur mode akses per role di halaman tertentu
+ * (Super Admin atau Admin General). Tombol "Kelola Halaman" di Raw
+ * Reservation hanya muncul kalau ini true.
+ */
+if (!function_exists('canManagePageAccess')) {
+    function canManagePageAccess(): bool
+    {
+        return isSuperAdmin() || isAdminGeneral();
+    }
+}
+
+/**
+ * True kalau user yang sedang login boleh melihat data lintas-cabang
+ * (mis. dropdown cabang di Petty Cash / Biaya Transport). Role yang
+ * boleh: Super Admin, Admin General, Admin Backup.
+ *
+ * Sales / staff cabang lain otomatis ke-lock ke session('raw_branch_id').
+ */
+if (!function_exists('canSeeAllBranches')) {
+    function canSeeAllBranches(): bool
+    {
+        return in_array(session('group_name'), [
+            'Super Admin',
+            'Admin General',
+            'Admin Backup',
+        ], true);
+    }
+}
+
+/**
+ * Daftar preset tema warna brand yang bisa di-assign ke role.
+ * Key = nilai yang disimpan di group_path.theme dan dipakai untuk
+ * resolve data-theme attribute di body.
+ *
+ *   - theme-default  → data-theme="default" → pakai brown brand existing
+ *   - theme-marketing → data-theme="marketing" → pakai palette teal/lime
+ *     dari public/assets/css/theme-marketing.css
+ */
+if (!function_exists('availableThemes')) {
+    function availableThemes(): array
+    {
+        return [
+            'theme-default'   => 'Default (Coklat)',
+            'theme-marketing' => 'Marketing (Hijau Teal)',
+        ];
+    }
+}
+
+/**
+ * True kalau role user di-set view_only untuk halaman Raw Reservation
+ * (lewat tabel group_page_access_modes). Super Admin & Admin General
+ * SELALU full access — tidak terpengaruh setting mode (admin override).
+ *
+ * Dipakai di view & controller untuk:
+ *   - Hide tombol Tambah, tab Waiting List, kontrol inline edit
+ *   - Block endpoint mutasi (store/update/destroy/inline/klaim)
+ */
+if (!function_exists('isReservationViewOnly')) {
+    function isReservationViewOnly(): bool
+    {
+        if (isSuperAdmin() || isAdminGeneral()) {
+            return false;
+        }
+        $gid = session('group_id');
+        if (! $gid) return false;
+        return \App\Models\GroupPageAccessMode::modeFor(
+            (string) $gid,
+            'rawreservation'
+        ) === \App\Models\GroupPageAccessMode::MODE_VIEW_ONLY;
+    }
+}
+
+/**
  * Check if a parent menu group contains a child link matching the current controller
  */
 function isParentActive($parentRow, $controller)

@@ -8,9 +8,14 @@
     $suggested          = (int) round($summary['suggested_topup']);
     $kind               = $kind ?? 'petty_cash';
     $fundSourcesGrouped = $fundSourcesGrouped ?? collect();
-    // Top up imprest hanya boleh ke sumber Cash — uang baru selalu masuk
-    // sebagai cash dulu. Pindah ke Bank/E-Wallet dilakukan via Transfer.
-    $cashSources = $fundSourcesGrouped->get(\App\Models\FundSource::CAT_CASH, collect());
+    // Map source_id → account_number untuk cabang aktif. Dipakai untuk
+    // pre-fill input nomor saat user pilih source yang sudah pernah diisi.
+    $branchAccountMap   = $branchAccountMap ?? [];
+    $categoryLabels     = [
+        \App\Models\FundSource::CAT_CASH    => 'Cash / Tunai',
+        \App\Models\FundSource::CAT_BANK    => 'Bank',
+        \App\Models\FundSource::CAT_EWALLET => 'E-Wallet',
+    ];
 @endphp
 <div class="pc-modal" id="pcModalTopup" role="dialog" aria-modal="true">
     <div class="pc-modal__dialog">
@@ -18,6 +23,9 @@
             @csrf
             <input type="hidden" name="period_id" value="{{ $period->id }}">
             <input type="hidden" name="tab" value="{{ $kind }}">
+            @if(!session('raw_branch_id') && $period->raw_branch_id)
+                <input type="hidden" name="branch" value="{{ $period->raw_branch_id }}">
+            @endif
 
             <div class="pc-modal__header">
                 <div>
@@ -59,19 +67,39 @@
 
                 <div class="pc-form-row">
                     <label>Simpan ke <span class="text-danger">*</span></label>
-                    <select name="fund_source_id" required class="pc-input pc-source-select">
+                    <select name="fund_source_id" required class="pc-input pc-source-select"
+                            data-pc-topup-source>
                         <option value="">— Pilih sumber dana —</option>
-                        @foreach($cashSources as $fs)
-                            <option value="{{ $fs->id }}"
-                                    data-color="{{ $fs->effectiveBrandColor() }}"
-                                    data-short="{{ $fs->effectiveShortLabel() }}"
-                                    data-logo="{{ $fs->logo_url }}">{{ $fs->name }}</option>
+                        @foreach($categoryLabels as $catKey => $catLabel)
+                            @if($fundSourcesGrouped->has($catKey))
+                                <optgroup label="{{ $catLabel }}">
+                                    @foreach($fundSourcesGrouped[$catKey] as $fs)
+                                        <option value="{{ $fs->id }}"
+                                                data-color="{{ $fs->effectiveBrandColor() }}"
+                                                data-short="{{ $fs->effectiveShortLabel() }}"
+                                                data-logo="{{ $fs->logo_url }}"
+                                                data-category="{{ $fs->category }}"
+                                                data-account="{{ $branchAccountMap[$fs->id] ?? '' }}">{{ $fs->name }}</option>
+                                    @endforeach
+                                </optgroup>
+                            @endif
                         @endforeach
                     </select>
-                    <small class="pc-muted">
-                        Top up hanya ke sumber <strong>Cash</strong>. Untuk isi saldo Bank / E-Wallet, transfer dari Cash di rincian saldo.
-                    </small>
                     <div class="pc-source-preview" data-pc-source-preview></div>
+                </div>
+
+                {{-- Input nomor rekening / telepon — toggled by JS berdasarkan
+                     kategori sumber dana yang dipilih. Bank → no rekening,
+                     E-Wallet → no telepon, Cash → hidden. Opsional. --}}
+                <div class="pc-form-row" data-pc-topup-account-row hidden>
+                    <label data-pc-topup-account-label>No. Rekening <small class="pc-muted">(opsional)</small></label>
+                    <input type="text" name="account_number" maxlength="50"
+                           class="pc-input"
+                           data-pc-topup-account-input
+                           placeholder="Mis: 1234567890">
+                    <small class="pc-muted" data-pc-topup-account-hint>
+                        Disimpan di sumber dana ini dan muncul di card rincian saldo.
+                    </small>
                 </div>
             </div>
 

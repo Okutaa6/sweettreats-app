@@ -28,22 +28,47 @@
                 <div class="card-body">
 
                     @php
+                        // Mode View Only — di-set di controller. Default false biar
+                        // backward-compat (kalau halaman ini di-render dari context lain).
+                        $isViewOnly = $isViewOnly ?? false;
+                        $accessModeGroups = $accessModeGroups ?? [];
+
                         $hasFilter = $filterSearch || $filterBranch || $filterDoctor || $filterStatus || $filterDateFrom || $filterDateTo || $filterPromo || $filterAffiliate || request('new') || request('reservation_id');
+                        // Filter chips & info hitungan di tab Jadwal Dokter di-suppress
+                        // (info sudah ada di banner).
+                        $showFilterChips = $hasFilter;
+                        if (($view ?? 'list') === 'jadwal') {
+                            $showFilterChips = false;
+                            // Empty state awal (dokter belum dipilih) → filter tertutup
+                            // supaya step-by-step card jadi fokus utama.
+                            // Setelah dokter dipilih → filter tetap kebuka biar
+                            // gampang di-adjust.
+                            if ($jadwalEmptyState ?? false) {
+                                $hasFilter = false;
+                            }
+                        }
                         $showBranchColumn = $branches->count() > 1;
                     @endphp
 
                     {{-- ── Toolbar: Tambah + Filter Button + Tab toggle ── --}}
                     <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap" style="gap:8px;">
                         <div class="d-flex align-items-center" style="gap:8px;">
-                            <a href="{{ route('rawreservation.new') }}" class="st-btn-brand">
-                                <i class="fa fa-plus"></i> Tambah
-                            </a>
+                            @if(!$isViewOnly)
+                                <a href="{{ route('rawreservation.new') }}" class="st-btn-brand">
+                                    <i class="fa fa-plus"></i> Tambah
+                                </a>
+                            @endif
                             <button class="st-btn-outline-brown {{ $hasFilter ? 'is-active' : '' }}" type="button" data-toggle="collapse" data-target="#filterCollapse" aria-expanded="{{ $hasFilter ? 'true' : 'false' }}">
                                 <i class="fa fa-filter"></i> {{ $hasFilter ? 'Filter Aktif' : 'Filter' }}
                             </button>
                             <a href="{{ route('export.reservasi', request()->only(['status','branch','doctor','date_from','date_to','promo','affiliate'])) }}" class="st-btn-outline-brown">
                                 <i class="fa fa-download"></i> Export CSV
                             </a>
+                            @if(canManagePageAccess())
+                                <button type="button" class="st-btn-outline-brown" data-pc-modal="rrModalAccessModes" title="Atur akses View Only per role">
+                                    <i class="fa fa-user-shield"></i> Kelola Halaman
+                                </button>
+                            @endif
                         </div>
                         <div class="view-tab-group" style="font-size: 1.2em;">
                             <a href="{{ route('rawreservation', array_merge(request()->except(['new', 'view']), ['view' => 'list'])) }}" class="view-tab {{ !request('new') && request('view', 'list') === 'list' ? 'active' : '' }}">
@@ -55,14 +80,19 @@
                                     <span class="view-tab-badge">{{ $newCount }}</span>
                                 @endif
                             </a>
-                            <a href="{{ route('rawreservation', array_merge(request()->except(['new', 'view']), ['view' => 'waitlist'])) }}" class="view-tab {{ request('view') === 'waitlist' ? 'active' : '' }}">
-                                <i class="fa fa-hourglass-half"></i> Waiting List
-                                @if(($waitlistCount ?? 0) > 0)
-                                    <span class="view-tab-badge">{{ $waitlistCount }}</span>
-                                @endif
-                            </a>
+                            @if(!$isViewOnly)
+                                <a href="{{ route('rawreservation', array_merge(request()->except(['new', 'view']), ['view' => 'waitlist'])) }}" class="view-tab {{ request('view') === 'waitlist' ? 'active' : '' }}">
+                                    <i class="fa fa-hourglass-half"></i> Waiting List
+                                    @if(($waitlistCount ?? 0) > 0)
+                                        <span class="view-tab-badge">{{ $waitlistCount }}</span>
+                                    @endif
+                                </a>
+                            @endif
                             <a href="{{ route('rawreservation', array_merge(request()->except(['new', 'view']), ['view' => 'cal'])) }}" class="view-tab {{ request('view') === 'cal' ? 'active' : '' }}">
                                 <i class="fa fa-calendar"></i> Kalender
+                            </a>
+                            <a href="{{ route('rawreservation', array_merge(request()->except(['new', 'view']), ['view' => 'jadwal'])) }}" class="view-tab {{ request('view') === 'jadwal' ? 'active' : '' }}" title="Tampilan ramah-screenshot untuk kirim jadwal ke dokter">
+                                <i class="fa fa-user-md"></i> Jadwal Dokter
                             </a>
                         </div>
                     </div>
@@ -143,7 +173,7 @@
                                             <button type="submit" class="st-filter-submit">
                                                 <i class="fa fa-search"></i> Terapkan
                                             </button>
-                                            <a href="{{ route('rawreservation') }}" class="st-filter-reset" title="Reset Filter">
+                                            <a href="{{ route('rawreservation', ($view ?? 'list') === 'list' ? [] : ['view' => $view]) }}" class="st-filter-reset" title="Reset Filter">
                                                 <i class="fa fa-times"></i>
                                             </a>
                                         </div>
@@ -154,7 +184,7 @@
                     </div>
 
                     {{-- ── Info hasil filter ── --}}
-                    @if ($hasFilter)
+                    @if ($showFilterChips)
                         @php
                             $chips = [];
                             $removeUrl = function(array $keys) {
@@ -191,7 +221,7 @@
                     {{-- ══════════════════════════════════════
                          TAB: LIST
                     ══════════════════════════════════════ --}}
-                    <div id="viewList" style="{{ request('view', 'list') === 'cal' ? 'display:none;' : '' }}">
+                    <div id="viewList" style="{{ in_array(request('view', 'list'), ['cal', 'jadwal']) ? 'display:none;' : '' }}">
                         <div class="st-table-wrap st-table-wrap--scroll">
                         <table class="st-table st-table--clickable" cellspacing="0" style="white-space: nowrap;">
                             <thead>
@@ -223,8 +253,8 @@
                                         }
                                     @endphp
                                     <tr class="st-row st-row--{{ $row->status }} {{ $isNew ? 'st-row-new' : '' }}"
-                                        data-href="{{ route('rawreservation.edit', $row->id) }}"
-                                        {!! $isNew ? 'title="Data baru masuk — klik untuk detail"' : 'title="Klik baris untuk detail"' !!}>
+                                        @if(!$isViewOnly) data-href="{{ route('rawreservation.edit', $row->id) }}" @endif
+                                        {!! $isViewOnly ? '' : ($isNew ? 'title="Data baru masuk — klik untuk detail"' : 'title="Klik baris untuk detail"') !!}>
                                         @php
                                             $hariList = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
                                             $hariNama = $row->date ? $hariList[$row->date->dayOfWeek] : '';
@@ -286,9 +316,13 @@
                                         @endif
                                     </td>
                                     <td style="white-space: normal; min-width: 150px;">
-                                        <textarea class="form-control form-control-sm inline-update" 
-                                            data-id="{{ $row->id }}" data-field="keterangan" 
-                                            rows="2" placeholder="Isi keterangan...">{{ $row->keterangan }}</textarea>
+                                        @if($isViewOnly)
+                                            <div class="rr-static-text">{{ $row->keterangan ?: '—' }}</div>
+                                        @else
+                                            <textarea class="form-control form-control-sm inline-update"
+                                                data-id="{{ $row->id }}" data-field="keterangan"
+                                                rows="2" placeholder="Isi keterangan...">{{ $row->keterangan }}</textarea>
+                                        @endif
                                     </td>
                                         <td>
                                             @if($row->promo)
@@ -307,6 +341,9 @@
                                                     <span class="st-meta">
                                                         {{ $row->promo_klaim_by ? 'oleh: ' . (\App\Models\Users::find($row->promo_klaim_by)->name ?? '-') : '' }}
                                                     </span>
+                                                @elseif($isViewOnly)
+                                                    {{-- View only: tampilkan status saja, tidak ada tombol klaim --}}
+                                                    <span class="st-pill st-pill--neutral st-pill--plain">Belum diklaim</span>
                                                 @else
                                                     {{-- Belum diklaim — tampilkan tombol --}}
                                                     <form method="POST"
@@ -324,56 +361,93 @@
                                             @endif
                                         </td>
                                         <td>
-                                            <select class="form-control form-control-sm inline-update" style="min-width:130px"
-                                                data-id="{{ $row->id }}" data-field="status">
-                                                @foreach (\App\Models\RawCusReservation::statusOptions() as $k => $opt)
-                                                    <option value="{{ $k }}" {{ $row->status == $k ? 'selected' : '' }}>{{ $opt['label'] }}</option>
-                                                @endforeach
-                                            </select>
+                                            @if($isViewOnly)
+                                                @php $stCur = \App\Models\RawCusReservation::statusOptions()[$row->status] ?? null; @endphp
+                                                @if($stCur)
+                                                    <span class="st-pill" style="background:{{ $stCur['bg'] }};color:{{ $stCur['color'] }};">
+                                                        <i class="fa {{ $stCur['icon'] }}"></i> {{ $stCur['label'] }}
+                                                    </span>
+                                                @else
+                                                    <span class="rr-static-text">—</span>
+                                                @endif
+                                            @else
+                                                <select class="form-control form-control-sm inline-update" style="min-width:130px"
+                                                    data-id="{{ $row->id }}" data-field="status">
+                                                    @foreach (\App\Models\RawCusReservation::statusOptions() as $k => $opt)
+                                                        <option value="{{ $k }}" {{ $row->status == $k ? 'selected' : '' }}>{{ $opt['label'] }}</option>
+                                                    @endforeach
+                                                </select>
+                                            @endif
                                         </td>
                                         @php
                                             $waPhone = $row->customer?->phone ? preg_replace('/[^0-9]/', '', $row->customer->phone) : '';
                                             if ($waPhone && str_starts_with($waPhone, '0')) $waPhone = '62' . substr($waPhone, 1);
                                         @endphp
+                                        @php
+                                            $fuLabelMap = [
+                                                'confirm'    => '✅ Confirm',
+                                                'reschedule' => '🔄 Reschedule',
+                                                'cancel'     => '❌ Cancel',
+                                                'no_respon'  => '📵 No Respon',
+                                            ];
+                                            $khLabelMap = [
+                                                'hadir'       => '✅ Hadir',
+                                                'tidak_hadir' => '❌ Tidak Hadir',
+                                                'reschedule'  => '🔄 Reschedule',
+                                                'cancel'      => '❌ Cancel',
+                                            ];
+                                        @endphp
                                         <td>
-                                            <div class="d-flex align-items-center" style="gap:4px;">
-                                                <select class="form-control form-control-sm inline-update" style="min-width:110px"
-                                                    data-id="{{ $row->id }}" data-field="follow_up_h_min_1">
-                                                    <option value="">-- --</option>
-                                                    <option value="confirm"    {{ $row->follow_up_h_min_1 == 'confirm'    ? 'selected' : '' }}>✅ Confirm</option>
-                                                    <option value="reschedule" {{ $row->follow_up_h_min_1 == 'reschedule' ? 'selected' : '' }}>🔄 Reschedule</option>
-                                                    <option value="cancel"     {{ $row->follow_up_h_min_1 == 'cancel'     ? 'selected' : '' }}>❌ Cancel</option>
-                                                    <option value="no_respon"  {{ $row->follow_up_h_min_1 == 'no_respon'  ? 'selected' : '' }}>📵 No Respon</option>
-                                                </select>
-                                                @if($waPhone)
-                                                    <a href="https://wa.me/{{ $waPhone }}" target="_blank" class="st-icon-btn st-icon-btn--success" title="Follow up via WhatsApp"><i class="fab fa-whatsapp"></i></a>
-                                                @endif
-                                            </div>
+                                            @if($isViewOnly)
+                                                <span class="rr-static-text">{{ $fuLabelMap[$row->follow_up_h_min_1] ?? '—' }}</span>
+                                            @else
+                                                <div class="d-flex align-items-center" style="gap:4px;">
+                                                    <select class="form-control form-control-sm inline-update" style="min-width:110px"
+                                                        data-id="{{ $row->id }}" data-field="follow_up_h_min_1">
+                                                        <option value="">-- --</option>
+                                                        <option value="confirm"    {{ $row->follow_up_h_min_1 == 'confirm'    ? 'selected' : '' }}>✅ Confirm</option>
+                                                        <option value="reschedule" {{ $row->follow_up_h_min_1 == 'reschedule' ? 'selected' : '' }}>🔄 Reschedule</option>
+                                                        <option value="cancel"     {{ $row->follow_up_h_min_1 == 'cancel'     ? 'selected' : '' }}>❌ Cancel</option>
+                                                        <option value="no_respon"  {{ $row->follow_up_h_min_1 == 'no_respon'  ? 'selected' : '' }}>📵 No Respon</option>
+                                                    </select>
+                                                    @if($waPhone)
+                                                        <a href="https://wa.me/{{ $waPhone }}" target="_blank" class="st-icon-btn st-icon-btn--success" title="Follow up via WhatsApp"><i class="fab fa-whatsapp"></i></a>
+                                                    @endif
+                                                </div>
+                                            @endif
                                         </td>
                                         <td>
-                                            <div class="d-flex align-items-center" style="gap:4px;">
-                                                <select class="form-control form-control-sm inline-update" style="min-width:110px"
-                                                    data-id="{{ $row->id }}" data-field="follow_up_h">
-                                                    <option value="">-- --</option>
-                                                    <option value="confirm"    {{ $row->follow_up_h == 'confirm'    ? 'selected' : '' }}>✅ Confirm</option>
-                                                    <option value="reschedule" {{ $row->follow_up_h == 'reschedule' ? 'selected' : '' }}>🔄 Reschedule</option>
-                                                    <option value="cancel"     {{ $row->follow_up_h == 'cancel'     ? 'selected' : '' }}>❌ Cancel</option>
-                                                    <option value="no_respon"  {{ $row->follow_up_h == 'no_respon'  ? 'selected' : '' }}>📵 No Respon</option>
-                                                </select>
-                                                @if($waPhone)
-                                                    <a href="https://wa.me/{{ $waPhone }}" target="_blank" class="st-icon-btn st-icon-btn--success" title="Follow up via WhatsApp"><i class="fab fa-whatsapp"></i></a>
-                                                @endif
-                                            </div>
+                                            @if($isViewOnly)
+                                                <span class="rr-static-text">{{ $fuLabelMap[$row->follow_up_h] ?? '—' }}</span>
+                                            @else
+                                                <div class="d-flex align-items-center" style="gap:4px;">
+                                                    <select class="form-control form-control-sm inline-update" style="min-width:110px"
+                                                        data-id="{{ $row->id }}" data-field="follow_up_h">
+                                                        <option value="">-- --</option>
+                                                        <option value="confirm"    {{ $row->follow_up_h == 'confirm'    ? 'selected' : '' }}>✅ Confirm</option>
+                                                        <option value="reschedule" {{ $row->follow_up_h == 'reschedule' ? 'selected' : '' }}>🔄 Reschedule</option>
+                                                        <option value="cancel"     {{ $row->follow_up_h == 'cancel'     ? 'selected' : '' }}>❌ Cancel</option>
+                                                        <option value="no_respon"  {{ $row->follow_up_h == 'no_respon'  ? 'selected' : '' }}>📵 No Respon</option>
+                                                    </select>
+                                                    @if($waPhone)
+                                                        <a href="https://wa.me/{{ $waPhone }}" target="_blank" class="st-icon-btn st-icon-btn--success" title="Follow up via WhatsApp"><i class="fab fa-whatsapp"></i></a>
+                                                    @endif
+                                                </div>
+                                            @endif
                                         </td>
                                         <td>
-                                            <select class="form-control form-control-sm inline-update" style="min-width:110px"
-                                                data-id="{{ $row->id }}" data-field="keterangan_kehadiran">
-                                                <option value="">-- --</option>
-                                                <option value="hadir"       {{ $row->keterangan_kehadiran == 'hadir'       ? 'selected' : '' }}>✅ Hadir</option>
-                                                <option value="tidak_hadir" {{ $row->keterangan_kehadiran == 'tidak_hadir' ? 'selected' : '' }}>❌ Tidak Hadir</option>
-                                                <option value="reschedule"  {{ $row->keterangan_kehadiran == 'reschedule'  ? 'selected' : '' }}>🔄 Reschedule</option>
-                                                <option value="cancel"      {{ $row->keterangan_kehadiran == 'cancel'      ? 'selected' : '' }}>❌ Cancel</option>
-                                            </select>
+                                            @if($isViewOnly)
+                                                <span class="rr-static-text">{{ $khLabelMap[$row->keterangan_kehadiran] ?? '—' }}</span>
+                                            @else
+                                                <select class="form-control form-control-sm inline-update" style="min-width:110px"
+                                                    data-id="{{ $row->id }}" data-field="keterangan_kehadiran">
+                                                    <option value="">-- --</option>
+                                                    <option value="hadir"       {{ $row->keterangan_kehadiran == 'hadir'       ? 'selected' : '' }}>✅ Hadir</option>
+                                                    <option value="tidak_hadir" {{ $row->keterangan_kehadiran == 'tidak_hadir' ? 'selected' : '' }}>❌ Tidak Hadir</option>
+                                                    <option value="reschedule"  {{ $row->keterangan_kehadiran == 'reschedule'  ? 'selected' : '' }}>🔄 Reschedule</option>
+                                                    <option value="cancel"      {{ $row->keterangan_kehadiran == 'cancel'      ? 'selected' : '' }}>❌ Cancel</option>
+                                                </select>
+                                            @endif
                                         </td>
                                     </tr>
                                 @endforeach
@@ -423,6 +497,22 @@
                         </div>
                     </div>
 
+                    {{-- ══════════════════════════════════════
+                         TAB: JADWAL DOKTER (ramah-screenshot)
+                    ══════════════════════════════════════ --}}
+                    @if(request('view') === 'jadwal')
+                        @include('crud.reservation._jadwal_dokter', [
+                            'reservations'     => $reservations,
+                            'jadwalEmptyState' => $jadwalEmptyState ?? false,
+                            'doctors'          => $doctors,
+                            'branches'         => $branches,
+                            'filterDoctor'     => $filterDoctor,
+                            'filterBranch'     => $filterBranch,
+                            'filterDateFrom'   => $filterDateFrom,
+                            'filterDateTo'     => $filterDateTo,
+                        ])
+                    @endif
+
                 </div>
             </div>
         </div>
@@ -461,6 +551,13 @@
         </div>
     </div>
 </div>
+
+{{-- Modal Kelola Akses Halaman (Super Admin / Admin General only) --}}
+@if(canManagePageAccess())
+    @include('crud.reservation._modal_access_modes', [
+        'accessModeGroups' => $accessModeGroups ?? [],
+    ])
+@endif
 @endsection
 
 @section('css')
@@ -516,11 +613,30 @@
     font-size: 10px;
     font-weight: 700;
     line-height: 1;
+    transform-origin: center;
 }
-.view-tab.active .view-tab-badge { background: #fff; color: #b45309; }
+.view-tab.active .view-tab-badge { background: #fff; color: #b45309; animation: none; }
+
+/* Badge berkedip + pulse di tab yang BELUM aktif supaya menarik perhatian. */
+.view-tab:not(.active) .view-tab-badge {
+    animation: pcBadgePulse 1.6s ease-in-out infinite;
+}
+@keyframes pcBadgePulse {
+    0%, 100% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.55);
+    }
+    50% {
+        transform: scale(1.18);
+        box-shadow: 0 0 0 7px rgba(245, 158, 11, 0);
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    .view-tab:not(.active) .view-tab-badge { animation: none; }
+}
 
 /* ── Modal ── */
-#modalBody tr td:first-child { font-weight:600; color:rgb(70,21,0); width:30%; white-space:nowrap; }
+#modalBody tr td:first-child { font-weight:600; color:var(--brown); width:30%; white-space:nowrap; }
 #modalBody tr td { border-color:rgb(208,196,191) !important; vertical-align:middle; }
 .modal-hover-row:hover td { background-color: rgb(250,245,243) !important; }
 </style>
@@ -565,7 +681,17 @@ const KEHADIRAN_OPTIONS = {
     'cancel': '❌ Cancel'
 };
 
+// Flag global: kalau true, modal calendar render kontrol sebagai static text
+// dan tombol Detail/Edit di-hide.
+const IS_VIEW_ONLY = @json($isViewOnly ?? false);
+
 function createSelect(options, field, selectedValue, reservationId) {
+    // View-only mode: render static label, bukan dropdown.
+    if (IS_VIEW_ONLY) {
+        const opt = options[selectedValue || ''] ?? options[''];
+        const label = typeof opt === 'object' ? opt.label : opt;
+        return `<span class="rr-static-text" style="font-weight:600;">${label || '—'}</span>`;
+    }
     let html = `<select class="form-control form-control-sm inline-update" data-id="${reservationId}" data-field="${field}" data-value="${selectedValue || ''}" style="min-width:120px;">`;
     for (const key in options) {
         const label = typeof options[key] === 'object' ? options[key].label : options[key];
@@ -783,9 +909,11 @@ function showModal(ev) {
                 <tr><td>Promo</td><td>${promoHtml}</td></tr>
                 <tr><td>Klaim</td><td>${klaimHtml}</td></tr>
                 <tr><td valign="top">Keterangan</td><td style="white-space:normal;">
-                    <textarea class="form-control form-control-sm inline-update" rows="2"
-                        data-id="${ev.id}" data-field="keterangan"
-                        placeholder="Isi keterangan...">${ev.keterangan ? escapeHtml(ev.keterangan) : ''}</textarea>
+                    ${IS_VIEW_ONLY
+                        ? `<div class="rr-static-text">${ev.keterangan ? escapeHtml(ev.keterangan) : '—'}</div>`
+                        : `<textarea class="form-control form-control-sm inline-update" rows="2"
+                              data-id="${ev.id}" data-field="keterangan"
+                              placeholder="Isi keterangan...">${ev.keterangan ? escapeHtml(ev.keterangan) : ''}</textarea>`}
                 </td></tr>
                 <tr style="border-top: 2px solid #ddd;"><td>Status</td><td>${statusSelect}</td></tr>
                 <tr><td>FU H-1</td><td>${fu1Cell}</td></tr>
@@ -798,7 +926,8 @@ function showModal(ev) {
     const detailRoute = '{{ route("rawreservation.edit", ["id" => ":id"]) }}'.replace(':id', ev.id);
     document.getElementById('modalDetailBtn').href = detailRoute;
     document.getElementById('modalDetailBtn').innerHTML = '<i class="fa fa-edit"></i> Detail / Edit Reservasi';
-    document.getElementById('modalDetailBtn').style.display = '';
+    // Sembunyikan tombol Detail/Edit kalau user view-only.
+    document.getElementById('modalDetailBtn').style.display = IS_VIEW_ONLY ? 'none' : '';
     document.getElementById('modalFooterNote').style.visibility = 'hidden';
     $('#eventModal').modal('show');
 }
@@ -1059,6 +1188,27 @@ $(document).on('auxclick', '.st-table--clickable tbody tr[data-href]', function 
     if (e.target.closest('input, select, textarea, button, a, label, form')) return;
     e.preventDefault();
     window.open($(this).data('href'), '_blank');
+});
+
+// Toggle modal pattern (compatible dgn pettycash modals).
+// Dipakai untuk modal "Kelola Halaman" — pola .pc-modal + .is-open class.
+document.querySelectorAll('[data-pc-modal]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+        const id = btn.dataset.pcModal;
+        const modal = document.getElementById(id);
+        if (modal) modal.classList.add('is-open');
+    });
+});
+document.querySelectorAll('[data-pc-modal-close]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+        const m = btn.closest('.pc-modal');
+        if (m) m.classList.remove('is-open');
+    });
+});
+document.querySelectorAll('.pc-modal').forEach(function (m) {
+    m.addEventListener('click', function (e) {
+        if (e.target === m) m.classList.remove('is-open');
+    });
 });
 
 </script>

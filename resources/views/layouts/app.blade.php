@@ -31,6 +31,7 @@
     <link rel="stylesheet" href="{{ asset('assets/css/style.sweettreats.css') }}?v={{ @filemtime(public_path('assets/css/style.sweettreats.css')) ?: '1' }}">
     <link rel="stylesheet" href="{{ asset('assets/css/components.sweettreats.css') }}?v={{ @filemtime(public_path('assets/css/components.sweettreats.css')) ?: '1' }}">
     <link rel="stylesheet" href="{{ asset('assets/css/theme-marketing.css') }}?v={{ @filemtime(public_path('assets/css/theme-marketing.css')) ?: '1' }}">
+    <link rel="stylesheet" href="{{ asset('assets/css/themes.sweettreats.css') }}?v={{ @filemtime(public_path('assets/css/themes.sweettreats.css')) ?: '1' }}">
     @yield('css')
 </head>
 @php
@@ -45,9 +46,34 @@
     ];
     $currentSegment = request()->segment(1);
     $bodyTheme = in_array($currentSegment, $marketingRoutes, true) ? 'marketing' : 'default';
+
+    // Role-based color theme — di-set per role via Kelola Halaman Raw Reservation.
+    // Pull dari DB tiap request (bukan session) supaya:
+    //   - User dengan session lama (belum punya group_theme key) tetap dapat tema yang benar
+    //   - Theme yang diubah admin langsung apply tanpa logout-login
+    $groupTheme = 'theme-default';
+    $sessGid = session('group_id');
+    if ($sessGid) {
+        try {
+            $dbTheme = \Illuminate\Support\Facades\DB::table('group_path')
+                ->where('id', $sessGid)
+                ->value('theme');
+            if ($dbTheme) $groupTheme = $dbTheme;
+        } catch (\Throwable $e) {
+            // Kolom belum ada (SQL migration belum jalan) → fallback ke default
+        }
+    }
+
+    // Kalau role user pakai theme-marketing, paksa data-theme="marketing"
+    // di SELURUH halaman (bukan cuma marketing routes). Ini bikin
+    // theme-marketing.css aktif global → sidebar, header, tombol, dll
+    // semua ikut palette teal.
+    if ($groupTheme === 'theme-marketing') {
+        $bodyTheme = 'marketing';
+    }
 @endphp
 
-<body data-theme="{{ $bodyTheme }}">
+<body data-theme="{{ $bodyTheme }}" class="{{ $groupTheme }}">
 
     <!-- Top Bar Start -->
     @include('layouts.header')

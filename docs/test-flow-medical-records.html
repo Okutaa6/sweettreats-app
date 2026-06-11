@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Test Flow Deploy Rekam Medis — SweetTreats</title>
+<style>
+  :root {
+    --brown: #461500;
+    --brown-2: #6B4433;
+    --brown-pale: #D0C4BF;
+    --cream: #FAF5F2;
+    --cream-2: #F5EFEA;
+    --ok: #1f7a3d;
+    --ok-bg: #e8f6ed;
+    --warn: #b8860b;
+    --warn-bg: #fff8e1;
+    --err: #c0392b;
+    --err-bg: #fdecea;
+    --action-bg: #eef4fb;
+    --action-border: #c5dbf0;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    margin: 0; padding: 0; background: var(--cream); color: #2D1810; line-height: 1.5;
+  }
+  .container { max-width: 880px; margin: 0 auto; padding: 24px 20px 80px; }
+  header.page-header { border-bottom: 3px solid var(--brown); padding-bottom: 14px; margin-bottom: 20px; }
+  h1 { color: var(--brown); margin: 0 0 6px; font-size: 1.6rem; font-weight: 700; }
+  .subtitle { color: var(--brown-2); font-size: 0.9rem; margin-bottom: 14px; }
+  .progress-bar-container { background: #ddd1c8; border-radius: 8px; height: 18px; overflow: hidden; margin: 12px 0 6px; position: relative; }
+  .progress-bar-fill { background: linear-gradient(90deg, var(--brown), var(--brown-2)); height: 100%; transition: width 0.3s ease; color: #fff; text-align: center; font-size: 0.7rem; font-weight: 700; line-height: 18px; }
+  .progress-text { font-size: 0.85rem; color: var(--brown-2); }
+  .reset-link { float: right; font-size: 0.78rem; color: var(--err); text-decoration: none; cursor: pointer; }
+  .reset-link:hover { text-decoration: underline; }
+  .settings-card { background: #fff; border: 2px solid var(--brown-pale); border-radius: 10px; padding: 14px 18px; margin: 16px 0 22px; }
+  .settings-card h2 { color: var(--brown); margin: 0 0 10px; font-size: 1rem; font-weight: 700; }
+  .settings-card label { display: block; font-size: 0.8rem; font-weight: 600; color: var(--brown-2); margin: 8px 0 3px; }
+  .settings-card input { width: 100%; padding: 7px 10px; border: 1.5px solid var(--brown-pale); border-radius: 6px; font-size: 0.86rem; font-family: ui-monospace, "Courier New", monospace; }
+  .settings-card small { color: #888; font-size: 0.74rem; }
+  .intro { background: var(--warn-bg); border-left: 4px solid var(--warn); padding: 12px 16px; margin: 14px 0 22px; border-radius: 6px; font-size: 0.88rem; }
+  .phase { background: #fff; border: 1.5px solid var(--brown-pale); border-radius: 10px; margin-bottom: 14px; overflow: hidden; transition: opacity 0.3s, border-color 0.3s; }
+  .phase.done { opacity: 0.62; border-color: var(--ok); background: var(--ok-bg); }
+  .phase.done .phase-header { background: var(--ok-bg); }
+  .phase-header { background: var(--cream-2); padding: 12px 18px; cursor: pointer; display: flex; align-items: center; gap: 10px; user-select: none; border-bottom: 1px solid transparent; }
+  .phase-header:hover { background: #ece6df; }
+  .phase-header.expanded { border-bottom-color: var(--brown-pale); }
+  .phase-number { background: var(--brown); color: #fff; font-weight: 700; font-size: 0.78rem; padding: 3px 10px; border-radius: 12px; flex-shrink: 0; }
+  .phase.done .phase-number { background: var(--ok); }
+  .phase-title { font-weight: 700; color: var(--brown); flex: 1; font-size: 0.95rem; }
+  .phase-status { font-size: 0.78rem; color: var(--brown-2); }
+  .chevron { transition: transform 0.2s; color: var(--brown-2); font-size: 1.1rem; }
+  .phase-header.expanded .chevron { transform: rotate(180deg); }
+  .phase-body { padding: 16px 20px 18px; display: none; }
+  .phase-body.show { display: block; }
+  .phase-body h3 { color: var(--brown); margin: 18px 0 8px; font-size: 0.92rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
+  .phase-body h3:first-child { margin-top: 0; }
+  .phase-body p { margin: 8px 0; font-size: 0.9rem; }
+  .action-box { background: var(--action-bg); border-left: 4px solid var(--action-border); padding: 12px 14px; border-radius: 6px; margin: 8px 0; }
+  .verify-box { background: var(--ok-bg); border-left: 4px solid var(--ok); padding: 12px 14px; border-radius: 6px; margin: 8px 0; }
+  .warn-box { background: var(--warn-bg); border-left: 4px solid var(--warn); padding: 10px 14px; border-radius: 6px; margin: 8px 0; font-size: 0.86rem; }
+  .code-block { position: relative; margin: 10px 0; background: #2d1810; color: #f5efea; border-radius: 6px; font-family: ui-monospace, "Courier New", monospace; font-size: 0.85rem; }
+  .code-block pre { margin: 0; padding: 12px 14px 12px 14px; overflow-x: auto; white-space: pre; }
+  .code-block .copy-btn { position: absolute; top: 6px; right: 6px; background: rgba(255,255,255,0.12); color: #fff; border: 1px solid rgba(255,255,255,0.25); border-radius: 4px; padding: 3px 9px; font-size: 0.72rem; cursor: pointer; font-family: inherit; }
+  .code-block .copy-btn:hover { background: rgba(255,255,255,0.22); }
+  .code-block .copy-btn.copied { background: var(--ok); border-color: var(--ok); }
+  .check-list { list-style: none; padding-left: 0; margin: 6px 0; }
+  .check-list li { display: flex; align-items: flex-start; gap: 8px; padding: 4px 0; font-size: 0.88rem; }
+  .check-list input[type=checkbox] { margin-top: 3px; flex-shrink: 0; width: 16px; height: 16px; cursor: pointer; accent-color: var(--ok); }
+  .check-list label { cursor: pointer; flex: 1; }
+  details.troubleshoot { background: var(--err-bg); border-left: 4px solid var(--err); padding: 8px 12px; border-radius: 6px; margin: 10px 0; font-size: 0.85rem; }
+  details.troubleshoot summary { font-weight: 600; color: var(--err); cursor: pointer; padding: 2px 0; }
+  details.troubleshoot[open] summary { margin-bottom: 6px; }
+  table.compare { width: 100%; border-collapse: collapse; font-size: 0.84rem; margin: 10px 0; }
+  table.compare th, table.compare td { padding: 6px 10px; text-align: left; border-bottom: 1px solid var(--brown-pale); }
+  table.compare th { color: var(--brown); background: var(--cream-2); font-weight: 700; }
+  .complete-btn { background: var(--brown); color: #fff; border: none; padding: 9px 18px; border-radius: 7px; font-size: 0.88rem; font-weight: 700; cursor: pointer; margin-top: 16px; }
+  .complete-btn:hover { background: var(--brown-2); }
+  .complete-btn.uncomplete { background: #888; }
+  .final-card { background: var(--ok-bg); border: 2px solid var(--ok); border-radius: 10px; padding: 18px 22px; margin-top: 24px; }
+  .final-card h2 { color: var(--ok); margin-top: 0; }
+  .final-card.locked { background: #f5f5f5; border-color: #ccc; opacity: 0.6; }
+  .final-card.locked h2 { color: #888; }
+  footer.page-footer { margin-top: 32px; padding-top: 14px; border-top: 1px solid var(--brown-pale); font-size: 0.78rem; color: #888; text-align: center; }
+  kbd { background: #f1ebe5; border: 1px solid var(--brown-pale); border-radius: 3px; padding: 1px 5px; font-family: ui-monospace, monospace; font-size: 0.82em; }
+  code.inline { background: #f1ebe5; padding: 1px 6px; border-radius: 3px; font-family: ui-monospace, monospace; font-size: 0.86em; color: var(--brown); }
+  @media print {
+    body { background: #fff; }
+    .reset-link, .copy-btn, .complete-btn { display: none; }
+    .phase-body { display: block !important; }
+    .phase { break-inside: avoid; }
+    details.troubleshoot { display: block !important; }
+    details.troubleshoot summary { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+<header class="page-header">
+  <h1>🩺 Test Flow Deploy Rekam Medis Omnicare</h1>
+  <div class="subtitle">SweetTreats — backup rekam medis Omnicare ke Data Center (incremental deploy)</div>
+  <div class="progress-bar-container">
+    <div class="progress-bar-fill" id="progressBar" style="width: 0%">0%</div>
+  </div>
+  <div class="progress-text">
+    <span id="progressText">0 dari 6 fase selesai</span>
+    <a class="reset-link" id="resetBtn">↺ Reset progress</a>
+  </div>
+</header>
+
+<div class="intro">
+  <strong>Konteks:</strong> insiden Omnicare Agt 2025–Apr 2026 lenyapkan file rontgen.
+  Field teks rekam medis (chief_complaint, diagnosa, treatment plan, resep) selama
+  ini <em>tidak ter-backup</em> di Data Center. Deploy ini menutup gap itu:
+  tabel baru <code class="inline">omnicare_medical_record</code> + sync command lewat
+  endpoint <code class="inline">/get/all_medical_records</code>.
+  <br><br>
+  <strong>Pre-requisite:</strong> Omnicare integration sudah live di prod
+  (cron jam 02:00 jalan, <code class="inline">/report/sales</code> aktif). Kalau belum,
+  selesaikan dulu <code class="inline">test-flow-deploy-prod.html</code>.
+  <br><br>
+  <strong>Cara pakai:</strong> ikuti urut Fase 0–5. Centang tiap verifikasi sukses.
+  Tombol <em>Tandai fase selesai</em> baru aktif kalau semua centang sudah dicentang.
+  Tanya <strong>Ekky</strong> kalau ada step yang gagal.
+</div>
+
+<div class="settings-card">
+  <h2>⚙️ Settings (isi sekali — semua command auto-terisi)</h2>
+  <label for="projectPath">Project path Laravel di server</label>
+  <input type="text" id="projectPath" placeholder="/home/u695655413/domains/datacenter.sweettreats.id/laravel">
+  <small>Sama dengan path yang dipakai untuk cron Omnicare existing</small>
+  <label for="phpPath">Path PHP CLI</label>
+  <input type="text" id="phpPath" placeholder="/usr/bin/php" value="/usr/bin/php">
+  <small>Sama dengan setting cron Omnicare</small>
+</div>
+
+<!-- ═════════════════════════════════════════════════════════════════════ -->
+<!-- FASE 0 — Pre-flight                                                   -->
+<!-- ═════════════════════════════════════════════════════════════════════ -->
+<section class="phase" id="phase-0">
+  <div class="phase-header">
+    <span class="phase-number">FASE 0</span>
+    <span class="phase-title">Pre-flight — pastikan Omnicare existing sehat</span>
+    <span class="phase-status"></span>
+    <span class="chevron">▾</span>
+  </div>
+  <div class="phase-body">
+    <p>Sebelum tambah modul rekam medis, pastikan integrasi Omnicare existing masih jalan:</p>
+    <h3>Verifikasi</h3>
+    <div class="verify-box">
+      <p>SSH ke prod, masuk ke project path, jalankan:</p>
+      <div class="code-block">
+        <button class="copy-btn">Copy</button>
+        <pre data-cmd>cd {PROJECT_PATH} &amp;&amp; {PHP_PATH} artisan omnicare:health-check</pre>
+      </div>
+      <p>Lihat status semua endpoint <strong>HIJAU / OK</strong>. Kalau ada merah, fix dulu sebelum lanjut.</p>
+    </div>
+    <ul class="check-list">
+      <li><input type="checkbox" id="c0-1" data-verify="0"><label for="c0-1">omnicare:health-check semua endpoint OK (no error)</label></li>
+      <li><input type="checkbox" id="c0-2" data-verify="0"><label for="c0-2">Last sync sales <code class="inline">last_synced_at</code> dalam 2 hari terakhir (bukti cron jalan)</label></li>
+      <li><input type="checkbox" id="c0-3" data-verify="0"><label for="c0-3">/report/sales bisa diakses normal di browser</label></li>
+    </ul>
+    <button class="complete-btn" data-phase="0" disabled style="opacity:0.5; cursor:not-allowed">Tandai Fase 0 selesai →</button>
+  </div>
+</section>
+
+<!-- ═════════════════════════════════════════════════════════════════════ -->
+<!-- FASE 1 — Upload file                                                  -->
+<!-- ═════════════════════════════════════════════════════════════════════ -->
+<section class="phase" id="phase-1">
+  <div class="phase-header">
+    <span class="phase-number">FASE 1</span>
+    <span class="phase-title">Upload file aplikasi (2 file)</span>
+    <span class="phase-status"></span>
+    <span class="chevron">▾</span>
+  </div>
+  <div class="phase-body">
+    <h3>Action — upload via FileZilla / git pull</h3>
+    <p>Hanya <strong>2 file</strong> yang berubah dari deploy Omnicare existing:</p>
+    <div class="action-box">
+      <table class="compare">
+        <tr><th>File</th><th>Status</th><th>Tujuan</th></tr>
+        <tr><td><code class="inline">database/sql/2026_06_02_omnicare_medical_records.sql</code></td><td>BARU</td><td>schema tabel</td></tr>
+        <tr><td><code class="inline">app/Console/Commands/SyncOmnicare.php</code></td><td>UPDATE</td><td>tambah syncMedicalRecords()</td></tr>
+      </table>
+    </div>
+    <p><strong>Cara A — git pull (rekomendasi)</strong> kalau prod sudah pakai git:</p>
+    <div class="code-block">
+      <button class="copy-btn">Copy</button>
+      <pre data-cmd>cd {PROJECT_PATH} &amp;&amp; git pull origin master</pre>
+    </div>
+    <p><strong>Cara B — manual upload</strong> via FileZilla: kedua file di atas ke path yang sama.</p>
+    <h3>Verifikasi</h3>
+    <ul class="check-list">
+      <li><input type="checkbox" id="c1-1" data-verify="1"><label for="c1-1">File <code class="inline">database/sql/2026_06_02_omnicare_medical_records.sql</code> ada di server</label></li>
+      <li><input type="checkbox" id="c1-2" data-verify="1"><label for="c1-2"><code class="inline">grep syncMedicalRecords app/Console/Commands/SyncOmnicare.php</code> return match</label></li>
+    </ul>
+    <button class="complete-btn" data-phase="1" disabled style="opacity:0.5; cursor:not-allowed">Tandai Fase 1 selesai →</button>
+  </div>
+</section>
+
+<!-- ═════════════════════════════════════════════════════════════════════ -->
+<!-- FASE 2 — Eksekusi SQL                                                 -->
+<!-- ═════════════════════════════════════════════════════════════════════ -->
+<section class="phase" id="phase-2">
+  <div class="phase-header">
+    <span class="phase-number">FASE 2</span>
+    <span class="phase-title">Eksekusi SQL — buat tabel omnicare_medical_record</span>
+    <span class="phase-status"></span>
+    <span class="chevron">▾</span>
+  </div>
+  <div class="phase-body">
+    <h3>Action</h3>
+    <p>SQL pakai <code class="inline">CREATE TABLE IF NOT EXISTS</code> — aman dijalankan
+    berulang tanpa risiko data loss.</p>
+    <div class="warn-box">
+      <strong>Backup dulu</strong> walau idempotent — best practice:
+      <div class="code-block">
+        <button class="copy-btn">Copy</button>
+        <pre>mysqldump -u DB_USER -p DB_NAME &gt; backup-before-medical-$(date +%Y%m%d).sql</pre>
+      </div>
+    </div>
+    <p>Eksekusi SQL via phpMyAdmin (hPanel → Databases → phpMyAdmin → pilih DB → SQL tab → paste isi file) <strong>atau</strong> via SSH:</p>
+    <div class="code-block">
+      <button class="copy-btn">Copy</button>
+      <pre data-cmd>mysql -u DB_USER -p DB_NAME &lt; {PROJECT_PATH}/database/sql/2026_06_02_omnicare_medical_records.sql</pre>
+    </div>
+    <h3>Verifikasi</h3>
+    <div class="verify-box">
+      <p>Query phpMyAdmin atau mysql:</p>
+      <div class="code-block">
+        <button class="copy-btn">Copy</button>
+        <pre>SHOW TABLES LIKE 'omnicare_medical_record';
+DESCRIBE omnicare_medical_record;
+SELECT COUNT(*) FROM omnicare_medical_record;</pre>
+      </div>
+      <p>Expected: tabel ada, ~50 kolom, count = 0 (kosong, belum di-populate).</p>
+    </div>
+    <ul class="check-list">
+      <li><input type="checkbox" id="c2-1" data-verify="2"><label for="c2-1">Tabel <code class="inline">omnicare_medical_record</code> exists</label></li>
+      <li><input type="checkbox" id="c2-2" data-verify="2"><label for="c2-2">DESCRIBE menampilkan kolom <code class="inline">chief_complaint, diagnose_note, treatment_plan_note, procedures, prescription</code></label></li>
+      <li><input type="checkbox" id="c2-3" data-verify="2"><label for="c2-3">COUNT(*) = 0</label></li>
+    </ul>
+    <button class="complete-btn" data-phase="2" disabled style="opacity:0.5; cursor:not-allowed">Tandai Fase 2 selesai →</button>
+  </div>
+</section>
+
+<!-- ═════════════════════════════════════════════════════════════════════ -->
+<!-- FASE 3 — Test sync kecil                                              -->
+<!-- ═════════════════════════════════════════════════════════════════════ -->
+<section class="phase" id="phase-3">
+  <div class="phase-header">
+    <span class="phase-number">FASE 3</span>
+    <span class="phase-title">Test sync kecil — 1 cabang 1 bulan (smoke test)</span>
+    <span class="phase-status"></span>
+    <span class="chevron">▾</span>
+  </div>
+  <div class="phase-body">
+    <p>Sebelum backfill 5 tahun, validasi dulu lewat sync 1 cabang 1 bulan Bintaro Mei 2026 (~350 records).</p>
+    <h3>Action</h3>
+    <div class="code-block">
+      <button class="copy-btn">Copy</button>
+      <pre data-cmd>cd {PROJECT_PATH} &amp;&amp; {PHP_PATH} artisan omnicare:sync --endpoint=medical --place=29957 --start=20260501 --end=20260531</pre>
+    </div>
+    <p>Expected output:</p>
+    <div class="code-block">
+      <button class="copy-btn">Copy</button>
+      <pre>◉ Branch 29957
+  /get/all_medical_records (20260501-20260531)
+    ✓ ~350 medical records (across ~4 pages)
+Sync complete</pre>
+    </div>
+    <h3>Verifikasi</h3>
+    <div class="verify-box">
+      <div class="code-block">
+        <button class="copy-btn">Copy</button>
+        <pre>SELECT COUNT(*) total,
+       SUM(CASE WHEN chief_complaint IS NOT NULL THEN 1 ELSE 0 END) ada_complaint,
+       SUM(CASE WHEN diagnose_note IS NOT NULL THEN 1 ELSE 0 END) ada_diagnose,
+       SUM(CASE WHEN procedures IS NOT NULL THEN 1 ELSE 0 END) ada_procedures
+FROM omnicare_medical_record
+WHERE branch_id='29957' AND date BETWEEN '2026-05-01' AND '2026-05-31';</pre>
+      </div>
+      <p>Expected: total ~340-360 (angka eksak bisa beda kalau Omnicare ada koreksi data),
+      mayoritas <code class="inline">ada_procedures</code> &gt; 0.</p>
+    </div>
+    <ul class="check-list">
+      <li><input type="checkbox" id="c3-1" data-verify="3"><label for="c3-1">Command exit 0, ada baris "✓ ~XXX medical records"</label></li>
+      <li><input type="checkbox" id="c3-2" data-verify="3"><label for="c3-2">COUNT(*) di range 300-400</label></li>
+      <li><input type="checkbox" id="c3-3" data-verify="3"><label for="c3-3"><code class="inline">ada_procedures</code> &gt; 80% dari total</label></li>
+    </ul>
+    <details class="troubleshoot">
+      <summary>Trouble: total = 0 atau "✗" error</summary>
+      <p>Cek log: <code class="inline">tail -50 storage/logs/omnicare-*.log</code></p>
+      <p>Kalau code 598 "Invalid JSON" → koneksi internet bermasalah, retry.</p>
+      <p>Kalau code 599 → timeout, naikkan <code class="inline">OMNICARE_TIMEOUT</code> di .env.</p>
+      <p>Kalau code lain → hubungi Ekky.</p>
+    </details>
+    <button class="complete-btn" data-phase="3" disabled style="opacity:0.5; cursor:not-allowed">Tandai Fase 3 selesai →</button>
+  </div>
+</section>
+
+<!-- ═════════════════════════════════════════════════════════════════════ -->
+<!-- FASE 4 — Backfill 5 tahun                                             -->
+<!-- ═════════════════════════════════════════════════════════════════════ -->
+<section class="phase" id="phase-4">
+  <div class="phase-header">
+    <span class="phase-number">FASE 4</span>
+    <span class="phase-title">Backfill 5 tahun semua cabang (long-running)</span>
+    <span class="phase-status"></span>
+    <span class="chevron">▾</span>
+  </div>
+  <div class="phase-body">
+    <p>Backfill semua rekam medis 2020-11 sampai hari ini, semua 5 cabang aktif.</p>
+    <div class="warn-box">
+      <strong>Estimasi:</strong> 20–40 menit (tergantung volume per cabang).
+      Total ~150K records. Jalankan via SSH dengan <code class="inline">nohup</code> supaya
+      tidak terputus kalau sesi SSH disconnect.
+    </div>
+    <h3>Action</h3>
+    <div class="code-block">
+      <button class="copy-btn">Copy</button>
+      <pre data-cmd>cd {PROJECT_PATH} &amp;&amp; nohup {PHP_PATH} artisan omnicare:sync --endpoint=medical --start=20201101 --end=$(date +%Y%m%d) &gt; storage/logs/backfill-medical-records.log 2&gt;&amp;1 &amp;</pre>
+    </div>
+    <p>Monitor progress:</p>
+    <div class="code-block">
+      <button class="copy-btn">Copy</button>
+      <pre data-cmd>tail -f {PROJECT_PATH}/storage/logs/backfill-medical-records.log</pre>
+    </div>
+    <p>Sambil jalan, cek juga di SQL tiap beberapa menit:</p>
+    <div class="code-block">
+      <button class="copy-btn">Copy</button>
+      <pre>SELECT branch_id, COUNT(*) records,
+       MIN(date) min_date, MAX(date) max_date
+FROM omnicare_medical_record
+GROUP BY branch_id;</pre>
+    </div>
+    <h3>Verifikasi (setelah selesai)</h3>
+    <div class="verify-box">
+      <p>Expected per-cabang counts (dari hasil local):</p>
+      <table class="compare">
+        <tr><th>branch_id</th><th>Cabang</th><th>Expected ± 20%</th></tr>
+        <tr><td>29957</td><td>Bintaro</td><td>~20.000</td></tr>
+        <tr><td>29958</td><td>Sunter</td><td>~50.000 (terbesar)</td></tr>
+        <tr><td>29959</td><td>Kalideres</td><td>~15.000</td></tr>
+        <tr><td>30439</td><td>Cinere</td><td>~10.000</td></tr>
+        <tr><td>30941</td><td>Pamulang</td><td>~5.000 (termuda)</td></tr>
+      </table>
+      <p>Total semua cabang: <strong>~100.000 records</strong> (angka pasti
+      bergantung volume real Omnicare).</p>
+    </div>
+    <ul class="check-list">
+      <li><input type="checkbox" id="c4-1" data-verify="4"><label for="c4-1">Backfill selesai (log menunjukkan "Sync complete")</label></li>
+      <li><input type="checkbox" id="c4-2" data-verify="4"><label for="c4-2">Semua 5 cabang punya records (tidak ada yang COUNT=0)</label></li>
+      <li><input type="checkbox" id="c4-3" data-verify="4"><label for="c4-3"><code class="inline">MIN(date)</code> ≤ 2022-01 (data lama ter-backup)</label></li>
+      <li><input type="checkbox" id="c4-4" data-verify="4"><label for="c4-4"><code class="inline">MAX(date)</code> = hari ini atau kemarin</label></li>
+    </ul>
+    <details class="troubleshoot">
+      <summary>Trouble: backfill berhenti di tengah</summary>
+      <p>Sync command idempotent — bisa re-run untuk lanjut dari mana berhenti:</p>
+      <div class="code-block">
+        <button class="copy-btn">Copy</button>
+        <pre data-cmd>cd {PROJECT_PATH} &amp;&amp; {PHP_PATH} artisan omnicare:sync --endpoint=medical --place=&lt;CABANG_BELUM_LENGKAP&gt; --start=20201101 --end=$(date +%Y%m%d)</pre>
+      </div>
+      <p>Data yang sudah masuk tidak di-duplicate (PK record_id+branch_id).</p>
+    </details>
+    <button class="complete-btn" data-phase="4" disabled style="opacity:0.5; cursor:not-allowed">Tandai Fase 4 selesai →</button>
+  </div>
+</section>
+
+<!-- ═════════════════════════════════════════════════════════════════════ -->
+<!-- FASE 5 — Verifikasi cron + spot check + sign-off                      -->
+<!-- ═════════════════════════════════════════════════════════════════════ -->
+<section class="phase" id="phase-5">
+  <div class="phase-header">
+    <span class="phase-number">FASE 5</span>
+    <span class="phase-title">Sign-off — verifikasi cron daily + spot check rekam medis</span>
+    <span class="phase-status"></span>
+    <span class="chevron">▾</span>
+  </div>
+  <div class="phase-body">
+    <h3>Verifikasi cron tetap bekerja</h3>
+    <p><strong>TIDAK ADA cron baru dibuat.</strong> Default command <code class="inline">omnicare:sync</code>
+    yang sudah jalan di 02:00 sekarang otomatis include endpoint medical.</p>
+    <p>Verifikasi besok pagi setelah cron 02:00 jalan:</p>
+    <div class="code-block">
+      <button class="copy-btn">Copy</button>
+      <pre>SELECT MAX(date), MAX(last_synced_at)
+FROM omnicare_medical_record;</pre>
+    </div>
+    <p>Expected: <code class="inline">last_synced_at</code> = hari sekarang (bukti cron menyentuh tabel ini).</p>
+
+    <h3>Spot check — bandingkan sample dengan Omnicare</h3>
+    <p>Pilih 3 rekam medis acak, banding dengan Omnicare langsung:</p>
+    <div class="code-block">
+      <button class="copy-btn">Copy</button>
+      <pre>SELECT record_id, date, p_name, doctor, booking_code,
+       LEFT(chief_complaint, 80) chief,
+       LEFT(diagnose_note, 80) diag,
+       LEFT(procedures, 80) procs
+FROM omnicare_medical_record
+WHERE chief_complaint IS NOT NULL
+ORDER BY RAND()
+LIMIT 3;</pre>
+    </div>
+    <p>Buka Omnicare → cari pasien dengan <code class="inline">booking_code</code> sample → banding isi rekam medis. Harus 100% match.</p>
+
+    <h3>Coverage check</h3>
+    <div class="code-block">
+      <button class="copy-btn">Copy</button>
+      <pre>SELECT
+  COUNT(*) total,
+  SUM(CASE WHEN chief_complaint IS NOT NULL THEN 1 ELSE 0 END) ada_keluhan,
+  SUM(CASE WHEN diagnose_note IS NOT NULL THEN 1 ELSE 0 END) ada_diagnosa,
+  SUM(CASE WHEN treatment_plan_note IS NOT NULL THEN 1 ELSE 0 END) ada_rencana,
+  SUM(CASE WHEN procedures IS NOT NULL THEN 1 ELSE 0 END) ada_prosedur,
+  SUM(CASE WHEN prescription IS NOT NULL AND TRIM(REPLACE(prescription,';','')) &lt;&gt; '' THEN 1 ELSE 0 END) ada_resep
+FROM omnicare_medical_record;</pre>
+    </div>
+    <p>Catat % isian per field — coverage rendah di field tertentu (misal chief_complaint)
+    biasanya karena dokter tidak isi konsisten, BUKAN bug sync.</p>
+
+    <ul class="check-list">
+      <li><input type="checkbox" id="c5-1" data-verify="5"><label for="c5-1">Cron 02:00 menyentuh tabel (last_synced_at = hari ini)</label></li>
+      <li><input type="checkbox" id="c5-2" data-verify="5"><label for="c5-2">3 sample spot-check 100% match dengan Omnicare</label></li>
+      <li><input type="checkbox" id="c5-3" data-verify="5"><label for="c5-3">Coverage <code class="inline">ada_prosedur</code> &gt; 90% (mayoritas record punya prosedur)</label></li>
+      <li><input type="checkbox" id="c5-4" data-verify="5"><label for="c5-4">Log cron tanpa error: <code class="inline">tail storage/logs/omnicare-cron.log</code></label></li>
+    </ul>
+    <button class="complete-btn" data-phase="5" disabled style="opacity:0.5; cursor:not-allowed">Tandai Fase 5 selesai →</button>
+  </div>
+</section>
+
+<!-- ═════════════════════════════════════════════════════════════════════ -->
+<!-- FINAL                                                                  -->
+<!-- ═════════════════════════════════════════════════════════════════════ -->
+<div class="final-card locked" id="finalCard">
+  <h2 id="finalTitle">🔒 Belum selesai — selesaikan semua fase</h2>
+  <p id="finalMsg">Selesaikan dulu Fase 0 sampai 5. Tombol ini akan unlock otomatis.</p>
+</div>
+
+<footer class="page-footer">
+  Deploy rekam medis — SweetTreats Data Center · disusun atas insiden Omnicare Agt 2025-Apr 2026
+  · simpan progress otomatis di browser (localStorage)
+</footer>
+
+</div>
+
+<script>
+(function() {
+  'use strict';
+  const TOTAL_PHASES = 6;
+  const STORAGE_KEY = 'tf_medical_records_v1';
+
+  function loadState() {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; } catch (e) { return {}; }
+  }
+  function saveState(s) { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); }
+  const state = loadState();
+  state.checks = state.checks || {};
+  state.phases = state.phases || {};
+  state.settings = state.settings || {};
+
+  function applySettings() {
+    const projectPath = document.getElementById('projectPath').value.trim()
+                || '/home/u695655413/domains/datacenter.sweettreats.id/laravel';
+    const phpPath = document.getElementById('phpPath').value.trim() || '/usr/bin/php';
+    state.settings = { projectPath, phpPath };
+    saveState(state);
+    document.querySelectorAll('[data-cmd]').forEach(el => {
+      const orig = el.getAttribute('data-cmd-orig') || el.textContent;
+      el.setAttribute('data-cmd-orig', orig);
+      el.textContent = orig.replace(/\{PROJECT_PATH\}/g, projectPath).replace(/\{PHP_PATH\}/g, phpPath);
+    });
+  }
+  ['projectPath','phpPath'].forEach(id => {
+    const el = document.getElementById(id);
+    if (state.settings[id]) el.value = state.settings[id];
+    el.addEventListener('input', applySettings);
+  });
+  applySettings();
+
+  document.querySelectorAll('.phase-header').forEach(h => {
+    h.addEventListener('click', e => {
+      if (e.target.closest('input, button, label, a')) return;
+      h.nextElementSibling.classList.toggle('show');
+      h.classList.toggle('expanded');
+    });
+  });
+
+  document.querySelectorAll('input[type=checkbox][data-verify]').forEach(cb => {
+    if (state.checks[cb.id]) cb.checked = true;
+    cb.addEventListener('change', () => {
+      state.checks[cb.id] = cb.checked;
+      saveState(state);
+      updatePhaseButton(cb.dataset.verify);
+    });
+  });
+
+  function phaseAllChecked(phase) {
+    const cbs = document.querySelectorAll('input[type=checkbox][data-verify="' + phase + '"]');
+    if (cbs.length === 0) return false;
+    return Array.from(cbs).every(c => c.checked);
+  }
+
+  function updatePhaseButton(phase) {
+    const btn = document.querySelector('.complete-btn[data-phase="' + phase + '"]');
+    if (!btn) return;
+    if (state.phases[phase]) {
+      btn.textContent = '✓ Fase ' + phase + ' selesai (klik untuk un-mark)';
+      btn.classList.add('uncomplete');
+      btn.disabled = false;
+      btn.style.opacity = '1';
+      btn.style.cursor = 'pointer';
+    } else {
+      btn.textContent = 'Tandai Fase ' + phase + ' selesai →';
+      btn.classList.remove('uncomplete');
+      btn.disabled = !phaseAllChecked(phase);
+      btn.style.opacity = btn.disabled ? '0.5' : '1';
+      btn.style.cursor = btn.disabled ? 'not-allowed' : 'pointer';
+    }
+  }
+
+  document.querySelectorAll('.complete-btn').forEach(btn => {
+    const phase = btn.dataset.phase;
+    btn.addEventListener('click', () => {
+      if (state.phases[phase]) {
+        delete state.phases[phase];
+      } else {
+        if (!phaseAllChecked(phase)) return;
+        state.phases[phase] = new Date().toISOString();
+      }
+      saveState(state);
+      updatePhaseUI(phase);
+      updateProgress();
+      if (state.phases[phase]) {
+        const next = document.getElementById('phase-' + (parseInt(phase,10)+1));
+        if (next) setTimeout(() => next.scrollIntoView({behavior:'smooth',block:'start'}), 300);
+      }
+    });
+  });
+
+  function updatePhaseUI(phase) {
+    const section = document.getElementById('phase-' + phase);
+    if (!section) return;
+    const done = state.phases[phase];
+    section.classList.toggle('done', !!done);
+    const status = section.querySelector('.phase-status');
+    if (status) status.textContent = done ? '✓ ' + new Date(done).toLocaleString('id-ID',{hour:'2-digit',minute:'2-digit',day:'2-digit',month:'short'}) : '';
+    updatePhaseButton(phase);
+  }
+
+  function updateProgress() {
+    const done = Object.keys(state.phases).length;
+    const pct = Math.round(done / TOTAL_PHASES * 100);
+    document.getElementById('progressBar').style.width = pct + '%';
+    document.getElementById('progressBar').textContent = pct > 8 ? pct + '%' : '';
+    document.getElementById('progressText').textContent = done + ' dari ' + TOTAL_PHASES + ' fase selesai';
+    const finalCard = document.getElementById('finalCard');
+    if (done === TOTAL_PHASES) {
+      finalCard.classList.remove('locked');
+      document.getElementById('finalTitle').textContent = '🎉 Rekam medis live di prod! Backup teks-rekam-medis aktif.';
+      document.getElementById('finalMsg').innerHTML =
+        'Mulai sekarang:' +
+        '<ul>' +
+        '<li><strong>Tiap hari otomatis</strong>: cron 02:00 pull rekam medis 3 hari terakhir</li>' +
+        '<li><strong>Tiap minggu cek</strong>: <code>SELECT MAX(last_synced_at) FROM omnicare_medical_record</code> — harus update</li>' +
+        '<li><strong>Insiden Omnicare lagi?</strong> Data teks rekam medis aman di prod kita</li>' +
+        '</ul>' +
+        '<strong>Catatan:</strong> <em>file rontgen / foto klinis</em> TIDAK di-backup (tidak ada di API Omnicare). ' +
+        'Itu butuh strategi terpisah (lobby Omnicare buat attachment API atau parallel-upload workflow).';
+    } else {
+      finalCard.classList.add('locked');
+      document.getElementById('finalTitle').textContent = '🔒 Belum selesai — selesaikan semua fase';
+      document.getElementById('finalMsg').textContent = 'Selesaikan dulu Fase 0 sampai 5 (' + done + '/' + TOTAL_PHASES + '). Tombol ini akan unlock otomatis.';
+    }
+  }
+
+  for (let i = 0; i < TOTAL_PHASES; i++) { updatePhaseUI(i); updatePhaseButton(i); }
+  updateProgress();
+
+  for (let i = 0; i < TOTAL_PHASES; i++) {
+    if (!state.phases[i]) {
+      const section = document.getElementById('phase-' + i);
+      if (section) { section.querySelector('.phase-header').classList.add('expanded'); section.querySelector('.phase-body').classList.add('show'); }
+      break;
+    }
+  }
+
+  document.querySelectorAll('.copy-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const pre = btn.parentElement.querySelector('pre');
+      if (!pre) return;
+      navigator.clipboard.writeText(pre.textContent).then(() => {
+        const orig = btn.textContent;
+        btn.textContent = '✓ Copied'; btn.classList.add('copied');
+        setTimeout(() => { btn.textContent = orig; btn.classList.remove('copied'); }, 1500);
+      }).catch(() => { btn.textContent = '✗ Failed'; });
+    });
+  });
+
+  document.getElementById('resetBtn').addEventListener('click', e => {
+    e.preventDefault();
+    if (!confirm('Reset semua progress?')) return;
+    const settings = state.settings;
+    localStorage.removeItem(STORAGE_KEY);
+    state.checks = {}; state.phases = {}; state.settings = settings;
+    saveState(state);
+    document.querySelectorAll('input[type=checkbox][data-verify]').forEach(cb => cb.checked = false);
+    for (let i = 0; i < TOTAL_PHASES; i++) updatePhaseUI(i);
+    updateProgress();
+  });
+})();
+</script>
+</body>
+</html>

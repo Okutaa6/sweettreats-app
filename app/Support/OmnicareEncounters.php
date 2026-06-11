@@ -65,4 +65,39 @@ class OmnicareEncounters
 
         return array_values($enc);
     }
+
+    /**
+     * Ringkasan 1 baris rekam medis untuk timeline preview.
+     * Strip artefak HTML escaping Omnicare (<br>, &nbsp;) sebelum return.
+     *
+     * @param  array|object|null  $medical  baris omnicare_medical_record
+     * @return string  contoh "Keluhan: gigi lubang · Dx: Nekrosis pulpa"
+     *                 atau "" kalau tidak ada field yang isi
+     */
+    public static function buildClinicalSummary($medical): string
+    {
+        if ($medical === null) {
+            return '';
+        }
+        $get = fn(string $k) => is_array($medical) ? ($medical[$k] ?? null) : ($medical->{$k} ?? null);
+        $clean = fn(?string $v) => $v === null ? null : trim(
+            html_entity_decode(strip_tags(str_replace(['<br>', '<br/>', '<br />'], ' ', $v)))
+        );
+
+        $chief = $clean($get('chief_complaint'));
+        $diag  = $clean($get('diagnose_note'));
+        $procs = $clean($get('procedures'));
+
+        $parts = [];
+        if ($chief !== null && $chief !== '') $parts[] = 'Keluhan: ' . $chief;
+        if ($diag  !== null && $diag  !== '') $parts[] = 'Dx: ' . $diag;
+
+        if (empty($parts) && $procs !== null && $procs !== '') {
+            // case kontrol/follow-up: dokter tidak isi keluhan/dx, cuma prosedur
+            $procsShort = \Illuminate\Support\Str::limit($procs, 100);
+            $parts[] = 'Kunjungan: ' . $procsShort;
+        }
+
+        return implode(' · ', $parts);
+    }
 }

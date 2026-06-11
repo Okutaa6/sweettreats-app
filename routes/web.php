@@ -267,6 +267,7 @@ Route::middleware([AuthGuard::class])->group(function () {
     Route::patch('rawreservation/{id}/klaim', [ReservationController::class, 'klaimPromo'])->name('rawreservation.klaim');
     Route::post('rawreservation/{reservationId}/service', [ReservationController::class, 'serviceStore'])->name('rawreservation.service.store');
     Route::delete('rawreservation/{reservationId}/service/{serviceId}', [ReservationController::class, 'serviceDestroy'])->name('rawreservation.service.destroy');
+    Route::post('rawreservation/access-modes', [ReservationController::class, 'saveAccessModes'])->name('rawreservation.access-modes.save');
 
     // CRUD - Doctor Service
     Route::get('rawdocservice', [DocServiceController::class, 'index'])->name('rawdocservice');
@@ -318,12 +319,15 @@ Route::middleware([AuthGuard::class])->group(function () {
     Route::patch('koc/{id}/feedback', [KocController::class, 'updateFeedback'])->name('koc.update-feedback');
     Route::get('koc/{id}/contents', [KocController::class, 'contents'])->name('koc.contents');
 
-    // CRUD - Petty Cash (kas kecil — imprest/dana tetap)
+   // CRUD - Petty Cash (kas kecil — imprest/dana tetap)
     Route::get('pettycash',                       [PettyCashController::class, 'index'])->name('pettycash');
+    Route::get('pettycash/export',                [PettyCashController::class, 'export'])->name('pettycash.export');
     Route::post('pettycash/expense',              [PettyCashController::class, 'store'])->name('pettycash.expense');
     Route::post('pettycash/topup',                [PettyCashController::class, 'topup'])->name('pettycash.topup');
+    Route::post('pettycash/opening',              [PettyCashController::class, 'setOpening'])->name('pettycash.opening');
     Route::post('pettycash/transfer',             [PettyCashController::class, 'transfer'])->name('pettycash.transfer');
     Route::delete('pettycash/transaction/{id}',   [PettyCashController::class, 'destroy'])->name('pettycash.destroy');
+    Route::post('pettycash/source/destroy',       [PettyCashController::class, 'destroySource'])->name('pettycash.source.destroy');
     Route::post('pettycash/period/{id}/close',    [PettyCashController::class, 'close'])->name('pettycash.close');
 
     // CRUD - Fund Sources (sumber dana: cash / bank / e-wallet) — Super Admin

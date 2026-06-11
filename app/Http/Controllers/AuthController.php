@@ -34,7 +34,7 @@ class AuthController extends Controller
             'password' => request('password')
         ];
 
-        $user = Users::select('users.*', 'group_path.landing_page', 'group_path.nama as group_name')
+        $user = Users::select('users.*', 'group_path.landing_page', 'group_path.nama as group_name', 'group_path.theme as group_theme')
             ->join('group_path', 'users.group_id', '=', 'group_path.id')
             ->where(['email' => $data['email'], 'status' => 1])
             ->first();
@@ -47,6 +47,7 @@ class AuthController extends Controller
                     'id'             => $user->id,
                     'group_id'       => $user->group_id,
                     'group_name'     => $user->group_name,
+                    'group_theme'    => $user->group_theme ?: 'theme-default',
                     'expires_in'     => time() + 3600,
                     'name'           => $user->nama,
                     'systitle'       => $sysprofile->systitle,

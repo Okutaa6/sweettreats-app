@@ -13,6 +13,13 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         Paginator::useBootstrapFour();
+        
+        $publicHtml = base_path('../public_html');
+        if (is_dir($publicHtml)) {
+            $this->app->usePublicPath($publicHtml);
+        }
+        
+    
     }
 
     /**
@@ -22,4 +29,7 @@ class AppServiceProvider extends ServiceProvider
     {
         //
     }
+    
+    
 }
+

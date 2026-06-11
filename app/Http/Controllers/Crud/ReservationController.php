@@ -25,10 +25,21 @@ class ReservationController extends Controller
 
     public function index()
     {
-        $perPage = in_array((int) request('per_page'), [10, 25, 50, 100]) ? (int) request('per_page') : 10;
+        // Mode akses View Only: kalau role user di-set view_only via
+        // GroupPageAccessMode → kontrol mutasi di hide & tab Waiting List
+        // disembunyikan. Super Admin / Admin General override → selalu full.
+        $isViewOnly = isReservationViewOnly();
 
-        // Tab view: 'list' (default) | 'cal' | 'waitlist'. 'new' = filter chip, bukan tab terpisah.
+        // Tab view: 'list' (default) | 'cal' | 'waitlist' | 'jadwal'. 'new' = filter chip, bukan tab terpisah.
         $view = request('view', 'list');
+        // View-only tidak boleh akses tab waitlist (defensive — UI sudah hide).
+        if ($isViewOnly && $view === 'waitlist') {
+            $view = 'list';
+        }
+
+        // Default per_page lebih besar di tab Jadwal Dokter supaya screenshot satu halaman muat banyak baris.
+        $defaultPerPage = $view === 'jadwal' ? 50 : 10;
+        $perPage = in_array((int) request('per_page'), [10, 25, 50, 100]) ? (int) request('per_page') : $defaultPerPage;
 
         // Ambil input filter
         $filterSearch   = request('search');
@@ -40,6 +51,23 @@ class ReservationController extends Controller
         $filterPromo     = request('promo_id');
         $filterAffiliate = request('affiliate_id');
         $filterNew       = request('new');
+
+        // Tab Jadwal Dokter: kosong sampai dokter dipilih. Default range tanggal
+        // hari ini s/d 30 hari ke depan supaya dokter lihat jadwal yang akan datang.
+        // Default exclude status 'cancelled' supaya screenshot bersih (sales bisa
+        // override via filter status manual).
+        $jadwalEmptyState = false;
+        if ($view === 'jadwal') {
+            if (! $filterDoctor) {
+                $jadwalEmptyState = true;
+            }
+            if (! $filterDateFrom) {
+                $filterDateFrom = now()->toDateString();
+            }
+            if (! $filterDateTo) {
+                $filterDateTo = now()->addDays(30)->toDateString();
+            }
+        }
 
         $query = RawCusReservation::with('branch', 'customer', 'doctor', 'services.docService', 'promo.affiliate')
             ->withCount('services');
@@ -68,6 +96,14 @@ class ReservationController extends Controller
         }
         if ($filterStatus) {
             $query->where('status', $filterStatus);
+        }
+        // Tab Jadwal Dokter: default sembunyikan reservasi dibatalkan supaya
+        // screenshot bersih. Sales bisa override via filter status manual.
+        if ($view === 'jadwal' && ! $filterStatus) {
+            $query->where(function ($q) {
+                $q->where('status', '!=', RawCusReservation::STATUS_CANCELLED)
+                  ->orWhereNull('status');
+            });
         }
         if ($filterDateFrom) {
             $query->whereDate('date', '>=', $filterDateFrom);
@@ -145,6 +181,33 @@ class ReservationController extends Controller
                     $res->slot_start = $slot['start'] ?? null;
                 }
             }
+        } elseif ($view === 'jadwal') {
+            // Tab Jadwal: 3 mode sort lewat query ?sort_jam=
+            //   - (kosong) default: per tanggal kronologis (date ASC, jam ASC)
+            //   - asc:  jam pagi dulu (start_hour ASC), tanggal tie-break ASC
+            //   - desc: jam malam dulu (start_hour DESC), tanggal tie-break ASC
+            // Toggle dipicu lewat klik kolom header JAM di view.
+            if ($jadwalEmptyState) {
+                $reservations = new \Illuminate\Pagination\LengthAwarePaginator(
+                    [], 0, $perPage, 1,
+                    ['path' => request()->url(), 'query' => request()->query()]
+                );
+            } else {
+                $sortJam = request('sort_jam');
+                if ($sortJam === 'asc') {
+                    $reservations = $query->orderBy('start_hour', 'asc')
+                        ->orderBy('date', 'asc')
+                        ->paginate($perPage);
+                } elseif ($sortJam === 'desc') {
+                    $reservations = $query->orderBy('start_hour', 'desc')
+                        ->orderBy('date', 'asc')
+                        ->paginate($perPage);
+                } else {
+                    $reservations = $query->orderBy('date', 'asc')
+                        ->orderBy('start_hour', 'asc')
+                        ->paginate($perPage);
+                }
+            }
         } else {
             $reservations = $query->orderBy('date', 'desc')
                 ->orderBy('raw_doctor_id')
@@ -187,6 +250,35 @@ class ReservationController extends Controller
             })
             ->count();
 
+        // Pre-render data "Kelola Halaman" — hanya untuk admin yang boleh kelola.
+        // Pakai DB facade karena AccessPath / GroupPath models pakai string PK
+        // & legacy schema (lihat database/migrations/*_access_path & *_group_path).
+        // Daftar group yang punya akses ke rawreservation lewat group_access JOIN
+        // access_path WHERE access_path.link = 'rawreservation'. Sertakan juga
+        // kolom theme dari group_path untuk pre-fill dropdown tema.
+        $accessModeGroups = [];
+        if (canManagePageAccess()) {
+            $rows = \Illuminate\Support\Facades\DB::table('group_access')
+                ->join('access_path', 'group_access.access_id', '=', 'access_path.id')
+                ->join('group_path',  'group_access.group_id',  '=', 'group_path.id')
+                ->where('access_path.link', 'rawreservation')
+                ->select('group_path.id as id', 'group_path.nama as nama', 'group_path.theme as theme')
+                ->orderBy('group_path.nama')
+                ->get();
+
+            $currentModes = \App\Models\GroupPageAccessMode::where('page_key', 'rawreservation')
+                ->pluck('access_mode', 'group_id');
+
+            foreach ($rows as $row) {
+                $accessModeGroups[] = (object) [
+                    'id'    => $row->id,
+                    'nama'  => $row->nama,
+                    'mode'  => $currentModes[$row->id] ?? \App\Models\GroupPageAccessMode::MODE_FULL,
+                    'theme' => $row->theme ?: 'theme-default',
+                ];
+            }
+        }
+
         return view('crud.reservation.list', compact(
             'reservations',
             'filterSearch',
@@ -206,12 +298,81 @@ class ReservationController extends Controller
             'perPage',
             'view',
             'waitlistCount',
-            'newCount'
+            'newCount',
+            'jadwalEmptyState',
+            'isViewOnly',
+            'accessModeGroups'
         ));
+    }
+
+    /**
+     * POST /rawreservation/access-modes — simpan mode akses & tema warna per
+     * role untuk halaman Raw Reservation. Hanya untuk Super Admin / Admin General.
+     *
+     * Request body:
+     *   - modes[<group_id>]  = 'full' | 'view_only'
+     *   - themes[<group_id>] = 'theme-default' | 'theme-blue' | dst (lihat availableThemes())
+     */
+    public function saveAccessModes()
+    {
+        if (! canManagePageAccess()) {
+            abort(403, 'Hanya Super Admin / Admin General yang boleh mengatur mode akses.');
+        }
+
+        // ── Mode akses (full / view_only) ──
+        $modes = (array) request()->input('modes', []);
+        $clean = [];
+        foreach ($modes as $gid => $mode) {
+            $gid = (string) $gid;
+            if ($gid === '') continue;
+            $clean[$gid] = $mode === \App\Models\GroupPageAccessMode::MODE_VIEW_ONLY
+                ? \App\Models\GroupPageAccessMode::MODE_VIEW_ONLY
+                : \App\Models\GroupPageAccessMode::MODE_FULL;
+        }
+        \App\Models\GroupPageAccessMode::bulkSet('rawreservation', $clean);
+
+        // ── Tema warna brand per role (global, disimpan di group_path.theme) ──
+        $themes = (array) request()->input('themes', []);
+        $validThemes = array_keys(availableThemes());
+        foreach ($themes as $gid => $theme) {
+            $gid = (string) $gid;
+            if ($gid === '') continue;
+            $theme = in_array($theme, $validThemes, true) ? $theme : 'theme-default';
+            \Illuminate\Support\Facades\DB::table('group_path')
+                ->where('id', $gid)
+                ->update(['theme' => $theme]);
+        }
+
+        // Kalau admin yang lagi save adalah anggota salah satu role yang
+        // theme-nya berubah, sync session-nya juga supaya tema langsung apply
+        // tanpa harus logout-login.
+        $myGroupId = session('group_id');
+        if ($myGroupId && isset($themes[$myGroupId])) {
+            $newTheme = in_array($themes[$myGroupId], $validThemes, true)
+                ? $themes[$myGroupId]
+                : 'theme-default';
+            session(['group_theme' => $newTheme]);
+        }
+
+        return redirect()
+            ->route('rawreservation')
+            ->with('success', 'Pengaturan akses & tema halaman Raw Reservation berhasil disimpan.');
+    }
+
+    /**
+     * Helper internal: abort kalau user adalah view-only. Dipakai di semua
+     * method mutasi (create/store/update/destroy/inline/klaim/service).
+     */
+    private function abortIfViewOnly(): void
+    {
+        if (isReservationViewOnly()) {
+            abort(403, 'Akses Anda hanya view-only — tidak dapat melakukan perubahan.');
+        }
     }
 
     public function create()
     {
+        $this->abortIfViewOnly();
         $sessionBranch = session('raw_branch_id');
 
         // Fallback Database
@@ -254,6 +415,7 @@ class ReservationController extends Controller
      */
     public function storeQuickPatient()
     {
+        $this->abortIfViewOnly();
         $data = request()->validate([
             'name'          => 'required|max:255',
             'phone'         => 'required|regex:/^0[0-9]{9,14}$/',
@@ -304,6 +466,7 @@ class ReservationController extends Controller
 
     public function store()
     {
+        $this->abortIfViewOnly();
         $isWaiting = (int) request('is_waiting', 0) === 1;
 
         request()->validate([
@@ -422,6 +585,7 @@ class ReservationController extends Controller
 
     public function edit($id)
     {
+        $this->abortIfViewOnly();
         $reservation = RawCusReservation::with('branch', 'customer', 'doctor', 'promo', 'marketingPromo', 'commission.affiliate')->findOrFail($id);
 
         $sessionBranch = session('raw_branch_id');
@@ -508,6 +672,7 @@ class ReservationController extends Controller
 
     public function update($id)
     {
+        $this->abortIfViewOnly();
         request()->validate([
             'raw_branch_id'   => 'required',
             'raw_customer_id' => 'required',
@@ -704,6 +869,9 @@ class ReservationController extends Controller
 
     public function updateInline($id)
     {
+        if (isReservationViewOnly()) {
+            return response()->json(['ok' => false, 'message' => 'Akses Anda hanya view-only.'], 403);
+        }
         $reservation = RawCusReservation::findOrFail($id);
 
         $field   = request('field');
@@ -724,6 +892,7 @@ class ReservationController extends Controller
 
     public function klaimPromo($id)
 {
+    $this->abortIfViewOnly();
     $reservation = RawCusReservation::findOrFail($id);
 
     // Cek apa reservasi punya promo
@@ -748,6 +917,7 @@ class ReservationController extends Controller
 
     public function destroy($id)
     {
+        $this->abortIfViewOnly();
         $reservation = RawCusReservation::with('commission', 'services')->findOrFail($id);
 
         \Illuminate\Support\Facades\DB::transaction(function () use ($reservation) {
@@ -768,6 +938,7 @@ class ReservationController extends Controller
 
     public function commissionApprove($reservationId, $commissionId)
     {
+        $this->abortIfViewOnly();
         $commission = \App\Models\RawCommission::where('raw_cus_reservation_id', $reservationId)
             ->findOrFail($commissionId);
 
@@ -791,6 +962,7 @@ class ReservationController extends Controller
 
     public function commissionPay($reservationId, $commissionId)
     {
+        $this->abortIfViewOnly();
         $commission = \App\Models\RawCommission::where('raw_cus_reservation_id', $reservationId)
             ->findOrFail($commissionId);
 
@@ -811,6 +983,7 @@ class ReservationController extends Controller
 
     public function serviceStore($reservationId)
     {
+        $this->abortIfViewOnly();
         request()->validate([
             'raw_doctor_id'      => 'required',
             'raw_doc_service_id' => 'required',
@@ -827,6 +1000,7 @@ class ReservationController extends Controller
 
     public function serviceDestroy($reservationId, $serviceId)
     {
+        $this->abortIfViewOnly();
         $service = RawCusResService::where('raw_cus_reservation_id', $reservationId)
             ->findOrFail($serviceId);
 

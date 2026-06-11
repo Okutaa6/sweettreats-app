@@ -1,0 +1,118 @@
+/* ============================================================
+   Themes — role-based color theme override.
+
+   Saat ini cuma 2 opsi tema yang available untuk Kelola Halaman:
+     - theme-default   → pakai brown brand existing (no override)
+     - theme-marketing → pakai palette teal/lime dari theme-marketing.css
+
+   Mekanisme: layouts/app.blade.php cek group_path.theme user. Kalau
+   theme-marketing, body data-theme="marketing" di-paksa ke semua halaman
+   (bukan cuma marketing routes). Theme-marketing.css yang existing
+   (1845 baris) yang handle palette-nya — file ini cuma jaga-jaga
+   spot fix bila perlu.
+
+   Tambah tema baru ke depannya:
+     1. Daftarin di app/Helpers.php → availableThemes()
+     2. Bikin body[data-theme="X"] di file CSS terpisah (mirror pola
+        theme-marketing.css) ATAU body.theme-X di file ini.
+     3. Update layouts/app.blade.php untuk map theme-X → data-theme="X".
+   ============================================================ */
+
+/* ============================================================
+   Spot fix: selector hardcoded yang TIDAK pakai var(--brown).
+   Diaktifkan saat body[data-theme="marketing"] (paksa global atau
+   route marketing).
+   ============================================================ */
+body[data-theme="marketing"] .st-modal-header {
+    background: var(--brown) !important;
+}
+body[data-theme="marketing"] .st-cal-today-btn {
+    background: linear-gradient(180deg, var(--brown-2) 0%, var(--brown) 100%) !important;
+    border-color: var(--brown) !important;
+}
+body[data-theme="marketing"] .st-cal-today-btn:hover {
+    background: linear-gradient(180deg, var(--brown-3) 0%, var(--brown-2) 100%) !important;
+}
+
+/* Page-level background tint pada empty state / banner (lighter shade).
+   #fff8f3 = brown-tinted cream. Ganti pakai var brown-cream. */
+body[data-theme="marketing"] .jd-empty,
+body[data-theme="marketing"] .pc-source-danger__warn,
+body[data-theme="marketing"] .pc-tab-hint,
+body[data-theme="marketing"] .pc-opening-total,
+body[data-theme="marketing"] .rr-theme-note,
+body[data-theme="marketing"] .rr-access-table thead th {
+    background: var(--brown-cream) !important;
+}
+body[data-theme="marketing"] .rr-theme-note {
+    border-left-color: var(--brown-2) !important;
+    color: var(--text-primary) !important;
+}
+body[data-theme="marketing"] .pc-source-empty {
+    background: linear-gradient(180deg, var(--brown-cream) 0%, #ffffff 100%) !important;
+}
+
+/* --text-subtle dipakai di .st-cal-event__doctor (nama dokter kecil di card).
+   theme-marketing.css ga override ini, jadi tetap brown-tinted. Override. */
+body[data-theme="marketing"] {
+    --text-subtle: #4d7d7a;
+}
+
+/* ── All-modal table (.st-list-table) — hardcoded brown overrides ── */
+body[data-theme="marketing"] .st-list-table thead th {
+    background: var(--brown-cream) !important;
+    color: var(--brown) !important;
+    border-bottom-color: var(--brown-pale) !important;
+}
+body[data-theme="marketing"] .st-list-table tbody td {
+    color: var(--text-primary) !important;
+    border-bottom-color: var(--brown-pale) !important;
+}
+body[data-theme="marketing"] .st-list-table tbody tr:hover td,
+body[data-theme="marketing"] .st-list-table tbody tr.is-cancelled td {
+    background: var(--brown-cream) !important;
+}
+
+/* Cell inside all-modal: text black (sesuai request), bg netral. */
+body[data-theme="marketing"] .st-time,
+body[data-theme="marketing"] .st-pasien-name,
+body[data-theme="marketing"] .st-status-wrap {
+    color: #1C0A00 !important;
+    background: transparent !important;
+}
+body[data-theme="marketing"] .st-pasien-sub {
+    color: #6b7280 !important;
+}
+/* Perawatan badge di all-modal: bg netral cream-teal, text HITAM. */
+body[data-theme="marketing"] .st-perawatan-badge {
+    background: #F5F0EA !important;
+    color: #1C0A00 !important;
+    border: 1px solid var(--divider-strong) !important;
+    font-weight: 500 !important;
+}
+
+/* Filter panel — di marketing theme pakai cream-teal bg (selaras dgn
+   filter panel di halaman affiliate / promo marketing). */
+body[data-theme="marketing"] .st-filter-panel {
+    background: linear-gradient(180deg, #f0faf9 0%, #e6f5f4 100%) !important;
+    border-color: var(--brown-pale) !important;
+}
+
+/* ── Single modal (#modalBody) ──
+   Label kiri: NO bg, text BLACK (sesuai request user)
+   Value kanan: text BLACK */
+body[data-theme="marketing"] #modalBody {
+    color: #1C0A00;
+}
+body[data-theme="marketing"] #modalBody tr td {
+    color: #1C0A00 !important;
+    border-color: var(--brown-pale) !important;
+    background: transparent !important;
+}
+body[data-theme="marketing"] #modalBody tr td:first-child {
+    color: #1C0A00 !important;
+    background: transparent !important;
+}
+body[data-theme="marketing"] .modal-hover-row:hover td {
+    background-color: var(--brown-cream) !important;
+}

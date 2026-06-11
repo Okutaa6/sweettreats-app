@@ -28,7 +28,7 @@ class SyncOmnicare extends Command
 {
     protected $signature = 'omnicare:sync
                             {--place= : Place ID (default: semua cabang aktif dari config)}
-                            {--endpoint= : location|polyclinic|doctor|patient|sales|product (default: all)}
+                            {--endpoint= : location|polyclinic|doctor|patient|sales|product|medical (default: all)}
                             {--days=3 : Lookback days untuk sales/product (default 3)}
                             {--start= : Override start date YYYYMMDD (e.g. backfill)}
                             {--end= : Override end date YYYYMMDD}
@@ -89,6 +89,9 @@ class SyncOmnicare extends Command
                 }
                 if ($endpoint === null || $endpoint === 'product') {
                     $this->syncProductSales($placeId, $startYmd, $endYmd);
+                }
+                if ($endpoint === null || $endpoint === 'medical') {
+                    $this->syncMedicalRecords($placeId, $startYmd, $endYmd);
                 }
             } catch (Throwable $e) {
                 $this->error("  ✗ Branch {$placeId} threw: {$e->getMessage()}");
@@ -515,6 +518,130 @@ class SyncOmnicare extends Command
         } else {
             $this->finishSyncLog($logId, 'success', $totalCount, $pageCount);
             $this->line("    ✓ {$totalCount} sales rows (across {$pageCount} pages)");
+        }
+    }
+
+    /**
+     * Sync /get/all_medical_records — backup rekam medis (chief_complaint,
+     * diagnosa, treatment plan, resep, prosedur) ke omnicare_medical_record.
+     *
+     * Field date sudah Y-m-d, time HH:MM:SS — pakai apa adanya.
+     * PK composite (record_id, branch_id) karena record_id bisa kolisi antar cabang.
+     */
+    private function syncMedicalRecords(string $placeId, string $startYmd, string $endYmd): void
+    {
+        // Schema guard: skip bersih kalau tabel belum di-deploy (mis. prod yang
+        // belum jalankan 2026_06_02_omnicare_medical_records.sql). Cegah cron
+        // error tiap malam saat code sudah ada tapi tabel belum.
+        if (! \Illuminate\Support\Facades\Schema::hasTable('omnicare_medical_record')) {
+            $this->line('  /get/all_medical_records — SKIP (tabel belum ada)');
+            return;
+        }
+
+        $chunks = $this->dateChunks($startYmd, $endYmd, 31);
+        $totalCount = 0;
+        $pageCount = 0;
+        $rangeLabel = count($chunks) === 1 ? "{$startYmd}-{$endYmd}" : count($chunks) . ' chunks';
+        $this->line("  /get/all_medical_records ({$rangeLabel})");
+
+        $logId = $this->startSyncLog('/get/all_medical_records', $placeId, [
+            'start' => $startYmd, 'end' => $endYmd,
+        ]);
+
+        $failedChunks = [];
+        try {
+            foreach ($chunks as [$chunkStart, $chunkEnd]) {
+                foreach ($this->client->paginate('/get/all_medical_records', [
+                    'place' => $placeId,
+                    'start' => $chunkStart,
+                    'end'   => $chunkEnd,
+                ]) as $resp) {
+                    if (! $resp->isSuccess()) {
+                        if (! $resp->isEmpty()) {
+                            $failedChunks[] = "{$chunkStart}-{$chunkEnd}: {$resp->code} {$resp->message}";
+                            $this->warn("    ⚠ chunk {$chunkStart}-{$chunkEnd} gagal: {$resp->code} {$resp->message} — lanjut");
+                        }
+                        break;
+                    }
+
+                    foreach ($resp->data as $row) {
+                        $recordId = N::str($row['record_id'] ?? null);
+                        if ($recordId === null) {
+                            continue;
+                        }
+
+                        $date = N::str($row['date'] ?? null);
+                        if ($date === null) {
+                            continue;
+                        }
+
+                        if (! $this->dryRun) {
+                            DB::table('omnicare_medical_record')->updateOrInsert(
+                                ['record_id' => $recordId, 'branch_id' => $placeId],
+                                [
+                                    'date'                 => $date,
+                                    'time_in'              => N::str($row['time_in'] ?? null),
+                                    'time_out'             => N::str($row['time_out'] ?? null),
+                                    'p_id'                 => N::str($row['p_id'] ?? null),
+                                    'p_name'               => N::str($row['p_name'] ?? null),
+                                    'p_dob'                => N::str($row['p_dob'] ?? null),
+                                    'p_mobile_number'      => N::str($row['p_mobile_number'] ?? null),
+                                    'p_whatsapp_number'    => N::str($row['p_whatsapp_number'] ?? null),
+                                    'p_home_phone'         => N::str($row['p_home_phone'] ?? null),
+                                    'p_home_address'       => N::str($row['p_home_address'] ?? null),
+                                    'p_email'              => N::str($row['p_email'] ?? null),
+                                    'p_identification_num' => N::str($row['p_identification_num'] ?? null),
+                                    'p_ins_category'       => N::str($row['p_ins_category'] ?? null),
+                                    'p_ins_number'         => N::str($row['p_ins_number'] ?? null),
+                                    'p_ins_id'             => N::str($row['p_ins_id'] ?? null),
+                                    'p_insurance'          => N::str($row['p_insurance'] ?? null),
+                                    'p_ip_color'           => N::str($row['p_ip_color'] ?? null),
+                                    'pp_village'           => N::str($row['pp_village'] ?? null),
+                                    'queue_number'         => N::str($row['queue_number'] ?? null),
+                                    'is_new_patient'       => N::bool($row['is_new_patient'] ?? false),
+                                    'booking_code'         => N::str($row['booking_code'] ?? null),
+                                    'branch'               => N::str($row['branch'] ?? null),
+                                    'doctor'               => N::str($row['doctor'] ?? null),
+                                    'doc_id'               => N::str($row['doc_id'] ?? null),
+                                    'chief_complaint'      => N::str($row['chief_complaint'] ?? null),
+                                    'subjective'           => N::str($row['subjective'] ?? null),
+                                    'objective'            => N::str($row['objective'] ?? null),
+                                    'diagnose_note'        => N::str($row['diagnose_note'] ?? null),
+                                    'diagnoses'            => N::str($row['diagnoses'] ?? null),
+                                    'plan_note'            => N::str($row['plan_note'] ?? null),
+                                    'treatment_plan_note'  => N::str($row['treatment_plan_note'] ?? null),
+                                    'procedures'           => N::str($row['procedures'] ?? null),
+                                    'prescription'         => N::str($row['prescription'] ?? null),
+                                    'vs_weight'            => N::str($row['vs_weight'] ?? null),
+                                    'vs_height'            => N::str($row['vs_height'] ?? null),
+                                    'vs_temperature'       => N::str($row['vs_temperature'] ?? null),
+                                    'vs_blood_pressure'    => N::str($row['vs_blood_pressure'] ?? null),
+                                    'vs_pulse'             => N::str($row['vs_pulse'] ?? null),
+                                    'vs_respiration'       => N::str($row['vs_respiration'] ?? null),
+                                    'vs_waist_line'        => N::str($row['vs_waist_line'] ?? null),
+                                    'last_synced_at'       => now(),
+                                    'raw_payload'          => N::jsonPayload($row),
+                                    'updated_at'           => now(),
+                                ]
+                            );
+                        }
+                        $totalCount++;
+                    }
+                    $pageCount++;
+                }
+            }
+        } catch (Throwable $e) {
+            $this->finishSyncLog($logId, 'error', $totalCount, $pageCount, $e->getMessage());
+            throw $e;
+        }
+
+        if (! empty($failedChunks)) {
+            $msg = count($failedChunks) . ' chunk gagal: ' . implode(' | ', $failedChunks);
+            $this->finishSyncLog($logId, 'partial', $totalCount, $pageCount, $msg);
+            $this->warn("    ⚠ {$totalCount} medical records (partial — " . count($failedChunks) . " chunk gagal)");
+        } else {
+            $this->finishSyncLog($logId, 'success', $totalCount, $pageCount);
+            $this->line("    ✓ {$totalCount} medical records (across {$pageCount} pages)");
         }
     }
 

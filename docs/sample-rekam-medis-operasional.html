@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Contoh Rekam Medis ter-Backup — SweetTreats</title>
+<style>
+  :root {
+    --brown: #461500;
+    --brown-2: #6B4433;
+    --brown-pale: #D0C4BF;
+    --cream: #FAF5F2;
+    --cream-2: #F5EFEA;
+    --ok: #1f7a3d;
+    --ok-bg: #e8f6ed;
+    --warn: #b8860b;
+    --warn-bg: #fff8e1;
+    --err: #c0392b;
+    --err-bg: #fdecea;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    margin: 0; padding: 0; background: var(--cream); color: #2D1810; line-height: 1.55;
+  }
+  .container { max-width: 920px; margin: 0 auto; padding: 24px 20px 80px; }
+
+  header.page-header {
+    border-bottom: 3px solid var(--brown);
+    padding-bottom: 14px; margin-bottom: 22px;
+  }
+  h1 { color: var(--brown); margin: 0 0 6px; font-size: 1.7rem; font-weight: 700; }
+  .subtitle { color: var(--brown-2); font-size: 0.95rem; }
+
+  .intro {
+    background: #fff;
+    border: 2px solid var(--brown-pale);
+    border-radius: 10px;
+    padding: 16px 20px; margin-bottom: 24px;
+    font-size: 0.92rem;
+  }
+  .intro h2 { color: var(--brown); margin: 0 0 10px; font-size: 1.1rem; }
+  .intro p { margin: 8px 0; }
+  .intro ul { margin: 6px 0 0; padding-left: 22px; }
+  .intro li { margin: 4px 0; }
+
+  .badge {
+    display: inline-block; padding: 2px 9px;
+    border-radius: 12px; font-size: 0.74rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.03em;
+  }
+  .badge-ok { background: var(--ok-bg); color: var(--ok); border: 1px solid var(--ok); }
+  .badge-warn { background: var(--warn-bg); color: var(--warn); border: 1px solid var(--warn); }
+  .badge-err { background: var(--err-bg); color: var(--err); border: 1px solid var(--err); }
+
+  .record-card {
+    background: #fff;
+    border: 1.5px solid var(--brown-pale);
+    border-radius: 10px;
+    margin-bottom: 24px;
+    overflow: hidden;
+  }
+  .record-header {
+    background: var(--brown);
+    color: #fff;
+    padding: 14px 20px;
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  }
+  .record-header .case-num {
+    background: #fff; color: var(--brown);
+    font-weight: 700; padding: 4px 12px;
+    border-radius: 16px; font-size: 0.82rem;
+  }
+  .record-header h2 { margin: 0; font-size: 1.05rem; font-weight: 600; }
+  .record-header .case-desc { opacity: 0.88; font-size: 0.85rem; margin-left: auto; }
+
+  .meta-grid {
+    background: var(--cream-2);
+    padding: 12px 20px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 10px 18px;
+    border-bottom: 1px solid var(--brown-pale);
+  }
+  .meta-grid .item { font-size: 0.84rem; }
+  .meta-grid .item .label {
+    display: block; color: var(--brown-2);
+    font-size: 0.7rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.04em;
+    margin-bottom: 2px;
+  }
+  .meta-grid .item .value {
+    color: #2D1810; font-weight: 600;
+    font-family: ui-monospace, "Courier New", monospace;
+    font-size: 0.86rem;
+  }
+
+  .field-section { padding: 16px 22px; border-bottom: 1px solid #f0e8e0; }
+  .field-section:last-child { border-bottom: none; }
+  .field-section h3 {
+    color: var(--brown); margin: 0 0 10px;
+    font-size: 0.86rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.05em;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .field-section h3 .source-tag {
+    background: var(--cream-2); color: var(--brown-2);
+    font-size: 0.7rem; padding: 2px 8px; border-radius: 8px;
+    font-weight: 600; text-transform: none; letter-spacing: 0;
+  }
+  .field-row { display: flex; gap: 12px; margin: 8px 0; align-items: flex-start; }
+  .field-row .name {
+    color: var(--brown-2); font-weight: 600;
+    font-size: 0.82rem;
+    min-width: 165px; flex-shrink: 0;
+    padding-top: 2px;
+  }
+  .field-row .name code {
+    background: #f1ebe5; padding: 1px 6px; border-radius: 3px;
+    font-family: ui-monospace, monospace; font-size: 0.78em;
+    color: var(--brown); font-weight: 600;
+    display: block; margin-top: 2px;
+  }
+  .field-row .content {
+    flex: 1;
+    background: var(--cream); padding: 8px 12px;
+    border-radius: 5px; border-left: 3px solid var(--brown-pale);
+    font-size: 0.92rem;
+  }
+  .field-row .content.empty {
+    color: #888; font-style: italic;
+    background: #f7f3ef;
+    border-left-color: #ddd;
+  }
+
+  .footer-note {
+    background: var(--warn-bg);
+    border-left: 4px solid var(--warn);
+    padding: 14px 18px; border-radius: 7px;
+    margin: 24px 0;
+    font-size: 0.92rem;
+  }
+  .footer-note h3 { color: var(--warn); margin: 0 0 8px; font-size: 1rem; }
+
+  .summary-card {
+    background: var(--ok-bg);
+    border: 2px solid var(--ok);
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin-top: 24px;
+  }
+  .summary-card h3 { color: var(--ok); margin: 0 0 8px; }
+  .stat-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 10px; margin-top: 10px;
+  }
+  .stat { text-align: center; background: #fff; padding: 10px; border-radius: 6px; }
+  .stat .num { font-size: 1.3rem; font-weight: 700; color: var(--ok); }
+  .stat .lbl { font-size: 0.74rem; color: var(--brown-2); margin-top: 2px; }
+
+  footer.page-footer {
+    margin-top: 32px; padding-top: 14px;
+    border-top: 1px solid var(--brown-pale);
+    font-size: 0.78rem; color: #888; text-align: center;
+  }
+
+  @media print {
+    body { background: #fff; }
+    .record-card, .intro, .summary-card { break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+<header class="page-header">
+  <h1>🩺 Contoh Rekam Medis ter-Backup</h1>
+  <div class="subtitle">SweetTreats Data Center — 3 sample dari 47.708 rekam medis yang sekarang ter-backup otomatis</div>
+</header>
+
+<div class="intro">
+  <h2>📌 Untuk tim Operasional</h2>
+  <p>
+    Mulai <strong>2 Juni 2026</strong>, SweetTreats Data Center otomatis backup
+    <strong>seluruh rekam medis pasien</strong> dari Omnicare ke server kami,
+    setiap hari jam 02:00 pagi. Dokumen ini menampilkan
+    <strong>3 contoh rekam medis nyata</strong> yang sudah ter-backup — biar Anda
+    tahu data apa yang aman di sistem kami.
+  </p>
+  <p>
+    <strong>Yang ter-backup:</strong>
+  </p>
+  <ul>
+    <li>✅ Identitas pasien (nama, ID, no HP, tanggal lahir, alamat, NIK)</li>
+    <li>✅ Tanggal & waktu kunjungan, kode booking, dokter, antrian</li>
+    <li>✅ Keluhan utama pasien (chief complaint)</li>
+    <li>✅ Anamnesis subjektif & objektif</li>
+    <li>✅ Diagnosa</li>
+    <li>✅ Rencana perawatan</li>
+    <li>✅ Tindakan/prosedur yang dilakukan (dengan kode)</li>
+    <li>✅ Resep obat</li>
+    <li>✅ Tanda vital (BP, suhu, nadi, dll — kalau diisi)</li>
+  </ul>
+  <p>
+    <strong style="color: var(--err)">Yang BELUM ter-backup:</strong>
+    file foto / rontgen yang diupload sales ke Omnicare. Itu yang hilang di
+    insiden Agt 2025-Apr 2026. Sedang kami pikirkan strategi terpisah
+    (lihat catatan di bawah).
+  </p>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- CONTOH 1 — Endodonsia / nekrosis pulpa                                -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<div class="record-card">
+  <div class="record-header">
+    <span class="case-num">CONTOH 1</span>
+    <h2>Konsultasi spesialis — gigi berlubang</h2>
+    <span class="case-desc">Kasus endodonsia (perawatan saraf gigi)</span>
+  </div>
+
+  <div class="meta-grid">
+    <div class="item"><span class="label">Cabang</span><span class="value">Bintaro</span></div>
+    <div class="item"><span class="label">Tanggal kunjungan</span><span class="value">2026-06-02</span></div>
+    <div class="item"><span class="label">Jam masuk – keluar</span><span class="value">11:46 – 12:07</span></div>
+    <div class="item"><span class="label">Durasi</span><span class="value">21 menit</span></div>
+    <div class="item"><span class="label">No. antrian</span><span class="value">1</span></div>
+    <div class="item"><span class="label">Status pasien</span><span class="value">Lama (pernah berobat)</span></div>
+    <div class="item"><span class="label">Kode booking</span><span class="value">AB0GYBCM</span></div>
+    <div class="item"><span class="label">Record ID Omnicare</span><span class="value">20632</span></div>
+  </div>
+
+  <div class="field-section">
+    <h3>👤 Identitas pasien <span class="source-tag">10 field</span></h3>
+    <div class="field-row">
+      <div class="name">Nama lengkap<code>p_name</code></div>
+      <div class="content">Tirani Tri Mutia</div>
+    </div>
+    <div class="field-row">
+      <div class="name">ID pasien Omnicare<code>p_id</code></div>
+      <div class="content">D-2512-1138</div>
+    </div>
+    <div class="field-row">
+      <div class="name">Tanggal lahir<code>p_dob</code></div>
+      <div class="content">04/03/2001 (25 tahun)</div>
+    </div>
+  </div>
+
+  <div class="field-section">
+    <h3>👨‍⚕️ Dokter penanggung jawab <span class="source-tag">2 field</span></h3>
+    <div class="field-row">
+      <div class="name">Nama dokter<code>doctor</code></div>
+      <div class="content">Rista Eka Aprilianti</div>
+    </div>
+    <div class="field-row">
+      <div class="name">ID dokter Omnicare<code>doc_id</code></div>
+      <div class="content">13707</div>
+    </div>
+  </div>
+
+  <div class="field-section">
+    <h3>🩹 Anamnesis (riwayat keluhan) <span class="source-tag">3 field — yang paling sering ditanya pasien</span></h3>
+    <div class="field-row">
+      <div class="name">Keluhan utama<code>chief_complaint</code></div>
+      <div class="content">Ada gigi lubang</div>
+    </div>
+    <div class="field-row">
+      <div class="name">Anamnesis subjektif<code>subjective</code></div>
+      <div class="content">gigi belakng kiri bawah berlubang terasa tidak nyaman</div>
+    </div>
+    <div class="field-row">
+      <div class="name">Pemeriksaan objektif<code>objective</code></div>
+      <div class="content">37: karies mencapai pulpa disto oklusal, polip gingiva</div>
+    </div>
+  </div>
+
+  <div class="field-section">
+    <h3>🔬 Diagnosa &amp; rencana <span class="source-tag">3 field</span></h3>
+    <div class="field-row">
+      <div class="name">Diagnosa<code>diagnose_note</code></div>
+      <div class="content">37: Nekrosis pulpa</div>
+    </div>
+    <div class="field-row">
+      <div class="name">Rencana perawatan<code>treatment_plan_note</code></div>
+      <div class="content">konsultasi<br>pro PSA/Exo</div>
+    </div>
+    <div class="field-row">
+      <div class="name">Plan tambahan<code>plan_note</code></div>
+      <div class="content empty">(tidak diisi)</div>
+    </div>
+  </div>
+
+  <div class="field-section">
+    <h3>💉 Tindakan / prosedur dilakukan <span class="source-tag">untuk billing &amp; audit</span></h3>
+    <div class="field-row">
+      <div class="name">Prosedur<code>procedures</code></div>
+      <div class="content">
+        • 25KS105 — Konsultasi - Spesialis<br>
+        • 26PL132 — Rontgen Periapical
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="name">Resep obat<code>prescription</code></div>
+      <div class="content empty">(tidak ada resep di kunjungan ini)</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- CONTOH 2 — Kontrol Ortho                                              -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<div class="record-card">
+  <div class="record-header">
+    <span class="case-num">CONTOH 2</span>
+    <h2>Kontrol Behel (orthodonti)</h2>
+    <span class="case-desc">Follow-up bracket terlalu kecil</span>
+  </div>
+
+  <div class="meta-grid">
+    <div class="item"><span class="label">Cabang</span><span class="value">Cinere</span></div>
+    <div class="item"><span class="label">Tanggal kunjungan</span><span class="value">2026-06-02</span></div>
+    <div class="item"><span class="label">Status pasien</span><span class="value">Lama</span></div>
+    <div class="item"><span class="label">Kode booking</span><span class="value">7MWKB0VA</span></div>
+    <div class="item"><span class="label">Record ID Omnicare</span><span class="value">3576</span></div>
+  </div>
+
+  <div class="field-section">
+    <h3>👤 Identitas pasien</h3>
+    <div class="field-row">
+      <div class="name">Nama lengkap<code>p_name</code></div>
+      <div class="content">Elsa Syafira</div>
+    </div>
+  </div>
+
+  <div class="field-section">
+    <h3>👨‍⚕️ Dokter penanggung jawab</h3>
+    <div class="field-row">
+      <div class="name">Nama dokter<code>doctor</code></div>
+      <div class="content">Drg. Cut Yuliza</div>
+    </div>
+  </div>
+
+  <div class="field-section">
+    <h3>🩹 Anamnesis</h3>
+    <div class="field-row">
+      <div class="name">Keluhan utama<code>chief_complaint</code></div>
+      <div class="content empty">(kontrol rutin — tidak ada keluhan baru)</div>
+    </div>
+  </div>
+
+  <div class="field-section">
+    <h3>📋 Catatan dokter — kondisi yang diperhatikan</h3>
+    <div class="field-row">
+      <div class="name">Rencana perawatan<code>treatment_plan_note</code></div>
+      <div class="content">
+        menunggu hasil cetakan karena besar gigi bawah terlalu kecil
+        dibanding besar bracket orthonya
+      </div>
+    </div>
+  </div>
+
+  <div class="field-section">
+    <h3>💉 Tindakan dilakukan hari ini</h3>
+    <div class="field-row">
+      <div class="name">Prosedur<code>procedures</code></div>
+      <div class="content">
+        • 26GP096 — Cetak Alginate / rahang<br>
+        • 25KS105 — Konsultasi - Spesialis
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- CONTOH 3 — Pasien baru                                                -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<div class="record-card">
+  <div class="record-header">
+    <span class="case-num">CONTOH 3</span>
+    <h2>Pasien baru — konsultasi awal</h2>
+    <span class="case-desc">First visit, multi-rencana perawatan</span>
+  </div>
+
+  <div class="meta-grid">
+    <div class="item"><span class="label">Cabang</span><span class="value">Kalideres</span></div>
+    <div class="item"><span class="label">Tanggal kunjungan</span><span class="value">2026-05-31</span></div>
+    <div class="item"><span class="label">Status pasien</span><span class="value"><span class="badge badge-warn">PASIEN BARU</span></span></div>
+    <div class="item"><span class="label">Kode booking</span><span class="value">2Y7SIJ80</span></div>
+    <div class="item"><span class="label">Record ID Omnicare</span><span class="value">9393</span></div>
+  </div>
+
+  <div class="field-section">
+    <h3>👤 Identitas pasien</h3>
+    <div class="field-row">
+      <div class="name">Nama lengkap<code>p_name</code></div>
+      <div class="content">Dian Haerani</div>
+    </div>
+  </div>
+
+  <div class="field-section">
+    <h3>👨‍⚕️ Dokter penanggung jawab</h3>
+    <div class="field-row">
+      <div class="name">Nama dokter<code>doctor</code></div>
+      <div class="content">Vinny Septri Handayani</div>
+    </div>
+  </div>
+
+  <div class="field-section">
+    <h3>🩹 Anamnesis pasien baru</h3>
+    <div class="field-row">
+      <div class="name">Keluhan utama<code>chief_complaint</code></div>
+      <div class="content">Ingin konsultasi behel dan minta cek gigi</div>
+    </div>
+  </div>
+
+  <div class="field-section">
+    <h3>📋 Rencana perawatan jangka panjang</h3>
+    <div class="field-row">
+      <div class="name">Treatment plan<code>treatment_plan_note</code></div>
+      <div class="content">
+        pro rontgen<br>
+        regio 1 2 4 ada sisa akar pro exo<br>
+        ra rb pro scaling stain removal
+      </div>
+    </div>
+  </div>
+
+  <div class="field-section">
+    <h3>💉 Tindakan dilakukan hari ini</h3>
+    <div class="field-row">
+      <div class="name">Prosedur<code>procedures</code></div>
+      <div class="content">• 25KS103 — Konsultasi - Dokter</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- Summary stats                                                          -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<div class="summary-card">
+  <h3>📊 Cakupan backup saat ini</h3>
+  <div class="stat-grid">
+    <div class="stat"><div class="num">47.708</div><div class="lbl">total rekam medis</div></div>
+    <div class="stat"><div class="num">5</div><div class="lbl">cabang</div></div>
+    <div class="stat"><div class="num">10.682</div><div class="lbl">pasien unik</div></div>
+    <div class="stat"><div class="num">51</div><div class="lbl">dokter</div></div>
+    <div class="stat"><div class="num">4½ tahun</div><div class="lbl">range data<br>(Des 2021 – Jun 2026)</div></div>
+  </div>
+</div>
+
+<div class="footer-note">
+  <h3>⚠️ Catatan jujur — yang TIDAK ter-backup</h3>
+  <p>
+    Backup ini meliputi <strong>seluruh field teks rekam medis</strong> di Omnicare.
+    Yang <em>tidak</em> ter-backup adalah <strong>file/foto yang di-upload ke
+    rekam medis</strong> (rontgen periapical, foto klinis intraoral, hasil cetakan
+    foto). Persis jenis data yang hilang di insiden Omnicare Agt 2025 – Apr 2026.
+  </p>
+  <p>
+    Penyebab: Omnicare API tidak meng-expose endpoint untuk file/lampiran.
+    Sedang dibahas 2 strategi:
+  </p>
+  <ul>
+    <li><strong>A.</strong> Push Omnicare buka endpoint attachment di pertemuan berikut</li>
+    <li><strong>B.</strong> Workflow parallel — sales upload rontgen ke 2 tempat
+        (Omnicare untuk operasional, Google Drive cabang untuk backup)</li>
+  </ul>
+</div>
+
+<footer class="page-footer">
+  Dokumen disusun 2026-06-02 · data nyata dari sync Omnicare lokal · SweetTreats Data Center
+</footer>
+
+</div>
+</body>
+</html>

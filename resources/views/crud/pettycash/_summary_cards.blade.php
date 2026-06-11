@@ -27,7 +27,30 @@
     </div>
 </div>
 
-@if(count($sourceBalances) > 0)
+@php
+    // First-time / fresh setup: kalau semua sumber masih 0 (tidak ada saldo,
+    // tidak ada aktivitas in/out), tampilkan empty state ajakan setoran awal /
+    // migrasi. Begitu user mulai setor saldo, breakdown akan otomatis muncul.
+    $hasAnyData = collect($sourceBalances)->contains(function ($sb) {
+        return abs((float) ($sb->balance ?? 0)) > 0.005
+            || abs((float) ($sb->in ?? 0))      > 0.005
+            || abs((float) ($sb->out ?? 0))     > 0.005;
+    });
+@endphp
+
+@if(! $hasAnyData && ! $isReadOnly)
+    <div class="pc-source-empty">
+        <div class="pc-source-empty__icon"><i class="fa fa-piggy-bank"></i></div>
+        <div class="pc-source-empty__title">Belum ada saldo di sumber dana manapun</div>
+        <div class="pc-source-empty__desc">
+            Pilih sumber dana dulu &mdash; rinci budget per sumber yang sudah berjalan operasional
+            (cash di tangan, saldo bank, e-wallet). Tidak akan masuk ke tabel transaksi.
+        </div>
+        <button type="button" class="pc-btn-topup pc-btn-topup--solid" data-pc-modal="pcModalOpening">
+            <i class="fa fa-piggy-bank"></i> Mulai Setoran Awal
+        </button>
+    </div>
+@elseif($hasAnyData)
     <div class="pc-source-breakdown">
         <div class="pc-source-breakdown__head">
             <div class="pc-source-breakdown__title">
@@ -64,6 +87,7 @@
                          data-source-short="{{ $sb->short_label }}"
                          data-source-logo="{{ $sb->logo_url }}"
                          data-source-category="{{ $sb->category }}"
+                         data-source-account="{{ $sb->account_number ?? '' }}"
                          title="{{ $hasSaldo ? 'Klik untuk kelola saldo' : 'Klik untuk top up saldo' }}"
                          role="button"
                          tabindex="0"
@@ -83,6 +107,24 @@
                         @endif
                     </div>
                     <div class="pc-source-card__balance">{{ $rupiah($sb->balance) }}</div>
+                    @if(!empty($sb->account_number))
+                        @php
+                            $acctLabel = $sb->category === \App\Models\FundSource::CAT_BANK
+                                ? 'No. Rek'
+                                : ($sb->category === \App\Models\FundSource::CAT_EWALLET ? 'No. HP' : 'No.');
+                        @endphp
+                        <div class="pc-source-card__account" onclick="event.stopPropagation()">
+                            <span class="pc-source-card__account-label">{{ $acctLabel }}</span>
+                            <span class="pc-source-card__account-value">{{ $sb->account_number }}</span>
+                            <button type="button" class="pc-copy-btn"
+                                    data-pc-copy="{{ $sb->account_number }}"
+                                    onkeydown="event.stopPropagation()"
+                                    title="Salin nomor"
+                                    aria-label="Salin nomor">
+                                <i class="fa fa-copy"></i>
+                            </button>
+                        </div>
+                    @endif
                     <div class="pc-source-card__meta">
                         <span class="pc-source-card__in" title="Cash in">
                             <i class="fa fa-arrow-up"></i> {{ $rupiah($sb->in) }}
@@ -96,3 +138,49 @@
         </div>
     </div>
 @endif
+
+<style>
+/* Empty state — ajakan setoran awal saat belum ada saldo di sumber manapun. */
+.pc-source-empty {
+    margin: 16px 0 8px;
+    padding: 32px 24px;
+    background: linear-gradient(180deg, #fff8f3 0%, #ffffff 100%);
+    border: 2px dashed var(--brown-2);
+    border-radius: 12px;
+    text-align: center;
+}
+.pc-source-empty__icon {
+    width: 64px;
+    height: 64px;
+    line-height: 64px;
+    margin: 0 auto 12px;
+    border-radius: 50%;
+    background: var(--brown);
+    color: #fff;
+    font-size: 26px;
+    box-shadow: 0 4px 12px rgba(70,21,0,0.20);
+}
+.pc-source-empty__title {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--brown);
+    margin-bottom: 6px;
+}
+.pc-source-empty__desc {
+    color: #4b5563;
+    font-size: 14px;
+    max-width: 560px;
+    margin: 0 auto 18px;
+    line-height: 1.55;
+}
+.pc-btn-topup--solid {
+    background: var(--brown) !important;
+    color: #fff !important;
+    border: none !important;
+    padding: 10px 22px !important;
+    font-weight: 600;
+}
+.pc-btn-topup--solid:hover {
+    background: var(--brown-2) !important;
+}
+</style>

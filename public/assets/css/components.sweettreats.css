@@ -2612,6 +2612,117 @@
     color: var(--text-muted);
 }
 .pc-page-sub strong { color: var(--brown); }
+.pc-page-header__actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+/* ── Header v2 (Petty Cash) ────────────────────────────────────────── */
+.pc-page-header--v2 {
+    align-items: center;
+    padding: 14px 18px;
+    background: linear-gradient(180deg, #ffffff 0%, #fdfaf6 100%);
+    border: 1px solid var(--divider-soft);
+    border-radius: 12px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    margin-bottom: 18px;
+}
+.pc-page-header__main {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    min-width: 0;
+}
+.pc-page-icon {
+    flex: 0 0 auto;
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, var(--brown) 0%, #5a2a17 100%);
+    color: #fff;
+    font-size: 18px;
+    box-shadow: 0 2px 6px rgba(124, 45, 18, 0.2);
+}
+.pc-page-header__heading {
+    min-width: 0;
+}
+.pc-page-title {
+    font-size: 20px;
+    font-weight: 800;
+    color: #1f2937;
+    margin: 0 0 4px 0;
+    line-height: 1.2;
+    letter-spacing: -0.01em;
+}
+.pc-page-meta {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-size: 12.5px;
+    color: var(--text-muted);
+}
+.pc-page-meta__item {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-weight: 600;
+    color: #475569;
+}
+.pc-page-meta__item i {
+    color: #94a3b8;
+    font-size: 11px;
+}
+.pc-page-meta__divider {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: #cbd5e1;
+}
+
+/* Status indicator (compact, mengganti badge panjang lama) */
+.pc-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 2px 10px;
+    border-radius: 999px;
+    font-size: 11.5px;
+    font-weight: 600;
+    line-height: 1.6;
+}
+.pc-status__dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+    box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.18);
+    animation: pcStatusPulse 1.8s ease-in-out infinite;
+}
+.pc-status--active {
+    background: #ecfdf5;
+    color: #15803d;
+    border: 1px solid #bbf7d0;
+}
+.pc-status--past {
+    background: #f1f5f9;
+    color: #64748b;
+    border: 1px solid #e2e8f0;
+}
+.pc-status--closed {
+    background: #fef2f2;
+    color: #b91c1c;
+    border: 1px solid #fecaca;
+}
+@keyframes pcStatusPulse {
+    0%, 100% { box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.18); }
+    50%      { box-shadow: 0 0 0 5px rgba(22, 163, 74, 0.08); }
+}
 
 .pc-badge {
     display: inline-flex;
@@ -2689,6 +2800,493 @@
     .pc-summary-grid { grid-template-columns: 1fr; }
 }
 
+/* Breakdown saldo per sumber dana */
+.pc-source-breakdown {
+    margin: 16px 0 8px;
+    padding: 14px 16px 16px;
+    background: #fff;
+    border: 1px solid var(--divider-soft);
+    border-radius: 10px;
+}
+.pc-source-breakdown__head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+}
+.pc-source-breakdown__title {
+    font-size: 12.5px;
+    font-weight: 700;
+    color: var(--brown);
+    letter-spacing: .3px;
+    text-transform: uppercase;
+}
+.pc-source-breakdown__title i { margin-right: 6px; }
+.pc-source-breakdown__actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.pc-source-breakdown__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 10px;
+}
+/* Subteks penjelasan per tab di dalam modal Kelola Saldo (auto-switch
+   bareng form-nya karena disisipkan di dalam masing-masing .pc-tab-content). */
+.pc-tab-hint {
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-left: 3px solid var(--brown);
+    border-radius: 8px;
+    padding: 9px 12px;
+    margin: 0 0 14px;
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: #475569;
+}
+.pc-tab-hint i {
+    font-size: 13px;
+    margin-top: 3px;
+    flex-shrink: 0;
+}
+.pc-tab-hint strong { color: #334155; }
+.pc-tab-hint em { font-style: italic; color: #1f2937; }
+.pc-source-card {
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--divider-soft);
+    background: #fafafa;
+    border-left: 4px solid #cbd5e1;
+}
+.pc-source-card--cash    { border-left-color: #16a34a; }
+.pc-source-card--bank    { border-left-color: #2563eb; }
+.pc-source-card--ewallet { border-left-color: #9333ea; }
+.pc-source-card.is-clickable {
+    cursor: pointer;
+    transition: transform .15s ease, box-shadow .15s ease;
+}
+.pc-source-card.is-clickable:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.10);
+    background: #ffffff;
+}
+.pc-source-card.is-clickable:focus-visible {
+    outline: 2px solid #2563eb;
+    outline-offset: 2px;
+}
+.pc-source-card__transfer-hint {
+    margin-left: auto;
+    color: #94a3b8;
+    font-size: 11px;
+    opacity: 0;
+    transition: opacity .15s ease;
+}
+.pc-source-card.is-clickable:hover .pc-source-card__transfer-hint {
+    opacity: 1;
+    color: #2563eb;
+}
+
+/* Modal Transfer — preview source asal */
+.pc-transfer-from {
+    padding: 12px 14px;
+    background: linear-gradient(180deg, #f8fafc 0%, #fff 100%);
+    border: 1px solid var(--divider-soft);
+    border-radius: 8px;
+    margin-bottom: 12px;
+}
+.pc-transfer-from__label {
+    font-size: 10.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+    color: #64748b;
+    margin-bottom: 8px;
+}
+.pc-transfer-from__row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.pc-transfer-from__info {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.3;
+}
+.pc-transfer-from__info strong {
+    font-size: 14px;
+    color: #0f172a;
+}
+.pc-transfer-from__bal {
+    font-size: 11.5px;
+    color: #475569;
+}
+.pc-transfer-from__bal strong { color: #16a34a; }
+
+/* Tab switcher di modal Kelola Saldo Sumber Dana */
+.pc-tab-switcher {
+    display: flex;
+    gap: 4px;
+    margin: 0 0 14px;
+    padding: 4px;
+    background: #f1f5f9;
+    border-radius: 8px;
+}
+.pc-tab-switcher__btn {
+    flex: 1;
+    padding: 8px 10px;
+    border: 0;
+    background: transparent;
+    color: #64748b;
+    font-size: 12.5px;
+    font-weight: 600;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background .15s, color .15s;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+.pc-tab-switcher__btn:hover { color: #334155; }
+.pc-tab-switcher__btn.is-active {
+    background: #fff;
+    color: var(--brown);
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+}
+.pc-tab-switcher__btn:disabled,
+.pc-tab-switcher__btn.is-disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+.pc-tab-switcher__btn:disabled:hover,
+.pc-tab-switcher__btn.is-disabled:hover {
+    color: #64748b;
+    background: transparent;
+}
+.pc-tab-switcher__btn i { font-size: 11px; }
+
+/* Form actions di dalam tab content (replace footer modal terpadu) */
+.pc-form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding-top: 8px;
+    margin-top: 6px;
+    border-top: 1px solid var(--divider-soft);
+}
+.pc-source-card__head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: #475569;
+    margin-bottom: 4px;
+}
+.pc-source-card__name { font-weight: 600; }
+.pc-source-card__balance {
+    font-size: 17px;
+    font-weight: 800;
+    color: #111827;
+    margin-bottom: 4px;
+}
+.pc-source-card__meta {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 11px;
+}
+.pc-source-card__in  { color: #16a34a; }
+.pc-source-card__out { color: #dc2626; }
+
+/* Baris nomor rekening / telepon di source card */
+.pc-source-card__account {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11.5px;
+    color: #475569;
+    margin: 4px 0 6px;
+    line-height: 1.2;
+    flex-wrap: wrap;
+}
+.pc-source-card__account-label {
+    font-weight: 600;
+    color: #64748b;
+}
+.pc-source-card__account-value {
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    color: #0f172a;
+    word-break: break-all;
+}
+.pc-transfer-from__account {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11.5px;
+    color: #475569;
+    margin-top: 2px;
+    flex-wrap: wrap;
+}
+.pc-transfer-from__account-label {
+    font-weight: 600;
+    color: #64748b;
+}
+.pc-transfer-from__account-value {
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    color: #0f172a;
+    word-break: break-all;
+}
+
+/* Tombol copy mini — dipakai di card & header modal sumber dana */
+.pc-copy-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border: 1px solid #cbd5e1;
+    border-radius: 5px;
+    background: #f8fafc;
+    color: #475569;
+    cursor: pointer;
+    transition: background .15s, color .15s, border-color .15s;
+    font-size: 11px;
+    line-height: 1;
+}
+.pc-copy-btn:hover {
+    background: #e2e8f0;
+    color: #0f172a;
+    border-color: #94a3b8;
+}
+.pc-copy-btn.is-copied {
+    background: #dcfce7;
+    color: #166534;
+    border-color: #86efac;
+}
+
+/* Chip cabang di header petty cash (tampil di samping nama bulan) */
+.pc-branch-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 2px 10px;
+    border-radius: 999px;
+    background: #ecfeff;
+    color: #0e7490;
+    font-weight: 700;
+    font-size: 11.5px;
+    border: 1px solid #a5f3fc;
+    line-height: 1.6;
+}
+.pc-branch-chip i {
+    font-size: 10px;
+    color: #0891b2;
+}
+
+/* Pill sumber dana di tabel transaksi (legacy fallback) */
+.pc-pill-source {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    background: #e2e8f0;
+    color: #334155;
+}
+.pc-pill-source--cash    { background: #dcfce7; color: #166534; }
+.pc-pill-source--bank    { background: #dbeafe; color: #1e40af; }
+.pc-pill-source--ewallet { background: #f3e8ff; color: #6b21a8; }
+
+/* Fund source badge — circular branded badge dengan inisial / logo */
+.fs-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    color: #fff;
+    font-weight: 700;
+    line-height: 1;
+    flex-shrink: 0;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+    overflow: hidden;
+}
+.fs-badge--sm { width: 22px; height: 22px; font-size: 9px;  }
+.fs-badge--md { width: 32px; height: 32px; font-size: 11px; }
+.fs-badge--lg { width: 44px; height: 44px; font-size: 14px; }
+.fs-badge__text {
+    letter-spacing: .3px;
+    padding: 0 2px;
+    text-align: center;
+}
+.fs-badge__img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+/* Sumber dana inline di kolom tabel */
+.pc-source-inline {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+.pc-source-inline__name {
+    font-size: 12px;
+    color: #334155;
+    font-weight: 500;
+}
+
+/* Preview badge di bawah dropdown modal */
+.pc-source-preview {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 6px;
+    min-height: 24px;
+}
+.pc-source-preview:empty { display: none; }
+.pc-source-preview__name {
+    font-size: 12px;
+    color: #475569;
+    font-weight: 600;
+}
+
+/* Source breakdown card — update head agar align dengan badge baru */
+.pc-source-card__head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+.pc-source-card__head .fs-badge {
+    flex-shrink: 0;
+}
+.pc-source-card__name {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #334155;
+    line-height: 1.2;
+}
+
+/* Manage Fund Sources page */
+.fs-section { margin: 18px 0; }
+.fs-section__title {
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    color: var(--brown);
+    margin-bottom: 10px;
+}
+.fs-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 14px;
+}
+.fs-card {
+    background: #fff;
+    border: 1px solid var(--divider-soft);
+    border-radius: 10px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    transition: opacity .2s;
+}
+.fs-card.is-inactive {
+    opacity: 0.55;
+    background: #f8fafc;
+}
+.fs-card__preview {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding-bottom: 10px;
+    border-bottom: 1px dashed var(--divider-soft);
+}
+.fs-card__title {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.2;
+    flex: 1;
+}
+.fs-card__title strong { font-size: 14px; color: #1f2937; }
+.fs-card__title small { font-size: 11px; color: #94a3b8; font-family: monospace; }
+.fs-pill {
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+.fs-pill--inactive { background: #fee2e2; color: #991b1b; }
+
+.fs-card__form { display: flex; flex-direction: column; gap: 8px; }
+.fs-form-row { display: flex; flex-direction: column; gap: 4px; }
+.fs-form-row label {
+    font-size: 11.5px;
+    font-weight: 600;
+    color: #475569;
+}
+.fs-form-row--inline {
+    display: grid;
+    grid-template-columns: auto 1fr 80px;
+    gap: 8px;
+    align-items: end;
+}
+.fs-color-input {
+    width: 44px;
+    height: 36px;
+    padding: 2px;
+    border: 1px solid var(--divider-soft);
+    border-radius: 6px;
+    cursor: pointer;
+    background: #fff;
+}
+.pc-input--sm { padding: 6px 8px; font-size: 12px; }
+.fs-current-logo {
+    margin-top: 6px;
+    padding: 8px 10px;
+    background: #f1f5f9;
+    border-radius: 6px;
+    font-size: 11px;
+    color: #475569;
+}
+.fs-current-logo code {
+    background: #fff;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 10.5px;
+    color: #0f172a;
+}
+.fs-remove-logo {
+    display: block;
+    margin-top: 6px;
+    cursor: pointer;
+    user-select: none;
+}
+.fs-remove-logo input { margin-right: 4px; }
+.fs-card__actions {
+    display: flex;
+    justify-content: flex-end;
+    padding-top: 4px;
+}
+.fs-card__toggle {
+    margin-top: -4px;
+    padding-top: 8px;
+    border-top: 1px dashed var(--divider-soft);
+    display: flex;
+    justify-content: flex-end;
+}
+
 /* Filter row */
 .pc-filter-row {
     display: flex;
@@ -2712,7 +3310,8 @@
     margin: 0;
 }
 .pc-filter-field select,
-.pc-filter-field input[type="text"] {
+.pc-filter-field input[type="text"],
+.pc-filter-field input[type="date"] {
     padding: 7px 11px;
     border: 1px solid var(--divider-soft);
     border-radius: 8px;
@@ -2725,6 +3324,7 @@
     min-width: 140px;
 }
 .pc-filter-field input[type="text"] { min-width: 220px; }
+.pc-filter-field input[type="date"] { min-width: 150px; }
 .pc-filter-field select:focus,
 .pc-filter-field input:focus {
     border-color: var(--brown);
@@ -2845,6 +3445,86 @@
     text-transform: uppercase;
     letter-spacing: 0.4px;
 }
+.pc-pill-transfer {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 1px 8px;
+    border-radius: 50px;
+    background: #2563eb;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+.pc-row-transfer { background-color: #f0f7ff !important; }
+/* Kolom cash in/out untuk row transfer: muted (italic abu-abu) untuk
+   indicate ini bukan cash flow eksternal, hanya internal movement. */
+.pc-cash--internal {
+    color: #94a3b8 !important;
+    font-style: italic;
+    font-weight: 500 !important;
+}
+
+/* Composite transfer row: gabungan 2 sisi transfer/tarik tunai jadi 1
+   baris dengan tombol expand di kolom keterangan. */
+.pc-row-composite .pc-source-inline--pair {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+.pc-source-inline__arrow {
+    color: #94a3b8;
+    font-size: 10px;
+}
+.pc-row-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    margin-right: 4px;
+    padding: 0;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    background: #fff;
+    color: #475569;
+    cursor: pointer;
+    font-size: 9px;
+    line-height: 1;
+    transition: background .15s, color .15s, border-color .15s;
+    vertical-align: middle;
+}
+.pc-row-toggle:hover {
+    background: #e2e8f0;
+    color: #0f172a;
+    border-color: #94a3b8;
+}
+.pc-row-toggle[aria-expanded="true"] {
+    background: #2563eb;
+    color: #fff;
+    border-color: #2563eb;
+}
+
+/* Child rows (detail OUT / IN sisi transfer) */
+.pc-row-child {
+    background-color: #fafbfd !important;
+}
+.pc-row-child > td {
+    font-size: 12px;
+    color: #64748b;
+    padding-top: 6px !important;
+    padding-bottom: 6px !important;
+    border-top: 1px dashed #e2e8f0 !important;
+}
+.pc-row-child__date {
+    text-align: center;
+    color: #94a3b8;
+    font-size: 14px;
+}
+.pc-row-child__desc {
+    padding-left: 32px !important; /* indent visual child */
+}
 
 .pc-icon-btn {
     background: transparent;
@@ -2880,6 +3560,29 @@
 .pc-empty-state__desc {
     font-size: 13px;
     line-height: 1.5;
+}
+.pc-empty-state--inline {
+    padding: 18px 16px;
+    background: #fef3f2;
+    border: 1px solid #fecaca;
+    border-radius: 8px;
+    text-align: left;
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+}
+.pc-empty-state--inline i {
+    font-size: 22px;
+    margin-bottom: 0;
+    margin-top: 2px;
+    flex-shrink: 0;
+}
+.pc-empty-state--inline .pc-empty-state__title {
+    color: #991b1b;
+    margin-bottom: 4px;
+}
+.pc-empty-state--inline .pc-empty-state__desc {
+    color: #7f1d1d;
 }
 
 /* Modal (custom — bukan Bootstrap, supaya tidak conflict) */
@@ -2917,6 +3620,8 @@
     background: var(--cream-header);
     border-bottom: 1px solid var(--divider-soft);
 }
+.pc-modal__header > div > small,
+.pc-modal__header > div > .pc-muted { display: block; margin-top: 3px; line-height: 1.45; }
 .pc-modal__title {
     margin: 0;
     font-size: 16px;

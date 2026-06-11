@@ -132,9 +132,9 @@ class CustomerController extends Controller
         if ($userBranch) {
             $doctorIds = RawDoctorSchedule::where('raw_branch_id', $userBranch->id)
                 ->distinct()->pluck('raw_doctor_id');
-            $doctors = RawDoctor::whereIn('id', $doctorIds)->orderBy('name')->get();
+            $doctors = RawDoctor::whereIn('id', $doctorIds)->active()->orderBy('name')->get();
         } else {
-            $doctors = RawDoctor::orderBy('name')->get();
+            $doctors = RawDoctor::active()->orderBy('name')->get();
         }
 
         return view('crud.customer.new', compact('branches', 'services', 'doctors', 'promos', 'userBranch'));
@@ -210,9 +210,9 @@ class CustomerController extends Controller
         if ($userBranch) {
             $doctorIds = RawDoctorSchedule::where('raw_branch_id', $userBranch->id)
                 ->distinct()->pluck('raw_doctor_id');
-            $doctors = RawDoctor::whereIn('id', $doctorIds)->orderBy('name')->get();
+            $doctors = RawDoctor::whereIn('id', $doctorIds)->active()->orderBy('name')->get();
         } else {
-            $doctors = RawDoctor::orderBy('name')->get();
+            $doctors = RawDoctor::active()->orderBy('name')->get();
         }
 
         $totalKunjungan = $customer->reservations->count();
@@ -240,10 +240,25 @@ class CustomerController extends Controller
         // (journey/lead + reservasi Data Center + perawatan nyata Omnicare).
         $timeline = $this->buildTimeline($customer);
 
+        // Rekam medis lengkap (Omnicare) untuk accordion di profil pasien.
+        // Schema guard supaya tidak crash di env yang belum punya tabelnya.
+        $medicalRecords = collect();
+        if (Schema::hasTable('customer_omnicare_link') && Schema::hasTable('omnicare_medical_record')) {
+            $pid = DB::table('customer_omnicare_link')
+                ->where('raw_customer_id', $customer->id)->value('omnicare_pid');
+            if ($pid) {
+                $medicalRecords = DB::table('omnicare_medical_record')
+                    ->where('p_id', $pid)
+                    ->orderByDesc('date')
+                    ->orderByDesc('time_in')
+                    ->get();
+            }
+        }
+
         return view('crud.customer.edit', compact(
             'customer', 'branches', 'services', 'doctors', 'promos',
             'totalKunjungan', 'totalSelesai', 'totalSpending', 'timeline',
-            'userBranch'
+            'medicalRecords', 'userBranch'
         ));
     }
 
@@ -261,16 +276,18 @@ class CustomerController extends Controller
     private function buildTimeline(RawCustomer $customer): array
     {
         $events = [];
-        $mk = fn($date, $type, $title, $detail, $icon, $color, $bg, $amount = null, $tag = null) => (object) [
-            'date'   => $date instanceof Carbon ? $date : Carbon::parse($date),
-            'type'   => $type,
-            'title'  => $title,
-            'detail' => $detail,
-            'icon'   => $icon,
-            'color'  => $color,
-            'bg'     => $bg,
-            'amount' => $amount,
-            'tag'    => $tag,
+        $mk = fn($date, $type, $title, $detail, $icon, $color, $bg, $amount = null, $tag = null, $medical = null, $clinicalSummary = '') => (object) [
+            'date'             => $date instanceof Carbon ? $date : Carbon::parse($date),
+            'type'             => $type,
+            'title'            => $title,
+            'detail'           => $detail,
+            'icon'             => $icon,
+            'color'            => $color,
+            'bg'               => $bg,
+            'amount'           => $amount,
+            'tag'              => $tag,
+            'medical'          => $medical,           // baris omnicare_medical_record (atau null)
+            'clinical_summary' => $clinicalSummary,   // ringkasan 1 baris untuk preview
         ];
 
         // ── Journey / lead ────────────────────────────────────────────────
@@ -317,12 +334,37 @@ class CustomerController extends Controller
                     ->select('encounter_id', 'trx_date', 'place_id', 'branch_name', 'doctor',
                              'net_sell_price', 'item_type', 'item_name', 'qty_sold', 'payment_status')
                     ->get();
+
+                // Pre-fetch rekam medis per encounter_id (kalau tabel sudah ada).
+                // Key composite (record_id, place_id) — mirror PK omnicare_medical_record.
+                $medByEnc = [];
+                if (Schema::hasTable('omnicare_medical_record')) {
+                    $encIds = $lines->pluck('encounter_id')->unique()->filter()->values();
+                    if ($encIds->isNotEmpty()) {
+                        $meds = DB::table('omnicare_medical_record')
+                            ->where('p_id', $pid)
+                            ->whereIn('record_id', $encIds)
+                            ->get();
+                        foreach ($meds as $m) {
+                            $medByEnc[$m->record_id . '@' . $m->branch_id] = $m;
+                        }
+                    }
+                }
+
                 foreach (OmnicareEncounters::group($lines) as $enc) {
+                    $mKey = $enc['encounter_id'] . '@' . ($enc['place_id'] ?? '');
+                    $med = $medByEnc[$mKey] ?? null;
+                    $summary = $med ? OmnicareEncounters::buildClinicalSummary($med) : '';
+                    $detail = $summary !== ''
+                        ? $summary
+                        : \Illuminate\Support\Str::limit(implode(' · ', $enc['items']), 150);
+
                     $events[] = $mk($enc['trx_date'], 'treatment',
                         'Perawatan' . ($enc['branch_name'] ? ' — ' . $enc['branch_name'] : ''),
-                        \Illuminate\Support\Str::limit(implode(' · ', $enc['items']), 150),
+                        $detail,
                         'fa-tooth', '#1f7a3d', '#E8F5E9',
-                        $enc['revenue'], $enc['doctor'] ?: null);
+                        $enc['revenue'], $enc['doctor'] ?: null,
+                        $med, $summary);
                 }
             }
         }

@@ -794,6 +794,12 @@
         });
 
         $('#branchSelect2').on('select2:select select2:unselect change', function() {
+            // Re-fetch services agar durasi override per-cabang
+            // (raw_doctor_branch_service_duration / _detail_duration) terbaca.
+            // Tanpa ini, durasi yang dipakai untuk hitung slot tetap default.
+            if ($('#doctorSelect2').val()) {
+                loadServicesByDoctor();
+            }
             loadDoctorDates();
         });
 

@@ -40,8 +40,10 @@ class AuthGuard
             return $next($request);
         }
 
-        // Skip RBAC for utility routes (already behind auth middleware)
-        $skipRbac = ['export', 'api', 'auditlog', 'executive', 'complaint'];
+        // Skip RBAC for utility routes (already behind auth middleware).
+        // fund-sources: Super Admin gating dilakukan di controller-nya
+        // sendiri (FundSourceController::guard).
+        $skipRbac = ['export', 'api', 'auditlog', 'executive', 'complaint', 'fund-sources'];
         if (in_array($controller, $skipRbac)) {
             session(['expires_in' => time() + 3600]);
             return $next($request);

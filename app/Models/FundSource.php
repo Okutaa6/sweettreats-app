@@ -34,6 +34,26 @@ class FundSource extends Model
         'is_active',
     ];
 
+    /**
+     * Akun per-cabang (no rek bank / no telp ewallet). Bank cabang A bisa
+     * beda dengan cabang B — itu kenapa relasi 1:many ke branch.
+     */
+    public function branchAccounts()
+    {
+        return $this->hasMany(FundSourceBranchAccount::class, 'fund_source_id', 'id');
+    }
+
+    /**
+     * Ambil nomor rekening / telepon untuk satu (source, branch). Null
+     * kalau belum di-set.
+     */
+    public function accountForBranch(?string $branchId): ?string
+    {
+        if (! $branchId) return null;
+        $row = $this->branchAccounts()->where('raw_branch_id', $branchId)->first();
+        return $row ? $row->account_number : null;
+    }
+
     protected $casts = [
         'sort_order' => 'integer',
         'is_active'  => 'boolean',
