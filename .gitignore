@@ -22,3 +22,6 @@ yarn-error.log
 # di disk dev untuk referensi, tidak boleh ke-commit ke history.
 * v*.*.*.php
 * v*.*.*.blade.php
+
+# Claude Code local settings (personal, jangan di-commit)
+.claude/
