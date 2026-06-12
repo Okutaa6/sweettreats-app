@@ -18,8 +18,20 @@ class AffiliateController extends Controller
         $filterKolProgress = request('kol_progress', 'all');
         $search            = trim((string) request('q', ''));
 
+        // KOC/KOL tanpa kode referral disembunyikan — halaman ini khusus
+        // affiliate yang sudah punya kode. KOC/KOL tanpa kode tetap bisa
+        // dikelola lewat halaman /koc & /kol.
+        $applyHasCodeFilter = function ($q) {
+            $q->where(function ($inner) {
+                $inner->whereNotIn('type', ['koc', 'kol'])
+                      ->orWhereNull('type')
+                      ->orHas('promos');
+            });
+        };
+
         $query = RawAffiliate::with(['branch', 'doctor', 'docService'])
             ->withCount('promos', 'commissions');
+        $applyHasCodeFilter($query);
 
         if ($filterRegStatus !== 'all') {
             $query->where('registration_status', $filterRegStatus);
@@ -56,10 +68,10 @@ class AffiliateController extends Controller
             ]);
 
         $regCounts = [
-            'all'      => RawAffiliate::count(),
-            'pending'  => RawAffiliate::where('registration_status', RawAffiliate::REG_STATUS_PENDING)->count(),
-            'approved' => RawAffiliate::where('registration_status', RawAffiliate::REG_STATUS_APPROVED)->count(),
-            'rejected' => RawAffiliate::where('registration_status', RawAffiliate::REG_STATUS_REJECTED)->count(),
+            'all'      => RawAffiliate::query()->tap($applyHasCodeFilter)->count(),
+            'pending'  => RawAffiliate::query()->tap($applyHasCodeFilter)->where('registration_status', RawAffiliate::REG_STATUS_PENDING)->count(),
+            'approved' => RawAffiliate::query()->tap($applyHasCodeFilter)->where('registration_status', RawAffiliate::REG_STATUS_APPROVED)->count(),
+            'rejected' => RawAffiliate::query()->tap($applyHasCodeFilter)->where('registration_status', RawAffiliate::REG_STATUS_REJECTED)->count(),
         ];
 
         return view('crud.affiliate.list', compact(
