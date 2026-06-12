@@ -52,7 +52,14 @@
                 </div> {{-- end .st-card__body (top card) --}}
             </div> {{-- end .st-card (top card) --}}
 
-            {{-- ═══ CARD KEDUA: Filter + Table ═══ --}}
+            {{-- ═══ CARD KEDUA: Monthly View (accordion, default-collapsed) ═══ --}}
+            @include('crud.kol._existing_monthly', [
+                'kolsByMonth'   => $kolsByMonth,
+                'monthlyTotal'  => $monthlyTotal,
+                'monthlyCapped' => $monthlyCapped,
+            ])
+
+            {{-- ═══ CARD KETIGA: Filter + Table ═══ --}}
             <div class="st-card mt-3">
                 <div class="st-card__body" style="padding:0;">
 
@@ -279,12 +286,6 @@
                 </div>
             </div>
 
-            {{-- ═══ CARD KETIGA: Monthly View (accordion, default-collapsed) ═══ --}}
-            @include('crud.kol._existing_monthly', [
-                'kolsByMonth'   => $kolsByMonth,
-                'monthlyTotal'  => $monthlyTotal,
-                'monthlyCapped' => $monthlyCapped,
-            ])
         </div>
     </div>
 </div>
