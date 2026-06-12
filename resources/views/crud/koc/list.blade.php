@@ -804,7 +804,7 @@
         });
     }
 
-    function changeKocDoctor(el)    { saveKocInlineSele ct(el, { field: 'raw_doctor_id', urlSuffix: 'doctor' }); }
+    function changeKocDoctor(el)    { saveKocInlineSelect(el, { field: 'raw_doctor_id', urlSuffix: 'doctor' }); }
     function changeKocBehelType(el) { saveKocInlineSelect(el, { field: 'behel_type',    urlSuffix: 'behel-type' }); }
 
     // ─── Inline toggle: KOC Confirmed Sosmed ──────────────────────────
