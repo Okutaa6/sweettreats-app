@@ -1355,6 +1355,8 @@
             },
 
             injectAndSubmit() {
+                if (this._submitting) return;
+                this._submitting = true;
                 const d = this.defaults(), self = this;
                 const wrap = $('#patientsHiddenWrap').empty();
                 let i = 0;
