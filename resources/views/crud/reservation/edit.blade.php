@@ -715,7 +715,7 @@
             // per-dokter PER-CABANG (raw_doctor_branch_service_duration).
             // Tanpa ini, durasi yang diatur di edit-dokter tidak terbaca
             // dan API fallback ke durasi default service.
-            const branchId = $('#branchSelect2').val() || '';
+            const branchId = $('#branchSelect2').val() || $('[name="raw_branch_id"]').val() || '';
             const url = '/api/reservation/services-by-doctor/' + doctorId
                       + (branchId ? '?branch_id=' + encodeURIComponent(branchId) : '');
             fetch(url)
@@ -1068,8 +1068,9 @@
             }
         });
 
-        // pas cabang berubah (tanpa ganti dokter) → reload dates & slots
+        // pas cabang berubah (tanpa ganti dokter) → reload services (durasi override per-cabang), dates & slots
         $('#branchSelect2').on('select2:select select2:unselect change', function() {
+            loadServicesByDoctor();
             loadDoctorDates();
         });
 
