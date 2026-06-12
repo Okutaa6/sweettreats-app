@@ -101,6 +101,26 @@ class KolController extends Controller
             ? $branches->firstWhere('id', $filterBranch)
             : null;
 
+        // ─── Monthly card view data (Tampilan Bulanan) ──────────────────
+        // Pakai partial `_existing_monthly` yang sama dengan halaman Existing.
+        // Bedanya: di sini hanya KOL bulan berjalan (tanggal_approach di bulan
+        // ini). KOL null tanggal_approach tidak masuk card view supaya group
+        // bulan tidak punya bucket "—".
+        $monthlyKols = (clone $query)
+            ->whereNotNull('tanggal_approach')
+            ->whereBetween('tanggal_approach', [$startOfMonth, $endOfMonth])
+            ->orderBy('tanggal_approach')
+            ->orderBy('name')
+            ->limit(500)
+            ->get();
+
+        $kolsByMonth = $monthlyKols
+            ->groupBy(fn ($k) => $k->tanggal_approach?->format('Y-m'))
+            ->sortKeysDesc();
+
+        $monthlyTotal  = $monthlyKols->count();
+        $monthlyCapped = $monthlyTotal >= 500;
+
         // ─── Calendar view data (Mon-Sat current week, dengan offset opsional) ──
         $weekDays   = [];
         $kolsByDay  = collect();
@@ -157,7 +177,10 @@ class KolController extends Controller
             'weekDays',
             'kolsByDay',
             'weekLabel',
-            'weekOffset'
+            'weekOffset',
+            'kolsByMonth',
+            'monthlyTotal',
+            'monthlyCapped'
         ));
     }
 

@@ -39,7 +39,7 @@
         <span class="kol-monthly-toggle__left">
             <i class="fa fa-chevron-right kol-monthly-toggle__chevron"></i>
             <i class="fa fa-th-large"></i>
-            <span class="kol-monthly-toggle__title">Tampilan Bulanan (Kartu)</span>
+            <span class="kol-monthly-toggle__title">{{ $monthlyTitle ?? 'Tampilan Bulanan (Kartu)' }}</span>
         </span>
         <span class="kol-monthly-toggle__right">
             <span class="kol-monthly-toggle__count">{{ $monthlyTotal }} KOL</span>
@@ -59,6 +59,7 @@
             </div>
         @else
             @php $defaultYear = array_key_first($kolsByYear); @endphp
+            @if($showYearFilter ?? true)
             <div class="kol-monthly-yearfilter">
                 <span class="kol-monthly-yearfilter__label">
                     <i class="fa fa-calendar"></i> Pilih Tahun
@@ -77,6 +78,7 @@
                     @endforeach
                 </div>
             </div>
+            @endif
 
             @foreach($kolsByYear as $year => $months)
                 <div class="kol-monthly-year" data-year="{{ $year }}" {{ $year === $defaultYear ? '' : 'hidden' }}>

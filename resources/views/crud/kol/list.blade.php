@@ -50,7 +50,24 @@
                 </div> {{-- end .st-card__body (top card) --}}
             </div> {{-- end .st-card (top card) --}}
 
-            {{-- ═══ CARD KEDUA: View toggle + Filter + Table/Calendar ═══ --}}
+            {{-- ═══ CARD KEDUA: Monthly View (accordion, default-collapsed) ═══ --}}
+            @php
+                $namaBulanID = [
+                    1 => 'Januari', 2 => 'Februari', 3 => 'Maret',
+                    4 => 'April',   5 => 'Mei',      6 => 'Juni',
+                    7 => 'Juli',    8 => 'Agustus',  9 => 'September',
+                    10 => 'Oktober', 11 => 'November', 12 => 'Desember',
+                ];
+            @endphp
+            @include('crud.kol._existing_monthly', [
+                'kolsByMonth'    => $kolsByMonth,
+                'monthlyTotal'   => $monthlyTotal,
+                'monthlyCapped'  => $monthlyCapped,
+                'monthlyTitle'   => 'KOL Bulan ' . $namaBulanID[\Carbon\Carbon::now()->month],
+                'showYearFilter' => false,
+            ])
+
+            {{-- ═══ CARD KETIGA: View toggle + Filter + Table/Calendar ═══ --}}
             <div class="st-card mt-3">
                 <div class="st-card__body" style="padding:0;">
 
