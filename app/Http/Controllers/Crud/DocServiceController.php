@@ -103,7 +103,7 @@ class DocServiceController extends Controller
         return redirect()->route('rawdocservice')->with('success', 'Layanan berhasil dihapus');
     }
 
-    //  Sub-detail CRUD 
+    //  Sub-detail CRUD
     public function detailStore($serviceId)
     {
         request()->validate([
@@ -113,13 +113,15 @@ class DocServiceController extends Controller
             'price'            => 'required|numeric|min:0',
         ]);
 
+        $nextSort = (int) RawDocServiceDetail::where('raw_doc_service_id', $serviceId)->max('sort_order') + 1;
+
         RawDocServiceDetail::create([
             'raw_doc_service_id' => $serviceId,
             'name'               => request('name'),
             'code_service'       => request('code_service') ?: null,
             'duration_minutes'   => request('duration_minutes'),
             'price'              => request('price'),
-            'sort_order'         => request('sort_order', 0),
+            'sort_order'         => $nextSort,
             'is_active'          => 1,
             'created_at'         => now(),
             'created_by'         => session('id'),
@@ -143,7 +145,6 @@ class DocServiceController extends Controller
             'code_service'     => request('code_service') ?: null,
             'duration_minutes' => request('duration_minutes'),
             'price'            => request('price'),
-            'sort_order'       => request('sort_order', $detail->sort_order),
             'is_active'        => request('is_active', 1),
             'updated_at'       => now(),
             'updated_by'       => session('id'),
@@ -162,28 +163,27 @@ class DocServiceController extends Controller
 
     public function detailReorder($serviceId)
     {
-        $order = request()->input('order', []);
-        if (! is_array($order) || empty($order)) {
-            return response()->json(['status' => 'error', 'message' => 'Parameter order wajib berupa array berisi id detail.'], 422);
+        $ids = request()->input('ids', []);
+        if (!is_array($ids) || empty($ids)) {
+            return response()->json(['success' => false, 'message' => 'IDs tidak valid'], 422);
         }
 
-        $detailIds = RawDocServiceDetail::where('raw_doc_service_id', $serviceId)->pluck('id')->all();
+        $valid = RawDocServiceDetail::where('raw_doc_service_id', $serviceId)
+            ->whereIn('id', $ids)
+            ->pluck('id')
+            ->all();
 
-        $position = 1;
-        foreach ($order as $detailId) {
-            if (! in_array($detailId, $detailIds, true)) {
-                continue;
-            }
+        foreach ($ids as $index => $detailId) {
+            if (!in_array($detailId, $valid, true)) continue;
             RawDocServiceDetail::where('raw_doc_service_id', $serviceId)
                 ->where('id', $detailId)
                 ->update([
-                    'sort_order' => $position,
+                    'sort_order' => $index + 1,
                     'updated_at' => now(),
                     'updated_by' => session('id'),
                 ]);
-            $position++;
         }
 
-        return response()->json(['status' => 'success']);
+        return response()->json(['success' => true]);
     }
 }

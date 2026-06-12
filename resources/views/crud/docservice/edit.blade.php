@@ -121,20 +121,23 @@
                     <table class="st-table st-table--compact">
                         <thead>
                             <tr>
+                                <th width="3%"></th>
                                 <th width="5%">No</th>
                                 <th>Nama Sub-detail</th>
                                 <th width="12%">Kode Service</th>
                                 <th width="12%">Durasi</th>
                                 <th width="15%">Harga</th>
-                                <th width="8%">Urutan</th>
                                 <th width="8%">Status</th>
                                 <th width="10%">Aksi</th>
                             </tr>
                         </thead>
-                        <tbody>
+                        <tbody id="subdetail-sortable">
                             @forelse ($service->allDetails as $key => $detail)
-                                <tr class="{{ $detail->is_active ? '' : 'text-muted' }}">
-                                    <td class="st-num">{{ $key + 1 }}</td>
+                                <tr class="subdetail-row {{ $detail->is_active ? '' : 'text-muted' }}" data-id="{{ $detail->id }}">
+                                    <td class="text-center subdetail-drag-handle" title="Drag untuk ubah urutan">
+                                        <i class="fa fa-arrows-alt-v" style="color:#b8a78f;"></i>
+                                    </td>
+                                    <td class="st-num subdetail-no">{{ $key + 1 }}</td>
                                     <td>
                                         {{ $detail->name }}
                                         @if (!$detail->is_active)
@@ -144,7 +147,6 @@
                                     <td>{{ $detail->code_service ?? '-' }}</td>
                                     <td>{{ $detail->duration_minutes }} menit</td>
                                     <td class="st-tnum">Rp {{ number_format($detail->price, 0, ',', '.') }}</td>
-                                    <td class="st-num">{{ $detail->sort_order }}</td>
                                     <td>
                                         <span class="st-pill st-pill--{{ $detail->is_active ? 'success' : 'neutral' }}">
                                             {{ $detail->is_active ? 'Aktif' : 'Nonaktif' }}
@@ -158,7 +160,6 @@
                                                 data-code="{{ $detail->code_service }}"
                                                 data-duration="{{ $detail->duration_minutes }}"
                                                 data-price="{{ $detail->price }}"
-                                                data-sort="{{ $detail->sort_order }}"
                                                 data-active="{{ $detail->is_active ? 1 : 0 }}"
                                                 title="Edit">
                                                 <i class="fa fa-pencil-alt"></i>
@@ -183,6 +184,7 @@
                         </tbody>
                     </table>
                 </div>
+                <small class="text-muted"><i class="fa fa-info-circle"></i> Tarik baris pada ikon <i class="fa fa-arrows-alt-v"></i> untuk mengubah urutan tampil sub-detail.</small>
             </div>
         </div>
     </div>
@@ -217,11 +219,7 @@
                                 <input type="text" inputmode="numeric" class="form-control price-input" name="price" value="0" required>
                             </div>
                         </div>
-                        <div class="form-group">
-                            <label style="font-weight:600;">Urutan Tampil</label>
-                            <input type="number" class="form-control" name="sort_order" min="0" value="0">
-                            <small class="text-muted">Angka kecil tampil lebih dulu</small>
-                        </div>
+                        <small class="text-muted"><i class="fa fa-info-circle"></i> Sub-detail baru akan ditambahkan di posisi paling bawah. Atur urutan via drag-and-drop pada tabel.</small>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="st-btn-outline-brown" data-dismiss="modal">Batal</button>
@@ -262,18 +260,12 @@
                                 <input type="text" inputmode="numeric" class="form-control price-input" name="price" id="editPrice" required>
                             </div>
                         </div>
-                        <div class="form-row">
-                            <div class="form-group col-md-6">
-                                <label style="font-weight:600;">Urutan Tampil</label>
-                                <input type="number" class="form-control" name="sort_order" id="editSort" min="0">
-                            </div>
-                            <div class="form-group col-md-6">
-                                <label style="font-weight:600;">Status</label>
-                                <select class="form-control" name="is_active" id="editActive">
-                                    <option value="1">Aktif</option>
-                                    <option value="0">Nonaktif</option>
-                                </select>
-                            </div>
+                        <div class="form-group">
+                            <label style="font-weight:600;">Status</label>
+                            <select class="form-control" name="is_active" id="editActive">
+                                <option value="1">Aktif</option>
+                                <option value="0">Nonaktif</option>
+                            </select>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -311,7 +303,6 @@
         $('#editCodeService').val($(this).data('code'));
         $('#editDuration').val($(this).data('duration'));
         $('#editPrice').val($(this).data('price'));
-        $('#editSort').val($(this).data('sort'));
         $('#editActive').val($(this).data('active'));
         $('#editDetailForm').attr('action', baseUrl.replace('__ID__', id));
         $('#editDetailModal').modal('show');
@@ -323,4 +314,57 @@
     $(document).on('input', '.price-input', function(e){ $(this).val(formatNumber($(this).val())); });
     $('form').on('submit', function() { $(this).find('.price-input').each(function() { $(this).val(unformatNumber($(this).val())); }); });
 </script>
+
+{{-- Drag-and-drop sub-detail ordering --}}
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+<script>
+(function () {
+    const tbody = document.getElementById('subdetail-sortable');
+    if (!tbody || typeof Sortable === 'undefined') return;
+
+    const reorderUrl = '{{ route("rawdocservice.detail.reorder", $service->id) }}';
+    const csrfToken  = '{{ csrf_token() }}';
+
+    function renumberRows() {
+        tbody.querySelectorAll('tr.subdetail-row').forEach(function (row, idx) {
+            const numCell = row.querySelector('.subdetail-no');
+            if (numCell) numCell.textContent = idx + 1;
+        });
+    }
+
+    Sortable.create(tbody, {
+        handle: '.subdetail-drag-handle',
+        animation: 150,
+        ghostClass: 'subdetail-ghost',
+        chosenClass: 'subdetail-chosen',
+        onEnd: function () {
+            const ids = Array.from(tbody.querySelectorAll('tr.subdetail-row'))
+                .map(function (row) { return row.dataset.id; })
+                .filter(Boolean);
+
+            renumberRows();
+
+            $.ajax({
+                url: reorderUrl,
+                method: 'POST',
+                data: { ids: ids, _token: csrfToken },
+                success: function (resp) {
+                    if (!resp || !resp.success) {
+                        Swal.fire({ icon: 'error', title: 'Gagal menyimpan urutan', timer: 1800, showConfirmButton: false });
+                    }
+                },
+                error: function () {
+                    Swal.fire({ icon: 'error', title: 'Gagal menyimpan urutan', text: 'Coba muat ulang halaman.', timer: 2200, showConfirmButton: false });
+                }
+            });
+        }
+    });
+})();
+</script>
+<style>
+    .subdetail-drag-handle { cursor: grab; user-select: none; }
+    .subdetail-drag-handle:active { cursor: grabbing; }
+    .subdetail-ghost { opacity: 0.4; background: #fef5ec; }
+    .subdetail-chosen { background: #fef5ec; }
+</style>
 @endsection
