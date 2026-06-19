@@ -16,17 +16,35 @@ class TransportCostTransaction extends Model
     public const DIR_IN  = 'in';
     public const DIR_OUT = 'out';
 
+    /**
+     * Kategori pengeluaran transport (Bensin, Parkir, Tol, dll).
+     * NULL untuk top up / transfer / data lama.
+     */
+    public const CATEGORIES = [
+        'bensin'      => 'Bensin',
+        'parkir'      => 'Parkir',
+        'tol'         => 'Tol',
+        'taxi_ojek'   => 'Taksi / Ojek',
+        'transport_lain' => 'Transport Lain',
+        'operasional' => 'Operasional',
+        'lain_lain'   => 'Lain-lain',
+    ];
+
     protected $fillable = [
         'period_id',
         'trx_date',
         'description',
+        'category',
         'direction',
         'amount',
         'fund_source_id',
         'is_topup',
         'is_transfer',
         'ref_no',
+        'attachment_path',
         'created_by',
+        'updated_by',
+        'edited_at',
     ];
 
     protected $casts = [
@@ -38,6 +56,7 @@ class TransportCostTransaction extends Model
         'is_transfer'    => 'boolean',
         'created_at'     => 'datetime',
         'updated_at'     => 'datetime',
+        'edited_at'      => 'datetime',
         'deleted_at'     => 'datetime',
     ];
 

@@ -1,7 +1,8 @@
 {{--
     Petty Cash — filter row + action buttons.
     Variables: $startDate, $endDate, $monthStartStr, $monthEndStr,
-               $search, $isReadOnly, $kind, $branches, $branchId.
+               $search, $category, $categoryOptions, $isReadOnly, $kind,
+               $branches, $branchId.
 
     Range tanggal di-clamp ke 1 bulan periode (min/max = awal/akhir bulan).
     Submit otomatis saat tanggal berubah.
@@ -10,12 +11,22 @@
     di-lock ke session('raw_branch_id') — $branches dilewatkan kosong.
 --}}
 @php
-    $kind          = $kind ?? 'petty_cash';
-    $branches      = $branches ?? collect();
-    $branchId      = $branchId ?? null;
-    $todayMonthStr = date('Y-m-01');
-    $todayEndStr   = date('Y-m-t');
-    $isCurrentRange = $startDate === $todayMonthStr && $endDate === $todayEndStr;
+    $kind            = $kind ?? 'petty_cash';
+    $branches        = $branches ?? collect();
+    $branchId        = $branchId ?? null;
+    $category        = $category ?? '';
+    $categoryOptions = $categoryOptions ?? [];
+    $year            = $year  ?? (int) date('Y');
+    $month           = $month ?? (int) date('n');
+    $bulanLabel      = $bulanLabel ?? [
+        1 => 'Januari',  2 => 'Februari', 3 => 'Maret',
+        4 => 'April',    5 => 'Mei',      6 => 'Juni',
+        7 => 'Juli',     8 => 'Agustus',  9 => 'September',
+        10 => 'Oktober', 11 => 'November', 12 => 'Desember',
+    ];
+    $todayMonthStr   = date('Y-m-01');
+    $todayEndStr     = date('Y-m-t');
+    $isCurrentRange  = $startDate === $todayMonthStr && $endDate === $todayEndStr;
 @endphp
 <form method="GET" action="{{ route('pettycash') }}" class="pc-filter-row">
     <input type="hidden" name="tab" value="{{ $kind }}">
@@ -35,10 +46,28 @@
         <input type="hidden" name="branch" value="{{ $branchId }}">
     @endif
 
+    {{-- Tahun ikut terbawa supaya pindah bulan tidak reset ke tahun ini. --}}
+    <input type="hidden" name="tahun" value="{{ $year }}">
+
+    <div class="pc-filter-field">
+        <label>Bulan</label>
+        <select name="bulan" onchange="
+            this.form.querySelector('[name=start_date]').value = '';
+            this.form.querySelector('[name=end_date]').value   = '';
+            this.form.submit();
+        ">
+            @foreach($bulanLabel as $m => $label)
+                <option value="{{ $m }}" {{ $month === $m ? 'selected' : '' }}>{{ $label }}</option>
+            @endforeach
+        </select>
+    </div>
+
     <div class="pc-filter-field">
         <label>Tanggal mulai</label>
         <input type="date" name="start_date"
                value="{{ $startDate }}"
+               min="{{ $monthStartStr }}"
+               max="{{ $monthEndStr }}"
                onchange="this.form.submit();">
     </div>
 
@@ -46,8 +75,22 @@
         <label>Tanggal akhir</label>
         <input type="date" name="end_date"
                value="{{ $endDate }}"
+               min="{{ $monthStartStr }}"
+               max="{{ $monthEndStr }}"
                onchange="this.form.submit();">
     </div>
+
+    @if(! empty($categoryOptions))
+        <div class="pc-filter-field">
+            <label>Kategori</label>
+            <select name="category" onchange="this.form.submit();">
+                <option value="">Semua kategori</option>
+                @foreach($categoryOptions as $catKey => $catLabel)
+                    <option value="{{ $catKey }}" {{ $category === $catKey ? 'selected' : '' }}>{{ $catLabel }}</option>
+                @endforeach
+            </select>
+        </div>
+    @endif
 
     <div class="pc-filter-field pc-filter-field--grow">
         <label>Cari keterangan</label>
@@ -56,7 +99,7 @@
 
     <div class="pc-filter-actions">
         @if($search)
-            <a href="{{ route('pettycash', array_filter(['tab' => $kind, 'branch' => $branches->isNotEmpty() ? $branchId : null, 'start_date' => $startDate, 'end_date' => $endDate])) }}"
+            <a href="{{ route('pettycash', array_filter(['tab' => $kind, 'branch' => $branches->isNotEmpty() ? $branchId : null, 'start_date' => $startDate, 'end_date' => $endDate, 'category' => $category])) }}"
                class="st-btn-outline-brown" title="Reset cari">
                 <i class="fa fa-times"></i>
             </a>
@@ -65,7 +108,7 @@
             <i class="fa fa-search"></i>
         </button>
         @if(! $isCurrentRange)
-            <a href="{{ route('pettycash', array_filter(['tab' => $kind, 'branch' => $branches->isNotEmpty() ? $branchId : null])) }}"
+            <a href="{{ route('pettycash', array_filter(['tab' => $kind, 'branch' => $branches->isNotEmpty() ? $branchId : null, 'category' => $category])) }}"
                class="st-btn-outline-brown" title="Kembali ke bulan ini">
                 <i class="fa fa-calendar-day"></i> Bulan ini
             </a>

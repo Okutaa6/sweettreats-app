@@ -178,6 +178,14 @@ class PettyCashController extends Controller
         $periodClass = $this->periodClass($kind);
         $trxClass    = $this->trxClass($kind);
 
+        // Validasi category terhadap CATEGORIES milik kind aktif — kalau kind
+        // diganti dan key kategori lama tidak ada di kind baru, abaikan.
+        $categoryOptions = $trxClass::CATEGORIES;
+        $category        = (string) $request->get('category', '');
+        if ($category !== '' && ! array_key_exists($category, $categoryOptions)) {
+            $category = '';
+        }
+
         $period = $periodClass::ensurePeriod(
             $year,
             $month,
@@ -190,6 +198,9 @@ class PettyCashController extends Controller
             ->forPeriod($period->id)
             ->when($search !== '', function ($q) use ($search) {
                 $q->where('description', 'like', "%{$search}%");
+            })
+            ->when($category !== '', function ($q) use ($category) {
+                $q->where('category', $category);
             })
             ->orderBy('trx_date')
             ->orderBy('id')
@@ -234,7 +245,8 @@ class PettyCashController extends Controller
             'period', 'rows', 'summary', 'sourceBalances',
             'year', 'month', 'bulanLabel',
             'startDate', 'endDate', 'monthStartStr', 'monthEndStr',
-            'search', 'isCurrentMonth', 'isReadOnly',
+            'search', 'category', 'categoryOptions',
+            'isCurrentMonth', 'isReadOnly',
             'kind', 'tabs', 'fundSources', 'fundSourcesGrouped',
             'branches', 'activeBranch', 'branchId', 'sessionBranch',
             'branchAccountMap'
@@ -320,19 +332,23 @@ class PettyCashController extends Controller
         // ─── Header tabel (row 5) ───
         $headerRow = 5;
         $headerCols = [
-            'A' => 'Tanggal', 'B' => 'Jenis', 'C' => 'Sumber Dana',
-            'D' => 'Keterangan', 'E' => 'Cash In', 'F' => 'Cash Out', 'G' => 'Saldo',
+            'A' => 'Tanggal', 'B' => 'Jenis', 'C' => 'Wallet',
+            'D' => 'Kategori',
+            'E' => 'Keterangan', 'F' => 'Cash In', 'G' => 'Cash Out', 'H' => 'Saldo',
         ];
         foreach ($headerCols as $col => $h) {
             $sheet->setCellValue($col . $headerRow, $h);
         }
-        $sheet->getStyle("A{$headerRow}:G{$headerRow}")->applyFromArray([
+        $sheet->getStyle("A{$headerRow}:H{$headerRow}")->applyFromArray([
             'font'      => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
             'fill'      => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '2563EB']],
             'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
             'borders'   => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '1E40AF']]],
         ]);
         $sheet->getRowDimension($headerRow)->setRowHeight(22);
+
+        // Map kategori key → label untuk tampilan di Excel.
+        $categoryMap = $trxClass::CATEGORIES;
 
         // ─── Saldo awal row (row 6) ───
         // Pakai sum snapshot per-source (sama seperti dashboard buildRows())
@@ -348,13 +364,13 @@ class PettyCashController extends Controller
         $row     = $headerRow + 1;
 
         $sheet->setCellValue("A{$row}", $startDate);
-        $sheet->setCellValue("D{$row}", 'Saldo awal periode');
-        $sheet->setCellValueExplicit("G{$row}", $opening, \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_NUMERIC);
-        $sheet->getStyle("A{$row}:G{$row}")->applyFromArray([
+        $sheet->setCellValue("E{$row}", 'Saldo awal periode');
+        $sheet->setCellValueExplicit("H{$row}", $opening, \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_NUMERIC);
+        $sheet->getStyle("A{$row}:H{$row}")->applyFromArray([
             'font' => ['italic' => true, 'color' => ['rgb' => '475569']],
             'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'F1F5F9']],
         ]);
-        $sheet->getStyle("A{$row}:G{$row}")->getBorders()->getAllBorders()
+        $sheet->getStyle("A{$row}:H{$row}")->getBorders()->getAllBorders()
             ->setBorderStyle(Border::BORDER_THIN)
             ->setColor(new \PhpOffice\PhpSpreadsheet\Style\Color('DBEAFE'));
         $row++;
@@ -375,28 +391,32 @@ class PettyCashController extends Controller
                 ? $t->trx_date->format('Y-m-d')
                 : substr((string) $t->trx_date, 0, 10);
 
+            $catLabel = $t->category && isset($categoryMap[$t->category])
+                ? $categoryMap[$t->category]
+                : '-';
             $sheet->setCellValue("A{$row}", $date);
             $sheet->setCellValue("B{$row}", $t->is_topup ? 'Top up' : 'Pengeluaran');
             $sheet->setCellValue("C{$row}", $fs ? $fs->name : '-');
-            $sheet->setCellValue("D{$row}", (string) $t->description);
-            if ($cashIn > 0)  $sheet->setCellValueExplicit("E{$row}", $cashIn,  \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_NUMERIC);
-            if ($cashOut > 0) $sheet->setCellValueExplicit("F{$row}", $cashOut, \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_NUMERIC);
-            $sheet->setCellValueExplicit("G{$row}", $saldo, \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_NUMERIC);
+            $sheet->setCellValue("D{$row}", $catLabel);
+            $sheet->setCellValue("E{$row}", (string) $t->description);
+            if ($cashIn > 0)  $sheet->setCellValueExplicit("F{$row}", $cashIn,  \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_NUMERIC);
+            if ($cashOut > 0) $sheet->setCellValueExplicit("G{$row}", $cashOut, \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_NUMERIC);
+            $sheet->setCellValueExplicit("H{$row}", $saldo, \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_NUMERIC);
 
             // Highlight row Top up dengan background kuning + teks bold —
             // override zebra striping. Pengeluaran biasa pakai zebra normal.
             if ($t->is_topup) {
-                $sheet->getStyle("A{$row}:G{$row}")->applyFromArray([
+                $sheet->getStyle("A{$row}:H{$row}")->applyFromArray([
                     'font' => ['bold' => true, 'color' => ['rgb' => '78350F']],
                     'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'FFF59D']],
                 ]);
             } elseif ($i % 2 === 1) {
-                $sheet->getStyle("A{$row}:G{$row}")->getFill()
+                $sheet->getStyle("A{$row}:H{$row}")->getFill()
                     ->setFillType(Fill::FILL_SOLID)
                     ->getStartColor()->setRGB('EFF6FF');
             }
             // Border tipis di semua sel
-            $sheet->getStyle("A{$row}:G{$row}")->getBorders()->getAllBorders()
+            $sheet->getStyle("A{$row}:H{$row}")->getBorders()->getAllBorders()
                 ->setBorderStyle(Border::BORDER_THIN)
                 ->setColor(new \PhpOffice\PhpSpreadsheet\Style\Color('DBEAFE'));
 
@@ -406,24 +426,24 @@ class PettyCashController extends Controller
         $lastDataRow = $row - 1;
 
         // Number format ribuan untuk kolom Cash In/Out/Saldo (termasuk opening row)
-        $sheet->getStyle("E" . ($headerRow + 1) . ":G{$lastDataRow}")
+        $sheet->getStyle("F" . ($headerRow + 1) . ":H{$lastDataRow}")
             ->getNumberFormat()->setFormatCode('#,##0');
 
         // ─── Footer TOTAL & SALDO AKHIR ───
         $totalRow = $lastDataRow + 2;
-        $sheet->setCellValue("D{$totalRow}", 'TOTAL');
-        $sheet->setCellValueExplicit("E{$totalRow}", $totalIn,  \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_NUMERIC);
-        $sheet->setCellValueExplicit("F{$totalRow}", $totalOut, \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_NUMERIC);
-        $sheet->setCellValueExplicit("G{$totalRow}", $saldo,    \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_NUMERIC);
-        $sheet->getStyle("D{$totalRow}:G{$totalRow}")->applyFromArray([
+        $sheet->setCellValue("E{$totalRow}", 'TOTAL');
+        $sheet->setCellValueExplicit("F{$totalRow}", $totalIn,  \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_NUMERIC);
+        $sheet->setCellValueExplicit("G{$totalRow}", $totalOut, \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_NUMERIC);
+        $sheet->setCellValueExplicit("H{$totalRow}", $saldo,    \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_NUMERIC);
+        $sheet->getStyle("E{$totalRow}:H{$totalRow}")->applyFromArray([
             'font'      => ['bold' => true],
             'fill'      => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'DBEAFE']],
             'borders'   => ['top' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '2563EB']]],
         ]);
-        $sheet->getStyle("E{$totalRow}:G{$totalRow}")->getNumberFormat()->setFormatCode('#,##0');
+        $sheet->getStyle("F{$totalRow}:H{$totalRow}")->getNumberFormat()->setFormatCode('#,##0');
 
         // Auto-width semua kolom
-        foreach (['A','B','C','D','E','F','G'] as $col) {
+        foreach (['A','B','C','D','E','F','G','H'] as $col) {
             $sheet->getColumnDimension($col)->setAutoSize(true);
         }
 
@@ -431,7 +451,7 @@ class PettyCashController extends Controller
         $sheet->freezePane('A' . ($headerRow + 1));
 
         // Auto-filter di header tabel
-        $sheet->setAutoFilter("A{$headerRow}:G{$headerRow}");
+        $sheet->setAutoFilter("A{$headerRow}:H{$headerRow}");
 
         // ─── Output ───
         $headers = [
@@ -462,6 +482,9 @@ class PettyCashController extends Controller
 
     /**
      * POST /pettycash/expense?tab={kind} → tambah pengeluaran.
+     *
+     * Mendukung upload bukti (struk/bon/transfer) via field 'attachment'.
+     * File disimpan di public/uploads/expense-receipts/{YYYY}/{MM}/{uuid}.{ext}.
      */
     public function store(Request $request)
     {
@@ -470,13 +493,18 @@ class PettyCashController extends Controller
         $trxClass    = $this->trxClass($kind);
 
         $tableName = (new $periodClass)->getTable();
+        $categoryKeys = array_keys($trxClass::CATEGORIES);
         $data = $request->validate([
             'period_id'      => 'required|integer|exists:' . $tableName . ',id',
             'trx_date'       => 'required|date',
             'description'    => 'required|string|max:255',
+            'category'       => 'required|in:' . implode(',', $categoryKeys),
             'amount'         => 'required|numeric|min:1',
             'fund_source_id' => 'required|integer|exists:fund_sources,id',
             'ref_no'         => 'nullable|string|max:50',
+            // Bukti pengeluaran opsional: gambar (jpg/png/webp) atau PDF.
+            // Max 5MB — cukup besar untuk foto HP modern, kecil untuk storage.
+            'attachment'     => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf|max:5120',
         ]);
 
         $period = $periodClass::findOrFail($data['period_id']);
@@ -493,16 +521,20 @@ class PettyCashController extends Controller
                 ->with('error', 'Sumber dana yang dipilih belum punya saldo. Silakan top up dulu.');
         }
 
+        $attachmentPath = $this->storeAttachment($request, $data['trx_date']);
+
         $trxClass::create([
-            'period_id'      => $period->id,
-            'trx_date'       => $data['trx_date'],
-            'description'    => $data['description'],
-            'direction'      => $trxClass::DIR_OUT,
-            'amount'         => $data['amount'],
-            'fund_source_id' => $data['fund_source_id'],
-            'is_topup'       => 0,
-            'ref_no'         => $data['ref_no'] ?? null,
-            'created_by'     => session('id'),
+            'period_id'       => $period->id,
+            'trx_date'        => $data['trx_date'],
+            'description'     => $data['description'],
+            'category'        => $data['category'],
+            'direction'       => $trxClass::DIR_OUT,
+            'amount'          => $data['amount'],
+            'fund_source_id'  => $data['fund_source_id'],
+            'is_topup'        => 0,
+            'ref_no'          => $data['ref_no'] ?? null,
+            'attachment_path' => $attachmentPath,
+            'created_by'      => session('id'),
         ]);
 
         return redirect()
@@ -528,11 +560,19 @@ class PettyCashController extends Controller
             'fund_source_id' => 'required|integer|exists:fund_sources,id',
             'ref_no'         => 'nullable|string|max:50',
             'account_number' => 'nullable|string|max:50',
+            // Flag opsional: 1 = top up dana baru (default), 0 = setor cash
+            // langsung yang TIDAK dihitung sebagai top up (mis. kembalian
+            // kasbon karyawan). Tetap Cash IN ke saldo, tapi summary "Total
+            // Top Up" tidak menambahkannya.
+            'is_topup'       => 'nullable|boolean',
+            'attachment'     => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf|max:5120',
         ]);
 
         $period = $periodClass::findOrFail($data['period_id']);
         $this->abortIfReadOnly($period);
         $this->abortIfBranchMismatch($request, $period);
+
+        $attachmentPath = $this->storeAttachment($request, $data['trx_date']);
 
         // Account number opsional — diisi user di form top up untuk Bank
         // (no rekening) atau E-Wallet (no telepon). Cash diabaikan karena
@@ -550,23 +590,93 @@ class PettyCashController extends Controller
             }
         }
 
-        $defaultLabel = $kind === 'transport' ? 'Top up biaya transportasi' : 'Top up kasir';
+        // Mode:
+        //   is_topup=1 (default) → top up biasa, dihitung di "Total Top Up"
+        //   is_topup=0           → setor cash netral (mis. kembalian kasbon),
+        //                          tidak menambah angka "Total Top Up" walau
+        //                          saldo fisik tetap naik.
+        $isTopup = ! array_key_exists('is_topup', $data) || (bool) $data['is_topup'];
+        if ($isTopup) {
+            $defaultLabel = $kind === 'transport' ? 'Top up biaya transportasi' : 'Top up kasir';
+            $successMsg   = 'Top up saldo berhasil dicatat.';
+        } else {
+            $defaultLabel = 'Setor cash langsung';
+            $successMsg   = 'Setoran cash berhasil dicatat (tidak dihitung sebagai top up).';
+        }
 
         $trxClass::create([
-            'period_id'      => $period->id,
-            'trx_date'       => $data['trx_date'],
-            'description'    => $data['description'] ?: $defaultLabel,
-            'direction'      => $trxClass::DIR_IN,
-            'amount'         => $data['amount'],
-            'fund_source_id' => $data['fund_source_id'],
-            'is_topup'       => 1,
-            'ref_no'         => $data['ref_no'] ?? null,
-            'created_by'     => session('id'),
+            'period_id'       => $period->id,
+            'trx_date'        => $data['trx_date'],
+            'description'     => $data['description'] ?: $defaultLabel,
+            'direction'       => $trxClass::DIR_IN,
+            'amount'          => $data['amount'],
+            'fund_source_id'  => $data['fund_source_id'],
+            'is_topup'        => $isTopup ? 1 : 0,
+            'ref_no'          => $data['ref_no'] ?? null,
+            'attachment_path' => $attachmentPath,
+            'created_by'      => session('id'),
         ]);
 
         return redirect()
             ->route('pettycash', $this->preserveParams($kind))
-            ->with('success', 'Top up saldo berhasil dicatat.');
+            ->with('success', $successMsg);
+    }
+
+    /**
+     * POST /pettycash/account?tab={kind}
+     *
+     * Inline upsert nomor rekening (Bank) / nomor telepon (E-Wallet)
+     * untuk pasangan (cabang, sumber dana) dari modal "Kelola Saldo".
+     * Dipakai supaya user bisa lengkapi nomor yang belum di-set saat
+     * setoran awal — tanpa harus melalui form top up.
+     *
+     * Hanya berlaku untuk source kategori Bank / E-Wallet (Cash di-reject).
+     */
+    public function saveAccount(Request $request)
+    {
+        $kind = $this->kind($request);
+        $periodClass = $this->periodClass($kind);
+
+        $tableName = (new $periodClass)->getTable();
+        $data = $request->validate([
+            'period_id'      => 'required|integer|exists:' . $tableName . ',id',
+            'fund_source_id' => 'required|integer|exists:fund_sources,id',
+            'account_number' => ['required', 'string', 'max:50', 'regex:/^[0-9]+$/'],
+        ], [
+            'account_number.regex' => 'Nomor hanya boleh berisi angka (tanpa spasi, huruf, atau tanda baca).',
+        ]);
+
+        $period = $periodClass::findOrFail($data['period_id']);
+        $this->abortIfReadOnly($period);
+        $this->abortIfBranchMismatch($request, $period);
+
+        if (! $period->raw_branch_id) {
+            return response()->json([
+                'ok' => false,
+                'message' => 'Periode tidak terikat ke cabang manapun.',
+            ], 422);
+        }
+
+        $source = FundSource::findOrFail($data['fund_source_id']);
+        if (! in_array($source->category, [FundSource::CAT_BANK, FundSource::CAT_EWALLET], true)) {
+            return response()->json([
+                'ok' => false,
+                'message' => 'Hanya sumber Bank / E-Wallet yang punya nomor rekening/telepon.',
+            ], 422);
+        }
+
+        $acct = trim($data['account_number']);
+        FundSourceBranchAccount::upsertFor(
+            (string) $period->raw_branch_id,
+            (int) $source->id,
+            $acct,
+        );
+
+        return response()->json([
+            'ok'             => true,
+            'account_number' => $acct,
+            'label'          => $source->category === FundSource::CAT_BANK ? 'No. Rek' : 'No. HP',
+        ]);
     }
 
     /**
@@ -661,6 +771,7 @@ class PettyCashController extends Controller
             'amount'           => 'required|numeric|min:1',
             'description'      => 'nullable|string|max:200',
             'to_account_number' => 'nullable|string|max:50',
+            'attachment'       => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf|max:5120',
         ], [
             'to_source_id.different' => 'Sumber tujuan tidak boleh sama dengan sumber asal.',
         ]);
@@ -668,6 +779,8 @@ class PettyCashController extends Controller
         $period = $periodClass::findOrFail($data['period_id']);
         $this->abortIfReadOnly($period);
         $this->abortIfBranchMismatch($request, $period);
+
+        $attachmentPath = $this->storeAttachment($request, $data['trx_date']);
 
         // Cek saldo asal cukup
         $fromBalance = $this->computeSourceBalance($period, (int) $data['from_source_id'], $trxClass);
@@ -706,32 +819,37 @@ class PettyCashController extends Controller
         $descOut = $verb . ' ke ' . $toSource->name   . ($note !== '' ? ' — ' . $note : '');
         $descIn  = $verb . ' dari ' . $fromSource->name . ($note !== '' ? ' — ' . $note : '');
 
-        DB::transaction(function () use ($trxClass, $period, $data, $fromSource, $toSource, $descOut, $descIn, $ref) {
-            // OUT dari source asal
+        DB::transaction(function () use ($trxClass, $period, $data, $fromSource, $toSource, $descOut, $descIn, $ref, $attachmentPath) {
+            // OUT dari source asal — attach bukti ditempel di sisi OUT
+            // sehingga muncul di tabel pada baris pengeluaran dari source asal.
             $trxClass::create([
-                'period_id'      => $period->id,
-                'trx_date'       => $data['trx_date'],
-                'description'    => $descOut,
-                'direction'      => $trxClass::DIR_OUT,
-                'amount'         => $data['amount'],
-                'fund_source_id' => $fromSource->id,
-                'is_topup'       => 0,
-                'is_transfer'    => 1,
-                'ref_no'         => $ref,
-                'created_by'     => session('id'),
+                'period_id'       => $period->id,
+                'trx_date'        => $data['trx_date'],
+                'description'     => $descOut,
+                'direction'       => $trxClass::DIR_OUT,
+                'amount'          => $data['amount'],
+                'fund_source_id'  => $fromSource->id,
+                'is_topup'        => 0,
+                'is_transfer'     => 1,
+                'ref_no'          => $ref,
+                'attachment_path' => $attachmentPath,
+                'created_by'      => session('id'),
             ]);
-            // IN ke source tujuan
+            // IN ke source tujuan — attach juga ditempel agar bukti
+            // discoverable dari sisi tujuan (mis. kalau user lihat dari
+            // wallet penerima).
             $trxClass::create([
-                'period_id'      => $period->id,
-                'trx_date'       => $data['trx_date'],
-                'description'    => $descIn,
-                'direction'      => $trxClass::DIR_IN,
-                'amount'         => $data['amount'],
-                'fund_source_id' => $toSource->id,
-                'is_topup'       => 0,
-                'is_transfer'    => 1,
-                'ref_no'         => $ref,
-                'created_by'     => session('id'),
+                'period_id'       => $period->id,
+                'trx_date'        => $data['trx_date'],
+                'description'     => $descIn,
+                'direction'       => $trxClass::DIR_IN,
+                'amount'          => $data['amount'],
+                'fund_source_id'  => $toSource->id,
+                'is_topup'        => 0,
+                'is_transfer'     => 1,
+                'ref_no'          => $ref,
+                'attachment_path' => $attachmentPath,
+                'created_by'      => session('id'),
             ]);
         });
 
@@ -779,6 +897,78 @@ class PettyCashController extends Controller
     }
 
     /**
+     * PATCH /pettycash/transaction/{id}?tab={kind}
+     *
+     * Edit transaksi pengeluaran biasa. 3 guard:
+     *   1. Periode tidak read-only (bulan berjalan & belum ditutup).
+     *   2. Window 24 jam sejak created_at.
+     *   3. Hanya pengeluaran biasa — TIDAK boleh edit transfer / top up
+     *      (impact-nya ke balance multi-source lebih rumit, deletes-then-recreate).
+     *
+     * Yang boleh diubah: amount, description, category. Wallet (fund_source_id)
+     * & tanggal (trx_date) TIDAK boleh diubah supaya audit/balance tetap stabil
+     * (user delete+recreate kalau salah wallet/tanggal).
+     */
+    public function update(Request $request, $id)
+    {
+        $kind     = $this->kind($request);
+        $trxClass = $this->trxClass($kind);
+
+        $trx = $trxClass::active()->findOrFail($id);
+        $period = $trx->period;
+        $this->abortIfReadOnly($period);
+        $this->abortIfBranchMismatch($request, $period);
+
+        // Guard: hanya pengeluaran biasa.
+        if ($trx->is_transfer || $trx->is_topup || $trx->direction !== $trxClass::DIR_OUT) {
+            abort(403, 'Hanya pengeluaran biasa yang bisa diedit. Untuk transfer / top up, gunakan hapus & buat ulang.');
+        }
+
+        // Guard: window 24 jam sejak created_at.
+        if ($trx->created_at && $trx->created_at->lt(now()->subHours(24))) {
+            abort(403, 'Transaksi sudah lebih dari 24 jam — tidak bisa diedit lagi.');
+        }
+
+        $categoryKeys = array_keys($trxClass::CATEGORIES);
+        $data = $request->validate([
+            'amount'      => 'required|numeric|min:1',
+            'description' => 'required|string|max:255',
+            'category'    => 'required|in:' . implode(',', $categoryKeys),
+        ]);
+
+        // Guard tambahan: nominal baru tidak boleh bikin saldo wallet asal jadi
+        // negatif. Kasus: user input Rp 100k tadi, mau ubah ke Rp 500k tapi saldo
+        // sekarang cuma Rp 300k.
+        if ($trx->fund_source_id) {
+            $currentBalance = $this->computeSourceBalance($period, (int) $trx->fund_source_id, $trxClass);
+            // currentBalance sudah mempertimbangkan trx ini (out). Untuk cek
+            // apakah amount baru fit, hitung "balance kalau trx ini dibatalkan":
+            $balanceWithoutThis = $currentBalance + (float) $trx->amount;
+            if ((float) $data['amount'] > $balanceWithoutThis) {
+                return redirect()
+                    ->route('pettycash', $this->preserveParams($kind))
+                    ->with('error', sprintf(
+                        'Nominal baru (Rp %s) melebihi saldo wallet yang tersedia (Rp %s).',
+                        number_format((float) $data['amount'], 0, ',', '.'),
+                        number_format($balanceWithoutThis, 0, ',', '.'),
+                    ));
+            }
+        }
+
+        $trx->update([
+            'amount'      => $data['amount'],
+            'description' => $data['description'],
+            'category'    => $data['category'],
+            'updated_by'  => session('id'),
+            'edited_at'   => now(),
+        ]);
+
+        return redirect()
+            ->route('pettycash', $this->preserveParams($kind))
+            ->with('success', 'Transaksi berhasil diperbarui.');
+    }
+
+    /**
      * POST /pettycash/source/destroy?tab={kind}
      *
      * Hapus seluruh data 1 sumber dana di periode aktif:
@@ -792,6 +982,13 @@ class PettyCashController extends Controller
      */
     public function destroySource(Request $request)
     {
+        // Gate akses: hanya Super Admin & Admin General yang boleh hard-delete
+        // data sumber dana di periode. Role lain mendapat versi locked di UI;
+        // kalau coba bypass via DevTools, abort 403 di sini.
+        if (! isSuperAdmin() && ! isAdminGeneral()) {
+            abort(403, 'Fitur ini hanya untuk Super Admin / Admin General.');
+        }
+
         $kind        = $this->kind($request);
         $periodClass = $this->periodClass($kind);
         $trxClass    = $this->trxClass($kind);
@@ -872,6 +1069,30 @@ class PettyCashController extends Controller
     }
 
     /* ───────── Internal ───────── */
+
+    /**
+     * Simpan file bukti yang di-upload ke public/uploads/expense-receipts/{YYYY}/{MM}/{uuid}.{ext}.
+     * Return path relatif dari public/ (untuk disimpan di kolom attachment_path), atau null
+     * kalau file tidak ada. Folder dipartisi per YYYY/MM supaya tidak membludak.
+     */
+    private function storeAttachment(Request $request, string $trxDate, string $field = 'attachment'): ?string
+    {
+        if (! $request->hasFile($field)) {
+            return null;
+        }
+        $file = $request->file($field);
+        $year  = date('Y', strtotime($trxDate));
+        $month = date('m', strtotime($trxDate));
+        $relDir = "uploads/expense-receipts/{$year}/{$month}";
+        $absDir = public_path($relDir);
+        if (! is_dir($absDir)) {
+            @mkdir($absDir, 0775, true);
+        }
+        $ext = strtolower($file->getClientOriginalExtension() ?: 'bin');
+        $filename = \Illuminate\Support\Str::uuid() . '.' . $ext;
+        $file->move($absDir, $filename);
+        return "{$relDir}/{$filename}";
+    }
 
     private function buildRows($period, $transactions, $fundSources = null, ?string $startDate = null, ?string $endDate = null, array $branchAccountMap = []): array
     {
@@ -985,22 +1206,27 @@ class PettyCashController extends Controller
 
             $fs = $t->fundSource;
             $rows[] = (object) [
-                'id'            => $t->id,
-                'trx_date'      => $t->trx_date,
-                'description'   => $t->description,
-                'is_topup'      => (bool) $t->is_topup,
-                'is_transfer'   => $isTransfer,
-                'is_composite'  => false,
-                'cash_in'       => $cashIn,
-                'cash_out'      => $cashOut,
-                'saldo'         => $saldo,
-                'ref_no'        => $t->ref_no,
-                'source_name'   => $fs?->name,
-                'source_cat'    => $fs?->category,
-                'source_color'  => $fs ? $fs->effectiveBrandColor() : null,
-                'source_short'  => $fs ? $fs->effectiveShortLabel() : null,
-                'source_logo'   => $fs?->logo_url,
-                'children'      => [],
+                'id'              => $t->id,
+                'trx_date'        => $t->trx_date,
+                'description'     => $t->description,
+                'category'        => $t->category ?? null,
+                'is_topup'        => (bool) $t->is_topup,
+                'is_transfer'     => $isTransfer,
+                'is_composite'    => false,
+                'cash_in'         => $cashIn,
+                'cash_out'        => $cashOut,
+                'saldo'           => $saldo,
+                'ref_no'          => $t->ref_no,
+                'attachment_path' => $t->attachment_path,
+                'source_name'     => $fs?->name,
+                'source_cat'      => $fs?->category,
+                'source_color'    => $fs ? $fs->effectiveBrandColor() : null,
+                'source_short'    => $fs ? $fs->effectiveShortLabel() : null,
+                'source_logo'     => $fs?->logo_url,
+                'source_id'       => $fs?->id,
+                'created_at'      => $t->created_at,
+                'edited_at'       => $t->edited_at ?? null,
+                'children'        => [],
             ];
         }
 
@@ -1099,16 +1325,20 @@ class PettyCashController extends Controller
             // controller destroy() pakai ref_no kalau row is_transfer,
             // jadi cukup salah satu id).
             $composite = (object) [
-                'id'            => $outRow->id,
-                'trx_date'      => $outRow->trx_date,
-                'description'   => $descriptionA,
-                'is_topup'      => false,
-                'is_transfer'   => true,
-                'is_composite'  => true,
-                'cash_in'       => $inRow->cash_in,
-                'cash_out'      => $outRow->cash_out,
-                'saldo'         => $outRow->saldo, // sama untuk kedua kaki
-                'ref_no'        => $ref,
+                'id'              => $outRow->id,
+                'trx_date'        => $outRow->trx_date,
+                'description'     => $descriptionA,
+                'category'        => null,
+                'is_topup'        => false,
+                'is_transfer'     => true,
+                'is_composite'    => true,
+                'cash_in'         => $inRow->cash_in,
+                'cash_out'        => $outRow->cash_out,
+                'saldo'           => $outRow->saldo, // sama untuk kedua kaki
+                'ref_no'          => $ref,
+                // Attachment di-stempel di kedua kaki transfer (lihat transfer()),
+                // jadi pakai salah satu — biasanya OUT row sebagai primary.
+                'attachment_path' => $outRow->attachment_path ?? $inRow->attachment_path,
                 // Source utama composite = OUT (asal) — dipakai badge
                 // primary, sementara source_to dipakai untuk panah → tujuan.
                 'source_name'   => $outRow->source_name,

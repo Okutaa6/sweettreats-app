@@ -34,9 +34,9 @@
             <div class="pc-modal__header">
                 <div>
                     <h5 class="pc-modal__title">
-                        <i class="fa fa-piggy-bank" style="color:#7c2d12;"></i> Setoran Awal / Migrasi
+                        <i class="fa fa-piggy-bank" style="color:#7c2d12;"></i> Setoran Awal
                     </h5>
-                    <small class="pc-muted">Rinci budget per sumber dana yang sudah berjalan — tidak masuk ke tabel transaksi.</small>
+                    <small class="pc-muted">Rinci budget per wallet yang sudah berjalan — tidak masuk ke tabel transaksi.</small>
                 </div>
                 <button type="button" class="pc-modal__close" data-pc-modal-close aria-label="Tutup">&times;</button>
             </div>
@@ -44,7 +44,7 @@
             <div class="pc-modal__body">
                 <div class="pc-tab-hint">
                     <i class="fa fa-info-circle" style="color:#2563eb;"></i>
-                    <span><strong>Setoran Awal:</strong> tambahkan sumber dana yang sudah punya saldo, lalu input nominalnya. Klik <strong>+ Tambah Sumber Dana</strong> untuk mulai. Tidak akan muncul sebagai baris transaksi.</span>
+                    <span><strong>Setoran Awal:</strong> tambahkan wallet yang sudah punya saldo, lalu input nominalnya. Klik <strong>+ Tambah Wallet</strong> untuk mulai. Tidak akan muncul sebagai baris transaksi.</span>
                 </div>
 
                 {{-- Container untuk baris yang ditambahkan user --}}
@@ -52,12 +52,12 @@
                     {{-- Empty hint saat belum ada row --}}
                     <div class="pc-opening-empty" id="pcOpeningEmpty">
                         <i class="fa fa-hand-pointer"></i>
-                        Belum ada sumber dana ditambahkan. Klik tombol di bawah untuk mulai.
+                        Belum ada wallet ditambahkan. Klik tombol di bawah untuk mulai.
                     </div>
                 </div>
 
                 <button type="button" class="pc-btn-add-source" id="pcOpeningAddBtn">
-                    <i class="fa fa-plus"></i> Tambah Sumber Dana
+                    <i class="fa fa-plus"></i> Tambah Wallet
                 </button>
 
                 <div class="pc-opening-total">
@@ -67,7 +67,9 @@
 
                 <div class="pc-form-actions">
                     <button type="button" class="st-btn-outline-brown" data-pc-modal-close>Batal</button>
-                    <button type="submit" class="pc-btn-topup-solid" id="pcOpeningSubmitBtn" disabled>
+                    <button type="submit" class="pc-btn-topup-solid" id="pcOpeningSubmitBtn"
+                            data-pc-tooltip="Simpan saldo awal ke periode. Bisa di-update lagi selama belum ada transaksi & periode belum ditutup."
+                            disabled>
                         <i class="fa fa-save"></i> Simpan Setoran Awal
                     </button>
                 </div>
@@ -84,7 +86,7 @@
         <div class="pc-opening-row">
             <div class="pc-opening-row__src">
                 <select class="pc-input pc-opening-source-select" data-pc-opening-source>
-                    <option value="">— Pilih sumber dana —</option>
+                    <option value="">— Pilih wallet —</option>
                     @foreach($categoryLabels as $catKey => $catLabel)
                         @if(isset($fundSourcesGrouped[$catKey]) && count($fundSourcesGrouped[$catKey]) > 0)
                             <optgroup label="{{ $catLabel }}">
