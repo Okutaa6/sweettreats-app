@@ -19,7 +19,7 @@
 @endphp
 <div class="pc-modal" id="pcModalTopup" role="dialog" aria-modal="true">
     <div class="pc-modal__dialog">
-        <form method="POST" action="{{ route('pettycash.topup', ['tab' => $kind]) }}">
+        <form method="POST" action="{{ route('pettycash.topup', ['tab' => $kind]) }}" enctype="multipart/form-data">
             @csrf
             <input type="hidden" name="period_id" value="{{ $period->id }}">
             <input type="hidden" name="tab" value="{{ $kind }}">
@@ -32,7 +32,7 @@
                     <h5 class="pc-modal__title">
                         <i class="fa fa-arrow-down-up-across-line" style="color:#16a34a;"></i> Top up Saldo
                     </h5>
-                    <small class="pc-muted">Isi kembali {{ $kind === 'transport' ? 'kas transportasi' : 'kas kecil' }} ke dana tetap (imprest)</small>
+                    <small class="pc-muted">Isi kembali {{ $kind === 'transport' ? 'kas transportasi' : 'kas kecil' }}</small>
                 </div>
                 <button type="button" class="pc-modal__close" data-pc-modal-close aria-label="Tutup">&times;</button>
             </div>
@@ -51,7 +51,7 @@
                 <div class="pc-form-row">
                     <label>Keterangan <small class="pc-muted">(opsional)</small></label>
                     <input type="text" name="description" maxlength="255"
-                           placeholder="Default: Top up kasir"
+                           placeholder="{{ $kind === 'transport' ? 'Default: Top up biaya transportasi' : 'Default: Top up kasir' }}"
                            class="pc-input">
                 </div>
 
@@ -69,7 +69,7 @@
                     <label>Simpan ke <span class="text-danger">*</span></label>
                     <select name="fund_source_id" required class="pc-input pc-source-select"
                             data-pc-topup-source>
-                        <option value="">— Pilih sumber dana —</option>
+                        <option value="">— Pilih wallet —</option>
                         @foreach($categoryLabels as $catKey => $catLabel)
                             @if($fundSourcesGrouped->has($catKey))
                                 <optgroup label="{{ $catLabel }}">
@@ -98,8 +98,38 @@
                            data-pc-topup-account-input
                            placeholder="Mis: 1234567890">
                     <small class="pc-muted" data-pc-topup-account-hint>
-                        Disimpan di sumber dana ini dan muncul di card rincian saldo.
+                        Disimpan di wallet ini dan muncul di card rincian saldo.
                     </small>
+                </div>
+
+                {{-- Upload bukti top up (struk transfer dari HQ, screenshot WA, dll). Opsional. --}}
+                <div class="pc-form-row">
+                    <label>Bukti top up <small class="pc-muted">(opsional)</small></label>
+                    <div class="pc-attach-zone" id="topupAttachZone">
+                        <input type="file" name="attachment"
+                               id="topupAttachInput"
+                               accept=".jpg,.jpeg,.png,.webp,.pdf,image/*,application/pdf"
+                               class="pc-attach-input">
+                        <label for="topupAttachInput" class="pc-attach-label">
+                            <i class="fa fa-camera"></i>
+                            <span class="pc-attach-label__main">Pilih foto / PDF</span>
+                            <span class="pc-attach-label__hint">bukti transfer / screenshot · max 5MB</span>
+                        </label>
+                        <div class="pc-attach-preview" id="topupAttachPreview" hidden>
+                            <div class="pc-attach-preview__thumb" id="topupAttachThumb">
+                                <i class="fa fa-file"></i>
+                            </div>
+                            <div class="pc-attach-preview__meta">
+                                <div class="pc-attach-preview__name" id="topupAttachName">—</div>
+                                <div class="pc-attach-preview__size" id="topupAttachSize">—</div>
+                            </div>
+                            <button type="button" class="pc-attach-preview__remove"
+                                    id="topupAttachRemove"
+                                    title="Hapus file">
+                                <i class="fa fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
 

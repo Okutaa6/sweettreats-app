@@ -324,8 +324,10 @@ Route::middleware([AuthGuard::class])->group(function () {
     Route::get('pettycash/export',                [PettyCashController::class, 'export'])->name('pettycash.export');
     Route::post('pettycash/expense',              [PettyCashController::class, 'store'])->name('pettycash.expense');
     Route::post('pettycash/topup',                [PettyCashController::class, 'topup'])->name('pettycash.topup');
+    Route::post('pettycash/account',              [PettyCashController::class, 'saveAccount'])->name('pettycash.account.save');
     Route::post('pettycash/opening',              [PettyCashController::class, 'setOpening'])->name('pettycash.opening');
     Route::post('pettycash/transfer',             [PettyCashController::class, 'transfer'])->name('pettycash.transfer');
+    Route::patch('pettycash/transaction/{id}',    [PettyCashController::class, 'update'])->name('pettycash.update');
     Route::delete('pettycash/transaction/{id}',   [PettyCashController::class, 'destroy'])->name('pettycash.destroy');
     Route::post('pettycash/source/destroy',       [PettyCashController::class, 'destroySource'])->name('pettycash.source.destroy');
     Route::post('pettycash/period/{id}/close',    [PettyCashController::class, 'close'])->name('pettycash.close');

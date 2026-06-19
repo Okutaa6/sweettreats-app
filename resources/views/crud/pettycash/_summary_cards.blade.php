@@ -41,12 +41,14 @@
 @if(! $hasAnyData && ! $isReadOnly)
     <div class="pc-source-empty">
         <div class="pc-source-empty__icon"><i class="fa fa-piggy-bank"></i></div>
-        <div class="pc-source-empty__title">Belum ada saldo di sumber dana manapun</div>
+        <div class="pc-source-empty__title">Belum ada saldo di wallet manapun</div>
         <div class="pc-source-empty__desc">
-            Pilih sumber dana dulu &mdash; rinci budget per sumber yang sudah berjalan operasional
+            Pilih wallet dulu &mdash; rinci budget per wallet yang sudah berjalan operasional
             (cash di tangan, saldo bank, e-wallet). Tidak akan masuk ke tabel transaksi.
         </div>
-        <button type="button" class="pc-btn-topup pc-btn-topup--solid" data-pc-modal="pcModalOpening">
+        <button type="button" class="pc-btn-topup pc-btn-topup--solid"
+                data-pc-modal="pcModalOpening"
+                data-pc-tooltip="Daftarkan saldo awal kas, bank, e-wallet saat periode baru dimulai. Tidak masuk ke tabel transaksi — hanya menentukan posisi saldo pembuka.">
             <i class="fa fa-piggy-bank"></i> Mulai Setoran Awal
         </button>
     </div>
@@ -54,11 +56,13 @@
     <div class="pc-source-breakdown">
         <div class="pc-source-breakdown__head">
             <div class="pc-source-breakdown__title">
-                <i class="fa fa-wallet"></i> Rincian Saldo per Sumber Dana
+                <i class="fa fa-wallet"></i> Rincian Saldo per Wallet
             </div>
             @if(!$isReadOnly)
                 <div class="pc-source-breakdown__actions">
-                    <button type="button" class="pc-btn-topup" data-pc-modal="pcModalTopup">
+                    <button type="button" class="pc-btn-topup"
+                            data-pc-modal="pcModalTopup"
+                            data-pc-tooltip="Tambah dana baru ke periode ini (mis. transfer masuk dari HQ, setoran tunai dari owner). Muncul sebagai baris transaksi top up.">
                         <i class="fa fa-arrow-down-up-across-line"></i> Top up saldo
                     </button>
                 </div>
@@ -75,6 +79,15 @@
                     // tab Transfer & Pengeluaran di-disable dari JS.
                     $isClickable = !$isReadOnly && $sb->id;
                     $hasSaldo    = $balanceRounded > 0;
+                    // Tooltip kontekstual per kategori wallet — bantu user
+                    // discover hidden action seperti "tarik tunai" yg cuma
+                    // muncul kalau klik kartu Bank/E-Wallet.
+                    $cardTooltip = match($sb->category ?? null) {
+                        \App\Models\FundSource::CAT_CASH    => 'Klik untuk setor cash, transfer ke wallet lain, atau catat pengeluaran',
+                        \App\Models\FundSource::CAT_BANK    => 'Klik untuk tarik tunai ke Cash, transfer antar wallet, atau catat pengeluaran',
+                        \App\Models\FundSource::CAT_EWALLET => 'Klik untuk transfer ke wallet lain atau catat pengeluaran',
+                        default                              => ($hasSaldo ? 'Klik untuk kelola saldo' : 'Klik untuk top up saldo'),
+                    };
                 @endphp
                 <div class="pc-source-card pc-source-card--{{ $sb->category ?? 'unknown' }} {{ $isClickable ? 'is-clickable' : '' }}"
                      style="border-left-color: {{ $sb->brand_color ?? '#cbd5e1' }};"
@@ -88,7 +101,7 @@
                          data-source-logo="{{ $sb->logo_url }}"
                          data-source-category="{{ $sb->category }}"
                          data-source-account="{{ $sb->account_number ?? '' }}"
-                         title="{{ $hasSaldo ? 'Klik untuk kelola saldo' : 'Klik untuk top up saldo' }}"
+                         title="{{ $cardTooltip }}"
                          role="button"
                          tabindex="0"
                      @endif>
@@ -102,8 +115,22 @@
                         ])
                         <span class="pc-source-card__name">{{ $sb->name }}</span>
                         @if($isClickable)
-                            <i class="fa {{ $hasSaldo ? 'fa-right-left' : 'fa-plus' }} pc-source-card__transfer-hint"
-                               title="{{ $hasSaldo ? 'Transfer / Top up / Pengeluaran' : 'Top up saldo' }}"></i>
+                            @php
+                                $iconClass = match($sb->category ?? null) {
+                                    \App\Models\FundSource::CAT_BANK    => 'fa-money-bill-transfer',
+                                    \App\Models\FundSource::CAT_CASH    => 'fa-right-left',
+                                    \App\Models\FundSource::CAT_EWALLET => 'fa-right-left',
+                                    default => ($hasSaldo ? 'fa-right-left' : 'fa-plus'),
+                                };
+                                $iconHint = match($sb->category ?? null) {
+                                    \App\Models\FundSource::CAT_BANK    => 'Tarik tunai / Transfer / Pengeluaran',
+                                    \App\Models\FundSource::CAT_CASH    => 'Setor cash / Transfer / Pengeluaran',
+                                    \App\Models\FundSource::CAT_EWALLET => 'Transfer / Pengeluaran',
+                                    default => ($hasSaldo ? 'Transfer / Top up / Pengeluaran' : 'Top up saldo'),
+                                };
+                            @endphp
+                            <i class="fa {{ $iconClass }} pc-source-card__transfer-hint"
+                               title="{{ $iconHint }}"></i>
                         @endif
                     </div>
                     <div class="pc-source-card__balance">{{ $rupiah($sb->balance) }}</div>
@@ -136,6 +163,11 @@
                 </div>
             @endforeach
         </div>
+        @if(!$isReadOnly)
+            <div class="pc-source-breakdown__hint">
+                Klik wallet untuk <strong>Transfer</strong>, <strong>Tarik/Setor Tunai</strong>, atau <strong>catat Pengeluaran</strong> dari wallet tersebut.
+            </div>
+        @endif
     </div>
 @endif
 

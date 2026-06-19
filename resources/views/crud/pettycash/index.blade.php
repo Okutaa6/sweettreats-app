@@ -61,12 +61,15 @@
                     'end_date'   => $endDate,
                ])) }}"
                class="st-btn-outline-brown"
-               title="Download Excel: hanya top up & pengeluaran (transfer di-skip)">
+               data-pc-tooltip-pos="bottom"
+               data-pc-tooltip="Download laporan transaksi periode aktif ke Excel. Filter tanggal & cabang yang aktif ikut ke file. Transfer internal di-skip karena bersifat netral.">
                 <i class="fa fa-file-excel"></i> Export Excel
             </a>
             @if(isSuperAdmin())
-                <a href="{{ route('fundsource') }}" class="st-btn-outline-brown" title="Kelola sumber dana & logo brand">
-                    <i class="fa fa-cog"></i> Kelola Sumber Dana
+                <a href="{{ route('fundsource') }}" class="st-btn-outline-brown"
+                   data-pc-tooltip-pos="bottom"
+                   data-pc-tooltip="Kelola master wallet (Cash, Bank, E-Wallet) + logo brand. Hanya untuk Super Admin.">
+                    <i class="fa fa-cog"></i> Kelola Wallet
                 </a>
             @endif
         </div>
@@ -74,14 +77,47 @@
 
     @include('layouts.notif')
 
+    {{-- ─── READ-ONLY BANNER ─── --}}
+    @if($isReadOnly)
+        <div class="pc-readonly-banner" role="alert">
+            <i class="fa fa-lock pc-readonly-banner__icon"></i>
+            <div class="pc-readonly-banner__body">
+                @if($period->is_closed)
+                    <strong>Periode {{ $monthName }} {{ $year }} sudah ditutup.</strong>
+                    Data hanya bisa dilihat — tidak dapat ditambah, diedit, atau dihapus.
+                    Hubungi Admin General jika perlu buka kembali.
+                @else
+                    <strong>Anda sedang melihat periode lampau ({{ $monthName }} {{ $year }}).</strong>
+                    Data hanya bisa dilihat — untuk catat transaksi baru, kembali ke bulan berjalan.
+                @endif
+            </div>
+        </div>
+        <style>
+            .pc-readonly-banner{display:flex;align-items:flex-start;gap:10px;background:#fef3c7;border-left:4px solid #f59e0b;color:#78350f;padding:12px 16px;border-radius:6px;margin:0 0 16px;font-size:14px;line-height:1.5;}
+            .pc-readonly-banner__icon{font-size:18px;margin-top:2px;color:#b45309;flex-shrink:0;}
+            .pc-readonly-banner__body strong{color:#78350f;}
+        </style>
+    @endif
+
     {{-- ─── TAB NAVIGATION ─── --}}
+    @php
+        // Subtitle pendek per modul — bantuan untuk user baru
+        // supaya tahu kapan pakai tab mana.
+        $tabSubs = [
+            'petty_cash' => 'Kas operasional cabang',
+            'transport'  => 'BBM, parkir, perjalanan dinas',
+        ];
+    @endphp
     @if(count($tabs) > 1)
         <div class="pc-tabs" role="tablist">
             @foreach($tabs as $t)
                 <a href="{{ route('pettycash', array_merge(['tab' => $t['kind']], $branchParam)) }}"
                    class="pc-tab {{ $t['active'] ? 'is-active' : '' }}"
                    role="tab" aria-selected="{{ $t['active'] ? 'true' : 'false' }}">
-                    {{ $t['label'] }}
+                    <span class="pc-tab__label">{{ $t['label'] }}</span>
+                    @if(isset($tabSubs[$t['kind']]))
+                        <span class="pc-tab__sub">{{ $tabSubs[$t['kind']] }}</span>
+                    @endif
                 </a>
             @endforeach
         </div>
@@ -98,20 +134,74 @@
 
     {{-- ─── FILTER ─── --}}
     @include('crud.pettycash._filter', [
-        'startDate'     => $startDate,
-        'endDate'       => $endDate,
-        'monthStartStr' => $monthStartStr,
-        'monthEndStr'   => $monthEndStr,
-        'search'        => $search,
-        'isReadOnly'    => $isReadOnly,
-        'kind'          => $kind,
-        'branches'      => $branches,
-        'branchId'      => $branchId,
+        'startDate'       => $startDate,
+        'endDate'         => $endDate,
+        'monthStartStr'   => $monthStartStr,
+        'monthEndStr'     => $monthEndStr,
+        'search'          => $search,
+        'category'        => $category,
+        'categoryOptions' => $categoryOptions,
+        'isReadOnly'      => $isReadOnly,
+        'kind'            => $kind,
+        'branches'        => $branches,
+        'branchId'        => $branchId,
+        'year'            => $year,
+        'month'           => $month,
+        'bulanLabel'      => $bulanLabel,
     ])
 
-    {{-- ─── TABLE ─── --}}
-    <div class="st-card mt-3 pc-table-card">
-        <div class="st-card__body" style="padding:0;">
+    {{-- ─── TABLE — split jadi 2 sub-tab ─── --}}
+    @php
+        // Pisahkan transaksi:
+        //   - regular  → top up, setor cash, pengeluaran (bukan transfer)
+        //   - transfer → composite transfer/deposit/tarik tunai + child rows
+        $rowsRegular  = collect($rows)->reject(fn($r) => $r->is_transfer)->values();
+        $rowsTransfer = collect($rows)->filter(fn($r) => $r->is_transfer)->values();
+
+        $tableHasAnySource = collect($sourceBalances ?? [])->contains(function ($sb) {
+            return abs((float) ($sb->balance ?? 0)) > 0.005
+                || abs((float) ($sb->in ?? 0))      > 0.005
+                || abs((float) ($sb->out ?? 0))     > 0.005;
+        });
+
+        $emptyDescRegular = 'Tab ini menampilkan <strong>Top Up</strong> (dana baru masuk) dan <strong>Pengeluaran</strong> dari wallet, beserta tanggal, wallet, dan nominal.';
+        $emptyDescTransfer = 'Tab ini menampilkan <strong>Transfer</strong>, <strong>Deposit</strong>, dan <strong>Tarik Tunai</strong> antar wallet — pergerakan internal yang tidak menambah/mengurangi total saldo periode.';
+        if (! $isReadOnly) {
+            if (! $tableHasAnySource) {
+                $cta = '<br><span class="pc-empty-state__cta">Belum ada wallet — klik tombol <strong>Mulai Setoran Awal</strong> di atas untuk memulai.</span>';
+            } else {
+                $cta = '<br><span class="pc-empty-state__cta">Mulai catat transaksi dengan klik kartu wallet di atas atau tombol <strong>Top up saldo</strong>.</span>';
+            }
+            $emptyDescRegular  .= $cta;
+            $emptyDescTransfer .= $cta;
+        }
+    @endphp
+
+    <div class="st-card mt-3 pc-table-card pc-trx-card" data-active-trx-tab="regular">
+        {{-- Sub-tabs --}}
+        <div class="pc-trx-subtabs" role="tablist">
+            <button type="button"
+                    class="pc-trx-subtab is-active"
+                    data-trx-tab="regular"
+                    role="tab"
+                    aria-selected="true">
+                <i class="fa fa-arrow-down-up-across-line"></i>
+                Top Up &amp; Pengeluaran
+                <span class="pc-trx-subtab__count">{{ $rowsRegular->count() }}</span>
+            </button>
+            <button type="button"
+                    class="pc-trx-subtab"
+                    data-trx-tab="transfer"
+                    role="tab"
+                    aria-selected="false">
+                <i class="fa fa-right-left"></i>
+                Mutasi Antar Wallet
+                <span class="pc-trx-subtab__count">{{ $rowsTransfer->count() }}</span>
+            </button>
+        </div>
+
+        {{-- TAB 1: Top Up & Pengeluaran --}}
+        <div class="st-card__body pc-trx-pane" data-trx-content="regular" style="padding:0;">
             <div class="st-table-wrap--scroll">
                 <table class="st-table pc-table">
                     <thead>
@@ -123,149 +213,22 @@
                             <th class="text-right" width="130">Cash out</th>
                             <th class="text-right" width="150">Saldo</th>
                             @if(!$isReadOnly)
-                                <th width="60"></th>
+                                <th width="80"></th>
                             @endif
                         </tr>
                     </thead>
                     <tbody>
-                        @forelse($rows as $r)
-                            @php
-                                $isComposite  = ! empty($r->is_composite);
-                                $isTarikTunai = $r->is_transfer
-                                    && \Illuminate\Support\Str::startsWith((string) $r->description, 'Tarik tunai');
-                                $isDeposit    = $r->is_transfer
-                                    && \Illuminate\Support\Str::startsWith((string) $r->description, 'Deposit');
-                                $pillLabel    = $isTarikTunai ? 'tarik tunai' : ($isDeposit ? 'deposit' : 'transfer');
-                                $rowId        = 'pcrow-' . ($r->ref_no ?: $r->id);
-                            @endphp
-                            <tr class="{{ $r->is_topup ? 'pc-row-topup' : '' }} {{ $r->is_transfer ? 'pc-row-transfer' : '' }} {{ $isComposite ? 'pc-row-composite' : '' }}"
-                                @if($isComposite) data-pc-composite-parent="{{ $rowId }}" @endif>
-                                <td class="pc-date">{{ \Carbon\Carbon::parse($r->trx_date)->translatedFormat('d M') }}</td>
-                                <td>
-                                    @if($isComposite && isset($r->source_to))
-                                        {{-- Dua badge dengan panah: dari → ke --}}
-                                        <span class="pc-source-inline pc-source-inline--pair">
-                                            @include('crud.pettycash._fund_source_badge', [
-                                                'color' => $r->source_color,
-                                                'short' => $r->source_short,
-                                                'logo'  => $r->source_logo,
-                                                'name'  => $r->source_name,
-                                                'size'  => 'sm',
-                                            ])
-                                            <i class="fa fa-arrow-right pc-source-inline__arrow"></i>
-                                            @include('crud.pettycash._fund_source_badge', [
-                                                'color' => $r->source_to->color,
-                                                'short' => $r->source_to->short,
-                                                'logo'  => $r->source_to->logo,
-                                                'name'  => $r->source_to->name,
-                                                'size'  => 'sm',
-                                            ])
-                                        </span>
-                                    @elseif($r->source_name)
-                                        <span class="pc-source-inline">
-                                            @include('crud.pettycash._fund_source_badge', [
-                                                'color' => $r->source_color,
-                                                'short' => $r->source_short,
-                                                'logo'  => $r->source_logo,
-                                                'name'  => $r->source_name,
-                                                'size'  => 'sm',
-                                            ])
-                                            <span class="pc-source-inline__name">{{ $r->source_name }}</span>
-                                        </span>
-                                    @else
-                                        <span class="pc-muted">—</span>
-                                    @endif
-                                </td>
-                                <td>
-                                    @if($isComposite)
-                                        <button type="button" class="pc-row-toggle"
-                                                data-pc-toggle-target="{{ $rowId }}"
-                                                aria-expanded="false"
-                                                title="Lihat detail">
-                                            <i class="fa fa-chevron-right"></i>
-                                        </button>
-                                    @endif
-                                    @if($r->is_topup)
-                                        <i class="fa-solid fa-arrow-down-up-across-line" style="color:#16a34a;"></i>
-                                    @elseif($r->is_transfer && ! $isComposite)
-                                        <i class="fa-solid fa-right-left" style="color:#2563eb;"></i>
-                                    @endif
-                                    <strong>{{ $r->description }}</strong>
-                                    @if($r->is_topup)
-                                        <span class="pc-pill-topup">top up</span>
-                                    @elseif($r->is_transfer)
-                                        <span class="pc-pill-transfer">{{ $pillLabel }}</span>
-                                    @endif
-                                </td>
-                                <td class="text-right pc-cash-in {{ $r->is_transfer ? 'pc-cash--internal' : '' }}">
-                                    {{ $isComposite ? '—' : ($r->cash_in > 0 ? number_format($r->cash_in, 0, ',', '.') : '—') }}
-                                </td>
-                                <td class="text-right pc-cash-out {{ $r->is_transfer ? 'pc-cash--internal' : '' }}">
-                                    {{ $isComposite ? '—' : ($r->cash_out > 0 ? number_format($r->cash_out, 0, ',', '.') : '—') }}
-                                </td>
-                                <td class="text-right pc-saldo-cell">{{ number_format($r->saldo, 0, ',', '.') }}</td>
-                                @if(!$isReadOnly)
-                                    <td>
-                                        <form method="POST" action="{{ route('pettycash.destroy', ['id' => $r->id, 'tab' => $kind]) }}"
-                                              onsubmit="return confirm('{{ $isComposite ? 'Hapus transfer ini (kedua sisi)? Tidak bisa di-undo.' : 'Hapus transaksi ini? Tidak bisa di-undo.' }}')" class="d-inline">
-                                            @csrf
-                                            @method('DELETE')
-                                            @if(!session('raw_branch_id') && $branchId)
-                                                <input type="hidden" name="branch" value="{{ $branchId }}">
-                                            @endif
-                                            <button type="submit" class="pc-icon-btn" title="Hapus transaksi">
-                                                <i class="fa fa-trash"></i>
-                                            </button>
-                                        </form>
-                                    </td>
-                                @endif
-                            </tr>
-                            @if($isComposite && !empty($r->children))
-                                @foreach($r->children as $child)
-                                    <tr class="pc-row-transfer pc-row-child" data-pc-composite-child="{{ $rowId }}" hidden>
-                                        <td class="pc-date pc-row-child__date">↳</td>
-                                        <td>
-                                            @if($child->source_name)
-                                                <span class="pc-source-inline">
-                                                    @include('crud.pettycash._fund_source_badge', [
-                                                        'color' => $child->source_color,
-                                                        'short' => $child->source_short,
-                                                        'logo'  => $child->source_logo,
-                                                        'name'  => $child->source_name,
-                                                        'size'  => 'sm',
-                                                    ])
-                                                    <span class="pc-source-inline__name">{{ $child->source_name }}</span>
-                                                </span>
-                                            @endif
-                                        </td>
-                                        <td class="pc-row-child__desc">
-                                            <i class="fa fa-arrow-{{ $child->cash_in > 0 ? 'down-long' : 'up-long' }}"
-                                               style="color: {{ $child->cash_in > 0 ? '#16a34a' : '#dc2626' }};"></i>
-                                            {{ $child->description }}
-                                        </td>
-                                        <td class="text-right pc-cash-in pc-cash--internal">
-                                            {{ $child->cash_in > 0 ? number_format($child->cash_in, 0, ',', '.') : '—' }}
-                                        </td>
-                                        <td class="text-right pc-cash-out pc-cash--internal">
-                                            {{ $child->cash_out > 0 ? number_format($child->cash_out, 0, ',', '.') : '—' }}
-                                        </td>
-                                        <td class="text-right pc-saldo-cell pc-muted">—</td>
-                                        @if(!$isReadOnly)<td></td>@endif
-                                    </tr>
-                                @endforeach
-                            @endif
-                        @empty
-                            <tr>
-                                <td colspan="{{ $isReadOnly ? 6 : 7 }}">
-                                    <div class="pc-empty-state">
-                                        <i class="fa fa-folder-open"></i>
-                                        <div class="pc-empty-state__title">Belum ada transaksi bulan ini</div>
-                                    </div>
-                                </td>
-                            </tr>
-                        @endforelse
+                        @include('crud.pettycash._table_rows', [
+                            'rowsInput'  => $rowsRegular,
+                            'isReadOnly' => $isReadOnly,
+                            'kind'       => $kind,
+                            'branchId'   => $branchId,
+                            'tabKind'    => 'regular',
+                            'emptyTitle' => 'Belum ada Top Up atau Pengeluaran bulan ini',
+                            'emptyDesc'  => $emptyDescRegular,
+                        ])
                     </tbody>
-                    @if(count($rows) > 0)
+                    @if($rowsRegular->count() > 0)
                         <tfoot>
                             <tr class="pc-row-total">
                                 <td colspan="3"><strong>Total bulan ini</strong></td>
@@ -278,6 +241,72 @@
                     @endif
                 </table>
             </div>
+        </div>
+
+        {{-- TAB 2: Mutasi Antar Wallet (Transfer / Deposit / Tarik Tunai) --}}
+        <div class="st-card__body pc-trx-pane" data-trx-content="transfer" style="padding:0;" hidden>
+            <div class="st-table-wrap--scroll">
+                <table class="st-table pc-table">
+                    <thead>
+                        <tr>
+                            <th width="110">Tanggal</th>
+                            <th width="180">Sumber → Tujuan</th>
+                            <th>Keterangan</th>
+                            <th class="text-right" width="130">Cash in</th>
+                            <th class="text-right" width="130">Cash out</th>
+                            <th class="text-right" width="150">Saldo</th>
+                            @if(!$isReadOnly)
+                                <th width="80"></th>
+                            @endif
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @include('crud.pettycash._table_rows', [
+                            'rowsInput'  => $rowsTransfer,
+                            'isReadOnly' => $isReadOnly,
+                            'kind'       => $kind,
+                            'branchId'   => $branchId,
+                            'tabKind'    => 'transfer',
+                            'emptyTitle' => 'Belum ada Mutasi Antar Wallet bulan ini',
+                            'emptyDesc'  => $emptyDescTransfer,
+                        ])
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+{{-- ─── Lightbox preview untuk bukti pengeluaran ───
+     Dipakai saat user klik icon paperclip di tabel. Support gambar
+     (jpg/png/webp) tampil inline + PDF tampil via <iframe>. --}}
+<div class="pc-lightbox" id="pcAttachLightbox" role="dialog" aria-modal="true" hidden>
+    <div class="pc-lightbox__backdrop" data-pc-lightbox-close></div>
+    <div class="pc-lightbox__dialog">
+        <div class="pc-lightbox__header">
+            <div class="pc-lightbox__title">
+                <i class="fa fa-paperclip"></i> Bukti Pengeluaran
+            </div>
+            <div class="pc-lightbox__actions">
+                <a href="#" class="pc-lightbox__btn" id="pcAttachDownload" download
+                   title="Download file">
+                    <i class="fa fa-download"></i>
+                </a>
+                <a href="#" class="pc-lightbox__btn" id="pcAttachOpenTab"
+                   target="_blank" rel="noopener"
+                   title="Buka di tab baru">
+                    <i class="fa fa-external-link-alt"></i>
+                </a>
+                <button type="button" class="pc-lightbox__btn pc-lightbox__btn--close"
+                        data-pc-lightbox-close
+                        title="Tutup (Esc)">
+                    <i class="fa fa-times"></i>
+                </button>
+            </div>
+        </div>
+        <div class="pc-lightbox__body" id="pcAttachBody">
+            <!-- isi dinamis via JS: <img> atau <iframe> -->
         </div>
     </div>
 </div>
@@ -302,6 +331,10 @@
         'kind'               => $kind,
         'fundSourcesGrouped' => $fundSourcesGrouped,
         'branchAccountMap'   => $branchAccountMap ?? [],
+    ])
+    @include('crud.pettycash.modal-edit-expense', [
+        'period' => $period,
+        'kind'   => $kind,
     ])
 @endif
 @endsection
@@ -385,6 +418,10 @@
         badge.innerHTML = logo
             ? '<img src="' + logo + '" alt="" class="fs-badge__img">'
             : '<span class="fs-badge__text">' + short + '</span>';
+        // Simpan kategori source asal di dataset badge supaya verb preview
+        // di form transfer bisa hitung "Akan dicatat sebagai: Deposit/Tarik/Transfer".
+        badge.dataset.fromCategory = category;
+        badge.dataset.fromName = name;
 
         // Form Transfer: set from_source, filter dropdown destination, reset amount
         document.getElementById('transferFromSourceId').value = id;
@@ -394,9 +431,25 @@
         document.getElementById('transferMaxHint').textContent = fmt(balance);
         const sel = document.getElementById('transferToSelect');
         sel.value = '';
+        // Hide source itself + hide Cash dest untuk semua source non-Cash
+        // (Bank → pakai tab Tarik Tunai; E-Wallet → tidak ada tarik tunai).
+        // Pakai kombinasi hidden + display:none supaya konsisten lintas browser.
         Array.from(sel.options).forEach(function (opt) {
-            opt.hidden = (opt.value === id);
-            opt.disabled = (opt.value === id);
+            const isCashDest = (opt.dataset.category || '') === 'cash';
+            const hideAsCash = !isCash && isCashDest;
+            const shouldHide = (opt.value === id) || hideAsCash;
+            opt.hidden = shouldHide;
+            opt.disabled = shouldHide;
+            opt.style.display = shouldHide ? 'none' : '';
+        });
+        // Sembunyikan optgroup yang semua opsinya hidden — beberapa browser
+        // tetap render label optgroup kosong, biar bersih.
+        Array.from(sel.querySelectorAll('optgroup')).forEach(function (og) {
+            const visible = Array.from(og.children).some(function (o) {
+                return !o.hidden;
+            });
+            og.hidden = !visible;
+            og.style.display = visible ? '' : 'none';
         });
         sel.dispatchEvent(new Event('change'));
         const transferAmtVisible = document.querySelector('[data-target="transferAmount"]');
@@ -424,13 +477,14 @@
                 ? '<i class="fa fa-piggy-bank"></i> Deposit Saldo'
                 : '<i class="fa fa-right-left"></i> Transfer Saldo';
         }
-        // Label "Transfer ke" — dari Bank / E-Wallet bisa tarik tunai
-        // (ke Cash) atau transfer ke wallet lain, jadi labelnya gabungan.
-        // Dari Cash, options-nya selalu setor ke wallet lain → "Deposit ke".
+        // Label "Transfer ke":
+        //   - isCash       → "Deposit ke" (setor saldo Cash ke wallet lain)
+        //   - non-Cash     → "Transfer ke" (Cash sudah di-hide dari dropdown,
+        //                    Tarik Tunai punya tab dedicated)
         if (transferToLabel) {
             transferToLabel.innerHTML = isCash
                 ? 'Deposit ke <span class="text-danger">*</span>'
-                : 'Tarik Tunai / Transfer ke <span class="text-danger">*</span>';
+                : 'Transfer ke <span class="text-danger">*</span>';
         }
         // Hint text di atas form Transfer — narasinya ikut konteks source.
         const hintIcon = document.getElementById('transferTabHintIcon');
@@ -439,23 +493,22 @@
             if (isCash) {
                 hintIcon.className = 'fa fa-piggy-bank';
                 hintIcon.style.color = '#7c2d12';
-                hintText.innerHTML = '<strong>Deposit:</strong> setor saldo dari Cash ke Bank / E-Wallet. Total saldo periode <em>tidak berubah</em> — hanya pindah antar wallet (mis: setor tunai ke bank, isi e-wallet).';
+                hintText.innerHTML = '<strong>Deposit:</strong> setor saldo dari Cash ke Bank / E-Wallet <strong>milik usaha sendiri</strong> — <em>bukan setor ke rekening pihak lain</em>. Total saldo periode tidak berubah, hanya perpindahan internal antar wallet milik sendiri (mis: setor tunai ke Bank, isi E-Wallet).';
             } else {
                 hintIcon.className = 'fa fa-right-left';
                 hintIcon.style.color = '#2563eb';
-                hintText.innerHTML = '<strong>Transfer:</strong> pindahkan saldo dari sumber ini ke sumber dana lain. Total saldo periode <em>tidak berubah</em> — hanya redistribusi antar wallet (mis: tarik tunai dari bank, isi e-wallet dari cash).';
+                hintText.innerHTML = '<strong>Transfer:</strong> pindahkan saldo antar wallet yang <strong>Anda miliki sendiri</strong> — <em>bukan transfer ke rekening pihak lain</em>. Total saldo periode tidak berubah, hanya perpindahan internal antar wallet milik sendiri (mis: tarik tunai dari Bank ke Cash, isi E-Wallet dari Cash).';
             }
         }
 
-        // Tab Tambah Saldo punya 2 varian:
-        //   - external    : default untuk Bank / E-Wallet (form lama,
-        //                   dana baru masuk dari luar).
-        //   - from-source : khusus Cash (pilih sumber lain dgn saldo,
-        //                   nominal muncul setelah pilih, submit sebagai
-        //                   transfer ke Cash). Label tab ikut berubah
-        //                   jadi "Tarik Tunai" karena itu yang dilakukan
-        //                   secara nyata: cairin saldo Bank/E-Wallet jadi
-        //                   uang fisik di kasir.
+        // Tab tengah punya 2 varian dengan FUNGSI BERBEDA:
+        //   - external    → "TARIK TUNAI" (untuk Bank/E-Wallet)
+        //                   Cairkan saldo Bank/E-Wallet jadi cash. Submit ke
+        //                   endpoint transfer (from=this source, to=Cash).
+        //   - from-source → "SETOR CASH" (khusus Cash)
+        //                   Catat uang cash langsung masuk. Submit ke endpoint
+        //                   topup dengan is_topup=0 → saldo Cash naik tapi
+        //                   tidak masuk Total Top Up.
         const variantExternal   = transferModal.querySelector('[data-pc-topup-variant="external"]');
         const variantFromSource = transferModal.querySelector('[data-pc-topup-variant="from-source"]');
         if (variantExternal && variantFromSource) {
@@ -465,74 +518,90 @@
         const topupTabBtn = transferModal.querySelector('[data-tab-target="topup"]');
         if (topupTabBtn) {
             topupTabBtn.innerHTML = isCash
-                ? '<i class="fa fa-piggy-bank"></i> Tarik Tunai'
-                : '<i class="fa fa-arrow-down-up-across-line"></i> Tambah Saldo';
+                ? '<i class="fa fa-piggy-bank"></i> Setor Cash'
+                : '<i class="fa fa-piggy-bank"></i> Tarik Tunai';
         }
 
         if (isCash) {
-            // Lock destination = source Cash yang barusan diklik.
-            const toIdInput = document.getElementById('topupCashToSourceId');
-            if (toIdInput) toIdInput.value = id;
-
-            // Reset dropdown & nominal. Mode default = migrasi (sumber kosong,
-            // no cap, submit enabled). Submit baru terhalang kalau nominal=0
-            // (HTML5 required di input hidden).
-            const fromSel  = document.getElementById('topupCashFromSelect');
-            const amtVis   = document.querySelector('[data-target="topupCashAmount"]');
-            const amtHid   = document.getElementById('topupCashAmount');
-            const cashHint = document.getElementById('topupCashHint');
-            const submit   = document.getElementById('topupCashSubmitBtn');
-            if (fromSel) {
-                fromSel.value = '';
-                fromSel.disabled = false;
+            // SETOR CASH form: lock fund_source_id ke Cash yg dipilih, reset amount.
+            const setorIdInp = document.getElementById('setorCashFundSourceId');
+            const setorAmtVis = document.querySelector('[data-target="setorCashAmount"]');
+            const setorAmtHid = document.getElementById('setorCashAmount');
+            const setorSubmit = document.getElementById('setorCashSubmitBtn');
+            if (setorIdInp)  setorIdInp.value  = id;
+            if (setorAmtVis) { setorAmtVis.value = ''; setorAmtVis.dataset.maxAmount = ''; }
+            if (setorAmtHid) setorAmtHid.value = '';
+            if (setorSubmit) setorSubmit.disabled = false;
+        } else {
+            // TARIK TUNAI form: from = source ini (Bank/E-Wallet), to = Cash.
+            // Cap nominal = saldo source. Submit tampil kalau Cash source ada.
+            const cashId = transferModal.dataset.pcCashSourceId || '';
+            const tarikFromInp = document.getElementById('tarikTunaiFromSourceId');
+            const tarikToInp   = document.getElementById('tarikTunaiToSourceId');
+            const tarikAmtVis  = document.querySelector('[data-target="tarikTunaiAmount"]');
+            const tarikAmtHid  = document.getElementById('tarikTunaiAmount');
+            const tarikMaxHint = document.getElementById('tarikTunaiMaxHint');
+            const tarikSubmit  = document.getElementById('tarikTunaiSubmitBtn');
+            const tarikFromNm  = document.getElementById('tarikTunaiVerbFromName');
+            if (tarikFromInp) tarikFromInp.value = id;
+            if (tarikToInp)   tarikToInp.value   = cashId;
+            if (tarikAmtVis) {
+                tarikAmtVis.value = '';
+                tarikAmtVis.dataset.maxAmount = String(balance);
             }
-            if (amtVis) { amtVis.value = ''; amtVis.dataset.maxAmount = ''; }
-            if (amtHid) amtHid.value = '';
-            if (cashHint) cashHint.textContent = 'Setor langsung — input nominal cash yang sudah di tangan.';
-            if (submit) submit.disabled = false;
+            if (tarikAmtHid)  tarikAmtHid.value = '';
+            if (tarikMaxHint) tarikMaxHint.textContent = fmt(balance);
+            // Update nama source di panel "Akan dicatat sebagai"
+            if (tarikFromNm) tarikFromNm.textContent = name;
+            if (tarikSubmit) {
+                tarikSubmit.disabled = !cashId || balance < 0.005;
+                tarikSubmit.title = !cashId
+                    ? 'Sumber Cash tidak tersedia — hubungi admin'
+                    : (balance < 0.005 ? 'Saldo sumber kosong' : '');
+            }
         }
 
-        // Form Top up: lock fund_source_id ke source asal, reset amount
-        document.getElementById('topupSourceFundSourceId').value = id;
-        const topupAmtVisible = document.querySelector('[data-target="topupSourceAmount"]');
-        const topupAmtHidden  = document.getElementById('topupSourceAmount');
-        if (topupAmtVisible) topupAmtVisible.value = '';
-        if (topupAmtHidden)  topupAmtHidden.value  = '';
-
-        // Account row di tab Tambah Saldo — toggle berdasarkan kategori
-        // source, pre-fill dengan nomor existing kalau ada.
+        // Pre-set isBank/isEwallet untuk inline edit nomor rek di preview header.
         const acctValue = card.dataset.sourceAccount || '';
         const isBank    = category === 'bank';
         const isEwallet = category === 'ewallet';
-        const srcAcctRow   = transferModal.querySelector('[data-pc-topup-src-account-row]');
-        const srcAcctLabel = transferModal.querySelector('[data-pc-topup-src-account-label]');
-        const srcAcctInput = transferModal.querySelector('[data-pc-topup-src-account-input]');
-        if (srcAcctRow && srcAcctLabel && srcAcctInput) {
-            if (isBank || isEwallet) {
-                srcAcctRow.hidden = false;
-                srcAcctLabel.innerHTML = (isBank ? 'No. Rekening' : 'No. Telepon')
-                    + ' <small class="pc-muted">(opsional)</small>';
-                srcAcctInput.placeholder = isBank ? 'Mis: 1234567890' : 'Mis: 08123456789';
-                srcAcctInput.value = acctValue;
-            } else {
-                srcAcctRow.hidden = true;
-                srcAcctInput.value = '';
-            }
-        }
 
-        // From-source preview: tampilkan nomor + copy button kalau ada
+        // From-source preview: tampilkan nomor + copy button kalau ada.
+        // Kalau no rek/HP belum diisi & source = Bank/E-Wallet, tampilkan
+        // inline add form supaya user bisa lengkapi tanpa lewat form top up.
         const fromAcctWrap   = document.getElementById('transferFromAccount');
         const fromAcctLabel  = document.getElementById('transferFromAccountLabel');
         const fromAcctValEl  = document.getElementById('transferFromAccountValue');
         const fromAcctCopy   = document.getElementById('transferFromAccountCopy');
+        const fromAcctAdd    = document.getElementById('transferFromAccountAdd');
+        const fromAcctAddBtn = document.getElementById('transferFromAccountAddBtn');
+        const fromAcctAddLbl = document.getElementById('transferFromAccountAddLabel');
+        const fromAcctAddForm  = document.getElementById('transferFromAccountAddForm');
+        const fromAcctAddInput = document.getElementById('transferFromAccountAddInput');
+        const fromAcctAddError = document.getElementById('transferFromAccountAddError');
         if (fromAcctWrap && fromAcctLabel && fromAcctValEl && fromAcctCopy) {
             if (acctValue && (isBank || isEwallet)) {
                 fromAcctWrap.hidden = false;
                 fromAcctLabel.textContent = isBank ? 'No. Rek' : 'No. HP';
                 fromAcctValEl.textContent = acctValue;
                 fromAcctCopy.dataset.pcCopy = acctValue;
+                if (fromAcctAdd) fromAcctAdd.hidden = true;
+            } else if (!acctValue && (isBank || isEwallet)) {
+                fromAcctWrap.hidden = true;
+                if (fromAcctAdd && fromAcctAddBtn && fromAcctAddLbl && fromAcctAddForm && fromAcctAddInput) {
+                    fromAcctAdd.hidden = false;
+                    fromAcctAddLbl.textContent = isBank ? 'Tambah No. Rek' : 'Tambah No. HP';
+                    fromAcctAddInput.placeholder = isBank ? 'Mis: 1234567890' : 'Mis: 08123456789';
+                    fromAcctAddInput.value = '';
+                    fromAcctAddForm.hidden = true;
+                    fromAcctAddBtn.hidden = false;
+                    if (fromAcctAddError) { fromAcctAddError.hidden = true; fromAcctAddError.textContent = ''; }
+                    // Simpan source id untuk submit handler
+                    fromAcctAdd.dataset.sourceId = id;
+                }
             } else {
                 fromAcctWrap.hidden = true;
+                if (fromAcctAdd) fromAcctAdd.hidden = true;
             }
         }
 
@@ -554,11 +623,14 @@
         });
 
         // Aturan tab:
-        //   - Transfer / Pengeluaran  → butuh saldo > 0 (disabled kalau kosong)
-        //   - Tambah Saldo (topup)    → hanya untuk Cash, untuk non-Cash
-        //                              tab di-HIDE total dari tab bar
-        //                              (uang baru selalu masuk sebagai cash dulu,
-        //                              isi Bank/E-Wallet via Transfer dari Cash)
+        //   - Transfer / Pengeluaran → butuh saldo > 0 (disabled kalau kosong)
+        //   - Tab tengah ('topup'):
+        //       • Klik kartu Cash    → "Setor Cash" (tidak butuh saldo)
+        //       • Klik kartu Bank    → "Tarik Tunai" (butuh saldo > 0 +
+        //                              Cash source tersedia)
+        //       • Klik kartu E-Wallet → tab HIDDEN (tidak ada Tarik Tunai
+        //                              dari E-Wallet)
+        const cashIdForModal = transferModal.dataset.pcCashSourceId || '';
         transferModal.querySelectorAll('[data-tab-target]').forEach(function (btn) {
             const target = btn.dataset.tabTarget;
             let disabled = false;
@@ -570,8 +642,20 @@
                     reason = 'Tidak bisa ' + (target === 'transfer' ? 'transfer' : 'pengeluaran') + ' — saldo kosong';
                 }
             } else if (target === 'topup') {
-                if (!isCash) {
-                    hidden = true; // sembunyikan total dari tab bar
+                if (isCash) {
+                    // Setor Cash: selalu enabled, tidak butuh saldo
+                } else if (category === 'bank') {
+                    // Tarik Tunai dari Bank: butuh saldo > 0 + Cash source ada
+                    if (!hasSaldo) {
+                        disabled = true;
+                        reason = 'Tidak bisa tarik tunai — saldo kosong';
+                    } else if (!cashIdForModal) {
+                        disabled = true;
+                        reason = 'Sumber Cash tidak tersedia di cabang ini';
+                    }
+                } else {
+                    // E-Wallet / kategori lain → sembunyikan tab tengah
+                    hidden = true;
                 }
             }
             btn.disabled = disabled;
@@ -581,11 +665,11 @@
             btn.title = reason;
         });
 
-        // Pilih default tab pertama yang available (tidak disabled, tidak hidden).
+        // Pilih default tab pertama yang available.
         // Priority:
         //   - Punya saldo → Transfer dulu
-        //   - Saldo 0 + Cash → Topup
-        //   - Saldo 0 + non-Cash → Transfer / Expense (semua disabled, fallback ke yg ada)
+        //   - Saldo 0 + Cash → Setor Cash (tab tengah)
+        //   - Saldo 0 + non-Cash → Transfer / Expense (semua disabled, fallback)
         const priority = hasSaldo
             ? ['transfer', 'topup', 'expense']
             : (isCash ? ['topup', 'transfer', 'expense'] : ['transfer', 'expense']);
@@ -635,63 +719,210 @@
     }
     attachAmountCap('[data-target="transferAmount"]',      'transferAmount');
     attachAmountCap('[data-target="expenseSourceAmount"]', 'expenseSourceAmount');
-    attachAmountCap('[data-target="topupCashAmount"]',     'topupCashAmount');
+    attachAmountCap('[data-target="tarikTunaiAmount"]',    'tarikTunaiAmount');
 
-    // Tab Tambah Saldo Cash: 2 mode tergantung apakah sumber dipilih.
-    //   - Sumber dipilih → tarik dari Bank/E-Wallet ke Cash (submit ke endpoint
-    //     transfer, nominal di-cap = saldo sumber).
-    //   - Sumber dikosongkan → setor cash langsung / migrasi (submit ke endpoint
-    //     topup dengan fund_source_id = Cash, nominal bebas).
-    // Submit selalu enabled selama nominal valid — source bisa kosong.
+    // Lightbox preview untuk icon attachment di tabel transaksi.
+    // Klik [data-pc-attach-url] → tampilkan file dalam modal:
+    //   - Gambar (jpg/png/webp) → <img>
+    //   - PDF → <iframe>
+    // Close via tombol X / klik backdrop / tombol Escape.
     (function () {
-        const form    = document.getElementById('topupCashForm');
-        const fromSel = document.getElementById('topupCashFromSelect');
-        if (!fromSel || !transferModal || !form) return;
-        const amtVis  = document.querySelector('[data-target="topupCashAmount"]');
-        const amtHid  = document.getElementById('topupCashAmount');
-        const hint    = document.getElementById('topupCashHint');
-        const submit  = document.getElementById('topupCashSubmitBtn');
-        const toIdInp = document.getElementById('topupCashToSourceId');
-        const fmt     = function (n) { return Math.round(n).toLocaleString('id-ID'); };
+        const lb       = document.getElementById('pcAttachLightbox');
+        const body     = document.getElementById('pcAttachBody');
+        const dlBtn    = document.getElementById('pcAttachDownload');
+        const tabBtn   = document.getElementById('pcAttachOpenTab');
+        if (!lb || !body) return;
 
-        // Cap = balance source kalau dipilih, atau no cap kalau migrasi.
-        // Label tombol submit ikut menyesuaikan mode.
-        function syncMode() {
-            const opt = fromSel.options[fromSel.selectedIndex];
-            const bal = parseFloat((opt && opt.dataset.balance) || '0');
-            if (opt && opt.value && bal > 0) {
-                if (amtVis) amtVis.dataset.maxAmount = String(bal);
-                if (hint) hint.textContent = 'Maks: Rp ' + fmt(bal);
-                if (submit) submit.innerHTML = '<i class="fa fa-piggy-bank"></i> Tarik Tunai';
-            } else {
-                if (amtVis) amtVis.dataset.maxAmount = '';
-                if (hint) hint.textContent = 'Setor langsung — input nominal cash yang sudah di tangan.';
-                if (submit) submit.innerHTML = '<i class="fa fa-piggy-bank"></i> Setor Cash';
-            }
-            if (submit) submit.disabled = false;
+        const IMG_EXTS = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
+
+        function open(url, ext) {
+            ext = (ext || '').toLowerCase();
+            const isImg = IMG_EXTS.indexOf(ext) !== -1;
+            body.innerHTML = isImg
+                ? '<img src="' + url + '" alt="bukti pengeluaran" class="pc-lightbox__img">'
+                : '<iframe src="' + url + '" class="pc-lightbox__iframe" frameborder="0"></iframe>';
+            if (dlBtn)  dlBtn.href  = url;
+            if (tabBtn) tabBtn.href = url;
+            lb.hidden = false;
+            document.body.style.overflow = 'hidden';
         }
-        fromSel.addEventListener('change', function () {
-            if (amtVis) amtVis.value = '';
-            if (amtHid) amtHid.value = '';
-            syncMode();
-        });
-        syncMode();
+        function close() {
+            lb.hidden = true;
+            body.innerHTML = '';
+            document.body.style.overflow = '';
+        }
 
-        // Saat submit, swap action & nama field tergantung mode.
-        //   - Mode transfer: action = transfer endpoint, to_source_id = Cash (existing),
-        //     from_source_id = source yang dipilih.
-        //   - Mode migrasi: action = topup endpoint, kirim fund_source_id = Cash
-        //     (rename to_source_id → fund_source_id supaya backend topup terima).
-        form.addEventListener('submit', function () {
-            const from = fromSel.value;
-            if (from) {
-                form.action = form.dataset.actionTransfer;
-                if (toIdInp) toIdInp.name = 'to_source_id';
-            } else {
-                form.action = form.dataset.actionTopup;
-                if (toIdInp) toIdInp.name = 'fund_source_id';
-                fromSel.disabled = true; // jangan kirim from_source_id kosong
+        // Delegasi klik untuk tombol attachment (di tabel — bisa banyak)
+        document.addEventListener('click', function (e) {
+            const btn = e.target.closest('[data-pc-attach-url]');
+            if (btn) {
+                e.preventDefault();
+                e.stopPropagation();
+                open(btn.dataset.pcAttachUrl, btn.dataset.pcAttachExt);
+                return;
             }
+            if (e.target.closest('[data-pc-lightbox-close]')) {
+                e.preventDefault();
+                close();
+            }
+        });
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && !lb.hidden) close();
+        });
+    })();
+
+    // Upload bukti (pengeluaran, top up, transfer): preview file yg dipilih,
+    // format size, tombol remove untuk reset input. Validasi tipe & size di
+    // server-side juga. Looping semua `.pc-attach-zone` di halaman supaya
+    // expense + top up + transfer dapat handler sendiri-sendiri.
+    (function () {
+        function formatSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / 1024 / 1024).toFixed(2) + ' MB';
+        }
+
+        document.querySelectorAll('.pc-attach-zone').forEach(function (zone) {
+            const input     = zone.querySelector('.pc-attach-input');
+            const label     = zone.querySelector('.pc-attach-label');
+            const preview   = zone.querySelector('.pc-attach-preview');
+            const thumb     = zone.querySelector('.pc-attach-preview__thumb');
+            const nameEl    = zone.querySelector('.pc-attach-preview__name');
+            const sizeEl    = zone.querySelector('.pc-attach-preview__size');
+            const removeBtn = zone.querySelector('.pc-attach-preview__remove');
+            if (!input || !label || !preview) return;
+
+            input.addEventListener('change', function () {
+                const file = input.files && input.files[0];
+                if (!file) return;
+                if (file.size > 5 * 1024 * 1024) {
+                    alert('Ukuran file melebihi 5 MB. Pilih file lain.');
+                    input.value = '';
+                    return;
+                }
+                if (nameEl) nameEl.textContent = file.name;
+                if (sizeEl) sizeEl.textContent = formatSize(file.size);
+                if (file.type.startsWith('image/')) {
+                    const reader = new FileReader();
+                    reader.onload = function (e) {
+                        thumb.innerHTML = '<img src="' + e.target.result + '" alt="preview">';
+                    };
+                    reader.readAsDataURL(file);
+                } else {
+                    thumb.innerHTML = '<i class="fa fa-file-pdf"></i>';
+                }
+                label.hidden = true;
+                preview.hidden = false;
+            });
+
+            if (removeBtn) {
+                removeBtn.addEventListener('click', function () {
+                    input.value = '';
+                    preview.hidden = true;
+                    label.hidden = false;
+                    thumb.innerHTML = '<i class="fa fa-file"></i>';
+                });
+            }
+        });
+    })();
+
+    // Setor Cash form: enable submit kalau nominal > 0. Tidak ada cap karena
+    // input adalah jumlah cash fisik yang masuk (bebas, bukan dari sumber lain).
+    (function () {
+        const form   = document.getElementById('setorCashForm');
+        if (!form) return;
+        const amtVis = document.querySelector('[data-target="setorCashAmount"]');
+        const amtHid = document.getElementById('setorCashAmount');
+        const submit = document.getElementById('setorCashSubmitBtn');
+        if (!amtVis || !amtHid || !submit) return;
+        function sync() {
+            const v = parseFloat(amtHid.value || '0');
+            submit.disabled = !(v > 0);
+        }
+        amtVis.addEventListener('input', sync);
+        amtVis.addEventListener('change', sync);
+        sync();
+    })();
+
+    // Edit Pengeluaran (modal-edit-expense): klik tombol pensil di table
+    // row → prefill form dari data-trx-* attributes & set form action.
+    // Window 24 jam sudah di-enforce di server-side; tombol cuma muncul
+    // kalau row masih dalam window.
+    (function () {
+        const modal       = document.getElementById('pcModalEditExpense');
+        const form        = document.getElementById('pcEditExpenseForm');
+        if (!modal || !form) return;
+        const dateLabel   = modal.querySelector('#pcEditTrxDate');
+        const walletLabel = modal.querySelector('#pcEditWallet');
+        const categorySel = modal.querySelector('#pcEditCategory');
+        const amountVis   = modal.querySelector('#pcEditAmountVisible');
+        const amountHid   = modal.querySelector('#pcEditAmount');
+        const maxHint     = modal.querySelector('#pcEditAmountMaxHint');
+        const descInput   = modal.querySelector('#pcEditDescription');
+        const actionTpl   = form.getAttribute('data-action-tpl') || '';
+
+        // Format Rp dengan thousand separator.
+        function fmt(n) {
+            return Number(n || 0).toLocaleString('id-ID');
+        }
+
+        // Lookup balance wallet berdasarkan source-id (dari kartu wallet
+        // di atas — pc-source-card punya data-source-id & data-source-balance).
+        function lookupWalletBalance(sourceId) {
+            if (!sourceId) return 0;
+            const card = document.querySelector(
+                '.pc-source-card[data-source-id="' + sourceId + '"]'
+            );
+            return card ? parseFloat(card.dataset.sourceBalance || '0') : 0;
+        }
+
+        document.addEventListener('click', function (e) {
+            const btn = e.target.closest('[data-pc-edit-trx]');
+            if (!btn) return;
+            e.preventDefault();
+
+            const trxId         = btn.dataset.trxId || '';
+            const trxDate       = btn.dataset.trxDate || '';
+            const trxAmount     = parseFloat(btn.dataset.trxAmount || '0');
+            const trxDesc       = btn.dataset.trxDescription || '';
+            const trxCategory   = btn.dataset.trxCategory || '';
+            const trxSourceName = btn.dataset.trxSourceName || '—';
+            const trxSourceId   = btn.dataset.trxSourceId || '';
+
+            // Set form action: replace __ID__ placeholder dengan id transaksi.
+            form.action = actionTpl.replace('__ID__', trxId);
+
+            // Prefill display fields.
+            dateLabel.textContent   = trxDate;
+            walletLabel.textContent = trxSourceName;
+            categorySel.value       = trxCategory;
+            descInput.value         = trxDesc;
+            amountVis.value         = fmt(trxAmount);
+            amountHid.value         = String(trxAmount);
+
+            // Hitung max amount = saldo wallet sekarang + nominal asli
+            // (karena nominal asli sudah "termakan" di saldo saat ini, jadi
+            // wallet sebenarnya bisa nampung sampai max ini).
+            const walletBalance = lookupWalletBalance(trxSourceId);
+            const maxAmount     = walletBalance + trxAmount;
+            if (maxHint) maxHint.textContent = fmt(maxAmount);
+
+            // Buka modal (konvensi project: .pc-modal.is-open → display:flex).
+            modal.classList.add('is-open');
+        });
+    })();
+
+    // Panel "Akan dicatat sebagai: TARIK TUNAI" di tab Tarik Tunai —
+    // klik header untuk collapse/expand. Default open saat modal dibuka.
+    (function () {
+        const previewEl = document.getElementById('tarikTunaiVerbPreview');
+        if (!previewEl) return;
+        const headEl = previewEl.querySelector('.pc-verb-preview__head');
+        if (!headEl) return;
+        headEl.addEventListener('click', function () {
+            const willOpen = !previewEl.classList.contains('is-open');
+            previewEl.classList.toggle('is-open', willOpen);
+            headEl.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
         });
     })();
 
@@ -747,6 +978,61 @@
         sync();
     })();
 
+    // ─── Preview verb di form Transfer ───
+    // Saat user pilih sumber tujuan, tampilkan badge "Akan dicatat sebagai:
+    // DEPOSIT / TARIK TUNAI / TRANSFER" supaya user tahu hasil sebelum submit.
+    // Background wrapper berubah sesuai mode (is-deposit / is-withdraw / is-transfer).
+    // Collapsible dengan animasi smooth (grid-template-rows trick).
+    // Aturan match controller (PettyCashController::transfer):
+    //   - to=Cash             → "Tarik Tunai"
+    //   - from=Cash, to≠Cash  → "Deposit"
+    //   - selain itu          → "Transfer"
+    (function () {
+        const toSel     = document.getElementById('transferToSelect');
+        const fromBadge = document.getElementById('transferFromBadge');
+        const previewEl = document.getElementById('transferVerbPreview');
+        const headEl    = previewEl ? previewEl.querySelector('.pc-verb-preview__head') : null;
+        const badgeEl   = document.getElementById('transferVerbBadge');
+        const descEl    = document.getElementById('transferVerbDesc');
+        if (!toSel || !fromBadge || !previewEl || !headEl || !badgeEl || !descEl) return;
+
+        function refresh() {
+            const opt = toSel.options[toSel.selectedIndex];
+            const toCat  = (opt && opt.dataset.category) || '';
+            const toName = (opt && opt.value && opt.textContent) || '';
+            const fromCat  = fromBadge.dataset.fromCategory || '';
+            const fromName = fromBadge.dataset.fromName || '';
+            if (!opt || !opt.value || !fromCat) { previewEl.hidden = true; return; }
+
+            let verb, cls, desc;
+            if (toCat === 'cash') {
+                verb = 'TARIK TUNAI'; cls = 'withdraw';
+                desc = 'Cairkan saldo ' + fromName + ' jadi uang fisik di ' + toName + '.';
+            } else if (fromCat === 'cash' && toCat !== 'cash') {
+                verb = 'DEPOSIT'; cls = 'deposit';
+                desc = 'Setor uang fisik dari ' + fromName + ' ke ' + toName + '.';
+            } else {
+                verb = 'TRANSFER'; cls = 'transfer';
+                desc = 'Pindahkan saldo dari ' + fromName + ' ke ' + toName + ' — total saldo periode tidak berubah.';
+            }
+            badgeEl.textContent = verb;
+            badgeEl.className = 'pc-verb-preview__badge pc-verb-preview__badge--' + cls;
+            descEl.textContent = desc;
+            // Apply mode class ke wrapper untuk background tint
+            previewEl.classList.remove('is-deposit', 'is-withdraw', 'is-transfer');
+            previewEl.classList.add('is-' + cls);
+            previewEl.hidden = false;
+        }
+        // Toggle collapse saat user klik header
+        headEl.addEventListener('click', function () {
+            const willOpen = !previewEl.classList.contains('is-open');
+            previewEl.classList.toggle('is-open', willOpen);
+            headEl.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+        });
+        toSel.addEventListener('change', refresh);
+        refresh();
+    })();
+
     // Modal Top Up Saldo (global): toggle input nomor rekening / telepon
     // berdasarkan kategori sumber dana yang dipilih. Pre-fill dengan nomor
     // existing kalau ada (form ini bisa dipakai untuk update juga).
@@ -776,6 +1062,30 @@
         sel.addEventListener('change', sync);
         sync();
     });
+
+    // Sub-tabs di card tabel transaksi: split Top Up/Pengeluaran vs Transfer.
+    // Klik tombol [data-trx-tab=name] → set [data-active-trx-tab] di card +
+    // toggle visibility pane [data-trx-content].
+    (function () {
+        const card = document.querySelector('.pc-trx-card');
+        if (!card) return;
+        const tabs  = card.querySelectorAll('[data-trx-tab]');
+        const panes = card.querySelectorAll('[data-trx-content]');
+        tabs.forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                const target = btn.dataset.trxTab;
+                card.dataset.activeTrxTab = target;
+                tabs.forEach(function (b) {
+                    const active = b.dataset.trxTab === target;
+                    b.classList.toggle('is-active', active);
+                    b.setAttribute('aria-selected', active ? 'true' : 'false');
+                });
+                panes.forEach(function (p) {
+                    p.hidden = (p.dataset.trxContent !== target);
+                });
+            });
+        });
+    })();
 
     // Toggle expand/collapse untuk composite transfer row di tabel.
     // Composite row punya 2 child <tr> (sisi OUT & IN) yang hidden by
@@ -833,6 +1143,176 @@
             copyText(btn, btn.dataset.pcCopy || '');
         });
     });
+
+    // ─── Inline add / edit nomor rek/HP di preview modal ───
+    // Mode "add"  : muncul saat card Bank/E-Wallet diklik & no rek kosong.
+    // Mode "edit" : tombol pen di sebelah copy untuk ubah nomor existing.
+    // Input dipaksa numeric (strip non-digit on-the-fly).
+    // AJAX ke pettycash.account.save → update DOM + card.dataset supaya
+    // klik berikutnya langsung tampil nomor (tanpa reload halaman).
+    (function () {
+        const addWrap   = document.getElementById('transferFromAccountAdd');
+        const addBtn    = document.getElementById('transferFromAccountAddBtn');
+        const addForm   = document.getElementById('transferFromAccountAddForm');
+        const addInput  = document.getElementById('transferFromAccountAddInput');
+        const saveBtn   = document.getElementById('transferFromAccountSaveBtn');
+        const cancelBtn = document.getElementById('transferFromAccountCancelBtn');
+        const errorEl   = document.getElementById('transferFromAccountAddError');
+        const showWrap  = document.getElementById('transferFromAccount');
+        const editBtn   = document.getElementById('transferFromAccountEdit');
+        const valEl     = document.getElementById('transferFromAccountValue');
+        if (!addWrap || !addBtn || !addForm || !addInput || !saveBtn || !cancelBtn) return;
+
+        const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+        const csrf     = csrfMeta ? csrfMeta.getAttribute('content') : '';
+
+        const periodInp = document.querySelector('[data-tab-content="transfer"] input[name="period_id"]');
+        const kindInp   = document.querySelector('[data-tab-content="transfer"] input[name="tab"]');
+        const branchInp = document.querySelector('[data-tab-content="transfer"] input[name="branch"]');
+
+        // State: 'add' (nomor kosong) vs 'edit' (nomor sudah ada → ubah)
+        let mode = 'add';
+
+        function showError(msg) {
+            if (!errorEl) return;
+            errorEl.textContent = msg;
+            errorEl.hidden = false;
+        }
+        function clearError() {
+            if (!errorEl) return;
+            errorEl.hidden = true;
+            errorEl.textContent = '';
+        }
+
+        // Strip non-digit saat user mengetik / paste — hanya angka yang masuk.
+        addInput.addEventListener('input', function () {
+            const cleaned = addInput.value.replace(/\D+/g, '');
+            if (cleaned !== addInput.value) addInput.value = cleaned;
+        });
+
+        function openForm(prefill) {
+            clearError();
+            addWrap.hidden = false;
+            addBtn.hidden = true;
+            addForm.hidden = false;
+            addInput.value = prefill || '';
+            addInput.focus();
+            addInput.select();
+        }
+        function closeForm() {
+            clearError();
+            addInput.value = '';
+            addForm.hidden = true;
+            if (mode === 'add') {
+                addBtn.hidden = false;
+            } else {
+                // Edit: balikin tampilan nomor existing
+                addWrap.hidden = true;
+                if (showWrap) showWrap.hidden = false;
+            }
+        }
+
+        addBtn.addEventListener('click', function (e) {
+            e.preventDefault();
+            mode = 'add';
+            openForm('');
+        });
+
+        if (editBtn) {
+            editBtn.addEventListener('click', function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                mode = 'edit';
+                const current = valEl ? (valEl.textContent || '').trim() : '';
+                // Set source id dari card yang sedang aktif
+                const activeCard = document.querySelector('[data-pc-source-card].is-active')
+                    || document.querySelector('[data-pc-source-card][data-source-id="'
+                        + (document.getElementById('transferFromSourceId')?.value || '') + '"]');
+                if (activeCard) addWrap.dataset.sourceId = activeCard.dataset.sourceId || '';
+                if (showWrap) showWrap.hidden = true;
+                openForm(current);
+            });
+        }
+
+        cancelBtn.addEventListener('click', function (e) {
+            e.preventDefault();
+            closeForm();
+        });
+
+        addInput.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter')  { e.preventDefault(); saveBtn.click(); }
+            if (e.key === 'Escape') { e.preventDefault(); cancelBtn.click(); }
+        });
+
+        saveBtn.addEventListener('click', function (e) {
+            e.preventDefault();
+            clearError();
+            const value = (addInput.value || '').trim();
+            if (!value) { showError('Nomor tidak boleh kosong.'); return; }
+            if (!/^[0-9]+$/.test(value)) { showError('Nomor hanya boleh berisi angka.'); return; }
+
+            const sourceId = addWrap.dataset.sourceId
+                || document.getElementById('transferFromSourceId')?.value
+                || '';
+            const periodId = periodInp ? periodInp.value : '';
+            const tab      = kindInp ? kindInp.value : 'petty_cash';
+            if (!sourceId || !periodId) { showError('Data tidak lengkap, coba tutup & buka lagi modal.'); return; }
+
+            const body = new FormData();
+            body.append('_token', csrf);
+            body.append('period_id', periodId);
+            body.append('fund_source_id', sourceId);
+            body.append('account_number', value);
+            body.append('tab', tab);
+            if (branchInp && branchInp.value) body.append('branch', branchInp.value);
+
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<i class="fa fa-spinner fa-spin"></i>';
+
+            fetch("{{ route('pettycash.account.save') }}", {
+                method: 'POST',
+                headers: { 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json' },
+                body: body,
+            })
+            .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, status: r.status, body: j }; }); })
+            .then(function (res) {
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = '<i class="fa fa-check"></i>';
+                if (!res.ok || !res.body || !res.body.ok) {
+                    // 422 Laravel validation: ambil pesan dari errors.account_number
+                    let msg = (res.body && res.body.message) || 'Gagal menyimpan. Coba lagi.';
+                    if (res.body && res.body.errors && res.body.errors.account_number) {
+                        msg = res.body.errors.account_number[0];
+                    }
+                    showError(msg);
+                    return;
+                }
+                // Sukses: pindahkan UI ke mode "tampil nomor + copy + edit"
+                const acctValue = res.body.account_number;
+                const label     = res.body.label || 'No. Rek';
+                const lblEl     = document.getElementById('transferFromAccountLabel');
+                const copyEl    = document.getElementById('transferFromAccountCopy');
+                if (showWrap && lblEl && valEl && copyEl) {
+                    lblEl.textContent = label;
+                    valEl.textContent = acctValue;
+                    copyEl.dataset.pcCopy = acctValue;
+                    showWrap.hidden = false;
+                }
+                addWrap.hidden = true;
+                addForm.hidden = true;
+                addBtn.hidden = false;
+                // Sync ke kartu sumber dana di halaman supaya klik berikutnya
+                // langsung tampil nomor (tanpa reload).
+                const card = document.querySelector('[data-pc-source-card][data-source-id="' + sourceId + '"]');
+                if (card) card.dataset.sourceAccount = acctValue;
+            })
+            .catch(function () {
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = '<i class="fa fa-check"></i>';
+                showError('Network error. Coba lagi.');
+            });
+        });
+    })();
 })();
 </script>
 @endsection
