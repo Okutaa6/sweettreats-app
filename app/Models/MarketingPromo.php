@@ -62,6 +62,27 @@ class MarketingPromo extends Model
         ];
     }
 
+    /**
+     * Warna aksen per jenis campaign (untuk badge + garis tepi card).
+     * 'color' = teks/aksen pekat, 'bg' = latar badge muda.
+     */
+    public static function campaignColors(): array
+    {
+        return [
+            'promo_bulanan'  => ['color' => '#7a3b00', 'bg' => '#f3ebe4'],
+            'promo_cabang'   => ['color' => '#155e63', 'bg' => '#e2f1f1'],
+            'sweet_surprise' => ['color' => '#a01a55', 'bg' => '#fbe6ef'],
+            'cicilan_behel'  => ['color' => '#0d47a1', 'bg' => '#e3edfb'],
+            'tanggal_kembar' => ['color' => '#5b2a86', 'bg' => '#efe6f7'],
+            'payday'         => ['color' => '#1b5e20', 'bg' => '#e4f2e5'],
+        ];
+    }
+
+    public function campaignColor(): array
+    {
+        return self::campaignColors()[$this->campaign_type] ?? ['color' => '#8a5a2b', 'bg' => '#f3ebe4'];
+    }
+
     public static function statusOptions(): array
     {
         return [
@@ -97,6 +118,51 @@ class MarketingPromo extends Model
         if ($this->periode_start && $on < $this->periode_start) return false;
         if ($this->periode_end && $on > $this->periode_end->endOfDay()) return false;
         return true;
+    }
+
+    /**
+     * Diskon (%) dari harga normal ke harga promo. Null kalau data tak lengkap.
+     */
+    public function diskonPct(): ?int
+    {
+        if (!$this->harga_normal || !$this->harga_promo) return null;
+        if ($this->harga_normal <= $this->harga_promo) return null;
+        return (int) round((($this->harga_normal - $this->harga_promo) / $this->harga_normal) * 100);
+    }
+
+    /**
+     * Klasifikasi promo ke satu "ember" periode untuk tampilan card (grouping).
+     * Prioritas: selesai > sedang berjalan > bulan ini > bulan depan > akan datang.
+     */
+    public function periodeBucket(): string
+    {
+        $start = $this->periode_start;
+        $end   = $this->periode_end;
+
+        if (!$start && !$end) return 'tanpa_periode';
+        if ($end && now()->gt($end->copy()->endOfDay())) return 'selesai';
+        if ($this->isWithinPeriode()) return 'berjalan';
+
+        if ($start) {
+            if ($start->isSameMonth(now()))            return 'bulan_ini';
+            if ($start->isSameMonth(now()->addMonth())) return 'bulan_depan';
+        }
+        return 'akan_datang';
+    }
+
+    /**
+     * Metadata ember periode (urutan tampil + label + warna aksen).
+     */
+    public static function periodeBuckets(): array
+    {
+        return [
+            'berjalan'      => ['label' => 'Sedang Berjalan',  'icon' => 'fa-play-circle',  'accent' => '#1e7e34'],
+            'bulan_ini'     => ['label' => 'Bulan Ini',        'icon' => 'fa-calendar-day', 'accent' => '#461500'],
+            'bulan_depan'   => ['label' => 'Bulan Depan',      'icon' => 'fa-calendar-plus','accent' => '#8a5a2b'],
+            'akan_datang'   => ['label' => 'Akan Datang',      'icon' => 'fa-clock',        'accent' => '#6c757d'],
+            'tanpa_periode' => ['label' => 'Tanpa Periode',    'icon' => 'fa-infinity',     'accent' => '#6c757d'],
+            'selesai'       => ['label' => 'Sudah Selesai',    'icon' => 'fa-flag-checkered','accent' => '#adb5bd'],
+        ];
     }
 
     public function scopeAktif($query)

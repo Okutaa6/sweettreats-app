@@ -53,16 +53,59 @@ class MarketingPromoController extends Controller
             $query->where('status', $filterStatus);
         }
 
-        $promos    = $query->paginate($perPage)->withQueryString();
+        // Mode tampilan: 'card' (default, dikelompokkan per periode) atau 'list' (tabel paginated)
+        $viewMode = request('view') === 'list' ? 'list' : 'card';
+
+        if ($viewMode === 'card') {
+            $promos  = (clone $query)->get();
+            $grouped = $this->groupByPeriode($promos);
+        } else {
+            $promos  = $query->paginate($perPage)->withQueryString();
+            $grouped = null;
+        }
+
         $branches  = RawBranch::orderBy('name')->get();
         $campaigns = MarketingPromo::campaignTypes();
         $statuses  = MarketingPromo::statusOptions();
 
+        // Margin/COGS tampil di halaman admin ini (buat laporan). Di dashboard
+        // lintas departemen nanti, view yang sama bisa di-render dgn $showMargin=false.
+        $showMargin = true;
+
         return view('crud.marketing-promo.list', compact(
-            'promos', 'branches', 'campaigns', 'statuses', 'summary',
+            'promos', 'grouped', 'viewMode', 'showMargin',
+            'branches', 'campaigns', 'statuses', 'summary',
             'filterStatus', 'filterCampaign', 'filterBranch', 'filterSearch',
             'filterAktifPada', 'filterPeriode'
         ));
+    }
+
+    /**
+     * Kelompokkan koleksi promo ke section per-periode untuk tampilan card.
+     * Buang ember kosong; urutkan isi tiap ember by periode_start (terdekat dulu).
+     *
+     * @return array<string,array{meta:array,items:\Illuminate\Support\Collection}>
+     */
+    private function groupByPeriode($promos): array
+    {
+        $buckets = MarketingPromo::periodeBuckets();
+        $grouped = [];
+        foreach ($buckets as $key => $meta) {
+            $grouped[$key] = ['meta' => $meta, 'items' => collect()];
+        }
+
+        foreach ($promos as $p) {
+            $grouped[$p->periodeBucket()]['items']->push($p);
+        }
+
+        foreach ($grouped as $key => &$g) {
+            $g['items'] = $g['items']
+                ->sortBy(fn($p) => optional($p->periode_start)->timestamp ?? PHP_INT_MAX)
+                ->values();
+        }
+        unset($g);
+
+        return array_filter($grouped, fn($g) => $g['items']->isNotEmpty());
     }
 
     private function resolvePeriodeShortcut(?string $key): ?array
