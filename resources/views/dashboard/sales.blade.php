@@ -99,52 +99,31 @@
                 </div>
             </div>
 
-            {{-- PROMO (aktif; kalau kosong → fallback "akan datang") --}}
-            @php $promoActive = $activePromos->isNotEmpty(); $promoList = $promoActive ? $activePromos : $upcomingPromos; @endphp
+            {{-- PROMO: 2 section — Aktif (sekarang) + Akan Datang (prep) --}}
             <div class="sds-card">
-                @if ($promoActive)
+                @if ($activePromos->isEmpty() && $upcomingPromos->isEmpty())
                     <div class="sds-sec"><span class="sds-sec__ic" style="background:#F4E7D8;color:#7A3415;"><i class="fa fa-tags"></i></span>
                         Promo Aktif <span class="sds-sec__sub">— bisa ditawarkan ke pasien buat ngejar target</span></div>
-                @elseif ($promoList->isNotEmpty())
-                    <div class="sds-sec"><span class="sds-sec__ic" style="background:#E4ECFB;color:#3C5FA8;"><i class="fa fa-clock"></i></span>
-                        Promo Akan Datang <span class="sds-sec__sub">— belum aktif, siap-siap tawarin pas mulai</span></div>
-                @else
-                    <div class="sds-sec"><span class="sds-sec__ic" style="background:#F4E7D8;color:#7A3415;"><i class="fa fa-tags"></i></span>
-                        Promo Aktif <span class="sds-sec__sub">— bisa ditawarkan ke pasien buat ngejar target</span></div>
-                @endif
-
-                @if ($promoList->isEmpty())
                     <div class="sds-empty">Belum ada promo aktif atau akan datang untuk cabang ini.</div>
                 @else
-                    <div class="sds-promo-grid">
-                        @foreach ($promoList as $p)
-                            @php
-                                $cc = $ccMap[$p->campaign_type] ?? ['color' => '#7A3415', 'bg' => '#F4E7D8'];
-                                $diskon = ($p->harga_normal && $p->harga_promo && $p->harga_normal > $p->harga_promo)
-                                    ? (int) round((($p->harga_normal - $p->harga_promo) / $p->harga_normal) * 100) : null;
-                            @endphp
-                            <div class="sds-promo" style="--cc: {{ $cc['color'] }};">
-                                <div class="sds-promo__camp" style="color: {{ $cc['color'] }};">{{ $campLabels[$p->campaign_type] ?? $p->campaign_type }}</div>
-                                <div class="sds-promo__name">{{ $p->nama_promo }}</div>
-                                @if ($p->harga_promo)
-                                    <div class="sds-promo__now">{{ $rp($p->harga_promo) }}</div>
-                                    <div class="sds-promo__pr">
-                                        @if ($diskon)<span class="sds-promo__save">-{{ $diskon }}%</span>@endif
-                                        @if ($p->harga_normal && $p->harga_normal > $p->harga_promo)<span class="sds-promo__old">{{ $rp($p->harga_normal) }}</span>@endif
-                                    </div>
-                                @else <div class="sds-promo__now sds-muted">—</div> @endif
-                                @if ($promoActive)
-                                    @if ($p->periode_end)
-                                        <div class="sds-promo__until"><i class="fa fa-clock"></i> s/d {{ \Carbon\Carbon::parse($p->periode_end)->format('d M Y') }}</div>
-                                    @endif
-                                @else
-                                    @if ($p->periode_start)
-                                        <div class="sds-promo__until sds-promo__until--soon"><i class="fa fa-clock"></i> mulai {{ \Carbon\Carbon::parse($p->periode_start)->format('d M Y') }}</div>
-                                    @endif
-                                @endif
-                            </div>
-                        @endforeach
-                    </div>
+                    @if ($activePromos->isNotEmpty())
+                        <div class="sds-sec"><span class="sds-sec__ic" style="background:#F4E7D8;color:#7A3415;"><i class="fa fa-tags"></i></span>
+                            Promo Aktif <span class="sds-sec__sub">— bisa ditawarkan ke pasien sekarang</span></div>
+                        <div class="sds-promo-grid">
+                            @foreach ($activePromos as $p)
+                                @include('dashboard._promo_card', ['p' => $p, 'active' => true])
+                            @endforeach
+                        </div>
+                    @endif
+                    @if ($upcomingPromos->isNotEmpty())
+                        <div class="sds-sec {{ $activePromos->isNotEmpty() ? 'sds-sec--gap' : '' }}"><span class="sds-sec__ic" style="background:#E4ECFB;color:#3C5FA8;"><i class="fa fa-clock"></i></span>
+                            Promo Akan Datang <span class="sds-sec__sub">— belum aktif, siap-siap tawarin pas mulai</span></div>
+                        <div class="sds-promo-grid">
+                            @foreach ($upcomingPromos as $p)
+                                @include('dashboard._promo_card', ['p' => $p, 'active' => false])
+                            @endforeach
+                        </div>
+                    @endif
                 @endif
             </div>
 
@@ -379,6 +358,11 @@
     .sds-promo__old { font-size:11px; color:#B79A82; text-decoration:line-through; }
     .sds-promo__until { font-size:10.5px; color:#A9866A; margin-top:8px; }
     .sds-promo__until--soon { color:#3C5FA8; font-weight:700; }
+    .sds-sec--gap { margin-top:22px; }
+    .sds-promo__text { font-size:10.5px; line-height:1.45; color:#6a615a; margin-top:7px; }
+    .sds-promo__text b { display:block; font-size:8.5px; font-weight:800; text-transform:uppercase; letter-spacing:.4px; color:#b3a79e; margin-bottom:1px; }
+    .sds-promo__text span { display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+    .sds-promo__text--sk span { font-style:italic; color:#9a8f86; -webkit-line-clamp:1; }
     .sds-promo__until i { margin-right:3px; }
 
     /* JADWAL */
