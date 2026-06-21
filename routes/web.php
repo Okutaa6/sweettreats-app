@@ -153,8 +153,12 @@ Route::middleware([AuthGuard::class])->group(function () {
         Route::get('/menunggu', [DashboardController::class, 'menungguKonfirmasi'])->name('dashboard.menunggu');
         Route::patch('/reservasi/{id}/status', [DashboardController::class, 'updateStatus'])->name('dashboard.update-status');
         Route::get('/executive', [\App\Http\Controllers\ExecutiveDashboardController::class, 'index'])->name('dashboard.executive');
-        Route::get('/sales', [\App\Http\Controllers\SalesDashboardController::class, 'index'])->name('dashboard.sales');
     });
+
+    // Sales Dashboard — segmen URL sendiri (/sales-dashboard) supaya RBAC-nya
+    // independen dari segmen 'dashboard' (bisa di-grant khusus Sales, tanpa
+    // ikut ngebuka /dashboard/executive dll).
+    Route::get('/sales-dashboard', [\App\Http\Controllers\SalesDashboardController::class, 'index'])->name('sales-dashboard');
 
     // Sales Report — rekap penjualan periodik (data Omnicare)
     Route::prefix('report')->group(function () {
