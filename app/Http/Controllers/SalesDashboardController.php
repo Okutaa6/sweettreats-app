@@ -47,6 +47,8 @@ class SalesDashboardController extends Controller
         $target        = $this->buildTargetProgress($date, $branchIds, $placeIds);
         $kpi           = $this->buildKpi($date, $anchor, $branchIds, $placeIds);
         $activePromos  = $this->buildActivePromos($anchor, $sessionBranch);
+        // Selalu ambil dua-duanya: yang AKTIF (bisa ditawarin sekarang) + yang AKAN datang (prep)
+        $upcomingPromos = $this->buildUpcomingPromos($anchor, $sessionBranch);
         $reservasiBaru = $this->buildReservasiBaru($branchIds);
 
         return view('dashboard.sales', [
@@ -60,6 +62,7 @@ class SalesDashboardController extends Controller
             'kpi'          => $kpi,
             'trend'        => $this->buildTrend($date, $placeIds, $target),
             'activePromos' => $activePromos,
+            'upcomingPromos' => $upcomingPromos,
             'reservasiBaru'=> $reservasiBaru,
             'reservasiBar' => $this->buildReservasiPerHari($branchIds, $date),
             'actions'      => $this->buildActionItems($anchor, $dowIso, $branchIds, $placeIds),
@@ -225,22 +228,43 @@ class SalesDashboardController extends Controller
             ->where('status', 'aktif')->where('is_active', 1)
             ->where(fn($w) => $w->whereNull('periode_start')->orWhere('periode_start', '<=', $anchor))
             ->where(fn($w) => $w->whereNull('periode_end')->orWhere('periode_end', '>=', $anchor));
+        $this->promoBranchFilter($q, $sessionBranch);
 
-        if ($sessionBranch) {
-            $q->where(function ($w) use ($sessionBranch) {
-                $w->whereNotExists(function ($sub) {
-                    $sub->select(DB::raw(1))->from('marketing_promo_branch')
-                        ->whereColumn('marketing_promo_branch.marketing_promo_id', 'marketing_promo.id');
-                })->orWhereExists(function ($sub) use ($sessionBranch) {
-                    $sub->select(DB::raw(1))->from('marketing_promo_branch')
-                        ->whereColumn('marketing_promo_branch.marketing_promo_id', 'marketing_promo.id')
-                        ->where('marketing_promo_branch.raw_branch_id', $sessionBranch);
-                });
-            });
-        }
-
-        return $q->select('id', 'nama_promo', 'campaign_type', 'harga_normal', 'harga_promo', 'periode_start', 'periode_end')
+        return $q->select('id', 'nama_promo', 'campaign_type', 'harga_normal', 'harga_promo', 'periode_start', 'periode_end', 'detail_promo', 'syarat_ketentuan')
             ->orderBy('periode_end')->limit(8)->get();
+    }
+
+    /** Promo AKAN datang: mulai di masa depan (≤60 hari), buat fallback kalau ga ada yang aktif. */
+    private function buildUpcomingPromos(string $anchor, ?string $sessionBranch)
+    {
+        $until = Carbon::parse($anchor)->addDays(60)->format('Y-m-d');
+        $q = DB::table('marketing_promo')
+            ->where('is_active', 1)
+            ->whereIn('status', ['planning', 'aktif'])
+            ->where('periode_start', '>', $anchor)
+            ->where('periode_start', '<=', $until);
+        $this->promoBranchFilter($q, $sessionBranch);
+
+        return $q->select('id', 'nama_promo', 'campaign_type', 'harga_normal', 'harga_promo', 'periode_start', 'periode_end', 'detail_promo', 'syarat_ketentuan')
+            ->orderBy('periode_start')->limit(8)->get();
+    }
+
+    /** Filter promo ke cabang user: promo all-cabang (tanpa baris branch) ATAU yang nge-cover cabang ini. */
+    private function promoBranchFilter($q, ?string $sessionBranch): void
+    {
+        if (! $sessionBranch) {
+            return;
+        }
+        $q->where(function ($w) use ($sessionBranch) {
+            $w->whereNotExists(function ($sub) {
+                $sub->select(DB::raw(1))->from('marketing_promo_branch')
+                    ->whereColumn('marketing_promo_branch.marketing_promo_id', 'marketing_promo.id');
+            })->orWhereExists(function ($sub) use ($sessionBranch) {
+                $sub->select(DB::raw(1))->from('marketing_promo_branch')
+                    ->whereColumn('marketing_promo_branch.marketing_promo_id', 'marketing_promo.id')
+                    ->where('marketing_promo_branch.raw_branch_id', $sessionBranch);
+            });
+        });
     }
 
     private function buildReservasiBaru(array $branchIds): array
