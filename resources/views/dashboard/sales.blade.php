@@ -99,15 +99,25 @@
                 </div>
             </div>
 
-            {{-- PROMO (ditaruh sebelum trend, sesuai request) --}}
+            {{-- PROMO (aktif; kalau kosong → fallback "akan datang") --}}
+            @php $promoActive = $activePromos->isNotEmpty(); $promoList = $promoActive ? $activePromos : $upcomingPromos; @endphp
             <div class="sds-card">
-                <div class="sds-sec"><span class="sds-sec__ic" style="background:#F4E7D8;color:#7A3415;"><i class="fa fa-tags"></i></span>
-                    Promo Aktif <span class="sds-sec__sub">— bisa ditawarkan ke pasien buat ngejar target</span></div>
-                @if ($activePromos->isEmpty())
-                    <div class="sds-empty">Tidak ada promo aktif untuk cabang ini saat ini.</div>
+                @if ($promoActive)
+                    <div class="sds-sec"><span class="sds-sec__ic" style="background:#F4E7D8;color:#7A3415;"><i class="fa fa-tags"></i></span>
+                        Promo Aktif <span class="sds-sec__sub">— bisa ditawarkan ke pasien buat ngejar target</span></div>
+                @elseif ($promoList->isNotEmpty())
+                    <div class="sds-sec"><span class="sds-sec__ic" style="background:#E4ECFB;color:#3C5FA8;"><i class="fa fa-clock"></i></span>
+                        Promo Akan Datang <span class="sds-sec__sub">— belum aktif, siap-siap tawarin pas mulai</span></div>
+                @else
+                    <div class="sds-sec"><span class="sds-sec__ic" style="background:#F4E7D8;color:#7A3415;"><i class="fa fa-tags"></i></span>
+                        Promo Aktif <span class="sds-sec__sub">— bisa ditawarkan ke pasien buat ngejar target</span></div>
+                @endif
+
+                @if ($promoList->isEmpty())
+                    <div class="sds-empty">Belum ada promo aktif atau akan datang untuk cabang ini.</div>
                 @else
                     <div class="sds-promo-grid">
-                        @foreach ($activePromos as $p)
+                        @foreach ($promoList as $p)
                             @php
                                 $cc = $ccMap[$p->campaign_type] ?? ['color' => '#7A3415', 'bg' => '#F4E7D8'];
                                 $diskon = ($p->harga_normal && $p->harga_promo && $p->harga_normal > $p->harga_promo)
@@ -123,8 +133,14 @@
                                         @if ($p->harga_normal && $p->harga_normal > $p->harga_promo)<span class="sds-promo__old">{{ $rp($p->harga_normal) }}</span>@endif
                                     </div>
                                 @else <div class="sds-promo__now sds-muted">—</div> @endif
-                                @if ($p->periode_end)
-                                    <div class="sds-promo__until"><i class="fa fa-clock"></i> s/d {{ \Carbon\Carbon::parse($p->periode_end)->format('d M Y') }}</div>
+                                @if ($promoActive)
+                                    @if ($p->periode_end)
+                                        <div class="sds-promo__until"><i class="fa fa-clock"></i> s/d {{ \Carbon\Carbon::parse($p->periode_end)->format('d M Y') }}</div>
+                                    @endif
+                                @else
+                                    @if ($p->periode_start)
+                                        <div class="sds-promo__until sds-promo__until--soon"><i class="fa fa-clock"></i> mulai {{ \Carbon\Carbon::parse($p->periode_start)->format('d M Y') }}</div>
+                                    @endif
                                 @endif
                             </div>
                         @endforeach
@@ -362,6 +378,7 @@
     .sds-promo__save { font-size:10px; font-weight:700; color:#2F8E55; background:#E2F1EA; padding:1px 7px; border-radius:20px; }
     .sds-promo__old { font-size:11px; color:#B79A82; text-decoration:line-through; }
     .sds-promo__until { font-size:10.5px; color:#A9866A; margin-top:8px; }
+    .sds-promo__until--soon { color:#3C5FA8; font-weight:700; }
     .sds-promo__until i { margin-right:3px; }
 
     /* JADWAL */
