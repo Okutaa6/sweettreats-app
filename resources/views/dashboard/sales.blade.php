@@ -420,7 +420,75 @@
     .sds-aksi__badge--amber { width:26px; height:26px; border-radius:50%; background:#C0791F; color:#fff; display:flex; align-items:center; justify-content:center; }
     .sds-aksi__badge--green { color:#2F8E55; background:#E2F1EA; padding:3px 9px; border-radius:20px; }
     .sds-aksi__arrow { color:#B79A82; }
+    /* Promo detail modal */
+    .sds-promo { cursor:pointer; transition:transform .12s ease, box-shadow .12s ease; }
+    .sds-promo:hover { transform:translateY(-2px); box-shadow:0 8px 22px rgba(40,22,8,.12); }
+    .sds-promo:focus-visible { outline:2px solid var(--cc); outline-offset:2px; }
+    .sds-pm[hidden] { display:none; }
+    .sds-pm { position:fixed; inset:0; z-index:1000; display:flex; align-items:center; justify-content:center; padding:20px; }
+    .sds-pm__backdrop { position:absolute; inset:0; background:rgba(40,22,8,.5); backdrop-filter:blur(3px); animation:sdsPmFade .2s ease; }
+    .sds-pm__box { position:relative; background:#fff; border-radius:20px; max-width:440px; width:100%; box-shadow:0 28px 70px rgba(40,22,8,.34); max-height:88vh; overflow:hidden; display:flex; flex-direction:column; animation:sdsPmIn .24s cubic-bezier(.2,.8,.3,1.15); }
+    @keyframes sdsPmFade { from{opacity:0} to{opacity:1} }
+    @keyframes sdsPmIn { from{opacity:0;transform:translateY(14px) scale(.96)} to{opacity:1;transform:none} }
+    .sds-pm__head { position:relative; padding:20px 22px 18px; color:#fff; background:var(--pmcc,#7A3415); }
+    .sds-pm__head::after { content:''; position:absolute; inset:0; background:linear-gradient(135deg,rgba(255,255,255,.16),rgba(0,0,0,.24)); pointer-events:none; }
+    .sds-pm__head > * { position:relative; z-index:1; }
+    .sds-pm__headtop { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:9px; padding-right:30px; }
+    .sds-pm__camp { font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.7px; display:inline-flex; align-items:center; gap:7px; opacity:.96; }
+    .sds-pm__status { font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.4px; padding:3px 10px; border-radius:20px; background:rgba(255,255,255,.24); white-space:nowrap; }
+    .sds-pm__name { font-size:20px; font-weight:800; line-height:1.22; }
+    .sds-pm__x { position:absolute; top:12px; right:14px; z-index:2; border:0; width:28px; height:28px; border-radius:50%; background:rgba(255,255,255,.2); color:#fff; font-size:19px; line-height:1; cursor:pointer; transition:background .12s; }
+    .sds-pm__x:hover { background:rgba(255,255,255,.4); }
+    .sds-pm__body-wrap { padding:20px 22px; overflow:auto; }
+    .sds-pm__price { display:flex; align-items:baseline; gap:11px; flex-wrap:wrap; }
+    .sds-pm__now { font-size:27px; font-weight:800; color:#2c1a0e; letter-spacing:-.5px; }
+    .sds-pm__old { color:#b3a79e; text-decoration:line-through; font-size:14px; }
+    .sds-pm__hemat { background:#E9F6EC; color:#1f9d55; font-weight:800; font-size:12px; padding:4px 11px; border-radius:8px; flex-basis:100%; width:max-content; margin-top:3px; }
+    .sds-pm__sec { margin-top:17px; }
+    .sds-pm__sec--sk { background:#FBF7F2; border:1px solid #efe6db; border-radius:12px; padding:12px 14px; margin-top:14px; }
+    .sds-pm__lbl { font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.5px; color:#b3a79e; margin-bottom:4px; display:flex; align-items:center; gap:6px; }
+    .sds-pm__lbl i { color:#c9bbad; }
+    .sds-pm__body { font-size:13px; line-height:1.6; color:#5a514a; white-space:pre-line; }
+    .sds-pm__foot { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:20px; padding-top:15px; border-top:1px solid #f0e9e1; }
+    .sds-pm__date { font-size:12.5px; font-weight:700; color:#A9866A; display:inline-flex; align-items:center; gap:7px; }
+    .sds-pm__date.is-soon { color:#3C5FA8; }
+    .sds-pm__copy { border:1px solid #e7ddd4; background:#fff; color:#7A3415; border-radius:10px; padding:8px 15px; font-size:12.5px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:7px; transition:all .14s; white-space:nowrap; }
+    .sds-pm__copy:hover { background:#FBF6F0; border-color:#dcc9b8; }
+    .sds-pm__copy.copied { background:#E9F6EC; color:#1f9d55; border-color:#bfe6cc; }
 </style>
+
+<div class="sds-pm" id="sdsPromoModal" hidden>
+    <div class="sds-pm__backdrop" data-close></div>
+    <div class="sds-pm__box" role="dialog" aria-modal="true" aria-labelledby="pmName">
+        <div class="sds-pm__head" id="pmHead">
+            <button class="sds-pm__x" data-close aria-label="Tutup">&times;</button>
+            <div class="sds-pm__headtop">
+                <span class="sds-pm__camp"><i class="fa" id="pmIcon"></i><span id="pmCamp"></span></span>
+                <span class="sds-pm__status" id="pmStatus"></span>
+            </div>
+            <div class="sds-pm__name" id="pmName"></div>
+        </div>
+        <div class="sds-pm__body-wrap">
+            <div class="sds-pm__price">
+                <span class="sds-pm__now" id="pmNow"></span>
+                <span class="sds-pm__old" id="pmOld"></span>
+                <span class="sds-pm__hemat" id="pmHemat"></span>
+            </div>
+            <div class="sds-pm__sec" id="pmDetailWrap">
+                <div class="sds-pm__lbl"><i class="fa fa-info-circle"></i> Detail</div>
+                <div class="sds-pm__body" id="pmDetail"></div>
+            </div>
+            <div class="sds-pm__sec sds-pm__sec--sk" id="pmSkWrap">
+                <div class="sds-pm__lbl"><i class="fa fa-shield-alt"></i> Syarat &amp; Ketentuan</div>
+                <div class="sds-pm__body" id="pmSk"></div>
+            </div>
+            <div class="sds-pm__foot">
+                <span class="sds-pm__date" id="pmDateWrap"><i class="fa fa-calendar-alt"></i> <span id="pmDate"></span></span>
+                <button class="sds-pm__copy" id="pmCopy" type="button"><i class="fa fa-copy"></i> <span id="pmCopyTxt">Salin info</span></button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <script>
 (function () {
@@ -438,6 +506,78 @@
         });
         c.addEventListener('mouseleave', function () { tip.style.display = 'none'; });
     });
+})();
+
+/* Promo detail modal */
+(function () {
+    var modal = document.getElementById('sdsPromoModal');
+    if (!modal) return;
+    var current = null;
+    function setBlock(wrapId, bodyId, val) {
+        document.getElementById(bodyId).textContent = val || '';
+        document.getElementById(wrapId).style.display = val ? '' : 'none';
+    }
+    function resetCopy() {
+        document.getElementById('pmCopy').classList.remove('copied');
+        document.getElementById('pmCopyTxt').textContent = 'Salin info';
+    }
+    function openPromo(el) {
+        current = el;
+        var soon = el.dataset.soon === '1';
+        document.getElementById('pmHead').style.setProperty('--pmcc', el.dataset.color || '#7A3415');
+        document.getElementById('pmIcon').className = 'fa ' + (el.dataset.campIcon || 'fa-tags');
+        document.getElementById('pmCamp').textContent = el.dataset.camp || '';
+        document.getElementById('pmStatus').textContent = soon ? 'Akan Datang' : 'Aktif';
+        document.getElementById('pmName').textContent = el.dataset.name || '';
+        document.getElementById('pmNow').textContent = el.dataset.now || '—';
+        var old = document.getElementById('pmOld');
+        old.textContent = el.dataset.old || ''; old.style.display = el.dataset.old ? '' : 'none';
+        var hemat = document.getElementById('pmHemat');
+        if (el.dataset.saverp) {
+            hemat.textContent = 'Hemat ' + el.dataset.saverp + (el.dataset.save ? '  ·  ' + el.dataset.save.replace('-', '') : '');
+            hemat.style.display = '';
+        } else { hemat.style.display = 'none'; }
+        setBlock('pmDetailWrap', 'pmDetail', el.dataset.detail);
+        setBlock('pmSkWrap', 'pmSk', el.dataset.sk);
+        document.getElementById('pmDate').textContent = el.dataset.date || '';
+        document.getElementById('pmDateWrap').className = 'sds-pm__date' + (soon ? ' is-soon' : '');
+        resetCopy();
+        modal.hidden = false; document.body.style.overflow = 'hidden';
+    }
+    function closePromo() { modal.hidden = true; document.body.style.overflow = ''; }
+    function markCopied() {
+        document.getElementById('pmCopy').classList.add('copied');
+        document.getElementById('pmCopyTxt').textContent = 'Tersalin!';
+    }
+    function copyInfo() {
+        if (!current) return;
+        var d = current.dataset, lines = [d.name];
+        if (d.now) lines.push('Harga: ' + d.now + (d.old ? ' (dari ' + d.old + ')' : ''));
+        if (d.saverp) lines.push('Hemat: ' + d.saverp);
+        if (d.detail) lines.push('', 'Detail:', d.detail);
+        if (d.sk) lines.push('', 'S&K:', d.sk);
+        if (d.date) lines.push('', 'Periode: ' + d.date);
+        var text = lines.join('\n');
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(markCopied, function () { fallbackCopy(text); });
+        } else { fallbackCopy(text); }
+    }
+    function fallbackCopy(text) {
+        var ta = document.createElement('textarea');
+        ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+        document.body.appendChild(ta); ta.select();
+        try { document.execCommand('copy'); markCopied(); } catch (e) {}
+        document.body.removeChild(ta);
+    }
+    document.querySelectorAll('[data-promo]').forEach(function (c) {
+        c.addEventListener('click', function () { openPromo(c); });
+        c.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPromo(c); }
+        });
+    });
+    document.getElementById('pmCopy').addEventListener('click', copyInfo);
+    modal.querySelectorAll('[data-close]').forEach(function (b) { b.addEventListener('click', closePromo); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !modal.hidden) closePromo(); });
 })();
 </script>
 @endsection
