@@ -47,7 +47,7 @@ Route::get('/reservasi', function () {
 })->name('landing.reservation');
 
 Route::post('/reservasi', [\App\Http\Controllers\LandingReservationController::class, 'store'])
-    ->middleware('throttle:5,1')
+    ->middleware('throttle:20,1')
     ->name('landing.reservation.store');
 
 // Affiliate Portal
