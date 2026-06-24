@@ -359,3 +359,12 @@ body[data-theme] .left-sidenav.no-icon-bar .main-menu-inner { width: 268px !impo
 body[data-theme] .main-menu-inner { width: 198px !important; }   /* icon-bar: rail 70 + 198 = 268 */
 body[data-theme] .topbar .st-brand,
 body[data-theme] .st-topbar .st-brand { width: 268px !important; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   LATAR HALAMAN — cream hangat global (design handoff: page bg #F4ECE2).
+   Sebelumnya cuma di reservasi-redesign.css (scoped reservation) → halaman lain
+   putih. Diangkat ke global supaya SEMUA halaman seragam cream. Kartu/tabel
+   tetap putih → kontras lembut. Mudah revert (hapus blok ini).
+   ══════════════════════════════════════════════════════════════════════════ */
+body[data-theme] .page-content,
+body[data-theme] .page-wrapper { background: #F4ECE2; }
