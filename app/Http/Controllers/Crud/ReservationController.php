@@ -763,7 +763,20 @@ class ReservationController extends Controller
 
         $reservation = RawCusReservation::findOrFail($id);
 
-        \Illuminate\Support\Facades\DB::transaction(function () use ($reservation, $id) {
+        // Auto-convert waiting list → pending saat slot jam nyata di-assign ("Tawarkan
+        // slot"). Form Edit mewajibkan start_hour (checkbox is_waiting hanya ada di form
+        // Tambah), jadi reservasi waitlist yang di-edit pasti sudah punya slot → bukan
+        // "antri" lagi. Scope KETAT: hanya kalau status SEBELUMNYA waitlist DAN status
+        // yang dikirim masih waitlist (kalau staff sengaja pilih status lain → dihormati;
+        // reservasi non-waitlist tak tersentuh).
+        $newStatus = request('status', 'pending');
+        if ($reservation->status === RawCusReservation::STATUS_WAITLIST
+            && $newStatus === RawCusReservation::STATUS_WAITLIST
+            && request()->filled('start_hour')) {
+            $newStatus = RawCusReservation::STATUS_PENDING;
+        }
+
+        \Illuminate\Support\Facades\DB::transaction(function () use ($reservation, $id, $newStatus) {
             $reservation->update([
                 'raw_branch_id'   => request('raw_branch_id'),
                 'raw_customer_id' => request('raw_customer_id'),
@@ -771,7 +784,7 @@ class ReservationController extends Controller
                 'date'            => request('date'),
                 'start_hour'      => request('start_hour'),
                 'end_hour'        => request('end_hour'),
-                'status'          => request('status', 'pending'),
+                'status'          => $newStatus,
                 'keterangan'         => request('keterangan'),
                 'raw_promo_id'       => request('raw_promo_id'),
                 'marketing_promo_id' => request('marketing_promo_id'),
