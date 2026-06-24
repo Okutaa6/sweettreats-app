@@ -259,6 +259,113 @@
                          TAB: LIST
                     ══════════════════════════════════════ --}}
                     <div id="viewList" style="{{ in_array(request('view', 'list'), ['cal', 'jadwal']) ? 'display:none;' : '' }}">
+                    @if(request('new'))
+                        {{-- ══════════════════════════════════════
+                             VIEW: RESERVASI BARU (triage kartu) — design handoff View 2
+                             Banner gradient + grid kartu 2-kolom. Reuse data-rr → klik kartu
+                             buka Detail drawer; Konfirmasi pakai endpoint inline
+                             (/rawreservation/{id}/inline, field=status). Tabel List tak disentuh.
+                        ══════════════════════════════════════ --}}
+                        @php $hariListB = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu']; @endphp
+                        <div class="rr-baru-banner">
+                            <div class="rr-baru-banner__icon"><i class="fa fa-star"></i></div>
+                            <div class="rr-baru-banner__text">
+                                <div class="rr-baru-banner__title"><strong>{{ $reservations->total() }}</strong> reservasi baru</div>
+                                <div class="rr-baru-banner__sub">Menunggu konfirmasi — konfirmasi atau hubungi pasien lewat WhatsApp</div>
+                            </div>
+                            @if(!$isViewOnly && $reservations->count())
+                                <button type="button" class="rr-baru-confirmall" id="rrBaruConfirmAll">
+                                    <i class="fa fa-check"></i> Konfirmasi semua
+                                </button>
+                            @endif
+                        </div>
+
+                        @if($reservations->count())
+                            <div class="rr-baru-grid">
+                                @foreach ($reservations as $row)
+                                    @php
+                                        $rrWa = $row->customer?->phone ? preg_replace('/[^0-9]/', '', $row->customer->phone) : '';
+                                        if ($rrWa && str_starts_with($rrWa, '0')) $rrWa = '62' . substr($rrWa, 1);
+                                        $rrStatusOpt = \App\Models\RawCusReservation::statusOptions()[$row->status] ?? null;
+                                        $rrTreat = $row->services->map(fn($s) => $s->docService->name ?? null)->filter()->unique()->implode(', ');
+                                        if (!$rrTreat && $row->lainnya_text) $rrTreat = 'Keluhan: ' . $row->lainnya_text;
+                                        $rrTimeLabel = ($row->start_hour && $row->end_hour)
+                                            ? (\Carbon\Carbon::parse($row->start_hour)->format('H:i') . ' – ' . \Carbon\Carbon::parse($row->end_hour)->format('H:i'))
+                                            : '';
+                                        $rrDateLabel = $row->date ? ($hariListB[$row->date->dayOfWeek] . ', ' . $row->date->format('d M Y')) : '—';
+                                        $rrData = [
+                                            'id'          => $row->id,
+                                            'name'        => $row->customer->name ?? 'Pasien Terhapus',
+                                            'phone'       => $row->customer->phone ?? '',
+                                            'wa'          => $rrWa,
+                                            'status'      => $row->status,
+                                            'statusLabel' => $rrStatusOpt['label'] ?? '—',
+                                            'statusBg'    => $rrStatusOpt['bg'] ?? '',
+                                            'statusColor' => $rrStatusOpt['color'] ?? '',
+                                            'jadwal'      => $rrDateLabel,
+                                            'time'        => $rrTimeLabel,
+                                            'doctor'      => $row->doctor->name ?? '—',
+                                            'treatment'   => $rrTreat ?: '—',
+                                            'keterangan'  => $row->keterangan ?? '',
+                                            'fu1'         => $row->follow_up_h_min_1 ?? '',
+                                            'fuh'         => $row->follow_up_h ?? '',
+                                            'kehadiran'   => $row->keterangan_kehadiran ?? '',
+                                            'promo'       => $row->promo->promo_code ?? '',
+                                            'promoId'     => $row->raw_promo_id,
+                                            'klaim'       => $row->promo_klaim ? 'done' : ($row->raw_promo_id ? 'pending' : 'none'),
+                                            'editUrl'     => route('rawreservation.edit', $row->id),
+                                            'klaimUrl'    => route('rawreservation.klaim', $row->id),
+                                        ];
+                                        $isConfirmed = $row->status === \App\Models\RawCusReservation::STATUS_CONFIRMED;
+                                    @endphp
+                                    <div class="rrb-card {{ $isConfirmed ? 'is-confirmed' : '' }}" data-id="{{ $row->id }}"
+                                         @if(!$isViewOnly) data-rr="{{ json_encode($rrData, JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE) }}" @endif
+                                         title="Klik untuk lihat detail">
+                                        <div class="rrb-card__head">
+                                            <div class="rrb-card__id">
+                                                <div class="rrb-card__name">{{ $row->customer->name ?? 'Pasien Terhapus' }}</div>
+                                                @if($row->customer?->phone)
+                                                    <a href="https://wa.me/{{ $rrWa }}" target="_blank" rel="noopener" class="rrb-card__phone" onclick="event.stopPropagation()">
+                                                        <i class="fab fa-whatsapp"></i> {{ $row->customer->phone }}
+                                                    </a>
+                                                @endif
+                                            </div>
+                                            <span class="rrb-card__badge"><i class="fa fa-circle"></i> Baru</span>
+                                        </div>
+                                        <div class="rrb-card__chips">
+                                            @if($rrTimeLabel)
+                                                <span class="rrb-card__time">{{ $rrTimeLabel }}</span>
+                                            @else
+                                                <span class="rrb-card__time rrb-card__time--wait">Belum ada slot</span>
+                                            @endif
+                                            @if($rrTreat)
+                                                <span class="rrb-card__treat">{{ \Illuminate\Support\Str::limit($rrTreat, 40) }}</span>
+                                            @endif
+                                        </div>
+                                        <div class="rrb-card__meta">{{ $rrDateLabel }} · {{ $row->doctor->name ?? '—' }}</div>
+                                        @if(!$isViewOnly)
+                                            <div class="rrb-card__actions">
+                                                <button type="button" class="rrb-card__confirm" data-id="{{ $row->id }}">
+                                                    <i class="fa fa-check"></i> <span class="rrb-card__confirm-label">{{ $isConfirmed ? 'Dikonfirmasi' : 'Konfirmasi' }}</span>
+                                                </button>
+                                                @if($row->customer?->phone)
+                                                    <a href="https://wa.me/{{ $rrWa }}" target="_blank" rel="noopener" class="rrb-card__wa" onclick="event.stopPropagation()">
+                                                        <i class="fab fa-whatsapp"></i> WhatsApp
+                                                    </a>
+                                                @endif
+                                            </div>
+                                        @endif
+                                    </div>
+                                @endforeach
+                            </div>
+                        @else
+                            <div class="rr-baru-empty">
+                                <i class="fa fa-check-circle"></i>
+                                <div class="rr-baru-empty__title">Tidak ada reservasi baru</div>
+                                <div class="rr-baru-empty__sub">Reservasi yang masuk dalam 6 jam terakhir akan muncul di sini.</div>
+                            </div>
+                        @endif
+                    @else
                         <div class="st-table-wrap st-table-wrap--scroll">
                         <table class="st-table st-table--clickable" cellspacing="0" style="white-space: nowrap;">
                             <thead>
@@ -460,6 +567,7 @@
                             </tbody>
                         </table>
                         </div>
+                    @endif
                         <div class="st-pagination-bar">
                             <div class="st-perpage">
                                 <span>Tampilkan</span>
@@ -1476,6 +1584,55 @@ document.querySelectorAll('.st-status-select').forEach(function (sel) {
     $(document).on('click', '#rrdCancel', function () { if (confirm('Batalkan reservasi ini?')) $('#rrdStatusSeg .rr-seg__btn[data-value="' + RR_CANCELLED + '"]').trigger('click'); });
     $(document).on('click', '[data-rr-close]', rrClose);
     $(document).on('keydown', function (e) { if (e.key === 'Escape' && $drawer.hasClass('is-open')) rrClose(); });
+})();
+
+// ══════════ Reservasi Baru (triage kartu) ══════════
+// Klik kartu → Detail drawer (reuse data-rr). Konfirmasi/Konfirmasi semua → PATCH
+// status via endpoint inline yang sama dgn drawer (/rawreservation/{id}/inline).
+(function () {
+    var RR_CONFIRMED = @json(\App\Models\RawCusReservation::STATUS_CONFIRMED);
+    var RR_TOKEN = '{{ csrf_token() }}';
+
+    // Klik kartu → buka Detail drawer (abaikan klik tombol/link di dalam kartu).
+    $(document).on('click', '.rrb-card[data-rr]', function (e) {
+        if (e.target.closest('input, select, textarea, button, a, label, form')) return;
+        var raw = this.getAttribute('data-rr');
+        if (typeof window.rrOpenDrawer === 'function' && raw) {
+            try { window.rrOpenDrawer(JSON.parse(raw)); }
+            catch (err) { console.error('Gagal parse data-rr:', err); }
+        }
+    });
+
+    // Konfirmasi satu kartu.
+    function confirmCard($btn) {
+        var $card = $btn.closest('.rrb-card');
+        if ($card.hasClass('is-confirmed') || $btn.prop('disabled')) return;
+        var id = $btn.data('id');
+        $btn.prop('disabled', true);
+        $btn.find('.rrb-card__confirm-label').text('Memproses…');
+        $.ajax({
+            url: '/rawreservation/' + id + '/inline', method: 'PATCH',
+            data: { _token: RR_TOKEN, field: 'status', value: RR_CONFIRMED },
+            success: function () {
+                $card.addClass('is-confirmed');
+                $btn.find('.rrb-card__confirm-label').text('Dikonfirmasi');
+            },
+            error: function () {
+                $btn.prop('disabled', false);
+                $btn.find('.rrb-card__confirm-label').text('Konfirmasi');
+                alert('Gagal mengonfirmasi, coba lagi.');
+            }
+        });
+    }
+
+    $(document).on('click', '.rrb-card__confirm', function () { confirmCard($(this)); });
+
+    $(document).on('click', '#rrBaruConfirmAll', function () {
+        var $btns = $('.rrb-card').not('.is-confirmed').find('.rrb-card__confirm');
+        if (!$btns.length) { alert('Semua reservasi baru sudah dikonfirmasi.'); return; }
+        if (!confirm('Konfirmasi semua ' + $btns.length + ' reservasi baru?')) return;
+        $btns.each(function () { confirmCard($(this)); });
+    });
 })();
 
 // ════════ Form Drawer (Tambah / Edit lengkap) — Fase 1a: buka/tutup wadah ════════

@@ -659,3 +659,146 @@ body.redesign-reservasi .st-dokter-cell .st-trunc {
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     font-size: 12.5px; color: var(--text-primary);
 }
+
+/* ── 24. Reservasi Baru — triage (banner + grid kartu 2-kolom, design View 2) ─ */
+/* Banner gradient hangat + tombol "Konfirmasi semua" hijau. */
+body.redesign-reservasi .rr-baru-banner {
+    display: flex; align-items: center; gap: 16px;
+    background: linear-gradient(120deg, #6B2400, #461500);
+    color: #FBEADB; border-radius: var(--radius-lg);
+    padding: 18px 22px; margin-bottom: 14px;
+}
+body.redesign-reservasi .rr-baru-banner__icon {
+    width: 44px; height: 44px; flex: none; border-radius: 13px;
+    background: rgba(255,255,255,.13);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; color: #FBEADB;
+}
+body.redesign-reservasi .rr-baru-banner__text { flex: 1; min-width: 0; }
+body.redesign-reservasi .rr-baru-banner__title { font-size: 18px; font-weight: 800; line-height: 1.2; }
+body.redesign-reservasi .rr-baru-banner__title strong { font-weight: 800; }
+body.redesign-reservasi .rr-baru-banner__sub { font-size: 12.5px; color: #E0BFA6; margin-top: 2px; }
+body.redesign-reservasi .rr-baru-confirmall {
+    flex: none; display: inline-flex; align-items: center; gap: 7px;
+    background: #3FA76A; color: #fff; border: none; border-radius: 11px;
+    padding: 11px 16px; font-weight: 700; font-size: 13px; cursor: pointer;
+    transition: background .15s ease, transform .12s ease;
+}
+body.redesign-reservasi .rr-baru-confirmall:hover { background: #36915B; }
+body.redesign-reservasi .rr-baru-confirmall:active { transform: translateY(1px); }
+
+/* Grid kartu — 2 kolom, turun 1 kolom di layar sempit. */
+body.redesign-reservasi .rr-baru-grid {
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px;
+}
+@media (max-width: 900px) {
+    body.redesign-reservasi .rr-baru-grid { grid-template-columns: 1fr; }
+}
+
+/* Kartu reservasi baru. (Kelas .rrb-card — JANGAN .rr-card; itu dipakai kartu
+   JADWAL/DOKTER di Detail drawer, beda komponen.) */
+body.redesign-reservasi .rrb-card {
+    background: var(--cream-surface);
+    border: 1px solid var(--divider-strong);
+    border-left: 3px solid #E8842B;
+    border-radius: var(--radius-lg);
+    padding: 16px 18px; cursor: pointer; min-width: 0;
+    box-shadow: var(--shadow-card);
+    transition: box-shadow .15s ease, transform .12s ease, border-color .2s ease;
+}
+body.redesign-reservasi .rrb-card:hover {
+    box-shadow: var(--shadow-card-lg); transform: translateY(-1px);
+}
+body.redesign-reservasi .rrb-card__head {
+    display: flex; align-items: flex-start; justify-content: space-between; gap: 10px;
+}
+body.redesign-reservasi .rrb-card__id { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+body.redesign-reservasi .rrb-card__name {
+    font-size: 15px; font-weight: 800; color: var(--text-primary); line-height: 1.25;
+    overflow-wrap: anywhere;
+}
+body.redesign-reservasi .rrb-card__phone {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 12px; color: #2C8C63; font-weight: 600; text-decoration: none;
+    overflow-wrap: anywhere;
+}
+body.redesign-reservasi .rrb-card__phone:hover { text-decoration: underline; }
+body.redesign-reservasi .rrb-card__badge {
+    flex: none; display: inline-flex; align-items: center; gap: 5px;
+    background: #E3F4E8; color: #2F8E55;
+    font-size: 11px; font-weight: 800; padding: 4px 10px; border-radius: 20px;
+}
+body.redesign-reservasi .rrb-card__badge .fa-circle { font-size: 7px; }
+body.redesign-reservasi .rrb-card__chips {
+    display: flex; align-items: center; gap: 8px; margin-top: 12px; flex-wrap: wrap;
+}
+body.redesign-reservasi .rrb-card__time {
+    font-size: 12px; font-weight: 700; color: #7A5B43;
+    background: #F4E7D6; border-radius: 8px; padding: 5px 9px;
+    font-variant-numeric: tabular-nums;
+}
+body.redesign-reservasi .rrb-card__time--wait { color: var(--text-muted); font-weight: 600; }
+body.redesign-reservasi .rrb-card__treat {
+    font-size: 12px; font-weight: 600; color: #5A3A22;
+    background: #F1E9DF; border-radius: 8px; padding: 5px 10px;
+    overflow-wrap: anywhere;
+}
+body.redesign-reservasi .rrb-card__meta { font-size: 12px; color: var(--text-muted); margin-top: 8px; overflow-wrap: anywhere; }
+body.redesign-reservasi .rrb-card__actions { display: flex; gap: 9px; margin-top: 14px; }
+body.redesign-reservasi .rrb-card__confirm {
+    flex: 1; min-width: 0; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    background: #3FA76A; color: #fff; border: none; border-radius: 10px;
+    padding: 10px; font-weight: 700; font-size: 12.5px; cursor: pointer;
+    transition: background .15s ease;
+}
+body.redesign-reservasi .rrb-card__confirm:hover { background: #36915B; }
+body.redesign-reservasi .rrb-card__confirm:disabled { cursor: default; }
+body.redesign-reservasi .rrb-card__wa {
+    flex: none; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    background: #fff; color: #2C8C63; border: 1px solid #BFE3CD; border-radius: 10px;
+    padding: 10px 14px; font-weight: 700; font-size: 12.5px; cursor: pointer; text-decoration: none;
+    transition: background .15s ease;
+}
+body.redesign-reservasi .rrb-card__wa:hover { background: #F1FAF4; text-decoration: none; }
+
+/* Kartu sudah dikonfirmasi → aksen kiri hijau + tombol jadi netral non-aktif. */
+body.redesign-reservasi .rrb-card.is-confirmed { border-left-color: #2F8E55; }
+body.redesign-reservasi .rrb-card.is-confirmed .rrb-card__confirm {
+    background: #E3F4E8; color: #2F8E55; cursor: default;
+}
+body.redesign-reservasi .rrb-card.is-confirmed .rrb-card__confirm:hover { background: #E3F4E8; }
+
+/* Empty state (tidak ada reservasi baru). */
+body.redesign-reservasi .rr-baru-empty {
+    text-align: center; padding: 48px 20px; color: var(--text-muted);
+    background: var(--cream-surface); border: 1px dashed var(--divider-strong);
+    border-radius: var(--radius-lg);
+}
+body.redesign-reservasi .rr-baru-empty .fa-check-circle { font-size: 34px; color: #BFE3CD; }
+body.redesign-reservasi .rr-baru-empty__title {
+    font-size: 15px; font-weight: 800; color: var(--text-primary); margin-top: 10px;
+}
+body.redesign-reservasi .rr-baru-empty__sub { font-size: 12.5px; margin-top: 4px; }
+
+/* ── 25. Anti horizontal-scroll di drawer (nama/dokter panjang tak melebarkan) ─ */
+/* Akar masalah: grid/flex child default min-width:auto → teks 1-baris panjang
+   (nama pasien, select2 dokter) menolak menyusut → drawer scroll horizontal. */
+body.redesign-reservasi .rr-drawer__body { overflow-x: hidden; }
+body.redesign-reservasi .rr-drawer__name { overflow-wrap: anywhere; }
+body.redesign-reservasi .rr-drawer__headmeta { min-width: 0; }
+body.redesign-reservasi .rr-drawer__wa { overflow-wrap: anywhere; min-width: 0; }
+/* Grid kartu Detail drawer + grid form → kolom boleh menyusut. */
+body.redesign-reservasi .rr-drawer__cards > * { min-width: 0; }
+body.redesign-reservasi .rr-card__val { overflow-wrap: anywhere; }
+body.redesign-reservasi .rrf-col { min-width: 0; }
+/* select2 teks panjang → ellipsis (kolom sudah min-width:0). */
+body.redesign-reservasi #rrReservationForm .select2-selection__rendered {
+    display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%;
+}
+/* Slot grid 5-kolom → kolom minmax(0,1fr) supaya isi slot tak memaksa lebar. */
+body.redesign-reservasi #slotsContainer .st-slots { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+
+/* ── 26. Popup sukses simpan (SweetAlert2) di ATAS drawer ────────────────── */
+/* Swal default z-index 1060 → ke-blok form drawer (1300). Naikkan di atasnya
+   supaya toast "Reservasi berhasil…" tampil di depan, bukan di belakang scrim. */
+body.redesign-reservasi .swal2-container { z-index: 1400 !important; }
