@@ -713,6 +713,16 @@ window.initReservationForm = function () {
     if ($custDrawer.length) custOpts.dropdownParent = $custDrawer;
     $('#customerSelect').select2(custOpts);
 
+    // ===== DOKTER & CABANG → select2 (konsisten, terutama di drawer yg tadinya native polos) =====
+    // Guard: skip kalau sudah select2 (di standalone mungkin sudah di-init global) → no double-init.
+    ['#doctorSelect2', '#branchSelect2'].forEach(function (sel) {
+        var $el = $(sel);
+        if (!$el.length || $el.hasClass('select2-hidden-accessible')) return;
+        var o = { width: '100%' };
+        if ($custDrawer.length) o.dropdownParent = $custDrawer;
+        $el.select2(o);
+    });
+
     // ===== QUICK ADD PASIEN DI NOMOR INI =====
     flatpickr('#qpTgl', {
         dateFormat: 'Y-m-d', altInput: true, altFormat: 'd M Y',

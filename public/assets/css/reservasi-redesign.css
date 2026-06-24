@@ -418,10 +418,10 @@ body.rr-drawer-lock { overflow: hidden; }
 /* Form drawer (Tambah / Edit lengkap) — lebih lebar (660px) & di atas Detail drawer. */
 body.redesign-reservasi .rr-drawer--form { z-index: 1300; }
 body.redesign-reservasi .rr-drawer--form .rr-drawer__panel { width: 660px; }
-/* Close mulus: tunda visibility:hidden selama animasi slide-out (.25s), biar panel
-   sempat geser keluar dulu — bukan hilang seketika. Saat buka, visible langsung. */
-body.redesign-reservasi .rr-drawer--form { transition: visibility 0s linear .25s; }
-body.redesign-reservasi .rr-drawer--form.is-open { transition: visibility 0s linear 0s; }
+/* Close mulus (SEMUA drawer: Detail + Form): tunda visibility:hidden selama animasi
+   slide-out (.25s) biar panel sempat geser keluar — bukan hilang seketika. Buka = langsung. */
+body.redesign-reservasi .rr-drawer { transition: visibility 0s linear .25s; }
+body.redesign-reservasi .rr-drawer.is-open { transition: visibility 0s linear 0s; }
 /* Head form cuma 2 baris (lebih pendek dari Detail) → center-kan tombol close. */
 body.redesign-reservasi .rr-drawer--form .rr-drawer__close { top: 50%; transform: translateY(-50%); }
 
@@ -496,6 +496,14 @@ body.redesign-reservasi #rrReservationForm .form-control:focus { border-color:#4
 /* Footer aksi (Simpan + hapus) */
 body.redesign-reservasi .rrf-foot { display:flex; gap:10px; margin-top:24px; padding-top:18px; border-top:1px solid #EDDFCE; }
 body.redesign-reservasi .rrf-foot .rrf-save { flex:1; display:inline-flex; align-items:center; justify-content:center; gap:8px; }
+/* #1 Baris LAYANAN — match design (flat, hijau saat dipilih, meta jadi pill hangat). */
+body.redesign-reservasi #rrReservationForm .st-service-row { border:1.5px solid #EFE0CE; border-radius:13px; background:#fff; padding:13px 15px; }
+body.redesign-reservasi #rrReservationForm .st-service-row.is-checked { border-color:#9FD4B0; background:#EAF6EE; box-shadow:none; }
+body.redesign-reservasi #rrReservationForm .st-service-row .badge { background:#F4E7D6; color:#9A7256 !important; border:none; border-radius:7px; font-weight:600; }
+/* #4 Tombol "Cek Slot" lebih sekunder (design auto-load slot). */
+body.redesign-reservasi #rrReservationForm #loadSlotsBtn { font-size:11.5px; padding:6px 11px; }
+/* #5 Footer Simpan sticky di dalam drawer (di standalone tetap mengalir biasa). */
+body.redesign-reservasi #rrFormDrawer .rrf-foot { position:sticky; bottom:0; background:#F8F0E6; margin-top:18px; padding-bottom:6px; z-index:2; }
 
 /* ── Kotak JAM (JADWAL aktif/dipilih) ── */
 body.redesign-reservasi #rrReservationForm #selectedTimeDisplay {
