@@ -1,6 +1,8 @@
 @extends(request()->boolean('drawer') ? 'layouts.bare' : 'layouts.app')
 
 @section('css')
+    {{-- Redesign reservasi — agar form standalone konsisten dgn drawer (yg load CSS ini via list.blade). --}}
+    <link rel="stylesheet" href="{{ asset('assets/css/reservasi-redesign.css') }}?v={{ @filemtime(public_path('assets/css/reservasi-redesign.css')) ?: '1' }}">
     <style>
         /* Quick-add pasien (1 nomor → banyak pasien) */
         .qp-trigger-wrap { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:6px; }
@@ -48,7 +50,7 @@
 @endsection
 
 @section('content')
-    <div class="container-fluid">
+    <div class="container-fluid rr-form-page">
         {{-- Chrome halaman (judul + notif + Kembali) — disembunyikan saat dimuat di drawer (?drawer=1). --}}
         @unless(request()->boolean('drawer'))
         <div class="row">

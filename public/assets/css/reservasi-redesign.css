@@ -188,7 +188,7 @@ body.redesign-reservasi .st-table-wrap--scroll {
 /* Header: gradient VERTIKAL (180deg) → seragam tiap kolom, tidak belang/kepotong
    seperti versi 120deg diagonal sebelumnya. */
 body.redesign-reservasi .st-table thead th {
-    background: linear-gradient(180deg, #46190A 0%, #2C0F04 100%) !important;
+    background: linear-gradient(180deg, #5A2410 0%, #3A1100 100%) !important;
     color: #EAD3BC !important;
     text-transform: uppercase;
     letter-spacing: .5px;
@@ -479,8 +479,81 @@ body.redesign-reservasi .rr-form-errors {
 body.redesign-reservasi .rr-form-errors ul { margin:6px 0 0; padding-left:18px; }
 body.redesign-reservasi .rr-form-errors li { margin:2px 0; }
 
+/* ===== Form Reservasi — layout design 660px (Fase 2b) ===== */
+/* Standalone: batasi lebar biar proporsi mirip drawer (di drawer 660px < 760 → no-op). */
+body.redesign-reservasi .rr-form-page { max-width: 760px; margin-left: auto; margin-right: auto; }
+body.redesign-reservasi .rrf { display: flex; flex-direction: column; gap: 22px; }
+body.redesign-reservasi .rrf-sec__title { display:flex; align-items:center; gap:9px; margin-bottom:14px; font-size:12px; font-weight:800; letter-spacing:.5px; color:#5A3A22; text-transform:uppercase; }
+body.redesign-reservasi .rrf-sec__bar { width:6px; height:15px; border-radius:3px; background:#C9962F; flex:none; }
+body.redesign-reservasi .rrf-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+body.redesign-reservasi .rrf-col--full { grid-column: 1 / -1; }
+body.redesign-reservasi .rrf-lbl { display:block; font-size:10.5px; font-weight:700; letter-spacing:.5px; color:#A9866A; text-transform:uppercase; margin-bottom:6px; }
+body.redesign-reservasi .rrf-lbl small { text-transform:none; letter-spacing:0; font-weight:400; }
+/* Input di dalam form → gaya design (rounded, border cream). select2/native sama-sama .form-control. */
+body.redesign-reservasi #rrReservationForm .form-control { border:1px solid #E7D3BE; border-radius:11px; padding:11px 13px; font-size:13.5px; color:#3B1500; background:#fff; height:auto; }
+body.redesign-reservasi #rrReservationForm textarea.form-control { min-height:84px; resize:vertical; }
+body.redesign-reservasi #rrReservationForm .form-control:focus { border-color:#461500; box-shadow:0 0 0 .15rem rgba(70,21,0,.12); }
+/* Footer aksi (Simpan + hapus) */
+body.redesign-reservasi .rrf-foot { display:flex; gap:10px; margin-top:24px; padding-top:18px; border-top:1px solid #EDDFCE; }
+body.redesign-reservasi .rrf-foot .rrf-save { flex:1; display:inline-flex; align-items:center; justify-content:center; gap:8px; }
+
+/* ── Kotak JAM (JADWAL aktif/dipilih) ── */
+body.redesign-reservasi #rrReservationForm #selectedTimeDisplay {
+    display:flex; align-items:center; gap:8px; margin-top:8px;
+    border:1px solid #E7D3BE; border-radius:11px; padding:11px 13px;
+    background:#FBF4EC; font-size:13px; font-weight:700; color:#7A5B43;
+}
+body.redesign-reservasi #rrReservationForm #selectedTimeDisplay .st-slot-info-label { font-weight:600; color:#A9866A; }
+body.redesign-reservasi #rrReservationForm #loadSlotsBtn { font-size:12.5px; padding:7px 12px; border-radius:9px; }
+
+/* ── select2 (Pasien/Dokter/Cabang/Promo/Referral) → samakan tinggi & rounded input ── */
+body.redesign-reservasi #rrReservationForm .select2-container { width:100% !important; }
+body.redesign-reservasi #rrReservationForm .select2-container--default .select2-selection--single {
+    height:auto; min-height:44px; border:1px solid #E7D3BE; border-radius:11px; padding:6px 10px; background:#fff;
+}
+body.redesign-reservasi #rrReservationForm .select2-container--default .select2-selection--single .select2-selection__rendered {
+    line-height:30px; color:#3B1500; padding:0; font-size:13.5px;
+}
+body.redesign-reservasi #rrReservationForm .select2-container--default .select2-selection--single .select2-selection__arrow { height:42px; }
+body.redesign-reservasi #rrReservationForm .select2-container--default .select2-selection--single .select2-selection__placeholder { color:#A9866A; }
+
+/* ── PILIH SLOT JAM — grid 5 kolom + warna design (dirender JS ke #slotsContainer) ── */
+body.redesign-reservasi #slotsContainer .st-slots { display:grid; grid-template-columns:repeat(5,1fr); gap:9px; }
+body.redesign-reservasi #slotsContainer .st-slot {
+    border-radius:10px; padding:10px 4px; font-size:13px; font-weight:700;
+    font-variant-numeric:tabular-nums; text-align:center; border:1px solid; line-height:1.25;
+}
+body.redesign-reservasi #slotsContainer .st-slot small { display:block; font-size:9.5px; font-weight:600; opacity:.85; margin-top:1px; }
+body.redesign-reservasi #slotsContainer .st-slot--available { background:#E9F5EC; color:#2F8E55; border-color:#CFE9D6; }
+body.redesign-reservasi #slotsContainer .st-slot--available:hover { filter:brightness(.97); }
+body.redesign-reservasi #slotsContainer .st-slot--selected { background:#3A1100; color:#FFE6CC; border-color:#3A1100; }
+body.redesign-reservasi #slotsContainer .st-slot--booked { background:#FBE3DE; color:#C9897F; border-color:#F2D2CB; }
+body.redesign-reservasi #slotsContainer .st-slot--conflict { background:#FBEFD9; color:#9A6614; border-color:#EBD3A5; }
+body.redesign-reservasi #slotsContainer .st-slot--past { background:#F1E9DF; color:#A9967F; border-color:#E7DAC9; }
+body.redesign-reservasi #slotsContainer .st-slot--preview { background:#EFE7DE; color:#7A5B43; border-color:#E0D2C0; }
+body.redesign-reservasi #slotsContainer .st-slot-legend { display:flex; gap:16px; flex-wrap:wrap; margin-top:12px; }
+body.redesign-reservasi #slotsContainer .st-slot-legend-item { display:inline-flex; align-items:center; gap:6px; font-size:11.5px; color:#7A5B43; }
+body.redesign-reservasi #slotsContainer .st-slot-legend-dot { width:11px; height:11px; border-radius:3px; border:1px solid transparent; }
+body.redesign-reservasi #slotsContainer .st-slot-legend-dot--available { background:#E9F5EC; border-color:#CFE9D6; }
+body.redesign-reservasi #slotsContainer .st-slot-legend-dot--selected { background:#3A1100; }
+body.redesign-reservasi #slotsContainer .st-slot-legend-dot--conflict { background:#FBEFD9; border-color:#EBD3A5; }
+body.redesign-reservasi #slotsContainer .st-slot-legend-dot--booked { background:#FBE3DE; border-color:#F2D2CB; }
+
+/* ── LAYANAN PERAWATAN — baris flat + meta pill (dirender JS ke #serviceChecklist) ── */
+body.redesign-reservasi #serviceChecklist .st-service-list { display:flex; flex-direction:column; gap:9px; }
+body.redesign-reservasi #serviceChecklist .st-service-row { background:#fff; border:1.5px solid #EFE0CE; border-radius:13px; padding:0; overflow:hidden; transition:all .12s; }
+body.redesign-reservasi #serviceChecklist .st-service-row.is-checked { background:#EAF6EE; border-color:#9FD4B0; }
+body.redesign-reservasi #serviceChecklist .st-service-row__top { display:flex; align-items:center; gap:12px; padding:13px 15px; flex-wrap:wrap; }
+body.redesign-reservasi #serviceChecklist .st-service-row__top .custom-control { flex:1; min-width:140px; margin:0; }
+body.redesign-reservasi #serviceChecklist .st-service-row__top .custom-control-label { font-size:13.5px; font-weight:700; color:#3B1500; }
+body.redesign-reservasi #serviceChecklist .st-service-row__top .badge { font-size:11.5px; font-weight:600; color:#9A7256; background:#F4E7D6; border-radius:7px; padding:5px 9px; }
+body.redesign-reservasi #serviceChecklist .svc-detail-wrap { padding:0 15px 13px; }
+
+/* Hint kecil di bawah field Pasien (dipindah dari baris tombol agar layout rapi). */
+body.redesign-reservasi .rrf-hint { display:block; margin-top:6px; font-size:11px; color:#A9866A; line-height:1.4; }
+
 /* header */
-body.redesign-reservasi .rr-drawer__head { background: linear-gradient(135deg, #3A1100, #2C0C00); color: #fff; padding: 18px 20px 16px; position: relative; }
+body.redesign-reservasi .rr-drawer__head { background: linear-gradient(120deg, #5A2410, #3A1100); color: #fff; padding: 18px 20px 16px; position: relative; }
 body.redesign-reservasi .rr-drawer__close { position: absolute; top: 14px; right: 14px; width: 32px; height: 32px; border: none; border-radius: 9px; background: rgba(255, 250, 245, .14); color: #fff; font-size: 20px; line-height: 1; cursor: pointer; }
 body.redesign-reservasi .rr-drawer__close:hover { background: rgba(255, 250, 245, .26); }
 body.redesign-reservasi .rr-drawer__eyebrow { font-size: 10px; letter-spacing: 1.2px; color: #C79C7E; font-weight: 700; text-transform: uppercase; }
