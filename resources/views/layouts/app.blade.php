@@ -32,6 +32,8 @@
     <link rel="stylesheet" href="{{ asset('assets/css/components.sweettreats.css') }}?v={{ @filemtime(public_path('assets/css/components.sweettreats.css')) ?: '1' }}">
     <link rel="stylesheet" href="{{ asset('assets/css/theme-marketing.css') }}?v={{ @filemtime(public_path('assets/css/theme-marketing.css')) ?: '1' }}">
     <link rel="stylesheet" href="{{ asset('assets/css/themes.sweettreats.css') }}?v={{ @filemtime(public_path('assets/css/themes.sweettreats.css')) ?: '1' }}">
+    {{-- Shell redesign (fondasi) — sidebar gelap global, hanya tema default. Di-load paling akhir agar menang. --}}
+    <link rel="stylesheet" href="{{ asset('assets/css/shell-redesign.css') }}?v={{ @filemtime(public_path('assets/css/shell-redesign.css')) ?: '1' }}">
     @yield('css')
 </head>
 @php
@@ -71,9 +73,13 @@
     if ($groupTheme === 'theme-marketing') {
         $bodyTheme = 'marketing';
     }
+
+    // Redesign reservasi (Fase 1) — di-scope HANYA ke halaman reservasi via body-class.
+    // CSS-nya (reservasi-redesign.css) di-load dari list.blade.php @section('css').
+    $reservasiRedesign = ($currentSegment === 'rawreservation') ? ' redesign-reservasi' : '';
 @endphp
 
-<body data-theme="{{ $bodyTheme }}" class="{{ $groupTheme }}">
+<body data-theme="{{ $bodyTheme }}" class="{{ $groupTheme }}{{ $reservasiRedesign }}">
 
     <!-- Top Bar Start -->
     @include('layouts.header')
@@ -120,6 +126,9 @@
             {{-- Clickable table rows --}}
             <script>
             $(document).on('click', '.st-table--clickable tbody tr[data-href]', function(e) {
+                // Baris yang punya data-rr dikelola halaman (mis. Detail drawer reservasi) —
+                // jangan navigate, biar tidak dobel dengan handler drawer.
+                if (this.hasAttribute('data-rr')) return;
                 if ($(e.target).closest('a, button, input, select, textarea').length) return;
                 window.location = $(this).data('href');
             });

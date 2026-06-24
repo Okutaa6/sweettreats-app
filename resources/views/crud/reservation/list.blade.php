@@ -54,12 +54,13 @@
                     <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap" style="gap:8px;">
                         <div class="d-flex align-items-center" style="gap:8px;">
                             @if(!$isViewOnly)
-                                <a href="{{ route('rawreservation.new') }}" class="st-btn-brand">
+                                <a href="{{ route('rawreservation.new') }}" id="rrBtnTambah" class="st-btn-brand">
                                     <i class="fa fa-plus"></i> Tambah
                                 </a>
                             @endif
-                            <button class="st-btn-outline-brown {{ $hasFilter ? 'is-active' : '' }}" type="button" data-toggle="collapse" data-target="#filterCollapse" aria-expanded="{{ $hasFilter ? 'true' : 'false' }}">
+                            <button class="st-btn-outline-brown st-btn-filter {{ $hasFilter ? 'is-active' : '' }}" type="button" data-toggle="collapse" data-target="#filterCollapse" aria-expanded="{{ $hasFilter ? 'true' : 'false' }}">
                                 <i class="fa fa-filter"></i> {{ $hasFilter ? 'Filter Aktif' : 'Filter' }}
+                                <i class="fa fa-chevron-down st-btn-filter-chev"></i>
                             </button>
                             <a href="{{ route('export.reservasi', request()->only(['status','branch','doctor','date_from','date_to','promo','affiliate'])) }}" class="st-btn-outline-brown">
                                 <i class="fa fa-download"></i> Export CSV
@@ -212,9 +213,45 @@
                                 @endforeach
                             </div>
                         @endif
-                        <div class="st-info-count">
-                            <i class="fa fa-list"></i>
-                            Menampilkan <strong>{{ $reservations->total() }}</strong> reservasi
+                        @if (! (request('view', 'list') === 'list' && !request('new')))
+                            {{-- Tab List: count sudah tampil di quick-segment row → hindari dobel --}}
+                            <div class="st-info-count">
+                                <i class="fa fa-list"></i>
+                                Menampilkan <strong>{{ $reservations->total() }}</strong> reservasi
+                            </div>
+                        @endif
+                    @endif
+
+                    {{-- ── Quick segments (filter cepat) — hanya tab List ── --}}
+                    @if(request('view', 'list') === 'list' && !request('new'))
+                        @php
+                            $segToday  = now()->toDateString();
+                            $segBesok  = now()->addDay()->toDateString();
+                            $segWStart = now()->startOfWeek(\Carbon\Carbon::SUNDAY)->toDateString();
+                            $segWEnd   = now()->endOfWeek(\Carbon\Carbon::SATURDAY)->toDateString();
+                            $segPending = \App\Models\RawCusReservation::STATUS_PENDING;
+                            $segBase = request()->except(['status', 'date_from', 'date_to', 'page', 'new', 'view']);
+                            $segUrl = function ($extra) use ($segBase) {
+                                return route('rawreservation', array_merge($segBase, ['view' => 'list'], $extra));
+                            };
+                            $qS = request('status'); $qF = request('date_from'); $qT = request('date_to');
+                            $segAct = [
+                                'belum'  => $qS === $segPending,
+                                'hari'   => !$qS && $qF === $segToday  && $qT === $segToday,
+                                'besok'  => !$qS && $qF === $segBesok  && $qT === $segBesok,
+                                'minggu' => !$qS && $qF === $segWStart && $qT === $segWEnd,
+                                'semua'  => !$qS && !$qF && !$qT,
+                            ];
+                        @endphp
+                        <div class="st-quickseg">
+                            <div class="st-quickseg__tabs">
+                                <a href="{{ $segUrl(['status' => $segPending]) }}" class="st-seg {{ $segAct['belum'] ? 'active' : '' }}">Belum dikonfirmasi</a>
+                                <a href="{{ $segUrl(['date_from' => $segToday, 'date_to' => $segToday]) }}" class="st-seg {{ $segAct['hari'] ? 'active' : '' }}">Hari ini</a>
+                                <a href="{{ $segUrl(['date_from' => $segBesok, 'date_to' => $segBesok]) }}" class="st-seg {{ $segAct['besok'] ? 'active' : '' }}">Besok</a>
+                                <a href="{{ $segUrl(['date_from' => $segWStart, 'date_to' => $segWEnd]) }}" class="st-seg {{ $segAct['minggu'] ? 'active' : '' }}">Minggu ini</a>
+                                <a href="{{ $segUrl([]) }}" class="st-seg {{ $segAct['semua'] ? 'active' : '' }}">Semua</a>
+                            </div>
+                            <span class="st-quickseg__count"><i class="fa fa-list"></i> Menampilkan <strong>{{ $reservations->total() }}</strong> reservasi</span>
                         </div>
                     @endif
 
@@ -226,41 +263,96 @@
                         <table class="st-table st-table--clickable" cellspacing="0" style="white-space: nowrap;">
                             <thead>
                                 <tr>
-                                    <th>Hari &amp; Tanggal</th>
                                     <th>Pasien</th>
-                                    <th>No Telepon</th>
                                     <th>Dokter</th>
                                     @if($showBranchColumn)<th>Cabang</th>@endif
                                     <th>Jam</th>
                                     <th>Perawatan</th>
-                                    <th style="min-width:180px;">Keterangan</th>
-                                    <th>Promo</th>
-                                    <th>Klaim</th>
+                                    <th style="min-width:150px;">Keterangan</th>
+                                    <th>Follow-up</th>
                                     <th>Status</th>
-                                    <th>FU H-1</th>
-                                    <th>FU H</th>
-                                    <th>Kehadiran</th>
+                                    <th class="st-chev-th" aria-hidden="true"></th>
                                 </tr>
                             </thead>
                             <tbody>
+                                @php
+                                    $hariList = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+                                    // Jumlah kolom tbody (utk colspan day-header): Pasien,Dokter,Jam,Perawatan,
+                                    // Keterangan,Follow-up,Status,chevron = 8 (+Cabang bila tampil).
+                                    $colCount = 8 + ($showBranchColumn ? 1 : 0);
+                                    // Jumlah reservasi per tanggal (dalam halaman ini) utk badge day-header.
+                                    $dayCounts = collect($reservations->items())->groupBy(fn($r) => optional($r->date)->format('Y-m-d'));
+                                    $prevDate = null;
+                                    // Label status PENDEK untuk pill di list (design pakai short label).
+                                    $rrShortMap = [
+                                        \App\Models\RawCusReservation::STATUS_PENDING   => 'Menunggu',
+                                        \App\Models\RawCusReservation::STATUS_CONFIRMED  => 'Dikonfirmasi',
+                                        \App\Models\RawCusReservation::STATUS_WAITLIST   => 'Waiting',
+                                        \App\Models\RawCusReservation::STATUS_COMPLETED  => 'Selesai',
+                                        \App\Models\RawCusReservation::STATUS_CANCELLED  => 'Batal',
+                                    ];
+                                @endphp
                                 @foreach ($reservations as $key => $row)
-                                    @php 
-                                        $si = $row->status_info; 
+                                    @php
+                                        $si = $row->status_info;
                                         // Cek apakah data ini dibuat kurang dari 6 jam yang lalu
                                         $isNew = false;
                                         if (!empty($row->created_at)) {
                                             $isNew = \Carbon\Carbon::parse($row->created_at)->diffInHours(\Carbon\Carbon::now()) < 6;
                                         }
+                                        $curDate = optional($row->date)->format('Y-m-d');
+                                        // Payload untuk Detail drawer (dibaca JS saat baris diklik)
+                                        $rrWa = $row->customer?->phone ? preg_replace('/[^0-9]/', '', $row->customer->phone) : '';
+                                        if ($rrWa && str_starts_with($rrWa, '0')) $rrWa = '62' . substr($rrWa, 1);
+                                        $rrStatusOpt = \App\Models\RawCusReservation::statusOptions()[$row->status] ?? null;
+                                        $rrTreat = $row->services->map(fn($s) => $s->docService->name ?? null)->filter()->unique()->implode(', ');
+                                        if (!$rrTreat && $row->lainnya_text) $rrTreat = 'Keluhan: ' . $row->lainnya_text;
+                                        $rrData = [
+                                            'id'          => $row->id,
+                                            'name'        => $row->customer->name ?? 'Pasien Terhapus',
+                                            'phone'       => $row->customer->phone ?? '',
+                                            'wa'          => $rrWa,
+                                            'status'      => $row->status,
+                                            'statusLabel' => $rrStatusOpt['label'] ?? '—',
+                                            'statusBg'    => $rrStatusOpt['bg'] ?? '',
+                                            'statusColor' => $rrStatusOpt['color'] ?? '',
+                                            'jadwal'      => $row->date ? ($hariList[$row->date->dayOfWeek] . ', ' . $row->date->format('d M Y')) : '—',
+                                            'time'        => ($row->start_hour && $row->end_hour) ? (\Carbon\Carbon::parse($row->start_hour)->format('H:i') . ' – ' . \Carbon\Carbon::parse($row->end_hour)->format('H:i')) : '',
+                                            'doctor'      => $row->doctor->name ?? '—',
+                                            'treatment'   => $rrTreat ?: '—',
+                                            'keterangan'  => $row->keterangan ?? '',
+                                            'fu1'         => $row->follow_up_h_min_1 ?? '',
+                                            'fuh'         => $row->follow_up_h ?? '',
+                                            'kehadiran'   => $row->keterangan_kehadiran ?? '',
+                                            'promo'       => $row->promo->promo_code ?? '',
+                                            'promoId'     => $row->raw_promo_id,
+                                            'klaim'       => $row->promo_klaim ? 'done' : ($row->raw_promo_id ? 'pending' : 'none'),
+                                            'editUrl'     => route('rawreservation.edit', $row->id),
+                                            'klaimUrl'    => route('rawreservation.klaim', $row->id),
+                                        ];
                                     @endphp
-                                    <tr class="st-row st-row--{{ $row->status }} {{ $isNew ? 'st-row-new' : '' }}"
-                                        @if(!$isViewOnly) data-href="{{ route('rawreservation.edit', $row->id) }}" @endif
-                                        {!! $isViewOnly ? '' : ($isNew ? 'title="Data baru masuk — klik untuk detail"' : 'title="Klik baris untuk detail"') !!}>
+                                    @if ($curDate !== $prevDate)
                                         @php
-                                            $hariList = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
-                                            $hariNama = $row->date ? $hariList[$row->date->dayOfWeek] : '';
+                                            $prevDate = $curDate;
+                                            $hdLabel  = $row->date ? $hariList[$row->date->dayOfWeek] . ', ' . $row->date->format('d M Y') : 'Tanpa Tanggal';
+                                            $hdCount  = $curDate ? ($dayCounts[$curDate]->count() ?? 0) : 0;
                                         @endphp
-                                        <td nowrap><span class="st-date">{{ $row->date ? $hariNama . ', ' . $row->date->format('d M Y') : '-' }}</span></td>
-                                        <td style="white-space: normal; min-width: 170px;">
+                                        <tr class="st-day-row">
+                                            <td colspan="{{ $colCount }}">
+                                                <span class="st-day-dot"></span>
+                                                <span class="st-day-label">{{ $hdLabel }}</span>
+                                                <span class="st-day-count">{{ $hdCount }}</span>
+                                            </td>
+                                        </tr>
+                                    @endif
+                                    <tr class="st-row st-row--{{ $row->status }} {{ $isNew ? 'st-row-new' : '' }}"
+                                        @if(!$isViewOnly) data-href="{{ route('rawreservation.edit', $row->id) }}" data-rr="{{ json_encode($rrData, JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE) }}" @endif
+                                        {!! $isViewOnly ? '' : ($isNew ? 'title="Data baru masuk — klik untuk lihat detail"' : 'title="Klik baris untuk lihat detail"') !!}>
+                                        @php
+                                            $waPhoneCell = $row->customer?->phone ? preg_replace('/[^0-9]/', '', $row->customer->phone) : '';
+                                            if ($waPhoneCell && str_starts_with($waPhoneCell, '0')) $waPhoneCell = '62' . substr($waPhoneCell, 1);
+                                        @endphp
+                                        <td class="st-pasien-cell" style="white-space: normal; min-width: 165px;">
                                             @if($row->customer)
                                                 <span class="st-primary">{{ $row->customer->name }}</span>
                                             @else
@@ -269,9 +361,13 @@
                                             @if($isNew)
                                                 <span class="st-pill st-pill--success ml-1"><i class="fa fa-star"></i> Baru</span>
                                             @endif
+                                            @if($row->customer?->phone)
+                                                <a href="https://wa.me/{{ $waPhoneCell }}" target="_blank" rel="noopener" class="st-pasien-phone" onclick="event.stopPropagation()" title="Chat via WhatsApp">
+                                                    <i class="fab fa-whatsapp"></i> {{ $row->customer->phone }}
+                                                </a>
+                                            @endif
                                         </td>
-                                        <td class="st-tnum">{{ $row->customer->phone ?? '-' }}</td>
-                                        <td>{{ $row->doctor->name ?? '-' }}</td>
+                                        <td class="st-dokter-cell"><span class="st-trunc" title="{{ $row->doctor->name ?? '' }}">{{ $row->doctor->name ?? '-' }}</span></td>
                                         @if($showBranchColumn)
                                         <td>
                                             @if($row->branch)
@@ -292,7 +388,7 @@
                                                 <span class="st-muted" title="Belum ada slot — masih waiting list">—</span>
                                             @endif
                                         </td>
-                                        <td style="white-space: normal; min-width: 220px;">
+                                        <td style="white-space: normal; min-width: 130px; max-width: 170px;">
                                         @php
                                             $uniqueServiceNames = $row->services->map(function($svc) {
                                                 return $svc->docService->name ?? null;
@@ -315,75 +411,16 @@
                                             <span style="color: var(--text-subtle);">-</span>
                                         @endif
                                     </td>
-                                    <td style="white-space: normal; min-width: 150px;">
-                                        @if($isViewOnly)
-                                            <div class="rr-static-text">{{ $row->keterangan ?: '—' }}</div>
-                                        @else
-                                            <textarea class="form-control form-control-sm inline-update"
-                                                data-id="{{ $row->id }}" data-field="keterangan"
-                                                rows="2" placeholder="Isi keterangan...">{{ $row->keterangan }}</textarea>
-                                        @endif
+                                    <td class="st-ket-cell" style="white-space: normal; min-width: 120px;">
+                                        {{-- Keterangan: inline-editable (subtle), save via endpoint inline (reuse). --}}
+                                        <input type="text" class="inline-update st-ket-input"
+                                            data-id="{{ $row->id }}" data-field="keterangan"
+                                            value="{{ $row->keterangan }}" placeholder="+ catatan"
+                                            title="Klik untuk isi/ubah catatan" onclick="event.stopPropagation()">
                                     </td>
-                                        <td>
-                                            @if($row->promo)
-                                                <span class="st-pill st-pill--info st-pill--plain">{{ $row->promo->promo_code }}</span>
-                                            @else
-                                                <span style="color: var(--text-subtle);">-</span>
-                                            @endif
-                                        </td>
-                                        <td>
-                                            @if($row->raw_promo_id)
-                                                @if($row->promo_klaim)
-                                                    {{-- Sudah diklaim --}}
-                                                    <span class="st-pill st-pill--success">
-                                                        <i class="fa fa-check"></i> Diklaim
-                                                    </span>
-                                                    <span class="st-meta">
-                                                        {{ $row->promo_klaim_by ? 'oleh: ' . (\App\Models\Users::find($row->promo_klaim_by)->name ?? '-') : '' }}
-                                                    </span>
-                                                @elseif($isViewOnly)
-                                                    {{-- View only: tampilkan status saja, tidak ada tombol klaim --}}
-                                                    <span class="st-pill st-pill--neutral st-pill--plain">Belum diklaim</span>
-                                                @else
-                                                    {{-- Belum diklaim — tampilkan tombol --}}
-                                                    <form method="POST"
-                                                        action="{{ route('rawreservation.klaim', $row->id) }}"
-                                                        onsubmit="return confirm('Konfirmasi klaim promo untuk reservasi ini?')">
-                                                        @csrf
-                                                        @method('PATCH')
-                                                        <button type="submit" class="st-quick-btn st-quick-btn--warning">
-                                                            <i class="fa fa-tag"></i> Klaim
-                                                        </button>
-                                                    </form>
-                                                @endif
-                                            @else
-                                                <span style="color: var(--text-subtle);">-</span>
-                                            @endif
-                                        </td>
-                                        <td>
-                                            @if($isViewOnly)
-                                                @php $stCur = \App\Models\RawCusReservation::statusOptions()[$row->status] ?? null; @endphp
-                                                @if($stCur)
-                                                    <span class="st-pill" style="background:{{ $stCur['bg'] }};color:{{ $stCur['color'] }};">
-                                                        <i class="fa {{ $stCur['icon'] }}"></i> {{ $stCur['label'] }}
-                                                    </span>
-                                                @else
-                                                    <span class="rr-static-text">—</span>
-                                                @endif
-                                            @else
-                                                <select class="form-control form-control-sm inline-update" style="min-width:130px"
-                                                    data-id="{{ $row->id }}" data-field="status">
-                                                    @foreach (\App\Models\RawCusReservation::statusOptions() as $k => $opt)
-                                                        <option value="{{ $k }}" {{ $row->status == $k ? 'selected' : '' }}>{{ $opt['label'] }}</option>
-                                                    @endforeach
-                                                </select>
-                                            @endif
-                                        </td>
                                         @php
                                             $waPhone = $row->customer?->phone ? preg_replace('/[^0-9]/', '', $row->customer->phone) : '';
                                             if ($waPhone && str_starts_with($waPhone, '0')) $waPhone = '62' . substr($waPhone, 1);
-                                        @endphp
-                                        @php
                                             $fuLabelMap = [
                                                 'confirm'    => '✅ Confirm',
                                                 'reschedule' => '🔄 Reschedule',
@@ -397,58 +434,27 @@
                                                 'cancel'      => '❌ Cancel',
                                             ];
                                         @endphp
-                                        <td>
-                                            @if($isViewOnly)
-                                                <span class="rr-static-text">{{ $fuLabelMap[$row->follow_up_h_min_1] ?? '—' }}</span>
-                                            @else
-                                                <div class="d-flex align-items-center" style="gap:4px;">
-                                                    <select class="form-control form-control-sm inline-update" style="min-width:110px"
-                                                        data-id="{{ $row->id }}" data-field="follow_up_h_min_1">
-                                                        <option value="">-- --</option>
-                                                        <option value="confirm"    {{ $row->follow_up_h_min_1 == 'confirm'    ? 'selected' : '' }}>✅ Confirm</option>
-                                                        <option value="reschedule" {{ $row->follow_up_h_min_1 == 'reschedule' ? 'selected' : '' }}>🔄 Reschedule</option>
-                                                        <option value="cancel"     {{ $row->follow_up_h_min_1 == 'cancel'     ? 'selected' : '' }}>❌ Cancel</option>
-                                                        <option value="no_respon"  {{ $row->follow_up_h_min_1 == 'no_respon'  ? 'selected' : '' }}>📵 No Respon</option>
-                                                    </select>
-                                                    @if($waPhone)
-                                                        <a href="https://wa.me/{{ $waPhone }}" target="_blank" class="st-icon-btn st-icon-btn--success" title="Follow up via WhatsApp"><i class="fab fa-whatsapp"></i></a>
-                                                    @endif
-                                                </div>
-                                            @endif
+                                        {{-- Follow-up sebelum Status (urutan ikut design). Kolom Promo/Klaim
+                                             dipindah ke Detail drawer (fase berikutnya) → list slim spt design. --}}
+                                        <td class="st-fu-cell">
+                                            {{-- Follow-up read-only chips (edit via Detail drawer / Edit lengkap). --}}
+                                            @php $rrAtt = $row->keterangan_kehadiran; @endphp
+                                            <div class="st-fu-chips">
+                                                <span class="st-fuchip {{ $row->follow_up_h_min_1 ? 'is-done' : '' }}" data-id="{{ $row->id }}" data-fu="h1" title="Follow-up H-1 · {{ $fuLabelMap[$row->follow_up_h_min_1] ?? 'Belum di-follow up' }}">H-1</span>
+                                                <span class="st-fuchip {{ $row->follow_up_h ? 'is-done' : '' }}" data-id="{{ $row->id }}" data-fu="h" title="Follow-up H · {{ $fuLabelMap[$row->follow_up_h] ?? 'Belum di-follow up' }}">H</span>
+                                                <span class="st-fuchip st-fuchip--att {{ $rrAtt === 'hadir' ? 'is-hadir' : ($rrAtt === 'tidak_hadir' ? 'is-tidak' : '') }}" data-id="{{ $row->id }}" data-fu="att" title="Kehadiran · {{ $khLabelMap[$rrAtt] ?? 'Belum' }}">{{ $rrAtt === 'hadir' ? '✓' : ($rrAtt === 'tidak_hadir' ? '✕' : '?') }}</span>
+                                            </div>
                                         </td>
                                         <td>
-                                            @if($isViewOnly)
-                                                <span class="rr-static-text">{{ $fuLabelMap[$row->follow_up_h] ?? '—' }}</span>
+                                            {{-- Status read-only (edit via Detail drawer). data-id utk sync dari drawer. --}}
+                                            @php $stCur = \App\Models\RawCusReservation::statusOptions()[$row->status] ?? null; @endphp
+                                            @if($stCur)
+                                                <span class="st-pill st-rowstatus" data-id="{{ $row->id }}" style="background:{{ $stCur['bg'] }};color:{{ $stCur['color'] }};">{{ $rrShortMap[$row->status] ?? $stCur['label'] }}</span>
                                             @else
-                                                <div class="d-flex align-items-center" style="gap:4px;">
-                                                    <select class="form-control form-control-sm inline-update" style="min-width:110px"
-                                                        data-id="{{ $row->id }}" data-field="follow_up_h">
-                                                        <option value="">-- --</option>
-                                                        <option value="confirm"    {{ $row->follow_up_h == 'confirm'    ? 'selected' : '' }}>✅ Confirm</option>
-                                                        <option value="reschedule" {{ $row->follow_up_h == 'reschedule' ? 'selected' : '' }}>🔄 Reschedule</option>
-                                                        <option value="cancel"     {{ $row->follow_up_h == 'cancel'     ? 'selected' : '' }}>❌ Cancel</option>
-                                                        <option value="no_respon"  {{ $row->follow_up_h == 'no_respon'  ? 'selected' : '' }}>📵 No Respon</option>
-                                                    </select>
-                                                    @if($waPhone)
-                                                        <a href="https://wa.me/{{ $waPhone }}" target="_blank" class="st-icon-btn st-icon-btn--success" title="Follow up via WhatsApp"><i class="fab fa-whatsapp"></i></a>
-                                                    @endif
-                                                </div>
+                                                <span class="st-muted">—</span>
                                             @endif
                                         </td>
-                                        <td>
-                                            @if($isViewOnly)
-                                                <span class="rr-static-text">{{ $khLabelMap[$row->keterangan_kehadiran] ?? '—' }}</span>
-                                            @else
-                                                <select class="form-control form-control-sm inline-update" style="min-width:110px"
-                                                    data-id="{{ $row->id }}" data-field="keterangan_kehadiran">
-                                                    <option value="">-- --</option>
-                                                    <option value="hadir"       {{ $row->keterangan_kehadiran == 'hadir'       ? 'selected' : '' }}>✅ Hadir</option>
-                                                    <option value="tidak_hadir" {{ $row->keterangan_kehadiran == 'tidak_hadir' ? 'selected' : '' }}>❌ Tidak Hadir</option>
-                                                    <option value="reschedule"  {{ $row->keterangan_kehadiran == 'reschedule'  ? 'selected' : '' }}>🔄 Reschedule</option>
-                                                    <option value="cancel"      {{ $row->keterangan_kehadiran == 'cancel'      ? 'selected' : '' }}>❌ Cancel</option>
-                                                </select>
-                                            @endif
-                                        </td>
+                                        <td class="st-chev-cell"><i class="fa fa-chevron-right"></i></td>
                                     </tr>
                                 @endforeach
                             </tbody>
@@ -519,6 +525,120 @@
     </div>
 </div>
 
+{{-- ════════ Detail Drawer (slide-in kanan) — dipopulasi via JS dari data-rr ════════ --}}
+@if(!$isViewOnly)
+<div id="rrDrawer" class="rr-drawer" aria-hidden="true">
+    <div class="rr-drawer__scrim" data-rr-close></div>
+    <aside class="rr-drawer__panel" role="dialog" aria-label="Detail Reservasi">
+        <div class="rr-drawer__head">
+            <button type="button" class="rr-drawer__close" data-rr-close aria-label="Tutup">&times;</button>
+            <div class="rr-drawer__eyebrow">DETAIL RESERVASI</div>
+            <h3 class="rr-drawer__name" id="rrdName">—</h3>
+            <div class="rr-drawer__headmeta">
+                <a class="rr-drawer__wa" id="rrdWa" target="_blank" rel="noopener"><i class="fab fa-whatsapp"></i> <span id="rrdPhone"></span></a>
+                <span class="st-pill rr-drawer__statuspill" id="rrdStatusPill">—</span>
+            </div>
+        </div>
+        <div class="rr-drawer__body">
+            <div class="rr-drawer__cards">
+                <div class="rr-card">
+                    <div class="rr-card__label">JADWAL</div>
+                    <div class="rr-card__val" id="rrdJadwal">—</div>
+                    <div class="rr-card__sub" id="rrdTime"></div>
+                </div>
+                <div class="rr-card">
+                    <div class="rr-card__label">DOKTER</div>
+                    <div class="rr-card__val" id="rrdDoctor">—</div>
+                </div>
+            </div>
+            <div class="rr-card rr-card--wide">
+                <div class="rr-card__label">PERAWATAN</div>
+                <div class="rr-card__val" id="rrdTreatment">—</div>
+            </div>
+
+            <div class="rr-section">
+                <div class="rr-section__title">STATUS RESERVASI</div>
+                <div class="rr-seg" id="rrdStatusSeg">
+                    @foreach (\App\Models\RawCusReservation::statusOptions() as $k => $opt)
+                        <button type="button" class="rr-seg__btn" data-field="status" data-value="{{ $k }}" data-bg="{{ $opt['bg'] }}" data-color="{{ $opt['color'] }}">{{ $opt['label'] }}</button>
+                    @endforeach
+                </div>
+            </div>
+
+            <div class="rr-section">
+                <div class="rr-section__title">FOLLOW-UP</div>
+                <div class="rr-fu">
+                    <div class="rr-fu__row">
+                        <span class="rr-fu__badge rr-fu__badge--h1">H-1</span>
+                        <select class="rr-fu__sel" id="rrdFu1Sel">
+                            <option value="">Belum di-follow up</option>
+                            <option value="confirm">✅ Confirm</option>
+                            <option value="reschedule">🔄 Reschedule</option>
+                            <option value="cancel">❌ Cancel</option>
+                            <option value="no_respon">📵 No Respon</option>
+                        </select>
+                        <a class="rr-fu__wa" id="rrdFu1Wa" target="_blank" rel="noopener" title="Chat WhatsApp"><i class="fab fa-whatsapp"></i></a>
+                    </div>
+                    <div class="rr-fu__row">
+                        <span class="rr-fu__badge rr-fu__badge--h">H</span>
+                        <select class="rr-fu__sel" id="rrdFuhSel">
+                            <option value="">Belum di-follow up</option>
+                            <option value="confirm">✅ Confirm</option>
+                            <option value="reschedule">🔄 Reschedule</option>
+                            <option value="cancel">❌ Cancel</option>
+                            <option value="no_respon">📵 No Respon</option>
+                        </select>
+                        <a class="rr-fu__wa" id="rrdFuhWa" target="_blank" rel="noopener" title="Chat WhatsApp"><i class="fab fa-whatsapp"></i></a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="rr-section">
+                <div class="rr-section__title">KEHADIRAN</div>
+                <div class="rr-seg" id="rrdKehadiranSeg">
+                    <button type="button" class="rr-seg__btn" data-field="keterangan_kehadiran" data-value="hadir">Hadir</button>
+                    <button type="button" class="rr-seg__btn" data-field="keterangan_kehadiran" data-value="tidak_hadir">Tidak Hadir</button>
+                    <button type="button" class="rr-seg__btn" data-field="keterangan_kehadiran" data-value="">Belum</button>
+                </div>
+            </div>
+
+            <div class="rr-section">
+                <div class="rr-section__title">KETERANGAN</div>
+                <textarea id="rrdKeterangan" class="rr-textarea" rows="3" placeholder="Tambahkan catatan untuk reservasi ini..."></textarea>
+            </div>
+
+            <div class="rr-section">
+                <div class="rr-section__title">PROMO</div>
+                <div id="rrdPromoWrap"></div>
+            </div>
+        </div>
+        <div class="rr-drawer__foot">
+            <button type="button" class="rr-btn rr-btn--confirm" id="rrdConfirm"><i class="fa fa-check"></i> Konfirmasi</button>
+            <a class="rr-btn rr-btn--edit" id="rrdEdit" href="#"><i class="fa fa-edit"></i> Edit lengkap</a>
+            <button type="button" class="rr-btn rr-btn--cancel" id="rrdCancel">Batal</button>
+        </div>
+    </aside>
+</div>
+
+{{-- ════════ Form Drawer (Tambah / Edit lengkap, 660px) — isi di-fetch via AJAX ════════ --}}
+<div id="rrFormDrawer" class="rr-drawer rr-drawer--form" aria-hidden="true">
+    <div class="rr-drawer__scrim" data-rrform-close></div>
+    <aside class="rr-drawer__panel" role="dialog" aria-label="Form Reservasi">
+        <div class="rr-drawer__head">
+            <button type="button" class="rr-drawer__close" data-rrform-close aria-label="Tutup">&times;</button>
+            <div class="rr-drawer__eyebrow">RESERVASI</div>
+            <h3 class="rr-drawer__name" id="rrFormTitle">Reservasi</h3>
+        </div>
+        <div class="rr-drawer__body" id="rrFormBody">
+            {{-- Fase 1a: placeholder. Form di-inject di Fase 1b. --}}
+            <div id="rrFormPlaceholder" class="text-muted" style="padding:24px 4px;">
+                <i class="fa fa-spinner fa-spin"></i> Memuat form…
+            </div>
+        </div>
+    </aside>
+</div>
+@endif
+
 {{-- Modal --}}
 <div class="modal fade st-modal" id="eventModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
@@ -561,6 +681,10 @@
 @endsection
 
 @section('css')
+{{-- Redesign Fase 1 — re-skin scoped (aktif via body.redesign-reservasi). --}}
+<link rel="stylesheet" href="{{ asset('assets/css/reservasi-redesign.css') }}?v={{ @filemtime(public_path('assets/css/reservasi-redesign.css')) ?: '1' }}">
+{{-- Flatpickr — dibutuhkan form Tambah/Edit yang dimuat ke drawer (date picker). --}}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
 <style>
 /* ── Tab toggle (brand-cream, konsisten dengan components.sweettreats.css) ── */
 .view-tab-group {
@@ -643,6 +767,9 @@
 @endsection
 
 @section('js')
+{{-- Flatpickr + logika form reservasi (dipakai form Tambah/Edit yang di-inject ke drawer). --}}
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="{{ asset('assets/js/reservation-form.js') }}?v={{ @filemtime(public_path('assets/js/reservation-form.js')) ?: '1' }}"></script>
 <script>
 function escapeHtml(str) {
     if (!str) return '';
@@ -1174,13 +1301,25 @@ $(document).ready(function() {
 $(document).on('click', '.st-table--clickable tbody tr[data-href]', function (e) {
     // Abaikan klik yang asalnya dari elemen interaktif di dalam row
     if (e.target.closest('input, select, textarea, button, a, label, form')) return;
-    const href = $(this).data('href');
-    if (!href) return;
+    var href = this.getAttribute('data-href');
     if (e.ctrlKey || e.metaKey || e.button === 1) {
-        window.open(href, '_blank');
-    } else {
-        window.location.href = href;
+        if (href) window.open(href, '_blank');
+        return;
     }
+    // Klik biasa → buka Detail drawer (BUKAN navigasi ke halaman edit).
+    var raw = this.getAttribute('data-rr');
+    if (typeof window.rrOpenDrawer === 'function' && raw) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        try {
+            window.rrOpenDrawer(JSON.parse(raw));
+        } catch (err) {
+            console.error('Gagal parse data-rr:', err);
+        }
+        return false;   // pastikan tidak ada navigasi/propagasi lain
+    }
+    // Drawer tak tersedia (mis. JS belum siap) → fallback ke halaman edit
+    if (href) window.location.href = href;
 });
 // Middle-click / Ctrl+click → buka tab baru (mouseup agar dapat tombol tengah)
 $(document).on('auxclick', '.st-table--clickable tbody tr[data-href]', function (e) {
@@ -1210,6 +1349,271 @@ document.querySelectorAll('.pc-modal').forEach(function (m) {
         if (e.target === m) m.classList.remove('is-open');
     });
 });
+
+// Status pill (redesign): warna pill ikut nilai terpilih saat diganti.
+document.querySelectorAll('.st-status-select').forEach(function (sel) {
+    sel.addEventListener('change', function () {
+        var o = sel.options[sel.selectedIndex];
+        if (o) {
+            sel.style.background = o.dataset.bg || '';
+            sel.style.color = o.dataset.color || '';
+        }
+    });
+});
+
+// ══════════ Detail Drawer ══════════
+(function () {
+    var RR_CONFIRMED = @json(\App\Models\RawCusReservation::STATUS_CONFIRMED);
+    var RR_CANCELLED = @json(\App\Models\RawCusReservation::STATUS_CANCELLED);
+    @php
+        $rrStatusMapJs = collect(\App\Models\RawCusReservation::statusOptions())->mapWithKeys(function ($o, $k) {
+            $short = [
+                \App\Models\RawCusReservation::STATUS_PENDING   => 'Menunggu',
+                \App\Models\RawCusReservation::STATUS_CONFIRMED  => 'Dikonfirmasi',
+                \App\Models\RawCusReservation::STATUS_WAITLIST   => 'Waiting',
+                \App\Models\RawCusReservation::STATUS_COMPLETED  => 'Selesai',
+                \App\Models\RawCusReservation::STATUS_CANCELLED  => 'Batal',
+            ];
+            return [$k => ['label' => $o['label'], 'short' => $short[$k] ?? $o['label'], 'bg' => $o['bg'], 'color' => $o['color']]];
+        })->toArray();
+    @endphp
+    var RR_STATUS_MAP = @json($rrStatusMapJs);
+    var RR_TOKEN = '{{ csrf_token() }}';
+    var $drawer = $('#rrDrawer');
+    var rrId = null;
+
+    function fuLabel(v) {
+        return ({ confirm: '✅ Confirm', reschedule: '🔄 Reschedule', cancel: '❌ Cancel', no_respon: '📵 No Respon' })[v] || 'Belum ada';
+    }
+    function esc(s) { return $('<div>').text(s == null ? '' : s).html(); }
+    function renderPromo(d) {
+        var h = '';
+        if (d.promo) h += '<span class="st-pill st-pill--info st-pill--plain">' + esc(d.promo) + '</span> ';
+        if (d.promoId) {
+            if (d.klaim === 'done') h += '<span class="st-pill st-pill--success"><i class="fa fa-check"></i> Diklaim</span>';
+            else h += '<form method="POST" action="' + d.klaimUrl + '" onsubmit="return confirm(\'Konfirmasi klaim promo untuk reservasi ini?\')" style="display:inline-block;margin-top:6px;">' +
+                '<input type="hidden" name="_token" value="' + RR_TOKEN + '"><input type="hidden" name="_method" value="PATCH">' +
+                '<button type="submit" class="st-quick-btn st-quick-btn--warning"><i class="fa fa-tag"></i> Klaim Promo</button></form>';
+        }
+        if (!d.promo && !d.promoId) h = '<span style="color:var(--text-subtle)">Tidak ada promo</span>';
+        $('#rrdPromoWrap').html(h);
+    }
+    window.rrOpenDrawer = function (d) {
+        rrId = d.id;
+        $('#rrdName').text(d.name || '—');
+        $('#rrdPhone').text(d.phone || '');
+        if (d.wa) { $('#rrdWa').attr('href', 'https://wa.me/' + d.wa).show(); } else { $('#rrdWa').hide(); }
+        $('#rrdStatusPill').text(d.statusLabel || '—').css({ background: d.statusBg || '', color: d.statusColor || '' });
+        $('#rrdJadwal').text(d.jadwal || '—');
+        $('#rrdTime').text(d.time || '');
+        $('#rrdDoctor').text(d.doctor || '—');
+        $('#rrdTreatment').text(d.treatment || '—');
+        $('#rrdKeterangan').val(d.keterangan || '');
+        $('#rrdStatusSeg .rr-seg__btn').removeClass('active').filter('[data-value="' + d.status + '"]').addClass('active');
+        $('#rrdKehadiranSeg .rr-seg__btn').removeClass('active').filter('[data-value="' + (d.kehadiran || '') + '"]').addClass('active');
+        $('#rrdFu1Sel').val(d.fu1 || '');
+        $('#rrdFuhSel').val(d.fuh || '');
+        if (d.wa) { $('#rrdFu1Wa, #rrdFuhWa').attr('href', 'https://wa.me/' + d.wa).show(); } else { $('#rrdFu1Wa, #rrdFuhWa').hide(); }
+        $('#rrdEdit').attr('href', d.editUrl || '#');
+        renderPromo(d);
+        $drawer.addClass('is-open').attr('aria-hidden', 'false');
+        document.body.classList.add('rr-drawer-lock');
+    };
+    function rrClose() {
+        $drawer.removeClass('is-open').attr('aria-hidden', 'true');
+        document.body.classList.remove('rr-drawer-lock');
+        rrId = null;
+    }
+    function rrPatch(field, value) {
+        if (!rrId) return;
+        $.ajax({
+            url: '/rawreservation/' + rrId + '/inline', method: 'PATCH',
+            data: { _token: RR_TOKEN, field: field, value: value },
+            success: function () {
+                $('.inline-update[data-id="' + rrId + '"][data-field="' + field + '"]').each(function () {
+                    $(this).val(value);
+                    if (typeof syncInlineSelectValue === 'function') syncInlineSelectValue($(this));
+                });
+                if (field === 'status') {
+                    var stInfo = RR_STATUS_MAP[value];
+                    $('.st-rowstatus[data-id="' + rrId + '"]').each(function () {
+                        if (stInfo) { this.textContent = stInfo.short || stInfo.label; this.style.background = stInfo.bg; this.style.color = stInfo.color; }
+                    });
+                    if (typeof renderCalendar === 'function' && typeof curYear !== 'undefined') renderCalendar(curYear, curMonth);
+                }
+                // sync chip Follow-up / Kehadiran di list
+                if (field === 'follow_up_h_min_1' || field === 'follow_up_h') {
+                    var which = field === 'follow_up_h_min_1' ? 'h1' : 'h';
+                    $('.st-fuchip[data-id="' + rrId + '"][data-fu="' + which + '"]').toggleClass('is-done', !!value);
+                }
+                if (field === 'keterangan_kehadiran') {
+                    var $att = $('.st-fuchip[data-id="' + rrId + '"][data-fu="att"]');
+                    $att.removeClass('is-hadir is-tidak');
+                    if (value === 'hadir') { $att.addClass('is-hadir').text('✓'); }
+                    else if (value === 'tidak_hadir') { $att.addClass('is-tidak').text('✕'); }
+                    else { $att.text('?'); }
+                }
+            },
+            error: function () { alert('Gagal menyimpan, coba lagi.'); }
+        });
+    }
+
+    $(document).on('click', '#rrdStatusSeg .rr-seg__btn', function () {
+        var $b = $(this);
+        $('#rrdStatusSeg .rr-seg__btn').removeClass('active'); $b.addClass('active');
+        $('#rrdStatusPill').text($b.text()).css({ background: $b.data('bg') || '', color: $b.data('color') || '' });
+        rrPatch('status', $b.data('value'));
+    });
+    $(document).on('click', '#rrdKehadiranSeg .rr-seg__btn', function () {
+        var $b = $(this);
+        $('#rrdKehadiranSeg .rr-seg__btn').removeClass('active'); $b.addClass('active');
+        rrPatch('keterangan_kehadiran', String($b.data('value') == null ? '' : $b.data('value')));
+    });
+    $(document).on('change', '#rrdKeterangan', function () { rrPatch('keterangan', $(this).val()); });
+    $(document).on('change', '#rrdFu1Sel', function () { rrPatch('follow_up_h_min_1', $(this).val()); });
+    $(document).on('change', '#rrdFuhSel', function () { rrPatch('follow_up_h', $(this).val()); });
+    $(document).on('click', '#rrdConfirm', function () { $('#rrdStatusSeg .rr-seg__btn[data-value="' + RR_CONFIRMED + '"]').trigger('click'); });
+    $(document).on('click', '#rrdCancel', function () { if (confirm('Batalkan reservasi ini?')) $('#rrdStatusSeg .rr-seg__btn[data-value="' + RR_CANCELLED + '"]').trigger('click'); });
+    $(document).on('click', '[data-rr-close]', rrClose);
+    $(document).on('keydown', function (e) { if (e.key === 'Escape' && $drawer.hasClass('is-open')) rrClose(); });
+})();
+
+// ════════ Form Drawer (Tambah / Edit lengkap) — Fase 1a: buka/tutup wadah ════════
+// Isi form di-fetch & inject di Fase 1b; submit AJAX di Fase 1c.
+(function () {
+    var $fd = $('#rrFormDrawer');
+    if (!$fd.length) return; // view-only: drawer tidak dirender
+    var $body = $('#rrFormBody');
+
+    // Buka drawer + fetch form (?drawer=1, bare layout) → inject → jalankan config → init.
+    window.rrOpenFormDrawer = function (opts) {
+        opts = opts || {};
+        $('#rrFormTitle').text(opts.title || 'Reservasi');
+        $body.html('<div class="text-muted" style="padding:24px 4px;"><i class="fa fa-spinner fa-spin"></i> Memuat form…</div>');
+        $fd.addClass('is-open').attr('aria-hidden', 'false');
+        document.body.classList.add('rr-drawer-lock');
+
+        var url = opts.url || '';
+        if (!url) return;
+        var fetchUrl = url + (url.indexOf('?') === -1 ? '?' : '&') + 'drawer=1';
+
+        fetch(fetchUrl, { credentials: 'same-origin' })
+            .then(function (r) {
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                return r.text();
+            })
+            .then(function (html) {
+                // Bare layout balikin full HTML → ambil isi tag body (section content form).
+                var doc = new DOMParser().parseFromString(html, 'text/html');
+                var srcBody = doc.body || doc.documentElement;
+                // innerHTML TIDAK mengeksekusi <script> → pisahkan dulu, jalankan manual.
+                var scripts = Array.prototype.slice.call(srcBody.querySelectorAll('script'));
+                scripts.forEach(function (s) { if (s.parentNode) s.parentNode.removeChild(s); });
+                $body.html(srcBody.innerHTML);
+                // Jalankan script config (set window.rrFormConfig) di global scope.
+                scripts.forEach(function (s) {
+                    var n = document.createElement('script');
+                    if (s.src) { n.src = s.src; } else { n.textContent = s.textContent; }
+                    document.head.appendChild(n);
+                    if (n.parentNode) n.parentNode.removeChild(n);
+                });
+                // Wiring booking untuk markup yang baru di-inject.
+                if (typeof window.initReservationForm === 'function') {
+                    window.initReservationForm();
+                }
+            })
+            .catch(function (err) {
+                $body.html('<div class="text-danger" style="padding:24px 4px;"><i class="fa fa-exclamation-circle"></i> Gagal memuat form: '
+                    + (err && err.message ? err.message : err) + '</div>');
+            });
+    };
+    function rrFormClose() {
+        $fd.removeClass('is-open').attr('aria-hidden', 'true');
+        document.body.classList.remove('rr-drawer-lock');
+    }
+    window.rrCloseFormDrawer = rrFormClose;
+
+    $(document).on('click', '[data-rrform-close]', rrFormClose);
+    $(document).on('keydown', function (e) {
+        if (e.key === 'Escape' && $fd.hasClass('is-open')) rrFormClose();
+    });
+
+    // Tombol "Tambah" → buka form drawer (mode add). preventDefault → tidak navigasi.
+    // Kalau JS mati, <a href> tetap fallback ke halaman /rawreservation/new.
+    $(document).on('click', '#rrBtnTambah', function (e) {
+        e.preventDefault();
+        window.rrOpenFormDrawer({ title: 'Tambah Reservasi', url: $(this).attr('href'), mode: 'add' });
+    });
+
+    // "Edit lengkap" di Detail drawer → tutup Detail, buka form drawer (mode edit).
+    $(document).on('click', '#rrdEdit', function (e) {
+        e.preventDefault();
+        var url = $(this).attr('href');
+        $('#rrDrawer').removeClass('is-open').attr('aria-hidden', 'true'); // tutup panel Detail
+        window.rrOpenFormDrawer({ title: 'Edit Reservasi', url: url, mode: 'edit' });
+    });
+
+    // ── Fase 1c: submit form via AJAX (no reload saat ngedit) ──
+    // Tampilkan banner error di atas form (di dalam drawer), tanpa reload.
+    function rrFormShowErrors(errors) {
+        var items = [];
+        Object.keys(errors || {}).forEach(function (k) {
+            var arr = errors[k];
+            if (Array.isArray(arr)) { arr.forEach(function (m) { items.push(m); }); }
+            else if (arr) { items.push(String(arr)); }
+        });
+        if (!items.length) items.push('Gagal menyimpan. Coba lagi.');
+        var html = '<div id="rrFormErrors" class="rr-form-errors"><strong><i class="fa fa-exclamation-circle"></i> Periksa lagi:</strong><ul>'
+            + items.map(function (m) { return '<li>' + escapeHtml(m) + '</li>'; }).join('') + '</ul></div>';
+        $('#rrFormErrors').remove();
+        $('#rrFormBody').prepend(html);
+        $('#rrFormBody').scrollTop(0);
+    }
+
+    // Intercept submit form utama saja (#rrReservationForm) — BUKAN form hapus/komisi.
+    $(document).on('submit', '#rrReservationForm', function (e) {
+        e.preventDefault();
+        var form = this;
+        var $btns = $(form).find('button[type="submit"]');
+        $('#rrFormErrors').remove();
+        $btns.prop('disabled', true);
+
+        fetch(form.action, {
+            method: 'POST', // _method=PUT ikut di FormData untuk mode Edit (Laravel baca sebagai PUT)
+            body: new FormData(form),
+            credentials: 'same-origin',
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
+        })
+        .then(function (r) {
+            return r.text().then(function (t) {
+                var data = null; try { data = JSON.parse(t); } catch (_) {}
+                return { status: r.status, data: data };
+            });
+        })
+        .then(function (res) {
+            if (res.status >= 200 && res.status < 300 && res.data && res.data.ok) {
+                // Opsi A: toast sukses lalu reload list (sekali, di akhir).
+                if (window.Swal) {
+                    Swal.fire({ icon: 'success', title: res.data.message || 'Tersimpan', timer: 1100, showConfirmButton: false })
+                        .then(function () { window.location.reload(); });
+                } else {
+                    window.location.reload();
+                }
+                return;
+            }
+            if (res.status === 422 && res.data && res.data.errors) {
+                rrFormShowErrors(res.data.errors);
+            } else {
+                rrFormShowErrors({ _: [(res.data && res.data.message) || ('Gagal menyimpan (HTTP ' + res.status + ').')] });
+            }
+            $btns.prop('disabled', false);
+        })
+        .catch(function (err) {
+            rrFormShowErrors({ _: ['Gagal terhubung: ' + (err && err.message ? err.message : err)] });
+            $btns.prop('disabled', false);
+        });
+    });
+})();
 
 </script>
 @endsection

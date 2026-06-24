@@ -370,6 +370,53 @@ class ReservationController extends Controller
         }
     }
 
+    /**
+     * Guard anti double-book: true bila rentang [start,end] bentrok dengan
+     * reservasi lain pada dokter+tanggal yang sama. Reuse resolveBookedRanges()
+     * (trait ResolvesDoctorAvailability) supaya konsisten dengan slot-grid:
+     * skip reservasi DIBATALKAN, dan exclude reservasi yang sedang diedit.
+     */
+    private function slotConflict($doctorId, $date, $start, $end, $excludeId = null): bool
+    {
+        if (!$doctorId || !$date || !$start || !$end) {
+            return false;
+        }
+        $toMin = function ($t) {
+            $c = \Carbon\Carbon::parse($t);
+            return $c->hour * 60 + $c->minute;
+        };
+        $s = $toMin($start);
+        $e = $toMin($end);
+        foreach ($this->resolveBookedRanges($doctorId, $date, 'raw_cus_reservation', $excludeId) as $r) {
+            if ($s < $toMin($r['end']) && $e > $toMin($r['start'])) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Apakah request ini mengharap response JSON (mis. submit dari drawer via
+     * AJAX). Kalau ya, store()/update() balas JSON; kalau tidak, tetap redirect
+     * halaman seperti biasa (fallback page standalone).
+     */
+    private function wantsJsonResponse(): bool
+    {
+        return request()->ajax() || request()->wantsJson();
+    }
+
+    /**
+     * Error validasi AJAX-aware: 422 JSON {ok:false, errors} untuk drawer,
+     * selain itu back()->withInput()->withErrors() (fallback halaman).
+     */
+    private function validationErrorResponse(array $errors)
+    {
+        if ($this->wantsJsonResponse()) {
+            return response()->json(['ok' => false, 'errors' => $errors], 422);
+        }
+        return back()->withInput()->withErrors($errors);
+    }
+
     public function create()
     {
         $this->abortIfViewOnly();
@@ -488,8 +535,14 @@ class ReservationController extends Controller
                 request('services', [])
             );
             if ($scopeError) {
-                return back()->withInput()->withErrors(['raw_promo_id' => $scopeError]);
+                return $this->validationErrorResponse(['raw_promo_id' => $scopeError]);
             }
+        }
+
+        // Guard server-side anti double-book (benteng asli di lapisan data — tak
+        // bergantung slot-grid frontend). Reuse resolveBookedRanges() → konsisten.
+        if (!$isWaiting && $this->slotConflict(request('raw_doctor_id'), request('date'), request('start_hour'), request('end_hour'))) {
+            return $this->validationErrorResponse(['start_hour' => 'Jam tersebut sudah terisi untuk dokter ini pada tanggal itu. Silakan pilih slot lain.']);
         }
 
         $reservationId = null;
@@ -579,6 +632,10 @@ class ReservationController extends Controller
                 }
             }
         });
+
+        if ($this->wantsJsonResponse()) {
+            return response()->json(['ok' => true, 'id' => $reservationId, 'message' => 'Reservasi berhasil ditambahkan']);
+        }
 
         return redirect()->route('rawreservation')->with('success', 'Reservasi berhasil ditambahkan');
     }
@@ -693,8 +750,15 @@ class ReservationController extends Controller
                 request('services', [])
             );
             if ($scopeError) {
-                return back()->withInput()->withErrors(['raw_promo_id' => $scopeError]);
+                return $this->validationErrorResponse(['raw_promo_id' => $scopeError]);
             }
+        }
+
+        // Guard server-side anti double-book (kecuali reservasi di-set Batal —
+        // yang batal tak perlu slot kosong). Exclude reservasi yg sedang diedit.
+        if (request('status') !== RawCusReservation::STATUS_CANCELLED
+            && $this->slotConflict(request('raw_doctor_id'), request('date'), request('start_hour'), request('end_hour'), $id)) {
+            return $this->validationErrorResponse(['start_hour' => 'Jam tersebut sudah terisi untuk dokter ini pada tanggal itu. Silakan pilih slot lain.']);
         }
 
         $reservation = RawCusReservation::findOrFail($id);
@@ -796,15 +860,15 @@ class ReservationController extends Controller
             }
         });
 
-        $redirect = redirect()->route('rawreservation.edit', $id)->with('success', 'Reservasi berhasil diubah');
-
         // Kalau reservasi baru saja DIBATALKAN, slotnya kosong → tawarkan
-        // assign pasien waiting list di dokter+tanggal yang sama.
+        // assign pasien waiting list di dokter+tanggal yang sama. Dihitung sekali,
+        // dipakai untuk response JSON (drawer) maupun redirect (page).
+        $waitlistPrompt = null;
         if (request('status') === RawCusReservation::STATUS_CANCELLED) {
             $reservation->refresh();
             $count = RawCusReservation::waitlistCandidatesFor($reservation->raw_doctor_id, $reservation->date);
             if ($count > 0) {
-                $redirect->with('waitlist_prompt', [
+                $waitlistPrompt = [
                     'count'  => $count,
                     'doctor' => $reservation->doctor->name ?? 'dokter ini',
                     'date'   => $reservation->date ? \Carbon\Carbon::parse($reservation->date)->format('d M Y') : '-',
@@ -814,10 +878,18 @@ class ReservationController extends Controller
                         'date_from' => $reservation->date ? \Carbon\Carbon::parse($reservation->date)->format('Y-m-d') : null,
                         'date_to'   => $reservation->date ? \Carbon\Carbon::parse($reservation->date)->format('Y-m-d') : null,
                     ]),
-                ]);
+                ];
             }
         }
 
+        if ($this->wantsJsonResponse()) {
+            $payload = ['ok' => true, 'id' => $id, 'message' => 'Reservasi berhasil diubah'];
+            if ($waitlistPrompt) $payload['waitlist_prompt'] = $waitlistPrompt;
+            return response()->json($payload);
+        }
+
+        $redirect = redirect()->route('rawreservation.edit', $id)->with('success', 'Reservasi berhasil diubah');
+        if ($waitlistPrompt) $redirect->with('waitlist_prompt', $waitlistPrompt);
         return $redirect;
     }
 

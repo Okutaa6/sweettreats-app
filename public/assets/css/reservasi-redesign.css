@@ -1,0 +1,580 @@
+/* ════════════════════════════════════════════════════════════════════════
+   RESERVASI REDESIGN — Fase 1 (re-skin, scoped)
+   ────────────────────────────────────────────────────────────────────────
+   Berdasarkan design handoff `design_handoff_reservasi` (README + 17 screenshot).
+
+   STRATEGI SCOPING: SEMUA aturan di-scope di bawah `body.redesign-reservasi`
+   (di-set hanya saat segment URL = `rawreservation`, lihat layouts/app.blade.php).
+   CSS global (style/components/theme-marketing.sweettreats.css) TIDAK disentuh →
+   halaman lain 100% tidak berubah.
+
+   PENDEKATAN: komponen `st-*` dibangun di atas CSS custom properties. Dengan
+   meng-OVERRIDE variable itu scoped ke body.redesign-reservasi, seluruh konten
+   ikut palette baru sekaligus. Sisanya = aturan khusus untuk elemen yang
+   hardcode warna (gradient tombol/header tabel), font, page bg, & shell.
+
+   Ditunda ke fase berikutnya (bukan di file ini): drawer slide-in, quick-segment
+   row, konversi follow-up jadi chip, grouping baris per-hari sticky, rollout
+   shell ke seluruh halaman + mirror theme-marketing.
+   ════════════════════════════════════════════════════════════════════════ */
+
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+/* ── 1. Token override (design handoff) ─────────────────────────────────── */
+body.redesign-reservasi {
+    /* Brand brown — #461500 tetap locked (sesuai brand hierarchy) */
+    --brown:            #6B2400;   /* tombol/header sedikit lebih hangat */
+    --brown-2:          #7A3415;
+    --brown-3:          #9A5A38;
+    --brown-pale:       #EFE0CE;
+
+    /* Permukaan & garis */
+    --cream-surface:    #FFFFFF;
+    --cream-header:     #FBF6EF;
+    --cream-hover:      #FBF3E9;
+    --divider-soft:     #F4EADD;
+    --divider-strong:   #EFE0CE;
+
+    /* Teks */
+    --text-primary:     #3B1500;
+    --text-muted:       #9A7256;
+    --text-subtle:      #B79A82;
+
+    /* Sudut & bayangan */
+    --radius-md:        12px;
+    --radius-lg:        16px;
+    --shadow-card:      0 1px 2px rgba(70,21,0,.04), 0 10px 26px rgba(70,21,0,.05);
+    --shadow-card-lg:   0 2px 4px rgba(70,21,0,.05), 0 16px 40px rgba(70,21,0,.07);
+
+    /* Status pills (warm-consistent, sesuai handoff) */
+    --st-pending-bg:    #FBE7CF;  --st-pending-text:  #B5701A;  --st-pending-border:#F1D2A6;  --st-pending-accent:#E8842B;
+    --st-confirmed-bg:  #DFEDE9;  --st-confirmed-text:#2E7D74;  --st-confirmed-border:#BFE0D9; --st-confirmed-accent:#2E7D74;
+    --st-completed-bg:  #E3F4E8;  --st-completed-text:#2F8E55;  --st-completed-border:#C2E7CE; --st-completed-accent:#2F8E55;
+    --st-cancelled-bg:  #FBE3DE;  --st-cancelled-text:#C0392B;  --st-cancelled-border:#F0C9C1; --st-cancelled-accent:#C0392B;
+    --st-waitlist-bg:   #F0E6DA;  --st-waitlist-text: #8A6A52;  --st-waitlist-border:#E2D2C0;  --st-waitlist-accent:#A9866A;
+}
+
+/* ── 2. Tipografi — Plus Jakarta Sans (kecuali ikon <i>) ─────────────────── */
+body.redesign-reservasi
+:is(h1,h2,h3,h4,h5,h6,p,span,a,td,th,div,label,input,select,textarea,button,li,small,strong,b) {
+    font-family: 'Plus Jakarta Sans', 'Montserrat', system-ui, -apple-system, sans-serif !important;
+}
+body.redesign-reservasi .st-table,
+body.redesign-reservasi .st-tnum,
+body.redesign-reservasi .st-time,
+body.redesign-reservasi .st-date { font-variant-numeric: tabular-nums; }
+
+/* ── 3. Latar halaman ───────────────────────────────────────────────────── */
+body.redesign-reservasi .page-content,
+body.redesign-reservasi .page-wrapper { background: #F4ECE2; }
+body.redesign-reservasi .page-title { color: var(--text-primary); font-weight: 800; letter-spacing: -.2px; }
+/* Kartu kontainer utama — lembut, mengambang */
+body.redesign-reservasi .card {
+    background: var(--cream-surface);
+    border: 1px solid var(--divider-strong);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-card);
+}
+
+/* CATATAN: blok Sidebar & Header dipindah ke shell-redesign.css (global, tema
+   default) supaya shell konsisten di semua halaman, bukan cuma reservasi. File
+   ini fokus ke KONTEN halaman reservasi saja. */
+
+/* ── 4. Action bar (Tambah / Filter / Export) ───────────────────────────── */
+body.redesign-reservasi .st-btn-brand {
+    background: linear-gradient(135deg, #7A3415, #461500) !important;
+    border: none;
+    border-radius: var(--radius-md);
+    font-weight: 700;
+    box-shadow: 0 6px 16px -8px rgba(70,21,0,.5);
+}
+body.redesign-reservasi .st-btn-brand:hover { filter: brightness(1.07); }
+body.redesign-reservasi .st-btn-outline-brown {
+    background: #FFFFFF;
+    border: 1px solid var(--divider-strong);
+    color: var(--brown);
+    border-radius: var(--radius-md);
+    font-weight: 600;
+}
+body.redesign-reservasi .st-btn-outline-brown:hover,
+body.redesign-reservasi .st-btn-outline-brown.is-active {
+    background: linear-gradient(135deg, #7A3415, #461500);
+    color: #fff;
+    border-color: transparent;
+}
+
+/* ── 7. View tabs — segmented, brown gradient saat aktif ─────────────────── */
+body.redesign-reservasi .view-tab-group {
+    background: #FBF3E9;
+    border: 1px solid var(--divider-strong);
+    border-radius: 12px;
+    padding: 5px;
+}
+body.redesign-reservasi .view-tab {
+    color: var(--text-muted);
+    font-weight: 600;
+    border-radius: 9px;
+}
+body.redesign-reservasi .view-tab:hover {
+    background: rgba(122,52,21,.10);
+    color: var(--brown);
+}
+body.redesign-reservasi .view-tab.active {
+    background: linear-gradient(135deg, #7A3415, #461500);
+    color: #fff;
+    box-shadow: 0 4px 12px -4px rgba(70,21,0,.45);
+}
+body.redesign-reservasi .view-tab.active .view-tab-badge { background:#fff; color:#7A3415; }
+
+/* ── 8. Filter panel "FILTER LANJUTAN" ──────────────────────────────────── */
+body.redesign-reservasi .st-filter-panel {
+    background: linear-gradient(180deg, #FFFFFF, #FFFCF9);
+    border: 1px solid var(--divider-strong);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-card);
+}
+body.redesign-reservasi .st-filter-panel__header,
+body.redesign-reservasi .st-filter-label {
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    font-weight: 700;
+}
+body.redesign-reservasi .st-filter-panel .form-control {
+    border: 1px solid var(--divider-strong);
+    border-radius: 10px;
+    background: #fff;
+}
+body.redesign-reservasi .st-filter-panel .form-control:focus {
+    border-color: var(--brown-2);
+    box-shadow: 0 0 0 3px rgba(122,52,21,.12);
+}
+body.redesign-reservasi .st-filter-submit {
+    background: linear-gradient(135deg, #7A3415, #461500);
+    border-radius: 10px; font-weight: 700;
+}
+/* Chip filter aktif */
+body.redesign-reservasi .st-filter-chip {
+    background: #FFFFFF;
+    border: 1px solid var(--divider-strong);
+    border-radius: 999px;
+    color: var(--text-primary);
+}
+body.redesign-reservasi .st-filter-chips__label { color: var(--text-muted); font-weight: 700; }
+
+/* ── 9. Tabel slim ──────────────────────────────────────────────────────── */
+body.redesign-reservasi .st-table {
+    background: var(--cream-surface);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+}
+/* Header tabel — gradient gelap, teks krem, slim + sudut membulat (handoff) */
+body.redesign-reservasi .st-table-wrap {
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    border: 1px solid var(--divider-strong);
+    box-shadow: 0 1px 2px rgba(70, 21, 0, .05), 0 12px 28px rgba(70, 21, 0, .07);
+}
+/* wrapper scroll: JANGAN ubah overflow (perlu auto utk sticky header) — cukup
+   border-radius + border; overflow:auto sudah ikut membulatkan sudut. */
+body.redesign-reservasi .st-table-wrap--scroll {
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--divider-strong);
+    box-shadow: 0 1px 2px rgba(70, 21, 0, .05), 0 12px 28px rgba(70, 21, 0, .07);
+    /* lepas batas tinggi internal supaya baris terakhir tidak ke-cut (sticky header
+       page-level nyusul di item sticky-day-header). */
+    max-height: none !important;
+}
+/* Header: gradient VERTIKAL (180deg) → seragam tiap kolom, tidak belang/kepotong
+   seperti versi 120deg diagonal sebelumnya. */
+body.redesign-reservasi .st-table thead th {
+    background: linear-gradient(180deg, #46190A 0%, #2C0F04 100%) !important;
+    color: #EAD3BC !important;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    font-size: 10.5px;
+    font-weight: 700;
+    padding: 12px 16px !important;     /* tadinya 15px → lebih ramping */
+    border: none !important;
+    border-bottom: none !important;
+}
+/* buang garis shadow berat di bawah header + bulatkan sudut atas senada kartu */
+body.redesign-reservasi .st-table thead th::after { display: none !important; }
+body.redesign-reservasi .st-table thead th:first-child { border-top-left-radius: var(--radius-lg) !important; }
+body.redesign-reservasi .st-table thead th:last-child  { border-top-right-radius: var(--radius-lg) !important; }
+body.redesign-reservasi .st-table tbody td {
+    border-bottom: 1px solid var(--divider-soft);
+    color: var(--text-primary);
+    vertical-align: middle;
+}
+body.redesign-reservasi .st-table.st-table--clickable tbody tr:hover td { background: var(--cream-hover); }
+body.redesign-reservasi .st-primary { color: var(--text-primary); font-weight: 700; }
+body.redesign-reservasi .st-date    { color: var(--text-primary); font-weight: 600; }
+body.redesign-reservasi .st-muted, body.redesign-reservasi .st-meta { color: var(--text-subtle); }
+body.redesign-reservasi .st-time {
+    background: #FBF1E6; border: 1px solid #EFDFCC; color: var(--brown);
+    padding: 3px 9px; border-radius: 8px; font-weight: 600; font-size: 12px;
+}
+/* Aksen kiri baris: belum konfirmasi (oranye) / batal (merah) */
+body.redesign-reservasi .st-table tbody tr.st-row--pending  td:first-child { box-shadow: inset 3px 0 0 var(--st-pending-accent); }
+body.redesign-reservasi .st-table tbody tr.st-row--cancelled td:first-child { box-shadow: inset 3px 0 0 var(--st-cancelled-accent); }
+body.redesign-reservasi .st-row-new td { background: #FFFBF3; }
+
+/* Branch chip & service pills */
+body.redesign-reservasi .st-branch-chip {
+    background: #FBF1E6; border: 1px solid #EFDFCC; color: var(--brown-2);
+    border-radius: 8px; font-weight: 600;
+}
+
+/* ── 10. Pills (status / service / promo) ───────────────────────────────── */
+body.redesign-reservasi .st-pill {
+    border-radius: 20px;
+    font-weight: 700;
+    font-size: 11px;
+    padding: 5px 10px;
+    gap: 6px;
+}
+body.redesign-reservasi .st-pill--plain { border-radius: 8px; }
+
+/* ── 11. Inline-update fields (select/textarea) ─────────────────────────── */
+body.redesign-reservasi .st-table .inline-update {
+    border: 1px solid var(--divider-strong);
+    border-radius: 9px;
+    background: #fff;
+    color: var(--text-primary);
+    font-size: 12.5px;
+}
+body.redesign-reservasi .st-table .inline-update:focus {
+    border-color: var(--brown-2);
+    box-shadow: 0 0 0 3px rgba(122,52,21,.12);
+}
+/* Tombol ikon WhatsApp & quick action */
+body.redesign-reservasi .st-icon-btn--success { background:#E3F4E8; border:1px solid #C2E7CE; color:#2C8C63; }
+body.redesign-reservasi .st-icon-btn--success:hover { background:#2C8C63; color:#fff; }
+body.redesign-reservasi .st-quick-btn--warning { background: var(--st-pending-bg); color: var(--st-pending-text); border:1px solid var(--st-pending-border); border-radius:8px; font-weight:700; }
+
+/* ── 12. Pagination footer ──────────────────────────────────────────────── */
+body.redesign-reservasi .st-pagination-bar { color: var(--text-muted); }
+body.redesign-reservasi .st-pagination-bar .page-link {
+    border-radius: 8px; color: var(--brown); border-color: var(--divider-strong);
+}
+body.redesign-reservasi .st-pagination-bar .page-item.active .page-link {
+    background: linear-gradient(135deg, #7A3415, #461500); border-color: transparent; color:#fff;
+}
+body.redesign-reservasi .st-perpage select {
+    border: 1px solid var(--divider-strong); border-radius: 8px; background:#fff;
+}
+
+/* ── 13. Kalender — chips status + ring hari ini ────────────────────────── */
+body.redesign-reservasi .st-cal-wrap {
+    background: var(--cream-surface);
+    border: 1px solid var(--divider-strong);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-card);
+}
+body.redesign-reservasi .st-cal-today-btn,
+body.redesign-reservasi .st-cal-nav-btn {
+    border: 1px solid var(--divider-strong); background:#fff; color: var(--brown); border-radius: 9px;
+}
+body.redesign-reservasi .st-cal-month-label { color: var(--text-primary); font-weight: 800; }
+
+/* ── 14. Empty state / banner jadwal dokter ─────────────────────────────── */
+body.redesign-reservasi .st-empty,
+body.redesign-reservasi .st-card {
+    border-color: var(--divider-strong);
+    border-radius: var(--radius-lg);
+}
+
+/* ── 15. Grouping per-hari (day header) + sel Pasien (nama + telepon WA) ─── */
+body.redesign-reservasi .st-table tbody tr.st-day-row td,
+body.redesign-reservasi .st-table tbody tr.st-day-row:hover td {
+    background: #F6ECDD;
+    color: var(--text-primary);
+    font-weight: 800;
+    font-size: 12.5px;
+    padding: 9px 16px;
+    border-bottom: 1px solid var(--divider-strong);
+    box-shadow: none;
+}
+body.redesign-reservasi .st-day-dot {
+    display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+    background: var(--st-pending-accent); margin-right: 9px; vertical-align: middle;
+}
+body.redesign-reservasi .st-day-label { vertical-align: middle; letter-spacing: .2px; }
+body.redesign-reservasi .st-day-count {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 20px; height: 18px; padding: 0 7px; margin-left: 9px;
+    border-radius: 10px; background: #EAD9C3; color: var(--brown-2);
+    font-size: 11px; font-weight: 700; vertical-align: middle;
+}
+
+/* Sel Pasien: nama di atas, telepon (click-to-WA) di bawah */
+body.redesign-reservasi .st-pasien-cell .st-primary { display: block; }
+body.redesign-reservasi .st-pasien-phone {
+    display: inline-flex; align-items: center; gap: 5px; margin-top: 3px;
+    font-size: 12px; color: #2C8C63; font-weight: 600; text-decoration: none;
+    font-variant-numeric: tabular-nums;
+}
+body.redesign-reservasi .st-pasien-phone:hover { text-decoration: underline; }
+body.redesign-reservasi .st-pasien-phone i { font-size: 13px; }
+
+/* ── 16. Status pill (select tanpa arrow, warna ikut nilai) + Follow-up chips ─ */
+/* Pakai prefix .st-table agar menang atas .st-table .inline-update (urutan file). */
+body.redesign-reservasi .st-table .st-status-select {
+    -webkit-appearance: none; -moz-appearance: none; appearance: none;
+    border: none;
+    border-radius: 20px;
+    padding: 5px 13px;
+    font-size: 11px;
+    font-weight: 700;
+    max-width: 180px;
+    line-height: 1.5;
+    cursor: pointer;
+    box-shadow: none;
+}
+body.redesign-reservasi .st-table .st-status-select:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(122, 52, 21, .18);
+}
+
+/* Follow-up: 3 chip kecil (H-1 / H / Hadir) dalam 1 kolom */
+body.redesign-reservasi .st-fu-cell { white-space: nowrap; }
+body.redesign-reservasi .st-fu-group { display: inline-flex; align-items: center; gap: 7px; }
+body.redesign-reservasi .st-fu-item { display: inline-flex; align-items: center; gap: 4px; }
+body.redesign-reservasi .st-fu-tag {
+    font-size: 9.5px; font-weight: 700; color: var(--text-subtle);
+    text-transform: uppercase; letter-spacing: .3px;
+}
+body.redesign-reservasi .st-table .st-fu-select {
+    -webkit-appearance: none; -moz-appearance: none; appearance: none;
+    width: 40px; min-width: 40px;
+    padding: 3px 4px;
+    border: 1px solid var(--divider-strong);
+    border-radius: 9px;
+    background: #fff;
+    font-size: 13px;
+    text-align: center;
+    text-align-last: center;
+    cursor: pointer;
+}
+body.redesign-reservasi .st-table .st-fu-select:focus {
+    outline: none; border-color: var(--brown-2);
+    box-shadow: 0 0 0 3px rgba(122, 52, 21, .15);
+}
+body.redesign-reservasi .st-fu-ro { font-size: 11px; color: var(--text-muted); margin-right: 8px; }
+
+/* ── 17. (Promo/Klaim dipindah ke drawer — kolom dihapus dari list) ──────── */
+
+/* ── 18. Tombol "Filter Aktif" — cream + chevron (bukan brown gelap) ──────── */
+body.redesign-reservasi .st-btn-filter { gap: 6px; }
+body.redesign-reservasi .st-btn-filter:hover,
+body.redesign-reservasi .st-btn-filter.is-active {
+    background: #F3E2CE !important;
+    color: var(--brown) !important;
+    border-color: #E7C9AC !important;
+}
+body.redesign-reservasi .st-btn-filter-chev {
+    font-size: 10px; margin-left: 4px; opacity: .65;
+    transition: transform .2s ease;
+}
+body.redesign-reservasi .st-btn-filter[aria-expanded="true"] .st-btn-filter-chev { transform: rotate(180deg); }
+
+/* ── 19. Quick-segment row (Belum dikonfirmasi / Hari ini / dst) ─────────── */
+body.redesign-reservasi .st-quickseg {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; flex-wrap: wrap; margin: 4px 0 14px;
+}
+body.redesign-reservasi .st-quickseg__tabs {
+    display: inline-flex; align-items: center; gap: 5px; flex-wrap: wrap;
+    background: #fff; border: 1px solid var(--divider-strong);
+    border-radius: 14px; padding: 5px;
+}
+body.redesign-reservasi .st-seg {
+    padding: 6px 14px; border-radius: 10px;
+    font-size: 12.5px; font-weight: 600; color: var(--text-muted);
+    text-decoration: none; transition: background .15s ease, color .15s ease;
+}
+body.redesign-reservasi .st-seg:hover { background: #FBF3E9; color: var(--brown); text-decoration: none; }
+body.redesign-reservasi .st-seg.active {
+    background: linear-gradient(135deg, #7A3415, #461500);
+    color: #fff;
+}
+body.redesign-reservasi .st-quickseg__count { font-size: 12.5px; color: var(--text-muted); white-space: nowrap; }
+body.redesign-reservasi .st-quickseg__count strong { color: var(--text-primary); }
+
+/* ── 20. Detail Drawer (slide-in kanan) ─────────────────────────────────── */
+body.redesign-reservasi .rr-drawer { position: fixed; inset: 0; z-index: 1200; visibility: hidden; }
+body.redesign-reservasi .rr-drawer.is-open { visibility: visible; }
+body.redesign-reservasi .rr-drawer__scrim { position: absolute; inset: 0; background: rgba(40, 12, 0, .38); opacity: 0; transition: opacity .25s ease; }
+body.redesign-reservasi .rr-drawer.is-open .rr-drawer__scrim { opacity: 1; }
+body.redesign-reservasi .rr-drawer__panel {
+    position: absolute; top: 0; right: 0; height: 100%; width: 430px; max-width: 92vw;
+    background: #F8F0E6; box-shadow: -12px 0 40px rgba(70, 21, 0, .22);
+    display: flex; flex-direction: column;
+    transform: translateX(100%); transition: transform .25s ease;
+}
+body.redesign-reservasi .rr-drawer.is-open .rr-drawer__panel { transform: translateX(0); }
+body.rr-drawer-lock { overflow: hidden; }
+/* Form drawer (Tambah / Edit lengkap) — lebih lebar (660px) & di atas Detail drawer. */
+body.redesign-reservasi .rr-drawer--form { z-index: 1300; }
+body.redesign-reservasi .rr-drawer--form .rr-drawer__panel { width: 660px; }
+/* Close mulus: tunda visibility:hidden selama animasi slide-out (.25s), biar panel
+   sempat geser keluar dulu — bukan hilang seketika. Saat buka, visible langsung. */
+body.redesign-reservasi .rr-drawer--form { transition: visibility 0s linear .25s; }
+body.redesign-reservasi .rr-drawer--form.is-open { transition: visibility 0s linear 0s; }
+/* Head form cuma 2 baris (lebih pendek dari Detail) → center-kan tombol close. */
+body.redesign-reservasi .rr-drawer--form .rr-drawer__close { top: 50%; transform: translateY(-50%); }
+
+/* ── Quick-add pasien (form Tambah/Edit di-inject ke drawer) ──
+   Duplikat dari @section('css') edit/new (yang dipakai halaman standalone);
+   di sini supaya form yang di-inject ke drawer di halaman list ikut ter-style.
+   (Dedup ke 1 file CSS bersama = kandidat cleanup Fase 2.) */
+body.redesign-reservasi .qp-trigger-wrap { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:6px; }
+body.redesign-reservasi .qp-trigger-wrap small { color:#8b7a6b; }
+body.redesign-reservasi .qp-trigger {
+    display:inline-flex; align-items:center; gap:7px;
+    background:#fff; color:#461500; border:1.5px dashed rgba(70,21,0,.35);
+    border-radius:9px; padding:7px 14px; font-size:.82rem; font-weight:700;
+    cursor:pointer; transition:.15s;
+}
+body.redesign-reservasi .qp-trigger:hover { background:#fff4e8; border-color:#461500; }
+body.redesign-reservasi .qp-card {
+    margin-top:12px; border:1px solid #e6d5c4; border-radius:12px;
+    background:#fffaf5; overflow:hidden;
+    box-shadow:0 6px 18px rgba(70,21,0,.06);
+}
+body.redesign-reservasi .qp-card__head {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:11px 16px; background:linear-gradient(135deg,#461500,#6b2400);
+    color:#fff; font-weight:700; font-size:.9rem;
+}
+body.redesign-reservasi .qp-card__head i { margin-right:7px; }
+body.redesign-reservasi .qp-close {
+    background:transparent; border:none; color:#fff; font-size:1.25rem;
+    line-height:1; cursor:pointer; opacity:.85; padding:0 4px;
+}
+body.redesign-reservasi .qp-close:hover { opacity:1; }
+body.redesign-reservasi .qp-card__body { padding:16px; }
+body.redesign-reservasi .qp-card__body label { font-size:.78rem; font-weight:700; color:#5b4636; margin-bottom:4px; }
+body.redesign-reservasi .qp-card__body .form-control { border-radius:9px; border-color:#e0d5c8; }
+body.redesign-reservasi .qp-card__body .form-control:focus { border-color:#461500; box-shadow:0 0 0 .15rem rgba(70,21,0,.12); }
+body.redesign-reservasi .qp-req { color:#dc2626; }
+body.redesign-reservasi .qp-opt { color:#8b7a6b; font-weight:400; font-size:.72rem; }
+body.redesign-reservasi .qp-actions { display:flex; justify-content:flex-end; gap:10px; margin-top:6px; }
+body.redesign-reservasi .qp-status { min-height:20px; margin:4px 0 2px; font-size:.82rem; }
+body.redesign-reservasi .qp-msg { display:inline-flex; align-items:center; gap:6px; font-weight:600; }
+body.redesign-reservasi .qp-ok  { color:#16a34a; }
+body.redesign-reservasi .qp-err { color:#dc2626; }
+body.redesign-reservasi .st-btn-ghost {
+    background:#f0e8e0; color:#5b4636; border:none; border-radius:9px;
+    padding:9px 18px; font-weight:700; font-size:.85rem; cursor:pointer;
+}
+body.redesign-reservasi .st-btn-ghost:hover { background:#e6dacc; }
+
+/* Banner error submit form di drawer (Fase 1c) */
+body.redesign-reservasi .rr-form-errors {
+    background:#FBE3DE; color:#C0392B; border:1px solid #f0b7ad;
+    border-radius:10px; padding:12px 14px; margin-bottom:14px; font-size:13px;
+}
+body.redesign-reservasi .rr-form-errors ul { margin:6px 0 0; padding-left:18px; }
+body.redesign-reservasi .rr-form-errors li { margin:2px 0; }
+
+/* header */
+body.redesign-reservasi .rr-drawer__head { background: linear-gradient(135deg, #3A1100, #2C0C00); color: #fff; padding: 18px 20px 16px; position: relative; }
+body.redesign-reservasi .rr-drawer__close { position: absolute; top: 14px; right: 14px; width: 32px; height: 32px; border: none; border-radius: 9px; background: rgba(255, 250, 245, .14); color: #fff; font-size: 20px; line-height: 1; cursor: pointer; }
+body.redesign-reservasi .rr-drawer__close:hover { background: rgba(255, 250, 245, .26); }
+body.redesign-reservasi .rr-drawer__eyebrow { font-size: 10px; letter-spacing: 1.2px; color: #C79C7E; font-weight: 700; text-transform: uppercase; }
+body.redesign-reservasi .rr-drawer__name { font-size: 20px; font-weight: 800; margin: 4px 0 8px; color: #fff; }
+body.redesign-reservasi .rr-drawer__headmeta { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+body.redesign-reservasi .rr-drawer__wa { color: #7FE0A8; font-weight: 600; font-size: 13px; text-decoration: none; display: inline-flex; align-items: center; gap: 5px; }
+body.redesign-reservasi .rr-drawer__statuspill { font-weight: 700; font-size: 11px; padding: 5px 11px; border-radius: 20px; }
+
+/* body */
+body.redesign-reservasi .rr-drawer__body { flex: 1; overflow-y: auto; padding: 16px 20px; }
+body.redesign-reservasi .rr-drawer__cards { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+body.redesign-reservasi .rr-card { background: #fff; border: 1px solid var(--divider-strong); border-radius: 12px; padding: 11px 13px; }
+body.redesign-reservasi .rr-card--wide { margin-top: 10px; }
+body.redesign-reservasi .rr-card__label { font-size: 10px; letter-spacing: .6px; color: var(--text-muted); font-weight: 700; text-transform: uppercase; }
+body.redesign-reservasi .rr-card__val { font-size: 14px; font-weight: 700; color: var(--text-primary); margin-top: 3px; }
+body.redesign-reservasi .rr-card__sub { font-size: 12px; color: var(--text-muted); margin-top: 1px; }
+body.redesign-reservasi .rr-section { margin-top: 18px; }
+body.redesign-reservasi .rr-section__title { font-size: 10.5px; letter-spacing: .8px; color: var(--text-muted); font-weight: 700; text-transform: uppercase; margin-bottom: 8px; }
+
+/* segmented controls */
+body.redesign-reservasi .rr-seg { display: flex; flex-wrap: wrap; gap: 8px; }
+body.redesign-reservasi .rr-seg__btn { padding: 8px 13px; border: 1px solid var(--divider-strong); background: #fff; border-radius: 10px; font-size: 12.5px; font-weight: 600; color: var(--text-primary); cursor: pointer; transition: background .15s ease, color .15s ease, border-color .15s ease; }
+body.redesign-reservasi .rr-seg__btn:hover { background: #FBF3E9; }
+body.redesign-reservasi .rr-seg__btn.active { background: #F3E2CE; border-color: #E7C9AC; color: var(--brown); }
+body.redesign-reservasi #rrdStatusSeg .rr-seg__btn.active { background: linear-gradient(135deg, #7A3415, #461500); border-color: transparent; color: #fff; }
+
+/* follow-up */
+body.redesign-reservasi .rr-fu { display: flex; flex-direction: column; gap: 10px; }
+body.redesign-reservasi .rr-fu__row { display: flex; align-items: center; gap: 10px; background: #fff; border: 1px solid var(--divider-strong); border-radius: 12px; padding: 10px 12px; }
+body.redesign-reservasi .rr-fu__badge { width: 34px; height: 34px; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 12px; flex: 0 0 auto; }
+body.redesign-reservasi .rr-fu__badge--h1 { background: #FBE7CF; color: #B5701A; }
+body.redesign-reservasi .rr-fu__badge--h { background: #E8E2F3; color: #5C2E8F; }
+body.redesign-reservasi .rr-fu__txt { flex: 1; font-size: 13px; color: var(--text-primary); font-weight: 600; }
+body.redesign-reservasi .rr-fu__wa { color: #2C8C63; font-weight: 600; font-size: 12.5px; text-decoration: none; display: inline-flex; align-items: center; gap: 5px; background: #E3F4E8; padding: 6px 10px; border-radius: 9px; white-space: nowrap; }
+body.redesign-reservasi .rr-fu__sel {
+    flex: 1; border: 1px solid var(--divider-strong); border-radius: 9px;
+    padding: 7px 10px; font-size: 12.5px; background: #fff; color: var(--text-primary); cursor: pointer;
+}
+body.redesign-reservasi .rr-fu__sel:focus { outline: none; border-color: var(--brown-2); box-shadow: 0 0 0 3px rgba(122, 52, 21, .12); }
+
+/* keterangan */
+body.redesign-reservasi .rr-textarea { width: 100%; border: 1px solid var(--divider-strong); border-radius: 12px; padding: 10px 12px; font-size: 13px; background: #fff; resize: vertical; }
+body.redesign-reservasi .rr-textarea:focus { outline: none; border-color: var(--brown-2); box-shadow: 0 0 0 3px rgba(122, 52, 21, .12); }
+
+/* footer */
+body.redesign-reservasi .rr-drawer__foot { display: flex; gap: 8px; padding: 14px 20px; border-top: 1px solid var(--divider-strong); background: #FFFCF9; }
+body.redesign-reservasi .rr-btn { padding: 11px 16px; border-radius: 11px; font-weight: 700; font-size: 13px; cursor: pointer; border: 1px solid transparent; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 7px; }
+body.redesign-reservasi .rr-btn--confirm { background: #2C8C63; color: #fff; flex: 1; border: none; }
+body.redesign-reservasi .rr-btn--confirm:hover { filter: brightness(1.06); }
+body.redesign-reservasi .rr-btn--edit { background: #fff; border: 1px solid var(--divider-strong); color: var(--brown); }
+body.redesign-reservasi .rr-btn--edit:hover { background: #FBF3E9; }
+body.redesign-reservasi .rr-btn--cancel { background: #fff; border: 1px solid #F0C9C1; color: #C0392B; }
+body.redesign-reservasi .rr-btn--cancel:hover { background: #FBE3DE; }
+
+/* ── 21. List read-only: Keterangan ("+catatan") + chevron kanan ─────────── */
+body.redesign-reservasi .st-ket-text { font-size: 12.5px; color: var(--text-primary); }
+body.redesign-reservasi .st-ket-empty { font-size: 12.5px; color: var(--text-subtle); }
+body.redesign-reservasi .st-rowstatus { white-space: nowrap; }
+/* chevron penanda "klik → detail" */
+body.redesign-reservasi .st-chev-th { width: 38px; padding-left: 0 !important; padding-right: 0 !important; }
+body.redesign-reservasi .st-chev-cell { width: 38px; text-align: center; color: var(--text-subtle); }
+body.redesign-reservasi .st-chev-cell i { font-size: 13px; transition: transform .15s ease, color .15s ease; }
+body.redesign-reservasi .st-table--clickable tbody tr:hover .st-chev-cell i { color: var(--brown-2); transform: translateX(2px); }
+
+/* ── 22. Keterangan inline input (subtle) + Follow-up read-only chips ─────── */
+body.redesign-reservasi .st-ket-input {
+    width: 100%; border: 1px solid transparent; border-radius: 8px;
+    padding: 6px 9px; font-family: inherit; font-size: 12.5px;
+    color: var(--text-primary); background: transparent;
+    transition: border-color .15s ease, background .15s ease, box-shadow .15s ease;
+}
+body.redesign-reservasi .st-ket-input::placeholder { color: var(--text-subtle); }
+body.redesign-reservasi .st-ket-input:hover { border-color: var(--divider-strong); background: #fff; }
+body.redesign-reservasi .st-ket-input:focus {
+    outline: none; border-color: var(--brown-2); background: #fff;
+    box-shadow: 0 0 0 3px rgba(122, 52, 21, .12);
+}
+
+body.redesign-reservasi .st-fu-chips { display: inline-flex; align-items: center; gap: 5px; }
+body.redesign-reservasi .st-fuchip {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 30px; height: 24px; padding: 0 8px;
+    border-radius: 8px; font-size: 11px; font-weight: 700;
+    background: #F0E7DC; color: #B79A82;
+}
+body.redesign-reservasi .st-fuchip.is-done { background: #E3F4E8; color: #2F8E55; }
+body.redesign-reservasi .st-fuchip--att { min-width: 26px; }
+body.redesign-reservasi .st-fuchip--att.is-hadir { background: #E3F4E8; color: #2F8E55; }
+body.redesign-reservasi .st-fuchip--att.is-tidak { background: #FBE3DE; color: #C0392B; }
+
+/* ── 23. Dokter truncate (ellipsis) — cegah nama panjang bikin tabel kelebaran ─ */
+body.redesign-reservasi .st-dokter-cell { max-width: 170px; }
+body.redesign-reservasi .st-dokter-cell .st-trunc {
+    display: block; max-width: 160px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    font-size: 12.5px; color: var(--text-primary);
+}
