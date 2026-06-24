@@ -802,3 +802,69 @@ body.redesign-reservasi #slotsContainer .st-slots { grid-template-columns: repea
 /* Swal default z-index 1060 → ke-blok form drawer (1300). Naikkan di atasnya
    supaya toast "Reservasi berhasil…" tampil di depan, bukan di belakang scrim. */
 body.redesign-reservasi .swal2-container { z-index: 1400 !important; }
+
+/* ── 27. Waiting List — header card + list rows (design handoff View 3) ───── */
+body.redesign-reservasi .rrw-head {
+    display: flex; align-items: center; gap: 16px;
+    background: var(--cream-surface); border: 1px solid var(--divider-strong);
+    border-radius: var(--radius-lg); padding: 18px 22px; margin-bottom: 14px;
+    box-shadow: var(--shadow-card);
+}
+body.redesign-reservasi .rrw-head__icon {
+    width: 44px; height: 44px; flex: none; border-radius: 13px; background: #F4E7D8;
+    display: flex; align-items: center; justify-content: center; font-size: 19px; color: #9A5A38;
+}
+body.redesign-reservasi .rrw-head__text { flex: 1; min-width: 0; }
+body.redesign-reservasi .rrw-head__title { font-size: 18px; font-weight: 800; color: var(--text-primary); line-height: 1.2; }
+body.redesign-reservasi .rrw-head__sub { font-size: 12.5px; color: var(--text-muted); margin-top: 2px; }
+
+/* List container + rows */
+body.redesign-reservasi .rrw-list {
+    background: var(--cream-surface); border: 1px solid var(--divider-strong);
+    border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow-card);
+}
+body.redesign-reservasi .rrw-row {
+    display: flex; align-items: center; gap: 16px; padding: 16px 20px;
+    border-bottom: 1px solid var(--divider-soft); transition: background .12s ease;
+}
+body.redesign-reservasi .rrw-row:last-child { border-bottom: none; }
+body.redesign-reservasi .rrw-row:hover { background: #FFFBF6; }
+body.redesign-reservasi .rrw-row.is-hot { background: #F4FBF6; box-shadow: inset 3px 0 0 #2F8E55; }
+body.redesign-reservasi .rrw-avatar {
+    width: 40px; height: 40px; flex: none; border-radius: 50%;
+    background: linear-gradient(135deg, #7A3415, #5A2410); color: #FFE6CC;
+    display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 15px;
+}
+body.redesign-reservasi .rrw-main { flex: 1; min-width: 0; }
+body.redesign-reservasi .rrw-main__top { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
+body.redesign-reservasi .rrw-name { font-size: 14px; font-weight: 800; color: var(--text-primary); overflow-wrap: anywhere; }
+body.redesign-reservasi .rrw-badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 10.5px; font-weight: 800; padding: 2px 9px; border-radius: 20px; white-space: nowrap;
+}
+body.redesign-reservasi .rrw-badge .fa-bolt, body.redesign-reservasi .rrw-badge .fa-clock { font-size: 9px; }
+body.redesign-reservasi .rrw-badge--hot  { background: #E3F4E8; color: #2F8E55; }
+body.redesign-reservasi .rrw-badge--wait { background: #F4E7D6; color: #9A7256; }
+body.redesign-reservasi .rrw-meta { font-size: 11.5px; color: var(--text-muted); margin-top: 3px; overflow-wrap: anywhere; }
+body.redesign-reservasi .rrw-note { font-size: 11.5px; color: #B07B45; margin-top: 2px; font-style: italic; overflow-wrap: anywhere; }
+body.redesign-reservasi .rrw-actions { display: flex; align-items: center; gap: 9px; flex: none; }
+body.redesign-reservasi .rrw-offer {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: linear-gradient(135deg, #6B2400, #461500); color: #FFEAD6;
+    border: none; border-radius: 10px; padding: 9px 14px; font-weight: 700; font-size: 12.5px;
+    cursor: pointer; transition: filter .15s ease;
+}
+body.redesign-reservasi .rrw-offer:hover { filter: brightness(1.1); }
+body.redesign-reservasi .rrw-offer .fa-bolt { font-size: 11px; }
+body.redesign-reservasi .rrw-wa {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 38px; height: 38px; flex: none; background: #fff; color: #2C8C63;
+    border: 1px solid #BFE3CD; border-radius: 10px; text-decoration: none; transition: background .15s ease;
+}
+body.redesign-reservasi .rrw-wa:hover { background: #F1FAF4; }
+/* Layar sempit → aksi turun ke bawah, full width. */
+@media (max-width: 640px) {
+    body.redesign-reservasi .rrw-row { flex-wrap: wrap; }
+    body.redesign-reservasi .rrw-actions { width: 100%; }
+    body.redesign-reservasi .rrw-offer { flex: 1; justify-content: center; }
+}

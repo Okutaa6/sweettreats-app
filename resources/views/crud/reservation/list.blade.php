@@ -365,6 +365,76 @@
                                 <div class="rr-baru-empty__sub">Reservasi yang masuk dalam 6 jam terakhir akan muncul di sini.</div>
                             </div>
                         @endif
+                    @elseif(($view ?? 'list') === 'waitlist')
+                        {{-- ══════════════════════════════════════
+                             VIEW: WAITING LIST (design handoff View 3)
+                             Header card + list rows. Badge = sinyal REAL (slot tersedia /
+                             lama menunggu), BUKAN field prioritas palsu. Tanggal preferensi
+                             selalu tampil; jam hanya saat slot dokter kebuka (slot_available).
+                             Note = keterangan (real). "Tawarkan slot" → buka Edit drawer
+                             (assign slot). Tabel List tak disentuh.
+                        ══════════════════════════════════════ --}}
+                        <div class="rrw-head">
+                            <div class="rrw-head__icon"><i class="fa fa-hourglass-half"></i></div>
+                            <div class="rrw-head__text">
+                                <div class="rrw-head__title"><strong>{{ $reservations->total() }}</strong> pasien di waiting list</div>
+                                <div class="rrw-head__sub">Belum dapat slot pasti — tawarkan begitu ada slot kosong</div>
+                            </div>
+                        </div>
+
+                        @if($reservations->count())
+                            <div class="rrw-list">
+                                @foreach ($reservations as $row)
+                                    @php
+                                        $wName    = $row->customer->name ?? 'Pasien Terhapus';
+                                        $wInitial = mb_strtoupper(mb_substr(trim($wName), 0, 1)) ?: '?';
+                                        $wWa = $row->customer?->phone ? preg_replace('/[^0-9]/', '', $row->customer->phone) : '';
+                                        if ($wWa && str_starts_with($wWa, '0')) $wWa = '62' . substr($wWa, 1);
+                                        $wTreat = $row->services->map(fn($s) => $s->docService->name ?? null)->filter()->unique()->implode(', ');
+                                        if (!$wTreat && $row->lainnya_text) $wTreat = 'Keluhan: ' . $row->lainnya_text;
+                                        $wDate     = $row->date ? $row->date->format('d M Y') : null;
+                                        $wSlotOpen = !empty($row->slot_available);
+                                        $wSlotStart = $row->slot_start ?? null;
+                                        $wWaitDays = $row->created_at ? \Carbon\Carbon::parse($row->created_at)->startOfDay()->diffInDays(now()->startOfDay()) : 0;
+                                    @endphp
+                                    <div class="rrw-row {{ $wSlotOpen ? 'is-hot' : '' }}">
+                                        <div class="rrw-avatar">{{ $wInitial }}</div>
+                                        <div class="rrw-main">
+                                            <div class="rrw-main__top">
+                                                <span class="rrw-name">{{ $wName }}</span>
+                                                @if($wSlotOpen)
+                                                    <span class="rrw-badge rrw-badge--hot"><i class="fa fa-bolt"></i> Slot tersedia{{ $wSlotStart ? ' · ' . $wSlotStart : '' }}</span>
+                                                @else
+                                                    <span class="rrw-badge rrw-badge--wait"><i class="fa fa-clock"></i> {{ $wWaitDays > 0 ? 'Menunggu ' . $wWaitDays . ' hari' : 'Baru masuk' }}</span>
+                                                @endif
+                                            </div>
+                                            <div class="rrw-meta">{{ $wTreat ?: 'Tanpa perawatan' }} · {{ $row->doctor->name ?? 'Tanpa dokter' }}@if($wDate) · {{ $wDate }}@endif</div>
+                                            @if($row->keterangan)
+                                                <div class="rrw-note">{{ $row->keterangan }}</div>
+                                            @endif
+                                        </div>
+                                        <div class="rrw-actions">
+                                            @if(!$isViewOnly)
+                                                <button type="button" class="rrw-offer" data-url="{{ route('rawreservation.edit', $row->id) }}">
+                                                    <i class="fa fa-bolt"></i> Tawarkan slot
+                                                </button>
+                                            @endif
+                                            @if($row->customer?->phone)
+                                                <a href="https://wa.me/{{ $wWa }}" target="_blank" rel="noopener" class="rrw-wa" title="Chat via WhatsApp">
+                                                    <i class="fab fa-whatsapp"></i>
+                                                </a>
+                                            @endif
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+                        @else
+                            <div class="rr-baru-empty">
+                                <i class="fa fa-check-circle"></i>
+                                <div class="rr-baru-empty__title">Waiting list kosong</div>
+                                <div class="rr-baru-empty__sub">Belum ada pasien yang menunggu slot.</div>
+                            </div>
+                        @endif
                     @else
                         <div class="st-table-wrap st-table-wrap--scroll">
                         <table class="st-table st-table--clickable" cellspacing="0" style="white-space: nowrap;">
@@ -1708,6 +1778,16 @@ document.querySelectorAll('.st-status-select').forEach(function (sel) {
         var url = $(this).attr('href');
         $('#rrDrawer').removeClass('is-open').attr('aria-hidden', 'true'); // tutup panel Detail
         window.rrOpenFormDrawer({ title: 'Edit Reservasi', url: url, mode: 'edit' });
+    });
+
+    // Waiting List: "Tawarkan slot" → buka Edit drawer (staff pilih slot & simpan).
+    $(document).on('click', '.rrw-offer', function () {
+        var url = this.getAttribute('data-url');
+        if (typeof window.rrOpenFormDrawer === 'function') {
+            window.rrOpenFormDrawer({ title: 'Tawarkan Slot', url: url, mode: 'edit' });
+        } else if (url) {
+            window.location.href = url;
+        }
     });
 
     // ── Fase 1c: submit form via AJAX (no reload saat ngedit) ──
