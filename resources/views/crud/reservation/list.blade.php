@@ -817,38 +817,25 @@
 </div>
 @endif
 
-{{-- Modal --}}
-<div class="modal fade st-modal" id="eventModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="st-modal-header">
-                <div class="st-title-wrap">
-                    <svg class="st-title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
-                        <line x1="16" y1="2" x2="16" y2="6"/>
-                        <line x1="8" y1="2" x2="8" y2="6"/>
-                        <line x1="3" y1="10" x2="21" y2="10"/>
-                    </svg>
-                    <div>
-                        <h5 class="st-modal-title">Detail Reservasi</h5>
-                        <p class="st-modal-subtitle" id="modalSubtitle"></p>
-                    </div>
-                </div>
-                <button type="button" class="st-modal-close" data-dismiss="modal" aria-label="Close">&times;</button>
-            </div>
-            <div class="st-modal-body" id="modalBody"></div>
-            <div class="st-modal-footer">
-                <p class="st-footer-note" id="modalFooterNote">Klik jadwal pasien untuk lihat detail reservasi</p>
-                <div style="display:flex; gap:8px; align-items:center;">
-                    <a href="#" id="modalDetailBtn" class="btn btn-primary btn-sm" style="display:none;">
-                        <i class="fa fa-edit"></i> Detail / Edit
-                    </a>
-                    <button type="button" class="st-btn-tutup" id="modalCloseBtn" data-dismiss="modal">Tutup</button>
-                </div>
-            </div>
+{{-- ════════ Day Drawer (Jadwal Harian) — kalender: klik hari → list reservasi ════════
+     Di LUAR @if(!$isViewOnly) supaya tersedia di semua mode (read-friendly).
+     Item → Detail drawer (hanya non-view-only; Detail drawer di-guard isViewOnly). --}}
+<div id="rrDayDrawer" class="rr-drawer" aria-hidden="true">
+    <div class="rr-drawer__scrim" data-rrday-close></div>
+    <aside class="rr-drawer__panel" role="dialog" aria-label="Jadwal Harian">
+        <div class="rr-drawer__head">
+            <button type="button" class="rr-drawer__close" data-rrday-close aria-label="Tutup">&times;</button>
+            <div class="rr-drawer__eyebrow">JADWAL HARIAN</div>
+            <h3 class="rr-drawer__name" id="rrDayTitle">—</h3>
+            <div class="rr-drawer__headmeta"><span class="rr-day__count" id="rrDayCount">0 reservasi</span></div>
         </div>
-    </div>
+        <div class="rr-drawer__body">
+            <div class="rr-day__list" id="rrDayList"></div>
+        </div>
+    </aside>
 </div>
+
+{{-- Modal detail kalender lama (#eventModal) DIHAPUS — diganti Day drawer + Detail drawer. --}}
 
 {{-- Modal Kelola Akses Halaman (Super Admin / Admin General only) --}}
 @if(canManagePageAccess())
@@ -937,10 +924,6 @@
     .view-tab:not(.active) .view-tab-badge { animation: none; }
 }
 
-/* ── Modal ── */
-#modalBody tr td:first-child { font-weight:600; color:var(--brown); width:30%; white-space:nowrap; }
-#modalBody tr td { border-color:rgb(208,196,191) !important; vertical-align:middle; }
-.modal-hover-row:hover td { background-color: rgb(250,245,243) !important; }
 </style>
 @endsection
 
@@ -971,41 +954,6 @@ const RAW_RESERVATIONS = @json($calReservationsMapped).map(r => {
 });
 
 const STATUS_OPTIONS = @json(\App\Models\RawCusReservation::statusOptions());
-const FU_OPTIONS = {
-    '': '-- --',
-    'confirm': '✅ Confirm',
-    'reschedule': '🔄 Reschedule',
-    'cancel': '❌ Cancel',
-    'no_respon': '📵 No Respon'
-};
-const KEHADIRAN_OPTIONS = {
-    '': '-- --',
-    'hadir': '✅ Hadir',
-    'tidak_hadir': '❌ Tidak Hadir',
-    'reschedule': '🔄 Reschedule',
-    'cancel': '❌ Cancel'
-};
-
-// Flag global: kalau true, modal calendar render kontrol sebagai static text
-// dan tombol Detail/Edit di-hide.
-const IS_VIEW_ONLY = @json($isViewOnly ?? false);
-
-function createSelect(options, field, selectedValue, reservationId) {
-    // View-only mode: render static label, bukan dropdown.
-    if (IS_VIEW_ONLY) {
-        const opt = options[selectedValue || ''] ?? options[''];
-        const label = typeof opt === 'object' ? opt.label : opt;
-        return `<span class="rr-static-text" style="font-weight:600;">${label || '—'}</span>`;
-    }
-    let html = `<select class="form-control form-control-sm inline-update" data-id="${reservationId}" data-field="${field}" data-value="${selectedValue || ''}" style="min-width:120px;">`;
-    for (const key in options) {
-        const label = typeof options[key] === 'object' ? options[key].label : options[key];
-        const isSelected = key == selectedValue ? 'selected' : '';
-        html += `<option value="${key}" ${isSelected}>${label}</option>`;
-    }
-    html += `</select>`;
-    return html;
-}
 
 const STATUS_CFG = {
     pending:   { label:'Menunggu Konfirmasi', cls:'st-cal-event--pending' },
@@ -1016,6 +964,18 @@ const STATUS_CFG = {
     done:      { label:'Selesai',             cls:'st-cal-event--completed' },
     completed: { label:'Selesai',             cls:'st-cal-event--completed' },
     selesai:   { label:'Selesai',             cls:'st-cal-event--completed' },
+};
+
+// Status → kelas warna chip (5 token design: pending/confirmed/waitlist/completed/cancelled).
+const STATUS_CHIP_KEY = {
+    pending:   'pending',
+    confirmed: 'confirmed',
+    ongoing:   'confirmed',
+    waitlist:  'waitlist',
+    completed: 'completed',
+    done:      'completed',
+    selesai:   'completed',
+    cancelled: 'cancelled',
 };
 
 const MONTHS_ID = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
@@ -1038,66 +998,32 @@ function buildEventMap() {
 }
 
 function makeEventCard(ev) {
+    // Chip compact 1-baris (design View 4): dot + "HH:MM · Nama", tint per-status.
+    const cfg     = STATUS_CFG[ev.status] || { label: ev.status || '-', cls: '' };
+    const jam     = (ev.start_hour || '').substring(0, 5);
+    const nama    = ev.customer ? ev.customer.name : 'Pasien Terhapus';
+    const chipKey = STATUS_CHIP_KEY[ev.status] || 'pending';
+
+    // Deteksi waktu sudah terlewat → chip diredupkan.
     const now = new Date();
-    const nowTime = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+    const nowTime = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
     const nowDate = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
-
-    const cfg    = STATUS_CFG[ev.status] || { label: ev.status||'-', cls:'st-cal-event--default' };
-    const jam    = (ev.start_hour||'').substring(0, 5);
-    const jamSelesai = (ev.end_hour||'').substring(0, 5);
-    const nama   = ev.customer ? escapeHtml(ev.customer.name) : '<span class="text-danger">Pasien Terhapus</span>';
-    const dokter = ev.doctor ? escapeHtml(ev.doctor.name) : '-';
-
-    let servicesHTML = '';
-    if (ev.services && ev.services.length > 0) {
-        const serviceNames = ev.services.map(s => s.doc_service ? escapeHtml(s.doc_service.name) : '').filter(Boolean).join(', ');
-        servicesHTML = `<i class="fa fa-stethoscope" title="${serviceNames}"></i>`;
-    } else if (ev.lainnya_text) {
-        servicesHTML = `<i class="fa fa-comment-dots" title="Keluhan: ${escapeHtml(ev.lainnya_text)}"></i>`;
-    }
-
-    let promoHTML = '';
-    if (ev.promo) {
-        promoHTML = `<i class="fa fa-tag" title="Promo: ${escapeHtml(ev.promo.promo_code)}"></i>`;
-    }
-
-    // Deteksi apakah waktu sudah terlewat
+    const jamSelesai = (ev.end_hour || '').substring(0, 5);
     let isPast = false;
-    if (ev.date < nowDate) {
-        isPast = true;
-    } else if (ev.date === nowDate && jamSelesai && jamSelesai < nowTime) {
-        isPast = true;
-    }
+    if (ev.date < nowDate) isPast = true;
+    else if (ev.date === nowDate && jamSelesai && jamSelesai < nowTime) isPast = true;
 
-    const wrapper = document.createElement('div');
-    wrapper.className = 'st-cal-event-wrap';
-
-    const card = document.createElement('div');
-    card.className = 'st-cal-event ' + cfg.cls
-        + (isPast ? ' st-cal-event--past' : '')
-        + (ev.is_new ? ' st-cal-event--new' : '');
-
-    const iconsHtml = (servicesHTML || promoHTML)
-        ? `<span class="st-cal-event__icons">${servicesHTML}${promoHTML}</span>`
-        : '';
-    const newBadge = ev.is_new
-        ? ` <span class="st-card__badge-new" style="font-size:8px;padding:1px 5px;"><i class="fa fa-star"></i></span>`
-        : '';
-
-    card.innerHTML = `
-        <div class="st-cal-event__top">
-            <div class="st-cal-event__header">
-                <span class="st-cal-event__time"><i class="fa fa-clock"></i>${jam}</span>
-                ${iconsHtml}
-            </div>
-            <span class="st-cal-event__name"><i class="fa fa-user"></i>${nama}${newBadge}</span>
-            <span class="st-cal-event__doctor"><i class="fa fa-user-md"></i>${dokter}</span>
-        </div>
-        <div class="st-cal-event__status">${cfg.label}</div>
-    `;
-    card.addEventListener('click', () => { lastAllModalCtx = null; showModal(ev); });
-    wrapper.appendChild(card);
-    return wrapper;
+    const chip = document.createElement('div');
+    chip.className = 'st-cal-chip st-cal-chip--' + chipKey + (isPast ? ' is-past' : '');
+    chip.title = (jam ? jam + ' · ' : '') + nama + ' — ' + cfg.label;
+    chip.innerHTML = '<span class="st-cal-chip__dot"></span>'
+        + (ev.is_new ? '<i class="fa fa-star st-cal-chip__new"></i>' : '')
+        + '<span class="st-cal-chip__txt">' + (jam ? jam + ' · ' : '') + escapeHtml(nama) + '</span>';
+    chip.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (typeof window.rrOpenDayDrawer === 'function') window.rrOpenDayDrawer((ev.date || '').substring(0, 10));
+    });
+    return chip;
 }
 
 function renderCalendar(year, month) {
@@ -1137,231 +1063,19 @@ function renderCalendar(year, month) {
         const key = `${yy}-${mm}-${dd}`;
         const events = eventMap[key] || [];
 
-        events.slice(0, 2).forEach(ev => cell.appendChild(makeEventCard(ev)));
+        events.slice(0, 3).forEach(ev => cell.appendChild(makeEventCard(ev)));
 
-        if (events.length > 2) {
+        if (events.length > 3) {
             const more = document.createElement('span');
             more.className   = 'st-cal-more';
-            more.textContent = `+${events.length - 2} lainnya`;
-            more.addEventListener('click', () => showAllModal(key, events));
+            more.textContent = `+${events.length - 3} lainnya`;
+            more.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (typeof window.rrOpenDayDrawer === 'function') window.rrOpenDayDrawer(key);
+            });
             cell.appendChild(more);
         }
         body.appendChild(cell);
-    }
-}
-
-function showModal(ev) {
-    const cfg = STATUS_CFG[ev.status] || { label: ev.status || '-', style: 'background:#eee;color:#333' };
-    const tgl = ev.date ? ev.date.substring(0,10).split('-').reverse().join('/') : '-';
-    const jam = (ev.start_hour||'').substring(0,5) + ' – ' + (ev.end_hour||'').substring(0,5);
-
-    let servicesHtml = ev.services.map(svc => {
-        return `<span class="badge badge-light border" style="font-size:0.75rem;margin:1px">${svc.doc_service ? escapeHtml(svc.doc_service.name) : '-'}</span>`;
-    }).join(' ');
-    if (ev.lainnya_text) {
-        servicesHtml += `<div style="margin-top:4px;">
-            <span class="badge badge-warning" style="font-size:0.72rem; white-space:normal; text-align:left; padding:3px 6px;">
-                <i class="fa fa-comment-dots"></i> Keluhan: ${escapeHtml(ev.lainnya_text)}
-            </span>
-        </div>`;
-    }
-    if (!servicesHtml) servicesHtml = '<span class="text-muted">-</span>';
-
-    let promoHtml = ev.promo ? `<span class="badge badge-info" style="font-size:0.75rem">${escapeHtml(ev.promo.promo_code)}</span>` : '<span class="text-muted">-</span>';
-
-    let klaimHtml = '<span class="text-muted">-</span>';
-    if (ev.raw_promo_id) {
-        if (ev.promo_klaim) {
-            klaimHtml = `<span class="badge badge-success"><i class="fa fa-check"></i> Diklaim</span>`;
-        } else {
-            const klaimRoute = '{{ route("rawreservation.klaim", ["id" => ":id"]) }}'.replace(':id', ev.id);
-            klaimHtml = `
-                <form method="POST" action="${klaimRoute}" onsubmit="return confirm('Konfirmasi klaim promo untuk reservasi ini?')">
-                    <input type="hidden" name="_token" value="{{ csrf_token() }}">
-                    <input type="hidden" name="_method" value="PATCH">
-                    <button type="submit" class="btn btn-sm btn-warning" style="padding:2px 8px; font-size:0.75rem">
-                        <i class="fa fa-tag"></i> Klaim
-                    </button>
-                </form>
-            `;
-        }
-    }
-
-    const statusSelect = createSelect(STATUS_OPTIONS, 'status', ev.status, ev.id);
-    const fu1Select = createSelect(FU_OPTIONS, 'follow_up_h_min_1', ev.follow_up_h_min_1, ev.id);
-    const fuHSelect = createSelect(FU_OPTIONS, 'follow_up_h', ev.follow_up_h, ev.id);
-    const kehadiranSelect = createSelect(KEHADIRAN_OPTIONS, 'keterangan_kehadiran', ev.keterangan_kehadiran, ev.id);
-
-    let waPhone = (ev.customer && ev.customer.phone) ? String(ev.customer.phone).replace(/[^0-9]/g, '') : '';
-    if (waPhone && waPhone.startsWith('0')) waPhone = '62' + waPhone.substring(1);
-    const waBtn = waPhone
-        ? `<a href="https://wa.me/${waPhone}" target="_blank" class="btn btn-success btn-sm" style="padding:4px 7px; margin-left:4px;" title="Follow up via WhatsApp"><i class="fab fa-whatsapp"></i></a>`
-        : '';
-    const fu1Cell = `<div class="d-flex align-items-center">${fu1Select}${waBtn}</div>`;
-    const fuHCell = `<div class="d-flex align-items-center">${fuHSelect}${waBtn}</div>`;
-
-    document.getElementById('modalSubtitle').textContent = `${tgl} · ${jam}`;
-    document.getElementById('modalBody').innerHTML = `
-        <div style="padding:16px 22px;">
-        <table class="table table-sm mb-0" style="font-size:0.88rem;">
-            <tbody>
-                <tr><td>Pasien</td><td>${ev.customer ? escapeHtml(ev.customer.name) : '<span class="text-danger">Pasien Terhapus</span>'}</td></tr>
-                <tr><td>Dokter</td><td>${ev.doctor ? escapeHtml(ev.doctor.name) : '-'}</td></tr>
-                <tr><td>Cabang</td><td>${ev.branch ? escapeHtml(ev.branch.name) : '-'}</td></tr>
-                <tr><td>Tanggal</td><td>${tgl}</td></tr>
-                <tr><td>Jam</td><td>${jam}</td></tr>
-                <tr style="border-top: 2px solid #ddd;"><td valign="top">Perawatan</td><td style="white-space:normal;">${servicesHtml}</td></tr>
-                <tr><td>Promo</td><td>${promoHtml}</td></tr>
-                <tr><td>Klaim</td><td>${klaimHtml}</td></tr>
-                <tr><td valign="top">Keterangan</td><td style="white-space:normal;">
-                    ${IS_VIEW_ONLY
-                        ? `<div class="rr-static-text">${ev.keterangan ? escapeHtml(ev.keterangan) : '—'}</div>`
-                        : `<textarea class="form-control form-control-sm inline-update" rows="2"
-                              data-id="${ev.id}" data-field="keterangan"
-                              placeholder="Isi keterangan...">${ev.keterangan ? escapeHtml(ev.keterangan) : ''}</textarea>`}
-                </td></tr>
-                <tr style="border-top: 2px solid #ddd;"><td>Status</td><td>${statusSelect}</td></tr>
-                <tr><td>FU H-1</td><td>${fu1Cell}</td></tr>
-                <tr><td>FU H</td><td>${fuHCell}</td></tr>
-                <tr><td>Kehadiran</td><td>${kehadiranSelect}</td></tr>
-            </tbody>
-        </table>
-        </div>
-    `;
-    const detailRoute = '{{ route("rawreservation.edit", ["id" => ":id"]) }}'.replace(':id', ev.id);
-    document.getElementById('modalDetailBtn').href = detailRoute;
-    document.getElementById('modalDetailBtn').innerHTML = '<i class="fa fa-edit"></i> Detail / Edit Reservasi';
-    // Sembunyikan tombol Detail/Edit kalau user view-only.
-    document.getElementById('modalDetailBtn').style.display = IS_VIEW_ONLY ? 'none' : '';
-    document.getElementById('modalFooterNote').style.visibility = 'hidden';
-    $('#eventModal').modal('show');
-}
-
-const STATUS_DOT_MAP = {
-    'pending':   's-menunggu',
-    'waitlist':  's-waitlist',
-    'confirmed': 's-dikonfirmasi',
-    'ongoing':   's-dikonfirmasi',
-    'done':      's-selesai',
-    'completed': 's-selesai',
-    'selesai':   's-selesai',
-    'cancelled': 's-batal',
-    'cancel':    's-batal',
-    'dibatalkan':'s-batal',
-};
-
-function statusDotClass(status) {
-    if (!status) return 's-default';
-    const key = String(status).toLowerCase();
-    return STATUS_DOT_MAP[key] || 's-default';
-}
-
-function formatLongDate(dateKey) {
-    const [y, m, d] = dateKey.split('-').map(Number);
-    const dt = new Date(y, m - 1, d);
-    const days  = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
-    const months = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
-    return `${days[dt.getDay()]}, ${d.toString().padStart(2,'0')} ${months[m-1]} ${y}`;
-}
-
-let lastAllModalCtx = null;
-
-function setCloseBtnTutup() {
-    const $btn = $('#modalCloseBtn');
-    $btn.text('Tutup').attr('data-dismiss', 'modal').off('click.kembali');
-}
-function setCloseBtnKembali() {
-    const $btn = $('#modalCloseBtn');
-    $btn.text('← Kembali').removeAttr('data-dismiss').off('click.kembali').on('click.kembali', function (e) {
-        e.preventDefault();
-        e.stopImmediatePropagation();
-        if (lastAllModalCtx) {
-            const ctx = lastAllModalCtx; // simpan dulu, akan di-overwrite oleh showAllModal
-            const fresh = ctx.events.map(ev =>
-                RAW_RESERVATIONS.find(r => String(r.id) === String(ev.id)) || ev
-            );
-            showAllModal(ctx.dateKey, fresh);
-        }
-    });
-}
-
-function showAllModal(dateKey, events) {
-    lastAllModalCtx = { dateKey, events };
-    setCloseBtnTutup();
-    document.getElementById('modalSubtitle').textContent =
-        `${formatLongDate(dateKey)} · ${events.length} jadwal`;
-
-    const rows = events.map(ev => {
-        const cfg = STATUS_CFG[ev.status] || { label: ev.status || '-' };
-        const dotClass = statusDotClass(ev.status);
-
-        const services = (ev.services || []).map(s => {
-            const name = (s.doc_service && s.doc_service.name) || s.name || '-';
-            return `<span class="st-perawatan-badge">${escapeHtml(name)}</span>`;
-        });
-        if (ev.lainnya_text) {
-            services.push(`<span class="st-perawatan-badge">${escapeHtml(ev.lainnya_text)}</span>`);
-        }
-        const perawatanHtml = services.length
-            ? `<div class="st-perawatan-wrap">${services.join('')}</div>`
-            : `<span class="text-muted">-</span>`;
-
-        const newBadge = ev.is_new
-            ? ` <span class="badge badge-success" style="font-size:0.62rem;"><i class="fa fa-star"></i> Baru</span>`
-            : '';
-
-        const jam = `${(ev.start_hour||'').substring(0,5)}–${(ev.end_hour||'').substring(0,5)}`;
-        const pasien = ev.customer ? escapeHtml(ev.customer.name) : '<span class="text-danger">Pasien Terhapus</span>';
-        const dokter = ev.doctor ? escapeHtml(ev.doctor.name) : '-';
-
-        const stLower = String(ev.status||'').toLowerCase();
-        const cancelledClass = (stLower === 'cancelled' || stLower === 'dibatalkan' || stLower === 'cancel') ? 'is-cancelled' : '';
-
-        return `
-            <tr class="${cancelledClass}" onclick="openSingleModal('${ev.id}')" title="Klik untuk lihat detail">
-                <td><span class="st-time">${jam}</span></td>
-                <td>
-                    <div class="st-pasien-name">${pasien}${newBadge}</div>
-                    <div class="st-pasien-sub">${dokter}</div>
-                </td>
-                <td>${perawatanHtml}</td>
-                <td>
-                    <span class="st-status-wrap">
-                        <span class="st-status-dot ${dotClass}"></span>
-                        ${escapeHtml(cfg.label || '-')}
-                    </span>
-                </td>
-            </tr>
-        `;
-    }).join('');
-
-    document.getElementById('modalBody').innerHTML = `
-        <table class="st-list-table">
-            <thead>
-                <tr>
-                    <th>Jam</th>
-                    <th>Pasien &amp; Dokter</th>
-                    <th>Perawatan</th>
-                    <th>Status</th>
-                </tr>
-            </thead>
-            <tbody>${rows}</tbody>
-        </table>
-    `;
-    document.getElementById('modalDetailBtn').style.display = 'none';
-    document.getElementById('modalFooterNote').style.visibility = 'visible';
-    $('#eventModal').modal('show');
-}
-
-$(document).on('hidden.bs.modal', '#eventModal', function () {
-    lastAllModalCtx = null;
-});
-
-function openSingleModal(id) {
-    const ev = RAW_RESERVATIONS.find(r => r.id === id);
-    if (ev) {
-        showModal(ev);
-        if (lastAllModalCtx) setCloseBtnKembali();
     }
 }
 
@@ -1539,6 +1253,95 @@ document.querySelectorAll('.st-status-select').forEach(function (sel) {
     });
 });
 
+// ══════════ Day Drawer (Jadwal Harian) — kalender klik hari ══════════
+// Map event kalender (snake_case) → payload rrOpenDrawer; buka list 1 hari.
+(function () {
+    var EDIT_TPL  = '{{ route("rawreservation.edit", ["id" => ":id"]) }}';
+    var KLAIM_TPL = '{{ route("rawreservation.klaim", ["id" => ":id"]) }}';
+    var HARI = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+    var BLN  = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+    var $dd = $('#rrDayDrawer');
+    var dayEvents = {};   // id → ev (untuk klik item → Detail drawer)
+
+    function calEventToRr(ev) {
+        var so = (typeof STATUS_OPTIONS !== 'undefined' && STATUS_OPTIONS[ev.status]) || {};
+        var wa = (ev.customer && ev.customer.phone) ? String(ev.customer.phone).replace(/[^0-9]/g, '') : '';
+        if (wa && wa.charAt(0) === '0') wa = '62' + wa.substring(1);
+        var treat = (ev.services || []).map(function (s) { return s.doc_service ? s.doc_service.name : null; }).filter(Boolean).join(', ');
+        if (!treat && ev.lainnya_text) treat = 'Keluhan: ' + ev.lainnya_text;
+        var dk = ev.date ? ev.date.substring(0, 10) : '';
+        var dObj = dk ? new Date(dk + 'T00:00:00') : null;
+        var t1 = (ev.start_hour || '').substring(0, 5), t2 = (ev.end_hour || '').substring(0, 5);
+        return {
+            id: ev.id,
+            name: ev.customer ? ev.customer.name : 'Pasien Terhapus',
+            phone: ev.customer ? ev.customer.phone : '',
+            wa: wa,
+            status: ev.status,
+            statusLabel: so.label || '—',
+            statusBg: so.bg || '',
+            statusColor: so.color || '',
+            jadwal: dObj ? (HARI[dObj.getDay()] + ', ' + dObj.getDate() + ' ' + BLN[dObj.getMonth()] + ' ' + dObj.getFullYear()) : '—',
+            time: t1 + (t2 ? ' – ' + t2 : ''),
+            doctor: ev.doctor ? ev.doctor.name : '—',
+            treatment: treat || '—',
+            keterangan: ev.keterangan || '',
+            fu1: ev.follow_up_h_min_1 || '',
+            fuh: ev.follow_up_h || '',
+            kehadiran: ev.keterangan_kehadiran || '',
+            promo: ev.promo ? ev.promo.promo_code : '',
+            promoId: ev.raw_promo_id,
+            klaim: ev.promo_klaim ? 'done' : (ev.raw_promo_id ? 'pending' : 'none'),
+            editUrl: EDIT_TPL.replace(':id', ev.id),
+            klaimUrl: KLAIM_TPL.replace(':id', ev.id)
+        };
+    }
+
+    window.rrOpenDayDrawer = function (dateKey) {
+        var events = (typeof buildEventMap === 'function' ? buildEventMap()[dateKey] : null) || [];
+        dayEvents = {};
+        var dObj = new Date(dateKey + 'T00:00:00');
+        $('#rrDayTitle').text(HARI[dObj.getDay()] + ', ' + dObj.getDate() + ' ' + BLN[dObj.getMonth()] + ' ' + dObj.getFullYear());
+        $('#rrDayCount').text(events.length + ' reservasi');
+        var html = '';
+        events.forEach(function (ev) {
+            dayEvents[ev.id] = ev;
+            var so = (typeof STATUS_OPTIONS !== 'undefined' && STATUS_OPTIONS[ev.status]) || {};
+            var t1 = (ev.start_hour || '').substring(0, 5), t2 = (ev.end_hour || '').substring(0, 5);
+            var nm = ev.customer ? escapeHtml(ev.customer.name) : 'Pasien Terhapus';
+            var dk = ev.doctor ? escapeHtml(ev.doctor.name) : '—';
+            var treat = (ev.services || []).map(function (s) { return s.doc_service ? escapeHtml(s.doc_service.name) : null; }).filter(Boolean).join(', ');
+            if (!treat && ev.lainnya_text) treat = 'Keluhan: ' + escapeHtml(ev.lainnya_text);
+            html += '<div class="rr-day-card" data-evid="' + escapeHtml(String(ev.id)) + '" style="border-left-color:' + (so.color || '#B79A82') + '">'
+                + '<div class="rr-day-card__top"><span class="rr-day-card__name">' + nm + '</span>'
+                + '<span class="rr-day-card__pill" style="background:' + (so.bg || '#eee') + ';color:' + (so.color || '#555') + '">' + escapeHtml(so.label || ev.status || '-') + '</span></div>'
+                + '<div class="rr-day-card__meta"><span class="rr-day-card__time">' + (t1 ? t1 + (t2 ? ' – ' + t2 : '') : '—') + '</span><span>' + dk + '</span></div>'
+                + (treat ? '<div class="rr-day-card__treat">' + treat + '</div>' : '')
+                + '</div>';
+        });
+        $('#rrDayList').html(html || '<div class="rr-day__empty">Tidak ada reservasi di tanggal ini.</div>');
+        $dd.addClass('is-open').attr('aria-hidden', 'false');
+        document.body.classList.add('rr-drawer-lock');
+    };
+    function rrDayClose() {
+        $dd.removeClass('is-open').attr('aria-hidden', 'true');
+        document.body.classList.remove('rr-drawer-lock');
+    }
+    $(document).on('click', '[data-rrday-close]', rrDayClose);
+    $(document).on('keydown', function (e) { if (e.key === 'Escape' && $dd.hasClass('is-open')) rrDayClose(); });
+
+    // Klik kartu di Day drawer → Detail drawer (kalau tersedia; di view-only Detail
+    // drawer tak di-render → item tidak melakukan apa-apa).
+    $(document).on('click', '.rr-day-card', function () {
+        var ev = dayEvents[this.getAttribute('data-evid')];
+        if (!ev) return;
+        if (typeof window.rrOpenDrawer === 'function') {
+            rrDayClose();
+            window.rrOpenDrawer(calEventToRr(ev));
+        }
+    });
+})();
+
 // ══════════ Detail Drawer ══════════
 (function () {
     var RR_CONFIRMED = @json(\App\Models\RawCusReservation::STATUS_CONFIRMED);
@@ -1608,6 +1411,12 @@ document.querySelectorAll('.st-status-select').forEach(function (sel) {
             url: '/rawreservation/' + rrId + '/inline', method: 'PATCH',
             data: { _token: RR_TOKEN, field: field, value: value },
             success: function () {
+                // Sync data kalender in-memory → renderCalendar (chip) ikut fresh saat
+                // status diubah dari Detail drawer (dibuka via kalender/Day drawer).
+                if (typeof RAW_RESERVATIONS !== 'undefined') {
+                    var rec = RAW_RESERVATIONS.find(function (r) { return String(r.id) === String(rrId); });
+                    if (rec) rec[field] = value;
+                }
                 $('.inline-update[data-id="' + rrId + '"][data-field="' + field + '"]').each(function () {
                     $(this).val(value);
                     if (typeof syncInlineSelectValue === 'function') syncInlineSelectValue($(this));

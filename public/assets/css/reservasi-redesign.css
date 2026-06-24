@@ -868,3 +868,57 @@ body.redesign-reservasi .rrw-wa:hover { background: #F1FAF4; }
     body.redesign-reservasi .rrw-actions { width: 100%; }
     body.redesign-reservasi .rrw-offer { flex: 1; justify-content: center; }
 }
+
+/* ── 28. Day Drawer (Jadwal Harian) — kalender klik hari (design) ─────────── */
+body.redesign-reservasi .rr-day__count { font-size: 12.5px; color: #D8AE8C; font-weight: 600; }
+body.redesign-reservasi .rr-day__list { display: flex; flex-direction: column; gap: 10px; }
+body.redesign-reservasi .rr-day-card {
+    background: #fff; border: 1px solid var(--divider-strong);
+    border-left: 3px solid var(--text-subtle); border-radius: 13px;
+    padding: 13px 14px; cursor: pointer;
+    transition: box-shadow .15s ease, transform .12s ease;
+}
+body.redesign-reservasi .rr-day-card:hover { box-shadow: var(--shadow-card); transform: translateY(-1px); }
+body.redesign-reservasi .rr-day-card__top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+body.redesign-reservasi .rr-day-card__name { font-size: 13.5px; font-weight: 700; color: var(--text-primary); overflow-wrap: anywhere; }
+body.redesign-reservasi .rr-day-card__pill {
+    font-size: 10.5px; font-weight: 800; padding: 3px 9px; border-radius: 20px;
+    white-space: nowrap; flex: none;
+}
+body.redesign-reservasi .rr-day-card__meta {
+    display: flex; align-items: center; gap: 10px; margin-top: 8px;
+    font-size: 11.5px; color: var(--text-muted); flex-wrap: wrap;
+}
+body.redesign-reservasi .rr-day-card__time {
+    font-weight: 700; color: #7A5B43; background: #F4E7D6;
+    border-radius: 7px; padding: 3px 8px; font-variant-numeric: tabular-nums;
+}
+body.redesign-reservasi .rr-day-card__treat {
+    font-size: 11.5px; color: #5A3A22; margin-top: 6px; font-weight: 600; overflow-wrap: anywhere;
+}
+body.redesign-reservasi .rr-day__empty { text-align: center; color: var(--text-muted); padding: 32px 12px; font-size: 13px; }
+
+/* ── 29. Kalender chip compact (design View 4) — 1 baris, tint per-status + dot ─ */
+body.redesign-reservasi .st-cal-chip {
+    display: flex; align-items: center; gap: 5px;
+    font-size: 10px; font-weight: 700; line-height: 1.3;
+    border-radius: 6px; padding: 3px 7px; margin-bottom: 3px;
+    overflow: hidden; cursor: pointer;
+}
+body.redesign-reservasi .st-cal-chip__dot { width: 6px; height: 6px; border-radius: 50%; flex: none; }
+body.redesign-reservasi .st-cal-chip__txt {
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-variant-numeric: tabular-nums;
+}
+body.redesign-reservasi .st-cal-chip__new { font-size: 8px; color: #E8842B; flex: none; }
+body.redesign-reservasi .st-cal-chip.is-past { opacity: .55; }
+/* Warna per-status pakai token --st-* (sudah = palette hangat design). */
+body.redesign-reservasi .st-cal-chip--pending   { background: var(--st-pending-bg);   color: var(--st-pending-text); }
+body.redesign-reservasi .st-cal-chip--pending   .st-cal-chip__dot { background: var(--st-pending-text); }
+body.redesign-reservasi .st-cal-chip--confirmed { background: var(--st-confirmed-bg); color: var(--st-confirmed-text); }
+body.redesign-reservasi .st-cal-chip--confirmed .st-cal-chip__dot { background: var(--st-confirmed-text); }
+body.redesign-reservasi .st-cal-chip--waitlist  { background: var(--st-waitlist-bg);  color: var(--st-waitlist-text); }
+body.redesign-reservasi .st-cal-chip--waitlist  .st-cal-chip__dot { background: var(--st-waitlist-text); }
+body.redesign-reservasi .st-cal-chip--completed { background: var(--st-completed-bg); color: var(--st-completed-text); }
+body.redesign-reservasi .st-cal-chip--completed .st-cal-chip__dot { background: var(--st-completed-text); }
+body.redesign-reservasi .st-cal-chip--cancelled { background: var(--st-cancelled-bg); color: var(--st-cancelled-text); }
+body.redesign-reservasi .st-cal-chip--cancelled .st-cal-chip__dot { background: var(--st-cancelled-text); }
