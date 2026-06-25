@@ -922,3 +922,8 @@ body.redesign-reservasi .st-cal-chip--completed { background: var(--st-completed
 body.redesign-reservasi .st-cal-chip--completed .st-cal-chip__dot { background: var(--st-completed-text); }
 body.redesign-reservasi .st-cal-chip--cancelled { background: var(--st-cancelled-bg); color: var(--st-cancelled-text); }
 body.redesign-reservasi .st-cal-chip--cancelled .st-cal-chip__dot { background: var(--st-cancelled-text); }
+
+/* ── 30. Tombol keluhan floating (.st-complaint-fab, z-index 9998) nutupin footer
+   drawer (Batal/Simpan) di pojok kanan-bawah. Sembunyikan saat drawer kebuka
+   (body.rr-drawer-lock — cuma aktif di halaman reservasi saat drawer terbuka). ─ */
+body.rr-drawer-lock .st-complaint-fab { display: none !important; }
