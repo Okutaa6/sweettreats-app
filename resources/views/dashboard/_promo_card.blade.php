@@ -12,7 +12,7 @@
     $campIcon = $campIcons[$p->campaign_type] ?? 'fa-tags';
     $saveRp = ($p->harga_normal && $p->harga_promo && $p->harga_normal > $p->harga_promo) ? $rp($p->harga_normal - $p->harga_promo) : '';
 @endphp
-<div class="sds-promo" style="--cc: {{ $cc['color'] }};"
+<div class="sds-promo {{ ($compact ?? false) ? 'sds-promo--compact' : '' }}" style="--cc: {{ $cc['color'] }};"
      role="button" tabindex="0" data-promo
      data-name="{{ $p->nama_promo }}"
      data-camp="{{ $campLabel }}"
@@ -36,12 +36,14 @@
         </div>
     @else <div class="sds-promo__now sds-muted">—</div> @endif
 
-    @if (trim((string) ($p->detail_promo ?? '')) !== '')
-        <div class="sds-promo__text"><b>Detail</b><span>{{ $p->detail_promo }}</span></div>
-    @endif
-    @if (trim((string) ($p->syarat_ketentuan ?? '')) !== '')
-        <div class="sds-promo__text sds-promo__text--sk"><b>S&amp;K</b><span>{{ $p->syarat_ketentuan }}</span></div>
-    @endif
+    @unless ($compact ?? false)
+        @if (trim((string) ($p->detail_promo ?? '')) !== '')
+            <div class="sds-promo__text"><b>Detail</b><span>{{ $p->detail_promo }}</span></div>
+        @endif
+        @if (trim((string) ($p->syarat_ketentuan ?? '')) !== '')
+            <div class="sds-promo__text sds-promo__text--sk"><b>S&amp;K</b><span>{{ $p->syarat_ketentuan }}</span></div>
+        @endif
+    @endunless
 
     @if ($active)
         @if ($p->periode_end)
