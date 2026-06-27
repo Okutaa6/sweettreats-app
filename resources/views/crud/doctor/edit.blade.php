@@ -155,7 +155,7 @@
                 @endunless
             </div>
             <div class="dxj-hint" style="display:flex; align-items:center; gap:14px; flex-wrap:wrap;">
-                <span>Klik area kosong untuk menambah · klik blok untuk edit jam kerja.</span>
+                <span>Klik kosong untuk menambah · klik blok untuk edit · <strong>seret</strong> blok untuk geser jam / pindah hari · <strong>tepi atas/bawah</strong> untuk ubah jam mulai/selesai.</span>
                 <span class="dxj-legend"><span class="dxj-legend__bar"><span></span></span> terisi / kapasitas</span>
             </div>
 
@@ -198,6 +198,7 @@
                                             <div class="dxj-block" style="top:{{ $top }}px; height:{{ $hgt }}px; background:{{ $spec['color'] }};"
                                                  data-id="{{ $s->id }}" data-day="{{ $s->day }}" data-branch="{{ $s->raw_branch_id }}"
                                                  data-start="{{ substr($s->start_hour, 0, 5) }}" data-end="{{ substr($s->end_hour, 0, 5) }}">
+                                                <div class="dxj-block__rz dxj-block__rz--top" title="Seret untuk ubah jam mulai"></div>
                                                 <div class="dxj-block__time">{{ substr($s->start_hour, 0, 5) }}–{{ substr($s->end_hour, 0, 5) }}</div>
                                                 <div class="dxj-block__br">{{ $b->name }}</div>
                                                 @if($hgt >= 46)
@@ -206,6 +207,7 @@
                                                         <span class="dxj-util-count">{{ $fill }}/{{ $cap }}</span>
                                                     </div>
                                                 @endif
+                                                <div class="dxj-block__rz" title="Seret untuk ubah durasi"></div>
                                             </div>
                                         @endforeach
                                     </div>
@@ -459,6 +461,62 @@
         </div>
     </div>
     <form id="dxjDeleteForm" method="POST" style="display:none;">@csrf @method('DELETE')</form>
+
+    {{-- ════════ SALIN JADWAL DRAWER (antar hari / antar cabang) ════════ --}}
+    <div class="dxj-overlay" id="dxcpOverlay"></div>
+    <div class="dxj-drawer" id="dxcpDrawer" aria-hidden="true">
+        <div class="dxj-drawer__head">
+            <span class="dxj-drawer__title">Salin Jadwal</span>
+            <button type="button" class="dxj-drawer__close" id="dxcpClose">&times;</button>
+        </div>
+        <div class="dxj-drawer__body">
+            <form id="dxcpForm" method="POST" action="{{ route('rawdoctor.schedule.copy', $doctor->id) }}">
+                @csrf
+                <input type="hidden" name="mode" id="dxcpMode" value="days">
+                <input type="hidden" name="raw_branch_id" id="dxcpBranchId">
+                <input type="hidden" name="src_branch" id="dxcpSrcBranch">
+
+                <div class="dxcp-modes">
+                    <button type="button" class="dxcp-mode is-on" data-cpmode="days"><i class="fa fa-calendar-week"></i> Antar Hari</button>
+                    @unless(session('raw_branch_id'))
+                        <button type="button" class="dxcp-mode" data-cpmode="branch"><i class="fa fa-code-branch"></i> Antar Cabang</button>
+                    @endunless
+                </div>
+                <div class="dxcp-ctx">Cabang: <strong id="dxcpBranchName">—</strong></div>
+
+                {{-- mode: antar hari --}}
+                <div data-cppanel="days">
+                    <label class="dxd-edit__label">Hari Sumber</label>
+                    <select class="dx-select" name="src_day" id="dxcpSrcDay">
+                        @foreach(['1'=>'Senin','2'=>'Selasa','3'=>'Rabu','4'=>'Kamis','5'=>'Jumat','6'=>'Sabtu','7'=>'Minggu'] as $dv => $dn)
+                            <option value="{{ $dv }}">{{ $dn }}</option>
+                        @endforeach
+                    </select>
+                    <label class="dxd-edit__label" style="margin-top:14px;">Salin ke Hari</label>
+                    <div class="dxcp-days">
+                        @foreach(['1'=>'Sen','2'=>'Sel','3'=>'Rab','4'=>'Kam','5'=>'Jum','6'=>'Sab','7'=>'Min'] as $dv => $dn)
+                            <label class="dxcp-day"><input type="checkbox" name="days[]" value="{{ $dv }}"> {{ $dn }}</label>
+                        @endforeach
+                    </div>
+                </div>
+
+                {{-- mode: antar cabang (admin) --}}
+                @unless(session('raw_branch_id'))
+                    <div data-cppanel="branch" style="display:none;">
+                        <label class="dxd-edit__label">Salin Semua Jadwal ke Cabang</label>
+                        <select class="dx-select" name="to_branch" id="dxcpToBranch">
+                            @foreach($branches as $b)<option value="{{ $b->id }}">{{ $b->name }}</option>@endforeach
+                        </select>
+                    </div>
+                @endunless
+
+                <div class="dxj-hint" style="margin-top:14px;">Jam kerja yang bentrok dengan jadwal yang sudah ada otomatis dilewati.</div>
+            </form>
+        </div>
+        <div class="dxj-drawer__foot">
+            <button type="submit" form="dxcpForm" class="dx-btn dx-btn--primary" style="flex:1; justify-content:center;"><i class="fa fa-copy"></i> Salin</button>
+        </div>
+    </div>
 </div>
 @endsection
 
@@ -558,9 +616,37 @@
         if (addBtn) addBtn.addEventListener('click', function () { openAdd('', ''); });
         var emptyAdd = document.getElementById('dxjEmptyAdd'); // empty-state: dokter belum punya jadwal sama sekali
         if (emptyAdd) emptyAdd.addEventListener('click', function () { openAdd('', ''); });
-        var copyBtn = document.getElementById('dxjCopyBtn'); // "Salin jadwal" — Fase D
-        if (copyBtn) copyBtn.addEventListener('click', function () {
-            Swal.fire({ icon: 'info', title: 'Salin Jadwal', text: 'Fitur salin jadwal (antar hari / antar cabang) hadir di update berikutnya.', confirmButtonColor: '#461500' });
+        // ── Salin Jadwal drawer (antar hari / antar cabang) ──
+        var copyBtn = document.getElementById('dxjCopyBtn');
+        var cpOverlay = document.getElementById('dxcpOverlay'), cpDrawer = document.getElementById('dxcpDrawer');
+        function openCopy() {
+            var tab = document.querySelector('[data-dxj-branch].is-active'); if (!tab) return;
+            var bid = tab.dataset.dxjBranch, bname = tab.textContent.trim();
+            document.getElementById('dxcpBranchId').value = bid;
+            document.getElementById('dxcpSrcBranch').value = bid;
+            document.getElementById('dxcpBranchName').textContent = bname;
+            var toSel = document.getElementById('dxcpToBranch');
+            if (toSel) { // sembunyikan cabang sumber dari pilihan tujuan
+                var firstOther = '';
+                Array.prototype.forEach.call(toSel.options, function (o) {
+                    var same = o.value === bid; o.hidden = same; o.disabled = same;
+                    if (!same && !firstOther) firstOther = o.value;
+                });
+                if (firstOther) toSel.value = firstOther;
+            }
+            cpOverlay.classList.add('is-open'); cpDrawer.classList.add('is-open');
+        }
+        function closeCopy() { cpOverlay.classList.remove('is-open'); cpDrawer.classList.remove('is-open'); }
+        if (copyBtn) copyBtn.addEventListener('click', openCopy);
+        document.getElementById('dxcpClose').addEventListener('click', closeCopy);
+        cpOverlay.addEventListener('click', closeCopy);
+        document.querySelectorAll('.dxcp-mode').forEach(function (m) {
+            m.addEventListener('click', function () {
+                document.querySelectorAll('.dxcp-mode').forEach(function (x) { x.classList.remove('is-on'); });
+                m.classList.add('is-on');
+                document.getElementById('dxcpMode').value = m.dataset.cpmode;
+                document.querySelectorAll('[data-cppanel]').forEach(function (p) { p.style.display = p.dataset.cppanel === m.dataset.cpmode ? '' : 'none'; });
+            });
         });
         document.getElementById('dxjClose').addEventListener('click', closeDrawer);
         overlay.addEventListener('click', closeDrawer);
@@ -575,11 +661,90 @@
                 openAdd(c.dataset.day, c.dataset.branch, hour);
             });
         });
+        // ── Drag: geser jam (vertikal) + pindah hari (horizontal) + resize tepi atas/bawah — snap 15 menit ──
+        var PXH = 46, H0 = 8, H1 = 21;
+        var CSRF = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
+        var ajaxTpl = '{{ route('rawdoctor.schedule.ajax', [$doctor->id, '__ID__']) }}';
+        var drag = null;
+        function snapH(h) { return Math.round(h * 4) / 4; }
+        function toH(str) { var p = (str || '0:0').split(':'); return (+p[0]) + (+p[1]) / 60; }
+        function hToStr(h) { var hh = Math.floor(h + 1e-6), mm = Math.round((h - hh) * 60); return (hh < 10 ? '0' : '') + hh + ':' + (mm < 10 ? '0' : '') + mm; }
+        function dxToast(msg, kind) {
+            if (typeof Swal === 'undefined') return;
+            Swal.fire({ toast: true, position: 'bottom-end', timer: 2200, showConfirmButton: false, icon: kind === 'error' ? 'error' : 'success', title: msg });
+        }
+        function colAtX(body, x) {
+            var found = null;
+            body.querySelectorAll('.dxj-col').forEach(function (c) { var r = c.getBoundingClientRect(); if (x >= r.left && x < r.right) found = c; });
+            return found;
+        }
         document.querySelectorAll('.dxj-block').forEach(function (bl) {
-            bl.addEventListener('click', function (e) {
-                e.stopPropagation();
-                openEdit({ id: bl.dataset.id, day: bl.dataset.day, branch: bl.dataset.branch, start: bl.dataset.start, end: bl.dataset.end });
+            bl.addEventListener('mousedown', function (e) {
+                if (e.button !== 0) return;
+                e.preventDefault(); e.stopPropagation();
+                var mode = e.target.classList.contains('dxj-block__rz--top') ? 'resizeTop'
+                         : e.target.classList.contains('dxj-block__rz') ? 'resize' : 'move';
+                drag = {
+                    el: bl, id: bl.dataset.id, day: bl.dataset.day, mode: mode,
+                    startY: e.clientY, os: toH(bl.dataset.start), oe: toH(bl.dataset.end),
+                    cs: toH(bl.dataset.start), ce: toH(bl.dataset.end), moved: false,
+                    oTop: parseFloat(bl.style.top) || 0, oHgt: parseFloat(bl.style.height) || 0,
+                    oCol: bl.closest('.dxj-col'), body: bl.closest('.dxj-body'),
+                };
+                bl.classList.add('is-dragging');
             });
+        });
+        window.addEventListener('mousemove', function (e) {
+            if (!drag) return;
+            var dy = e.clientY - drag.startY;
+            if (Math.abs(dy) > 3) drag.moved = true;
+            var dh = snapH(dy / PXH);
+            if (drag.mode === 'resize') {                     // tepi bawah → ubah jam selesai
+                drag.cs = drag.os;
+                drag.ce = Math.max(drag.os + 0.25, Math.min(H1, drag.oe + dh));
+            } else if (drag.mode === 'resizeTop') {           // tepi atas → ubah jam mulai
+                drag.ce = drag.oe;
+                drag.cs = Math.min(drag.oe - 0.25, Math.max(H0, drag.os + dh));
+            } else {                                          // geser badan: vertikal (jam) + horizontal (hari)
+                var dur = drag.oe - drag.os;
+                drag.cs = Math.max(H0, Math.min(H1 - dur, drag.os + dh));
+                drag.ce = drag.cs + dur;
+                if (drag.body) {
+                    var tc = colAtX(drag.body, e.clientX);
+                    if (tc && tc !== drag.el.parentNode) { tc.appendChild(drag.el); drag.day = tc.dataset.day; drag.moved = true; }
+                }
+            }
+            drag.el.style.top = ((drag.cs - H0) * PXH) + 'px';
+            drag.el.style.height = ((drag.ce - drag.cs) * PXH) + 'px';
+            var t = drag.el.querySelector('.dxj-block__time'); if (t) t.textContent = hToStr(drag.cs) + '–' + hToStr(drag.ce);
+        });
+        window.addEventListener('mouseup', function () {
+            if (!drag) return;
+            var d = drag; drag = null; d.el.classList.remove('is-dragging');
+            if (!d.moved) { // tak bergerak = klik biasa → buka edit
+                openEdit({ id: d.id, day: d.day, branch: d.el.dataset.branch, start: d.el.dataset.start, end: d.el.dataset.end });
+                return;
+            }
+            function revert() {
+                if (d.oCol && d.el.parentNode !== d.oCol) d.oCol.appendChild(d.el);
+                d.el.style.top = d.oTop + 'px'; d.el.style.height = d.oHgt + 'px';
+                var t = d.el.querySelector('.dxj-block__time'); if (t) t.textContent = d.el.dataset.start + '–' + d.el.dataset.end;
+            }
+            // cek bentrok dengan blok lain di kolom (hari+cabang) tujuan
+            var clash = false, col = d.el.closest('.dxj-col');
+            if (col) col.querySelectorAll('.dxj-block').forEach(function (o) {
+                if (o === d.el) return;
+                if (d.cs < toH(o.dataset.end) && toH(o.dataset.start) < d.ce) clash = true;
+            });
+            if (clash) { revert(); dxToast('Bentrok dengan jadwal lain — dibatalkan', 'error'); return; }
+            var ns = hToStr(d.cs), ne = hToStr(d.ce);
+            fetch(ajaxTpl.replace('__ID__', d.id), {
+                method: 'PATCH',
+                headers: { 'X-CSRF-TOKEN': CSRF, 'Accept': 'application/json', 'Content-Type': 'application/json' },
+                body: JSON.stringify({ day: d.day, start_hour: ns, end_hour: ne }),
+            }).then(function (r) { if (!r.ok) throw new Error('http ' + r.status); return r.json(); })
+              .then(function () { d.el.dataset.start = ns; d.el.dataset.end = ne; d.el.dataset.day = d.day; dxToast('Jam kerja diperbarui', 'saved'); })
+              .catch(function () { revert(); dxToast('Gagal menyimpan — coba lagi', 'error'); });
         });
         form.addEventListener('submit', function (e) {
             if (start.value && end.value && end.value <= start.value) {

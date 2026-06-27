@@ -923,4 +923,93 @@ class DoctorController extends Controller
 
         return response()->json(['success' => true]);
     }
+
+    /**
+     * Salin jadwal: ANTAR HARI (hari sumber → beberapa hari tujuan, dalam 1
+     * cabang) atau ANTAR CABANG (semua jadwal cabang sumber → cabang tujuan).
+     * Lewati otomatis shift yang bentrok (overlap hari+cabang sama).
+     */
+    public function scheduleCopy($doctorId)
+    {
+        request()->validate(['mode' => 'required|in:days,branch']);
+        RawDoctor::findOrFail($doctorId);
+        $mode = request('mode');
+
+        // Cek overlap terhadap kumpulan shift yang sudah ada (live, termasuk yg
+        // baru disalin) — dibandingkan sebagai string jam 'HH:MM:SS'.
+        $overlaps = function ($existing, $day, $branch, $start, $end) {
+            foreach ($existing as $e) {
+                if ((int) $e->day === (int) $day && $e->raw_branch_id === $branch
+                    && $start < $e->end_hour && $e->start_hour < $end) return true;
+            }
+            return false;
+        };
+        $make = function ($doctorId, $branch, $day, $start, $end) {
+            return RawDoctorSchedule::create([
+                'raw_doctor_id' => $doctorId,
+                'raw_branch_id' => $branch,
+                'day'           => $day,
+                'start_hour'    => $start,
+                'end_hour'      => $end,
+                'created_by'    => session('id'),
+                'created_at'    => now(),
+            ]);
+        };
+
+        $added = 0;
+
+        if ($mode === 'days') {
+            request()->validate([
+                'raw_branch_id' => 'required',
+                'src_day'       => 'required|numeric|min:1|max:7',
+                'days'          => 'nullable|array',
+                'days.*'        => 'numeric|min:1|max:7',
+            ]);
+            $branch  = request('raw_branch_id');
+            $this->assertBranchAllowed($branch);
+            $srcDay  = (int) request('src_day');
+            $targets = array_unique(array_map('intval', request('days', [])));
+
+            $srcShifts = RawDoctorSchedule::where('raw_doctor_id', $doctorId)
+                ->where('raw_branch_id', $branch)->where('day', $srcDay)->get();
+            $existing  = RawDoctorSchedule::where('raw_doctor_id', $doctorId)
+                ->where('raw_branch_id', $branch)->get();
+
+            foreach ($targets as $day) {
+                if ($day === $srcDay) continue;
+                foreach ($srcShifts as $sh) {
+                    if ($overlaps($existing, $day, $branch, $sh->start_hour, $sh->end_hour)) continue;
+                    $existing->push($make($doctorId, $branch, $day, $sh->start_hour, $sh->end_hour));
+                    $added++;
+                }
+            }
+        } else { // branch
+            request()->validate([
+                'src_branch' => 'required',
+                'to_branch'  => 'required|different:src_branch',
+            ]);
+            $src = request('src_branch');
+            $to  = request('to_branch');
+            $this->assertBranchAllowed($src);
+            $this->assertBranchAllowed($to);
+
+            $srcShifts = RawDoctorSchedule::where('raw_doctor_id', $doctorId)
+                ->where('raw_branch_id', $src)->get();
+            $existing  = RawDoctorSchedule::where('raw_doctor_id', $doctorId)
+                ->where('raw_branch_id', $to)->get();
+
+            foreach ($srcShifts as $sh) {
+                if ($overlaps($existing, $sh->day, $to, $sh->start_hour, $sh->end_hour)) continue;
+                $existing->push($make($doctorId, $to, $sh->day, $sh->start_hour, $sh->end_hour));
+                $added++;
+            }
+        }
+
+        $msg = $added > 0
+            ? "{$added} jam kerja berhasil disalin."
+            : 'Tidak ada jam kerja yang disalin (kosong atau semua bentrok dengan jadwal yang ada).';
+
+        return redirect()->route('rawdoctor.edit', [$doctorId, 'tab' => 'jadwal'])
+            ->with($added > 0 ? 'success' : 'error', $msg);
+    }
 }

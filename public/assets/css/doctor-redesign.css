@@ -320,9 +320,20 @@ body.redesign-doctor .dxj-col {
 body.redesign-doctor .dxj-col:hover { background-color: #FDFAF6; }
 body.redesign-doctor .dxj-block {
     position: absolute; left: 5px; right: 5px; border-radius: 9px; padding: 6px 8px; color: #fff;
-    overflow: hidden; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,.12); transition: filter .15s ease;
+    overflow: hidden; cursor: grab; box-shadow: 0 1px 3px rgba(0,0,0,.12); transition: filter .15s ease;
+    user-select: none;
 }
 body.redesign-doctor .dxj-block:hover { filter: brightness(1.06); }
+body.redesign-doctor .dxj-block.is-dragging { cursor: grabbing; opacity: .92; z-index: 6; box-shadow: 0 6px 18px rgba(0,0,0,.28); transition: none; }
+/* Handle resize (tepi bawah) */
+body.redesign-doctor .dxj-block__rz { position: absolute; left: 0; right: 0; bottom: 0; height: 9px; cursor: ns-resize; z-index: 2; }
+body.redesign-doctor .dxj-block__rz--top { top: 0; bottom: auto; }
+body.redesign-doctor .dxj-block__rz::after {
+    content: ''; position: absolute; left: 50%; bottom: 3px; transform: translateX(-50%);
+    width: 22px; height: 3px; border-radius: 2px; background: rgba(255,255,255,.5); opacity: 0; transition: opacity .15s ease;
+}
+body.redesign-doctor .dxj-block__rz--top::after { bottom: auto; top: 3px; }
+body.redesign-doctor .dxj-block:hover .dxj-block__rz::after { opacity: 1; }
 body.redesign-doctor .dxj-block__time { font-size: 11.5px; font-weight: 800; font-variant-numeric: tabular-nums; }
 body.redesign-doctor .dxj-block__br { font-size: 10.5px; opacity: .9; margin-top: 1px; }
 body.redesign-doctor .dxj-block__cap { font-size: 10px; opacity: .85; margin-top: 2px; font-variant-numeric: tabular-nums; }
@@ -361,6 +372,24 @@ body.redesign-doctor .dxj-drawer__close:hover { opacity: 1; }
 body.redesign-doctor .dxj-drawer__body { padding: 20px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 16px; }
 body.redesign-doctor .dxj-drawer__foot { padding: 16px 20px; border-top: 1px solid #EDDFCE; display: flex; gap: 10px; }
 body.redesign-doctor .dxj-field2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+
+/* Salin Jadwal drawer */
+body.redesign-doctor .dxcp-modes { display: flex; gap: 8px; margin-bottom: 14px; }
+body.redesign-doctor .dxcp-mode {
+    flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+    border: 1.5px solid var(--dx-input-border); background: #fff; color: var(--dx-text-2);
+    border-radius: 11px; padding: 10px; font-weight: 700; font-size: 12.5px; cursor: pointer; font-family: inherit;
+    transition: border-color .15s ease, background .15s ease, color .15s ease;
+}
+body.redesign-doctor .dxcp-mode.is-on { border-color: #6B2400; color: #6B2400; background: #FBF4EC; }
+body.redesign-doctor .dxcp-ctx { font-size: 12.5px; color: var(--dx-muted); margin-bottom: 14px; }
+body.redesign-doctor .dxcp-ctx strong { color: var(--dx-text); font-weight: 700; }
+body.redesign-doctor .dxcp-days { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 6px; }
+body.redesign-doctor .dxcp-day {
+    display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; color: var(--dx-text-2);
+    border: 1px solid var(--dx-input-border); border-radius: 9px; padding: 8px 10px; cursor: pointer;
+}
+body.redesign-doctor .dxcp-day input { accent-color: #6B2400; }
 
 /* ════════════════════════════════════════════════════════════════════════
    §11. TAB CUTI & KHUSUS — form + tabel cuti + jadwal khusus
