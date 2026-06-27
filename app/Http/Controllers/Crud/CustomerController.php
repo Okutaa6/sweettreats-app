@@ -66,22 +66,123 @@ class CustomerController extends Controller
             });
         }
 
+        $now = now();
+
+        // ── Agregat LTV/kunjungan per pasien via Omnicare (link → sales). SATU query,
+        //    dipakai utk KPI clinic-wide, enrich baris, DAN turunan segment. Cache 30 mnt
+        //    (clinic-wide; sync Omnicare harian). TODO prod: pindah ke job/materialized. ──
+        $agg = \Illuminate\Support\Facades\Cache::remember('pasien_ltv_agg', 1800, function () {
+            return \Illuminate\Support\Facades\DB::table('customer_omnicare_link as l')
+                ->leftJoin('omnicare_sales_detail as s', 's.p_id', '=', 'l.omnicare_pid')
+                ->select('l.raw_customer_id',
+                    \Illuminate\Support\Facades\DB::raw('COALESCE(SUM(s.net_sell_price),0) as ltv'),
+                    \Illuminate\Support\Facades\DB::raw('MAX(s.trx_date) as last_visit'),
+                    \Illuminate\Support\Facades\DB::raw('COUNT(DISTINCT s.trx_date) as visits'))
+                ->groupBy('l.raw_customer_id')
+                ->get()->keyBy('raw_customer_id');
+        });
+
+        // visitedIds: pasien yg pernah transaksi (visits>0) → "Belum Datang" = NOT IN ini.
+        $visitedIds = $agg->filter(fn ($a) => $a->visits > 0)->keys()->all();
+
+        // ── Segment worklist (FINAL, data-driven): semua | baru | belum_datang | ultah.
+        //    Recall/Behel/Piutang = fitur/page terpisah. Counts atas base ter-filter.
+        //    "baru" = ditambah ke sistem bulan ini (created_at). CATATAN: base pasien hasil
+        //    import massal (created_at ke-cluster) → sekarang tipis (~1); ini FUTURE-FACING,
+        //    tumbuh sendiri seiring pasien baru ditambah lewat form Tambah. Sumber lain
+        //    (tanggal_daftar / Omnicare is_new) sama jeleknya / linking nge-lag. ──
+        $applySegment = function ($q, $seg) use ($visitedIds) {
+            if ($seg === 'baru') {
+                $q->whereYear('created_at', now()->year)->whereMonth('created_at', now()->month);
+            } elseif ($seg === 'belum_datang') {
+                $q->whereNotIn('id', $visitedIds ?: ['-']);
+            } elseif ($seg === 'ultah') {
+                $q->whereMonth('tanggal_lahir', now()->month);
+            }
+            return $q;
+        };
+        $seg = in_array(request('seg'), ['baru', 'belum_datang', 'ultah'], true) ? request('seg') : 'semua';
+
+        $baseForCounts = clone $query;
+        $segCounts = [
+            'semua'        => (clone $baseForCounts)->count(),
+            'baru'         => $applySegment((clone $baseForCounts), 'baru')->count(),
+            'belum_datang' => $applySegment((clone $baseForCounts), 'belum_datang')->count(),
+            'ultah'        => $applySegment((clone $baseForCounts), 'ultah')->count(),
+        ];
+
+        $applySegment($query, $seg);
+
+        // ── Sort by KUNJUNGAN TERAKHIR (Omnicare last_visit), bukan last_reservation
+        //    (sparse: mayoritas pasien tak punya reservasi di sistem kita). Correlated
+        //    subselect; yg belum pernah datang (NULL) ditaruh paling bawah. ──
         $customers = $query
-            ->addSelect(['latest_reservation_date' => \App\Models\RawCusReservation::select('date')
-                ->whereColumn('raw_customer_id', 'raw_customer.id')
-                ->orderByDesc('date')
-                ->limit(1)
+            ->addSelect(['last_visit_sort' => \Illuminate\Support\Facades\DB::table('omnicare_sales_detail as s')
+                ->join('customer_omnicare_link as l', 'l.omnicare_pid', '=', 's.p_id')
+                ->whereColumn('l.raw_customer_id', 'raw_customer.id')
+                ->selectRaw('MAX(s.trx_date)')
             ])
-            ->orderByDesc('latest_reservation_date')
+            ->orderByRaw('last_visit_sort IS NULL, last_visit_sort DESC')
             ->orderBy('created_at')
             ->paginate($perPage)->withQueryString();
+
+        // KPI clinic-wide (insight strip).
+        $sixMonthsAgo = $now->copy()->subMonths(6)->toDateString();
+        $totalAktif = 0; $sumLtv = 0; $retained = 0;
+        foreach ($agg as $a) {
+            if ($a->visits > 0) {
+                $totalAktif++;
+                $sumLtv += $a->ltv;
+                if ($a->last_visit && $a->last_visit >= $sixMonthsAgo) $retained++;
+            }
+        }
+        // Sumber akuisisi — pakai source_app (data akuisisi ASLI; channel kosong→Lainnya 100%).
+        $src = RawCustomer::select('source_app', \Illuminate\Support\Facades\DB::raw('count(*) as c'))
+            ->groupBy('source_app')->pluck('c', 'source_app');
+        $acqTotal = max(1, (int) $src->sum());
+        $acqBucket = ['Instagram' => 0, 'TikTok' => 0, 'Teman' => 0, 'Lainnya' => 0];
+        foreach ($src as $k => $c) {
+            $u = strtoupper(trim((string) $k));
+            if (str_contains($u, 'INSTA') || str_contains($u, 'INTAG') || str_contains($u, 'INSTG') || $u === 'IG') $acqBucket['Instagram'] += $c;
+            elseif (str_contains($u, 'TIKTOK') || str_contains($u, 'TITOK') || str_contains($u, 'FYP')) $acqBucket['TikTok'] += $c;
+            elseif (str_contains($u, 'TEMAN') || str_contains($u, 'KELUARGA') || str_contains($u, 'KERABAT')) $acqBucket['Teman'] += $c;
+            else $acqBucket['Lainnya'] += $c;
+        }
+        $acquisition = [];
+        foreach ($acqBucket as $label => $c) {
+            $acquisition[] = ['label' => $label, 'pct' => (int) round($c / $acqTotal * 100)];
+        }
+        $kpi = [
+            'total_aktif' => $totalAktif,
+            'avg_ltv'     => $totalAktif ? (int) round($sumLtv / $totalAktif) : 0,
+            'retensi'     => $totalAktif ? (int) round($retained / $totalAktif * 100) : 0,
+            'acquisition' => $acquisition,
+        ];
+
+        // ── Enrich tiap baris: LTV, kunjungan terakhir, value tier, field hilang (utk detail). ──
+        foreach ($customers as $c) {
+            $a = $agg[$c->id] ?? null;
+            $c->ltv         = $a ? (int) $a->ltv : 0;
+            $c->last_visit  = $a->last_visit ?? null;
+            $c->visit_count = $a ? (int) $a->visits : 0;
+            $c->tier        = $c->ltv >= 2500000 ? 'vip' : ($c->ltv >= 1000000 ? 'bernilai' : 'reguler');
+            $missing = [];
+            if (empty($c->email) || $c->email === '-') $missing[] = 'Email';
+            if (empty($c->nik)) $missing[] = 'NIK';
+            $c->missing_fields = $missing;
+        }
+
         $services = RawDocService::orderBy('name')->get();
         // Dropdown filter cabang & dokter selalu tampil untuk semua user
         // (Sales pun boleh filter cross-cabang).
         $branches = RawBranch::orderBy('name')->get();
         $doctors  = RawDoctor::orderBy('name')->get();
 
-        return view('crud.customer.list', compact('customers', 'services', 'doctors', 'branches', 'filterSearch', 'filterService', 'filterDoctor', 'filterBranch'));
+        return view('crud.customer.list', compact(
+            'customers', 'services', 'doctors', 'branches',
+            'filterSearch', 'filterService', 'filterDoctor', 'filterBranch',
+            'seg', 'segCounts', 'kpi'
+        ));
     }
 
     public function search()

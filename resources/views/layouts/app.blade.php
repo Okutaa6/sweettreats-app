@@ -77,9 +77,11 @@
     // Redesign reservasi (Fase 1) — di-scope HANYA ke halaman reservasi via body-class.
     // CSS-nya (reservasi-redesign.css) di-load dari list.blade.php @section('css').
     $reservasiRedesign = ($currentSegment === 'rawreservation') ? ' redesign-reservasi' : '';
+    // Redesign pasien — scope ke halaman pasien (rawcustomer). CSS dari list @section('css').
+    $pasienRedesign = ($currentSegment === 'rawcustomer') ? ' redesign-pasien' : '';
 @endphp
 
-<body data-theme="{{ $bodyTheme }}" class="{{ $groupTheme }}{{ $reservasiRedesign }}">
+<body data-theme="{{ $bodyTheme }}" class="{{ $groupTheme }}{{ $reservasiRedesign }}{{ $pasienRedesign }}">
 
     <!-- Top Bar Start -->
     @include('layouts.header')
