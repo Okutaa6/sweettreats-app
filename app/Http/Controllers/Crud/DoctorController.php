@@ -117,6 +117,21 @@ class DoctorController extends Controller
         return $filename;
     }
 
+    /**
+     * Pastikan user boleh mengelola data cabang $branchId. User yang terkunci
+     * 1 cabang (Sales — session raw_branch_id terisi) HANYA boleh cabangnya
+     * sendiri; admin pusat (raw_branch_id NULL) boleh semua cabang.
+     */
+    private function assertBranchAllowed($branchId): void
+    {
+        $sessionBranch = session('raw_branch_id');
+        abort_if(
+            $sessionBranch && (string) $branchId !== (string) $sessionBranch,
+            403,
+            'Anda hanya dapat mengelola jadwal/perawatan untuk cabang Anda sendiri.'
+        );
+    }
+
     public function edit($id)
     {
         $doctor = RawDoctor::findOrFail($id);
@@ -167,8 +182,10 @@ class DoctorController extends Controller
             ->orderByDesc('start_date')
             ->get();
 
+        // Scope ke cabang sesi (Sales) — admin pusat (NULL) lihat semua.
         $exceptions = RawDoctorScheduleException::with('branch')
             ->where('raw_doctor_id', $id)
+            ->when($sessionBranch, fn ($q) => $q->where('raw_branch_id', $sessionBranch))
             ->orderByDesc('date')
             ->get();
 
@@ -181,7 +198,11 @@ class DoctorController extends Controller
         // ── REDESIGN DETAIL: data header + tab Informasi ──
         $spec = \App\Support\DoctorSpec::forName($doctor->name);
         $reservationCount = $doctor->reservations()->count();
-        $jamKerja = $schedules->count(); // jumlah sesi/shift per minggu
+        // Sesi/shift per minggu. Sales (terkunci cabang) → hanya cabangnya,
+        // biar match dengan grid Jadwal yang juga di-scope. Admin → semua cabang.
+        $jamKerja = $sessionBranch
+            ? $schedules->where('raw_branch_id', $sessionBranch)->count()
+            : $schedules->count();
 
         // ── Utilisasi per shift (terisi/kapasitas) — reservasi NYATA minggu ini.
         //    Kapasitas = (jam_selesai − jam_mulai) × 2 (slot 30 menit, per handoff).
@@ -294,6 +315,14 @@ class DoctorController extends Controller
                 array_keys($svcDurByBranch), array_keys($detailDurByBranch)
             ));
 
+            // Guard: user yang terkunci 1 cabang (Sales) HANYA boleh menulis
+            // durasi cabangnya sendiri — walau POST menyelipkan cabang lain.
+            // Admin pusat (raw_branch_id NULL) tetap boleh semua cabang.
+            $sessionBranch = session('raw_branch_id');
+            if ($sessionBranch) {
+                $branchIds = array_values(array_intersect($branchIds, [$sessionBranch]));
+            }
+
             foreach ($branchIds as $branchId) {
                 // service-level
                 \Illuminate\Support\Facades\DB::table('raw_doctor_branch_service_duration')
@@ -370,6 +399,8 @@ class DoctorController extends Controller
             'reason'        => 'nullable|max:255',
         ]);
 
+        $this->assertBranchAllowed(request('raw_branch_id'));
+
         RawDoctor::findOrFail($doctorId);
 
         RawDoctorScheduleException::create([
@@ -404,6 +435,10 @@ class DoctorController extends Controller
         $exception = RawDoctorScheduleException::where('raw_doctor_id', $doctorId)
             ->findOrFail($exceptionId);
 
+        // Guard: cabang asal pengecualian & cabang tujuan harus diizinkan.
+        $this->assertBranchAllowed($exception->raw_branch_id);
+        $this->assertBranchAllowed(request('raw_branch_id'));
+
         $exception->update([
             'raw_branch_id' => request('raw_branch_id'),
             'date'          => request('date'),
@@ -426,6 +461,8 @@ class DoctorController extends Controller
         $exception = RawDoctorScheduleException::where('raw_doctor_id', $doctorId)
             ->findOrFail($exceptionId);
 
+        $this->assertBranchAllowed($exception->raw_branch_id);
+
         $exception->delete();
 
         return redirect()->route('rawdoctor.edit', [$doctorId, 'tab' => 'cuti'])
@@ -434,7 +471,13 @@ class DoctorController extends Controller
 
     public function update($id)
     {
-        $isSales = session('group_name') === 'Sales';
+        // Edit profil dokter (nama/foto) = non-Sales saja. Form-nya memang
+        // disembunyikan untuk Sales, tapi tetap ditolak server-side agar POST
+        // langsung tidak bisa menembus (konsisten dengan deletePhoto()).
+        if (session('group_name') === 'Sales') {
+            return redirect()->route('rawdoctor.edit', $id)
+                ->with('error', 'Anda tidak memiliki akses untuk mengubah profil dokter.');
+        }
 
         request()->validate([
             'name'  => 'required|max:255',
@@ -444,8 +487,7 @@ class DoctorController extends Controller
         $doctor = RawDoctor::findOrFail($id);
         $data   = ['name' => request('name')];
 
-        // Sales tidak boleh upload/ganti foto
-        if (!$isSales && request()->hasFile('photo')) {
+        if (request()->hasFile('photo')) {
             if ($doctor->photo) {
                 $oldPath = public_path('uploads/doctors/' . $doctor->photo);
                 if (is_file($oldPath)) {
@@ -525,6 +567,8 @@ class DoctorController extends Controller
             'end_hour' => 'required',
         ]);
 
+        $this->assertBranchAllowed(request('raw_branch_id'));
+
         $doctor = RawDoctor::findOrFail($doctorId);
 
         RawDoctorSchedule::create([
@@ -552,6 +596,10 @@ class DoctorController extends Controller
         $schedule = RawDoctorSchedule::where('raw_doctor_id', $doctorId)
             ->findOrFail($scheduleId);
 
+        // Guard: cabang asal jadwal & cabang tujuan dua-duanya harus diizinkan.
+        $this->assertBranchAllowed($schedule->raw_branch_id);
+        $this->assertBranchAllowed(request('raw_branch_id'));
+
         $schedule->update([
             'raw_branch_id' => request('raw_branch_id'),
             'day' => request('day'),
@@ -568,6 +616,8 @@ class DoctorController extends Controller
     {
         $schedule = RawDoctorSchedule::where('raw_doctor_id', $doctorId)
             ->findOrFail($scheduleId);
+
+        $this->assertBranchAllowed($schedule->raw_branch_id);
 
         $schedule->delete();
 
@@ -615,6 +665,8 @@ class DoctorController extends Controller
     {
         $schedule = RawDoctorSchedule::where('raw_doctor_id', $doctorId)
             ->findOrFail($scheduleId);
+
+        $this->assertBranchAllowed($schedule->raw_branch_id);
 
         $schedule->update([
             'day'        => request('day'),

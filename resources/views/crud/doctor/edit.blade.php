@@ -147,26 +147,31 @@
         <div class="dxd-card" data-dxd-panel="jadwal" style="display:{{ $activeTab === 'jadwal' ? '' : 'none' }}; padding:22px 24px;">
             <div class="dxd-sec" style="margin-bottom:4px;">
                 <div class="dxd-sec__l"><span class="dxd-sec__tick"></span><span class="dxd-sec__t">Jadwal Mingguan</span></div>
-                <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                    <button type="button" class="dx-btn" id="dxjCopyBtn"><i class="fa fa-copy"></i> Salin jadwal</button>
-                    <button type="button" class="dx-btn" id="dxjAddBtn"><i class="fa fa-plus"></i> Cabang lain</button>
-                </div>
+                @unless($doctorBranches->isEmpty())
+                    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                        <button type="button" class="dx-btn" id="dxjCopyBtn"><i class="fa fa-copy"></i> Salin jadwal</button>
+                        <button type="button" class="dx-btn" id="dxjAddBtn"><i class="fa fa-plus"></i> Tambah jam</button>
+                    </div>
+                @endunless
             </div>
             <div class="dxj-hint" style="display:flex; align-items:center; gap:14px; flex-wrap:wrap;">
                 <span>Klik area kosong untuk menambah · klik blok untuk edit jam kerja.</span>
                 <span class="dxj-legend"><span class="dxj-legend__bar"><span></span></span> terisi / kapasitas</span>
             </div>
 
-            @if($practiceBranches->isEmpty())
-                <div class="dxj-empty">Dokter ini belum punya jadwal. Klik <strong>Tambah Jam</strong> untuk mulai.</div>
+            @if($doctorBranches->isEmpty())
+                <div class="dxj-empty">
+                    <div>{{ session('raw_branch_id') ? 'Dokter ini belum punya jadwal di cabang Anda.' : 'Dokter ini belum punya jadwal mingguan.' }}</div>
+                    <button type="button" class="dx-btn dx-btn--primary" id="dxjEmptyAdd" style="margin-top:12px;"><i class="fa fa-plus"></i> Tambah Jam Kerja</button>
+                </div>
             @else
                 <div class="dxj-tabs">
-                    @foreach($practiceBranches as $bi => $b)
+                    @foreach($doctorBranches as $bi => $b)
                         <button type="button" class="dxj-tab {{ $bi === 0 ? 'is-active' : '' }}" data-dxj-branch="{{ $b->id }}">{{ $b->name }}</button>
                     @endforeach
                 </div>
 
-                @foreach($practiceBranches as $bi => $b)
+                @foreach($doctorBranches as $bi => $b)
                     <div data-dxj-panel="{{ $b->id }}" style="display:{{ $bi === 0 ? '' : 'none' }};">
                         <div class="dxj-grid">
                             <div class="dxj-dayhead">
@@ -374,7 +379,7 @@
                 @endphp
 
                 <div class="dxp-strip">
-                    <span><strong id="dxpServedCount">{{ $served->count() }}</strong> dari {{ $allServices->count() }} perawatan dilayani{!! $hasBranch ? ' di <span id="dxpBranchName">' . e($doctorBranches->first()->name) . '</span>' : '' !!}</span>
+                    <span><strong id="dxpServedCount">{{ $served->count() }}</strong> dari {{ $allServices->count() }} perawatan dilayani · <span class="dxp-strip__hint">berlaku semua cabang{!! $hasBranch ? '; durasi diatur per cabang' : '' !!}</span></span>
                     @if($hasBranch)<button type="button" class="dxp-strip__reset" id="dxpReset"><i class="fa fa-pen"></i> Semua pakai durasi default</button>@endif
                 </div>
 
@@ -551,6 +556,8 @@
 
         var addBtn = document.getElementById('dxjAddBtn');   // "Cabang lain" — tambah jam, cabang dipilih sendiri
         if (addBtn) addBtn.addEventListener('click', function () { openAdd('', ''); });
+        var emptyAdd = document.getElementById('dxjEmptyAdd'); // empty-state: dokter belum punya jadwal sama sekali
+        if (emptyAdd) emptyAdd.addEventListener('click', function () { openAdd('', ''); });
         var copyBtn = document.getElementById('dxjCopyBtn'); // "Salin jadwal" — Fase D
         if (copyBtn) copyBtn.addEventListener('click', function () {
             Swal.fire({ icon: 'info', title: 'Salin Jadwal', text: 'Fitur salin jadwal (antar hari / antar cabang) hadir di update berikutnya.', confirmButtonColor: '#461500' });
@@ -589,9 +596,11 @@
                 didOpen: function () { var c = document.querySelector('.swal2-container'); if (c) c.style.zIndex = '2000'; },
             }).then(function (r) { if (r.isConfirmed) delForm.submit(); });
         });
-        document.querySelectorAll('.dxj-tab').forEach(function (t) {
+        // Scope ke [data-dxj-branch] saja — JANGAN '.dxj-tab' (class itu dipakai
+        // ulang oleh tab cabang di tab Perawatan, nanti bocor & nyembunyiin grid).
+        document.querySelectorAll('[data-dxj-branch]').forEach(function (t) {
             t.addEventListener('click', function () {
-                document.querySelectorAll('.dxj-tab').forEach(function (x) { x.classList.remove('is-active'); });
+                document.querySelectorAll('[data-dxj-branch]').forEach(function (x) { x.classList.remove('is-active'); });
                 t.classList.add('is-active');
                 document.querySelectorAll('[data-dxj-panel]').forEach(function (p) {
                     p.style.display = p.dataset.dxjPanel === t.dataset.dxjBranch ? '' : 'none';
@@ -686,7 +695,6 @@
                 form.querySelectorAll('[data-dxp-branch]').forEach(function (x) { x.classList.remove('is-active'); });
                 t.classList.add('is-active');
                 form.querySelectorAll('.dxp-dur-input').forEach(function (inp) { inp.style.display = inp.dataset.branch === t.dataset.dxpBranch ? '' : 'none'; });
-                var nm = document.getElementById('dxpBranchName'); if (nm) nm.textContent = t.textContent.trim();
                 served.querySelectorAll('.dxp-item').forEach(updSublabel);
             });
         });
