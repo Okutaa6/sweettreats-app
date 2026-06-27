@@ -160,6 +160,11 @@ Route::middleware([AuthGuard::class])->group(function () {
     // ikut ngebuka /dashboard/executive dll).
     Route::get('/sales-dashboard', [\App\Http\Controllers\SalesDashboardController::class, 'index'])->name('sales-dashboard');
 
+    // Marketing Dashboard — segmen URL sendiri (/marketing-dashboard) supaya
+    // RBAC-nya independen (bisa di-grant khusus Marketing). Global + filter
+    // cabang opsional, fokus akuisisi pasien + aktivitas marketing.
+    Route::get('/marketing-dashboard', [\App\Http\Controllers\MarketingDashboardController::class, 'index'])->name('marketing-dashboard');
+
     // Sales Report — rekap penjualan periodik (data Omnicare)
     Route::prefix('report')->group(function () {
         // /report → redirect ke report sales (dipakai sidebar menu, link='report')
