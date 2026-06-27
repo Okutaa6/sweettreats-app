@@ -394,11 +394,28 @@ body[data-theme="marketing"] .main-menu-inner .menu-body .nav-item ul li > a { c
 body[data-theme="marketing"] .left-sidenav .nav-link i,
 body[data-theme="marketing"] .main-menu-inner .menu-body .nav-item .nav-link i,
 body[data-theme="marketing"] .main-menu-inner .menu-body .nav-item ul li > a i { color: #8FC4C0 !important; }
-/* Active — ikon teal terang (bg/ring putih transparan tetap dipakai) */
+/* Hover & Active overlay: putih NETRAL (base pakai floral-white hangat
+   255,250,245 → ada warm cast di atas teal). Teks/ikon ke cool-white. */
+body[data-theme="marketing"] .main-menu-inner .menu-body .nav-item .nav-link:hover,
+body[data-theme="marketing"] .main-menu-inner .menu-body .nav-item ul li > a:hover {
+    background: rgba(255,255,255,.08) !important; color: #EAFBF9 !important;
+}
+body[data-theme="marketing"] .main-menu-inner .menu-body .nav-item .nav-link:hover i,
+body[data-theme="marketing"] .main-menu-inner .menu-body .nav-item ul li > a:hover i { color: #CDEFEB !important; }
+body[data-theme="marketing"] .main-menu-inner .menu-body .nav-item .nav-link:hover span,
+body[data-theme="marketing"] .main-menu-inner .menu-body .nav-item ul li > a:hover span { color: #EAFBF9 !important; }
+body[data-theme="marketing"] .main-menu-inner .menu-body .nav-item .nav-link.active,
+body[data-theme="marketing"] .main-menu-inner .menu-body .nav-item ul li > a.active,
+body[data-theme="marketing"] .main-menu-inner .menu-body .nav-item .nav-link.active:hover,
+body[data-theme="marketing"] .main-menu-inner .menu-body .nav-item ul li > a.active:hover {
+    background: rgba(255,255,255,.14) !important;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.16) !important;
+}
 body[data-theme="marketing"] .main-menu-inner .menu-body .nav-item .nav-link.active i,
 body[data-theme="marketing"] .main-menu-inner .menu-body .nav-item ul li > a.active i { color: #CDEFEB !important; }
+body[data-theme="marketing"] .main-icon-menu .nav-link:hover { background: rgba(255,255,255,.08) !important; }
 body[data-theme="marketing"] .main-icon-menu .nav-link.active,
-body[data-theme="marketing"] .main-icon-menu .nav-link.active:hover { color: #CDEFEB !important; }
+body[data-theme="marketing"] .main-icon-menu .nav-link.active:hover { background: rgba(255,255,255,.12) !important; color: #CDEFEB !important; }
 /* Section label — muted teal */
 body[data-theme="marketing"] .title-box .menu-title,
 body[data-theme="marketing"] .main-menu-inner .menu-body .menu-title,
@@ -415,8 +432,16 @@ body[data-theme="marketing"] .st-side-logout { color: #BFE0DD !important; }
 body[data-theme="marketing"] .topbar .st-brand,
 body[data-theme="marketing"] .st-topbar .st-brand,
 body[data-theme="marketing"] .st-brand { background: #0E5A57 !important; }
-/* Header tetap krem; aksen ikon di-tint teal biar nyambung */
-body[data-theme="marketing"] .st-hamburger { color: #0A4F4D !important; }
+/* Header: di-dinginin ke light-teal (cream hangat tabrakan sama sidebar teal).
+   Sefamili tone theme-marketing (#f4faf9/#e6f5f4/#c4ebe9). */
+body[data-theme="marketing"] .st-topbar {
+    background: rgba(244,250,249,.85) !important;
+    border-bottom: 1px solid #CFE7E4 !important;
+}
+body[data-theme="marketing"] .st-pagehead-title { color: #0A4F4D !important; }
+body[data-theme="marketing"] .st-pagehead-sub { color: #5E8A86 !important; }
+body[data-theme="marketing"] .st-hamburger { color: #0A4F4D !important; border-color: #CFE7E4 !important; }
+body[data-theme="marketing"] .st-hamburger:hover { background: #ECF7F5 !important; }
 body[data-theme="marketing"] .st-topbar .st-actions .st-icon-btn {
     background: #E6F5F4 !important; border-color: #C4EBE9 !important; color: #0E6E6B !important;
 }
