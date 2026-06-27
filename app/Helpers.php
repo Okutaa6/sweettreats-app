@@ -105,6 +105,31 @@ function getSidebarChild()
 }
 
 /**
+ * Nama halaman aktif untuk judul header — diambil dari menu (group_access)
+ * berdasarkan child yang link-nya cocok dengan segment URL pertama. Konsisten
+ * dengan label di sidebar. Fallback: title-case dari segment.
+ */
+if (!function_exists('getActivePageName')) {
+    function getActivePageName()
+    {
+        $controller = request()->segment(1);
+        $data = getGroupAccessData();
+        if (is_array($data)) {
+            foreach ($data as $row) {
+                foreach (($row['sub'] ?? []) as $subrow) {
+                    foreach (($subrow['child'] ?? []) as $childrow) {
+                        if (($childrow['link'] ?? null) === $controller) {
+                            return $childrow['nama'];
+                        }
+                    }
+                }
+            }
+        }
+        return $controller ? ucwords(str_replace(['-', '_'], ' ', $controller)) : 'Dashboard';
+    }
+}
+
+/**
  * Normalisasi nomor telepon ke 08xxxxxxxxx (null bila tak valid).
  * Wrapper tipis untuk App\Support\Phone::normalize agar bisa dipakai
  * di Blade / kode legacy tanpa import.

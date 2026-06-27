@@ -1,0 +1,423 @@
+/* ════════════════════════════════════════════════════════════════════════
+   SHELL REDESIGN — Sidebar gelap (FONDASI, global)
+   ────────────────────────────────────────────────────────────────────────
+   Berdasarkan design handoff `design_handoff_reservasi` (sidebar = kolom
+   gradient coklat gelap, item bersih tanpa pil krem, label section muted).
+
+   SCOPE: SEMUA halaman & SEMUA tema → prefix `body[data-theme]` (cocok ke default
+   maupun marketing). File di-load PALING AKHIR → menang atas aturan teal
+   theme-marketing.css. Shell jadi brown konsisten di seluruh app.
+
+   FUTURE (per-department color): struktur di sini theme-agnostic. Untuk kasih
+   warna beda per departemen (mis. Sales=coklat, Marketing=teal), tinggal angkat
+   warna ke CSS variable lalu override per `body[data-theme="X"]` — TANPA duplikasi
+   struktur. Saat ini semua dipaksa brown dulu sesuai keputusan user.
+
+   KENAPA file terpisah & banyak !important: CSS sidebar asli di
+   style.sweettreats.css dipaksa terang pakai !important (bg krem pada tiap
+   .nav-link, .title-box, dst). Untuk mengalahkannya kita butuh specificity
+   lebih tinggi (prefix body[data-theme]) + !important. File ini di-load
+   PALING AKHIR di <head> sehingga menang. Mudah di-revert (hapus 1 <link>).
+
+   CATATAN STRUKTUR: menu digerakkan permission DB (getSidebarChild). Role
+   single-parent (mis. Sales) = kolom tunggal bersih ~ design. Role multi-parent
+   (mis. Admin General) tetap punya icon-rail + section group — itu fitur nyata,
+   bukan dihapus; di sini hanya digelapkan & dirapikan agar kohesif.
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* ── 1. Kolom & panel — gradient gelap menyatu, buang border terang ──────── */
+body[data-theme] .left-sidenav,
+body[data-theme] .left-sidenav .main-icon-menu,
+body[data-theme] .main-menu-inner {
+    background: linear-gradient(180deg, #3A1100 0%, #2C0C00 100%) !important;
+    border-right: none !important;
+}
+body[data-theme] .left-sidenav { border-right: none !important; }
+body[data-theme] .main-menu-inner .menu-body { background: transparent !important; }
+
+/* Divider halus antara icon-rail & menu pane (ganti garis #5C2A0A yang kasar) */
+body[data-theme] .left-sidenav:not(.no-icon-bar) .main-icon-menu {
+    border-right: 1px solid rgba(255, 250, 245, .07) !important;
+    box-shadow: none !important;
+}
+
+/* ── 2. Item menu — buang pil krem warisan, jadi baris bersih ────────────── */
+body[data-theme] .main-menu-inner .nav-link,
+body[data-theme] .main-icon-menu .nav-link,
+body[data-theme] .main-menu-inner .menu-body .nav-item .nav-link,
+body[data-theme] .main-menu-inner .menu-body .nav-item ul li > a {
+    background: transparent !important;
+    color: #D8B89E !important;
+    border: none !important;
+    border-left: none !important;
+    box-shadow: none !important;
+    font-weight: 600 !important;
+}
+body[data-theme] .left-sidenav .nav-link i,
+body[data-theme] .main-menu-inner .menu-body .nav-item .nav-link i,
+body[data-theme] .main-menu-inner .menu-body .nav-item ul li > a i {
+    color: #C79C7E !important;
+}
+
+/* ── 3. Hover — overlay terang tipis (bukan krem + garis kiri) ───────────── */
+body[data-theme] .main-menu-inner .menu-body .nav-item .nav-link:hover,
+body[data-theme] .main-menu-inner .menu-body .nav-item ul li > a:hover {
+    background: rgba(255, 250, 245, .07) !important;
+    color: #FFF3E8 !important;
+    border-left: none !important;
+    padding-left: 14px !important;   /* batalkan geser akibat border-left tema lama */
+}
+body[data-theme] .main-menu-inner .menu-body .nav-item .nav-link:hover i,
+body[data-theme] .main-menu-inner .menu-body .nav-item ul li > a:hover i { color: #E8C7A8 !important; }
+body[data-theme] .main-menu-inner .menu-body .nav-item .nav-link:hover span,
+body[data-theme] .main-menu-inner .menu-body .nav-item ul li > a:hover span { color: #FFF3E8 !important; }
+
+/* ── 4. Active — highlight transparan + inset ring (ala design) ──────────── */
+body[data-theme] .main-menu-inner .menu-body .nav-item .nav-link.active,
+body[data-theme] .main-menu-inner .menu-body .nav-item ul li > a.active,
+body[data-theme] .main-menu-inner .menu-body .nav-item .nav-link.active:hover,
+body[data-theme] .main-menu-inner .menu-body .nav-item ul li > a.active:hover {
+    background: rgba(255, 250, 245, .13) !important;
+    color: #FFFFFF !important;
+    border: none !important;
+    border-left: none !important;
+    box-shadow: inset 0 0 0 1px rgba(255, 250, 245, .15) !important;
+    padding-left: 14px !important;
+}
+body[data-theme] .main-menu-inner .menu-body .nav-item .nav-link.active i,
+body[data-theme] .main-menu-inner .menu-body .nav-item ul li > a.active i { color: #FFD9B8 !important; }
+body[data-theme] .main-menu-inner .menu-body .nav-item .nav-link.active span,
+body[data-theme] .main-menu-inner .menu-body .nav-item ul li > a.active span { color: #FFFFFF !important; }
+
+/* ── 5. Section label ("Menu", "User Access", ...) — muted uppercase ─────── */
+body[data-theme] .title-box,
+body[data-theme] .title-box-icon {
+    background: transparent !important;
+}
+body[data-theme] .title-box .menu-title,
+body[data-theme] .main-menu-inner .menu-body .menu-title,   /* lawan teal theme-marketing (specificity sama, file ini terakhir → menang) */
+body[data-theme] .menu-title {
+    color: #A67C5A !important;
+    font-weight: 700 !important;
+    font-size: 10.5px !important;
+    text-transform: uppercase !important;
+    letter-spacing: 1.2px !important;
+}
+
+/* ── 6. Icon-rail (role multi-parent) — gelap & indikator aktif kohesif ──── */
+body[data-theme] .main-icon-menu .nav-link.active,
+body[data-theme] .main-icon-menu .nav-link.active:hover {
+    background: rgba(255, 250, 245, .12) !important;
+    color: #FFD9B8 !important;
+    border-radius: 12px !important;
+}
+body[data-theme] .main-icon-menu .nav-link:hover {
+    background: rgba(255, 250, 245, .07) !important;
+    color: #FFF3E8 !important;
+    border-radius: 12px !important;
+}
+
+/* ── 7. Tombol collapse — menyatu dengan kolom gelap ─────────────────────── */
+body[data-theme] .sidebar-collapse-btn {
+    background: #3A1100 !important;
+    border: 1px solid rgba(255, 250, 245, .2) !important;
+    color: #E8C7A8 !important;
+}
+body[data-theme] .sidebar-collapse-btn:hover {
+    background: #4A1800 !important;
+    color: #FFF3E8 !important;
+}
+body[data-theme] .sidebar-collapse-btn i { color: #E8C7A8 !important; }
+
+/* Tombol collapse mengambang disembunyikan — diganti hamburger di header (ala design) */
+body[data-theme] .sidebar-collapse-btn { display: none !important; }
+
+/* ── 8. Chip akun di footer sidebar (identitas user pindah ke sini) ──────── */
+body[data-theme] .st-side-account {
+    position: absolute;
+    left: 10px; right: 10px; bottom: 12px;
+    z-index: 2;                         /* di atas konten menu yg ter-scroll */
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 11px;
+    background: #3A1100;                /* solid: konten di belakang tak menembus */
+    border: 1px solid rgba(255, 250, 245, .14);
+    border-radius: 14px;
+}
+/* Fade footer: konten menu yg ter-scroll memudar di balik chip (tak ada lagi
+   "Report Referral" nembus). Anchor ke main-menu-inner (position:fixed). */
+body[data-theme] .main-menu-inner::after {
+    content: '';
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    height: 86px;
+    background: linear-gradient(180deg, rgba(44,12,0,0) 0%, #2C0C00 60%);
+    pointer-events: none;
+    z-index: 1;
+}
+/* ruang agar item menu terakhir tak ketutupan chip */
+body[data-theme] .main-menu-inner .menu-body { padding-bottom: 100px !important; }
+body[data-theme] .st-side-avatar {
+    flex: 0 0 auto;
+    width: 34px; height: 34px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(135deg, #7A3415, #461500);
+    color: #FFE7CF; font-weight: 800; font-size: 14px;
+}
+body[data-theme] .st-side-acc-meta { flex: 1 1 auto; min-width: 0; }
+body[data-theme] .st-side-acc-name {
+    color: #FFF3E8; font-weight: 700; font-size: 12.5px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+body[data-theme] .st-side-acc-role {
+    color: #C79C7E; font-size: 11px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+body[data-theme] .st-side-logout {
+    flex: 0 0 auto;
+    width: 30px; height: 30px; border-radius: 9px;
+    display: flex; align-items: center; justify-content: center;
+    color: #D8B89E; background: transparent; border: 1px solid transparent;
+    transition: background .15s ease, color .15s ease;
+}
+body[data-theme] .st-side-logout:hover {
+    background: rgba(255, 250, 245, .12); color: #FFF3E8;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   HEADER — cream translucent + blur; judul halaman + hamburger (ala design)
+   (st-brand tetap gelap = brand di puncak kolom kiri)
+   ══════════════════════════════════════════════════════════════════════════ */
+body[data-theme] .st-topbar {
+    background: rgba(255, 250, 245, .85) !important;
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid #ECD8C2 !important;
+    box-shadow: none !important;
+}
+/* Hamburger — putih bersih (ala design) */
+body[data-theme] .st-hamburger {
+    flex: 0 0 auto;
+    width: 44px; height: 44px; margin-left: 18px;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: #FFFFFF; border: 1px solid #EEE0D0; border-radius: 13px;
+    color: #461500; cursor: pointer;
+    box-shadow: 0 2px 6px rgba(70,21,0,.06);
+    transition: background .15s ease, color .15s ease, box-shadow .15s ease;
+}
+body[data-theme] .st-hamburger:hover { background: #FBF3E9; box-shadow: 0 4px 10px rgba(70,21,0,.08); }
+/* Judul + subtitle */
+body[data-theme] .st-pagehead {
+    flex: 1 1 auto; min-width: 0; margin-left: 16px;
+    display: flex; flex-direction: column; justify-content: center;
+}
+body[data-theme] .st-pagehead-title {
+    color: #3B1500; font-weight: 800; font-size: 21px; line-height: 1.15;
+    letter-spacing: -.2px;
+}
+body[data-theme] .st-pagehead-sub {
+    color: #9A7256; font-size: 12.5px; margin-top: 2px;
+}
+/* Ikon aksi kanan (chat + bell) selaras palette hangat */
+body[data-theme] .st-topbar .st-actions .st-icon-btn {
+    background: #FBF1E6; border: 1px solid #EFDFCC; color: #6B2400;
+}
+body[data-theme] .st-topbar .st-actions .st-icon-btn:hover { background: #F3E2CE; }
+
+/* ── 9. Judul halaman kini di header → buang judul dobel di dalam konten ─── */
+/* page-title-box dipakai ~70 view & isinya cuma <h4> judul (tanpa tombol/breadcrumb),
+   jadi aman disembunyikan — judul tetap tampil di header. */
+body[data-theme] .page-title-box { display: none !important; }
+/* Dashboard Sales: header custom punya judul sendiri (.sds-h) → sembunyikan judulnya
+   saja, baris konteks (.sds-h__sub) + date picker tetap tampil. */
+body[data-theme] .sds-h { display: none !important; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   HEADER SLIM — tinggi 96px → 72px, isi rata-tengah vertikal
+   Semua offset yang terkunci ke 96px (page-wrapper, page-content, sidebar) ikut
+   disinkronkan ke 72px supaya tidak ada gap/overlap.
+   ══════════════════════════════════════════════════════════════════════════ */
+body[data-theme] .st-topbar,
+body[data-theme] .st-topbar .st-header-card {
+    height: 72px !important;
+    min-height: 72px !important;
+}
+/* Isi header rata-tengah (fix hamburger 'mentok di atas' akibat align-items:stretch) */
+body[data-theme] .st-header-card { align-items: center !important; }
+/* Brand panel ikut tinggi 72; logo sedikit lebih kecil biar ramping & pas */
+body[data-theme] .st-topbar .st-brand,
+body[data-theme] .st-brand { height: 72px !important; }
+body[data-theme] .st-brand-logo {
+    width: 46px !important; height: 46px !important; border-radius: 12px !important;
+}
+/* Offset konten + sidebar ikut 72px */
+body[data-theme] .page-wrapper { padding-top: 72px !important; }
+body[data-theme] .page-content { min-height: calc(100vh - 72px) !important; }
+body[data-theme] .left-sidenav .main-icon-menu,
+body[data-theme] .main-menu-inner {
+    top: 72px !important;
+    height: calc(100vh - 72px) !important;
+}
+body[data-theme] .main-menu-inner .menu-body { height: calc(100vh - 72px) !important; }
+/* Rapatkan jarak atas menu (tadinya 30px utk header tinggi) */
+body[data-theme] .left-sidenav .main-icon-menu .nav,
+body[data-theme] .main-menu-inner .menu-body { padding-top: 16px !important; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   SMOOTH: brand panel = warna sidebar (kolom kiri menyatu, hilangkan seam)
+   Brand semula gradient diagonal #6B4433→#461500 (lebih terang) + ada ::after
+   seam → beda & ada garis dgn sidebar (#3A1100→#2C0C00). Samakan ke #3A1100
+   (= ujung atas gradient sidebar) supaya transisi mulus.
+   ══════════════════════════════════════════════════════════════════════════ */
+body[data-theme] .topbar .st-brand,
+body[data-theme] .st-topbar .st-brand,
+body[data-theme] .st-brand { background: #3A1100 !important; }
+body[data-theme] .st-brand::after { display: none !important; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   COLLAPSE → icon-only (≈74px, ala design). CSS state .sidebar-collapsed sudah
+   ada (left-sidenav 70px + menu-pane 0); JS kini memakainya. Tambahan di sini:
+   brand panel ikut menyusut jadi logo saja + transisi halus.
+   ══════════════════════════════════════════════════════════════════════════ */
+/* Transisi mulus — animasikan min/max/width (sizing asli pakai min/max-width,
+   bukan width saja → kalau cuma 'width' yg ditransisi, slide-nya patah). */
+body[data-theme] .left-sidenav,
+body[data-theme] .left-sidenav .main-menu-inner,
+body[data-theme] .left-sidenav .main-icon-menu,
+body[data-theme] .st-brand {
+    transition: min-width .22s ease, max-width .22s ease, width .22s ease, padding .22s ease !important;
+}
+/* Brand ikut menyusut jadi logo saja saat collapsed.
+   NB: selector pakai .st-topbar .st-brand supaya specificity (0,4,2) MENANG atas
+   rule slim `.st-topbar .st-brand{width:268}` (0,3,2) — kalau tidak, brand tetap
+   268px saat collapsed & logo ngambang tak sejajar kolom ikon. */
+body.sidebar-collapsed[data-theme] .st-topbar .st-brand,
+body.sidebar-collapsed[data-theme] .st-brand {
+    width: 70px !important;
+    padding: 0 !important;
+    justify-content: center !important;
+}
+body.sidebar-collapsed[data-theme] .st-brand-text { display: none !important; }
+body.sidebar-collapsed[data-theme] .st-brand::after { display: none !important; }
+/* Logo di mode collapsed: kecilkan sedikit + lembutkan agar tidak seperti kartu
+   putih ngambang di kolom gelap. */
+body.sidebar-collapsed[data-theme] .st-brand-logo {
+    width: 40px !important; height: 40px !important;
+    box-shadow: none !important;
+}
+
+/* Collapsed kolom kiri = 70px (override slim 268 & rule lama; specificity tinggi
+   biar menang baik utk icon-bar maupun no-icon-bar). */
+body.sidebar-collapsed[data-theme] .left-sidenav {
+    min-width: 70px !important; max-width: 70px !important; width: 70px !important;
+}
+
+/* ── no-icon-bar (single parent, mis. Sales): collapse = kolom menyusut jadi
+   icon-only 70px (BUKAN hilang total). Label & judul section disembunyikan,
+   ikon dipusatkan. ── */
+body.sidebar-collapsed[data-theme] .left-sidenav.no-icon-bar,
+body.sidebar-collapsed[data-theme] .left-sidenav.no-icon-bar .main-menu-inner,
+body.sidebar-collapsed[data-theme] .left-sidenav.no-icon-bar .main-menu-inner.collapsed {
+    width: 70px !important;
+    min-width: 70px !important;
+    max-width: 70px !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    overflow: visible !important;
+    left: 0 !important;
+}
+body.sidebar-collapsed[data-theme] .left-sidenav.no-icon-bar .menu-body .nav-item .nav-link,
+body.sidebar-collapsed[data-theme] .left-sidenav.no-icon-bar .menu-body .nav-item ul li > a {
+    font-size: 0 !important;            /* sembunyikan teks label, ikon tetap */
+    justify-content: center !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    margin-right: 0 !important;
+}
+body.sidebar-collapsed[data-theme] .left-sidenav.no-icon-bar .menu-body .nav-link i {
+    font-size: 18px !important;
+    margin: 0 !important;
+}
+body.sidebar-collapsed[data-theme] .left-sidenav.no-icon-bar .menu-title { display: none !important; }
+body.sidebar-collapsed[data-theme] .left-sidenav.no-icon-bar .title-box { padding: 6px 0 !important; }
+
+/* Chip akun saat collapsed: tampil avatar saja (meta + logout disembunyikan) */
+body.sidebar-collapsed[data-theme] .st-side-account {
+    left: 8px !important; right: 8px !important;
+    padding: 8px !important; justify-content: center !important; gap: 0 !important;
+}
+body.sidebar-collapsed[data-theme] .st-side-acc-meta,
+body.sidebar-collapsed[data-theme] .st-side-logout { display: none !important; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   SLIM — rampingkan kolom kiri 300px → 268px (brand panel + sidebar selaras).
+   Layout flex → konten auto-menyesuaikan. Collapsed (70px) override di atas
+   menang karena specificity lebih tinggi (body.sidebar-collapsed[...]).
+   ══════════════════════════════════════════════════════════════════════════ */
+body[data-theme] .left-sidenav,
+body[data-theme] .left-sidenav.no-icon-bar { min-width: 268px !important; max-width: 268px !important; }
+body[data-theme] .left-sidenav.no-icon-bar .main-menu-inner { width: 268px !important; }
+body[data-theme] .main-menu-inner { width: 198px !important; }   /* icon-bar: rail 70 + 198 = 268 */
+body[data-theme] .topbar .st-brand,
+body[data-theme] .st-topbar .st-brand { width: 268px !important; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   LATAR HALAMAN — cream hangat global (design handoff: page bg #F4ECE2).
+   Sebelumnya cuma di reservasi-redesign.css (scoped reservation) → halaman lain
+   putih. Diangkat ke global supaya SEMUA halaman seragam cream. Kartu/tabel
+   tetap putih → kontras lembut. Mudah revert (hapus blok ini).
+   ══════════════════════════════════════════════════════════════════════════ */
+body[data-theme] .page-content,
+body[data-theme] .page-wrapper { background: #F4ECE2; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   PER-DEPARTEMEN — MARKETING = TEAL/TOSCA (override shell coklat)
+   ────────────────────────────────────────────────────────────────────────
+   Shell di atas dipaksa coklat utk SEMUA tema. Blok ini nimpa KHUSUS role
+   marketing (body[data-theme="marketing"]) jadi teal, sefamili dgn konten
+   marketing (theme-marketing.css: #0a4f4d/#13928e/aksen lime).
+   Specificity sama dgn rule coklat → menang lewat URUTAN (blok ini paling akhir)
+   + !important. Coklat Sales (data-theme="default") TIDAK tersentuh.
+   Shade: gelap-kalem #0E5A57 → #06322F (setara mood coklat sidebar).
+   Header tetap krem netral; cuma aksen ikon di-tint teal.
+   (Long-term: angkat warna shell ke CSS var --shell-* biar ga duplikasi.)
+   ══════════════════════════════════════════════════════════════════════════ */
+body[data-theme="marketing"] .left-sidenav,
+body[data-theme="marketing"] .left-sidenav .main-icon-menu,
+body[data-theme="marketing"] .main-menu-inner {
+    background: linear-gradient(180deg, #0E5A57 0%, #06322F 100%) !important;
+}
+/* Item menu — teks & ikon teal-tint */
+body[data-theme="marketing"] .main-menu-inner .nav-link,
+body[data-theme="marketing"] .main-icon-menu .nav-link,
+body[data-theme="marketing"] .main-menu-inner .menu-body .nav-item .nav-link,
+body[data-theme="marketing"] .main-menu-inner .menu-body .nav-item ul li > a { color: #BFE0DD !important; }
+body[data-theme="marketing"] .left-sidenav .nav-link i,
+body[data-theme="marketing"] .main-menu-inner .menu-body .nav-item .nav-link i,
+body[data-theme="marketing"] .main-menu-inner .menu-body .nav-item ul li > a i { color: #8FC4C0 !important; }
+/* Active — ikon teal terang (bg/ring putih transparan tetap dipakai) */
+body[data-theme="marketing"] .main-menu-inner .menu-body .nav-item .nav-link.active i,
+body[data-theme="marketing"] .main-menu-inner .menu-body .nav-item ul li > a.active i { color: #CDEFEB !important; }
+body[data-theme="marketing"] .main-icon-menu .nav-link.active,
+body[data-theme="marketing"] .main-icon-menu .nav-link.active:hover { color: #CDEFEB !important; }
+/* Section label — muted teal */
+body[data-theme="marketing"] .title-box .menu-title,
+body[data-theme="marketing"] .main-menu-inner .menu-body .menu-title,
+body[data-theme="marketing"] .menu-title { color: #6E9C98 !important; }
+/* Chip akun + avatar + footer fade */
+body[data-theme="marketing"] .st-side-account { background: #0E5A57 !important; }
+body[data-theme="marketing"] .main-menu-inner::after {
+    background: linear-gradient(180deg, rgba(6,50,47,0) 0%, #06322F 60%) !important;
+}
+body[data-theme="marketing"] .st-side-avatar { background: linear-gradient(135deg, #13928E, #0A4F4D) !important; }
+body[data-theme="marketing"] .st-side-acc-role { color: #8FC4C0 !important; }
+body[data-theme="marketing"] .st-side-logout { color: #BFE0DD !important; }
+/* Brand panel = ujung atas gradient (kolom kiri menyatu) */
+body[data-theme="marketing"] .topbar .st-brand,
+body[data-theme="marketing"] .st-topbar .st-brand,
+body[data-theme="marketing"] .st-brand { background: #0E5A57 !important; }
+/* Header tetap krem; aksen ikon di-tint teal biar nyambung */
+body[data-theme="marketing"] .st-hamburger { color: #0A4F4D !important; }
+body[data-theme="marketing"] .st-topbar .st-actions .st-icon-btn {
+    background: #E6F5F4 !important; border-color: #C4EBE9 !important; color: #0E6E6B !important;
+}
+body[data-theme="marketing"] .st-topbar .st-actions .st-icon-btn:hover { background: #D6EEEC !important; }

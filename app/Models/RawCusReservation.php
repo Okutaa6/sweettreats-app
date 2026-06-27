@@ -94,11 +94,13 @@ class RawCusReservation extends Model
     public static function statusOptions()
     {
         return [
-            self::STATUS_PENDING => ['label' => 'Menunggu Konfirmasi', 'icon' => 'fa-hourglass-half', 'color' => '#f59e0b', 'bg' => '#fef3c7'],
-            self::STATUS_CONFIRMED => ['label' => 'Dikonfirmasi', 'icon' => 'fa-calendar-check', 'color' => '#1565c0', 'bg' => '#e3f2fd'],
-            self::STATUS_WAITLIST => ['label' => 'Waiting List', 'icon' => 'fa-list-ol', 'color' => '#7c3aed', 'bg' => '#ede9fe'],
-            self::STATUS_COMPLETED => ['label' => 'Selesai', 'icon' => 'fa-check', 'color' => '#8b7a6b', 'bg' => '#f5f0eb'],
-            self::STATUS_CANCELLED => ['label' => 'Dibatalkan', 'icon' => 'fa-times', 'color' => '#dc2626', 'bg' => '#fef2f2'],
+            // Palette hangat (design handoff) — samakan dgn token --st-* di
+            // reservasi-redesign.css supaya pill = chip kalender = design.
+            self::STATUS_PENDING => ['label' => 'Menunggu Konfirmasi', 'icon' => 'fa-hourglass-half', 'color' => '#B5701A', 'bg' => '#FBE7CF'],
+            self::STATUS_CONFIRMED => ['label' => 'Dikonfirmasi', 'icon' => 'fa-calendar-check', 'color' => '#2E7D74', 'bg' => '#DFEDE9'],
+            self::STATUS_WAITLIST => ['label' => 'Waiting List', 'icon' => 'fa-list-ol', 'color' => '#8A6A52', 'bg' => '#F0E6DA'],
+            self::STATUS_COMPLETED => ['label' => 'Selesai', 'icon' => 'fa-check', 'color' => '#2F8E55', 'bg' => '#E3F4E8'],
+            self::STATUS_CANCELLED => ['label' => 'Dibatalkan', 'icon' => 'fa-times', 'color' => '#C0392B', 'bg' => '#FBE3DE'],
         ];
     }
 

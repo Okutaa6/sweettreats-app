@@ -127,7 +127,6 @@
                     <tr>
                         <th>Hari &amp; Tanggal</th>
                         <th>Pasien</th>
-                        <th>Dokter</th>
                         <th class="jd-th-sortable {{ $sortJam ? 'jd-th-sortable--active' : '' }}">
                             <a href="{{ $sortUrl }}" class="jd-sort-link" title="{{ $sortTitle }}">
                                 Jam <i class="fa {{ $sortIcon }}"></i>
@@ -164,21 +163,30 @@
                             } else {
                                 $statusLine = $statusOptions[$row->status]['label'] ?? ($row->status ?: '—');
                             }
+
+                            // Warna pill status: kehadiran menang (hijau/merah), else ikut status.
+                            if ($kehadiran === 'hadir') {
+                                $stPill = ['bg' => '#E3F4E8', 'color' => '#2F8E55'];
+                            } elseif ($kehadiran === 'tidak_hadir') {
+                                $stPill = ['bg' => '#FBE3DE', 'color' => '#C0392B'];
+                            } else {
+                                $opt = $statusOptions[$row->status] ?? null;
+                                $stPill = ['bg' => $opt['bg'] ?? '#F0E6DA', 'color' => $opt['color'] ?? '#8A6A52'];
+                            }
                         @endphp
                         <tr>
                             <td class="jd-cell-date">{{ $tanggal }}</td>
                             <td>{{ $row->customer?->name ?? '—' }}</td>
-                            <td>{{ $row->doctor?->name ?? '—' }}</td>
-                            <td class="jd-cell-mono">{!! $jam !!}</td>
-                            <td>{{ $services ?: '—' }}</td>
+                            <td class="jd-cell-mono"><span class="jd-chip-jam">{!! $jam !!}</span></td>
+                            <td>@if($services)<span class="jd-pill-treat">{{ $services }}</span>@else<span class="jd-muted">—</span>@endif</td>
                             <td>{{ $row->keterangan ?: '—' }}</td>
                             <td class="jd-cell-status">
-                                <div class="jd-status">{{ $statusLine }}</div>
+                                <span class="jd-pill" style="background:{{ $stPill['bg'] }};color:{{ $stPill['color'] }};">{{ $statusLine }}</span>
                             </td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="7" class="jd-empty-row">
+                            <td colspan="6" class="jd-empty-row">
                                 <i class="fa fa-folder-open"></i>
                                 <div class="jd-empty-row__title">Belum ada reservasi {{ $selectedDoctor ? 'untuk ' . $selectedDoctor->name : '' }} di periode ini</div>
                                 <div class="jd-empty-row__hint">Coba ganti rentang tanggal lewat tombol <strong>Ganti Dokter / Tanggal</strong> di atas.</div>
@@ -231,7 +239,7 @@
     font-weight: 700;
 }
 .jd-empty__lead {
-    color: #4b5563;
+    color: var(--text-muted, #9A7256);
     font-size: 15px;
     max-width: 560px;
     margin: 0 auto;
@@ -249,15 +257,15 @@
     display: flex;
     align-items: flex-start;
     gap: 14px;
-    background: #fff;
-    border: 1px solid #e5e7eb;
-    border-radius: 10px;
+    background: var(--cream-surface, #fff);
+    border: 1px solid var(--divider-strong, #EFE0CE);
+    border-radius: 12px;
     padding: 16px;
     transition: transform .15s, box-shadow .15s;
 }
 .jd-step:hover {
     transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(0,0,0,0.06);
+    box-shadow: 0 6px 16px rgba(70,21,0,0.07);
 }
 .jd-step__num {
     flex-shrink: 0;
@@ -274,7 +282,7 @@
 .jd-step__body { flex: 1; min-width: 0; }
 .jd-step__title {
     font-weight: 700;
-    color: #111;
+    color: var(--text-primary, #3B1500);
     margin-bottom: 4px;
     font-size: 15px;
 }
@@ -283,7 +291,7 @@
     margin-right: 4px;
 }
 .jd-step__desc {
-    color: #6b7280;
+    color: var(--text-muted, #9A7256);
     font-size: 13.5px;
     line-height: 1.5;
 }
@@ -412,24 +420,39 @@
 .jd-table-wrap {
     overflow-x: auto;
     margin-bottom: 12px;
+    /* Padding tipis supaya box-shadow tabel tidak kepotong scroll-area. */
+    padding: 1px;
 }
 .jd-table {
     width: 100%;
-    border-collapse: collapse;
+    /* separate (bukan collapse) supaya border-radius sudut tabel ke-render —
+       termasuk di PNG (html2canvas set overflow:visible, jadi clip wrapper tak jalan). */
+    border-collapse: separate;
+    border-spacing: 0;
     font-size: 14px;
     line-height: 1.5;
     background: #fff;
+    border: 1px solid var(--divider-strong, #EFE0CE);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 1px 2px rgba(70,21,0,.04), 0 10px 26px rgba(70,21,0,.05);
 }
+/* Sudut membulat (separate → radius per-sel pojok). */
+.jd-table thead th:first-child { border-top-left-radius: 16px; }
+.jd-table thead th:last-child  { border-top-right-radius: 16px; }
+.jd-table tbody tr:last-child td:first-child { border-bottom-left-radius: 16px; }
+.jd-table tbody tr:last-child td:last-child  { border-bottom-right-radius: 16px; }
+.jd-table tbody tr:last-child td { border-bottom: none; }
 .jd-table thead th {
-    background: var(--brown);
-    color: #fff;
+    background: linear-gradient(180deg, #5A2410, #3A1100);
+    color: #EAD3BC;
     font-weight: 700;
     text-align: left;
-    padding: 12px 10px;
-    border: 1px solid rgb(50,15,0);
+    padding: 13px 12px;
+    border: none;
     text-transform: uppercase;
     letter-spacing: 0.3px;
-    font-size: 13px;
+    font-size: 12px;
     white-space: nowrap;
 }
 .jd-th-sortable { padding: 0; }
@@ -444,29 +467,41 @@
 .jd-sort-link i { margin-left: 6px; opacity: 0.75; font-size: 12px; }
 .jd-th-sortable--active .jd-sort-link i { opacity: 1; color: #ffc107; }
 .jd-table tbody td {
-    padding: 10px;
-    border: 1px solid #888;
-    vertical-align: top;
-    color: #111;
+    padding: 12px;
+    border: none;
+    border-bottom: 1px solid var(--divider-soft, #F4EADD);
+    vertical-align: middle;
+    color: var(--text-primary, #3B1500);
 }
 .jd-table tbody tr:nth-child(even) td {
-    background: var(--brown-cream, #fff8f3);
+    background: #FFFCF9;
 }
+.jd-table tbody tr:hover td { background: #FBF3E9; }
 .jd-cell-date {
     white-space: nowrap;
-    font-weight: 600;
+    font-weight: 700;
+    color: var(--text-primary, #3B1500);
 }
-.jd-cell-mono {
-    font-family: 'Consolas', 'Courier New', monospace;
-    white-space: nowrap;
-}
+.jd-cell-mono { white-space: nowrap; }
 .jd-cell-status {
     white-space: nowrap;
 }
-.jd-status {
-    font-weight: 600;
-    color: #111;
+/* Pill status / chip jam / pill perawatan (design View 5) */
+.jd-pill {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 4px 11px; border-radius: 20px;
+    font-size: 12px; font-weight: 700; white-space: nowrap;
 }
+.jd-chip-jam {
+    display: inline-block; background: #F4E7D6; color: #7A5B43;
+    border-radius: 7px; padding: 4px 9px; font-weight: 700; font-size: 12.5px;
+    font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.jd-pill-treat {
+    display: inline-block; background: #F1E9DF; color: #5A3A22;
+    border-radius: 8px; padding: 4px 10px; font-size: 12.5px; font-weight: 600;
+}
+.jd-muted { color: var(--text-subtle, #B79A82); }
 .jd-status-sub {
     font-size: 13px;
     font-weight: 600;

@@ -252,6 +252,7 @@ Route::middleware([AuthGuard::class])->group(function () {
     Route::delete('rawdoctor/{doctorId}/schedule/{scheduleId}', [DoctorController::class, 'scheduleDestroy'])->name('rawdoctor.schedule.destroy');
     Route::get('rawdoctor/{doctorId}/schedules-json', [DoctorController::class, 'schedulesJson'])->name('rawdoctor.schedules.json');
     Route::patch('rawdoctor/{doctorId}/schedule/{scheduleId}/ajax', [DoctorController::class, 'scheduleUpdateAjax'])->name('rawdoctor.schedule.ajax');
+    Route::post('rawdoctor/{doctorId}/schedule-copy', [DoctorController::class, 'scheduleCopy'])->name('rawdoctor.schedule.copy');
     Route::post('rawdoctor/{doctorId}/services', [DoctorController::class, 'servicesUpdate'])->name('rawdoctor.services.update');
     Route::post('rawdoctor/{doctorId}/leave', [DoctorController::class, 'leaveStore'])->name('rawdoctor.leave.store');
     Route::delete('rawdoctor/{doctorId}/leave/{leaveId}', [DoctorController::class, 'leaveDestroy'])->name('rawdoctor.leave.destroy');
@@ -388,6 +389,7 @@ Route::middleware([AuthGuard::class])->group(function () {
     Route::get('rawcustomer/{id}', [CustomerController::class, 'edit'])->name('rawcustomer.edit');
     Route::put('rawcustomer/{id}', [CustomerController::class, 'update'])->name('rawcustomer.update');
     Route::delete('rawcustomer/{id}', [CustomerController::class, 'destroy'])->name('rawcustomer.destroy');
+    Route::post('rawcustomer/{id}/activity', [CustomerController::class, 'storeActivity'])->name('rawcustomer.activity');
     Route::get('api/customer/search', [CustomerController::class, 'search'])->name('api.customer.search');
 
     // CRUD - Reservasi Cabang

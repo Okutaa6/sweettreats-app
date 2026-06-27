@@ -10,7 +10,6 @@ use App\Models\RawDocService;
 use App\Models\RawDoctor;
 use App\Models\RawDoctorSchedule;
 use App\Models\RawPromo;
-use App\Support\OmnicareEncounters;
 use App\Support\Phone;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -66,22 +65,123 @@ class CustomerController extends Controller
             });
         }
 
+        $now = now();
+
+        // ── Agregat LTV/kunjungan per pasien via Omnicare (link → sales). SATU query,
+        //    dipakai utk KPI clinic-wide, enrich baris, DAN turunan segment. Cache 30 mnt
+        //    (clinic-wide; sync Omnicare harian). TODO prod: pindah ke job/materialized. ──
+        $agg = \Illuminate\Support\Facades\Cache::remember('pasien_ltv_agg', 1800, function () {
+            return \Illuminate\Support\Facades\DB::table('customer_omnicare_link as l')
+                ->leftJoin('omnicare_sales_detail as s', 's.p_id', '=', 'l.omnicare_pid')
+                ->select('l.raw_customer_id',
+                    \Illuminate\Support\Facades\DB::raw('COALESCE(SUM(s.net_sell_price),0) as ltv'),
+                    \Illuminate\Support\Facades\DB::raw('MAX(s.trx_date) as last_visit'),
+                    \Illuminate\Support\Facades\DB::raw('COUNT(DISTINCT s.trx_date) as visits'))
+                ->groupBy('l.raw_customer_id')
+                ->get()->keyBy('raw_customer_id');
+        });
+
+        // visitedIds: pasien yg pernah transaksi (visits>0) → "Belum Datang" = NOT IN ini.
+        $visitedIds = $agg->filter(fn ($a) => $a->visits > 0)->keys()->all();
+
+        // ── Segment worklist (FINAL, data-driven): semua | baru | belum_datang | ultah.
+        //    Recall/Behel/Piutang = fitur/page terpisah. Counts atas base ter-filter.
+        //    "baru" = ditambah ke sistem bulan ini (created_at). CATATAN: base pasien hasil
+        //    import massal (created_at ke-cluster) → sekarang tipis (~1); ini FUTURE-FACING,
+        //    tumbuh sendiri seiring pasien baru ditambah lewat form Tambah. Sumber lain
+        //    (tanggal_daftar / Omnicare is_new) sama jeleknya / linking nge-lag. ──
+        $applySegment = function ($q, $seg) use ($visitedIds) {
+            if ($seg === 'baru') {
+                $q->whereYear('created_at', now()->year)->whereMonth('created_at', now()->month);
+            } elseif ($seg === 'belum_datang') {
+                $q->whereNotIn('id', $visitedIds ?: ['-']);
+            } elseif ($seg === 'ultah') {
+                $q->whereMonth('tanggal_lahir', now()->month);
+            }
+            return $q;
+        };
+        $seg = in_array(request('seg'), ['baru', 'belum_datang', 'ultah'], true) ? request('seg') : 'semua';
+
+        $baseForCounts = clone $query;
+        $segCounts = [
+            'semua'        => (clone $baseForCounts)->count(),
+            'baru'         => $applySegment((clone $baseForCounts), 'baru')->count(),
+            'belum_datang' => $applySegment((clone $baseForCounts), 'belum_datang')->count(),
+            'ultah'        => $applySegment((clone $baseForCounts), 'ultah')->count(),
+        ];
+
+        $applySegment($query, $seg);
+
+        // ── Sort by KUNJUNGAN TERAKHIR (Omnicare last_visit), bukan last_reservation
+        //    (sparse: mayoritas pasien tak punya reservasi di sistem kita). Correlated
+        //    subselect; yg belum pernah datang (NULL) ditaruh paling bawah. ──
         $customers = $query
-            ->addSelect(['latest_reservation_date' => \App\Models\RawCusReservation::select('date')
-                ->whereColumn('raw_customer_id', 'raw_customer.id')
-                ->orderByDesc('date')
-                ->limit(1)
+            ->addSelect(['last_visit_sort' => \Illuminate\Support\Facades\DB::table('omnicare_sales_detail as s')
+                ->join('customer_omnicare_link as l', 'l.omnicare_pid', '=', 's.p_id')
+                ->whereColumn('l.raw_customer_id', 'raw_customer.id')
+                ->selectRaw('MAX(s.trx_date)')
             ])
-            ->orderByDesc('latest_reservation_date')
+            ->orderByRaw('last_visit_sort IS NULL, last_visit_sort DESC')
             ->orderBy('created_at')
             ->paginate($perPage)->withQueryString();
+
+        // KPI clinic-wide (insight strip).
+        $sixMonthsAgo = $now->copy()->subMonths(6)->toDateString();
+        $totalAktif = 0; $sumLtv = 0; $retained = 0;
+        foreach ($agg as $a) {
+            if ($a->visits > 0) {
+                $totalAktif++;
+                $sumLtv += $a->ltv;
+                if ($a->last_visit && $a->last_visit >= $sixMonthsAgo) $retained++;
+            }
+        }
+        // Sumber akuisisi — pakai source_app (data akuisisi ASLI; channel kosong→Lainnya 100%).
+        $src = RawCustomer::select('source_app', \Illuminate\Support\Facades\DB::raw('count(*) as c'))
+            ->groupBy('source_app')->pluck('c', 'source_app');
+        $acqTotal = max(1, (int) $src->sum());
+        $acqBucket = ['Instagram' => 0, 'TikTok' => 0, 'Teman' => 0, 'Lainnya' => 0];
+        foreach ($src as $k => $c) {
+            $u = strtoupper(trim((string) $k));
+            if (str_contains($u, 'INSTA') || str_contains($u, 'INTAG') || str_contains($u, 'INSTG') || $u === 'IG') $acqBucket['Instagram'] += $c;
+            elseif (str_contains($u, 'TIKTOK') || str_contains($u, 'TITOK') || str_contains($u, 'FYP')) $acqBucket['TikTok'] += $c;
+            elseif (str_contains($u, 'TEMAN') || str_contains($u, 'KELUARGA') || str_contains($u, 'KERABAT')) $acqBucket['Teman'] += $c;
+            else $acqBucket['Lainnya'] += $c;
+        }
+        $acquisition = [];
+        foreach ($acqBucket as $label => $c) {
+            $acquisition[] = ['label' => $label, 'pct' => (int) round($c / $acqTotal * 100)];
+        }
+        $kpi = [
+            'total_aktif' => $totalAktif,
+            'avg_ltv'     => $totalAktif ? (int) round($sumLtv / $totalAktif) : 0,
+            'retensi'     => $totalAktif ? (int) round($retained / $totalAktif * 100) : 0,
+            'acquisition' => $acquisition,
+        ];
+
+        // ── Enrich tiap baris: LTV, kunjungan terakhir, value tier, field hilang (utk detail). ──
+        foreach ($customers as $c) {
+            $a = $agg[$c->id] ?? null;
+            $c->ltv         = $a ? (int) $a->ltv : 0;
+            $c->last_visit  = $a->last_visit ?? null;
+            $c->visit_count = $a ? (int) $a->visits : 0;
+            $c->tier        = $c->ltv >= 2500000 ? 'vip' : ($c->ltv >= 1000000 ? 'bernilai' : 'reguler');
+            $missing = [];
+            if (empty($c->email) || $c->email === '-') $missing[] = 'Email';
+            if (empty($c->nik)) $missing[] = 'NIK';
+            $c->missing_fields = $missing;
+        }
+
         $services = RawDocService::orderBy('name')->get();
         // Dropdown filter cabang & dokter selalu tampil untuk semua user
         // (Sales pun boleh filter cross-cabang).
         $branches = RawBranch::orderBy('name')->get();
         $doctors  = RawDoctor::orderBy('name')->get();
 
-        return view('crud.customer.list', compact('customers', 'services', 'doctors', 'branches', 'filterSearch', 'filterService', 'filterDoctor', 'filterBranch'));
+        return view('crud.customer.list', compact(
+            'customers', 'services', 'doctors', 'branches',
+            'filterSearch', 'filterService', 'filterDoctor', 'filterBranch',
+            'seg', 'segCounts', 'kpi'
+        ));
     }
 
     public function search()
@@ -216,8 +316,6 @@ class CustomerController extends Controller
         }
 
         $totalKunjungan = $customer->reservations->count();
-        $totalSelesai   = $customer->reservations->where('status', 'completed')->count();
-        $totalSpending  = $customer->reservations->where('status', 'completed')->sum('total_reservasi');
 
         // Auto-fill dari reservasi terakhir jika profil masih kosong
         $latestReservation = $customer->reservations->first();
@@ -236,12 +334,9 @@ class CustomerController extends Controller
             $customer->pasien_baru_lama = $hasCompleted ? 'lama' : 'baru';
         }
 
-        // Timeline perjalanan pasien — gabungan lintas sistem
-        // (journey/lead + reservasi Data Center + perawatan nyata Omnicare).
-        $timeline = $this->buildTimeline($customer);
-
-        // Rekam medis lengkap (Omnicare) untuk accordion di profil pasien.
+        // Rekam medis lengkap (Omnicare) untuk timeline Riwayat.
         // Schema guard supaya tidak crash di env yang belum punya tabelnya.
+        $pid = null;
         $medicalRecords = collect();
         if (Schema::hasTable('customer_omnicare_link') && Schema::hasTable('omnicare_medical_record')) {
             $pid = DB::table('customer_omnicare_link')
@@ -255,124 +350,200 @@ class CustomerController extends Controller
             }
         }
 
+        // ── REDESIGN DETAIL: enrich data utk rail (LTV/Ringkasan/Kelengkapan) + header. ──
+        // LTV/kunjungan dari Omnicare (samakan sumber dgn list: SUM net_sell_price raw,
+        // distinct trx_date, MAX trx_date). Refine voucher-exclude nanti bila perlu.
+        $ltv = 0; $visits = 0; $lastVisit = null;
+        if ($pid && Schema::hasTable('omnicare_sales_detail')) {
+            $omni = DB::table('omnicare_sales_detail')
+                ->where('p_id', $pid)
+                ->selectRaw('COALESCE(SUM(net_sell_price),0) as ltv, COUNT(DISTINCT trx_date) as visits, MAX(trx_date) as last_visit')
+                ->first();
+            $ltv       = (int) ($omni->ltv ?? 0);
+            $visits    = (int) ($omni->visits ?? 0);
+            $lastVisit = $omni->last_visit ?? null;
+        }
+        $perVisit = $visits > 0 ? (int) round($ltv / $visits) : 0;
+        $tier     = $ltv >= 2500000 ? 'vip' : ($ltv >= 1000000 ? 'bernilai' : 'reguler');
+
+        // Kelengkapan data — 5 field (user-confirmed).
+        $compFields = [
+            'Email'     => !empty($customer->email) && $customer->email !== '-',
+            'NIK'       => !empty($customer->nik),
+            'Tgl Lahir' => $customer->tanggal_lahir && $customer->tanggal_lahir !== '0000-00-00',
+            'Alamat'    => !empty($customer->alamat),
+            'Referensi' => !empty($customer->source_app),
+        ];
+        $missingFields = array_keys(array_filter($compFields, fn ($ok) => !$ok));
+        $compPct       = (int) round((count($compFields) - count($missingFields)) / count($compFields) * 100);
+
+        // Dokter utama — mode dokter rekam medis Omnicare, fallback dokter reservasi terakhir.
+        $dokterUtama = null;
+        if ($medicalRecords->isNotEmpty()) {
+            $dokterUtama = $medicalRecords->pluck('doctor')->filter()->countBy()->sortDesc()->keys()->first();
+        }
+        $dokterUtama = $dokterUtama ?: optional($latestReservation?->doctor)->name;
+
+        // Perawatan badge (header) — layanan reservasi terakhir / service profil.
+        $perawatanLabel = optional(optional($latestReservation?->services->first())->docService)->name
+            ?: optional($services->firstWhere('id', $customer->raw_doc_service_id))->name;
+
+        // Riwayat gabungan (reservasi + rekam medis) utk tab Riwayat.
+        $riwayat = $this->buildRiwayat($customer, $medicalRecords);
+
+        // Aktivitas / CRM log (tabel raw_cus_activity). Schema-guard supaya aman
+        // di env yang belum jalanin SQL-nya.
+        $activities = collect();
+        if (Schema::hasTable('raw_cus_activity')) {
+            $activities = DB::table('raw_cus_activity')
+                ->where('raw_customer_id', $customer->id)
+                ->orderByDesc('created_at')->orderByDesc('id')
+                ->get();
+        }
+
+        // Tab aktif awal (post-redirect dari simpan aktivitas → ?tab=aktivitas).
+        $activeTab = in_array(request('tab'), ['riwayat', 'aktivitas', 'data'], true) ? request('tab') : 'riwayat';
+
+        $detail = [
+            'ltv'             => $ltv,
+            'visits'          => $visits,
+            'reservasiCount'  => $totalKunjungan,
+            'perVisit'        => $perVisit,
+            'tier'            => $tier,
+            'lastVisit'       => $lastVisit,
+            'compPct'         => $compPct,
+            'missingFields'   => $missingFields,
+            'dokterUtama'     => $dokterUtama,
+            'perawatanLabel'  => $perawatanLabel,
+            'sumberAkuisisi'  => $customer->source_app ?: 'Walk-in',
+            'terdaftar'       => ($customer->tanggal_daftar && $customer->tanggal_daftar !== '0000-00-00')
+                ? $customer->tanggal_daftar : $customer->created_at,
+        ];
+
         return view('crud.customer.edit', compact(
             'customer', 'branches', 'services', 'doctors', 'promos',
-            'totalKunjungan', 'totalSelesai', 'totalSpending', 'timeline',
-            'medicalRecords', 'userBranch'
+            'userBranch', 'detail', 'riwayat', 'activities', 'activeTab'
         ));
     }
 
     /**
-     * Bangun timeline kronologis pasien dari semua sumber yang ada:
-     *   - journey/lead  (raw_cus_journey — funnel marketing/sales)
-     *   - reservasi     (raw_cus_reservation — Data Center)
-     *   - perawatan     (omnicare_sales_detail via customer_omnicare_link)
-     *
-     * Event Omnicare di-skip dengan aman bila tabel integrasi belum ada
-     * (mis. kode ter-upload tapi SQL belum dijalankan).
-     *
-     * @return array<int,object> diurut terbaru dulu
+     * Catat aktivitas CRM (telepon / WA / kunjungan / catatan) untuk pasien.
+     * Tabel raw_cus_activity; lihat tab "Aktivitas" di detail pasien.
      */
-    private function buildTimeline(RawCustomer $customer): array
+    public function storeActivity($id)
     {
-        $events = [];
-        $mk = fn($date, $type, $title, $detail, $icon, $color, $bg, $amount = null, $tag = null, $medical = null, $clinicalSummary = '') => (object) [
-            'date'             => $date instanceof Carbon ? $date : Carbon::parse($date),
-            'type'             => $type,
-            'title'            => $title,
-            'detail'           => $detail,
-            'icon'             => $icon,
-            'color'            => $color,
-            'bg'               => $bg,
-            'amount'           => $amount,
-            'tag'              => $tag,
-            'medical'          => $medical,           // baris omnicare_medical_record (atau null)
-            'clinical_summary' => $clinicalSummary,   // ringkasan 1 baris untuk preview
-        ];
+        $customer = RawCustomer::findOrFail($id);
 
-        // ── Journey / lead ────────────────────────────────────────────────
-        $journeyCfg = [
-            'Stat_New'   => ['Tercatat sebagai kontak baru', 'fa-user-plus', '#1E5A8C', '#E8F0F5'],
-            'Stat_Leads' => ['Menjadi leads',                'fa-comments',  '#B26B00', '#FFF4E1'],
-            'Stat_Rsv'   => ['Tercatat membuat reservasi',   'fa-bullseye',  '#2E7D32', '#E8F5E9'],
-        ];
-        $contactId = $customer->raw_contact_id;
-        if (! $contactId && $customer->phone) {
-            $contactId = DB::table('raw_contact')->where('phone', $customer->phone)->value('id');
-        }
-        $journeys = DB::table('raw_cus_journey')
-            ->where('raw_customer_id', $customer->id)
-            ->when($contactId, fn($q) => $q->orWhere('raw_contact_id', $contactId))
-            ->get();
-        foreach ($journeys as $j) {
-            $cfg = $journeyCfg[$j->journey_label]
-                ?? [$j->journey_label, 'fa-circle', '#6B4423', '#F5F0EA'];
-            $tag = ($j->raw_contact_id && ! $j->raw_customer_id) ? 'via Contact' : null;
-            $events[] = $mk($j->created_at, 'journey', $cfg[0],
-                'Tahap funnel marketing/sales', $cfg[1], $cfg[2], $cfg[3], null, $tag);
+        $data = request()->validate([
+            'type' => 'required|in:telepon,wa,kunjungan,catatan',
+            'note' => 'nullable|string|max:1000',
+        ]);
+
+        // Catatan wajib ada isi; tombol cepat (telepon/wa/kunjungan) boleh tanpa note.
+        $note = trim((string) ($data['note'] ?? ''));
+        if ($data['type'] === 'catatan' && $note === '') {
+            return redirect()->route('rawcustomer.edit', [$id, 'tab' => 'aktivitas'])
+                ->with('error', 'Catatan tidak boleh kosong.');
         }
 
-        // ── Reservasi Data Center ─────────────────────────────────────────
+        DB::table('raw_cus_activity')->insert([
+            'raw_customer_id' => $customer->id,
+            'type'            => $data['type'],
+            'note'            => $note !== '' ? $note : null,
+            'created_by_id'   => session('id'),
+            'created_by_name' => session('name') ?? 'Admin',
+            'created_at'      => now(),
+            'updated_at'      => now(),
+        ]);
+
+        return redirect()->route('rawcustomer.edit', [$id, 'tab' => 'aktivitas'])
+            ->with('success', 'Aktivitas tercatat.');
+    }
+
+    /**
+     * Riwayat gabungan reservasi + rekam medis (Omnicare) untuk tab Riwayat
+     * detail pasien (redesign). Diurut terbaru dulu; sertakan hitungan per-jenis
+     * supaya filter Semua/Reservasi/Rekam Medis bisa menampilkan badge count.
+     *
+     * @return array{items: array<int,object>, reservasi: int, rekam: int}
+     */
+    private function buildRiwayat(RawCustomer $customer, \Illuminate\Support\Collection $medicalRecords): array
+    {
+        $clean = fn (?string $v) => $v === null ? null : trim(
+            html_entity_decode(strip_tags(str_replace(['<br>', '<br/>', '<br />'], ' ', $v)))
+        );
+
+        // Status pill: [label, bg, color] selaras palette design handoff.
+        $pillMap = [
+            'pending'   => ['Menunggu Konfirmasi', '#FBE7CF', '#B5701A'],
+            'confirmed' => ['Dikonfirmasi',         '#DFEDE9', '#2E7D74'],
+            'completed' => ['Hadir',                '#E3F4E8', '#2F8E55'],
+            'cancelled' => ['Batal',                '#FBE3DE', '#C0392B'],
+            'waitlist'  => ['Waitlist',             '#F1E9DF', '#7A5B43'],
+        ];
+
+        $items = [];
+
+        // ── Reservasi (Data Center) ──
         foreach ($customer->reservations as $r) {
-            $detail = $r->doctor->name ?? 'Dokter belum ditentukan';
-            if ($r->status) {
-                $detail .= ' · status: ' . $r->status;
-            }
-            $events[] = $mk($r->date, 'reservation',
-                'Reservasi' . ($r->branch->name ? ' — ' . $r->branch->name : ''),
-                $detail, 'fa-calendar-day', '#6B4423', '#F5F0EA');
+            $perawatan = $r->services->map(fn ($s) => $s->docService?->name)->filter()->implode(', ');
+            $cabang    = $r->branch?->name;
+            $pill      = $pillMap[$r->status] ?? [ucfirst((string) $r->status), '#F1E9DF', '#7A5B43'];
+            $items[] = (object) [
+                'kind'        => 'res',
+                'date'        => Carbon::parse($r->date),
+                'doctor'      => $r->doctor?->name ?: 'Dokter belum ditentukan',
+                'summary'     => ($perawatan ?: 'Perawatan') . ($cabang ? ' · Cabang ' . $cabang : ''),
+                'statusLabel' => $pill[0],
+                'statusBg'    => $pill[1],
+                'statusColor' => $pill[2],
+            ];
         }
 
-        // ── Perawatan nyata (Omnicare) ────────────────────────────────────
-        if (Schema::hasTable('customer_omnicare_link') && Schema::hasTable('omnicare_sales_detail')) {
-            $pid = DB::table('customer_omnicare_link')
-                ->where('raw_customer_id', $customer->id)->value('omnicare_pid');
-            if ($pid) {
-                $lines = DB::table('omnicare_sales_detail')
-                    ->where('p_id', $pid)
-                    ->whereNotNull('encounter_id')->where('encounter_id', '<>', '')
-                    ->select('encounter_id', 'trx_date', 'place_id', 'branch_name', 'doctor',
-                             'net_sell_price', 'item_type', 'item_name', 'qty_sold', 'payment_status')
-                    ->get();
-
-                // Pre-fetch rekam medis per encounter_id (kalau tabel sudah ada).
-                // Key composite (record_id, place_id) — mirror PK omnicare_medical_record.
-                $medByEnc = [];
-                if (Schema::hasTable('omnicare_medical_record')) {
-                    $encIds = $lines->pluck('encounter_id')->unique()->filter()->values();
-                    if ($encIds->isNotEmpty()) {
-                        $meds = DB::table('omnicare_medical_record')
-                            ->where('p_id', $pid)
-                            ->whereIn('record_id', $encIds)
-                            ->get();
-                        foreach ($meds as $m) {
-                            $medByEnc[$m->record_id . '@' . $m->branch_id] = $m;
-                        }
-                    }
-                }
-
-                foreach (OmnicareEncounters::group($lines) as $enc) {
-                    $mKey = $enc['encounter_id'] . '@' . ($enc['place_id'] ?? '');
-                    $med = $medByEnc[$mKey] ?? null;
-                    $summary = $med ? OmnicareEncounters::buildClinicalSummary($med) : '';
-                    $detail = $summary !== ''
-                        ? $summary
-                        : \Illuminate\Support\Str::limit(implode(' · ', $enc['items']), 150);
-
-                    $events[] = $mk($enc['trx_date'], 'treatment',
-                        'Perawatan' . ($enc['branch_name'] ? ' — ' . $enc['branch_name'] : ''),
-                        $detail,
-                        'fa-tooth', '#1f7a3d', '#E8F5E9',
-                        $enc['revenue'], $enc['doctor'] ?: null,
-                        $med, $summary);
-                }
+        // ── Rekam medis (Omnicare) ──
+        foreach ($medicalRecords as $rec) {
+            $keluhan  = $clean($rec->chief_complaint);
+            $objektif = $clean($rec->objective);
+            $diagnosa = $clean($rec->diagnose_note) ?: $clean($rec->diagnoses);
+            $tindakan = !empty($rec->procedures)
+                ? array_values(array_filter(array_map('trim', explode(';', $rec->procedures))))
+                : [];
+            $summaryParts = [];
+            if ($keluhan)  $summaryParts[] = 'Keluhan: ' . $keluhan;
+            if ($diagnosa) $summaryParts[] = 'Dx: ' . $diagnosa;
+            if (empty($summaryParts) && $tindakan) {
+                $summaryParts[] = 'Kunjungan: ' . \Illuminate\Support\Str::limit(implode(' · ', $tindakan), 90);
             }
+            if ($rec->is_new_patient) $summaryParts[] = 'Pasien Baru';
+
+            // Prefix "drg." kalau nama dokter belum berawalan dr/drg (case-insensitive);
+            // fallback dibiarkan apa adanya (tanpa prefix).
+            $doc = trim((string) ($rec->doctor ?? ''));
+            $docDisplay = $doc === ''
+                ? 'Dokter tidak tercatat'
+                : (\Illuminate\Support\Str::startsWith(strtolower($doc), 'dr') ? $doc : 'drg. ' . $doc);
+
+            $items[] = (object) [
+                'kind'     => 'rekam',
+                'date'     => Carbon::parse($rec->date),
+                'time'     => $rec->time_in ? substr($rec->time_in, 0, 5) : null,
+                'code'     => $rec->booking_code ?: $rec->record_id,
+                'doctor'   => $docDisplay,
+                'summary'  => implode(' · ', $summaryParts) ?: 'Kunjungan tanpa catatan klinis',
+                'keluhan'  => $keluhan,
+                'objektif' => $objektif,
+                'diagnosa' => $diagnosa,
+                'tindakan' => $tindakan,
+            ];
         }
 
-        // Terbaru dulu (konsisten dengan tampilan sebelumnya)
-        usort($events, fn($a, $b) => $b->date->timestamp <=> $a->date->timestamp);
+        usort($items, fn ($a, $b) => $b->date->timestamp <=> $a->date->timestamp);
 
-        return $events;
+        return [
+            'items'     => $items,
+            'reservasi' => $customer->reservations->count(),
+            'rekam'     => $medicalRecords->count(),
+        ];
     }
 
     public function update($id)
@@ -428,7 +599,7 @@ class CustomerController extends Controller
             ]);
         });
 
-        return redirect()->route('rawcustomer.edit', $id)->with('success', 'Pasien berhasil diubah');
+        return redirect()->route('rawcustomer.edit', [$id, 'tab' => 'data'])->with('success', 'Pasien berhasil diubah');
     }
 
     public function destroy($id)

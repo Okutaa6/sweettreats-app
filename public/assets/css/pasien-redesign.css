@@ -1,0 +1,470 @@
+/* ════════════════════════════════════════════════════════════════════════
+   PASIEN REDESIGN — halaman Pasien (List + Detail) dari design_handoff_pasien.
+   Scope: body.redesign-pasien (di-set app.blade utk segment 'rawcustomer').
+   Reuse tema hangat reservasi; di-load dari customer/list.blade @section('css').
+   Dibangun per-chunk: §1 token · §2 tipografi/page · §3 insight strip · §4 toolbar.
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* ── 1. Token (design handoff Pasien) ───────────────────────────────────── */
+body.redesign-pasien {
+    --px-bg:           #F4ECE2;
+    --px-surface:      #FFFFFF;
+    --px-border:       #EFE0CE;
+    --px-input-border: #E7D3BE;
+    --px-divider:      #F4EADD;
+    --px-row-hover:    #FBF4EC;
+    --px-text:         #3B1500;
+    --px-text-2:       #5A3A22;
+    --px-muted:        #9A7256;
+    --px-label:        #A9866A;
+    --px-gold:         #C9962F;
+    --px-wa:           #25A05B;
+    --px-wa-link:      #2C8C63;
+    --px-radius:       16px;
+    --px-shadow:       0 1px 2px rgba(70,21,0,.04), 0 10px 26px rgba(70,21,0,.05);
+    --px-grad:         linear-gradient(135deg, #6B2400, #461500);
+}
+
+/* ── 2. Tipografi + latar ───────────────────────────────────────────────── */
+body.redesign-pasien
+:is(h1,h2,h3,h4,h5,h6,p,span,a,td,th,div,label,input,select,textarea,button,li,small,strong,b) {
+    font-family: 'Plus Jakarta Sans', 'Montserrat', system-ui, -apple-system, sans-serif !important;
+}
+body.redesign-pasien .px-num,
+body.redesign-pasien .px-tnum { font-variant-numeric: tabular-nums; }
+/* page-title-box in-content dibuang (judul sudah di header global). */
+body.redesign-pasien .page-title-box { display: none; }
+/* container lega seperti design (padding konten). */
+body.redesign-pasien .px-wrap { display: flex; flex-direction: column; gap: 14px; }
+
+/* ── 3. Insight strip (4 KPI card) ──────────────────────────────────────── */
+body.redesign-pasien .px-insight {
+    display: grid; grid-template-columns: 1fr 1fr 1fr 1.55fr; gap: 14px;
+}
+@media (max-width: 1100px) { body.redesign-pasien .px-insight { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 640px)  { body.redesign-pasien .px-insight { grid-template-columns: 1fr; } }
+body.redesign-pasien .px-kpi {
+    background: var(--px-surface); border: 1px solid var(--px-border);
+    border-radius: var(--px-radius); box-shadow: var(--px-shadow); padding: 16px 18px;
+}
+body.redesign-pasien .px-kpi__head { display: flex; align-items: center; gap: 10px; }
+body.redesign-pasien .px-kpi__icon {
+    width: 38px; height: 38px; flex: none; border-radius: 11px;
+    display: flex; align-items: center; justify-content: center; font-size: 17px;
+}
+body.redesign-pasien .px-kpi__label {
+    font-size: 10.5px; font-weight: 700; letter-spacing: .4px; color: var(--px-muted); text-transform: uppercase;
+}
+body.redesign-pasien .px-kpi__num {
+    font-size: 24px; font-weight: 800; color: var(--px-text); margin-top: 12px; line-height: 1;
+    font-variant-numeric: tabular-nums;
+}
+body.redesign-pasien .px-kpi__sub { font-size: 11.5px; color: var(--px-muted); margin-top: 5px; }
+body.redesign-pasien .px-kpi__sub--up { color: #2F8E55; font-weight: 700; }
+
+/* Sumber Akuisisi (card lebar) — 4 baris bar. */
+body.redesign-pasien .px-acq { display: flex; flex-direction: column; gap: 9px; margin-top: 4px; }
+body.redesign-pasien .px-acq__row { display: grid; grid-template-columns: 84px 1fr 36px; align-items: center; gap: 10px; }
+body.redesign-pasien .px-acq__label { font-size: 11.5px; font-weight: 600; color: var(--px-text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+body.redesign-pasien .px-acq__track { display: block; height: 7px; border-radius: 6px; background: #F1E4D3; overflow: hidden; }
+body.redesign-pasien .px-acq__fill { display: block; height: 7px; border-radius: 6px; min-width: 2px; }
+body.redesign-pasien .px-acq__pct { font-size: 11.5px; font-weight: 700; color: var(--px-muted); text-align: right; font-variant-numeric: tabular-nums; }
+body.redesign-pasien .px-acq__fill--ig    { background: #C2528A; }
+body.redesign-pasien .px-acq__fill--tiktok{ background: #3B3B3B; }
+body.redesign-pasien .px-acq__fill--teman { background: #2F8E55; }
+body.redesign-pasien .px-acq__fill--lain  { background: var(--px-gold); }
+
+/* ── 4. Toolbar (search + Filter + Export + Tambah) ─────────────────────── */
+body.redesign-pasien .px-toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+body.redesign-pasien .px-search { flex: 1; min-width: 220px; position: relative; }
+body.redesign-pasien .px-search i {
+    position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--px-muted); font-size: 14px;
+}
+body.redesign-pasien .px-search input {
+    width: 100%; border: 1px solid var(--px-input-border); border-radius: 12px;
+    padding: 12px 14px 12px 38px; font-size: 13.5px; color: var(--px-text); background: var(--px-surface);
+}
+body.redesign-pasien .px-search input:focus { outline: none; border-color: #461500; box-shadow: 0 0 0 .15rem rgba(70,21,0,.12); }
+body.redesign-pasien .px-btn {
+    display: inline-flex; align-items: center; gap: 8px; border-radius: 12px;
+    padding: 11px 16px; font-weight: 700; font-size: 13px; cursor: pointer; white-space: nowrap;
+    border: 1px solid var(--px-input-border); background: var(--px-surface); color: var(--px-text-2); text-decoration: none;
+    transition: filter .15s ease, background .15s ease;
+}
+body.redesign-pasien .px-btn:hover { background: #FBF4EC; }
+body.redesign-pasien .px-btn.is-active { border-color: #461500; color: #461500; }
+body.redesign-pasien .px-btn--primary {
+    background: var(--px-grad); color: #FFEAD6; border: none;
+    box-shadow: 0 4px 12px rgba(70,21,0,.2);
+}
+body.redesign-pasien .px-btn--primary:hover { filter: brightness(1.08); background: var(--px-grad); color: #FFEAD6; }
+
+/* ── 5. Segment tabs (worklist) ─────────────────────────────────────────── */
+body.redesign-pasien .px-segs { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+body.redesign-pasien .px-segs__tabs {
+    display: inline-flex; align-items: center; gap: 5px; flex-wrap: wrap;
+    background: var(--px-surface); border: 1px solid #EADCC9; border-radius: 13px; padding: 5px;
+}
+body.redesign-pasien .px-seg {
+    display: inline-flex; align-items: center; gap: 7px; padding: 8px 14px; border-radius: 9px;
+    font-size: 12.5px; font-weight: 600; color: var(--px-muted); text-decoration: none;
+    transition: background .15s ease, color .15s ease;
+}
+body.redesign-pasien .px-seg:hover { background: #FBF3E9; color: var(--px-text); text-decoration: none; }
+body.redesign-pasien .px-seg.active { background: var(--px-grad); color: #FFEAD6; }
+body.redesign-pasien .px-seg__badge {
+    font-size: 11px; font-weight: 800; padding: 1px 7px; border-radius: 20px;
+    background: #F1E4D3; color: var(--px-muted); font-variant-numeric: tabular-nums;
+}
+body.redesign-pasien .px-seg.active .px-seg__badge { background: rgba(255,255,255,.22); color: #FFEAD6; }
+body.redesign-pasien .px-segs__count { font-size: 12.5px; color: var(--px-muted); white-space: nowrap; }
+body.redesign-pasien .px-segs__count strong { color: var(--px-text); font-variant-numeric: tabular-nums; }
+
+/* ── 6. Context banner (Ulang Tahun / Data Belum Lengkap) ───────────────── */
+body.redesign-pasien .px-banner {
+    display: flex; align-items: center; gap: 16px; border-radius: var(--px-radius);
+    padding: 16px 20px; border: 1px solid;
+}
+body.redesign-pasien .px-banner__icon {
+    width: 44px; height: 44px; flex: none; border-radius: 13px;
+    display: flex; align-items: center; justify-content: center; font-size: 20px;
+}
+body.redesign-pasien .px-banner__text { flex: 1; min-width: 0; }
+body.redesign-pasien .px-banner__title { font-size: 15px; font-weight: 800; }
+body.redesign-pasien .px-banner__sub { font-size: 12.5px; margin-top: 2px; }
+body.redesign-pasien .px-banner__cta {
+    flex: none; display: inline-flex; align-items: center; gap: 7px; border: none; border-radius: 11px;
+    padding: 11px 16px; font-weight: 700; font-size: 13px; cursor: pointer; color: #fff; text-decoration: none;
+    transition: filter .15s ease;
+}
+body.redesign-pasien .px-banner__cta:hover { filter: brightness(1.06); color: #fff; }
+body.redesign-pasien .px-banner--ultah { background: #FBF0F4; border-color: #F0D5DF; }
+body.redesign-pasien .px-banner--ultah .px-banner__icon { background: #F7D9E4; }
+body.redesign-pasien .px-banner--ultah .px-banner__title { color: #A23B6E; }
+body.redesign-pasien .px-banner--ultah .px-banner__sub { color: #9A5A74; }
+body.redesign-pasien .px-banner--ultah .px-banner__cta { background: var(--px-wa); }
+body.redesign-pasien .px-banner--data { background: #FBF7EC; border-color: #EFE0C2; }
+body.redesign-pasien .px-banner--data .px-banner__icon { background: #F3E7C8; }
+body.redesign-pasien .px-banner--data .px-banner__title { color: #9A6614; }
+body.redesign-pasien .px-banner--data .px-banner__sub { color: #8A6A52; }
+body.redesign-pasien .px-banner--data .px-banner__cta { background: #9A6614; }
+/* Belum Datang (konversi) — warm brown. */
+body.redesign-pasien .px-banner--lead { background: #FBF3E9; border-color: #EAD9C2; }
+body.redesign-pasien .px-banner--lead .px-banner__icon { background: #F1E2CD; }
+body.redesign-pasien .px-banner--lead .px-banner__title { color: #6B2400; }
+body.redesign-pasien .px-banner--lead .px-banner__sub { color: #8A6A52; }
+body.redesign-pasien .px-banner--lead .px-banner__cta { background: var(--px-wa); }
+
+/* ── 7. Tabel pasien (redesign) ─────────────────────────────────────────── */
+body.redesign-pasien .px-table-card {
+    background: var(--px-surface); border: 1px solid var(--px-border);
+    border-radius: var(--px-radius); overflow: hidden; box-shadow: var(--px-shadow);
+}
+body.redesign-pasien .px-table-wrap { overflow-x: auto; }
+body.redesign-pasien .px-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; }
+body.redesign-pasien .px-table thead th {
+    /* 180deg VERTIKAL — biar seragam tiap kolom (120deg diagonal ke-render
+       per-sel → belang/kepotong). */
+    background: linear-gradient(180deg, #52200A, #3A1505); color: #EAD3BC;
+    font-size: 11px; font-weight: 800; letter-spacing: .6px; text-transform: uppercase;
+    text-align: left; padding: 14px; white-space: nowrap;
+}
+body.redesign-pasien .px-table tbody td {
+    padding: 12px 14px; border-bottom: 1px solid var(--px-divider);
+    vertical-align: middle; color: var(--px-text);
+}
+body.redesign-pasien .px-table tbody tr:last-child td { border-bottom: none; }
+body.redesign-pasien .px-table tbody tr { cursor: pointer; transition: background .12s ease; }
+body.redesign-pasien .px-table tbody tr:hover td { background: var(--px-row-hover); }
+body.redesign-pasien .px-tnum { font-variant-numeric: tabular-nums; }
+body.redesign-pasien .px-muted { color: var(--px-muted); }
+
+/* Sel NAMA: avatar + nama + via + tier */
+body.redesign-pasien .px-name { display: flex; align-items: center; gap: 11px; }
+body.redesign-pasien .px-avatar {
+    width: 34px; height: 34px; flex: none; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    color: #FFE6CC; font-weight: 700; font-size: 13px;
+}
+body.redesign-pasien .px-name__main { min-width: 0; }
+body.redesign-pasien .px-name__name { font-size: 13.5px; font-weight: 700; color: var(--px-text); display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+body.redesign-pasien .px-name__via { font-size: 11px; color: #B07B45; margin-top: 1px; }
+body.redesign-pasien .px-tier { font-size: 9.5px; font-weight: 800; padding: 1px 6px; border-radius: 5px; letter-spacing: .3px; white-space: nowrap; }
+body.redesign-pasien .px-tier--vip { background: #FBEFD9; color: #9A6614; }
+
+/* WhatsApp link */
+body.redesign-pasien .px-wa-link {
+    display: inline-flex; align-items: center; gap: 5px; color: var(--px-wa-link);
+    font-weight: 600; font-size: 12.5px; text-decoration: none; font-variant-numeric: tabular-nums;
+}
+body.redesign-pasien .px-wa-link:hover { text-decoration: underline; }
+
+/* Chip perawatan + dokter truncate */
+body.redesign-pasien .px-treat { display: inline-block; font-size: 11.5px; color: #5A3A22; background: #F1E9DF; border-radius: 7px; padding: 4px 9px; }
+body.redesign-pasien .px-doctor { display: block; max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Pagination footer */
+body.redesign-pasien .px-pagination { padding: 14px 16px; border-top: 1px solid var(--px-divider); }
+
+/* ════════════════════════════════════════════════════════════════════════
+   §8. DETAIL PASIEN (full-page workspace) — design handoff "B. Patient Detail"
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* ── 8.1 Layout shell ───────────────────────────────────────────────────── */
+body.redesign-pasien .pxd { display: flex; flex-direction: column; gap: 16px; }
+body.redesign-pasien .pxd-card {
+    background: var(--px-surface); border: 1px solid var(--px-border);
+    border-radius: 18px; box-shadow: var(--px-shadow);
+}
+body.redesign-pasien .pxd-grid { display: flex; gap: 16px; align-items: flex-start; }
+body.redesign-pasien .pxd-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 16px; }
+body.redesign-pasien .pxd-rail { width: 312px; flex: none; display: flex; flex-direction: column; gap: 14px; }
+@media (max-width: 980px) {
+    body.redesign-pasien .pxd-grid { flex-direction: column; }
+    body.redesign-pasien .pxd-rail { width: 100%; }
+}
+
+/* ── 8.2 Identity header ────────────────────────────────────────────────── */
+body.redesign-pasien .pxd-head {
+    display: flex; align-items: center; gap: 20px; flex-wrap: wrap; padding: 20px 22px;
+}
+body.redesign-pasien .pxd-avatar {
+    width: 62px; height: 62px; flex: none; border-radius: 50%;
+    background: linear-gradient(135deg, #7A3415, #5A2410); color: #FFE6CC;
+    display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 24px;
+}
+body.redesign-pasien .pxd-head__main { min-width: 0; flex: 1; }
+body.redesign-pasien .pxd-head__title { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+body.redesign-pasien .pxd-head__name { font-size: 21px; font-weight: 800; color: var(--px-text); }
+body.redesign-pasien .pxd-badge { font-size: 11px; font-weight: 800; border-radius: 20px; padding: 3px 11px; white-space: nowrap; }
+body.redesign-pasien .pxd-badge--baru { color: #9A6614; background: #FBEFD9; }
+body.redesign-pasien .pxd-badge--lama { color: #2E7D74; background: #DFEDE9; }
+body.redesign-pasien .pxd-badge--vip      { color: #9A6614; background: #FBEFD9; }
+body.redesign-pasien .pxd-badge--bernilai { color: #6A53C9; background: #EFEAFB; }
+body.redesign-pasien .pxd-badge--reguler  { color: #7A5B43; background: #F1E9DF; font-weight: 700; }
+body.redesign-pasien .pxd-badge--treat    { color: #5A3A22; background: #F1E9DF; font-weight: 700; }
+body.redesign-pasien .pxd-head__meta {
+    display: flex; align-items: center; gap: 16px; margin-top: 9px; flex-wrap: wrap;
+    font-size: 12.5px; color: var(--px-text-2); font-weight: 500;
+}
+body.redesign-pasien .pxd-head__meta > span,
+body.redesign-pasien .pxd-head__meta > a { display: inline-flex; align-items: center; gap: 6px; }
+body.redesign-pasien .pxd-head__meta i { color: var(--px-muted); font-size: 13px; }
+body.redesign-pasien .pxd-head__wa { color: var(--px-wa-link); font-weight: 700; text-decoration: none; font-variant-numeric: tabular-nums; }
+body.redesign-pasien .pxd-head__wa:hover { text-decoration: underline; }
+body.redesign-pasien .pxd-head__actions { display: flex; align-items: center; gap: 9px; flex: none; }
+body.redesign-pasien .pxd-btn {
+    display: inline-flex; align-items: center; gap: 7px; border-radius: 11px;
+    padding: 11px 16px; font-weight: 700; font-size: 13px; cursor: pointer; white-space: nowrap;
+    border: none; text-decoration: none; transition: filter .15s ease;
+}
+body.redesign-pasien .pxd-btn:hover { filter: brightness(1.06); }
+body.redesign-pasien .pxd-btn--primary { background: var(--px-grad); color: #FFEAD6; box-shadow: 0 4px 12px rgba(70,21,0,.2); }
+body.redesign-pasien .pxd-btn--primary:hover { color: #FFEAD6; }
+body.redesign-pasien .pxd-btn--wa { background: var(--px-wa); color: #fff; }
+body.redesign-pasien .pxd-btn--wa:hover { color: #fff; }
+
+/* ── 8.3 Tabs ───────────────────────────────────────────────────────────── */
+body.redesign-pasien .pxd-tabs { display: flex; align-items: center; gap: 4px; border-bottom: 1px solid #ECD8C2; }
+body.redesign-pasien .pxd-tab {
+    display: inline-flex; align-items: center; gap: 8px; border: none; background: transparent;
+    padding: 11px 16px; font-size: 13.5px; font-weight: 700; cursor: pointer; color: var(--px-muted);
+    border-bottom: 2.5px solid transparent; margin-bottom: -1px; transition: color .15s ease;
+}
+body.redesign-pasien .pxd-tab:hover { color: var(--px-text-2); }
+body.redesign-pasien .pxd-tab.active { color: #6B2400; border-bottom-color: #6B2400; }
+body.redesign-pasien .pxd-tab__badge { font-size: 11px; font-weight: 800; border-radius: 20px; padding: 1px 8px; color: #fff; }
+body.redesign-pasien .pxd-tab__badge--riwayat { background: #6B2400; }
+body.redesign-pasien .pxd-tab__badge--aktivitas { background: #9A6614; }
+
+/* ── 8.4 Right rail ─────────────────────────────────────────────────────── */
+/* LTV dark card */
+body.redesign-pasien .pxd-ltv {
+    background: linear-gradient(135deg, #5A2410, #3A1100); color: #FBEADB;
+    border-radius: 16px; padding: 18px 20px;
+}
+body.redesign-pasien .pxd-ltv__label { font-size: 10.5px; font-weight: 700; letter-spacing: .5px; color: #D6A878; }
+body.redesign-pasien .pxd-ltv__value { font-size: 27px; font-weight: 800; margin-top: 8px; font-variant-numeric: tabular-nums; }
+body.redesign-pasien .pxd-ltv__stats { display: flex; gap: 18px; margin-top: 14px; }
+body.redesign-pasien .pxd-ltv__stat-n { font-size: 16px; font-weight: 800; font-variant-numeric: tabular-nums; }
+body.redesign-pasien .pxd-ltv__stat-l { font-size: 10.5px; color: #D6A878; font-weight: 600; margin-top: 1px; }
+/* Ringkasan + Kelengkapan cards */
+body.redesign-pasien .pxd-rcard {
+    background: var(--px-surface); border: 1px solid var(--px-border);
+    border-radius: 16px; padding: 16px 18px; box-shadow: 0 1px 2px rgba(70,21,0,.04);
+}
+body.redesign-pasien .pxd-rcard__title { font-size: 11px; font-weight: 800; letter-spacing: .4px; color: var(--px-muted); margin-bottom: 12px; }
+body.redesign-pasien .pxd-sum { display: flex; flex-direction: column; gap: 11px; }
+body.redesign-pasien .pxd-sum__row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+body.redesign-pasien .pxd-sum__k { font-size: 12.5px; color: var(--px-muted); white-space: nowrap; }
+body.redesign-pasien .pxd-sum__v { font-size: 12.5px; font-weight: 700; color: var(--px-text); text-align: right; }
+body.redesign-pasien .pxd-comp__head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+body.redesign-pasien .pxd-comp__pct { font-size: 13px; font-weight: 800; font-variant-numeric: tabular-nums; }
+body.redesign-pasien .pxd-comp__bar { height: 8px; border-radius: 5px; background: #F1E4D3; overflow: hidden; }
+body.redesign-pasien .pxd-comp__fill { height: 100%; border-radius: 5px; }
+body.redesign-pasien .pxd-comp__chips { margin-top: 11px; display: flex; flex-wrap: wrap; gap: 6px; }
+body.redesign-pasien .pxd-comp__chip { font-size: 11px; font-weight: 700; color: #9A6614; background: #FBEFD9; border-radius: 7px; padding: 3px 9px; }
+body.redesign-pasien .pxd-comp__ok { margin-top: 10px; font-size: 12px; color: #2F8E55; font-weight: 700; }
+
+/* ── 8.5 Section title (tab content) ────────────────────────────────────── */
+body.redesign-pasien .pxd-sec-head { display: flex; align-items: center; gap: 9px; margin-bottom: 4px; }
+body.redesign-pasien .pxd-sec-head i { color: #6B2400; font-size: 17px; }
+body.redesign-pasien .pxd-sec-head__t { font-size: 16px; font-weight: 800; color: var(--px-text); }
+body.redesign-pasien .pxd-sec-sub { font-size: 12.5px; color: var(--px-muted); margin-bottom: 16px; }
+
+/* ════════════════════════════════════════════════════════════════════════
+   §9. DATA PASIEN — form ter-regroup (KONTAK / IDENTITAS / KLINIS / LAINNYA)
+   ════════════════════════════════════════════════════════════════════════ */
+body.redesign-pasien .pxd-form { display: flex; flex-direction: column; gap: 26px; }
+body.redesign-pasien .pxd-fsec__head { display: flex; align-items: center; gap: 9px; margin-bottom: 15px; }
+body.redesign-pasien .pxd-fsec__tick { width: 6px; height: 15px; border-radius: 3px; background: var(--px-gold); flex: none; }
+body.redesign-pasien .pxd-fsec__label { font-size: 12px; font-weight: 800; letter-spacing: .5px; color: var(--px-text-2); text-transform: uppercase; }
+body.redesign-pasien .pxd-fgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 680px) { body.redesign-pasien .pxd-fgrid { grid-template-columns: 1fr; } }
+body.redesign-pasien .pxd-field--full { grid-column: span 2; }
+@media (max-width: 680px) { body.redesign-pasien .pxd-field--full { grid-column: span 1; } }
+body.redesign-pasien .pxd-label {
+    display: block; font-size: 10.5px; font-weight: 700; letter-spacing: .5px;
+    color: var(--px-label); text-transform: uppercase; margin-bottom: 6px;
+}
+body.redesign-pasien .pxd-req { color: #C0392B; }
+body.redesign-pasien .pxd-input {
+    width: 100%; border: 1px solid var(--px-input-border); border-radius: 11px; padding: 11px 13px;
+    font-family: inherit; font-size: 13.5px; color: var(--px-text); background: #fff; line-height: 1.4;
+    transition: border-color .15s ease, box-shadow .15s ease;
+}
+body.redesign-pasien textarea.pxd-input { resize: vertical; min-height: 64px; }
+body.redesign-pasien select.pxd-input {
+    cursor: pointer; appearance: none; -webkit-appearance: none; -moz-appearance: none; padding-right: 34px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none'%3E%3Cpath d='M2.5 4.5 6 8l3.5-3.5' stroke='%239A7256' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 13px center;
+}
+body.redesign-pasien .pxd-input::placeholder { color: #C2A98F; }
+body.redesign-pasien .pxd-input:focus { outline: none; border-color: #461500; box-shadow: 0 0 0 .15rem rgba(70,21,0,.12); }
+body.redesign-pasien .pxd-input[readonly] { background: #F6EEE4; color: var(--px-text-2); cursor: default; }
+body.redesign-pasien .pxd-input--err { border-color: #C0392B; }
+body.redesign-pasien .pxd-input--err:focus { box-shadow: 0 0 0 .15rem rgba(192,57,43,.12); }
+body.redesign-pasien .pxd-err { color: #C0392B; font-size: 11px; margin-top: 4px; }
+body.redesign-pasien .pxd-tnum { font-variant-numeric: tabular-nums; }
+body.redesign-pasien .pxd-form__footer { display: flex; gap: 10px; border-top: 1px solid #EDDFCE; padding-top: 18px; margin-top: 4px; }
+body.redesign-pasien .pxd-btn--save { background: var(--px-grad); color: #FFEAD6; padding: 12px 22px; font-size: 14px; font-weight: 800; border-radius: 12px; box-shadow: 0 4px 12px rgba(70,21,0,.2); }
+body.redesign-pasien .pxd-btn--save:hover { color: #FFEAD6; }
+body.redesign-pasien .pxd-btn--danger { background: #FBEDE9; color: #C0392B; border: 1px solid #F2D2CB; padding: 12px 18px; font-size: 14px; font-weight: 700; border-radius: 12px; }
+body.redesign-pasien .pxd-btn--danger:hover { filter: brightness(.98); color: #C0392B; }
+
+/* ════════════════════════════════════════════════════════════════════════
+   §10. RIWAYAT — timeline gabungan reservasi + rekam medis (+filter, +expand)
+   ════════════════════════════════════════════════════════════════════════ */
+/* Filter pills */
+body.redesign-pasien .pxd-tlf-bar {
+    display: inline-flex; align-items: center; gap: 3px; background: var(--px-bg);
+    border: 1px solid #EADCC9; border-radius: 11px; padding: 4px; margin-bottom: 20px;
+}
+body.redesign-pasien .pxd-tlf {
+    display: inline-flex; align-items: center; gap: 6px; border: none; background: transparent;
+    border-radius: 8px; padding: 7px 13px; font-size: 12.5px; font-weight: 700; cursor: pointer;
+    color: var(--px-muted); white-space: nowrap; transition: background .15s ease, color .15s ease;
+}
+body.redesign-pasien .pxd-tlf.is-active { background: #fff; color: #6B2400; box-shadow: 0 1px 2px rgba(70,21,0,.08); }
+body.redesign-pasien .pxd-tlf__badge { font-size: 10.5px; font-weight: 800; border-radius: 20px; padding: 0 6px; background: #ECDFCD; color: var(--px-label); font-variant-numeric: tabular-nums; }
+body.redesign-pasien .pxd-tlf.is-active .pxd-tlf__badge { background: #F1E4D3; color: var(--px-text-2); }
+
+/* Timeline rail + items */
+body.redesign-pasien .pxd-tl { position: relative; padding-left: 34px; }
+body.redesign-pasien .pxd-tl__line { position: absolute; left: 13px; top: 6px; bottom: 6px; width: 2px; background: var(--px-border); }
+body.redesign-pasien .pxd-tl__item { position: relative; margin-bottom: 16px; }
+body.redesign-pasien .pxd-tl__item:last-child { margin-bottom: 0; }
+body.redesign-pasien .pxd-tl__dot {
+    position: absolute; left: -34px; top: 2px; width: 28px; height: 28px; border-radius: 50%;
+    border: 3px solid #fff; box-shadow: 0 0 0 1px var(--px-border);
+    display: flex; align-items: center; justify-content: center; color: #fff; font-size: 12px;
+}
+body.redesign-pasien .pxd-tl__dot--res   { background: var(--px-gold); }
+body.redesign-pasien .pxd-tl__dot--rekam { background: #6B2400; }
+body.redesign-pasien .pxd-tl__card {
+    border: 1px solid var(--px-border); border-radius: 14px; padding: 14px 16px; background: #fff;
+    transition: background .15s ease, box-shadow .15s ease;
+}
+body.redesign-pasien .pxd-tl__item.is-open .pxd-tl__card { background: #FFFCF8; box-shadow: 0 3px 12px rgba(70,21,0,.07); }
+body.redesign-pasien .pxd-tl__row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+body.redesign-pasien .pxd-tl__badge { font-size: 10px; font-weight: 800; letter-spacing: .5px; border-radius: 6px; padding: 3px 9px; }
+body.redesign-pasien .pxd-tl__badge--res   { color: #9A6614; background: #FBEFD9; }
+body.redesign-pasien .pxd-tl__badge--rekam { color: #6B2400; background: #F1E4D6; }
+body.redesign-pasien .pxd-tl__date { font-size: 13.5px; font-weight: 800; color: var(--px-text); font-variant-numeric: tabular-nums; }
+body.redesign-pasien .pxd-tl__time { font-size: 11.5px; font-weight: 700; color: var(--px-text-2); background: #F4E7D6; border-radius: 6px; padding: 2px 7px; font-variant-numeric: tabular-nums; }
+body.redesign-pasien .pxd-tl__code { font-family: ui-monospace, SFMono-Regular, monospace; font-size: 10px; font-weight: 700; letter-spacing: .5px; color: var(--px-muted); background: #F1E9DF; border-radius: 6px; padding: 2px 7px; }
+body.redesign-pasien .pxd-tl__sep { font-size: 12px; color: var(--px-muted); }
+body.redesign-pasien .pxd-tl__doctor { font-size: 13px; font-weight: 600; color: var(--px-text-2); }
+body.redesign-pasien .pxd-tl__status { margin-left: auto; font-size: 11px; font-weight: 700; padding: 4px 11px; border-radius: 20px; white-space: nowrap; }
+body.redesign-pasien .pxd-tl__toggle { margin-left: auto; display: inline-flex; align-items: center; gap: 5px; border: none; background: transparent; font-size: 12px; font-weight: 700; color: #6B2400; cursor: pointer; }
+body.redesign-pasien .pxd-tl__chev { transition: transform .18s ease; font-size: 10px; }
+body.redesign-pasien .pxd-tl__item.is-open .pxd-tl__chev { transform: rotate(180deg); }
+body.redesign-pasien .pxd-tl__toggle-hide { display: none; }
+body.redesign-pasien .pxd-tl__item.is-open .pxd-tl__toggle-show { display: none; }
+body.redesign-pasien .pxd-tl__item.is-open .pxd-tl__toggle-hide { display: inline; }
+body.redesign-pasien .pxd-tl__summary { font-size: 13px; color: var(--px-text-2); margin-top: 9px; }
+
+/* Expanded rekam medis detail */
+body.redesign-pasien .pxd-tl__detail { display: none; margin-top: 14px; border-top: 1px dashed #EAD9C5; padding-top: 14px; flex-direction: column; gap: 14px; }
+body.redesign-pasien .pxd-tl__item.is-open .pxd-tl__detail { display: flex; }
+body.redesign-pasien .pxd-tl__bhead { display: flex; align-items: center; justify-content: space-between; gap: 7px; margin-bottom: 9px; }
+body.redesign-pasien .pxd-tl__bhead-l { display: flex; align-items: center; gap: 7px; }
+body.redesign-pasien .pxd-tl__bhead i { color: #B5701A; font-size: 13px; }
+body.redesign-pasien .pxd-tl__btitle { font-size: 11px; font-weight: 800; letter-spacing: .5px; color: #B5701A; }
+body.redesign-pasien .pxd-tl__bcount { font-size: 11px; font-weight: 700; color: var(--px-muted); }
+body.redesign-pasien .pxd-tl__kv { display: grid; grid-template-columns: 96px 1fr; gap: 6px 14px; font-size: 13px; }
+body.redesign-pasien .pxd-tl__k { color: var(--px-muted); font-weight: 600; }
+body.redesign-pasien .pxd-tl__v { color: var(--px-text); }
+body.redesign-pasien .pxd-tl__v--strong { font-weight: 700; }
+body.redesign-pasien .pxd-tl__procs { display: flex; flex-direction: column; gap: 7px; }
+body.redesign-pasien .pxd-tl__proc { display: flex; align-items: center; gap: 9px; background: #FBF6EF; border: 1px solid #F0E2D2; border-radius: 9px; padding: 9px 12px; font-size: 12.5px; color: var(--px-text); font-weight: 500; }
+body.redesign-pasien .pxd-tl__proc i { color: #2F8E55; font-size: 12px; }
+body.redesign-pasien .pxd-tl__empty-clinical { padding: 10px 0 2px; text-align: center; color: #B0A597; font-size: 12.5px; font-style: italic; }
+body.redesign-pasien .pxd-tl__empty { font-size: 13px; color: var(--px-muted); padding: 10px 0 4px; }
+
+/* ════════════════════════════════════════════════════════════════════════
+   §11. Back row (in-content) — back-arrow + breadcrumb di atas identity card
+   ════════════════════════════════════════════════════════════════════════ */
+body.redesign-pasien .pxd-back { display: flex; align-items: center; gap: 12px; }
+body.redesign-pasien .pxd-back__btn {
+    width: 38px; height: 38px; flex: none; border-radius: 11px;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: var(--px-surface); border: 1px solid var(--px-border); color: var(--px-text-2);
+    box-shadow: var(--px-shadow); text-decoration: none; font-size: 14px;
+    transition: background .15s ease, color .15s ease;
+}
+body.redesign-pasien .pxd-back__btn:hover { background: #FBF4EC; color: #461500; }
+body.redesign-pasien .pxd-back__crumb { font-size: 13px; font-weight: 600; color: var(--px-muted); }
+body.redesign-pasien .pxd-back__crumb strong { color: var(--px-text-2); font-weight: 700; }
+
+/* ════════════════════════════════════════════════════════════════════════
+   §12. AKTIVITAS — quick-log + feed CRM (raw_cus_activity)
+   ════════════════════════════════════════════════════════════════════════ */
+body.redesign-pasien .pxd-act-log { background: #FBF6EF; border: 1px solid #F0E2D2; border-radius: 13px; padding: 13px; }
+body.redesign-pasien .pxd-act-quick { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+body.redesign-pasien .pxd-act-qbtn {
+    display: inline-flex; align-items: center; gap: 6px; background: #fff; border-radius: 9px;
+    padding: 8px 12px; font-weight: 700; font-size: 12.5px; cursor: pointer; font-family: inherit;
+    border: 1px solid var(--px-input-border); transition: filter .15s ease;
+}
+body.redesign-pasien .pxd-act-qbtn:hover { filter: brightness(.98); }
+body.redesign-pasien .pxd-act-qbtn--telepon   { color: #3C5FA8; border-color: #D4DEF3; }
+body.redesign-pasien .pxd-act-qbtn--wa         { color: #2C8C63; border-color: #BFE3CD; }
+body.redesign-pasien .pxd-act-qbtn--kunjungan  { color: #9A6614; border-color: #EBD3A5; }
+body.redesign-pasien .pxd-act-note { display: flex; gap: 8px; }
+body.redesign-pasien .pxd-act-note .pxd-input { flex: 1; }
+body.redesign-pasien .pxd-act-note .pxd-btn { white-space: nowrap; }
+
+body.redesign-pasien .pxd-act-feed { position: relative; padding-left: 30px; margin-top: 18px; }
+body.redesign-pasien .pxd-act-feed__line { position: absolute; left: 11px; top: 4px; bottom: 4px; width: 2px; background: var(--px-border); }
+body.redesign-pasien .pxd-act-item { position: relative; margin-bottom: 15px; }
+body.redesign-pasien .pxd-act-item:last-child { margin-bottom: 0; }
+body.redesign-pasien .pxd-act-dot {
+    position: absolute; left: -30px; top: 0; width: 24px; height: 24px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center; font-size: 11px;
+}
+body.redesign-pasien .pxd-act-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+body.redesign-pasien .pxd-act-label { font-size: 13px; font-weight: 700; color: var(--px-text); }
+body.redesign-pasien .pxd-act-meta { font-size: 11.5px; color: var(--px-muted); }
+body.redesign-pasien .pxd-act-text { font-size: 12.5px; color: var(--px-text-2); margin-top: 3px; }
+body.redesign-pasien .pxd-act-empty { font-size: 13px; color: var(--px-muted); padding: 16px 0 4px; }

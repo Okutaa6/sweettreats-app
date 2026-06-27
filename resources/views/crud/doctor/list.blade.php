@@ -1,91 +1,322 @@
 @extends('layouts.app')
 
+@section('css')
+<link rel="stylesheet" href="{{ asset('assets/css/doctor-redesign.css') }}?v={{ @filemtime(public_path('assets/css/doctor-redesign.css')) ?: '1' }}">
+@endsection
+
 @section('content')
 <div class="container-fluid">
-    <div class="row">
-        <div class="col-sm-12">
-            <div class="page-title-box">
-                <h4 class="page-title">Doctor</h4>
-            </div>
-        </div>
-    </div>
+    <div class="page-title-box"><h4 class="page-title">Doctor</h4></div>
 
     @include('layouts.notif')
 
-    <div class="row">
-        <div class="col-md-12">
-            <div class="st-card">
-                <div class="st-card__body">
-                    @php
-                        $hasFilter = request('search') || request('branch_id');
-                        $showBranchFilter = isset($branches) && $branches->isNotEmpty();
-                    @endphp
+    @php
+        $hasFilter = request('spec') || request('status');
+        $avatarColors = ['#7A3415', '#52200A', '#8A3A12', '#6B2400', '#9A6614', '#5A2410', '#7E2E0E', '#693012'];
+        // Preserve state untuk link segment.
+        $segBase = array_filter([
+            'search' => $filterSearch ?: null,
+            'spec'   => $filterSpec ?: null,
+            'status' => $filterStatus ?: null,
+        ]);
+        $segUrl = fn ($s) => route('rawdoctor', $s === 'semua' ? $segBase : array_merge($segBase, ['seg' => $s]));
+        $segDefs = ['semua' => 'Semua', 'aktif' => 'Aktif', 'nonaktif' => 'Nonaktif', 'spesialis' => 'Spesialis'];
+    @endphp
 
-                    <div class="d-flex align-items-center justify-content-between mb-3">
-                        <a href="{{ route('rawdoctor.new') }}" class="st-btn-brand">
-                            <i class="fa fa-plus"></i> Tambah
+    <div class="dx-wrap">
+
+        {{-- ══════ Insight tiles ══════ --}}
+        <div class="dx-tiles">
+            <div class="dx-tile">
+                <div class="dx-tile__head">
+                    <div class="dx-tile__icon" style="background:#EDE9FE;color:#7C3AED;"><i class="fa fa-user-md"></i></div>
+                    <div class="dx-tile__label">Total Dokter</div>
+                </div>
+                <div class="dx-tile__num">{{ number_format($tiles['total'], 0, ',', '.') }}</div>
+                <div class="dx-tile__sub">terdaftar di grup</div>
+            </div>
+            <div class="dx-tile">
+                <div class="dx-tile__head">
+                    <div class="dx-tile__icon" style="background:#E3F4E8;color:#2F8E55;"><i class="fa fa-check-circle"></i></div>
+                    <div class="dx-tile__label">Dokter Aktif</div>
+                </div>
+                <div class="dx-tile__num">{{ number_format($tiles['aktif'], 0, ',', '.') }}</div>
+                <div class="dx-tile__sub">siap menerima reservasi</div>
+            </div>
+            <div class="dx-tile">
+                <div class="dx-tile__head">
+                    <div class="dx-tile__icon" style="background:#FBEFD9;color:#B5701A;"><i class="fa fa-exclamation-triangle"></i></div>
+                    <div class="dx-tile__label">Cuti Minggu Ini</div>
+                </div>
+                <div class="dx-tile__num">{{ number_format($tiles['cuti'], 0, ',', '.') }}</div>
+                <div class="dx-tile__sub">dokter terdampak</div>
+            </div>
+            <div class="dx-tile">
+                <div class="dx-tile__head">
+                    <div class="dx-tile__icon" style="background:#FBE7CF;color:#9A6614;"><i class="fa fa-calendar-alt"></i></div>
+                    <div class="dx-tile__label">Total Reservasi</div>
+                </div>
+                <div class="dx-tile__num">{{ number_format($tiles['reservasi'], 0, ',', '.') }}</div>
+                <div class="dx-tile__sub">sepanjang waktu</div>
+            </div>
+        </div>
+
+        {{-- ══════ Control row: search + Filter (mode Tabel) + toggle Tabel|Jadwal Semua ══════ --}}
+        <div class="dx-controls">
+            @if($view === 'tabel')
+                <form method="GET" action="{{ route('rawdoctor') }}" class="dx-search">
+                    @if(($seg ?? 'semua') !== 'semua')<input type="hidden" name="seg" value="{{ $seg }}">@endif
+                    @if($filterSpec)<input type="hidden" name="spec" value="{{ $filterSpec }}">@endif
+                    @if($filterStatus)<input type="hidden" name="status" value="{{ $filterStatus }}">@endif
+                    <i class="fa fa-search"></i>
+                    <input type="text" name="search" value="{{ $filterSearch }}" placeholder="Cari nama dokter…">
+                </form>
+                <button class="dx-btn {{ $hasFilter ? 'is-active' : '' }}" type="button" id="dxFilterToggle" data-toggle="collapse" data-target="#dxFilter" aria-expanded="{{ $hasFilter ? 'true' : 'false' }}">
+                    <i class="fa fa-filter"></i> {{ $hasFilter ? 'Filter Aktif' : 'Filter' }}
+                </button>
+            @endif
+            <div class="dx-toggle {{ $view === 'jadwal' ? 'dx-toggle--solo' : '' }}">
+                <a href="{{ route('rawdoctor', $segBase) }}" class="dx-toggle__opt {{ $view === 'tabel' ? 'is-active' : '' }}"><i class="fa fa-list-ul"></i> Tabel</a>
+                <a href="{{ route('rawdoctor', ['view' => 'jadwal']) }}" class="dx-toggle__opt {{ $view === 'jadwal' ? 'is-active' : '' }}"><i class="fa fa-table"></i> Jadwal Semua</a>
+            </div>
+        </div>
+
+        {{-- ══════ Filter panel (spesialisasi + status) — mode Tabel ══════ --}}
+        @if($view === 'tabel')
+        <div class="collapse {{ $hasFilter ? 'show' : '' }}" id="dxFilter">
+            <form method="GET" action="{{ route('rawdoctor') }}" class="dx-filter">
+                <input type="hidden" name="search" value="{{ $filterSearch }}">
+                @if(($seg ?? 'semua') !== 'semua')<input type="hidden" name="seg" value="{{ $seg }}">@endif
+                <div class="dx-filter__grid">
+                    <div>
+                        <label class="dx-flabel">Spesialisasi</label>
+                        <select class="dx-select" name="spec">
+                            <option value="">Semua Spesialisasi</option>
+                            @foreach($specOptions as $k => $label)
+                                <option value="{{ $k }}" {{ $filterSpec === $k ? 'selected' : '' }}>{{ $label }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div>
+                        <label class="dx-flabel">Status</label>
+                        <select class="dx-select" name="status">
+                            <option value="">Semua Status</option>
+                            <option value="aktif" {{ $filterStatus === 'aktif' ? 'selected' : '' }}>Aktif</option>
+                            <option value="nonaktif" {{ $filterStatus === 'nonaktif' ? 'selected' : '' }}>Nonaktif</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="dx-filter__foot">
+                    <button type="submit" class="dx-btn" style="background:var(--dx-grad);color:#FFEAD6;border:none;"><i class="fa fa-check"></i> Terapkan</button>
+                    <a href="{{ route('rawdoctor') }}" class="dx-btn"><i class="fa fa-times"></i> Reset</a>
+                </div>
+            </form>
+        </div>
+        @endif
+
+        {{-- ══════ MODE: TABEL ══════ --}}
+        @if($view === 'tabel')
+        <div class="dx-wrap">
+            <div class="dx-segs">
+                <div class="dx-segs__tabs">
+                    @foreach($segDefs as $k => $label)
+                        <a href="{{ $segUrl($k) }}" class="dx-seg {{ ($seg ?? 'semua') === $k ? 'active' : '' }}">
+                            {{ $label }} <span class="dx-seg__badge">{{ number_format($segCounts[$k] ?? 0, 0, ',', '.') }}</span>
                         </a>
-                        <button class="st-btn-outline-brown {{ $hasFilter ? 'is-active' : '' }}" type="button" data-toggle="collapse" data-target="#filterCollapse" aria-expanded="{{ $hasFilter ? 'true' : 'false' }}">
-                            <i class="fa fa-filter"></i> {{ $hasFilter ? 'Filter Aktif' : 'Filter' }}
-                        </button>
-                    </div>
+                    @endforeach
+                </div>
+                <span class="dx-segs__count">Menampilkan <strong>{{ number_format($doctors->count(), 0, ',', '.') }}</strong> dokter</span>
+            </div>
 
-                    <div class="collapse {{ $hasFilter ? 'show' : '' }}" id="filterCollapse">
-                        <div class="st-card mb-3" style="background-color: var(--cream-header);">
-                            <div class="st-card__body" style="padding:14px 18px;">
-                                <form method="GET" action="{{ route('rawdoctor') }}" class="mb-0">
-                                    <div class="row" style="gap:8px 0;">
-                                        <div class="col-md-{{ $showBranchFilter ? '5' : '8' }}">
-                                            <label class="small mb-1">Nama Dokter</label>
-                                            <input type="text" name="search" class="form-control form-control-sm" placeholder="Cari nama dokter..." value="{{ $filterSearch ?? '' }}">
+            <div class="dx-table-card">
+                <div class="dx-table-wrap">
+                    <table class="dx-table st-table--clickable">
+                        <thead>
+                            <tr>
+                                <th style="width:48px;">No</th>
+                                <th>Nama</th>
+                                <th style="width:150px;">Status</th>
+                                <th style="width:140px;">Jadwal</th>
+                                <th style="width:120px;">Reservasi</th>
+                                <th style="width:22px;"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @forelse($doctors as $i => $row)
+                                @php
+                                    $initial = mb_strtoupper(mb_substr(preg_replace('/^drg\.?\s*/i', '', trim($row->name)) ?: '?', 0, 1));
+                                    $avColor = $avatarColors[crc32((string) $row->id) % count($avatarColors)];
+                                @endphp
+                                <tr data-href="{{ route('rawdoctor.edit', $row->id) }}" class="{{ $row->is_active ? '' : 'is-off' }}">
+                                    <td class="dx-tnum dx-muted">{{ $i + 1 }}</td>
+                                    <td>
+                                        <div class="dx-name">
+                                            <div class="dx-avatar" style="background:{{ $avColor }};">@if($row->photo)<img src="{{ $row->photo_url }}" alt="{{ $row->name }}">@else{{ $initial }}@endif</div>
+                                            <div>
+                                                <div class="dx-name__name">{{ $row->name }}</div>
+                                                <span class="dx-spec" style="color:{{ $row->spec_color }};background:{{ $row->spec_bg }};">{{ $row->spec_label }}</span>
+                                            </div>
                                         </div>
-                                        @if($showBranchFilter)
-                                        <div class="col-md-3">
-                                            <label class="small mb-1">Cabang</label>
-                                            <select name="branch_id" class="form-control form-control-sm">
-                                                <option value="">Semua Cabang</option>
-                                                @foreach($branches as $branch)
-                                                    <option value="{{ $branch->id }}" {{ ($filterBranch ?? '') == $branch->id ? 'selected' : '' }}>{{ $branch->name }}</option>
-                                                @endforeach
-                                            </select>
-                                        </div>
-                                        @endif
-                                        <div class="col-md-2 d-flex align-items-end" style="gap:4px;">
-                                            <button type="submit" class="st-btn-brand w-100">Filter</button>
-                                            <a href="{{ route('rawdoctor') }}" class="st-btn-outline-brown" title="Reset"><i class="fa fa-times"></i></a>
-                                        </div>
-                                    </div>
-                                </form>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="st-table-wrap--scroll">
-                        <table class="st-table st-table--clickable">
-                            <thead>
-                                <tr>
-                                    <th width="5%">No</th>
-                                    <th>Nama</th>
-                                    <th width="20%">Jumlah Jadwal</th>
-                                    <th width="20%">Jumlah Reservasi</th>
+                                    </td>
+                                    <td>
+                                        <span class="dx-status {{ $row->is_active ? 'dx-status--on' : 'dx-status--off' }}">{{ $row->is_active ? 'Aktif' : 'Nonaktif' }}</span>
+                                    </td>
+                                    <td><span class="dx-sched"><i class="fa fa-calendar-alt"></i> {{ $row->schedules_count }} jam kerja</span></td>
+                                    <td><span class="dx-resv">{{ number_format($row->reservations_count, 0, ',', '.') }}</span></td>
+                                    <td><i class="fa fa-chevron-right dx-chev"></i></td>
                                 </tr>
-                            </thead>
-                            <tbody>
-                                @foreach ($doctors as $key => $row)
-                                    <tr data-href="{{ route('rawdoctor.edit', $row->id) }}">
-                                        <td class="st-num">{{ $doctors->firstItem() + $key }}</td>
-                                        <td class="st-primary">{{ $row->name }}</td>
-                                        <td class="st-tnum">{{ $row->schedules_count }}</td>
-                                        <td class="st-tnum">{{ $row->reservations_count }}</td>
-                                    </tr>
-                                @endforeach
-                            </tbody>
-                        </table>
-                    </div>
-                    <div class="mt-2">{{ $doctors->links() }}</div>
+                            @empty
+                                <tr><td colspan="6" class="dx-empty">Tidak ada dokter di segmen ini.</td></tr>
+                            @endforelse
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
+        @else
+
+        {{-- ══════ MODE: JADWAL SEMUA (master) — matriks dokter × hari ══════ --}}
+        @php
+            // mUrl: base view+cabang+minggu. mday hanya ikut kalau lagi mode drill
+            // (biar ganti cabang saat drill tetap di hari yang sama).
+            $mBase = ['view' => 'jadwal', 'mbranch' => $master['mbranch'], 'mweek' => $master['weekStart']];
+            $mUrl  = fn ($extra = []) => route('rawdoctor', array_merge($mBase, $extra));
+            $mDayExtra = $master['dayMode'] ? ['mday' => $master['mday']] : [];
+        @endphp
+        <div class="dxm">
+
+            {{-- kontrol: toggle cabang + nav minggu / kembali --}}
+            <div class="dxm-controls">
+                <div class="dxm-branches">
+                    @foreach($master['branches'] as $b)
+                        <a href="{{ $mUrl(array_merge(['mbranch' => $b->id], $mDayExtra)) }}" class="dxm-branch {{ $b->id === $master['mbranch'] ? 'is-active' : '' }}">
+                            <span class="dxm-branch__dot" style="background:{{ $master['dotMap'][$b->id] }};"></span>{{ $b->name }}
+                        </a>
+                    @endforeach
+                </div>
+                @if($master['dayMode'])
+                    <a href="{{ $mUrl() }}" class="dxm-back"><i class="fa fa-chevron-left"></i> Kembali ke minggu</a>
+                @else
+                    <div class="dxm-weeknav">
+                        <a href="{{ $mUrl(['mweek' => $master['prevWeek']]) }}" class="dxm-navbtn" title="Minggu sebelumnya">‹</a>
+                        <span class="dxm-weeklabel">{{ $master['weekLabel'] }}</span>
+                        <a href="{{ $mUrl(['mweek' => $master['nextWeek']]) }}" class="dxm-navbtn" title="Minggu berikutnya">›</a>
+                        <a href="{{ $mUrl(['mweek' => $master['thisWeek']]) }}" class="dxm-thisweek">Minggu Ini</a>
+                    </div>
+                @endif
+            </div>
+
+            @if(!$master['dayMode'])
+
+            {{-- matriks --}}
+            <div class="dxm-card">
+                <div class="dxm-info">
+                    Jadwal <strong>{{ $master['branchName'] }}</strong> · <span>{{ number_format($master['rows']->count(), 0, ',', '.') }}</span> dokter praktik. Klik <strong>nama dokter</strong> untuk cuti &amp; khusus · klik <strong>sel</strong> untuk atur jam — keduanya membuka halaman detail.
+                </div>
+                @if($master['gapShow'])
+                    <div class="dxm-gap">
+                        <i class="fa fa-exclamation-triangle"></i>
+                        <span>{{ $master['gapText'] }}</span>
+                    </div>
+                @endif
+                <div class="dxm-scroll">
+                    <div class="dxm-grid">
+                        {{-- header hari --}}
+                        <div class="dxm-head">
+                            <div class="dxm-head__dr">DOKTER</div>
+                            @foreach($master['days'] as $d)
+                                <a href="{{ $mUrl(['mday' => $d['iso']]) }}" class="dxm-head__day {{ $d['isToday'] ? 'is-today' : '' }}" title="Lihat timeline per jam">
+                                    <div class="dxm-head__short">{{ $d['short'] }}</div>
+                                    <div class="dxm-head__num">{{ $d['num'] }}</div>
+                                    <div class="dxm-head__badge {{ $d['status'] === 'kosong' ? 'dxm-head__badge--empty' : ($d['status'] === 'libur' ? 'dxm-head__badge--off' : '') }}">{{ $d['status'] === 'ada' ? $d['count'] . ' dr' : ($d['status'] === 'libur' ? 'Libur' : 'kosong') }}</div>
+                                </a>
+                            @endforeach
+                        </div>
+                        {{-- baris dokter --}}
+                        @forelse($master['rows'] as $row)
+                            @php
+                                $rInit = mb_strtoupper(mb_substr(preg_replace('/^drg\.?\s*/i', '', trim($row->name)) ?: '?', 0, 1));
+                                $rAv   = $avatarColors[crc32((string) $row->id) % count($avatarColors)];
+                            @endphp
+                            <div class="dxm-row">
+                                <a href="{{ route('rawdoctor.edit', [$row->id, 'tab' => 'cuti']) }}" class="dxm-dr" title="Cuti & jadwal khusus {{ $row->name }}">
+                                    <div class="dxm-dr__av" style="background:{{ $rAv }};">@if($row->photo)<img src="{{ $row->photo_url }}" alt="{{ $row->name }}">@else{{ $rInit }}@endif</div>
+                                    <div class="dxm-dr__main">
+                                        <div class="dxm-dr__name">{{ $row->name }}</div>
+                                        <div class="dxm-dr__spec" style="color:{{ $row->spec_color }};"><span style="background:{{ $row->spec_color }};"></span>{{ $row->spec_label }}</div>
+                                    </div>
+                                </a>
+                                @foreach($master['days'] as $d)
+                                    @php $cell = $master['cells'][$row->id][$d['iso']]; @endphp
+                                    <a href="{{ route('rawdoctor.edit', [$row->id, 'tab' => 'jadwal']) }}" class="dxm-cell {{ $d['isToday'] ? 'is-today' : '' }}">
+                                        @if($cell['isCuti'])
+                                            <div class="dxm-cuti">CUTI</div>
+                                        @endif
+                                        @foreach($cell['blocks'] as $blk)
+                                            <div class="dxm-blk" style="background:{{ $row->spec_color }};">
+                                                <div class="dxm-blk__time">{{ $blk['time'] }}</div>
+                                                <div class="dxm-blk__util">
+                                                    <span class="dxm-blk__track"><span style="width:{{ $blk['pct'] }}%;"></span></span>
+                                                    <span class="dxm-blk__count">{{ $blk['fill'] }}/{{ $blk['cap'] }}</span>
+                                                </div>
+                                            </div>
+                                        @endforeach
+                                        @foreach($cell['khusus'] as $k)
+                                            <div class="dxm-khusus">{{ $k['time'] }} ★</div>
+                                        @endforeach
+                                    </a>
+                                @endforeach
+                            </div>
+                        @empty
+                            <div class="dxm-emptyrow">Belum ada dokter dengan jadwal di {{ $master['branchName'] }}.</div>
+                        @endforelse
+                    </div>
+                </div>
+            </div>
+            @else
+            {{-- ── timeline harian (drill dari klik header hari) ── --}}
+            <div class="dxm-card">
+                <div class="dxm-tlhead">
+                    <div class="dxm-tlhead__t">{{ $master['dayLabel'] }}</div>
+                    <div class="dxm-tlhead__s">Timeline per jam · {{ $master['branchName'] }} · klik <strong>nama</strong> untuk cuti &amp; khusus · klik <strong>bar</strong> untuk atur jam — keduanya membuka halaman detail.</div>
+                </div>
+                <div class="dxm-scroll">
+                    <div class="dxm-tl">
+                        <div class="dxm-tl__axis">
+                            <div></div>
+                            <div class="dxm-tl__marks">
+                                @foreach($master['dayHourMarks'] as $hm)<span style="left:{{ $hm['pct'] }}%;">{{ $hm['label'] }}</span>@endforeach
+                            </div>
+                        </div>
+                        @forelse($master['dayRows'] as $dr)
+                            @php
+                                $row  = $dr['row'];
+                                $rInit = mb_strtoupper(mb_substr(preg_replace('/^drg\.?\s*/i', '', trim($row->name)) ?: '?', 0, 1));
+                                $rAv   = $avatarColors[crc32((string) $row->id) % count($avatarColors)];
+                            @endphp
+                            <div class="dxm-tl__row">
+                                <a href="{{ route('rawdoctor.edit', [$row->id, 'tab' => 'cuti']) }}" class="dxm-tl__dr" title="Cuti & jadwal khusus {{ $row->name }}">
+                                    <div class="dxm-dr__av" style="background:{{ $rAv }};">@if($row->photo)<img src="{{ $row->photo_url }}" alt="{{ $row->name }}">@else{{ $rInit }}@endif</div>
+                                    <div class="dxm-dr__name">{{ $row->name }}</div>
+                                </a>
+                                <a href="{{ route('rawdoctor.edit', [$row->id, 'tab' => 'jadwal']) }}" class="dxm-tl__track">
+                                    @if($dr['isCuti'])<div class="dxm-tl__cuti">CUTI</div>@endif
+                                    @foreach($dr['blocks'] as $b)
+                                        <div class="dxm-tl__blk {{ $b['kind'] === 'khusus' ? 'is-khusus' : '' }}" style="left:{{ $b['left'] }}%; width:{{ $b['width'] }}%;{!! $b['kind'] === 'shift' ? 'background:' . $b['color'] . ';' : '' !!}">{{ $b['label'] }}</div>
+                                    @endforeach
+                                </a>
+                            </div>
+                        @empty
+                            <div class="dxm-emptyrow">Tidak ada dokter praktik di {{ $master['branchName'] }} pada hari ini.</div>
+                        @endforelse
+                    </div>
+                </div>
+            </div>
+            @endif
+        </div>
+        @endif
+
     </div>
 </div>
 @endsection
+

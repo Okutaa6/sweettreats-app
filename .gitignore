@@ -25,3 +25,13 @@ yarn-error.log
 
 # Claude Code local settings (personal, jangan di-commit)
 .claude/
+
+# Seed lokal berisi kredensial/token (mis. API Token Accurate) — RAHASIA,
+# jangan pernah ke-commit. DDL-nya ada di database/sql/*.sql (aman).
+/database/sql/local/
+
+# Docs internal/sensitif & binary — disimpan lokal, jangan ke-commit ke GitHub.
+# PDF bikin repo bengkak; proposal vendor & panduan onboarding bersifat internal.
+docs/*.pdf
+docs/proposal-sweet-treats-api-omnicare-v2.md
+docs/git-workflow-reza.html
