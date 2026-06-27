@@ -12,33 +12,71 @@ class DoctorController extends Controller
 {
     public function index()
     {
-        $perPage = $this->perPage;
+        // README: SEMUA user lihat SEMUA dokter (tidak difilter per cabang/akun).
+        // 31 dokter → muat 1 halaman, jadi tanpa pagination: derive spesialisasi
+        // (dari nama) + hitung tile/segment/filter in-memory.
+        $filterSearch = trim((string) request('search'));
+        $filterSpec   = request('spec');    // umum/ortho/prostho/bedah/konservasi
+        $filterStatus = request('status');  // aktif/nonaktif
+        $seg = in_array(request('seg'), ['aktif', 'nonaktif', 'spesialis'], true) ? request('seg') : 'semua';
 
-        $filterSearch = request('search');
-        $filterBranch = request('branch_id');
-
-        $sessionBranch = session('raw_branch_id');
-        $query = RawDoctor::withCount('schedules', 'reservations')->orderBy('name');
-
-        if ($sessionBranch) {
-            $query->whereHas('schedules', function ($q) use ($sessionBranch) {
-                $q->where('raw_branch_id', $sessionBranch);
-            });
-        } elseif ($filterBranch) {
-            $query->whereHas('schedules', function ($q) use ($filterBranch) {
-                $q->where('raw_branch_id', $filterBranch);
-            });
+        $all = RawDoctor::withCount(['schedules', 'reservations'])->orderBy('name')->get();
+        foreach ($all as $d) {
+            $spec = \App\Support\DoctorSpec::forName($d->name);
+            $d->spec_key   = $spec['key'];
+            $d->spec_label = $spec['label'];
+            $d->spec_color = $spec['color'];
+            $d->spec_bg    = $spec['bg'];
         }
 
-        if ($filterSearch) {
-            $query->where('name', 'like', "%{$filterSearch}%");
-        }
+        // ── Insight tiles (clinic-wide) ──
+        $mon = now()->startOfWeek()->toDateString();
+        $sun = now()->endOfWeek()->toDateString();
+        $cutiMingguIni = \Illuminate\Support\Facades\DB::table('raw_doctor_leave')
+            ->where('start_date', '<=', $sun)->where('end_date', '>=', $mon)
+            ->distinct()->count('raw_doctor_id');
+        $tiles = [
+            'total'     => $all->count(),
+            'aktif'     => $all->where('is_active', true)->count(),
+            'cuti'      => $cutiMingguIni,
+            'reservasi' => (int) $all->sum('reservations_count'),
+        ];
 
-        $doctors = $query->paginate($perPage)->withQueryString();
+        // ── Filter (search + spesialisasi + status), lalu hitung segment di atas base ter-filter ──
+        $base = $all->filter(function ($d) use ($filterSearch, $filterSpec, $filterStatus) {
+            if ($filterSearch !== '' && stripos($d->name, $filterSearch) === false) return false;
+            if ($filterSpec && $d->spec_key !== $filterSpec) return false;
+            if ($filterStatus === 'aktif' && !$d->is_active) return false;
+            if ($filterStatus === 'nonaktif' && $d->is_active) return false;
+            return true;
+        })->values();
 
-        $branches = $sessionBranch ? collect() : RawBranch::orderBy('name')->get();
+        $segCounts = [
+            'semua'     => $base->count(),
+            'aktif'     => $base->where('is_active', true)->count(),
+            'nonaktif'  => $base->where('is_active', false)->count(),
+            'spesialis' => $base->filter(fn ($d) => $d->spec_key !== 'umum')->count(),
+        ];
 
-        return view('crud.doctor.list', compact('doctors', 'branches', 'filterSearch', 'filterBranch'));
+        $doctors = $base->filter(function ($d) use ($seg) {
+            if ($seg === 'aktif')     return (bool) $d->is_active;
+            if ($seg === 'nonaktif')  return !$d->is_active;
+            if ($seg === 'spesialis') return $d->spec_key !== 'umum';
+            return true;
+        })->values();
+
+        $specOptions = [
+            'umum'       => 'Dokter Gigi Umum',
+            'ortho'      => 'Orthodonti',
+            'prostho'    => 'Prosthodonti',
+            'bedah'      => 'Bedah Mulut',
+            'konservasi' => 'Konservasi Gigi',
+        ];
+
+        return view('crud.doctor.list', compact(
+            'doctors', 'tiles', 'segCounts', 'seg',
+            'filterSearch', 'filterSpec', 'filterStatus', 'specOptions'
+        ));
     }
 
     public function create()
@@ -134,11 +172,57 @@ class DoctorController extends Controller
             ->orderByDesc('date')
             ->get();
 
+        // Tanggal reservasi mendatang — utk peringatan bentrok saat isi rentang cuti.
+        $futureReservationDates = $doctor->reservations()
+            ->whereDate('date', '>=', now()->toDateString())
+            ->pluck('date')->map(fn ($d) => \Carbon\Carbon::parse($d)->toDateString())
+            ->unique()->values()->all();
+
+        // ── REDESIGN DETAIL: data header + tab Informasi ──
+        $spec = \App\Support\DoctorSpec::forName($doctor->name);
+        $reservationCount = $doctor->reservations()->count();
+        $jamKerja = $schedules->count(); // jumlah sesi/shift per minggu
+
+        // ── Utilisasi per shift (terisi/kapasitas) — reservasi NYATA minggu ini.
+        //    Kapasitas = (jam_selesai − jam_mulai) × 2 (slot 30 menit, per handoff).
+        //    "terisi" = reservasi dokter ini di cabang+hari+jam shift, dalam minggu berjalan
+        //    (detail tab tak punya navigasi minggu → konteks = minggu ini). ──
+        $weekMon = now()->startOfWeek()->toDateString();
+        $weekSun = now()->endOfWeek()->toDateString();
+        $weekRes = \Illuminate\Support\Facades\DB::table('raw_cus_reservation')
+            ->where('raw_doctor_id', $id)
+            ->whereBetween('date', [$weekMon, $weekSun])
+            ->get(['raw_branch_id', 'date', 'start_hour']);
+        $toDec = fn ($t) => $t ? ((int) substr($t, 0, 2) + ((int) substr($t, 3, 2)) / 60) : null;
+        $shiftFill = [];
+        foreach ($schedules as $s) {
+            $sd = $toDec($s->start_hour); $ed = $toDec($s->end_hour);
+            $fill = 0;
+            foreach ($weekRes as $r) {
+                if ($r->raw_branch_id !== $s->raw_branch_id) continue;
+                if (\Carbon\Carbon::parse($r->date)->dayOfWeekIso !== (int) $s->day) continue;
+                $rh = $toDec($r->start_hour);
+                if ($rh !== null && $rh >= $sd && $rh < $ed) $fill++;
+            }
+            $shiftFill[$s->id] = $fill;
+        }
+
+        // Cabang tempat dokter praktik (SEMUA, tak difilter sesi — utk display header/info).
+        $practiceBranchIds = RawDoctorSchedule::where('raw_doctor_id', $id)
+            ->distinct()->pluck('raw_branch_id')->toArray();
+        $practiceBranches = RawBranch::whereIn('id', $practiceBranchIds)->orderBy('name')->get();
+
+        // Tab aktif awal (post-redirect dari simpan child form).
+        $activeTab = in_array(request('tab'), ['informasi', 'jadwal', 'cuti', 'perawatan'], true)
+            ? request('tab') : 'informasi';
+
         return view('crud.doctor.edit', compact(
             'doctor', 'schedules', 'branches',
             'allServices', 'doctorServiceIds',
             'doctorBranches', 'branchServiceDurations', 'branchDetailDurations',
-            'leaves', 'exceptions'
+            'leaves', 'exceptions',
+            'spec', 'reservationCount', 'jamKerja', 'practiceBranches', 'activeTab', 'shiftFill',
+            'futureReservationDates'
         ));
     }
 
@@ -162,7 +246,7 @@ class DoctorController extends Controller
             'created_at'    => now(),
         ]);
 
-        return redirect()->route('rawdoctor.edit', $doctorId)->with('success', 'Cuti berhasil ditambahkan');
+        return redirect()->route('rawdoctor.edit', [$doctorId, 'tab' => 'cuti'])->with('success', 'Cuti berhasil ditambahkan');
     }
 
     public function leaveDestroy($doctorId, $leaveId)
@@ -172,7 +256,7 @@ class DoctorController extends Controller
             ->where('id', $leaveId)
             ->delete();
 
-        return redirect()->route('rawdoctor.edit', $doctorId)->with('success', 'Cuti berhasil dihapus');
+        return redirect()->route('rawdoctor.edit', [$doctorId, 'tab' => 'cuti'])->with('success', 'Cuti berhasil dihapus');
     }
 
     public function servicesUpdate($doctorId)
@@ -259,7 +343,15 @@ class DoctorController extends Controller
             }
         }
 
-        return redirect()->route('rawdoctor.edit', $doctorId)
+        // Auto-save (AJAX): cukup balikin status + jumlah perawatan dilayani.
+        if (request()->ajax() || request()->wantsJson()) {
+            return response()->json([
+                'ok'     => true,
+                'served' => count(request('services', [])),
+            ]);
+        }
+
+        return redirect()->route('rawdoctor.edit', [$doctorId, 'tab' => 'perawatan'])
             ->with('success', 'Perawatan & durasi dokter berhasil diperbarui');
     }
 
@@ -292,7 +384,7 @@ class DoctorController extends Controller
             'created_at'    => now(),
         ]);
 
-        return redirect()->route('rawdoctor.edit', $doctorId)
+        return redirect()->route('rawdoctor.edit', [$doctorId, 'tab' => 'cuti'])
             ->with('success', 'Pengecualian jadwal berhasil ditambahkan');
     }
 
@@ -323,7 +415,7 @@ class DoctorController extends Controller
             'updated_at'    => now(),
         ]);
 
-        return redirect()->route('rawdoctor.edit', $doctorId)
+        return redirect()->route('rawdoctor.edit', [$doctorId, 'tab' => 'cuti'])
             ->with('success', 'Pengecualian jadwal berhasil diubah');
     }
 
@@ -336,7 +428,7 @@ class DoctorController extends Controller
 
         $exception->delete();
 
-        return redirect()->route('rawdoctor.edit', $doctorId)
+        return redirect()->route('rawdoctor.edit', [$doctorId, 'tab' => 'cuti'])
             ->with('success', 'Pengecualian jadwal berhasil dihapus');
     }
 
@@ -445,7 +537,7 @@ class DoctorController extends Controller
             'created_at' => now(),
         ]);
 
-        return redirect()->route('rawdoctor.edit', $doctorId)->with('success', 'Jadwal berhasil ditambahkan');
+        return redirect()->route('rawdoctor.edit', [$doctorId, 'tab' => 'jadwal'])->with('success', 'Jadwal berhasil ditambahkan');
     }
 
     public function scheduleUpdate($doctorId, $scheduleId)
@@ -469,7 +561,7 @@ class DoctorController extends Controller
             'updated_at' => now(),
         ]);
 
-        return redirect()->route('rawdoctor.edit', $doctorId)->with('success', 'Jadwal berhasil diubah');
+        return redirect()->route('rawdoctor.edit', [$doctorId, 'tab' => 'jadwal'])->with('success', 'Jadwal berhasil diubah');
     }
 
     public function scheduleDestroy($doctorId, $scheduleId)
@@ -479,7 +571,7 @@ class DoctorController extends Controller
 
         $schedule->delete();
 
-        return redirect()->route('rawdoctor.edit', $doctorId)->with('success', 'Jadwal berhasil dihapus');
+        return redirect()->route('rawdoctor.edit', [$doctorId, 'tab' => 'jadwal'])->with('success', 'Jadwal berhasil dihapus');
     }
 
     public function schedulesJson($doctorId)

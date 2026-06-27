@@ -1,1033 +1,746 @@
 @extends('layouts.app')
 
+@section('css')
+<link rel="stylesheet" href="{{ asset('assets/css/doctor-redesign.css') }}?v={{ @filemtime(public_path('assets/css/doctor-redesign.css')) ?: '1' }}">
+@endsection
+
 @section('content')
-    <div class="container-fluid">
-        <div class="row">
-            <div class="col-sm-12">
-                <div class="page-title-box">
-                    <h4 class="page-title">Detail Doctor</h4>
-                </div>
-            </div>
+<div class="container-fluid">
+    <div class="page-title-box"><h4 class="page-title">Detail Dokter</h4></div>
+
+    @include('layouts.notif')
+
+    @php
+        $avatarColors = ['#7A3415', '#52200A', '#8A3A12', '#6B2400', '#9A6614', '#5A2410', '#7E2E0E', '#693012'];
+        $initial = mb_strtoupper(mb_substr(preg_replace('/^drg\.?\s*/i', '', trim($doctor->name)) ?: '?', 0, 1));
+        $avColor = $avatarColors[crc32((string) $doctor->id) % count($avatarColors)];
+        $branchNames = $practiceBranches->pluck('name')->implode(' · ');
+        $crumbBranch = optional($practiceBranches->first())->name;
+        // Edit profil dokter (nama/foto) = non-Sales saja (Admin/Admin General/
+        // Super Admin/Admin Backup=head sales Nissa). Sales tetap read-only.
+        $canEdit = session('group_name') !== 'Sales';
+        // Kalau ada error validasi update() → buka form edit + tab Informasi.
+        $showEdit = $canEdit && $errors->any();
+        if ($errors->any()) { $activeTab = 'informasi'; }
+    @endphp
+
+    <div class="dxd">
+
+        {{-- ════════ BACK + BREADCRUMB ════════ --}}
+        <div class="dx-back">
+            <a href="{{ route('rawdoctor') }}" class="dx-back__btn" title="Kembali ke daftar dokter"><i class="fa fa-chevron-left"></i></a>
+            <span class="dx-back__crumb">Doctor{!! $crumbBranch ? ' · <strong>' . e($crumbBranch) . '</strong>' : '' !!}</span>
         </div>
 
-        @include('layouts.notif')
-
-        {{-- Doctor Info --}}
-        <div class="st-card mb-3">
-            <div class="st-card__body">
-                <div class="d-flex align-items-start justify-content-between flex-wrap" style="gap:12px; margin-bottom:14px;">
-                    <h6 class="st-section-title mb-0"><i class="fa fa-user-md"></i> Informasi Doctor</h6>
-                    <div class="st-doctor-toggle-box">
-                        <div class="st-doctor-toggle-box__caption">
-                            <i class="fa fa-power-off"></i>
-                            <span>Status Dokter</span>
-                            <i class="fa fa-circle-info st-doctor-toggle-box__help"
-                               title="Saat Nonaktif: dokter ini tidak muncul di dropdown form reservasi baru. Reservasi yang sudah terjadwal tetap valid."></i>
-                        </div>
-                        <div class="st-doctor-toggle-wrap">
-                            <span class="st-doctor-toggle-wrap__label {{ $doctor->is_active ? '' : 'is-inactive' }}" id="doctorToggleLabel">
-                                {{ $doctor->is_active ? 'Aktif' : 'Nonaktif' }}
-                            </span>
-                            <label class="st-toggle-switch">
-                                <input type="checkbox" id="doctorActiveToggle" {{ $doctor->is_active ? 'checked' : '' }}>
-                                <span class="st-toggle-switch__slider"></span>
-                            </label>
-                        </div>
-                        <div class="st-doctor-toggle-box__hint">
-                            Geser untuk {{ $doctor->is_active ? 'menonaktifkan' : 'mengaktifkan' }} dokter.
-                        </div>
-                    </div>
+        {{-- ════════ IDENTITY HEADER + STATUS TOGGLE ════════ --}}
+        <div class="dxd-card dxd-head">
+            <div class="dxd-avatar" style="background:{{ $avColor }};">@if($doctor->photo)<img src="{{ $doctor->photo_url }}" alt="{{ $doctor->name }}">@else{{ $initial }}@endif</div>
+            <div class="dxd-head__main">
+                <div class="dxd-head__title">
+                    <span class="dxd-head__name">{{ $doctor->name }}</span>
+                    <span class="dxd-spec" style="color:{{ $spec['color'] }};background:{{ $spec['bg'] }};">{{ $spec['label'] }}</span>
                 </div>
-                <form method="post" action="{{ route('rawdoctor.update', $doctor->id) }}" enctype="multipart/form-data">
-                    @csrf
-                    @method('PUT')
+                <div class="dxd-head__meta">
+                    <span><i class="fa fa-calendar-alt"></i> {{ $jamKerja }} jam kerja/minggu</span>
+                    <span><i class="fa fa-map-marker-alt"></i> {{ $branchNames ?: 'Belum ada cabang' }}</span>
+                    <span><i class="fa fa-clipboard-list"></i> {{ number_format($reservationCount, 0, ',', '.') }} reservasi total</span>
+                </div>
+            </div>
+            <form method="POST" action="{{ route('rawdoctor.toggle-active', $doctor->id) }}" id="dxdStatusForm">
+                @csrf @method('PATCH')
+                <button type="submit" class="dxd-status dxd-status--{{ $doctor->is_active ? 'on' : 'off' }}" id="dxdStatusBtn">
+                    <div class="dxd-status__txt">
+                        <div class="dxd-status__label">Status Dokter</div>
+                        <div class="dxd-status__val">{{ $doctor->is_active ? 'Aktif' : 'Nonaktif' }}</div>
+                    </div>
+                    <div class="dxd-switch"><div class="dxd-switch__knob"></div></div>
+                </button>
+            </form>
+        </div>
 
-                    <a href="{{ route('rawdoctor') }}" class="st-btn-outline-brown mb-3 d-inline-block">
-                        <i class="fa fa-arrow-left"></i> Kembali
-                    </a>
+        {{-- ════════ TAB NAV ════════ --}}
+        <div class="dxd-tabs">
+            <button type="button" class="dxd-tab {{ $activeTab === 'informasi' ? 'active' : '' }}" data-dxd-target="informasi"><i class="fa fa-user"></i> Informasi</button>
+            <button type="button" class="dxd-tab {{ $activeTab === 'jadwal' ? 'active' : '' }}" data-dxd-target="jadwal"><i class="fa fa-calendar-alt"></i> Jadwal <span class="dxd-tab__badge">{{ $jamKerja }}</span></button>
+            <button type="button" class="dxd-tab {{ $activeTab === 'cuti' ? 'active' : '' }}" data-dxd-target="cuti"><i class="fa fa-umbrella-beach"></i> Cuti &amp; Khusus</button>
+            <button type="button" class="dxd-tab {{ $activeTab === 'perawatan' ? 'active' : '' }}" data-dxd-target="perawatan"><i class="fa fa-tooth"></i> Perawatan &amp; Durasi</button>
+        </div>
 
-                    <table class="st-table">
-                        <tr>
-                            <td width="20%" style="font-weight:600;">Nama <span class="text-danger">*</span></td>
-                            <td>
-                                <input class="form-control {{ $errors->has('name') ? 'is-invalid' : '' }}"
-                                    type="text" name="name" value="{{ old('name', $doctor->name) }}" />
-                                @if ($errors->has('name'))
-                                    <div class="invalid-feedback">{{ $errors->first('name') }}</div>
-                                @endif
-                            </td>
-                        </tr>
-                        @php $stIsSales = session('group_name') === 'Sales'; @endphp
-                        <tr>
-                            <td style="font-weight:600;">Foto</td>
-                            <td>
-                                @if ($doctor->photo)
-                                    <div class="mb-2 d-flex align-items-center" style="gap:12px;">
-                                        <img src="{{ $doctor->photo_url }}" alt="Foto {{ $doctor->name }}"
-                                            style="width:72px;height:72px;border-radius:50%;object-fit:cover;border:2px solid #e0d4c5;">
-                                        @if (!$stIsSales)
-                                            <button type="button" class="st-btn-outline-brown" onclick="deleteDoctorPhoto()"
-                                                style="font-size:12px; padding:6px 12px;">
-                                                <i class="fa fa-trash"></i> Hapus Foto
-                                            </button>
-                                        @endif
-                                    </div>
-                                @endif
-
-                                @if ($stIsSales)
-                                    @if (!$doctor->photo)
-                                        <small class="text-muted"><i class="fa fa-info-circle"></i> Belum ada foto dokter.</small>
-                                    @endif
-                                @else
-                                    <input class="form-control {{ $errors->has('photo') ? 'is-invalid' : '' }}"
-                                        type="file" name="photo" accept="image/jpeg,image/png,image/webp" />
-                                    <small class="text-muted">
-                                        {{ $doctor->photo ? 'Upload file baru untuk mengganti foto.' : 'Opsional.' }}
-                                        Format JPG/PNG/WebP, maksimal 2 MB.
-                                    </small>
-                                    @if ($errors->has('photo'))
-                                        <div class="invalid-feedback">{{ $errors->first('photo') }}</div>
-                                    @endif
-                                @endif
-                            </td>
-                        </tr>
-                        <tr>
-                            <td></td>
-                            <td>
-                                <button class="st-btn-brand" type="submit">
-                                    <i class="fa fa-save"></i> Simpan
-                                </button>
-                                <button type="button" class="st-btn-outline-brown" onclick="deleteDoctor()">
-                                    <i class="fa fa-trash"></i> Hapus
-                                </button>
-                            </td>
-                        </tr>
-                    </table>
-                </form>
-                <form action="{{ route('rawdoctor.destroy', $doctor->id) }}" method="POST" id="deleteDoctor">
-                    @csrf @method('DELETE')
-                </form>
-                <form action="{{ route('rawdoctor.toggle-active', $doctor->id) }}" method="POST" id="toggleDoctorActiveForm">
-                    @csrf @method('PATCH')
-                </form>
-                @if ($doctor->photo && !$stIsSales)
-                    <form action="{{ route('rawdoctor.photo.delete', $doctor->id) }}" method="POST" id="deleteDoctorPhoto">
-                        @csrf @method('DELETE')
-                    </form>
+        {{-- ════════ TAB: INFORMASI (read-only) ════════ --}}
+        <div class="dxd-card" data-dxd-panel="informasi" style="display:{{ $activeTab === 'informasi' ? '' : 'none' }}; padding:22px 24px;">
+            <div class="dxd-sec">
+                <div class="dxd-sec__l"><span class="dxd-sec__tick"></span><span class="dxd-sec__t--sm">Informasi Dokter</span></div>
+                @if($canEdit)
+                    <button type="button" class="dxd-editbtn" id="dxdEditBtn"><i class="fa fa-pen"></i> Edit Profil</button>
+                @else
+                    <span class="dxd-readonly"><i class="fa fa-lock"></i> Hanya-baca</span>
                 @endif
             </div>
-        </div>
 
-        {{-- Doctor Schedules --}}
-        <div class="st-card mb-3">
-            <div class="st-card__head">
-                <h6 class="st-section-title mb-0"><i class="fa fa-calendar-alt"></i> Jadwal Doctor</h6>
-            </div>
-            <div class="st-card__body">
-                <button class="st-btn-brand mb-3" data-toggle="modal" data-target="#addScheduleModal">
-                    <i class="fa fa-plus"></i> Tambah Jadwal
-                </button>
+            {{-- VIEW (read-only) --}}
+            <div id="dxdInfoView" style="display:{{ $showEdit ? 'none' : '' }};">
+                <div class="dxd-info-id">
+                    <div class="dxd-info-id__av" style="background:{{ $avColor }};">@if($doctor->photo)<img src="{{ $doctor->photo_url }}" alt="{{ $doctor->name }}">@else{{ $initial }}@endif</div>
+                    <div>
+                        <div class="dxd-info-id__name">{{ $doctor->name }}</div>
+                        <span class="dxd-spec" style="color:{{ $spec['color'] }};background:{{ $spec['bg'] }};margin-top:5px;display:inline-block;">{{ $spec['label'] }}</span>
+                    </div>
+                </div>
 
-                @php
-                    $dayNames = [1 => 'Senin', 2 => 'Selasa', 3 => 'Rabu', 4 => 'Kamis', 5 => 'Jumat', 6 => 'Sabtu', 7 => 'Minggu'];
-                @endphp
+                <div class="dxd-info-grid">
+                    <div class="dxd-info-cell"><div class="dxd-info-cell__k">Spesialisasi</div><div class="dxd-info-cell__v">{{ $spec['label'] }}</div></div>
+                    <div class="dxd-info-cell"><div class="dxd-info-cell__k">Cabang Praktik</div><div class="dxd-info-cell__v">{{ $branchNames ?: '—' }}</div></div>
+                    <div class="dxd-info-cell"><div class="dxd-info-cell__k">Jam Kerja / Minggu</div><div class="dxd-info-cell__v">{{ $jamKerja }} sesi</div></div>
+                    <div class="dxd-info-cell"><div class="dxd-info-cell__k">Total Reservasi</div><div class="dxd-info-cell__v">{{ number_format($reservationCount, 0, ',', '.') }}</div></div>
+                </div>
 
-                <div class="st-table-wrap--scroll">
-                    <table class="st-table st-table--compact">
-                        <thead>
-                            <tr>
-                                <th width="5%">No</th>
-                                <th>Hari</th>
-                                <th>Cabang</th>
-                                <th>Jam Mulai</th>
-                                <th>Jam Selesai</th>
-                                <th width="10%">Aksi</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @forelse ($schedules as $key => $schedule)
-                                <tr>
-                                    <td class="st-num">{{ $key + 1 }}</td>
-                                    <td>{{ $dayNames[$schedule->day] ?? $schedule->day }}</td>
-                                    <td>{{ $schedule->branch->name ?? '-' }}</td>
-                                    <td>{{ $schedule->start_hour }}</td>
-                                    <td>{{ $schedule->end_hour }}</td>
-                                    <td nowrap>
-                                        <div class="d-flex" style="gap:4px;">
-                                            <button class="st-icon-btn"
-                                                data-toggle="modal" data-target="#editScheduleModal{{ $schedule->id }}"
-                                                title="Edit">
-                                                <i class="fa fa-pencil-alt"></i>
-                                            </button>
-                                            <button class="st-icon-btn" onclick="deleteSchedule('{{ $schedule->id }}')" title="Hapus">
-                                                <i class="fa fa-trash" style="color:#B23A3A"></i>
-                                            </button>
-                                            <form action="{{ route('rawdoctor.schedule.destroy', [$doctor->id, $schedule->id]) }}"
-                                                method="POST" id="deleteSchedule{{ $schedule->id }}">
-                                                @csrf @method('DELETE')
-                                            </form>
-                                        </div>
-                                    </td>
-                                </tr>
-
-                                {{-- Edit Schedule Modal --}}
-                                <div class="modal fade" id="editScheduleModal{{ $schedule->id }}" tabindex="-1">
-                                    <div class="modal-dialog">
-                                        <div class="modal-content">
-                                            <form method="POST"
-                                                action="{{ route('rawdoctor.schedule.update', [$doctor->id, $schedule->id]) }}">
-                                                @csrf @method('PUT')
-                                                <div class="modal-header">
-                                                    <h5 class="modal-title"><i class="fa fa-pencil" style="margin-right:6px;opacity:.8;"></i> Edit Jadwal — {{ $doctor->name }}</h5>
-                                                    <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
-                                                </div>
-                                                <div class="modal-body">
-                                                    <div class="row">
-                                                        <div class="col-md-6">
-                                                            <div class="form-group">
-                                                                <label>Hari <span class="text-danger">*</span></label>
-                                                                <select class="form-control form-control-sm" name="day" required>
-                                                                    @foreach ($dayNames as $num => $name)
-                                                                        <option value="{{ $num }}" {{ $schedule->day == $num ? 'selected' : '' }}>{{ $name }}</option>
-                                                                    @endforeach
-                                                                </select>
-                                                            </div>
-                                                        </div>
-                                                        <div class="col-md-6">
-                                                            <div class="form-group">
-                                                                <label>Cabang <span class="text-danger">*</span></label>
-                                                                <select class="form-control form-control-sm" name="raw_branch_id" required>
-                                                                    <option value="">- Pilih Cabang -</option>
-                                                                    @foreach ($branches as $branch)
-                                                                        <option value="{{ $branch->id }}" {{ $schedule->raw_branch_id == $branch->id ? 'selected' : '' }}>{{ $branch->name }}</option>
-                                                                    @endforeach
-                                                                </select>
-                                                            </div>
-                                                        </div>
-                                                        <div class="col-md-6">
-                                                            <div class="form-group">
-                                                                <label>Jam Mulai <span class="text-danger">*</span></label>
-                                                                <input type="time" class="form-control form-control-sm" name="start_hour" step="300" value="{{ $schedule->start_hour }}" required>
-                                                            </div>
-                                                        </div>
-                                                        <div class="col-md-6">
-                                                            <div class="form-group">
-                                                                <label>Jam Selesai <span class="text-danger">*</span></label>
-                                                                <input type="time" class="form-control form-control-sm" name="end_hour" step="300" value="{{ $schedule->end_hour }}" required>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <div class="modal-footer">
-                                                    <button type="button" class="st-btn-outline-brown" data-dismiss="modal">Batal</button>
-                                                    <button type="submit" class="st-btn-brand"><i class="fa fa-save"></i> Simpan</button>
-                                                </div>
-                                            </form>
-                                        </div>
-                                    </div>
-                                </div>
-                            @empty
-                                <tr>
-                                    <td colspan="6" class="text-center st-muted">Belum ada jadwal</td>
-                                </tr>
-                            @endforelse
-                        </tbody>
-                    </table>
+                <div class="dxd-info-banner">
+                    <i class="fa fa-info-circle"></i>
+                    @if($canEdit)
+                        <div>Profil dokter (nama, foto, spesialisasi) sebaiknya seragam di semua cabang. Spesialisasi diturunkan otomatis dari gelar pada nama. Status, jadwal, cuti, dan perawatan diatur lewat tab di atas.</div>
+                    @else
+                        <div>Profil dokter (nama, foto, spesialisasi) dikelola oleh <strong>admin pusat</strong> agar data seragam di semua cabang. Sales hanya dapat mengubah <strong>status aktif/nonaktif</strong> lewat tombol di atas, serta mengatur jadwal, cuti, dan perawatan dokter.</div>
+                    @endif
                 </div>
             </div>
-        </div>
 
-        {{-- Doctor Services + Durasi per Cabang --}}
-        <div class="st-card mb-3">
-            <div class="st-card__body">
-                @php $fmtDur = fn($n) => rtrim(rtrim(number_format((float) $n, 2), '0'), '.'); @endphp
-                <h6 class="st-section-title"><i class="fa fa-stethoscope"></i> Perawatan &amp; Durasi per Cabang</h6>
-                <p class="small text-muted mb-2" style="font-size:11px;">
-                    Centang perawatan yang dilayani dokter ini — <strong>berlaku universal</strong> di semua cabang.
-                    @if(config('features.flexible_scheduling'))
-                        Kolom <strong>Durasi</strong> diatur <strong>per cabang</strong>: pilih cabang di bawah lalu isi durasinya. Ubah durasi di satu cabang <strong>tidak</strong> memengaruhi cabang lain. Kosongkan = pakai durasi default service.
-                    @endif
-                </p>
-                <form method="POST" action="{{ route('rawdoctor.services.update', $doctor->id) }}">
-                    @csrf
-
-                    @if(config('features.flexible_scheduling'))
-                        @if($doctorBranches->isEmpty())
-                            <div class="alert alert-warning" style="font-size:11px; padding:8px 12px;">
-                                <i class="fa fa-exclamation-triangle"></i>
-                                Dokter ini belum punya jadwal di cabang mana pun — durasi per cabang belum bisa diatur. Tambahkan jadwal dulu. Centang perawatan tetap bisa disimpan.
+            {{-- EDIT (non-Sales: head sales / admin) --}}
+            @if($canEdit)
+                <form id="dxdInfoEdit" method="post" action="{{ route('rawdoctor.update', $doctor->id) }}" enctype="multipart/form-data" class="dxd-edit" style="display:{{ $showEdit ? '' : 'none' }};">
+                    @csrf @method('PUT')
+                    <div>
+                        <label class="dxd-edit__label">Nama Dokter <span style="color:#C0392B;">*</span></label>
+                        <input type="text" name="name" class="dxd-input {{ $errors->has('name') ? 'dxd-input--err' : '' }}" value="{{ old('name', $doctor->name) }}" required>
+                        @if($errors->has('name'))<div class="dxd-err">{{ $errors->first('name') }}</div>@endif
+                        <div class="dxd-edit__hint">Spesialisasi mengikuti gelar di nama (mis. "Sp. Ort" → Orthodonti).</div>
+                    </div>
+                    <div>
+                        <label class="dxd-edit__label">Foto Dokter</label>
+                        <div class="dxd-photo-row">
+                            @if($doctor->photo)<img src="{{ $doctor->photo_url }}" alt="{{ $doctor->name }}">@endif
+                            <div style="flex:1; min-width:200px;">
+                                <input type="file" name="photo" accept="image/jpeg,image/png,image/webp" class="dxd-input {{ $errors->has('photo') ? 'dxd-input--err' : '' }}">
+                                <div class="dxd-edit__hint">{{ $doctor->photo ? 'Upload file baru untuk mengganti foto.' : 'Opsional.' }} Format JPG/PNG/WebP, maksimal 2 MB.</div>
+                                @if($errors->has('photo'))<div class="dxd-err">{{ $errors->first('photo') }}</div>@endif
                             </div>
-                        @else
-                            <div class="form-group" style="max-width:300px;">
-                                <label style="font-weight:600; font-size:12px;">Atur durasi untuk cabang</label>
-                                <select id="durationBranchSel" class="form-control form-control-sm">
-                                    @foreach($doctorBranches as $b)
-                                        <option value="{{ $b->id }}">{{ $b->name }}</option>
-                                    @endforeach
-                                </select>
-                                <small class="text-muted" style="font-size:10px;">Durasi tiap cabang tersimpan terpisah.</small>
-                            </div>
+                        </div>
+                    </div>
+                    <div class="dxd-edit__foot">
+                        <button type="submit" class="dx-btn dx-btn--primary"><i class="fa fa-save"></i> Simpan</button>
+                        <button type="button" class="dx-btn" id="dxdEditCancel">Batal</button>
+                        @if($doctor->photo)
+                            <button type="button" class="dx-btn dx-btn--danger" onclick="dxdDeletePhoto()" style="margin-left:auto;"><i class="fa fa-trash"></i> Hapus Foto</button>
                         @endif
-                    @endif
-
-                    <div class="row">
-                        @foreach ($allServices as $service)
-                            @php $isChecked = in_array($service->id, $doctorServiceIds); @endphp
-                            <div class="col-md-6 mb-2">
-                                <div class="d-flex align-items-center" style="gap:8px;">
-                                    <div class="custom-control custom-checkbox" style="flex:1;">
-                                        <input type="checkbox" class="custom-control-input doctor-service-check"
-                                            id="svc_{{ $service->id }}" name="services[]"
-                                            value="{{ $service->id }}"
-                                            data-service="{{ $service->id }}"
-                                            data-subdetails="subdetails_{{ $service->id }}"
-                                            {{ $isChecked ? 'checked' : '' }}>
-                                        <label class="custom-control-label" for="svc_{{ $service->id }}">
-                                            <strong>{{ $service->name }}</strong>
-                                            <small class="text-muted d-block">Default: {{ $fmtDur($service->duration_minutes) }} menit</small>
-                                        </label>
-                                    </div>
-                                    @if(config('features.flexible_scheduling') && $doctorBranches->isNotEmpty())
-                                        @foreach($doctorBranches as $bi => $b)
-                                            @php $ov = $branchServiceDurations[$b->id][$service->id] ?? null; @endphp
-                                            <input type="number"
-                                                name="services_duration[{{ $b->id }}][{{ $service->id }}]"
-                                                class="form-control form-control-sm dur-svc-input"
-                                                data-branch="{{ $b->id }}" data-service="{{ $service->id }}"
-                                                style="width:90px; flex:0 0 90px; {{ $bi === 0 ? '' : 'display:none;' }}"
-                                                min="5" step="5"
-                                                placeholder="{{ $fmtDur($service->duration_minutes) }}"
-                                                value="{{ $ov !== null ? $fmtDur($ov) : '' }}"
-                                                {{ $isChecked ? '' : 'disabled' }}>
-                                        @endforeach
-                                    @endif
-                                </div>
-
-                                @if(config('features.flexible_scheduling') && $service->allDetails->isNotEmpty() && $doctorBranches->isNotEmpty())
-                                    <div class="subdetail-block" id="subdetails_{{ $service->id }}"
-                                        style="margin-left:24px; margin-top:8px; padding:8px 10px; background:#fdf8f1; border:1px solid #f0e3d2; border-radius:8px; {{ $isChecked ? '' : 'display:none;' }}">
-                                        <button type="button" class="btn-toggle-subdetail" data-target="subdetail-list-{{ $service->id }}"
-                                            style="background:none; border:none; padding:0; font-size:11px; color:#6b4c1e; cursor:pointer; font-weight:600; text-transform:none; letter-spacing:normal;">
-                                            <i class="fa fa-chevron-right"></i>
-                                            Durasi sub-detail per cabang ({{ $service->allDetails->count() }})
-                                        </button>
-                                        <div id="subdetail-list-{{ $service->id }}" style="margin-top:8px; display:none;">
-                                            @foreach($service->allDetails as $detail)
-                                                <div class="d-flex align-items-center" style="gap:6px; margin-bottom:4px;">
-                                                    <span style="flex:1; font-size:11px; color:#5b3d18;">
-                                                        {{ $detail->name }}
-                                                        <small class="text-muted">(default {{ $fmtDur($detail->duration_minutes) }} mnt)</small>
-                                                    </span>
-                                                    @foreach($doctorBranches as $bi => $b)
-                                                        @php $dov = $branchDetailDurations[$b->id][$detail->id] ?? null; @endphp
-                                                        <input type="number"
-                                                            name="details_duration[{{ $b->id }}][{{ $detail->id }}]"
-                                                            class="form-control form-control-sm dur-detail-input"
-                                                            data-branch="{{ $b->id }}"
-                                                            style="width:70px; font-size:11px; {{ $bi === 0 ? '' : 'display:none;' }}"
-                                                            min="5" step="5"
-                                                            placeholder="{{ $fmtDur($detail->duration_minutes) }}"
-                                                            value="{{ $dov !== null ? $fmtDur($dov) : '' }}">
-                                                    @endforeach
-                                                </div>
-                                            @endforeach
-                                        </div>
-                                    </div>
-                                @endif
-                            </div>
-                        @endforeach
                     </div>
-                    <hr style="border-color:var(--divider-soft)">
-                    <button type="submit" class="st-btn-brand">
-                        <i class="fa fa-save"></i> Simpan Perubahan
-                    </button>
                 </form>
-            </div>
+                <form action="{{ route('rawdoctor.photo.delete', $doctor->id) }}" method="POST" id="dxdDeletePhotoForm">@csrf @method('DELETE')</form>
+            @endif
         </div>
 
-        <script>
-            // Branch selector → tampilkan hanya input durasi cabang terpilih.
-            (function () {
-                const sel = document.getElementById('durationBranchSel');
-                function applyBranch(bid) {
-                    document.querySelectorAll('.dur-svc-input, .dur-detail-input').forEach(function (inp) {
-                        inp.style.display = (inp.dataset.branch === bid) ? '' : 'none';
-                    });
-                }
-                if (sel) {
-                    sel.addEventListener('change', function () { applyBranch(sel.value); });
-                    applyBranch(sel.value);
-                }
-            })();
+        {{-- ════════ TAB: JADWAL (grid mingguan + drawer add/edit) ════════ --}}
+        @php
+            $dayLabels = [1 => 'Sen', 2 => 'Sel', 3 => 'Rab', 4 => 'Kam', 5 => 'Jum', 6 => 'Sab', 7 => 'Min'];
+            $H0 = 8; $H1 = 21; $PXH = 46;
+            $hourDec = fn ($t) => (int) substr($t, 0, 2) + ((int) substr($t, 3, 2)) / 60;
+            $schedByBranch = $schedules->groupBy('raw_branch_id');
+        @endphp
+        <div class="dxd-card" data-dxd-panel="jadwal" style="display:{{ $activeTab === 'jadwal' ? '' : 'none' }}; padding:22px 24px;">
+            <div class="dxd-sec" style="margin-bottom:4px;">
+                <div class="dxd-sec__l"><span class="dxd-sec__tick"></span><span class="dxd-sec__t">Jadwal Mingguan</span></div>
+                <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                    <button type="button" class="dx-btn" id="dxjCopyBtn"><i class="fa fa-copy"></i> Salin jadwal</button>
+                    <button type="button" class="dx-btn" id="dxjAddBtn"><i class="fa fa-plus"></i> Cabang lain</button>
+                </div>
+            </div>
+            <div class="dxj-hint" style="display:flex; align-items:center; gap:14px; flex-wrap:wrap;">
+                <span>Klik area kosong untuk menambah · klik blok untuk edit jam kerja.</span>
+                <span class="dxj-legend"><span class="dxj-legend__bar"><span></span></span> terisi / kapasitas</span>
+            </div>
 
-            // Centang/uncentang perawatan → enable/disable input durasi service
-            // itu di SEMUA cabang + toggle blok sub-detail.
-            document.querySelectorAll('.doctor-service-check').forEach(function (cb) {
-                cb.addEventListener('change', function () {
-                    document.querySelectorAll('.dur-svc-input[data-service="' + cb.dataset.service + '"]').forEach(function (inp) {
-                        inp.disabled = !cb.checked;
-                        if (!cb.checked) inp.value = '';
-                    });
-                    const subBlock = document.getElementById(cb.dataset.subdetails);
-                    if (subBlock) {
-                        subBlock.style.display = cb.checked ? '' : 'none';
-                        if (!cb.checked) {
-                            subBlock.querySelectorAll('input[type=number]').forEach(function (inp) { inp.value = ''; });
-                        }
-                    }
-                });
-            });
+            @if($practiceBranches->isEmpty())
+                <div class="dxj-empty">Dokter ini belum punya jadwal. Klik <strong>Tambah Jam</strong> untuk mulai.</div>
+            @else
+                <div class="dxj-tabs">
+                    @foreach($practiceBranches as $bi => $b)
+                        <button type="button" class="dxj-tab {{ $bi === 0 ? 'is-active' : '' }}" data-dxj-branch="{{ $b->id }}">{{ $b->name }}</button>
+                    @endforeach
+                </div>
 
-            // Toggle expand/collapse sub-detail list
-            document.querySelectorAll('.btn-toggle-subdetail').forEach(function (btn) {
-                btn.addEventListener('click', function () {
-                    const list = document.getElementById(btn.dataset.target);
-                    if (!list) return;
-                    const isHidden = list.style.display === 'none';
-                    list.style.display = isHidden ? '' : 'none';
-                    const icon = btn.querySelector('i');
-                    if (icon) {
-                        icon.classList.toggle('fa-chevron-right', !isHidden);
-                        icon.classList.toggle('fa-chevron-down', isHidden);
-                    }
-                });
-            });
-        </script>
-
-        {{-- Cuti Dokter --}}
-        <div class="st-card">
-            <div class="st-card__body">
-                <h6 class="st-section-title"><i class="fa fa-plane-departure"></i> Cuti Dokter</h6>
-
-                <form method="post" action="{{ route('rawdoctor.leave.store', $doctor->id) }}" class="mb-3">
-                    @csrf
-                    <div class="row">
-                        <div class="col-md-3">
-                            <label style="font-weight:600; font-size:12px;">Tanggal Mulai <span class="text-danger">*</span></label>
-                            <input type="date" name="start_date" class="form-control form-control-sm" required>
-                        </div>
-                        <div class="col-md-3">
-                            <label style="font-weight:600; font-size:12px;">Tanggal Selesai <span class="text-danger">*</span></label>
-                            <input type="date" name="end_date" class="form-control form-control-sm" required>
-                        </div>
-                        <div class="col-md-4">
-                            <label style="font-weight:600; font-size:12px;">Alasan</label>
-                            <input type="text" name="reason" class="form-control form-control-sm" placeholder="Mis: Liburan keluarga" maxlength="255">
-                        </div>
-                        <div class="col-md-2 d-flex align-items-end">
-                            <button type="submit" class="st-btn-brand w-100" style="font-size:12px; padding:6px 12px;">
-                                <i class="fa fa-plus"></i> Tambah Cuti
-                            </button>
+                @foreach($practiceBranches as $bi => $b)
+                    <div data-dxj-panel="{{ $b->id }}" style="display:{{ $bi === 0 ? '' : 'none' }};">
+                        <div class="dxj-grid">
+                            <div class="dxj-dayhead">
+                                <div class="dxj-dayhead__gutter"></div>
+                                @foreach($dayLabels as $dn => $dl)<div class="dxj-dayhead__day">{{ $dl }}</div>@endforeach
+                            </div>
+                            <div class="dxj-body">
+                                <div class="dxj-gutter">
+                                    @for($h = $H0; $h <= $H1; $h++)
+                                        <div class="dxj-gutter__h" style="top:{{ ($h - $H0) * $PXH }}px;">{{ sprintf('%02d:00', $h) }}</div>
+                                    @endfor
+                                </div>
+                                @foreach($dayLabels as $dn => $dl)
+                                    <div class="dxj-col" data-day="{{ $dn }}" data-branch="{{ $b->id }}">
+                                        @foreach(($schedByBranch[$b->id] ?? collect())->where('day', $dn) as $s)
+                                            @php
+                                                $sd = $hourDec($s->start_hour); $ed = $hourDec($s->end_hour);
+                                                $top = max(0, ($sd - $H0) * $PXH);
+                                                $hgt = max(20, ($ed - $sd) * $PXH);
+                                                $cap = (int) round(($ed - $sd) * 2);
+                                                $fill = $shiftFill[$s->id] ?? 0;
+                                                $pct = $cap > 0 ? min(100, (int) round($fill / $cap * 100)) : 0;
+                                            @endphp
+                                            <div class="dxj-block" style="top:{{ $top }}px; height:{{ $hgt }}px; background:{{ $spec['color'] }};"
+                                                 data-id="{{ $s->id }}" data-day="{{ $s->day }}" data-branch="{{ $s->raw_branch_id }}"
+                                                 data-start="{{ substr($s->start_hour, 0, 5) }}" data-end="{{ substr($s->end_hour, 0, 5) }}">
+                                                <div class="dxj-block__time">{{ substr($s->start_hour, 0, 5) }}–{{ substr($s->end_hour, 0, 5) }}</div>
+                                                <div class="dxj-block__br">{{ $b->name }}</div>
+                                                @if($hgt >= 46)
+                                                    <div class="dxj-block__util">
+                                                        <span class="dxj-util-track"><span class="dxj-util-fill" style="width:{{ $pct }}%;"></span></span>
+                                                        <span class="dxj-util-count">{{ $fill }}/{{ $cap }}</span>
+                                                    </div>
+                                                @endif
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                @endforeach
+                            </div>
                         </div>
                     </div>
-                </form>
+                @endforeach
+            @endif
+        </div>
 
-                <div class="st-table-wrap--scroll">
-                    <table class="st-table st-table--compact">
-                        <thead>
-                            <tr>
-                                <th width="5%">No</th>
-                                <th>Tanggal Mulai</th>
-                                <th>Tanggal Selesai</th>
-                                <th>Durasi</th>
-                                <th>Alasan</th>
-                                <th>Status</th>
-                                <th width="8%">Aksi</th>
-                            </tr>
-                        </thead>
+        {{-- ════════ TAB: CUTI & KHUSUS ════════ --}}
+        @php $cMonths = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des']; @endphp
+        <div data-dxd-panel="cuti" style="display:{{ $activeTab === 'cuti' ? '' : 'none' }};">
+
+            {{-- ── Card Cuti ── --}}
+            <div class="dxd-card" style="padding:22px 24px; margin-bottom:16px;">
+                <div class="dxc-head"><i class="fa fa-umbrella-beach"></i><span class="dxc-head__t">Cuti Dokter</span></div>
+                <div class="dxc-sub">Tanggal dokter tidak praktik. Slot reservasi otomatis tertutup pada rentang ini.</div>
+
+                <form method="post" action="{{ route('rawdoctor.leave.store', $doctor->id) }}">
+                    @csrf
+                    <div class="dxc-form dxc-form--cuti">
+                        <div><label class="dxd-edit__label">Tanggal Mulai <span style="color:#C0392B;">*</span></label><input type="date" name="start_date" id="dxcStart" class="dxd-input" required></div>
+                        <div><label class="dxd-edit__label">Tanggal Selesai <span style="color:#C0392B;">*</span></label><input type="date" name="end_date" id="dxcEnd" class="dxd-input" required></div>
+                        <div><label class="dxd-edit__label">Alasan</label><input type="text" name="reason" class="dxd-input" placeholder="Mis: Liburan keluarga" maxlength="255"></div>
+                        <button type="submit" class="dxc-btn-add"><i class="fa fa-plus"></i> Tambah Cuti</button>
+                    </div>
+                    <div class="dxc-warn" id="dxcWarn"><i class="fa fa-exclamation-triangle"></i> <span id="dxcWarnText"></span></div>
+                </form>
+                <script type="application/json" id="dxcResDates">@json($futureReservationDates)</script>
+
+                <div class="dxc-tablewrap">
+                    <table class="dxc-table">
+                        <thead><tr><th>Mulai</th><th>Selesai</th><th>Durasi</th><th>Alasan</th><th>Status</th><th style="width:48px;"></th></tr></thead>
                         <tbody>
-                            @forelse($leaves as $i => $leave)
+                            @forelse($leaves as $leave)
                                 @php
-                                    $start = \Carbon\Carbon::parse($leave->start_date);
-                                    $end   = \Carbon\Carbon::parse($leave->end_date);
+                                    $ls = \Carbon\Carbon::parse($leave->start_date);
+                                    $le = \Carbon\Carbon::parse($leave->end_date);
                                     $today = \Carbon\Carbon::today();
-                                    $durasi = $start->diffInDays($end) + 1;
-                                    if ($today->lt($start)) {
-                                        $status = ['label' => 'Akan Datang', 'pill' => 'info'];
-                                    } elseif ($today->between($start, $end)) {
-                                        $status = ['label' => 'Sedang Cuti', 'pill' => 'warning'];
-                                    } else {
-                                        $status = ['label' => 'Selesai', 'pill' => 'neutral'];
-                                    }
+                                    $durasi = $ls->diffInDays($le) + 1;
+                                    if ($today->lt($ls))            $cst = ['Akan Datang', '#3C5FA8', '#E4ECFB'];
+                                    elseif ($today->between($ls,$le)) $cst = ['Sedang Cuti', '#B5701A', '#FBEFD9'];
+                                    else                            $cst = ['Selesai', '#8A6A52', '#EFE7E1'];
                                 @endphp
                                 <tr>
-                                    <td class="st-num">{{ $i + 1 }}</td>
-                                    <td><span class="st-date">{{ $start->format('d/m/Y') }}</span></td>
-                                    <td><span class="st-date">{{ $end->format('d/m/Y') }}</span></td>
-                                    <td>{{ $durasi }} hari</td>
-                                    <td>{{ $leave->reason ?: '-' }}</td>
+                                    <td class="num">{{ $ls->format('d') }} {{ $cMonths[$ls->month-1] }} {{ $ls->format('Y') }}</td>
+                                    <td class="num">{{ $le->format('d') }} {{ $cMonths[$le->month-1] }} {{ $le->format('Y') }}</td>
+                                    <td class="num">{{ $durasi }} hari</td>
+                                    <td>{{ $leave->reason ?: '—' }}</td>
+                                    <td><span class="dxc-pill" style="color:{{ $cst[1] }};background:{{ $cst[2] }};">{{ $cst[0] }}</span></td>
                                     <td>
-                                        <span class="st-pill st-pill--{{ $status['pill'] }}">{{ $status['label'] }}</span>
-                                    </td>
-                                    <td>
-                                        <button class="st-icon-btn" onclick="deleteLeave('{{ $leave->id }}')" title="Hapus">
-                                            <i class="fa fa-trash" style="color:#B23A3A"></i>
-                                        </button>
-                                        <form method="post" action="{{ route('rawdoctor.leave.destroy', [$doctor->id, $leave->id]) }}"
-                                            id="deleteLeave{{ $leave->id }}">
-                                            @csrf @method('DELETE')
-                                        </form>
+                                        <button type="button" class="dxc-del" onclick="dxcDelLeave('{{ $leave->id }}')" title="Hapus"><i class="fa fa-trash"></i></button>
+                                        <form method="post" action="{{ route('rawdoctor.leave.destroy', [$doctor->id, $leave->id]) }}" id="dxcLeave{{ $leave->id }}" style="display:none;">@csrf @method('DELETE')</form>
                                     </td>
                                 </tr>
                             @empty
-                                <tr>
-                                    <td colspan="7" class="text-center st-muted">Belum ada data cuti</td>
-                                </tr>
+                                <tr><td colspan="6" class="dxc-table__empty"><i class="fa fa-umbrella-beach"></i> Belum ada data cuti — dokter praktik sesuai jadwal mingguan.</td></tr>
                             @endforelse
                         </tbody>
                     </table>
                 </div>
             </div>
-        </div>
 
-        {{-- Jadwal Khusus (disabled until flexible_scheduling feature is approved) --}}
-        @if(config('features.flexible_scheduling'))
-        <div class="st-card mt-3">
-            <div class="st-card__body">
-                <h6 class="st-section-title"><i class="fa fa-calendar-plus"></i> Jadwal Khusus</h6>
+            {{-- ── Card Jadwal Khusus ── --}}
+            @if(config('features.flexible_scheduling'))
+            <div class="dxd-card" style="padding:22px 24px;">
+                <div class="dxc-head"><i class="fa fa-calendar-plus"></i><span class="dxc-head__t">Jadwal Khusus</span></div>
+                <div class="dxc-sub">Untuk satu tanggal yang berbeda dari jadwal mingguan — jam berubah, atau buka di hari yang biasanya libur.</div>
 
-                {{-- Info box --}}
-                <div style="background:#fef9f0; border:1px solid #f0d9a8; border-radius:10px; padding:12px 16px; margin-bottom:20px; display:flex; gap:10px; align-items:flex-start;">
-                    <i class="fa fa-lightbulb-o" style="color:#b07d2a; margin-top:2px; flex-shrink:0;"></i>
-                    <span style="font-size:12px; color:#6b4c1e; line-height:1.6;">
-                        Gunakan bagian ini bila ada tanggal tertentu yang jadwalnya <strong>berbeda dari jadwal mingguan biasa</strong> dokter —
-                        misalnya dokter pulang lebih awal, masuk di hari yang biasanya libur, atau ada perubahan jam mendadak.
-                    </span>
-                </div>
-
-                {{-- Form tambah --}}
-                <form method="post" action="{{ route('rawdoctor.exception.store', $doctor->id) }}" class="exc-add-form mb-4">
+                <form method="post" action="{{ route('rawdoctor.exception.store', $doctor->id) }}">
                     @csrf
-
-                    {{-- Baris 1: tipe (radio card) --}}
-                    <div class="mb-3">
-                        <label style="font-weight:700; font-size:12px; display:block; margin-bottom:8px;">Situasinya apa? <span class="text-danger">*</span></label>
-                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-                            <label class="exc-type-card" id="exc-card-replace">
-                                <input type="radio" name="type" value="replace" checked style="display:none;">
-                                <div style="display:flex; gap:10px; align-items:flex-start;">
-                                    <span style="font-size:1.3rem; line-height:1;">🕐</span>
-                                    <div>
-                                        <div style="font-weight:700; font-size:12px; color:#461500;">Jam Berbeda dari Biasanya</div>
-                                        <div style="font-size:11px; color:#7a6a5a; margin-top:2px; line-height:1.4;">Dokter tetap kerja di hari itu, tapi jam mulai atau selesainya berbeda dari jadwal rutin</div>
-                                    </div>
-                                </div>
-                            </label>
-                            <label class="exc-type-card" id="exc-card-add">
-                                <input type="radio" name="type" value="add" style="display:none;">
-                                <div style="display:flex; gap:10px; align-items:flex-start;">
-                                    <span style="font-size:1.3rem; line-height:1;">📅</span>
-                                    <div>
-                                        <div style="font-weight:700; font-size:12px; color:#461500;">Hari Tambahan</div>
-                                        <div style="font-size:11px; color:#7a6a5a; margin-top:2px; line-height:1.4;">Dokter buka di tanggal ini, padahal hari itu biasanya libur</div>
-                                    </div>
-                                </div>
-                            </label>
+                    <input type="hidden" name="type" id="dxcType" value="replace">
+                    <div class="dxc-sit">
+                        <div class="dxc-sit__card is-on" data-sit="replace" id="dxcSitReplace">
+                            <div class="dxc-sit__ic dxc-sit__ic--jam"><i class="fa fa-clock"></i></div>
+                            <div><div class="dxc-sit__t">Jam Berbeda</div><div class="dxc-sit__d">Tetap kerja, tapi jamnya beda</div></div>
+                        </div>
+                        <div class="dxc-sit__card" data-sit="add" id="dxcSitAdd">
+                            <div class="dxc-sit__ic dxc-sit__ic--tambahan"><i class="fa fa-calendar-plus"></i></div>
+                            <div><div class="dxc-sit__t">Hari Tambahan</div><div class="dxc-sit__d">Buka di tanggal yang biasanya libur</div></div>
                         </div>
                     </div>
-
-                    {{-- Baris 2: tanggal + cabang + jam --}}
-                    <div class="row">
-                        <div class="col-md-2">
-                            <label style="font-weight:600; font-size:12px;">Tanggal <span class="text-danger">*</span></label>
-                            <input type="date" name="date" class="form-control form-control-sm" required>
-                        </div>
-                        <div class="col-md-2">
-                            <label style="font-weight:600; font-size:12px;">Cabang <span class="text-danger">*</span></label>
-                            <select name="raw_branch_id" class="form-control form-control-sm" required>
+                    <div class="dxc-form dxc-form--khusus">
+                        <div><label class="dxd-edit__label">Tanggal <span style="color:#C0392B;">*</span></label><input type="date" name="date" class="dxd-input" required></div>
+                        <div><label class="dxd-edit__label">Cabang <span style="color:#C0392B;">*</span></label>
+                            <select name="raw_branch_id" class="dx-select" required>
                                 <option value="">- Pilih -</option>
-                                @foreach ($branches as $branch)
-                                    <option value="{{ $branch->id }}">{{ $branch->name }}</option>
-                                @endforeach
+                                @foreach($branches as $b)<option value="{{ $b->id }}">{{ $b->name }}</option>@endforeach
                             </select>
                         </div>
-                        <div class="col-md-2">
-                            <label style="font-weight:600; font-size:12px;">Jam Mulai <span class="text-danger">*</span></label>
-                            <input type="time" name="start_hour" class="form-control form-control-sm" step="300" required>
-                        </div>
-                        <div class="col-md-2">
-                            <label style="font-weight:600; font-size:12px;">Jam Selesai <span class="text-danger">*</span></label>
-                            <input type="time" name="end_hour" class="form-control form-control-sm" step="300" required>
-                        </div>
-                        <div class="col-md-2">
-                            <label style="font-weight:600; font-size:12px;">Catatan <small class="text-muted">(opsional)</small></label>
-                            <input type="text" name="reason" class="form-control form-control-sm" placeholder="Mis: Dokter ada acara" maxlength="255">
-                        </div>
-                        <div class="col-md-2 d-flex align-items-end">
-                            <button type="submit" class="st-btn-brand w-100" style="font-size:12px; padding:6px 12px;">
-                                <i class="fa fa-plus"></i> Simpan Jadwal Khusus
-                            </button>
-                        </div>
+                        <div><label class="dxd-edit__label">Mulai <span style="color:#C0392B;">*</span></label><input type="time" name="start_hour" class="dxd-input" step="300" required></div>
+                        <div><label class="dxd-edit__label">Selesai <span style="color:#C0392B;">*</span></label><input type="time" name="end_hour" class="dxd-input" step="300" required></div>
+                        <div><label class="dxd-edit__label">Catatan</label><input type="text" name="reason" class="dxd-input" placeholder="Mis: Dokter ada acara" maxlength="255"></div>
+                        <button type="submit" class="dxc-btn-add"><i class="fa fa-save"></i> Simpan</button>
                     </div>
                 </form>
 
-                {{-- Tabel data --}}
-                <div class="st-table-wrap--scroll">
-                    <table class="st-table st-table--compact">
-                        <thead>
-                            <tr>
-                                <th width="4%">No</th>
-                                <th>Tanggal</th>
-                                <th>Cabang</th>
-                                <th>Situasi</th>
-                                <th>Jam Kerja</th>
-                                <th>Catatan</th>
-                                <th width="8%">Aksi</th>
-                            </tr>
-                        </thead>
+                <div class="dxc-tablewrap">
+                    <table class="dxc-table">
+                        <thead><tr><th>Tanggal</th><th>Situasi</th><th>Cabang</th><th>Jam</th><th>Catatan</th><th style="width:48px;"></th></tr></thead>
                         <tbody>
-                            @forelse($exceptions as $i => $ex)
+                            @forelse($exceptions as $ex)
+                                @php $exd = \Carbon\Carbon::parse($ex->date); $isReplace = $ex->type === 'replace'; @endphp
                                 <tr>
-                                    <td class="st-num">{{ $i + 1 }}</td>
-                                    <td><span class="st-date">{{ \Carbon\Carbon::parse($ex->date)->isoFormat('dddd, D MMM Y') }}</span></td>
-                                    <td>{{ $ex->branch->name ?? '-' }}</td>
+                                    <td>{{ $exd->format('d') }} {{ $cMonths[$exd->month-1] }} {{ $exd->format('Y') }}</td>
+                                    <td><span class="dxc-pill" style="{{ $isReplace ? 'color:#B5701A;background:#FBEFD9;' : 'color:#2F8E55;background:#E3F4E8;' }}">{{ $isReplace ? 'Jam Berbeda' : 'Hari Tambahan' }}</span></td>
+                                    <td>{{ $ex->branch->name ?? '—' }}</td>
+                                    <td class="num">{{ substr($ex->start_hour, 0, 5) }}–{{ substr($ex->end_hour, 0, 5) }}</td>
+                                    <td>{{ $ex->reason ?: '—' }}</td>
                                     <td>
-                                        @if ($ex->type === 'replace')
-                                            <span style="display:inline-flex; align-items:center; gap:4px; background:#fff8e1; color:#7a5c00; border:1px solid #ffe082; border-radius:20px; padding:3px 10px; font-size:11px; font-weight:700;">
-                                                🕐 Jam Berbeda
-                                            </span>
-                                        @else
-                                            <span style="display:inline-flex; align-items:center; gap:4px; background:#e8f5e9; color:#2e7d32; border:1px solid #a5d6a7; border-radius:20px; padding:3px 10px; font-size:11px; font-weight:700;">
-                                                📅 Hari Tambahan
-                                            </span>
-                                        @endif
-                                    </td>
-                                    <td style="font-weight:600;">{{ substr($ex->start_hour, 0, 5) }} – {{ substr($ex->end_hour, 0, 5) }}</td>
-                                    <td style="color:#7a6a5a;">{{ $ex->reason ?: '-' }}</td>
-                                    <td>
-                                        <button class="st-icon-btn" title="Edit"
-                                            onclick="openEditException('{{ $ex->id }}','{{ $ex->raw_branch_id }}','{{ $ex->date }}','{{ $ex->type }}','{{ substr($ex->start_hour,0,5) }}','{{ substr($ex->end_hour,0,5) }}','{{ addslashes($ex->reason) }}')">
-                                            <i class="fa fa-pencil" style="color:#461500"></i>
-                                        </button>
-                                        <button class="st-icon-btn" onclick="deleteException('{{ $ex->id }}')" title="Hapus">
-                                            <i class="fa fa-trash" style="color:#B23A3A"></i>
-                                        </button>
-                                        <form method="post" action="{{ route('rawdoctor.exception.destroy', [$doctor->id, $ex->id]) }}"
-                                            id="deleteException{{ $ex->id }}">
-                                            @csrf @method('DELETE')
-                                        </form>
+                                        <button type="button" class="dxc-del" onclick="dxcDelExc('{{ $ex->id }}')" title="Hapus"><i class="fa fa-trash"></i></button>
+                                        <form method="post" action="{{ route('rawdoctor.exception.destroy', [$doctor->id, $ex->id]) }}" id="dxcExc{{ $ex->id }}" style="display:none;">@csrf @method('DELETE')</form>
                                     </td>
                                 </tr>
                             @empty
-                                <tr>
-                                    <td colspan="7" class="text-center st-muted">Belum ada jadwal khusus</td>
-                                </tr>
+                                <tr><td colspan="6" class="dxc-table__empty"><i class="fa fa-calendar-plus"></i> Belum ada jadwal khusus untuk dokter ini.</td></tr>
                             @endforelse
                         </tbody>
                     </table>
                 </div>
             </div>
-        </div>
-        @endif {{-- features.flexible_scheduling --}}
-    </div>
+            @endif
 
-    {{-- Add Schedule Modal --}}
-    <div class="modal fade" id="addScheduleModal" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <form method="POST" action="{{ route('rawdoctor.schedule.store', $doctor->id) }}">
-                    @csrf
-                    <div class="modal-header">
-                        <h5 class="modal-title"><i class="fa fa-calendar-plus" style="margin-right:6px;opacity:.8;"></i> Tambah Jadwal — {{ $doctor->name }}</h5>
-                        <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
-                    </div>
-                    <div class="modal-body">
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="form-group">
-                                    <label>Hari <span class="text-danger">*</span></label>
-                                    <select class="form-control form-control-sm" name="day" required>
-                                        <option value="">- Pilih Hari -</option>
-                                        <option value="1">Senin</option>
-                                        <option value="2">Selasa</option>
-                                        <option value="3">Rabu</option>
-                                        <option value="4">Kamis</option>
-                                        <option value="5">Jumat</option>
-                                        <option value="6">Sabtu</option>
-                                        <option value="7">Minggu</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="form-group">
-                                    <label>Cabang <span class="text-danger">*</span></label>
-                                    <select class="form-control form-control-sm" name="raw_branch_id" required>
-                                        <option value="">- Pilih Cabang -</option>
-                                        @foreach ($branches as $branch)
-                                            <option value="{{ $branch->id }}">{{ $branch->name }}</option>
-                                        @endforeach
-                                    </select>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="form-group">
-                                    <label>Jam Mulai <span class="text-danger">*</span></label>
-                                    <input type="time" class="form-control form-control-sm" name="start_hour" step="300" required>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="form-group">
-                                    <label>Jam Selesai <span class="text-danger">*</span></label>
-                                    <input type="time" class="form-control form-control-sm" name="end_hour" step="300" required>
-                                </div>
+        </div>
+
+        {{-- ════════ TAB: PERAWATAN & DURASI ════════ --}}
+        @php
+            $fmtDur = fn ($n) => rtrim(rtrim(number_format((float) $n, 2), '0'), '.');
+            $flex = config('features.flexible_scheduling');
+            $hasBranch = $flex && $doctorBranches->isNotEmpty();
+        @endphp
+        <div class="dxd-card" data-dxd-panel="perawatan" style="display:{{ $activeTab === 'perawatan' ? '' : 'none' }}; padding:22px 24px;">
+            <div class="dxc-head"><i class="fa fa-tooth"></i><span class="dxc-head__t">Perawatan &amp; Durasi</span></div>
+            <div class="dxc-sub">Aktifkan perawatan yang dilayani dokter ini — berlaku universal di semua cabang. Durasi diatur <strong>per cabang</strong>; kosongkan untuk pakai durasi default perawatan.</div>
+
+            @if($flex && $doctorBranches->isEmpty())
+                <div class="dxp-warn"><i class="fa fa-exclamation-triangle"></i><div>Dokter ini belum punya jadwal di cabang mana pun — durasi per cabang belum bisa diatur. Tambahkan jadwal dulu di tab <strong>Jadwal</strong>. Centang perawatan tetap bisa disimpan.</div></div>
+            @endif
+
+            <form method="post" action="{{ route('rawdoctor.services.update', $doctor->id) }}" id="dxpForm">
+                @csrf
+
+                <div class="dxp-toolbar">
+                    @if($hasBranch)
+                        <div class="dxp-toolbar__grp">
+                            <span class="dxp-toolbar__lbl">Atur durasi untuk cabang</span>
+                            <div class="dxj-tabs" style="margin-bottom:0;">
+                                @foreach($doctorBranches as $bi => $b)
+                                    <button type="button" class="dxj-tab {{ $bi === 0 ? 'is-active' : '' }}" data-dxp-branch="{{ $b->id }}">{{ $b->name }}</button>
+                                @endforeach
                             </div>
                         </div>
+                    @endif
+                    <div class="dxp-toolbar__grp dxp-search">
+                        <span class="dxp-toolbar__lbl">Cari perawatan</span>
+                        <div class="dxp-search__box">
+                            <i class="fa fa-search"></i>
+                            <input type="text" id="dxpSearch" placeholder="Cari nama perawatan…">
+                        </div>
                     </div>
-                    <div class="modal-footer">
-                        <button type="button" class="st-btn-outline-brown" data-dismiss="modal">Batal</button>
-                        <button type="submit" class="st-btn-brand"><i class="fa fa-save"></i> Simpan</button>
+                    @if($hasBranch)
+                        <button type="button" class="dxp-reset" id="dxpResetBranch" title="Reset durasi cabang yang sedang dibuka"><i class="fa fa-sync-alt"></i> Pakai durasi default</button>
+                    @endif
+                </div>
+
+                @php
+                    $served   = $allServices->filter(fn ($s) => in_array($s->id, $doctorServiceIds));
+                    $unserved = $allServices->filter(fn ($s) => !in_array($s->id, $doctorServiceIds));
+                @endphp
+
+                <div class="dxp-strip">
+                    <span><strong id="dxpServedCount">{{ $served->count() }}</strong> dari {{ $allServices->count() }} perawatan dilayani{!! $hasBranch ? ' di <span id="dxpBranchName">' . e($doctorBranches->first()->name) . '</span>' : '' !!}</span>
+                    @if($hasBranch)<button type="button" class="dxp-strip__reset" id="dxpReset"><i class="fa fa-pen"></i> Semua pakai durasi default</button>@endif
+                </div>
+
+                {{-- ── DILAYANI ── --}}
+                <div class="dxp-sechead dxp-sechead--on dxp-sechead--first">
+                    <span class="dxp-sechead__t">Dilayani</span>
+                    <span class="dxp-sechead__badge" id="dxpBadgeOn">{{ $served->count() }}</span>
+                </div>
+                <div class="dxp-list" id="dxpServed">
+                    @foreach($served as $service)@include('crud.doctor._perawatan_item')@endforeach
+                    <div class="dxp-list__empty" id="dxpServedEmpty" style="{{ $served->count() ? 'display:none;' : '' }}">Belum ada perawatan yang dilayani — aktifkan dari daftar di bawah.</div>
+                </div>
+
+                {{-- ── BELUM DILAYANI ── --}}
+                <div class="dxp-sechead dxp-sechead--off">
+                    <span class="dxp-sechead__t">Belum Dilayani</span>
+                    <span class="dxp-sechead__badge" id="dxpBadgeOff">{{ $unserved->count() }}</span>
+                </div>
+                <div class="dxp-list" id="dxpUnserved">
+                    @foreach($unserved as $service)@include('crud.doctor._perawatan_item')@endforeach
+                    <div class="dxp-list__empty" id="dxpUnservedEmpty" style="{{ $unserved->count() ? 'display:none;' : '' }}">Semua perawatan sudah dilayani dokter ini.</div>
+                </div>
+
+                <div class="dxp-empty" id="dxpEmpty" style="display:none;">Tidak ada perawatan yang cocok dengan pencarian.</div>
+
+                <div style="margin-top:16px;">
+                    <span class="dxp-autonote"><i class="fa fa-check-circle"></i> Perubahan otomatis tersimpan — centang untuk aktif, ubah durasi langsung tersimpan.</span>
+                </div>
+                <div class="dxp-toast" id="dxpToast"></div>
+            </form>
+        </div>
+
+    </div>
+
+    {{-- ════════ SCHEDULE DRAWER (tambah/edit jam kerja) ════════ --}}
+    <div class="dxj-overlay" id="dxjOverlay"></div>
+    <div class="dxj-drawer" id="dxjDrawer" aria-hidden="true">
+        <div class="dxj-drawer__head">
+            <span class="dxj-drawer__title" id="dxjTitle">Tambah Jam Kerja</span>
+            <button type="button" class="dxj-drawer__close" id="dxjClose">&times;</button>
+        </div>
+        <div class="dxj-drawer__body">
+            <form id="dxjForm" method="POST">
+                @csrf
+                <input type="hidden" name="_method" id="dxjMethod" value="PUT" disabled>
+                <div class="dxj-field2">
+                    <div>
+                        <label class="dxd-edit__label">Hari</label>
+                        <select class="dx-select" name="day" id="dxjDay" required>
+                            @foreach(['1'=>'Senin','2'=>'Selasa','3'=>'Rabu','4'=>'Kamis','5'=>'Jumat','6'=>'Sabtu','7'=>'Minggu'] as $dv => $dn)
+                                <option value="{{ $dv }}">{{ $dn }}</option>
+                            @endforeach
+                        </select>
                     </div>
-                </form>
-            </div>
+                    <div>
+                        <label class="dxd-edit__label">Cabang</label>
+                        <select class="dx-select" name="raw_branch_id" id="dxjBranch" required>
+                            <option value="">- Pilih -</option>
+                            @foreach($branches as $b)<option value="{{ $b->id }}">{{ $b->name }}</option>@endforeach
+                        </select>
+                    </div>
+                    <div>
+                        <label class="dxd-edit__label">Jam Mulai</label>
+                        <input type="time" class="dxd-input" name="start_hour" id="dxjStart" step="300" required>
+                    </div>
+                    <div>
+                        <label class="dxd-edit__label">Jam Selesai</label>
+                        <input type="time" class="dxd-input" name="end_hour" id="dxjEnd" step="300" required>
+                    </div>
+                </div>
+                <div class="dxd-err" id="dxjErr" style="display:none; margin-top:12px;"></div>
+            </form>
+        </div>
+        <div class="dxj-drawer__foot">
+            <button type="submit" form="dxjForm" class="dx-btn dx-btn--primary" style="flex:1; justify-content:center;"><i class="fa fa-save"></i> Simpan</button>
+            <button type="button" class="dx-btn dx-btn--danger" id="dxjDelete" style="display:none;"><i class="fa fa-trash"></i> Hapus</button>
         </div>
     </div>
+    <form id="dxjDeleteForm" method="POST" style="display:none;">@csrf @method('DELETE')</form>
+</div>
 @endsection
 
 @section('js')
 <script>
-    function deleteDoctor() {
+    // ── Tab switcher detail dokter ──
+    (function () {
+        var tabs = document.querySelectorAll('.dxd-tab');
+        var panels = document.querySelectorAll('[data-dxd-panel]');
+        function activate(name) {
+            tabs.forEach(function (t) { t.classList.toggle('active', t.dataset.dxdTarget === name); });
+            panels.forEach(function (p) { p.style.display = p.dataset.dxdPanel === name ? '' : 'none'; });
+        }
+        tabs.forEach(function (t) { t.addEventListener('click', function () { activate(t.dataset.dxdTarget); }); });
+    })();
+
+    // ── Status toggle: konfirmasi dulu (nonaktif → hilang dari dropdown reservasi) ──
+    (function () {
+        var btn = document.getElementById('dxdStatusBtn');
+        var form = document.getElementById('dxdStatusForm');
+        if (!btn || !form) return;
+        var isActive = btn.classList.contains('dxd-status--on');
+        btn.addEventListener('click', function (e) {
+            e.preventDefault();
+            Swal.fire({
+                title: isActive ? 'Nonaktifkan dokter?' : 'Aktifkan dokter?',
+                text: isActive
+                    ? 'Dokter tidak akan muncul lagi di form reservasi baru. Reservasi yang sudah terjadwal tetap valid.'
+                    : 'Dokter akan kembali muncul di dropdown form reservasi baru.',
+                icon: isActive ? 'warning' : 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#461500',
+                cancelButtonColor: '#aaa',
+                confirmButtonText: isActive ? 'Ya, Nonaktifkan' : 'Ya, Aktifkan',
+                cancelButtonText: 'Batal',
+                reverseButtons: true,
+            }).then(function (result) { if (result.isConfirmed) form.submit(); });
+        });
+    })();
+
+    // ── Edit Profil (non-Sales): toggle view ↔ form ──
+    (function () {
+        var btn = document.getElementById('dxdEditBtn');
+        if (!btn) return;
+        var view = document.getElementById('dxdInfoView');
+        var form = document.getElementById('dxdInfoEdit');
+        var cancel = document.getElementById('dxdEditCancel');
+        btn.addEventListener('click', function () { view.style.display = 'none'; form.style.display = ''; });
+        if (cancel) cancel.addEventListener('click', function () { form.style.display = 'none'; view.style.display = ''; });
+    })();
+
+    function dxdDeletePhoto() {
         Swal.fire({
-            title: 'Apakah Anda Yakin?', text: "Data doctor yang dihapus tidak dapat dikembalikan!",
+            title: 'Hapus Foto Dokter?', text: 'Foto akan dihapus permanen.',
             icon: 'warning', showCancelButton: true, confirmButtonColor: '#461500', cancelButtonColor: '#aaa',
-            confirmButtonText: 'Ya, Hapus!', cancelButtonText: 'Batal',
-        }).then((result) => { if (result.isConfirmed) { $('#deleteDoctor').submit(); } })
+            confirmButtonText: 'Ya, Hapus!', cancelButtonText: 'Batal', reverseButtons: true,
+        }).then(function (result) { if (result.isConfirmed) document.getElementById('dxdDeletePhotoForm').submit(); });
     }
 
-    function deleteDoctorPhoto() {
-        Swal.fire({
-            title: 'Hapus Foto Dokter?', text: "Foto akan dihapus permanen.",
-            icon: 'warning', showCancelButton: true, confirmButtonColor: '#461500', cancelButtonColor: '#aaa',
-            confirmButtonText: 'Ya, Hapus!', cancelButtonText: 'Batal',
-        }).then((result) => { if (result.isConfirmed) { $('#deleteDoctorPhoto').submit(); } })
-    }
+    // ── Tab Jadwal: schedule drawer (tambah/edit/hapus jam) + branch sub-tabs ──
+    (function () {
+        var drawer = document.getElementById('dxjDrawer');
+        if (!drawer) return;
+        var storeUrl   = '{{ route('rawdoctor.schedule.store', $doctor->id) }}';
+        var updateTpl  = '{{ route('rawdoctor.schedule.update', [$doctor->id, '__ID__']) }}';
+        var destroyTpl = '{{ route('rawdoctor.schedule.destroy', [$doctor->id, '__ID__']) }}';
+        var overlay = document.getElementById('dxjOverlay');
+        var form = document.getElementById('dxjForm'), method = document.getElementById('dxjMethod');
+        var title = document.getElementById('dxjTitle'), del = document.getElementById('dxjDelete'), delForm = document.getElementById('dxjDeleteForm');
+        var day = document.getElementById('dxjDay'), branch = document.getElementById('dxjBranch');
+        var start = document.getElementById('dxjStart'), end = document.getElementById('dxjEnd'), err = document.getElementById('dxjErr');
 
-    // Toggle switch aktif/nonaktif dokter — konfirmasi dulu sebelum submit,
-    // revert kalau user batal supaya UI tidak ngambang.
-    // Catatan: `prop('checked', ...)` di jQuery TIDAK fire 'change', jadi
-    // tidak perlu flag anti-recursion — revert aman langsung.
-    $(document).on('change', '#doctorActiveToggle', function () {
-        var $tgl = $(this);
-        var willActivate = this.checked;
-        var $label = $('#doctorToggleLabel');
+        function openDrawer() { overlay.classList.add('is-open'); drawer.classList.add('is-open'); }
+        function closeDrawer() { overlay.classList.remove('is-open'); drawer.classList.remove('is-open'); }
+        function currentBranch() { var t = document.querySelector('.dxj-tab.is-active'); return t ? t.dataset.dxjBranch : ''; }
 
-        var title, text, confirmLbl, icon;
-        if (willActivate) {
-            title      = 'Aktifkan dokter?';
-            text       = 'Dokter akan kembali muncul di dropdown form reservasi baru.';
-            confirmLbl = 'Ya, Aktifkan';
-            icon       = 'question';
-        } else {
-            title      = 'Nonaktifkan dokter?';
-            text       = 'Dokter tidak akan muncul lagi di form reservasi baru. Reservasi yang sudah terjadwal tetap valid. Lanjutkan?';
-            confirmLbl = 'Ya, Nonaktifkan';
-            icon       = 'warning';
+        function pad2(n) { return (n < 10 ? '0' : '') + n; }
+        function openAdd(d, b, startHour) {
+            title.textContent = 'Tambah Jam Kerja';
+            form.action = storeUrl; method.disabled = true;        // POST
+            day.value = d || '1'; branch.value = b || '';
+            if (startHour != null) {                               // preset jam dari sel yang diklik
+                start.value = pad2(startHour) + ':00';
+                end.value = pad2(Math.min(21, startHour + 1)) + ':00';
+            } else { start.value = ''; end.value = ''; }
+            del.style.display = 'none'; err.style.display = 'none'; openDrawer();
+        }
+        function openEdit(o) {
+            title.textContent = 'Ubah Jam Kerja';
+            form.action = updateTpl.replace('__ID__', o.id); method.disabled = false; method.value = 'PUT';
+            day.value = o.day; branch.value = o.branch; start.value = o.start; end.value = o.end;
+            delForm.action = destroyTpl.replace('__ID__', o.id);
+            del.style.display = ''; err.style.display = 'none'; openDrawer();
         }
 
-        $tgl.prop('disabled', true);
+        var addBtn = document.getElementById('dxjAddBtn');   // "Cabang lain" — tambah jam, cabang dipilih sendiri
+        if (addBtn) addBtn.addEventListener('click', function () { openAdd('', ''); });
+        var copyBtn = document.getElementById('dxjCopyBtn'); // "Salin jadwal" — Fase D
+        if (copyBtn) copyBtn.addEventListener('click', function () {
+            Swal.fire({ icon: 'info', title: 'Salin Jadwal', text: 'Fitur salin jadwal (antar hari / antar cabang) hadir di update berikutnya.', confirmButtonColor: '#461500' });
+        });
+        document.getElementById('dxjClose').addEventListener('click', closeDrawer);
+        overlay.addEventListener('click', closeDrawer);
 
-        Swal.fire({
-            title: title,
-            text: text,
-            icon: icon,
-            showCancelButton: true,
-            confirmButtonColor: '#461500',
-            cancelButtonColor: '#aaa',
-            confirmButtonText: confirmLbl,
-            cancelButtonText: 'Batal',
-            reverseButtons: true,
-            allowOutsideClick: false,
-        }).then(function (result) {
-            if (result.isConfirmed) {
-                // Submit form — server akan toggle, redirect kembali ke halaman ini
-                $('#toggleDoctorActiveForm').submit();
-            } else {
-                // Revert toggle ke state sebelumnya — aman, tidak fire change lagi.
-                $tgl.prop('checked', !willActivate);
-                $tgl.prop('disabled', false);
-                $label
-                    .text(!willActivate ? 'Aktif' : 'Nonaktif')
-                    .toggleClass('is-inactive', willActivate); // willActivate=true → state asli Nonaktif
+        document.querySelectorAll('.dxj-col').forEach(function (c) {
+            c.addEventListener('click', function (e) {
+                if (e.target.closest('.dxj-block')) return;
+                // Hitung jam dari posisi klik (grid 08:00, 46px/jam).
+                var rect = c.getBoundingClientRect();
+                var hour = 8 + Math.floor((e.clientY - rect.top) / 46);
+                hour = Math.max(8, Math.min(20, hour));
+                openAdd(c.dataset.day, c.dataset.branch, hour);
+            });
+        });
+        document.querySelectorAll('.dxj-block').forEach(function (bl) {
+            bl.addEventListener('click', function (e) {
+                e.stopPropagation();
+                openEdit({ id: bl.dataset.id, day: bl.dataset.day, branch: bl.dataset.branch, start: bl.dataset.start, end: bl.dataset.end });
+            });
+        });
+        form.addEventListener('submit', function (e) {
+            if (start.value && end.value && end.value <= start.value) {
+                e.preventDefault(); err.textContent = 'Jam selesai harus setelah jam mulai.'; err.style.display = '';
             }
         });
-    });
-
-    function deleteSchedule(id) {
-        Swal.fire({
-            title: 'Hapus Jadwal?', text: "Data yang dihapus tidak dapat dikembalikan!",
-            icon: 'warning', showCancelButton: true, confirmButtonColor: '#461500', cancelButtonColor: '#aaa',
-            confirmButtonText: 'Ya, Hapus!', cancelButtonText: 'Batal',
-        }).then((result) => { if (result.isConfirmed) { $('#deleteSchedule' + id).submit(); } })
-    }
-
-    function deleteLeave(id) {
-        Swal.fire({
-            title: 'Hapus Cuti?', text: "Data yang dihapus tidak dapat dikembalikan!",
-            icon: 'warning', showCancelButton: true, confirmButtonColor: '#461500', cancelButtonColor: '#aaa',
-            confirmButtonText: 'Ya, Hapus!', cancelButtonText: 'Batal',
-        }).then((result) => { if (result.isConfirmed) { $('#deleteLeave' + id).submit(); } })
-    }
-
-    @if(config('features.flexible_scheduling'))
-    function deleteException(id) {
-        Swal.fire({
-            title: 'Hapus Jadwal Khusus?', text: "Data yang dihapus tidak dapat dikembalikan!",
-            icon: 'warning', showCancelButton: true, confirmButtonColor: '#461500', cancelButtonColor: '#aaa',
-            confirmButtonText: 'Ya, Hapus!', cancelButtonText: 'Batal',
-        }).then((result) => { if (result.isConfirmed) { $('#deleteException' + id).submit(); } })
-    }
-
-    // Radio card styling untuk type selection
-    document.querySelectorAll('.exc-type-card input[type=radio]').forEach(function (radio) {
-        radio.addEventListener('change', function () {
-            document.querySelectorAll('.exc-type-card').forEach(c => c.classList.remove('exc-type-card--active'));
-            if (this.checked) this.closest('.exc-type-card').classList.add('exc-type-card--active');
+        del.addEventListener('click', function () {
+            Swal.fire({
+                title: 'Hapus Jadwal?', text: 'Sesi jam kerja ini akan dihapus.',
+                icon: 'warning', showCancelButton: true, confirmButtonColor: '#461500', cancelButtonColor: '#aaa',
+                confirmButtonText: 'Ya, Hapus!', cancelButtonText: 'Batal', reverseButtons: true,
+                allowOutsideClick: false,
+                // Naikkan di atas drawer (z-index 1081) supaya confirm tidak ketutup & klik tidak ke-serobot.
+                didOpen: function () { var c = document.querySelector('.swal2-container'); if (c) c.style.zIndex = '2000'; },
+            }).then(function (r) { if (r.isConfirmed) delForm.submit(); });
         });
-    });
-    // Set active state on load (replace is checked by default)
-    document.querySelectorAll('.exc-type-card input[type=radio]:checked').forEach(function (r) {
-        r.closest('.exc-type-card').classList.add('exc-type-card--active');
-    });
-
-    // Edit exception modal
-    function openEditException(id, branchId, date, type, startHour, endHour, reason) {
-        document.getElementById('editExcId').value       = id;
-        document.getElementById('editExcBranch').value   = branchId;
-        document.getElementById('editExcDate').value     = date;
-        document.getElementById('editExcStart').value    = startHour;
-        document.getElementById('editExcEnd').value      = endHour;
-        document.getElementById('editExcReason').value   = reason;
-        // Set radio + visual active state
-        document.querySelectorAll('#editExceptionModal .exc-type-card').forEach(c => {
-            const r = c.querySelector('input[type=radio]');
-            r.checked = (r.value === type);
-            c.classList.toggle('exc-type-card--active', r.checked);
+        document.querySelectorAll('.dxj-tab').forEach(function (t) {
+            t.addEventListener('click', function () {
+                document.querySelectorAll('.dxj-tab').forEach(function (x) { x.classList.remove('is-active'); });
+                t.classList.add('is-active');
+                document.querySelectorAll('[data-dxj-panel]').forEach(function (p) {
+                    p.style.display = p.dataset.dxjPanel === t.dataset.dxjBranch ? '' : 'none';
+                });
+            });
         });
-        document.getElementById('editExcAction').value =
-            '{{ route("rawdoctor.exception.update", [$doctor->id, "__ID__"]) }}'.replace('__ID__', id);
-        $('#editExceptionModal').modal('show');
+    })();
+
+    // ── Tab Cuti & Khusus: situation picker + peringatan bentrok reservasi ──
+    (function () {
+        var rep = document.getElementById('dxcSitReplace'), add = document.getElementById('dxcSitAdd'), type = document.getElementById('dxcType');
+        if (rep && add && type) {
+            function pick(t) { type.value = t; rep.classList.toggle('is-on', t === 'replace'); add.classList.toggle('is-on', t === 'add'); }
+            rep.addEventListener('click', function () { pick('replace'); });
+            add.addEventListener('click', function () { pick('add'); });
+        }
+        var start = document.getElementById('dxcStart'), end = document.getElementById('dxcEnd');
+        var warn = document.getElementById('dxcWarn'), warnText = document.getElementById('dxcWarnText');
+        var el = document.getElementById('dxcResDates');
+        var resDates = el ? JSON.parse(el.textContent || '[]') : [];
+        function checkClash() {
+            if (!start.value || !end.value || end.value < start.value) { warn.classList.remove('is-show'); return; }
+            var n = resDates.filter(function (d) { return d >= start.value && d <= end.value; }).length;
+            if (n > 0) {
+                warnText.textContent = 'Ada ' + n + ' reservasi pada rentang ini. Pindahkan / reschedule sebelum cuti dimulai.';
+                warn.classList.add('is-show');
+            } else { warn.classList.remove('is-show'); }
+        }
+        if (start && end) { start.addEventListener('change', checkClash); end.addEventListener('change', checkClash); }
+    })();
+
+    function dxcDelLeave(id) {
+        Swal.fire({ title: 'Hapus Cuti?', text: 'Data cuti ini akan dihapus.', icon: 'warning', showCancelButton: true, confirmButtonColor: '#461500', cancelButtonColor: '#aaa', confirmButtonText: 'Ya, Hapus!', cancelButtonText: 'Batal', reverseButtons: true })
+            .then(function (r) { if (r.isConfirmed) document.getElementById('dxcLeave' + id).submit(); });
+    }
+    function dxcDelExc(id) {
+        Swal.fire({ title: 'Hapus Jadwal Khusus?', text: 'Data jadwal khusus ini akan dihapus.', icon: 'warning', showCancelButton: true, confirmButtonColor: '#461500', cancelButtonColor: '#aaa', confirmButtonText: 'Ya, Hapus!', cancelButtonText: 'Batal', reverseButtons: true })
+            .then(function (r) { if (r.isConfirmed) document.getElementById('dxcExc' + id).submit(); });
     }
 
-    document.querySelectorAll('#editExceptionModal .exc-type-card input[type=radio]').forEach(function (radio) {
-        radio.addEventListener('change', function () {
-            document.querySelectorAll('#editExceptionModal .exc-type-card').forEach(c => c.classList.remove('exc-type-card--active'));
-            if (this.checked) this.closest('.exc-type-card').classList.add('exc-type-card--active');
-        });
-    });
+    // ── Tab Perawatan & Durasi (2 seksi: Dilayani / Belum Dilayani) ──
+    (function () {
+        var form = document.getElementById('dxpForm');
+        if (!form) return;
+        var served = document.getElementById('dxpServed'), unserved = document.getElementById('dxpUnserved');
 
-    document.getElementById('editExcSubmit').addEventListener('click', function () {
-        document.getElementById('editExceptionForm').action = document.getElementById('editExcAction').value;
-        document.getElementById('editExceptionForm').submit();
-    });
-    @endif {{-- features.flexible_scheduling --}}
+        function activeBranch() { var a = form.querySelector('[data-dxp-branch].is-active'); return a ? a.dataset.dxpBranch : null; }
+        function setText(id, v) { var e = document.getElementById(id); if (e) e.textContent = v; }
+        function updCounts() {
+            var onN = served.querySelectorAll('.dxp-item').length, offN = unserved.querySelectorAll('.dxp-item').length;
+            setText('dxpBadgeOn', onN); setText('dxpBadgeOff', offN); setText('dxpServedCount', onN);
+            document.getElementById('dxpServedEmpty').style.display = onN ? 'none' : '';
+            document.getElementById('dxpUnservedEmpty').style.display = offN ? 'none' : '';
+        }
+        // sublabel: "Pakai durasi default" vs "Durasi khusus" (per cabang aktif)
+        function updSublabel(item) {
+            var lbl = item.querySelector('.dxp-name__d'); if (!lbl) return;
+            var bid = activeBranch();
+            var inp = item.querySelector('.dxp-svc-input[data-branch="' + bid + '"]');
+            lbl.textContent = (inp && inp.value.trim()) ? 'Durasi khusus untuk cabang ini' : 'Pakai durasi default';
+        }
+
+        function setActive(item, on) {
+            item.classList.toggle('is-on', on);
+            item.querySelectorAll('.dxp-dur-input').forEach(function (inp) { inp.disabled = !on; if (!on) inp.value = ''; });
+            if (!on) item.querySelector('.dxp-sub') && item.querySelector('.dxp-sub').classList.remove('is-open');
+            var target = on ? served : unserved;
+            target.insertBefore(item, target.querySelector('.dxp-list__empty'));
+            updSublabel(item); updCounts();
+        }
+
+        form.querySelectorAll('.dxp-cb').forEach(function (cb) {
+            cb.addEventListener('change', function () { setActive(cb.closest('.dxp-item'), cb.checked); });
+        });
+        // kotak centang + tombol "Aktifkan" → toggle checkbox
+        // (bubbles:true WAJIB — biar listener autosave di <form> kebaca; event manual default tak bubble)
+        form.querySelectorAll('[data-svc-toggle]').forEach(function (t) {
+            t.addEventListener('click', function (e) {
+                e.preventDefault();
+                var cb = document.getElementById('svc_' + t.dataset.svcToggle);
+                cb.checked = !cb.checked; cb.dispatchEvent(new Event('change', { bubbles: true }));
+            });
+        });
+        // durasi service diketik → update sublabel
+        form.querySelectorAll('.dxp-svc-input').forEach(function (inp) {
+            inp.addEventListener('input', function () { updSublabel(inp.closest('.dxp-item')); });
+        });
+
+        // sub-tab cabang → tampilkan input durasi cabang terpilih + update label + sublabel
+        form.querySelectorAll('[data-dxp-branch]').forEach(function (t) {
+            t.addEventListener('click', function () {
+                form.querySelectorAll('[data-dxp-branch]').forEach(function (x) { x.classList.remove('is-active'); });
+                t.classList.add('is-active');
+                form.querySelectorAll('.dxp-dur-input').forEach(function (inp) { inp.style.display = inp.dataset.branch === t.dataset.dxpBranch ? '' : 'none'; });
+                var nm = document.getElementById('dxpBranchName'); if (nm) nm.textContent = t.textContent.trim();
+                served.querySelectorAll('.dxp-item').forEach(updSublabel);
+            });
+        });
+
+        // expand sub-detail
+        form.querySelectorAll('[data-sub-toggle]').forEach(function (tg) {
+            tg.addEventListener('click', function () { tg.closest('.dxp-sub').classList.toggle('is-open'); });
+        });
+
+        // search filter (lintas dua seksi)
+        var search = document.getElementById('dxpSearch'), empty = document.getElementById('dxpEmpty');
+        if (search) search.addEventListener('input', function () {
+            var q = search.value.toLowerCase().trim(), any = false;
+            form.querySelectorAll('.dxp-item').forEach(function (it) {
+                var show = !q || it.dataset.name.indexOf(q) >= 0;
+                it.style.display = show ? '' : 'none'; if (show) any = true;
+            });
+            if (empty) empty.style.display = any ? 'none' : '';
+        });
+
+        function refreshSublabels() { served.querySelectorAll('.dxp-item').forEach(updSublabel); }
+        // Strip "Semua pakai durasi default" → reset durasi SEMUA cabang
+        var resetAll = document.getElementById('dxpReset');
+        if (resetAll) resetAll.addEventListener('click', function () {
+            form.querySelectorAll('.dxp-dur-input').forEach(function (inp) { if (!inp.disabled) inp.value = ''; });
+            refreshSublabels(); scheduleSave();
+        });
+        // Toolbar "Pakai durasi default" → reset durasi CABANG AKTIF saja
+        var resetBranch = document.getElementById('dxpResetBranch');
+        if (resetBranch) resetBranch.addEventListener('click', function () {
+            var bid = activeBranch();
+            form.querySelectorAll('.dxp-dur-input[data-branch="' + bid + '"]').forEach(function (inp) { if (!inp.disabled) inp.value = ''; });
+            refreshSublabels(); scheduleSave();
+        });
+
+        // ── Auto-save (AJAX) — toggle langsung, durasi pas blur (event 'change') ──
+        var toast = document.getElementById('dxpToast');
+        var toastTimer, saveTimer;
+        function showToast(kind, html) { if (!toast) return; toast.className = 'dxp-toast is-show dxp-toast--' + kind; toast.innerHTML = html; }
+        function hideToast() { if (toast) toast.className = 'dxp-toast'; }
+        function autosave() {
+            showToast('saving', '<i class="fa fa-spinner fa-spin"></i> Menyimpan…');
+            fetch(form.action, { method: 'POST', body: new FormData(form), headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' } })
+                .then(function (r) { if (!r.ok) throw new Error('http ' + r.status); return r.json().catch(function () { return {}; }); })
+                .then(function () { showToast('saved', '<i class="fa fa-check"></i> Tersimpan'); clearTimeout(toastTimer); toastTimer = setTimeout(hideToast, 1800); })
+                .catch(function () { showToast('error', '<i class="fa fa-exclamation-triangle"></i> Gagal menyimpan — klik untuk coba lagi'); });
+        }
+        function scheduleSave() { clearTimeout(saveTimer); saveTimer = setTimeout(autosave, 400); }
+        if (toast) toast.addEventListener('click', function () { if (toast.classList.contains('dxp-toast--error')) autosave(); });
+        // 'change' = toggle checkbox + commit durasi (blur). Search pakai 'input' → tak ikut.
+        form.addEventListener('change', scheduleSave);
+
+        // init sublabel
+        served.querySelectorAll('.dxp-item').forEach(updSublabel);
+    })();
 </script>
-
-@if(config('features.flexible_scheduling'))
-{{-- Edit Exception Modal --}}
-<div class="modal fade" id="editExceptionModal" tabindex="-1" role="dialog">
-    <div class="modal-dialog modal-lg" role="document">
-        <div class="modal-content">
-            <div class="modal-header" style="background:#461500; color:#fff; border-radius:8px 8px 0 0;">
-                <h5 class="modal-title" style="font-size:14px; font-weight:700;">
-                    <i class="fa fa-pencil"></i> Edit Jadwal Khusus
-                </h5>
-                <button type="button" class="close" data-dismiss="modal" style="color:#fff; opacity:1;">
-                    <span>&times;</span>
-                </button>
-            </div>
-            <div class="modal-body">
-                <form id="editExceptionForm" method="post">
-                    @csrf @method('PUT')
-                    <input type="hidden" id="editExcId" name="_exc_id">
-                    <input type="hidden" id="editExcAction">
-
-                    <div class="mb-3">
-                        <label style="font-weight:700; font-size:12px; display:block; margin-bottom:8px;">Situasinya apa? <span class="text-danger">*</span></label>
-                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-                            <label class="exc-type-card">
-                                <input type="radio" name="type" value="replace" style="display:none;">
-                                <div style="display:flex; gap:10px; align-items:flex-start;">
-                                    <span style="font-size:1.3rem; line-height:1;">🕐</span>
-                                    <div>
-                                        <div style="font-weight:700; font-size:12px; color:#461500;">Jam Berbeda dari Biasanya</div>
-                                        <div style="font-size:11px; color:#7a6a5a; margin-top:2px; line-height:1.4;">Dokter tetap kerja, tapi jam berbeda dari jadwal rutin</div>
-                                    </div>
-                                </div>
-                            </label>
-                            <label class="exc-type-card">
-                                <input type="radio" name="type" value="add" style="display:none;">
-                                <div style="display:flex; gap:10px; align-items:flex-start;">
-                                    <span style="font-size:1.3rem; line-height:1;">📅</span>
-                                    <div>
-                                        <div style="font-weight:700; font-size:12px; color:#461500;">Hari Tambahan</div>
-                                        <div style="font-size:11px; color:#7a6a5a; margin-top:2px; line-height:1.4;">Dokter buka di tanggal ini, padahal hari itu biasanya libur</div>
-                                    </div>
-                                </div>
-                            </label>
-                        </div>
-                    </div>
-
-                    <div class="row">
-                        <div class="col-md-3">
-                            <label style="font-weight:600; font-size:12px;">Tanggal <span class="text-danger">*</span></label>
-                            <input type="date" name="date" id="editExcDate" class="form-control form-control-sm" required>
-                        </div>
-                        <div class="col-md-3">
-                            <label style="font-weight:600; font-size:12px;">Cabang <span class="text-danger">*</span></label>
-                            <select name="raw_branch_id" id="editExcBranch" class="form-control form-control-sm" required>
-                                <option value="">- Pilih -</option>
-                                @foreach ($branches as $branch)
-                                    <option value="{{ $branch->id }}">{{ $branch->name }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="col-md-2">
-                            <label style="font-weight:600; font-size:12px;">Jam Mulai <span class="text-danger">*</span></label>
-                            <input type="time" name="start_hour" id="editExcStart" class="form-control form-control-sm" step="300" required>
-                        </div>
-                        <div class="col-md-2">
-                            <label style="font-weight:600; font-size:12px;">Jam Selesai <span class="text-danger">*</span></label>
-                            <input type="time" name="end_hour" id="editExcEnd" class="form-control form-control-sm" step="300" required>
-                        </div>
-                        <div class="col-md-2">
-                            <label style="font-weight:600; font-size:12px;">Catatan</label>
-                            <input type="text" name="reason" id="editExcReason" class="form-control form-control-sm" maxlength="255">
-                        </div>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="st-btn-outline-brown" data-dismiss="modal">Batal</button>
-                <button type="button" id="editExcSubmit" class="st-btn-brand">
-                    <i class="fa fa-save"></i> Simpan Perubahan
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-@endif {{-- features.flexible_scheduling --}}
-
-<style>
-    /* Radio card — override global uppercase label */
-    .exc-type-card {
-        display: block;
-        padding: 12px 14px;
-        border: 2px solid #e8ddd4;
-        border-radius: 10px;
-        cursor: pointer;
-        transition: all 0.2s;
-        background: #fffaf5;
-        margin: 0;
-    }
-    .exc-type-card:hover { border-color: #c0946a; background: #fef5ec; }
-    .exc-type-card--active { border-color: #461500 !important; background: #fef5ec !important; box-shadow: 0 0 0 3px rgba(70,21,0,0.08); }
-    .exc-type-card * { text-transform: none !important; letter-spacing: normal !important; }
-    .exc-type-card label { font-weight: 400 !important; margin: 0; }
-
-    /* Consistent modal styling */
-    .modal-content { border-radius: 12px; overflow: hidden; border: none; box-shadow: 0 10px 40px rgba(0,0,0,0.18); }
-    .modal-header { background: linear-gradient(135deg, #461500, #6b2400) !important; padding: 14px 20px; border-bottom: none; }
-    .modal-header .modal-title { color: #fff !important; font-size: 14px !important; font-weight: 700; }
-    .modal-header .close { color: #fff !important; opacity: 0.8; text-shadow: none; }
-    .modal-header .close:hover { opacity: 1; }
-    .modal-body { padding: 20px; }
-    .modal-body .form-group { margin-bottom: 14px; }
-    .modal-body .form-group label { font-size: 12px; font-weight: 600; margin-bottom: 4px; }
-    .modal-footer { border-top: 1px solid #f0e8e0; padding: 12px 20px; }
-
-    /* Container box untuk toggle status dokter + caption + hint */
-    .st-doctor-toggle-box {
-        display: flex;
-        flex-direction: column;
-        align-items: flex-end;
-        gap: 6px;
-        padding: 10px 14px;
-        background: #faf6ef;
-        border: 1px solid #ead9c2;
-        border-radius: 10px;
-        min-width: 220px;
-    }
-    .st-doctor-toggle-box__caption {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        font-size: 11px;
-        font-weight: 700;
-        color: #5C2A0A;
-        text-transform: uppercase;
-        letter-spacing: .4px;
-    }
-    .st-doctor-toggle-box__caption i.fa-power-off { color: #8b5a2b; font-size: 11px; }
-    .st-doctor-toggle-box__help {
-        color: #8b7a6b;
-        font-size: 11px;
-        cursor: help;
-        margin-left: 2px;
-    }
-    .st-doctor-toggle-box__hint {
-        font-size: 11px;
-        color: #8b7a6b;
-        font-style: italic;
-    }
-
-    /* Toggle switch aktif/nonaktif dokter */
-    .st-doctor-toggle-wrap {
-        display: inline-flex;
-        align-items: center;
-        gap: 10px;
-    }
-    .st-doctor-toggle-wrap__label {
-        font-size: 13px;
-        font-weight: 700;
-        color: #3D1A00;
-        min-width: 56px;
-        text-align: right;
-        transition: color .2s;
-    }
-    .st-doctor-toggle-wrap__label.is-inactive { color: #991b1b; }
-
-    .st-toggle-switch {
-        position: relative;
-        display: inline-block;
-        width: 48px;
-        height: 26px;
-        cursor: pointer;
-        margin: 0;
-    }
-    .st-toggle-switch input {
-        opacity: 0;
-        width: 0;
-        height: 0;
-        position: absolute;
-    }
-    .st-toggle-switch__slider {
-        position: absolute;
-        inset: 0;
-        background: #d4c5b1;
-        border-radius: 13px;
-        transition: background .25s;
-    }
-    .st-toggle-switch__slider::before {
-        content: "";
-        position: absolute;
-        width: 20px;
-        height: 20px;
-        left: 3px;
-        bottom: 3px;
-        background: #ffffff;
-        border-radius: 50%;
-        transition: transform .25s;
-        box-shadow: 0 1px 3px rgba(0,0,0,.18);
-    }
-    .st-toggle-switch input:checked + .st-toggle-switch__slider {
-        background: #16a34a;
-    }
-    .st-toggle-switch input:checked + .st-toggle-switch__slider::before {
-        transform: translateX(22px);
-    }
-    .st-toggle-switch input:disabled + .st-toggle-switch__slider {
-        opacity: .5;
-        cursor: wait;
-    }
-</style>
-
 @endsection

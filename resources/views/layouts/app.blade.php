@@ -79,9 +79,11 @@
     $reservasiRedesign = ($currentSegment === 'rawreservation') ? ' redesign-reservasi' : '';
     // Redesign pasien — scope ke halaman pasien (rawcustomer). CSS dari list @section('css').
     $pasienRedesign = ($currentSegment === 'rawcustomer') ? ' redesign-pasien' : '';
+    // Redesign doctor — scope ke halaman doctor (rawdoctor). CSS dari list @section('css').
+    $doctorRedesign = ($currentSegment === 'rawdoctor') ? ' redesign-doctor' : '';
 @endphp
 
-<body data-theme="{{ $bodyTheme }}" class="{{ $groupTheme }}{{ $reservasiRedesign }}{{ $pasienRedesign }}">
+<body data-theme="{{ $bodyTheme }}" class="{{ $groupTheme }}{{ $reservasiRedesign }}{{ $pasienRedesign }}{{ $doctorRedesign }}">
 
     <!-- Top Bar Start -->
     @include('layouts.header')
