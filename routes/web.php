@@ -383,6 +383,7 @@ Route::middleware([AuthGuard::class])->group(function () {
     Route::get('rawcustomer/{id}', [CustomerController::class, 'edit'])->name('rawcustomer.edit');
     Route::put('rawcustomer/{id}', [CustomerController::class, 'update'])->name('rawcustomer.update');
     Route::delete('rawcustomer/{id}', [CustomerController::class, 'destroy'])->name('rawcustomer.destroy');
+    Route::post('rawcustomer/{id}/activity', [CustomerController::class, 'storeActivity'])->name('rawcustomer.activity');
     Route::get('api/customer/search', [CustomerController::class, 'search'])->name('api.customer.search');
 
     // CRUD - Reservasi Cabang
