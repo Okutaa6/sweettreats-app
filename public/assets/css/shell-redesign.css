@@ -415,8 +415,16 @@ body[data-theme="marketing"] .st-side-logout { color: #BFE0DD !important; }
 body[data-theme="marketing"] .topbar .st-brand,
 body[data-theme="marketing"] .st-topbar .st-brand,
 body[data-theme="marketing"] .st-brand { background: #0E5A57 !important; }
-/* Header tetap krem; aksen ikon di-tint teal biar nyambung */
-body[data-theme="marketing"] .st-hamburger { color: #0A4F4D !important; }
+/* Header: di-dinginin ke light-teal (cream hangat tabrakan sama sidebar teal).
+   Sefamili tone theme-marketing (#f4faf9/#e6f5f4/#c4ebe9). */
+body[data-theme="marketing"] .st-topbar {
+    background: rgba(244,250,249,.85) !important;
+    border-bottom: 1px solid #CFE7E4 !important;
+}
+body[data-theme="marketing"] .st-pagehead-title { color: #0A4F4D !important; }
+body[data-theme="marketing"] .st-pagehead-sub { color: #5E8A86 !important; }
+body[data-theme="marketing"] .st-hamburger { color: #0A4F4D !important; border-color: #CFE7E4 !important; }
+body[data-theme="marketing"] .st-hamburger:hover { background: #ECF7F5 !important; }
 body[data-theme="marketing"] .st-topbar .st-actions .st-icon-btn {
     background: #E6F5F4 !important; border-color: #C4EBE9 !important; color: #0E6E6B !important;
 }
