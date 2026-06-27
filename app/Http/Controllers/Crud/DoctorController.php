@@ -73,10 +73,255 @@ class DoctorController extends Controller
             'konservasi' => 'Konservasi Gigi',
         ];
 
+        // Mode tampilan: 'tabel' (default) atau 'jadwal' (master "Jadwal Semua").
+        // Server-side & ter-persist lewat query param (?view=jadwal) — nav minggu/
+        // cabang/drill juga via URL, jadi ganti segment/filter tak balik ke tabel.
+        $view = request('view') === 'jadwal' ? 'jadwal' : 'tabel';
+        $master = $view === 'jadwal' ? $this->buildMaster($all) : null;
+
         return view('crud.doctor.list', compact(
             'doctors', 'tiles', 'segCounts', 'seg',
-            'filterSearch', 'filterSpec', 'filterStatus', 'specOptions'
+            'filterSearch', 'filterSpec', 'filterStatus', 'specOptions',
+            'view', 'master'
         ));
+    }
+
+    /**
+     * Data untuk master "Jadwal Semua" (matriks dokter × hari, per cabang +
+     * per minggu). $all = koleksi RawDoctor yang SUDAH di-tempel spec_*.
+     * C1: kontrol (cabang/minggu) + skeleton baris dokter. Sel/blok diisi C2.
+     */
+    private function buildMaster($all): array
+    {
+        $sessionBranch = session('raw_branch_id');
+
+        // Cabang yang boleh dilihat (Sales → cabangnya saja, admin → semua).
+        $branches = $sessionBranch
+            ? RawBranch::where('id', $sessionBranch)->orderBy('name')->get()
+            : RawBranch::orderBy('name')->get();
+
+        // Warna dot cabang (stabil by urutan; ikut handoff: Sunter coklat, Cinere teal).
+        $dotPalette = ['#6B2400', '#2E7D74', '#B5701A', '#6A53C9', '#C0392B', '#3C5FA8'];
+        $dotMap = [];
+        foreach ($branches as $i => $b) {
+            $dotMap[$b->id] = $dotPalette[$i % count($dotPalette)];
+        }
+
+        // Cabang terpilih.
+        $mbranch = request('mbranch');
+        if (!$branches->firstWhere('id', $mbranch)) {
+            $mbranch = optional($branches->first())->id;
+        }
+        $branchObj = $branches->firstWhere('id', $mbranch);
+
+        // Minggu (Senin ISO). mweek tak valid → minggu ini.
+        try {
+            $weekStart = request('mweek')
+                ? \Carbon\Carbon::parse(request('mweek'))->startOfWeek()
+                : now()->startOfWeek();
+        } catch (\Exception $e) {
+            $weekStart = now()->startOfWeek();
+        }
+        $weekStart = $weekStart->startOfDay();
+        $weekEnd   = (clone $weekStart)->addDays(6);
+
+        // Drill ke timeline harian: mday = hari ISO (1-7), null = mode matriks minggu.
+        $mday    = in_array((int) request('mday'), [1, 2, 3, 4, 5, 6, 7], true) ? (int) request('mday') : null;
+        $dayMode = $mday !== null;
+
+        // Label rentang minggu (mis. "24 – 30 Jun 2026" / "30 Jun – 6 Jul 2026").
+        $cMonths = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+        if ($weekStart->month === $weekEnd->month) {
+            $weekLabel = $weekStart->day . ' – ' . $weekEnd->day . ' ' . $cMonths[$weekEnd->month - 1] . ' ' . $weekEnd->year;
+        } elseif ($weekStart->year === $weekEnd->year) {
+            $weekLabel = $weekStart->day . ' ' . $cMonths[$weekStart->month - 1] . ' – ' . $weekEnd->day . ' ' . $cMonths[$weekEnd->month - 1] . ' ' . $weekEnd->year;
+        } else {
+            $weekLabel = $weekStart->day . ' ' . $cMonths[$weekStart->month - 1] . ' ' . $weekStart->year . ' – ' . $weekEnd->day . ' ' . $cMonths[$weekEnd->month - 1] . ' ' . $weekEnd->year;
+        }
+
+        // 7 hari (Senin–Minggu).
+        $dayShort = [1 => 'Sen', 2 => 'Sel', 3 => 'Rab', 4 => 'Kam', 5 => 'Jum', 6 => 'Sab', 7 => 'Min'];
+        $days = [];
+        for ($i = 0; $i < 7; $i++) {
+            $d = (clone $weekStart)->addDays($i);
+            $days[] = [
+                'iso'     => $i + 1,
+                'date'    => $d->toDateString(),
+                'short'   => $dayShort[$i + 1],
+                'num'     => $d->day,
+                'isToday' => $d->isSameDay(now()),
+            ];
+        }
+
+        // Baris = dokter yang punya jadwal di cabang terpilih (urut nama).
+        $schedDoctorIds = RawDoctorSchedule::where('raw_branch_id', $mbranch)
+            ->distinct()->pluck('raw_doctor_id')->toArray();
+        $rows = $all->whereIn('id', $schedDoctorIds)->values();
+        $rowIds = $rows->pluck('id')->all();
+
+        // ── C2: isi sel (blok shift + utilisasi, cuti, jadwal khusus) ──
+        $weekStartStr = $weekStart->toDateString();
+        $weekEndStr   = $weekEnd->toDateString();
+
+        $schedAll = RawDoctorSchedule::where('raw_branch_id', $mbranch)
+            ->whereIn('raw_doctor_id', $rowIds)->get();
+        $leaves = \Illuminate\Support\Facades\DB::table('raw_doctor_leave')
+            ->whereIn('raw_doctor_id', $rowIds)
+            ->where('start_date', '<=', $weekEndStr)
+            ->where('end_date', '>=', $weekStartStr)
+            ->get(['raw_doctor_id', 'start_date', 'end_date']);
+        $excAll = RawDoctorScheduleException::where('raw_branch_id', $mbranch)
+            ->whereIn('raw_doctor_id', $rowIds)
+            ->whereBetween('date', [$weekStartStr, $weekEndStr])
+            ->get();
+        $resAll = \Illuminate\Support\Facades\DB::table('raw_cus_reservation')
+            ->where('raw_branch_id', $mbranch)
+            ->whereIn('raw_doctor_id', $rowIds)
+            ->whereBetween('date', [$weekStartStr, $weekEndStr])
+            ->get(['raw_doctor_id', 'date', 'start_hour']);
+
+        $toDec = fn ($t) => $t ? ((int) substr($t, 0, 2) + ((int) substr($t, 3, 2)) / 60) : null;
+
+        // Index untuk lookup cepat.
+        $schedByDocDay = [];   // [docId][dayIso] => [schedule...]
+        foreach ($schedAll as $s) { $schedByDocDay[$s->raw_doctor_id][(int) $s->day][] = $s; }
+        $leaveByDoc = [];      // [docId] => [[start,end]...]
+        foreach ($leaves as $l) { $leaveByDoc[$l->raw_doctor_id][] = [$l->start_date, $l->end_date]; }
+        $excByDocDate = [];    // [docId][date] => [exc...]
+        // NB: model meng-cast `date` ke Carbon → normalkan ke string 'Y-m-d' utk key.
+        foreach ($excAll as $e) { $excByDocDate[$e->raw_doctor_id][\Carbon\Carbon::parse($e->date)->toDateString()][] = $e; }
+        $resByDocDate = [];    // [docId][date] => [hourDec...]
+        foreach ($resAll as $r) { $resByDocDate[$r->raw_doctor_id][$r->date][] = $toDec($r->start_hour); }
+
+        // [docId][dayIso] => ['isCuti'=>bool, 'blocks'=>[...], 'khusus'=>[...]]
+        $cells = [];
+        foreach ($rows as $row) {
+            foreach ($days as $d) {
+                $iso = $d['iso']; $date = $d['date'];
+
+                $isCuti = false;
+                foreach (($leaveByDoc[$row->id] ?? []) as $lv) {
+                    if ($date >= $lv[0] && $date <= $lv[1]) { $isCuti = true; break; }
+                }
+
+                $blocks = [];
+                foreach (($schedByDocDay[$row->id][$iso] ?? []) as $s) {
+                    $sd = $toDec($s->start_hour); $ed = $toDec($s->end_hour);
+                    $cap = max(0, (int) round((($ed ?? 0) - ($sd ?? 0)) * 2));
+                    $fill = 0;
+                    foreach (($resByDocDate[$row->id][$date] ?? []) as $rh) {
+                        if ($rh !== null && $sd !== null && $ed !== null && $rh >= $sd && $rh < $ed) $fill++;
+                    }
+                    $blocks[] = [
+                        'time'  => substr($s->start_hour, 0, 5) . '–' . substr($s->end_hour, 0, 5),
+                        'start' => substr($s->start_hour, 0, 5),
+                        'end'   => substr($s->end_hour, 0, 5),
+                        'fill'  => $fill,
+                        'cap'   => $cap,
+                        'pct'   => $cap > 0 ? min(100, (int) round($fill / $cap * 100)) : 0,
+                    ];
+                }
+
+                $khusus = [];
+                foreach (($excByDocDate[$row->id][$date] ?? []) as $e) {
+                    $khusus[] = [
+                        'time'  => substr($e->start_hour, 0, 5) . '–' . substr($e->end_hour, 0, 5),
+                        'start' => substr($e->start_hour, 0, 5),
+                        'end'   => substr($e->end_hour, 0, 5),
+                        'type'  => $e->type,
+                    ];
+                }
+
+                $cells[$row->id][$iso] = ['isCuti' => $isCuti, 'blocks' => $blocks, 'khusus' => $khusus];
+            }
+        }
+
+        // ── C3: coverage per hari + banner gap (hari tanpa dokter) ──
+        // Dokter "praktik" pada satu hari = punya shift & tidak cuti, ATAU ada
+        // jadwal khusus (hari tambahan / jam berbeda) pada tanggal itu.
+        // Hari yang TIDAK ADA jadwal sama sekali di pola mingguan cabang =
+        // "libur" (mis. Senin) → bukan gap & badge netral. Otomatis: kalau nanti
+        // ada yang isi jadwal di hari itu, ia jadi hari operasi & gap aktif lagi.
+        $fullDay = [1 => 'Senin', 2 => 'Selasa', 3 => 'Rabu', 4 => 'Kamis', 5 => 'Jumat', 6 => 'Sabtu', 7 => 'Minggu'];
+        $openDayset = [];
+        foreach ($schedAll as $s) { $openDayset[(int) $s->day] = true; }
+        foreach ($days as $i => $d) {
+            $cnt = 0;
+            foreach ($rows as $row) {
+                $c = $cells[$row->id][$d['iso']];
+                $working = (count($c['blocks']) > 0 && !$c['isCuti']) || count($c['khusus']) > 0;
+                if ($working) $cnt++;
+            }
+            $isOpen = !empty($openDayset[$d['iso']]);
+            $days[$i]['count']  = $cnt;
+            $days[$i]['status'] = !$isOpen ? 'libur' : ($cnt === 0 ? 'kosong' : 'ada');
+        }
+        // Gap = hari operasi tapi 0 dokter (cuti massal dll), bukan hari libur.
+        $gapDays  = array_values(array_filter($days, fn ($d) => $d['status'] === 'kosong'));
+        $gapShow  = $rows->count() > 0 && count($gapDays) > 0;
+        $gapNames = array_map(fn ($d) => $fullDay[$d['iso']], $gapDays);
+        $gapText  = count($gapDays) . ' hari tanpa dokter praktik di ' . (optional($branchObj)->name ?? '—')
+            . ': ' . implode(', ', $gapNames) . '.';
+
+        // ── C4: timeline harian (drill). Sumbu jam 08–21 (span 13 jam). ──
+        $H0 = 8; $H1 = 21; $span = $H1 - $H0;
+        $dayHourMarks = [];
+        for ($h = $H0; $h <= 20; $h += 2) {
+            $dayHourMarks[] = ['pct' => round(($h - $H0) / $span * 100, 3), 'label' => sprintf('%02d:00', $h)];
+        }
+        $dayLabel = ''; $dayRows = [];
+        if ($dayMode) {
+            $dd   = $days[$mday - 1];
+            $dObj = \Carbon\Carbon::parse($dd['date']);
+            $dayLabel = $fullDay[$mday] . ', ' . $dObj->day . ' ' . $cMonths[$dObj->month - 1] . ' ' . $dObj->year;
+            $pos = function ($start, $end) use ($toDec, $H0, $span) {
+                $sd = $toDec($start); $ed = $toDec($end);
+                $left  = max(0, min(100, ($sd - $H0) / $span * 100));
+                $width = max(2, min(100 - $left, ($ed - $sd) / $span * 100));
+                return ['left' => round($left, 3), 'width' => round($width, 3)];
+            };
+            foreach ($rows as $row) {
+                $c = $cells[$row->id][$mday];
+                if (!count($c['blocks']) && !count($c['khusus']) && !$c['isCuti']) continue;
+                $tb = [];
+                foreach ($c['blocks'] as $blk) {
+                    $tb[] = array_merge($pos($blk['start'], $blk['end']), [
+                        'label' => $blk['time'] . ' · ' . $blk['fill'] . '/' . $blk['cap'],
+                        'kind'  => 'shift', 'color' => $row->spec_color,
+                    ]);
+                }
+                foreach ($c['khusus'] as $k) {
+                    $tb[] = array_merge($pos($k['start'], $k['end']), [
+                        'label' => $k['time'] . ' ★', 'kind' => 'khusus', 'color' => null,
+                    ]);
+                }
+                $dayRows[] = ['row' => $row, 'isCuti' => $c['isCuti'], 'blocks' => $tb];
+            }
+        }
+        $dayEmpty = $dayMode && count($dayRows) === 0;
+
+        return [
+            'cells'        => $cells,
+            'dayMode'      => $dayMode,
+            'mday'         => $mday,
+            'dayLabel'     => $dayLabel,
+            'dayRows'      => $dayRows,
+            'dayHourMarks' => $dayHourMarks,
+            'dayEmpty'     => $dayEmpty,
+            'gapShow'      => $gapShow,
+            'gapText'      => $gapText,
+            'branches'   => $branches,
+            'dotMap'     => $dotMap,
+            'mbranch'    => $mbranch,
+            'branchName' => optional($branchObj)->name ?? '—',
+            'weekStart'  => $weekStart->toDateString(),
+            'weekLabel'  => $weekLabel,
+            'prevWeek'   => (clone $weekStart)->subDays(7)->toDateString(),
+            'nextWeek'   => (clone $weekStart)->addDays(7)->toDateString(),
+            'thisWeek'   => now()->startOfWeek()->toDateString(),
+            'days'       => $days,
+            'rows'       => $rows,
+        ];
     }
 
     public function create()

@@ -506,3 +506,126 @@ body.redesign-doctor .dxp-toast.is-show { display: inline-flex; }
 body.redesign-doctor .dxp-toast--saving { background: #FBF6EF; color: #8A6A52; border: 1px solid #F0E2D2; }
 body.redesign-doctor .dxp-toast--saved  { background: #E3F4E8; color: #2F8E55; border: 1px solid #BFE3CD; }
 body.redesign-doctor .dxp-toast--error  { background: #FBEDE9; color: #C0392B; border: 1px solid #F2D2CB; cursor: pointer; }
+
+/* ════════════════════════════════════════════════════════════════════════
+   §13. MASTER "JADWAL SEMUA" — matriks dokter × hari (mode list 'jadwal')
+   ════════════════════════════════════════════════════════════════════════ */
+body.redesign-doctor .dx-toggle--solo { margin-left: auto; }
+body.redesign-doctor .dxm { display: flex; flex-direction: column; gap: 14px; }
+
+/* Kontrol: toggle cabang + nav minggu */
+body.redesign-doctor .dxm-controls { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+body.redesign-doctor .dxm-branches { display: inline-flex; background: var(--dx-surface); border: 1px solid #EADCC9; border-radius: 12px; padding: 4px; gap: 3px; flex-wrap: wrap; }
+body.redesign-doctor .dxm-branch {
+    display: inline-flex; align-items: center; border: none; background: transparent; border-radius: 9px;
+    padding: 8px 14px; font-size: 13px; font-weight: 700; color: var(--dx-text-2); text-decoration: none;
+    white-space: nowrap; cursor: pointer; transition: background .15s ease, color .15s ease;
+}
+body.redesign-doctor .dxm-branch:hover { background: #FBF3E9; color: var(--dx-text); text-decoration: none; }
+body.redesign-doctor .dxm-branch.is-active { background: var(--dx-grad); color: #FFEAD6; }
+body.redesign-doctor .dxm-branch__dot { width: 9px; height: 9px; border-radius: 3px; display: inline-block; margin-right: 7px; flex: none; }
+body.redesign-doctor .dxm-branch.is-active .dxm-branch__dot { box-shadow: 0 0 0 2px rgba(255,255,255,.45); }
+body.redesign-doctor .dxm-weeknav { display: flex; align-items: center; gap: 8px; margin-left: auto; flex-wrap: wrap; }
+body.redesign-doctor .dxm-navbtn {
+    width: 34px; height: 34px; border-radius: 10px; border: 1px solid var(--dx-input-border);
+    background: var(--dx-surface); color: var(--dx-text-2); font-size: 15px; text-decoration: none;
+    display: inline-flex; align-items: center; justify-content: center; transition: background .15s, color .15s;
+}
+body.redesign-doctor .dxm-navbtn:hover { background: #FBF4EC; color: #461500; }
+body.redesign-doctor .dxm-weeklabel { font-size: 14px; font-weight: 800; color: var(--dx-text); min-width: 150px; text-align: center; font-variant-numeric: tabular-nums; }
+body.redesign-doctor .dxm-thisweek {
+    margin-left: 4px; background: var(--dx-grad); color: #FFEAD6; border-radius: 10px; padding: 9px 14px;
+    font-weight: 700; font-size: 12.5px; text-decoration: none; white-space: nowrap;
+}
+body.redesign-doctor .dxm-thisweek:hover { filter: brightness(1.06); color: #FFEAD6; text-decoration: none; }
+
+/* Matriks */
+body.redesign-doctor .dxm-card { background: var(--dx-surface); border: 1px solid var(--dx-border); border-radius: 18px; overflow: hidden; box-shadow: var(--dx-shadow); }
+body.redesign-doctor .dxm-info { font-size: 13px; color: var(--dx-muted); padding: 14px 18px; line-height: 1.5; }
+body.redesign-doctor .dxm-info strong { color: var(--dx-text); font-weight: 700; }
+body.redesign-doctor .dxm-info span { font-weight: 700; color: var(--dx-text); font-variant-numeric: tabular-nums; }
+body.redesign-doctor .dxm-scroll { overflow-x: auto; }
+body.redesign-doctor .dxm-grid { min-width: 880px; }
+body.redesign-doctor .dxm-head { display: grid; grid-template-columns: 190px repeat(7, 1fr); background: linear-gradient(120deg, #3A1505, #52200A); }
+body.redesign-doctor .dxm-head__dr { padding: 11px 16px; font-size: 11px; font-weight: 800; letter-spacing: .6px; color: #EAD3BC; }
+body.redesign-doctor .dxm-head__day { padding: 9px 4px; text-align: center; border-left: 1px solid rgba(255,255,255,.08); }
+body.redesign-doctor .dxm-head__day.is-today { background: rgba(255,255,255,.07); }
+body.redesign-doctor .dxm-head__short { font-size: 11px; font-weight: 800; letter-spacing: .5px; color: #EAD3BC; }
+body.redesign-doctor .dxm-head__num { font-size: 13px; font-weight: 800; margin-top: 2px; color: #fff; font-variant-numeric: tabular-nums; }
+body.redesign-doctor .dxm-head__badge { display: inline-block; margin-top: 4px; font-size: 9.5px; font-weight: 800; padding: 1px 7px; border-radius: 20px; background: rgba(255,255,255,.16); color: #EAD3BC; }
+body.redesign-doctor .dxm-head__badge--empty { background: rgba(232,168,154,.22); color: #E8A89A; }
+body.redesign-doctor .dxm-head__badge--off { background: rgba(255,255,255,.10); color: #C2A98F; }
+/* Header hari = link drill ke timeline */
+body.redesign-doctor .dxm-head__day { text-decoration: none; cursor: pointer; transition: background .12s ease; }
+body.redesign-doctor .dxm-head__day:hover { background: rgba(255,255,255,.10); text-decoration: none; }
+
+/* Tombol kembali ke minggu (mode drill) */
+body.redesign-doctor .dxm-back {
+    margin-left: auto; display: inline-flex; align-items: center; gap: 7px;
+    background: var(--dx-surface); color: var(--dx-text-2); border: 1px solid var(--dx-input-border);
+    border-radius: 10px; padding: 9px 14px; font-weight: 700; font-size: 13px; text-decoration: none; transition: background .15s;
+}
+body.redesign-doctor .dxm-back:hover { background: #FBF4EC; color: #461500; text-decoration: none; }
+
+/* Timeline harian (drill) */
+body.redesign-doctor .dxm-tlhead { padding: 16px 20px; border-bottom: 1px solid #F0E2D2; }
+body.redesign-doctor .dxm-tlhead__t { font-size: 17px; font-weight: 800; color: var(--dx-text); }
+body.redesign-doctor .dxm-tlhead__s { font-size: 12.5px; color: var(--dx-muted); margin-top: 2px; }
+body.redesign-doctor .dxm-tl { min-width: 820px; padding: 14px 18px 18px; }
+body.redesign-doctor .dxm-tl__axis { display: grid; grid-template-columns: 160px 1fr; margin-bottom: 6px; }
+body.redesign-doctor .dxm-tl__marks { position: relative; height: 18px; }
+body.redesign-doctor .dxm-tl__marks span { position: absolute; transform: translateX(-50%); font-size: 10px; font-weight: 600; color: #B79A82; font-variant-numeric: tabular-nums; }
+body.redesign-doctor .dxm-tl__row { display: grid; grid-template-columns: 160px 1fr; align-items: center; border-top: 1px solid #F4EADD; padding: 9px 0; }
+body.redesign-doctor .dxm-tl__dr { display: flex; align-items: center; gap: 9px; padding-right: 10px; text-decoration: none; min-width: 0; }
+body.redesign-doctor .dxm-tl__dr:hover { text-decoration: none; }
+body.redesign-doctor .dxm-tl__dr:hover .dxm-dr__name { color: #6B2400; }
+body.redesign-doctor .dxm-tl__dr .dxm-dr__name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+body.redesign-doctor .dxm-tl__track { position: relative; height: 38px; background: #FAF4EC; border-radius: 9px; overflow: hidden; display: block; text-decoration: none; }
+body.redesign-doctor .dxm-tl__blk {
+    position: absolute; top: 4px; bottom: 4px; border-radius: 7px; color: #fff; font-size: 10.5px; font-weight: 800;
+    display: flex; align-items: center; padding: 0 7px; overflow: hidden; white-space: nowrap; font-variant-numeric: tabular-nums;
+}
+body.redesign-doctor .dxm-tl__blk.is-khusus { background: #FBEFD9; border: 1px solid #EBD3A5; color: #9A6614; }
+body.redesign-doctor .dxm-tl__cuti {
+    position: absolute; inset: 0; background: repeating-linear-gradient(45deg, #F1E7DC, #F1E7DC 6px, #E6D6C4 6px, #E6D6C4 12px);
+    display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 800; letter-spacing: .5px; color: #9A7256;
+}
+
+/* Banner gap coverage (hari tanpa dokter) */
+body.redesign-doctor .dxm-gap { margin: 0 18px 12px; display: flex; align-items: center; gap: 11px; background: #FBF2E6; border: 1px solid #EBD3A5; border-radius: 12px; padding: 11px 15px; }
+body.redesign-doctor .dxm-gap i { color: #B5701A; font-size: 15px; flex: none; }
+body.redesign-doctor .dxm-gap span { font-size: 12.5px; font-weight: 600; color: #8A5A14; line-height: 1.4; }
+body.redesign-doctor .dxm-row { display: grid; grid-template-columns: 190px repeat(7, 1fr); border-top: 1px solid #F0E2D2; }
+body.redesign-doctor .dxm-dr { display: flex; align-items: center; gap: 10px; padding: 11px 14px; border-right: 1px solid #F0E2D2; text-decoration: none; cursor: pointer; transition: background .12s ease; }
+body.redesign-doctor .dxm-dr:hover { background: #FBF4EC; text-decoration: none; }
+body.redesign-doctor .dxm-dr__av { width: 30px; height: 30px; flex: none; border-radius: 50%; color: #FFE6CC; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 12px; overflow: hidden; }
+body.redesign-doctor .dxm-dr__av img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+body.redesign-doctor .dxm-dr__main { min-width: 0; }
+body.redesign-doctor .dxm-dr__name { font-size: 12.5px; font-weight: 700; color: var(--dx-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 128px; }
+body.redesign-doctor .dxm-dr__spec { display: inline-flex; align-items: center; gap: 5px; font-size: 10px; font-weight: 700; margin-top: 2px; }
+body.redesign-doctor .dxm-dr__spec span { width: 7px; height: 7px; border-radius: 2px; display: inline-block; flex: none; }
+body.redesign-doctor .dxm-cell {
+    border-left: 1px solid #F0E2D2; min-height: 62px; padding: 7px 6px; text-decoration: none;
+    display: flex; flex-direction: column; gap: 4px; justify-content: center; cursor: pointer; transition: background .12s ease;
+}
+body.redesign-doctor .dxm-cell:hover { background: #FBF4EC; }
+body.redesign-doctor .dxm-cell.is-today { background: #FFFBF4; }
+body.redesign-doctor .dxm-cell.is-today:hover { background: #FBF4EC; }
+body.redesign-doctor .dxm-emptyrow { padding: 40px; text-align: center; font-size: 13px; color: var(--dx-muted); border-top: 1px solid #F0E2D2; }
+
+/* Isi sel: blok shift + utilisasi, strip cuti, blok jadwal khusus */
+body.redesign-doctor .dxm-cuti {
+    background: repeating-linear-gradient(45deg, #F1E7DC, #F1E7DC 5px, #E6D6C4 5px, #E6D6C4 10px);
+    border-radius: 7px; padding: 8px 4px; text-align: center;
+    font-size: 10px; font-weight: 800; letter-spacing: .5px; color: #9A7256;
+}
+body.redesign-doctor .dxm-blk { border-radius: 7px; padding: 5px 7px; color: #fff; overflow: hidden; }
+body.redesign-doctor .dxm-blk__time { font-size: 11px; font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; }
+body.redesign-doctor .dxm-blk__util { display: flex; align-items: center; gap: 4px; margin-top: 3px; }
+body.redesign-doctor .dxm-blk__track { flex: 1; height: 3px; border-radius: 2px; background: rgba(255,255,255,.32); overflow: hidden; display: block; }
+body.redesign-doctor .dxm-blk__track span { display: block; height: 100%; background: #fff; opacity: .9; border-radius: 2px; }
+body.redesign-doctor .dxm-blk__count { font-size: 9px; font-weight: 800; opacity: .95; font-variant-numeric: tabular-nums; }
+body.redesign-doctor .dxm-khusus {
+    border-radius: 7px; background: #FBEFD9; border: 1px solid #EBD3A5; color: #9A6614;
+    font-size: 10.5px; font-weight: 800; padding: 5px 6px; text-align: center; font-variant-numeric: tabular-nums;
+}
