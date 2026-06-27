@@ -368,3 +368,56 @@ body[data-theme] .st-topbar .st-brand { width: 268px !important; }
    ══════════════════════════════════════════════════════════════════════════ */
 body[data-theme] .page-content,
 body[data-theme] .page-wrapper { background: #F4ECE2; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   PER-DEPARTEMEN — MARKETING = TEAL/TOSCA (override shell coklat)
+   ────────────────────────────────────────────────────────────────────────
+   Shell di atas dipaksa coklat utk SEMUA tema. Blok ini nimpa KHUSUS role
+   marketing (body[data-theme="marketing"]) jadi teal, sefamili dgn konten
+   marketing (theme-marketing.css: #0a4f4d/#13928e/aksen lime).
+   Specificity sama dgn rule coklat → menang lewat URUTAN (blok ini paling akhir)
+   + !important. Coklat Sales (data-theme="default") TIDAK tersentuh.
+   Shade: gelap-kalem #0E5A57 → #06322F (setara mood coklat sidebar).
+   Header tetap krem netral; cuma aksen ikon di-tint teal.
+   (Long-term: angkat warna shell ke CSS var --shell-* biar ga duplikasi.)
+   ══════════════════════════════════════════════════════════════════════════ */
+body[data-theme="marketing"] .left-sidenav,
+body[data-theme="marketing"] .left-sidenav .main-icon-menu,
+body[data-theme="marketing"] .main-menu-inner {
+    background: linear-gradient(180deg, #0E5A57 0%, #06322F 100%) !important;
+}
+/* Item menu — teks & ikon teal-tint */
+body[data-theme="marketing"] .main-menu-inner .nav-link,
+body[data-theme="marketing"] .main-icon-menu .nav-link,
+body[data-theme="marketing"] .main-menu-inner .menu-body .nav-item .nav-link,
+body[data-theme="marketing"] .main-menu-inner .menu-body .nav-item ul li > a { color: #BFE0DD !important; }
+body[data-theme="marketing"] .left-sidenav .nav-link i,
+body[data-theme="marketing"] .main-menu-inner .menu-body .nav-item .nav-link i,
+body[data-theme="marketing"] .main-menu-inner .menu-body .nav-item ul li > a i { color: #8FC4C0 !important; }
+/* Active — ikon teal terang (bg/ring putih transparan tetap dipakai) */
+body[data-theme="marketing"] .main-menu-inner .menu-body .nav-item .nav-link.active i,
+body[data-theme="marketing"] .main-menu-inner .menu-body .nav-item ul li > a.active i { color: #CDEFEB !important; }
+body[data-theme="marketing"] .main-icon-menu .nav-link.active,
+body[data-theme="marketing"] .main-icon-menu .nav-link.active:hover { color: #CDEFEB !important; }
+/* Section label — muted teal */
+body[data-theme="marketing"] .title-box .menu-title,
+body[data-theme="marketing"] .main-menu-inner .menu-body .menu-title,
+body[data-theme="marketing"] .menu-title { color: #6E9C98 !important; }
+/* Chip akun + avatar + footer fade */
+body[data-theme="marketing"] .st-side-account { background: #0E5A57 !important; }
+body[data-theme="marketing"] .main-menu-inner::after {
+    background: linear-gradient(180deg, rgba(6,50,47,0) 0%, #06322F 60%) !important;
+}
+body[data-theme="marketing"] .st-side-avatar { background: linear-gradient(135deg, #13928E, #0A4F4D) !important; }
+body[data-theme="marketing"] .st-side-acc-role { color: #8FC4C0 !important; }
+body[data-theme="marketing"] .st-side-logout { color: #BFE0DD !important; }
+/* Brand panel = ujung atas gradient (kolom kiri menyatu) */
+body[data-theme="marketing"] .topbar .st-brand,
+body[data-theme="marketing"] .st-topbar .st-brand,
+body[data-theme="marketing"] .st-brand { background: #0E5A57 !important; }
+/* Header tetap krem; aksen ikon di-tint teal biar nyambung */
+body[data-theme="marketing"] .st-hamburger { color: #0A4F4D !important; }
+body[data-theme="marketing"] .st-topbar .st-actions .st-icon-btn {
+    background: #E6F5F4 !important; border-color: #C4EBE9 !important; color: #0E6E6B !important;
+}
+body[data-theme="marketing"] .st-topbar .st-actions .st-icon-btn:hover { background: #D6EEEC !important; }
