@@ -34,6 +34,8 @@
     <link rel="stylesheet" href="{{ asset('assets/css/themes.sweettreats.css') }}?v={{ @filemtime(public_path('assets/css/themes.sweettreats.css')) ?: '1' }}">
     {{-- Shell redesign (fondasi) — sidebar gelap global, hanya tema default. Di-load paling akhir agar menang. --}}
     <link rel="stylesheet" href="{{ asset('assets/css/shell-redesign.css') }}?v={{ @filemtime(public_path('assets/css/shell-redesign.css')) ?: '1' }}">
+    {{-- Modul Checklist Akreditasi — design tokens & komponen .cl-* (scoped, tidak bleed). --}}
+    <link rel="stylesheet" href="{{ asset('assets/css/checklist.sweettreats.css') }}?v={{ @filemtime(public_path('assets/css/checklist.sweettreats.css')) ?: '1' }}">
     @yield('css')
 </head>
 @php
@@ -250,9 +252,6 @@
             <!-- footer -->
         </div>
     </div>
-
-    {{-- Floating button untuk kirim keluhan (visible for Sales role only) --}}
-    @include('layouts._complaint_floating')
 </body>
 
 </html>

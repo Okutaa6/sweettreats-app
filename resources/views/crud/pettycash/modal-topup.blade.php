@@ -32,7 +32,7 @@
                     <h5 class="pc-modal__title">
                         <i class="fa fa-arrow-down-up-across-line" style="color:#16a34a;"></i> Top up Saldo
                     </h5>
-                    <small class="pc-muted">Isi kembali {{ $kind === 'transport' ? 'kas transportasi' : 'kas kecil' }}</small>
+                    <small class="pc-muted">Isi kembali kas kecil</small>
                 </div>
                 <button type="button" class="pc-modal__close" data-pc-modal-close aria-label="Tutup">&times;</button>
             </div>
@@ -51,7 +51,7 @@
                 <div class="pc-form-row">
                     <label>Keterangan <small class="pc-muted">(opsional)</small></label>
                     <input type="text" name="description" maxlength="255"
-                           placeholder="{{ $kind === 'transport' ? 'Default: Top up biaya transportasi' : 'Default: Top up kasir' }}"
+                           placeholder="Default: Top up kasir"
                            class="pc-input">
                 </div>
 

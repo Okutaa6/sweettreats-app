@@ -2,7 +2,7 @@
     Petty Cash — filter row + action buttons.
     Variables: $startDate, $endDate, $monthStartStr, $monthEndStr,
                $search, $category, $categoryOptions, $isReadOnly, $kind,
-               $branches, $branchId.
+               $branches, $branchId, $fundSources, $fundSourceId.
 
     Range tanggal di-clamp ke 1 bulan periode (min/max = awal/akhir bulan).
     Submit otomatis saat tanggal berubah.
@@ -16,6 +16,8 @@
     $branchId        = $branchId ?? null;
     $category        = $category ?? '';
     $categoryOptions = $categoryOptions ?? [];
+    $fundSources     = $fundSources ?? collect();
+    $fundSourceId    = (int) ($fundSourceId ?? 0);
     $year            = $year  ?? (int) date('Y');
     $month           = $month ?? (int) date('n');
     $bulanLabel      = $bulanLabel ?? [
@@ -27,6 +29,16 @@
     $todayMonthStr   = date('Y-m-01');
     $todayEndStr     = date('Y-m-t');
     $isCurrentRange  = $startDate === $todayMonthStr && $endDate === $todayEndStr;
+
+    // Filter bulan: hanya tampilkan bulan yang sudah lewat / bulan berjalan.
+    // Bulan depan disembunyikan (belum ada periode-nya).
+    $currentYear  = (int) date('Y');
+    $currentMonth = (int) date('n');
+    $monthOptions = collect($bulanLabel)->filter(function ($label, $m) use ($year, $currentYear, $currentMonth) {
+        if ($year < $currentYear)  return true;             // tahun lampau → semua bulan
+        if ($year > $currentYear)  return false;            // tahun depan → tidak ada (safety)
+        return $m <= $currentMonth;                         // tahun ini → s/d bulan berjalan
+    })->all();
 @endphp
 <form method="GET" action="{{ route('pettycash') }}" class="pc-filter-row">
     <input type="hidden" name="tab" value="{{ $kind }}">
@@ -56,7 +68,7 @@
             this.form.querySelector('[name=end_date]').value   = '';
             this.form.submit();
         ">
-            @foreach($bulanLabel as $m => $label)
+            @foreach($monthOptions as $m => $label)
                 <option value="{{ $m }}" {{ $month === $m ? 'selected' : '' }}>{{ $label }}</option>
             @endforeach
         </select>
@@ -80,6 +92,18 @@
                onchange="this.form.submit();">
     </div>
 
+    @if($fundSources->isNotEmpty())
+        <div class="pc-filter-field">
+            <label>Wallet</label>
+            <select name="fund_source_id" onchange="this.form.submit();">
+                <option value="">Semua wallet</option>
+                @foreach($fundSources as $fs)
+                    <option value="{{ $fs->id }}" {{ $fundSourceId === (int) $fs->id ? 'selected' : '' }}>{{ $fs->name }}</option>
+                @endforeach
+            </select>
+        </div>
+    @endif
+
     @if(! empty($categoryOptions))
         <div class="pc-filter-field">
             <label>Kategori</label>
@@ -99,7 +123,7 @@
 
     <div class="pc-filter-actions">
         @if($search)
-            <a href="{{ route('pettycash', array_filter(['tab' => $kind, 'branch' => $branches->isNotEmpty() ? $branchId : null, 'start_date' => $startDate, 'end_date' => $endDate, 'category' => $category])) }}"
+            <a href="{{ route('pettycash', array_filter(['tab' => $kind, 'branch' => $branches->isNotEmpty() ? $branchId : null, 'start_date' => $startDate, 'end_date' => $endDate, 'category' => $category, 'fund_source_id' => $fundSourceId ?: null])) }}"
                class="st-btn-outline-brown" title="Reset cari">
                 <i class="fa fa-times"></i>
             </a>
@@ -108,7 +132,7 @@
             <i class="fa fa-search"></i>
         </button>
         @if(! $isCurrentRange)
-            <a href="{{ route('pettycash', array_filter(['tab' => $kind, 'branch' => $branches->isNotEmpty() ? $branchId : null, 'category' => $category])) }}"
+            <a href="{{ route('pettycash', array_filter(['tab' => $kind, 'branch' => $branches->isNotEmpty() ? $branchId : null, 'category' => $category, 'fund_source_id' => $fundSourceId ?: null])) }}"
                class="st-btn-outline-brown" title="Kembali ke bulan ini">
                 <i class="fa fa-calendar-day"></i> Bulan ini
             </a>

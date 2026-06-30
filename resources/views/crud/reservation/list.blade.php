@@ -436,6 +436,24 @@
                             </div>
                         @endif
                     @else
+                        @php
+                            // Sort state untuk kolom JAM. Cycle: null → asc → desc → null.
+                            // Grouping per-tanggal TETAP terjaga karena controller mempertahankan
+                            // `date DESC` sebagai primary sort; sort_jam hanya secondary di dalam hari.
+                            $sortJam   = request('sort_jam');
+                            $nextSort  = $sortJam === 'asc' ? 'desc' : ($sortJam === 'desc' ? '' : 'asc');
+                            $sortUrl   = route('rawreservation', array_merge(
+                                request()->except(['sort_jam', 'page']),
+                                $nextSort ? ['sort_jam' => $nextSort] : []
+                            ));
+                            $sortIcon  = $sortJam === 'asc' ? 'fa-sort-up'
+                                        : ($sortJam === 'desc' ? 'fa-sort-down' : 'fa-sort');
+                            $sortTitle = $sortJam === 'asc'
+                                ? 'Saat ini: jam pagi → malam (dalam tiap hari). Klik untuk balik (malam → pagi).'
+                                : ($sortJam === 'desc'
+                                    ? 'Saat ini: jam malam → pagi (dalam tiap hari). Klik untuk kembali ke default.'
+                                    : 'Klik untuk urutkan berdasarkan jam (pagi → malam, di dalam tiap hari).');
+                        @endphp
                         <div class="st-table-wrap st-table-wrap--scroll">
                         <table class="st-table st-table--clickable" cellspacing="0" style="white-space: nowrap;">
                             <thead>
@@ -443,7 +461,11 @@
                                     <th>Pasien</th>
                                     <th>Dokter</th>
                                     @if($showBranchColumn)<th>Cabang</th>@endif
-                                    <th>Jam</th>
+                                    <th class="st-th-sortable {{ $sortJam ? 'st-th-sortable--active' : '' }}">
+                                        <a href="{{ $sortUrl }}" class="st-sort-link" title="{{ $sortTitle }}">
+                                            Jam <i class="fa {{ $sortIcon }}"></i>
+                                        </a>
+                                    </th>
                                     <th>Perawatan</th>
                                     <th style="min-width:150px;">Keterangan</th>
                                     <th>Follow-up</th>

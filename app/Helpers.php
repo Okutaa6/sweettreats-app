@@ -179,8 +179,8 @@ if (!function_exists('canManagePageAccess')) {
 
 /**
  * True kalau user yang sedang login boleh melihat data lintas-cabang
- * (mis. dropdown cabang di Petty Cash / Biaya Transport). Role yang
- * boleh: Super Admin, Admin General, Admin Backup.
+ * (mis. dropdown cabang di Petty Cash, dashboard Monitoring Petty Cash).
+ * Role yang boleh: Super Admin, Admin General, Admin Backup, Finance.
  *
  * Sales / staff cabang lain otomatis ke-lock ke session('raw_branch_id').
  */
@@ -191,7 +191,98 @@ if (!function_exists('canSeeAllBranches')) {
             'Super Admin',
             'Admin General',
             'Admin Backup',
+            'Finance',
         ], true);
+    }
+}
+
+/**
+ * True kalau user yang sedang login adalah role Finance. Dipakai untuk
+ * gate aksi mutasi di Petty Cash cabang — Finance hanya view-only,
+ * tidak boleh tambah/edit/hapus transaksi, top-up, transfer, dll.
+ */
+if (!function_exists('isFinance')) {
+    function isFinance(): bool
+    {
+        return session('group_name') === 'Finance';
+    }
+}
+
+/**
+ * True kalau user yang sedang login boleh mengedit data Petty Cash
+ * (input pengeluaran, top-up, mutasi, edit/hapus transaksi, tutup
+ * periode). False khusus untuk role Finance yang view-only.
+ */
+if (!function_exists('canEditPettyCash')) {
+    function canEditPettyCash(): bool
+    {
+        return ! isFinance();
+    }
+}
+
+/**
+ * True kalau user yang sedang login boleh mengelola/review modul Checklist
+ * Akreditasi. Untuk MVP reuse role admin existing — supaya tidak perlu
+ * seeder role baru. Karyawan biasa tetap bisa akses /my-checklist (cuma
+ * untuk pengisian, bukan setup/review).
+ */
+if (!function_exists('isChecklistSupervisor')) {
+    function isChecklistSupervisor(): bool
+    {
+        return in_array(session('group_name'), [
+            'Super Admin',
+            'Admin General',
+            'Admin Backup',
+        ], true);
+    }
+}
+
+/**
+ * Resolve UserPosition aktif untuk user yang sedang login. Return null kalau
+ * user belum di-assign divisi/cabang oleh supervisor — di flow /my-checklist
+ * dipakai sebagai trigger empty state "Hubungi supervisor".
+ *
+ * Cached per-request supaya tidak query berulang antar view/controller.
+ */
+if (!function_exists('currentUserPosition')) {
+    function currentUserPosition(): ?\App\Models\UserPosition
+    {
+        static $cached = false;
+        static $value = null;
+
+        if ($cached) return $value;
+        $cached = true;
+
+        $uid = session('id');
+        if (! $uid) return $value = null;
+
+        try {
+            $value = \App\Models\UserPosition::query()
+                ->activeOn()
+                ->where('user_id', $uid)
+                ->first();
+        } catch (\Throwable $e) {
+            // Tabel belum di-migrate / column missing — biarin null biar UI
+            // empty-state-nya tampil rapi.
+            $value = null;
+        }
+
+        return $value;
+    }
+}
+
+/**
+ * Branch ID yang dipakai untuk filter di halaman checklist supervisor.
+ * Pakai pola sama dgn PettyCashController::resolveBranchId() — admin
+ * bisa dropdown, role lain locked ke session.
+ */
+if (!function_exists('resolveChecklistBranchId')) {
+    function resolveChecklistBranchId(?string $requested = null): ?string
+    {
+        $session = session('raw_branch_id');
+        if ($session) return $session;
+        if (! canSeeAllBranches()) return null;
+        return $requested ?: null;
     }
 }
 

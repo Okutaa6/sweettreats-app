@@ -20,12 +20,13 @@
                     {{-- ─── HEADER ─── --}}
                     <div style="display:flex; justify-content:space-between; align-items:center; padding:16px 20px; border-bottom:1px solid #c4ebe9; background:#fff;">
                         <div>
-                            <h5 style="margin:0 0 2px; font-size:16px; font-weight:500; color:#000000;">
+                            <h5 style="margin:0 0 4px; font-size:20px; font-weight:700; letter-spacing:-0.01em; color:#0a4f4d; display:flex; align-items:center; gap:8px;">
+                                <i class="fa fa-archive" style="font-size:16px; color:#13928e;"></i>
                                 KOL Existing
                             </h5>
-                            <small style="color:#7a9290; font-size:12px;">
-                                Arsip KOL dari periode bulan-bulan sebelumnya 
-                                — total <strong>{{ $totalCount }}</strong> KOL
+                            <small style="color:#5a7572; font-size:13px;">
+                                Arsip KOL dari periode bulan-bulan sebelumnya
+                                — total <strong style="color:#0a4f4d;">{{ $totalCount }}</strong> KOL
                             </small>
                         </div>
                         <div>

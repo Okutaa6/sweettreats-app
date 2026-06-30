@@ -22,6 +22,10 @@ class DatabaseSeeder extends Seeder
             GroupPathSeeder::class,
             SysProfileSeeder::class,
             UsersSeeder::class,
+            ChecklistDivisionSeeder::class,
+            ChecklistAccessPathSeeder::class,
+            FinanceMenuSeeder::class,
+            FinanceRoleSeeder::class,
         ]);
     }
 }

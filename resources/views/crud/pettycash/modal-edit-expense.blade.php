@@ -12,9 +12,7 @@
     Field di-lock (read-only display saja, dikirim hidden): trx_date, wallet.
 --}}
 @php
-    $editCategories = $kind === 'transport'
-        ? \App\Models\TransportCostTransaction::CATEGORIES
-        : \App\Models\PettyCashTransaction::CATEGORIES;
+    $editCategories = \App\Models\PettyCashTransaction::CATEGORIES;
 @endphp
 <div class="pc-modal" id="pcModalEditExpense" role="dialog" aria-modal="true">
     <div class="pc-modal__dialog">

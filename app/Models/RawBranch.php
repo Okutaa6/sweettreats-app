@@ -16,12 +16,10 @@ class RawBranch extends Model
         'id',
         'name',
         'petty_cash_default_float',
-        'transport_cost_default_float',
     ];
 
     protected $casts = [
-        'petty_cash_default_float'     => 'decimal:2',
-        'transport_cost_default_float' => 'decimal:2',
+        'petty_cash_default_float' => 'decimal:2',
     ];
 
     public $incrementing = false;
@@ -35,8 +33,7 @@ class RawBranch extends Model
      */
     public function defaultFloatFor(string $kind, float $fallback): float
     {
-        $col = $kind === 'transport' ? 'transport_cost_default_float' : 'petty_cash_default_float';
-        $v = $this->{$col};
+        $v = $this->petty_cash_default_float;
         return $v !== null ? (float) $v : $fallback;
     }
 

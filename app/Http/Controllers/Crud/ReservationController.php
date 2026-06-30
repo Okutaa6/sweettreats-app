@@ -209,10 +209,29 @@ class ReservationController extends Controller
                 }
             }
         } else {
-            $reservations = $query->orderBy('date', 'desc')
-                ->orderBy('raw_doctor_id')
-                ->orderBy('start_hour', 'desc')
-                ->paginate($perPage);
+            // Tab List: default per-tanggal (date DESC). Sort jam (start_hour) bisa
+            // di-toggle lewat ?sort_jam= TANPA mengubah grouping per-hari di view —
+            // `date DESC` tetap primary sort supaya day-header tetap ter-emit.
+            //   - (kosong) default: date DESC, doctor, start_hour DESC (urutan eksisting)
+            //   - asc:  date DESC, start_hour ASC (pagi → malam di dalam tiap hari)
+            //   - desc: date DESC, start_hour DESC (malam → pagi di dalam tiap hari)
+            $sortJam = request('sort_jam');
+            if ($sortJam === 'asc') {
+                $reservations = $query->orderBy('date', 'desc')
+                    ->orderBy('start_hour', 'asc')
+                    ->orderBy('end_hour', 'asc')
+                    ->paginate($perPage);
+            } elseif ($sortJam === 'desc') {
+                $reservations = $query->orderBy('date', 'desc')
+                    ->orderBy('start_hour', 'desc')
+                    ->orderBy('end_hour', 'desc')
+                    ->paginate($perPage);
+            } else {
+                $reservations = $query->orderBy('date', 'desc')
+                    ->orderBy('raw_doctor_id')
+                    ->orderBy('start_hour', 'desc')
+                    ->paginate($perPage);
+            }
         }
 
         // Kalau user terkunci ke 1 cabang, dropdown hanya tampilkan cabang itu

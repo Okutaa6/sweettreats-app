@@ -8,7 +8,7 @@
     Variables:
       - $rowsInput        : collection / array baris yang dirender
       - $isReadOnly       : bool — sembunyikan tombol hapus
-      - $kind             : 'petty_cash' | 'transport'
+      - $kind             : 'petty_cash'
       - $branchId         : id cabang aktif (untuk hidden input form delete)
       - $tabKind          : 'regular' | 'transfer' — penentu copy empty state
       - $emptyTitle       : judul empty state
@@ -18,9 +18,7 @@
     // Resolve category label map sekali, dipakai untuk render badge kategori
     // di kolom keterangan. Map kosong → tidak render badge (transfer/topup
     // umumnya tidak punya kategori).
-    $categoryMap = $kind === 'transport'
-        ? \App\Models\TransportCostTransaction::CATEGORIES
-        : \App\Models\PettyCashTransaction::CATEGORIES;
+    $categoryMap = \App\Models\PettyCashTransaction::CATEGORIES;
 @endphp
 @forelse($rowsInput as $r)
     @php
@@ -214,11 +212,16 @@
     <tr>
         <td colspan="{{ $isReadOnly ? 6 : 7 }}">
             <div class="pc-empty-state">
-                <i class="fa fa-folder-open"></i>
+                <div class="pc-empty-state__icon">
+                    <i class="fa {{ $emptyIcon ?? 'fa-folder-open' }}"></i>
+                </div>
                 <div class="pc-empty-state__title">{{ $emptyTitle ?? 'Belum ada transaksi' }}</div>
                 <div class="pc-empty-state__desc">
                     {!! $emptyDesc ?? '' !!}
                 </div>
+                @if(!empty($emptyCta))
+                    <div class="pc-empty-state__cta">{!! $emptyCta !!}</div>
+                @endif
             </div>
         </td>
     </tr>
