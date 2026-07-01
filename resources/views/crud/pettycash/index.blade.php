@@ -55,34 +55,36 @@
         </div>
         <div class="pc-page-header__actions">
             <a href="{{ route('pettycash.export', array_filter([
-                    'tab'        => $kind,
-                    'branch'     => $branches->isNotEmpty() ? $branchId : null,
-                    'start_date' => $startDate,
-                    'end_date'   => $endDate,
+                    'tab'            => $kind,
+                    'branch'         => $branches->isNotEmpty() ? $branchId : null,
+                    'start_date'     => $startDate,
+                    'end_date'       => $endDate,
+                    'category'       => $category,
+                    'q'              => $search,
+                    'fund_source_id' => ($fundSourceId ?? 0) ?: null,
                ])) }}"
-               class="st-btn-outline-brown"
+               class="st-btn-outline-brown st-btn-excel"
                data-pc-tooltip-pos="bottom"
-               data-pc-tooltip="Download laporan transaksi periode aktif ke Excel. Filter tanggal & cabang yang aktif ikut ke file. Transfer internal di-skip karena bersifat netral.">
+               data-pc-tooltip="Download laporan transaksi periode aktif ke Excel. Semua filter aktif (tanggal, cabang, kategori, wallet, search) ikut ke file. Transfer internal di-skip karena bersifat netral.">
                 <i class="fa fa-file-excel"></i> Export Excel
             </a>
-            @if(isSuperAdmin())
-                <a href="{{ route('fundsource') }}" class="st-btn-outline-brown"
-                   data-pc-tooltip-pos="bottom"
-                   data-pc-tooltip="Kelola master wallet (Cash, Bank, E-Wallet) + logo brand. Hanya untuk Super Admin.">
-                    <i class="fa fa-cog"></i> Kelola Wallet
-                </a>
-            @endif
         </div>
     </div>
 
     @include('layouts.notif')
 
-    {{-- ─── READ-ONLY BANNER ─── --}}
+    {{-- ─── READ-ONLY / VIEW-ONLY BANNER ─── --}}
     @if($isReadOnly)
-        <div class="pc-readonly-banner" role="alert">
-            <i class="fa fa-lock pc-readonly-banner__icon"></i>
+        @php $isFinanceViewOnly = $isFinanceViewOnly ?? false; @endphp
+        <div class="pc-readonly-banner {{ $isFinanceViewOnly ? 'pc-readonly-banner--finance' : '' }}" role="alert">
+            <i class="fa {{ $isFinanceViewOnly ? 'fa-eye' : 'fa-lock' }} pc-readonly-banner__icon"></i>
             <div class="pc-readonly-banner__body">
-                @if($period->is_closed)
+                @if($isFinanceViewOnly)
+                    <strong>Mode View-Only — role Finance.</strong>
+                    Anda hanya bisa melihat data Petty Cash cabang. Penambahan, edit, dan hapus
+                    transaksi (Top Up, Pengeluaran, Mutasi, Tutup Periode) dilakukan oleh
+                    pemegang akun cabang atau admin.
+                @elseif($period->is_closed)
                     <strong>Periode {{ $monthName }} {{ $year }} sudah ditutup.</strong>
                     Data hanya bisa dilihat — tidak dapat ditambah, diedit, atau dihapus.
                     Hubungi Admin General jika perlu buka kembali.
@@ -96,40 +98,22 @@
             .pc-readonly-banner{display:flex;align-items:flex-start;gap:10px;background:#fef3c7;border-left:4px solid #f59e0b;color:#78350f;padding:12px 16px;border-radius:6px;margin:0 0 16px;font-size:14px;line-height:1.5;}
             .pc-readonly-banner__icon{font-size:18px;margin-top:2px;color:#b45309;flex-shrink:0;}
             .pc-readonly-banner__body strong{color:#78350f;}
+            /* Varian Finance: ganti palette ke biru (informational, bukan warning) */
+            .pc-readonly-banner--finance{background:#dbeafe;border-left-color:#2563eb;color:#1e3a8a;}
+            .pc-readonly-banner--finance .pc-readonly-banner__icon{color:#1d4ed8;}
+            .pc-readonly-banner--finance .pc-readonly-banner__body strong{color:#1e3a8a;}
         </style>
-    @endif
-
-    {{-- ─── TAB NAVIGATION ─── --}}
-    @php
-        // Subtitle pendek per modul — bantuan untuk user baru
-        // supaya tahu kapan pakai tab mana.
-        $tabSubs = [
-            'petty_cash' => 'Kas operasional cabang',
-            'transport'  => 'BBM, parkir, perjalanan dinas',
-        ];
-    @endphp
-    @if(count($tabs) > 1)
-        <div class="pc-tabs" role="tablist">
-            @foreach($tabs as $t)
-                <a href="{{ route('pettycash', array_merge(['tab' => $t['kind']], $branchParam)) }}"
-                   class="pc-tab {{ $t['active'] ? 'is-active' : '' }}"
-                   role="tab" aria-selected="{{ $t['active'] ? 'true' : 'false' }}">
-                    <span class="pc-tab__label">{{ $t['label'] }}</span>
-                    @if(isset($tabSubs[$t['kind']]))
-                        <span class="pc-tab__sub">{{ $tabSubs[$t['kind']] }}</span>
-                    @endif
-                </a>
-            @endforeach
-        </div>
     @endif
 
     {{-- ─── SUMMARY CARDS ─── --}}
     @include('crud.pettycash._summary_cards', [
-        'summary'        => $summary,
-        'rupiah'         => $rupiah,
-        'sourceBalances' => $sourceBalances ?? [],
-        'isReadOnly'     => $isReadOnly,
-        'kind'           => $kind,
+        'summary'            => $summary,
+        'rupiah'             => $rupiah,
+        'sourceBalances'     => $sourceBalances ?? [],
+        'isReadOnly'         => $isReadOnly,
+        'kind'               => $kind,
+        'branchId'           => $branchId,
+        'pendingTopupCount'  => $pendingTopupCount ?? 0,
     ])
 
     {{-- ─── FILTER ─── --}}
@@ -141,6 +125,8 @@
         'search'          => $search,
         'category'        => $category,
         'categoryOptions' => $categoryOptions,
+        'fundSources'     => $fundSources,
+        'fundSourceId'    => $fundSourceId ?? 0,
         'isReadOnly'      => $isReadOnly,
         'kind'            => $kind,
         'branches'        => $branches,
@@ -152,11 +138,23 @@
 
     {{-- ─── TABLE — split jadi 2 sub-tab ─── --}}
     @php
+        // Klasifikasi "setor cash langsung": cash IN tapi BUKAN top up &
+        // BUKAN transfer (dibuat via endpoint topup dengan is_topup=0).
+        // Dipindahkan ke tab Mutasi supaya tab utama Pengeluaran cuma
+        // berisi Top Up + Pengeluaran murni.
+        $isSetorCash = function ($r) {
+            return ! $r->is_transfer && ! $r->is_topup && (float) $r->cash_in > 0;
+        };
+
         // Pisahkan transaksi:
-        //   - regular  → top up, setor cash, pengeluaran (bukan transfer)
-        //   - transfer → composite transfer/deposit/tarik tunai + child rows
-        $rowsRegular  = collect($rows)->reject(fn($r) => $r->is_transfer)->values();
-        $rowsTransfer = collect($rows)->filter(fn($r) => $r->is_transfer)->values();
+        //   - regular  → top up + pengeluaran (bukan transfer, bukan setor cash)
+        //   - transfer → composite transfer/deposit/tarik tunai + setor cash langsung
+        $rowsRegular  = collect($rows)
+            ->reject(fn($r) => $r->is_transfer || $isSetorCash($r))
+            ->values();
+        $rowsTransfer = collect($rows)
+            ->filter(fn($r) => $r->is_transfer || $isSetorCash($r))
+            ->values();
 
         $tableHasAnySource = collect($sourceBalances ?? [])->contains(function ($sb) {
             return abs((float) ($sb->balance ?? 0)) > 0.005
@@ -164,16 +162,27 @@
                 || abs((float) ($sb->out ?? 0))     > 0.005;
         });
 
-        $emptyDescRegular = 'Tab ini menampilkan <strong>Top Up</strong> (dana baru masuk) dan <strong>Pengeluaran</strong> dari wallet, beserta tanggal, wallet, dan nominal.';
-        $emptyDescTransfer = 'Tab ini menampilkan <strong>Transfer</strong>, <strong>Deposit</strong>, dan <strong>Tarik Tunai</strong> antar wallet — pergerakan internal yang tidak menambah/mengurangi total saldo periode.';
+        $emptyDescRegular  = 'Tab ini menampilkan <strong>Top Up</strong> (dana masuk) dan <strong>Pengeluaran</strong> dari wallet, lengkap dengan tanggal, wallet, dan nominal.';
+        $emptyDescTransfer = 'Tab ini menampilkan <strong>Transfer</strong>, <strong>Deposit</strong>, <strong>Tarik Tunai</strong>, dan <strong>Setor Cash Langsung</strong> &mdash; pergerakan saldo antar wallet maupun setoran fisik di luar top up.';
+
+        // CTA box (info + tombol) di empty state tabel. Berbeda per tab &
+        // per state (apakah sudah ada wallet aktif atau belum).
+        $emptyCtaRegular  = null;
+        $emptyCtaTransfer = null;
         if (! $isReadOnly) {
             if (! $tableHasAnySource) {
-                $cta = '<br><span class="pc-empty-state__cta">Belum ada wallet — klik tombol <strong>Mulai Setoran Awal</strong> di atas untuk memulai.</span>';
+                // Belum ada wallet — arahkan ke setoran awal untuk kedua tab.
+                $emptyCtaRegular = '<i class="fa fa-info-circle pc-empty-state__cta-icon"></i>'
+                    . '<span class="pc-empty-state__cta-text">Belum ada wallet aktif &mdash; mulai dari setoran awal.</span>'
+                    . '<button type="button" class="st-btn-brand" data-pc-modal="pcModalOpening">Mulai Setoran Awal</button>';
+                $emptyCtaTransfer = $emptyCtaRegular;
             } else {
-                $cta = '<br><span class="pc-empty-state__cta">Mulai catat transaksi dengan klik kartu wallet di atas atau tombol <strong>Top up saldo</strong>.</span>';
+                // Sudah ada wallet — arahkan ke aksi yg relevan per tab.
+                $emptyCtaRegular = '<i class="fa fa-info-circle pc-empty-state__cta-icon"></i>'
+                    . '<span class="pc-empty-state__cta-text">Catat top up atau pengeluaran dengan klik kartu wallet di atas.</span>';
+                $emptyCtaTransfer = '<i class="fa fa-info-circle pc-empty-state__cta-icon"></i>'
+                    . '<span class="pc-empty-state__cta-text">Catat perpindahan dengan klik kartu wallet di atas.</span>';
             }
-            $emptyDescRegular  .= $cta;
-            $emptyDescTransfer .= $cta;
         }
     @endphp
 
@@ -186,7 +195,7 @@
                     role="tab"
                     aria-selected="true">
                 <i class="fa fa-arrow-down-up-across-line"></i>
-                Top Up &amp; Pengeluaran
+                Pengeluaran
                 <span class="pc-trx-subtab__count">{{ $rowsRegular->count() }}</span>
             </button>
             <button type="button"
@@ -195,7 +204,7 @@
                     role="tab"
                     aria-selected="false">
                 <i class="fa fa-right-left"></i>
-                Mutasi Antar Wallet
+                Mutasi
                 <span class="pc-trx-subtab__count">{{ $rowsTransfer->count() }}</span>
             </button>
         </div>
@@ -207,7 +216,7 @@
                     <thead>
                         <tr>
                             <th width="110">Tanggal</th>
-                            <th width="140">Sumber</th>
+                            <th width="140">Wallet</th>
                             <th>Keterangan</th>
                             <th class="text-right" width="130">Cash in</th>
                             <th class="text-right" width="130">Cash out</th>
@@ -226,6 +235,8 @@
                             'tabKind'    => 'regular',
                             'emptyTitle' => 'Belum ada Top Up atau Pengeluaran bulan ini',
                             'emptyDesc'  => $emptyDescRegular,
+                            'emptyIcon'  => 'fa-file-alt',
+                            'emptyCta'   => $emptyCtaRegular,
                         ])
                     </tbody>
                     @if($rowsRegular->count() > 0)
@@ -250,7 +261,7 @@
                     <thead>
                         <tr>
                             <th width="110">Tanggal</th>
-                            <th width="180">Sumber → Tujuan</th>
+                            <th width="180">Wallet → Tujuan</th>
                             <th>Keterangan</th>
                             <th class="text-right" width="130">Cash in</th>
                             <th class="text-right" width="130">Cash out</th>
@@ -269,6 +280,8 @@
                             'tabKind'    => 'transfer',
                             'emptyTitle' => 'Belum ada Mutasi Antar Wallet bulan ini',
                             'emptyDesc'  => $emptyDescTransfer,
+                            'emptyIcon'  => 'fa-exchange-alt',
+                            'emptyCta'   => $emptyCtaTransfer,
                         ])
                     </tbody>
                 </table>
@@ -336,6 +349,16 @@
         'period' => $period,
         'kind'   => $kind,
     ])
+
+    {{-- Modal Ajukan Top Up — Sales selalu, admin saat buka cabang spesifik --}}
+    @if($branchId && !$isReadOnly)
+        @include('crud.pettycash._modal_request_topup', [
+            'period'             => $period,
+            'fundSourcesGrouped' => $fundSourcesGrouped,
+            'branchId'           => $branchId,
+            'activeBranch'       => $activeBranch,
+        ])
+    @endif
 @endif
 @endsection
 
@@ -470,35 +493,27 @@
         if (transferTabBtn) {
             transferTabBtn.innerHTML = isCash
                 ? '<i class="fa fa-piggy-bank"></i> Deposit'
-                : '<i class="fa fa-right-left"></i> Transfer';
+                : '<i class="fa fa-right-left"></i> Mutasi';
         }
         if (transferSubmit) {
-            transferSubmit.innerHTML = isCash
-                ? '<i class="fa fa-piggy-bank"></i> Deposit Saldo'
-                : '<i class="fa fa-right-left"></i> Transfer Saldo';
+            transferSubmit.textContent = isCash ? 'Simpan Deposit' : 'Simpan Mutasi';
         }
-        // Label "Transfer ke":
-        //   - isCash       → "Deposit ke" (setor saldo Cash ke wallet lain)
-        //   - non-Cash     → "Transfer ke" (Cash sudah di-hide dari dropdown,
-        //                    Tarik Tunai punya tab dedicated)
+        // Label dropdown tujuan:
+        //   - isCash    → "Setor ke" (setor saldo Cash ke wallet lain)
+        //   - non-Cash  → "Pindah ke"
         if (transferToLabel) {
-            transferToLabel.innerHTML = isCash
-                ? 'Deposit ke <span class="text-danger">*</span>'
-                : 'Transfer ke <span class="text-danger">*</span>';
+            transferToLabel.textContent = isCash ? 'Setor ke' : 'Pindah ke';
         }
-        // Hint text di atas form Transfer — narasinya ikut konteks source.
-        const hintIcon = document.getElementById('transferTabHintIcon');
+        // Hint banner di atas form Transfer — narasi & warna ikut konteks source.
+        // Cash → varian "Deposit" (warna brown); non-Cash → "Mutasi" (warna biru).
+        const hintBox  = document.getElementById('transferTabHint');
         const hintText = document.getElementById('transferTabHintText');
-        if (hintIcon && hintText) {
-            if (isCash) {
-                hintIcon.className = 'fa fa-piggy-bank';
-                hintIcon.style.color = '#7c2d12';
-                hintText.innerHTML = '<strong>Deposit:</strong> setor saldo dari Cash ke Bank / E-Wallet <strong>milik usaha sendiri</strong> — <em>bukan setor ke rekening pihak lain</em>. Total saldo periode tidak berubah, hanya perpindahan internal antar wallet milik sendiri (mis: setor tunai ke Bank, isi E-Wallet).';
-            } else {
-                hintIcon.className = 'fa fa-right-left';
-                hintIcon.style.color = '#2563eb';
-                hintText.innerHTML = '<strong>Transfer:</strong> pindahkan saldo antar wallet yang <strong>Anda miliki sendiri</strong> — <em>bukan transfer ke rekening pihak lain</em>. Total saldo periode tidak berubah, hanya perpindahan internal antar wallet milik sendiri (mis: tarik tunai dari Bank ke Cash, isi E-Wallet dari Cash).';
-            }
+        if (hintBox && hintText) {
+            hintBox.classList.toggle('pc-tab-hint--deposit',  isCash);
+            hintBox.classList.toggle('pc-tab-hint--transfer', !isCash);
+            hintText.textContent = isCash
+                ? 'Setor saldo dari Cash ke Bank / E-Wallet. Total saldo periode tetap.'
+                : 'Pindahkan saldo antar wallet. Total saldo periode tetap.';
         }
 
         // Tab tengah punya 2 varian dengan FUNGSI BERBEDA:
@@ -590,7 +605,7 @@
                 fromAcctWrap.hidden = true;
                 if (fromAcctAdd && fromAcctAddBtn && fromAcctAddLbl && fromAcctAddForm && fromAcctAddInput) {
                     fromAcctAdd.hidden = false;
-                    fromAcctAddLbl.textContent = isBank ? 'Tambah No. Rek' : 'Tambah No. HP';
+                    fromAcctAddLbl.textContent = isBank ? 'No. Rek' : 'No. HP';
                     fromAcctAddInput.placeholder = isBank ? 'Mis: 1234567890' : 'Mis: 08123456789';
                     fromAcctAddInput.value = '';
                     fromAcctAddForm.hidden = true;
@@ -976,61 +991,6 @@
         }
         sel.addEventListener('change', sync);
         sync();
-    })();
-
-    // ─── Preview verb di form Transfer ───
-    // Saat user pilih sumber tujuan, tampilkan badge "Akan dicatat sebagai:
-    // DEPOSIT / TARIK TUNAI / TRANSFER" supaya user tahu hasil sebelum submit.
-    // Background wrapper berubah sesuai mode (is-deposit / is-withdraw / is-transfer).
-    // Collapsible dengan animasi smooth (grid-template-rows trick).
-    // Aturan match controller (PettyCashController::transfer):
-    //   - to=Cash             → "Tarik Tunai"
-    //   - from=Cash, to≠Cash  → "Deposit"
-    //   - selain itu          → "Transfer"
-    (function () {
-        const toSel     = document.getElementById('transferToSelect');
-        const fromBadge = document.getElementById('transferFromBadge');
-        const previewEl = document.getElementById('transferVerbPreview');
-        const headEl    = previewEl ? previewEl.querySelector('.pc-verb-preview__head') : null;
-        const badgeEl   = document.getElementById('transferVerbBadge');
-        const descEl    = document.getElementById('transferVerbDesc');
-        if (!toSel || !fromBadge || !previewEl || !headEl || !badgeEl || !descEl) return;
-
-        function refresh() {
-            const opt = toSel.options[toSel.selectedIndex];
-            const toCat  = (opt && opt.dataset.category) || '';
-            const toName = (opt && opt.value && opt.textContent) || '';
-            const fromCat  = fromBadge.dataset.fromCategory || '';
-            const fromName = fromBadge.dataset.fromName || '';
-            if (!opt || !opt.value || !fromCat) { previewEl.hidden = true; return; }
-
-            let verb, cls, desc;
-            if (toCat === 'cash') {
-                verb = 'TARIK TUNAI'; cls = 'withdraw';
-                desc = 'Cairkan saldo ' + fromName + ' jadi uang fisik di ' + toName + '.';
-            } else if (fromCat === 'cash' && toCat !== 'cash') {
-                verb = 'DEPOSIT'; cls = 'deposit';
-                desc = 'Setor uang fisik dari ' + fromName + ' ke ' + toName + '.';
-            } else {
-                verb = 'TRANSFER'; cls = 'transfer';
-                desc = 'Pindahkan saldo dari ' + fromName + ' ke ' + toName + ' — total saldo periode tidak berubah.';
-            }
-            badgeEl.textContent = verb;
-            badgeEl.className = 'pc-verb-preview__badge pc-verb-preview__badge--' + cls;
-            descEl.textContent = desc;
-            // Apply mode class ke wrapper untuk background tint
-            previewEl.classList.remove('is-deposit', 'is-withdraw', 'is-transfer');
-            previewEl.classList.add('is-' + cls);
-            previewEl.hidden = false;
-        }
-        // Toggle collapse saat user klik header
-        headEl.addEventListener('click', function () {
-            const willOpen = !previewEl.classList.contains('is-open');
-            previewEl.classList.toggle('is-open', willOpen);
-            headEl.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
-        });
-        toSel.addEventListener('change', refresh);
-        refresh();
     })();
 
     // Modal Top Up Saldo (global): toggle input nomor rekening / telepon

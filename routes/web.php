@@ -11,6 +11,7 @@ use App\Http\Controllers\Crud\DocServiceController;
 use App\Http\Controllers\Crud\BranchController;
 use App\Http\Controllers\Crud\CustomerController;
 use App\Http\Controllers\Crud\ReservationController;
+use App\Http\Controllers\Crud\ReservationImportController;
 use App\Http\Controllers\Crud\ReservasiCabangController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Middleware\AuthGuard;
@@ -32,6 +33,11 @@ use App\Http\Controllers\Crud\SweetMatesController;
 use App\Http\Controllers\Crud\PettyCashController;
 use App\Http\Controllers\Crud\CashDepositController;
 use App\Http\Controllers\Crud\FundSourceController;
+use App\Http\Controllers\Crud\DigitalChecklistController;
+use App\Http\Controllers\Crud\ChecklistSetupController;
+use App\Http\Controllers\Crud\MyChecklistController;
+use App\Http\Controllers\Finance\FinanceDashboardController;
+use App\Http\Controllers\Finance\TopupRequestController;
 
 
 Route::get('/', function () {
@@ -133,16 +139,6 @@ Route::prefix('api/reservation')->middleware('throttle:60,1')->group(function ()
 Route::get('api/promo/validate', [PromoController::class, 'validate_promo'])->middleware('throttle:30,1')->name('api.promo.validate');
 
 Route::middleware([AuthGuard::class])->group(function () {
-
-    // Complaint (Sales → kirim + lihat miliknya; Super Admin/Admin General → lihat semua + kelola status)
-    Route::prefix('complaint')->group(function () {
-        $complaint = \App\Http\Controllers\ComplaintController::class;
-        Route::get('/',               [$complaint, 'index'])->name('complaint.index');
-        Route::post('/',              [$complaint, 'store'])->name('complaint.store');
-        Route::patch('{id}/advance',  [$complaint, 'advanceStatus'])->name('complaint.advance');
-        Route::patch('{id}/reply',    [$complaint, 'reply'])->name('complaint.reply');
-        Route::delete('{id}',         [$complaint, 'destroy'])->name('complaint.destroy');
-    });
 
     // Employee Dashboard
     Route::prefix('dashboard')->group(function () {
@@ -268,6 +264,22 @@ Route::middleware([AuthGuard::class])->group(function () {
     Route::get('rawreservation/new', [ReservationController::class, 'create'])->name('rawreservation.new');
     Route::post('rawreservation/new', [ReservationController::class, 'store'])->name('rawreservation.store');
     Route::post('rawreservation/quick-patient', [ReservationController::class, 'storeQuickPatient'])->name('rawreservation.quickpatient');
+
+    // CRUD - Reservation Import (CSV/Sheets → Staging → Promote)
+    // PENTING: harus di-deklarasi SEBELUM `rawreservation/{id}` supaya
+    // `/rawreservation/import` tidak ke-capture wildcard `{id}` di line bawah.
+    Route::get('rawreservation/import',                          [ReservationImportController::class, 'index'])->name('rawreservation.import');
+    Route::post('rawreservation/import/upload',                  [ReservationImportController::class, 'upload'])->name('rawreservation.import.upload');
+    Route::patch('rawreservation/import/staging/{id}',           [ReservationImportController::class, 'update'])->name('rawreservation.import.staging.update');
+    Route::post('rawreservation/import/staging/{id}/save-draft', [ReservationImportController::class, 'saveDraft'])->name('rawreservation.import.staging.save-draft');
+    Route::post('rawreservation/import/staging/{id}/promote',    [ReservationImportController::class, 'promoteOne'])->name('rawreservation.import.staging.promote');
+    Route::post('rawreservation/import/staging/{id}/skip',       [ReservationImportController::class, 'skipOne'])->name('rawreservation.import.staging.skip');
+    Route::post('rawreservation/import/bulk-promote',            [ReservationImportController::class, 'promoteBulk'])->name('rawreservation.import.bulk-promote');
+    Route::post('rawreservation/import/bulk-skip',               [ReservationImportController::class, 'skipBulk'])->name('rawreservation.import.bulk-skip');
+    Route::post('rawreservation/import/batch/{id}/auto-process', [ReservationImportController::class, 'autoProcess'])->name('rawreservation.import.batch.auto-process');
+    Route::post('rawreservation/import/batch/{id}/rematch-doctors', [ReservationImportController::class, 'reMatchDoctors'])->name('rawreservation.import.batch.rematch-doctors');
+    Route::delete('rawreservation/import/batch/{id}',            [ReservationImportController::class, 'destroyBatch'])->name('rawreservation.import.batch.destroy');
+
     Route::get('rawreservation/{id}', [ReservationController::class, 'edit'])->name('rawreservation.edit');
     Route::put('rawreservation/{id}', [ReservationController::class, 'update'])->name('rawreservation.update');
     Route::delete('rawreservation/{id}', [ReservationController::class, 'destroy'])->name('rawreservation.destroy');
@@ -334,6 +346,7 @@ Route::middleware([AuthGuard::class])->group(function () {
     Route::get('pettycash/export',                [PettyCashController::class, 'export'])->name('pettycash.export');
     Route::post('pettycash/expense',              [PettyCashController::class, 'store'])->name('pettycash.expense');
     Route::post('pettycash/topup',                [PettyCashController::class, 'topup'])->name('pettycash.topup');
+    Route::post('pettycash/topup-request',        [PettyCashController::class, 'requestTopup'])->name('pettycash.requestTopup');
     Route::post('pettycash/account',              [PettyCashController::class, 'saveAccount'])->name('pettycash.account.save');
     Route::post('pettycash/opening',              [PettyCashController::class, 'setOpening'])->name('pettycash.opening');
     Route::post('pettycash/transfer',             [PettyCashController::class, 'transfer'])->name('pettycash.transfer');
@@ -342,11 +355,75 @@ Route::middleware([AuthGuard::class])->group(function () {
     Route::post('pettycash/source/destroy',       [PettyCashController::class, 'destroySource'])->name('pettycash.source.destroy');
     Route::post('pettycash/period/{id}/close',    [PettyCashController::class, 'close'])->name('pettycash.close');
 
+    // Finance: dashboard monitoring + approval workflow top-up request
+    Route::prefix('finance')->group(function () {
+        Route::get ('pettycash',                            [FinanceDashboardController::class, 'index'])->name('finance.pettycash');
+        Route::get ('pettycash/request/{id}',               [TopupRequestController::class, 'show'])->name('finance.topup.show');
+        Route::post('pettycash/request/{id}/approve',       [TopupRequestController::class, 'approve'])->name('finance.topup.approve');
+        Route::post('pettycash/request/{id}/reject',        [TopupRequestController::class, 'reject'])->name('finance.topup.reject');
+    });
+
     // CRUD - Fund Sources (sumber dana: cash / bank / e-wallet) — Super Admin
     Route::get('fund-sources',                    [FundSourceController::class, 'index'])->name('fundsource');
     Route::post('fund-sources',                   [FundSourceController::class, 'store'])->name('fundsource.store');
     Route::post('fund-sources/{id}',              [FundSourceController::class, 'update'])->name('fundsource.update');
     Route::post('fund-sources/{id}/toggle',       [FundSourceController::class, 'toggle'])->name('fundsource.toggle');
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // CRUD - Checklist Akreditasi (operasional klinik harian)
+    //   3 layar utama:
+    //     - Supervisor: Dashboard, Setup Tugas, Review, Audit Trail
+    //     - Karyawan : /my-checklist (isian harian + history)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    // Dashboard + Audit (Supervisor only)
+    Route::get ('checklist',                        [DigitalChecklistController::class, 'dashboard'])  ->name('checklist');
+    Route::get ('checklist/audit',                  [DigitalChecklistController::class, 'audit'])      ->name('checklist.audit');
+
+    // Kelola Posisi Karyawan (Supervisor)
+    Route::get   ('checklist/positions',            [DigitalChecklistController::class, 'positions'])       ->name('checklist.positions');
+    Route::post  ('checklist/positions',            [DigitalChecklistController::class, 'positionAssign'])  ->name('checklist.positions.assign');
+    Route::delete('checklist/positions/{id}',       [DigitalChecklistController::class, 'positionRemove'])  ->name('checklist.positions.remove');
+
+    // Setup Tugas (Supervisor only)
+    Route::get ('checklist/setup',                  [ChecklistSetupController::class, 'index'])        ->name('checklist.setup');
+    Route::post('checklist/setup/category',         [ChecklistSetupController::class, 'storeCategory'])->name('checklist.setup.cat.store');
+    Route::put ('checklist/setup/category/{id}',    [ChecklistSetupController::class, 'updateCategory'])->name('checklist.setup.cat.update');
+    Route::delete('checklist/setup/category/{id}',  [ChecklistSetupController::class, 'destroyCategory'])->name('checklist.setup.cat.destroy');
+    Route::post('checklist/setup/task',             [ChecklistSetupController::class, 'storeTask'])    ->name('checklist.setup.task.store');
+    Route::put ('checklist/setup/task/{id}',        [ChecklistSetupController::class, 'updateTask'])   ->name('checklist.setup.task.update');
+    Route::delete('checklist/setup/task/{id}',      [ChecklistSetupController::class, 'destroyTask'])  ->name('checklist.setup.task.destroy');
+    Route::post('checklist/setup/reorder',          [ChecklistSetupController::class, 'reorder'])      ->name('checklist.setup.reorder');
+
+    // Review & Approval Harian (Supervisor)
+    Route::get  ('checklist/review',                [DigitalChecklistController::class, 'reviewIndex'])->name('checklist.review');
+    // Review Mingguan — taruh SEBELUM /review/{id} supaya 'weekly' tidak ditangkap sebagai {id}.
+    Route::get  ('checklist/review/weekly',         [DigitalChecklistController::class, 'weeklyReviewIndex'])->name('checklist.review.weekly');
+    Route::get  ('checklist/review/weekly/{id}',    [DigitalChecklistController::class, 'weeklyReviewShow'])  ->name('checklist.review.weekly.show');
+    Route::patch('checklist/review/weekly/{id}/approve',[DigitalChecklistController::class, 'weeklyApprove'])->name('checklist.review.weekly.approve');
+    Route::patch('checklist/review/weekly/{id}/reject', [DigitalChecklistController::class, 'weeklyReject']) ->name('checklist.review.weekly.reject');
+    Route::patch('checklist/review/weekly/{id}/reopen', [DigitalChecklistController::class, 'weeklyReopen']) ->name('checklist.review.weekly.reopen');
+    // Harian — pakai constraint UUID supaya tidak tabrakan dgn 'weekly' di atas.
+    Route::get  ('checklist/review/{id}',           [DigitalChecklistController::class, 'reviewShow']) ->name('checklist.review.show')->where('id', '[0-9a-fA-F-]{36}');
+    Route::patch('checklist/review/{id}/approve',   [DigitalChecklistController::class, 'approve'])    ->name('checklist.review.approve')->where('id', '[0-9a-fA-F-]{36}');
+    Route::patch('checklist/review/{id}/reject',    [DigitalChecklistController::class, 'reject'])     ->name('checklist.review.reject')->where('id', '[0-9a-fA-F-]{36}');
+    Route::patch('checklist/review/{id}/reopen',    [DigitalChecklistController::class, 'reopen'])     ->name('checklist.review.reopen')->where('id', '[0-9a-fA-F-]{36}');
+
+    // Pengisian Karyawan — Harian
+    Route::get  ('my-checklist',                    [MyChecklistController::class, 'index'])           ->name('mychecklist');
+    Route::get  ('my-checklist/weekly',             [MyChecklistController::class, 'weekly'])          ->name('mychecklist.weekly');
+    Route::get  ('my-checklist/history',            [MyChecklistController::class, 'history'])         ->name('mychecklist.history');
+    Route::patch('my-checklist/item/{id}',          [MyChecklistController::class, 'toggleItem'])      ->name('mychecklist.item.toggle');
+    Route::patch('my-checklist/item/{id}/note',     [MyChecklistController::class, 'updateNote'])      ->name('mychecklist.item.note');
+    Route::post ('my-checklist/submit',             [MyChecklistController::class, 'submit'])          ->name('mychecklist.submit');
+    Route::post ('my-checklist/reopen-self',        [MyChecklistController::class, 'reopenSelf'])      ->name('mychecklist.reopen-self');
+
+    // Pengisian Karyawan — Form Mingguan
+    Route::get  ('my-checklist/weekform',                [MyChecklistController::class, 'weekForm'])      ->name('mychecklist.weekform');
+    Route::patch('my-checklist/weekform/item/{id}',      [MyChecklistController::class, 'weekToggleItem'])->name('mychecklist.weekform.item.toggle');
+    Route::patch('my-checklist/weekform/item/{id}/note', [MyChecklistController::class, 'weekUpdateNote'])->name('mychecklist.weekform.item.note');
+    Route::post ('my-checklist/weekform/submit',         [MyChecklistController::class, 'weekSubmit'])    ->name('mychecklist.weekform.submit');
+    Route::post ('my-checklist/weekform/reopen-self',    [MyChecklistController::class, 'weekReopenSelf'])->name('mychecklist.weekform.reopen-self');
 
     // CRUD - Setoran (cash deposit dari pasien)
     Route::get('setoran',                         [CashDepositController::class, 'index'])->name('setoran');

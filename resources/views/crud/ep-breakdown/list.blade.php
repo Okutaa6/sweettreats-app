@@ -116,10 +116,12 @@
             </a>
         @empty
             <div class="bd-empty">
-                <i class="fa fa-bullseye" style="font-size:42px; color:#7a9290;"></i>
-                <div style="font-weight:800; color:#0a4f4d; font-size:16px; margin-top:12px;">Belum ada breakdown khusus</div>
-                <div style="color:#0a4f4d; font-size:13px; margin-top:4px;">Mulai dengan konten khusus pertama (Promo / Event / Project).</div>
-                <a href="{{ route('epbreakdown.new') }}" class="st-btn-brand mt-3">
+                <div class="bd-empty__icon-wrap">
+                    <i class="fa fa-bullseye"></i>
+                </div>
+                <div class="bd-empty__title">Belum ada breakdown khusus</div>
+                <div class="bd-empty__desc">Mulai dengan konten khusus pertama (Promo, Event, atau Project) — semua field tambahan otomatis tersedia.</div>
+                <a href="{{ route('epbreakdown.new') }}" class="st-btn-brand bd-empty__cta">
                     <i class="fa fa-plus"></i> Tambah Breakdown
                 </a>
             </div>

@@ -18,17 +18,42 @@
                 <div class="st-card__body" style="padding:0;">
 
                     {{-- ─── HEADER (judul + tombol action) ─── --}}
-                    <div style="display:flex; justify-content:space-between; align-items:center; padding:16px 20px; border-bottom:1px solid #c4ebe9; background:#fff;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; padding:16px 20px; border-bottom:1px solid #c4ebe9; background:#fff; flex-wrap:wrap; gap:12px;">
                         <div>
-                            <h5 style="margin:0 0 2px; font-size:16px; font-weight:500; color:#000000;">
+                            <h5 style="margin:0 0 4px; font-size:20px; font-weight:700; letter-spacing:-0.01em; color:#0a4f4d; display:flex; align-items:center; gap:8px;">
+                                <i class="fa fa-calendar-day" style="font-size:16px; color:#13928e;"></i>
                                 KOL Bulan Ini
+                                @if(! $isCurrentMonth)
+                                    <span style="display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:700; padding:3px 10px; border-radius:999px; background:#fef3c7; color:#92400e; letter-spacing:0.4px; text-transform:uppercase;">
+                                        <i class="fa fa-eye" style="font-size:9px;"></i> Pratinjau
+                                    </span>
+                                @endif
                             </h5>
-                            <small style="color:#7a9290; font-size:12px;">
-                                Periode {{ \Carbon\Carbon::now()->translatedFormat('F Y') }} 
-                                — total <strong>{{ $totalCount }}</strong> KOL aktif
+                            <small style="color:#5a7572; font-size:13px;">
+                                Periode <strong style="color:#0a4f4d;">{{ $selectedDate->translatedFormat('F Y') }}</strong>
+                                — total <strong style="color:#0a4f4d;">{{ $totalCount }}</strong> KOL
+                                {{ $isCurrentMonth ? 'aktif' : 'terjadwal' }}
                             </small>
                         </div>
-                        <div>
+                        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                            {{-- Dropdown bulan: pilih bulan ini → Des tahun ini.
+                                 Sembunyikan inline filter (branch/progress/kategori/q/view)
+                                 sebagai hidden inputs supaya preserve saat ganti bulan. --}}
+                            <form method="GET" action="{{ route('kol') }}" class="kol-month-picker">
+                                @if($filterBranch !== 'all')<input type="hidden" name="branch" value="{{ $filterBranch }}">@endif
+                                @if($filterProgress !== 'all')<input type="hidden" name="progress" value="{{ $filterProgress }}">@endif
+                                @if($filterKategori !== 'all')<input type="hidden" name="kategori" value="{{ $filterKategori }}">@endif
+                                @if($search !== '')<input type="hidden" name="q" value="{{ $search }}">@endif
+                                @if($view !== 'table')<input type="hidden" name="view" value="{{ $view }}">@endif
+                                <i class="fa fa-calendar-day kol-month-picker__icon"></i>
+                                <select name="month" onchange="this.form.submit();" class="kol-month-picker__select" aria-label="Pilih periode bulan">
+                                    @foreach($availableMonths as $m)
+                                        <option value="{{ $m['key'] }}" {{ $filterMonth === $m['key'] ? 'selected' : '' }}>
+                                            {{ $m['label'] }}{{ $m['key'] === \Carbon\Carbon::now()->format('Y-m') ? ' (bulan ini)' : '' }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </form>
                             <a href="{{ route('rawaffiliate.new') }}?type=kol" class="st-btn-brand">
                                 <i class="fa fa-plus"></i> Tambah KOL
                             </a>
@@ -63,7 +88,7 @@
                 'kolsByMonth'    => $kolsByMonth,
                 'monthlyTotal'   => $monthlyTotal,
                 'monthlyCapped'  => $monthlyCapped,
-                'monthlyTitle'   => 'KOL Bulan ' . $namaBulanID[\Carbon\Carbon::now()->month],
+                'monthlyTitle'   => 'KOL Bulan ' . $namaBulanID[$selectedDate->month] . ($isCurrentMonth ? '' : ' ' . $selectedDate->year),
                 'showYearFilter' => false,
             ])
 

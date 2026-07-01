@@ -12,18 +12,36 @@
 @endphp
 <div class="pc-summary-grid">
     <div class="pc-summary-card">
-        <div class="pc-summary-card__label">Total cash in</div>
+        <div class="pc-summary-card__top">
+            <div class="pc-summary-card__label">Total cash in</div>
+            <span class="pc-summary-card__icon pc-summary-card__icon--in" aria-hidden="true">
+                <i class="fa fa-arrow-up"></i>
+            </span>
+        </div>
         <div class="pc-summary-card__value pc-summary-card__value--in">{{ $rupiah($summary['total_in']) }}</div>
+        <div class="pc-summary-card__sub">Total uang masuk bulan ini</div>
     </div>
 
     <div class="pc-summary-card">
-        <div class="pc-summary-card__label">Total cash out</div>
+        <div class="pc-summary-card__top">
+            <div class="pc-summary-card__label">Total cash out</div>
+            <span class="pc-summary-card__icon pc-summary-card__icon--out" aria-hidden="true">
+                <i class="fa fa-arrow-down"></i>
+            </span>
+        </div>
         <div class="pc-summary-card__value pc-summary-card__value--out">{{ $rupiah($summary['total_out']) }}</div>
+        <div class="pc-summary-card__sub">Total uang keluar bulan ini</div>
     </div>
 
     <div class="pc-summary-card pc-summary-card--highlight">
-        <div class="pc-summary-card__label">Saldo akhir</div>
+        <div class="pc-summary-card__top">
+            <div class="pc-summary-card__label">Saldo akhir</div>
+            <span class="pc-summary-card__icon pc-summary-card__icon--saldo" aria-hidden="true">
+                <i class="fa fa-calculator"></i>
+            </span>
+        </div>
         <div class="pc-summary-card__value">{{ $rupiah($summary['closing']) }}</div>
+        <div class="pc-summary-card__sub">Cash in &minus; cash out + saldo awal</div>
     </div>
 </div>
 
@@ -40,30 +58,57 @@
 
 @if(! $hasAnyData && ! $isReadOnly)
     <div class="pc-source-empty">
-        <div class="pc-source-empty__icon"><i class="fa fa-piggy-bank"></i></div>
+        {{-- Skeleton placeholder cards — visual hint bahwa di sini nanti wallet
+             user akan tampil setelah setoran awal. --}}
+        <div class="pc-source-empty__skeletons" aria-hidden="true">
+            <div class="pc-source-empty__skel">
+                <span class="pc-source-empty__skel-badge"></span>
+                <span class="pc-source-empty__skel-bar"></span>
+            </div>
+            <div class="pc-source-empty__skel">
+                <span class="pc-source-empty__skel-badge"></span>
+                <span class="pc-source-empty__skel-bar"></span>
+            </div>
+            <div class="pc-source-empty__skel">
+                <span class="pc-source-empty__skel-badge"></span>
+                <span class="pc-source-empty__skel-bar"></span>
+            </div>
+        </div>
+        <div class="pc-source-empty__icon"><i class="fa fa-wallet"></i></div>
         <div class="pc-source-empty__title">Belum ada saldo di wallet manapun</div>
         <div class="pc-source-empty__desc">
-            Pilih wallet dulu &mdash; rinci budget per wallet yang sudah berjalan operasional
-            (cash di tangan, saldo bank, e-wallet). Tidak akan masuk ke tabel transaksi.
+            Mulai dengan mencatat saldo awal tiap wallet &mdash; uang tunai di tangan, saldo bank, atau e-wallet. Setoran awal tidak masuk ke tabel transaksi.
         </div>
         <button type="button" class="pc-btn-topup pc-btn-topup--solid"
                 data-pc-modal="pcModalOpening"
                 data-pc-tooltip="Daftarkan saldo awal kas, bank, e-wallet saat periode baru dimulai. Tidak masuk ke tabel transaksi — hanya menentukan posisi saldo pembuka.">
-            <i class="fa fa-piggy-bank"></i> Mulai Setoran Awal
+            <i class="fa fa-plus"></i> Mulai Setoran Awal
         </button>
     </div>
 @elseif($hasAnyData)
+    @php
+        // Tombol "Ajukan Top Up" muncul kalau ada cabang aktif (sesi Sales,
+        // atau admin yang sedang buka ?branch=X). Admin biasanya tidak butuh
+        // ngajuin (bisa top-up langsung), tapi dibuka untuk testing flow.
+        $canRequestTopup    = !$isReadOnly && !empty($branchId);
+        $pendingTopupCount  = $pendingTopupCount ?? 0;
+    @endphp
     <div class="pc-source-breakdown">
         <div class="pc-source-breakdown__head">
             <div class="pc-source-breakdown__title">
                 <i class="fa fa-wallet"></i> Rincian Saldo per Wallet
+                @if($pendingTopupCount > 0)
+                    <span class="pc-pending-badge" title="Pengajuan top up sedang menunggu Finance">
+                        <i class="fa fa-clock"></i> {{ $pendingTopupCount }} menunggu
+                    </span>
+                @endif
             </div>
-            @if(!$isReadOnly)
+            @if($canRequestTopup)
                 <div class="pc-source-breakdown__actions">
-                    <button type="button" class="pc-btn-topup"
-                            data-pc-modal="pcModalTopup"
-                            data-pc-tooltip="Tambah dana baru ke periode ini (mis. transfer masuk dari HQ, setoran tunai dari owner). Muncul sebagai baris transaksi top up.">
-                        <i class="fa fa-arrow-down-up-across-line"></i> Top up saldo
+                    <button type="button" class="pc-btn-request-topup"
+                            data-pc-modal="pcModalRequestTopup"
+                            title="Kirim permintaan top up ke Finance">
+                        <i class="fa fa-paper-plane"></i> Ajukan Top Up
                     </button>
                 </div>
             @endif
@@ -165,7 +210,10 @@
         </div>
         @if(!$isReadOnly)
             <div class="pc-source-breakdown__hint">
-                Klik wallet untuk <strong>Transfer</strong>, <strong>Tarik/Setor Tunai</strong>, atau <strong>catat Pengeluaran</strong> dari wallet tersebut.
+                <span class="pc-source-breakdown__hint-icon" aria-hidden="true">
+                    <i class="fa fa-info"></i>
+                </span>
+                <span>Klik kartu wallet untuk <strong>Transfer</strong>, <strong>Tarik / Setor Tunai</strong>, atau catat <strong>Pengeluaran</strong>.</span>
             </div>
         @endif
     </div>
@@ -175,22 +223,57 @@
 /* Empty state — ajakan setoran awal saat belum ada saldo di sumber manapun. */
 .pc-source-empty {
     margin: 16px 0 8px;
-    padding: 32px 24px;
+    padding: 28px 24px 32px;
     background: linear-gradient(180deg, #fff8f3 0%, #ffffff 100%);
     border: 2px dashed var(--brown-2);
-    border-radius: 12px;
+    border-radius: 14px;
     text-align: center;
 }
+/* Skeleton placeholder cards — visual hint untuk wallet yg akan tampil. */
+.pc-source-empty__skeletons {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    max-width: 720px;
+    margin: 0 auto 24px;
+}
+.pc-source-empty__skel {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 14px;
+    background: #fff;
+    border: 1px dashed var(--divider-soft);
+    border-radius: 10px;
+}
+.pc-source-empty__skel-badge {
+    flex: 0 0 auto;
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    background: var(--divider-soft);
+}
+.pc-source-empty__skel-bar {
+    flex: 1;
+    height: 8px;
+    border-radius: 4px;
+    background: var(--divider-soft);
+}
 .pc-source-empty__icon {
-    width: 64px;
-    height: 64px;
-    line-height: 64px;
-    margin: 0 auto 12px;
-    border-radius: 50%;
+    width: 48px;
+    height: 48px;
+    margin: 0 auto 14px;
+    border-radius: 12px;
     background: var(--brown);
     color: #fff;
-    font-size: 26px;
-    box-shadow: 0 4px 12px rgba(70,21,0,0.20);
+    font-size: 20px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(70,21,0,0.18);
+}
+@media (max-width: 700px) {
+    .pc-source-empty__skeletons { grid-template-columns: 1fr; }
 }
 .pc-source-empty__title {
     font-size: 1.15rem;
@@ -215,4 +298,47 @@
 .pc-btn-topup--solid:hover {
     background: var(--brown-2) !important;
 }
+
+/* ─── CTA Ajukan Top Up (Sales) ─── */
+.pc-source-breakdown__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+}
+.pc-pending-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: 8px;
+    padding: 2px 8px;
+    background: #fef3c7;
+    color: #92400e;
+    border: 1px solid #fde68a;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+}
+.pc-pending-badge i { font-size: 10px; }
+.pc-btn-request-topup {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px;
+    background: var(--brown);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 12.5px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background .15s, transform .15s;
+}
+.pc-btn-request-topup:hover {
+    background: var(--brown-2);
+    transform: translateY(-1px);
+}
+.pc-btn-request-topup i { font-size: 11px; }
 </style>

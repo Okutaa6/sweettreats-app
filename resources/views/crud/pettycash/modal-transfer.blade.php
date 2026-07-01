@@ -26,34 +26,38 @@
     $cashSourceId = optional(
         ($fundSourcesGrouped[\App\Models\FundSource::CAT_CASH] ?? collect())->first()
     )->id;
+    // Kategori expense — dipakai di form Pengeluaran & checkbox "sekalian
+    // pengeluaran" di Tarik Tunai.
+    $expenseCategories = \App\Models\PettyCashTransaction::CATEGORIES;
 @endphp
 <div class="pc-modal" id="pcModalTransfer" role="dialog" aria-modal="true"
      data-pc-cash-source-id="{{ $cashSourceId }}">
     <div class="pc-modal__dialog">
 
         {{-- Header (static, di luar form) --}}
-        <div class="pc-modal__header">
-            <div>
-                <h5 class="pc-modal__title">
-                    <i class="fa fa-wallet" style="color:#7c2d12;"></i> Kelola Saldo Wallet
-                </h5>
-                <small class="pc-muted">Transfer ke wallet lain, tambah saldo langsung, atau catat pengeluaran</small>
+        <div class="pc-modal__header pc-modal__header--wallet">
+            <span class="pc-modal__icon-box" aria-hidden="true">
+                <i class="fa fa-wallet"></i>
+            </span>
+            <div class="pc-modal__heading">
+                <h5 class="pc-modal__title">Kelola Wallet</h5>
+                <small class="pc-muted">Pilih aksi untuk wallet ini</small>
             </div>
-            <button type="button" class="pc-modal__close" data-pc-modal-close aria-label="Tutup">&times;</button>
+            <button type="button" class="pc-modal__close pc-modal__close--boxed" data-pc-modal-close aria-label="Tutup">&times;</button>
         </div>
 
         <div class="pc-modal__body">
             {{-- Preview source asal (shared antara kedua tab) --}}
             <div class="pc-transfer-from" id="transferFromPreview">
-                <div class="pc-transfer-from__label">Sumber dana</div>
                 <div class="pc-transfer-from__row">
                     <div class="fs-badge fs-badge--md" id="transferFromBadge" style="background:#64748b">
                         <span class="fs-badge__text" id="transferFromBadgeText">?</span>
                     </div>
                     <div class="pc-transfer-from__info">
-                        <strong id="transferFromName">—</strong>
+                        <div class="pc-transfer-from__label">Sumber dana</div>
+                        <strong class="pc-transfer-from__name" id="transferFromName">—</strong>
                         <span class="pc-transfer-from__bal">
-                            Saldo saat ini:
+                            Saldo saat ini <span class="pc-transfer-from__sep">·</span>
                             <strong id="transferFromBalance">Rp 0</strong>
                         </span>
                         <span class="pc-transfer-from__account" id="transferFromAccount" hidden>
@@ -69,36 +73,37 @@
                                 <i class="fa fa-pen"></i>
                             </button>
                         </span>
+                    </div>
 
-                        {{-- Inline add: muncul kalau no rek/HP belum diisi & source = Bank/E-Wallet --}}
-                        <span class="pc-transfer-from__account-add" id="transferFromAccountAdd" hidden>
-                            <button type="button" class="pc-transfer-from__add-btn"
-                                    id="transferFromAccountAddBtn"
-                                    title="Tambahkan nomor rekening / telepon">
-                                <i class="fa fa-plus-circle"></i>
-                                <span id="transferFromAccountAddLabel">Tambah No. Rek</span>
+                    {{-- Inline add: muncul kalau no rek/HP belum diisi & source = Bank/E-Wallet.
+                         Dipindah ke sisi kanan agar match desain (button "+ No. Rek" di pojok). --}}
+                    <div class="pc-transfer-from__account-add" id="transferFromAccountAdd" hidden>
+                        <button type="button" class="pc-transfer-from__add-btn"
+                                id="transferFromAccountAddBtn"
+                                title="Tambahkan nomor rekening / telepon">
+                            <i class="fa fa-plus"></i>
+                            <span id="transferFromAccountAddLabel">No. Rek</span>
+                        </button>
+                        <span class="pc-transfer-from__add-form" id="transferFromAccountAddForm" hidden>
+                            <input type="text" maxlength="50"
+                                   inputmode="numeric"
+                                   pattern="[0-9]*"
+                                   class="pc-input pc-input--sm"
+                                   id="transferFromAccountAddInput"
+                                   placeholder="Mis: 1234567890"
+                                   autocomplete="off">
+                            <button type="button" class="pc-transfer-from__save-btn"
+                                    id="transferFromAccountSaveBtn"
+                                    title="Simpan">
+                                <i class="fa fa-check"></i>
                             </button>
-                            <span class="pc-transfer-from__add-form" id="transferFromAccountAddForm" hidden>
-                                <input type="text" maxlength="50"
-                                       inputmode="numeric"
-                                       pattern="[0-9]*"
-                                       class="pc-input pc-input--sm"
-                                       id="transferFromAccountAddInput"
-                                       placeholder="Mis: 1234567890"
-                                       autocomplete="off">
-                                <button type="button" class="pc-transfer-from__save-btn"
-                                        id="transferFromAccountSaveBtn"
-                                        title="Simpan">
-                                    <i class="fa fa-check"></i>
-                                </button>
-                                <button type="button" class="pc-transfer-from__cancel-btn"
-                                        id="transferFromAccountCancelBtn"
-                                        title="Batal">
-                                    <i class="fa fa-times"></i>
-                                </button>
-                            </span>
-                            <span class="pc-transfer-from__add-error" id="transferFromAccountAddError" hidden></span>
+                            <button type="button" class="pc-transfer-from__cancel-btn"
+                                    id="transferFromAccountCancelBtn"
+                                    title="Batal">
+                                <i class="fa fa-times"></i>
+                            </button>
                         </span>
+                        <span class="pc-transfer-from__add-error" id="transferFromAccountAddError" hidden></span>
                     </div>
                 </div>
             </div>
@@ -107,7 +112,7 @@
             <div class="pc-tab-switcher" role="tablist">
                 <button type="button" class="pc-tab-switcher__btn is-active"
                         data-tab-target="transfer" role="tab" aria-selected="true">
-                    <i class="fa fa-right-left"></i> Transfer
+                    <i class="fa fa-right-left"></i> Mutasi
                 </button>
                 <button type="button" class="pc-tab-switcher__btn"
                         data-tab-target="topup" role="tab" aria-selected="false">
@@ -131,20 +136,19 @@
                 @endif
                 <input type="hidden" name="from_source_id" id="transferFromSourceId">
 
-                <div class="pc-tab-hint" id="transferTabHint">
-                    <i class="fa fa-right-left" id="transferTabHintIcon" style="color:#2563eb;"></i>
-                    <span id="transferTabHintText"><strong>Transfer:</strong> pindahkan saldo antar wallet yang <strong>Anda miliki sendiri</strong> — <em>bukan transfer ke rekening pihak lain</em>. Total saldo periode tidak berubah, hanya perpindahan internal antar wallet milik sendiri (mis: tarik tunai dari Bank ke Cash, isi E-Wallet dari Cash).</span>
+                <div class="pc-tab-hint pc-tab-hint--transfer" id="transferTabHint">
+                    <span id="transferTabHintText">Pindahkan saldo antar wallet. Total saldo periode tetap.</span>
                 </div>
 
                 <div class="pc-form-row">
-                    <label>Tanggal <span class="text-danger">*</span></label>
+                    <label>Tanggal</label>
                     <input type="date" name="trx_date" value="{{ date('Y-m-d') }}" required class="pc-input">
                 </div>
 
                 <div class="pc-form-row">
-                    <label id="transferToLabel">Transfer ke <span class="text-danger">*</span></label>
+                    <label id="transferToLabel">Pindah ke</label>
                     <select name="to_source_id" required class="pc-input pc-source-select" id="transferToSelect">
-                        <option value="">— Pilih sumber tujuan —</option>
+                        <option value="">Pilih wallet tujuan…</option>
                         @foreach($categoryLabels as $catKey => $catLabel)
                             @if($fundSourcesGrouped->has($catKey))
                                 <optgroup label="{{ $catLabel }}">
@@ -161,59 +165,40 @@
                         @endforeach
                     </select>
                     <div class="pc-source-preview" data-pc-source-preview></div>
-
-                    {{-- Preview verb: collapsible dengan animasi smooth.
-                         Auto-detect Deposit / Tarik Tunai / Transfer
-                         berdasarkan kategori asal vs tujuan. Background
-                         berubah sesuai mode (soft tint). --}}
-                    <div class="pc-verb-preview" id="transferVerbPreview" hidden>
-                        <button type="button" class="pc-verb-preview__head"
-                                aria-expanded="false" aria-controls="transferVerbDesc">
-                            <span class="pc-verb-preview__hint">
-                                <i class="fa fa-info-circle"></i> Akan dicatat sebagai:
-                            </span>
-                            <span class="pc-verb-preview__badge" id="transferVerbBadge">TRANSFER</span>
-                            <i class="fa fa-chevron-down pc-verb-preview__chevron"></i>
-                        </button>
-                        <div class="pc-verb-preview__wrap">
-                            <div class="pc-verb-preview__desc" id="transferVerbDesc"></div>
-                        </div>
-                    </div>
                 </div>
 
                 {{-- Input nomor rekening / telepon untuk SUMBER TUJUAN —
                      toggled JS berdasarkan kategori. Cash → hidden. --}}
                 <div class="pc-form-row" data-pc-transfer-to-account-row hidden>
-                    <label data-pc-transfer-to-account-label>No. Rekening <small class="pc-muted">(opsional)</small></label>
+                    <label data-pc-transfer-to-account-label>No. Rekening tujuan <small class="pc-muted">— opsional</small></label>
                     <input type="text" name="to_account_number" maxlength="50"
                            class="pc-input"
                            data-pc-transfer-to-account-input
-                           placeholder="Mis: 1234567890">
-                    <small class="pc-muted">Update nomor untuk sumber tujuan.</small>
+                           placeholder="Contoh: 1234567890">
                 </div>
 
                 <div class="pc-form-row">
-                    <label>Nominal (Rp) <span class="text-danger">*</span></label>
+                    <label>Nominal</label>
                     <input type="text" inputmode="numeric"
                            class="pc-input pc-amount-input"
                            data-target="transferAmount"
-                           placeholder="0">
+                           placeholder="Rp 0">
                     <input type="hidden" name="amount" id="transferAmount" required>
                     <small class="pc-muted">
-                        Maks: Rp <span id="transferMaxHint">0</span>
+                        Saldo tersedia: Rp <span id="transferMaxHint">0</span>
                     </small>
                 </div>
 
                 <div class="pc-form-row">
-                    <label>Keterangan <small class="pc-muted">(opsional)</small></label>
+                    <label>Catatan <small class="pc-muted">— opsional</small></label>
                     <input type="text" name="description" maxlength="200"
-                           placeholder="Mis: konsolidasi saldo, isi e-wallet, dll"
+                           placeholder="Contoh: konsolidasi saldo"
                            class="pc-input">
                 </div>
 
                 {{-- Bukti mutasi (struk transfer, screenshot mutasi rekening). Opsional. --}}
                 <div class="pc-form-row">
-                    <label>Bukti mutasi <small class="pc-muted">(opsional)</small></label>
+                    <label>Bukti <small class="pc-muted">— opsional</small></label>
                     <div class="pc-attach-zone">
                         <input type="file" name="attachment"
                                id="transferAttachInput"
@@ -221,8 +206,8 @@
                                class="pc-attach-input">
                         <label for="transferAttachInput" class="pc-attach-label">
                             <i class="fa fa-camera"></i>
-                            <span class="pc-attach-label__main">Pilih foto / PDF</span>
-                            <span class="pc-attach-label__hint">struk / screenshot mutasi · max 5MB</span>
+                            <span class="pc-attach-label__main">Tap untuk pilih foto / PDF</span>
+                            <span class="pc-attach-label__hint">Maks 5 MB</span>
                         </label>
                         <div class="pc-attach-preview" hidden>
                             <div class="pc-attach-preview__thumb"><i class="fa fa-file"></i></div>
@@ -237,11 +222,11 @@
                     </div>
                 </div>
 
-                <div class="pc-form-actions">
-                    <button type="button" class="st-btn-outline-brown" data-pc-modal-close>Batal</button>
-                    <button type="submit" class="st-btn-brand">
-                        <i class="fa fa-right-left"></i> Transfer Saldo
+                <div class="pc-form-actions pc-form-actions--friendly">
+                    <button type="submit" class="st-btn-brand pc-btn-primary-friendly">
+                        Simpan Mutasi
                     </button>
+                    <button type="button" class="pc-btn-text" data-pc-modal-close>Batal</button>
                 </div>
             </form>
 
@@ -273,9 +258,8 @@
                     <input type="hidden" name="from_source_id" id="tarikTunaiFromSourceId">
                     <input type="hidden" name="to_source_id"   id="tarikTunaiToSourceId">
 
-                    <div class="pc-tab-hint">
-                        <i class="fa fa-piggy-bank" style="color:#0891b2;"></i>
-                        <span><strong>Tarik Tunai:</strong> cairkan saldo sumber ini jadi uang fisik di kas Cash. Saldo sumber asal <em>turun</em>, saldo Cash <em>naik</em>. Total saldo periode tidak berubah.</span>
+                    <div class="pc-tab-hint pc-tab-hint--withdraw" id="tarikTunaiHint">
+                        <span>Cairkan saldo wallet jadi uang fisik di Cash. Total saldo periode tetap.</span>
                     </div>
 
                     {{-- Panel verb preview — info penjelasan label transaksi
@@ -285,45 +269,45 @@
                         <button type="button" class="pc-verb-preview__head"
                                 aria-expanded="true" aria-controls="tarikTunaiVerbDesc">
                             <span class="pc-verb-preview__hint">
-                                <i class="fa fa-info-circle"></i> Akan dicatat sebagai:
+                                <i class="fa fa-info-circle"></i> Tercatat sebagai
                             </span>
                             <span class="pc-verb-preview__badge pc-verb-preview__badge--withdraw">TARIK TUNAI</span>
                             <i class="fa fa-chevron-down pc-verb-preview__chevron"></i>
                         </button>
                         <div class="pc-verb-preview__wrap">
                             <div class="pc-verb-preview__desc" id="tarikTunaiVerbDesc">
-                                Cairkan saldo <strong id="tarikTunaiVerbFromName">sumber ini</strong> jadi uang fisik di <strong>Cash / Tunai</strong>.
+                                Cairkan saldo <strong id="tarikTunaiVerbFromName">wallet ini</strong> jadi uang fisik di <strong>Cash</strong>.
                             </div>
                         </div>
                     </div>
 
                     <div class="pc-form-row">
-                        <label>Tanggal <span class="text-danger">*</span></label>
+                        <label>Tanggal</label>
                         <input type="date" name="trx_date" value="{{ date('Y-m-d') }}" required class="pc-input">
                     </div>
 
                     <div class="pc-form-row">
-                        <label>Nominal yang ditarik (Rp) <span class="text-danger">*</span></label>
+                        <label>Nominal yang ditarik</label>
                         <input type="text" inputmode="numeric"
                                class="pc-input pc-amount-input"
                                data-target="tarikTunaiAmount"
-                               placeholder="0">
+                               placeholder="Rp 0">
                         <input type="hidden" name="amount" id="tarikTunaiAmount" required>
                         <small class="pc-muted">
-                            Maks: Rp <span id="tarikTunaiMaxHint">0</span>
+                            Saldo tersedia: Rp <span id="tarikTunaiMaxHint">0</span>
                         </small>
                     </div>
 
                     <div class="pc-form-row">
-                        <label>Keterangan <small class="pc-muted">(opsional)</small></label>
+                        <label>Catatan <small class="pc-muted">— opsional</small></label>
                         <input type="text" name="description" maxlength="200"
-                               placeholder="Mis: tarik tunai untuk operasional kasir"
+                               placeholder="Contoh: untuk operasional kasir"
                                class="pc-input">
                     </div>
 
                     {{-- Bukti tarik tunai (struk ATM, screenshot mutasi). Opsional. --}}
                     <div class="pc-form-row">
-                        <label>Bukti tarik tunai <small class="pc-muted">(opsional)</small></label>
+                        <label id="tarikTunaiAttachLabel">Bukti <small class="pc-muted">— opsional</small></label>
                         <div class="pc-attach-zone">
                             <input type="file" name="attachment"
                                    id="tarikTunaiAttachInput"
@@ -331,8 +315,8 @@
                                    class="pc-attach-input">
                             <label for="tarikTunaiAttachInput" class="pc-attach-label">
                                 <i class="fa fa-camera"></i>
-                                <span class="pc-attach-label__main">Pilih foto / PDF</span>
-                                <span class="pc-attach-label__hint">struk ATM / screenshot · max 5MB</span>
+                                <span class="pc-attach-label__main">Tap untuk pilih foto / PDF</span>
+                                <span class="pc-attach-label__hint" id="tarikTunaiAttachHint">Maks 5 MB</span>
                             </label>
                             <div class="pc-attach-preview" hidden>
                                 <div class="pc-attach-preview__thumb"><i class="fa fa-file"></i></div>
@@ -347,11 +331,11 @@
                         </div>
                     </div>
 
-                    <div class="pc-form-actions">
-                        <button type="button" class="st-btn-outline-brown" data-pc-modal-close>Batal</button>
-                        <button type="submit" class="pc-btn-topup-solid" id="tarikTunaiSubmitBtn" disabled>
-                            <i class="fa fa-piggy-bank"></i> Tarik Tunai
+                    <div class="pc-form-actions pc-form-actions--friendly">
+                        <button type="submit" class="pc-btn-topup-solid pc-btn-primary-friendly" id="tarikTunaiSubmitBtn" disabled>
+                            Simpan Tarik Tunai
                         </button>
+                        <button type="button" class="pc-btn-text" data-pc-modal-close>Batal</button>
                     </div>
                 </form>
 
@@ -377,39 +361,34 @@
                          tapi tidak masuk angka "Total Top Up". --}}
                     <input type="hidden" name="is_topup" value="0">
 
-                    <div class="pc-tab-hint">
-                        <i class="fa fa-piggy-bank" style="color:#16a34a;"></i>
-                        <span>
-                            <strong>Setor Cash Langsung:</strong>
-                            Catat uang cash yang langsung masuk ke kas (bukan dari Bank / E-Wallet).
-                            Saldo Cash bertambah namun <strong>tidak dihitung sebagai Top Up</strong>.
-                        </span>
+                    <div class="pc-tab-hint pc-tab-hint--deposit">
+                        <span>Catat uang cash yang masuk langsung ke kas (mis. kembalian kasbon). Tidak dihitung sebagai Top Up.</span>
                     </div>
 
                     <div class="pc-form-row">
-                        <label>Tanggal <span class="text-danger">*</span></label>
+                        <label>Tanggal</label>
                         <input type="date" name="trx_date" value="{{ date('Y-m-d') }}" required class="pc-input">
                     </div>
 
                     <div class="pc-form-row">
-                        <label>Nominal (Rp) <span class="text-danger">*</span></label>
+                        <label>Nominal</label>
                         <input type="text" inputmode="numeric"
                                class="pc-input pc-amount-input"
                                data-target="setorCashAmount"
-                               placeholder="0">
+                               placeholder="Rp 0">
                         <input type="hidden" name="amount" id="setorCashAmount" required>
                     </div>
 
                     <div class="pc-form-row">
-                        <label>Keterangan <small class="pc-muted">(opsional)</small></label>
+                        <label>Catatan <small class="pc-muted">— opsional</small></label>
                         <input type="text" name="description" maxlength="200"
-                               placeholder="Mis: kembalian kasbon karyawan, koreksi cash"
+                               placeholder="Contoh: kembalian kasbon karyawan"
                                class="pc-input">
                     </div>
 
                     {{-- Bukti setor cash (struk, foto uang). Opsional. --}}
                     <div class="pc-form-row">
-                        <label>Bukti setoran <small class="pc-muted">(opsional)</small></label>
+                        <label>Bukti <small class="pc-muted">— opsional</small></label>
                         <div class="pc-attach-zone">
                             <input type="file" name="attachment"
                                    id="setorCashAttachInput"
@@ -417,8 +396,8 @@
                                    class="pc-attach-input">
                             <label for="setorCashAttachInput" class="pc-attach-label">
                                 <i class="fa fa-camera"></i>
-                                <span class="pc-attach-label__main">Pilih foto / PDF</span>
-                                <span class="pc-attach-label__hint">struk / nota · max 5MB</span>
+                                <span class="pc-attach-label__main">Tap untuk pilih foto / PDF</span>
+                                <span class="pc-attach-label__hint">Maks 5 MB</span>
                             </label>
                             <div class="pc-attach-preview" hidden>
                                 <div class="pc-attach-preview__thumb"><i class="fa fa-file"></i></div>
@@ -433,11 +412,11 @@
                         </div>
                     </div>
 
-                    <div class="pc-form-actions">
-                        <button type="button" class="st-btn-outline-brown" data-pc-modal-close>Batal</button>
-                        <button type="submit" class="pc-btn-topup-solid" id="setorCashSubmitBtn" disabled>
-                            <i class="fa fa-piggy-bank"></i> Setor Cash
+                    <div class="pc-form-actions pc-form-actions--friendly">
+                        <button type="submit" class="pc-btn-topup-solid pc-btn-primary-friendly" id="setorCashSubmitBtn" disabled>
+                            Simpan Setoran
                         </button>
+                        <button type="button" class="pc-btn-text" data-pc-modal-close>Batal</button>
                     </div>
                 </form>
             </div>
@@ -455,28 +434,19 @@
                 @endif
                 <input type="hidden" name="fund_source_id" id="expenseSourceFundSourceId">
 
-                <div class="pc-tab-hint">
-                    <i class="fa fa-minus" style="color:#dc2626;"></i>
-                    <span><strong>Pengeluaran:</strong> catat <em>dana keluar</em> dari sumber ini (mis: belanja operasional, biaya transport). Saldo source &amp; total periode keduanya <em>berkurang</em>.</span>
+                <div class="pc-tab-hint pc-tab-hint--expense">
+                    <span>Catat pengeluaran yang dibayar pakai wallet ini. Saldo wallet &amp; total periode berkurang.</span>
                 </div>
 
-                @php
-                    // Daftar kategori per modul. modal-transfer shared antara
-                    // petty_cash & transport — masing-masing punya enum berbeda.
-                    $expenseCategories = $kind === 'transport'
-                        ? \App\Models\TransportCostTransaction::CATEGORIES
-                        : \App\Models\PettyCashTransaction::CATEGORIES;
-                @endphp
-
                 <div class="pc-form-row">
-                    <label>Tanggal <span class="text-danger">*</span></label>
+                    <label>Tanggal</label>
                     <input type="date" name="trx_date" value="{{ date('Y-m-d') }}" required class="pc-input">
                 </div>
 
                 <div class="pc-form-row">
-                    <label>Kategori <span class="text-danger">*</span></label>
+                    <label>Kategori</label>
                     <select name="category" required class="pc-input">
-                        <option value="">— Pilih kategori —</option>
+                        <option value="">Pilih kategori…</option>
                         @foreach($expenseCategories as $catKey => $catLabel)
                             <option value="{{ $catKey }}">{{ $catLabel }}</option>
                         @endforeach
@@ -484,28 +454,28 @@
                 </div>
 
                 <div class="pc-form-row">
-                    <label>Nominal (Rp) <span class="text-danger">*</span></label>
+                    <label>Nominal</label>
                     <input type="text" inputmode="numeric"
                            class="pc-input pc-amount-input"
                            data-target="expenseSourceAmount"
-                           placeholder="0">
+                           placeholder="Rp 0">
                     <input type="hidden" name="amount" id="expenseSourceAmount" required>
                     <small class="pc-muted">
-                        Maks: Rp <span id="expenseSourceMaxHint">0</span>
+                        Saldo tersedia: Rp <span id="expenseSourceMaxHint">0</span>
                     </small>
                 </div>
 
                 <div class="pc-form-row">
-                    <label>Keterangan <span class="text-danger">*</span></label>
+                    <label>Keterangan</label>
                     <input type="text" name="description" required maxlength="255"
-                           placeholder="Isi keterangan pengeluaran"
+                           placeholder="Contoh: beli galon, parkir, dll"
                            class="pc-input">
                 </div>
 
                 {{-- Upload bukti pengeluaran (struk/bon/transfer). Opsional.
                      Accept jpg/png/webp/pdf, max 5MB (validasi server-side juga). --}}
                 <div class="pc-form-row">
-                    <label>Bukti pengeluaran <small class="pc-muted">(opsional)</small></label>
+                    <label>Bukti <small class="pc-muted">— opsional</small></label>
                     <div class="pc-attach-zone" id="expenseAttachZone">
                         <input type="file" name="attachment"
                                id="expenseAttachInput"
@@ -513,8 +483,8 @@
                                class="pc-attach-input">
                         <label for="expenseAttachInput" class="pc-attach-label">
                             <i class="fa fa-camera"></i>
-                            <span class="pc-attach-label__main">Pilih foto / PDF</span>
-                            <span class="pc-attach-label__hint">struk atau bukti transfer · max 5MB</span>
+                            <span class="pc-attach-label__main">Tap untuk pilih foto / PDF</span>
+                            <span class="pc-attach-label__hint">Maks 5 MB</span>
                         </label>
                         <div class="pc-attach-preview" id="expenseAttachPreview" hidden>
                             <div class="pc-attach-preview__thumb" id="expenseAttachThumb">
@@ -533,11 +503,11 @@
                     </div>
                 </div>
 
-                <div class="pc-form-actions">
-                    <button type="button" class="st-btn-outline-brown" data-pc-modal-close>Batal</button>
-                    <button type="submit" class="pc-btn-expense">
-                        <i class="fa fa-minus"></i> Simpan Pengeluaran
+                <div class="pc-form-actions pc-form-actions--friendly">
+                    <button type="submit" class="pc-btn-expense pc-btn-primary-friendly">
+                        Simpan Pengeluaran
                     </button>
+                    <button type="button" class="pc-btn-text" data-pc-modal-close>Batal</button>
                 </div>
             </form>
 
@@ -548,107 +518,162 @@
                  ACCESS: hanya Super Admin & Admin General. Role lain dapat versi
                  locked (button disabled + form onsubmit return false). --}}
             @php $canHardDelete = isSuperAdmin() || isAdminGeneral(); @endphp
-            <div class="pc-source-danger {{ $canHardDelete ? '' : 'pc-source-danger--locked' }}">
-                <hr class="pc-source-danger__divider">
-                @if($canHardDelete)
-                    <div class="pc-source-danger__warn">
-                        <i class="fa fa-triangle-exclamation"></i>
-                        <span>Hapus semua transaksi &amp; saldo awal wallet ini di periode aktif. <strong>Aksi tidak bisa di-undo.</strong></span>
-                    </div>
-                @else
-                    <div class="pc-source-danger__warn">
-                        <i class="fa fa-lock"></i>
-                        <span>Fitur hapus data wallet <strong>sementara dikunci</strong> untuk role Anda. Hubungi Super Admin / Admin General jika perlu reset data.</span>
-                    </div>
-                @endif
-                <form method="POST" action="{{ route('pettycash.source.destroy', ['tab' => $kind]) }}"
-                      id="pcSourceDestroyForm"
-                      @if($canHardDelete)
-                          onsubmit="return confirm('Yakin hapus SEMUA data wallet ini di periode aktif?\n\n• Saldo awal wallet ini akan di-reset\n• Semua transaksi (cash in, cash out, transfer) yg pakai wallet ini akan dihapus\n• Aksi TIDAK bisa di-undo.\n\nLanjut?');"
-                      @else
-                          onsubmit="return false;"
-                      @endif>
-                    @csrf
-                    <input type="hidden" name="period_id" value="{{ $period->id }}">
-                    <input type="hidden" name="tab" value="{{ $kind }}">
-                    @if(!session('raw_branch_id') && $period->raw_branch_id)
-                        <input type="hidden" name="branch" value="{{ $period->raw_branch_id }}">
-                    @endif
-                    <input type="hidden" name="fund_source_id" id="pcSourceDestroyId">
-                    <button type="submit" class="pc-source-danger__btn"
-                            @if(!$canHardDelete) disabled title="Fitur dikunci untuk role Anda" @endif>
-                        @if($canHardDelete)
-                            <i class="fa fa-trash"></i> Hapus Data Wallet Ini
-                        @else
-                            <i class="fa fa-lock"></i> Hapus Data Wallet Ini
+            @if($canHardDelete)
+                <div class="pc-source-danger">
+                    <hr class="pc-source-danger__divider">
+                    <form method="POST" action="{{ route('pettycash.source.destroy', ['tab' => $kind]) }}"
+                          id="pcSourceDestroyForm"
+                          onsubmit="return confirm('Yakin hapus SEMUA data wallet ini di periode aktif?\n\n• Saldo awal wallet ini akan di-reset\n• Semua transaksi (cash in, cash out, transfer) yg pakai wallet ini akan dihapus\n• Aksi TIDAK bisa di-undo.\n\nLanjut?');">
+                        @csrf
+                        <input type="hidden" name="period_id" value="{{ $period->id }}">
+                        <input type="hidden" name="tab" value="{{ $kind }}">
+                        @if(!session('raw_branch_id') && $period->raw_branch_id)
+                            <input type="hidden" name="branch" value="{{ $period->raw_branch_id }}">
                         @endif
-                    </button>
-                </form>
-            </div>
+                        <input type="hidden" name="fund_source_id" id="pcSourceDestroyId">
+                        <button type="submit" class="pc-source-danger__link"
+                                title="Reset semua transaksi & saldo awal wallet ini (admin only)">
+                            <i class="fa fa-trash"></i> Reset data wallet di periode ini
+                        </button>
+                    </form>
+                </div>
+            @endif
         </div>
     </div>
 </div>
 
 <style>
+/* ─── Friendlier modal — scoped ke #pcModalTransfer ─── */
+
+/* Header: title sedikit lebih besar & subtitle lebih lembut */
+#pcModalTransfer .pc-modal__title { font-size: 16px; font-weight: 800; }
+#pcModalTransfer .pc-modal__header--wallet .pc-muted { font-size: 12px; }
+
+/* Hint banner: pakai border-left strip warna + bg lebih lembut, kurang noise */
+#pcModalTransfer .pc-tab-hint {
+    border-radius: 8px;
+    border: none;
+    border-left: 4px solid #cbd5e1;
+    padding: 10px 12px;
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: #334155;
+}
+#pcModalTransfer .pc-tab-hint--transfer { background: #eff6ff; border-left-color: #3b82f6; }
+#pcModalTransfer .pc-tab-hint--withdraw { background: #ecfeff; border-left-color: #06b6d4; }
+#pcModalTransfer .pc-tab-hint--expense  { background: #fef2f2; border-left-color: #ef4444; }
+#pcModalTransfer .pc-tab-hint--deposit  { background: #fff7ed; border-left-color: #f97316; }
+
+/* Form row spacing sedikit dilonggarin */
+#pcModalTransfer .pc-form-row { margin-bottom: 16px; gap: 6px; }
+#pcModalTransfer .pc-form-row label {
+    font-weight: 600;
+    color: var(--brown);
+    font-size: 13px;
+}
+#pcModalTransfer .pc-form-row label .pc-muted { font-weight: 400; color: #94a3b8; font-size: 11.5px; }
+
+/* Input default: padding lebih lapang, border radius lebih lembut */
+#pcModalTransfer .pc-input {
+    padding: 11px 12px;
+    font-size: 14px;
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
+    transition: border-color .15s, box-shadow .15s;
+}
+#pcModalTransfer .pc-input:focus {
+    border-color: var(--brown);
+    box-shadow: 0 0 0 3px rgba(70, 21, 0, 0.08);
+    outline: none;
+}
+
+/* Amount input: bigger so user tahu ini "the important field" */
+#pcModalTransfer .pc-amount-input {
+    font-size: 17px;
+    font-weight: 700;
+    padding: 12px 14px;
+    color: #0f172a;
+}
+
+/* Verb preview: matikan UX collapsible, jadikan static info card */
+#pcModalTransfer .pc-verb-preview { cursor: default; }
+#pcModalTransfer .pc-verb-preview__head { cursor: default !important; pointer-events: none; }
+#pcModalTransfer .pc-verb-preview__chevron { display: none; }
+#pcModalTransfer .pc-verb-preview__wrap { grid-template-rows: 1fr !important; }
+#pcModalTransfer .pc-verb-preview__desc { opacity: 1 !important; padding-top: 6px !important; }
+
+/* Action bar: primary button dominan (full width), Batal jadi text-link */
+.pc-form-actions--friendly {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+    padding-top: 14px;
+    margin-top: 10px;
+    border-top: 1px solid var(--divider-soft);
+}
+.pc-form-actions--friendly .pc-btn-primary-friendly {
+    width: 100%;
+    padding: 13px 18px;
+    font-size: 14.5px;
+    font-weight: 700;
+    border-radius: 10px;
+    box-shadow: 0 2px 6px rgba(70, 21, 0, 0.12);
+}
+.pc-form-actions--friendly .pc-btn-primary-friendly:not(:disabled):hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(70, 21, 0, 0.18);
+}
+.pc-form-actions--friendly .pc-btn-primary-friendly:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+.pc-btn-text {
+    background: transparent;
+    border: none;
+    color: #94a3b8;
+    padding: 8px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: color .15s, background .15s;
+    width: 100%;
+}
+.pc-btn-text:hover { color: var(--brown); background: var(--cream-header, #f4ece2); }
+
+/* Tab switcher: tombol sedikit lebih besar + spacing */
+#pcModalTransfer .pc-tab-switcher__btn { padding: 11px 12px; font-size: 13px; }
+
+/* Source preview di dropdown tujuan: spacing lebih lapang */
+#pcModalTransfer .pc-source-preview { margin-top: 8px; }
+
+/* Danger zone: subtle text-link di footer modal (tidak loud) */
 .pc-source-danger {
-    margin-top: 18px;
+    margin-top: 14px;
+    text-align: center;
 }
 .pc-source-danger__divider {
     border: none;
     border-top: 1px solid var(--divider-soft, #e5e7eb);
-    margin: 0 0 14px;
+    margin: 0 0 10px;
 }
-.pc-source-danger__warn {
-    display: flex;
-    align-items: flex-start;
-    gap: 8px;
-    padding: 10px 12px;
-    background: #fef2f2;
-    border: 1px solid #fecaca;
+.pc-source-danger__link {
+    background: transparent;
+    border: none;
+    color: #b91c1c;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 6px 10px;
     border-radius: 6px;
-    color: #991b1b;
-    font-size: 12.5px;
-    line-height: 1.5;
-    margin-bottom: 10px;
-}
-.pc-source-danger__warn i { color: #dc2626; margin-top: 2px; flex-shrink: 0; }
-.pc-source-danger__btn {
+    cursor: pointer;
+    transition: background .15s, color .15s;
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 8px 14px;
-    background: #fff;
-    color: #dc2626;
-    border: 1.5px solid #dc2626;
-    border-radius: 6px;
-    cursor: pointer;
-    font-weight: 600;
-    font-size: 13px;
-    transition: background .15s;
+    opacity: 0.7;
 }
-.pc-source-danger__btn:hover {
-    background: #dc2626;
-    color: #fff;
-}
-/* Locked state — fitur dinonaktifkan sementara */
-.pc-source-danger--locked .pc-source-danger__warn {
-    background: #f1f5f9;
-    border-color: #cbd5e1;
-    color: #475569;
-}
-.pc-source-danger--locked .pc-source-danger__warn i,
-.pc-source-danger--locked .pc-source-danger__warn strong {
-    color: #475569;
-}
-.pc-source-danger__btn:disabled {
-    background: #f1f5f9;
-    color: #94a3b8;
-    border-color: #cbd5e1;
-    cursor: not-allowed;
-    opacity: 0.85;
-}
-.pc-source-danger__btn:disabled:hover {
-    background: #f1f5f9;
-    color: #94a3b8;
-}
+.pc-source-danger__link:hover { background: #fef2f2; color: #991b1b; opacity: 1; }
+.pc-source-danger__link i { font-size: 11px; }
 </style>

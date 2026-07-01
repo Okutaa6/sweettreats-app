@@ -43,7 +43,9 @@ class AuthGuard
         // Skip RBAC for utility routes (already behind auth middleware).
         // fund-sources: Super Admin gating dilakukan di controller-nya
         // sendiri (FundSourceController::guard).
-        $skipRbac = ['export', 'api', 'auditlog', 'executive', 'complaint', 'fund-sources'];
+        // finance: dashboard monitoring + approval top-up, di-guard di
+        // FinanceDashboardController + TopupRequestController via canSeeAllBranches().
+        $skipRbac = ['export', 'api', 'auditlog', 'executive', 'fund-sources', 'finance'];
         if (in_array($controller, $skipRbac)) {
             session(['expires_in' => time() + 3600]);
             return $next($request);

@@ -209,10 +209,43 @@ class ReservationController extends Controller
                 }
             }
         } else {
-            $reservations = $query->orderBy('date', 'desc')
-                ->orderBy('raw_doctor_id')
-                ->orderBy('start_hour', 'desc')
-                ->paginate($perPage);
+            // Tab List: default per-tanggal (date DESC). Sort jam (start_hour) bisa
+            // di-toggle lewat ?sort_jam= TANPA mengubah grouping per-hari di view —
+            // `date DESC` tetap primary sort supaya day-header tetap ter-emit.
+            //   - (kosong) default: date DESC, doctor, start_hour DESC (urutan eksisting)
+            //   - asc:  date DESC, start_hour ASC (pagi → malam di dalam tiap hari)
+            //   - desc: date DESC, start_hour DESC (malam → pagi di dalam tiap hari)
+            //
+            // Opt-in ?sort_date=today → ubah primary sort jadi "smart date order":
+            // hari ini & masa depan ASC di atas (hari ini → besok → lusa → …),
+            // masa lampau DESC di bawah (kemarin → 2 hari lalu → …). Dipicu lewat
+            // chip "↑ Hari ini di atas" di quick segments bar. Day-header grouping
+            // tetap aman karena `date` monoton di tiap segmen; transisi future→past
+            // cuma satu pergantian tanggal yang otomatis memunculkan header baru.
+            $sortDate = request('sort_date');
+            if ($sortDate === 'today') {
+                $today = now()->toDateString();
+                $query->orderByRaw('CASE WHEN `date` >= ? THEN 0 ELSE 1 END ASC', [$today])
+                      ->orderByRaw('CASE WHEN `date` >= ? THEN `date` END ASC',   [$today])
+                      ->orderByRaw('CASE WHEN `date` <  ? THEN `date` END DESC',  [$today]);
+            } else {
+                $query->orderBy('date', 'desc');
+            }
+
+            $sortJam = request('sort_jam');
+            if ($sortJam === 'asc') {
+                $reservations = $query->orderBy('start_hour', 'asc')
+                    ->orderBy('end_hour', 'asc')
+                    ->paginate($perPage);
+            } elseif ($sortJam === 'desc') {
+                $reservations = $query->orderBy('start_hour', 'desc')
+                    ->orderBy('end_hour', 'desc')
+                    ->paginate($perPage);
+            } else {
+                $reservations = $query->orderBy('raw_doctor_id')
+                    ->orderBy('start_hour', 'desc')
+                    ->paginate($perPage);
+            }
         }
 
         // Kalau user terkunci ke 1 cabang, dropdown hanya tampilkan cabang itu
@@ -249,6 +282,21 @@ class ReservationController extends Controller
                   ->orWhereNull('status');
             })
             ->count();
+
+        // Badge count untuk tombol Impor Sheets (hanya di-hitung untuk Super
+        // Admin karena tombolnya cuma muncul untuk role itu). Defensive:
+        // kalau tabel staging belum di-migrate, fallback ke 0.
+        $importPendingCount = 0;
+        if (isSuperAdmin()) {
+            try {
+                $importPendingCount = \App\Models\RawCusReservationStaging::query()
+                    ->when($sessionBranch, fn ($q) => $q->where('raw_branch_id', $sessionBranch))
+                    ->where('state', 'pending')
+                    ->count();
+            } catch (\Throwable $e) {
+                $importPendingCount = 0;
+            }
+        }
 
         // Pre-render data "Kelola Halaman" — hanya untuk admin yang boleh kelola.
         // Pakai DB facade karena AccessPath / GroupPath models pakai string PK
@@ -299,6 +347,7 @@ class ReservationController extends Controller
             'view',
             'waitlistCount',
             'newCount',
+            'importPendingCount',
             'jadwalEmptyState',
             'isViewOnly',
             'accessModeGroups'
@@ -420,6 +469,85 @@ class ReservationController extends Controller
     public function create()
     {
         $this->abortIfViewOnly();
+
+        // ── Bridge dari staging row (Impor Sheets) ──
+        // Kalau dipanggil dgn ?staging_id=X, pre-fill form dgn data dari staging
+        // lalu redirect ke URL bersih supaya old() ke-populate via flashInput.
+        // Hidden field `staging_id` akan ikut ter-submit → store() akan tandai
+        // staging row promoted setelah reservasi sukses dibuat.
+        if (($stagingId = request('staging_id')) && ! request()->session()->has('_old_input')) {
+            $staging = \App\Models\RawCusReservationStaging::find($stagingId);
+            if ($staging) {
+                // Cari customer existing by phone (kalau ada match)
+                $matchedCustomer = null;
+                if ($staging->patient_phone) {
+                    $matchedCustomer = RawCustomer::where('phone', $staging->patient_phone)->first();
+                }
+
+                // ── Auto-create RawCustomer kalau pasien baru & data cukup ──
+                // Tujuan: pengguna tidak perlu klik "Tambah pasien baru di
+                // nomor ini" manual di form reservasi — record langsung dibuat
+                // dari data staging (yg sudah user lengkapi di drawer
+                // "Edit Staging Row"). Idempotent: re-klik = re-use customer
+                // yg sama via phone match → no duplicate.
+                $autoCreatedCustomer = false;
+                if (! $matchedCustomer && $staging->patient_name && $staging->patient_phone) {
+                    try {
+                        $matchedCustomer = RawCustomer::create([
+                            'id'               => (string) \Illuminate\Support\Str::uuid(),
+                            'source_app'       => 'csv_import',
+                            'channel'          => 'csv_import',
+                            'name'             => $staging->patient_name,
+                            'phone'            => $staging->patient_phone,
+                            'email'            => $staging->patient_email,
+                            'nik'              => $staging->patient_nik,
+                            'raw_branch_id'    => $staging->raw_branch_id,
+                            'tanggal_daftar'   => now()->toDateString(),
+                            'pasien_baru_lama' => 'baru',
+                        ]);
+                        $autoCreatedCustomer = true;
+                    } catch (\Throwable $e) {
+                        // Kalau gagal create (mis. constraint), fall back:
+                        // user bisa pakai tombol "Tambah pasien baru di nomor ini"
+                        // di form secara manual.
+                        $matchedCustomer = null;
+                    }
+                }
+
+                $prefill = [
+                    'staging_id'      => $stagingId,
+                    'raw_branch_id'   => $staging->raw_branch_id,
+                    'raw_doctor_id'   => $staging->resolved_raw_doctor_id,
+                    'date'            => $staging->treatment_date?->format('Y-m-d'),
+                    'start_hour'      => $staging->start_hour ? substr($staging->start_hour, 0, 5) : '',
+                    'keterangan'      => $staging->tindakan_text,
+                    'is_waiting'      => (int) $staging->is_waiting,
+                ];
+                if ($matchedCustomer) {
+                    $prefill['raw_customer_id'] = $matchedCustomer->id;
+                }
+
+                // Pass info pasien staging buat banner di form. Status pasien:
+                //   - has_customer=true → pasien sudah ada / atau auto-created
+                //   - auto_created=true → record baru dibuat barusan
+                session()->flash('_staging_source', [
+                    'staging_id'    => $stagingId,
+                    'patient_name'  => $staging->patient_name,
+                    'patient_phone' => $staging->patient_phone,
+                    'has_customer'  => (bool) $matchedCustomer,
+                    'auto_created'  => $autoCreatedCustomer,
+                ]);
+
+                session()->flashInput($prefill);
+                // Preserve ?drawer=1 lewat redirect — kalau request datang dari
+                // rrOpenFormDrawer() (AJAX fetch dgn flag drawer), bare layout
+                // harus tetap dipakai supaya yg ke-inject hanya form, bukan
+                // shell penuh (sidebar/header).
+                $redirectParams = request()->boolean('drawer') ? ['drawer' => 1] : [];
+                return redirect()->route('rawreservation.new', $redirectParams);
+            }
+        }
+
         $sessionBranch = session('raw_branch_id');
 
         // Fallback Database
@@ -633,8 +761,36 @@ class ReservationController extends Controller
             }
         });
 
+        // ── Bridge balik ke staging Impor Sheets ──
+        // Kalau form berasal dari staging row (hidden input `staging_id`),
+        // tandai staging promoted + increment batch counter + redirect balik
+        // ke halaman impor supaya user lanjut row berikutnya tanpa nyasar.
+        $stagingId = request('staging_id');
+        $stagingBatchId = null;
+        if ($stagingId && $reservationId) {
+            $staging = \App\Models\RawCusReservationStaging::find($stagingId);
+            if ($staging && $staging->state === \App\Models\RawCusReservationStaging::STATE_PENDING) {
+                \Illuminate\Support\Facades\DB::transaction(function () use ($staging, $reservationId) {
+                    $staging->state = \App\Models\RawCusReservationStaging::STATE_PROMOTED;
+                    $staging->promoted_to_id = $reservationId;
+                    $staging->updated_at = now();
+                    $staging->updated_by = session('id');
+                    $staging->save();
+                    \Illuminate\Support\Facades\DB::table('raw_reservation_import_batch')
+                        ->where('id', $staging->batch_id)
+                        ->increment('promoted_rows');
+                });
+                $stagingBatchId = $staging->batch_id;
+            }
+        }
+
         if ($this->wantsJsonResponse()) {
             return response()->json(['ok' => true, 'id' => $reservationId, 'message' => 'Reservasi berhasil ditambahkan']);
+        }
+
+        if ($stagingBatchId) {
+            return redirect()->route('rawreservation.import', ['batch_id' => $stagingBatchId])
+                ->with('success', 'Reservasi berhasil dijadwalkan dari staging row.');
         }
 
         return redirect()->route('rawreservation')->with('success', 'Reservasi berhasil ditambahkan');

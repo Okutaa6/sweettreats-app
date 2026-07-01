@@ -2962,38 +2962,83 @@
     margin-bottom: 16px;
 }
 .pc-summary-card {
+    position: relative;
     background: #fff;
     border: 1px solid var(--divider-soft);
-    border-radius: 12px;
-    padding: 16px 18px;
+    border-radius: 14px;
+    padding: 16px 18px 14px;
     box-shadow: 0 1px 3px rgba(70, 21, 0, 0.04);
     transition: box-shadow 0.15s;
+    overflow: hidden;
 }
 .pc-summary-card:hover { box-shadow: 0 4px 12px rgba(70, 21, 0, 0.08); }
+.pc-summary-card__top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 8px;
+}
 .pc-summary-card__label {
     font-size: 11.5px;
     font-weight: 700;
     color: var(--text-muted);
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    margin-bottom: 6px;
+    line-height: 1.25;
+}
+.pc-summary-card__icon {
+    flex: 0 0 auto;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+}
+.pc-summary-card__icon--in  { background: #dcfce7; color: #16a34a; }
+.pc-summary-card__icon--out { background: #fee2e2; color: #dc2626; }
+.pc-summary-card__icon--saldo {
+    background: rgba(255, 255, 255, 0.12);
+    color: rgba(255, 255, 255, 0.85);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16);
 }
 .pc-summary-card__value {
-    font-size: 22px;
+    font-size: 26px;
     font-weight: 800;
     color: var(--brown);
-    line-height: 1.2;
+    line-height: 1.15;
     font-family: 'Montserrat', sans-serif;
+    letter-spacing: -0.01em;
 }
 .pc-summary-card__value--in  { color: #16a34a; }
 .pc-summary-card__value--out { color: #dc2626; }
+.pc-summary-card__sub {
+    margin-top: 4px;
+    font-size: 11.5px;
+    color: var(--text-muted);
+    line-height: 1.35;
+}
 
 .pc-summary-card--highlight {
     background: linear-gradient(135deg, var(--brown) 0%, var(--brown-2) 100%);
     border-color: var(--brown);
 }
-.pc-summary-card--highlight .pc-summary-card__label { color: rgba(255, 255, 255, 0.8); }
+.pc-summary-card--highlight::after {
+    content: "";
+    position: absolute;
+    right: -40px;
+    top: -40px;
+    width: 140px;
+    height: 140px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.08), rgba(255,255,255,0) 70%);
+    pointer-events: none;
+}
+.pc-summary-card--highlight .pc-summary-card__label { color: rgba(255, 255, 255, 0.78); }
 .pc-summary-card--highlight .pc-summary-card__value { color: #fff; }
+.pc-summary-card--highlight .pc-summary-card__sub   { color: rgba(255, 255, 255, 0.7); }
 
 @media (max-width: 900px) {
     .pc-summary-grid { grid-template-columns: repeat(2, 1fr); }
@@ -3027,15 +3072,31 @@
 }
 .pc-source-breakdown__title i { margin-right: 6px; }
 .pc-source-breakdown__hint {
-    margin-top: 10px;
-    font-size: 11.5px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 12px;
+    font-size: 12.5px;
     line-height: 1.5;
     color: #78716c;
     font-weight: 400;
 }
+.pc-source-breakdown__hint-icon {
+    flex: 0 0 auto;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #fed7aa;
+    color: #c2410c;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 700;
+}
 .pc-source-breakdown__hint strong {
-    color: #57534e;
-    font-weight: 600;
+    color: #44403c;
+    font-weight: 700;
 }
 .pc-source-breakdown__actions {
     display: flex;
@@ -3070,6 +3131,36 @@
 }
 .pc-tab-hint strong { color: #334155; }
 .pc-tab-hint em { font-style: italic; color: #1f2937; }
+/* Varian warna per tab — background soft tint + left border kontras */
+.pc-tab-hint--transfer {
+    background: #eff6ff;
+    border-color: #dbeafe;
+    border-left-color: #3b82f6;
+    color: #1e3a8a;
+}
+.pc-tab-hint--transfer strong { color: #1e3a8a; }
+.pc-tab-hint--withdraw {
+    background: #f0fdf4;
+    border-color: #dcfce7;
+    border-left-color: #16a34a;
+    color: #14532d;
+}
+.pc-tab-hint--withdraw strong { color: #14532d; }
+.pc-tab-hint--expense {
+    background: #fef2f2;
+    border-color: #fee2e2;
+    border-left-color: #dc2626;
+    color: #7f1d1d;
+}
+.pc-tab-hint--expense strong { color: #7f1d1d; }
+.pc-tab-hint--deposit {
+    background: #fff7ed;
+    border-color: #fed7aa;
+    border-left-color: #c2410c;
+    color: #7c2d12;
+}
+.pc-tab-hint--deposit strong { color: #7c2d12; }
+
 .pc-source-card {
     padding: 10px 12px;
     border-radius: 8px;
@@ -3105,72 +3196,78 @@
     color: #2563eb;
 }
 
-/* Modal Transfer — preview source asal */
+/* Modal Transfer — preview source asal (kartu SUMBER DANA) */
 .pc-transfer-from {
     padding: 12px 14px;
-    background: linear-gradient(180deg, #f8fafc 0%, #fff 100%);
+    background: #fff;
     border: 1px solid var(--divider-soft);
-    border-radius: 8px;
-    margin-bottom: 12px;
+    border-radius: 12px;
+    margin-bottom: 14px;
+    box-shadow: 0 1px 2px rgba(70, 21, 0, 0.03);
+}
+.pc-transfer-from__row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.pc-transfer-from__info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    line-height: 1.3;
 }
 .pc-transfer-from__label {
     font-size: 10.5px;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: .4px;
-    color: #64748b;
-    margin-bottom: 8px;
+    letter-spacing: .5px;
+    color: var(--text-muted);
+    margin-bottom: 2px;
 }
-.pc-transfer-from__row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-.pc-transfer-from__info {
-    display: flex;
-    flex-direction: column;
-    line-height: 1.3;
-}
-.pc-transfer-from__info strong {
-    font-size: 14px;
+.pc-transfer-from__name {
+    font-size: 15px;
+    font-weight: 800;
     color: #0f172a;
 }
 .pc-transfer-from__bal {
-    font-size: 11.5px;
+    font-size: 12px;
     color: #475569;
+    margin-top: 2px;
 }
-.pc-transfer-from__bal strong { color: #16a34a; }
+.pc-transfer-from__bal strong { color: #16a34a; font-weight: 700; }
+.pc-transfer-from__sep { color: #94a3b8; margin: 0 2px; }
 
-/* Tab switcher di modal Kelola Saldo Sumber Dana */
+/* Tab switcher di modal Kelola Saldo Sumber Dana — pakai tone cream/brown */
 .pc-tab-switcher {
     display: flex;
     gap: 4px;
     margin: 0 0 14px;
-    padding: 4px;
-    background: #f1f5f9;
-    border-radius: 8px;
+    padding: 5px;
+    background: #e8dccf;
+    border-radius: 10px;
 }
 .pc-tab-switcher__btn {
     flex: 1;
-    padding: 8px 10px;
+    padding: 9px 10px;
     border: 0;
     background: transparent;
-    color: #64748b;
-    font-size: 12.5px;
+    color: #8a6a51;
+    font-size: 13px;
     font-weight: 600;
-    border-radius: 6px;
+    border-radius: 7px;
     cursor: pointer;
-    transition: background .15s, color .15s;
+    transition: background .15s, color .15s, box-shadow .15s;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 6px;
 }
-.pc-tab-switcher__btn:hover { color: #334155; }
+.pc-tab-switcher__btn:hover { color: var(--brown); }
 .pc-tab-switcher__btn.is-active {
     background: #fff;
     color: var(--brown);
-    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+    box-shadow: 0 1px 3px rgba(70, 21, 0, 0.10);
 }
 .pc-tab-switcher__btn:disabled,
 .pc-tab-switcher__btn.is-disabled {
@@ -3179,10 +3276,10 @@
 }
 .pc-tab-switcher__btn:disabled:hover,
 .pc-tab-switcher__btn.is-disabled:hover {
-    color: #64748b;
+    color: #8a6a51;
     background: transparent;
 }
-.pc-tab-switcher__btn i { font-size: 11px; }
+.pc-tab-switcher__btn i { font-size: 12px; }
 
 /* Form actions di dalam tab content (replace footer modal terpadu) */
 .pc-form-actions {
@@ -3258,25 +3355,27 @@
 
 /* ─── Inline add nomor rek/HP di preview modal sumber dana ─── */
 .pc-transfer-from__account-add {
+    flex: 0 0 auto;
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    margin-top: 4px;
     flex-wrap: wrap;
+    justify-content: flex-end;
 }
 .pc-transfer-from__add-btn {
     display: inline-flex;
     align-items: center;
-    gap: 5px;
-    padding: 3px 9px;
+    gap: 6px;
+    padding: 7px 14px;
     background: #fff7ed;
-    border: 1px dashed #fdba74;
-    border-radius: 6px;
+    border: 1px solid #fdba74;
+    border-radius: 999px;
     color: #9a3412;
-    font-size: 11.5px;
-    font-weight: 600;
+    font-size: 12.5px;
+    font-weight: 700;
     cursor: pointer;
     transition: all 0.15s ease;
+    white-space: nowrap;
 }
 .pc-transfer-from__add-btn:hover {
     background: #ffedd5;
@@ -3445,9 +3544,9 @@
     gap: 6px;
 }
 .pc-source-inline__name {
-    font-size: 12px;
-    color: #334155;
-    font-weight: 500;
+    font-size: 13px;
+    color: var(--brown);
+    font-weight: 700;
 }
 
 /* Preview badge di bawah dropdown modal */
@@ -4043,10 +4142,20 @@
     font-weight: 700;
 }
 .pc-table .text-right { text-align: right; }
-.pc-date { white-space: nowrap; color: var(--text-muted); font-weight: 600; }
-.pc-cash-in   { color: #16a34a; font-weight: 600; font-variant-numeric: tabular-nums; }
-.pc-cash-out  { color: #dc2626; font-weight: 600; font-variant-numeric: tabular-nums; }
-.pc-saldo-cell { font-variant-numeric: tabular-nums; font-weight: 600; }
+/* `.st-table tbody td { font-weight: 400 }` punya specificity lebih tinggi
+   dari `.pc-date` (0,1,0) — naikkan via descendant cascade. */
+.pc-table tbody td.pc-date,
+.pc-table tfoot td.pc-date { white-space: nowrap; color: var(--brown); font-weight: 700; }
+/* `.st-table tbody td` pakai `color: ... !important` (line ~154) — kita harus
+   pakai !important juga supaya warna cash in/out tidak ke-overwrite jadi brown. */
+.pc-table tbody td.pc-cash-in,
+.pc-table tfoot td.pc-cash-in   { color: #16a34a !important; font-weight: 700; font-variant-numeric: tabular-nums; }
+.pc-table tbody td.pc-cash-out,
+.pc-table tfoot td.pc-cash-out  { color: #dc2626 !important; font-weight: 700; font-variant-numeric: tabular-nums; }
+.pc-table tbody td.pc-saldo-cell,
+.pc-table tfoot td.pc-saldo-cell { font-variant-numeric: tabular-nums; font-weight: 700 !important; color: var(--brown) !important; }
+.pc-table tfoot td.pc-saldo-cell,
+.pc-table tfoot td.pc-saldo-cell strong { font-weight: 800 !important; }
 .pc-muted     { color: var(--text-muted); font-weight: 400; font-size: 12px; }
 .pc-ref { display: block; color: var(--text-muted); font-size: 11px; margin-top: 2px; }
 
@@ -4055,13 +4164,11 @@
 
 .pc-row-topup td {
     background: #fff2a8 !important;
-    color: #713f12;
+    color: var(--brown);
 }
-.pc-row-topup .pc-cash-in { color: #92400e; font-weight: 800; }
+.pc-row-topup .pc-cash-in { color: #16a34a; font-weight: 700; }
 .pc-row-topup td strong {
-    text-transform: uppercase;
-    font-weight: 800;
-    letter-spacing: 0.3px;
+    font-weight: 600;
 }
 
 .pc-row-total td { font-weight: 800; }
@@ -4069,39 +4176,41 @@
 .pc-pill-topup {
     display: inline-block;
     margin-left: 6px;
-    padding: 1px 8px;
+    padding: 2px 9px;
     border-radius: 50px;
-    background: #16a34a;
-    color: #fff;
-    font-size: 10px;
-    font-weight: 800;
-    text-transform: uppercase;
-    letter-spacing: 0.4px;
-}
-.pc-pill-transfer {
-    display: inline-block;
-    margin-left: 6px;
-    padding: 1px 8px;
-    border-radius: 50px;
-    background: #2563eb;
-    color: #fff;
-    font-size: 10px;
-    font-weight: 800;
-    text-transform: uppercase;
-    letter-spacing: 0.4px;
-}
-.pc-pill-category {
-    display: inline-block;
-    margin-left: 6px;
-    padding: 1px 8px;
-    border-radius: 50px;
-    background: #f1f5f9;
-    color: #475569;
+    background: #dcfce7;
+    color: #15803d;
     font-size: 10px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.4px;
-    border: 1px solid #cbd5e1;
+    border: 1px solid #bbf7d0;
+}
+.pc-pill-transfer {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 2px 9px;
+    border-radius: 50px;
+    background: #dbeafe;
+    color: #1e40af;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    border: 1px solid #bfdbfe;
+}
+.pc-pill-category {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 2px 9px;
+    border-radius: 50px;
+    background: #f5e6d3;
+    color: #7c2d12;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    border: 1px solid #e7d4c0;
 }
 .pc-row-actions {
     display: inline-flex;
@@ -4179,59 +4288,90 @@
 }
 
 .pc-icon-btn {
-    background: transparent;
-    border: 1px solid var(--divider-soft);
-    color: #dc2626;
-    width: 30px;
-    height: 30px;
-    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #fff7ed;
+    border: 1px solid #fed7aa;
+    color: #ea580c;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
     cursor: pointer;
     transition: all 0.15s;
 }
 .pc-icon-btn:hover {
-    background: #fee2e2;
-    border-color: #dc2626;
+    background: #ffedd5;
+    border-color: #f97316;
+    color: #c2410c;
 }
+.pc-icon-btn:active { transform: scale(0.96); }
 
 .pc-empty-state {
     text-align: center;
-    padding: 36px 20px;
+    padding: 40px 20px 32px;
     color: var(--text-muted);
 }
-.pc-empty-state i {
-    font-size: 38px;
-    color: var(--divider-soft);
-    margin-bottom: 10px;
+.pc-empty-state__icon {
+    width: 48px;
+    height: 48px;
+    margin: 0 auto 16px;
+    border-radius: 12px;
+    background: var(--cream-header);
+    color: var(--text-muted);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    border: 1px solid var(--divider-soft);
 }
+.pc-empty-state__icon i { margin: 0; color: inherit; font-size: inherit; }
 .pc-empty-state__title {
-    font-size: 14px;
+    font-size: 15px;
     font-weight: 700;
     color: var(--brown);
-    margin-bottom: 4px;
+    margin-bottom: 6px;
 }
 .pc-empty-state__desc {
     font-size: 13px;
-    line-height: 1.6;
-    max-width: 560px;
+    line-height: 1.65;
+    max-width: 620px;
     margin: 6px auto 0;
-    color: #6b7280;
+    color: var(--text-muted);
 }
 .pc-empty-state__desc strong {
-    color: #57534e;
-    font-weight: 600;
+    color: var(--brown);
+    font-weight: 700;
 }
 .pc-empty-state__cta {
-    display: inline-block;
-    margin-top: 10px;
-    padding: 6px 12px;
-    background: #f8fafc;
-    border: 1px dashed #cbd5e1;
-    border-radius: 6px;
-    font-size: 12.5px;
-    color: #475569;
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    margin: 18px auto 0;
+    padding: 10px 16px;
+    background: var(--cream-header);
+    border: 1px solid var(--divider-soft);
+    border-radius: 10px;
+    font-size: 13px;
+    color: var(--text-muted);
     line-height: 1.5;
+    flex-wrap: wrap;
+    justify-content: center;
+    max-width: 620px;
 }
-.pc-empty-state__cta strong { color: #334155; }
+.pc-empty-state__cta-icon {
+    color: #c2410c;
+    font-size: 14px;
+    flex: 0 0 auto;
+}
+.pc-empty-state__cta-text {
+    color: var(--brown);
+    font-weight: 500;
+}
+.pc-empty-state__cta .st-btn-brand {
+    padding: 7px 14px;
+    font-size: 12px;
+}
 .pc-empty-state--inline {
     padding: 18px 16px;
     background: #fef3f2;
@@ -4302,6 +4442,28 @@
     align-items: center;
     gap: 8px;
 }
+/* Variant: header dengan icon-box besar di kiri (modal Kelola Saldo Wallet) */
+.pc-modal__header--wallet { align-items: center; }
+.pc-modal__header--wallet .pc-modal__heading { flex: 1; min-width: 0; }
+.pc-modal__header--wallet .pc-modal__heading > small,
+.pc-modal__header--wallet .pc-modal__heading > .pc-muted {
+    display: block;
+    margin-top: 3px;
+    line-height: 1.45;
+}
+.pc-modal__icon-box {
+    flex: 0 0 auto;
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    background: var(--brown);
+    color: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 17px;
+    box-shadow: 0 2px 6px rgba(70, 21, 0, 0.18);
+}
 .pc-modal__close {
     background: transparent;
     border: none;
@@ -4311,6 +4473,26 @@
     color: var(--text-muted);
 }
 .pc-modal__close:hover { color: var(--brown); }
+/* Variant: tombol close dalam kotak putih (modal Kelola Saldo Wallet) */
+.pc-modal__close--boxed {
+    flex: 0 0 auto;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: #fff;
+    border: 1px solid var(--divider-soft);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    color: var(--text-muted);
+    transition: background .15s, border-color .15s, color .15s;
+}
+.pc-modal__close--boxed:hover {
+    background: var(--cream-header);
+    border-color: var(--brown);
+    color: var(--brown);
+}
 .pc-modal__body { padding: 18px 20px; }
 .pc-modal__footer {
     display: flex;
