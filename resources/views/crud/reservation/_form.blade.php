@@ -24,6 +24,45 @@
                 @method('PUT')
             @endif
 
+            {{-- Hidden input: staging_id propagasi dari Impor Sheets bridge --}}
+            @if(old('staging_id'))
+                <input type="hidden" name="staging_id" value="{{ old('staging_id') }}">
+            @endif
+
+            {{-- Banner: form ini dipicu dari staging row Impor Sheets --}}
+            @if(session('_staging_source'))
+                @php
+                    $stSource = session('_staging_source');
+                    $autoCreated = !empty($stSource['auto_created']);
+                    $hasCustomer = !empty($stSource['has_customer']);
+                @endphp
+                <div class="st-alert st-alert--info" style="margin-bottom:14px;background:#FBE7CF;border-color:#E5C896;color:#6B4628;">
+                    <i class="fa fa-file-import st-alert__icon"></i>
+                    <div class="st-alert__body">
+                        <strong>Jadwalkan dari Impor Sheets:</strong>
+                        {{ $stSource['patient_name'] ?? '—' }}
+                        @if(!empty($stSource['patient_phone']))
+                            · <code style="font-size:0.9em;">{{ $stSource['patient_phone'] }}</code>
+                        @endif
+
+                        @if($autoCreated)
+                            <div style="font-size:0.85em;margin-top:6px;padding:6px 10px;background:#E3F4E8;border-radius:6px;color:#2F7E4D;">
+                                <i class="fa fa-check-circle"></i>
+                                <strong>Record pasien baru dibuat otomatis</strong> dari data staging — sudah ke-pilih di dropdown Pasien di bawah.
+                            </div>
+                        @elseif(!$hasCustomer && !empty($stSource['patient_phone']))
+                            <div style="font-size:0.85em;margin-top:4px;">
+                                Pasien belum ada di database. Klik <strong>"Tambah pasien baru di nomor ini"</strong> di bawah untuk register dulu.
+                            </div>
+                        @endif
+
+                        <div style="font-size:0.85em;margin-top:4px;opacity:0.85;">
+                            Setelah Simpan, staging row akan otomatis di-tandai promoted dan Anda kembali ke halaman impor.
+                        </div>
+                    </div>
+                </div>
+            @endif
+
             <div class="rrf">
                 {{-- ── INFORMASI RESERVASI ── --}}
                 <section class="rrf-sec">
@@ -433,6 +472,18 @@
                     <button class="st-btn-brand rrf-save" type="submit"><i class="fa fa-save"></i> Simpan Perubahan</button>
                     <button type="button" class="st-btn-danger-outline" onclick="deleteReservation()" title="Hapus reservasi"><i class="fa fa-trash"></i></button>
                 @else
+                    @if(old('staging_id'))
+                        {{-- Tombol Simpan Draft: hanya muncul saat form dipicu dari
+                             staging Impor Sheets. Submit ke endpoint draft yg simpan
+                             payload ke staging.draft_payload TANPA bikin reservasi.
+                             User bisa batch promote nanti via "Promote Terpilih". --}}
+                        <button class="st-btn-outline-brown rrf-save" type="submit"
+                            formaction="{{ url('rawreservation/import/staging/' . old('staging_id') . '/save-draft') }}"
+                            formnovalidate
+                            title="Simpan ke staging dulu — promote massal nanti">
+                            <i class="fa fa-bookmark"></i> Simpan Draft
+                        </button>
+                    @endif
                     <button class="st-btn-brand rrf-save" type="submit" id="submitReservationBtn"><i class="fa fa-save"></i> <span id="submitReservationLabel">Simpan Reservasi</span></button>
                 @endif
             </div>

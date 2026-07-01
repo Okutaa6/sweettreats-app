@@ -11,6 +11,7 @@ use App\Http\Controllers\Crud\DocServiceController;
 use App\Http\Controllers\Crud\BranchController;
 use App\Http\Controllers\Crud\CustomerController;
 use App\Http\Controllers\Crud\ReservationController;
+use App\Http\Controllers\Crud\ReservationImportController;
 use App\Http\Controllers\Crud\ReservasiCabangController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Middleware\AuthGuard;
@@ -257,6 +258,22 @@ Route::middleware([AuthGuard::class])->group(function () {
     Route::get('rawreservation/new', [ReservationController::class, 'create'])->name('rawreservation.new');
     Route::post('rawreservation/new', [ReservationController::class, 'store'])->name('rawreservation.store');
     Route::post('rawreservation/quick-patient', [ReservationController::class, 'storeQuickPatient'])->name('rawreservation.quickpatient');
+
+    // CRUD - Reservation Import (CSV/Sheets → Staging → Promote)
+    // PENTING: harus di-deklarasi SEBELUM `rawreservation/{id}` supaya
+    // `/rawreservation/import` tidak ke-capture wildcard `{id}` di line bawah.
+    Route::get('rawreservation/import',                          [ReservationImportController::class, 'index'])->name('rawreservation.import');
+    Route::post('rawreservation/import/upload',                  [ReservationImportController::class, 'upload'])->name('rawreservation.import.upload');
+    Route::patch('rawreservation/import/staging/{id}',           [ReservationImportController::class, 'update'])->name('rawreservation.import.staging.update');
+    Route::post('rawreservation/import/staging/{id}/save-draft', [ReservationImportController::class, 'saveDraft'])->name('rawreservation.import.staging.save-draft');
+    Route::post('rawreservation/import/staging/{id}/promote',    [ReservationImportController::class, 'promoteOne'])->name('rawreservation.import.staging.promote');
+    Route::post('rawreservation/import/staging/{id}/skip',       [ReservationImportController::class, 'skipOne'])->name('rawreservation.import.staging.skip');
+    Route::post('rawreservation/import/bulk-promote',            [ReservationImportController::class, 'promoteBulk'])->name('rawreservation.import.bulk-promote');
+    Route::post('rawreservation/import/bulk-skip',               [ReservationImportController::class, 'skipBulk'])->name('rawreservation.import.bulk-skip');
+    Route::post('rawreservation/import/batch/{id}/auto-process', [ReservationImportController::class, 'autoProcess'])->name('rawreservation.import.batch.auto-process');
+    Route::post('rawreservation/import/batch/{id}/rematch-doctors', [ReservationImportController::class, 'reMatchDoctors'])->name('rawreservation.import.batch.rematch-doctors');
+    Route::delete('rawreservation/import/batch/{id}',            [ReservationImportController::class, 'destroyBatch'])->name('rawreservation.import.batch.destroy');
+
     Route::get('rawreservation/{id}', [ReservationController::class, 'edit'])->name('rawreservation.edit');
     Route::put('rawreservation/{id}', [ReservationController::class, 'update'])->name('rawreservation.update');
     Route::delete('rawreservation/{id}', [ReservationController::class, 'destroy'])->name('rawreservation.destroy');
