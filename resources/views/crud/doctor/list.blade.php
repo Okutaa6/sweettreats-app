@@ -61,8 +61,15 @@
             </div>
         </div>
 
-        {{-- ══════ Control row: search + Filter (mode Tabel) + toggle Tabel|Jadwal Semua ══════ --}}
+        {{-- ══════ Control row: Tambah (admin) + search + Filter (mode Tabel) + toggle Tabel|Jadwal Semua ══════ --}}
         <div class="dx-controls">
+            {{-- Tambah dokter = non-Sales (Admin/Admin General/Super Admin/Admin Backup).
+                 Sama seperti edit profil, Sales read-only untuk data dokter (nama/foto).
+                 Guard server-side ada di DoctorController::create/store. --}}
+            @if(session('group_name') !== 'Sales')
+                {{-- href = fallback halaman penuh kalau JS mati; JS intercept → buka drawer. --}}
+                <a href="{{ route('rawdoctor.new') }}" class="dx-btn dx-btn--primary" id="dxAddBtn"><i class="fa fa-plus"></i> Tambah Dokter</a>
+            @endif
             @if($view === 'tabel')
                 <form method="GET" action="{{ route('rawdoctor') }}" class="dx-search">
                     @if(($seg ?? 'semua') !== 'semua')<input type="hidden" name="seg" value="{{ $seg }}">@endif
@@ -318,5 +325,77 @@
 
     </div>
 </div>
+
+{{-- ════════ TAMBAH DOKTER DRAWER (slide dari kanan) — non-Sales ════════
+     Reuse pola .dxj-drawer dari halaman edit (jadwal). Form statis, POST biasa
+     ke rawdoctor.store; kalau validasi gagal → redirect balik ke list, drawer
+     auto-open lagi dengan old('name') + pesan error. --}}
+@if(session('group_name') !== 'Sales')
+<div class="dxj-overlay" id="dxAddOverlay"></div>
+<div class="dxj-drawer" id="dxAddDrawer" aria-hidden="true">
+    <div class="dxj-drawer__head">
+        <span class="dxj-drawer__title"><i class="fa fa-user-plus" style="margin-right:8px;"></i>Tambah Dokter</span>
+        <button type="button" class="dxj-drawer__close" id="dxAddClose" aria-label="Tutup">&times;</button>
+    </div>
+    <div class="dxj-drawer__body">
+        <form id="dxAddForm" method="POST" action="{{ route('rawdoctor.store') }}" enctype="multipart/form-data" style="display:flex; flex-direction:column; gap:16px;">
+            @csrf
+            <div>
+                <label class="dxd-edit__label">Nama Dokter <span style="color:#C0392B;">*</span></label>
+                <input type="text" id="dxAddName" name="name" class="dxd-input {{ $errors->has('name') ? 'dxd-input--err' : '' }}" value="{{ old('name') }}" placeholder="Mis: drg. Andi Sp.Ort" autocomplete="off" required>
+                @error('name')<div class="dxd-err" style="display:block; margin-top:6px;">{{ $message }}</div>@enderror
+                <div class="dxj-hint" style="margin-top:6px;">Spesialisasi otomatis terbaca dari akhiran nama (mis. “Sp.Ort” → Orthodonti).</div>
+            </div>
+            <div>
+                <label class="dxd-edit__label">Foto Dokter</label>
+                <input type="file" name="photo" accept="image/jpeg,image/png,image/webp" class="dxd-input {{ $errors->has('photo') ? 'dxd-input--err' : '' }}">
+                @error('photo')<div class="dxd-err" style="display:block; margin-top:6px;">{{ $message }}</div>@enderror
+                <div class="dxj-hint" style="margin-top:6px;">Opsional. Format JPG/PNG/WebP, maksimal 2 MB.</div>
+            </div>
+        </form>
+    </div>
+    <div class="dxj-drawer__foot">
+        <button type="button" class="dx-btn" id="dxAddCancel">Batal</button>
+        <button type="submit" form="dxAddForm" class="dx-btn dx-btn--primary" style="flex:1; justify-content:center;"><i class="fa fa-save"></i> Simpan Dokter</button>
+    </div>
+</div>
+
+<script>
+(function () {
+    var overlay = document.getElementById('dxAddOverlay');
+    var drawer  = document.getElementById('dxAddDrawer');
+    var openBtn = document.getElementById('dxAddBtn');
+    if (!overlay || !drawer) return;
+
+    function openDrawer() {
+        overlay.classList.add('is-open');
+        drawer.classList.add('is-open');
+        drawer.setAttribute('aria-hidden', 'false');
+        var name = document.getElementById('dxAddName');
+        if (name) setTimeout(function () { name.focus(); }, 130);
+    }
+    function closeDrawer() {
+        overlay.classList.remove('is-open');
+        drawer.classList.remove('is-open');
+        drawer.setAttribute('aria-hidden', 'true');
+    }
+
+    if (openBtn) openBtn.addEventListener('click', function (e) { e.preventDefault(); openDrawer(); });
+    overlay.addEventListener('click', closeDrawer);
+    ['dxAddClose', 'dxAddCancel'].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el) el.addEventListener('click', closeDrawer);
+    });
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && drawer.classList.contains('is-open')) closeDrawer();
+    });
+
+    // Validasi gagal di store() → balik ke list dengan errors: buka lagi drawer-nya.
+    @if($errors->has('name') || $errors->has('photo'))
+        openDrawer();
+    @endif
+})();
+</script>
+@endif
 @endsection
 
