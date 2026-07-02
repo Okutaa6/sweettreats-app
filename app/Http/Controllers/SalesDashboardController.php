@@ -186,10 +186,14 @@ class SalesDashboardController extends Controller
     private function buildKpi(Carbon $date, string $anchor, array $branchIds, array $placeIds): array
     {
         $monthStart = $date->copy()->startOfMonth()->format('Y-m-d');
-        $prevDay    = $date->copy()->subDay()->format('Y-m-d');
+        // Omnicare sync jalan nightly → data "hari ini" biasanya belum lengkap
+        // sampai next sync. Tile ini pakai H-1 (kemarin) supaya angkanya
+        // reliable, dibandingkan H-2 untuk tren harian.
+        $yday    = $date->copy()->subDay()->format('Y-m-d');
+        $prevDay = $date->copy()->subDays(2)->format('Y-m-d');
 
-        $revenueToday = $this->omnicareNet($placeIds, $anchor, $anchor);
-        $revenueYday  = $this->omnicareNet($placeIds, $prevDay, $prevDay);
+        $revenueYday = $this->omnicareNet($placeIds, $yday, $yday);
+        $revenuePrev = $this->omnicareNet($placeIds, $prevDay, $prevDay);
 
         $resv = DB::table('raw_cus_reservation')
             ->whereIn('raw_branch_id', $branchIds)
@@ -213,8 +217,8 @@ class SalesDashboardController extends Controller
         }
 
         return [
-            'revenue_today'     => $revenueToday,
-            'revenue_delta'     => $revenueToday - $revenueYday,
+            'revenue_yday'      => $revenueYday,
+            'revenue_delta'     => $revenueYday - $revenuePrev,
             'reservasi_today'   => (int) ($resv->total ?? 0),
             'reservasi_pending' => (int) ($resv->pending ?? 0),
             'pasien_baru_mtd'   => $pasienBaru,

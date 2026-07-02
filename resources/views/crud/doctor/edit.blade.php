@@ -186,7 +186,12 @@
                                 </div>
                                 @foreach($dayLabels as $dn => $dl)
                                     <div class="dxj-col" data-day="{{ $dn }}" data-branch="{{ $b->id }}">
-                                        @foreach(($schedByBranch[$b->id] ?? collect())->where('day', $dn) as $s)
+                                        @php
+                                            $dayShifts = ($schedByBranch[$b->id] ?? collect())
+                                                ->where('day', $dn)
+                                                ->filter(fn ($s) => ($s->type ?? 'work') !== 'break');
+                                        @endphp
+                                        @foreach($dayShifts as $s)
                                             @php
                                                 $sd = $hourDec($s->start_hour); $ed = $hourDec($s->end_hour);
                                                 $top = max(0, ($sd - $H0) * $PXH);
@@ -194,10 +199,18 @@
                                                 $cap = (int) round(($ed - $sd) * 2);
                                                 $fill = $shiftFill[$s->id] ?? 0;
                                                 $pct = $cap > 0 ? min(100, (int) round($fill / $cap * 100)) : 0;
+                                                // Child istirahat dari row work ini → dipakai buat inline overlay + payload edit modal.
+                                                $breakChildren = $schedules->where('parent_id', $s->id)->where('type', 'break')->sortBy('start_hour')->values();
+                                                $breaksJson = $breakChildren->map(fn ($b) => [
+                                                    'id'    => $b->id,
+                                                    'start' => substr($b->start_hour, 0, 5),
+                                                    'end'   => substr($b->end_hour, 0, 5),
+                                                ])->toJson(JSON_UNESCAPED_UNICODE);
                                             @endphp
                                             <div class="dxj-block" style="top:{{ $top }}px; height:{{ $hgt }}px; background:{{ $spec['color'] }};"
                                                  data-id="{{ $s->id }}" data-day="{{ $s->day }}" data-branch="{{ $s->raw_branch_id }}"
-                                                 data-start="{{ substr($s->start_hour, 0, 5) }}" data-end="{{ substr($s->end_hour, 0, 5) }}">
+                                                 data-start="{{ substr($s->start_hour, 0, 5) }}" data-end="{{ substr($s->end_hour, 0, 5) }}"
+                                                 data-breaks='{{ $breaksJson }}'>
                                                 <div class="dxj-block__rz dxj-block__rz--top" title="Seret untuk ubah jam mulai"></div>
                                                 <div class="dxj-block__time">{{ substr($s->start_hour, 0, 5) }}–{{ substr($s->end_hour, 0, 5) }}</div>
                                                 <div class="dxj-block__br">{{ $b->name }}</div>
@@ -207,6 +220,26 @@
                                                         <span class="dxj-util-count">{{ $fill }}/{{ $cap }}</span>
                                                     </div>
                                                 @endif
+
+                                                {{-- Inline overlay istirahat: strip diagonal + label REST HH:MM–HH:MM.
+                                                     pointer-events:none supaya drag block induk tidak ke-block. --}}
+                                                @foreach($breakChildren as $bk)
+                                                    @php
+                                                        $bsD = $hourDec($bk->start_hour);
+                                                        $beD = $hourDec($bk->end_hour);
+                                                        $brkTop = max(0, ($bsD - $sd) * $PXH);
+                                                        $brkHgt = max(6, ($beD - $bsD) * $PXH);
+                                                    @endphp
+                                                    <div class="dxj-block__break"
+                                                         style="top:{{ $brkTop }}px; height:{{ $brkHgt }}px;"
+                                                         title="Istirahat {{ substr($bk->start_hour, 0, 5) }}–{{ substr($bk->end_hour, 0, 5) }}">
+                                                        <span class="dxj-block__break-lbl">
+                                                            <i class="fa fa-mug-hot" style="font-size:8px; margin-right:2px;"></i>
+                                                            {{ substr($bk->start_hour, 0, 5) }}–{{ substr($bk->end_hour, 0, 5) }}
+                                                        </span>
+                                                    </div>
+                                                @endforeach
+
                                                 <div class="dxj-block__rz" title="Seret untuk ubah durasi"></div>
                                             </div>
                                         @endforeach
@@ -416,7 +449,7 @@
 
     </div>
 
-    {{-- ════════ SCHEDULE DRAWER (tambah/edit jam kerja) ════════ --}}
+    {{-- ════════ SCHEDULE DRAWER (tambah/edit jam kerja / jam istirahat) ════════ --}}
     <div class="dxj-overlay" id="dxjOverlay"></div>
     <div class="dxj-drawer" id="dxjDrawer" aria-hidden="true">
         <div class="dxj-drawer__head">
@@ -424,34 +457,69 @@
             <button type="button" class="dxj-drawer__close" id="dxjClose">&times;</button>
         </div>
         <div class="dxj-drawer__body">
+            {{-- Tab switcher: Jadwal (jam kerja) vs Istirahat (ISOMA). --}}
+            <div class="dxj-modal-tabs" role="tablist">
+                <button type="button" class="dxj-modal-tab is-on" data-tab="jadwal" id="dxjTabJadwal">
+                    <i class="fa fa-briefcase" style="font-size:10px;"></i> Jadwal
+                </button>
+                <button type="button" class="dxj-modal-tab" data-tab="istirahat" id="dxjTabIstirahat">
+                    <i class="fa fa-mug-hot" style="font-size:10px;"></i> Istirahat
+                    <span id="dxjBreakBadge" class="dxj-modal-tab__badge" style="display:none;">0</span>
+                </button>
+            </div>
+
             <form id="dxjForm" method="POST">
                 @csrf
                 <input type="hidden" name="_method" id="dxjMethod" value="PUT" disabled>
-                <div class="dxj-field2">
-                    <div>
-                        <label class="dxd-edit__label">Hari</label>
-                        <select class="dx-select" name="day" id="dxjDay" required>
-                            @foreach(['1'=>'Senin','2'=>'Selasa','3'=>'Rabu','4'=>'Kamis','5'=>'Jumat','6'=>'Sabtu','7'=>'Minggu'] as $dv => $dn)
-                                <option value="{{ $dv }}">{{ $dn }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <div>
-                        <label class="dxd-edit__label">Cabang</label>
-                        <select class="dx-select" name="raw_branch_id" id="dxjBranch" required>
-                            <option value="">- Pilih -</option>
-                            @foreach($branches as $b)<option value="{{ $b->id }}">{{ $b->name }}</option>@endforeach
-                        </select>
-                    </div>
-                    <div>
-                        <label class="dxd-edit__label">Jam Mulai</label>
-                        <input type="time" class="dxd-input" name="start_hour" id="dxjStart" step="300" required>
-                    </div>
-                    <div>
-                        <label class="dxd-edit__label">Jam Selesai</label>
-                        <input type="time" class="dxd-input" name="end_hour" id="dxjEnd" step="300" required>
+
+                {{-- ── Panel Jadwal ── --}}
+                <div class="dxj-modal-panel" data-panel="jadwal">
+                    <div class="dxj-field2">
+                        <div>
+                            <label class="dxd-edit__label">Hari</label>
+                            <select class="dx-select" name="day" id="dxjDay" required>
+                                @foreach(['1'=>'Senin','2'=>'Selasa','3'=>'Rabu','4'=>'Kamis','5'=>'Jumat','6'=>'Sabtu','7'=>'Minggu'] as $dv => $dn)
+                                    <option value="{{ $dv }}">{{ $dn }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div>
+                            <label class="dxd-edit__label">Cabang</label>
+                            <select class="dx-select" name="raw_branch_id" id="dxjBranch" required>
+                                <option value="">- Pilih -</option>
+                                @foreach($branches as $b)<option value="{{ $b->id }}">{{ $b->name }}</option>@endforeach
+                            </select>
+                        </div>
+                        <div>
+                            <label class="dxd-edit__label">Jam Mulai</label>
+                            <input type="time" class="dxd-input" name="start_hour" id="dxjStart" step="300" required>
+                        </div>
+                        <div>
+                            <label class="dxd-edit__label">Jam Selesai</label>
+                            <input type="time" class="dxd-input" name="end_hour" id="dxjEnd" step="300" required>
+                        </div>
                     </div>
                 </div>
+
+                {{-- ── Panel Istirahat (ISOMA) ──
+                     Setiap dokter beda-beda, bisa lebih dari 1 (istirahat pagi +
+                     siang). Range yg dimasukkan otomatis DI-EXCLUDE dari slot
+                     bookable di calendar admin & public /reservasi. --}}
+                <div class="dxj-modal-panel" data-panel="istirahat" style="display:none;">
+                    <div class="dxj-breaks-hint" style="margin-bottom:12px;">
+                        Slot pada rentang ini otomatis tidak muncul di calendar & tidak bisa direservasi pasien. Istirahat harus berada di dalam rentang jam kerja.
+                    </div>
+                    <div id="dxjBreaksList" class="dxj-breaks-list"></div>
+                    <div id="dxjBreaksEmpty" class="dxj-breaks-empty">
+                        <i class="fa fa-mug-hot" style="font-size:18px; opacity:.5;"></i>
+                        <div>Belum ada jam istirahat</div>
+                        <small>Klik tombol di bawah untuk menambah.</small>
+                    </div>
+                    <button type="button" class="dxj-break-add" id="dxjBreakAdd">
+                        <i class="fa fa-plus" style="font-size:10px;"></i> Tambah Istirahat
+                    </button>
+                </div>
+
                 <div class="dxd-err" id="dxjErr" style="display:none; margin-top:12px;"></div>
             </form>
         </div>
@@ -588,10 +656,71 @@
         var title = document.getElementById('dxjTitle'), del = document.getElementById('dxjDelete'), delForm = document.getElementById('dxjDeleteForm');
         var day = document.getElementById('dxjDay'), branch = document.getElementById('dxjBranch');
         var start = document.getElementById('dxjStart'), end = document.getElementById('dxjEnd'), err = document.getElementById('dxjErr');
+        var breaksList = document.getElementById('dxjBreaksList');
+        var breakAddBtn = document.getElementById('dxjBreakAdd');
+        var breaksEmpty = document.getElementById('dxjBreaksEmpty');
+        var breakBadge = document.getElementById('dxjBreakBadge');
+        var modalTabs = drawer.querySelectorAll('.dxj-modal-tab');
+        var modalPanels = drawer.querySelectorAll('.dxj-modal-panel');
 
         function openDrawer() { overlay.classList.add('is-open'); drawer.classList.add('is-open'); }
         function closeDrawer() { overlay.classList.remove('is-open'); drawer.classList.remove('is-open'); }
         function currentBranch() { var t = document.querySelector('.dxj-tab.is-active'); return t ? t.dataset.dxjBranch : ''; }
+
+        // ── Tab switcher di modal (Jadwal <-> Istirahat) ───────────────────
+        function setModalTab(name) {
+            modalTabs.forEach(function (t) { t.classList.toggle('is-on', t.dataset.tab === name); });
+            modalPanels.forEach(function (p) { p.style.display = p.dataset.panel === name ? '' : 'none'; });
+        }
+        modalTabs.forEach(function (t) {
+            t.addEventListener('click', function () { setModalTab(t.dataset.tab); });
+        });
+
+        // ── Repeater istirahat ─────────────────────────────────────────────
+        function updateBreakUI() {
+            var n = breaksList.querySelectorAll('.dxj-break-row').length;
+            breaksEmpty.style.display = n === 0 ? '' : 'none';
+            breakBadge.textContent = n;
+            breakBadge.style.display = n > 0 ? '' : 'none';
+        }
+        function makeBreakRow(bs, be, id) {
+            var row = document.createElement('div');
+            row.className = 'dxj-break-row';
+            row.innerHTML =
+                '<input type="hidden" name="breaks[__IDX__][id]" value="' + (id || '') + '">' +
+                '<div class="dxj-break-row__fields">' +
+                    '<div>' +
+                        '<label class="dxd-edit__label">Mulai</label>' +
+                        '<input type="time" class="dxd-input dxj-break-row__start" name="breaks[__IDX__][start_hour]" step="300" value="' + (bs || '') + '" required>' +
+                    '</div>' +
+                    '<div>' +
+                        '<label class="dxd-edit__label">Selesai</label>' +
+                        '<input type="time" class="dxd-input dxj-break-row__end" name="breaks[__IDX__][end_hour]" step="300" value="' + (be || '') + '" required>' +
+                    '</div>' +
+                '</div>' +
+                '<button type="button" class="dxj-break-row__del" title="Hapus istirahat ini">&times;</button>';
+            row.querySelector('.dxj-break-row__del').addEventListener('click', function () {
+                row.remove();
+                reindexBreaks();
+                updateBreakUI();
+            });
+            return row;
+        }
+        function reindexBreaks() {
+            // Rename semua field name breaks[__IDX__] → breaks[0], breaks[1], dst
+            Array.prototype.forEach.call(breaksList.querySelectorAll('.dxj-break-row'), function (row, i) {
+                row.querySelectorAll('input').forEach(function (inp) {
+                    inp.name = inp.name.replace(/breaks\[[^\]]*\]/, 'breaks[' + i + ']');
+                });
+            });
+        }
+        function addBreakRow(bs, be, id) {
+            breaksList.appendChild(makeBreakRow(bs, be, id));
+            reindexBreaks();
+            updateBreakUI();
+        }
+        function resetBreaks() { breaksList.innerHTML = ''; updateBreakUI(); }
+        breakAddBtn.addEventListener('click', function () { addBreakRow('', ''); });
 
         function pad2(n) { return (n < 10 ? '0' : '') + n; }
         function openAdd(d, b, startHour) {
@@ -602,12 +731,17 @@
                 start.value = pad2(startHour) + ':00';
                 end.value = pad2(Math.min(21, startHour + 1)) + ':00';
             } else { start.value = ''; end.value = ''; }
+            resetBreaks();
+            setModalTab('jadwal');
             del.style.display = 'none'; err.style.display = 'none'; openDrawer();
         }
         function openEdit(o) {
             title.textContent = 'Ubah Jam Kerja';
             form.action = updateTpl.replace('__ID__', o.id); method.disabled = false; method.value = 'PUT';
             day.value = o.day; branch.value = o.branch; start.value = o.start; end.value = o.end;
+            resetBreaks();
+            (o.breaks || []).forEach(function (b) { addBreakRow(b.start, b.end, b.id); });
+            setModalTab('jadwal');
             delForm.action = destroyTpl.replace('__ID__', o.id);
             del.style.display = ''; err.style.display = 'none'; openDrawer();
         }
@@ -722,7 +856,13 @@
             if (!drag) return;
             var d = drag; drag = null; d.el.classList.remove('is-dragging');
             if (!d.moved) { // tak bergerak = klik biasa → buka edit
-                openEdit({ id: d.id, day: d.day, branch: d.el.dataset.branch, start: d.el.dataset.start, end: d.el.dataset.end });
+                var breaks = [];
+                try { breaks = JSON.parse(d.el.dataset.breaks || '[]'); } catch (e) { breaks = []; }
+                openEdit({
+                    id: d.id, day: d.day, branch: d.el.dataset.branch,
+                    start: d.el.dataset.start, end: d.el.dataset.end,
+                    breaks: breaks,
+                });
                 return;
             }
             function revert() {
@@ -730,7 +870,6 @@
                 d.el.style.top = d.oTop + 'px'; d.el.style.height = d.oHgt + 'px';
                 var t = d.el.querySelector('.dxj-block__time'); if (t) t.textContent = d.el.dataset.start + '–' + d.el.dataset.end;
             }
-            // cek bentrok dengan blok lain di kolom (hari+cabang) tujuan
             var clash = false, col = d.el.closest('.dxj-col');
             if (col) col.querySelectorAll('.dxj-block').forEach(function (o) {
                 if (o === d.el) return;
@@ -742,13 +881,25 @@
                 method: 'PATCH',
                 headers: { 'X-CSRF-TOKEN': CSRF, 'Accept': 'application/json', 'Content-Type': 'application/json' },
                 body: JSON.stringify({ day: d.day, start_hour: ns, end_hour: ne }),
-            }).then(function (r) { if (!r.ok) throw new Error('http ' + r.status); return r.json(); })
+            }).then(function (r) {
+                    if (!r.ok) return r.json().then(function (j) { throw new Error(j.message || ('http ' + r.status)); });
+                    return r.json();
+                })
               .then(function () { d.el.dataset.start = ns; d.el.dataset.end = ne; d.el.dataset.day = d.day; dxToast('Jam kerja diperbarui', 'saved'); })
-              .catch(function () { revert(); dxToast('Gagal menyimpan — coba lagi', 'error'); });
+              .catch(function (err) { revert(); dxToast(err && err.message ? err.message : 'Gagal menyimpan — coba lagi', 'error'); });
         });
         form.addEventListener('submit', function (e) {
+            function fail(msg, tab) { e.preventDefault(); err.textContent = msg; err.style.display = ''; if (tab) setModalTab(tab); }
             if (start.value && end.value && end.value <= start.value) {
-                e.preventDefault(); err.textContent = 'Jam selesai harus setelah jam mulai.'; err.style.display = '';
+                return fail('Jam selesai harus setelah jam mulai.', 'jadwal');
+            }
+            var rows = breaksList.querySelectorAll('.dxj-break-row');
+            for (var i = 0; i < rows.length; i++) {
+                var bs = rows[i].querySelector('.dxj-break-row__start').value;
+                var be = rows[i].querySelector('.dxj-break-row__end').value;
+                if (!bs || !be) return fail('Istirahat #' + (i + 1) + ': lengkapi jam mulai & selesai.', 'istirahat');
+                if (be <= bs) return fail('Istirahat #' + (i + 1) + ': selesai harus setelah mulai.', 'istirahat');
+                if (bs < start.value || be > end.value) return fail('Istirahat #' + (i + 1) + ' harus di dalam rentang jam kerja.', 'istirahat');
             }
         });
         del.addEventListener('click', function () {

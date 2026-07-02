@@ -99,8 +99,18 @@ body.redesign-reservasi .st-btn-outline-brown {
 body.redesign-reservasi .st-btn-outline-brown:hover,
 body.redesign-reservasi .st-btn-outline-brown.is-active {
     background: linear-gradient(135deg, #7A3415, #461500);
-    color: #fff;
+    color: #fff !important;
     border-color: transparent;
+}
+/* Icon inside outline-brown pun ikut putih on hover/active — base css set
+   warna coklat gelap yang tidak ter-override kalau tanpa aturan spesifik. */
+body.redesign-reservasi .st-btn-outline-brown:hover i,
+body.redesign-reservasi .st-btn-outline-brown.is-active i {
+    color: #fff !important;
+}
+/* Kecualikan varian Export Excel — icon-nya khas hijau, tetap dipertahankan. */
+body.redesign-reservasi .st-btn-outline-brown.st-btn-excel:hover i {
+    color: #86efac !important;
 }
 
 /* ── 7. View tabs — segmented, brown gradient saat aktif ─────────────────── */
@@ -322,6 +332,14 @@ body.redesign-reservasi .st-table tbody tr.st-day-row:hover td {
     border-bottom: 1px solid var(--divider-strong);
     box-shadow: none;
 }
+/* Baris header tanggal bukan clickable row — cursor tetap default (bukan
+   tangan). Override rule generic .st-table--clickable yg bikin semua tr
+   dianggap clickable. Button .st-day-sort di dalamnya tetap punya cursor
+   pointer via rule spesifiknya. */
+body.redesign-reservasi .st-table tbody tr.st-day-row,
+body.redesign-reservasi .st-table tbody tr.st-day-row td {
+    cursor: default;
+}
 body.redesign-reservasi .st-day-dot {
     display: inline-block; width: 7px; height: 7px; border-radius: 50%;
     background: var(--st-pending-accent); margin-right: 9px; vertical-align: middle;
@@ -332,6 +350,48 @@ body.redesign-reservasi .st-day-count {
     min-width: 20px; height: 18px; padding: 0 7px; margin-left: 9px;
     border-radius: 10px; background: #EAD9C3; color: var(--brown-2);
     font-size: 11px; font-weight: 700; vertical-align: middle;
+}
+/* Tombol "Urut: hari ini di atas" — di baris header tanggal. Pill button
+   dengan kontras yg cukup + shadow supaya keliatan sebagai button (bukan
+   badge/chip pasif). Active state pakai warna orange pending. */
+body.redesign-reservasi .st-day-sort {
+    float: right; display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 13px; border-radius: 999px;
+    font-size: 12px; font-weight: 700; letter-spacing: .2px;
+    text-decoration: none; cursor: pointer; user-select: none;
+    background: #FFFFFF; color: var(--brown-2, #7A3415);
+    border: 1.5px solid #C9A88A;
+    box-shadow: 0 1.5px 0 rgba(122, 52, 21, .06), 0 2px 6px rgba(122, 52, 21, .10);
+    transition: background .15s ease, border-color .15s ease, box-shadow .15s ease, transform .1s ease, color .15s ease;
+}
+body.redesign-reservasi .st-day-sort:hover {
+    background: #EAD9C3; color: var(--brown, #461500);
+    border-color: var(--brown, #461500); border-width: 1.5px;
+    box-shadow: 0 3px 10px rgba(70, 21, 0, .22), inset 0 -2px 0 rgba(70, 21, 0, .08);
+    text-decoration: none;
+}
+body.redesign-reservasi .st-day-sort:active {
+    transform: translateY(1px);
+    box-shadow: 0 1px 3px rgba(70, 21, 0, .18);
+}
+body.redesign-reservasi .st-day-sort i { font-size: 11px; opacity: .95; }
+body.redesign-reservasi .st-day-sort--active {
+    background: linear-gradient(135deg, #7A3415 0%, #461500 100%);
+    color: #fff;
+    border-color: #3D1200;
+    box-shadow: 0 1.5px 0 rgba(0, 0, 0, .12), 0 3px 8px rgba(70, 21, 0, .28);
+}
+body.redesign-reservasi .st-day-sort--active:hover {
+    background: linear-gradient(135deg, #8A3E1B 0%, #5A2410 100%);
+    color: #fff;
+    border-color: #2E0F00;
+    box-shadow: 0 3px 10px rgba(70, 21, 0, .38);
+    transform: none;
+}
+body.redesign-reservasi .st-day-sort--active:active {
+    background: linear-gradient(135deg, #6B2400 0%, #3B1100 100%);
+    transform: none;
+    box-shadow: 0 2px 6px rgba(70, 21, 0, .25);
 }
 
 /* Sel Pasien: nama di atas, telepon (click-to-WA) di bawah */
@@ -391,16 +451,12 @@ body.redesign-reservasi .st-fu-ro { font-size: 11px; color: var(--text-muted); m
 
 /* ── 17. (Promo/Klaim dipindah ke drawer — kolom dihapus dari list) ──────── */
 
-/* ── 18. Tombol "Filter Aktif" — cream + chevron (bukan brown gelap) ──────── */
+/* ── 18. Tombol Filter — hover/active samakan dengan .st-btn-outline-brown
+   generic (brown gradient + putih). Rule ini di-hapus dari yang lama supaya
+   fallback ke rule generic; hanya sisakan chev + gap-nya. ──────── */
 body.redesign-reservasi .st-btn-filter { gap: 6px; }
-body.redesign-reservasi .st-btn-filter:hover,
-body.redesign-reservasi .st-btn-filter.is-active {
-    background: #F3E2CE !important;
-    color: var(--brown) !important;
-    border-color: #E7C9AC !important;
-}
 body.redesign-reservasi .st-btn-filter-chev {
-    font-size: 10px; margin-left: 4px; opacity: .65;
+    font-size: 10px; margin-left: 4px; opacity: .9;
     transition: transform .2s ease;
 }
 body.redesign-reservasi .st-btn-filter[aria-expanded="true"] .st-btn-filter-chev { transform: rotate(180deg); }

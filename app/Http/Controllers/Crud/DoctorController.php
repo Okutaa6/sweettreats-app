@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Crud;
 
 use App\Http\Controllers\Controller;
+use App\Models\RawCusReservation;
 use App\Models\RawDoctor;
 use App\Models\RawDoctorSchedule;
 use App\Models\RawDoctorScheduleException;
@@ -823,21 +824,27 @@ class DoctorController extends Controller
             'day' => 'required|numeric|min:1|max:7',
             'start_hour' => 'required',
             'end_hour' => 'required',
+            'breaks'   => 'nullable|array',
+            'breaks.*.start_hour' => 'required_with:breaks.*.end_hour|date_format:H:i',
+            'breaks.*.end_hour'   => 'required_with:breaks.*.start_hour|date_format:H:i|after:breaks.*.start_hour',
         ]);
 
         $this->assertBranchAllowed(request('raw_branch_id'));
 
         $doctor = RawDoctor::findOrFail($doctorId);
 
-        RawDoctorSchedule::create([
+        $work = RawDoctorSchedule::create([
             'raw_doctor_id' => $doctor->id,
             'raw_branch_id' => request('raw_branch_id'),
             'day' => request('day'),
             'start_hour' => request('start_hour'),
             'end_hour' => request('end_hour'),
+            'type' => RawDoctorSchedule::TYPE_WORK,
             'created_by' => session('id'),
             'created_at' => now(),
         ]);
+
+        $this->syncBreaks($work, request('breaks', []));
 
         return redirect()->route('rawdoctor.edit', [$doctorId, 'tab' => 'jadwal'])->with('success', 'Jadwal berhasil ditambahkan');
     }
@@ -849,6 +856,9 @@ class DoctorController extends Controller
             'day' => 'required|numeric|min:1|max:7',
             'start_hour' => 'required',
             'end_hour' => 'required',
+            'breaks'   => 'nullable|array',
+            'breaks.*.start_hour' => 'required_with:breaks.*.end_hour|date_format:H:i',
+            'breaks.*.end_hour'   => 'required_with:breaks.*.start_hour|date_format:H:i|after:breaks.*.start_hour',
         ]);
 
         $schedule = RawDoctorSchedule::where('raw_doctor_id', $doctorId)
@@ -863,11 +873,93 @@ class DoctorController extends Controller
             'day' => request('day'),
             'start_hour' => request('start_hour'),
             'end_hour' => request('end_hour'),
+            'type' => RawDoctorSchedule::TYPE_WORK,
             'updated_by' => session('id'),
             'updated_at' => now(),
         ]);
 
+        $this->syncBreaks($schedule, request('breaks', []));
+
         return redirect()->route('rawdoctor.edit', [$doctorId, 'tab' => 'jadwal'])->with('success', 'Jadwal berhasil diubah');
+    }
+
+    /**
+     * Sinkronisasi child istirahat untuk sebuah row jam kerja. Strategi
+     * "replace": hapus semua child existing lalu insert ulang dari input.
+     * Sederhana + aman (jumlah break umumnya <5 per shift), IDs dari
+     * frontend hanya dipakai untuk consistency check (bisa di-ignore).
+     * Validasi range di dalam work + warning kalau overlap reservasi.
+     */
+    private function syncBreaks(RawDoctorSchedule $work, array $breaks): void
+    {
+        // Hapus semua child existing dulu (idempotent replace).
+        RawDoctorSchedule::where('parent_id', $work->id)
+            ->where('type', RawDoctorSchedule::TYPE_BREAK)
+            ->delete();
+
+        if (empty($breaks)) return;
+
+        $workStart = \Carbon\Carbon::parse($work->start_hour)->format('H:i:s');
+        $workEnd   = \Carbon\Carbon::parse($work->end_hour)->format('H:i:s');
+        $overlapTotal = 0;
+
+        foreach ($breaks as $b) {
+            $bs = trim($b['start_hour'] ?? '');
+            $be = trim($b['end_hour'] ?? '');
+            if ($bs === '' || $be === '') continue;
+
+            $bsN = \Carbon\Carbon::parse($bs)->format('H:i:s');
+            $beN = \Carbon\Carbon::parse($be)->format('H:i:s');
+
+            // Silent skip kalau out-of-range (frontend sudah validasi, backend
+            // guard tambahan; kalau lolos backend berarti data invalid dari
+            // manual POST — jangan bocor tapi jangan hard-error juga).
+            if ($bsN < $workStart || $beN > $workEnd || $bsN >= $beN) continue;
+
+            RawDoctorSchedule::create([
+                'raw_doctor_id' => $work->raw_doctor_id,
+                'raw_branch_id' => $work->raw_branch_id,
+                'day'           => $work->day,
+                'start_hour'    => $bsN,
+                'end_hour'      => $beN,
+                'type'          => RawDoctorSchedule::TYPE_BREAK,
+                'parent_id'     => $work->id,
+                'created_by'    => session('id'),
+                'created_at'    => now(),
+            ]);
+
+            $overlapTotal += $this->countReservationOverlap(
+                $work->raw_doctor_id, $work->raw_branch_id, (int) $work->day, $bsN, $beN
+            );
+        }
+
+        if ($overlapTotal > 0) {
+            session()->flash('warning', "Ada {$overlapTotal} reservasi existing yang jam-nya overlap dengan jam istirahat. Mohon review manual.");
+        }
+    }
+
+    /**
+     * Hitung reservasi future yang jam-nya overlap dengan window istirahat
+     * pada hari kerja (day) itu. Dipakai buat generate warning message.
+     */
+    private function countReservationOverlap($doctorId, $branchId, int $day, string $bs, string $be): int
+    {
+        // ISO day 1..7 (Mon..Sun) → MySQL DAYOFWEEK 1..7 (Sun..Sat).
+        $mysqlDow = $day === 7 ? 1 : $day + 1;
+
+        return RawCusReservation::where('raw_doctor_id', $doctorId)
+            ->where('raw_branch_id', $branchId)
+            ->whereNotNull('start_hour')
+            ->whereNotNull('end_hour')
+            ->where('start_hour', '<', $be)
+            ->where('end_hour', '>', $bs)
+            ->whereRaw('DAYOFWEEK(date) = ?', [$mysqlDow])
+            ->where('date', '>=', now()->toDateString())
+            ->where(function ($q) {
+                $q->where('status', '!=', RawCusReservation::STATUS_CANCELLED)
+                  ->orWhereNull('status');
+            })
+            ->count();
     }
 
     public function scheduleDestroy($doctorId, $scheduleId)
@@ -877,6 +969,14 @@ class DoctorController extends Controller
 
         $this->assertBranchAllowed($schedule->raw_branch_id);
 
+        // Cascade: kalau parent work row dihapus, semua child istirahat ikut
+        // hilang (tidak boleh jadi orphan).
+        if (($schedule->type ?? RawDoctorSchedule::TYPE_WORK) === RawDoctorSchedule::TYPE_WORK) {
+            RawDoctorSchedule::where('parent_id', $schedule->id)
+                ->where('type', RawDoctorSchedule::TYPE_BREAK)
+                ->delete();
+        }
+
         $schedule->delete();
 
         return redirect()->route('rawdoctor.edit', [$doctorId, 'tab' => 'jadwal'])->with('success', 'Jadwal berhasil dihapus');
@@ -884,8 +984,12 @@ class DoctorController extends Controller
 
     public function schedulesJson($doctorId)
     {
+        // FullCalendar payload — hanya row jam kerja (work). Break rows di-load
+        // dari relasi child (bukan sebagai event mandiri di FullCalendar) supaya
+        // event feed tidak dobel dgn overlay istirahat.
         $schedules = RawDoctorSchedule::with('branch')
             ->where('raw_doctor_id', $doctorId)
+            ->where(function ($q) { $q->where('type', '!=', RawDoctorSchedule::TYPE_BREAK)->orWhereNull('type'); })
             ->get();
 
         $dayNames = [1 => 'Senin', 2 => 'Selasa', 3 => 'Rabu', 4 => 'Kamis', 5 => 'Jumat', 6 => 'Sabtu', 7 => 'Minggu'];
@@ -926,6 +1030,10 @@ class DoctorController extends Controller
 
         $this->assertBranchAllowed($schedule->raw_branch_id);
 
+        // Drag/resize cuma ubah jam & hari — tipe (work/break) di-preserve
+        // apa adanya. Tidak perlu validasi khusus antar-tipe di sini karena
+        // work & break bisa overlap dalam kolom yang sama (memang begitu
+        // by design: break diletakkan di atas work).
         $schedule->update([
             'day'        => request('day'),
             'start_hour' => request('start_hour'),
@@ -950,23 +1058,44 @@ class DoctorController extends Controller
 
         // Cek overlap terhadap kumpulan shift yang sudah ada (live, termasuk yg
         // baru disalin) — dibandingkan sebagai string jam 'HH:MM:SS'.
+        // HANYA cek antar-sesama work.
         $overlaps = function ($existing, $day, $branch, $start, $end) {
             foreach ($existing as $e) {
+                if (($e->type ?? RawDoctorSchedule::TYPE_WORK) === RawDoctorSchedule::TYPE_BREAK) continue;
                 if ((int) $e->day === (int) $day && $e->raw_branch_id === $branch
                     && $start < $e->end_hour && $e->start_hour < $end) return true;
             }
             return false;
         };
-        $make = function ($doctorId, $branch, $day, $start, $end) {
-            return RawDoctorSchedule::create([
+        // Copy 1 work row + semua child istirahat-nya.
+        $make = function ($doctorId, $branch, $day, $srcWork) {
+            $newWork = RawDoctorSchedule::create([
                 'raw_doctor_id' => $doctorId,
                 'raw_branch_id' => $branch,
                 'day'           => $day,
-                'start_hour'    => $start,
-                'end_hour'      => $end,
+                'start_hour'    => $srcWork->start_hour,
+                'end_hour'      => $srcWork->end_hour,
+                'type'          => RawDoctorSchedule::TYPE_WORK,
                 'created_by'    => session('id'),
                 'created_at'    => now(),
             ]);
+            $childBreaks = RawDoctorSchedule::where('parent_id', $srcWork->id)
+                ->where('type', RawDoctorSchedule::TYPE_BREAK)
+                ->get();
+            foreach ($childBreaks as $cb) {
+                RawDoctorSchedule::create([
+                    'raw_doctor_id' => $doctorId,
+                    'raw_branch_id' => $branch,
+                    'day'           => $day,
+                    'start_hour'    => $cb->start_hour,
+                    'end_hour'      => $cb->end_hour,
+                    'type'          => RawDoctorSchedule::TYPE_BREAK,
+                    'parent_id'     => $newWork->id,
+                    'created_by'    => session('id'),
+                    'created_at'    => now(),
+                ]);
+            }
+            return $newWork;
         };
 
         $added = 0;
@@ -983,8 +1112,11 @@ class DoctorController extends Controller
             $srcDay  = (int) request('src_day');
             $targets = array_unique(array_map('intval', request('days', [])));
 
+            // Cuma copy work rows (break ikut lewat parent).
             $srcShifts = RawDoctorSchedule::where('raw_doctor_id', $doctorId)
-                ->where('raw_branch_id', $branch)->where('day', $srcDay)->get();
+                ->where('raw_branch_id', $branch)->where('day', $srcDay)
+                ->where(function ($q) { $q->where('type', '!=', RawDoctorSchedule::TYPE_BREAK)->orWhereNull('type'); })
+                ->get();
             $existing  = RawDoctorSchedule::where('raw_doctor_id', $doctorId)
                 ->where('raw_branch_id', $branch)->get();
 
@@ -992,7 +1124,7 @@ class DoctorController extends Controller
                 if ($day === $srcDay) continue;
                 foreach ($srcShifts as $sh) {
                     if ($overlaps($existing, $day, $branch, $sh->start_hour, $sh->end_hour)) continue;
-                    $existing->push($make($doctorId, $branch, $day, $sh->start_hour, $sh->end_hour));
+                    $existing->push($make($doctorId, $branch, $day, $sh));
                     $added++;
                 }
             }
@@ -1007,13 +1139,15 @@ class DoctorController extends Controller
             $this->assertBranchAllowed($to);
 
             $srcShifts = RawDoctorSchedule::where('raw_doctor_id', $doctorId)
-                ->where('raw_branch_id', $src)->get();
+                ->where('raw_branch_id', $src)
+                ->where(function ($q) { $q->where('type', '!=', RawDoctorSchedule::TYPE_BREAK)->orWhereNull('type'); })
+                ->get();
             $existing  = RawDoctorSchedule::where('raw_doctor_id', $doctorId)
                 ->where('raw_branch_id', $to)->get();
 
             foreach ($srcShifts as $sh) {
                 if ($overlaps($existing, $sh->day, $to, $sh->start_hour, $sh->end_hour)) continue;
-                $existing->push($make($doctorId, $to, $sh->day, $sh->start_hour, $sh->end_hour));
+                $existing->push($make($doctorId, $to, $sh->day, $sh));
                 $added++;
             }
         }

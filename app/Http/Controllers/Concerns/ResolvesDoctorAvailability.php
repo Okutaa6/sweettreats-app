@@ -27,8 +27,11 @@ trait ResolvesDoctorAvailability
      */
     protected function computeAvailableDates($branchId, $doctorId): array
     {
+        // Hanya hari yang punya WORK row yang dianggap "praktik" — hari yang
+        // cuma berisi baris istirahat tidak boleh muncul sebagai bookable date.
         $scheduleDays = RawDoctorSchedule::where('raw_branch_id', $branchId)
             ->where('raw_doctor_id', $doctorId)
+            ->where('type', '!=', RawDoctorSchedule::TYPE_BREAK)
             ->pluck('day')
             ->unique()
             ->toArray();
@@ -296,15 +299,25 @@ trait ResolvesDoctorAvailability
     {
         $dayOfWeek = Carbon::parse($date)->dayOfWeekIso;
 
-        $ranges = RawDoctorSchedule::where('raw_branch_id', $branchId)
+        // Ambil SEMUA row jadwal (work + break) untuk (dokter, cabang, hari).
+        // Work range di-subtract dengan break range supaya jam istirahat tidak
+        // masuk pool slot bookable — otomatis efektif di admin CRUD & public
+        // /reservasi karena keduanya lewat computeTimeSlots() → sini.
+        $rows = RawDoctorSchedule::where('raw_branch_id', $branchId)
             ->where('raw_doctor_id', $doctorId)
             ->where('day', $dayOfWeek)
             ->orderBy('start_hour')
-            ->get()
-            ->map(fn($s) => [
-                'start_hour' => $s->start_hour,
-                'end_hour'   => $s->end_hour,
-            ]);
+            ->get();
+
+        $workRows  = $rows->where('type', '!=', RawDoctorSchedule::TYPE_BREAK);
+        $breakRows = $rows->where('type', RawDoctorSchedule::TYPE_BREAK);
+
+        $ranges = collect();
+        foreach ($workRows as $w) {
+            foreach ($this->subtractBreaks($w->start_hour, $w->end_hour, $breakRows) as $r) {
+                $ranges->push($r);
+            }
+        }
 
         if (config('features.flexible_scheduling')) {
             $exceptions = RawDoctorScheduleException::where('raw_doctor_id', $doctorId)
@@ -331,6 +344,60 @@ trait ResolvesDoctorAvailability
         }
 
         return $ranges;
+    }
+
+    /**
+     * Subtract kumpulan break dari 1 range work → list of sub-range yang
+     * masih bookable. Break yang di luar range diabaikan. Support N break
+     * (bisa overlap parsial atau nested — semua di-normalize dulu).
+     *
+     * @param  \Illuminate\Support\Collection|iterable  $breakRows
+     * @return array<int,array{start_hour:string,end_hour:string}>
+     */
+    protected function subtractBreaks($workStart, $workEnd, $breakRows)
+    {
+        $ws = Carbon::parse($workStart)->format('H:i:s');
+        $we = Carbon::parse($workEnd)->format('H:i:s');
+
+        // Collect break intervals yang beririsan dengan work, di-clamp ke
+        // batas work supaya subtract-nya aman.
+        $breaks = [];
+        foreach ($breakRows as $b) {
+            $bs = Carbon::parse($b->start_hour)->format('H:i:s');
+            $be = Carbon::parse($b->end_hour)->format('H:i:s');
+            if ($be <= $ws || $bs >= $we) continue;         // di luar work
+            $breaks[] = [max($bs, $ws), min($be, $we)];
+        }
+
+        if (empty($breaks)) {
+            return [['start_hour' => $workStart, 'end_hour' => $workEnd]];
+        }
+
+        // Merge overlap antar break supaya subtract cukup 1x pass.
+        usort($breaks, fn($a, $b) => strcmp($a[0], $b[0]));
+        $merged = [$breaks[0]];
+        for ($i = 1; $i < count($breaks); $i++) {
+            $last = &$merged[count($merged) - 1];
+            if ($breaks[$i][0] <= $last[1]) {
+                $last[1] = max($last[1], $breaks[$i][1]);
+            } else {
+                $merged[] = $breaks[$i];
+            }
+        }
+
+        // Iterasi: potong work di setiap break.
+        $result = [];
+        $cursor = $ws;
+        foreach ($merged as [$bs, $be]) {
+            if ($cursor < $bs) {
+                $result[] = ['start_hour' => $cursor, 'end_hour' => $bs];
+            }
+            $cursor = max($cursor, $be);
+        }
+        if ($cursor < $we) {
+            $result[] = ['start_hour' => $cursor, 'end_hour' => $we];
+        }
+        return $result;
     }
 
     /**

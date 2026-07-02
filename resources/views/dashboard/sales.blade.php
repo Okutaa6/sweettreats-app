@@ -26,15 +26,15 @@
     {{-- ════ KPI strip ════ --}}
     <div class="sds-kpis">
         @php
-            $deltaTxt = $kpi['revenue_today'] == 0
-                ? 'belum ada transaksi hari ini'
-                : ($kpi['revenue_delta'] >= 0 ? '▲ ' : '▼ ') . $rp(abs($kpi['revenue_delta'])) . ' dari kemarin';
+            $deltaTxt = $kpi['revenue_yday'] == 0
+                ? 'belum ada transaksi kemarin'
+                : ($kpi['revenue_delta'] >= 0 ? '▲ ' : '▼ ') . $rp(abs($kpi['revenue_delta'])) . ' dari hari sebelumnya';
         @endphp
         <div class="sds-kpi">
             <div class="sds-chip" style="background:#FBE7D2;color:#C0791F;"><i class="fa fa-coins"></i></div>
-            <div class="sds-kpi__label">Penjualan Hari Ini</div>
-            <div class="sds-kpi__val">{{ $rp($kpi['revenue_today']) }}</div>
-            <div class="sds-kpi__sub {{ $kpi['revenue_today'] > 0 && $kpi['revenue_delta'] >= 0 ? 'is-ok' : ($kpi['revenue_delta'] < 0 ? 'is-warn' : '') }}">{{ $deltaTxt }}</div>
+            <div class="sds-kpi__label">Penjualan Kemarin</div>
+            <div class="sds-kpi__val">{{ $rp($kpi['revenue_yday']) }}</div>
+            <div class="sds-kpi__sub {{ $kpi['revenue_yday'] > 0 && $kpi['revenue_delta'] >= 0 ? 'is-ok' : ($kpi['revenue_delta'] < 0 ? 'is-warn' : '') }}">{{ $deltaTxt }}</div>
         </div>
         <div class="sds-kpi">
             <div class="sds-chip" style="background:#E4ECFB;color:#3C5FA8;"><i class="fa fa-calendar-alt"></i></div>

@@ -568,11 +568,7 @@
                                                 @if ($isFirstDayRow)
                                                     <a href="{{ $sortDateUrl }}"
                                                        class="st-day-sort {{ $sortDateActive ? 'st-day-sort--active' : '' }}"
-                                                       title="{{ $sortDateTitle }}"
-                                                       style="float:right; font-size:12px; font-weight:700; padding:3px 11px; border-radius:12px; text-decoration:none;
-                                                              {{ $sortDateActive
-                                                                  ? 'background:var(--st-pending-accent, #E8842B); color:#fff; border:1px solid var(--st-pending-accent, #E8842B);'
-                                                                  : 'background:#EAD9C3; color:var(--brown-2, #7A3415); border:1px solid #EAD9C3;' }}">
+                                                       title="{{ $sortDateTitle }}">
                                                         <i class="fa fa-arrow-up"></i>
                                                         {{ $sortDateActive ? 'Hari ini di atas · aktif' : 'Urut: hari ini di atas' }}
                                                     </a>
