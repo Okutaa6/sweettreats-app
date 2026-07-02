@@ -17,7 +17,7 @@
         <div class="cl-hero__left">
             <h5 class="cl-hero__title">
                 <span class="cl-hero__icon"><i class="fas fa-clipboard-check"></i></span>
-                Monitoring Checklist Hari Ini
+                Monitoring Checklist Kegiatan
             </h5>
             <p class="cl-hero__subtitle">
                 Periode <strong>{{ $today->translatedFormat('l, d F Y') }}</strong>
