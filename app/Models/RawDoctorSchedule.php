@@ -12,6 +12,9 @@ class RawDoctorSchedule extends Model
 
     protected $table = 'raw_doctor_schedule';
 
+    const TYPE_WORK  = 'work';
+    const TYPE_BREAK = 'break';
+
     protected $fillable = [
         'id',
         'raw_doctor_id',
@@ -19,6 +22,8 @@ class RawDoctorSchedule extends Model
         'day',
         'start_hour',
         'end_hour',
+        'type',
+        'parent_id',
         'created_at',
         'created_by',
         'updated_at',

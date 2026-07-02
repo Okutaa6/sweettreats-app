@@ -8,8 +8,6 @@ use App\Models\FundSourceBranchAccount;
 use App\Models\PettyCashPeriod;
 use App\Models\PettyCashTransaction;
 use App\Models\RawBranch;
-use App\Models\TransportCostPeriod;
-use App\Models\TransportCostTransaction;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -23,12 +21,8 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx as XlsxWriter;
 /**
  * PettyCashController
  *
- * Mengelola 2 module yang strukturnya identik tapi tabel terpisah:
- *   - tab=petty_cash  → tabel petty_cash_*       (kas kecil umum, float 1.500.000)
- *   - tab=transport   → tabel transport_cost_*   (biaya transport,  float 1.000.000)
- *
- * Semua method (index/store/topup/destroy/close) terima parameter `tab`
- * (default petty_cash) lalu pakai class model yang sesuai.
+ * Kas kecil per cabang dengan model imprest (dana tetap, default 1.500.000).
+ * Tabel: petty_cash_periods + petty_cash_transactions.
  *
  * Branch scoping:
  *   - Sales (session('raw_branch_id') terisi) → lock ke cabangnya, tidak
@@ -38,32 +32,20 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx as XlsxWriter;
  */
 class PettyCashController extends Controller
 {
-    private const KINDS = [
-        'petty_cash' => [
-            'label'         => 'Petty Cash',
-            'period_model'  => PettyCashPeriod::class,
-            'trx_model'     => PettyCashTransaction::class,
-            'default_float' => 1500000,
-        ],
-        'transport' => [
-            'label'         => 'Biaya Transportasi',
-            'period_model'  => TransportCostPeriod::class,
-            'trx_model'     => TransportCostTransaction::class,
-            'default_float' => 1000000,
-        ],
-    ];
+    private const KIND          = 'petty_cash';
+    private const LABEL         = 'Petty Cash';
+    private const DEFAULT_FLOAT = 1500000;
 
     /* ───────── Helpers ───────── */
 
     private function kind(Request $request): string
     {
-        $k = (string) $request->get('tab', 'petty_cash');
-        return isset(self::KINDS[$k]) ? $k : 'petty_cash';
+        return self::KIND;
     }
 
-    private function periodClass(string $kind): string { return self::KINDS[$kind]['period_model']; }
-    private function trxClass(string $kind):    string { return self::KINDS[$kind]['trx_model']; }
-    private function defaultFloat(string $kind): int   { return (int) self::KINDS[$kind]['default_float']; }
+    private function periodClass(string $kind): string { return PettyCashPeriod::class; }
+    private function trxClass(string $kind):    string { return PettyCashTransaction::class; }
+    private function defaultFloat(string $kind): int   { return self::DEFAULT_FLOAT; }
 
     /**
      * Resolve branch yang sedang diakses:
@@ -94,8 +76,8 @@ class PettyCashController extends Controller
     }
 
     /**
-     * Float default (imprest) per kind, dengan override per cabang dari
-     * raw_branch.{petty_cash,transport_cost}_default_float kalau di-set.
+     * Float default (imprest), dengan override per cabang dari
+     * raw_branch.petty_cash_default_float kalau di-set.
      */
     private function defaultFloatForBranch(string $kind, ?string $branchId): float
     {
@@ -118,10 +100,22 @@ class PettyCashController extends Controller
         return $params;
     }
 
+    /**
+     * Gate untuk action yang mengubah data petty cash. Role Finance hanya
+     * view-only — tidak boleh tambah/edit/hapus transaksi, top-up, mutasi,
+     * tutup periode, dll. Panggil di awal setiap action mutating.
+     */
+    private function requireWriteAccess(): void
+    {
+        if (! canEditPettyCash()) {
+            abort(403, 'Role Finance hanya bisa melihat data Petty Cash (view-only). Mutasi data wajib dilakukan dari role cabang / admin.');
+        }
+    }
+
     /* ───────── Actions ───────── */
 
     /**
-     * GET /pettycash?tab={kind}
+     * GET /pettycash
      */
     public function index(Request $request)
     {
@@ -193,6 +187,15 @@ class PettyCashController extends Controller
             $branchId,
         );
 
+        $fundSources        = FundSource::active()->orderBy('sort_order')->orderBy('name')->get();
+        $fundSourcesGrouped = $fundSources->groupBy('category');
+
+        // Filter wallet — validate ke fund_sources aktif. Invalid → diabaikan.
+        $fundSourceId = (int) $request->get('fund_source_id', 0);
+        if ($fundSourceId > 0 && ! $fundSources->contains('id', $fundSourceId)) {
+            $fundSourceId = 0;
+        }
+
         $transactions = $trxClass::active()
             ->with('fundSource')
             ->forPeriod($period->id)
@@ -202,12 +205,12 @@ class PettyCashController extends Controller
             ->when($category !== '', function ($q) use ($category) {
                 $q->where('category', $category);
             })
+            ->when($fundSourceId > 0, function ($q) use ($fundSourceId) {
+                $q->where('fund_source_id', $fundSourceId);
+            })
             ->orderBy('trx_date')
             ->orderBy('id')
             ->get();
-
-        $fundSources        = FundSource::active()->orderBy('sort_order')->orderBy('name')->get();
-        $fundSourcesGrouped = $fundSources->groupBy('category');
 
         // Map: source_id → account_number untuk cabang ini. Dipakai untuk
         // pre-fill input account di modal top-up & untuk tampil di card.
@@ -226,14 +229,16 @@ class PettyCashController extends Controller
         ];
 
         $isCurrentMonth = $period->isCurrentMonth();
-        $isReadOnly     = (bool) $period->is_closed || ! $isCurrentMonth;
+        // Role Finance view-only: ikut path read-only yang sudah ada supaya
+        // semua tombol write otomatis hilang di view, modal, dan filter.
+        $isFinanceViewOnly = ! canEditPettyCash();
+        $isReadOnly        = (bool) $period->is_closed || ! $isCurrentMonth || $isFinanceViewOnly;
 
-        // Tabs metadata untuk view
-        $tabs = collect(self::KINDS)->map(fn ($cfg, $k) => [
-            'kind'   => $k,
-            'label'  => $cfg['label'],
-            'active' => $k === $kind,
-        ])->values()->all();
+        $tabs = [[
+            'kind'   => $kind,
+            'label'  => self::LABEL,
+            'active' => true,
+        ]];
 
         // Branch dropdown data — kosong untuk Sales (di-lock), berisi
         // semua cabang untuk admin.
@@ -241,25 +246,31 @@ class PettyCashController extends Controller
         $branches      = $sessionBranch ? collect() : RawBranch::orderBy('name')->get();
         $activeBranch  = $branchId ? RawBranch::find($branchId) : null;
 
+        // Status pengajuan top-up Sales untuk cabang aktif: kalau ada yang
+        // pending, _summary_cards bisa tampil badge "menunggu Finance".
+        $pendingTopupCount = $branchId
+            ? \App\Models\TopupRequest::pending()->forBranch($branchId)->count()
+            : 0;
+
         return view('crud.pettycash.index', compact(
             'period', 'rows', 'summary', 'sourceBalances',
             'year', 'month', 'bulanLabel',
             'startDate', 'endDate', 'monthStartStr', 'monthEndStr',
-            'search', 'category', 'categoryOptions',
-            'isCurrentMonth', 'isReadOnly',
+            'search', 'category', 'categoryOptions', 'fundSourceId',
+            'isCurrentMonth', 'isReadOnly', 'isFinanceViewOnly',
             'kind', 'tabs', 'fundSources', 'fundSourcesGrouped',
             'branches', 'activeBranch', 'branchId', 'sessionBranch',
-            'branchAccountMap'
+            'branchAccountMap', 'pendingTopupCount'
         ));
     }
 
     /**
-     * GET /pettycash/export?tab={kind}&branch=&start_date=&end_date=
+     * GET /pettycash/export?tab={kind}&branch=&start_date=&end_date=&category=&q=&fund_source_id=
      *
      * Export CSV transaksi periode aktif untuk cabang aktif. Hanya export
      * baris TOP UP & PENGELUARAN — transfer / tarik tunai di-skip
-     * (internal movement, bukan cash flow nyata). Ikut filter date range
-     * yang sama dengan view index.
+     * (internal movement, bukan cash flow nyata). Ikut filter yang sama
+     * dengan view index: date range, kategori, search keterangan, wallet.
      */
     public function export(Request $request)
     {
@@ -295,6 +306,22 @@ class PettyCashController extends Controller
         $startDate = $startCarbon->format('Y-m-d');
         $endDate   = $endCarbon->format('Y-m-d');
 
+        // Filter tambahan — match dengan filter di view index supaya
+        // hasil export = data yang user lihat di layar.
+        $search       = trim((string) $request->get('q', ''));
+        $category     = (string) $request->get('category', '');
+        $categoryMap  = $trxClass::CATEGORIES;
+        if ($category !== '' && ! array_key_exists($category, $categoryMap)) {
+            $category = '';
+        }
+        $fundSourceId = (int) $request->get('fund_source_id', 0);
+        if ($fundSourceId > 0 && ! FundSource::whereKey($fundSourceId)->exists()) {
+            $fundSourceId = 0;
+        }
+        $walletName = $fundSourceId > 0
+            ? (string) FundSource::whereKey($fundSourceId)->value('name')
+            : '';
+
         // Tarik HANYA top up & pengeluaran (skip transfer).
         $transactions = $trxClass::active()
             ->with('fundSource')
@@ -307,6 +334,15 @@ class PettyCashController extends Controller
             })
             ->whereDate('trx_date', '>=', $startDate)
             ->whereDate('trx_date', '<=', $endDate)
+            ->when($search !== '', function ($q) use ($search) {
+                $q->where('description', 'like', "%{$search}%");
+            })
+            ->when($category !== '', function ($q) use ($category) {
+                $q->where('category', $category);
+            })
+            ->when($fundSourceId > 0, function ($q) use ($fundSourceId) {
+                $q->where('fund_source_id', $fundSourceId);
+            })
             ->orderBy('trx_date')
             ->orderBy('id')
             ->get();
@@ -315,8 +351,8 @@ class PettyCashController extends Controller
         $branchSlug = $branch
             ? preg_replace('/[^a-z0-9]+/i', '-', strtolower($branch->name))
             : 'all';
-        $kindSlug   = $kind === 'transport' ? 'biaya-transportasi' : 'petty-cash';
-        $kindLabel  = $kind === 'transport' ? 'Biaya Transportasi' : 'Petty Cash';
+        $kindSlug   = 'petty-cash';
+        $kindLabel  = self::LABEL;
         $filename   = sprintf('%s_%s_%s_%s.xlsx', $kindSlug, $branchSlug, $startDate, $endDate);
 
         $spreadsheet = new Spreadsheet();
@@ -327,7 +363,16 @@ class PettyCashController extends Controller
         $sheet->setCellValue('A1', 'Modul');   $sheet->setCellValue('B1', $kindLabel);
         $sheet->setCellValue('A2', 'Cabang');  $sheet->setCellValue('B2', $branch ? $branch->name : '-');
         $sheet->setCellValue('A3', 'Periode'); $sheet->setCellValue('B3', $startDate . ' s/d ' . $endDate);
-        $sheet->getStyle('A1:A3')->getFont()->setBold(true);
+
+        // Rangkum filter aktif (kalau ada) jadi 1 baris — biar user tahu
+        // export ini hasil dari filter mana.
+        $filterParts = [];
+        if ($walletName !== '')      $filterParts[] = 'Wallet: ' . $walletName;
+        if ($category !== '')        $filterParts[] = 'Kategori: ' . ($categoryMap[$category] ?? $category);
+        if ($search !== '')          $filterParts[] = 'Cari: "' . $search . '"';
+        $sheet->setCellValue('A4', 'Filter');
+        $sheet->setCellValue('B4', empty($filterParts) ? '-' : implode(' · ', $filterParts));
+        $sheet->getStyle('A1:A4')->getFont()->setBold(true);
 
         // ─── Header tabel (row 5) ───
         $headerRow = 5;
@@ -488,6 +533,7 @@ class PettyCashController extends Controller
      */
     public function store(Request $request)
     {
+        $this->requireWriteAccess();
         $kind = $this->kind($request);
         $periodClass = $this->periodClass($kind);
         $trxClass    = $this->trxClass($kind);
@@ -547,6 +593,7 @@ class PettyCashController extends Controller
      */
     public function topup(Request $request)
     {
+        $this->requireWriteAccess();
         $kind = $this->kind($request);
         $periodClass = $this->periodClass($kind);
         $trxClass    = $this->trxClass($kind);
@@ -572,23 +619,8 @@ class PettyCashController extends Controller
         $this->abortIfReadOnly($period);
         $this->abortIfBranchMismatch($request, $period);
 
+        $source = FundSource::findOrFail($data['fund_source_id']);
         $attachmentPath = $this->storeAttachment($request, $data['trx_date']);
-
-        // Account number opsional — diisi user di form top up untuk Bank
-        // (no rekening) atau E-Wallet (no telepon). Cash diabaikan karena
-        // tidak punya nomor. Disimpan di tabel fund_source_branch_accounts
-        // per (cabang, source) — bank cabang A ≠ bank cabang B.
-        $acct = isset($data['account_number']) ? trim((string) $data['account_number']) : '';
-        if ($acct !== '' && $period->raw_branch_id) {
-            $source = FundSource::find($data['fund_source_id']);
-            if ($source && in_array($source->category, [FundSource::CAT_BANK, FundSource::CAT_EWALLET], true)) {
-                FundSourceBranchAccount::upsertFor(
-                    (string) $period->raw_branch_id,
-                    (int) $source->id,
-                    $acct,
-                );
-            }
-        }
 
         // Mode:
         //   is_topup=1 (default) → top up biasa, dihitung di "Total Top Up"
@@ -596,30 +628,94 @@ class PettyCashController extends Controller
         //                          tidak menambah angka "Total Top Up" walau
         //                          saldo fisik tetap naik.
         $isTopup = ! array_key_exists('is_topup', $data) || (bool) $data['is_topup'];
-        if ($isTopup) {
-            $defaultLabel = $kind === 'transport' ? 'Top up biaya transportasi' : 'Top up kasir';
-            $successMsg   = 'Top up saldo berhasil dicatat.';
-        } else {
-            $defaultLabel = 'Setor cash langsung';
-            $successMsg   = 'Setoran cash berhasil dicatat (tidak dihitung sebagai top up).';
-        }
+        $successMsg = $isTopup
+            ? 'Top up saldo berhasil dicatat.'
+            : 'Setoran cash berhasil dicatat (tidak dihitung sebagai top up).';
 
-        $trxClass::create([
-            'period_id'       => $period->id,
-            'trx_date'        => $data['trx_date'],
-            'description'     => $data['description'] ?: $defaultLabel,
-            'direction'       => $trxClass::DIR_IN,
-            'amount'          => $data['amount'],
-            'fund_source_id'  => $data['fund_source_id'],
-            'is_topup'        => $isTopup ? 1 : 0,
-            'ref_no'          => $data['ref_no'] ?? null,
-            'attachment_path' => $attachmentPath,
-            'created_by'      => session('id'),
-        ]);
+        $service = new \App\Services\PettyCashTopupService();
+        $service->maybeUpsertAccount($period, $source, $data['account_number'] ?? null);
+        $service->createTopupTransaction(
+            $period,
+            $source,
+            (float) $data['amount'],
+            $data['description'] ?? null,
+            $attachmentPath,
+            (string) session('id'),
+            $isTopup,
+            $data['trx_date'],
+            $data['ref_no'] ?? null,
+        );
 
         return redirect()
             ->route('pettycash', $this->preserveParams($kind))
             ->with('success', $successMsg);
+    }
+
+    /**
+     * POST /pettycash/topup-request
+     *
+     * Submit pengajuan top-up. Tidak langsung create transaksi pettycash —
+     * hanya insert ke topup_requests (status pending) + broadcast notif ke
+     * admin via dashboard. Finance/admin yang approve di dashboard yang
+     * akan create transaksi pettycash sebenarnya.
+     *
+     * Resolve cabang:
+     *   - Sales (session raw_branch_id terisi) → pakai cabang session
+     *   - Admin (canSeeAllBranches)            → pakai branch_id dari form
+     *     (mereka pilih cabang via ?branch=X di URL pettycash). Untuk
+     *     testing — dalam praktik admin lebih sering top-up langsung.
+     */
+    public function requestTopup(Request $request)
+    {
+        $this->requireWriteAccess();
+        $sessionBranch = session('raw_branch_id');
+
+        if ($sessionBranch) {
+            $branchId = (string) $sessionBranch;
+        } elseif (canSeeAllBranches()) {
+            $submitted = (string) $request->input('branch_id', '');
+            if ($submitted === '' || ! RawBranch::whereKey($submitted)->exists()) {
+                abort(422, 'Cabang tujuan top-up tidak valid. Buka halaman pettycash cabang dulu.');
+            }
+            $branchId = $submitted;
+        } else {
+            abort(403, 'Anda belum ter-assign ke cabang manapun.');
+        }
+
+        $data = $request->validate([
+            'fund_source_id' => 'required|integer|exists:fund_sources,id',
+            'amount'         => 'required|numeric|min:1',
+            'description'    => 'nullable|string|max:255',
+        ]);
+
+        $req = \App\Models\TopupRequest::create([
+            'raw_branch_id'    => $branchId,
+            'requested_by'     => (string) session('id'),
+            'fund_source_id'   => (int) $data['fund_source_id'],
+            'amount_requested' => (float) $data['amount'],
+            'description'      => $data['description'] ?? null,
+            'attachment_path'  => null,
+            'status'           => \App\Models\TopupRequest::STATUS_PENDING,
+            'requested_at'     => now(),
+        ]);
+
+        // Broadcast notif ke admin yang punya akses dashboard. Admin
+        // (canSeeAllBranches) otomatis lihat semua branch-scoped notifs via
+        // AdminNotification::unreadForUser() extension.
+        $branchName = RawBranch::whereKey($branchId)->value('name') ?: 'Cabang';
+        $wallet     = FundSource::whereKey($data['fund_source_id'])->value('name') ?: 'wallet';
+        $nominal    = number_format((float) $data['amount'], 0, ',', '.');
+        \App\Models\AdminNotification::notify(
+            'topup_request',
+            'Pengajuan top up baru — ' . $branchName,
+            $branchName . ' mengajukan top up Rp ' . $nominal . ' untuk ' . $wallet . '.',
+            url('finance/pettycash'),
+            $branchId,
+        );
+
+        return redirect()
+            ->route('pettycash', ['branch' => $branchId])
+            ->with('success', 'Pengajuan top up berhasil dikirim ke Finance.');
     }
 
     /**
@@ -634,6 +730,7 @@ class PettyCashController extends Controller
      */
     public function saveAccount(Request $request)
     {
+        $this->requireWriteAccess();
         $kind = $this->kind($request);
         $periodClass = $this->periodClass($kind);
 
@@ -693,6 +790,7 @@ class PettyCashController extends Controller
      */
     public function setOpening(Request $request)
     {
+        $this->requireWriteAccess();
         $kind        = $this->kind($request);
         $periodClass = $this->periodClass($kind);
 
@@ -758,6 +856,7 @@ class PettyCashController extends Controller
      */
     public function transfer(Request $request)
     {
+        $this->requireWriteAccess();
         $kind        = $this->kind($request);
         $periodClass = $this->periodClass($kind);
         $trxClass    = $this->trxClass($kind);
@@ -865,10 +964,13 @@ class PettyCashController extends Controller
      * DELETE /pettycash/transaction/{id}?tab={kind}
      *
      * Kalau transaksi adalah bagian dari transfer (is_transfer=1), hapus
-     * juga pasangannya yang berbagi ref_no — supaya saldo tidak pincang.
+     * juga pasangannya + expense bundle yang berbagi ref_no — supaya saldo
+     * tidak pincang. Expense leg (is_transfer=0, ref_no=TRF-…) dibuat oleh
+     * shortcut "sekalian pengeluaran" di tab Tarik Tunai.
      */
     public function destroy(Request $request, $id)
     {
+        $this->requireWriteAccess();
         $kind     = $this->kind($request);
         $trxClass = $this->trxClass($kind);
 
@@ -879,12 +981,15 @@ class PettyCashController extends Controller
 
         $now = now();
         if ($trx->is_transfer && $trx->ref_no) {
-            // Hapus kedua kaki transfer sekaligus
-            $trxClass::active()
+            // Hapus seluruh bundle yang share ref_no: 2 leg transfer +
+            // (opsional) expense bundle. ref_no transfer pakai prefix "TRF-"
+            // jadi tidak collide dgn ref_no manual user.
+            $affected = $trxClass::active()
                 ->where('ref_no', $trx->ref_no)
-                ->where('is_transfer', 1)
                 ->update(['deleted_at' => $now]);
-            $msg = 'Transfer dihapus (kedua sisi).';
+            $msg = $affected > 2
+                ? 'Transfer + pengeluaran bundel dihapus (' . $affected . ' baris).'
+                : 'Transfer dihapus (kedua sisi).';
         } else {
             $trx->deleted_at = $now;
             $trx->save();
@@ -911,6 +1016,7 @@ class PettyCashController extends Controller
      */
     public function update(Request $request, $id)
     {
+        $this->requireWriteAccess();
         $kind     = $this->kind($request);
         $trxClass = $this->trxClass($kind);
 
@@ -1049,6 +1155,7 @@ class PettyCashController extends Controller
      */
     public function close(Request $request, $periodId)
     {
+        $this->requireWriteAccess();
         $kind        = $this->kind($request);
         $periodClass = $this->periodClass($kind);
         $trxClass    = $this->trxClass($kind);

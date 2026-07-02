@@ -65,6 +65,14 @@
                             <a href="{{ route('export.reservasi', request()->only(['status','branch','doctor','date_from','date_to','promo','affiliate'])) }}" class="st-btn-outline-brown">
                                 <i class="fa fa-download"></i> Export CSV
                             </a>
+                            @if(isSuperAdmin())
+                                <a href="{{ route('rawreservation.import') }}" class="st-btn-outline-brown" title="Impor jadwal reservasi dari CSV / Google Sheets cabang (Super Admin)">
+                                    <i class="fa fa-file-import"></i> Impor Sheets
+                                    @if(($importPendingCount ?? 0) > 0)
+                                        <span class="view-tab-badge" style="margin-left:6px;">{{ $importPendingCount }}</span>
+                                    @endif
+                                </a>
+                            @endif
                             @if(canManagePageAccess())
                                 <button type="button" class="st-btn-outline-brown" data-pc-modal="rrModalAccessModes" title="Atur akses View Only per role">
                                     <i class="fa fa-user-shield"></i> Kelola Halaman
@@ -436,6 +444,38 @@
                             </div>
                         @endif
                     @else
+                        @php
+                            // Sort state untuk kolom JAM. Cycle: null → asc → desc → null.
+                            // Grouping per-tanggal TETAP terjaga karena controller mempertahankan
+                            // `date DESC` sebagai primary sort; sort_jam hanya secondary di dalam hari.
+                            $sortJam   = request('sort_jam');
+                            $nextSort  = $sortJam === 'asc' ? 'desc' : ($sortJam === 'desc' ? '' : 'asc');
+                            $sortUrl   = route('rawreservation', array_merge(
+                                request()->except(['sort_jam', 'page']),
+                                $nextSort ? ['sort_jam' => $nextSort] : []
+                            ));
+                            $sortIcon  = $sortJam === 'asc' ? 'fa-sort-up'
+                                        : ($sortJam === 'desc' ? 'fa-sort-down' : 'fa-sort');
+                            $sortTitle = $sortJam === 'asc'
+                                ? 'Saat ini: jam pagi → malam (dalam tiap hari). Klik untuk balik (malam → pagi).'
+                                : ($sortJam === 'desc'
+                                    ? 'Saat ini: jam malam → pagi (dalam tiap hari). Klik untuk kembali ke default.'
+                                    : 'Klik untuk urutkan berdasarkan jam (pagi → malam, di dalam tiap hari).');
+
+                            // Toggle sort tanggal "hari ini di atas" — DI-RENDER di day-header
+                            // row pertama (sekali saja, bukan di setiap day-header) supaya konteks
+                            // visual jelas: yang sedang di-sort adalah TANGGAL. Cycle 2-state:
+                            // null (default date DESC) ↔ 'today' (smart: hari ini & masa depan ASC
+                            // di atas, lampau DESC di bawah). Mempertahankan filter lain.
+                            $sortDateActive = request('sort_date') === 'today';
+                            $sortDateUrl    = route('rawreservation', array_merge(
+                                request()->except(['sort_date', 'page']),
+                                $sortDateActive ? [] : ['sort_date' => 'today']
+                            ));
+                            $sortDateTitle  = $sortDateActive
+                                ? 'Saat ini: hari ini di atas → besok → lusa → … (data lampau di bawah). Klik untuk kembali ke default (tanggal terbaru di atas).'
+                                : 'Klik untuk urutkan: hari ini di atas, lalu besok, lusa, … (data lampau pindah ke bawah).';
+                        @endphp
                         <div class="st-table-wrap st-table-wrap--scroll">
                         <table class="st-table st-table--clickable" cellspacing="0" style="white-space: nowrap;">
                             <thead>
@@ -443,7 +483,11 @@
                                     <th>Pasien</th>
                                     <th>Dokter</th>
                                     @if($showBranchColumn)<th>Cabang</th>@endif
-                                    <th>Jam</th>
+                                    <th class="st-th-sortable {{ $sortJam ? 'st-th-sortable--active' : '' }}">
+                                        <a href="{{ $sortUrl }}" class="st-sort-link" title="{{ $sortTitle }}">
+                                            Jam <i class="fa {{ $sortIcon }}"></i>
+                                        </a>
+                                    </th>
                                     <th>Perawatan</th>
                                     <th style="min-width:150px;">Keterangan</th>
                                     <th>Follow-up</th>
@@ -510,6 +554,8 @@
                                     @endphp
                                     @if ($curDate !== $prevDate)
                                         @php
+                                            // Tandai day-header pertama supaya toggle sort tanggal cuma muncul sekali.
+                                            $isFirstDayRow = ($prevDate === null);
                                             $prevDate = $curDate;
                                             $hdLabel  = $row->date ? $hariList[$row->date->dayOfWeek] . ', ' . $row->date->format('d M Y') : 'Tanpa Tanggal';
                                             $hdCount  = $curDate ? ($dayCounts[$curDate]->count() ?? 0) : 0;
@@ -519,6 +565,14 @@
                                                 <span class="st-day-dot"></span>
                                                 <span class="st-day-label">{{ $hdLabel }}</span>
                                                 <span class="st-day-count">{{ $hdCount }}</span>
+                                                @if ($isFirstDayRow)
+                                                    <a href="{{ $sortDateUrl }}"
+                                                       class="st-day-sort {{ $sortDateActive ? 'st-day-sort--active' : '' }}"
+                                                       title="{{ $sortDateTitle }}">
+                                                        <i class="fa fa-arrow-up"></i>
+                                                        {{ $sortDateActive ? 'Hari ini di atas · aktif' : 'Urut: hari ini di atas' }}
+                                                    </a>
+                                                @endif
                                             </td>
                                         </tr>
                                     @endif
@@ -1331,13 +1385,16 @@ document.querySelectorAll('.st-status-select').forEach(function (sel) {
     $(document).on('keydown', function (e) { if (e.key === 'Escape' && $dd.hasClass('is-open')) rrDayClose(); });
 
     // Klik kartu di Day drawer → Detail drawer (kalau tersedia; di view-only Detail
-    // drawer tak di-render → item tidak melakukan apa-apa).
+    // drawer tak di-render → item tidak melakukan apa-apa). Pass returnTo supaya
+    // footer Konfirmasi/Batal balik ke Day drawer (lanjut triage) — bukan tutup
+    // semua ke kalender.
     $(document).on('click', '.rr-day-card', function () {
         var ev = dayEvents[this.getAttribute('data-evid')];
         if (!ev) return;
         if (typeof window.rrOpenDrawer === 'function') {
+            var dayKey = (ev.date || '').substring(0, 10);
             rrDayClose();
-            window.rrOpenDrawer(calEventToRr(ev));
+            window.rrOpenDrawer(calEventToRr(ev), { type: 'day', dateKey: dayKey });
         }
     });
 })();
@@ -1362,6 +1419,10 @@ document.querySelectorAll('.st-status-select').forEach(function (sel) {
     var RR_TOKEN = '{{ csrf_token() }}';
     var $drawer = $('#rrDrawer');
     var rrId = null;
+    // Sumber pemanggil drawer — dipakai footer Konfirmasi/Batal supaya tahu
+    // mau balik ke mana setelah save. null = no-return (default), atau
+    // { type:'day', dateKey:'YYYY-MM-DD' } kalau dibuka dari Day drawer.
+    var rrReturnTo = null;
 
     function fuLabel(v) {
         return ({ confirm: '✅ Confirm', reschedule: '🔄 Reschedule', cancel: '❌ Cancel', no_respon: '📵 No Respon' })[v] || 'Belum ada';
@@ -1379,8 +1440,9 @@ document.querySelectorAll('.st-status-select').forEach(function (sel) {
         if (!d.promo && !d.promoId) h = '<span style="color:var(--text-subtle)">Tidak ada promo</span>';
         $('#rrdPromoWrap').html(h);
     }
-    window.rrOpenDrawer = function (d) {
+    window.rrOpenDrawer = function (d, returnTo) {
         rrId = d.id;
+        rrReturnTo = returnTo || null;
         $('#rrdName').text(d.name || '—');
         $('#rrdPhone').text(d.phone || '');
         if (d.wa) { $('#rrdWa').attr('href', 'https://wa.me/' + d.wa).show(); } else { $('#rrdWa').hide(); }
@@ -1404,26 +1466,31 @@ document.querySelectorAll('.st-status-select').forEach(function (sel) {
         $drawer.removeClass('is-open').attr('aria-hidden', 'true');
         document.body.classList.remove('rr-drawer-lock');
         rrId = null;
+        rrReturnTo = null;
     }
     function rrPatch(field, value) {
         if (!rrId) return;
+        // Capture id lokal: dipakai di success callback supaya tetap valid walau
+        // drawer keburu di-close (rrClose set rrId=null) — kasus footer Konfirmasi
+        // & Batal yg trigger rrClose tepat setelah rrPatch.
+        var id = rrId;
         $.ajax({
-            url: '/rawreservation/' + rrId + '/inline', method: 'PATCH',
+            url: '/rawreservation/' + id + '/inline', method: 'PATCH',
             data: { _token: RR_TOKEN, field: field, value: value },
             success: function () {
                 // Sync data kalender in-memory → renderCalendar (chip) ikut fresh saat
                 // status diubah dari Detail drawer (dibuka via kalender/Day drawer).
                 if (typeof RAW_RESERVATIONS !== 'undefined') {
-                    var rec = RAW_RESERVATIONS.find(function (r) { return String(r.id) === String(rrId); });
+                    var rec = RAW_RESERVATIONS.find(function (r) { return String(r.id) === String(id); });
                     if (rec) rec[field] = value;
                 }
-                $('.inline-update[data-id="' + rrId + '"][data-field="' + field + '"]').each(function () {
+                $('.inline-update[data-id="' + id + '"][data-field="' + field + '"]').each(function () {
                     $(this).val(value);
                     if (typeof syncInlineSelectValue === 'function') syncInlineSelectValue($(this));
                 });
                 if (field === 'status') {
                     var stInfo = RR_STATUS_MAP[value];
-                    $('.st-rowstatus[data-id="' + rrId + '"]').each(function () {
+                    $('.st-rowstatus[data-id="' + id + '"]').each(function () {
                         if (stInfo) { this.textContent = stInfo.short || stInfo.label; this.style.background = stInfo.bg; this.style.color = stInfo.color; }
                     });
                     if (typeof renderCalendar === 'function' && typeof curYear !== 'undefined') renderCalendar(curYear, curMonth);
@@ -1431,10 +1498,10 @@ document.querySelectorAll('.st-status-select').forEach(function (sel) {
                 // sync chip Follow-up / Kehadiran di list
                 if (field === 'follow_up_h_min_1' || field === 'follow_up_h') {
                     var which = field === 'follow_up_h_min_1' ? 'h1' : 'h';
-                    $('.st-fuchip[data-id="' + rrId + '"][data-fu="' + which + '"]').toggleClass('is-done', !!value);
+                    $('.st-fuchip[data-id="' + id + '"][data-fu="' + which + '"]').toggleClass('is-done', !!value);
                 }
                 if (field === 'keterangan_kehadiran') {
-                    var $att = $('.st-fuchip[data-id="' + rrId + '"][data-fu="att"]');
+                    var $att = $('.st-fuchip[data-id="' + id + '"][data-fu="att"]');
                     $att.removeClass('is-hadir is-tidak');
                     if (value === 'hadir') { $att.addClass('is-hadir').text('✓'); }
                     else if (value === 'tidak_hadir') { $att.addClass('is-tidak').text('✕'); }
@@ -1445,22 +1512,49 @@ document.querySelectorAll('.st-status-select').forEach(function (sel) {
         });
     }
 
-    $(document).on('click', '#rrdStatusSeg .rr-seg__btn', function () {
-        var $b = $(this);
+    // Helper: set status di drawer (visual + AJAX) — dipakai segmen STATUS, tombol
+    // footer Konfirmasi, dan footer Batal. Sebelumnya footer pakai trigger('click')
+    // indirection ke segmen — silent fail di sebagian browser; sekarang panggil
+    // langsung supaya 1 jalur untuk semua entry point.
+    function rrSetStatus(value) {
+        var $b = $('#rrdStatusSeg .rr-seg__btn[data-value="' + value + '"]');
+        if (!$b.length) { console.warn('[rrSetStatus] segmen status tidak ditemukan untuk value:', value); return; }
         $('#rrdStatusSeg .rr-seg__btn').removeClass('active'); $b.addClass('active');
         $('#rrdStatusPill').text($b.text()).css({ background: $b.data('bg') || '', color: $b.data('color') || '' });
-        rrPatch('status', $b.data('value'));
+        rrPatch('status', value);
+    }
+
+    $(document).on('click', '#rrdStatusSeg .rr-seg__btn', function () {
+        rrSetStatus($(this).attr('data-value'));
     });
     $(document).on('click', '#rrdKehadiranSeg .rr-seg__btn', function () {
         var $b = $(this);
         $('#rrdKehadiranSeg .rr-seg__btn').removeClass('active'); $b.addClass('active');
-        rrPatch('keterangan_kehadiran', String($b.data('value') == null ? '' : $b.data('value')));
+        rrPatch('keterangan_kehadiran', String($b.attr('data-value') == null ? '' : $b.attr('data-value')));
     });
     $(document).on('change', '#rrdKeterangan', function () { rrPatch('keterangan', $(this).val()); });
     $(document).on('change', '#rrdFu1Sel', function () { rrPatch('follow_up_h_min_1', $(this).val()); });
     $(document).on('change', '#rrdFuhSel', function () { rrPatch('follow_up_h', $(this).val()); });
-    $(document).on('click', '#rrdConfirm', function () { $('#rrdStatusSeg .rr-seg__btn[data-value="' + RR_CONFIRMED + '"]').trigger('click'); });
-    $(document).on('click', '#rrdCancel', function () { if (confirm('Batalkan reservasi ini?')) $('#rrdStatusSeg .rr-seg__btn[data-value="' + RR_CANCELLED + '"]').trigger('click'); });
+    // Footer tombol: Konfirmasi & Batal → set status + auto-close drawer (UX:
+    // staff klik 1x langsung kembali ke list, tidak perlu manual tutup).
+    // rrPatch sudah optimistic-update chip di list; alert error tetap muncul
+    // kalau AJAX gagal (di handler error rrPatch).
+    // Kalau dibuka dari Day drawer (kalender → tanggal → reservasi), re-open
+    // Day drawer setelah close supaya staff lanjut triage tanpa klik tanggal lagi.
+    // Tunda 280ms (lebih dari .25s animasi slide-out Detail) supaya transisi mulus.
+    function rrAfterFooterSave() {
+        var rt = rrReturnTo;
+        rrClose();
+        if (rt && rt.type === 'day' && rt.dateKey && typeof window.rrOpenDayDrawer === 'function') {
+            setTimeout(function () { window.rrOpenDayDrawer(rt.dateKey); }, 280);
+        }
+    }
+    // Tombol "Konfirmasi" = SIMPAN + tutup drawer. TIDAK memaksa ubah status —
+    // status ditentukan lewat pill "Status Reservasi" di atas (auto-save via
+    // rrPatch saat pill diklik). Kalau paksa RR_CONFIRMED di sini, admin yg
+    // mau tandain "Selesai"/"Waiting List" bakal ke-reset ke "Dikonfirmasi".
+    $(document).on('click', '#rrdConfirm', function () { rrAfterFooterSave(); });
+    $(document).on('click', '#rrdCancel', function () { if (confirm('Batalkan reservasi ini?')) { rrSetStatus(RR_CANCELLED); rrAfterFooterSave(); } });
     $(document).on('click', '[data-rr-close]', rrClose);
     $(document).on('keydown', function (e) { if (e.key === 'Escape' && $drawer.hasClass('is-open')) rrClose(); });
 })();

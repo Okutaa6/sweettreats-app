@@ -40,16 +40,53 @@ class KolController extends Controller
         $view           = request('view', 'table');   // 'table' | 'calendar'
         $weekOffset     = (int) request('week', 0);   // 0 = minggu ini, -1 = lalu, +1 = depan
 
-        // ─── Base query: KOL aktif bulan ini ─────────────────────────────
-        $startOfMonth = Carbon::now()->startOfMonth();
-        $endOfMonth   = Carbon::now()->endOfMonth();
+        // ─── Periode bulan yang dilihat ──────────────────────────────────
+        // Default: bulan berjalan. User boleh pilih bulan ke depan via dropdown,
+        // dibatasi sampai Desember tahun berjalan (lebih jauh dari itu di-clamp
+        // balik ke current month). Bulan yg lewat tetap di halaman Existing.
+        $now             = Carbon::now();
+        $currentYearMon  = $now->format('Y-m');
+        $filterMonth     = (string) request('month', $currentYearMon);
+        $endOfYearMonth  = Carbon::create($now->year, 12, 1);
 
+        $selectedDate = null;
+        if (preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', $filterMonth)) {
+            $parsed = Carbon::createFromFormat('!Y-m', $filterMonth)->startOfMonth();
+            if ($parsed->gte($now->copy()->startOfMonth()) && $parsed->lte($endOfYearMonth)) {
+                $selectedDate = $parsed;
+            }
+        }
+        if ($selectedDate === null) {
+            $selectedDate = $now->copy()->startOfMonth();
+            $filterMonth  = $currentYearMon;
+        }
+
+        $isCurrentMonth = $selectedDate->format('Y-m') === $currentYearMon;
+        $startOfMonth   = $selectedDate->copy()->startOfMonth();
+        $endOfMonth     = $selectedDate->copy()->endOfMonth();
+
+        // Bulan-bulan yg bisa dipilih di dropdown (bulan ini → Des tahun ini).
+        $availableMonths = [];
+        $cursor = $now->copy()->startOfMonth();
+        while ($cursor->lte($endOfYearMonth)) {
+            $availableMonths[] = [
+                'key'   => $cursor->format('Y-m'),
+                'label' => $cursor->translatedFormat('F Y'),
+            ];
+            $cursor->addMonth();
+        }
+
+        // ─── Base query: KOL untuk bulan terpilih ────────────────────────
         $baseQuery = RawAffiliate::where('type', 'kol')
-            ->where(function ($q) use ($startOfMonth, $endOfMonth) {
-                // Tanggal approach di bulan ini
-                $q->whereBetween('tanggal_approach', [$startOfMonth, $endOfMonth])
-                  // Atau belum ada tanggal approach (KOL baru, belum dijadwalkan)
-                  ->orWhereNull('tanggal_approach');
+            ->where(function ($q) use ($startOfMonth, $endOfMonth, $isCurrentMonth) {
+                // Tanggal approach di bulan terpilih.
+                $q->whereBetween('tanggal_approach', [$startOfMonth, $endOfMonth]);
+                // KOL belum punya tanggal approach (baru ditambah) hanya
+                // ditampilkan saat lihat bulan berjalan — untuk bulan depan,
+                // null-date KOL tidak relevan (belum tentu dijadwalkan ke sana).
+                if ($isCurrentMonth) {
+                    $q->orWhereNull('tanggal_approach');
+                }
             });
 
         // ─── Hitung jumlah KOL per cabang (untuk summary cards) ──────────
@@ -180,7 +217,11 @@ class KolController extends Controller
             'weekOffset',
             'kolsByMonth',
             'monthlyTotal',
-            'monthlyCapped'
+            'monthlyCapped',
+            'availableMonths',
+            'filterMonth',
+            'selectedDate',
+            'isCurrentMonth'
         ));
     }
 

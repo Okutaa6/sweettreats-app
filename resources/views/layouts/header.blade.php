@@ -6,24 +6,6 @@
     $stSysName   = $stProfile->systitle ?? 'Sweet Treats';   // Dashboard Title
     $stSysTitle  = $stProfile->sysname  ?? 'Dental Clinic';  // Institution Name/Title
 
-    $stIsComplaintAdmin = in_array(session('group_name'), ['Super Admin', 'Admin General'], true);
-    $stIsComplaintSales = session('group_name') === 'Sales';
-
-    if ($stIsComplaintAdmin) {
-        // Admin: badge = jumlah keluhan yang belum ditangani (status != handled)
-        $stComplaintBadge = \App\Models\Complaint::where('status', '!=', \App\Models\Complaint::STATUS_HANDLED)->count();
-        $stComplaintTitle = 'Keluhan Sales';
-    } elseif ($stIsComplaintSales) {
-        // Sales: badge = jumlah keluhan miliknya yang belum ditangani
-        $stComplaintBadge = \App\Models\Complaint::where('sender_user_id', session('id'))
-            ->where('status', '!=', \App\Models\Complaint::STATUS_HANDLED)
-            ->count();
-        $stComplaintTitle = 'Riwayat Keluhan Saya';
-    } else {
-        $stComplaintBadge = 0;
-        $stComplaintTitle = null;
-    }
-
     // ─── Cabang user (untuk brand sub + subtitle header) ────────────────
     // Sales dikunci ke cabangnya via session('raw_branch_id'); admin = semua cabang.
     $stBranchName = null;
@@ -69,18 +51,6 @@
 
         {{-- Right actions --}}
         <div class="st-actions">
-
-            {{-- Complaint inbox (Admin: semua keluhan; Sales: riwayat miliknya) --}}
-            @if ($stIsComplaintAdmin || $stIsComplaintSales)
-                <a href="{{ route('complaint.index') }}" class="st-icon-btn" title="{{ $stComplaintTitle }}" style="position:relative;">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-                    </svg>
-                    @if ($stComplaintBadge > 0)
-                        <span class="st-icon-badge">{{ $stComplaintBadge > 99 ? '99+' : $stComplaintBadge }}</span>
-                    @endif
-                </a>
-            @endif
 
             {{-- Notification bell --}}
             <div class="dropdown" id="notifBell">

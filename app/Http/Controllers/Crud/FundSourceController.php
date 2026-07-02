@@ -51,7 +51,9 @@ class FundSourceController extends Controller
             FundSource::CAT_EWALLET => 'E-Wallet',
         ];
 
-        return view('crud.fundsource.index', compact('sources', 'categoryLabels'));
+        return view('crud.fundsource.index', compact(
+            'sources', 'categoryLabels'
+        ));
     }
 
     /**

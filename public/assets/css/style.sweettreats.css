@@ -149,6 +149,12 @@ body {
 .st-btn-outline-brown.is-active i { color: #8B5A1C; }
 .st-btn-outline-brown i { color: #5C2A0A; transition: color 0.2s; }
 
+/* Varian tombol Export Excel — pakai outline-brown tapi icon hijau khas Excel */
+.st-btn-excel i,
+.st-btn-outline-brown.st-btn-excel i { color: #16a34a; }
+.st-btn-excel:hover i,
+.st-btn-outline-brown.st-btn-excel:hover i { color: #15803d; }
+
 /* ============================================================
    SWEETTREATS HEADER (split: brown brand panel + white actions)
    ============================================================ */
