@@ -1549,7 +1549,11 @@ document.querySelectorAll('.st-status-select').forEach(function (sel) {
             setTimeout(function () { window.rrOpenDayDrawer(rt.dateKey); }, 280);
         }
     }
-    $(document).on('click', '#rrdConfirm', function () { rrSetStatus(RR_CONFIRMED); rrAfterFooterSave(); });
+    // Tombol "Konfirmasi" = SIMPAN + tutup drawer. TIDAK memaksa ubah status —
+    // status ditentukan lewat pill "Status Reservasi" di atas (auto-save via
+    // rrPatch saat pill diklik). Kalau paksa RR_CONFIRMED di sini, admin yg
+    // mau tandain "Selesai"/"Waiting List" bakal ke-reset ke "Dikonfirmasi".
+    $(document).on('click', '#rrdConfirm', function () { rrAfterFooterSave(); });
     $(document).on('click', '#rrdCancel', function () { if (confirm('Batalkan reservasi ini?')) { rrSetStatus(RR_CANCELLED); rrAfterFooterSave(); } });
     $(document).on('click', '[data-rr-close]', rrClose);
     $(document).on('keydown', function (e) { if (e.key === 'Escape' && $drawer.hasClass('is-open')) rrClose(); });
