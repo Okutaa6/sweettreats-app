@@ -326,11 +326,24 @@ class DoctorController extends Controller
 
     public function create()
     {
+        // Tambah dokter = non-Sales saja (Admin/Admin General/Super Admin/
+        // Admin Backup), konsisten dengan update()/deletePhoto(). Sales
+        // read-only untuk profil dokter tapi tetap kelola jadwal/cuti/service.
+        if (session('group_name') === 'Sales') {
+            return redirect()->route('rawdoctor')
+                ->with('error', 'Anda tidak memiliki akses untuk menambah dokter.');
+        }
+
         return view('crud.doctor.new');
     }
 
     public function store()
     {
+        if (session('group_name') === 'Sales') {
+            return redirect()->route('rawdoctor')
+                ->with('error', 'Anda tidak memiliki akses untuk menambah dokter.');
+        }
+
         request()->validate([
             'name'  => 'required|max:255',
             'photo' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
