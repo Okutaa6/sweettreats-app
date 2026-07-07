@@ -326,7 +326,7 @@
                 <div class="cl-hist-kpi__val">{{ $stats['total'] }} <small>{{ $type === 'weekly' ? 'minggu' : 'hari' }}</small></div>
             </div>
             <div class="cl-hist-kpi__cell cl-hist-kpi__cell--success">
-                <div class="cl-hist-kpi__label"><i class="fas fa-circle-check" style="color:#1F6E5F;"></i> Disetujui</div>
+                <div class="cl-hist-kpi__label"><i class="fas fa-check-circle" style="color:#1F6E5F;"></i> Disetujui</div>
                 <div class="cl-hist-kpi__val">{{ $stats['approved'] }}</div>
             </div>
             <div class="cl-hist-kpi__cell cl-hist-kpi__cell--warning">
@@ -334,7 +334,7 @@
                 <div class="cl-hist-kpi__val">{{ $stats['pending'] }}</div>
             </div>
             <div class="cl-hist-kpi__cell cl-hist-kpi__cell--danger">
-                <div class="cl-hist-kpi__label"><i class="fas fa-circle-xmark" style="color:#A32D2D;"></i> Ditolak</div>
+                <div class="cl-hist-kpi__label"><i class="fas fa-times-circle" style="color:#A32D2D;"></i> Ditolak</div>
                 <div class="cl-hist-kpi__val">{{ $stats['rejected'] }}</div>
             </div>
             <div class="cl-hist-kpi__cell cl-hist-kpi__cell--neutral">
@@ -350,7 +350,7 @@
                 @if($submissions->isEmpty())
                     <div style="background:#FFFFFF; border:1px solid #E0D2C1; border-radius:14px; padding:36px 22px; text-align:center;">
                         <div style="display:inline-flex; align-items:center; justify-content:center; width:70px; height:70px; border-radius:50%; background:#FAF4EC; color:#9B5E2C; font-size:26px; margin-bottom:14px;">
-                            <i class="fas fa-calendar-xmark"></i>
+                            <i class="fas fa-calendar-times"></i>
                         </div>
                         <h5 style="font-size:16px; font-weight:700; color:#2D1810; margin-bottom:6px;">
                             Tidak ada pengisian di {{ $monthLabel }}
@@ -447,7 +447,7 @@
                                                             {{ $item->task_title_snapshot }}
                                                             @if($item->note)
                                                                 <div class="note">
-                                                                    <i class="fas fa-pen-to-square"></i>{{ $item->note }}
+                                                                    <i class="fas fa-edit"></i>{{ $item->note }}
                                                                 </div>
                                                             @endif
                                                         </div>
@@ -476,7 +476,7 @@
             <aside>
                 @if($type === 'daily')
                     <div class="cl-hist-side">
-                        <h6><i class="fas fa-calendar-days"></i> Kalender {{ $monthLabel }}</h6>
+                        <h6><i class="fas fa-calendar-alt"></i> Kalender {{ $monthLabel }}</h6>
                         <div class="cl-hist-cal">
                             @foreach(['Sen','Sel','Rab','Kam','Jum','Sab','Min'] as $dow)
                                 <div class="cl-hist-cal__dow">{{ $dow }}</div>
@@ -516,7 +516,7 @@
                 @endif
 
                 <div class="cl-hist-side" style="background:linear-gradient(135deg, #FAF4EC 0%, #F5EBE0 100%); border-color:#E0D2C1;">
-                    <h6 style="color:#5C2E15;"><i class="fas fa-circle-info" style="color:#A66019;"></i> Cara Pakai</h6>
+                    <h6 style="color:#5C2E15;"><i class="fas fa-info-circle" style="color:#A66019;"></i> Cara Pakai</h6>
                     <p style="font-size:12.5px; color:#5C2E15; line-height:1.55; margin:0;">
                         @if($type === 'weekly')
                             Tab <strong>Weekly</strong> menampilkan form mingguan yang sudah di-submit per minggu. Klik card untuk lihat detail tugas yang dicentang di setiap hari.

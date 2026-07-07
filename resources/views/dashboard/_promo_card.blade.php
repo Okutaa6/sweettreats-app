@@ -22,6 +22,7 @@
      data-save="{{ $diskon ? '-' . $diskon . '%' : '' }}"
      data-detail="{{ $p->detail_promo }}"
      data-sk="{{ $p->syarat_ketentuan }}"
+     data-cetakan="{{ $p->cetakan }}"
      data-date="{{ $dateLabel }}"
      data-soon="{{ $active ? '0' : '1' }}"
      data-camp-icon="{{ $campIcon }}"
@@ -42,6 +43,9 @@
         @endif
         @if (trim((string) ($p->syarat_ketentuan ?? '')) !== '')
             <div class="sds-promo__text sds-promo__text--sk"><b>S&amp;K</b><span>{{ $p->syarat_ketentuan }}</span></div>
+        @endif
+        @if (trim((string) ($p->cetakan ?? '')) !== '')
+            <div class="sds-promo__text"><b>Cetakan</b><span>{{ $p->cetakan }}</span></div>
         @endif
     @endunless
 

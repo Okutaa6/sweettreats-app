@@ -16,7 +16,7 @@
             <div class="sd-modal__header">
                 <div>
                     <h5 class="sd-modal__title">
-                        <i class="fa fa-money-bill-transfer" style="color:#b45309;"></i> Setor Tunai
+                        <i class="fa fa-money-bill-wave" style="color:#b45309;"></i> Setor Tunai
                     </h5>
                     <small class="sd-muted">Setorkan saldo terkumpul ke kantor pusat</small>
                 </div>
@@ -55,7 +55,7 @@
             <div class="sd-modal__footer">
                 <button type="button" class="st-btn-outline-brown" data-sd-modal-close>Batal</button>
                 <button type="submit" class="sd-btn-setor-solid">
-                    <i class="fa fa-money-bill-transfer"></i> Setor Tunai
+                    <i class="fa fa-money-bill-wave"></i> Setor Tunai
                 </button>
             </div>
         </form>

@@ -26,7 +26,7 @@ class ChecklistWeeklySubmission extends Model
         'id', 'user_id', 'division_id', 'raw_branch_id',
         'week_start_date', 'year_week',
         'status', 'total_tasks', 'done_tasks',
-        'reviewer_user_id', 'review_notes',
+        'reviewer_user_id', 'review_notes', 'excuse_reason',
         'submitted_at', 'reviewed_at', 'created_at', 'updated_at',
     ];
 
@@ -45,6 +45,7 @@ class ChecklistWeeklySubmission extends Model
     const STATUS_APPROVED  = 'approved';
     const STATUS_REJECTED  = 'rejected';
     const STATUS_MISSED    = 'missed';
+    const STATUS_EXCUSED   = 'excused';
 
     public static function statusOptions(): array
     {

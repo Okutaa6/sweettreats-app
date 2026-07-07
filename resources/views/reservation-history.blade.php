@@ -408,7 +408,7 @@
         <div class="container">
 
             <div class="page-header">
-                <div class="tag"><i class="fa-solid fa-clock-rotate-left"></i> Riwayat</div>
+                <div class="tag"><i class="fa-solid fa-history"></i> Riwayat</div>
                 <h1>Reservasi Kamu</h1>
                 @if ($phone)
                     <p>Menampilkan reservasi untuk <strong>{{ $phone }}</strong></p>
@@ -417,7 +417,7 @@
 
             @if (session('success'))
                 <div class="alert-success">
-                    <i class="fa-solid fa-circle-check"></i>
+                    <i class="fa-solid fa-check-circle"></i>
                     <span>{{ session('success') }}</span>
                 </div>
             @endif
@@ -436,7 +436,7 @@
                                 required>
                         </div>
                         <button type="submit" class="btn-check">
-                            <i class="fa-solid fa-magnifying-glass"></i> Cari Reservasi
+                            <i class="fa-solid fa-search"></i> Cari Reservasi
                         </button>
                     </form>
                 </div>

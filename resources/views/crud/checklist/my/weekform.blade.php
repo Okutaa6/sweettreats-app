@@ -275,6 +275,49 @@
         transform: none;
         box-shadow: none;
     }
+
+    /* ── Wajib foto (kamera) ── */
+    .wf-task__badge {
+        display: inline-flex; align-items: center; gap: 4px;
+        font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .3px;
+        color: #A66019; background: rgba(166,96,25,.12);
+        padding: 2px 8px; border-radius: 999px; margin-left: 6px; vertical-align: middle;
+    }
+    .wf-task.needs-photo .wf-task__check { border-style: dashed; border-color: #A66019; }
+    .wf-photo { margin-top: 10px; cursor: default; }
+    .wf-photo__actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .wf-photo__view {
+        border: 1px solid #E0D2C1; background: #fff; color: #5C2E15;
+        font-size: 12px; font-weight: 700; padding: 7px 14px; border-radius: 999px;
+        cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: .15s;
+    }
+    .wf-photo__view:hover { background: #FAF0E2; border-color: #A66019; }
+
+    /* Modal lihat foto */
+    .wf-photo-modal { position: fixed; inset: 0; z-index: 1080; display: flex; align-items: center; justify-content: center; }
+    .wf-photo-modal[hidden] { display: none; }
+    .wf-photo-modal__backdrop { position: absolute; inset: 0; background: rgba(30,15,5,.72); }
+    .wf-photo-modal__box { position: relative; z-index: 1; max-width: 92vw; max-height: 88vh; }
+    .wf-photo-modal__box img { max-width: 92vw; max-height: 88vh; border-radius: 12px; box-shadow: 0 12px 40px rgba(0,0,0,.4); display: block; }
+    .wf-photo-modal__close {
+        position: absolute; top: -14px; right: -14px; width: 36px; height: 36px;
+        border-radius: 50%; border: none; background: #fff; color: #5C2E15;
+        font-size: 15px; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,.25);
+        display: flex; align-items: center; justify-content: center;
+    }
+    .wf-photo__btn {
+        border: 1px solid #A66019; background: #FFF7EE; color: #5C2E15;
+        font-size: 12px; font-weight: 700; padding: 7px 14px; border-radius: 999px;
+        cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: .15s;
+    }
+    .wf-photo__btn:hover { background: #FAF0E2; }
+    .wf-photo__remove {
+        border: 1px solid #E0D2C1; background: #fff; color: #7C2929;
+        font-size: 11.5px; font-weight: 600; padding: 6px 12px; border-radius: 999px;
+        cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: .15s;
+    }
+    .wf-photo__remove:hover { background: #FCEBEB; border-color: #A32D2D; }
+    .wf-photo__status { font-size: 11px; color: #6B4423; font-weight: 600; }
 </style>
 @endsection
 
@@ -320,7 +363,7 @@
                     </a>
                 </div>
                 <a href="{{ route('mychecklist.history', ['type' => 'weekly']) }}" style="font-size:12.5px; color:#6B4423; text-decoration:none; display:inline-flex; align-items:center; gap:6px; font-weight:600;">
-                    <i class="fas fa-clock-rotate-left"></i> Riwayat
+                    <i class="fas fa-history"></i> Riwayat
                 </a>
             </div>
 
@@ -349,8 +392,8 @@
                     </div>
                     @if($submission && $submission->status !== \App\Models\ChecklistWeeklySubmission::STATUS_DRAFT && $statusOpt)
                         <span class="wf-hero__status wf-hero__status--{{ $heroStatusColor }}">
-                            @if($submission->status === 'approved')<i class="fas fa-circle-check"></i>
-                            @elseif($submission->status === 'rejected')<i class="fas fa-circle-xmark"></i>
+                            @if($submission->status === 'approved')<i class="fas fa-check-circle"></i>
+                            @elseif($submission->status === 'rejected')<i class="fas fa-times-circle"></i>
                             @else<i class="fas fa-clock"></i>
                             @endif
                             {{ $statusOpt['label'] }}
@@ -390,7 +433,7 @@
 
             @if($isFuture)
                 <div class="wf-banner wf-banner--info">
-                    <i class="fas fa-circle-info"></i>
+                    <i class="fas fa-info-circle"></i>
                     <div><strong>Minggu di masa depan.</strong> Form belum dibuat — kembali ke minggu ini untuk mulai mengisi.</div>
                 </div>
             @endif
@@ -398,7 +441,7 @@
             {{-- BANNERS --}}
             @if($submission && $submission->status === \App\Models\ChecklistWeeklySubmission::STATUS_REJECTED)
                 <div class="wf-banner wf-banner--danger">
-                    <i class="fas fa-circle-xmark"></i>
+                    <i class="fas fa-times-circle"></i>
                     <div style="flex:1;">
                         <strong>Form Mingguan ditolak supervisor.</strong>
                         @if($rejectedNote)<div style="margin-top:4px;">Catatan: {{ $rejectedNote }}</div>@endif
@@ -417,8 +460,25 @@
                 </div>
             @elseif($submission && $submission->status === \App\Models\ChecklistWeeklySubmission::STATUS_APPROVED)
                 <div class="wf-banner wf-banner--success">
-                    <i class="fas fa-circle-check"></i>
+                    <i class="fas fa-check-circle"></i>
                     <div><strong>Form Mingguan minggu ini disetujui supervisor.</strong> Terima kasih atas konsistensinya!</div>
+                </div>
+            @elseif($submission && $submission->status === \App\Models\ChecklistWeeklySubmission::STATUS_EXCUSED)
+                <div class="wf-banner wf-banner--warning">
+                    <i class="fas fa-mug-hot"></i>
+                    <div style="flex:1;">
+                        <strong>Form Mingguan ini ditandai "Dikecualikan" — tidak perlu diisi.</strong>
+                        <div style="margin-top:4px;">Alasan: {{ $submission->excuse_reason }}</div>
+                        @if($weekOffset === 0)
+                            <form method="POST" action="{{ route('mychecklist.weekform.unexcuse') }}" style="margin-top:10px;"
+                                  onsubmit="return confirm('Batalkan pengecualian dan isi Form Mingguan seperti biasa?');">
+                                @csrf
+                                <button type="submit" class="st-btn-brand" style="font-size:12.5px; padding:6px 14px;">
+                                    <i class="fas fa-undo"></i> Batalkan, isi form
+                                </button>
+                            </form>
+                        @endif
+                    </div>
                 </div>
             @endif
 
@@ -499,13 +559,45 @@
                                             <i class="fas fa-folder"></i> {{ $catTitle }}
                                         </div>
                                         @foreach($items as $item)
-                                            <div class="wf-task {{ $item->is_done ? 'is-done' : '' }} {{ $submission->isEditable() ? '' : 'is-locked' }}"
+                                            <div class="wf-task {{ $item->is_done ? 'is-done' : '' }} {{ $submission->isEditable() ? '' : 'is-locked' }} {{ $item->requires_photo && ! $item->photo_path ? 'needs-photo' : '' }}"
                                                  data-item-id="{{ $item->id }}"
                                                  data-toggle-url="{{ route('mychecklist.weekform.item.toggle', $item->id) }}"
-                                                 data-editable="{{ $submission->isEditable() ? '1' : '0' }}">
+                                                 data-editable="{{ $submission->isEditable() ? '1' : '0' }}"
+                                                 data-requires-photo="{{ $item->requires_photo ? '1' : '0' }}"
+                                                 @if($item->requires_photo)
+                                                 data-photo-upload-url="{{ route('mychecklist.weekform.item.photo.upload', $item->id) }}"
+                                                 data-photo-delete-url="{{ route('mychecklist.weekform.item.photo.delete', $item->id) }}"
+                                                 data-has-photo="{{ $item->photo_path ? '1' : '0' }}"
+                                                 @endif>
                                                 <span class="wf-task__check"></span>
                                                 <div class="wf-task__body">
-                                                    <div class="wf-task__name">{{ $item->task_title_snapshot }}</div>
+                                                    <div class="wf-task__name">
+                                                        {{ $item->task_title_snapshot }}
+                                                        @if($item->requires_photo)
+                                                            <span class="wf-task__badge"><i class="fas fa-camera"></i> Wajib foto</span>
+                                                        @endif
+                                                    </div>
+                                                    @if($item->requires_photo)
+                                                        <div class="wf-photo" data-photo>
+                                                            <input type="file" accept="image/*" capture="environment" class="wf-photo__file" hidden>
+                                                            <div class="wf-photo__actions">
+                                                                <button type="button" class="wf-photo__view" data-photo-view
+                                                                        data-url="{{ $item->photo_path ? asset($item->photo_path) : '' }}"
+                                                                        style="{{ $item->photo_path ? '' : 'display:none;' }}">
+                                                                    <i class="fas fa-image"></i> Lihat foto
+                                                                </button>
+                                                                @if($submission->isEditable())
+                                                                    <button type="button" class="wf-photo__btn" data-photo-take>
+                                                                        <i class="fas fa-camera"></i> <span data-photo-label>{{ $item->photo_path ? 'Foto ulang' : 'Ambil foto' }}</span>
+                                                                    </button>
+                                                                    <button type="button" class="wf-photo__remove" data-photo-remove style="{{ $item->photo_path ? '' : 'display:none;' }}">
+                                                                        <i class="fas fa-trash"></i> Hapus
+                                                                    </button>
+                                                                    <span class="wf-photo__status" data-photo-status></span>
+                                                                @endif
+                                                            </div>
+                                                        </div>
+                                                    @endif
                                                 </div>
                                                 @if($item->done_at)
                                                     <div class="wf-task__time">{{ $item->done_at->format('d/m H:i') }}</div>
@@ -544,14 +636,65 @@
                             @endif
                         </button>
                     </div>
+
+                    {{-- ─── Aksi: minggu ini tidak perlu diisi (Dikecualikan) ─── --}}
+                    <details class="cl-excuse">
+                        <summary class="cl-excuse__trigger">
+                            <span class="cl-excuse__trigger-label"><i class="fas fa-mug-hot"></i> Minggu ini tidak perlu diisi?</span>
+                            <i class="fas fa-chevron-down cl-excuse__caret"></i>
+                        </summary>
+                        <form method="POST" action="{{ route('mychecklist.weekform.excuse') }}" class="cl-excuse__form"
+                              onsubmit="return confirm('Tandai Form Mingguan ini sebagai tidak perlu diisi?');">
+                            @csrf
+                            <div class="cl-excuse__label">Pilih / tulis alasan (wajib):</div>
+                            <div class="cl-excuse__chips">
+                                <button type="button" class="cl-excuse__chip" onclick="this.closest('form').querySelector('.cl-excuse__input').value='Cuti';">Cuti</button>
+                                <button type="button" class="cl-excuse__chip" onclick="this.closest('form').querySelector('.cl-excuse__input').value='Klinik tutup';">Klinik tutup</button>
+                                <button type="button" class="cl-excuse__chip" onclick="this.closest('form').querySelector('.cl-excuse__input').value='Libur';">Libur</button>
+                                <button type="button" class="cl-excuse__chip" onclick="this.closest('form').querySelector('.cl-excuse__input').value='Tidak ada pasien';">Tidak ada pasien</button>
+                            </div>
+                            <textarea name="excuse_reason" class="cl-excuse__input" rows="2" maxlength="500" required
+                                      placeholder="Contoh: libur / tanggal merah…"></textarea>
+                            <button type="submit" class="cl-excuse__submit"><i class="fas fa-check"></i> Tandai "Dikecualikan"</button>
+                        </form>
+                    </details>
+                    <style>
+                        .cl-excuse { margin-top: 14px; border: 1px solid #E0D2C1; border-radius: 12px; background: #FFFDF9; box-shadow: 0 1px 3px rgba(45,24,16,.05); }
+                        .cl-excuse__trigger { list-style: none; cursor: pointer; padding: 13px 16px; font-size: 13px; font-weight: 700; color: #6B4423; display: flex; align-items: center; justify-content: space-between; gap: 8px; border-radius: 12px; transition: background .15s; }
+                        .cl-excuse__trigger:hover { background: #FAF0E2; }
+                        .cl-excuse__trigger::-webkit-details-marker { display: none; }
+                        .cl-excuse__trigger-label { display: inline-flex; align-items: center; gap: 8px; }
+                        .cl-excuse__trigger i { color: #A66019; }
+                        .cl-excuse__caret { font-size: 12px; transition: transform .2s ease; }
+                        .cl-excuse[open] .cl-excuse__trigger { border-radius: 12px 12px 0 0; border-bottom: 1px solid #EFE1CF; background: #FAF0E2; }
+                        .cl-excuse[open] .cl-excuse__caret { transform: rotate(180deg); }
+                        .cl-excuse__form { padding: 12px 16px 16px; }
+                        .cl-excuse__label { font-size: 12px; font-weight: 700; color: #6B4423; margin-bottom: 8px; }
+                        .cl-excuse__chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+                        .cl-excuse__chip { font-size: 12px; font-weight: 600; padding: 6px 12px; border-radius: 999px; border: 1px solid #E0D2C1; background: #fff; color: #6B4423; cursor: pointer; transition: .15s; }
+                        .cl-excuse__chip:hover { border-color: #A66019; color: #5C2E15; background: #FAF4EC; }
+                        .cl-excuse__input { width: 100%; box-sizing: border-box; border: 1px solid #E0D2C1; border-radius: 8px; padding: 8px 10px; font-size: 13px; color: #2D1810; font-family: inherit; resize: vertical; }
+                        .cl-excuse__input:focus { outline: none; border-color: #A66019; box-shadow: 0 0 0 3px rgba(166,96,25,.10); }
+                        .cl-excuse__submit { margin-top: 10px; border: none; border-radius: 8px; background: linear-gradient(180deg,#5C2E15,#471500); color: #fff; font-size: 13px; font-weight: 700; padding: 9px 16px; cursor: pointer; display: inline-flex; align-items: center; gap: 7px; }
+                        .cl-excuse__submit:hover { filter: brightness(1.08); }
+                    </style>
                 @elseif($weekOffset !== 0 && $submission->isEditable())
                     <div class="wf-banner wf-banner--info" style="margin-top:14px;">
-                        <i class="fas fa-circle-info"></i>
+                        <i class="fas fa-info-circle"></i>
                         <div>Submit hanya bisa dilakukan dari <strong>minggu ini</strong>. Kembali ke minggu aktif untuk submit.</div>
                     </div>
                 @endif
             @endif
         @endif
+    </div>
+</div>
+
+{{-- Modal lihat foto bukti (dipakai bersama semua task) --}}
+<div class="wf-photo-modal" id="wfPhotoModal" hidden>
+    <div class="wf-photo-modal__backdrop" data-modal-close></div>
+    <div class="wf-photo-modal__box">
+        <button type="button" class="wf-photo-modal__close" data-modal-close aria-label="Tutup"><i class="fas fa-times"></i></button>
+        <img src="" alt="Foto bukti" id="wfPhotoModalImg">
     </div>
 </div>
 
@@ -566,33 +709,173 @@
     const submitBtn = document.getElementById('wfSubmitBtn');
 
     document.querySelectorAll('[data-item-id]').forEach(task => {
-        task.addEventListener('click', async () => {
+        // Klik area task (check/judul) → toggle. Kalau wajib foto & belum ada
+        // foto, klik malah membuka kamera dulu (tidak bisa selesai tanpa foto).
+        task.addEventListener('click', () => {
             if (task.dataset.editable !== '1') return;
-            const url = task.dataset.toggleUrl;
-            const wasDone = task.classList.contains('is-done');
-            task.classList.toggle('is-done');
-            updateDayCounter(task);
-
-            try {
-                const res = await fetch(url, {
-                    method: 'PATCH',
-                    headers: {
-                        'Accept': 'application/json',
-                        'X-CSRF-TOKEN': csrf,
-                        'Content-Type': 'application/json',
-                    },
-                });
-                const data = await res.json();
-                if (! data.ok) throw new Error(data.error || 'Gagal toggle');
-                task.classList.toggle('is-done', data.is_done);
-                updateGlobal(data.progress);
-            } catch (err) {
-                task.classList.toggle('is-done', wasDone);
-                updateDayCounter(task);
-                alert('Gagal: ' + (err.message || err));
+            const requiresPhoto = task.dataset.requiresPhoto === '1';
+            const hasPhoto = task.dataset.hasPhoto === '1';
+            const isDone = task.classList.contains('is-done');
+            if (requiresPhoto && ! hasPhoto && ! isDone) {
+                const input = task.querySelector('.wf-photo__file');
+                if (input) input.click();
+                return;
             }
+            toggleTask(task);
         });
+
+        // Kontrol foto tidak boleh ikut men-toggle task (stop bubbling).
+        const photoBox = task.querySelector('[data-photo]');
+        if (photoBox) {
+            photoBox.addEventListener('click', e => e.stopPropagation());
+            const fileInput = task.querySelector('.wf-photo__file');
+            const takeBtn   = task.querySelector('[data-photo-take]');
+            const removeBtn = task.querySelector('[data-photo-remove]');
+            const viewBtn   = task.querySelector('[data-photo-view]');
+            if (takeBtn && fileInput) takeBtn.addEventListener('click', () => fileInput.click());
+            if (fileInput) fileInput.addEventListener('change', () => {
+                if (fileInput.files && fileInput.files[0]) uploadPhoto(task, fileInput.files[0]);
+                fileInput.value = '';
+            });
+            if (removeBtn) removeBtn.addEventListener('click', () => removePhoto(task));
+            if (viewBtn) viewBtn.addEventListener('click', () => { if (viewBtn.dataset.url) openPhotoModal(viewBtn.dataset.url); });
+        }
     });
+
+    // ── Modal lihat foto ──
+    function openPhotoModal(url) {
+        const modal = document.getElementById('wfPhotoModal');
+        const img   = document.getElementById('wfPhotoModalImg');
+        if (! modal || ! img) return;
+        img.src = url;
+        modal.hidden = false;
+        document.body.style.overflow = 'hidden';
+    }
+    function closePhotoModal() {
+        const modal = document.getElementById('wfPhotoModal');
+        const img   = document.getElementById('wfPhotoModalImg');
+        if (! modal) return;
+        modal.hidden = true;
+        if (img) img.src = '';
+        document.body.style.overflow = '';
+    }
+    document.querySelectorAll('[data-modal-close]').forEach(el => el.addEventListener('click', closePhotoModal));
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closePhotoModal(); });
+
+    async function toggleTask(task) {
+        const url = task.dataset.toggleUrl;
+        const wasDone = task.classList.contains('is-done');
+        task.classList.toggle('is-done');
+        updateDayCounter(task);
+        try {
+            const res = await fetch(url, {
+                method: 'PATCH',
+                headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf, 'Content-Type': 'application/json' },
+            });
+            const data = await res.json();
+            if (! data.ok) throw new Error(data.error || 'Gagal toggle');
+            task.classList.toggle('is-done', data.is_done);
+            updateGlobal(data.progress);
+        } catch (err) {
+            task.classList.toggle('is-done', wasDone);
+            updateDayCounter(task);
+            alert('Gagal: ' + (err.message || err));
+        }
+    }
+
+    // Kompres/resize gambar di browser sebelum upload (hemat kuota & storage).
+    function resizeImage(file, maxDim, quality) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onerror = () => reject(new Error('Gagal membaca file'));
+            reader.onload = e => {
+                const img = new Image();
+                img.onerror = () => reject(new Error('File bukan gambar valid'));
+                img.onload = () => {
+                    let w = img.width, h = img.height;
+                    if (w > maxDim || h > maxDim) {
+                        if (w >= h) { h = Math.round(h * maxDim / w); w = maxDim; }
+                        else { w = Math.round(w * maxDim / h); h = maxDim; }
+                    }
+                    const canvas = document.createElement('canvas');
+                    canvas.width = w; canvas.height = h;
+                    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+                    canvas.toBlob(b => b ? resolve(b) : reject(new Error('Kompres gagal')), 'image/jpeg', quality);
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+
+    async function uploadPhoto(task, file) {
+        const status = task.querySelector('[data-photo-status]');
+        const setStatus = t => { if (status) status.textContent = t; };
+        setStatus('Mengompres…');
+        let blob;
+        try { blob = await resizeImage(file, 1600, 0.8); }
+        catch (e) { blob = file; } // fallback: kirim asli kalau resize gagal
+        const fd = new FormData();
+        fd.append('photo', blob, 'foto.jpg');
+        setStatus('Mengunggah…');
+        try {
+            const res = await fetch(task.dataset.photoUploadUrl, {
+                method: 'POST',
+                headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf },
+                body: fd,
+            });
+            const data = await res.json();
+            if (! data.ok) throw new Error(data.error || 'Upload gagal');
+            setPhoto(task, data.url);
+            setStatus('Foto tersimpan ✓');
+            setTimeout(() => setStatus(''), 1500);
+            // Foto = bukti selesai → otomatis tandai selesai kalau belum.
+            if (! task.classList.contains('is-done')) toggleTask(task);
+        } catch (err) {
+            setStatus('');
+            alert('Gagal: ' + (err.message || err));
+        }
+    }
+
+    async function removePhoto(task) {
+        if (! confirm('Hapus foto ini? Task akan kembali "belum selesai".')) return;
+        try {
+            const res = await fetch(task.dataset.photoDeleteUrl, {
+                method: 'DELETE',
+                headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf, 'Content-Type': 'application/json' },
+            });
+            const data = await res.json();
+            if (! data.ok) throw new Error(data.error || 'Gagal hapus');
+            clearPhoto(task);
+            task.classList.remove('is-done'); // server auto-uncheck task wajib foto
+            updateDayCounter(task);
+            updateGlobal(data.progress);
+        } catch (err) {
+            alert('Gagal: ' + (err.message || err));
+        }
+    }
+
+    function setPhoto(task, url) {
+        task.dataset.hasPhoto = '1';
+        task.classList.remove('needs-photo');
+        const viewBtn   = task.querySelector('[data-photo-view]');
+        const label     = task.querySelector('[data-photo-label]');
+        const removeBtn = task.querySelector('[data-photo-remove]');
+        if (viewBtn) { viewBtn.dataset.url = url; viewBtn.style.display = ''; }
+        if (label) label.textContent = 'Foto ulang';
+        if (removeBtn) removeBtn.style.display = '';
+    }
+
+    function clearPhoto(task) {
+        task.dataset.hasPhoto = '0';
+        task.classList.add('needs-photo');
+        const viewBtn   = task.querySelector('[data-photo-view]');
+        const label     = task.querySelector('[data-photo-label]');
+        const removeBtn = task.querySelector('[data-photo-remove]');
+        if (viewBtn) { viewBtn.dataset.url = ''; viewBtn.style.display = 'none'; }
+        if (label) label.textContent = 'Ambil foto';
+        if (removeBtn) removeBtn.style.display = 'none';
+    }
 
     function updateDayCounter(task) {
         const dayCard = task.closest('.wf-day');

@@ -39,6 +39,7 @@ class ChecklistAuditLog extends Model
     const ACTION_REJECT  = 'reject';
     const ACTION_REOPEN  = 'reopen';
     const ACTION_LOCK    = 'lock';
+    const ACTION_EXCUSE  = 'excuse';
 
     public static function actionOptions(): array
     {
@@ -51,6 +52,7 @@ class ChecklistAuditLog extends Model
             self::ACTION_REJECT  => ['label' => 'Reject',  'color' => 'danger'],
             self::ACTION_REOPEN  => ['label' => 'Reopen',  'color' => 'warning'],
             self::ACTION_LOCK    => ['label' => 'Lock',    'color' => 'neutral'],
+            self::ACTION_EXCUSE  => ['label' => 'Dikecualikan', 'color' => 'neutral'],
         ];
     }
 

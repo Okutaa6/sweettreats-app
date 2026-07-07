@@ -152,7 +152,7 @@
                 <span>Sweet Treats</span>
             </a>
             <a href="{{ route('affiliate.login') }}" class="btn-back">
-                <i class="fa-solid fa-right-to-bracket"></i> Login
+                <i class="fa-solid fa-sign-in-alt"></i> Login
             </a>
         </div>
     </nav>
@@ -183,14 +183,14 @@
 
                 @if(session('error'))
                     <div class="alert-error">
-                        <div class="alert-title"><i class="fa-solid fa-circle-exclamation"></i> Terjadi kesalahan</div>
+                        <div class="alert-title"><i class="fa-solid fa-exclamation-circle"></i> Terjadi kesalahan</div>
                         {{ session('error') }}
                     </div>
                 @endif
 
                 @if($errors->any())
                     <div class="alert-error">
-                        <div class="alert-title"><i class="fa-solid fa-circle-exclamation"></i> Periksa kembali data kamu</div>
+                        <div class="alert-title"><i class="fa-solid fa-exclamation-circle"></i> Periksa kembali data kamu</div>
                         <ul>
                             @foreach($errors->all() as $err)
                                 <li>{{ $err }}</li>
@@ -379,7 +379,7 @@
                         </div>
 
                         <div class="reward-lock-note">
-                            <i class="fa-solid fa-circle-info"></i>
+                            <i class="fa-solid fa-info-circle"></i>
                             <div>
                                 Reward hanya bisa <strong>diklaim di akhir perawatan saat lepas behel</strong>.
                                 Sekali pilih tier, tidak bisa diubah — pastikan komitmenmu ya!
@@ -401,7 +401,7 @@
                     <div class="step-pane" data-step-pane="4">
                         <div class="section-block">
                             <div class="section-title">
-                                <span class="section-icon"><i class="fa-solid fa-share-nodes"></i></span>
+                                <span class="section-icon"><i class="fa-solid fa-share-alt"></i></span>
                                 Sosial Media
                             </div>
                             <p class="section-desc">

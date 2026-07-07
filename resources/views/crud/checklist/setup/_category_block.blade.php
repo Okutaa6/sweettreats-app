@@ -9,9 +9,9 @@
     $countActive = $tasksActive->where('is_active', true)->count();
 @endphp
 
-<div class="cl-cat">
+<div class="cl-cat is-collapsed">
     <div class="cl-cat__head">
-        <div class="cl-cat__head-left">
+        <div class="cl-cat__head-left" data-cat-toggle title="Klik untuk buka/tutup">
             <span class="cl-cat__num">{{ $idx }}</span>
             <div style="min-width:0;">
                 <div class="cl-cat__title">
@@ -30,6 +30,7 @@
                     <div class="cl-cat__desc">{{ $cat->description }}</div>
                 @endif
             </div>
+            <i class="fas fa-chevron-down cl-cat__caret"></i>
         </div>
         <div class="cl-cat__actions">
             <button type="button" class="st-btn-outline-brown" style="padding:6px 14px; font-size:12px;" data-toggle="modal" data-target="#taskModalNew-{{ $cat->id }}">
@@ -46,6 +47,8 @@
         </div>
     </div>
 
+    <div class="cl-cat__body">
+    <div class="cl-cat__body-inner">
     @if($tasksActive->isEmpty())
         <div style="padding:28px 16px; text-align:center; color:var(--cl-subtle); font-size:12.5px; font-style:italic; background:var(--cl-cream-1);">
             <i class="fas fa-clipboard" style="font-size:18px; display:block; margin-bottom:6px; color:var(--cl-line-strong);"></i>
@@ -84,7 +87,12 @@
                             @endif
                             @if($task->requires_note)
                                 <span style="display:inline-block; margin-top:4px; font-size:10.5px; padding:2px 8px; background:var(--cl-info-bg); color:var(--cl-info); border-radius:10px; font-weight:600;">
-                                    <i class="fas fa-pen-to-square" style="font-size:9px;"></i> Wajib catatan
+                                    <i class="fas fa-edit" style="font-size:9px;"></i> Wajib catatan
+                                </span>
+                            @endif
+                            @if($task->requires_photo)
+                                <span style="display:inline-block; margin-top:4px; font-size:10.5px; padding:2px 8px; background:var(--cl-warn-bg, #FAEEDA); color:var(--cl-warn, #A66019); border-radius:10px; font-weight:600;">
+                                    <i class="fas fa-camera" style="font-size:9px;"></i> Wajib foto
                                 </span>
                             @endif
                         </td>
@@ -110,4 +118,6 @@
             </tbody>
         </table>
     @endif
+    </div>{{-- /cl-cat__body-inner --}}
+    </div>{{-- /cl-cat__body --}}
 </div>

@@ -279,10 +279,10 @@
 
                 <div class="ty-actions">
                     <a href="{{ route('affiliate.login') }}" class="btn-ty btn-ty--primary">
-                        <i class="fa-solid fa-right-to-bracket"></i> Ke Halaman Login
+                        <i class="fa-solid fa-sign-in-alt"></i> Ke Halaman Login
                     </a>
                     <a href="https://sweettreats.id/" class="btn-ty btn-ty--outline">
-                        <i class="fa-solid fa-house"></i> Kembali ke Beranda
+                        <i class="fa-solid fa-home"></i> Kembali ke Beranda
                     </a>
                 </div>
 

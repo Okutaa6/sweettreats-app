@@ -1020,7 +1020,7 @@
                 <li><a href="#faq">FAQ</a></li>
                 <li style="margin-left: 8px"><a href="/reservasi/riwayat"
                         style="display:inline-flex;align-items:center;gap:6px;padding:8px 18px;border:1.5px solid rgba(70,21,0,0.2);border-radius:50px;font-size:0.82rem;transition:all 0.3s"><i
-                            class="fa-solid fa-clock-rotate-left"></i> Cek Riwayat</a></li>
+                            class="fa-solid fa-history"></i> Cek Riwayat</a></li>
                 <li>
                     <a href="#reservasi" class="btn-reservasi">
                         <i class="fa-solid fa-calendar-check"></i> Reservasi
@@ -1056,7 +1056,7 @@
                     <a href="/reservasi/riwayat"
                         style="display:inline-flex;align-items:center;gap:6px;font-size:0.85rem;font-weight:600;color:#461500;opacity:0.7;transition:opacity 0.3s"
                         onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">
-                        <i class="fa-solid fa-clock-rotate-left"></i> Cek Riwayat Reservasi
+                        <i class="fa-solid fa-history"></i> Cek Riwayat Reservasi
                     </a>
                 </div>
             </div>
@@ -1101,13 +1101,13 @@
                         seru!</p>
                 </div>
                 <div class="usp-card">
-                    <div class="usp-icon cool"><i class="fa-solid fa-wand-magic-sparkles"></i></div>
+                    <div class="usp-icon cool"><i class="fa-solid fa-magic"></i></div>
                     <h3>Cool</h3>
                     <p>Klinik gigi kekinian yang buat pengalaman ke dokter gigi jadi lebih fun dan
                         menyenangkan!</p>
                 </div>
                 <div class="usp-card">
-                    <div class="usp-icon friendly"><i class="fa-solid fa-face-smile"></i></div>
+                    <div class="usp-icon friendly"><i class="fa-solid fa-smile"></i></div>
                     <h3>Friendly</h3>
                     <p>Pelayanan yang friendly dari sweet dentist & sweet crew pasti bikin kamu nyaman dan betah.</p>
                 </div>
@@ -1180,14 +1180,14 @@
             <div class="locations-grid">
                 @forelse ($branches as $branch)
                     <div class="location-card">
-                        <div class="location-icon"><i class="fa-solid fa-location-dot"></i></div>
+                        <div class="location-icon"><i class="fa-solid fa-map-marker-alt"></i></div>
                         <h3>{{ $branch->name }}</h3>
                         <p>Sweet Treats Dental Clinic — {{ $branch->name }}</p>
                     </div>
                 @empty
                     <div class="location-card" style="text-align: center;">
                         <div class="location-icon" style="margin: 0 auto 20px;"><i
-                                class="fa-solid fa-location-dot"></i></div>
+                                class="fa-solid fa-map-marker-alt"></i></div>
                         <h3>Informasi Lokasi</h3>
                         <p>Hubungi kami untuk info lebih lanjut mengenai lokasi klinik.</p>
                     </div>

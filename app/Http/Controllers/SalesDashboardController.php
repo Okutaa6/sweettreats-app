@@ -234,7 +234,7 @@ class SalesDashboardController extends Controller
             ->where(fn($w) => $w->whereNull('periode_end')->orWhere('periode_end', '>=', $anchor));
         $this->promoBranchFilter($q, $sessionBranch);
 
-        return $q->select('id', 'nama_promo', 'campaign_type', 'harga_normal', 'harga_promo', 'periode_start', 'periode_end', 'detail_promo', 'syarat_ketentuan')
+        return $q->select('id', 'nama_promo', 'campaign_type', 'harga_normal', 'harga_promo', 'periode_start', 'periode_end', 'detail_promo', 'syarat_ketentuan', 'cetakan')
             ->orderBy('periode_end')->limit(8)->get();
     }
 
@@ -249,7 +249,7 @@ class SalesDashboardController extends Controller
             ->where('periode_start', '<=', $until);
         $this->promoBranchFilter($q, $sessionBranch);
 
-        return $q->select('id', 'nama_promo', 'campaign_type', 'harga_normal', 'harga_promo', 'periode_start', 'periode_end', 'detail_promo', 'syarat_ketentuan')
+        return $q->select('id', 'nama_promo', 'campaign_type', 'harga_normal', 'harga_promo', 'periode_start', 'periode_end', 'detail_promo', 'syarat_ketentuan', 'cetakan')
             ->orderBy('periode_start')->limit(8)->get();
     }
 

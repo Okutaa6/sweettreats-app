@@ -64,9 +64,10 @@
                 $statusTabs = [
                     'all'       => ['label' => 'Semua',              'count' => $counts['all'],       'icon' => 'fa-list'],
                     'submitted' => ['label' => 'Menunggu Approval', 'count' => $counts['submitted'], 'icon' => 'fa-clock'],
-                    'approved'  => ['label' => 'Disetujui',          'count' => $counts['approved'],  'icon' => 'fa-circle-check'],
-                    'rejected'  => ['label' => 'Ditolak',            'count' => $counts['rejected'],  'icon' => 'fa-circle-xmark'],
-                    'draft'     => ['label' => 'Draft',               'count' => $counts['draft'],     'icon' => 'fa-pen-to-square'],
+                    'approved'  => ['label' => 'Disetujui',          'count' => $counts['approved'],  'icon' => 'fa-check-circle'],
+                    'rejected'  => ['label' => 'Ditolak',            'count' => $counts['rejected'],  'icon' => 'fa-times-circle'],
+                    'excused'   => ['label' => 'Dikecualikan',       'count' => $counts['excused'],   'icon' => 'fa-mug-hot'],
+                    'draft'     => ['label' => 'Draft',               'count' => $counts['draft'],     'icon' => 'fa-edit'],
                 ];
             @endphp
             @foreach($statusTabs as $key => $tab)

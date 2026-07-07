@@ -16,7 +16,7 @@
     <div class="cl-hero">
         <div class="cl-hero__left">
             <h5 class="cl-hero__title">
-                <span class="cl-hero__icon"><i class="fas fa-list-check"></i></span>
+                <span class="cl-hero__icon"><i class="fas fa-tasks"></i></span>
                 Atur Tugas Checklist
             </h5>
             <p class="cl-hero__subtitle">
@@ -33,7 +33,7 @@
             <div class="cl-summary">
                 <span class="cl-summary__chip"><i class="fas fa-folder" style="color:var(--cl-brown-2); font-size:11px;"></i> <strong>{{ $categories->count() }}</strong> kategori</span>
                 <span class="cl-summary__sep"></span>
-                <span class="cl-summary__chip"><i class="fas fa-list-check" style="color:var(--cl-brown-2); font-size:11px;"></i> <strong>{{ $totalTasks }}</strong> tugas aktif</span>
+                <span class="cl-summary__chip"><i class="fas fa-tasks" style="color:var(--cl-brown-2); font-size:11px;"></i> <strong>{{ $totalTasks }}</strong> tugas aktif</span>
                 <div class="cl-summary__right">
                     Divisi: <strong>{{ $division->name }}</strong>
                 </div>
@@ -391,6 +391,15 @@
                             Karyawan harus isi catatan saat centang
                         </label>
                     </div>
+                    @if($cat->isWeekly())
+                        <div class="form-group">
+                            <label class="d-flex align-items-center" style="gap:8px; cursor:pointer;">
+                                <input type="checkbox" name="requires_photo" value="1">
+                                Wajib upload foto (buka kamera) saat centang
+                            </label>
+                            <small class="text-muted" style="font-size:11.5px;">Ops harus memotret bukti lewat kamera sebelum task bisa dicentang.</small>
+                        </div>
+                    @endif
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="st-btn-outline-brown" data-dismiss="modal">Batal</button>
@@ -436,6 +445,14 @@
                                 Wajib isi catatan saat centang
                             </label>
                         </div>
+                        @if($cat->isWeekly())
+                            <div class="form-group">
+                                <label class="d-flex align-items-center" style="gap:8px; cursor:pointer;">
+                                    <input type="checkbox" name="requires_photo" value="1" {{ $task->requires_photo ? 'checked' : '' }}>
+                                    Wajib upload foto (buka kamera) saat centang
+                                </label>
+                            </div>
+                        @endif
                         <div class="form-group">
                             <label class="d-flex align-items-center" style="gap:8px; cursor:pointer;">
                                 <input type="checkbox" name="is_active" value="1" {{ $task->is_active ? 'checked' : '' }}>
@@ -459,4 +476,55 @@
     @endforeach
 @endforeach
 @endif
+
+<style>
+    /* Accordion setup kategori — header dibuat lebih mencolok sebagai bar clickable */
+    .cl-cat { border-color: #E0D2C1; box-shadow: 0 2px 10px rgba(45,24,16,.06); }
+    .cl-cat__head {
+        background: linear-gradient(180deg, #FAF4EC 0%, #F3E7D6 100%);
+        border-bottom: 1px solid #E7D6C2;
+    }
+    .cl-cat__head-left {
+        cursor: pointer;
+        border-radius: 10px;
+        padding: 4px 8px;
+    }
+    .cl-cat__caret {
+        margin-left: 10px; align-self: center; flex-shrink: 0;
+        width: 26px; height: 26px; border-radius: 50%;
+        display: inline-flex; align-items: center; justify-content: center;
+        background: #FFFFFF; border: 1px solid #E0D2C1;
+        color: var(--cl-brown); font-size: 12px;
+        transition: transform .2s ease;
+    }
+    .cl-cat.is-collapsed .cl-cat__caret { transform: rotate(-90deg); }
+    .cl-cat.is-collapsed .cl-cat__head { border-bottom: none; }
+
+    /* Buka/tutup halus via grid-template-rows (0fr → 1fr) */
+    .cl-cat__body {
+        display: grid;
+        grid-template-rows: 1fr;
+        transition: grid-template-rows .3s ease;
+    }
+    .cl-cat.is-collapsed .cl-cat__body { grid-template-rows: 0fr; }
+    .cl-cat__body-inner { overflow: hidden; min-height: 0; }
+</style>
+<script>
+(function () {
+    var cats = Array.prototype.slice.call(document.querySelectorAll('.cl-cat'));
+    // Default: hanya kategori pertama yang terbuka (sisanya collapsed via markup).
+    cats.forEach(function (c, i) { c.classList.toggle('is-collapsed', i !== 0); });
+
+    document.querySelectorAll('.cl-cat__head-left[data-cat-toggle]').forEach(function (head) {
+        head.addEventListener('click', function () {
+            var cat = head.closest('.cl-cat');
+            if (! cat) return;
+            var willOpen = cat.classList.contains('is-collapsed');
+            // Eksklusif: tutup semua dulu, lalu buka yang diklik (kalau tadinya tertutup).
+            cats.forEach(function (c) { c.classList.add('is-collapsed'); });
+            if (willOpen) cat.classList.remove('is-collapsed');
+        });
+    });
+})();
+</script>
 @endsection

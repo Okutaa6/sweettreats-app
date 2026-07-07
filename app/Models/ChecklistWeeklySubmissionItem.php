@@ -18,11 +18,12 @@ class ChecklistWeeklySubmissionItem extends Model
         'id', 'submission_id', 'task_id',
         'category_title_snapshot', 'task_title_snapshot',
         'category_sort_order', 'task_sort_order',
-        'day_of_week', 'is_done', 'note', 'done_at', 'created_at',
+        'day_of_week', 'is_done', 'note', 'requires_photo', 'photo_path', 'done_at', 'created_at',
     ];
 
     protected $casts = [
         'is_done'             => 'boolean',
+        'requires_photo'      => 'boolean',
         'day_of_week'         => 'integer',
         'category_sort_order' => 'integer',
         'task_sort_order'     => 'integer',

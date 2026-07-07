@@ -112,6 +112,18 @@ class PettyCashController extends Controller
         }
     }
 
+    /**
+     * Gate khusus EDIT & HAPUS transaksi — dibatasi Super Admin (kebijakan
+     * audit). Role lain boleh mencatat transaksi baru tapi tidak boleh
+     * mengubah/menghapus yang sudah ada. Panggil di update() & destroy().
+     */
+    private function requireTrxEditor(): void
+    {
+        if (! isSuperAdmin()) {
+            abort(403, 'Hanya Super Admin yang boleh mengedit atau menghapus transaksi petty cash.');
+        }
+    }
+
     /* ───────── Actions ───────── */
 
     /**
@@ -234,6 +246,13 @@ class PettyCashController extends Controller
         $isFinanceViewOnly = ! canEditPettyCash();
         $isReadOnly        = (bool) $period->is_closed || ! $isCurrentMonth || $isFinanceViewOnly;
 
+        // Edit & hapus transaksi dibatasi Super Admin saja (kebijakan audit):
+        // role lain (Admin General/Backup, Sales) tetap bisa MENCATAT transaksi
+        // baru, tapi tidak boleh mengubah/menghapus yang sudah ada. Terpisah dari
+        // $isReadOnly supaya fitur tulis lain (tambah pengeluaran, top up) tetap
+        // jalan. Guard yang sama di-enforce server-side di update() & destroy().
+        $showTrxActions = ! $isReadOnly && isSuperAdmin();
+
         $tabs = [[
             'kind'   => $kind,
             'label'  => self::LABEL,
@@ -257,7 +276,7 @@ class PettyCashController extends Controller
             'year', 'month', 'bulanLabel',
             'startDate', 'endDate', 'monthStartStr', 'monthEndStr',
             'search', 'category', 'categoryOptions', 'fundSourceId',
-            'isCurrentMonth', 'isReadOnly', 'isFinanceViewOnly',
+            'isCurrentMonth', 'isReadOnly', 'isFinanceViewOnly', 'showTrxActions',
             'kind', 'tabs', 'fundSources', 'fundSourcesGrouped',
             'branches', 'activeBranch', 'branchId', 'sessionBranch',
             'branchAccountMap', 'pendingTopupCount'
@@ -971,6 +990,7 @@ class PettyCashController extends Controller
     public function destroy(Request $request, $id)
     {
         $this->requireWriteAccess();
+        $this->requireTrxEditor();
         $kind     = $this->kind($request);
         $trxClass = $this->trxClass($kind);
 
@@ -1017,6 +1037,7 @@ class PettyCashController extends Controller
     public function update(Request $request, $id)
     {
         $this->requireWriteAccess();
+        $this->requireTrxEditor();
         $kind     = $this->kind($request);
         $trxClass = $this->trxClass($kind);
 

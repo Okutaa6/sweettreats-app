@@ -113,14 +113,14 @@
 
                     @if(session('error'))
                         <div class="alert-error">
-                            <i class="fa-solid fa-circle-exclamation"></i>
+                            <i class="fa-solid fa-exclamation-circle"></i>
                             <div>{{ session('error') }}</div>
                         </div>
                     @endif
 
                     @if(session('success'))
                         <div class="alert-error" style="background: linear-gradient(135deg,#e8f5e9,#c8e6c9); border-color:#a5d6a7; color:#2e7d32;">
-                            <i class="fa-solid fa-circle-check"></i>
+                            <i class="fa-solid fa-check-circle"></i>
                             <div>{{ session('success') }}</div>
                         </div>
                     @endif
@@ -152,7 +152,7 @@
                         </div>
 
                         <button type="submit" class="btn-submit">
-                            <i class="fa-solid fa-right-to-bracket"></i> Masuk
+                            <i class="fa-solid fa-sign-in-alt"></i> Masuk
                         </button>
                     </form>
 

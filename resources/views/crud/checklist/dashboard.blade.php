@@ -71,6 +71,7 @@
                                     </span>
                                     <span class="cl-divprog__count">
                                         <strong style="color:var(--cl-ink);">{{ $row->submitted }}</strong>/{{ $row->total }} submit
+                                        @if($row->excused > 0)<small style="color:var(--cl-brown-2);">· {{ $row->excused }} dikecualikan</small>@endif
                                         <span class="cl-divprog__pct cl-divprog__pct--{{ $pctClass }}">{{ $row->pct }}%</span>
                                     </span>
                                 </div>
@@ -134,7 +135,7 @@
             <i class="fas fa-arrow-right cl-action__arrow"></i>
         </a>
         <a href="{{ route('checklist.setup') }}" class="cl-action">
-            <span class="cl-action__icon"><i class="fas fa-list-check"></i></span>
+            <span class="cl-action__icon"><i class="fas fa-tasks"></i></span>
             <div class="cl-action__main">
                 <div class="cl-action__title">Setup Tugas Checklist</div>
                 <div class="cl-action__desc">Atur kategori & task per divisi (FO / GS / Asdent)</div>
@@ -142,7 +143,7 @@
             <i class="fas fa-arrow-right cl-action__arrow"></i>
         </a>
         <a href="{{ route('checklist.audit') }}" class="cl-action">
-            <span class="cl-action__icon"><i class="fas fa-shield-halved"></i></span>
+            <span class="cl-action__icon"><i class="fas fa-shield-alt"></i></span>
             <div class="cl-action__main">
                 <div class="cl-action__title">Audit Trail</div>
                 <div class="cl-action__desc">Log lengkap semua aksi — dipakai saat audit akreditasi</div>

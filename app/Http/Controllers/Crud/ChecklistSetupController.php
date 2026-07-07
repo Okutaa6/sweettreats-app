@@ -173,18 +173,22 @@ class ChecklistSetupController extends Controller
             'description'   => 'nullable|string|max:1000',
             'day_of_week'   => 'nullable|integer|between:1,7',
             'requires_note' => 'nullable|boolean',
+            'requires_photo'=> 'nullable|boolean',
         ]);
 
         $cat = ChecklistCategory::whereNull('deleted_at')->findOrFail($data['category_id']);
 
         // Untuk kategori mingguan, hari wajib. Untuk harian, paksa NULL.
+        // Wajib-foto hanya berlaku untuk kategori mingguan.
         if ($cat->isWeekly()) {
             if (empty($data['day_of_week'])) {
                 return back()->withErrors(['day_of_week' => 'Untuk kategori Mingguan, hari wajib dipilih.'])->withInput();
             }
             $dayOfWeek = (int) $data['day_of_week'];
+            $requiresPhoto = (int) ($data['requires_photo'] ?? 0);
         } else {
             $dayOfWeek = null;
+            $requiresPhoto = 0;
         }
 
         $nextOrder = (int) (ChecklistTask::where('category_id', $cat->id)
@@ -197,6 +201,7 @@ class ChecklistSetupController extends Controller
             'description'   => $data['description'] ?? null,
             'day_of_week'   => $dayOfWeek,
             'requires_note' => (int) ($data['requires_note'] ?? 0),
+            'requires_photo'=> $requiresPhoto,
             'sort_order'    => $nextOrder,
             'is_active'     => 1,
             'created_at'    => now(),
@@ -220,6 +225,7 @@ class ChecklistSetupController extends Controller
             'description'   => 'nullable|string|max:1000',
             'day_of_week'   => 'nullable|integer|between:1,7',
             'requires_note' => 'nullable|boolean',
+            'requires_photo'=> 'nullable|boolean',
             'is_active'     => 'nullable|boolean',
         ]);
 
@@ -229,8 +235,10 @@ class ChecklistSetupController extends Controller
                 return back()->withErrors(['day_of_week' => 'Untuk kategori Mingguan, hari wajib dipilih.'])->withInput();
             }
             $dayOfWeek = (int) $data['day_of_week'];
+            $requiresPhoto = (int) ($data['requires_photo'] ?? 0);
         } else {
             $dayOfWeek = null;
+            $requiresPhoto = 0;
         }
 
         $before = ['title' => $task->title, 'is_active' => $task->is_active, 'day_of_week' => $task->day_of_week];
@@ -239,6 +247,7 @@ class ChecklistSetupController extends Controller
             'description'   => $data['description'] ?? null,
             'day_of_week'   => $dayOfWeek,
             'requires_note' => (int) ($data['requires_note'] ?? 0),
+            'requires_photo'=> $requiresPhoto,
             'is_active'     => isset($data['is_active']) ? (int) $data['is_active'] : $task->is_active,
             'updated_at'    => now(),
         ]);

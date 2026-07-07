@@ -30,7 +30,7 @@
             <div class="pc-modal__header">
                 <div>
                     <h5 class="pc-modal__title">
-                        <i class="fa fa-arrow-down-up-across-line" style="color:#16a34a;"></i> Top up Saldo
+                        <i class="fa fa-random" style="color:#16a34a;"></i> Top up Saldo
                     </h5>
                     <small class="pc-muted">Isi kembali kas kecil</small>
                 </div>
@@ -136,7 +136,7 @@
             <div class="pc-modal__footer">
                 <button type="button" class="st-btn-outline-brown" data-pc-modal-close>Batal</button>
                 <button type="submit" class="pc-btn-topup-solid">
-                    <i class="fa fa-arrow-down-up-across-line"></i> Top up Saldo
+                    <i class="fa fa-random"></i> Top up Saldo
                 </button>
             </div>
         </form>

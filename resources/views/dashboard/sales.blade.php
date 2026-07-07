@@ -482,6 +482,10 @@
                 <div class="sds-pm__lbl"><i class="fa fa-shield-alt"></i> Syarat &amp; Ketentuan</div>
                 <div class="sds-pm__body" id="pmSk"></div>
             </div>
+            <div class="sds-pm__sec" id="pmCetakanWrap">
+                <div class="sds-pm__lbl"><i class="fa fa-print"></i> Cetakan</div>
+                <div class="sds-pm__body" id="pmCetakan"></div>
+            </div>
             <div class="sds-pm__foot">
                 <span class="sds-pm__date" id="pmDateWrap"><i class="fa fa-calendar-alt"></i> <span id="pmDate"></span></span>
                 <button class="sds-pm__copy" id="pmCopy" type="button"><i class="fa fa-copy"></i> <span id="pmCopyTxt">Salin info</span></button>
@@ -539,6 +543,7 @@
         } else { hemat.style.display = 'none'; }
         setBlock('pmDetailWrap', 'pmDetail', el.dataset.detail);
         setBlock('pmSkWrap', 'pmSk', el.dataset.sk);
+        setBlock('pmCetakanWrap', 'pmCetakan', el.dataset.cetakan);
         document.getElementById('pmDate').textContent = el.dataset.date || '';
         document.getElementById('pmDateWrap').className = 'sds-pm__date' + (soon ? ' is-soon' : '');
         resetCopy();
@@ -556,6 +561,7 @@
         if (d.saverp) lines.push('Hemat: ' + d.saverp);
         if (d.detail) lines.push('', 'Detail:', d.detail);
         if (d.sk) lines.push('', 'S&K:', d.sk);
+        if (d.cetakan) lines.push('', 'Cetakan:', d.cetakan);
         if (d.date) lines.push('', 'Periode: ' + d.date);
         var text = lines.join('\n');
         if (navigator.clipboard && navigator.clipboard.writeText) {

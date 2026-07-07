@@ -376,6 +376,17 @@
         border-radius: 10px;
         border: 1px solid var(--cl-line);
     }
+    /* Accordion per kategori */
+    .cl-week-table tbody tr.cat-row { cursor: pointer; user-select: none; }
+    .cl-week-table tbody tr.cat-row:hover td { background: var(--cl-cream-1); }
+    .cl-week-table tbody tr.cat-row .cat-caret {
+        margin-left: 10px;
+        font-size: 11px;
+        color: var(--cl-brown-2);
+        transition: transform .2s ease;
+    }
+    .cl-week-table tbody tr.cat-row.is-collapsed .cat-caret { transform: rotate(-90deg); }
+    .cl-week-table tbody tr.cl-task-row.is-hidden { display: none; }
 
     /* Day cells */
     .cl-week-cell {
@@ -513,7 +524,7 @@
                     </a>
                 </div>
                 <a href="{{ route('mychecklist.history') }}" style="font-size:12.5px; color:#6B4423; text-decoration:none; display:inline-flex; align-items:center; gap:6px; font-weight:600;">
-                    <i class="fas fa-clock-rotate-left"></i> Riwayat
+                    <i class="fas fa-history"></i> Riwayat
                 </a>
             </div>
 
@@ -527,7 +538,7 @@
                     </a>
                     <a href="{{ route('mychecklist.weekly') }}"
                        style="padding:6px 14px; font-size:12px; font-weight:700; text-decoration:none; border-radius:999px; background:#FFFFFF; color:#5C2E15; box-shadow:0 1px 3px rgba(45,24,16,.10); display:inline-flex; align-items:center; gap:6px;">
-                        <i class="fas fa-th" style="font-size:10px;"></i> Tampilan Mingguan
+                        <i class="fas fa-th" style="font-size:10px;"></i> Seminggu
                     </a>
                 </div>
             </div>
@@ -563,7 +574,7 @@
             {{-- BANNER STATUS --}}
             @if($submission->status === \App\Models\ChecklistSubmission::STATUS_REJECTED)
                 <div class="cl-mod-banner cl-mod-banner--danger">
-                    <i class="fas fa-circle-xmark"></i>
+                    <i class="fas fa-times-circle"></i>
                     <div style="flex:1;">
                         <strong>Checklist anda ditolak supervisor.</strong>
                         @if($submission->review_notes)<div style="margin-top:4px;">Catatan: {{ $submission->review_notes }}</div>@endif
@@ -582,7 +593,7 @@
                 </div>
             @elseif($submission->status === \App\Models\ChecklistSubmission::STATUS_APPROVED)
                 <div class="cl-mod-banner cl-mod-banner--success">
-                    <i class="fas fa-circle-check"></i>
+                    <i class="fas fa-check-circle"></i>
                     <div><strong>Checklist hari ini disetujui supervisor.</strong> Terima kasih atas konsistensinya! 🎉</div>
                 </div>
             @endif
@@ -643,17 +654,18 @@
                             <tbody>
                                 @foreach($rows as $idx => $row)
                                     @php $catCount = $row->tasks->count(); @endphp
-                                    <tr class="cat-row">
-                                        <td colspan="8">
+                                    <tr class="cat-row {{ $idx === 0 ? '' : 'is-collapsed' }}" data-cat-toggle="{{ $idx }}">
+                                        <td colspan="{{ count($days) + 1 }}">
                                             <div class="cat-inner">
                                                 <span class="cat-num">{{ $idx + 1 }}</span>
                                                 {{ $row->category->name }}
                                                 <span class="cat-meta">{{ $catCount }} tugas</span>
+                                                <i class="fas fa-chevron-down cat-caret"></i>
                                             </div>
                                         </td>
                                     </tr>
                                     @foreach($row->tasks as $taskRow)
-                                        <tr>
+                                        <tr class="cl-task-row {{ $idx === 0 ? '' : 'is-hidden' }}" data-cat="{{ $idx }}">
                                             <td class="task-col">{{ $taskRow->task->title }}</td>
                                             @foreach($taskRow->cells as $cell)
                                                 @php
@@ -714,6 +726,22 @@
     const pctEl   = document.querySelector('.cl-mod-week-progress__pct');
     const fillEl  = document.querySelector('.cl-mod-week-progress__bar i');
     const countEl = document.querySelector('.cl-mod-week-progress__count');
+
+    // Accordion eksklusif: klik header kategori → buka baris task-nya & tutup kategori lain.
+    document.querySelectorAll('tr.cat-row[data-cat-toggle]').forEach(catRow => {
+        catRow.addEventListener('click', () => {
+            const cat = catRow.dataset.catToggle;
+            const willOpen = catRow.classList.contains('is-collapsed');
+            // Tutup semua dulu.
+            document.querySelectorAll('tr.cat-row[data-cat-toggle]').forEach(cr => cr.classList.add('is-collapsed'));
+            document.querySelectorAll('tr.cl-task-row').forEach(r => r.classList.add('is-hidden'));
+            // Buka yang diklik (kalau tadinya tertutup).
+            if (willOpen) {
+                catRow.classList.remove('is-collapsed');
+                document.querySelectorAll('tr.cl-task-row[data-cat="' + cat + '"]').forEach(r => r.classList.remove('is-hidden'));
+            }
+        });
+    });
 
     document.querySelectorAll('.cl-week-cell.is-today:not(.is-locked)').forEach(cell => {
         if (! cell.dataset.toggleUrl) return;

@@ -22,13 +22,15 @@ class UserPosition extends Model
 
     protected $fillable = [
         'id', 'user_id', 'division_id', 'raw_branch_id', 'is_primary',
-        'effective_from', 'effective_to', 'created_at', 'updated_at',
+        'effective_from', 'effective_to', 'confirmed_at', 'confirmed_by',
+        'created_at', 'updated_at',
     ];
 
     protected $casts = [
         'is_primary'     => 'boolean',
         'effective_from' => 'date',
         'effective_to'   => 'date',
+        'confirmed_at'   => 'datetime',
         'created_at'     => 'datetime',
         'updated_at'     => 'datetime',
     ];
@@ -49,18 +51,31 @@ class UserPosition extends Model
     }
 
     /**
-     * Scope: posisi yang masih berlaku per tanggal tertentu (default hari ini).
-     * effective_to NULL berarti open-ended (masih aktif).
+     * Scope: posisi AKTIF per tanggal tertentu (default hari ini). Aktif =
+     * sudah dikonfirmasi supervisor (confirmed_at terisi), is_primary, dan
+     * tanggal masih berlaku. Usulan pending (confirmed_at NULL) TIDAK aktif.
      */
     public function scopeActiveOn($q, ?Carbon $date = null)
     {
         $d = ($date ?: Carbon::today())->toDateString();
         return $q->where('is_primary', 1)
+            ->whereNotNull('confirmed_at')
             ->where(function ($q2) use ($d) {
                 $q2->whereNull('effective_to')->orWhere('effective_to', '>=', $d);
             })
             ->where(function ($q2) use ($d) {
                 $q2->whereNull('effective_from')->orWhere('effective_from', '<=', $d);
             });
+    }
+
+    /**
+     * Scope: usulan posisi yang menunggu konfirmasi supervisor
+     * (confirmed_at NULL, masih open-ended, is_primary).
+     */
+    public function scopePending($q)
+    {
+        return $q->where('is_primary', 1)
+            ->whereNull('confirmed_at')
+            ->whereNull('effective_to');
     }
 }

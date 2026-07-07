@@ -59,7 +59,7 @@
                                 @else
                                     <span class="fpc-queue-card__account fpc-queue-card__account--missing"
                                           title="Cabang belum mengisi nomor rekening untuk wallet ini">
-                                        <i class="fa fa-circle-exclamation"></i> No. rek belum diisi
+                                        <i class="fa fa-exclamation-circle"></i> No. rek belum diisi
                                     </span>
                                 @endif
                             </span>

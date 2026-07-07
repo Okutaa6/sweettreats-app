@@ -77,9 +77,9 @@
                 </button>
             @endif
             @if($r->is_topup)
-                <i class="fa-solid fa-arrow-down-up-across-line" style="color:#16a34a;"></i>
+                <i class="fa-solid fa-random" style="color:#16a34a;"></i>
             @elseif($r->is_transfer && ! $isComposite)
-                <i class="fa-solid fa-right-left" style="color:#2563eb;"></i>
+                <i class="fa-solid fa-exchange-alt" style="color:#2563eb;"></i>
             @endif
             <strong>{{ $r->description }}</strong>
             @if(!empty($r->category) && isset($categoryMap[$r->category]))
@@ -117,7 +117,7 @@
             {{ $isComposite ? '—' : ($r->cash_out > 0 ? number_format($r->cash_out, 0, ',', '.') : '—') }}
         </td>
         <td class="text-right pc-saldo-cell">{{ number_format($r->saldo, 0, ',', '.') }}</td>
-        @if(!$isReadOnly)
+        @if($showTrxActions)
             @php
                 $delAmount = number_format(max($r->cash_in, $r->cash_out), 0, ',', '.');
                 if ($isComposite) {
@@ -204,13 +204,13 @@
                     {{ $child->cash_out > 0 ? number_format($child->cash_out, 0, ',', '.') : '—' }}
                 </td>
                 <td class="text-right pc-saldo-cell pc-muted">—</td>
-                @if(!$isReadOnly)<td></td>@endif
+                @if($showTrxActions)<td></td>@endif
             </tr>
         @endforeach
     @endif
 @empty
     <tr>
-        <td colspan="{{ $isReadOnly ? 6 : 7 }}">
+        <td colspan="{{ $showTrxActions ? 7 : 6 }}">
             <div class="pc-empty-state">
                 <div class="pc-empty-state__icon">
                     <i class="fa {{ $emptyIcon ?? 'fa-folder-open' }}"></i>

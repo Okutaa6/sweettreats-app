@@ -135,19 +135,19 @@
 
             @if(session('success'))
                 <div class="sm-alert sm-alert-success">
-                    <i class="fa-solid fa-circle-check"></i>
+                    <i class="fa-solid fa-check-circle"></i>
                     <div>{{ session('success') }}</div>
                 </div>
             @endif
             @if(session('error'))
                 <div class="sm-alert sm-alert-error">
-                    <i class="fa-solid fa-circle-exclamation"></i>
+                    <i class="fa-solid fa-exclamation-circle"></i>
                     <div>{{ session('error') }}</div>
                 </div>
             @endif
             @if($errors->any())
                 <div class="sm-alert sm-alert-error">
-                    <i class="fa-solid fa-circle-exclamation"></i>
+                    <i class="fa-solid fa-exclamation-circle"></i>
                     <div>
                         @foreach($errors->all() as $err)
                             <div>{{ $err }}</div>
@@ -180,7 +180,7 @@
             {{-- CARA SUBMIT --}}
             <div class="sm-card sm-card-tinted">
                 <div class="sm-card-title">
-                    <i class="fa-solid fa-circle-info"></i>
+                    <i class="fa-solid fa-info-circle"></i>
                     Cara Kirim Konten
                 </div>
                 <ol class="sm-step-list">
@@ -215,7 +215,7 @@
                                 @php
                                     $icon = $key === 'tiktok' ? 'fa-brands fa-tiktok'
                                           : ($key === 'instagram' ? 'fa-brands fa-instagram'
-                                          : ($key === 'youtube' ? 'fa-brands fa-youtube' : 'fa-solid fa-share-nodes'));
+                                          : ($key === 'youtube' ? 'fa-brands fa-youtube' : 'fa-solid fa-share-alt'));
                                 @endphp
                                 <label class="sm-platform-tile {{ old('platform') === $key ? 'selected' : '' }}"
                                        onclick="document.querySelectorAll('.sm-platform-tile').forEach(t=>t.classList.remove('selected'));this.classList.add('selected');">
@@ -257,7 +257,7 @@
             {{-- LIST KONTEN --}}
             <div class="sm-card">
                 <div class="sm-card-title">
-                    <i class="fa-solid fa-list-check"></i>
+                    <i class="fa-solid fa-tasks"></i>
                     Riwayat Konten ({{ $contents->count() }})
                 </div>
 
@@ -278,14 +278,14 @@
                             $types = \App\Models\AffiliateContent::contentTypeOptions();
                             $icon = $c->platform === 'tiktok' ? 'fa-brands fa-tiktok'
                                   : ($c->platform === 'instagram' ? 'fa-brands fa-instagram'
-                                  : ($c->platform === 'youtube' ? 'fa-brands fa-youtube' : 'fa-solid fa-share-nodes'));
+                                  : ($c->platform === 'youtube' ? 'fa-brands fa-youtube' : 'fa-solid fa-share-alt'));
                         @endphp
                         <div class="sm-content-card is-{{ $c->status }}">
                             <div class="sm-content-main">
                                 <div class="sm-content-head">
                                     <span class="sm-platform-pill"><i class="{{ $icon }}"></i></span>
                                     <a href="{{ $c->content_url }}" target="_blank" rel="noopener" class="sm-content-url">
-                                        <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                                        <i class="fa-solid fa-external-link-alt"></i>
                                         {{ \Illuminate\Support\Str::limit($c->content_url, 55) }}
                                     </a>
                                 </div>

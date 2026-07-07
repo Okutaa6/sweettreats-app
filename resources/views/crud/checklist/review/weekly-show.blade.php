@@ -165,6 +165,15 @@
                                 <div style="font-size:13px; color:#2D1810; line-height:1.5;">{{ $submission->review_notes }}</div>
                             </div>
                         @endif
+
+                        @if($submission->status === \App\Models\ChecklistWeeklySubmission::STATUS_EXCUSED && $submission->excuse_reason)
+                            <div style="margin-top:14px; padding:12px 14px; background:#FFF; border:1px solid #E0D2C1; border-left:4px solid #A66019; border-radius:8px;">
+                                <div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.4px; color:#A66019; margin-bottom:4px;">
+                                    <i class="fas fa-mug-hot"></i> Dikecualikan — alasan karyawan
+                                </div>
+                                <div style="font-size:13px; color:#2D1810; line-height:1.5;">{{ $submission->excuse_reason }}</div>
+                            </div>
+                        @endif
                     </div>
 
                     {{-- DAY BREAKDOWN (mirroring paper form: Selasa, Kamis, dst) --}}
@@ -220,9 +229,22 @@
                                                     {{ $item->task_title_snapshot }}
                                                     @if($item->note)
                                                         <div class="wkr-task__note">
-                                                            <i class="fas fa-pen-to-square" style="font-size:9px; color:#9B5E2C; margin-right:3px;"></i>
+                                                            <i class="fas fa-edit" style="font-size:9px; color:#9B5E2C; margin-right:3px;"></i>
                                                             {{ $item->note }}
                                                         </div>
+                                                    @endif
+                                                    @if($item->requires_photo)
+                                                        @if($item->photo_path)
+                                                            <a href="{{ asset($item->photo_path) }}" target="_blank" rel="noopener"
+                                                               style="display:inline-block; margin-top:6px;">
+                                                                <img src="{{ asset($item->photo_path) }}" alt="Foto bukti"
+                                                                     style="max-width:120px; max-height:120px; border-radius:8px; border:1px solid #E0D2C1; object-fit:cover; display:block;">
+                                                            </a>
+                                                        @else
+                                                            <div style="margin-top:6px; font-size:11px; color:#A32D2D; font-weight:600;">
+                                                                <i class="fas fa-exclamation-triangle" style="font-size:10px; margin-right:3px;"></i> Wajib foto — belum ada foto
+                                                            </div>
+                                                        @endif
                                                     @endif
                                                 </div>
                                                 @if($item->done_at)
@@ -251,14 +273,14 @@
                                         @csrf @method('PATCH')
                                         <input type="hidden" name="review_notes" value="">
                                         <button type="submit" class="st-btn-brand">
-                                            <i class="fas fa-circle-check"></i> Setujui
+                                            <i class="fas fa-check-circle"></i> Setujui
                                         </button>
                                     </form>
                                     <form method="POST" action="{{ route('checklist.review.weekly.reject', $submission->id) }}" style="display:inline;" onsubmit="var n=document.getElementById('reviewNotes').value.trim(); if(!n){alert('Catatan wajib diisi saat menolak.'); return false;} this.querySelector('input[name=review_notes]').value = n; return confirm('Yakin tolak Form Mingguan ini? Karyawan akan diberitahu untuk perbaiki.');">
                                         @csrf @method('PATCH')
                                         <input type="hidden" name="review_notes" value="">
                                         <button type="submit" class="st-btn-outline-brown" style="color:#A32D2D; border-color:#A32D2D;">
-                                            <i class="fas fa-circle-xmark"></i> Tolak
+                                            <i class="fas fa-times-circle"></i> Tolak
                                         </button>
                                     </form>
                                 </div>
@@ -266,13 +288,28 @@
                                 <form method="POST" action="{{ route('checklist.review.weekly.reopen', $submission->id) }}" onsubmit="return confirm('Reopen Form Mingguan ini? Status akan kembali ke Menunggu Approval.');">
                                     @csrf @method('PATCH')
                                     <button type="submit" class="st-btn-outline-brown">
-                                        <i class="fas fa-rotate-left"></i> Reopen
+                                        <i class="fas fa-undo"></i> Reopen
                                     </button>
                                     <small style="color:#9B8578; margin-left:8px;">
                                         Reopen untuk mengubah keputusan review jika ada kesalahan.
                                     </small>
                                 </form>
                             @endif
+                        </div>
+                    @endif
+
+                    @if($submission->status === \App\Models\ChecklistWeeklySubmission::STATUS_EXCUSED)
+                        <div style="padding:18px 22px; border-top:1px solid #E0D2C1; background:#FFFFFF;">
+                            <form method="POST" action="{{ route('checklist.review.weekly.excuse.revoke', $submission->id) }}"
+                                  onsubmit="return confirm('Batalkan pengecualian ini? Karyawan akan diminta mengisi Form Mingguan.');">
+                                @csrf @method('PATCH')
+                                <button type="submit" class="st-btn-outline-brown" style="color:#A32D2D; border-color:#A32D2D;">
+                                    <i class="fas fa-undo"></i> Batalkan Pengecualian
+                                </button>
+                                <small style="color:#9B8578; margin-left:8px;">
+                                    Karyawan menandai minggu ini "tidak perlu diisi". Batalkan bila tidak valid.
+                                </small>
+                            </form>
                         </div>
                     @endif
 

@@ -166,13 +166,13 @@
 
             @if(session('success'))
                 <div class="sm-alert sm-alert-success">
-                    <i class="fa-solid fa-circle-check"></i>
+                    <i class="fa-solid fa-check-circle"></i>
                     <div>{{ session('success') }}</div>
                 </div>
             @endif
             @if(session('error'))
                 <div class="sm-alert sm-alert-error">
-                    <i class="fa-solid fa-circle-exclamation"></i>
+                    <i class="fa-solid fa-exclamation-circle"></i>
                     <div>{{ session('error') }}</div>
                 </div>
             @endif
@@ -193,7 +193,7 @@
                         </p>
                     </div>
                     <div class="sm-hero-avatar">
-                        <div class="sm-hero-avatar-initial"><i class="fa-solid fa-sack-dollar"></i></div>
+                        <div class="sm-hero-avatar-initial"><i class="fa-solid fa-coins"></i></div>
                     </div>
                 </div>
             </div>
@@ -201,7 +201,7 @@
             {{-- KODE PROMO --}}
             <div class="sm-card">
                 <div class="sm-card-title">
-                    <i class="fa-solid fa-ticket"></i>
+                    <i class="fa-solid fa-ticket-alt"></i>
                     Kode Promo Kamu
                 </div>
                 @forelse($promos as $promo)
@@ -211,14 +211,14 @@
                             : 'Rp ' . number_format((float) $promo->discount_value, 0, ',', '.');
                     @endphp
                     <button type="button" class="sm-promo-big" onclick="copyPromo('{{ $promo->promo_code }}', this)">
-                        <i class="fa-solid fa-ticket"></i>
+                        <i class="fa-solid fa-ticket-alt"></i>
                         <span class="code">{{ $promo->promo_code }}</span>
                         <span class="value">{{ $value }}</span>
                         <i class="fa-regular fa-copy copy-icon"></i>
                     </button>
                 @empty
                     <div class="sm-inline-empty">
-                        <i class="fa-solid fa-ticket"></i>
+                        <i class="fa-solid fa-ticket-alt"></i>
                         Belum ada kode promo aktif. Admin akan generate setelah kamu disetujui.
                     </div>
                 @endforelse
@@ -246,14 +246,14 @@
                         </div>
                     </div>
                     <div class="sm-summary-item sm-summary-info">
-                        <div class="sm-summary-icon"><i class="fa-solid fa-circle-check"></i></div>
+                        <div class="sm-summary-icon"><i class="fa-solid fa-check-circle"></i></div>
                         <div>
                             <div class="sm-summary-label">Disetujui</div>
                             <div class="sm-summary-value">Rp {{ number_format($approvedTotal, 0, ',', '.') }}</div>
                         </div>
                     </div>
                     <div class="sm-summary-item sm-summary-success">
-                        <div class="sm-summary-icon"><i class="fa-solid fa-sack-dollar"></i></div>
+                        <div class="sm-summary-icon"><i class="fa-solid fa-coins"></i></div>
                         <div>
                             <div class="sm-summary-label">Sudah Dibayar</div>
                             <div class="sm-summary-value">Rp {{ number_format($paidTotal, 0, ',', '.') }}</div>
@@ -266,7 +266,7 @@
             @if($scopeCfg)
                 <div class="sm-card sm-claim-card">
                     <div class="sm-card-title">
-                        <i class="fa-solid fa-hand-holding-dollar"></i>
+                        <i class="fa-solid fa-hand-holding-usd"></i>
                         Klaim Komisi
                     </div>
 
@@ -329,7 +329,7 @@
                                 <form method="POST" action="{{ route('affiliate.commissions.claim') }}" class="mt-3">
                                     @csrf
                                     <button type="submit" class="sm-btn-claim" onclick="return confirm('Ajukan klaim Rp {{ number_format($scopeCfg['commission_amount'] * $minPat, 0, ',', '.') }} ({{ $minPat }} pasien)?')">
-                                        <i class="fa-solid fa-hand-holding-dollar"></i>
+                                        <i class="fa-solid fa-hand-holding-usd"></i>
                                         Klaim Rp {{ number_format($scopeCfg['commission_amount'] * $minPat, 0, ',', '.') }}
                                     </button>
                                 </form>
@@ -346,7 +346,7 @@
                     {{-- Batch history --}}
                     @if($batchHistory->isNotEmpty())
                         <div class="sm-batch-history">
-                            <div class="sm-batch-history-title"><i class="fa-solid fa-clock-rotate-left"></i> Riwayat Klaim</div>
+                            <div class="sm-batch-history-title"><i class="fa-solid fa-history"></i> Riwayat Klaim</div>
                             <div class="sm-batch-history-list">
                                 @foreach($batchHistory as $b)
                                     @php $bs = \App\Models\CommissionClaimBatch::statusOptions()[$b->status]; @endphp
@@ -430,7 +430,7 @@
                                 <div class="sm-ref-main">
                                     <div class="sm-ref-name">{{ $displayName }}</div>
                                     <div class="sm-ref-meta">
-                                        <span><i class="fa-solid fa-location-dot"></i>{{ $branchName }}</span>
+                                        <span><i class="fa-solid fa-map-marker-alt"></i>{{ $branchName }}</span>
                                         @if($resDate)
                                             <span><i class="fa-solid fa-calendar"></i>{{ \Carbon\Carbon::parse($resDate)->format('d M Y') }}</span>
                                         @endif

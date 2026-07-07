@@ -89,6 +89,8 @@
     @include('finance.pettycash._branch_grid', [
         'rupiah'          => $rupiah,
         'branchSummaries' => $branchSummaries,
+        'year'            => $year,
+        'month'           => $month,
     ])
 
     {{-- ─── AUDIT FEED (request yang sudah di-review) ─── --}}

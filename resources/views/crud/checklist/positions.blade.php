@@ -41,7 +41,7 @@
             </div>
         </div>
         <div class="cl-kpi cl-kpi--good">
-            <span class="cl-kpi__icon"><i class="fas fa-circle-check"></i></span>
+            <span class="cl-kpi__icon"><i class="fas fa-check-circle"></i></span>
             <div class="cl-kpi__body">
                 <div class="cl-kpi__label">Sudah Di-Assign</div>
                 <div class="cl-kpi__value">{{ $stats['assigned'] }}</div>
@@ -49,11 +49,11 @@
             </div>
         </div>
         <div class="cl-kpi cl-kpi--warn">
-            <span class="cl-kpi__icon"><i class="fas fa-user-clock"></i></span>
+            <span class="cl-kpi__icon"><i class="fas fa-hourglass-half"></i></span>
             <div class="cl-kpi__body">
-                <div class="cl-kpi__label">Belum Di-Assign</div>
-                <div class="cl-kpi__value">{{ $stats['unassigned'] }}</div>
-                <div class="cl-kpi__sub">belum bisa isi checklist</div>
+                <div class="cl-kpi__label">Menunggu Konfirmasi</div>
+                <div class="cl-kpi__value">{{ $stats['pending'] }}</div>
+                <div class="cl-kpi__sub">usulan posisi dari karyawan</div>
             </div>
         </div>
         <div class="cl-kpi cl-kpi--neutral">
@@ -106,95 +106,88 @@
             </div>
         </form>
 
+        @php
+            // Pisahkan: usulan menunggu konfirmasi vs posisi sudah aktif.
+            $pendingRows = $rows->filter(fn($r) => $r->pending && ! $r->position)->values();
+            $activeRows  = $rows->filter(fn($r) => (bool) $r->position)->values();
+        @endphp
+
+        @php
+            $tableHead = '<thead><tr>'
+                . '<th>Karyawan</th>'
+                . '<th style="width:140px;">Role</th>'
+                . '<th style="width:160px;">Divisi</th>'
+                . '<th style="width:180px;">Cabang</th>'
+                . '<th style="width:420px;">Set / Ubah Posisi</th>'
+                . '<th style="width:100px; text-align:center;">Aksi</th>'
+                . '</tr></thead>';
+        @endphp
+
         @if($rows->isEmpty())
             <div class="cl-empty">
-                <span class="cl-empty__icon"><i class="fas fa-users-slash"></i></span>
-                <div class="cl-empty__title">Tidak ada karyawan</div>
+                <span class="cl-empty__icon"><i class="fas fa-user-slash"></i></span>
+                <div class="cl-empty__title">Belum ada karyawan yang mengajukan / di-assign</div>
                 <div class="cl-empty__desc">
-                    Pastikan user sudah dibuat dengan role <strong>Operasional</strong> atau <strong>Karyawan</strong> via menu <em>User Management</em>.
+                    Karyawan operasional akan muncul di sini setelah mereka memilih divisi & cabang lewat halaman <em>My Checklist</em>, atau setelah Anda meng-assign langsung.
                 </div>
             </div>
         @else
-            <div class="st-table-wrap st-table-wrap--scroll">
-                <table class="st-table">
-                    <thead>
-                        <tr>
-                            <th>Karyawan</th>
-                            <th style="width:140px;">Role</th>
-                            <th style="width:160px;">Divisi Saat Ini</th>
-                            <th style="width:180px;">Cabang</th>
-                            <th style="width:420px;">Set / Ubah Posisi</th>
-                            <th style="width:80px; text-align:center;">Aksi</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach($rows as $row)
-                            <tr>
-                                <td>
-                                    <div style="display:flex; align-items:center; gap:10px;">
-                                        <div style="width:32px; height:32px; border-radius:50%; background:linear-gradient(135deg,var(--cl-brown-2),var(--cl-brown)); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:12px; flex-shrink:0;">
-                                            {{ strtoupper(mb_substr($row->user->nama ?? '?', 0, 1)) }}
-                                        </div>
-                                        <div style="min-width:0;">
-                                            <div style="font-weight:600; color:var(--cl-ink);">{{ $row->user->nama ?? '—' }}</div>
-                                            <div style="font-size:11px; color:var(--cl-subtle);">{{ $row->user->email ?? '—' }}</div>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td>
-                                    <span class="st-pill st-pill--neutral">{{ $row->user->group_name ?? '—' }}</span>
-                                </td>
-                                <td>
-                                    @if($row->division)
-                                        <span class="st-pill st-pill--success">{{ $row->division->name }}</span>
-                                    @else
-                                        <span style="color:var(--cl-subtle); font-style:italic; font-size:12px;">Belum di-assign</span>
-                                    @endif
-                                </td>
-                                <td style="color:var(--cl-muted); font-size:12.5px;">
-                                    {{ $row->branch?->name ?? '—' }}
-                                </td>
-                                <td>
-                                    <form method="POST" action="{{ route('checklist.positions.assign') }}"
-                                          style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
-                                        @csrf
-                                        <input type="hidden" name="user_id" value="{{ $row->user->id }}">
-                                        <select name="division_id" required class="cl-inline-select" style="flex:1; min-width:130px;">
-                                            <option value="">— Divisi —</option>
-                                            @foreach($divisions as $div)
-                                                <option value="{{ $div->id }}" {{ optional($row->position)->division_id === $div->id ? 'selected' : '' }}>{{ $div->name }}</option>
-                                            @endforeach
-                                        </select>
-                                        <select name="raw_branch_id" required class="cl-inline-select" style="flex:1; min-width:140px;">
-                                            <option value="">— Cabang —</option>
-                                            @foreach($branches as $b)
-                                                <option value="{{ $b->id }}" {{ optional($row->position)->raw_branch_id === $b->id ? 'selected' : '' }}>{{ $b->name }}</option>
-                                            @endforeach
-                                        </select>
-                                        <button type="submit" class="st-btn-brand" style="padding:7px 14px; font-size:12px; white-space:nowrap;">
-                                            <i class="fas fa-save"></i> {{ $row->position ? 'Update' : 'Set' }}
-                                        </button>
-                                    </form>
-                                </td>
-                                <td style="text-align:center;">
-                                    @if($row->position)
-                                        <form method="POST" action="{{ route('checklist.positions.remove', $row->position->id) }}"
-                                              style="display:inline;"
-                                              onsubmit="return confirm('Nonaktifkan posisi {{ $row->user->nama }} dari {{ $row->division->name ?? '-' }}? Karyawan tidak akan bisa isi checklist sampai di-assign ulang.');">
-                                            @csrf @method('DELETE')
-                                            <button type="submit" class="st-icon-btn" title="Nonaktifkan posisi"
-                                                    style="color:var(--cl-danger); border-color:var(--cl-danger-bg);">
-                                                <i class="fas fa-user-slash"></i>
-                                            </button>
-                                        </form>
-                                    @else
-                                        <span style="color:var(--cl-subtle); font-size:11px;">—</span>
-                                    @endif
-                                </td>
-                            </tr>
-                        @endforeach
-                    </tbody>
-                </table>
+            @php $defaultTab = $pendingRows->count() ? 'pending' : 'aktif'; @endphp
+
+            {{-- ─── TAB BAR ─── --}}
+            <div class="cl-postab">
+                <button type="button" class="cl-postab__btn {{ $defaultTab === 'aktif' ? 'is-active' : '' }}" data-postab="aktif">
+                    <i class="fas fa-check-circle"></i> Sudah Aktif
+                    <span class="cl-postab__count">{{ $activeRows->count() }}</span>
+                </button>
+                <button type="button" class="cl-postab__btn {{ $defaultTab === 'pending' ? 'is-active' : '' }}" data-postab="pending">
+                    <i class="fas fa-hourglass-half"></i> Menunggu Konfirmasi
+                    <span class="cl-postab__count">{{ $pendingRows->count() }}</span>
+                </button>
+            </div>
+
+            {{-- ─── PANE: Sudah Aktif ─── --}}
+            <div class="cl-postab__pane" data-postab-pane="aktif" {{ $defaultTab === 'aktif' ? '' : 'hidden' }}>
+                @if($activeRows->isEmpty())
+                    <div style="padding:16px 18px 20px;">
+                        <div class="cl-empty" style="padding:26px 18px;">
+                            <div class="cl-empty__desc" style="margin:0;">Belum ada posisi aktif. Konfirmasi usulan di tab <strong>Menunggu Konfirmasi</strong>.</div>
+                        </div>
+                    </div>
+                @else
+                    <div class="st-table-wrap st-table-wrap--scroll">
+                        <table class="st-table">
+                            {!! $tableHead !!}
+                            <tbody>
+                                @foreach($activeRows as $row)
+                                    @include('crud.checklist._position_row', ['row' => $row])
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                @endif
+            </div>
+
+            {{-- ─── PANE: Menunggu Konfirmasi ─── --}}
+            <div class="cl-postab__pane" data-postab-pane="pending" {{ $defaultTab === 'pending' ? '' : 'hidden' }}>
+                @if($pendingRows->isEmpty())
+                    <div style="padding:16px 18px 20px;">
+                        <div class="cl-empty" style="padding:26px 18px;">
+                            <div class="cl-empty__desc" style="margin:0;">Tidak ada usulan yang menunggu konfirmasi.</div>
+                        </div>
+                    </div>
+                @else
+                    <div class="st-table-wrap st-table-wrap--scroll">
+                        <table class="st-table">
+                            {!! $tableHead !!}
+                            <tbody>
+                                @foreach($pendingRows as $row)
+                                    @include('crud.checklist._position_row', ['row' => $row])
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                @endif
             </div>
         @endif
     </div>
@@ -218,5 +211,38 @@
         border-color: var(--cl-brown-2);
         box-shadow: 0 0 0 3px rgba(92,46,21,.10);
     }
+
+    /* Tabs posisi */
+    .cl-postab { display: flex; gap: 6px; padding: 14px 18px 0; flex-wrap: wrap; }
+    .cl-postab__btn {
+        display: inline-flex; align-items: center; gap: 8px;
+        border: 1px solid var(--cl-line); border-bottom: none;
+        background: #fff; color: var(--cl-muted);
+        font-size: 13px; font-weight: 700; padding: 9px 16px;
+        border-radius: 10px 10px 0 0; cursor: pointer; transition: .15s;
+    }
+    .cl-postab__btn:hover { background: var(--cl-cream-1); color: var(--cl-ink); }
+    .cl-postab__btn.is-active { background: var(--cl-brown); color: #fff; border-color: var(--cl-brown); }
+    .cl-postab__count {
+        display: inline-flex; align-items: center; justify-content: center;
+        min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px;
+        font-size: 11px; font-weight: 800; background: var(--cl-cream-2); color: var(--cl-ink);
+    }
+    .cl-postab__btn.is-active .cl-postab__count { background: rgba(255,255,255,.25); color: #fff; }
+    .cl-postab__pane[hidden] { display: none; }
 </style>
+
+<script>
+(function () {
+    var btns  = document.querySelectorAll('.cl-postab__btn');
+    var panes = document.querySelectorAll('[data-postab-pane]');
+    btns.forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var tab = btn.dataset.postab;
+            btns.forEach(function (b) { b.classList.toggle('is-active', b === btn); });
+            panes.forEach(function (p) { p.hidden = (p.dataset.postabPane !== tab); });
+        });
+    });
+})();
+</script>
 @endsection

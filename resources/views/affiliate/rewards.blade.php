@@ -186,13 +186,13 @@
 
             @if(session('success'))
                 <div class="sm-alert sm-alert-success">
-                    <i class="fa-solid fa-circle-check"></i>
+                    <i class="fa-solid fa-check-circle"></i>
                     <div>{{ session('success') }}</div>
                 </div>
             @endif
             @if(session('error'))
                 <div class="sm-alert sm-alert-error">
-                    <i class="fa-solid fa-circle-exclamation"></i>
+                    <i class="fa-solid fa-exclamation-circle"></i>
                     <div>{{ session('error') }}</div>
                 </div>
             @endif
@@ -239,7 +239,7 @@
             @if($canSwitch)
                 <div class="sm-switch-card">
                     <h4>
-                        <i class="fa-solid fa-shuffle"></i>
+                        <i class="fa-solid fa-random"></i>
                         @if($chosenKey)
                             Pilih Program Selanjutnya
                         @else
@@ -280,7 +280,7 @@
             {{-- REWARD TIERS --}}
             @if(!$chosenKey && !$canSwitch)
                 <div class="sm-card sm-card-empty">
-                    <div class="sm-empty-icon"><i class="fa-solid fa-circle-info"></i></div>
+                    <div class="sm-empty-icon"><i class="fa-solid fa-info-circle"></i></div>
                     <div class="sm-empty-title">Kamu belum pilih tier reward</div>
                     <div class="sm-empty-sub">Hubungi admin Sweet Treats untuk bergabung ke program Sweet Mates dan pilih tier kamu.</div>
                 </div>
@@ -364,7 +364,7 @@
                             {{-- Status-driven action area --}}
                             @if($claimStatus === \App\Models\AffiliateRewardClaim::STATUS_USED)
                                 <div class="sm-reward-done">
-                                    <i class="fa-solid fa-circle-check"></i>
+                                    <i class="fa-solid fa-check-circle"></i>
                                     Reward sudah dipakai. Yuk pilih program berikutnya di atas!
                                 </div>
                             @elseif($claimStatus === \App\Models\AffiliateRewardClaim::STATUS_CLAIMED)
@@ -404,7 +404,7 @@
 
             {{-- INFO / KETENTUAN --}}
             <div class="sm-info-box">
-                <h3><i class="fa-solid fa-circle-info"></i> Ketentuan Program</h3>
+                <h3><i class="fa-solid fa-info-circle"></i> Ketentuan Program</h3>
                 <ul>
                     <li>Tier dipilih di awal dan <strong>tidak bisa diubah</strong> sampai reward kamu selesai diklaim & diproses admin.</li>
                     <li>Setelah reward selesai dipakai, kamu boleh pilih program berikutnya — counter konten dimulai dari 0 lagi.</li>

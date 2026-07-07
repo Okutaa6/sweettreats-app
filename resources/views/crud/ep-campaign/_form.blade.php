@@ -43,7 +43,7 @@
         </div>
 
         <div class="note-prop">
-            <div class="note-prop-key"><i class="fa-solid fa-calendar-days"></i><span>Tahun</span></div>
+            <div class="note-prop-key"><i class="fa-solid fa-calendar-alt"></i><span>Tahun</span></div>
             <div class="note-prop-val">
                 <input type="number" name="tahun" class="note-prop-input"
                        value="{{ $oldTahun }}" min="2020" max="2100" required>
@@ -51,7 +51,7 @@
         </div>
 
         <div class="note-prop">
-            <div class="note-prop-key"><i class="fa-solid fa-circle-half-stroke"></i><span>Status</span></div>
+            <div class="note-prop-key"><i class="fa-solid fa-adjust"></i><span>Status</span></div>
             <div class="note-prop-val">
                 <div class="ep-quick-pills">
                     @foreach ($statuses as $key => $opt)

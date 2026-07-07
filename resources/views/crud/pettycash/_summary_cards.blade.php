@@ -162,10 +162,10 @@
                         @if($isClickable)
                             @php
                                 $iconClass = match($sb->category ?? null) {
-                                    \App\Models\FundSource::CAT_BANK    => 'fa-money-bill-transfer',
-                                    \App\Models\FundSource::CAT_CASH    => 'fa-right-left',
-                                    \App\Models\FundSource::CAT_EWALLET => 'fa-right-left',
-                                    default => ($hasSaldo ? 'fa-right-left' : 'fa-plus'),
+                                    \App\Models\FundSource::CAT_BANK    => 'fa-money-bill-wave',
+                                    \App\Models\FundSource::CAT_CASH    => 'fa-exchange-alt',
+                                    \App\Models\FundSource::CAT_EWALLET => 'fa-exchange-alt',
+                                    default => ($hasSaldo ? 'fa-exchange-alt' : 'fa-plus'),
                                 };
                                 $iconHint = match($sb->category ?? null) {
                                     \App\Models\FundSource::CAT_BANK    => 'Tarik tunai / Transfer / Pengeluaran',
