@@ -485,12 +485,19 @@
             color: #d9a878;
         }
 
-        /* Tab cabang di dalam kartu (dokter multi-cabang) */
+        /* Tab cabang di dalam kartu (dokter multi-cabang) — segmented control.
+           Satu "track" krem berisi beberapa segmen; segmen aktif ter-fill.
+           Pola ini terbaca jelas sebagai toggle "pilih salah satu" & klik-able. */
         .branch-tabs {
-            display: flex;
+            display: inline-flex;
             flex-wrap: wrap;
-            gap: 6px;
-            padding: 0 16px 12px;
+            gap: 3px;
+            margin: 0 16px 12px;
+            padding: 4px;
+            background: #f4e7d6;
+            border: 1.5px solid #e6c19a;
+            border-radius: 999px;
+            box-shadow: inset 0 1px 2px rgba(70, 21, 0, 0.08);
         }
 
         .branch-tab {
@@ -501,31 +508,27 @@
             font-size: 0.78rem;
             font-weight: 700;
             color: #8F4525;
-            background: #fff;
-            border: 1.5px solid #e6c19a;
+            background: transparent;
+            border: none;
             border-radius: 999px;
-            padding: 7px 15px;
+            padding: 6px 16px;
             cursor: pointer;
-            box-shadow: 0 2px 6px rgba(70, 21, 0, 0.08);
-            transition: background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, transform 0.12s;
+            transition: background 0.15s, color 0.15s, box-shadow 0.15s;
         }
 
         .branch-tab i {
             font-size: 0.72rem;
         }
 
-        .branch-tab:hover {
-            background: #fff3e6;
-            border-color: #d99a5a;
-            transform: translateY(-1px);
-            box-shadow: 0 4px 10px rgba(70, 21, 0, 0.12);
+        .branch-tab:not(.active):hover {
+            color: #572006;
+            background: rgba(255, 255, 255, 0.65);
         }
 
         .branch-tab.active {
             background: linear-gradient(135deg, #8F4525, #572006);
-            border-color: transparent;
             color: #fff;
-            box-shadow: 0 4px 12px rgba(87, 32, 6, 0.28);
+            box-shadow: 0 2px 8px rgba(87, 32, 6, 0.28);
         }
 
         .branch-panel[hidden] {
