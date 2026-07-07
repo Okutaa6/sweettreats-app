@@ -108,7 +108,7 @@
                                                 </div>
                                                 <input type="number" class="form-control"
                                                     name="nominal[{{ $bulan }}]"
-                                                    value="{{ $nilaiTarget }}" min="0" step="1000"
+                                                    value="{{ $nilaiTarget }}" min="0" step="1"
                                                     placeholder="Kosongkan jika belum ada target">
                                             </div>
                                         </td>
