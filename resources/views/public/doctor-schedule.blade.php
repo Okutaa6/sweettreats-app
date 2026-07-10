@@ -5,7 +5,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Jadwal Dokter - Sweet Treats Dental Clinic</title>
-    <meta name="description" content="Lihat jadwal praktik dokter gigi Sweet Treats di tiap cabang.">
+    <meta name="description" content="Lihat jadwal praktik dokter gigi Sweet Treats per hari dalam seminggu.">
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -28,7 +28,7 @@
         body {
             font-family: 'Montserrat', sans-serif;
             color: #3a2a1a;
-            background: #fffaf5;
+            background: #fdfbf8;
             -webkit-font-smoothing: antialiased;
             position: relative;
             min-height: 100vh;
@@ -44,9 +44,9 @@
             top: -220px;
             left: 50%;
             transform: translateX(-50%);
-            width: 900px;
-            height: 520px;
-            background: radial-gradient(closest-side, rgba(235, 211, 176, 0.6), rgba(235, 211, 176, 0) 70%);
+            width: 820px;
+            height: 460px;
+            background: radial-gradient(closest-side, rgba(235, 211, 176, 0.32), rgba(235, 211, 176, 0) 70%);
             pointer-events: none;
             z-index: 0;
         }
@@ -58,7 +58,7 @@
 
         .wrap {
             width: 100%;
-            max-width: 1080px;
+            max-width: 1240px;
             margin: 0 auto;
             padding: 0 20px;
             position: relative;
@@ -72,20 +72,6 @@
         .hero {
             text-align: center;
             padding: 52px 20px 30px;
-        }
-
-        .hero .badge-icon {
-            width: 62px;
-            height: 62px;
-            margin: 0 auto 16px;
-            border-radius: 20px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.6rem;
-            color: #fff;
-            background: linear-gradient(135deg, #8F4525, #572006);
-            box-shadow: 0 10px 26px rgba(87, 32, 6, 0.32);
         }
 
         .hero .brand {
@@ -116,7 +102,7 @@
             flex-direction: column;
             align-items: center;
             gap: 12px;
-            margin-bottom: 26px;
+            margin-bottom: 22px;
             width: 100%;
         }
 
@@ -130,8 +116,8 @@
             max-width: 640px;
             background: #fff;
             border: 1.5px solid rgba(70, 21, 0, 0.1);
-            border-radius: 999px;
-            padding: 4px 22px;
+            border-radius: 14px;
+            padding: 4px 18px;
             box-shadow: 0 10px 30px rgba(70, 21, 0, 0.08);
             transition: border-color 0.15s, box-shadow 0.15s;
         }
@@ -177,7 +163,7 @@
             display: flex;
             flex-direction: column;
             gap: 6px;
-            flex: 1 1 180px;
+            flex: 1 1 240px;
             min-width: 0;
         }
 
@@ -299,385 +285,280 @@
             color: #fff;
         }
 
-        /* Field tanggal (native date, dibungkus agar seragam) */
-        .date-box {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            background: #fff;
-            border: 1.5px solid rgba(70, 21, 0, 0.1);
-            border-radius: 14px;
-            padding: 0 16px;
-            box-shadow: 0 4px 14px rgba(70, 21, 0, 0.05);
-            transition: border-color 0.15s, box-shadow 0.15s;
-        }
-
-        .date-box:focus-within {
-            border-color: #c68a4f;
-            box-shadow: 0 4px 14px rgba(70, 21, 0, 0.05), 0 0 0 3px rgba(143, 69, 37, 0.13);
-        }
-
-        .date-box i {
-            color: #8F4525;
-            font-size: 0.92rem;
-        }
-
-        .date-box input {
-            width: 100%;
-            border: none;
-            background: transparent;
-            font-family: inherit;
-            font-size: 0.92rem;
-            font-weight: 600;
-            color: #461500;
-            padding: 13px 0;
-            cursor: pointer;
-            outline: none;
-        }
-
-        .date-box input::-webkit-calendar-picker-indicator {
-            cursor: pointer;
-            opacity: 0.55;
-        }
-
-        /* ===== SUMMARY + LEGEND + HINT ===== */
+        /* ===== SUMMARY + LEGEND ===== */
         .summary {
             text-align: center;
             font-size: 0.95rem;
             font-weight: 600;
             color: #461500;
-            margin-bottom: 14px;
+            margin-bottom: 22px;
         }
 
         .summary strong {
             color: #8F4525;
         }
 
-        .legend {
-            display: flex;
-            justify-content: center;
-            flex-wrap: wrap;
-            gap: 8px;
-            margin-bottom: 10px;
-        }
-
-        .hint {
-            text-align: center;
-            font-size: 0.8rem;
-            color: #a08a76;
-            margin-bottom: 30px;
-        }
-
-        .hint i {
-            color: #d9a878;
-            margin-right: 4px;
-        }
-
-        /* ===== GRID DOKTER ===== */
-        .grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-            gap: 18px;
-            padding-bottom: 40px;
-            align-items: start;
-        }
-
-        .card {
-            position: relative;
-            background: #fff;
-            border-radius: 20px;
-            box-shadow: 0 6px 22px rgba(70, 21, 0, 0.07);
-            border: 1px solid rgba(70, 21, 0, 0.05);
-            overflow: hidden;
-            transition: transform 0.18s ease, box-shadow 0.18s ease;
-        }
-
-        .card::before {
-            content: "";
-            display: block;
-            height: 4px;
-            background: linear-gradient(90deg, #8F4525, #572006);
-        }
-
-        .card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 16px 38px rgba(70, 21, 0, 0.13);
-        }
-
-        .card-head {
+        /* ===== NAVIGASI MINGGU ===== */
+        .week-nav {
             display: flex;
             align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
             gap: 12px;
-            padding: 16px 16px 12px;
+            margin-bottom: 22px;
         }
 
-        .avatar,
-        .avatar-fallback {
-            width: 50px;
-            height: 50px;
-            border-radius: 50%;
-            flex: 0 0 50px;
-        }
-
-        .avatar {
-            object-fit: cover;
-            border: 2px solid #eeddc7;
-        }
-
-        .avatar-fallback {
+        /* Pita panah ‹ rentang tanggal › */
+        .week-nav-group {
             display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.3rem;
-            font-weight: 800;
-            color: #8F4525;
-            background: linear-gradient(135deg, #f5e7d5, #ecd3b6);
-            border: 2px solid #ecd3b6;
-        }
-
-        .card h3 {
-            font-size: 1rem;
-            font-weight: 700;
-            color: #461500;
-            line-height: 1.3;
-            text-align: left;
-        }
-
-        .card h3 span {
-            display: inline-block;
-            margin-top: 5px;
-            font-size: 0.7rem;
-            font-weight: 700;
-            letter-spacing: 0.3px;
-            color: #8F4525;
-            background: #f4e7d6;
-            padding: 3px 9px;
-            border-radius: 999px;
-        }
-
-        .card-meta {
-            display: flex;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 6px 8px;
-            padding: 0 16px 12px;
-            font-size: 0.76rem;
-            font-weight: 600;
-            color: #a08a76;
-        }
-
-        .card-meta .branch-pill {
-            display: inline-flex;
             align-items: center;
             gap: 4px;
-            color: #8F4525;
-            background: #f4e7d6;
-            padding: 3px 9px;
+            background: #fff;
+            border: 1.5px solid rgba(70, 21, 0, 0.1);
             border-radius: 999px;
-            font-size: 0.72rem;
+            padding: 4px 6px;
+            box-shadow: 0 4px 14px rgba(70, 21, 0, 0.05);
         }
 
-        .card-meta .branch-pill i {
-            color: #8F4525;
-        }
-
-        .card-meta i {
-            color: #d9a878;
-        }
-
-        /* Tab cabang di dalam kartu (dokter multi-cabang) — segmented control.
-           Satu "track" krem berisi beberapa segmen; segmen aktif ter-fill.
-           Pola ini terbaca jelas sebagai toggle "pilih salah satu" & klik-able. */
-        .branch-tabs {
-            display: inline-flex;
-            flex-wrap: wrap;
-            gap: 3px;
-            margin: 0 16px 12px;
-            padding: 4px;
-            background: #f4e7d6;
-            border: 1.5px solid #e6c19a;
-            border-radius: 999px;
-            box-shadow: inset 0 1px 2px rgba(70, 21, 0, 0.08);
-        }
-
-        .branch-tab {
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-            font-family: inherit;
-            font-size: 0.78rem;
-            font-weight: 700;
-            color: #8F4525;
-            background: transparent;
-            border: none;
-            border-radius: 999px;
-            padding: 6px 16px;
-            cursor: pointer;
-            transition: background 0.15s, color 0.15s, box-shadow 0.15s;
-        }
-
-        .branch-tab i {
-            font-size: 0.72rem;
-        }
-
-        .branch-tab:not(.active):hover {
-            color: #572006;
-            background: rgba(255, 255, 255, 0.65);
-        }
-
-        .branch-tab.active {
-            background: linear-gradient(135deg, #8F4525, #572006);
-            color: #fff;
-            box-shadow: 0 2px 8px rgba(87, 32, 6, 0.28);
-        }
-
-        .branch-panel[hidden] {
-            display: none;
-        }
-
-        /* ===== ACCORDION JADWAL PER HARI ===== */
-        .day-acc {
-            border-top: 1px solid rgba(70, 21, 0, 0.07);
-        }
-
-        .acc-item + .acc-item {
-            border-top: 1px solid rgba(70, 21, 0, 0.07);
-        }
-
-        .acc-head {
-            width: 100%;
-            font-family: inherit;
+        .week-nav-arrow {
+            width: 34px;
+            height: 34px;
             display: flex;
             align-items: center;
-            gap: 10px;
-            padding: 13px 16px;
-            background: #fffdfb;
+            justify-content: center;
             border: none;
+            background: transparent;
+            color: #8F4525;
+            font-size: 0.85rem;
+            border-radius: 50%;
             cursor: pointer;
-            text-align: left;
             transition: background 0.15s;
         }
 
-        .acc-head:hover {
+        .week-nav-arrow:hover {
             background: #fbf3e9;
         }
 
-        .acc-item.open .acc-head {
-            background: #fff8f1;
-        }
-
-        .acc-day {
-            font-size: 0.9rem;
+        .week-nav-range {
+            min-width: 148px;
+            text-align: center;
+            padding: 0 6px;
+            font-size: 0.92rem;
             font-weight: 700;
             color: #461500;
-            margin-right: auto;
-        }
-
-        .acc-chevron {
-            color: #b07a45;
-            font-size: 0.8rem;
-            transition: transform 0.2s ease;
-            flex: 0 0 auto;
-        }
-
-        .acc-item.open .acc-chevron {
-            transform: rotate(180deg);
-        }
-
-        .acc-body {
-            padding: 12px 16px 16px;
-            background: #fffdfb;
-        }
-
-        .acc-body[hidden] {
-            display: none;
-        }
-
-        .acc-range {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            font-size: 0.85rem;
-            font-weight: 700;
-            color: #5a4636;
             font-variant-numeric: tabular-nums;
-            margin-bottom: 12px;
-        }
-
-        .acc-range i {
-            color: #8F4525;
-            font-size: 0.8rem;
-        }
-
-        .slots {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 6px;
-        }
-
-        .slot {
-            font-size: 0.76rem;
-            font-weight: 700;
-            padding: 6px 11px;
-            border-radius: 8px;
-            background: #eaf7ee;
-            color: #1f7a3d;
-            border: 1px solid #d3ecdb;
-            font-variant-numeric: tabular-nums;
-        }
-
-        .slot.is-booked {
-            background: #f4efe9;
-            color: #b3a596;
-            border-color: #ece3da;
-            text-decoration: line-through;
-        }
-
-        .slot.is-past {
-            background: #f7f3ef;
-            color: #c8bbad;
-            border-color: #efe7de;
-        }
-
-        .slots-foot {
-            margin-top: 11px;
-            font-size: 0.74rem;
-            font-weight: 600;
-            color: #1f7a3d;
-        }
-
-        .slots-foot i {
-            margin-right: 4px;
-        }
-
-        .slots-foot.none {
-            color: #b3a596;
-        }
-
-        .badge {
-            font-size: 0.68rem;
-            font-weight: 700;
-            padding: 3px 9px;
-            border-radius: 999px;
             white-space: nowrap;
         }
 
-        .badge.available {
-            color: #1f7a3d;
-            background: #e4f6ea;
+        .week-nav-today {
+            font-family: inherit;
+            font-size: 0.82rem;
+            font-weight: 700;
+            color: #8F4525;
+            background: #fff;
+            border: 1.5px solid rgba(70, 21, 0, 0.1);
+            border-radius: 999px;
+            padding: 9px 18px;
+            cursor: pointer;
+            box-shadow: 0 4px 14px rgba(70, 21, 0, 0.05);
+            transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
         }
 
-        .badge.almost {
-            color: #b06a00;
-            background: #fff0d6;
+        .week-nav-today:hover {
+            border-color: #e6c19a;
+            transform: translateY(-1px);
         }
 
-        .badge.full {
-            color: #b02a2a;
-            background: #fbe1e1;
+        /* Saat sedang di minggu berjalan → tombol jadi solid (aktif). */
+        .week-nav-today.is-current {
+            color: #fff;
+            background: linear-gradient(135deg, #8F4525, #572006);
+            border-color: transparent;
+            box-shadow: 0 8px 22px rgba(87, 32, 6, 0.28);
         }
 
-        /* ===== EMPTY STATE ===== */
+        /* ===== KALENDER MINGGUAN ===== */
+        /* Satu bingkai kalender; di layar sempit bisa digeser horizontal. */
+        .week-scroll {
+            overflow-x: auto;
+            padding-bottom: 34px;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .calendar {
+            display: grid;
+            grid-template-columns: repeat(var(--cols), minmax(200px, 1fr));
+            background: #fff;
+            border: 1px solid #eee6da;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 4px 24px rgba(70, 40, 10, 0.05);
+        }
+
+        /* Garis pemisah antar hari — tampilan tabel/kalender menyatu. */
+        .cal-col {
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid #efe7db;
+        }
+
+        .cal-col:last-child {
+            border-right: none;
+        }
+
+        /* Header hari — pita cokelat gradient, teks putih. */
+        .cal-col-head {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 15px 16px;
+            background: linear-gradient(135deg, #8F4525, #572006);
+        }
+
+        .cal-day-group {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .cal-day {
+            font-size: 0.9rem;
+            font-weight: 700;
+            letter-spacing: 0.2px;
+            color: #fff;
+        }
+
+        .cal-date {
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.72);
+            white-space: nowrap;
+        }
+
+        .cal-count {
+            margin-left: auto;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.65);
+            white-space: nowrap;
+        }
+
+        /* Chevron accordion — hanya tampil di mobile (lihat media query). */
+        .cal-chevron {
+            display: none;
+            color: rgba(255, 255, 255, 0.85);
+            font-size: 0.8rem;
+            transition: transform 0.2s ease;
+        }
+
+        .cal-col-body {
+            flex: 1;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 9px;
+        }
+
+        /* ===== KARTU DOKTER (ringan tapi jelas terdefinisi) ===== */
+        .doc {
+            padding: 12px 13px;
+            border: 1px solid #e8dcc9;
+            border-radius: 12px;
+            background: #fffdfa;
+            transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+        }
+
+        .doc:hover {
+            border-color: #d9a878;
+            box-shadow: 0 6px 16px rgba(87, 32, 6, 0.1);
+            transform: translateY(-1px);
+        }
+
+        .doc-head {
+            display: flex;
+            align-items: flex-start;
+            gap: 11px;
+        }
+
+        .doc-avatar,
+        .doc-avatar-fallback {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            flex: 0 0 36px;
+        }
+
+        .doc-avatar {
+            object-fit: cover;
+        }
+
+        .doc-avatar-fallback {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+            font-weight: 800;
+            color: #fff;
+            background: linear-gradient(135deg, #a5542e, #7a3213);
+        }
+
+        .doc-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .doc-name {
+            font-size: 0.82rem;
+            font-weight: 700;
+            color: #2a1c0e;
+            line-height: 1.25;
+        }
+
+        .doc-spec {
+            margin-top: 4px;
+            font-size: 0.73rem;
+            font-weight: 700;
+            color: #8F4525;
+        }
+
+        .doc-time {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+            margin-top: 8px;
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #4d3d2c;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .doc-time i {
+            color: #8F4525;
+            font-size: 0.74rem;
+        }
+
+        /* Kolom hari tanpa dokter / semua ter-filter */
+        .day-empty {
+            padding: 22px 12px;
+            text-align: center;
+            font-size: 0.76rem;
+            font-weight: 600;
+            color: #b3a596;
+        }
+
+        .day-empty i {
+            display: block;
+            font-size: 1.3rem;
+            color: #e0cbb6;
+            margin-bottom: 8px;
+        }
+
+        .day-empty[hidden] {
+            display: none;
+        }
+
+        /* ===== EMPTY STATE (global) ===== */
         .empty {
             text-align: center;
             padding: 60px 20px;
@@ -695,48 +576,6 @@
             font-weight: 500;
         }
 
-        /* ===== PAGINATION ===== */
-        .pagination {
-            display: flex;
-            justify-content: center;
-            flex-wrap: wrap;
-            gap: 8px;
-            padding: 8px 0 46px;
-        }
-
-        .page-btn {
-            min-width: 40px;
-            height: 40px;
-            padding: 0 12px;
-            font-family: inherit;
-            font-size: 0.9rem;
-            font-weight: 700;
-            color: #8F4525;
-            background: #fff;
-            border: 1.5px solid rgba(70, 21, 0, 0.1);
-            border-radius: 12px;
-            cursor: pointer;
-            box-shadow: 0 4px 14px rgba(70, 21, 0, 0.05);
-            transition: border-color 0.15s, background 0.15s, color 0.15s, transform 0.12s;
-        }
-
-        .page-btn:hover:not(:disabled) {
-            border-color: #e6c19a;
-            transform: translateY(-2px);
-        }
-
-        .page-btn.active {
-            background: linear-gradient(135deg, #8F4525, #572006);
-            border-color: transparent;
-            color: #fff;
-            box-shadow: 0 6px 16px rgba(87, 32, 6, 0.28);
-        }
-
-        .page-btn:disabled {
-            opacity: 0.4;
-            cursor: not-allowed;
-        }
-
         /* ===== FOOTER ===== */
         .foot {
             text-align: center;
@@ -749,10 +588,6 @@
 
         .foot strong {
             color: #8a5a2a;
-        }
-
-        .foot-text {
-            margin-bottom: 18px;
         }
 
         .reserve-btn {
@@ -775,6 +610,99 @@
             box-shadow: 0 12px 28px rgba(87, 32, 6, 0.36);
         }
 
+        /* Di layar sempit: kolom hari ditumpuk vertikal (bukan digeser). */
+        @media (max-width: 760px) {
+            .week-scroll {
+                overflow-x: visible;
+            }
+
+            /* Mobile: bingkai dilepas, tiap hari jadi kartu terpisah dgn jarak. */
+            .calendar {
+                grid-template-columns: 1fr;
+                row-gap: 16px;
+                border: none;
+                border-radius: 0;
+                overflow: visible;
+                box-shadow: none;
+                background: transparent;
+            }
+
+            .cal-col {
+                border: 1px solid #eee6da;
+                border-radius: 14px;
+                overflow: hidden;
+                background: #fff;
+                box-shadow: 0 4px 18px rgba(70, 40, 10, 0.05);
+            }
+
+            .cal-col:last-child {
+                border: 1px solid #eee6da;
+            }
+
+            /* Accordion: header bisa di-tap, chevron tampil, body tersembunyi saat tertutup. */
+            .cal-col-head {
+                cursor: pointer;
+            }
+
+            .cal-chevron {
+                display: inline-block;
+            }
+
+            /* Transisi halus buka-tutup (bukan display:none instan). */
+            .cal-col.collapsed .cal-col-body {
+                max-height: 0;
+                padding-top: 0;
+                padding-bottom: 0;
+                opacity: 0;
+            }
+
+            .cal-col:not(.collapsed) .cal-chevron {
+                transform: rotate(180deg);
+            }
+
+            /* Ringkas untuk mobile: header slim, kartu & avatar lebih padat. */
+            .cal-col-head {
+                padding: 10px 14px;
+            }
+
+            .cal-day {
+                font-size: 0.84rem;
+            }
+
+            .cal-col-body {
+                padding: 8px;
+                gap: 7px;
+                max-height: 1200px;
+                overflow: hidden;
+                opacity: 1;
+                transition: max-height 0.32s ease, opacity 0.25s ease,
+                    padding-top 0.32s ease, padding-bottom 0.32s ease;
+            }
+
+            .doc {
+                padding: 10px 11px;
+            }
+
+            .doc-head {
+                gap: 10px;
+            }
+
+            .doc-avatar,
+            .doc-avatar-fallback {
+                width: 32px;
+                height: 32px;
+                flex: 0 0 32px;
+            }
+
+            .doc-avatar-fallback {
+                font-size: 0.88rem;
+            }
+
+            .doc-time {
+                margin-top: 6px;
+            }
+        }
+
         @media (max-width: 560px) {
             .wrap {
                 padding: 0 14px;
@@ -788,11 +716,6 @@
                 font-size: 1.65rem;
             }
 
-            .grid {
-                grid-template-columns: 1fr;
-                gap: 14px;
-            }
-
             .filter-controls .field {
                 flex: 1 1 100%;
             }
@@ -802,22 +725,25 @@
 
 <body>
     @php
-        $dayLabels = [1 => 'Sen', 2 => 'Sel', 3 => 'Rab', 4 => 'Kam', 5 => 'Jum', 6 => 'Sab', 7 => 'Min'];
         $dayFull = [1 => 'Senin', 2 => 'Selasa', 3 => 'Rabu', 4 => 'Kamis', 5 => 'Jumat', 6 => 'Sabtu', 7 => 'Minggu'];
         $monthId = [1 => 'Jan', 2 => 'Feb', 3 => 'Mar', 4 => 'Apr', 5 => 'Mei', 6 => 'Jun', 7 => 'Jul', 8 => 'Agu', 9 => 'Sep', 10 => 'Okt', 11 => 'Nov', 12 => 'Des'];
-        $statusLabels = ['available' => 'Masih tersedia', 'almost' => 'Hampir penuh', 'full' => 'Penuh'];
-        $selectedLabel = $selectedDate
-            ? $dayFull[$selectedDate->dayOfWeekIso] . ', ' . $selectedDate->format('d') . ' ' . $monthId[$selectedDate->month] . ' ' . $selectedDate->format('Y')
-            : null;
         $branchName = optional($branches->firstWhere('id', $branchId))->name;
+
+        // $weekStart datang dari controller (sudah digeser sesuai offset minggu).
+        $weekEnd = $weekStart->copy()->addDays(6);
+        $sameMonth = $weekStart->month === $weekEnd->month;
+        $sameYear = $weekStart->year === $weekEnd->year;
+        $startLabel = $weekStart->day
+            . (!$sameMonth ? ' ' . $monthId[$weekStart->month] : '')
+            . (!$sameYear ? ' ' . $weekStart->year : '');
+        $rangeLabel = $startLabel . ' – ' . $weekEnd->day . ' ' . $monthId[$weekEnd->month] . ' ' . $weekEnd->year;
     @endphp
 
     <div class="wrap">
         <header class="hero">
-            <div class="badge-icon"><i class="fa-solid fa-tooth"></i></div>
             <div class="brand">Sweet Treats Dental Clinic</div>
             <h1>Jadwal Dokter</h1>
-            <p>Cek jadwal praktik dokter kami di tiap cabang</p>
+            <p>Informasi jadwal praktik untuk memastikan kamu mendapatkan perawatan tepat waktu.</p>
         </header>
 
         <div class="filters">
@@ -829,7 +755,7 @@
                     onkeydown="if (event.key === 'Enter') event.preventDefault()">
             </div>
 
-            {{-- Baris kontrol: jenis dokter (klien) · cabang (server) · tanggal (server). --}}
+            {{-- Baris kontrol: jenis dokter (klien) · cabang (server). --}}
             <div class="filter-controls">
                 {{-- Jenis dokter: Semua / Umum / Spesialis (filter instan di sisi klien). --}}
                 <div class="field">
@@ -857,279 +783,174 @@
                             </button>
                         </div>
                     @else
-                        <div class="cselect" data-action="branch" data-value="{{ $allBranches ? 'all' : $branchId }}">
+                        <div class="cselect" data-action="branch" data-value="{{ $branchId }}">
                             <button type="button" class="cselect-trigger" onclick="toggleSelect(this)">
-                                <span class="cselect-label">{{ $allBranches ? 'Semua cabang' : $branchName }}</span>
+                                <span class="cselect-label">{{ $branchName }}</span>
                                 <i class="fa-solid fa-chevron-down cselect-caret"></i>
                             </button>
                             <ul class="cselect-menu" role="listbox">
-                                <li class="cselect-opt {{ $allBranches ? 'selected' : '' }}" data-value="all" onclick="chooseOpt(this)">Semua cabang</li>
                                 @foreach ($branches as $branch)
-                                    <li class="cselect-opt {{ !$allBranches && $branch->id === $branchId ? 'selected' : '' }}"
+                                    <li class="cselect-opt {{ $branch->id === $branchId ? 'selected' : '' }}"
                                         data-value="{{ $branch->id }}" onclick="chooseOpt(this)">{{ $branch->name }}</li>
                                 @endforeach
                             </ul>
                         </div>
                     @endif
                 </div>
-
-                {{-- Tanggal (navigasi server, mempertahankan cabang di URL). --}}
-                <div class="field">
-                    <span class="field-label"><i class="fa-solid fa-calendar-day"></i> Tanggal</span>
-                    <div class="date-box">
-                        <i class="fa-solid fa-calendar-day"></i>
-                        <input type="date" value="{{ $selectedStr }}" min="{{ $todayStr }}"
-                            max="{{ $maxStr }}" onchange="goDate(this.value)" aria-label="Pilih tanggal">
-                    </div>
-                </div>
             </div>
         </div>
 
-        @if ($doctors->isEmpty())
+        {{-- Navigasi antar-minggu: geser tanggal yang tampil (pola jadwal tetap). --}}
+        <div class="week-nav">
+            <div class="week-nav-group">
+                <button type="button" class="week-nav-arrow" aria-label="Minggu sebelumnya"
+                    onclick="navigateParam('minggu', {{ $weekOffset - 1 }})">
+                    <i class="fa-solid fa-chevron-left"></i>
+                </button>
+                <span class="week-nav-range">{{ $rangeLabel }}</span>
+                <button type="button" class="week-nav-arrow" aria-label="Minggu berikutnya"
+                    onclick="navigateParam('minggu', {{ $weekOffset + 1 }})">
+                    <i class="fa-solid fa-chevron-right"></i>
+                </button>
+            </div>
+            <button type="button" class="week-nav-today {{ $weekOffset === 0 ? 'is-current' : '' }}"
+                onclick="navigateParam('minggu', 0)">Minggu Ini</button>
+        </div>
+
+        @if (empty($week))
             <div class="empty">
                 <i class="fa-regular fa-calendar-times"></i>
-                @if ($mode === 'tanggal')
-                    <p>Tidak ada dokter yang praktik pada {{ $selectedLabel }}.</p>
-                @elseif ($allBranches)
-                    <p>Belum ada jadwal dokter.</p>
-                @else
-                    <p>Belum ada jadwal dokter untuk cabang ini.</p>
-                @endif
+                <p>Belum ada jadwal dokter untuk cabang ini.</p>
             </div>
         @else
             <p class="summary">
-                <strong>{{ $doctors->count() }} dokter</strong> praktik
-                @if ($allBranches) di semua cabang
-                @elseif ($branchName) di {{ $branchName }} @endif
-                @if ($mode === 'tanggal') pada {{ $selectedLabel }} @endif
+                <strong>{{ $doctorCount }} dokter</strong> praktik
+                @if ($branchName) di {{ $branchName }} @endif
             </p>
 
-            @if ($mode === 'tanggal')
-                <p class="hint"><i class="fa-solid fa-calendar-day"></i> Jadwal pada {{ $selectedLabel }}</p>
-            @endif
-
-            <div class="grid">
-                @foreach ($doctors as $doctor)
-                    <div class="card" data-name="{{ mb_strtolower($doctor->name) }}"
-                        data-type="{{ $doctor->specialization === 'Dokter Gigi Umum' ? 'umum' : 'spesialis' }}">
-                        <div class="card-head">
-                            @if ($doctor->photo_url)
-                                <img class="avatar" src="{{ $doctor->photo_url }}" alt="{{ $doctor->name }}"
-                                    loading="lazy">
-                            @else
-                                <div class="avatar-fallback">{{ mb_strtoupper(mb_substr(preg_replace('/^(drg\.?|dr\.?)\s+/iu', '', $doctor->name), 0, 1)) }}</div>
-                            @endif
-                            <h3>{{ $doctor->name }}<span>{{ $doctor->specialization }}</span></h3>
-                        </div>
-
-                        @php $multiBranch = count($doctor->branches) > 1; @endphp
-
-                        {{-- Tab cabang di dalam kartu (hanya bila dokter praktik di >1 cabang). --}}
-                        @if ($multiBranch)
-                            <div class="branch-tabs" role="tablist">
-                                @foreach ($doctor->branches as $bi => $br)
-                                    <button type="button" class="branch-tab {{ $bi === 0 ? 'active' : '' }}"
-                                        data-branch="{{ $bi }}" onclick="selectBranch(this)">
-                                        <i class="fa-solid fa-location-dot"></i> {{ $br->branch_name }}
-                                    </button>
-                                @endforeach
-                            </div>
-                        @endif
-
-                        @foreach ($doctor->branches as $bi => $br)
-                            <div class="branch-panel" data-branch="{{ $bi }}" @if ($bi !== 0) hidden @endif>
-                                <div class="card-meta">
-                                    {{-- Pill cabang hanya kalau TIDAK ada tab (dokter 1 cabang di mode "Semua cabang"); kalau ada tab, cabang sudah jelas dari tab aktif. --}}
-                                    @if ($allBranches && !$multiBranch)
-                                        <span class="branch-pill"><i class="fa-solid fa-location-dot"></i> {{ $br->branch_name }}</span>
-                                    @endif
-                                    <span><i class="fa-regular fa-calendar-check"></i>
-                                        Praktik {{ count($br->days) }} hari @if ($mode !== 'tanggal') per minggu @endif</span>
+            <div class="week-scroll">
+                <div class="calendar" style="--cols: {{ count($week) }}">
+                    @foreach ($week as $day)
+                        @php $d = $weekStart->copy()->addDays($day->iso - 1); @endphp
+                        <div class="cal-col {{ $loop->first ? '' : 'collapsed' }}">
+                            <div class="cal-col-head" onclick="toggleDay(this)">
+                                <div class="cal-day-group">
+                                    <span class="cal-day">{{ $dayFull[$day->iso] ?? '-' }}</span>
+                                    <span class="cal-date">{{ $d->day }} {{ $monthId[$d->month] }}</span>
                                 </div>
-
-                                <div class="day-acc">
-                                    @foreach ($br->days as $entry)
-                                        @php
-                                            $freeCount = 0;
-                                            foreach ($entry['slots'] as $s) {
-                                                if (!empty($s['available'])) {
-                                                    $freeCount++;
-                                                }
-                                            }
-                                            // Semua accordion tertutup saat halaman pertama dibuka.
-                                            $isOpen = false;
-                                        @endphp
-                                        <div class="acc-item {{ $isOpen ? 'open' : '' }}" data-day="{{ $entry['day'] }}">
-                                            <button type="button" class="acc-head" onclick="toggleAcc(this)"
-                                                aria-expanded="{{ $isOpen ? 'true' : 'false' }}">
-                                                <span class="acc-day">{{ $dayFull[$entry['day']] ?? '-' }}</span>
-                                                @if ($entry['status'])
-                                                    <span class="badge {{ $entry['status'] }}">{{ $statusLabels[$entry['status']] }}</span>
-                                                @endif
-                                                <i class="fa-solid fa-chevron-down acc-chevron"></i>
-                                            </button>
-                                            <div class="acc-body" @unless ($isOpen) hidden @endunless>
-                                                <div class="acc-range"><i class="fa-regular fa-clock"></i>{{ implode(' · ', $entry['ranges']) }}</div>
-                                                <div class="slots">
-                                                    @foreach ($entry['slots'] as $slot)
-                                                        <span
-                                                            class="slot @if ($slot['available']) is-free @elseif ($slot['is_past']) is-past @else is-booked @endif">{{ $slot['time'] }}</span>
-                                                    @endforeach
+                                <span class="cal-count" data-total="{{ count($day->doctors) }}">{{ count($day->doctors) }} dokter</span>
+                                <i class="fa-solid fa-chevron-down cal-chevron"></i>
+                            </div>
+                            <div class="cal-col-body">
+                                @foreach ($day->doctors as $doc)
+                                    <div class="doc" data-name="{{ mb_strtolower($doc->name) }}"
+                                        data-type="{{ $doc->specialization === 'Dokter Gigi Umum' ? 'umum' : 'spesialis' }}">
+                                        <div class="doc-head">
+                                            @if ($doc->photo_url)
+                                                <img class="doc-avatar" src="{{ $doc->photo_url }}" alt="{{ $doc->name }}" loading="lazy">
+                                            @else
+                                                <div class="doc-avatar-fallback">{{ mb_strtoupper(mb_substr(preg_replace('/^(drg\.?|dr\.?)\s+/iu', '', $doc->name), 0, 1)) }}</div>
+                                            @endif
+                                            <div class="doc-info">
+                                                <div class="doc-name">{{ $doc->name }}</div>
+                                                <div class="doc-spec">{{ $doc->specialization }}</div>
+                                                <div class="doc-time">
+                                                    <i class="fa-regular fa-clock"></i>{{ implode(' · ', $doc->ranges) }}
                                                 </div>
-                                                @if ($freeCount > 0)
-                                                    <div class="slots-foot"><i class="fa-solid fa-circle-check"></i>{{ $freeCount }} slot masih tersedia</div>
-                                                @else
-                                                    <div class="slots-foot none"><i class="fa-solid fa-circle-xmark"></i>Slot penuh untuk hari ini</div>
-                                                @endif
                                             </div>
                                         </div>
-                                    @endforeach
+                                    </div>
+                                @endforeach
+
+                                {{-- Placeholder saat semua dokter di kolom ini ter-filter (via JS). --}}
+                                <div class="day-empty" data-filter-empty hidden>
+                                    <i class="fa-regular fa-face-frown"></i>
+                                    Tidak ada dokter yang cocok
                                 </div>
                             </div>
-                        @endforeach
-                    </div>
-                @endforeach
+                        </div>
+                    @endforeach
+                </div>
             </div>
 
-            {{-- Muncul via JS bila pencarian/jenis dokter tidak menemukan hasil. --}}
+            {{-- Muncul via JS bila pencarian/jenis dokter tidak menemukan hasil sama sekali. --}}
             <div class="empty" id="noResults" hidden>
                 <i class="fa-regular fa-face-frown"></i>
                 <p>Tidak ada dokter yang cocok dengan pencarianmu.</p>
             </div>
-
-            {{-- Pagination (dibangun via JS, hanya tampil bila > 1 halaman). --}}
-            <nav class="pagination" id="pagination" aria-label="Navigasi halaman dokter"></nav>
         @endif
 
         <footer class="foot">
-            <p class="foot-text"><strong>Sweet Treats Dental Clinic</strong> &middot; Jadwal dapat berubah sewaktu-waktu.<br>
-                Hubungi nomor cabang untuk konfirmasi ketersediaan.</p>
             <a class="reserve-btn" href="https://app.sweettreats.id/reservasi" target="_blank" rel="noopener">
-                <i class="fa-solid fa-calendar-check"></i> Buat Reservasi
+                <i class="fa-solid fa-calendar-check"></i> Reservasi Sekarang
             </a>
         </footer>
     </div>
 
     <script>
-        function toggleAcc(btn) {
-            var item = btn.closest('.acc-item');
-            var body = item.querySelector('.acc-body');
-            var willOpen = !item.classList.contains('open');
-
-            // Accordion: buka satu, tutup semua hari lain (termasuk di kartu dokter lain).
-            document.querySelectorAll('.acc-item.open').forEach(function (other) {
-                if (other !== item) {
-                    other.classList.remove('open');
-                    other.querySelector('.acc-body').hidden = true;
-                    other.querySelector('.acc-head').setAttribute('aria-expanded', 'false');
-                }
+        // ===== Accordion per hari (hanya di mobile) =====
+        // Tap header hari untuk buka/tutup. Eksklusif: membuka satu hari otomatis
+        // menutup hari lain. Di desktop tak berefek (body selalu tampil), jadi
+        // klik header diabaikan di layar lebar.
+        function toggleDay(head) {
+            if (window.innerWidth > 760) return;
+            var col = head.closest('.cal-col');
+            var willOpen = col.classList.contains('collapsed');
+            // Tutup semua dulu, lalu buka yang diklik kalau tadinya tertutup.
+            document.querySelectorAll('.cal-col').forEach(function (c) {
+                c.classList.add('collapsed');
             });
-
-            item.classList.toggle('open', willOpen);
-            body.hidden = !willOpen;
-            btn.setAttribute('aria-expanded', String(willOpen));
+            if (willOpen) col.classList.remove('collapsed');
         }
 
-        // Pindah tab cabang di dalam kartu dokter (untuk dokter multi-cabang).
-        function selectBranch(btn) {
-            var card = btn.closest('.card');
-            var idx = btn.getAttribute('data-branch');
-            card.querySelectorAll('.branch-tab').forEach(function (t) {
-                t.classList.toggle('active', t === btn);
-            });
-            card.querySelectorAll('.branch-panel').forEach(function (p) {
-                p.hidden = p.getAttribute('data-branch') !== idx;
-            });
-        }
-
-        // ===== Filter + pagination (client-side) =====
-        var PAGE_SIZE = 6;   // jumlah kartu dokter per halaman
-        var currentPage = 1;
-
-        // Kartu yang cocok dgn pencarian nama + jenis dokter (umum/spesialis).
-        function matchingCards() {
+        // ===== Filter nama dokter + jenis dokter (client-side) =====
+        function applyFilter() {
             var search = document.getElementById('docSearch');
             var specSel = document.getElementById('specFilter');
             var q = (search ? search.value : '').trim().toLowerCase();
             var type = specSel ? specSel.getAttribute('data-value') : '';
 
-            return Array.prototype.filter.call(document.querySelectorAll('.grid .card'), function (card) {
-                var name = card.getAttribute('data-name') || '';
-                var cardType = card.getAttribute('data-type') || '';
-                return (!q || name.indexOf(q) !== -1) && (!type || cardType === type);
-            });
-        }
+            var totalVisible = 0;
 
-        // Tampilkan hanya kartu pd halaman aktif; kartu lain disembunyikan.
-        function renderPage() {
-            var matches = matchingCards();
-            var totalPages = Math.max(1, Math.ceil(matches.length / PAGE_SIZE));
-            if (currentPage > totalPages) currentPage = totalPages;
+            // Sembunyikan/tampilkan tiap mini-card sesuai kecocokan.
+            document.querySelectorAll('.cal-col').forEach(function (col) {
+                var visibleInCol = 0;
+                col.querySelectorAll('.doc').forEach(function (doc) {
+                    var name = doc.getAttribute('data-name') || '';
+                    var docType = doc.getAttribute('data-type') || '';
+                    var match = (!q || name.indexOf(q) !== -1) && (!type || docType === type);
+                    doc.style.display = match ? '' : 'none';
+                    if (match) visibleInCol++;
+                });
+                totalVisible += visibleInCol;
 
-            var start = (currentPage - 1) * PAGE_SIZE;
-            var end = start + PAGE_SIZE;
+                // Update angka di header kolom + placeholder "tidak cocok".
+                var count = col.querySelector('.cal-count');
+                if (count) {
+                    var total = count.getAttribute('data-total');
+                    count.textContent = (q || type)
+                        ? visibleInCol + '/' + total + ' dokter'
+                        : total + ' dokter';
+                }
+                var emptyPh = col.querySelector('[data-filter-empty]');
+                if (emptyPh) emptyPh.hidden = visibleInCol !== 0;
 
-            // Sembunyikan semua, lalu tampilkan yg cocok & masuk rentang halaman.
-            document.querySelectorAll('.grid .card').forEach(function (card) {
-                card.style.display = 'none';
-            });
-            matches.forEach(function (card, i) {
-                card.style.display = (i >= start && i < end) ? '' : 'none';
+                // Mobile: saat filter aktif, buka hari yang ada hasilnya biar terlihat.
+                if (window.innerWidth <= 760 && (q || type)) {
+                    col.classList.toggle('collapsed', visibleInCol === 0);
+                }
             });
 
             var noResults = document.getElementById('noResults');
-            if (noResults) noResults.hidden = matches.length !== 0;
+            if (noResults) noResults.hidden = totalVisible !== 0;
 
-            renderPagination(totalPages);
-        }
-
-        // Reset ke halaman 1 tiap filter berubah, lalu render ulang.
-        function applyFilter() {
-            currentPage = 1;
-            renderPage();
-        }
-
-        function gotoPage(n) {
-            currentPage = n;
-            renderPage();
-            var grid = document.querySelector('.grid');
-            if (grid) grid.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-
-        // Bangun tombol Prev · nomor halaman · Next. Sembunyi bila cuma 1 halaman.
-        function renderPagination(totalPages) {
-            var nav = document.getElementById('pagination');
-            if (!nav) return;
-            nav.innerHTML = '';
-            if (totalPages <= 1) return;
-
-            var makeBtn = function (label, page, opts) {
-                opts = opts || {};
-                var b = document.createElement('button');
-                b.type = 'button';
-                b.className = 'page-btn' + (opts.active ? ' active' : '') + (opts.nav ? ' nav' : '');
-                b.innerHTML = label;
-                if (opts.disabled) {
-                    b.disabled = true;
-                } else {
-                    b.onclick = function () { gotoPage(page); };
-                }
-                nav.appendChild(b);
-            };
-
-            makeBtn('<i class="fa-solid fa-chevron-left"></i>', currentPage - 1, {
-                nav: true, disabled: currentPage === 1
-            });
-            for (var p = 1; p <= totalPages; p++) {
-                makeBtn(String(p), p, { active: p === currentPage });
+            // Mobile: filter dibersihkan → balik ke default (hanya hari teratas terbuka).
+            if (window.innerWidth <= 760 && !q && !type) {
+                document.querySelectorAll('.cal-col').forEach(function (c, i) {
+                    c.classList.toggle('collapsed', i !== 0);
+                });
             }
-            makeBtn('<i class="fa-solid fa-chevron-right"></i>', currentPage + 1, {
-                nav: true, disabled: currentPage === totalPages
-            });
         }
-
-        // Render awal (pasang pagination saat halaman dimuat).
-        renderPage();
 
         // ===== Custom dropdown (halus) =====
         function closeAllSelects(except) {
@@ -1163,7 +984,7 @@
             }
         }
 
-        // Ganti 1 query-param lalu reload — param lain (mis. tanggal/cabang) tetap dipertahankan.
+        // Ganti 1 query-param lalu reload — param lain tetap dipertahankan.
         function navigateParam(key, value) {
             var params = new URLSearchParams(window.location.search);
             if (value) {
@@ -1172,10 +993,6 @@
                 params.delete(key);
             }
             window.location.search = params.toString();
-        }
-
-        function goDate(value) {
-            navigateParam('tanggal', value);
         }
 
         // Tutup dropdown saat klik di luar.

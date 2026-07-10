@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\RawCusReservation;
+use App\Models\RawDoctorSchedule;
+use App\Support\DoctorSpec;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -29,26 +31,42 @@ class SalesDashboardController extends Controller
         // ── Resolusi cabang (per-user) ─────────────────────────────────
         $sessionBranch = session('raw_branch_id') ?: null;
         if ($sessionBranch) {
-            $branch     = DB::table('raw_branch')->where('id', $sessionBranch)->first();
-            $branchIds  = [$sessionBranch];
-            $placeIds   = ($branch && $branch->omnicare_place_id) ? [$branch->omnicare_place_id] : [];
-            $branchName = $branch->name ?? 'Cabang';
-            $scopeAll   = false;
+            // User dikunci ke cabangnya — tak ada pilihan cabang.
+            $branch      = DB::table('raw_branch')->where('id', $sessionBranch)->first();
+            $branchIds   = [$sessionBranch];
+            $placeIds    = ($branch && $branch->omnicare_place_id) ? [$branch->omnicare_place_id] : [];
+            $branchName  = $branch->name ?? 'Cabang';
+            $scopeAll    = false;
+            $branches    = collect();
+            $selected    = null;
+            $promoBranch = $sessionBranch;
         } else {
-            $branches   = DB::table('raw_branch')->get();
-            $branchIds  = $branches->pluck('id')->all();
-            $placeIds   = $branches->pluck('omnicare_place_id')->filter()->values()->all();
-            $branchName = 'Semua Cabang';
-            $scopeAll   = true;
+            // Admin/HQ — punya akses semua cabang. Boleh filter satu cabang lewat ?cabang=.
+            $branches   = DB::table('raw_branch')->orderBy('name')->get();
+            $selected   = request('cabang') ?: null;
+            $selBranch  = $selected ? $branches->firstWhere('id', $selected) : null;
+            if (! $selBranch) { $selected = null; }
+
+            if ($selected) {
+                $branchIds  = [$selected];
+                $placeIds   = $selBranch->omnicare_place_id ? [$selBranch->omnicare_place_id] : [];
+                $branchName = $selBranch->name;
+            } else {
+                $branchIds  = $branches->pluck('id')->all();
+                $placeIds   = $branches->pluck('omnicare_place_id')->filter()->values()->all();
+                $branchName = 'Semua Cabang';
+            }
+            $scopeAll    = true;
+            $promoBranch = $selected;
         }
 
         $dayNames = [1 => 'Senin', 2 => 'Selasa', 3 => 'Rabu', 4 => 'Kamis', 5 => 'Jumat', 6 => 'Sabtu', 7 => 'Minggu'];
 
         $target        = $this->buildTargetProgress($date, $branchIds, $placeIds);
         $kpi           = $this->buildKpi($date, $anchor, $branchIds, $placeIds);
-        $activePromos  = $this->buildActivePromos($anchor, $sessionBranch);
+        $activePromos  = $this->buildActivePromos($anchor, $promoBranch);
         // Selalu ambil dua-duanya: yang AKTIF (bisa ditawarin sekarang) + yang AKAN datang (prep)
-        $upcomingPromos = $this->buildUpcomingPromos($anchor, $sessionBranch);
+        $upcomingPromos = $this->buildUpcomingPromos($anchor, $promoBranch);
         $reservasiBaru = $this->buildReservasiBaru($branchIds);
 
         return view('dashboard.sales', [
@@ -58,6 +76,8 @@ class SalesDashboardController extends Controller
             'isToday'      => $date->isToday(),
             'branchName'   => $branchName,
             'scopeAll'     => $scopeAll,
+            'branches'     => $branches,
+            'selected'     => $selected,
             'target'       => $target,
             'kpi'          => $kpi,
             'trend'        => $this->buildTrend($date, $placeIds, $target),
@@ -393,26 +413,106 @@ class SalesDashboardController extends Controller
         return ['dokter_cuti' => $cuti, 'stale' => $stale];
     }
 
+    /**
+     * Jadwal dokter → matrix mingguan per cabang (dokter × 7 hari), gaya mirip
+     * halaman dokter tapi diadaptasi buat dashboard. Minggu diambil dari tanggal
+     * yang dipilih. Tiap sel: blok jam praktik (warna ikut spesialisasi) / CUTI.
+     */
     private function buildDoctorSchedule(string $anchor, int $dowIso, array $branchIds)
     {
-        $schedules = DB::table('raw_doctor_schedule as ds')
+        $weekStart = Carbon::parse($anchor)->startOfWeek(); // Senin (ISO)
+        $weekEnd   = $weekStart->copy()->addDays(6);
+        $dayShort  = [1 => 'Sen', 2 => 'Sel', 3 => 'Rab', 4 => 'Kam', 5 => 'Jum', 6 => 'Sab', 7 => 'Min'];
+
+        // Senin di-skip (klinik libur) → tampil Selasa–Minggu.
+        $days = [];
+        for ($i = 1; $i < 7; $i++) {
+            $d = $weekStart->copy()->addDays($i);
+            $days[] = [
+                'iso'    => $i + 1,
+                'date'   => $d->toDateString(),
+                'short'  => $dayShort[$i + 1],
+                'num'    => $d->day,
+                'is_sel' => $d->toDateString() === $anchor,
+            ];
+        }
+
+        $sched = DB::table('raw_doctor_schedule as ds')
             ->join('raw_doctor as d', 'd.id', '=', 'ds.raw_doctor_id')
             ->join('raw_branch as b', 'b.id', '=', 'ds.raw_branch_id')
-            ->whereIn('ds.raw_branch_id', $branchIds)->where('ds.day', $dowIso)
-            ->select('d.id AS doctor_id', 'd.name AS doctor_name', 'b.name AS branch_name', 'ds.start_hour', 'ds.end_hour')
-            ->orderBy('b.name')->orderBy('ds.start_hour')->orderBy('d.name')->get();
+            ->whereIn('ds.raw_branch_id', $branchIds)
+            ->select('ds.type', 'ds.day', 'd.id AS doctor_id', 'd.name AS doctor_name',
+                'b.name AS branch_name', 'ds.start_hour', 'ds.end_hour')
+            ->orderBy('b.name')->orderBy('d.name')->orderBy('ds.start_hour')->get();
 
-        $onLeave = DB::table('raw_doctor_leave')
-            ->where('start_date', '<=', $anchor)->where('end_date', '>=', $anchor)
-            ->pluck('raw_doctor_id')->toArray();
+        $leaves = DB::table('raw_doctor_leave')
+            ->where('start_date', '<=', $weekEnd->toDateString())
+            ->where('end_date', '>=', $weekStart->toDateString())
+            ->get(['raw_doctor_id', 'start_date', 'end_date']);
+        $leaveByDoc = [];
+        foreach ($leaves as $l) { $leaveByDoc[$l->raw_doctor_id][] = [$l->start_date, $l->end_date]; }
 
-        $schedules->each(function ($s) use ($onLeave) {
-            $s->on_leave = in_array($s->doctor_id, $onLeave, true);
-            $s->start_hm = substr((string) $s->start_hour, 0, 5);
-            $s->end_hm   = substr((string) $s->end_hour, 0, 5);
-        });
+        $hm      = fn ($t) => substr((string) $t, 0, 5);
+        $isBreak = fn ($r) => ($r->type ?? RawDoctorSchedule::TYPE_WORK) === RawDoctorSchedule::TYPE_BREAK;
+        $isCuti  = function ($did, $date) use ($leaveByDoc) {
+            foreach ($leaveByDoc[$did] ?? [] as $lv) {
+                if ($date >= $lv[0] && $date <= $lv[1]) return true;
+            }
+            return false;
+        };
 
-        return $schedules->groupBy('branch_name');
+        // branch → dokter → blok per hari (jam kerja saja, istirahat di-skip).
+        $branches = [];
+        foreach ($sched as $r) {
+            if ($isBreak($r)) continue;
+            $bn  = $r->branch_name;
+            $did = $r->doctor_id;
+            $branches[$bn]['name'] ??= $bn;
+            $branches[$bn]['doctors'][$did] ??= [
+                'name'    => $r->doctor_name,
+                'spec'    => DoctorSpec::forName($r->doctor_name),
+                'initial' => strtoupper(mb_substr(preg_replace('/^drg?\.?\s*/i', '', $r->doctor_name), 0, 1)),
+                'byday'   => [],
+            ];
+            $branches[$bn]['doctors'][$did]['byday'][(int) $r->day][] = $hm($r->start_hour) . '–' . $hm($r->end_hour);
+        }
+
+        $out = [];
+        foreach ($branches as $bn => $b) {
+            // Header hari: jumlah dokter praktik (tidak cuti) per hari.
+            $dayHdr = [];
+            foreach ($days as $d) {
+                $cnt = 0;
+                foreach ($b['doctors'] as $did => $doc) {
+                    if (! empty($doc['byday'][$d['iso']]) && ! $isCuti($did, $d['date'])) $cnt++;
+                }
+                $dayHdr[] = $d + ['count' => $cnt];
+            }
+
+            // Baris dokter: sel per hari (cuti flag + blok).
+            $rows = [];
+            foreach ($b['doctors'] as $did => $doc) {
+                $cells = [];
+                foreach ($days as $d) {
+                    $cells[$d['iso']] = [
+                        'cuti'   => $isCuti($did, $d['date']),
+                        'blocks' => $doc['byday'][$d['iso']] ?? [],
+                    ];
+                }
+                $rows[] = [
+                    'name'    => $doc['name'],
+                    'spec'    => $doc['spec'],
+                    'initial' => $doc['initial'],
+                    'cells'   => $cells,
+                    // Praktik di hari terpilih? (buat redupkan yang tidak praktik)
+                    'active'  => ! empty($doc['byday'][$dowIso]) && ! $isCuti($did, $anchor),
+                ];
+            }
+
+            $out[$bn] = ['name' => $bn, 'count' => count($rows), 'days' => $dayHdr, 'rows' => $rows];
+        }
+
+        return $out;
     }
 
     private function omnicareNet(array $placeIds, string $start, string $end): float

@@ -18,6 +18,14 @@
             <div class="sds-h__sub">{{ $branchName }} · {{ $dayLabel }}{{ $isToday ? ' (Hari Ini)' : '' }}</div>
         </div>
         <form class="sds-datebar" method="GET">
+            @if ($scopeAll)
+                <select name="cabang" class="sds-select" onchange="this.form.submit()">
+                    <option value="">Semua Cabang</option>
+                    @foreach ($branches as $b)
+                        <option value="{{ $b->id }}" {{ $selected === $b->id ? 'selected' : '' }}>{{ $b->name }}</option>
+                    @endforeach
+                </select>
+            @endif
             <input type="date" name="date" value="{{ $anchor }}" class="sds-date">
             <button class="sds-btn"><i class="fa fa-eye"></i> Lihat</button>
         </form>
@@ -163,18 +171,69 @@
 
             {{-- JADWAL DOKTER --}}
             <div class="sds-card">
-                <div class="sds-sec"><span class="sds-sec__ic" style="background:#E4ECFB;color:#3C5FA8;"><i class="fa fa-user-md"></i></span>
-                    Jadwal Dokter <span class="sds-sec__sub">— {{ $dayLabel }}</span></div>
-                @forelse ($doctorSchedule as $branchLabel => $docs)
-                    @if ($scopeAll)<div class="sds-doc-branch"><i class="fa fa-map-marker-alt"></i> {{ $branchLabel }}</div>@endif
-                    <div class="sds-doc-grid">
-                        @foreach ($docs as $doc)
-                            <div class="sds-doc {{ $doc->on_leave ? 'is-leave' : '' }}">
-                                <div class="sds-doc__av">{{ strtoupper(mb_substr(preg_replace('/^drg?\.?\s*/i','',$doc->doctor_name),0,1)) }}</div>
-                                <div class="sds-doc__name">{{ $doc->doctor_name }}</div>
-                                <span class="sds-doc__time {{ $doc->on_leave ? 'is-leave' : '' }}">{{ $doc->on_leave ? 'Cuti' : $doc->start_hm.'–'.$doc->end_hm }}</span>
+                <div class="sds-sec {{ $scopeAll && count($doctorSchedule) ? 'sds-sec--split' : '' }}">
+                    <span class="sds-sec__title"><span class="sds-sec__ic" style="background:#E4ECFB;color:#3C5FA8;"><i class="fa fa-user-md"></i></span>
+                        Jadwal Dokter <span class="sds-sec__sub">— {{ $dayLabel }}</span></span>
+                    @if ($scopeAll && count($doctorSchedule))
+                        <div class="sds-docsel">
+                            <i class="fa fa-map-marker-alt sds-docsel__ic"></i>
+                            <select class="sds-docsel__sel" id="sdsDocBranch" onchange="sdsFilterDoc(this.value)">
+                                @foreach ($doctorSchedule as $branchLabel => $b)
+                                    <option value="{{ $branchLabel }}">{{ $b['name'] }} · {{ $b['count'] }} dokter</option>
+                                @endforeach
+                            </select>
+                            <i class="fa fa-chevron-down sds-docsel__caret"></i>
+                        </div>
+                    @endif
+                </div>
+                @forelse ($doctorSchedule as $branchLabel => $b)
+                    <div class="sds-doc-group" data-branch="{{ $branchLabel }}">
+                        @if ($scopeAll)
+                            <div class="sds-doc-branch">
+                                <span class="sds-doc-branch__name"><i class="fa fa-map-marker-alt"></i> {{ $b['name'] }}</span>
+                                <span class="sds-doc-branch__count">{{ $b['count'] }} dokter</span>
                             </div>
-                        @endforeach
+                        @endif
+
+                        {{-- Matrix jadwal mingguan: dokter × 7 hari --}}
+                        @php $sdwCols = '188px repeat(' . count($b['days']) . ', minmax(84px,1fr))'; @endphp
+                        <div class="sdw-scroll">
+                            <div class="sdw-grid">
+                                <div class="sdw-head" style="grid-template-columns:{{ $sdwCols }};">
+                                    <div class="sdw-head__dr">DOKTER</div>
+                                    @foreach ($b['days'] as $d)
+                                        <div class="sdw-head__day {{ $d['is_sel'] ? 'is-sel' : '' }}">
+                                            <div class="sdw-head__short">{{ $d['short'] }}</div>
+                                            <div class="sdw-head__num">{{ $d['num'] }}</div>
+                                            <div class="sdw-head__badge {{ $d['count'] === 0 ? 'is-off' : '' }}">{{ $d['count'] > 0 ? $d['count'] . ' drg' : 'Libur' }}</div>
+                                        </div>
+                                    @endforeach
+                                </div>
+                                @foreach ($b['rows'] as $doc)
+                                    <div class="sdw-row" style="grid-template-columns:{{ $sdwCols }};">
+                                        <div class="sdw-dr {{ $doc['active'] ? '' : 'is-off' }}">
+                                            <div class="sdw-dr__av" style="background:{{ $doc['spec']['color'] }};">{{ $doc['initial'] }}</div>
+                                            <div class="sdw-dr__main">
+                                                <div class="sdw-dr__name" title="{{ $doc['name'] }}">{{ $doc['name'] }}</div>
+                                                <div class="sdw-dr__spec" style="color:{{ $doc['spec']['color'] }};"><span style="background:{{ $doc['spec']['color'] }};"></span>{{ $doc['spec']['label'] }}</div>
+                                            </div>
+                                        </div>
+                                        @foreach ($b['days'] as $d)
+                                            @php $cell = $doc['cells'][$d['iso']]; @endphp
+                                            <div class="sdw-cell {{ $d['is_sel'] ? 'is-sel' : '' }}">
+                                                @if ($cell['cuti'])
+                                                    <div class="sdw-cuti">CUTI</div>
+                                                @else
+                                                    @foreach ($cell['blocks'] as $blk)
+                                                        <div class="sdw-blk" style="background:{{ $doc['spec']['color'] }};">{{ $blk }}</div>
+                                                    @endforeach
+                                                @endif
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
                     </div>
                 @empty
                     <div class="sds-empty">Tidak ada dokter praktik pada {{ $dayLabel }}.</div>
@@ -290,6 +349,7 @@
     .sds-h__sub { font-size:12.5px; color:#9A7256; margin-top:2px; }
     .sds-datebar { display:flex; gap:8px; }
     .sds-date { border:1px solid #E7C9AC; border-radius:10px; padding:7px 11px; font-size:13px; color:#3B1500; background:#fff; }
+    .sds-select { border:1px solid #E7C9AC; border-radius:10px; padding:7px 11px; font-size:13px; color:#3B1500; background:#fff; cursor:pointer; max-width:180px; }
     .sds-btn { background:linear-gradient(135deg,#6B2400,#461500); color:#fff; border:none; border-radius:10px; padding:8px 15px; font-size:13px; font-weight:600; cursor:pointer; }
     .sds-btn i { margin-right:5px; }
 
@@ -311,6 +371,20 @@
     .sds-card { background:#fff; border:1px solid #F0E2D6; border-radius:20px; padding:20px 22px; box-shadow:0 1px 2px rgba(70,21,0,.04),0 10px 26px rgba(70,21,0,.05); }
     .sds-sec { display:flex; align-items:center; gap:10px; font-size:15px; font-weight:800; color:#3B1500; margin-bottom:16px; }
     .sds-sec--m0 { margin-bottom:0; }
+    .sds-sec--split { justify-content:space-between; }
+    .sds-sec__title { display:inline-flex; align-items:center; gap:10px; min-width:0; }
+    .sds-docsel { position:relative; display:inline-flex; align-items:center; flex:0 0 auto; }
+    .sds-docsel__ic { position:absolute; left:11px; font-size:11px; color:#B5701A; pointer-events:none; }
+    .sds-docsel__caret { position:absolute; right:11px; font-size:9px; color:#B5701A; pointer-events:none; transition:transform .15s; }
+    .sds-docsel:hover .sds-docsel__caret { transform:translateY(1px); }
+    .sds-docsel__sel { -webkit-appearance:none; -moz-appearance:none; appearance:none;
+        font-family:inherit; font-size:12px; font-weight:700; color:#5C2A0A;
+        background:#fff; border:1.5px solid #E3C7A8; border-radius:10px;
+        padding:7px 30px 7px 28px; cursor:pointer; max-width:200px;
+        box-shadow:0 1px 2px rgba(70,21,0,.05);
+        text-overflow:ellipsis; transition:border-color .15s, box-shadow .15s; }
+    .sds-docsel__sel:hover { border-color:#C0791F; }
+    .sds-docsel__sel:focus-visible { outline:none; border-color:#C0791F; box-shadow:0 0 0 3px rgba(192,121,31,.16); }
     .sds-sec__ic { width:30px; height:30px; border-radius:9px; display:inline-flex; align-items:center; justify-content:center; font-size:14px; flex:0 0 auto; }
     .sds-sec__sub { font-size:12px; font-weight:500; color:#A9866A; }
     .sds-empty { text-align:center; color:#A9866A; font-size:13px; padding:22px 0; }
@@ -366,15 +440,38 @@
     .sds-promo__until i { margin-right:3px; }
 
     /* JADWAL */
-    .sds-doc-branch { font-weight:700; font-size:12.5px; color:#7A3415; margin:6px 0 8px; }
-    .sds-doc-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:9px; }
-    .sds-doc { display:flex; align-items:center; gap:11px; padding:9px 12px; border:1px solid #F0E2D6; border-radius:13px; background:#FFFCF9; }
-    .sds-doc.is-leave { background:#FDF3F3; border-color:#F6DADA; }
-    .sds-doc__av { width:32px; height:32px; border-radius:50%; background:linear-gradient(135deg,#6B2400,#461500); color:#fff; font-size:13px; font-weight:700; display:flex; align-items:center; justify-content:center; flex:0 0 auto; }
-    .sds-doc.is-leave .sds-doc__av { background:#B23A3A; }
-    .sds-doc__name { flex:1; font-size:13px; font-weight:600; color:#3B1500; }
-    .sds-doc__time { font-size:11px; font-weight:700; color:#3C5FA8; background:#EAF1FB; padding:3px 10px; border-radius:20px; white-space:nowrap; }
-    .sds-doc__time.is-leave { color:#B23A3A; background:#FDEAEA; }
+    .sds-doc-group { margin-bottom:16px; }
+    .sds-doc-group:last-child { margin-bottom:0; }
+    .sds-doc-branch { display:flex; align-items:center; justify-content:space-between; gap:10px; padding-bottom:7px; margin:4px 0 10px; border-bottom:1px solid #F0E2D6; }
+    .sds-doc-branch__name { font-weight:700; font-size:12.5px; color:#7A3415; display:inline-flex; align-items:center; gap:6px; }
+    .sds-doc-branch__name i { color:#B5701A; font-size:11px; }
+    .sds-doc-branch__count { font-size:11px; font-weight:600; color:#9A7256; background:#F6EEE4; padding:2px 9px; border-radius:20px; white-space:nowrap; }
+    /* Matrix jadwal mingguan (dokter × hari) */
+    .sdw-scroll { overflow-x:auto; border:1px solid #F0E2D2; border-radius:14px; }
+    .sdw-grid { min-width:640px; }
+    .sdw-head { display:grid; background:linear-gradient(90deg,#6B2400 0%,#4A1B06 55%,#3A1505 100%); }
+    .sdw-head__dr { padding:11px 14px; font-size:10.5px; font-weight:800; letter-spacing:.6px; color:#EAD3BC; align-self:center; }
+    .sdw-head__day { padding:8px 4px; text-align:center; border-left:1px solid rgba(255,255,255,.08); }
+    .sdw-head__day.is-sel { background:rgba(255,255,255,.10); }
+    .sdw-head__short { font-size:10.5px; font-weight:800; letter-spacing:.4px; color:#EAD3BC; }
+    .sdw-head__num { font-size:13px; font-weight:800; margin-top:1px; color:#fff; font-variant-numeric:tabular-nums; }
+    .sdw-head__badge { display:inline-block; margin-top:4px; font-size:9px; font-weight:800; padding:1px 7px; border-radius:20px; background:rgba(255,255,255,.16); color:#EAD3BC; }
+    .sdw-head__badge.is-off { background:rgba(255,255,255,.08); color:#C2A98F; }
+    .sdw-row { display:grid; border-top:1px solid #F0E2D2; }
+    .sdw-dr { display:flex; align-items:center; gap:9px; padding:9px 12px; border-right:1px solid #F0E2D2; min-width:0; }
+    .sdw-dr.is-off { opacity:.4; }
+    .sdw-dr__av { width:30px; height:30px; flex:none; border-radius:50%; color:#fff; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:12px; }
+    .sdw-dr__main { min-width:0; }
+    .sdw-dr__name { font-size:12px; font-weight:700; color:#3B1500; line-height:1.25; white-space:normal; overflow-wrap:break-word; }
+    .sdw-dr__spec { display:inline-flex; align-items:center; gap:5px; font-size:9.5px; font-weight:700; margin-top:2px; }
+    .sdw-dr__spec span { width:7px; height:7px; border-radius:2px; display:inline-block; flex:none; }
+    .sdw-cell { padding:6px 5px; border-left:1px solid #F3E9DE; display:flex; flex-direction:column; gap:4px; min-height:44px; }
+    .sdw-cell.is-sel { background:#FFF4E4; box-shadow:inset 0 0 0 1px #F1D9BA; }
+    .sdw-blk { border-radius:7px; padding:4px 7px; color:#fff; font-size:10.5px; font-weight:800; line-height:1.15; font-variant-numeric:tabular-nums; text-align:center; box-shadow:0 1px 2px rgba(40,22,8,.16); }
+    .sdw-cuti { font-size:9.5px; font-weight:800; letter-spacing:.5px; color:#B23A3A; background:#FDEAEA; border-radius:6px; padding:3px 0; text-align:center; }
+    /* Hari lain diredupkan → kolom hari terpilih yang menonjol */
+    .sdw-cell:not(.is-sel) .sdw-blk { opacity:.38; box-shadow:none; }
+    .sdw-cell:not(.is-sel) .sdw-cuti { opacity:.5; }
 
     /* SIDE */
     .sds-side-head { display:flex; justify-content:space-between; align-items:center; }
@@ -584,6 +681,17 @@
     document.getElementById('pmCopy').addEventListener('click', copyInfo);
     modal.querySelectorAll('[data-close]').forEach(function (b) { b.addEventListener('click', closePromo); });
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !modal.hidden) closePromo(); });
+})();
+
+/* Jadwal Dokter — filter per cabang (client-side) */
+function sdsFilterDoc(val) {
+    document.querySelectorAll('.sds-doc-group').forEach(function (g) {
+        g.style.display = (g.dataset.branch === val) ? '' : 'none';
+    });
+}
+(function () {
+    var sel = document.getElementById('sdsDocBranch');
+    if (sel) sdsFilterDoc(sel.value);
 })();
 </script>
 @endsection

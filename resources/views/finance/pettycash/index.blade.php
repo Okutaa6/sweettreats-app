@@ -37,14 +37,23 @@
             </div>
         </div>
         <div class="fpc-header-actions">
-            {{-- Bulan picker — submit GET dengan ?year=&month= --}}
+            {{-- Bulan & tahun picker — submit GET dengan ?year=&month= --}}
+            @php
+                $nowYear  = (int) date('Y');
+                $yearFrom = min($year, $nowYear) - 2;
+                $yearTo   = max($year, $nowYear) + 1;
+            @endphp
             <form method="GET" action="{{ route('finance.pettycash') }}" class="fpc-month-picker">
-                <select name="month" onchange="this.form.submit();" class="fpc-month-select">
+                <select name="month" onchange="this.form.submit();" class="fpc-month-select" aria-label="Pilih bulan">
                     @foreach($bulanLabel as $m => $label)
-                        <option value="{{ $m }}" {{ $month === $m ? 'selected' : '' }}>{{ $label }} {{ $year }}</option>
+                        <option value="{{ $m }}" {{ $month === $m ? 'selected' : '' }}>{{ $label }}</option>
                     @endforeach
                 </select>
-                <input type="hidden" name="year" value="{{ $year }}">
+                <select name="year" onchange="this.form.submit();" class="fpc-month-select fpc-year-select" aria-label="Pilih tahun">
+                    @for($y = $yearTo; $y >= $yearFrom; $y--)
+                        <option value="{{ $y }}" {{ $year === $y ? 'selected' : '' }}>{{ $y }}</option>
+                    @endfor
+                </select>
             </form>
             <button type="button" class="fpc-action-btn" onclick="window.print();">
                 <i class="fa fa-file-export"></i> Export
@@ -183,7 +192,8 @@
     display: inline-flex; align-items: center; gap: 8px;
     flex-shrink: 0;
 }
-.fpc-month-picker { margin: 0; }
+.fpc-month-picker { margin: 0; display: inline-flex; gap: 8px; }
+.fpc-year-select { min-width: 88px; }
 .fpc-month-select {
     appearance: none;
     -webkit-appearance: none;

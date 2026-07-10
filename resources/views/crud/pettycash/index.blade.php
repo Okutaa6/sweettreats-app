@@ -1106,6 +1106,38 @@
         });
     });
 
+    // Copy nomor rekening/HP dengan klik langsung pada angkanya (tanpa tombol).
+    // Feedback lewat class .is-copied (CSS menampilkan "✓ Tersalin"), jadi teks
+    // nomor tetap utuh — beda dari flashCopied() yg menukar innerHTML tombol.
+    document.querySelectorAll('.pc-copy-value').forEach(function (el) {
+        function doCopy(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            var text = el.dataset.pcCopy || el.textContent.trim();
+            if (!text) return;
+            var done = function () {
+                el.classList.add('is-copied');
+                setTimeout(function () { el.classList.remove('is-copied'); }, 1200);
+            };
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(done);
+            } else {
+                var ta = document.createElement('textarea');
+                ta.value = text;
+                ta.style.position = 'fixed';
+                ta.style.opacity = '0';
+                document.body.appendChild(ta);
+                ta.select();
+                try { document.execCommand('copy'); done(); } catch (_) {}
+                document.body.removeChild(ta);
+            }
+        }
+        el.addEventListener('click', doCopy);
+        el.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter' || e.key === ' ') doCopy(e);
+        });
+    });
+
     // ─── Inline add / edit nomor rek/HP di preview modal ───
     // Mode "add"  : muncul saat card Bank/E-Wallet diklik & no rek kosong.
     // Mode "edit" : tombol pen di sebelah copy untuk ubah nomor existing.

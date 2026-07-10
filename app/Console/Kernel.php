@@ -12,6 +12,12 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule): void
     {
+        // Status promo — daily 00:05. Pindahkan promo ke aktif/selesai otomatis
+        // saat melewati periode_start / periode_end. Ringan (3 UPDATE indexed).
+        $schedule->command('promo:sync-status')
+            ->dailyAt('00:05')
+            ->withoutOverlapping(10);
+
         // Omnicare sync — daily 02:00 (3-day overlap window untuk catch late entries).
         // withoutOverlapping mencegah dua run barengan kalau sync sebelumnya belum
         // selesai; runInBackground supaya kerja tidak blocking ke command lain.

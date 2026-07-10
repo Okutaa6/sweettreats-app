@@ -216,8 +216,13 @@ class LandingReservationController extends Controller
                         $affiliate = $promo->affiliate instanceof \Illuminate\Support\Collection
                             ? $promo->affiliate->first()
                             : $promo->affiliate;
-                        $rate   = $affiliate ? ($affiliate->commission_rate ?? 0) : 0;
-                        $amount = round($totalHarga * ($rate / 100), 2);
+                        // Nominal flat per pasien dari referral_scope (100k behel / 50k non-behel).
+                        $amount = $affiliate ? $affiliate->commissionAmountPerPatient() : 0;
+                        if ($amount === 0) {
+                            // Fallback legacy (rate × total) kalau scope belum di-set.
+                            $rate   = $affiliate ? ($affiliate->commission_rate ?? 0) : 0;
+                            $amount = round($totalHarga * ($rate / 100), 2);
+                        }
 
                         DB::table('raw_commission')->insert([
                             'id'                     => Str::uuid()->toString(),
