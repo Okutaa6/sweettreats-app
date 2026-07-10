@@ -1614,10 +1614,14 @@ document.querySelectorAll('.st-status-select').forEach(function (sel) {
     var $fd = $('#rrFormDrawer');
     if (!$fd.length) return; // view-only: drawer tidak dirender
     var $body = $('#rrFormBody');
+    var currentForm = null; // opts terakhir → untuk refresh drawer (mis. setelah approve komisi)
+    var RR_EDIT_TPL = '{{ route("rawreservation.edit", ["id" => "__RID__"]) }}';
+    var needsListReload = false; // true setelah simpan → list di-reload saat drawer ditutup
 
     // Buka drawer + fetch form (?drawer=1, bare layout) → inject → jalankan config → init.
     window.rrOpenFormDrawer = function (opts) {
         opts = opts || {};
+        currentForm = opts;
         $('#rrFormTitle').text(opts.title || 'Reservasi');
         $body.html('<div class="text-muted" style="padding:24px 4px;"><i class="fa fa-spinner fa-spin"></i> Memuat form…</div>');
         $fd.addClass('is-open').attr('aria-hidden', 'false');
@@ -1660,6 +1664,8 @@ document.querySelectorAll('.st-status-select').forEach(function (sel) {
     function rrFormClose() {
         $fd.removeClass('is-open').attr('aria-hidden', 'true');
         document.body.classList.remove('rr-drawer-lock');
+        // Ada perubahan tersimpan selama drawer terbuka → sinkronkan list sekali saat ditutup.
+        if (needsListReload) { needsListReload = false; window.location.reload(); }
     }
     window.rrCloseFormDrawer = rrFormClose;
 
@@ -1732,19 +1738,67 @@ document.querySelectorAll('.st-status-select').forEach(function (sel) {
         })
         .then(function (res) {
             if (res.status >= 200 && res.status < 300 && res.data && res.data.ok) {
-                // Opsi A: toast sukses lalu reload list (sekali, di akhir).
+                // Sukses → toast + refresh isi drawer. Drawer TETAP terbuka (list di-reload saat ditutup).
+                needsListReload = true;
                 if (window.Swal) {
-                    Swal.fire({ icon: 'success', title: res.data.message || 'Tersimpan', timer: 1100, showConfirmButton: false })
-                        .then(function () { window.location.reload(); });
-                } else {
-                    window.location.reload();
+                    Swal.fire({ icon: 'success', title: res.data.message || 'Tersimpan', timer: 1100, showConfirmButton: false });
                 }
+                var refreshOpts = currentForm ? Object.assign({}, currentForm) : {};
+                if ((!refreshOpts.url || refreshOpts.mode === 'add') && res.data.id) {
+                    // Mode tambah → alihkan ke form Edit reservasi yang baru dibuat.
+                    refreshOpts.url = RR_EDIT_TPL.replace('__RID__', res.data.id);
+                    refreshOpts.mode = 'edit';
+                    refreshOpts.title = 'Edit Reservasi';
+                }
+                window.rrOpenFormDrawer(refreshOpts);
                 return;
             }
             if (res.status === 422 && res.data && res.data.errors) {
                 rrFormShowErrors(res.data.errors);
             } else {
                 rrFormShowErrors({ _: [(res.data && res.data.message) || ('Gagal menyimpan (HTTP ' + res.status + ').')] });
+            }
+            $btns.prop('disabled', false);
+        })
+        .catch(function (err) {
+            rrFormShowErrors({ _: ['Gagal terhubung: ' + (err && err.message ? err.message : err)] });
+            $btns.prop('disabled', false);
+        });
+    });
+
+    // Intercept form komisi (Approve / Tandai Dibayar) → AJAX → refresh drawer, JANGAN pindah halaman.
+    $(document).on('submit', '.rrf-comm-form', function (e) {
+        e.preventDefault();
+        var form = this;
+        var $btns = $(form).find('button[type="submit"]');
+        $('#rrFormErrors').remove();
+        $btns.prop('disabled', true);
+
+        fetch(form.action, {
+            method: 'POST', // _method=PATCH ikut di FormData (Laravel baca sebagai PATCH)
+            body: new FormData(form),
+            credentials: 'same-origin',
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
+        })
+        .then(function (r) {
+            return r.text().then(function (t) {
+                var data = null; try { data = JSON.parse(t); } catch (_) {}
+                return { status: r.status, data: data };
+            });
+        })
+        .then(function (res) {
+            if (res.status >= 200 && res.status < 300 && res.data && res.data.ok) {
+                // Sukses → refresh isi drawer supaya status komisi ter-update, drawer tetap terbuka.
+                if (window.Swal) {
+                    Swal.fire({ icon: 'success', title: res.data.message || 'Berhasil', timer: 1100, showConfirmButton: false });
+                }
+                if (currentForm) window.rrOpenFormDrawer(currentForm);
+                return;
+            }
+            if (res.data && res.data.message) {
+                rrFormShowErrors({ _: [res.data.message] });
+            } else {
+                rrFormShowErrors({ _: ['Gagal memproses komisi (HTTP ' + res.status + ').'] });
             }
             $btns.prop('disabled', false);
         })
