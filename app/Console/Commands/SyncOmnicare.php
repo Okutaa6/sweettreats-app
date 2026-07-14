@@ -28,7 +28,7 @@ class SyncOmnicare extends Command
 {
     protected $signature = 'omnicare:sync
                             {--place= : Place ID (default: semua cabang aktif dari config)}
-                            {--endpoint= : location|polyclinic|doctor|patient|sales|product|medical (default: all)}
+                            {--endpoint= : location|polyclinic|doctor|patient|sales|product|medical|payments|commission (default: all)}
                             {--days=3 : Lookback days untuk sales/product (default 3)}
                             {--start= : Override start date YYYYMMDD (e.g. backfill)}
                             {--end= : Override end date YYYYMMDD}
@@ -92,6 +92,12 @@ class SyncOmnicare extends Command
                 }
                 if ($endpoint === null || $endpoint === 'medical') {
                     $this->syncMedicalRecords($placeId, $startYmd, $endYmd);
+                }
+                if ($endpoint === null || $endpoint === 'payments') {
+                    $this->syncSalesPayments($placeId, $startYmd, $endYmd);
+                }
+                if ($endpoint === null || $endpoint === 'commission') {
+                    $this->syncCommission($placeId, $startYmd, $endYmd);
                 }
             } catch (Throwable $e) {
                 $this->error("  ✗ Branch {$placeId} threw: {$e->getMessage()}");
@@ -724,6 +730,212 @@ class SyncOmnicare extends Command
         } else {
             $this->finishSyncLog($logId, 'success', $totalCount, $pageCount);
             $this->line("    ✓ {$totalCount} product rows (across {$pageCount} pages)");
+        }
+    }
+
+    /**
+     * Sync /get/sales_payments — record pembayaran (uang masuk) per cabang ke
+     * omnicare_sales_payments. Melengkapi sales_detail (per-item) dengan metode
+     * bayar, jumlah aktual diterima, tipe pembayaran, dan status faktur.
+     *
+     * PK payment_id. Cap 31-hari (chunk) + partial-on-fail sama seperti sales.
+     */
+    private function syncSalesPayments(string $placeId, string $startYmd, string $endYmd): void
+    {
+        // Schema guard: skip bersih kalau tabel belum di-deploy (mis. prod yang
+        // belum jalankan 2026_07_01_omnicare_sales_payments.sql). Cegah cron
+        // error tiap malam saat code sudah ada tapi tabel belum.
+        if (! \Illuminate\Support\Facades\Schema::hasTable('omnicare_sales_payments')) {
+            $this->line('  /get/sales_payments — SKIP (tabel belum ada)');
+            return;
+        }
+
+        $chunks = $this->dateChunks($startYmd, $endYmd, 31);
+        $totalCount = 0;
+        $pageCount = 0;
+        $rangeLabel = count($chunks) === 1 ? "{$startYmd}-{$endYmd}" : count($chunks) . ' chunks';
+        $this->line("  /get/sales_payments ({$rangeLabel})");
+
+        $logId = $this->startSyncLog('/get/sales_payments', $placeId, [
+            'start' => $startYmd, 'end' => $endYmd,
+        ]);
+
+        $failedChunks = [];
+        try {
+            foreach ($chunks as [$chunkStart, $chunkEnd]) {
+                foreach ($this->client->paginate('/get/sales_payments', [
+                    'place' => $placeId,
+                    'start' => $chunkStart,
+                    'end'   => $chunkEnd,
+                ]) as $resp) {
+                    if (! $resp->isSuccess()) {
+                        if (! $resp->isEmpty()) {
+                            $failedChunks[] = "{$chunkStart}-{$chunkEnd}: {$resp->code} {$resp->message}";
+                            $this->warn("    ⚠ chunk {$chunkStart}-{$chunkEnd} gagal: {$resp->code} {$resp->message} — lanjut");
+                        }
+                        break;
+                    }
+
+                    foreach ($resp->data as $row) {
+                        $paymentId = N::str($row['payment_id'] ?? null);
+                        if ($paymentId === null) {
+                            continue;
+                        }
+
+                        if (! $this->dryRun) {
+                            DB::table('omnicare_sales_payments')->updateOrInsert(
+                                ['payment_id' => $paymentId],
+                                [
+                                    'pay_date'          => N::dateTimeFromDmyHis($row['pay_date'] ?? null),
+                                    'pay_timestamp'     => N::unixMs($row['pay_timestamp'] ?? 0),
+                                    'invoice_date'      => N::dateFromDmyDash($row['invoice_date'] ?? null),
+                                    'invoice_num'       => N::str($row['invoice_num'] ?? null),
+                                    'service_type'      => N::str($row['service_type'] ?? null),
+                                    'pay_amount'        => N::decimal($row['pay_amount'] ?? 0),
+                                    'extra_amount'      => N::decimal($row['extra_amount'] ?? 0),
+                                    'actual_amount'     => N::decimal($row['actual_amount'] ?? 0),
+                                    'payment_note'      => N::str($row['payment_note'] ?? null),
+                                    'payment_method'    => N::str($row['payment_method'] ?? null),
+                                    'payment_type'      => N::str($row['payment_type'] ?? null),
+                                    'voucher'           => N::str($row['voucher'] ?? null),
+                                    'p_id'              => N::str($row['p_id'] ?? null),
+                                    'p_name'            => N::str($row['p_name'] ?? null),
+                                    'p_ins_id'          => N::str($row['p_ins_id'] ?? null),
+                                    'p_insurance'       => N::str($row['p_insurance'] ?? null),
+                                    'process_date'      => N::dateTimeFromDmyHis($row['process_date'] ?? null),
+                                    'process_timestamp' => N::unixMs($row['process_timestamp'] ?? 0),
+                                    'invoice_status'    => N::str($row['invoice_status'] ?? null),
+                                    'cancel_reason'     => N::str($row['cancel_reason'] ?? null),
+                                    'place_id'          => $placeId,
+                                    'branch_name'       => N::str($row['branch_name'] ?? null),
+                                    'username'          => N::str($row['username'] ?? null),
+                                    'last_synced_at'    => now(),
+                                    'raw_payload'       => N::jsonPayload($row),
+                                    'updated_at'        => now(),
+                                ]
+                            );
+                        }
+                        $totalCount++;
+                    }
+                    $pageCount++;
+                }
+            }
+        } catch (Throwable $e) {
+            $this->finishSyncLog($logId, 'error', $totalCount, $pageCount, $e->getMessage());
+            throw $e;
+        }
+
+        if (! empty($failedChunks)) {
+            $msg = count($failedChunks) . ' chunk gagal: ' . implode(' | ', $failedChunks);
+            $this->finishSyncLog($logId, 'partial', $totalCount, $pageCount, $msg);
+            $this->warn("    ⚠ {$totalCount} payments (partial — " . count($failedChunks) . " chunk gagal)");
+        } else {
+            $this->finishSyncLog($logId, 'success', $totalCount, $pageCount);
+            $this->line("    ✓ {$totalCount} payments (across {$pageCount} pages)");
+        }
+    }
+
+    /**
+     * Sync /get/commission — komisi dokter per baris (fee dokter) ke
+     * omnicare_commission. 1 baris per tenaga medis per sale line.
+     * Bahan seksi EXPENSE "Hutang Fee Dokter" saat push ke Accurate.
+     *
+     * PK komposit (trx_id, doc_id, commission_role). Cap 31-hari (chunk) +
+     * partial-on-fail sama seperti sales.
+     */
+    private function syncCommission(string $placeId, string $startYmd, string $endYmd): void
+    {
+        // Schema guard: skip bersih kalau tabel belum di-deploy (mis. prod yang
+        // belum jalankan 2026_07_07_omnicare_commission.sql).
+        if (! \Illuminate\Support\Facades\Schema::hasTable('omnicare_commission')) {
+            $this->line('  /get/commission — SKIP (tabel belum ada)');
+            return;
+        }
+
+        $chunks = $this->dateChunks($startYmd, $endYmd, 31);
+        $totalCount = 0;
+        $pageCount = 0;
+        $rangeLabel = count($chunks) === 1 ? "{$startYmd}-{$endYmd}" : count($chunks) . ' chunks';
+        $this->line("  /get/commission ({$rangeLabel})");
+
+        $logId = $this->startSyncLog('/get/commission', $placeId, [
+            'start' => $startYmd, 'end' => $endYmd,
+        ]);
+
+        $failedChunks = [];
+        try {
+            foreach ($chunks as [$chunkStart, $chunkEnd]) {
+                foreach ($this->client->paginate('/get/commission', [
+                    'place' => $placeId,
+                    'start' => $chunkStart,
+                    'end'   => $chunkEnd,
+                ]) as $resp) {
+                    if (! $resp->isSuccess()) {
+                        if (! $resp->isEmpty()) {
+                            $failedChunks[] = "{$chunkStart}-{$chunkEnd}: {$resp->code} {$resp->message}";
+                            $this->warn("    ⚠ chunk {$chunkStart}-{$chunkEnd} gagal: {$resp->code} {$resp->message} — lanjut");
+                        }
+                        break;
+                    }
+
+                    foreach ($resp->data as $row) {
+                        $trxId = N::str($row['trx_id'] ?? null);
+                        if ($trxId === null) {
+                            continue;
+                        }
+
+                        if (! $this->dryRun) {
+                            DB::table('omnicare_commission')->updateOrInsert(
+                                [
+                                    'trx_id'          => $trxId,
+                                    'doc_id'          => N::str($row['doc_id'] ?? null),
+                                    'commission_role' => N::str($row['commission_role'] ?? null),
+                                ],
+                                [
+                                    'trx_date'          => N::dateFromYmd($row['trx_date'] ?? null) ?? now()->format('Y-m-d'),
+                                    'invoice_num'       => N::str($row['invoice_num'] ?? null),
+                                    'service_type'      => N::str($row['service_type'] ?? null),
+                                    'item_code'         => N::str($row['item_code'] ?? null),
+                                    'item_type'         => N::str($row['item_type'] ?? null),
+                                    'item_name'         => N::str($row['item_name'] ?? null),
+                                    'item_extra_name'   => N::str($row['item_extra_name'] ?? null),
+                                    'qty_sold'          => N::decimal($row['qty_sold'] ?? 0),
+                                    'net_sell_price'    => N::decimal($row['net_sell_price'] ?? 0),
+                                    'gross_price'       => N::decimal($row['gross_price'] ?? 0),
+                                    'polyclinic'        => N::str($row['polyclinic'] ?? null),
+                                    'doctor'            => N::str($row['doctor'] ?? null),
+                                    'commission_type'   => N::str($row['commission_type'] ?? null),
+                                    'commission_rate'   => N::decimal($row['commission_rate'] ?? 0),
+                                    'commission_amount' => N::decimal($row['commission_amount'] ?? 0),
+                                    'p_id'              => N::str($row['p_id'] ?? null),
+                                    'p_name'            => N::str($row['p_name'] ?? null),
+                                    'encounter_id'      => $this->normalizeEncounterId($row['encounter_id'] ?? null),
+                                    'place_id'          => $placeId,
+                                    'branch_name'       => N::str($row['branch_name'] ?? null),
+                                    'username'          => N::str($row['username'] ?? null),
+                                    'last_synced_at'    => now(),
+                                    'raw_payload'       => N::jsonPayload($row),
+                                    'updated_at'        => now(),
+                                ]
+                            );
+                        }
+                        $totalCount++;
+                    }
+                    $pageCount++;
+                }
+            }
+        } catch (Throwable $e) {
+            $this->finishSyncLog($logId, 'error', $totalCount, $pageCount, $e->getMessage());
+            throw $e;
+        }
+
+        if (! empty($failedChunks)) {
+            $msg = count($failedChunks) . ' chunk gagal: ' . implode(' | ', $failedChunks);
+            $this->finishSyncLog($logId, 'partial', $totalCount, $pageCount, $msg);
+            $this->warn("    ⚠ {$totalCount} komisi (partial — " . count($failedChunks) . " chunk gagal)");
+        } else {
+            $this->finishSyncLog($logId, 'success', $totalCount, $pageCount);
+            $this->line("    ✓ {$totalCount} baris komisi (across {$pageCount} pages)");
         }
     }
 
