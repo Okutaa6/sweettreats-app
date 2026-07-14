@@ -158,14 +158,31 @@
                             'name'  => $sb->name,
                             'size'  => 'md',
                         ])
-                        <span class="pc-source-card__name">{{ $sb->name }}</span>
+                        <div class="pc-source-card__headtext">
+                            <span class="pc-source-card__name">{{ $sb->name }}</span>
+                            @if(!empty($sb->account_number))
+                                @php
+                                    $acctLabel = $sb->category === \App\Models\FundSource::CAT_BANK
+                                        ? 'No. Rek'
+                                        : ($sb->category === \App\Models\FundSource::CAT_EWALLET ? 'No. HP' : 'No.');
+                                @endphp
+                                <div class="pc-source-card__account" onclick="event.stopPropagation()">
+                                    <span class="pc-source-card__account-label">{{ $acctLabel }}</span>
+                                    <span class="pc-source-card__account-value pc-copy-value"
+                                          data-pc-copy="{{ $sb->account_number }}"
+                                          role="button" tabindex="0"
+                                          title="Klik untuk salin nomor"
+                                      /     aria-label="Salin nomor {{ $sb->account_number }}">{{ $sb->account_number }}</span>
+                                </div>
+                            @endif
+                        </div>
                         @if($isClickable)
                             @php
                                 $iconClass = match($sb->category ?? null) {
-                                    \App\Models\FundSource::CAT_BANK    => 'fa-money-bill-transfer',
-                                    \App\Models\FundSource::CAT_CASH    => 'fa-right-left',
-                                    \App\Models\FundSource::CAT_EWALLET => 'fa-right-left',
-                                    default => ($hasSaldo ? 'fa-right-left' : 'fa-plus'),
+                                    \App\Models\FundSource::CAT_BANK    => 'fa-money-bill-wave',
+                                    \App\Models\FundSource::CAT_CASH    => 'fa-exchange-alt',
+                                    \App\Models\FundSource::CAT_EWALLET => 'fa-exchange-alt',
+                                    default => ($hasSaldo ? 'fa-exchange-alt' : 'fa-plus'),
                                 };
                                 $iconHint = match($sb->category ?? null) {
                                     \App\Models\FundSource::CAT_BANK    => 'Tarik tunai / Transfer / Pengeluaran',
@@ -179,24 +196,6 @@
                         @endif
                     </div>
                     <div class="pc-source-card__balance">{{ $rupiah($sb->balance) }}</div>
-                    @if(!empty($sb->account_number))
-                        @php
-                            $acctLabel = $sb->category === \App\Models\FundSource::CAT_BANK
-                                ? 'No. Rek'
-                                : ($sb->category === \App\Models\FundSource::CAT_EWALLET ? 'No. HP' : 'No.');
-                        @endphp
-                        <div class="pc-source-card__account" onclick="event.stopPropagation()">
-                            <span class="pc-source-card__account-label">{{ $acctLabel }}</span>
-                            <span class="pc-source-card__account-value">{{ $sb->account_number }}</span>
-                            <button type="button" class="pc-copy-btn"
-                                    data-pc-copy="{{ $sb->account_number }}"
-                                    onkeydown="event.stopPropagation()"
-                                    title="Salin nomor"
-                                    aria-label="Salin nomor">
-                                <i class="fa fa-copy"></i>
-                            </button>
-                        </div>
-                    @endif
                     <div class="pc-source-card__meta">
                         <span class="pc-source-card__in" title="Cash in">
                             <i class="fa fa-arrow-up"></i> {{ $rupiah($sb->in) }}

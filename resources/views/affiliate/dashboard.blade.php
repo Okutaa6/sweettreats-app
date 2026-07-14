@@ -21,13 +21,13 @@
 
             @if(session('success'))
                 <div class="sm-alert sm-alert-success">
-                    <i class="fa-solid fa-circle-check"></i>
+                    <i class="fa-solid fa-check-circle"></i>
                     <div>{{ session('success') }}</div>
                 </div>
             @endif
             @if(session('error'))
                 <div class="sm-alert sm-alert-error">
-                    <i class="fa-solid fa-circle-exclamation"></i>
+                    <i class="fa-solid fa-exclamation-circle"></i>
                     <div>{{ session('error') }}</div>
                 </div>
             @endif
@@ -47,7 +47,7 @@
                 <div class="sm-hero-grid">
                     <div class="sm-hero-text">
                         <div class="sm-hero-greeting">
-                            <i class="fa-solid fa-hand-sparkles"></i>
+                            <i class="fa-solid fa-magic"></i>
                             Halo Sweet Mate,
                         </div>
                         <h1 class="sm-hero-name">{{ $firstName }}!</h1>
@@ -162,7 +162,7 @@
                     </div>
                 </div>
                 <div class="sm-stat-card sm-stat-3">
-                    <div class="sm-stat-icon"><i class="fa-solid fa-ticket"></i></div>
+                    <div class="sm-stat-icon"><i class="fa-solid fa-ticket-alt"></i></div>
                     <div>
                         <div class="sm-stat-num">{{ $promos->count() }}</div>
                         <div class="sm-stat-label">Kode Promo</div>
@@ -262,14 +262,14 @@
                             : 'Rp ' . number_format((float) $promo->discount_value, 0, ',', '.');
                     @endphp
                     <div class="sm-komisi-promo" onclick="copyDashPromo('{{ $promo->promo_code }}', this)">
-                        <i class="fa-solid fa-ticket"></i>
+                        <i class="fa-solid fa-ticket-alt"></i>
                         <span class="code">{{ $promo->promo_code }}</span>
                         <span class="value">{{ $promoValue }}</span>
                         <span class="copy-hint"><i class="fa-regular fa-copy"></i> Klik untuk copy</span>
                     </div>
                 @empty
                     <div class="sm-komisi-empty">
-                        <i class="fa-solid fa-ticket"></i>
+                        <i class="fa-solid fa-ticket-alt"></i>
                         Belum ada kode promo aktif. Admin akan generate setelah kamu disetujui.
                     </div>
                 @endforelse
@@ -338,19 +338,19 @@
                     @endif
                     @if($affiliate->branch)
                         <div class="sm-info-row">
-                            <span class="sm-info-label"><i class="fa-solid fa-location-dot"></i> Cabang</span>
+                            <span class="sm-info-label"><i class="fa-solid fa-map-marker-alt"></i> Cabang</span>
                             <span class="sm-info-value">{{ $affiliate->branch->name }}</span>
                         </div>
                     @endif
                     @if($affiliate->doctor)
                         <div class="sm-info-row">
-                            <span class="sm-info-label"><i class="fa-solid fa-user-doctor"></i> Dokter</span>
+                            <span class="sm-info-label"><i class="fa-solid fa-user-md"></i> Dokter</span>
                             <span class="sm-info-value">{{ $affiliate->doctor->name }}</span>
                         </div>
                     @endif
                     @if($affiliate->social_platform)
                         <div class="sm-info-row">
-                            <span class="sm-info-label"><i class="fa-solid fa-share-nodes"></i> Social Media</span>
+                            <span class="sm-info-label"><i class="fa-solid fa-share-alt"></i> Social Media</span>
                             <span class="sm-info-value">
                                 {{ \App\Models\RawAffiliate::socialPlatforms()[$affiliate->social_platform] ?? $affiliate->social_platform }}
                                 — <strong>{{ $affiliate->social_username }}</strong>

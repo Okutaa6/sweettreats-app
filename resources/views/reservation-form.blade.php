@@ -452,14 +452,14 @@
 
                 @if (session('success'))
                     <div class="alert-success">
-                        <i class="fa-solid fa-circle-check"></i>
+                        <i class="fa-solid fa-check-circle"></i>
                         <span>{{ session('success') }}</span>
                     </div>
                 @endif
 
                 @if ($errors->any())
                     <div class="alert-error">
-                        <strong><i class="fa-solid fa-circle-exclamation"></i> Mohon periksa data berikut:</strong>
+                        <strong><i class="fa-solid fa-exclamation-circle"></i> Mohon periksa data berikut:</strong>
                         <ul>
                             @foreach ($errors->all() as $error)
                                 <li>{{ $error }}</li>
@@ -485,7 +485,7 @@
                                 <button type="button" class="branch-card"
                                         data-id="{{ $branch->id }}"
                                         data-name="{{ $branch->name }}">
-                                    <span class="branch-icon"><i class="fa-solid fa-location-dot"></i></span>
+                                    <span class="branch-icon"><i class="fa-solid fa-map-marker-alt"></i></span>
                                     <span>{{ $branch->name }}</span>
                                 </button>
                             @endforeach
@@ -498,7 +498,7 @@
                             <label>Pilih Perawatan <span class="required">*</span></label>
                             <div class="category-grid" id="categoryGrid"></div>
                             <div class="service-list-area" id="serviceListArea">
-                                <p class="category-hint"><i class="fa-solid fa-circle-info"></i> Pilih <strong>1 perawatan</strong>:</p>
+                                <p class="category-hint"><i class="fa-solid fa-info-circle"></i> Pilih <strong>1 perawatan</strong>:</p>
                                 <div id="servicesSelectGrid" class="services-select-grid"></div>
                                 <div class="lainnya-input-area" id="lainnyaInputArea">
                                     <label>Ceritakan keluhanmu <span class="required">*</span></label>
@@ -650,7 +650,7 @@
                             <i class="fa-solid fa-eye"></i> Preview Reservasi
                         </button>
                         <p class="form-note">
-                            <i class="fa-solid fa-shield-halved"></i>
+                            <i class="fa-solid fa-shield-alt"></i>
                             Tim kami akan menghubungi kamu untuk konfirmasi jadwal via WhatsApp
                         </p>
 
@@ -695,7 +695,7 @@
                 'estetika'   : 'fa-solid fa-star',
                 'standar'    : 'fa-solid fa-tooth',
                 'pembedahan' : 'fa-solid fa-syringe',
-                'lainnya'    : 'fa-solid fa-ellipsis',
+                'lainnya'    : 'fa-solid fa-ellipsis-h',
             };
             const categoryLabels = {
                 'behel'      : 'Behel',
@@ -712,7 +712,7 @@
                 const allCategories = [...fixedOrder, ...extraCategories];
                 let html = '';
                 allCategories.forEach(function (cat) {
-                    const icon  = categoryIcons[cat]  || 'fa-solid fa-circle-dot';
+                    const icon  = categoryIcons[cat]  || 'fa-solid fa-dot-circle';
                     const label = categoryLabels[cat] || cat.charAt(0).toUpperCase() + cat.slice(1);
                     const featured = cat === 'behel' ? ' category-featured' : '';
                     html += `<button type="button" class="category-btn${featured}" data-category="${cat}">
@@ -913,7 +913,7 @@
             }
 
             function populateDoctors(data) {
-                if (data.length === 0) { $('#doctorGrid').html('<div class="doctor-empty"><i class="fa-solid fa-user-doctor" style="font-size:2rem;display:block;margin-bottom:8px;color:#c0b0a0;"></i>Tidak ada dokter tersedia</div>'); return; }
+                if (data.length === 0) { $('#doctorGrid').html('<div class="doctor-empty"><i class="fa-solid fa-user-md" style="font-size:2rem;display:block;margin-bottom:8px;color:#c0b0a0;"></i>Tidak ada dokter tersedia</div>'); return; }
                 let html = '';
                 data.forEach(function (d) {
                     const initials = d.name.split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase();
@@ -968,7 +968,7 @@
                 scrollToSection('dateSection');
                 $('#dateGrid').html('<div class="loading"><i class="fa-solid fa-spinner"></i> Memuat jadwal...</div>');
                 $.getJSON(BASE + '/dates/' + branchId + '/' + doctorId, function (data) {
-                    if (data.length === 0) { $('#dateGrid').html('<div class="empty-state"><i class="fa-regular fa-calendar-xmark"></i> Tidak ada jadwal tersedia</div>'); return; }
+                    if (data.length === 0) { $('#dateGrid').html('<div class="empty-state"><i class="fa-regular fa-calendar-times"></i> Tidak ada jadwal tersedia</div>'); return; }
                     allDates = data; currentMonthIndex = 0; renderMonthDates();
                 });
             });
@@ -1133,7 +1133,7 @@
                 });
                 if (matchedId) {
                     $('#branchGrid').hide();
-                    $('#branchLocked').html('<i class="fa-solid fa-location-dot" style="color:#461500;margin-right:6px"></i>' + matchedName).show();
+                    $('#branchLocked').html('<i class="fa-solid fa-map-marker-alt" style="color:#461500;margin-right:6px"></i>' + matchedName).show();
                     setStep(2);
                     resetFrom('service');
                     $('#serviceSection').addClass('visible');
@@ -1178,10 +1178,10 @@
 
             check() {
                 const phone = $('#phoneCheckInput').val().trim();
-                if (!phone) { $('#phoneCheckStatus').html('<div class="not-found-alert"><i class="fa-solid fa-circle-exclamation"></i> Masukkan nomor HP terlebih dahulu</div>'); return; }
+                if (!phone) { $('#phoneCheckStatus').html('<div class="not-found-alert"><i class="fa-solid fa-exclamation-circle"></i> Masukkan nomor HP terlebih dahulu</div>'); return; }
                 const d = this.defaults();
                 if (!d.branchId || !d.doctorId || !d.date || !d.start) {
-                    $('#phoneCheckStatus').html('<div class="not-found-alert"><i class="fa-solid fa-circle-exclamation"></i> Lengkapi cabang, perawatan, dokter, tanggal & jam dulu.</div>'); return;
+                    $('#phoneCheckStatus').html('<div class="not-found-alert"><i class="fa-solid fa-exclamation-circle"></i> Lengkapi cabang, perawatan, dokter, tanggal & jam dulu.</div>'); return;
                 }
                 const self = this;
                 $('#btnCekHP').text('Mengecek...').prop('disabled', true);
@@ -1193,7 +1193,7 @@
                     self.phone = phone; self.sel = {}; self.newp = []; self.seq = 0;
                     self.existing = (res.found && res.patients) ? res.patients : [];
                     $('#phoneCheckStatus').html(
-                        '<div class="found-alert"><i class="fa-solid fa-circle-check"></i> ' +
+                        '<div class="found-alert"><i class="fa-solid fa-check-circle"></i> ' +
                         (self.existing.length ? 'Nomor ditemukan. Centang pasien yang ikut, atau tambah pasien baru.' : 'Nomor baru. Tambahkan data pasien di bawah.') +
                         '</div>'
                     );
@@ -1201,7 +1201,7 @@
                     self.render();
                     if (!self.existing.length) self.toggleAddForm(true);
                 }).fail(function () {
-                    $('#phoneCheckStatus').html('<div class="not-found-alert"><i class="fa-solid fa-circle-exclamation"></i> Gagal menghubungi server, coba lagi.</div>');
+                    $('#phoneCheckStatus').html('<div class="not-found-alert"><i class="fa-solid fa-exclamation-circle"></i> Gagal menghubungi server, coba lagi.</div>');
                 }).always(function () {
                     $('#btnCekHP').text('Cek').prop('disabled', false);
                 });

@@ -31,9 +31,9 @@
     $platformLabel = $platform === 'all' ? 'Semua Platform' : ($platforms[$platform] ?? $platform);
 
     $platformTabs = [
-        'all'      => ['label' => 'Semua',      'icon' => 'fa-solid fa-table-cells-large'],
+        'all'      => ['label' => 'Semua',      'icon' => 'fa-solid fa-th-large'],
         'ig_post'  => ['label' => 'IG Post',    'icon' => 'fa-brands fa-instagram'],
-        'ig_story' => ['label' => 'IG Stories', 'icon' => 'fa-regular fa-circle-play'],
+        'ig_story' => ['label' => 'IG Stories', 'icon' => 'fa-regular fa-play-circle'],
         'tiktok'   => ['label' => 'TikTok',     'icon' => 'fa-brands fa-tiktok'],
     ];
 
@@ -85,7 +85,7 @@
         $activeFilterCount = (int)!!$filterStatus + (int)!!$filterPillar + (int)!!$filterTipe;
         $kindOptions = [
             'all'     => ['label' => 'Semua',     'icon' => 'fa-layer-group'],
-            'regular' => ['label' => 'Regular',   'icon' => 'fa-file-lines'],
+            'regular' => ['label' => 'Regular',   'icon' => 'fa-file-alt'],
             'khusus'  => ['label' => '🎯 Khusus', 'icon' => null],
         ];
     @endphp
@@ -120,14 +120,14 @@
             <input type="hidden" name="platform" value="{{ $platform }}">
 
             <div class="ep-search-wrap">
-                <i class="fa fa-magnifying-glass ep-search-icon"></i>
+                <i class="fa fa-search ep-search-icon"></i>
                 <input type="text" name="search" class="ep-search-input"
                        placeholder="Cari konten..." value="{{ $filterSearch }}"
                        onchange="this.form.submit()">
             </div>
 
             <button type="button" class="ep-filter-trigger" onclick="toggleFilterPanel()">
-                <i class="fa fa-sliders"></i> Filter
+                <i class="fa fa-sliders-h"></i> Filter
                 @if ($activeFilterCount > 0)
                     <span class="ep-filter-badge">{{ $activeFilterCount }}</span>
                 @endif
@@ -165,7 +165,7 @@
                 @if ($activeFilterCount > 0 || $filterSearch)
                     <a href="{{ route('epkonten') }}?platform={{ $platform }}&month={{ $month }}&year={{ $year }}"
                        class="ep-filter-reset-btn">
-                        <i class="fa fa-rotate-left"></i> Reset semua
+                        <i class="fa fa-undo"></i> Reset semua
                     </a>
                 @endif
             </div>
@@ -345,7 +345,7 @@
                         {{-- Collapsible panel — hidden by default --}}
                         <div class="ep-pillar-panel" id="pillarPanel" style="display:none;">
                             <div class="ep-pillar-search-wrap">
-                                <i class="fa fa-magnifying-glass ep-search-icon"></i>
+                                <i class="fa fa-search ep-search-icon"></i>
                                 <input type="text" class="ep-pillar-search" id="pillarSearch"
                                        placeholder="Cari pillar..." onkeyup="filterPillars(this.value)">
                             </div>

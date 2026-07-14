@@ -35,3 +35,6 @@ yarn-error.log
 docs/*.pdf
 docs/proposal-sweet-treats-api-omnicare-v2.md
 docs/git-workflow-reza.html
+
+# Foto upload dokter — aset yang di-upload user, jangan di-track di git.
+/public/uploads/doctors/

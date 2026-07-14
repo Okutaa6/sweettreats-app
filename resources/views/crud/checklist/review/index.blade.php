@@ -1,6 +1,40 @@
 @extends('layouts.app')
 
 @section('content')
+<style>
+    /* Hero gradient */
+    .rvq-hero {
+        position: relative; overflow: hidden;
+        background: linear-gradient(135deg, #5C2E15 0%, #471500 100%);
+        color: #fff; border-radius: 18px; padding: 22px 26px; margin-bottom: 16px;
+        display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap;
+        box-shadow: 0 8px 24px rgba(71,21,0,.18);
+    }
+    .rvq-hero::before { content: ""; position: absolute; top: -50px; right: -40px; width: 180px; height: 180px; border-radius: 50%; background: rgba(255,255,255,.06); pointer-events: none; }
+    .rvq-hero::after  { content: ""; position: absolute; bottom: -60px; right: 130px; width: 120px; height: 120px; border-radius: 50%; background: rgba(255,255,255,.05); pointer-events: none; }
+    .rvq-hero__left { display: flex; align-items: center; gap: 16px; min-width: 0; position: relative; z-index: 1; }
+    .rvq-hero__icon { width: 54px; height: 54px; border-radius: 14px; background: rgba(255,255,255,.16); border: 1.5px solid rgba(255,255,255,.3); display: inline-flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; }
+    .rvq-hero__title { margin: 0 0 4px; font-size: 20px; font-weight: 800; letter-spacing: -.01em; line-height: 1.15; }
+    .rvq-hero__sub { margin: 0; font-size: 12.5px; color: rgba(255,255,255,.82); line-height: 1.5; max-width: 560px; }
+    .rvq-hero__picker-wrap { display: flex; align-items: center; gap: 10px; position: relative; z-index: 1; }
+    .rvq-hero__picker-label { font-size: 11px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; color: rgba(255,255,255,.7); margin: 0; }
+    .rvq-hero__picker { background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.28); color: #fff; border-radius: 999px; padding: 8px 16px; font-size: 13px; font-weight: 600; cursor: pointer; outline: none; }
+    .rvq-hero__picker option { color: #2D1810; }
+    @media (max-width: 600px) { .rvq-hero__sub { display: none; } .rvq-hero { padding: 18px 20px; } }
+
+    /* Poles queue review */
+    .cl-panel .st-table tbody tr { transition: background .12s; }
+    .cl-panel .st-table tbody tr:hover { background: #FCF7F0; }
+    .cl-panel .st-table tbody td { vertical-align: middle; }
+    .cl-rev-btn { padding: 6px 14px; font-size: 12px; white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; }
+    .cl-rev-eye {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 34px; height: 34px; border-radius: 9px;
+        border: 1px solid #E0D2C1; background: #fff; color: #5C2E15;
+        text-decoration: none; transition: .15s;
+    }
+    .cl-rev-eye:hover { background: #FAF0E2; border-color: #A66019; color: #5C2E15; }
+</style>
 <div class="container-fluid">
     <div class="row">
         <div class="col-sm-12">
@@ -27,25 +61,23 @@
     </div>
 
     {{-- ─── HERO ─── --}}
-    <div class="cl-hero">
-        <div class="cl-hero__left">
-            <h5 class="cl-hero__title">
-                <span class="cl-hero__icon"><i class="fas fa-clipboard-list"></i></span>
-                Queue Review Checklist
-            </h5>
-            <p class="cl-hero__subtitle">
-                Verifikasi pengisian harian karyawan. Filter berdasarkan tanggal, divisi, dan status untuk mempercepat review.
-            </p>
+    <div class="rvq-hero">
+        <div class="rvq-hero__left">
+            <span class="rvq-hero__icon"><i class="fas fa-clipboard-list"></i></span>
+            <div style="min-width:0;">
+                <h5 class="rvq-hero__title">Queue Review Checklist</h5>
+                <p class="rvq-hero__sub">Verifikasi pengisian harian karyawan. Filter berdasarkan tanggal, divisi, dan status untuk mempercepat review.</p>
+            </div>
         </div>
         @if(canSeeAllBranches() && $branches->count())
-            <form method="GET" action="{{ route('checklist.review') }}" class="cl-hero__actions">
+            <form method="GET" action="{{ route('checklist.review') }}" class="rvq-hero__picker-wrap">
                 @foreach(request()->except(['branch','page']) as $k => $v)
                     @if(is_string($v) || is_numeric($v))
                         <input type="hidden" name="{{ $k }}" value="{{ $v }}">
                     @endif
                 @endforeach
-                <label class="cl-hero__picker-label">Cabang</label>
-                <select name="branch" onchange="this.form.submit();" class="cl-hero__picker">
+                <label class="rvq-hero__picker-label">Cabang</label>
+                <select name="branch" onchange="this.form.submit();" class="rvq-hero__picker">
                     <option value="">— Semua —</option>
                     @foreach($branches as $b)
                         <option value="{{ $b->id }}" {{ $branchId === $b->id ? 'selected' : '' }}>{{ $b->name }}</option>
@@ -64,9 +96,10 @@
                 $statusTabs = [
                     'all'       => ['label' => 'Semua',              'count' => $counts['all'],       'icon' => 'fa-list'],
                     'submitted' => ['label' => 'Menunggu Approval', 'count' => $counts['submitted'], 'icon' => 'fa-clock'],
-                    'approved'  => ['label' => 'Disetujui',          'count' => $counts['approved'],  'icon' => 'fa-circle-check'],
-                    'rejected'  => ['label' => 'Ditolak',            'count' => $counts['rejected'],  'icon' => 'fa-circle-xmark'],
-                    'missed'    => ['label' => 'Tidak Diisi',        'count' => $counts['missed'],    'icon' => 'fa-circle-minus'],
+                    'approved'  => ['label' => 'Disetujui',          'count' => $counts['approved'],  'icon' => 'fa-check-circle'],
+                    'rejected'  => ['label' => 'Ditolak',            'count' => $counts['rejected'],  'icon' => 'fa-times-circle'],
+                    'excused'   => ['label' => 'Dikecualikan',       'count' => $counts['excused'],   'icon' => 'fa-mug-hot'],
+                    'missed'    => ['label' => 'Tidak Diisi',        'count' => $counts['missed'],    'icon' => 'fa-minus-circle'],
                 ];
             @endphp
             @foreach($statusTabs as $key => $tab)
@@ -171,9 +204,15 @@
                                     <span class="st-pill st-pill--{{ $opt['color'] }}">{{ $opt['label'] }}</span>
                                 </td>
                                 <td style="text-align:center;">
-                                    <a href="{{ route('checklist.review.show', $s->id) }}" class="st-icon-btn" title="Lihat detail">
-                                        <i class="fas fa-eye"></i>
-                                    </a>
+                                    @if($s->status === \App\Models\ChecklistSubmission::STATUS_SUBMITTED)
+                                        <a href="{{ route('checklist.review.show', $s->id) }}" class="st-btn-brand cl-rev-btn">
+                                            <i class="fas fa-clipboard-check"></i> Review
+                                        </a>
+                                    @else
+                                        <a href="{{ route('checklist.review.show', $s->id) }}" class="cl-rev-eye" title="Lihat detail">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                    @endif
                                 </td>
                             </tr>
                         @endforeach

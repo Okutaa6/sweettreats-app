@@ -90,7 +90,7 @@
 
             @if($errors->any())
                 <div class="sm-alert sm-alert-error">
-                    <i class="fa-solid fa-circle-exclamation"></i>
+                    <i class="fa-solid fa-exclamation-circle"></i>
                     <div>
                         @foreach($errors->all() as $err)
                             <div>{{ $err }}</div>
@@ -101,7 +101,7 @@
 
             @if($content->status === 'rejected' && $content->review_notes)
                 <div class="sm-reject-note">
-                    <div class="title"><i class="fa-solid fa-triangle-exclamation"></i> Konten ini sebelumnya ditolak</div>
+                    <div class="title"><i class="fa-solid fa-exclamation-triangle"></i> Konten ini sebelumnya ditolak</div>
                     <div><strong>Catatan Admin:</strong> {{ $content->review_notes }}</div>
                     <div class="sub">Update konten di bawah ini, lalu klik Simpan untuk kirim ulang ke review admin.</div>
                 </div>
@@ -109,7 +109,7 @@
 
             <div class="sm-card">
                 <div class="sm-card-title">
-                    <i class="fa-solid fa-pen-to-square"></i>
+                    <i class="fa-solid fa-edit"></i>
                     Edit Konten
                 </div>
                 <form method="POST" action="{{ route('affiliate.content.update', $content->id) }}">
@@ -124,7 +124,7 @@
                                     $selected = old('platform', $content->platform) === $key;
                                     $icon = $key === 'tiktok' ? 'fa-brands fa-tiktok'
                                           : ($key === 'instagram' ? 'fa-brands fa-instagram'
-                                          : ($key === 'youtube' ? 'fa-brands fa-youtube' : 'fa-solid fa-share-nodes'));
+                                          : ($key === 'youtube' ? 'fa-brands fa-youtube' : 'fa-solid fa-share-alt'));
                                 @endphp
                                 <label class="sm-platform-tile {{ $selected ? 'selected' : '' }}"
                                        onclick="document.querySelectorAll('.sm-platform-tile').forEach(t=>t.classList.remove('selected'));this.classList.add('selected');">
@@ -160,7 +160,7 @@
 
                     <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:10px;">
                         <button type="submit" class="sm-submit-btn">
-                            <i class="fa-solid fa-floppy-disk"></i> Simpan Perubahan
+                            <i class="fa-solid fa-save"></i> Simpan Perubahan
                         </button>
                         <a href="{{ route('affiliate.content') }}" class="sm-btn sm-btn-outline">
                             <i class="fa-solid fa-arrow-left"></i> Batal

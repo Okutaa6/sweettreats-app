@@ -92,6 +92,63 @@ class MarketingPromo extends Model
         ];
     }
 
+    /**
+     * Status otomatis dari periode:
+     *   sebelum periode_start          → planning
+     *   di dalam rentang periode       → aktif
+     *   setelah periode_end            → selesai
+     * Bandingkan per-hari (batas inklusif). Return null kalau tak ada tanggal
+     * sama sekali → status dibiarkan manual.
+     */
+    public static function deriveStatus($start, $end, $on = null): ?string
+    {
+        $on    = $on ? \Carbon\Carbon::parse($on)->startOfDay() : \Carbon\Carbon::today();
+        $start = $start ? \Carbon\Carbon::parse($start)->startOfDay() : null;
+        $end   = $end ? \Carbon\Carbon::parse($end)->startOfDay() : null;
+
+        if (!$start && !$end)          return null;
+        if ($end && $on->gt($end))     return 'selesai';
+        if ($start && $on->lt($start)) return 'planning';
+        return 'aktif';
+    }
+
+    public function derivedStatus(?\DateTimeInterface $on = null): ?string
+    {
+        return self::deriveStatus($this->periode_start, $this->periode_end, $on);
+    }
+
+    /**
+     * Selaraskan kolom `status` semua promo dengan periode-nya (dipakai command
+     * terjadwal + self-heal saat list dibuka). Tiga UPDATE saling eksklusif;
+     * promo tanpa tanggal tidak disentuh. Return jumlah baris yang berubah.
+     */
+    public static function syncStatuses($on = null): int
+    {
+        $today = ($on ? \Carbon\Carbon::parse($on) : \Carbon\Carbon::today())->toDateString();
+        $n = 0;
+
+        // Selesai — periode_end sudah lewat.
+        $n += static::whereNotNull('periode_end')
+            ->whereDate('periode_end', '<', $today)
+            ->where('status', '!=', 'selesai')
+            ->update(['status' => 'selesai']);
+
+        // Planning — belum sampai periode_start.
+        $n += static::whereNotNull('periode_start')
+            ->whereDate('periode_start', '>', $today)
+            ->where('status', '!=', 'planning')
+            ->update(['status' => 'planning']);
+
+        // Aktif — dalam rentang & minimal satu tanggal terisi.
+        $n += static::where(fn($q) => $q->whereNotNull('periode_start')->orWhereNotNull('periode_end'))
+            ->where(fn($q) => $q->whereNull('periode_start')->orWhereDate('periode_start', '<=', $today))
+            ->where(fn($q) => $q->whereNull('periode_end')->orWhereDate('periode_end', '>=', $today))
+            ->where('status', '!=', 'aktif')
+            ->update(['status' => 'aktif']);
+
+        return $n;
+    }
+
     public function branches()
     {
         return $this->belongsToMany(

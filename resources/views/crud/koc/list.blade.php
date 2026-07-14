@@ -331,7 +331,7 @@
                                     <tr>
                                         <td colspan="{{ $filterTab !== 'all' ? 11 : 10 }}">
                                             <div class="st-empty-state">
-                                                <i class="fa fa-users-slash" aria-hidden="true"></i>
+                                                <i class="fa fa-user-slash" aria-hidden="true"></i>
                                                 <div class="st-empty-state__title">
                                                     @if($filterTab === 'confirmed')
                                                         Belum ada KOC yang confirmed sosmed
@@ -377,7 +377,7 @@
         <button type="button" class="koc-content-modal-close" onclick="closeKocContentModal()">&times;</button>
 
         <div class="koc-content-modal-header">
-            <div class="koc-content-modal-icon"><i class="fa fa-photo-video"></i></div>
+            <div class="koc-content-modal-icon"><i class="fa fa-images"></i></div>
             <div style="flex:1; min-width:0;">
                 <div class="koc-content-modal-title" id="kocContentModalTitle">Konten KOC</div>
                 <div class="koc-content-modal-sub" id="kocContentModalSub">—</div>
@@ -411,7 +411,7 @@
                 <i class="fa fa-spinner fa-spin"></i> Memuat konten...
             </div>
             <div id="kocContentModalEmpty" class="koc-content-empty" style="display:none;">
-                <i class="fa fa-photo-video" style="font-size:32px; color:#c4ebe9;"></i>
+                <i class="fa fa-images" style="font-size:32px; color:#c4ebe9;"></i>
                 <div style="margin-top:8px; color:#7a9290;">Belum ada konten yang di-submit.</div>
             </div>
             <ul id="kocContentModalList" class="koc-content-list" style="display:none;"></ul>

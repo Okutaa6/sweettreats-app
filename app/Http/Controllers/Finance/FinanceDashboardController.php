@@ -8,6 +8,7 @@ use App\Models\PettyCashPeriod;
 use App\Models\PettyCashTransaction;
 use App\Models\RawBranch;
 use App\Models\TopupRequest;
+use App\Models\Users;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 
@@ -190,6 +191,127 @@ class FinanceDashboardController extends Controller
             'cutoffAt', 'generatedAt',
             'distribution', 'distributionRestCount', 'distributionRestPct',
             'idleCount', 'branchesWithCashOut'
+        ));
+    }
+
+    /**
+     * GET /finance/pettycash/branch/{branchId}/riwayat
+     *
+     * Riwayat transaksi 1 cabang untuk 1 bulan — read-only, untuk keperluan
+     * monitoring/audit oleh Finance. Menampilkan SELURUH transaksi periode
+     * (termasuk yang sudah di-soft-delete, karena deleted_at sengaja
+     * dipertahankan sebagai jejak) + info "siapa & kapan" (created_by /
+     * updated_by / deleted). Saldo berjalan hanya dihitung dari baris aktif.
+     */
+    public function branchHistory(Request $request, string $branchId)
+    {
+        $this->guard();
+
+        $branch = RawBranch::find($branchId);
+        if (! $branch) {
+            abort(404, 'Cabang tidak ditemukan.');
+        }
+
+        $today = Carbon::today();
+        $year  = (int) $request->get('year',  $today->year);
+        $month = (int) $request->get('month', $today->month);
+        if ($year < 2000 || $year > 2100) $year = (int) $today->year;
+        if ($month < 1   || $month > 12)  $month = (int) $today->month;
+
+        $period = PettyCashPeriod::ensurePeriod(
+            $year,
+            $month,
+            (float) ($branch->petty_cash_default_float ?? 1500000),
+            (string) $branch->id,
+        );
+
+        // Opening periode (sum snapshot per-source, fallback scalar legacy).
+        $openingPerSource = $period->openingPerSourceResolved();
+        $opening = ! empty($openingPerSource)
+            ? array_sum($openingPerSource)
+            : (float) $period->opening_balance;
+
+        // SEMUA transaksi periode (active() TIDAK dipakai → ikut yang deleted).
+        $transactions = PettyCashTransaction::forPeriod($period->id)
+            ->with('fundSource')
+            ->orderBy('trx_date')
+            ->orderBy('id')
+            ->get();
+
+        // Resolve nama user (created_by / updated_by) dalam 1 query.
+        $userIds = $transactions
+            ->flatMap(fn ($t) => [$t->created_by, $t->updated_by])
+            ->filter()
+            ->unique()
+            ->values();
+        $userNames = $userIds->isNotEmpty()
+            ? Users::whereIn('id', $userIds)->pluck('nama', 'id')
+            : collect();
+
+        // Bangun baris + saldo berjalan (hanya baris aktif menggerakkan saldo).
+        $saldo    = $opening;
+        $cashIn   = 0.0;
+        $cashOut  = 0.0;
+        $rows     = [];
+        foreach ($transactions as $t) {
+            $isDeleted = $t->deleted_at !== null;
+            $amt       = (float) $t->amount;
+            $isIn      = $t->direction === PettyCashTransaction::DIR_IN;
+
+            if (! $isDeleted) {
+                $saldo += $isIn ? $amt : -$amt;
+                // Ringkasan mengikuti semantik dashboard: cash in = top up saja,
+                // cash out = pengeluaran non-transfer.
+                if (! $t->is_transfer) {
+                    if ($isIn) {
+                        if ($t->is_topup) $cashIn += $amt;
+                    } else {
+                        $cashOut += $amt;
+                    }
+                }
+            }
+
+            $rows[] = (object) [
+                'date'           => $t->trx_date instanceof Carbon ? $t->trx_date : Carbon::parse($t->trx_date),
+                'description'    => $t->description,
+                'category_label' => $t->category ? (PettyCashTransaction::CATEGORIES[$t->category] ?? $t->category) : null,
+                'wallet_name'    => $t->fundSource?->name ?? '-',
+                'wallet_short'   => $t->fundSource?->effectiveShortLabel() ?? '?',
+                'wallet_color'   => $t->fundSource?->effectiveBrandColor() ?? '#64748b',
+                'is_in'          => $isIn,
+                'is_topup'       => (bool) $t->is_topup,
+                'is_transfer'    => (bool) $t->is_transfer,
+                'amount'         => $amt,
+                'saldo'          => $isDeleted ? null : $saldo,
+                'by'             => $t->created_by ? ($userNames[$t->created_by] ?? '—') : '—',
+                'recorded_at'    => $t->created_at, // jam asli saat transaksi dicatat ke sistem
+                'edited'         => $t->updated_by !== null && $t->edited_at !== null,
+                'edited_at'      => $t->edited_at,
+                'edited_by'      => $t->updated_by ? ($userNames[$t->updated_by] ?? '—') : null,
+                'deleted'        => $isDeleted,
+                'ref_no'         => $t->ref_no,
+            ];
+        }
+
+        $closing = $saldo;
+
+        $bulanLabel = [
+            1 => 'Januari',  2 => 'Februari', 3 => 'Maret',
+            4 => 'April',    5 => 'Mei',      6 => 'Juni',
+            7 => 'Juli',     8 => 'Agustus',  9 => 'September',
+            10 => 'Oktober', 11 => 'November', 12 => 'Desember',
+        ];
+        $monthName = $bulanLabel[$month] ?? '-';
+
+        // Navigasi bulan sebelum/sesudah.
+        $prevDate = Carbon::create($year, $month, 1)->subMonth();
+        $nextDate = Carbon::create($year, $month, 1)->addMonth();
+
+        return view('finance.pettycash.branch-history', compact(
+            'branch', 'period', 'rows',
+            'opening', 'closing', 'cashIn', 'cashOut',
+            'year', 'month', 'monthName', 'bulanLabel',
+            'prevDate', 'nextDate'
         ));
     }
 }

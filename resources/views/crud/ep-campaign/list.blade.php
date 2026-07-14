@@ -64,7 +64,7 @@
                                 </span>
                             @endif
                             @if ($c->weeks->count() > 0)
-                                <span class="cmp-card-weeks"><i class="fa fa-table-list"></i> {{ $c->weeks->count() }} minggu</span>
+                                <span class="cmp-card-weeks"><i class="fa fa-th-list"></i> {{ $c->weeks->count() }} minggu</span>
                             @endif
                             @if ($c->kontens_count > 0)
                                 <span class="cmp-card-kontens"><i class="fa fa-link"></i> {{ $c->kontens_count }}</span>

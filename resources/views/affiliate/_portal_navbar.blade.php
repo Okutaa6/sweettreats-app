@@ -141,7 +141,7 @@
                     @endif
                 </div>
                 <a href="{{ route('affiliate.logout') }}" class="sm-header-logout" title="Keluar">
-                    <i class="fa-solid fa-right-from-bracket"></i>
+                    <i class="fa-solid fa-sign-out-alt"></i>
                     <span>Keluar</span>
                 </a>
             </div>
@@ -149,7 +149,7 @@
 
         <nav class="sm-tabbar">
             <a href="{{ route('affiliate.dashboard') }}" class="sm-tab {{ $active === 'dashboard' ? 'active' : '' }}">
-                <i class="fa-solid fa-house"></i> Dashboard
+                <i class="fa-solid fa-home"></i> Dashboard
             </a>
             <a href="{{ route('affiliate.content') }}" class="sm-tab {{ $active === 'content' ? 'active' : '' }}">
                 <i class="fa-solid fa-video"></i> Konten

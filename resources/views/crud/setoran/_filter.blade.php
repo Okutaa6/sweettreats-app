@@ -61,7 +61,7 @@
 @if(!$isReadOnly)
     <div class="sd-action-row">
         <button type="button" class="sd-btn-setor" data-sd-modal="sdModalSetor">
-            <i class="fa fa-money-bill-transfer"></i> Setor Tunai
+            <i class="fa fa-money-bill-wave"></i> Setor Tunai
         </button>
         <button type="button" class="sd-btn-payment" data-sd-modal="sdModalPayment">
             <i class="fa fa-plus"></i> Pembayaran Pasien

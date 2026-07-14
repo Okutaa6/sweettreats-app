@@ -47,7 +47,7 @@
                         </span>
                     @else
                         <span class="pc-status pc-status--past">
-                            <i class="fa fa-clock-rotate-left"></i> Lampau
+                            <i class="fa fa-history"></i> Lampau
                         </span>
                     @endif
                 </div>
@@ -194,7 +194,7 @@
                     data-trx-tab="regular"
                     role="tab"
                     aria-selected="true">
-                <i class="fa fa-arrow-down-up-across-line"></i>
+                <i class="fa fa-random"></i>
                 Pengeluaran
                 <span class="pc-trx-subtab__count">{{ $rowsRegular->count() }}</span>
             </button>
@@ -203,7 +203,7 @@
                     data-trx-tab="transfer"
                     role="tab"
                     aria-selected="false">
-                <i class="fa fa-right-left"></i>
+                <i class="fa fa-exchange-alt"></i>
                 Mutasi
                 <span class="pc-trx-subtab__count">{{ $rowsTransfer->count() }}</span>
             </button>
@@ -221,7 +221,7 @@
                             <th class="text-right" width="130">Cash in</th>
                             <th class="text-right" width="130">Cash out</th>
                             <th class="text-right" width="150">Saldo</th>
-                            @if(!$isReadOnly)
+                            @if($showTrxActions)
                                 <th width="80"></th>
                             @endif
                         </tr>
@@ -230,6 +230,7 @@
                         @include('crud.pettycash._table_rows', [
                             'rowsInput'  => $rowsRegular,
                             'isReadOnly' => $isReadOnly,
+                            'showTrxActions' => $showTrxActions,
                             'kind'       => $kind,
                             'branchId'   => $branchId,
                             'tabKind'    => 'regular',
@@ -246,7 +247,7 @@
                                 <td class="text-right pc-cash-in">{{ number_format($summary['total_in'], 0, ',', '.') }}</td>
                                 <td class="text-right pc-cash-out">{{ number_format($summary['total_out'], 0, ',', '.') }}</td>
                                 <td class="text-right pc-saldo-cell"><strong>{{ number_format($summary['closing'], 0, ',', '.') }}</strong></td>
-                                @if(!$isReadOnly)<td></td>@endif
+                                @if($showTrxActions)<td></td>@endif
                             </tr>
                         </tfoot>
                     @endif
@@ -266,7 +267,7 @@
                             <th class="text-right" width="130">Cash in</th>
                             <th class="text-right" width="130">Cash out</th>
                             <th class="text-right" width="150">Saldo</th>
-                            @if(!$isReadOnly)
+                            @if($showTrxActions)
                                 <th width="80"></th>
                             @endif
                         </tr>
@@ -275,6 +276,7 @@
                         @include('crud.pettycash._table_rows', [
                             'rowsInput'  => $rowsTransfer,
                             'isReadOnly' => $isReadOnly,
+                            'showTrxActions' => $showTrxActions,
                             'kind'       => $kind,
                             'branchId'   => $branchId,
                             'tabKind'    => 'transfer',
@@ -493,7 +495,7 @@
         if (transferTabBtn) {
             transferTabBtn.innerHTML = isCash
                 ? '<i class="fa fa-piggy-bank"></i> Deposit'
-                : '<i class="fa fa-right-left"></i> Mutasi';
+                : '<i class="fa fa-exchange-alt"></i> Mutasi';
         }
         if (transferSubmit) {
             transferSubmit.textContent = isCash ? 'Simpan Deposit' : 'Simpan Mutasi';
@@ -1101,6 +1103,38 @@
             e.preventDefault();
             e.stopPropagation();
             copyText(btn, btn.dataset.pcCopy || '');
+        });
+    });
+
+    // Copy nomor rekening/HP dengan klik langsung pada angkanya (tanpa tombol).
+    // Feedback lewat class .is-copied (CSS menampilkan "✓ Tersalin"), jadi teks
+    // nomor tetap utuh — beda dari flashCopied() yg menukar innerHTML tombol.
+    document.querySelectorAll('.pc-copy-value').forEach(function (el) {
+        function doCopy(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            var text = el.dataset.pcCopy || el.textContent.trim();
+            if (!text) return;
+            var done = function () {
+                el.classList.add('is-copied');
+                setTimeout(function () { el.classList.remove('is-copied'); }, 1200);
+            };
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(done);
+            } else {
+                var ta = document.createElement('textarea');
+                ta.value = text;
+                ta.style.position = 'fixed';
+                ta.style.opacity = '0';
+                document.body.appendChild(ta);
+                ta.select();
+                try { document.execCommand('copy'); done(); } catch (_) {}
+                document.body.removeChild(ta);
+            }
+        }
+        el.addEventListener('click', doCopy);
+        el.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter' || e.key === ' ') doCopy(e);
         });
     });
 

@@ -34,13 +34,13 @@
     @if(session('success'))
         <div style="margin-bottom:16px; padding:12px 16px; border-radius:10px; background:#e8f6ed;
                     border:1px solid #bfe3cc; color:#1f7a3d; font-size:0.88rem;">
-            <i class="fa fa-circle-check mr-1"></i> {{ session('success') }}
+            <i class="fa fa-check-circle mr-1"></i> {{ session('success') }}
         </div>
     @endif
     @if(session('error'))
         <div style="margin-bottom:16px; padding:12px 16px; border-radius:10px; background:#fdecea;
                     border:1px solid #f4c4bd; color:#c0392b; font-size:0.88rem;">
-            <i class="fa fa-circle-exclamation mr-1"></i> {{ session('error') }}
+            <i class="fa fa-exclamation-circle mr-1"></i> {{ session('error') }}
         </div>
     @endif
 
@@ -78,7 +78,7 @@
     {{-- Konteks --}}
     <div style="margin-bottom:16px; padding:11px 15px; border-radius:10px; background:#f3f0ff;
                 border:1px solid #ddd4f5; color:#5b4a8a; font-size:0.8rem;">
-        <i class="fa fa-circle-info mr-1"></i>
+        <i class="fa fa-info-circle mr-1"></i>
         Rekonsiliasi hanya mencakup reservasi yang dibuat di <strong>Data Center</strong>
         (sistem reservasi baru, mulai Mei 2026). Reservasi era spreadsheet tidak ikut
         — jadi angka di bawah bukan ukuran walk-in operasional.
@@ -88,8 +88,8 @@
     <div class="row mb-3">
         @php
             $cards = [
-                ['Ter-link',     $summary['linked'],   'fa-circle-check',      '#1f7a3d', 'reservasi cocok ke encounter'],
-                ['Perlu Tindakan', $summary['conflict'], 'fa-triangle-exclamation', '#c0392b', 'conflict — pilih manual'],
+                ['Ter-link',     $summary['linked'],   'fa-check-circle',      '#1f7a3d', 'reservasi cocok ke encounter'],
+                ['Perlu Tindakan', $summary['conflict'], 'fa-exclamation-triangle', '#c0392b', 'conflict — pilih manual'],
                 ['No-Show',      $summary['no_show'],   'fa-user-slash',        '#b8860b', 'tidak ada encounter'],
             ];
         @endphp
@@ -144,7 +144,7 @@
     <div class="st-card mb-3">
         <div class="st-card__body" style="padding:1.2rem 1.4rem;">
             <h5 style="font-size:1rem; font-weight:700; color:var(--text-primary); margin-bottom:4px;">
-                <i class="fa fa-triangle-exclamation mr-1" style="color:#c0392b;"></i>
+                <i class="fa fa-exclamation-triangle mr-1" style="color:#c0392b;"></i>
                 Perlu Tindakan — Conflict ({{ count($conflicts) }})
             </h5>
             <p style="font-size:0.78rem; color:var(--text-subtle); margin-bottom:16px;">
@@ -240,7 +240,7 @@
             </div>
             @empty
             <div style="text-align:center; padding:26px; color:var(--text-subtle); font-size:0.86rem;">
-                <i class="fa fa-circle-check mr-1" style="color:#1f7a3d;"></i>
+                <i class="fa fa-check-circle mr-1" style="color:#1f7a3d;"></i>
                 Tidak ada conflict. Semua reservasi sudah terselesaikan.
             </div>
             @endforelse
@@ -252,7 +252,7 @@
     <div class="st-card mb-3">
         <div class="st-card__body" style="padding:1.2rem 1.4rem;">
             <h5 style="font-size:1rem; font-weight:700; color:var(--text-primary); margin-bottom:4px;">
-                <i class="fa fa-user-xmark mr-1" style="color:#8a8a8a;"></i>
+                <i class="fa fa-user-times mr-1" style="color:#8a8a8a;"></i>
                 Customer Belum Ter-link Omnicare ({{ count($noLink) }})
             </h5>
             <p style="font-size:0.78rem; color:var(--text-subtle); margin-bottom:14px;">
@@ -286,7 +286,7 @@
     <div class="st-card">
         <div class="st-card__body" style="padding:1.2rem 1.4rem;">
             <h5 style="font-size:1rem; font-weight:700; color:var(--text-primary); margin-bottom:14px;">
-                <i class="fa fa-list-check mr-1" style="color:var(--brown);"></i>
+                <i class="fa fa-tasks mr-1" style="color:var(--brown);"></i>
                 Hasil Rekonsiliasi ({{ count($resolved) }})
             </h5>
             <div style="overflow-x:auto;">

@@ -4,6 +4,92 @@
 @php
     $totalAll = array_sum($summary ?? []);
 @endphp
+
+<style>
+/* ── Stat tiles (referensi halaman Dokter) ── */
+.mp-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px; }
+.mp-stat { display: flex; align-items: center; gap: 12px; background: #fff;
+    border: 1px solid #EFE0CE; border-radius: 14px; padding: 13px 16px;
+    box-shadow: 0 1px 2px rgba(70, 21, 0, .04), 0 8px 20px rgba(70, 21, 0, .045); }
+.mp-stat__icon { width: 40px; height: 40px; border-radius: 12px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; font-size: 16px; }
+.mp-stat__body { display: flex; flex-direction: column; line-height: 1.05; min-width: 0; }
+.mp-stat__num { font-size: 23px; font-weight: 800; color: #3B1500; font-variant-numeric: tabular-nums; }
+.mp-stat__label { font-size: 10.5px; font-weight: 700; letter-spacing: .5px;
+    text-transform: uppercase; color: #9A7256; margin-top: 4px; }
+/* Tile "Total" = hero, ter-fill brown gradient */
+.mp-stat--total { background: linear-gradient(135deg, #6B2400, #461500); border-color: transparent;
+    box-shadow: 0 2px 6px rgba(70, 21, 0, .18), 0 10px 24px rgba(70, 21, 0, .14); }
+.mp-stat--total .mp-stat__icon { background: rgba(255, 255, 255, .16); color: #FFE6CF; }
+.mp-stat--total .mp-stat__num { color: #fff; }
+.mp-stat--total .mp-stat__label { color: #EBC9AC; }
+@media (max-width: 900px) { .mp-stats { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 520px) { .mp-stats { grid-template-columns: 1fr; } }
+
+/* ── Empty state (kontras jelas, tidak abu pudar) ── */
+.mp-empty { text-align: center; color: #5A3A22; font-size: 14px; }
+.mp-empty > i { display: block; font-size: 30px; color: #CBB49E; margin-bottom: 12px; }
+.mp-empty__link { display: inline-block; margin-top: 10px; color: #8F4525;
+    font-weight: 700; text-decoration: none; }
+.mp-empty__link:hover { color: #572006; text-decoration: underline; }
+
+/* ── Filter promo — panel rapih (cream/brown, selaras segmented control jadwal) ── */
+.mpf-panel .st-card__body { padding: 16px 18px; }
+
+/* Baris quick-periode + aksi (segmented control kiri, toggle/tambah kanan) */
+.mpf-quick { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+.mpf-quick__left { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+.mpf-quick__actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.mpf-quick__label { display: inline-flex; align-items: center; gap: 6px; font-size: 12px;
+    font-weight: 700; letter-spacing: .03em; text-transform: uppercase; color: #8F4525; }
+.mpf-quick__label i { color: #d99a5a; }
+
+/* Segmented control — satu track krem, segmen aktif ter-fill */
+.mpf-seg { display: inline-flex; flex-wrap: wrap; gap: 3px; padding: 4px;
+    background: #f4e7d6; border: 1.5px solid #e6c19a; border-radius: 999px;
+    box-shadow: inset 0 1px 2px rgba(70, 21, 0, .08); }
+.mpf-seg__btn { font-size: .78rem; font-weight: 700; color: #8F4525; background: transparent;
+    border: none; border-radius: 999px; padding: 6px 16px; cursor: pointer; text-decoration: none;
+    transition: background .15s, color .15s, box-shadow .15s; }
+.mpf-seg__btn:not(.is-active):hover { color: #572006; background: rgba(255, 255, 255, .65); }
+.mpf-seg__btn.is-active { background: linear-gradient(135deg, #8F4525, #572006); color: #fff;
+    box-shadow: 0 2px 8px rgba(87, 32, 6, .28); }
+
+/* Divider halus */
+.mpf-divider { height: 1px; background: #ecd9c2; margin: 15px 0; }
+
+/* Grid filter — responsif, search paling lebar */
+.mpf-form { display: grid; gap: 12px; align-items: end;
+    grid-template-columns: minmax(200px, 2.2fr) repeat(4, minmax(130px, 1fr)) auto; }
+.mpf-field label { display: block; font-size: 11px; font-weight: 700; letter-spacing: .04em;
+    text-transform: uppercase; color: #8F4525; margin-bottom: 5px; }
+.mpf-form .form-control { height: 40px; border: 1.5px solid #e6c19a; border-radius: 10px;
+    font-size: 13px; background: #fff; box-shadow: none; }
+.mpf-form .form-control:focus { border-color: #d99a5a; box-shadow: 0 0 0 3px rgba(217, 154, 90, .18); }
+
+/* Input dengan ikon cari */
+.mpf-input-icon { position: relative; }
+.mpf-input-icon i { position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+    color: #c79a6a; font-size: 12px; pointer-events: none; }
+.mpf-input-icon .form-control { padding-left: 32px; }
+
+/* Tombol aksi */
+.mpf-actions { display: flex; gap: 8px; }
+.mpf-btn { height: 40px; display: inline-flex; align-items: center; gap: 6px;
+    padding: 0 16px; border-radius: 10px; font-size: 13px; font-weight: 600; white-space: nowrap; }
+.mpf-btn--reset { background: #fff; }
+
+@media (max-width: 991px) {
+    .mpf-form { grid-template-columns: repeat(2, 1fr); }
+    .mpf-field--search { grid-column: 1 / -1; }
+    .mpf-actions { grid-column: 1 / -1; }
+    .mpf-btn { flex: 1; justify-content: center; }
+}
+@media (max-width: 575px) {
+    .mpf-form { grid-template-columns: 1fr; }
+}
+</style>
+
 <div class="container-fluid">
     <div class="row">
         <div class="col-sm-12">
@@ -15,71 +101,98 @@
 
     @include('layouts.notif')
 
-    {{-- Header bar: summary + tombol Tambah --}}
-    <div class="d-flex justify-content-between align-items-center flex-wrap mb-3" style="gap: 12px;">
-        <div style="font-size: 13px; color: var(--text-muted);">
-            Total: <strong>{{ $totalAll }}</strong> promo
-            @foreach ($statuses as $key => $opt)
-                <span class="ml-2">·</span>
-                <span class="ml-1 st-pill st-pill--{{ $opt['color'] }}">{{ $opt['label'] }}: {{ $summary[$key] ?? 0 }}</span>
-            @endforeach
-        </div>
-        <div class="d-flex align-items-center" style="gap: 10px;">
-            {{-- ─── Toggle tampilan List ⇄ Card ─── --}}
-            <div class="st-view-toggle">
-                <a href="{{ request()->fullUrlWithQuery(['view' => 'card']) }}"
-                   class="st-view-toggle__btn {{ $viewMode === 'card' ? 'is-active' : '' }}" title="Tampilan Card">
-                    <i class="fa fa-th-large"></i> Card
-                </a>
-                <a href="{{ request()->fullUrlWithQuery(['view' => 'list']) }}"
-                   class="st-view-toggle__btn {{ $viewMode === 'list' ? 'is-active' : '' }}" title="Tampilan List">
-                    <i class="fa fa-list"></i> List
-                </a>
+    {{-- ─── Stat tiles (referensi: halaman Dokter) ─── --}}
+    @php
+        // Ikon + warna per warna-status; nama ikon FA5 (bukan FA6).
+        $statColor = [
+            'warning' => ['icon' => 'fa-pencil-alt',   'fg' => '#B5701A', 'bg' => '#FBEFD9'],
+            'success' => ['icon' => 'fa-bolt',         'fg' => '#2F8E55', 'bg' => '#E3F4E8'],
+            'info'    => ['icon' => 'fa-info-circle',  'fg' => '#2563EB', 'bg' => '#E5EEFF'],
+            'neutral' => ['icon' => 'fa-check-circle', 'fg' => '#8A6A50', 'bg' => '#F1E4D3'],
+            'dark'    => ['icon' => 'fa-check-circle', 'fg' => '#8A6A50', 'bg' => '#F1E4D3'],
+            'danger'  => ['icon' => 'fa-ban',          'fg' => '#C0392B', 'bg' => '#FCE8E6'],
+        ];
+    @endphp
+    <div class="mp-stats">
+        <div class="mp-stat mp-stat--total">
+            <div class="mp-stat__icon"><i class="fa fa-tags"></i></div>
+            <div class="mp-stat__body">
+                <span class="mp-stat__num">{{ $totalAll }}</span>
+                <span class="mp-stat__label">Total Promo</span>
             </div>
-            <a href="{{ route('marketingpromo.new') }}" class="st-btn-brand">
-                <i class="fa fa-plus"></i> Tambah Promo
-            </a>
         </div>
+        @foreach ($statuses as $key => $opt)
+            @php $m = $statColor[$opt['color']] ?? $statColor['neutral']; @endphp
+            <div class="mp-stat">
+                <div class="mp-stat__icon" style="background: {{ $m['bg'] }}; color: {{ $m['fg'] }};">
+                    <i class="fa {{ $m['icon'] }}"></i>
+                </div>
+                <div class="mp-stat__body">
+                    <span class="mp-stat__num">{{ $summary[$key] ?? 0 }}</span>
+                    <span class="mp-stat__label">{{ $opt['label'] }}</span>
+                </div>
+            </div>
+        @endforeach
     </div>
 
     <div class="row">
         <div class="col-md-12">
-            <div class="st-card mb-3">
+            @php
+                $chips = [
+                    ''           => 'Semua',
+                    'today'      => 'Hari Ini',
+                    'this_month' => 'Bulan Ini',
+                    'next_month' => 'Bulan Depan',
+                ];
+                $qs = function ($overrides = []) {
+                    return http_build_query(array_filter(array_merge(request()->all(), $overrides), fn($v) => $v !== null && $v !== ''));
+                };
+                $hasActiveFilter = $filterSearch || $filterCampaign || $filterStatus || $filterBranch || $filterAktifPada;
+            @endphp
+            <div class="st-card mb-3 mpf-panel">
                 <div class="st-card__body">
-                    {{-- ─── Quick periode chips ─── --}}
-                    <div class="d-flex align-items-center flex-wrap mb-3" style="gap: 8px;">
-                        <span style="font-size: 13px; font-weight: 600; color: var(--text-muted);">
-                            <i class="fa fa-bolt"></i> Lihat promo:
-                        </span>
-                        @php
-                            $chips = [
-                                ''           => 'Semua',
-                                'today'      => 'Hari Ini',
-                                'this_month' => 'Bulan Ini',
-                                'next_month' => 'Bulan Depan',
-                            ];
-                            $qs = function ($overrides = []) {
-                                return http_build_query(array_filter(array_merge(request()->all(), $overrides), fn($v) => $v !== null && $v !== ''));
-                            };
-                        @endphp
-                        @foreach ($chips as $key => $label)
-                            @php $isActive = ($filterPeriode ?? '') === $key && !$filterAktifPada; @endphp
-                            <a href="{{ route('marketingpromo') }}?{{ $qs(['periode' => $key, 'aktif_pada' => null]) }}"
-                               class="st-pill st-pill--{{ $isActive ? 'success' : 'neutral' }}"
-                               style="cursor: pointer; text-decoration: none;">
-                                {{ $label }}
+                    {{-- ─── Quick periode (segmented control) + aksi tampilan/tambah ─── --}}
+                    <div class="mpf-quick">
+                        <div class="mpf-quick__left">
+                            <span class="mpf-quick__label"><i class="fa fa-bolt"></i> Lihat promo</span>
+                            <div class="mpf-seg">
+                                @foreach ($chips as $key => $label)
+                                    @php $isActive = ($filterPeriode ?? '') === $key && !$filterAktifPada; @endphp
+                                    <a href="{{ route('marketingpromo') }}?{{ $qs(['periode' => $key, 'aktif_pada' => null]) }}"
+                                       class="mpf-seg__btn {{ $isActive ? 'is-active' : '' }}">{{ $label }}</a>
+                                @endforeach
+                            </div>
+                        </div>
+                        <div class="mpf-quick__actions">
+                            <div class="st-view-toggle">
+                                <a href="{{ request()->fullUrlWithQuery(['view' => 'card']) }}"
+                                   class="st-view-toggle__btn {{ $viewMode === 'card' ? 'is-active' : '' }}" title="Tampilan Card">
+                                    <i class="fa fa-th-large"></i> Card
+                                </a>
+                                <a href="{{ request()->fullUrlWithQuery(['view' => 'list']) }}"
+                                   class="st-view-toggle__btn {{ $viewMode === 'list' ? 'is-active' : '' }}" title="Tampilan List">
+                                    <i class="fa fa-list"></i> List
+                                </a>
+                            </div>
+                            <a href="{{ route('marketingpromo.new') }}" class="st-btn-brand">
+                                <i class="fa fa-plus"></i> Tambah Promo
                             </a>
-                        @endforeach
+                        </div>
                     </div>
 
-                    {{-- ─── Filter form ─── --}}
-                    <form method="GET" class="row g-2">
-                        <div class="col-md-3">
-                            <label style="font-size: 12px;">Cari</label>
-                            <input type="text" name="search" class="form-control" placeholder="Nama promo..." value="{{ $filterSearch }}">
+                    <div class="mpf-divider"></div>
+
+                    {{-- ─── Filter detail ─── --}}
+                    <form method="GET" class="mpf-form">
+                        <div class="mpf-field mpf-field--search">
+                            <label>Cari</label>
+                            <div class="mpf-input-icon">
+                                <i class="fa fa-search"></i>
+                                <input type="text" name="search" class="form-control" placeholder="Nama promo..." value="{{ $filterSearch }}">
+                            </div>
                         </div>
-                        <div class="col-md-2">
-                            <label style="font-size: 12px;">Campaign</label>
+                        <div class="mpf-field">
+                            <label>Campaign</label>
                             <select name="campaign_type" class="form-control">
                                 <option value="">- Semua -</option>
                                 @foreach ($campaigns as $key => $label)
@@ -87,8 +200,8 @@
                                 @endforeach
                             </select>
                         </div>
-                        <div class="col-md-2">
-                            <label style="font-size: 12px;">Status</label>
+                        <div class="mpf-field">
+                            <label>Status</label>
                             <select name="status" class="form-control">
                                 <option value="">- Semua -</option>
                                 @foreach ($statuses as $key => $opt)
@@ -96,8 +209,8 @@
                                 @endforeach
                             </select>
                         </div>
-                        <div class="col-md-2">
-                            <label style="font-size: 12px;">Cabang</label>
+                        <div class="mpf-field">
+                            <label>Cabang</label>
                             <select name="branch_id" class="form-control">
                                 <option value="">- Semua -</option>
                                 @foreach ($branches as $b)
@@ -105,13 +218,15 @@
                                 @endforeach
                             </select>
                         </div>
-                        <div class="col-md-2">
-                            <label style="font-size: 12px;">Aktif pada tgl</label>
+                        <div class="mpf-field">
+                            <label>Aktif pada tgl</label>
                             <input type="date" name="aktif_pada" class="form-control" value="{{ $filterAktifPada }}">
                         </div>
-                        <div class="col-md-1 d-flex align-items-end" style="gap: 4px;">
-                            <button type="submit" class="st-btn-brand" title="Terapkan filter"><i class="fa fa-filter"></i></button>
-                            <a href="{{ route('marketingpromo') }}" class="st-btn-outline-brown" title="Reset"><i class="fa fa-times"></i></a>
+                        <div class="mpf-actions">
+                            <button type="submit" class="st-btn-brand mpf-btn"><i class="fa fa-filter"></i> Filter</button>
+                            @if ($hasActiveFilter || $filterPeriode)
+                                <a href="{{ route('marketingpromo') }}" class="st-btn-outline-brown mpf-btn mpf-btn--reset" title="Reset semua filter"><i class="fa fa-times"></i> Reset</a>
+                            @endif
                         </div>
                     </form>
                 </div>
@@ -212,9 +327,12 @@
                                     </tr>
                                 @endforeach
                                 @if ($promos->isEmpty())
-                                    <tr><td colspan="9" class="text-center text-muted py-4">
-                                        Tidak ada promo yang cocok dengan filter ini.
-                                        <br><a href="{{ route('marketingpromo') }}" class="text-primary">Reset filter</a>
+                                    <tr><td colspan="9" class="py-5">
+                                        <div class="mp-empty">
+                                            <i class="fa fa-tag"></i>
+                                            <div>Tidak ada promo yang cocok dengan filter ini.</div>
+                                            <a href="{{ route('marketingpromo') }}" class="mp-empty__link"><i class="fa fa-undo"></i> Reset filter</a>
+                                        </div>
                                     </td></tr>
                                 @endif
                             </tbody>
@@ -334,9 +452,12 @@
                     </div>
                 </div>
             @empty
-                <div class="st-card"><div class="st-card__body text-center text-muted py-4">
-                    Tidak ada promo yang cocok dengan filter ini.
-                    <br><a href="{{ route('marketingpromo') }}" class="text-primary">Reset filter</a>
+                <div class="st-card"><div class="st-card__body py-5">
+                    <div class="mp-empty">
+                        <i class="fa fa-tag"></i>
+                        <div>Tidak ada promo yang cocok dengan filter ini.</div>
+                        <a href="{{ route('marketingpromo') }}" class="mp-empty__link"><i class="fa fa-undo"></i> Reset filter</a>
+                    </div>
                 </div></div>
             @endforelse
             @endif

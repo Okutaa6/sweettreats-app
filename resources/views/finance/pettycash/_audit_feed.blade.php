@@ -21,7 +21,7 @@
 
     @if($recentReviewed->isEmpty())
         <div class="fpc-empty">
-            <div class="fpc-empty__icon"><i class="fa fa-clock-rotate-left"></i></div>
+            <div class="fpc-empty__icon"><i class="fa fa-history"></i></div>
             <div class="fpc-empty__title">Belum ada riwayat</div>
             <div class="fpc-empty__desc">Setelah Anda meng-approve atau reject pengajuan, jejaknya akan tampil di sini.</div>
         </div>

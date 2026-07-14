@@ -31,7 +31,7 @@
             <div class="st-card mb-3">
                 <div class="st-card__head">
                     <div class="st-card__title-wrap">
-                        <span class="st-card__icon"><i class="fa fa-hand-holding-dollar"></i></span>
+                        <span class="st-card__icon"><i class="fa fa-hand-holding-usd"></i></span>
                         <h4 class="st-card__title">Informasi Klaim</h4>
                     </div>
                 </div>

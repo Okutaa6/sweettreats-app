@@ -5,8 +5,8 @@
     $grouped       = $sources->groupBy('category');
     $catIcon       = [
         'cash'    => 'fa-money-bill-wave',
-        'bank'    => 'fa-building-columns',
-        'ewallet' => 'fa-mobile-screen-button',
+        'bank'    => 'fa-university',
+        'ewallet' => 'fa-mobile-alt',
     ];
 @endphp
 <div class="container-fluid">

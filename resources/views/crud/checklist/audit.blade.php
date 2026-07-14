@@ -16,7 +16,7 @@
     <div class="cl-hero">
         <div class="cl-hero__left">
             <h5 class="cl-hero__title">
-                <span class="cl-hero__icon"><i class="fas fa-shield-halved"></i></span>
+                <span class="cl-hero__icon"><i class="fas fa-shield-alt"></i></span>
                 Audit Trail Aktivitas
             </h5>
             <p class="cl-hero__subtitle">
@@ -74,7 +74,7 @@
         {{-- LOG TABLE --}}
         @if($logs->isEmpty())
             <div class="cl-empty">
-                <span class="cl-empty__icon"><i class="fas fa-shield"></i></span>
+                <span class="cl-empty__icon"><i class="fas fa-shield-alt"></i></span>
                 <div class="cl-empty__title">Belum ada log</div>
                 <div class="cl-empty__desc">Audit trail akan terisi otomatis saat ada aktivitas di modul checklist — create/update/submit/approve/reject.</div>
             </div>

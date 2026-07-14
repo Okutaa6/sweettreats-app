@@ -16,7 +16,7 @@
 
     <a href="{{ route('koc', array_merge(request()->except(['tab', 'page']), ['tab' => 'submitted'])) }}"
        class="koc-tab-filter__btn {{ $filterTab === 'submitted' ? 'is-active' : '' }}">
-        <i class="fa fa-photo-video"></i> Sudah Submit Konten
+        <i class="fa fa-images"></i> Sudah Submit Konten
         <span class="koc-tab-filter__count">{{ $counts['submitted'] }}</span>
     </a>
 

@@ -28,7 +28,7 @@ class ChecklistSubmission extends Model
     protected $fillable = [
         'id', 'user_id', 'division_id', 'raw_branch_id', 'submission_date',
         'status', 'total_tasks', 'done_tasks',
-        'reviewer_user_id', 'review_notes',
+        'reviewer_user_id', 'review_notes', 'excuse_reason',
         'submitted_at', 'reviewed_at', 'created_at', 'updated_at',
     ];
 
@@ -47,6 +47,7 @@ class ChecklistSubmission extends Model
     const STATUS_APPROVED  = 'approved';
     const STATUS_REJECTED  = 'rejected';
     const STATUS_MISSED    = 'missed';
+    const STATUS_EXCUSED   = 'excused';
 
     public static function statusOptions(): array
     {
@@ -56,6 +57,7 @@ class ChecklistSubmission extends Model
             self::STATUS_APPROVED  => ['label' => 'Disetujui',          'color' => 'success', 'desc' => 'Telah diverifikasi supervisor'],
             self::STATUS_REJECTED  => ['label' => 'Ditolak',            'color' => 'danger',  'desc' => 'Perlu diperbaiki — lihat catatan supervisor'],
             self::STATUS_MISSED    => ['label' => 'Tidak Diisi',        'color' => 'neutral', 'desc' => 'Tanggal sudah lewat — checklist tidak diisi'],
+            self::STATUS_EXCUSED   => ['label' => 'Dikecualikan',       'color' => 'neutral', 'desc' => 'Hari ini tidak perlu diisi (mis. sedang menangani pasien)'],
         ];
     }
 

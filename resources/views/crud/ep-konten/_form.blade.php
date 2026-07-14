@@ -39,7 +39,7 @@
     {{-- ─────────── TAB NAVIGATION ─────────── --}}
     <div class="note-tabs" role="tablist">
         <button type="button" class="note-tab is-active" data-tab="detail" role="tab" aria-selected="true">
-            <i class="fa-solid fa-file-lines"></i>
+            <i class="fa-solid fa-file-alt"></i>
             <span>Detail Konten</span>
         </button>
         <button type="button" class="note-tab" data-tab="foto" role="tab" aria-selected="false">
@@ -83,7 +83,7 @@
                 </div>
                 <div class="ep-pillar-panel" id="pillarPanel" style="display:none;">
                     <div class="ep-pillar-search-wrap">
-                        <i class="fa fa-magnifying-glass ep-search-icon"></i>
+                        <i class="fa fa-search ep-search-icon"></i>
                         <input type="text" class="ep-pillar-search" id="pillarSearch"
                                placeholder="Cari pillar..." onkeyup="filterPillars(this.value)">
                     </div>
@@ -107,7 +107,7 @@
         {{-- Platform --}}
         <div class="note-prop">
             <div class="note-prop-key">
-                <i class="fa-solid fa-share-nodes"></i>
+                <i class="fa-solid fa-share-alt"></i>
                 <span>Platform</span>
             </div>
             <div class="note-prop-val">
@@ -146,7 +146,7 @@
         {{-- Status --}}
         <div class="note-prop">
             <div class="note-prop-key">
-                <i class="fa-solid fa-circle-half-stroke"></i>
+                <i class="fa-solid fa-adjust"></i>
                 <span>Status</span>
             </div>
             <div class="note-prop-val">
@@ -212,7 +212,7 @@
         {{-- Framework --}}
         <div class="note-prop">
             <div class="note-prop-key">
-                <i class="fa-solid fa-diagram-project"></i>
+                <i class="fa-solid fa-project-diagram"></i>
                 <span>Framework</span>
             </div>
             <div class="note-prop-val">
@@ -226,7 +226,7 @@
         @if($isBreakdown)
             <div class="note-prop">
                 <div class="note-prop-key">
-                    <i class="fa-solid fa-location-dot"></i>
+                    <i class="fa-solid fa-map-marker-alt"></i>
                     <span>Lokasi</span>
                 </div>
                 <div class="note-prop-val">
@@ -276,7 +276,7 @@
                 ['name' => 'caption',   'label' => 'Caption',           'icon' => 'fa-quote-right',   'rows' => 3, 'placeholder' => 'Caption untuk posting...'],
                 ['name' => 'visual_plan','label'=> 'Visual Plan',       'icon' => 'fa-palette',       'rows' => 4, 'placeholder' => 'Storyboard / shot list / referensi visual...'],
                 ['name' => 'referensi', 'label' => 'Referensi',         'icon' => 'fa-bookmark',      'rows' => 3, 'placeholder' => 'Link IG/TikTok inspirasi, link drive, dll...'],
-                ['name' => 'note',      'label' => 'Note',              'icon' => 'fa-note-sticky',   'rows' => 2, 'placeholder' => 'Catatan internal, deadline khusus, dll...'],
+                ['name' => 'note',      'label' => 'Note',              'icon' => 'fa-sticky-note',   'rows' => 2, 'placeholder' => 'Catatan internal, deadline khusus, dll...'],
             ];
         @endphp
 

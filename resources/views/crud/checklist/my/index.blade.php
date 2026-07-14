@@ -6,6 +6,9 @@
     .cl-my-wrap { max-width: 1100px; margin: 0 auto; }
     .cl-my-grid { display: grid; grid-template-columns: 1fr 320px; gap: 16px; align-items: start; }
     @media (max-width: 992px) { .cl-my-grid { grid-template-columns: 1fr; } }
+    /* Sembunyikan toggle "Hari Ini / Tampilan Mingguan" di layar mobile.
+       !important untuk mengalahkan inline style display:flex pada wrapper. */
+    @media (max-width: 768px) { .cl-view-toggle { display: none !important; } }
 
     /* ──────── MODERN Hari Ini design ──────── */
 
@@ -219,15 +222,19 @@
         transform: rotate(180deg);
         color: #5C2E15;
     }
-    .cl-mod-cat__body { display: none; border-top: 1px solid #F0E8DC; background: #FFFFFF; }
-    .cl-mod-cat.is-open .cl-mod-cat__body { display: block; animation: clFadeIn .25s ease; }
-    @keyframes clFadeIn {
-        from { opacity: 0; transform: translateY(-4px); }
-        to   { opacity: 1; transform: translateY(0); }
+    /* Buka/tutup halus via grid-template-rows (0fr → 1fr) */
+    .cl-mod-cat__body {
+        display: grid;
+        grid-template-rows: 0fr;
+        background: #FFFFFF;
+        transition: grid-template-rows .3s ease;
     }
+    .cl-mod-cat.is-open .cl-mod-cat__body { grid-template-rows: 1fr; }
+    .cl-mod-cat__body-inner { overflow: hidden; min-height: 0; }
+    .cl-mod-cat.is-open .cl-mod-cat__body-inner { border-top: 1px solid #F0E8DC; }
 
     .cl-mod-task {
-        display: flex; align-items: flex-start; gap: 12px;
+        display: flex; align-items: flex-start; gap: 12px; flex-wrap: wrap;
         padding: 14px 18px;
         border-bottom: 1px solid #F5EBE0;
         cursor: pointer;
@@ -265,6 +272,21 @@
         text-decoration-thickness: 1px;
     }
     .cl-mod-task__time { font-size: 11px; color: #9B8578; flex-shrink: 0; margin-top: 4px; }
+
+    /* Catatan per item (baris penuh di bawah judul, indent sejajar judul) */
+    .cl-mod-task__note { flex: 0 0 100%; padding-left: 36px; cursor: default; }
+    .cl-mod-note__input {
+        width: 100%; box-sizing: border-box;
+        border: 1px solid #E7D6C2; border-radius: 8px; background: #FFFDFA;
+        padding: 7px 10px; font-size: 12.5px; color: #5A3A22; line-height: 1.45;
+        font-family: inherit; resize: none; overflow: hidden;
+        transition: border-color .15s, box-shadow .15s, background .15s;
+    }
+    .cl-mod-note__input::placeholder { color: #B9A794; }
+    .cl-mod-note__input:focus { outline: none; border-color: #9B5E2C; background: #FFFFFF; box-shadow: 0 0 0 3px rgba(155,94,44,.10); }
+    .cl-mod-note__status { display: inline-block; min-height: 12px; margin-top: 3px; font-size: 10.5px; color: #9B8578; }
+    .cl-mod-note__ro { font-size: 12px; color: #6B4423; padding: 6px 10px; background: #FFF7EE; border-radius: 6px; border-left: 3px solid #9B5E2C; }
+    .cl-mod-note__ro i { font-size: 10px; margin-right: 4px; color: #9B5E2C; }
 
     /* Modern submit button */
     .cl-mod-submit {
@@ -561,19 +583,95 @@
     @include('layouts.notif')
 
     <div class="cl-my-wrap">
-        @if(! $position)
-            {{-- ─── Empty state: belum punya divisi ─── --}}
-            <div class="st-card">
-                <div class="st-card__body" style="padding:48px 22px; text-align:center;">
-                    <div style="display:inline-flex; align-items:center; justify-content:center; width:80px; height:80px; border-radius:50%; background:#FAF4EC; color:#9B5E2C; font-size:32px; margin-bottom:18px;">
-                        <i class="fas fa-user-tag"></i>
-                    </div>
-                    <h5 style="font-size:18px; font-weight:700; color:#2D1810; margin-bottom:8px;">Posisi belum diatur</h5>
-                    <p style="font-size:13.5px; color:#6B4423; max-width:420px; margin:0 auto 18px; line-height:1.6;">
-                        Anda belum di-assign ke divisi mana pun di sistem checklist. Hubungi supervisor untuk mendaftarkan posisi (FO / GS / Asdent).
-                    </p>
+        {{-- ─── Running text / pengumuman (statis) ───
+             Teks di-set di $marqueeText. Gerak ke kanan, loop mulus (2 salinan),
+             jeda saat di-hover. Untuk mengubah arah → tukar 'from/to' di keyframe. --}}
+        @php
+            $marqueeText = '📢 Isi & submit semua checklist harian sebelum pulang.'
+                . '   •   Sterilisasi alat & jaga kebersihan ruang sesuai SOP.'
+                . '   •   Sapa setiap pasien dengan senyum — Sweet, Cool & Friendly! 🦷';
+        @endphp
+        <div class="cl-marquee" aria-label="Pengumuman">
+            <span class="cl-marquee__label"><i class="fas fa-bullhorn"></i> Info</span>
+            <div class="cl-marquee__viewport">
+                <div class="cl-marquee__track">
+                    <span class="cl-marquee__item">{{ $marqueeText }}</span>
+                    <span class="cl-marquee__item" aria-hidden="true">{{ $marqueeText }}</span>
                 </div>
             </div>
+        </div>
+        <style>
+            .cl-marquee{display:flex;align-items:stretch;background:#FFF7EE;border:1px solid #E7D6C2;
+                border-radius:12px;overflow:hidden;margin-bottom:14px;box-shadow:0 1px 3px rgba(45,24,16,.05);}
+            .cl-marquee__label{flex:none;display:inline-flex;align-items:center;gap:7px;padding:10px 16px;
+                background:linear-gradient(180deg,#5C2E15,#471500);color:#FFE9C7;font-size:12.5px;
+                font-weight:800;letter-spacing:.3px;white-space:nowrap;}
+            .cl-marquee__label i{font-size:13px;}
+            /* viewport = block (bukan flex) supaya lebar track mengikuti panjang teks,
+               jadi translateX(-50%) = tepat satu salinan → loop mulus & pasti gerak. */
+            .cl-marquee__viewport{flex:1 1 auto;min-width:0;overflow:hidden;}
+            .cl-marquee__track{display:inline-flex;flex-wrap:nowrap;white-space:nowrap;
+                animation:cl-marquee-move 28s linear infinite;}
+            .cl-marquee:hover .cl-marquee__track{animation-play-state:paused;}
+            .cl-marquee__item{flex:0 0 auto;padding:10px 34px 10px 22px;font-size:13px;font-weight:600;color:#5A3A22;}
+            /* Gerak ke kanan: track digeser -50% (satu salinan) lalu ke 0 → mulus. */
+            @keyframes cl-marquee-move{from{transform:translateX(-50%);}to{transform:translateX(0);}}
+        </style>
+
+        @if(! $position)
+            @if(! empty($pending))
+                {{-- ─── State: usulan posisi menunggu konfirmasi supervisor ─── --}}
+                <div class="st-card">
+                    <div class="st-card__body" style="padding:44px 22px; text-align:center;">
+                        <div style="display:inline-flex; align-items:center; justify-content:center; width:80px; height:80px; border-radius:50%; background:#FAEEDA; color:#A66019; font-size:32px; margin-bottom:18px;">
+                            <i class="fas fa-hourglass-half"></i>
+                        </div>
+                        <h5 style="font-size:18px; font-weight:700; color:#2D1810; margin-bottom:8px;">Menunggu konfirmasi supervisor</h5>
+                        <p style="font-size:13.5px; color:#6B4423; max-width:440px; margin:0 auto 16px; line-height:1.6;">
+                            Halo <strong>{{ $userName }}</strong>, posisi yang Anda ajukan sedang menunggu konfirmasi supervisor.
+                            Anda bisa mulai mengisi checklist setelah dikonfirmasi.
+                        </p>
+                        <div style="display:inline-flex; gap:8px; flex-wrap:wrap; justify-content:center; margin-bottom:18px;">
+                            <span style="font-size:12.5px; font-weight:700; background:#FFF7EE; border:1px solid #E7D6C2; color:#5C2E15; padding:6px 14px; border-radius:999px;">
+                                <i class="fas fa-id-badge" style="font-size:11px; color:#A66019;"></i>
+                                {{ $pending->division?->name ?? $pending->division_id }}
+                            </span>
+                            <span style="font-size:12.5px; font-weight:700; background:#FFF7EE; border:1px solid #E7D6C2; color:#5C2E15; padding:6px 14px; border-radius:999px;">
+                                <i class="fas fa-building" style="font-size:11px; color:#A66019;"></i>
+                                {{ $pending->branch?->name ?? $pending->raw_branch_id }}
+                            </span>
+                        </div>
+
+                        {{-- Ubah usulan (kalau salah pilih) --}}
+                        <details class="cl-propose-edit">
+                            <summary style="cursor:pointer; font-size:12.5px; color:#6B4423; font-weight:600;">Salah pilih? Ubah usulan</summary>
+                            @include('crud.checklist.my._propose_form', ['submitLabel' => 'Ubah & kirim ulang', 'pending' => $pending])
+                        </details>
+                    </div>
+                </div>
+                <style>
+                    .cl-propose-edit { margin-top: 8px; max-width: 460px; margin-left:auto; margin-right:auto; text-align:left; }
+                    .cl-propose-edit[open] summary { margin-bottom: 12px; }
+                </style>
+            @else
+                {{-- ─── Welcome + form pilih posisi (first time) ─── --}}
+                <div class="st-card">
+                    <div class="st-card__body" style="padding:40px 22px;">
+                        <div style="text-align:center; margin-bottom:22px;">
+                            <div style="display:inline-flex; align-items:center; justify-content:center; width:80px; height:80px; border-radius:50%; background:#FAF4EC; color:#9B5E2C; font-size:32px; margin-bottom:16px;">
+                                <i class="fas fa-magic"></i>
+                            </div>
+                            <h5 style="font-size:20px; font-weight:800; color:#2D1810; margin-bottom:8px;">Selamat datang, {{ $userName }}! 👋</h5>
+                            <p style="font-size:13.5px; color:#6B4423; max-width:460px; margin:0 auto; line-height:1.6;">
+                                Sebelum mulai, pilih <strong>divisi</strong> dan <strong>cabang</strong> Anda. Setelah dikonfirmasi supervisor, form checklist Anda akan langsung muncul di sini.
+                            </p>
+                        </div>
+                        <div style="max-width:460px; margin:0 auto;">
+                            @include('crud.checklist.my._propose_form', ['submitLabel' => 'Ajukan posisi', 'pending' => null])
+                        </div>
+                    </div>
+                </div>
+            @endif
         @else
             {{-- ─── VIEW TOGGLE — di luar card, jelas terlihat ─── --}}
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:10px;">
@@ -588,12 +686,12 @@
                     </a>
                 </div>
                 <a href="{{ route('mychecklist.history') }}" style="font-size:12.5px; color:#6B4423; text-decoration:none; display:inline-flex; align-items:center; gap:6px; font-weight:600;">
-                    <i class="fas fa-clock-rotate-left"></i> Riwayat
+                    <i class="fas fa-history"></i> Riwayat
                 </a>
             </div>
 
-            {{-- SUB-TOGGLE: Hari Ini vs Tampilan Mingguan (7 hari) --}}
-            <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px; flex-wrap:wrap;">
+            {{-- SUB-TOGGLE: Hari Ini vs Tampilan Mingguan (7 hari) — disembunyikan di mobile --}}
+            <div class="cl-view-toggle" style="display:flex; align-items:center; gap:10px; margin-bottom:14px; flex-wrap:wrap;">
                 <span style="font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; color:#9B8578;">Tampilan:</span>
                 <div style="display:inline-flex; gap:2px; padding:3px; background:#FAF4EC; border-radius:999px; border:1px solid #E0D2C1;">
                     <a href="{{ route('mychecklist') }}"
@@ -602,7 +700,7 @@
                     </a>
                     <a href="{{ route('mychecklist.weekly') }}"
                        style="padding:6px 14px; font-size:12px; font-weight:600; text-decoration:none; border-radius:999px; color:#6B4423; display:inline-flex; align-items:center; gap:6px;">
-                        <i class="fas fa-th" style="font-size:10px;"></i> Tampilan Mingguan
+                        <i class="fas fa-th" style="font-size:10px;"></i> Seminggu
                     </a>
                 </div>
             </div>
@@ -647,8 +745,8 @@
                         </div>
                         @if($submission->status !== \App\Models\ChecklistSubmission::STATUS_DRAFT && $statusOpt)
                             <span class="cl-mod-hero__status cl-mod-hero__status--{{ $heroStatusColor }}">
-                                @if($submission->status === 'approved')<i class="fas fa-circle-check"></i>
-                                @elseif($submission->status === 'rejected')<i class="fas fa-circle-xmark"></i>
+                                @if($submission->status === 'approved')<i class="fas fa-check-circle"></i>
+                                @elseif($submission->status === 'rejected')<i class="fas fa-times-circle"></i>
                                 @else<i class="fas fa-clock"></i>
                                 @endif
                                 {{ $statusOpt['label'] }}
@@ -660,7 +758,7 @@
                 {{-- ─── BANNER STATUS ─── --}}
                 @if($submission->status === \App\Models\ChecklistSubmission::STATUS_REJECTED)
                     <div class="cl-mod-banner cl-mod-banner--danger">
-                        <i class="fas fa-circle-xmark"></i>
+                        <i class="fas fa-times-circle"></i>
                         <div style="flex:1;">
                             <strong>Checklist anda ditolak supervisor.</strong>
                             @if($rejectedNote)<div style="margin-top:4px;">Catatan: {{ $rejectedNote }}</div>@endif
@@ -679,8 +777,23 @@
                     </div>
                 @elseif($submission->status === \App\Models\ChecklistSubmission::STATUS_APPROVED)
                     <div class="cl-mod-banner cl-mod-banner--success">
-                        <i class="fas fa-circle-check"></i>
+                        <i class="fas fa-check-circle"></i>
                         <div><strong>Checklist hari ini disetujui supervisor.</strong> Terima kasih atas konsistensinya! 🎉</div>
+                    </div>
+                @elseif($submission->status === \App\Models\ChecklistSubmission::STATUS_EXCUSED)
+                    <div class="cl-mod-banner cl-mod-banner--warning">
+                        <i class="fas fa-mug-hot"></i>
+                        <div style="flex:1;">
+                            <strong>Checklist hari ini ditandai "Dikecualikan" — tidak perlu diisi.</strong>
+                            <div style="margin-top:4px;">Alasan: {{ $submission->excuse_reason }}</div>
+                            <form method="POST" action="{{ route('mychecklist.unexcuse') }}" style="margin-top:10px;"
+                                  onsubmit="return confirm('Batalkan pengecualian dan isi checklist seperti biasa?');">
+                                @csrf
+                                <button type="submit" class="st-btn-brand" style="font-size:12.5px; padding:6px 14px;">
+                                    <i class="fas fa-undo"></i> Batalkan, isi checklist
+                                </button>
+                            </form>
+                        </div>
                     </div>
                 @endif
 
@@ -711,14 +824,16 @@
                     </div>
                 @else
                     <div class="cl-mod-cat-list">
-                        @php $catIdx = 0; @endphp
+                        @php $catIdx = 0; $openedOne = false; @endphp
                         @foreach($grouped as $catTitle => $items)
                             @php
                                 $catIdx++;
                                 $catDone = $items->where('is_done', true)->count();
                                 $catTotal = $items->count();
                                 $catComplete = $catDone === $catTotal;
-                                $isOpen = ! $catComplete;
+                                // Exclusive accordion: hanya kategori pertama yang belum selesai yang terbuka.
+                                $isOpen = ! $catComplete && ! $openedOne;
+                                if ($isOpen) $openedOne = true;
                             @endphp
                             <div class="cl-mod-cat {{ $isOpen ? 'is-open' : '' }} {{ $catComplete ? 'is-complete' : '' }}" data-cat-block>
                                 <div class="cl-mod-cat__head" data-cat-toggle>
@@ -742,6 +857,7 @@
                                     <i class="fas fa-chevron-down cl-mod-cat__chev"></i>
                                 </div>
                                 <div class="cl-mod-cat__body">
+                                    <div class="cl-mod-cat__body-inner">
                                     @foreach($items as $item)
                                         <div class="cl-mod-task {{ $item->is_done ? 'is-done' : '' }} {{ $submission->isEditable() ? '' : 'is-locked' }}"
                                              data-item-id="{{ $item->id }}"
@@ -752,8 +868,24 @@
                                             @if($item->done_at)
                                                 <div class="cl-mod-task__time">{{ $item->done_at->format('H:i') }}</div>
                                             @endif
+
+                                            {{-- Catatan per item (opsional). Di luar area toggle (stopPropagation
+                                                 di JS) supaya mengetik tidak ikut mencentang item. --}}
+                                            @if($submission->isEditable())
+                                                <div class="cl-mod-task__note">
+                                                    <textarea class="cl-mod-note__input" rows="1" maxlength="1000"
+                                                              data-note-url="{{ route('mychecklist.item.note', $item->id) }}"
+                                                              placeholder="Tambah catatan (opsional)…">{{ $item->note }}</textarea>
+                                                    <span class="cl-mod-note__status" data-note-status></span>
+                                                </div>
+                                            @elseif($item->note)
+                                                <div class="cl-mod-task__note">
+                                                    <div class="cl-mod-note__ro"><i class="fas fa-edit"></i> {{ $item->note }}</div>
+                                                </div>
+                                            @endif
                                         </div>
                                     @endforeach
+                                    </div>{{-- /cl-mod-cat__body-inner --}}
                                 </div>
                             </div>
                         @endforeach
@@ -785,6 +917,50 @@
                             </button>
                         </div>{{-- /cl-mod-submit --}}
                     </form>
+                @endif
+
+                {{-- ─── Aksi: hari ini tidak perlu diisi (Dikecualikan) ─── --}}
+                @if($submission->isEditable())
+                    <details class="cl-excuse">
+                        <summary class="cl-excuse__trigger">
+                            <span class="cl-excuse__trigger-label"><i class="fas fa-mug-hot"></i> Hari ini tidak perlu diisi?</span>
+                            <i class="fas fa-chevron-down cl-excuse__caret"></i>
+                        </summary>
+                        <form method="POST" action="{{ route('mychecklist.excuse') }}" class="cl-excuse__form"
+                              onsubmit="return confirm('Tandai checklist hari ini sebagai tidak perlu diisi?');">
+                            @csrf
+                            <div class="cl-excuse__label">Pilih / tulis alasan (wajib):</div>
+                            <div class="cl-excuse__chips">
+                                <button type="button" class="cl-excuse__chip" onclick="this.closest('form').querySelector('.cl-excuse__input').value='Cuti';">Cuti</button>
+                                <button type="button" class="cl-excuse__chip" onclick="this.closest('form').querySelector('.cl-excuse__input').value='Klinik tutup';">Klinik tutup</button>
+                                <button type="button" class="cl-excuse__chip" onclick="this.closest('form').querySelector('.cl-excuse__input').value='Libur';">Libur</button>
+                                <button type="button" class="cl-excuse__chip" onclick="this.closest('form').querySelector('.cl-excuse__input').value='Tidak ada pasien';">Tidak ada pasien</button>
+                            </div>
+                            <textarea name="excuse_reason" class="cl-excuse__input" rows="2" maxlength="500" required
+                                      placeholder="Contoh: libur / tanggal merah…"></textarea>
+                            <button type="submit" class="cl-excuse__submit"><i class="fas fa-check"></i> Tandai "Dikecualikan"</button>
+                        </form>
+                    </details>
+                    <style>
+                        .cl-excuse { margin-top: 14px; border: 1px solid #E0D2C1; border-radius: 12px; background: #FFFDF9; box-shadow: 0 1px 3px rgba(45,24,16,.05); }
+                        .cl-excuse__trigger { list-style: none; cursor: pointer; padding: 13px 16px; font-size: 13px; font-weight: 700; color: #6B4423; display: flex; align-items: center; justify-content: space-between; gap: 8px; border-radius: 12px; transition: background .15s; }
+                        .cl-excuse__trigger:hover { background: #FAF0E2; }
+                        .cl-excuse__trigger::-webkit-details-marker { display: none; }
+                        .cl-excuse__trigger-label { display: inline-flex; align-items: center; gap: 8px; }
+                        .cl-excuse__trigger i { color: #A66019; }
+                        .cl-excuse__caret { font-size: 12px; transition: transform .2s ease; }
+                        .cl-excuse[open] .cl-excuse__trigger { border-radius: 12px 12px 0 0; border-bottom: 1px solid #EFE1CF; background: #FAF0E2; }
+                        .cl-excuse[open] .cl-excuse__caret { transform: rotate(180deg); }
+                        .cl-excuse__form { padding: 12px 16px 16px; }
+                        .cl-excuse__label { font-size: 12px; font-weight: 700; color: #6B4423; margin-bottom: 8px; }
+                        .cl-excuse__chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+                        .cl-excuse__chip { font-size: 12px; font-weight: 600; padding: 6px 12px; border-radius: 999px; border: 1px solid #E0D2C1; background: #fff; color: #6B4423; cursor: pointer; transition: .15s; }
+                        .cl-excuse__chip:hover { border-color: #A66019; color: #5C2E15; background: #FAF4EC; }
+                        .cl-excuse__input { width: 100%; box-sizing: border-box; border: 1px solid #E0D2C1; border-radius: 8px; padding: 8px 10px; font-size: 13px; color: #2D1810; font-family: inherit; resize: vertical; }
+                        .cl-excuse__input:focus { outline: none; border-color: #A66019; box-shadow: 0 0 0 3px rgba(166,96,25,.10); }
+                        .cl-excuse__submit { margin-top: 10px; border: none; border-radius: 8px; background: linear-gradient(180deg,#5C2E15,#471500); color: #fff; font-size: 13px; font-weight: 700; padding: 9px 16px; cursor: pointer; display: inline-flex; align-items: center; gap: 7px; }
+                        .cl-excuse__submit:hover { filter: brightness(1.08); }
+                    </style>
                 @endif
             </div>{{-- /main column --}}
 
@@ -889,10 +1065,23 @@
 @if($position && $grouped->isNotEmpty())
 <script>
 (function() {
-    // Accordion toggle per kategori
+    // Accordion eksklusif per kategori: buka satu → yang lain otomatis tertutup.
     document.querySelectorAll('[data-cat-toggle]').forEach(head => {
         head.addEventListener('click', () => {
-            head.closest('[data-cat-block]').classList.toggle('is-open');
+            const block = head.closest('[data-cat-block]');
+            const willOpen = ! block.classList.contains('is-open');
+            document.querySelectorAll('[data-cat-block].is-open').forEach(b => {
+                if (b !== block) b.classList.remove('is-open');
+            });
+            block.classList.toggle('is-open', willOpen);
+            // Textarea catatan yang tadinya display:none punya scrollHeight 0 →
+            // hitung ulang tingginya begitu kategorinya terlihat.
+            if (willOpen) {
+                block.querySelectorAll('[data-note-url]').forEach(ta => {
+                    ta.style.height = 'auto';
+                    ta.style.height = ta.scrollHeight + 'px';
+                });
+            }
         });
     });
 
@@ -933,6 +1122,37 @@
                 alert('Gagal: ' + (err.message || err));
             }
         });
+    });
+
+    // ── Catatan per item (opsional) — auto-save debounce ke updateNote ──
+    // Cegah klik di area catatan ikut men-toggle item (listener toggle ada di parent).
+    document.querySelectorAll('.cl-mod-task__note').forEach(box => {
+        box.addEventListener('click', e => e.stopPropagation());
+    });
+    document.querySelectorAll('[data-note-url]').forEach(ta => {
+        const grow = () => { ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px'; };
+        grow();
+        const statusEl = ta.parentElement.querySelector('[data-note-status]');
+        let timer, lastSaved = ta.value;
+        const save = async () => {
+            if (ta.value === lastSaved) return;
+            if (statusEl) statusEl.textContent = 'Menyimpan…';
+            try {
+                const res = await fetch(ta.dataset.noteUrl, {
+                    method: 'PATCH',
+                    headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ note: ta.value }),
+                });
+                const data = await res.json();
+                if (! data.ok) throw new Error();
+                lastSaved = ta.value;
+                if (statusEl) { statusEl.textContent = 'Tersimpan ✓'; setTimeout(() => { statusEl.textContent = ''; }, 1500); }
+            } catch (err) {
+                if (statusEl) statusEl.textContent = 'Gagal menyimpan';
+            }
+        };
+        ta.addEventListener('input', () => { grow(); clearTimeout(timer); timer = setTimeout(save, 700); });
+        ta.addEventListener('blur', () => { clearTimeout(timer); save(); });
     });
 
     function updateCatCounter(task) {

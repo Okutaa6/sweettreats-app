@@ -14,6 +14,7 @@ use App\Http\Controllers\Crud\ReservationController;
 use App\Http\Controllers\Crud\ReservationImportController;
 use App\Http\Controllers\Crud\ReservasiCabangController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\PublicDoctorScheduleController;
 use App\Http\Middleware\AuthGuard;
 use App\Http\Middleware\IsLoggedIn;
 use App\Http\Controllers\Crud\AffiliateController;
@@ -55,6 +56,11 @@ Route::get('/reservasi', function () {
 Route::post('/reservasi', [\App\Http\Controllers\LandingReservationController::class, 'store'])
     ->middleware('throttle:20,1')
     ->name('landing.reservation.store');
+
+// Halaman publik jadwal dokter (read-only, tanpa login)
+Route::get('/jadwal-dokter', [PublicDoctorScheduleController::class, 'index'])
+    ->middleware('throttle:60,1')
+    ->name('public.doctor-schedule');
 
 // Affiliate Portal
 Route::prefix('affiliate')->group(function () {
@@ -358,6 +364,10 @@ Route::middleware([AuthGuard::class])->group(function () {
     // Finance: dashboard monitoring + approval workflow top-up request
     Route::prefix('finance')->group(function () {
         Route::get ('pettycash',                            [FinanceDashboardController::class, 'index'])->name('finance.pettycash');
+        // Riwayat transaksi 1 cabang (read-only, monitoring) — dibuka dari tombol
+        // "Riwayat" di kartu cabang. Deklarasi SEBELUM 'pettycash/request/{id}'
+        // aman karena segmen 'branch' literal (tidak tabrakan wildcard).
+        Route::get ('pettycash/branch/{branchId}/riwayat',  [FinanceDashboardController::class, 'branchHistory'])->name('finance.pettycash.branch-history');
         Route::get ('pettycash/request/{id}',               [TopupRequestController::class, 'show'])->name('finance.topup.show');
         Route::post('pettycash/request/{id}/approve',       [TopupRequestController::class, 'approve'])->name('finance.topup.approve');
         Route::post('pettycash/request/{id}/reject',        [TopupRequestController::class, 'reject'])->name('finance.topup.reject');
@@ -383,6 +393,8 @@ Route::middleware([AuthGuard::class])->group(function () {
     // Kelola Posisi Karyawan (Supervisor)
     Route::get   ('checklist/positions',            [DigitalChecklistController::class, 'positions'])       ->name('checklist.positions');
     Route::post  ('checklist/positions',            [DigitalChecklistController::class, 'positionAssign'])  ->name('checklist.positions.assign');
+    Route::post  ('checklist/positions/{id}/confirm',[DigitalChecklistController::class, 'positionConfirm'])->name('checklist.positions.confirm');
+    Route::delete('checklist/positions/{id}/reject',[DigitalChecklistController::class, 'positionReject'])  ->name('checklist.positions.reject');
     Route::delete('checklist/positions/{id}',       [DigitalChecklistController::class, 'positionRemove'])  ->name('checklist.positions.remove');
 
     // Setup Tugas (Supervisor only)
@@ -403,11 +415,13 @@ Route::middleware([AuthGuard::class])->group(function () {
     Route::patch('checklist/review/weekly/{id}/approve',[DigitalChecklistController::class, 'weeklyApprove'])->name('checklist.review.weekly.approve');
     Route::patch('checklist/review/weekly/{id}/reject', [DigitalChecklistController::class, 'weeklyReject']) ->name('checklist.review.weekly.reject');
     Route::patch('checklist/review/weekly/{id}/reopen', [DigitalChecklistController::class, 'weeklyReopen']) ->name('checklist.review.weekly.reopen');
+    Route::patch('checklist/review/weekly/{id}/revoke-excuse', [DigitalChecklistController::class, 'weeklyRevokeExcuse'])->name('checklist.review.weekly.excuse.revoke');
     // Harian — pakai constraint UUID supaya tidak tabrakan dgn 'weekly' di atas.
     Route::get  ('checklist/review/{id}',           [DigitalChecklistController::class, 'reviewShow']) ->name('checklist.review.show')->where('id', '[0-9a-fA-F-]{36}');
     Route::patch('checklist/review/{id}/approve',   [DigitalChecklistController::class, 'approve'])    ->name('checklist.review.approve')->where('id', '[0-9a-fA-F-]{36}');
     Route::patch('checklist/review/{id}/reject',    [DigitalChecklistController::class, 'reject'])     ->name('checklist.review.reject')->where('id', '[0-9a-fA-F-]{36}');
     Route::patch('checklist/review/{id}/reopen',    [DigitalChecklistController::class, 'reopen'])     ->name('checklist.review.reopen')->where('id', '[0-9a-fA-F-]{36}');
+    Route::patch('checklist/review/{id}/revoke-excuse', [DigitalChecklistController::class, 'revokeExcuse'])->name('checklist.review.excuse.revoke')->where('id', '[0-9a-fA-F-]{36}');
 
     // Pengisian Karyawan — Harian
     Route::get  ('my-checklist',                    [MyChecklistController::class, 'index'])           ->name('mychecklist');
@@ -417,13 +431,20 @@ Route::middleware([AuthGuard::class])->group(function () {
     Route::patch('my-checklist/item/{id}/note',     [MyChecklistController::class, 'updateNote'])      ->name('mychecklist.item.note');
     Route::post ('my-checklist/submit',             [MyChecklistController::class, 'submit'])          ->name('mychecklist.submit');
     Route::post ('my-checklist/reopen-self',        [MyChecklistController::class, 'reopenSelf'])      ->name('mychecklist.reopen-self');
+    Route::post ('my-checklist/excuse',             [MyChecklistController::class, 'excuseToday'])     ->name('mychecklist.excuse');
+    Route::post ('my-checklist/unexcuse',           [MyChecklistController::class, 'unexcuseToday'])   ->name('mychecklist.unexcuse');
+    Route::post ('my-checklist/position',           [MyChecklistController::class, 'proposePosition']) ->name('mychecklist.position.propose');
 
     // Pengisian Karyawan — Form Mingguan
     Route::get  ('my-checklist/weekform',                [MyChecklistController::class, 'weekForm'])      ->name('mychecklist.weekform');
     Route::patch('my-checklist/weekform/item/{id}',      [MyChecklistController::class, 'weekToggleItem'])->name('mychecklist.weekform.item.toggle');
     Route::patch('my-checklist/weekform/item/{id}/note', [MyChecklistController::class, 'weekUpdateNote'])->name('mychecklist.weekform.item.note');
+    Route::post ('my-checklist/weekform/item/{id}/photo', [MyChecklistController::class, 'weekUploadPhoto'])->name('mychecklist.weekform.item.photo.upload');
+    Route::delete('my-checklist/weekform/item/{id}/photo',[MyChecklistController::class, 'weekDeletePhoto'])->name('mychecklist.weekform.item.photo.delete');
     Route::post ('my-checklist/weekform/submit',         [MyChecklistController::class, 'weekSubmit'])    ->name('mychecklist.weekform.submit');
     Route::post ('my-checklist/weekform/reopen-self',    [MyChecklistController::class, 'weekReopenSelf'])->name('mychecklist.weekform.reopen-self');
+    Route::post ('my-checklist/weekform/excuse',         [MyChecklistController::class, 'weekExcuse'])    ->name('mychecklist.weekform.excuse');
+    Route::post ('my-checklist/weekform/unexcuse',       [MyChecklistController::class, 'weekUnexcuse'])  ->name('mychecklist.weekform.unexcuse');
 
     // CRUD - Setoran (cash deposit dari pasien)
     Route::get('setoran',                         [CashDepositController::class, 'index'])->name('setoran');

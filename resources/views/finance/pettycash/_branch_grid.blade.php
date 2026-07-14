@@ -1,13 +1,19 @@
 {{--
     Finance dashboard — grid card per cabang.
-    Variables: $rupiah, $branchSummaries (array of obj{id,name,opening,cash_in,cash_out,closing,last_activity,period_closed})
+    Variables:
+      $rupiah, $branchSummaries (array of obj{id,name,opening,cash_in,cash_out,closing,last_activity,period_closed})
+      $year, $month (opsional — untuk link "Riwayat"; fallback ke bulan berjalan)
 --}}
+@php
+    $gridYear  = $year  ?? (int) date('Y');
+    $gridMonth = $month ?? (int) date('n');
+@endphp
 <div class="fpc-section">
     <div class="fpc-section__head">
         <h5 class="fpc-section__title">
             <i class="fa fa-building"></i> Saldo per Cabang
         </h5>
-        <small class="fpc-section__sub fpc-section__sub--link">Klik kartu untuk buka halaman cabang</small>
+        <small class="fpc-section__sub fpc-section__sub--link">Klik kartu untuk lihat riwayat transaksi cabang</small>
     </div>
 
     <div class="fpc-branch-grid">
@@ -24,9 +30,13 @@
                 $status      = $isIdle ? 'idle' : ($isLow ? 'low' : 'healthy');
                 $statusLabel = $isIdle ? 'Idle' : ($isLow ? 'Saldo Rendah' : 'Normal');
             @endphp
-            <a href="{{ route('pettycash', ['branch' => $b->id]) }}"
-               class="fpc-branch-card fpc-branch-card--{{ $status }} {{ $b->period_closed ? 'is-closed' : '' }}"
-               title="Buka pettycash {{ $b->name }}">
+            <div class="fpc-branch-card fpc-branch-card--{{ $status }} {{ $b->period_closed ? 'is-closed' : '' }}">
+
+                {{-- Stretched link: klik area kartu → halaman Riwayat transaksi cabang. --}}
+                <a href="{{ route('finance.pettycash.branch-history', ['branchId' => $b->id, 'year' => $gridYear, 'month' => $gridMonth]) }}"
+                   class="fpc-branch-card__stretch"
+                   aria-label="Lihat riwayat transaksi {{ $b->name }}"
+                   title="Lihat riwayat transaksi {{ $b->name }}"></a>
 
                 <div class="fpc-branch-card__head">
                     <div class="fpc-branch-card__name-wrap">
@@ -74,19 +84,22 @@
                 </div>
 
                 <div class="fpc-branch-card__footer">
-                    @if($b->last_activity)
-                        <i class="fa fa-clock-rotate-left"></i>
-                        Aktivitas terakhir {{ $b->last_activity->translatedFormat('d M, H:i') }}
-                    @else
-                        <i class="fa fa-circle-minus"></i>
-                        Belum ada aktivitas bulan ini
-                    @endif
+                    <span class="fpc-branch-card__footer-info">
+                        @if($b->last_activity)
+                            <i class="fa fa-history"></i>
+                            Aktivitas terakhir {{ $b->last_activity->translatedFormat('d M, H:i') }}
+                        @else
+                            <i class="fa fa-minus-circle"></i>
+                            Belum ada aktivitas bulan ini
+                        @endif
+                    </span>
+                    <span class="fpc-branch-card__footer-cta">Lihat riwayat <i class="fa fa-arrow-right"></i></span>
                 </div>
 
                 @if($b->period_closed)
                     <span class="fpc-branch-card__locked"><i class="fa fa-lock"></i> Periode Ditutup</span>
                 @endif
-            </a>
+            </div>
         @endforeach
     </div>
 </div>
@@ -106,8 +119,21 @@
     border-radius: 14px;
     text-decoration: none;
     color: inherit;
+    cursor: pointer;
     transition: box-shadow .2s, transform .15s, border-color .15s;
     overflow: hidden;
+}
+/* Stretched link menutupi seluruh kartu (di bawah elemen interaktif lain). */
+.fpc-branch-card__stretch {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    border-radius: 14px;
+    text-decoration: none;
+}
+.fpc-branch-card__stretch:focus-visible {
+    outline: 2px solid var(--brown);
+    outline-offset: -3px;
 }
 .fpc-branch-card::before {
     content: "";
@@ -190,10 +216,22 @@
 
 .fpc-branch-card__footer {
     font-size: 11.5px; color: #64748b; font-weight: 500;
-    display: inline-flex; align-items: center; gap: 5px;
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
     margin-top: 8px;
 }
 .fpc-branch-card__footer i { font-size: 10px; }
+.fpc-branch-card__footer-info { display: inline-flex; align-items: center; gap: 5px; min-width: 0; }
+
+/* CTA hint di footer — seluruh kartu adalah link (stretched) ke Riwayat. */
+.fpc-branch-card__footer-cta {
+    display: inline-flex; align-items: center; gap: 5px;
+    flex-shrink: 0;
+    color: var(--brown); font-size: 11px; font-weight: 700;
+    white-space: nowrap; opacity: .8;
+    transition: gap .15s, opacity .15s;
+}
+.fpc-branch-card__footer-cta i { font-size: 9px; }
+.fpc-branch-card:hover .fpc-branch-card__footer-cta { opacity: 1; gap: 8px; }
 
 .fpc-branch-card__locked {
     position: absolute; top: 12px; right: 12px;

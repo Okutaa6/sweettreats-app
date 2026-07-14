@@ -71,6 +71,10 @@ class DigitalChecklistController extends Controller
             'pending'       => $countByStatus[ChecklistSubmission::STATUS_SUBMITTED] ?? 0,
             'approved'      => $countByStatus[ChecklistSubmission::STATUS_APPROVED] ?? 0,
             'rejected'      => $countByStatus[ChecklistSubmission::STATUS_REJECTED] ?? 0,
+            // Excused (dikecualikan) TIDAK dihitung sebagai "belum diisi": baris
+            // excused sudah ikut $submissionsToday->count() dan bukan draft, jadi
+            // otomatis ter-exclude dari not_submitted di bawah.
+            'excused'       => $countByStatus[ChecklistSubmission::STATUS_EXCUSED] ?? 0,
             'not_submitted' => max(0, $totalActiveEmployees - $submissionsToday->count()
                               + ($countByStatus[ChecklistSubmission::STATUS_DRAFT] ?? 0)),
         ];
@@ -84,20 +88,27 @@ class DigitalChecklistController extends Controller
                 ->pluck('user_id')->unique();
 
             $total = $userIds->count();
-            $submitted = ChecklistSubmission::query()
+            $subToday = ChecklistSubmission::query()
                 ->whereDate('submission_date', $today)
                 ->whereIn('user_id', $userIds)
-                ->whereIn('status', [
-                    ChecklistSubmission::STATUS_SUBMITTED,
-                    ChecklistSubmission::STATUS_APPROVED,
-                    ChecklistSubmission::STATUS_REJECTED,
-                ])->count();
+                ->get(['status']);
+            $submitted = $subToday->whereIn('status', [
+                ChecklistSubmission::STATUS_SUBMITTED,
+                ChecklistSubmission::STATUS_APPROVED,
+                ChecklistSubmission::STATUS_REJECTED,
+            ])->count();
+            $excused = $subToday->where('status', ChecklistSubmission::STATUS_EXCUSED)->count();
+
+            // Karyawan yang dikecualikan tidak masuk denominator (tidak perlu isi).
+            $effectiveTotal = max(0, $total - $excused);
 
             return (object) [
                 'division'   => $div,
                 'total'      => $total,
                 'submitted'  => $submitted,
-                'pct'        => $total ? (int) round($submitted / $total * 100) : 0,
+                'excused'    => $excused,
+                // 100% bila semua yang wajib sudah isi; kalau semua dikecualikan → tampil 100%.
+                'pct'        => $effectiveTotal ? (int) round($submitted / $effectiveTotal * 100) : ($total ? 100 : 0),
             ];
         });
 
@@ -148,6 +159,7 @@ class DigitalChecklistController extends Controller
             'submitted' => (clone $countsBase)->where('status', ChecklistSubmission::STATUS_SUBMITTED)->count(),
             'approved'  => (clone $countsBase)->where('status', ChecklistSubmission::STATUS_APPROVED)->count(),
             'rejected'  => (clone $countsBase)->where('status', ChecklistSubmission::STATUS_REJECTED)->count(),
+            'excused'   => (clone $countsBase)->where('status', ChecklistSubmission::STATUS_EXCUSED)->count(),
             'missed'    => (clone $countsBase)->where('status', ChecklistSubmission::STATUS_MISSED)->count(),
         ];
 
@@ -286,6 +298,36 @@ class DigitalChecklistController extends Controller
             ->with('success', 'Checklist di-reopen — kembali ke status Menunggu Approval.');
     }
 
+    /**
+     * Override supervisor: batalkan pengecualian ("Dikecualikan" → draft) bila
+     * dinilai tidak valid, sehingga karyawan diminta mengisi checklist.
+     */
+    public function revokeExcuse(Request $request, string $id)
+    {
+        $this->guard();
+
+        $sub = ChecklistSubmission::findOrFail($id);
+        $this->abortIfBranchMismatch($sub);
+
+        if ($sub->status !== ChecklistSubmission::STATUS_EXCUSED) {
+            return back()->with('error', 'Hanya checklist berstatus Dikecualikan yang bisa dibatalkan.');
+        }
+
+        $before = ['status' => $sub->status, 'excuse_reason' => $sub->excuse_reason];
+        $sub->update([
+            'status'        => ChecklistSubmission::STATUS_DRAFT,
+            'excuse_reason' => null,
+            'updated_at'    => now(),
+        ]);
+        ChecklistAuditLog::write('submission', $sub->id, ChecklistAuditLog::ACTION_REOPEN,
+            $before, ['status' => $sub->status], 'Supervisor membatalkan pengecualian.');
+
+        $this->notifyEmployee($sub, 'checklist.excuse.revoked', 'Pengecualian dibatalkan',
+            'Pengecualian checklist ' . $sub->submission_date->format('d M Y') . ' dibatalkan supervisor — silakan isi checklist.');
+
+        return redirect()->route('checklist.review')->with('success', 'Pengecualian dibatalkan. Karyawan diminta mengisi checklist.');
+    }
+
     /* ─── Audit Trail ──────────────────────────────────────────────────── */
 
     public function audit(Request $request)
@@ -358,38 +400,55 @@ class DigitalChecklistController extends Controller
             });
         }
 
-        $users = $query->orderBy('users.nama')->get();
-        $userIds = $users->pluck('id');
+        $users = $query->orderBy('users.nama')->get()->keyBy('id');
+        $userIds = $users->keys();
 
-        // Ambil posisi aktif untuk semua user sekaligus.
+        // Posisi AKTIF (confirmed) & USULAN pending, per user.
         $today = Carbon::today();
-        $positions = UserPosition::query()
+        $active = UserPosition::query()
             ->activeOn($today)
             ->whereIn('user_id', $userIds)
             ->with(['division', 'branch'])
             ->get()
             ->keyBy('user_id');
+        $pending = UserPosition::query()
+            ->pending()
+            ->whereIn('user_id', $userIds)
+            ->with(['division', 'branch'])
+            ->get()
+            ->keyBy('user_id');
 
-        // Attach position ke each user object.
-        $rows = $users->map(function ($u) use ($positions, $branchId) {
-            $pos = $positions->get($u->id);
+        // Hanya user yang punya posisi aktif ATAU usulan pending yang muncul —
+        // user yang belum mengajukan apa pun tidak ditampilkan.
+        $relevantIds = $active->keys()->merge($pending->keys())->unique();
+
+        $rows = $relevantIds->map(function ($uid) use ($users, $active, $pending) {
+            $u = $users->get($uid);
+            if (! $u) return null;
+            $pos  = $active->get($uid);
+            $prop = $pending->get($uid);
             return (object) [
                 'user'      => $u,
                 'position'  => $pos,
                 'division'  => $pos?->division,
                 'branch'    => $pos?->branch,
+                'pending'   => $prop,
             ];
-        });
+        })->filter()->sortBy(fn($r) => $r->user->nama)->values();
 
-        // Filter post-query by division & branch (kalau dipilih) — biar
-        // user yang belum punya position tetap muncul kalau filter division=all.
+        // Filter divisi/cabang berlaku ke posisi aktif ATAU usulan.
         if ($filterDiv !== 'all') {
-            $rows = $rows->filter(fn($r) => $r->position && $r->position->division_id === $filterDiv);
+            $rows = $rows->filter(fn($r) =>
+                ($r->position && $r->position->division_id === $filterDiv)
+                || ($r->pending && $r->pending->division_id === $filterDiv)
+            )->values();
         }
         if ($branchId) {
-            $rows = $rows->filter(fn($r) => $r->position && $r->position->raw_branch_id === $branchId);
+            $rows = $rows->filter(fn($r) =>
+                ($r->position && $r->position->raw_branch_id === $branchId)
+                || ($r->pending && $r->pending->raw_branch_id === $branchId)
+            )->values();
         }
-        $rows = $rows->values();
 
         $divisions = ChecklistDivision::query()->where('is_active', 1)->orderBy('sort_order')->get();
         $branches  = RawBranch::orderBy('name')->get();
@@ -397,9 +456,9 @@ class DigitalChecklistController extends Controller
         // Stats
         $stats = [
             'total'       => $users->count(),
-            'assigned'    => $positions->count(),
-            'unassigned'  => $users->count() - $positions->count(),
-            'by_division' => $positions->groupBy('division_id')->map->count(),
+            'assigned'    => $active->count(),
+            'pending'     => $pending->count(),
+            'by_division' => $active->groupBy('division_id')->map->count(),
         ];
 
         return view('crud.checklist.positions', compact(
@@ -437,6 +496,7 @@ class DigitalChecklistController extends Controller
             ]);
         }
 
+        // Assign manual oleh supervisor = langsung dikonfirmasi (confirmed_at terisi).
         // Buat row baru
         $pos = UserPosition::create([
             'user_id'        => $userId,
@@ -445,9 +505,15 @@ class DigitalChecklistController extends Controller
             'is_primary'     => 1,
             'effective_from' => $today,
             'effective_to'   => null,
+            'confirmed_at'   => now(),
+            'confirmed_by'   => session('id'),
             'created_at'     => now(),
             'updated_at'     => now(),
         ]);
+
+        // Bersihkan usulan pending user ini (kalau ada) — sudah digantikan assign manual.
+        UserPosition::query()->pending()->where('user_id', $userId)
+            ->where('id', '!=', $pos->id)->delete();
 
         $user = Users::find($userId);
         $div  = ChecklistDivision::find($data['division_id']);
@@ -471,8 +537,12 @@ class DigitalChecklistController extends Controller
 
         $pos = UserPosition::with(['user', 'division'])->findOrFail($id);
 
+        // effective_to = kemarin, bukan hari ini — sebab scope activeOn() pakai
+        // "effective_to >= hari ini" (inklusif). Kalau di-set hari ini, posisi
+        // masih terhitung aktif seharian → seolah "tidak kecabut". Kemarin =
+        // nonaktif seketika. (Konsisten dgn penutupan posisi lama saat reassign.)
         $pos->update([
-            'effective_to' => Carbon::today(),
+            'effective_to' => Carbon::today()->subDay(),
             'updated_at'   => now(),
         ]);
 
@@ -487,6 +557,75 @@ class DigitalChecklistController extends Controller
 
         return redirect()->route('checklist.positions')
             ->with('success', 'Posisi karyawan dinonaktifkan.');
+    }
+
+    /**
+     * Supervisor mengonfirmasi usulan posisi (pending → aktif). Menutup posisi
+     * aktif lama user (kalau ada) supaya hanya 1 yang aktif.
+     */
+    public function positionConfirm(string $id)
+    {
+        $this->guard();
+
+        $pos = UserPosition::with(['user', 'division'])->findOrFail($id);
+        if ($pos->confirmed_at) {
+            return back()->with('info', 'Posisi ini sudah dikonfirmasi.');
+        }
+
+        $today = Carbon::today();
+
+        // Tutup posisi aktif lama user (kalau ada) sebelum aktifkan usulan ini.
+        UserPosition::query()->activeOn($today)
+            ->where('user_id', $pos->user_id)
+            ->where('id', '!=', $pos->id)
+            ->update(['effective_to' => $today->copy()->subDay(), 'updated_at' => now()]);
+
+        $pos->update([
+            'confirmed_at'   => now(),
+            'confirmed_by'   => session('id'),
+            'effective_from' => $today,
+            'updated_at'     => now(),
+        ]);
+
+        ChecklistAuditLog::write(
+            'submission',
+            $pos->id,
+            ChecklistAuditLog::ACTION_UPDATE,
+            null,
+            ['division_id' => $pos->division_id, 'raw_branch_id' => $pos->raw_branch_id],
+            'Konfirmasi posisi ' . ($pos->user?->nama ?? '-') . ' → ' . ($pos->division?->name ?? $pos->division_id)
+        );
+
+        return redirect()->route('checklist.positions')
+            ->with('success', 'Posisi ' . ($pos->user?->nama ?? '-') . ' dikonfirmasi — karyawan sekarang bisa mengisi checklist.');
+    }
+
+    /**
+     * Supervisor menolak usulan posisi (pending) — row dihapus. Yang sudah
+     * dikonfirmasi tidak bisa ditolak (pakai Nonaktifkan).
+     */
+    public function positionReject(string $id)
+    {
+        $this->guard();
+
+        $pos = UserPosition::with(['user', 'division'])->findOrFail($id);
+        if ($pos->confirmed_at) {
+            return back()->with('error', 'Posisi yang sudah dikonfirmasi tidak bisa ditolak — gunakan Nonaktifkan.');
+        }
+
+        ChecklistAuditLog::write(
+            'submission',
+            $pos->id,
+            ChecklistAuditLog::ACTION_DELETE,
+            ['division_id' => $pos->division_id, 'raw_branch_id' => $pos->raw_branch_id],
+            null,
+            'Usulan posisi ' . ($pos->user?->nama ?? '-') . ' (' . ($pos->division?->name ?? $pos->division_id) . ') ditolak'
+        );
+
+        $pos->delete();
+
+        return redirect()->route('checklist.positions')
+            ->with('success', 'Usulan posisi ditolak.');
     }
 
     /* ─── Review Form Mingguan (supervisor) ────────────────────────────── */
@@ -519,6 +658,7 @@ class DigitalChecklistController extends Controller
             'submitted' => (clone $countsBase)->where('status', ChecklistWeeklySubmission::STATUS_SUBMITTED)->count(),
             'approved'  => (clone $countsBase)->where('status', ChecklistWeeklySubmission::STATUS_APPROVED)->count(),
             'rejected'  => (clone $countsBase)->where('status', ChecklistWeeklySubmission::STATUS_REJECTED)->count(),
+            'excused'   => (clone $countsBase)->where('status', ChecklistWeeklySubmission::STATUS_EXCUSED)->count(),
             'draft'     => (clone $countsBase)->where('status', ChecklistWeeklySubmission::STATUS_DRAFT)->count(),
         ];
 
@@ -658,6 +798,35 @@ class DigitalChecklistController extends Controller
 
         return redirect()->route('checklist.review.weekly.show', $sub->id)
             ->with('success', 'Form Mingguan di-reopen — kembali ke status Menunggu Approval.');
+    }
+
+    /**
+     * Override supervisor: batalkan pengecualian Form Mingguan (excused → draft).
+     */
+    public function weeklyRevokeExcuse(Request $request, string $id)
+    {
+        $this->guard();
+
+        $sub = ChecklistWeeklySubmission::findOrFail($id);
+        $this->abortIfBranchMismatchWeekly($sub);
+
+        if ($sub->status !== ChecklistWeeklySubmission::STATUS_EXCUSED) {
+            return back()->with('error', 'Hanya Form Mingguan berstatus Dikecualikan yang bisa dibatalkan.');
+        }
+
+        $before = ['status' => $sub->status, 'excuse_reason' => $sub->excuse_reason];
+        $sub->update([
+            'status'        => ChecklistWeeklySubmission::STATUS_DRAFT,
+            'excuse_reason' => null,
+            'updated_at'    => now(),
+        ]);
+        ChecklistAuditLog::write('weekly_submission', $sub->id, ChecklistAuditLog::ACTION_REOPEN,
+            $before, ['status' => $sub->status], 'Supervisor membatalkan pengecualian Form Mingguan.');
+
+        $this->notifyEmployeeWeekly($sub, 'checklist.weekly.excuse.revoked', 'Pengecualian dibatalkan',
+            'Pengecualian Form Mingguan ' . $sub->weekLabel() . ' dibatalkan supervisor — silakan isi form.');
+
+        return redirect()->route('checklist.review.weekly')->with('success', 'Pengecualian dibatalkan. Karyawan diminta mengisi Form Mingguan.');
     }
 
     /* ─── Helpers ──────────────────────────────────────────────────────── */

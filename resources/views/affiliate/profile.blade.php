@@ -99,19 +99,19 @@
 
             @if(session('success'))
                 <div class="sm-alert sm-alert-success">
-                    <i class="fa-solid fa-circle-check"></i>
+                    <i class="fa-solid fa-check-circle"></i>
                     <div>{{ session('success') }}</div>
                 </div>
             @endif
             @if(session('error'))
                 <div class="sm-alert sm-alert-error">
-                    <i class="fa-solid fa-circle-exclamation"></i>
+                    <i class="fa-solid fa-exclamation-circle"></i>
                     <div>{{ session('error') }}</div>
                 </div>
             @endif
             @if($errors->any())
                 <div class="sm-alert sm-alert-error">
-                    <i class="fa-solid fa-circle-exclamation"></i>
+                    <i class="fa-solid fa-exclamation-circle"></i>
                     <div>
                         @foreach($errors->all() as $err)
                             <div>{{ $err }}</div>
@@ -234,7 +234,7 @@
                     </div>
 
                     <div class="sm-sub-title">
-                        <i class="fa-solid fa-share-nodes"></i> Social Media
+                        <i class="fa-solid fa-share-alt"></i> Social Media
                     </div>
 
                     <div class="sm-form-group">
@@ -269,7 +269,7 @@
 
                     <div style="margin-top:12px;">
                         <button type="submit" class="sm-submit-btn">
-                            <i class="fa-solid fa-floppy-disk"></i> Simpan Perubahan
+                            <i class="fa-solid fa-save"></i> Simpan Perubahan
                         </button>
                     </div>
                 </form>

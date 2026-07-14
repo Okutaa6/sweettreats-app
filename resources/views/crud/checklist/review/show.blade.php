@@ -10,6 +10,35 @@
         \App\Models\ChecklistSubmission::STATUS_REJECTED,
     ], true);
 @endphp
+
+<style>
+    /* Review — kartu kategori accordion */
+    .rv-cat { background:#fff; border:1px solid #E7D6C2; border-radius:14px; overflow:hidden; margin-bottom:12px; box-shadow:0 2px 8px rgba(45,24,16,.05); }
+    .rv-cat:last-child { margin-bottom:0; }
+    .rv-cat__head { display:flex; align-items:center; gap:12px; padding:13px 16px; cursor:pointer; user-select:none; background:linear-gradient(180deg,#FFFFFF 0%, #FAF4EC 100%); }
+    .rv-cat__num { width:30px; height:30px; border-radius:8px; background:linear-gradient(135deg,#9B5E2C,#5C2E15); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:13px; flex-shrink:0; box-shadow:0 2px 4px rgba(71,21,0,.2); }
+    .rv-cat__title { flex:1; min-width:0; font-size:14px; font-weight:700; color:#2D1810; }
+    .rv-cat__pill { font-size:11.5px; font-weight:700; padding:3px 10px; border-radius:999px; white-space:nowrap; }
+    .rv-cat__pill--good { background:rgba(31,110,95,.12); color:#1F6E5F; }
+    .rv-cat__pill--warn { background:rgba(166,96,25,.12); color:#A66019; }
+    .rv-cat__caret { width:26px; height:26px; border-radius:50%; background:#fff; border:1px solid #E0D2C1; color:#5C2E15; font-size:12px; display:flex; align-items:center; justify-content:center; transition:transform .25s ease; flex-shrink:0; }
+    .rv-cat.is-collapsed .rv-cat__caret { transform:rotate(-90deg); }
+    .rv-cat__body { display:grid; grid-template-rows:1fr; transition:grid-template-rows .3s ease; }
+    .rv-cat.is-collapsed .rv-cat__body { grid-template-rows:0fr; }
+    .rv-cat__body-inner { overflow:hidden; min-height:0; border-top:1px solid #F0E8DC; }
+    .rv-cat.is-collapsed .rv-cat__body-inner { border-top:none; }
+
+    .rv-task { display:flex; align-items:flex-start; gap:11px; padding:12px 16px; border-bottom:1px solid #F5EBE0; font-size:13px; }
+    .rv-task:last-child { border-bottom:none; }
+    .rv-task__check { width:22px; height:22px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; }
+    .rv-task__check--done { background:#1F6E5F; color:#fff; }
+    .rv-task__check--todo { background:#F5F0EA; color:#9B8578; border:1px solid #E0D2C1; }
+    .rv-task__title { color:#2D1810; line-height:1.5; }
+    .rv-task.is-todo .rv-task__title { color:#9B8578; }
+    .rv-task__note { font-size:11.5px; color:#5A3A22; margin-top:5px; padding:7px 10px; background:#FFFDF9; border:1px solid #EFE1CF; border-radius:8px; border-left:3px solid #9B5E2C; line-height:1.5; }
+    .rv-task__time { font-size:10.5px; color:#9B8578; flex-shrink:0; margin-top:2px; }
+</style>
+
 <div class="container-fluid">
     <div class="row">
         <div class="col-sm-12">
@@ -95,6 +124,15 @@
                                 <div style="font-size:13px; color:#2D1810; line-height:1.5;">{{ $submission->review_notes }}</div>
                             </div>
                         @endif
+
+                        @if($submission->status === \App\Models\ChecklistSubmission::STATUS_EXCUSED && $submission->excuse_reason)
+                            <div style="margin-top:14px; padding:12px 14px; background:#FFF; border:1px solid #E0D2C1; border-left:4px solid #A66019; border-radius:8px;">
+                                <div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.4px; color:#A66019; margin-bottom:4px;">
+                                    <i class="fas fa-mug-hot"></i> Dikecualikan — alasan karyawan
+                                </div>
+                                <div style="font-size:13px; color:#2D1810; line-height:1.5;">{{ $submission->excuse_reason }}</div>
+                            </div>
+                        @endif
                     </div>
 
                     {{-- ITEM LIST per kategori --}}
@@ -110,35 +148,30 @@
                                 @php
                                     $catDone  = $items->where('is_done', true)->count();
                                     $catTotal = $items->count();
+                                    $allDone  = $catDone === $catTotal;
                                 @endphp
-                                <div class="st-card" style="margin-bottom:12px;">
-                                    <div class="st-card__body" style="padding:0;">
-                                        <div style="padding:10px 14px; background:#FFFFFF; border-bottom:1px solid #E0D2C1; display:flex; justify-content:space-between; align-items:center;">
-                                            <h6 style="margin:0; font-size:13px; font-weight:700; color:#2D1810;">
-                                                <i class="fas fa-folder" style="color:#9B5E2C; margin-right:6px; font-size:11px;"></i>
-                                                {{ $catTitle }}
-                                            </h6>
-                                            <span class="st-pill st-pill--{{ $catDone === $catTotal ? 'success' : 'warning' }}">
-                                                {{ $catDone }}/{{ $catTotal }}
-                                            </span>
-                                        </div>
-                                        <div>
+                                <div class="rv-cat is-collapsed">
+                                    <div class="rv-cat__head" data-rv-toggle>
+                                        <span class="rv-cat__num">{{ $loop->iteration }}</span>
+                                        <span class="rv-cat__title">{{ $catTitle }}</span>
+                                        <span class="rv-cat__pill rv-cat__pill--{{ $allDone ? 'good' : 'warn' }}">
+                                            @if($allDone)<i class="fas fa-check" style="font-size:9px;"></i> @endif{{ $catDone }}/{{ $catTotal }}
+                                        </span>
+                                        <i class="fas fa-chevron-down rv-cat__caret"></i>
+                                    </div>
+                                    <div class="rv-cat__body">
+                                        <div class="rv-cat__body-inner">
                                             @foreach($items as $item)
-                                                <div style="display:flex; align-items:flex-start; gap:10px; padding:10px 14px; border-bottom:1px solid #F0E8DC; font-size:13px;">
-                                                    <span style="width:22px; height:22px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; background:{{ $item->is_done ? '#1F6E5F' : '#F5F0EA' }}; color:{{ $item->is_done ? '#fff' : '#9B8578' }};">
-                                                        @if($item->is_done) ✓ @endif
-                                                    </span>
+                                                <div class="rv-task {{ $item->is_done ? '' : 'is-todo' }}">
+                                                    <span class="rv-task__check {{ $item->is_done ? 'rv-task__check--done' : 'rv-task__check--todo' }}">@if($item->is_done)✓@endif</span>
                                                     <div style="flex:1; min-width:0;">
-                                                        <div style="color:#2D1810; {{ $item->is_done ? '' : 'opacity:.7;' }}">{{ $item->task_title_snapshot }}</div>
+                                                        <div class="rv-task__title">{{ $item->task_title_snapshot }}</div>
                                                         @if($item->note)
-                                                            <div style="font-size:11.5px; color:#6B4423; margin-top:3px; padding:6px 8px; background:#FFF; border-radius:6px; border-left:3px solid #9B5E2C;">
-                                                                <i class="fas fa-pen-to-square" style="font-size:10px; margin-right:4px;"></i>
-                                                                {{ $item->note }}
-                                                            </div>
+                                                            <div class="rv-task__note"><i class="fas fa-edit" style="font-size:10px; margin-right:4px;"></i>{{ $item->note }}</div>
                                                         @endif
                                                     </div>
                                                     @if($item->done_at)
-                                                        <span style="font-size:10.5px; color:#9B8578; flex-shrink:0;">{{ $item->done_at->format('H:i') }}</span>
+                                                        <span class="rv-task__time">{{ $item->done_at->format('H:i') }}</span>
                                                     @endif
                                                 </div>
                                             @endforeach
@@ -164,14 +197,14 @@
                                         @csrf @method('PATCH')
                                         <input type="hidden" name="review_notes" value="">
                                         <button type="submit" class="st-btn-brand">
-                                            <i class="fas fa-circle-check"></i> Setujui
+                                            <i class="fas fa-check-circle"></i> Setujui
                                         </button>
                                     </form>
                                     <form method="POST" action="{{ route('checklist.review.reject', $submission->id) }}" style="display:inline;" onsubmit="var n=document.getElementById('reviewNotes').value.trim(); if(!n){alert('Catatan wajib diisi saat menolak.'); return false;} this.querySelector('input[name=review_notes]').value = n; return confirm('Yakin tolak checklist ini? Karyawan akan diberitahu untuk perbaiki.');">
                                         @csrf @method('PATCH')
                                         <input type="hidden" name="review_notes" value="">
                                         <button type="submit" class="st-btn-outline-brown" style="color:#A32D2D; border-color:#A32D2D;">
-                                            <i class="fas fa-circle-xmark"></i> Tolak
+                                            <i class="fas fa-times-circle"></i> Tolak
                                         </button>
                                     </form>
                                 </div>
@@ -179,7 +212,7 @@
                                 <form method="POST" action="{{ route('checklist.review.reopen', $submission->id) }}" onsubmit="return confirm('Reopen checklist ini? Status akan kembali ke Menunggu Approval.');">
                                     @csrf @method('PATCH')
                                     <button type="submit" class="st-btn-outline-brown">
-                                        <i class="fas fa-rotate-left"></i> Reopen
+                                        <i class="fas fa-undo"></i> Reopen
                                     </button>
                                     <small style="color:#9B8578; margin-left:8px;">
                                         Reopen untuk mengubah keputusan review jika ada kesalahan.
@@ -189,9 +222,42 @@
                         </div>
                     @endif
 
+                    @if($submission->status === \App\Models\ChecklistSubmission::STATUS_EXCUSED)
+                        <div style="padding:18px 22px; border-top:1px solid #E0D2C1; background:#FFFFFF;">
+                            <form method="POST" action="{{ route('checklist.review.excuse.revoke', $submission->id) }}"
+                                  onsubmit="return confirm('Batalkan pengecualian ini? Karyawan akan diminta mengisi checklist.');">
+                                @csrf @method('PATCH')
+                                <button type="submit" class="st-btn-outline-brown" style="color:#A32D2D; border-color:#A32D2D;">
+                                    <i class="fas fa-undo"></i> Batalkan Pengecualian
+                                </button>
+                                <small style="color:#9B8578; margin-left:8px;">
+                                    Karyawan menandai hari ini "tidak perlu diisi". Batalkan bila tidak valid.
+                                </small>
+                            </form>
+                        </div>
+                    @endif
+
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+<script>
+(function () {
+    var cats = Array.prototype.slice.call(document.querySelectorAll('.rv-cat'));
+    // Default: hanya kategori pertama terbuka.
+    cats.forEach(function (c, i) { c.classList.toggle('is-collapsed', i !== 0); });
+
+    document.querySelectorAll('.rv-cat__head[data-rv-toggle]').forEach(function (head) {
+        head.addEventListener('click', function () {
+            var cat = head.closest('.rv-cat');
+            if (! cat) return;
+            var willOpen = cat.classList.contains('is-collapsed');
+            cats.forEach(function (c) { c.classList.add('is-collapsed'); });
+            if (willOpen) cat.classList.remove('is-collapsed');
+        });
+    });
+})();
+</script>
 @endsection

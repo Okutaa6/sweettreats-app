@@ -532,7 +532,7 @@
                             <tr>
                                 <td>Tindakan</td>
                                 <td>
-                                    <form method="POST" action="{{ route('rawreservation.commission.approve', [$reservation->id, $comm->id]) }}" class="m-0">
+                                    <form method="POST" action="{{ route('rawreservation.commission.approve', [$reservation->id, $comm->id]) }}" class="m-0 rrf-comm-form">
                                         @csrf @method('PATCH')
                                         <button class="st-btn-brand" type="submit"><i class="fa fa-check"></i> Approve Komisi</button>
                                     </form>
@@ -542,7 +542,7 @@
                             <tr>
                                 <td>Tindakan</td>
                                 <td>
-                                    <form method="POST" action="{{ route('rawreservation.commission.pay', [$reservation->id, $comm->id]) }}" class="m-0">
+                                    <form method="POST" action="{{ route('rawreservation.commission.pay', [$reservation->id, $comm->id]) }}" class="m-0 rrf-comm-form">
                                         @csrf @method('PATCH')
                                         <button class="st-btn-brand" type="submit"><i class="fa fa-money-bill-wave"></i> Tandai Sudah Dibayar</button>
                                     </form>

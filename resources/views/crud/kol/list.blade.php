@@ -412,7 +412,7 @@
                                     <tr>
                                         <td colspan="12">
                                             <div class="st-empty-state">
-                                                <i class="fa fa-users-slash" aria-hidden="true"></i>
+                                                <i class="fa fa-user-slash" aria-hidden="true"></i>
                                                 <div class="st-empty-state__title">Belum ada KOL bulan ini</div>
                                                 <div class="st-empty-state__desc">
                                                     @if($search || $filterProgress !== 'all' || $filterKategori !== 'all' || $filterBranch !== 'all')

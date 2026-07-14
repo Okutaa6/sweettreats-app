@@ -48,7 +48,7 @@
             <div class="mds-kpi__sub">total kunjungan bln ini</div>
         </div>
         <div class="mds-kpi">
-            <div class="mds-chip" style="background:#E4ECFB;color:#3C5FA8;"><i class="fa fa-photo-video"></i></div>
+            <div class="mds-chip" style="background:#E4ECFB;color:#3C5FA8;"><i class="fa fa-images"></i></div>
             <div class="mds-kpi__label">Konten Tayang</div>
             <div class="mds-kpi__val">{{ $kpi['konten_tayang'] }}</div>
             <div class="mds-kpi__sub">jadwal upload bln ini</div>
@@ -215,7 +215,7 @@
     <div class="mds-grid mds-grid--t4">
         {{-- PRODUKSI KONTEN --}}
         <div class="mds-card">
-            <div class="mds-sec"><span class="mds-sec__ic" style="background:#E2F1EA;color:#2C8C63;"><i class="fa fa-photo-video"></i></span>
+            <div class="mds-sec"><span class="mds-sec__ic" style="background:#E2F1EA;color:#2C8C63;"><i class="fa fa-images"></i></span>
                 Produksi Konten <span class="mds-sec__sub">— {{ $content['total'] }} konten</span></div>
             @if ($content['total'] > 0)
                 <div class="mds-statbars">
@@ -283,6 +283,10 @@
             <div class="sds-pm__sec sds-pm__sec--sk" id="pmSkWrap">
                 <div class="sds-pm__lbl"><i class="fa fa-shield-alt"></i> Syarat &amp; Ketentuan</div>
                 <div class="sds-pm__body" id="pmSk"></div>
+            </div>
+            <div class="sds-pm__sec" id="pmCetakanWrap">
+                <div class="sds-pm__lbl"><i class="fa fa-print"></i> Cetakan</div>
+                <div class="sds-pm__body" id="pmCetakan"></div>
             </div>
             <div class="sds-pm__foot">
                 <span class="sds-pm__date" id="pmDateWrap"><i class="fa fa-calendar-alt"></i> <span id="pmDate"></span></span>
@@ -545,6 +549,7 @@
         } else { hemat.style.display = 'none'; }
         setBlock('pmDetailWrap', 'pmDetail', el.dataset.detail);
         setBlock('pmSkWrap', 'pmSk', el.dataset.sk);
+        setBlock('pmCetakanWrap', 'pmCetakan', el.dataset.cetakan);
         document.getElementById('pmDate').textContent = el.dataset.date || '';
         document.getElementById('pmDateWrap').className = 'sds-pm__date' + (soon ? ' is-soon' : '');
         resetCopy();
@@ -562,6 +567,7 @@
         if (d.saverp) lines.push('Hemat: ' + d.saverp);
         if (d.detail) lines.push('', 'Detail:', d.detail);
         if (d.sk) lines.push('', 'S&K:', d.sk);
+        if (d.cetakan) lines.push('', 'Cetakan:', d.cetakan);
         if (d.date) lines.push('', 'Periode: ' + d.date);
         var text = lines.join('\n');
         if (navigator.clipboard && navigator.clipboard.writeText) {

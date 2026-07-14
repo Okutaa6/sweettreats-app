@@ -20,9 +20,6 @@
     $saldoMoMDelta          = $saldoMoMDelta ?? 0;
     $saldoMoMPct            = $saldoMoMPct ?? null;
     $prevMonthName          = $prevMonthName ?? '-';
-
-    // Palette warna untuk segmen distribusi (max 3 segmen tampil + rest)
-    $palette = ['#22c55e', '#06b6d4', '#a855f7', '#f59e0b'];
 @endphp
 <div class="fpc-kpi-grid">
     {{-- KPI 1: Total Saldo — primary, hero, dengan distribution bar + breakdown --}}
@@ -75,37 +72,6 @@
             </div>
         </div>
 
-        @if($totalSaldo > 0)
-            <div class="fpc-distribution">
-                <div class="fpc-distribution__bar">
-                    @foreach($distribution as $i => $d)
-                        <span class="fpc-distribution__seg"
-                              style="width: {{ $d->pct }}%; background: {{ $palette[$i] ?? '#94a3b8' }};"
-                              title="{{ $d->name }} — {{ $d->pct }}%"></span>
-                    @endforeach
-                </div>
-                <div class="fpc-distribution__legend">
-                    @foreach($distribution as $i => $d)
-                        <span class="fpc-distribution__chip">
-                            <span class="fpc-distribution__dot" style="background: {{ $palette[$i] ?? '#94a3b8' }};"></span>
-                            {{ $d->name }} <strong>{{ $d->pct }}%</strong>
-                        </span>
-                    @endforeach
-                    @if($distributionRestCount > 0)
-                        <span class="fpc-distribution__chip fpc-distribution__chip--muted">
-                            <span class="fpc-distribution__dot" style="background: rgba(255,255,255,0.55);"></span>
-                            {{ $distributionRestCount }} cabang lain <strong>{{ $distributionRestPct }}%</strong>
-                        </span>
-                    @endif
-                    @if($idleCount > 0)
-                        <span class="fpc-distribution__chip fpc-distribution__chip--muted">
-                            <span class="fpc-distribution__dot" style="background: rgba(255,255,255,0.35);"></span>
-                            {{ $idleCount }} cabang idle
-                        </span>
-                    @endif
-                </div>
-            </div>
-        @endif
     </div>
 
     {{-- KPI 2: Arus Kas Bulan Ini — Cash In vs Cash Out + Net Flow --}}
@@ -264,36 +230,6 @@
 .fpc-kpi-card--hero .fpc-kpi-card__value { color: #fff; font-size: 30px; }
 .fpc-kpi-card--hero .fpc-kpi-card__sub   { color: rgba(255,255,255,0.88); font-weight: 500; }
 .fpc-kpi-card--hero .fpc-kpi-card__icon  { background: rgba(255,255,255,0.15); color: #fff; }
-
-/* Distribution bar + legend di hero card */
-.fpc-distribution { margin-top: 14px; }
-.fpc-distribution__bar {
-    display: flex; gap: 2px;
-    width: 100%; height: 6px;
-    background: rgba(255,255,255,0.12);
-    border-radius: 999px;
-    overflow: hidden;
-    margin-bottom: 10px;
-}
-.fpc-distribution__seg {
-    display: block; height: 100%; border-radius: 999px;
-    transition: width .3s ease;
-}
-.fpc-distribution__legend {
-    display: flex; flex-wrap: wrap; gap: 8px 14px;
-    font-size: 11.5px;
-}
-.fpc-distribution__chip {
-    display: inline-flex; align-items: center; gap: 5px;
-    color: rgba(255,255,255,0.92);
-    font-weight: 500;
-}
-.fpc-distribution__chip strong { color: #fff; font-weight: 800; }
-.fpc-distribution__chip--muted { color: rgba(255,255,255,0.55); }
-.fpc-distribution__dot {
-    width: 8px; height: 8px; border-radius: 50%;
-    flex-shrink: 0;
-}
 
 /* MoM delta chip — di bawah angka total saldo hero */
 .fpc-mom {

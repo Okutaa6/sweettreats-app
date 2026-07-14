@@ -34,7 +34,7 @@
     @include('layouts.notif')
 
     <div class="bd-info-banner">
-        <i class="fa fa-circle-info"></i>
+        <i class="fa fa-info-circle"></i>
         <div>
             <strong>Breakdown</strong> adalah konten EP khusus untuk Promo, Event, atau Project tertentu — punya field tambahan (lokasi, ACC).
             Otomatis muncul di <a href="{{ route('epkonten') }}">Kalender EP</a> dengan badge <span class="bd-khusus-mini-pill">🎯 Khusus</span> di tanggal upload.
@@ -45,7 +45,7 @@
     <div class="ep-cal-toolbar">
         <form method="GET" class="ep-cal-filter-row" style="width:100%;">
             <div class="ep-search-wrap">
-                <i class="fa fa-magnifying-glass ep-search-icon"></i>
+                <i class="fa fa-search ep-search-icon"></i>
                 <input type="text" name="search" class="ep-search-input"
                        placeholder="Cari judul..." value="{{ $filterSearch }}" onchange="this.form.submit()">
             </div>
@@ -56,7 +56,7 @@
                 @endforeach
             </select>
             @if ($filterStatus || $filterSearch)
-                <a href="{{ route('epbreakdown') }}" class="ep-cal-nav-btn"><i class="fa fa-rotate-left"></i> Reset</a>
+                <a href="{{ route('epbreakdown') }}" class="ep-cal-nav-btn"><i class="fa fa-undo"></i> Reset</a>
             @endif
         </form>
     </div>
@@ -84,7 +84,7 @@
                         <span><i class="fa fa-calendar-day"></i> {{ $b->tanggal_upload->translatedFormat('d M Y') }}</span>
                     @endif
                     @if ($b->lokasi)
-                        <span><i class="fa fa-location-dot"></i> {{ $b->lokasi }}</span>
+                        <span><i class="fa fa-map-marker-alt"></i> {{ $b->lokasi }}</span>
                     @endif
                     @if ($b->acc_by)
                         <span><i class="fa fa-user-check"></i> ACC: {{ $b->acc_by }}</span>

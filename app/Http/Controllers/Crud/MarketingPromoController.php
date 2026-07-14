@@ -12,6 +12,10 @@ class MarketingPromoController extends Controller
 {
     public function index()
     {
+        // Self-heal: pastikan status promo selaras dengan periode saat list dibuka,
+        // walau scheduler harian belum sempat jalan. Idempoten & ringan.
+        MarketingPromo::syncStatuses();
+
         $perPage = $this->perPage;
 
         $filterStatus   = request('status');
@@ -269,8 +273,14 @@ class MarketingPromoController extends Controller
         $marginPct     = $hargaPromo > 0 ? round(($marginRp / $hargaPromo) * 100, 4) : null;
 
         $periodeStart = request('periode_start');
+        $periodeEnd   = request('periode_end');
         $bulan = $periodeStart ? \Carbon\Carbon::parse($periodeStart)->format('F') : null;
         $tahun = $periodeStart ? (int) \Carbon\Carbon::parse($periodeStart)->format('Y') : null;
+
+        // Kalau ada periode, status ikut tanggal (planning/aktif/selesai) —
+        // input status manual hanya dipakai untuk promo tanpa periode.
+        $status = MarketingPromo::deriveStatus($periodeStart ?: null, $periodeEnd ?: null)
+            ?? request('status');
 
         return [
             'promo' => [
@@ -282,8 +292,8 @@ class MarketingPromoController extends Controller
                 'bulan_promo'             => $bulan,
                 'tahun_promo'             => $tahun,
                 'periode_start'           => $periodeStart ?: null,
-                'periode_end'             => request('periode_end') ?: null,
-                'status'                  => request('status'),
+                'periode_end'             => $periodeEnd ?: null,
+                'status'                  => $status,
                 'harga_normal'            => request('harga_normal'),
                 'harga_promo'             => $hargaPromo ?: null,
                 'cogs_fee_dokter'         => $cogsFeeDokter ?: null,

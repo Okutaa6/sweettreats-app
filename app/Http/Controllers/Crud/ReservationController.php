@@ -1184,6 +1184,9 @@ class ReservationController extends Controller
             ->findOrFail($commissionId);
 
         if ($commission->status !== 'pending') {
+            if (request()->expectsJson()) {
+                return response()->json(['ok' => false, 'message' => 'Komisi harus berstatus pending untuk di-approve'], 422);
+            }
             return redirect()->route('rawreservation.edit', $reservationId)
                 ->with('error', 'Komisi harus berstatus pending untuk di-approve');
         }
@@ -1197,6 +1200,10 @@ class ReservationController extends Controller
             url("crud/reservation/{$reservationId}/edit")
         );
 
+        if (request()->expectsJson()) {
+            return response()->json(['ok' => true, 'message' => 'Komisi berhasil di-approve']);
+        }
+
         return redirect()->route('rawreservation.edit', $reservationId)
             ->with('success', 'Komisi berhasil di-approve');
     }
@@ -1208,6 +1215,9 @@ class ReservationController extends Controller
             ->findOrFail($commissionId);
 
         if ($commission->status !== 'approved') {
+            if (request()->expectsJson()) {
+                return response()->json(['ok' => false, 'message' => 'Komisi harus berstatus approved sebelum dibayar'], 422);
+            }
             return redirect()->route('rawreservation.edit', $reservationId)
                 ->with('error', 'Komisi harus berstatus approved sebelum dibayar');
         }
@@ -1220,6 +1230,13 @@ class ReservationController extends Controller
             'Komisi Rp ' . number_format($commission->amount) . ' telah dibayar oleh ' . session('name'),
             url("crud/reservation/{$reservationId}/edit")
         );
+
+        if (request()->expectsJson()) {
+            return response()->json(['ok' => true, 'message' => 'Komisi ditandai sudah dibayar']);
+        }
+
+        return redirect()->route('rawreservation.edit', $reservationId)
+            ->with('success', 'Komisi ditandai sudah dibayar');
     }
 
     public function serviceStore($reservationId)

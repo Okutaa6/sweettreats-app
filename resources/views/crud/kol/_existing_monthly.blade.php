@@ -45,7 +45,7 @@
             <span class="kol-monthly-toggle__count">{{ $monthlyTotal }} KOL</span>
             @if($monthlyCapped)
                 <span class="kol-monthly-toggle__hint" title="Dibatasi 500 entri terbaru — persempit filter untuk lihat selebihnya.">
-                    <i class="fa fa-circle-info"></i>
+                    <i class="fa fa-info-circle"></i>
                 </span>
             @endif
         </span>

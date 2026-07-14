@@ -30,7 +30,7 @@
                 </span>
             @else
                 <span class="sd-badge sd-badge--past">
-                    <i class="fa fa-clock-rotate-left"></i> Bulan lampau · read-only
+                    <i class="fa fa-history"></i> Bulan lampau · read-only
                 </span>
             @endif
         </div>
@@ -93,7 +93,7 @@
                                 </td>
                                 <td>
                                     @if($r->is_setor)
-                                        <i class="fa-solid fa-money-bill-transfer" style="color:#b45309;"></i>
+                                        <i class="fa-solid fa-money-bill-wave" style="color:#b45309;"></i>
                                         <strong>{{ $r->description ?: 'SETOR TUNAI' }}</strong>
                                         <span class="sd-pill-setor">setor</span>
                                     @else

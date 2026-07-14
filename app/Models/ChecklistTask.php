@@ -24,11 +24,12 @@ class ChecklistTask extends Model
 
     protected $fillable = [
         'id', 'category_id', 'title', 'description', 'day_of_week', 'requires_note',
-        'sort_order', 'is_active', 'created_at', 'updated_at', 'deleted_at',
+        'requires_photo', 'sort_order', 'is_active', 'created_at', 'updated_at', 'deleted_at',
     ];
 
     protected $casts = [
         'requires_note' => 'boolean',
+        'requires_photo'=> 'boolean',
         'day_of_week'   => 'integer',
         'sort_order'    => 'integer',
         'is_active'     => 'boolean',

@@ -112,11 +112,11 @@
             <div class="pc-tab-switcher" role="tablist">
                 <button type="button" class="pc-tab-switcher__btn is-active"
                         data-tab-target="transfer" role="tab" aria-selected="true">
-                    <i class="fa fa-right-left"></i> Mutasi
+                    <i class="fa fa-exchange-alt"></i> Mutasi
                 </button>
                 <button type="button" class="pc-tab-switcher__btn"
                         data-tab-target="topup" role="tab" aria-selected="false">
-                    <i class="fa fa-arrow-down-up-across-line"></i> Tambah Saldo
+                    <i class="fa fa-random"></i> Tambah Saldo
                 </button>
                 <button type="button" class="pc-tab-switcher__btn"
                         data-tab-target="expense" role="tab" aria-selected="false">
