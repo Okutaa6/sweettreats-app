@@ -43,6 +43,17 @@ class Kernel extends ConsoleKernel
             ->withoutOverlapping(60)
             ->runInBackground()
             ->appendOutputTo(storage_path('logs/omnicare-cron.log'));
+
+        // Accurate push — daily 03:30. Sync sendiri window 14 hari (sales/
+        // payments/commission), audit fresh-vs-pushed per hari per cabang,
+        // repair yang berubah (late entries), push yang baru. Idempoten penuh
+        // via accurate_push_log — aman di-rerun. Skip bersih kalau tabel
+        // accurate_credentials belum ada (env yang belum deploy Accurate).
+        $schedule->command('accurate:push-daily --days=14')
+            ->dailyAt('03:30')
+            ->withoutOverlapping(120)
+            ->runInBackground()
+            ->appendOutputTo(storage_path('logs/accurate-cron.log'));
     }
 
     /**

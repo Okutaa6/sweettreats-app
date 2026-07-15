@@ -134,6 +134,14 @@ return [
             'days' => 30,
             'replace_placeholders' => true,
         ],
+
+        'accurate' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/accurate.log'),
+            'level' => env('LOG_LEVEL', 'debug'),
+            'days' => 30,
+            'replace_placeholders' => true,
+        ],
     ],
 
 ];

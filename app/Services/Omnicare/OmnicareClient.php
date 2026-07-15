@@ -156,6 +156,54 @@ class OmnicareClient
         ]);
     }
 
+    /**
+     * /get/sales_payments — record pembayaran (uang masuk) untuk 1 cabang,
+     * max 31-day range. Optional filter method/pay_type/pid/invoice.
+     */
+    public function getSalesPayments(
+        string $placeId,
+        string $startYmd,
+        string $endYmd,
+        int $page = 1,
+        ?string $method = null,
+        ?string $payType = null,
+        ?string $pid = null,
+        ?string $invoice = null
+    ): OmnicareResponse {
+        $params = [
+            'place'    => $placeId,
+            'start'    => $startYmd,
+            'end'      => $endYmd,
+            'per_page' => $page,
+        ];
+        if ($method !== null)  { $params['method'] = $method; }
+        if ($payType !== null) { $params['pay_type'] = $payType; }
+        if ($pid !== null)     { $params['pid'] = $pid; }
+        if ($invoice !== null) { $params['invoice'] = $invoice; }
+
+        return $this->post('/get/sales_payments', $params);
+    }
+
+    /**
+     * /get/commission — detail komisi per baris (1 baris per tenaga medis per
+     * sale line), max 31-day range. commission_role = doctor|assistant.
+     * commission_type "" = flat (rate = nominal), "%" = persen. Komisi rujukan
+     * TIDAK termasuk. Basis "after payment" (ikut pembayaran yg sudah masuk).
+     */
+    public function getCommission(
+        string $placeId,
+        string $startYmd,
+        string $endYmd,
+        int $page = 1
+    ): OmnicareResponse {
+        return $this->post('/get/commission', [
+            'place'    => $placeId,
+            'start'    => $startYmd,
+            'end'      => $endYmd,
+            'per_page' => $page,
+        ]);
+    }
+
     public function getTimeSlots(
         string $placeId,
         string $docId,

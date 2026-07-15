@@ -35,6 +35,8 @@ return [
     'sales_endpoints' => [
         '/get/sales_detail',
         '/get/product_sales',
+        '/get/sales_payments',
+        '/get/commission',
     ],
 
     /*

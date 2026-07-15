@@ -50,6 +50,33 @@ final class PayloadNormalizer
         return $d ? $d->format('Y-m-d') : null;
     }
 
+    /**
+     * Parse DD-MM-YYYY (invoice_date di sales_payments) to Y-m-d, NULL if invalid.
+     */
+    public static function dateFromDmyDash($s): ?string
+    {
+        $s = self::str($s);
+        if ($s === null) {
+            return null;
+        }
+        $d = DateTime::createFromFormat('d-m-Y', $s);
+        return $d ? $d->format('Y-m-d') : null;
+    }
+
+    /**
+     * Parse DD-MM-YYYY HH:MM:SS (pay_date/process_date di sales_payments) to
+     * Y-m-d H:i:s datetime, NULL if invalid.
+     */
+    public static function dateTimeFromDmyHis($s): ?string
+    {
+        $s = self::str($s);
+        if ($s === null) {
+            return null;
+        }
+        $d = DateTime::createFromFormat('d-m-Y H:i:s', $s);
+        return $d ? $d->format('Y-m-d H:i:s') : null;
+    }
+
     /** Normalize phone ke format 08xxxxxxxxx via App\Support\Phone. */
     public static function phone($s): ?string
     {
