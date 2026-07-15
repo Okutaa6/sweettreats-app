@@ -516,11 +516,11 @@
                 <div style="display:inline-flex; gap:2px; padding:4px; background:#FFFFFF; border-radius:999px; border:1px solid #E0D2C1; box-shadow:0 1px 3px rgba(45,24,16,.06);">
                     <a href="{{ route('mychecklist') }}"
                        style="padding:8px 18px; font-size:13px; font-weight:700; text-decoration:none; border-radius:999px; background:linear-gradient(180deg,#5C2E15,#471500); color:#FFFFFF; box-shadow:0 2px 6px rgba(71,21,0,.20); display:inline-flex; align-items:center; gap:7px;">
-                        <i class="fas fa-sun"></i> Checklist Daily
+                        <i class="fas fa-sun"></i> Checklist Harian
                     </a>
                     <a href="{{ route('mychecklist.weekform') }}"
                        style="padding:8px 18px; font-size:13px; font-weight:600; text-decoration:none; border-radius:999px; color:#6B4423; display:inline-flex; align-items:center; gap:7px;">
-                        <i class="fas fa-calendar-week"></i> Checklist Weekly
+                        <i class="fas fa-calendar-week"></i> Checklist Mingguan
                     </a>
                 </div>
                 <a href="{{ route('mychecklist.history') }}" style="font-size:12.5px; color:#6B4423; text-decoration:none; display:inline-flex; align-items:center; gap:6px; font-weight:600;">
@@ -710,7 +710,7 @@
                         <button type="submit"
                                 style="border:none; background:#FFFFFF; color:#471500; padding:10px 22px; border-radius:999px; font-weight:700; font-size:13px; cursor:pointer; display:inline-flex; align-items:center; gap:8px; box-shadow:0 4px 12px rgba(0,0,0,.10);"
                                 {{ $progress['done'] === 0 ? 'disabled' : '' }}>
-                            <i class="fas fa-paper-plane"></i> Submit Checklist
+                            <i class="fas fa-paper-plane"></i> Kirim Checklist
                         </button>
                     </div>
                 </form>

@@ -5,8 +5,9 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * Lookup divisi karyawan (FO / GS / ASDENT). PK string = kode divisi.
- * Diseed via ChecklistDivisionSeeder.
+ * Lookup divisi karyawan operasional (FO / GS / ASDENT). PK string = kode divisi.
+ * Diseed via ChecklistDivisionSeeder. Murni untuk domain checklist — hierarki
+ * organisasi/approval sekarang ada di Role (group_path), bukan di sini.
  */
 class ChecklistDivision extends Model
 {
@@ -15,7 +16,7 @@ class ChecklistDivision extends Model
     public $incrementing = false;
     protected $keyType = 'string';
 
-    protected $fillable = ['id', 'name', 'description', 'sort_order', 'is_active', 'created_at', 'updated_at'];
+    protected $fillable = ['id', 'name', 'description', 'sort_order', 'is_active', 'group_id', 'created_at', 'updated_at'];
 
     protected $casts = [
         'sort_order' => 'integer',
@@ -44,5 +45,11 @@ class ChecklistDivision extends Model
     public function positions()
     {
         return $this->hasMany(UserPosition::class, 'division_id', 'id');
+    }
+
+    /** Role STAF pemilik divisi ini (anggotanya mengisi checklist divisi ini). Null = belum ditautkan. */
+    public function group()
+    {
+        return $this->belongsTo(GroupPath::class, 'group_id', 'id');
     }
 }

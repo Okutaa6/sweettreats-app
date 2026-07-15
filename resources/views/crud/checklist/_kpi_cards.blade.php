@@ -27,7 +27,7 @@
         <div class="cl-kpi__body">
             <div class="cl-kpi__label">Sudah Submit</div>
             <div class="cl-kpi__value">{{ $kpis['submitted'] }}<small>({{ $pctSubmit }}%)</small></div>
-            <div class="cl-kpi__sub">dari {{ $kpis['total_active'] }} karyawan@if($excusedCount > 0) · {{ $excusedCount }} dikecualikan@endif</div>
+            <div class="cl-kpi__sub">dari {{ $kpis['total_active'] }} karyawan @if($excusedCount > 0)· {{ $excusedCount }} dikecualikan @endif</div>
         </div>
     </div>
 

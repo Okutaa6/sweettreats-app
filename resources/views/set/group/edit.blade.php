@@ -57,6 +57,20 @@
                                     </td>
                                 </tr>
                                 <tr>
+                                    <td style="font-weight:600;">Atasan</td>
+                                    <td>
+                                        <select class="form-control" name="parent_id">
+                                            <option value="">— Tidak ada (puncak) —</option>
+                                            @foreach ($parents as $p)
+                                                <option value="{{ $p->id }}" {{ old('parent_id', $group->parent_id) == $p->id ? 'selected' : '' }}>
+                                                    {{ str_repeat('— ', $p->level) }}{{ $p->nama }}
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                        <small style="color:var(--text-subtle)">Diri sendiri &amp; bawahan tidak muncul (cegah siklus).</small>
+                                    </td>
+                                </tr>
+                                <tr>
                                     <td></td>
                                     <td>
                                         <button class="st-btn-brand" type="submit">

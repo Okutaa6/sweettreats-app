@@ -296,11 +296,11 @@
             <div style="display:inline-flex; gap:2px; padding:4px; background:#FFFFFF; border-radius:999px; border:1px solid #E0D2C1; box-shadow:0 1px 3px rgba(45,24,16,.06);">
                 <a href="{{ route('mychecklist.history', ['type' => 'daily', 'month' => $month]) }}"
                    style="padding:8px 18px; font-size:13px; font-weight:{{ $type === 'daily' ? '700' : '600' }}; text-decoration:none; border-radius:999px; {{ $type === 'daily' ? 'background:linear-gradient(180deg,#5C2E15,#471500); color:#FFFFFF; box-shadow:0 2px 6px rgba(71,21,0,.20);' : 'color:#6B4423;' }} display:inline-flex; align-items:center; gap:7px;">
-                    <i class="fas fa-sun"></i> Checklist Daily
+                    <i class="fas fa-sun"></i> Checklist Harian
                 </a>
                 <a href="{{ route('mychecklist.history', ['type' => 'weekly', 'month' => $month]) }}"
                    style="padding:8px 18px; font-size:13px; font-weight:{{ $type === 'weekly' ? '700' : '600' }}; text-decoration:none; border-radius:999px; {{ $type === 'weekly' ? 'background:linear-gradient(180deg,#5C2E15,#471500); color:#FFFFFF; box-shadow:0 2px 6px rgba(71,21,0,.20);' : 'color:#6B4423;' }} display:inline-flex; align-items:center; gap:7px;">
-                    <i class="fas fa-calendar-week"></i> Checklist Weekly
+                    <i class="fas fa-calendar-week"></i> Checklist Mingguan
                 </a>
             </div>
         </div>

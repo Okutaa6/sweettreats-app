@@ -233,7 +233,7 @@
 
 {{-- ──────── MODAL: Tambah Kategori — Harian ──────── --}}
 @if($division)
-<div class="modal fade" id="categoryModalNewDaily" tabindex="-1" role="dialog" aria-hidden="true">
+<div class="modal fade cl-modal" id="categoryModalNewDaily" tabindex="-1" role="dialog" aria-hidden="true">
     <div class="modal-dialog" role="document">
         <form method="POST" action="{{ route('checklist.setup.cat.store') }}" class="modal-content">
             @csrf
@@ -268,7 +268,7 @@
 </div>
 
 {{-- ──────── MODAL: Tambah Kategori — Mingguan ──────── --}}
-<div class="modal fade" id="categoryModalNewWeekly" tabindex="-1" role="dialog" aria-hidden="true">
+<div class="modal fade cl-modal" id="categoryModalNewWeekly" tabindex="-1" role="dialog" aria-hidden="true">
     <div class="modal-dialog" role="document">
         <form method="POST" action="{{ route('checklist.setup.cat.store') }}" class="modal-content">
             @csrf
@@ -305,7 +305,7 @@
 {{-- Modal-modal edit kategori + task per kategori (di-generate sekali per kategori/task) --}}
 @foreach($categories as $cat)
     {{-- MODAL: Edit Kategori --}}
-    <div class="modal fade" id="categoryModalEdit-{{ $cat->id }}" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal fade cl-modal" id="categoryModalEdit-{{ $cat->id }}" tabindex="-1" role="dialog" aria-hidden="true">
         <div class="modal-dialog" role="document">
             <form method="POST" action="{{ route('checklist.setup.cat.update', $cat->id) }}" class="modal-content">
                 @csrf @method('PUT')
@@ -355,7 +355,7 @@
     </form>
 
     {{-- MODAL: Tambah Task ke kategori ini --}}
-    <div class="modal fade" id="taskModalNew-{{ $cat->id }}" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal fade cl-modal" id="taskModalNew-{{ $cat->id }}" tabindex="-1" role="dialog" aria-hidden="true">
         <div class="modal-dialog" role="document">
             <form method="POST" action="{{ route('checklist.setup.task.store') }}" class="modal-content">
                 @csrf
@@ -411,7 +411,7 @@
 
     {{-- MODAL: Edit Task per task --}}
     @foreach($cat->tasks->whereNull('deleted_at') as $task)
-        <div class="modal fade" id="taskModalEdit-{{ $task->id }}" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal fade cl-modal" id="taskModalEdit-{{ $task->id }}" tabindex="-1" role="dialog" aria-hidden="true">
             <div class="modal-dialog" role="document">
                 <form method="POST" action="{{ route('checklist.setup.task.update', $task->id) }}" class="modal-content">
                     @csrf @method('PUT')
@@ -478,6 +478,86 @@
 @endif
 
 <style>
+    /* ─── Modal bertema Sweet Treats (scoped .cl-modal, tidak bocor ke modal lain) ─── */
+    .cl-modal .modal-dialog { max-width: 460px; }
+    .cl-modal .modal-content {
+        border: none;
+        border-radius: 18px;
+        overflow: hidden;
+        box-shadow: 0 24px 60px rgba(45,24,16,.28);
+    }
+    .cl-modal .modal-header {
+        background: linear-gradient(135deg, var(--cl-brown-2) 0%, var(--cl-brown) 100%);
+        border-bottom: none;
+        padding: 17px 22px;
+        align-items: center;
+    }
+    .cl-modal .modal-header .modal-title,
+    .cl-modal .modal-header h5.modal-title {
+        color: #FFF6EC !important;
+        font-size: 15.5px;
+        font-weight: 700;
+        letter-spacing: .2px;
+    }
+    .cl-modal .modal-header .close {
+        color: #FFF6EC;
+        opacity: .8;
+        text-shadow: none;
+        font-size: 22px;
+        font-weight: 400;
+        margin: -2px -6px -2px 0;
+        transition: opacity .15s;
+    }
+    .cl-modal .modal-header .close:hover { opacity: 1; }
+    .cl-modal .modal-body {
+        background: var(--cl-cream-1);
+        padding: 20px 22px 6px;
+    }
+    .cl-modal .modal-body .form-group { margin-bottom: 16px; }
+    .cl-modal .modal-body label {
+        font-size: 12.5px;
+        font-weight: 700;
+        color: var(--cl-muted);
+        margin-bottom: 6px;
+        text-transform: uppercase;
+        letter-spacing: .4px;
+    }
+    /* Label checkbox: jangan uppercase / bold berlebih biar terbaca natural */
+    .cl-modal .modal-body label.d-flex {
+        text-transform: none;
+        letter-spacing: 0;
+        font-weight: 600;
+        color: var(--cl-ink);
+        font-size: 13px;
+    }
+    .cl-modal .modal-body .form-control {
+        border: 1px solid var(--cl-line);
+        border-radius: 10px;
+        padding: 10px 13px;
+        font-size: 13.5px;
+        color: var(--cl-ink);
+        background: #FFFFFF;
+        box-shadow: none;
+        transition: border-color .15s, box-shadow .15s;
+    }
+    .cl-modal .modal-body .form-control:focus {
+        border-color: var(--cl-brown-2);
+        box-shadow: 0 0 0 3px rgba(92,46,21,.12);
+        outline: none;
+    }
+    .cl-modal .modal-body .form-control::placeholder { color: #B8A897; }
+    .cl-modal .modal-body input[type="checkbox"] {
+        width: 16px; height: 16px;
+        accent-color: var(--cl-brown-2);
+        flex: none;
+    }
+    .cl-modal .modal-body small.text-muted { color: var(--cl-subtle) !important; }
+    .cl-modal .modal-footer {
+        background: var(--cl-cream-1);
+        border-top: 1px solid var(--cl-cream-3);
+        padding: 14px 22px;
+    }
+
     /* Accordion setup kategori — header dibuat lebih mencolok sebagai bar clickable */
     .cl-cat { border-color: #E0D2C1; box-shadow: 0 2px 10px rgba(45,24,16,.06); }
     .cl-cat__head {

@@ -214,11 +214,14 @@ Route::middleware([AuthGuard::class])->group(function () {
     Route::get('setgroup', [Group::class, 'index'])->name('setgroup');
     Route::get('setgroup/new', [Group::class, 'create'])->name('setgroup.new');
     Route::post('setgroup/new', [Group::class, 'store'])->name('setgroup.store');
+    Route::post('setgroup/reparent', [Group::class, 'reparent'])->name('setgroup.reparent');
+    Route::post('setgroup/assign-division', [Group::class, 'assignDivision'])->name('setgroup.assignDivision');
     Route::get('setgroup/{id}', [Group::class, 'edit'])->name('setgroup.edit');
     Route::put('setgroup/{id}', [Group::class, 'update'])->name('setgroup.update');
     Route::delete('setgroup/{id}', [Group::class, 'destroy'])->name('setgroup.destroy');
     Route::get('setgroup/access/{id}', [Group::class, 'access'])->name('setgroup.access');
     Route::put('setgroup/access/{id}', [Group::class, 'accessProcess'])->name('setgroup.access.process');
+
 
     // Notifications
     Route::get('api/notifications', [\App\Http\Controllers\NotificationController::class, 'index'])->name('api.notifications');

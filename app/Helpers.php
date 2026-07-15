@@ -221,19 +221,96 @@ if (!function_exists('canEditPettyCash')) {
 }
 
 /**
- * True kalau user yang sedang login boleh mengelola/review modul Checklist
- * Akreditasi. Untuk MVP reuse role admin existing — supaya tidak perlu
- * seeder role baru. Karyawan biasa tetap bisa akses /my-checklist (cuma
- * untuk pengisian, bukan setup/review).
+ * True kalau user yang sedang login adalah "overseer" checklist global —
+ * melihat SEMUA divisi lintas penugasan. Role admin existing tetap di sini
+ * supaya perilaku lama utuh (tak ada yang ke-lock setelah fitur ini rilis).
  */
-if (!function_exists('isChecklistSupervisor')) {
-    function isChecklistSupervisor(): bool
+if (!function_exists('checklistSeesAllDivisions')) {
+    function checklistSeesAllDivisions(): bool
     {
         return in_array(session('group_name'), [
             'Super Admin',
             'Admin General',
             'Admin Backup',
         ], true);
+    }
+}
+
+/**
+ * Divisi checklist yang boleh DI-REVIEW user yang sedang login (sisi supervisor).
+ *
+ * Model "role staf = divisi": tiap divisi dimiliki satu ROLE staf (group_id).
+ * Supervisor = ATASAN role tsb di bagan. Jadi:
+ *   - Overseer global (checklistSeesAllDivisions) → SEMUA divisi aktif.
+ *   - Selainnya → divisi yang role staf-nya adalah BAWAHAN (descendant, strict)
+ *     dari role user. Role daun (staf) tak punya bawahan → kosong → bukan supervisor.
+ *
+ * Cached per-request (pola sama dgn currentUserPosition).
+ */
+if (!function_exists('checklistVisibleDivisionIds')) {
+    function checklistVisibleDivisionIds(): array
+    {
+        static $cached = false;
+        static $value  = [];
+
+        if ($cached) return $value;
+        $cached = true;
+
+        try {
+            $active = \App\Models\ChecklistDivision::where('is_active', 1);
+
+            if (checklistSeesAllDivisions()) {
+                return $value = $active->pluck('id')->all();
+            }
+
+            $gid  = session('group_id');
+            $role = $gid ? \App\Models\GroupPath::find($gid) : null;
+            if (! $role) return $value = [];
+
+            // Strict descendants (tanpa diri) → staf tak me-review divisinya sendiri.
+            $descIds = $role->descendants()->pluck('id')->all();
+            if (! $descIds) return $value = [];
+
+            $value = $active->whereIn('group_id', $descIds)->pluck('id')->all();
+        } catch (\Throwable $e) {
+            // Kolom/tabel belum di-migrate → anggap kosong biar UI tetap rapi.
+            $value = [];
+        }
+
+        return $value;
+    }
+}
+
+/**
+ * Divisi checklist milik sebuah ROLE (group_path.id) — model "role staf = divisi".
+ * Dipakai untuk menurunkan divisi user OTOMATIS dari role-nya (tanpa pilih manual).
+ * Null kalau role tak ditautkan ke divisi mana pun.
+ */
+if (!function_exists('checklistDivisionForGroup')) {
+    function checklistDivisionForGroup(?string $groupId): ?\App\Models\ChecklistDivision
+    {
+        if (! $groupId) return null;
+
+        try {
+            return \App\Models\ChecklistDivision::where('is_active', 1)
+                ->where('group_id', $groupId)
+                ->first();
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+}
+
+/**
+ * True kalau user yang sedang login boleh mengelola/review modul Checklist
+ * Akreditasi. DINAMIS: overseer global, atau role yang ditugaskan mensupervisi
+ * minimal satu divisi (langsung / lewat bawahannya). Diatur di halaman Ubah Role.
+ * Karyawan biasa tetap bisa akses /my-checklist (pengisian, bukan setup/review).
+ */
+if (!function_exists('isChecklistSupervisor')) {
+    function isChecklistSupervisor(): bool
+    {
+        return checklistSeesAllDivisions() || count(checklistVisibleDivisionIds()) > 0;
     }
 }
 

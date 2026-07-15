@@ -2,26 +2,6 @@
 
 @section('content')
 <style>
-    /* Hero gradient */
-    .rvq-hero {
-        position: relative; overflow: hidden;
-        background: linear-gradient(135deg, #5C2E15 0%, #471500 100%);
-        color: #fff; border-radius: 18px; padding: 22px 26px; margin-bottom: 16px;
-        display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap;
-        box-shadow: 0 8px 24px rgba(71,21,0,.18);
-    }
-    .rvq-hero::before { content: ""; position: absolute; top: -50px; right: -40px; width: 180px; height: 180px; border-radius: 50%; background: rgba(255,255,255,.06); pointer-events: none; }
-    .rvq-hero::after  { content: ""; position: absolute; bottom: -60px; right: 130px; width: 120px; height: 120px; border-radius: 50%; background: rgba(255,255,255,.05); pointer-events: none; }
-    .rvq-hero__left { display: flex; align-items: center; gap: 16px; min-width: 0; position: relative; z-index: 1; }
-    .rvq-hero__icon { width: 54px; height: 54px; border-radius: 14px; background: rgba(255,255,255,.16); border: 1.5px solid rgba(255,255,255,.3); display: inline-flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; }
-    .rvq-hero__title { margin: 0 0 4px; font-size: 20px; font-weight: 800; letter-spacing: -.01em; line-height: 1.15; }
-    .rvq-hero__sub { margin: 0; font-size: 12.5px; color: rgba(255,255,255,.82); line-height: 1.5; max-width: 560px; }
-    .rvq-hero__picker-wrap { display: flex; align-items: center; gap: 10px; position: relative; z-index: 1; }
-    .rvq-hero__picker-label { font-size: 11px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; color: rgba(255,255,255,.7); margin: 0; }
-    .rvq-hero__picker { background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.28); color: #fff; border-radius: 999px; padding: 8px 16px; font-size: 13px; font-weight: 600; cursor: pointer; outline: none; }
-    .rvq-hero__picker option { color: #2D1810; }
-    @media (max-width: 600px) { .rvq-hero__sub { display: none; } .rvq-hero { padding: 18px 20px; } }
-
     /* Poles queue review */
     .cl-panel .st-table tbody tr { transition: background .12s; }
     .cl-panel .st-table tbody tr:hover { background: #FCF7F0; }
@@ -46,38 +26,26 @@
 
     @include('layouts.notif')
 
-    {{-- ─── TOGGLE Harian vs Mingguan ─── --}}
-    <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:14px;">
-        <div style="display:inline-flex; gap:2px; padding:4px; background:#FFFFFF; border-radius:999px; border:1px solid #E0D2C1; box-shadow:0 1px 3px rgba(45,24,16,.06);">
-            <a href="{{ route('checklist.review') }}"
-               style="padding:8px 18px; font-size:13px; font-weight:700; text-decoration:none; border-radius:999px; background:linear-gradient(180deg,#5C2E15,#471500); color:#FFFFFF; box-shadow:0 2px 6px rgba(71,21,0,.20); display:inline-flex; align-items:center; gap:7px;">
-                <i class="fas fa-sun"></i> Review Harian
-            </a>
-            <a href="{{ route('checklist.review.weekly') }}"
-               style="padding:8px 18px; font-size:13px; font-weight:600; text-decoration:none; border-radius:999px; color:#6B4423; display:inline-flex; align-items:center; gap:7px;">
-                <i class="fas fa-calendar-week"></i> Review Mingguan
-            </a>
-        </div>
-    </div>
-
     {{-- ─── HERO ─── --}}
-    <div class="rvq-hero">
-        <div class="rvq-hero__left">
-            <span class="rvq-hero__icon"><i class="fas fa-clipboard-list"></i></span>
-            <div style="min-width:0;">
-                <h5 class="rvq-hero__title">Queue Review Checklist</h5>
-                <p class="rvq-hero__sub">Verifikasi pengisian harian karyawan. Filter berdasarkan tanggal, divisi, dan status untuk mempercepat review.</p>
-            </div>
+    <div class="cl-hero">
+        <div class="cl-hero__left">
+            <h5 class="cl-hero__title">
+                <span class="cl-hero__icon"><i class="fas fa-clipboard-list"></i></span>
+                Queue Review Checklist
+            </h5>
+            <p class="cl-hero__subtitle">
+                Verifikasi pengisian harian karyawan. Filter berdasarkan tanggal, divisi, dan status untuk mempercepat review.
+            </p>
         </div>
         @if(canSeeAllBranches() && $branches->count())
-            <form method="GET" action="{{ route('checklist.review') }}" class="rvq-hero__picker-wrap">
+            <form method="GET" action="{{ route('checklist.review') }}" class="cl-hero__actions">
                 @foreach(request()->except(['branch','page']) as $k => $v)
                     @if(is_string($v) || is_numeric($v))
                         <input type="hidden" name="{{ $k }}" value="{{ $v }}">
                     @endif
                 @endforeach
-                <label class="rvq-hero__picker-label">Cabang</label>
-                <select name="branch" onchange="this.form.submit();" class="rvq-hero__picker">
+                <label class="cl-hero__picker-label">Cabang</label>
+                <select name="branch" onchange="this.form.submit();" class="cl-hero__picker">
                     <option value="">— Semua —</option>
                     @foreach($branches as $b)
                         <option value="{{ $b->id }}" {{ $branchId === $b->id ? 'selected' : '' }}>{{ $b->name }}</option>
@@ -89,6 +57,42 @@
 
     {{-- ─── CARD: TABS + FILTER + TABLE ─── --}}
     <div class="cl-panel" style="padding:0;">
+
+        {{-- MASTER: TAB DIVISI (navigasi utama, seperti halaman setup) --}}
+        <div class="cl-rev-master">
+            <div class="cl-divtabs">
+                @foreach($divisions as $div)
+                    <a href="{{ route('checklist.review', array_merge(request()->except(['division','page']), ['division' => $div->id])) }}"
+                       class="cl-divtab {{ $filterDiv === $div->id ? 'is-active' : '' }}">
+                        @if($div->id === 'FO')
+                            <i class="fas fa-headset"></i>
+                        @elseif($div->id === 'GS')
+                            <i class="fas fa-broom"></i>
+                        @else
+                            <i class="fas fa-user-nurse"></i>
+                        @endif
+                        {{ $div->name }}
+                        @if(($divCounts[$div->id] ?? 0) > 0)
+                            <span class="cl-divtab__count">{{ $divCounts[$div->id] }}</span>
+                        @endif
+                    </a>
+                @endforeach
+            </div>
+        </div>
+
+        {{-- SUB-NAV: Harian vs Mingguan --}}
+        <div class="cl-rev-subbar">
+            <div style="display:inline-flex; gap:2px; padding:4px; background:#FFFFFF; border-radius:999px; border:1px solid #E0D2C1; box-shadow:0 1px 3px rgba(45,24,16,.06);">
+                <a href="{{ route('checklist.review') }}"
+                   style="padding:8px 18px; font-size:13px; font-weight:700; text-decoration:none; border-radius:999px; background:linear-gradient(180deg,#5C2E15,#471500); color:#FFFFFF; box-shadow:0 2px 6px rgba(71,21,0,.20); display:inline-flex; align-items:center; gap:7px;">
+                    <i class="fas fa-sun"></i> Review Checklist Harian
+                </a>
+                <a href="{{ route('checklist.review.weekly') }}"
+                   style="padding:8px 18px; font-size:13px; font-weight:600; text-decoration:none; border-radius:999px; color:#6B4423; display:inline-flex; align-items:center; gap:7px;">
+                    <i class="fas fa-calendar-week"></i> Review Checklist Mingguan
+                </a>
+            </div>
+        </div>
 
         {{-- TAB STATUS --}}
         <div class="cl-tabs">
@@ -117,18 +121,11 @@
         {{-- FILTER BAR --}}
         <form method="GET" action="{{ route('checklist.review') }}" class="cl-filter">
             <input type="hidden" name="status" value="{{ $filterStat }}">
+            <input type="hidden" name="division" value="{{ $filterDiv }}">
             @if($branchId)<input type="hidden" name="branch" value="{{ $branchId }}">@endif
 
             <label>Tanggal</label>
             <input type="date" name="date" value="{{ $filterDate }}" onchange="this.form.submit();">
-
-            <label>Divisi</label>
-            <select name="division" onchange="this.form.submit();">
-                <option value="all">Semua Divisi</option>
-                @foreach($divisions as $div)
-                    <option value="{{ $div->id }}" {{ $filterDiv === $div->id ? 'selected' : '' }}>{{ $div->name }}</option>
-                @endforeach
-            </select>
 
             <label>Cari</label>
             <input type="text" name="q" value="{{ $search }}" placeholder="Nama karyawan...">

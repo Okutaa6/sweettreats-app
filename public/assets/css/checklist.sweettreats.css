@@ -317,6 +317,74 @@ a.cl-kpi:hover {
     color: #FFFFFF;
 }
 
+/* ── Tab Divisi — segmented pill di bawah tab status ─────────────── */
+.cl-divtabs {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding: 14px 18px 2px;
+}
+/* Varian saat ditaruh sejajar toggle Harian/Mingguan (di luar card) */
+.cl-divtabs--top { padding: 0; }
+
+/* ── Review: tab divisi jadi master row (paling atas panel) ─────── */
+.cl-rev-master {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    padding: 14px 18px;
+    background: #FFFFFF;
+    border-bottom: 1px solid var(--cl-line);
+}
+.cl-rev-master .cl-divtabs { padding: 0; }
+/* Sub-nav toggle Harian/Mingguan di bawah master divisi */
+.cl-rev-subbar {
+    padding: 14px 18px;
+    background: var(--cl-cream-1);
+    border-bottom: 1px solid var(--cl-line);
+}
+.cl-divtabs__label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    color: var(--cl-subtle);
+    margin-right: 2px;
+}
+.cl-divtab {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 7px 14px;
+    border-radius: 999px;
+    font-size: 12.5px;
+    font-weight: 600;
+    text-decoration: none;
+    color: var(--cl-muted);
+    background: #FFFFFF;
+    border: 1px solid var(--cl-line);
+    transition: .15s;
+}
+.cl-divtab:hover { border-color: var(--cl-line-strong); color: var(--cl-brown-2); }
+.cl-divtab.is-active {
+    background: linear-gradient(180deg, #5C2E15, #471500);
+    color: #FFFFFF;
+    border-color: #471500;
+    box-shadow: 0 2px 8px rgba(71,21,0,.20);
+}
+.cl-divtab__count {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 1px 7px;
+    border-radius: 999px;
+    background: var(--cl-cream-2);
+    color: var(--cl-brown-2);
+    line-height: 1.6;
+}
+.cl-divtab.is-active .cl-divtab__count {
+    background: rgba(255,255,255,.22);
+    color: #FFFFFF;
+}
+
 /* ── Summary row (info bar di atas konten) ──────────────────────── */
 .cl-summary {
     display: flex;

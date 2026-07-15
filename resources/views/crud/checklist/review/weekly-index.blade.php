@@ -12,20 +12,6 @@
 
     @include('layouts.notif')
 
-    {{-- ─── TOGGLE Harian vs Mingguan ─── --}}
-    <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:14px;">
-        <div style="display:inline-flex; gap:2px; padding:4px; background:#FFFFFF; border-radius:999px; border:1px solid #E0D2C1; box-shadow:0 1px 3px rgba(45,24,16,.06);">
-            <a href="{{ route('checklist.review') }}"
-               style="padding:8px 18px; font-size:13px; font-weight:600; text-decoration:none; border-radius:999px; color:#6B4423; display:inline-flex; align-items:center; gap:7px;">
-                <i class="fas fa-sun"></i> Review Harian
-            </a>
-            <a href="{{ route('checklist.review.weekly') }}"
-               style="padding:8px 18px; font-size:13px; font-weight:700; text-decoration:none; border-radius:999px; background:linear-gradient(180deg,#5C2E15,#471500); color:#FFFFFF; box-shadow:0 2px 6px rgba(71,21,0,.20); display:inline-flex; align-items:center; gap:7px;">
-                <i class="fas fa-calendar-week"></i> Review Mingguan
-            </a>
-        </div>
-    </div>
-
     {{-- ─── HERO ─── --}}
     <div class="cl-hero">
         <div class="cl-hero__left">
@@ -58,6 +44,42 @@
     {{-- ─── CARD: TABS + FILTER + TABLE ─── --}}
     <div class="cl-panel" style="padding:0;">
 
+        {{-- MASTER: TAB DIVISI (navigasi utama, seperti halaman setup) --}}
+        <div class="cl-rev-master">
+            <div class="cl-divtabs">
+                @foreach($divisions as $div)
+                    <a href="{{ route('checklist.review.weekly', array_merge(request()->except(['division','page']), ['division' => $div->id])) }}"
+                       class="cl-divtab {{ $filterDiv === $div->id ? 'is-active' : '' }}">
+                        @if($div->id === 'FO')
+                            <i class="fas fa-headset"></i>
+                        @elseif($div->id === 'GS')
+                            <i class="fas fa-broom"></i>
+                        @else
+                            <i class="fas fa-user-nurse"></i>
+                        @endif
+                        {{ $div->name }}
+                        @if(($divCounts[$div->id] ?? 0) > 0)
+                            <span class="cl-divtab__count">{{ $divCounts[$div->id] }}</span>
+                        @endif
+                    </a>
+                @endforeach
+            </div>
+        </div>
+
+        {{-- SUB-NAV: Harian vs Mingguan --}}
+        <div class="cl-rev-subbar">
+            <div style="display:inline-flex; gap:2px; padding:4px; background:#FFFFFF; border-radius:999px; border:1px solid #E0D2C1; box-shadow:0 1px 3px rgba(45,24,16,.06);">
+                <a href="{{ route('checklist.review') }}"
+                   style="padding:8px 18px; font-size:13px; font-weight:600; text-decoration:none; border-radius:999px; color:#6B4423; display:inline-flex; align-items:center; gap:7px;">
+                    <i class="fas fa-sun"></i> Review Checklist Harian
+                </a>
+                <a href="{{ route('checklist.review.weekly') }}"
+                   style="padding:8px 18px; font-size:13px; font-weight:700; text-decoration:none; border-radius:999px; background:linear-gradient(180deg,#5C2E15,#471500); color:#FFFFFF; box-shadow:0 2px 6px rgba(71,21,0,.20); display:inline-flex; align-items:center; gap:7px;">
+                    <i class="fas fa-calendar-week"></i> Review Checklist Mingguan
+                </a>
+            </div>
+        </div>
+
         {{-- TAB STATUS --}}
         <div class="cl-tabs">
             @php
@@ -85,18 +107,11 @@
         {{-- FILTER BAR --}}
         <form method="GET" action="{{ route('checklist.review.weekly') }}" class="cl-filter">
             <input type="hidden" name="status" value="{{ $filterStat }}">
+            <input type="hidden" name="division" value="{{ $filterDiv }}">
             @if($branchId)<input type="hidden" name="branch" value="{{ $branchId }}">@endif
 
             <label>Minggu (Senin)</label>
             <input type="date" name="week" value="{{ $filterWeek }}" onchange="this.form.submit();">
-
-            <label>Divisi</label>
-            <select name="division" onchange="this.form.submit();">
-                <option value="all">Semua Divisi</option>
-                @foreach($divisions as $div)
-                    <option value="{{ $div->id }}" {{ $filterDiv === $div->id ? 'selected' : '' }}>{{ $div->name }}</option>
-                @endforeach
-            </select>
 
             <label>Cari</label>
             <input type="text" name="q" value="{{ $search }}" placeholder="Nama karyawan...">

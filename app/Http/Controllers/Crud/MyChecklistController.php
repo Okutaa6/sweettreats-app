@@ -59,7 +59,7 @@ class MyChecklistController extends Controller
             return view('crud.checklist.my.index', [
                 'position'      => null,
                 'pending'       => $pending,
-                'divisions'     => ChecklistDivision::where('is_active', 1)->orderBy('sort_order')->get(),
+                'roleDivision'  => checklistDivisionForGroup(session('group_id')),
                 'branches'      => RawBranch::orderBy('name')->get(),
                 'userName'      => Users::find(session('id'))?->nama ?? 'Rekan',
                 'submission'    => null,
@@ -130,14 +130,20 @@ class MyChecklistController extends Controller
 
         $data = $request->validate(
             [
-                'division_id'   => 'required|string|exists:sys_checklist_division,id',
                 'raw_branch_id' => 'required|string|exists:raw_branch,id',
             ],
             [
-                'division_id.required'   => 'Divisi wajib dipilih.',
                 'raw_branch_id.required' => 'Cabang wajib dipilih.',
             ]
         );
+
+        // Divisi OTOMATIS dari role user (model "role staf = divisi") — tak dipilih manual.
+        $division = checklistDivisionForGroup(session('group_id'));
+        if (! $division) {
+            return redirect()->route('mychecklist')
+                ->with('error', 'Role Anda belum ditautkan ke divisi checklist. Hubungi admin.');
+        }
+        $data['division_id'] = $division->id;
 
         $uid   = session('id');
         $today = Carbon::today();

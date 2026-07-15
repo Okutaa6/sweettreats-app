@@ -49,9 +49,12 @@ class DigitalChecklistController extends Controller
 
         $branchId = resolveChecklistBranchId($request->get('branch'));
         $today    = Carbon::today();
+        $visible  = checklistVisibleDivisionIds();   // divisi yang boleh disupervisi user ini
 
-        // Karyawan aktif yang punya position hari ini (basis denominator).
-        $activeUserIdsQuery = UserPosition::query()->activeOn($today);
+        // Karyawan aktif yang punya position hari ini (basis denominator),
+        // dibatasi ke divisi yang disupervisi user ini.
+        $activeUserIdsQuery = UserPosition::query()->activeOn($today)
+            ->whereIn('division_id', $visible);
         if ($branchId) $activeUserIdsQuery->where('raw_branch_id', $branchId);
         $activeUserIds = $activeUserIdsQuery->pluck('user_id')->unique()->values();
         $totalActiveEmployees = $activeUserIds->count();
@@ -80,7 +83,9 @@ class DigitalChecklistController extends Controller
         ];
 
         // Progres per divisi: berapa karyawan tiap divisi sudah submit hari ini.
-        $divisions = ChecklistDivision::query()->where('is_active', 1)->orderBy('sort_order')->get();
+        // Hanya divisi yang disupervisi user ini yang ditampilkan.
+        $divisions = ChecklistDivision::query()->where('is_active', 1)
+            ->whereIn('id', $visible)->orderBy('sort_order')->get();
         $perDivision = $divisions->map(function ($div) use ($activeUserIds, $branchId, $today) {
             $userIds = UserPosition::query()->activeOn($today)
                 ->where('division_id', $div->id)
@@ -115,6 +120,7 @@ class DigitalChecklistController extends Controller
         // Aktivitas terbaru (10 submission terakhir, lintas status).
         $recent = ChecklistSubmission::query()
             ->with(['user', 'division', 'branch'])
+            ->whereIn('division_id', $visible)
             ->when($branchId, fn($q) => $q->where('raw_branch_id', $branchId))
             ->orderByDesc('updated_at')
             ->orderByDesc('created_at')
@@ -139,8 +145,10 @@ class DigitalChecklistController extends Controller
         $filterDiv  = $request->get('division', 'all');
         $filterStat = $request->get('status', ChecklistSubmission::STATUS_SUBMITTED);
         $search     = trim((string) $request->get('q', ''));
+        $visible    = checklistVisibleDivisionIds();   // divisi yang boleh disupervisi user ini
 
         $base = ChecklistSubmission::query()
+            ->whereIn('division_id', $visible)
             ->when($branchId, fn($q) => $q->where('raw_branch_id', $branchId));
 
         // Status tab counts (hitung sebelum apply filter status).
@@ -163,6 +171,22 @@ class DigitalChecklistController extends Controller
             'missed'    => (clone $countsBase)->where('status', ChecklistSubmission::STATUS_MISSED)->count(),
         ];
 
+        // Jumlah submission per divisi (untuk tab divisi) — ikut filter tanggal/status/cari, TANPA filter divisi.
+        $divCountBase = (clone $base);
+        if ($filterDate) $divCountBase->whereDate('submission_date', $filterDate);
+        if ($filterStat !== 'all') $divCountBase->where('status', $filterStat);
+        if ($search !== '') {
+            $divCountBase->whereExists(function ($q) use ($search) {
+                $q->select(DB::raw(1))->from('users')
+                  ->whereRaw('users.id = sys_checklist_submission.user_id')
+                  ->where('users.nama', 'like', "%{$search}%");
+            });
+        }
+        $divCounts = (clone $divCountBase)
+            ->select('division_id', DB::raw('count(*) as c'))
+            ->groupBy('division_id')
+            ->pluck('c', 'division_id');
+
         $query = (clone $base)->with(['user', 'division', 'branch']);
         if ($filterDate) $query->whereDate('submission_date', $filterDate);
         if ($filterDiv !== 'all') $query->where('division_id', $filterDiv);
@@ -182,11 +206,12 @@ class DigitalChecklistController extends Controller
             ->paginate($this->perPage)
             ->appends($request->query());
 
-        $divisions = ChecklistDivision::query()->where('is_active', 1)->orderBy('sort_order')->get();
+        $divisions = ChecklistDivision::query()->where('is_active', 1)
+            ->whereIn('id', $visible)->orderBy('sort_order')->get();
         $branches  = canSeeAllBranches() ? RawBranch::orderBy('name')->get() : collect();
 
         return view('crud.checklist.review.index', compact(
-            'submissions', 'counts', 'divisions', 'branches', 'branchId',
+            'submissions', 'counts', 'divCounts', 'divisions', 'branches', 'branchId',
             'filterDate', 'filterDiv', 'filterStat', 'search'
         ));
     }
@@ -200,6 +225,7 @@ class DigitalChecklistController extends Controller
             ->findOrFail($id);
 
         $this->abortIfBranchMismatch($submission);
+        $this->abortIfDivisionOutOfScope($submission->division_id);
 
         // Grup items per kategori untuk render rapi.
         $grouped = $submission->items->groupBy('category_title_snapshot');
@@ -213,6 +239,7 @@ class DigitalChecklistController extends Controller
 
         $sub = ChecklistSubmission::findOrFail($id);
         $this->abortIfBranchMismatch($sub);
+        $this->abortIfDivisionOutOfScope($sub->division_id);
 
         if ($sub->status !== ChecklistSubmission::STATUS_SUBMITTED) {
             return back()->with('error', 'Submission ini sudah tidak menunggu approval.');
@@ -244,6 +271,7 @@ class DigitalChecklistController extends Controller
 
         $sub = ChecklistSubmission::findOrFail($id);
         $this->abortIfBranchMismatch($sub);
+        $this->abortIfDivisionOutOfScope($sub->division_id);
 
         if ($sub->status !== ChecklistSubmission::STATUS_SUBMITTED) {
             return back()->with('error', 'Submission ini sudah tidak menunggu approval.');
@@ -278,6 +306,7 @@ class DigitalChecklistController extends Controller
 
         $sub = ChecklistSubmission::findOrFail($id);
         $this->abortIfBranchMismatch($sub);
+        $this->abortIfDivisionOutOfScope($sub->division_id);
 
         if (! in_array($sub->status, [ChecklistSubmission::STATUS_APPROVED, ChecklistSubmission::STATUS_REJECTED], true)) {
             return back()->with('error', 'Hanya checklist yang sudah final yang bisa di-reopen.');
@@ -308,6 +337,7 @@ class DigitalChecklistController extends Controller
 
         $sub = ChecklistSubmission::findOrFail($id);
         $this->abortIfBranchMismatch($sub);
+        $this->abortIfDivisionOutOfScope($sub->division_id);
 
         if ($sub->status !== ChecklistSubmission::STATUS_EXCUSED) {
             return back()->with('error', 'Hanya checklist berstatus Dikecualikan yang bisa dibatalkan.');
@@ -341,8 +371,31 @@ class DigitalChecklistController extends Controller
         $dateTo     = $request->get('date_to');
         $actor      = trim((string) $request->get('actor', ''));
 
+        // Supervisor divisi hanya lihat log yang menyangkut divisinya (submission
+        // harian/mingguan atau posisi karyawan). Overseer global lihat semua.
+        $visible = checklistVisibleDivisionIds();
+
         $query = ChecklistAuditLog::query()
             ->with(['actor', 'branch'])
+            ->when(! checklistSeesAllDivisions(), function ($q) use ($visible) {
+                $q->where(function ($outer) use ($visible) {
+                    $outer->whereExists(function ($s) use ($visible) {
+                            $s->select(DB::raw(1))->from('sys_checklist_submission')
+                              ->whereColumn('sys_checklist_submission.id', 'sys_checklist_audit_log.target_id')
+                              ->whereIn('sys_checklist_submission.division_id', $visible);
+                        })
+                        ->orWhereExists(function ($s) use ($visible) {
+                            $s->select(DB::raw(1))->from('sys_checklist_weekly_submission')
+                              ->whereColumn('sys_checklist_weekly_submission.id', 'sys_checklist_audit_log.target_id')
+                              ->whereIn('sys_checklist_weekly_submission.division_id', $visible);
+                        })
+                        ->orWhereExists(function ($s) use ($visible) {
+                            $s->select(DB::raw(1))->from('sys_user_position')
+                              ->whereColumn('sys_user_position.id', 'sys_checklist_audit_log.target_id')
+                              ->whereIn('sys_user_position.division_id', $visible);
+                        });
+                });
+            })
             ->when($branchId,           fn($q) => $q->where('raw_branch_id', $branchId))
             ->when($filterAct !== 'all',  fn($q) => $q->where('action', $filterAct))
             ->when($filterType !== 'all', fn($q) => $q->where('target_type', $filterType))
@@ -377,21 +430,22 @@ class DigitalChecklistController extends Controller
     {
         $this->guard();
 
-        // Daftar group_name yang dianggap "karyawan operasional" — bisa
-        // di-extend kalau ada role lain di masa depan.
-        $operasionalGroupNames = ['Operasional', 'KARYAWAN'];
-
-        $branchId = resolveChecklistBranchId($request->get('branch'));
-        $search   = trim((string) $request->get('q', ''));
+        $branchId  = resolveChecklistBranchId($request->get('branch'));
+        $search    = trim((string) $request->get('q', ''));
         $filterDiv = $request->get('division', 'all');
+        $visible   = checklistVisibleDivisionIds();   // divisi yang boleh disupervisi user ini
 
-        // Build query: users dengan group_name di list operasional.
-        // Pakai DB query langsung biar bisa filter by group nama tanpa
-        // perlu eager-load semua user.
+        // Model "role staf = divisi": tiap divisi punya satu role staf (group_id).
+        $divisionsInScope = ChecklistDivision::query()->where('is_active', 1)
+            ->whereIn('id', $visible)->orderBy('sort_order')->get();
+        $roleToDivision   = $divisionsInScope->keyBy('group_id');            // group_id => divisi
+        $visibleRoleIds   = $divisionsInScope->pluck('group_id')->filter()->values();
+
+        // Staf = user yang role-nya adalah role-divisi dalam cakupan supervisor.
         $query = Users::query()
             ->select('users.*', 'group_path.nama as group_name', 'group_path.id as gid')
             ->join('group_path', 'users.group_id', '=', 'group_path.id')
-            ->whereIn('group_path.nama', $operasionalGroupNames);
+            ->whereIn('users.group_id', $visibleRoleIds);
 
         if ($search !== '') {
             $query->where(function ($q) use ($search) {
@@ -400,57 +454,46 @@ class DigitalChecklistController extends Controller
             });
         }
 
-        $users = $query->orderBy('users.nama')->get()->keyBy('id');
+        $users   = $query->orderBy('users.nama')->get()->keyBy('id');
         $userIds = $users->keys();
 
         // Posisi AKTIF (confirmed) & USULAN pending, per user.
         $today = Carbon::today();
-        $active = UserPosition::query()
-            ->activeOn($today)
+        $active = UserPosition::query()->activeOn($today)
             ->whereIn('user_id', $userIds)
-            ->with(['division', 'branch'])
-            ->get()
-            ->keyBy('user_id');
-        $pending = UserPosition::query()
-            ->pending()
+            ->with(['division', 'branch'])->get()->keyBy('user_id');
+        $pending = UserPosition::query()->pending()
             ->whereIn('user_id', $userIds)
-            ->with(['division', 'branch'])
-            ->get()
-            ->keyBy('user_id');
+            ->with(['division', 'branch'])->get()->keyBy('user_id');
 
-        // Hanya user yang punya posisi aktif ATAU usulan pending yang muncul —
-        // user yang belum mengajukan apa pun tidak ditampilkan.
-        $relevantIds = $active->keys()->merge($pending->keys())->unique();
-
-        $rows = $relevantIds->map(function ($uid) use ($users, $active, $pending) {
-            $u = $users->get($uid);
-            if (! $u) return null;
-            $pos  = $active->get($uid);
-            $prop = $pending->get($uid);
+        // Semua staf dalam cakupan ditampilkan (termasuk yang belum punya posisi),
+        // supaya supervisor bisa set cabang. Divisi otomatis dari role (dikunci).
+        $rows = $users->map(function ($u) use ($active, $pending, $roleToDivision) {
+            $pos  = $active->get($u->id);
+            $prop = $pending->get($u->id);
             return (object) [
-                'user'      => $u,
-                'position'  => $pos,
-                'division'  => $pos?->division,
-                'branch'    => $pos?->branch,
-                'pending'   => $prop,
+                'user'         => $u,
+                'position'     => $pos,
+                'division'     => $pos?->division,
+                'branch'       => $pos?->branch,
+                'pending'      => $prop,
+                'roleDivision' => $roleToDivision->get($u->group_id),   // divisi otomatis dari role
             ];
-        })->filter()->sortBy(fn($r) => $r->user->nama)->values();
+        })->sortBy(fn($r) => $r->user->nama)->values();
 
-        // Filter divisi/cabang berlaku ke posisi aktif ATAU usulan.
+        // Filter divisi = filter role (divisi ⇄ role). Filter cabang ke posisi/usulan.
         if ($filterDiv !== 'all') {
-            $rows = $rows->filter(fn($r) =>
-                ($r->position && $r->position->division_id === $filterDiv)
-                || ($r->pending && $r->pending->division_id === $filterDiv)
-            )->values();
+            $rows = $rows->filter(fn($r) => optional($r->roleDivision)->id === $filterDiv)->values();
         }
         if ($branchId) {
             $rows = $rows->filter(fn($r) =>
                 ($r->position && $r->position->raw_branch_id === $branchId)
                 || ($r->pending && $r->pending->raw_branch_id === $branchId)
+                || (! $r->position && ! $r->pending)   // belum ada posisi → tetap tampil
             )->values();
         }
 
-        $divisions = ChecklistDivision::query()->where('is_active', 1)->orderBy('sort_order')->get();
+        $divisions = $divisionsInScope;
         $branches  = RawBranch::orderBy('name')->get();
 
         // Stats
@@ -472,12 +515,25 @@ class DigitalChecklistController extends Controller
 
         $data = $request->validate([
             'user_id'       => 'required|string|exists:users,id',
-            'division_id'   => 'required|string|exists:sys_checklist_division,id',
             'raw_branch_id' => 'required|string|exists:raw_branch,id',
         ]);
 
-        $today = Carbon::today();
         $userId = $data['user_id'];
+        $user   = Users::find($userId);
+
+        // Divisi OTOMATIS dari role user (model "role staf = divisi") — tidak dipilih manual.
+        $division = checklistDivisionForGroup($user?->group_id);
+        if (! $division) {
+            return back()->with('error', 'Role user ini belum ditautkan ke divisi checklist. Tautkan dulu di halaman Struktur (bagan).');
+        }
+        $data['division_id'] = $division->id;
+
+        // Cegah supervisor menempatkan staf ke divisi di luar cakupannya.
+        if (! in_array($division->id, checklistVisibleDivisionIds(), true)) {
+            abort(403, 'Divisi ini di luar cakupan supervisi Anda.');
+        }
+
+        $today = Carbon::today();
 
         // Cari posisi aktif user. Kalau ada & sudah identik → no-op.
         $current = UserPosition::query()->activeOn($today)->where('user_id', $userId)->first();
@@ -536,6 +592,7 @@ class DigitalChecklistController extends Controller
         $this->guard();
 
         $pos = UserPosition::with(['user', 'division'])->findOrFail($id);
+        $this->abortIfDivisionOutOfScope($pos->division_id);
 
         // effective_to = kemarin, bukan hari ini — sebab scope activeOn() pakai
         // "effective_to >= hari ini" (inklusif). Kalau di-set hari ini, posisi
@@ -568,6 +625,7 @@ class DigitalChecklistController extends Controller
         $this->guard();
 
         $pos = UserPosition::with(['user', 'division'])->findOrFail($id);
+        $this->abortIfDivisionOutOfScope($pos->division_id);
         if ($pos->confirmed_at) {
             return back()->with('info', 'Posisi ini sudah dikonfirmasi.');
         }
@@ -609,6 +667,7 @@ class DigitalChecklistController extends Controller
         $this->guard();
 
         $pos = UserPosition::with(['user', 'division'])->findOrFail($id);
+        $this->abortIfDivisionOutOfScope($pos->division_id);
         if ($pos->confirmed_at) {
             return back()->with('error', 'Posisi yang sudah dikonfirmasi tidak bisa ditolak — gunakan Nonaktifkan.');
         }
@@ -639,8 +698,10 @@ class DigitalChecklistController extends Controller
         $filterDiv  = $request->get('division', 'all');
         $filterStat = $request->get('status', ChecklistWeeklySubmission::STATUS_SUBMITTED);
         $search     = trim((string) $request->get('q', ''));
+        $visible    = checklistVisibleDivisionIds();   // divisi yang boleh disupervisi user ini
 
         $base = ChecklistWeeklySubmission::query()
+            ->whereIn('division_id', $visible)
             ->when($branchId, fn($q) => $q->where('raw_branch_id', $branchId));
 
         $countsBase = (clone $base);
@@ -662,6 +723,22 @@ class DigitalChecklistController extends Controller
             'draft'     => (clone $countsBase)->where('status', ChecklistWeeklySubmission::STATUS_DRAFT)->count(),
         ];
 
+        // Jumlah submission per divisi (untuk tab divisi) — ikut filter minggu/status/cari, TANPA filter divisi.
+        $divCountBase = (clone $base);
+        if ($filterWeek) $divCountBase->whereDate('week_start_date', $filterWeek);
+        if ($filterStat !== 'all') $divCountBase->where('status', $filterStat);
+        if ($search !== '') {
+            $divCountBase->whereExists(function ($q) use ($search) {
+                $q->select(DB::raw(1))->from('users')
+                  ->whereRaw('users.id = sys_checklist_weekly_submission.user_id')
+                  ->where('users.nama', 'like', "%{$search}%");
+            });
+        }
+        $divCounts = (clone $divCountBase)
+            ->select('division_id', DB::raw('count(*) as c'))
+            ->groupBy('division_id')
+            ->pluck('c', 'division_id');
+
         $query = (clone $base)->with(['user', 'division', 'branch']);
         if ($filterWeek) $query->whereDate('week_start_date', $filterWeek);
         if ($filterDiv !== 'all') $query->where('division_id', $filterDiv);
@@ -681,11 +758,12 @@ class DigitalChecklistController extends Controller
             ->paginate($this->perPage)
             ->appends($request->query());
 
-        $divisions = ChecklistDivision::query()->where('is_active', 1)->orderBy('sort_order')->get();
+        $divisions = ChecklistDivision::query()->where('is_active', 1)
+            ->whereIn('id', $visible)->orderBy('sort_order')->get();
         $branches  = canSeeAllBranches() ? RawBranch::orderBy('name')->get() : collect();
 
         return view('crud.checklist.review.weekly-index', compact(
-            'submissions', 'counts', 'divisions', 'branches', 'branchId',
+            'submissions', 'counts', 'divCounts', 'divisions', 'branches', 'branchId',
             'filterWeek', 'filterDiv', 'filterStat', 'search'
         ));
     }
@@ -699,6 +777,7 @@ class DigitalChecklistController extends Controller
             ->findOrFail($id);
 
         $this->abortIfBranchMismatchWeekly($submission);
+        $this->abortIfDivisionOutOfScope($submission->division_id);
 
         // Items di-group per day_of_week → category, supaya view bisa render
         // ala form kertas (Selasa column, Kamis column, dst).
@@ -715,6 +794,7 @@ class DigitalChecklistController extends Controller
 
         $sub = ChecklistWeeklySubmission::findOrFail($id);
         $this->abortIfBranchMismatchWeekly($sub);
+        $this->abortIfDivisionOutOfScope($sub->division_id);
 
         if ($sub->status !== ChecklistWeeklySubmission::STATUS_SUBMITTED) {
             return back()->with('error', 'Form Mingguan ini sudah tidak menunggu approval.');
@@ -746,6 +826,7 @@ class DigitalChecklistController extends Controller
 
         $sub = ChecklistWeeklySubmission::findOrFail($id);
         $this->abortIfBranchMismatchWeekly($sub);
+        $this->abortIfDivisionOutOfScope($sub->division_id);
 
         if ($sub->status !== ChecklistWeeklySubmission::STATUS_SUBMITTED) {
             return back()->with('error', 'Form Mingguan ini sudah tidak menunggu approval.');
@@ -780,6 +861,7 @@ class DigitalChecklistController extends Controller
 
         $sub = ChecklistWeeklySubmission::findOrFail($id);
         $this->abortIfBranchMismatchWeekly($sub);
+        $this->abortIfDivisionOutOfScope($sub->division_id);
 
         if (! in_array($sub->status, [ChecklistWeeklySubmission::STATUS_APPROVED, ChecklistWeeklySubmission::STATUS_REJECTED], true)) {
             return back()->with('error', 'Hanya Form Mingguan yang sudah final yang bisa di-reopen.');
@@ -809,6 +891,7 @@ class DigitalChecklistController extends Controller
 
         $sub = ChecklistWeeklySubmission::findOrFail($id);
         $this->abortIfBranchMismatchWeekly($sub);
+        $this->abortIfDivisionOutOfScope($sub->division_id);
 
         if ($sub->status !== ChecklistWeeklySubmission::STATUS_EXCUSED) {
             return back()->with('error', 'Hanya Form Mingguan berstatus Dikecualikan yang bisa dibatalkan.');
@@ -845,6 +928,14 @@ class DigitalChecklistController extends Controller
         $branchId = resolveChecklistBranchId(null);
         if ($branchId && $sub->raw_branch_id !== $branchId) {
             abort(403, 'Tidak punya akses ke Form Mingguan cabang lain.');
+        }
+    }
+
+    /** Tolak akses kalau divisi di luar cakupan supervisi user (buka via id langsung). */
+    private function abortIfDivisionOutOfScope(?string $divisionId): void
+    {
+        if (! in_array($divisionId, checklistVisibleDivisionIds(), true)) {
+            abort(403, 'Divisi ini di luar cakupan supervisi Anda.');
         }
     }
 

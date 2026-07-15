@@ -125,7 +125,7 @@
     </div>
 
     {{-- ─── QUICK ACTIONS ─── --}}
-    <div class="cl-action-row" style="grid-template-columns: repeat(3, 1fr);">
+    <div class="cl-action-row" style="grid-template-columns: repeat(2, 1fr);">
         <a href="{{ route('checklist.positions') }}" class="cl-action">
             <span class="cl-action__icon"><i class="fas fa-user-tag"></i></span>
             <div class="cl-action__main">
@@ -139,14 +139,6 @@
             <div class="cl-action__main">
                 <div class="cl-action__title">Setup Tugas Checklist</div>
                 <div class="cl-action__desc">Atur kategori & task per divisi (FO / GS / Asdent)</div>
-            </div>
-            <i class="fas fa-arrow-right cl-action__arrow"></i>
-        </a>
-        <a href="{{ route('checklist.audit') }}" class="cl-action">
-            <span class="cl-action__icon"><i class="fas fa-shield-alt"></i></span>
-            <div class="cl-action__main">
-                <div class="cl-action__title">Audit Trail</div>
-                <div class="cl-action__desc">Log lengkap semua aksi — dipakai saat audit akreditasi</div>
             </div>
             <i class="fas fa-arrow-right cl-action__arrow"></i>
         </a>

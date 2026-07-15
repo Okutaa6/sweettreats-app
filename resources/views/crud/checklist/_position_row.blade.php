@@ -18,14 +18,13 @@
         <span class="st-pill st-pill--neutral">{{ $row->user->group_name ?? '—' }}</span>
     </td>
     <td>
-        @if($row->division)
-            <span class="st-pill st-pill--success">{{ $row->division->name }}</span>
-        @elseif($row->pending)
-            <span style="display:inline-flex; align-items:center; gap:4px; font-size:11.5px; font-weight:700; background:#FAEEDA; color:#A66019; border:1px solid #EBD6B4; padding:3px 10px; border-radius:999px;">
-                <i class="fas fa-hourglass-half" style="font-size:9px;"></i> {{ $row->pending->division?->name ?? '—' }}
+        {{-- Divisi otomatis dari role (terkunci) --}}
+        @if($row->roleDivision)
+            <span class="st-pill st-pill--success" title="Otomatis dari role">
+                <i class="fas fa-lock" style="font-size:9px;"></i> {{ $row->roleDivision->name }}
             </span>
         @else
-            <span style="color:var(--cl-subtle); font-style:italic; font-size:12px;">Belum di-assign</span>
+            <span style="color:var(--cl-subtle); font-style:italic; font-size:12px;">Role tanpa divisi</span>
         @endif
     </td>
     <td style="color:var(--cl-muted); font-size:12.5px;">
@@ -37,12 +36,7 @@
             @csrf
             <input type="hidden" name="user_id" value="{{ $row->user->id }}">
             @php $prefill = $row->position ?? $row->pending; @endphp
-            <select name="division_id" required class="cl-inline-select" style="flex:1; min-width:130px;">
-                <option value="">— Divisi —</option>
-                @foreach($divisions as $div)
-                    <option value="{{ $div->id }}" {{ optional($prefill)->division_id === $div->id ? 'selected' : '' }}>{{ $div->name }}</option>
-                @endforeach
-            </select>
+            {{-- Divisi tidak dipilih — otomatis dari role user, dikunci. Cukup set cabang. --}}
             <select name="raw_branch_id" required class="cl-inline-select" style="flex:1; min-width:140px;">
                 <option value="">— Cabang —</option>
                 @foreach($branches as $b)

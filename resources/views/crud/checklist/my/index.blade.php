@@ -653,8 +653,21 @@
                     .cl-propose-edit { margin-top: 8px; max-width: 460px; margin-left:auto; margin-right:auto; text-align:left; }
                     .cl-propose-edit[open] summary { margin-bottom: 12px; }
                 </style>
+            @elseif(empty($roleDivision))
+                {{-- ─── Role belum ditautkan ke divisi checklist ─── --}}
+                <div class="st-card">
+                    <div class="st-card__body" style="padding:44px 22px; text-align:center;">
+                        <div style="display:inline-flex; align-items:center; justify-content:center; width:80px; height:80px; border-radius:50%; background:#FCEBEB; color:#A32D2D; font-size:32px; margin-bottom:16px;">
+                            <i class="fas fa-user-slash"></i>
+                        </div>
+                        <h5 style="font-size:19px; font-weight:800; color:#2D1810; margin-bottom:8px;">Role Anda belum terhubung ke checklist</h5>
+                        <p style="font-size:13.5px; color:#6B4423; max-width:460px; margin:0 auto; line-height:1.6;">
+                            Halo <strong>{{ $userName }}</strong>, role Anda belum ditautkan ke divisi checklist mana pun. Hubungi admin/supervisor untuk menautkan role Anda ke divisinya terlebih dahulu.
+                        </p>
+                    </div>
+                </div>
             @else
-                {{-- ─── Welcome + form pilih posisi (first time) ─── --}}
+                {{-- ─── Welcome + form pilih posisi (divisi otomatis dari role, tinggal pilih cabang) ─── --}}
                 <div class="st-card">
                     <div class="st-card__body" style="padding:40px 22px;">
                         <div style="text-align:center; margin-bottom:22px;">
@@ -663,7 +676,7 @@
                             </div>
                             <h5 style="font-size:20px; font-weight:800; color:#2D1810; margin-bottom:8px;">Selamat datang, {{ $userName }}! 👋</h5>
                             <p style="font-size:13.5px; color:#6B4423; max-width:460px; margin:0 auto; line-height:1.6;">
-                                Sebelum mulai, pilih <strong>divisi</strong> dan <strong>cabang</strong> Anda. Setelah dikonfirmasi supervisor, form checklist Anda akan langsung muncul di sini.
+                                Divisi Anda <strong>{{ $roleDivision->name }}</strong> (otomatis dari role). Pilih <strong>cabang</strong> Anda; setelah dikonfirmasi supervisor, form checklist langsung muncul di sini.
                             </p>
                         </div>
                         <div style="max-width:460px; margin:0 auto;">
@@ -678,11 +691,11 @@
                 <div style="display:inline-flex; gap:2px; padding:4px; background:#FFFFFF; border-radius:999px; border:1px solid #E0D2C1; box-shadow:0 1px 3px rgba(45,24,16,.06); flex-wrap:wrap;">
                     <a href="{{ route('mychecklist') }}"
                        style="padding:8px 18px; font-size:13px; font-weight:700; text-decoration:none; border-radius:999px; background:linear-gradient(180deg,#5C2E15,#471500); color:#FFFFFF; box-shadow:0 2px 6px rgba(71,21,0,.20); display:inline-flex; align-items:center; gap:7px;">
-                        <i class="fas fa-sun"></i> Checklist Daily
+                        <i class="fas fa-sun"></i> Checklist Harian
                     </a>
                     <a href="{{ route('mychecklist.weekform') }}"
                        style="padding:8px 18px; font-size:13px; font-weight:600; text-decoration:none; border-radius:999px; color:#6B4423; display:inline-flex; align-items:center; gap:7px;">
-                        <i class="fas fa-calendar-week"></i> Checklist Weekly
+                        <i class="fas fa-calendar-week"></i> Checklist Mingguan
                     </a>
                 </div>
                 <a href="{{ route('mychecklist.history') }}" style="font-size:12.5px; color:#6B4423; text-decoration:none; display:inline-flex; align-items:center; gap:6px; font-weight:600;">
@@ -912,35 +925,16 @@
                                 @if($progress['done'] === 0)
                                     Isi minimal 1 task
                                 @else
-                                    <i class="fas fa-paper-plane"></i> Submit Checklist
+                                    <i class="fas fa-paper-plane"></i> Kirim Checklist
                                 @endif
                             </button>
                         </div>{{-- /cl-mod-submit --}}
                     </form>
                 @endif
 
-                {{-- ─── Aksi: hari ini tidak perlu diisi (Dikecualikan) ─── --}}
+                {{-- ─── Aksi "Dikecualikan" — di luar wrapper submit, tampil sbg dropdown button ─── --}}
                 @if($submission->isEditable())
-                    <details class="cl-excuse">
-                        <summary class="cl-excuse__trigger">
-                            <span class="cl-excuse__trigger-label"><i class="fas fa-mug-hot"></i> Hari ini tidak perlu diisi?</span>
-                            <i class="fas fa-chevron-down cl-excuse__caret"></i>
-                        </summary>
-                        <form method="POST" action="{{ route('mychecklist.excuse') }}" class="cl-excuse__form"
-                              onsubmit="return confirm('Tandai checklist hari ini sebagai tidak perlu diisi?');">
-                            @csrf
-                            <div class="cl-excuse__label">Pilih / tulis alasan (wajib):</div>
-                            <div class="cl-excuse__chips">
-                                <button type="button" class="cl-excuse__chip" onclick="this.closest('form').querySelector('.cl-excuse__input').value='Cuti';">Cuti</button>
-                                <button type="button" class="cl-excuse__chip" onclick="this.closest('form').querySelector('.cl-excuse__input').value='Klinik tutup';">Klinik tutup</button>
-                                <button type="button" class="cl-excuse__chip" onclick="this.closest('form').querySelector('.cl-excuse__input').value='Libur';">Libur</button>
-                                <button type="button" class="cl-excuse__chip" onclick="this.closest('form').querySelector('.cl-excuse__input').value='Tidak ada pasien';">Tidak ada pasien</button>
-                            </div>
-                            <textarea name="excuse_reason" class="cl-excuse__input" rows="2" maxlength="500" required
-                                      placeholder="Contoh: libur / tanggal merah…"></textarea>
-                            <button type="submit" class="cl-excuse__submit"><i class="fas fa-check"></i> Tandai "Dikecualikan"</button>
-                        </form>
-                    </details>
+                    @include('crud.checklist.my._excuse_block')
                     <style>
                         .cl-excuse { margin-top: 14px; border: 1px solid #E0D2C1; border-radius: 12px; background: #FFFDF9; box-shadow: 0 1px 3px rgba(45,24,16,.05); }
                         .cl-excuse__trigger { list-style: none; cursor: pointer; padding: 13px 16px; font-size: 13px; font-weight: 700; color: #6B4423; display: flex; align-items: center; justify-content: space-between; gap: 8px; border-radius: 12px; transition: background .15s; }
@@ -1190,7 +1184,7 @@
             const has = p.done > 0;
             submitBtn.disabled = ! has;
             submitBtn.innerHTML = has
-                ? '<i class="fas fa-paper-plane"></i> Submit Checklist'
+                ? '<i class="fas fa-paper-plane"></i> Kirim Checklist'
                 : 'Isi minimal 1 task';
         }
         // Update submit hint
