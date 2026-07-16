@@ -75,6 +75,13 @@
                                     <a href="{{ route('setgroup.edit', $role->id) }}" class="rgx-ibtn" title="Edit / atur atasan"><i class="fas fa-pen"></i></a>
                                     <a href="{{ route('setgroup.access', $role->id) }}" class="rgx-ibtn" title="Atur akses menu"><i class="fas fa-key"></i></a>
                                     <a href="{{ route('setgroup.new', ['parent' => $role->id]) }}" class="rgx-ibtn rgx-ibtn--add" title="Tambah bawahan"><i class="fas fa-plus"></i></a>
+                                    @unless ($isRoot)
+                                        <form method="POST" action="{{ route('setgroup.detach', $role->id) }}" class="rgx-detach"
+                                              onsubmit="return confirm('Lepas role ini dari hierarki? Role akan menjadi puncak (tanpa atasan).');">
+                                            @csrf
+                                            <button type="submit" class="rgx-ibtn rgx-ibtn--detach" title="Lepas dari hierarki (jadikan puncak)"><i class="fas fa-unlink"></i></button>
+                                        </form>
+                                    @endunless
                                 </div>
                             </div>
 
@@ -187,12 +194,14 @@
     .rgx-card__name { font-size: 17px; font-weight: 800; color: #2f1c0d; line-height: 1.15; letter-spacing: -.2px; }
     .rgx-card__desc { font-size: 12.5px; color: #a5917c; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .rgx-card__actions { display: flex; gap: 5px; flex-shrink: 0; align-self: flex-start; }
+    .rgx-detach { margin: 0; display: inline-flex; }
     .rgx-ibtn {
         width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; text-decoration: none;
         color: #7a6552; background: #f6efe6; font-size: 12px; transition: all .14s;
     }
     .rgx-ibtn:hover { background: #461500; color: #fff; transform: translateY(-1px); }
     .rgx-ibtn--add:hover { background: #5B4FC7; }
+    .rgx-ibtn--detach:hover { background: #A32D2D; }
 
     .rgx-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 14px 0 12px; }
     .rgx-chip {

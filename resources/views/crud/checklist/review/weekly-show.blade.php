@@ -246,6 +246,24 @@
                                                             </div>
                                                         @endif
                                                     @endif
+                                                    @if($item->photo_before_path || $item->photo_after_path)
+                                                        <div style="display:flex; gap:10px; margin-top:6px; flex-wrap:wrap;">
+                                                            @foreach(['before' => 'Before', 'after' => 'After'] as $slot => $slotLabel)
+                                                                @php $baPath = $item->{'photo_' . $slot . '_path'}; @endphp
+                                                                <div>
+                                                                    <div style="font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:#9B5E2C; margin-bottom:3px;">{{ $slotLabel }}</div>
+                                                                    @if($baPath)
+                                                                        <a href="{{ asset($baPath) }}" target="_blank" rel="noopener" style="display:inline-block;">
+                                                                            <img src="{{ asset($baPath) }}" alt="Foto {{ $slotLabel }}"
+                                                                                 style="width:110px; height:82px; border-radius:8px; border:1px solid #E0D2C1; object-fit:cover; display:block;">
+                                                                        </a>
+                                                                    @else
+                                                                        <div style="width:110px; height:82px; border-radius:8px; border:1px dashed #D8C4AB; background:#FAF4EC; color:#B79A79; display:flex; align-items:center; justify-content:center; font-size:10.5px;">Tidak ada</div>
+                                                                    @endif
+                                                                </div>
+                                                            @endforeach
+                                                        </div>
+                                                    @endif
                                                 </div>
                                                 @if($item->done_at)
                                                     <span class="wkr-task__time">{{ $item->done_at->format('H:i') }}</span>

@@ -206,6 +206,29 @@ class Group extends Controller
     }
 
     /**
+     * Lepas role dari hierarki: hapus atasannya (parent_id = null) sehingga role
+     * menjadi PUNCAK (tanpa atasan). Bawahannya tetap ikut (subtree utuh), hanya
+     * level-nya disinkronkan ulang mulai dari 0. Dipakai lewat tombol di kartu
+     * Detail — redirect + flash (bukan AJAX, konsisten dgn edit/hapus).
+     */
+    public function detach($id)
+    {
+        $group = GroupPath::findOrFail($id);
+
+        if (! $group->parent_id) {
+            return redirect()->route('setgroup')->with('error', 'Role ini sudah menjadi puncak (tanpa atasan).');
+        }
+
+        DB::transaction(function () use ($group) {
+            $group->update(['parent_id' => null, 'level' => 0]);
+            // Kedalaman berubah → sinkronkan level seluruh subtree.
+            $this->relevel($group->fresh());
+        });
+
+        return redirect()->route('setgroup')->with('success', "Role {$group->nama} dilepas dari hierarki — kini menjadi puncak (tanpa atasan).");
+    }
+
+    /**
      * Tautkan/lepas divisi checklist ke sebuah ROLE STAF lewat drag-drop di bagan
      * (anggota role itu mengisi checklist divisi ini; atasannya yang me-review).
      * group_id null = kembalikan ke tray "belum ditautkan". Balikan JSON.

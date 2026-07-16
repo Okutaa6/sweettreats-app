@@ -318,6 +318,34 @@
     }
     .wf-photo__remove:hover { background: #FCEBEB; border-color: #A32D2D; }
     .wf-photo__status { font-size: 11px; color: #6B4423; font-weight: 600; }
+
+    /* ── Foto before/after opsional (divisi GS) ── */
+    .wf-ba { display: flex; gap: 10px; margin-top: 8px; }
+    .wf-ba__col { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+    .wf-ba__cap {
+        font-size: 10.5px; font-weight: 800; letter-spacing: .4px; text-transform: uppercase;
+        color: #9B5E2C;
+    }
+    .wf-ba__thumb {
+        width: 100%; aspect-ratio: 4 / 3; border-radius: 10px;
+        border: 1.5px dashed #D8C4AB; background: #FAF4EC no-repeat center / cover;
+        color: #B79A79; cursor: pointer; padding: 0;
+        display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+        font-size: 11px; font-weight: 600; transition: .15s;
+    }
+    .wf-ba__thumb i { font-size: 17px; }
+    .wf-ba__thumb:hover { border-color: #A66019; color: #8A5A2A; background-color: #FAF0E2; }
+    .wf-ba__thumb.has { border-style: solid; border-color: #E0D2C1; cursor: zoom-in; }
+    .wf-ba__tools { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+    .wf-ba__mini {
+        border: 1px solid #A66019; background: #FFF7EE; color: #5C2E15;
+        font-size: 11px; font-weight: 700; padding: 5px 10px; border-radius: 999px;
+        cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: .15s;
+    }
+    .wf-ba__mini:hover { background: #FAF0E2; }
+    .wf-ba__mini--del { border-color: #E0D2C1; background: #fff; color: #7C2929; padding: 5px 9px; }
+    .wf-ba__mini--del:hover { background: #FCEBEB; border-color: #A32D2D; }
+    .wf-ba__status { font-size: 10.5px; color: #6B4423; font-weight: 600; min-height: 13px; }
 </style>
 @endsection
 
@@ -512,6 +540,10 @@
                     </p>
                 </div>
             @else
+                @php
+                    // Foto before/after opsional — sementara hanya untuk Form Mingguan divisi GS.
+                    $isGsBa = $submission->division_id === 'GS';
+                @endphp
                 <div class="wf-day-list">
                     @foreach($days as $day)
                         @php
@@ -559,12 +591,12 @@
                                             <i class="fas fa-folder"></i> {{ $catTitle }}
                                         </div>
                                         @foreach($items as $item)
-                                            <div class="wf-task {{ $item->is_done ? 'is-done' : '' }} {{ $submission->isEditable() ? '' : 'is-locked' }} {{ $item->requires_photo && ! $item->photo_path ? 'needs-photo' : '' }}"
+                                            <div class="wf-task {{ $item->is_done ? 'is-done' : '' }} {{ $submission->isEditable() ? '' : 'is-locked' }} {{ ! $isGsBa && $item->requires_photo && ! $item->photo_path ? 'needs-photo' : '' }}"
                                                  data-item-id="{{ $item->id }}"
                                                  data-toggle-url="{{ route('mychecklist.weekform.item.toggle', $item->id) }}"
                                                  data-editable="{{ $submission->isEditable() ? '1' : '0' }}"
-                                                 data-requires-photo="{{ $item->requires_photo ? '1' : '0' }}"
-                                                 @if($item->requires_photo)
+                                                 data-requires-photo="{{ ! $isGsBa && $item->requires_photo ? '1' : '0' }}"
+                                                 @if(! $isGsBa && $item->requires_photo)
                                                  data-photo-upload-url="{{ route('mychecklist.weekform.item.photo.upload', $item->id) }}"
                                                  data-photo-delete-url="{{ route('mychecklist.weekform.item.photo.delete', $item->id) }}"
                                                  data-has-photo="{{ $item->photo_path ? '1' : '0' }}"
@@ -573,11 +605,42 @@
                                                 <div class="wf-task__body">
                                                     <div class="wf-task__name">
                                                         {{ $item->task_title_snapshot }}
-                                                        @if($item->requires_photo)
+                                                        @if(! $isGsBa && $item->requires_photo)
                                                             <span class="wf-task__badge"><i class="fas fa-camera"></i> Wajib foto</span>
                                                         @endif
                                                     </div>
-                                                    @if($item->requires_photo)
+                                                    @if($isGsBa)
+                                                        <div class="wf-ba" data-ba>
+                                                            @foreach(['before' => 'Before', 'after' => 'After'] as $slot => $slotLabel)
+                                                                @php $baPath = $item->{'photo_' . $slot . '_path'}; @endphp
+                                                                <div class="wf-ba__col" data-ba-slot="{{ $slot }}"
+                                                                     data-upload-url="{{ route('mychecklist.weekform.item.baphoto.upload', ['id' => $item->id, 'slot' => $slot]) }}"
+                                                                     data-delete-url="{{ route('mychecklist.weekform.item.baphoto.delete', ['id' => $item->id, 'slot' => $slot]) }}">
+                                                                    <div class="wf-ba__cap">{{ $slotLabel }}</div>
+                                                                    <input type="file" accept="image/*" capture="environment" class="wf-ba__file" hidden>
+                                                                    <button type="button" class="wf-ba__thumb {{ $baPath ? 'has' : '' }}" data-ba-thumb
+                                                                            data-url="{{ $baPath ? asset($baPath) : '' }}"
+                                                                            @if($baPath) style="background-image:url('{{ asset($baPath) }}');" @endif>
+                                                                        @unless($baPath)
+                                                                            <i class="fas fa-camera"></i>
+                                                                            <span>{{ $submission->isEditable() ? 'Ambil foto' : 'Tidak ada' }}</span>
+                                                                        @endunless
+                                                                    </button>
+                                                                    @if($submission->isEditable())
+                                                                        <div class="wf-ba__tools">
+                                                                            <button type="button" class="wf-ba__mini" data-ba-take>
+                                                                                <i class="fas fa-camera"></i> <span data-ba-label>{{ $baPath ? 'Ganti' : 'Ambil' }}</span>
+                                                                            </button>
+                                                                            <button type="button" class="wf-ba__mini wf-ba__mini--del" data-ba-remove style="{{ $baPath ? '' : 'display:none;' }}">
+                                                                                <i class="fas fa-trash"></i>
+                                                                            </button>
+                                                                        </div>
+                                                                        <span class="wf-ba__status" data-ba-status></span>
+                                                                    @endif
+                                                                </div>
+                                                            @endforeach
+                                                        </div>
+                                                    @elseif($item->requires_photo)
                                                         <div class="wf-photo" data-photo>
                                                             <input type="file" accept="image/*" capture="environment" class="wf-photo__file" hidden>
                                                             <div class="wf-photo__actions">
@@ -740,6 +803,26 @@
             if (removeBtn) removeBtn.addEventListener('click', () => removePhoto(task));
             if (viewBtn) viewBtn.addEventListener('click', () => { if (viewBtn.dataset.url) openPhotoModal(viewBtn.dataset.url); });
         }
+
+        // Kolom foto before/after (divisi GS) — opsional, tidak men-toggle task.
+        const editable = task.dataset.editable === '1';
+        task.querySelectorAll('[data-ba-slot]').forEach(col => {
+            col.addEventListener('click', e => e.stopPropagation());
+            const fileInput = col.querySelector('.wf-ba__file');
+            const takeBtn   = col.querySelector('[data-ba-take]');
+            const removeBtn = col.querySelector('[data-ba-remove]');
+            const thumb     = col.querySelector('[data-ba-thumb]');
+            if (takeBtn && fileInput) takeBtn.addEventListener('click', () => fileInput.click());
+            if (thumb) thumb.addEventListener('click', () => {
+                if (thumb.dataset.url) openPhotoModal(thumb.dataset.url);
+                else if (editable && fileInput) fileInput.click();
+            });
+            if (fileInput) fileInput.addEventListener('change', () => {
+                if (fileInput.files && fileInput.files[0]) uploadBaPhoto(col, fileInput.files[0]);
+                fileInput.value = '';
+            });
+            if (removeBtn) removeBtn.addEventListener('click', () => removeBaPhoto(col));
+        });
     });
 
     // ── Modal lihat foto ──
@@ -874,6 +957,77 @@
         const removeBtn = task.querySelector('[data-photo-remove]');
         if (viewBtn) { viewBtn.dataset.url = ''; viewBtn.style.display = 'none'; }
         if (label) label.textContent = 'Ambil foto';
+        if (removeBtn) removeBtn.style.display = 'none';
+    }
+
+    // ── Foto before/after (divisi GS): opsional, tak mengubah status task ──
+    async function uploadBaPhoto(col, file) {
+        const status = col.querySelector('[data-ba-status]');
+        const setStatus = t => { if (status) status.textContent = t; };
+        setStatus('Mengompres…');
+        let blob;
+        try { blob = await resizeImage(file, 1600, 0.8); }
+        catch (e) { blob = file; }
+        const fd = new FormData();
+        fd.append('photo', blob, 'foto.jpg');
+        setStatus('Mengunggah…');
+        try {
+            const res = await fetch(col.dataset.uploadUrl, {
+                method: 'POST',
+                headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf },
+                body: fd,
+            });
+            const data = await res.json();
+            if (! data.ok) throw new Error(data.error || 'Upload gagal');
+            setBaPhoto(col, data.url);
+            setStatus('Tersimpan ✓');
+            setTimeout(() => setStatus(''), 1500);
+        } catch (err) {
+            setStatus('');
+            alert('Gagal: ' + (err.message || err));
+        }
+    }
+
+    async function removeBaPhoto(col) {
+        if (! confirm('Hapus foto ini?')) return;
+        try {
+            const res = await fetch(col.dataset.deleteUrl, {
+                method: 'DELETE',
+                headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf, 'Content-Type': 'application/json' },
+            });
+            const data = await res.json();
+            if (! data.ok) throw new Error(data.error || 'Gagal hapus');
+            clearBaPhoto(col);
+        } catch (err) {
+            alert('Gagal: ' + (err.message || err));
+        }
+    }
+
+    function setBaPhoto(col, url) {
+        const thumb     = col.querySelector('[data-ba-thumb]');
+        const label     = col.querySelector('[data-ba-label]');
+        const removeBtn = col.querySelector('[data-ba-remove]');
+        if (thumb) {
+            thumb.dataset.url = url;
+            thumb.classList.add('has');
+            thumb.style.backgroundImage = "url('" + url + "')";
+            thumb.innerHTML = '';
+        }
+        if (label) label.textContent = 'Ganti';
+        if (removeBtn) removeBtn.style.display = '';
+    }
+
+    function clearBaPhoto(col) {
+        const thumb     = col.querySelector('[data-ba-thumb]');
+        const label     = col.querySelector('[data-ba-label]');
+        const removeBtn = col.querySelector('[data-ba-remove]');
+        if (thumb) {
+            thumb.dataset.url = '';
+            thumb.classList.remove('has');
+            thumb.style.backgroundImage = '';
+            thumb.innerHTML = '<i class="fas fa-camera"></i><span>Ambil foto</span>';
+        }
+        if (label) label.textContent = 'Ambil';
         if (removeBtn) removeBtn.style.display = 'none';
     }
 
