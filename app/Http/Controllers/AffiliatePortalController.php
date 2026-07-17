@@ -641,15 +641,35 @@ class AffiliatePortalController extends Controller
                 ->with('error', 'Tidak bisa pindah program — selesaikan dulu klaim untuk program saat ini (tunggu admin proses sampai reward "sudah dipakai").');
         }
 
-        $affiliate->update([
-            'reward_program'            => request('reward_program'),
-            'reward_program_started_at' => now(),
-        ]);
+        // Counter konten HANYA di-reset kalau siklus reward sebelumnya benar-benar
+        // selesai — yaitu ada klaim berstatus 'used' di siklus yang sedang berjalan.
+        // Kalau affiliate belum pernah menyelesaikan reward, ganti tier = ganti
+        // TARGET saja: konten yang sudah approved tetap dihitung.
+        //
+        // Sebelumnya counter selalu di-reset ke now(), sehingga konten yang
+        // di-upload SEBELUM switch ikut hangus begitu di-approve belakangan
+        // (approvedContentCount() memfilter created_at >= reward_program_started_at).
+        // Ini bertentangan dengan ketentuan program: reset hanya "setelah reward
+        // selesai dipakai".
+        $sudahPakaiReward = $affiliate->rewardClaims()
+            ->where('status', AffiliateRewardClaim::STATUS_USED)
+            ->when(
+                $affiliate->reward_program_started_at,
+                fn ($q) => $q->where('created_at', '>=', $affiliate->reward_program_started_at)
+            )
+            ->exists();
+
+        $data = ['reward_program' => request('reward_program')];
+        if ($sudahPakaiReward) {
+            $data['reward_program_started_at'] = now();
+        }
+        $affiliate->update($data);
 
         $newCfg = RawAffiliate::rewardTiers()[request('reward_program')] ?? null;
-        $msg = $newCfg
-            ? 'Program berhasil di-switch ke ' . $newCfg['name'] . '. Counter konten dimulai dari 0.'
-            : 'Program berhasil di-switch.';
+        $nama   = $newCfg['name'] ?? 'program baru';
+        $msg    = $sudahPakaiReward
+            ? 'Program berhasil di-switch ke ' . $nama . '. Counter konten dimulai dari 0.'
+            : 'Program berhasil di-switch ke ' . $nama . '. Konten kamu yang sudah approved tetap dihitung.';
 
         return redirect()->route('affiliate.rewards')->with('success', $msg);
     }
