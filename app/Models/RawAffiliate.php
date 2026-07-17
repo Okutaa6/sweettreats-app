@@ -412,8 +412,13 @@ class RawAffiliate extends Model
 
     /**
      * Boleh switch ke program lain?
-     * Aturan: hanya bisa kalau (a) belum pilih program sama sekali, ATAU
-     * (b) klaim untuk program saat ini sudah status='used' (admin selesai proses).
+     * Aturan: TIDAK boleh selama masih ada klaim berjalan (status 'eligible'
+     * atau 'claimed') — tunggu admin proses sampai 'used'. Di luar itu bebas,
+     * termasuk kalau affiliate belum pernah klaim sama sekali.
+     *
+     * Ganti program saat belum pernah klaim TIDAK menghanguskan progress:
+     * counter hanya di-reset kalau siklus reward sebelumnya sudah selesai
+     * (lihat AffiliatePortalController::switchRewardProgram()).
      */
     public function canSwitchProgram(): bool
     {
