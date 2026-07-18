@@ -12,6 +12,8 @@ use App\Http\Controllers\Crud\BranchController;
 use App\Http\Controllers\Crud\CustomerController;
 use App\Http\Controllers\Crud\ReservationController;
 use App\Http\Controllers\Crud\ReservationImportController;
+use App\Http\Controllers\Absensi\AbsensiUploadController;
+use App\Http\Controllers\Absensi\AkunAbsensiController;
 use App\Http\Controllers\Crud\ReservasiCabangController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\PublicDoctorScheduleController;
@@ -288,6 +290,13 @@ Route::middleware([AuthGuard::class])->group(function () {
     Route::post('rawreservation/import/batch/{id}/auto-process', [ReservationImportController::class, 'autoProcess'])->name('rawreservation.import.batch.auto-process');
     Route::post('rawreservation/import/batch/{id}/rematch-doctors', [ReservationImportController::class, 'reMatchDoctors'])->name('rawreservation.import.batch.rematch-doctors');
     Route::delete('rawreservation/import/batch/{id}',            [ReservationImportController::class, 'destroyBatch'])->name('rawreservation.import.batch.destroy');
+
+    // ── Absensi (rekonsiliasi) — segment(1) = 'absensi' untuk RBAC AuthGuard ──
+    Route::get('absensi/upload',       [AbsensiUploadController::class, 'index'])->name('absensi.upload');
+    Route::post('absensi/upload/file', [AbsensiUploadController::class, 'upload'])->name('absensi.upload.file');
+
+    // ── Akun Saya (self-service karyawan, mobile) — segment(1) = 'akun' ──
+    Route::get('akun/absensi', [AkunAbsensiController::class, 'index'])->name('akun.absensi');
 
     Route::get('rawreservation/{id}', [ReservationController::class, 'edit'])->name('rawreservation.edit');
     Route::put('rawreservation/{id}', [ReservationController::class, 'update'])->name('rawreservation.update');
