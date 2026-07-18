@@ -36,7 +36,7 @@ class AbsensiAccessPathSeeder extends Seeder
             [
                 'id' => $uploadId, 'pid' => $parentId, 'nama' => 'Upload Data',
                 'icon' => 'dripicons-upload', 'urutan' => 1,
-                'urutan_path' => null, 'link' => 'absensi/upload',
+                'urutan_path' => null, 'link' => 'absensi',
                 'pid_path' => $parentId . ',' . $uploadId,
             ],
             // ── Akun Saya (self-service, semua orang) ──
@@ -48,7 +48,7 @@ class AbsensiAccessPathSeeder extends Seeder
             [
                 'id' => $akunAbsId, 'pid' => $akunGrpId, 'nama' => 'Absensi Saya',
                 'icon' => 'dripicons-calendar', 'urutan' => 1,
-                'urutan_path' => null, 'link' => 'akun/absensi',
+                'urutan_path' => null, 'link' => 'akun',
                 'pid_path' => $akunGrpId . ',' . $akunAbsId,
             ],
         ];

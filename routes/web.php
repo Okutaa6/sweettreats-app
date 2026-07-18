@@ -291,12 +291,12 @@ Route::middleware([AuthGuard::class])->group(function () {
     Route::post('rawreservation/import/batch/{id}/rematch-doctors', [ReservationImportController::class, 'reMatchDoctors'])->name('rawreservation.import.batch.rematch-doctors');
     Route::delete('rawreservation/import/batch/{id}',            [ReservationImportController::class, 'destroyBatch'])->name('rawreservation.import.batch.destroy');
 
-    // ── Absensi (rekonsiliasi) — segment(1) = 'absensi' untuk RBAC AuthGuard ──
-    Route::get('absensi/upload',       [AbsensiUploadController::class, 'index'])->name('absensi.upload');
+    // ── Absensi (rekonsiliasi) — segment(1) = 'absensi'. AuthGuard cek link=='absensi' ──
+    Route::get('absensi',              [AbsensiUploadController::class, 'index'])->name('absensi.upload');
     Route::post('absensi/upload/file', [AbsensiUploadController::class, 'upload'])->name('absensi.upload.file');
 
     // ── Akun Saya (self-service karyawan, mobile) — segment(1) = 'akun' ──
-    Route::get('akun/absensi', [AkunAbsensiController::class, 'index'])->name('akun.absensi');
+    Route::get('akun', [AkunAbsensiController::class, 'index'])->name('akun.absensi');
 
     Route::get('rawreservation/{id}', [ReservationController::class, 'edit'])->name('rawreservation.edit');
     Route::put('rawreservation/{id}', [ReservationController::class, 'update'])->name('rawreservation.update');
