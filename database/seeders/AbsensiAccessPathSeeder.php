@@ -23,8 +23,11 @@ class AbsensiAccessPathSeeder extends Seeder
     {
         $parentId = 'abs-parent-000000000000';
         $uploadId = 'abs-upload-000000000000';
+        $recapId  = 'abs-recap-000000000000';
         $akunGrpId = 'akun-parent-0000000000';
         $akunAbsId = 'akun-absensi-000000000';
+        $persGrpId = 'pers-parent-0000000000';
+        $persInbId = 'pers-inbox-00000000000';
 
         $items = [
             // ── Absensi (admin/finance) ──
@@ -39,6 +42,14 @@ class AbsensiAccessPathSeeder extends Seeder
                 'urutan_path' => null, 'link' => 'absensi',
                 'pid_path' => $parentId . ',' . $uploadId,
             ],
+            [
+                // link = full-path (buat href sidebar). AuthGuard tetap lolos via
+                // node 'absensi' (segment(1) URL 'absensi/recap' = 'absensi').
+                'id' => $recapId, 'pid' => $parentId, 'nama' => 'Rekap Persetujuan',
+                'icon' => 'dripicons-checklist', 'urutan' => 2,
+                'urutan_path' => null, 'link' => 'absensi/recap',
+                'pid_path' => $parentId . ',' . $recapId,
+            ],
             // ── Akun Saya (self-service, semua orang) ──
             [
                 'id' => $akunGrpId, 'pid' => '', 'nama' => 'Akun Saya',
@@ -51,6 +62,18 @@ class AbsensiAccessPathSeeder extends Seeder
                 'urutan_path' => null, 'link' => 'akun',
                 'pid_path' => $akunGrpId . ',' . $akunAbsId,
             ],
+            // ── Persetujuan (inbox approver) — grant semua role, inbox kosong utk non-approver ──
+            [
+                'id' => $persGrpId, 'pid' => '', 'nama' => 'Persetujuan',
+                'icon' => 'icon-fa fas fa-check-circle', 'urutan' => 94,
+                'urutan_path' => null, 'link' => '', 'pid_path' => null,
+            ],
+            [
+                'id' => $persInbId, 'pid' => $persGrpId, 'nama' => 'Inbox Persetujuan',
+                'icon' => 'dripicons-inbox', 'urutan' => 1,
+                'urutan_path' => null, 'link' => 'persetujuan',
+                'pid_path' => $persGrpId . ',' . $persInbId,
+            ],
         ];
         foreach ($items as $row) {
             DB::table('access_path')->updateOrInsert(['id' => $row['id']], $row);
@@ -60,9 +83,11 @@ class AbsensiAccessPathSeeder extends Seeder
         // WAJIB grant PARENT juga: buildTree (access:rebuild) cuma masukin node yg di-grant,
         // dan parent (pid kosong) harus ada di set biar child-nya tampil di sidebar.
         // Parent link='' → tak ganggu AuthGuard (tak match segment apa pun).
-        $this->grant([$parentId, $uploadId], ['Finance', 'Super Admin', 'Admin General', 'Admin Backup', 'Admin']);
+        $this->grant([$parentId, $uploadId, $recapId], ['Finance', 'Super Admin', 'Admin General', 'Admin Backup', 'Admin']);
         $allRoles = DB::table('group_path')->pluck('nama')->all();
         $this->grant([$akunGrpId, $akunAbsId], $allRoles);
+        // Persetujuan → semua role (visibilitas per-approver ditunda; controller scope by session id).
+        $this->grant([$persGrpId, $persInbId], $allRoles);
     }
 
     private function grant(array $accessIds, array $groupNames): void

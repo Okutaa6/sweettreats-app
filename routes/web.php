@@ -13,7 +13,10 @@ use App\Http\Controllers\Crud\CustomerController;
 use App\Http\Controllers\Crud\ReservationController;
 use App\Http\Controllers\Crud\ReservationImportController;
 use App\Http\Controllers\Absensi\AbsensiUploadController;
+use App\Http\Controllers\Absensi\AbsensiRecapController;
 use App\Http\Controllers\Absensi\AkunAbsensiController;
+use App\Http\Controllers\Absensi\AkunPengajuanController;
+use App\Http\Controllers\Absensi\PersetujuanController;
 use App\Http\Controllers\Crud\ReservasiCabangController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\PublicDoctorScheduleController;
@@ -294,9 +297,16 @@ Route::middleware([AuthGuard::class])->group(function () {
     // ── Absensi (rekonsiliasi) — segment(1) = 'absensi'. AuthGuard cek link=='absensi' ──
     Route::get('absensi',              [AbsensiUploadController::class, 'index'])->name('absensi.upload');
     Route::post('absensi/upload/file', [AbsensiUploadController::class, 'upload'])->name('absensi.upload.file');
+    Route::get('absensi/recap',        [AbsensiRecapController::class, 'index'])->name('absensi.recap');
 
     // ── Akun Saya (self-service karyawan, mobile) — segment(1) = 'akun' ──
     Route::get('akun', [AkunAbsensiController::class, 'index'])->name('akun.absensi');
+    Route::get('akun/pengajuan',  [AkunPengajuanController::class, 'create'])->name('akun.pengajuan');
+    Route::post('akun/pengajuan', [AkunPengajuanController::class, 'store'])->name('akun.pengajuan.store');
+
+    // ── Persetujuan (inbox approver, mobile) — segment(1) = 'persetujuan' ──
+    Route::get('persetujuan',          [PersetujuanController::class, 'index'])->name('persetujuan.inbox');
+    Route::post('persetujuan/{id}/act', [PersetujuanController::class, 'act'])->name('persetujuan.act');
 
     Route::get('rawreservation/{id}', [ReservationController::class, 'edit'])->name('rawreservation.edit');
     Route::put('rawreservation/{id}', [ReservationController::class, 'update'])->name('rawreservation.update');

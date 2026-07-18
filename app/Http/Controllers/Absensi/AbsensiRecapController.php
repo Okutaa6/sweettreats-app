@@ -1,0 +1,75 @@
+<?php
+
+namespace App\Http\Controllers\Absensi;
+
+use App\Http\Controllers\Controller;
+use App\Models\AttRequest;
+use App\Models\RawBranch;
+use App\Services\AttendanceRequestWorkflow;
+use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
+
+/**
+ * "Absensi → Rekap Persetujuan" — recap Finance (DESKTOP, view-only).
+ *
+ * Semua pengajuan APPROVED dalam satu periode, per cabang. Finance TIDAK meng-approve
+ * per item (kontrol dipindah ke tutup periode, §5.4) — halaman ini buat spot-check:
+ * lihat apa yg sudah lolos, sandingkan klaim lembur vs scan (§2.11), sebelum tutup.
+ *
+ * Guard canSeeAllBranches (sama pola AbsensiUploadController). Route di segment(1) =
+ * 'absensi' (node sudah di-grant Finance/admin), jadi tak butuh access node baru.
+ *
+ * Konteks: docs/rencana-rekonsiliasi-absensi.md §2.11, §5.4, Fase D.
+ */
+class AbsensiRecapController extends Controller
+{
+    private const TIPE_LABEL = [
+        'cuti' => 'Cuti', 'izin' => 'Izin', 'libur' => 'Libur',
+        'lembur' => 'Lembur', 'wfh' => 'WFH',
+    ];
+
+    private function guard(): void
+    {
+        if (! canSeeAllBranches()) {
+            abort(403, 'Rekap absensi hanya untuk Finance / Admin.');
+        }
+    }
+
+    public function index(Request $request)
+    {
+        $this->guard();
+
+        // periode (default bulan berjalan)
+        $month = $request->input('m');
+        $anchor = $month ? Carbon::parse($month . '-01') : Carbon::now()->startOfMonth();
+        $from = $anchor->copy()->startOfMonth();
+        $to = $anchor->copy()->endOfMonth();
+
+        $branchFilter = $request->input('branch');
+
+        $items = (new AttendanceRequestWorkflow())->recapForFinance($from, $to)
+            ->load(['user', 'branch']);
+
+        if ($branchFilter) {
+            $items = $items->where('raw_branch_id', $branchFilter)->values();
+        }
+
+        // ringkasan: hitung per tipe + total lembur jam disetujui
+        $summary = [
+            'total'  => $items->count(),
+            'cuti'   => $items->where('tipe', 'cuti')->count(),
+            'izin'   => $items->where('tipe', 'izin')->count(),
+            'libur'  => $items->where('tipe', 'libur')->count(),
+            'wfh'    => $items->where('tipe', 'wfh')->count(),
+            'lembur' => $items->where('tipe', 'lembur')->count(),
+            'lembur_menit' => $items->where('tipe', 'lembur')->sum('claimed_menit'),
+        ];
+
+        $branches = RawBranch::orderBy('name')->get(['id', 'name']);
+        $tipeLabel = self::TIPE_LABEL;
+
+        return view('absensi.recap', compact(
+            'items', 'summary', 'branches', 'branchFilter', 'anchor', 'from', 'to', 'tipeLabel'
+        ));
+    }
+}

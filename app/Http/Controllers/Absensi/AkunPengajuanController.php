@@ -1,0 +1,119 @@
+<?php
+
+namespace App\Http\Controllers\Absensi;
+
+use App\Http\Controllers\Controller;
+use App\Models\AttRequest;
+use App\Services\AttendanceRequestWorkflow;
+use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
+
+/**
+ * "Akun Saya → Ajukan" — form pengajuan absen (MOBILE, self-service).
+ *
+ * Pengaju SELALU dirinya sendiri (session id) — sisi-GUA, tak ada gating role/cabang.
+ * Route di segment(1) = 'akun' (node sudah di-grant semua role di AbsensiAccessPathSeeder),
+ * jadi tak butuh access node / rebuild baru.
+ *
+ * Lima jenis form (§5.2): cuti | izin | libur | lembur | wfh. Deklarasi manusia =
+ * kebenaran tertinggi (§4). Setelah create, alur diserahkan ke AttendanceRequestWorkflow::
+ * submit() → rantai approver (att_approver) menentukan pending_l1 / langsung approved.
+ */
+class AkunPengajuanController extends Controller
+{
+    /** Jenis form + apakah butuh rentang jam (lembur/izin sebagian). */
+    private const TIPE = [
+        'cuti'   => 'Cuti',
+        'izin'   => 'Izin',
+        'libur'  => 'Libur / Tukar Hari',
+        'lembur' => 'Lembur',
+        'wfh'    => 'WFH',
+    ];
+
+    private function userId(): string
+    {
+        $id = (string) session('id');
+        if (! $id) abort(403);
+        return $id;
+    }
+
+    public function create(Request $request)
+    {
+        $this->userId();
+
+        $tipeList = self::TIPE;
+        // pra-isi tipe kalau datang dari tombol tipe tertentu (mis. ?tipe=lembur)
+        $tipe = $request->input('tipe');
+        if ($tipe && ! isset($tipeList[$tipe])) $tipe = null;
+
+        return view('absensi.akun.pengajuan', compact('tipeList', 'tipe'));
+    }
+
+    public function store(Request $request)
+    {
+        $userId = $this->userId();
+
+        $data = $request->validate([
+            'tipe'         => 'required|in:cuti,izin,libur,lembur,wfh',
+            'sub_tipe'     => 'nullable|in:jam,tambah_hari',
+            'tanggal_from' => 'required|date',
+            'tanggal_to'   => 'required|date|after_or_equal:tanggal_from',
+            'jam_from'     => 'nullable|date_format:H:i',
+            'jam_to'       => 'nullable|date_format:H:i|after:jam_from',
+            'alasan'       => 'required|string|max:2000',
+            'foto'         => 'nullable|image|mimes:jpg,jpeg,png,webp|max:4096',
+        ], [
+            'tanggal_to.after_or_equal' => 'Tanggal selesai tidak boleh sebelum tanggal mulai.',
+            'jam_to.after'              => 'Jam selesai harus setelah jam mulai.',
+            'alasan.required'           => 'Alasan wajib diisi — approver butuh konteksnya.',
+        ]);
+
+        // lembur: sub_tipe default 'jam', hitung menit dari rentang jam kalau ada
+        $subTipe = null;
+        $claimedMenit = null;
+        if ($data['tipe'] === 'lembur') {
+            $subTipe = $data['sub_tipe'] ?? 'jam';
+            if (! empty($data['jam_from']) && ! empty($data['jam_to'])) {
+                $from = Carbon::createFromFormat('H:i', $data['jam_from']);
+                $to   = Carbon::createFromFormat('H:i', $data['jam_to']);
+                $claimedMenit = max(0, $to->diffInMinutes($from));
+            }
+        }
+
+        // foto bukti — wajib secara SOP untuk lembur/wfh yg tak ada scan, tapi tak
+        // dipaksa di sini (biar tak nge-block; approver yang menilai kelengkapan).
+        $fotoName = null;
+        if ($request->hasFile('foto')) {
+            $dir = public_path('uploads/att_request');
+            if (! is_dir($dir)) mkdir($dir, 0755, true);
+            $file = $request->file('foto');
+            $ext = strtolower($file->getClientOriginalExtension() ?: 'jpg');
+            $fotoName = $userId . '_' . time() . '.' . $ext;
+            $file->move($dir, $fotoName);
+        }
+
+        $req = AttRequest::create([
+            'user_id'       => $userId,
+            'raw_branch_id' => session('raw_branch_id') ?: null,
+            'tipe'          => $data['tipe'],
+            'sub_tipe'      => $subTipe,
+            'tanggal_from'  => $data['tanggal_from'],
+            'tanggal_to'    => $data['tanggal_to'],
+            'jam_from'      => $data['jam_from'] ?? null,
+            'jam_to'        => $data['jam_to'] ?? null,
+            'alasan'        => $data['alasan'],
+            'foto'          => $fotoName,
+            'claimed_menit' => $claimedMenit,
+            'status'        => 'draft',
+        ]);
+
+        // serahkan ke workflow: hitung rantai approver → pending_l1 / auto-approved
+        $req = (new AttendanceRequestWorkflow())->submit($req);
+
+        $pesan = $req->status === 'approved'
+            ? 'Pengajuan tercatat dan langsung disetujui (tak ada approver di atas kamu).'
+            : 'Pengajuan terkirim, menunggu persetujuan atasan.';
+
+        return redirect()->route('akun.absensi')->with('success', $pesan);
+    }
+}

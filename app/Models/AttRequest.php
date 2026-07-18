@@ -33,6 +33,11 @@ class AttRequest extends Model
         return $this->belongsTo(Users::class, 'user_id', 'id');
     }
 
+    public function branch()
+    {
+        return $this->belongsTo(RawBranch::class, 'raw_branch_id', 'id');
+    }
+
     public function approvals()
     {
         return $this->hasMany(AttRequestApproval::class, 'request_id', 'id');
