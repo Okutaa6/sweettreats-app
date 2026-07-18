@@ -1,5 +1,9 @@
 @extends('layouts.app')
 
+@section('css')
+<link rel="stylesheet" href="{{ asset('assets/css/absensi.sweettreats.css') }}?v={{ @filemtime(public_path('assets/css/absensi.sweettreats.css')) ?: '1' }}">
+@endsection
+
 @php
     $badge = [
         'hadir' => 'success', 'telat' => 'warning', 'alpa' => 'danger',

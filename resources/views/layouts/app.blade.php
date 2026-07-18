@@ -83,9 +83,13 @@
     $pasienRedesign = ($currentSegment === 'rawcustomer') ? ' redesign-pasien' : '';
     // Redesign doctor — scope ke halaman doctor (rawdoctor). CSS dari list @section('css').
     $doctorRedesign = ($currentSegment === 'rawdoctor') ? ' redesign-doctor' : '';
+
+    // Akun Saya (self-service karyawan) — shell mobile-friendly, scoped body-class.
+    // CSS-nya (absensi.sweettreats.css) di-load dari view akun @section('css').
+    $akunRedesign = ($currentSegment === 'akun') ? ' redesign-akun' : '';
 @endphp
 
-<body data-theme="{{ $bodyTheme }}" class="{{ $groupTheme }}{{ $reservasiRedesign }}{{ $pasienRedesign }}{{ $doctorRedesign }}">
+<body data-theme="{{ $bodyTheme }}" class="{{ $groupTheme }}{{ $reservasiRedesign }}{{ $pasienRedesign }}{{ $doctorRedesign }}{{ $akunRedesign }}">
 
     <!-- Top Bar Start -->
     @include('layouts.header')
