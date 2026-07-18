@@ -57,9 +57,12 @@ class AbsensiAccessPathSeeder extends Seeder
         }
 
         // Absensi admin → finance & admin. Akun Saya → SEMUA role (self-service).
-        $this->grant([$uploadId], ['Finance', 'Super Admin', 'Admin General', 'Admin Backup', 'Admin']);
+        // WAJIB grant PARENT juga: buildTree (access:rebuild) cuma masukin node yg di-grant,
+        // dan parent (pid kosong) harus ada di set biar child-nya tampil di sidebar.
+        // Parent link='' → tak ganggu AuthGuard (tak match segment apa pun).
+        $this->grant([$parentId, $uploadId], ['Finance', 'Super Admin', 'Admin General', 'Admin Backup', 'Admin']);
         $allRoles = DB::table('group_path')->pluck('nama')->all();
-        $this->grant([$akunAbsId], $allRoles);
+        $this->grant([$akunGrpId, $akunAbsId], $allRoles);
     }
 
     private function grant(array $accessIds, array $groupNames): void
