@@ -34,6 +34,83 @@ class AttendanceReconciler
     // filosofi "1 scan = hadir". Angka ini KEPUTUSAN KEBIJAKAN (§8) — default 180 menit.
     private int $telatCeilingMinutes = 180;
 
+    // Toleransi sanding klaim-vs-scan: klaim boleh melebihi dukungan scan sebesar ini
+    // (pembulatan/tap telat) sebelum ditandai 'selisih'. Default 30 menit.
+    private int $claimToleranceMinutes = 30;
+
+    /**
+     * Sanding klaim lembur vs scan untuk SATU (user, tanggal) — dipakai saat pengaju
+     * submit form lembur (§2.11, §4). Hasilnya INFORMASI buat approver, BUKAN vonis:
+     * sistem tak pernah approve/reject sendiri.
+     *
+     * Dukungan scan (jam):        scan_last − jam_lembur_mulai (aturan user hari itu).
+     * Dukungan scan (tambah_hari): rentang scan (last − first), hari libur tak punya baseline.
+     *
+     * @return array{0:?string,1:array} [verifikasi (nyambung|selisih|tidak_bisa_dicek|null), scan_evidence]
+     *   null = klaim menit tak diketahui (jam kosong) → evidence tetap di-snapshot.
+     */
+    public function checkLemburClaim(string $userId, string $date, ?int $claimedMenit, string $subTipe = 'jam'): array
+    {
+        $d = Carbon::parse($date);
+        $lo = $d->copy()->startOfDay();
+        $hi = $d->copy()->addDay()->setTime(6, 0);   // scan dini hari besok kebawa ke workday ini (§2.8)
+        $scans = DB::table('att_scan')
+            ->where('user_id', $userId)
+            ->where('scanned_at', '>=', $lo)->where('scanned_at', '<', $hi)
+            ->orderBy('scanned_at')
+            ->get(['scanned_at', 'raw_branch_id']);
+
+        $day = $this->buildWorkdays($scans)[$date] ?? ['scans' => [], 'branches' => []];
+        $scanList = $day['scans'];
+        $n = count($scanList);
+
+        $evidence = [
+            'work_date'   => $date,
+            'scan_first'  => $n ? $scanList[0]->format('Y-m-d H:i:s') : null,
+            'scan_last'   => $n ? end($scanList)->format('Y-m-d H:i:s') : null,
+            'scan_count'  => $n,
+            'sub_tipe'    => $subTipe,
+            'supported_menit' => null,
+        ];
+
+        // tak ada scan → tak bisa dicek (WFH, lupa tap, hari libur tanpa scan): foto jadi satu-satunya bukti (§4)
+        if ($n === 0) {
+            return ['tidak_bisa_dicek', $evidence];
+        }
+
+        [$rules, $ruleDays] = $this->loadRules();
+        $urs = DB::table('att_user_rule')->where('user_id', $userId)
+            ->orderByDesc('effective_from')->get()->all();
+        $rule = $this->resolveRule($urs, $d, $rules);
+
+        // office/fleksibel tak dinilai dari scan (§3.3) → tak bisa dicek walau ada scan
+        if (! $rule || $rule->tipe === 'fleksibel') {
+            return ['tidak_bisa_dicek', $evidence];
+        }
+
+        $last = end($scanList);
+        if ($subTipe === 'tambah_hari') {
+            $supported = $n >= 2 ? $last->diffInMinutes($scanList[0]) : 0;
+        } else {
+            $rd = $ruleDays[$rule->id][$d->dayOfWeek] ?? null;
+            $base = $rd->jam_lembur_mulai ?? $rd->jam_pulang ?? null;
+            if (! $base) {
+                return ['tidak_bisa_dicek', $evidence];   // aturan tak punya baseline
+            }
+            $baseAt = Carbon::parse($date . ' ' . $base);
+            $supported = $last->gt($baseAt) ? $last->diffInMinutes($baseAt) : 0;
+        }
+        $evidence['supported_menit'] = $supported;
+
+        if ($claimedMenit === null) {
+            return [null, $evidence];   // klaim tanpa angka → evidence saja, verifikasi kosong
+        }
+
+        // klaim di dalam dukungan scan (+ toleransi) = nyambung; di atasnya = selisih (perlu dicek)
+        $verifikasi = $claimedMenit <= $supported + $this->claimToleranceMinutes ? 'nyambung' : 'selisih';
+        return [$verifikasi, $evidence];
+    }
+
     /** @return array{users:int, days:int, per_status:array<string,int>} */
     public function reconcile(Carbon $from, Carbon $to): array
     {

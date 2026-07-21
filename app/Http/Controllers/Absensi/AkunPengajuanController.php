@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Absensi;
 
 use App\Http\Controllers\Controller;
 use App\Models\AttRequest;
+use App\Services\AttendanceReconciler;
 use App\Services\AttendanceRequestWorkflow;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -68,9 +69,12 @@ class AkunPengajuanController extends Controller
             'alasan.required'           => 'Alasan wajib diisi — approver butuh konteksnya.',
         ]);
 
-        // lembur: sub_tipe default 'jam', hitung menit dari rentang jam kalau ada
+        // lembur: sub_tipe default 'jam', hitung menit dari rentang jam kalau ada,
+        // lalu sanding klaim vs scan (INFORMASI buat approver, §2.11 — bukan vonis).
         $subTipe = null;
         $claimedMenit = null;
+        $verifikasi = null;
+        $scanEvidence = null;
         if ($data['tipe'] === 'lembur') {
             $subTipe = $data['sub_tipe'] ?? 'jam';
             if (! empty($data['jam_from']) && ! empty($data['jam_to'])) {
@@ -78,6 +82,8 @@ class AkunPengajuanController extends Controller
                 $to   = Carbon::createFromFormat('H:i', $data['jam_to']);
                 $claimedMenit = max(0, $to->diffInMinutes($from));
             }
+            [$verifikasi, $scanEvidence] = (new AttendanceReconciler())
+                ->checkLemburClaim($userId, $data['tanggal_from'], $claimedMenit, $subTipe);
         }
 
         // foto bukti — wajib secara SOP untuk lembur/wfh yg tak ada scan, tapi tak
@@ -104,6 +110,8 @@ class AkunPengajuanController extends Controller
             'alasan'        => $data['alasan'],
             'foto'          => $fotoName,
             'claimed_menit' => $claimedMenit,
+            'scan_evidence' => $scanEvidence,
+            'verifikasi'    => $verifikasi,
             'status'        => 'draft',
         ]);
 
