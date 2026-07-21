@@ -117,6 +117,7 @@ class AttendanceReconciler
         [$rules, $ruleDays] = $this->loadRules();
         $exceptions = $this->loadExceptions();
         $requests = $this->loadRequests($from, $to);   // user_id => [approved requests]
+        $closedPeriods = $this->loadClosedPeriods();   // periode di-tutup finance → att_day BEKU (D2)
 
         // user_rule per user (bisa >1 baris historis)
         $userRules = DB::table('att_user_rule')->get()
@@ -131,7 +132,7 @@ class AttendanceReconciler
         $now = Carbon::now();
 
         foreach ($userRules as $userId => $urs) {
-            $rows = $this->reconcileUser($userId, $urs, $rules, $ruleDays, $exceptions, $requests[$userId] ?? [], $homeBranch[$userId] ?? null, $from, $to, $now);
+            $rows = $this->reconcileUser($userId, $urs, $rules, $ruleDays, $exceptions, $requests[$userId] ?? [], $homeBranch[$userId] ?? null, $from, $to, $now, $closedPeriods);
             foreach ($rows as $r) $perStatus[$r['status']] = ($perStatus[$r['status']] ?? 0) + 1;
             $dayCount += count($rows);
             foreach (array_chunk($rows, 200) as $chunk) {
@@ -147,7 +148,7 @@ class AttendanceReconciler
         return ['users' => $userRules->count(), 'days' => $dayCount, 'per_status' => $perStatus];
     }
 
-    private function reconcileUser($userId, array $urs, array $rules, array $ruleDays, array $exceptions, array $reqs, ?string $home, Carbon $from, Carbon $to, Carbon $now): array
+    private function reconcileUser($userId, array $urs, array $rules, array $ruleDays, array $exceptions, array $reqs, ?string $home, Carbon $from, Carbon $to, Carbon $now, array $closedPeriods = []): array
     {
         // ambil scan [from 00:00 .. (to+1) 06:00) supaya scan dini hari (to+1) kebawa ke workday `to`
         $lo = $from->copy()->startOfDay();
@@ -163,6 +164,9 @@ class AttendanceReconciler
         $out = [];
         for ($d = $from->copy(); $d->lte($to); $d->addDay()) {
             $key = $d->toDateString();
+            // periode di-tutup finance → att_day tanggal ini BEKU: jangan emit baris
+            // (upsert tak menyentuhnya) supaya angka yg sudah di-sign-off tak berubah (D2).
+            if ($this->isDateLocked($key, $home, $closedPeriods)) continue;
             $rule = $this->resolveRule($urs, $d, $rules);
             if (!$rule) continue;
 
@@ -345,5 +349,28 @@ class AttendanceReconciler
     private function loadExceptions(): array
     {
         return DB::table('att_work_rule_exception')->orderByDesc('tgl_from')->get()->all();
+    }
+
+    /** Periode yg SUDAH ditutup finance (att_day di rentangnya beku). */
+    private function loadClosedPeriods(): array
+    {
+        if (! \Illuminate\Support\Facades\Schema::hasTable('att_period')) return [];
+        return DB::table('att_period')->where('status', 'closed')
+            ->get(['raw_branch_id', 'periode_from', 'periode_to'])->all();
+    }
+
+    /**
+     * True kalau tanggal ini terkunci: ada periode closed yg melingkupinya DAN
+     * berlaku global (raw_branch_id NULL, default) atau match cabang home user.
+     */
+    private function isDateLocked(string $date, ?string $home, array $closedPeriods): bool
+    {
+        foreach ($closedPeriods as $p) {
+            if ($date >= $p->periode_from && $date <= $p->periode_to
+                && ($p->raw_branch_id === null || $p->raw_branch_id === $home)) {
+                return true;
+            }
+        }
+        return false;
     }
 }

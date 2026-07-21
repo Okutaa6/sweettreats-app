@@ -14,6 +14,7 @@ use App\Http\Controllers\Crud\ReservationController;
 use App\Http\Controllers\Crud\ReservationImportController;
 use App\Http\Controllers\Absensi\AbsensiUploadController;
 use App\Http\Controllers\Absensi\AbsensiRecapController;
+use App\Http\Controllers\Absensi\AbsensiPeriodController;
 use App\Http\Controllers\Absensi\AkunAbsensiController;
 use App\Http\Controllers\Absensi\AkunPengajuanController;
 use App\Http\Controllers\Absensi\PersetujuanController;
@@ -298,6 +299,10 @@ Route::middleware([AuthGuard::class])->group(function () {
     Route::get('absensi',              [AbsensiUploadController::class, 'index'])->name('absensi.upload');
     Route::post('absensi/upload/file', [AbsensiUploadController::class, 'upload'])->name('absensi.upload.file');
     Route::get('absensi/recap',        [AbsensiRecapController::class, 'index'])->name('absensi.recap');
+    Route::get('absensi/periode',            [AbsensiPeriodController::class, 'index'])->name('absensi.period');
+    Route::post('absensi/periode',           [AbsensiPeriodController::class, 'store'])->name('absensi.period.store');
+    Route::post('absensi/periode/{id}/close', [AbsensiPeriodController::class, 'close'])->name('absensi.period.close');
+    Route::get('absensi/periode/{id}/export', [AbsensiPeriodController::class, 'export'])->name('absensi.period.export');
 
     // ── Akun Saya (self-service karyawan, mobile) — segment(1) = 'akun' ──
     Route::get('akun', [AkunAbsensiController::class, 'index'])->name('akun.absensi');
