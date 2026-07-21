@@ -69,6 +69,25 @@ class AkunPengajuanController extends Controller
             'alasan.required'           => 'Alasan wajib diisi — approver butuh konteksnya.',
         ]);
 
+        // Kuota WFH 2×/bulan (§3.3) — dihitung dari form approved, TAPI pending juga
+        // dihitung di sini biar tak bisa over-submit 3 sekaligus lalu semua di-approve.
+        // Form ke-3 ditolak otomatis: dicegah sebelum dibuat.
+        if ($data['tipe'] === 'wfh') {
+            $anchor = Carbon::parse($data['tanggal_from']);
+            $used = AttRequest::where('user_id', $userId)
+                ->where('tipe', 'wfh')
+                ->whereIn('status', ['approved', 'pending_l1', 'pending_l2'])
+                ->whereBetween('tanggal_from', [
+                    $anchor->copy()->startOfMonth()->toDateString(),
+                    $anchor->copy()->endOfMonth()->toDateString(),
+                ])
+                ->count();
+            if ($used >= 2) {
+                return back()->withInput()->with('error',
+                    'Kuota WFH ' . $anchor->translatedFormat('F Y') . ' sudah penuh (maksimal 2× per bulan). Pengajuan tidak dibuat.');
+            }
+        }
+
         // lembur: sub_tipe default 'jam', hitung menit dari rentang jam kalau ada,
         // lalu sanding klaim vs scan (INFORMASI buat approver, §2.11 — bukan vonis).
         $subTipe = null;
