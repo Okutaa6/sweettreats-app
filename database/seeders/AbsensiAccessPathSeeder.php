@@ -25,6 +25,7 @@ class AbsensiAccessPathSeeder extends Seeder
         $uploadId = 'abs-upload-000000000000';
         $recapId  = 'abs-recap-000000000000';
         $periodId = 'abs-period-00000000000';
+        $mapId    = 'abs-mapping-0000000000';
         $akunGrpId = 'akun-parent-0000000000';
         $akunAbsId = 'akun-absensi-000000000';
         $persGrpId = 'pers-parent-0000000000';
@@ -52,8 +53,14 @@ class AbsensiAccessPathSeeder extends Seeder
                 'pid_path' => $parentId . ',' . $recapId,
             ],
             [
+                'id' => $mapId, 'pid' => $parentId, 'nama' => 'Mapping Karyawan',
+                'icon' => 'dripicons-user-group', 'urutan' => 2,
+                'urutan_path' => null, 'link' => 'absensi/mapping',
+                'pid_path' => $parentId . ',' . $mapId,
+            ],
+            [
                 'id' => $periodId, 'pid' => $parentId, 'nama' => 'Periode Gaji',
-                'icon' => 'dripicons-lock', 'urutan' => 3,
+                'icon' => 'dripicons-lock', 'urutan' => 4,
                 'urutan_path' => null, 'link' => 'absensi/periode',
                 'pid_path' => $parentId . ',' . $periodId,
             ],
@@ -90,7 +97,7 @@ class AbsensiAccessPathSeeder extends Seeder
         // WAJIB grant PARENT juga: buildTree (access:rebuild) cuma masukin node yg di-grant,
         // dan parent (pid kosong) harus ada di set biar child-nya tampil di sidebar.
         // Parent link='' → tak ganggu AuthGuard (tak match segment apa pun).
-        $this->grant([$parentId, $uploadId, $recapId, $periodId], ['Finance', 'Super Admin', 'Admin General', 'Admin Backup', 'Admin']);
+        $this->grant([$parentId, $uploadId, $recapId, $periodId, $mapId], ['Finance', 'Super Admin', 'Admin General', 'Admin Backup', 'Admin']);
         $allRoles = DB::table('group_path')->pluck('nama')->all();
         $this->grant([$akunGrpId, $akunAbsId], $allRoles);
         // Persetujuan → semua role (visibilitas per-approver ditunda; controller scope by session id).
