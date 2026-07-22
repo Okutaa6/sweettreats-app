@@ -111,6 +111,50 @@ class AttendanceReconciler
         return [$verifikasi, $evidence];
     }
 
+    /**
+     * Saran isi form lembur dari scan (§7 Fase C — prefill). Untuk (user, tanggal):
+     * jam_from = baseline lembur aturan user (GS 18:00 / FO-Asdent 19:00),
+     * jam_to   = scan terakhir hari itu. NULL kalau tak ada scan, office/fleksibel,
+     * atau scan belum melewati baseline (tak ada lembur untuk disarankan).
+     * Form TETAP wajib diisi manual — ini cuma pintu masuk yang sudah terisi.
+     *
+     * @return array{jam_from:string, jam_to:string, scan_last:string}|null
+     */
+    public function suggestLembur(string $userId, string $date): ?array
+    {
+        $d = Carbon::parse($date);
+        $lo = $d->copy()->startOfDay();
+        $hi = $d->copy()->addDay()->setTime(6, 0);
+        $scans = DB::table('att_scan')->where('user_id', $userId)
+            ->where('scanned_at', '>=', $lo)->where('scanned_at', '<', $hi)
+            ->orderBy('scanned_at')->get(['scanned_at', 'raw_branch_id']);
+
+        $day = $this->buildWorkdays($scans)[$date] ?? ['scans' => []];
+        if (!$day['scans']) return null;
+        $last = end($day['scans']);
+
+        [$rules, $ruleDays] = $this->loadRules();
+        $urs = DB::table('att_user_rule')->where('user_id', $userId)
+            ->orderByDesc('effective_from')->get()->all();
+        $rule = $this->resolveRule($urs, $d, $rules);
+        if (!$rule || $rule->tipe === 'fleksibel') return null;   // office tak dinilai scan (§3.3)
+
+        $rd = $ruleDays[$rule->id][$d->dayOfWeek] ?? null;
+        $base = $rd->jam_lembur_mulai ?? $rd->jam_pulang ?? null;
+        if (!$base) return null;
+        $baseAt = Carbon::parse($date . ' ' . $base);
+        if (!$last->gt($baseAt)) return null;                     // scan tak lewat baseline → tak ada lembur
+        // scan pulang lintas tengah malam (di-pushback dari hari berikut): field jam
+        // (time-only) tak bisa mewakili → biar diisi manual, jangan prefill invalid.
+        if ($last->toDateString() !== $date) return null;
+
+        return [
+            'jam_from'  => substr($base, 0, 5),
+            'jam_to'    => $last->format('H:i'),
+            'scan_last' => $last->format('H:i'),
+        ];
+    }
+
     /** @return array{users:int, days:int, per_status:array<string,int>} */
     public function reconcile(Carbon $from, Carbon $to): array
     {

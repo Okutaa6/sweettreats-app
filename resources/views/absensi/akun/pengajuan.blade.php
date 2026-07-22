@@ -62,12 +62,20 @@
                 <div class="form-row" id="grp-jam" style="display:none">
                     <div class="form-group col-6">
                         <label>Jam Mulai</label>
-                        <input type="time" name="jam_from" class="form-control" value="{{ old('jam_from') }}">
+                        <input type="time" name="jam_from" id="jamFrom" class="form-control" value="{{ old('jam_from') }}">
                     </div>
                     <div class="form-group col-6">
                         <label>Jam Selesai</label>
-                        <input type="time" name="jam_to" class="form-control" value="{{ old('jam_to') }}">
+                        <input type="time" name="jam_to" id="jamTo" class="form-control" value="{{ old('jam_to') }}">
                     </div>
+                </div>
+
+                {{-- Prefill lembur dari scan (§7 Fase C) — tetap wajib dicek/diedit --}}
+                <div class="form-group" id="grp-prefill" style="display:none">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" id="btnPrefill">
+                        <i class="fa fa-magic"></i> Isi jam dari scan
+                    </button>
+                    <span class="small text-muted ml-2" id="prefillNote"></span>
                 </div>
 
                 {{-- Alasan --}}
@@ -97,14 +105,37 @@
     var tipe = document.getElementById('tipe');
     var grpSub = document.getElementById('grp-subtipe');
     var grpJam = document.getElementById('grp-jam');
+    var grpPrefill = document.getElementById('grp-prefill');
     function sync() {
         var isLembur = tipe.value === 'lembur';
         grpSub.style.display = isLembur ? '' : 'none';
-        // jam berguna utk lembur & izin (izin sebagian hari)
         grpJam.style.display = (isLembur || tipe.value === 'izin') ? '' : 'none';
+        grpPrefill.style.display = isLembur ? '' : 'none';   // prefill cuma utk lembur
     }
     tipe.addEventListener('change', sync);
     sync();
+
+    // Prefill jam lembur dari scan (§7 Fase C) — pintu masuk terisi, tetap bisa diedit.
+    var btn = document.getElementById('btnPrefill');
+    var note = document.getElementById('prefillNote');
+    if (btn) btn.addEventListener('click', function () {
+        var tgl = document.querySelector('[name="tanggal_from"]').value;
+        if (!tgl) { note.textContent = 'Pilih tanggal dulu.'; return; }
+        note.textContent = 'Mengambil scan…';
+        var url = '{{ route('akun.pengajuan.prefill') }}?tanggal=' + encodeURIComponent(tgl);
+        fetch(url, { headers: { 'Accept': 'application/json' } })
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+                if (d.ok) {
+                    document.getElementById('jamFrom').value = d.jam_from;
+                    document.getElementById('jamTo').value = d.jam_to;
+                    note.textContent = 'Terisi dari scan (pulang ' + d.scan_last + '). Cek & edit bila perlu.';
+                } else {
+                    note.textContent = d.reason || 'Tidak bisa mengisi dari scan.';
+                }
+            })
+            .catch(function () { note.textContent = 'Gagal mengambil scan.'; });
+    });
 })();
 </script>
 @endsection

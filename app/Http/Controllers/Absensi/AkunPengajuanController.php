@@ -50,6 +50,20 @@ class AkunPengajuanController extends Controller
         return view('absensi.akun.pengajuan', compact('tipeList', 'tipe'));
     }
 
+    /** Prefill jam lembur dari scan (§7 Fase C). JSON buat form. */
+    public function prefillLembur(Request $request)
+    {
+        $userId = $this->userId();
+        $date = $request->input('tanggal');
+        if (! $date) return response()->json(['ok' => false]);
+
+        $s = (new AttendanceReconciler())->suggestLembur($userId, $date);
+        if (! $s) {
+            return response()->json(['ok' => false, 'reason' => 'Tidak ada scan yang mendukung lembur di tanggal ini — isi manual.']);
+        }
+        return response()->json(['ok' => true] + $s);
+    }
+
     public function store(Request $request)
     {
         $userId = $this->userId();
