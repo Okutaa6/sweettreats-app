@@ -120,8 +120,26 @@ class AttendanceCsvImporter
     {
         $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
         if (in_array($ext, ['xls', 'xlsx'], true)) {
-            $sheet = IOFactory::load($path)->getActiveSheet()->toArray(null, true, false, false);
-            return array_map(fn ($r) => array_map(fn ($c) => trim((string) $c), $r), $sheet);
+            // Sel ber-format tanggal (mis. log fingerprint .xls) tersimpan sebagai SERIAL
+            // NUMBER Excel (46219.61…). toArray(formatData=false) mengembalikan angka mentah
+            // → parseDate gagal (0 scan). Iterasi sel: sel tanggal → konversi ke 'd/m/Y H:i:s'
+            // (format DT_FORMATS); sel teks (jam matriks "09:5021:10") tak tersentuh.
+            $sheet = IOFactory::load($path)->getActiveSheet();
+            $rows = [];
+            foreach ($sheet->getRowIterator() as $row) {
+                $it = $row->getCellIterator();
+                $it->setIterateOnlyExistingCells(false);
+                $cells = [];
+                foreach ($it as $cell) {
+                    $v = $cell->getValue();
+                    if (is_numeric($v) && \PhpOffice\PhpSpreadsheet\Shared\Date::isDateTime($cell)) {
+                        $v = \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject((float) $v)->format('d/m/Y H:i:s');
+                    }
+                    $cells[] = trim((string) $v);
+                }
+                $rows[] = $cells;
+            }
+            return $rows;
         }
 
         $raw = preg_replace('/^\xEF\xBB\xBF/', '', file_get_contents($path)); // buang BOM

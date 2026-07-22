@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Absensi;
 use App\Http\Controllers\Controller;
 use App\Models\AttRequest;
 use App\Models\RawBranch;
+use App\Services\AttendanceReconciler;
 use App\Services\AttendanceRequestWorkflow;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -52,6 +53,22 @@ class AbsensiRecapController extends Controller
 
         if ($branchFilter) {
             $items = $items->where('raw_branch_id', $branchFilter)->values();
+        }
+
+        // "Sanding scan" LIVE: recompute verifikasi lembur dari scan TERKINI tiap dibuka
+        // (bukan snapshot saat submit). Supaya upload scan susulan langsung kebaca di
+        // rekap finance. Override hanya di memori (tak di-save); snapshot tetap utuh.
+        $rec = new AttendanceReconciler();
+        foreach ($items as $it) {
+            if ($it->tipe === 'lembur') {
+                [$v] = $rec->checkLemburClaim(
+                    (string) $it->user_id,
+                    Carbon::parse($it->tanggal_from)->toDateString(),
+                    $it->claimed_menit !== null ? (int) $it->claimed_menit : null,
+                    $it->sub_tipe ?: 'jam'
+                );
+                $it->verifikasi = $v;
+            }
         }
 
         // ringkasan: hitung per tipe + total lembur jam disetujui
