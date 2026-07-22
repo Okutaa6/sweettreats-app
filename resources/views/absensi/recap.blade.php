@@ -25,10 +25,10 @@
         <div class="card-body py-2">
             <form method="GET" action="{{ route('absensi.recap') }}" class="form-inline">
                 <label class="mr-2 mb-0">Periode</label>
-                <a href="{{ route('absensi.recap', ['m' => $anchor->copy()->subMonth()->format('Y-m'), 'branch' => $branchFilter]) }}"
+                <a href="{{ route('absensi.recap', ['m' => $anchor->copy()->subMonth()->format('Y-m'), 'branch' => $branchFilter, 'verif' => $verifFilter]) }}"
                    class="btn btn-outline-secondary btn-sm mr-1"><i class="fa fa-chevron-left"></i></a>
                 <input type="month" name="m" value="{{ $anchor->format('Y-m') }}" class="form-control form-control-sm mr-1">
-                <a href="{{ route('absensi.recap', ['m' => $anchor->copy()->addMonth()->format('Y-m'), 'branch' => $branchFilter]) }}"
+                <a href="{{ route('absensi.recap', ['m' => $anchor->copy()->addMonth()->format('Y-m'), 'branch' => $branchFilter, 'verif' => $verifFilter]) }}"
                    class="btn btn-outline-secondary btn-sm mr-3"><i class="fa fa-chevron-right"></i></a>
 
                 <label class="mr-2 mb-0">Cabang</label>
@@ -38,6 +38,10 @@
                         <option value="{{ $b->id }}" @selected($branchFilter === $b->id)>{{ $b->name }}</option>
                     @endforeach
                 </select>
+                <div class="form-check mr-3">
+                    <input type="checkbox" name="verif" value="selisih" class="form-check-input" id="fVerif" @checked($verifFilter === 'selisih')>
+                    <label class="form-check-label small" for="fVerif">cuma perlu dicek</label>
+                </div>
                 <button type="submit" class="btn btn-primary btn-sm">Tampilkan</button>
             </form>
         </div>
@@ -56,10 +60,17 @@
             </div>
         @endforeach
     </div>
-    @if($summary['lembur_menit'])
-        <p class="text-muted small mb-3">
-            Total lembur disetujui: <strong>{{ round($summary['lembur_menit']/60, 1) }} jam</strong>
-            ({{ $summary['lembur_menit'] }} menit) dalam periode ini.
+    @if($summary['lembur_menit'] || $summary['selisih'])
+        <p class="small mb-3">
+            @if($summary['lembur_menit'])
+                <span class="text-muted">Total lembur disetujui: <strong>{{ round($summary['lembur_menit']/60, 1) }} jam</strong>
+                ({{ $summary['lembur_menit'] }} menit).</span>
+            @endif
+            @if($summary['selisih'])
+                <span class="badge badge-warning ml-1"><i class="fa fa-exclamation-triangle"></i>
+                    {{ $summary['selisih'] }} lembur perlu dicek</span>
+                <span class="text-muted">(klaim &gt; dukungan scan)</span>
+            @endif
         </p>
     @endif
 
@@ -89,7 +100,7 @@
                         </thead>
                         <tbody>
                             @foreach($items as $r)
-                                <tr>
+                                <tr class="{{ $r->verifikasi === 'selisih' ? 'table-warning' : '' }}">
                                     <td style="white-space:nowrap">{{ $r->user->nama ?? '—' }}</td>
                                     <td>{{ $r->branch->name ?? '—' }}</td>
                                     <td><span class="badge badge-{{ $badge[$r->tipe] ?? 'light' }}">{{ $tipeLabel[$r->tipe] ?? $r->tipe }}</span></td>
@@ -105,9 +116,14 @@
                                     <td class="text-right">
                                         @if($r->claimed_menit){{ round($r->claimed_menit/60,1) }}j @else — @endif
                                     </td>
-                                    <td>
+                                    <td style="white-space:nowrap">
                                         @if($r->verifikasi)
                                             <span class="badge badge-{{ $verifBadge[$r->verifikasi] ?? 'light' }}">{{ str_replace('_',' ',$r->verifikasi) }}</span>
+                                            @if($r->tipe === 'lembur' && isset($r->live_supported) && $r->live_supported !== null && $r->claimed_menit)
+                                                <div class="small text-muted">
+                                                    klaim {{ round($r->claimed_menit/60,1) }}j / scan dukung {{ round($r->live_supported/60,1) }}j
+                                                </div>
+                                            @endif
                                         @else <span class="text-muted">—</span> @endif
                                     </td>
                                     <td>{{ \Illuminate\Support\Str::limit($r->alasan, 40) }}</td>

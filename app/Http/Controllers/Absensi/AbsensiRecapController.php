@@ -61,17 +61,18 @@ class AbsensiRecapController extends Controller
         $rec = new AttendanceReconciler();
         foreach ($items as $it) {
             if ($it->tipe === 'lembur') {
-                [$v] = $rec->checkLemburClaim(
+                [$v, $ev] = $rec->checkLemburClaim(
                     (string) $it->user_id,
                     Carbon::parse($it->tanggal_from)->toDateString(),
                     $it->claimed_menit !== null ? (int) $it->claimed_menit : null,
                     $it->sub_tipe ?: 'jam'
                 );
                 $it->verifikasi = $v;
+                $it->live_supported = $ev['supported_menit'] ?? null;   // dukungan scan (menit)
             }
         }
 
-        // ringkasan: hitung per tipe + total lembur jam disetujui
+        // ringkasan: hitung per tipe + total lembur jam disetujui (SEBELUM filter verif)
         $summary = [
             'total'  => $items->count(),
             'cuti'   => $items->where('tipe', 'cuti')->count(),
@@ -80,13 +81,20 @@ class AbsensiRecapController extends Controller
             'wfh'    => $items->where('tipe', 'wfh')->count(),
             'lembur' => $items->where('tipe', 'lembur')->count(),
             'lembur_menit' => $items->where('tipe', 'lembur')->sum('claimed_menit'),
+            'selisih' => $items->where('verifikasi', 'selisih')->count(),
         ];
+
+        // filter "cuma perlu dicek" (selisih) — buat tabel saja, ringkasan tetap total
+        $verifFilter = $request->input('verif');
+        if ($verifFilter === 'selisih') {
+            $items = $items->where('verifikasi', 'selisih')->values();
+        }
 
         $branches = RawBranch::orderBy('name')->get(['id', 'name']);
         $tipeLabel = self::TIPE_LABEL;
 
         return view('absensi.recap', compact(
-            'items', 'summary', 'branches', 'branchFilter', 'anchor', 'from', 'to', 'tipeLabel'
+            'items', 'summary', 'branches', 'branchFilter', 'verifFilter', 'anchor', 'from', 'to', 'tipeLabel'
         ));
     }
 }
