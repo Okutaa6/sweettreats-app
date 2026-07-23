@@ -1,54 +1,71 @@
 -- ============================================================================
 -- 2026_07_23_menu_sweet_mates.sql
 --
--- Node menu untuk halaman "Sweet Mates" (Program Rewards KOL/KOC).
+-- Pastikan halaman "Sweet Mates" (Program Rewards KOL/KOC) punya node menu,
+-- supaya route-nya bisa dijaga AuthGuard TANPA membuat halamannya mati.
 --
 -- LATAR: route `sweet-mates` berada DI LUAR blok AuthGuard di routes/web.php —
--- indentasinya menipu (masih menjorok) padahal '});' penutup ada di atasnya.
--- Controllernya (Crud/SweetMatesController) juga tak punya penjaga sendiri.
--- Hasilnya: daftar member KOL/KOC + nilai komisi bisa dibuka SIAPA PUN tanpa
--- login, cukup tahu URL-nya.
+-- indentasinya menipu (masih menjorok) padahal '});' penutup ada tepat di
+-- atasnya. Controllernya (Crud/SweetMatesController) juga tak punya penjaga.
+-- Route sudah dipindah ke dalam AuthGuard. Tapi memindahkan saja tak cukup:
+-- AuthGuard mencocokkan segmen-1 URL ke access_path.link, jadi tanpa node yang
+-- ter-grant, halamannya mati untuk semua orang.
 --
--- Route-nya sudah dipindah ke dalam AuthGuard. Tapi memindahkan saja TIDAK
--- cukup: AuthGuard mencocokkan segmen-1 URL ke access_path.link, dan node untuk
--- 'sweet-mates' belum pernah ada (node=0, grant=0). Tanpa file ini halamannya
--- akan mati untuk semua orang — persis nasib pettycash/setoran/kol/koc.
+-- PENTING — DIJAGA PER `link`, BUKAN PER id:
+-- Di server produksi node ini SUDAH ADA (id UUID, di bawah Marketing >
+-- "KOL & KOC Dashboard", ter-grant ke 5 role). Kalau file ini memaksa membuat
+-- node dgn id karangan sendiri, hasilnya DUA node ber-link 'sweet-mates' →
+-- menu dobel, dan lebih buruk: mencabut akses lewat UI jadi gagal senyap karena
+-- AuthGuard cukup menemukan SATU grant yang tersisa.
+-- Maka: kalau node ber-link 'sweet-mates' sudah ada, file ini TIDAK melakukan
+-- apa pun. Ia hanya menambal database yang memang kehilangan node tersebut.
 --
--- PENEMPATAN: di bawah Marketing > Referral, bersebelahan dengan "Klaim Komisi"
--- dan "Review Konten" yang sifat datanya paling mirip.
---
--- HAK AKSES: sengaja DIPERSEMPIT ke tingkat admin yang sudah memegang halaman
--- sejenis (Klaim Komisi = Admin; Review Konten = Super Admin/Admin Backup/Admin;
--- Dashboard Marketing = Admin General). Kalau ternyata tim Marketing juga perlu,
--- tambahkan lewat menu Akses — jangan dilebarkan di sini tanpa keputusan sadar,
--- karena halaman ini memuat angka komisi.
+-- Penempatan & hak akses mengikuti yang sudah berlaku di produksi:
+--   Marketing > KOL & KOC Dashboard > Sweet Mates
+--   role: Super Admin, Admin General, Admin, Head Marketing, Content Creator
 --
 -- WAJIB setelahnya: php artisan access:rebuild
--- Idempoten.
+-- Idempoten & aman dijalankan di server mana pun.
 -- ============================================================================
 
--- Node, ditaruh di bawah parent "Referral" milik section "Marketing".
+-- 1. Sub-parent "KOL & KOC Dashboard" di bawah section "Marketing" (kalau hilang).
 INSERT INTO `access_path` (`id`, `pid`, `nama`, `icon`, `urutan`, `urutan_path`, `link`, `pid_path`)
-SELECT 'mkt-sweetmates-00000000', sub.`id`, 'Sweet Mates', 'icon-fa fas fa-gift', 4, NULL, 'sweet-mates',
-       CONCAT(par.`id`, ',', sub.`id`, ',', 'mkt-sweetmates-00000000')
+SELECT 'mkt-kolkoc-dash-000000', par.`id`, 'KOL & KOC Dashboard', 'fa fa-users', 2, NULL, '',
+       CONCAT(par.`id`, ',', 'mkt-kolkoc-dash-000000')
 FROM `access_path` par
-JOIN `access_path` sub ON sub.`pid` = par.`id` AND sub.`nama` = 'Referral'
-WHERE par.`nama` = 'Marketing'
-ON DUPLICATE KEY UPDATE
-  `nama` = VALUES(`nama`), `link` = VALUES(`link`), `icon` = VALUES(`icon`),
-  `pid` = VALUES(`pid`), `pid_path` = VALUES(`pid_path`);
+WHERE par.`nama` = 'Marketing' AND (par.`pid` IS NULL OR par.`pid` = '')
+  AND NOT EXISTS (
+    SELECT 1 FROM (SELECT * FROM `access_path`) x
+    WHERE x.`pid` = par.`id` AND x.`nama` = 'KOL & KOC Dashboard'
+  );
 
--- Grant ke tingkat admin yang sudah memegang halaman sejenis di section ini.
-DELETE FROM `group_access` WHERE `access_id` = 'mkt-sweetmates-00000000';
+-- 2. Node "Sweet Mates" — HANYA kalau belum ada node ber-link 'sweet-mates'.
+INSERT INTO `access_path` (`id`, `pid`, `nama`, `icon`, `urutan`, `urutan_path`, `link`, `pid_path`)
+SELECT 'mkt-sweetmates-00000000', sub.`id`, 'Sweet Mates', 'dripicons-trophy', 4, NULL, 'sweet-mates',
+       CONCAT(IFNULL(sub.`pid`, ''), ',', sub.`id`, ',', 'mkt-sweetmates-00000000')
+FROM `access_path` sub
+WHERE sub.`nama` = 'KOL & KOC Dashboard'
+  AND NOT EXISTS (
+    SELECT 1 FROM (SELECT * FROM `access_path`) y WHERE y.`link` = 'sweet-mates'
+  )
+LIMIT 1;
+
+-- 3. Grant — mengikuti role yang berlaku di produksi. Hanya untuk node yang
+--    dibuat file ini; node bawaan server tak disentuh grant-nya.
 INSERT INTO `group_access` (`id`, `group_id`, `access_id`)
 SELECT UUID(), g.`id`, 'mkt-sweetmates-00000000'
 FROM `group_path` g
-WHERE g.`nama` IN ('Super Admin', 'Admin General', 'Admin Backup', 'Admin');
+WHERE g.`nama` IN ('Super Admin', 'Admin General', 'Admin', 'Head Marketing', 'Content Creator')
+  AND EXISTS (SELECT 1 FROM (SELECT * FROM `access_path`) z WHERE z.`id` = 'mkt-sweetmates-00000000')
+  AND NOT EXISTS (
+    SELECT 1 FROM (SELECT * FROM `group_access`) w
+    WHERE w.`group_id` = g.`id` AND w.`access_id` = 'mkt-sweetmates-00000000'
+  );
 
 -- ============================================================================
--- VERIFIKASI:
---   SELECT COUNT(*) FROM access_path  WHERE link = 'sweet-mates';        -- 1
---   SELECT COUNT(*) FROM group_access WHERE access_id = 'mkt-sweetmates-00000000'; -- 4
+-- VERIFIKASI — HARUS tepat 1 baris (bukan 2; kalau 2 berarti node dobel):
+--   SELECT id, nama FROM access_path WHERE link = 'sweet-mates';
+--
 -- Lalu: php artisan access:rebuild
 -- Uji: buka /sweet-mates TANPA login -> harus dilempar ke halaman login.
 -- ============================================================================
