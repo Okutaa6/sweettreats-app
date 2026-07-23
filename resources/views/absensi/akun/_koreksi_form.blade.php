@@ -42,10 +42,5 @@
             <button type="submit" class="absk-korsubmit" id="korSubmit" disabled>Kirim Koreksi</button>
             <button type="button" class="absk-korbatal" data-close-koreksi>Batal</button>
         </div>
-
-        <div class="absk-kornote">
-            Kalau disetujui, hari itu dihitung <strong>hadir</strong>. Kalau kamu memang cuti
-            atau izin, pakai <strong>Ajukan Permohonan</strong> — bukan koreksi.
-        </div>
     </div>
 </form>

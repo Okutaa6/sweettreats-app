@@ -579,3 +579,21 @@ body.absk-koropen .absk-korwrap { display: flex; animation: absk-fade .18s ease;
   padding: 12px 18px; font-weight: 700; font-size: 13.5px; font-family: inherit; cursor: pointer;
 }
 .redesign-akun .absk-kornote { margin-top: 13px; font-size: 11px; line-height: 1.55; color: #9A7256; }
+
+/* Netralkan bawaan Bootstrap di dalam modal koreksi: label dapat
+   margin-bottom .5rem, dan SEMUA chip di sini elemen <label> — jadi tiap chip
+   nambah 8px di luar gap (5 chip = +40px), belum label judul & zona foto.
+   Itu yang bikin kartu jauh lebih tinggi dari desain sampai muncul scrollbar. */
+.redesign-akun .absk-korcard label { margin: 0; }
+.redesign-akun .absk-korcard textarea { margin-bottom: 0; }
+.redesign-akun .absk-korcard * { box-sizing: border-box; }
+.redesign-akun .absk-korchip span { line-height: 1.35; }
+.redesign-akun .absk-korlbl { line-height: 1.3; }
+.redesign-akun .absk-korhead-tgl { line-height: 1.2; }
+.redesign-akun .absk-korfoto { line-height: 1.25; }
+.redesign-akun .absk-korsubmit,
+.redesign-akun .absk-korbatal { line-height: 1.25; }
+
+/* masuknya kartu — halus, bukan muncul mendadak */
+@keyframes absk-korin { from { opacity: 0; transform: translateY(10px) scale(.97); } to { opacity: 1; transform: none; } }
+body.absk-koropen .absk-korcard { animation: absk-korin .22s cubic-bezier(.2,.8,.2,1); }
