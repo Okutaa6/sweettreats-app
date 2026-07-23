@@ -313,6 +313,7 @@ Route::middleware([AuthGuard::class])->group(function () {
     Route::get('akun/pengajuan',  [AkunPengajuanController::class, 'create'])->name('akun.pengajuan');
     Route::post('akun/pengajuan', [AkunPengajuanController::class, 'store'])->name('akun.pengajuan.store');
     Route::get('akun/pengajuan/prefill-lembur', [AkunPengajuanController::class, 'prefillLembur'])->name('akun.pengajuan.prefill');
+    Route::get('akun/pengajuan/{id}', [AkunPengajuanController::class, 'show'])->name('akun.pengajuan.show');
 
     // ── Persetujuan (inbox approver, mobile) — segment(1) = 'persetujuan' ──
     Route::get('persetujuan',          [PersetujuanController::class, 'index'])->name('persetujuan.inbox');

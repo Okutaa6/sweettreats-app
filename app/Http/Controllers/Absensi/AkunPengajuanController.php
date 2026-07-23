@@ -50,6 +50,50 @@ class AkunPengajuanController extends Controller
         return view('absensi.akun.pengajuan', compact('tipeList', 'tipe'));
     }
 
+    /** Detail satu pengajuan + rantai persetujuan (buat drawer riwayat). Owner-scoped. */
+    public function show(Request $request, $id)
+    {
+        $userId = $this->userId();
+        $req = AttRequest::where('id', $id)->where('user_id', $userId)->firstOrFail();
+
+        $wf = new AttendanceRequestWorkflow();
+        $levels    = $wf->chainFor($req->user_id, $req->tipe);        // [[uid],...]
+        $approvals = $req->approvals()->get()->keyBy('level');        // level(1-based) => record
+        $curLvl    = $req->status === 'pending_l2' ? 2 : ($req->status === 'pending_l1' ? 1 : null);
+
+        $timeline = [];
+        foreach ($levels as $i => $uids) {
+            $lvl  = $i + 1;
+            $act  = $approvals[$lvl] ?? null;
+            $names = collect($uids)->map(fn ($u) => optional(\App\Models\Users::find($u))->nama)->filter()->implode(' / ');
+
+            if ($act) {
+                $state = $act->action === 'approve' ? 'disetujui' : 'ditolak';
+            } elseif ($req->status === 'rejected') {
+                $state = 'batal';
+            } elseif ($curLvl === $lvl) {
+                $state = 'menunggu';
+            } elseif ($curLvl && $lvl < $curLvl) {
+                $state = 'disetujui';
+            } elseif ($req->status === 'approved') {
+                $state = 'disetujui';
+            } else {
+                $state = 'belum';
+            }
+
+            $timeline[] = [
+                'level'   => $lvl,
+                'names'   => $names ?: '—',
+                'state'   => $state,
+                'by'      => $act ? (optional(\App\Models\Users::find($act->approver_user_id))->nama) : null,
+                'at'      => $act?->acted_at,
+                'catatan' => $act?->catatan,
+            ];
+        }
+
+        return view('absensi.akun._riwayat_detail', compact('req', 'timeline'));
+    }
+
     /** Prefill jam lembur dari scan (§7 Fase C). JSON buat form. */
     public function prefillLembur(Request $request)
     {

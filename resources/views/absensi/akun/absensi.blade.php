@@ -147,7 +147,7 @@
         @else
             <div class="absk-reqs">
                 @foreach($requests as $r)
-                    <div class="absk-reqcard">
+                    <div class="absk-reqcard" data-detail="{{ route('akun.pengajuan.show', $r->id) }}" role="button" tabindex="0">
                         <span class="absk-type">{{ $r->tipe }}</span>
                         <div class="absk-reqmid">
                             <div class="absk-reqdate num">
@@ -179,10 +179,43 @@
     @include('absensi.akun._pengajuan_form', ['tipeList' => $tipeList, 'tipe' => $ajTipe, 'inDrawer' => true, 'wfhUsed' => $wfhUsed])
 </aside>
 
+{{-- ── Drawer detail riwayat (populate via fetch) ── --}}
+<div class="absk-dtscrim" id="dtScrim"></div>
+<aside class="absk-dtdrawer" id="dtDrawer" aria-hidden="true">
+    <div class="absk-ajhead">
+        <div class="absk-ajhead-icon"><i class="fa fa-file-alt"></i></div>
+        <div class="absk-ajhead-tx">
+            <div class="absk-ajhead-sub">RIWAYAT</div>
+            <div class="absk-ajhead-title">Detail Pengajuan</div>
+        </div>
+        <button type="button" class="absk-ajclose" data-close-detail aria-label="Tutup">✕</button>
+    </div>
+    <div class="absk-dtbody" id="dtBody"><div class="absk-empty">Memuat…</div></div>
+</aside>
+
 <script>
 (function () {
     var body = document.body;
     var scrim = document.getElementById('ajScrim');
+
+    // ── Drawer detail riwayat ──
+    var dtBody = document.getElementById('dtBody');
+    function openDt()  { body.classList.add('absk-dtopen'); }
+    function closeDt() { body.classList.remove('absk-dtopen'); }
+    document.querySelectorAll('[data-detail]').forEach(function (card) {
+        card.addEventListener('click', function () {
+            var url = card.getAttribute('data-detail');
+            dtBody.innerHTML = '<div class="absk-empty">Memuat…</div>';
+            openDt();
+            fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                .then(function (r) { return r.text(); })
+                .then(function (html) { dtBody.innerHTML = html; })
+                .catch(function () { dtBody.innerHTML = '<div class="absk-empty">Gagal memuat detail.</div>'; });
+        });
+    });
+    document.querySelectorAll('[data-close-detail]').forEach(function (b) { b.addEventListener('click', closeDt); });
+    document.getElementById('dtScrim').addEventListener('click', closeDt);
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeDt(); });
     function openAj()  { body.classList.add('absk-ajopen'); }
     function closeAj() { body.classList.remove('absk-ajopen'); }
     document.querySelectorAll('[data-open-ajukan]').forEach(function (b) { b.addEventListener('click', openAj); });

@@ -2,8 +2,10 @@
 
 namespace App\Services;
 
+use App\Models\AdminNotification;
 use App\Models\AttRequest;
 use App\Models\AttRequestApproval;
+use App\Models\Users;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -99,6 +101,7 @@ class AttendanceRequestWorkflow
             return $req;
         }
         $req->update(['status' => 'pending_l1']);
+        $this->notifyApprovers($req, $levels[0]);   // kabari approver lapis 1
         return $req;
     }
 
@@ -130,12 +133,55 @@ class AttendanceRequestWorkflow
 
         if ($action === 'reject') {
             $req->update(['status' => 'rejected']);
+            $this->notifyRequester($req, 'ditolak', $approverUserId);
             return $req;
         }
         // approve: maju ke lapis berikut, atau selesai
         $next = $idx + 1;
-        $req->update(['status' => isset($levels[$next]) ? 'pending_l' . ($next + 1) : 'approved']);
+        if (isset($levels[$next])) {
+            $req->update(['status' => 'pending_l' . ($next + 1)]);
+            $this->notifyApprovers($req, $levels[$next]);       // kabari approver lapis berikut
+        } else {
+            $req->update(['status' => 'approved']);
+            $this->notifyRequester($req, 'disetujui', $approverUserId);
+        }
         return $req;
+    }
+
+    /** Kabari daftar approver (userId) bahwa ada pengajuan menunggu tindakan mereka. */
+    private function notifyApprovers(AttRequest $req, array $approverIds): void
+    {
+        $pengaju = optional(Users::find($req->user_id))->nama ?? 'Karyawan';
+        $tipe    = ucfirst($req->tipe);
+        foreach ($approverIds as $uid) {
+            try {
+                AdminNotification::notify(
+                    'absensi.pengajuan',
+                    "Pengajuan {$tipe} — {$pengaju}",
+                    "{$pengaju} mengajukan {$tipe}. Menunggu persetujuanmu.",
+                    url('persetujuan'),
+                    null,
+                    $uid
+                );
+            } catch (\Throwable $e) {}
+        }
+    }
+
+    /** Kabari pengaju bahwa pengajuannya sudah diputuskan (disetujui/ditolak). */
+    private function notifyRequester(AttRequest $req, string $hasil, string $approverUserId): void
+    {
+        $approver = optional(Users::find($approverUserId))->nama ?? 'Atasan';
+        $tipe     = ucfirst($req->tipe);
+        try {
+            AdminNotification::notify(
+                'absensi.putusan',
+                "Pengajuan {$tipe} {$hasil}",
+                "Pengajuan {$tipe} kamu {$hasil} oleh {$approver}.",
+                url('akun'),
+                null,
+                $req->user_id
+            );
+        } catch (\Throwable $e) {}
     }
 
     /** Form yang menunggu tindakan approver ini (buat inbox UI). */
