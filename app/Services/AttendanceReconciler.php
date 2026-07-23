@@ -247,6 +247,13 @@ class AttendanceReconciler
             }
 
             if ($n === 0) {                            // hari kerja, tak ada scan & tak ada form → ALPA
+                // TAPI hari yang belum lewat tak bisa dinilai bolos: hari ini masih
+                // berjalan (orangnya bisa tap nanti), besok belum terjadi. Tanpa
+                // penjaga ini sisa bulan berjalan ikut ditandai ALPA — karyawan
+                // lihat dirinya "bolos" di tanggal yang belum datang, dan angka
+                // "tidak masuk" di rekap Finance ikut menggelembung.
+                if ($key >= $now->toDateString()) continue;
+
                 $out[] = $this->row($userId, $key, $rule->id, $day, 'alpa', 0, null, 0, $now);
                 continue;
             }
