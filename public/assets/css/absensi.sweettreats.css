@@ -152,16 +152,18 @@
 }
 
 /* ── Toggle Harian/Kalender ── */
+/* Segmented Harian/Kalender — ikut handoff: memeluk isinya (align-self:flex-start),
+   bukan melebar penuh. Angka persis dari segM() di desain. */
 .redesign-akun .absk-seg {
-  display: flex; background: var(--abs-card); border: 1px solid var(--abs-line-2);
-  border-radius: 11px; padding: 4px; gap: 3px; margin-bottom: 12px;
+  display: inline-flex; align-self: flex-start; background: var(--abs-card);
+  border: 1px solid var(--abs-line-2); border-radius: 12px; padding: 4px; gap: 3px; margin-bottom: 12px;
 }
 .redesign-akun .absk-seg button {
-  flex: 1; border: none; background: transparent; cursor: pointer;
-  font-family: inherit; font-size: 13px; font-weight: 700; color: var(--abs-ink-2);
-  padding: 8px 0; border-radius: 8px;
+  border: none; background: transparent; cursor: pointer;
+  font-family: inherit; font-size: 12.5px; font-weight: 700; color: #7A5B43;
+  padding: 9px 22px; border-radius: 9px; line-height: 1.2;
 }
-.redesign-akun .absk-seg button.active { background: var(--abs-brand); color: #FFEAD6; }
+.redesign-akun .absk-seg button.active { background: #3A1100; color: #FFE6CC; }
 
 /* ── Banner koreksi (hint) ── */
 .redesign-akun .absk-hint {
@@ -174,9 +176,13 @@
 .redesign-akun .absk-days { display: flex; flex-direction: column; gap: 7px; }
 .redesign-akun .absk-dayrow {
   display: flex; align-items: center; gap: 11px; background: var(--abs-card);
-  border: 1px solid var(--abs-line); border-radius: 12px; padding: 10px 12px;
+  border: 1px solid var(--abs-line); border-radius: 12px; padding: 10px 13px;
   border-left: 3px solid var(--abs-line);
+  cursor: pointer; transition: background .12s ease;
 }
+/* baris hari bisa diklik utk lapor koreksi → kasih umpan balik hover (desain: .rrow:hover) */
+.redesign-akun .absk-dayrow:hover { background: #FBF4EC; }
+.redesign-akun .absk-dayrow:focus-visible { outline: 2px solid #C9962F; outline-offset: 2px; }
 .redesign-akun .absk-dayrow.s-hadir { border-left-color: var(--abs-green); }
 .redesign-akun .absk-dayrow.s-telat { border-left-color: var(--abs-amber); }
 .redesign-akun .absk-dayrow.s-alpa  { border-left-color: var(--abs-red); }
@@ -372,7 +378,10 @@ body.absk-ajopen .absk-ajdrawer { transform: translateX(0); }
    ══════════════════════════════════════════════════════════════════════════ */
 @media (min-width: 641px) {
   /* Daftar hari & riwayat = grid multi-kolom di desktop */
-  .redesign-akun .absk-days { display: grid !important; grid-template-columns: repeat(auto-fill, minmax(268px, 1fr)); gap: 10px; }
+  /* Daftar hari: 2 kolom, naik jadi 3 di layar lega — desain memang 3 kolom (gap 9px).
+     Pakai jumlah kolom pasti, bukan auto-fill: dgn auto-fill lebar min tiap kartu
+     bikin hasilnya nyangkut di 2 kolom padahal ruangnya cukup. */
+  .redesign-akun .absk-days { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
   .redesign-akun .absk-reqs { display: grid !important; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px; }
   /* Ajukan = tombol inline di kolom kiri (bukan FAB ngambang) */
   .redesign-akun .absk-fab { position: static !important; transform: none !important; width: 100% !important; box-shadow: none; margin-top: 4px; }
@@ -593,6 +602,11 @@ body.absk-koropen .absk-korwrap { display: flex; animation: absk-fade .18s ease;
 .redesign-akun .absk-korfoto { line-height: 1.25; }
 .redesign-akun .absk-korsubmit,
 .redesign-akun .absk-korbatal { line-height: 1.25; }
+
+/* Layar lega: daftar hari jadi 3 kolom seperti desain */
+@media (min-width: 1180px) {
+  .redesign-akun .absk-days { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+}
 
 /* masuknya kartu — halus, bukan muncul mendadak */
 @keyframes absk-korin { from { opacity: 0; transform: translateY(10px) scale(.97); } to { opacity: 1; transform: none; } }

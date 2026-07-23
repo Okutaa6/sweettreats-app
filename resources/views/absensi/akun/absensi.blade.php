@@ -90,12 +90,13 @@
 
         {{-- ══ View: Harian ══ --}}
         <div class="absk-view" data-view="harian">
-            <div class="absk-corrhint"><span>⚑</span> Ada absen yang keliru? Ketuk harinya untuk lapor koreksi.</div>
+            <div class="absk-corrhint"><span>⚑</span> Ada absen yang keliru? Klik harinya untuk lapor koreksi.</div>
             @if($days->isEmpty())
                 <div class="absk-empty">Belum ada data absen bulan ini.</div>
             @else
                 <div class="absk-days">
-                    @foreach($days as $tgl => $d)
+                    {{-- terbaru dulu (desain: empDays di-reverse) — kalender tetap kronologis --}}
+                    @foreach($days->reverse() as $tgl => $d)
                         @php $c = \Illuminate\Support\Carbon::parse($tgl); @endphp
                         @php
                             $dJam = $d->scan_first ? ($hm($d->scan_first) . ' – ' . ($hm($d->scan_last) ?? '—')) : null;
