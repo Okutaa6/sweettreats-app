@@ -10,18 +10,22 @@ use Illuminate\Support\Facades\DB;
 /**
  * Alur approval form absen: submit → pending_l1 (head) → pending_l2 (Dani) → approved.
  *
- * Rantai approver dari att_approver (mapping "atasan langsung", TERPISAH dari pohon
- * checklist — §5.4, keputusan 2026-07-18). Jumlah lapis TERGANTUNG jenis form
- * (MAX_LEVELS): cuti & lembur = 2 lapis; izin/libur/wfh = 1 lapis. Finance =
- * recap/view-only approved, BUKAN gate (lihat recapForFinance).
+ * Rantai approver di-resolve PER-ROLE dari tabel att_approval_rule (role pengaju →
+ * [role approver], any-one), BUKAN per-user (att_approver lama = DORMANT, tak dibaca).
+ * Resolver jalan NAIK graf role: tiap lapis = daftar USER dari role approver di
+ * frontier saat itu. Decoupled dari pohon checklist/org — §5.4, keputusan 2026-07-18/22.
+ * Jumlah lapis TERGANTUNG jenis form (MAX_LEVELS): cuti & lembur = 2 lapis;
+ * izin/libur/wfh = 1 lapis. Finance = recap/view-only approved, BUKAN gate (recapForFinance).
  *
  * Rantai contoh (cuti/lembur): GS → Nisa (L1) → Dani (L2). Head (Nisa) → Dani (L1 saja).
- * Dani → auto. Untuk izin/libur/wfh rantai dipangkas jadi 1 lapis (atasan langsung saja).
+ * Dani (Executive/apex) → tak punya rule → auto. izin/libur/wfh dipangkas jadi 1 lapis.
  *
- * Semantik multi-approver dalam satu lapis (Asdent → Nisa + Irma): SATU yang approve
- * cukup untuk maju (any-one). Bisa diubah ke "semua wajib" kalau perlu.
+ * Semantik multi-approver dalam satu lapis (Asdent → Coordinator Dentist + Supervisor):
+ * SATU yang approve cukup untuk maju (any-one). Role approver yang KOSONG (belum ada
+ * user) di-skip — chain lanjut ke atasnya, tak collapse jadi auto-approve.
  *
- * Konteks: docs/rencana-rekonsiliasi-absensi.md §4, §5.4.
+ * Tambah karyawan = set group_id-nya = NOL koding. Konteks: rencana §4/§5.4, POC
+ * scratchpad poc_approval_byrole.php.
  */
 class AttendanceRequestWorkflow
 {
@@ -39,39 +43,50 @@ class AttendanceRequestWorkflow
 
     /**
      * Rantai approval untuk seorang pengaju: [[id approver lapis 1], [id lapis 2], ...].
-     * Sudah dedup + buang self-loop. Kosong = tak ada approver (auto-approve).
+     * Tiap lapis = daftar USER (any-one). Sudah dedup + buang pengaju sendiri.
+     * Kosong = tak ada approver (auto-approve, mis. pengaju apex/Executive).
      *
-     * $tipe (opsional) memangkas rantai ke jumlah lapis yang diperlukan jenis form
-     * itu (MAX_LEVELS). Tanpa $tipe → rantai penuh (dipakai untuk inspeksi/debug).
+     * Jalan NAIK graf role (att_approval_rule): frontier = role, tiap hop kumpulkan
+     * approver-role lalu map ke user-nya. Role approver KOSONG di-skip tanpa nyita
+     * jatah lapis (chain lanjut ke atasnya). $tipe memangkas ke MAX_LEVELS; tanpa
+     * $tipe → rantai penuh (inspeksi/debug).
      */
     public function chainFor(string $userId, ?string $tipe = null): array
     {
-        $level1 = $this->directApprovers($userId);
-        if (!$level1) return [];
+        $roleId = $this->roleOf($userId);
+        if ($roleId === null) return [];
 
-        $levels = [$level1];
-        $seen = array_flip($level1);
-        $seen[$userId] = true;
-        $frontier = $level1;
+        $max = ($tipe !== null && isset(self::MAX_LEVELS[$tipe]))
+            ? self::MAX_LEVELS[$tipe]
+            : PHP_INT_MAX;
 
-        while (true) {
-            $next = [];
-            foreach ($frontier as $a) {
-                foreach ($this->directApprovers($a) as $b) {
-                    if (!isset($seen[$b])) $next[$b] = true;
-                }
-            }
-            $next = array_keys($next);
-            if (!$next) break;
-            $levels[] = $next;
-            foreach ($next as $b) $seen[$b] = true;
-            $frontier = $next;
+        $levels    = [];
+        $frontier  = [$roleId];
+        $seenRoles = [$roleId => true];
+
+        while (count($levels) < $max) {
+            // approver-role untuk semua role di frontier (belum pernah dilihat)
+            $nextRoles = DB::table('att_approval_rule')
+                ->whereIn('role_id', $frontier)
+                ->orderBy('sort_order')
+                ->pluck('approver_role_id')
+                ->unique()
+                ->reject(fn ($r) => isset($seenRoles[$r]))
+                ->values()
+                ->all();
+            if (!$nextRoles) break;
+
+            foreach ($nextRoles as $r) $seenRoles[$r] = true;
+
+            // map role → user aktif, buang pengaju sendiri (anti self-approval).
+            // Role kosong → $users kosong → lapis tak ditambah, tapi frontier tetap
+            // maju supaya atasannya kejangkau.
+            $users = $this->usersOfRoles($nextRoles, $userId);
+            if ($users) $levels[] = $users;
+
+            $frontier = $nextRoles;
         }
 
-        // pangkas ke plafon lapis untuk jenis form ini
-        if ($tipe !== null && isset(self::MAX_LEVELS[$tipe])) {
-            $levels = array_slice($levels, 0, self::MAX_LEVELS[$tipe]);
-        }
         return $levels;
     }
 
@@ -148,12 +163,25 @@ class AttendanceRequestWorkflow
 
     // ── internal ──
 
-    private function directApprovers(string $userId): array
+    /** Role (group_path.id) pengaju. Null kalau user tak ada. */
+    private function roleOf(string $userId): ?string
     {
-        return DB::table('att_approver')
-            ->where('user_id', $userId)->where('level', 1)
-            ->where('approver_user_id', '!=', $userId)   // buang self-loop (Dani)
-            ->pluck('approver_user_id')->all();
+        return DB::table('users')->where('id', $userId)->value('group_id');
+    }
+
+    /**
+     * User AKTIF yang menempati salah satu role approver (any-one), minus pengaju
+     * sendiri. Kosong kalau semua role approver belum ada penghuninya.
+     */
+    private function usersOfRoles(array $roleIds, string $excludeUserId): array
+    {
+        if (!$roleIds) return [];
+        return DB::table('users')
+            ->whereIn('group_id', $roleIds)
+            ->where('id', '!=', $excludeUserId)
+            ->where('status', 1)
+            ->pluck('id')
+            ->all();
     }
 
     private function levelIndex(string $status): ?int
