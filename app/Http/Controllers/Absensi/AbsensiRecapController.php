@@ -24,10 +24,8 @@ use Illuminate\Support\Carbon;
  */
 class AbsensiRecapController extends Controller
 {
-    private const TIPE_LABEL = [
-        'cuti' => 'Cuti', 'izin' => 'Izin', 'libur' => 'Libur',
-        'lembur' => 'Lembur', 'wfh' => 'WFH',
-    ];
+    /** Ikut satu sumber kebenaran — lihat catatan di PersetujuanController. */
+    private const TIPE_LABEL = AkunPengajuanController::TIPE;
 
     private function guard(): void
     {

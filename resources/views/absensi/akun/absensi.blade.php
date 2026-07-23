@@ -178,7 +178,7 @@
             <div class="absk-reqs">
                 @foreach($requests as $r)
                     <div class="absk-reqcard" data-detail="{{ route('akun.pengajuan.show', $r->id) }}" role="button" tabindex="0">
-                        <span class="absk-type">{{ $r->tipe }}</span>
+                        <span class="absk-type">{{ $tipeList[$r->tipe] ?? $r->tipe }}</span>
                         <div class="absk-reqmid">
                             <div class="absk-reqdate num">
                                 {{ \Illuminate\Support\Carbon::parse($r->tanggal_from)->translatedFormat('d M') }}@if($r->tanggal_to != $r->tanggal_from) – {{ \Illuminate\Support\Carbon::parse($r->tanggal_to)->translatedFormat('d M') }}@endif

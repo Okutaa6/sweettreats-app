@@ -16,9 +16,15 @@
         <div class="absk-field">
             <label class="absk-lbl">Jenis Permohonan <span class="req">*</span></label>
             <div class="absk-jchips">
-                @foreach($tipeList as $val => $lbl)
+                {{-- 'koreksi' SENGAJA tak ada di sini: form ini tak punya pilihan
+                     "apa yang keliru?", jadi memilihnya pasti gagal validasi —
+                     jalan buntu. Koreksi punya jalurnya sendiri: ketuk harinya. --}}
+                @foreach(collect($tipeList)->except('koreksi') as $val => $lbl)
                     <button type="button" class="absk-jchip {{ $ajTipeVal === $val ? 'active' : '' }}" data-jenis="{{ $val }}">{{ $lbl }}</button>
                 @endforeach
+            </div>
+            <div class="absk-hint" style="background:none;border:0;padding:6px 2px 0;margin:0">
+                Mau melaporkan absen yang keliru? Tutup form ini, lalu <b>ketuk hari</b> yang salah di daftar absen.
             </div>
         </div>
 

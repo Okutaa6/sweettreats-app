@@ -22,10 +22,13 @@ use Illuminate\Support\Carbon;
  */
 class PersetujuanController extends Controller
 {
-    private const TIPE_LABEL = [
-        'cuti' => 'Cuti', 'izin' => 'Izin', 'libur' => 'Libur / Tukar Hari',
-        'lembur' => 'Lembur', 'wfh' => 'WFH',
-    ];
+    /**
+     * Satu sumber kebenaran label jenis pengajuan. Dulu tiap layar menyalin
+     * daftarnya sendiri-sendiri, lalu melenceng: waktu jenis 'koreksi' lahir,
+     * inbox atasan menampilkan kode mentah "koreksi", dan sebutan WFH beda-beda
+     * antar layar ("WFH" vs "Kerja dari Rumah") untuk hal yang sama.
+     */
+    private const TIPE_LABEL = AkunPengajuanController::TIPE;
 
     private function userId(): string
     {

@@ -1,5 +1,6 @@
 @php
-    $tipeMap = ['cuti'=>'Cuti','izin'=>'Izin','libur'=>'Libur / Tukar Hari','lembur'=>'Lembur','wfh'=>'Kerja dari Rumah'];
+    {{-- ikut satu sumber kebenaran, jangan disalin ulang (jenis baru pernah terlewat) --}}
+    $tipeMap = \App\Http\Controllers\Absensi\AkunPengajuanController::TIPE;
     $stPill  = ['approved'=>'hadir','rejected'=>'alpa','cancelled'=>'alpa','pending_l1'=>'telat','pending_l2'=>'telat','draft'=>'libur'];
     $stText  = ['approved'=>'Disetujui','rejected'=>'Ditolak','cancelled'=>'Dibatalkan','pending_l1'=>'Menunggu','pending_l2'=>'Menunggu','draft'=>'Draf'];
     $stLbl   = ['menunggu'=>'Menunggu','disetujui'=>'Disetujui','ditolak'=>'Ditolak','batal'=>'—','belum'=>'Belum'];
