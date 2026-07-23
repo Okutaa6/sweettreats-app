@@ -34,11 +34,11 @@
         {{-- Info jatah kerja dari rumah --}}
         <div class="absk-wfhwarn" id="wfhBlocked" style="display:none">
             <span>⚠️</span>
-            <div><b>Jatah kerja dari rumah bulan ini sudah habis ({{ $ajWfhUsed }}/2).</b> Pengajuan ke-3 otomatis ditolak. Pilih jenis lain atau ajukan bulan depan ya.</div>
+            <div><b>Jatah kerja dari rumah bulan ini sudah habis ({{ $ajWfhUsed }}/2 hari).</b> Pilih jenis lain, atau ajukan untuk bulan depan ya.</div>
         </div>
         <div class="absk-wfhinfo" id="wfhInfo" style="display:none">
             <span>ℹ️</span>
-            <div>Jatah kerja dari rumah bulan ini: <b class="num">{{ $ajWfhUsed }}/2</b> terpakai. Sisa <b class="num">{{ max(0, 2 - $ajWfhUsed) }}</b> lagi.</div>
+            <div>Jatah kerja dari rumah bulan ini: <b class="num">{{ $ajWfhUsed }}/2</b> hari terpakai. Sisa <b class="num">{{ max(0, 2 - $ajWfhUsed) }}</b> hari.</div>
         </div>
 
         {{-- Tanggal + Jam (grid 2×2) --}}

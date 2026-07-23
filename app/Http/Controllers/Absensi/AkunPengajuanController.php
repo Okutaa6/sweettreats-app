@@ -33,6 +33,9 @@ class AkunPengajuanController extends Controller
         'koreksi' => 'Koreksi Absen',
     ];
 
+    /** Jatah kerja dari rumah per bulan kalender, dalam HARI (§3.3). */
+    public const WFH_JATAH_BULANAN = 2;
+
     /** Pilihan "apa yang keliru?" di form koreksi (ikut handoff). */
     public const KOREKSI_ALASAN = [
         'Lupa scan masuk',
@@ -51,14 +54,19 @@ class AkunPengajuanController extends Controller
 
     public function create(Request $request)
     {
-        $this->userId();
+        $userId = $this->userId();
 
         $tipeList = self::TIPE;
         // pra-isi tipe kalau datang dari tombol tipe tertentu (mis. ?tipe=lembur)
         $tipe = $request->input('tipe');
         if ($tipe && ! isset($tipeList[$tipe])) $tipe = null;
 
-        return view('absensi.akun.pengajuan', compact('tipeList', 'tipe'));
+        // Halaman penuh ini dulu tak mengirim wfhUsed sama sekali, jadi partial
+        // menambalnya dgn 0 → banner selalu berbunyi "sisa 2 lagi" walau jatahnya
+        // habis, lalu server menolak. Salah info, bukan sekadar info hilang.
+        $wfhUsed = self::hariWfhTerpakaiBulan($userId, Carbon::now());
+
+        return view('absensi.akun.pengajuan', compact('tipeList', 'tipe', 'wfhUsed'));
     }
 
     /** Detail satu pengajuan + rantai persetujuan (buat drawer riwayat). Owner-scoped. */
@@ -172,24 +180,8 @@ class AkunPengajuanController extends Controller
             }
         }
 
-        // Kuota WFH 2×/bulan (§3.3) — dihitung dari form approved, TAPI pending juga
-        // dihitung di sini biar tak bisa over-submit 3 sekaligus lalu semua di-approve.
-        // Form ke-3 ditolak otomatis: dicegah sebelum dibuat.
-        if ($data['tipe'] === 'wfh') {
-            $anchor = Carbon::parse($data['tanggal_from']);
-            $used = AttRequest::where('user_id', $userId)
-                ->where('tipe', 'wfh')
-                ->whereIn('status', ['approved', 'pending_l1', 'pending_l2'])
-                ->whereBetween('tanggal_from', [
-                    $anchor->copy()->startOfMonth()->toDateString(),
-                    $anchor->copy()->endOfMonth()->toDateString(),
-                ])
-                ->count();
-            if ($used >= 2) {
-                return back()->withInput()->with('error',
-                    'Kuota WFH ' . $anchor->translatedFormat('F Y') . ' sudah penuh (maksimal 2× per bulan). Pengajuan tidak dibuat.');
-            }
-        }
+        // Jatah kerja dari rumah: 2 HARI per bulan (§3.3). Cek dipindah ke dalam
+        // transaksi store() supaya tak bisa dijebol dua kiriman berbarengan.
 
         // lembur: sub_tipe default 'jam', hitung menit dari rentang jam kalau ada,
         // lalu sanding klaim vs scan (INFORMASI buat approver, §2.11 — bukan vonis).
@@ -225,6 +217,9 @@ class AkunPengajuanController extends Controller
         // selamanya di status 'draft' — tak terlihat pengaju maupun atasan.
         try {
             $req = DB::transaction(function () use ($data, $userId, $subTipe, $claimedMenit, $scanEvidence, $verifikasi, $fotoName) {
+                if ($data['tipe'] === 'wfh') {
+                    $this->pastikanJatahWfhCukup($userId, $data['tanggal_from'], $data['tanggal_to']);
+                }
                 $r = $this->buatPengajuan($data, $userId, $subTipe, $claimedMenit, $scanEvidence, $verifikasi, $fotoName);
                 return (new AttendanceRequestWorkflow())->submit($r);
             });
@@ -237,6 +232,92 @@ class AkunPengajuanController extends Controller
             : 'Pengajuan terkirim, menunggu persetujuan atasan.';
 
         return redirect()->route('akun.absensi')->with('success', $pesan);
+    }
+
+    /**
+     * Jatah kerja dari rumah = 2 HARI per bulan kalender.
+     *
+     * Versi lama menghitung JUMLAH BARIS FORM, bukan hari, dan cuma berpatokan
+     * pada tanggal_from. Dua celah nyata:
+     *   - satu form "1–31 Agustus" = 1 baris → lolos cek → 31 hari jadi WFH;
+     *   - form "31 Juli–30 Agustus" memakan jatah JULI tapi memberi 30 hari di
+     *     AGUSTUS, dan Agustus tetap terbaca 0 terpakai.
+     *
+     * Sekarang: hari yang diminta dipecah per bulan, lalu tiap bulan yang
+     * tersentuh diperiksa sendiri-sendiri terhadap pemakaian yang sudah ada
+     * (approved maupun masih menunggu). Dipanggil DI DALAM transaksi + lock
+     * supaya dua kiriman berbarengan tak sama-sama lolos.
+     *
+     * @throws \RuntimeException bila jatah bulan mana pun terlampaui.
+     */
+    private function pastikanJatahWfhCukup(string $userId, string $dari, string $sampai): void
+    {
+        $mulai   = Carbon::parse($dari)->startOfDay();
+        $selesai = Carbon::parse($sampai)->startOfDay();
+
+        // hari yang diminta, dikelompokkan per bulan
+        $diminta = [];
+        for ($d = $mulai->copy(); $d->lte($selesai); $d->addDay()) {
+            $bulan = $d->format('Y-m');
+            $diminta[$bulan] = ($diminta[$bulan] ?? 0) + 1;
+        }
+
+        foreach ($diminta as $bulan => $jumlahDiminta) {
+            $awal  = Carbon::createFromFormat('Y-m-d', $bulan . '-01')->startOfMonth();
+            $akhir = $awal->copy()->endOfMonth();
+
+            $terpakai = $this->hariWfhTerpakai($userId, $awal, $akhir, true);
+
+            if ($terpakai + $jumlahDiminta > self::WFH_JATAH_BULANAN) {
+                $sisa = max(0, self::WFH_JATAH_BULANAN - $terpakai);
+                throw new \RuntimeException(
+                    'Jatah kerja dari rumah ' . $awal->translatedFormat('F Y') . ' tidak cukup: '
+                    . 'sisa ' . $sisa . ' hari, kamu minta ' . $jumlahDiminta . ' hari. Pengajuan tidak dibuat.'
+                );
+            }
+        }
+    }
+
+    /**
+     * Versi publik untuk dipakai layar lain (kartu akun / banner form), supaya
+     * angka yang DITAMPILKAN dihitung dengan aturan yang sama persis dengan
+     * yang DITEGAKKAN saat kirim — jangan sampai layar bilang "sisa 2" lalu
+     * server menolak.
+     */
+    public static function hariWfhTerpakaiBulan(string $userId, Carbon $dalamBulan): int
+    {
+        return (new self())->hariWfhTerpakai(
+            $userId,
+            $dalamBulan->copy()->startOfMonth(),
+            $dalamBulan->copy()->endOfMonth()
+        );
+    }
+
+    /**
+     * Berapa HARI kerja-dari-rumah yang sudah dipakai dalam satu bulan.
+     * Menghitung irisan tiap form dengan bulan itu, jadi form yang melintasi
+     * batas bulan dihitung proporsional di masing-masing bulan.
+     */
+    private function hariWfhTerpakai(string $userId, Carbon $awal, Carbon $akhir, bool $kunci = false): int
+    {
+        $q = AttRequest::where('user_id', $userId)
+            ->where('tipe', 'wfh')
+            ->whereIn('status', ['approved', 'pending_l1', 'pending_l2'])
+            ->where('tanggal_from', '<=', $akhir->toDateString())
+            ->where('tanggal_to', '>=', $awal->toDateString());
+
+        if ($kunci) $q->lockForUpdate();
+
+        $hari = 0;
+        foreach ($q->get(['tanggal_from', 'tanggal_to']) as $r) {
+            $a = Carbon::parse($r->tanggal_from)->startOfDay();
+            $b = Carbon::parse($r->tanggal_to)->startOfDay();
+            if ($a->lt($awal))  $a = $awal->copy();
+            if ($b->gt($akhir)) $b = $akhir->copy();
+            $hari += $a->diffInDays($b) + 1;
+        }
+
+        return $hari;
     }
 
     /** Baris att_request mentah (status draft) — dipanggil di dalam transaksi store(). */

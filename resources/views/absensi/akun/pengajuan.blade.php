@@ -19,7 +19,7 @@
     @include('layouts.notif')
 
     <div class="absk-card">
-        @include('absensi.akun._pengajuan_form', ['tipeList' => $tipeList, 'tipe' => $tipe, 'inDrawer' => false])
+        @include('absensi.akun._pengajuan_form', ['tipeList' => $tipeList, 'tipe' => $tipe, 'inDrawer' => false, 'wfhUsed' => $wfhUsed])
     </div>
 </div>
 @endsection

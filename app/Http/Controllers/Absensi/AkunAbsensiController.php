@@ -90,12 +90,11 @@ class AkunAbsensiController extends Controller
         $tipeList = \App\Http\Controllers\Absensi\AkunPengajuanController::TIPE;
         $ajTipe   = null;
         // Kuota WFH bulan berjalan (approved+pending) — buat peringatan di drawer (2/bulan).
-        $wfhUsed = AttRequest::where('user_id', $userId)
-            ->where('tipe', 'wfh')
-            ->whereIn('status', ['approved', 'pending_l1', 'pending_l2'])
-            ->whereYear('tanggal_from', Carbon::now()->year)
-            ->whereMonth('tanggal_from', Carbon::now()->month)
-            ->count();
+        // Jatah kerja dari rumah dihitung dalam HARI (bukan jumlah form) dan
+        // memakai irisan tiap form dengan bulan berjalan — sama persis dengan
+        // aturan yang ditegakkan saat kirim, supaya angka di layar tak berbeda
+        // dari yang dipakai server menolak/menerima.
+        $wfhUsed = AkunPengajuanController::hariWfhTerpakaiBulan($userId, Carbon::now());
 
         // pilihan "apa yang keliru?" untuk drawer Koreksi Absen
         $korAlasan = \App\Http\Controllers\Absensi\AkunPengajuanController::KOREKSI_ALASAN;
