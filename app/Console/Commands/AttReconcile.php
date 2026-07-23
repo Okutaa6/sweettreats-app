@@ -36,6 +36,10 @@ class AttReconcile extends Command
         usort($rows, fn ($a, $b) => $b[1] <=> $a[1]);
         $this->table(['status', 'jumlah'], $rows);
 
+        if (! empty($res['basi_dibuang'])) {
+            $this->line("  baris basi dibuang: {$res['basi_dibuang']} (hari yg kini libur/tak dinilai lagi; periode tertutup tak disentuh)");
+        }
+
         // Peringatan keras: orang yang scan-nya masuk tapi belum punya aturan kerja
         // TIDAK diproses sama sekali — dia hilang dari rekap & kehadirannya nol,
         // tanpa error. Lebih baik berisik di sini daripada ketahuan saat gajian.

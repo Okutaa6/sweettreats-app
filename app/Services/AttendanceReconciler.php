@@ -173,6 +173,7 @@ class AttendanceReconciler
 
         $perStatus = [];
         $dayCount = 0;
+        $basi = 0;
         $now = Carbon::now();
 
         foreach ($userRules as $userId => $urs) {
@@ -187,6 +188,8 @@ class AttendanceReconciler
                      'cabang_terlibat', 'status', 'telat_menit', 'wajib_pulang', 'lembur_menit_disetujui', 'computed_at']
                 );
             }
+
+            $basi += $this->hapusHariBasi($userId, $rows, $homeBranch[$userId] ?? null, $from, $to, $closedPeriods);
         }
 
         // Orang yang PUNYA scan di rentang ini tapi tak punya att_user_rule sama
@@ -213,7 +216,54 @@ class AttendanceReconciler
             'days' => $dayCount,
             'per_status' => $perStatus,
             'tanpa_aturan' => $tanpaAturan,
+            'basi_dibuang' => $basi,
         ];
+    }
+
+    /**
+     * Buang baris att_day yang SUDAH TIDAK dihasilkan lagi oleh reconcile.
+     *
+     * Reconciler cuma meng-upsert; jalur yang `continue` (tak meng-emit baris)
+     * meninggalkan baris lama apa adanya. Akibat nyatanya:
+     *
+     *   - HR menambahkan libur (mis. exception Lebaran / akreditasi) SETELAH
+     *     reconcile jalan. Reconcile ulang kini melewati hari itu, tapi 5 baris
+     *     'alpa' lama tetap menempel di kartu karyawan dan di rekap Finance
+     *     selamanya — langsung memotong gaji orang yang tidak bolos.
+     *   - Karyawan dipindah ke aturan 'fleksibel' (promosi ke kantor) dengan
+     *     effective_from mundur. Jalur fleksibel tak meng-emit apa-apa saat tak
+     *     ada scan, jadi alpa lamanya tak pernah hilang — padahal orang
+     *     fleksibel TAK BOLEH punya alpa sama sekali (§3.3).
+     *
+     * Tanggal di dalam periode gaji yang SUDAH DITUTUP sengaja dilewati: angka
+     * yang sudah di-sign-off tak boleh berubah, meski reconcile tak lagi
+     * menghasilkannya.
+     *
+     * @return int jumlah baris yang dibuang
+     */
+    private function hapusHariBasi($userId, array $rows, ?string $home, Carbon $from, Carbon $to, array $closedPeriods): int
+    {
+        $dihasilkan = array_flip(array_column($rows, 'work_date'));
+
+        $adaSekarang = DB::table('att_day')
+            ->where('user_id', $userId)
+            ->whereBetween('work_date', [$from->toDateString(), $to->toDateString()])
+            ->pluck('work_date')
+            ->all();
+
+        $hapus = [];
+        foreach ($adaSekarang as $tgl) {
+            $t = substr((string) $tgl, 0, 10);
+            if (isset($dihasilkan[$t])) continue;                        // masih dihasilkan
+            if ($this->isDateLocked($t, $home, $closedPeriods)) continue; // periode tutup = beku
+            $hapus[] = $t;
+        }
+
+        if (! $hapus) return 0;
+
+        DB::table('att_day')->where('user_id', $userId)->whereIn('work_date', $hapus)->delete();
+
+        return count($hapus);
     }
 
     private function reconcileUser($userId, array $urs, array $rules, array $ruleDays, array $exceptions, array $reqs, ?string $home, Carbon $from, Carbon $to, Carbon $now, array $closedPeriods = []): array
