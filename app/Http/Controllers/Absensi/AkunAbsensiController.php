@@ -97,9 +97,12 @@ class AkunAbsensiController extends Controller
             ->whereMonth('tanggal_from', Carbon::now()->month)
             ->count();
 
+        // pilihan "apa yang keliru?" untuk drawer Koreksi Absen
+        $korAlasan = \App\Http\Controllers\Absensi\AkunPengajuanController::KOREKSI_ALASAN;
+
         return view('absensi.akun.absensi', compact(
             'days', 'rekap', 'requests', 'anchor', 'from', 'to', 'me', 'today', 'notifCount',
-            'tipeList', 'ajTipe', 'wfhUsed'
+            'tipeList', 'ajTipe', 'wfhUsed', 'korAlasan'
         ));
     }
 }

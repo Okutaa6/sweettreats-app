@@ -90,20 +90,30 @@
 
         {{-- ══ View: Harian ══ --}}
         <div class="absk-view" data-view="harian">
-            <div class="absk-corrhint"><span>⚑</span> Ada absen yang keliru? Fitur lapor koreksi segera hadir.</div>
+            <div class="absk-corrhint"><span>⚑</span> Ada absen yang keliru? Ketuk harinya untuk lapor koreksi.</div>
             @if($days->isEmpty())
                 <div class="absk-empty">Belum ada data absen bulan ini.</div>
             @else
                 <div class="absk-days">
                     @foreach($days as $tgl => $d)
                         @php $c = \Illuminate\Support\Carbon::parse($tgl); @endphp
-                        <div class="absk-dayrow s-{{ $d->status }}">
+                        @php
+                            $dJam = $d->scan_first ? ($hm($d->scan_first) . ' – ' . ($hm($d->scan_last) ?? '—')) : null;
+                            $dLbl = $statusLabel[$d->status] ?? ucfirst($d->status);
+                        @endphp
+                        <div class="absk-dayrow s-{{ $d->status }}" role="button" tabindex="0"
+                             data-koreksi="{{ $tgl }}"
+                             data-kor-label="{{ $c->translatedFormat('d M Y') }}"
+                             data-kor-status="{{ $dLbl }}"
+                             data-kor-klas="s-{{ $d->status }}"
+                             data-kor-jam="{{ $dJam ?: '—' }}"
+                             title="Ketuk untuk lapor koreksi">
                             <div class="absk-date"><div class="d num">{{ $c->format('d') }}</div><div class="dow">{{ $hari[$c->dayOfWeek] }}</div></div>
                             <div class="absk-daymid">
-                                <span class="absk-pill s-{{ $d->status }}">{{ $statusLabel[$d->status] ?? ucfirst($d->status) }}</span>
+                                <span class="absk-pill s-{{ $d->status }}">{{ $dLbl }}</span>
                                 @if($d->telat_menit)<span class="absk-daylate num">telat {{ $d->telat_menit }} mnt</span>@endif
                             </div>
-                            <div class="absk-dayjam num">@if($d->scan_first){{ $hm($d->scan_first) }} – {{ $hm($d->scan_last) ?? '—' }}@else—@endif</div>
+                            <div class="absk-dayjam num">{{ $dJam ?: '—' }}</div>
                         </div>
                     @endforeach
                 </div>
@@ -193,6 +203,20 @@
     <div class="absk-dtbody" id="dtBody"><div class="absk-empty">Memuat…</div></div>
 </aside>
 
+{{-- ── Drawer Koreksi Absen (dibuka dgn mengetuk satu hari) ── --}}
+<div class="absk-korscrim" id="korScrim"></div>
+<aside class="absk-kordrawer" id="korDrawer" aria-hidden="true">
+    <div class="absk-ajhead">
+        <div class="absk-ajhead-icon">⚑</div>
+        <div class="absk-ajhead-tx">
+            <div class="absk-ajhead-sub">KOREKSI ABSEN</div>
+            <div class="absk-ajhead-title">Lapor Absen Keliru</div>
+        </div>
+        <button type="button" class="absk-ajclose" data-close-koreksi aria-label="Tutup">✕</button>
+    </div>
+    @include('absensi.akun._koreksi_form', ['korAlasan' => $korAlasan])
+</aside>
+
 <script>
 (function () {
     var body = document.body;
@@ -222,6 +246,26 @@
     document.querySelectorAll('[data-close-ajukan]').forEach(function (b) { b.addEventListener('click', closeAj); });
     if (scrim) scrim.addEventListener('click', closeAj);
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeAj(); });
+
+    // ── Drawer Koreksi Absen: ketuk satu hari ──
+    function openKor()  { body.classList.add('absk-koropen'); }
+    function closeKor() { body.classList.remove('absk-koropen'); }
+    document.querySelectorAll('[data-koreksi]').forEach(function (row) {
+        function go() {
+            document.getElementById('korTanggal').value = row.getAttribute('data-koreksi');
+            document.getElementById('korTglLabel').textContent = row.getAttribute('data-kor-label');
+            var pill = document.getElementById('korStatusPill');
+            pill.textContent = row.getAttribute('data-kor-status');
+            pill.className = 'absk-pill ' + row.getAttribute('data-kor-klas');
+            document.getElementById('korJam').textContent = 'tercatat ' + row.getAttribute('data-kor-jam');
+            openKor();
+        }
+        row.addEventListener('click', go);
+        row.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
+    });
+    document.querySelectorAll('[data-close-koreksi]').forEach(function (b) { b.addEventListener('click', closeKor); });
+    document.getElementById('korScrim').addEventListener('click', closeKor);
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeKor(); });
 
     // Toggle Harian / Kalender
     document.querySelectorAll('.absk-seg [data-aview]').forEach(function (btn) {

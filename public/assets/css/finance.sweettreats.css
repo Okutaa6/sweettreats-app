@@ -73,6 +73,7 @@
 .redesign-absensi .fin-type.t-lembur { background: #FBE7CF; color: #B5701A; }
 .redesign-absensi .fin-type.t-cuti   { background: #E4EAF5; color: #3F6BAF; }
 .redesign-absensi .fin-type.t-wfh    { background: #E3F2E9; color: #2F8E55; }
+.redesign-absensi .fin-type.t-koreksi { background: #EDE6F3; color: #6C4AA0; }
 .redesign-absensi .fin-verif { font-size: 12px; font-weight: 800; border-radius: 20px; padding: 3px 10px; margin-right: 8px; }
 .redesign-absensi .fin-verif.red   { background: #F7DDD9; color: var(--fin-red); }
 .redesign-absensi .fin-verif.green { background: #E3F2E9; color: var(--fin-green); }
