@@ -418,8 +418,13 @@ body.absk-ajopen .absk-ajdrawer { transform: translateX(0); }
   display: flex; align-items: center; justify-content: center;
 }
 .redesign-akun .absk-cal-cell.empty { background: #FAF4EC; }
+/* sel yang ada datanya bisa diklik utk lapor koreksi — kasih umpan balik */
+.redesign-akun .absk-cal-cell.is-klik { cursor: pointer; transition: filter .12s ease; }
+.redesign-akun .absk-cal-cell.is-klik:hover { filter: brightness(.95); }
+.redesign-akun .absk-cal-cell.is-klik:focus-visible { outline: 2px solid #C9962F; outline-offset: -2px; }
 .redesign-akun .absk-cal-num { font-size: 12.5px; font-weight: 800; color: var(--abs-ink); font-variant-numeric: tabular-nums; }
-.redesign-akun .absk-cal-dot { position: absolute; bottom: 5px; width: 4px; height: 4px; border-radius: 50%; }
+/* titik kecil = hari itu ada telat (ikut desain) */
+.redesign-akun .absk-cal-dot { position: absolute; bottom: 5px; width: 4px; height: 4px; border-radius: 50%; background: #B5701A; }
 /* tint sel + warna dot per status */
 .redesign-akun .absk-cal-cell.s-hadir { background: #E3F2E9; }
 .redesign-akun .absk-cal-cell.s-telat { background: #FBE7CF; }

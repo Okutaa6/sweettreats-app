@@ -134,14 +134,33 @@
                 @for($i = 0; $i < $calLead; $i++)<div class="absk-cal-cell empty"></div>@endfor
                 @for($d = 1; $d <= $calCount; $d++)
                     @php
-                        $ds = $anchor->format('Y-m') . '-' . sprintf('%02d', $d);
-                        $cd = $days[$ds] ?? null;
-                        $st = $cd->status ?? null;
+                        $ds  = $anchor->format('Y-m') . '-' . sprintf('%02d', $d);
+                        $cd  = $days[$ds] ?? null;
+                        $st  = $cd->status ?? null;
+                        $cls = $st ? ($statusLabel[$st] ?? ucfirst($st)) : null;
+                        $cj  = $cd && $cd->scan_first ? ($hm($cd->scan_first) . ' – ' . ($hm($cd->scan_last) ?? '—')) : null;
+                        // tooltip: tanggal · status · jam · telat  (biar sel kalender ikut memberi info)
+                        $ctip = $st
+                            ? \Illuminate\Support\Carbon::parse($ds)->translatedFormat('d M') . ' · ' . $cls
+                              . ($cj ? ' · ' . $cj : '')
+                              . ($cd->telat_menit ? ' · telat ' . $cd->telat_menit . ' mnt' : '')
+                            : null;
                     @endphp
-                    <div class="absk-cal-cell @if($st) s-{{ $st }} @endif" title="{{ $st ? ($statusLabel[$st] ?? $st) : '' }}">
-                        <span class="absk-cal-num">{{ $d }}</span>
-                        @if($st)<span class="absk-cal-dot s-{{ $st }}"></span>@endif
-                    </div>
+                    @if($st)
+                        {{-- ada datanya → bisa diklik utk lapor koreksi (atribut sama dgn baris harian) --}}
+                        <div class="absk-cal-cell s-{{ $st }} is-klik" title="{{ $ctip }}"
+                             role="button" tabindex="0"
+                             data-koreksi="{{ $ds }}"
+                             data-kor-label="{{ \Illuminate\Support\Carbon::parse($ds)->translatedFormat('d M Y') }}"
+                             data-kor-status="{{ $cls }}"
+                             data-kor-klas="s-{{ $st }}"
+                             data-kor-jam="{{ $cj ?: '—' }}">
+                            <span class="absk-cal-num">{{ $d }}</span>
+                            @if($cd->telat_menit)<span class="absk-cal-dot"></span>@endif
+                        </div>
+                    @else
+                        <div class="absk-cal-cell"><span class="absk-cal-num">{{ $d }}</span></div>
+                    @endif
                 @endfor
             </div>
             <div class="absk-cal-legend">
