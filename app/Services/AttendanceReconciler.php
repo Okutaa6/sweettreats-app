@@ -189,7 +189,31 @@ class AttendanceReconciler
             }
         }
 
-        return ['users' => $userRules->count(), 'days' => $dayCount, 'per_status' => $perStatus];
+        // Orang yang PUNYA scan di rentang ini tapi tak punya att_user_rule sama
+        // sekali tak pernah masuk loop di atas — scan-nya diam-diam tak pernah
+        // jadi hari kerja, dan orangnya hilang total dari rekap. Ini yang dulu
+        // menelan 538 scan Head IT tanpa satu pun pesan. Sekarang dilaporkan.
+        $tanpaAturan = DB::table('att_scan as s')
+            ->leftJoin('att_user_rule as ur', 'ur.user_id', '=', 's.user_id')
+            ->leftJoin('users as u', 'u.id', '=', 's.user_id')
+            ->whereBetween('s.scanned_at', [
+                $from->copy()->startOfDay(),
+                $to->copy()->addDay()->setTime(6, 0),
+            ])
+            ->whereNotNull('s.user_id')
+            ->whereNull('ur.id')
+            ->distinct()
+            ->pluck('u.nama', 's.user_id')
+            ->filter()
+            ->values()
+            ->all();
+
+        return [
+            'users' => $userRules->count(),
+            'days' => $dayCount,
+            'per_status' => $perStatus,
+            'tanpa_aturan' => $tanpaAturan,
+        ];
     }
 
     private function reconcileUser($userId, array $urs, array $rules, array $ruleDays, array $exceptions, array $reqs, ?string $home, Carbon $from, Carbon $to, Carbon $now, array $closedPeriods = []): array

@@ -33,9 +33,12 @@ JOIN `users` u ON u.`id` = ur.`user_id`
 WHERE u.`nama` IN ('Admin_Ekky', 'Admin_Reza');
 
 -- ── BUG 1b: pasang Fleksibel (rule 3) ke akun PEGAWAI yang discan mesin ──
+-- rule dicari lewat NAMA ('Fleksibel'), bukan id 3: id itu auto-increment hasil
+-- urutan seed di mesin lokal dan belum tentu sama di server.
 INSERT INTO `att_user_rule` (`user_id`, `rule_id`, `effective_from`, `created_at`, `updated_at`)
-SELECT u.`id`, 3, '2026-01-01', NOW(), NOW()
+SELECT u.`id`, w.`id`, '2026-01-01', NOW(), NOW()
 FROM `users` u
+JOIN `att_work_rule` w ON w.`nama` = 'Fleksibel'
 WHERE u.`nama` IN ('Muhamad Ikhsan', 'Reza Fauzi Ramadhan')
   AND NOT EXISTS (SELECT 1 FROM `att_user_rule` x WHERE x.`user_id` = u.`id`);
 

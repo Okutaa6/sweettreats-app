@@ -36,6 +36,18 @@ class AttReconcile extends Command
         usort($rows, fn ($a, $b) => $b[1] <=> $a[1]);
         $this->table(['status', 'jumlah'], $rows);
 
+        // Peringatan keras: orang yang scan-nya masuk tapi belum punya aturan kerja
+        // TIDAK diproses sama sekali — dia hilang dari rekap & kehadirannya nol,
+        // tanpa error. Lebih baik berisik di sini daripada ketahuan saat gajian.
+        if (! empty($res['tanpa_aturan'])) {
+            $n = count($res['tanpa_aturan']);
+            $this->newLine();
+            $this->warn("⚠  {$n} orang punya scan di rentang ini tapi BELUM punya aturan kerja (att_user_rule).");
+            $this->warn('   Scan mereka tidak dihitung dan mereka tidak muncul di rekap:');
+            foreach ($res['tanpa_aturan'] as $nama) $this->line("     - {$nama}");
+            $this->warn('   Isi att_user_rule mereka lalu jalankan ulang perintah ini.');
+        }
+
         return self::SUCCESS;
     }
 }
