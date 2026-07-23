@@ -23,12 +23,12 @@ use Illuminate\Support\Carbon;
 class AkunPengajuanController extends Controller
 {
     /** Jenis form + apakah butuh rentang jam (lembur/izin sebagian). */
-    private const TIPE = [
+    public const TIPE = [
         'cuti'   => 'Cuti',
         'izin'   => 'Izin',
         'libur'  => 'Libur / Tukar Hari',
         'lembur' => 'Lembur',
-        'wfh'    => 'WFH',
+        'wfh'    => 'Kerja dari Rumah',
     ];
 
     private function userId(): string
@@ -59,7 +59,7 @@ class AkunPengajuanController extends Controller
 
         $s = (new AttendanceReconciler())->suggestLembur($userId, $date);
         if (! $s) {
-            return response()->json(['ok' => false, 'reason' => 'Tidak ada scan yang mendukung lembur di tanggal ini — isi manual.']);
+            return response()->json(['ok' => false, 'reason' => 'Tidak ada data absen mesin yang cocok di tanggal ini — isi manual ya.']);
         }
         return response()->json(['ok' => true] + $s);
     }

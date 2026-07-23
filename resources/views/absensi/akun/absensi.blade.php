@@ -1,124 +1,205 @@
 @extends('layouts.app')
 
 @section('css')
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="{{ asset('assets/css/absensi.sweettreats.css') }}?v={{ @filemtime(public_path('assets/css/absensi.sweettreats.css')) ?: '1' }}">
 @endsection
 
 @php
-    $badge = [
-        'hadir' => 'success', 'telat' => 'warning', 'alpa' => 'danger',
-        'cuti' => 'info', 'izin' => 'info', 'wfh' => 'primary', 'libur' => 'secondary',
-    ];
-    $reqBadge = [
-        'draft' => 'secondary', 'pending_l1' => 'warning', 'pending_l2' => 'warning',
-        'approved' => 'success', 'rejected' => 'danger', 'cancelled' => 'secondary',
+    $statusLabel = [
+        'hadir' => 'Hadir', 'telat' => 'Telat', 'alpa' => 'Alpa', 'cuti' => 'Cuti',
+        'izin' => 'Izin', 'wfh' => 'WFH', 'libur' => 'Libur',
     ];
     $hari = ['Min','Sen','Sel','Rab','Kam','Jum','Sab'];
+    $hm = fn ($t) => $t ? \Illuminate\Support\Carbon::parse($t)->format('H:i') : null;
+    // Status pengajuan dalam bahasa awam (bukan pending_l1 dll).
+    $reqLabel = [
+        'draft' => 'Draf', 'pending_l1' => 'Menunggu', 'pending_l2' => 'Menunggu',
+        'approved' => 'Disetujui', 'rejected' => 'Ditolak', 'cancelled' => 'Dibatalkan',
+    ];
 @endphp
 
 @section('content')
-<div class="container-fluid abs-akun">
-    <div class="row">
-        <div class="col-12">
-            <div class="page-title-box d-flex justify-content-between align-items-center">
-                <h4 class="page-title mb-0">Absensi Saya</h4>
-                <a href="{{ route('akun.pengajuan') }}" class="btn btn-primary btn-sm"><i class="fa fa-plus"></i> Ajukan</a>
-            </div>
-        </div>
-    </div>
-
+<div class="absk-wrap">
     @include('layouts.notif')
 
-    {{-- ── Pindah bulan ── --}}
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <a href="{{ route('akun.absensi', ['m' => $anchor->copy()->subMonth()->format('Y-m')]) }}"
-           class="btn btn-outline-secondary btn-sm"><i class="fa fa-chevron-left"></i></a>
-        <strong>{{ $anchor->translatedFormat('F Y') }}</strong>
-        <a href="{{ route('akun.absensi', ['m' => $anchor->copy()->addMonth()->format('Y-m')]) }}"
-           class="btn btn-outline-secondary btn-sm"><i class="fa fa-chevron-right"></i></a>
-    </div>
+    <div class="absk-grid">
 
-    {{-- ── Rekap ringkas (stat tiles, wrap di HP) ── --}}
-    <div class="row no-gutters mb-3 abs-stats">
-        @foreach(['hadir'=>'Hadir','telat'=>'Telat','alpa'=>'Alpa','cuti'=>'Cuti/Izin'] as $k => $lbl)
-            <div class="col-3 px-1">
-                <div class="card mb-0 text-center">
-                    <div class="card-body py-2 px-1">
-                        <div class="h4 mb-0 text-{{ $badge[$k] ?? 'dark' }}">{{ $rekap[$k] }}</div>
-                        <small class="text-muted">{{ $lbl }}</small>
-                    </div>
+    {{-- ══════ KIRI: identitas + ringkasan + Ajukan ══════ --}}
+    <div class="absk-col-a">
+
+        {{-- PersonalHeader (mobile full-bleed, desktop kartu) --}}
+        <div class="absk-head">
+            <div class="absk-idrow">
+                <div class="absk-avatar">{{ $me['inisial'] }}</div>
+                <div class="absk-idmeta">
+                    <div class="absk-name">{{ $me['nama'] }}</div>
+                    <div class="absk-sub">{{ $me['jabatan'] ?? 'Karyawan' }}@if($me['cabang']) · Cabang {{ $me['cabang'] }}@endif</div>
+                </div>
+                <a href="#" class="absk-bell" title="Notifikasi">
+                    <i class="fa fa-bell"></i>
+                    @if($notifCount)<span class="absk-badge num">{{ $notifCount > 9 ? '9+' : $notifCount }}</span>@endif
+                </a>
+            </div>
+            <div class="absk-monthnav">
+                <a class="absk-navbtn" href="{{ route('akun.absensi', ['m' => $anchor->copy()->subMonth()->format('Y-m')]) }}">‹</a>
+                <div class="absk-mlabel">{{ $anchor->translatedFormat('F Y') }}</div>
+                <a class="absk-navbtn" href="{{ route('akun.absensi', ['m' => $anchor->copy()->addMonth()->format('Y-m')]) }}">›</a>
+            </div>
+        </div>
+
+        {{-- Ringkasan bulan --}}
+        <div class="absk-chips">
+            @foreach(['hadir'=>'HADIR','telat'=>'TELAT','alpa'=>'ALPA','cuti'=>'IZIN/CUTI'] as $k => $lbl)
+                <div class="absk-chip is-{{ $k }}"><div class="n num">{{ $rekap[$k] }}</div><div class="l">{{ $lbl }}</div></div>
+            @endforeach
+        </div>
+        <div class="absk-tiles">
+            <div class="absk-tile telat"><div class="k">TOTAL TELAT</div><div class="v num">{{ $rekap['telat_menit'] }} mnt</div></div>
+            <div class="absk-tile lembur"><div class="k">LEMBUR DISETUJUI</div><div class="v num">{{ $rekap['lembur_menit'] ? round($rekap['lembur_menit']/60, 1) : 0 }} jam</div></div>
+        </div>
+
+        {{-- Hari Ini --}}
+        @if($today)
+            <div class="absk-today">
+                <div class="absk-today-top">
+                    <div class="absk-today-lbl">HARI INI · {{ \Illuminate\Support\Carbon::today()->translatedFormat('d M') }}</div>
+                    <span class="absk-pill s-{{ $today->status }}">{{ $statusLabel[$today->status] ?? ucfirst($today->status) }}</span>
+                </div>
+                <div class="absk-today-body">
+                    <div><div class="absk-today-k">MASUK</div><div class="absk-today-v num">{{ $hm($today->scan_first) ?? '—' }}</div></div>
+                    <div class="absk-today-arrow">→</div>
+                    <div><div class="absk-today-k">PULANG</div><div class="absk-today-v num">{{ $hm($today->scan_last) ?? '—' }}</div></div>
+                    @if($today->telat_menit)<span class="absk-today-late num">telat {{ $today->telat_menit }} mnt</span>@endif
                 </div>
             </div>
-        @endforeach
-    </div>
-    @if($rekap['telat_menit'] || $rekap['lembur_menit'])
-        <p class="text-muted small mb-3">
-            Total telat {{ $rekap['telat_menit'] }} menit
-            @if($rekap['lembur_menit']) · lembur disetujui {{ round($rekap['lembur_menit']/60,1) }} jam @endif
-        </p>
-    @endif
+        @endif
 
-    {{-- ── Daftar hari ── --}}
-    <div class="card">
-        <div class="card-body p-0">
+        <button type="button" class="absk-fab" data-open-ajukan><span class="plus">+</span> Ajukan Permohonan</button>
+    </div>
+
+    {{-- ══════ KANAN: toggle + daftar hari + riwayat ══════ --}}
+    <div class="absk-col-b">
+
+        <div class="absk-seg">
+            <button type="button" class="active" data-aview="harian">Harian</button>
+            <button type="button" data-aview="kalender">Kalender</button>
+        </div>
+
+        {{-- ══ View: Harian ══ --}}
+        <div class="absk-view" data-view="harian">
+            <div class="absk-corrhint"><span>⚑</span> Ada absen yang keliru? Fitur lapor koreksi segera hadir.</div>
             @if($days->isEmpty())
-                <p class="text-muted text-center py-4 mb-0">Belum ada data absen bulan ini.</p>
+                <div class="absk-empty">Belum ada data absen bulan ini.</div>
             @else
-                <div class="list-group list-group-flush">
+                <div class="absk-days">
                     @foreach($days as $tgl => $d)
                         @php $c = \Illuminate\Support\Carbon::parse($tgl); @endphp
-                        <div class="list-group-item d-flex justify-content-between align-items-center py-2">
-                            <div>
-                                <span class="text-muted mr-2" style="min-width:52px;display:inline-block">
-                                    {{ $hari[$c->dayOfWeek] }} {{ $c->format('d/m') }}
-                                </span>
-                                @if($d->scan_first)
-                                    <span class="small">
-                                        {{ \Illuminate\Support\Carbon::parse($d->scan_first)->format('H:i') }}
-                                        –
-                                        {{ $d->scan_last ? \Illuminate\Support\Carbon::parse($d->scan_last)->format('H:i') : '—' }}
-                                    </span>
-                                @else
-                                    <span class="small text-muted">tanpa scan</span>
-                                @endif
+                        <div class="absk-dayrow s-{{ $d->status }}">
+                            <div class="absk-date"><div class="d num">{{ $c->format('d') }}</div><div class="dow">{{ $hari[$c->dayOfWeek] }}</div></div>
+                            <div class="absk-daymid">
+                                <span class="absk-pill s-{{ $d->status }}">{{ $statusLabel[$d->status] ?? ucfirst($d->status) }}</span>
+                                @if($d->telat_menit)<span class="absk-daylate num">telat {{ $d->telat_menit }} mnt</span>@endif
                             </div>
-                            <div class="text-right">
-                                <span class="badge badge-{{ $badge[$d->status] ?? 'light' }}">{{ ucfirst($d->status) }}</span>
-                                @if($d->telat_menit)<span class="badge badge-light text-warning">+{{ $d->telat_menit }}m</span>@endif
-                            </div>
+                            <div class="absk-dayjam num">@if($d->scan_first){{ $hm($d->scan_first) }} – {{ $hm($d->scan_last) ?? '—' }}@else—@endif</div>
                         </div>
                     @endforeach
                 </div>
             @endif
         </div>
+
+        {{-- ══ View: Kalender (grid bulanan + legend) ══ --}}
+        @php
+            $calFirst   = $anchor->copy()->startOfMonth();
+            $calLead    = (int) $calFirst->dayOfWeek;        // 0 = Minggu
+            $calCount   = (int) $anchor->daysInMonth;
+            $calDow     = ['Mg','Sn','Sl','Rb','Km','Jm','Sb'];
+        @endphp
+        <div class="absk-view" data-view="kalender" hidden>
+            <div class="absk-cal">
+                @foreach($calDow as $dl)<div class="absk-cal-dow">{{ $dl }}</div>@endforeach
+                @for($i = 0; $i < $calLead; $i++)<div class="absk-cal-cell empty"></div>@endfor
+                @for($d = 1; $d <= $calCount; $d++)
+                    @php
+                        $ds = $anchor->format('Y-m') . '-' . sprintf('%02d', $d);
+                        $cd = $days[$ds] ?? null;
+                        $st = $cd->status ?? null;
+                    @endphp
+                    <div class="absk-cal-cell @if($st) s-{{ $st }} @endif" title="{{ $st ? ($statusLabel[$st] ?? $st) : '' }}">
+                        <span class="absk-cal-num">{{ $d }}</span>
+                        @if($st)<span class="absk-cal-dot s-{{ $st }}"></span>@endif
+                    </div>
+                @endfor
+            </div>
+            <div class="absk-cal-legend">
+                @foreach(['hadir'=>'Hadir','telat'=>'Telat','alpa'=>'Alpa','cuti'=>'Cuti','izin'=>'Izin','libur'=>'Libur','wfh'=>'WFH'] as $sk => $sl)
+                    <span class="absk-leg"><span class="absk-leg-dot s-{{ $sk }}"></span>{{ $sl }}</span>
+                @endforeach
+            </div>
+        </div>
+
+        {{-- Riwayat permohonan (grid di desktop) --}}
+        <div class="absk-sechead">RIWAYAT PERMOHONAN</div>
+        @if($requests->isEmpty())
+            <div class="absk-empty">Belum ada pengajuan.</div>
+        @else
+            <div class="absk-reqs">
+                @foreach($requests as $r)
+                    <div class="absk-reqcard">
+                        <span class="absk-type">{{ $r->tipe }}</span>
+                        <div class="absk-reqmid">
+                            <div class="absk-reqdate num">
+                                {{ \Illuminate\Support\Carbon::parse($r->tanggal_from)->translatedFormat('d M') }}@if($r->tanggal_to != $r->tanggal_from) – {{ \Illuminate\Support\Carbon::parse($r->tanggal_to)->translatedFormat('d M') }}@endif
+                            </div>
+                            @if($r->alasan)<div class="absk-reqreason">{{ $r->alasan }}</div>@endif
+                        </div>
+                        <span class="absk-pill s-{{ in_array($r->status, ['approved']) ? 'hadir' : (in_array($r->status, ['rejected','cancelled']) ? 'alpa' : 'telat') }}">{{ $reqLabel[$r->status] ?? $r->status }}</span>
+                    </div>
+                @endforeach
+            </div>
+        @endif
     </div>
 
-    {{-- ── Riwayat pengajuan ── --}}
-    <h5 class="mt-4 mb-2">Pengajuan Saya</h5>
-    <div class="card">
-        <div class="card-body p-0">
-            @if($requests->isEmpty())
-                <p class="text-muted text-center py-4 mb-0">Belum ada pengajuan.</p>
-            @else
-                <div class="list-group list-group-flush">
-                    @foreach($requests as $r)
-                        <div class="list-group-item d-flex justify-content-between align-items-center py-2">
-                            <div>
-                                <span class="badge badge-outline-secondary text-uppercase">{{ $r->tipe }}</span>
-                                <span class="small ml-1">
-                                    {{ \Illuminate\Support\Carbon::parse($r->tanggal_from)->format('d/m') }}
-                                    @if($r->tanggal_to != $r->tanggal_from)
-                                        – {{ \Illuminate\Support\Carbon::parse($r->tanggal_to)->format('d/m') }}
-                                    @endif
-                                </span>
-                                @if($r->alasan)<div class="small text-muted">{{ \Illuminate\Support\Str::limit($r->alasan, 50) }}</div>@endif
-                            </div>
-                            <span class="badge badge-{{ $reqBadge[$r->status] ?? 'light' }}">{{ str_replace('_',' ',$r->status) }}</span>
-                        </div>
-                    @endforeach
-                </div>
-            @endif
-        </div>
-    </div>
+    </div>{{-- .absk-grid --}}
 </div>
+
+{{-- ── Drawer Ajukan Permohonan (slide dari kanan) ── --}}
+<div class="absk-ajscrim" id="ajScrim"></div>
+<aside class="absk-ajdrawer" id="ajDrawer" aria-hidden="true">
+    <div class="absk-ajhead">
+        <div class="absk-ajhead-icon">+</div>
+        <div class="absk-ajhead-tx">
+            <div class="absk-ajhead-sub">{{ strtoupper($me['nama']) }}@if($me['cabang']) · {{ strtoupper($me['cabang']) }}@endif</div>
+            <div class="absk-ajhead-title">Ajukan Permohonan</div>
+        </div>
+        <button type="button" class="absk-ajclose" data-close-ajukan aria-label="Tutup">✕</button>
+    </div>
+    @include('absensi.akun._pengajuan_form', ['tipeList' => $tipeList, 'tipe' => $ajTipe, 'inDrawer' => true, 'wfhUsed' => $wfhUsed])
+</aside>
+
+<script>
+(function () {
+    var body = document.body;
+    var scrim = document.getElementById('ajScrim');
+    function openAj()  { body.classList.add('absk-ajopen'); }
+    function closeAj() { body.classList.remove('absk-ajopen'); }
+    document.querySelectorAll('[data-open-ajukan]').forEach(function (b) { b.addEventListener('click', openAj); });
+    document.querySelectorAll('[data-close-ajukan]').forEach(function (b) { b.addEventListener('click', closeAj); });
+    if (scrim) scrim.addEventListener('click', closeAj);
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeAj(); });
+
+    // Toggle Harian / Kalender
+    document.querySelectorAll('.absk-seg [data-aview]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var view = btn.getAttribute('data-aview');
+            document.querySelectorAll('.absk-seg [data-aview]').forEach(function (b) { b.classList.toggle('active', b === btn); });
+            document.querySelectorAll('.absk-view').forEach(function (v) { v.hidden = (v.getAttribute('data-view') !== view); });
+        });
+    });
+
+    @if(old('tipe')) openAj(); @endif
+})();
+</script>
 @endsection

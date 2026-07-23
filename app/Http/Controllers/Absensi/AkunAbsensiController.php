@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\Absensi;
 
 use App\Http\Controllers\Controller;
+use App\Models\AdminNotification;
 use App\Models\AttDay;
 use App\Models\AttRequest;
+use App\Models\RawBranch;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 
@@ -22,7 +24,23 @@ class AkunAbsensiController extends Controller
 
         // bulan yg dilihat (default bulan berjalan)
         $month = $request->input('m');
-        $anchor = $month ? Carbon::parse($month . '-01') : Carbon::now()->startOfMonth();
+        if ($month) {
+            $anchor = Carbon::parse($month . '-01');
+        } else {
+            $anchor = Carbon::now()->startOfMonth();
+            // Kalau bulan berjalan belum ada KEHADIRAN asli (biar tak nyangkut di
+            // bulan yang cuma alpa-palsu), lompat ke bulan terbaru yang ada hadir/
+            // telat/cuti/izin/wfh. Data sample lampau → demo selalu tampil isi.
+            $real = ['hadir', 'telat', 'cuti', 'izin', 'wfh'];
+            $hasCurrent = AttDay::where('user_id', $userId)
+                ->whereBetween('work_date', [$anchor->toDateString(), $anchor->copy()->endOfMonth()->toDateString()])
+                ->whereIn('status', $real)
+                ->exists();
+            if (! $hasCurrent) {
+                $latest = AttDay::where('user_id', $userId)->whereIn('status', $real)->max('work_date');
+                if ($latest) $anchor = Carbon::parse($latest)->startOfMonth();
+            }
+        }
         $from = $anchor->copy()->startOfMonth();
         $to = $anchor->copy()->endOfMonth();
 
@@ -48,6 +66,40 @@ class AkunAbsensiController extends Controller
             ->limit(20)
             ->get();
 
-        return view('absensi.akun.absensi', compact('days', 'rekap', 'requests', 'anchor', 'from', 'to'));
+        // ── Header identitas (nama · jabatan · cabang) untuk kartu profil ──
+        $branchName = session('raw_branch_id')
+            ? optional(RawBranch::find(session('raw_branch_id')))->name
+            : null;
+        $me = [
+            'nama'    => session('name') ?: 'Rekan',
+            'jabatan' => session('group_name') ?: null,
+            'cabang'  => $branchName,
+            'inisial' => strtoupper(mb_substr((string) (session('name') ?: 'R'), 0, 1)),
+        ];
+
+        // ── Kartu "Hari Ini" — hanya saat melihat bulan berjalan ──
+        $today = null;
+        if ($anchor->isSameMonth(Carbon::now())) {
+            $today = $days[Carbon::today()->toDateString()] ?? null;
+        }
+
+        // ── Badge notifikasi (lonceng) ──
+        $notifCount = AdminNotification::unreadForUser()->count();
+
+        // ── Data untuk drawer "Ajukan Permohonan" ──
+        $tipeList = \App\Http\Controllers\Absensi\AkunPengajuanController::TIPE;
+        $ajTipe   = null;
+        // Kuota WFH bulan berjalan (approved+pending) — buat peringatan di drawer (2/bulan).
+        $wfhUsed = AttRequest::where('user_id', $userId)
+            ->where('tipe', 'wfh')
+            ->whereIn('status', ['approved', 'pending_l1', 'pending_l2'])
+            ->whereYear('tanggal_from', Carbon::now()->year)
+            ->whereMonth('tanggal_from', Carbon::now()->month)
+            ->count();
+
+        return view('absensi.akun.absensi', compact(
+            'days', 'rekap', 'requests', 'anchor', 'from', 'to', 'me', 'today', 'notifCount',
+            'tipeList', 'ajTipe', 'wfhUsed'
+        ));
     }
 }
