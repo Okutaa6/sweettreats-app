@@ -45,8 +45,23 @@ class OrgRoleStructureSeeder extends Seeder
         foreach ($roles as $nama => [$parent, $level, $landing, $theme]) {
             $existing = DB::table('group_path')->where('nama', $nama)->first();
             if ($existing) {
+                // SENGAJA tidak menyentuh landing_page role yang sudah ada.
+                //
+                // Tugas seeder ini menegakkan STRUKTUR ORGANISASI (level +
+                // parent_id). Halaman pendaratan itu urusan tiap server: di
+                // lokal 'dashboard' masuk akal, di dev/prod belum tentu.
+                //
+                // Menimpanya berbahaya, bukan teoretis: di dev landing Sales
+                // adalah 'rawreservation' dan berfungsi. Kalau ditimpa jadi
+                // 'dashboard' sementara Sales tak punya grant 'dashboard',
+                // AuthGuard menolak lalu melempar ke landing-nya — halaman itu
+                // juga — dan berakhir abort(403). Seluruh user Sales TERKUNCI.
+                // Itu persis bug yang baru saja diperbaiki lewat
+                // 2026_07_23_fix_landing_sales.sql; jangan dibuat ulang.
+                //
+                // Role BARU tetap dapat landing default (lihat cabang else).
                 DB::table('group_path')->where('id', $existing->id)->update([
-                    'level' => $level, 'landing_page' => $landing, 'theme' => $theme,
+                    'level' => $level, 'theme' => $theme,
                 ]);
             } else {
                 DB::table('group_path')->insert([
