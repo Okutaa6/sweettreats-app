@@ -241,3 +241,103 @@ Temuan audit yang diketahui dan diterima untuk sekarang — supaya tidak terliha
 | N+1 di Rekap Finance & Inbox Persetujuan | Lambat saat data setahun masuk. |
 | Lembur lintas tengah malam ditolak validator | Klaim 22:00→01:00 tak bisa dikirim. |
 | `setoran` tanpa node menu | **Disengaja** — fitur selesai tapi belum diluncurkan (rencana akhir bulan). |
+
+---
+
+## Lampiran A — Roster karyawan (untuk replikasi demo di dev)
+
+Snapshot dari lokal per 2026-07-23, **28 karyawan**. Dipakai untuk menyusun `att_user_rule`
+di dev supaya alur & demo bisa direplikasi manual.
+
+> **Ingat aturannya:** kolom *Aturan* di bawah adalah keputusan per-ORANG, bukan turunan
+> jabatan. Perhatikan dua baris yang sengaja "menyimpang":
+> **Admin_Nisa** (Supervisor) dan **Irma Islamiati** (Coordinator Dentist) — keduanya
+> office/manajemen tapi memakai aturan **FO-Asdent** karena ikut jam operasional dan punya
+> hak lembur. Kalau diturunkan dari jabatan, lembur mereka akan ditolak sistem tiap bulan
+> padahal sah.
+
+| Nama | Jabatan | Cabang | Aturan | Email |
+|---|---|---|---|---|
+| Alif Imam Fadillah | Creative | — | Fleksibel | alif.imam.fadillah@sweettreats.local |
+| Della Puspita Sari | Finance | — | Fleksibel | della.puspita.sari@sweettreats.local |
+| Hari | Cabang | — | Fleksibel | hari@sweettreats.local |
+| Muhamad Ikhsan | Head IT | Bintaro | Fleksibel | muhamad.ikhsan@sweettreats.local |
+| Reza Fauzi Ramadhan | IT | Bintaro | Fleksibel | reza.fauzi.ramadhan@sweettreats.local |
+| Talitha Maritza Devi | Content Creator | — | Fleksibel | talitha.maritza.devi@sweettreats.local |
+| Yovanka Rima Millennia | Head Marketing | — | Fleksibel | yovanka.rima.millennia@sweettreats.local |
+| Admin_Nisa | Supervisor | Sunter | FO-Asdent | nisasweettreats29@gmail.com |
+| Afrina Apriliani | Front Office | Bintaro | FO-Asdent | afrina.apriliani@sweettreats.local |
+| Alviona Zunka Prasetyo | Assistant Dentist | Pamulang | FO-Asdent | alviona.zunka.prasetyo@sweettreats.local |
+| Anggita Sarah Aprillia | Assistant Dentist | Cinere | FO-Asdent | anggita.sarah.aprillia@sweettreats.local |
+| Asih Wulan Sari | Assistant Dentist | Bintaro | FO-Asdent | asih.wulan.sari@sweettreats.local |
+| Cici Nurjanah | Assistant Dentist | Kalideres | FO-Asdent | cici.nurjanah@sweettreats.local |
+| Della Raqisiah | Front Office | Cinere | FO-Asdent | della.raqisiah@sweettreats.local |
+| Firda Mareta Naskah | Front Office | Bintaro | FO-Asdent | firda.mareta.naskah@sweettreats.local |
+| Irma Islamiati | Coordinator Dentist | Sunter | FO-Asdent | irma.islamiati@sweettreats.local |
+| Melani Safrida | Front Office | Sunter | FO-Asdent | melani.safrida@sweettreats.local |
+| Mutiara Nurul Fajri | Front Office | Pamulang | FO-Asdent | mutiara.nurul.fajri@sweettreats.local |
+| Putri Syafira | Assistant Dentist | Sunter | FO-Asdent | putri.syafira@sweettreats.local |
+| Rivanti Nadiana | Front Office | Kalideres | FO-Asdent | rivanti.nadiana@sweettreats.local |
+| Rizka Noviyanti | Assistant Dentist | Bintaro | FO-Asdent | rizka.noviyanti@sweettreats.local |
+| Rokhmatun | Assistant Dentist | Sunter | FO-Asdent | rokhmatun@sweettreats.local |
+| Verini Selvia Nashkah | Front Office | Sunter | FO-Asdent | verini.selvia.nashkah@sweettreats.local |
+| Ahmad Saipulloh | General Services | Pamulang | GS | ahmad.saipulloh@sweettreats.local |
+| Apajri Suhendar Al Qhusni | General Services | Bintaro | GS | apajri.suhendar.al.qhusni@sweettreats.local |
+| Ramdan Ramdhani | General Services | Kalideres | GS | ramdan.ramdhani@sweettreats.local |
+| Tito Muhammad Taqiyuddin | General Services | Sunter | GS | tito.muhammad.taqiyuddin@sweettreats.local |
+| Wahyudin | General Services | Cinere | GS | wahyudin@sweettreats.local |
+total: 28 karyawan ber-aturan
+
+### SQL — pasang aturan kerja sesuai roster di atas
+
+Jalankan **setelah** user-nya ada di dev. Aman diulang; nama yang tak ditemukan dilewati.
+
+```sql
+INSERT INTO att_user_rule (user_id, rule_id, effective_from, created_at, updated_at)
+SELECT u.id, w.id, '2026-01-01', NOW(), NOW()
+FROM users u
+JOIN (
+            SELECT 'Alif Imam Fadillah' AS nama, 'Fleksibel' AS aturan
+  UNION ALL SELECT 'Della Puspita Sari','Fleksibel'
+  UNION ALL SELECT 'Hari','Fleksibel'
+  UNION ALL SELECT 'Muhamad Ikhsan','Fleksibel'
+  UNION ALL SELECT 'Reza Fauzi Ramadhan','Fleksibel'
+  UNION ALL SELECT 'Talitha Maritza Devi','Fleksibel'
+  UNION ALL SELECT 'Yovanka Rima Millennia','Fleksibel'
+  UNION ALL SELECT 'Admin_Nisa','FO-Asdent'
+  UNION ALL SELECT 'Afrina Apriliani','FO-Asdent'
+  UNION ALL SELECT 'Alviona Zunka Prasetyo','FO-Asdent'
+  UNION ALL SELECT 'Anggita Sarah Aprillia','FO-Asdent'
+  UNION ALL SELECT 'Asih Wulan Sari','FO-Asdent'
+  UNION ALL SELECT 'Cici Nurjanah','FO-Asdent'
+  UNION ALL SELECT 'Della Raqisiah','FO-Asdent'
+  UNION ALL SELECT 'Firda Mareta Naskah','FO-Asdent'
+  UNION ALL SELECT 'Irma Islamiati','FO-Asdent'
+  UNION ALL SELECT 'Melani Safrida','FO-Asdent'
+  UNION ALL SELECT 'Mutiara Nurul Fajri','FO-Asdent'
+  UNION ALL SELECT 'Putri Syafira','FO-Asdent'
+  UNION ALL SELECT 'Rivanti Nadiana','FO-Asdent'
+  UNION ALL SELECT 'Rizka Noviyanti','FO-Asdent'
+  UNION ALL SELECT 'Rokhmatun','FO-Asdent'
+  UNION ALL SELECT 'Verini Selvia Nashkah','FO-Asdent'
+  UNION ALL SELECT 'Ahmad Saipulloh','GS'
+  UNION ALL SELECT 'Apajri Suhendar Al Qhusni','GS'
+  UNION ALL SELECT 'Ramdan Ramdhani','GS'
+  UNION ALL SELECT 'Tito Muhammad Taqiyuddin','GS'
+  UNION ALL SELECT 'Wahyudin','GS'
+) m ON m.nama = u.nama
+JOIN att_work_rule w ON w.nama = m.aturan
+WHERE NOT EXISTS (SELECT 1 FROM att_user_rule x WHERE x.user_id = u.id);
+```
+
+Cek hasilnya (harus 28 kalau semua nama ada di dev):
+
+```sql
+SELECT w.nama AS aturan, COUNT(*) AS jumlah
+FROM att_user_rule ur JOIN att_work_rule w ON w.id = ur.rule_id
+GROUP BY w.nama;
+-- harapan: Fleksibel 7, FO-Asdent 16, GS 5
+```
+
+Nama yang belum ada di dev akan terlewat — periksa dengan query "siapa yang belum punya
+aturan" di bagian 8a, lalu buat user-nya atau sesuaikan namanya.
