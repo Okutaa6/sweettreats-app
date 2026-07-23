@@ -91,7 +91,8 @@
 
     // Akun Saya (self-service karyawan) — shell mobile-friendly, scoped body-class.
     // CSS-nya (absensi.sweettreats.css) di-load dari view akun @section('css').
-    $akunRedesign = ($currentSegment === 'akun') ? ' redesign-akun' : '';
+    // Surface absensi personal (Akun Saya + Persetujuan) — reuse token & PersonalHeader.
+    $akunRedesign = in_array($currentSegment, ['akun', 'persetujuan'], true) ? ' redesign-akun' : '';
 @endphp
 
 <body data-theme="{{ $bodyTheme }}" class="{{ $groupTheme }}{{ $reservasiRedesign }}{{ $pasienRedesign }}{{ $doctorRedesign }}{{ $akunRedesign }}">

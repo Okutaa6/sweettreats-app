@@ -1,118 +1,144 @@
 @extends('layouts.app')
 
 @section('css')
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="{{ asset('assets/css/absensi.sweettreats.css') }}?v={{ @filemtime(public_path('assets/css/absensi.sweettreats.css')) ?: '1' }}">
 @endsection
 
 @php
-    $reqBadge = [
-        'pending_l1' => 'warning', 'pending_l2' => 'warning',
-        'approved' => 'success', 'rejected' => 'danger',
-    ];
+    $apName   = session('name') ?? 'Approver';
+    $apRole   = session('group_name') ?? 'Approver';
+    $apBranch = session('raw_branch_id') ? optional(\App\Models\RawBranch::find(session('raw_branch_id')))->name : null;
+    $apInit   = strtoupper(mb_substr($apName, 0, 1));
+    $verifLabel = ['nyambung' => 'Nyambung', 'selisih' => 'Perlu dicek', 'tidak_bisa_dicek' => 'Tak bisa dicek'];
+    $jamOf = fn ($m) => rtrim(rtrim(number_format($m / 60, 1, ',', ''), '0'), ',');
 @endphp
 
 @section('content')
-<div class="container-fluid abs-akun">
-    <div class="row">
-        <div class="col-12">
-            <div class="page-title-box">
-                <h4 class="page-title mb-0">Persetujuan</h4>
+<div class="absk-wrap appr-wrap">
+    @include('layouts.notif')
+
+    {{-- PersonalHeader + tab --}}
+    <div class="absk-head">
+        <div class="absk-idrow">
+            <div class="absk-avatar">{{ $apInit }}</div>
+            <div class="absk-idmeta">
+                <div class="absk-name">{{ $apName }}</div>
+                <div class="absk-sub">{{ $apRole }}@if($apBranch) · Cabang {{ $apBranch }}@endif</div>
             </div>
+            <a href="#" class="absk-bell" title="Notifikasi"><i class="fa fa-bell"></i></a>
+        </div>
+        <div class="appr-title">Inbox Persetujuan</div>
+        <div class="absk-seg appr-tabs">
+            <button type="button" class="active" data-aview="menunggu">Menunggu @if($pending->count())<span class="appr-tabbadge">{{ $pending->count() }}</span>@endif</button>
+            <button type="button" data-aview="riwayat">Riwayat</button>
         </div>
     </div>
 
-    @include('layouts.notif')
-
-    {{-- ── Menunggu tindakan ── --}}
-    @if($pending->isEmpty())
-        <div class="card">
-            <div class="card-body text-center text-muted py-4">
-                Tidak ada pengajuan yang menunggu persetujuanmu.
-            </div>
-        </div>
-    @else
-        @foreach($pending as $r)
-            <div class="card mb-3">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-start mb-2">
-                        <div>
-                            <strong>{{ $r->user->nama ?? 'Pengaju' }}</strong>
-                            <span class="badge badge-outline-secondary text-uppercase ml-1">{{ $tipeLabel[$r->tipe] ?? $r->tipe }}</span>
-                        </div>
-                        <span class="badge badge-{{ $reqBadge[$r->status] ?? 'light' }}">
-                            {{ $r->status === 'pending_l2' ? 'Lapis 2' : 'Lapis 1' }}
-                        </span>
-                    </div>
-
-                    <div class="small mb-1">
-                        <i class="fa fa-calendar text-muted mr-1"></i>
-                        {{ \Illuminate\Support\Carbon::parse($r->tanggal_from)->format('d/m/Y') }}
-                        @if($r->tanggal_to != $r->tanggal_from)
-                            – {{ \Illuminate\Support\Carbon::parse($r->tanggal_to)->format('d/m/Y') }}
-                        @endif
-                        @if($r->jam_from)
-                            <span class="text-muted ml-2"><i class="fa fa-clock mr-1"></i>{{ substr($r->jam_from,0,5) }}@if($r->jam_to)–{{ substr($r->jam_to,0,5) }}@endif</span>
-                        @endif
-                        @if($r->claimed_menit)
-                            <span class="text-muted ml-2">({{ round($r->claimed_menit/60,1) }} jam)</span>
-                        @endif
-                    </div>
-
-                    @if($r->alasan)
-                        <div class="mb-2">{{ $r->alasan }}</div>
-                    @endif
-
-                    @if($r->foto)
-                        <a href="{{ asset('uploads/att_request/'.$r->foto) }}" target="_blank" class="small">
-                            <i class="fa fa-image"></i> Lihat foto bukti
-                        </a>
-                    @endif
-
-                    {{-- verifikasi vs scan = INFORMASI, bukan vonis (§4) --}}
-                    @if($r->verifikasi)
-                        <div class="small text-muted mt-1">Sanding scan: {{ str_replace('_',' ',$r->verifikasi) }}</div>
-                    @endif
-
-                    <form action="{{ route('persetujuan.act', $r->id) }}" method="POST" class="mt-3">
-                        @csrf
-                        <input type="text" name="catatan" class="form-control form-control-sm mb-2"
-                               placeholder="Catatan (opsional)" maxlength="255">
-                        <div class="d-flex">
-                            <button type="submit" name="action" value="approve" class="btn btn-success btn-sm flex-fill mr-2">
-                                <i class="fa fa-check"></i> Setujui
-                            </button>
-                            <button type="submit" name="action" value="reject" class="btn btn-outline-danger btn-sm flex-fill">
-                                <i class="fa fa-times"></i> Tolak
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        @endforeach
-    @endif
-
-    {{-- ── Riwayat tindakan ── --}}
-    @if($recent->isNotEmpty())
-        <h5 class="mt-4 mb-2">Sudah Ditindak</h5>
-        <div class="card">
-            <div class="card-body p-0">
-                <div class="list-group list-group-flush">
-                    @foreach($recent as $r)
-                        <div class="list-group-item d-flex justify-content-between align-items-center py-2">
-                            <div>
-                                <span class="small">{{ $r->user->nama ?? 'Pengaju' }}</span>
-                                <span class="badge badge-outline-secondary text-uppercase ml-1">{{ $tipeLabel[$r->tipe] ?? $r->tipe }}</span>
-                                <div class="small text-muted">
-                                    {{ \Illuminate\Support\Carbon::parse($r->tanggal_from)->format('d/m') }}
-                                    @if($r->tanggal_to != $r->tanggal_from)– {{ \Illuminate\Support\Carbon::parse($r->tanggal_to)->format('d/m') }}@endif
-                                </div>
+    {{-- ══ Menunggu ══ --}}
+    <div class="absk-view" data-view="menunggu">
+        @if($pending->isEmpty())
+            <div class="absk-empty">Tidak ada pengajuan yang menunggu persetujuanmu. 🎉</div>
+        @else
+            <div class="appr-grid">
+                @foreach($pending as $c)
+                    @php $r = $c->r; $needCheck = ($c->sanding['verifikasi'] ?? null) === 'selisih'; @endphp
+                    <div class="appr-card @if($needCheck) is-check @endif">
+                        <div class="appr-card-top">
+                            <div class="appr-who">
+                                <div class="appr-name">{{ $r->user->nama ?? 'Pengaju' }}</div>
+                                <div class="appr-branch">{{ optional($r->branch)->name ?? '—' }}</div>
                             </div>
-                            <span class="badge badge-{{ $reqBadge[$r->status] ?? 'light' }}">{{ ucfirst($r->status) }}</span>
+                            <span class="absk-type">{{ $tipeLabel[$r->tipe] ?? $r->tipe }}</span>
                         </div>
-                    @endforeach
-                </div>
+
+                        <div class="appr-meta">
+                            <span class="appr-aging">⏳ {{ $c->aging > 0 ? 'Menunggu '.$c->aging.' hari' : 'Baru masuk' }}</span>
+                            @if($c->is_final)
+                                <span class="appr-chain final">✓ Keputusan final di tangan Anda</span>
+                            @else
+                                <span class="appr-chain">🔗 Lapis {{ $c->level }}/{{ $c->total }}@if($c->next_names) · lalu ke {{ $c->next_names }}@endif</span>
+                            @endif
+                        </div>
+
+                        <div class="appr-chips">
+                            <span class="appr-chip num">{{ \Illuminate\Support\Carbon::parse($r->tanggal_from)->translatedFormat('d M Y') }}@if($r->tanggal_to != $r->tanggal_from) – {{ \Illuminate\Support\Carbon::parse($r->tanggal_to)->translatedFormat('d M') }}@endif</span>
+                            @if($r->jam_from)<span class="appr-chip num">{{ substr($r->jam_from,0,5) }}@if($r->jam_to) – {{ substr($r->jam_to,0,5) }}@endif</span>@endif
+                            @if($r->foto)<a href="{{ asset('uploads/att_request/'.$r->foto) }}" target="_blank" class="appr-photo" title="Lihat foto bukti"><i class="fa fa-image"></i></a>@endif
+                        </div>
+
+                        @if($r->alasan)<div class="appr-reason">"{{ $r->alasan }}"</div>@endif
+
+                        @if($c->sanding && $c->sanding['klaim_menit'])
+                            @php
+                                $s = $c->sanding;
+                                $pct = $s['klaim_menit'] ? min(100, round($s['supported_menit'] / $s['klaim_menit'] * 100)) : 0;
+                                $selisih = ($s['klaim_menit'] - $s['supported_menit']) / 60;
+                            @endphp
+                            <div class="appr-sanding @if($needCheck) warn @endif">
+                                <div class="appr-sanding-top">
+                                    <span class="appr-sanding-verif">{{ $needCheck ? '● ' : '' }}{{ $verifLabel[$s['verifikasi']] ?? 'Sanding scan' }}</span>
+                                    @if($needCheck && $selisih != 0)<span class="appr-sanding-sel">selisih {{ $selisih > 0 ? '+' : '' }}{{ $jamOf($s['klaim_menit'] - $s['supported_menit']) }} jam</span>@endif
+                                </div>
+                                <div class="appr-sanding-vals">
+                                    <span>Klaim <b class="num">{{ $jamOf($s['klaim_menit']) }} jam</b></span>
+                                    <span>Didukung scan <b class="num">{{ $jamOf($s['supported_menit']) }} jam</b></span>
+                                </div>
+                                <div class="appr-bar"><div class="appr-bar-fill" style="width:{{ $pct }}%"></div></div>
+                            </div>
+                        @endif
+
+                        <form action="{{ route('persetujuan.act', $r->id) }}" method="POST" class="appr-form">
+                            @csrf
+                            <input type="text" name="catatan" class="appr-note" placeholder="Catatan (opsional)…" maxlength="255">
+                            <div class="appr-actions">
+                                <button type="submit" name="action" value="approve" class="appr-approve"><i class="fa fa-check"></i> Setujui</button>
+                                <button type="submit" name="action" value="reject" class="appr-reject">Tolak</button>
+                            </div>
+                        </form>
+                    </div>
+                @endforeach
             </div>
-        </div>
-    @endif
+        @endif
+    </div>
+
+    {{-- ══ Riwayat ══ --}}
+    <div class="absk-view" data-view="riwayat" hidden>
+        @if($recent->isEmpty())
+            <div class="absk-empty">Belum ada pengajuan yang kamu tindak.</div>
+        @else
+            <div class="appr-grid">
+                @foreach($recent as $r)
+                    <div class="appr-card done">
+                        <div class="appr-card-top">
+                            <div class="appr-who">
+                                <div class="appr-name">{{ $r->user->nama ?? 'Pengaju' }}</div>
+                                <div class="appr-branch">{{ optional($r->branch)->name ?? '—' }} · {{ \Illuminate\Support\Carbon::parse($r->tanggal_from)->translatedFormat('d M Y') }}</div>
+                            </div>
+                            <span class="absk-type">{{ $tipeLabel[$r->tipe] ?? $r->tipe }}</span>
+                        </div>
+                        <div class="appr-done-row">
+                            @if($r->alasan)<span class="appr-reason-sm">"{{ \Illuminate\Support\Str::limit($r->alasan, 60) }}"</span>@endif
+                            <span class="absk-pill s-{{ $r->status === 'approved' ? 'hadir' : 'alpa' }}">{{ $r->status === 'approved' ? 'Disetujui' : 'Ditolak' }}</span>
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+        @endif
+    </div>
 </div>
+
+<script>
+(function () {
+    document.querySelectorAll('.absk-seg [data-aview]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var view = btn.getAttribute('data-aview');
+            document.querySelectorAll('.absk-seg [data-aview]').forEach(function (b) { b.classList.toggle('active', b === btn); });
+            document.querySelectorAll('.absk-view').forEach(function (v) { v.hidden = (v.getAttribute('data-view') !== view); });
+        });
+    });
+})();
+</script>
 @endsection

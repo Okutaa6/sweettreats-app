@@ -414,3 +414,66 @@ body.absk-ajopen .absk-ajdrawer { transform: translateX(0); }
 .redesign-akun .absk-cal-legend { display: flex; flex-wrap: wrap; gap: 8px 14px; margin-top: 12px; padding: 0 2px; }
 .redesign-akun .absk-leg { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: var(--abs-ink-2); }
 .redesign-akun .absk-leg-dot { width: 10px; height: 10px; border-radius: 3px; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Surface APPROVER (Inbox Persetujuan) — reuse PersonalHeader (.absk-head),
+   pill (.absk-pill), tokens; komponen sendiri .appr-*.
+   ══════════════════════════════════════════════════════════════════════════ */
+.redesign-akun .appr-title { font-size: 20px; font-weight: 800; letter-spacing: .2px; color: #FBEADB; margin-top: 12px; }
+/* tab di dalam header gelap */
+.redesign-akun .appr-tabs { background: rgba(0,0,0,.22) !important; border: none !important; margin-top: 12px; }
+.redesign-akun .appr-tabs button { color: #E6C09B; }
+.redesign-akun .appr-tabs button.active { background: #FBF5EE; color: #3B1500; }
+.redesign-akun .appr-tabbadge { margin-left: 6px; background: #E8842B; color: #fff; border-radius: 20px; padding: 1px 7px; font-size: 11px; font-weight: 800; }
+
+/* grid kartu */
+.redesign-akun .appr-grid { display: flex; flex-direction: column; gap: 12px; }
+@media (min-width: 641px) {
+  .redesign-akun .appr-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 14px; align-items: start; }
+}
+.redesign-akun .appr-card {
+  background: var(--abs-card); border: 1px solid var(--abs-line); border-radius: 16px; padding: 15px 16px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.redesign-akun .appr-card.is-check { border-left: 3px solid var(--abs-red); }
+.redesign-akun .appr-card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.redesign-akun .appr-name { font-size: 15px; font-weight: 800; color: var(--abs-ink); }
+.redesign-akun .appr-branch { font-size: 11.5px; color: var(--abs-ink-3); margin-top: 1px; }
+
+.redesign-akun .appr-meta { display: flex; flex-wrap: wrap; gap: 6px; }
+.redesign-akun .appr-aging { font-size: 11.5px; font-weight: 600; color: var(--abs-amber); background: var(--abs-tint); border-radius: 8px; padding: 3px 9px; }
+.redesign-akun .appr-chain { font-size: 11.5px; font-weight: 600; color: var(--abs-ink-2); background: var(--abs-tint); border-radius: 8px; padding: 3px 9px; }
+.redesign-akun .appr-chain.final { color: #2F8E55; background: #E3F2E9; }
+
+.redesign-akun .appr-chips { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.redesign-akun .appr-chip { font-size: 12px; font-weight: 600; color: var(--abs-ink-2); background: #FBF7F1; border: 1px solid var(--abs-line); border-radius: 8px; padding: 5px 10px; }
+.redesign-akun .appr-photo { margin-left: auto; width: 34px; height: 34px; border-radius: 9px; background: #F0E6D8; color: #7A5B43; display: flex; align-items: center; justify-content: center; text-decoration: none; }
+
+.redesign-akun .appr-reason { font-size: 13px; color: var(--abs-ink-2); line-height: 1.5; font-style: italic; }
+
+/* sanding-scan bar */
+.redesign-akun .appr-sanding { background: #FBF3E9; border: 1px solid var(--abs-line); border-radius: 12px; padding: 11px 13px; }
+.redesign-akun .appr-sanding.warn { background: #FBEDE9; border-color: #F2D2CB; }
+.redesign-akun .appr-sanding-top { display: flex; align-items: center; justify-content: space-between; font-size: 12px; font-weight: 800; }
+.redesign-akun .appr-sanding-verif { color: var(--abs-ink-2); }
+.redesign-akun .appr-sanding.warn .appr-sanding-verif { color: var(--abs-red); }
+.redesign-akun .appr-sanding-sel { color: var(--abs-red); }
+.redesign-akun .appr-sanding-vals { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--abs-ink-2); margin-top: 6px; }
+.redesign-akun .appr-bar { height: 7px; background: #EADCC9; border-radius: 20px; margin-top: 7px; overflow: hidden; }
+.redesign-akun .appr-bar-fill { height: 100%; background: var(--abs-green); border-radius: 20px; }
+.redesign-akun .appr-sanding.warn .appr-bar-fill { background: var(--abs-amber); }
+
+/* form aksi */
+.redesign-akun .appr-form { margin-top: 2px; }
+.redesign-akun .appr-note { width: 100%; background: #FBF7F1; border: 1px solid var(--abs-line); border-radius: 10px; padding: 9px 12px; font-family: inherit; font-size: 12.5px; color: var(--abs-ink); margin-bottom: 9px; }
+.redesign-akun .appr-note:focus { outline: none; background: #fff; border-color: var(--abs-gold); }
+.redesign-akun .appr-actions { display: flex; gap: 9px; }
+.redesign-akun .appr-approve { flex: 1; display: flex; align-items: center; justify-content: center; gap: 7px; background: #3FA76A; color: #fff; border: none; border-radius: 11px; padding: 11px; font-family: inherit; font-weight: 800; font-size: 13.5px; cursor: pointer; }
+.redesign-akun .appr-approve:hover { filter: brightness(1.04); }
+.redesign-akun .appr-reject { background: #fff; color: var(--abs-red); border: 1px solid #F2D2CB; border-radius: 11px; padding: 11px 18px; font-family: inherit; font-weight: 700; font-size: 13px; cursor: pointer; }
+.redesign-akun .appr-reject:hover { background: #FBEDE9; }
+
+/* riwayat card */
+.redesign-akun .appr-card.done { gap: 8px; }
+.redesign-akun .appr-done-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.redesign-akun .appr-reason-sm { font-size: 12px; color: var(--abs-ink-3); font-style: italic; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

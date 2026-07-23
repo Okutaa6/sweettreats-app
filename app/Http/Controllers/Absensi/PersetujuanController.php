@@ -4,8 +4,10 @@ namespace App\Http\Controllers\Absensi;
 
 use App\Http\Controllers\Controller;
 use App\Models\AttRequest;
+use App\Models\Users;
 use App\Services\AttendanceRequestWorkflow;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 
 /**
  * "Persetujuan" — inbox approver (MOBILE, sisi-TIM).
@@ -35,21 +37,50 @@ class PersetujuanController extends Controller
     public function index()
     {
         $userId = $this->userId();
-
         $wf = new AttendanceRequestWorkflow();
-        $pending = $wf->pendingFor($userId)
-            ->load('user')
-            ->sortBy('tanggal_from')
-            ->values();
 
-        // riwayat singkat: form yg pernah gua tindak (approve/reject)
-        $recent = AttRequest::whereHas('approvals', function ($q) use ($userId) {
-                $q->where('approver_user_id', $userId);
-            })
-            ->with('user')
+        // ── Menunggu: bungkus tiap pengajuan dgn data tampilan (umur, rantai, sanding-scan) ──
+        $pending = $wf->pendingFor($userId)->load('user', 'branch')->map(function ($r) use ($wf) {
+            $levels  = $wf->chainFor($r->user_id, $r->tipe);
+            $idx     = $r->status === 'pending_l2' ? 1 : 0;   // lapis saat ini (0-based)
+            $isFinal = ! isset($levels[$idx + 1]);
+            $nextNames = $isFinal ? null : collect($levels[$idx + 1] ?? [])
+                ->map(fn ($uid) => optional(Users::find($uid))->nama)
+                ->filter()->implode(' / ');
+
+            // sanding-scan (khusus lembur)
+            $sanding = null;
+            if ($r->tipe === 'lembur') {
+                $sanding = [
+                    'verifikasi'      => $r->verifikasi,                                   // nyambung|selisih|tidak_bisa_dicek
+                    'klaim_menit'     => (int) $r->claimed_menit,
+                    'supported_menit' => (int) data_get($r->scan_evidence, 'supported_menit', 0),
+                ];
+            }
+
+            return (object) [
+                'r'          => $r,
+                'aging'      => $r->created_at ? (int) $r->created_at->diffInDays(Carbon::now()) : 0,
+                'level'      => $idx + 1,
+                'total'      => count($levels),
+                'is_final'   => $isFinal,
+                'next_names' => $nextNames ?: null,
+                'sanding'    => $sanding,
+            ];
+        });
+
+        // Sort: "perlu dicek" (selisih) di atas, lalu tanggal terlama
+        $pending = $pending->sortBy(function ($c) {
+            $needCheck = (($c->sanding['verifikasi'] ?? null) === 'selisih') ? 0 : 1;
+            return sprintf('%d-%s', $needCheck, $c->r->tanggal_from);
+        })->values();
+
+        // ── Riwayat: yang pernah gua tindak (approve/reject) ──
+        $recent = AttRequest::whereHas('approvals', fn ($q) => $q->where('approver_user_id', $userId))
+            ->with('user', 'branch')
             ->whereIn('status', ['approved', 'rejected'])
             ->orderByDesc('updated_at')
-            ->limit(10)
+            ->limit(40)
             ->get();
 
         $tipeLabel = self::TIPE_LABEL;
