@@ -514,33 +514,68 @@ body.absk-dtopen .absk-dtdrawer { transform: translateX(0); }
 .redesign-akun .rdt-note { font-size: 12px; color: var(--abs-ink-2); font-style: italic; margin-top: 3px; }
 .redesign-akun .absk-reqcard[data-detail] { cursor: pointer; }
 
-/* ══ Drawer Koreksi Absen (dibuka dgn mengetuk satu hari) ══════════════════ */
-.redesign-akun .absk-korscrim { display: none; position: fixed; inset: 0; background: rgba(40,12,0,.42); z-index: 1050; }
-body.absk-koropen .absk-korscrim { display: block; animation: absk-fade .18s ease; }
-.redesign-akun .absk-kordrawer {
-  position: fixed; top: 0; right: 0; bottom: 0; width: 460px; max-width: 96vw; background: #FBF5EE;
-  z-index: 1051; display: flex; flex-direction: column; box-shadow: -12px 0 40px rgba(40,12,0,.28);
-  transform: translateX(100%); transition: transform .26s cubic-bezier(.2,.8,.2,1);
+/* ══ Modal Koreksi Absensi (ikut handoff: kartu 440px di tengah) ═══════════ */
+.redesign-akun .absk-korwrap {
+  display: none; position: fixed; inset: 0; z-index: 1051; padding: 20px;
+  background: rgba(40,12,0,.5); align-items: center; justify-content: center;
+}
+body.absk-koropen .absk-korwrap { display: flex; animation: absk-fade .18s ease; }
+.redesign-akun .absk-korcard {
+  width: 440px; max-width: 100%; max-height: calc(100vh - 40px); overflow-y: auto;
+  background: #FBF5EE; border-radius: 20px; box-shadow: 0 30px 70px rgba(40,12,0,.4);
   font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
 }
-body.absk-koropen .absk-kordrawer { transform: translateX(0); }
-@media (max-width: 640px) { .redesign-akun .absk-kordrawer { width: 100%; max-width: 100%; } }
 
-/* hari yg sedang dikoreksi */
-.redesign-akun .absk-korday { background: #fff; border: 1px solid #EFE0CE; border-radius: 14px; padding: 14px 16px; }
-.redesign-akun .absk-korday-tgl { font-size: 18px; font-weight: 800; color: #3B1500; }
-.redesign-akun .absk-korday-now { display: flex; align-items: center; gap: 9px; margin-top: 8px; flex-wrap: wrap; }
-.redesign-akun .absk-korday-jam { font-size: 12px; color: #9A7256; }
+/* kepala coklat: label + tanggal + status tercatat */
+.redesign-akun .absk-korhead { padding: 18px 22px; background: linear-gradient(120deg,#5A2410,#3A1100); color: #FBEADB; }
+.redesign-akun .absk-korhead-lbl { font-size: 11px; font-weight: 700; letter-spacing: .6px; color: #D6A878; }
+.redesign-akun .absk-korhead-tgl { font-size: 18px; font-weight: 800; margin-top: 4px; }
+.redesign-akun .absk-korhead-now { display: flex; align-items: center; gap: 9px; margin-top: 9px; flex-wrap: wrap; }
+.redesign-akun .absk-korhead-jam { font-size: 12px; color: #D6A878; }
+
+.redesign-akun .absk-korbody { padding: 18px 22px 20px; }
+.redesign-akun .absk-korlbl { display: block; font-size: 10.5px; font-weight: 700; letter-spacing: .5px; color: #A9866A; }
+.redesign-akun .absk-korlbl.mt { margin-top: 15px; }
+.redesign-akun .absk-req { color: #C0392B; }
 
 /* pilihan "apa yang keliru?" */
-.redesign-akun .absk-korreasons { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.redesign-akun .absk-korreasons { display: flex; flex-direction: column; gap: 8px; margin-top: 9px; }
 .redesign-akun .absk-korchip { display: block; cursor: pointer; }
 .redesign-akun .absk-korchip input { position: absolute; opacity: 0; pointer-events: none; }
 .redesign-akun .absk-korchip span {
-  display: block; background: #fff; color: #5A3A22; border: 1.5px solid #E7D3BE; border-radius: 10px;
-  padding: 11px 13px; font-weight: 700; font-size: 12.5px; transition: background .12s, border-color .12s, color .12s;
+  display: block; text-align: left; background: #fff; color: #5A3A22; border: 1.5px solid #E7D3BE;
+  border-radius: 10px; padding: 11px 13px; font-weight: 700; font-size: 12.5px;
+  transition: background .12s, border-color .12s, color .12s;
 }
 .redesign-akun .absk-korchip:hover span { border-color: #C9962F; }
 .redesign-akun .absk-korchip input:checked + span { background: #6B2400; color: #FBEADB; border-color: #6B2400; }
 .redesign-akun .absk-korchip input:focus-visible + span { outline: 2px solid #C9962F; outline-offset: 2px; }
-.redesign-akun .absk-req { color: #C0392B; }
+
+.redesign-akun .absk-kortextarea {
+  width: 100%; margin-top: 6px; min-height: 66px; resize: vertical; box-sizing: border-box;
+  border: 1px solid #E7D3BE; border-radius: 12px; padding: 11px; background: #fff;
+  font-family: inherit; font-size: 13px; color: #3B1500;
+}
+.redesign-akun .absk-kortextarea:focus { outline: none; border-color: #C9962F; }
+
+/* zona foto */
+.redesign-akun .absk-korfoto {
+  margin-top: 12px; border: 2px dashed #E2C8A8; border-radius: 12px; background: #FBF3E9;
+  padding: 14px; display: flex; align-items: center; justify-content: center; gap: 9px; cursor: pointer;
+  font-size: 12.5px; font-weight: 700; color: #9A7256;
+}
+.redesign-akun .absk-korfoto.is-on { border-color: #9FD4B0; background: #EAF6EE; color: #2F8E55; }
+.redesign-akun .absk-korfoto-tick { color: #2F8E55; font-size: 15px; }
+
+/* tombol */
+.redesign-akun .absk-korbtns { display: flex; gap: 10px; margin-top: 16px; }
+.redesign-akun .absk-korsubmit {
+  flex: 1; background: linear-gradient(135deg,#6B2400,#461500); color: #FFEAD6; border: none;
+  border-radius: 11px; padding: 12px; font-weight: 800; font-size: 13.5px; font-family: inherit; cursor: pointer;
+}
+.redesign-akun .absk-korsubmit:disabled { background: #C9AE94; cursor: not-allowed; }
+.redesign-akun .absk-korbatal {
+  background: #fff; color: #5A3A22; border: 1px solid #E7D3BE; border-radius: 11px;
+  padding: 12px 18px; font-weight: 700; font-size: 13.5px; font-family: inherit; cursor: pointer;
+}
+.redesign-akun .absk-kornote { margin-top: 13px; font-size: 11px; line-height: 1.55; color: #9A7256; }

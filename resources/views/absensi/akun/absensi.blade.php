@@ -203,19 +203,10 @@
     <div class="absk-dtbody" id="dtBody"><div class="absk-empty">Memuat…</div></div>
 </aside>
 
-{{-- ── Drawer Koreksi Absen (dibuka dgn mengetuk satu hari) ── --}}
-<div class="absk-korscrim" id="korScrim"></div>
-<aside class="absk-kordrawer" id="korDrawer" aria-hidden="true">
-    <div class="absk-ajhead">
-        <div class="absk-ajhead-icon">⚑</div>
-        <div class="absk-ajhead-tx">
-            <div class="absk-ajhead-sub">KOREKSI ABSEN</div>
-            <div class="absk-ajhead-title">Lapor Absen Keliru</div>
-        </div>
-        <button type="button" class="absk-ajclose" data-close-koreksi aria-label="Tutup">✕</button>
-    </div>
+{{-- ── Modal Koreksi Absensi (dibuka dgn mengetuk satu hari) ── --}}
+<div class="absk-korwrap" id="korWrap" role="dialog" aria-modal="true" aria-hidden="true">
     @include('absensi.akun._koreksi_form', ['korAlasan' => $korAlasan])
-</aside>
+</div>
 
 <script>
 (function () {
@@ -247,11 +238,21 @@
     if (scrim) scrim.addEventListener('click', closeAj);
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeAj(); });
 
-    // ── Drawer Koreksi Absen: ketuk satu hari ──
+    // ── Modal Koreksi Absensi: ketuk satu hari ──
+    var korWrap = document.getElementById('korWrap');
+    var korForm = document.getElementById('korForm');
+    var korSubmit = document.getElementById('korSubmit');
     function openKor()  { body.classList.add('absk-koropen'); }
     function closeKor() { body.classList.remove('absk-koropen'); }
+
     document.querySelectorAll('[data-koreksi]').forEach(function (row) {
         function go() {
+            korForm.reset();
+            korSubmit.disabled = true;                    // wajib pilih alasan dulu
+            document.getElementById('korFotoZone').classList.remove('is-on');
+            document.querySelector('.absk-korfoto-tick').hidden = true;
+            document.querySelector('.absk-korfoto-lbl').textContent = 'Lampirkan foto (opsional)';
+
             document.getElementById('korTanggal').value = row.getAttribute('data-koreksi');
             document.getElementById('korTglLabel').textContent = row.getAttribute('data-kor-label');
             var pill = document.getElementById('korStatusPill');
@@ -263,8 +264,19 @@
         row.addEventListener('click', go);
         row.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
     });
+
+    korForm.querySelectorAll('input[name="koreksi_alasan"]').forEach(function (r) {
+        r.addEventListener('change', function () { korSubmit.disabled = false; });
+    });
+    document.getElementById('korFotoInput').addEventListener('change', function () {
+        var ada = this.files && this.files.length;
+        document.getElementById('korFotoZone').classList.toggle('is-on', !!ada);
+        document.querySelector('.absk-korfoto-tick').hidden = !ada;
+        document.querySelector('.absk-korfoto-lbl').textContent = ada ? 'Foto bukti terlampir' : 'Lampirkan foto (opsional)';
+    });
+
     document.querySelectorAll('[data-close-koreksi]').forEach(function (b) { b.addEventListener('click', closeKor); });
-    document.getElementById('korScrim').addEventListener('click', closeKor);
+    korWrap.addEventListener('click', function (e) { if (e.target === korWrap) closeKor(); });
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeKor(); });
 
     // Toggle Harian / Kalender
