@@ -304,6 +304,7 @@
                                         $rrData = [
                                             'id'          => $row->id,
                                             'name'        => $row->customer->name ?? 'Pasien Terhapus',
+                                            'customerUrl' => $row->customer?->id ? route('rawcustomer.edit', ['id' => $row->customer->id, 'tab' => 'data', 'back' => request()->fullUrl()]) : '',
                                             'phone'       => $row->customer->phone ?? '',
                                             'wa'          => $rrWa,
                                             'status'      => $row->status,
@@ -531,6 +532,7 @@
                                         $rrData = [
                                             'id'          => $row->id,
                                             'name'        => $row->customer->name ?? 'Pasien Terhapus',
+                                            'customerUrl' => $row->customer?->id ? route('rawcustomer.edit', ['id' => $row->customer->id, 'tab' => 'data', 'back' => request()->fullUrl()]) : '',
                                             'phone'       => $row->customer->phone ?? '',
                                             'wa'          => $rrWa,
                                             'status'      => $row->status,
@@ -765,7 +767,10 @@
         <div class="rr-drawer__head">
             <button type="button" class="rr-drawer__close" data-rr-close aria-label="Tutup">&times;</button>
             <div class="rr-drawer__eyebrow">DETAIL RESERVASI</div>
-            <h3 class="rr-drawer__name" id="rrdName">—</h3>
+            <a class="rr-drawer__namebtn" id="rrdNameLink" href="#" title="Lihat detail data pasien">
+                <h3 class="rr-drawer__name" id="rrdName">—</h3>
+                <i class="fas fa-chevron-right rr-drawer__namechevron" aria-hidden="true"></i>
+            </a>
             <div class="rr-drawer__headmeta">
                 <a class="rr-drawer__wa" id="rrdWa" target="_blank" rel="noopener"><i class="fab fa-whatsapp"></i> <span id="rrdPhone"></span></a>
                 <span class="st-pill rr-drawer__statuspill" id="rrdStatusPill">—</span>
@@ -1444,6 +1449,13 @@ document.querySelectorAll('.st-status-select').forEach(function (sel) {
         rrId = d.id;
         rrReturnTo = returnTo || null;
         $('#rrdName').text(d.name || '—');
+        // Nama pasien = tautan ke halaman detail data pasien. Kalau pasien terhapus
+        // (tanpa URL), matikan tautannya biar tidak mengarah ke mana-mana.
+        if (d.customerUrl) {
+            $('#rrdNameLink').attr('href', d.customerUrl).removeClass('is-disabled');
+        } else {
+            $('#rrdNameLink').attr('href', '#').addClass('is-disabled');
+        }
         $('#rrdPhone').text(d.phone || '');
         if (d.wa) { $('#rrdWa').attr('href', 'https://wa.me/' + d.wa).show(); } else { $('#rrdWa').hide(); }
         $('#rrdStatusPill').text(d.statusLabel || '—').css({ background: d.statusBg || '', color: d.statusColor || '' });

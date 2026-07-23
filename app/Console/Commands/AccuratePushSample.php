@@ -168,8 +168,17 @@ class AccuratePushSample extends Command
             }
 
             // ── 1+2. INVOICE + RECEIPTS (hanya kalau ada penjualan hari itu) ──
+            // Idempoten: kalau faktur nomor ini masih 'pushed' (mis. repair
+            // fee-only yang tidak menghapus invoice), skip ke jurnal — jangan
+            // gagal di duplikat nomor lalu meninggalkan hari tanpa jurnal.
             $rcptOk = 0;
-            if ($R > 0) {
+            $invExists = DB::table('accurate_push_log')->where('slug', $to)
+                ->where('invoice_number', $num)->where('source_slug', 'omnicare-v2-invoice')
+                ->where('status', 'pushed')->exists();
+            if ($R > 0 && $invExists) {
+                $this->line("  · {$num} faktur sudah ada (skip invoice+receipt, lanjut jurnal)");
+            }
+            if ($R > 0 && ! $invExists) {
                 // live: penjualan Voucher Tunai lewat detailExpense 210110
                 // (persis model faktur asli Finance — item VCH tidak diperlukan)
                 $voucher = 0.0;

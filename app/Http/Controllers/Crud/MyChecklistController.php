@@ -568,7 +568,9 @@ class MyChecklistController extends Controller
         $newState = ! $item->is_done;
 
         // Task wajib foto tidak boleh dicentang selesai sebelum foto ter-upload.
-        if ($newState && $item->requires_photo && ! $item->photo_path) {
+        // Divisi GS dikecualikan: di sana foto pakai skema before/after yang opsional,
+        // jadi centang tidak pernah diblokir.
+        if ($newState && $item->requires_photo && ! $item->photo_path && $sub->division_id !== 'GS') {
             return response()->json([
                 'ok'             => false,
                 'error'          => 'Task ini wajib foto — ambil/upload foto dulu sebelum menandai selesai.',
@@ -695,6 +697,86 @@ class MyChecklistController extends Controller
                 'pct'   => $sub->total_tasks ? (int) round($done / $sub->total_tasks * 100) : 0,
             ],
         ]);
+    }
+
+    /**
+     * Upload foto before/after OPSIONAL untuk 1 item Form Mingguan.
+     * Sementara khusus divisi GS (mengikuti Form GS Weekly yang meminta bukti
+     * before/after tiap task). Slot: 'before' | 'after'. Tidak memblokir centang
+     * dan tidak auto-menandai selesai — murni dokumentasi.
+     */
+    public function weekUploadBaPhoto(Request $request, string $id, string $slot)
+    {
+        $item = ChecklistWeeklySubmissionItem::with('submission')->findOrFail($id);
+        $sub  = $item->submission;
+
+        if ($sub->user_id !== session('id')) abort(403);
+        if (! in_array($slot, ['before', 'after'], true)) {
+            return response()->json(['ok' => false, 'error' => 'Slot foto tidak valid.'], 422);
+        }
+        if ($sub->division_id !== 'GS') {
+            return response()->json(['ok' => false, 'error' => 'Foto before/after hanya untuk divisi GS.'], 422);
+        }
+        if (! $sub->isEditable()) {
+            return response()->json(['ok' => false, 'error' => 'Form mingguan sudah submitted/approved.'], 422);
+        }
+
+        $request->validate(
+            ['photo' => 'required|image|mimes:jpeg,jpg,png,webp|max:8192'],
+            [
+                'photo.required' => 'Foto wajib diunggah.',
+                'photo.image'    => 'File harus berupa gambar.',
+                'photo.mimes'    => 'Format foto harus JPG, PNG, atau WEBP.',
+                'photo.max'      => 'Ukuran foto maksimal 8 MB.',
+            ]
+        );
+
+        $col = "photo_{$slot}_path";
+
+        // Hapus foto lama slot ini (foto ulang) supaya tidak menumpuk.
+        $this->deletePhotoFile($item->{$col});
+
+        $file   = $request->file('photo');
+        $week   = optional($sub->week_start_date)->isoFormat('GGGG-[W]WW') ?: date('Y-\WW');
+        [$year, $wk] = array_pad(explode('-', $week), 2, 'W00');
+        $relDir = "uploads/checklist-photos/{$year}/{$wk}";
+        $absDir = public_path($relDir);
+        if (! is_dir($absDir)) @mkdir($absDir, 0775, true);
+
+        $ext      = strtolower($file->getClientOriginalExtension() ?: 'jpg');
+        $filename = (string) Str::uuid() . '.' . $ext;
+        $file->move($absDir, $filename);
+        $path = "{$relDir}/{$filename}";
+
+        $item->update([$col => $path]);
+
+        return response()->json([
+            'ok'   => true,
+            'url'  => asset($path),
+            'path' => $path,
+            'slot' => $slot,
+        ]);
+    }
+
+    /** Hapus foto before/after slot tertentu (before|after). */
+    public function weekDeleteBaPhoto(Request $request, string $id, string $slot)
+    {
+        $item = ChecklistWeeklySubmissionItem::with('submission')->findOrFail($id);
+        $sub  = $item->submission;
+
+        if ($sub->user_id !== session('id')) abort(403);
+        if (! in_array($slot, ['before', 'after'], true)) {
+            return response()->json(['ok' => false, 'error' => 'Slot foto tidak valid.'], 422);
+        }
+        if (! $sub->isEditable()) {
+            return response()->json(['ok' => false, 'error' => 'Form mingguan sudah submitted/approved.'], 422);
+        }
+
+        $col = "photo_{$slot}_path";
+        $this->deletePhotoFile($item->{$col});
+        $item->update([$col => null]);
+
+        return response()->json(['ok' => true, 'slot' => $slot]);
     }
 
     /** Hapus file foto dari disk kalau ada (path relatif dari public/). */

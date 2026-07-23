@@ -45,8 +45,20 @@
     <div class="pxd">
 
         {{-- ════════ BACK + BREADCRUMB ════════ --}}
+        @php
+            // Default kembali ke daftar pasien. Jika dibuka dari halaman lain (mis.
+            // drawer reservasi) yang menitipkan URL asal via ?back=, kembalikan ke
+            // sana — hanya URL internal (satu host) yang dihormati (cegah open-redirect).
+            $backUrl   = route('rawcustomer');
+            $backTitle = 'Kembali ke daftar pasien';
+            $reqBack   = request('back');
+            if (is_string($reqBack) && \Illuminate\Support\Str::startsWith($reqBack, url('/'))) {
+                $backUrl   = $reqBack;
+                $backTitle = 'Kembali';
+            }
+        @endphp
         <div class="pxd-back">
-            <a href="{{ route('rawcustomer') }}" class="pxd-back__btn" title="Kembali ke daftar pasien">
+            <a href="{{ $backUrl }}" class="pxd-back__btn" title="{{ $backTitle }}">
                 <i class="fa fa-chevron-left"></i>
             </a>
             <span class="pxd-back__crumb">Pasien{!! $customer->branch?->name ? ' · <strong>' . e($customer->branch->name) . '</strong>' : '' !!}</span>
@@ -289,6 +301,66 @@
                             </div>
                         </div>
 
+                        {{-- ── MEDIA SOSIAL (repeatable: platform + username, bisa >1 akun) ── --}}
+                        @php $socials = old('social_media', $customer->social_media ?? []); @endphp
+                        <div class="pxd-fsec">
+                            <div class="pxd-fsec__head"><span class="pxd-fsec__tick"></span><span class="pxd-fsec__label">Media Sosial</span></div>
+                            <div class="pxd-social" id="pxdSocial" data-next="{{ count($socials) }}">
+                                <div class="pxd-social__list" id="pxdSocialList">
+                                    @foreach($socials as $i => $s)
+                                        @php
+                                            $p = $s['platform'] ?? '';
+                                            $u = $s['username'] ?? '';
+                                            $url = \App\Models\RawCustomer::socialProfileUrl($p, $u);
+                                        @endphp
+                                        <div class="pxd-social__row" data-social-row>
+                                            <select class="pxd-input pxd-social__platform" name="social_media[{{ $i }}][platform]" data-social-platform>
+                                                <option value="">-- Platform --</option>
+                                                <option value="instagram" {{ $p === 'instagram' ? 'selected' : '' }}>Instagram</option>
+                                                <option value="tiktok" {{ $p === 'tiktok' ? 'selected' : '' }}>TikTok</option>
+                                                <option value="facebook" {{ $p === 'facebook' ? 'selected' : '' }}>Facebook</option>
+                                            </select>
+                                            <div class="pxd-social__uwrap">
+                                                <input class="pxd-input pxd-social__username" type="text" name="social_media[{{ $i }}][username]" value="{{ $u }}" placeholder="username" data-social-username>
+                                                <a class="pxd-social__open" href="{{ $url ?: '#' }}" target="_blank" rel="noopener" title="Buka profil" data-social-open {{ $url ? '' : 'hidden' }}><i class="fa fa-external-link-alt"></i></a>
+                                            </div>
+                                            <button type="button" class="pxd-social__del" data-social-del title="Hapus akun"><i class="fa fa-trash"></i></button>
+                                        </div>
+                                    @endforeach
+                                </div>
+                                <button type="button" class="pxd-social__add" id="pxdSocialAdd"><i class="fa fa-plus"></i> Tambah akun</button>
+                            </div>
+                        </div>
+                        <template id="pxdSocialTpl">
+                            <div class="pxd-social__row" data-social-row>
+                                <select class="pxd-input pxd-social__platform" name="social_media[__IDX__][platform]" data-social-platform>
+                                    <option value="">-- Platform --</option>
+                                    <option value="instagram">Instagram</option>
+                                    <option value="tiktok">TikTok</option>
+                                    <option value="facebook">Facebook</option>
+                                </select>
+                                <div class="pxd-social__uwrap">
+                                    <input class="pxd-input pxd-social__username" type="text" name="social_media[__IDX__][username]" placeholder="username" data-social-username>
+                                    <a class="pxd-social__open" href="#" target="_blank" rel="noopener" title="Buka profil" data-social-open hidden><i class="fa fa-external-link-alt"></i></a>
+                                </div>
+                                <button type="button" class="pxd-social__del" data-social-del title="Hapus akun"><i class="fa fa-trash"></i></button>
+                            </div>
+                        </template>
+                        <style>
+                            .pxd-social__list { display: flex; flex-direction: column; gap: 10px; }
+                            .pxd-social__row { display: flex; gap: 8px; align-items: center; }
+                            .pxd-social__platform { flex: 0 0 150px; max-width: 150px; }
+                            .pxd-social__uwrap { position: relative; flex: 1 1 auto; min-width: 0; }
+                            .pxd-social__uwrap .pxd-social__username { width: 100%; padding-right: 38px; }
+                            .pxd-social__open { position: absolute; right: 7px; top: 50%; transform: translateY(-50%); width: 27px; height: 27px; display: inline-flex; align-items: center; justify-content: center; border-radius: 7px; color: #9A6614; text-decoration: none; font-size: 13px; }
+                            .pxd-social__open:hover { background: #F5E9D6; color: #6b3f00; }
+                            .pxd-social__del { flex: 0 0 auto; width: 40px; height: 40px; border: 1px solid #E3D6C4; background: #fff; color: #A3572E; border-radius: 10px; cursor: pointer; transition: .15s; }
+                            .pxd-social__del:hover { background: #FBEBE4; border-color: #C86B3C; }
+                            .pxd-social__add { margin-top: 10px; border: 1px dashed #C9A876; background: #FBF4E9; color: #7A4E12; font-weight: 600; font-size: 13px; padding: 9px 15px; border-radius: 10px; cursor: pointer; display: inline-flex; align-items: center; gap: 7px; transition: .15s; }
+                            .pxd-social__add:hover { background: #F5E9D6; border-color: #A3792F; }
+                            @media (max-width: 560px) { .pxd-social__platform { flex-basis: 116px; max-width: 116px; } }
+                        </style>
+
                         {{-- ── IDENTITAS ── --}}
                         <div class="pxd-fsec">
                             <div class="pxd-fsec__head"><span class="pxd-fsec__tick"></span><span class="pxd-fsec__label">Identitas</span></div>
@@ -517,6 +589,59 @@
                 if (btn) btn.click();
             }
         });
+    })();
+
+    // ── Media sosial: tambah/hapus baris + jadikan username tautan profil ──
+    (function () {
+        var wrap = document.getElementById('pxdSocial');
+        if (!wrap) return;
+        var list   = document.getElementById('pxdSocialList');
+        var addBtn = document.getElementById('pxdSocialAdd');
+        var tpl    = document.getElementById('pxdSocialTpl');
+
+        function profileUrl(platform, username) {
+            username = String(username || '').trim().replace(/^@+/, '');
+            if (!username) return '';
+            switch (platform) {
+                case 'instagram': return 'https://instagram.com/' + username;
+                case 'tiktok':    return 'https://tiktok.com/@' + username;
+                case 'facebook':  return 'https://facebook.com/' + username;
+                default:          return '';
+            }
+        }
+        function refreshRow(row) {
+            var sel  = row.querySelector('[data-social-platform]');
+            var inp  = row.querySelector('[data-social-username]');
+            var link = row.querySelector('[data-social-open]');
+            if (!sel || !inp || !link) return;
+            var url = profileUrl(sel.value, inp.value);
+            if (url) { link.href = url; link.hidden = false; }
+            else { link.href = '#'; link.hidden = true; }
+        }
+        function addRow() {
+            var idx = parseInt(wrap.getAttribute('data-next') || '0', 10);
+            wrap.setAttribute('data-next', idx + 1);
+            var holder = document.createElement('div');
+            holder.innerHTML = tpl.innerHTML.replace(/__IDX__/g, idx).trim();
+            var row = holder.firstElementChild;
+            list.appendChild(row);
+            var sel = row.querySelector('[data-social-platform]');
+            if (sel) sel.focus();
+        }
+        addBtn.addEventListener('click', addRow);
+        list.addEventListener('click', function (e) {
+            var del = e.target.closest('[data-social-del]');
+            if (del) del.closest('[data-social-row]').remove();
+        });
+        list.addEventListener('input', function (e) {
+            var row = e.target.closest('[data-social-row]');
+            if (row) refreshRow(row);
+        });
+        list.addEventListener('change', function (e) {
+            var row = e.target.closest('[data-social-row]');
+            if (row) refreshRow(row);
+        });
+        list.querySelectorAll('[data-social-row]').forEach(refreshRow);
     })();
 
     function deleteData() {

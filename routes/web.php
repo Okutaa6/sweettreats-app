@@ -222,6 +222,7 @@ Route::middleware([AuthGuard::class])->group(function () {
     Route::get('setgroup/new', [Group::class, 'create'])->name('setgroup.new');
     Route::post('setgroup/new', [Group::class, 'store'])->name('setgroup.store');
     Route::post('setgroup/reparent', [Group::class, 'reparent'])->name('setgroup.reparent');
+    Route::post('setgroup/{id}/detach', [Group::class, 'detach'])->name('setgroup.detach');
     Route::post('setgroup/assign-division', [Group::class, 'assignDivision'])->name('setgroup.assignDivision');
     Route::get('setgroup/{id}', [Group::class, 'edit'])->name('setgroup.edit');
     Route::put('setgroup/{id}', [Group::class, 'update'])->name('setgroup.update');
@@ -475,6 +476,9 @@ Route::middleware([AuthGuard::class])->group(function () {
     Route::patch('my-checklist/weekform/item/{id}/note', [MyChecklistController::class, 'weekUpdateNote'])->name('mychecklist.weekform.item.note');
     Route::post ('my-checklist/weekform/item/{id}/photo', [MyChecklistController::class, 'weekUploadPhoto'])->name('mychecklist.weekform.item.photo.upload');
     Route::delete('my-checklist/weekform/item/{id}/photo',[MyChecklistController::class, 'weekDeletePhoto'])->name('mychecklist.weekform.item.photo.delete');
+    // Foto before/after opsional (khusus divisi GS) — slot: before|after.
+    Route::post ('my-checklist/weekform/item/{id}/ba-photo/{slot}',  [MyChecklistController::class, 'weekUploadBaPhoto'])->name('mychecklist.weekform.item.baphoto.upload');
+    Route::delete('my-checklist/weekform/item/{id}/ba-photo/{slot}', [MyChecklistController::class, 'weekDeleteBaPhoto'])->name('mychecklist.weekform.item.baphoto.delete');
     Route::post ('my-checklist/weekform/submit',         [MyChecklistController::class, 'weekSubmit'])    ->name('mychecklist.weekform.submit');
     Route::post ('my-checklist/weekform/reopen-self',    [MyChecklistController::class, 'weekReopenSelf'])->name('mychecklist.weekform.reopen-self');
     Route::post ('my-checklist/weekform/excuse',         [MyChecklistController::class, 'weekExcuse'])    ->name('mychecklist.weekform.excuse');
