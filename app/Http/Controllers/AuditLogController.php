@@ -8,6 +8,18 @@ class AuditLogController extends Controller
 {
     public function index()
     {
+        // Segmen 'auditlog' ada di daftar $skipRbac AuthGuard — RBAC dilewati
+        // sepenuhnya — sementara controller ini tak punya pemeriksaan apa pun.
+        // Akibatnya siapa pun yang login (termasuk staf cabang) bisa membuka
+        // jejak aktivitas SELURUH user, memfilternya per orang untuk mengintai
+        // atasan, plus melihat daftar lengkap user beserta email. Ironisnya
+        // justru audit log — kontrol deteksi — yang paling terbuka.
+        //
+        // Halaman ini tak punya entri menu di mana pun (murni URL), jadi tak ada
+        // "pemilik" alami. Dibatasi ke admin tingkat sistem: pemegang kendali
+        // akses, yaitu Super Admin & Admin General.
+        abort_unless(canManagePageAccess(), 403, 'Riwayat aktivitas hanya untuk admin sistem.');
+
         $query = AuditLog::query()->orderByDesc('created_at');
 
         if (request('user_id')) {
