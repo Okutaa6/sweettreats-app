@@ -1,144 +1,116 @@
 @extends('layouts.app')
 
+@section('css')
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ asset('assets/css/finance.sweettreats.css') }}?v={{ @filemtime(public_path('assets/css/finance.sweettreats.css')) ?: '1' }}">
+@endsection
+
 @php
-    $badge = [
-        'cuti' => 'info', 'izin' => 'info', 'libur' => 'secondary',
-        'lembur' => 'primary', 'wfh' => 'warning',
-    ];
-    $verifBadge = ['nyambung' => 'success', 'selisih' => 'warning', 'tidak_bisa_dicek' => 'secondary'];
+    $jamOf = fn ($m) => $m ? rtrim(rtrim(number_format($m / 60, 1, ',', ''), '0'), ',') : '0';
+    $hm = fn ($t) => $t ? substr($t, 0, 5) : null;
 @endphp
 
 @section('content')
-<div class="container-fluid">
-    <div class="row">
-        <div class="col-sm-12">
-            <div class="page-title-box">
-                <h4 class="page-title">Absensi — Rekap Persetujuan</h4>
-            </div>
-        </div>
-    </div>
-
+<div class="fin-wrap">
     @include('layouts.notif')
+    @include('absensi._finance_tabs')
 
-    {{-- ── Filter periode + cabang ── --}}
-    <div class="card">
-        <div class="card-body py-2">
-            <form method="GET" action="{{ route('absensi.recap') }}" class="form-inline">
-                <label class="mr-2 mb-0">Periode</label>
-                <a href="{{ route('absensi.recap', ['m' => $anchor->copy()->subMonth()->format('Y-m'), 'branch' => $branchFilter, 'verif' => $verifFilter]) }}"
-                   class="btn btn-outline-secondary btn-sm mr-1"><i class="fa fa-chevron-left"></i></a>
-                <input type="month" name="m" value="{{ $anchor->format('Y-m') }}" class="form-control form-control-sm mr-1">
-                <a href="{{ route('absensi.recap', ['m' => $anchor->copy()->addMonth()->format('Y-m'), 'branch' => $branchFilter, 'verif' => $verifFilter]) }}"
-                   class="btn btn-outline-secondary btn-sm mr-3"><i class="fa fa-chevron-right"></i></a>
-
-                <label class="mr-2 mb-0">Cabang</label>
-                <select name="branch" class="form-control form-control-sm mr-2">
-                    <option value="">Semua cabang</option>
-                    @foreach($branches as $b)
-                        <option value="{{ $b->id }}" @selected($branchFilter === $b->id)>{{ $b->name }}</option>
-                    @endforeach
-                </select>
-                <div class="form-check mr-3">
-                    <input type="checkbox" name="verif" value="selisih" class="form-check-input" id="fVerif" @checked($verifFilter === 'selisih')>
-                    <label class="form-check-label small" for="fVerif">cuma perlu dicek</label>
-                </div>
-                <button type="submit" class="btn btn-primary btn-sm">Tampilkan</button>
-            </form>
+    {{-- KPI --}}
+    <div class="fin-kpis">
+        <div class="fin-kpi">
+            <div class="fin-kpi-k">PENGAJUAN DISETUJUI</div>
+            <div class="fin-kpi-v num">{{ $summary['total'] }}</div>
+            <div class="fin-kpi-s">periode ini · lintas cabang</div>
+        </div>
+        <div class="fin-kpi">
+            <div class="fin-kpi-k">JAM LEMBUR DISETUJUI</div>
+            <div class="fin-kpi-v num amber">{{ $jamOf($summary['lembur_menit']) }}<span class="fin-kpi-u">jam</span></div>
+            <div class="fin-kpi-s">total yang diklaim</div>
+        </div>
+        <div class="fin-kpi warn">
+            <div class="fin-kpi-k red">⚠ PERLU DICEK</div>
+            <div class="fin-kpi-v num red">{{ $summary['selisih'] }}</div>
+            <div class="fin-kpi-s">klaim lembur &gt; dukungan scan</div>
+        </div>
+        <div class="fin-kpi">
+            <div class="fin-kpi-k">SCAN TAK BISA DICEK</div>
+            <div class="fin-kpi-v num">{{ $summary['tidak_bisa_dicek'] }}</div>
+            <div class="fin-kpi-s">WFH / scan belum diunggah</div>
         </div>
     </div>
 
-    {{-- ── Ringkasan ── --}}
-    <div class="row">
-        @foreach(['total'=>'Total','cuti'=>'Cuti','izin'=>'Izin','libur'=>'Libur','wfh'=>'WFH','lembur'=>'Lembur'] as $k => $lbl)
-            <div class="col">
-                <div class="card mb-2 text-center">
-                    <div class="card-body py-2">
-                        <div class="h4 mb-0">{{ $summary[$k] }}</div>
-                        <small class="text-muted">{{ $lbl }}</small>
-                    </div>
-                </div>
-            </div>
-        @endforeach
-    </div>
-    @if($summary['lembur_menit'] || $summary['selisih'])
-        <p class="small mb-3">
-            @if($summary['lembur_menit'])
-                <span class="text-muted">Total lembur disetujui: <strong>{{ round($summary['lembur_menit']/60, 1) }} jam</strong>
-                ({{ $summary['lembur_menit'] }} menit).</span>
-            @endif
-            @if($summary['selisih'])
-                <span class="badge badge-warning ml-1"><i class="fa fa-exclamation-triangle"></i>
-                    {{ $summary['selisih'] }} lembur perlu dicek</span>
-                <span class="text-muted">(klaim &gt; dukungan scan)</span>
-            @endif
-        </p>
-    @endif
-
-    {{-- ── Daftar approved ── --}}
-    <div class="card">
-        <div class="card-body">
-            <h5 class="mb-3"><i class="fa fa-check-circle text-muted"></i>
-                Pengajuan Disetujui — {{ $anchor->translatedFormat('F Y') }}</h5>
-
-            @if($items->isEmpty())
-                <p class="text-muted mb-0">Tidak ada pengajuan disetujui pada periode/cabang ini.</p>
-            @else
-                <div class="table-responsive">
-                    <table class="table table-sm table-hover mb-0">
-                        <thead>
-                            <tr>
-                                <th>Pengaju</th>
-                                <th>Cabang</th>
-                                <th>Jenis</th>
-                                <th>Tanggal</th>
-                                <th>Jam</th>
-                                <th class="text-right">Lembur</th>
-                                <th>Sanding scan</th>
-                                <th>Alasan</th>
-                                <th>Bukti</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach($items as $r)
-                                <tr class="{{ $r->verifikasi === 'selisih' ? 'table-warning' : '' }}">
-                                    <td style="white-space:nowrap">{{ $r->user->nama ?? '—' }}</td>
-                                    <td>{{ $r->branch->name ?? '—' }}</td>
-                                    <td><span class="badge badge-{{ $badge[$r->tipe] ?? 'light' }}">{{ $tipeLabel[$r->tipe] ?? $r->tipe }}</span></td>
-                                    <td style="white-space:nowrap">
-                                        {{ \Illuminate\Support\Carbon::parse($r->tanggal_from)->format('d/m') }}
-                                        @if($r->tanggal_to != $r->tanggal_from)
-                                            –{{ \Illuminate\Support\Carbon::parse($r->tanggal_to)->format('d/m') }}
-                                        @endif
-                                    </td>
-                                    <td style="white-space:nowrap">
-                                        @if($r->jam_from){{ substr($r->jam_from,0,5) }}@if($r->jam_to)–{{ substr($r->jam_to,0,5) }}@endif @else — @endif
-                                    </td>
-                                    <td class="text-right">
-                                        @if($r->claimed_menit){{ round($r->claimed_menit/60,1) }}j @else — @endif
-                                    </td>
-                                    <td style="white-space:nowrap">
-                                        @if($r->verifikasi)
-                                            <span class="badge badge-{{ $verifBadge[$r->verifikasi] ?? 'light' }}">{{ str_replace('_',' ',$r->verifikasi) }}</span>
-                                            @if($r->tipe === 'lembur' && isset($r->live_supported) && $r->live_supported !== null && $r->claimed_menit)
-                                                <div class="small text-muted">
-                                                    klaim {{ round($r->claimed_menit/60,1) }}j / scan dukung {{ round($r->live_supported/60,1) }}j
-                                                </div>
-                                            @endif
-                                        @else <span class="text-muted">—</span> @endif
-                                    </td>
-                                    <td>{{ \Illuminate\Support\Str::limit($r->alasan, 40) }}</td>
-                                    <td>
-                                        @if($r->foto)
-                                            <a href="{{ asset('uploads/att_request/'.$r->foto) }}" target="_blank"><i class="fa fa-image"></i></a>
-                                        @else <span class="text-muted">—</span> @endif
-                                    </td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-                </div>
-            @endif
+    {{-- Filter --}}
+    <form method="GET" action="{{ url('absensi/recap') }}" class="fin-filters" id="finFilter">
+        <div class="fin-field">
+            <label>PERIODE</label>
+            <input type="month" name="m" value="{{ $anchor->format('Y-m') }}" class="fin-input" onchange="document.getElementById('finFilter').submit()">
         </div>
+        <div class="fin-field">
+            <label>CABANG</label>
+            <select name="branch" class="fin-input" onchange="document.getElementById('finFilter').submit()">
+                <option value="">Semua Cabang</option>
+                @foreach($branches as $b)
+                    <option value="{{ $b->id }}" @selected($branchFilter === $b->id)>{{ $b->name }}</option>
+                @endforeach
+            </select>
+        </div>
+        <div class="fin-field">
+            <label>JENIS</label>
+            <select name="jenis" class="fin-input" onchange="document.getElementById('finFilter').submit()">
+                <option value="">Semua Jenis</option>
+                @foreach($tipeLabel as $k => $v)
+                    <option value="{{ $k }}" @selected(($tipeFilter ?? '') === $k)>{{ $v }}</option>
+                @endforeach
+            </select>
+        </div>
+        <a href="{{ url('absensi/recap') }}?m={{ $anchor->format('Y-m') }}{{ $branchFilter ? '&branch='.$branchFilter : '' }}{{ ($tipeFilter ?? '') ? '&jenis='.$tipeFilter : '' }}{{ $verifFilter === 'selisih' ? '' : '&verif=selisih' }}"
+           class="fin-checkbtn {{ $verifFilter === 'selisih' ? 'on' : '' }}">⚠ Hanya yang perlu dicek</a>
+        <div class="fin-count">Menampilkan <b class="num">{{ $items->count() }}</b> pengajuan</div>
+    </form>
+
+    {{-- Tabel --}}
+    <div class="fin-tablewrap">
+        <table class="fin-table">
+            <thead>
+                <tr><th>PENGAJU</th><th>CABANG</th><th>JENIS</th><th>TANGGAL / JAM</th><th>SANDING-SCAN (KLAIM vs SCAN)</th></tr>
+            </thead>
+            <tbody>
+                @forelse($items as $it)
+                    @php $need = $it->verifikasi === 'selisih'; @endphp
+                    <tr class="{{ $need ? 'is-check' : '' }}">
+                        <td>
+                            <div class="fin-pengaju">{{ $it->user->nama ?? 'Pengaju' }}</div>
+                            @if($it->foto)<div class="fin-foto"><i class="fa fa-image"></i> ada foto bukti</div>@endif
+                        </td>
+                        <td>{{ optional($it->branch)->name ?? '—' }}</td>
+                        <td><span class="fin-type t-{{ $it->tipe }}">{{ $tipeLabel[$it->tipe] ?? $it->tipe }}</span></td>
+                        <td>
+                            <div class="num">{{ \Illuminate\Support\Carbon::parse($it->tanggal_from)->translatedFormat('d M Y') }}@if($it->tanggal_to != $it->tanggal_from) – {{ \Illuminate\Support\Carbon::parse($it->tanggal_to)->translatedFormat('d M') }}@endif</div>
+                            <div class="fin-sub num">@if($it->jam_from){{ $hm($it->jam_from) }} – {{ $hm($it->jam_to) }}@else Sepanjang hari @endif</div>
+                        </td>
+                        <td>
+                            @if($it->tipe === 'lembur')
+                                @php $sup = (int) ($it->live_supported ?? 0); $klaim = (int) $it->claimed_menit; $sel = ($klaim - $sup) / 60; @endphp
+                                @if($it->verifikasi === 'selisih')
+                                    <span class="fin-verif red">● Perlu dicek</span>
+                                @elseif($it->verifikasi === 'nyambung')
+                                    <span class="fin-verif green">● Nyambung</span>
+                                @else
+                                    <span class="fin-verif gray">● Tak bisa dicek</span>
+                                @endif
+                                <span class="fin-sanding num">klaim {{ $jamOf($klaim) }} jam · scan {{ $jamOf($sup) }} jam @if($need && $sel != 0)<b class="fin-sel">{{ $sel > 0 ? '+' : '' }}{{ $jamOf($klaim - $sup) }}j</b>@endif</span>
+                            @else
+                                <span class="fin-nolembur">— bukan lembur —</span>
+                            @endif
+                        </td>
+                    </tr>
+                @empty
+                    <tr><td colspan="5" class="fin-empty">Tak ada pengajuan disetujui di periode/filter ini.</td></tr>
+                @endforelse
+            </tbody>
+        </table>
     </div>
 </div>
 @endsection

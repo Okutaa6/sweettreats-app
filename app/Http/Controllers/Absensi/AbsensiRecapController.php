@@ -82,9 +82,14 @@ class AbsensiRecapController extends Controller
             'lembur' => $items->where('tipe', 'lembur')->count(),
             'lembur_menit' => $items->where('tipe', 'lembur')->sum('claimed_menit'),
             'selisih' => $items->where('verifikasi', 'selisih')->count(),
+            'tidak_bisa_dicek' => $items->where('verifikasi', 'tidak_bisa_dicek')->count(),
         ];
 
-        // filter "cuma perlu dicek" (selisih) — buat tabel saja, ringkasan tetap total
+        // filter tabel (ringkasan tetap total): jenis + "cuma perlu dicek" (selisih)
+        $tipeFilter = $request->input('jenis');
+        if ($tipeFilter && isset(self::TIPE_LABEL[$tipeFilter])) {
+            $items = $items->where('tipe', $tipeFilter)->values();
+        }
         $verifFilter = $request->input('verif');
         if ($verifFilter === 'selisih') {
             $items = $items->where('verifikasi', 'selisih')->values();
@@ -94,7 +99,7 @@ class AbsensiRecapController extends Controller
         $tipeLabel = self::TIPE_LABEL;
 
         return view('absensi.recap', compact(
-            'items', 'summary', 'branches', 'branchFilter', 'verifFilter', 'anchor', 'from', 'to', 'tipeLabel'
+            'items', 'summary', 'branches', 'branchFilter', 'verifFilter', 'tipeFilter', 'anchor', 'from', 'to', 'tipeLabel'
         ));
     }
 }

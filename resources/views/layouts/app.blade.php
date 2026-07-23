@@ -93,9 +93,11 @@
     // CSS-nya (absensi.sweettreats.css) di-load dari view akun @section('css').
     // Surface absensi personal (Akun Saya + Persetujuan) — reuse token & PersonalHeader.
     $akunRedesign = in_array($currentSegment, ['akun', 'persetujuan'], true) ? ' redesign-akun' : '';
+    // Surface absensi Finance/Admin (desktop, segment 'absensi').
+    $absensiRedesign = ($currentSegment === 'absensi') ? ' redesign-absensi' : '';
 @endphp
 
-<body data-theme="{{ $bodyTheme }}" class="{{ $groupTheme }}{{ $reservasiRedesign }}{{ $pasienRedesign }}{{ $doctorRedesign }}{{ $akunRedesign }}">
+<body data-theme="{{ $bodyTheme }}" class="{{ $groupTheme }}{{ $reservasiRedesign }}{{ $pasienRedesign }}{{ $doctorRedesign }}{{ $akunRedesign }}{{ $absensiRedesign }}">
 
     <div class="app-shell">
         <div class="sbx-scrim" id="sbxScrim"></div>
