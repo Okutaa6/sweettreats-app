@@ -23,6 +23,7 @@
 .redesign-absensi .fin-tab:hover { background: var(--fin-tint); color: var(--fin-ink); }
 .redesign-absensi .fin-tab.active { background: var(--fin-brand); color: #FFEAD6; }
 .redesign-absensi .fin-tab.disabled { color: #C7AC92; cursor: not-allowed; }
+.redesign-absensi .fin-tab-sep { width: 1px; align-self: stretch; margin: 4px 4px; background: var(--fin-line); }
 
 /* ── KPI ── */
 .redesign-absensi .fin-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 18px; }

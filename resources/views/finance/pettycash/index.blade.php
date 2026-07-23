@@ -6,6 +6,11 @@
 @endphp
 <div class="container-fluid">
 
+    {{-- Tab-bar Finance (integrasi lintas-modul; isi petty cash di bawah tak berubah) --}}
+    <div class="redesign-absensi fpc-fin-tabwrap">
+        @include('absensi._finance_tabs')
+    </div>
+
     {{-- ─── HEADER ─── --}}
     <div class="pc-page-header pc-page-header--v2 fpc-page-header">
         <div class="pc-page-header__main">
@@ -115,7 +120,14 @@
 @endsection
 
 @section('css')
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ asset('assets/css/finance.sweettreats.css') }}?v={{ @filemtime(public_path('assets/css/finance.sweettreats.css')) ?: '1' }}">
 <style>
+/* Tab-bar Finance (nyambung ke modul Absensi) — scoped .redesign-absensi, tak ganggu fpc-* */
+.fpc-fin-tabwrap { padding: 6px 0 2px; }
+.fpc-fin-tabwrap .fin-tabs { margin-bottom: 6px; }
 /* ─── Layout dashboard ─── */
 .fpc-section { margin: 24px 0; }
 .fpc-section__head {
