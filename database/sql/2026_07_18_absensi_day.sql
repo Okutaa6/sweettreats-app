@@ -41,6 +41,11 @@ CREATE TABLE IF NOT EXISTS `att_day` (
   KEY `idx_day_date_status` (`work_date`, `status`),
   KEY `idx_day_branch` (`raw_branch_id`),
   CONSTRAINT `fk_day_user`   FOREIGN KEY (`user_id`)       REFERENCES `users` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `fk_day_branch` FOREIGN KEY (`raw_branch_id`) REFERENCES `raw_branch` (`id`) ON DELETE SET NULL,
-  CONSTRAINT `fk_day_rule`   FOREIGN KEY (`rule_id`)       REFERENCES `att_work_rule` (`id`) ON DELETE SET NULL
+  CONSTRAINT `fk_day_branch` FOREIGN KEY (`raw_branch_id`) REFERENCES `raw_branch` (`id`) ON DELETE SET NULL
+  -- fk_day_rule (rule_id -> att_work_rule) SENGAJA TIDAK di sini.
+  -- att_work_rule dibuat di 2026_07_18_absensi_work_rule.sql, yang urutan
+  -- ALFABETNYA ADA DI BELAKANG file ini. Kalau FK-nya ditulis inline, perintah
+  -- lazim `for f in database/sql/*.sql` gagal dgn error 1215 dan att_day tak
+  -- pernah terbentuk — seluruh modul absensi mati sejak langkah pertama deploy.
+  -- FK-nya dipasang di 2026_07_18_absensi_zz_fk.sql yang selalu jalan terakhir.
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
