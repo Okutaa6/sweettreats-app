@@ -82,8 +82,43 @@
 .redesign-absensi .fin-nolembur { font-size: 12px; color: #B79A82; }
 .redesign-absensi .fin-empty { text-align: center; color: var(--fin-ink-3); padding: 28px; }
 
+/* ── Panel + form (Upload / Periode) ── */
+.redesign-absensi .fin-two { display: grid; grid-template-columns: 380px 1fr; gap: 18px; align-items: start; }
+.redesign-absensi .fin-panel { background: var(--fin-card); border: 1px solid var(--fin-line); border-radius: 16px; padding: 18px 20px; }
+.redesign-absensi .fin-panel + .fin-panel { margin-top: 16px; }
+.redesign-absensi .fin-panel-h { font-size: 15px; font-weight: 800; color: var(--fin-ink); margin: 0 0 4px; display: flex; align-items: center; gap: 8px; }
+.redesign-absensi .fin-panel-h i { color: var(--fin-ink-3); font-size: 14px; }
+.redesign-absensi .fin-panel-sub { font-size: 12.5px; color: var(--fin-ink-2); line-height: 1.55; margin: 0 0 14px; }
+.redesign-absensi .fin-form .fin-field { margin-bottom: 13px; }
+.redesign-absensi .fin-form .fin-field label { margin-bottom: 0; }
+.redesign-absensi .fin-form .fin-input { width: 100%; min-width: 0; }
+.redesign-absensi .fin-form input[type=file].fin-input { padding: 8px 10px; font-size: 12.5px; background: #FBF7F1; }
+.redesign-absensi .fin-hint { font-size: 11px; color: var(--fin-ink-3); margin-top: 5px; }
+.redesign-absensi .fin-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.redesign-absensi .fin-btn {
+  display: inline-flex; align-items: center; gap: 7px; font-family: inherit; font-size: 13px; font-weight: 700;
+  color: #FFEAD6; background: var(--fin-brand); border: 0; border-radius: 11px; padding: 10px 18px; cursor: pointer; text-decoration: none;
+}
+.redesign-absensi .fin-btn:hover { background: #5A2410; color: #FFEAD6; }
+.redesign-absensi .fin-btn-icon {
+  display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 9px;
+  border: 1px solid var(--fin-line); background: #fff; color: var(--fin-ink-2); text-decoration: none; cursor: pointer; font-size: 13px;
+}
+.redesign-absensi .fin-btn-icon:hover { background: var(--fin-tint); color: var(--fin-ink); }
+.redesign-absensi .fin-btn-danger { border-color: #F2D2CB; color: var(--fin-red); background: #fff; padding: 0 14px; height: 34px; font-size: 12.5px; font-weight: 700; border-radius: 9px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+.redesign-absensi .fin-btn-danger:hover { background: #FBEDE9; }
+.redesign-absensi .fin-note { background: var(--fin-tint); border: 1px solid var(--fin-line); border-radius: 13px; padding: 13px 15px; font-size: 12px; color: var(--fin-ink-2); line-height: 1.6; }
+.redesign-absensi .fin-note strong { color: var(--fin-ink); }
+.redesign-absensi .fin-tnum { color: var(--fin-ink-2); font-size: 12px; text-align: right; }
+.redesign-absensi .fin-warn { color: var(--fin-amber); font-weight: 700; }
+.redesign-absensi .fin-badge { font-size: 11px; font-weight: 800; border-radius: 20px; padding: 3px 11px; display: inline-flex; align-items: center; gap: 5px; }
+.redesign-absensi .fin-badge.ok    { background: #E3F2E9; color: var(--fin-green); }
+.redesign-absensi .fin-badge.lock  { background: #EDE4D8; color: var(--fin-ink-2); }
+.redesign-absensi .fin-chip { font-size: 11px; font-weight: 700; background: #F0E6D8; color: #7A5B43; border-radius: 6px; padding: 2px 8px; }
+
 @media (max-width: 900px) {
   .redesign-absensi .fin-kpis { grid-template-columns: repeat(2, 1fr); }
   .redesign-absensi .fin-tablewrap { overflow-x: auto; }
   .redesign-absensi .fin-table { min-width: 720px; }
+  .redesign-absensi .fin-two { grid-template-columns: 1fr; }
 }
