@@ -9,7 +9,7 @@
     $countActive = $tasksActive->where('is_active', true)->count();
 @endphp
 
-<div class="cl-cat is-collapsed">
+<div class="cl-cat is-collapsed {{ $cat->isWeekly() ? 'cl-cat--weekly' : 'cl-cat--daily' }}">
     <div class="cl-cat__head">
         <div class="cl-cat__head-left" data-cat-toggle title="Klik untuk buka/tutup">
             <span class="cl-cat__num">{{ $idx }}</span>
@@ -34,14 +34,15 @@
         </div>
         <div class="cl-cat__actions">
             <button type="button" class="st-btn-outline-brown" style="padding:6px 14px; font-size:12px;" data-toggle="modal" data-target="#taskModalNew-{{ $cat->id }}">
-                <i class="fas fa-plus"></i> Tambah Task
+                <i class="fas fa-plus"></i> Tambah Tugas
             </button>
             <button type="button" class="st-icon-btn" title="Edit kategori" data-toggle="modal" data-target="#categoryModalEdit-{{ $cat->id }}">
                 <i class="fas fa-pen"></i>
             </button>
             <button type="button" class="st-icon-btn" title="Hapus kategori"
                     style="color:var(--cl-danger); border-color:var(--cl-danger-bg);"
-                    onclick="document.getElementById('catDestroy-{{ $cat->id }}').requestSubmit();">
+                    data-cl-del-form="catDestroy-{{ $cat->id }}"
+                    data-cl-del-msg="Hapus kategori &quot;{{ $cat->name }}&quot;? Snapshot di submission lama tetap aman.">
                 <i class="fas fa-trash"></i>
             </button>
         </div>
@@ -52,7 +53,7 @@
     @if($tasksActive->isEmpty())
         <div style="padding:28px 16px; text-align:center; color:var(--cl-subtle); font-size:12.5px; font-style:italic; background:var(--cl-cream-1);">
             <i class="fas fa-clipboard" style="font-size:18px; display:block; margin-bottom:6px; color:var(--cl-line-strong);"></i>
-            Belum ada task di kategori ini. Klik <strong style="color:var(--cl-brown-2);">+ Tambah Task</strong> untuk mulai.
+            Belum ada tugas di kategori ini. Klik <strong style="color:var(--cl-brown-2);">+ Tambah Tugas</strong> untuk mulai.
         </div>
     @else
         <table class="st-table" style="margin:0; border:none;">
@@ -62,9 +63,9 @@
                     @if($cat->isWeekly())
                         <th style="width:90px;">Hari</th>
                     @endif
-                    <th>Task</th>
+                    <th>Tugas</th>
                     <th style="width:120px;">Status</th>
-                    <th style="width:110px; text-align:center;">Aksi</th>
+                    <th style="width:110px; text-align:center;">Edit</th>
                 </tr>
             </thead>
             <tbody>
@@ -85,11 +86,6 @@
                             @if($task->description)
                                 <div style="font-size:11.5px; color:var(--cl-subtle); margin-top:2px;">{{ Str::limit($task->description, 100) }}</div>
                             @endif
-                            @if($task->requires_note)
-                                <span style="display:inline-block; margin-top:4px; font-size:10.5px; padding:2px 8px; background:var(--cl-info-bg); color:var(--cl-info); border-radius:10px; font-weight:600;">
-                                    <i class="fas fa-edit" style="font-size:9px;"></i> Wajib catatan
-                                </span>
-                            @endif
                             @if($task->requires_photo)
                                 <span style="display:inline-block; margin-top:4px; font-size:10.5px; padding:2px 8px; background:var(--cl-warn-bg, #FAEEDA); color:var(--cl-warn, #A66019); border-radius:10px; font-weight:600;">
                                     <i class="fas fa-camera" style="font-size:9px;"></i> Wajib foto
@@ -104,12 +100,13 @@
                             @endif
                         </td>
                         <td style="text-align:center;">
-                            <button type="button" class="st-icon-btn" title="Edit task" data-toggle="modal" data-target="#taskModalEdit-{{ $task->id }}">
+                            <button type="button" class="st-icon-btn" title="Edit tugas" data-toggle="modal" data-target="#taskModalEdit-{{ $task->id }}">
                                 <i class="fas fa-pen"></i>
                             </button>
-                            <button type="button" class="st-icon-btn" title="Hapus task"
+                            <button type="button" class="st-icon-btn" title="Hapus tugas"
                                     style="color:var(--cl-danger); border-color:var(--cl-danger-bg);"
-                                    onclick="document.getElementById('taskDestroy-{{ $task->id }}').requestSubmit();">
+                                    data-cl-del-form="taskDestroy-{{ $task->id }}"
+                                    data-cl-del-msg="Hapus tugas &quot;{{ $task->title }}&quot;?">
                                 <i class="fas fa-trash"></i>
                             </button>
                         </td>

@@ -40,7 +40,7 @@ class UserManagement extends Controller
             'group_id' => 'required'
         ]);
 
-        Users::create([
+        $user = Users::create([
             'nama'          => request('nama'),
             'email'         => request('email'),
             'password'      => bcrypt(request('password')),
@@ -48,6 +48,10 @@ class UserManagement extends Controller
             'raw_branch_id' => request('raw_branch_id'),
             'status'        => 1,
         ]);
+
+        // Role operasional + cabang sudah lengkap → posisi checklist otomatis
+        // aktif, tanpa perlu karyawan mengajukan / supervisor konfirmasi.
+        try { \App\Models\UserPosition::syncFromUser($user, session('id')); } catch (\Throwable $e) {}
 
         return redirect()->route('setusermanagement')->with('success', 'User berhasil ditambahkan');
     }
@@ -77,6 +81,9 @@ class UserManagement extends Controller
             'raw_branch_id' => request('raw_branch_id'),
             'status'        => request('status', $user->status),
         ]);
+
+        // Sinkronkan posisi checklist mengikuti role/cabang terbaru (auto-aktif).
+        try { \App\Models\UserPosition::syncFromUser($user->fresh(), session('id')); } catch (\Throwable $e) {}
 
         return redirect()->route('setusermanagement')->with('success', 'User berhasil diubah');
     }

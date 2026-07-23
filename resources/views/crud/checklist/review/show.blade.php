@@ -42,11 +42,8 @@
 <div class="container-fluid">
     <div class="row">
         <div class="col-sm-12">
-            <div class="page-title-box" style="display:flex; justify-content:space-between; align-items:center;">
+            <div class="page-title-box">
                 <h4 class="page-title">Detail Checklist</h4>
-                <a href="{{ url()->previous() }}" class="st-btn-outline-brown">
-                    <i class="fas fa-arrow-left"></i> Kembali
-                </a>
             </div>
         </div>
     </div>
@@ -60,6 +57,9 @@
 
                     {{-- HEADER --}}
                     <div style="padding:20px 22px; border-bottom:1px solid #E0D2C1; background:linear-gradient(180deg,#FFFFFF 0%, #FAF4EC 100%);">
+                        <a href="{{ route('checklist.review') }}" class="st-btn-outline-brown" style="display:inline-flex; align-items:center; gap:7px; margin-bottom:16px;">
+                            <i class="fas fa-arrow-left"></i> Kembali
+                        </a>
                         <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap;">
                             <div style="display:flex; align-items:center; gap:14px; min-width:0;">
                                 <div style="width:50px; height:50px; border-radius:50%; background:#5C2E15; color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:18px; flex-shrink:0;">
@@ -98,19 +98,19 @@
                         <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:12px; margin-top:14px; font-size:12px;">
                             @if($submission->submitted_at)
                                 <div>
-                                    <div style="font-size:10.5px; color:#9B8578; font-weight:700; text-transform:uppercase; letter-spacing:0.4px;">Disubmit</div>
+                                    <div style="font-size:11.5px; color:#9B8578; font-weight:700; text-transform:uppercase; letter-spacing:0.4px;">Disubmit</div>
                                     <div style="color:#2D1810; font-weight:600;">{{ $submission->submitted_at->format('d M Y · H:i') }}</div>
                                 </div>
                             @endif
                             @if($submission->reviewed_at)
                                 <div>
-                                    <div style="font-size:10.5px; color:#9B8578; font-weight:700; text-transform:uppercase; letter-spacing:0.4px;">Direview</div>
+                                    <div style="font-size:11.5px; color:#9B8578; font-weight:700; text-transform:uppercase; letter-spacing:0.4px;">Direview</div>
                                     <div style="color:#2D1810; font-weight:600;">{{ $submission->reviewed_at->format('d M Y · H:i') }}</div>
                                 </div>
                             @endif
                             @if($submission->reviewer)
                                 <div>
-                                    <div style="font-size:10.5px; color:#9B8578; font-weight:700; text-transform:uppercase; letter-spacing:0.4px;">Reviewer</div>
+                                    <div style="font-size:11.5px; color:#9B8578; font-weight:700; text-transform:uppercase; letter-spacing:0.4px;">Reviewer</div>
                                     <div style="color:#2D1810; font-weight:600;">{{ $submission->reviewer->nama }}</div>
                                 </div>
                             @endif
@@ -167,7 +167,7 @@
                                                     <div style="flex:1; min-width:0;">
                                                         <div class="rv-task__title">{{ $item->task_title_snapshot }}</div>
                                                         @if($item->note)
-                                                            <div class="rv-task__note"><i class="fas fa-edit" style="font-size:10px; margin-right:4px;"></i>{{ $item->note }}</div>
+                                                            <div class="rv-task__note"><strong>Catatan:</strong> {{ $item->note }}</div>
                                                         @endif
                                                     </div>
                                                     @if($item->done_at)
@@ -193,7 +193,7 @@
                                     <textarea id="reviewNotes" rows="2" class="form-control" placeholder="Mis: lengkapi tugas sterilisasi, sertakan foto bukti..."></textarea>
                                 </div>
                                 <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                                    <form method="POST" action="{{ route('checklist.review.approve', $submission->id) }}" style="display:inline;" onsubmit="this.querySelector('input[name=review_notes]').value = document.getElementById('reviewNotes').value;">
+                                    <form method="POST" action="{{ route('checklist.review.approve', $submission->id) }}" style="display:inline;" onsubmit="this.querySelector('input[name=review_notes]').value = document.getElementById('reviewNotes').value; return confirm('Setujui checklist ini?');">
                                         @csrf @method('PATCH')
                                         <input type="hidden" name="review_notes" value="">
                                         <button type="submit" class="st-btn-brand">
@@ -214,7 +214,7 @@
                                     <button type="submit" class="st-btn-outline-brown">
                                         <i class="fas fa-undo"></i> Reopen
                                     </button>
-                                    <small style="color:#9B8578; margin-left:8px;">
+                                    <small style="color:#6B4423; margin-left:8px;">
                                         Reopen untuk mengubah keputusan review jika ada kesalahan.
                                     </small>
                                 </form>
@@ -230,7 +230,7 @@
                                 <button type="submit" class="st-btn-outline-brown" style="color:#A32D2D; border-color:#A32D2D;">
                                     <i class="fas fa-undo"></i> Batalkan Pengecualian
                                 </button>
-                                <small style="color:#9B8578; margin-left:8px;">
+                                <small style="color:#6B4423; margin-left:8px;">
                                     Karyawan menandai hari ini "tidak perlu diisi". Batalkan bila tidak valid.
                                 </small>
                             </form>

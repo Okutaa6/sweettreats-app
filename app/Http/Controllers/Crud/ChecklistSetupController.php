@@ -65,9 +65,16 @@ class ChecklistSetupController extends Controller
             $weeklyTaskCount = $weeklyCategories->sum(fn($c) => $c->tasks->where('is_active', 1)->count());
         }
 
+        // Mingguan tidak lagi pakai kategori di UI — task langsung dijadwalkan per
+        // hari. Ratakan semua task mingguan (lintas kategori lama) lalu group per hari.
+        $weeklyTasksByDay = $weeklyCategories
+            ->flatMap(fn($c) => $c->tasks)
+            ->sortBy('sort_order')
+            ->groupBy('day_of_week');
+
         return view('crud.checklist.setup.index', compact(
             'divisions', 'division', 'categories',
-            'dailyCategories', 'weeklyCategories',
+            'dailyCategories', 'weeklyCategories', 'weeklyTasksByDay',
             'totalTasks', 'dailyTaskCount', 'weeklyTaskCount'
         ));
     }
@@ -154,6 +161,10 @@ class ChecklistSetupController extends Controller
             return back()->with('error', 'Kategori ini sudah dipakai di submission 30 hari terakhir. Nonaktifkan saja (jangan hapus).');
         }
 
+        // Ikut soft-delete task anaknya supaya tidak ada task "yatim" (kategori
+        // hilang tapi task-nya masih ada → bisa memicu error saat hapus task).
+        $cat->tasks()->whereNull('deleted_at')->update(['deleted_at' => now()]);
+
         $cat->delete(); // soft delete
         ChecklistAuditLog::write('category', $cat->id, ChecklistAuditLog::ACTION_DELETE,
             ['name' => $cat->name], null);
@@ -172,7 +183,6 @@ class ChecklistSetupController extends Controller
             'title'         => 'required|string|max:255',
             'description'   => 'nullable|string|max:1000',
             'day_of_week'   => 'nullable|integer|between:1,7',
-            'requires_note' => 'nullable|boolean',
             'requires_photo'=> 'nullable|boolean',
         ]);
 
@@ -181,10 +191,10 @@ class ChecklistSetupController extends Controller
         // Untuk kategori mingguan, hari wajib. Untuk harian, paksa NULL.
         // Wajib-foto hanya berlaku untuk kategori mingguan.
         if ($cat->isWeekly()) {
-            if (empty($data['day_of_week'])) {
-                return back()->withErrors(['day_of_week' => 'Untuk kategori Mingguan, hari wajib dipilih.'])->withInput();
+            $dayOfWeek = (int) ($data['day_of_week'] ?? 0);
+            if (! in_array($dayOfWeek, [2, 3, 4, 5, 6, 7], true)) {
+                return back()->withErrors(['day_of_week' => 'Hari tugas mingguan harus Selasa–Minggu (Senin klinik tutup).'])->withInput();
             }
-            $dayOfWeek = (int) $data['day_of_week'];
             $requiresPhoto = (int) ($data['requires_photo'] ?? 0);
         } else {
             $dayOfWeek = null;
@@ -200,7 +210,6 @@ class ChecklistSetupController extends Controller
             'title'         => $data['title'],
             'description'   => $data['description'] ?? null,
             'day_of_week'   => $dayOfWeek,
-            'requires_note' => (int) ($data['requires_note'] ?? 0),
             'requires_photo'=> $requiresPhoto,
             'sort_order'    => $nextOrder,
             'is_active'     => 1,
@@ -215,6 +224,46 @@ class ChecklistSetupController extends Controller
             ->with('success', 'Task "' . $task->title . '" ditambahkan.');
     }
 
+    /**
+     * Tambah task Mingguan langsung (tanpa pilih kategori). Task nempel ke
+     * "kategori payung" mingguan divisi — dibuat otomatis kalau belum ada.
+     */
+    public function storeWeeklyTask(Request $request)
+    {
+        $this->guard();
+        $data = $request->validate([
+            'division_id'   => 'required|string|exists:sys_checklist_division,id',
+            'title'         => 'required|string|max:255',
+            'day_of_week'   => 'required|integer|between:2,7',
+            'description'   => 'nullable|string|max:1000',
+            'requires_photo'=> 'nullable|boolean',
+        ]);
+
+        $cat = ChecklistCategory::weeklyUmbrellaFor($data['division_id']);
+
+        $nextOrder = (int) (ChecklistTask::where('category_id', $cat->id)
+            ->whereNull('deleted_at')->max('sort_order') ?? 0) + 10;
+
+        $task = ChecklistTask::create([
+            'id'            => (string) Str::uuid(),
+            'category_id'   => $cat->id,
+            'title'         => $data['title'],
+            'description'   => $data['description'] ?? null,
+            'day_of_week'   => (int) $data['day_of_week'],
+            'requires_photo'=> (int) ($data['requires_photo'] ?? 0),
+            'sort_order'    => $nextOrder,
+            'is_active'     => 1,
+            'created_at'    => now(),
+            'updated_at'    => now(),
+        ]);
+
+        ChecklistAuditLog::write('task', $task->id, ChecklistAuditLog::ACTION_CREATE,
+            null, ['category_id' => $cat->id, 'title' => $task->title, 'day_of_week' => (int) $data['day_of_week']]);
+
+        return redirect()->route('checklist.setup', ['division' => $data['division_id']])
+            ->with('success', 'Task "' . $task->title . '" ditambahkan.');
+    }
+
     public function updateTask(Request $request, string $id)
     {
         $this->guard();
@@ -224,17 +273,16 @@ class ChecklistSetupController extends Controller
             'title'         => 'required|string|max:255',
             'description'   => 'nullable|string|max:1000',
             'day_of_week'   => 'nullable|integer|between:1,7',
-            'requires_note' => 'nullable|boolean',
             'requires_photo'=> 'nullable|boolean',
             'is_active'     => 'nullable|boolean',
         ]);
 
         $cat = $task->category;
         if ($cat && $cat->isWeekly()) {
-            if (empty($data['day_of_week'])) {
-                return back()->withErrors(['day_of_week' => 'Untuk kategori Mingguan, hari wajib dipilih.'])->withInput();
+            $dayOfWeek = (int) ($data['day_of_week'] ?? 0);
+            if (! in_array($dayOfWeek, [2, 3, 4, 5, 6, 7], true)) {
+                return back()->withErrors(['day_of_week' => 'Hari tugas mingguan harus Selasa–Minggu (Senin klinik tutup).'])->withInput();
             }
-            $dayOfWeek = (int) $data['day_of_week'];
             $requiresPhoto = (int) ($data['requires_photo'] ?? 0);
         } else {
             $dayOfWeek = null;
@@ -246,7 +294,6 @@ class ChecklistSetupController extends Controller
             'title'         => $data['title'],
             'description'   => $data['description'] ?? null,
             'day_of_week'   => $dayOfWeek,
-            'requires_note' => (int) ($data['requires_note'] ?? 0),
             'requires_photo'=> $requiresPhoto,
             'is_active'     => isset($data['is_active']) ? (int) $data['is_active'] : $task->is_active,
             'updated_at'    => now(),
@@ -262,8 +309,10 @@ class ChecklistSetupController extends Controller
     public function destroyTask(string $id)
     {
         $this->guard();
-        $task = ChecklistTask::whereNull('deleted_at')->with('category')->findOrFail($id);
-        $divId = $task->category->division_id;
+        $task = ChecklistTask::whereNull('deleted_at')
+            ->with(['category' => fn($q) => $q->withTrashed()])
+            ->findOrFail($id);
+        $divId = $task->category?->division_id;
 
         $task->delete(); // soft delete
         ChecklistAuditLog::write('task', $task->id, ChecklistAuditLog::ACTION_DELETE,
@@ -273,21 +322,16 @@ class ChecklistSetupController extends Controller
             ->with('success', 'Task dihapus.');
     }
 
-    public function reorder(Request $request)
+    /**
+     * Simpan teks Info / pengumuman (running-text) global untuk my-checklist.
+     * Disimpan di sys_setting key 'checklist_info_text'.
+     */
+    public function updateInfo(Request $request)
     {
         $this->guard();
-        $data = $request->validate([
-            'type'    => 'required|in:category,task',
-            'items'   => 'required|array',
-            'items.*.id'         => 'required|string',
-            'items.*.sort_order' => 'required|integer',
-        ]);
+        $data = $request->validate(['info_text' => 'nullable|string|max:500']);
+        \App\Models\Setting::put('checklist_info_text', trim((string) ($data['info_text'] ?? '')));
 
-        $model = $data['type'] === 'category' ? ChecklistCategory::class : ChecklistTask::class;
-        foreach ($data['items'] as $row) {
-            $model::where('id', $row['id'])->update(['sort_order' => (int) $row['sort_order']]);
-        }
-
-        return response()->json(['ok' => true]);
+        return back()->with('success', 'Teks Info diperbarui.');
     }
 }

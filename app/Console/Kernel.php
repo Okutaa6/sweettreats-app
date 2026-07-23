@@ -18,6 +18,21 @@ class Kernel extends ConsoleKernel
             ->dailyAt('00:05')
             ->withoutOverlapping(10);
 
+        // Checklist "Tidak Diisi" — daily 00:10. Tandai pengisian HARIAN kemarin
+        // yang tidak tuntas (tak ada submission / masih draft) jadi status
+        // "missed", supaya muncul di tab "Tidak Diisi" halaman review. Yang
+        // submitted/approved/rejected/excused dilewati. Idempoten — aman rerun.
+        $schedule->command('checklist:mark-missed')
+            ->dailyAt('00:10')
+            ->withoutOverlapping(15);
+
+        // Checklist Mingguan "Tidak Diisi" — Senin 00:15. Tandai Form Mingguan
+        // minggu lalu (yang sudah berakhir) yang tak disubmit / masih draft jadi
+        // "missed", hanya untuk divisi yang punya tugas mingguan. Idempoten.
+        $schedule->command('checklist:mark-weekly-missed')
+            ->weeklyOn(1, '00:15')
+            ->withoutOverlapping(15);
+
         // Omnicare sync — daily 02:00 (3-day overlap window untuk catch late entries).
         // withoutOverlapping mencegah dua run barengan kalau sync sebelumnya belum
         // selesai; runInBackground supaya kerja tidak blocking ke command lain.

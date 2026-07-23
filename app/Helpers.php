@@ -221,18 +221,63 @@ if (!function_exists('canEditPettyCash')) {
 }
 
 /**
+ * True kalau role yang login DICENTANG minimal satu halaman PENGAWAS checklist
+ * di UI Akses (Set > Role > Akses). Sumber kebenaran SAMA dgn AuthGuard: join
+ * group_access ⋈ access_path pada kolom `link` — bebas dari kedalaman pohon
+ * menu (entri checklist ada di level "sub", bukan "child", jadi hasMenuAccess()
+ * TIDAK bisa dipakai untuk ini). 'my-checklist' TIDAK dihitung (itu self-service
+ * karyawan, bukan pengawas). Cached per-request.
+ */
+if (!function_exists('checklistHasSupervisorPageAccess')) {
+    function checklistHasSupervisorPageAccess(): bool
+    {
+        static $cached = false;
+        static $value  = false;
+
+        if ($cached) return $value;
+        $cached = true;
+
+        $gid = session('group_id');
+        if (! $gid) return $value = false;
+
+        try {
+            $value = \App\Models\GroupAccess::query()
+                ->join('access_path', 'group_access.access_id', '=', 'access_path.id')
+                ->where('group_access.group_id', $gid)
+                ->whereIn('access_path.link', [
+                    'checklist', 'checklist/positions', 'checklist/setup',
+                    'checklist/review', 'checklist/audit',
+                ])
+                ->exists();
+        } catch (\Throwable $e) {
+            // Tabel akses belum ada / query gagal → anggap tak punya akses.
+            $value = false;
+        }
+
+        return $value;
+    }
+}
+
+/**
  * True kalau user yang sedang login adalah "overseer" checklist global —
- * melihat SEMUA divisi lintas penugasan. Role admin existing tetap di sini
- * supaya perilaku lama utuh (tak ada yang ke-lock setelah fitur ini rilis).
+ * melihat SEMUA divisi lintas penugasan.
+ *
+ * DINAMIS/checkbox-driven: role yang DICENTANG halaman pengawas checklist di UI
+ * Akses langsung jadi overseer, TANPA hardcode. Daftar nama admin di bawah cuma
+ * FALLBACK aman supaya perilaku lama utuh walau group_access belum di-seed.
  */
 if (!function_exists('checklistSeesAllDivisions')) {
     function checklistSeesAllDivisions(): bool
     {
-        return in_array(session('group_name'), [
+        if (in_array(session('group_name'), [
             'Super Admin',
             'Admin General',
             'Admin Backup',
-        ], true);
+        ], true)) {
+            return true;
+        }
+
+        return checklistHasSupervisorPageAccess();
     }
 }
 
@@ -302,6 +347,32 @@ if (!function_exists('checklistDivisionForGroup')) {
 }
 
 /**
+ * Nama role ATASAN (rantai ancestor, atasan langsung → atas) dari role staf
+ * pemilik sebuah divisi. Dipakai untuk menargetkan notifikasi checklist ke
+ * HIERARKI (via AdminNotification::notifyRole/target_role), bukan broadcast
+ * cabang — supaya konsisten dgn wewenang review (checklistVisibleDivisionIds).
+ * Kosong kalau divisi belum ditautkan ke role atau role tak punya atasan.
+ */
+if (!function_exists('checklistSupervisorRoleNamesForDivision')) {
+    function checklistSupervisorRoleNamesForDivision(?string $divisionId): array
+    {
+        if (! $divisionId) return [];
+
+        try {
+            $div = \App\Models\ChecklistDivision::find($divisionId);
+            if (! $div || ! $div->group_id) return [];
+
+            $role = \App\Models\GroupPath::find($div->group_id);
+            if (! $role) return [];
+
+            return $role->ancestors()->pluck('nama')->filter()->values()->all();
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
+}
+
+/**
  * True kalau user yang sedang login boleh mengelola/review modul Checklist
  * Akreditasi. DINAMIS: overseer global, atau role yang ditugaskan mensupervisi
  * minimal satu divisi (langsung / lewat bawahannya). Diatur di halaman Ubah Role.
@@ -311,6 +382,26 @@ if (!function_exists('isChecklistSupervisor')) {
     function isChecklistSupervisor(): bool
     {
         return checklistSeesAllDivisions() || count(checklistVisibleDivisionIds()) > 0;
+    }
+}
+
+/**
+ * Teks Info / pengumuman (running-text) yang tampil di semua halaman my-checklist.
+ * Global (satu teks untuk semua), disimpan di sys_setting key 'checklist_info_text'
+ * dan bisa diedit admin di halaman Setup Tugas. Fallback ke teks default kalau
+ * belum pernah diisi / tabel belum ada. Cached per-request.
+ */
+if (!function_exists('checklistInfoText')) {
+    function checklistInfoText(): string
+    {
+        static $cached = null;
+        if ($cached !== null) return $cached;
+
+        $default = '📢 Isi & submit semua checklist harian sebelum pulang.'
+            . '   •   Sterilisasi alat & jaga kebersihan ruang sesuai SOP.'
+            . '   •   Sapa setiap pasien dengan senyum — Sweet, Cool & Friendly! 🦷';
+
+        return $cached = (string) \App\Models\Setting::get('checklist_info_text', $default);
     }
 }
 

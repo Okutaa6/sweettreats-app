@@ -26,7 +26,7 @@ class ChecklistWeeklySubmission extends Model
         'id', 'user_id', 'division_id', 'raw_branch_id',
         'week_start_date', 'year_week',
         'status', 'total_tasks', 'done_tasks',
-        'reviewer_user_id', 'review_notes', 'excuse_reason',
+        'reviewer_user_id', 'review_notes', 'excuse_reason', 'submit_note',
         'submitted_at', 'reviewed_at', 'created_at', 'updated_at',
     ];
 

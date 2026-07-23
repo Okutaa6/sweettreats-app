@@ -4,7 +4,7 @@
       $divisions   → Collection ChecklistDivision
       $activeDivId → string (current selected division id)
 --}}
-<div class="cl-tabs">
+<div class="cl-tabs cl-tabs--seg">
     @foreach($divisions as $div)
         <a href="{{ route('checklist.setup', ['division' => $div->id]) }}"
            class="cl-tab {{ $activeDivId === $div->id ? 'is-active' : '' }}">

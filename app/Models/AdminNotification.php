@@ -112,9 +112,21 @@ class AdminNotification extends Model
                     $q2->whereNull('target_role');
                 });
 
-                // 3. Role broadcast — kalau ada notif yang explicitly target role
+                // 3. Role broadcast — kalau ada notif yang explicitly target role.
+                //    Kalau baris notif diberi raw_branch_id (mis. notif checklist
+                //    yang ditarget ke role atasan divisi), scope ke cabang yang
+                //    cocok — kecuali admin lintas-cabang. Notif role tanpa branch
+                //    (raw_branch_id NULL) tetap global → backward compatible.
                 if ($role) {
-                    $q->orWhere('target_role', $role);
+                    $q->orWhere(function ($q4) use ($role, $branchId, $isAdmin) {
+                        $q4->where('target_role', $role);
+                        if (! $isAdmin && $branchId) {
+                            $q4->where(function ($q5) use ($branchId) {
+                                $q5->whereNull('raw_branch_id')
+                                   ->orWhere('raw_branch_id', $branchId);
+                            });
+                        }
+                    });
                 }
             })
             ->orderByDesc('created_at');

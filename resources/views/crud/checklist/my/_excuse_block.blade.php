@@ -7,7 +7,7 @@
         <i class="fas fa-chevron-down cl-excuse__caret"></i>
     </summary>
     <form method="POST" action="{{ route('mychecklist.excuse') }}" class="cl-excuse__form"
-          onsubmit="return confirm('Tandai checklist hari ini sebagai tidak perlu diisi?');">
+          data-confirm="Tandai checklist hari ini sebagai tidak perlu diisi?">
         @csrf
         <div class="cl-excuse__label">Pilih / tulis alasan (wajib):</div>
         <div class="cl-excuse__chips">
