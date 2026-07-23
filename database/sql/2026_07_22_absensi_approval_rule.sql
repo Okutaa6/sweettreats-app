@@ -34,30 +34,76 @@ START TRANSACTION;
 -- idempoten: kosongkan lalu isi ulang seluruh aturan.
 DELETE FROM att_approval_rule;
 
-INSERT INTO att_approval_rule (id, role_id, approver_role_id, sort_order, created_at) VALUES
-  -- Operasional → Supervisor (Nisa)
-  ('rule-gs-spv',    '3d65a0bb-da4d-4a8c-a6a7-7f957beee978', '19f22e68-62d5-4b6e-b040-7120783c141b', 1, NOW()), -- General Services
-  ('rule-fo-spv',    '8c3537eb-c7e5-45fa-bcc5-717cecd039cd', '19f22e68-62d5-4b6e-b040-7120783c141b', 1, NOW()), -- Front Office
-  ('rule-sales-spv', 'a11d4a41-e705-4213-a398-75109a1ba73c', '19f22e68-62d5-4b6e-b040-7120783c141b', 1, NOW()), -- Sales
+-- ATURAN DITULIS PAKAI NAMA JABATAN, BUKAN UUID.
+--
+-- Versi awal file ini menuliskan group_path.id (UUID) hasil generate di mesin
+-- LOKAL. Di server lain UUID itu tak ada, dan att_approval_rule TIDAK punya
+-- foreign key ke group_path — jadi INSERT tetap sukses tapi tak menunjuk apa
+-- pun. Akibatnya chainFor() tak menemukan satu pun approver → rantai kosong →
+-- SELURUH cuti/lembur/izin langsung berstatus approved tanpa atasan, tanpa
+-- error, tanpa jejak. Baru ketahuan waktu gaji dibayarkan.
+--
+-- Dengan JOIN ke group_path.nama, aturan mengikat ke jabatan yang benar-benar
+-- ada di server. Jabatan yang belum ada di server otomatis TERLEWAT (bukan
+-- salah-tunjuk), dan itu aman karena AttendanceRequestWorkflow sekarang menolak
+-- auto-approve bila jabatan pengaju tak dikenal grafik persetujuan.
+--
+-- WAJIB dicek setelah dijalankan (lihat query verifikasi di bawah).
+INSERT INTO att_approval_rule (id, role_id, approver_role_id, sort_order, created_at)
+SELECT m.id, r.id, a.id, m.sort_order, NOW()
+FROM (
+              SELECT 'rule-gs-spv'      AS id, 'General Services'    AS pengaju,   'Supervisor'          AS penyetuju, 1 AS sort_order
+    UNION ALL SELECT 'rule-fo-spv',           'Front Office',              'Supervisor',          1
+    UNION ALL SELECT 'rule-sales-spv',        'Sales',                     'Supervisor',          1
+    -- Assistant Dentist → [Coordinator Dentist ATAU Supervisor] (any-one, satu lapis)
+    UNION ALL SELECT 'rule-asd-koord',        'Assistant Dentist',         'Coordinator Dentist', 1
+    UNION ALL SELECT 'rule-asd-spv',          'Assistant Dentist',         'Supervisor',          2
+    -- Marketing
+    UNION ALL SELECT 'rule-creative-hm',      'Creative',                  'Head Marketing',      1
+    UNION ALL SELECT 'rule-content-hm',       'Content Creator',           'Head Marketing',      1
+    -- Head / lapis-1 → Executive
+    UNION ALL SELECT 'rule-spv-exec',         'Supervisor',                'Executive',           1
+    UNION ALL SELECT 'rule-koord-exec',       'Coordinator Dentist',       'Executive',           1
+    UNION ALL SELECT 'rule-hm-exec',          'Head Marketing',            'Executive',           1
+    UNION ALL SELECT 'rule-fin-exec',         'Finance',                   'Executive',           1
+    -- IT berjenjang: staf IT → Head IT → Executive
+    UNION ALL SELECT 'rule-it-headit',        'IT',                        'Head IT',             1
+    UNION ALL SELECT 'rule-headit-exec',      'Head IT',                   'Executive',           1
+) m
+JOIN group_path r ON r.nama = m.pengaju
+JOIN group_path a ON a.nama = m.penyetuju;
 
-  -- Assistant Dentist → [Coordinator Dentist (Irma) ATAU Supervisor (Nisa)] any-one
-  ('rule-asd-koord', 'f2663ddb-5eba-4e7c-a10e-b9c9038d6505', '8fa0a3a7-63ee-4043-b177-456f8012d379', 1, NOW()),
-  ('rule-asd-spv',   'f2663ddb-5eba-4e7c-a10e-b9c9038d6505', '19f22e68-62d5-4b6e-b040-7120783c141b', 2, NOW()),
-
-  -- Marketing staff → Head Marketing (Yovan)
-  ('rule-creative-hm', 'b6ce4510-105e-4f87-836f-149e6b5391a7', '107822d4-5c5b-4b5a-8e36-f73aa1ee9af9', 1, NOW()), -- Creative
-  ('rule-content-hm',  '51d75867-c562-42c8-8f9c-e828f00c1b41', '107822d4-5c5b-4b5a-8e36-f73aa1ee9af9', 1, NOW()), -- Content Creator
-
-  -- Head/lapis-1 → Executive (Dani)
-  ('rule-spv-exec',   '19f22e68-62d5-4b6e-b040-7120783c141b', '3255acd1-15e7-43d9-8528-c59e01451cce', 1, NOW()), -- Supervisor
-  ('rule-koord-exec', '8fa0a3a7-63ee-4043-b177-456f8012d379', '3255acd1-15e7-43d9-8528-c59e01451cce', 1, NOW()), -- Coordinator Dentist
-  ('rule-hm-exec',    '107822d4-5c5b-4b5a-8e36-f73aa1ee9af9', '3255acd1-15e7-43d9-8528-c59e01451cce', 1, NOW()), -- Head Marketing
-  ('rule-fin-exec',   '9fb20179-325b-4a89-8109-24f502da3134', '3255acd1-15e7-43d9-8528-c59e01451cce', 1, NOW()), -- Finance
-
-  -- IT berjenjang (step 2b): staf IT (Reza) → Head IT (Ekky) → Executive (Dani).
-  ('rule-it-headit',   '83de68e5-5d49-437f-af19-d23c805820ed', 'a1700701-0000-4000-8000-000000000001', 1, NOW()), -- IT → Head IT
-  ('rule-headit-exec', 'a1700701-0000-4000-8000-000000000001', '3255acd1-15e7-43d9-8528-c59e01451cce', 1, NOW()); -- Head IT → Executive
-
--- Executive (3255acd1) sengaja TANPA baris → apex, auto-approve.
+-- Executive sengaja TANPA baris sebagai pengaju → apex, auto-approve (sah).
 
 COMMIT;
+
+-- ============================================================================
+-- VERIFIKASI — JALANKAN INI, JANGAN DILEWATI.
+-- Harus mengembalikan 13. Kalau kurang, ada nama jabatan yang belum ada di
+-- server: pengajuan dari jabatan itu akan DITOLAK dengan pesan jelas (bukan
+-- diam-diam disetujui), tapi tetap harus dibereskan.
+--
+--   SELECT COUNT(*) AS jumlah_aturan FROM att_approval_rule;
+--
+-- Melihat jabatan mana yang gagal terpasang:
+--
+--   SELECT m.pengaju, m.penyetuju,
+--          r.id IS NULL AS pengaju_tak_ada,
+--          a.id IS NULL AS penyetuju_tak_ada
+--   FROM ( SELECT 'General Services' pengaju, 'Supervisor' penyetuju
+--          UNION ALL SELECT 'Front Office','Supervisor'
+--          UNION ALL SELECT 'Sales','Supervisor'
+--          UNION ALL SELECT 'Assistant Dentist','Coordinator Dentist'
+--          UNION ALL SELECT 'Assistant Dentist','Supervisor'
+--          UNION ALL SELECT 'Creative','Head Marketing'
+--          UNION ALL SELECT 'Content Creator','Head Marketing'
+--          UNION ALL SELECT 'Supervisor','Executive'
+--          UNION ALL SELECT 'Coordinator Dentist','Executive'
+--          UNION ALL SELECT 'Head Marketing','Executive'
+--          UNION ALL SELECT 'Finance','Executive'
+--          UNION ALL SELECT 'IT','Head IT'
+--          UNION ALL SELECT 'Head IT','Executive' ) m
+--   LEFT JOIN group_path r ON r.nama = m.pengaju
+--   LEFT JOIN group_path a ON a.nama = m.penyetuju
+--   WHERE r.id IS NULL OR a.id IS NULL;
+-- ============================================================================

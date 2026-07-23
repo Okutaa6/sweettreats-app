@@ -96,11 +96,45 @@ class AttendanceRequestWorkflow
         return $levels;
     }
 
+    /**
+     * Pembeda "apex sungguhan" vs "konfigurasi rusak".
+     *
+     * Rantai kosong punya DUA sebab yang hasilnya sama persis, padahal artinya
+     * berlawanan:
+     *   (a) pengaju memang puncak (Executive) → auto-approve itu benar;
+     *   (b) att_approval_rule tak mengenali jabatannya → auto-approve itu BENCANA.
+     *
+     * Kasus (b) nyata: file seed approval rule berisi UUID group_path dari mesin
+     * lain. Tabelnya TERISI (jadi cek "tabel kosong" tak menolong) tapi tak satu
+     * pun role cocok → SEMUA cuti/lembur lolos sendiri tanpa atasan, tanpa error,
+     * tanpa jejak. Gagal senyap yang baru ketahuan saat gaji dibayarkan.
+     *
+     * Pembedanya: jabatan yang sah dikenal grafik persetujuan pasti muncul sebagai
+     * approver_role_id bagi orang lain. Kalau jabatan pengaju tak muncul di mana
+     * pun dalam att_approval_rule, yang rusak itu konfigurasinya — bukan dia apex.
+     * Lebih baik pengajuan GAGAL dengan pesan jelas daripada disetujui palsu.
+     */
+    private function pastikanApexBukanSalahKonfigurasi(string $userId): void
+    {
+        $roleId = $this->roleOf($userId);
+
+        $dikenalGrafik = $roleId !== null
+            && DB::table('att_approval_rule')->where('approver_role_id', $roleId)->exists();
+
+        if (! $dikenalGrafik) {
+            throw new \RuntimeException(
+                'Alur persetujuan untuk jabatan ini belum diatur, jadi pengajuan tidak bisa dikirim. '
+                . 'Hubungi admin untuk mengisi alur persetujuan (att_approval_rule).'
+            );
+        }
+    }
+
     /** Submit form: hitung rantai, set status awal. Rantai kosong → langsung approved. */
     public function submit(AttRequest $req): AttRequest
     {
         $levels = $this->chainFor($req->user_id, $req->tipe);
         if (!$levels) {
+            $this->pastikanApexBukanSalahKonfigurasi($req->user_id);
             $req->update(['status' => 'approved']);
             return $req;
         }

@@ -8,6 +8,7 @@ use App\Services\AttendanceReconciler;
 use App\Services\AttendanceRequestWorkflow;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 
 /**
  * "Akun Saya → Ajukan" — form pengajuan absen (MOBILE, self-service).
@@ -210,7 +211,29 @@ class AkunPengajuanController extends Controller
             $file->move($dir, $fotoName);
         }
 
-        $req = AttRequest::create([
+        // Satu transaksi: kalau workflow menolak (mis. alur persetujuan belum
+        // diatur), baris pengajuan ikut dibatalkan. Tanpa ini baris nyangkut
+        // selamanya di status 'draft' — tak terlihat pengaju maupun atasan.
+        try {
+            $req = DB::transaction(function () use ($data, $userId, $subTipe, $claimedMenit, $scanEvidence, $verifikasi, $fotoName) {
+                $r = $this->buatPengajuan($data, $userId, $subTipe, $claimedMenit, $scanEvidence, $verifikasi, $fotoName);
+                return (new AttendanceRequestWorkflow())->submit($r);
+            });
+        } catch (\RuntimeException $e) {
+            return back()->withInput()->with('error', $e->getMessage());
+        }
+
+        $pesan = $req->status === 'approved'
+            ? 'Pengajuan tercatat dan langsung disetujui (tak ada atasan di atas kamu).'
+            : 'Pengajuan terkirim, menunggu persetujuan atasan.';
+
+        return redirect()->route('akun.absensi')->with('success', $pesan);
+    }
+
+    /** Baris att_request mentah (status draft) — dipanggil di dalam transaksi store(). */
+    private function buatPengajuan(array $data, string $userId, ?string $subTipe, ?int $claimedMenit, $scanEvidence, ?string $verifikasi, ?string $fotoName): AttRequest
+    {
+        return AttRequest::create([
             'user_id'       => $userId,
             'raw_branch_id' => session('raw_branch_id') ?: null,
             'tipe'          => $data['tipe'],
@@ -226,14 +249,5 @@ class AkunPengajuanController extends Controller
             'verifikasi'    => $verifikasi,
             'status'        => 'draft',
         ]);
-
-        // serahkan ke workflow: hitung rantai approver → pending_l1 / auto-approved
-        $req = (new AttendanceRequestWorkflow())->submit($req);
-
-        $pesan = $req->status === 'approved'
-            ? 'Pengajuan tercatat dan langsung disetujui (tak ada approver di atas kamu).'
-            : 'Pengajuan terkirim, menunggu persetujuan atasan.';
-
-        return redirect()->route('akun.absensi')->with('success', $pesan);
     }
 }
