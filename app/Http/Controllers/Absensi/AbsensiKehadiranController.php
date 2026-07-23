@@ -72,17 +72,33 @@ class AbsensiKehadiranController extends Controller
             ->get(['user_id', 'raw_branch_id', 'work_date', 'status', 'telat_menit',
                    'single_scan', 'lembur_menit_disetujui', 'cabang_terlibat']);
 
-        $userIds = $days->pluck('user_id')->unique()->values();
-        $users = DB::table('users')->whereIn('id', $userIds)->get(['id', 'nama', 'raw_branch_id'])->keyBy('id');
         $branchName = RawBranch::pluck('name', 'id');
 
-        // Siapa yang aturannya FLEKSIBEL (per-orang) → grup Kantor (ABG).
-        $flex = DB::table('att_user_rule as ur')
+        // ROSTER absensi = orang yang punya aturan kerja aktif di periode ini.
+        // Baris diambil dari roster, BUKAN dari att_day — supaya orang yang bulan
+        // ini tak punya scan sama sekali TETAP tampil (barisnya "belum ada data").
+        // Krusial buat orang kantor: tak nge-tap itu normal, bukan berarti tak kerja
+        // (§3.3) — kalau baris ikut att_day, mereka hilang diam-diam dari rekap.
+        $roster = DB::table('att_user_rule as ur')
             ->join('att_work_rule as wr', 'wr.id', '=', 'ur.rule_id')
-            ->whereIn('ur.user_id', $userIds)
-            ->where('wr.tipe', 'fleksibel')
-            ->pluck('ur.user_id')
-            ->flip();
+            ->join('users as u', 'u.id', '=', 'ur.user_id')
+            ->where('ur.effective_from', '<=', $to->toDateString())
+            ->where(function ($q) use ($from) {
+                $q->whereNull('ur.effective_to')->orWhere('ur.effective_to', '>=', $from->toDateString());
+            })
+            ->get(['u.id', 'u.nama', 'u.raw_branch_id', 'wr.tipe'])
+            ->keyBy('id');
+
+        // jaring-pengaman: ada att_day tapi orangnya tak punya aturan (data lama)
+        $orphan = $days->pluck('user_id')->unique()->diff($roster->keys());
+        if ($orphan->isNotEmpty()) {
+            foreach (DB::table('users')->whereIn('id', $orphan)->get(['id', 'nama', 'raw_branch_id']) as $o) {
+                $o->tipe = 'baku';
+                $roster->put($o->id, $o);
+            }
+        }
+
+        $flex = $roster->where('tipe', 'fleksibel')->keys()->flip();
 
         // header hari (dow + tanggal + minggu)
         $head = [];
@@ -91,34 +107,36 @@ class AbsensiKehadiranController extends Controller
             $head[$d] = ['n' => $d, 'dow' => self::DOW[$dow], 'sun' => ($dow === 0)];
         }
 
+        // semua baris dibuat dulu dari roster (termasuk yg nol scan bulan ini)
         $matrix = [];
+        foreach ($roster as $u) {
+            $nama = $u->nama ?? '—';
+            $homeId = $u->raw_branch_id ?? null;
+            $isFlex = isset($flex[$u->id]);
+
+            if ($isFlex) {                                   // orang kantor fleksibel
+                $key = self::ABG_KEY;   $label = self::ABG_LABEL;
+            } elseif ($homeId && isset($branchName[$homeId])) {
+                $key = $homeId;         $label = $branchName[$homeId];
+            } else {
+                $key = self::NONE_KEY;  $label = self::NONE_LABEL;
+            }
+
+            $matrix[$u->id] = [
+                'nama'    => $nama,
+                'initial' => mb_strtoupper(mb_substr(trim($nama), 0, 1)),
+                'home_id' => $homeId,
+                'key'     => $key,
+                'label'   => $label,
+                'flex'    => $isFlex,
+                'cells'   => [],
+                'h' => 0, 't' => 0, 'a' => 0,
+            ];
+        }
+
         foreach ($days as $d) {
             $uid = $d->user_id;
-
-            if (! isset($matrix[$uid])) {
-                $u = $users->get($uid);
-                $nama = $u->nama ?? '—';
-                $homeId = $u->raw_branch_id ?? null;
-
-                if (isset($flex[$uid])) {                       // orang kantor fleksibel
-                    $key = self::ABG_KEY;   $label = self::ABG_LABEL;
-                } elseif ($homeId && isset($branchName[$homeId])) {
-                    $key = $homeId;         $label = $branchName[$homeId];
-                } else {
-                    $key = self::NONE_KEY;  $label = self::NONE_LABEL;
-                }
-
-                $matrix[$uid] = [
-                    'nama'    => $nama,
-                    'initial' => mb_strtoupper(mb_substr(trim($nama), 0, 1)),
-                    'home_id' => $homeId,
-                    'key'     => $key,
-                    'label'   => $label,
-                    'flex'    => isset($flex[$uid]),
-                    'cells'   => [],
-                    'h' => 0, 't' => 0, 'a' => 0,
-                ];
-            }
+            if (! isset($matrix[$uid])) continue;
 
             // "scan di cabang lain": hari ini melibatkan cabang selain cabang ASAL.
             // Pakai cabang_terlibat (semua mesin hari itu), bukan raw_branch_id saja.
