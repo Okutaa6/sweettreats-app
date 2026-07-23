@@ -588,10 +588,14 @@ Route::middleware([AuthGuard::class])->group(function () {
     Route::put('content-review/{id}', [\App\Http\Controllers\Set\ContentReviewController::class, 'update'])->name('content.review.update');
     Route::patch('content-review/{id}/approve', [\App\Http\Controllers\Set\ContentReviewController::class, 'approve'])->name('content.review.approve');
     Route::patch('content-review/{id}/reject', [\App\Http\Controllers\Set\ContentReviewController::class, 'reject'])->name('content.review.reject');
-});
 
     // CRUD - Sweet Mates (Program Rewards)
+    // Dulu route ini berada DI LUAR blok AuthGuard (indentasinya menipu: masih
+    // menjorok, tapi '});' penutup ada di atasnya) sehingga halaman daftar member
+    // KOL/KOC beserta nilai komisinya bisa dibuka SIAPA PUN tanpa login.
+    // Controllernya juga tak punya penjaga sendiri.
     Route::get('sweet-mates', [SweetMatesController::class, 'index'])->name('sweetmates');
+});
 
 Route::middleware([IsLoggedIn::class])->group(function () {
     Route::prefix('signin')->group(function () {
