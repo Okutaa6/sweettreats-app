@@ -116,9 +116,50 @@
 .redesign-absensi .fin-badge.lock  { background: #EDE4D8; color: var(--fin-ink-2); }
 .redesign-absensi .fin-chip { font-size: 11px; font-weight: 700; background: #F0E6D8; color: #7A5B43; border-radius: 6px; padding: 2px 8px; }
 
+/* ── Matriks Kehadiran ── */
+.redesign-absensi .kh-legend { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-left: auto; }
+.redesign-absensi .kh-leg { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 600; color: var(--fin-ink-2); }
+.redesign-absensi .kh-scroll { overflow-x: auto; }
+.redesign-absensi .kh-table { border-collapse: separate; border-spacing: 0; font-variant-numeric: tabular-nums; }
+.redesign-absensi .kh-table thead th {
+  background: linear-gradient(120deg, #5A2410, #3A1100); color: #FBEADB;
+  font-size: 10px; font-weight: 800; padding: 9px 0; text-align: center; position: sticky; top: 0;
+}
+.redesign-absensi .kh-day { width: 26px; min-width: 26px; }
+.redesign-absensi .kh-day.kh-wend { color: #E0B79A; }
+.redesign-absensi .kh-name-h, .redesign-absensi .kh-name {
+  position: sticky; left: 0; z-index: 2; text-align: left !important; padding-left: 16px !important; padding-right: 12px !important;
+  min-width: 168px; box-shadow: 1px 0 0 #Ebdfd0;
+}
+.redesign-absensi .kh-name-h { background: #3A1100; }
+.redesign-absensi .kh-name { background: #fff; border-top: 1px solid #F3E9DD; }
+.redesign-absensi .kh-sum-h { width: 34px; min-width: 34px; padding-left: 4px; padding-right: 4px; border-left: 1px solid #6b3a26; }
+.redesign-absensi .kh-name-t { font-size: 12.5px; font-weight: 700; color: var(--fin-ink); line-height: 1.2; }
+.redesign-absensi .kh-name-b { font-size: 10.5px; color: var(--fin-ink-3); }
+.redesign-absensi .kh-td { text-align: center; padding: 3px 0; border-top: 1px solid #F3E9DD; }
+.redesign-absensi .kh-td.kh-wend { background: #FBF6EF; }
+.redesign-absensi .kh-table tbody tr:hover td { background: #FBF7F1; }
+.redesign-absensi .kh-table tbody tr:hover .kh-name { background: #FBF7F1; }
+.redesign-absensi .kh-cell {
+  display: inline-flex; align-items: center; justify-content: center; width: 21px; height: 21px;
+  border-radius: 6px; font-size: 11px; font-weight: 800; color: #fff;
+}
+.redesign-absensi .kh-cell.kh-single { text-decoration: underline; text-underline-offset: 2px; }
+.redesign-absensi .kh-cell.s-h { background: #2F8E55; }
+.redesign-absensi .kh-cell.s-t { background: #C9962F; }
+.redesign-absensi .kh-cell.s-c { background: #3F6BAF; }
+.redesign-absensi .kh-cell.s-w { background: #2C9C8E; }
+.redesign-absensi .kh-cell.s-l { background: #B2A08E; }
+.redesign-absensi .kh-cell.s-a { background: #C0392B; }
+.redesign-absensi .kh-dot { color: #D9C7B3; font-weight: 700; }
+.redesign-absensi .kh-sum { text-align: center; font-size: 12px; font-weight: 700; color: var(--fin-ink-2); border-top: 1px solid #F3E9DD; border-left: 1px solid #F3E9DD; }
+.redesign-absensi .kh-sum.amber { color: var(--fin-amber); }
+.redesign-absensi .kh-sum.red { color: var(--fin-red); }
+
 @media (max-width: 900px) {
   .redesign-absensi .fin-kpis { grid-template-columns: repeat(2, 1fr); }
   .redesign-absensi .fin-tablewrap { overflow-x: auto; }
   .redesign-absensi .fin-table { min-width: 720px; }
   .redesign-absensi .fin-two { grid-template-columns: 1fr; }
+  .redesign-absensi .kh-legend { margin-left: 0; }
 }

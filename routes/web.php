@@ -300,6 +300,7 @@ Route::middleware([AuthGuard::class])->group(function () {
     Route::get('absensi',              [AbsensiUploadController::class, 'index'])->name('absensi.upload');
     Route::post('absensi/upload/file', [AbsensiUploadController::class, 'upload'])->name('absensi.upload.file');
     Route::get('absensi/recap',        [AbsensiRecapController::class, 'index'])->name('absensi.recap');
+    Route::get('absensi/kehadiran',    [\App\Http\Controllers\Absensi\AbsensiKehadiranController::class, 'index'])->name('absensi.kehadiran');
     Route::get('absensi/mapping',         [AbsensiMappingController::class, 'index'])->name('absensi.mapping');
     Route::post('absensi/mapping/assign', [AbsensiMappingController::class, 'assign'])->name('absensi.mapping.assign');
     Route::post('absensi/mapping/ignore', [AbsensiMappingController::class, 'ignore'])->name('absensi.mapping.ignore');
