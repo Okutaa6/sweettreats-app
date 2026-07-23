@@ -167,6 +167,23 @@
 .redesign-absensi .khx-cell { position: relative; height: 27px; border-radius: 6px; border: 1px solid rgba(0,0,0,.04); }
 .redesign-absensi .khx-cell.khx-empty { background: transparent; border: 1px dashed #E7D3BE; }
 .redesign-absensi .khx-lembur { position: absolute; top: 2px; right: 2px; width: 5px; height: 5px; border-radius: 50%; background: #B5701A; }
+/* hari itu melibatkan cabang selain cabang asal (rotasi / bantu cabang lain) */
+.redesign-absensi .khx-lain {
+  position: absolute; bottom: 0; left: 0; width: 0; height: 0;
+  border-left: 7px solid #3C5FA8; border-top: 7px solid transparent;
+  border-bottom-left-radius: 5px;
+}
+.redesign-absensi .khx-sw-lain { width: 12px; height: 12px; border-radius: 4px; background: #EDEFF6; position: relative; }
+.redesign-absensi .khx-sw-lain::after {
+  content: ''; position: absolute; bottom: 0; left: 0; width: 0; height: 0;
+  border-left: 7px solid #3C5FA8; border-top: 7px solid transparent; border-bottom-left-radius: 4px;
+}
+.redesign-absensi .khx-sep.is-abg { background: #F6F0FA; border-color: #E6DCEF; }
+.redesign-absensi .khx-sep.is-abg .khx-sep-label { color: #5B3E7A; }
+.redesign-absensi .khx-sep-note {
+  margin-left: 8px; font-size: 10px; font-weight: 600; letter-spacing: 0; text-transform: none;
+  color: #8A6A52; background: #fff; border-radius: 20px; padding: 2px 9px;
+}
 
 .redesign-absensi .khx-legend { display: flex; gap: 14px; padding: 13px 18px; background: #FCF7F0; flex-wrap: wrap; align-items: center; }
 .redesign-absensi .khx-leg { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; color: #7A5B43; }

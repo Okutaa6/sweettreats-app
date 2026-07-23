@@ -51,9 +51,10 @@
                 @foreach($branches as $b)
                     <option value="{{ $b->id }}" @selected($branchFilter === $b->id)>{{ $b->name }}</option>
                 @endforeach
+                <option value="{{ $abgKey }}" @selected($branchFilter === $abgKey)>{{ $abgLabel }}</option>
             </select>
         </div>
-        <div class="fin-count">Warna sel = status hari itu · <b class="num">{{ $summary['karyawan'] }}</b> karyawan</div>
+        <div class="fin-count">Dikelompokkan per <b>cabang asal</b> · <b class="num">{{ $summary['karyawan'] }}</b> karyawan</div>
     </form>
 
     {{-- Matriks --}}
@@ -75,8 +76,12 @@
                     </div>
 
                     @foreach($groups as $g)
-                        {{-- pembatas cabang --}}
-                        <div class="khx-sep"><span class="khx-sep-label">{{ $g['cabang'] }} · <span class="num">{{ count($g['rows']) }}</span> orang</span></div>
+                        {{-- pembatas per cabang asal --}}
+                        <div class="khx-sep {{ $g['flex'] ? 'is-abg' : '' }}">
+                            <span class="khx-sep-label">{{ $g['label'] }} · <span class="num">{{ count($g['rows']) }}</span> orang
+                                @if($g['flex'])<span class="khx-sep-note">jam bebas — scan tak dinilai</span>@endif
+                            </span>
+                        </div>
 
                         @foreach($g['rows'] as $row)
                             <div class="khx-row" style="grid-template-columns:{{ $gridCols }}">
@@ -84,7 +89,7 @@
                                     <div class="khx-av">{{ $row['initial'] }}</div>
                                     <div class="khx-name-tx">
                                         <div class="khx-nm">{{ $row['nama'] }}</div>
-                                        <div class="khx-meta">{{ $row['cabang'] }} · <span class="num khx-h">{{ $row['h'] }}</span> <span class="num khx-t">{{ $row['t'] }}</span> <span class="num khx-a">{{ $row['a'] }}</span></div>
+                                        <div class="khx-meta">{{ $row['label'] }} · <span class="num khx-h">{{ $row['h'] }}</span> <span class="num khx-t">{{ $row['t'] }}</span> <span class="num khx-a">{{ $row['a'] }}</span></div>
                                     </div>
                                 </div>
                                 @for($d = 1; $d <= $daysInMonth; $d++)
@@ -95,10 +100,12 @@
                                             $tip = $head[$d]['n'] . ' ' . $monthShort . ' · ' . $m['label']
                                                 . ($c['telat'] ? ' · telat ' . $c['telat'] . ' mnt' : '')
                                                 . ($c['lembur'] ? ' · lembur ' . round($c['lembur'] / 60, 1) . ' j' : '')
-                                                . ($c['single'] ? ' · scan tunggal' : '');
+                                                . ($c['single'] ? ' · scan tunggal' : '')
+                                                . ($c['lain'] ? ' · scan di ' . implode(', ', $c['lain']) : '');
                                         @endphp
                                         <div class="khx-cell" style="background:{{ $m['bg'] }}" title="{{ $tip }}">
                                             @if($c['lembur'])<span class="khx-lembur"></span>@endif
+                                            @if($c['lain'])<span class="khx-lain"></span>@endif
                                         </div>
                                     @else
                                         <div class="khx-cell khx-empty" title="belum ada data"></div>
@@ -116,6 +123,7 @@
                     <span class="khx-leg"><span class="khx-sw" style="background:{{ $m['bg'] }}"></span>{{ $m['label'] }}</span>
                 @endforeach
                 <span class="khx-leg"><span class="khx-sw-dot"></span>ada lembur</span>
+                <span class="khx-leg"><span class="khx-sw-lain"></span>scan di cabang lain</span>
                 <span class="khx-leg"><span class="khx-sw-dash"></span>belum ada data</span>
             </div>
         @endif
