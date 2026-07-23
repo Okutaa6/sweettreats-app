@@ -104,6 +104,121 @@ function getSidebarChild()
     }
 }
 
+/* ══════════════════════════════════════════════════════════════════════════
+   SHELL REDESIGN (2026-07) — render sidebar SATU-KOLOM dari data RBAC yang sama
+   (getGroupAccessData). Node personal (Absensi Saya / Checklist Saya / Persetujuan)
+   dibuang dari menu utama → pindah ke DROP-UP akun. Menu tetap DINAMIS per-role.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+if (!function_exists('shellPersonalMap')) {
+    /** link (segment-1) => [label tetap, ikon FontAwesome] untuk item drop-up akun. */
+    function shellPersonalMap(): array
+    {
+        return [
+            'akun'         => ['Absensi Saya',   'fas fa-calendar-check'],
+            'my-checklist' => ['Checklist Saya', 'fas fa-tasks'],
+            'persetujuan'  => ['Persetujuan',    'fas fa-check-circle'],
+        ];
+    }
+}
+
+if (!function_exists('shellCollectLeaves')) {
+    /**
+     * Kumpulkan node NAVIGABLE (leaf ber-link) di subtree, rekursif.
+     * Node yang punya anak = grup (section) → link-nya sendiri TIDAK di-emit,
+     * cuma anak-anaknya. Cocok utk tree parent→sub→child dengan link di level mana pun.
+     */
+    function shellCollectLeaves(array $node): array
+    {
+        $kids = $node['sub'] ?? $node['child'] ?? [];
+        if ($kids) {
+            $out = [];
+            foreach ($kids as $k) {
+                if (is_array($k)) $out = array_merge($out, shellCollectLeaves($k));
+            }
+            return $out;
+        }
+        $link = trim((string) ($node['link'] ?? ''));
+        if ($link === '' || $link === '-') return [];
+        return [[
+            'nama' => $node['nama'] ?? $link,
+            'link' => $link,
+            'icon' => trim((string) ($node['icon'] ?? '')),
+        ]];
+    }
+}
+
+if (!function_exists('shellAccountLinks')) {
+    /**
+     * Item personal untuk DROP-UP akun — hanya yang user punya grant-nya
+     * (dinamis, ngecek getGroupAccessData). Persetujuan dapat badge = jumlah menunggu.
+     */
+    function shellAccountLinks(): array
+    {
+        $map  = shellPersonalMap();
+        $data = getGroupAccessData();
+        if (!is_array($data)) return [];
+
+        $have = [];
+        foreach ($data as $p) {
+            if (!is_array($p)) continue;
+            foreach (shellCollectLeaves($p) as $leaf) {
+                if (isset($map[$leaf['link']])) $have[$leaf['link']] = true;
+            }
+        }
+
+        $out = [];
+        foreach ($map as $link => [$label, $icon]) {
+            if (empty($have[$link])) continue;
+            $badge = null;
+            if ($link === 'persetujuan') {
+                try {
+                    $badge = (new \App\Services\AttendanceRequestWorkflow())
+                        ->pendingFor((string) session('id'))->count() ?: null;
+                } catch (\Throwable $e) {}
+            }
+            $out[] = compact('label', 'link', 'icon', 'badge');
+        }
+        return $out;
+    }
+}
+
+if (!function_exists('shellMenuSections')) {
+    /**
+     * Menu utama single-column: daftar section {label, icon, items:[{nama,link,icon,active}]}.
+     * Node personal dibuang (pindah ke drop-up). Parent yang isinya cuma personal → section
+     * hilang sendiri. Section dengan 1 item tetap ditampilkan (label = nama parent).
+     */
+    function shellMenuSections(): array
+    {
+        $data = getGroupAccessData();
+        if (!is_array($data)) return [];
+
+        $personal   = array_keys(shellPersonalMap());
+        $controller = request()->segment(1);
+        $sections   = [];
+
+        foreach ($data as $p) {
+            if (!is_array($p)) continue;
+            $leaves = array_values(array_filter(
+                shellCollectLeaves($p),
+                fn ($l) => !in_array($l['link'], $personal, true)
+            ));
+            if (!$leaves) continue;
+
+            foreach ($leaves as &$l) { $l['active'] = ($l['link'] === $controller); }
+            unset($l);
+
+            $sections[] = [
+                'label' => $p['nama'] ?? '',
+                'icon'  => trim((string) ($p['icon'] ?? '')),
+                'items' => $leaves,
+            ];
+        }
+        return $sections;
+    }
+}
+
 /**
  * Nama halaman aktif untuk judul header — diambil dari menu (group_access)
  * berdasarkan child yang link-nya cocok dengan segment URL pertama. Konsisten
