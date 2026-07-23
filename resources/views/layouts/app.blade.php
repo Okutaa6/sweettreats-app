@@ -34,6 +34,11 @@
     <link rel="stylesheet" href="{{ asset('assets/css/themes.sweettreats.css') }}?v={{ @filemtime(public_path('assets/css/themes.sweettreats.css')) ?: '1' }}">
     {{-- Shell redesign (fondasi) — sidebar gelap global, hanya tema default. Di-load paling akhir agar menang. --}}
     <link rel="stylesheet" href="{{ asset('assets/css/shell-redesign.css') }}?v={{ @filemtime(public_path('assets/css/shell-redesign.css')) ?: '1' }}">
+    {{-- Shell single-column + drop-up akun + drawer mobile + tema --accent. Di-load SETELAH shell-redesign agar override. --}}
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ asset('assets/css/shell-menu.sweettreats.css') }}?v={{ @filemtime(public_path('assets/css/shell-menu.sweettreats.css')) ?: '1' }}">
     {{-- Modul Checklist Akreditasi — design tokens & komponen .cl-* (scoped, tidak bleed). --}}
     <link rel="stylesheet" href="{{ asset('assets/css/checklist.sweettreats.css') }}?v={{ @filemtime(public_path('assets/css/checklist.sweettreats.css')) ?: '1' }}">
     @yield('css')
@@ -83,21 +88,29 @@
     $pasienRedesign = ($currentSegment === 'rawcustomer') ? ' redesign-pasien' : '';
     // Redesign doctor — scope ke halaman doctor (rawdoctor). CSS dari list @section('css').
     $doctorRedesign = ($currentSegment === 'rawdoctor') ? ' redesign-doctor' : '';
+
+    // Akun Saya (self-service karyawan) — shell mobile-friendly, scoped body-class.
+    // CSS-nya (absensi.sweettreats.css) di-load dari view akun @section('css').
+    // Surface absensi personal (Akun Saya + Persetujuan) — reuse token & PersonalHeader.
+    $akunRedesign = in_array($currentSegment, ['akun', 'persetujuan'], true) ? ' redesign-akun' : '';
+    // Surface absensi Finance/Admin (desktop, segment 'absensi').
+    $absensiRedesign = ($currentSegment === 'absensi') ? ' redesign-absensi' : '';
 @endphp
 
-<body data-theme="{{ $bodyTheme }}" class="{{ $groupTheme }}{{ $reservasiRedesign }}{{ $pasienRedesign }}{{ $doctorRedesign }}">
+<body data-theme="{{ $bodyTheme }}" class="{{ $groupTheme }}{{ $reservasiRedesign }}{{ $pasienRedesign }}{{ $doctorRedesign }}{{ $akunRedesign }}{{ $absensiRedesign }}">
 
-    <!-- Top Bar Start -->
-    @include('layouts.header')
-    <!-- Top Bar End -->
+    <div class="app-shell">
+        <div class="sbx-scrim" id="sbxScrim"></div>
 
-    <div class="page-wrapper">
-        <!-- Left Sidenav -->
+        <!-- Sidebar (full height): brand + menu + akun/drop-up -->
         @include('layouts.sidebar')
-        <!-- end left-sidenav-->
 
-        <!-- Page Content-->
-        <div class="page-content">
+        <!-- Kolom utama: header + konten -->
+        <div class="app-main">
+            @include('layouts.header')
+
+            <!-- Page Content-->
+            <div class="page-content">
             <!-- jQuery  -->
             <script src="{{ asset('assets/js/jquery.min.js') }}"></script>
 
@@ -254,6 +267,7 @@
             <!-- footer -->
             @include('layouts.footer')
             <!-- footer -->
+            </div>
         </div>
     </div>
 </body>

@@ -26,6 +26,7 @@ class DatabaseSeeder extends Seeder
             ChecklistAccessPathSeeder::class,
             FinanceMenuSeeder::class,
             FinanceRoleSeeder::class,
+            AbsensiAccessPathSeeder::class,
         ]);
     }
 }

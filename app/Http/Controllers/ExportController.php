@@ -9,8 +9,56 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ExportController extends Controller
 {
+    /**
+     * Segmen 'export' ada di daftar $skipRbac AuthGuard, jadi RBAC dilewati
+     * SEPENUHNYA untuk route ini — padahal controller ini tak punya pemeriksaan
+     * apa pun. Siapa saja yang berhasil login bisa menarik CSV-nya.
+     *
+     * Penjaga di sini menyamakan aturannya dengan HALAMAN INDUK tempat tombol
+     * export berada (pola yang sama dengan AuthGuard: cocokkan link ke
+     * access_path milik grup). Tak dipakai hasMenuAccess() karena helper itu
+     * hanya menelusuri 3 level, sedangkan sebagian node cuma 2 level — ia bisa
+     * mengembalikan false secara diam-diam untuk orang yang sebenarnya berhak.
+     */
+    private function pastikanBolehLihat(string $link, string $namaHalaman): void
+    {
+        $boleh = DB::table('group_access as ga')
+            ->join('access_path as ap', 'ap.id', '=', 'ga.access_id')
+            ->where('ga.group_id', session('group_id'))
+            ->where('ap.link', $link)
+            ->exists();
+
+        if (! $boleh) {
+            abort(403, 'Kamu tidak punya akses ke data ' . $namaHalaman . '.');
+        }
+    }
+
+    /**
+     * Batas cabang. Yang tidak berhak lintas-cabang WAJIB punya cabang, dan
+     * datanya dikunci ke cabang itu. Sebelumnya filter cabang hanya dipasang
+     * KALAU sesi punya raw_branch_id — sehingga role kantor pusat yang tak
+     * bercabang (mis. IT, Creative, Content Creator) menarik data SELURUH
+     * cabang sepanjang masa, lengkap dengan nama & nomor telepon pasien.
+     */
+    private function batasCabang(): ?string
+    {
+        if (canSeeAllBranches()) {
+            return null;                       // memang berhak lintas cabang
+        }
+
+        $cabang = session('raw_branch_id');
+        if (! $cabang) {
+            abort(403, 'Akun ini tak terikat cabang, jadi tak bisa menarik data lintas cabang.');
+        }
+
+        return $cabang;
+    }
+
     public function reservations()
     {
+        $this->pastikanBolehLihat('rawreservation', 'reservasi');
+        $kunciCabang = $this->batasCabang();
+
         $dateFrom = request('date_from');
         $dateTo   = request('date_to');
         $branchId = request('branch');
@@ -37,9 +85,8 @@ class ExportController extends Controller
             $query->where('raw_doctor_id', $doctorId);
         }
 
-        $sessionBranch = session('raw_branch_id');
-        if ($sessionBranch) {
-            $query->where('raw_branch_id', $sessionBranch);
+        if ($kunciCabang) {
+            $query->where('raw_branch_id', $kunciCabang);
         }
 
         $reservations = $query->get();
@@ -86,6 +133,9 @@ class ExportController extends Controller
 
     public function commissions()
     {
+        // tombolnya ada di halaman Affiliate (link menu 'rawaffiliate')
+        $this->pastikanBolehLihat('rawaffiliate', 'komisi affiliate');
+
         $dateFrom = request('date_from', Carbon::now()->startOfMonth()->toDateString());
         $dateTo   = request('date_to', Carbon::now()->toDateString());
 

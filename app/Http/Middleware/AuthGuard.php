@@ -59,13 +59,17 @@ class AuthGuard
             
         if (empty($groupAccess)) { // user doesn't have access
             $landingPage = GroupPath::where('id', $group_id)->first();
-            
+
+            // landing_page = PATH segment-1 (dipakai konsisten: AuthController
+            // redirect()->to(), sini juga ->to()). Sebelumnya ->route()/getName()
+            // yang menuntut nama-route == path — pecah utk landing kayak
+            // 'my-checklist' (path) yg nama-route-nya 'mychecklist'.
             // Prevent redirect loop - if already on landing page, just deny access
-            if ($request->route()->getName() === $landingPage->landing_page) {
+            if ($request->segment(1) === $landingPage->landing_page) {
                 abort(403, 'Anda tidak memiliki akses ke halaman ini');
             }
-            
-            return redirect()->route($landingPage->landing_page)->with('error', 'Anda tidak memiliki akses ke halaman tersebut');
+
+            return redirect()->to($landingPage->landing_page)->with('error', 'Anda tidak memiliki akses ke halaman tersebut');
         }
 
         // Refresh session expiry on successful access

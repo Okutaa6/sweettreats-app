@@ -1,0 +1,200 @@
+/* ============================================================================
+   Absensi Finance/Admin (desktop) — scoped body.redesign-absensi (segment 'absensi').
+   Token cream/coklat + Plus Jakarta Sans. Duduk di dalam shell (sidebar+header).
+   ============================================================================ */
+.redesign-absensi {
+  --fin-ink: #3B1500; --fin-ink-2: #7A5B43; --fin-ink-3: #9A7256; --fin-line: #EFE0CE;
+  --fin-card: #fff; --fin-tint: #FBF3E9; --fin-brand: #461500;
+  --fin-green: #2F8E55; --fin-amber: #B5701A; --fin-red: #C0392B; --fin-blue: #3F6BAF;
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+}
+.redesign-absensi .fin-wrap { padding: 20px 24px 40px; color: var(--fin-ink); font-family: inherit; }
+.redesign-absensi .num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; }
+
+/* ── Tabs ── */
+.redesign-absensi .fin-tabs {
+  display: inline-flex; gap: 4px; background: #fff; border: 1px solid var(--fin-line);
+  border-radius: 13px; padding: 5px; margin-bottom: 18px; flex-wrap: wrap;
+}
+.redesign-absensi .fin-tab {
+  font-size: 13px; font-weight: 700; color: var(--fin-ink-2); text-decoration: none;
+  padding: 9px 16px; border-radius: 9px;
+}
+.redesign-absensi .fin-tab:hover { background: var(--fin-tint); color: var(--fin-ink); }
+.redesign-absensi .fin-tab.active { background: var(--fin-brand); color: #FFEAD6; }
+.redesign-absensi .fin-tab.disabled { color: #C7AC92; cursor: not-allowed; }
+
+/* ── KPI ── */
+.redesign-absensi .fin-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 18px; }
+.redesign-absensi .fin-kpi { background: var(--fin-card); border: 1px solid var(--fin-line); border-radius: 16px; padding: 16px 18px; }
+.redesign-absensi .fin-kpi.warn { background: #FDECE8; border-color: #F2D2CB; }
+.redesign-absensi .fin-kpi-k { font-size: 11px; font-weight: 700; letter-spacing: .4px; color: var(--fin-ink-3); }
+.redesign-absensi .fin-kpi-k.red { color: var(--fin-red); }
+.redesign-absensi .fin-kpi-v { font-size: 30px; font-weight: 800; color: var(--fin-ink); margin-top: 6px; line-height: 1; }
+.redesign-absensi .fin-kpi-v.amber { color: var(--fin-amber); }
+.redesign-absensi .fin-kpi-v.red { color: var(--fin-red); }
+.redesign-absensi .fin-kpi-u { font-size: 14px; font-weight: 700; color: #C79B7C; margin-left: 4px; }
+.redesign-absensi .fin-kpi-s { font-size: 11.5px; color: var(--fin-ink-3); margin-top: 6px; }
+
+/* ── Filter ── */
+.redesign-absensi .fin-filters {
+  display: flex; align-items: flex-end; gap: 14px; flex-wrap: wrap;
+  background: #fff; border: 1px solid var(--fin-line); border-radius: 14px; padding: 14px 16px; margin-bottom: 16px;
+}
+.redesign-absensi .fin-field { display: flex; flex-direction: column; gap: 6px; }
+.redesign-absensi .fin-field label { font-size: 10px; font-weight: 700; letter-spacing: .5px; color: var(--fin-ink-3); }
+.redesign-absensi .fin-input {
+  background: #FBF7F1; border: 1px solid var(--fin-line); border-radius: 10px; padding: 9px 12px;
+  font-family: inherit; font-size: 13px; color: var(--fin-ink); min-width: 150px;
+}
+.redesign-absensi .fin-input:focus { outline: none; background: #fff; border-color: #C9962F; }
+.redesign-absensi .fin-checkbtn {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 700; color: var(--fin-red);
+  background: #fff; border: 1px solid #F2D2CB; border-radius: 10px; padding: 9px 13px; text-decoration: none;
+}
+.redesign-absensi .fin-checkbtn:hover { background: #FBEDE9; color: var(--fin-red); }
+.redesign-absensi .fin-checkbtn.on { background: var(--fin-red); color: #fff; border-color: transparent; }
+.redesign-absensi .fin-count { margin-left: auto; font-size: 12.5px; color: var(--fin-ink-3); align-self: center; }
+
+/* ── Tabel ── */
+.redesign-absensi .fin-tablewrap { background: #fff; border: 1px solid var(--fin-line); border-radius: 16px; overflow: hidden; }
+.redesign-absensi .fin-table { width: 100%; border-collapse: collapse; }
+.redesign-absensi .fin-table thead th {
+  text-align: left; font-size: 10.5px; font-weight: 800; letter-spacing: .5px; color: #FBEADB;
+  background: linear-gradient(120deg, #5A2410, #3A1100); padding: 13px 18px;
+}
+.redesign-absensi .fin-table tbody td { padding: 13px 18px; border-top: 1px solid #F3E9DD; font-size: 13px; color: var(--fin-ink); vertical-align: top; }
+.redesign-absensi .fin-table tbody tr:hover { background: #FBF7F1; }
+.redesign-absensi .fin-table tbody tr.is-check { background: #FDF1EE; border-left: 3px solid var(--fin-red); }
+.redesign-absensi .fin-pengaju { font-weight: 700; }
+.redesign-absensi .fin-foto { font-size: 11px; color: var(--fin-ink-3); margin-top: 2px; }
+.redesign-absensi .fin-sub { font-size: 11.5px; color: var(--fin-ink-3); margin-top: 2px; }
+.redesign-absensi .fin-type { font-size: 11px; font-weight: 800; border-radius: 20px; padding: 3px 11px; background: #F0E6D8; color: #7A5B43; }
+.redesign-absensi .fin-type.t-lembur { background: #FBE7CF; color: #B5701A; }
+.redesign-absensi .fin-type.t-cuti   { background: #E4EAF5; color: #3F6BAF; }
+.redesign-absensi .fin-type.t-wfh    { background: #E3F2E9; color: #2F8E55; }
+.redesign-absensi .fin-type.t-koreksi { background: #EDE6F3; color: #6C4AA0; }
+.redesign-absensi .fin-verif { font-size: 12px; font-weight: 800; border-radius: 20px; padding: 3px 10px; margin-right: 8px; }
+.redesign-absensi .fin-verif.red   { background: #F7DDD9; color: var(--fin-red); }
+.redesign-absensi .fin-verif.green { background: #E3F2E9; color: var(--fin-green); }
+.redesign-absensi .fin-verif.gray  { background: #EDE4D8; color: var(--fin-ink-2); }
+.redesign-absensi .fin-sanding { font-size: 12.5px; color: var(--fin-ink-2); }
+.redesign-absensi .fin-sel { color: var(--fin-red); background: #F7DDD9; border-radius: 6px; padding: 1px 6px; margin-left: 4px; }
+.redesign-absensi .fin-nolembur { font-size: 12px; color: #B79A82; }
+.redesign-absensi .fin-empty { text-align: center; color: var(--fin-ink-3); padding: 28px; }
+
+/* ── Panel + form (Upload / Periode) ── */
+.redesign-absensi .fin-two { display: grid; grid-template-columns: 380px 1fr; gap: 18px; align-items: start; }
+.redesign-absensi .fin-panel { background: var(--fin-card); border: 1px solid var(--fin-line); border-radius: 16px; padding: 18px 20px; }
+.redesign-absensi .fin-panel + .fin-panel { margin-top: 16px; }
+.redesign-absensi .fin-panel-h { font-size: 15px; font-weight: 800; color: var(--fin-ink); margin: 0 0 4px; display: flex; align-items: center; gap: 8px; }
+.redesign-absensi .fin-panel-h i { color: var(--fin-ink-3); font-size: 14px; }
+.redesign-absensi .fin-panel-sub { font-size: 12.5px; color: var(--fin-ink-2); line-height: 1.55; margin: 0 0 14px; }
+.redesign-absensi .fin-form .fin-field { margin-bottom: 13px; }
+.redesign-absensi .fin-form .fin-field label { margin-bottom: 0; }
+.redesign-absensi .fin-form .fin-input { width: 100%; min-width: 0; }
+.redesign-absensi .fin-form input[type=file].fin-input { padding: 8px 10px; font-size: 12.5px; background: #FBF7F1; }
+.redesign-absensi .fin-hint { font-size: 11px; color: var(--fin-ink-3); margin-top: 5px; }
+.redesign-absensi .fin-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.redesign-absensi .fin-btn {
+  display: inline-flex; align-items: center; gap: 7px; font-family: inherit; font-size: 13px; font-weight: 700;
+  color: #FFEAD6; background: var(--fin-brand); border: 0; border-radius: 11px; padding: 10px 18px; cursor: pointer; text-decoration: none;
+}
+.redesign-absensi .fin-btn:hover { background: #5A2410; color: #FFEAD6; }
+.redesign-absensi .fin-btn-icon {
+  display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 9px;
+  border: 1px solid var(--fin-line); background: #fff; color: var(--fin-ink-2); text-decoration: none; cursor: pointer; font-size: 13px;
+}
+.redesign-absensi .fin-btn-icon:hover { background: var(--fin-tint); color: var(--fin-ink); }
+.redesign-absensi .fin-btn-danger { border-color: #F2D2CB; color: var(--fin-red); background: #fff; padding: 0 14px; height: 34px; font-size: 12.5px; font-weight: 700; border-radius: 9px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+.redesign-absensi .fin-btn-danger:hover { background: #FBEDE9; }
+.redesign-absensi .fin-note { background: var(--fin-tint); border: 1px solid var(--fin-line); border-radius: 13px; padding: 13px 15px; font-size: 12px; color: var(--fin-ink-2); line-height: 1.6; }
+.redesign-absensi .fin-note strong { color: var(--fin-ink); }
+.redesign-absensi .fin-tnum { color: var(--fin-ink-2); font-size: 12px; text-align: right; }
+.redesign-absensi .fin-warn { color: var(--fin-amber); font-weight: 700; }
+.redesign-absensi .fin-badge { font-size: 11px; font-weight: 800; border-radius: 20px; padding: 3px 11px; display: inline-flex; align-items: center; gap: 5px; }
+.redesign-absensi .fin-badge.ok    { background: #E3F2E9; color: var(--fin-green); }
+.redesign-absensi .fin-badge.lock  { background: #EDE4D8; color: var(--fin-ink-2); }
+.redesign-absensi .fin-chip { font-size: 11px; font-weight: 700; background: #F0E6D8; color: #7A5B43; border-radius: 6px; padding: 2px 8px; }
+
+/* ── Matriks Kehadiran (grid pastel, ikut handoff) ── */
+.redesign-absensi .khx-card {
+  background: #fff; border: 1px solid #EFE0CE; border-radius: 18px; overflow: hidden;
+  box-shadow: 0 1px 2px rgba(70,21,0,.04), 0 10px 26px rgba(70,21,0,.05);
+}
+.redesign-absensi .khx-scroll { overflow-x: auto; }
+.redesign-absensi .khx-inner { min-width: max-content; padding: 6px 0 2px; }
+
+.redesign-absensi .khx-head {
+  display: grid; gap: 4px; align-items: end; padding: 9px 14px;
+  background: #FBF3E9; border-bottom: 1px solid #F0E2D2; position: sticky; top: 0; z-index: 4;
+}
+.redesign-absensi .khx-head-name {
+  position: sticky; left: 0; background: #FBF3E9; z-index: 3; align-self: center;
+  font-size: 11px; font-weight: 800; letter-spacing: .5px; color: #7A5B43; padding-right: 8px;
+}
+.redesign-absensi .khx-head-day { text-align: center; line-height: 1.2; }
+.redesign-absensi .khx-dow { font-size: 9px; font-weight: 800; letter-spacing: .2px; color: #9A7256; }
+.redesign-absensi .khx-dow.sun { color: #C0392B; }
+.redesign-absensi .khx-dn { font-size: 11px; color: #5A3A22; }
+
+.redesign-absensi .khx-sep {
+  background: #FCF6EE; border-bottom: 1px solid #F0E2D2; border-top: 1px solid #F0E2D2;
+}
+.redesign-absensi .khx-sep-label {
+  position: sticky; left: 0; display: inline-block; padding: 7px 14px;
+  font-size: 11px; font-weight: 800; letter-spacing: .3px; color: #7A3415; text-transform: uppercase;
+}
+
+.redesign-absensi .khx-row { display: grid; gap: 4px; align-items: center; padding: 7px 14px; border-bottom: 1px solid #F4EADD; }
+.redesign-absensi .khx-row:hover { background: #FCF9F4; }
+.redesign-absensi .khx-name {
+  position: sticky; left: 0; background: #fff; z-index: 2; display: flex; align-items: center; gap: 9px;
+  padding-right: 10px; min-width: 0; box-shadow: 6px 0 8px -6px rgba(70,21,0,.12);
+}
+.redesign-absensi .khx-row:hover .khx-name { background: #FCF9F4; }
+.redesign-absensi .khx-av {
+  width: 30px; height: 30px; flex: none; border-radius: 50%;
+  background: linear-gradient(135deg, #7A3415, #5A2410); color: #FFE6CC;
+  display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px;
+}
+.redesign-absensi .khx-name-tx { min-width: 0; }
+.redesign-absensi .khx-nm { font-size: 12.5px; font-weight: 700; color: #3B1500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.redesign-absensi .khx-meta { font-size: 10.5px; color: #9A7256; white-space: nowrap; }
+.redesign-absensi .khx-h { color: #2F8E55; font-weight: 700; }
+.redesign-absensi .khx-t { color: #B5701A; font-weight: 700; }
+.redesign-absensi .khx-a { color: #C0392B; font-weight: 700; }
+
+.redesign-absensi .khx-cell { position: relative; height: 27px; border-radius: 6px; border: 1px solid rgba(0,0,0,.04); }
+.redesign-absensi .khx-cell.khx-empty { background: transparent; border: 1px dashed #E7D3BE; }
+.redesign-absensi .khx-lembur { position: absolute; top: 2px; right: 2px; width: 5px; height: 5px; border-radius: 50%; background: #B5701A; }
+/* hari itu melibatkan cabang selain cabang asal (rotasi / bantu cabang lain) */
+.redesign-absensi .khx-lain {
+  position: absolute; bottom: 0; left: 0; width: 0; height: 0;
+  border-left: 7px solid #3C5FA8; border-top: 7px solid transparent;
+  border-bottom-left-radius: 5px;
+}
+.redesign-absensi .khx-sw-lain { width: 12px; height: 12px; border-radius: 4px; background: #EDEFF6; position: relative; }
+.redesign-absensi .khx-sw-lain::after {
+  content: ''; position: absolute; bottom: 0; left: 0; width: 0; height: 0;
+  border-left: 7px solid #3C5FA8; border-top: 7px solid transparent; border-bottom-left-radius: 4px;
+}
+.redesign-absensi .khx-sep.is-abg { background: #F6F0FA; border-color: #E6DCEF; }
+.redesign-absensi .khx-sep.is-abg .khx-sep-label { color: #5B3E7A; }
+.redesign-absensi .khx-sep-note {
+  margin-left: 8px; font-size: 10px; font-weight: 600; letter-spacing: 0; text-transform: none;
+  color: #8A6A52; background: #fff; border-radius: 20px; padding: 2px 9px;
+}
+
+.redesign-absensi .khx-legend { display: flex; gap: 14px; padding: 13px 18px; background: #FCF7F0; flex-wrap: wrap; align-items: center; }
+.redesign-absensi .khx-leg { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; color: #7A5B43; }
+.redesign-absensi .khx-sw { width: 12px; height: 12px; border-radius: 4px; }
+.redesign-absensi .khx-sw-dot { width: 8px; height: 8px; border-radius: 50%; background: #B5701A; }
+.redesign-absensi .khx-sw-dash { width: 12px; height: 12px; border-radius: 4px; background: transparent; border: 1px dashed #E7D3BE; }
+
+@media (max-width: 900px) {
+  .redesign-absensi .fin-kpis { grid-template-columns: repeat(2, 1fr); }
+  .redesign-absensi .fin-tablewrap { overflow-x: auto; }
+  .redesign-absensi .fin-table { min-width: 720px; }
+  .redesign-absensi .fin-two { grid-template-columns: 1fr; }
+}

@@ -1,0 +1,634 @@
+/* ============================================================================
+   Absensi — re-skin scoped Karyawan HP (surface "Absensi Saya").
+   Aktif via body.redesign-akun (segment-1 'akun'). Pola pulau, sejalan
+   redesign reservasi/pasien/doctor. Token dari handoff claude.ai/design
+   (Absensi & Gaji.dc.html): cream/coklat/emas, Plus Jakarta Sans.
+   Shell (sidebar/header global) = wilayah Reza (shell-redesign.css), TIDAK disentuh.
+   ============================================================================ */
+
+.redesign-akun {
+  /* ── tokens ── */
+  --abs-bg:      #F4ECE2;
+  --abs-ink:     #3B1500;
+  --abs-ink-2:   #7A5B43;
+  --abs-ink-3:   #9A7256;
+  --abs-line:    #EFE0CE;
+  --abs-line-2:  #EADCC9;
+  --abs-card:    #ffffff;
+  --abs-tint:    #FBF3E9;
+  --abs-gold:    #C9962F;
+  --abs-brand:   #461500;
+  --abs-green:   #2F8E55;
+  --abs-amber:   #B5701A;
+  --abs-red:     #C0392B;
+  --abs-blue:    #3F6BAF;
+  --abs-head:    linear-gradient(135deg, #5A2410, #3A1100);
+  --abs-fab:     linear-gradient(135deg, #6B2400, #461500);
+  --abs-today:   linear-gradient(135deg, #FBF3E9, #F6E9D8);
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+}
+
+/* Kolom mobile terpusat — surface ini memang untuk HP. */
+.redesign-akun .absk-wrap {
+  max-width: 460px;
+  margin: 0 auto;
+  padding: 0 14px 96px;   /* konten nge-inset dari tepi (header nanti break-out full-bleed) */
+  color: var(--abs-ink);
+  font-family: inherit;
+}
+/* Mobile: 1 kolom. Desktop (>640): kiri 390 sticky | kanan daftar hari grid. */
+.redesign-akun .absk-grid { display: block; }
+.redesign-akun .absk-idmeta { flex: 1; min-width: 0; }
+.redesign-akun .absk-corrhint {
+  display: flex; align-items: center; gap: 8px; font-size: 12px; color: #B07B45;
+  background: var(--abs-tint); border: 1px solid var(--abs-line); border-radius: 12px;
+  padding: 10px 13px; margin-bottom: 12px;
+}
+@media (min-width: 641px) {
+  /* Isi melebar mengikuti ruang yang ada — desain memang begitu. Dulu dipatok
+     1180px lalu ditengahkan, jadi di layar lebar ada ~140px kosong di kiri &
+     kanan sementara daftar hari malah sempit sampai teksnya berdesakan.
+     Cap 1800px cuma buat jaga-jaga di monitor ultra-lebar. */
+  .redesign-akun .absk-wrap { max-width: 1800px; padding: 4px 26px 40px; }
+  .redesign-akun .absk-grid { display: grid; grid-template-columns: 390px minmax(0, 1fr); gap: 20px; align-items: start; }
+  .redesign-akun .absk-col-a { position: sticky; top: 84px; }
+  .redesign-akun .absk-col-b { min-width: 0; }
+  .redesign-akun .absk-head { border-radius: 20px; box-shadow: 0 10px 30px rgba(58,17,0,.18); }
+  /* daftar hari & riwayat = grid multi-kolom */
+  .redesign-akun .absk-days { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 10px; }
+  .redesign-akun .absk-reqs { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px; }
+  /* Ajukan = tombol inline di kolom kiri (bukan FAB ngambang) */
+  .redesign-akun .absk-fab { position: static; transform: none; width: 100%; box-shadow: none; margin-top: 4px; }
+}
+.redesign-akun .num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; }
+
+/* ── Header identitas (kartu coklat gradient) ── */
+/* Tombol menu di kartu + hide shell header: HANYA mobile (di desktop shell header = chrome normal). */
+.redesign-akun .absk-menu {
+  width: 38px; height: 38px; flex: none; border-radius: 11px; margin-right: 2px;
+  background: rgba(255,255,255,.13); border: none; color: #FBEADB; cursor: pointer;
+  display: none; align-items: center; justify-content: center;
+}
+.redesign-akun .absk-menu:hover { background: rgba(255,255,255,.2); }
+@media (max-width: 640px) {
+  /* PersonalHeader full-bleed edge-to-edge; konten tetap nge-inset. Shell top-bar (utility) TETAP tampil. */
+  body.redesign-akun .app-main .page-content { padding: 0; }
+  .redesign-akun .absk-head { margin: 0 -14px 14px; border-radius: 0 0 20px 20px; }
+}
+.redesign-akun .absk-head {
+  background: var(--abs-head);
+  color: #FBEADB;
+  border-radius: 20px;
+  padding: 16px 20px 18px;
+  margin-bottom: 14px;
+}
+.redesign-akun .absk-idrow { display: flex; align-items: center; gap: 12px; }
+.redesign-akun .absk-avatar {
+  width: 42px; height: 42px; flex: none; border-radius: 50%;
+  background: #7A3415; color: #FFE6CC;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 800; font-size: 16px;
+}
+.redesign-akun .absk-name  { font-size: 15px; font-weight: 800; line-height: 1.2; }
+.redesign-akun .absk-sub   { font-size: 11.5px; color: #D6A878; margin-top: 1px; }
+.redesign-akun .absk-bell  {
+  position: relative; width: 38px; height: 38px; flex: none; border-radius: 11px;
+  background: rgba(255,255,255,.13); border: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; color: #FBEADB;
+}
+.redesign-akun .absk-bell:hover { background: rgba(255,255,255,.2); }
+.redesign-akun .absk-badge {
+  position: absolute; top: 3px; right: 3px; min-width: 15px; height: 15px; padding: 0 3px;
+  border-radius: 8px; background: #E8842B; color: #fff; font-size: 9px; font-weight: 800;
+  display: flex; align-items: center; justify-content: center; border: 1.5px solid #4A1C0A;
+}
+.redesign-akun .absk-monthnav {
+  display: flex; align-items: center; justify-content: space-between; margin-top: 16px;
+}
+.redesign-akun .absk-monthnav .absk-mlabel { font-size: 16px; font-weight: 800; }
+.redesign-akun .absk-navbtn {
+  width: 32px; height: 32px; border-radius: 9px; background: rgba(255,255,255,.13);
+  border: none; color: #FBEADB; font-size: 15px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; text-decoration: none;
+}
+.redesign-akun .absk-navbtn:hover { background: rgba(255,255,255,.22); color: #FBEADB; }
+
+/* ── Chips ringkas (4 kolom) ── */
+.redesign-akun .absk-chips {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 8px;
+}
+.redesign-akun .absk-chip {
+  background: var(--abs-card); border: 1px solid var(--abs-line); border-radius: 12px;
+  padding: 9px 4px; text-align: center;
+}
+.redesign-akun .absk-chip .n { font-size: 18px; font-weight: 800; line-height: 1.1; }
+.redesign-akun .absk-chip .l { font-size: 9.5px; font-weight: 700; color: var(--abs-ink-3); letter-spacing: .2px; }
+.redesign-akun .absk-chip.is-hadir .n { color: var(--abs-green); }
+.redesign-akun .absk-chip.is-telat .n { color: var(--abs-amber); }
+.redesign-akun .absk-chip.is-alpa  .n { color: var(--abs-red); }
+.redesign-akun .absk-chip.is-cuti  .n { color: var(--abs-blue); }
+
+/* ── Dua tile (total telat / lembur) ── */
+.redesign-akun .absk-tiles { display: flex; gap: 8px; margin-bottom: 14px; }
+.redesign-akun .absk-tile {
+  flex: 1; background: var(--abs-tint); border: 1px solid var(--abs-line); border-radius: 11px;
+  padding: 8px 11px;
+}
+.redesign-akun .absk-tile .k { font-size: 10px; font-weight: 700; color: #A9866A; }
+.redesign-akun .absk-tile .v { font-size: 14px; font-weight: 800; margin-top: 1px; }
+.redesign-akun .absk-tile.telat  .v { color: var(--abs-amber); }
+.redesign-akun .absk-tile.lembur .v { color: var(--abs-green); }
+
+/* ── Kartu Hari Ini ── */
+.redesign-akun .absk-today {
+  background: var(--abs-today); border: 1px solid var(--abs-line); border-radius: 16px;
+  padding: 14px 16px; margin-bottom: 14px;
+}
+.redesign-akun .absk-today-top { display: flex; align-items: center; justify-content: space-between; }
+.redesign-akun .absk-today-lbl { font-size: 10.5px; font-weight: 800; letter-spacing: .5px; color: #A9866A; }
+.redesign-akun .absk-today-body { display: flex; align-items: flex-end; gap: 14px; margin-top: 12px; }
+.redesign-akun .absk-today-k { font-size: 9.5px; font-weight: 700; color: var(--abs-ink-3); }
+.redesign-akun .absk-today-v { font-size: 22px; font-weight: 800; color: var(--abs-ink); line-height: 1.1; }
+.redesign-akun .absk-today-arrow { padding-bottom: 5px; color: #C9AE94; font-size: 15px; }
+.redesign-akun .absk-today-late {
+  margin-left: auto; font-size: 11px; font-weight: 800; color: var(--abs-amber);
+  background: #FBE7CF; border-radius: 8px; padding: 4px 9px;
+}
+
+/* ── Toggle Harian/Kalender ── */
+/* Segmented Harian/Kalender — ikut handoff: memeluk isinya (align-self:flex-start),
+   bukan melebar penuh. Angka persis dari segM() di desain. */
+.redesign-akun .absk-seg {
+  display: inline-flex; align-self: flex-start; background: var(--abs-card);
+  border: 1px solid var(--abs-line-2); border-radius: 12px; padding: 4px; gap: 3px; margin-bottom: 12px;
+}
+.redesign-akun .absk-seg button {
+  border: none; background: transparent; cursor: pointer;
+  font-family: inherit; font-size: 12.5px; font-weight: 700; color: #7A5B43;
+  padding: 9px 22px; border-radius: 9px; line-height: 1.2;
+}
+.redesign-akun .absk-seg button.active { background: #3A1100; color: #FFE6CC; }
+
+/* ── Banner koreksi (hint) ── */
+.redesign-akun .absk-hint {
+  display: flex; align-items: center; gap: 7px; font-size: 11px; color: #B07B45;
+  background: var(--abs-tint); border: 1px solid var(--abs-line); border-radius: 10px;
+  padding: 8px 11px; margin-bottom: 10px;
+}
+
+/* ── Baris hari (Harian) ── */
+.redesign-akun .absk-days { display: flex; flex-direction: column; gap: 7px; }
+.redesign-akun .absk-dayrow {
+  display: flex; align-items: center; gap: 9px; background: var(--abs-card);
+  border: 1px solid var(--abs-line); border-radius: 12px; padding: 9px 11px;
+  border-left: 3px solid var(--abs-line);
+  cursor: pointer; transition: background .12s ease;
+}
+/* baris hari bisa diklik utk lapor koreksi → kasih umpan balik hover (desain: .rrow:hover) */
+.redesign-akun .absk-dayrow:hover { background: #FBF4EC; }
+.redesign-akun .absk-dayrow:focus-visible { outline: 2px solid #C9962F; outline-offset: 2px; }
+.redesign-akun .absk-dayrow.s-hadir { border-left-color: var(--abs-green); }
+.redesign-akun .absk-dayrow.s-telat { border-left-color: var(--abs-amber); }
+.redesign-akun .absk-dayrow.s-alpa  { border-left-color: var(--abs-red); }
+.redesign-akun .absk-dayrow.s-cuti,
+.redesign-akun .absk-dayrow.s-izin,
+.redesign-akun .absk-dayrow.s-wfh   { border-left-color: var(--abs-blue); }
+.redesign-akun .absk-dayrow.s-libur { border-left-color: #C9AE94; }
+.redesign-akun .absk-date { width: 34px; flex: none; text-align: center; }
+.redesign-akun .absk-date .d   { font-size: 15.5px; font-weight: 800; color: var(--abs-ink); line-height: 1; }
+.redesign-akun .absk-date .dow { font-size: 9.5px; color: var(--abs-ink-3); font-weight: 600; line-height: 1.3; }
+/* satu baris saja: di 3 kolom, "telat 11 mnt" sempat turun baris dan bikin
+   tinggi kartu tak seragam (gridnya jadi bergerigi). */
+.redesign-akun .absk-daymid {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px;
+  white-space: nowrap; overflow: hidden;
+}
+.redesign-akun .absk-daylate { margin-left: 0; font-size: 10.5px; font-weight: 700; color: var(--abs-amber); min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.redesign-akun .absk-dayjam { flex: none; font-size: 11px; color: var(--abs-ink-2); font-weight: 600; text-align: right; white-space: nowrap; }
+.redesign-akun .absk-daymid .absk-pill { flex: none; }
+
+/* ── Pill status ── */
+.redesign-akun .absk-pill {
+  display: inline-block; font-size: 11px; font-weight: 800; border-radius: 20px; padding: 3px 10px;
+}
+.redesign-akun .absk-pill.s-hadir { background: #E3F2E9; color: #2F8E55; }
+.redesign-akun .absk-pill.s-telat { background: #FBE7CF; color: #B5701A; }
+.redesign-akun .absk-pill.s-alpa  { background: #F7DDD9; color: #C0392B; }
+.redesign-akun .absk-pill.s-cuti,
+.redesign-akun .absk-pill.s-izin,
+.redesign-akun .absk-pill.s-wfh   { background: #E4EAF5; color: #3F6BAF; }
+.redesign-akun .absk-pill.s-libur { background: #EDE4D8; color: #7A5B43; }
+
+/* ── Seksi + Riwayat permohonan ── */
+.redesign-akun .absk-sechead {
+  font-size: 11px; font-weight: 800; letter-spacing: .4px; color: var(--abs-ink-2);
+  margin: 18px 2px 8px;
+}
+.redesign-akun .absk-reqs { display: flex; flex-direction: column; gap: 7px; }
+.redesign-akun .absk-reqcard {
+  display: flex; align-items: center; gap: 10px; background: var(--abs-card);
+  border: 1px solid var(--abs-line); border-radius: 12px; padding: 11px 13px;
+  text-decoration: none; color: inherit; transition: box-shadow .16s ease, transform .16s ease;
+}
+.redesign-akun .absk-reqcard:hover { box-shadow: 0 8px 20px rgba(70,21,0,.09); transform: translateY(-1px); }
+.redesign-akun .absk-reqmid { flex: 1; min-width: 0; }
+.redesign-akun .absk-reqdate { font-size: 12.5px; font-weight: 700; color: var(--abs-ink); }
+.redesign-akun .absk-reqreason { font-size: 11px; color: var(--abs-ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.redesign-akun .absk-type {
+  font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .3px;
+  border-radius: 7px; padding: 3px 8px; background: #F0E6D8; color: #7A5B43;
+}
+.redesign-akun .absk-chev { flex: none; color: #C9AE94; }
+.redesign-akun .absk-empty { text-align: center; color: var(--abs-ink-3); font-size: 12.5px; padding: 22px 0; }
+
+/* ── FAB Ajukan ── */
+.redesign-akun .absk-fab {
+  position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
+  width: min(432px, calc(100% - 28px)); z-index: 40;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  background: var(--abs-fab); color: #FFEAD6; border: none; border-radius: 14px;
+  padding: 14px; font-weight: 800; font-size: 14.5px; font-family: inherit; cursor: pointer;
+  box-shadow: 0 10px 24px rgba(70,21,0,.32); text-decoration: none;
+}
+.redesign-akun .absk-fab:hover { color: #FFEAD6; filter: brightness(1.05); }
+.redesign-akun .absk-fab .plus { font-size: 18px; line-height: 1; }
+
+/* ── Form Ajukan Permohonan ── */
+.redesign-akun .absk-formhead { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.redesign-akun .absk-back {
+  width: 38px; height: 38px; flex: none; border-radius: 11px; border: 1px solid var(--abs-line);
+  background: #fff; display: flex; align-items: center; justify-content: center; color: var(--abs-ink-2); text-decoration: none;
+}
+.redesign-akun .absk-back:hover { background: var(--abs-tint); color: var(--abs-ink); }
+.redesign-akun .absk-formtitle { font-size: 18px; font-weight: 800; color: var(--abs-ink); }
+.redesign-akun .absk-card { background: var(--abs-card); border: 1px solid var(--abs-line); border-radius: 16px; padding: 16px; }
+.redesign-akun .absk-field { margin-bottom: 14px; }
+.redesign-akun .absk-field:last-child { margin-bottom: 0; }
+.redesign-akun .absk-lbl { display: block; font-size: 10.5px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; color: #A9866A; margin-bottom: 6px; }
+.redesign-akun .absk-lbl .req { color: var(--abs-red); }
+.redesign-akun .absk-lbl-note { font-weight: 600; color: #B79A82; text-transform: none; letter-spacing: 0; }
+
+/* chip Jenis / sub-jenis */
+.redesign-akun .absk-jchips { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; }
+.redesign-akun .absk-jchips.two { grid-template-columns: 1fr 1fr; }
+.redesign-akun .absk-jchip {
+  border: 1px solid var(--abs-line); background: #fff; border-radius: 11px; padding: 10px 8px;
+  font-family: inherit; font-size: 12.5px; font-weight: 700; color: var(--abs-ink-2); cursor: pointer;
+  text-align: center; transition: background .12s, color .12s, border-color .12s;
+}
+.redesign-akun .absk-jchip:hover { border-color: #D9C3A8; }
+.redesign-akun .absk-jchip.active { background: var(--abs-brand); color: #fff; border-color: transparent; }
+/* grid tanggal + jam */
+.redesign-akun .absk-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+/* durasi lembur */
+.redesign-akun .absk-durbox {
+  background: var(--abs-tint); border: 1px solid var(--abs-line); border-radius: 11px; padding: 11px 14px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.redesign-akun .absk-durbox > span:first-child { font-size: 12.5px; color: var(--abs-ink-2); font-weight: 600; }
+.redesign-akun .absk-durbox .num { font-size: 15px; font-weight: 800; color: var(--abs-amber); }
+/* info kuota WFH (hijau) */
+.redesign-akun .absk-wfhinfo {
+  display: flex; gap: 10px; align-items: center; background: #DFEDE9; border: 1px solid #BFE0D8;
+  border-radius: 12px; padding: 11px 14px; font-size: 12px; color: #2E7D74; line-height: 1.4;
+}
+/* drop-zone foto */
+.redesign-akun .absk-dropzone {
+  border: 2px dashed #DCC8B0; border-radius: 12px; background: var(--abs-tint); padding: 20px;
+  display: flex; align-items: center; justify-content: center; gap: 9px; cursor: pointer;
+  font-size: 12.5px; font-weight: 700; color: #A07C5E; text-align: center;
+}
+.redesign-akun .absk-dropzone:hover { border-color: var(--abs-gold); }
+.redesign-akun .absk-dropzone.has { border-color: #2F8E55; color: #2F8E55; background: #E8F3EC; }
+.redesign-akun .absk-input,
+.redesign-akun .absk-select,
+.redesign-akun .absk-textarea {
+  width: 100%; background: #FBF7F1; border: 1px solid var(--abs-line); border-radius: 11px; padding: 11px 13px;
+  font-family: inherit; font-size: 14px; color: var(--abs-ink); transition: border-color .12s, background .12s;
+}
+.redesign-akun .absk-input:focus,
+.redesign-akun .absk-select:focus,
+.redesign-akun .absk-textarea:focus { outline: none; background: #fff; border-color: var(--abs-gold); }
+.redesign-akun .absk-textarea { resize: vertical; min-height: 76px; }
+.redesign-akun .absk-row { display: flex; gap: 10px; }
+.redesign-akun .absk-row .absk-field { flex: 1; }
+.redesign-akun .absk-hint { font-size: 11px; color: var(--abs-ink-3); margin-top: 5px; }
+.redesign-akun .absk-hint.warn { color: var(--abs-amber); font-weight: 600; }
+.redesign-akun .absk-prefill {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 700; color: #8A3A12;
+  background: var(--abs-tint); border: 1px solid var(--abs-line); border-radius: 9px; padding: 8px 12px; cursor: pointer;
+}
+.redesign-akun .absk-prefill:hover { filter: brightness(.98); }
+.redesign-akun .absk-file { width: 100%; font-size: 13px; color: var(--abs-ink-2); }
+.redesign-akun .absk-submit {
+  width: 100%; margin-top: 16px; display: flex; align-items: center; justify-content: center; gap: 8px;
+  background: var(--abs-fab); color: #FFEAD6; border: none; border-radius: 12px; padding: 13px;
+  font-weight: 800; font-size: 14.5px; font-family: inherit; cursor: pointer;
+}
+.redesign-akun .absk-submit:hover { filter: brightness(1.05); }
+
+/* ── Fields wrapper (dipakai drawer + page) ── */
+.redesign-akun .absk-ajfields { display: flex; flex-direction: column; gap: 16px; }
+.redesign-akun .absk-ajfields .absk-field { margin-bottom: 0; }
+.redesign-akun .absk-ajfooter { display: flex; gap: 10px; margin-top: 16px; }
+.redesign-akun .absk-ajfooter .absk-submit { margin-top: 0; flex: 1; }
+.redesign-akun .absk-submit:disabled { background: #D8C3AE; cursor: not-allowed; filter: none; }
+.redesign-akun .absk-batal {
+  background: #fff; color: #5A3A22; border: 1px solid #E7D3BE; border-radius: 12px; padding: 13px 18px;
+  font-weight: 700; font-size: 13.5px; font-family: inherit; cursor: pointer;
+}
+.redesign-akun .absk-batal:hover { background: var(--abs-tint); }
+.redesign-akun .absk-wfhwarn {
+  display: flex; gap: 10px; background: #FBEDE9; border: 1px solid #F2D2CB; border-radius: 12px;
+  padding: 13px 15px; font-size: 12.5px; color: #C0392B; line-height: 1.5;
+}
+
+/* ── Drawer Ajukan (slide dari kanan) ── */
+.redesign-akun .absk-ajscrim { display: none; position: fixed; inset: 0; background: rgba(40,12,0,.42); z-index: 1050; }
+body.absk-ajopen .absk-ajscrim { display: block; animation: absk-fade .18s ease; }
+.redesign-akun .absk-ajdrawer {
+  position: fixed; top: 0; right: 0; bottom: 0; width: 520px; max-width: 96vw; background: #FBF5EE;
+  z-index: 1051; display: flex; flex-direction: column; box-shadow: -12px 0 40px rgba(40,12,0,.28);
+  transform: translateX(100%); transition: transform .26s cubic-bezier(.2,.8,.2,1);
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+}
+body.absk-ajopen .absk-ajdrawer { transform: translateX(0); }
+.redesign-akun .absk-ajhead {
+  display: flex; align-items: center; gap: 13px; padding: 18px 24px; flex: none;
+  background: linear-gradient(120deg, #5A2410, #3A1100); color: #FBEADB;
+}
+.redesign-akun .absk-ajhead-icon {
+  width: 38px; height: 38px; flex: none; border-radius: 11px; background: rgba(255,255,255,.12);
+  display: flex; align-items: center; justify-content: center; font-size: 20px;
+}
+.redesign-akun .absk-ajhead-tx { flex: 1; min-width: 0; }
+.redesign-akun .absk-ajhead-sub { font-size: 11px; font-weight: 700; letter-spacing: .8px; color: #D6A878; }
+.redesign-akun .absk-ajhead-title { font-size: 19px; font-weight: 800; line-height: 1.2; }
+.redesign-akun .absk-ajclose {
+  width: 32px; height: 32px; flex: none; border-radius: 9px; background: rgba(255,255,255,.12);
+  border: none; color: #FBEADB; font-size: 16px; cursor: pointer; font-family: inherit;
+}
+.redesign-akun .absk-ajclose:hover { background: rgba(255,255,255,.2); }
+/* form = badan drawer yg nge-scroll, footer nempel bawah */
+.redesign-akun .absk-ajdrawer .absk-ajform { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.redesign-akun .absk-ajdrawer .absk-ajfields { flex: 1; overflow-y: auto; padding: 22px 24px; gap: 20px; }
+.redesign-akun .absk-ajdrawer .absk-ajfooter {
+  margin-top: 0; flex: none; padding: 16px 24px; border-top: 1px solid #EDDFCE; background: #FBF5EE;
+}
+@keyframes absk-fade { from { opacity: 0; } to { opacity: 1; } }
+
+/* Mobile: drawer full-width */
+@media (max-width: 640px) {
+  .redesign-akun .absk-ajdrawer { width: 100%; max-width: 100%; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Override RESPONSIF — sengaja di AKHIR file biar menang atas rule base di atas
+   (base .absk-days/.absk-reqs/.absk-fab/.absk-head ada setelah blok media awal).
+   ══════════════════════════════════════════════════════════════════════════ */
+@media (min-width: 641px) {
+  /* Daftar hari & riwayat = grid multi-kolom di desktop */
+  /* Daftar hari: 2 kolom, naik jadi 3 di layar lega — desain memang 3 kolom (gap 9px).
+     Pakai jumlah kolom pasti, bukan auto-fill: dgn auto-fill lebar min tiap kartu
+     bikin hasilnya nyangkut di 2 kolom padahal ruangnya cukup. */
+  .redesign-akun .absk-days { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+  .redesign-akun .absk-reqs { display: grid !important; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px; }
+  /* Ajukan = tombol inline di kolom kiri (bukan FAB ngambang) */
+  .redesign-akun .absk-fab { position: static !important; transform: none !important; width: 100% !important; box-shadow: none; margin-top: 4px; }
+}
+@media (max-width: 640px) {
+  /* PersonalHeader full-bleed edge-to-edge (top lurus, bawah rounded) */
+  .redesign-akun .absk-head { margin: 0 -14px 14px !important; border-radius: 0 0 20px 20px !important; }
+}
+
+/* ── Kalender bulanan (toggle Kalender) ── */
+/* Kalender — ikut handoff: kisi rapat (tanpa gap), sel TINGGI TETAP 46px.
+   Dulu pakai aspect-ratio 1/1 → di kolom lebar, sel jadi kotak ~120px dan
+   kalendernya membengkak memenuhi layar. */
+.redesign-akun .absk-cal {
+  display: grid; grid-template-columns: repeat(7, 1fr); gap: 0;
+  background: var(--abs-card); border: 1px solid var(--abs-line); border-radius: 14px; overflow: hidden;
+}
+.redesign-akun .absk-cal-dow {
+  text-align: center; font-size: 10px; font-weight: 800; color: #7A5B43;
+  padding: 9px 0; background: #FBF3E9; border-bottom: 1px solid #F0E2D2;
+}
+.redesign-akun .absk-cal-cell {
+  position: relative; height: 46px; background: #fff; border: 1px solid #F0E2D2;
+  display: flex; align-items: center; justify-content: center;
+}
+.redesign-akun .absk-cal-cell.empty { background: #FAF4EC; }
+/* sel yang ada datanya bisa diklik utk lapor koreksi — kasih umpan balik */
+.redesign-akun .absk-cal-cell.is-klik { cursor: pointer; transition: filter .12s ease; }
+.redesign-akun .absk-cal-cell.is-klik:hover { filter: brightness(.95); }
+.redesign-akun .absk-cal-cell.is-klik:focus-visible { outline: 2px solid #C9962F; outline-offset: -2px; }
+.redesign-akun .absk-cal-num { font-size: 12.5px; font-weight: 800; color: var(--abs-ink); font-variant-numeric: tabular-nums; }
+/* titik kecil = hari itu ada telat (ikut desain) */
+.redesign-akun .absk-cal-dot { position: absolute; bottom: 5px; width: 4px; height: 4px; border-radius: 50%; background: #B5701A; }
+/* tint sel + warna dot per status */
+.redesign-akun .absk-cal-cell.s-hadir { background: #E3F2E9; }
+.redesign-akun .absk-cal-cell.s-telat { background: #FBE7CF; }
+.redesign-akun .absk-cal-cell.s-alpa  { background: #F7DDD9; }
+.redesign-akun .absk-cal-cell.s-cuti,
+.redesign-akun .absk-cal-cell.s-izin,
+.redesign-akun .absk-cal-cell.s-wfh   { background: #E4EAF5; }
+.redesign-akun .absk-cal-cell.s-libur { background: #EDE4D8; }
+.redesign-akun .absk-cal-dot.s-hadir, .redesign-akun .absk-leg-dot.s-hadir { background: #2F8E55; }
+.redesign-akun .absk-cal-dot.s-telat, .redesign-akun .absk-leg-dot.s-telat { background: #B5701A; }
+.redesign-akun .absk-cal-dot.s-alpa,  .redesign-akun .absk-leg-dot.s-alpa  { background: #C0392B; }
+.redesign-akun .absk-cal-dot.s-cuti,  .redesign-akun .absk-leg-dot.s-cuti,
+.redesign-akun .absk-cal-dot.s-izin,  .redesign-akun .absk-leg-dot.s-izin,
+.redesign-akun .absk-cal-dot.s-wfh,   .redesign-akun .absk-leg-dot.s-wfh   { background: #3F6BAF; }
+.redesign-akun .absk-cal-dot.s-libur, .redesign-akun .absk-leg-dot.s-libur { background: #7A5B43; }
+/* legend */
+.redesign-akun .absk-cal-legend { display: flex; flex-wrap: wrap; gap: 8px 14px; margin-top: 12px; padding: 0 2px; }
+.redesign-akun .absk-leg { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: var(--abs-ink-2); }
+.redesign-akun .absk-leg-dot { width: 10px; height: 10px; border-radius: 3px; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Surface APPROVER (Inbox Persetujuan) — reuse PersonalHeader (.absk-head),
+   pill (.absk-pill), tokens; komponen sendiri .appr-*.
+   ══════════════════════════════════════════════════════════════════════════ */
+.redesign-akun .appr-title { font-size: 20px; font-weight: 800; letter-spacing: .2px; color: #FBEADB; margin-top: 12px; }
+/* tab di dalam header gelap */
+.redesign-akun .appr-tabs { background: rgba(0,0,0,.22) !important; border: none !important; margin-top: 12px; }
+.redesign-akun .appr-tabs button { color: #E6C09B; }
+.redesign-akun .appr-tabs button.active { background: #FBF5EE; color: #3B1500; }
+.redesign-akun .appr-tabbadge { margin-left: 6px; background: #E8842B; color: #fff; border-radius: 20px; padding: 1px 7px; font-size: 11px; font-weight: 800; }
+
+/* grid kartu */
+.redesign-akun .appr-grid { display: flex; flex-direction: column; gap: 12px; }
+@media (min-width: 641px) {
+  .redesign-akun .appr-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 14px; align-items: start; }
+}
+.redesign-akun .appr-card {
+  background: var(--abs-card); border: 1px solid var(--abs-line); border-radius: 16px; padding: 15px 16px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.redesign-akun .appr-card.is-check { border-left: 3px solid var(--abs-red); }
+.redesign-akun .appr-card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.redesign-akun .appr-name { font-size: 15px; font-weight: 800; color: var(--abs-ink); }
+.redesign-akun .appr-branch { font-size: 11.5px; color: var(--abs-ink-3); margin-top: 1px; }
+
+.redesign-akun .appr-meta { display: flex; flex-wrap: wrap; gap: 6px; }
+.redesign-akun .appr-aging { font-size: 11.5px; font-weight: 600; color: var(--abs-amber); background: var(--abs-tint); border-radius: 8px; padding: 3px 9px; }
+.redesign-akun .appr-chain { font-size: 11.5px; font-weight: 600; color: var(--abs-ink-2); background: var(--abs-tint); border-radius: 8px; padding: 3px 9px; }
+.redesign-akun .appr-chain.final { color: #2F8E55; background: #E3F2E9; }
+
+.redesign-akun .appr-chips { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.redesign-akun .appr-chip { font-size: 12px; font-weight: 600; color: var(--abs-ink-2); background: #FBF7F1; border: 1px solid var(--abs-line); border-radius: 8px; padding: 5px 10px; }
+.redesign-akun .appr-photo { margin-left: auto; width: 34px; height: 34px; border-radius: 9px; background: #F0E6D8; color: #7A5B43; display: flex; align-items: center; justify-content: center; text-decoration: none; }
+
+.redesign-akun .appr-reason { font-size: 13px; color: var(--abs-ink-2); line-height: 1.5; font-style: italic; }
+
+/* sanding-scan bar */
+.redesign-akun .appr-sanding { background: #FBF3E9; border: 1px solid var(--abs-line); border-radius: 12px; padding: 11px 13px; }
+.redesign-akun .appr-sanding.warn { background: #FBEDE9; border-color: #F2D2CB; }
+.redesign-akun .appr-sanding-top { display: flex; align-items: center; justify-content: space-between; font-size: 12px; font-weight: 800; }
+.redesign-akun .appr-sanding-verif { color: var(--abs-ink-2); }
+.redesign-akun .appr-sanding.warn .appr-sanding-verif { color: var(--abs-red); }
+.redesign-akun .appr-sanding-sel { color: var(--abs-red); }
+.redesign-akun .appr-sanding-vals { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--abs-ink-2); margin-top: 6px; }
+.redesign-akun .appr-bar { height: 7px; background: #EADCC9; border-radius: 20px; margin-top: 7px; overflow: hidden; }
+.redesign-akun .appr-bar-fill { height: 100%; background: var(--abs-green); border-radius: 20px; }
+.redesign-akun .appr-sanding.warn .appr-bar-fill { background: var(--abs-amber); }
+
+/* form aksi */
+.redesign-akun .appr-form { margin-top: 2px; }
+.redesign-akun .appr-note { width: 100%; background: #FBF7F1; border: 1px solid var(--abs-line); border-radius: 10px; padding: 9px 12px; font-family: inherit; font-size: 12.5px; color: var(--abs-ink); margin-bottom: 9px; }
+.redesign-akun .appr-note:focus { outline: none; background: #fff; border-color: var(--abs-gold); }
+.redesign-akun .appr-actions { display: flex; gap: 9px; }
+.redesign-akun .appr-approve { flex: 1; display: flex; align-items: center; justify-content: center; gap: 7px; background: #3FA76A; color: #fff; border: none; border-radius: 11px; padding: 11px; font-family: inherit; font-weight: 800; font-size: 13.5px; cursor: pointer; }
+.redesign-akun .appr-approve:hover { filter: brightness(1.04); }
+.redesign-akun .appr-reject { background: #fff; color: var(--abs-red); border: 1px solid #F2D2CB; border-radius: 11px; padding: 11px 18px; font-family: inherit; font-weight: 700; font-size: 13px; cursor: pointer; }
+.redesign-akun .appr-reject:hover { background: #FBEDE9; }
+
+/* riwayat card */
+.redesign-akun .appr-card.done { gap: 8px; }
+.redesign-akun .appr-done-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.redesign-akun .appr-reason-sm { font-size: 12px; color: var(--abs-ink-3); font-style: italic; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ── Drawer detail riwayat + timeline rantai ── */
+.redesign-akun .absk-dtscrim { display: none; position: fixed; inset: 0; background: rgba(40,12,0,.42); z-index: 1050; }
+body.absk-dtopen .absk-dtscrim { display: block; animation: absk-fade .18s ease; }
+.redesign-akun .absk-dtdrawer {
+  position: fixed; top: 0; right: 0; bottom: 0; width: 480px; max-width: 96vw; background: #FBF5EE;
+  z-index: 1051; display: flex; flex-direction: column; box-shadow: -12px 0 40px rgba(40,12,0,.28);
+  transform: translateX(100%); transition: transform .26s cubic-bezier(.2,.8,.2,1);
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+}
+body.absk-dtopen .absk-dtdrawer { transform: translateX(0); }
+.redesign-akun .absk-dtbody { flex: 1; overflow-y: auto; padding: 20px 22px; }
+@media (max-width: 640px) { .redesign-akun .absk-dtdrawer { width: 100%; max-width: 100%; } }
+
+.redesign-akun .rdt-sum { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
+.redesign-akun .rdt-info { display: flex; flex-direction: column; gap: 8px; }
+.redesign-akun .rdt-row { display: flex; gap: 10px; font-size: 13px; }
+.redesign-akun .rdt-k { flex: none; width: 62px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: #A9866A; padding-top: 2px; }
+.redesign-akun .rdt-row > span:last-child, .redesign-akun .rdt-row > a { color: var(--abs-ink); min-width: 0; }
+.redesign-akun .rdt-sechead { font-size: 11px; font-weight: 800; letter-spacing: .4px; color: var(--abs-ink-2); margin: 20px 0 12px; }
+.redesign-akun .rdt-timeline { display: flex; flex-direction: column; }
+.redesign-akun .rdt-node { display: flex; gap: 12px; padding-bottom: 16px; position: relative; }
+.redesign-akun .rdt-node:not(:last-child)::before { content: ''; position: absolute; left: 5px; top: 15px; bottom: 0; width: 2px; background: var(--abs-line); }
+.redesign-akun .rdt-dot { width: 12px; height: 12px; border-radius: 50%; flex: none; margin-top: 1px; background: var(--abs-line); box-shadow: 0 0 0 3px #FBF5EE; z-index: 1; }
+.redesign-akun .rdt-node.s-disetujui .rdt-dot { background: var(--abs-green); }
+.redesign-akun .rdt-node.s-ditolak .rdt-dot { background: var(--abs-red); }
+.redesign-akun .rdt-node.s-menunggu .rdt-dot { background: var(--abs-amber); }
+.redesign-akun .rdt-nbody { flex: 1; min-width: 0; }
+.redesign-akun .rdt-lvl { font-size: 12px; font-weight: 800; color: var(--abs-ink); }
+.redesign-akun .rdt-node.s-disetujui .rdt-state { color: var(--abs-green); }
+.redesign-akun .rdt-node.s-ditolak .rdt-state { color: var(--abs-red); }
+.redesign-akun .rdt-node.s-menunggu .rdt-state { color: var(--abs-amber); }
+.redesign-akun .rdt-names { font-size: 13px; color: var(--abs-ink); margin-top: 1px; }
+.redesign-akun .rdt-by { font-size: 11.5px; color: var(--abs-ink-3); margin-top: 2px; }
+.redesign-akun .rdt-note { font-size: 12px; color: var(--abs-ink-2); font-style: italic; margin-top: 3px; }
+.redesign-akun .absk-reqcard[data-detail] { cursor: pointer; }
+
+/* ══ Modal Koreksi Absensi (ikut handoff: kartu 440px di tengah) ═══════════ */
+.redesign-akun .absk-korwrap {
+  display: none; position: fixed; inset: 0; z-index: 1051; padding: 20px;
+  background: rgba(40,12,0,.5); align-items: center; justify-content: center;
+}
+body.absk-koropen .absk-korwrap { display: flex; animation: absk-fade .18s ease; }
+.redesign-akun .absk-korcard {
+  width: 440px; max-width: 100%; max-height: calc(100vh - 40px); overflow-y: auto;
+  background: #FBF5EE; border-radius: 20px; box-shadow: 0 30px 70px rgba(40,12,0,.4);
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+}
+
+/* kepala coklat: label + tanggal + status tercatat */
+.redesign-akun .absk-korhead { padding: 18px 22px; background: linear-gradient(120deg,#5A2410,#3A1100); color: #FBEADB; }
+.redesign-akun .absk-korhead-lbl { font-size: 11px; font-weight: 700; letter-spacing: .6px; color: #D6A878; }
+.redesign-akun .absk-korhead-tgl { font-size: 18px; font-weight: 800; margin-top: 4px; }
+.redesign-akun .absk-korhead-now { display: flex; align-items: center; gap: 9px; margin-top: 9px; flex-wrap: wrap; }
+.redesign-akun .absk-korhead-jam { font-size: 12px; color: #D6A878; }
+
+.redesign-akun .absk-korbody { padding: 18px 22px 20px; }
+.redesign-akun .absk-korlbl { display: block; font-size: 10.5px; font-weight: 700; letter-spacing: .5px; color: #A9866A; }
+.redesign-akun .absk-korlbl.mt { margin-top: 15px; }
+.redesign-akun .absk-req { color: #C0392B; }
+
+/* pilihan "apa yang keliru?" */
+.redesign-akun .absk-korreasons { display: flex; flex-direction: column; gap: 8px; margin-top: 9px; }
+.redesign-akun .absk-korchip { display: block; cursor: pointer; }
+.redesign-akun .absk-korchip input { position: absolute; opacity: 0; pointer-events: none; }
+.redesign-akun .absk-korchip span {
+  display: block; text-align: left; background: #fff; color: #5A3A22; border: 1.5px solid #E7D3BE;
+  border-radius: 10px; padding: 11px 13px; font-weight: 700; font-size: 12.5px;
+  transition: background .12s, border-color .12s, color .12s;
+}
+.redesign-akun .absk-korchip:hover span { border-color: #C9962F; }
+.redesign-akun .absk-korchip input:checked + span { background: #6B2400; color: #FBEADB; border-color: #6B2400; }
+.redesign-akun .absk-korchip input:focus-visible + span { outline: 2px solid #C9962F; outline-offset: 2px; }
+
+.redesign-akun .absk-kortextarea {
+  width: 100%; margin-top: 6px; min-height: 66px; resize: vertical; box-sizing: border-box;
+  border: 1px solid #E7D3BE; border-radius: 12px; padding: 11px; background: #fff;
+  font-family: inherit; font-size: 13px; color: #3B1500;
+}
+.redesign-akun .absk-kortextarea:focus { outline: none; border-color: #C9962F; }
+
+/* zona foto */
+.redesign-akun .absk-korfoto {
+  margin-top: 12px; border: 2px dashed #E2C8A8; border-radius: 12px; background: #FBF3E9;
+  padding: 14px; display: flex; align-items: center; justify-content: center; gap: 9px; cursor: pointer;
+  font-size: 12.5px; font-weight: 700; color: #9A7256;
+}
+.redesign-akun .absk-korfoto.is-on { border-color: #9FD4B0; background: #EAF6EE; color: #2F8E55; }
+.redesign-akun .absk-korfoto-tick { color: #2F8E55; font-size: 15px; }
+
+/* tombol */
+.redesign-akun .absk-korbtns { display: flex; gap: 10px; margin-top: 16px; }
+.redesign-akun .absk-korsubmit {
+  flex: 1; background: linear-gradient(135deg,#6B2400,#461500); color: #FFEAD6; border: none;
+  border-radius: 11px; padding: 12px; font-weight: 800; font-size: 13.5px; font-family: inherit; cursor: pointer;
+}
+.redesign-akun .absk-korsubmit:disabled { background: #C9AE94; cursor: not-allowed; }
+.redesign-akun .absk-korbatal {
+  background: #fff; color: #5A3A22; border: 1px solid #E7D3BE; border-radius: 11px;
+  padding: 12px 18px; font-weight: 700; font-size: 13.5px; font-family: inherit; cursor: pointer;
+}
+.redesign-akun .absk-kornote { margin-top: 13px; font-size: 11px; line-height: 1.55; color: #9A7256; }
+
+/* Netralkan bawaan Bootstrap di dalam modal koreksi: label dapat
+   margin-bottom .5rem, dan SEMUA chip di sini elemen <label> — jadi tiap chip
+   nambah 8px di luar gap (5 chip = +40px), belum label judul & zona foto.
+   Itu yang bikin kartu jauh lebih tinggi dari desain sampai muncul scrollbar. */
+.redesign-akun .absk-korcard label { margin: 0; }
+.redesign-akun .absk-korcard textarea { margin-bottom: 0; }
+.redesign-akun .absk-korcard * { box-sizing: border-box; }
+.redesign-akun .absk-korchip span { line-height: 1.35; }
+.redesign-akun .absk-korlbl { line-height: 1.3; }
+.redesign-akun .absk-korhead-tgl { line-height: 1.2; }
+.redesign-akun .absk-korfoto { line-height: 1.25; }
+.redesign-akun .absk-korsubmit,
+.redesign-akun .absk-korbatal { line-height: 1.25; }
+
+/* Layar lega: daftar hari jadi 3 kolom seperti desain */
+@media (min-width: 1180px) {
+  .redesign-akun .absk-days { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+}
+
+/* masuknya kartu — halus, bukan muncul mendadak */
+@keyframes absk-korin { from { opacity: 0; transform: translateY(10px) scale(.97); } to { opacity: 1; transform: none; } }
+body.absk-koropen .absk-korcard { animation: absk-korin .22s cubic-bezier(.2,.8,.2,1); }

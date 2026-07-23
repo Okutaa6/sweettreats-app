@@ -12,6 +12,13 @@ use App\Http\Controllers\Crud\BranchController;
 use App\Http\Controllers\Crud\CustomerController;
 use App\Http\Controllers\Crud\ReservationController;
 use App\Http\Controllers\Crud\ReservationImportController;
+use App\Http\Controllers\Absensi\AbsensiUploadController;
+use App\Http\Controllers\Absensi\AbsensiRecapController;
+use App\Http\Controllers\Absensi\AbsensiPeriodController;
+use App\Http\Controllers\Absensi\AbsensiMappingController;
+use App\Http\Controllers\Absensi\AkunAbsensiController;
+use App\Http\Controllers\Absensi\AkunPengajuanController;
+use App\Http\Controllers\Absensi\PersetujuanController;
 use App\Http\Controllers\Crud\ReservasiCabangController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\PublicDoctorScheduleController;
@@ -290,6 +297,30 @@ Route::middleware([AuthGuard::class])->group(function () {
     Route::post('rawreservation/import/batch/{id}/rematch-doctors', [ReservationImportController::class, 'reMatchDoctors'])->name('rawreservation.import.batch.rematch-doctors');
     Route::delete('rawreservation/import/batch/{id}',            [ReservationImportController::class, 'destroyBatch'])->name('rawreservation.import.batch.destroy');
 
+    // ── Absensi (rekonsiliasi) — segment(1) = 'absensi'. AuthGuard cek link=='absensi' ──
+    Route::get('absensi',              [AbsensiUploadController::class, 'index'])->name('absensi.upload');
+    Route::post('absensi/upload/file', [AbsensiUploadController::class, 'upload'])->name('absensi.upload.file');
+    Route::get('absensi/recap',        [AbsensiRecapController::class, 'index'])->name('absensi.recap');
+    Route::get('absensi/kehadiran',    [\App\Http\Controllers\Absensi\AbsensiKehadiranController::class, 'index'])->name('absensi.kehadiran');
+    Route::get('absensi/mapping',         [AbsensiMappingController::class, 'index'])->name('absensi.mapping');
+    Route::post('absensi/mapping/assign', [AbsensiMappingController::class, 'assign'])->name('absensi.mapping.assign');
+    Route::post('absensi/mapping/ignore', [AbsensiMappingController::class, 'ignore'])->name('absensi.mapping.ignore');
+    Route::get('absensi/periode',            [AbsensiPeriodController::class, 'index'])->name('absensi.period');
+    Route::post('absensi/periode',           [AbsensiPeriodController::class, 'store'])->name('absensi.period.store');
+    Route::post('absensi/periode/{id}/close', [AbsensiPeriodController::class, 'close'])->name('absensi.period.close');
+    Route::get('absensi/periode/{id}/export', [AbsensiPeriodController::class, 'export'])->name('absensi.period.export');
+
+    // ── Akun Saya (self-service karyawan, mobile) — segment(1) = 'akun' ──
+    Route::get('akun', [AkunAbsensiController::class, 'index'])->name('akun.absensi');
+    Route::get('akun/pengajuan',  [AkunPengajuanController::class, 'create'])->name('akun.pengajuan');
+    Route::post('akun/pengajuan', [AkunPengajuanController::class, 'store'])->name('akun.pengajuan.store');
+    Route::get('akun/pengajuan/prefill-lembur', [AkunPengajuanController::class, 'prefillLembur'])->name('akun.pengajuan.prefill');
+    Route::get('akun/pengajuan/{id}', [AkunPengajuanController::class, 'show'])->name('akun.pengajuan.show');
+
+    // ── Persetujuan (inbox approver, mobile) — segment(1) = 'persetujuan' ──
+    Route::get('persetujuan',          [PersetujuanController::class, 'index'])->name('persetujuan.inbox');
+    Route::post('persetujuan/{id}/act', [PersetujuanController::class, 'act'])->name('persetujuan.act');
+
     Route::get('rawreservation/{id}', [ReservationController::class, 'edit'])->name('rawreservation.edit');
     Route::put('rawreservation/{id}', [ReservationController::class, 'update'])->name('rawreservation.update');
     Route::delete('rawreservation/{id}', [ReservationController::class, 'destroy'])->name('rawreservation.destroy');
@@ -560,10 +591,14 @@ Route::middleware([AuthGuard::class])->group(function () {
     Route::put('content-review/{id}', [\App\Http\Controllers\Set\ContentReviewController::class, 'update'])->name('content.review.update');
     Route::patch('content-review/{id}/approve', [\App\Http\Controllers\Set\ContentReviewController::class, 'approve'])->name('content.review.approve');
     Route::patch('content-review/{id}/reject', [\App\Http\Controllers\Set\ContentReviewController::class, 'reject'])->name('content.review.reject');
-});
 
     // CRUD - Sweet Mates (Program Rewards)
+    // Dulu route ini berada DI LUAR blok AuthGuard (indentasinya menipu: masih
+    // menjorok, tapi '});' penutup ada di atasnya) sehingga halaman daftar member
+    // KOL/KOC beserta nilai komisinya bisa dibuka SIAPA PUN tanpa login.
+    // Controllernya juga tak punya penjaga sendiri.
     Route::get('sweet-mates', [SweetMatesController::class, 'index'])->name('sweetmates');
+});
 
 Route::middleware([IsLoggedIn::class])->group(function () {
     Route::prefix('signin')->group(function () {
