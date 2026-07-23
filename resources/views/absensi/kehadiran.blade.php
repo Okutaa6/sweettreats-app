@@ -7,6 +7,8 @@
 <link rel="stylesheet" href="{{ asset('assets/css/finance.sweettreats.css') }}?v={{ @filemtime(public_path('assets/css/finance.sweettreats.css')) ?: '1' }}">
 @endsection
 
+@php $gridCols = '210px repeat(' . $daysInMonth . ', 30px)'; @endphp
+
 @section('content')
 <div class="fin-wrap">
     @include('layouts.notif')
@@ -51,60 +53,72 @@
                 @endforeach
             </select>
         </div>
-        {{-- Legenda --}}
-        <div class="kh-legend">
-            @foreach($statusMeta as $key => [$huruf, $kelas, $label])
-                <span class="kh-leg"><span class="kh-cell s-{{ $kelas }}">{{ $huruf }}</span> {{ $label }}</span>
-            @endforeach
-        </div>
+        <div class="fin-count">Warna sel = status hari itu · <b class="num">{{ $summary['karyawan'] }}</b> karyawan</div>
     </form>
 
     {{-- Matriks --}}
-    <div class="fin-tablewrap">
-        @if(empty($matrix))
+    <div class="khx-card">
+        @if(empty($groups))
             <div class="fin-empty">Belum ada catatan absen di periode / cabang ini.</div>
         @else
-            <div class="kh-scroll">
-                <table class="kh-table">
-                    <thead>
-                        <tr>
-                            <th class="kh-name-h">PENGAJU</th>
-                            @for($d = 1; $d <= $daysInMonth; $d++)
-                                <th class="kh-day {{ $weekend[$d] ? 'kh-wend' : '' }}">{{ $d }}</th>
-                            @endfor
-                            <th class="kh-sum-h">H</th><th class="kh-sum-h">T</th><th class="kh-sum-h">A</th><th class="kh-sum-h">C/W/L</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach($matrix as $row)
-                            <tr>
-                                <td class="kh-name">
-                                    <div class="kh-name-t">{{ $row['nama'] }}</div>
-                                    <div class="kh-name-b">{{ $row['cabang'] }}</div>
-                                </td>
+            <div class="khx-scroll">
+                <div class="khx-inner">
+                    {{-- header hari --}}
+                    <div class="khx-head" style="grid-template-columns:{{ $gridCols }}">
+                        <div class="khx-head-name">KARYAWAN</div>
+                        @for($d = 1; $d <= $daysInMonth; $d++)
+                            <div class="khx-head-day">
+                                <div class="khx-dow {{ $head[$d]['sun'] ? 'sun' : '' }}">{{ $head[$d]['dow'] }}</div>
+                                <div class="num khx-dn">{{ $head[$d]['n'] }}</div>
+                            </div>
+                        @endfor
+                    </div>
+
+                    @foreach($groups as $g)
+                        {{-- pembatas cabang --}}
+                        <div class="khx-sep"><span class="khx-sep-label">{{ $g['cabang'] }} · <span class="num">{{ count($g['rows']) }}</span> orang</span></div>
+
+                        @foreach($g['rows'] as $row)
+                            <div class="khx-row" style="grid-template-columns:{{ $gridCols }}">
+                                <div class="khx-name">
+                                    <div class="khx-av">{{ $row['initial'] }}</div>
+                                    <div class="khx-name-tx">
+                                        <div class="khx-nm">{{ $row['nama'] }}</div>
+                                        <div class="khx-meta">{{ $row['cabang'] }} · <span class="num khx-h">{{ $row['h'] }}</span> <span class="num khx-t">{{ $row['t'] }}</span> <span class="num khx-a">{{ $row['a'] }}</span></div>
+                                    </div>
+                                </div>
                                 @for($d = 1; $d <= $daysInMonth; $d++)
                                     @php $c = $row['cells'][$d] ?? null; @endphp
                                     @if($c && isset($statusMeta[$c['status']]))
-                                        @php [$huruf, $kelas, $label] = $statusMeta[$c['status']]; @endphp
-                                        <td class="kh-td {{ $weekend[$d] ? 'kh-wend' : '' }}">
-                                            <span class="kh-cell s-{{ $kelas }}{{ $c['single'] ? ' kh-single' : '' }}"
-                                                  title="{{ $label }}{{ $c['telat_menit'] ? ' · telat '.$c['telat_menit'].' mnt' : '' }}{{ $c['single'] ? ' · scan tunggal' : '' }}">{{ $huruf }}</span>
-                                        </td>
+                                        @php
+                                            $m = $statusMeta[$c['status']];
+                                            $tip = $head[$d]['n'] . ' ' . $monthShort . ' · ' . $m['label']
+                                                . ($c['telat'] ? ' · telat ' . $c['telat'] . ' mnt' : '')
+                                                . ($c['lembur'] ? ' · lembur ' . round($c['lembur'] / 60, 1) . ' j' : '')
+                                                . ($c['single'] ? ' · scan tunggal' : '');
+                                        @endphp
+                                        <div class="khx-cell" style="background:{{ $m['bg'] }}" title="{{ $tip }}">
+                                            @if($c['lembur'])<span class="khx-lembur"></span>@endif
+                                        </div>
                                     @else
-                                        <td class="kh-td {{ $weekend[$d] ? 'kh-wend' : '' }}"><span class="kh-dot">·</span></td>
+                                        <div class="khx-cell khx-empty" title="belum ada data"></div>
                                     @endif
                                 @endfor
-                                <td class="kh-sum num">{{ $row['sum']['hadir'] ?: '' }}</td>
-                                <td class="kh-sum num {{ $row['sum']['telat'] ? 'amber' : '' }}">{{ $row['sum']['telat'] ?: '' }}</td>
-                                <td class="kh-sum num {{ $row['sum']['alpa'] ? 'red' : '' }}">{{ $row['sum']['alpa'] ?: '' }}</td>
-                                <td class="kh-sum num">{{ ($row['sum']['cuti'] + $row['sum']['wfh'] + $row['sum']['libur']) ?: '' }}</td>
-                            </tr>
+                            </div>
                         @endforeach
-                    </tbody>
-                </table>
+                    @endforeach
+                </div>
+            </div>
+
+            {{-- legenda --}}
+            <div class="khx-legend">
+                @foreach($statusMeta as $key => $m)
+                    <span class="khx-leg"><span class="khx-sw" style="background:{{ $m['bg'] }}"></span>{{ $m['label'] }}</span>
+                @endforeach
+                <span class="khx-leg"><span class="khx-sw-dot"></span>ada lembur</span>
+                <span class="khx-leg"><span class="khx-sw-dash"></span>belum ada data</span>
             </div>
         @endif
     </div>
-    <p class="fin-hint" style="margin-top:10px">Sel bergaris bawah = scan cuma sekali (masuk/pulang tak lengkap). Kolom redup = Minggu. Arahkan kursor ke sel buat detail.</p>
 </div>
 @endsection

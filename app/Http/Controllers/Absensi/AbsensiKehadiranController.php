@@ -11,24 +11,29 @@ use Illuminate\Support\Facades\DB;
 /**
  * "Absensi → Kehadiran" — matriks kehadiran karyawan × tanggal (DESKTOP, view-only).
  *
- * Baca att_day (hasil reconcile) satu periode. Baris = karyawan, kolom = tanggal,
- * sel = status harian (hadir/telat/cuti/wfh/libur/alpa) + penanda telat / scan tunggal.
- * Buat Finance lihat sekilas siapa yang bolong / sering telat sebelum tutup periode.
+ * Baca att_day (hasil reconcile) satu periode. Baris = karyawan (dikelompokkan per
+ * cabang, ada pembatas), kolom = tanggal, sel = status harian sebagai kotak pastel
+ * (hadir/telat/cuti/wfh/libur/alpa) + titik kecil bila ada lembur; sel tanpa data =
+ * kotak putus-putus. Buat Finance lihat sekilas pola hadir/telat/bolong sebelum tutup.
  *
- * Guard canSeeAllBranches (sama pola AbsensiRecapController). Segment(1) = 'absensi'
- * → lolos AuthGuard via grant node parent. Konteks: docs/rencana-rekonsiliasi-absensi.md.
+ * Tampilan mengikuti handoff_absensi (grid pastel, avatar, legend bawah).
+ * Guard canSeeAllBranches. Segment(1)='absensi' → lolos AuthGuard via node parent.
  */
 class AbsensiKehadiranController extends Controller
 {
-    /** status att_day → [huruf, kelas warna, label] */
+    /** status att_day → token warna (samakan dgn handoff: ATT{bg,c}) */
     private const STATUS = [
-        'hadir' => ['H', 'h', 'Hadir'],
-        'telat' => ['T', 't', 'Telat'],
-        'cuti'  => ['C', 'c', 'Cuti'],
-        'wfh'   => ['W', 'w', 'Kerja dari Rumah'],
-        'libur' => ['L', 'l', 'Libur'],
-        'alpa'  => ['A', 'a', 'Tidak masuk'],
+        'hadir' => ['label' => 'Hadir', 'bg' => '#E3F4E8', 'c' => '#2F8E55'],
+        'telat' => ['label' => 'Telat', 'bg' => '#FBE7CF', 'c' => '#B5701A'],
+        'alpa'  => ['label' => 'Alpa',  'bg' => '#FBE3DE', 'c' => '#C0392B'],
+        'cuti'  => ['label' => 'Cuti',  'bg' => '#E4ECFB', 'c' => '#3C5FA8'],
+        'izin'  => ['label' => 'Izin',  'bg' => '#F4E7D6', 'c' => '#9A6614'],
+        'libur' => ['label' => 'Libur', 'bg' => '#F1E9DF', 'c' => '#8A6A52'],
+        'wfh'   => ['label' => 'WFH',   'bg' => '#DFEDE9', 'c' => '#2E7D74'],
     ];
+
+    /** singkatan hari: 0=Minggu .. 6=Sabtu */
+    private const DOW = ['Mg', 'Sn', 'Sl', 'Rb', 'Km', 'Jm', 'Sb'];
 
     private function guard(): void
     {
@@ -49,68 +54,75 @@ class AbsensiKehadiranController extends Controller
 
         $branchFilter = $request->input('branch');
 
-        // Ambil att_day satu periode
-        $q = DB::table('att_day')
-            ->whereBetween('work_date', [$from->toDateString(), $to->toDateString()]);
+        $q = DB::table('att_day')->whereBetween('work_date', [$from->toDateString(), $to->toDateString()]);
         if ($branchFilter) {
             $q->where('raw_branch_id', $branchFilter);
         }
         $days = $q->get(['user_id', 'raw_branch_id', 'work_date', 'status', 'telat_menit', 'single_scan', 'lembur_menit_disetujui']);
 
-        // Resolusi nama + cabang home
         $userIds = $days->pluck('user_id')->unique()->values();
         $users = DB::table('users')->whereIn('id', $userIds)->get(['id', 'nama', 'raw_branch_id'])->keyBy('id');
         $branchName = RawBranch::pluck('name', 'id');
 
-        // Bangun matriks: user_id => ['nama','cabang','cells'[day]=>row, 'sum'[status]=>n, 'telat_menit'=>n]
+        // header hari (dow + tanggal + weekend)
+        $head = [];
+        for ($d = 1; $d <= $daysInMonth; $d++) {
+            $dow = $anchor->copy()->day($d)->dayOfWeek;
+            $head[$d] = ['n' => $d, 'dow' => self::DOW[$dow], 'sun' => ($dow === 0)];
+        }
+
+        // bangun baris per user
         $matrix = [];
         foreach ($days as $d) {
             $uid = $d->user_id;
             if (! isset($matrix[$uid])) {
                 $u = $users->get($uid);
+                $nama = $u->nama ?? '—';
                 $matrix[$uid] = [
-                    'nama'   => $u->nama ?? '—',
-                    'cabang' => $branchName[$u->raw_branch_id ?? ''] ?? ($branchName[$d->raw_branch_id] ?? '—'),
-                    'cells'  => [],
-                    'sum'    => ['hadir' => 0, 'telat' => 0, 'cuti' => 0, 'wfh' => 0, 'libur' => 0, 'alpa' => 0],
-                    'telat_menit' => 0,
+                    'nama'    => $nama,
+                    'initial' => mb_strtoupper(mb_substr(trim($nama), 0, 1)),
+                    'cabang'  => $branchName[$u->raw_branch_id ?? ''] ?? ($branchName[$d->raw_branch_id] ?? '—'),
+                    'cells'   => [],
+                    'h' => 0, 't' => 0, 'a' => 0,
                 ];
             }
             $day = (int) Carbon::parse($d->work_date)->day;
             $matrix[$uid]['cells'][$day] = [
-                'status'      => $d->status,
-                'telat_menit' => (int) $d->telat_menit,
-                'single'      => (int) $d->single_scan,
+                'status' => $d->status,
+                'telat'  => (int) $d->telat_menit,
+                'single' => (int) $d->single_scan,
+                'lembur' => (int) $d->lembur_menit_disetujui,
             ];
-            if (isset($matrix[$uid]['sum'][$d->status])) {
-                $matrix[$uid]['sum'][$d->status]++;
-            }
-            $matrix[$uid]['telat_menit'] += (int) $d->telat_menit;
+            if ($d->status === 'hadir') $matrix[$uid]['h']++;
+            elseif ($d->status === 'telat') $matrix[$uid]['t']++;
+            elseif ($d->status === 'alpa') $matrix[$uid]['a']++;
         }
 
-        // urut: nama cabang lalu nama orang
+        // urut cabang lalu nama
         uasort($matrix, fn ($a, $b) => [$a['cabang'], $a['nama']] <=> [$b['cabang'], $b['nama']]);
 
-        // ringkasan atas
+        // kelompokkan per cabang (buat pembatas)
+        $groups = [];
+        foreach ($matrix as $row) {
+            $cab = $row['cabang'];
+            if (! isset($groups[$cab])) $groups[$cab] = ['cabang' => $cab, 'rows' => []];
+            $groups[$cab]['rows'][] = $row;
+        }
+        $groups = array_values($groups);
+
         $summary = [
             'karyawan' => count($matrix),
-            'alpa'     => array_sum(array_column(array_column($matrix, 'sum'), 'alpa')),
-            'telat'    => array_sum(array_column(array_column($matrix, 'sum'), 'telat')),
-            'hadir'    => array_sum(array_column(array_column($matrix, 'sum'), 'hadir')),
+            'hadir'    => array_sum(array_column($matrix, 'h')),
+            'telat'    => array_sum(array_column($matrix, 't')),
+            'alpa'     => array_sum(array_column($matrix, 'a')),
         ];
-
-        // hari akhir pekan (buat kolom redup) — 0=Min .. 6=Sab
-        $weekend = [];
-        for ($i = 1; $i <= $daysInMonth; $i++) {
-            $dow = $anchor->copy()->day($i)->dayOfWeek;
-            $weekend[$i] = ($dow === Carbon::SUNDAY);
-        }
 
         $branches = RawBranch::orderBy('name')->get(['id', 'name']);
         $statusMeta = self::STATUS;
+        $monthShort = $anchor->translatedFormat('M');
 
         return view('absensi.kehadiran', compact(
-            'matrix', 'summary', 'daysInMonth', 'weekend', 'anchor',
+            'groups', 'summary', 'daysInMonth', 'head', 'anchor', 'monthShort',
             'branches', 'branchFilter', 'statusMeta'
         ));
     }
