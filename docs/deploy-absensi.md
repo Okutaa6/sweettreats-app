@@ -45,7 +45,38 @@ composer install --no-dev --optimize-autoloader          # tak ada dependensi ba
 php artisan migrate --force
 ```
 
-Enam migration baru (hirarki checklist division & group_path). Urutan sudah benar dari timestamp-nya.
+### ⚠️ Kalau gagal "Duplicate column / table already exists" — itu normal, ini sebabnya
+
+Database dibangun dari **dua sumber**: file SQL *dan* migration. Sebagian perubahan skema
+sudah lebih dulu dipasang lewat SQL, sehingga migration yang sama akan menabrak dan
+**seluruh rangkaian berhenti di situ**. Di dev per 2026-07-23 ditemukan **23 migration
+pending**, dan 14 di antaranya objeknya memang sudah ada.
+
+Remedinya: jalankan satu per satu; yang gagal karena objeknya sudah ada, **tandai
+sudah-jalan** tanpa dieksekusi — error duplikatnya sendiri yang membuktikan objeknya ada.
+
+```bash
+# 1) coba satu per satu, lihat mana yang benar-benar jalan vs sudah ada
+for M in $(php artisan migrate:status | grep -i pending | grep -oE "20[0-9_a-z]+"); do
+  OUT=$(php artisan migrate --force --path=database/migrations/${M}.php 2>&1)
+  echo "$OUT" | grep -q "DONE" && echo "JALAN     $M" && continue
+  echo "$OUT" | grep -qiE "already exists|Duplicate" && echo "SUDAH-ADA $M" || echo "PERIKSA   $M"
+done
+```
+
+```bash
+# 2) tandai sisanya sudah-jalan (hanya yang tadi terbukti "SUDAH-ADA")
+php artisan tinker --execute='
+$batch = (int) DB::table("migrations")->max("batch") + 1;
+foreach (glob("database/migrations/*.php") as $f) {
+  $n = basename($f, ".php");
+  if (!DB::table("migrations")->where("migration",$n)->exists())
+    DB::table("migrations")->insert(["migration"=>$n,"batch"=>$batch]);
+}'
+```
+
+Setelah itu `php artisan migrate --force` harus berbunyi **"Nothing to migrate"**.
+Baca dulu daftar "PERIKSA" kalau ada — itu gagal karena sebab lain dan tak boleh ditandai.
 
 ---
 
@@ -81,6 +112,18 @@ php artisan db:seed --class=AbsensiAccessPathSeeder --force  # bikin node abs-*/
 
 > `AbsensiAccessPathSeeder` memberi grant ke **semua role yang ADA saat itu**, jadi
 > `OrgRoleStructureSeeder` **wajib duluan** — kalau tidak, role baru tak kebagian menu.
+
+> **Sesudah seeder, periksa landing role BARU.** `OrgRoleStructureSeeder` memberi role
+> baru landing default `dashboard`. Kalau di server itu role tersebut tak punya grant
+> `dashboard`, usernya akan **terkunci total** (AuthGuard menolak → melempar ke landing →
+> halaman itu juga → `abort(403)`). Terjadi nyata di dev: role `Finance` & `IT` yang baru
+> dibuat langsung berstatus bermasalah. Jalankan query verifikasi landing di bagian
+> [9](#9-verifikasi-setelah-deploy), lalu arahkan ke halaman yang memang dia punya —
+> di dev dipakai `Finance → absensi` dan `IT → akun`.
+>
+> Seeder ini **tidak lagi menimpa** landing role yang SUDAH ada (diperbaiki 2026-07-23);
+> tanpa perbaikan itu, landing Sales di dev akan tertimpa jadi `dashboard` dan mengunci
+> seluruh user Sales.
 
 ```bash
 $M < database/sql/2026_07_22_checklist_content.sql          # butuh divisi dari ChecklistDivisionSeeder
