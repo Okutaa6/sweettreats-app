@@ -183,6 +183,14 @@
         border-radius: 5px;
         transition: width .4s cubic-bezier(.45,.05,.55,.95);
     }
+    /* Pill status di pojok kanan-atas kartu progress (pindahan dari hero).
+       Warna diambil dari .cl-mod-hero__status--{success|warning|danger}. */
+    .cl-mod-progress__status {
+        position: absolute; top: 16px; right: 16px; z-index: 2;
+        padding: 6px 14px; border-radius: 999px;
+        font-size: 12px; font-weight: 700; white-space: nowrap;
+        display: inline-flex; align-items: center; gap: 6px;
+    }
 
     @media (max-width: 540px) {
         .cl-mod-progress { grid-template-columns: 1fr; padding: 20px 22px; gap: 14px; }
@@ -380,6 +388,35 @@
     .cl-mod-banner--danger  { background: #FCEBEB; border-color: #A32D2D; color: #7C2929; }
     .cl-mod-banner strong { font-weight: 700; }
 
+    /* ═══ Wrapper "Checklist Hari Ini" — banner + progress + daftar tugas jadi
+       SATU kartu biar tidak terlihat kepisah (satu kesatuan). Elemen di dalam
+       dibuat flush: chrome kartu masing-masing dilepas, dipisah garis tipis. ═══ */
+    .cl-today {
+        background: #FFFFFF;
+        border: 1px solid #E0D2C1;
+        border-radius: 16px;
+        box-shadow: 0 2px 8px rgba(45,24,16,.05);
+        overflow: hidden;
+        margin-bottom: 14px;
+    }
+    .cl-today .cl-mod-banner { border-radius: 0 !important; margin: 0 !important; }
+    .cl-today .cl-mod-progress {
+        border: none !important; border-radius: 0 !important;
+        box-shadow: none !important; margin: 0 !important;
+        border-bottom: 1px solid #F0E6D8 !important;
+    }
+    .cl-today .cl-mod-cat-list { gap: 0 !important; }
+    .cl-today .cl-mod-cat {
+        border: none !important; border-radius: 0 !important; box-shadow: none !important;
+    }
+    .cl-today .cl-mod-cat + .cl-mod-cat { border-top: 1px solid #F0E6D8 !important; }
+    .cl-today .cl-mod-cat:hover,
+    .cl-today .cl-mod-cat.is-open {
+        box-shadow: none !important; transform: none !important; border-color: transparent !important;
+    }
+    /* Baris tombol "Buka semua" (multi-kategori) — beri padding biar tak mepet tepi kartu */
+    .cl-today .cl-cat-tools { padding: 12px 16px 0 !important; margin-bottom: 0 !important; }
+
     /* ── Side widgets ── */
     .cl-mini {
         background: #FFFFFF;
@@ -399,6 +436,12 @@
         display: inline-flex; align-items: center; gap: 7px;
     }
     .cl-mini__title i { color: #5C2E15; font-size: 11px; }
+    /* Widget "review" (Riwayat 14 Hari + Aktivitas Terbaru) hanya di desktop.
+       Saat layout stacked (≤992px) disembunyikan biar mobile fokus ke checklist —
+       riwayat lengkap tetap bisa diakses via tombol "Riwayat". */
+    @media (max-width: 992px) {
+        .cl-mini--mreview { display: none; }
+    }
 
     /* Streak / stats card */
     .cl-stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
@@ -732,17 +775,13 @@
                                 </div>
                             </div>
                         </div>
-                        @if($submission->status !== \App\Models\ChecklistSubmission::STATUS_DRAFT && $statusOpt)
-                            <span class="cl-mod-hero__status cl-mod-hero__status--{{ $heroStatusColor }}">
-                                @if($submission->status === 'approved')<i class="fas fa-check-circle"></i>
-                                @elseif($submission->status === 'rejected')<i class="fas fa-times-circle"></i>
-                                @else<i class="fas fa-clock"></i>
-                                @endif
-                                {{ $statusOpt['label'] }}
-                            </span>
-                        @endif
+                        {{-- Pill status dipindah ke kartu Progres Hari Ini (lihat .cl-mod-progress__status) --}}
                     </div>
                 </div>
+
+                {{-- ═══ Wrapper "Checklist Hari Ini": banner + progress + daftar tugas
+                     dibungkus 1 kartu biar tidak terlihat kepisah (satu kesatuan). ═══ --}}
+                <div class="cl-today">
 
                 {{-- ─── BANNER STATUS ─── --}}
                 @if($submission->status === \App\Models\ChecklistSubmission::STATUS_REJECTED)
@@ -788,6 +827,16 @@
 
                 {{-- ─── PROGRESS CARD (modern, big %) ─── --}}
                 <div class="cl-mod-progress">
+                    {{-- Pill status (pindahan dari hero) — pojok kanan-atas kartu --}}
+                    @if($submission->status !== \App\Models\ChecklistSubmission::STATUS_DRAFT && $statusOpt)
+                        <span class="cl-mod-progress__status cl-mod-hero__status--{{ $heroStatusColor }}">
+                            @if($submission->status === 'approved')<i class="fas fa-check-circle"></i>
+                            @elseif($submission->status === 'rejected')<i class="fas fa-times-circle"></i>
+                            @else<i class="fas fa-clock"></i>
+                            @endif
+                            {{ $statusOpt['label'] }}
+                        </span>
+                    @endif
                     <div class="cl-mod-progress__big" id="clProgressPct">
                         {{ $progress['pct'] }}<small>%</small>
                     </div>
@@ -813,7 +862,7 @@
                     </div>
                 @else
                     @if($grouped->count() > 1)
-                        <div style="display:flex; justify-content:flex-end; margin-bottom:10px;">
+                        <div class="cl-cat-tools" style="display:flex; justify-content:flex-end; margin-bottom:10px;">
                             <button type="button" class="st-btn-outline-brown" id="clCatExpandAll" data-mode="expand" style="padding:6px 12px; font-size:12px;">
                                 <i class="fas fa-angle-double-down"></i> <span data-label>Buka semua</span>
                             </button>
@@ -887,6 +936,7 @@
                         @endforeach
                     </div>
                 @endif
+                </div>{{-- /cl-today --}}
 
                 {{-- ─── SUBMIT FOOTER (modern) ─── --}}
                 @if($submission->isEditable() && $grouped->isNotEmpty())
@@ -964,8 +1014,8 @@
                     </div>
                 </div>
 
-                {{-- Heatmap 14 hari --}}
-                <div class="cl-mini">
+                {{-- Heatmap 14 hari (widget review — desktop only) --}}
+                <div class="cl-mini cl-mini--mreview">
                     <div class="cl-mini__head">
                         <h6 class="cl-mini__title"><i class="fas fa-th"></i> Riwayat 14 Hari</h6>
                     </div>
@@ -997,8 +1047,8 @@
                     </div>
                 </div>
 
-                {{-- Recent activity --}}
-                <div class="cl-mini">
+                {{-- Recent activity (widget review — desktop only) --}}
+                <div class="cl-mini cl-mini--mreview">
                     <div class="cl-mini__head">
                         <h6 class="cl-mini__title"><i class="fas fa-history"></i> Aktivitas Terbaru</h6>
                         <a href="{{ route('mychecklist.history') }}" style="font-size:11px; color:#5C2E15; text-decoration:none; font-weight:600;">Semua →</a>
@@ -1025,15 +1075,6 @@
                     @endif
                 </div>
 
-                {{-- Tips card --}}
-                <div class="cl-mini" style="background:linear-gradient(135deg, #FAF4EC 0%, #F5EBE0 100%); border-color:#E0D2C1;">
-                    <div class="cl-mini__head" style="margin-bottom:8px;">
-                        <h6 class="cl-mini__title" style="color:#5C2E15;"><i class="fas fa-lightbulb" style="color:#A66019;"></i> Tips Hari Ini</h6>
-                    </div>
-                    <p style="font-size:12.5px; color:#5C2E15; line-height:1.55; margin:0;">
-                        Cek list <strong>sebelum mulai shift</strong> & isi <strong>setelah selesai</strong> biar nggak ada yang kelewat. Pekerjaan rapi = waktu lebih efisien 🚀
-                    </p>
-                </div>
             </aside>
             </div>{{-- /cl-my-grid --}}
         @endif

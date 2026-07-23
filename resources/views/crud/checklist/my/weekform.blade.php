@@ -45,15 +45,19 @@
     .wf-hero__status--danger  { background: rgba(252,235,235,.95); color: #7C2929; border: 1px solid rgba(163,45,45,.30); }
 
     /* Week nav */
-    .wf-nav {
+    /* Toolbar wrapper: navigasi minggu + progress jadi SATU kartu (kurangi box) */
+    .wf-toolbar {
         background: #FFFFFF;
         border: 1px solid #E0D2C1;
         border-radius: 14px;
-        padding: 12px 16px;
         margin-bottom: 14px;
+        box-shadow: 0 2px 6px rgba(45,24,16,.04);
+        overflow: hidden;
+    }
+    .wf-nav {
+        padding: 12px 16px;
         display: flex; justify-content: space-between; align-items: center;
         gap: 10px; flex-wrap: wrap;
-        box-shadow: 0 2px 6px rgba(45,24,16,.04);
     }
     .wf-nav__title { font-size: 14.5px; font-weight: 800; color: #2D1810; margin: 0; display: inline-flex; align-items: center; gap: 8px; }
     .wf-nav__title i { color: #9B5E2C; font-size: 12px; }
@@ -68,13 +72,11 @@
     .wf-nav__btn:hover { background: #F5EBE0; transform: translateY(-1px); text-decoration: none; color: #5C2E15; }
 
     /* Progress card */
+    /* Progress = baris di dalam .wf-toolbar (pemisah garis atas, tint lembut) */
     .wf-progress {
-        background: #FFFFFF;
-        border: 1px solid #E0D2C1;
-        border-radius: 16px;
-        padding: 18px 22px;
-        margin-bottom: 14px;
-        box-shadow: 0 2px 8px rgba(45,24,16,.04);
+        padding: 16px 20px;
+        border-top: 1px solid #F0E6D8;
+        background: #FDFBF7;
         display: grid;
         grid-template-columns: auto 1fr;
         gap: 22px;
@@ -528,35 +530,54 @@
                 </div>
             </div>
 
-            {{-- WEEK NAVIGATION --}}
-            <div class="wf-nav">
-                <a href="{{ route('mychecklist.weekform', ['week' => $weekOffset - 1]) }}" class="wf-nav__btn" title="Minggu sebelumnya">
-                    <i class="fas fa-chevron-left"></i>
-                </a>
-                <div style="text-align:center;">
-                    <h5 class="wf-nav__title">
-                        <i class="fas fa-calendar-week"></i>
-                        Minggu {{ $weekStart->translatedFormat('d M') }} – {{ $weekEnd->translatedFormat('d M Y') }}
-                    </h5>
-                    <div style="font-size:11px; color:#9B8578; margin-top:2px;">
-                        @if($weekOffset === 0)
-                            Minggu Ini
-                        @elseif($weekOffset === -1)
-                            Minggu Lalu
-                        @elseif($weekOffset === 1)
-                            Minggu Depan
-                        @elseif($weekOffset < 0)
-                            {{ abs($weekOffset) }} minggu lalu
-                        @else
-                            {{ $weekOffset }} minggu lagi
-                        @endif
+            {{-- TOOLBAR: navigasi minggu + progress digabung jadi 1 kartu (kurangi box) --}}
+            <div class="wf-toolbar">
+                {{-- WEEK NAVIGATION --}}
+                <div class="wf-nav">
+                    <a href="{{ route('mychecklist.weekform', ['week' => $weekOffset - 1]) }}" class="wf-nav__btn" title="Minggu sebelumnya">
+                        <i class="fas fa-chevron-left"></i>
+                    </a>
+                    <div style="text-align:center;">
+                        <h5 class="wf-nav__title">
+                            <i class="fas fa-calendar-week"></i>
+                            Minggu {{ $weekStart->translatedFormat('d M') }} – {{ $weekEnd->translatedFormat('d M Y') }}
+                        </h5>
+                        <div style="font-size:11px; color:#9B8578; margin-top:2px;">
+                            @if($weekOffset === 0)
+                                Minggu Ini
+                            @elseif($weekOffset === -1)
+                                Minggu Lalu
+                            @elseif($weekOffset === 1)
+                                Minggu Depan
+                            @elseif($weekOffset < 0)
+                                {{ abs($weekOffset) }} minggu lalu
+                            @else
+                                {{ $weekOffset }} minggu lagi
+                            @endif
+                        </div>
                     </div>
+                    <a href="{{ route('mychecklist.weekform', ['week' => $weekOffset + 1]) }}" class="wf-nav__btn" title="Minggu berikutnya">
+                        <i class="fas fa-chevron-right"></i>
+                    </a>
                 </div>
-                <a href="{{ route('mychecklist.weekform', ['week' => $weekOffset + 1]) }}" class="wf-nav__btn" title="Minggu berikutnya">
-                    <i class="fas fa-chevron-right"></i>
-                </a>
+
+                {{-- PROGRESS (baris dalam toolbar) --}}
+                @if($submission && $progress['total'] > 0)
+                    <div class="wf-progress">
+                        <div class="wf-progress__big" id="wfPct">{{ $progress['pct'] }}<small>%</small></div>
+                        <div class="wf-progress__body">
+                            <div class="wf-progress__label">Progres Minggu Ini</div>
+                            <div class="wf-progress__count" id="wfCount">
+                                <strong>{{ $progress['done'] }}</strong> dari {{ $progress['total'] }} tugas
+                                <small>· {{ max(0, $progress['total'] - $progress['done']) }} belum dikerjakan</small>
+                            </div>
+                            <div class="wf-progress__bar"><i id="wfFill" style="width:{{ $progress['pct'] }}%"></i></div>
+                        </div>
+                    </div>
+                @endif
             </div>
 
+            {{-- BANNERS (status form) — di bawah toolbar --}}
             @if($isFuture)
                 <div class="wf-banner wf-banner--info">
                     <i class="fas fa-info-circle"></i>
@@ -564,7 +585,6 @@
                 </div>
             @endif
 
-            {{-- BANNERS --}}
             @if($submission && $submission->status === \App\Models\ChecklistWeeklySubmission::STATUS_REJECTED)
                 <div class="wf-banner wf-banner--danger">
                     <i class="fas fa-times-circle"></i>
@@ -604,21 +624,6 @@
                                 </button>
                             </form>
                         @endif
-                    </div>
-                </div>
-            @endif
-
-            {{-- PROGRESS --}}
-            @if($submission && $progress['total'] > 0)
-                <div class="wf-progress">
-                    <div class="wf-progress__big" id="wfPct">{{ $progress['pct'] }}<small>%</small></div>
-                    <div class="wf-progress__body">
-                        <div class="wf-progress__label">Progres Minggu Ini</div>
-                        <div class="wf-progress__count" id="wfCount">
-                            <strong>{{ $progress['done'] }}</strong> dari {{ $progress['total'] }} tugas
-                            <small>· {{ max(0, $progress['total'] - $progress['done']) }} belum dikerjakan</small>
-                        </div>
-                        <div class="wf-progress__bar"><i id="wfFill" style="width:{{ $progress['pct'] }}%"></i></div>
                     </div>
                 </div>
             @endif

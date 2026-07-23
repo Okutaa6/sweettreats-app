@@ -6,55 +6,35 @@
     .cl-hist-grid { display: grid; grid-template-columns: 1fr 300px; gap: 16px; align-items: start; }
     @media (max-width: 992px) { .cl-hist-grid { grid-template-columns: 1fr; } }
 
-    /* KPI strip */
-    .cl-hist-kpi {
-        display: grid;
-        grid-template-columns: repeat(5, 1fr);
-        gap: 10px;
-        margin-bottom: 14px;
+    /* Ringkasan status — chip inline di dalam toolbar (ganti 5 kotak KPI biar
+       tidak terlalu banyak box). Angka tebal menonjol, label muted. */
+    .cl-hist-bar__stats {
+        display: flex; align-items: center; flex-wrap: wrap;
+        gap: 9px 22px;
+        padding: 11px 18px;
+        border-top: 1px solid #F0E6D8;
+        background: #FDFBF7;
     }
-    @media (max-width: 760px) {
-        .cl-hist-kpi { grid-template-columns: repeat(3, 1fr); }
+    .cl-hist-stat {
+        display: inline-flex; align-items: baseline; gap: 6px;
+        font-size: 12.5px; color: #8A7563; font-weight: 600;
     }
-    @media (max-width: 460px) {
-        .cl-hist-kpi { grid-template-columns: repeat(2, 1fr); }
-    }
-    .cl-hist-kpi__cell {
-        background: #FFFFFF;
-        border: 1px solid #E0D2C1;
-        border-radius: 12px;
-        padding: 12px 14px;
-        box-shadow: 0 2px 6px rgba(45,24,16,.04);
-        position: relative;
-        overflow: hidden;
-    }
-    .cl-hist-kpi__label {
-        font-size: 10.5px; font-weight: 700; text-transform: uppercase;
-        letter-spacing: 0.4px; color: #9B8578; margin-bottom: 4px;
-        display: inline-flex; align-items: center; gap: 5px;
-    }
-    .cl-hist-kpi__val {
-        font-size: 22px; font-weight: 800; color: #2D1810; line-height: 1;
-        letter-spacing: -0.02em;
-        display: flex; align-items: baseline; gap: 2px;
-    }
-    .cl-hist-kpi__val small { font-size: 12px; color: #6B4423; font-weight: 600; }
-    .cl-hist-kpi__cell--success { border-left: 3px solid #1F6E5F; }
-    .cl-hist-kpi__cell--warning { border-left: 3px solid #A66019; }
-    .cl-hist-kpi__cell--danger  { border-left: 3px solid #A32D2D; }
-    .cl-hist-kpi__cell--neutral { border-left: 3px solid #9B8578; }
-    .cl-hist-kpi__cell--accent  { border-left: 3px solid #5C2E15; }
+    .cl-hist-stat i { font-size: 12px; position: relative; top: 1px; }
+    .cl-hist-stat b { font-size: 15px; font-weight: 800; color: #2D1810; letter-spacing: -0.01em; }
 
-    /* Header / month nav */
-    .cl-hist-header {
+    /* Toolbar wrapper: navigasi bulan + ringkasan status jadi SATU kartu
+       (sebelumnya 2 blok terpisah: month-nav + 5 kotak KPI). */
+    .cl-hist-bar {
         background: #FFFFFF;
         border: 1px solid #E0D2C1;
         border-radius: 14px;
-        padding: 14px 18px;
         margin-bottom: 14px;
-        display: flex; justify-content: space-between; align-items: center;
-        gap: 10px; flex-wrap: wrap;
         box-shadow: 0 2px 6px rgba(45,24,16,.04);
+        overflow: hidden;
+    }
+    .cl-hist-bar__nav {
+        display: flex; justify-content: space-between; align-items: center;
+        gap: 10px; padding: 12px 16px;
     }
     .cl-hist-header__title {
         font-size: 16px; font-weight: 800; color: #2D1810;
@@ -120,6 +100,12 @@
         display: flex; gap: 10px; flex-wrap: wrap; align-items: center;
     }
     .cl-hist-card__meta i.dot { font-size: 4px; color: #C9B69A; }
+    /* Mobile: sembunyikan detail Submit/Review/Ada catatan biar kartu ringkas
+       (tanggal + bar progress + pill status + chevron saja). */
+    @media (max-width: 600px) {
+        .cl-hist-card__meta { display: none; }
+        .cl-hist-card__bar  { margin-bottom: 0; }
+    }
     .cl-hist-card__right {
         text-align: right; flex-shrink: 0;
         display: flex; flex-direction: column; align-items: flex-end; gap: 6px;
@@ -343,41 +329,26 @@
             </a>
         </div>
 
-        {{-- ─── MONTH NAVIGATION ─── --}}
-        <div class="cl-hist-header">
-            <a href="{{ route('mychecklist.history', ['type' => $type, 'month' => $prevMonth]) }}" class="cl-hist-navbtn" title="Bulan sebelumnya">
-                <i class="fas fa-chevron-left"></i>
-            </a>
-            <h5 class="cl-hist-header__title">
-                <i class="fas fa-calendar"></i>
-                {{ $monthLabel }}
-            </h5>
-            <a href="{{ route('mychecklist.history', ['type' => $type, 'month' => $nextMonth]) }}" class="cl-hist-navbtn" title="Bulan berikutnya">
-                <i class="fas fa-chevron-right"></i>
-            </a>
-        </div>
-
-        {{-- ─── KPI STRIP ─── --}}
-        <div class="cl-hist-kpi">
-            <div class="cl-hist-kpi__cell cl-hist-kpi__cell--accent">
-                <div class="cl-hist-kpi__label"><i class="fas fa-clipboard-list" style="color:#5C2E15;"></i> Total Pengisian</div>
-                <div class="cl-hist-kpi__val">{{ $stats['total'] }} <small>{{ $type === 'weekly' ? 'minggu' : 'hari' }}</small></div>
+        {{-- ─── TOOLBAR: navigasi bulan + ringkasan status (1 wrapper, ganti
+             month-nav + 5 kotak KPI; Avg Progress dihapus). ─── --}}
+        <div class="cl-hist-bar">
+            <div class="cl-hist-bar__nav">
+                <a href="{{ route('mychecklist.history', ['type' => $type, 'month' => $prevMonth]) }}" class="cl-hist-navbtn" title="Bulan sebelumnya">
+                    <i class="fas fa-chevron-left"></i>
+                </a>
+                <h5 class="cl-hist-header__title">
+                    <i class="fas fa-calendar"></i>
+                    {{ $monthLabel }}
+                </h5>
+                <a href="{{ route('mychecklist.history', ['type' => $type, 'month' => $nextMonth]) }}" class="cl-hist-navbtn" title="Bulan berikutnya">
+                    <i class="fas fa-chevron-right"></i>
+                </a>
             </div>
-            <div class="cl-hist-kpi__cell cl-hist-kpi__cell--success">
-                <div class="cl-hist-kpi__label"><i class="fas fa-check-circle" style="color:#1F6E5F;"></i> Disetujui</div>
-                <div class="cl-hist-kpi__val">{{ $stats['approved'] }}</div>
-            </div>
-            <div class="cl-hist-kpi__cell cl-hist-kpi__cell--warning">
-                <div class="cl-hist-kpi__label"><i class="fas fa-clock" style="color:#A66019;"></i> Menunggu</div>
-                <div class="cl-hist-kpi__val">{{ $stats['pending'] }}</div>
-            </div>
-            <div class="cl-hist-kpi__cell cl-hist-kpi__cell--danger">
-                <div class="cl-hist-kpi__label"><i class="fas fa-times-circle" style="color:#A32D2D;"></i> Ditolak</div>
-                <div class="cl-hist-kpi__val">{{ $stats['rejected'] }}</div>
-            </div>
-            <div class="cl-hist-kpi__cell cl-hist-kpi__cell--neutral">
-                <div class="cl-hist-kpi__label"><i class="fas fa-percent" style="color:#9B5E2C;"></i> Avg Progress</div>
-                <div class="cl-hist-kpi__val">{{ $stats['avg_pct'] }}<small>%</small></div>
+            <div class="cl-hist-bar__stats">
+                <span class="cl-hist-stat"><i class="fas fa-clipboard-list" style="color:#5C2E15;"></i> <b>{{ $stats['total'] }}</b> {{ $type === 'weekly' ? 'minggu' : 'hari' }} terisi</span>
+                <span class="cl-hist-stat"><i class="fas fa-check-circle" style="color:#1F6E5F;"></i> <b>{{ $stats['approved'] }}</b> Disetujui</span>
+                <span class="cl-hist-stat"><i class="fas fa-clock" style="color:#A66019;"></i> <b>{{ $stats['pending'] }}</b> Menunggu</span>
+                <span class="cl-hist-stat"><i class="fas fa-times-circle" style="color:#A32D2D;"></i> <b>{{ $stats['rejected'] }}</b> Ditolak</span>
             </div>
         </div>
 
