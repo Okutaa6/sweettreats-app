@@ -313,7 +313,14 @@ class AttendanceReconciler
         foreach ($reqs as $r) {
             if ($date < $r->tanggal_from || $date > $r->tanggal_to) continue;
             if ($r->tipe === 'lembur') {
-                $lembur += (int) $r->claimed_menit;
+                // Hitung HANYA di tanggal mulainya. claimed_menit itu total satu
+                // form (dari sepasang jam), bukan jatah harian — kalau ditambahkan
+                // di setiap tanggal rentang, klaim 2 jam untuk 3 hari jadi 6 jam
+                // dibayar. Form baru sudah dipaksa 1 hari di controller; penjaga
+                // ini melindungi baris lama & hasil impor yang terlanjur berentang.
+                if ($date === substr((string) $r->tanggal_from, 0, 10)) {
+                    $lembur += (int) $r->claimed_menit;
+                }
             } elseif ($r->tipe === 'koreksi') {
                 $koreksi = true;
             } elseif ($absence === null) {   // absen pertama yg cocok menang

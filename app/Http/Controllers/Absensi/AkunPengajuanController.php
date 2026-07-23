@@ -140,6 +140,15 @@ class AkunPengajuanController extends Controller
             'koreksi_alasan.required_if' => 'Pilih dulu apa yang keliru.',
         ]);
 
+        // Lembur SELALU 1 hari. claimed_menit dihitung dari SATU pasang jam
+        // (jam_from–jam_to), jadi rentang banyak hari tak punya arti: menitnya
+        // akan dihitung ULANG untuk tiap tanggal di rentang itu. Klaim 2 jam
+        // untuk 1–3 Agustus jadi 6 jam dibayar, dan rekap Finance tetap
+        // menampilkan 2 jam sehingga selisihnya tak terlihat sebelum tutup buku.
+        if ($data['tipe'] === 'lembur') {
+            $data['tanggal_to'] = $data['tanggal_from'];
+        }
+
         // Koreksi absen: selalu 1 hari, alasan dirakit dari pilihan + catatan,
         // dan tak boleh dobel untuk tanggal yang sama (biar antrean tak banjir).
         if ($data['tipe'] === 'koreksi') {

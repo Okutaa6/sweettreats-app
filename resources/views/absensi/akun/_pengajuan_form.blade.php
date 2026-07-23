@@ -44,12 +44,15 @@
         {{-- Tanggal + Jam (grid 2×2) --}}
         <div class="absk-grid2">
             <div>
-                <label class="absk-lbl">Tanggal Mulai <span class="req">*</span></label>
-                <input type="date" name="tanggal_from" class="absk-input" value="{{ old('tanggal_from', now()->toDateString()) }}" required>
+                <label class="absk-lbl" id="lblFrom">Tanggal Mulai <span class="req">*</span></label>
+                <input type="date" name="tanggal_from" id="tglFrom" class="absk-input" value="{{ old('tanggal_from', now()->toDateString()) }}" required>
             </div>
-            <div>
+            {{-- Lembur selalu 1 hari (menitnya dari sepasang jam), jadi kolom
+                 "sampai" disembunyikan supaya tak menjanjikan rentang yg memang
+                 tak didukung. Server juga memaksa tanggal_to = tanggal_from. --}}
+            <div id="cellTglTo">
                 <label class="absk-lbl">Tanggal Selesai <span class="req">*</span></label>
-                <input type="date" name="tanggal_to" class="absk-input" value="{{ old('tanggal_to', now()->toDateString()) }}" required>
+                <input type="date" name="tanggal_to" id="tglTo" class="absk-input" value="{{ old('tanggal_to', now()->toDateString()) }}" required>
             </div>
             <div class="absk-jamcell" style="display:none">
                 <label class="absk-lbl">Jam Mulai</label>
@@ -123,6 +126,20 @@
         durBox.style.display = isLembur ? '' : 'none';
         wfhBlocked.style.display = (t === 'wfh' && wfhUsed >= 2) ? '' : 'none';
         wfhInfo.style.display    = (t === 'wfh' && wfhUsed < 2) ? '' : 'none';
+
+        // Lembur = satu hari saja: sembunyikan "Tanggal Selesai" dan samakan
+        // nilainya, biar tak ada rentang yang tak akan dihormati server.
+        var cellTo = document.getElementById('cellTglTo');
+        var tglTo  = document.getElementById('tglTo');
+        var tglFrom = document.getElementById('tglFrom');
+        if (cellTo && tglTo && tglFrom) {
+            cellTo.style.display = isLembur ? 'none' : '';
+            document.getElementById('lblFrom').innerHTML = isLembur
+                ? 'Tanggal <span class="req">*</span>'
+                : 'Tanggal Mulai <span class="req">*</span>';
+            if (isLembur) tglTo.value = tglFrom.value;
+        }
+
         submitBtn.disabled = !t;
         if (isLembur) calcDur();
     }
@@ -158,6 +175,11 @@
     }
     form.querySelector('#jamFrom').addEventListener('change', calcDur);
     form.querySelector('#jamTo').addEventListener('change', calcDur);
+
+    // saat lembur, "sampai" ikut tanggal mulai (kolomnya tersembunyi)
+    document.getElementById('tglFrom').addEventListener('change', function () {
+        if (tipeHidden.value === 'lembur') document.getElementById('tglTo').value = this.value;
+    });
 
     // Foto drop-zone
     var fotoInput = form.querySelector('#fotoInput'), fotoZone = form.querySelector('#fotoZone'), fotoLabel = form.querySelector('#fotoLabel');
