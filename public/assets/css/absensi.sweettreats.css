@@ -45,7 +45,11 @@
   padding: 10px 13px; margin-bottom: 12px;
 }
 @media (min-width: 641px) {
-  .redesign-akun .absk-wrap { max-width: 1180px; padding: 4px 24px 40px; }
+  /* Isi melebar mengikuti ruang yang ada — desain memang begitu. Dulu dipatok
+     1180px lalu ditengahkan, jadi di layar lebar ada ~140px kosong di kiri &
+     kanan sementara daftar hari malah sempit sampai teksnya berdesakan.
+     Cap 1800px cuma buat jaga-jaga di monitor ultra-lebar. */
+  .redesign-akun .absk-wrap { max-width: 1800px; padding: 4px 26px 40px; }
   .redesign-akun .absk-grid { display: grid; grid-template-columns: 390px minmax(0, 1fr); gap: 20px; align-items: start; }
   .redesign-akun .absk-col-a { position: sticky; top: 84px; }
   .redesign-akun .absk-col-b { min-width: 0; }
