@@ -278,15 +278,25 @@ class AttendanceReconciler
      */
     private function requestsForDate(array $reqs, string $date): array
     {
-        $absence = null; $lembur = 0;
+        $absence = null; $lembur = 0; $koreksi = false;
         foreach ($reqs as $r) {
             if ($date < $r->tanggal_from || $date > $r->tanggal_to) continue;
             if ($r->tipe === 'lembur') {
                 $lembur += (int) $r->claimed_menit;
+            } elseif ($r->tipe === 'koreksi') {
+                $koreksi = true;
             } elseif ($absence === null) {   // absen pertama yg cocok menang
                 $absence = $r->tipe;
             }
         }
+
+        // Koreksi bukan jenis ketidakhadiran — ini bantahan atas scan ("saya
+        // masuk, cuma lupa tap"). Disetujui = orangnya HADIR, menang atas scan
+        // (§4). Tapi kalah dari form absen resmi: kalau hari itu sudah ada cuti
+        // /izin/wfh yang disetujui, yang resmi tetap menang — jangan sampai
+        // koreksi diam-diam mengubah hari cuti jadi hari kerja.
+        if ($absence === null && $koreksi) $absence = 'hadir';
+
         return [$absence, $lembur];
     }
 

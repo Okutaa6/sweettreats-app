@@ -41,6 +41,10 @@ class AttendanceRequestWorkflow
     private const MAX_LEVELS = [
         'cuti' => 2, 'lembur' => 2,
         'izin' => 1, 'libur' => 1, 'wfh' => 1,
+        // Koreksi absen = bantahan atas scan, cukup 1 lapis (atasan langsung).
+        // Sengaja TIDAK 2 lapis: makin panjang rantainya makin lama hari yg
+        // terlanjur kehitung alpa dibiarkan salah sampai tutup periode.
+        'koreksi' => 1,
     ];
 
     /**

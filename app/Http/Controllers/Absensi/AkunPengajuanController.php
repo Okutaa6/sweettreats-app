@@ -24,11 +24,21 @@ class AkunPengajuanController extends Controller
 {
     /** Jenis form + apakah butuh rentang jam (lembur/izin sebagian). */
     public const TIPE = [
-        'cuti'   => 'Cuti',
-        'izin'   => 'Izin',
-        'libur'  => 'Libur / Tukar Hari',
-        'lembur' => 'Lembur',
-        'wfh'    => 'Kerja dari Rumah',
+        'cuti'    => 'Cuti',
+        'izin'    => 'Izin',
+        'libur'   => 'Libur / Tukar Hari',
+        'lembur'  => 'Lembur',
+        'wfh'     => 'Kerja dari Rumah',
+        'koreksi' => 'Koreksi Absen',
+    ];
+
+    /** Pilihan "apa yang keliru?" di form koreksi (ikut handoff). */
+    public const KOREKSI_ALASAN = [
+        'Lupa scan masuk',
+        'Lupa scan pulang',
+        'Sidik jari gagal terbaca',
+        'Jam tercatat keliru',
+        'Lainnya',
     ];
 
     private function userId(): string
@@ -113,19 +123,44 @@ class AkunPengajuanController extends Controller
         $userId = $this->userId();
 
         $data = $request->validate([
-            'tipe'         => 'required|in:cuti,izin,libur,lembur,wfh',
-            'sub_tipe'     => 'nullable|in:jam,tambah_hari',
-            'tanggal_from' => 'required|date',
-            'tanggal_to'   => 'required|date|after_or_equal:tanggal_from',
-            'jam_from'     => 'nullable|date_format:H:i',
-            'jam_to'       => 'nullable|date_format:H:i|after:jam_from',
-            'alasan'       => 'required|string|max:2000',
-            'foto'         => 'nullable|image|mimes:jpg,jpeg,png,webp|max:4096',
+            'tipe'           => 'required|in:cuti,izin,libur,lembur,wfh,koreksi',
+            'sub_tipe'       => 'nullable|in:jam,tambah_hari',
+            'tanggal_from'   => 'required|date',
+            'tanggal_to'     => 'required_unless:tipe,koreksi|nullable|date|after_or_equal:tanggal_from',
+            'jam_from'       => 'nullable|date_format:H:i',
+            'jam_to'         => 'nullable|date_format:H:i|after:jam_from',
+            'alasan'         => 'required_unless:tipe,koreksi|nullable|string|max:2000',
+            'koreksi_alasan' => 'required_if:tipe,koreksi|nullable|string|max:100',
+            'foto'           => 'nullable|image|mimes:jpg,jpeg,png,webp|max:4096',
         ], [
             'tanggal_to.after_or_equal' => 'Tanggal selesai tidak boleh sebelum tanggal mulai.',
             'jam_to.after'              => 'Jam selesai harus setelah jam mulai.',
-            'alasan.required'           => 'Alasan wajib diisi — approver butuh konteksnya.',
+            'alasan.required_unless'    => 'Alasan wajib diisi — yang menyetujui butuh konteksnya.',
+            'koreksi_alasan.required_if' => 'Pilih dulu apa yang keliru.',
         ]);
+
+        // Koreksi absen: selalu 1 hari, alasan dirakit dari pilihan + catatan,
+        // dan tak boleh dobel untuk tanggal yang sama (biar antrean tak banjir).
+        if ($data['tipe'] === 'koreksi') {
+            if (! in_array($data['koreksi_alasan'], self::KOREKSI_ALASAN, true)) {
+                return back()->withInput()->with('error', 'Pilihan koreksi tidak dikenal.');
+            }
+            $data['tanggal_to'] = $data['tanggal_from'];
+
+            $catatan = trim((string) ($data['alasan'] ?? ''));
+            $data['alasan'] = $data['koreksi_alasan'] . ($catatan !== '' ? ' — ' . $catatan : '');
+
+            $dobel = AttRequest::where('user_id', $userId)
+                ->where('tipe', 'koreksi')
+                ->where('tanggal_from', $data['tanggal_from'])
+                ->whereIn('status', ['approved', 'pending_l1', 'pending_l2'])
+                ->exists();
+            if ($dobel) {
+                return back()->with('error',
+                    'Koreksi untuk tanggal ' . Carbon::parse($data['tanggal_from'])->translatedFormat('d M Y')
+                    . ' sudah pernah dikirim dan masih diproses.');
+            }
+        }
 
         // Kuota WFH 2×/bulan (§3.3) — dihitung dari form approved, TAPI pending juga
         // dihitung di sini biar tak bisa over-submit 3 sekaligus lalu semua di-approve.
