@@ -30,6 +30,10 @@ class AppServiceProvider extends ServiceProvider
     {
         // Pastikan Carbon (tanggal/hari/bulan via translatedFormat) ikut Bahasa Indonesia.
         Carbon::setLocale('id');
+
+        // Audit otomatis model sensitif tanpa pencatatan manual (Pusat Akun D).
+        \App\Models\GroupPath::observe(\App\Observers\AuditTrailObserver::class);
+        \App\Models\AttFlag::observe(\App\Observers\AuditTrailObserver::class);
     }
     
     

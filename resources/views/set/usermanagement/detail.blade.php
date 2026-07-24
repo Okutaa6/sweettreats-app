@@ -250,6 +250,28 @@
                             <div class="tc">
                                 <b>{{ $t->description ?: ucfirst($t->action) }}</b>
                                 @if($t->user_name && $t->user_id != $user->id)<div class="sub">oleh {{ $t->user_name }}</div>@endif
+                                @php
+                                    // Fase D: nilai lama → baru. Samarkan LAGI saat render —
+                                    // baris lama (pra-masking) bisa masih menyimpan hash.
+                                    $tlDec = function ($v) {
+                                        $a = is_string($v) ? json_decode($v, true) : null;
+                                        if (! is_array($a)) return [];
+                                        foreach (['password', 'token_hash', 'remember_token'] as $k) {
+                                            if (array_key_exists($k, $a)) $a[$k] = '[disamarkan]';
+                                        }
+                                        return $a;
+                                    };
+                                    $tlOld = $tlDec($t->old_values ?? null);
+                                    $tlNew = $tlDec($t->new_values ?? null);
+                                    $tlFmt = fn ($x) => \Illuminate\Support\Str::limit(is_scalar($x) || $x === null ? (string) $x : json_encode($x), 42);
+                                @endphp
+                                @if($tlNew)
+                                    <div class="sub ud-num" style="display:flex;flex-wrap:wrap;gap:4px 10px;margin-top:3px">
+                                        @foreach($tlNew as $k => $v)
+                                            <span style="font-size:11px;background:#F6EFE6;border:1px solid #EADFCE;border-radius:6px;padding:1px 7px;color:#7A5B43">{{ $k }}: @if(array_key_exists($k, $tlOld)){{ $tlFmt($tlOld[$k]) }} → @endif{{ $tlFmt($v) }}</span>
+                                        @endforeach
+                                    </div>
+                                @endif
                                 <div class="tm ud-num">{{ \Carbon\Carbon::parse($t->created_at)->format('d M Y · H.i') }}</div>
                             </div>
                         </div>
@@ -257,7 +279,7 @@
                         <div class="ud-empty" style="padding:4px 0 10px">Belum ada jejak aktivitas.</div>
                     @endforelse
                 </div>
-                <div class="ud-footnote">Riwayat lengkap (fase 2) akan mencatat perubahan role &amp; akses.</div>
+                <div class="ud-footnote">Perubahan role &amp; akses ikut tercatat otomatis. Log disimpan 6 bulan.</div>
             </div>
         </div>
     </div>

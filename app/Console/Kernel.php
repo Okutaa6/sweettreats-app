@@ -83,6 +83,16 @@ class Kernel extends ConsoleKernel
             ->dailyAt('06:20')
             ->withoutOverlapping(10)
             ->appendOutputTo(storage_path('logs/absensi-cron.log'));
+
+        // Retensi audit log: 6 bulan (Pusat Akun Fase D). Chunked biar tak
+        // ngunci tabel kalau tumpukan lama besar.
+        $schedule->call(function () {
+            do {
+                $n = \Illuminate\Support\Facades\DB::table('audit_log')
+                    ->where('created_at', '<', now()->subMonths(6))
+                    ->limit(5000)->delete();
+            } while ($n > 0);
+        })->name('audit-log-prune')->dailyAt('01:40')->withoutOverlapping(30);
     }
 
     /**

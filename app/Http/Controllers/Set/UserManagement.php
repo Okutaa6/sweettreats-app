@@ -192,6 +192,7 @@ class UserManagement extends Controller
 
         $user = Users::find($id);
         $statusLama = (int) $user->status;
+        $asli = $user->getOriginal();
         $user->update([
             'nama'          => request('nama'),
             'email'         => request('email'),
@@ -199,6 +200,11 @@ class UserManagement extends Controller
             'raw_branch_id' => request('raw_branch_id'),
             'status'        => request('status', $user->status),
         ]);
+
+        if ($user->getChanges()) {
+            \App\Models\AuditLog::record('update', 'Ubah akun: ' . $user->nama, $user,
+                array_intersect_key($asli, $user->getChanges()));
+        }
 
         // Akun dinonaktifkan → perangkat "Ingat perangkat ini" dicabut + sesi
         // aktif ditendang (AuthGuard tak cek ulang status per-request).

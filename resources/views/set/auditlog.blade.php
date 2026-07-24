@@ -71,7 +71,27 @@
                                     -
                                 @endif
                             </td>
-                            <td style="font-size:0.85rem">{{ $log->description ?? '-' }}</td>
+                            <td style="font-size:0.85rem">
+                                {{ $log->description ?? '-' }}
+                                @php
+                                    // Samarkan lagi saat render — baris lama (pra-masking) bisa masih simpan hash.
+                                    $dSamar = function ($a) {
+                                        if (! is_array($a)) return [];
+                                        foreach (['password', 'token_hash', 'remember_token'] as $k) {
+                                            if (array_key_exists($k, $a)) $a[$k] = '[disamarkan]';
+                                        }
+                                        return $a;
+                                    };
+                                    $dNew = $dSamar($log->new_values); $dOld = $dSamar($log->old_values);
+                                @endphp
+                                @if($dNew)
+                                    <div style="display:flex;flex-wrap:wrap;gap:3px 8px;margin-top:2px">
+                                        @foreach($dNew as $k => $v)
+                                            <small class="text-muted" style="background:#f6f1ea;border-radius:5px;padding:0 6px">{{ $k }}: @if(array_key_exists($k, $dOld)){{ \Illuminate\Support\Str::limit(is_scalar($dOld[$k]) || $dOld[$k] === null ? (string) $dOld[$k] : json_encode($dOld[$k]), 30) }} → @endif{{ \Illuminate\Support\Str::limit(is_scalar($v) || $v === null ? (string) $v : json_encode($v), 30) }}</small>
+                                        @endforeach
+                                    </div>
+                                @endif
+                            </td>
                             <td style="font-size:0.8rem">{{ $log->ip_address }}</td>
                         </tr>
                         @empty

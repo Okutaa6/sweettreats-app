@@ -213,6 +213,12 @@ class PengawasanController extends Controller
             'ditindak_at'   => Carbon::now(),
         ]);
 
+        // Update massal tidak menyalakan observer audit — catat manual.
+        if ($n > 0) {
+            \App\Models\AuditLog::record('update',
+                "Selesaikan {$n} flag absensi serentak ({$data['hasil']}) — id: " . implode(',', $ids));
+        }
+
         return back()->with('success', "{$n} flag diselesaikan sekaligus.");
     }
 

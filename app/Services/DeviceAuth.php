@@ -30,12 +30,14 @@ class DeviceAuth
     {
         $token = bin2hex(random_bytes(32));
 
-        UserDevice::create([
+        $device = UserDevice::create([
             'user_id'      => $userId,
             'token_hash'   => hash('sha256', $token),
             'label'        => $this->labelDari($request->userAgent() ?? ''),
             'last_used_at' => now(),
         ]);
+
+        \App\Models\AuditLog::record('create', 'Perangkat "diingat" baru: ' . $device->label, $device);
 
         $this->queueCookie($token);
     }
