@@ -1,92 +1,224 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="id">
 
 <head>
     <meta charset="utf-8" />
-    <title>{{ $sysprofile['systitle'] }}</title>
+    <title>Login Staff — {{ $sysprofile['systitle'] }}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
     <link rel="shortcut icon" href="{{ asset('sysprofile/' . $sysprofile['syslogo']) }}">
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <link href="{{ asset('assets/css/bootstrap.min.css') }}" rel="stylesheet" type="text/css" />
-    <link href="{{ asset('assets/css/style.sweettreats.css') }}?v={{ @filemtime(public_path('assets/css/style.sweettreats.css')) ?: '1' }}" rel="stylesheet" type="text/css" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
     <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --bg: #fdfbf9;
+            --ink: #3a1c0a;
+            --muted: #8c7f74;
+            --line: #ece5de;
+            --line-strong: #ddd2c8;
+            --accent: #6b2400;
+            --accent-soft: #f2e7dd;
+            --grad: linear-gradient(135deg, #8b3a00, #461500);
+        }
+
+        body {
+            font-family: 'Montserrat', sans-serif;
+            color: var(--ink);
+            background: var(--bg);
+            min-height: 100dvh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 32px 22px;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* faint grid backdrop (senada landing) */
+        body::before {
+            content: "";
+            position: fixed; inset: 0; z-index: 0; pointer-events: none;
+            background-image:
+                linear-gradient(var(--line) 1px, transparent 1px),
+                linear-gradient(90deg, var(--line) 1px, transparent 1px);
+            background-size: 64px 64px;
+            mask-image: radial-gradient(circle at 50% 40%, #000, transparent 70%);
+            opacity: 0.55;
+        }
+
+        .card {
+            position: relative; z-index: 1;
+            width: 100%; max-width: 410px;
+            background: #fff;
+            border: 1px solid var(--line);
+            border-radius: 24px;
+            padding: 40px 38px 34px;
+            box-shadow: 0 24px 60px rgba(23, 19, 16, 0.07);
+            animation: rise 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        @keyframes rise { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+
+        .brand { display: flex; justify-content: center; margin-bottom: 26px; }
+        .brand .mark { width: 56px; height: 56px; border-radius: 16px; background: #fff; color: var(--accent); border: 1px solid var(--line); box-shadow: 0 10px 24px rgba(58, 28, 10, 0.12); display: inline-flex; align-items: center; justify-content: center; font-size: 1.35rem; overflow: hidden; }
+        .brand .mark img { width: 100%; height: 100%; object-fit: contain; padding: 6px; }
+
+        .head { text-align: center; margin-bottom: 2px; }
+
+        .eyebrow {
+            display: inline-flex; align-items: center; gap: 9px;
+            font-size: 0.7rem; font-weight: 700; letter-spacing: 2.4px; text-transform: uppercase; color: var(--muted);
+        }
+        .eyebrow .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); }
+
+        .title { margin-top: 14px; font-size: 1.7rem; font-weight: 900; letter-spacing: -0.02em; color: var(--ink); }
+        .sub { margin-top: 8px; color: var(--muted); font-size: 0.9rem; line-height: 1.5; }
+
+        /* flash */
+        .flash { display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; border-radius: 12px; font-size: 0.84rem; font-weight: 500; margin-top: 22px; line-height: 1.45; }
+        .flash i { margin-top: 2px; }
+        .flash.err { background: #fdecec; border: 1px solid #f5c2c2; color: #b02a2a; }
+        .flash.ok { background: #e9f8ee; border: 1px solid #b7e6c6; color: #1e7a43; }
+
+        form { margin-top: 26px; }
+        .field { margin-bottom: 18px; }
+        .field label { display: block; font-size: 0.8rem; font-weight: 700; color: var(--ink); margin-bottom: 8px; }
+
+        .input-wrap { position: relative; display: flex; align-items: center; }
+        .input-wrap .lead-ic { position: absolute; left: 15px; color: var(--muted); pointer-events: none; display: inline-flex; }
+        .input-wrap input {
+            width: 100%; padding: 14px 16px 14px 44px;
+            border: 1.6px solid var(--line-strong); border-radius: 13px; background: #fff;
+            font-family: inherit; font-size: 0.95rem; color: var(--ink);
+            transition: border-color 0.22s, box-shadow 0.22s;
+        }
+        .input-wrap input::placeholder { color: #bcaea0; }
+        .input-wrap input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); }
+        .input-wrap input.invalid { border-color: #e08585; box-shadow: 0 0 0 4px rgba(224, 133, 133, 0.14); }
+
+        .toggle-pass { position: absolute; right: 12px; background: none; border: none; cursor: pointer; color: var(--muted); padding: 6px; display: inline-flex; border-radius: 8px; transition: color 0.2s, background 0.2s; }
+        .toggle-pass:hover { color: var(--accent); background: var(--accent-soft); }
+
+        .field-err { margin-top: 6px; font-size: 0.78rem; color: #b02a2a; font-weight: 500; }
+
+        .forgot { display: inline-flex; align-items: center; gap: 6px; font-size: 0.82rem; font-weight: 600; color: var(--muted); text-decoration: none; margin-bottom: 24px; transition: gap 0.2s, color 0.2s; }
+        .forgot:hover { gap: 9px; color: var(--accent); }
+
+        .btn-submit {
+            width: 100%; margin-top: 8px; display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+            padding: 15px 24px; border: none; border-radius: 13px; cursor: pointer;
+            font-family: inherit; font-size: 0.96rem; font-weight: 800; letter-spacing: 0.2px;
+            color: #fff; background: var(--grad);
+            transition: transform 0.22s, box-shadow 0.22s, filter 0.22s;
+        }
+        .btn-submit:hover { transform: translateY(-2px); filter: brightness(1.08); box-shadow: 0 14px 30px rgba(42, 13, 0, 0.3); }
+        .btn-submit i { transition: transform 0.22s; }
+        .btn-submit:hover i { transform: translateX(4px); }
+
+        .foot { margin-top: 26px; text-align: center; font-size: 0.76rem; color: var(--muted); }
+        .back-home { display: inline-flex; align-items: center; gap: 6px; margin-top: 8px; color: var(--muted); text-decoration: none; font-weight: 600; transition: color 0.2s; }
+        .back-home:hover { color: var(--accent); }
+
+        @media (max-width: 420px) { .card { padding: 34px 26px 30px; } .title { font-size: 1.5rem; } }
+    </style>
 </head>
 
-<body class="auth-body">
-
-    <div class="auth-card">
-
-        <div class="card-header-brand">
-            <div class="logo-wrap">
-                <img src="{{ asset('sysprofile/' . $sysprofile['syslogo']) }}" alt="Logo">
-            </div>
-            <h1 class="card-title">Login Admin</h1>
-            <p class="card-subtitle">Sweet Treats Dental Clinic</p>
+<body>
+    <div class="card">
+        <div class="brand">
+            <span class="mark">
+                @if (!empty($sysprofile['syslogo']))
+                    <img src="{{ asset('sysprofile/' . $sysprofile['syslogo']) }}" alt="Logo">
+                @else
+                    <i class="fa-solid fa-tooth"></i>
+                @endif
+            </span>
         </div>
 
-        <div class="divider"></div>
+        <div class="head">
+            <span class="eyebrow"><span class="dot"></span> Staff Access</span>
+            <h1 class="title">Selamat Datang</h1>
+            <p class="sub">Masuk untuk mengakses dashboard operasional Sweet Treats.</p>
+        </div>
 
-        @include('layouts.notif')
+        {{-- Flash message (inline, tanpa Bootstrap) --}}
+        @if (Session::has('success'))
+            <div class="flash ok"><i class="fa-solid fa-circle-check"></i><span>{{ Session::get('success') }}</span></div>
+        @elseif (Session::has('error'))
+            <div class="flash err"><i class="fa-solid fa-circle-exclamation"></i><span>{{ Session::get('error') }}</span></div>
+        @elseif ($errors->any())
+            <div class="flash err"><i class="fa-solid fa-circle-exclamation"></i><span>{{ $errors->first() }}</span></div>
+        @endif
 
         <form action="{{ route('signin') }}" method="post" autocomplete="off">
             @csrf
 
-            <div class="field-group">
-                <label class="field-label" for="email">Email</label>
+            <div class="field">
+                <label for="email">Email</label>
                 <div class="input-wrap">
-                    <svg class="field-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
-                    </svg>
+                    <span class="lead-ic"><i class="fa-solid fa-envelope"></i></span>
                     <input type="email" name="email" id="email"
                            value="{{ old('email') }}"
-                           class="@error('email') is-invalid @enderror"
-                           placeholder="Masukkan email">
+                           class="{{ $errors->has('email') ? 'invalid' : '' }}"
+                           placeholder="nama@sweettreats.id" autofocus>
                 </div>
                 @error('email')
-                    <div class="field-error">{{ $message }}</div>
+                    <div class="field-err">{{ $message }}</div>
                 @enderror
             </div>
 
-            <div class="field-group">
-                <label class="field-label" for="password">Password</label>
+            <div class="field">
+                <label for="password">Password</label>
                 <div class="input-wrap">
-                    <svg class="field-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-                    </svg>
+                    <span class="lead-ic"><i class="fa-solid fa-lock"></i></span>
                     <input type="password" name="password" id="password"
-                           class="@error('password') is-invalid @enderror"
+                           class="{{ $errors->has('password') ? 'invalid' : '' }}"
                            placeholder="Masukkan password">
+                    <button type="button" class="toggle-pass" id="togglePass" aria-label="Tampilkan password">
+                        <i class="fa-solid fa-eye" id="eyeIcon"></i>
+                    </button>
                 </div>
                 @error('password')
-                    <div class="field-error">{{ $message }}</div>
+                    <div class="field-err">{{ $message }}</div>
                 @enderror
             </div>
 
-            <a href="{{ url('forgot-password') }}" class="forgot-link">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                    <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-                </svg>
-                Lupa password?
-            </a>
-
-            <button type="submit" class="btn-auth">
-                Masuk
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/>
-                </svg>
+            <button type="submit" class="btn-submit">
+                Masuk ke Dashboard
+                <i class="fa-solid fa-arrow-right-to-bracket"></i>
             </button>
 
-            <p class="footer-note">© {{ date('Y') }} Sweet Treats Dental Clinic</p>
+            <div class="foot">
+                <div>© {{ date('Y') }} Sweet Treats Dental Clinic</div>
+                <a href="{{ route('home') }}" class="back-home">
+                    <i class="fa-solid fa-arrow-left"></i> Kembali ke beranda
+                </a>
+            </div>
         </form>
     </div>
 
     <script>
-        document.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                document.querySelector('.btn-auth').click();
+        (function () {
+            var btn = document.getElementById('togglePass');
+            var input = document.getElementById('password');
+            var icon = document.getElementById('eyeIcon');
+            if (btn && input) {
+                btn.addEventListener('click', function () {
+                    var show = input.type === 'password';
+                    input.type = show ? 'text' : 'password';
+                    icon.className = show ? 'fa-solid fa-eye-slash' : 'fa-solid fa-eye';
+                    btn.setAttribute('aria-label', show ? 'Sembunyikan password' : 'Tampilkan password');
+                });
             }
-        });
+        })();
     </script>
 </body>
 </html>

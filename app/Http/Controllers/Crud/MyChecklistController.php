@@ -10,6 +10,7 @@ use App\Models\ChecklistDivision;
 use App\Models\ChecklistSubmission;
 use App\Models\ChecklistSubmissionItem;
 use App\Models\ChecklistTask;
+use App\Models\ChecklistWeeklyDayExcuse;
 use App\Models\ChecklistWeeklySubmission;
 use App\Models\ChecklistWeeklySubmissionItem;
 use App\Models\RawBranch;
@@ -408,6 +409,7 @@ class MyChecklistController extends Controller
                 'submission' => null,
                 'days'       => [],
                 'grouped'    => collect(),
+                'excusedDays' => [],
                 'progress'   => ['done' => 0, 'total' => 0, 'pct' => 0],
                 'weekOffset' => 0,
                 'weekStart'  => Carbon::today()->startOfWeek(Carbon::MONDAY),
@@ -476,10 +478,21 @@ class MyChecklistController extends Controller
             $grouped = $items->groupBy('day_of_week');
         }
 
+        // Peta hari yang dikecualikan (iso => alasan) untuk minggu ini.
+        $excusedDays = $submission
+            ? $submission->dayExcuses->pluck('reason', 'day_of_week')
+                ->mapWithKeys(fn ($reason, $iso) => [(int) $iso => $reason])->all()
+            : [];
+
+        // Progress form berjalan berbasis "satisfied" (dicentang ATAU hari
+        // dikecualikan) supaya ring atas & teks "belum dikerjakan" menghormati
+        // hari yang di-skip. done_tasks di DB tetap = benar-benar dikerjakan.
+        $satisfied = $submission?->satisfiedCount() ?? 0;
+        $total     = $submission?->total_tasks ?? 0;
         $progress = [
-            'done'  => $submission?->done_tasks ?? 0,
-            'total' => $submission?->total_tasks ?? 0,
-            'pct'   => $submission?->progressPct() ?? 0,
+            'done'  => $satisfied,
+            'total' => $total,
+            'pct'   => $total > 0 ? (int) round(($satisfied / $total) * 100) : 0,
         ];
 
         $rejectedNote = ($submission && $submission->status === ChecklistWeeklySubmission::STATUS_REJECTED)
@@ -487,7 +500,7 @@ class MyChecklistController extends Controller
             : null;
 
         return view('crud.checklist.my.weekform', compact(
-            'position', 'submission', 'days', 'grouped', 'progress',
+            'position', 'submission', 'days', 'grouped', 'progress', 'excusedDays',
             'weekOffset', 'weekStart', 'weekEnd', 'rejectedNote', 'isFuture'
         ));
     }
@@ -523,13 +536,17 @@ class MyChecklistController extends Controller
         $done = $sub->items()->where('is_done', 1)->count();
         $sub->update(['done_tasks' => $done, 'updated_at' => now()]);
 
+        // Progress yang dikirim ke UI berbasis "satisfied" (dicentang ATAU hari
+        // dikecualikan) supaya konsisten dengan render server-side.
+        $satisfied = $sub->satisfiedCount();
+
         return response()->json([
             'ok'      => true,
             'is_done' => $newState,
             'progress' => [
-                'done'  => $done,
+                'done'  => $satisfied,
                 'total' => $sub->total_tasks,
-                'pct'   => $sub->total_tasks ? (int) round($done / $sub->total_tasks * 100) : 0,
+                'pct'   => $sub->total_tasks ? (int) round($satisfied / $sub->total_tasks * 100) : 0,
             ],
         ]);
     }
@@ -625,13 +642,14 @@ class MyChecklistController extends Controller
 
         $done = $sub->items()->where('is_done', 1)->count();
         $sub->update(['done_tasks' => $done, 'updated_at' => now()]);
+        $satisfied = $sub->satisfiedCount();
 
         return response()->json([
             'ok'       => true,
             'progress' => [
-                'done'  => $done,
+                'done'  => $satisfied,
                 'total' => $sub->total_tasks,
-                'pct'   => $sub->total_tasks ? (int) round($done / $sub->total_tasks * 100) : 0,
+                'pct'   => $sub->total_tasks ? (int) round($satisfied / $sub->total_tasks * 100) : 0,
             ],
         ]);
     }
@@ -735,8 +753,8 @@ class MyChecklistController extends Controller
         if (! $sub->isEditable()) {
             return back()->with('error', 'Form mingguan sudah disubmit.');
         }
-        if ($sub->total_tasks === 0 || $sub->done_tasks < $sub->total_tasks) {
-            return back()->with('error', 'Semua tugas minggu ini harus diselesaikan (100%) sebelum submit.');
+        if ($sub->total_tasks === 0 || $sub->satisfiedCount() < $sub->total_tasks) {
+            return back()->with('error', 'Semua tugas minggu ini harus diselesaikan atau ditandai tidak perlu diisi (100%) sebelum submit.');
         }
 
         $data = $request->validate(['note' => 'nullable|string|max:1000']);
@@ -796,10 +814,19 @@ class MyChecklistController extends Controller
     }
 
     /**
-     * Tandai Form Mingguan (minggu ini) "tidak perlu diisi" (excused) + alasan.
+     * Tandai SATU hari pada minggu ini "tidak perlu diisi" + alasan (wajib).
+     * Task di hari itu otomatis terhitung "satisfied" tanpa perlu dicentang.
      */
-    public function weekExcuse(Request $request)
+    public function dayExcuse(Request $request)
     {
+        $data = $request->validate(
+            [
+                'day_of_week'   => 'required|integer|between:2,7',
+                'excuse_reason' => 'required|string|max:500',
+            ],
+            ['excuse_reason.required' => 'Alasan wajib diisi.']
+        );
+
         $weekStart = Carbon::today()->startOfWeek(Carbon::MONDAY);
         $sub = ChecklistWeeklySubmission::where('user_id', session('id'))
             ->whereDate('week_start_date', $weekStart)
@@ -809,31 +836,27 @@ class MyChecklistController extends Controller
             return back()->with('error', 'Form Mingguan sudah tidak bisa diubah.');
         }
 
-        $data = $request->validate(
-            ['excuse_reason' => 'required|string|max:500'],
-            ['excuse_reason.required' => 'Alasan wajib diisi.']
+        $iso = (int) $data['day_of_week'];
+
+        ChecklistWeeklyDayExcuse::updateOrCreate(
+            ['submission_id' => $sub->id, 'day_of_week' => $iso],
+            ['reason' => $data['excuse_reason'], 'updated_at' => now(), 'created_at' => now()]
         );
+        $sub->update(['updated_at' => now()]);
 
-        $before = ['status' => $sub->status];
-        $sub->update([
-            'status'        => ChecklistWeeklySubmission::STATUS_EXCUSED,
-            'excuse_reason' => $data['excuse_reason'],
-            'submitted_at'  => null,
-            'updated_at'    => now(),
-        ]);
-
+        $dayLabel = ChecklistTask::dayLabels()[$iso] ?? ('Hari ' . $iso);
         ChecklistAuditLog::write('weekly_submission', $sub->id, ChecklistAuditLog::ACTION_EXCUSE,
-            $before, ['status' => $sub->status], $data['excuse_reason']);
+            null, ['day_of_week' => $iso], $dayLabel . ': ' . $data['excuse_reason']);
 
         try {
             $user = Users::find(session('id'));
             $name = $user?->nama ?? 'Karyawan';
-            $body = $name . ' (' . $sub->division_id . ') menandai Form Mingguan ' . $sub->weekLabel() . ' tidak perlu diisi. Alasan: ' . $data['excuse_reason'];
+            $body = $name . ' (' . $sub->division_id . ') menandai ' . $dayLabel . ' (' . $sub->weekLabel() . ') tidak perlu diisi. Alasan: ' . $data['excuse_reason'];
             foreach (checklistSupervisorRoleNamesForDivision($sub->division_id) as $roleName) {
                 AdminNotification::notifyRole(
                     $roleName,
-                    'checklist.weekly.excused',
-                    "Form Mingguan dikecualikan — {$name}",
+                    'checklist.weekly.day_excused',
+                    "Hari dikecualikan — {$name}",
                     $body,
                     route('checklist.review.weekly.show', $sub->id),
                     $sub->raw_branch_id
@@ -843,33 +866,38 @@ class MyChecklistController extends Controller
             // jangan gagalkan aksi kalau notif error
         }
 
-        return redirect()->route('mychecklist.weekform')->with('success', 'Form Mingguan ditandai "Dikecualikan".');
+        return redirect()->route('mychecklist.weekform')->with('success', $dayLabel . ' ditandai "tidak perlu diisi".');
     }
 
     /**
-     * Batalkan pengecualian Form Mingguan (excused → draft) oleh karyawan.
+     * Batalkan pengecualian satu hari — hari itu kembali wajib diisi.
      */
-    public function weekUnexcuse(Request $request)
+    public function dayUnexcuse(Request $request)
     {
+        $data = $request->validate([
+            'day_of_week' => 'required|integer|between:2,7',
+        ]);
+
         $weekStart = Carbon::today()->startOfWeek(Carbon::MONDAY);
         $sub = ChecklistWeeklySubmission::where('user_id', session('id'))
             ->whereDate('week_start_date', $weekStart)
             ->firstOrFail();
 
-        if ($sub->status !== ChecklistWeeklySubmission::STATUS_EXCUSED) {
-            return back()->with('error', 'Form Mingguan ini tidak dalam status Dikecualikan.');
+        if (! $sub->isEditable()) {
+            return back()->with('error', 'Form Mingguan sudah tidak bisa diubah.');
         }
 
-        $before = ['status' => $sub->status];
-        $sub->update([
-            'status'        => ChecklistWeeklySubmission::STATUS_DRAFT,
-            'excuse_reason' => null,
-            'updated_at'    => now(),
-        ]);
-        ChecklistAuditLog::write('weekly_submission', $sub->id, ChecklistAuditLog::ACTION_REOPEN,
-            $before, ['status' => $sub->status], 'Karyawan membatalkan pengecualian Form Mingguan.');
+        $iso = (int) $data['day_of_week'];
+        ChecklistWeeklyDayExcuse::where('submission_id', $sub->id)
+            ->where('day_of_week', $iso)
+            ->delete();
+        $sub->update(['updated_at' => now()]);
 
-        return redirect()->route('mychecklist.weekform')->with('success', 'Pengecualian dibatalkan — Form Mingguan kembali bisa diisi.');
+        $dayLabel = ChecklistTask::dayLabels()[$iso] ?? ('Hari ' . $iso);
+        ChecklistAuditLog::write('weekly_submission', $sub->id, ChecklistAuditLog::ACTION_REOPEN,
+            null, ['day_of_week' => $iso], 'Karyawan membatalkan pengecualian ' . $dayLabel . '.');
+
+        return redirect()->route('mychecklist.weekform')->with('success', 'Pengecualian ' . $dayLabel . ' dibatalkan — hari itu kembali wajib diisi.');
     }
 
     /**

@@ -6,6 +6,8 @@
     $ccMap      = \App\Models\MarketingPromo::campaignColors();
     $rp = fn($v) => 'Rp ' . number_format((float) $v, 0, ',', '.');
     $rangeUrl = fn($r) => request()->fullUrlWithQuery(['range' => $r]);
+    $donutR = 58; $donutC = 2 * M_PI * $donutR;
+    $donutArc = $donutC * ($target['has_target'] ? $target['pct_clamped'] : 0) / 100;
 @endphp
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
@@ -112,7 +114,8 @@
             @endif
         </div>
 
-        {{-- PROMO --}}
+        {{-- PROMO + Pencapaian (kolom kiri, selebar Katalog) --}}
+        <div class="mds-col">
         <div class="mds-card">
             <div class="mds-sec"><span class="mds-sec__ic" style="background:#F4E7D8;color:#7A3415;"><i class="fa fa-tags"></i></span> Katalog Promo</div>
             @if ($promos->isEmpty())
@@ -125,7 +128,47 @@
                 </div>
             @endif
         </div>
-    </div>
+
+        {{-- Pencapaian penjualan vs target (bulan/cabang terpilih) --}}
+        <div class="mds-hero">
+            <div class="mds-hero__l">
+            <div class="mds-hero__eyebrow">
+                Pencapaian {{ $selected ? 'Cabang ' . $branchName : 'Semua Cabang' }} di Bulan {{ $target['month_label'] }}
+                @if ($target['has_target'])
+                    <span class="mds-pill {{ $target['on_track'] ? 'is-ok' : 'is-behind' }}">
+                        <i class="fa {{ $target['on_track'] ? 'fa-check-circle' : 'fa-exclamation-circle' }}"></i>
+                        {{ $target['on_track'] ? 'Sesuai target' : 'Di bawah target' }}
+                    </span>
+                @endif
+            </div>
+            <div class="mds-hero__amount">{{ $rp($target['actual']) }}</div>
+            @if ($target['has_target'])
+                <div class="mds-hero__target">dari target <b>{{ $rp($target['target']) }}</b></div>
+                <div class="mds-hero__row">
+                    <span>Kurang <b>{{ $rp($target['remaining']) }}</b> lagi</span>
+                    <span class="mds-hdot">·</span>
+                    <span>Target s/d hari ini: <b>{{ $rp($target['expected']) }}</b></span>
+                </div>
+            @else
+                <div class="mds-hero__target mds-hero__target--warn">
+                    <i class="fa fa-exclamation-triangle"></i> Target belum diisi — set di admin cabang
+                </div>
+            @endif
+        </div>
+        <div class="mds-hero__r">
+            <svg viewBox="0 0 150 150" class="mds-hdonut">
+                <circle cx="75" cy="75" r="{{ $donutR }}" fill="none" stroke="rgba(255,250,245,.13)" stroke-width="14"/>
+                @if ($target['has_target'])
+                <circle cx="75" cy="75" r="{{ $donutR }}" fill="none" stroke="{{ $target['on_track'] ? '#5FCB86' : '#E6A93D' }}" stroke-width="14"
+                    stroke-linecap="round" stroke-dasharray="{{ round($donutArc,1) }} {{ round($donutC,1) }}" transform="rotate(-90 75 75)"/>
+                @endif
+                <text x="75" y="71" text-anchor="middle" class="mds-hdonut__pct">{{ $target['has_target'] ? number_format($target['attainment'],1).'%' : '—' }}</text>
+                <text x="75" y="90" text-anchor="middle" class="mds-hdonut__lbl">DARI TARGET</text>
+            </svg>
+        </div>
+        </div>{{-- /mds-hero --}}
+        </div>{{-- /mds-col (Promo + Pencapaian) --}}
+    </div>{{-- /mds-grid--t1 --}}
 
     {{-- ════ TIER 2: Akuisisi (stacked) | Roster KOL/KOC ════ --}}
     <div class="mds-grid mds-grid--t2">
@@ -317,22 +360,41 @@
     .mds-kpi__sub { font-size:11.5px; color:#9A7256; }
     .mds-kpi__sub.is-ok { color:#2F8E55; } .mds-kpi__sub.is-warn { color:#C0791F; }
 
+    /* Hero pencapaian vs target */
+    .mds-hero { display:flex; align-items:center; gap:20px; background:linear-gradient(120deg,#6B2400 0%,#521A02 52%,#461500 100%); color:#fff; border-radius:22px; padding:24px 28px; box-shadow:0 14px 34px rgba(70,21,0,.30); }
+    .mds-hero__l { flex:1; }
+    .mds-hero__eyebrow { font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:#E6CDBB; display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+    .mds-pill { display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:700; padding:3px 11px; border-radius:20px; text-transform:none; letter-spacing:0; }
+    .mds-pill.is-ok { background:rgba(95,203,134,.2); color:#9FE6B4; }
+    .mds-pill.is-behind { background:rgba(230,169,61,.2); color:#FAD79A; }
+    .mds-hero__amount { font-size:46px; font-weight:800; letter-spacing:-1px; line-height:1.05; margin:8px 0 4px; }
+    .mds-hero__target { font-size:14px; color:#E0C8B8; }
+    .mds-hero__target--warn { color:#FAD79A; }
+    .mds-hero__row { display:flex; align-items:center; gap:10px; flex-wrap:wrap; font-size:13px; color:#E0C8B8; margin-top:12px; }
+    .mds-hero__row b { color:#fff; } .mds-hdot { color:#9a6b4e; }
+    .mds-hero__r { flex:0 0 auto; }
+    .mds-hdonut { width:150px; height:150px; }
+    .mds-hdonut__pct { fill:#fff; font-size:30px; font-weight:800; text-anchor:middle; }
+    .mds-hdonut__lbl { fill:#E6CDBB; font-size:9px; font-weight:700; letter-spacing:1px; text-anchor:middle; }
+
     /* Grid tiers */
     .mds-grid { display:grid; gap:18px; align-items:start; margin-bottom:18px; }
     .mds-grid--t1 { grid-template-columns:minmax(0,1.8fr) minmax(280px,1fr); }  /* Promo lebar | Sumber sempit */
-    .mds-grid--t1 > .mds-card:nth-child(1) { order:2; }  /* Sumber Pasien → kanan (sempit) */
-    .mds-grid--t1 > .mds-card:nth-child(2) { order:1; }  /* Promo → kiri (lebar) */
+    .mds-grid--t1 > :nth-child(1) { order:2; }  /* Sumber Pasien → kanan (sempit) */
+    .mds-grid--t1 > :nth-child(2) { order:1; }  /* Promo + Pencapaian → kiri (lebar) */
     .mds-grid--t1 .sds-promo-grid { grid-template-columns:repeat(3,minmax(0,1fr)); }
     /* Kolom sumber pasien sempit → donut di atas, legend di bawah (stack) */
     .mds-grid--t1 .mds-donutwrap { flex-direction:column; align-items:center; gap:16px; }
     .mds-grid--t1 .mds-legend { width:100%; }
-    .mds-grid--t2 { grid-template-columns:minmax(0,2fr) minmax(280px,1fr); }
+    .mds-grid--t2 { grid-template-columns:minmax(0,1.8fr) minmax(280px,1fr); }  /* samakan dgn t1 → Akuisisi sejajar wrapper Target */
     .mds-grid--t3 { grid-template-columns:repeat(2,minmax(0,1fr)); }
     .mds-grid--t4 { grid-template-columns:repeat(2,minmax(0,1fr)); align-items:stretch; }
     .mds-col { display:flex; flex-direction:column; gap:18px; }
     @media (max-width:1100px){
         .mds-grid--t1,.mds-grid--t2,.mds-grid--t3,.mds-grid--t4 { grid-template-columns:1fr; }
         .mds-kpis { grid-template-columns:repeat(2,1fr); }
+        .mds-hero { flex-direction:column; align-items:flex-start; gap:14px; }
+        .mds-hero__amount { font-size:38px; }
     }
 
     .mds-card { background:#fff; border:1px solid #F0E2D6; border-radius:20px; padding:20px 22px; box-shadow:0 1px 2px rgba(70,21,0,.04),0 10px 26px rgba(70,21,0,.05); }

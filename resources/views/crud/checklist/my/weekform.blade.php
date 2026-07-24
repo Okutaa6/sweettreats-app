@@ -173,6 +173,7 @@
     .wf-day__chip--good { background: rgba(31,110,95,.12); color: #1F6E5F; }
     .wf-day__chip--warn { background: rgba(166,96,25,.12); color: #A66019; }
     .wf-day__chip--neutral { background: rgba(155,133,120,.12); color: #6B4423; }
+    .wf-day__chip--excused { background: rgba(166,96,25,.14); color: #A66019; }
 
     /* Accordion: head jadi tombol buka/tutup, body diciutkan halus (0fr↔1fr) */
     .wf-day__body {
@@ -212,6 +213,8 @@
     .wf-task:last-child { border-bottom: none; }
     .wf-task:hover { background: #FAF4EC; }
     .wf-task.is-locked { cursor: not-allowed; opacity: .65; }
+    .wf-task.is-excused { cursor: default; opacity: .5; }
+    .wf-task.is-excused:hover { background: transparent; }
     .wf-task__check {
         width: 24px; height: 24px;
         border-radius: 8px;
@@ -609,23 +612,6 @@
                     <i class="fas fa-check-circle"></i>
                     <div><strong>Form Mingguan minggu ini disetujui supervisor.</strong> Terima kasih atas konsistensinya!</div>
                 </div>
-            @elseif($submission && $submission->status === \App\Models\ChecklistWeeklySubmission::STATUS_EXCUSED)
-                <div class="wf-banner wf-banner--warning">
-                    <i class="fas fa-mug-hot"></i>
-                    <div style="flex:1;">
-                        <strong>Form Mingguan ini ditandai "Dikecualikan" — tidak perlu diisi.</strong>
-                        <div style="margin-top:4px;">Alasan: {{ $submission->excuse_reason }}</div>
-                        @if($weekOffset === 0)
-                            <form method="POST" action="{{ route('mychecklist.weekform.unexcuse') }}" style="margin-top:10px;"
-                                  data-confirm="Batalkan pengecualian dan isi Form Mingguan seperti biasa?">
-                                @csrf
-                                <button type="submit" class="st-btn-brand" style="font-size:12.5px; padding:6px 14px;">
-                                    <i class="fas fa-undo"></i> Batalkan, isi form
-                                </button>
-                            </form>
-                        @endif
-                    </div>
-                </div>
             @endif
 
             {{-- DAY-BY-DAY LIST --}}
@@ -660,10 +646,14 @@
                             $totalDay = $dayItems->count();
                             $doneDay  = $dayItems->where('is_done', true)->count();
                             $isComplete = $totalDay > 0 && $doneDay === $totalDay;
+                            $isDayExcused = array_key_exists($day->iso, $excusedDays);
+                            $dayExcuseReason = $excusedDays[$day->iso] ?? null;
+                            $canDayExcuse = $submission && $submission->isEditable() && $weekOffset === 0 && $totalDay > 0;
                             $dayClass = '';
                             if ($day->is_today) $dayClass .= ' is-today';
                             elseif ($day->is_past) $dayClass .= ' is-past';
                             if ($totalDay === 0) $dayClass .= ' is-empty';
+                            if ($isDayExcused) $dayClass .= ' is-excused';
                         @endphp
                         <div class="wf-day {{ $dayClass }}">
                             <div class="wf-day__head">
@@ -680,7 +670,9 @@
                                     </h6>
                                     <div class="wf-day__meta">
                                         <span>{{ $day->date->translatedFormat('d F Y') }}</span>
-                                        @if($totalDay > 0)
+                                        @if($isDayExcused)
+                                            <span class="wf-day__chip wf-day__chip--excused"><i class="fas fa-mug-hot" style="font-size:9px;"></i> Dikecualikan</span>
+                                        @elseif($totalDay > 0)
                                             <span class="wf-day__chip wf-day__chip--{{ $isComplete ? 'good' : 'warn' }}">
                                                 @if($isComplete)<i class="fas fa-check" style="font-size:9px;"></i>@endif
                                                 {{ $doneDay }}/{{ $totalDay }} tugas
@@ -698,10 +690,10 @@
                                     <div class="wf-day__empty">Tidak ada tugas terjadwal di hari ini.</div>
                                 @else
                                     @foreach($dayItems as $item)
-                                            <div class="wf-task {{ $item->is_done ? 'is-done' : '' }} {{ $submission->isEditable() ? '' : 'is-locked' }} {{ ! $isGsBa && $item->requires_photo && ! $item->photo_path ? 'needs-photo' : '' }}"
+                                            <div class="wf-task {{ $item->is_done ? 'is-done' : '' }} {{ $submission->isEditable() && ! $isDayExcused ? '' : 'is-locked' }} {{ $isDayExcused ? 'is-excused' : '' }} {{ ! $isDayExcused && ! $isGsBa && $item->requires_photo && ! $item->photo_path ? 'needs-photo' : '' }}"
                                                  data-item-id="{{ $item->id }}"
                                                  data-toggle-url="{{ route('mychecklist.weekform.item.toggle', $item->id) }}"
-                                                 data-editable="{{ $submission->isEditable() ? '1' : '0' }}"
+                                                 data-editable="{{ $submission->isEditable() && ! $isDayExcused ? '1' : '0' }}"
                                                  data-requires-photo="{{ ! $isGsBa && $item->requires_photo ? '1' : '0' }}"
                                                  @if(! $isGsBa && $item->requires_photo)
                                                  data-photo-upload-url="{{ route('mychecklist.weekform.item.photo.upload', $item->id) }}"
@@ -772,6 +764,51 @@
                                             </div>
                                     @endforeach
                                 @endif
+
+                                @if($canDayExcuse)
+                                    @if($isDayExcused)
+                                        <div class="wf-day-excused">
+                                            <div class="wf-day-excused__text">
+                                                <i class="fas fa-mug-hot"></i>
+                                                <span>Hari ini dikecualikan — <strong>{{ $dayExcuseReason }}</strong></span>
+                                            </div>
+                                            <form method="POST" action="{{ route('mychecklist.weekform.day.unexcuse') }}"
+                                                  data-confirm="Batalkan pengecualian dan isi {{ $day->label }} seperti biasa?">
+                                                @csrf
+                                                <input type="hidden" name="day_of_week" value="{{ $day->iso }}">
+                                                <button type="submit" class="wf-day-excused__undo">
+                                                    <i class="fas fa-undo"></i> Batalkan, isi hari ini
+                                                </button>
+                                            </form>
+                                        </div>
+                                    @else
+                                        <div class="cl-excuse cl-excuse--day">
+                                            <button type="button" class="cl-excuse__trigger" data-excuse-toggle>
+                                                <span class="cl-excuse__trigger-label"><i class="fas fa-mug-hot"></i> Hari ini tidak perlu diisi?</span>
+                                                <i class="fas fa-chevron-down cl-excuse__caret"></i>
+                                            </button>
+                                            <div class="cl-excuse__reveal">
+                                                <div class="cl-excuse__reveal-inner">
+                                                    <form method="POST" action="{{ route('mychecklist.weekform.day.excuse') }}" class="cl-excuse__form"
+                                                          data-confirm="Tandai {{ $day->label }} sebagai tidak perlu diisi?">
+                                                        @csrf
+                                                        <input type="hidden" name="day_of_week" value="{{ $day->iso }}">
+                                                        <div class="cl-excuse__label">Pilih / tulis alasan (wajib):</div>
+                                                        <div class="cl-excuse__chips">
+                                                            <button type="button" class="cl-excuse__chip" onclick="this.closest('form').querySelector('.cl-excuse__input').value='Klinik tutup';">Klinik tutup</button>
+                                                            <button type="button" class="cl-excuse__chip" onclick="this.closest('form').querySelector('.cl-excuse__input').value='Libur';">Libur</button>
+                                                            <button type="button" class="cl-excuse__chip" onclick="this.closest('form').querySelector('.cl-excuse__input').value='Tidak ada pasien';">Tidak ada pasien</button>
+                                                            <button type="button" class="cl-excuse__chip" onclick="this.closest('form').querySelector('.cl-excuse__input').value='Cuti';">Cuti</button>
+                                                        </div>
+                                                        <textarea name="excuse_reason" class="cl-excuse__input" rows="2" maxlength="500" required
+                                                                  placeholder="Contoh: libur / tanggal merah…"></textarea>
+                                                        <button type="submit" class="cl-excuse__submit"><i class="fas fa-check"></i> Tandai hari ini tidak perlu</button>
+                                                    </form>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    @endif
+                                @endif
                                 </div>
                             </div>
                         </div>
@@ -812,27 +849,6 @@
                         </div>
                     </div>
 
-                    {{-- ─── Aksi: minggu ini tidak perlu diisi (Dikecualikan) ─── --}}
-                    <details class="cl-excuse">
-                        <summary class="cl-excuse__trigger">
-                            <span class="cl-excuse__trigger-label"><i class="fas fa-mug-hot"></i> Minggu ini tidak perlu diisi?</span>
-                            <i class="fas fa-chevron-down cl-excuse__caret"></i>
-                        </summary>
-                        <form method="POST" action="{{ route('mychecklist.weekform.excuse') }}" class="cl-excuse__form"
-                              data-confirm="Tandai Form Mingguan ini sebagai tidak perlu diisi?">
-                            @csrf
-                            <div class="cl-excuse__label">Pilih / tulis alasan (wajib):</div>
-                            <div class="cl-excuse__chips">
-                                <button type="button" class="cl-excuse__chip" onclick="this.closest('form').querySelector('.cl-excuse__input').value='Cuti';">Cuti</button>
-                                <button type="button" class="cl-excuse__chip" onclick="this.closest('form').querySelector('.cl-excuse__input').value='Klinik tutup';">Klinik tutup</button>
-                                <button type="button" class="cl-excuse__chip" onclick="this.closest('form').querySelector('.cl-excuse__input').value='Libur';">Libur</button>
-                                <button type="button" class="cl-excuse__chip" onclick="this.closest('form').querySelector('.cl-excuse__input').value='Tidak ada pasien';">Tidak ada pasien</button>
-                            </div>
-                            <textarea name="excuse_reason" class="cl-excuse__input" rows="2" maxlength="500" required
-                                      placeholder="Contoh: libur / tanggal merah…"></textarea>
-                            <button type="submit" class="cl-excuse__submit"><i class="fas fa-check"></i> Tandai "Dikecualikan"</button>
-                        </form>
-                    </details>
                     <style>
                         .cl-excuse { margin-top: 14px; border: 1px solid #E0D2C1; border-radius: 12px; background: #FFFDF9; box-shadow: 0 1px 3px rgba(45,24,16,.05); }
                         .cl-excuse__trigger { list-style: none; cursor: pointer; padding: 13px 16px; font-size: 13px; font-weight: 700; color: #6B4423; display: flex; align-items: center; justify-content: space-between; gap: 8px; border-radius: 12px; transition: background .15s; }
@@ -852,6 +868,21 @@
                         .cl-excuse__input:focus { outline: none; border-color: #A66019; box-shadow: 0 0 0 3px rgba(166,96,25,.10); }
                         .cl-excuse__submit { margin-top: 10px; border: none; border-radius: 8px; background: linear-gradient(180deg,#5C2E15,#471500); color: #fff; font-size: 13px; font-weight: 700; padding: 9px 16px; cursor: pointer; display: inline-flex; align-items: center; gap: 7px; }
                         .cl-excuse__submit:hover { filter: brightness(1.08); }
+                        /* Varian per-hari: tampil di dalam kartu hari (lebih ringkas). */
+                        .cl-excuse--day { margin: 10px 0 2px; }
+                        .cl-excuse--day .cl-excuse__trigger { width: 100%; background: transparent; border: none; font-family: inherit; padding: 11px 14px; font-size: 12.5px; }
+                        /* Dropdown halus: pakai trik grid-rows 0fr↔1fr seperti accordion hari. */
+                        .cl-excuse--day .cl-excuse__reveal { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .28s cubic-bezier(.4,0,.2,1); }
+                        .cl-excuse--day .cl-excuse__reveal-inner { overflow: hidden; min-height: 0; }
+                        .cl-excuse--day.is-open .cl-excuse__reveal { grid-template-rows: 1fr; }
+                        .cl-excuse--day.is-open .cl-excuse__trigger { border-radius: 12px 12px 0 0; border-bottom: 1px solid #EFE1CF; background: #FAF0E2; }
+                        .cl-excuse--day.is-open .cl-excuse__caret { transform: rotate(180deg); }
+                        /* Banner "hari ini dikecualikan" + tombol batalkan. */
+                        .wf-day-excused { margin: 10px 0 2px; padding: 12px 14px; border: 1px solid #E7D3B8; border-left: 4px solid #A66019; border-radius: 10px; background: #FCF4E7; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+                        .wf-day-excused__text { display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; color: #6B4423; }
+                        .wf-day-excused__text i { color: #A66019; }
+                        .wf-day-excused__undo { border: 1px solid #C9A26B; border-radius: 8px; background: #fff; color: #5C2E15; font-size: 12px; font-weight: 700; padding: 7px 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+                        .wf-day-excused__undo:hover { background: #FAF0E2; }
                     </style>
                 @elseif($weekOffset !== 0 && $submission->isEditable())
                     <div class="wf-banner wf-banner--info" style="margin-top:14px;">
@@ -1216,6 +1247,19 @@
      Tombol "Buka semua / Tutup semua" untuk sekali klik. --}}
 <script>
 (function () {
+    // Dropdown "Hari ini tidak perlu diisi?" — buka/tutup halus (grid-rows).
+    document.querySelectorAll('[data-excuse-toggle]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var box = btn.closest('.cl-excuse--day');
+            if (box) box.classList.toggle('is-open');
+        });
+    });
+    function collapseExcuses(scope) {
+        scope.querySelectorAll('.cl-excuse--day.is-open').forEach(function (c) {
+            c.classList.remove('is-open');
+        });
+    }
+
     var days = Array.prototype.slice.call(document.querySelectorAll('.wf-day'));
     if (! days.length) return;
 
@@ -1243,6 +1287,9 @@
         if (! head) return;
         head.addEventListener('click', function () {
             day.classList.toggle('is-collapsed');
+            // Hari ditutup → tutup juga dropdown "tidak perlu diisi" di dalamnya,
+            // supaya saat dibuka lagi mulai dari keadaan tertutup.
+            if (day.classList.contains('is-collapsed')) collapseExcuses(day);
             syncExpandAll();
         });
     });
@@ -1251,6 +1298,7 @@
         btn.addEventListener('click', function () {
             var expand = btn.dataset.mode === 'expand';
             days.forEach(function (d) { d.classList.toggle('is-collapsed', ! expand); });
+            if (! expand) collapseExcuses(document);
             syncExpandAll();
         });
         syncExpandAll();

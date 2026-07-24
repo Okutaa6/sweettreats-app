@@ -223,7 +223,6 @@ Route::middleware([AuthGuard::class])->group(function () {
     Route::post('setgroup/new', [Group::class, 'store'])->name('setgroup.store');
     Route::post('setgroup/reparent', [Group::class, 'reparent'])->name('setgroup.reparent');
     Route::post('setgroup/{id}/detach', [Group::class, 'detach'])->name('setgroup.detach');
-    Route::post('setgroup/assign-division', [Group::class, 'assignDivision'])->name('setgroup.assignDivision');
     Route::get('setgroup/{id}', [Group::class, 'edit'])->name('setgroup.edit');
     Route::put('setgroup/{id}', [Group::class, 'update'])->name('setgroup.update');
     Route::delete('setgroup/{id}', [Group::class, 'destroy'])->name('setgroup.destroy');
@@ -480,8 +479,8 @@ Route::middleware([AuthGuard::class])->group(function () {
     Route::delete('my-checklist/weekform/item/{id}/ba-photo/{slot}', [MyChecklistController::class, 'weekDeleteBaPhoto'])->name('mychecklist.weekform.item.baphoto.delete');
     Route::post ('my-checklist/weekform/submit',         [MyChecklistController::class, 'weekSubmit'])    ->name('mychecklist.weekform.submit');
     Route::post ('my-checklist/weekform/reopen-self',    [MyChecklistController::class, 'weekReopenSelf'])->name('mychecklist.weekform.reopen-self');
-    Route::post ('my-checklist/weekform/excuse',         [MyChecklistController::class, 'weekExcuse'])    ->name('mychecklist.weekform.excuse');
-    Route::post ('my-checklist/weekform/unexcuse',       [MyChecklistController::class, 'weekUnexcuse'])  ->name('mychecklist.weekform.unexcuse');
+    Route::post ('my-checklist/weekform/day-excuse',     [MyChecklistController::class, 'dayExcuse'])     ->name('mychecklist.weekform.day.excuse');
+    Route::post ('my-checklist/weekform/day-unexcuse',   [MyChecklistController::class, 'dayUnexcuse'])   ->name('mychecklist.weekform.day.unexcuse');
 
     // CRUD - Setoran (cash deposit dari pasien)
     Route::get('setoran',                         [CashDepositController::class, 'index'])->name('setoran');

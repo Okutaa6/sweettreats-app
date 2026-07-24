@@ -27,14 +27,25 @@ class ChecklistSetupController extends Controller
         if (! isChecklistSupervisor()) abort(403, 'Tidak punya akses untuk mengelola tugas checklist.');
     }
 
+    /** Cegah kelola divisi di luar cakupan supervisi (hierarki role) user ini. */
+    private function abortIfDivisionOutOfScope(?string $divisionId): void
+    {
+        if (! in_array($divisionId, checklistVisibleDivisionIds(), true)) {
+            abort(403, 'Divisi ini di luar cakupan supervisi Anda.');
+        }
+    }
+
     /* ─── Halaman utama ──────────────────────────────────────────────── */
 
     public function index(Request $request)
     {
         $this->guard();
 
+        // Hanya divisi yang boleh disupervisi user ini (dari hierarki role) yang
+        // tampil sbg tab — konsisten dgn Dashboard & Kelola Posisi.
         $divisions = ChecklistDivision::query()
             ->where('is_active', 1)
+            ->whereIn('id', checklistVisibleDivisionIds())
             ->orderBy('sort_order')
             ->get();
 
@@ -90,6 +101,7 @@ class ChecklistSetupController extends Controller
             'description' => 'nullable|string|max:255',
             'cadence'     => 'nullable|in:daily,weekly',
         ]);
+        $this->abortIfDivisionOutOfScope($data['division_id']);
 
         $nextOrder = (int) (ChecklistCategory::where('division_id', $data['division_id'])
             ->whereNull('deleted_at')->max('sort_order') ?? 0) + 10;
@@ -117,6 +129,7 @@ class ChecklistSetupController extends Controller
     {
         $this->guard();
         $cat = ChecklistCategory::whereNull('deleted_at')->findOrFail($id);
+        $this->abortIfDivisionOutOfScope($cat->division_id);
 
         $data = $request->validate([
             'name'        => 'required|string|max:128',
@@ -145,6 +158,7 @@ class ChecklistSetupController extends Controller
     {
         $this->guard();
         $cat = ChecklistCategory::whereNull('deleted_at')->findOrFail($id);
+        $this->abortIfDivisionOutOfScope($cat->division_id);
 
         // Cek apakah kategori ini punya task yang muncul di submission < 30 hari.
         $hasRecentSubmission = ChecklistSubmission::query()
@@ -187,6 +201,7 @@ class ChecklistSetupController extends Controller
         ]);
 
         $cat = ChecklistCategory::whereNull('deleted_at')->findOrFail($data['category_id']);
+        $this->abortIfDivisionOutOfScope($cat->division_id);
 
         // Untuk kategori mingguan, hari wajib. Untuk harian, paksa NULL.
         // Wajib-foto hanya berlaku untuk kategori mingguan.
@@ -238,6 +253,7 @@ class ChecklistSetupController extends Controller
             'description'   => 'nullable|string|max:1000',
             'requires_photo'=> 'nullable|boolean',
         ]);
+        $this->abortIfDivisionOutOfScope($data['division_id']);
 
         $cat = ChecklistCategory::weeklyUmbrellaFor($data['division_id']);
 
@@ -268,6 +284,7 @@ class ChecklistSetupController extends Controller
     {
         $this->guard();
         $task = ChecklistTask::whereNull('deleted_at')->with('category')->findOrFail($id);
+        $this->abortIfDivisionOutOfScope($task->category?->division_id);
 
         $data = $request->validate([
             'title'         => 'required|string|max:255',
@@ -313,6 +330,7 @@ class ChecklistSetupController extends Controller
             ->with(['category' => fn($q) => $q->withTrashed()])
             ->findOrFail($id);
         $divId = $task->category?->division_id;
+        $this->abortIfDivisionOutOfScope($divId);
 
         $task->delete(); // soft delete
         ChecklistAuditLog::write('task', $task->id, ChecklistAuditLog::ACTION_DELETE,

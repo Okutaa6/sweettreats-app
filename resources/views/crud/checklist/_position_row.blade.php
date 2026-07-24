@@ -35,12 +35,16 @@
               style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
             @csrf
             <input type="hidden" name="user_id" value="{{ $row->user->id }}">
-            @php $prefill = $row->position; @endphp
-            {{-- Divisi tidak dipilih — otomatis dari role user, dikunci. Cukup set cabang. --}}
+            @php
+                $prefill = $row->position;
+                // Default cabang: posisi aktif kalau ada, kalau belum → cabang user (dari profil).
+                $defaultBranch = optional($prefill)->raw_branch_id ?: ($row->user->raw_branch_id ?? '');
+            @endphp
+            {{-- Divisi tidak dipilih — otomatis dari role user, dikunci. Cabang otomatis dari cabang user, bisa diubah. --}}
             <select name="raw_branch_id" required class="cl-inline-select" style="flex:1; min-width:140px;">
                 <option value="">— Cabang —</option>
                 @foreach($branches as $b)
-                    <option value="{{ $b->id }}" {{ optional($prefill)->raw_branch_id === $b->id ? 'selected' : '' }}>{{ $b->name }}</option>
+                    <option value="{{ $b->id }}" {{ (string) $defaultBranch === (string) $b->id ? 'selected' : '' }}>{{ $b->name }}</option>
                 @endforeach
             </select>
             <button type="submit" class="st-btn-brand" style="padding:7px 14px; font-size:12px; white-space:nowrap;">

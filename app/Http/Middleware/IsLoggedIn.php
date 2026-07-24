@@ -26,8 +26,11 @@ class IsLoggedIn
                 return redirect()->route('signin')->with('error', 'Session has expired, please login again');
             }
 
-            // User is logged in and session is valid, redirect to home
-            return redirect()->route('home');
+            // User is logged in and session is valid -> arahkan ke dashboard grupnya
+            // (landing_page = PATH, bukan nama-route -> pakai ->to(), konsisten
+            // dgn AuthController::loginProcess & AuthGuard). Fallback '/' jika kosong.
+            $landingPage = GroupPath::where('id', session('group_id'))->value('landing_page');
+            return redirect()->to($landingPage ?: '/');
         }
 
         return $next($request);

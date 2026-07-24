@@ -66,6 +66,7 @@ class MarketingDashboardController extends Controller
             'branches'    => $branches,
             'selected'    => $selected,
             'branchName'  => $branchName,
+            'target'      => $this->buildTargetProgress($date, $branchIds, $placeIds),
             'kpi'         => $this->buildKpi($date, $monthStart, $monthEnd, $branchIds, $placeIds),
             'sourceMix'   => $this->buildSourceMix($branchIds),
             'acq'         => $this->buildAcquisition($date, $placeIds, $range),
@@ -77,6 +78,77 @@ class MarketingDashboardController extends Controller
             'keywords'    => $this->buildKeywords(),
             'attribution' => $this->buildAttribution($branchIds),
         ]);
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    //  HEADLINE — Revenue bulan ini (aktual Omnicare) vs Target cabang
+    // ════════════════════════════════════════════════════════════════
+    /**
+     * Progres penjualan vs target bulan/cabang terpilih.
+     *
+     * Beda dari Sales Dashboard: di sini bulan bisa dipilih bebas lewat filter,
+     * jadi titik "as of" menyesuaikan — bulan berjalan pakai hari ini (pace),
+     * bulan lampau pakai akhir bulan (aktual penuh), bulan mendatang belum ada.
+     * Bentuk array-nya sengaja disamakan dengan SalesDashboardController agar
+     * markup hero card bisa dipakai ulang.
+     */
+    private function buildTargetProgress(Carbon $date, array $branchIds, array $placeIds): array
+    {
+        $monthStart = $date->copy()->startOfMonth();
+        $monthEnd   = $date->copy()->endOfMonth();
+        $today      = Carbon::now()->startOfDay();
+
+        // Titik "as of": hari ini bila bulan berjalan, akhir bulan bila lampau,
+        // sebelum bulan mulai (aktual 0) bila mendatang.
+        if ($today->lt($monthStart)) {
+            $asOf        = $monthStart->copy()->subDay(); // rentang kosong → aktual 0
+            $elapsedDays = 0;
+        } elseif ($today->gt($monthEnd)) {
+            $asOf        = $monthEnd->copy();
+            $elapsedDays = $monthEnd->day;
+        } else {
+            $asOf        = $today->copy();
+            $elapsedDays = $today->day;
+        }
+        $daysInMonth = $date->daysInMonth;
+
+        $actualMtd = $asOf->gte($monthStart)
+            ? $this->omnicareNet($placeIds, $monthStart->format('Y-m-d'), $asOf->format('Y-m-d'))
+            : 0.0;
+
+        $targetMonth = (float) DB::table('raw_branch_target')
+            ->whereIn('cabang_id', $branchIds)
+            ->where('tahun', $date->year)
+            ->where('bulan', $date->month)
+            ->sum('nominal');
+
+        $hasTarget  = $targetMonth > 0;
+        $attainment = $hasTarget ? ($actualMtd / $targetMonth) * 100 : null;
+        $expected   = $hasTarget ? $targetMonth * ($elapsedDays / $daysInMonth) : null;
+
+        return [
+            'month_label' => self::BULAN[$date->month] . ' ' . $date->year,
+            'actual'      => $actualMtd,
+            'target'      => $targetMonth,
+            'has_target'  => $hasTarget,
+            'attainment'  => $attainment,
+            'expected'    => $expected,
+            'on_track'    => $hasTarget ? ($actualMtd >= $expected) : null,
+            'remaining'   => $hasTarget ? max(0, $targetMonth - $actualMtd) : null,
+            'pct_clamped' => $hasTarget ? min(100, max(0, $attainment)) : 0,
+        ];
+    }
+
+    /** Revenue net Omnicare (exclude void & service charge) — sumber sama dgn Sales Dashboard. */
+    private function omnicareNet(array $placeIds, string $start, string $end): float
+    {
+        if (empty($placeIds)) return 0.0;
+        return (float) DB::table('omnicare_sales_detail')
+            ->whereIn('place_id', $placeIds)
+            ->whereBetween('trx_date', [$start, $end])
+            ->where(fn($q) => $q->where('item_type', '<>', 'V')->orWhereNull('item_type'))
+            ->whereRaw("LOWER(COALESCE(item_name, '')) NOT LIKE 'service charge%'")
+            ->sum('net_sell_price');
     }
 
     // ════════════════════════════════════════════════════════════════

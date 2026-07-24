@@ -74,7 +74,7 @@
                                 <div class="rgx-card__actions">
                                     <a href="{{ route('setgroup.edit', $role->id) }}" class="rgx-ibtn" title="Edit / atur atasan"><i class="fas fa-pen"></i></a>
                                     <a href="{{ route('setgroup.access', $role->id) }}" class="rgx-ibtn" title="Atur akses menu"><i class="fas fa-key"></i></a>
-                                    <a href="{{ route('setgroup.new', ['parent' => $role->id]) }}" class="rgx-ibtn rgx-ibtn--add" title="Tambah bawahan"><i class="fas fa-plus"></i></a>
+                                    <a href="{{ route('setgroup.access', $role->id) }}" class="rgx-ibtn rgx-ibtn--add" title="Kelola Halaman"><i class="fas fa-clipboard-list"></i></a>
                                     @unless ($isRoot)
                                         <form method="POST" action="{{ route('setgroup.detach', $role->id) }}" class="rgx-detach"
                                               onsubmit="return confirm('Lepas role ini dari hierarki? Role akan menjadi puncak (tanpa atasan).');">
@@ -372,17 +372,14 @@
             });
         });
 
-        // ===== Drag & drop di bagan: (1) geser role → ganti atasan,
-        //       (2) geser chip divisi → tetapkan role penanggung jawab. =====
+        // ===== Drag & drop di bagan: geser role ke role lain → ganti atasan. =====
         var pane    = document.getElementById('pane-bagan');
         var chart   = document.getElementById('orgchart');
-        var divTray = document.getElementById('oc-divtray');
         if (pane && chart) {
             var REPARENT_URL  = @json(route('setgroup.reparent'));
-            var ASSIGNDIV_URL = @json(route('setgroup.assignDivision'));
             var csrfMeta = document.querySelector('meta[name="csrf-token"]');
             var CSRF = csrfMeta ? csrfMeta.getAttribute('content') : '';
-            var drag = null;   // { type: 'node' | 'div', id: '...' }
+            var drag = null;   // { id: '...' }
 
             // Cek siklus di klien: target tak boleh dirinya sendiri / turunannya.
             function isSelfOrDescendant(candidateId, ancestorId) {
@@ -396,26 +393,17 @@
                 return false;
             }
             function clearDrop() {
-                pane.querySelectorAll('.drop-ok, .drop-bad, .drop-div').forEach(function (el) {
-                    el.classList.remove('drop-ok', 'drop-bad', 'drop-div');
+                pane.querySelectorAll('.drop-ok, .drop-bad').forEach(function (el) {
+                    el.classList.remove('drop-ok', 'drop-bad');
                 });
-                if (divTray) divTray.classList.remove('drop-ok');
             }
 
             pane.addEventListener('dragstart', function (e) {
-                var chip = e.target.closest('.oc-div-chip');
-                if (chip && !chip.classList.contains('oc-div-chip--inline')) {
-                    drag = { type: 'div', id: chip.getAttribute('data-div') };
-                    chip.classList.add('dragging');
-                    e.dataTransfer.effectAllowed = 'move';
-                    e.dataTransfer.setData('text/plain', drag.id);
-                    return;
-                }
-                // Jangan mulai drag role dari tombol Edit / tambah / chip.
+                // Jangan mulai drag role dari tombol Edit / tambah.
                 if (e.target.closest('a, button')) { e.preventDefault(); return; }
                 var node = e.target.closest('.oc-node');
                 if (!node) { e.preventDefault(); return; }
-                drag = { type: 'node', id: node.getAttribute('data-id') };
+                drag = { id: node.getAttribute('data-id') };
                 node.classList.add('dragging');
                 e.dataTransfer.effectAllowed = 'move';
                 e.dataTransfer.setData('text/plain', drag.id);
@@ -424,47 +412,23 @@
             pane.addEventListener('dragover', function (e) {
                 if (!drag) return;
                 var node = e.target.closest('.oc-node');
-                if (node) {
-                    var tid = node.getAttribute('data-id');
-                    if (drag.type === 'node') {
-                        var bad = isSelfOrDescendant(tid, drag.id);
-                        e.preventDefault();
-                        e.dataTransfer.dropEffect = bad ? 'none' : 'move';
-                        clearDrop();
-                        node.classList.add(bad ? 'drop-bad' : 'drop-ok');
-                    } else { // div → role mana pun valid
-                        e.preventDefault();
-                        clearDrop();
-                        node.classList.add('drop-div');
-                    }
-                    return;
-                }
-                if (drag.type === 'div' && divTray && e.target.closest('#oc-divtray')) {
-                    e.preventDefault();
-                    clearDrop();
-                    divTray.classList.add('drop-ok');
-                }
+                if (!node) return;
+                var tid = node.getAttribute('data-id');
+                var bad = isSelfOrDescendant(tid, drag.id);
+                e.preventDefault();
+                e.dataTransfer.dropEffect = bad ? 'none' : 'move';
+                clearDrop();
+                node.classList.add(bad ? 'drop-bad' : 'drop-ok');
             });
 
             pane.addEventListener('drop', function (e) {
                 if (!drag) return;
                 var node = e.target.closest('.oc-node');
-                if (node) {
-                    e.preventDefault();
-                    var tid = node.getAttribute('data-id');
-                    if (drag.type === 'node') {
-                        if (!isSelfOrDescendant(tid, drag.id)) doReparent(drag.id, tid);
-                    } else {
-                        doAssignDiv(drag.id, tid);
-                    }
-                    clearDrop();
-                    return;
-                }
-                if (drag.type === 'div' && divTray && e.target.closest('#oc-divtray')) {
-                    e.preventDefault();
-                    doAssignDiv(drag.id, null);   // lepas → belum ditugaskan
-                    clearDrop();
-                }
+                if (!node) return;
+                e.preventDefault();
+                var tid = node.getAttribute('data-id');
+                if (!isSelfOrDescendant(tid, drag.id)) doReparent(drag.id, tid);
+                clearDrop();
             });
 
             document.addEventListener('dragend', function () {
@@ -494,7 +458,6 @@
                 });
             }
             function doReparent(id, parentId) { post(REPARENT_URL, { id: id, parent_id: parentId }, 'Tidak bisa memindahkan role.'); }
-            function doAssignDiv(divId, groupId) { post(ASSIGNDIV_URL, { division_id: divId, group_id: groupId }, 'Tidak bisa menetapkan divisi.'); }
         }
     })();
 </script>

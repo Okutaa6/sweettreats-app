@@ -10,6 +10,7 @@ use App\Models\ChecklistSubmission;
 use App\Models\ChecklistSubmissionItem;
 use App\Models\ChecklistWeeklySubmission;
 use App\Models\ChecklistWeeklySubmissionItem;
+use App\Models\GroupPath;
 use App\Models\RawBranch;
 use App\Models\Users;
 use App\Models\UserPosition;
@@ -435,11 +436,14 @@ class DigitalChecklistController extends Controller
         $filterDiv = $request->get('division', 'all');
         $visible   = checklistVisibleDivisionIds();   // divisi yang boleh disupervisi user ini
 
-        // Model "role staf = divisi": tiap divisi punya satu role staf (group_id).
+        // Model "role operasional = divisi": divisi dikenali dari NAMA role yang
+        // sama persis dgn nama divisi (tanpa penautan manual).
         $divisionsInScope = ChecklistDivision::query()->where('is_active', 1)
             ->whereIn('id', $visible)->orderBy('sort_order')->get();
-        $roleToDivision   = $divisionsInScope->keyBy('group_id');            // group_id => divisi
-        $visibleRoleIds   = $divisionsInScope->pluck('group_id')->filter()->values();
+        $divByName        = $divisionsInScope->keyBy('name');
+        $scopeRoles       = GroupPath::whereIn('nama', $divisionsInScope->pluck('name'))->get();
+        $roleToDivision   = $scopeRoles->mapWithKeys(fn ($r) => [$r->id => $divByName->get($r->nama)]); // role id => divisi
+        $visibleRoleIds   = $scopeRoles->pluck('id')->values();
 
         // Staf = user yang role-nya adalah role-divisi dalam cakupan supervisor.
         $query = Users::query()
@@ -524,7 +528,7 @@ class DigitalChecklistController extends Controller
         // Divisi OTOMATIS dari role user (model "role staf = divisi") — tidak dipilih manual.
         $division = checklistDivisionForGroup($user?->group_id);
         if (! $division) {
-            return back()->with('error', 'Role user ini belum ditautkan ke divisi checklist. Tautkan dulu di halaman Struktur (bagan).');
+            return back()->with('error', 'Role user ini bukan role operasional checklist (nama role tak cocok divisi mana pun: Front Office / General Services / Assistant Dentist).');
         }
         $data['division_id'] = $division->id;
 
@@ -712,7 +716,7 @@ class DigitalChecklistController extends Controller
         $this->guard();
 
         $submission = ChecklistWeeklySubmission::query()
-            ->with(['user', 'reviewer', 'division', 'branch', 'items'])
+            ->with(['user', 'reviewer', 'division', 'branch', 'items', 'dayExcuses'])
             ->findOrFail($id);
 
         $this->abortIfBranchMismatchWeekly($submission);
@@ -724,7 +728,11 @@ class DigitalChecklistController extends Controller
             ->sortBy(fn($i) => sprintf('%06d-%06d', $i->category_sort_order ?? 0, $i->task_sort_order ?? 0))
             ->groupBy('day_of_week');
 
-        return view('crud.checklist.review.weekly-show', compact('submission', 'grouped'));
+        // Hari yang ditandai "tidak perlu diisi" (iso => alasan) untuk badge di view.
+        $excusedDays = $submission->dayExcuses->pluck('reason', 'day_of_week')
+            ->mapWithKeys(fn ($reason, $iso) => [(int) $iso => $reason])->all();
+
+        return view('crud.checklist.review.weekly-show', compact('submission', 'grouped', 'excusedDays'));
     }
 
     public function weeklyApprove(Request $request, string $id)

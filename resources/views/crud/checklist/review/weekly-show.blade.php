@@ -254,6 +254,7 @@
                                     $dayDate = $submission->week_start_date->copy()->addDays($dow - 1);
                                     $totalDay = $dayItems->count();
                                     $doneDay  = $dayItems->where('is_done', true)->count();
+                                    $dayExcuseReason = $excusedDays[$dow] ?? null;
                                 @endphp
                                 <div class="wkr-day">
                                     <div class="wkr-day__head">
@@ -267,10 +268,19 @@
                                                 <div class="wkr-day__date">{{ $dayDate->translatedFormat('d F Y') }}</div>
                                             </div>
                                         </div>
-                                        <span class="st-pill st-pill--{{ $doneDay === $totalDay ? 'success' : 'warning' }}">
-                                            {{ $doneDay }}/{{ $totalDay }} tugas
-                                        </span>
+                                        @if($dayExcuseReason)
+                                            <span class="st-pill st-pill--neutral"><i class="fas fa-mug-hot"></i> Dikecualikan</span>
+                                        @else
+                                            <span class="st-pill st-pill--{{ $doneDay === $totalDay ? 'success' : 'warning' }}">
+                                                {{ $doneDay }}/{{ $totalDay }} tugas
+                                            </span>
+                                        @endif
                                     </div>
+                                    @if($dayExcuseReason)
+                                        <div style="margin:2px 0 8px; padding:9px 12px; background:#FCF4E7; border:1px solid #E7D3B8; border-left:3px solid #A66019; border-radius:8px; font-size:12.5px; color:#6B4423;">
+                                            <strong>Hari ini ditandai tidak perlu diisi.</strong> Alasan: {{ $dayExcuseReason }}
+                                        </div>
+                                    @endif
                                     @foreach($dayItems as $item)
                                             <div class="wkr-task">
                                                 <span class="wkr-task__check {{ $item->is_done ? 'is-done' : '' }}">
