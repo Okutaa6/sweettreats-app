@@ -412,12 +412,14 @@ trait ResolvesDoctorAvailability
             ->where('date', $date)
             ->whereNotNull('start_hour')
             ->whereNotNull('end_hour')
-            // Reservasi yang DIBATALKAN tidak lagi menahan slot — jamnya
-            // otomatis kembali tersedia untuk pasien lain. Baris dgn status
-            // NULL (data lama) tetap dianggap terisi supaya tidak salah bebas.
+            // Reservasi yang DIBATALKAN atau masuk WAITING LIST tidak lagi menahan
+            // slot — jamnya otomatis kembali tersedia untuk pasien lain. Baris dgn
+            // status NULL (data lama) tetap dianggap terisi supaya tidak salah bebas.
             ->where(function ($q) {
-                $q->where('status', '!=', \App\Models\RawCusReservation::STATUS_CANCELLED)
-                  ->orWhereNull('status');
+                $q->whereNotIn('status', [
+                    \App\Models\RawCusReservation::STATUS_CANCELLED,
+                    \App\Models\RawCusReservation::STATUS_WAITLIST,
+                ])->orWhereNull('status');
             })
             ->when($excludeId, fn($q) => $q->where('id', '!=', $excludeId))
             ->get()

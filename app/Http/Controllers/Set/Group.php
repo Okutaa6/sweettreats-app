@@ -64,21 +64,21 @@ class Group extends Controller
         // Jaga-jaga: role yang atasannya hilang (orphan) tetap disertakan.
         $allRoles = $allRoles->concat($flat->reject(fn ($r) => $allRoles->contains('id', $r->id)));
 
-        // Divisi checklist untuk ditempel ke role di bagan (drag & drop):
-        // yang sudah punya penanggung jawab dikelompokkan per role, sisanya
-        // masuk "tray" belum-ditugaskan.
-        $divisions           = ChecklistDivision::where('is_active', 1)->orderBy('sort_order')->get();
-        $divisionsByGroup    = $divisions->whereNotNull('group_id')->groupBy('group_id');
-        $unassignedDivisions = $divisions->whereNull('group_id')->values();
+        // Divisi checklist sbg label read-only di bagan: dikenali dari NAMA role
+        // yang sama persis dgn nama divisi (tanpa penautan manual). Key = role id.
+        $divisions        = ChecklistDivision::where('is_active', 1)->orderBy('sort_order')->get();
+        $roleIdByName     = $flat->keyBy('nama');
+        $divisionsByGroup = $divisions
+            ->filter(fn ($d) => $roleIdByName->has($d->name))
+            ->groupBy(fn ($d) => $roleIdByName->get($d->name)->id);
 
         return view('set.group.list', [
-            'groups'              => $groups,
-            'memberCount'         => $usersByGroup->map->count(),
-            'membersJs'           => $membersJs,
-            'baganRoots'          => $baganRoots,
-            'allRoles'            => $allRoles,
-            'divisionsByGroup'    => $divisionsByGroup,
-            'unassignedDivisions' => $unassignedDivisions,
+            'groups'           => $groups,
+            'memberCount'      => $usersByGroup->map->count(),
+            'membersJs'        => $membersJs,
+            'baganRoots'       => $baganRoots,
+            'allRoles'         => $allRoles,
+            'divisionsByGroup' => $divisionsByGroup,
         ]);
     }
 
@@ -228,37 +228,6 @@ class Group extends Controller
         return redirect()->route('setgroup')->with('success', "Role {$group->nama} dilepas dari hierarki — kini menjadi puncak (tanpa atasan).");
     }
 
-    /**
-     * Tautkan/lepas divisi checklist ke sebuah ROLE STAF lewat drag-drop di bagan
-     * (anggota role itu mengisi checklist divisi ini; atasannya yang me-review).
-     * group_id null = kembalikan ke tray "belum ditautkan". Balikan JSON.
-     */
-    public function assignDivision()
-    {
-        $data = request()->validate([
-            'division_id' => 'required|string|exists:sys_checklist_division,id',
-            'group_id'    => 'nullable|exists:group_path,id',
-        ]);
-
-        $division = ChecklistDivision::findOrFail($data['division_id']);
-        $groupId  = $data['group_id'] ?: null;
-
-        if ((string) $division->group_id === (string) $groupId) {
-            return response()->json(['ok' => true, 'message' => 'Tidak berubah.']);
-        }
-
-        $division->update(['group_id' => $groupId]);
-
-        $roleName = $groupId ? optional(GroupPath::find($groupId))->nama : null;
-
-        return response()->json([
-            'ok'      => true,
-            'message' => $groupId
-                ? "Divisi {$division->name} kini ditangani role {$roleName}."
-                : "Divisi {$division->name} dilepas (belum ditautkan).",
-        ]);
-    }
-
     public function destroy($id)
     {
         $group = GroupPath::find($id);
@@ -274,9 +243,6 @@ class Group extends Controller
         if ($group->users->count() > 0) {
             return redirect()->route('setgroup')->with('error', 'Data suddah digunakan untuk user');
         }
-
-        // Lepas tautan divisi checklist supaya tak menunjuk role yang dihapus.
-        ChecklistDivision::where('group_id', $id)->update(['group_id' => null]);
 
         $group->delete();
 

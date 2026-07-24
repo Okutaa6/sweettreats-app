@@ -6,55 +6,35 @@
     .cl-hist-grid { display: grid; grid-template-columns: 1fr 300px; gap: 16px; align-items: start; }
     @media (max-width: 992px) { .cl-hist-grid { grid-template-columns: 1fr; } }
 
-    /* KPI strip */
-    .cl-hist-kpi {
-        display: grid;
-        grid-template-columns: repeat(5, 1fr);
-        gap: 10px;
-        margin-bottom: 14px;
+    /* Ringkasan status — chip inline di dalam toolbar (ganti 5 kotak KPI biar
+       tidak terlalu banyak box). Angka tebal menonjol, label muted. */
+    .cl-hist-bar__stats {
+        display: flex; align-items: center; flex-wrap: wrap;
+        gap: 9px 22px;
+        padding: 11px 18px;
+        border-top: 1px solid #F0E6D8;
+        background: #FDFBF7;
     }
-    @media (max-width: 760px) {
-        .cl-hist-kpi { grid-template-columns: repeat(3, 1fr); }
+    .cl-hist-stat {
+        display: inline-flex; align-items: baseline; gap: 6px;
+        font-size: 12.5px; color: #8A7563; font-weight: 600;
     }
-    @media (max-width: 460px) {
-        .cl-hist-kpi { grid-template-columns: repeat(2, 1fr); }
-    }
-    .cl-hist-kpi__cell {
-        background: #FFFFFF;
-        border: 1px solid #E0D2C1;
-        border-radius: 12px;
-        padding: 12px 14px;
-        box-shadow: 0 2px 6px rgba(45,24,16,.04);
-        position: relative;
-        overflow: hidden;
-    }
-    .cl-hist-kpi__label {
-        font-size: 10.5px; font-weight: 700; text-transform: uppercase;
-        letter-spacing: 0.4px; color: #9B8578; margin-bottom: 4px;
-        display: inline-flex; align-items: center; gap: 5px;
-    }
-    .cl-hist-kpi__val {
-        font-size: 22px; font-weight: 800; color: #2D1810; line-height: 1;
-        letter-spacing: -0.02em;
-        display: flex; align-items: baseline; gap: 2px;
-    }
-    .cl-hist-kpi__val small { font-size: 12px; color: #6B4423; font-weight: 600; }
-    .cl-hist-kpi__cell--success { border-left: 3px solid #1F6E5F; }
-    .cl-hist-kpi__cell--warning { border-left: 3px solid #A66019; }
-    .cl-hist-kpi__cell--danger  { border-left: 3px solid #A32D2D; }
-    .cl-hist-kpi__cell--neutral { border-left: 3px solid #9B8578; }
-    .cl-hist-kpi__cell--accent  { border-left: 3px solid #5C2E15; }
+    .cl-hist-stat i { font-size: 12px; position: relative; top: 1px; }
+    .cl-hist-stat b { font-size: 15px; font-weight: 800; color: #2D1810; letter-spacing: -0.01em; }
 
-    /* Header / month nav */
-    .cl-hist-header {
+    /* Toolbar wrapper: navigasi bulan + ringkasan status jadi SATU kartu
+       (sebelumnya 2 blok terpisah: month-nav + 5 kotak KPI). */
+    .cl-hist-bar {
         background: #FFFFFF;
         border: 1px solid #E0D2C1;
         border-radius: 14px;
-        padding: 14px 18px;
         margin-bottom: 14px;
-        display: flex; justify-content: space-between; align-items: center;
-        gap: 10px; flex-wrap: wrap;
         box-shadow: 0 2px 6px rgba(45,24,16,.04);
+        overflow: hidden;
+    }
+    .cl-hist-bar__nav {
+        display: flex; justify-content: space-between; align-items: center;
+        gap: 10px; padding: 12px 16px;
     }
     .cl-hist-header__title {
         font-size: 16px; font-weight: 800; color: #2D1810;
@@ -120,6 +100,12 @@
         display: flex; gap: 10px; flex-wrap: wrap; align-items: center;
     }
     .cl-hist-card__meta i.dot { font-size: 4px; color: #C9B69A; }
+    /* Mobile: sembunyikan detail Submit/Review/Ada catatan biar kartu ringkas
+       (tanggal + bar progress + pill status + chevron saja). */
+    @media (max-width: 600px) {
+        .cl-hist-card__meta { display: none; }
+        .cl-hist-card__bar  { margin-bottom: 0; }
+    }
     .cl-hist-card__right {
         text-align: right; flex-shrink: 0;
         display: flex; flex-direction: column; align-items: flex-end; gap: 6px;
@@ -271,6 +257,34 @@
         display: inline-flex; align-items: center; gap: 6px;
     }
     .cl-hist-side h6 i { color: #5C2E15; font-size: 11px; }
+
+    /* Kartu besar pilih jenis checklist (gaya my-checklist) */
+    .cl-cad-tabs { display: flex; gap: 10px; flex-wrap: wrap; }
+    .cl-cad-tab {
+        flex: 1; min-width: 220px; display: flex; align-items: center; gap: 12px;
+        padding: 13px 16px; background: #FFFFFF; border: 1.5px solid #E0D2C1; border-radius: 14px;
+        cursor: pointer; text-align: left; text-decoration: none;
+        transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease, background .16s ease;
+        box-shadow: 0 2px 6px rgba(45,24,16,.04);
+    }
+    .cl-cad-tab:hover { border-color: #C9B69A; box-shadow: 0 4px 12px rgba(45,24,16,.08); }
+    .cl-cad-tab__icon {
+        width: 40px; height: 40px; border-radius: 11px; display: inline-flex;
+        align-items: center; justify-content: center; font-size: 16px; color: #FFFFFF; flex-shrink: 0;
+    }
+    .cl-cad-tab--daily  .cl-cad-tab__icon { background: linear-gradient(135deg, #A66019, #5C2E15); box-shadow: 0 3px 8px rgba(166,96,25,.22); }
+    .cl-cad-tab--weekly .cl-cad-tab__icon { background: linear-gradient(135deg, #1F6E5F, #155148); box-shadow: 0 3px 8px rgba(31,110,95,.22); }
+    .cl-cad-tab__body { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 2px; }
+    .cl-cad-tab__body strong { font-size: 15px; font-weight: 800; color: #2D1810; line-height: 1.2; }
+    .cl-cad-tab__body small { font-size: 11.5px; color: #6B4423; }
+    .cl-cad-tab__check { opacity: 0; flex-shrink: 0; font-size: 18px; color: #FFFFFF; transition: opacity .16s ease; }
+    .cl-cad-tab.is-active { border-color: transparent; transform: translateY(-1px); }
+    .cl-cad-tab--daily.is-active  { background: linear-gradient(135deg, #A66019, #5C2E15); box-shadow: 0 7px 18px rgba(92,46,21,.28); }
+    .cl-cad-tab--weekly.is-active { background: linear-gradient(135deg, #1F6E5F, #155148); box-shadow: 0 7px 18px rgba(21,81,72,.28); }
+    .cl-cad-tab.is-active .cl-cad-tab__body strong { color: #FFFFFF; }
+    .cl-cad-tab.is-active .cl-cad-tab__body small { color: #FFFFFF; opacity: .82; }
+    .cl-cad-tab.is-active .cl-cad-tab__icon { background: rgba(255,255,255,.18); box-shadow: none; }
+    .cl-cad-tab.is-active .cl-cad-tab__check { opacity: .95; }
 </style>
 @endsection
 
@@ -291,55 +305,50 @@
 
     <div class="cl-hist-wrap">
 
-        {{-- ─── TAB: Daily / Weekly ─── --}}
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:10px;">
-            <div style="display:inline-flex; gap:2px; padding:4px; background:#FFFFFF; border-radius:999px; border:1px solid #E0D2C1; box-shadow:0 1px 3px rgba(45,24,16,.06);">
-                <a href="{{ route('mychecklist.history', ['type' => 'daily', 'month' => $month]) }}"
-                   style="padding:8px 18px; font-size:13px; font-weight:{{ $type === 'daily' ? '700' : '600' }}; text-decoration:none; border-radius:999px; {{ $type === 'daily' ? 'background:linear-gradient(180deg,#5C2E15,#471500); color:#FFFFFF; box-shadow:0 2px 6px rgba(71,21,0,.20);' : 'color:#6B4423;' }} display:inline-flex; align-items:center; gap:7px;">
-                    <i class="fas fa-sun"></i> Checklist Harian
-                </a>
-                <a href="{{ route('mychecklist.history', ['type' => 'weekly', 'month' => $month]) }}"
-                   style="padding:8px 18px; font-size:13px; font-weight:{{ $type === 'weekly' ? '700' : '600' }}; text-decoration:none; border-radius:999px; {{ $type === 'weekly' ? 'background:linear-gradient(180deg,#5C2E15,#471500); color:#FFFFFF; box-shadow:0 2px 6px rgba(71,21,0,.20);' : 'color:#6B4423;' }} display:inline-flex; align-items:center; gap:7px;">
-                    <i class="fas fa-calendar-week"></i> Checklist Mingguan
-                </a>
-            </div>
-        </div>
+        @include('crud.checklist.my._marquee')
 
-        {{-- ─── MONTH NAVIGATION ─── --}}
-        <div class="cl-hist-header">
-            <a href="{{ route('mychecklist.history', ['type' => $type, 'month' => $prevMonth]) }}" class="cl-hist-navbtn" title="Bulan sebelumnya">
-                <i class="fas fa-chevron-left"></i>
+        {{-- ─── TAB: Daily / Weekly (kartu besar, gaya my-checklist) ─── --}}
+        <div class="cl-cad-tabs" style="margin-bottom:14px;">
+            <a href="{{ route('mychecklist.history', ['type' => 'daily', 'month' => $month]) }}"
+               class="cl-cad-tab cl-cad-tab--daily {{ $type === 'daily' ? 'is-active' : '' }}">
+                <span class="cl-cad-tab__icon"><i class="fas fa-sun"></i></span>
+                <span class="cl-cad-tab__body">
+                    <strong>Checklist Harian</strong>
+                    <small>Riwayat pengisian per hari</small>
+                </span>
+                <i class="fas fa-check-circle cl-cad-tab__check"></i>
             </a>
-            <h5 class="cl-hist-header__title">
-                <i class="fas fa-calendar"></i>
-                {{ $monthLabel }}
-            </h5>
-            <a href="{{ route('mychecklist.history', ['type' => $type, 'month' => $nextMonth]) }}" class="cl-hist-navbtn" title="Bulan berikutnya">
-                <i class="fas fa-chevron-right"></i>
+            <a href="{{ route('mychecklist.history', ['type' => 'weekly', 'month' => $month]) }}"
+               class="cl-cad-tab cl-cad-tab--weekly {{ $type === 'weekly' ? 'is-active' : '' }}">
+                <span class="cl-cad-tab__icon"><i class="fas fa-calendar-week"></i></span>
+                <span class="cl-cad-tab__body">
+                    <strong>Checklist Mingguan</strong>
+                    <small>Riwayat form mingguan</small>
+                </span>
+                <i class="fas fa-check-circle cl-cad-tab__check"></i>
             </a>
         </div>
 
-        {{-- ─── KPI STRIP ─── --}}
-        <div class="cl-hist-kpi">
-            <div class="cl-hist-kpi__cell cl-hist-kpi__cell--accent">
-                <div class="cl-hist-kpi__label"><i class="fas fa-clipboard-list" style="color:#5C2E15;"></i> Total Pengisian</div>
-                <div class="cl-hist-kpi__val">{{ $stats['total'] }} <small>{{ $type === 'weekly' ? 'minggu' : 'hari' }}</small></div>
+        {{-- ─── TOOLBAR: navigasi bulan + ringkasan status (1 wrapper, ganti
+             month-nav + 5 kotak KPI; Avg Progress dihapus). ─── --}}
+        <div class="cl-hist-bar">
+            <div class="cl-hist-bar__nav">
+                <a href="{{ route('mychecklist.history', ['type' => $type, 'month' => $prevMonth]) }}" class="cl-hist-navbtn" title="Bulan sebelumnya">
+                    <i class="fas fa-chevron-left"></i>
+                </a>
+                <h5 class="cl-hist-header__title">
+                    <i class="fas fa-calendar"></i>
+                    {{ $monthLabel }}
+                </h5>
+                <a href="{{ route('mychecklist.history', ['type' => $type, 'month' => $nextMonth]) }}" class="cl-hist-navbtn" title="Bulan berikutnya">
+                    <i class="fas fa-chevron-right"></i>
+                </a>
             </div>
-            <div class="cl-hist-kpi__cell cl-hist-kpi__cell--success">
-                <div class="cl-hist-kpi__label"><i class="fas fa-check-circle" style="color:#1F6E5F;"></i> Disetujui</div>
-                <div class="cl-hist-kpi__val">{{ $stats['approved'] }}</div>
-            </div>
-            <div class="cl-hist-kpi__cell cl-hist-kpi__cell--warning">
-                <div class="cl-hist-kpi__label"><i class="fas fa-clock" style="color:#A66019;"></i> Menunggu</div>
-                <div class="cl-hist-kpi__val">{{ $stats['pending'] }}</div>
-            </div>
-            <div class="cl-hist-kpi__cell cl-hist-kpi__cell--danger">
-                <div class="cl-hist-kpi__label"><i class="fas fa-times-circle" style="color:#A32D2D;"></i> Ditolak</div>
-                <div class="cl-hist-kpi__val">{{ $stats['rejected'] }}</div>
-            </div>
-            <div class="cl-hist-kpi__cell cl-hist-kpi__cell--neutral">
-                <div class="cl-hist-kpi__label"><i class="fas fa-percent" style="color:#9B5E2C;"></i> Avg Progress</div>
-                <div class="cl-hist-kpi__val">{{ $stats['avg_pct'] }}<small>%</small></div>
+            <div class="cl-hist-bar__stats">
+                <span class="cl-hist-stat"><i class="fas fa-clipboard-list" style="color:#5C2E15;"></i> <b>{{ $stats['total'] }}</b> {{ $type === 'weekly' ? 'minggu' : 'hari' }} terisi</span>
+                <span class="cl-hist-stat"><i class="fas fa-check-circle" style="color:#1F6E5F;"></i> <b>{{ $stats['approved'] }}</b> Disetujui</span>
+                <span class="cl-hist-stat"><i class="fas fa-clock" style="color:#A66019;"></i> <b>{{ $stats['pending'] }}</b> Menunggu</span>
+                <span class="cl-hist-stat"><i class="fas fa-times-circle" style="color:#A32D2D;"></i> <b>{{ $stats['rejected'] }}</b> Ditolak</span>
             </div>
         </div>
 
@@ -371,6 +380,8 @@
                                     'danger'  => '#A32D2D',
                                     'neutral' => '#9B8578',
                                     'info'    => '#1E5A8C',
+                                    'coffee'  => '#8A5A2B',
+                                    'slate'   => '#5F5A52',
                                 ][$opt['color']] ?? '#9B8578';
                                 $pct = $sub->progressPct();
                                 if ($type === 'weekly') {
@@ -380,11 +391,17 @@
                                 } else {
                                     $dateLabel = $sub->submission_date->translatedFormat('D, d M');
                                 }
-                                $grouped = $sub->items->groupBy('category_title_snapshot');
+                                // Mingguan dikelompokkan per hari; Harian tetap per kategori.
+                                $grouped = $type === 'weekly'
+                                    ? $sub->items
+                                        ->sortBy(fn($i) => sprintf('%d-%06d-%06d', $i->day_of_week ?? 0, $i->category_sort_order ?? 0, $i->task_sort_order ?? 0))
+                                        ->groupBy('day_of_week')
+                                    : $sub->items->groupBy('category_title_snapshot');
                                 $isRejected = $sub->status === $statusClass::STATUS_REJECTED;
                             @endphp
-                            <div class="cl-hist-card" data-hist-card style="--cl-accent: {{ $accentColor }};">
-                                <div class="cl-hist-card__head" data-hist-toggle>
+                            <a class="cl-hist-card" href="{{ route('mychecklist.history.show', ['type' => $type, 'id' => $sub->id, 'month' => request('month')]) }}"
+                               style="--cl-accent: {{ $accentColor }}; text-decoration:none; color:inherit; display:block;">
+                                <div class="cl-hist-card__head">
                                     <div class="cl-hist-card__date">
                                         <strong>{{ $dateLabel }}</strong>
                                         <small>{{ $sub->done_tasks }}/{{ $sub->total_tasks }} tugas ({{ $pct }}%)</small>
@@ -408,59 +425,9 @@
                                     <div class="cl-hist-card__right">
                                         <span class="st-pill st-pill--{{ $opt['color'] }}">{{ $opt['label'] }}</span>
                                     </div>
-                                    <i class="fas fa-chevron-down cl-hist-card__chev"></i>
+                                    <i class="fas fa-chevron-right cl-hist-card__chev" title="Lihat detail"></i>
                                 </div>
-
-                                <div class="cl-hist-card__detail">
-                                    @if($sub->review_notes)
-                                        <div class="cl-hist-note" style="--cl-note-accent: {{ $accentColor }};">
-                                            <i class="fas fa-comment-dots"></i>
-                                            <div style="flex:1;">
-                                                <strong>{{ $isRejected ? 'Catatan Penolakan' : 'Catatan Supervisor' }}</strong>
-                                                {{ $sub->review_notes }}
-                                            </div>
-                                        </div>
-                                    @endif
-
-                                    @if($grouped->isEmpty())
-                                        <div style="text-align:center; padding:14px 0; font-size:12.5px; color:#9B8578; font-style:italic;">
-                                            Tidak ada item pada pengisian ini.
-                                        </div>
-                                    @else
-                                        @foreach($grouped as $catTitle => $items)
-                                            @php
-                                                $catDone = $items->where('is_done', true)->count();
-                                                $catTotal = $items->count();
-                                                $catComplete = $catDone === $catTotal;
-                                            @endphp
-                                            <div class="cl-hist-cat">
-                                                <div class="cl-hist-cat__head">
-                                                    <span><i class="fas fa-folder"></i>{{ $catTitle }}</span>
-                                                    <span class="cl-hist-cat__chip cl-hist-cat__chip--{{ $catComplete ? 'good' : 'warn' }}">
-                                                        {{ $catDone }}/{{ $catTotal }}
-                                                    </span>
-                                                </div>
-                                                @foreach($items as $item)
-                                                    <div class="cl-hist-cat__task {{ $item->is_done ? 'is-done' : '' }}">
-                                                        <span class="ck"></span>
-                                                        <div class="ttl">
-                                                            {{ $item->task_title_snapshot }}
-                                                            @if($item->note)
-                                                                <div class="note">
-                                                                    <i class="fas fa-edit"></i>{{ $item->note }}
-                                                                </div>
-                                                            @endif
-                                                        </div>
-                                                        @if($item->done_at)
-                                                            <span class="time">{{ $item->done_at->format('H:i') }}</span>
-                                                        @endif
-                                                    </div>
-                                                @endforeach
-                                            </div>
-                                        @endforeach
-                                    @endif
-                                </div>
-                            </div>
+                            </a>
                         @endforeach
                     </div>
 
@@ -530,14 +497,4 @@
         </div>{{-- /grid --}}
     </div>
 </div>
-
-<script>
-(function() {
-    document.querySelectorAll('[data-hist-toggle]').forEach(head => {
-        head.addEventListener('click', () => {
-            head.closest('[data-hist-card]').classList.toggle('is-open');
-        });
-    });
-})();
-</script>
 @endsection

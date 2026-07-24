@@ -196,38 +196,55 @@ class ContentReviewController extends Controller
             ->with('success', 'Review konten berhasil diupdate.');
     }
 
+    /**
+     * Bikin klaim 'eligible' saat konten di-approve — HARUS pakai definisi yang
+     * sama dengan portal (AffiliatePortalController::rewards()):
+     *   - hitung konten lewat RawAffiliate::approvedContentCount() (menghormati
+     *     window reward_program_started_at), dan
+     *   - hanya untuk TIER YANG DIPILIH affiliate (program lock Fase 2C).
+     *
+     * Versi lama menghitung SEMUA konten approved tanpa window dan bikin klaim
+     * untuk SEMUA tier yang tercapai, mengabaikan tier pilihan. Akibatnya
+     * affiliate dapat klaim tier yang tak pernah dipilih (bahkan saat belum
+     * pilih tier sama sekali), dan klaim liar itu mengunci canSwitchProgram().
+     */
     private function syncRewardEligibility(string $affiliateId): void
     {
-        $approvedCount = AffiliateContent::where('raw_affiliate_id', $affiliateId)
-            ->where('status', AffiliateContent::STATUS_APPROVED)
-            ->count();
+        $affiliate = RawAffiliate::find($affiliateId);
+        if (! $affiliate) return;
 
-        $tiers = AffiliateRewardTier::active()
-            ->where('required_content_count', '<=', $approvedCount)
-            ->get();
+        // Belum pilih tier → tidak ada klaim yang boleh lahir.
+        $chosenTier = $affiliate->chosenTier();
+        if (! $chosenTier) return;
 
-        foreach ($tiers as $tier) {
-            $exists = AffiliateRewardClaim::where('raw_affiliate_id', $affiliateId)
-                ->where('affiliate_reward_tier_id', $tier->id)
-                ->exists();
+        if ($affiliate->approvedContentCount() < $chosenTier->required_content_count) return;
 
-            if (!$exists) {
-                AffiliateRewardClaim::create([
-                    'id'                       => Str::uuid()->toString(),
-                    'raw_affiliate_id'         => $affiliateId,
-                    'affiliate_reward_tier_id' => $tier->id,
-                    'status'                   => AffiliateRewardClaim::STATUS_ELIGIBLE,
-                    'created_at'               => now(),
-                ]);
-            }
-        }
+        $exists = AffiliateRewardClaim::where('raw_affiliate_id', $affiliate->id)
+            ->where('affiliate_reward_tier_id', $chosenTier->id)
+            ->exists();
+
+        if ($exists) return;
+
+        AffiliateRewardClaim::create([
+            'id'                       => Str::uuid()->toString(),
+            'raw_affiliate_id'         => $affiliate->id,
+            'affiliate_reward_tier_id' => $chosenTier->id,
+            'status'                   => AffiliateRewardClaim::STATUS_ELIGIBLE,
+            'created_at'               => now(),
+        ]);
     }
 
+    /**
+     * Konten approved dicabut → buang klaim 'eligible' yang syaratnya jadi tak
+     * terpenuhi. Pakai approvedContentCount() supaya konsisten dengan portal.
+     * Klaim yang sudah 'claimed'/'used' tidak disentuh.
+     */
     private function removeIneligibleClaims(string $affiliateId): void
     {
-        $approvedCount = AffiliateContent::where('raw_affiliate_id', $affiliateId)
-            ->where('status', AffiliateContent::STATUS_APPROVED)
-            ->count();
+        $affiliate = RawAffiliate::find($affiliateId);
+        if (! $affiliate) return;
+
+        $approvedCount = $affiliate->approvedContentCount();
 
         AffiliateRewardClaim::where('raw_affiliate_id', $affiliateId)
             ->where('status', AffiliateRewardClaim::STATUS_ELIGIBLE)

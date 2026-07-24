@@ -10,6 +10,7 @@ use App\Models\ChecklistSubmission;
 use App\Models\ChecklistSubmissionItem;
 use App\Models\ChecklistWeeklySubmission;
 use App\Models\ChecklistWeeklySubmissionItem;
+use App\Models\GroupPath;
 use App\Models\RawBranch;
 use App\Models\Users;
 use App\Models\UserPosition;
@@ -124,7 +125,7 @@ class DigitalChecklistController extends Controller
             ->when($branchId, fn($q) => $q->where('raw_branch_id', $branchId))
             ->orderByDesc('updated_at')
             ->orderByDesc('created_at')
-            ->limit(10)
+            ->limit(5)
             ->get();
 
         $branches = canSeeAllBranches() ? RawBranch::orderBy('name')->get() : collect();
@@ -435,11 +436,14 @@ class DigitalChecklistController extends Controller
         $filterDiv = $request->get('division', 'all');
         $visible   = checklistVisibleDivisionIds();   // divisi yang boleh disupervisi user ini
 
-        // Model "role staf = divisi": tiap divisi punya satu role staf (group_id).
+        // Model "role operasional = divisi": divisi dikenali dari NAMA role yang
+        // sama persis dgn nama divisi (tanpa penautan manual).
         $divisionsInScope = ChecklistDivision::query()->where('is_active', 1)
             ->whereIn('id', $visible)->orderBy('sort_order')->get();
-        $roleToDivision   = $divisionsInScope->keyBy('group_id');            // group_id => divisi
-        $visibleRoleIds   = $divisionsInScope->pluck('group_id')->filter()->values();
+        $divByName        = $divisionsInScope->keyBy('name');
+        $scopeRoles       = GroupPath::whereIn('nama', $divisionsInScope->pluck('name'))->get();
+        $roleToDivision   = $scopeRoles->mapWithKeys(fn ($r) => [$r->id => $divByName->get($r->nama)]); // role id => divisi
+        $visibleRoleIds   = $scopeRoles->pluck('id')->values();
 
         // Staf = user yang role-nya adalah role-divisi dalam cakupan supervisor.
         $query = Users::query()
@@ -524,7 +528,7 @@ class DigitalChecklistController extends Controller
         // Divisi OTOMATIS dari role user (model "role staf = divisi") — tidak dipilih manual.
         $division = checklistDivisionForGroup($user?->group_id);
         if (! $division) {
-            return back()->with('error', 'Role user ini belum ditautkan ke divisi checklist. Tautkan dulu di halaman Struktur (bagan).');
+            return back()->with('error', 'Role user ini bukan role operasional checklist (nama role tak cocok divisi mana pun: Front Office / General Services / Assistant Dentist).');
         }
         $data['division_id'] = $division->id;
 
@@ -616,77 +620,6 @@ class DigitalChecklistController extends Controller
             ->with('success', 'Posisi karyawan dinonaktifkan.');
     }
 
-    /**
-     * Supervisor mengonfirmasi usulan posisi (pending → aktif). Menutup posisi
-     * aktif lama user (kalau ada) supaya hanya 1 yang aktif.
-     */
-    public function positionConfirm(string $id)
-    {
-        $this->guard();
-
-        $pos = UserPosition::with(['user', 'division'])->findOrFail($id);
-        $this->abortIfDivisionOutOfScope($pos->division_id);
-        if ($pos->confirmed_at) {
-            return back()->with('info', 'Posisi ini sudah dikonfirmasi.');
-        }
-
-        $today = Carbon::today();
-
-        // Tutup posisi aktif lama user (kalau ada) sebelum aktifkan usulan ini.
-        UserPosition::query()->activeOn($today)
-            ->where('user_id', $pos->user_id)
-            ->where('id', '!=', $pos->id)
-            ->update(['effective_to' => $today->copy()->subDay(), 'updated_at' => now()]);
-
-        $pos->update([
-            'confirmed_at'   => now(),
-            'confirmed_by'   => session('id'),
-            'effective_from' => $today,
-            'updated_at'     => now(),
-        ]);
-
-        ChecklistAuditLog::write(
-            'submission',
-            $pos->id,
-            ChecklistAuditLog::ACTION_UPDATE,
-            null,
-            ['division_id' => $pos->division_id, 'raw_branch_id' => $pos->raw_branch_id],
-            'Konfirmasi posisi ' . ($pos->user?->nama ?? '-') . ' → ' . ($pos->division?->name ?? $pos->division_id)
-        );
-
-        return redirect()->route('checklist.positions')
-            ->with('success', 'Posisi ' . ($pos->user?->nama ?? '-') . ' dikonfirmasi — karyawan sekarang bisa mengisi checklist.');
-    }
-
-    /**
-     * Supervisor menolak usulan posisi (pending) — row dihapus. Yang sudah
-     * dikonfirmasi tidak bisa ditolak (pakai Nonaktifkan).
-     */
-    public function positionReject(string $id)
-    {
-        $this->guard();
-
-        $pos = UserPosition::with(['user', 'division'])->findOrFail($id);
-        $this->abortIfDivisionOutOfScope($pos->division_id);
-        if ($pos->confirmed_at) {
-            return back()->with('error', 'Posisi yang sudah dikonfirmasi tidak bisa ditolak — gunakan Nonaktifkan.');
-        }
-
-        ChecklistAuditLog::write(
-            'submission',
-            $pos->id,
-            ChecklistAuditLog::ACTION_DELETE,
-            ['division_id' => $pos->division_id, 'raw_branch_id' => $pos->raw_branch_id],
-            null,
-            'Usulan posisi ' . ($pos->user?->nama ?? '-') . ' (' . ($pos->division?->name ?? $pos->division_id) . ') ditolak'
-        );
-
-        $pos->delete();
-
-        return redirect()->route('checklist.positions')
-            ->with('success', 'Usulan posisi ditolak.');
-    }
-
     /* ─── Review Form Mingguan (supervisor) ────────────────────────────── */
 
     public function weeklyReviewIndex(Request $request)
@@ -694,7 +627,16 @@ class DigitalChecklistController extends Controller
         $this->guard();
 
         $branchId   = resolveChecklistBranchId($request->get('branch'));
-        $filterWeek = $request->get('week'); // YYYY-MM-DD (Monday) atau null
+        // Terima tanggal apa saja → normalisasi ke Senin minggu tsb (week_start_date
+        // selalu Senin), supaya supervisor tak perlu tepat memilih hari Senin.
+        $filterWeek = $request->get('week');
+        if ($filterWeek) {
+            try {
+                $filterWeek = Carbon::parse($filterWeek)->startOfWeek(Carbon::MONDAY)->toDateString();
+            } catch (\Throwable $e) {
+                $filterWeek = null;
+            }
+        }
         $filterDiv  = $request->get('division', 'all');
         $filterStat = $request->get('status', ChecklistWeeklySubmission::STATUS_SUBMITTED);
         $search     = trim((string) $request->get('q', ''));
@@ -720,6 +662,7 @@ class DigitalChecklistController extends Controller
             'approved'  => (clone $countsBase)->where('status', ChecklistWeeklySubmission::STATUS_APPROVED)->count(),
             'rejected'  => (clone $countsBase)->where('status', ChecklistWeeklySubmission::STATUS_REJECTED)->count(),
             'excused'   => (clone $countsBase)->where('status', ChecklistWeeklySubmission::STATUS_EXCUSED)->count(),
+            'missed'    => (clone $countsBase)->where('status', ChecklistWeeklySubmission::STATUS_MISSED)->count(),
             'draft'     => (clone $countsBase)->where('status', ChecklistWeeklySubmission::STATUS_DRAFT)->count(),
         ];
 
@@ -773,19 +716,23 @@ class DigitalChecklistController extends Controller
         $this->guard();
 
         $submission = ChecklistWeeklySubmission::query()
-            ->with(['user', 'reviewer', 'division', 'branch', 'items'])
+            ->with(['user', 'reviewer', 'division', 'branch', 'items', 'dayExcuses'])
             ->findOrFail($id);
 
         $this->abortIfBranchMismatchWeekly($submission);
         $this->abortIfDivisionOutOfScope($submission->division_id);
 
-        // Items di-group per day_of_week → category, supaya view bisa render
-        // ala form kertas (Selasa column, Kamis column, dst).
-        $grouped = $submission->items->groupBy('day_of_week')->map(function ($dayItems) {
-            return $dayItems->groupBy('category_title_snapshot');
-        });
+        // Items di-group per day_of_week saja (tanpa kategori), supaya view bisa
+        // render ala form kertas (Selasa, Kamis, dst) — task langsung per hari.
+        $grouped = $submission->items
+            ->sortBy(fn($i) => sprintf('%06d-%06d', $i->category_sort_order ?? 0, $i->task_sort_order ?? 0))
+            ->groupBy('day_of_week');
 
-        return view('crud.checklist.review.weekly-show', compact('submission', 'grouped'));
+        // Hari yang ditandai "tidak perlu diisi" (iso => alasan) untuk badge di view.
+        $excusedDays = $submission->dayExcuses->pluck('reason', 'day_of_week')
+            ->mapWithKeys(fn ($reason, $iso) => [(int) $iso => $reason])->all();
+
+        return view('crud.checklist.review.weekly-show', compact('submission', 'grouped', 'excusedDays'));
     }
 
     public function weeklyApprove(Request $request, string $id)

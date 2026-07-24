@@ -1122,11 +1122,27 @@ class ReservationController extends Controller
             return response()->json(['success' => false, 'message' => 'Field tidak valid'], 422);
         }
     
-        $reservation->update([
+        $updates = [
             $field       => $value,
             'updated_at' => now(),
             'updated_by' => session('id'),
-        ]);
+        ];
+
+        // Saat status diubah ke Waiting List: bebaskan slot jamnya (samakan dgn
+        // cara reservasi waitlist dibuat — tanpa jam, is_waiting=1) supaya jam itu
+        // langsung kosong untuk pasien lain. Keluar dari waitlist → lepas flag
+        // antri (jam tetap kosong; slot dipilih lagi lewat Edit).
+        if ($field === 'status') {
+            if ($value === RawCusReservation::STATUS_WAITLIST) {
+                $updates['start_hour'] = null;
+                $updates['end_hour']   = null;
+                $updates['is_waiting'] = 1;
+            } else {
+                $updates['is_waiting'] = 0;
+            }
+        }
+
+        $reservation->update($updates);
 
         return response()->json(['success' => true]);
     }

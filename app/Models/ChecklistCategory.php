@@ -50,6 +50,37 @@ class ChecklistCategory extends Model
         return $this->cadence === self::CADENCE_WEEKLY;
     }
 
+    /**
+     * Kategori "payung" mingguan untuk sebuah divisi. Task mingguan tak lagi
+     * dikelompokkan per kategori di UI — semua task nempel ke satu kategori
+     * tersembunyi ini. Kalau divisi sudah punya kategori mingguan (data lama),
+     * pakai yang pertama supaya task-nya ikut tergabung, bukan bikin duplikat.
+     */
+    public static function weeklyUmbrellaFor(string $divisionId): self
+    {
+        $existing = static::where('division_id', $divisionId)
+            ->whereNull('deleted_at')
+            ->where('cadence', self::CADENCE_WEEKLY)
+            ->orderBy('sort_order')
+            ->first();
+        if ($existing) return $existing;
+
+        $order = (int) (static::where('division_id', $divisionId)
+            ->whereNull('deleted_at')->max('sort_order') ?? 0) + 10;
+
+        return static::create([
+            'id'          => (string) \Illuminate\Support\Str::uuid(),
+            'division_id' => $divisionId,
+            'name'        => 'Mingguan',
+            'description' => null,
+            'cadence'     => self::CADENCE_WEEKLY,
+            'sort_order'  => $order,
+            'is_active'   => 1,
+            'created_at'  => now(),
+            'updated_at'  => now(),
+        ]);
+    }
+
     public function division()
     {
         return $this->belongsTo(ChecklistDivision::class, 'division_id', 'id');

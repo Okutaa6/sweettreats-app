@@ -5,6 +5,46 @@
     /* ──────── Weekly grid (calendar-style checklist) ──────── */
     .cl-week-wrap { max-width: 1280px; margin: 0 auto; }
 
+    @media (max-width: 768px) { .cl-view-toggle { display: none !important; } }
+    /* Sub-toggle tampilan (Hari Ini / Rekap 6 Hari) — dengan hover */
+    .cl-vtoggle { display: inline-flex; gap: 2px; padding: 3px; background: #FAF4EC; border-radius: 999px; border: 1px solid #E0D2C1; }
+    .cl-vtoggle__btn {
+        padding: 6px 14px; font-size: 12px; font-weight: 600; text-decoration: none;
+        border-radius: 999px; color: #6B4423; display: inline-flex; align-items: center; gap: 6px;
+        transition: background .15s, color .15s, box-shadow .15s;
+    }
+    .cl-vtoggle__btn:hover { background: #F0E4D4; color: #5C2E15; }
+    .cl-vtoggle__btn.is-active { background: #FFFFFF; color: #5C2E15; font-weight: 700; box-shadow: 0 1px 3px rgba(45,24,16,.10); }
+    .cl-vtoggle__btn.is-active:hover { background: #FFFFFF; }
+
+    /* Kartu besar pilih jenis checklist (gaya halaman Setup) */
+    .cl-cad-tabs { display: flex; gap: 10px; flex-wrap: wrap; }
+    .cl-cad-tab {
+        flex: 1; min-width: 220px; display: flex; align-items: center; gap: 12px;
+        padding: 13px 16px; background: #FFFFFF; border: 1.5px solid #E0D2C1; border-radius: 14px;
+        cursor: pointer; text-align: left; text-decoration: none;
+        transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease, background .16s ease;
+        box-shadow: 0 2px 6px rgba(45,24,16,.04);
+    }
+    .cl-cad-tab:hover { border-color: #C9B69A; box-shadow: 0 4px 12px rgba(45,24,16,.08); }
+    .cl-cad-tab__icon {
+        width: 40px; height: 40px; border-radius: 11px; display: inline-flex;
+        align-items: center; justify-content: center; font-size: 16px; color: #FFFFFF; flex-shrink: 0;
+    }
+    .cl-cad-tab--daily  .cl-cad-tab__icon { background: linear-gradient(135deg, #A66019, #5C2E15); box-shadow: 0 3px 8px rgba(166,96,25,.22); }
+    .cl-cad-tab--weekly .cl-cad-tab__icon { background: linear-gradient(135deg, #1F6E5F, #155148); box-shadow: 0 3px 8px rgba(31,110,95,.22); }
+    .cl-cad-tab__body { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 2px; }
+    .cl-cad-tab__body strong { font-size: 15px; font-weight: 800; color: #2D1810; line-height: 1.2; }
+    .cl-cad-tab__body small { font-size: 11.5px; color: #6B4423; }
+    .cl-cad-tab__check { opacity: 0; flex-shrink: 0; font-size: 18px; color: #FFFFFF; transition: opacity .16s ease; }
+    .cl-cad-tab.is-active { border-color: transparent; transform: translateY(-1px); }
+    .cl-cad-tab--daily.is-active  { background: linear-gradient(135deg, #A66019, #5C2E15); box-shadow: 0 7px 18px rgba(92,46,21,.28); }
+    .cl-cad-tab--weekly.is-active { background: linear-gradient(135deg, #1F6E5F, #155148); box-shadow: 0 7px 18px rgba(21,81,72,.28); }
+    .cl-cad-tab.is-active .cl-cad-tab__body strong { color: #FFFFFF; }
+    .cl-cad-tab.is-active .cl-cad-tab__body small { color: #FFFFFF; opacity: .82; }
+    .cl-cad-tab.is-active .cl-cad-tab__icon { background: rgba(255,255,255,.18); box-shadow: none; }
+    .cl-cad-tab.is-active .cl-cad-tab__check { opacity: .95; }
+
     /* ── Modern hero (gradient brown) — sama style dgn Hari Ini ── */
     .cl-mod-hero {
         background: linear-gradient(135deg, #5C2E15 0%, #471500 100%);
@@ -498,6 +538,8 @@
     @include('layouts.notif')
 
     <div class="cl-week-wrap">
+        @include('crud.checklist.my._marquee')
+
         @if(! $position)
             <div class="st-card">
                 <div class="st-card__body" style="padding:48px 22px; text-align:center;">
@@ -511,36 +553,42 @@
                 </div>
             </div>
         @else
-            {{-- ─── TOP TAB: Checklist Daily / Checklist Weekly ─── --}}
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:10px;">
-                <div style="display:inline-flex; gap:2px; padding:4px; background:#FFFFFF; border-radius:999px; border:1px solid #E0D2C1; box-shadow:0 1px 3px rgba(45,24,16,.06);">
-                    <a href="{{ route('mychecklist') }}"
-                       style="padding:8px 18px; font-size:13px; font-weight:700; text-decoration:none; border-radius:999px; background:linear-gradient(180deg,#5C2E15,#471500); color:#FFFFFF; box-shadow:0 2px 6px rgba(71,21,0,.20); display:inline-flex; align-items:center; gap:7px;">
-                        <i class="fas fa-sun"></i> Checklist Harian
-                    </a>
-                    <a href="{{ route('mychecklist.weekform') }}"
-                       style="padding:8px 18px; font-size:13px; font-weight:600; text-decoration:none; border-radius:999px; color:#6B4423; display:inline-flex; align-items:center; gap:7px;">
-                        <i class="fas fa-calendar-week"></i> Checklist Mingguan
-                    </a>
-                </div>
-                <a href="{{ route('mychecklist.history') }}" style="font-size:12.5px; color:#6B4423; text-decoration:none; display:inline-flex; align-items:center; gap:6px; font-weight:600;">
-                    <i class="fas fa-history"></i> Riwayat
+            {{-- ─── PILIH JENIS CHECKLIST (kartu besar, gaya Setup) ─── --}}
+            <div class="cl-cad-tabs" style="margin-bottom:14px;">
+                <a href="{{ route('mychecklist') }}" class="cl-cad-tab cl-cad-tab--daily">
+                    <span class="cl-cad-tab__icon"><i class="fas fa-sun"></i></span>
+                    <span class="cl-cad-tab__body">
+                        <strong>Checklist Harian</strong>
+                        <small>Isi setiap hari operasional</small>
+                    </span>
+                    <i class="fas fa-check-circle cl-cad-tab__check"></i>
+                </a>
+                <a href="{{ route('mychecklist.weekform') }}" class="cl-cad-tab cl-cad-tab--weekly">
+                    <span class="cl-cad-tab__icon"><i class="fas fa-calendar-week"></i></span>
+                    <span class="cl-cad-tab__body">
+                        <strong>Checklist Mingguan</strong>
+                        <small>Tugas terjadwal per minggu</small>
+                    </span>
+                    <i class="fas fa-check-circle cl-cad-tab__check"></i>
                 </a>
             </div>
 
-            {{-- SUB-TOGGLE: Hari Ini vs Tampilan Mingguan (7 hari) --}}
-            <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px; flex-wrap:wrap;">
-                <span style="font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; color:#9B8578;">Tampilan:</span>
-                <div style="display:inline-flex; gap:2px; padding:3px; background:#FAF4EC; border-radius:999px; border:1px solid #E0D2C1;">
-                    <a href="{{ route('mychecklist') }}"
-                       style="padding:6px 14px; font-size:12px; font-weight:600; text-decoration:none; border-radius:999px; color:#6B4423; display:inline-flex; align-items:center; gap:6px;">
-                        <i class="fas fa-sun" style="font-size:10px;"></i> Hari Ini
-                    </a>
-                    <a href="{{ route('mychecklist.weekly') }}"
-                       style="padding:6px 14px; font-size:12px; font-weight:700; text-decoration:none; border-radius:999px; background:#FFFFFF; color:#5C2E15; box-shadow:0 1px 3px rgba(45,24,16,.10); display:inline-flex; align-items:center; gap:6px;">
-                        <i class="fas fa-th" style="font-size:10px;"></i> Seminggu
-                    </a>
+            {{-- Baris sub-toggle (desktop) + Riwayat (selalu tampil) --}}
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:14px; flex-wrap:wrap;">
+                <div class="cl-view-toggle" style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                    <span style="font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; color:#9B8578;">Tampilan:</span>
+                    <div class="cl-vtoggle">
+                        <a href="{{ route('mychecklist') }}" class="cl-vtoggle__btn">
+                            <i class="fas fa-sun" style="font-size:10px;"></i> Hari Ini
+                        </a>
+                        <a href="{{ route('mychecklist.weekly') }}" class="cl-vtoggle__btn is-active">
+                            <i class="fas fa-th" style="font-size:10px;"></i> Rekap 6 Hari
+                        </a>
+                    </div>
                 </div>
+                <a href="{{ route('mychecklist.history') }}" class="st-btn-outline-brown" style="padding:7px 14px; font-size:12.5px;">
+                    <i class="fas fa-history"></i> Riwayat
+                </a>
             </div>
 
             {{-- ─── MODERN HERO (gradient brown) ─── --}}
@@ -548,10 +596,10 @@
                 <div class="cl-mod-hero__row">
                     <div class="cl-mod-hero__left">
                         <div class="cl-mod-hero__icon-box">
-                            <i class="fas fa-calendar-week"></i>
+                            <i class="fas fa-th"></i>
                         </div>
                         <div style="min-width:0;">
-                            <h5 class="cl-mod-hero__greet">Checklist Mingguan</h5>
+                            <h5 class="cl-mod-hero__greet">Rekap 6 Hari</h5>
                             <div class="cl-mod-hero__meta">
                                 <i class="fas fa-calendar" style="font-size:11px; opacity:.85;"></i>
                                 <strong>{{ $start->translatedFormat('d M') }} – {{ $end->translatedFormat('d M Y') }}</strong>
@@ -635,7 +683,7 @@
                     <div class="cl-empty">
                         <span class="cl-empty__icon"><i class="fas fa-clipboard"></i></span>
                         <div class="cl-empty__title">Belum ada tugas</div>
-                        <div class="cl-empty__desc">Supervisor belum mengatur task untuk divisi {{ $position->division?->name }}.</div>
+                        <div class="cl-empty__desc">Supervisor belum mengatur tugas untuk divisi {{ $position->division?->name }}.</div>
                     </div>
                 @else
                     <div style="overflow-x:auto;">
@@ -695,16 +743,16 @@
             {{-- SUBMIT FOOTER (gradient brown, ala Hari Ini) --}}
             @if($submission->isEditable() && $rows->isNotEmpty())
                 <form method="POST" action="{{ route('mychecklist.submit') }}" style="margin-top:14px;"
-                      onsubmit="return confirm('Submit checklist hari ini?');">
+                      data-confirm="Submit checklist hari ini?">
                     @csrf
                     <div style="background:linear-gradient(135deg,#5C2E15,#471500); color:#FFFFFF; border-radius:14px; padding:14px 22px; display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap; box-shadow:0 6px 20px rgba(71,21,0,.20);">
                         <div style="font-size:12.5px; color:rgba(255,255,255,.85); line-height:1.4;">
                             @if($progress['done'] === 0)
-                                Mulai centang task hari ini di kolom <strong style="color:#FFF;">HARI INI</strong>.
+                                Mulai centang tugas hari ini di kolom <strong style="color:#FFF;">HARI INI</strong>.
                             @elseif($progress['done'] < $progress['total'])
                                 Masih ada <strong style="color:#FFF;">{{ $progress['total'] - $progress['done'] }} task</strong> belum dicentang.
                             @else
-                                <strong style="color:#FFF;">Semua task selesai! 🎉</strong> Klik submit untuk kirim.
+                                <strong style="color:#FFF;">Semua tugas selesai! 🎉</strong> Klik submit untuk kirim.
                             @endif
                         </div>
                         <button type="submit"
@@ -778,4 +826,6 @@
 })();
 </script>
 @endif
+
+@include('crud.checklist.my._confirm_modal')
 @endsection

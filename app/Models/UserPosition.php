@@ -78,4 +78,69 @@ class UserPosition extends Model
             ->whereNull('confirmed_at')
             ->whereNull('effective_to');
     }
+
+    /**
+     * Auto-tetapkan posisi AKTIF karyawan langsung dari data user-nya —
+     * tanpa usulan/konfirmasi. Divisi otomatis dari role (group_id), cabang
+     * dari user.raw_branch_id. Dipakai saat user dibuat/diubah admin dan saat
+     * karyawan membuka /my-checklist (self-heal).
+     *
+     * Return posisi aktif (baru/eksisting), atau null kalau user tak bisa
+     * di-assign (role belum ditautkan ke divisi, atau cabang belum diset).
+     */
+    public static function syncFromUser(?Users $user, ?string $confirmedBy = null): ?self
+    {
+        if (! $user || ! $user->raw_branch_id) return null;
+
+        $division = checklistDivisionForGroup($user->group_id);
+        if (! $division) return null;
+
+        $today = Carbon::today();
+
+        // Posisi aktif saat ini. Kalau sudah identik → tidak ada perubahan.
+        $current = static::query()->activeOn($today)->where('user_id', $user->id)->first();
+        if ($current
+            && $current->division_id   === $division->id
+            && $current->raw_branch_id === $user->raw_branch_id) {
+            return $current;
+        }
+
+        // Beda divisi/cabang → tutup posisi lama (nonaktif mulai kemarin).
+        if ($current) {
+            $current->update([
+                'effective_to' => $today->copy()->subDay(),
+                'updated_at'   => now(),
+            ]);
+        }
+
+        $pos = static::create([
+            'user_id'        => $user->id,
+            'division_id'    => $division->id,
+            'raw_branch_id'  => $user->raw_branch_id,
+            'is_primary'     => 1,
+            'effective_from' => $today,
+            'effective_to'   => null,
+            'confirmed_at'   => now(),
+            'confirmed_by'   => $confirmedBy,
+            'created_at'     => now(),
+            'updated_at'     => now(),
+        ]);
+
+        // Bersihkan sisa usulan pending lama (kalau ada dari alur sebelumnya).
+        static::query()->pending()->where('user_id', $user->id)
+            ->where('id', '!=', $pos->id)->delete();
+
+        try {
+            ChecklistAuditLog::write(
+                'submission',
+                $pos->id,
+                $current ? ChecklistAuditLog::ACTION_UPDATE : ChecklistAuditLog::ACTION_CREATE,
+                $current ? ['division_id' => $current->division_id, 'raw_branch_id' => $current->raw_branch_id] : null,
+                ['division_id' => $pos->division_id, 'raw_branch_id' => $pos->raw_branch_id],
+                'Posisi ' . ($user->nama ?? '-') . ' otomatis diset ke ' . ($division->name ?? $division->id)
+            );
+        } catch (\Throwable $e) {}
+
+        return $pos;
+    }
 }

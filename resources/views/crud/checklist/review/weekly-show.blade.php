@@ -63,6 +63,52 @@
         padding: 6px 8px; background: #FAF4EC; border-radius: 6px;
         border-left: 2px solid #C9B69A;
     }
+
+    /* ── Foto before/after / bukti — pill ringkas, gambar di modal ── */
+    .wkr-ba { display: flex; gap: 8px; margin-top: 6px; flex-wrap: wrap; }
+    .wkr-ba__pill {
+        display: inline-flex; align-items: center; gap: 7px;
+        border: 1px solid #A66019; background: #FFF7EE; color: #5C2E15;
+        font-size: 12px; font-weight: 700; padding: 8px 14px; border-radius: 9px;
+        cursor: pointer; transition: .15s; line-height: 1;
+        box-shadow: 0 1px 2px rgba(45,24,16,.08);
+    }
+    .wkr-ba__pill i { font-size: 13px; }
+    .wkr-ba__pill-cap { text-transform: uppercase; letter-spacing: .5px; font-size: 10px; font-weight: 800; }
+    /* Ada foto → tombol solid brand (jelas bisa diklik) */
+    .wkr-ba__pill.has {
+        border-color: transparent;
+        background: linear-gradient(180deg, #6B3A1C, #4A1A05);
+        color: #FFFFFF; box-shadow: 0 2px 6px rgba(71,21,0,.28);
+    }
+    .wkr-ba__pill.has i { color: #F7C77E; }
+    .wkr-ba__pill.has:hover { transform: translateY(-1px); box-shadow: 0 6px 15px rgba(71,21,0,.34); }
+    .wkr-ba__pill.has:active { transform: translateY(0); box-shadow: 0 2px 6px rgba(71,21,0,.28); }
+    .wkr-ba__pill.has .wkr-ba__pill-cap {
+        color: #FBE4BE; padding-right: 9px; margin-right: 1px;
+        border-right: 1px solid rgba(255,236,205,.30);
+    }
+    .wkr-ba__pill.has > span:last-child { color: #FFFFFF; font-weight: 800; }
+    /* Kosong → chip redup, tak bisa diklik */
+    .wkr-ba__pill.empty {
+        border: 1px dashed #D8C4AB; background: #FAF4EC; color: #B08D66;
+        cursor: default; box-shadow: none; font-weight: 700;
+    }
+    .wkr-ba__pill.empty .wkr-ba__pill-cap { color: #BFA684; }
+    .wkr-ba__warn { margin-top: 6px; font-size: 11px; color: #A32D2D; font-weight: 600; }
+
+    /* Modal lihat foto */
+    .wkr-photo-modal { position: fixed; inset: 0; z-index: 1080; display: flex; align-items: center; justify-content: center; }
+    .wkr-photo-modal[hidden] { display: none; }
+    .wkr-photo-modal__backdrop { position: absolute; inset: 0; background: rgba(30,15,5,.72); }
+    .wkr-photo-modal__box { position: relative; z-index: 1; max-width: 92vw; max-height: 88vh; }
+    .wkr-photo-modal__box img { max-width: 92vw; max-height: 88vh; border-radius: 12px; box-shadow: 0 12px 40px rgba(0,0,0,.4); display: block; }
+    .wkr-photo-modal__close {
+        position: absolute; top: -14px; right: -14px; width: 36px; height: 36px;
+        border-radius: 50%; border: none; background: #fff; color: #5C2E15;
+        font-size: 15px; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,.25);
+        display: flex; align-items: center; justify-content: center;
+    }
 </style>
 @endsection
 
@@ -81,11 +127,8 @@
 <div class="container-fluid">
     <div class="row">
         <div class="col-sm-12">
-            <div class="page-title-box" style="display:flex; justify-content:space-between; align-items:center;">
+            <div class="page-title-box">
                 <h4 class="page-title">Detail Form Mingguan</h4>
-                <a href="{{ route('checklist.review.weekly') }}" class="st-btn-outline-brown">
-                    <i class="fas fa-arrow-left"></i> Kembali ke Queue
-                </a>
             </div>
         </div>
     </div>
@@ -99,6 +142,9 @@
 
                     {{-- HEADER --}}
                     <div style="padding:20px 22px; border-bottom:1px solid #E0D2C1; background:linear-gradient(180deg,#FFFFFF 0%, #FAF4EC 100%);">
+                        <a href="{{ route('checklist.review.weekly') }}" class="st-btn-outline-brown" style="display:inline-flex; align-items:center; gap:7px; margin-bottom:16px;">
+                            <i class="fas fa-arrow-left"></i> Kembali
+                        </a>
                         <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap;">
                             <div style="display:flex; align-items:center; gap:14px; min-width:0;">
                                 <div style="width:50px; height:50px; border-radius:50%; background:#5C2E15; color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:18px; flex-shrink:0;">
@@ -139,23 +185,32 @@
                         <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:12px; margin-top:14px; font-size:12px;">
                             @if($submission->submitted_at)
                                 <div>
-                                    <div style="font-size:10.5px; color:#9B8578; font-weight:700; text-transform:uppercase; letter-spacing:0.4px;">Disubmit</div>
+                                    <div style="font-size:11.5px; color:#9B8578; font-weight:700; text-transform:uppercase; letter-spacing:0.4px;">Disubmit</div>
                                     <div style="color:#2D1810; font-weight:600;">{{ $submission->submitted_at->format('d M Y · H:i') }}</div>
                                 </div>
                             @endif
                             @if($submission->reviewed_at)
                                 <div>
-                                    <div style="font-size:10.5px; color:#9B8578; font-weight:700; text-transform:uppercase; letter-spacing:0.4px;">Direview</div>
+                                    <div style="font-size:11.5px; color:#9B8578; font-weight:700; text-transform:uppercase; letter-spacing:0.4px;">Direview</div>
                                     <div style="color:#2D1810; font-weight:600;">{{ $submission->reviewed_at->format('d M Y · H:i') }}</div>
                                 </div>
                             @endif
                             @if($submission->reviewer)
                                 <div>
-                                    <div style="font-size:10.5px; color:#9B8578; font-weight:700; text-transform:uppercase; letter-spacing:0.4px;">Reviewer</div>
+                                    <div style="font-size:11.5px; color:#9B8578; font-weight:700; text-transform:uppercase; letter-spacing:0.4px;">Reviewer</div>
                                     <div style="color:#2D1810; font-weight:600;">{{ $submission->reviewer->nama }}</div>
                                 </div>
                             @endif
                         </div>
+
+                        @if($submission->submit_note)
+                            <div style="margin-top:14px; padding:12px 14px; background:#FFF; border:1px solid #E0D2C1; border-left:4px solid #9B5E2C; border-radius:8px;">
+                                <div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.4px; color:#9B5E2C; margin-bottom:4px;">
+                                    <i class="fas fa-pen" style="font-size:10px;"></i> Catatan karyawan
+                                </div>
+                                <div style="font-size:13px; color:#2D1810; line-height:1.5;">{{ $submission->submit_note }}</div>
+                            </div>
+                        @endif
 
                         @if($submission->review_notes)
                             <div style="margin-top:14px; padding:12px 14px; background:#FFF; border:1px solid #E0D2C1; border-left:4px solid {{ $submission->status === 'rejected' ? '#A32D2D' : '#1F6E5F' }}; border-radius:8px;">
@@ -186,41 +241,47 @@
                             </div>
                         @else
                             @php
-                                // Iterate ISO 1-7 untuk menjaga urutan Senin → Minggu.
+                                // Hari operasional Selasa(2)–Minggu(7); Senin(1) klinik tutup.
+                                // Iterate hanya key yang punya label (2–7) supaya urut & aman
+                                // dari data lama yang day_of_week-nya di luar rentang.
                                 $orderedDays = [];
-                                for ($i = 1; $i <= 7; $i++) {
-                                    if ($grouped->has($i)) $orderedDays[$i] = $grouped->get($i);
+                                foreach ($dayLabels as $dowKey => $dowLabel) {
+                                    if ($grouped->has($dowKey)) $orderedDays[$dowKey] = $grouped->get($dowKey);
                                 }
                             @endphp
-                            @foreach($orderedDays as $dow => $categories)
+                            @foreach($orderedDays as $dow => $dayItems)
                                 @php
                                     $dayDate = $submission->week_start_date->copy()->addDays($dow - 1);
-                                    $allItems = $categories->flatten(1);
-                                    $totalDay = $allItems->count();
-                                    $doneDay  = $allItems->where('is_done', true)->count();
+                                    $totalDay = $dayItems->count();
+                                    $doneDay  = $dayItems->where('is_done', true)->count();
+                                    $dayExcuseReason = $excusedDays[$dow] ?? null;
                                 @endphp
                                 <div class="wkr-day">
                                     <div class="wkr-day__head">
                                         <div class="wkr-day__head-left">
                                             <div class="wkr-day__num">
                                                 <strong>{{ $dayDate->format('d') }}</strong>
-                                                <small>{{ $dayShorts[$dow] }}</small>
+                                                <small>{{ $dayShorts[$dow] ?? '—' }}</small>
                                             </div>
                                             <div>
-                                                <h6 class="wkr-day__title">{{ $dayLabels[$dow] }}</h6>
+                                                <h6 class="wkr-day__title">{{ $dayLabels[$dow] ?? 'Hari lain' }}</h6>
                                                 <div class="wkr-day__date">{{ $dayDate->translatedFormat('d F Y') }}</div>
                                             </div>
                                         </div>
-                                        <span class="st-pill st-pill--{{ $doneDay === $totalDay ? 'success' : 'warning' }}">
-                                            {{ $doneDay }}/{{ $totalDay }} tugas
-                                        </span>
+                                        @if($dayExcuseReason)
+                                            <span class="st-pill st-pill--neutral"><i class="fas fa-mug-hot"></i> Dikecualikan</span>
+                                        @else
+                                            <span class="st-pill st-pill--{{ $doneDay === $totalDay ? 'success' : 'warning' }}">
+                                                {{ $doneDay }}/{{ $totalDay }} tugas
+                                            </span>
+                                        @endif
                                     </div>
-                                    @foreach($categories as $catTitle => $items)
-                                        <div class="wkr-cat-head">
-                                            <span><i class="fas fa-folder" style="font-size:10px; margin-right:5px;"></i> {{ $catTitle }}</span>
-                                            <span>{{ $items->where('is_done', true)->count() }}/{{ $items->count() }}</span>
+                                    @if($dayExcuseReason)
+                                        <div style="margin:2px 0 8px; padding:9px 12px; background:#FCF4E7; border:1px solid #E7D3B8; border-left:3px solid #A66019; border-radius:8px; font-size:12.5px; color:#6B4423;">
+                                            <strong>Hari ini ditandai tidak perlu diisi.</strong> Alasan: {{ $dayExcuseReason }}
                                         </div>
-                                        @foreach($items as $item)
+                                    @endif
+                                    @foreach($dayItems as $item)
                                             <div class="wkr-task">
                                                 <span class="wkr-task__check {{ $item->is_done ? 'is-done' : '' }}">
                                                     @if($item->is_done) ✓ @endif
@@ -229,40 +290,46 @@
                                                     {{ $item->task_title_snapshot }}
                                                     @if($item->note)
                                                         <div class="wkr-task__note">
-                                                            <i class="fas fa-edit" style="font-size:9px; color:#9B5E2C; margin-right:3px;"></i>
+                                                            <strong style="color:#9B5E2C;">Catatan:</strong>
                                                             {{ $item->note }}
                                                         </div>
                                                     @endif
-                                                    @if($item->requires_photo)
+                                                    @php $isBa = $submission->division_id === 'GS' && $item->requires_photo; @endphp
+                                                    @if($isBa)
+                                                        {{-- Before/After (divisi GS): pill ringkas, gambar di modal --}}
+                                                        <div class="wkr-ba">
+                                                            @foreach(['before' => 'Before', 'after' => 'After'] as $slot => $slotLabel)
+                                                                @php $baPath = $item->{'photo_' . $slot . '_path'}; @endphp
+                                                                @if($baPath)
+                                                                    <button type="button" class="wkr-ba__pill has" data-photo-view data-url="{{ asset($baPath) }}">
+                                                                        <i class="fas fa-image"></i>
+                                                                        <span class="wkr-ba__pill-cap">{{ $slotLabel }}</span>
+                                                                        <span>Lihat</span>
+                                                                    </button>
+                                                                @else
+                                                                    <span class="wkr-ba__pill empty">
+                                                                        <i class="fas fa-ban"></i>
+                                                                        <span class="wkr-ba__pill-cap">{{ $slotLabel }}</span>
+                                                                        <span>Tidak ada</span>
+                                                                    </span>
+                                                                @endif
+                                                            @endforeach
+                                                        </div>
+                                                    @elseif($item->requires_photo)
+                                                        {{-- Foto tunggal (non-GS) --}}
                                                         @if($item->photo_path)
-                                                            <a href="{{ asset($item->photo_path) }}" target="_blank" rel="noopener"
-                                                               style="display:inline-block; margin-top:6px;">
-                                                                <img src="{{ asset($item->photo_path) }}" alt="Foto bukti"
-                                                                     style="max-width:120px; max-height:120px; border-radius:8px; border:1px solid #E0D2C1; object-fit:cover; display:block;">
-                                                            </a>
+                                                            <div class="wkr-ba">
+                                                                <button type="button" class="wkr-ba__pill has" data-photo-view data-url="{{ asset($item->photo_path) }}">
+                                                                    <i class="fas fa-image"></i>
+                                                                    <span class="wkr-ba__pill-cap">Foto</span>
+                                                                    <span>Lihat</span>
+                                                                </button>
+                                                            </div>
                                                         @else
-                                                            <div style="margin-top:6px; font-size:11px; color:#A32D2D; font-weight:600;">
+                                                            <div class="wkr-ba__warn">
                                                                 <i class="fas fa-exclamation-triangle" style="font-size:10px; margin-right:3px;"></i> Wajib foto — belum ada foto
                                                             </div>
                                                         @endif
-                                                    @endif
-                                                    @if($item->photo_before_path || $item->photo_after_path)
-                                                        <div style="display:flex; gap:10px; margin-top:6px; flex-wrap:wrap;">
-                                                            @foreach(['before' => 'Before', 'after' => 'After'] as $slot => $slotLabel)
-                                                                @php $baPath = $item->{'photo_' . $slot . '_path'}; @endphp
-                                                                <div>
-                                                                    <div style="font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:#9B5E2C; margin-bottom:3px;">{{ $slotLabel }}</div>
-                                                                    @if($baPath)
-                                                                        <a href="{{ asset($baPath) }}" target="_blank" rel="noopener" style="display:inline-block;">
-                                                                            <img src="{{ asset($baPath) }}" alt="Foto {{ $slotLabel }}"
-                                                                                 style="width:110px; height:82px; border-radius:8px; border:1px solid #E0D2C1; object-fit:cover; display:block;">
-                                                                        </a>
-                                                                    @else
-                                                                        <div style="width:110px; height:82px; border-radius:8px; border:1px dashed #D8C4AB; background:#FAF4EC; color:#B79A79; display:flex; align-items:center; justify-content:center; font-size:10.5px;">Tidak ada</div>
-                                                                    @endif
-                                                                </div>
-                                                            @endforeach
-                                                        </div>
                                                     @endif
                                                 </div>
                                                 @if($item->done_at)
@@ -270,7 +337,6 @@
                                                 @endif
                                             </div>
                                         @endforeach
-                                    @endforeach
                                 </div>
                             @endforeach
                         @endif
@@ -287,7 +353,7 @@
                                     <textarea id="reviewNotes" rows="2" class="form-control" placeholder="Mis: tugas Kamis belum lengkap, mohon dilengkapi..."></textarea>
                                 </div>
                                 <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                                    <form method="POST" action="{{ route('checklist.review.weekly.approve', $submission->id) }}" style="display:inline;" onsubmit="this.querySelector('input[name=review_notes]').value = document.getElementById('reviewNotes').value;">
+                                    <form method="POST" action="{{ route('checklist.review.weekly.approve', $submission->id) }}" style="display:inline;" onsubmit="this.querySelector('input[name=review_notes]').value = document.getElementById('reviewNotes').value; return confirm('Setujui Form Mingguan ini?');">
                                         @csrf @method('PATCH')
                                         <input type="hidden" name="review_notes" value="">
                                         <button type="submit" class="st-btn-brand">
@@ -308,7 +374,7 @@
                                     <button type="submit" class="st-btn-outline-brown">
                                         <i class="fas fa-undo"></i> Reopen
                                     </button>
-                                    <small style="color:#9B8578; margin-left:8px;">
+                                    <small style="color:#6B4423; margin-left:8px;">
                                         Reopen untuk mengubah keputusan review jika ada kesalahan.
                                     </small>
                                 </form>
@@ -324,7 +390,7 @@
                                 <button type="submit" class="st-btn-outline-brown" style="color:#A32D2D; border-color:#A32D2D;">
                                     <i class="fas fa-undo"></i> Batalkan Pengecualian
                                 </button>
-                                <small style="color:#9B8578; margin-left:8px;">
+                                <small style="color:#6B4423; margin-left:8px;">
                                     Karyawan menandai minggu ini "tidak perlu diisi". Batalkan bila tidak valid.
                                 </small>
                             </form>
@@ -336,4 +402,26 @@
         </div>
     </div>
 </div>
+
+{{-- Modal lihat foto (before/after & bukti) --}}
+<div class="wkr-photo-modal" id="wkrPhotoModal" hidden>
+    <div class="wkr-photo-modal__backdrop" data-modal-close></div>
+    <div class="wkr-photo-modal__box">
+        <button type="button" class="wkr-photo-modal__close" data-modal-close aria-label="Tutup"><i class="fas fa-times"></i></button>
+        <img id="wkrPhotoModalImg" src="" alt="Foto bukti">
+    </div>
+</div>
+<script>
+(function () {
+    var modal = document.getElementById('wkrPhotoModal');
+    var img   = document.getElementById('wkrPhotoModalImg');
+    function open(url) { if (! modal || ! img) return; img.src = url; modal.hidden = false; document.body.style.overflow = 'hidden'; }
+    function close() { if (! modal) return; modal.hidden = true; if (img) img.src = ''; document.body.style.overflow = ''; }
+    document.querySelectorAll('[data-photo-view]').forEach(function (btn) {
+        btn.addEventListener('click', function () { if (btn.dataset.url) open(btn.dataset.url); });
+    });
+    document.querySelectorAll('[data-modal-close]').forEach(function (el) { el.addEventListener('click', close); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
+})();
+</script>
 @endsection

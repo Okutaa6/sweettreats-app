@@ -10,6 +10,7 @@ use App\Models\ChecklistDivision;
 use App\Models\ChecklistSubmission;
 use App\Models\ChecklistSubmissionItem;
 use App\Models\ChecklistTask;
+use App\Models\ChecklistWeeklyDayExcuse;
 use App\Models\ChecklistWeeklySubmission;
 use App\Models\ChecklistWeeklySubmissionItem;
 use App\Models\RawBranch;
@@ -46,21 +47,23 @@ class MyChecklistController extends Controller
     {
         $position = currentUserPosition();
 
+        // Posisi otomatis dari data user (role→divisi, cabang dari record user).
+        // Tidak ada lagi alur "ajukan → konfirmasi": begitu admin set role & cabang,
+        // posisi checklist langsung aktif. Self-heal untuk user lama yang belum punya row.
         if (! $position) {
-            // Belum punya posisi aktif. Dua sub-state:
-            //  - ada usulan pending → tampilkan "menunggu konfirmasi supervisor"
-            //  - belum ada usulan   → tampilkan welcome + form pilih divisi/cabang
-            $pending = UserPosition::query()->pending()
-                ->where('user_id', session('id'))
-                ->with(['division', 'branch'])
-                ->latest('created_at')
-                ->first();
+            $me = Users::find(session('id'));
+            $position = UserPosition::syncFromUser($me, session('id'));
+        }
+
+        if (! $position) {
+            // Benar-benar belum bisa di-assign. Dua sub-state:
+            //  - role belum ditautkan ke divisi checklist
+            //  - cabang belum diset admin
+            $roleDivision = checklistDivisionForGroup(session('group_id'));
 
             return view('crud.checklist.my.index', [
                 'position'      => null,
-                'pending'       => $pending,
-                'roleDivision'  => checklistDivisionForGroup(session('group_id')),
-                'branches'      => RawBranch::orderBy('name')->get(),
+                'roleDivision'  => $roleDivision,
                 'userName'      => Users::find(session('id'))?->nama ?? 'Rekan',
                 'submission'    => null,
                 'grouped'       => collect(),
@@ -115,81 +118,6 @@ class MyChecklistController extends Controller
         ));
     }
 
-    /**
-     * Karyawan mengajukan sendiri posisi (divisi + cabang) dari halaman
-     * my-checklist. Tersimpan sebagai usulan PENDING (confirmed_at NULL) —
-     * belum aktif sampai supervisor konfirmasi di halaman posisi. Kalau sudah
-     * ada usulan pending, di-update (boleh ganti sebelum dikonfirmasi).
-     */
-    public function proposePosition(Request $request)
-    {
-        // Sudah punya posisi aktif → tidak perlu mengajukan lagi.
-        if (currentUserPosition()) {
-            return redirect()->route('mychecklist')->with('info', 'Anda sudah punya posisi aktif.');
-        }
-
-        $data = $request->validate(
-            [
-                'raw_branch_id' => 'required|string|exists:raw_branch,id',
-            ],
-            [
-                'raw_branch_id.required' => 'Cabang wajib dipilih.',
-            ]
-        );
-
-        // Divisi OTOMATIS dari role user (model "role staf = divisi") — tak dipilih manual.
-        $division = checklistDivisionForGroup(session('group_id'));
-        if (! $division) {
-            return redirect()->route('mychecklist')
-                ->with('error', 'Role Anda belum ditautkan ke divisi checklist. Hubungi admin.');
-        }
-        $data['division_id'] = $division->id;
-
-        $uid   = session('id');
-        $today = Carbon::today();
-
-        // Update usulan pending yang sudah ada, atau buat baru.
-        $pending = UserPosition::query()->pending()->where('user_id', $uid)->first();
-
-        if ($pending) {
-            $pending->update([
-                'division_id'   => $data['division_id'],
-                'raw_branch_id' => $data['raw_branch_id'],
-                'updated_at'    => now(),
-            ]);
-            $pos = $pending;
-        } else {
-            $pos = UserPosition::create([
-                'user_id'        => $uid,
-                'division_id'    => $data['division_id'],
-                'raw_branch_id'  => $data['raw_branch_id'],
-                'is_primary'     => 1,
-                'effective_from' => $today,
-                'effective_to'   => null,
-                'confirmed_at'   => null,
-                'confirmed_by'   => null,
-                'created_at'     => now(),
-                'updated_at'     => now(),
-            ]);
-        }
-
-        // Notif supervisor cabang untuk konfirmasi.
-        try {
-            $user = Users::find($uid);
-            $name = $user?->nama ?? 'Karyawan';
-            $div  = ChecklistDivision::find($data['division_id']);
-            AdminNotification::notify(
-                'checklist.position.proposed',
-                "Usulan posisi — {$name}",
-                $name . ' mengajukan posisi ' . ($div?->name ?? $data['division_id']) . '. Menunggu konfirmasi Anda.',
-                route('checklist.positions'),
-                $data['raw_branch_id']
-            );
-        } catch (\Throwable $e) {}
-
-        return redirect()->route('mychecklist')
-            ->with('success', 'Posisi diajukan. Menunggu konfirmasi supervisor sebelum Anda bisa mengisi checklist.');
-    }
 
     /**
      * Compute data untuk widget-widget di samping/bawah checklist:
@@ -326,8 +254,8 @@ class MyChecklistController extends Controller
         if (! $sub->isEditable()) {
             return back()->with('error', 'Checklist sudah disubmit.');
         }
-        if ($sub->done_tasks === 0) {
-            return back()->with('error', 'Minimal 1 tugas harus dicentang sebelum submit.');
+        if ($sub->total_tasks === 0 || $sub->done_tasks < $sub->total_tasks) {
+            return back()->with('error', 'Semua tugas harus diselesaikan (100%) sebelum submit.');
         }
 
         $before = ['status' => $sub->status];
@@ -340,17 +268,21 @@ class MyChecklistController extends Controller
         ChecklistAuditLog::write('submission', $sub->id, ChecklistAuditLog::ACTION_SUBMIT,
             $before, ['status' => $sub->status, 'done' => $sub->done_tasks, 'total' => $sub->total_tasks]);
 
-        // Notif ke supervisor cabang (broadcast — user_id NULL, raw_branch_id terisi).
+        // Notif ke ATASAN divisi (hierarki), di-scope ke cabang submission.
         try {
             $user = Users::find(session('id'));
             $name = $user?->nama ?? 'Karyawan';
-            AdminNotification::notify(
-                'checklist.submitted',
-                "Checklist baru dari {$name}",
-                $name . ' (' . $sub->division_id . ') sudah submit checklist hari ini.',
-                route('checklist.review.show', $sub->id),
-                $sub->raw_branch_id
-            );
+            $body = $name . ' (' . $sub->division_id . ') sudah submit checklist hari ini.';
+            foreach (checklistSupervisorRoleNamesForDivision($sub->division_id) as $roleName) {
+                AdminNotification::notifyRole(
+                    $roleName,
+                    'checklist.submitted',
+                    "Checklist baru dari {$name}",
+                    $body,
+                    route('checklist.review.show', $sub->id),
+                    $sub->raw_branch_id
+                );
+            }
         } catch (\Throwable $e) {
             // jangan fail submit kalau notif error
         }
@@ -415,13 +347,17 @@ class MyChecklistController extends Controller
         try {
             $user = Users::find(session('id'));
             $name = $user?->nama ?? 'Karyawan';
-            AdminNotification::notify(
-                'checklist.excused',
-                "Checklist dikecualikan — {$name}",
-                $name . ' (' . $sub->division_id . ') menandai checklist hari ini tidak perlu diisi. Alasan: ' . $data['excuse_reason'],
-                route('checklist.review.show', $sub->id),
-                $sub->raw_branch_id
-            );
+            $body = $name . ' (' . $sub->division_id . ') menandai checklist hari ini tidak perlu diisi. Alasan: ' . $data['excuse_reason'];
+            foreach (checklistSupervisorRoleNamesForDivision($sub->division_id) as $roleName) {
+                AdminNotification::notifyRole(
+                    $roleName,
+                    'checklist.excused',
+                    "Checklist dikecualikan — {$name}",
+                    $body,
+                    route('checklist.review.show', $sub->id),
+                    $sub->raw_branch_id
+                );
+            }
         } catch (\Throwable $e) {
             // jangan gagalkan aksi kalau notif error
         }
@@ -473,6 +409,7 @@ class MyChecklistController extends Controller
                 'submission' => null,
                 'days'       => [],
                 'grouped'    => collect(),
+                'excusedDays' => [],
                 'progress'   => ['done' => 0, 'total' => 0, 'pct' => 0],
                 'weekOffset' => 0,
                 'weekStart'  => Carbon::today()->startOfWeek(Carbon::MONDAY),
@@ -530,19 +467,32 @@ class MyChecklistController extends Controller
             ];
         }
 
-        // Group items by day_of_week → category — supaya view tinggal iterasi.
+        // Group items by day_of_week saja — task mingguan tak lagi dikelompokkan
+        // per kategori; cukup diurut per hari.
         $grouped = collect();
         if ($submission) {
-            $items = $submission->items()->get();
-            $grouped = $items->groupBy('day_of_week')->map(function ($dayItems) {
-                return $dayItems->groupBy('category_title_snapshot');
-            });
+            $items = $submission->items()
+                ->orderBy('category_sort_order')
+                ->orderBy('task_sort_order')
+                ->get();
+            $grouped = $items->groupBy('day_of_week');
         }
 
+        // Peta hari yang dikecualikan (iso => alasan) untuk minggu ini.
+        $excusedDays = $submission
+            ? $submission->dayExcuses->pluck('reason', 'day_of_week')
+                ->mapWithKeys(fn ($reason, $iso) => [(int) $iso => $reason])->all()
+            : [];
+
+        // Progress form berjalan berbasis "satisfied" (dicentang ATAU hari
+        // dikecualikan) supaya ring atas & teks "belum dikerjakan" menghormati
+        // hari yang di-skip. done_tasks di DB tetap = benar-benar dikerjakan.
+        $satisfied = $submission?->satisfiedCount() ?? 0;
+        $total     = $submission?->total_tasks ?? 0;
         $progress = [
-            'done'  => $submission?->done_tasks ?? 0,
-            'total' => $submission?->total_tasks ?? 0,
-            'pct'   => $submission?->progressPct() ?? 0,
+            'done'  => $satisfied,
+            'total' => $total,
+            'pct'   => $total > 0 ? (int) round(($satisfied / $total) * 100) : 0,
         ];
 
         $rejectedNote = ($submission && $submission->status === ChecklistWeeklySubmission::STATUS_REJECTED)
@@ -550,7 +500,7 @@ class MyChecklistController extends Controller
             : null;
 
         return view('crud.checklist.my.weekform', compact(
-            'position', 'submission', 'days', 'grouped', 'progress',
+            'position', 'submission', 'days', 'grouped', 'progress', 'excusedDays',
             'weekOffset', 'weekStart', 'weekEnd', 'rejectedNote', 'isFuture'
         ));
     }
@@ -586,13 +536,17 @@ class MyChecklistController extends Controller
         $done = $sub->items()->where('is_done', 1)->count();
         $sub->update(['done_tasks' => $done, 'updated_at' => now()]);
 
+        // Progress yang dikirim ke UI berbasis "satisfied" (dicentang ATAU hari
+        // dikecualikan) supaya konsisten dengan render server-side.
+        $satisfied = $sub->satisfiedCount();
+
         return response()->json([
             'ok'      => true,
             'is_done' => $newState,
             'progress' => [
-                'done'  => $done,
+                'done'  => $satisfied,
                 'total' => $sub->total_tasks,
-                'pct'   => $sub->total_tasks ? (int) round($done / $sub->total_tasks * 100) : 0,
+                'pct'   => $sub->total_tasks ? (int) round($satisfied / $sub->total_tasks * 100) : 0,
             ],
         ]);
     }
@@ -688,13 +642,14 @@ class MyChecklistController extends Controller
 
         $done = $sub->items()->where('is_done', 1)->count();
         $sub->update(['done_tasks' => $done, 'updated_at' => now()]);
+        $satisfied = $sub->satisfiedCount();
 
         return response()->json([
             'ok'       => true,
             'progress' => [
-                'done'  => $done,
+                'done'  => $satisfied,
                 'total' => $sub->total_tasks,
-                'pct'   => $sub->total_tasks ? (int) round($done / $sub->total_tasks * 100) : 0,
+                'pct'   => $sub->total_tasks ? (int) round($satisfied / $sub->total_tasks * 100) : 0,
             ],
         ]);
     }
@@ -798,13 +753,16 @@ class MyChecklistController extends Controller
         if (! $sub->isEditable()) {
             return back()->with('error', 'Form mingguan sudah disubmit.');
         }
-        if ($sub->done_tasks === 0) {
-            return back()->with('error', 'Minimal 1 tugas harus dicentang sebelum submit.');
+        if ($sub->total_tasks === 0 || $sub->satisfiedCount() < $sub->total_tasks) {
+            return back()->with('error', 'Semua tugas minggu ini harus diselesaikan atau ditandai tidak perlu diisi (100%) sebelum submit.');
         }
+
+        $data = $request->validate(['note' => 'nullable|string|max:1000']);
 
         $before = ['status' => $sub->status];
         $sub->update([
             'status'       => ChecklistWeeklySubmission::STATUS_SUBMITTED,
+            'submit_note'  => $data['note'] ?? null,
             'submitted_at' => now(),
             'updated_at'   => now(),
         ]);
@@ -812,17 +770,21 @@ class MyChecklistController extends Controller
         ChecklistAuditLog::write('weekly_submission', $sub->id, ChecklistAuditLog::ACTION_SUBMIT,
             $before, ['status' => $sub->status, 'done' => $sub->done_tasks, 'total' => $sub->total_tasks]);
 
-        // Notif supervisor cabang.
+        // Notif ke ATASAN divisi (hierarki), di-scope ke cabang submission.
         try {
             $user = Users::find(session('id'));
             $name = $user?->nama ?? 'Karyawan';
-            AdminNotification::notify(
-                'checklist.weekly.submitted',
-                "Form Mingguan dari {$name}",
-                $name . ' (' . $sub->division_id . ') submit Form Mingguan ' . $sub->weekLabel() . '.',
-                route('checklist.review.weekly.show', $sub->id),
-                $sub->raw_branch_id
-            );
+            $body = $name . ' (' . $sub->division_id . ') submit Form Mingguan ' . $sub->weekLabel() . '.';
+            foreach (checklistSupervisorRoleNamesForDivision($sub->division_id) as $roleName) {
+                AdminNotification::notifyRole(
+                    $roleName,
+                    'checklist.weekly.submitted',
+                    "Form Mingguan dari {$name}",
+                    $body,
+                    route('checklist.review.weekly.show', $sub->id),
+                    $sub->raw_branch_id
+                );
+            }
         } catch (\Throwable $e) {}
 
         return redirect()->route('mychecklist.weekform')->with('success', 'Form Mingguan disubmit. Menunggu review supervisor.');
@@ -852,10 +814,19 @@ class MyChecklistController extends Controller
     }
 
     /**
-     * Tandai Form Mingguan (minggu ini) "tidak perlu diisi" (excused) + alasan.
+     * Tandai SATU hari pada minggu ini "tidak perlu diisi" + alasan (wajib).
+     * Task di hari itu otomatis terhitung "satisfied" tanpa perlu dicentang.
      */
-    public function weekExcuse(Request $request)
+    public function dayExcuse(Request $request)
     {
+        $data = $request->validate(
+            [
+                'day_of_week'   => 'required|integer|between:2,7',
+                'excuse_reason' => 'required|string|max:500',
+            ],
+            ['excuse_reason.required' => 'Alasan wajib diisi.']
+        );
+
         $weekStart = Carbon::today()->startOfWeek(Carbon::MONDAY);
         $sub = ChecklistWeeklySubmission::where('user_id', session('id'))
             ->whereDate('week_start_date', $weekStart)
@@ -865,63 +836,68 @@ class MyChecklistController extends Controller
             return back()->with('error', 'Form Mingguan sudah tidak bisa diubah.');
         }
 
-        $data = $request->validate(
-            ['excuse_reason' => 'required|string|max:500'],
-            ['excuse_reason.required' => 'Alasan wajib diisi.']
+        $iso = (int) $data['day_of_week'];
+
+        ChecklistWeeklyDayExcuse::updateOrCreate(
+            ['submission_id' => $sub->id, 'day_of_week' => $iso],
+            ['reason' => $data['excuse_reason'], 'updated_at' => now(), 'created_at' => now()]
         );
+        $sub->update(['updated_at' => now()]);
 
-        $before = ['status' => $sub->status];
-        $sub->update([
-            'status'        => ChecklistWeeklySubmission::STATUS_EXCUSED,
-            'excuse_reason' => $data['excuse_reason'],
-            'submitted_at'  => null,
-            'updated_at'    => now(),
-        ]);
-
+        $dayLabel = ChecklistTask::dayLabels()[$iso] ?? ('Hari ' . $iso);
         ChecklistAuditLog::write('weekly_submission', $sub->id, ChecklistAuditLog::ACTION_EXCUSE,
-            $before, ['status' => $sub->status], $data['excuse_reason']);
+            null, ['day_of_week' => $iso], $dayLabel . ': ' . $data['excuse_reason']);
 
         try {
             $user = Users::find(session('id'));
             $name = $user?->nama ?? 'Karyawan';
-            AdminNotification::notify(
-                'checklist.weekly.excused',
-                "Form Mingguan dikecualikan — {$name}",
-                $name . ' (' . $sub->division_id . ') menandai Form Mingguan ' . $sub->weekLabel() . ' tidak perlu diisi. Alasan: ' . $data['excuse_reason'],
-                route('checklist.review.weekly.show', $sub->id),
-                $sub->raw_branch_id
-            );
+            $body = $name . ' (' . $sub->division_id . ') menandai ' . $dayLabel . ' (' . $sub->weekLabel() . ') tidak perlu diisi. Alasan: ' . $data['excuse_reason'];
+            foreach (checklistSupervisorRoleNamesForDivision($sub->division_id) as $roleName) {
+                AdminNotification::notifyRole(
+                    $roleName,
+                    'checklist.weekly.day_excused',
+                    "Hari dikecualikan — {$name}",
+                    $body,
+                    route('checklist.review.weekly.show', $sub->id),
+                    $sub->raw_branch_id
+                );
+            }
         } catch (\Throwable $e) {
             // jangan gagalkan aksi kalau notif error
         }
 
-        return redirect()->route('mychecklist.weekform')->with('success', 'Form Mingguan ditandai "Dikecualikan".');
+        return redirect()->route('mychecklist.weekform')->with('success', $dayLabel . ' ditandai "tidak perlu diisi".');
     }
 
     /**
-     * Batalkan pengecualian Form Mingguan (excused → draft) oleh karyawan.
+     * Batalkan pengecualian satu hari — hari itu kembali wajib diisi.
      */
-    public function weekUnexcuse(Request $request)
+    public function dayUnexcuse(Request $request)
     {
+        $data = $request->validate([
+            'day_of_week' => 'required|integer|between:2,7',
+        ]);
+
         $weekStart = Carbon::today()->startOfWeek(Carbon::MONDAY);
         $sub = ChecklistWeeklySubmission::where('user_id', session('id'))
             ->whereDate('week_start_date', $weekStart)
             ->firstOrFail();
 
-        if ($sub->status !== ChecklistWeeklySubmission::STATUS_EXCUSED) {
-            return back()->with('error', 'Form Mingguan ini tidak dalam status Dikecualikan.');
+        if (! $sub->isEditable()) {
+            return back()->with('error', 'Form Mingguan sudah tidak bisa diubah.');
         }
 
-        $before = ['status' => $sub->status];
-        $sub->update([
-            'status'        => ChecklistWeeklySubmission::STATUS_DRAFT,
-            'excuse_reason' => null,
-            'updated_at'    => now(),
-        ]);
-        ChecklistAuditLog::write('weekly_submission', $sub->id, ChecklistAuditLog::ACTION_REOPEN,
-            $before, ['status' => $sub->status], 'Karyawan membatalkan pengecualian Form Mingguan.');
+        $iso = (int) $data['day_of_week'];
+        ChecklistWeeklyDayExcuse::where('submission_id', $sub->id)
+            ->where('day_of_week', $iso)
+            ->delete();
+        $sub->update(['updated_at' => now()]);
 
-        return redirect()->route('mychecklist.weekform')->with('success', 'Pengecualian dibatalkan — Form Mingguan kembali bisa diisi.');
+        $dayLabel = ChecklistTask::dayLabels()[$iso] ?? ('Hari ' . $iso);
+        ChecklistAuditLog::write('weekly_submission', $sub->id, ChecklistAuditLog::ACTION_REOPEN,
+            null, ['day_of_week' => $iso], 'Karyawan membatalkan pengecualian ' . $dayLabel . '.');
+
+        return redirect()->route('mychecklist.weekform')->with('success', 'Pengecualian ' . $dayLabel . ' dibatalkan — hari itu kembali wajib diisi.');
     }
 
     /**
@@ -997,30 +973,56 @@ class MyChecklistController extends Controller
             ->orderBy('sort_order')
             ->get();
 
-        $newRows = [];
+        // Peta task master (id → task) untuk sinkronisasi item lama + deteksi baru.
+        $taskMap = [];
         foreach ($categories as $cat) {
-            foreach ($cat->tasks as $task) {
-                if (in_array($task->id, $existingTaskIds, true)) continue;
-                $newRows[] = [
-                    'id'                      => (string) Str::uuid(),
-                    'submission_id'           => $sub->id,
-                    'task_id'                 => $task->id,
-                    'category_title_snapshot' => $cat->name,
-                    'task_title_snapshot'     => $task->title,
-                    'category_sort_order'     => (int) $cat->sort_order,
-                    'task_sort_order'         => (int) $task->sort_order,
-                    'day_of_week'             => (int) $task->day_of_week,
-                    'is_done'                 => 0,
-                    'note'                    => null,
-                    'requires_photo'          => (int) $task->requires_photo,
-                    'photo_path'              => null,
-                    'done_at'                 => null,
-                    'created_at'              => now(),
-                ];
-            }
+            foreach ($cat->tasks as $task) $taskMap[$task->id] = ['task' => $task, 'cat' => $cat];
+        }
+
+        $newRows = [];
+        foreach ($taskMap as $taskId => $pair) {
+            if (in_array($taskId, $existingTaskIds, true)) continue;
+            $task = $pair['task'];
+            $cat  = $pair['cat'];
+            $newRows[] = [
+                'id'                      => (string) Str::uuid(),
+                'submission_id'           => $sub->id,
+                'task_id'                 => $task->id,
+                'category_title_snapshot' => $cat->name,
+                'task_title_snapshot'     => $task->title,
+                'category_sort_order'     => (int) $cat->sort_order,
+                'task_sort_order'         => (int) $task->sort_order,
+                'day_of_week'             => (int) $task->day_of_week,
+                'is_done'                 => 0,
+                'note'                    => null,
+                'requires_photo'          => (int) $task->requires_photo,
+                'photo_path'              => null,
+                'done_at'                 => null,
+                'created_at'              => now(),
+            ];
         }
         if ($newRows) {
             DB::table('sys_checklist_weekly_submission_item')->insert($newRows);
+        }
+
+        // Sinkronkan item draft yang sudah ada dengan master task-nya — supaya
+        // perubahan supervisor (aktifkan "wajib foto", ganti judul, pindah hari)
+        // langsung berlaku di minggu berjalan yang belum disubmit.
+        foreach ($sub->items()->whereNotNull('task_id')->get() as $item) {
+            $pair = $taskMap[$item->task_id] ?? null;
+            if (! $pair) continue;
+            $task = $pair['task'];
+            $changes = [];
+            if ((int) $item->requires_photo !== (int) $task->requires_photo) $changes['requires_photo'] = (int) $task->requires_photo;
+            if ($item->task_title_snapshot !== $task->title)                 $changes['task_title_snapshot'] = $task->title;
+            if ((int) $item->day_of_week !== (int) $task->day_of_week)        $changes['day_of_week'] = (int) $task->day_of_week;
+            if ((int) $item->task_sort_order !== (int) $task->sort_order)     $changes['task_sort_order'] = (int) $task->sort_order;
+            if ($changes) {
+                DB::table('sys_checklist_weekly_submission_item')->where('id', $item->id)->update($changes);
+            }
+        }
+
+        if ($newRows) {
             $total = $sub->items()->count();
             $sub->update(['total_tasks' => $total, 'updated_at' => now()]);
         }
@@ -1262,6 +1264,41 @@ class MyChecklistController extends Controller
             'type', 'submissions', 'month', 'monthLabel', 'prevMonth', 'nextMonth',
             'stats', 'calendar'
         ));
+    }
+
+    /**
+     * Detail satu pengisian lampau (halaman penuh) — dibuka dari kartu Riwayat.
+     * Hanya submission milik user sendiri yang bisa dilihat.
+     */
+    public function historyShow(Request $request, string $type, string $id)
+    {
+        if (! in_array($type, ['daily', 'weekly'], true)) $type = 'daily';
+
+        if ($type === 'weekly') {
+            $submission = ChecklistWeeklySubmission::query()
+                ->where('user_id', session('id'))->where('id', $id)
+                ->with(['items' => function ($q) {
+                    $q->orderBy('day_of_week')->orderBy('category_sort_order')->orderBy('task_sort_order');
+                }, 'division', 'branch'])
+                ->firstOrFail();
+
+            $grouped = $submission->items
+                ->sortBy(fn($i) => sprintf('%d-%06d-%06d', $i->day_of_week ?? 0, $i->category_sort_order ?? 0, $i->task_sort_order ?? 0))
+                ->groupBy('day_of_week');
+        } else {
+            $submission = ChecklistSubmission::query()
+                ->where('user_id', session('id'))->where('id', $id)
+                ->with(['items' => function ($q) {
+                    $q->orderBy('category_sort_order')->orderBy('task_sort_order');
+                }, 'division', 'branch'])
+                ->firstOrFail();
+
+            $grouped = $submission->items->groupBy('category_title_snapshot');
+        }
+
+        $month = $request->get('month');   // untuk tombol kembali (jaga konteks bulan)
+
+        return view('crud.checklist.my.history-show', compact('submission', 'type', 'grouped', 'month'));
     }
 
     /* ─── Helpers ──────────────────────────────────────────────────────── */

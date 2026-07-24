@@ -336,9 +336,50 @@ if (!function_exists('canEditPettyCash')) {
 }
 
 /**
+ * True kalau role yang login DICENTANG minimal satu halaman PENGAWAS checklist
+ * di UI Akses (Set > Role > Akses). Sumber kebenaran SAMA dgn AuthGuard: join
+ * group_access ⋈ access_path pada kolom `link` — bebas dari kedalaman pohon
+ * menu (entri checklist ada di level "sub", bukan "child", jadi hasMenuAccess()
+ * TIDAK bisa dipakai untuk ini). 'my-checklist' TIDAK dihitung (itu self-service
+ * karyawan, bukan pengawas). Cached per-request.
+ */
+if (!function_exists('checklistHasSupervisorPageAccess')) {
+    function checklistHasSupervisorPageAccess(): bool
+    {
+        static $cached = false;
+        static $value  = false;
+
+        if ($cached) return $value;
+        $cached = true;
+
+        $gid = session('group_id');
+        if (! $gid) return $value = false;
+
+        try {
+            $value = \App\Models\GroupAccess::query()
+                ->join('access_path', 'group_access.access_id', '=', 'access_path.id')
+                ->where('group_access.group_id', $gid)
+                ->whereIn('access_path.link', [
+                    'checklist', 'checklist/positions', 'checklist/setup',
+                    'checklist/review', 'checklist/audit',
+                ])
+                ->exists();
+        } catch (\Throwable $e) {
+            // Tabel akses belum ada / query gagal → anggap tak punya akses.
+            $value = false;
+        }
+
+        return $value;
+    }
+}
+
+/**
  * True kalau user yang sedang login adalah "overseer" checklist global —
- * melihat SEMUA divisi lintas penugasan. Role admin existing tetap di sini
- * supaya perilaku lama utuh (tak ada yang ke-lock setelah fitur ini rilis).
+ * melihat SEMUA divisi lintas penugasan.
+ *
+ * Hanya jaring pengaman admin: Super Admin / Admin General / Admin Backup selalu
+ * lihat semua. Punya halaman Checklist TIDAK lagi berarti "lihat semua" — cakupan
+ * divisi supervisor biasa ditentukan hierarki role (lihat checklistVisibleDivisionIds).
  */
 if (!function_exists('checklistSeesAllDivisions')) {
     function checklistSeesAllDivisions(): bool
@@ -354,11 +395,13 @@ if (!function_exists('checklistSeesAllDivisions')) {
 /**
  * Divisi checklist yang boleh DI-REVIEW user yang sedang login (sisi supervisor).
  *
- * Model "role staf = divisi": tiap divisi dimiliki satu ROLE staf (group_id).
- * Supervisor = ATASAN role tsb di bagan. Jadi:
+ * Model "role operasional = divisi": divisi dikenali dari NAMA role bawahan yang
+ * sama persis dgn nama divisi (Front Office↔FO, General Services↔GS, Assistant
+ * Dentist↔ASDENT). Jadi:
  *   - Overseer global (checklistSeesAllDivisions) → SEMUA divisi aktif.
- *   - Selainnya → divisi yang role staf-nya adalah BAWAHAN (descendant, strict)
- *     dari role user. Role daun (staf) tak punya bawahan → kosong → bukan supervisor.
+ *   - Selainnya → divisi yang namanya cocok dgn salah satu BAWAHAN (descendant,
+ *     strict) role user. Bawahan non-operasional (Sales/HR/dst) tak punya divisi
+ *     bernama sama → terabaikan. Role daun tak punya bawahan → kosong → bukan supervisor.
  *
  * Cached per-request (pola sama dgn currentUserPosition).
  */
@@ -383,10 +426,11 @@ if (!function_exists('checklistVisibleDivisionIds')) {
             if (! $role) return $value = [];
 
             // Strict descendants (tanpa diri) → staf tak me-review divisinya sendiri.
-            $descIds = $role->descendants()->pluck('id')->all();
-            if (! $descIds) return $value = [];
+            // Cocokkan NAMA role bawahan ke NAMA divisi (hanya 3 role operasional yg cocok).
+            $descNames = $role->descendants()->pluck('nama')->filter()->all();
+            if (! $descNames) return $value = [];
 
-            $value = $active->whereIn('group_id', $descIds)->pluck('id')->all();
+            $value = $active->whereIn('name', $descNames)->pluck('id')->all();
         } catch (\Throwable $e) {
             // Kolom/tabel belum di-migrate → anggap kosong biar UI tetap rapi.
             $value = [];
@@ -397,9 +441,9 @@ if (!function_exists('checklistVisibleDivisionIds')) {
 }
 
 /**
- * Divisi checklist milik sebuah ROLE (group_path.id) — model "role staf = divisi".
- * Dipakai untuk menurunkan divisi user OTOMATIS dari role-nya (tanpa pilih manual).
- * Null kalau role tak ditautkan ke divisi mana pun.
+ * Divisi checklist milik sebuah ROLE (group_path.id) — dikenali dari NAMA role
+ * yang sama persis dgn nama divisi. Dipakai untuk menurunkan divisi user OTOMATIS
+ * dari role-nya (tanpa pilih manual). Null kalau nama role tak cocok divisi mana pun.
  */
 if (!function_exists('checklistDivisionForGroup')) {
     function checklistDivisionForGroup(?string $groupId): ?\App\Models\ChecklistDivision
@@ -407,11 +451,41 @@ if (!function_exists('checklistDivisionForGroup')) {
         if (! $groupId) return null;
 
         try {
+            $role = \App\Models\GroupPath::find($groupId);
+            if (! $role || ! $role->nama) return null;
+
             return \App\Models\ChecklistDivision::where('is_active', 1)
-                ->where('group_id', $groupId)
+                ->where('name', $role->nama)
                 ->first();
         } catch (\Throwable $e) {
             return null;
+        }
+    }
+}
+
+/**
+ * Nama role ATASAN (rantai ancestor, atasan langsung → atas) dari role staf
+ * pemilik sebuah divisi. Dipakai untuk menargetkan notifikasi checklist ke
+ * HIERARKI (via AdminNotification::notifyRole/target_role), bukan broadcast
+ * cabang — supaya konsisten dgn wewenang review (checklistVisibleDivisionIds).
+ * Kosong kalau divisi belum ditautkan ke role atau role tak punya atasan.
+ */
+if (!function_exists('checklistSupervisorRoleNamesForDivision')) {
+    function checklistSupervisorRoleNamesForDivision(?string $divisionId): array
+    {
+        if (! $divisionId) return [];
+
+        try {
+            $div = \App\Models\ChecklistDivision::find($divisionId);
+            if (! $div || ! $div->name) return [];
+
+            // Role operasional = role yang namanya sama persis dgn nama divisi.
+            $role = \App\Models\GroupPath::where('nama', $div->name)->first();
+            if (! $role) return [];
+
+            return $role->ancestors()->pluck('nama')->filter()->values()->all();
+        } catch (\Throwable $e) {
+            return [];
         }
     }
 }
@@ -425,7 +499,30 @@ if (!function_exists('checklistDivisionForGroup')) {
 if (!function_exists('isChecklistSupervisor')) {
     function isChecklistSupervisor(): bool
     {
-        return checklistSeesAllDivisions() || count(checklistVisibleDivisionIds()) > 0;
+        // Admin overseer = bypass. Selainnya WAJIB punya halaman Checklist (Kelola
+        // Halaman) DAN minimal satu bawahan operasional (divisi cocok nama).
+        return checklistSeesAllDivisions()
+            || (checklistHasSupervisorPageAccess() && count(checklistVisibleDivisionIds()) > 0);
+    }
+}
+
+/**
+ * Teks Info / pengumuman (running-text) yang tampil di semua halaman my-checklist.
+ * Global (satu teks untuk semua), disimpan di sys_setting key 'checklist_info_text'
+ * dan bisa diedit admin di halaman Setup Tugas. Fallback ke teks default kalau
+ * belum pernah diisi / tabel belum ada. Cached per-request.
+ */
+if (!function_exists('checklistInfoText')) {
+    function checklistInfoText(): string
+    {
+        static $cached = null;
+        if ($cached !== null) return $cached;
+
+        $default = '📢 Isi & submit semua checklist harian sebelum pulang.'
+            . '   •   Sterilisasi alat & jaga kebersihan ruang sesuai SOP.'
+            . '   •   Sapa setiap pasien dengan senyum — Sweet, Cool & Friendly! 🦷';
+
+        return $cached = (string) \App\Models\Setting::get('checklist_info_text', $default);
     }
 }
 

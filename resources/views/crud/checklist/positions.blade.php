@@ -43,17 +43,9 @@
         <div class="cl-kpi cl-kpi--good">
             <span class="cl-kpi__icon"><i class="fas fa-check-circle"></i></span>
             <div class="cl-kpi__body">
-                <div class="cl-kpi__label">Sudah Di-Assign</div>
+                <div class="cl-kpi__label">Posisi Aktif</div>
                 <div class="cl-kpi__value">{{ $stats['assigned'] }}</div>
-                <div class="cl-kpi__sub">punya divisi aktif</div>
-            </div>
-        </div>
-        <div class="cl-kpi cl-kpi--warn">
-            <span class="cl-kpi__icon"><i class="fas fa-hourglass-half"></i></span>
-            <div class="cl-kpi__body">
-                <div class="cl-kpi__label">Menunggu Konfirmasi</div>
-                <div class="cl-kpi__value">{{ $stats['pending'] }}</div>
-                <div class="cl-kpi__sub">usulan posisi dari karyawan</div>
+                <div class="cl-kpi__sub">otomatis dari role &amp; cabang</div>
             </div>
         </div>
         <div class="cl-kpi cl-kpi--neutral">
@@ -106,11 +98,7 @@
             </div>
         </form>
 
-        @php
-            // Pisahkan: usulan menunggu konfirmasi vs posisi sudah aktif.
-            $pendingRows = $rows->filter(fn($r) => $r->pending && ! $r->position)->values();
-            $activeRows  = $rows->filter(fn($r) => (bool) $r->position)->values();
-        @endphp
+        @php $activeRows = $rows->values(); @endphp
 
         @php
             $tableHead = '<thead><tr>'
@@ -123,71 +111,24 @@
                 . '</tr></thead>';
         @endphp
 
-        @if($rows->isEmpty())
+        @if($activeRows->isEmpty())
             <div class="cl-empty">
                 <span class="cl-empty__icon"><i class="fas fa-user-slash"></i></span>
-                <div class="cl-empty__title">Belum ada karyawan yang mengajukan / di-assign</div>
+                <div class="cl-empty__title">Belum ada karyawan operasional</div>
                 <div class="cl-empty__desc">
-                    Karyawan operasional akan muncul di sini setelah mereka memilih divisi & cabang lewat halaman <em>My Checklist</em>, atau setelah Anda meng-assign langsung.
+                    Karyawan muncul di sini otomatis setelah admin membuat akunnya dengan role operasional (FO / GS / Asdent) dan cabang. Posisi checklist langsung aktif — tanpa perlu diajukan atau dikonfirmasi.
                 </div>
             </div>
         @else
-            @php $defaultTab = $pendingRows->count() ? 'pending' : 'aktif'; @endphp
-
-            {{-- ─── TAB BAR ─── --}}
-            <div class="cl-postab">
-                <button type="button" class="cl-postab__btn {{ $defaultTab === 'aktif' ? 'is-active' : '' }}" data-postab="aktif">
-                    <i class="fas fa-check-circle"></i> Sudah Aktif
-                    <span class="cl-postab__count">{{ $activeRows->count() }}</span>
-                </button>
-                <button type="button" class="cl-postab__btn {{ $defaultTab === 'pending' ? 'is-active' : '' }}" data-postab="pending">
-                    <i class="fas fa-hourglass-half"></i> Menunggu Konfirmasi
-                    <span class="cl-postab__count">{{ $pendingRows->count() }}</span>
-                </button>
-            </div>
-
-            {{-- ─── PANE: Sudah Aktif ─── --}}
-            <div class="cl-postab__pane" data-postab-pane="aktif" {{ $defaultTab === 'aktif' ? '' : 'hidden' }}>
-                @if($activeRows->isEmpty())
-                    <div style="padding:16px 18px 20px;">
-                        <div class="cl-empty" style="padding:26px 18px;">
-                            <div class="cl-empty__desc" style="margin:0;">Belum ada posisi aktif. Konfirmasi usulan di tab <strong>Menunggu Konfirmasi</strong>.</div>
-                        </div>
-                    </div>
-                @else
-                    <div class="st-table-wrap st-table-wrap--scroll">
-                        <table class="st-table">
-                            {!! $tableHead !!}
-                            <tbody>
-                                @foreach($activeRows as $row)
-                                    @include('crud.checklist._position_row', ['row' => $row])
-                                @endforeach
-                            </tbody>
-                        </table>
-                    </div>
-                @endif
-            </div>
-
-            {{-- ─── PANE: Menunggu Konfirmasi ─── --}}
-            <div class="cl-postab__pane" data-postab-pane="pending" {{ $defaultTab === 'pending' ? '' : 'hidden' }}>
-                @if($pendingRows->isEmpty())
-                    <div style="padding:16px 18px 20px;">
-                        <div class="cl-empty" style="padding:26px 18px;">
-                            <div class="cl-empty__desc" style="margin:0;">Tidak ada usulan yang menunggu konfirmasi.</div>
-                        </div>
-                    </div>
-                @else
-                    <div class="st-table-wrap st-table-wrap--scroll">
-                        <table class="st-table">
-                            {!! $tableHead !!}
-                            <tbody>
-                                @foreach($pendingRows as $row)
-                                    @include('crud.checklist._position_row', ['row' => $row])
-                                @endforeach
-                            </tbody>
-                        </table>
-                    </div>
-                @endif
+            <div class="st-table-wrap st-table-wrap--scroll" style="padding-top:6px;">
+                <table class="st-table">
+                    {!! $tableHead !!}
+                    <tbody>
+                        @foreach($activeRows as $row)
+                            @include('crud.checklist._position_row', ['row' => $row])
+                        @endforeach
+                    </tbody>
+                </table>
             </div>
         @endif
     </div>

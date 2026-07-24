@@ -1,4 +1,4 @@
-{{-- Node bagan organisasi terpusat (rekursif). Butuh: $node (GroupPath), $memberCount, $divisionsByGroup (keyed by group_id). --}}
+{{-- Node bagan organisasi terpusat (rekursif). Butuh: $node (GroupPath), $memberCount, $divisionsByGroup (keyed by role id). --}}
 @php
     $kindClass = $node->parent_id ? 'k-child' : 'k-root';
     $cnt = $memberCount[$node->id] ?? 0;
@@ -18,15 +18,15 @@
             @endif
         </div>
 
-        <div class="oc-node__divs" data-drop-role="{{ $node->id }}">
-            @forelse ($nodeDivs as $d)
-                <span class="oc-div-chip" draggable="true" data-div="{{ $d->id }}" data-div-name="{{ $d->name }}" title="Divisi staf role ini — seret untuk pindah ke role lain">
-                    <i class="fas fa-clipboard-check"></i> {{ $d->name }}
-                </span>
-            @empty
-                <span class="oc-div-empty">seret divisi staf ke sini</span>
-            @endforelse
-        </div>
+        @if ($nodeDivs->isNotEmpty())
+            <div class="oc-node__divs">
+                @foreach ($nodeDivs as $d)
+                    <span class="oc-div-chip oc-div-chip--inline" title="Divisi operasional role ini (otomatis dari nama role)">
+                        <i class="fas fa-clipboard-check"></i> {{ $d->name }}
+                    </span>
+                @endforeach
+            </div>
+        @endif
 
         <div class="oc-node__tools">
             <a href="{{ route('setgroup.edit', $node->id) }}" title="Edit role"><i class="fas fa-edit"></i> Edit</a>

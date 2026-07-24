@@ -26,7 +26,7 @@ class ChecklistWeeklySubmission extends Model
         'id', 'user_id', 'division_id', 'raw_branch_id',
         'week_start_date', 'year_week',
         'status', 'total_tasks', 'done_tasks',
-        'reviewer_user_id', 'review_notes', 'excuse_reason',
+        'reviewer_user_id', 'review_notes', 'excuse_reason', 'submit_note',
         'submitted_at', 'reviewed_at', 'created_at', 'updated_at',
     ];
 
@@ -74,6 +74,36 @@ class ChecklistWeeklySubmission extends Model
         return in_array($this->status, [self::STATUS_DRAFT, self::STATUS_REJECTED], true);
     }
 
+    /** Nomor hari (ISO 2–7) yang ditandai "tidak perlu diisi" di minggu ini. */
+    public function excusedDayNumbers(): array
+    {
+        return $this->dayExcuses->pluck('day_of_week')->map(fn ($d) => (int) $d)->all();
+    }
+
+    public function isDayExcused(int $iso): bool
+    {
+        return in_array($iso, $this->excusedDayNumbers(), true);
+    }
+
+    /**
+     * Jumlah task yang "beres": sudah dicentang ATAU jatuh di hari yang
+     * dikecualikan. Dipakai untuk gating submit & progress form berjalan
+     * (bukan menggantikan done_tasks yang tetap = benar-benar dikerjakan).
+     */
+    public function satisfiedCount(): int
+    {
+        $excused = $this->excusedDayNumbers();
+
+        return $this->items
+            ->filter(fn ($item) => $item->is_done || in_array((int) $item->day_of_week, $excused, true))
+            ->count();
+    }
+
+    public function isWeekComplete(): bool
+    {
+        return $this->total_tasks > 0 && $this->satisfiedCount() === $this->total_tasks;
+    }
+
     /**
      * "Minggu 24 Jun – 30 Jun 2026" — display friendly.
      */
@@ -113,5 +143,11 @@ class ChecklistWeeklySubmission extends Model
             ->orderBy('day_of_week')
             ->orderBy('category_sort_order')
             ->orderBy('task_sort_order');
+    }
+
+    public function dayExcuses()
+    {
+        return $this->hasMany(ChecklistWeeklyDayExcuse::class, 'submission_id', 'id')
+            ->orderBy('day_of_week');
     }
 }

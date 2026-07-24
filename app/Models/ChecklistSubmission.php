@@ -56,8 +56,8 @@ class ChecklistSubmission extends Model
             self::STATUS_SUBMITTED => ['label' => 'Menunggu Approval',  'color' => 'warning', 'desc' => 'Sudah disubmit, menunggu review supervisor'],
             self::STATUS_APPROVED  => ['label' => 'Disetujui',          'color' => 'success', 'desc' => 'Telah diverifikasi supervisor'],
             self::STATUS_REJECTED  => ['label' => 'Ditolak',            'color' => 'danger',  'desc' => 'Perlu diperbaiki — lihat catatan supervisor'],
-            self::STATUS_MISSED    => ['label' => 'Tidak Diisi',        'color' => 'neutral', 'desc' => 'Tanggal sudah lewat — checklist tidak diisi'],
-            self::STATUS_EXCUSED   => ['label' => 'Dikecualikan',       'color' => 'neutral', 'desc' => 'Hari ini tidak perlu diisi (mis. sedang menangani pasien)'],
+            self::STATUS_MISSED    => ['label' => 'Tidak Diisi',        'color' => 'slate',   'desc' => 'Tanggal sudah lewat — checklist tidak diisi'],
+            self::STATUS_EXCUSED   => ['label' => 'Dikecualikan',       'color' => 'coffee',  'desc' => 'Hari ini tidak perlu diisi (mis. sedang menangani pasien)'],
         ];
     }
 

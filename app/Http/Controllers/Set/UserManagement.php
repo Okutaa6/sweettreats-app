@@ -152,6 +152,10 @@ class UserManagement extends Controller
             'created_at'           => now(),
         ]);
 
+        // Role operasional + cabang sudah lengkap → posisi checklist otomatis
+        // aktif, tanpa perlu karyawan mengajukan / supervisor konfirmasi.
+        try { \App\Models\UserPosition::syncFromUser($user, session('id')); } catch (\Throwable $e) {}
+
         \App\Models\AuditLog::record('create', 'Buat akun: ' . $user->nama, $user);
 
         return redirect()->route('setusermanagement.detail', $user->id)
@@ -193,6 +197,9 @@ class UserManagement extends Controller
             $user->update(['force_logout_at' => now()]);
             app(\App\Services\DeviceAuth::class)->revokeAllFor($id);
         }
+
+        // Sinkronkan posisi checklist mengikuti role/cabang terbaru (auto-aktif).
+        try { \App\Models\UserPosition::syncFromUser($user->fresh(), session('id')); } catch (\Throwable $e) {}
 
         return redirect()->route('setusermanagement')->with('success', 'User berhasil diubah');
     }

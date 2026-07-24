@@ -242,7 +242,6 @@ Route::middleware([AuthGuard::class])->group(function () {
     Route::post('setgroup/new', [Group::class, 'store'])->name('setgroup.store');
     Route::post('setgroup/reparent', [Group::class, 'reparent'])->name('setgroup.reparent');
     Route::post('setgroup/{id}/detach', [Group::class, 'detach'])->name('setgroup.detach');
-    Route::post('setgroup/assign-division', [Group::class, 'assignDivision'])->name('setgroup.assignDivision');
     Route::get('setgroup/{id}', [Group::class, 'edit'])->name('setgroup.edit');
     Route::put('setgroup/{id}', [Group::class, 'update'])->name('setgroup.update');
     Route::delete('setgroup/{id}', [Group::class, 'destroy'])->name('setgroup.destroy');
@@ -462,8 +461,6 @@ Route::middleware([AuthGuard::class])->group(function () {
     // Kelola Posisi Karyawan (Supervisor)
     Route::get   ('checklist/positions',            [DigitalChecklistController::class, 'positions'])       ->name('checklist.positions');
     Route::post  ('checklist/positions',            [DigitalChecklistController::class, 'positionAssign'])  ->name('checklist.positions.assign');
-    Route::post  ('checklist/positions/{id}/confirm',[DigitalChecklistController::class, 'positionConfirm'])->name('checklist.positions.confirm');
-    Route::delete('checklist/positions/{id}/reject',[DigitalChecklistController::class, 'positionReject'])  ->name('checklist.positions.reject');
     Route::delete('checklist/positions/{id}',       [DigitalChecklistController::class, 'positionRemove'])  ->name('checklist.positions.remove');
 
     // Setup Tugas (Supervisor only)
@@ -472,9 +469,10 @@ Route::middleware([AuthGuard::class])->group(function () {
     Route::put ('checklist/setup/category/{id}',    [ChecklistSetupController::class, 'updateCategory'])->name('checklist.setup.cat.update');
     Route::delete('checklist/setup/category/{id}',  [ChecklistSetupController::class, 'destroyCategory'])->name('checklist.setup.cat.destroy');
     Route::post('checklist/setup/task',             [ChecklistSetupController::class, 'storeTask'])    ->name('checklist.setup.task.store');
+    Route::post('checklist/setup/weekly-task',      [ChecklistSetupController::class, 'storeWeeklyTask'])->name('checklist.setup.weekly-task.store');
     Route::put ('checklist/setup/task/{id}',        [ChecklistSetupController::class, 'updateTask'])   ->name('checklist.setup.task.update');
     Route::delete('checklist/setup/task/{id}',      [ChecklistSetupController::class, 'destroyTask'])  ->name('checklist.setup.task.destroy');
-    Route::post('checklist/setup/reorder',          [ChecklistSetupController::class, 'reorder'])      ->name('checklist.setup.reorder');
+    Route::post('checklist/setup/info',             [ChecklistSetupController::class, 'updateInfo'])   ->name('checklist.setup.info');
 
     // Review & Approval Harian (Supervisor)
     Route::get  ('checklist/review',                [DigitalChecklistController::class, 'reviewIndex'])->name('checklist.review');
@@ -496,13 +494,13 @@ Route::middleware([AuthGuard::class])->group(function () {
     Route::get  ('my-checklist',                    [MyChecklistController::class, 'index'])           ->name('mychecklist');
     Route::get  ('my-checklist/weekly',             [MyChecklistController::class, 'weekly'])          ->name('mychecklist.weekly');
     Route::get  ('my-checklist/history',            [MyChecklistController::class, 'history'])         ->name('mychecklist.history');
+    Route::get  ('my-checklist/history/{type}/{id}',[MyChecklistController::class, 'historyShow'])     ->name('mychecklist.history.show')->where('type', 'daily|weekly');
     Route::patch('my-checklist/item/{id}',          [MyChecklistController::class, 'toggleItem'])      ->name('mychecklist.item.toggle');
     Route::patch('my-checklist/item/{id}/note',     [MyChecklistController::class, 'updateNote'])      ->name('mychecklist.item.note');
     Route::post ('my-checklist/submit',             [MyChecklistController::class, 'submit'])          ->name('mychecklist.submit');
     Route::post ('my-checklist/reopen-self',        [MyChecklistController::class, 'reopenSelf'])      ->name('mychecklist.reopen-self');
     Route::post ('my-checklist/excuse',             [MyChecklistController::class, 'excuseToday'])     ->name('mychecklist.excuse');
     Route::post ('my-checklist/unexcuse',           [MyChecklistController::class, 'unexcuseToday'])   ->name('mychecklist.unexcuse');
-    Route::post ('my-checklist/position',           [MyChecklistController::class, 'proposePosition']) ->name('mychecklist.position.propose');
 
     // Pengisian Karyawan — Form Mingguan
     Route::get  ('my-checklist/weekform',                [MyChecklistController::class, 'weekForm'])      ->name('mychecklist.weekform');
@@ -515,8 +513,8 @@ Route::middleware([AuthGuard::class])->group(function () {
     Route::delete('my-checklist/weekform/item/{id}/ba-photo/{slot}', [MyChecklistController::class, 'weekDeleteBaPhoto'])->name('mychecklist.weekform.item.baphoto.delete');
     Route::post ('my-checklist/weekform/submit',         [MyChecklistController::class, 'weekSubmit'])    ->name('mychecklist.weekform.submit');
     Route::post ('my-checklist/weekform/reopen-self',    [MyChecklistController::class, 'weekReopenSelf'])->name('mychecklist.weekform.reopen-self');
-    Route::post ('my-checklist/weekform/excuse',         [MyChecklistController::class, 'weekExcuse'])    ->name('mychecklist.weekform.excuse');
-    Route::post ('my-checklist/weekform/unexcuse',       [MyChecklistController::class, 'weekUnexcuse'])  ->name('mychecklist.weekform.unexcuse');
+    Route::post ('my-checklist/weekform/day-excuse',     [MyChecklistController::class, 'dayExcuse'])     ->name('mychecklist.weekform.day.excuse');
+    Route::post ('my-checklist/weekform/day-unexcuse',   [MyChecklistController::class, 'dayUnexcuse'])   ->name('mychecklist.weekform.day.unexcuse');
 
     // CRUD - Setoran (cash deposit dari pasien)
     Route::get('setoran',                         [CashDepositController::class, 'index'])->name('setoran');

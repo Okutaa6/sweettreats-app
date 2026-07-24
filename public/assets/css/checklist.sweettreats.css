@@ -317,6 +317,57 @@ a.cl-kpi:hover {
     color: #FFFFFF;
 }
 
+/* ── Varian segmented (dipakai tab divisi di Setup): tab non-aktif tetap
+   tampil sebagai pill ber-outline biar jelas ini tab, bukan teks biasa. ── */
+.cl-tabs--seg .cl-tab:not(.is-active) {
+    background: #FFFFFF;
+    border-color: var(--cl-line);
+    color: var(--cl-brown-2);
+}
+.cl-tabs--seg .cl-tab:not(.is-active) i { color: var(--cl-brown-2); }
+.cl-tabs--seg .cl-tab:not(.is-active):hover {
+    background: var(--cl-cream-1);
+    border-color: var(--cl-line-strong);
+}
+
+/* ── Varian tab status: underline (dipakai di Review, bukan Setup) ──
+   Divisi tetap pill; status jadi tab garis-bawah biar hierarki jelas
+   & tampilan lebih bersih. Scoped via .cl-tabs--underline. */
+.cl-tabs--underline {
+    gap: 2px 22px;
+    padding: 10px 18px 0;
+}
+.cl-tabs--underline .cl-tab {
+    padding: 9px 2px 11px;
+    margin-bottom: -1px;
+    border: 0;
+    border-bottom: 2.5px solid transparent;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    transform: none;
+    transition: color .18s, border-color .18s;
+}
+.cl-tabs--underline .cl-tab:hover {
+    background: transparent;
+    color: var(--cl-ink);
+    border-color: transparent;
+    border-bottom-color: var(--cl-line-strong);
+}
+.cl-tabs--underline .cl-tab.is-active {
+    background: transparent;
+    color: var(--cl-brown);
+    border-color: transparent;
+    border-bottom-color: var(--cl-brown);
+    box-shadow: none;
+    transform: none;
+}
+.cl-tabs--underline .cl-tab.is-active i { color: var(--cl-brown); }
+.cl-tabs--underline .cl-tab.is-active .cl-tab__count {
+    background: var(--cl-brown);
+    color: #FFFFFF;
+}
+
 /* ── Tab Divisi — segmented pill di bawah tab status ─────────────── */
 .cl-divtabs {
     display: flex;
@@ -350,27 +401,34 @@ a.cl-kpi:hover {
     color: var(--cl-subtle);
     margin-right: 2px;
 }
+/* Disamakan dengan tab divisi di Setup (.cl-tabs--seg .cl-tab) — segmented pill:
+   non-aktif putih ber-outline teks cokelat, aktif solid cokelat + angkat. */
 .cl-divtab {
     display: inline-flex;
     align-items: center;
     gap: 7px;
-    padding: 7px 14px;
+    padding: 8px 16px;
     border-radius: 999px;
-    font-size: 12.5px;
+    font-size: 13px;
     font-weight: 600;
     text-decoration: none;
-    color: var(--cl-muted);
+    color: var(--cl-brown-2);
     background: #FFFFFF;
     border: 1px solid var(--cl-line);
-    transition: .15s;
+    transition: background-color .18s, color .18s, border-color .18s, box-shadow .18s, transform .18s;
 }
-.cl-divtab:hover { border-color: var(--cl-line-strong); color: var(--cl-brown-2); }
+.cl-divtab i { font-size: 12px; color: var(--cl-brown-2); transition: color .18s; }
+.cl-divtab:hover { background: var(--cl-cream-1); border-color: var(--cl-line-strong); color: var(--cl-ink); }
+.cl-divtab:hover i { color: var(--cl-brown-2); }
 .cl-divtab.is-active {
-    background: linear-gradient(180deg, #5C2E15, #471500);
+    background: linear-gradient(180deg, var(--cl-brown-2) 0%, var(--cl-brown) 100%);
     color: #FFFFFF;
-    border-color: #471500;
-    box-shadow: 0 2px 8px rgba(71,21,0,.20);
+    font-weight: 700;
+    border-color: var(--cl-brown);
+    box-shadow: 0 4px 12px rgba(71,21,0,.22), 0 1px 2px rgba(71,21,0,.12);
+    transform: translateY(-0.5px);
 }
+.cl-divtab.is-active i { color: #FFFFFF; }
 .cl-divtab__count {
     font-size: 11px;
     font-weight: 700;
@@ -676,15 +734,20 @@ a.cl-kpi:hover {
 /* ── Category block in setup ────────────────────────────────────── */
 .cl-cat {
     background: #FFFFFF;
-    border: 1px solid var(--cl-line);
+    border: 1px solid #E7D8C4;
     border-radius: 14px;
     overflow: hidden;
-    box-shadow: 0 2px 8px rgba(45,24,16,.04);
+    /* Bayangan lebih tegas supaya kartu "terangkat" & tak menyatu dgn background cream */
+    box-shadow: 0 6px 20px rgba(45,24,16,.10);
 }
+/* Garis aksen kiri per jenis — penanda cepat Harian vs Mingguan */
+.cl-cat--daily  { border-left: 4px solid #A66019; }
+.cl-cat--weekly { border-left: 4px solid #1F6E5F; }
 .cl-cat__head {
-    padding: 14px 18px;
+    padding: 15px 20px;
     border-bottom: 1px solid var(--cl-line);
-    background: linear-gradient(180deg, #FFFFFF 0%, var(--cl-cream-1) 100%);
+    /* Putih solid (bukan cream) biar tepi atas kartu jelas terpisah dari halaman */
+    background: #FFFFFF;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -734,7 +797,33 @@ a.cl-kpi:hover {
     font-weight: 700;
     margin-left: 6px;
 }
-.cl-cat__actions { display: flex; gap: 6px; }
+.cl-cat__actions { display: flex; gap: 6px; align-items: center; }
+
+/* ── Tabel task di dalam blok kategori: ringan & lega ──────────────
+   Override header .st-table global (cokelat gelap) jadi krem lembut biar
+   tak numpuk pita berat di bawah header kategori. Scoped ke .cl-cat saja. */
+.cl-cat .st-table { background: transparent; border-radius: 0; }
+.cl-cat .st-table thead th {
+    background: var(--cl-cream-2) !important;
+    color: var(--cl-brown-2) !important;
+    font-size: 10px;
+    letter-spacing: 0.7px;
+    padding: 10px 18px;
+    border-bottom: 1px solid var(--cl-line) !important;
+    border-radius: 0 !important;
+    position: static;
+    box-shadow: none;
+}
+.cl-cat .st-table thead th::after { display: none; }
+.cl-cat .st-table tbody td {
+    padding: 15px 18px;
+    background: #FFFFFF !important;
+    border-bottom: 1px solid #F0E7DA !important;
+}
+.cl-cat .st-table tbody tr:last-child td { border-bottom: none !important; }
+.cl-cat .st-table tbody tr:hover td { background: var(--cl-cream-1) !important; }
+
+.cl-cat__body-inner .st-table { margin: 0; }
 
 /* ── Page title harmonization (saat di-pakai di module checklist) ─ */
 body[data-theme="default"] .page-title-box .page-title {

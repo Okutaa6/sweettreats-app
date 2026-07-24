@@ -10,6 +10,45 @@
        !important untuk mengalahkan inline style display:flex pada wrapper. */
     @media (max-width: 768px) { .cl-view-toggle { display: none !important; } }
 
+    /* Sub-toggle tampilan (Hari Ini / Rekap 6 Hari) — dengan hover */
+    .cl-vtoggle { display: inline-flex; gap: 2px; padding: 3px; background: #FAF4EC; border-radius: 999px; border: 1px solid #E0D2C1; }
+    .cl-vtoggle__btn {
+        padding: 6px 14px; font-size: 12px; font-weight: 600; text-decoration: none;
+        border-radius: 999px; color: #6B4423; display: inline-flex; align-items: center; gap: 6px;
+        transition: background .15s, color .15s, box-shadow .15s;
+    }
+    .cl-vtoggle__btn:hover { background: #F0E4D4; color: #5C2E15; }
+    .cl-vtoggle__btn.is-active { background: #FFFFFF; color: #5C2E15; font-weight: 700; box-shadow: 0 1px 3px rgba(45,24,16,.10); }
+    .cl-vtoggle__btn.is-active:hover { background: #FFFFFF; }
+
+    /* Kartu besar pilih jenis checklist (gaya halaman Setup) */
+    .cl-cad-tabs { display: flex; gap: 10px; flex-wrap: wrap; }
+    .cl-cad-tab {
+        flex: 1; min-width: 220px; display: flex; align-items: center; gap: 12px;
+        padding: 13px 16px; background: #FFFFFF; border: 1.5px solid #E0D2C1; border-radius: 14px;
+        cursor: pointer; text-align: left; text-decoration: none;
+        transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease, background .16s ease;
+        box-shadow: 0 2px 6px rgba(45,24,16,.04);
+    }
+    .cl-cad-tab:hover { border-color: #C9B69A; box-shadow: 0 4px 12px rgba(45,24,16,.08); }
+    .cl-cad-tab__icon {
+        width: 40px; height: 40px; border-radius: 11px; display: inline-flex;
+        align-items: center; justify-content: center; font-size: 16px; color: #FFFFFF; flex-shrink: 0;
+    }
+    .cl-cad-tab--daily  .cl-cad-tab__icon { background: linear-gradient(135deg, #A66019, #5C2E15); box-shadow: 0 3px 8px rgba(166,96,25,.22); }
+    .cl-cad-tab--weekly .cl-cad-tab__icon { background: linear-gradient(135deg, #1F6E5F, #155148); box-shadow: 0 3px 8px rgba(31,110,95,.22); }
+    .cl-cad-tab__body { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 2px; }
+    .cl-cad-tab__body strong { font-size: 15px; font-weight: 800; color: #2D1810; line-height: 1.2; }
+    .cl-cad-tab__body small { font-size: 11.5px; color: #6B4423; }
+    .cl-cad-tab__check { opacity: 0; flex-shrink: 0; font-size: 18px; color: #FFFFFF; transition: opacity .16s ease; }
+    .cl-cad-tab.is-active { border-color: transparent; transform: translateY(-1px); }
+    .cl-cad-tab--daily.is-active  { background: linear-gradient(135deg, #A66019, #5C2E15); box-shadow: 0 7px 18px rgba(92,46,21,.28); }
+    .cl-cad-tab--weekly.is-active { background: linear-gradient(135deg, #1F6E5F, #155148); box-shadow: 0 7px 18px rgba(21,81,72,.28); }
+    .cl-cad-tab.is-active .cl-cad-tab__body strong { color: #FFFFFF; }
+    .cl-cad-tab.is-active .cl-cad-tab__body small { color: #FFFFFF; opacity: .82; }
+    .cl-cad-tab.is-active .cl-cad-tab__icon { background: rgba(255,255,255,.18); box-shadow: none; }
+    .cl-cad-tab.is-active .cl-cad-tab__check { opacity: .95; }
+
     /* ──────── MODERN Hari Ini design ──────── */
 
     /* Hero gradient header */
@@ -143,6 +182,14 @@
         background: linear-gradient(90deg, #9B5E2C, #5C2E15);
         border-radius: 5px;
         transition: width .4s cubic-bezier(.45,.05,.55,.95);
+    }
+    /* Pill status di pojok kanan-atas kartu progress (pindahan dari hero).
+       Warna diambil dari .cl-mod-hero__status--{success|warning|danger}. */
+    .cl-mod-progress__status {
+        position: absolute; top: 16px; right: 16px; z-index: 2;
+        padding: 6px 14px; border-radius: 999px;
+        font-size: 12px; font-weight: 700; white-space: nowrap;
+        display: inline-flex; align-items: center; gap: 6px;
     }
 
     @media (max-width: 540px) {
@@ -341,6 +388,35 @@
     .cl-mod-banner--danger  { background: #FCEBEB; border-color: #A32D2D; color: #7C2929; }
     .cl-mod-banner strong { font-weight: 700; }
 
+    /* ═══ Wrapper "Checklist Hari Ini" — banner + progress + daftar tugas jadi
+       SATU kartu biar tidak terlihat kepisah (satu kesatuan). Elemen di dalam
+       dibuat flush: chrome kartu masing-masing dilepas, dipisah garis tipis. ═══ */
+    .cl-today {
+        background: #FFFFFF;
+        border: 1px solid #E0D2C1;
+        border-radius: 16px;
+        box-shadow: 0 2px 8px rgba(45,24,16,.05);
+        overflow: hidden;
+        margin-bottom: 14px;
+    }
+    .cl-today .cl-mod-banner { border-radius: 0 !important; margin: 0 !important; }
+    .cl-today .cl-mod-progress {
+        border: none !important; border-radius: 0 !important;
+        box-shadow: none !important; margin: 0 !important;
+        border-bottom: 1px solid #F0E6D8 !important;
+    }
+    .cl-today .cl-mod-cat-list { gap: 0 !important; }
+    .cl-today .cl-mod-cat {
+        border: none !important; border-radius: 0 !important; box-shadow: none !important;
+    }
+    .cl-today .cl-mod-cat + .cl-mod-cat { border-top: 1px solid #F0E6D8 !important; }
+    .cl-today .cl-mod-cat:hover,
+    .cl-today .cl-mod-cat.is-open {
+        box-shadow: none !important; transform: none !important; border-color: transparent !important;
+    }
+    /* Baris tombol "Buka semua" (multi-kategori) — beri padding biar tak mepet tepi kartu */
+    .cl-today .cl-cat-tools { padding: 12px 16px 0 !important; margin-bottom: 0 !important; }
+
     /* ── Side widgets ── */
     .cl-mini {
         background: #FFFFFF;
@@ -360,6 +436,12 @@
         display: inline-flex; align-items: center; gap: 7px;
     }
     .cl-mini__title i { color: #5C2E15; font-size: 11px; }
+    /* Widget "review" (Riwayat 14 Hari + Aktivitas Terbaru) hanya di desktop.
+       Saat layout stacked (≤992px) disembunyikan biar mobile fokus ke checklist —
+       riwayat lengkap tetap bisa diakses via tombol "Riwayat". */
+    @media (max-width: 992px) {
+        .cl-mini--mreview { display: none; }
+    }
 
     /* Streak / stats card */
     .cl-stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
@@ -583,77 +665,10 @@
     @include('layouts.notif')
 
     <div class="cl-my-wrap">
-        {{-- ─── Running text / pengumuman (statis) ───
-             Teks di-set di $marqueeText. Gerak ke kanan, loop mulus (2 salinan),
-             jeda saat di-hover. Untuk mengubah arah → tukar 'from/to' di keyframe. --}}
-        @php
-            $marqueeText = '📢 Isi & submit semua checklist harian sebelum pulang.'
-                . '   •   Sterilisasi alat & jaga kebersihan ruang sesuai SOP.'
-                . '   •   Sapa setiap pasien dengan senyum — Sweet, Cool & Friendly! 🦷';
-        @endphp
-        <div class="cl-marquee" aria-label="Pengumuman">
-            <span class="cl-marquee__label"><i class="fas fa-bullhorn"></i> Info</span>
-            <div class="cl-marquee__viewport">
-                <div class="cl-marquee__track">
-                    <span class="cl-marquee__item">{{ $marqueeText }}</span>
-                    <span class="cl-marquee__item" aria-hidden="true">{{ $marqueeText }}</span>
-                </div>
-            </div>
-        </div>
-        <style>
-            .cl-marquee{display:flex;align-items:stretch;background:#FFF7EE;border:1px solid #E7D6C2;
-                border-radius:12px;overflow:hidden;margin-bottom:14px;box-shadow:0 1px 3px rgba(45,24,16,.05);}
-            .cl-marquee__label{flex:none;display:inline-flex;align-items:center;gap:7px;padding:10px 16px;
-                background:linear-gradient(180deg,#5C2E15,#471500);color:#FFE9C7;font-size:12.5px;
-                font-weight:800;letter-spacing:.3px;white-space:nowrap;}
-            .cl-marquee__label i{font-size:13px;}
-            /* viewport = block (bukan flex) supaya lebar track mengikuti panjang teks,
-               jadi translateX(-50%) = tepat satu salinan → loop mulus & pasti gerak. */
-            .cl-marquee__viewport{flex:1 1 auto;min-width:0;overflow:hidden;}
-            .cl-marquee__track{display:inline-flex;flex-wrap:nowrap;white-space:nowrap;
-                animation:cl-marquee-move 28s linear infinite;}
-            .cl-marquee:hover .cl-marquee__track{animation-play-state:paused;}
-            .cl-marquee__item{flex:0 0 auto;padding:10px 34px 10px 22px;font-size:13px;font-weight:600;color:#5A3A22;}
-            /* Gerak ke kanan: track digeser -50% (satu salinan) lalu ke 0 → mulus. */
-            @keyframes cl-marquee-move{from{transform:translateX(-50%);}to{transform:translateX(0);}}
-        </style>
+        @include('crud.checklist.my._marquee')
 
         @if(! $position)
-            @if(! empty($pending))
-                {{-- ─── State: usulan posisi menunggu konfirmasi supervisor ─── --}}
-                <div class="st-card">
-                    <div class="st-card__body" style="padding:44px 22px; text-align:center;">
-                        <div style="display:inline-flex; align-items:center; justify-content:center; width:80px; height:80px; border-radius:50%; background:#FAEEDA; color:#A66019; font-size:32px; margin-bottom:18px;">
-                            <i class="fas fa-hourglass-half"></i>
-                        </div>
-                        <h5 style="font-size:18px; font-weight:700; color:#2D1810; margin-bottom:8px;">Menunggu konfirmasi supervisor</h5>
-                        <p style="font-size:13.5px; color:#6B4423; max-width:440px; margin:0 auto 16px; line-height:1.6;">
-                            Halo <strong>{{ $userName }}</strong>, posisi yang Anda ajukan sedang menunggu konfirmasi supervisor.
-                            Anda bisa mulai mengisi checklist setelah dikonfirmasi.
-                        </p>
-                        <div style="display:inline-flex; gap:8px; flex-wrap:wrap; justify-content:center; margin-bottom:18px;">
-                            <span style="font-size:12.5px; font-weight:700; background:#FFF7EE; border:1px solid #E7D6C2; color:#5C2E15; padding:6px 14px; border-radius:999px;">
-                                <i class="fas fa-id-badge" style="font-size:11px; color:#A66019;"></i>
-                                {{ $pending->division?->name ?? $pending->division_id }}
-                            </span>
-                            <span style="font-size:12.5px; font-weight:700; background:#FFF7EE; border:1px solid #E7D6C2; color:#5C2E15; padding:6px 14px; border-radius:999px;">
-                                <i class="fas fa-building" style="font-size:11px; color:#A66019;"></i>
-                                {{ $pending->branch?->name ?? $pending->raw_branch_id }}
-                            </span>
-                        </div>
-
-                        {{-- Ubah usulan (kalau salah pilih) --}}
-                        <details class="cl-propose-edit">
-                            <summary style="cursor:pointer; font-size:12.5px; color:#6B4423; font-weight:600;">Salah pilih? Ubah usulan</summary>
-                            @include('crud.checklist.my._propose_form', ['submitLabel' => 'Ubah & kirim ulang', 'pending' => $pending])
-                        </details>
-                    </div>
-                </div>
-                <style>
-                    .cl-propose-edit { margin-top: 8px; max-width: 460px; margin-left:auto; margin-right:auto; text-align:left; }
-                    .cl-propose-edit[open] summary { margin-bottom: 12px; }
-                </style>
-            @elseif(empty($roleDivision))
+            @if(empty($roleDivision))
                 {{-- ─── Role belum ditautkan ke divisi checklist ─── --}}
                 <div class="st-card">
                     <div class="st-card__body" style="padding:44px 22px; text-align:center;">
@@ -667,55 +682,59 @@
                     </div>
                 </div>
             @else
-                {{-- ─── Welcome + form pilih posisi (divisi otomatis dari role, tinggal pilih cabang) ─── --}}
+                {{-- ─── Divisi sudah ada (dari role) tapi cabang belum diset admin ─── --}}
                 <div class="st-card">
-                    <div class="st-card__body" style="padding:40px 22px;">
-                        <div style="text-align:center; margin-bottom:22px;">
-                            <div style="display:inline-flex; align-items:center; justify-content:center; width:80px; height:80px; border-radius:50%; background:#FAF4EC; color:#9B5E2C; font-size:32px; margin-bottom:16px;">
-                                <i class="fas fa-magic"></i>
-                            </div>
-                            <h5 style="font-size:20px; font-weight:800; color:#2D1810; margin-bottom:8px;">Selamat datang, {{ $userName }}! 👋</h5>
-                            <p style="font-size:13.5px; color:#6B4423; max-width:460px; margin:0 auto; line-height:1.6;">
-                                Divisi Anda <strong>{{ $roleDivision->name }}</strong> (otomatis dari role). Pilih <strong>cabang</strong> Anda; setelah dikonfirmasi supervisor, form checklist langsung muncul di sini.
-                            </p>
+                    <div class="st-card__body" style="padding:44px 22px; text-align:center;">
+                        <div style="display:inline-flex; align-items:center; justify-content:center; width:80px; height:80px; border-radius:50%; background:#FAEEDA; color:#A66019; font-size:32px; margin-bottom:16px;">
+                            <i class="fas fa-building"></i>
                         </div>
-                        <div style="max-width:460px; margin:0 auto;">
-                            @include('crud.checklist.my._propose_form', ['submitLabel' => 'Ajukan posisi', 'pending' => null])
-                        </div>
+                        <h5 style="font-size:19px; font-weight:800; color:#2D1810; margin-bottom:8px;">Cabang Anda belum diset</h5>
+                        <p style="font-size:13.5px; color:#6B4423; max-width:460px; margin:0 auto 16px; line-height:1.6;">
+                            Halo <strong>{{ $userName }}</strong>, divisi Anda <strong>{{ $roleDivision->name }}</strong> (otomatis dari role), tetapi cabang Anda belum diisi admin. Posisi checklist akan langsung aktif begitu admin menetapkan cabang Anda — Anda tidak perlu mengajukan apa pun.
+                        </p>
+                        <span style="display:inline-flex; align-items:center; gap:7px; font-size:12.5px; font-weight:700; background:#FFF7EE; border:1px solid #E7D6C2; color:#5C2E15; padding:6px 14px; border-radius:999px;">
+                            <i class="fas fa-id-badge" style="font-size:11px; color:#A66019;"></i> {{ $roleDivision->name }}
+                        </span>
                     </div>
                 </div>
             @endif
         @else
-            {{-- ─── VIEW TOGGLE — di luar card, jelas terlihat ─── --}}
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:10px;">
-                <div style="display:inline-flex; gap:2px; padding:4px; background:#FFFFFF; border-radius:999px; border:1px solid #E0D2C1; box-shadow:0 1px 3px rgba(45,24,16,.06); flex-wrap:wrap;">
-                    <a href="{{ route('mychecklist') }}"
-                       style="padding:8px 18px; font-size:13px; font-weight:700; text-decoration:none; border-radius:999px; background:linear-gradient(180deg,#5C2E15,#471500); color:#FFFFFF; box-shadow:0 2px 6px rgba(71,21,0,.20); display:inline-flex; align-items:center; gap:7px;">
-                        <i class="fas fa-sun"></i> Checklist Harian
-                    </a>
-                    <a href="{{ route('mychecklist.weekform') }}"
-                       style="padding:8px 18px; font-size:13px; font-weight:600; text-decoration:none; border-radius:999px; color:#6B4423; display:inline-flex; align-items:center; gap:7px;">
-                        <i class="fas fa-calendar-week"></i> Checklist Mingguan
-                    </a>
-                </div>
-                <a href="{{ route('mychecklist.history') }}" style="font-size:12.5px; color:#6B4423; text-decoration:none; display:inline-flex; align-items:center; gap:6px; font-weight:600;">
-                    <i class="fas fa-history"></i> Riwayat
+            {{-- ─── PILIH JENIS CHECKLIST (kartu besar, gaya Setup) ─── --}}
+            <div class="cl-cad-tabs" style="margin-bottom:14px;">
+                <a href="{{ route('mychecklist') }}" class="cl-cad-tab cl-cad-tab--daily is-active">
+                    <span class="cl-cad-tab__icon"><i class="fas fa-sun"></i></span>
+                    <span class="cl-cad-tab__body">
+                        <strong>Checklist Harian</strong>
+                        <small>Isi setiap hari operasional</small>
+                    </span>
+                    <i class="fas fa-check-circle cl-cad-tab__check"></i>
+                </a>
+                <a href="{{ route('mychecklist.weekform') }}" class="cl-cad-tab cl-cad-tab--weekly">
+                    <span class="cl-cad-tab__icon"><i class="fas fa-calendar-week"></i></span>
+                    <span class="cl-cad-tab__body">
+                        <strong>Checklist Mingguan</strong>
+                        <small>Tugas terjadwal per minggu</small>
+                    </span>
+                    <i class="fas fa-check-circle cl-cad-tab__check"></i>
                 </a>
             </div>
 
-            {{-- SUB-TOGGLE: Hari Ini vs Tampilan Mingguan (7 hari) — disembunyikan di mobile --}}
-            <div class="cl-view-toggle" style="display:flex; align-items:center; gap:10px; margin-bottom:14px; flex-wrap:wrap;">
-                <span style="font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; color:#9B8578;">Tampilan:</span>
-                <div style="display:inline-flex; gap:2px; padding:3px; background:#FAF4EC; border-radius:999px; border:1px solid #E0D2C1;">
-                    <a href="{{ route('mychecklist') }}"
-                       style="padding:6px 14px; font-size:12px; font-weight:700; text-decoration:none; border-radius:999px; background:#FFFFFF; color:#5C2E15; box-shadow:0 1px 3px rgba(45,24,16,.10); display:inline-flex; align-items:center; gap:6px;">
-                        <i class="fas fa-sun" style="font-size:10px;"></i> Hari Ini
-                    </a>
-                    <a href="{{ route('mychecklist.weekly') }}"
-                       style="padding:6px 14px; font-size:12px; font-weight:600; text-decoration:none; border-radius:999px; color:#6B4423; display:inline-flex; align-items:center; gap:6px;">
-                        <i class="fas fa-th" style="font-size:10px;"></i> Seminggu
-                    </a>
+            {{-- Baris sub-toggle (desktop) + Riwayat (selalu tampil) --}}
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:14px; flex-wrap:wrap;">
+                <div class="cl-view-toggle" style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                    <span style="font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; color:#9B8578;">Tampilan:</span>
+                    <div class="cl-vtoggle">
+                        <a href="{{ route('mychecklist') }}" class="cl-vtoggle__btn is-active">
+                            <i class="fas fa-sun" style="font-size:10px;"></i> Hari Ini
+                        </a>
+                        <a href="{{ route('mychecklist.weekly') }}" class="cl-vtoggle__btn">
+                            <i class="fas fa-th" style="font-size:10px;"></i> Rekap 6 Hari
+                        </a>
+                    </div>
                 </div>
+                <a href="{{ route('mychecklist.history') }}" class="st-btn-outline-brown" style="padding:7px 14px; font-size:12.5px;">
+                    <i class="fas fa-history"></i> Riwayat
+                </a>
             </div>
 
             <div class="cl-my-grid">
@@ -756,17 +775,13 @@
                                 </div>
                             </div>
                         </div>
-                        @if($submission->status !== \App\Models\ChecklistSubmission::STATUS_DRAFT && $statusOpt)
-                            <span class="cl-mod-hero__status cl-mod-hero__status--{{ $heroStatusColor }}">
-                                @if($submission->status === 'approved')<i class="fas fa-check-circle"></i>
-                                @elseif($submission->status === 'rejected')<i class="fas fa-times-circle"></i>
-                                @else<i class="fas fa-clock"></i>
-                                @endif
-                                {{ $statusOpt['label'] }}
-                            </span>
-                        @endif
+                        {{-- Pill status dipindah ke kartu Progres Hari Ini (lihat .cl-mod-progress__status) --}}
                     </div>
                 </div>
+
+                {{-- ═══ Wrapper "Checklist Hari Ini": banner + progress + daftar tugas
+                     dibungkus 1 kartu biar tidak terlihat kepisah (satu kesatuan). ═══ --}}
+                <div class="cl-today">
 
                 {{-- ─── BANNER STATUS ─── --}}
                 @if($submission->status === \App\Models\ChecklistSubmission::STATUS_REJECTED)
@@ -800,7 +815,7 @@
                             <strong>Checklist hari ini ditandai "Dikecualikan" — tidak perlu diisi.</strong>
                             <div style="margin-top:4px;">Alasan: {{ $submission->excuse_reason }}</div>
                             <form method="POST" action="{{ route('mychecklist.unexcuse') }}" style="margin-top:10px;"
-                                  onsubmit="return confirm('Batalkan pengecualian dan isi checklist seperti biasa?');">
+                                  data-confirm="Batalkan pengecualian dan isi checklist seperti biasa?">
                                 @csrf
                                 <button type="submit" class="st-btn-brand" style="font-size:12.5px; padding:6px 14px;">
                                     <i class="fas fa-undo"></i> Batalkan, isi checklist
@@ -812,6 +827,16 @@
 
                 {{-- ─── PROGRESS CARD (modern, big %) ─── --}}
                 <div class="cl-mod-progress">
+                    {{-- Pill status (pindahan dari hero) — pojok kanan-atas kartu --}}
+                    @if($submission->status !== \App\Models\ChecklistSubmission::STATUS_DRAFT && $statusOpt)
+                        <span class="cl-mod-progress__status cl-mod-hero__status--{{ $heroStatusColor }}">
+                            @if($submission->status === 'approved')<i class="fas fa-check-circle"></i>
+                            @elseif($submission->status === 'rejected')<i class="fas fa-times-circle"></i>
+                            @else<i class="fas fa-clock"></i>
+                            @endif
+                            {{ $statusOpt['label'] }}
+                        </span>
+                    @endif
                     <div class="cl-mod-progress__big" id="clProgressPct">
                         {{ $progress['pct'] }}<small>%</small>
                     </div>
@@ -831,11 +856,18 @@
                             <div class="cl-empty">
                                 <span class="cl-empty__icon"><i class="fas fa-clipboard"></i></span>
                                 <div class="cl-empty__title">Belum ada tugas</div>
-                                <div class="cl-empty__desc">Supervisor belum mengatur task untuk divisi {{ $position->division?->name }}.</div>
+                                <div class="cl-empty__desc">Supervisor belum mengatur tugas untuk divisi {{ $position->division?->name }}.</div>
                             </div>
                         </div>
                     </div>
                 @else
+                    @if($grouped->count() > 1)
+                        <div class="cl-cat-tools" style="display:flex; justify-content:flex-end; margin-bottom:10px;">
+                            <button type="button" class="st-btn-outline-brown" id="clCatExpandAll" data-mode="expand" style="padding:6px 12px; font-size:12px;">
+                                <i class="fas fa-angle-double-down"></i> <span data-label>Buka semua</span>
+                            </button>
+                        </div>
+                    @endif
                     <div class="cl-mod-cat-list">
                         @php $catIdx = 0; $openedOne = false; @endphp
                         @foreach($grouped as $catTitle => $items)
@@ -888,12 +920,12 @@
                                                 <div class="cl-mod-task__note">
                                                     <textarea class="cl-mod-note__input" rows="1" maxlength="1000"
                                                               data-note-url="{{ route('mychecklist.item.note', $item->id) }}"
-                                                              placeholder="Tambah catatan (opsional)…">{{ $item->note }}</textarea>
+                                                              placeholder="Tambah catatan untuk supervisor (opsional)…">{{ $item->note }}</textarea>
                                                     <span class="cl-mod-note__status" data-note-status></span>
                                                 </div>
                                             @elseif($item->note)
                                                 <div class="cl-mod-task__note">
-                                                    <div class="cl-mod-note__ro"><i class="fas fa-edit"></i> {{ $item->note }}</div>
+                                                    <div class="cl-mod-note__ro"><strong>Catatan:</strong> {{ $item->note }}</div>
                                                 </div>
                                             @endif
                                         </div>
@@ -904,28 +936,30 @@
                         @endforeach
                     </div>
                 @endif
+                </div>{{-- /cl-today --}}
 
                 {{-- ─── SUBMIT FOOTER (modern) ─── --}}
                 @if($submission->isEditable() && $grouped->isNotEmpty())
                     <form method="POST" action="{{ route('mychecklist.submit') }}"
-                          onsubmit="return confirm('Submit checklist hari ini? Setelah submit, anda tidak bisa edit lagi sampai supervisor review.');">
+                          data-confirm="Submit checklist hari ini? Setelah submit, anda tidak bisa edit lagi sampai supervisor review.">
                         @csrf
                         <div class="cl-mod-submit">
+                            @php $isComplete = $progress['total'] > 0 && $progress['done'] === $progress['total']; @endphp
                             <div class="cl-mod-submit__hint">
-                                {{-- Hint dinamis: kalau belum 100%, ingat user. Kalau 100%, congrats vibe. --}}
+                                {{-- Hint dinamis: submit hanya bisa saat 100%. --}}
                                 @if($progress['done'] === 0)
-                                    Mulai centang task yang sudah selesai.
-                                @elseif($progress['done'] < $progress['total'])
-                                    Masih ada <strong style="color:#FFF;">{{ $progress['total'] - $progress['done'] }} task</strong> belum dicentang. Lanjut atau submit sekarang?
+                                    Selesaikan semua tugas dulu — checklist bisa disubmit setelah 100%.
+                                @elseif(! $isComplete)
+                                    Masih ada <strong style="color:#FFF;">{{ $progress['total'] - $progress['done'] }} task</strong> belum dicentang. Semua tugas harus selesai (100%) sebelum submit.
                                 @else
-                                    <strong style="color:#FFF;">Semua task selesai! 🎉</strong> Klik submit untuk kirim ke supervisor.
+                                    <strong style="color:#FFF;">Semua tugas selesai! 🎉</strong> Klik submit untuk kirim ke supervisor.
                                 @endif
                             </div>
-                            <button type="submit" class="cl-mod-submit__btn" id="clSubmitBtn" {{ $progress['done'] === 0 ? 'disabled' : '' }}>
-                                @if($progress['done'] === 0)
-                                    Isi minimal 1 task
-                                @else
+                            <button type="submit" class="cl-mod-submit__btn" id="clSubmitBtn" {{ $isComplete ? '' : 'disabled' }}>
+                                @if($isComplete)
                                     <i class="fas fa-paper-plane"></i> Kirim Checklist
+                                @else
+                                    Selesaikan semua tugas dulu
                                 @endif
                             </button>
                         </div>{{-- /cl-mod-submit --}}
@@ -980,8 +1014,8 @@
                     </div>
                 </div>
 
-                {{-- Heatmap 14 hari --}}
-                <div class="cl-mini">
+                {{-- Heatmap 14 hari (widget review — desktop only) --}}
+                <div class="cl-mini cl-mini--mreview">
                     <div class="cl-mini__head">
                         <h6 class="cl-mini__title"><i class="fas fa-th"></i> Riwayat 14 Hari</h6>
                     </div>
@@ -1013,8 +1047,8 @@
                     </div>
                 </div>
 
-                {{-- Recent activity --}}
-                <div class="cl-mini">
+                {{-- Recent activity (widget review — desktop only) --}}
+                <div class="cl-mini cl-mini--mreview">
                     <div class="cl-mini__head">
                         <h6 class="cl-mini__title"><i class="fas fa-history"></i> Aktivitas Terbaru</h6>
                         <a href="{{ route('mychecklist.history') }}" style="font-size:11px; color:#5C2E15; text-decoration:none; font-weight:600;">Semua →</a>
@@ -1041,15 +1075,6 @@
                     @endif
                 </div>
 
-                {{-- Tips card --}}
-                <div class="cl-mini" style="background:linear-gradient(135deg, #FAF4EC 0%, #F5EBE0 100%); border-color:#E0D2C1;">
-                    <div class="cl-mini__head" style="margin-bottom:8px;">
-                        <h6 class="cl-mini__title" style="color:#5C2E15;"><i class="fas fa-lightbulb" style="color:#A66019;"></i> Tips Hari Ini</h6>
-                    </div>
-                    <p style="font-size:12.5px; color:#5C2E15; line-height:1.55; margin:0;">
-                        Cek list <strong>sebelum mulai shift</strong> & isi <strong>setelah selesai</strong> biar nggak ada yang kelewat. Pekerjaan rapi = waktu lebih efisien 🚀
-                    </p>
-                </div>
             </aside>
             </div>{{-- /cl-my-grid --}}
         @endif
@@ -1059,25 +1084,47 @@
 @if($position && $grouped->isNotEmpty())
 <script>
 (function() {
-    // Accordion eksklusif per kategori: buka satu → yang lain otomatis tertutup.
+    // Accordion per kategori: klik = buka/tutup kategori itu saja (boleh banyak
+    // terbuka sekaligus). Tombol "Buka semua / Tutup semua" untuk sekali klik.
+    const catBlocks = Array.prototype.slice.call(document.querySelectorAll('[data-cat-block]'));
+    const catExpandAll = document.getElementById('clCatExpandAll');
+    // Textarea catatan yang tadinya display:none punya scrollHeight 0 →
+    // hitung ulang tingginya begitu kategorinya terlihat.
+    function recalcNotes(block) {
+        block.querySelectorAll('[data-note-url]').forEach(ta => {
+            ta.style.height = 'auto';
+            ta.style.height = ta.scrollHeight + 'px';
+        });
+    }
+    function syncCatExpandAll() {
+        if (! catExpandAll) return;
+        const anyClosed = catBlocks.some(b => ! b.classList.contains('is-open'));
+        catExpandAll.dataset.mode = anyClosed ? 'expand' : 'collapse';
+        const lbl = catExpandAll.querySelector('[data-label]');
+        if (lbl) lbl.textContent = anyClosed ? 'Buka semua' : 'Tutup semua';
+        const ic = catExpandAll.querySelector('i');
+        if (ic) ic.className = anyClosed ? 'fas fa-angle-double-down' : 'fas fa-angle-double-up';
+    }
     document.querySelectorAll('[data-cat-toggle]').forEach(head => {
         head.addEventListener('click', () => {
             const block = head.closest('[data-cat-block]');
             const willOpen = ! block.classList.contains('is-open');
-            document.querySelectorAll('[data-cat-block].is-open').forEach(b => {
-                if (b !== block) b.classList.remove('is-open');
-            });
             block.classList.toggle('is-open', willOpen);
-            // Textarea catatan yang tadinya display:none punya scrollHeight 0 →
-            // hitung ulang tingginya begitu kategorinya terlihat.
-            if (willOpen) {
-                block.querySelectorAll('[data-note-url]').forEach(ta => {
-                    ta.style.height = 'auto';
-                    ta.style.height = ta.scrollHeight + 'px';
-                });
-            }
+            if (willOpen) recalcNotes(block);
+            syncCatExpandAll();
         });
     });
+    if (catExpandAll) {
+        catExpandAll.addEventListener('click', () => {
+            const expand = catExpandAll.dataset.mode === 'expand';
+            catBlocks.forEach(b => {
+                b.classList.toggle('is-open', expand);
+                if (expand) recalcNotes(b);
+            });
+            syncCatExpandAll();
+        });
+        syncCatExpandAll();
+    }
 
     // Toggle task — AJAX optimistic
     const csrf = document.querySelector('meta[name=csrf-token]')?.content;
@@ -1180,26 +1227,28 @@
             const remaining = Math.max(0, p.total - p.done);
             countEl.innerHTML = '<strong>' + p.done + '</strong> dari ' + p.total + ' tugas <small>· ' + remaining + ' belum dikerjakan</small>';
         }
+        const complete = p.total > 0 && p.done === p.total;
         if (submitBtn) {
-            const has = p.done > 0;
-            submitBtn.disabled = ! has;
-            submitBtn.innerHTML = has
+            submitBtn.disabled = ! complete;
+            submitBtn.innerHTML = complete
                 ? '<i class="fas fa-paper-plane"></i> Kirim Checklist'
-                : 'Isi minimal 1 task';
+                : 'Selesaikan semua tugas dulu';
         }
-        // Update submit hint
+        // Update submit hint — submit hanya bisa saat 100%
         const hintEl = document.querySelector('.cl-mod-submit__hint');
         if (hintEl) {
             if (p.done === 0) {
-                hintEl.innerHTML = 'Mulai centang task yang sudah selesai.';
-            } else if (p.done < p.total) {
-                hintEl.innerHTML = 'Masih ada <strong style="color:#FFF;">' + (p.total - p.done) + ' task</strong> belum dicentang. Lanjut atau submit sekarang?';
+                hintEl.innerHTML = 'Selesaikan semua tugas dulu — checklist bisa disubmit setelah 100%.';
+            } else if (! complete) {
+                hintEl.innerHTML = 'Masih ada <strong style="color:#FFF;">' + (p.total - p.done) + ' task</strong> belum dicentang. Semua tugas harus selesai (100%) sebelum submit.';
             } else {
-                hintEl.innerHTML = '<strong style="color:#FFF;">Semua task selesai! 🎉</strong> Klik submit untuk kirim ke supervisor.';
+                hintEl.innerHTML = '<strong style="color:#FFF;">Semua tugas selesai! 🎉</strong> Klik submit untuk kirim ke supervisor.';
             }
         }
     }
 })();
 </script>
 @endif
+
+@include('crud.checklist.my._confirm_modal')
 @endsection

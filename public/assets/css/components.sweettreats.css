@@ -591,6 +591,20 @@
     border-color: var(--divider-strong);
 }
 
+/* Status "Dikecualikan" — cokelat kopi (khas, bukan abu netral) */
+.st-pill--coffee {
+    background: #F3E7D6;
+    color: #8A5A2B;
+    border-color: #E4CFB2;
+}
+
+/* Status "Tidak Diisi" — abu tegas (lebih gelap dari neutral) */
+.st-pill--slate {
+    background: #E9E7E3;
+    color: #5F5A52;
+    border-color: #D3CEC6;
+}
+
 /* Pill tanpa titik (untuk label, bukan status) */
 .st-pill--plain::before {
     display: none;
