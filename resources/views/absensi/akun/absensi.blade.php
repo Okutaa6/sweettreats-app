@@ -77,6 +77,10 @@
             </div>
         @endif
 
+        <a href="{{ route('akun.absen') }}" class="absk-fab absk-fab-absen">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.2em"><path d="M3 8.5A1.5 1.5 0 0 1 4.5 7H7l1.4-2.2a1 1 0 0 1 .8-.5h5.6a1 1 0 0 1 .8.5L17 7h2.5A1.5 1.5 0 0 1 21 8.5V18a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18z"/><circle cx="12" cy="13" r="3.3"/></svg>
+            Absen Masuk / Pulang
+        </a>
         <button type="button" class="absk-fab" data-open-ajukan><span class="plus">+</span> Ajukan Permohonan</button>
     </div>
 

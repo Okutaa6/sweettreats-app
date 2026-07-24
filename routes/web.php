@@ -16,8 +16,11 @@ use App\Http\Controllers\Absensi\AbsensiUploadController;
 use App\Http\Controllers\Absensi\AbsensiRecapController;
 use App\Http\Controllers\Absensi\AbsensiPeriodController;
 use App\Http\Controllers\Absensi\AbsensiMappingController;
+use App\Http\Controllers\Absensi\AbsensiBranchIpController;
+use App\Http\Controllers\Absensi\AkunAbsenController;
 use App\Http\Controllers\Absensi\AkunAbsensiController;
 use App\Http\Controllers\Absensi\AkunPengajuanController;
+use App\Http\Controllers\Absensi\PengawasanController;
 use App\Http\Controllers\Absensi\PersetujuanController;
 use App\Http\Controllers\Crud\ReservasiCabangController;
 use App\Http\Controllers\DashboardController;
@@ -197,8 +200,18 @@ Route::middleware([AuthGuard::class])->group(function () {
         Route::get('komisi', [\App\Http\Controllers\ExportController::class, 'commissions'])->name('export.komisi');
     });
 
+    // Pusat Akun → Kesehatan (detektor kegagalan-senyap) — segment 'setkesehatan'
+    Route::get('setkesehatan', [\App\Http\Controllers\Set\KesehatanController::class, 'index'])->name('setkesehatan');
+
     // Access
     Route::get('setaccess', [Access::class, 'index'])->name('setaccess');
+    // Pusat Akun Akses — grant/cabut role + rebuild (3-4 segmen, tak bentrok edit {id})
+    Route::post('setaccess/rebuild',            [Access::class, 'rebuild'])->name('setaccess.rebuild');
+    Route::post('setaccess/node',               [Access::class, 'storeNode'])->name('setaccess.store-node');
+    Route::post('setaccess/{id}/grant',         [Access::class, 'grantRole'])->name('setaccess.grant');
+    Route::post('setaccess/{id}/revoke/{gid}',  [Access::class, 'revokeRole'])->name('setaccess.revoke');
+    Route::post('setaccess/{id}/update-node',   [Access::class, 'updateNode'])->name('setaccess.update-node');
+    Route::post('setaccess/{id}/delete-node',   [Access::class, 'destroyNode'])->name('setaccess.delete-node');
     Route::get('setaccess/new', [Access::class, 'create'])->name('setaccess.new');
     Route::post('setaccess/new', [Access::class, 'store'])->name('setaccess.store');
     Route::get('setaccess/{id}', [Access::class, 'edit'])->name('setaccess.edit');
@@ -207,6 +220,12 @@ Route::middleware([AuthGuard::class])->group(function () {
 
     // User Management
     Route::get('setusermanagement', [UserManagement::class, 'index'])->name('setusermanagement');
+    // Pusat Akun — detail user + aksi IT (3 segmen, tak bentrok dgn edit {id} 2-segmen)
+    Route::get('setusermanagement/detail/{id}',            [UserManagement::class, 'detail'])->name('setusermanagement.detail');
+    Route::post('setusermanagement/{id}/force-logout',     [UserManagement::class, 'forceLogout'])->name('setusermanagement.force-logout');
+    Route::post('setusermanagement/{id}/toggle-status',    [UserManagement::class, 'toggleStatus'])->name('setusermanagement.toggle-status');
+    Route::post('setusermanagement/{id}/revoke-all',       [UserManagement::class, 'revokeAllDevices'])->name('setusermanagement.revoke-all');
+    Route::post('setusermanagement/{id}/revoke-device/{deviceId}', [UserManagement::class, 'revokeDevice'])->name('setusermanagement.revoke-device');
     Route::get('setusermanagement/new', [UserManagement::class, 'create'])->name('setusermanagement.new');
     Route::post('setusermanagement/new', [UserManagement::class, 'store'])->name('setusermanagement.store');
     Route::get('setusermanagement/{id}', [UserManagement::class, 'edit'])->name('setusermanagement.edit');
@@ -316,6 +335,21 @@ Route::middleware([AuthGuard::class])->group(function () {
     Route::post('akun/pengajuan', [AkunPengajuanController::class, 'store'])->name('akun.pengajuan.store');
     Route::get('akun/pengajuan/prefill-lembur', [AkunPengajuanController::class, 'prefillLembur'])->name('akun.pengajuan.prefill');
     Route::get('akun/pengajuan/{id}', [AkunPengajuanController::class, 'show'])->name('akun.pengajuan.show');
+    Route::get('akun/absen',  [AkunAbsenController::class, 'index'])->name('akun.absen');
+    Route::post('akun/absen', [AkunAbsenController::class, 'store'])->name('akun.absen.store');
+
+    // ── Pengawasan Absen (review SPV) — segment(1) = 'pengawasan', node awas-* ──
+    Route::get('pengawasan',                    [PengawasanController::class, 'index'])->name('pengawasan');
+    Route::get('pengawasan/foto/{id}',          [PengawasanController::class, 'foto'])->name('pengawasan.foto');
+    Route::post('pengawasan/{id}/dicek',        [PengawasanController::class, 'dicek'])->name('pengawasan.dicek');
+    Route::post('pengawasan/{id}/selesai',      [PengawasanController::class, 'selesai'])->name('pengawasan.selesai');
+    Route::post('pengawasan/grup-selesai',      [PengawasanController::class, 'selesaiGrup'])->name('pengawasan.grup');
+    Route::post('pengawasan/daftarkan-ip',      [PengawasanController::class, 'daftarkanIp'])->name('pengawasan.daftarkan-ip');
+
+    // ── WiFi Cabang (admin IP absen HP) — segment(1) = 'absensi', guard canSeeAllBranches ──
+    Route::get('absensi/wifi',              [AbsensiBranchIpController::class, 'index'])->name('absensi.wifi');
+    Route::post('absensi/wifi',             [AbsensiBranchIpController::class, 'store'])->name('absensi.wifi.store');
+    Route::post('absensi/wifi/{id}/toggle', [AbsensiBranchIpController::class, 'toggle'])->name('absensi.wifi.toggle');
 
     // ── Persetujuan (inbox approver, mobile) — segment(1) = 'persetujuan' ──
     Route::get('persetujuan',          [PersetujuanController::class, 'index'])->name('persetujuan.inbox');
@@ -615,3 +649,9 @@ Route::middleware([IsLoggedIn::class])->group(function () {
 });
 
 Route::get('signout', [AuthController::class, 'logout'])->name('signout');
+
+// Ganti password wajib (must_change_password) — DI LUAR AuthGuard biar tak kena
+// RBAC (bukan menu); guard cukup cek session di controller. AuthGuard menggiring
+// ke sini saat must_change; setelah ganti, balik ke landing normal.
+Route::get('ganti-password',  [AuthController::class, 'gantiPassword'])->name('ganti.password');
+Route::post('ganti-password', [AuthController::class, 'gantiPasswordProcess'])->name('ganti.password.process');

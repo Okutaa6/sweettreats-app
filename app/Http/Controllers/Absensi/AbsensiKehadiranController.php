@@ -70,9 +70,27 @@ class AbsensiKehadiranController extends Controller
         $days = DB::table('att_day')
             ->whereBetween('work_date', [$from->toDateString(), $to->toDateString()])
             ->get(['user_id', 'raw_branch_id', 'work_date', 'status', 'telat_menit',
-                   'single_scan', 'lembur_menit_disetujui', 'cabang_terlibat']);
+                   'single_scan', 'lembur_menit_disetujui', 'cabang_terlibat',
+                   'scan_first', 'scan_last']);
 
         $branchName = RawBranch::pluck('name', 'id');
+
+        // Foto selfie absen HP periode ini — dipetakan (user_id, work_date) → bukti,
+        // buat ditampilkan saat sel kalender diklik. Rentang ikut dawn-pushback:
+        // ambil s/d (to+1) 06:00 supaya scan dini hari besoknya kebawa hari 'to'.
+        $buktiMap = [];
+        $buktis = DB::table('att_hp_bukti')
+            ->where('taken_at', '>=', $from->copy()->setTime(6, 0))
+            ->where('taken_at', '<', $to->copy()->addDay()->setTime(6, 0))
+            ->orderBy('taken_at')
+            ->get(['id', 'user_id', 'jenis', 'taken_at']);
+        foreach ($buktis as $b) {
+            $mins = Carbon::parse($b->taken_at)->hour * 60 + Carbon::parse($b->taken_at)->minute;
+            $wd = $mins < 360
+                ? Carbon::parse($b->taken_at)->subDay()->toDateString()
+                : Carbon::parse($b->taken_at)->toDateString();
+            $buktiMap[$b->user_id][$wd][] = ['id' => $b->id, 'jenis' => $b->jenis];
+        }
 
         // ROSTER absensi = orang yang punya aturan kerja aktif di periode ini.
         // Baris diambil dari roster, BUKAN dari att_day — supaya orang yang bulan
@@ -123,6 +141,7 @@ class AbsensiKehadiranController extends Controller
             }
 
             $matrix[$u->id] = [
+                'id'      => $u->id,
                 'nama'    => $nama,
                 'initial' => mb_strtoupper(mb_substr(trim($nama), 0, 1)),
                 'home_id' => $homeId,
@@ -157,6 +176,9 @@ class AbsensiKehadiranController extends Controller
                 'single' => (int) $d->single_scan,
                 'lembur' => (int) $d->lembur_menit_disetujui,
                 'lain'   => array_keys($lain),
+                'jam_in' => $d->scan_first ? substr($d->scan_first, 11, 5) : null,
+                'jam_out'=> $d->scan_last && $d->scan_last !== $d->scan_first ? substr($d->scan_last, 11, 5) : null,
+                'foto'   => $buktiMap[$uid][$d->work_date] ?? [],
             ];
 
             if ($d->status === 'hadir') $matrix[$uid]['h']++;

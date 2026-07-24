@@ -71,6 +71,22 @@ class AbsensiPeriodController extends Controller
         if ($period->isClosed()) {
             return back()->with('error', 'Periode sudah ditutup.');
         }
+
+        // Garis finis antrian SPV: periode TAK BOLEH ditutup selama masih ada
+        // flag terbuka di rentangnya — angka yang dikunci buat gajian harus
+        // sudah bersih dari kejanggalan yang belum diputuskan (rencana-absen-hp §8).
+        $flagTerbuka = \App\Models\AttFlag::whereBetween('work_date', [
+                $period->periode_from->toDateString(),
+                $period->periode_to->toDateString(),
+            ])
+            ->where('status', '!=', 'selesai')
+            ->count();
+        if ($flagTerbuka > 0) {
+            return back()->with('error',
+                "Masih ada {$flagTerbuka} flag absen yang belum diselesaikan di rentang periode ini. " .
+                'Selesaikan dulu lewat halaman Pengawasan Absen, baru periode bisa ditutup.');
+        }
+
         $period->update([
             'status'    => 'closed',
             'closed_by' => (string) session('id') ?: null,

@@ -54,6 +54,20 @@ class Kernel extends ConsoleKernel
             ->withoutOverlapping(120)
             ->runInBackground()
             ->appendOutputTo(storage_path('logs/accurate-cron.log'));
+
+        // Absensi pagi — 06:10 reconcile (SETELAH ambang dini-hari 06:00, biar
+        // scan subuh sudah final milik hari kemarin), lalu 06:20 sweep flag
+        // "lupa absen pulang" dari att_day kemarin. Dua-duanya idempoten.
+        $schedule->command(sprintf('att:reconcile %s %s',
+                now()->subDay()->toDateString(), now()->toDateString()))
+            ->dailyAt('06:10')
+            ->withoutOverlapping(30)
+            ->appendOutputTo(storage_path('logs/absensi-cron.log'));
+
+        $schedule->command('att:flag-sweep')
+            ->dailyAt('06:20')
+            ->withoutOverlapping(10)
+            ->appendOutputTo(storage_path('logs/absensi-cron.log'));
     }
 
     /**

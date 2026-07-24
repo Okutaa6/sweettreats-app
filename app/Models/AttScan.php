@@ -19,7 +19,7 @@ class AttScan extends Model
 
     protected $fillable = [
         'batch_id', 'raw_branch_id', 'device_user_id', 'user_id',
-        'scanned_at', 'source', 'raw_row', 'hash',
+        'scanned_at', 'source', 'raw_row', 'hash', 'created_at',
     ];
 
     protected $casts = [
