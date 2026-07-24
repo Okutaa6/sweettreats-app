@@ -16,9 +16,14 @@ class AuditLogController extends Controller
         // justru audit log — kontrol deteksi — yang paling terbuka.
         //
         // Halaman ini tak punya entri menu di mana pun (murni URL), jadi tak ada
-        // "pemilik" alami. Dibatasi ke admin tingkat sistem: pemegang kendali
-        // akses, yaitu Super Admin & Admin General.
-        abort_unless(canManagePageAccess(), 403, 'Riwayat aktivitas hanya untuk admin sistem.');
+        // "pemilik" alami. Dibatasi ke admin tingkat sistem + IT (keputusan
+        // Pusat Akun 2026-07-24: "namanya juga IT" — audit log bagian kerjanya).
+        // Selaras dengan grant Pusat Akun: semua role yang mengelola user
+        // (4 admin + IT) berhak melihat jejaknya.
+        abort_unless(
+            canManagePageAccess() || in_array(session('group_name'), ['Head IT', 'IT', 'Admin', 'Admin Backup'], true),
+            403, 'Riwayat aktivitas hanya untuk admin sistem / IT.'
+        );
 
         $query = AuditLog::query()->orderByDesc('created_at');
 
