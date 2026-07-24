@@ -110,7 +110,10 @@ class MarkChecklistMissed extends Command
         $ds = $date->toDateString();
 
         // Karyawan aktif pada tanggal itu — 1 posisi primary per user.
+        // Akun nonaktif/terhapus di-skip: posisinya mungkin belum tertutup,
+        // jangan sampai dicetak "Tidak Diisi" selamanya.
         $positions = UserPosition::query()->activeOn($date)
+            ->whereIn('user_id', \App\Models\Users::query()->where('status', 1)->select('id'))
             ->get(['user_id', 'division_id', 'raw_branch_id'])
             ->unique('user_id')
             ->keyBy('user_id');

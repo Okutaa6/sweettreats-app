@@ -59,9 +59,9 @@ class UserManagement extends Controller
         foreach (DB::select("
             SELECT u.id FROM users u JOIN group_path g ON g.id = u.group_id
             WHERE u.status = 1 AND g.landing_page IS NOT NULL AND g.landing_page <> ''
-              AND SUBSTRING_INDEX(g.landing_page,'/',1) NOT IN ($skip)
+              AND SUBSTRING_INDEX(TRIM(LEADING '/' FROM g.landing_page),'/',1) NOT IN ($skip)
               AND NOT EXISTS (SELECT 1 FROM group_access ga JOIN access_path ap ON ap.id = ga.access_id
-                              WHERE ga.group_id = g.id AND ap.link = SUBSTRING_INDEX(g.landing_page,'/',1))
+                              WHERE ga.group_id = g.id AND ap.link = SUBSTRING_INDEX(TRIM(LEADING '/' FROM g.landing_page),'/',1))
         ") as $r) $ids[$r->id] = 'landing';
 
         return $ids;
@@ -80,6 +80,15 @@ class UserManagement extends Controller
 
         if (! $jadiAktif) {
             app(\App\Services\DeviceAuth::class)->revokeAllFor($id);
+            // Tutup posisi checklist-nya — tanpa ini cron mark-missed terus
+            // mencetak "Tidak Diisi" untuk akun yang sudah nonaktif.
+            try {
+                \App\Models\UserPosition::query()->activeOn(\Carbon\Carbon::today())->where('user_id', $id)
+                    ->update(['effective_to' => now()->subDay()->toDateString(), 'updated_at' => now()]);
+            } catch (\Throwable $e) {}
+        } else {
+            // Diaktifkan lagi → buka kembali posisi checklist dari data user-nya.
+            try { \App\Models\UserPosition::syncFromUser($user->fresh(), session('id')); } catch (\Throwable $e) {}
         }
         \App\Models\AuditLog::record('status_change', ($jadiAktif ? 'Aktifkan akun: ' : 'Nonaktifkan akun: ') . $user->nama, $user);
 
@@ -213,6 +222,11 @@ class UserManagement extends Controller
         }
 
         \App\Models\AuditLog::record('delete', 'Hapus akun: ' . $user->nama . ' (' . $user->email . ')');
+        // Tutup posisi checklist yang masih terbuka sebelum user hilang.
+        try {
+            \App\Models\UserPosition::query()->activeOn(\Carbon\Carbon::today())->where('user_id', $id)
+                ->update(['effective_to' => now()->subDay()->toDateString(), 'updated_at' => now()]);
+        } catch (\Throwable $e) {}
         $user->delete();
         return redirect()->route('setusermanagement')->with('success', 'User berhasil dihapus');
     }

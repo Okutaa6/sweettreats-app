@@ -109,12 +109,12 @@ class KesehatanController extends Controller
                    (SELECT COUNT(*) FROM users u WHERE u.group_id = g.id AND u.status = 1) AS n_user
             FROM group_path g
             WHERE g.landing_page IS NOT NULL AND g.landing_page <> ''
-              AND SUBSTRING_INDEX(g.landing_page, '/', 1) NOT IN ('" . implode("','", \App\Http\Middleware\AuthGuard::SKIP_RBAC) . "')
+              AND SUBSTRING_INDEX(TRIM(LEADING '/' FROM g.landing_page), '/', 1) NOT IN ('" . implode("','", \App\Http\Middleware\AuthGuard::SKIP_RBAC) . "')
               AND NOT EXISTS (
                   SELECT 1 FROM group_access ga
                   JOIN access_path ap ON ap.id = ga.access_id
                   WHERE ga.group_id = g.id
-                    AND ap.link = SUBSTRING_INDEX(g.landing_page, '/', 1)
+                    AND ap.link = SUBSTRING_INDEX(TRIM(LEADING '/' FROM g.landing_page), '/', 1)
               )
             ORDER BY n_user DESC, g.nama
         ");

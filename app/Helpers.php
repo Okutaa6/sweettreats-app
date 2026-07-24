@@ -206,7 +206,12 @@ if (!function_exists('shellMenuSections')) {
             ));
             if (!$leaves) continue;
 
-            foreach ($leaves as &$l) { $l['active'] = ($l['link'] === $controller); }
+            // Link ber-sub-path (mis. 'checklist/positions') dicocokkan ke path
+            // penuh; link satu-segmen tetap cukup cocok segment-1.
+            foreach ($leaves as &$l) {
+                $l['active'] = ($l['link'] === $controller)
+                    || (strpos((string) $l['link'], '/') !== false && request()->is($l['link']));
+            }
             unset($l);
 
             $sections[] = [

@@ -333,7 +333,10 @@ class MarketingDashboardController extends Controller
             ->whereBetween('r.date', [$start, $end])
             ->where('r.status', '<>', 'cancelled')
             ->whereNotNull('l.omnicare_record_id')
-            ->count();
+            // DISTINCT: 1 reservasi bisa punya >1 link omnicare — tanpa ini
+            // "Hadir" bisa melebihi "Aktif" (funnel tak monotonic lagi).
+            ->distinct()
+            ->count('r.id');
 
         return $this->funnelStages([
             ['label' => 'Reservasi', 'sub' => 'dibuat',      'count' => $reservasi],

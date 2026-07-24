@@ -99,9 +99,13 @@ class Group extends Controller
             'parent_id'    => 'nullable|exists:group_path,id',
         ]);
 
-        $data = request()->except('_token');
-        $data['parent_id'] = $data['parent_id'] ?: null;
-        $data['level']     = $this->levelFor($data['parent_id']);
+        // 'id' ikut $fillable (seeder butuh) — jangan sampai bisa disusupkan
+        // dari form; landing_page dinormalkan (tanpa slash depan) supaya cocok
+        // dengan pembanding segment-1 di AuthGuard & detektor Kesehatan.
+        $data = request()->except('_token', '_method', 'id');
+        $data['parent_id']    = $data['parent_id'] ?: null;
+        $data['level']        = $this->levelFor($data['parent_id']);
+        $data['landing_page'] = ltrim(trim($data['landing_page']), '/');
 
         GroupPath::create($data);
 
@@ -136,9 +140,10 @@ class Group extends Controller
                 ->with('error', 'Atasan tidak boleh diri sendiri atau bawahannya (siklus).');
         }
 
-        $data = request()->except('_token');
-        $data['parent_id'] = $parentId;
-        $data['level']     = $this->levelFor($parentId);
+        $data = request()->except('_token', '_method', 'id');
+        $data['parent_id']    = $parentId;
+        $data['level']        = $this->levelFor($parentId);
+        $data['landing_page'] = ltrim(trim($data['landing_page']), '/');
 
         DB::transaction(function () use ($group, $data) {
             $group->update($data);
@@ -230,10 +235,20 @@ class Group extends Controller
 
     public function destroy($id)
     {
-        $group = GroupPath::find($id);
+        $group = GroupPath::findOrFail($id);
 
         if ($group->children()->exists()) {
             return redirect()->route('setgroup')->with('error', 'Role masih punya bawahan, pindahkan dulu.');
+        }
+
+        // Role yang masih jadi bagian rantai persetujuan absensi tak boleh
+        // dihapus — rantainya bolong diam-diam (pengajuan lolos tanpa approver)
+        // dan baru ketahuan belakangan lewat detektor Kesehatan.
+        $dipakaiApproval = DB::table('att_approval_rule')
+            ->where('role_id', $id)->orWhere('approver_role_id', $id)->exists();
+        if ($dipakaiApproval) {
+            return redirect()->route('setgroup')->with('error',
+                'Role masih dipakai aturan persetujuan absensi (pengaju/penyetuju). Ubah aturannya dulu.');
         }
 
         if ($group->groupAccesses->count() > 0) {

@@ -52,10 +52,9 @@ use App\Http\Controllers\Finance\TopupRequestController;
 
 
 Route::get('/', function () {
-    $services    = \App\Models\RawDocService::orderBy('name')->get();
-    $branches    = \App\Models\RawBranch::orderBy('name')->get();
-    $branchCount = $branches->count();
-    return view('landing', compact('services', 'branches', 'branchCount'));
+    // Landing baru hanya butuh jumlah cabang.
+    $branchCount = \App\Models\RawBranch::count();
+    return view('landing', compact('branchCount'));
 })->name('home');
 
 Route::get('/reservasi', function () {
