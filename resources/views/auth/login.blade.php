@@ -63,6 +63,13 @@
                 @enderror
             </div>
 
+            <label style="display:flex;align-items:flex-start;gap:8px;margin:2px 0 10px;cursor:pointer;font-size:13px;line-height:1.4">
+                <input type="checkbox" name="remember_device" value="1" style="margin-top:2px">
+                <span>Ingat perangkat ini<br>
+                    <span style="opacity:.65;font-size:12px">Hanya centang di HP pribadimu — biar tidak perlu login ulang tiap absen.</span>
+                </span>
+            </label>
+
             <a href="{{ url('forgot-password') }}" class="forgot-link">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                     <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
