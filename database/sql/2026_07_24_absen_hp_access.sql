@@ -53,5 +53,17 @@ FROM `group_path` gp
 WHERE gp.nama IN ('Head IT', 'IT')
   AND NOT EXISTS (SELECT 1 FROM group_access gx WHERE gx.group_id = gp.id AND gx.access_id = 'abs-parent-000000000000');
 
+-- ── AuthGuard meloloskan /absensi/* HANYA kalau role pegang node ber-link
+--    'absensi' (pembanding segment-1). Node pembawa link itu BEDA antar
+--    environment (lokal: abs-parent; dev: node lama "Upload Data") — jadi
+--    grant BY LINK, bukan by id, supaya kebal drift. (Kena di dev 2026-07-24:
+--    Head IT punya abs-parent & abs-wifi tapi tetap 302 di /absensi/wifi.)
+INSERT IGNORE INTO `group_access` (`id`, `group_id`, `access_id`)
+SELECT CONCAT('abs-seg-', SUBSTRING(MD5(CONCAT(gp.id, ap.id)), 1, 24)), gp.id, ap.id
+FROM `group_path` gp
+JOIN `access_path` ap ON ap.link = 'absensi'
+WHERE gp.nama IN ('Head IT', 'IT')
+  AND NOT EXISTS (SELECT 1 FROM group_access gx WHERE gx.group_id = gp.id AND gx.access_id = ap.id);
+
 -- Pencabutan grant Finance (kalau sempat terpasang dari versi awal file ini)
 DELETE FROM `group_access` WHERE `id` = 'abs-wifi-grant-finance';
