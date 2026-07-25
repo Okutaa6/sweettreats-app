@@ -54,7 +54,12 @@
                     <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap" style="gap:8px;">
                         <div class="d-flex align-items-center" style="gap:8px;">
                             @if(!$isViewOnly)
-                                <a href="{{ route('rawreservation.new') }}" id="rrBtnTambah" class="st-btn-brand">
+                                {{-- onclick INLINE (bukan binding jQuery): saat koneksi lambat,
+                                     klik bisa terjadi sebelum handler sempat terpasang → dulu
+                                     nyasar ke halaman penuh. Inline mengecek mesin drawer SAAT
+                                     diklik; belum siap → fallback halaman penuh (tetap berfungsi). --}}
+                                <a href="{{ route('rawreservation.new') }}" id="rrBtnTambah" class="st-btn-brand"
+                                   onclick="if(window.rrOpenFormDrawer){window.rrOpenFormDrawer({title:'Tambah Reservasi',url:this.href,mode:'add'});return false;}">
                                     <i class="fa fa-plus"></i> Tambah
                                 </a>
                             @endif
@@ -1687,11 +1692,8 @@ document.querySelectorAll('.st-status-select').forEach(function (sel) {
     });
 
     // Tombol "Tambah" → buka form drawer (mode add). preventDefault → tidak navigasi.
-    // Kalau JS mati, <a href> tetap fallback ke halaman /rawreservation/new.
-    $(document).on('click', '#rrBtnTambah', function (e) {
-        e.preventDefault();
-        window.rrOpenFormDrawer({ title: 'Tambah Reservasi', url: $(this).attr('href'), mode: 'add' });
-    });
+    // Tombol Tambah kini pakai onclick INLINE di elemennya (anti-race saat
+    // koneksi lambat) — jangan bind ulang di sini, nanti drawer kebuka dobel.
 
     // "Edit lengkap" di Detail drawer → tutup Detail, buka form drawer (mode edit).
     $(document).on('click', '#rrdEdit', function (e) {
@@ -1750,19 +1752,16 @@ document.querySelectorAll('.st-status-select').forEach(function (sel) {
         })
         .then(function (res) {
             if (res.status >= 200 && res.status < 300 && res.data && res.data.ok) {
-                // Sukses → toast + refresh isi drawer. Drawer TETAP terbuka (list di-reload saat ditutup).
+                // Sukses → toast sebentar, lalu drawer DITUTUP otomatis + list reload.
+                // (Dulu drawer sengaja tetap terbuka & pindah ke mode Edit — staf
+                // mengira belum tersimpan, mengetik pasien berikutnya di form Edit
+                // itu, dan MENIMPA reservasi yang barusan dibuat. Keluhan lapangan
+                // 2026-07-25: "simpan → langsung keluar seperti dulu".)
                 needsListReload = true;
                 if (window.Swal) {
-                    Swal.fire({ icon: 'success', title: res.data.message || 'Tersimpan', timer: 1100, showConfirmButton: false });
+                    Swal.fire({ icon: 'success', title: res.data.message || 'Tersimpan', timer: 900, showConfirmButton: false });
                 }
-                var refreshOpts = currentForm ? Object.assign({}, currentForm) : {};
-                if ((!refreshOpts.url || refreshOpts.mode === 'add') && res.data.id) {
-                    // Mode tambah → alihkan ke form Edit reservasi yang baru dibuat.
-                    refreshOpts.url = RR_EDIT_TPL.replace('__RID__', res.data.id);
-                    refreshOpts.mode = 'edit';
-                    refreshOpts.title = 'Edit Reservasi';
-                }
-                window.rrOpenFormDrawer(refreshOpts);
+                setTimeout(function () { rrFormClose(); }, 900); // kasih waktu toast kebaca, lalu keluar
                 return;
             }
             if (res.status === 422 && res.data && res.data.errors) {
