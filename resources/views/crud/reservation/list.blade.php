@@ -1738,19 +1738,16 @@ document.querySelectorAll('.st-status-select').forEach(function (sel) {
         })
         .then(function (res) {
             if (res.status >= 200 && res.status < 300 && res.data && res.data.ok) {
-                // Sukses → toast + refresh isi drawer. Drawer TETAP terbuka (list di-reload saat ditutup).
+                // Sukses → toast sebentar, lalu drawer DITUTUP otomatis + list reload.
+                // (Dulu drawer sengaja tetap terbuka & pindah ke mode Edit — staf
+                // mengira belum tersimpan, mengetik pasien berikutnya di form Edit
+                // itu, dan MENIMPA reservasi yang barusan dibuat. Keluhan lapangan
+                // 2026-07-25: "simpan → langsung keluar seperti dulu".)
                 needsListReload = true;
                 if (window.Swal) {
-                    Swal.fire({ icon: 'success', title: res.data.message || 'Tersimpan', timer: 1100, showConfirmButton: false });
+                    Swal.fire({ icon: 'success', title: res.data.message || 'Tersimpan', timer: 900, showConfirmButton: false });
                 }
-                var refreshOpts = currentForm ? Object.assign({}, currentForm) : {};
-                if ((!refreshOpts.url || refreshOpts.mode === 'add') && res.data.id) {
-                    // Mode tambah → alihkan ke form Edit reservasi yang baru dibuat.
-                    refreshOpts.url = RR_EDIT_TPL.replace('__RID__', res.data.id);
-                    refreshOpts.mode = 'edit';
-                    refreshOpts.title = 'Edit Reservasi';
-                }
-                window.rrOpenFormDrawer(refreshOpts);
+                setTimeout(function () { rrFormClose(); }, 900); // kasih waktu toast kebaca, lalu keluar
                 return;
             }
             if (res.status === 422 && res.data && res.data.errors) {
