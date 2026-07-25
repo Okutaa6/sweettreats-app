@@ -54,7 +54,12 @@
                     <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap" style="gap:8px;">
                         <div class="d-flex align-items-center" style="gap:8px;">
                             @if(!$isViewOnly)
-                                <a href="{{ route('rawreservation.new') }}" id="rrBtnTambah" class="st-btn-brand">
+                                {{-- onclick INLINE (bukan binding jQuery): saat koneksi lambat,
+                                     klik bisa terjadi sebelum handler sempat terpasang → dulu
+                                     nyasar ke halaman penuh. Inline mengecek mesin drawer SAAT
+                                     diklik; belum siap → fallback halaman penuh (tetap berfungsi). --}}
+                                <a href="{{ route('rawreservation.new') }}" id="rrBtnTambah" class="st-btn-brand"
+                                   onclick="if(window.rrOpenFormDrawer){window.rrOpenFormDrawer({title:'Tambah Reservasi',url:this.href,mode:'add'});return false;}">
                                     <i class="fa fa-plus"></i> Tambah
                                 </a>
                             @endif
@@ -1676,10 +1681,8 @@ document.querySelectorAll('.st-status-select').forEach(function (sel) {
 
     // Tombol "Tambah" → buka form drawer (mode add). preventDefault → tidak navigasi.
     // Kalau JS mati, <a href> tetap fallback ke halaman /rawreservation/new.
-    $(document).on('click', '#rrBtnTambah', function (e) {
-        e.preventDefault();
-        window.rrOpenFormDrawer({ title: 'Tambah Reservasi', url: $(this).attr('href'), mode: 'add' });
-    });
+    // Tombol Tambah kini pakai onclick INLINE di elemennya (anti-race saat
+    // koneksi lambat) — jangan bind ulang di sini, nanti drawer kebuka dobel.
 
     // "Edit lengkap" di Detail drawer → tutup Detail, buka form drawer (mode edit).
     $(document).on('click', '#rrdEdit', function (e) {
