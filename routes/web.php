@@ -319,6 +319,17 @@ Route::middleware([AuthGuard::class])->group(function () {
     Route::post('absensi/upload/file', [AbsensiUploadController::class, 'upload'])->name('absensi.upload.file');
     Route::get('absensi/recap',        [AbsensiRecapController::class, 'index'])->name('absensi.recap');
     Route::get('absensi/kehadiran',    [\App\Http\Controllers\Absensi\AbsensiKehadiranController::class, 'index'])->name('absensi.kehadiran');
+
+    // Lembar Gaji — rekap kehadiran/lembur per karyawan per bulan (Finance/IT/admin)
+    Route::get('absensi/lembar-gaji',        [\App\Http\Controllers\Absensi\LembarGajiController::class, 'index'])->name('absensi.lembargaji');
+    Route::get('absensi/lembar-gaji/export', [\App\Http\Controllers\Absensi\LembarGajiController::class, 'export'])->name('absensi.lembargaji.export');
+
+    // Cuti — rekap saldo + cuti bersama + koreksi + kontrak baru (Finance/IT/admin)
+    Route::get ('absensi/cuti',               [\App\Http\Controllers\Absensi\CutiController::class, 'index'])->name('absensi.cuti');
+    Route::post('absensi/cuti/bersama',       [\App\Http\Controllers\Absensi\CutiController::class, 'bersama'])->name('absensi.cuti.bersama');
+    Route::post('absensi/cuti/bersama-undo',  [\App\Http\Controllers\Absensi\CutiController::class, 'bersamaUndo'])->name('absensi.cuti.bersama.undo');
+    Route::post('absensi/cuti/koreksi',       [\App\Http\Controllers\Absensi\CutiController::class, 'koreksi'])->name('absensi.cuti.koreksi');
+    Route::post('absensi/cuti/kontrak-baru',  [\App\Http\Controllers\Absensi\CutiController::class, 'kontrakBaru'])->name('absensi.cuti.kontrak');
     Route::get('absensi/mapping',         [AbsensiMappingController::class, 'index'])->name('absensi.mapping');
     Route::post('absensi/mapping/assign', [AbsensiMappingController::class, 'assign'])->name('absensi.mapping.assign');
     Route::post('absensi/mapping/ignore', [AbsensiMappingController::class, 'ignore'])->name('absensi.mapping.ignore');

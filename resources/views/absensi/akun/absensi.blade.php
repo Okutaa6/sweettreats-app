@@ -59,6 +59,13 @@
         <div class="absk-tiles">
             <div class="absk-tile telat"><div class="k">TOTAL TELAT</div><div class="v num">{{ $rekap['telat_menit'] }} mnt</div></div>
             <div class="absk-tile lembur"><div class="k">LEMBUR DISETUJUI</div><div class="v num">{{ $rekap['lembur_menit'] ? round($rekap['lembur_menit']/60, 1) : 0 }} jam</div></div>
+            @if($cutiSisa !== null)
+                <div class="absk-tile cuti {{ $cutiSisa < 0 ? 'is-minus' : '' }}">
+                    <div class="k">SISA CUTI</div>
+                    <div class="v num">{{ rtrim(rtrim(number_format($cutiSisa, 1, ',', '.'), '0'), ',') }} hari</div>
+                    @if($cutiSisa < 0)<div class="k" style="margin-top:1px">melebihi jatah — ganti hari</div>@endif
+                </div>
+            @endif
         </div>
 
         {{-- Hari Ini --}}

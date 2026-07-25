@@ -99,9 +99,13 @@ class AkunAbsensiController extends Controller
         // pilihan "apa yang keliru?" untuk drawer Koreksi Absen
         $korAlasan = \App\Http\Controllers\Absensi\AkunPengajuanController::KOREKSI_ALASAN;
 
+        // Sisa jatah cuti — null = di luar sistem cuti (eksekutif), tile
+        // tidak dirender. docs/rencana-jatah-cuti.md.
+        $cutiSisa = app(\App\Services\CutiService::class)->sisa($userId);
+
         return view('absensi.akun.absensi', compact(
             'days', 'rekap', 'requests', 'anchor', 'from', 'to', 'me', 'today', 'notifCount',
-            'tipeList', 'ajTipe', 'wfhUsed', 'korAlasan'
+            'tipeList', 'ajTipe', 'wfhUsed', 'korAlasan', 'cutiSisa'
         ));
     }
 }

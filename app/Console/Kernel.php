@@ -84,6 +84,12 @@ class Kernel extends ConsoleKernel
             ->withoutOverlapping(10)
             ->appendOutputTo(storage_path('logs/absensi-cron.log'));
 
+        // Reset kontrak cuti yang lewat tanggal — dorman selama kontrak_akhir
+        // belum diisi (data tanggal masih dikumpulkan), nyala sendiri begitu
+        // tanggalnya ada. docs/rencana-jatah-cuti.md.
+        $schedule->call(fn () => app(\App\Services\CutiService::class)->resetKontrakKedaluwarsa())
+            ->name('cuti-reset-kontrak')->dailyAt('01:20')->withoutOverlapping(30);
+
         // Retensi audit log: 6 bulan (Pusat Akun Fase D). Chunked biar tak
         // ngunci tabel kalau tumpukan lama besar.
         $schedule->call(function () {
