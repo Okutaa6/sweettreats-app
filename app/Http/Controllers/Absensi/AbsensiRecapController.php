@@ -20,7 +20,7 @@ use Illuminate\Support\Carbon;
  * Guard canSeeAllBranches (sama pola AbsensiUploadController). Route di segment(1) =
  * 'absensi' (node sudah di-grant Finance/admin), jadi tak butuh access node baru.
  *
- * Konteks: docs/rencana-rekonsiliasi-absensi.md §2.11, §5.4, Fase D.
+ * Konteks: docs/rencana/rencana-rekonsiliasi-absensi.md §2.11, §5.4, Fase D.
  */
 class AbsensiRecapController extends Controller
 {

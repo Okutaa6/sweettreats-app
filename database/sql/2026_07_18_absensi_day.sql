@@ -4,7 +4,7 @@
 -- Tujuan: HASIL rekonsiliasi, 1 baris per (user, hari kerja). TURUNAN — bisa
 --         dihitung ulang kapan aja dari att_scan + aturan. Bukan sumber kebenaran.
 --
--- Konteks: docs/rencana-rekonsiliasi-absensi.md §5.2, §5.3. Diisi oleh
+-- Konteks: docs/rencana/rencana-rekonsiliasi-absensi.md §5.2, §5.3. Diisi oleh
 --          App\Services\AttendanceReconciler (command: php artisan att:reconcile).
 --
 -- Catatan desain:

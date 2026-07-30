@@ -14,7 +14,7 @@
 -- day: 0=Minggu, 1=Senin, ... 6=Sabtu (cocok dgn Carbon::dayOfWeek).
 -- Senin = hari tutup klinik.
 --
--- Sumber angka: SOP yang dipakai di docs/rencana-rekonsiliasi-absensi.md §3.
+-- Sumber angka: SOP yang dipakai di docs/rencana/rencana-rekonsiliasi-absensi.md §3.
 -- ============================================================================
 
 -- ── 1. Jenis aturan ─────────────────────────────────────────────────────────

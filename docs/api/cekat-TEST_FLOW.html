@@ -237,7 +237,7 @@
                 </tbody>
             </table>
 
-            <h3><i class="fa-solid fa-gear"></i> 3. Konfigurasi tester (di <code>docs/cekat-api.http</code> + ekstensi VSCode "REST Client")</h3>
+            <h3><i class="fa-solid fa-gear"></i> 3. Konfigurasi tester (di <code>docs/api/cekat-api.http</code> + ekstensi VSCode "REST Client")</h3>
             <table class="pre-req-table">
                 <thead><tr><th>Environment</th><th><code>@base</code></th><th><code>@token</code></th></tr></thead>
                 <tbody>
@@ -278,7 +278,7 @@
                     <li>Semua tes tulis pakai endpoint <strong>sandbox</strong> (<code>/apicekatdev/*</code>) → masuk tabel <code>_dev</code>, aman.</li>
                     <li>Verifikasi DB: phpMyAdmin atau <code>php artisan tinker</code> (contoh query ada di tiap test).</li>
                     <li>Beberapa test E berurutan (slot habis bergantung test sebelumnya).</li>
-                    <li>Token bocor jangan di-commit. <code>docs/cekat-api.http</code> harus tetap pakai placeholder saat masuk git.</li>
+                    <li>Token bocor jangan di-commit. <code>docs/api/cekat-api.http</code> harus tetap pakai placeholder saat masuk git.</li>
                 </ol>
             </div>
         </div>
@@ -299,7 +299,7 @@ const TESTS = [
     { id:'A.1', section:'A', sectionTitle:'A — Autentikasi & Konvensi', sectionIcon:'fa-shield-halved', anchor:'sec-a',
       title:'Tanpa token → 401',
       goal:'Endpoint menolak request tanpa header Authorization',
-      steps:['Buka <code>docs/cekat-api.http</code>, blok <strong>1</strong> (tanpa token)', 'Send Request'],
+      steps:['Buka <code>docs/api/cekat-api.http</code>, blok <strong>1</strong> (tanpa token)', 'Send Request'],
       expected:'HTTP <strong>401</strong>, body <code>{"status":"error","code":"UNAUTHORIZED",...}</code>' },
     { id:'A.2', section:'A', title:'Token salah → 401',
       steps:['Ubah <code>@token</code> jadi teks ngawur', 'Send blok <strong>2</strong> (service_range)'],

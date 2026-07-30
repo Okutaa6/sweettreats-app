@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
  * Perangkat "Ingat perangkat ini" (remember me). Nyimpen HASH sha256 token —
  * token asli cuma hidup di cookie (90 hari), DIPUTAR tiap dipakai.
  * Cabut: logout manual / ganti password / akun nonaktif → revoked_at terisi.
- * Lihat docs/rencana-absen-hp.md §5.
+ * Lihat docs/rencana/rencana-absen-hp.md §5.
  */
 class UserDevice extends Model
 {

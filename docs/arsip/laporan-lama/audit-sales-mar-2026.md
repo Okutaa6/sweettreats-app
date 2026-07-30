@@ -260,7 +260,7 @@ dashboard, `OmnicareEncounters` helper) sudah benar — hanya pakai `SUM(net_sel
 
 4. **Re-frame proposal ke sales:** *bukan* "kalian salah", tapi *"kerjaan typing yang
    melelahkan itu bisa dipotong, fokus ke analisis"*. Lihat
-   [docs/proposal-laporan-sales-otomatis.md](proposal-laporan-sales-otomatis.md).
+   [docs/arsip/laporan-lama/proposal-laporan-sales-otomatis.md](proposal-laporan-sales-otomatis.md).
 
 ---
 

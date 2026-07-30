@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
  * Antrian review SPV — janggal = flag, BUKAN blokir (WiFi = saksi, bukan
  * gerbang). Siklus: baru → dicek → selesai (hasil wajib: wajar /
  * perlu_koreksi / pelanggaran). UNIQUE (user, tanggal, jenis) = idempoten.
- * Orang fleksibel tidak pernah dapat flag. Lihat docs/rencana-absen-hp.md §8.
+ * Orang fleksibel tidak pernah dapat flag. Lihat docs/rencana/rencana-absen-hp.md §8.
  */
 class AttFlag extends Model
 {

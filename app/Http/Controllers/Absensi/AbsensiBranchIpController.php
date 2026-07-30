@@ -12,7 +12,7 @@ use Illuminate\Http\Request;
  * Ganti WiFi / tambah jalur / buka cabang = urusan DATA di sini, BUKAN deploy.
  * Diisi juga lewat tombol "daftarkan IP" dari layar Pengawasan (lingkaran belajar).
  * Guard canSeeAllBranches (pola AbsensiRecapController), segment(1)='absensi'.
- * Lihat docs/rencana-absen-hp.md §7 layar 3.
+ * Lihat docs/rencana/rencana-absen-hp.md §7 layar 3.
  */
 class AbsensiBranchIpController extends Controller
 {

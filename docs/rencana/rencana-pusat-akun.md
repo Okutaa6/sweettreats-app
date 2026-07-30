@@ -54,14 +54,14 @@ akses penuh ini sekalian eksperimen "seberapa jauh akses role IT".)
 7. **Testing di LOCAL dulu**; deploy nyusul bareng ritme dev/prod absensi.
 8. **Ticketing = fitur TERPISAH**, diparkir — bahas sendiri nanti, jangan numpang di sini.
 9. Re-skin = re-skin: **CRUD yang jalan TIDAK ditulis ulang**, cuma ganti kulit + insight.
-10. Visual via claude.ai/design — brief: `docs/design-brief-pusat-akun.md`.
+10. Visual via claude.ai/design — brief: `docs/arsip/brief-selesai/design-brief-pusat-akun.md`.
 
 ## 4. Halaman
 
 ### 4a. Kesehatan (BARU — bintangnya)
 
 Kartu detektor, tiap kartu: angka + daftar terdampak + "cara benerin". Sumber query:
-`docs/deploy-absensi.md` §9 (sudah ditulis, tinggal dijadikan halaman):
+`docs/deploy/deploy-absensi.md` §9 (sudah ditulis, tinggal dijadikan halaman):
 
 | Detektor | Menangkap | Sudah kejadian |
 |---|---|---|

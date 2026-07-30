@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\Cookie;
  * menit, jadi staff yang buka cuma 2×/hari (absen masuk/pulang) PASTI login
  * ulang tiap buka. Cookie perangkat nutup itu tanpa melonggarkan sesi.
  *
- * Keamanan (docs/rencana-absen-hp.md §5):
+ * Keamanan (docs/rencana/rencana-absen-hp.md §5):
  *   • DB nyimpen HASH sha256 token; token asli cuma di cookie (ter-encrypt
  *     Laravel EncryptCookies di atasnya).
  *   • Token DIPUTAR tiap dipakai — cookie curian kepakai sekali, aslinya mati.

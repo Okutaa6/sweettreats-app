@@ -16,7 +16,7 @@
 --   level 1 = atasan langsung (dari hierarki HR).
 --   level 2 = finance/management, hanya untuk item duit (cuti & lembur, §5.4). PENDING.
 --
--- Konteks: docs/rencana-rekonsiliasi-absensi.md §5.4.
+-- Konteks: docs/rencana/rencana-rekonsiliasi-absensi.md §5.4.
 -- Idempotent: CREATE IF NOT EXISTS.
 -- ════════════════════════════════════════════════════════════════════════════
 

@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 /**
  * Form pengajuan absen: cuti | izin | libur | lembur | wfh.
  * Deklarasi manusia — kebenaran tertinggi di atas scan (§4).
- * Lihat docs/rencana-rekonsiliasi-absensi.md §4, §5.2.
+ * Lihat docs/rencana/rencana-rekonsiliasi-absensi.md §4, §5.2.
  */
 class AttRequest extends Model
 {

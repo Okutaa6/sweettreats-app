@@ -16,7 +16,7 @@ use Illuminate\Http\Request;
  * kelihatan TANPA dicari (strip foto latar-seragam + antrian flag + gruping
  * serentak). Akses via node 'pengawasan' (AuthGuard, grant Supervisor/Finance/
  * admin — SQL 2026_07_24_absen_hp_access.sql).
- * Lihat docs/rencana-absen-hp.md §7 layar 2 + handoff_absen_hp.
+ * Lihat docs/rencana/rencana-absen-hp.md §7 layar 2 + handoff_absen_hp.
  */
 class PengawasanController extends Controller
 {

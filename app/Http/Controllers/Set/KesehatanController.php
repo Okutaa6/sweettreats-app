@@ -16,7 +16,7 @@ use Illuminate\Support\Facades\DB;
  *
  * Prinsip (rencana-pusat-akun.md §8): halaman ini MENDETEKSI, tidak MENGUBAH.
  * Perbaikan tetap lewat halaman masing-masing — tidak ada tombol ajaib.
- * Query = versi hidup dari docs/deploy-absensi.md §9.
+ * Query = versi hidup dari docs/deploy/deploy-absensi.md §9.
  *
  * Akses: node 'setkesehatan' (AuthGuard) — 4 admin + Head IT + IT.
  */

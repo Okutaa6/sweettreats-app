@@ -191,7 +191,7 @@ class AttendanceRequestWorkflow
     }
 
     /**
-     * ACC final pengajuan cuti → potong jatah (docs/rencana-jatah-cuti.md).
+     * ACC final pengajuan cuti → potong jatah (docs/rencana/rencana-jatah-cuti.md).
      * Gagal potong TIDAK membatalkan approval-nya (mis. skema cuti belum
      * terpasang di environment) — report() saja; saldo bisa direkonsiliasi
      * belakangan dari ledger + att_request approved.

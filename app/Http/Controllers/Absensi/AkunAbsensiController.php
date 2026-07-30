@@ -100,7 +100,7 @@ class AkunAbsensiController extends Controller
         $korAlasan = \App\Http\Controllers\Absensi\AkunPengajuanController::KOREKSI_ALASAN;
 
         // Sisa jatah cuti — null = di luar sistem cuti (eksekutif), tile
-        // tidak dirender. docs/rencana-jatah-cuti.md.
+        // tidak dirender. docs/rencana/rencana-jatah-cuti.md.
         $cutiSisa = app(\App\Services\CutiService::class)->sisa($userId);
 
         return view('absensi.akun.absensi', compact(

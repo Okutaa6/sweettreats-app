@@ -1,7 +1,7 @@
 -- ════════════════════════════════════════════════════════════════════════════
 -- Absen HP — node akses "Pengawasan Absen" + grant
 -- ════════════════════════════════════════════════════════════════════════════
--- Layar review SPV (docs/rencana-absen-hp.md §7 layar 2). Pola sama dengan
+-- Layar review SPV (docs/rencana/rencana-absen-hp.md §7 layar 2). Pola sama dengan
 -- node Persetujuan (pers-parent/pers-inbox): parent tanpa link + child ber-link
 -- 'pengawasan' (= segment-1 route, syarat AuthGuard).
 --

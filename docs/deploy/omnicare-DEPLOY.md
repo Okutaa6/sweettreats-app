@@ -54,7 +54,7 @@ Pamulang (30941). ABG (31163) di-exclude (placeholder).
 - `database/sql/2026_05_21_reconcile_access.sql`
 
 **Dokumentasi — TIDAK perlu di-upload ke produksi:**
-- `docs/omnicare-DEPLOY.md` (dokumen ini)
+- `docs/deploy/omnicare-DEPLOY.md` (dokumen ini)
 
 ### 1B. File DIUBAH — aman upload utuh (perubahan murni Omnicare)
 - `app/Console/Kernel.php` — `schedule()` sebelumnya kosong, sekarang berisi 3 entry

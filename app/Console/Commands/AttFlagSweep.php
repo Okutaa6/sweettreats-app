@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\DB;
  *   php artisan att:flag-sweep            → hari kerja KEMARIN
  *   php artisan att:flag-sweep 2026-07-20 → tanggal tertentu (atau backfill)
  *
- * Aturan (docs/rencana-absen-hp.md §8):
+ * Aturan (docs/rencana/rencana-absen-hp.md §8):
  *   • Cuma orang BAKU — fleksibel tak pernah di-flag (scan mereka jejak doang).
  *   • single_scan bakal jadi flag tersibuk minggu-minggu awal; itu normal,
  *     mendidik kebiasaan. Jangan pernah auto-hukum dari sini.

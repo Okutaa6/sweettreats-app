@@ -32,11 +32,11 @@ Domain: `app.sweettreats.id` · DB prod: `u695655413_app_sweettreat`
 - `database/sql/2026_05_16_api_clients.sql`
 
 **Dokumentasi / dev-only — TIDAK perlu di-upload ke produksi:**
-- `docs/cekat-api.md` (sumber dokumen untuk tim Cekat — bukan runtime)
-- `docs/cekat-api.pdf` (versi PDF dari .md — INI yang dikirim ke tim Cekat & konsultan/senior untuk dibaca/review; regenerate bila API berubah)
-- `docs/cekat-api.http` (alat tes lokal; sudah TANPA token)
-- `docs/cekat-TEST_FLOW.html` (checklist tes interaktif — buka di browser, untuk lokal & produksi; progress ke-save di browser, bisa export JSON / print)
-- `docs/cekat-DEPLOY.md` (dokumen ini)
+- `docs/api/cekat-api.md` (sumber dokumen untuk tim Cekat — bukan runtime)
+- `docs/api/cekat-api.pdf` (versi PDF dari .md — INI yang dikirim ke tim Cekat & konsultan/senior untuk dibaca/review; regenerate bila API berubah)
+- `docs/api/cekat-api.http` (alat tes lokal; sudah TANPA token)
+- `docs/api/cekat-TEST_FLOW.html` (checklist tes interaktif — buka di browser, untuk lokal & produksi; progress ke-save di browser, bisa export JSON / print)
+- `docs/deploy/cekat-DEPLOY.md` (dokumen ini)
 - `tests/Feature/CekatApiTest.php`, `tests/Unit/CekatHelpersTest.php`
 
 ### 1B. File DIUBAH — 100% Cekat (sebelumnya bersih, aman upload utuh)
@@ -129,7 +129,7 @@ Simpan minimal 2 minggu.
 | Korupsi data total | Restore dari backup §4.1. |
 
 ### 4.3 Pengingat untuk tim dev
-- **Sebelum commit & push**: pastikan `docs/cekat-api.http` di-revert ke
+- **Sebelum commit & push**: pastikan `docs/api/cekat-api.http` di-revert ke
   `@token = ISI_TOKEN_SANDBOX_DI_SINI` dan baris `Authorization: Bearer {{token}}`
   (tester biasanya paste token literal saat tes lokal). Token JANGAN masuk git.
 - Tester lokal: kalau setelah tes mau bersihkan `_dev`, jalankan

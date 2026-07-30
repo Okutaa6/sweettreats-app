@@ -17,7 +17,7 @@ use Illuminate\Support\Facades\DB;
  * per-periode, bukan per-item (§5.4). Ini yang bikin cut-off balik ke tgl 25.
  *
  * Guard canSeeAllBranches (pola AbsensiUploadController). Route segment(1)='absensi'.
- * Konteks: docs/rencana-rekonsiliasi-absensi.md §5.2, §5.4, §7 Fase D.
+ * Konteks: docs/rencana/rencana-rekonsiliasi-absensi.md §5.2, §5.4, §7 Fase D.
  */
 class AbsensiPeriodController extends Controller
 {

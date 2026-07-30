@@ -15,7 +15,7 @@ use Illuminate\Http\Request;
  * Halaman "Absen" (selfie) — zona pribadi, segment(1)='akun' (grant sudah
  * dipegang semua karyawan lewat node Akun Saya, nol perubahan access path).
  * Logika di AttendanceHpAbsen; controller cuma: validasi, simpan foto, jawab.
- * Lihat docs/rencana-absen-hp.md §7 layar 1.
+ * Lihat docs/rencana/rencana-absen-hp.md §7 layar 1.
  */
 class AkunAbsenController extends Controller
 {

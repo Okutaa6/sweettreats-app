@@ -16,7 +16,7 @@
 -- att_approver (per-user, 2026_07_18_absensi_approver.sql) jadi DORMANT — tak
 -- dibaca lagi, tabel dibiarkan (reversible). Seed 2026-07-22 (feature/absensi, local).
 --
--- Referensi: docs/rencana-rekonsiliasi-absensi.md §4/§5.4, scratchpad poc_approval_byrole.php.
+-- Referensi: docs/rencana/rencana-rekonsiliasi-absensi.md §4/§5.4, scratchpad poc_approval_byrole.php.
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS att_approval_rule (

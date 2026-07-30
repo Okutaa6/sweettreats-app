@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
  * Bukti tiap absen HP: foto selfie + semua sinyal saat kejadian (IP, cabang
  * cocok/manual, perangkat, jam server). att_scan tetap sumber kebenaran buat
  * engine; tabel ini buat mata manusia (strip foto SPV, panel flag) + audit.
- * Lihat docs/rencana-absen-hp.md §5.
+ * Lihat docs/rencana/rencana-absen-hp.md §5.
  */
 class AttHpBukti extends Model
 {

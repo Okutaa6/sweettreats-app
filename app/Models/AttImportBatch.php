@@ -5,7 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * Jejak tiap upload CSV absen. Lihat docs/rencana-rekonsiliasi-absensi.md §5.2.
+ * Jejak tiap upload CSV absen. Lihat docs/rencana/rencana-rekonsiliasi-absensi.md §5.2.
  */
 class AttImportBatch extends Model
 {

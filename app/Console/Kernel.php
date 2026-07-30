@@ -86,7 +86,7 @@ class Kernel extends ConsoleKernel
 
         // Reset kontrak cuti yang lewat tanggal — dorman selama kontrak_akhir
         // belum diisi (data tanggal masih dikumpulkan), nyala sendiri begitu
-        // tanggalnya ada. docs/rencana-jatah-cuti.md.
+        // tanggalnya ada. docs/rencana/rencana-jatah-cuti.md.
         $schedule->call(fn () => app(\App\Services\CutiService::class)->resetKontrakKedaluwarsa())
             ->name('cuti-reset-kontrak')->dailyAt('01:20')->withoutOverlapping(30);
 

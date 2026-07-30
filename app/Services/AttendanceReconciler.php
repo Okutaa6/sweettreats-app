@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\DB;
 /**
  * Engine rekonsiliasi: att_scan + aturan kerja → att_day (per user per hari kerja).
  *
- * Alur per (user, tanggal) — docs/rencana-rekonsiliasi-absensi.md §5.3:
+ * Alur per (user, tanggal) — docs/rencana/rencana-rekonsiliasi-absensi.md §5.3:
  *   0a. GABUNG scan dari SEMUA cabang untuk user ini (§2.7, Rohma lintas cabang)
  *   0b. scan < ambang dini hari (default 06:00) → LEMPAR BALIK ke hari sebelumnya
  *       sebagai pulang (§2.8, Sunter jam 00:54)

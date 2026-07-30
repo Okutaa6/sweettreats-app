@@ -1,7 +1,7 @@
 -- ════════════════════════════════════════════════════════════════════════════
 -- Jatah Cuti per kontrak 12 bulan — skema inti
 -- ════════════════════════════════════════════════════════════════════════════
--- docs/rencana-jatah-cuti.md. Aturan: 12 hari/kontrak; sisa positif HANGUS
+-- docs/rencana/rencana-jatah-cuti.md. Aturan: 12 hari/kontrak; sisa positif HANGUS
 -- saat kontrak baru, utang (minus) KEBAWA; cuti bersama motong massal dengan
 -- pengecualian per orang; saldo boleh minus (= "ganti hari", bukan blokir).
 -- Tanggal kontrak BOLEH kosong (datanya menyusul) — tanpa tanggal tidak ada

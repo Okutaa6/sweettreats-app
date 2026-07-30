@@ -31,7 +31,7 @@ Tanya Ekky kalau ada step yang gagal verifikasi.
 ## FASE 1 — Upload file aplikasi
 
 ### Action
-Lewat FileZilla, upload semua file di daftar `docs/omnicare-DEPLOY.md` §1A & §1B & §1C.
+Lewat FileZilla, upload semua file di daftar `docs/deploy/omnicare-DEPLOY.md` §1A & §1B & §1C.
 Rangkumannya:
 
 **File baru** (dari lokal ke prod, persis struktur foldernya):
@@ -441,7 +441,7 @@ Setelah Fase 11 verified, sistem berjalan otomatis. Yang perlu dipantau:
   berarti cron mati — investigasi
 
 Untuk diskusi rollout ke sales team: lihat
-[`docs/proposal-laporan-sales-otomatis.md`](proposal-laporan-sales-otomatis.md).
+[`docs/arsip/laporan-lama/proposal-laporan-sales-otomatis.md`](proposal-laporan-sales-otomatis.md).
 
 ---
 
@@ -474,5 +474,5 @@ Backup sudah diambil di awal (sebelum mulai Fase 1).
 ---
 
 *Dokumen ini disusun 2026-05-23 untuk deploy Omnicare ke produksi SweetTreats.
-Referensi teknis: [`docs/omnicare-DEPLOY.md`](omnicare-DEPLOY.md) (daftar file & SQL).
+Referensi teknis: [`docs/deploy/omnicare-DEPLOY.md`](omnicare-DEPLOY.md) (daftar file & SQL).
 Untuk pertanyaan saat eksekusi: hubungi Ekky.*

@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 /**
  * Periode kontrak cuti — satu baris per kontrak per karyawan.
  * `berjalan` = 1 (aktif) atau NULL (ditutup); UNIQUE (user_id, berjalan)
- * menjamin cuma 1 periode aktif per orang. docs/rencana-jatah-cuti.md.
+ * menjamin cuma 1 periode aktif per orang. docs/rencana/rencana-jatah-cuti.md.
  */
 class CutiPeriode extends Model
 {

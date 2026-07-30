@@ -9,7 +9,7 @@ use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Mesin jatah cuti per kontrak 12 bulan — docs/rencana-jatah-cuti.md.
+ * Mesin jatah cuti per kontrak 12 bulan — docs/rencana/rencana-jatah-cuti.md.
  *
  * Prinsip: user TANPA periode berjalan = di luar sistem cuti (eksekutif) —
  * semua method diam-diam no-op untuk mereka, tidak pernah error.

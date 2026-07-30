@@ -15,7 +15,7 @@ use RuntimeException;
  * Mesin absen HP (selfie) — "mesin ke-6" yang nulis att_scan source='mobile'.
  * Reconciler/rekap/periode TIDAK disentuh: mereka baca att_scan.user_id.
  *
- * Prinsip (docs/rencana-absen-hp.md §3):
+ * Prinsip (docs/rencana/rencana-absen-hp.md §3):
  *   • WiFi = SAKSI bukan GERBANG — absen tak pernah ditolak karena jaringan;
  *     IP tak dikenal = flag ip_asing, bukan error.
  *   • Jam SELALU server, jangan pernah percaya jam HP.

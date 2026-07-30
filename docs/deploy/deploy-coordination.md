@@ -31,9 +31,9 @@ Yang **belum** dideploy (commit `afa0c6a` + semua untracked):
 
 | # | Stream | Doc utama | Risiko utama |
 |---|---|---|---|
-| **A** | **Durasi per-cabang & cross-cabang access** (bug fix) | `docs/durasi-akses-cabang-TEST_FLOW.html` (QA only; deploy via §3 di bawah) | SQL `per_branch_doctor_duration` belum jalan → Cekat sub_service & durasi ortho rusak |
-| **B** | **Cekat v1.3 + v1.4** (Open API enhancement) | `docs/cekat-DEPLOY.md` + `docs/cekat-TEST_FLOW.html` | Bergantung Stream A (chain durasi sub-detail) |
-| **C** | **Omnicare integration** (data center + sales report) | `docs/test-flow-deploy-prod.md` (master Omnicare) + `docs/omnicare-DEPLOY.md` | Paling besar; butuh composer install + cron + backfill 30-60 menit |
+| **A** | **Durasi per-cabang & cross-cabang access** (bug fix) | `docs/arsip/test-flow/durasi-akses-cabang-TEST_FLOW.html` (QA only; deploy via §3 di bawah) | SQL `per_branch_doctor_duration` belum jalan → Cekat sub_service & durasi ortho rusak |
+| **B** | **Cekat v1.3 + v1.4** (Open API enhancement) | `docs/deploy/cekat-DEPLOY.md` + `docs/api/cekat-TEST_FLOW.html` | Bergantung Stream A (chain durasi sub-detail) |
+| **C** | **Omnicare integration** (data center + sales report) | `docs/deploy/test-flow-deploy-prod.md` (master Omnicare) + `docs/deploy/omnicare-DEPLOY.md` | Paling besar; butuh composer install + cron + backfill 30-60 menit |
 
 ---
 
@@ -86,11 +86,11 @@ Pre-req: Sesi 1 sudah lewat (chain durasi siap untuk sub_service).
 5. Verifikasi route: `php artisan route:list | grep apicekat` → harus **14 route**.
 6. (Token Cekat sandbox/live sudah ada di prod dari v1.0 base — TIDAK perlu issue ulang.)
 7. Test lewat `cekat-TEST_FLOW.html` (33 test) atau `cekat-api.http` blok 8 & 9 & 7b.
-8. ✅ Kirim PDF v1.4 (`docs/cekat-api.pdf`) ke tim Cekat.
+8. ✅ Kirim PDF v1.4 (`docs/api/cekat-api.pdf`) ke tim Cekat.
 
 ### Sesi 3 — Stream C (Omnicare) — paling besar (~1-2 jam total)
 Pre-req: Sesi 1 & 2 sudah lewat (Kernel.php sudah punya alias Cekat + cron Omnicare bareng).
-**Ikut `docs/test-flow-deploy-prod.md` dari Fase 1 sampai Fase 11.** Master doc itu
+**Ikut `docs/deploy/test-flow-deploy-prod.md` dari Fase 1 sampai Fase 11.** Master doc itu
 sudah lengkap untuk Omnicare. Catatan tambahan:
 - Saat upload `app/Console/Kernel.php` (Fase 1), file itu **sudah merged** dgn
   alias Cekat `api.client` dari Sesi 2 — tidak masalah, dua-duanya valid.
@@ -136,13 +136,13 @@ commit `5586ea7`. Skip.
 
 | Untuk | Buka |
 |---|---|
-| Test Cekat (lokal & prod) | `docs/cekat-TEST_FLOW.html` |
-| Spec API Cekat (kirim ke vendor) | `docs/cekat-api.pdf` |
-| Tester REST Client Cekat | `docs/cekat-api.http` |
-| Deploy Cekat detail (file manifest) | `docs/cekat-DEPLOY.md` |
-| Test Durasi-Cabang & Cross-Cabang | `docs/durasi-akses-cabang-TEST_FLOW.html` |
-| Deploy Omnicare (11 fase step-by-step) | `docs/test-flow-deploy-prod.md` (atau `.html`) |
-| File manifest Omnicare | `docs/omnicare-DEPLOY.md` |
+| Test Cekat (lokal & prod) | `docs/api/cekat-TEST_FLOW.html` |
+| Spec API Cekat (kirim ke vendor) | `docs/api/cekat-api.pdf` |
+| Tester REST Client Cekat | `docs/api/cekat-api.http` |
+| Deploy Cekat detail (file manifest) | `docs/deploy/cekat-DEPLOY.md` |
+| Test Durasi-Cabang & Cross-Cabang | `docs/arsip/test-flow/durasi-akses-cabang-TEST_FLOW.html` |
+| Deploy Omnicare (11 fase step-by-step) | `docs/deploy/test-flow-deploy-prod.md` (atau `.html`) |
+| File manifest Omnicare | `docs/deploy/omnicare-DEPLOY.md` |
 
 ---
 

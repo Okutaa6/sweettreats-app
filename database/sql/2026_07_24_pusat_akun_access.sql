@@ -1,7 +1,7 @@
 -- ════════════════════════════════════════════════════════════════════════════
 -- Pusat Akun — Fase A: node "Kesehatan" + grant section ke IT
 -- ════════════════════════════════════════════════════════════════════════════
--- Konteks: docs/rencana-pusat-akun.md §3. Dua hal:
+-- Konteks: docs/rencana/rencana-pusat-akun.md §3. Dua hal:
 --   1. Node baru 'setkesehatan' (halaman detektor kegagalan-senyap) di bawah
 --      parent yang sama dengan setusermanagement ("User Access" — rename jadi
 --      "Pusat Akun" menyusul di Fase C).

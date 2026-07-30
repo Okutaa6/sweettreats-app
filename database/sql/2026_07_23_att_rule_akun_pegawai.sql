@@ -12,7 +12,7 @@
 --   yang beneran nerima scan tak punya aturan fleksibel → begitu scan mereka
 --   di-reconcile, Head IT bisa ketandai ALPA/TELAT. Itu dilarang keras:
 --   lihat memory project-absensi-lintas-cabang §2 & §4 dan
---   docs/rencana-rekonsiliasi-absensi.md §3.3.
+--   docs/rencana/rencana-rekonsiliasi-absensi.md §3.3.
 --
 -- BUG 2 (sebagian) — home branch kosong bikin orang "kesebar" di rekap.
 --   Irma Islamiati (Koordinator Asdent) & Admin_Nisa / Anisa Aulia (SPV

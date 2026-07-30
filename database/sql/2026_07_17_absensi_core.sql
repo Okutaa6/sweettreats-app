@@ -6,7 +6,7 @@
 --         2. att_import_batch  — jejak tiap upload CSV (siapa, kapan, format, hasil)
 --         3. att_scan          — scan mentah, APPEND-ONLY, idempotent via hash
 --
--- Konteks penuh: docs/rencana-rekonsiliasi-absensi.md (§5.2)
+-- Konteks penuh: docs/rencana/rencana-rekonsiliasi-absensi.md (§5.2)
 --
 -- Keputusan desain yang dibuktikan dari data (jangan diubah tanpa baca plan):
 --   • Kunci mapping = (raw_branch_id, device_user_id), BUKAN No.ID saja.

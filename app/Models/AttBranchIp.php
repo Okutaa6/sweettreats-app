@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
  * IP internet terdaftar per cabang — penanda lokasi absen HP.
  * Satu cabang boleh banyak IP (multi-jalur ISP); satu IP hanya satu cabang
  * (UNIQUE). Diisi via halaman admin IT + tombol "daftarkan IP" dari flag SPV.
- * Lihat docs/rencana-absen-hp.md §5.
+ * Lihat docs/rencana/rencana-absen-hp.md §5.
  */
 class AttBranchIp extends Model
 {

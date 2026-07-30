@@ -14,7 +14,7 @@ use Illuminate\Http\Request;
 /**
  * Cuti — rekap saldo semua karyawan + cuti bersama + koreksi + kontrak baru.
  * Layar Finance/admin (design_handoff_cuti). Karyawan melihat saldonya sendiri
- * di halaman Akun, BUKAN di sini. docs/rencana-jatah-cuti.md.
+ * di halaman Akun, BUKAN di sini. docs/rencana/rencana-jatah-cuti.md.
  */
 class CutiController extends Controller
 {

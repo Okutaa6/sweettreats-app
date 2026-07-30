@@ -1,7 +1,7 @@
 # Proposal: Modernisasi Pelaporan Sales — dari Manual ke Otomatis
 
 > **Untuk:** Manajemen + Tim Sales · **Tanggal:** 2026-05-29
-> **Berdasarkan:** Audit 5 cabang Maret 2026 — [`docs/audit-sales-mar-2026.md`](audit-sales-mar-2026.md)
+> **Berdasarkan:** Audit 5 cabang Maret 2026 — [`docs/arsip/laporan-lama/audit-sales-mar-2026.md`](audit-sales-mar-2026.md)
 
 ---
 
@@ -203,6 +203,6 @@ manual selesai. ✨
 ---
 
 *Dokumen ini disusun berdasarkan audit teknis sistem
-([`docs/audit-sales-mar-2026.md`](audit-sales-mar-2026.md)) — 2 cabang ter-audit
+([`docs/arsip/laporan-lama/audit-sales-mar-2026.md`](audit-sales-mar-2026.md)) — 2 cabang ter-audit
 (Bintaro & Sunter Maret 2026). Untuk pertanyaan teknis hubungi tim IT
 SweetTreats Data Center.*

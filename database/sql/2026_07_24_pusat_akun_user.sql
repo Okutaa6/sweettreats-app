@@ -1,7 +1,7 @@
 -- ════════════════════════════════════════════════════════════════════════════
 -- Pusat Akun — Fase B: kolom monitoring & kontrol akun di `users`
 -- ════════════════════════════════════════════════════════════════════════════
--- Konteks: docs/rencana-pusat-akun.md §3 & §5.
+-- Konteks: docs/rencana/rencana-pusat-akun.md §3 & §5.
 --   last_seen_at         : "terakhir aktif" (di-update AuthGuard, throttle 60s) —
 --                          beda dari last_login ("terakhir MASUK"). Buat monitoring.
 --   must_change_password : 1 = login berikutnya WAJIB ganti password (dipakai saat

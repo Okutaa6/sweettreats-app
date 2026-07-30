@@ -1,7 +1,7 @@
 -- ════════════════════════════════════════════════════════════════════════════
 -- Absen HP (selfie) — tabel inti (Fase 1)
 -- ════════════════════════════════════════════════════════════════════════════
--- Konteks penuh: docs/rencana-absen-hp.md (§5). Empat tabel:
+-- Konteks penuh: docs/rencana/rencana-absen-hp.md (§5). Empat tabel:
 --   1. att_branch_ip  — daftar IP internet terdaftar per cabang (data, bukan kode)
 --   2. att_hp_bukti   — bukti tiap absen HP (foto selfie + sinyal), 1 baris/selfie
 --   3. att_flag       — antrian review SPV (janggal = flag, BUKAN blokir)

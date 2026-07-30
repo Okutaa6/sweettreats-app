@@ -4,7 +4,7 @@
 -- Tujuan: DEKLARASI MANUSIA yg jadi kebenaran tertinggi di atas scan (§4).
 --         Lima jenis form + jejak approval 2 lapis.
 --
--- Konteks: docs/rencana-rekonsiliasi-absensi.md §4, §5.2, §5.4.
+-- Konteks: docs/rencana/rencana-rekonsiliasi-absensi.md §4, §5.2, §5.4.
 --
 -- Cara engine pakai (AttendanceReconciler):
 --   • cuti/izin/wfh/libur APPROVED nutup tanggalnya → status att_day jadi jenis itu
