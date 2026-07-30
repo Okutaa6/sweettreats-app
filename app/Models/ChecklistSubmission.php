@@ -52,7 +52,7 @@ class ChecklistSubmission extends Model
     public static function statusOptions(): array
     {
         return [
-            self::STATUS_DRAFT     => ['label' => 'Draft',              'color' => 'neutral', 'desc' => 'Sedang diisi karyawan'],
+            self::STATUS_DRAFT     => ['label' => 'Belum Dikirim',     'color' => 'neutral', 'desc' => 'Sudah dibuat, belum dikirim ke supervisor'],
             self::STATUS_SUBMITTED => ['label' => 'Menunggu Approval',  'color' => 'warning', 'desc' => 'Sudah disubmit, menunggu review supervisor'],
             self::STATUS_APPROVED  => ['label' => 'Disetujui',          'color' => 'success', 'desc' => 'Telah diverifikasi supervisor'],
             self::STATUS_REJECTED  => ['label' => 'Ditolak',            'color' => 'danger',  'desc' => 'Perlu diperbaiki — lihat catatan supervisor'],

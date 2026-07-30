@@ -254,19 +254,32 @@ class MyChecklistController extends Controller
         if (! $sub->isEditable()) {
             return back()->with('error', 'Checklist sudah disubmit.');
         }
-        if ($sub->total_tasks === 0 || $sub->done_tasks < $sub->total_tasks) {
-            return back()->with('error', 'Semua tugas harus diselesaikan (100%) sebelum submit.');
+
+        // Hitung ulang dari item — JANGAN percaya counter header (bisa drift kalau
+        // item berubah di luar toggle). Gating 100% dinilai dari hasil re-count ini.
+        $total = $sub->items()->count();
+        $done  = $sub->items()->where('is_done', 1)->count();
+        if ($total === 0) {
+            $sub->update(['total_tasks' => 0, 'done_tasks' => 0]);
+            return back()->with('error', 'Belum ada tugas untuk hari ini — tidak perlu submit.');
+        }
+        if ($done < $total) {
+            $sub->update(['total_tasks' => $total, 'done_tasks' => $done]);
+            return back()->with('error', 'Masih ada tugas yang belum dicentang — selesaikan semua (100%) sebelum submit.');
         }
 
         $before = ['status' => $sub->status];
-        $sub->update([
-            'status'       => ChecklistSubmission::STATUS_SUBMITTED,
-            'submitted_at' => now(),
-            'updated_at'   => now(),
-        ]);
-
-        ChecklistAuditLog::write('submission', $sub->id, ChecklistAuditLog::ACTION_SUBMIT,
-            $before, ['status' => $sub->status, 'done' => $sub->done_tasks, 'total' => $sub->total_tasks]);
+        DB::transaction(function () use ($sub, $total, $done, $before) {
+            $sub->update([
+                'status'       => ChecklistSubmission::STATUS_SUBMITTED,
+                'submitted_at' => now(),
+                'updated_at'   => now(),
+                'total_tasks'  => $total,
+                'done_tasks'   => $done,
+            ]);
+            ChecklistAuditLog::write('submission', $sub->id, ChecklistAuditLog::ACTION_SUBMIT,
+                $before, ['status' => $sub->status, 'done' => $done, 'total' => $total]);
+        });
 
         // Notif ke ATASAN divisi (hierarki), di-scope ke cabang submission.
         try {
@@ -328,9 +341,13 @@ class MyChecklistController extends Controller
             return back()->with('error', 'Checklist hari ini sudah tidak bisa diubah.');
         }
 
+        $request->merge(['excuse_reason' => trim((string) $request->input('excuse_reason'))]);
         $data = $request->validate(
-            ['excuse_reason' => 'required|string|max:500'],
-            ['excuse_reason.required' => 'Alasan wajib diisi.']
+            ['excuse_reason' => 'required|string|min:3|max:500'],
+            [
+                'excuse_reason.required' => 'Alasan wajib diisi.',
+                'excuse_reason.min'      => 'Alasan terlalu pendek — jelaskan sedikit (min. 3 karakter).',
+            ]
         );
 
         $before = ['status' => $sub->status];
@@ -418,7 +435,8 @@ class MyChecklistController extends Controller
             ]);
         }
 
-        $weekOffset = (int) $request->get('week', 0);
+        // Dibatasi ±8 minggu supaya tidak ada akses tak berhingga (mis. ?week=999).
+        $weekOffset = max(-8, min(8, (int) $request->get('week', 0)));
         $today      = Carbon::today();
         $weekStart  = $today->copy()->startOfWeek(Carbon::MONDAY)->addWeeks($weekOffset);
         $weekEnd    = $weekStart->copy()->endOfWeek(Carbon::SUNDAY);
@@ -517,16 +535,8 @@ class MyChecklistController extends Controller
 
         $newState = ! $item->is_done;
 
-        // Task wajib foto tidak boleh dicentang selesai sebelum foto ter-upload.
-        // Divisi GS dikecualikan: di sana foto pakai skema before/after yang opsional,
-        // jadi centang tidak pernah diblokir.
-        if ($newState && $item->requires_photo && ! $item->photo_path && $sub->division_id !== 'GS') {
-            return response()->json([
-                'ok'             => false,
-                'error'          => 'Task ini wajib foto — ambil/upload foto dulu sebelum menandai selesai.',
-                'requires_photo' => true,
-            ], 422);
-        }
+        // Foto bersifat OPSIONAL — hanya pengingat/bukti, tidak pernah memblokir
+        // centang di divisi manapun. Ops boleh menandai selesai tanpa foto.
 
         $item->update([
             'is_done' => $newState,
@@ -579,8 +589,8 @@ class MyChecklistController extends Controller
         if (! $sub->isEditable()) {
             return response()->json(['ok' => false, 'error' => 'Form mingguan sudah submitted/approved.'], 422);
         }
-        if (! $item->requires_photo) {
-            return response()->json(['ok' => false, 'error' => 'Task ini tidak memerlukan foto.'], 422);
+        if (! $item->requires_photo || $item->photo_before_after) {
+            return response()->json(['ok' => false, 'error' => 'Task ini tidak memakai foto tunggal.'], 422);
         }
 
         $request->validate(
@@ -633,12 +643,8 @@ class MyChecklistController extends Controller
 
         $this->deletePhotoFile($item->photo_path);
 
-        $updates = ['photo_path' => null];
-        if ($item->requires_photo && $item->is_done) {
-            $updates['is_done'] = 0;
-            $updates['done_at'] = null;
-        }
-        $item->update($updates);
+        // Foto opsional → menghapus foto tidak membatalkan centang.
+        $item->update(['photo_path' => null]);
 
         $done = $sub->items()->where('is_done', 1)->count();
         $sub->update(['done_tasks' => $done, 'updated_at' => now()]);
@@ -656,8 +662,8 @@ class MyChecklistController extends Controller
 
     /**
      * Upload foto before/after OPSIONAL untuk 1 item Form Mingguan.
-     * Sementara khusus divisi GS (mengikuti Form GS Weekly yang meminta bukti
-     * before/after tiap task). Slot: 'before' | 'after'. Tidak memblokir centang
+     * Hanya untuk item ber-mode before/after (task->photo_before_after, di setup
+     * hanya ditawarkan untuk GS). Slot: 'before' | 'after'. Tidak memblokir centang
      * dan tidak auto-menandai selesai — murni dokumentasi.
      */
     public function weekUploadBaPhoto(Request $request, string $id, string $slot)
@@ -669,8 +675,8 @@ class MyChecklistController extends Controller
         if (! in_array($slot, ['before', 'after'], true)) {
             return response()->json(['ok' => false, 'error' => 'Slot foto tidak valid.'], 422);
         }
-        if ($sub->division_id !== 'GS') {
-            return response()->json(['ok' => false, 'error' => 'Foto before/after hanya untuk divisi GS.'], 422);
+        if (! $item->photo_before_after) {
+            return response()->json(['ok' => false, 'error' => 'Task ini tidak memakai foto before/after.'], 422);
         }
         if (! $sub->isEditable()) {
             return response()->json(['ok' => false, 'error' => 'Form mingguan sudah submitted/approved.'], 422);
@@ -753,22 +759,37 @@ class MyChecklistController extends Controller
         if (! $sub->isEditable()) {
             return back()->with('error', 'Form mingguan sudah disubmit.');
         }
-        if ($sub->total_tasks === 0 || $sub->satisfiedCount() < $sub->total_tasks) {
+
+        // Hitung ulang dari item — jangan percaya counter header. satisfiedCount()
+        // = tugas selesai ATAU jatuh di hari yang dikecualikan.
+        $total     = $sub->items()->count();
+        $done      = $sub->items()->where('is_done', 1)->count();
+        $satisfied = $sub->satisfiedCount();
+        if ((int) $sub->total_tasks !== $total || (int) $sub->done_tasks !== $done) {
+            $sub->update(['total_tasks' => $total, 'done_tasks' => $done]);
+        }
+        if ($total === 0) {
+            return back()->with('error', 'Belum ada tugas mingguan untuk minggu ini — tidak perlu submit.');
+        }
+        if ($satisfied < $total) {
             return back()->with('error', 'Semua tugas minggu ini harus diselesaikan atau ditandai tidak perlu diisi (100%) sebelum submit.');
         }
 
         $data = $request->validate(['note' => 'nullable|string|max:1000']);
 
         $before = ['status' => $sub->status];
-        $sub->update([
-            'status'       => ChecklistWeeklySubmission::STATUS_SUBMITTED,
-            'submit_note'  => $data['note'] ?? null,
-            'submitted_at' => now(),
-            'updated_at'   => now(),
-        ]);
-
-        ChecklistAuditLog::write('weekly_submission', $sub->id, ChecklistAuditLog::ACTION_SUBMIT,
-            $before, ['status' => $sub->status, 'done' => $sub->done_tasks, 'total' => $sub->total_tasks]);
+        DB::transaction(function () use ($sub, $data, $before, $done, $total) {
+            $sub->update([
+                'status'       => ChecklistWeeklySubmission::STATUS_SUBMITTED,
+                'submit_note'  => $data['note'] ?? null,
+                'submitted_at' => now(),
+                'updated_at'   => now(),
+                'total_tasks'  => $total,
+                'done_tasks'   => $done,
+            ]);
+            ChecklistAuditLog::write('weekly_submission', $sub->id, ChecklistAuditLog::ACTION_SUBMIT,
+                $before, ['status' => $sub->status, 'done' => $done, 'total' => $total]);
+        });
 
         // Notif ke ATASAN divisi (hierarki), di-scope ke cabang submission.
         try {
@@ -819,12 +840,16 @@ class MyChecklistController extends Controller
      */
     public function dayExcuse(Request $request)
     {
+        $request->merge(['excuse_reason' => trim((string) $request->input('excuse_reason'))]);
         $data = $request->validate(
             [
                 'day_of_week'   => 'required|integer|between:2,7',
-                'excuse_reason' => 'required|string|max:500',
+                'excuse_reason' => 'required|string|min:3|max:500',
             ],
-            ['excuse_reason.required' => 'Alasan wajib diisi.']
+            [
+                'excuse_reason.required' => 'Alasan wajib diisi.',
+                'excuse_reason.min'      => 'Alasan terlalu pendek — jelaskan sedikit (min. 3 karakter).',
+            ]
         );
 
         $weekStart = Carbon::today()->startOfWeek(Carbon::MONDAY);
@@ -938,6 +963,7 @@ class MyChecklistController extends Controller
                     'is_done'                 => 0,
                     'note'                    => null,
                     'requires_photo'          => (int) $task->requires_photo,
+                    'photo_before_after'      => (int) $task->photo_before_after,
                     'photo_path'              => null,
                     'done_at'                 => null,
                     'created_at'              => now(),
@@ -996,6 +1022,7 @@ class MyChecklistController extends Controller
                 'is_done'                 => 0,
                 'note'                    => null,
                 'requires_photo'          => (int) $task->requires_photo,
+                'photo_before_after'      => (int) $task->photo_before_after,
                 'photo_path'              => null,
                 'done_at'                 => null,
                 'created_at'              => now(),
@@ -1014,6 +1041,7 @@ class MyChecklistController extends Controller
             $task = $pair['task'];
             $changes = [];
             if ((int) $item->requires_photo !== (int) $task->requires_photo) $changes['requires_photo'] = (int) $task->requires_photo;
+            if ((int) $item->photo_before_after !== (int) $task->photo_before_after) $changes['photo_before_after'] = (int) $task->photo_before_after;
             if ($item->task_title_snapshot !== $task->title)                 $changes['task_title_snapshot'] = $task->title;
             if ((int) $item->day_of_week !== (int) $task->day_of_week)        $changes['day_of_week'] = (int) $task->day_of_week;
             if ((int) $item->task_sort_order !== (int) $task->sort_order)     $changes['task_sort_order'] = (int) $task->sort_order;
@@ -1022,9 +1050,30 @@ class MyChecklistController extends Controller
             }
         }
 
-        if ($newRows) {
+        // Buang item yang task-nya sudah dinonaktifkan/dihapus/pindah ke luar
+        // Sel–Min dari katalog aktif — supaya tidak menghalangi 100%. Hanya draft
+        // yang sampai sini. Dilewati kalau katalog mingguan aktif kosong, biar tak
+        // sengaja mengosongkan draft. Foto ikut dibersihkan agar tak jadi orphan.
+        $staleRemoved = false;
+        if (! empty($taskMap)) {
+            $staleItems = $sub->items()->whereNotNull('task_id')
+                ->whereNotIn('task_id', array_keys($taskMap))->get();
+            foreach ($staleItems as $it) {
+                $this->deletePhotoFile($it->photo_path);
+                $this->deletePhotoFile($it->photo_before_path);
+                $this->deletePhotoFile($it->photo_after_path);
+            }
+            if ($staleItems->isNotEmpty()) {
+                DB::table('sys_checklist_weekly_submission_item')
+                    ->whereIn('id', $staleItems->pluck('id')->all())->delete();
+                $staleRemoved = true;
+            }
+        }
+
+        if ($newRows || $staleRemoved) {
             $total = $sub->items()->count();
-            $sub->update(['total_tasks' => $total, 'updated_at' => now()]);
+            $done  = $sub->items()->where('is_done', 1)->count();
+            $sub->update(['total_tasks' => $total, 'done_tasks' => $done, 'updated_at' => now()]);
         }
     }
 
@@ -1050,7 +1099,8 @@ class MyChecklistController extends Controller
             ]);
         }
 
-        $weekOffset = (int) $request->get('week', 0);
+        // Dibatasi ±8 minggu supaya tidak ada akses tak berhingga (mis. ?week=999).
+        $weekOffset = max(-8, min(8, (int) $request->get('week', 0)));
         $today = Carbon::today();
 
         // Minggu mulai SELASA → 6 hari (Sel, Rab, Kam, Jum, Sab, Min). Senin
@@ -1093,6 +1143,37 @@ class MyChecklistController extends Controller
         } elseif ($submission->isEditable()) {
             $this->reconcileItems($submission, $position->division_id, $position->raw_branch_id);
         }
+
+        // Status & subtotal tiap hari (untuk dot status di header + baris "Terisi"
+        // di kaki grid). Ambil SEMUA submission harian user di rentang minggu ini.
+        $subsByDate = ChecklistSubmission::query()
+            ->where('user_id', session('id'))
+            ->whereBetween('submission_date', [$start, $end])
+            ->get(['submission_date', 'status', 'done_tasks', 'total_tasks'])
+            ->keyBy(fn ($s) => $s->submission_date->toDateString());
+
+        foreach ($days as $day) {
+            $s = $subsByDate->get($day->iso);
+            $day->status     = $s?->status;
+            $day->is_excused = $s && $s->status === ChecklistSubmission::STATUS_EXCUSED;
+            $day->sub_done   = $s ? (int) $s->done_tasks : null;
+            $day->sub_total  = $s ? (int) $s->total_tasks : null;
+            $day->sub_pct    = $s ? $s->progressPct() : null;
+        }
+
+        // Agregat 6 hari — metrik UTAMA "Rekap": hanya hari yang sudah lewat/hari
+        // ini dan TIDAK dikecualikan yang dihitung (konsisten dgn baris "Terisi").
+        $weekDone = 0; $weekTotal = 0;
+        foreach ($days as $day) {
+            if ($day->is_future || $day->is_excused) continue;
+            $weekTotal += (int) ($day->sub_total ?? 0);
+            $weekDone  += (int) ($day->sub_done ?? 0);
+        }
+        $weekProgress = [
+            'done'  => $weekDone,
+            'total' => $weekTotal,
+            'pct'   => $weekTotal > 0 ? (int) round($weekDone / $weekTotal * 100) : 0,
+        ];
 
         // Ambil semua items dari submission user yang ada di week range.
         $itemsInWeek = ChecklistSubmissionItem::query()
@@ -1167,7 +1248,7 @@ class MyChecklistController extends Controller
 
         return view('crud.checklist.my.weekly', compact(
             'position', 'submission', 'rows', 'days', 'weekOffset',
-            'today', 'progress', 'start', 'end'
+            'today', 'progress', 'weekProgress', 'start', 'end'
         ));
     }
 
@@ -1175,6 +1256,13 @@ class MyChecklistController extends Controller
     {
         $type = $request->get('type', 'daily');
         if (! in_array($type, ['daily', 'weekly'], true)) $type = 'daily';
+
+        // Filter status (opsional) — hanya mempersempit DAFTAR, bukan statistik/kalender
+        // (biar ringkasan bulan tetap utuh & bisa jadi tombol filter).
+        $status = $request->get('status');
+        if (! in_array($status, ['draft', 'submitted', 'approved', 'rejected', 'excused', 'missed'], true)) {
+            $status = null;
+        }
 
         $month = $request->get('month', Carbon::now()->format('Y-m'));
         try {
@@ -1197,6 +1285,7 @@ class MyChecklistController extends Controller
                 ->with(['items' => function ($q) {
                     $q->orderBy('day_of_week')->orderBy('category_sort_order')->orderBy('task_sort_order');
                 }])
+                ->when($status, fn ($q) => $q->where('status', $status))
                 ->orderByDesc('week_start_date')
                 ->paginate($this->perPage)
                 ->appends($request->query());
@@ -1214,6 +1303,7 @@ class MyChecklistController extends Controller
                 ->with(['items' => function ($q) {
                     $q->orderBy('category_sort_order')->orderBy('task_sort_order');
                 }])
+                ->when($status, fn ($q) => $q->where('status', $status))
                 ->orderByDesc('submission_date')
                 ->paginate($this->perPage)
                 ->appends($request->query());
@@ -1262,7 +1352,7 @@ class MyChecklistController extends Controller
 
         return view('crud.checklist.my.history', compact(
             'type', 'submissions', 'month', 'monthLabel', 'prevMonth', 'nextMonth',
-            'stats', 'calendar'
+            'stats', 'calendar', 'status'
         ));
     }
 
@@ -1368,9 +1458,11 @@ class MyChecklistController extends Controller
             ->orderBy('sort_order')
             ->get();
 
+        $activeTaskIds = [];
         $newRows = [];
         foreach ($categories as $cat) {
             foreach ($cat->tasks as $task) {
+                $activeTaskIds[] = $task->id;
                 if (in_array($task->id, $existingTaskIds, true)) continue;
                 $newRows[] = [
                     'id'                      => (string) Str::uuid(),
@@ -1387,10 +1479,24 @@ class MyChecklistController extends Controller
                 ];
             }
         }
-        if ($newRows) {
-            DB::table('sys_checklist_submission_item')->insert($newRows);
+
+        // Buang item yang task-nya sudah dinonaktifkan/dihapus dari katalog aktif,
+        // supaya tidak lagi menghalangi 100%. Hanya submission editable yang sampai
+        // sini (yang sudah disubmit/approve tak pernah di-reconcile → snapshot aman).
+        // Dilewati kalau katalog aktif kosong, biar tak sengaja mengosongkan draft.
+        $staleIds = [];
+        if ($activeTaskIds) {
+            $staleIds = $sub->items()->whereNotNull('task_id')
+                ->whereNotIn('task_id', $activeTaskIds)->pluck('id')->toArray();
+        }
+
+        $changed = false;
+        if ($newRows)  { DB::table('sys_checklist_submission_item')->insert($newRows); $changed = true; }
+        if ($staleIds) { DB::table('sys_checklist_submission_item')->whereIn('id', $staleIds)->delete(); $changed = true; }
+        if ($changed) {
             $total = $sub->items()->count();
-            $sub->update(['total_tasks' => $total, 'updated_at' => now()]);
+            $done  = $sub->items()->where('is_done', 1)->count();
+            $sub->update(['total_tasks' => $total, 'done_tasks' => $done, 'updated_at' => now()]);
         }
     }
 }

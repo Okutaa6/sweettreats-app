@@ -38,3 +38,6 @@ docs/git-workflow-reza.html
 
 # Foto upload dokter — aset yang di-upload user, jangan di-track di git.
 /public/uploads/doctors/
+
+# Design brief internal (handoff desain fitur) — dokumen kerja, bukan bagian app.
+design-brief-*.md

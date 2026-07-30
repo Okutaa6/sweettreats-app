@@ -198,22 +198,25 @@ class ChecklistSetupController extends Controller
             'description'   => 'nullable|string|max:1000',
             'day_of_week'   => 'nullable|integer|between:1,7',
             'requires_photo'=> 'nullable|boolean',
+            'photo_before_after' => 'nullable|boolean',
         ]);
 
         $cat = ChecklistCategory::whereNull('deleted_at')->findOrFail($data['category_id']);
         $this->abortIfDivisionOutOfScope($cat->division_id);
 
         // Untuk kategori mingguan, hari wajib. Untuk harian, paksa NULL.
-        // Wajib-foto hanya berlaku untuk kategori mingguan.
+        // Foto hanya berlaku untuk kategori mingguan. Mode before/after khusus GS,
+        // dan mengimplikasikan requires_photo=1.
         if ($cat->isWeekly()) {
             $dayOfWeek = (int) ($data['day_of_week'] ?? 0);
             if (! in_array($dayOfWeek, [2, 3, 4, 5, 6, 7], true)) {
                 return back()->withErrors(['day_of_week' => 'Hari tugas mingguan harus Selasa–Minggu (Senin klinik tutup).'])->withInput();
             }
-            $requiresPhoto = (int) ($data['requires_photo'] ?? 0);
+            [$requiresPhoto, $beforeAfter] = $this->normalizePhotoMode($cat->division_id, $data);
         } else {
             $dayOfWeek = null;
             $requiresPhoto = 0;
+            $beforeAfter = 0;
         }
 
         $nextOrder = (int) (ChecklistTask::where('category_id', $cat->id)
@@ -226,6 +229,7 @@ class ChecklistSetupController extends Controller
             'description'   => $data['description'] ?? null,
             'day_of_week'   => $dayOfWeek,
             'requires_photo'=> $requiresPhoto,
+            'photo_before_after' => $beforeAfter,
             'sort_order'    => $nextOrder,
             'is_active'     => 1,
             'created_at'    => now(),
@@ -237,6 +241,19 @@ class ChecklistSetupController extends Controller
 
         return redirect()->route('checklist.setup', ['division' => $cat->division_id])
             ->with('success', 'Task "' . $task->title . '" ditambahkan.');
+    }
+
+    /**
+     * Normalisasi mode foto dari input form. Mengembalikan [requires_photo, photo_before_after].
+     * - Mode before/after hanya ditawarkan untuk divisi GS.
+     * - before/after=1 mengimplikasikan requires_photo=1.
+     */
+    private function normalizePhotoMode(?string $divisionId, array $data): array
+    {
+        $requiresPhoto = (int) ($data['requires_photo'] ?? 0);
+        $beforeAfter   = ($divisionId === 'GS') ? (int) ($data['photo_before_after'] ?? 0) : 0;
+        if ($beforeAfter) $requiresPhoto = 1;
+        return [$requiresPhoto, $beforeAfter];
     }
 
     /**
@@ -252,6 +269,7 @@ class ChecklistSetupController extends Controller
             'day_of_week'   => 'required|integer|between:2,7',
             'description'   => 'nullable|string|max:1000',
             'requires_photo'=> 'nullable|boolean',
+            'photo_before_after' => 'nullable|boolean',
         ]);
         $this->abortIfDivisionOutOfScope($data['division_id']);
 
@@ -260,13 +278,16 @@ class ChecklistSetupController extends Controller
         $nextOrder = (int) (ChecklistTask::where('category_id', $cat->id)
             ->whereNull('deleted_at')->max('sort_order') ?? 0) + 10;
 
+        [$requiresPhoto, $beforeAfter] = $this->normalizePhotoMode($data['division_id'], $data);
+
         $task = ChecklistTask::create([
             'id'            => (string) Str::uuid(),
             'category_id'   => $cat->id,
             'title'         => $data['title'],
             'description'   => $data['description'] ?? null,
             'day_of_week'   => (int) $data['day_of_week'],
-            'requires_photo'=> (int) ($data['requires_photo'] ?? 0),
+            'requires_photo'=> $requiresPhoto,
+            'photo_before_after' => $beforeAfter,
             'sort_order'    => $nextOrder,
             'is_active'     => 1,
             'created_at'    => now(),
@@ -291,6 +312,7 @@ class ChecklistSetupController extends Controller
             'description'   => 'nullable|string|max:1000',
             'day_of_week'   => 'nullable|integer|between:1,7',
             'requires_photo'=> 'nullable|boolean',
+            'photo_before_after' => 'nullable|boolean',
             'is_active'     => 'nullable|boolean',
         ]);
 
@@ -300,10 +322,11 @@ class ChecklistSetupController extends Controller
             if (! in_array($dayOfWeek, [2, 3, 4, 5, 6, 7], true)) {
                 return back()->withErrors(['day_of_week' => 'Hari tugas mingguan harus Selasa–Minggu (Senin klinik tutup).'])->withInput();
             }
-            $requiresPhoto = (int) ($data['requires_photo'] ?? 0);
+            [$requiresPhoto, $beforeAfter] = $this->normalizePhotoMode($cat->division_id, $data);
         } else {
             $dayOfWeek = null;
             $requiresPhoto = 0;
+            $beforeAfter = 0;
         }
 
         $before = ['title' => $task->title, 'is_active' => $task->is_active, 'day_of_week' => $task->day_of_week];
@@ -312,6 +335,7 @@ class ChecklistSetupController extends Controller
             'description'   => $data['description'] ?? null,
             'day_of_week'   => $dayOfWeek,
             'requires_photo'=> $requiresPhoto,
+            'photo_before_after' => $beforeAfter,
             'is_active'     => isset($data['is_active']) ? (int) $data['is_active'] : $task->is_active,
             'updated_at'    => now(),
         ]);

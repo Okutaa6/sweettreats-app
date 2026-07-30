@@ -110,6 +110,16 @@ class AdminNotification extends Model
                         $q2->whereNull('raw_branch_id');
                     }
                     $q2->whereNull('target_role');
+
+                    // Gate per akses fitur: sembunyikan notif branch-broadcast
+                    // yang fiturnya tak bisa dibuka user (mis. user Checklist-only
+                    // tak lihat notif reservasi/komisi/top-up). Personal (jalur #1)
+                    // & role broadcast (jalur #3) tidak di-gate.
+                    $blocked = function_exists('notificationBlockedTypesForUser')
+                        ? notificationBlockedTypesForUser() : [];
+                    if (! empty($blocked)) {
+                        $q2->whereNotIn('type', $blocked);
+                    }
                 });
 
                 // 3. Role broadcast — kalau ada notif yang explicitly target role.
