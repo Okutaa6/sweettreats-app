@@ -14,7 +14,7 @@
     .lg-sub { font-size: 12.5px; font-weight: 500; color: #9A7256; margin-top: 2px; }
     .lg-head-btns { display: flex; gap: 10px; align-items: center; }
     .lg-btn { display: inline-flex; align-items: center; gap: 8px; border-radius: 11px; padding: 10px 15px; font-weight: 700; font-size: 13px; cursor: pointer; font-family: inherit; border: 1px solid transparent; text-decoration: none; }
-    .lg-btn-pri { background: linear-gradient(135deg, #3A3A36, #242422); color: #fff; box-shadow: 0 4px 12px rgba(20,20,18,.22); }
+    .lg-btn-pri { background: linear-gradient(135deg, #6B2400, #461500); color: #fff; box-shadow: 0 4px 12px rgba(20,20,18,.22); }
     .lg-btn-pri:hover { filter: brightness(1.12); color: #fff; }
     .lg-monthnav { display: inline-flex; align-items: center; gap: 4px; }
     .lg-navbtn { width: 34px; height: 34px; display: grid; place-items: center; border: 1px solid #E7D3BE; border-radius: 9px; background: #fff; color: #5A3A22; text-decoration: none; font-size: 16px; }
@@ -35,8 +35,11 @@
     .lg-stat.lembur .val { color: #2F8E55; }
 
     .lg-card { background: #fff; border: 1px solid #EFE0CE; border-radius: 18px; overflow-x: auto; box-shadow: 0 1px 2px rgba(70,21,0,.04), 0 10px 26px rgba(70,21,0,.05); }
-    table.lg-table { border-collapse: collapse; width: 100%; min-width: 900px; }
-    .lg-table thead th { background: linear-gradient(120deg, #2C2C29, #3A3A36); color: #E3D8C9; font-size: 11px; font-weight: 800; letter-spacing: .4px; padding: 12px 12px; text-align: right; white-space: nowrap; }
+    table.lg-table { border-collapse: separate; border-spacing: 0; width: 100%; min-width: 900px; }
+    /* gradient dipasang di baris thead (BUKAN tiap th) → satu band mulus lintas
+       seluruh lebar, tak belang walau kolom banyak. th transparan. */
+    .lg-table thead tr { background: linear-gradient(120deg, #5A2410, #3A1100); }
+    .lg-table thead th { background: transparent; color: #FBEADB; font-size: 11px; font-weight: 800; letter-spacing: .4px; padding: 12px 12px; text-align: right; white-space: nowrap; }
     .lg-table thead th:first-child, .lg-table thead th:nth-child(2), .lg-table thead th:nth-child(3) { text-align: left; }
     .lg-table tbody td { padding: 11px 12px; border-bottom: 1px solid #F4EADD; font-size: 13px; text-align: right; white-space: nowrap; }
     .lg-table tbody td.kiri { text-align: left; }

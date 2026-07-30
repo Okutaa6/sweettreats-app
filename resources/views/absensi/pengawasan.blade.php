@@ -17,12 +17,12 @@
     .aws-judul { color: #461500; font-weight: 800; font-size: 22px; margin: 0 0 2px; }
     .aws-sub { color: #8a7263; font-size: 13px; margin-bottom: 14px; }
     .aws-banner { display: flex; gap: 14px; align-items: center; background: #fdecec; border: 1px solid #f5c9c9; border-radius: 14px; padding: 14px 16px; margin-bottom: 16px; }
-    .aws-banner.aman { background: #e8f5e9; border-color: #bfe3c2; }
-    .aws-banner h6 { color: #b03030; font-weight: 800; margin: 0 0 3px; }
-    .aws-banner.aman h6 { color: #1b5e20; }
+    .aws-banner.aman { background: #E3F4E8; border-color: #BFE3C2; }
+    .aws-banner h6 { color: #C0392B; font-weight: 800; margin: 0 0 3px; }
+    .aws-banner.aman h6 { color: #2F8E55; }
     .aws-banner p { color: #8a6060; font-size: 12.5px; margin: 0; }
     .aws-banner .angka { text-align: center; min-width: 46px; }
-    .aws-banner .angka b { display: block; font-size: 20px; color: #b03030; }
+    .aws-banner .angka b { display: block; font-size: 20px; color: #C0392B; }
     .aws-banner .angka span { font-size: 10.5px; color: #8a6060; letter-spacing: .05em; }
     /* toolbar: filter (kiri) + view-toggle (kanan) — SATU baris, sesuai handoff */
     .aws-toolbar { display: flex; align-items: flex-end; gap: 11px; flex-wrap: wrap; margin-bottom: 14px; }
@@ -38,9 +38,9 @@
     .aws-strip { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 6px; }
     /* tile strip — ukuran ikut desain (±130px), bukan 86px */
     .aws-tile { flex: 0 0 auto; width: 130px; cursor: pointer; text-align: left; border: 0; background: none; padding: 0; position: relative; }
-    .aws-tile-warn { position: absolute; top: 6px; right: 6px; z-index: 2; width: 24px; height: 24px; border-radius: 50%; background: #d9534f; color: #fff; display: flex; align-items: center; justify-content: center; border: 2px solid #fff; }
+    .aws-tile-warn { position: absolute; top: 6px; right: 6px; z-index: 2; width: 24px; height: 24px; border-radius: 50%; background: #C0392B; color: #fff; display: flex; align-items: center; justify-content: center; border: 2px solid #fff; }
     .aws-tile img { width: 130px; height: 150px; object-fit: cover; border-radius: 12px; border: 3px solid transparent; background: #2e1a10; }
-    .aws-tile.flagged img { border-color: #d9534f; }
+    .aws-tile.flagged img { border-color: #C0392B; }
     .aws-tile .nm { font-size: 13px; color: #3B1500; font-weight: 700; margin-top: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .aws-tile .jm { font-size: 12px; color: #8a7263; }
     .aws-chipst { display: inline-flex; gap: 6px; margin-bottom: 12px; }
@@ -48,14 +48,14 @@
     .aws-chip.aktif { background: #461500; border-color: #461500; color: #fff; }
     .aws-flag { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; background: #fff; border: 1px solid #eadfd6; border-radius: 14px; padding: 12px 14px; margin-bottom: 10px; cursor: pointer; }
     .aws-flag:hover { border-color: #c9a888; }
-    .aws-flag .ikn { width: 38px; height: 38px; border-radius: 10px; background: #fdf3e7; display: flex; align-items: center; justify-content: center; color: #b06a00; flex: 0 0 auto; }
+    .aws-flag .ikn { width: 38px; height: 38px; border-radius: 10px; background: #fdf3e7; display: flex; align-items: center; justify-content: center; color: #B5701A; flex: 0 0 auto; }
     .aws-flag .isi { min-width: 0; flex: 1; }
     .aws-flag .isi b { color: #461500; font-size: 14px; }
     .aws-flag .isi small { color: #8a7263; display: block; }
     .aws-st { font-size: 11px; font-weight: 800; border-radius: 99px; padding: 3px 10px; flex: 0 0 auto; }
-    .aws-st-baru { background: #fdecec; color: #b03030; }
-    .aws-st-dicek { background: #fff3d6; color: #9a6b00; }
-    .aws-st-selesai { background: #e8f5e9; color: #1b5e20; }
+    .aws-st-baru { background: #fdecec; color: #C0392B; }
+    .aws-st-dicek { background: #fff3d6; color: #B5701A; }
+    .aws-st-selesai { background: #E3F4E8; color: #2F8E55; }
     .aws-grup { border: 1.5px solid #e8c9a0; background: #fdf7ef; border-radius: 14px; padding: 14px; margin-bottom: 10px; }
     .aws-grup .nm-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
     .aws-grup .nm-chips span { background: #f3e6d8; color: #6b4a2f; border-radius: 8px; padding: 3px 9px; font-size: 12px; font-weight: 600; }
@@ -66,7 +66,7 @@
     .aws-p-foto { position: relative; background: #241309; text-align: center; min-height: 120px; }
     /* cover selebar panel (desain penuh, tanpa bar hitam samping); tinggi dikunci */
     .aws-p-foto img { display: block; width: 100%; height: 380px; object-fit: cover; object-position: center 30%; }
-    .aws-p-jenis { position: absolute; top: 12px; left: 12px; background: #fff; color: #b03030; font-weight: 800; font-size: 12.5px; border-radius: 99px; padding: 5px 12px; }
+    .aws-p-jenis { position: absolute; top: 12px; left: 12px; background: #fff; color: #C0392B; font-weight: 800; font-size: 12.5px; border-radius: 99px; padding: 5px 12px; }
     .aws-p-id { position: absolute; left: 0; right: 0; bottom: 0; text-align: left; padding: 26px 18px 12px; background: linear-gradient(transparent, rgba(20,10,4,.85)); }
     .aws-p-id .nm { color: #fff; font-weight: 800; font-size: 19px; }
     .aws-p-id .sb { color: #d8c4b2; font-size: 13px; }
@@ -78,9 +78,9 @@
     .aws-sinyal small { display: block; color: #9A7256; font-size: 11px; font-weight: 600; }
     .aws-sinyal.merah { border-color: #f0c4c4; background: #fdf6f6; }
     .aws-sinyal.merah .ic { background: #fdecea; color: #c0392b; }
-    .aws-sinyal.merah .tx { color: #b03030; }
+    .aws-sinyal.merah .tx { color: #C0392B; }
     .aws-sinyal.warn { border-color: #f0dca8; background: #fffaf0; }
-    .aws-sinyal.warn .ic { background: #fdf0d6; color: #9a6b00; }
+    .aws-sinyal.warn .ic { background: #fdf0d6; color: #B5701A; }
     .aws-sinyal.warn .tx { color: #8a6b1e; }
     /* riwayat = 2 kartu stat (handoff) */
     .aws-stats { display: flex; gap: 10px; margin-bottom: 4px; }
@@ -118,7 +118,7 @@
         @if(session('error'))<div class="alert alert-danger">{{ session('error') }}</div>@endif
 
         <div class="aws-banner {{ $openTotal === 0 ? 'aman' : '' }}">
-            <div style="flex:0 0 auto;width:46px;height:46px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;color:{{ $openTotal === 0 ? '#1b5e20' : '#b03030' }}">
+            <div style="flex:0 0 auto;width:46px;height:46px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;color:{{ $openTotal === 0 ? '#2F8E55' : '#C0392B' }}">
                 @if($openTotal === 0)
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="10.5" width="15" height="9.5" rx="2"/><path d="M8 10.5V7.5a4 4 0 0 1 7.7-1.5"/></svg>
                 @else
@@ -136,7 +136,7 @@
                 @endif
             </div>
             <div class="angka"><b>{{ $nBaru }}</b><span>BARU</span></div>
-            <div class="angka"><b style="color:#9a6b00">{{ $nDicek }}</b><span>DICEK</span></div>
+            <div class="angka"><b style="color:#B5701A">{{ $nDicek }}</b><span>DICEK</span></div>
         </div>
 
         <div class="aws-toolbar">
@@ -175,11 +175,11 @@
                 foto yang <strong>beda sendiri</strong> langsung terlihat — klik untuk memeriksa.</p>
             @forelse($stripPerCabang as $cabang => $items)
                 <div class="aws-card">
-                    <div class="aws-cabang-judul"><span style="width:9px;height:9px;border-radius:3px;background:#2e8e7a;display:inline-block"></span>
+                    <div class="aws-cabang-judul"><span style="width:9px;height:9px;border-radius:3px;background:#2F8E55;display:inline-block"></span>
                         Sweet Treats {{ $cabang }}
                         <span style="font-weight:600;color:#8a7263;font-size:12.5px">{{ $items->count() }} absen</span>
                         @php $nFlag = $items->filter(fn($b) => isset($userFlagged[$b->user_id]))->count(); @endphp
-                        @if($nFlag > 0)<span style="color:#b03030;font-size:12.5px;font-weight:700">● {{ $nFlag }} perlu dicek</span>@endif
+                        @if($nFlag > 0)<span style="color:#C0392B;font-size:12.5px;font-weight:700">● {{ $nFlag }} perlu dicek</span>@endif
                     </div>
                     <div class="aws-strip">
                         @foreach($items as $b)
@@ -216,7 +216,7 @@
                 <div class="aws-grup">
                     <div style="display:flex;align-items:center;gap:8px">
                         <b style="color:#461500;flex:1">{{ count($items) }} absen di luar WiFi {{ $cabangGrup }}</b>
-                        <span style="background:#f3e6d8;color:#9a6b00;font-size:10.5px;font-weight:800;border-radius:99px;padding:3px 10px;letter-spacing:.04em">GRUP · {{ count($items) }} ORANG</span>
+                        <span style="background:#f3e6d8;color:#B5701A;font-size:10.5px;font-weight:800;border-radius:99px;padding:3px 10px;letter-spacing:.04em">GRUP · {{ count($items) }} ORANG</span>
                     </div>
                     <div style="color:#8a7263;font-size:12.5px">Terjadi serentak — kemungkinan WiFi cabang gangguan, bukan pelanggaran.
                         Bisa diselesaikan sekaligus.</div>
