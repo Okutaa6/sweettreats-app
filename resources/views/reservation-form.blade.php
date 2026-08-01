@@ -1094,7 +1094,7 @@
                 const promoCode = $('#promoInput').val().trim();
                 const promoOk   = promoCode === '' || (promoFilled && promoValid);
                 if (promoCode !== '' && !promoFilled) {
-                    $('#promoStatus').html('<span style="color:#f59e0b">⚠️ Klik "Cek" untuk validasi kode promo</span>');
+                    $('#promoStatus').html('<span style="color:#f59e0b"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" style="vertical-align:-.1em"><path d="M8 2.2 14.4 13.2H1.6L8 2.2Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M8 6.4v3M8 11.2v.1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg> Klik "Cek" untuk validasi kode promo</span>');
                 }
 
                 let serviceOk = false;
@@ -1398,24 +1398,24 @@
         let promoValid = false, promoFilled = false;
         window.checkPromo = function () {
             const code = $('#promoInput').val().trim().toUpperCase();
-            if (!code) { $('#promoStatus').html('<span style="color:#dc2626">⚠️ Masukkan kode promo terlebih dahulu</span>'); return; }
+            if (!code) { $('#promoStatus').html('<span style="color:#dc2626"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" style="vertical-align:-.1em"><path d="M8 2.2 14.4 13.2H1.6L8 2.2Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M8 6.4v3M8 11.2v.1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg> Masukkan kode promo terlebih dahulu</span>'); return; }
             $('#checkPromoBtn').text('Mengecek...').prop('disabled', true);
             $.get('/api/promo/validate', { code: code }, function (res) {
                 if (res.valid) {
                     promoValid = true; promoFilled = true;
                     $('#promoIdInput').val(res.promo_id ?? '');
-                    let msg = '✅ ' + res.message;
+                    let msg = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" style="vertical-align:-.1em"><circle cx="8" cy="8" r="6.2" stroke="currentColor" stroke-width="1.5"/><path d="M5.2 8.3 7.2 10.2 10.9 6.4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> ' + res.message;
                     msg += res.valid_until ? ' <span style="color:#6b7280;font-weight:500">· Berlaku s/d ' + res.valid_until + '</span>' : ' <span style="color:#6b7280;font-weight:500">· Berlaku selamanya</span>';
                     $('#promoStatus').html('<span style="color:#16a34a;font-weight:600">' + msg + '</span>');
                 } else {
                     promoValid = false; promoFilled = true;
                     $('#promoIdInput').val('');
-                    $('#promoStatus').html('<span style="color:#dc2626">❌ ' + res.message + '</span>');
+                    $('#promoStatus').html('<span style="color:#dc2626"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" style="vertical-align:-.1em"><circle cx="8" cy="8" r="6.2" stroke="currentColor" stroke-width="1.5"/><path d="M5.8 5.8l4.4 4.4M10.2 5.8l-4.4 4.4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg> ' + res.message + '</span>');
                 }
                 checkSubmit();
             }).fail(function () {
                 promoValid = false;
-                $('#promoStatus').html('<span style="color:#dc2626">❌ Gagal mengecek promo</span>');
+                $('#promoStatus').html('<span style="color:#dc2626"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" style="vertical-align:-.1em"><circle cx="8" cy="8" r="6.2" stroke="currentColor" stroke-width="1.5"/><path d="M5.8 5.8l4.4 4.4M10.2 5.8l-4.4 4.4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg> Gagal mengecek promo</span>');
                 checkSubmit();
             }).always(function () { $('#checkPromoBtn').text('Cek').prop('disabled', false); });
         };
@@ -1430,7 +1430,7 @@
             const branchText = $('#branchSelect option:selected').text();
             const dateText   = $('.date-pill.selected').data('label') || d.date;
             const promoCode  = $('#promoInput').val().trim().toUpperCase();
-            const promoMsg   = promoValid ? $('#promoStatus').text().replace('✅ ', '') : null;
+            const promoMsg   = promoValid ? $('#promoStatus').text().trim() : null;
 
             function svcName(id){ const s=RES.services.find(function(x){return String(x.id)===String(id);}); return s?s.name:id; }
             function row(label, rel, slot, ov, doctorId, serviceIds, lainnya){

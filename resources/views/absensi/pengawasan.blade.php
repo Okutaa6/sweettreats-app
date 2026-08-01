@@ -1,6 +1,8 @@
 @extends('layouts.app')
 
-{{-- Pengawasan Absen — layar review SPV (handoff_absen_hp/Pengawasan Absen).
+{{-- Pengawasan Absen — layar review SPV (handoff_absen_hp, direvisi
+     handoff_kehadiran §6: kosakata tanpa "flag", strip dipecah baris
+     MASUK/PULANG, blok KartuAbsenHarian di panel, keyboard 1/2/3·Enter·J/K).
      Prinsip: kejanggalan kelihatan TANPA dicari. 2 kolom: kiri (banner + filter
      + strip/antrian), kanan panel detail menetap. --}}
 
@@ -12,7 +14,7 @@
     .aws-kiri { flex: 1; padding: 20px 24px; min-width: 0; }
     /* panel kanan FIXED ±480px (desain: ~25% layar), BUKAN persentase —
        45% bikin foto jadi setengah layar di monitor lebar */
-    .aws-kanan { flex: 0 0 480px; width: 480px; background: #fff; border-left: 1px solid #eadfd6; padding: 0; position: sticky; top: 0; align-self: flex-start; max-height: 100vh; overflow-y: auto; }
+    .aws-kanan { flex: 0 0 480px; width: 480px; background: #fff; border-left: 1px solid #EFE0CE; padding: 0; position: sticky; top: 0; align-self: flex-start; max-height: 100vh; overflow-y: auto; }
     @media (max-width: 1280px) { .aws-kanan { flex-basis: 400px; width: 400px; } }
     .aws-judul { color: #461500; font-weight: 800; font-size: 22px; margin: 0 0 2px; }
     .aws-sub { color: #8a7263; font-size: 13px; margin-bottom: 14px; }
@@ -33,7 +35,7 @@
     .aws-tab { display: inline-flex; align-items: center; gap: 6px; border: 0; background: transparent; color: #8a7263; font-weight: 700; font-size: 13px; padding: 9px 15px; border-radius: 9px; cursor: pointer; }
     .aws-tab.aktif { background: #461500; color: #fff; }
     .aws-tab .bdg { background: #C0392B; color: #fff; border-radius: 99px; font-size: 11px; font-weight: 800; padding: 1px 7px; margin-left: 3px; }
-    .aws-card { background: #fff; border: 1px solid #eadfd6; border-radius: 14px; padding: 14px 16px; margin-bottom: 12px; }
+    .aws-card { background: #fff; border: 1px solid #EFE0CE; border-radius: 14px; padding: 14px 16px; margin-bottom: 12px; }
     .aws-cabang-judul { display: flex; align-items: center; gap: 8px; font-weight: 800; color: #461500; margin-bottom: 10px; }
     .aws-strip { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 6px; }
     /* tile strip — ukuran ikut desain (±130px), bukan 86px */
@@ -43,10 +45,23 @@
     .aws-tile.flagged img { border-color: #C0392B; }
     .aws-tile .nm { font-size: 13px; color: #3B1500; font-weight: 700; margin-top: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .aws-tile .jm { font-size: 12px; color: #8a7263; }
+    /* baris MASUK / PULANG di kartu cabang (handoff_kehadiran §6) */
+    .aws-rowhead { display: flex; align-items: center; gap: 8px; margin: 10px 0 8px; flex-wrap: wrap; }
+    .aws-rowhead .k { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 800; letter-spacing: .5px; color: #A9866A; }
+    .aws-lengkap { display: inline-flex; align-items: center; border-radius: 8px; padding: 2px 8px; font-size: 11px; font-weight: 800; }
+    .aws-lengkap.ok { background: #E3F4E8; color: #2F8E55; border: 1px solid #C9E6D3; }
+    .aws-lengkap.kurang { background: #FBEFD9; color: #B5701A; border: 1px solid #F0DDBB; }
+    .aws-belum { font-size: 12px; color: #B5701A; font-weight: 600; }
+    .aws-toggle { display: inline-flex; align-items: center; gap: 7px; border: 1px solid #E7D3BE; background: #fff; color: #8A5A16; border-radius: 11px; padding: 8px 13px; font-size: 12.5px; font-weight: 700; cursor: pointer; margin-bottom: 12px; }
+    .aws-toggle.on { background: #461500; border-color: #461500; color: #fff; }
+    /* nomor tercetak di kartu penyelesaian (keyboard 1/2/3) */
+    .aws-res .no { flex: 0 0 auto; width: 22px; height: 22px; border-radius: 7px; background: #F6ECDF; color: #9A7256; font-size: 12px; font-weight: 800; display: flex; align-items: center; justify-content: center; margin-top: 0; }
+    .aws-p-hint { font-size: 11px; color: #B79A82; text-align: center; margin-top: 8px; }
+    .aws-p-kah { border: 1px solid #EFE0CE; border-radius: 14px; overflow: hidden; margin-bottom: 4px; }
     .aws-chipst { display: inline-flex; gap: 6px; margin-bottom: 12px; }
     .aws-chip { border: 1px solid #e0d2c6; background: #fff; color: #8a7263; border-radius: 99px; padding: 5px 13px; font-size: 12.5px; font-weight: 700; text-decoration: none; }
     .aws-chip.aktif { background: #461500; border-color: #461500; color: #fff; }
-    .aws-flag { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; background: #fff; border: 1px solid #eadfd6; border-radius: 14px; padding: 12px 14px; margin-bottom: 10px; cursor: pointer; }
+    .aws-flag { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; background: #fff; border: 1px solid #EFE0CE; border-radius: 14px; padding: 12px 14px; margin-bottom: 10px; cursor: pointer; }
     .aws-flag:hover { border-color: #c9a888; }
     .aws-flag .ikn { width: 38px; height: 38px; border-radius: 10px; background: #fdf3e7; display: flex; align-items: center; justify-content: center; color: #B5701A; flex: 0 0 auto; }
     .aws-flag .isi { min-width: 0; flex: 1; }
@@ -127,11 +142,11 @@
             </div>
             <div style="flex:1">
                 @if($openTotal > 0)
-                    <h6>{{ $openTotal }} flag masih terbuka</h6>
-                    <p>Periode gaji <strong>tidak bisa ditutup</strong> selama masih ada flag yang belum diselesaikan.
-                        Selesaikan semua untuk membuka penutupan periode.</p>
+                    <h6>{{ $openTotal }} absen belum selesai dicek</h6>
+                    <p>Periode gaji <strong>tidak bisa ditutup</strong> selama masih ada absen yang belum dicek.
+                        Selesaikan semuanya untuk membuka penutupan periode.</p>
                 @else
-                    <h6>Semua flag beres</h6>
+                    <h6>Semua absen sudah dicek</h6>
                     <p>Tidak ada kejanggalan menunggu — periode gaji bisa ditutup.</p>
                 @endif
             </div>
@@ -159,41 +174,92 @@
         <div class="aws-tabs">
             <button type="button" class="aws-tab aktif" data-tab="strip">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="vertical-align:-.12em"><rect x="3.5" y="5" width="5" height="14" rx="1.2"/><rect x="10" y="5" width="5" height="14" rx="1.2"/><rect x="16.5" y="5" width="4" height="14" rx="1.2"/></svg>
-                Strip Foto Harian
+                Foto Hari Ini
             </button>
             <button type="button" class="aws-tab" data-tab="flag">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" style="vertical-align:-.12em"><path d="M4 7h16M4 12h16M4 17h10"/></svg>
-                Antrian Flag
+                Perlu Dicek
                 @if($totalFlagTanggal > 0)<span class="bdg">{{ $totalFlagTanggal }}</span>@endif
             </button>
         </div>
         </div>
 
-        {{-- ── TAB STRIP ── --}}
+        {{-- ── TAB FOTO HARI INI ── --}}
         <div id="tab-strip">
-            <p style="color:#8a7263;font-size:13px">Semua selfie hari ini dijejer per cabang. Karena latar poster seragam,
-                foto yang <strong>beda sendiri</strong> langsung terlihat — klik untuk memeriksa.</p>
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+                <p style="color:#8a7263;font-size:13px;margin:0 0 12px;flex:1;min-width:200px">Foto berbingkai merah perlu dicek.</p>
+                <button type="button" class="aws-toggle" id="awsToggleCek">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4L2.5 20h19L12 4z"/><path d="M12 10.5v4M12 17.2v.1"/></svg>
+                    Hanya yang perlu dicek
+                </button>
+            </div>
             @forelse($stripPerCabang as $cabang => $items)
-                <div class="aws-card">
+                @php
+                    $masuk  = $items->where('jenis', 'masuk')->values();
+                    $pulang = $items->where('jenis', 'pulang')->values();
+                    $nFlag  = $items->filter(fn ($b) => isset($userFlagged[$b->user_id]))->count();
+                    // siapa yang sudah masuk tapi belum absen pulang (per cabang ini)
+                    $uidPulang = $pulang->pluck('user_id')->flip();
+                    $belumPulang = $masuk->filter(fn ($b) => ! isset($uidPulang[$b->user_id]))
+                        ->map(fn ($b) => optional($b->user)->nama)->filter()->unique()->values();
+                    $nM = $masuk->pluck('user_id')->unique()->count();
+                    $nP = $pulang->pluck('user_id')->unique()->count();
+                @endphp
+                <div class="aws-card" data-cabang-card>
                     <div class="aws-cabang-judul"><span style="width:9px;height:9px;border-radius:3px;background:#2F8E55;display:inline-block"></span>
                         Sweet Treats {{ $cabang }}
                         <span style="font-weight:600;color:#8a7263;font-size:12.5px">{{ $items->count() }} absen</span>
-                        @php $nFlag = $items->filter(fn($b) => isset($userFlagged[$b->user_id]))->count(); @endphp
-                        @if($nFlag > 0)<span style="color:#C0392B;font-size:12.5px;font-weight:700">● {{ $nFlag }} perlu dicek</span>@endif
+                        @if($nFlag > 0)<span style="color:#C0392B;font-size:12.5px;font-weight:700">• {{ $nFlag }} perlu dicek</span>@endif
                     </div>
-                    <div class="aws-strip">
-                        @foreach($items as $b)
-                            <button type="button" class="aws-tile {{ isset($userFlagged[$b->user_id]) ? 'flagged' : '' }}"
-                                    onclick="awsBukaBukti({{ $b->id }})">
-                                @if(isset($userFlagged[$b->user_id]))
-                                    <span class="aws-tile-warn"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4L2.5 20h19L12 4z"/><path d="M12 10.5v4M12 17.2v.1"/></svg></span>
-                                @endif
-                                <img src="{{ route('pengawasan.foto', $b->id) }}" alt="" loading="lazy">
-                                <div class="nm">{{ optional($b->user)->nama }}</div>
-                                <div class="jm">{{ $b->taken_at->format('H.i') }} · {{ $b->jenis }}</div>
-                            </button>
-                        @endforeach
+
+                    {{-- baris MASUK --}}
+                    <div class="aws-rowhead">
+                        <span class="k"><svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M8.5 2.5h2A1.5 1.5 0 0 1 12 4v6a1.5 1.5 0 0 1-1.5 1.5h-2M6.5 4.5 9 7l-2.5 2.5M9 7H2.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>MASUK</span>
+                        <span class="aws-lengkap ok num">{{ $nM }}</span>
                     </div>
+                    @if($masuk->isEmpty())
+                        <div style="color:#8a7263;font-size:12.5px;margin-bottom:4px">Belum ada foto masuk.</div>
+                    @else
+                        <div class="aws-strip">
+                            @foreach($masuk as $b)
+                                <button type="button" class="aws-tile {{ isset($userFlagged[$b->user_id]) ? 'flagged' : '' }}"
+                                        data-nav-bukti="{{ $b->id }}" onclick="awsBukaBukti({{ $b->id }})">
+                                    @if(isset($userFlagged[$b->user_id]))
+                                        <span class="aws-tile-warn"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4L2.5 20h19L12 4z"/><path d="M12 10.5v4M12 17.2v.1"/></svg></span>
+                                    @endif
+                                    <img src="{{ route('pengawasan.foto', $b->id) }}" alt="" loading="lazy">
+                                    <div class="nm">{{ optional($b->user)->nama }}</div>
+                                    <div class="jm num">{{ $b->taken_at->format('H.i') }}</div>
+                                </button>
+                            @endforeach
+                        </div>
+                    @endif
+
+                    {{-- baris PULANG --}}
+                    <div class="aws-rowhead">
+                        <span class="k"><svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M5.5 2.5h-2A1.5 1.5 0 0 0 2 4v6a1.5 1.5 0 0 0 1.5 1.5h2M9 4.5 11.5 7 9 9.5M11.5 7H5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>PULANG</span>
+                        <span class="aws-lengkap {{ $belumPulang->isEmpty() ? 'ok' : 'kurang' }} num">{{ $nP }}/{{ $nM }}</span>
+                        @if($belumPulang->isNotEmpty())
+                            <span class="aws-belum">{{ $belumPulang->count() }} belum absen pulang · {{ $belumPulang->implode(', ') }}</span>
+                        @endif
+                    </div>
+                    @if($pulang->isEmpty())
+                        <div style="color:#8a7263;font-size:12.5px">Belum ada foto pulang.</div>
+                    @else
+                        <div class="aws-strip">
+                            @foreach($pulang as $b)
+                                <button type="button" class="aws-tile {{ isset($userFlagged[$b->user_id]) ? 'flagged' : '' }}"
+                                        data-nav-bukti="{{ $b->id }}" onclick="awsBukaBukti({{ $b->id }})">
+                                    @if(isset($userFlagged[$b->user_id]))
+                                        <span class="aws-tile-warn"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4L2.5 20h19L12 4z"/><path d="M12 10.5v4M12 17.2v.1"/></svg></span>
+                                    @endif
+                                    <img src="{{ route('pengawasan.foto', $b->id) }}" alt="" loading="lazy">
+                                    <div class="nm">{{ optional($b->user)->nama }}</div>
+                                    <div class="jm num">{{ $b->taken_at->format('H.i') }}</div>
+                                </button>
+                            @endforeach
+                        </div>
+                    @endif
                 </div>
             @empty
                 <div class="aws-card" style="color:#8a7263">Belum ada absen HP di tanggal ini.</div>
@@ -207,7 +273,7 @@
                     <a class="aws-chip {{ ($statusFilter ?? '') === $val ? 'aktif' : '' }}"
                        href="{{ request()->fullUrlWithQuery(['status' => $val ?: null]) }}">{{ $lbl }}</a>
                 @endforeach
-                <span style="color:#8a7263;font-size:12.5px;margin-left:6px">Menampilkan <b>{{ $totalFlagTanggal }}</b> flag</span>
+                <span style="color:#8a7263;font-size:12.5px;margin-left:6px"><b>{{ $totalFlagTanggal }}</b> absen ditampilkan</span>
             </div>
 
             {{-- grup serentak --}}
@@ -235,7 +301,7 @@
 
             {{-- flag tunggal --}}
             @forelse($flagTunggal as $f)
-                <button type="button" class="aws-flag" onclick="awsBukaFlag({{ $f->id }})">
+                <button type="button" class="aws-flag" data-nav-flag="{{ $f->id }}" onclick="awsBukaFlag({{ $f->id }})">
                     <div class="ikn"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 21V4M6 4h11l-2.2 3.5L17 11H6"/></svg></div>
                     <div class="isi">
                         <b>{{ optional($f->user)->nama }}</b>
@@ -245,7 +311,7 @@
                 </button>
             @empty
                 @if(empty($grup))
-                    <div class="aws-card" style="color:#8a7263">Tidak ada flag di tanggal ini{{ $statusFilter ? ' dengan status itu' : '' }}.</div>
+                    <div class="aws-card" style="color:#8a7263">Tidak ada yang perlu dicek di tanggal ini{{ $statusFilter ? ' dengan status itu' : '' }}.</div>
                 @endif
             @endforelse
         </div>
@@ -255,8 +321,9 @@
     <div class="aws-kanan">
         <div id="aws-p-kosong" class="aws-p-kosong">
             <div style="width:88px;height:88px;border-radius:24px;background:#F6ECDF;color:#B99A7C;display:flex;align-items:center;justify-content:center;margin:0 auto 14px"><svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5A1.5 1.5 0 0 1 4.5 7H7l1.4-2.2a1 1 0 0 1 .8-.5h5.6a1 1 0 0 1 .8.5L17 7h2.5A1.5 1.5 0 0 1 21 8.5V18a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18z"/><circle cx="12" cy="13" r="3.3"/></svg></div>
-            <b style="color:#461500">Pilih foto atau flag</b>
-            <div style="font-size:13px">Klik selfie di strip harian atau item di antrian flag untuk memeriksa.</div>
+            <b style="color:#461500">Pilih satu absen</b>
+            <div style="font-size:13px">Klik foto atau baris di daftar untuk memeriksa detail dan memutuskannya.</div>
+            <div style="font-size:12px;color:#B79A82;margin-top:8px">Tombol <b>J</b> / <b>K</b> untuk pindah antar absen</div>
         </div>
 
         <div id="aws-p-isi" class="aws-hidden">
@@ -269,13 +336,18 @@
                 </div>
             </div>
             <div class="aws-p-body">
-                <div class="aws-h6" style="margin-top:0">Sinyal sistem</div>
+                <div id="aws-p-kah-wrap" class="aws-hidden">
+                    <div class="aws-h6" style="margin-top:0">Catatan kehadiran hari itu</div>
+                    <div id="aws-p-kah" class="aws-p-kah"></div>
+                </div>
+
+                <div class="aws-h6" id="aws-p-sinyal-h6">Sinyal sistem</div>
                 <div id="aws-p-sinyal"></div>
 
                 <div id="aws-p-riwayat-wrap">
                     <div class="aws-h6">Riwayat singkat</div>
                     <div class="aws-stats">
-                        <div class="aws-stat"><b id="aws-p-hf">0</b><span>flag bulan ini</span></div>
+                        <div class="aws-stat"><b id="aws-p-hf">0</b><span>pernah dicek bulan ini</span></div>
                         <div class="aws-stat"><b id="aws-p-hp">0</b><span>lupa pulang</span></div>
                     </div>
                 </div>
@@ -306,20 +378,24 @@
                     <input type="hidden" name="hasil" id="aws-p-hasil-val" required>
                     <div class="aws-res aws-res-wajar" data-hasil="wajar">
                         <span class="rad"></span>
-                        <span><span class="lbl">Wajar</span><span class="desc">Tidak ada masalah, absen valid</span></span>
+                        <span style="flex:1"><span class="lbl">Wajar</span><span class="desc">Tidak ada masalah, absen valid</span></span>
+                        <span class="no num">1</span>
                     </div>
                     <div class="aws-res aws-res-perlu_koreksi" data-hasil="perlu_koreksi">
                         <span class="rad"></span>
-                        <span><span class="lbl">Perlu Koreksi</span><span class="desc">Jam / data perlu dibetulkan</span></span>
+                        <span style="flex:1"><span class="lbl">Perlu Koreksi</span><span class="desc">Jam / data perlu dibetulkan</span></span>
+                        <span class="no num">2</span>
                     </div>
                     <div class="aws-res aws-res-pelanggaran" data-hasil="pelanggaran">
                         <span class="rad"></span>
-                        <span><span class="lbl">Pelanggaran</span><span class="desc">Melanggar aturan kehadiran</span></span>
+                        <span style="flex:1"><span class="lbl">Pelanggaran</span><span class="desc">Melanggar aturan kehadiran</span></span>
+                        <span class="no num">3</span>
                     </div>
                     <div class="aws-h6">Catatan singkat</div>
                     <textarea name="catatan" class="aws-catatan" rows="2" placeholder="Contoh: WiFi cabang sempat mati, sudah dikonfirmasi ke FO."></textarea>
                     <div class="aws-p-footer">
                         <button type="submit" id="aws-p-simpan" class="aws-btn" style="width:100%" disabled>Pilih penyelesaian dulu</button>
+                        <div class="aws-p-hint"><b>1 2 3</b> pilih · <b>Enter</b> simpan · <b>J</b>/<b>K</b> pindah antar absen · <b>Esc</b> tutup</div>
                     </div>
                 </form>
                 <div id="aws-p-sudah" class="aws-hidden" style="margin-top:14px"></div>
@@ -327,6 +403,7 @@
         </div>
     </div>
 </div>
+@include('absensi._kartu_absen_harian')
 @endsection
 
 @section('js')
@@ -359,6 +436,10 @@
     ])->toJson() !!};
 
     var AWS_RIWAYAT = {!! $riwayat->toJson() !!};
+    // att_day per orang hari itu — untuk blok "Catatan kehadiran hari itu" (KAH)
+    var AWS_HARI = {!! json_encode($hariMap) !!};
+    var AWS_SUB = {!! json_encode($subOrang) !!};
+    var AWS_TGL_LABEL = @json($tanggalLabel);
     var AWS_URL_SELESAI = "{{ url('pengawasan') }}/";  // + id + /selesai
     var AWS_URL_DICEK   = "{{ url('pengawasan') }}/";  // + id + /dicek
     var AWS_CSRF = document.querySelector('meta[name="csrf-token"]').content;
@@ -392,7 +473,7 @@
             c.classList.add('on-' + h);
             document.getElementById('aws-p-hasil-val').value = h;
             var btn = document.getElementById('aws-p-simpan');
-            btn.disabled = false; btn.textContent = 'Selesaikan flag';
+            btn.disabled = false; btn.textContent = 'Simpan keputusan';
         });
     });
 
@@ -401,6 +482,31 @@
     function awsIsiPanel(bukti, flag) {
         document.getElementById('aws-p-kosong').classList.add('aws-hidden');
         document.getElementById('aws-p-isi').classList.remove('aws-hidden');
+
+        // "Catatan kehadiran hari itu" — kartu bersama KAH (chrome=false, tanpa foto):
+        // status, jam masuk/pulang, telat, lembur, lintas cabang dalam bahasa yang
+        // sama dengan layar Kehadiran dan Kehadiran Saya.
+        var uidKah = flag ? flag.user_id : (bukti ? bukti.user_id : null);
+        var hari = uidKah != null ? AWS_HARI[uidKah] : null;
+        var kahWrap = document.getElementById('aws-p-kah-wrap');
+        if (hari) {
+            kahWrap.classList.remove('aws-hidden');
+            document.getElementById('aws-p-kah').innerHTML = KAH.render({
+                person: flag ? flag.nama : (bukti ? bukti.nama : '—'),
+                roleBranch: AWS_SUB[uidKah] || '',
+                dateLabel: AWS_TGL_LABEL,
+                status: hari.st,
+                jamIn: hari.in, jamOut: hari.out, single: hari.single,
+                lateMin: hari.late, lemburJam: Math.round(hari.lembur / 60 * 10) / 10,
+                crossBranch: (hari.lain && hari.lain.length) ? ((hari.home || '') + ' → ' + hari.lain.join(', ')) : '',
+                flex: !!hari.flex,
+                chrome: false,
+                showPhotos: false
+            });
+        } else {
+            kahWrap.classList.add('aws-hidden');
+            document.getElementById('aws-p-kah').innerHTML = '';
+        }
 
         var img = document.getElementById('aws-p-img');
         img.src = bukti ? bukti.foto : '';
@@ -489,16 +595,88 @@
         }
     }
 
+    // posisi navigasi J/K — urutan mengikuti tombol yang terlihat di tab aktif
+    var awsNavPos = { type: null, id: null };
+
     function awsBukaBukti(id) {
         var b = awsCari(AWS_BUKTI, id);
         var f = AWS_FLAGS.filter(function (x) { return x.bukti_id === id; })[0] || null;
+        awsNavPos = { type: 'bukti', id: id };
         awsIsiPanel(b, f);
     }
 
     function awsBukaFlag(id) {
         var f = awsCari(AWS_FLAGS, id);
         var b = f && f.bukti_id ? awsCari(AWS_BUKTI, f.bukti_id) : null;
+        awsNavPos = { type: 'flag', id: id };
         awsIsiPanel(b, f);
     }
+
+    // ── "Hanya yang perlu dicek": saring kedua baris (masuk & pulang) sekaligus ──
+    var awsToggleCek = document.getElementById('awsToggleCek');
+    if (awsToggleCek) awsToggleCek.addEventListener('click', function () {
+        var on = awsToggleCek.classList.toggle('on');
+        document.querySelectorAll('#tab-strip .aws-tile').forEach(function (t) {
+            t.style.display = (on && !t.classList.contains('flagged')) ? 'none' : '';
+        });
+        document.querySelectorAll('#tab-strip [data-cabang-card]').forEach(function (card) {
+            var visible = Array.prototype.some.call(card.querySelectorAll('.aws-tile'), function (t) { return t.style.display !== 'none'; });
+            card.style.display = (on && !visible) ? 'none' : '';
+        });
+    });
+
+    // ── Keyboard: 1/2/3 pilih penyelesaian · Enter simpan · J/K pindah · Esc tutup ──
+    function awsNavList() {
+        var tabStrip = !document.getElementById('tab-strip').classList.contains('aws-hidden');
+        var sel = tabStrip ? '#tab-strip .aws-tile[data-nav-bukti]' : '#tab-flag [data-nav-flag]';
+        return Array.prototype.filter.call(document.querySelectorAll(sel), function (el) {
+            return el.offsetParent !== null;   // skip yang tersembunyi (toggle/tab)
+        }).map(function (el) {
+            return tabStrip
+                ? { type: 'bukti', id: Number(el.dataset.navBukti) }
+                : { type: 'flag', id: Number(el.dataset.navFlag) };
+        });
+    }
+    function awsBuka(item) {
+        if (!item) return;
+        if (item.type === 'bukti') awsBukaBukti(item.id); else awsBukaFlag(item.id);
+    }
+    document.addEventListener('keydown', function (e) {
+        var tag = (e.target.tagName || '').toLowerCase();
+        if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+        var panelOn = !document.getElementById('aws-p-isi').classList.contains('aws-hidden');
+
+        if (e.key === 'Escape') {
+            if (!panelOn) return;
+            document.getElementById('aws-p-isi').classList.add('aws-hidden');
+            document.getElementById('aws-p-kosong').classList.remove('aws-hidden');
+            awsNavPos = { type: null, id: null };
+            return;
+        }
+        if (e.key === 'j' || e.key === 'J' || e.key === 'k' || e.key === 'K') {
+            var list = awsNavList();
+            if (!list.length) return;
+            e.preventDefault();
+            var i = -1;
+            for (var x = 0; x < list.length; x++) {
+                if (list[x].type === awsNavPos.type && list[x].id === awsNavPos.id) { i = x; break; }
+            }
+            var step = (e.key === 'j' || e.key === 'J') ? 1 : -1;
+            var next = i < 0 ? 0 : Math.min(list.length - 1, Math.max(0, i + step));
+            awsBuka(list[next]);
+            return;
+        }
+        if (!panelOn) return;
+        var fs = document.getElementById('aws-p-selesai');
+        if (fs.classList.contains('aws-hidden')) return;
+        if (e.key === '1' || e.key === '2' || e.key === '3') {
+            var map = { '1': 'wajar', '2': 'perlu_koreksi', '3': 'pelanggaran' };
+            var card = document.querySelector('.aws-res[data-hasil="' + map[e.key] + '"]');
+            if (card) card.click();
+        } else if (e.key === 'Enter') {
+            var btn = document.getElementById('aws-p-simpan');
+            if (!btn.disabled) { e.preventDefault(); fs.requestSubmit ? fs.requestSubmit() : fs.submit(); }
+        }
+    });
 </script>
 @endsection

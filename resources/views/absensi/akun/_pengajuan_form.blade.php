@@ -24,7 +24,7 @@
                 @endforeach
             </div>
             <div class="absk-hint" style="background:none;border:0;padding:6px 2px 0;margin:0">
-                Mau melaporkan absen yang keliru? Tutup form ini, lalu <b>ketuk hari</b> yang salah di daftar absen.
+                Mau melaporkan absen yang keliru? Tutup form ini, lalu <b>ketuk tanggalnya</b> di kalender → "Lapor koreksi".
             </div>
         </div>
 
@@ -39,7 +39,7 @@
 
         {{-- Info jatah kerja dari rumah --}}
         <div class="absk-wfhwarn" id="wfhBlocked" style="display:none">
-            <span>⚠️</span>
+            <span style="display:inline-flex;vertical-align:-.15em"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M8 2.2 14.4 13.2H1.6L8 2.2Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M8 6.4v3M8 11.2v.1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></span>
             <div><b>Jatah kerja dari rumah bulan ini sudah habis ({{ $ajWfhUsed }}/2 hari).</b> Pilih jenis lain, atau ajukan untuk bulan depan ya.</div>
         </div>
         <div class="absk-wfhinfo" id="wfhInfo" style="display:none">

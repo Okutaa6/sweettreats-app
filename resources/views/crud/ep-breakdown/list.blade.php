@@ -37,7 +37,7 @@
         <i class="fa fa-info-circle"></i>
         <div>
             <strong>Breakdown</strong> adalah konten EP khusus untuk Promo, Event, atau Project tertentu — punya field tambahan (lokasi, ACC).
-            Otomatis muncul di <a href="{{ route('epkonten') }}">Kalender EP</a> dengan badge <span class="bd-khusus-mini-pill">🎯 Khusus</span> di tanggal upload.
+            Otomatis muncul di <a href="{{ route('epkonten') }}">Kalender EP</a> dengan badge <span class="bd-khusus-mini-pill"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" style="vertical-align:-.15em"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.4"/><circle cx="8" cy="8" r="3" stroke="currentColor" stroke-width="1.4"/><circle cx="8" cy="8" r=".9" fill="currentColor"/></svg> Khusus</span> di tanggal upload.
         </div>
     </div>
 
@@ -74,7 +74,7 @@
                         <span class="status-dot" style="background:{{ $sCfg['dot'] }};"></span>
                         {{ $statuses[$b->status]['label'] ?? $b->status }}
                     </div>
-                    <span class="bd-khusus-pill">🎯 Khusus</span>
+                    <span class="bd-khusus-pill"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" style="vertical-align:-.15em"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.4"/><circle cx="8" cy="8" r="3" stroke="currentColor" stroke-width="1.4"/><circle cx="8" cy="8" r=".9" fill="currentColor"/></svg> Khusus</span>
                 </div>
 
                 <div class="bd-card-title">{{ $b->judul }}</div>

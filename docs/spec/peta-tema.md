@@ -74,7 +74,18 @@ Avatar palette: `#8A3A12 #A8481B #2F8E55 #3C5FA8 #B5701A #7A3415 #5A6B2E #8E2419
 | **Cokelat** (default) | `linear-gradient(120deg,#5A2410,#3A1100)` | `#FBEADB` | `linear-gradient(135deg,#6B2400,#461500)` |
 | **Grafit** (IT) | `linear-gradient(120deg,#2C2C29,#3A3A36)` | `#E3D8C9` | `linear-gradient(135deg,#3A3A36,#242422)` |
 | **Burgundy** (Finance) | `linear-gradient(120deg,#7A2739,#5A1B29)` | `#F6E3E7` | `linear-gradient(135deg,#8A2E43,#6B2333)` |
-| **Teal** (Marketing) | *(TBD — normalkan dari shell marketing yang sudah jalan)* | terang | *(TBD)* |
+| **Teal** (Marketing) | `#13928e` (solid) | `#FFFFFF` | `#13928e` · hover `#1aaaa5` |
+
+**Token teal Marketing** (dinormalkan 2026-07-31 dari `theme-marketing.css` —
+sumber kebenaran tetap file CSS itu, tabel ini catatannya):
+deep `#0e6e6b` (teks aksen/brand panel) · main `#13928e` (tombol, header tabel,
+link) · bright `#1aaaa5` (hover) · light `#c4ebe9` (pill/divider) · pale
+`#e6f5f4` · page bg `#f4faf9` · edge `#0a4f4d` · lime sekunder `#89c541`
+(hover `#9bd456`, deep `#6ea433`, pale `#eaf5da`). Mekanisme: override var
+`--brown*` di `body[data-theme="marketing"]` — pola yang sama dipakai
+`zona.css` untuk burgundy Finance (`body.zona-finance`) & grafit IT
+(`body.zona-it`), bedanya zona di-scope ke `.page-content` saja (shell tetap
+cokelat).
 
 Aksen Finance = **`#8A2E43`** (burgundy/wine tua) — kalem di mata, kesan
 ledger/uang, jelas beda dari merah-error `#C0392B` **dan** dari cokelat
@@ -112,7 +123,10 @@ Rekonsiliasi Accurate (`accurate-recon`)
 ### 🟥 BURGUNDY — Finance
 Petty Cash (`finance/pettycash`) · Executive Report (`report/executive`) ·
 Laporan Keuangan (`accurate-keuangan`) · Laporan Accurate (`accurate-laporan`) ·
-Laporan Penjualan (`report`) · Rekonsiliasi (`reconcile`)
+Laporan Penjualan (`report`) · Rekonsiliasi (`reconcile`) ·
+**Antrian & Rekap ROP (`finance/rop`)** — sisi Finance dari fitur Pengajuan/ROP
+(keputusan 2026-07-31: pengaju cokelat, Finance burgundy; lihat
+`docs/rencana/rencana-pengajuan-rop.md`)
 
 ### 🟫 COKELAT — Operasional (default) + HR/Absensi + personal + lintas-zona
 Reservasi (`rawreservation`) · Reservasi Cabang (`reservasicabang`) · Pasien
@@ -130,7 +144,8 @@ Cuti (`absensi/cuti`) · Lembar Gaji (`absensi/lembar-gaji`) ·
 (`my-checklist`) ·
 **Personal & lintas-zona:** Akun Saya / Absensi Saya (`akun`) · Absen HP
 (`akun/absen`) · Pengajuan · Inbox Persetujuan (`persetujuan`) · Project Tracker
-(`project-tracker`) · Ganti Password
+(`project-tracker`) · Ganti Password · **Pengajuan ROP sisi pengaju (`rop`)** —
+dipakai lintas role (SPV/koordinator/head), bukan orang Finance → cokelat
 
 ### Keputusan yang mendasari (jangan diperdebatkan ulang tanpa alasan baru)
 - **Operasional = SATU zona.** Sales/FO/GS/Asdent/HR **tidak** dipisah warna —
@@ -210,19 +225,33 @@ persetujuan), `🎯` (EP Konten/Breakdown Marketing), `📞 🎂` (crud/customer
 ---
 
 ## 8. Utang / TODO peta ini
-- [ ] Normalkan & catat **hex teal Marketing** (saat ini hidup di CSS shell
-      marketing; belum jadi token tertulis).
-- [ ] Terapkan **burgundy** ke halaman Finance (sekarang masih cokelat/solid).
-- [ ] **Pindahkan node menu WiFi Cabang** ke seksi IT + rebuild akses.
-- [ ] Sweep **emoji → ikon** (§6).
-- [ ] Implementasi **gerbang sopan** desktop-only (komponen bersama).
+*(dieksekusi 2026-07-31, chat "eksekusi visual")*
+- [x] Normalkan & catat **hex teal Marketing** → tabel & catatan token di §3.
+- [x] Terapkan **burgundy** ke halaman Finance → `zona.css` + body-class
+      `zona-finance` (segment finance/report/reconcile), override var `--brown*`
+      di-scope `.page-content` (shell tetap cokelat). Chart data-viz di
+      Executive tidak disentuh (palet data ≠ chrome).
+- [x] **Pindahkan node menu WiFi Cabang** ke seksi IT (Pusat Akun) —
+      SQL `database/sql/2026_07_31_wifi_ke_pusat_akun.sql` + `access:rebuild`
+      (SUDAH jalan di lokal/dev; prod ikut deploy berikutnya). Warna grafit via
+      body-class `zona-it`. Bonus: sorot sidebar & judul header kini ikut node
+      paling spesifik (fix dobel-sorot Upload Data + WiFi).
+- [x] Sweep **emoji → ikon** (§6) — 14 file. Sisa yang SENGAJA dibiarkan:
+      `crud/reservation/list` (ikut redesign reservasi/Reza), file backup
+      v1.5.2, dan glyph mono tipografi (✓ ✗ ★ ✎ ⚠ polos di executive/komentar).
+- [x] Implementasi **gerbang sopan** desktop-only — komponen
+      `layouts/_gerbang_sopan.blade.php`, dipasang otomatis dari layout untuk
+      segment desktop-first ("Lanjut lihat" diingat per sesi browser).
+      Kehadiran TIDAK digerbang (sudah responsif betulan — auto view Hari).
 - [ ] Reservasi: samakan header (`180deg #5C2A0A→#3D1A00` + Montserrat) ke token
       cokelat + Plus Jakarta → **kerjakan bareng redesign reservasi/Reza**,
       jangan ad-hoc.
 - [ ] Halaman Role (`setgroup`): font default + token warm sendiri → ikut
-      **reskin Role** (butuh ACC Reza).
-- [ ] Polish minor: palet avatar disatukan, drift border `#eadfd6`/`#efe4d6` →
-      `#EFE0CE`, marker biru `#2779a7` → `#3F6BAF`.
+      **reskin Role** (butuh ACC Reza). (Drift border di file ini juga sengaja
+      belum disentuh.)
+- [x] Polish minor: palet avatar disatukan ke palet §3 (customer/doctor/
+      pettycash audit feed), drift border `#eadfd6`/`#efe4d6` → `#EFE0CE`,
+      marker biru `#2779a7` → `#3F6BAF`, jam kembar "10:22–10:22" disembunyikan.
 
 ---
 

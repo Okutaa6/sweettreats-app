@@ -344,6 +344,7 @@ Route::middleware([AuthGuard::class])->group(function () {
 
     // ── Akun Saya (self-service karyawan, mobile) — segment(1) = 'akun' ──
     Route::get('akun', [AkunAbsensiController::class, 'index'])->name('akun.absensi');
+    Route::get('akun/absensi/foto/{id}', [AkunAbsensiController::class, 'foto'])->name('akun.absensi.foto');
     Route::get('akun/pengajuan',  [AkunPengajuanController::class, 'create'])->name('akun.pengajuan');
     Route::post('akun/pengajuan', [AkunPengajuanController::class, 'store'])->name('akun.pengajuan.store');
     Route::get('akun/pengajuan/prefill-lembur', [AkunPengajuanController::class, 'prefillLembur'])->name('akun.pengajuan.prefill');

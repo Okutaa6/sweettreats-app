@@ -35,11 +35,21 @@
     .abshp-status .k .dot { width: 7px; height: 7px; border-radius: 50%; background: #E8842B; }
     .abshp-status .v { font-size: 19px; font-weight: 800; line-height: 1.3; margin-top: 6px; }
     .abshp-status .v small { display: block; font-size: 13px; font-weight: 600; color: #E6C09B; margin-top: 3px; }
+    /* garis waktu MASUK → PULANG (handoff_kehadiran §7 — sama dgn Kehadiran Saya) */
+    .abshp-tl { display: flex; align-items: center; gap: 12px; margin-top: 10px; }
+    .abshp-tl .kk { font-size: 9.5px; font-weight: 800; letter-spacing: .5px; color: #C9A183; }
+    .abshp-tl .jj { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-variant-numeric: tabular-nums; font-size: 26px; font-weight: 800; color: #FFF3E9; line-height: 1.1; }
+    .abshp-tl .jj.off { color: #8A6248; }
+    .abshp-tl-mid { flex: none; display: flex; flex-direction: column; align-items: center; gap: 3px; }
+    .abshp-tl-line { width: 48px; height: 2px; border-radius: 2px; background: #8A6248; }
+    .abshp-tl-line.open { background: repeating-linear-gradient(90deg, #B98A63 0 5px, transparent 5px 10px); }
+    .abshp-tl-dur { font-size: 9.5px; font-weight: 700; color: #C9A183; }
+    .abshp-tl-cabang { font-size: 12px; font-weight: 600; color: #E6C09B; margin-top: 8px; }
     /* checklist "sebelum absen" */
     .abshp-cek { background: #fff; border: 1px solid #EAD8C4; border-radius: 16px; padding: 14px 16px; margin-bottom: 12px; }
     .abshp-cek .k { font-size: 11px; letter-spacing: .08em; color: #C77A1E; font-weight: 800; margin-bottom: 8px; }
     .abshp-cek .item { display: flex; align-items: center; gap: 10px; padding: 6px 0; color: #461500; font-size: 14px; }
-    .abshp-cek .item .ic { width: 30px; height: 30px; border-radius: 9px; display: flex; align-items: center; justify-content: center; background: #eaf3f7; color: #2779a7; flex: 0 0 auto; font-size: 17px; }
+    .abshp-cek .item .ic { width: 30px; height: 30px; border-radius: 9px; display: flex; align-items: center; justify-content: center; background: #eaf3f7; color: #3F6BAF; flex: 0 0 auto; font-size: 17px; }
     .abshp-cek .item .ic.oranye { background: #fdf0e0; color: #C77A1E; }
     .abshp-wifi-ok { color: #2F8E55 !important; font-weight: 700; }
     .abshp-inline-ok { color: #2F8E55; font-size: .85em; }
@@ -101,8 +111,8 @@
     .abshp-sukses .abshp-tautan { color: #F1C994; }
     /* pilih cabang (handoff mobile-8) */
     .abshp-info-biru { display: flex; gap: 10px; background: #e8f1f8; border: 1px solid #c4dcee; border-radius: 14px; padding: 12px 14px; text-align: left; margin-bottom: 14px; }
-    .abshp-info-biru .ic { color: #2779a7; font-size: 20px; flex: 0 0 auto; margin-top: 1px; }
-    .abshp-info-biru b { color: #2779a7; font-size: 14px; display: block; }
+    .abshp-info-biru .ic { color: #3F6BAF; font-size: 20px; flex: 0 0 auto; margin-top: 1px; }
+    .abshp-info-biru b { color: #3F6BAF; font-size: 14px; display: block; }
     .abshp-info-biru span { color: #5b7f99; font-size: 13px; }
     .abshp-cb { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; background: #fff; border: 1.5px solid #EAD8C4; border-radius: 14px; padding: 14px 16px; margin-bottom: 10px; color: #461500; font-weight: 700; font-size: 15px; }
     .abshp-cb .lingkar { width: 22px; height: 22px; border-radius: 50%; border: 2px solid #C9B39C; flex: 0 0 auto; }
@@ -140,20 +150,40 @@
         </div>
     </div>
 
-    {{-- Status hari ini --}}
+    {{-- Status hari ini — garis waktu MASUK → PULANG, hanya tampil setelah
+         absen masuk (handoff_kehadiran §7). Sebelum masuk: kartu ajakan singkat. --}}
     <div class="abshp-status">
         <div class="k"><span class="dot"></span> STATUS HARI INI</div>
-        <div class="v">
-            @if(!$masuk)
+        @if(!$masuk)
+            <div class="v">
                 Kamu belum absen masuk hari ini
-            @elseif(!$pulang)
-                Masuk {{ $masuk->taken_at->format('H.i') }} <span class="abshp-ic" style="color:#6fd693;font-size:.85em">{!! $svgCheck !!}</span>
-                <small>Jangan lupa absen pulang sebelum meninggalkan cabang.</small>
-            @else
-                Absen hari ini lengkap
-                <small>Masuk {{ $masuk->taken_at->format('H.i') }} · Pulang {{ $pulang->taken_at->format('H.i') }}</small>
-            @endif
-        </div>
+                <small>Selfie di titik absen cabang — mulai dari tombol di bawah.</small>
+            </div>
+        @else
+            @php
+                $durasi = 'berjalan';
+                if ($pulang) {
+                    $mnt = $masuk->taken_at->diffInMinutes($pulang->taken_at);
+                    $durasi = str_replace('.', ',', (string) round($mnt / 60, 1)) . ' jam';
+                }
+            @endphp
+            <div class="abshp-tl">
+                <div style="flex:1;min-width:0">
+                    <div class="kk">MASUK</div>
+                    <div class="jj">{{ $masuk->taken_at->format('H:i') }}</div>
+                </div>
+                <div class="abshp-tl-mid">
+                    <div class="abshp-tl-line {{ $pulang ? '' : 'open' }}"></div>
+                    <span class="abshp-tl-dur">{{ $durasi }}</span>
+                </div>
+                <div style="flex:1;min-width:0;text-align:right">
+                    <div class="kk">PULANG</div>
+                    <div class="jj {{ $pulang ? '' : 'off' }}">{{ $pulang ? $pulang->taken_at->format('H:i') : '—' }}</div>
+                </div>
+            </div>
+            @if($me['cabang'])<div class="abshp-tl-cabang">Cabang {{ $me['cabang'] }}</div>@endif
+            @if(!$pulang)<div class="abshp-tl-cabang" style="color:#C9A183">Jangan lupa absen pulang sebelum meninggalkan cabang.</div>@endif
+        @endif
     </div>
 
     @if($lupaKemarin)
@@ -199,10 +229,10 @@
     <div class="atas"><button type="button" class="abshp-ov-back" data-tutup="ov-izin">‹</button></div>
     <div class="tengah">
         <div class="abshp-ikon-bulat abshp-ikon-coklat"><span class="abshp-ic">{!! $svgCam !!}</span></div>
-        <h5>Izinkan pakai kamera</h5>
-        <p>Absen pakai foto selfie supaya kehadiranmu tercatat jujur. Fotonya cuma dipakai buat absen — sekali izin, seterusnya lancar.</p>
-        <button id="btn-izinkan" class="abshp-btn abshp-btn-utama">Izinkan Kamera</button>
-        <button type="button" class="abshp-btn abshp-btn-kedua" data-tutup="ov-izin" style="margin-top:8px">Nanti saja</button>
+        <h5>Absen pakai foto selfie</h5>
+        <p>Kehadiranmu tercatat jujur lewat selfie di titik absen. Fotonya cuma dipakai buat absen — sekali izin, seterusnya lancar.</p>
+        <button id="btn-izinkan" class="abshp-btn abshp-btn-utama">Lanjutkan</button>
+        <p style="font-size:12px;color:#9A7256;margin-top:9px">HP kamu akan menanyakan izin kamera setelah ini.</p>
     </div>
 </div>
 
@@ -211,10 +241,12 @@
     <div class="atas"><button type="button" class="abshp-ov-back" data-tutup="ov-tolak">‹</button></div>
     <div class="tengah">
         <div class="abshp-ikon-bulat abshp-ikon-merah"><span class="abshp-ic">{!! $svgCamOff !!}</span></div>
-        <h5>Kamera belum diizinkan</h5>
-        <p>Buka setelan izin di browser lalu aktifkan <strong>Kamera</strong> untuk halaman ini.</p>
-        <div class="abshp-langkah"><span class="no">1</span><span>Ketuk ikon gembok/kamera di kolom alamat browser</span></div>
-        <div class="abshp-langkah"><span class="no">2</span><span>Kembali ke sini, ketuk <strong>Coba Lagi</strong></span></div>
+        <h5 id="tolak-judul">Kamera belum diizinkan</h5>
+        <p id="tolak-teks">Buka setelan izin di browser lalu aktifkan <strong>Kamera</strong> untuk halaman ini.</p>
+        <div id="tolak-langkah">
+            <div class="abshp-langkah"><span class="no">1</span><span>Ketuk ikon gembok/kamera di kolom alamat browser</span></div>
+            <div class="abshp-langkah"><span class="no">2</span><span>Kembali ke sini, ketuk <strong>Coba Lagi</strong></span></div>
+        </div>
         <button id="btn-tolak-coba" class="abshp-btn abshp-btn-utama" style="margin-top:8px">Coba Lagi</button>
     </div>
 </div>
@@ -329,7 +361,36 @@
     $('btn-izinkan').addEventListener('click', function () { lihat('ov-izin', false); bukaKamera(); });
     $('btn-tolak-coba').addEventListener('click', function () { lihat('ov-tolak', false); bukaKamera(); });
 
+    // Layar "kamera tak bisa dibuka" — dua sebab yang beda obatnya:
+    //   insecure = halaman dibuka lewat http:// (mis. dites dari HP ke IP
+    //              komputer). Browser TIDAK menyediakan kamera sama sekali;
+    //              menyuruh "izinkan di setelan" cuma bikin bingung.
+    //   selain itu = izin ditolak / kamera dipakai app lain → bisa Coba Lagi.
+    function tolakKamera(insecure) {
+        lihat('ov-kamera', false);
+        lihat('ov-tolak', true);
+        localStorage.removeItem('abshp_izin_ok');
+        if (insecure) {
+            $('tolak-judul').textContent = 'Kamera tidak bisa dibuka dari alamat ini';
+            $('tolak-teks').innerHTML = 'Browser hanya mengizinkan kamera di alamat aman (<strong>https://</strong>). Buka halaman ini dari alamat resmi Sweet Treats, bukan lewat alamat IP.';
+            $('tolak-langkah').hidden = true;
+            $('btn-tolak-coba').hidden = true;
+        } else {
+            $('tolak-judul').textContent = 'Kamera belum diizinkan';
+            $('tolak-teks').innerHTML = 'Buka setelan izin di browser lalu aktifkan <strong>Kamera</strong> untuk halaman ini.';
+            $('tolak-langkah').hidden = false;
+            $('btn-tolak-coba').hidden = false;
+        }
+    }
+
     function bukaKamera() {
+        // navigator.mediaDevices TIDAK ADA di halaman non-secure — kalau langsung
+        // dipanggil, dia melempar TypeError sinkron yang tak tertangkap .catch()
+        // dan layar kamera nyangkut hitam tanpa pesan apa pun.
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            tolakKamera(true);
+            return;
+        }
         lihat('ov-kamera', true);
         resetKamera();
         navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 720 } }, audio: false })
@@ -337,11 +398,7 @@
                 stream = s; $('video').srcObject = s;
                 localStorage.setItem('abshp_izin_ok', '1');
             })
-            .catch(function () {
-                lihat('ov-kamera', false);
-                lihat('ov-tolak', true);
-                localStorage.removeItem('abshp_izin_ok');
-            });
+            .catch(function () { tolakKamera(false); });
     }
 
     function matikanKamera() {

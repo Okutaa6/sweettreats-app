@@ -10,7 +10,7 @@
         <a href="{{ route('epbreakdown') }}" class="st-btn-outline-brown">
             <i class="fa fa-arrow-left"></i> Kembali ke Breakdown
         </a>
-        <span class="bd-mode-pill">🎯 Mode: Konten Khusus (Breakdown)</span>
+        <span class="bd-mode-pill"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" style="vertical-align:-.15em"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.4"/><circle cx="8" cy="8" r="3" stroke="currentColor" stroke-width="1.4"/><circle cx="8" cy="8" r=".9" fill="currentColor"/></svg> Mode: Konten Khusus (Breakdown)</span>
     </div>
 
     @include('layouts.notif')

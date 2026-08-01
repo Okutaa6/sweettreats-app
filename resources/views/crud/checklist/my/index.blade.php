@@ -848,7 +848,7 @@
                     <div class="cl-mod-banner cl-mod-banner--success">
                         <i class="fas fa-check-circle"></i>
                         <div>
-                            <strong>Checklist hari ini disetujui supervisor.</strong> Terima kasih atas konsistensinya! 🎉
+                            <strong>Checklist hari ini disetujui supervisor.</strong> Terima kasih atas konsistensinya! <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style="vertical-align:-.15em"><path d="M8 1.8 9.3 5.6 13 7 9.3 8.4 8 12.2 6.7 8.4 3 7l3.7-1.4L8 1.8Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M12.8 11.4v2.8M11.4 12.8h2.8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
                             @if($submission->submitted_at)<div style="margin-top:4px; font-size:12px; opacity:.85;">Dikirim {{ $submission->submitted_at->translatedFormat('d M Y, H:i') }}</div>@endif
                         </div>
                     </div>

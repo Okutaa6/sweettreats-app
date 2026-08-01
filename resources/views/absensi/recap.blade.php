@@ -30,7 +30,7 @@
             <div class="fin-kpi-s">total yang diklaim</div>
         </div>
         <div class="fin-kpi warn">
-            <div class="fin-kpi-k red">⚠ PERLU DICEK</div>
+            <div class="fin-kpi-k red"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" style="vertical-align:-.12em"><path d="M8 2.2 14.4 13.2H1.6L8 2.2Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M8 6.4v3M8 11.2v.1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg> PERLU DICEK</div>
             <div class="fin-kpi-v num red">{{ $summary['selisih'] }}</div>
             <div class="fin-kpi-s">klaim lembur &gt; dukungan scan</div>
         </div>
@@ -66,7 +66,7 @@
             </select>
         </div>
         <a href="{{ url('absensi/recap') }}?m={{ $anchor->format('Y-m') }}{{ $branchFilter ? '&branch='.$branchFilter : '' }}{{ ($tipeFilter ?? '') ? '&jenis='.$tipeFilter : '' }}{{ $verifFilter === 'selisih' ? '' : '&verif=selisih' }}"
-           class="fin-checkbtn {{ $verifFilter === 'selisih' ? 'on' : '' }}">⚠ Hanya yang perlu dicek</a>
+           class="fin-checkbtn {{ $verifFilter === 'selisih' ? 'on' : '' }}"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" style="vertical-align:-.12em"><path d="M8 2.2 14.4 13.2H1.6L8 2.2Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M8 6.4v3M8 11.2v.1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg> Hanya yang perlu dicek</a>
         <div class="fin-count">Menampilkan <b class="num">{{ $items->count() }}</b> pengajuan</div>
     </form>
 
