@@ -252,6 +252,21 @@ persetujuan), `🎯` (EP Konten/Breakdown Marketing), `📞 🎂` (crud/customer
 - [x] Polish minor: palet avatar disatukan ke palet §3 (customer/doctor/
       pettycash audit feed), drift border `#eadfd6`/`#efe4d6` → `#EFE0CE`,
       marker biru `#2779a7` → `#3F6BAF`, jam kembar "10:22–10:22" disembunyikan.
+- [ ] **PARKIR — tema shell per ROLE** (ditinjau & diparkir Ekky 2026-08-01):
+      sidebar ikut departemen orangnya (Finance=burgundy, IT=grafit,
+      marketing=teal), konten tetap ikut zona halaman. Konsepnya SAH — aturan
+      §2 melarang shell berubah per-HALAMAN, bukan per-ORANG (tema marketing
+      lama memang begitu). Faktanya hari ini: mesin tema role masih hidup
+      (`group_path.theme` → `data-theme`, `--brown` jadi teal utk Yovanka)
+      tapi cat SIDEBAR-nya mati sejak redesign shell — `shell-menu.css`
+      hardcode `#3A1100→#2C0C00` + `!important` menimpa CSS tema.
+      **Prasyarat kalau digarap: tokenisasi warna shell dulu.** Dampak kecil
+      (±5 orang non-operasional), biaya sedang → tunggu pemicu nyata.
+- [ ] Bersih-bersih ikutan parkiran (boleh kapan saja, murah): komentar basi
+      di `app.blade.php` ("theme-marketing.css aktif global → sidebar…" —
+      sudah tidak benar), blok sidebar-teal mati di `theme-marketing.css`,
+      dan hardcode warna di Dashboard Marketing yang membuat tema role tak
+      tembus (elemen yang tak pakai `var(--brown)`).
 
 ---
 

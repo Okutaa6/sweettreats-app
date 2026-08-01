@@ -7,6 +7,7 @@ Peta isi folder `docs/`. **Mulai dari sini** kalau bingung cari apa.
 | Kalau kamu mau… | Buka |
 |---|---|
 | Tahu aturan warna/tema per halaman | `spec/peta-tema.md` |
+| Tahu pola interaksi (chevron, toast, tombol-mati, dll) | `spec/pola-interaksi.md` |
 | Tahu "kalau X gimana?" soal absensi & cuti | `spec/sop-absensi-cuti.md` |
 | Buka chat baru untuk security / peta tema / deploy | `spec/prompt-chat-baru.md` |
 | Paham cara kerja mesin absensi (scan → att_day) | `rencana/rencana-rekonsiliasi-absensi.md` |
@@ -43,6 +44,8 @@ PHP/SQL menunjuk ke sini (mis. `docs/rencana/rencana-rekonsiliasi-absensi.md §5
   IT grafit, Finance burgundy. 3 lapis warna, mapping per halaman,
   device-intent (mobile vs desktop), aturan emoji→ikon. **Baca sebelum
   bikin/reskin halaman apa pun.**
+- `pola-interaksi.md` — kamus pola interaksi (afordansi, umpan balik, alasan
+  tombol mati, empty state) + mapping status per halaman + backlog prioritas.
 - `sop-absensi-cuti.md` — skenario dunia nyata absensi & cuti: apa yang sistem
   lakukan otomatis vs apa yang manusia harus lakukan (HP mati, WiFi mati,
   backdate, cuti minus, tutup periode, dll).
