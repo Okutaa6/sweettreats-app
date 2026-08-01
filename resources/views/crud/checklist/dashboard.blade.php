@@ -175,7 +175,8 @@
 
 <style>
     .dash-kpis    { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:13px; }
-    .dash-2col    { display:grid; grid-template-columns:1.1fr 1fr; gap:14px; align-items:start; }
+    /* stretch (bukan start) → kartu Progres per Divisi & Aktivitas Terbaru sama tinggi/sejajar */
+    .dash-2col    { display:grid; grid-template-columns:1.1fr 1fr; gap:14px; align-items:stretch; }
     .dash-actions { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; }
     .dash-row     { transition:background .12s ease; color:inherit; }
     .dash-row:hover { background:#FBF4EC !important; color:inherit; text-decoration:none; }

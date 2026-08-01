@@ -423,6 +423,8 @@ Route::middleware([AuthGuard::class])->group(function () {
 
     // Dashboard + Audit (Supervisor only)
     Route::get ('checklist',                        [DigitalChecklistController::class, 'dashboard'])  ->name('checklist');
+    Route::get ('checklist/export',                 [DigitalChecklistController::class, 'exportDaily'])->name('checklist.export');
+    Route::get ('checklist/export/weekly',          [DigitalChecklistController::class, 'exportWeekly'])->name('checklist.export.weekly');
     Route::get ('checklist/audit',                  [DigitalChecklistController::class, 'audit'])      ->name('checklist.audit');
 
     // Kelola Posisi Karyawan (Supervisor)

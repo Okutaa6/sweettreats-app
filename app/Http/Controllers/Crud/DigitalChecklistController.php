@@ -10,6 +10,7 @@ use App\Models\ChecklistSubmission;
 use App\Models\ChecklistSubmissionItem;
 use App\Models\ChecklistWeeklySubmission;
 use App\Models\ChecklistWeeklySubmissionItem;
+use App\Models\ChecklistCategory;
 use App\Models\GroupPath;
 use App\Models\RawBranch;
 use App\Models\Users;
@@ -17,6 +18,13 @@ use App\Models\UserPosition;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Border;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * Modul Checklist Akreditasi — sisi Supervisor.
@@ -133,6 +141,512 @@ class DigitalChecklistController extends Controller
         return view('crud.checklist.dashboard', compact(
             'kpis', 'perDivision', 'recent', 'branches', 'branchId', 'today'
         ));
+    }
+
+    /* ─── Export Excel (rekap checklist harian per divisi) ─────────────────
+       Satu file .xlsx untuk 1 divisi + 1 bulan; tiap karyawan jadi 1 sheet
+       (tab) sendiri. Grid ala form kertas "CEKLIS HARIAN": baris = tugas per
+       seksi, kolom = tanggal 1..akhir bulan, sel = centang bila tugas dikerjakan.
+       Semua karyawan yang posisinya aktif di divisi pada bulan tsb dapat tab —
+       walau belum mengisi (grid kosong). */
+
+    public function exportDaily(Request $request): StreamedResponse
+    {
+        $this->guard();
+
+        $branchId    = resolveChecklistBranchId($request->get('branch'));
+        $division    = $this->resolveExportDivision($request);
+        $start       = $this->exportMonthStart($request);
+        $end         = $start->copy()->endOfMonth();
+        $daysInMonth = $start->daysInMonth;
+
+        // Karyawan: posisi aktif (confirmed) di divisi ini yang overlap bulan tsb.
+        $posUserIds = $this->exportPositionUserIds($division->id, $branchId, $start, $end);
+
+        // Union dgn siapa pun yang sempat submit di divisi ini bulan tsb (jaga-jaga pindah divisi).
+        $subUserIds = ChecklistSubmission::query()
+            ->where('division_id', $division->id)
+            ->whereBetween('submission_date', [$start, $end])
+            ->when($branchId, fn ($q) => $q->where('raw_branch_id', $branchId))
+            ->pluck('user_id');
+
+        $userIds = $posUserIds->merge($subUserIds)->unique()->values();
+        $users   = Users::query()->whereIn('id', $userIds)->orderBy('nama')->get();
+
+        // Submissions bulan tsb, dikelompokkan per user.
+        $subsByUser = ChecklistSubmission::query()
+            ->whereIn('user_id', $userIds)
+            ->where('division_id', $division->id)
+            ->whereBetween('submission_date', [$start, $end])
+            ->with('items')
+            ->get()
+            ->groupBy('user_id');
+
+        // Baris tugas (union snapshot lintas karyawan/tanggal).
+        $rows = $this->exportTaskRows($subsByUser, $division->id);
+
+        // ── Bangun workbook ──
+        $spreadsheet = new Spreadsheet();
+        $spreadsheet->removeSheetByIndex(0);   // buang sheet default kosong
+
+        if ($users->isEmpty()) {
+            $info = $spreadsheet->createSheet();
+            $info->setTitle('Info');
+            $info->setCellValue('A1', 'Tidak ada karyawan aktif di divisi ' . $division->name
+                . ' pada ' . $start->translatedFormat('F Y') . '.');
+        }
+
+        $usedTitles = [];
+        foreach ($users as $u) {
+            $sheet = $spreadsheet->createSheet();
+            $sheet->setTitle($this->uniqueSheetTitle($u->nama ?: 'Karyawan', $usedTitles));
+            $this->fillEmployeeSheet(
+                $sheet, $u, $division, $start, $daysInMonth, $rows, $subsByUser->get($u->id)
+            );
+        }
+
+        $spreadsheet->setActiveSheetIndex(0);
+
+        $filename = 'checklist_harian_' . $division->id . '_' . $start->format('Y-m') . '.xlsx';
+
+        return new StreamedResponse(function () use ($spreadsheet) {
+            (new Xlsx($spreadsheet))->save('php://output');
+        }, 200, [
+            'Content-Type'        => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+            'Cache-Control'       => 'max-age=0',
+        ]);
+    }
+
+    /**
+     * Kumpulkan baris tugas unik (grid) dari snapshot item seluruh karyawan.
+     * Kalau bulan itu tak ada data sama sekali → fallback ke katalog aktif
+     * sekarang supaya grid tetap punya baris.
+     */
+    private function exportTaskRows($subsByUser, string $divisionId): array
+    {
+        $rows = [];
+        foreach ($subsByUser as $subs) {
+            foreach ($subs as $sub) {
+                foreach ($sub->items as $it) {
+                    $key = $it->task_id ?: ('t:' . $it->category_title_snapshot . '|' . $it->task_title_snapshot);
+                    if (! isset($rows[$key])) {
+                        $rows[$key] = (object) [
+                            'key'      => $key,
+                            'category' => $it->category_title_snapshot,
+                            'catSort'  => (int) $it->category_sort_order,
+                            'title'    => $it->task_title_snapshot,
+                            'taskSort' => (int) $it->task_sort_order,
+                        ];
+                    }
+                }
+            }
+        }
+
+        if (empty($rows)) {
+            $cats = ChecklistCategory::query()
+                ->where('division_id', $divisionId)
+                ->where('cadence', ChecklistCategory::CADENCE_DAILY)
+                ->where('is_active', 1)
+                ->with('activeTasks')
+                ->orderBy('sort_order')
+                ->get();
+            foreach ($cats as $cat) {
+                foreach ($cat->activeTasks as $task) {
+                    $rows[$task->id] = (object) [
+                        'key'      => $task->id,
+                        'category' => $cat->name,
+                        'catSort'  => (int) $cat->sort_order,
+                        'title'    => $task->title,
+                        'taskSort' => (int) $task->sort_order,
+                    ];
+                }
+            }
+        }
+
+        $rows = array_values($rows);
+        usort($rows, fn ($a, $b) => [$a->catSort, $a->taskSort, $a->category, $a->title]
+                                <=> [$b->catSort, $b->taskSort, $b->category, $b->title]);
+        return $rows;
+    }
+
+    /** Isi satu sheet karyawan dengan grid tugas × tanggal. */
+    private function fillEmployeeSheet($sheet, $user, ChecklistDivision $division, Carbon $start, int $daysInMonth, array $rows, $userSubs): void
+    {
+        $userSubs = $userSubs ?? collect();
+
+        // day => [rowKey => is_done]
+        $doneByDay = [];
+        foreach ($userSubs as $sub) {
+            $map = [];
+            foreach ($sub->items as $it) {
+                $key = $it->task_id ?: ('t:' . $it->category_title_snapshot . '|' . $it->task_title_snapshot);
+                $map[$key] = (bool) $it->is_done;
+            }
+            $doneByDay[(int) $sub->submission_date->day] = $map;
+        }
+
+        $firstDateCol  = 3;                                   // A=No, B=Uraian, C.. = tanggal
+        $lastDateCol   = $firstDateCol + $daysInMonth - 1;
+        $lastColLetter = Coordinate::stringFromColumnIndex($lastDateCol);
+
+        // ── Judul ──
+        $sheet->setCellValue('A1', 'CEKLIS HARIAN ' . mb_strtoupper($division->name));
+        $sheet->mergeCells('A1:' . $lastColLetter . '1');
+        $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(13);
+        $sheet->getStyle('A1')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet->setCellValue('A2', 'Nama: ' . ($user->nama ?: '-'));
+        $sheet->setCellValue('A3', 'Bulan: ' . $start->translatedFormat('F Y'));
+        $sheet->getStyle('A2:A3')->getFont()->setBold(true);
+
+        // ── Header kolom (baris 5) ──
+        $hdr = 5;
+        $sheet->setCellValue('A' . $hdr, 'No');
+        $sheet->setCellValue('B' . $hdr, 'Uraian');
+        for ($d = 1; $d <= $daysInMonth; $d++) {
+            $col  = Coordinate::stringFromColumnIndex($firstDateCol + $d - 1);
+            $sheet->setCellValue($col . $hdr, $d);
+            if ($start->copy()->day($d)->dayOfWeekIso === 7) {   // tandai Minggu
+                $sheet->getStyle($col . $hdr)->getFill()->setFillType(Fill::FILL_SOLID)
+                    ->getStartColor()->setRGB('FBE3DE');
+            }
+        }
+        $hdrRange = 'A' . $hdr . ':' . $lastColLetter . $hdr;
+        $sheet->getStyle($hdrRange)->getFont()->setBold(true);
+        $sheet->getStyle($hdrRange)->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('F1E6D7');
+        $sheet->getStyle($hdrRange)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+
+        // ── Baris tugas (grup per seksi) ──
+        $r       = $hdr + 1;
+        $no      = 0;
+        $lastCat = null;
+        $secNo   = 0;
+        foreach ($rows as $row) {
+            if ($row->category !== $lastCat) {
+                $secNo++;
+                $sheet->setCellValue('A' . $r, $secNo . '.');
+                $sheet->setCellValue('B' . $r, mb_strtoupper($row->category));
+                $sheet->mergeCells('B' . $r . ':' . $lastColLetter . $r);
+                $sheet->getStyle('A' . $r . ':' . $lastColLetter . $r)->getFont()->setBold(true);
+                $sheet->getStyle('A' . $r . ':' . $lastColLetter . $r)->getFill()
+                    ->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('FBEFD9');
+                $r++;
+                $lastCat = $row->category;
+                $no      = 0;
+            }
+            $no++;
+            $sheet->setCellValue('A' . $r, $no);
+            $sheet->setCellValue('B' . $r, $row->title);
+            for ($d = 1; $d <= $daysInMonth; $d++) {
+                if ($doneByDay[$d][$row->key] ?? false) {
+                    $col = Coordinate::stringFromColumnIndex($firstDateCol + $d - 1);
+                    $sheet->setCellValue($col . $r, '✓');
+                }
+            }
+            $r++;
+        }
+        $lastRow = max($r - 1, $hdr);
+
+        // ── Kosmetik ──
+        $sheet->getColumnDimension('A')->setWidth(4);
+        $sheet->getColumnDimension('B')->setWidth(42);
+        for ($d = 1; $d <= $daysInMonth; $d++) {
+            $sheet->getColumnDimension(Coordinate::stringFromColumnIndex($firstDateCol + $d - 1))->setWidth(3.4);
+        }
+        $sheet->getStyle(Coordinate::stringFromColumnIndex($firstDateCol) . $hdr . ':' . $lastColLetter . $lastRow)
+            ->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet->getStyle('A' . $hdr . ':' . $lastColLetter . $lastRow)->getBorders()
+            ->getAllBorders()->setBorderStyle(Border::BORDER_THIN)->getColor()->setRGB('D9C9B5');
+        $sheet->freezePane('C' . ($hdr + 1));   // kunci kolom No/Uraian + header
+    }
+
+    /* ─── Export Excel (rekap checklist MINGGUAN per divisi) ───────────────
+       Konsep = matriks bersih (bukan tiru form kertas): baris = tugas
+       dikelompokkan per HARI (Selasa..Minggu), kolom = minggu ke-1..N dalam
+       bulan tsb, sel = centang bila dikerjakan (– = hari dikecualikan).
+       Tiap karyawan jadi 1 sheet (tab) sendiri. */
+
+    public function exportWeekly(Request $request): StreamedResponse
+    {
+        $this->guard();
+
+        $branchId = resolveChecklistBranchId($request->get('branch'));
+        $division = $this->resolveExportDivision($request);
+        $start    = $this->exportMonthStart($request);
+        $end      = $start->copy()->endOfMonth();
+
+        // Kolom = tiap minggu (week_start_date = Senin) yang overlap bulan tsb.
+        $weeks  = [];
+        $cursor = $start->copy()->startOfWeek(Carbon::MONDAY);
+        while ($cursor->lte($end)) {
+            $weeks[] = $cursor->copy();
+            $cursor->addWeek();
+        }
+        $mondayKeys = array_map(fn ($m) => $m->toDateString(), $weeks);
+
+        // Karyawan: posisi aktif overlap bulan + union yang sempat mengisi minggu2 tsb.
+        $posUserIds = $this->exportPositionUserIds($division->id, $branchId, $start, $end);
+        $subUserIds = ChecklistWeeklySubmission::query()
+            ->where('division_id', $division->id)
+            ->whereIn('week_start_date', $mondayKeys)
+            ->when($branchId, fn ($q) => $q->where('raw_branch_id', $branchId))
+            ->pluck('user_id');
+
+        $userIds = $posUserIds->merge($subUserIds)->unique()->values();
+        $users   = Users::query()->whereIn('id', $userIds)->orderBy('nama')->get();
+
+        $subsByUser = ChecklistWeeklySubmission::query()
+            ->whereIn('user_id', $userIds)
+            ->where('division_id', $division->id)
+            ->whereIn('week_start_date', $mondayKeys)
+            ->with(['items', 'dayExcuses'])
+            ->get()
+            ->groupBy('user_id');
+
+        $rows = $this->exportWeeklyTaskRows($subsByUser, $division->id);
+
+        $spreadsheet = new Spreadsheet();
+        $spreadsheet->removeSheetByIndex(0);
+
+        if ($users->isEmpty()) {
+            $info = $spreadsheet->createSheet();
+            $info->setTitle('Info');
+            $info->setCellValue('A1', 'Tidak ada karyawan aktif di divisi ' . $division->name
+                . ' pada ' . $start->translatedFormat('F Y') . '.');
+        }
+
+        $usedTitles = [];
+        foreach ($users as $u) {
+            $sheet = $spreadsheet->createSheet();
+            $sheet->setTitle($this->uniqueSheetTitle($u->nama ?: 'Karyawan', $usedTitles));
+            $this->fillEmployeeWeeklySheet(
+                $sheet, $u, $division, $start, $weeks, $rows, $subsByUser->get($u->id)
+            );
+        }
+
+        $spreadsheet->setActiveSheetIndex(0);
+
+        $filename = 'checklist_mingguan_' . $division->id . '_' . $start->format('Y-m') . '.xlsx';
+
+        return new StreamedResponse(function () use ($spreadsheet) {
+            (new Xlsx($spreadsheet))->save('php://output');
+        }, 200, [
+            'Content-Type'        => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+            'Cache-Control'       => 'max-age=0',
+        ]);
+    }
+
+    /** Baris tugas mingguan unik (grup per hari) dari snapshot; fallback katalog aktif. */
+    private function exportWeeklyTaskRows($subsByUser, string $divisionId): array
+    {
+        $rows = [];
+        foreach ($subsByUser as $subs) {
+            foreach ($subs as $sub) {
+                foreach ($sub->items as $it) {
+                    $key = $it->task_id ?: ('t:' . $it->day_of_week . '|' . $it->task_title_snapshot);
+                    if (! isset($rows[$key])) {
+                        $rows[$key] = (object) [
+                            'key'      => $key,
+                            'day'      => (int) $it->day_of_week,
+                            'title'    => $it->task_title_snapshot,
+                            'taskSort' => (int) $it->task_sort_order,
+                        ];
+                    }
+                }
+            }
+        }
+
+        if (empty($rows)) {
+            $cats = ChecklistCategory::query()
+                ->where('division_id', $divisionId)
+                ->where('cadence', ChecklistCategory::CADENCE_WEEKLY)
+                ->where('is_active', 1)
+                ->with('activeTasks')
+                ->get();
+            foreach ($cats as $cat) {
+                foreach ($cat->activeTasks as $task) {
+                    if (! $task->day_of_week) continue;
+                    $rows[$task->id] = (object) [
+                        'key'      => $task->id,
+                        'day'      => (int) $task->day_of_week,
+                        'title'    => $task->title,
+                        'taskSort' => (int) $task->sort_order,
+                    ];
+                }
+            }
+        }
+
+        $rows = array_values($rows);
+        usort($rows, fn ($a, $b) => [$a->day, $a->taskSort, $a->title] <=> [$b->day, $b->taskSort, $b->title]);
+        return $rows;
+    }
+
+    /** Isi satu sheet karyawan: grid tugas (grup per hari) × minggu. */
+    private function fillEmployeeWeeklySheet($sheet, $user, ChecklistDivision $division, Carbon $start, array $weeks, array $rows, $userSubs): void
+    {
+        $userSubs  = $userSubs ?? collect();
+        $dayLabels = \App\Models\ChecklistTask::dayLabels();
+
+        // weekKey => [rowKey => is_done] ; weekKey => [hari dikecualikan]
+        $doneByWeek = [];
+        $excusedByWeek = [];
+        foreach ($userSubs as $sub) {
+            $wk  = $sub->week_start_date->toDateString();
+            $map = [];
+            foreach ($sub->items as $it) {
+                $key = $it->task_id ?: ('t:' . $it->day_of_week . '|' . $it->task_title_snapshot);
+                $map[$key] = (bool) $it->is_done;
+            }
+            $doneByWeek[$wk]    = $map;
+            $excusedByWeek[$wk] = $sub->excusedDayNumbers();
+        }
+
+        $firstCol   = 3;                                  // A=No, B=Uraian, C.. = minggu
+        $nWeeks     = count($weeks);
+        $lastCol    = $firstCol + max($nWeeks, 1) - 1;
+        $lastLetter = Coordinate::stringFromColumnIndex($lastCol);
+
+        // ── Judul ──
+        $sheet->setCellValue('A1', 'CEKLIS MINGGUAN ' . mb_strtoupper($division->name));
+        $sheet->mergeCells('A1:' . $lastLetter . '1');
+        $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(13);
+        $sheet->getStyle('A1')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet->setCellValue('A2', 'Nama: ' . ($user->nama ?: '-'));
+        $sheet->setCellValue('A3', 'Bulan: ' . $start->translatedFormat('F Y'));
+        $sheet->getStyle('A2:A3')->getFont()->setBold(true);
+
+        // ── Header: baris 5 = "Minggu n", baris 6 = rentang tanggal ──
+        $hdr  = 5;
+        $shdr = 6;
+        $sheet->setCellValue('A' . $hdr, 'No');
+        $sheet->setCellValue('B' . $hdr, 'Hari / Uraian Tugas');
+        $sheet->mergeCells('A' . $hdr . ':A' . $shdr);
+        $sheet->mergeCells('B' . $hdr . ':B' . $shdr);
+        foreach ($weeks as $i => $mon) {
+            $col   = Coordinate::stringFromColumnIndex($firstCol + $i);
+            $wkEnd = $mon->copy()->addDays(6);
+            $range = $mon->month === $wkEnd->month
+                ? $mon->translatedFormat('d') . '–' . $wkEnd->translatedFormat('d M')
+                : $mon->translatedFormat('d M') . '–' . $wkEnd->translatedFormat('d M');
+            $sheet->setCellValue($col . $hdr, 'Minggu ' . ($i + 1));
+            $sheet->setCellValue($col . $shdr, $range);
+        }
+        $hdrRange = 'A' . $hdr . ':' . $lastLetter . $shdr;
+        $sheet->getStyle($hdrRange)->getFont()->setBold(true);
+        $sheet->getStyle($hdrRange)->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('F1E6D7');
+        $sheet->getStyle($hdrRange)->getAlignment()
+            ->setHorizontal(Alignment::HORIZONTAL_CENTER)->setVertical(Alignment::VERTICAL_CENTER);
+        $sheet->getStyle(Coordinate::stringFromColumnIndex($firstCol) . $shdr . ':' . $lastLetter . $shdr)
+            ->getFont()->setBold(false)->setSize(9)->setItalic(true);
+
+        // ── Baris tugas (grup per hari) ──
+        $r       = $shdr + 1;
+        $lastDay = null;
+        $no      = 0;
+        foreach ($rows as $row) {
+            if ($row->day !== $lastDay) {
+                $sheet->setCellValue('A' . $r, ($dayLabels[$row->day] ?? '-'));
+                $sheet->mergeCells('A' . $r . ':' . $lastLetter . $r);
+                $sheet->getStyle('A' . $r . ':' . $lastLetter . $r)->getFont()->setBold(true);
+                $sheet->getStyle('A' . $r . ':' . $lastLetter . $r)->getFill()
+                    ->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('DCEAF6');   // biru muda ala form mingguan
+                $r++;
+                $lastDay = $row->day;
+                $no      = 0;
+            }
+            $no++;
+            $sheet->setCellValue('A' . $r, $no);
+            $sheet->setCellValue('B' . $r, $row->title);
+            foreach ($weeks as $i => $mon) {
+                $wk  = $mon->toDateString();
+                $col = Coordinate::stringFromColumnIndex($firstCol + $i);
+                if (in_array($row->day, $excusedByWeek[$wk] ?? [], true)) {
+                    $sheet->setCellValue($col . $r, '–');
+                } elseif ($doneByWeek[$wk][$row->key] ?? false) {
+                    $sheet->setCellValue($col . $r, '✓');
+                }
+            }
+            $r++;
+        }
+        $lastRow = max($r - 1, $shdr);
+
+        // Legend
+        $lgRow = $lastRow + 2;
+        $sheet->setCellValue('A' . $lgRow, 'Keterangan: ✓ = dikerjakan   ·   – = hari dikecualikan   ·   kosong = belum/tidak diisi');
+        $sheet->mergeCells('A' . $lgRow . ':' . $lastLetter . $lgRow);
+        $sheet->getStyle('A' . $lgRow)->getFont()->setItalic(true)->setSize(9)->getColor()->setRGB('8A6A4F');
+
+        // ── Kosmetik ──
+        $sheet->getColumnDimension('A')->setWidth(5);
+        $sheet->getColumnDimension('B')->setWidth(46);
+        foreach ($weeks as $i => $mon) {
+            $sheet->getColumnDimension(Coordinate::stringFromColumnIndex($firstCol + $i))->setWidth(12);
+        }
+        $sheet->getStyle(Coordinate::stringFromColumnIndex($firstCol) . $hdr . ':' . $lastLetter . $lastRow)
+            ->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet->getStyle('B' . ($shdr + 1) . ':B' . $lastRow)->getAlignment()->setWrapText(true);
+        $sheet->getStyle('A' . $hdr . ':' . $lastLetter . $lastRow)->getBorders()
+            ->getAllBorders()->setBorderStyle(Border::BORDER_THIN)->getColor()->setRGB('D9C9B5');
+        $sheet->freezePane('C' . ($shdr + 1));   // kunci kolom No/Uraian + header
+    }
+
+    /* ─── Shared export helpers ────────────────────────────────────────── */
+
+    /** Bulan (YYYY-MM) → awal bulan; default bulan berjalan. */
+    private function exportMonthStart(Request $request): Carbon
+    {
+        try {
+            return $request->get('month')
+                ? Carbon::createFromFormat('Y-m', (string) $request->get('month'))->startOfMonth()
+                : Carbon::today()->startOfMonth();
+        } catch (\Throwable $e) {
+            return Carbon::today()->startOfMonth();
+        }
+    }
+
+    /** Divisi export wajib & dalam cakupan supervisi user ini. */
+    private function resolveExportDivision(Request $request): ChecklistDivision
+    {
+        $divisionId = (string) $request->get('division', '');
+        if (! in_array($divisionId, checklistVisibleDivisionIds(), true)) {
+            abort(403, 'Divisi ini di luar cakupan supervisi Anda.');
+        }
+        return ChecklistDivision::findOrFail($divisionId);
+    }
+
+    /** user_id karyawan yg posisinya aktif (confirmed) di divisi & overlap [start,end]. */
+    private function exportPositionUserIds(string $divisionId, ?string $branchId, Carbon $start, Carbon $end)
+    {
+        return UserPosition::query()
+            ->where('is_primary', 1)
+            ->whereNotNull('confirmed_at')
+            ->where('division_id', $divisionId)
+            ->when($branchId, fn ($q) => $q->where('raw_branch_id', $branchId))
+            ->whereDate('effective_from', '<=', $end)
+            ->where(function ($q) use ($start) {
+                $q->whereNull('effective_to')->orWhereDate('effective_to', '>=', $start);
+            })
+            ->pluck('user_id');
+    }
+
+    /** Judul sheet valid (≤31 char, tanpa karakter ilegal Excel) & unik. */
+    private function uniqueSheetTitle(string $name, array &$used): string
+    {
+        $title = preg_replace('#[\\\\/?*:\[\]]#', ' ', $name);
+        $title = trim(preg_replace('/\s+/', ' ', $title));
+        if ($title === '') $title = 'Karyawan';
+        $title = mb_substr($title, 0, 31);
+
+        $base = $title;
+        $i    = 2;
+        while (in_array(mb_strtolower($title), $used, true)) {
+            $suffix = '~' . $i;
+            $title  = mb_substr($base, 0, 31 - mb_strlen($suffix)) . $suffix;
+            $i++;
+        }
+        $used[] = mb_strtolower($title);
+        return $title;
     }
 
     /* ─── Review queue ─────────────────────────────────────────────────── */
