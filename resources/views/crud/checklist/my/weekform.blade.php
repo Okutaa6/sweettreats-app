@@ -3,35 +3,40 @@
 @section('css')
 <style>
     .wf-wrap { max-width: 1100px; margin: 0 auto; padding-bottom: 32px; }
+    /* Hero ala handoff: gradient 120deg + aksen kiri teal (identitas Mingguan),
+       ikon tile teal 44px, judul + (sub & pill dalam SATU baris di bawahnya) */
     .wf-hero {
-        background: linear-gradient(135deg, #5C2E15 0%, #471500 100%);
+        background: linear-gradient(120deg, #5C2E15, #471500);
         color: #FFFFFF;
         border-radius: 18px;
-        padding: 20px 24px;
+        border-left: 5px solid #1F6E5F;
+        padding: 18px 22px;
         margin-bottom: 14px;
         position: relative;
         overflow: hidden;
-        box-shadow: 0 8px 24px rgba(71,21,0,.18);
-    }
-    .wf-hero::before {
-        content: ""; position: absolute; top: -50px; right: -50px;
-        width: 180px; height: 180px; border-radius: 50%;
-        background: rgba(255,255,255,.06); pointer-events: none;
+        box-shadow: 0 8px 24px rgba(70,21,0,.22);
     }
     .wf-hero__row {
-        display: flex; justify-content: space-between; align-items: center;
-        gap: 14px; flex-wrap: wrap; position: relative; z-index: 1;
+        display: flex; align-items: center;
+        gap: 15px; flex-wrap: wrap; position: relative; z-index: 1;
     }
-    .wf-hero__title { margin: 0 0 4px; font-size: 19px; font-weight: 800; letter-spacing: -0.01em; }
-    .wf-hero__title small { font-size: 12px; font-weight: 500; opacity: .82; display: block; margin-top: 2px; }
+    .wf-hero__icon {
+        width: 44px; height: 44px; flex-shrink: 0;
+        border-radius: 12px;
+        background: linear-gradient(135deg, #1F6E5F, #155148);
+        display: flex; align-items: center; justify-content: center;
+        color: #DFF3EC; font-size: 18px;
+    }
+    .wf-hero__title { margin: 0; font-size: 17px; font-weight: 800; color: #FBF1E7; letter-spacing: -0.01em; }
     .wf-hero__meta {
-        font-size: 12px; color: rgba(255,255,255,.85);
         display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+        margin-top: 5px;
     }
+    .wf-hero__sub { font-size: 12px; color: #D8B99C; font-weight: 600; }
     .wf-hero__chip {
-        background: rgba(255,255,255,.14); padding: 3px 10px;
-        border-radius: 999px; border: 1px solid rgba(255,255,255,.22);
-        font-size: 11px; font-weight: 600;
+        background: rgba(255,255,255,.12); padding: 3px 10px;
+        border-radius: 20px; border: none;
+        font-size: 11px; font-weight: 700; color: #FBEADB;
         display: inline-flex; align-items: center; gap: 5px;
     }
     .wf-hero__status {
@@ -40,72 +45,72 @@
         backdrop-filter: blur(8px);
         display: inline-flex; align-items: center; gap: 6px;
     }
-    .wf-hero__status--success { background: rgba(225,245,238,.95); color: #0F6E56; border: 1px solid rgba(31,110,95,.30); }
-    .wf-hero__status--warning { background: rgba(250,238,218,.95); color: #5C2E15; border: 1px solid rgba(166,96,25,.30); }
-    .wf-hero__status--danger  { background: rgba(252,235,235,.95); color: #7C2929; border: 1px solid rgba(163,45,45,.30); }
+    .wf-hero__status--success { background: #E1F5EE; color: #1F6E5F; border: 1px solid rgba(31,110,95,.30); }
+    .wf-hero__status--warning { background: #FAEEDA; color: #A66019; border: 1px solid rgba(166,96,25,.30); }
+    .wf-hero__status--danger  { background: #FCEBEB; color: #A32D2D; border: 1px solid rgba(163,45,45,.30); }
+    .wf-hero__status--draft   { background: #F5F0EA; color: #7A5B43; border: 1px solid rgba(122,91,67,.28); }
+    .wf-hero__status--coffee  { background: #F2E7D8; color: #8A5A2B; border: 1px solid rgba(138,90,43,.30); }
+    .wf-hero__status--slate   { background: #EFE7DC; color: #9B8578; border: 1px solid rgba(155,133,120,.30); }
 
-    /* Week nav */
-    /* Toolbar wrapper: navigasi minggu + progress jadi SATU kartu (kurangi box) */
+    /* Toolbar SATU BARIS (handoff): pager ‹ › + label minggu | pembatas | % + bar | hitungan */
     .wf-toolbar {
         background: #FFFFFF;
-        border: 1px solid #E0D2C1;
-        border-radius: 14px;
+        border: 1px solid #EFE0CE;
+        border-radius: 16px;
         margin-bottom: 14px;
-        box-shadow: 0 2px 6px rgba(45,24,16,.04);
-        overflow: hidden;
+        box-shadow: 0 1px 2px rgba(70,21,0,.04);
+        padding: 14px 20px;
+        display: flex; align-items: center;
+        gap: 16px; flex-wrap: wrap;
     }
-    .wf-nav {
-        padding: 12px 16px;
-        display: flex; justify-content: space-between; align-items: center;
-        gap: 10px; flex-wrap: wrap;
-    }
-    .wf-nav__title { font-size: 14.5px; font-weight: 800; color: #2D1810; margin: 0; display: inline-flex; align-items: center; gap: 8px; }
-    .wf-nav__title i { color: #9B5E2C; font-size: 12px; }
+    .wf-nav { display: flex; align-items: center; gap: 9px; }
+    .wf-nav__title { font-size: 13.5px; font-weight: 800; color: #3B1500; margin: 0; white-space: nowrap; }
+    .wf-nav__sub { font-size: 11px; color: #1F6E5F; font-weight: 700; white-space: nowrap; margin-top: 1px; }
     .wf-nav__btn {
-        width: 34px; height: 34px;
+        width: 34px; height: 34px; flex-shrink: 0;
         display: inline-flex; align-items: center; justify-content: center;
         border-radius: 50%;
-        background: #FAF4EC; color: #5C2E15;
-        text-decoration: none; border: 1px solid #E0D2C1;
+        background: #FFFFFF; color: #5A3A22;
+        text-decoration: none; border: 1px solid #E7D3BE;
+        font-weight: 800;
         transition: background .15s, transform .1s;
     }
-    .wf-nav__btn:hover { background: #F5EBE0; transform: translateY(-1px); text-decoration: none; color: #5C2E15; }
-
-    /* Progress card */
-    /* Progress = baris di dalam .wf-toolbar (pemisah garis atas, tint lembut) */
-    .wf-progress {
-        padding: 16px 20px;
-        border-top: 1px solid #F0E6D8;
-        background: #FDFBF7;
-        display: grid;
-        grid-template-columns: auto 1fr;
-        gap: 22px;
-        align-items: center;
-    }
+    .wf-nav__btn:hover { background: #FAF4EC; transform: translateY(-1px); text-decoration: none; color: #5A3A22; }
+    .wf-toolbar__sep { width: 1px; align-self: stretch; background: #F1E6D7; }
+    .wf-progress { display: flex; align-items: center; gap: 16px; flex: 1; min-width: 260px; }
     .wf-progress__big {
-        font-size: 44px; font-weight: 800;
+        font-size: 30px; font-weight: 800;
         color: #2D1810; line-height: 1;
-        letter-spacing: -0.04em;
+        letter-spacing: -0.03em;
         display: flex; align-items: baseline; gap: 2px;
+        flex-shrink: 0;
     }
-    .wf-progress__big small { font-size: 18px; color: #9B5E2C; font-weight: 700; }
-    .wf-progress__body { min-width: 0; }
+    .wf-progress__big small { font-size: 14px; color: inherit; opacity: .6; font-weight: 700; }
+    .wf-progress.is-good .wf-progress__big { color: #2F8E55; }
+    .wf-progress.is-warn .wf-progress__big { color: #C9962F; }
+    .wf-progress.is-bad  .wf-progress__big { color: #C0392B; }
+    .wf-progress__body { flex: 1; min-width: 140px; }
     .wf-progress__label {
-        font-size: 11px; font-weight: 700; text-transform: uppercase;
-        letter-spacing: 0.5px; color: #9B8578; margin-bottom: 4px;
+        font-size: 10.5px; font-weight: 800; text-transform: uppercase;
+        letter-spacing: 0.6px; color: #9A7256;
     }
-    .wf-progress__count { font-size: 13.5px; color: #2D1810; font-weight: 700; margin-bottom: 10px; }
-    .wf-progress__count small { color: #6B4423; font-weight: 500; font-size: 12px; }
-    .wf-progress__bar { background: #F5F0EA; height: 9px; border-radius: 5px; overflow: hidden; }
+    .wf-progress__count { font-size: 12.5px; color: #5A3A22; font-weight: 700; white-space: nowrap; flex-shrink: 0; }
+    .wf-progress__count small { color: #9A7256; font-weight: 600; font-size: 12px; }
+    .wf-progress__bar { background: #F1E6D7; height: 9px; border-radius: 8px; overflow: hidden; margin-top: 6px; }
     .wf-progress__bar > i {
         display: block; height: 100%;
-        background: linear-gradient(90deg, #9B5E2C, #5C2E15);
-        border-radius: 5px;
-        transition: width .4s cubic-bezier(.45,.05,.55,.95);
+        background: #C0392B;
+        border-radius: 8px;
+        transition: width .4s cubic-bezier(.45,.05,.55,.95), background .2s;
     }
+    .wf-progress.is-good .wf-progress__bar > i { background: #2F8E55; }
+    .wf-progress.is-warn .wf-progress__bar > i { background: #C9962F; }
+    .wf-progress.is-bad  .wf-progress__bar > i { background: #C0392B; }
     @media (max-width: 540px) {
-        .wf-progress { grid-template-columns: 1fr; padding: 18px; gap: 12px; }
-        .wf-progress__big { font-size: 36px; }
+        .wf-toolbar { padding: 14px 16px; }
+        .wf-toolbar__sep { display: none; }
+        .wf-progress { min-width: 100%; }
+        .wf-progress__count { white-space: normal; }
     }
 
     /* Banners */
@@ -123,57 +128,60 @@
     .wf-banner--danger  { background: #FCEBEB; border-color: #A32D2D; color: #7C2929; }
     .wf-banner--info    { background: #E0EFFA; border-color: #1E5A8C; color: #1A4D78; }
 
-    /* Day card */
+    /* Day card — gaya handoff: kotak tanggal 46px (bulan di atas), pill hitung di kanan */
     .wf-day-list { display: flex; flex-direction: column; gap: 12px; }
     .wf-day {
         background: #FFFFFF;
-        border: 1px solid #E0D2C1;
+        border: 1px solid #EFE0CE;
         border-radius: 16px;
-        box-shadow: 0 2px 8px rgba(45,24,16,.04);
+        box-shadow: 0 1px 2px rgba(70,21,0,.04);
         overflow: hidden;
     }
-    .wf-day.is-empty { opacity: .55; }
+    .wf-day.is-today { border-color: #BCE0D2; }
+    .wf-day.is-empty { opacity: .72; }
     .wf-day__head {
         display: flex; align-items: center; gap: 14px;
-        padding: 14px 18px;
-        background: linear-gradient(180deg, #FFFFFF 0%, #FAF4EC 100%);
-        border-bottom: 1px solid #F0E8DC;
+        padding: 13px 16px;
+        background: #FFFFFF;
+        border-bottom: 1px solid #F1E6D7;
+        transition: background .15s;
     }
+    .wf-day__head:hover { background: #FCF7F0; }
     .wf-day__num {
-        width: 50px; height: 50px;
-        border-radius: 12px;
-        background: linear-gradient(135deg, #5C2E15, #471500);
+        width: 46px; height: 46px;
+        border-radius: 13px;
+        background: linear-gradient(135deg, #A8481B, #5C2E15);
         color: #FFFFFF;
         display: flex; flex-direction: column; align-items: center; justify-content: center;
         flex-shrink: 0;
-        box-shadow: 0 4px 10px rgba(71,21,0,.22);
     }
     .wf-day__num strong { font-size: 18px; font-weight: 800; line-height: 1; }
-    .wf-day__num small { font-size: 10px; opacity: .85; margin-top: 2px; }
-    .wf-day.is-today .wf-day__num { background: linear-gradient(135deg, #1F6E5F, #155148); box-shadow: 0 4px 10px rgba(31,110,95,.30); }
-    .wf-day.is-past .wf-day__num { background: linear-gradient(135deg, #9B8578, #6B5944); box-shadow: 0 4px 10px rgba(107,89,68,.20); }
+    .wf-day__num small { font-size: 9px; font-weight: 800; letter-spacing: .5px; opacity: .85; text-transform: uppercase; }
+    .wf-day.is-today .wf-day__num { background: linear-gradient(135deg, #1F6E5F, #155148); }
     .wf-day__info { flex: 1; min-width: 0; }
     .wf-day__title {
-        font-size: 15px; font-weight: 700; color: #2D1810;
+        font-size: 14px; font-weight: 800; color: #3B1500;
         margin: 0; line-height: 1.2;
         display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
     }
     .wf-day__title .badge-today {
-        font-size: 10px; font-weight: 700;
-        background: #1F6E5F; color: #FFFFFF;
-        padding: 2px 8px; border-radius: 999px;
-        text-transform: uppercase; letter-spacing: 0.4px;
+        font-size: 9.5px; font-weight: 800; letter-spacing: 0.6px;
+        background: #E1F5EE; color: #1F6E5F;
+        padding: 2px 7px; border-radius: 6px;
+        text-transform: uppercase;
     }
-    .wf-day__meta { font-size: 12px; color: #6B4423; margin-top: 4px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-    .wf-day__chip {
+    .wf-day__meta { font-size: 11.5px; color: #9A7256; font-weight: 500; margin-top: 2px; }
+    /* Pill hitung di KANAN header (sebelum caret) — ikut handoff */
+    .wf-day__pill {
+        flex-shrink: 0;
         display: inline-flex; align-items: center; gap: 4px;
-        padding: 2px 9px; border-radius: 999px;
-        font-size: 11px; font-weight: 700;
+        padding: 5px 11px; border-radius: 20px;
+        font-size: 11px; font-weight: 800; white-space: nowrap;
     }
-    .wf-day__chip--good { background: rgba(31,110,95,.12); color: #1F6E5F; }
-    .wf-day__chip--warn { background: rgba(166,96,25,.12); color: #A66019; }
-    .wf-day__chip--neutral { background: rgba(155,133,120,.12); color: #6B4423; }
-    .wf-day__chip--excused { background: rgba(166,96,25,.14); color: #A66019; }
+    .wf-day__pill--good { background: #E1F5EE; color: #1F6E5F; }
+    .wf-day__pill--warn { background: #FAEEDA; color: #B5701A; }
+    .wf-day__pill--neutral { background: #F5EDE0; color: #B7926F; font-weight: 700; }
+    .wf-day__pill--excused { background: #F2E7D8; color: #8A5A2B; }
 
     /* Accordion: head jadi tombol buka/tutup, body diciutkan halus (0fr↔1fr) */
     .wf-day__body {
@@ -186,16 +194,15 @@
     .wf-day.is-collapsed .wf-day__body { grid-template-rows: 0fr; }
 
     .wf-day__head { cursor: pointer; user-select: none; }
+    /* Caret polos (tanpa lingkaran) ala handoff: terbuka = mengarah ke atas */
     .wf-day__caret {
         flex-shrink: 0; margin-left: 4px;
-        width: 30px; height: 30px; border-radius: 50%;
-        display: inline-flex; align-items: center; justify-content: center;
-        background: #FFFFFF; border: 1px solid #E0D2C1;
-        color: #5C2E15; font-size: 13px;
-        transition: transform .3s cubic-bezier(.4,0,.2,1), background .15s ease, color .15s ease, border-color .15s ease;
+        color: #9A7256; font-size: 13px;
+        transform: rotate(180deg);
+        transition: transform .3s cubic-bezier(.4,0,.2,1), color .15s ease;
     }
-    .wf-day__head:hover .wf-day__caret { background: #5C2E15; border-color: #5C2E15; color: #FFFFFF; }
-    .wf-day.is-collapsed .wf-day__caret { transform: rotate(-90deg); }
+    .wf-day__head:hover .wf-day__caret { color: #5C2E15; }
+    .wf-day.is-collapsed .wf-day__caret { transform: rotate(0deg); }
     .wf-day.is-collapsed .wf-day__head { border-bottom: none; }
 
     .wf-day__empty {
@@ -216,119 +223,94 @@
     .wf-task.is-excused { cursor: default; opacity: .5; }
     .wf-task.is-excused:hover { background: transparent; }
     .wf-task__check {
-        width: 24px; height: 24px;
-        border-radius: 8px;
-        border: 2px solid #C9B69A;
+        width: 30px; height: 30px;
+        border-radius: 9px;
+        border: 2px solid #DCC4A8;
         background: #FFFFFF;
         display: flex; align-items: center; justify-content: center;
         color: #FFFFFF;
-        font-size: 13px;
+        font-size: 14px;
         font-weight: 700;
         flex-shrink: 0;
-        margin-top: 1px;
         transition: all .15s;
     }
+    /* Checkbox mingguan pakai teal (identitas jenis Mingguan, ikut handoff). */
     .wf-task.is-done .wf-task__check {
-        background: linear-gradient(135deg, #5C2E15, #471500);
-        border-color: #471500;
-        box-shadow: 0 2px 6px rgba(71,21,0,.25);
+        background: linear-gradient(135deg, #2A8A76, #155148);
+        border-color: transparent;
+        box-shadow: 0 2px 6px rgba(31,110,95,.28);
     }
     .wf-task.is-done .wf-task__check::before { content: "✓"; }
     .wf-task__body { flex: 1; min-width: 0; }
-    .wf-task__name { font-size: 13.5px; color: #2D1810; line-height: 1.5; }
-    .wf-task.is-done .wf-task__name { color: #9B8578; text-decoration: line-through; text-decoration-thickness: 1px; }
-    .wf-task__cat {
-        font-size: 10.5px; font-weight: 700; text-transform: uppercase;
-        letter-spacing: 0.4px; color: #9B5E2C; margin-bottom: 3px;
-        display: inline-flex; align-items: center; gap: 4px;
-    }
-    .wf-task__time { font-size: 11px; color: #9B8578; flex-shrink: 0; margin-top: 4px; }
+    .wf-task__name { font-size: 13.5px; font-weight: 600; color: #3B1500; line-height: 1.5; }
+    .wf-task.is-done .wf-task__name { color: #9A7256; text-decoration: line-through; text-decoration-thickness: 1px; }
+    .wf-task__time { font-size: 11px; color: #B7926F; font-weight: 600; flex-shrink: 0; align-self: center; }
+    {{-- Catatan: task Mingguan TIDAK pakai kategori (beda dgn handoff yang menampilkan
+         divider kategori) — task langsung dijadwalkan per hari, jadi tak ada divider. --}}
 
-    /* Category divider within day */
-    .wf-cat-divider {
-        padding: 8px 18px 4px;
-        font-size: 10.5px; font-weight: 700; text-transform: uppercase;
-        letter-spacing: 0.5px; color: #9B5E2C;
-        background: #FAFAF8;
-        border-bottom: 1px solid #F0E8DC;
-        display: flex; align-items: center; gap: 6px;
-    }
-    .wf-cat-divider i { font-size: 9px; }
-
-    /* Submit footer — brown wrapper */
+    /* Submit footer — kartu gradient gelap ala handoff: headline + sub kiri, tombol kanan,
+       textarea catatan supervisor semi-transparan di bawah */
     .wf-submit {
         margin-top: 16px;
-        background: linear-gradient(135deg, #5C2E15, #471500);
+        background: linear-gradient(120deg, #5C2E15, #471500);
         color: #FFFFFF;
-        border-radius: 14px;
-        padding: 16px 22px;
+        border-radius: 16px;
+        padding: 16px 20px;
         display: flex;
         flex-direction: column;
         align-items: stretch;
-        gap: 14px;
-        box-shadow: 0 6px 20px rgba(71,21,0,.20);
+        gap: 12px;
+        box-shadow: 0 8px 24px rgba(70,21,0,.2);
     }
     .wf-submit__top {
         display: flex;
         align-items: center;
-        justify-content: space-between;
-        gap: 14px;
+        gap: 16px;
         flex-wrap: wrap;
     }
-    .wf-submit__note { display: flex; flex-direction: column; gap: 6px; }
-    .wf-submit__note label {
-        font-size: 11.5px; font-weight: 700; letter-spacing: .2px;
-        color: rgba(255,255,255,.85);
-        display: inline-flex; align-items: center; gap: 7px;
-    }
-    .wf-submit__note label span { font-weight: 500; color: rgba(255,255,255,.6); }
+    .wf-submit__text { flex: 1; min-width: 220px; }
+    .wf-submit__headline { font-size: 13.5px; font-weight: 800; color: #FBF1E7; }
+    .wf-submit__sub { font-size: 12px; color: #D8B99C; font-weight: 500; margin-top: 3px; }
     .wf-submit__note textarea {
-        width: 100%; resize: vertical; min-height: 44px;
-        background: rgba(255,255,255,.10);
-        border: 1px solid rgba(255,255,255,.22);
-        border-radius: 10px; padding: 10px 12px;
-        color: #FFFFFF; font-size: 12.5px; font-family: inherit; line-height: 1.5;
+        width: 100%; resize: vertical; min-height: 44px; box-sizing: border-box;
+        background: rgba(255,255,255,.08);
+        border: 1px solid rgba(255,255,255,.2);
+        border-radius: 11px; padding: 10px 13px;
+        color: #FBF1E7; font-size: 12.5px; font-family: inherit; line-height: 1.5;
         transition: border-color .15s, background .15s;
     }
-    .wf-submit__note textarea::placeholder { color: rgba(255,255,255,.5); }
+    .wf-submit__note textarea::placeholder { color: rgba(216,185,156,.8); }
     .wf-submit__note textarea:focus {
-        outline: 0; border-color: rgba(255,255,255,.5); background: rgba(255,255,255,.15);
+        outline: 0; border-color: rgba(255,255,255,.45); background: rgba(255,255,255,.13);
     }
-    .wf-submit__hint {
-        font-size: 12.5px;
-        color: rgba(255,255,255,.88);
-        line-height: 1.4;
-        flex: 1;
-        min-width: 200px;
-    }
-    .wf-submit__hint strong { color: #FFFFFF; }
     .wf-submit__btn {
         border: 0;
         outline: 0;
-        background: #FFFFFF;
-        color: #471500;
-        padding: 10px 22px;
-        border-radius: 999px;
-        font-weight: 700;
-        font-size: 13px;
+        background: #FFEAD6;
+        color: #5C2E15;
+        padding: 12px 22px;
+        border-radius: 12px;
+        font-weight: 800;
+        font-size: 13.5px;
         cursor: pointer;
         display: inline-flex;
         align-items: center;
         gap: 8px;
-        transition: transform .15s, box-shadow .15s;
-        box-shadow: 0 4px 12px rgba(0,0,0,.12);
+        transition: transform .15s, filter .15s, box-shadow .15s;
+        box-shadow: 0 4px 14px rgba(0,0,0,.25);
     }
-    .wf-submit__btn:hover { transform: translateY(-1px); box-shadow: 0 8px 18px rgba(0,0,0,.18); }
+    .wf-submit__btn:hover { filter: brightness(.96); transform: translateY(-1px); }
     .wf-submit__btn:focus { outline: 0; }
     .wf-submit__btn:disabled {
-        background: rgba(255,255,255,.30);
-        color: rgba(255,255,255,.55);
+        background: rgba(255,255,255,.12);
+        color: #C9A583;
         cursor: not-allowed;
         transform: none;
         box-shadow: none;
+        filter: none;
     }
 
-    /* ── Wajib foto (kamera) ── */
+    /* ── Perlu foto (kamera) ── */
     .wf-task__badge {
         display: inline-flex; align-items: center; gap: 4px;
         font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .3px;
@@ -358,11 +340,11 @@
         display: flex; align-items: center; justify-content: center;
     }
     .wf-photo__btn {
-        border: 1px solid #A66019; background: #FFF7EE; color: #5C2E15;
+        border: 1px dashed #D9C4A6; background: #FBF6EE; color: #8A5A2B;
         font-size: 12px; font-weight: 700; padding: 7px 14px; border-radius: 999px;
         cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: .15s;
     }
-    .wf-photo__btn:hover { background: #FAF0E2; }
+    .wf-photo__btn:hover { background: #F5EAD9; border-color: #C9B69A; }
     .wf-photo__remove {
         border: 1px solid #E0D2C1; background: #fff; color: #7C2929;
         font-size: 11.5px; font-weight: 600; padding: 6px 12px; border-radius: 999px;
@@ -374,16 +356,16 @@
     /* ── Foto before/after opsional (divisi GS) — pill ringkas, gambar di modal ── */
     .wf-ba { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
     .wf-ba__col { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    /* Kosong → dashed netral (foto opsional, tak memblok centang — ikut handoff) */
     .wf-ba__pill {
         display: inline-flex; align-items: center; gap: 7px;
-        border: 1px solid #A66019; background: #FFF7EE; color: #5C2E15;
-        font-size: 12px; font-weight: 700; padding: 8px 14px; border-radius: 9px;
+        border: 1.5px dashed #DCC4A8; background: #FFFFFF; color: #9A7256;
+        font-size: 11px; font-weight: 800; padding: 7px 13px; border-radius: 20px;
         cursor: pointer; transition: .15s; line-height: 1;
-        box-shadow: 0 1px 2px rgba(45,24,16,.08);
     }
-    .wf-ba__pill:hover { background: #FAF0E2; border-color: #8A4E15; }
+    .wf-ba__pill:hover { background: #F5EAD9; border-color: #C9B69A; }
     .wf-ba__pill i { font-size: 13px; }
-    .wf-ba__pill-cap { text-transform: uppercase; letter-spacing: .5px; font-size: 10px; font-weight: 800; color: #9B5E2C; }
+    .wf-ba__pill-cap { text-transform: uppercase; letter-spacing: .5px; font-size: 10px; font-weight: 800; color: #8A5A2B; }
     /* Ada foto → tombol solid brand (jelas bisa diklik untuk lihat) */
     .wf-ba__pill.has {
         border-color: transparent;
@@ -411,32 +393,46 @@
     .wf-ba__status { font-size: 10.5px; color: #6B4423; font-weight: 600; }
 
     /* Kartu besar pilih jenis checklist (gaya halaman Setup) */
-    .cl-cad-tabs { display: flex; gap: 10px; flex-wrap: wrap; }
+    /* Kartu besar pilih jenis checklist (gaya handoff: aktif = putih + ring warna) */
+    .cl-cad-tabs { display: flex; gap: 12px; flex-wrap: wrap; align-items: stretch; }
     .cl-cad-tab {
-        flex: 1; min-width: 220px; display: flex; align-items: center; gap: 12px;
-        padding: 13px 16px; background: #FFFFFF; border: 1.5px solid #E0D2C1; border-radius: 14px;
+        flex: 0 1 auto; min-width: 250px; display: flex; align-items: center; gap: 13px;
+        padding: 13px 16px; background: #FBF6EE; border: 1px solid #EADCC9; border-radius: 16px;
         cursor: pointer; text-align: left; text-decoration: none;
-        transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease, background .16s ease;
-        box-shadow: 0 2px 6px rgba(45,24,16,.04);
+        transition: box-shadow .16s ease, border-color .16s ease, background .16s ease;
     }
     .cl-cad-tab:hover { border-color: #C9B69A; box-shadow: 0 4px 12px rgba(45,24,16,.08); }
     .cl-cad-tab__icon {
-        width: 40px; height: 40px; border-radius: 11px; display: inline-flex;
+        width: 40px; height: 40px; border-radius: 12px; display: inline-flex;
         align-items: center; justify-content: center; font-size: 16px; color: #FFFFFF; flex-shrink: 0;
     }
-    .cl-cad-tab--daily  .cl-cad-tab__icon { background: linear-gradient(135deg, #A66019, #5C2E15); box-shadow: 0 3px 8px rgba(166,96,25,.22); }
-    .cl-cad-tab--weekly .cl-cad-tab__icon { background: linear-gradient(135deg, #1F6E5F, #155148); box-shadow: 0 3px 8px rgba(31,110,95,.22); }
+    .cl-cad-tab--daily  .cl-cad-tab__icon { background: linear-gradient(135deg, #A8481B, #5C2E15); box-shadow: 0 4px 12px rgba(92,46,21,.25); }
+    .cl-cad-tab--weekly .cl-cad-tab__icon { background: linear-gradient(135deg, #1F6E5F, #155148); box-shadow: 0 4px 12px rgba(21,81,72,.25); }
     .cl-cad-tab__body { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 2px; }
-    .cl-cad-tab__body strong { font-size: 15px; font-weight: 800; color: #2D1810; line-height: 1.2; }
-    .cl-cad-tab__body small { font-size: 11.5px; color: #6B4423; }
-    .cl-cad-tab__check { opacity: 0; flex-shrink: 0; font-size: 18px; color: #FFFFFF; transition: opacity .16s ease; }
-    .cl-cad-tab.is-active { border-color: transparent; transform: translateY(-1px); }
-    .cl-cad-tab--daily.is-active  { background: linear-gradient(135deg, #A66019, #5C2E15); box-shadow: 0 7px 18px rgba(92,46,21,.28); }
-    .cl-cad-tab--weekly.is-active { background: linear-gradient(135deg, #1F6E5F, #155148); box-shadow: 0 7px 18px rgba(21,81,72,.28); }
-    .cl-cad-tab.is-active .cl-cad-tab__body strong { color: #FFFFFF; }
-    .cl-cad-tab.is-active .cl-cad-tab__body small { color: #FFFFFF; opacity: .82; }
-    .cl-cad-tab.is-active .cl-cad-tab__icon { background: rgba(255,255,255,.18); box-shadow: none; }
-    .cl-cad-tab.is-active .cl-cad-tab__check { opacity: .95; }
+    .cl-cad-tab__body strong { font-size: 14px; font-weight: 800; color: #3B1500; line-height: 1.2; }
+    .cl-cad-tab__body small { font-size: 11.5px; font-weight: 500; color: #9A7256; }
+    .cl-cad-tab__check { opacity: 0; flex-shrink: 0; font-size: 22px; transition: opacity .16s ease; }
+    .cl-cad-tab--daily  .cl-cad-tab__check { color: #8A3A12; }
+    .cl-cad-tab--weekly .cl-cad-tab__check { color: #1F6E5F; }
+    .cl-cad-tab.is-active { background: #FFFFFF; }
+    .cl-cad-tab--daily.is-active  { border: 2px solid #A8481B; padding: 12px 15px; box-shadow: 0 4px 14px rgba(138,58,18,.14); }
+    .cl-cad-tab--weekly.is-active { border: 2px solid #1F6E5F; padding: 12px 15px; box-shadow: 0 4px 14px rgba(31,110,95,.14); }
+    .cl-cad-tab.is-active .cl-cad-tab__check { opacity: 1; }
+    /* Grup kanan sebaris dgn kartu: tombol Riwayat (handoff) */
+    .cl-cad-tabs__right { margin-left: auto; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .cl-btn-riwayat {
+        display: inline-flex; align-items: center; gap: 7px;
+        background: #FFFFFF; color: #5A3A22; border: 1px solid #E7D3BE;
+        border-radius: 11px; padding: 10px 16px; font-weight: 700; font-size: 12.5px;
+        text-decoration: none; transition: filter .15s;
+    }
+    .cl-btn-riwayat:hover { filter: brightness(.97); color: #5A3A22; text-decoration: none; }
+    /* Mobile: kartu jenis full-width */
+    @media (max-width: 600px) {
+        .cl-cad-tab { flex: 1 1 100%; min-width: 0; }
+        .cl-cad-tabs__right { margin-left: 0; width: 100%; }
+        .cl-btn-riwayat { flex: 1; justify-content: center; }
+    }
 </style>
 @endsection
 
@@ -489,13 +485,23 @@
                     </span>
                     <i class="fas fa-check-circle cl-cad-tab__check"></i>
                 </a>
-            </div>
-
-            {{-- Riwayat --}}
-            <div style="display:flex; justify-content:flex-end; margin-bottom:14px;">
-                <a href="{{ route('mychecklist.history', ['type' => 'weekly']) }}" class="st-btn-outline-brown" style="padding:7px 14px; font-size:12.5px;">
-                    <i class="fas fa-history"></i> Riwayat
-                </a>
+                <div class="cl-cad-tabs__right">
+                    @php
+                        $acPos = currentUserPosition();
+                        $acOverdue = acOverdueCountForCurrentGs();
+                    @endphp
+                     @if($acPos && $acPos->division_id === 'GS')
+                        <a href="{{ route('mychecklist.ac') }}" class="cl-btn-riwayat ac-nav-btn">
+                            <i class="fas fa-snowflake"></i> Cuci AC
+                             @if($acOverdue > 0)
+                                <span class="ac-nav-badge">{{ $acOverdue }}</span>
+                             @endif
+                        </a>
+                     @endif
+                    <a href="{{ route('mychecklist.history', ['type' => 'weekly']) }}" class="cl-btn-riwayat">
+                        <i class="fas fa-history"></i> Riwayat Checklist
+                    </a>
+                </div>
             </div>
 
             {{-- HERO --}}
@@ -504,25 +510,26 @@
                     ? (\App\Models\ChecklistWeeklySubmission::statusOptions()[$submission->status] ?? null)
                     : null;
                 $heroStatusColor = $statusOpt
-                    ? (['success'=>'success','warning'=>'warning','danger'=>'danger','neutral'=>'warning','info'=>'warning'][$statusOpt['color']] ?? 'warning')
-                    : 'warning';
+                    ? (['success'=>'success','warning'=>'warning','danger'=>'danger','coffee'=>'coffee','slate'=>'slate','neutral'=>'draft','info'=>'warning'][$statusOpt['color']] ?? 'draft')
+                    : 'draft';
+                $wfPctClass = ($progress['pct'] ?? 0) >= 80 ? 'is-good' : (($progress['pct'] ?? 0) >= 50 ? 'is-warn' : 'is-bad');
             @endphp
             <div class="wf-hero">
                 <div class="wf-hero__row">
-                    <div style="min-width:0;">
-                        <h5 class="wf-hero__title">
-                            Form Mingguan
-                            <small>Daftar tugas per hari dalam satu minggu kerja</small>
-                        </h5>
-                        <div class="wf-hero__meta" style="margin-top:6px;">
-                            <span class="wf-hero__chip"><i class="fas fa-id-badge" style="font-size:10px;"></i> {{ $position->division?->name ?? $position->division_id }}</span>
+                    <div class="wf-hero__icon"><i class="fas fa-calendar-week"></i></div>
+                    <div style="min-width:0; flex:1;">
+                        <h5 class="wf-hero__title">Form Mingguan</h5>
+                        {{-- Sub + pill divisi/cabang SATU baris di bawah judul (ikut handoff) --}}
+                        <div class="wf-hero__meta">
+                            <span class="wf-hero__sub">Daftar tugas per hari dalam satu minggu kerja</span>
+                            <span class="wf-hero__chip">{{ $position->division?->name ?? $position->division_id }}</span>
                             @if($position->branch)
-                                <span class="wf-hero__chip"><i class="fas fa-building" style="font-size:10px;"></i> {{ $position->branch->name }}</span>
+                                <span class="wf-hero__chip">{{ $position->branch->name }}</span>
                             @endif
                         </div>
                     </div>
                     @if($submission && $submission->status !== \App\Models\ChecklistWeeklySubmission::STATUS_DRAFT && $statusOpt)
-                        <span class="wf-hero__status wf-hero__status--{{ $heroStatusColor }}">
+                        <span class="wf-hero__status wf-hero__status--{{ $heroStatusColor }}" style="margin-left:auto;">
                             @if($submission->status === 'approved')<i class="fas fa-check-circle"></i>
                             @elseif($submission->status === 'rejected')<i class="fas fa-times-circle"></i>
                             @else<i class="fas fa-clock"></i>
@@ -533,25 +540,23 @@
                 </div>
             </div>
 
-            {{-- TOOLBAR: navigasi minggu + progress digabung jadi 1 kartu (kurangi box) --}}
+            {{-- TOOLBAR SATU BARIS (handoff): pager + label minggu | % + bar | hitungan --}}
             <div class="wf-toolbar">
-                {{-- WEEK NAVIGATION --}}
                 <div class="wf-nav">
                     <a href="{{ route('mychecklist.weekform', ['week' => $weekOffset - 1]) }}" class="wf-nav__btn" title="Minggu sebelumnya">
                         <i class="fas fa-chevron-left"></i>
                     </a>
-                    <div style="text-align:center;">
+                    <div>
                         <h5 class="wf-nav__title">
-                            <i class="fas fa-calendar-week"></i>
                             Minggu {{ $weekStart->translatedFormat('d M') }} – {{ $weekEnd->translatedFormat('d M Y') }}
                         </h5>
-                        <div style="font-size:11px; color:#9B8578; margin-top:2px;">
+                        <div class="wf-nav__sub">
                             @if($weekOffset === 0)
-                                Minggu Ini
+                                Minggu ini
                             @elseif($weekOffset === -1)
-                                Minggu Lalu
+                                Minggu lalu
                             @elseif($weekOffset === 1)
-                                Minggu Depan
+                                Minggu depan
                             @elseif($weekOffset < 0)
                                 {{ abs($weekOffset) }} minggu lalu
                             @else
@@ -564,17 +569,17 @@
                     </a>
                 </div>
 
-                {{-- PROGRESS (baris dalam toolbar) --}}
                 @if($submission && $progress['total'] > 0)
-                    <div class="wf-progress">
+                    <div class="wf-toolbar__sep"></div>
+                    <div class="wf-progress {{ $wfPctClass }}" id="wfProgressCard">
                         <div class="wf-progress__big" id="wfPct">{{ $progress['pct'] }}<small>%</small></div>
                         <div class="wf-progress__body">
                             <div class="wf-progress__label">Progres Minggu Ini</div>
-                            <div class="wf-progress__count" id="wfCount">
-                                <strong>{{ $progress['done'] }}</strong> dari {{ $progress['total'] }} tugas
-                                <small>· {{ max(0, $progress['total'] - $progress['done']) }} belum dikerjakan</small>
-                            </div>
                             <div class="wf-progress__bar"><i id="wfFill" style="width:{{ $progress['pct'] }}%"></i></div>
+                        </div>
+                        <div class="wf-progress__count" id="wfCount">
+                            <strong>{{ $progress['done'] }}</strong> dari {{ $progress['total'] }} tugas
+                            <small>· {{ max(0, $progress['total'] - $progress['done']) }} belum</small>
                         </div>
                     </div>
                 @endif
@@ -629,11 +634,6 @@
                     </p>
                 </div>
             @else
-                @php
-                    // Foto before/after: divisi GS + task yang dicentang "wajib foto".
-                    // Task tanpa "wajib foto" → tak ada kolom foto sama sekali.
-                    $isGsBa = $submission->division_id === 'GS';
-                @endphp
                 <div style="display:flex; justify-content:flex-end; margin-bottom:10px;">
                     <button type="button" class="st-btn-outline-brown" id="wfDayExpandAll" data-mode="expand" style="padding:6px 12px; font-size:12px;">
                         <i class="fas fa-angle-double-down"></i> <span data-label>Buka semua</span>
@@ -657,9 +657,10 @@
                         @endphp
                         <div class="wf-day {{ $dayClass }}">
                             <div class="wf-day__head">
+                                {{-- Kotak tanggal ala handoff: bulan kecil di atas, angka besar di bawah --}}
                                 <div class="wf-day__num">
+                                    <small>{{ $day->date->translatedFormat('M') }}</small>
                                     <strong>{{ $day->date->format('d') }}</strong>
-                                    <small>{{ $day->short }}</small>
                                 </div>
                                 <div class="wf-day__info">
                                     <h6 class="wf-day__title">
@@ -668,20 +669,19 @@
                                             <span class="badge-today">Hari Ini</span>
                                         @endif
                                     </h6>
-                                    <div class="wf-day__meta">
-                                        <span>{{ $day->date->translatedFormat('d F Y') }}</span>
-                                        @if($isDayExcused)
-                                            <span class="wf-day__chip wf-day__chip--excused"><i class="fas fa-mug-hot" style="font-size:9px;"></i> Dikecualikan</span>
-                                        @elseif($totalDay > 0)
-                                            <span class="wf-day__chip wf-day__chip--{{ $isComplete ? 'good' : 'warn' }}">
-                                                @if($isComplete)<i class="fas fa-check" style="font-size:9px;"></i>@endif
-                                                {{ $doneDay }}/{{ $totalDay }} tugas
-                                            </span>
-                                        @else
-                                            <span class="wf-day__chip wf-day__chip--neutral">Tidak ada tugas</span>
-                                        @endif
-                                    </div>
+                                    <div class="wf-day__meta">{{ $day->date->translatedFormat('d F Y') }}</div>
                                 </div>
+                                {{-- Pill hitung di kanan (sebelum caret) — ikut handoff --}}
+                                @if($isDayExcused)
+                                    <span class="wf-day__pill wf-day__pill--excused">Dikecualikan</span>
+                                @elseif($totalDay > 0)
+                                    <span class="wf-day__pill wf-day__pill--{{ $isComplete ? 'good' : 'warn' }}" data-day-pill>
+                                        @if($isComplete)<i class="fas fa-check" style="font-size:9px;"></i>@endif
+                                        {{ $doneDay }}/{{ $totalDay }} tugas
+                                    </span>
+                                @else
+                                    <span class="wf-day__pill wf-day__pill--neutral">Tidak ada tugas</span>
+                                @endif
                                 <i class="fas fa-chevron-down wf-day__caret"></i>
                             </div>
                             <div class="wf-day__body">
@@ -690,12 +690,12 @@
                                     <div class="wf-day__empty">Tidak ada tugas terjadwal di hari ini.</div>
                                 @else
                                     @foreach($dayItems as $item)
-                                            <div class="wf-task {{ $item->is_done ? 'is-done' : '' }} {{ $submission->isEditable() && ! $isDayExcused ? '' : 'is-locked' }} {{ $isDayExcused ? 'is-excused' : '' }} {{ ! $isDayExcused && ! $isGsBa && $item->requires_photo && ! $item->photo_path ? 'needs-photo' : '' }}"
+                                            <div class="wf-task {{ $item->is_done ? 'is-done' : '' }} {{ $submission->isEditable() && ! $isDayExcused ? '' : 'is-locked' }} {{ $isDayExcused ? 'is-excused' : '' }} {{ ! $isDayExcused && $item->requires_photo && ! $item->photo_before_after && ! $item->photo_path ? 'needs-photo' : '' }}"
                                                  data-item-id="{{ $item->id }}"
                                                  data-toggle-url="{{ route('mychecklist.weekform.item.toggle', $item->id) }}"
                                                  data-editable="{{ $submission->isEditable() && ! $isDayExcused ? '1' : '0' }}"
-                                                 data-requires-photo="{{ ! $isGsBa && $item->requires_photo ? '1' : '0' }}"
-                                                 @if(! $isGsBa && $item->requires_photo)
+                                                 data-requires-photo="{{ $item->requires_photo && ! $item->photo_before_after ? '1' : '0' }}"
+                                                 @if($item->requires_photo && ! $item->photo_before_after)
                                                  data-photo-upload-url="{{ route('mychecklist.weekform.item.photo.upload', $item->id) }}"
                                                  data-photo-delete-url="{{ route('mychecklist.weekform.item.photo.delete', $item->id) }}"
                                                  data-has-photo="{{ $item->photo_path ? '1' : '0' }}"
@@ -704,11 +704,11 @@
                                                 <div class="wf-task__body">
                                                     <div class="wf-task__name">
                                                         {{ $item->task_title_snapshot }}
-                                                        @if(! $isGsBa && $item->requires_photo)
-                                                            <span class="wf-task__badge"><i class="fas fa-camera"></i> Wajib foto</span>
+                                                        @if($item->requires_photo && ! $item->photo_before_after)
+                                                            <span class="wf-task__badge"><i class="fas fa-camera"></i> Perlu foto</span>
                                                         @endif
                                                     </div>
-                                                    @if($isGsBa && $item->requires_photo)
+                                                    @if($item->photo_before_after)
                                                         <div class="wf-ba" data-ba>
                                                             @foreach(['before' => 'Before', 'after' => 'After'] as $slot => $slotLabel)
                                                                 @php $baPath = $item->{'photo_' . $slot . '_path'}; @endphp
@@ -759,7 +759,7 @@
                                                     @endif
                                                 </div>
                                                 @if($item->done_at)
-                                                    <div class="wf-task__time">{{ $item->done_at->format('d/m H:i') }}</div>
+                                                    <div class="wf-task__time">selesai</div>
                                                 @endif
                                             </div>
                                     @endforeach
@@ -825,27 +825,28 @@
                     <div class="wf-submit">
                         @php $wfComplete = $progress['total'] > 0 && $progress['done'] === $progress['total']; @endphp
                         <div class="wf-submit__top">
-                            <div class="wf-submit__hint" id="wfHint">
-                                @if($progress['done'] === 0)
-                                    Selesaikan semua tugas dulu — Form Mingguan bisa disubmit setelah 100%.
-                                @elseif(! $wfComplete)
-                                    Masih ada <strong>{{ $progress['total'] - $progress['done'] }} task</strong> belum dicentang. Semua tugas minggu ini harus selesai (100%) sebelum submit.
-                                @else
-                                    <strong>Semua task minggu ini selesai!</strong> Klik submit untuk kirim ke supervisor.
-                                @endif
+                            {{-- Kalimat mengikuti handoff: headline tebal + sub redup. --}}
+                            <div class="wf-submit__text">
+                                <div class="wf-submit__headline" id="wfHint">
+                                    @if($wfComplete)
+                                        Semua tugas minggu ini terpenuhi — siap dikirim!
+                                    @else
+                                        Selesaikan semua tugas dulu.
+                                    @endif
+                                </div>
+                                <div class="wf-submit__sub">Form Mingguan bisa disubmit setelah semua tugas selesai atau harinya dikecualikan.</div>
                             </div>
                             <button type="submit" form="wfSubmitForm" class="wf-submit__btn" id="wfSubmitBtn" {{ $wfComplete ? '' : 'disabled' }}>
                                 @if($wfComplete)
-                                    <i class="fas fa-paper-plane"></i> Submit Mingguan
+                                    <i class="fas fa-paper-plane"></i> Kirim Form Mingguan
                                 @else
-                                    Selesaikan semua tugas dulu
+                                    <i class="fas fa-paper-plane"></i> Belum 100%
                                 @endif
                             </button>
                         </div>
                         <div class="wf-submit__note">
-                            <label for="wfNote"><i class="fas fa-pen" style="font-size:11px;"></i> Catatan untuk supervisor <span>(opsional)</span></label>
                             <textarea id="wfNote" name="note" form="wfSubmitForm" rows="2" maxlength="1000"
-                                      placeholder="Mis: hari Kamis alat pel rusak, sudah lapor ke admin cabang…"></textarea>
+                                      placeholder="Catatan untuk supervisor (opsional) — mis. hari Kamis alat pel rusak, sudah lapor ke admin cabang…"></textarea>
                         </div>
                     </div>
 
@@ -862,8 +863,8 @@
                         .cl-excuse__form { padding: 12px 16px 16px; }
                         .cl-excuse__label { font-size: 12px; font-weight: 700; color: #6B4423; margin-bottom: 8px; }
                         .cl-excuse__chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
-                        .cl-excuse__chip { font-size: 12px; font-weight: 600; padding: 6px 12px; border-radius: 999px; border: 1px solid #E0D2C1; background: #fff; color: #6B4423; cursor: pointer; transition: .15s; }
-                        .cl-excuse__chip:hover { border-color: #A66019; color: #5C2E15; background: #FAF4EC; }
+                        .cl-excuse__chip { font-size: 11px; font-weight: 700; padding: 5px 12px; border-radius: 20px; border: 1px dashed #D9C4A6; background: #FBF6EE; color: #8A5A2B; cursor: pointer; transition: .15s; font-family: inherit; }
+                        .cl-excuse__chip:hover { filter: brightness(.97); }
                         .cl-excuse__input { width: 100%; box-sizing: border-box; border: 1px solid #E0D2C1; border-radius: 8px; padding: 8px 10px; font-size: 13px; color: #2D1810; font-family: inherit; resize: vertical; }
                         .cl-excuse__input:focus { outline: none; border-color: #A66019; box-shadow: 0 0 0 3px rgba(166,96,25,.10); }
                         .cl-excuse__submit { margin-top: 10px; border: none; border-radius: 8px; background: linear-gradient(180deg,#5C2E15,#471500); color: #fff; font-size: 13px; font-weight: 700; padding: 9px 16px; cursor: pointer; display: inline-flex; align-items: center; gap: 7px; }
@@ -915,46 +916,10 @@
     const submitBtn = document.getElementById('wfSubmitBtn');
 
     document.querySelectorAll('[data-item-id]').forEach(task => {
-        // Klik area task (check/judul) → toggle. Kalau wajib foto & belum ada
-        // foto, klik malah membuka kamera dulu (tidak bisa selesai tanpa foto).
+        // Klik area task (check/judul) → toggle. Foto bersifat opsional, jadi
+        // centang tidak pernah diblokir walau foto belum diambil.
         task.addEventListener('click', () => {
             if (task.dataset.editable !== '1') return;
-            const requiresPhoto = task.dataset.requiresPhoto === '1';
-            const hasPhoto = task.dataset.hasPhoto === '1';
-            const isDone = task.classList.contains('is-done');
-            if (requiresPhoto && ! hasPhoto && ! isDone) {
-                // Task wajib foto (non-GS, foto tunggal): kasih tahu jelas dulu
-                // (biar tak terasa "tiba-tiba"), lalu buka kamera untuk ambil bukti.
-                const statusEl = task.querySelector('[data-photo-status]');
-                if (statusEl) {
-                    statusEl.textContent = '📷 Ambil foto bukti dulu untuk menyelesaikan task ini.';
-                    statusEl.style.color = '#A66019';
-                    setTimeout(() => {
-                        if (statusEl.textContent.indexOf('Ambil foto bukti') !== -1) statusEl.textContent = '';
-                    }, 4000);
-                }
-                const input = task.querySelector('.wf-photo__file');
-                if (input) input.click();
-                return;
-            }
-            // Task wajib foto (GS): harus ada foto Before DAN After dulu.
-            const baSlots = task.querySelectorAll('[data-ba-slot]');
-            if (baSlots.length && ! isDone) {
-                const missing = Array.prototype.filter.call(baSlots, c => ! c.classList.contains('has'));
-                if (missing.length) {
-                    missing.forEach(c => {
-                        const s = c.querySelector('[data-ba-status]');
-                        if (s) {
-                            s.textContent = '📷 Wajib foto dulu';
-                            s.style.color = '#A66019';
-                            setTimeout(() => {
-                                if (s.textContent.indexOf('Wajib foto') !== -1) s.textContent = '';
-                            }, 4000);
-                        }
-                    });
-                    return;
-                }
-            }
             toggleTask(task);
         });
 
@@ -1092,7 +1057,7 @@
     }
 
     async function removePhoto(task) {
-        if (! confirm('Hapus foto ini? Task akan kembali "belum selesai".')) return;
+        if (! confirm('Hapus foto ini?')) return;
         try {
             const res = await fetch(task.dataset.photoDeleteUrl, {
                 method: 'DELETE',
@@ -1101,8 +1066,7 @@
             const data = await res.json();
             if (! data.ok) throw new Error(data.error || 'Gagal hapus');
             clearPhoto(task);
-            task.classList.remove('is-done'); // server auto-uncheck task wajib foto
-            updateDayCounter(task);
+            // Foto opsional → status centang task tidak berubah saat foto dihapus.
             updateGlobal(data.progress);
         } catch (err) {
             alert('Gagal: ' + (err.message || err));
@@ -1206,37 +1170,40 @@
         const total = all.length;
         const cnt = done.length;
         const complete = cnt === total && total > 0;
-        const chip = dayCard.querySelector('.wf-day__chip');
+        const chip = dayCard.querySelector('[data-day-pill]');
         if (chip) {
             chip.innerHTML = (complete ? '<i class="fas fa-check" style="font-size:9px;"></i> ' : '') + cnt + '/' + total + ' tugas';
-            chip.classList.toggle('wf-day__chip--good', complete);
-            chip.classList.toggle('wf-day__chip--warn', ! complete);
+            chip.classList.toggle('wf-day__pill--good', complete);
+            chip.classList.toggle('wf-day__pill--warn', ! complete);
         }
     }
 
+    const wfProgressCard = document.getElementById('wfProgressCard');
     function updateGlobal(p) {
         if (! p) return;
         if (pctEl)   pctEl.innerHTML   = p.pct + '<small>%</small>';
         if (fillEl)  fillEl.style.width = p.pct + '%';
+        if (wfProgressCard) {
+            const cls = p.pct >= 80 ? 'is-good' : (p.pct >= 50 ? 'is-warn' : 'is-bad');
+            wfProgressCard.classList.remove('is-good', 'is-warn', 'is-bad');
+            wfProgressCard.classList.add(cls);
+        }
         if (countEl) {
             const remaining = Math.max(0, p.total - p.done);
-            countEl.innerHTML = '<strong>' + p.done + '</strong> dari ' + p.total + ' tugas <small>· ' + remaining + ' belum dikerjakan</small>';
+            countEl.innerHTML = '<strong>' + p.done + '</strong> dari ' + p.total + ' tugas <small>· ' + remaining + ' belum</small>';
         }
         const complete = p.total > 0 && p.done === p.total;
         if (submitBtn) {
             submitBtn.disabled = ! complete;
             submitBtn.innerHTML = complete
-                ? '<i class="fas fa-paper-plane"></i> Submit Mingguan'
-                : 'Selesaikan semua tugas dulu';
+                ? '<i class="fas fa-paper-plane"></i> Kirim Form Mingguan'
+                : '<i class="fas fa-paper-plane"></i> Belum 100%';
         }
         if (hintEl) {
-            if (p.done === 0) {
-                hintEl.innerHTML = 'Selesaikan semua tugas dulu — Form Mingguan bisa disubmit setelah 100%.';
-            } else if (! complete) {
-                hintEl.innerHTML = 'Masih ada <strong>' + (p.total - p.done) + ' task</strong> belum dicentang. Semua tugas minggu ini harus selesai (100%) sebelum submit.';
-            } else {
-                hintEl.innerHTML = '<strong>Semua task minggu ini selesai!</strong> Klik submit untuk kirim ke supervisor.';
-            }
+            // Headline mengikuti handoff — sub di bawahnya statis.
+            hintEl.textContent = complete
+                ? 'Semua tugas minggu ini terpenuhi — siap dikirim!'
+                : 'Selesaikan semua tugas dulu.';
         }
     }
 })();

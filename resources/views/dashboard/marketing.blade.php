@@ -118,14 +118,41 @@
         <div class="mds-col">
         <div class="mds-card">
             <div class="mds-sec"><span class="mds-sec__ic" style="background:#F4E7D8;color:#7A3415;"><i class="fa fa-tags"></i></span> Katalog Promo</div>
+            @php
+                $promoBerjalan  = $promos->where('is_upcoming', false)->values();
+                $promoMendatang = $promos->where('is_upcoming', true)->values();
+            @endphp
             @if ($promos->isEmpty())
                 <div class="mds-empty">Belum ada promo untuk cabang ini.</div>
             @else
-                <div class="sds-promo-grid">
-                    @foreach ($promos as $p)
-                        @include('dashboard._promo_card', ['p' => $p, 'active' => ! $p->is_upcoming, 'compact' => true])
-                    @endforeach
-                </div>
+                @if ($promoBerjalan->isNotEmpty())
+                    <div class="sds-promo-group">
+                        <div class="sds-promo-group__head" style="--accent:#2F8E55;">
+                            <i class="fa fa-play-circle"></i>
+                            <span class="sds-promo-group__title">Promo Berjalan</span>
+                            <span class="sds-promo-group__count">{{ $promoBerjalan->count() }}</span>
+                        </div>
+                        <div class="sds-promo-grid">
+                            @foreach ($promoBerjalan as $p)
+                                @include('dashboard._promo_card', ['p' => $p, 'active' => true, 'compact' => true])
+                            @endforeach
+                        </div>
+                    </div>
+                @endif
+                @if ($promoMendatang->isNotEmpty())
+                    <div class="sds-promo-group">
+                        <div class="sds-promo-group__head" style="--accent:#C0791F;">
+                            <i class="fa fa-clock"></i>
+                            <span class="sds-promo-group__title">Promo Mendatang</span>
+                            <span class="sds-promo-group__count">{{ $promoMendatang->count() }}</span>
+                        </div>
+                        <div class="sds-promo-grid">
+                            @foreach ($promoMendatang as $p)
+                                @include('dashboard._promo_card', ['p' => $p, 'active' => false, 'compact' => true])
+                            @endforeach
+                        </div>
+                    </div>
+                @endif
             @endif
         </div>
 
@@ -479,6 +506,13 @@
 
     /* PROMO grid + card (partial _promo_card, kelas .sds-*) */
     .sds-promo-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:12px; margin-top:2px; }
+    .sds-promo-group + .sds-promo-group { margin-top:18px; }
+    .sds-promo-group__head { display:flex; align-items:center; gap:8px; margin-bottom:11px; padding-bottom:7px;
+        border-bottom:2px solid var(--accent,#7A3415); color:var(--accent,#7A3415); }
+    .sds-promo-group__head i { font-size:13px; }
+    .sds-promo-group__title { font-size:12.5px; font-weight:800; letter-spacing:.3px; }
+    .sds-promo-group__count { margin-left:1px; background:var(--accent,#7A3415); color:#fff; font-size:10.5px; font-weight:700;
+        min-width:20px; height:20px; padding:0 6px; border-radius:10px; display:inline-flex; align-items:center; justify-content:center; }
     .sds-promo { border:1px solid #F0E2D6; border-left:4px solid var(--cc,#7A3415); border-radius:14px; padding:13px 15px; background:#FFFDFB; cursor:pointer; transition:box-shadow .12s,transform .12s; }
     .sds-promo:hover { box-shadow:0 8px 22px rgba(40,22,8,.12); transform:translateY(-2px); }
     .sds-promo:focus-visible { outline:2px solid var(--cc); outline-offset:2px; }

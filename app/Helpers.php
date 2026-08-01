@@ -581,6 +581,31 @@ if (!function_exists('resolveChecklistBranchId')) {
 }
 
 /**
+ * Jumlah unit AC yang TERLAMBAT dicuci di cabang user GS yang sedang login.
+ * Dipakai untuk badge merah tombol "Cuci AC" di navbar my-checklist.
+ * Return 0 kalau user bukan divisi GS / belum di-assign posisi / tabel
+ * belum di-migrate. Cached per-request.
+ */
+if (!function_exists('acOverdueCountForCurrentGs')) {
+    function acOverdueCountForCurrentGs(): int
+    {
+        static $cached = null;
+        if ($cached !== null) return $cached;
+
+        $position = currentUserPosition();
+        if (! $position || $position->division_id !== 'GS' || ! $position->raw_branch_id) {
+            return $cached = 0;
+        }
+
+        try {
+            return $cached = \App\Models\AcUnit::overdueCountForBranch($position->raw_branch_id);
+        } catch (\Throwable $e) {
+            return $cached = 0;
+        }
+    }
+}
+
+/**
  * Daftar preset tema warna brand yang bisa di-assign ke role.
  * Key = nilai yang disimpan di group_path.theme dan dipakai untuk
  * resolve data-theme attribute di body.
@@ -677,6 +702,83 @@ if (!function_exists('hasMenuAccess')) {
             }
         }
         return false;
+    }
+}
+
+/**
+ * Peta terpusat: tipe notifikasi (branch broadcast) → access_path.link
+ * halaman/fitur tempat aksi notif itu berada.
+ *
+ * Dipakai untuk gate notifikasi supaya user cuma lihat notif fitur yang
+ * bisa ia buka. Tipe di luar peta ini TIDAK di-gate (mis. pengumuman
+ * 'system' global tetap tampil ke semua). Tambah entry di sini kalau ada
+ * tipe/fitur baru yang perlu dibatasi.
+ */
+if (!function_exists('notificationTypeAccessMap')) {
+    function notificationTypeAccessMap(): array
+    {
+        return [
+            'reservation'   => 'rawreservation',
+            'status_change' => 'rawreservation',
+            'commission'    => 'rawreservation',
+            'topup_request' => 'finance',
+        ];
+    }
+}
+
+/**
+ * Daftar `type` notifikasi yang harus DISEMBUNYIKAN dari user aktif karena
+ * ia tidak punya akses ke halaman/fitur terkait (lihat
+ * notificationTypeAccessMap()).
+ *
+ * Cek akses pakai pola otoritatif yang sama dgn AuthGuard: join
+ * group_access ⋈ access_path on link. Super Admin selalu lolos (return []).
+ * Hasil di-cache per-request.
+ */
+if (!function_exists('notificationBlockedTypesForUser')) {
+    function notificationBlockedTypesForUser(): array
+    {
+        static $cached = false;
+        static $value  = [];
+
+        if ($cached) return $value;
+        $cached = true;
+
+        if (function_exists('isSuperAdmin') && isSuperAdmin()) {
+            return $value = [];
+        }
+
+        $gid = session('group_id');
+        if (! $gid) {
+            // Tanpa role → tak bisa buktikan akses ke fitur apapun → gate semua
+            // tipe yang terpetakan.
+            return $value = array_values(array_unique(array_keys(notificationTypeAccessMap())));
+        }
+
+        $map = notificationTypeAccessMap();
+
+        // Cek akses per-link sekali saja (satu link bisa dipakai banyak tipe).
+        $linkHasAccess = [];
+        foreach ($map as $type => $link) {
+            if (! array_key_exists($link, $linkHasAccess)) {
+                try {
+                    $linkHasAccess[$link] = \App\Models\GroupAccess::query()
+                        ->join('access_path', 'group_access.access_id', '=', 'access_path.id')
+                        ->where('group_access.group_id', $gid)
+                        ->where('access_path.link', $link)
+                        ->exists();
+                } catch (\Throwable $e) {
+                    // Tabel akses belum ada / query gagal → anggap tak punya akses.
+                    $linkHasAccess[$link] = false;
+                }
+            }
+            if (! $linkHasAccess[$link]) {
+                $value[] = $type;
+            }
+        }
+
+        $value = array_values(array_unique($value));
+        return $value;
     }
 }
 

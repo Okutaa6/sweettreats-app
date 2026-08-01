@@ -12,17 +12,17 @@
 <div class="cl-cat is-collapsed {{ $cat->isWeekly() ? 'cl-cat--weekly' : 'cl-cat--daily' }}">
     <div class="cl-cat__head">
         <div class="cl-cat__head-left" data-cat-toggle title="Klik untuk buka/tutup">
-            <span class="cl-cat__num">{{ $idx }}</span>
+            <span class="cl-cat__num" style="background:#F4E7D6;color:#8A3A12;box-shadow:none">{{ $idx }}</span>
             <div style="min-width:0;">
                 <div class="cl-cat__title">
                     {{ $cat->name }}
                     @if($cat->isWeekly())
-                        <span class="st-pill st-pill--info" style="margin-left:6px; vertical-align:middle;"><i class="fas fa-calendar-week" style="font-size:9px;"></i> Mingguan</span>
+                        <span style="font-size:10px;font-weight:800;color:#1F6E5F;background:#E0EFEB;border-radius:20px;padding:2px 8px;margin-left:6px;vertical-align:middle">Mingguan</span>
                     @else
-                        <span class="st-pill st-pill--success" style="margin-left:6px; vertical-align:middle;"><i class="fas fa-sun" style="font-size:9px;"></i> Harian</span>
+                        <span style="font-size:10px;font-weight:800;color:#A66019;background:#FBEFD9;border-radius:20px;padding:2px 8px;margin-left:6px;vertical-align:middle">Harian</span>
                     @endif
                     @if(! $cat->is_active)
-                        <span class="st-pill st-pill--neutral" style="margin-left:6px; vertical-align:middle;">Nonaktif</span>
+                        <span style="font-size:10px;font-weight:800;color:#9B8578;background:#EFE7DE;border-radius:20px;padding:2px 8px;margin-left:6px;vertical-align:middle">Nonaktif</span>
                     @endif
                     <span class="cl-cat__chip">{{ $countActive }} tugas aktif</span>
                 </div>
@@ -33,7 +33,7 @@
             <i class="fas fa-chevron-down cl-cat__caret"></i>
         </div>
         <div class="cl-cat__actions">
-            <button type="button" class="st-btn-outline-brown" style="padding:6px 14px; font-size:12px;" data-toggle="modal" data-target="#taskModalNew-{{ $cat->id }}">
+            <button type="button" class="cl-btn-tan" style="display:inline-flex;align-items:center;gap:6px;background:#F4E7D6;color:#8A3A12;border:none;border-radius:9px;padding:7px 13px;font-weight:700;font-size:12px;font-family:inherit;cursor:pointer" data-toggle="modal" data-target="#taskModalNew-{{ $cat->id }}">
                 <i class="fas fa-plus"></i> Tambah Tugas
             </button>
             <button type="button" class="st-icon-btn" title="Edit kategori" data-toggle="modal" data-target="#categoryModalEdit-{{ $cat->id }}">
@@ -88,7 +88,7 @@
                             @endif
                             @if($task->requires_photo)
                                 <span style="display:inline-block; margin-top:4px; font-size:10.5px; padding:2px 8px; background:var(--cl-warn-bg, #FAEEDA); color:var(--cl-warn, #A66019); border-radius:10px; font-weight:600;">
-                                    <i class="fas fa-camera" style="font-size:9px;"></i> Wajib foto
+                                    <i class="fas fa-camera" style="font-size:9px;"></i> {{ $task->photo_before_after ? 'Foto before/after' : 'Perlu foto' }}
                                 </span>
                             @endif
                         </td>

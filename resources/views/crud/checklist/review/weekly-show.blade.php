@@ -294,7 +294,7 @@
                                                             {{ $item->note }}
                                                         </div>
                                                     @endif
-                                                    @php $isBa = $submission->division_id === 'GS' && $item->requires_photo; @endphp
+                                                    @php $isBa = (bool) $item->photo_before_after; @endphp
                                                     @if($isBa)
                                                         {{-- Before/After (divisi GS): pill ringkas, gambar di modal --}}
                                                         <div class="wkr-ba">
@@ -327,7 +327,7 @@
                                                             </div>
                                                         @else
                                                             <div class="wkr-ba__warn">
-                                                                <i class="fas fa-exclamation-triangle" style="font-size:10px; margin-right:3px;"></i> Wajib foto — belum ada foto
+                                                                <i class="fas fa-camera" style="font-size:10px; margin-right:3px;"></i> Perlu foto — belum diunggah
                                                             </div>
                                                         @endif
                                                     @endif

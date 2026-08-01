@@ -43,3 +43,9 @@ docs/untuk-reza/git-workflow-reza.html
 # Dokumen keuangan milik cabang — tidak ada gunanya di repo, dan sekali masuk
 # git ia ikut ke setiap klon selamanya.
 /public/uploads/rop/
+
+# Design brief internal yang tercecer di ROOT repo (hasil unduhan handoff
+# desain) — dokumen kerja, bukan bagian app. SENGAJA dibatasi ke root:
+# brief yang dirawat di docs/brief-desain/ HARUS tetap ikut git (lihat
+# docs/README.md — folder itu bagian dari dokumentasi proyek).
+/design-brief-*.md

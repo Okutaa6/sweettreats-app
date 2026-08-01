@@ -11,43 +11,58 @@
     @media (max-width: 768px) { .cl-view-toggle { display: none !important; } }
 
     /* Sub-toggle tampilan (Hari Ini / Rekap 6 Hari) — dengan hover */
-    .cl-vtoggle { display: inline-flex; gap: 2px; padding: 3px; background: #FAF4EC; border-radius: 999px; border: 1px solid #E0D2C1; }
+    /* Segmented Hari Ini | Rekap 6 Hari — kotak putih, aktif = gradient coklat gelap (handoff) */
+    .cl-vtoggle { display: inline-flex; gap: 4px; padding: 4px; background: #FFFFFF; border-radius: 12px; border: 1px solid #EADCC9; }
     .cl-vtoggle__btn {
-        padding: 6px 14px; font-size: 12px; font-weight: 600; text-decoration: none;
-        border-radius: 999px; color: #6B4423; display: inline-flex; align-items: center; gap: 6px;
-        transition: background .15s, color .15s, box-shadow .15s;
+        padding: 8px 14px; font-size: 12px; font-weight: 700; text-decoration: none;
+        border-radius: 9px; color: #9A7256; display: inline-flex; align-items: center; gap: 6px;
+        transition: background .15s, color .15s;
     }
-    .cl-vtoggle__btn:hover { background: #F0E4D4; color: #5C2E15; }
-    .cl-vtoggle__btn.is-active { background: #FFFFFF; color: #5C2E15; font-weight: 700; box-shadow: 0 1px 3px rgba(45,24,16,.10); }
-    .cl-vtoggle__btn.is-active:hover { background: #FFFFFF; }
+    .cl-vtoggle__btn:hover { color: #5C2E15; }
+    .cl-vtoggle__btn.is-active { background: linear-gradient(135deg, #6B2400, #461500); color: #FFEAD6; font-weight: 800; }
+    .cl-vtoggle__btn.is-active:hover { background: linear-gradient(135deg, #6B2400, #461500); color: #FFEAD6; }
 
-    /* Kartu besar pilih jenis checklist (gaya halaman Setup) */
-    .cl-cad-tabs { display: flex; gap: 10px; flex-wrap: wrap; }
+    /* Kartu besar pilih jenis checklist (gaya handoff: aktif = putih + ring warna) */
+    .cl-cad-tabs { display: flex; gap: 12px; flex-wrap: wrap; align-items: stretch; }
     .cl-cad-tab {
-        flex: 1; min-width: 220px; display: flex; align-items: center; gap: 12px;
-        padding: 13px 16px; background: #FFFFFF; border: 1.5px solid #E0D2C1; border-radius: 14px;
+        flex: 0 1 auto; min-width: 250px; display: flex; align-items: center; gap: 13px;
+        padding: 13px 16px; background: #FBF6EE; border: 1px solid #EADCC9; border-radius: 16px;
         cursor: pointer; text-align: left; text-decoration: none;
-        transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease, background .16s ease;
-        box-shadow: 0 2px 6px rgba(45,24,16,.04);
+        transition: box-shadow .16s ease, border-color .16s ease, background .16s ease;
     }
     .cl-cad-tab:hover { border-color: #C9B69A; box-shadow: 0 4px 12px rgba(45,24,16,.08); }
     .cl-cad-tab__icon {
-        width: 40px; height: 40px; border-radius: 11px; display: inline-flex;
+        width: 40px; height: 40px; border-radius: 12px; display: inline-flex;
         align-items: center; justify-content: center; font-size: 16px; color: #FFFFFF; flex-shrink: 0;
     }
-    .cl-cad-tab--daily  .cl-cad-tab__icon { background: linear-gradient(135deg, #A66019, #5C2E15); box-shadow: 0 3px 8px rgba(166,96,25,.22); }
-    .cl-cad-tab--weekly .cl-cad-tab__icon { background: linear-gradient(135deg, #1F6E5F, #155148); box-shadow: 0 3px 8px rgba(31,110,95,.22); }
+    .cl-cad-tab--daily  .cl-cad-tab__icon { background: linear-gradient(135deg, #A8481B, #5C2E15); box-shadow: 0 4px 12px rgba(92,46,21,.25); }
+    .cl-cad-tab--weekly .cl-cad-tab__icon { background: linear-gradient(135deg, #1F6E5F, #155148); box-shadow: 0 4px 12px rgba(21,81,72,.25); }
     .cl-cad-tab__body { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 2px; }
-    .cl-cad-tab__body strong { font-size: 15px; font-weight: 800; color: #2D1810; line-height: 1.2; }
-    .cl-cad-tab__body small { font-size: 11.5px; color: #6B4423; }
-    .cl-cad-tab__check { opacity: 0; flex-shrink: 0; font-size: 18px; color: #FFFFFF; transition: opacity .16s ease; }
-    .cl-cad-tab.is-active { border-color: transparent; transform: translateY(-1px); }
-    .cl-cad-tab--daily.is-active  { background: linear-gradient(135deg, #A66019, #5C2E15); box-shadow: 0 7px 18px rgba(92,46,21,.28); }
-    .cl-cad-tab--weekly.is-active { background: linear-gradient(135deg, #1F6E5F, #155148); box-shadow: 0 7px 18px rgba(21,81,72,.28); }
-    .cl-cad-tab.is-active .cl-cad-tab__body strong { color: #FFFFFF; }
-    .cl-cad-tab.is-active .cl-cad-tab__body small { color: #FFFFFF; opacity: .82; }
-    .cl-cad-tab.is-active .cl-cad-tab__icon { background: rgba(255,255,255,.18); box-shadow: none; }
-    .cl-cad-tab.is-active .cl-cad-tab__check { opacity: .95; }
+    .cl-cad-tab__body strong { font-size: 14px; font-weight: 800; color: #3B1500; line-height: 1.2; }
+    .cl-cad-tab__body small { font-size: 11.5px; font-weight: 500; color: #9A7256; }
+    .cl-cad-tab__check { opacity: 0; flex-shrink: 0; font-size: 22px; transition: opacity .16s ease; }
+    .cl-cad-tab--daily  .cl-cad-tab__check { color: #8A3A12; }
+    .cl-cad-tab--weekly .cl-cad-tab__check { color: #1F6E5F; }
+    .cl-cad-tab.is-active { background: #FFFFFF; }
+    .cl-cad-tab--daily.is-active  { border: 2px solid #A8481B; padding: 12px 15px; box-shadow: 0 4px 14px rgba(138,58,18,.14); }
+    .cl-cad-tab--weekly.is-active { border: 2px solid #1F6E5F; padding: 12px 15px; box-shadow: 0 4px 14px rgba(31,110,95,.14); }
+    .cl-cad-tab.is-active .cl-cad-tab__check { opacity: 1; }
+    /* Grup kanan sebaris dgn kartu: segmented Hari Ini|Rekap + tombol Riwayat (handoff) */
+    .cl-cad-tabs__right { margin-left: auto; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .cl-btn-riwayat {
+        display: inline-flex; align-items: center; gap: 7px;
+        background: #FFFFFF; color: #5A3A22; border: 1px solid #E7D3BE;
+        border-radius: 11px; padding: 10px 16px; font-weight: 700; font-size: 12.5px;
+        text-decoration: none; transition: filter .15s;
+    }
+    .cl-btn-riwayat:hover { filter: brightness(.97); color: #5A3A22; text-decoration: none; }
+    /* Mobile: kartu jenis full-width; segmented Hari Ini|Rekap disembunyikan */
+    @media (max-width: 600px) {
+        .cl-cad-tab { flex: 1 1 100%; min-width: 0; }
+        .cl-cad-tabs__right { margin-left: 0; width: 100%; }
+        .cl-vtoggle { display: none; }
+        .cl-btn-riwayat { flex: 1; justify-content: center; }
+    }
 
     /* ──────── MODERN Hari Ini design ──────── */
 
@@ -126,9 +141,13 @@
         backdrop-filter: blur(8px);
         display: inline-flex; align-items: center; gap: 6px;
     }
-    .cl-mod-hero__status--success { background: rgba(225,245,238,.95); color: #0F6E56; border: 1px solid rgba(31,110,95,.30); }
-    .cl-mod-hero__status--warning { background: rgba(250,238,218,.95); color: #5C2E15; border: 1px solid rgba(166,96,25,.30); }
-    .cl-mod-hero__status--danger  { background: rgba(252,235,235,.95); color: #7C2929; border: 1px solid rgba(163,45,45,.30); }
+    /* Pill status — 6 warna berbeda (ikut handoff), tak lagi collapse ke oranye. */
+    .cl-mod-hero__status--success { background: #E1F5EE; color: #1F6E5F; border: 1px solid rgba(31,110,95,.30); }
+    .cl-mod-hero__status--warning { background: #FAEEDA; color: #A66019; border: 1px solid rgba(166,96,25,.30); }
+    .cl-mod-hero__status--danger  { background: #FCEBEB; color: #A32D2D; border: 1px solid rgba(163,45,45,.30); }
+    .cl-mod-hero__status--draft   { background: #F5F0EA; color: #7A5B43; border: 1px solid rgba(122,91,67,.28); }
+    .cl-mod-hero__status--coffee  { background: #F2E7D8; color: #8A5A2B; border: 1px solid rgba(138,90,43,.30); }
+    .cl-mod-hero__status--slate   { background: #EFE7DC; color: #9B8578; border: 1px solid rgba(155,133,120,.30); }
 
     /* Modern progress card */
     .cl-mod-progress {
@@ -160,8 +179,12 @@
         display: flex; align-items: baseline; gap: 2px;
     }
     .cl-mod-progress__big small {
-        font-size: 20px; color: #9B5E2C; font-weight: 700;
+        font-size: 20px; color: inherit; opacity: .6; font-weight: 700;
     }
+    /* Angka % besar + isi bar berwarna sesuai nilai (hijau/amber/merah) */
+    .cl-mod-progress.is-good .cl-mod-progress__big { color: #2F8E55; }
+    .cl-mod-progress.is-warn .cl-mod-progress__big { color: #C9962F; }
+    .cl-mod-progress.is-bad  .cl-mod-progress__big { color: #C0392B; }
     .cl-mod-progress__body { min-width: 0; position: relative; }
     .cl-mod-progress__label {
         font-size: 11.5px; font-weight: 700; text-transform: uppercase;
@@ -179,10 +202,13 @@
     }
     .cl-mod-progress__bar > i {
         display: block; height: 100%;
-        background: linear-gradient(90deg, #9B5E2C, #5C2E15);
+        background: #C0392B;
         border-radius: 5px;
-        transition: width .4s cubic-bezier(.45,.05,.55,.95);
+        transition: width .4s cubic-bezier(.45,.05,.55,.95), background .2s;
     }
+    .cl-mod-progress.is-good .cl-mod-progress__bar > i { background: #2F8E55; }
+    .cl-mod-progress.is-warn .cl-mod-progress__bar > i { background: #C9962F; }
+    .cl-mod-progress.is-bad  .cl-mod-progress__bar > i { background: #C0392B; }
     /* Pill status di pojok kanan-atas kartu progress (pindahan dari hero).
        Warna diambil dari .cl-mod-hero__status--{success|warning|danger}. */
     .cl-mod-progress__status {
@@ -216,10 +242,8 @@
         box-shadow: 0 10px 28px rgba(45,24,16,.10);
         border-color: #C9B69A;
     }
-    .cl-mod-cat.is-complete .cl-mod-cat__num {
-        background: linear-gradient(135deg, #1F6E5F, #155148);
-        box-shadow: 0 4px 10px rgba(31,110,95,.30);
-    }
+    /* Chip nomor kategori dibuat tan-flat (ikut handoff); sinyal "selesai"
+       cukup lewat count pill hijau — tak lagi teal saat komplet. */
     .cl-mod-cat__head {
         display: flex; align-items: center; gap: 14px;
         padding: 16px 18px;
@@ -231,34 +255,33 @@
         background: linear-gradient(180deg, #FAF4EC 0%, #F5EBE0 100%);
     }
     .cl-mod-cat__num {
-        width: 38px; height: 38px;
-        border-radius: 10px;
-        background: linear-gradient(135deg, #5C2E15, #471500);
-        color: #FFFFFF;
+        width: 30px; height: 30px;
+        border-radius: 9px;
+        background: #F5ECE2;
+        color: #8A3A12;
         display: flex; align-items: center; justify-content: center;
-        font-size: 15px; font-weight: 800;
+        font-size: 13px; font-weight: 800;
         flex-shrink: 0;
-        box-shadow: 0 4px 10px rgba(71,21,0,.22);
-        transition: background .2s, box-shadow .2s;
+        transition: background .2s, color .2s;
     }
-    .cl-mod-cat__info { flex: 1; min-width: 0; }
     .cl-mod-cat__title {
-        font-size: 15px; font-weight: 700; color: #2D1810;
+        flex: 1; min-width: 0;
+        font-size: 14px; font-weight: 800; color: #3B1500;
         margin: 0; line-height: 1.2;
-    }
-    .cl-mod-cat__meta {
-        display: flex; align-items: center; gap: 8px;
-        margin-top: 5px;
-        font-size: 12px; color: #6B4423;
-        flex-wrap: wrap;
     }
     .cl-mod-cat__chip {
         display: inline-flex; align-items: center; gap: 4px;
-        padding: 3px 10px; border-radius: 999px;
-        font-size: 11px; font-weight: 700;
+        padding: 3px 10px; border-radius: 20px;
+        font-size: 11.5px; font-weight: 800;
+        flex-shrink: 0;
     }
-    .cl-mod-cat__chip--good { background: rgba(31,110,95,.12); color: #1F6E5F; }
-    .cl-mod-cat__chip--warn { background: rgba(166,96,25,.12); color: #A66019; }
+    .cl-mod-cat__chip--good { background: #E1F5EE; color: #1F6E5F; }
+    .cl-mod-cat__chip--warn { background: #FAEEDA; color: #B5701A; }
+    .cl-mod-cat__status {
+        font-size: 11.5px; font-weight: 700; white-space: nowrap; flex-shrink: 0;
+    }
+    .cl-mod-cat__status--good { color: #2F8E55; }
+    .cl-mod-cat__status--warn { color: #B5701A; }
     .cl-mod-cat__chev {
         color: #9B8578;
         font-size: 14px;
@@ -281,8 +304,8 @@
     .cl-mod-cat.is-open .cl-mod-cat__body-inner { border-top: 1px solid #F0E8DC; }
 
     .cl-mod-task {
-        display: flex; align-items: flex-start; gap: 12px; flex-wrap: wrap;
-        padding: 14px 18px;
+        display: flex; align-items: center; gap: 12px;
+        padding: 12px 18px;
         border-bottom: 1px solid #F5EBE0;
         cursor: pointer;
         transition: background .15s;
@@ -290,87 +313,88 @@
     .cl-mod-task:last-child { border-bottom: none; }
     .cl-mod-task:hover { background: #FAF4EC; }
     .cl-mod-task.is-locked { cursor: not-allowed; opacity: .65; }
+    /* Checkbox 30px sesuai handoff — dicentang = gradient hangat #A8481B→#6B2400 */
     .cl-mod-task__check {
-        width: 24px; height: 24px;
-        border-radius: 8px;
-        border: 2px solid #C9B69A;
+        width: 30px; height: 30px;
+        border-radius: 9px;
+        border: 2px solid #DCC4A8;
         background: #FFFFFF;
         display: flex; align-items: center; justify-content: center;
         color: #FFFFFF;
-        font-size: 13px;
+        font-size: 14px;
         font-weight: 700;
         flex-shrink: 0;
-        margin-top: 1px;
         transition: all .15s;
     }
     .cl-mod-task.is-done .cl-mod-task__check {
-        background: linear-gradient(135deg, #5C2E15, #471500);
-        border-color: #471500;
+        background: linear-gradient(135deg, #A8481B, #6B2400);
+        border-color: #6B2400;
         box-shadow: 0 2px 6px rgba(71,21,0,.25);
     }
     .cl-mod-task.is-done .cl-mod-task__check::before { content: "✓"; }
     .cl-mod-task__name {
         flex: 1; min-width: 0;
-        font-size: 13.5px; color: #2D1810; line-height: 1.5;
+        font-size: 13.5px; font-weight: 600; color: #2D1810; line-height: 1.45;
     }
     .cl-mod-task.is-done .cl-mod-task__name {
-        color: #9B8578;
+        color: #9A7256;
         text-decoration: line-through;
         text-decoration-thickness: 1px;
     }
-    .cl-mod-task__time { font-size: 11px; color: #9B8578; flex-shrink: 0; margin-top: 4px; }
+    .cl-mod-task__time { font-size: 11px; color: #9B8578; flex-shrink: 0; }
 
-    /* Catatan per item (baris penuh di bawah judul, indent sejajar judul) */
-    .cl-mod-task__note { flex: 0 0 100%; padding-left: 36px; cursor: default; }
+    /* Catatan per item: input ringkas di KANAN baris (sejajar judul), sesuai handoff. */
+    .cl-mod-task__note { flex: 0 0 170px; max-width: 170px; cursor: default; }
+    .cl-mod-task__note--ro { flex-basis: 100%; max-width: none; padding-left: 42px; }
     .cl-mod-note__input {
         width: 100%; box-sizing: border-box;
-        border: 1px solid #E7D6C2; border-radius: 8px; background: #FFFDFA;
+        border: 1px solid transparent; border-radius: 8px; background: #FBF6EE;
         padding: 7px 10px; font-size: 12.5px; color: #5A3A22; line-height: 1.45;
         font-family: inherit; resize: none; overflow: hidden;
         transition: border-color .15s, box-shadow .15s, background .15s;
     }
-    .cl-mod-note__input::placeholder { color: #B9A794; }
-    .cl-mod-note__input:focus { outline: none; border-color: #9B5E2C; background: #FFFFFF; box-shadow: 0 0 0 3px rgba(155,94,44,.10); }
+    .cl-mod-note__input:hover { background: #FAF1E6; border-color: #EAD9C5; }
+    .cl-mod-note__input::placeholder { color: #C7AC92; }
+    .cl-mod-note__input:focus { outline: none; border-color: #C9962F; background: #FFFFFF; box-shadow: 0 0 0 3px rgba(201,150,47,.12); }
     .cl-mod-note__status { display: inline-block; min-height: 12px; margin-top: 3px; font-size: 10.5px; color: #9B8578; }
     .cl-mod-note__ro { font-size: 12px; color: #6B4423; padding: 6px 10px; background: #FFF7EE; border-radius: 6px; border-left: 3px solid #9B5E2C; }
     .cl-mod-note__ro i { font-size: 10px; margin-right: 4px; color: #9B5E2C; }
 
-    /* Modern submit button */
+    /* Kartu submit — gradient gelap sesuai handoff: headline + sub kiri, tombol kanan */
     .cl-mod-submit {
         margin-top: 16px;
-        background: linear-gradient(135deg, #5C2E15, #471500);
+        background: linear-gradient(120deg, #5C2E15, #471500);
         color: #FFFFFF;
-        border-radius: 14px;
-        padding: 14px 22px;
-        display: flex; align-items: center; justify-content: space-between;
-        gap: 14px; flex-wrap: wrap;
-        box-shadow: 0 6px 20px rgba(71,21,0,.20);
+        border-radius: 16px;
+        padding: 16px 20px;
+        display: flex; align-items: center;
+        gap: 16px; flex-wrap: wrap;
+        box-shadow: 0 8px 24px rgba(70,21,0,.2);
     }
-    .cl-mod-submit__hint {
-        font-size: 12.5px;
-        color: rgba(255,255,255,.85);
-        line-height: 1.4;
-    }
+    .cl-mod-submit__text { flex: 1; min-width: 220px; }
+    .cl-mod-submit__headline { font-size: 13.5px; font-weight: 800; color: #FBF1E7; }
+    .cl-mod-submit__sub { font-size: 12px; color: #D8B99C; font-weight: 500; margin-top: 3px; }
     .cl-mod-submit__btn {
         border: none;
-        background: #FFFFFF;
-        color: #471500;
-        padding: 10px 22px;
-        border-radius: 999px;
-        font-weight: 700;
-        font-size: 13px;
+        background: #FFEAD6;
+        color: #5C2E15;
+        padding: 12px 22px;
+        border-radius: 12px;
+        font-weight: 800;
+        font-size: 13.5px;
         cursor: pointer;
         display: inline-flex; align-items: center; gap: 8px;
-        transition: transform .15s, box-shadow .15s;
-        box-shadow: 0 4px 12px rgba(0,0,0,.10);
+        transition: transform .15s, box-shadow .15s, filter .15s;
+        box-shadow: 0 4px 14px rgba(0,0,0,.25);
     }
-    .cl-mod-submit__btn:hover { transform: translateY(-1px); box-shadow: 0 8px 18px rgba(0,0,0,.15); }
+    .cl-mod-submit__btn:hover { filter: brightness(.96); transform: translateY(-1px); }
     .cl-mod-submit__btn:disabled {
-        background: rgba(255,255,255,.30);
-        color: rgba(255,255,255,.50);
+        background: rgba(255,255,255,.12);
+        color: #C9A583;
         cursor: not-allowed;
         transform: none;
         box-shadow: none;
+        filter: none;
     }
 
     /* Status banner modern */
@@ -386,6 +410,7 @@
     .cl-mod-banner--success { background: #E1F5EE; border-color: #1F6E5F; color: #0F6E56; }
     .cl-mod-banner--warning { background: #FAEEDA; border-color: #A66019; color: #5C2E15; }
     .cl-mod-banner--danger  { background: #FCEBEB; border-color: #A32D2D; color: #7C2929; }
+    .cl-mod-banner--coffee  { background: #F2E7D8; border-color: #8A5A2B; color: #6B4423; }
     .cl-mod-banner strong { font-weight: 700; }
 
     /* ═══ Wrapper "Checklist Hari Ini" — banner + progress + daftar tugas jadi
@@ -484,12 +509,12 @@
         transition: transform .1s;
     }
     .cl-heatmap__cell:hover { transform: translateY(-1px); z-index: 1; }
-    .cl-heatmap__cell--approved { background: #1F6E5F; color: #FFFFFF; border-color: #1F6E5F; }
-    .cl-heatmap__cell--submitted { background: #FAEEDA; color: #A66019; border-color: #E8C29A; }
-    .cl-heatmap__cell--rejected { background: #FCEBEB; color: #A32D2D; border-color: #E5B5B5; }
-    .cl-heatmap__cell--draft    { background: #F5F0EA; color: #6B4423; border-color: #E0D2C1; }
-    .cl-heatmap__cell--missed   { background: #FAFAF8; color: #C9B69A; }
-    .cl-heatmap__cell--today { outline: 2px solid #5C2E15; outline-offset: -2px; }
+    .cl-heatmap__cell--approved { background: #57A876; color: #FFFFFF; border-color: #57A876; }
+    .cl-heatmap__cell--submitted { background: #E8A44D; color: #FFFFFF; border-color: #E8A44D; }
+    .cl-heatmap__cell--rejected { background: #D96C60; color: #FFFFFF; border-color: #D96C60; }
+    .cl-heatmap__cell--draft    { background: #DCCDB4; color: #6B4423; border-color: #DCCDB4; }
+    .cl-heatmap__cell--missed   { background: #E4D7C6; color: #9B8578; border-color: #E4D7C6; }
+    .cl-heatmap__cell--today { outline: 2px solid #8A3A12; outline-offset: -2px; }
     .cl-heatmap__cell .h-num { font-size: 13px; font-weight: 800; line-height: 1; margin-bottom: 1px; }
     .cl-heatmap__cell .h-short { font-size: 9px; opacity: .85; }
     .cl-heatmap__legend {
@@ -503,29 +528,31 @@
         width: 10px; height: 10px; border-radius: 3px; border: 1px solid #E0D2C1;
     }
 
-    /* Recent activity */
-    .cl-recent { display: flex; flex-direction: column; gap: 6px; }
+    /* Recent activity — baris polos dgn garis pemisah, sesuai handoff */
+    .cl-recent { display: flex; flex-direction: column; }
     .cl-recent__item {
         display: flex; align-items: center; gap: 10px;
-        padding: 8px 10px;
-        border-radius: 8px;
-        background: #FAF4EC;
-        border: 1px solid transparent;
+        padding: 9px 0;
+        border-bottom: 1px solid #F6EEE1;
         text-decoration: none; color: inherit;
-        transition: background .15s, border-color .15s;
+        transition: background .15s;
     }
+    .cl-recent__item:last-child { border-bottom: none; }
     .cl-recent__item:hover {
-        background: #F5EBE0;
-        border-color: #E0D2C1;
+        background: #FCF7F0;
         text-decoration: none; color: inherit;
     }
     .cl-recent__date {
         min-width: 0; flex: 1;
     }
     .cl-recent__date strong {
-        display: block; font-size: 12px; color: #2D1810; font-weight: 700;
+        display: block; font-size: 12.5px; color: #3B1500; font-weight: 700;
     }
-    .cl-recent__date small { font-size: 10.5px; color: #9B8578; }
+    .cl-recent__date small { font-size: 11px; color: #9A7256; font-weight: 500; }
+    .cl-recent__pill {
+        flex-shrink: 0; font-size: 11px; font-weight: 800;
+        border-radius: 20px; padding: 5px 11px; white-space: nowrap;
+    }
 
     .cl-progress-bar {
         background: #F5F0EA; height: 10px; border-radius: 5px; overflow: hidden;
@@ -648,6 +675,11 @@
         .cl-submit-bar { margin: 12px -18px -18px; }
         .cl-task { padding: 13px 14px; }
         .cl-task-name { font-size: 14px; }
+        /* Di layar kecil: catatan turun ke bawah (sejajar judul), tak lagi di kanan. */
+        .cl-mod-task { flex-wrap: wrap; align-items: flex-start; }
+        .cl-mod-task__note { flex-basis: 100%; max-width: none; padding-left: 42px; }
+        /* Header kategori sempit → teks status disembunyikan, pill hitung cukup. */
+        .cl-mod-cat__status { display: none; }
     }
 </style>
 @endsection
@@ -699,7 +731,7 @@
                 </div>
             @endif
         @else
-            {{-- ─── PILIH JENIS CHECKLIST (kartu besar, gaya Setup) ─── --}}
+            {{-- ─── PILIH JENIS CHECKLIST + segmented Hari Ini|Rekap + Riwayat — SATU baris (handoff) ─── --}}
             <div class="cl-cad-tabs" style="margin-bottom:14px;">
                 <a href="{{ route('mychecklist') }}" class="cl-cad-tab cl-cad-tab--daily is-active">
                     <span class="cl-cad-tab__icon"><i class="fas fa-sun"></i></span>
@@ -717,24 +749,27 @@
                     </span>
                     <i class="fas fa-check-circle cl-cad-tab__check"></i>
                 </a>
-            </div>
-
-            {{-- Baris sub-toggle (desktop) + Riwayat (selalu tampil) --}}
-            <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:14px; flex-wrap:wrap;">
-                <div class="cl-view-toggle" style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-                    <span style="font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; color:#9B8578;">Tampilan:</span>
+                <div class="cl-cad-tabs__right">
                     <div class="cl-vtoggle">
-                        <a href="{{ route('mychecklist') }}" class="cl-vtoggle__btn is-active">
-                            <i class="fas fa-sun" style="font-size:10px;"></i> Hari Ini
-                        </a>
-                        <a href="{{ route('mychecklist.weekly') }}" class="cl-vtoggle__btn">
-                            <i class="fas fa-th" style="font-size:10px;"></i> Rekap 6 Hari
-                        </a>
+                        <a href="{{ route('mychecklist') }}" class="cl-vtoggle__btn is-active">Hari Ini</a>
+                        <a href="{{ route('mychecklist.weekly') }}" class="cl-vtoggle__btn">Rekap 6 Hari</a>
                     </div>
+                    @php
+                        $acPos = currentUserPosition();
+                        $acOverdue = acOverdueCountForCurrentGs();
+                    @endphp
+                     @if($acPos && $acPos->division_id === 'GS')
+                        <a href="{{ route('mychecklist.ac') }}" class="cl-btn-riwayat ac-nav-btn">
+                            <i class="fas fa-snowflake"></i> Cuci AC
+                             @if($acOverdue > 0)
+                                <span class="ac-nav-badge">{{ $acOverdue }}</span>
+                             @endif
+                        </a>
+                     @endif
+                    <a href="{{ route('mychecklist.history') }}" class="cl-btn-riwayat">
+                        <i class="fas fa-history"></i> Riwayat Checklist
+                    </a>
                 </div>
-                <a href="{{ route('mychecklist.history') }}" class="st-btn-outline-brown" style="padding:7px 14px; font-size:12.5px;">
-                    <i class="fas fa-history"></i> Riwayat
-                </a>
             </div>
 
             <div class="cl-my-grid">
@@ -747,9 +782,12 @@
                     $statusOpt = \App\Models\ChecklistSubmission::statusOptions()[$submission->status] ?? null;
                     $statusColorMap = [
                         'success' => 'success', 'warning' => 'warning', 'danger' => 'danger',
-                        'neutral' => 'warning', 'info' => 'warning',
+                        'coffee'  => 'coffee',  'slate'   => 'slate',   'neutral' => 'draft',
+                        'info'    => 'warning',
                     ];
-                    $heroStatusColor = $statusColorMap[$statusOpt['color'] ?? 'neutral'] ?? 'warning';
+                    $heroStatusColor = $statusColorMap[$statusOpt['color'] ?? 'neutral'] ?? 'draft';
+                    $pct = (int) ($progress['pct'] ?? 0);
+                    $pctClass = $pct >= 80 ? 'is-good' : ($pct >= 50 ? 'is-warn' : 'is-bad');
                 @endphp
                 <div class="cl-mod-hero">
                     <div class="cl-mod-hero__row">
@@ -801,15 +839,21 @@
                 @elseif($submission->status === \App\Models\ChecklistSubmission::STATUS_SUBMITTED)
                     <div class="cl-mod-banner cl-mod-banner--warning">
                         <i class="fas fa-clock"></i>
-                        <div><strong>Menunggu approval supervisor.</strong> Anda akan diberitahu via notifikasi saat sudah direview.</div>
+                        <div>
+                            <strong>Menunggu approval supervisor.</strong> Anda akan diberitahu via notifikasi saat sudah direview.
+                            @if($submission->submitted_at)<div style="margin-top:4px; font-size:12px; opacity:.85;">Dikirim {{ $submission->submitted_at->translatedFormat('d M Y, H:i') }}</div>@endif
+                        </div>
                     </div>
                 @elseif($submission->status === \App\Models\ChecklistSubmission::STATUS_APPROVED)
                     <div class="cl-mod-banner cl-mod-banner--success">
                         <i class="fas fa-check-circle"></i>
-                        <div><strong>Checklist hari ini disetujui supervisor.</strong> Terima kasih atas konsistensinya! 🎉</div>
+                        <div>
+                            <strong>Checklist hari ini disetujui supervisor.</strong> Terima kasih atas konsistensinya! 🎉
+                            @if($submission->submitted_at)<div style="margin-top:4px; font-size:12px; opacity:.85;">Dikirim {{ $submission->submitted_at->translatedFormat('d M Y, H:i') }}</div>@endif
+                        </div>
                     </div>
                 @elseif($submission->status === \App\Models\ChecklistSubmission::STATUS_EXCUSED)
-                    <div class="cl-mod-banner cl-mod-banner--warning">
+                    <div class="cl-mod-banner cl-mod-banner--coffee">
                         <i class="fas fa-mug-hot"></i>
                         <div style="flex:1;">
                             <strong>Checklist hari ini ditandai "Dikecualikan" — tidak perlu diisi.</strong>
@@ -826,7 +870,7 @@
                 @endif
 
                 {{-- ─── PROGRESS CARD (modern, big %) ─── --}}
-                <div class="cl-mod-progress">
+                <div class="cl-mod-progress {{ $pctClass }}" id="clProgressCard">
                     {{-- Pill status (pindahan dari hero) — pojok kanan-atas kartu --}}
                     @if($submission->status !== \App\Models\ChecklistSubmission::STATUS_DRAFT && $statusOpt)
                         <span class="cl-mod-progress__status cl-mod-hero__status--{{ $heroStatusColor }}">
@@ -855,8 +899,8 @@
                         <div class="st-card__body" style="padding:36px 20px;">
                             <div class="cl-empty">
                                 <span class="cl-empty__icon"><i class="fas fa-clipboard"></i></span>
-                                <div class="cl-empty__title">Belum ada tugas</div>
-                                <div class="cl-empty__desc">Supervisor belum mengatur tugas untuk divisi {{ $position->division?->name }}.</div>
+                                <div class="cl-empty__title">Tidak ada tugas hari ini</div>
+                                <div class="cl-empty__desc">Belum ada tugas checklist untuk divisi {{ $position->division?->name }} — Anda tidak perlu mengisi apa pun hari ini. Hubungi supervisor bila menurut Anda ini keliru.</div>
                             </div>
                         </div>
                     </div>
@@ -881,24 +925,21 @@
                                 if ($isOpen) $openedOne = true;
                             @endphp
                             <div class="cl-mod-cat {{ $isOpen ? 'is-open' : '' }} {{ $catComplete ? 'is-complete' : '' }}" data-cat-block>
+                                {{-- Header sesuai handoff: nomor · judul (flex) · pill hitung · status — semua satu baris. --}}
                                 <div class="cl-mod-cat__head" data-cat-toggle>
                                     <span class="cl-mod-cat__num" data-cat-num>{{ $catIdx }}</span>
-                                    <div class="cl-mod-cat__info">
-                                        <h6 class="cl-mod-cat__title">{{ $catTitle }}</h6>
-                                        <div class="cl-mod-cat__meta">
-                                            <span class="cl-mod-cat__chip cl-mod-cat__chip--{{ $catComplete ? 'good' : 'warn' }}" data-cat-chip>
-                                                @if($catComplete)<i class="fas fa-check" style="font-size:9px;"></i>@endif
-                                                {{ $catDone }}/{{ $catTotal }} tugas
-                                            </span>
-                                            <span data-cat-meta>
-                                                @if($catComplete)
-                                                    semua selesai
-                                                @else
-                                                    {{ $catTotal - $catDone }} belum dikerjakan
-                                                @endif
-                                            </span>
-                                        </div>
-                                    </div>
+                                    <h6 class="cl-mod-cat__title">{{ $catTitle }}</h6>
+                                    <span class="cl-mod-cat__chip cl-mod-cat__chip--{{ $catComplete ? 'good' : 'warn' }}" data-cat-chip>
+                                        @if($catComplete)<i class="fas fa-check" style="font-size:9px;"></i>@endif
+                                        {{ $catDone }}/{{ $catTotal }}
+                                    </span>
+                                    <span class="cl-mod-cat__status cl-mod-cat__status--{{ $catComplete ? 'good' : 'warn' }}" data-cat-meta>
+                                        @if($catComplete)
+                                            semua selesai
+                                        @else
+                                            {{ $catTotal - $catDone }} belum dikerjakan
+                                        @endif
+                                    </span>
                                     <i class="fas fa-chevron-down cl-mod-cat__chev"></i>
                                 </div>
                                 <div class="cl-mod-cat__body">
@@ -920,11 +961,11 @@
                                                 <div class="cl-mod-task__note">
                                                     <textarea class="cl-mod-note__input" rows="1" maxlength="1000"
                                                               data-note-url="{{ route('mychecklist.item.note', $item->id) }}"
-                                                              placeholder="Tambah catatan untuk supervisor (opsional)…">{{ $item->note }}</textarea>
+                                                              placeholder="+ catatan">{{ $item->note }}</textarea>
                                                     <span class="cl-mod-note__status" data-note-status></span>
                                                 </div>
                                             @elseif($item->note)
-                                                <div class="cl-mod-task__note">
+                                                <div class="cl-mod-task__note cl-mod-task__note--ro">
                                                     <div class="cl-mod-note__ro"><strong>Catatan:</strong> {{ $item->note }}</div>
                                                 </div>
                                             @endif
@@ -945,21 +986,28 @@
                         @csrf
                         <div class="cl-mod-submit">
                             @php $isComplete = $progress['total'] > 0 && $progress['done'] === $progress['total']; @endphp
-                            <div class="cl-mod-submit__hint">
-                                {{-- Hint dinamis: submit hanya bisa saat 100%. --}}
-                                @if($progress['done'] === 0)
-                                    Selesaikan semua tugas dulu — checklist bisa disubmit setelah 100%.
-                                @elseif(! $isComplete)
-                                    Masih ada <strong style="color:#FFF;">{{ $progress['total'] - $progress['done'] }} task</strong> belum dicentang. Semua tugas harus selesai (100%) sebelum submit.
-                                @else
-                                    <strong style="color:#FFF;">Semua tugas selesai! 🎉</strong> Klik submit untuk kirim ke supervisor.
-                                @endif
+                            {{-- Kalimat mengikuti handoff: headline tebal + sub redup. --}}
+                            <div class="cl-mod-submit__text">
+                                <div class="cl-mod-submit__headline" data-submit-headline>
+                                    @if($isComplete)
+                                        Semua tugas selesai — siap dikirim!
+                                    @else
+                                        Masih ada {{ $progress['total'] - $progress['done'] }} tugas belum dicentang.
+                                    @endif
+                                </div>
+                                <div class="cl-mod-submit__sub" data-submit-sub>
+                                    @if($isComplete)
+                                        Setelah dikirim, isian terkunci sampai direview supervisor.
+                                    @else
+                                        Semua tugas harus selesai (100%) sebelum submit.
+                                    @endif
+                                </div>
                             </div>
                             <button type="submit" class="cl-mod-submit__btn" id="clSubmitBtn" {{ $isComplete ? '' : 'disabled' }}>
                                 @if($isComplete)
                                     <i class="fas fa-paper-plane"></i> Kirim Checklist
                                 @else
-                                    Selesaikan semua tugas dulu
+                                    <i class="fas fa-paper-plane"></i> Selesaikan semua tugas dulu
                                 @endif
                             </button>
                         </div>{{-- /cl-mod-submit --}}
@@ -970,24 +1018,27 @@
                 @if($submission->isEditable())
                     @include('crud.checklist.my._excuse_block')
                     <style>
-                        .cl-excuse { margin-top: 14px; border: 1px solid #E0D2C1; border-radius: 12px; background: #FFFDF9; box-shadow: 0 1px 3px rgba(45,24,16,.05); }
-                        .cl-excuse__trigger { list-style: none; cursor: pointer; padding: 13px 16px; font-size: 13px; font-weight: 700; color: #6B4423; display: flex; align-items: center; justify-content: space-between; gap: 8px; border-radius: 12px; transition: background .15s; }
-                        .cl-excuse__trigger:hover { background: #FAF0E2; }
+                        /* Kartu pengecualian sesuai handoff: bg krem, border putus-putus, aksen coklat #8A5A2B */
+                        .cl-excuse { margin-top: 14px; border: 1px dashed #DCC4A8; border-radius: 16px; background: #FBF6EE; overflow: hidden; }
+                        .cl-excuse__trigger { list-style: none; cursor: pointer; padding: 13px 18px; font-size: 13px; font-weight: 700; color: #8A5A2B; display: flex; align-items: center; justify-content: space-between; gap: 8px; transition: background .15s; }
+                        .cl-excuse__trigger:hover { background: #F6EEDF; }
                         .cl-excuse__trigger::-webkit-details-marker { display: none; }
-                        .cl-excuse__trigger-label { display: inline-flex; align-items: center; gap: 8px; }
-                        .cl-excuse__trigger i { color: #A66019; }
-                        .cl-excuse__caret { font-size: 12px; transition: transform .2s ease; }
-                        .cl-excuse[open] .cl-excuse__trigger { border-radius: 12px 12px 0 0; border-bottom: 1px solid #EFE1CF; background: #FAF0E2; }
+                        .cl-excuse__trigger-label { display: inline-flex; align-items: center; gap: 11px; }
+                        .cl-excuse__trigger i { color: #8A5A2B; }
+                        .cl-excuse__caret { font-size: 12px; transition: transform .18s ease; }
                         .cl-excuse[open] .cl-excuse__caret { transform: rotate(180deg); }
-                        .cl-excuse__form { padding: 12px 16px 16px; }
-                        .cl-excuse__label { font-size: 12px; font-weight: 700; color: #6B4423; margin-bottom: 8px; }
-                        .cl-excuse__chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
-                        .cl-excuse__chip { font-size: 12px; font-weight: 600; padding: 6px 12px; border-radius: 999px; border: 1px solid #E0D2C1; background: #fff; color: #6B4423; cursor: pointer; transition: .15s; }
-                        .cl-excuse__chip:hover { border-color: #A66019; color: #5C2E15; background: #FAF4EC; }
-                        .cl-excuse__input { width: 100%; box-sizing: border-box; border: 1px solid #E0D2C1; border-radius: 8px; padding: 8px 10px; font-size: 13px; color: #2D1810; font-family: inherit; resize: vertical; }
-                        .cl-excuse__input:focus { outline: none; border-color: #A66019; box-shadow: 0 0 0 3px rgba(166,96,25,.10); }
-                        .cl-excuse__submit { margin-top: 10px; border: none; border-radius: 8px; background: linear-gradient(180deg,#5C2E15,#471500); color: #fff; font-size: 13px; font-weight: 700; padding: 9px 16px; cursor: pointer; display: inline-flex; align-items: center; gap: 7px; }
-                        .cl-excuse__submit:hover { filter: brightness(1.08); }
+                        .cl-excuse__form { padding: 2px 18px 16px; display: flex; flex-direction: column; gap: 11px; }
+                        .cl-excuse__label { font-size: 12px; font-weight: 500; color: #9A7256; }
+                        .cl-excuse__label b { color: #6B4423; }
+                        .cl-excuse__chips { display: flex; flex-wrap: wrap; gap: 8px; }
+                        .cl-excuse__chip { font-size: 11.5px; font-weight: 700; padding: 7px 14px; border-radius: 20px; border: 1px dashed #D9C4A6; background: #fff; color: #8A5A2B; cursor: pointer; transition: .15s; font-family: inherit; }
+                        .cl-excuse__chip:hover { filter: brightness(.97); }
+                        .cl-excuse__chip.is-active { background: #8A5A2B; color: #fff; border: 1px solid transparent; }
+                        .cl-excuse__input { width: 100%; box-sizing: border-box; border: 1px solid #E7D3BE; border-radius: 11px; padding: 10px 13px; font-size: 12.5px; color: #3B1500; background: #fff; font-family: inherit; resize: vertical; }
+                        .cl-excuse__input:focus { outline: none; border-color: #C9962F; box-shadow: 0 0 0 3px rgba(201,150,47,.12); }
+                        .cl-excuse__submit { align-self: flex-start; border: none; border-radius: 11px; background: #8A5A2B; color: #fff; font-size: 12.5px; font-weight: 800; padding: 10px 18px; cursor: pointer; display: inline-flex; align-items: center; gap: 7px; font-family: inherit; transition: .15s; }
+                        .cl-excuse__submit:hover { filter: brightness(.96); }
+                        .cl-excuse__submit:disabled { background: #EFE3D2; color: #B7926F; cursor: not-allowed; filter: none; }
                     </style>
                 @endif
             </div>{{-- /main column --}}
@@ -1029,7 +1080,7 @@
                                     'approved'  => 'Disetujui',
                                     'submitted' => 'Menunggu',
                                     'rejected'  => 'Ditolak',
-                                    'draft'     => 'Draft',
+                                    'draft'     => 'Belum Dikirim',
                                     default     => 'Tidak diisi',
                                 };
                             @endphp
@@ -1040,10 +1091,10 @@
                         @endforeach
                     </div>
                     <div class="cl-heatmap__legend">
-                        <span><i style="background:#1F6E5F; border-color:#1F6E5F;"></i> Disetujui</span>
-                        <span><i style="background:#FAEEDA; border-color:#E8C29A;"></i> Menunggu</span>
-                        <span><i style="background:#FCEBEB; border-color:#E5B5B5;"></i> Ditolak</span>
-                        <span><i style="background:#FAFAF8;"></i> Tidak diisi</span>
+                        <span><i style="background:#57A876; border-color:#57A876;"></i> Disetujui</span>
+                        <span><i style="background:#E8A44D; border-color:#E8A44D;"></i> Menunggu</span>
+                        <span><i style="background:#D96C60; border-color:#D96C60;"></i> Ditolak</span>
+                        <span><i style="background:#E4D7C6; border-color:#E4D7C6;"></i> Tidak diisi</span>
                     </div>
                 </div>
 
@@ -1051,7 +1102,7 @@
                 <div class="cl-mini cl-mini--mreview">
                     <div class="cl-mini__head">
                         <h6 class="cl-mini__title"><i class="fas fa-history"></i> Aktivitas Terbaru</h6>
-                        <a href="{{ route('mychecklist.history') }}" style="font-size:11px; color:#5C2E15; text-decoration:none; font-weight:600;">Semua →</a>
+                        <a href="{{ route('mychecklist.history') }}" style="font-size:11.5px; color:#8A3A12; text-decoration:none; font-weight:700;">Semua →</a>
                     </div>
                     @if($extras['recent']->isEmpty())
                         <div style="text-align:center; color:#9B8578; font-size:12px; padding:14px 0; font-style:italic;">
@@ -1068,7 +1119,7 @@
                                         <strong>{{ $r->submission_date->translatedFormat('D, d M') }}</strong>
                                         <small>{{ $r->done_tasks }}/{{ $r->total_tasks }} tugas · {{ $r->progressPct() }}%</small>
                                     </div>
-                                    <span class="st-pill st-pill--{{ $opt['color'] }}" style="font-size:10.5px; padding:3px 8px;">{{ $opt['label'] }}</span>
+                                    <span class="st-pill st-pill--{{ $opt['color'] }} cl-recent__pill">{{ $opt['label'] }}</span>
                                 </div>
                             @endforeach
                         </div>
@@ -1160,7 +1211,9 @@
             } catch (err) {
                 task.classList.toggle('is-done', wasDone);
                 updateCatCounter(task);
-                alert('Gagal: ' + (err.message || err));
+                alert(navigator.onLine
+                    ? ('Gagal menyimpan: ' + (err.message || err) + '\nBila status checklist sudah berubah (mis. sudah direview), muat ulang halaman.')
+                    : 'Koneksi terputus — perubahan belum tersimpan. Coba lagi setelah kembali online.');
             }
         });
     });
@@ -1208,21 +1261,31 @@
         // Update chip count
         const chip = block.querySelector('[data-cat-chip]');
         if (chip) {
-            chip.innerHTML = (complete ? '<i class="fas fa-check" style="font-size:9px;"></i> ' : '') + cnt + '/' + total + ' tugas';
+            chip.innerHTML = (complete ? '<i class="fas fa-check" style="font-size:9px;"></i> ' : '') + cnt + '/' + total;
             chip.classList.toggle('cl-mod-cat__chip--good', complete);
             chip.classList.toggle('cl-mod-cat__chip--warn', ! complete);
         }
         const meta = block.querySelector('[data-cat-meta]');
-        if (meta) meta.textContent = complete ? 'semua selesai' : (total - cnt) + ' belum dikerjakan';
+        if (meta) {
+            meta.textContent = complete ? 'semua selesai' : (total - cnt) + ' belum dikerjakan';
+            meta.classList.toggle('cl-mod-cat__status--good', complete);
+            meta.classList.toggle('cl-mod-cat__status--warn', ! complete);
+        }
 
         // Update card state classes
         block.classList.toggle('is-complete', complete);
     }
 
+    const progressCard = document.getElementById('clProgressCard');
     function updateProgressGlobal(p) {
         if (! p) return;
         if (pctEl)   pctEl.innerHTML   = p.pct + '<small>%</small>';
         if (fillEl)  fillEl.style.width = p.pct + '%';
+        if (progressCard) {
+            const cls = p.pct >= 80 ? 'is-good' : (p.pct >= 50 ? 'is-warn' : 'is-bad');
+            progressCard.classList.remove('is-good', 'is-warn', 'is-bad');
+            progressCard.classList.add(cls);
+        }
         if (countEl) {
             const remaining = Math.max(0, p.total - p.done);
             countEl.innerHTML = '<strong>' + p.done + '</strong> dari ' + p.total + ' tugas <small>· ' + remaining + ' belum dikerjakan</small>';
@@ -1232,18 +1295,20 @@
             submitBtn.disabled = ! complete;
             submitBtn.innerHTML = complete
                 ? '<i class="fas fa-paper-plane"></i> Kirim Checklist'
-                : 'Selesaikan semua tugas dulu';
+                : '<i class="fas fa-paper-plane"></i> Selesaikan semua tugas dulu';
         }
-        // Update submit hint — submit hanya bisa saat 100%
-        const hintEl = document.querySelector('.cl-mod-submit__hint');
-        if (hintEl) {
-            if (p.done === 0) {
-                hintEl.innerHTML = 'Selesaikan semua tugas dulu — checklist bisa disubmit setelah 100%.';
-            } else if (! complete) {
-                hintEl.innerHTML = 'Masih ada <strong style="color:#FFF;">' + (p.total - p.done) + ' task</strong> belum dicentang. Semua tugas harus selesai (100%) sebelum submit.';
-            } else {
-                hintEl.innerHTML = '<strong style="color:#FFF;">Semua tugas selesai! 🎉</strong> Klik submit untuk kirim ke supervisor.';
-            }
+        // Update headline + sub kartu submit (kalimat handoff) — submit hanya bisa saat 100%
+        const headEl = document.querySelector('[data-submit-headline]');
+        const subEl  = document.querySelector('[data-submit-sub]');
+        if (headEl) {
+            headEl.textContent = complete
+                ? 'Semua tugas selesai — siap dikirim!'
+                : 'Masih ada ' + (p.total - p.done) + ' tugas belum dicentang.';
+        }
+        if (subEl) {
+            subEl.textContent = complete
+                ? 'Setelah dikirim, isian terkunci sampai direview supervisor.'
+                : 'Semua tugas harus selesai (100%) sebelum submit.';
         }
     }
 })();

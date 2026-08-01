@@ -488,7 +488,7 @@ class MarketingDashboardController extends Controller
         }
         return $q->select('id', 'nama_promo', 'campaign_type', 'status', 'harga_normal', 'harga_promo',
                 'periode_start', 'periode_end', 'detail_promo', 'syarat_ketentuan', 'cetakan')
-            ->orderByRaw("FIELD(status,'aktif','planning','selesai')")->orderBy('periode_start')->limit(8)->get()
+            ->orderByRaw("FIELD(status,'aktif','planning','selesai')")->orderBy('periode_start')->get()
             ->map(function ($p) use ($today) {
                 $p->is_upcoming = $p->periode_start && $p->periode_start > $today;
                 return $p;

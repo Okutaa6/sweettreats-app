@@ -5,6 +5,7 @@
     $statusClass = $type === 'weekly' ? \App\Models\ChecklistWeeklySubmission::class : \App\Models\ChecklistSubmission::class;
     $opt = $statusClass::statusOptions()[$submission->status] ?? ['label' => $submission->status, 'color' => 'neutral'];
     $pct = $submission->progressPct();
+    $heroBarColor = $pct >= 80 ? '#2F8E55' : ($pct >= 50 ? '#C9962F' : '#C0392B');
     if ($type === 'weekly') {
         $ws = $submission->week_start_date;
         $dateLabel = $ws->translatedFormat('d M') . ' – ' . $ws->copy()->addDays(6)->translatedFormat('d M Y');
@@ -77,9 +78,9 @@
     /* Task rows (read-only) */
     .rvh-task { display: flex; align-items: flex-start; gap: 12px; padding: 13px 16px; border-bottom: 1px solid #F5EBE0; font-size: 13px; }
     .rvh-task:last-child { border-bottom: none; }
-    .rvh-task__ck { width: 24px; height: 24px; border-radius: 8px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; margin-top: 1px; }
-    .rvh-task__ck--done { background: linear-gradient(135deg,#5C2E15,#471500); border: 2px solid #471500; color: #fff; box-shadow: 0 2px 6px rgba(71,21,0,.22); }
-    .rvh-task__ck--todo { background: #FFFFFF; border: 2px solid #C9B69A; color: transparent; }
+    .rvh-task__ck { width: 24px; height: 24px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; margin-top: 1px; }
+    .rvh-task__ck--done { background: #57A876; border: 2px solid #57A876; color: #fff; box-shadow: 0 2px 6px rgba(87,168,118,.28); }
+    .rvh-task__ck--todo { background: #FFFFFF; border: 2px solid #EFE0CE; color: transparent; }
     .rvh-task__body { flex: 1; min-width: 0; }
     .rvh-task__ttl { font-size: 13.5px; color: #2D1810; line-height: 1.5; }
     .rvh-task.is-done .rvh-task__ttl { color: #9B8578; text-decoration: line-through; text-decoration-thickness: 1px; }
@@ -132,7 +133,7 @@
                     <span>Progres pengisian</span>
                     <span><b>{{ $submission->done_tasks }} / {{ $submission->total_tasks }}</b> tugas ({{ $pct }}%)</span>
                 </div>
-                <div class="rvh-hero__bar"><i style="width:{{ $pct }}%"></i></div>
+                <div class="rvh-hero__bar"><i style="width:{{ $pct }}%; background:{{ $heroBarColor }};"></i></div>
             </div>
 
             {{-- Waktu submit/review — disembunyikan kalau status "Tidak Diisi" --}}

@@ -52,59 +52,53 @@
     }
     .cl-hist-navbtn:hover { background: #F5EBE0; transform: translateY(-1px); text-decoration: none; color: #5C2E15; }
 
-    /* Submission cards */
+    /* Submission cards — gaya handoff: kartu putih flat, tanggal + sub relatif kiri,
+       bar + label progres tengah, pill status + chevron kanan */
     .cl-hist-list { display: flex; flex-direction: column; gap: 10px; }
     .cl-hist-card {
         background: #FFFFFF;
-        border: 1px solid #E0D2C1;
+        border: 1px solid #EFE0CE;
         border-radius: 14px;
-        box-shadow: 0 2px 6px rgba(45,24,16,.04);
+        box-shadow: 0 1px 2px rgba(70,21,0,.04);
         overflow: hidden;
-        border-left: 4px solid var(--cl-accent, #9B8578);
-        transition: box-shadow .2s, border-color .2s;
+        transition: box-shadow .2s;
     }
-    .cl-hist-card:hover { box-shadow: 0 8px 20px rgba(45,24,16,.08); }
-    .cl-hist-card.is-open { box-shadow: 0 8px 22px rgba(45,24,16,.10); }
+    .cl-hist-card:hover { box-shadow: 0 8px 20px rgba(45,24,16,.10); }
     .cl-hist-card__head {
         display: flex; align-items: center; gap: 14px;
-        padding: 14px 16px;
+        padding: 13px 16px;
         cursor: pointer; user-select: none;
-        background: linear-gradient(180deg, #FFFFFF 0%, #FAF4EC 100%);
+        background: #FFFFFF;
+        transition: background .15s;
     }
-    .cl-hist-card__head:hover { background: linear-gradient(180deg, #FAF4EC 0%, #F5EBE0 100%); }
+    .cl-hist-card__head:hover { background: #FCF7F0; }
     .cl-hist-card__date {
-        min-width: 110px;
+        width: 120px; min-width: 0;
         flex-shrink: 0;
     }
     .cl-hist-card__date strong {
         display: block;
-        font-size: 13.5px; font-weight: 700; color: #2D1810;
+        font-size: 13px; font-weight: 800; color: #3B1500;
         line-height: 1.2;
     }
     .cl-hist-card__date small {
         display: block;
-        font-size: 11px; color: #9B8578; margin-top: 3px;
+        font-size: 11px; color: #9A7256; font-weight: 500; margin-top: 2px;
     }
-    .cl-hist-card__body { flex: 1; min-width: 0; }
+    .cl-hist-card__body { flex: 1; min-width: 90px; }
     .cl-hist-card__bar {
-        background: #F5F0EA; height: 7px; border-radius: 4px; overflow: hidden;
-        margin-bottom: 6px;
+        background: #F1E6D7; height: 8px; border-radius: 6px; overflow: hidden;
     }
     .cl-hist-card__bar > i {
         display: block; height: 100%;
-        background: linear-gradient(90deg, #9B5E2C, #5C2E15);
-        border-radius: 4px;
+        border-radius: 6px;
     }
-    .cl-hist-card__meta {
-        font-size: 11.5px; color: #6B4423;
-        display: flex; gap: 10px; flex-wrap: wrap; align-items: center;
+    .cl-hist-card__prog {
+        display: block; font-size: 11px; color: #9A7256; font-weight: 600; margin-top: 4px;
     }
-    .cl-hist-card__meta i.dot { font-size: 4px; color: #C9B69A; }
-    /* Mobile: sembunyikan detail Submit/Review/Ada catatan biar kartu ringkas
-       (tanggal + bar progress + pill status + chevron saja). */
-    @media (max-width: 600px) {
-        .cl-hist-card__meta { display: none; }
-        .cl-hist-card__bar  { margin-bottom: 0; }
+    .cl-hist-card__pill {
+        flex-shrink: 0; font-size: 11px; font-weight: 800;
+        border-radius: 20px; padding: 5px 11px; white-space: nowrap;
     }
     .cl-hist-card__right {
         text-align: right; flex-shrink: 0;
@@ -199,57 +193,70 @@
     }
     .cl-hist-cat__task .note i { font-size: 9px; margin-right: 3px; color: #9B5E2C; }
 
-    /* Mini calendar */
+    /* Mini calendar — gaya handoff: sel flat radius 9, hari ini ber-ring coklat,
+       mendatang dashed, legend horizontal + kotak "Cara pakai" krem */
     .cl-hist-cal {
         display: grid;
         grid-template-columns: repeat(7, 1fr);
-        gap: 4px;
+        gap: 5px;
+    }
+    .cl-hist-cal__title {
+        font-size: 11px; font-weight: 800; letter-spacing: .5px;
+        text-transform: uppercase; color: #9A7256; margin-bottom: 11px;
     }
     .cl-hist-cal__dow {
-        font-size: 9.5px; font-weight: 700; text-transform: uppercase;
-        letter-spacing: 0.4px; color: #9B8578;
-        text-align: center; padding: 4px 0;
+        font-size: 10px; font-weight: 800; color: #B7926F;
+        text-align: center; padding: 2px 0;
     }
+    /* Gaya ubin mengikuti heatmap "Riwayat 14 Hari": ada border, sudut membulat,
+       hover naik, warna status solid (tegas). */
     .cl-hist-cal__cell {
         aspect-ratio: 1;
         background: #FAFAF8;
-        border: 1px solid #E8DCC9;
-        border-radius: 6px;
+        border: 1px solid #E0D2C1;
+        border-radius: 7px;
         display: flex; align-items: center; justify-content: center;
-        font-size: 11px; font-weight: 700;
-        color: #6B4423;
-        position: relative;
+        font-size: 12px; font-weight: 800;
+        color: #9B8578;
         cursor: default;
         transition: transform .1s;
     }
-    .cl-hist-cal__cell.is-blank { background: transparent; border: none; }
-    .cl-hist-cal__cell.is-future { background: #FFFFFF; color: #C9B69A; border-style: dashed; }
-    .cl-hist-cal__cell.is-today {
-        outline: 2px solid #5C2E15; outline-offset: -2px;
-    }
-    .cl-hist-cal__cell--approved { background: #1F6E5F; color: #FFFFFF; border-color: #1F6E5F; }
-    .cl-hist-cal__cell--submitted { background: #FAEEDA; color: #A66019; border-color: #E8C29A; }
-    .cl-hist-cal__cell--rejected { background: #FCEBEB; color: #A32D2D; border-color: #E5B5B5; }
-    .cl-hist-cal__cell--draft { background: #F5F0EA; color: #6B4423; }
+    .cl-hist-cal__cell:not(.is-blank):hover { transform: translateY(-1px); z-index: 1; }
+    .cl-hist-cal__cell.is-blank { background: transparent; border-color: transparent; }
+    .cl-hist-cal__cell.is-future { background: transparent; color: #D3BFA6; border: 1.5px dashed #EADCC9; }
+    .cl-hist-cal__cell--approved  { background: #57A876; color: #FFFFFF; border-color: #57A876; }
+    .cl-hist-cal__cell--submitted { background: #E8A44D; color: #FFFFFF; border-color: #E8A44D; }
+    .cl-hist-cal__cell--rejected  { background: #D96C60; color: #FFFFFF; border-color: #D96C60; }
+    .cl-hist-cal__cell--draft     { background: #DCCDB4; color: #6B4423; border-color: #DCCDB4; }
+    .cl-hist-cal__cell--excused   { background: #B5824A; color: #FFFFFF; border-color: #B5824A; }
+    .cl-hist-cal__cell--missed    { background: #E4D7C6; color: #9B8578; border-color: #E4D7C6; }
+    /* Hari ini: outline coklat ala heatmap (di atas warna status). */
+    .cl-hist-cal__cell.is-today { outline: 2px solid #8A3A12; outline-offset: -2px; }
     .cl-hist-cal__legend {
-        margin-top: 12px;
-        display: flex; flex-direction: column; gap: 5px;
-        font-size: 11px; color: #6B4423;
+        margin-top: 13px;
+        display: flex; flex-wrap: wrap; gap: 9px;
+        font-size: 10.5px; font-weight: 600; color: #9A7256;
     }
-    .cl-hist-cal__legend span { display: inline-flex; align-items: center; gap: 6px; }
+    .cl-hist-cal__legend span { display: inline-flex; align-items: center; gap: 5px; }
     .cl-hist-cal__legend i {
-        width: 11px; height: 11px; border-radius: 3px; border: 1px solid #E0D2C1;
-        flex-shrink: 0;
+        width: 9px; height: 9px; border-radius: 3px;
+        flex-shrink: 0; box-shadow: inset 0 0 0 1px rgba(0,0,0,.07);
     }
+    .cl-hist-cal__hint {
+        margin-top: 13px; background: #FBF6EE; border-radius: 11px;
+        padding: 10px 13px; font-size: 11.5px; color: #9A7256;
+        font-weight: 500; line-height: 1.5;
+    }
+    .cl-hist-cal__hint b { color: #5A3A22; }
 
-    /* Sidebar mini cards (reuse style from index) */
+    /* Sidebar mini cards — gaya handoff */
     .cl-hist-side {
         background: #FFFFFF;
-        border: 1px solid #E0D2C1;
-        border-radius: 14px;
-        padding: 14px 16px;
+        border: 1px solid #EFE0CE;
+        border-radius: 16px;
+        padding: 16px;
         margin-bottom: 14px;
-        box-shadow: 0 2px 6px rgba(45,24,16,.04);
+        box-shadow: 0 1px 2px rgba(70,21,0,.04);
     }
     .cl-hist-side h6 {
         font-size: 11.5px; font-weight: 700; text-transform: uppercase;
@@ -258,33 +265,35 @@
     }
     .cl-hist-side h6 i { color: #5C2E15; font-size: 11px; }
 
-    /* Kartu besar pilih jenis checklist (gaya my-checklist) */
-    .cl-cad-tabs { display: flex; gap: 10px; flex-wrap: wrap; }
+    /* Kartu besar pilih jenis checklist (gaya handoff: aktif = putih + ring warna) */
+    .cl-cad-tabs { display: flex; gap: 12px; flex-wrap: wrap; align-items: stretch; }
     .cl-cad-tab {
-        flex: 1; min-width: 220px; display: flex; align-items: center; gap: 12px;
-        padding: 13px 16px; background: #FFFFFF; border: 1.5px solid #E0D2C1; border-radius: 14px;
+        flex: 0 1 auto; min-width: 250px; display: flex; align-items: center; gap: 13px;
+        padding: 13px 16px; background: #FBF6EE; border: 1px solid #EADCC9; border-radius: 16px;
         cursor: pointer; text-align: left; text-decoration: none;
-        transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease, background .16s ease;
-        box-shadow: 0 2px 6px rgba(45,24,16,.04);
+        transition: box-shadow .16s ease, border-color .16s ease, background .16s ease;
     }
     .cl-cad-tab:hover { border-color: #C9B69A; box-shadow: 0 4px 12px rgba(45,24,16,.08); }
     .cl-cad-tab__icon {
-        width: 40px; height: 40px; border-radius: 11px; display: inline-flex;
+        width: 40px; height: 40px; border-radius: 12px; display: inline-flex;
         align-items: center; justify-content: center; font-size: 16px; color: #FFFFFF; flex-shrink: 0;
     }
-    .cl-cad-tab--daily  .cl-cad-tab__icon { background: linear-gradient(135deg, #A66019, #5C2E15); box-shadow: 0 3px 8px rgba(166,96,25,.22); }
-    .cl-cad-tab--weekly .cl-cad-tab__icon { background: linear-gradient(135deg, #1F6E5F, #155148); box-shadow: 0 3px 8px rgba(31,110,95,.22); }
+    .cl-cad-tab--daily  .cl-cad-tab__icon { background: linear-gradient(135deg, #A8481B, #5C2E15); box-shadow: 0 4px 12px rgba(92,46,21,.25); }
+    .cl-cad-tab--weekly .cl-cad-tab__icon { background: linear-gradient(135deg, #1F6E5F, #155148); box-shadow: 0 4px 12px rgba(21,81,72,.25); }
     .cl-cad-tab__body { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 2px; }
-    .cl-cad-tab__body strong { font-size: 15px; font-weight: 800; color: #2D1810; line-height: 1.2; }
-    .cl-cad-tab__body small { font-size: 11.5px; color: #6B4423; }
-    .cl-cad-tab__check { opacity: 0; flex-shrink: 0; font-size: 18px; color: #FFFFFF; transition: opacity .16s ease; }
-    .cl-cad-tab.is-active { border-color: transparent; transform: translateY(-1px); }
-    .cl-cad-tab--daily.is-active  { background: linear-gradient(135deg, #A66019, #5C2E15); box-shadow: 0 7px 18px rgba(92,46,21,.28); }
-    .cl-cad-tab--weekly.is-active { background: linear-gradient(135deg, #1F6E5F, #155148); box-shadow: 0 7px 18px rgba(21,81,72,.28); }
-    .cl-cad-tab.is-active .cl-cad-tab__body strong { color: #FFFFFF; }
-    .cl-cad-tab.is-active .cl-cad-tab__body small { color: #FFFFFF; opacity: .82; }
-    .cl-cad-tab.is-active .cl-cad-tab__icon { background: rgba(255,255,255,.18); box-shadow: none; }
-    .cl-cad-tab.is-active .cl-cad-tab__check { opacity: .95; }
+    .cl-cad-tab__body strong { font-size: 14px; font-weight: 800; color: #3B1500; line-height: 1.2; }
+    .cl-cad-tab__body small { font-size: 11.5px; font-weight: 500; color: #9A7256; }
+    .cl-cad-tab__check { opacity: 0; flex-shrink: 0; font-size: 22px; transition: opacity .16s ease; }
+    .cl-cad-tab--daily  .cl-cad-tab__check { color: #8A3A12; }
+    .cl-cad-tab--weekly .cl-cad-tab__check { color: #1F6E5F; }
+    .cl-cad-tab.is-active { background: #FFFFFF; }
+    .cl-cad-tab--daily.is-active  { border: 2px solid #A8481B; padding: 12px 15px; box-shadow: 0 4px 14px rgba(138,58,18,.14); }
+    .cl-cad-tab--weekly.is-active { border: 2px solid #1F6E5F; padding: 12px 15px; box-shadow: 0 4px 14px rgba(31,110,95,.14); }
+    .cl-cad-tab.is-active .cl-cad-tab__check { opacity: 1; }
+    /* Mobile: kartu jenis full-width */
+    @media (max-width: 600px) {
+        .cl-cad-tab { flex: 1 1 100%; min-width: 0; }
+    }
 </style>
 @endsection
 
@@ -333,14 +342,14 @@
              month-nav + 5 kotak KPI; Avg Progress dihapus). ─── --}}
         <div class="cl-hist-bar">
             <div class="cl-hist-bar__nav">
-                <a href="{{ route('mychecklist.history', ['type' => $type, 'month' => $prevMonth]) }}" class="cl-hist-navbtn" title="Bulan sebelumnya">
+                <a href="{{ route('mychecklist.history', array_filter(['type' => $type, 'month' => $prevMonth, 'status' => $status])) }}" class="cl-hist-navbtn" title="Bulan sebelumnya">
                     <i class="fas fa-chevron-left"></i>
                 </a>
                 <h5 class="cl-hist-header__title">
                     <i class="fas fa-calendar"></i>
                     {{ $monthLabel }}
                 </h5>
-                <a href="{{ route('mychecklist.history', ['type' => $type, 'month' => $nextMonth]) }}" class="cl-hist-navbtn" title="Bulan berikutnya">
+                <a href="{{ route('mychecklist.history', array_filter(['type' => $type, 'month' => $nextMonth, 'status' => $status])) }}" class="cl-hist-navbtn" title="Bulan berikutnya">
                     <i class="fas fa-chevron-right"></i>
                 </a>
             </div>
@@ -350,6 +359,53 @@
                 <span class="cl-hist-stat"><i class="fas fa-clock" style="color:#A66019;"></i> <b>{{ $stats['pending'] }}</b> Menunggu</span>
                 <span class="cl-hist-stat"><i class="fas fa-times-circle" style="color:#A32D2D;"></i> <b>{{ $stats['rejected'] }}</b> Ditolak</span>
             </div>
+        </div>
+
+        {{-- ─── FILTER STATUS (mempersempit daftar; ringkasan bulan tetap utuh) ─── --}}
+        @php
+            $filterOpts = [
+                ''          => 'Semua',
+                'approved'  => 'Disetujui',
+                'submitted' => 'Menunggu',
+                'rejected'  => 'Ditolak',
+                'draft'     => 'Belum Dikirim',
+                'excused'   => 'Dikecualikan',
+                'missed'    => 'Tidak Diisi',
+            ];
+        @endphp
+        <style>
+            .cl-hist-filter { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 14px; }
+            .cl-hist-fpill {
+                text-decoration: none; font-size: 12px; font-weight: 700;
+                padding: 6px 13px; border-radius: 999px;
+                background: #FFFFFF; color: #8A6A4A; border: 1px solid #E6D8C6;
+            }
+            .cl-hist-fpill:hover { background: #FAF4EC; }
+            .cl-hist-fpill.is-active { background: #6B2400; color: #FFEAD6; border-color: #6B2400; }
+            /* Mobile: pill diganti dropdown biar tidak berdesakan. */
+            .cl-hist-filter-select { display: none; }
+            @media (max-width: 640px) {
+                .cl-hist-filter { display: none; }
+                .cl-hist-filter-select {
+                    display: block; width: 100%; margin-bottom: 14px;
+                    padding: 10px 13px; border-radius: 11px;
+                    border: 1px solid #E6D8C6; background: #FFFFFF;
+                    font-size: 13px; font-weight: 700; color: #6B2400;
+                    font-family: inherit; cursor: pointer;
+                }
+            }
+        </style>
+        <select class="cl-hist-filter-select" aria-label="Filter status" onchange="location.href=this.value">
+            @foreach($filterOpts as $val => $label)
+                <option value="{{ route('mychecklist.history', array_filter(['type' => $type, 'month' => $month, 'status' => $val])) }}"
+                    {{ ($status ?? '') === $val ? 'selected' : '' }}>{{ $label === 'Semua' ? 'Semua status' : $label }}</option>
+            @endforeach
+        </select>
+        <div class="cl-hist-filter">
+            @foreach($filterOpts as $val => $label)
+                <a href="{{ route('mychecklist.history', array_filter(['type' => $type, 'month' => $month, 'status' => $val])) }}"
+                   class="cl-hist-fpill {{ ($status ?? '') === $val ? 'is-active' : '' }}">{{ $label }}</a>
+            @endforeach
         </div>
 
         <div class="cl-hist-grid">
@@ -362,10 +418,18 @@
                             <i class="fas fa-calendar-times"></i>
                         </div>
                         <h5 style="font-size:16px; font-weight:700; color:#2D1810; margin-bottom:6px;">
-                            Tidak ada pengisian di {{ $monthLabel }}
+                            @if($status)
+                                Tidak ada pengisian berstatus "{{ $filterOpts[$status] ?? $status }}" di {{ $monthLabel }}
+                            @else
+                                Tidak ada pengisian di {{ $monthLabel }}
+                            @endif
                         </h5>
                         <p style="font-size:13px; color:#6B4423; max-width:360px; margin:0 auto;">
-                            Coba pilih bulan lain atau mulai isi {{ $type === 'weekly' ? 'form mingguan' : 'checklist hari ini' }}.
+                            @if($status)
+                                Coba ubah filter status atau pilih bulan lain.
+                            @else
+                                Coba pilih bulan lain atau mulai isi {{ $type === 'weekly' ? 'form mingguan' : 'checklist hari ini' }}.
+                            @endif
                         </p>
                     </div>
                 @else
@@ -374,57 +438,35 @@
                             @php
                                 $statusClass = $type === 'weekly' ? \App\Models\ChecklistWeeklySubmission::class : \App\Models\ChecklistSubmission::class;
                                 $opt = $statusClass::statusOptions()[$sub->status] ?? ['label'=>$sub->status,'color'=>'neutral'];
-                                $accentColor = [
-                                    'success' => '#1F6E5F',
-                                    'warning' => '#A66019',
-                                    'danger'  => '#A32D2D',
-                                    'neutral' => '#9B8578',
-                                    'info'    => '#1E5A8C',
-                                    'coffee'  => '#8A5A2B',
-                                    'slate'   => '#5F5A52',
-                                ][$opt['color']] ?? '#9B8578';
                                 $pct = $sub->progressPct();
+                                $barColor = $pct >= 80 ? '#2F8E55' : ($pct >= 50 ? '#C9962F' : '#C0392B');
                                 if ($type === 'weekly') {
                                     $weekStart = $sub->week_start_date;
                                     $weekEnd   = $weekStart->copy()->addDays(6);
                                     $dateLabel = $weekStart->translatedFormat('d M') . ' – ' . $weekEnd->translatedFormat('d M');
+                                    // Sub relatif ala handoff: minggu ini / mingguan.
+                                    $subLabel = \Carbon\Carbon::today()->between($weekStart, $weekEnd) ? 'minggu ini' : 'mingguan';
                                 } else {
                                     $dateLabel = $sub->submission_date->translatedFormat('D, d M');
+                                    // Sub relatif ala handoff: hari ini / kemarin / kemarin lusa / harian.
+                                    $dayDiff  = $sub->submission_date->copy()->startOfDay()->diffInDays(\Carbon\Carbon::today());
+                                    $subLabel = $sub->submission_date->isToday() ? 'hari ini'
+                                        : ($sub->submission_date->isYesterday() ? 'kemarin'
+                                        : ($dayDiff === 2 ? 'kemarin lusa' : 'harian'));
                                 }
-                                // Mingguan dikelompokkan per hari; Harian tetap per kategori.
-                                $grouped = $type === 'weekly'
-                                    ? $sub->items
-                                        ->sortBy(fn($i) => sprintf('%d-%06d-%06d', $i->day_of_week ?? 0, $i->category_sort_order ?? 0, $i->task_sort_order ?? 0))
-                                        ->groupBy('day_of_week')
-                                    : $sub->items->groupBy('category_title_snapshot');
-                                $isRejected = $sub->status === $statusClass::STATUS_REJECTED;
                             @endphp
                             <a class="cl-hist-card" href="{{ route('mychecklist.history.show', ['type' => $type, 'id' => $sub->id, 'month' => request('month')]) }}"
-                               style="--cl-accent: {{ $accentColor }}; text-decoration:none; color:inherit; display:block;">
+                               style="text-decoration:none; color:inherit; display:block;">
                                 <div class="cl-hist-card__head">
                                     <div class="cl-hist-card__date">
                                         <strong>{{ $dateLabel }}</strong>
-                                        <small>{{ $sub->done_tasks }}/{{ $sub->total_tasks }} tugas ({{ $pct }}%)</small>
+                                        <small>{{ $subLabel }}</small>
                                     </div>
                                     <div class="cl-hist-card__body">
-                                        <div class="cl-hist-card__bar"><i style="width:{{ $pct }}%"></i></div>
-                                        <div class="cl-hist-card__meta">
-                                            @if($sub->submitted_at)
-                                                <span><i class="fas fa-paper-plane" style="font-size:9px; color:#9B5E2C;"></i> Submit {{ $sub->submitted_at->format('H:i') }}</span>
-                                            @endif
-                                            @if($sub->reviewed_at)
-                                                <i class="fas fa-circle dot"></i>
-                                                <span><i class="fas fa-gavel" style="font-size:9px; color:#9B5E2C;"></i> Review {{ $sub->reviewed_at->format('d M H:i') }}</span>
-                                            @endif
-                                            @if($sub->review_notes)
-                                                <i class="fas fa-circle dot"></i>
-                                                <span style="color:{{ $accentColor }}; font-weight:600;"><i class="fas fa-comment-dots" style="font-size:9px;"></i> Ada catatan</span>
-                                            @endif
-                                        </div>
+                                        <div class="cl-hist-card__bar"><i style="width:{{ $pct }}%; background:{{ $barColor }};"></i></div>
+                                        <span class="cl-hist-card__prog">{{ $sub->done_tasks }}/{{ $sub->total_tasks }} tugas ({{ $pct }}%)</span>
                                     </div>
-                                    <div class="cl-hist-card__right">
-                                        <span class="st-pill st-pill--{{ $opt['color'] }}">{{ $opt['label'] }}</span>
-                                    </div>
+                                    <span class="st-pill st-pill--{{ $opt['color'] }} cl-hist-card__pill">{{ $opt['label'] }}</span>
                                     <i class="fas fa-chevron-right cl-hist-card__chev" title="Lihat detail"></i>
                                 </div>
                             </a>
@@ -443,7 +485,7 @@
             <aside>
                 @if($type === 'daily')
                     <div class="cl-hist-side">
-                        <h6><i class="fas fa-calendar-alt"></i> Kalender {{ $monthLabel }}</h6>
+                        <div class="cl-hist-cal__title">Kalender {{ $monthLabel }}</div>
                         <div class="cl-hist-cal">
                             @foreach(['Sen','Sel','Rab','Kam','Jum','Sab','Min'] as $dow)
                                 <div class="cl-hist-cal__dow">{{ $dow }}</div>
@@ -461,7 +503,8 @@
                                             'approved'  => 'Disetujui',
                                             'submitted' => 'Menunggu',
                                             'rejected'  => 'Ditolak',
-                                            'draft'     => 'Draft',
+                                            'draft'     => 'Belum Dikirim',
+                                            'excused'   => 'Dikecualikan',
                                             default     => $c->is_future ? 'Belum tiba' : 'Tidak diisi',
                                         };
                                     @endphp
@@ -473,25 +516,25 @@
                             @endforeach
                         </div>
                         <div class="cl-hist-cal__legend">
-                            <span><i style="background:#1F6E5F; border-color:#1F6E5F;"></i> Disetujui</span>
-                            <span><i style="background:#FAEEDA; border-color:#E8C29A;"></i> Menunggu approval</span>
-                            <span><i style="background:#FCEBEB; border-color:#E5B5B5;"></i> Ditolak</span>
-                            <span><i style="background:#F5F0EA;"></i> Draft / belum submit</span>
-                            <span><i style="background:#FAFAF8;"></i> Tidak diisi</span>
+                            <span><i style="background:#57A876;"></i> Disetujui</span>
+                            <span><i style="background:#E8A44D;"></i> Menunggu</span>
+                            <span><i style="background:#D96C60;"></i> Ditolak</span>
+                            <span><i style="background:#DCCDB4;"></i> Belum Dikirim</span>
+                            <span><i style="background:#B5824A;"></i> Dikecualikan</span>
+                            <span><i style="background:#E4D7C6;"></i> Tidak diisi</span>
+                        </div>
+                        <div class="cl-hist-cal__hint">
+                            <b>Cara pakai:</b> klik kartu di daftar untuk lihat detail tugas. Arahkan kursor ke tanggal untuk status singkat.
+                        </div>
+                    </div>
+                @else
+                    <div class="cl-hist-side">
+                        <div class="cl-hist-cal__title">Cara Pakai</div>
+                        <div class="cl-hist-cal__hint" style="margin-top:0;">
+                            <b>Tab Mingguan:</b> menampilkan form mingguan yang sudah di-submit per minggu. Klik kartu untuk lihat detail tugas yang dicentang di setiap hari.
                         </div>
                     </div>
                 @endif
-
-                <div class="cl-hist-side" style="background:linear-gradient(135deg, #FAF4EC 0%, #F5EBE0 100%); border-color:#E0D2C1;">
-                    <h6 style="color:#5C2E15;"><i class="fas fa-info-circle" style="color:#A66019;"></i> Cara Pakai</h6>
-                    <p style="font-size:12.5px; color:#5C2E15; line-height:1.55; margin:0;">
-                        @if($type === 'weekly')
-                            Tab <strong>Weekly</strong> menampilkan form mingguan yang sudah di-submit per minggu. Klik card untuk lihat detail tugas yang dicentang di setiap hari.
-                        @else
-                            Klik card untuk lihat detail tugas yang dicentang. Klik tanggal di kalender untuk lihat status singkat (hover).
-                        @endif
-                    </p>
-                </div>
             </aside>
 
         </div>{{-- /grid --}}

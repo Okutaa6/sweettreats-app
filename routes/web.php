@@ -47,6 +47,7 @@ use App\Http\Controllers\Crud\FundSourceController;
 use App\Http\Controllers\Crud\DigitalChecklistController;
 use App\Http\Controllers\Crud\ChecklistSetupController;
 use App\Http\Controllers\Crud\MyChecklistController;
+use App\Http\Controllers\Crud\AcMaintenanceController;
 use App\Http\Controllers\Finance\FinanceDashboardController;
 use App\Http\Controllers\Finance\TopupRequestController;
 use App\Http\Controllers\Finance\RopQueueController;
@@ -528,6 +529,17 @@ Route::middleware([AuthGuard::class])->group(function () {
     Route::patch('checklist/review/{id}/reopen',    [DigitalChecklistController::class, 'reopen'])     ->name('checklist.review.reopen')->where('id', '[0-9a-fA-F-]{36}');
     Route::patch('checklist/review/{id}/revoke-excuse', [DigitalChecklistController::class, 'revokeExcuse'])->name('checklist.review.excuse.revoke')->where('id', '[0-9a-fA-F-]{36}');
 
+    // Jadwal Cuci AC — Monitoring + kelola unit (Supervisor)
+    Route::get   ('checklist/ac',                   [AcMaintenanceController::class, 'monitor'])       ->name('checklist.ac');
+    Route::get   ('checklist/ac/unit/{id}/history', [AcMaintenanceController::class, 'unitHistory'])   ->name('checklist.ac.unit.history');
+    Route::post  ('checklist/ac/unit',              [AcMaintenanceController::class, 'storeUnit'])     ->name('checklist.ac.unit.store');
+    Route::put   ('checklist/ac/unit/{id}',         [AcMaintenanceController::class, 'updateUnit'])    ->name('checklist.ac.unit.update');
+    Route::delete('checklist/ac/unit/{id}',         [AcMaintenanceController::class, 'destroyUnit'])   ->name('checklist.ac.unit.destroy');
+    Route::delete('checklist/ac/service/{id}',      [AcMaintenanceController::class, 'destroyService'])->name('checklist.ac.service.destroy');
+    Route::post  ('checklist/ac/service',              [AcMaintenanceController::class, 'storeServiceBySupervisor'])->name('checklist.ac.service.store');
+    Route::post  ('checklist/ac/service/{id}/approve', [AcMaintenanceController::class, 'approveService'])->name('checklist.ac.service.approve');
+    Route::post  ('checklist/ac/service/{id}/reject',  [AcMaintenanceController::class, 'rejectService']) ->name('checklist.ac.service.reject');
+
     // Pengisian Karyawan — Harian
     Route::get  ('my-checklist',                    [MyChecklistController::class, 'index'])           ->name('mychecklist');
     Route::get  ('my-checklist/weekly',             [MyChecklistController::class, 'weekly'])          ->name('mychecklist.weekly');
@@ -553,6 +565,14 @@ Route::middleware([AuthGuard::class])->group(function () {
     Route::post ('my-checklist/weekform/reopen-self',    [MyChecklistController::class, 'weekReopenSelf'])->name('mychecklist.weekform.reopen-self');
     Route::post ('my-checklist/weekform/day-excuse',     [MyChecklistController::class, 'dayExcuse'])     ->name('mychecklist.weekform.day.excuse');
     Route::post ('my-checklist/weekform/day-unexcuse',   [MyChecklistController::class, 'dayUnexcuse'])   ->name('mychecklist.weekform.day.unexcuse');
+
+    // Jadwal Cuci AC — Input servis (GS cabang)
+    Route::get   ('my-checklist/ac',                   [AcMaintenanceController::class, 'myIndex'])          ->name('mychecklist.ac');
+    Route::post  ('my-checklist/ac/service',           [AcMaintenanceController::class, 'storeService'])     ->name('mychecklist.ac.service.store');
+    Route::delete('my-checklist/ac/service/{id}',      [AcMaintenanceController::class, 'destroyOwnService'])->name('mychecklist.ac.service.destroy');
+    // Riwayat per unit versi GS — WAJIB prefix my-checklist: AuthGuard cek RBAC
+    // per segmen-1 URL, dan GS tidak punya akses halaman 'checklist'.
+    Route::get   ('my-checklist/ac/unit/{id}/history', [AcMaintenanceController::class, 'unitHistory'])      ->name('mychecklist.ac.unit.history');
 
     // CRUD - Setoran (cash deposit dari pasien)
     Route::get('setoran',                         [CashDepositController::class, 'index'])->name('setoran');

@@ -2,114 +2,93 @@
 
 @section('content')
 <div class="container-fluid">
-    <div class="row">
-        <div class="col-sm-12">
-            <div class="page-title-box">
-                <h4 class="page-title">Setup Tugas Checklist</h4>
-            </div>
-        </div>
-    </div>
 
     @include('layouts.notif')
 
+    <div style="max-width:1240px;margin:0 auto">
+
     {{-- ─── HERO ─── --}}
-    <div class="cl-hero">
-        <div class="cl-hero__left">
-            <h5 class="cl-hero__title">
-                <span class="cl-hero__icon"><i class="fas fa-tasks"></i></span>
-                Atur Tugas Checklist @if($division)<span style="color:#9B5E2C; font-weight:700;">— {{ $division->name }}</span>@endif
-            </h5>
-            <p class="cl-hero__subtitle">
-                Tentukan daftar pekerjaan untuk tiap divisi. Pisahkan antara <strong>Harian</strong> (tiap hari operasional) dan <strong>Mingguan</strong> (hari tertentu dalam seminggu). <strong>Edit master tidak mengubah history</strong>.
-            </p>
+    <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;background:#fff;border:1px solid #EFE0CE;border-radius:16px;padding:18px 22px;box-shadow:0 1px 2px rgba(70,21,0,.04);margin-bottom:14px">
+        <div style="flex:1;min-width:240px">
+            <div style="font-size:21px;font-weight:800;color:#3B1500">Atur Tugas Checklist @if($division)— {{ $division->name }}@endif</div>
+            <div style="font-size:13px;color:#9A7256;margin-top:3px">Tentukan daftar pekerjaan untuk tiap divisi. <span style="color:#B07B45">Edit master tidak mengubah history isian lama.</span></div>
         </div>
-        <div class="cl-hero__actions">
-            <a href="{{ route('checklist') }}" class="st-btn-outline-brown">
-                <i class="fas fa-arrow-left"></i> Dashboard
-            </a>
-        </div>
+        <a href="{{ route('checklist') }}" class="cl-btn-dash" style="flex:none;background:#fff;color:#5A3A22;border:1px solid #E7D3BE;border-radius:11px;padding:10px 16px;font-weight:700;font-size:13px;text-decoration:none">← Dashboard</a>
     </div>
 
-    {{-- ─── PANEL: EDIT TEKS INFO (running-text) — global, tampil di semua My Checklist ─── --}}
-    <details class="cl-infoset">
-        <summary class="cl-infoset__sum">
-            <span><i class="fas fa-bullhorn" style="color:#A66019;"></i> Info / Pengumuman Karyawan</span>
-            <small>Teks berjalan di halaman checklist karyawan.</small>
-            <i class="fas fa-chevron-down cl-infoset__caret"></i>
-        </summary>
-        <div class="cl-infoset__body">
+    {{-- ─── INFO / PENGUMUMAN KARYAWAN (running-text global) ─── --}}
+    @php $hasInfo = trim((string) checklistInfoText()) !== ''; @endphp
+    <div style="background:#fff;border:1px solid #EFE0CE;border-radius:16px;overflow:hidden;box-shadow:0 1px 2px rgba(70,21,0,.04);margin-bottom:14px">
+        <div id="clInfoToggle" style="display:flex;align-items:center;gap:11px;padding:14px 18px;cursor:pointer">
+            <i class="fas fa-bullhorn" style="color:#8A3A12;font-size:15px"></i>
+            <span style="font-size:13.5px;font-weight:800;color:#3B1500">Info / Pengumuman Karyawan</span>
+            <span id="clInfoTayang" style="font-size:10.5px;font-weight:800;color:#2F8E55;background:#E3F4E8;border-radius:20px;padding:2px 8px;{{ $hasInfo ? '' : 'display:none' }}">Tayang</span>
+            <i class="fas fa-chevron-down" id="clInfoCaret" style="margin-left:auto;color:#9A7256;font-size:12px;transition:transform .18s"></i>
+        </div>
+        <div id="clInfoBody" style="display:none;padding:0 18px 16px;border-top:1px solid #F6EEE1">
             <form method="POST" action="{{ route('checklist.setup.info') }}">
                 @csrf
-                <label style="font-size:12px; font-weight:700; color:#6B4423; display:block; margin-bottom:5px;">Teks Info</label>
-                <textarea name="info_text" id="clInfoText" rows="3" maxlength="500" class="cl-infoset__ta"
-                          placeholder="Mis: 📢 Isi & submit checklist sebelum pulang. • Jaga kebersihan sesuai SOP. • Sapa pasien dengan senyum 🙂">{{ checklistInfoText() }}</textarea>
-                <div style="font-size:11px; color:#9B8578; margin-top:4px;">Maks 500 karakter. Pakai <strong>•</strong> untuk memisah kalimat. Kosongkan untuk menyembunyikan banner.</div>
-
-                <div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:#9B8578; margin:14px 0 6px;">Pratinjau</div>
-                <div class="cl-marquee" id="clInfoPrev">
-                    <span class="cl-marquee__label"><i class="fas fa-bullhorn"></i> Info</span>
-                    <div class="cl-marquee__viewport">
-                        <div class="cl-marquee__track">
-                            <span class="cl-marquee__item" data-prev>{{ checklistInfoText() }}</span>
-                            <span class="cl-marquee__item" data-prev aria-hidden="true">{{ checklistInfoText() }}</span>
-                        </div>
+                <textarea name="info_text" id="clInfoText" rows="2" maxlength="500"
+                          placeholder="Mis: Isi & submit checklist sebelum pulang. • Jaga kebersihan sesuai SOP. • Sapa pasien dengan senyum."
+                          style="margin-top:14px;width:100%;box-sizing:border-box;border:1px solid #E7D3BE;border-radius:11px;padding:11px 13px;font-family:inherit;font-size:13px;color:#3B1500;background:#FFFCF8;resize:vertical;line-height:1.5">{{ checklistInfoText() }}</textarea>
+                <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:8px">
+                    <span style="font-size:11px;color:#B79A82">Pakai • untuk memisah kalimat. Kosongkan untuk menyembunyikan banner.</span>
+                    <span id="clInfoCount" style="margin-left:auto;font-size:11px;color:#9A7256">0/500</span>
+                </div>
+                <div id="clInfoPrevWrap" style="margin-top:10px;background:linear-gradient(120deg,#3A1505,#52200A);border-radius:11px;padding:9px 0;overflow:hidden;{{ $hasInfo ? '' : 'display:none' }}">
+                    <div style="white-space:nowrap;display:inline-block;animation:clMarq 16s linear infinite">
+                        <span class="clInfoPrev" style="color:#FBEADB;font-size:12.5px;font-weight:600;padding-right:80px">{{ checklistInfoText() }}</span>
+                        <span class="clInfoPrev" style="color:#FBEADB;font-size:12.5px;font-weight:600;padding-right:80px">{{ checklistInfoText() }}</span>
                     </div>
                 </div>
-
-                <button type="submit" class="st-btn-brand" style="margin-top:14px;"><i class="fas fa-save"></i> Simpan Info</button>
+                <div style="margin-top:12px"><button type="submit" style="background:linear-gradient(135deg,#6B2400,#461500);color:#FFEAD6;border:none;border-radius:10px;padding:10px 18px;font-weight:700;font-size:12.5px;font-family:inherit;cursor:pointer">Simpan Info</button></div>
             </form>
         </div>
-    </details>
-    <style>
-        .cl-infoset { background:#FFFFFF; border:1px solid #E7D8C4; border-radius:14px; margin-bottom:14px; box-shadow:0 2px 8px rgba(45,24,16,.05); overflow:hidden; }
-        .cl-infoset__sum { list-style:none; cursor:pointer; padding:14px 18px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
-        .cl-infoset__sum::-webkit-details-marker { display:none; }
-        .cl-infoset__sum > span { font-size:14px; font-weight:800; color:#2D1810; display:inline-flex; align-items:center; gap:8px; }
-        .cl-infoset__sum > small { flex:1; min-width:180px; font-size:12px; color:#6B4423; }
-        .cl-infoset__caret { color:#5C2E15; transition:transform .25s; }
-        .cl-infoset[open] .cl-infoset__caret { transform:rotate(180deg); }
-        .cl-infoset__body { padding:4px 18px 18px; border-top:1px solid #F0E8DC; }
-        .cl-infoset__ta { width:100%; box-sizing:border-box; border:1px solid #E0D2C1; border-radius:10px; padding:10px 12px; font-size:13px; color:#2D1810; font-family:inherit; resize:vertical; line-height:1.5; }
-        .cl-infoset__ta:focus { outline:none; border-color:#A66019; box-shadow:0 0 0 3px rgba(166,96,25,.10); }
-        /* Marquee (untuk pratinjau) */
-        .cl-marquee{display:flex;align-items:stretch;background:#FFF7EE;border:1px solid #E7D6C2;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(45,24,16,.05);}
-        .cl-marquee__label{flex:none;display:inline-flex;align-items:center;gap:7px;padding:10px 16px;background:linear-gradient(180deg,#5C2E15,#471500);color:#FFE9C7;font-size:12.5px;font-weight:800;letter-spacing:.3px;white-space:nowrap;}
-        .cl-marquee__label i{font-size:13px;}
-        .cl-marquee__viewport{flex:1 1 auto;min-width:0;overflow:hidden;}
-        .cl-marquee__track{display:inline-flex;flex-wrap:nowrap;white-space:nowrap;animation:cl-marquee-move 28s linear infinite;}
-        .cl-marquee:hover .cl-marquee__track{animation-play-state:paused;}
-        .cl-marquee__item{flex:0 0 auto;padding:10px 34px 10px 22px;font-size:13px;font-weight:600;color:#5A3A22;}
-        @keyframes cl-marquee-move{from{transform:translateX(-50%);}to{transform:translateX(0);}}
-    </style>
+    </div>
+    <style>@keyframes clMarq{from{transform:translateX(0)}to{transform:translateX(-50%)}}</style>
     <script>
     (function () {
-        var ta = document.getElementById('clInfoText');
-        var prev = document.getElementById('clInfoPrev');
-        if (! ta || ! prev) return;
-        var items = prev.querySelectorAll('[data-prev]');
-        ta.addEventListener('input', function () {
-            var t = ta.value.trim() || ' ';
-            items.forEach(function (el) { el.textContent = t; });
+        var tog = document.getElementById('clInfoToggle'), body = document.getElementById('clInfoBody'), caret = document.getElementById('clInfoCaret');
+        var ta = document.getElementById('clInfoText'), count = document.getElementById('clInfoCount'), tayang = document.getElementById('clInfoTayang'), prevWrap = document.getElementById('clInfoPrevWrap');
+        var prevs = document.querySelectorAll('.clInfoPrev');
+        if (tog && body) tog.addEventListener('click', function () {
+            var open = body.style.display !== 'none';
+            body.style.display = open ? 'none' : 'block';
+            if (caret) caret.style.transform = open ? '' : 'rotate(180deg)';
         });
+        if (ta) {
+            var sync = function () {
+                var t = ta.value.trim();
+                if (count) count.textContent = ta.value.length + '/500';
+                prevs.forEach(function (el) { el.textContent = t || ' '; });
+                var has = t !== '';
+                if (tayang) tayang.style.display = has ? '' : 'none';
+                if (prevWrap) prevWrap.style.display = has ? '' : 'none';
+            };
+            ta.addEventListener('input', sync);
+            sync();
+        }
     })();
     </script>
 
-    {{-- ─── CARD: TABS + SUMMARY + KATEGORI LIST ─── --}}
-    <div class="cl-panel" style="padding:0;">
-        @include('crud.checklist.setup._division_tabs', ['divisions' => $divisions, 'activeDivId' => $division->id ?? null])
+    {{-- ─── DIVISION ROW (segmented + chip ringkas) ─── --}}
+    @if($division)
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+        <div style="display:flex;background:#fff;border:1px solid #EADCC9;border-radius:12px;padding:4px;gap:3px">
+            @foreach($divisions as $div)
+                @php
+                    $on = $division->id === $div->id;
+                @endphp
+                <a href="{{ route('checklist.setup', ['division' => $div->id]) }}" class="cl-seg-tab" style="display:inline-flex;align-items:center;padding:8px 16px;border-radius:9px;font-size:13px;font-weight:700;text-decoration:none;{{ $on ? 'background:linear-gradient(135deg,#6B2400,#461500);color:#FFEAD6' : 'color:#7A5B43' }}">{{ $div->name }}</a>
+            @endforeach
+        </div>
+        <span style="font-size:12px;font-weight:700;color:#7A5B43;background:#F4E7D6;border-radius:20px;padding:5px 12px">{{ $categories->count() }} kategori</span>
+        <span style="font-size:12px;font-weight:700;color:#7A5B43;background:#F4E7D6;border-radius:20px;padding:5px 12px">{{ $totalTasks }} tugas aktif</span>
+        <span style="margin-left:auto;font-size:12px;color:#9A7256">Divisi: <b style="color:#5A3A22">{{ $division->name }}</b></span>
+    </div>
+    @endif
 
-        @if($division)
-            <div class="cl-summary">
-                <span class="cl-summary__chip"><i class="fas fa-folder" style="color:var(--cl-brown-2); font-size:11px;"></i> <strong>{{ $categories->count() }}</strong> kategori</span>
-                <span class="cl-summary__sep"></span>
-                <span class="cl-summary__chip"><i class="fas fa-tasks" style="color:var(--cl-brown-2); font-size:11px;"></i> <strong>{{ $totalTasks }}</strong> tugas aktif</span>
-                <div class="cl-summary__right">
-                    Divisi: <strong>{{ $division->name }}</strong>
-                </div>
-            </div>
-        @endif
-
-        <div style="padding:18px; background:var(--cl-cream-1); min-height:280px;">
+    <div>
             @if(! $division)
                 <div class="cl-empty">
                     <span class="cl-empty__icon"><i class="fas fa-exclamation-circle"></i></span>
@@ -117,24 +96,23 @@
                     <div class="cl-empty__desc">Belum ada divisi checklist yang aktif. Hubungi admin/IT untuk menyiapkan divisi (FO / GS / Asdent) terlebih dahulu.</div>
                 </div>
             @else
-                {{-- ─── CADENCE SWITCH (tab pengalih Harian / Mingguan) ─── --}}
-                <div class="cl-cad-label">Pilih jenis checklist:</div>
+                {{-- ─── TYPE SELECTOR (Harian / Mingguan) ─── --}}
                 <div class="cl-cad-tabs" data-cad-tabs role="tablist">
                     <button type="button" class="cl-cad-tab cl-cad-tab--daily is-active" data-cad-tab="daily" role="tab">
                         <span class="cl-cad-tab__icon"><i class="fas fa-sun"></i></span>
                         <span class="cl-cad-tab__body">
-                            <strong>Harian</strong>
+                            <strong>Checklist Harian</strong>
                             <small>{{ $dailyCategories->count() }} kategori · {{ $dailyTaskCount }} tugas</small>
                         </span>
-                        <i class="fas fa-check-circle cl-cad-tab__check"></i>
+                        <span class="cl-cad-tab__badge">AKTIF</span>
                     </button>
                     <button type="button" class="cl-cad-tab cl-cad-tab--weekly" data-cad-tab="weekly" role="tab">
                         <span class="cl-cad-tab__icon"><i class="fas fa-calendar-week"></i></span>
                         <span class="cl-cad-tab__body">
-                            <strong>Mingguan</strong>
+                            <strong>Checklist Mingguan</strong>
                             <small>{{ $weeklyTaskCount }} tugas terjadwal</small>
                         </span>
-                        <i class="fas fa-check-circle cl-cad-tab__check"></i>
+                        <span class="cl-cad-tab__badge">AKTIF</span>
                     </button>
                 </div>
 
@@ -170,8 +148,8 @@
                 {{-- ─── PANEL: TASK MINGGUAN (langsung per hari, tanpa kategori) ─── --}}
                 <div class="cl-cad-panel" data-cad-panel="weekly">
                     <div class="cl-cad-bar cl-cad-bar--weekly">
-                        <span class="cl-cad-bar__hint"><i class="fas fa-calendar-week"></i> Tugas langsung dijadwalkan per hari (Selasa s/d Minggu — Senin tutup)</span>
-                        <button type="button" class="st-btn-brand" data-toggle="modal" data-target="#weeklyTaskModalNew">
+                        <span class="cl-cad-bar__hint"><i class="fas fa-calendar-week"></i> Tugas langsung dijadwalkan per hari (Selasa–Minggu · Senin klinik tutup).</span>
+                        <button type="button" class="cl-btn-teal" style="display:inline-flex;align-items:center;gap:6px;background:linear-gradient(135deg,#1F6E5F,#155148);color:#E4F3EF;border:none;border-radius:10px;padding:9px 16px;font-weight:700;font-size:12.5px;font-family:inherit;cursor:pointer" data-toggle="modal" data-target="#weeklyTaskModalNew">
                             <i class="fas fa-plus"></i> Tambah Tugas
                         </button>
                     </div>
@@ -196,11 +174,11 @@
                                             <div class="cl-wtask {{ $task->is_active ? '' : 'is-off' }}">
                                                 <div class="cl-wtask__main">
                                                     <span class="cl-wtask__title">{{ $task->title }}</span>
-                                                    @if(! $task->is_active)
-                                                        <span class="st-pill st-pill--neutral" style="font-size:10px;">Nonaktif</span>
-                                                    @endif
                                                     @if($task->requires_photo)
-                                                        <span class="cl-wtask__tag cl-wtask__tag--photo"><i class="fas fa-camera"></i> Wajib foto</span>
+                                                        <span class="cl-wtask__tag cl-wtask__tag--photo"><i class="fas fa-camera"></i> {{ $task->photo_before_after ? 'Foto before/after' : 'Perlu foto' }}</span>
+                                                    @endif
+                                                    @if(! $task->is_active)
+                                                        <span style="font-size:10px;font-weight:800;color:#9B8578;background:#EFE7DE;border-radius:20px;padding:3px 9px">Nonaktif</span>
                                                     @endif
                                                 </div>
                                                 <div class="cl-wtask__actions">
@@ -262,9 +240,10 @@
     .cl-cad-tab__body { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 2px; }
     .cl-cad-tab__body strong { font-size: 15px; font-weight: 800; color: #2D1810; line-height: 1.2; }
     .cl-cad-tab__body small { font-size: 11.5px; color: #6B4423; }
-    .cl-cad-tab__check {
+    .cl-cad-tab__badge {
         opacity: 0; flex-shrink: 0;
-        font-size: 18px; color: #FFFFFF;
+        font-size: 10.5px; font-weight: 800; color: #FFFFFF;
+        background: rgba(255,255,255,.2); border-radius: 20px; padding: 3px 10px;
         transition: opacity .16s ease;
     }
 
@@ -275,7 +254,7 @@
     .cl-cad-tab.is-active .cl-cad-tab__body strong { color: #FFFFFF; }
     .cl-cad-tab.is-active .cl-cad-tab__body small { color: #FFFFFF; opacity: .82; }
     .cl-cad-tab.is-active .cl-cad-tab__icon { background: rgba(255,255,255,.18); box-shadow: none; }
-    .cl-cad-tab.is-active .cl-cad-tab__check { opacity: .95; }
+    .cl-cad-tab.is-active .cl-cad-tab__badge { opacity: 1; }
 
     .cl-cad-panel { display: none; }
     .cl-cad-panel.is-active { display: block; }
@@ -286,85 +265,62 @@
     .cl-cad-bar {
         display: flex; justify-content: space-between; align-items: center;
         gap: 12px; flex-wrap: wrap;
-        padding: 12px 16px;
-        margin-bottom: 16px;
-        background: #FFFFFF;
-        border: 1px solid #E7D8C4;
-        border-radius: 12px;
-        box-shadow: 0 2px 8px rgba(45,24,16,.05);
+        margin-bottom: 12px;
     }
     .cl-cad-bar__hint {
-        font-size: 13px; color: #4A2810; font-weight: 600;
-        display: inline-flex; align-items: center; gap: 10px; min-width: 0;
+        font-size: 12.5px; color: #9A7256; font-weight: 600;
+        display: inline-flex; align-items: center; gap: 8px; min-width: 0;
     }
-    .cl-cad-bar__hint i {
-        width: 28px; height: 28px; border-radius: 8px; flex-shrink: 0;
-        display: inline-flex; align-items: center; justify-content: center;
-        color: #FFFFFF; font-size: 13px;
-    }
-    .cl-cad-bar--daily  .cl-cad-bar__hint i { background: linear-gradient(135deg, #A66019, #5C2E15); box-shadow: 0 2px 6px rgba(166,96,25,.28); }
-    .cl-cad-bar--weekly .cl-cad-bar__hint i { background: linear-gradient(135deg, #1F6E5F, #155148); box-shadow: 0 2px 6px rgba(31,110,95,.28); }
+    .cl-cad-bar__hint i { display: none; }
 
-    /* ── Daftar task mingguan per hari (tanpa kategori) ── */
+    /* ── Daftar task mingguan per hari (tanpa kategori) — gaya handoff:
+       kartu putih polos (tanpa aksen kiri/gradient), chip hari teal,
+       hari kosong memudar dgn teks italic. ── */
     .cl-wdays { display: flex; flex-direction: column; gap: 12px; }
     .cl-wday {
         background: #FFFFFF;
-        border: 1px solid #E7D8C4;
-        border-left: 4px solid #1F6E5F;
-        border-radius: 12px;
+        border: 1px solid #EFE0CE;
+        border-radius: 16px;
         overflow: hidden;
-        box-shadow: 0 3px 12px rgba(45,24,16,.06);
+        box-shadow: 0 1px 2px rgba(70,21,0,.04);
     }
     .cl-wday__head {
-        display: flex; justify-content: space-between; align-items: center;
-        gap: 10px; padding: 11px 16px;
-        background: linear-gradient(180deg, #FFFFFF 0%, #F3F8F5 100%);
-        border-bottom: 1px solid #E7EDE8;
+        display: flex; align-items: center;
+        gap: 10px; padding: 12px 16px;
+        border-bottom: 1px solid #F1E6D7;
     }
     .cl-wday__day {
-        font-size: 13.5px; font-weight: 800; color: #155148;
+        font-size: 13.5px; font-weight: 800; color: #3B1500;
         display: inline-flex; align-items: center; gap: 8px;
     }
-    .cl-wday__day i { font-size: 12px; color: #1F6E5F; }
+    .cl-wday__day i { display: none; }
     .cl-wday__count {
-        font-size: 11px; font-weight: 700; color: #1F6E5F;
-        background: #E3F2EC; padding: 3px 10px; border-radius: 999px;
+        font-size: 11px; font-weight: 800; color: #1F6E5F;
+        background: #E0EFEB; padding: 2px 9px; border-radius: 20px;
     }
     .cl-wday__empty {
-        padding: 14px 16px; font-size: 12px;
-        color: #B0A08E; font-style: italic;
+        padding: 13px 16px; font-size: 12px;
+        color: #C7AC92; font-style: italic;
     }
-    /* Hari tanpa tugas → tampil memudar biar mudah dibedakan */
-    .cl-wday.is-empty {
-        border-left-color: #D8CFC2;
-        background: #FBF9F6;
-        box-shadow: none;
-        opacity: .68;
-    }
-    .cl-wday.is-empty .cl-wday__head {
-        background: #FAF7F2;
-        border-bottom-color: #EFE9E0;
-    }
-    .cl-wday.is-empty .cl-wday__day { color: #9A8C7B; }
-    .cl-wday.is-empty .cl-wday__day i { color: #B7AB9A; }
-    .cl-wday.is-empty .cl-wday__count {
-        background: #EEE8DF; color: #9A8C7B;
-    }
+    /* Hari tanpa tugas → kartu memudar (55%) seperti prototipe */
+    .cl-wday.is-empty { opacity: .55; }
+    .cl-wday.is-empty .cl-wday__head { border-bottom: none; }
+    .cl-wday.is-empty .cl-wday__count { background: #EFE7DE; color: #9B8578; }
     .cl-wtask {
         display: flex; justify-content: space-between; align-items: center;
-        gap: 12px; padding: 11px 16px;
-        border-bottom: 1px solid #F0E7DA;
+        gap: 9px; padding: 11px 16px;
+        border-top: 1px solid #F6EEE1;
     }
-    .cl-wtask:last-child { border-bottom: none; }
-    .cl-wtask.is-off { opacity: .6; }
-    .cl-wtask__main { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
-    .cl-wtask__title { font-size: 13.5px; font-weight: 600; color: #2D1810; }
+    .cl-wtask:first-of-type { border-top: none; }
+    .cl-wtask.is-off .cl-wtask__title { color: #B79A82; }
+    .cl-wtask__main { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; flex: 1; }
+    .cl-wtask__title { font-size: 13px; font-weight: 600; color: #3B1500; }
     .cl-wtask__tag {
-        display: inline-flex; align-items: center; gap: 4px;
-        font-size: 10.5px; font-weight: 700; padding: 2px 8px; border-radius: 10px;
+        display: inline-flex; align-items: center; gap: 5px;
+        font-size: 10px; font-weight: 800; padding: 3px 9px; border-radius: 20px;
     }
     .cl-wtask__tag i { font-size: 9px; }
-    .cl-wtask__tag--photo { background: #FAEEDA; color: #A66019; }
+    .cl-wtask__tag--photo { background: #E0EFEB; color: #1F6E5F; }
     .cl-wtask__tag--note  { background: var(--cl-info-bg, #E7F1FB); color: var(--cl-info, #2B6CB0); }
     .cl-wtask__actions { display: flex; gap: 6px; flex-shrink: 0; }
 
@@ -480,10 +436,17 @@
                 </div>
                 <div class="form-group">
                     <label class="d-flex align-items-center" style="gap:8px; cursor:pointer;">
-                        <input type="checkbox" name="requires_photo" value="1">
-                        Wajib upload foto (buka kamera) saat centang
+                        <input type="checkbox" name="requires_photo" value="1" data-photo-parent>
+                        Perlu foto (buka kamera)
                     </label>
-                    <small class="text-muted" style="font-size:11.5px;">Ops harus memotret bukti lewat kamera sebelum tugas bisa dicentang.</small>
+                    <small class="text-muted" style="font-size:11.5px;">Muncul tombol kamera untuk melampirkan foto bukti — opsional (tidak memblokir centang).</small>
+                    @if($division->id === 'GS')
+                        <label class="d-flex align-items-center" style="gap:8px; cursor:pointer; margin-top:8px; margin-left:22px;">
+                            <input type="checkbox" name="photo_before_after" value="1" data-photo-ba>
+                            Perlu foto before/after
+                        </label>
+                        <small class="text-muted" style="font-size:11.5px; margin-left:22px; display:block;">Dua slot foto: sebelum & sesudah. Khusus GS.</small>
+                    @endif
                 </div>
             </div>
             <div class="modal-footer">
@@ -579,10 +542,17 @@
                     @if($cat->isWeekly())
                         <div class="form-group">
                             <label class="d-flex align-items-center" style="gap:8px; cursor:pointer;">
-                                <input type="checkbox" name="requires_photo" value="1">
-                                Wajib upload foto (buka kamera) saat centang
+                                <input type="checkbox" name="requires_photo" value="1" data-photo-parent>
+                                Perlu foto (buka kamera)
                             </label>
-                            <small class="text-muted" style="font-size:11.5px;">Ops harus memotret bukti lewat kamera sebelum tugas bisa dicentang.</small>
+                            <small class="text-muted" style="font-size:11.5px;">Muncul tombol kamera untuk melampirkan foto bukti — opsional (tidak memblokir centang).</small>
+                            @if($division->id === 'GS')
+                                <label class="d-flex align-items-center" style="gap:8px; cursor:pointer; margin-top:8px; margin-left:22px;">
+                                    <input type="checkbox" name="photo_before_after" value="1" data-photo-ba>
+                                    Perlu foto before/after
+                                </label>
+                                <small class="text-muted" style="font-size:11.5px; margin-left:22px; display:block;">Dua slot foto: sebelum & sesudah. Khusus GS.</small>
+                            @endif
                         </div>
                     @endif
                 </div>
@@ -627,10 +597,17 @@
                         @if($cat->isWeekly())
                             <div class="form-group">
                                 <label class="d-flex align-items-center" style="gap:8px; cursor:pointer;">
-                                    <input type="checkbox" name="requires_photo" value="1" {{ $task->requires_photo ? 'checked' : '' }}>
-                                    Wajib upload foto (buka kamera) saat centang
+                                    <input type="checkbox" name="requires_photo" value="1" data-photo-parent {{ $task->requires_photo ? 'checked' : '' }}>
+                                    Perlu foto (buka kamera)
                                 </label>
-                                <small class="text-muted" style="font-size:11.5px;">Ops harus memotret bukti lewat kamera sebelum tugas bisa dicentang.</small>
+                                <small class="text-muted" style="font-size:11.5px;">Muncul tombol kamera untuk melampirkan foto bukti — opsional (tidak memblokir centang).</small>
+                                @if($division->id === 'GS')
+                                    <label class="d-flex align-items-center" style="gap:8px; cursor:pointer; margin-top:8px; margin-left:22px;">
+                                        <input type="checkbox" name="photo_before_after" value="1" data-photo-ba {{ $task->photo_before_after ? 'checked' : '' }}>
+                                        Perlu foto before/after
+                                    </label>
+                                    <small class="text-muted" style="font-size:11.5px; margin-left:22px; display:block;">Dua slot foto: sebelum & sesudah. Khusus GS.</small>
+                                @endif
                             </div>
                         @endif
                         <div class="form-group">
@@ -867,6 +844,24 @@
     });
     document.querySelectorAll('[data-cl-confirm-close]').forEach(function (el) { el.addEventListener('click', close); });
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
+})();
+</script>
+
+<script>
+// Konsistensi checkbox foto (GS): "before/after" mengimplikasikan "perlu foto".
+// Mematikan "perlu foto" otomatis mematikan "before/after".
+(function () {
+    document.addEventListener('change', function (e) {
+        var t = e.target;
+        if (!t || t.type !== 'checkbox') return;
+        var form = t.closest('form');
+        if (!form) return;
+        var parent = form.querySelector('[data-photo-parent]');
+        var ba = form.querySelector('[data-photo-ba]');
+        if (!parent || !ba) return;
+        if (t === ba && ba.checked) parent.checked = true;
+        if (t === parent && !parent.checked) ba.checked = false;
+    });
 })();
 </script>
 @endsection
