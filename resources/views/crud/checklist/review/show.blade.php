@@ -11,7 +11,10 @@
         'draft'     => ['label' => 'Belum Dikirim',     'c' => '#9B8578', 'bg' => '#EFE7DE'],
     ];
     $st  = $stMap[$submission->status] ?? ['label' => $submission->status, 'c' => '#9B8578', 'bg' => '#EFE7DE'];
-    $pct = $submission->progressPct();
+    // "beres" = dicentang ATAU dikecualikan → progres 100% saat semua terpenuhi.
+    $satisfied = $submission->satisfiedCount();
+    $exceptedN = $submission->exceptedCount();
+    $pct = $submission->satisfiedPct();
     $barColor = $submission->status === 'excused'
         ? '#C7AC92'
         : ($pct >= 80 ? '#2F8E55' : ($pct >= 50 ? '#C9962F' : '#C0392B'));
@@ -58,10 +61,15 @@
     .rvd-task__ck { width:22px; height:22px; flex:none; border-radius:7px; display:flex; align-items:center; justify-content:center; }
     .rvd-task__ck--done { background:#3FA76A; color:#fff; font-size:11px; }
     .rvd-task__ck--todo { border:1.5px solid #DCC4A8; background:#fff; }
+    .rvd-task__ck--excepted { background:#F0E4D3; border:1.5px solid #C9A97F; color:#8A5A2B; font-size:10px; }
     .rvd-task__title { font-size:13px; font-weight:600; color:#3B1500; flex:1; min-width:0; }
     .rvd-task.is-todo .rvd-task__title { color:#B79A82; }
+    .rvd-task.is-excepted .rvd-task__title { color:#9A7256; }
     .rvd-task__time { font-size:11.5px; color:#B79A82; flex:none; font-variant-numeric:tabular-nums; }
+    .rvd-task__xcpt { font-size:10.5px; font-weight:800; color:#fff; background:#8A5A2B; border-radius:20px; padding:3px 9px; flex:none; }
     .rvd-task__note { margin-left:33px; background:#FBF6EF; border-radius:9px; padding:8px 11px; font-size:12px; color:#7A5B43; line-height:1.5; }
+    .rvd-task__note--xcpt { background:#FBF3E8; color:#6B4423; border-left:3px solid #8A5A2B; }
+    .rvd-task__note--xcpt i { font-size:10px; margin-right:4px; color:#8A5A2B; }
 
     .rvd-btn-back { transition:background-color .15s ease, border-color .15s ease; }
     .rvd-btn-back:hover { background:#FBF4EC; border-color:#D9C3AC; }
@@ -98,7 +106,7 @@
         </div>
         <div style="display:flex;align-items:center;gap:12px">
             <div style="flex:1;height:9px;border-radius:6px;background:#F1E6D7;overflow:hidden"><div style="height:100%;width:{{ $pct }}%;background:{{ $barColor }};border-radius:6px"></div></div>
-            <span style="font-size:13px;font-weight:800;color:#3B1500;flex:none;font-variant-numeric:tabular-nums">{{ $submission->done_tasks }} / {{ $submission->total_tasks }} tugas ({{ $pct }}%)</span>
+            <span style="font-size:13px;font-weight:800;color:#3B1500;flex:none;font-variant-numeric:tabular-nums">{{ $satisfied }} / {{ $submission->total_tasks }} tugas ({{ $pct }}%)@if($exceptedN > 0) <span style="font-size:11px;font-weight:700;color:#8A5A2B">· {{ $exceptedN }} dikecualikan</span>@endif</span>
         </div>
         @if(count($metaParts))
             <div style="font-size:11.5px;color:#B79A82;font-variant-numeric:tabular-nums">{{ implode('   ·   ', $metaParts) }}</div>
@@ -134,7 +142,8 @@
         <div style="display:flex;flex-direction:column;gap:11px">
             @foreach($grouped as $catTitle => $items)
                 @php
-                    $catDone  = $items->where('is_done', true)->count();
+                    // "beres" = dicentang ATAU dikecualikan (tidak berlaku hari itu).
+                    $catDone  = $items->filter(fn ($i) => $i->is_done || $i->is_excepted)->count();
                     $catTotal = $items->count();
                     $allDone  = $catDone === $catTotal;
                 @endphp
@@ -147,12 +156,19 @@
                     <div class="rvd-cat__body">
                         <div class="rvd-cat__body-inner">
                             @foreach($items as $item)
-                                <div class="rvd-task {{ $item->is_done ? '' : 'is-todo' }}">
+                                <div class="rvd-task {{ $item->is_done || $item->is_excepted ? '' : 'is-todo' }} {{ $item->is_excepted ? 'is-excepted' : '' }}">
                                     <div class="rvd-task__row">
-                                        <span class="rvd-task__ck {{ $item->is_done ? 'rvd-task__ck--done' : 'rvd-task__ck--todo' }}">@if($item->is_done)<i class="fas fa-check"></i>@endif</span>
+                                        <span class="rvd-task__ck {{ $item->is_excepted ? 'rvd-task__ck--excepted' : ($item->is_done ? 'rvd-task__ck--done' : 'rvd-task__ck--todo') }}">@if($item->is_excepted)<i class="fas fa-ban"></i>@elseif($item->is_done)<i class="fas fa-check"></i>@endif</span>
                                         <span class="rvd-task__title">{{ $item->task_title_snapshot }}</span>
-                                        <span class="rvd-task__time">{{ $item->done_at ? $item->done_at->format('H:i') : '—' }}</span>
+                                        @if($item->is_excepted)
+                                            <span class="rvd-task__xcpt">Dikecualikan</span>
+                                        @else
+                                            <span class="rvd-task__time">{{ $item->done_at ? $item->done_at->format('H:i') : '—' }}</span>
+                                        @endif
                                     </div>
+                                    @if($item->is_excepted && $item->exception_reason)
+                                        <div class="rvd-task__note rvd-task__note--xcpt"><i class="fas fa-ban"></i> Alasan dikecualikan: {{ $item->exception_reason }}</div>
+                                    @endif
                                     @if($item->note)
                                         <div class="rvd-task__note">Catatan: {{ $item->note }}</div>
                                     @endif

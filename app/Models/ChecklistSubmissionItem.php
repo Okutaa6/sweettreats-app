@@ -19,15 +19,24 @@ class ChecklistSubmissionItem extends Model
         'category_title_snapshot', 'task_title_snapshot',
         'category_sort_order', 'task_sort_order',
         'is_done', 'note', 'done_at', 'created_at',
+        'is_excepted', 'exception_reason', 'excepted_at',
     ];
 
     protected $casts = [
         'is_done'             => 'boolean',
+        'is_excepted'         => 'boolean',
         'category_sort_order' => 'integer',
         'task_sort_order'     => 'integer',
         'done_at'             => 'datetime',
+        'excepted_at'         => 'datetime',
         'created_at'          => 'datetime',
     ];
+
+    /** Item "beres": sudah dicentang ATAU dikecualikan (tidak berlaku hari ini). */
+    public function isSatisfied(): bool
+    {
+        return (bool) ($this->is_done || $this->is_excepted);
+    }
 
     public function submission()
     {

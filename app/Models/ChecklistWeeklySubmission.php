@@ -86,17 +86,33 @@ class ChecklistWeeklySubmission extends Model
     }
 
     /**
-     * Jumlah task yang "beres": sudah dicentang ATAU jatuh di hari yang
-     * dikecualikan. Dipakai untuk gating submit & progress form berjalan
-     * (bukan menggantikan done_tasks yang tetap = benar-benar dikerjakan).
+     * Jumlah task yang "beres": sudah dicentang, ATAU item itu dikecualikan
+     * sendiri (is_excepted), ATAU jatuh di hari yang dikecualikan penuh. Dipakai
+     * untuk gating submit & progress form berjalan (bukan menggantikan done_tasks
+     * yang tetap = benar-benar dikerjakan).
      */
     public function satisfiedCount(): int
     {
         $excused = $this->excusedDayNumbers();
 
         return $this->items
-            ->filter(fn ($item) => $item->is_done || in_array((int) $item->day_of_week, $excused, true))
+            ->filter(fn ($item) => $item->is_done
+                || $item->is_excepted
+                || in_array((int) $item->day_of_week, $excused, true))
             ->count();
+    }
+
+    /** Jumlah item yang dikecualikan per-item (untuk penanda di monitoring/export). */
+    public function exceptedCount(): int
+    {
+        return $this->items->where('is_excepted', true)->count();
+    }
+
+    /** Persentase "beres" (satisfied) — untuk tampilan progress. */
+    public function satisfiedPct(): int
+    {
+        if (! $this->total_tasks) return 0;
+        return (int) round(($this->satisfiedCount() / $this->total_tasks) * 100);
     }
 
     public function isWeekComplete(): bool

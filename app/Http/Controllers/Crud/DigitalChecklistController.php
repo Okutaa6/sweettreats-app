@@ -127,8 +127,9 @@ class DigitalChecklistController extends Controller
         });
 
         // Aktivitas terbaru (10 submission terakhir, lintas status).
+        // Eager-load items supaya satisfiedCount() (dicentang + dikecualikan) tak N+1.
         $recent = ChecklistSubmission::query()
-            ->with(['user', 'division', 'branch'])
+            ->with(['user', 'division', 'branch', 'items'])
             ->whereIn('division_id', $visible)
             ->when($branchId, fn($q) => $q->where('raw_branch_id', $branchId))
             ->orderByDesc('updated_at')
@@ -275,13 +276,13 @@ class DigitalChecklistController extends Controller
     {
         $userSubs = $userSubs ?? collect();
 
-        // day => [rowKey => is_done]
+        // day => [rowKey => 'done'|'excepted'|false]
         $doneByDay = [];
         foreach ($userSubs as $sub) {
             $map = [];
             foreach ($sub->items as $it) {
                 $key = $it->task_id ?: ('t:' . $it->category_title_snapshot . '|' . $it->task_title_snapshot);
-                $map[$key] = (bool) $it->is_done;
+                $map[$key] = $it->is_done ? 'done' : ($it->is_excepted ? 'excepted' : false);
             }
             $doneByDay[(int) $sub->submission_date->day] = $map;
         }
@@ -338,14 +339,21 @@ class DigitalChecklistController extends Controller
             $sheet->setCellValue('A' . $r, $no);
             $sheet->setCellValue('B' . $r, $row->title);
             for ($d = 1; $d <= $daysInMonth; $d++) {
-                if ($doneByDay[$d][$row->key] ?? false) {
+                $st = $doneByDay[$d][$row->key] ?? false;
+                if ($st) {
                     $col = Coordinate::stringFromColumnIndex($firstDateCol + $d - 1);
-                    $sheet->setCellValue($col . $r, '✓');
+                    $sheet->setCellValue($col . $r, $st === 'excepted' ? '–' : '✓');
                 }
             }
             $r++;
         }
         $lastRow = max($r - 1, $hdr);
+
+        // Legend
+        $lgRow = $lastRow + 2;
+        $sheet->setCellValue('A' . $lgRow, 'Keterangan: ✓ = dikerjakan   ·   – = dikecualikan   ·   kosong = belum/tidak diisi');
+        $sheet->mergeCells('A' . $lgRow . ':' . $lastColLetter . $lgRow);
+        $sheet->getStyle('A' . $lgRow)->getFont()->setItalic(true)->setSize(9)->getColor()->setRGB('8A6A4F');
 
         // ── Kosmetik ──
         $sheet->getColumnDimension('A')->setWidth(4);
@@ -488,7 +496,7 @@ class DigitalChecklistController extends Controller
         $userSubs  = $userSubs ?? collect();
         $dayLabels = \App\Models\ChecklistTask::dayLabels();
 
-        // weekKey => [rowKey => is_done] ; weekKey => [hari dikecualikan]
+        // weekKey => [rowKey => 'done'|'excepted'|false] ; weekKey => [hari dikecualikan]
         $doneByWeek = [];
         $excusedByWeek = [];
         foreach ($userSubs as $sub) {
@@ -496,7 +504,7 @@ class DigitalChecklistController extends Controller
             $map = [];
             foreach ($sub->items as $it) {
                 $key = $it->task_id ?: ('t:' . $it->day_of_week . '|' . $it->task_title_snapshot);
-                $map[$key] = (bool) $it->is_done;
+                $map[$key] = $it->is_done ? 'done' : ($it->is_excepted ? 'excepted' : false);
             }
             $doneByWeek[$wk]    = $map;
             $excusedByWeek[$wk] = $sub->excusedDayNumbers();
@@ -561,9 +569,10 @@ class DigitalChecklistController extends Controller
             foreach ($weeks as $i => $mon) {
                 $wk  = $mon->toDateString();
                 $col = Coordinate::stringFromColumnIndex($firstCol + $i);
-                if (in_array($row->day, $excusedByWeek[$wk] ?? [], true)) {
+                $st = $doneByWeek[$wk][$row->key] ?? false;
+                if (in_array($row->day, $excusedByWeek[$wk] ?? [], true) || $st === 'excepted') {
                     $sheet->setCellValue($col . $r, '–');
-                } elseif ($doneByWeek[$wk][$row->key] ?? false) {
+                } elseif ($st === 'done') {
                     $sheet->setCellValue($col . $r, '✓');
                 }
             }
@@ -573,7 +582,7 @@ class DigitalChecklistController extends Controller
 
         // Legend
         $lgRow = $lastRow + 2;
-        $sheet->setCellValue('A' . $lgRow, 'Keterangan: ✓ = dikerjakan   ·   – = hari dikecualikan   ·   kosong = belum/tidak diisi');
+        $sheet->setCellValue('A' . $lgRow, 'Keterangan: ✓ = dikerjakan   ·   – = dikecualikan (hari/pertanyaan)   ·   kosong = belum/tidak diisi');
         $sheet->mergeCells('A' . $lgRow . ':' . $lastLetter . $lgRow);
         $sheet->getStyle('A' . $lgRow)->getFont()->setItalic(true)->setSize(9)->getColor()->setRGB('8A6A4F');
 

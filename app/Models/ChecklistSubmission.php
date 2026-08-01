@@ -77,6 +77,31 @@ class ChecklistSubmission extends Model
         return (int) round(($this->done_tasks / $this->total_tasks) * 100);
     }
 
+    /**
+     * Jumlah task yang "beres": sudah dicentang ATAU dikecualikan (tidak berlaku
+     * hari ini). Dipakai untuk gating submit & progress tampilan — bukan
+     * menggantikan done_tasks yang tetap = benar-benar dikerjakan.
+     */
+    public function satisfiedCount(): int
+    {
+        return $this->items
+            ->filter(fn ($item) => $item->is_done || $item->is_excepted)
+            ->count();
+    }
+
+    /** Jumlah item yang dikecualikan (untuk penanda di monitoring/export). */
+    public function exceptedCount(): int
+    {
+        return $this->items->where('is_excepted', true)->count();
+    }
+
+    /** Persentase "beres" (dicentang + dikecualikan) — untuk tampilan progress. */
+    public function satisfiedPct(): int
+    {
+        if (! $this->total_tasks) return 0;
+        return (int) round(($this->satisfiedCount() / $this->total_tasks) * 100);
+    }
+
     public function isEditable(): bool
     {
         return in_array($this->status, [self::STATUS_DRAFT, self::STATUS_REJECTED], true);

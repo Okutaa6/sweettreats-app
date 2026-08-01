@@ -99,10 +99,15 @@ class MyChecklistController extends Controller
 
         $items = $submission->items()->get();
         $grouped = $items->groupBy('category_title_snapshot');
+
+        // Progress tampilan & gating berbasis "satisfied" (dicentang ATAU
+        // dikecualikan) supaya ring atas + tombol submit menghormati item yang
+        // ditandai tidak perlu diisi. done_tasks di DB tetap = benar-benar dikerjakan.
+        $satisfied = $items->filter(fn ($it) => $it->is_done || $it->is_excepted)->count();
         $progress = [
-            'done'  => $submission->done_tasks,
+            'done'  => $satisfied,
             'total' => $submission->total_tasks,
-            'pct'   => $submission->progressPct(),
+            'pct'   => $submission->total_tasks ? (int) round($satisfied / $submission->total_tasks * 100) : 0,
         ];
 
         // Kalau status rejected, tampilkan banner dengan catatan supervisor.
@@ -212,22 +217,121 @@ class MyChecklistController extends Controller
         }
 
         $newState = ! $item->is_done;
-        $item->update([
+        $update = [
             'is_done' => $newState,
             'done_at' => $newState ? now() : null,
-        ]);
+        ];
+        // Mencentang item yang tadinya dikecualikan → batalkan pengecualiannya
+        // (tak boleh dicentang sekaligus dikecualikan; centang menang).
+        if ($newState && $item->is_excepted) {
+            $update['is_excepted']      = 0;
+            $update['exception_reason'] = null;
+            $update['excepted_at']      = null;
+        }
+        $item->update($update);
 
-        // Recount header
+        // Recount header (done_tasks = benar-benar dicentang).
         $done = $sub->items()->where('is_done', 1)->count();
         $sub->update(['done_tasks' => $done, 'updated_at' => now()]);
 
+        // Progress ke UI berbasis "satisfied" (dicentang ATAU dikecualikan).
+        $satisfied = $sub->satisfiedCount();
+
         return response()->json([
-            'ok'       => true,
-            'is_done'  => $newState,
+            'ok'          => true,
+            'is_done'     => $newState,
+            'is_excepted' => false,
             'progress' => [
-                'done'  => $done,
+                'done'  => $satisfied,
                 'total' => $sub->total_tasks,
-                'pct'   => $sub->total_tasks ? (int) round($done / $sub->total_tasks * 100) : 0,
+                'pct'   => $sub->total_tasks ? (int) round($satisfied / $sub->total_tasks * 100) : 0,
+            ],
+        ]);
+    }
+
+    /**
+     * AJAX: tandai SATU item "Dikecualikan" (tidak berlaku hari ini) + alasan
+     * wajib. Item tetap terhitung "satisfied" (100%) tanpa perlu dicentang, tapi
+     * diberi flag supaya beda dari "belum dikerjakan". Mencentang membatalkan ini.
+     */
+    public function exceptItem(Request $request, string $id)
+    {
+        $item = ChecklistSubmissionItem::with('submission')->findOrFail($id);
+        $sub  = $item->submission;
+
+        if ($sub->user_id !== session('id')) abort(403);
+        if (! $sub->isEditable()) {
+            return response()->json(['ok' => false, 'error' => 'Checklist sudah submitted/approved — tidak bisa diubah.'], 422);
+        }
+
+        $request->merge(['reason' => trim((string) $request->input('reason'))]);
+        $data = $request->validate(
+            ['reason' => 'required|string|min:3|max:500'],
+            [
+                'reason.required' => 'Alasan wajib diisi.',
+                'reason.min'      => 'Alasan terlalu pendek — jelaskan sedikit (min. 3 karakter).',
+            ]
+        );
+
+        $item->update([
+            'is_excepted'      => 1,
+            'exception_reason' => $data['reason'],
+            'excepted_at'      => now(),
+            'is_done'          => 0,
+            'done_at'          => null,
+        ]);
+
+        $done = $sub->items()->where('is_done', 1)->count();
+        $sub->update(['done_tasks' => $done, 'updated_at' => now()]);
+
+        ChecklistAuditLog::write('submission', $sub->id, ChecklistAuditLog::ACTION_EXCUSE,
+            null, ['item_id' => $item->id, 'is_excepted' => 1],
+            'Item "' . $item->task_title_snapshot . '" dikecualikan: ' . $data['reason']);
+
+        $satisfied = $sub->satisfiedCount();
+
+        return response()->json([
+            'ok'          => true,
+            'is_excepted' => true,
+            'reason'      => $data['reason'],
+            'progress' => [
+                'done'  => $satisfied,
+                'total' => $sub->total_tasks,
+                'pct'   => $sub->total_tasks ? (int) round($satisfied / $sub->total_tasks * 100) : 0,
+            ],
+        ]);
+    }
+
+    /** AJAX: batalkan pengecualian satu item — kembali "belum dikerjakan". */
+    public function unexceptItem(Request $request, string $id)
+    {
+        $item = ChecklistSubmissionItem::with('submission')->findOrFail($id);
+        $sub  = $item->submission;
+
+        if ($sub->user_id !== session('id')) abort(403);
+        if (! $sub->isEditable()) {
+            return response()->json(['ok' => false, 'error' => 'Checklist sudah submitted/approved — tidak bisa diubah.'], 422);
+        }
+
+        $item->update([
+            'is_excepted'      => 0,
+            'exception_reason' => null,
+            'excepted_at'      => null,
+        ]);
+
+        ChecklistAuditLog::write('submission', $sub->id, ChecklistAuditLog::ACTION_REOPEN,
+            null, ['item_id' => $item->id, 'is_excepted' => 0],
+            'Pengecualian item "' . $item->task_title_snapshot . '" dibatalkan.');
+
+        $satisfied = $sub->satisfiedCount();
+
+        return response()->json([
+            'ok'          => true,
+            'is_excepted' => false,
+            'progress' => [
+                'done'  => $satisfied,
+                'total' => $sub->total_tasks,
+                'pct'   => $sub->total_tasks ? (int) round($satisfied / $sub->total_tasks * 100) : 0,
             ],
         ]);
     }
@@ -257,15 +361,16 @@ class MyChecklistController extends Controller
 
         // Hitung ulang dari item — JANGAN percaya counter header (bisa drift kalau
         // item berubah di luar toggle). Gating 100% dinilai dari hasil re-count ini.
-        $total = $sub->items()->count();
-        $done  = $sub->items()->where('is_done', 1)->count();
+        $total     = $sub->items()->count();
+        $done      = $sub->items()->where('is_done', 1)->count();
+        $satisfied = $sub->satisfiedCount();   // dicentang ATAU dikecualikan
         if ($total === 0) {
             $sub->update(['total_tasks' => 0, 'done_tasks' => 0]);
             return back()->with('error', 'Belum ada tugas untuk hari ini — tidak perlu submit.');
         }
-        if ($done < $total) {
+        if ($satisfied < $total) {
             $sub->update(['total_tasks' => $total, 'done_tasks' => $done]);
-            return back()->with('error', 'Masih ada tugas yang belum dicentang — selesaikan semua (100%) sebelum submit.');
+            return back()->with('error', 'Masih ada tugas yang belum dicentang atau dikecualikan — selesaikan/kecualikan semua (100%) sebelum submit.');
         }
 
         $before = ['status' => $sub->status];
@@ -538,10 +643,17 @@ class MyChecklistController extends Controller
         // Foto bersifat OPSIONAL — hanya pengingat/bukti, tidak pernah memblokir
         // centang di divisi manapun. Ops boleh menandai selesai tanpa foto.
 
-        $item->update([
+        $update = [
             'is_done' => $newState,
             'done_at' => $newState ? now() : null,
-        ]);
+        ];
+        // Mencentang item yang tadinya dikecualikan → batalkan pengecualiannya.
+        if ($newState && $item->is_excepted) {
+            $update['is_excepted']      = 0;
+            $update['exception_reason'] = null;
+            $update['excepted_at']      = null;
+        }
+        $item->update($update);
 
         $done = $sub->items()->where('is_done', 1)->count();
         $sub->update(['done_tasks' => $done, 'updated_at' => now()]);
@@ -572,6 +684,92 @@ class MyChecklistController extends Controller
         $item->update(['note' => $data['note'] ?? null]);
 
         return response()->json(['ok' => true]);
+    }
+
+    /**
+     * AJAX: tandai SATU item mingguan "Dikecualikan" + alasan wajib. Item tetap
+     * terhitung satisfied (100%) tanpa dicentang, diberi flag. Mencentang membatalkan.
+     */
+    public function weekExceptItem(Request $request, string $id)
+    {
+        $item = ChecklistWeeklySubmissionItem::with('submission')->findOrFail($id);
+        $sub  = $item->submission;
+
+        if ($sub->user_id !== session('id')) abort(403);
+        if (! $sub->isEditable()) {
+            return response()->json(['ok' => false, 'error' => 'Form mingguan sudah submitted/approved.'], 422);
+        }
+
+        $request->merge(['reason' => trim((string) $request->input('reason'))]);
+        $data = $request->validate(
+            ['reason' => 'required|string|min:3|max:500'],
+            [
+                'reason.required' => 'Alasan wajib diisi.',
+                'reason.min'      => 'Alasan terlalu pendek — jelaskan sedikit (min. 3 karakter).',
+            ]
+        );
+
+        $item->update([
+            'is_excepted'      => 1,
+            'exception_reason' => $data['reason'],
+            'excepted_at'      => now(),
+            'is_done'          => 0,
+            'done_at'          => null,
+        ]);
+
+        $done = $sub->items()->where('is_done', 1)->count();
+        $sub->update(['done_tasks' => $done, 'updated_at' => now()]);
+
+        ChecklistAuditLog::write('weekly_submission', $sub->id, ChecklistAuditLog::ACTION_EXCUSE,
+            null, ['item_id' => $item->id, 'is_excepted' => 1],
+            'Item "' . $item->task_title_snapshot . '" dikecualikan: ' . $data['reason']);
+
+        $satisfied = $sub->satisfiedCount();
+
+        return response()->json([
+            'ok'          => true,
+            'is_excepted' => true,
+            'reason'      => $data['reason'],
+            'progress' => [
+                'done'  => $satisfied,
+                'total' => $sub->total_tasks,
+                'pct'   => $sub->total_tasks ? (int) round($satisfied / $sub->total_tasks * 100) : 0,
+            ],
+        ]);
+    }
+
+    /** AJAX: batalkan pengecualian satu item mingguan. */
+    public function weekUnexceptItem(Request $request, string $id)
+    {
+        $item = ChecklistWeeklySubmissionItem::with('submission')->findOrFail($id);
+        $sub  = $item->submission;
+
+        if ($sub->user_id !== session('id')) abort(403);
+        if (! $sub->isEditable()) {
+            return response()->json(['ok' => false, 'error' => 'Form mingguan sudah submitted/approved.'], 422);
+        }
+
+        $item->update([
+            'is_excepted'      => 0,
+            'exception_reason' => null,
+            'excepted_at'      => null,
+        ]);
+
+        ChecklistAuditLog::write('weekly_submission', $sub->id, ChecklistAuditLog::ACTION_REOPEN,
+            null, ['item_id' => $item->id, 'is_excepted' => 0],
+            'Pengecualian item "' . $item->task_title_snapshot . '" dibatalkan.');
+
+        $satisfied = $sub->satisfiedCount();
+
+        return response()->json([
+            'ok'          => true,
+            'is_excepted' => false,
+            'progress' => [
+                'done'  => $satisfied,
+                'total' => $sub->total_tasks,
+                'pct'   => $sub->total_tasks ? (int) round($satisfied / $sub->total_tasks * 100) : 0,
+            ],
+        ]);
     }
 
     /**

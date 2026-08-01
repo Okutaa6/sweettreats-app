@@ -55,6 +55,7 @@
         margin-top: 1px;
     }
     .wkr-task__check.is-done { background: #1F6E5F; color: #FFFFFF; }
+    .wkr-task__check.is-excepted { background: #F0E4D3; color: #8A5A2B; }
     .wkr-task__name { flex: 1; min-width: 0; color: #2D1810; line-height: 1.4; }
     .wkr-task__check.is-done + .wkr-task__name { color: #9B8578; }
     .wkr-task__time { font-size: 10.5px; color: #9B8578; flex-shrink: 0; margin-top: 3px; }
@@ -115,7 +116,10 @@
 @section('content')
 @php
     $opt = \App\Models\ChecklistWeeklySubmission::statusOptions()[$submission->status] ?? ['label'=>$submission->status,'color'=>'neutral'];
-    $pct = $submission->progressPct();
+    // "beres" = dicentang / dikecualikan per-item / hari dikecualikan → 100% saat terpenuhi.
+    $satisfied = $submission->satisfiedCount();
+    $exceptedN = $submission->exceptedCount();
+    $pct = $submission->satisfiedPct();
     $isPending = $submission->status === \App\Models\ChecklistWeeklySubmission::STATUS_SUBMITTED;
     $isFinal   = in_array($submission->status, [
         \App\Models\ChecklistWeeklySubmission::STATUS_APPROVED,
@@ -174,7 +178,7 @@
                         <div style="margin-top:16px;">
                             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; font-size:12.5px;">
                                 <span style="font-weight:600; color:#6B4423;">Progres pengisian</span>
-                                <span style="color:#2D1810; font-weight:700;">{{ $submission->done_tasks }} / {{ $submission->total_tasks }} tugas ({{ $pct }}%)</span>
+                                <span style="color:#2D1810; font-weight:700;">{{ $satisfied }} / {{ $submission->total_tasks }} tugas ({{ $pct }}%)@if($exceptedN > 0) <span style="font-size:11px; color:#8A5A2B;">· {{ $exceptedN }} dikecualikan</span>@endif</span>
                             </div>
                             <div style="background:#F5F0EA; height:10px; border-radius:5px; overflow:hidden;">
                                 <div style="height:100%; width:{{ $pct }}%; background:linear-gradient(90deg,#9B5E2C,#5C2E15); border-radius:5px;"></div>
@@ -253,7 +257,8 @@
                                 @php
                                     $dayDate = $submission->week_start_date->copy()->addDays($dow - 1);
                                     $totalDay = $dayItems->count();
-                                    $doneDay  = $dayItems->where('is_done', true)->count();
+                                    // "beres" = dicentang ATAU dikecualikan per-item.
+                                    $doneDay  = $dayItems->filter(fn ($i) => $i->is_done || $i->is_excepted)->count();
                                     $dayExcuseReason = $excusedDays[$dow] ?? null;
                                 @endphp
                                 <div class="wkr-day">
@@ -283,11 +288,20 @@
                                     @endif
                                     @foreach($dayItems as $item)
                                             <div class="wkr-task">
-                                                <span class="wkr-task__check {{ $item->is_done ? 'is-done' : '' }}">
-                                                    @if($item->is_done) ✓ @endif
+                                                <span class="wkr-task__check {{ $item->is_done ? 'is-done' : '' }} {{ $item->is_excepted ? 'is-excepted' : '' }}">
+                                                    @if($item->is_excepted)<i class="fas fa-ban" style="font-size:9px;"></i>@elseif($item->is_done) ✓ @endif
                                                 </span>
                                                 <div class="wkr-task__name">
                                                     {{ $item->task_title_snapshot }}
+                                                    @if($item->is_excepted)
+                                                        <span class="st-pill st-pill--neutral" style="margin-left:6px; font-size:10px;">Dikecualikan</span>
+                                                    @endif
+                                                    @if($item->is_excepted && $item->exception_reason)
+                                                        <div class="wkr-task__note" style="border-left:3px solid #8A5A2B;">
+                                                            <strong style="color:#8A5A2B;"><i class="fas fa-ban" style="font-size:9px;"></i> Alasan dikecualikan:</strong>
+                                                            {{ $item->exception_reason }}
+                                                        </div>
+                                                    @endif
                                                     @if($item->note)
                                                         <div class="wkr-task__note">
                                                             <strong style="color:#9B5E2C;">Catatan:</strong>
