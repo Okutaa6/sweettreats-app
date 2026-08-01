@@ -10,6 +10,7 @@ use App\Models\RawBranch;
 use App\Services\AttendanceHpAbsen;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Pengawasan Absen — layar review SPV (Anisa). Prinsip: kejanggalan harus
@@ -87,6 +88,60 @@ class PengawasanController extends Controller
                 'lupa_pulang' => $g->where('jenis', 'single_scan')->count(),
             ]);
 
+        // ── "Catatan Kehadiran Hari Itu" (att_day) per orang terlihat — untuk
+        //    blok KartuAbsenHarian di panel kanan (bahasa yang sama dengan
+        //    layar Kehadiran & Kehadiran Saya) ──
+        $infoOrang = DB::table('users as u')
+            ->leftJoin('group_path as gp', 'gp.id', '=', 'u.group_id')
+            ->whereIn('u.id', $orangTerlihat)
+            ->get(['u.id', 'u.raw_branch_id', 'gp.nama as role'])
+            ->keyBy('id');
+        $flexIds = DB::table('att_user_rule as ur')
+            ->join('att_work_rule as wr', 'wr.id', '=', 'ur.rule_id')
+            ->whereIn('ur.user_id', $orangTerlihat)
+            ->where('wr.tipe', 'fleksibel')
+            ->where('ur.effective_from', '<=', $date)
+            ->where(fn ($q) => $q->whereNull('ur.effective_to')->orWhere('ur.effective_to', '>=', $date))
+            ->pluck('ur.user_id')->flip();
+        $branchNameAll = RawBranch::pluck('name', 'id');
+        $hariMap = [];
+        $attRows = DB::table('att_day')
+            ->where('work_date', $date)
+            ->whereIn('user_id', $orangTerlihat)
+            ->get(['user_id', 'status', 'scan_first', 'scan_last', 'telat_menit',
+                   'single_scan', 'lembur_menit_disetujui', 'cabang_terlibat', 'raw_branch_id']);
+        foreach ($attRows as $r) {
+            $info = $infoOrang->get($r->user_id);
+            $home = $info->raw_branch_id ?? null;
+            $lain = [];
+            if ($home) {
+                $terlibat = json_decode($r->cabang_terlibat ?: '[]', true) ?: [];
+                if (! $terlibat && $r->raw_branch_id) $terlibat = [$r->raw_branch_id];
+                foreach ($terlibat as $bid) {
+                    if ($bid !== $home && isset($branchNameAll[$bid])) $lain[$branchNameAll[$bid]] = true;
+                }
+            }
+            $hariMap[$r->user_id] = [
+                'st'     => $r->status,
+                'in'     => $r->scan_first ? substr($r->scan_first, 11, 5) : null,
+                'out'    => $r->scan_last && substr($r->scan_last, 11, 5) !== substr((string) $r->scan_first, 11, 5)
+                    ? substr($r->scan_last, 11, 5) : null,
+                'late'   => (int) $r->telat_menit,
+                'lembur' => (int) $r->lembur_menit_disetujui,
+                'single' => (int) $r->single_scan,
+                'lain'   => array_keys($lain),
+                'home'   => $home && isset($branchNameAll[$home]) ? $branchNameAll[$home] : null,
+                'flex'   => isset($flexIds[$r->user_id]),
+            ];
+        }
+        // role · cabang untuk sub-judul panel (walau att_day belum ada)
+        $subOrang = [];
+        foreach ($infoOrang as $uid => $info) {
+            $cab = ($info->raw_branch_id ?? null) && isset($branchNameAll[$info->raw_branch_id])
+                ? $branchNameAll[$info->raw_branch_id] : null;
+            $subOrang[$uid] = trim(($info->role ?: 'Karyawan') . ($cab ? ' · ' . $cab : ''), ' ·');
+        }
+
         // ── Gruping: ip_asing serentak per cabang-manual ≥ GRUP_MIN ──
         $cabangDariBukti = function ($flag) use ($buktiById) {
             $b = $flag->ref_type === 'att_hp_bukti' ? $buktiById->get($flag->ref_id) : null;
@@ -147,6 +202,9 @@ class PengawasanController extends Controller
             'riwayat'       => $riwayat,
             'branches'      => $branches,
             'branchName'    => $branchName,
+            'hariMap'       => $hariMap,
+            'subOrang'      => $subOrang,
+            'tanggalLabel'  => Carbon::parse($date)->translatedFormat('l, d F Y'),
         ]);
     }
 

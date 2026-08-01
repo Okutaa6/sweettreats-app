@@ -15,7 +15,7 @@
             <i class="fa fa-arrow-left"></i> Kembali ke Breakdown
         </a>
         <div class="note-page-meta">
-            <span class="bd-mode-pill">🎯 Khusus</span>
+            <span class="bd-mode-pill"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" style="vertical-align:-.15em"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.4"/><circle cx="8" cy="8" r="3" stroke="currentColor" stroke-width="1.4"/><circle cx="8" cy="8" r=".9" fill="currentColor"/></svg> Khusus</span>
             @if($statusColor)
                 <span class="note-status-pill" style="background:{{ $statusColor['bg'] }}; color:{{ $statusColor['text'] }};">
                     <span class="status-dot" style="background:{{ $statusColor['dot'] }};"></span>

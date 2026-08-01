@@ -198,6 +198,21 @@ if (!function_exists('shellMenuSections')) {
         $controller = request()->segment(1);
         $sections   = [];
 
+        // Ada leaf ber-sub-path yang cocok persis dengan URL sekarang?
+        // (mis. WiFi Cabang 'absensi/wifi' saat membuka /absensi/wifi)
+        // Kalau ada, leaf satu-segmen se-prefix (mis. 'absensi' = Upload Data)
+        // TIDAK ikut menyala — dulu dua menu nyala barengan.
+        $deepActive = false;
+        foreach ($data as $p) {
+            if (!is_array($p)) continue;
+            foreach (shellCollectLeaves($p) as $l) {
+                if (strpos((string) $l['link'], '/') !== false && request()->is($l['link'])) {
+                    $deepActive = true;
+                    break 2;
+                }
+            }
+        }
+
         foreach ($data as $p) {
             if (!is_array($p)) continue;
             $leaves = array_values(array_filter(
@@ -207,10 +222,12 @@ if (!function_exists('shellMenuSections')) {
             if (!$leaves) continue;
 
             // Link ber-sub-path (mis. 'checklist/positions') dicocokkan ke path
-            // penuh; link satu-segmen tetap cukup cocok segment-1.
+            // penuh; link satu-segmen cukup cocok segment-1 — kecuali sedang ada
+            // leaf sub-path yang cocok persis (lihat $deepActive di atas).
             foreach ($leaves as &$l) {
-                $l['active'] = ($l['link'] === $controller)
-                    || (strpos((string) $l['link'], '/') !== false && request()->is($l['link']));
+                $l['active'] = (strpos((string) $l['link'], '/') !== false)
+                    ? request()->is($l['link'])
+                    : (! $deepActive && $l['link'] === $controller);
             }
             unset($l);
 
@@ -235,15 +252,23 @@ if (!function_exists('getActivePageName')) {
         $controller = request()->segment(1);
         $data = getGroupAccessData();
         if (is_array($data)) {
+            // Cocokkan link ber-sub-path (mis. 'absensi/wifi') dulu — supaya
+            // judul header ikut node yang paling spesifik, baru segment-1.
+            $fallback = null;
             foreach ($data as $row) {
                 foreach (($row['sub'] ?? []) as $subrow) {
                     foreach (($subrow['child'] ?? []) as $childrow) {
-                        if (($childrow['link'] ?? null) === $controller) {
+                        $link = $childrow['link'] ?? null;
+                        if ($link && strpos($link, '/') !== false && request()->is($link)) {
                             return $childrow['nama'];
+                        }
+                        if ($link === $controller && $fallback === null) {
+                            $fallback = $childrow['nama'];
                         }
                     }
                 }
             }
+            if ($fallback !== null) return $fallback;
         }
         return $controller ? ucwords(str_replace(['-', '_'], ' ', $controller)) : 'Dashboard';
     }
@@ -523,9 +548,11 @@ if (!function_exists('checklistInfoText')) {
         static $cached = null;
         if ($cached !== null) return $cached;
 
-        $default = '📢 Isi & submit semua checklist harian sebelum pulang.'
+        // Tanpa emoji (docs/spec/peta-tema.md §6) — teks ini tampil di UI
+        // my-checklist, bukan keluaran CLI.
+        $default = 'Isi & submit semua checklist harian sebelum pulang.'
             . '   •   Sterilisasi alat & jaga kebersihan ruang sesuai SOP.'
-            . '   •   Sapa setiap pasien dengan senyum — Sweet, Cool & Friendly! 🦷';
+            . '   •   Sapa setiap pasien dengan senyum — Sweet, Cool & Friendly!';
 
         return $cached = (string) \App\Models\Setting::get('checklist_info_text', $default);
     }

@@ -927,7 +927,7 @@
                 // (biar tak terasa "tiba-tiba"), lalu buka kamera untuk ambil bukti.
                 const statusEl = task.querySelector('[data-photo-status]');
                 if (statusEl) {
-                    statusEl.textContent = '📷 Ambil foto bukti dulu untuk menyelesaikan task ini.';
+                    statusEl.innerHTML = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" style="vertical-align:-.15em"><rect x="1.5" y="4" width="13" height="10" rx="2" stroke="currentColor" stroke-width="1.4"/><path d="M5.5 4l1-1.6h3l1 1.6" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><circle cx="8" cy="9" r="2.4" stroke="currentColor" stroke-width="1.4"/></svg> Ambil foto bukti dulu untuk menyelesaikan task ini.';
                     statusEl.style.color = '#A66019';
                     setTimeout(() => {
                         if (statusEl.textContent.indexOf('Ambil foto bukti') !== -1) statusEl.textContent = '';
@@ -945,7 +945,7 @@
                     missing.forEach(c => {
                         const s = c.querySelector('[data-ba-status]');
                         if (s) {
-                            s.textContent = '📷 Wajib foto dulu';
+                            s.innerHTML = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" style="vertical-align:-.15em"><rect x="1.5" y="4" width="13" height="10" rx="2" stroke="currentColor" stroke-width="1.4"/><path d="M5.5 4l1-1.6h3l1 1.6" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><circle cx="8" cy="9" r="2.4" stroke="currentColor" stroke-width="1.4"/></svg> Wajib foto dulu';
                             s.style.color = '#A66019';
                             setTimeout(() => {
                                 if (s.textContent.indexOf('Wajib foto') !== -1) s.textContent = '';

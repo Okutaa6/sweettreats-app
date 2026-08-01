@@ -143,7 +143,7 @@
         {{-- ══════ Context banner (Belum Datang / Ulang Tahun) ══════ --}}
         @if(($seg ?? 'semua') === 'belum_datang')
             <div class="px-banner px-banner--lead">
-                <div class="px-banner__icon">📞</div>
+                <div class="px-banner__icon"><svg width="17" height="17" viewBox="0 0 16 16" fill="none"><path d="M3.1 2.4h2.5l1.1 2.9-1.6 1.3a10 10 0 0 0 4.3 4.3l1.3-1.6 2.9 1.1v2.5c0 .6-.5 1.1-1.1 1A12.7 12.7 0 0 1 2.1 3.5c-.1-.6.4-1.1 1-1.1Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg></div>
                 <div class="px-banner__text">
                     <div class="px-banner__title">{{ number_format($segCounts['belum_datang'] ?? 0, 0, ',', '.') }} pasien belum pernah datang</div>
                     <div class="px-banner__sub">Sudah terdaftar tapi belum berkunjung — follow-up untuk konversi jadi pasien.</div>
@@ -152,7 +152,7 @@
             </div>
         @elseif(($seg ?? 'semua') === 'ultah')
             <div class="px-banner px-banner--ultah">
-                <div class="px-banner__icon">🎂</div>
+                <div class="px-banner__icon"><svg width="17" height="17" viewBox="0 0 16 16" fill="none"><path d="M2.5 13.6h11M3.3 13.6V9.3c0-.8.7-1.5 1.5-1.5h6.4c.8 0 1.5.7 1.5 1.5v4.3M8 7.6V5.8M8 3.4v.2M5.5 7.6V6.4M10.5 7.6V6.4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M3.3 10.6c1 .8 1.9.8 2.9 0s1.9-.8 2.9 0 1.9.8 2.9 0" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg></div>
                 <div class="px-banner__text">
                     <div class="px-banner__title">{{ number_format($segCounts['ultah'] ?? 0, 0, ',', '.') }} pasien ulang tahun bulan ini</div>
                     <div class="px-banner__sub">Kirim ucapan + promo spesial ulang tahun untuk menjaga loyalitas.</div>
@@ -164,7 +164,7 @@
         {{-- ══════ Tabel pasien (design View A) — baris klik → detail ══════ --}}
         @php
             // Palette avatar di-cycle by id (design handoff).
-            $avatarColors = ['#7A3415', '#52200A', '#8A3A12', '#6B2400', '#9A6614', '#5A2410', '#7E2E0E', '#693012'];
+            $avatarColors = ['#8A3A12', '#A8481B', '#2F8E55', '#3C5FA8', '#B5701A', '#7A3415', '#5A6B2E', '#8E2419'];
             $waNum = function ($phone) {
                 $p = preg_replace('/[^0-9]/', '', (string) $phone);
                 if ($p && str_starts_with($p, '0')) $p = '62' . substr($p, 1);

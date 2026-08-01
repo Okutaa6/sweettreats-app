@@ -42,7 +42,7 @@
                 @csrf
                 <label style="font-size:12px; font-weight:700; color:#6B4423; display:block; margin-bottom:5px;">Teks Info</label>
                 <textarea name="info_text" id="clInfoText" rows="3" maxlength="500" class="cl-infoset__ta"
-                          placeholder="Mis: 📢 Isi & submit checklist sebelum pulang. • Jaga kebersihan sesuai SOP. • Sapa pasien dengan senyum 🙂">{{ checklistInfoText() }}</textarea>
+                          placeholder="Mis: Isi & submit checklist sebelum pulang. • Jaga kebersihan sesuai SOP. • Sapa pasien dengan senyum.">{{ checklistInfoText() }}</textarea>
                 <div style="font-size:11px; color:#9B8578; margin-top:4px;">Maks 500 karakter. Pakai <strong>•</strong> untuk memisah kalimat. Kosongkan untuk menyembunyikan banner.</div>
 
                 <div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:#9B8578; margin:14px 0 6px;">Pratinjau</div>

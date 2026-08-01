@@ -10,6 +10,7 @@ Copy blok yang dibutuhkan, tempel sebagai pesan pertama.
 | **A. Peta tema / visual** | terapkan tema per zona, reskin Kehadiran, sweep ikon | `feature/absensi` |
 | **B. Security** | rate-limit + sapu lubang lain | `hotfix/*` dari `main` |
 | **C. Planning / verifikasi / deploy** | koordinasi, audit, deploy dev & prod | docs/memori + deploy |
+| **D. Build ROP / Pengeluaran** | bangun fitur Pengajuan/ROP + adopsi petty cash | `feature/rop` dari `feature/absensi` |
 
 **Dua aturan biar chat paralel tidak tabrakan:**
 1. **Chat tidak bisa saling lihat.** Jembatan satu-satunya = file di disk
@@ -23,6 +24,11 @@ Copy blok yang dibutuhkan, tempel sebagai pesan pertama.
 
 > Saran model: bebas.
 
+> **STATUS 2026-07-31: SUDAH DIEKSEKUSI** (handoff kehadiran terpasang semua +
+> antrian §8 lunas kecuali 2 item yang nunggu Reza). Detail:
+> docs/handoff/handoff-kehadiran-reskin.md. Prompt di bawah disimpan sebagai
+> arsip pola; kalau buka chat visual baru, susun antrian baru dari §8 terkini.
+
 ```
 Lanjutkan proyek SweetTreats lewat memori. Chat ini fokus EKSEKUSI VISUAL.
 
@@ -31,20 +37,7 @@ Baca dulu:
 - docs/spec/peta-tema.md — peta tema/zona final (cokelat = default; Marketing
   teal, IT grafit, Finance burgundy #8A2E43), 3 lapis warna, mapping per-page,
   device-intent, aturan emoji->ikon. §8 = daftar utang = backlog chat ini.
-- docs/brief-desain/design-brief-kehadiran-kalender.md — brief reskin Kehadiran
-  ke pola Google Calendar (scope: RESKIN saja, jangan tambah fitur). Handoff
-  dari claude.ai/design menyusul — aku kabari kalau sudah siap.
-
-Antrian kerjaan (dari §8 peta-tema):
-1. Terapkan burgundy ke halaman Finance (Petty Cash, Laporan, Rekonsiliasi).
-2. Pindah node menu WiFi Cabang ke seksi IT (SQL access_path + access:rebuild)
-   + jadikan grafit.
-3. Sweep emoji -> SVG line-icon (daftarnya di §6 peta-tema).
-4. Normalkan hex teal Marketing jadi token tertulis.
-5. Komponen "gerbang sopan" untuk halaman desktop-only yang dibuka di HP
-   (pesan ramah + tombol "Lanjut lihat"; JANGAN hard-hide).
-6. Polish minor: palet avatar disatukan, drift border -> #EFE0CE, marker biru
-   -> #3F6BAF.
+- docs/handoff/handoff-kehadiran-reskin.md — catatan implementasi terakhir.
 
 JANGAN sentuh header tabel Reservasi & halaman Role (setgroup) — nunggu
 koordinasi Reza, masuk redesign masing-masing.
@@ -151,3 +144,51 @@ huruf, atau menjawab tidak sesuai pertanyaan.
 Kalau kelihatan begitu: **tegur langsung**, lalu buka chat baru pakai prompt di
 atas. Semua keputusan sudah tertulis di `docs/` + memori, jadi tidak ada yang
 hilang.
+
+---
+
+## D. Chat: BUILD ROP / PENGELUARAN
+
+> Saran model: bebas (CRUD penuh + UI dari design handoff; kalau mau sekali
+> jalan rapi, Opus).
+
+```
+Lanjutkan proyek SweetTreats lewat memori. Chat ini fokus BUILD fitur
+Pengajuan/ROP (expenses digital) — paket "Pengeluaran" bareng adopsi petty
+cash.
+
+Baca dulu:
+- docs/README.md — indeks dokumentasi
+- docs/rencana/rencana-pengajuan-rop.md — plan LENGKAP yang sudah di-ACC:
+  scope v1 (termasuk 6 improvement), lifecycle, penomoran ROP/{CC}/{YYMM}/
+  {NNN}, data model, dan daftar fase 2 yang JANGAN dibangun dulu.
+- docs/spec/peta-tema.md — zona warna: halaman pengaju COKELAT default,
+  halaman Finance (antrian + rekap) BURGUNDY #8A2E43 (body.zona-finance
+  sudah ada di public/assets/css/zona.css).
+- Hasil claude.ai/design dari docs/brief-desain/design-brief-rop.md:
+  [tempel link/hasil desain di sini]
+
+Konteks teknis (jangan reinvent):
+- Precedent flow approval: tabel topup_requests + TopupRequestController
+  (pending -> approved/rejected + AdminNotification) — generalisasi pola ini.
+- Master vendor: seed dari staging Accurate (58 vendor) — lihat rencana §8.
+- Konvensi DB: SQL manual di database/sql/ (BUKAN migration); akses menu via
+  SQL + php artisan access:rebuild; grant akses BY LINK, bukan by id node.
+- Upload foto terkompresi: pola sudah ada di absen HP selfie — pakai ulang.
+- Export impor Accurate: blueprint template impor resmi ada di proyek
+  accurate-integration (memori project_accurate_integration).
+
+Urutan kerja yang disarankan: SQL skema -> backend lifecycle + notifikasi ->
+UI pengaju (HP-first) -> antrian Finance -> rekap + export -> audit
+end-to-end (termasuk deteksi dobel & auto-expire).
+
+Aturan kerja: branch BARU `feature/rop` dibuat dari `feature/absensi`
+TERBARU — cek dulu origin: pastikan reskin Kehadiran sudah di-commit dan
+branch Reza (dashboardmarketing-checklistdesign-monitoringAC-bugfixlainnya)
+sudah di-merge; kalau belum, tanya aku dulu. Test di LOKAL (php artisan
+serve --host=0.0.0.0 --port=8899 · muhamad.ikhsan@sweettreats.local /
+sweettreats2026). Diskusi dulu tiap keputusan produk baru. Jangan commit
+tanpa izin (kerjaan dibiarkan unstaged buat review). Jangan push/deploy
+tanpa diminta. Tanpa emoji di UI. Catat keputusan penting ke docs/ + memori
+sebelum chat ditutup.
+```

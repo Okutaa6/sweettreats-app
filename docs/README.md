@@ -12,8 +12,11 @@ Peta isi folder `docs/`. **Mulai dari sini** kalau bingung cari apa.
 | Paham cara kerja mesin absensi (scan → att_day) | `rencana/rencana-rekonsiliasi-absensi.md` |
 | Paham absen HP selfie (WiFi = saksi, flag) | `rencana/rencana-absen-hp.md` |
 | Paham jatah cuti per kontrak | `rencana/rencana-jatah-cuti.md` |
+| Paham pengajuan ROP (expenses digital) | `rencana/rencana-pengajuan-rop.md` |
 | Deploy absensi ke dev/prod | `deploy/deploy-absensi.md` |
+| Tahu apa saja yang belum naik prod (+ peta cabang GitHub) | `deploy/manifest-prod.md` |
 | Kerjakan hardening keamanan | `handoff/handoff-security-hardening.md` |
+| Paham reskin Kehadiran/zona Absensi + cara deploy-nya | `handoff/handoff-kehadiran-reskin.md` |
 | Kasih dokumen ke Reza | `untuk-reza/` |
 | Kasih dokumen ke tim ops/management | `untuk-tim/` |
 | Lihat spesifikasi API vendor (Cekat/Omnicare) | `api/` |
@@ -51,12 +54,14 @@ Brief layar yang **belum dieksekusi**. Yang sudah jadi halamannya dipindah ke
 `arsip/brief-selesai/`.
 
 - `design-brief-cuti.md` — layar Cuti Finance (rekap + cuti bersama).
-- `design-brief-kehadiran-kalender.md` — reskin Kehadiran ke pola Google
-  Calendar (scope: reskin saja).
+- `design-brief-rop.md` — 4 layar Pengajuan/ROP (form + riwayat pengaju
+  cokelat; antrian + rekap Finance burgundy). Satu layar per sesi.
 
 ### `deploy/` — runbook & koordinasi deploy
 - `deploy-absensi.md` — runbook deploy absensi (dev & prod), termasuk daftar
   temuan audit yang sengaja ditunda (§10).
+- `manifest-prod.md` — **daftar isi migrasi prod**: 28 SQL + 19 migration +
+  langkah manual + inventaris cabang GitHub (mana yang ikut, mana yang tidak).
 - `deploy-coordination.md` — koordinasi deploy antar branch/orang.
 - `cekat-DEPLOY.md`, `omnicare-DEPLOY.md` — deploy integrasi vendor.
 - `test-flow-deploy-prod.md` / `.html` — alur uji sebelum naik prod.
@@ -64,6 +69,9 @@ Brief layar yang **belum dieksekusi**. Yang sudah jadi halamannya dipindah ke
 ### `handoff/` — serah-terima kerjaan antar sesi/chat
 - `handoff-security-hardening.md` — brief lengkap hardening keamanan
   (rate-limit P0/P1 + mandat menyapu lubang lain). Dikerjakan di chat terpisah.
+- `handoff-kehadiran-reskin.md` — catatan implementasi reskin zona Absensi
+  (Kehadiran kalender, Kehadiran Saya, Pengawasan, Absen HP, komponen
+  KartuAbsenHarian) + antrian §8 peta-tema + checklist deploy-nya.
 
 ### `api/` — spesifikasi API & proposal vendor
 `cekat-api.md` / `.http` / `.pdf` · `cekat-TEST_FLOW.html` ·
@@ -83,8 +91,8 @@ Brief layar yang **belum dieksekusi**. Yang sudah jadi halamannya dipindah ke
 Dipisah berdasarkan **alasan** diarsipkan:
 
 - `brief-selesai/` — brief desain yang halamannya **sudah jadi**: absen-hp,
-  absensi, absensi-karyawan, shell, pusat-akun (4 file). Disimpan sebagai
-  rujukan "kenapa desainnya begini".
+  absensi, absensi-karyawan, shell, pusat-akun (4 file), kehadiran-kalender.
+  Disimpan sebagai rujukan "kenapa desainnya begini".
 - `test-flow/` — dokumen uji sekali-pakai: TEST_FLOW umum, editorial plan,
   durasi akses cabang, petty cash, reservasi multipasien, rekam medis.
 - `accurate/` — proyek integrasi Accurate (**di-pause**): mapping akun, sample

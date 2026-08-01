@@ -4,7 +4,7 @@
 --}}
 @php
     // Helper: warna avatar berdasarkan inisial nama
-    $avatarColors = ['#f59e0b', '#06b6d4', '#a855f7', '#16a34a', '#dc2626', '#0ea5e9', '#8b5cf6'];
+    $avatarColors = ['#8A3A12', '#A8481B', '#2F8E55', '#3C5FA8', '#B5701A', '#7A3415', '#5A6B2E', '#8E2419'];
     $avatarBg = function ($name) use ($avatarColors) {
         if (! $name) return '#94a3b8';
         $sum = 0;
