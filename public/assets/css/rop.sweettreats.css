@@ -65,6 +65,13 @@
     .rop-fin { padding: 14px 14px 32px; }
 }
 
+/* `.rop-fin` menanggung DUA peran: pembawa token burgundy DAN padding halaman.
+   Drawer & modal butuh tokennya, tapi TIDAK boleh ikut padding halaman —
+   tanpa penegasan ini kepala drawer turun 18px dan kakinya menggantung 40px
+   dari dasar layar (persis keluhan "header & tombol berantakan"). */
+.rop-drawer.rop-fin,
+.rop-fin .modal-dialog { padding: 0; }
+
 .rop-surface :where(h1, h2, h3, h4, p, dl, dd) { margin: 0; }
 
 /* Angka & tanggal tidak pernah pecah baris. */
@@ -168,6 +175,10 @@
     color: var(--rop-ink);
 }
 .rop-btn--ghost:hover { background: var(--rop-card-hover); color: var(--rop-ink); }
+/* Tolak di kaki drawer: berona merah supaya terbaca aksi negatif, tapi tetap
+   garis-tipis (bukan blok merah) — menolak harus disengaja, bukan refleks. */
+.rop-btn--tolak { border-color: #F2D2CB; color: #C0392B; }
+.rop-btn--tolak:hover { background: #FDF6F5; color: #C0392B; }
 .rop-btn--ok {
     background: linear-gradient(135deg, #37A164, #2F8E55);
     color: #fff;
@@ -181,6 +192,16 @@
 .rop-btn--mati {
     opacity: .42;
     cursor: not-allowed;
+    box-shadow: none;
+}
+/* Tombol Setujui saat belum boleh ditekan: warna netral, BUKAN hijau
+   ditransparankan — hijau pudar masih terbaca "boleh", dan opacity bikin
+   teksnya kurang kontras. Sesuai handoff desain. */
+.rop-btn--ok.rop-btn--mati,
+.rop-btn--ok[disabled] {
+    opacity: 1;
+    background: #E7DACB;
+    color: #B0997F;
     box-shadow: none;
 }
 
@@ -257,6 +278,10 @@
     scrollbar-width: none;
 }
 .rop-chip-row::-webkit-scrollbar { display: none; }
+/* Alasan cepat penolakan HARUS terlihat semua — kalau ikut scroller mendatar
+   tanpa scrollbar, dua alasan terakhir tak pernah ketahuan ada. Handoff
+   memakai flex-wrap di sini. */
+#ropDTolakBlok .rop-chip-row { flex-wrap: wrap; overflow-x: visible; }
 
 /* ═══ Layar pengaju (cokelat) ═══ */
 
@@ -529,6 +554,11 @@
 }
 .rop-hero__grid .rop-label { display: block; margin-bottom: 3px; }
 .rop-hero__grid b { font-size: 14.5px; font-weight: 700; }
+/* Di dalam drawer yang cuma 520px, auto-fit memaksa 3 kolom sehingga nama
+   vendor ("Toko Gunung Agung") pecah baris. Handoff memakai 2 kolom tetap. */
+.rop-drawer .rop-hero__grid { grid-template-columns: 1fr 1fr; }
+.rop-drawer__ket { margin-top: 13px; padding-top: 12px; border-top: 1px solid var(--rop-divider); }
+.rop-drawer__ket p { margin: 4px 0 0; font-size: 13.5px; font-weight: 600; line-height: 1.5; color: var(--rop-ink); }
 
 /* Timeline vertikal — langkah belum jalan tampil redup, bukan disembunyikan. */
 .rop-time { list-style: none; margin: 0; padding: 0; }
@@ -710,6 +740,17 @@
    ("Tandai dibayar") termasuk panjang. */
 .rop-tabel td .rop-btn { white-space: nowrap; }
 .rop-tabel tbody tr:hover td { background: var(--rop-row-hover); }
+/* Baris = pintu masuk detail (pola Reservasi/Pasien/Doctor) */
+.rop-tabel tbody tr[data-rop-buka] { cursor: pointer; }
+/* Chevron di ujung baris = afordansi "bisa dibuka" — sama dengan .st-chev-cell
+   di Reservasi, tapi SVG garis (ROP tak bergantung FontAwesome).
+   Burgundy (aksen zona = penanda interaktif) + goresan tebal 2.4 supaya
+   bobot visualnya setara chevron solid FontAwesome di Reservasi; versi
+   1.5px terlalu ringan, nyaris tak terlihat. Diam: agak redup; hover baris:
+   penuh + maju 2px. */
+.rop-chev-cell { width: 52px; padding-right: 22px !important; text-align: right; color: var(--rop-burgundy); }
+.rop-chev-cell svg { stroke-width: 2.6; opacity: .8; transition: transform .15s ease, opacity .15s ease; }
+.rop-tabel tbody tr[data-rop-buka]:hover .rop-chev-cell svg { opacity: 1; transform: translateX(3px); }
 .rop-tabel .rop-td-kanan { text-align: right; }
 
 .rop-baris--darurat td:first-child { box-shadow: inset 3px 0 0 #C0392B; }
@@ -761,22 +802,35 @@
 }
 .rop-drawer.is-buka { transform: none; }
 .rop-drawer-scrim.is-buka { opacity: 1; pointer-events: auto; }
+/* Tiga bagian drawer = flex column: kepala & kaki TETAP (flex:none), badan
+   yang menggulung. `min-height:0` WAJIB di badan — tanpa itu min-height:auto
+   bawaan flex bikin badan menolak menyusut, isinya meluber, dan kepala/kaki
+   ikut kepencet. */
 .rop-drawer__head {
-    padding: 18px 20px;
+    flex: none;
+    padding: 19px 22px;
     background: var(--rop-burgundy-fill);
     color: #fff;
 }
 .rop-drawer__head .rop-label { color: var(--rop-burgundy-ink); }
-.rop-drawer__nominal { margin: 6px 0 10px; font-size: 27px; font-weight: 800; }
-.rop-drawer__body { flex: 1; overflow-y: auto; padding: 16px; }
+.rop-drawer__nominal { margin: 7px 0 11px; font-size: 27px; font-weight: 800; line-height: 1.1; }
+.rop-drawer__body { flex: 1; min-height: 0; overflow-y: auto; padding: 17px 22px; }
 .rop-drawer__foot {
+    flex: none;
     display: flex;
-    gap: 10px;
-    padding: 14px 16px;
-    background: #fff;
-    border-top: 1px solid var(--rop-border);
+    flex-direction: column;
+    gap: 9px;
+    padding: 15px 22px 18px;
+    background: var(--rop-bg);
+    border-top: 1px solid #EDDFCE;
 }
-.rop-drawer__foot .rop-btn { flex: 1; }
+/* Baris aksi: Setujui memuai, Tolak selebar isinya — menolak bukan aksi
+   yang sejajar bobotnya dengan menyetujui. */
+.rop-drawer__aksi { display: flex; gap: 9px; }
+.rop-drawer__aksi > form { flex: 1; display: flex; }
+.rop-drawer__foot .rop-btn--ok { flex: 1; }
+.rop-drawer__foot .rop-btn--ghost { flex: none; }
+.rop-drawer__hint { font-size: 11.5px; color: #B0855F; font-weight: 600; text-align: center; }
 .rop-drawer__tutup {
     position: absolute;
     top: 14px;
@@ -859,6 +913,22 @@
     animation: rop-susut 5.2s linear forwards;
 }
 @keyframes rop-susut { from { width: 100%; } to { width: 0; } }
+/* Varian galat: latar merah tua, bar merah — dipakai toast error jalur fetch. */
+.rop-toast--galat { background: #5A1512; }
+.rop-toast--galat small { color: #E8B7B0; }
+.rop-toast--galat .rop-toast__bar { background: #C0392B; animation-duration: 6s; }
+
+/* Kerangka pemuatan drawer — batang berkilau halus selama fetch detail. */
+.rop-muat__bar {
+    height: 14px;
+    margin-bottom: 11px;
+    border-radius: 8px;
+    background: linear-gradient(90deg, #EFE0CE 25%, #F9F1E7 45%, #EFE0CE 65%);
+    background-size: 200% 100%;
+    animation: rop-kilau 1.1s ease-in-out infinite;
+}
+@keyframes rop-kilau { from { background-position: 180% 0; } to { background-position: -60% 0; } }
+@media (prefers-reduced-motion: reduce) { .rop-muat__bar { animation: none; } }
 
 @media (prefers-reduced-motion: reduce) {
     .rop-toast__bar { animation: none; width: 100%; }

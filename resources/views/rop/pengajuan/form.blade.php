@@ -290,7 +290,13 @@
             document.getElementById('ropKirimTeks').textContent = 'Ya, kirim pengajuan ini';
             kirim.classList.remove('rop-btn--warn');
             kirim.classList.add('rop-btn--primary');
+            return;
         }
+        // Benar-benar terkirim: tombol bilang sedang bekerja + kebal klik dobel
+        // (pola-interaksi P2 — menonaktifkan DI DALAM handler submit tidak
+        // menghentikan pengiriman yang sudah berjalan).
+        kirim.disabled = true;
+        document.getElementById('ropKirimTeks').textContent = 'Mengirim…';
     });
 })();
 </script>

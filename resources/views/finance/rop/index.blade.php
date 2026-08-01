@@ -54,15 +54,17 @@
     @include('layouts.notif')
 
     <div class="rop-fin-stats">
+        {{-- data-n / data-rp = nilai mentah, dipakai JS untuk memperbarui angka
+             tanpa reload saat ACC/tolak/bayar (jangan parsing teks "Rp …"). --}}
         <div class="rop-fin-stat rop-fin-stat--utama">
             <span class="rop-label">Menunggu ACC</span>
-            <b class="rop-num">{{ $statistik['menunggu_jumlah'] }}</b>
-            <small class="rop-num">{{ $rupiah($statistik['menunggu_nominal']) }}</small>
+            <b class="rop-num" id="ropStatMenungguN" data-n="{{ $statistik['menunggu_jumlah'] }}">{{ $statistik['menunggu_jumlah'] }}</b>
+            <small class="rop-num" id="ropStatMenungguRp" data-rp="{{ (int) $statistik['menunggu_nominal'] }}">{{ $rupiah($statistik['menunggu_nominal']) }}</small>
         </div>
         <div class="rop-fin-stat">
             <span class="rop-label">Disetujui belum dibayar</span>
-            <b class="rop-num">{{ $statistik['disetujui_jumlah'] }}</b>
-            <small class="rop-num">{{ $rupiah($statistik['disetujui_nominal']) }}</small>
+            <b class="rop-num" id="ropStatDisetujuiN" data-n="{{ $statistik['disetujui_jumlah'] }}">{{ $statistik['disetujui_jumlah'] }}</b>
+            <small class="rop-num" id="ropStatDisetujuiRp" data-rp="{{ (int) $statistik['disetujui_nominal'] }}">{{ $rupiah($statistik['disetujui_nominal']) }}</small>
         </div>
         <div class="rop-fin-stat">
             <span class="rop-label">Darurat menunggu</span>
@@ -91,7 +93,7 @@
             <a class="rop-tab {{ $tab === $kode ? 'rop-tab--aktif' : '' }}"
                href="{{ route('finance.rop', array_filter(['tab' => $kode, 'cc' => $cc, 'q' => $cari])) }}">
                 {{ $label }}
-                @if ($n)<span class="rop-tab__n">{{ $n }}</span>@endif
+                @if ($n)<span class="rop-tab__n" data-badge="{{ $kode }}">{{ $n }}</span>@endif
             </a>
         @endforeach
     </div>
@@ -125,15 +127,29 @@
         $blok = $grup ?: ['semua' => ['judul' => null, 'baris' => $daftar, 'total' => null]];
     @endphp
 
+    {{-- Kolom Aksi HANYA di tab Antrian bayar: "Tandai dibayar" satu-satunya
+         tombol yang melompati langkah (langsung ke modal). Membuka detail =
+         klik baris, sama dengan tabel Reservasi/Pasien/Doctor — dulu tiap baris
+         punya "Cek & ACC"/"Lihat" yang cuma membuka drawer, redundan dengan
+         klik baris dan bikin pola antar halaman tidak konsisten. --}}
+    @php $adaAksi = $tab === 'disetujui'; @endphp
     <div class="rop-tabel-wrap">
         <table class="rop-tabel">
-            {{-- Lebar dikunci di sini: kolom keputusan (nominal, butuh, umur,
-                 aksi) tidak boleh menyempit gara-gara keterangan yang panjang. --}}
-            <colgroup>
-                <col style="width:15%"><col style="width:12%"><col style="width:23%">
-                <col style="width:12%"><col style="width:10%"><col style="width:7%">
-                <col style="width:9%"><col style="width:12%">
-            </colgroup>
+            {{-- Lebar dikunci di sini: kolom keputusan (nominal, butuh, umur)
+                 tidak boleh menyempit gara-gara keterangan yang panjang. --}}
+            @if ($adaAksi)
+                <colgroup>
+                    <col style="width:15%"><col style="width:12%"><col style="width:22%">
+                    <col style="width:12%"><col style="width:10%"><col style="width:7%">
+                    <col style="width:8%"><col style="width:14%"><col style="width:52px">
+                </colgroup>
+            @else
+                <colgroup>
+                    <col style="width:16%"><col style="width:13%"><col style="width:27%">
+                    <col style="width:13%"><col style="width:11%"><col style="width:8%">
+                    <col style="width:12%"><col style="width:52px">
+                </colgroup>
+            @endif
             <thead>
                 <tr>
                     <th>Nomor</th>
@@ -143,22 +159,25 @@
                     <th>Butuh</th>
                     <th>Umur</th>
                     <th>Status</th>
-                    <th class="rop-td-kanan">Aksi</th>
+                    @if ($adaAksi)<th class="rop-td-kanan">Aksi</th>@endif
+                    {{-- kolom chevron: penanda "baris ini bisa dibuka" (pola Reservasi) --}}
+                    <th aria-hidden="true"></th>
                 </tr>
             </thead>
             <tbody>
             @forelse ($blok as $kunci => $g)
                 @if ($g['judul'])
                     <tr class="rop-grup rop-grup--{{ $kunci }}">
-                        <td colspan="8">
-                            {{ $g['judul'] }} ({{ count($g['baris']) }})
-                            <span class="rop-grup__total rop-num">{{ $rupiah($g['total']) }}</span>
+                        <td colspan="{{ $adaAksi ? 9 : 8 }}">
+                            {{ $g['judul'] }} (<span class="rop-grup__n rop-num">{{ count($g['baris']) }}</span>)
+                            <span class="rop-grup__total rop-num" data-total="{{ (int) $g['total'] }}">{{ $rupiah($g['total']) }}</span>
                         </td>
                     </tr>
                 @endif
 
                 @foreach ($g['baris'] as $r)
-                    <tr class="{{ $r->is_urgent ? 'rop-baris--darurat' : ($r->butuhMendesak() ? 'rop-baris--telat' : '') }}">
+                    <tr class="{{ $r->is_urgent ? 'rop-baris--darurat' : ($r->butuhMendesak() ? 'rop-baris--telat' : '') }}"
+                        data-rop-buka="{{ $r->id }}" data-amount="{{ (int) $r->amount }}" title="Klik untuk lihat detail">
                         <td>
                             <div class="rop-num">{{ $r->number }}</div>
                             @if ($r->is_urgent)<span class="rop-badge-darurat" style="margin-top:4px">Darurat</span>@endif
@@ -177,19 +196,16 @@
                         </td>
                         <td><span class="rop-umur {{ $kelasUmur($r->umurHari()) }}">{{ $r->umurHari() }} hari</span></td>
                         <td>@include('rop._pill', ['status' => $r->status, 'pendek' => true])</td>
-                        <td class="rop-td-kanan">
-                            @if ($r->status === 'diajukan')
-                                <button class="rop-btn rop-btn--fin" style="min-height:38px;padding:8px 14px;font-size:13.5px"
-                                        data-rop-acc="{{ $r->id }}">Cek &amp; ACC</button>
-                            @elseif ($r->status === 'disetujui')
-                                <button class="rop-btn rop-btn--ok" style="min-height:38px;padding:8px 14px;font-size:13.5px"
-                                        data-rop-bayar="{{ $r->id }}" data-rop-nomor="{{ $r->number }}"
-                                        data-rop-nominal="{{ $rupiah($r->amount) }}">Tandai dibayar</button>
-                            @else
-                                <button class="rop-btn rop-btn--ghost" style="min-height:38px;padding:8px 14px;font-size:13.5px"
-                                        data-rop-acc="{{ $r->id }}">Lihat</button>
-                            @endif
-                        </td>
+                        @if ($adaAksi)
+                            <td class="rop-td-kanan">
+                                @if ($r->status === 'disetujui')
+                                    <button class="rop-btn rop-btn--ok" style="min-height:38px;padding:8px 14px;font-size:13.5px"
+                                            data-rop-bayar="{{ $r->id }}" data-rop-nomor="{{ $r->number }}"
+                                            data-rop-nominal="{{ $rupiah($r->amount) }}">Tandai dibayar</button>
+                                @endif
+                            </td>
+                        @endif
+                        <td class="rop-chev-cell">@include('rop._ikon', ['n' => 'lanjut', 's' => 18])</td>
                     </tr>
                 @endforeach
             @empty
@@ -197,7 +213,7 @@
 
             @if ($daftar->isEmpty())
                 <tr>
-                    <td colspan="8" style="padding:44px;text-align:center;color:var(--rop-muted)">
+                    <td colspan="{{ $adaAksi ? 9 : 8 }}" style="padding:44px;text-align:center;color:var(--rop-muted)">
                         @if ($tab === 'menunggu')
                             <b style="display:block;font-size:15px;color:var(--rop-ink)">Antrian bersih</b>
                             Tidak ada pengajuan yang tenggelam.
@@ -250,9 +266,30 @@
     </div>
 
     <div class="rop-drawer__body">
+        {{-- Kerangka pemuatan: drawer terbuka SEKETIKA saat baris diklik,
+             kerangka ini yang tampil sampai fetch detail selesai — koneksi
+             lambat tidak boleh terasa seperti "kliknya gagal" (pola-interaksi
+             P2 / backlog #2). --}}
+        <div id="ropDMuat" hidden aria-hidden="true">
+            <div class="rop-card" style="padding:14px">
+                <div class="rop-muat__bar" style="width:38%"></div>
+                <div class="rop-muat__bar" style="width:64%"></div>
+                <div class="rop-muat__bar" style="width:52%"></div>
+                <div class="rop-muat__bar" style="width:80%;margin-bottom:0"></div>
+            </div>
+            <div class="rop-card" style="padding:14px;margin-top:12px">
+                <div class="rop-muat__bar" style="width:30%"></div>
+                <div class="rop-muat__bar" style="width:100%;height:44px;margin-bottom:0"></div>
+            </div>
+        </div>
+
+        <div id="ropDIsi">
         <div class="rop-card" style="padding:14px">
             <div id="ropDGrid" class="rop-hero__grid" style="margin:0;padding:0;border:0"></div>
-            <p style="margin-top:12px;font-size:14.5px;line-height:1.55" id="ropDKet"></p>
+            <div class="rop-drawer__ket">
+                <span class="rop-label">Untuk apa</span>
+                <p id="ropDKet"></p>
+            </div>
         </div>
 
         <div id="ropDVendor"></div>
@@ -290,18 +327,35 @@
                 <button class="rop-btn rop-btn--danger rop-btn--block">Kirim penolakan</button>
             </form>
         </div>
+        </div>{{-- /#ropDIsi --}}
     </div>
 
     <div class="rop-drawer__foot">
-        <form method="POST" id="ropAccForm" style="flex:1;display:flex;gap:10px">
-            @csrf
-            <input type="hidden" name="coa_no" id="ropDAkunNilai">
-            <button class="rop-btn rop-btn--ok rop-btn--mati" style="flex:1" id="ropSetujui" disabled>
+        {{-- Cabang diajukan: Setujui + Tolak --}}
+        <div id="ropFootAcc">
+            <div class="rop-drawer__aksi">
+                <form method="POST" id="ropAccForm">
+                    @csrf
+                    <input type="hidden" name="coa_no" id="ropDAkunNilai">
+                    <button class="rop-btn rop-btn--ok rop-btn--mati" id="ropSetujui" disabled>
+                        @include('rop._ikon', ['n' => 'cek'])
+                        <span id="ropSetujuiLabel">Pilih akun beban dulu</span>
+                    </button>
+                </form>
+                <button class="rop-btn rop-btn--ghost rop-btn--tolak" type="button" id="ropBukaTolak">Tolak</button>
+            </div>
+            {{-- Alasan tombol mati ditulis, bukan dibiarkan ditebak. --}}
+            <div class="rop-drawer__hint" id="ropAccHint" style="margin-top:9px">Akun beban wajib diisi supaya rekap dan impor Accurate tidak perlu dirapikan lagi.</div>
+        </div>
+        {{-- Cabang disetujui: langsung ke modal bayar (handoff: canBayar).
+             Jalur kedua di samping tombol di tabel Antrian bayar — dari drawer,
+             Finance bisa periksa lampiran & akun dulu sebelum menandai lunas. --}}
+        <div id="ropFootBayar" style="display:none">
+            <button class="rop-btn rop-btn--ok rop-btn--block" type="button" id="ropDrawerBayar">
                 @include('rop._ikon', ['n' => 'cek'])
-                Setujui
+                Tandai dibayar
             </button>
-        </form>
-        <button class="rop-btn rop-btn--ghost" type="button" id="ropBukaTolak">Tolak</button>
+        </div>
     </div>
 </aside>
 
@@ -355,7 +409,15 @@
         });
     }
 
-    function buka()  { drawer.classList.add('is-buka'); scrim.classList.add('is-buka'); drawer.setAttribute('aria-hidden', 'false'); }
+    // Gulungan badan dikembalikan ke atas tiap kali drawer dibuka — kalau tidak,
+    // posisi gulung pengajuan sebelumnya ikut terbawa dan label di baris pertama
+    // (PENGAJU / DIBEBANKAN KE) tampak terpotong di balik kepala drawer.
+    function buka()  {
+        drawer.classList.add('is-buka'); scrim.classList.add('is-buka');
+        drawer.setAttribute('aria-hidden', 'false');
+        var badan = drawer.querySelector('.rop-drawer__body');
+        if (badan) badan.scrollTop = 0;
+    }
     function tutup() { drawer.classList.remove('is-buka'); scrim.classList.remove('is-buka'); drawer.setAttribute('aria-hidden', 'true'); }
 
     scrim.addEventListener('click', tutup);
@@ -367,23 +429,43 @@
     function pilihAkun(no, nama) {
         nilaiAkun.value = no || '';
         selAkun.value = no || '';
+        var label = document.getElementById('ropSetujuiLabel');
+        var hint  = document.getElementById('ropAccHint');
         if (no) {
             tombolSetujui.disabled = false;
             tombolSetujui.classList.remove('rop-btn--mati');
+            if (label) label.textContent = 'Setujui';
+            if (hint) hint.style.display = 'none';
         } else {
             tombolSetujui.disabled = true;
             tombolSetujui.classList.add('rop-btn--mati');
+            if (label) label.textContent = 'Pilih akun beban dulu';
+            if (hint) hint.style.display = '';
         }
     }
     selAkun.addEventListener('change', function () { pilihAkun(selAkun.value); });
 
-    document.querySelectorAll('[data-rop-acc]').forEach(function (btn) {
-        btn.addEventListener('click', function () {
-            var id = btn.getAttribute('data-rop-acc');
+    // Pengajuan yang sedang terbuka di drawer — dipakai interceptor ACC/tolak
+    // untuk memperbarui angka & melompat ke item berikutnya tanpa reload.
+    var itemAktif = null;
+
+    function bukaDetail(id) {
+            // Drawer terbuka SEKETIKA dengan kerangka — jangan hening menunggu
+            // jaringan (backlog #2: koneksi lambat ≠ "kliknya gagal").
+            document.getElementById('ropDIsi').hidden = true;
+            document.getElementById('ropDMuat').hidden = false;
+            document.getElementById('ropDNomor').textContent = 'Memuat…';
+            document.getElementById('ropDNominal').textContent = '';
+            document.getElementById('ropDStatus').innerHTML = '';
+            document.querySelector('.rop-drawer__foot').style.display = 'none';
+            buka();
 
             fetch(basis + '/' + id, { headers: { Accept: 'application/json' } })
-                .then(function (r) { return r.json(); })
+                .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
                 .then(function (d) {
+                    itemAktif = { id: id, number: d.number, amount: Number(d.amount) || 0 };
+                    document.getElementById('ropDMuat').hidden = true;
+                    document.getElementById('ropDIsi').hidden = false;
                     document.getElementById('ropDNomor').textContent = d.number;
                     document.getElementById('ropDNominal').textContent = rupiah(d.amount);
                     document.getElementById('ropDKet').textContent = d.description;
@@ -395,7 +477,7 @@
 
                     document.getElementById('ropDGrid').innerHTML = [
                         ['Pengaju', esc(d.pengaju) + (d.jabatan ? '<div class="rop-mini">' + esc(d.jabatan) + '</div>' : '')],
-                        ['Dibebankan', esc(d.cost_centre_nama || d.cost_centre)],
+                        ['Dibebankan ke', esc(d.cost_centre_nama || d.cost_centre)],
                         ['Dibayarkan kepada', esc(d.penerima)],
                         ['Butuh kapan', esc(d.needed_by || 'tidak ditentukan')]
                     ].map(function (b) {
@@ -419,7 +501,10 @@
                           encodeURI(d.attachment_path) +
                           '">Lihat penawaran / invoice</a></div></div>'
                         : '<div class="rop-note rop-note--kuning" style="margin-top:12px">' +
-                          'Belum ada lampiran. Pertimbangkan minta foto penawaran sebelum ACC.</div>';
+                          // Saran "sebelum ACC" cuma masuk akal selagi masih bisa di-ACC.
+                          (d.status === 'diajukan'
+                              ? 'Belum ada lampiran. Pertimbangkan minta foto penawaran sebelum ACC.'
+                              : 'Tidak ada lampiran.') + '</div>';
 
                     // Daftar akun mengikuti buku Accurate cost centre ini.
                     selAkun.innerHTML = '<option value="">— cari atau pilih akun beban —</option>' +
@@ -455,23 +540,52 @@
                     document.getElementById('ropAccForm').action  = basis + '/' + id + '/setujui';
                     document.getElementById('ropTolakForm').action = basis + '/' + id + '/tolak';
 
-                    // Yang sudah diputuskan cuma bisa dilihat.
-                    var bisaAksi = d.status === 'diajukan';
-                    document.querySelector('.rop-drawer__foot').style.display = bisaAksi ? '' : 'none';
-                    document.getElementById('ropDAkunBlok').style.display = bisaAksi ? '' : 'none';
+                    // Footer per status: diajukan → Setujui/Tolak · disetujui →
+                    // Tandai dibayar · selebihnya cuma bisa dilihat (footer hilang).
+                    var bisaAcc   = d.status === 'diajukan';
+                    var bisaBayar = d.status === 'disetujui';
+                    document.querySelector('.rop-drawer__foot').style.display = (bisaAcc || bisaBayar) ? '' : 'none';
+                    document.getElementById('ropFootAcc').style.display   = bisaAcc ? '' : 'none';
+                    document.getElementById('ropFootBayar').style.display = bisaBayar ? '' : 'none';
+                    document.getElementById('ropDAkunBlok').style.display = bisaAcc ? '' : 'none';
+                    var fb = document.getElementById('ropDrawerBayar');
+                    fb.setAttribute('data-id', id);
+                    fb.setAttribute('data-nomor', d.number);
+                    fb.setAttribute('data-nominal', rupiah(d.amount));
 
                     pilihAkun('');
                     document.getElementById('ropDTolakBlok').style.display = 'none';
+                    document.getElementById('ropDAlasan').value = '';   // jangan bawa alasan item sebelumnya
                     buka();
+                })
+                .catch(function () {
+                    tutup();
+                    tampilkanToast('Gagal memuat detail — coba lagi.', '', null, true);
                 });
+    }
+
+    // Baris tabel = pintu masuk detail (pola yang sama dengan tabel Reservasi/
+    // Pasien/Doctor). Klik pada tombol/link di dalam baris tidak ikut membuka.
+    document.querySelectorAll('[data-rop-buka]').forEach(function (tr) {
+        tr.addEventListener('click', function (e) {
+            if (e.target.closest('button, a, form, input, select, label')) return;
+            bukaDetail(tr.getAttribute('data-rop-buka'));
         });
+    });
+    // Kompatibilitas: tombol lama yang masih menyandang data-rop-acc (kalau ada).
+    document.querySelectorAll('[data-rop-acc]').forEach(function (btn) {
+        btn.addEventListener('click', function () { bukaDetail(btn.getAttribute('data-rop-acc')); });
     });
 
     document.getElementById('ropBukaTolak').addEventListener('click', function () {
         var blok = document.getElementById('ropDTolakBlok');
         blok.style.display = '';
-        blok.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        document.getElementById('ropDAlasan').focus();
+        // Fokus dulu dengan preventScroll — focus() bawaan ikut menggulung dan
+        // membatalkan animasi scrollIntoView, hasilnya blok malah diam di tempat.
+        // 'start', bukan 'center': bloknya lebih tinggi dari separuh badan drawer,
+        // jadi yang harus terlihat adalah bagian ATAS (textarea alasan).
+        document.getElementById('ropDAlasan').focus({ preventScroll: true });
+        blok.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
 
     document.querySelectorAll('[data-rop-alasan]').forEach(function (c) {
@@ -486,14 +600,194 @@
         setTimeout(function () { toast.style.display = 'none'; }, 5400);
     }
 
+    function bukaModalBayar(id, nomor, nominal) {
+        document.getElementById('ropBNomor').textContent = nomor;
+        document.getElementById('ropBNominal').textContent = nominal;
+        document.getElementById('ropBayarForm').action = basis + '/' + id + '/bayar';
+        $('#ropBayarModal').modal('show');
+    }
+
+    /* ══ Backlog #1 pola-interaksi: aksi tanpa reload ═════════════════════
+       ACC / tolak / bayar dikirim via fetch → toast (+ "Urungkan" utk ACC &
+       tolak) → baris hilang, angka-angka ikut turun, drawer langsung pindah
+       ke pengajuan berikutnya. Form tetap form biasa sebagai fallback tanpa
+       JS — interceptor ini hanya lapisan di atasnya. ═════════════════════ */
+
+    var CSRF = (document.querySelector('#ropAccForm input[name=_token]') || {}).value || '';
+
+    // ── toast (dibangun client-side; kembarannya versi flash tetap ada
+    //    untuk jalur non-fetch) ──
+    function tampilkanToast(judul, sub, urungId, galat) {
+        var lama = document.getElementById('ropToastJs');
+        if (lama) lama.remove();
+        var t = document.createElement('div');
+        t.className = 'rop-toast' + (galat ? ' rop-toast--galat' : '');
+        t.id = 'ropToastJs';
+        var isi = document.createElement('div');
+        var b = document.createElement('b'); b.textContent = judul; isi.appendChild(b);
+        if (sub) { var s = document.createElement('small'); s.textContent = sub; isi.appendChild(s); }
+        t.appendChild(isi);
+        if (urungId) {
+            var btn = document.createElement('button');
+            btn.type = 'button'; btn.textContent = 'Urungkan';
+            btn.addEventListener('click', function () {
+                btn.disabled = true; btn.textContent = 'Mengembalikan…';
+                var fd = new FormData(); fd.append('_token', CSRF);
+                fetch(basis + '/' + urungId + '/urungkan', {
+                    method: 'POST', body: fd,
+                    headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+                }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+                  .then(function (h) {
+                      // Urungkan = jalur langka; muat ulang supaya semua angka
+                      // kembali jujur tanpa akrobat DOM.
+                      if (h.ok) { location.reload(); }
+                      else { tampilkanToast(h.d.error || 'Gagal mengurungkan.', '', null, true); }
+                  })
+                  .catch(function () { tampilkanToast('Jaringan bermasalah — coba lagi.', '', null, true); });
+            });
+            t.appendChild(btn);
+        }
+        var bar = document.createElement('div'); bar.className = 'rop-toast__bar'; t.appendChild(bar);
+        document.body.appendChild(t);
+        // Ikut jendela urung server (RopService::DETIK_URUNG jauh lebih longgar,
+        // tapi toast cukup selama animasi barnya).
+        setTimeout(function () { if (t.parentNode) t.remove(); }, galat ? 6000 : 5400);
+    }
+
+    // ── angka hidup: statistik, badge tab, header grup ──
+    function geserAngka(el, delta) {
+        if (!el) return;
+        var n = Math.max(0, (Number(el.dataset.n) || 0) + delta);
+        el.dataset.n = n; el.textContent = n;
+    }
+    function geserRupiah(el, delta) {
+        if (!el) return;
+        var n = Math.max(0, (Number(el.dataset.rp) || 0) + delta);
+        el.dataset.rp = n; el.textContent = rupiah(n);
+    }
+    function geserBadge(kode, delta) {
+        var b = document.querySelector('[data-badge="' + kode + '"]');
+        if (!b) return;
+        var n = Math.max(0, (Number(b.textContent) || 0) + delta);
+        b.textContent = n;
+        if (n === 0) b.remove();   // server juga tidak merender badge 0
+    }
+    function perbaruiAngka(aksi, amount) {
+        if (aksi === 'acc') {
+            geserAngka(document.getElementById('ropStatMenungguN'), -1);
+            geserRupiah(document.getElementById('ropStatMenungguRp'), -amount);
+            geserAngka(document.getElementById('ropStatDisetujuiN'), +1);
+            geserRupiah(document.getElementById('ropStatDisetujuiRp'), +amount);
+            geserBadge('menunggu', -1); geserBadge('disetujui', +1);
+        } else if (aksi === 'tolak') {
+            geserAngka(document.getElementById('ropStatMenungguN'), -1);
+            geserRupiah(document.getElementById('ropStatMenungguRp'), -amount);
+            geserBadge('menunggu', -1);
+        } else if (aksi === 'bayar') {
+            geserAngka(document.getElementById('ropStatDisetujuiN'), -1);
+            geserRupiah(document.getElementById('ropStatDisetujuiRp'), -amount);
+            geserBadge('disetujui', -1);
+        }
+    }
+
+    // ── baris hilang + header grupnya menyusut; kembalikan id berikutnya ──
+    function hapusBaris(id, amount) {
+        var tr = document.querySelector('tr[data-rop-buka="' + id + '"]');
+        if (!tr) return null;
+        var semua = Array.prototype.slice.call(document.querySelectorAll('tr[data-rop-buka]'));
+        var i = semua.indexOf(tr);
+        var berikut = semua[i + 1] || semua[i - 1] || null;
+
+        // header grup di atas baris ini (kalau tampilan berkelompok)
+        var grup = tr.previousElementSibling;
+        while (grup && !grup.classList.contains('rop-grup')) grup = grup.previousElementSibling;
+        if (grup) {
+            var nEl = grup.querySelector('.rop-grup__n');
+            var tEl = grup.querySelector('.rop-grup__total');
+            var sisa = Math.max(0, (Number(nEl && nEl.textContent) || 1) - 1);
+            if (nEl) nEl.textContent = sisa;
+            if (tEl) { var tot = Math.max(0, (Number(tEl.dataset.total) || 0) - amount); tEl.dataset.total = tot; tEl.textContent = rupiah(tot); }
+            if (sisa === 0) grup.remove();
+        }
+        tr.remove();
+        return berikut ? berikut.getAttribute('data-rop-buka') : null;
+    }
+
+    function setelahAksi(aksi, id, amount, berikutnyaDariDrawer) {
+        perbaruiAngka(aksi, amount);
+        var berikut = hapusBaris(id, amount);
+        if (berikutnyaDariDrawer) {
+            if (berikut) bukaDetail(berikut);
+            else tutup();
+        }
+    }
+
+    // ── pengirim fetch untuk form (FormData ikut membawa file & _token) ──
+    function kirimForm(form, tombol, labelSibuk, lalu) {
+        var labelEl = tombol ? (tombol.querySelector('span') || tombol) : null;
+        var labelAsli = labelEl ? labelEl.textContent : '';
+        if (tombol) { tombol.disabled = true; if (labelEl) labelEl.textContent = labelSibuk; }
+        fetch(form.action, {
+            method: 'POST', body: new FormData(form),
+            headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+        }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+          .then(function (h) {
+              if (h.ok && h.d.ok) { lalu(h.d); }
+              else {
+                  // 422 validasi Laravel: {message, errors}; error kita: {error}
+                  tampilkanToast(h.d.error || h.d.message || 'Gagal menyimpan.', '', null, true);
+              }
+          })
+          .catch(function () { tampilkanToast('Jaringan bermasalah — coba lagi.', '', null, true); })
+          .finally(function () { if (tombol) { tombol.disabled = false; if (labelEl) labelEl.textContent = labelAsli; } });
+    }
+
+    document.getElementById('ropAccForm').addEventListener('submit', function (e) {
+        e.preventDefault();
+        var aktif = itemAktif || {};
+        kirimForm(this, document.getElementById('ropSetujui'), 'Menyimpan…', function (d) {
+            tampilkanToast(d.urung.number + ' disetujui', 'Akun beban: ' + d.urung.akun, d.urung.id);
+            setelahAksi('acc', d.urung.id, Number(d.amount) || aktif.amount || 0, true);
+        });
+    });
+
+    document.getElementById('ropTolakForm').addEventListener('submit', function (e) {
+        e.preventDefault();
+        var aktif = itemAktif || {};
+        var tombol = this.querySelector('button[type=submit], button:not([type])');
+        kirimForm(this, tombol, 'Mengirim…', function (d) {
+            tampilkanToast(d.urung.number + ' ditolak', 'Pengaju diberi tahu alasannya.', d.urung.id);
+            setelahAksi('tolak', d.urung.id, Number(d.amount) || aktif.amount || 0, true);
+        });
+    });
+
+    document.getElementById('ropBayarForm').addEventListener('submit', function (e) {
+        e.preventDefault();
+        var form = this;
+        var id = (form.action.match(/rop\/(\d+)\/bayar/) || [])[1];
+        var tombol = form.querySelector('button[type=submit], button:not([type])');
+        kirimForm(form, tombol, 'Menyimpan…', function (d) {
+            $('#ropBayarModal').modal('hide');
+            form.reset();
+            tampilkanToast(d.number + ' ditandai sudah dibayar', 'Pengaju diminta upload nota.', null);
+            setelahAksi('bayar', id, Number(d.amount) || 0, false);
+        });
+    });
+
     document.querySelectorAll('[data-rop-bayar]').forEach(function (btn) {
         btn.addEventListener('click', function () {
-            var id = btn.getAttribute('data-rop-bayar');
-            document.getElementById('ropBNomor').textContent = btn.getAttribute('data-rop-nomor');
-            document.getElementById('ropBNominal').textContent = btn.getAttribute('data-rop-nominal');
-            document.getElementById('ropBayarForm').action = basis + '/' + id + '/bayar';
-            $('#ropBayarModal').modal('show');
+            bukaModalBayar(btn.getAttribute('data-rop-bayar'),
+                           btn.getAttribute('data-rop-nomor'),
+                           btn.getAttribute('data-rop-nominal'));
         });
+    });
+
+    // Dari footer drawer: drawer ditutup dulu supaya tidak rebutan lapisan
+    // dengan modal Bootstrap (dua-duanya elemen fixed ber-z-index tinggi).
+    document.getElementById('ropDrawerBayar').addEventListener('click', function () {
+        var b = this;
+        tutup();
+        bukaModalBayar(b.getAttribute('data-id'), b.getAttribute('data-nomor'), b.getAttribute('data-nominal'));
     });
 })();
 </script>

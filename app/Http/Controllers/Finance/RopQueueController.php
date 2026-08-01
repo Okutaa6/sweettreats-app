@@ -207,7 +207,9 @@ class RopQueueController extends Controller
             // yang tidak ada saat diekspor ke Accurate nanti.
             $nama = $this->coa->namaAkun($rop->cost_centre, $data['coa_no']);
             if ($nama === null) {
-                return $this->kembali()->with('error', 'Akun beban tidak ditemukan di buku ' . $rop->cost_centre . '.');
+                $pesan = 'Akun beban tidak ditemukan di buku ' . $rop->cost_centre . '.';
+                if ($request->wantsJson()) return response()->json(['error' => $pesan], 422);
+                return $this->kembali()->with('error', $pesan);
             }
 
             $this->rop->setujui($rop, [
@@ -218,12 +220,22 @@ class RopQueueController extends Controller
 
             // Dikirim sebagai data toast (bukan pesan sukses biasa) supaya
             // layar bisa menawarkan "Urungkan" untuk salah klik.
-            return $this->kembali()->with('rop_urung', [
+            $urung = [
                 'id'     => $rop->id,
                 'number' => $rop->number,
                 'akun'   => $data['coa_no'] . ' — ' . $nama,
-            ]);
+            ];
+
+            // Jalur fetch (tanpa reload): layar meneruskan toast + auto-lanjut
+            // sendiri. Jalur form biasa tetap hidup sebagai fallback tanpa JS.
+            if ($request->wantsJson()) {
+                return response()->json(['ok' => true, 'urung' => $urung, 'amount' => (int) $rop->amount]);
+            }
+            return $this->kembali()->with('rop_urung', $urung);
         } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+            if ($request->wantsJson()) {
+                return response()->json(['error' => $e->getMessage() ?: 'Gagal menyetujui pengajuan.'], $e->getStatusCode() ?: 422);
+            }
             return $this->kembali()->with('error', $e->getMessage() ?: 'Gagal menyetujui pengajuan.');
         }
     }
@@ -242,27 +254,48 @@ class RopQueueController extends Controller
             $rop = RopRequest::findOrFail($id);
             $this->rop->tolak($rop, $data['alasan'], (string) session('id'));
 
+            if ($request->wantsJson()) {
+                return response()->json([
+                    'ok'     => true,
+                    'urung'  => ['id' => $rop->id, 'number' => $rop->number],
+                    'amount' => (int) $rop->amount,
+                ]);
+            }
             return $this->kembali()->with('success', 'Pengajuan ' . $rop->number . ' ditolak. Pengaju sudah diberi tahu.');
         } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+            if ($request->wantsJson()) {
+                return response()->json(['error' => $e->getMessage() ?: 'Gagal menolak pengajuan.'], $e->getStatusCode() ?: 422);
+            }
             return $this->kembali()->with('error', $e->getMessage() ?: 'Gagal menolak pengajuan.');
         }
     }
 
     /**
-     * Tarik kembali persetujuan yang baru saja dilakukan — tombol "Urungkan"
-     * di toast. Syarat ketatnya ada di RopService::urungkanPersetujuan().
+     * Tarik kembali keputusan yang baru saja dilakukan — tombol "Urungkan"
+     * di toast. Melayani DUA arah sesuai status sekarang: disetujui→diajukan
+     * dan ditolak→diajukan. Syarat ketatnya ada di RopService::urungkan*().
      */
-    public function urungkan($id)
+    public function urungkan(Request $request, $id)
     {
         $this->guard();
 
         try {
             $rop = RopRequest::findOrFail($id);
-            $this->rop->urungkanPersetujuan($rop, (string) session('id'));
+            if ($rop->status === RopRequest::STATUS_DITOLAK) {
+                $this->rop->urungkanPenolakan($rop, (string) session('id'));
+                $pesan = 'Penolakan ' . $rop->number . ' diurungkan. Pengajuan kembali ke antrian.';
+            } else {
+                $this->rop->urungkanPersetujuan($rop, (string) session('id'));
+                $pesan = 'Persetujuan ' . $rop->number . ' diurungkan. Pengajuan kembali ke antrian.';
+            }
 
-            return $this->kembali()->with('success', 'Persetujuan ' . $rop->number . ' diurungkan. Pengajuan kembali ke antrian.');
+            if ($request->wantsJson()) return response()->json(['ok' => true]);
+            return $this->kembali()->with('success', $pesan);
         } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
-            return $this->kembali()->with('error', $e->getMessage() ?: 'Gagal mengurungkan persetujuan.');
+            if ($request->wantsJson()) {
+                return response()->json(['error' => $e->getMessage() ?: 'Gagal mengurungkan.'], $e->getStatusCode() ?: 409);
+            }
+            return $this->kembali()->with('error', $e->getMessage() ?: 'Gagal mengurungkan.');
         }
     }
 
@@ -274,6 +307,9 @@ class RopQueueController extends Controller
             'paid_at' => 'nullable|date',
             'bukti'   => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf|max:5120',
             'catatan' => 'nullable|string|max:500',
+        ], [
+            'bukti.mimes' => 'Bukti transfer harus berupa foto (JPG/PNG/WebP) atau PDF.',
+            'bukti.max'   => 'Ukuran bukti transfer maksimal 5 MB.',
         ]);
 
         try {
@@ -286,8 +322,14 @@ class RopQueueController extends Controller
                 'catatan'         => $data['catatan'] ?? null,
             ], (string) session('id'));
 
+            if ($request->wantsJson()) {
+                return response()->json(['ok' => true, 'number' => $rop->number, 'amount' => (int) $rop->amount]);
+            }
             return $this->kembali()->with('success', 'Pengajuan ' . $rop->number . ' ditandai sudah dibayar.');
         } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+            if ($request->wantsJson()) {
+                return response()->json(['error' => $e->getMessage() ?: 'Gagal menandai pembayaran.'], $e->getStatusCode() ?: 422);
+            }
             return $this->kembali()->with('error', $e->getMessage() ?: 'Gagal menandai pembayaran.');
         }
     }

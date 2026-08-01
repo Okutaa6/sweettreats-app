@@ -12,6 +12,7 @@
     @case('plus')     <path d="M12 5v14M5 12h14"/> @break
     @case('kirim')    <path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7z"/> @break
     @case('kembali')  <path d="M15 18l-6-6 6-6"/> @break
+    @case('lanjut')   <path d="M9 18l6-6-6-6"/> @break
     @case('cek')      <path d="M20 6 9 17l-5-5"/> @break
     @case('waktu')    <circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/> @break
     @case('awas')     <path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/> @break

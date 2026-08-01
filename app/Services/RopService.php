@@ -394,6 +394,54 @@ class RopService
     }
 
     /**
+     * Urungkan PENOLAKAN yang baru saja dilakukan — cermin dari
+     * urungkanPersetujuan(), syarat ketat yang sama: masih `ditolak`,
+     * pelakunya orang yang menolak, masih dalam jendela waktu. Jejak log
+     * tidak dihapus; pengaju yang terlanjur diberi tahu "ditolak" dikoreksi
+     * terang-terangan.
+     */
+    public function urungkanPenolakan(RopRequest $rop, string $actorId): RopRequest
+    {
+        return DB::transaction(function () use ($rop, $actorId) {
+            /** @var RopRequest $segar */
+            $segar = RopRequest::lockForUpdate()->findOrFail($rop->id);
+
+            if ($segar->status !== RopRequest::STATUS_DITOLAK) {
+                abort(409, 'Pengajuan ini sudah tidak berstatus ditolak.');
+            }
+            if ((string) $segar->reviewed_by !== $actorId) {
+                abort(403, 'Hanya yang menolak yang bisa mengurungkan.');
+            }
+            if (! $segar->reviewed_at || $segar->reviewed_at->diffInSeconds(now()) > self::DETIK_URUNG) {
+                abort(409, 'Waktu untuk mengurungkan sudah lewat.');
+            }
+
+            $segar->update([
+                'status'        => RopRequest::STATUS_DIAJUKAN,
+                'reject_reason' => null,
+                'reviewed_by'   => null,
+                'reviewed_at'   => null,
+            ]);
+
+            $this->catat($segar, RopRequest::STATUS_DITOLAK, RopRequest::STATUS_DIAJUKAN,
+                $actorId, 'Penolakan diurungkan');
+
+            if ($segar->requester_id) {
+                AdminNotification::notify(
+                    'rop_urung',
+                    'Penolakan ditarik kembali',
+                    $segar->number . ' kembali menunggu keputusan Finance.',
+                    url('pengajuan/' . $segar->id),
+                    null,
+                    (string) $segar->requester_id,
+                );
+            }
+
+            return $segar->fresh();
+        });
+    }
+
+    /**
      * Pembatalan oleh pengaju sendiri — hanya selama belum di-ACC.
      * Dipakai soft delete, bukan status baru: yang dibatalkan tidak perlu
      * ikut muncul di laporan mana pun, tapi jejaknya tetap ada di DB.
