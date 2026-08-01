@@ -12,20 +12,35 @@
 | | Branch | Commit | Catatan |
 |---|---|---|---|
 | **PROD** | `main` | `b8b8f2d` (25 Jul) | cuma sampai hotfix reservasi |
-| **DEV** | `feature/rop` | `9e7154d` (1 Agu) | ROP + kerjaan Reza, sudah diuji |
-| **LOKAL** | `feature/absensi` + reskin **belum commit** | `df8b6cb` | masih testing |
+| **DEV** | `feature/rop` | `3dd604a` (1 Agu) | gerbong LENGKAP, sudah diuji |
+| **Calon rilis** | `release/2026-08-pengeluaran` | `3dd604a` | dipotong dari feature/rop, ini yang di-PR ke `main` |
 
-`feature/rop` = **87 commit** di depan `main`. Isinya: absensi lengkap, absen
-HP, Pusat Akun, jatah cuti, lembar gaji, checklist Reza, dashboard marketing,
-cuci AC, dan ROP.
+Gerbong = **91 commit / 298 berkas** di depan `main`. Isinya: absensi lengkap,
+absen HP, Pusat Akun, jatah cuti, lembar gaji, checklist + cuci AC (Reza),
+dashboard marketing & login baru, reskin zona/peta tema, ROP, dan fix jadwal
+khusus dokter.
+
+Semua sudah menyatu **2026-08-01**: reskin di-commit (`2d7f03a`) lalu
+digabung, `fix/doctor-availability-cuti` ikut, dan dev diuji ulang sebagai
+satu kesatuan (log bersih, 0 error).
 
 ## 2. Inventaris cabang GitHub — mana yang ikut, mana yang tidak
 
-**Sudah tergabung di `feature/rop`** (tidak perlu dipikirkan lagi):
-`feature/absensi` · `dashboardmarketing-checklistdesign-monitoringAC-bugfixlainnya`
+**Sudah tergabung** (tidak perlu dipikirkan lagi): `feature/absensi` (termasuk
+reskin) · `dashboardmarketing-checklistdesign-monitoringAC-bugfixlainnya`
 (Reza, 30 Jul) · `dashboard-login-update-dashboardmarketing` ·
 `checklist-hierarki-version` · `waiting-list-bug` · `fix/affiliate-reward-counter` ·
-`detail-pasien-dan-media-sosial`
+`detail-pasien-dan-media-sosial` · **`fix/doctor-availability-cuti`** (ikut
+gerbong atas keputusan user 2026-08-01)
+
+**Cara memeriksa ulang sebelum memotong rilis** (jangan mengandalkan ingatan):
+
+```
+for b in $(git for-each-ref --format='%(refname:short)' refs/remotes/origin | grep -v HEAD); do
+  n=$(git log --oneline release/2026-08-pengeluaran..$b | wc -l)
+  [ "$n" -gt 0 ] && echo "$b: $n commit belum masuk"
+done
+```
 
 **Belum tergabung — harus diputuskan satu per satu:**
 
@@ -33,7 +48,6 @@ cuci AC, dan ROP.
 |---|---|---|
 | `main` (2 commit) | hotfix reservasi 25 Jul | Sudah **di-port** ke absensi (`5dcf0f2`) — isinya sama, tapi commit-nya beda. Saat merge ke main, **verifikasi hasil akhirnya**, jangan asal terima |
 | `hotfix/sweet-mates-auth` | tambalan celah menu sweet-mates | **UTANG KEAMANAN** — sekarang prod aman hanya karena opcache lama. Sudah ikut di dalam `feature/rop`, tapi kalau prod besar tertunda lagi, naikkan branch ini sendiri |
-| `fix/doctor-availability-cuti` | cuti vs jadwal khusus dokter | Belum pernah naik ke mana pun. Putuskan: ikut gerbong ini atau dibuang |
 | `feature/accurate-integration` (9 commit) | modul Accurate lengkap + **`accurate:pull-glaccount`** | Di-pause, TAPI ROP butuh satu bagiannya (§4.3) |
 | `feature/accurate-commands` | WIP push/pull | Pesan commitnya sendiri bilang **"BELUM SELESAI, jangan merge"** |
 | `feature/project-tracker` | Project Tracker fase A | WIP, sengaja tidak di-merge |
@@ -137,13 +151,35 @@ Tiga pilihan:
 
 ## 6. Urutan yang disarankan
 
-1. Reskin selesai testing → commit → gabungkan ke `feature/rop`.
-2. Selesaikan pilihan §4.3 (glaccount) dan putuskan `fix/doctor-availability-cuti`.
-3. Uji sekali lagi di dev **sebagai satu kesatuan**.
-4. Backup DB prod.
-5. `feature/rop` → `main` (verifikasi 2 commit main yang di-port tidak hilang).
-6. Deploy prod + SQL berurutan + migration + rebuild + rsync.
-7. Verifikasi per peran: login, absensi, cuti, pengajuan ROP, antrian Finance.
+**Kiriman 1 — `hotfix/sweet-mates-auth` sendirian, secepatnya.** 2 berkas
+(6 baris route + 1 SQL menu), tanpa migrasi data. Alasannya: route rentannya
+**sudah ada di prod sekarang**, tertutup hanya karena opcache menyajikan
+bytecode lama — dan deploy besar justru akan me-reset opcache. Selama gerbong
+belum jalan, satu kali restart PHP-FPM saja sudah membuka halaman member
+KOL/KOC + komisi tanpa login.
+
+**Kiriman 2 — gerbong besar:**
+
+1. ~~Reskin commit & gabung~~ — SELESAI 2026-08-01.
+2. Selesaikan pilihan §4.3 (glaccount) — tanpa ini Finance tak bisa meng-ACC.
+3. Backup DB prod.
+4. PR `release/2026-08-pengeluaran` → `main` (verifikasi 2 commit main yang
+   sudah di-port tidak hilang).
+5. Deploy prod + SQL berurutan + migration + `access:rebuild` + `cache:clear`
+   + **rsync aset**.
+6. Role & akun (§5), lalu `cuti:saldo-awal --terapkan` dan `rop:tarik-vendor`.
+7. Verifikasi per peran — pola yang dipakai di dev: Finance & Head IT membuka
+   antrian ROP, Supervisor bisa mengajukan tapi ditolak di antrian, Front
+   Office tidak bisa mengajukan.
+
+## 6a. Catatan gerbang akses yang mudah bikin salah sangka
+
+Beberapa halaman **tidak** dijaga node menu, melainkan helper di controller:
+`/absensi/kehadiran` dan `/finance/pettycash` sama-sama memakai
+`canSeeAllBranches()`. Akibatnya **Head IT/IT dapat 403 di sana walau mereka
+admin** — ini perilaku lama, bukan kerusakan. Jangan "memperbaiki"-nya dengan
+menambah grant menu; kalau memang mau dibuka, ubah helper/guard-nya sadar-sadar.
+Halaman `absensi/kehadiran` juga memang **tidak punya node menu** di dev.
 
 ## 7. Yang sengaja TIDAK ikut
 
