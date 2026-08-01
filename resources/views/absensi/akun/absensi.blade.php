@@ -112,6 +112,9 @@
     .aks-rw-date { font-size: 12.5px; font-weight: 700; color: #3B1500; }
     .aks-rw-reason { font-size: 11.5px; color: #9A7256; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .aks-rw-pill { display: inline-flex; align-items: center; flex: none; border: 1px solid transparent; border-radius: 20px; padding: 4px 10px; font-size: 11px; font-weight: 800; white-space: nowrap; }
+    /* chevron kartu riwayat (pola-interaksi P1) — aksen cokelat, redup saat diam */
+    .aks-rw-chev { flex: none; display: flex; color: #8A3A12; opacity: .8; transition: transform .15s ease, opacity .15s ease; }
+    .aks-rw:hover .aks-rw-chev { opacity: 1; transform: translateX(2px); }
     .aks-rw-empty { background: #fff; border: 1px dashed #E2C8A8; border-radius: 14px; padding: 28px; text-align: center; font-size: 12.5px; color: #A9866A; }
 
     /* kartu detail (KAH) */
@@ -414,6 +417,8 @@
                                 @if($r->alasan)<div class="aks-rw-reason">{{ $r->alasan }}</div>@endif
                             </div>
                             <span class="aks-rw-pill" style="background:{{ $rl[1] }};color:{{ $rl[2] }};border-color:{{ $rl[3] }}">{{ $rl[0] }}</span>
+                            {{-- chevron: kartu ini membuka detail (pola-interaksi P1) --}}
+                            <span class="aks-rw-chev" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 3.5 10.5 8 6 12.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
                         </div>
                     @endforeach
                 </div>
@@ -575,6 +580,7 @@ var AKS_TODAY = @json($todayIso);
     function openKorPrefill(iso, label, statusLbl, klas, jam) {
         korForm.reset();
         korSubmit.disabled = true;
+        korSubmit.textContent = 'Pilih dulu apa yang keliru';   // P3: alasan matinya tertulis
         document.getElementById('korFotoZone').classList.remove('is-on');
         document.querySelector('.absk-korfoto-tick').hidden = true;
         document.querySelector('.absk-korfoto-lbl').textContent = 'Lampirkan foto (opsional)';

@@ -98,7 +98,9 @@
     </div>
 
     <div class="absk-ajfooter">
-        <button type="submit" class="absk-submit" id="ajSubmit"><i class="fa fa-paper-plane"></i> Kirim Permohonan</button>
+        {{-- Label tombol menjelaskan kenapa dia mati (P3): sebelum jenis
+             dipilih, dia bilang begitu — bukan diam. --}}
+        <button type="submit" class="absk-submit" id="ajSubmit" disabled><i class="fa fa-paper-plane"></i> <span id="ajSubmitTeks">Pilih jenis dulu</span></button>
         @if($ajInDrawer)<button type="button" class="absk-batal" data-close-ajukan>Batal</button>@endif
     </div>
 </form>
@@ -108,6 +110,16 @@
     var form = document.querySelector('.absk-ajform');
     if (!form || form.dataset.wired) return;
     form.dataset.wired = '1';
+
+    // Umpan balik kirim (pola-interaksi P2): tombol bilang sedang bekerja +
+    // kebal klik dobel; menonaktifkan di dalam handler submit tidak
+    // menghentikan pengiriman yang sudah berjalan.
+    form.addEventListener('submit', function () {
+        var b = form.querySelector('#ajSubmit');
+        var teks = form.querySelector('#ajSubmitTeks');
+        if (b) b.disabled = true;
+        if (teks) teks.textContent = 'Mengirim…';
+    });
 
     var tipeHidden = form.querySelector('#tipeHidden');
     var subHidden  = form.querySelector('#subHidden');
@@ -147,6 +159,8 @@
         }
 
         submitBtn.disabled = !t;
+        var ajTeks = form.querySelector('#ajSubmitTeks');
+        if (ajTeks) ajTeks.textContent = t ? 'Kirim Permohonan' : 'Pilih jenis dulu';
         if (isLembur) calcDur();
     }
 

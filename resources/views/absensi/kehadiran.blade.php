@@ -89,7 +89,10 @@
     .kh2-name-cell { position: sticky; left: 0; z-index: 2; background: #fff; display: flex; align-items: center; gap: 10px; padding: 0 12px 0 14px; min-width: 0; cursor: pointer; box-shadow: 7px 0 9px -7px rgba(70,21,0,.14); transition: background .12s ease; }
     .kh2-row:hover .kh2-name-cell { background: #FDF9F4; }
     .kh2-av { flex: none; border-radius: 50%; color: #FFF3E9; display: flex; align-items: center; justify-content: center; font-weight: 800; letter-spacing: .2px; }
-    .kh2-name-tx { min-width: 0; }
+    .kh2-name-tx { min-width: 0; flex: 1; }
+    /* chevron nama (pola-interaksi P1): nama → drawer sebulan */
+    .kh2-name-chev { flex: none; display: flex; color: #8A3A12; opacity: .8; margin-left: auto; transition: transform .15s ease, opacity .15s ease; }
+    .kh2-name-cell:hover .kh2-name-chev { opacity: 1; transform: translateX(2px); }
     .kh2-nm { font-size: 12.5px; font-weight: 700; color: #3B1500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .kh2-nsub { font-size: 10.5px; color: #A9866A; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .kh2-cellwrap { position: relative; display: flex; align-items: center; justify-content: center; }
@@ -532,7 +535,11 @@ var KH_DATA = {
                     + '<div class="kh2-name-cell" data-person="' + r.id + '" title="Lihat sebulan penuh" style="height:' + rowH + 'px">'
                     + '<div class="kh2-av" style="width:31px;height:31px;font-size:12px;background:' + KAH.avColor(r.n) + '">' + esc(KAH.ini(r.n)) + '</div>'
                     + '<div class="kh2-name-tx"><div class="kh2-nm">' + esc(r.n) + '</div>'
-                    + '<div class="kh2-nsub">' + esc((r.r ? r.r + ' · ' : '') + shortLabel(g)) + '</div></div></div>'
+                    + '<div class="kh2-nsub">' + esc((r.r ? r.r + ' · ' : '') + shortLabel(g)) + '</div></div>'
+                    // chevron: nama membuka drawer sebulan (pola-interaksi P1) —
+                    // dulu satu-satunya petunjuknya cuma teks kecil di legenda
+                    + '<span class="kh2-name-chev" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M6 3.5 10.5 8 6 12.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>'
+                    + '</div>'
                     + cellsH
                     + '<div class="kh2-tot num" style="height:' + rowH + 'px">'
                     + '<span style="font-size:12px;font-weight:800;color:#2F8E55">' + hh + '</span><span style="color:#E2D2C0">·</span>'

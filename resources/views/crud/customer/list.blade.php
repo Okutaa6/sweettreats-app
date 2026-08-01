@@ -183,6 +183,8 @@
                             <th>Perawatan</th>
                             <th>Dokter</th>
                             <th>Kunjungan Terakhir</th>
+                            {{-- kolom chevron: penanda baris bisa dibuka (pola-interaksi P1) --}}
+                            <th style="width:38px" aria-hidden="true"></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -222,9 +224,10 @@
                                 <td>@if($perawatan)<span class="px-treat">{{ $perawatan }}</span>@else<span class="px-muted">—</span>@endif</td>
                                 <td>@if($latestReservation?->doctor?->name)<span class="px-doctor" title="{{ $latestReservation->doctor->name }}">{{ $latestReservation->doctor->name }}</span>@else<span class="px-muted">—</span>@endif</td>
                                 <td class="px-tnum">{{ $row->last_visit ? \Carbon\Carbon::parse($row->last_visit)->format('d M Y') : '—' }}</td>
+                                <td class="px-chev"><i class="fa fa-chevron-right"></i></td>
                             </tr>
                         @empty
-                            <tr><td colspan="7" class="px-muted" style="text-align:center; padding:32px;">Tidak ada pasien di segmen ini.</td></tr>
+                            <tr><td colspan="8" class="px-muted" style="text-align:center; padding:32px;">Tidak ada pasien di segmen ini.</td></tr>
                         @endforelse
                     </tbody>
                 </table>

@@ -39,8 +39,29 @@
         </label>
 
         <div class="absk-korbtns">
-            <button type="submit" class="absk-korsubmit" id="korSubmit" disabled>Kirim Koreksi</button>
+            {{-- Label tombolnya sendiri yang menjelaskan kenapa dia mati
+                 (pola-interaksi P3) — berubah jadi "Kirim Koreksi" begitu
+                 alasan dipilih. --}}
+            <button type="submit" class="absk-korsubmit" id="korSubmit" disabled>Pilih dulu apa yang keliru</button>
             <button type="button" class="absk-korbatal" data-close-koreksi>Batal</button>
         </div>
     </div>
 </form>
+<script>
+    // Umpan balik kirim (pola-interaksi P2): tombol bilang sedang bekerja +
+    // kebal klik dobel. Dinonaktifkan DI DALAM handler submit — pengiriman
+    // yang sudah berjalan tidak ikut terhenti.
+    document.getElementById('korForm').addEventListener('submit', function () {
+        var b = document.getElementById('korSubmit');
+        b.disabled = true;
+        b.textContent = 'Mengirim…';
+    });
+    // P3: begitu alasan dipilih, label kembali jadi ajakan kirim. (Halaman
+    // pemanggil yang meng-enable tombolnya; teksnya diurus di sini supaya
+    // partial ini utuh sendiri.)
+    document.querySelectorAll('#korForm input[name="koreksi_alasan"]').forEach(function (r) {
+        r.addEventListener('change', function () {
+            document.getElementById('korSubmit').textContent = 'Kirim Koreksi';
+        });
+    });
+</script>

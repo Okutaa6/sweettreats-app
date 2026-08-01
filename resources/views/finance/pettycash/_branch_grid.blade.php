@@ -13,7 +13,9 @@
         <h5 class="fpc-section__title">
             <i class="fa fa-building"></i> Saldo per Cabang
         </h5>
-        <small class="fpc-section__sub fpc-section__sub--link">Klik kartu untuk lihat riwayat transaksi cabang</small>
+        {{-- Dulu di sini ada teks instruksi "Klik kartu untuk…". Diganti chevron
+             di tiap kartu (pola-interaksi P1): kalau butuh kalimat instruksi,
+             tanda visualnya gagal. --}}
     </div>
 
     <div class="fpc-branch-grid">
@@ -42,6 +44,8 @@
                     <div class="fpc-branch-card__name-wrap">
                         <span class="fpc-branch-card__dot"></span>
                         <span class="fpc-branch-card__name">{{ $b->name }}</span>
+                        {{-- chevron = penanda "kartu ini bisa dibuka" (P1) --}}
+                        <i class="fa fa-chevron-right fpc-branch-card__chev" aria-hidden="true"></i>
                     </div>
                     <span class="fpc-branch-card__pill fpc-branch-card__pill--{{ $status }}">{{ $statusLabel }}</span>
                 </div>
@@ -110,6 +114,11 @@
     grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
     gap: 14px;
 }
+/* Chevron kartu (pola-interaksi P1): warna aksen zona, redup saat diam,
+   pekat + maju saat kartu di-hover. */
+.fpc-branch-card__chev { font-size: 12px; color: var(--brown); opacity: .8; margin-left: 4px; transition: transform .15s ease, opacity .15s ease; }
+.fpc-branch-card:hover .fpc-branch-card__chev { opacity: 1; transform: translateX(2px); }
+
 .fpc-branch-card {
     position: relative;
     display: block;
