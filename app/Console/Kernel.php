@@ -90,6 +90,21 @@ class Kernel extends ConsoleKernel
         $schedule->call(fn () => app(\App\Services\CutiService::class)->resetKontrakKedaluwarsa())
             ->name('cuti-reset-kontrak')->dailyAt('01:20')->withoutOverlapping(30);
 
+        // Pengajuan/ROP — 07:00, jam orang mulai kerja supaya pengingat
+        // antrian tua terbaca hari itu juga (bukan menumpuk semalaman).
+        // Dua tugas: ingatkan Finance soal pengajuan menunggu > 3 hari, dan
+        // kadaluarsakan yang didiamkan 30 hari. Idempoten — aman di-rerun.
+        $schedule->command('rop:sapu')
+            ->dailyAt('07:00')
+            ->withoutOverlapping(15);
+
+        // Master vendor ROP — Senin 04:10, setelah jendela sync Accurate.
+        // Cuma menambah/menyegarkan nama; vendor buatan tangan tak disentuh.
+        $schedule->command('rop:tarik-vendor')
+            ->weeklyOn(1, '04:10')
+            ->withoutOverlapping(30)
+            ->appendOutputTo(storage_path('logs/accurate-cron.log'));
+
         // Retensi audit log: 6 bulan (Pusat Akun Fase D). Chunked biar tak
         // ngunci tabel kalau tumpukan lama besar.
         $schedule->call(function () {

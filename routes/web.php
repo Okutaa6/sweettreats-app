@@ -49,6 +49,9 @@ use App\Http\Controllers\Crud\ChecklistSetupController;
 use App\Http\Controllers\Crud\MyChecklistController;
 use App\Http\Controllers\Finance\FinanceDashboardController;
 use App\Http\Controllers\Finance\TopupRequestController;
+use App\Http\Controllers\Finance\RopQueueController;
+use App\Http\Controllers\Finance\RopRekapController;
+use App\Http\Controllers\Rop\PengajuanController;
 
 
 Route::get('/', function () {
@@ -449,7 +452,32 @@ Route::middleware([AuthGuard::class])->group(function () {
         Route::get ('pettycash/request/{id}',               [TopupRequestController::class, 'show'])->name('finance.topup.show');
         Route::post('pettycash/request/{id}/approve',       [TopupRequestController::class, 'approve'])->name('finance.topup.approve');
         Route::post('pettycash/request/{id}/reject',        [TopupRequestController::class, 'reject'])->name('finance.topup.reject');
+
+        // Pengajuan / ROP — antrian & rekap Finance (zona burgundy).
+        // Rute literal ('rekap', 'export') dideklarasikan SEBELUM wildcard {id}
+        // supaya tidak ditelan pola angka/segmen bebas.
+        Route::get ('rop',                    [RopQueueController::class, 'index'])->name('finance.rop');
+        Route::get ('rop/rekap',              [RopRekapController::class, 'index'])->name('finance.rop.rekap');
+        Route::get ('rop/rekap/export',       [RopRekapController::class, 'exportCsv'])->name('finance.rop.rekap.export');
+        Route::get ('rop/export/accurate',    [RopRekapController::class, 'exportAccurate'])->name('finance.rop.export.accurate');
+        Route::get ('rop/{id}',               [RopQueueController::class, 'show'])->name('finance.rop.show');
+        Route::post('rop/{id}/setujui',       [RopQueueController::class, 'setujui'])->name('finance.rop.setujui');
+        Route::post('rop/{id}/urungkan',      [RopQueueController::class, 'urungkan'])->name('finance.rop.urungkan');
+        Route::post('rop/{id}/tolak',         [RopQueueController::class, 'tolak'])->name('finance.rop.tolak');
+        Route::post('rop/{id}/bayar',         [RopQueueController::class, 'bayar'])->name('finance.rop.bayar');
     });
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Pengajuan / ROP — sisi PENGAJU (kepala departemen), zona cokelat, HP-first.
+    // Pengganti formulir kertas "Request of Payment".
+    // Rencana: docs/rencana/rencana-pengajuan-rop.md
+    // ═══════════════════════════════════════════════════════════════════════
+    Route::get ('pengajuan',              [PengajuanController::class, 'index'])->name('rop.pengajuan.index');
+    Route::get ('pengajuan/baru',         [PengajuanController::class, 'create'])->name('rop.pengajuan.create');
+    Route::post('pengajuan',              [PengajuanController::class, 'store'])->name('rop.pengajuan.store');
+    Route::get ('pengajuan/{id}',         [PengajuanController::class, 'show'])->name('rop.pengajuan.show');
+    Route::post('pengajuan/{id}/batal',   [PengajuanController::class, 'batal'])->name('rop.pengajuan.batal');
+    Route::post('pengajuan/{id}/selesai', [PengajuanController::class, 'selesai'])->name('rop.pengajuan.selesai');
 
     // CRUD - Fund Sources (sumber dana: cash / bank / e-wallet) — Super Admin
     Route::get('fund-sources',                    [FundSourceController::class, 'index'])->name('fundsource');
