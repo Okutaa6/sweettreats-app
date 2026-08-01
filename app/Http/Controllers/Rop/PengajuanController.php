@@ -101,7 +101,10 @@ class PengajuanController extends Controller
     public function store(Request $request)
     {
         $data = $request->validate([
-            'cost_centre'  => 'required|string|exists:rop_cost_centre,kode',
+            // Harus cost centre yang masih AKTIF: `exists` saja meloloskan yang
+            // sudah dipensiunkan, dan pengajuannya lalu memakai kode yang tidak
+            // muncul di dropdown mana pun.
+            'cost_centre'  => ['required', 'string', \Illuminate\Validation\Rule::exists('rop_cost_centre', 'kode')->where('aktif', 1)],
             'vendor_id'    => 'nullable|integer|exists:vendors,id',
             'pay_to_text'  => 'nullable|string|max:191',
             'description'  => 'required|string|max:500',
@@ -112,8 +115,19 @@ class PengajuanController extends Controller
             'lampiran'     => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf|max:5120',
             'abaikan_dobel' => 'nullable|boolean',
         ], [
+            // Pesan bawaan Laravel berbahasa Inggris; seluruh layar ini
+            // berbahasa Indonesia awam, jadi ditulis sendiri.
+            'cost_centre.required' => 'Pilih dulu pengajuannya dibebankan ke mana.',
+            'cost_centre.exists'   => 'Cost centre itu sudah tidak dipakai. Pilih yang lain.',
             'description.required' => 'Keterangan wajib diisi.',
+            'description.max'      => 'Keterangan terlalu panjang (maksimal 500 huruf).',
             'amount.required'      => 'Jumlah wajib diisi.',
+            'amount.numeric'       => 'Jumlah harus berupa angka.',
+            'amount.min'           => 'Jumlah harus lebih dari nol.',
+            'needed_by.date'       => 'Tanggal "butuh kapan" tidak terbaca.',
+            'pay_to_text.max'      => 'Nama penerima terlalu panjang (maksimal 191 huruf).',
+            'lampiran.mimes'       => 'Lampiran harus berupa foto (JPG/PNG/WEBP) atau PDF.',
+            'lampiran.max'         => 'Lampiran terlalu besar (maksimal 5 MB).',
         ]);
 
         if (empty($data['vendor_id']) && empty($data['pay_to_text'])) {
@@ -235,13 +249,26 @@ class PengajuanController extends Controller
     }
 
     /**
-     * Ambil baris milik user ini. Finance/admin boleh MELIHAT punya orang lain
-     * (mis. menelusuri dari antrian), tapi aksi ubah tetap lewat $boleh=false.
+     * Ambil baris milik user ini.
+     *
+     * Yang berhak membuka antrian Finance juga boleh MELIHAT detail pengajuan
+     * siapa pun — daftar rolenya sengaja sama persis dengan gerbang antrian
+     * (RopService::ROLE_ANTRIAN + canSeeAllBranches). Sebelumnya di sini hanya
+     * canSeeAllBranches, jadi Head IT bisa melihat isi pengajuan lewat drawer
+     * antrian tapi kena 403 saat membuka halaman detailnya: informasi yang
+     * sama, dua pintu, dua aturan.
+     *
+     * Aksi mengubah (batal, konfirmasi selesai) tetap khusus pemilik —
+     * pemanggilnya cukup tidak mengirim $boleh_lihat_semua.
      */
     private function milikku($id, bool $boleh_lihat_semua = false): RopRequest
     {
         $rop = RopRequest::findOrFail($id);
-        if ($rop->requester_id !== $this->userId() && ! ($boleh_lihat_semua && canSeeAllBranches())) {
+
+        $bolehLihat = canSeeAllBranches()
+            || in_array(session('group_name'), RopService::ROLE_ANTRIAN, true);
+
+        if ($rop->requester_id !== $this->userId() && ! ($boleh_lihat_semua && $bolehLihat)) {
             abort(403, 'Pengajuan ini bukan milikmu.');
         }
         return $rop;

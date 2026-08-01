@@ -188,6 +188,45 @@ biru karena `<label>`/`<b>` kena warna tautan dari CSS global tema (sekarang
 Tombolnya memakai satu input yang sama; bedanya cuma atribut `capture`, yang
 membuat HP langsung membuka kamera alih-alih pemilih berkas.
 
+## 5d. Audit bug & inkonsistensi (2026-08-01, sebelum push)
+
+Tujuh temuan, semuanya sudah diperbaiki dan diuji. Dua yang pertama tidak akan
+pernah ketahuan dari membaca kode — keduanya baru muncul saat cron dijalankan
+dengan data bertanggal mundur:
+
+1. **`rop:sapu` menyapu status `disetujui` untuk dikadaluarsakan**, padahal
+   peta transisi tidak mengizinkan `disetujui → kadaluarsa`. Akibatnya cron
+   melempar error tiap hari dan pengajuan itu tidak pernah tertutup.
+   Perbaikan: kadaluarsa **hanya** untuk yang masih `diajukan`. Yang sudah
+   di-ACC berarti Finance sudah berkomitmen membayar — menutupnya diam-diam
+   justru menyembunyikan kewajiban. Sebagai gantinya ditambah pengingat baru:
+   *"disetujui N hari lalu, belum dibayar"*.
+2. **Pengingat harian membuat kadaluarsa tidak pernah terjadi.** Menulis
+   `reminded_at` lewat Eloquent ikut memperbarui `updated_at`, padahal
+   `updated_at` itulah ukuran "sudah didiamkan berapa lama". Pengajuan tua
+   diingatkan tiap hari → umurnya ter-reset tiap hari → tidak pernah
+   kadaluarsa. Perbaikan: stempel pengingat ditulis dengan `timestamps = false`,
+   dan daftar kadaluarsa dikunci **sebelum** pengingat dikirim.
+3. **`?bulan=ngawur` di rekap → halaman 500.** `Carbon::createFromFormat`
+   melempar untuk masukan yang bukan tanggal. Nilai query string tidak pernah
+   bisa dipercaya bentuknya (salah ketik, tautan lama, perayap). Sekarang
+   jatuh ke bulan berjalan.
+4. **Cost centre nonaktif masih bisa dipakai mengajukan** — `exists` saja
+   meloloskan yang sudah dipensiunkan. Sekarang `Rule::exists(...)->where('aktif', 1)`.
+5. **`RopCoaCatalog::kosongkanCache()` tidak pernah dipanggil** (kode mati).
+   Sekarang dijalankan di akhir `rop:tarik-vendor` — satu-satunya momen rutin
+   "data master Accurate baru saja disentuh".
+6. **Pesan validasi masih bahasa Inggris** di layar yang seluruhnya berbahasa
+   Indonesia awam. Diganti pesan sendiri untuk semua aturan di form pengajuan.
+7. **Aturan "boleh lihat" tidak konsisten**: Head IT/IT bisa membaca isi
+   pengajuan siapa pun lewat drawer antrian, tapi kena 403 saat membuka
+   halaman detailnya. Sekarang keduanya memakai daftar role yang sama
+   (`RopService::ROLE_ANTRIAN` + `canSeeAllBranches`). Aksi mengubah (batalkan,
+   konfirmasi selesai) tetap khusus pemilik — diuji: 403 dan status tidak berubah.
+
+Plus satu penghalusan: pengajuan yang akan ditutup hari itu tidak lagi ikut
+dikirimi pengingat "tolong di-ACC" beberapa detik sebelum kadaluarsa.
+
 ## 5b. Yang tidak bisa diuji tanpa manusia
 
 Sisi server sudah ditutup uji otomatis, termasuk simpan lampiran (base64 &

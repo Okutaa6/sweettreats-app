@@ -415,7 +415,8 @@
                     document.getElementById('ropDLampiran').innerHTML = d.attachment_path
                         ? '<div class="rop-card" style="padding:14px;margin-top:12px">' +
                           '<span class="rop-label">Lampiran</span><div style="margin-top:8px">' +
-                          '<a class="rop-thumb" target="_blank" rel="noopener" href="{{ asset('') }}' + d.attachment_path +
+                          '<a class="rop-thumb" target="_blank" rel="noopener" href="{{ asset('') }}' +
+                          encodeURI(d.attachment_path) +
                           '">Lihat penawaran / invoice</a></div></div>'
                         : '<div class="rop-note rop-note--kuning" style="margin-top:12px">' +
                           'Belum ada lampiran. Pertimbangkan minta foto penawaran sebelum ACC.</div>';

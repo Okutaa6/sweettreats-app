@@ -160,11 +160,25 @@ class RopRekapController extends Controller
 
     /* ───────── Dapur ───────── */
 
-    /** Periode bulan dari query (?bulan=YYYY-MM), default bulan berjalan. */
+    /**
+     * Periode bulan dari query (?bulan=YYYY-MM), default bulan berjalan.
+     *
+     * Parsing-nya dibungkus: `Carbon::createFromFormat` MELEMPAR untuk masukan
+     * yang tidak berbentuk tanggal ("?bulan=ngawur" → halaman 500). Nilai dari
+     * query string tidak pernah bisa dipercaya bentuknya — entah salah ketik,
+     * tautan lama, atau perayap.
+     */
     private function periode(Request $request): array
     {
-        $periode = Carbon::createFromFormat('Y-m', $request->query('bulan', now()->format('Y-m')))
-            ?: now();
+        $mentah = (string) $request->query('bulan', '');
+
+        try {
+            $periode = $mentah !== ''
+                ? Carbon::createFromFormat('Y-m', $mentah)->startOfMonth()
+                : now()->startOfMonth();
+        } catch (\Throwable $e) {
+            $periode = now()->startOfMonth();
+        }
 
         return [$periode->copy()->startOfMonth(), $periode->copy()->endOfMonth(), $periode];
     }

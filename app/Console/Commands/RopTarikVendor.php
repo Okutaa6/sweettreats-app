@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\Vendor;
 use App\Services\Accurate\AccurateClient;
+use App\Services\RopCoaCatalog;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 
@@ -39,7 +40,7 @@ class RopTarikVendor extends Command
 
     protected $description = 'Tarik master vendor dari Accurate untuk dipakai di Pengajuan/ROP';
 
-    public function handle(AccurateClient $client): int
+    public function handle(AccurateClient $client, RopCoaCatalog $coa): int
     {
         $kredensial = DB::table('accurate_credentials')
             ->where('is_active', 1)
@@ -139,6 +140,12 @@ class RopTarikVendor extends Command
             $this->info('Uji coba selesai — tidak ada yang disimpan.');
             return self::SUCCESS;
         }
+
+        // Sekalian segarkan daftar akun beban. Ini satu-satunya momen rutin
+        // "data master dari Accurate baru saja disentuh"; tanpa ini cache akun
+        // hanya kedaluwarsa sendiri setelah satu jam, dan tidak ada jalan
+        // memaksanya segar setelah staging di-resync.
+        $coa->kosongkanCache();
 
         $this->info("Selesai: {$baru} vendor baru, {$diperbarui} diperbarui"
             . ($gagal ? ", {$gagal} buku gagal" : '') . '.');
