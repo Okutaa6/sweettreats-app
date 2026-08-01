@@ -72,7 +72,7 @@ baru tampil tanpa gaya.
 Hasil pemeriksaan prod hari ini: tabel `att_*` **0**, tabel cuti **0**, tabel
 `sys_ac*` **0**, `sys_checklist*` **8 (sudah ada)**, `audit_log` **sudah ada**.
 
-### 4.1 SQL manual — 28 berkas, urut tanggal
+### 4.1 SQL manual — 30 berkas, urut tanggal
 
 Absensi (9): `2026_07_17_absensi_core` · `2026_07_18_absensi_work_rule` ·
 `2026_07_18_absensi_day` · `2026_07_18_absensi_request` ·
@@ -98,10 +98,12 @@ berkasnya idempoten & sekalian membersihkan hash lama)
 Cuti & gaji (3): `2026_07_25_cuti_core` · `2026_07_25_cuti_access` ·
 `2026_07_25_lembar_gaji_access`
 
-ROP (2): `2026_07_31_rop_core` · `2026_07_31_rop_access`
+Reskin (1): `2026_07_31_wifi_ke_pusat_akun` (WiFi Cabang pindah ke zona IT)
 
-Menyusul: SQL WiFi dari reskin (`2026_07_31_wifi_ke_pusat_akun.sql`, masih
-belum commit).
+Accurate untuk ROP (1): `2026_06_12_accurate_tables` — lihat §4.3. Urutkan
+**sebelum** `2026_07_31_rop_access`, karena dropdown akun bergantung padanya.
+
+ROP (2): `2026_07_31_rop_core` · `2026_07_31_rop_access`
 
 ### 4.2 Migration — 19 berkas
 
@@ -111,23 +113,30 @@ persetujuan) + sisanya. Di dev tadi `migrate --force` jalan mulus tanpa drift.
 **Di prod cek dulu `migrate:status`** — jebakan baseline setengah-jalan pernah
 terjadi (schema sudah ada tapi tercatat Pending → migrate berhenti di tengah).
 
-### 4.3 ⚠️ Ganjalan khusus ROP: `accurate_staging_glaccount`
+### 4.3 ✅ `accurate_staging_glaccount` — SUDAH DIBERESKAN (2026-08-01)
 
-Tanpa tabel ini **Finance tidak bisa meng-ACC** — dropdown akun beban kosong.
-Keadaan: dev punya 1.098 baris/7 buku; **prod tidak punya tabelnya sama sekali**.
-Yang bikin repot: **DDL dan command penariknya tidak ada di garis keturunan
-`feature/rop`** — keduanya hidup di `feature/accurate-integration` yang
-di-pause (`database/sql/2026_06_12_accurate_tables.sql` dan
-`app/Console/Commands/AccuratePullGlaccount.php`).
+Tanpa tabel ini **Finance tidak bisa meng-ACC** karena dropdown akun beban
+kosong. Prod belum punya tabelnya, dan DDL + command penariknya hidup di
+`feature/accurate-integration` yang di-pause.
 
-Tiga pilihan:
-1. **Petik satu berkas** DDL + command itu ke gerbong prod, lalu jalankan
-   `accurate:pull-glaccount --all` di prod (prod sudah punya 7 kredensial
-   Accurate + `ACCURATE_*` di .env — modalnya lengkap). *Paling bersih.*
-2. **Salin data dari dev**: dump tabel `accurate_staging_glaccount` lalu impor
-   ke prod. Cepat, tapi datanya jadi beku dan tidak bisa disegarkan.
-3. Tunda ROP sampai modul Accurate dilanjutkan — tidak disarankan, ROP jadi
-   sandera proyek yang di-pause.
+**Keputusan user: opsi "petik berkas".** Dua berkas sudah dibawa masuk ke
+gerbong apa adanya (commit `4728fcd`) supaya tidak bercabang dari proyek
+Accurate saat nanti dilanjutkan:
+
+- `database/sql/2026_06_12_accurate_tables.sql` — idempoten. Seed kredensialnya
+  `ON DUPLICATE KEY UPDATE` **hanya metadata**; kolom `api_token` tidak
+  disentuh, jadi 7 token yang sudah ada di prod aman.
+- `app/Console/Commands/AccuratePullGlaccount.php`
+
+**Langkah prod**: jalankan DDL di atas → `php artisan accurate:pull-glaccount --all`.
+Prod sudah punya 7 kredensial + `ACCURATE_*` di .env, jadi modalnya lengkap.
+ROP hanya butuh 2 dari 7 tabel DDL itu (`accurate_staging_glaccount` +
+`accurate_sync_log`); sisanya menyusul kosong dan tidak mengganggu.
+
+**Sudah dibuktikan di dev**: command jalan, 6 buku tertarik (bintaro 183,
+cinere 181, holding 135, kalideres 176, pamulang 180, sunter 180 akun;
+53–62 akun beban per buku). Buku `testing` gagal — kredensial sandbox-nya
+memang invalid, sama seperti pada `rop:tarik-vendor`, dan tidak dipakai ROP.
 
 ## 5. Langkah manual di luar SQL
 
@@ -161,7 +170,7 @@ KOL/KOC + komisi tanpa login.
 **Kiriman 2 — gerbong besar:**
 
 1. ~~Reskin commit & gabung~~ — SELESAI 2026-08-01.
-2. Selesaikan pilihan §4.3 (glaccount) — tanpa ini Finance tak bisa meng-ACC.
+2. ~~Ganjalan glaccount (§4.3)~~ — SELESAI 2026-08-01, terbukti jalan di dev.
 3. Backup DB prod.
 4. PR `release/2026-08-pengeluaran` → `main` (verifikasi 2 commit main yang
    sudah di-port tidak hilang).

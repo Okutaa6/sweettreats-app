@@ -60,7 +60,7 @@ Brief layar yang **belum dieksekusi**. Yang sudah jadi halamannya dipindah ke
 ### `deploy/` — runbook & koordinasi deploy
 - `deploy-absensi.md` — runbook deploy absensi (dev & prod), termasuk daftar
   temuan audit yang sengaja ditunda (§10).
-- `manifest-prod.md` — **daftar isi migrasi prod**: 28 SQL + 19 migration +
+- `manifest-prod.md` — **daftar isi migrasi prod**: 30 SQL + 19 migration +
   langkah manual + inventaris cabang GitHub (mana yang ikut, mana yang tidak).
 - `deploy-coordination.md` — koordinasi deploy antar branch/orang.
 - `cekat-DEPLOY.md`, `omnicare-DEPLOY.md` — deploy integrasi vendor.
