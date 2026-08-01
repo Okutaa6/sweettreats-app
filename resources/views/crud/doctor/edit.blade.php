@@ -11,7 +11,7 @@
     @include('layouts.notif')
 
     @php
-        $avatarColors = ['#7A3415', '#52200A', '#8A3A12', '#6B2400', '#9A6614', '#5A2410', '#7E2E0E', '#693012'];
+        $avatarColors = ['#8A3A12', '#A8481B', '#2F8E55', '#3C5FA8', '#B5701A', '#7A3415', '#5A6B2E', '#8E2419'];
         $initial = mb_strtoupper(mb_substr(preg_replace('/^drg\.?\s*/i', '', trim($doctor->name)) ?: '?', 0, 1));
         $avColor = $avatarColors[crc32((string) $doctor->id) % count($avatarColors)];
         $branchNames = $practiceBranches->pluck('name')->implode(' · ');

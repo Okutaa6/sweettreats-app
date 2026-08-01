@@ -86,7 +86,9 @@
         $kindOptions = [
             'all'     => ['label' => 'Semua',     'icon' => 'fa-layer-group'],
             'regular' => ['label' => 'Regular',   'icon' => 'fa-file-alt'],
-            'khusus'  => ['label' => '🎯 Khusus', 'icon' => null],
+            // Ikon dipisah dari label: label dirender ter-escape, ikon SVG statis
+            // dirender mentah. Jangan gabung keduanya jadi satu string.
+            'khusus'  => ['label' => 'Khusus', 'icon' => null, 'svg' => '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" style="vertical-align:-.15em"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.4"/><circle cx="8" cy="8" r="3" stroke="currentColor" stroke-width="1.4"/><circle cx="8" cy="8" r=".9" fill="currentColor"/></svg>'],
         ];
     @endphp
     <div class="ep-cal-toolbar">
@@ -108,6 +110,7 @@
                     <a href="{{ route('epkonten') }}?{{ $qs(['kind' => $key]) }}"
                        class="ep-cal-kind-chip {{ $isKindActive ? 'is-active' : '' }} {{ $key === 'khusus' ? 'is-khusus' : '' }}">
                         @if($opt['icon'])<i class="fa-solid {{ $opt['icon'] }}"></i>@endif
+                        @if($opt['svg'] ?? false){!! $opt['svg'] !!}@endif
                         {{ $opt['label'] }}
                     </a>
                 @endforeach
@@ -223,7 +226,7 @@
                                    style="border-left-color:{{ $sCfg['dot'] }};">
                                     <div class="ep-cal-card-title">
                                         @if($k->is_breakdown)
-                                            <span class="ep-cal-khusus-badge" title="Konten khusus / breakdown">🎯</span>
+                                            <span class="ep-cal-khusus-badge" title="Konten khusus / breakdown"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" style="vertical-align:-.15em"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.4"/><circle cx="8" cy="8" r="3" stroke="currentColor" stroke-width="1.4"/><circle cx="8" cy="8" r=".9" fill="currentColor"/></svg></span>
                                         @endif
                                         {{ $k->judul }}
                                     </div>

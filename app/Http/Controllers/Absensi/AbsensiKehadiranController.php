@@ -36,9 +36,9 @@ class AbsensiKehadiranController extends Controller
     /** status att_day → token warna (samakan dgn handoff: ATT{bg,c}) */
     private const STATUS = [
         'hadir' => ['label' => 'Hadir', 'bg' => '#E3F4E8', 'c' => '#2F8E55'],
-        'telat' => ['label' => 'Telat', 'bg' => '#FBE7CF', 'c' => '#B5701A'],
+        'telat' => ['label' => 'Telat', 'bg' => '#FBEFD9', 'c' => '#B5701A'],
         'alpa'  => ['label' => 'Alpa',  'bg' => '#FBE3DE', 'c' => '#C0392B'],
-        'cuti'  => ['label' => 'Cuti',  'bg' => '#E4ECFB', 'c' => '#3C5FA8'],
+        'cuti'  => ['label' => 'Cuti',  'bg' => '#E4ECFB', 'c' => '#3F6BAF'],
         'izin'  => ['label' => 'Izin',  'bg' => '#F4E7D6', 'c' => '#9A6614'],
         'libur' => ['label' => 'Libur', 'bg' => '#F1E9DF', 'c' => '#8A6A52'],
         'wfh'   => ['label' => 'WFH',   'bg' => '#DFEDE9', 'c' => '#2E7D74'],
@@ -70,9 +70,26 @@ class AbsensiKehadiranController extends Controller
         $days = DB::table('att_day')
             ->whereBetween('work_date', [$from->toDateString(), $to->toDateString()])
             ->get(['user_id', 'raw_branch_id', 'work_date', 'status', 'telat_menit',
-                   'single_scan', 'lembur_menit_disetujui', 'cabang_terlibat']);
+                   'single_scan', 'lembur_menit_disetujui', 'cabang_terlibat',
+                   'scan_first', 'scan_last']);
 
         $branchName = RawBranch::pluck('name', 'id');
+
+        // Foto selfie absen HP periode ini — dipetakan (user_id, work_date) → bukti,
+        // buat ditampilkan saat sel kalender diklik. Rentang ikut dawn-pushback:
+        // ambil s/d (to+1) 06:00 supaya scan dini hari besoknya kebawa hari 'to'.
+        $buktiMap = [];
+        $buktis = DB::table('att_hp_bukti')
+            ->where('taken_at', '>=', $from->copy()->setTime(6, 0))
+            ->where('taken_at', '<', $to->copy()->addDay()->setTime(6, 0))
+            ->orderBy('taken_at')
+            ->get(['id', 'user_id', 'jenis', 'taken_at']);
+        foreach ($buktis as $b) {
+            $t = Carbon::parse($b->taken_at);
+            $mins = $t->hour * 60 + $t->minute;
+            $wd = $mins < 360 ? $t->copy()->subDay()->toDateString() : $t->toDateString();
+            $buktiMap[$b->user_id][$wd][] = ['id' => $b->id, 'jenis' => $b->jenis, 'jam' => $t->format('H:i')];
+        }
 
         // ROSTER absensi = orang yang punya aturan kerja aktif di periode ini.
         // Baris diambil dari roster, BUKAN dari att_day — supaya orang yang bulan
@@ -82,17 +99,21 @@ class AbsensiKehadiranController extends Controller
         $roster = DB::table('att_user_rule as ur')
             ->join('att_work_rule as wr', 'wr.id', '=', 'ur.rule_id')
             ->join('users as u', 'u.id', '=', 'ur.user_id')
+            ->leftJoin('group_path as gp', 'gp.id', '=', 'u.group_id')
             ->where('ur.effective_from', '<=', $to->toDateString())
             ->where(function ($q) use ($from) {
                 $q->whereNull('ur.effective_to')->orWhere('ur.effective_to', '>=', $from->toDateString());
             })
-            ->get(['u.id', 'u.nama', 'u.raw_branch_id', 'wr.tipe'])
+            ->get(['u.id', 'u.nama', 'u.raw_branch_id', 'wr.tipe', 'gp.nama as role'])
             ->keyBy('id');
 
         // jaring-pengaman: ada att_day tapi orangnya tak punya aturan (data lama)
         $orphan = $days->pluck('user_id')->unique()->diff($roster->keys());
         if ($orphan->isNotEmpty()) {
-            foreach (DB::table('users')->whereIn('id', $orphan)->get(['id', 'nama', 'raw_branch_id']) as $o) {
+            foreach (DB::table('users as u')
+                ->leftJoin('group_path as gp', 'gp.id', '=', 'u.group_id')
+                ->whereIn('u.id', $orphan)
+                ->get(['u.id', 'u.nama', 'u.raw_branch_id', 'gp.nama as role']) as $o) {
                 $o->tipe = 'baku';
                 $roster->put($o->id, $o);
             }
@@ -123,8 +144,10 @@ class AbsensiKehadiranController extends Controller
             }
 
             $matrix[$u->id] = [
+                'id'      => $u->id,
                 'nama'    => $nama,
                 'initial' => mb_strtoupper(mb_substr(trim($nama), 0, 1)),
+                'role'    => $u->role ?? null,
                 'home_id' => $homeId,
                 'key'     => $key,
                 'label'   => $label,
@@ -157,6 +180,11 @@ class AbsensiKehadiranController extends Controller
                 'single' => (int) $d->single_scan,
                 'lembur' => (int) $d->lembur_menit_disetujui,
                 'lain'   => array_keys($lain),
+                'jam_in' => $d->scan_first ? substr($d->scan_first, 11, 5) : null,
+                // beda detik saja (scan dobel) tetap dianggap satu jam — jangan tampil "10:22–10:22"
+                'jam_out'=> $d->scan_last && substr($d->scan_last, 11, 5) !== substr((string) $d->scan_first, 11, 5)
+                    ? substr($d->scan_last, 11, 5) : null,
+                'foto'   => $buktiMap[$uid][$d->work_date] ?? [],
             ];
 
             if ($d->status === 'hadir') $matrix[$uid]['h']++;
@@ -164,10 +192,10 @@ class AbsensiKehadiranController extends Controller
             elseif ($d->status === 'alpa') $matrix[$uid]['a']++;
         }
 
-        // filter berdasarkan GRUP (cabang asal / ABG), bukan tempat scan
-        if ($branchFilter) {
-            $matrix = array_filter($matrix, fn ($r) => $r['key'] === $branchFilter);
-        }
+        // Filter cabang TIDAK dilakukan di server — semua grup dikirim, blade
+        // menyaring client-side (per GRUP cabang asal / ABG, bukan tempat scan).
+        // ?branch= hanya dipakai sebagai nilai awal dropdown; kalau difilter di
+        // sini, pindah ke "Semua Cabang" di layar tak bisa tanpa reload.
 
         // urut: klinik dulu (abjad), lalu Kantor (ABG), lalu yang belum bercabang
         $rank = fn ($k) => $k === self::NONE_KEY ? 2 : ($k === self::ABG_KEY ? 1 : 0);
@@ -196,10 +224,14 @@ class AbsensiKehadiranController extends Controller
         $monthShort = $anchor->translatedFormat('M');
         $abgKey = self::ABG_KEY;
         $abgLabel = self::ABG_LABEL;
+        $today = Carbon::now();
+        $selDay = (int) $request->input('d') ?: null;   // tanggal terpilih (view pekan/hari) saat pindah bulan
+        $initView = in_array($request->input('view'), ['bulan', 'pekan', 'hari'], true) ? $request->input('view') : 'bulan';
 
         return view('absensi.kehadiran', compact(
             'groups', 'summary', 'daysInMonth', 'head', 'anchor', 'monthShort',
-            'branches', 'branchFilter', 'statusMeta', 'abgKey', 'abgLabel'
+            'branches', 'branchFilter', 'statusMeta', 'abgKey', 'abgLabel',
+            'today', 'selDay', 'initView'
         ));
     }
 }

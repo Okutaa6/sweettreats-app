@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 /**
  * Hasil rekonsiliasi harian — 1 baris per (user, hari kerja). TURUNAN, bisa
  * dihitung ulang dari att_scan + aturan. Diisi App\Services\AttendanceReconciler.
- * Lihat docs/rencana-rekonsiliasi-absensi.md §5.2.
+ * Lihat docs/rencana/rencana-rekonsiliasi-absensi.md §5.2.
  */
 class AttDay extends Model
 {

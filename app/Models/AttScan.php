@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
  * Scan mentah dari mesin — APPEND-ONLY, jangan pernah di-UPDATE.
  * Idempoten via `hash` = sha1(raw_branch_id|device_user_id|scanned_at).
  * Semua penilaian ada di tabel turunan (att_day, Fase B).
- * Lihat docs/rencana-rekonsiliasi-absensi.md §5.2.
+ * Lihat docs/rencana/rencana-rekonsiliasi-absensi.md §5.2.
  */
 class AttScan extends Model
 {
@@ -19,7 +19,7 @@ class AttScan extends Model
 
     protected $fillable = [
         'batch_id', 'raw_branch_id', 'device_user_id', 'user_id',
-        'scanned_at', 'source', 'raw_row', 'hash',
+        'scanned_at', 'source', 'raw_row', 'hash', 'created_at',
     ];
 
     protected $casts = [

@@ -138,6 +138,10 @@
 .redesign-akun .absk-tile .v { font-size: 14px; font-weight: 800; margin-top: 1px; }
 .redesign-akun .absk-tile.telat  .v { color: var(--abs-amber); }
 .redesign-akun .absk-tile.lembur .v { color: var(--abs-green); }
+.redesign-akun .absk-tile.cuti   .v { color: var(--abs-ink); }
+.redesign-akun .absk-tile.cuti.is-minus { background: #FBE3DE; border-color: #F0C4B8; }
+.redesign-akun .absk-tile.cuti.is-minus .v,
+.redesign-akun .absk-tile.cuti.is-minus .k { color: #C0392B; }
 
 /* ── Kartu Hari Ini ── */
 .redesign-akun .absk-today {
@@ -252,6 +256,15 @@
 }
 .redesign-akun .absk-fab:hover { color: #FFEAD6; filter: brightness(1.05); }
 .redesign-akun .absk-fab .plus { font-size: 18px; line-height: 1; }
+/* Tombol Absen (HP) — FAB kedua, DITUMPUK DI ATAS Ajukan (bottom beda).
+   Tanpa offset ini keduanya fixed di titik sama → Absen ketiban & tak terlihat. */
+.redesign-akun .absk-fab-absen { bottom: 78px; }
+.redesign-akun .absk-fab-absen svg { flex: none; }
+/* Zona personal = layar HP fokus. Footer copyright shell disembunyikan supaya
+   tak bertabrakan (garis border-top) dengan tombol FAB yang fixed di bawah. */
+body.redesign-akun .footer { display: none !important; }
+/* Ruang bawah ekstra: dua FAB bertumpuk butuh clearance lebih dari 96px. */
+.redesign-akun .absk-wrap { padding-bottom: 150px; }
 
 /* ── Form Ajukan Permohonan ── */
 .redesign-akun .absk-formhead { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }

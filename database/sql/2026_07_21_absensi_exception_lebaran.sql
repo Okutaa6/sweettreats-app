@@ -6,7 +6,7 @@
 -- Tanpa exception ini, TIAP Lebaran engine nandai SELURUH karyawan 5 cabang ALPA
 -- selama seminggu → sistem "rusak di tahun kedua". Ini yg bikin exception WAJIB.
 --
--- Sumber tanggal: riwayat 5 tahun mesin Bintaro (docs/rencana-rekonsiliasi-absensi.md §2.10).
+-- Sumber tanggal: riwayat 5 tahun mesin Bintaro (docs/rencana/rencana-rekonsiliasi-absensi.md §2.10).
 -- raw_branch_id NULL = nasional (semua cabang). libur=1 = tutup.
 -- AttendanceReconciler::resolveDay() → exception cabang-NULL menang atas aturan harian.
 --

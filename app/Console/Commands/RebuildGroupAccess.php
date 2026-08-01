@@ -49,6 +49,14 @@ class RebuildGroupAccess extends Command
             $this->line('  ✓ ' . $gid . ' — ' . count($tree) . ' parent menu');
         }
 
+        // Rebuild PENUH = semua perubahan tertunda ikut terterapkan → bersihkan
+        // penanda pending (banner "Perubahan belum berlaku" di halaman Akses).
+        // Rebuild parsial (--group) tidak membersihkan: grup lain mungkin masih tertunda.
+        if (! $this->option('group')) {
+            @unlink($dir . '/.pending');
+            Cache::forget('pk_kesehatan_total'); // badge Kesehatan ikut segar
+        }
+
         $this->info('Rebuilt ' . $groups->count() . ' group access file(s).');
         return self::SUCCESS;
     }

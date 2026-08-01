@@ -112,7 +112,9 @@ class MarkWeeklyChecklistMissed extends Command
         $yearWeek = $weekStart->isoFormat('GGGG-[W]WW');
 
         // Karyawan yang masih aktif di akhir minggu itu (1 posisi primary per user).
+        // Akun nonaktif/terhapus di-skip — jangan dicetak "Tidak Diisi" selamanya.
         $positions = UserPosition::query()->activeOn($weekEnd)
+            ->whereIn('user_id', \App\Models\Users::query()->where('status', 1)->select('id'))
             ->get(['user_id', 'division_id', 'raw_branch_id'])
             ->unique('user_id')
             ->keyBy('user_id');

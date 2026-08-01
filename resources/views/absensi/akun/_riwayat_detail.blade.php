@@ -1,5 +1,7 @@
 @php
-    {{-- ikut satu sumber kebenaran, jangan disalin ulang (jenis baru pernah terlewat) --}}
+    // ikut satu sumber kebenaran, jangan disalin ulang (jenis baru pernah terlewat)
+    // (komentar PHP, BUKAN {{-- --}} — blade comment di dalam @php tidak di-strip
+    //  oleh compiler dan jadi syntax error saat view dirender)
     $tipeMap = \App\Http\Controllers\Absensi\AkunPengajuanController::TIPE;
     $stPill  = ['approved'=>'hadir','rejected'=>'alpa','cancelled'=>'alpa','pending_l1'=>'telat','pending_l2'=>'telat','draft'=>'libur'];
     $stText  = ['approved'=>'Disetujui','rejected'=>'Ditolak','cancelled'=>'Dibatalkan','pending_l1'=>'Menunggu','pending_l2'=>'Menunggu','draft'=>'Draf'];

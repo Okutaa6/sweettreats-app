@@ -7,7 +7,7 @@
 --         3. att_work_rule_exception  — override per tanggal (Lebaran, event, dll)
 --         4. att_user_rule            — siapa pakai aturan apa (per ORANG)
 --
--- Konteks penuh: docs/rencana-rekonsiliasi-absensi.md §3, §5.2, §5.3
+-- Konteks penuh: docs/rencana/rencana-rekonsiliasi-absensi.md §3, §5.2, §5.3
 --
 -- Keputusan desain yg dibuktikan dari data (jangan diubah tanpa baca plan):
 --   • Aturan nempel ke ORANG (att_user_rule), BUKAN ke divisi/cabang. Bukti: Irma

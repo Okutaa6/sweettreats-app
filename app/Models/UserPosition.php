@@ -90,10 +90,18 @@ class UserPosition extends Model
      */
     public static function syncFromUser(?Users $user, ?string $confirmedBy = null): ?self
     {
-        if (! $user || ! $user->raw_branch_id) return null;
+        if (! $user) return null;
 
-        $division = checklistDivisionForGroup($user->group_id);
-        if (! $division) return null;
+        $division = $user->raw_branch_id ? checklistDivisionForGroup($user->group_id) : null;
+
+        // User tak lagi punya divisi checklist (pindah ke role non-operasional)
+        // atau cabangnya dikosongkan → posisi aktifnya HARUS ditutup, kalau
+        // tidak cron mark-missed terus mencetak "Tidak Diisi" di divisi lamanya.
+        if (! $division) {
+            static::query()->activeOn(Carbon::today())->where('user_id', $user->id)
+                ->update(['effective_to' => Carbon::today()->subDay(), 'updated_at' => now()]);
+            return null;
+        }
 
         $today = Carbon::today();
 

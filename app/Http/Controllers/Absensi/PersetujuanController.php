@@ -18,7 +18,7 @@ use Illuminate\Support\Carbon;
  * (AbsensiAccessPathSeeder); inbox otomatis kosong kalau kamu bukan approver.
  *
  * Route di segment(1) = 'persetujuan' (node access_path link='persetujuan').
- * Konteks: docs/rencana-rekonsiliasi-absensi.md §5.4.
+ * Konteks: docs/rencana/rencana-rekonsiliasi-absensi.md §5.4.
  */
 class PersetujuanController extends Controller
 {

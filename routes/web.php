@@ -16,8 +16,11 @@ use App\Http\Controllers\Absensi\AbsensiUploadController;
 use App\Http\Controllers\Absensi\AbsensiRecapController;
 use App\Http\Controllers\Absensi\AbsensiPeriodController;
 use App\Http\Controllers\Absensi\AbsensiMappingController;
+use App\Http\Controllers\Absensi\AbsensiBranchIpController;
+use App\Http\Controllers\Absensi\AkunAbsenController;
 use App\Http\Controllers\Absensi\AkunAbsensiController;
 use App\Http\Controllers\Absensi\AkunPengajuanController;
+use App\Http\Controllers\Absensi\PengawasanController;
 use App\Http\Controllers\Absensi\PersetujuanController;
 use App\Http\Controllers\Crud\ReservasiCabangController;
 use App\Http\Controllers\DashboardController;
@@ -47,13 +50,15 @@ use App\Http\Controllers\Crud\MyChecklistController;
 use App\Http\Controllers\Crud\AcMaintenanceController;
 use App\Http\Controllers\Finance\FinanceDashboardController;
 use App\Http\Controllers\Finance\TopupRequestController;
+use App\Http\Controllers\Finance\RopQueueController;
+use App\Http\Controllers\Finance\RopRekapController;
+use App\Http\Controllers\Rop\PengajuanController;
 
 
 Route::get('/', function () {
-    $services    = \App\Models\RawDocService::orderBy('name')->get();
-    $branches    = \App\Models\RawBranch::orderBy('name')->get();
-    $branchCount = $branches->count();
-    return view('landing', compact('services', 'branches', 'branchCount'));
+    // Landing baru hanya butuh jumlah cabang.
+    $branchCount = \App\Models\RawBranch::count();
+    return view('landing', compact('branchCount'));
 })->name('home');
 
 Route::get('/reservasi', function () {
@@ -198,8 +203,18 @@ Route::middleware([AuthGuard::class])->group(function () {
         Route::get('komisi', [\App\Http\Controllers\ExportController::class, 'commissions'])->name('export.komisi');
     });
 
+    // Pusat Akun → Kesehatan (detektor kegagalan-senyap) — segment 'setkesehatan'
+    Route::get('setkesehatan', [\App\Http\Controllers\Set\KesehatanController::class, 'index'])->name('setkesehatan');
+
     // Access
     Route::get('setaccess', [Access::class, 'index'])->name('setaccess');
+    // Pusat Akun Akses — grant/cabut role + rebuild (3-4 segmen, tak bentrok edit {id})
+    Route::post('setaccess/rebuild',            [Access::class, 'rebuild'])->name('setaccess.rebuild');
+    Route::post('setaccess/node',               [Access::class, 'storeNode'])->name('setaccess.store-node');
+    Route::post('setaccess/{id}/grant',         [Access::class, 'grantRole'])->name('setaccess.grant');
+    Route::post('setaccess/{id}/revoke/{gid}',  [Access::class, 'revokeRole'])->name('setaccess.revoke');
+    Route::post('setaccess/{id}/update-node',   [Access::class, 'updateNode'])->name('setaccess.update-node');
+    Route::post('setaccess/{id}/delete-node',   [Access::class, 'destroyNode'])->name('setaccess.delete-node');
     Route::get('setaccess/new', [Access::class, 'create'])->name('setaccess.new');
     Route::post('setaccess/new', [Access::class, 'store'])->name('setaccess.store');
     Route::get('setaccess/{id}', [Access::class, 'edit'])->name('setaccess.edit');
@@ -208,6 +223,12 @@ Route::middleware([AuthGuard::class])->group(function () {
 
     // User Management
     Route::get('setusermanagement', [UserManagement::class, 'index'])->name('setusermanagement');
+    // Pusat Akun — detail user + aksi IT (3 segmen, tak bentrok dgn edit {id} 2-segmen)
+    Route::get('setusermanagement/detail/{id}',            [UserManagement::class, 'detail'])->name('setusermanagement.detail');
+    Route::post('setusermanagement/{id}/force-logout',     [UserManagement::class, 'forceLogout'])->name('setusermanagement.force-logout');
+    Route::post('setusermanagement/{id}/toggle-status',    [UserManagement::class, 'toggleStatus'])->name('setusermanagement.toggle-status');
+    Route::post('setusermanagement/{id}/revoke-all',       [UserManagement::class, 'revokeAllDevices'])->name('setusermanagement.revoke-all');
+    Route::post('setusermanagement/{id}/revoke-device/{deviceId}', [UserManagement::class, 'revokeDevice'])->name('setusermanagement.revoke-device');
     Route::get('setusermanagement/new', [UserManagement::class, 'create'])->name('setusermanagement.new');
     Route::post('setusermanagement/new', [UserManagement::class, 'store'])->name('setusermanagement.store');
     Route::get('setusermanagement/{id}', [UserManagement::class, 'edit'])->name('setusermanagement.edit');
@@ -302,6 +323,17 @@ Route::middleware([AuthGuard::class])->group(function () {
     Route::post('absensi/upload/file', [AbsensiUploadController::class, 'upload'])->name('absensi.upload.file');
     Route::get('absensi/recap',        [AbsensiRecapController::class, 'index'])->name('absensi.recap');
     Route::get('absensi/kehadiran',    [\App\Http\Controllers\Absensi\AbsensiKehadiranController::class, 'index'])->name('absensi.kehadiran');
+
+    // Lembar Gaji — rekap kehadiran/lembur per karyawan per bulan (Finance/IT/admin)
+    Route::get('absensi/lembar-gaji',        [\App\Http\Controllers\Absensi\LembarGajiController::class, 'index'])->name('absensi.lembargaji');
+    Route::get('absensi/lembar-gaji/export', [\App\Http\Controllers\Absensi\LembarGajiController::class, 'export'])->name('absensi.lembargaji.export');
+
+    // Cuti — rekap saldo + cuti bersama + koreksi + kontrak baru (Finance/IT/admin)
+    Route::get ('absensi/cuti',               [\App\Http\Controllers\Absensi\CutiController::class, 'index'])->name('absensi.cuti');
+    Route::post('absensi/cuti/bersama',       [\App\Http\Controllers\Absensi\CutiController::class, 'bersama'])->name('absensi.cuti.bersama');
+    Route::post('absensi/cuti/bersama-undo',  [\App\Http\Controllers\Absensi\CutiController::class, 'bersamaUndo'])->name('absensi.cuti.bersama.undo');
+    Route::post('absensi/cuti/koreksi',       [\App\Http\Controllers\Absensi\CutiController::class, 'koreksi'])->name('absensi.cuti.koreksi');
+    Route::post('absensi/cuti/kontrak-baru',  [\App\Http\Controllers\Absensi\CutiController::class, 'kontrakBaru'])->name('absensi.cuti.kontrak');
     Route::get('absensi/mapping',         [AbsensiMappingController::class, 'index'])->name('absensi.mapping');
     Route::post('absensi/mapping/assign', [AbsensiMappingController::class, 'assign'])->name('absensi.mapping.assign');
     Route::post('absensi/mapping/ignore', [AbsensiMappingController::class, 'ignore'])->name('absensi.mapping.ignore');
@@ -312,10 +344,26 @@ Route::middleware([AuthGuard::class])->group(function () {
 
     // ── Akun Saya (self-service karyawan, mobile) — segment(1) = 'akun' ──
     Route::get('akun', [AkunAbsensiController::class, 'index'])->name('akun.absensi');
+    Route::get('akun/absensi/foto/{id}', [AkunAbsensiController::class, 'foto'])->name('akun.absensi.foto');
     Route::get('akun/pengajuan',  [AkunPengajuanController::class, 'create'])->name('akun.pengajuan');
     Route::post('akun/pengajuan', [AkunPengajuanController::class, 'store'])->name('akun.pengajuan.store');
     Route::get('akun/pengajuan/prefill-lembur', [AkunPengajuanController::class, 'prefillLembur'])->name('akun.pengajuan.prefill');
     Route::get('akun/pengajuan/{id}', [AkunPengajuanController::class, 'show'])->name('akun.pengajuan.show');
+    Route::get('akun/absen',  [AkunAbsenController::class, 'index'])->name('akun.absen');
+    Route::post('akun/absen', [AkunAbsenController::class, 'store'])->name('akun.absen.store');
+
+    // ── Pengawasan Absen (review SPV) — segment(1) = 'pengawasan', node awas-* ──
+    Route::get('pengawasan',                    [PengawasanController::class, 'index'])->name('pengawasan');
+    Route::get('pengawasan/foto/{id}',          [PengawasanController::class, 'foto'])->name('pengawasan.foto');
+    Route::post('pengawasan/{id}/dicek',        [PengawasanController::class, 'dicek'])->name('pengawasan.dicek');
+    Route::post('pengawasan/{id}/selesai',      [PengawasanController::class, 'selesai'])->name('pengawasan.selesai');
+    Route::post('pengawasan/grup-selesai',      [PengawasanController::class, 'selesaiGrup'])->name('pengawasan.grup');
+    Route::post('pengawasan/daftarkan-ip',      [PengawasanController::class, 'daftarkanIp'])->name('pengawasan.daftarkan-ip');
+
+    // ── WiFi Cabang (admin IP absen HP) — segment(1) = 'absensi', guard canSeeAllBranches ──
+    Route::get('absensi/wifi',              [AbsensiBranchIpController::class, 'index'])->name('absensi.wifi');
+    Route::post('absensi/wifi',             [AbsensiBranchIpController::class, 'store'])->name('absensi.wifi.store');
+    Route::post('absensi/wifi/{id}/toggle', [AbsensiBranchIpController::class, 'toggle'])->name('absensi.wifi.toggle');
 
     // ── Persetujuan (inbox approver, mobile) — segment(1) = 'persetujuan' ──
     Route::get('persetujuan',          [PersetujuanController::class, 'index'])->name('persetujuan.inbox');
@@ -406,7 +454,32 @@ Route::middleware([AuthGuard::class])->group(function () {
         Route::get ('pettycash/request/{id}',               [TopupRequestController::class, 'show'])->name('finance.topup.show');
         Route::post('pettycash/request/{id}/approve',       [TopupRequestController::class, 'approve'])->name('finance.topup.approve');
         Route::post('pettycash/request/{id}/reject',        [TopupRequestController::class, 'reject'])->name('finance.topup.reject');
+
+        // Pengajuan / ROP — antrian & rekap Finance (zona burgundy).
+        // Rute literal ('rekap', 'export') dideklarasikan SEBELUM wildcard {id}
+        // supaya tidak ditelan pola angka/segmen bebas.
+        Route::get ('rop',                    [RopQueueController::class, 'index'])->name('finance.rop');
+        Route::get ('rop/rekap',              [RopRekapController::class, 'index'])->name('finance.rop.rekap');
+        Route::get ('rop/rekap/export',       [RopRekapController::class, 'exportCsv'])->name('finance.rop.rekap.export');
+        Route::get ('rop/export/accurate',    [RopRekapController::class, 'exportAccurate'])->name('finance.rop.export.accurate');
+        Route::get ('rop/{id}',               [RopQueueController::class, 'show'])->name('finance.rop.show');
+        Route::post('rop/{id}/setujui',       [RopQueueController::class, 'setujui'])->name('finance.rop.setujui');
+        Route::post('rop/{id}/urungkan',      [RopQueueController::class, 'urungkan'])->name('finance.rop.urungkan');
+        Route::post('rop/{id}/tolak',         [RopQueueController::class, 'tolak'])->name('finance.rop.tolak');
+        Route::post('rop/{id}/bayar',         [RopQueueController::class, 'bayar'])->name('finance.rop.bayar');
     });
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Pengajuan / ROP — sisi PENGAJU (kepala departemen), zona cokelat, HP-first.
+    // Pengganti formulir kertas "Request of Payment".
+    // Rencana: docs/rencana/rencana-pengajuan-rop.md
+    // ═══════════════════════════════════════════════════════════════════════
+    Route::get ('pengajuan',              [PengajuanController::class, 'index'])->name('rop.pengajuan.index');
+    Route::get ('pengajuan/baru',         [PengajuanController::class, 'create'])->name('rop.pengajuan.create');
+    Route::post('pengajuan',              [PengajuanController::class, 'store'])->name('rop.pengajuan.store');
+    Route::get ('pengajuan/{id}',         [PengajuanController::class, 'show'])->name('rop.pengajuan.show');
+    Route::post('pengajuan/{id}/batal',   [PengajuanController::class, 'batal'])->name('rop.pengajuan.batal');
+    Route::post('pengajuan/{id}/selesai', [PengajuanController::class, 'selesai'])->name('rop.pengajuan.selesai');
 
     // CRUD - Fund Sources (sumber dana: cash / bank / e-wallet) — Super Admin
     Route::get('fund-sources',                    [FundSourceController::class, 'index'])->name('fundsource');
@@ -635,3 +708,9 @@ Route::middleware([IsLoggedIn::class])->group(function () {
 });
 
 Route::get('signout', [AuthController::class, 'logout'])->name('signout');
+
+// Ganti password wajib (must_change_password) — DI LUAR AuthGuard biar tak kena
+// RBAC (bukan menu); guard cukup cek session di controller. AuthGuard menggiring
+// ke sini saat must_change; setelah ganti, balik ke landing normal.
+Route::get('ganti-password',  [AuthController::class, 'gantiPassword'])->name('ganti.password');
+Route::post('ganti-password', [AuthController::class, 'gantiPasswordProcess'])->name('ganti.password.process');

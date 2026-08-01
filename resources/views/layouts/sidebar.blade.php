@@ -25,9 +25,15 @@
         @forelse($sbSections as $sec)
             <div class="sbx-sec-label">{{ $sec['label'] }}</div>
             @foreach($sec['items'] as $it)
+                @php
+                    // Badge Kesehatan (Pusat Akun) — jumlah temuan detektor, cached 10 mnt.
+                    $sbBadge = ($it['link'] ?? '') === 'setkesehatan'
+                        ? \App\Http\Controllers\Set\KesehatanController::totalCached() : 0;
+                @endphp
                 <a class="sbx-item {{ $it['active'] ? 'active' : '' }}" href="{{ url($it['link']) }}" title="{{ $it['nama'] }}">
                     <span class="sbx-item-ic">@if($it['icon'])<i class="{{ $it['icon'] }}"></i>@endif</span>
                     <span class="sbx-item-tx">{{ $it['nama'] }}</span>
+                    @if($sbBadge)<span class="sbx-drop-badge">{{ $sbBadge > 99 ? '99+' : $sbBadge }}</span>@endif
                 </a>
             @endforeach
         @empty
@@ -45,7 +51,7 @@
                 </a>
             @endforeach
             @if(count($sbAccount))<div class="sbx-drop-div"></div>@endif
-            <a class="sbx-drop-item" href="#"><span class="sbx-drop-ic"><i class="fas fa-user"></i></span><span class="sbx-drop-tx">Profil / Ganti kata sandi</span></a>
+            <a class="sbx-drop-item" href="{{ url('ganti-password') }}"><span class="sbx-drop-ic"><i class="fas fa-key"></i></span><span class="sbx-drop-tx">Ganti kata sandi</span></a>
             <a class="sbx-drop-item sbx-drop-danger" href="{{ route('signout') }}"><span class="sbx-drop-ic"><i class="fas fa-sign-out-alt"></i></span><span class="sbx-drop-tx">Keluar</span></a>
         </div>
 

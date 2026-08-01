@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Absensi;
 use App\Http\Controllers\Controller;
 use App\Models\AdminNotification;
 use App\Models\AttDay;
+use App\Models\AttHpBukti;
 use App\Models\AttRequest;
 use App\Models\RawBranch;
 use Illuminate\Http\Request;
@@ -50,6 +51,22 @@ class AkunAbsensiController extends Controller
             ->get()
             ->keyBy(fn ($d) => $d->work_date->toDateString());
 
+        // Foto selfie absen HP bulan ini (punya sendiri) → work_date ikut aturan
+        // dini-hari (<06:00 milik hari sebelumnya), sama dengan layar Kehadiran.
+        $buktiMap = [];
+        $buktis = \Illuminate\Support\Facades\DB::table('att_hp_bukti')
+            ->where('user_id', $userId)
+            ->where('taken_at', '>=', $from->copy()->setTime(6, 0))
+            ->where('taken_at', '<', $to->copy()->addDay()->setTime(6, 0))
+            ->orderBy('taken_at')
+            ->get(['id', 'jenis', 'taken_at']);
+        foreach ($buktis as $b) {
+            $t = Carbon::parse($b->taken_at);
+            $mins = $t->hour * 60 + $t->minute;
+            $wd = $mins < 360 ? $t->copy()->subDay()->toDateString() : $t->toDateString();
+            $buktiMap[$wd][] = ['id' => $b->id, 'jenis' => $b->jenis, 'jam' => $t->format('H:i')];
+        }
+
         // rekap ringkas
         $rekap = [
             'hadir' => $days->where('status', 'hadir')->count(),
@@ -77,11 +94,11 @@ class AkunAbsensiController extends Controller
             'inisial' => strtoupper(mb_substr((string) (session('name') ?: 'R'), 0, 1)),
         ];
 
-        // ── Kartu "Hari Ini" — hanya saat melihat bulan berjalan ──
-        $today = null;
-        if ($anchor->isSameMonth(Carbon::now())) {
-            $today = $days[Carbon::today()->toDateString()] ?? null;
-        }
+        // ── Kartu "Hari Ini" — selalu hari ini betulan, tak peduli bulan yang
+        //    sedang dilihat (desain handoff: kartu Hari Ini = jangkar aksi absen) ──
+        $today = AttDay::where('user_id', $userId)
+            ->where('work_date', Carbon::today()->toDateString())
+            ->first();
 
         // ── Badge notifikasi (lonceng) ──
         $notifCount = AdminNotification::unreadForUser()->count();
@@ -99,9 +116,32 @@ class AkunAbsensiController extends Controller
         // pilihan "apa yang keliru?" untuk drawer Koreksi Absen
         $korAlasan = \App\Http\Controllers\Absensi\AkunPengajuanController::KOREKSI_ALASAN;
 
+        // Sisa jatah cuti — null = di luar sistem cuti (eksekutif), tile
+        // tidak dirender. docs/rencana/rencana-jatah-cuti.md.
+        $cutiSisa = app(\App\Services\CutiService::class)->sisa($userId);
+
         return view('absensi.akun.absensi', compact(
             'days', 'rekap', 'requests', 'anchor', 'from', 'to', 'me', 'today', 'notifCount',
-            'tipeList', 'ajTipe', 'wfhUsed', 'korAlasan'
+            'tipeList', 'ajTipe', 'wfhUsed', 'korAlasan', 'cutiSisa', 'buktiMap'
         ));
+    }
+
+    /**
+     * Foto selfie MILIK SENDIRI — beda dengan pengawasan.foto (rute SPV),
+     * yang ini dijaga kepemilikan: hanya bukti dengan user_id == session id.
+     * Foto tidak pernah publik (wajah karyawan bukan aset publik).
+     */
+    public function foto($id)
+    {
+        $userId = (string) session('id');
+        if (! $userId) abort(403);
+
+        $bukti = AttHpBukti::findOrFail($id);
+        abort_unless((string) $bukti->user_id === $userId, 403);
+
+        $path = storage_path('app/' . $bukti->photo_path);
+        abort_unless(is_file($path), 404);
+
+        return response()->file($path, ['Cache-Control' => 'private, max-age=3600']);
     }
 }

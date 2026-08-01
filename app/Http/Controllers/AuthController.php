@@ -55,11 +55,31 @@ class AuthController extends Controller
                     'sysname'        => $sysprofile->sysname,
                     'isLoggedIn'     => true,
                     'raw_branch_id'  => $user->raw_branch_id,
+                    // Pusat Akun: stempel login (buat force-logout) + flag wajib-ganti
+                    // + landing (dipakai redirect setelah ganti password)
+                    'login_at'             => time(),
+                    'must_change_password' => (int) ($user->must_change_password ?? 0) === 1,
+                    'landing_page'         => $user->landing_page,
                 ]);
 
                 Users::where('id', $user->id)->update(['last_login' => date('Y-m-d H:i:s')]);
 
                 \App\Models\AuditLog::record('login', 'User login: ' . $user->nama);
+
+                // Kebersihan cookie perangkat (kasus HP/tablet dipakai bersama):
+                // kalau perangkat ini masih "diingat" sebagai user LAIN, cabut —
+                // tanpa ini, sesi user baru yang idle-expire bakal dibangun ulang
+                // diam-diam sebagai user lama, dan absen tercatat ke orang salah.
+                $deviceAuth = app(\App\Services\DeviceAuth::class);
+                $devLama = \App\Models\UserDevice::findLive(request()->cookie(\App\Models\UserDevice::COOKIE_NAME));
+                if ($devLama && $devLama->user_id !== $user->id) {
+                    $deviceAuth->revokeCurrent(request());
+                }
+
+                // "Ingat perangkat ini" — SOP: hanya dicentang di HP pribadi.
+                if (request('remember_device')) {
+                    $deviceAuth->issue($user->id, request());
+                }
 
                 return redirect()->to($user->landing_page);
             } else {
@@ -131,15 +151,87 @@ class AuthController extends Controller
                 'reset_token' => null
             ]);
 
+            // Ganti password = semua perangkat "diingat" dicabut (standar keamanan).
+            app(\App\Services\DeviceAuth::class)->revokeAllFor($user->id);
+
             return redirect()->route('signin')->with('success', 'Password has been reset');
         } else {
             return redirect()->route('signin')->with('error', 'Invalid token');
         }
     }
 
+    /**
+     * Penjaga route ganti-password (di luar AuthGuard, jadi wajib jaga sendiri).
+     * Ini pintu SENSITIF: kalau cuma cek isLoggedIn, sesi penyusup yang sudah
+     * di-Reset/Paksa-Logout oleh IT bisa balik merebut akun lewat sini.
+     */
+    private function gantiPasswordGate()
+    {
+        if (! session('isLoggedIn')) return redirect()->route('signin');
+
+        // sesi idle kadaluarsa
+        if ((int) session('expires_in') < time()) {
+            session()->flush();
+            return redirect()->route('signin')->with('error', 'Sesi login telah berakhir, silahkan login kembali');
+        }
+
+        // IT menekan Paksa Logout / Reset SETELAH sesi ini login → tendang.
+        $u = Users::where('id', session('id'))->first(['force_logout_at']);
+        if ($u && $u->force_logout_at && strtotime($u->force_logout_at) > (int) session('login_at')) {
+            session()->flush();
+            return redirect()->route('signin')->with('error', 'Sesi kamu diakhiri oleh IT. Silakan login kembali.');
+        }
+
+        return null;
+    }
+
+    /** Halaman ganti password (wajib saat must_change_password; sukarela juga boleh). */
+    public function gantiPassword()
+    {
+        if ($tolak = $this->gantiPasswordGate()) return $tolak;
+        $sysprofile = SysProfile::select('systitle', 'syslogo')->first();
+        return view('auth.gantiPassword', compact('sysprofile'));
+    }
+
+    public function gantiPasswordProcess()
+    {
+        if ($tolak = $this->gantiPasswordGate()) return $tolak;
+
+        $wajib = (bool) session('must_change_password');
+        $this->validate(request(), [
+            'password'              => 'required|min:6',
+            'password_confirmation' => 'required|same:password',
+        ] + ($wajib ? [] : ['password_lama' => 'required']));
+
+        $user = Users::where('id', session('id'))->first();
+        if (! $user) return redirect()->route('signin');
+
+        // Ganti sukarela WAJIB buktikan password lama — tanpa ini, orang yang
+        // nemu sesi kebuka (HP ketinggalan) bisa merebut akun permanen.
+        if (! $wajib && ! password_verify((string) request('password_lama'), $user->password)) {
+            return redirect()->back()->withErrors(['password_lama' => 'Password lama salah.']);
+        }
+
+        Users::where('id', $user->id)->update([
+            'password'             => password_hash(request('password'), PASSWORD_DEFAULT),
+            'must_change_password' => 0,
+        ]);
+        session(['must_change_password' => false]);
+
+        // Standar keamanan yang sama dengan reset: semua perangkat "diingat" dicabut.
+        app(\App\Services\DeviceAuth::class)->revokeAllFor($user->id);
+
+        \App\Models\AuditLog::record('update', 'Ganti password sendiri' . ($wajib ? ' (wajib)' : '') . ': ' . session('name'));
+
+        return redirect()->to(session('landing_page') ?: '/')->with('success', 'Password berhasil diganti.');
+    }
+
     public function logout()
     {
         \App\Models\AuditLog::record('logout', 'User logout: ' . session('name'));
+        // Logout manual = niat eksplisit → perangkat "diingat" ikut dicabut,
+        // biar HP hilang/pinjam bisa dimatikan dengan sekali logout.
+        app(\App\Services\DeviceAuth::class)->revokeCurrent(request());
         session()->flush();
         return redirect()->route('signin');
     }

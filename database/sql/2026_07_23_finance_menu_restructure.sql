@@ -15,7 +15,7 @@
 --    "Keuangan" > item "Petty Cash". Route 'finance' skip-RBAC (di-guard
 --    canSeeAllBranches di controller) → menu ini murni untuk tampilan sidebar.
 --
--- Idempoten (aman dijalankan ulang). Konteks: docs/rencana-rekonsiliasi-absensi.md.
+-- Idempoten (aman dijalankan ulang). Konteks: docs/rencana/rencana-rekonsiliasi-absensi.md.
 -- ============================================================================
 
 -- ── TASK 2 ──────────────────────────────────────────────────────────────────

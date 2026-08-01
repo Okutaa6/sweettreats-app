@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 /**
  * Periode penggajian absensi. Finance TUTUP periode → att_day di rentang itu BEKU
  * (reconcile tak menimpanya lagi, §5.3/D2). Kontrol per-periode, bukan per-item (§5.4).
- * Lihat docs/rencana-rekonsiliasi-absensi.md §5.2, §7 Fase D.
+ * Lihat docs/rencana/rencana-rekonsiliasi-absensi.md §5.2, §7 Fase D.
  */
 class AttPeriod extends Model
 {

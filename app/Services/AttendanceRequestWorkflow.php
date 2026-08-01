@@ -136,6 +136,8 @@ class AttendanceRequestWorkflow
         if (!$levels) {
             $this->pastikanApexBukanSalahKonfigurasi($req->user_id);
             $req->update(['status' => 'approved']);
+            $this->potongJatahCuti($req);
+            $this->recalcAttDay($req);
             return $req;
         }
         $req->update(['status' => 'pending_l1']);
@@ -181,9 +183,47 @@ class AttendanceRequestWorkflow
             $this->notifyApprovers($req, $levels[$next]);       // kabari approver lapis berikut
         } else {
             $req->update(['status' => 'approved']);
+            $this->potongJatahCuti($req);
+            $this->recalcAttDay($req);
             $this->notifyRequester($req, 'disetujui', $approverUserId);
         }
         return $req;
+    }
+
+    /**
+     * ACC final pengajuan cuti → potong jatah (docs/rencana/rencana-jatah-cuti.md).
+     * Gagal potong TIDAK membatalkan approval-nya (mis. skema cuti belum
+     * terpasang di environment) — report() saja; saldo bisa direkonsiliasi
+     * belakangan dari ledger + att_request approved.
+     */
+    private function potongJatahCuti(AttRequest $req): void
+    {
+        try {
+            app(\App\Services\CutiService::class)->potongDariPengajuan($req);
+        } catch (\Throwable $e) {
+            report($e);
+        }
+    }
+
+    /**
+     * ACC pengajuan BACKDATE → hitung ulang att_day di rentang tanggalnya.
+     * Tanpa ini: pengajuan cuti/izin/lembur untuk kemarin (mis. HP mati, lupa
+     * absen) di-ACC hari ini TIDAK menimpa vonis alpa/lembur yang sudah dicetak
+     * rekonsiliasi 06:10 — "deklarasi manusia menang atas scan" jadi bohong di
+     * layar Kehadiran. reconcile() idempoten & OTOMATIS melewati tanggal yang
+     * periodenya sudah ditutup Finance (data beku tak tersentuh). Gagal recalc
+     * tak membatalkan approval — report() saja, sweep 06:10 besok menyusul.
+     */
+    private function recalcAttDay(AttRequest $req): void
+    {
+        try {
+            $from = Carbon::parse($req->tanggal_from)->startOfDay();
+            $to   = Carbon::parse($req->tanggal_to ?? $req->tanggal_from)->startOfDay();
+            // scope ke pengaju saja — recalc satu orang, bukan seluruh roster.
+            (new AttendanceReconciler())->reconcile($from, $to, (string) $req->user_id);
+        } catch (\Throwable $e) {
+            report($e);
+        }
     }
 
     /** Kabari daftar approver (userId) bahwa ada pengajuan menunggu tindakan mereka. */

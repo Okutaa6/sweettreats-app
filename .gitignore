@@ -32,12 +32,20 @@ yarn-error.log
 
 # Docs internal/sensitif & binary — disimpan lokal, jangan ke-commit ke GitHub.
 # PDF bikin repo bengkak; proposal vendor & panduan onboarding bersifat internal.
-docs/*.pdf
-docs/proposal-sweet-treats-api-omnicare-v2.md
-docs/git-workflow-reza.html
+docs/**/*.pdf
+docs/api/proposal-sweet-treats-api-omnicare-v2.md
+docs/untuk-reza/git-workflow-reza.html
 
 # Foto upload dokter — aset yang di-upload user, jangan di-track di git.
 /public/uploads/doctors/
 
-# Design brief internal (handoff desain fitur) — dokumen kerja, bukan bagian app.
-design-brief-*.md
+# Lampiran Pengajuan/ROP: penawaran, bukti transfer, nota pertanggungjawaban.
+# Dokumen keuangan milik cabang — tidak ada gunanya di repo, dan sekali masuk
+# git ia ikut ke setiap klon selamanya.
+/public/uploads/rop/
+
+# Design brief internal yang tercecer di ROOT repo (hasil unduhan handoff
+# desain) — dokumen kerja, bukan bagian app. SENGAJA dibatasi ke root:
+# brief yang dirawat di docs/brief-desain/ HARUS tetap ikut git (lihat
+# docs/README.md — folder itu bagian dari dokumentasi proyek).
+/design-brief-*.md

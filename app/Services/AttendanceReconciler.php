@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\DB;
 /**
  * Engine rekonsiliasi: att_scan + aturan kerja → att_day (per user per hari kerja).
  *
- * Alur per (user, tanggal) — docs/rencana-rekonsiliasi-absensi.md §5.3:
+ * Alur per (user, tanggal) — docs/rencana/rencana-rekonsiliasi-absensi.md §5.3:
  *   0a. GABUNG scan dari SEMUA cabang untuk user ini (§2.7, Rohma lintas cabang)
  *   0b. scan < ambang dini hari (default 06:00) → LEMPAR BALIK ke hari sebelumnya
  *       sebagai pulang (§2.8, Sunter jam 00:54)
@@ -155,8 +155,12 @@ class AttendanceReconciler
         ];
     }
 
-    /** @return array{users:int, days:int, per_status:array<string,int>} */
-    public function reconcile(Carbon $from, Carbon $to): array
+    /**
+     * @param  string|null  $onlyUser  batasi ke satu user (dipakai hook ACC
+     *         backdate — recalc satu orang, bukan seluruh roster). NULL = semua.
+     * @return array{users:int, days:int, per_status:array<string,int>}
+     */
+    public function reconcile(Carbon $from, Carbon $to, ?string $onlyUser = null): array
     {
         [$rules, $ruleDays] = $this->loadRules();
         $exceptions = $this->loadExceptions();
@@ -164,7 +168,9 @@ class AttendanceReconciler
         $closedPeriods = $this->loadClosedPeriods();   // periode di-tutup finance → att_day BEKU (D2)
 
         // user_rule per user (bisa >1 baris historis)
-        $userRules = DB::table('att_user_rule')->get()
+        $userRules = DB::table('att_user_rule')
+            ->when($onlyUser, fn ($q) => $q->where('user_id', $onlyUser))
+            ->get()
             ->groupBy('user_id')
             ->map(fn ($rows) => $rows->sortByDesc('effective_from')->values()->all());
 
@@ -196,7 +202,9 @@ class AttendanceReconciler
         // sekali tak pernah masuk loop di atas — scan-nya diam-diam tak pernah
         // jadi hari kerja, dan orangnya hilang total dari rekap. Ini yang dulu
         // menelan 538 scan Head IT tanpa satu pun pesan. Sekarang dilaporkan.
-        $tanpaAturan = DB::table('att_scan as s')
+        // Laporan scan-yatim hanya relevan pada run penuh (scheduler). Run
+        // ter-scope satu user (hook ACC) tak perlu menyapu seluruh att_scan.
+        $tanpaAturan = $onlyUser ? [] : DB::table('att_scan as s')
             ->leftJoin('att_user_rule as ur', 'ur.user_id', '=', 's.user_id')
             ->leftJoin('users as u', 'u.id', '=', 's.user_id')
             ->whereBetween('s.scanned_at', [

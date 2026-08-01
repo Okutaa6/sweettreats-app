@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Panduan Git — Tim SweetTreats 🦷</title>
+<style>
+  :root{
+    --brown:#461500; --brown2:#7a3410; --brown3:#9c5a2c;
+    --cream:#f7f1e8; --cream2:#efe4d3; --paper:#fffdf9;
+    --line:#e7d7c2; --ink:#3a1c08; --muted:#9a8775;
+    --ok:#15803d; --okbg:#e9f8ee; --okln:#bbe9c7;
+    --no:#b91c1c; --nobg:#fdecec; --noln:#f6c9c9;
+    --warn:#b45309; --warnbg:#fdf4e3; --warnln:#f3dca6;
+    --info:#1d4ed8; --infobg:#eaf0fe; --infoln:#c7d8fb;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;font-family:"Segoe UI",system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;
+       color:var(--ink);background:
+         radial-gradient(1200px 400px at 80% -10%, #fbe9cf55, transparent),
+         var(--cream);line-height:1.65;font-size:15.5px}
+  .wrap{max-width:880px;margin:0 auto;padding:26px 18px 90px}
+
+  /* hero */
+  .hero{position:relative;overflow:hidden;border-radius:22px;padding:34px 32px;margin-bottom:10px;
+        background:linear-gradient(135deg,#5c2410,#2e0e00);color:#fff;
+        box-shadow:0 18px 40px -18px #461500aa}
+  .hero h1{margin:0 0 8px;font-size:27px;letter-spacing:.2px}
+  .hero p{margin:0;opacity:.92;font-size:14.5px;max-width:620px}
+  .hero .badge{position:absolute;top:18px;right:20px;background:#ffffff22;border:1px solid #ffffff44;
+        backdrop-filter:blur(4px);font-size:11px;font-weight:700;padding:6px 12px;border-radius:30px}
+  .hero .leaf{position:absolute;right:-30px;bottom:-40px;font-size:160px;opacity:.08;transform:rotate(-15deg)}
+
+  /* concept strip */
+  .concept{display:flex;gap:14px;align-items:center;background:var(--brown);color:#fff;
+        border-radius:16px;padding:16px 20px;margin:14px 0 26px;box-shadow:0 10px 26px -16px #461500}
+  .concept .big{font-size:30px;line-height:1}
+  .concept b{color:#ffd9a8}
+
+  h2{font-size:20px;margin:38px 0 14px;color:var(--brown);display:flex;align-items:center;gap:10px}
+  h2 .dot{width:10px;height:10px;border-radius:50%;background:var(--brown3)}
+  h3{font-size:15.5px;margin:18px 0 8px;color:var(--brown2)}
+
+  .card{background:var(--paper);border:1px solid var(--line);border-radius:16px;padding:20px 22px;margin:14px 0;
+        box-shadow:0 6px 18px -14px #461500aa}
+
+  code{background:var(--cream2);padding:2px 7px;border-radius:6px;font-family:"Cascadia Code",Consolas,monospace;font-size:13px;color:#8a3d00}
+  pre{position:relative;background:linear-gradient(180deg,#33200f,#241608);color:#f6e9d8;padding:15px 17px;border-radius:12px;
+      overflow-x:auto;font-size:13px;line-height:1.7;font-family:"Cascadia Code",Consolas,monospace;border:1px solid #00000040}
+  pre .c{color:#b69a78;font-style:italic}
+  pre .k{color:#ffb86c;font-weight:600}
+  pre .g{color:#7ee0a0}
+
+  /* lifecycle stepper */
+  .cycle{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:8px 0}
+  .cyc{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:14px;text-align:center;position:relative}
+  .cyc .ic{font-size:26px}
+  .cyc .n{position:absolute;top:-10px;left:-10px;width:26px;height:26px;border-radius:50%;background:var(--brown);color:#fff;
+          font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 10px -4px #461500}
+  .cyc b{display:block;margin-top:4px;font-size:13.5px;color:var(--brown)}
+  .cyc span{font-size:12px;color:var(--muted)}
+
+  /* numbered steps */
+  .step{display:flex;gap:16px;align-items:flex-start;margin:18px 0;padding-bottom:18px;border-bottom:1px dashed var(--line)}
+  .step:last-child{border-bottom:none;padding-bottom:0}
+  .step .num{flex:0 0 34px;height:34px;border-radius:11px;background:linear-gradient(135deg,#6b3410,#3a1404);color:#fff;
+       display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;box-shadow:0 6px 14px -8px #461500}
+  .step .body{flex:1;min-width:0}
+  .step .body .t{font-weight:700;color:var(--brown);font-size:15.5px}
+  .step .body .d{font-size:13.5px;color:#5c4632;margin:2px 0 8px}
+
+  .pill{display:inline-block;font-size:10.5px;font-weight:800;padding:3px 10px;border-radius:30px;vertical-align:middle;letter-spacing:.3px}
+  .pill.no{background:var(--nobg);color:var(--no);border:1px solid var(--noln)}
+  .pill.ok{background:var(--okbg);color:var(--ok);border:1px solid var(--okln)}
+
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .panel{border-radius:14px;padding:16px 18px}
+  .panel.do{background:var(--okbg);border:1px solid var(--okln)}
+  .panel.dont{background:var(--nobg);border:1px solid var(--noln)}
+  .panel h4{margin:0 0 10px;font-size:14.5px}
+  .panel.do h4{color:var(--ok)} .panel.dont h4{color:var(--no)}
+  .li{display:flex;gap:9px;align-items:flex-start;margin:8px 0;font-size:13.5px}
+  .li .ic{flex:0 0 18px}
+
+  .safe{background:linear-gradient(135deg,#eef9f0,#e3f5e9);border:1px solid var(--okln);border-radius:16px;padding:18px 22px;margin:14px 0}
+  .safe h3{color:var(--ok);margin-top:0}
+
+  .callout{border-radius:14px;padding:14px 18px;margin:14px 0;font-size:13.8px}
+  .callout.warn{background:var(--warnbg);border:1px solid var(--warnln)}
+  .callout.info{background:var(--infobg);border:1px solid var(--infoln)}
+
+  table{width:100%;border-collapse:collapse;margin:8px 0;font-size:13.5px}
+  th,td{text-align:left;padding:11px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{background:var(--cream2);color:var(--brown);font-size:13px}
+  tr:last-child td{border-bottom:none}
+
+  .faq{margin:12px 0;border-left:3px solid var(--brown3);padding:2px 0 2px 16px}
+  .faq .q{font-weight:700;color:var(--brown)}
+  .faq .a{font-size:14px;color:#4a3420}
+
+  .toc{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 4px}
+  .toc a{font-size:12.5px;text-decoration:none;color:var(--brown2);background:var(--cream2);
+         padding:6px 12px;border-radius:30px;border:1px solid var(--line)}
+  .toc a:hover{background:var(--brown);color:#fff}
+
+  .print{background:repeating-linear-gradient(45deg,#fff,#fff 10px,#fdf6ec 10px,#fdf6ec 20px);
+         border:2px dashed var(--brown3);border-radius:16px;padding:18px 22px}
+  footer{margin-top:46px;text-align:center;color:var(--muted);font-size:12px;border-top:1px solid var(--line);padding-top:18px}
+  @media(max-width:620px){.grid2,.cycle{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="hero">
+    <span class="badge">v1 · Tim Dev SweetTreats</span>
+    <span class="leaf">🌿</span>
+    <h1>🦷 Cara Kerja Git — biar ngoding bareng ga ribet</h1>
+    <p>Lupain kirim ZIP & upload FileZilla buat ngoding. Mulai sekarang semua lewat <b>1 tempat pusat</b>. Baca sekali, 10 menit, langsung bisa jalan. Santai — udah ada pengaman biar lu <b>ga mungkin ngerusak</b>.</p>
+  </div>
+
+  <div class="concept">
+    <div class="big">🎯</div>
+    <div>Inti banget: <b>cabang <code style="color:#3a1c08">main</code> = kode yang dipakai klinik beneran.</b> Lu <b>ga pernah</b> ngoding langsung di <code style="color:#3a1c08">main</code> — selalu di cabang sendiri, terus minta gabung lewat <b>Pull Request</b>.</div>
+  </div>
+
+  <div class="toc">
+    <a href="#setup">① Setup laptop</a>
+    <a href="#siklus">② Siklus harian</a>
+    <a href="#aturan">③ Boleh / Jangan</a>
+    <a href="#aman">④ Pengaman</a>
+    <a href="#sos">⑤ Kalau error</a>
+    <a href="#cheat">⑥ Cheat sheet</a>
+    <a href="#faq">⑦ FAQ</a>
+  </div>
+
+  <!-- SETUP -->
+  <h2 id="setup"><span class="dot"></span>① Sekali doang: setup di laptop lu</h2>
+  <div class="card">
+    <div class="step"><div class="num">1</div><div class="body">
+      <div class="t">Install Git</div>
+      <div class="d">Download di <code>git-scm.com</code>. Cek udah masuk:</div>
+      <pre><span class="k">git</span> --version</pre>
+    </div></div>
+    <div class="step"><div class="num">2</div><div class="body">
+      <div class="t">Kenalin diri ke Git (sekali)</div>
+      <pre><span class="k">git</span> config --global user.name <span class="c">"Nama Lu"</span>
+<span class="k">git</span> config --global user.email <span class="c">"email@lu.com"</span></pre>
+    </div></div>
+    <div class="step"><div class="num">3</div><div class="body">
+      <div class="t">Ambil kodenya (clone) — sekali, langsung dapet semua</div>
+      <pre><span class="k">git</span> clone <span class="c">git@github.com:Ekkyrb/sweettreats-app.git</span>
+<span class="k">cd</span> sweettreats-app</pre>
+    </div></div>
+    <div class="step"><div class="num">4</div><div class="body">
+      <div class="t">Siapin biar jalan di lokal</div>
+      <pre><span class="k">composer</span> install
+<span class="c"># minta file .env ke tim lead, taruh di root project, lalu:</span>
+<span class="k">php</span> artisan key:generate</pre>
+      <div class="callout info" style="margin-top:10px">📌 <b>.env</b> & <b>vendor/</b> ga ikut Git — itu wajar & emang sengaja. Minta <code>.env</code> ke tim lead.</div>
+    </div></div>
+  </div>
+
+  <!-- SIKLUS -->
+  <h2 id="siklus"><span class="dot"></span>② Tiap dapet tugas: ULANGI siklus ini</h2>
+  <p style="color:var(--muted);font-size:14px;margin-top:-4px">Cuma 6 langkah. Hafalin alurnya, sisanya tinggal ngikut.</p>
+
+  <div class="cycle">
+    <div class="cyc"><span class="n">1</span><div class="ic">⬇️</div><b>Pull</b><span>ambil terbaru</span></div>
+    <div class="cyc"><span class="n">2</span><div class="ic">🌱</div><b>Branch</b><span>bikin cabang</span></div>
+    <div class="cyc"><span class="n">3</span><div class="ic">⌨️</div><b>Commit</b><span>ngoding + simpan</span></div>
+    <div class="cyc"><span class="n">4</span><div class="ic">⬆️</div><b>Push</b><span>kirim ke GitHub</span></div>
+    <div class="cyc"><span class="n">5</span><div class="ic">🔀</div><b>Pull Request</b><span>minta gabung</span></div>
+    <div class="cyc"><span class="n">6</span><div class="ic">✅</div><b>Merge</b><span>di-cek tim lead</span></div>
+  </div>
+
+  <div class="card">
+    <div class="step"><div class="num">1</div><div class="body">
+      <div class="t">Ambil versi terbaru dulu <span class="pill no">WAJIB pertama</span></div>
+      <div class="d">Biar lu kerja di atas kode paling baru, ga nabrak punya temen.</div>
+      <pre><span class="k">git</span> checkout main
+<span class="k">git</span> pull origin main</pre>
+    </div></div>
+
+    <div class="step"><div class="num">2</div><div class="body">
+      <div class="t">Bikin cabang sendiri buat tugas ini</div>
+      <div class="d">1 tugas = 1 cabang. Nama jelas: <code>fitur/...</code> atau <code>fix/...</code></div>
+      <pre><span class="k">git</span> checkout -b <span class="c">fitur/laporan-bulanan</span></pre>
+    </div></div>
+
+    <div class="step"><div class="num">3</div><div class="body">
+      <div class="t">Ngoding biasa, terus "simpan checkpoint" (commit)</div>
+      <div class="d">Commit tiap selesai 1 bagian — jangan numpuk seharian baru commit.</div>
+      <pre><span class="k">git</span> add .
+<span class="k">git</span> commit -m <span class="c">"tambah tampilan laporan bulanan"</span></pre>
+    </div></div>
+
+    <div class="step"><div class="num">4</div><div class="body">
+      <div class="t">Kirim cabang lu ke GitHub</div>
+      <pre><span class="k">git</span> push origin <span class="c">fitur/laporan-bulanan</span></pre>
+    </div></div>
+
+    <div class="step"><div class="num">5</div><div class="body">
+      <div class="t">Buka Pull Request (PR) di browser</div>
+      <div class="d">Buka repo di GitHub → muncul tombol hijau <b>“Compare &amp; pull request”</b> → isi judul + 1-2 kalimat penjelasan → <b>Create pull request</b>.</div>
+      <div class="callout info">💬 PR itu artinya: <i>“Permisi, kerjaan gua udah siap, tolong dicek sebelum digabung ke main.”</i></div>
+    </div></div>
+
+    <div class="step"><div class="num">6</div><div class="body">
+      <div class="t">Tunggu di-review &amp; di-merge tim lead</div>
+      <div class="d">Tim lead lihat perubahan lu, komentar kalau perlu, lalu klik <b>Merge</b>. Kelar — kerjaan lu masuk <code>main</code>. Upload ke server (prod) diurus tim lead/Reza, <b>bukan lu</b>.</div>
+    </div></div>
+  </div>
+
+  <!-- ATURAN -->
+  <h2 id="aturan"><span class="dot"></span>③ Boleh &amp; Jangan</h2>
+  <div class="grid2">
+    <div class="panel do">
+      <h4>✅ BIASAKAN</h4>
+      <div class="li"><span class="ic">⬇️</span><div><code>git pull</code> dulu tiap mulai kerja</div></div>
+      <div class="li"><span class="ic">🌱</span><div>1 tugas = 1 branch baru</div></div>
+      <div class="li"><span class="ic">💾</span><div>Commit sering, pesannya jelas</div></div>
+      <div class="li"><span class="ic">🔀</span><div>Semua masuk lewat Pull Request</div></div>
+      <div class="li"><span class="ic">🙋</span><div>Bingung? <b>tanya dulu</b>, jangan nebak</div></div>
+    </div>
+    <div class="panel dont">
+      <h4>🚫 JANGAN PERNAH</h4>
+      <div class="li"><span class="ic">🛑</span><div>Edit file <b>langsung di server</b> (FileZilla)</div></div>
+      <div class="li"><span class="ic">🛑</span><div>Push langsung ke <code>main</code></div></div>
+      <div class="li"><span class="ic">🛑</span><div><code>git push --force</code></div></div>
+      <div class="li"><span class="ic">🛑</span><div>Campur banyak fitur di 1 branch</div></div>
+      <div class="li"><span class="ic">🛑</span><div>Commit <code>.env</code> atau <code>vendor/</code></div></div>
+    </div>
+  </div>
+  <div class="callout warn" style="margin-top:14px">
+    <b>⚠️ Aturan emas:</b> server (prod) cuma di-update lewat Git oleh tim lead/Reza. <b>JANGAN ada yang ngedit file di server langsung</b> — sekali kejadian, semua jadi nyimpang & ribet lagi kayak dulu.
+  </div>
+
+  <!-- AMAN -->
+  <h2 id="aman"><span class="dot"></span>④ Tenang — lu ga akan bisa ngerusak 🛡️</h2>
+  <div class="safe">
+    <h3>Udah ada pengaman otomatis:</h3>
+    <div class="li"><span class="ic">🔒</span><div><b>main dikunci.</b> Walau lu coba push langsung ke <code>main</code>, GitHub bakal <b>nolak</b>. Harus lewat PR + disetujui tim lead. Jadi mustahil ngerusak yang dipakai klinik.</div></div>
+    <div class="li"><span class="ic">🔒</span><div><b>Force-push & hapus main diblokir.</b> Ga bisa "nimpa paksa" history orang.</div></div>
+    <div class="li"><span class="ic">🧯</span><div><b>Semua kesimpen di history.</b> Salah? Tinggal balikin. Beda sama ZIP yang sekali ketimpa ya ilang.</div></div>
+    <div class="li"><span class="ic">🔑</span><div><b>.env & secret aman.</b> Ke-ignore + ada scanner yang nolak kalau ada yang ke-commit ga sengaja.</div></div>
+    <p style="margin:10px 0 0;font-size:13.5px;color:#3f6b4a"><b>Intinya:</b> selama lu ga pakai <code>--force</code> dan ga ngedit server langsung, Git itu jaring pengaman — bukan jebakan. Berani aja eksperimen di branch lu.</p>
+  </div>
+
+  <!-- SOS -->
+  <h2 id="sos"><span class="dot"></span>⑤ Kalau kena masalah</h2>
+  <table>
+    <tr><th>Situasi</th><th>Lakuin</th></tr>
+    <tr><td>Muncul tulisan <b>“CONFLICT”</b></td><td>Kerjaan lu & temen nyentuh baris sama. <b>Jangan asal hapus.</b> Tanya tim lead — diberesin bareng (sebentar kok).</td></tr>
+    <tr><td>Push “rejected”</td><td>Ada update baru. <code>git pull origin &lt;branch-lu&gt;</code> dulu, baru <code>git push</code> lagi.</td></tr>
+    <tr><td>Udah ngoding tapi lupa bikin branch</td><td>Jangan commit ke main. Tanya tim lead (biasanya <code>git stash</code> → bikin branch → <code>git stash pop</code>).</td></tr>
+    <tr><td>Takut salah / bingung</td><td>STOP, tanya. 99% kesalahan Git bisa dibalikin selama belum <code>--force</code>.</td></tr>
+  </table>
+
+  <!-- CHEAT -->
+  <h2 id="cheat"><span class="dot"></span>⑥ Cheat Sheet — tempel di meja 📌</h2>
+  <div class="print">
+    <pre><span class="c"># ── mulai tugas baru ──</span>
+<span class="k">git</span> checkout main
+<span class="k">git</span> pull origin main
+<span class="k">git</span> checkout -b fitur/nama-tugas
+
+<span class="c"># ── simpan progres (ulang sesering perlu) ──</span>
+<span class="k">git</span> add .
+<span class="k">git</span> commit -m <span class="g">"pesan jelas"</span>
+
+<span class="c"># ── kirim + minta gabung ──</span>
+<span class="k">git</span> push origin fitur/nama-tugas
+<span class="c"># lalu buka GitHub → Create Pull Request</span>
+
+<span class="c"># ── cek posisi ──</span>
+<span class="k">git</span> status        <span class="c"># file apa yang berubah</span>
+<span class="k">git</span> branch        <span class="c"># lagi di cabang mana</span></pre>
+  </div>
+
+  <!-- FAQ -->
+  <h2 id="faq"><span class="dot"></span>⑦ FAQ</h2>
+  <div class="faq"><div class="q">Branch itu apa?</div><div class="a">Kayak "ruang kerja kopian" buat lu otak-atik tanpa ganggu yang asli (<code>main</code>). Kalau udah beres & disetujui, baru digabung.</div></div>
+  <div class="faq"><div class="q">Kenapa ga langsung edit main biar cepet?</div><div class="a"><code>main</code> = yang dipakai klinik beneran. Salah dikit = klinik error. Lagian GitHub udah ngunci main, jadi emang ga bisa.</div></div>
+  <div class="faq"><div class="q">Masih boleh pakai FileZilla?</div><div class="a">Buat <b>lihat</b> file server: boleh. Buat <b>ngedit/upload kode</b>: TIDAK. Semua kode lewat Git.</div></div>
+  <div class="faq"><div class="q">Kerjaan gua bisa ilang ga?</div><div class="a">Hampir mustahil (selama ga <code>--force</code>). Semua kesimpen di history. Git lebih aman dari ZIP.</div></div>
+  <div class="faq"><div class="q">Commit itu beda sama push?</div><div class="a"><b>Commit</b> = simpan checkpoint di laptop lu. <b>Push</b> = kirim checkpoint itu ke GitHub. Commit dulu (boleh banyak), baru push.</div></div>
+
+  <footer>
+    Panduan internal Tim Dev SweetTreats 🦷 · biar onboarding junior ga perlu diajarin berulang.<br>
+    Ada yang kurang jelas? Bilang ke tim lead biar panduannya diupdate. · <code>docs/untuk-reza/git-workflow-guide.html</code>
+  </footer>
+
+</div>
+</body>
+</html>

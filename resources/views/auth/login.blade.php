@@ -14,8 +14,6 @@
         rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
-    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
-
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -112,6 +110,11 @@
         .forgot { display: inline-flex; align-items: center; gap: 6px; font-size: 0.82rem; font-weight: 600; color: var(--muted); text-decoration: none; margin-bottom: 24px; transition: gap 0.2s, color 0.2s; }
         .forgot:hover { gap: 9px; color: var(--accent); }
 
+        .remember { display: flex; align-items: flex-start; gap: 10px; margin: 2px 0 6px; cursor: pointer; }
+        .remember input { margin-top: 3px; width: 15px; height: 15px; accent-color: var(--accent); cursor: pointer; flex: none; }
+        .remember .tx { font-size: 0.84rem; font-weight: 600; color: var(--ink); line-height: 1.45; }
+        .remember .hint { display: block; font-size: 0.76rem; font-weight: 500; color: var(--muted); }
+
         .btn-submit {
             width: 100%; margin-top: 8px; display: inline-flex; align-items: center; justify-content: center; gap: 10px;
             padding: 15px 24px; border: none; border-radius: 13px; cursor: pointer;
@@ -190,6 +193,13 @@
                     <div class="field-err">{{ $message }}</div>
                 @enderror
             </div>
+
+            <label class="remember">
+                <input type="checkbox" name="remember_device" value="1">
+                <span class="tx">Ingat perangkat ini
+                    <span class="hint">Hanya centang di HP pribadimu — biar tidak perlu login ulang tiap absen.</span>
+                </span>
+            </label>
 
             <button type="submit" class="btn-submit">
                 Masuk ke Dashboard

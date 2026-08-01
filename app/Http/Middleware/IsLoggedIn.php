@@ -33,6 +33,19 @@ class IsLoggedIn
             return redirect()->to($landingPage ?: '/');
         }
 
+        // Buka /signin padahal perangkat "diingat" → langsung masuk tanpa form.
+        // HANYA pada GET — POST (submit form login) tidak boleh di-attempt,
+        // supaya kredensial yang dikirim selalu diproses AuthController (yang
+        // juga mencabut cookie perangkat user lain). Konsekuensi sadar: selama
+        // perangkat diingat, buka /signin = auto-masuk; ganti akun lewat
+        // logout dulu (yang sekaligus mencabut perangkat).
+        if ($request->isMethod('get') && app(\App\Services\DeviceAuth::class)->attempt($request)) {
+            // attempt() sudah mengisi session landing_page — arahkan ke sana,
+            // konsisten dengan jalur sesi-aktif di atas (role baru bisa punya
+            // landing selain '/').
+            return redirect()->to(session('landing_page') ?: '/');
+        }
+
         return $next($request);
     }
 }

@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 /**
  * Mapping (cabang, No.ID mesin) -> user DataCenter.
  * Kunci unik (raw_branch_id, device_user_id) — 26 No.ID bentrok antar cabang.
- * Lihat docs/rencana-rekonsiliasi-absensi.md §5.2.
+ * Lihat docs/rencana/rencana-rekonsiliasi-absensi.md §5.2.
  */
 class AttDeviceUser extends Model
 {

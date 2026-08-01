@@ -348,14 +348,19 @@
 
             var html;
             if (list.length) {
+                var esc = function (s) {
+                    return String(s == null ? '' : s).replace(/[&<>"']/g, function (ch) {
+                        return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch];
+                    });
+                };
                 html = '<div style="text-align:left;">' + list.map(function (u) {
                     var c = PALETTE[hash(u.nama) % PALETTE.length];
                     var sub = [];
-                    if (u.branch) sub.push('<i class="fas fa-map-marker-alt"></i> ' + u.branch);
-                    if (u.email)  sub.push(u.email);
+                    if (u.branch) sub.push('<i class="fas fa-map-marker-alt"></i> ' + esc(u.branch));
+                    if (u.email)  sub.push(esc(u.email));
                     return '<div style="display:flex;align-items:center;gap:10px;padding:8px 4px;border-bottom:1px solid #f3ece2;">'
-                        + '<span style="width:34px;height:34px;border-radius:50%;flex-shrink:0;background:' + c + ';color:#fff;font-weight:700;font-size:12px;display:grid;place-items:center;">' + initials(u.nama) + '</span>'
-                        + '<div><div style="font-weight:700;color:#2f1c0d;">' + u.nama + '</div>'
+                        + '<span style="width:34px;height:34px;border-radius:50%;flex-shrink:0;background:' + c + ';color:#fff;font-weight:700;font-size:12px;display:grid;place-items:center;">' + esc(initials(u.nama)) + '</span>'
+                        + '<div><div style="font-weight:700;color:#2f1c0d;">' + esc(u.nama) + '</div>'
                         + (sub.length ? '<div style="font-size:12px;color:#9a8672;">' + sub.join(' &middot; ') + '</div>' : '') + '</div>'
                         + '</div>';
                 }).join('') + '</div>';

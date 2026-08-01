@@ -31,6 +31,7 @@
     <link rel="stylesheet" href="{{ asset('assets/css/style.sweettreats.css') }}?v={{ @filemtime(public_path('assets/css/style.sweettreats.css')) ?: '1' }}">
     <link rel="stylesheet" href="{{ asset('assets/css/components.sweettreats.css') }}?v={{ @filemtime(public_path('assets/css/components.sweettreats.css')) ?: '1' }}">
     <link rel="stylesheet" href="{{ asset('assets/css/theme-marketing.css') }}?v={{ @filemtime(public_path('assets/css/theme-marketing.css')) ?: '1' }}">
+    <link rel="stylesheet" href="{{ asset('assets/css/zona.css') }}?v={{ @filemtime(public_path('assets/css/zona.css')) ?: '1' }}">
     <link rel="stylesheet" href="{{ asset('assets/css/themes.sweettreats.css') }}?v={{ @filemtime(public_path('assets/css/themes.sweettreats.css')) ?: '1' }}">
     {{-- Shell redesign (fondasi) — sidebar gelap global, hanya tema default. Di-load paling akhir agar menang. --}}
     <link rel="stylesheet" href="{{ asset('assets/css/shell-redesign.css') }}?v={{ @filemtime(public_path('assets/css/shell-redesign.css')) ?: '1' }}">
@@ -95,9 +96,35 @@
     $akunRedesign = in_array($currentSegment, ['akun', 'persetujuan'], true) ? ' redesign-akun' : '';
     // Surface absensi Finance/Admin (desktop, segment 'absensi').
     $absensiRedesign = ($currentSegment === 'absensi') ? ' redesign-absensi' : '';
+
+    // Zona warna per halaman (docs/spec/peta-tema.md §4) — hanya aksen konten,
+    // shell tetap cokelat. CSS: assets/css/zona.css.
+    $zonaFinance = in_array($currentSegment, ['finance', 'report', 'reconcile'], true) ? ' zona-finance' : '';
+    // WiFi Cabang = domain IT walau path-nya masih absensi/wifi (menu sudah di seksi IT).
+    $zonaIt = ($currentSegment === 'absensi' && request()->segment(2) === 'wifi') ? ' zona-it' : '';
+
+    // Gerbang sopan (peta-tema §5): halaman desktop-first dibuka di HP →
+    // pesan ramah + "Lanjut lihat". Halaman mobile-ready TIDAK masuk daftar
+    // (akun, my-checklist, persetujuan, absen HP, dsb).
+    $gerbangSegs = [
+        'absensi', 'pengawasan',                                    // HR/absensi desktop
+        'finance', 'report', 'reconcile',                           // Finance
+        'setkesehatan', 'setusermanagement', 'setgroup', 'setaccess',
+        'setsystemprofile', 'auditlog',                             // Pusat Akun / IT
+        'checklist', 'project-tracker',                             // ops desktop
+        'rawreservation', 'reservasicabang', 'rawcustomer', 'rawdoctor',
+        'rawdocservice', 'rawbranch', 'complaint',                  // CRUD
+        'sales-dashboard', 'marketing-dashboard', 'konten-pillar', 'ep-konten',
+        'ep-breakdown', 'ep-campaign', 'rawpromo', 'commission-claim',
+        'content-review', 'report-referral', 'rawaffiliate',
+        'marketing-promo', 'rawkeyword', 'sweet-mates',             // Marketing
+    ];
+    // Kehadiran sudah responsif betulan (auto view Hari di HP) — jangan digerbang.
+    $gerbangSopan = in_array($currentSegment, $gerbangSegs, true)
+        && ! request()->is('absensi/kehadiran');
 @endphp
 
-<body data-theme="{{ $bodyTheme }}" class="{{ $groupTheme }}{{ $reservasiRedesign }}{{ $pasienRedesign }}{{ $doctorRedesign }}{{ $akunRedesign }}{{ $absensiRedesign }}">
+<body data-theme="{{ $bodyTheme }}" class="{{ $groupTheme }}{{ $reservasiRedesign }}{{ $pasienRedesign }}{{ $doctorRedesign }}{{ $akunRedesign }}{{ $absensiRedesign }}{{ $zonaFinance }}{{ $zonaIt }}">
 
     <div class="app-shell">
         <div class="sbx-scrim" id="sbxScrim"></div>
@@ -108,6 +135,10 @@
         <!-- Kolom utama: header + konten -->
         <div class="app-main">
             @include('layouts.header')
+
+            @if($gerbangSopan)
+                @include('layouts._gerbang_sopan')
+            @endif
 
             <!-- Page Content-->
             <div class="page-content">

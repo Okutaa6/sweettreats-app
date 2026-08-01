@@ -23,7 +23,7 @@ use PhpOffice\PhpSpreadsheet\IOFactory;
  * (export mesin kumulatif) tidak menggandakan. Format matriks buang detik → dua
  * scan di menit sama otomatis kolaps lewat hash (memang tak terbedakan).
  *
- * Lihat docs/rencana-rekonsiliasi-absensi.md §2.2, §5.3.
+ * Lihat docs/rencana/rencana-rekonsiliasi-absensi.md §2.2, §5.3.
  */
 class AttendanceCsvImporter
 {

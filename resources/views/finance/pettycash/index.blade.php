@@ -58,6 +58,12 @@
             <button type="button" class="fpc-action-btn" onclick="window.print();">
                 <i class="fa fa-file-export"></i> Export
             </button>
+            {{-- Sisi lain dari "pengeluaran": petty cash untuk tunai kecil di
+                 cabang, ROP untuk yang dibayar transfer. Dirilis sepaket, jadi
+                 tautannya dua arah supaya Finance tidak mencari lewat menu. --}}
+            <a href="{{ route('finance.rop') }}" class="fpc-action-btn">
+                <i class="fa fa-inbox"></i> Antrian Pengajuan
+            </a>
             <a href="{{ route('finance.pettycash', ['year' => $year, 'month' => $month]) }}"
                class="fpc-action-btn fpc-action-btn--primary">
                 <i class="fa fa-sync"></i> Refresh
