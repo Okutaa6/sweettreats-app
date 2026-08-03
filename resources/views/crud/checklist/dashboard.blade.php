@@ -110,7 +110,7 @@
                             <div style="flex:1;min-width:0">
                                 <div style="font-size:13px;font-weight:700;color:#3B1500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ $r->user?->nama ?? '—' }} <span style="font-weight:600;color:#9A7256">· {{ $r->division?->name ?? $r->division_id }}</span></div>
                                 @php $rExcepted = $r->exceptedCount(); @endphp
-                                <div style="font-size:11.5px;color:#9A7256;margin-top:1px;font-variant-numeric:tabular-nums">{{ $r->submission_date->translatedFormat('d M Y') }} · {{ $r->satisfiedCount() }}/{{ $r->total_tasks }} tugas@if($rExcepted > 0) <span style="color:#8A5A2B;font-weight:700">({{ $rExcepted }} dikecualikan)</span>@endif @if($r->branch)· {{ $r->branch->name }} @endif</div>
+                                <div style="font-size:11.5px;color:#9A7256;margin-top:1px;font-variant-numeric:tabular-nums">{{ $r->submission_date->translatedFormat('d M Y') }} · {{ $r->satisfiedCount() }}/{{ $r->total_tasks }} tugas @if($rExcepted > 0)<span style="color:#8A5A2B;font-weight:700">({{ $rExcepted }} dikecualikan)</span>@endif @if($r->branch)· {{ $r->branch->name }} @endif</div>
                             </div>
                             <span style="display:inline-flex;align-items:center;font-size:11px;font-weight:800;padding:4px 11px;border-radius:20px;background:{{ $sc['bg'] }};color:{{ $sc['c'] }};white-space:nowrap;flex:none">{{ $opt['label'] }}</span>
                         </a>
