@@ -245,6 +245,37 @@
     .wf-task__name { font-size: 13.5px; font-weight: 600; color: #3B1500; line-height: 1.5; }
     .wf-task.is-done .wf-task__name { color: #9A7256; text-decoration: line-through; text-decoration-thickness: 1px; }
     .wf-task__time { font-size: 11px; color: #B7926F; font-weight: 600; flex-shrink: 0; align-self: center; }
+
+    /* ── Pengecualian per-pertanyaan (mingguan) ─────────────────────────── */
+    .wf-task.is-excepted:not(.is-done) .wf-task__check { background: #F0E4D3; border-color: #C9A97F; color: #8A5A2B; }
+    .wf-task.is-excepted:not(.is-done) .wf-task__check::before { content: "–"; }
+    .wf-task.is-excepted:not(.is-done) .wf-task__name { color: #9A7256; }
+    .cl-xcpt__open {
+        margin-top: 8px; border: 1px solid #E7D3BE; background: #fff; color: #9A7256;
+        border-radius: 8px; padding: 5px 10px; font-size: 11px; font-weight: 700;
+        font-family: inherit; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: .15s;
+    }
+    .cl-xcpt__open:hover { background: #FBF6EE; color: #8A5A2B; border-color: #DCC4A8; }
+    .wf-task.is-excepted .cl-xcpt__open { display: none; }
+    .cl-xcpt__flag { margin-top: 8px; display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+    .cl-xcpt__pill { flex-shrink: 0; font-size: 11px; font-weight: 800; color: #fff; background: #8A5A2B; border-radius: 20px; padding: 4px 11px; display: inline-flex; align-items: center; gap: 5px; }
+    .cl-xcpt__reason { font-size: 12px; color: #6B4423; font-style: italic; }
+    .cl-xcpt__undo { border: none; background: transparent; color: #8A3A12; font-size: 11.5px; font-weight: 700; cursor: pointer; font-family: inherit; text-decoration: underline; padding: 2px 4px; }
+    .cl-xcpt__undo:hover { color: #6B2400; }
+    .cl-xcpt__form { margin-top: 8px; padding: 12px 14px; border: 1px dashed #DCC4A8; border-radius: 12px; background: #FBF6EE; display: flex; flex-direction: column; gap: 10px; }
+    .cl-xcpt__label { font-size: 12px; color: #9A7256; }
+    .cl-xcpt__label b { color: #6B4423; }
+    .cl-xcpt__chips { display: flex; flex-wrap: wrap; gap: 7px; }
+    .cl-xcpt__chip { font-size: 11px; font-weight: 700; padding: 6px 12px; border-radius: 20px; border: 1px dashed #D9C4A6; background: #fff; color: #8A5A2B; cursor: pointer; font-family: inherit; transition: .15s; }
+    .cl-xcpt__chip:hover { filter: brightness(.97); }
+    .cl-xcpt__chip.is-active { background: #8A5A2B; color: #fff; border-color: transparent; }
+    .cl-xcpt__input { width: 100%; box-sizing: border-box; border: 1px solid #E7D3BE; border-radius: 10px; padding: 9px 12px; font-size: 12.5px; color: #3B1500; background: #fff; font-family: inherit; resize: vertical; }
+    .cl-xcpt__input:focus { outline: none; border-color: #C9962F; box-shadow: 0 0 0 3px rgba(201,150,47,.12); }
+    .cl-xcpt__actions { display: flex; gap: 8px; align-items: center; }
+    .cl-xcpt__cancel { border: none; background: transparent; color: #9A7256; font-size: 12px; font-weight: 700; cursor: pointer; font-family: inherit; padding: 8px 10px; }
+    .cl-xcpt__save { border: none; border-radius: 10px; background: #8A5A2B; color: #fff; font-size: 12px; font-weight: 800; padding: 9px 16px; cursor: pointer; font-family: inherit; display: inline-flex; align-items: center; gap: 6px; transition: .15s; }
+    .cl-xcpt__save:hover { filter: brightness(.96); }
+    .cl-xcpt__save:disabled { background: #EFE3D2; color: #B7926F; cursor: not-allowed; filter: none; }
     {{-- Catatan: task Mingguan TIDAK pakai kategori (beda dgn handoff yang menampilkan
          divider kategori) — task langsung dijadwalkan per hari, jadi tak ada divider. --}}
 
@@ -644,7 +675,8 @@
                         @php
                             $dayItems = $grouped->get($day->iso, collect());
                             $totalDay = $dayItems->count();
-                            $doneDay  = $dayItems->where('is_done', true)->count();
+                            // "beres" = dicentang ATAU dikecualikan per-item.
+                            $doneDay  = $dayItems->filter(fn ($i) => $i->is_done || $i->is_excepted)->count();
                             $isComplete = $totalDay > 0 && $doneDay === $totalDay;
                             $isDayExcused = array_key_exists($day->iso, $excusedDays);
                             $dayExcuseReason = $excusedDays[$day->iso] ?? null;
@@ -690,9 +722,13 @@
                                     <div class="wf-day__empty">Tidak ada tugas terjadwal di hari ini.</div>
                                 @else
                                     @foreach($dayItems as $item)
-                                            <div class="wf-task {{ $item->is_done ? 'is-done' : '' }} {{ $submission->isEditable() && ! $isDayExcused ? '' : 'is-locked' }} {{ $isDayExcused ? 'is-excused' : '' }} {{ ! $isDayExcused && $item->requires_photo && ! $item->photo_before_after && ! $item->photo_path ? 'needs-photo' : '' }}"
+                                            <div class="wf-task {{ $item->is_done ? 'is-done' : '' }} {{ $item->is_excepted && ! $isDayExcused ? 'is-excepted' : '' }} {{ $submission->isEditable() && ! $isDayExcused ? '' : 'is-locked' }} {{ $isDayExcused ? 'is-excused' : '' }} {{ ! $isDayExcused && ! $item->is_excepted && $item->requires_photo && ! $item->photo_before_after && ! $item->photo_path ? 'needs-photo' : '' }}"
                                                  data-item-id="{{ $item->id }}"
                                                  data-toggle-url="{{ route('mychecklist.weekform.item.toggle', $item->id) }}"
+                                                 @if($submission->isEditable() && ! $isDayExcused)
+                                                 data-except-url="{{ route('mychecklist.weekform.item.except', $item->id) }}"
+                                                 data-unexcept-url="{{ route('mychecklist.weekform.item.unexcept', $item->id) }}"
+                                                 @endif
                                                  data-editable="{{ $submission->isEditable() && ! $isDayExcused ? '1' : '0' }}"
                                                  data-requires-photo="{{ $item->requires_photo && ! $item->photo_before_after ? '1' : '0' }}"
                                                  @if($item->requires_photo && ! $item->photo_before_after)
@@ -757,8 +793,47 @@
                                                             </div>
                                                         </div>
                                                     @endif
+
+                                                    {{-- Flag "Dikecualikan" per-item (tampil bila item dikecualikan
+                                                         & harinya tidak dikecualikan penuh). --}}
+                                                    @if($item->is_excepted && ! $isDayExcused)
+                                                        <div class="cl-xcpt__flag" data-xcpt-flag>
+                                                            <span class="cl-xcpt__pill"><i class="fas fa-ban"></i> Dikecualikan</span>
+                                                            <span class="cl-xcpt__reason" data-xcpt-reason>{{ $item->exception_reason }}</span>
+                                                            @if($submission->isEditable() && ! $isDayExcused)
+                                                                <button type="button" class="cl-xcpt__undo" data-xcpt-undo>Batalkan</button>
+                                                            @endif
+                                                        </div>
+                                                    @elseif($submission->isEditable() && ! $isDayExcused)
+                                                        <div class="cl-xcpt__flag" data-xcpt-flag hidden>
+                                                            <span class="cl-xcpt__pill"><i class="fas fa-ban"></i> Dikecualikan</span>
+                                                            <span class="cl-xcpt__reason" data-xcpt-reason></span>
+                                                            <button type="button" class="cl-xcpt__undo" data-xcpt-undo>Batalkan</button>
+                                                        </div>
+                                                    @endif
+
+                                                    {{-- Tombol + form pengecualian (hanya editable & hari tidak dikecualikan). --}}
+                                                    @if($submission->isEditable() && ! $isDayExcused)
+                                                        <button type="button" class="cl-xcpt__open" data-xcpt-open
+                                                                title="Tandai pertanyaan ini tidak perlu diisi minggu ini">
+                                                            <i class="fas fa-ban"></i> <span>Kecualikan</span>
+                                                        </button>
+                                                        <div class="cl-xcpt__form" data-xcpt-form hidden>
+                                                            <div class="cl-xcpt__label">Tandai <b>Dikecualikan</b> — pertanyaan ini tak berlaku/tak terjadi minggu ini. Tetap dihitung 100%.</div>
+                                                            <div class="cl-xcpt__chips">
+                                                                <button type="button" class="cl-xcpt__chip" data-xcpt-preset="Tidak terjadi minggu ini">Tidak terjadi minggu ini</button>
+                                                                <button type="button" class="cl-xcpt__chip" data-xcpt-preset="Alat/ruangan tidak dipakai">Alat/ruangan tidak dipakai</button>
+                                                                <button type="button" class="cl-xcpt__chip" data-xcpt-preset="Tidak ada kegiatan terkait">Tidak ada kegiatan terkait</button>
+                                                            </div>
+                                                            <textarea class="cl-xcpt__input" rows="2" maxlength="500" placeholder="Alasan pengecualian…"></textarea>
+                                                            <div class="cl-xcpt__actions">
+                                                                <button type="button" class="cl-xcpt__cancel" data-xcpt-cancel>Batal</button>
+                                                                <button type="button" class="cl-xcpt__save" data-xcpt-save disabled><i class="fas fa-ban"></i> Tandai Dikecualikan</button>
+                                                            </div>
+                                                        </div>
+                                                    @endif
                                                 </div>
-                                                @if($item->done_at)
+                                                @if($item->done_at && ! $item->is_excepted)
                                                     <div class="wf-task__time">selesai</div>
                                                 @endif
                                             </div>
@@ -959,6 +1034,73 @@
             });
             if (removeBtn) removeBtn.addEventListener('click', () => removeBaPhoto(col));
         });
+
+        // ── Pengecualian per-item ──
+        // Semua kontrol pengecualian stopPropagation supaya klik tak men-toggle.
+        task.querySelectorAll('[data-xcpt-open], [data-xcpt-form], [data-xcpt-flag]').forEach(el => {
+            el.addEventListener('click', e => e.stopPropagation());
+        });
+        const xForm = task.querySelector('[data-xcpt-form]');
+        if (xForm) {
+            const xOpen   = task.querySelector('[data-xcpt-open]');
+            const xInput  = xForm.querySelector('.cl-xcpt__input');
+            const xSave   = xForm.querySelector('[data-xcpt-save]');
+            const xCancel = xForm.querySelector('[data-xcpt-cancel]');
+            const xChips  = xForm.querySelectorAll('[data-xcpt-preset]');
+            const xUndo   = task.querySelector('[data-xcpt-undo]');
+
+            const xSync = () => {
+                xSave.disabled = xInput.value.trim() === '';
+                xChips.forEach(c => c.classList.toggle('is-active', c.getAttribute('data-xcpt-preset') === xInput.value.trim()));
+            };
+            if (xOpen)   xOpen.addEventListener('click',   () => { xForm.hidden = false; xInput.focus(); });
+            if (xCancel) xCancel.addEventListener('click', () => { xForm.hidden = true; xInput.value = ''; xSync(); });
+            xChips.forEach(c => c.addEventListener('click', () => { xInput.value = c.getAttribute('data-xcpt-preset'); xSync(); }));
+            xInput.addEventListener('input', xSync);
+            xSync();
+
+            if (xSave) xSave.addEventListener('click', async () => {
+                const reason = xInput.value.trim();
+                if (! reason) return;
+                xSave.disabled = true;
+                try {
+                    const res = await fetch(task.dataset.exceptUrl, {
+                        method: 'PATCH',
+                        headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ reason }),
+                    });
+                    const data = await res.json();
+                    if (! data.ok) throw new Error(data.error || 'Gagal');
+                    task.classList.remove('is-done');
+                    setExceptedUI(task, true, data.reason || reason);
+                    xForm.hidden = true;
+                    updateDayCounter(task);
+                    updateGlobal(data.progress);
+                } catch (err) {
+                    xSync();
+                    alert('Gagal menyimpan pengecualian: ' + (err.message || err));
+                }
+            });
+
+            if (xUndo) xUndo.addEventListener('click', async () => {
+                xUndo.disabled = true;
+                try {
+                    const res = await fetch(task.dataset.unexceptUrl, {
+                        method: 'PATCH',
+                        headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf, 'Content-Type': 'application/json' },
+                    });
+                    const data = await res.json();
+                    if (! data.ok) throw new Error(data.error || 'Gagal');
+                    setExceptedUI(task, false);
+                    xInput.value = ''; xSync();
+                    updateDayCounter(task);
+                    updateGlobal(data.progress);
+                } catch (err) {
+                    xUndo.disabled = false;
+                    alert('Gagal membatalkan pengecualian: ' + (err.message || err));
+                }
+            });
+        }
     });
 
     // ── Modal lihat foto ──
@@ -981,10 +1123,25 @@
     document.querySelectorAll('[data-modal-close]').forEach(el => el.addEventListener('click', closePhotoModal));
     document.addEventListener('keydown', e => { if (e.key === 'Escape') closePhotoModal(); });
 
+    // Tampilkan/sembunyikan state "Dikecualikan" pada satu item (class + flag).
+    function setExceptedUI(task, on, reason) {
+        task.classList.toggle('is-excepted', on);
+        const flag = task.querySelector('[data-xcpt-flag]');
+        if (flag) {
+            flag.hidden = ! on;
+            if (on && typeof reason === 'string') {
+                const r = flag.querySelector('[data-xcpt-reason]');
+                if (r) r.textContent = reason;
+            }
+        }
+    }
+
     async function toggleTask(task) {
         const url = task.dataset.toggleUrl;
         const wasDone = task.classList.contains('is-done');
+        const wasExcepted = task.classList.contains('is-excepted');
         task.classList.toggle('is-done');
+        if (task.classList.contains('is-done') && wasExcepted) setExceptedUI(task, false);
         updateDayCounter(task);
         try {
             const res = await fetch(url, {
@@ -994,9 +1151,11 @@
             const data = await res.json();
             if (! data.ok) throw new Error(data.error || 'Gagal toggle');
             task.classList.toggle('is-done', data.is_done);
+            if (data.is_done) setExceptedUI(task, false);
             updateGlobal(data.progress);
         } catch (err) {
             task.classList.toggle('is-done', wasDone);
+            if (wasExcepted) setExceptedUI(task, true);
             updateDayCounter(task);
             alert('Gagal: ' + (err.message || err));
         }
@@ -1166,7 +1325,8 @@
         const dayCard = task.closest('.wf-day');
         if (! dayCard) return;
         const all  = dayCard.querySelectorAll('[data-item-id]');
-        const done = dayCard.querySelectorAll('[data-item-id].is-done');
+        // "beres" = dicentang ATAU dikecualikan.
+        const done = dayCard.querySelectorAll('[data-item-id].is-done, [data-item-id].is-excepted');
         const total = all.length;
         const cnt = done.length;
         const complete = cnt === total && total > 0;

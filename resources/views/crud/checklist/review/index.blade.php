@@ -38,8 +38,23 @@
     .rv-input {
         border:1px solid #E7D3BE; border-radius:11px; padding:9px 12px;
         font-family:inherit; font-size:13px; color:#3B1500; background:#fff;
+        transition:border-color .15s ease, background-color .15s ease;
     }
+    .rv-input:hover { border-color:#D9A94E; background:#FFFCF8; }
     .rv-input:focus { outline:none; border-color:#C9962F; }
+
+    /* ── Export card ── */
+    .rv-export { transition:border-color .15s ease, box-shadow .15s ease; }
+    .rv-export:hover { border-color:#CFE6D6; box-shadow:0 3px 14px rgba(31,110,95,.10); }
+    .rv-export-btn {
+        display:inline-flex; align-items:center; gap:8px; white-space:nowrap;
+        background:linear-gradient(135deg,#2F8E55,#1F6E5F); color:#fff;
+        border:none; border-radius:10px; padding:9px 16px;
+        font-weight:700; font-size:12.5px; font-family:inherit; cursor:pointer;
+        transition:filter .15s ease, box-shadow .15s ease, transform .05s ease;
+    }
+    .rv-export-btn:hover { filter:brightness(1.08); box-shadow:0 5px 15px rgba(31,110,95,.28); }
+    .rv-export-btn:active { transform:translateY(1px); }
 
     .rv-table { width:100%; border-collapse:collapse; min-width:820px; }
     .rv-table thead tr { background:linear-gradient(120deg,#3A1505,#52200A); }
@@ -155,6 +170,37 @@
 
         <span style="margin-left:auto;font-size:12.5px;color:#9A7256">Menampilkan <b style="color:#3B1500">{{ $submissions->count() }}</b> dari <b style="color:#3B1500">{{ $submissions->total() }}</b> submission</span>
     </form>
+
+    {{-- ─── EXPORT EXCEL (rekap harian divisi yang sedang dibuka — tiap karyawan jadi tab) ─── --}}
+    @php
+        // Ikut tab divisi aktif; kalau lagi "semua", jatuh ke divisi pertama dalam cakupan.
+        $exportDiv = $filterDiv !== 'all' ? $divisions->firstWhere('id', $filterDiv) : $divisions->first();
+    @endphp
+    @if($exportDiv)
+    <form method="GET" action="{{ route('checklist.export') }}" class="rv-export"
+          style="background:#fff;border:1px solid #EFE0CE;border-radius:16px;padding:13px 16px;display:flex;align-items:center;gap:11px;flex-wrap:wrap;box-shadow:0 1px 2px rgba(70,21,0,.04);margin-bottom:14px">
+        <div style="display:flex;align-items:center;gap:11px;flex:1;min-width:210px">
+            <div style="width:38px;height:38px;flex:none;border-radius:11px;background:#E3F4E8;display:flex;align-items:center;justify-content:center">
+                <i class="fas fa-file-excel" style="color:#2F8E55;font-size:16px"></i>
+            </div>
+            <div style="min-width:0">
+                <div style="font-size:13.5px;font-weight:800;color:#3B1500">Export Excel Checklist Harian — {{ $exportDiv->name }}</div>
+                <div style="font-size:11.5px;color:#9A7256;margin-top:1px">Rekap divisi {{ $exportDiv->name }} 1 bulan — tiap karyawan jadi tab (sheet) sendiri</div>
+            </div>
+        </div>
+
+        <input type="hidden" name="division" value="{{ $exportDiv->id }}">
+        @if(canSeeAllBranches() && $branchId)
+            <input type="hidden" name="branch" value="{{ $branchId }}">
+        @endif
+
+        <input type="month" name="month" value="{{ now()->format('Y-m') }}" max="{{ now()->format('Y-m') }}" class="rv-input" title="Bulan">
+
+        <button type="submit" class="rv-export-btn">
+            <i class="fas fa-download" style="font-size:12px"></i> Download Excel
+        </button>
+    </form>
+    @endif
 
     {{-- ─── TABEL SUBMISSION ─── --}}
     <div style="background:#fff;border:1px solid #EFE0CE;border-radius:18px;overflow-x:auto;box-shadow:0 1px 2px rgba(70,21,0,.04),0 10px 26px rgba(70,21,0,.05)">

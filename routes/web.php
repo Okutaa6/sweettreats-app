@@ -496,6 +496,8 @@ Route::middleware([AuthGuard::class])->group(function () {
 
     // Dashboard + Audit (Supervisor only)
     Route::get ('checklist',                        [DigitalChecklistController::class, 'dashboard'])  ->name('checklist');
+    Route::get ('checklist/export',                 [DigitalChecklistController::class, 'exportDaily'])->name('checklist.export');
+    Route::get ('checklist/export/weekly',          [DigitalChecklistController::class, 'exportWeekly'])->name('checklist.export.weekly');
     Route::get ('checklist/audit',                  [DigitalChecklistController::class, 'audit'])      ->name('checklist.audit');
 
     // Kelola Posisi Karyawan (Supervisor)
@@ -548,6 +550,8 @@ Route::middleware([AuthGuard::class])->group(function () {
     Route::get  ('my-checklist/history/{type}/{id}',[MyChecklistController::class, 'historyShow'])     ->name('mychecklist.history.show')->where('type', 'daily|weekly');
     Route::patch('my-checklist/item/{id}',          [MyChecklistController::class, 'toggleItem'])      ->name('mychecklist.item.toggle');
     Route::patch('my-checklist/item/{id}/note',     [MyChecklistController::class, 'updateNote'])      ->name('mychecklist.item.note');
+    Route::patch('my-checklist/item/{id}/except',   [MyChecklistController::class, 'exceptItem'])      ->name('mychecklist.item.except');
+    Route::patch('my-checklist/item/{id}/unexcept', [MyChecklistController::class, 'unexceptItem'])    ->name('mychecklist.item.unexcept');
     Route::post ('my-checklist/submit',             [MyChecklistController::class, 'submit'])          ->name('mychecklist.submit');
     Route::post ('my-checklist/reopen-self',        [MyChecklistController::class, 'reopenSelf'])      ->name('mychecklist.reopen-self');
     Route::post ('my-checklist/excuse',             [MyChecklistController::class, 'excuseToday'])     ->name('mychecklist.excuse');
@@ -557,6 +561,8 @@ Route::middleware([AuthGuard::class])->group(function () {
     Route::get  ('my-checklist/weekform',                [MyChecklistController::class, 'weekForm'])      ->name('mychecklist.weekform');
     Route::patch('my-checklist/weekform/item/{id}',      [MyChecklistController::class, 'weekToggleItem'])->name('mychecklist.weekform.item.toggle');
     Route::patch('my-checklist/weekform/item/{id}/note', [MyChecklistController::class, 'weekUpdateNote'])->name('mychecklist.weekform.item.note');
+    Route::patch('my-checklist/weekform/item/{id}/except',   [MyChecklistController::class, 'weekExceptItem'])  ->name('mychecklist.weekform.item.except');
+    Route::patch('my-checklist/weekform/item/{id}/unexcept', [MyChecklistController::class, 'weekUnexceptItem'])->name('mychecklist.weekform.item.unexcept');
     Route::post ('my-checklist/weekform/item/{id}/photo', [MyChecklistController::class, 'weekUploadPhoto'])->name('mychecklist.weekform.item.photo.upload');
     Route::delete('my-checklist/weekform/item/{id}/photo',[MyChecklistController::class, 'weekDeletePhoto'])->name('mychecklist.weekform.item.photo.delete');
     // Foto before/after opsional (khusus divisi GS) — slot: before|after.

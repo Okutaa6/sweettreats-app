@@ -304,7 +304,7 @@
     .cl-mod-cat.is-open .cl-mod-cat__body-inner { border-top: 1px solid #F0E8DC; }
 
     .cl-mod-task {
-        display: flex; align-items: center; gap: 12px;
+        display: flex; align-items: center; flex-wrap: wrap; gap: 12px;
         padding: 12px 18px;
         border-bottom: 1px solid #F5EBE0;
         cursor: pointer;
@@ -359,6 +359,74 @@
     .cl-mod-note__status { display: inline-block; min-height: 12px; margin-top: 3px; font-size: 10.5px; color: #9B8578; }
     .cl-mod-note__ro { font-size: 12px; color: #6B4423; padding: 6px 10px; background: #FFF7EE; border-radius: 6px; border-left: 3px solid #9B5E2C; }
     .cl-mod-note__ro i { font-size: 10px; margin-right: 4px; color: #9B5E2C; }
+
+    /* ── Pengecualian per-pertanyaan ─────────────────────────────────────── */
+    /* Tombol kecil "Kecualikan" di kanan baris — muncul saat hover, disembunyikan
+       kalau item sudah dikecualikan. */
+    .cl-xcpt__open {
+        flex-shrink: 0; border: 1px solid #E7D3BE; background: #fff; color: #9A7256;
+        border-radius: 8px; padding: 5px 10px; font-size: 11px; font-weight: 700;
+        font-family: inherit; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;
+        opacity: .55; transition: .15s;
+    }
+    .cl-mod-task:hover .cl-xcpt__open { opacity: 1; }
+    .cl-xcpt__open:hover { background: #FBF6EE; color: #8A5A2B; border-color: #DCC4A8; }
+    .cl-mod-task.is-excepted .cl-xcpt__open { display: none; }
+    /* Item dikecualikan: check jadi "–" coklat, judul redup (bukan coret). */
+    .cl-mod-task.is-excepted:not(.is-done) .cl-mod-task__check {
+        background: #F0E4D3; border-color: #C9A97F; color: #8A5A2B;
+    }
+    .cl-mod-task.is-excepted:not(.is-done) .cl-mod-task__check::before { content: "–"; }
+    .cl-mod-task.is-excepted:not(.is-done) .cl-mod-task__name { color: #9A7256; }
+
+    .cl-xcpt__flag {
+        flex-basis: 100%; padding-left: 42px; margin-top: 4px;
+        display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
+    }
+    .cl-xcpt__pill {
+        flex-shrink: 0; font-size: 11px; font-weight: 800; color: #fff; background: #8A5A2B;
+        border-radius: 20px; padding: 4px 11px; display: inline-flex; align-items: center; gap: 5px;
+    }
+    .cl-xcpt__reason { font-size: 12px; color: #6B4423; font-style: italic; }
+    .cl-xcpt__undo {
+        border: none; background: transparent; color: #8A3A12; font-size: 11.5px; font-weight: 700;
+        cursor: pointer; font-family: inherit; text-decoration: underline; padding: 2px 4px;
+    }
+    .cl-xcpt__undo:hover { color: #6B2400; }
+
+    .cl-xcpt__form {
+        flex-basis: 100%; margin-top: 8px; padding: 12px 14px; padding-left: 42px;
+        border: 1px dashed #DCC4A8; border-radius: 12px; background: #FBF6EE;
+        display: flex; flex-direction: column; gap: 10px;
+    }
+    .cl-xcpt__label { font-size: 12px; color: #9A7256; }
+    .cl-xcpt__label b { color: #6B4423; }
+    .cl-xcpt__chips { display: flex; flex-wrap: wrap; gap: 7px; }
+    .cl-xcpt__chip {
+        font-size: 11px; font-weight: 700; padding: 6px 12px; border-radius: 20px;
+        border: 1px dashed #D9C4A6; background: #fff; color: #8A5A2B; cursor: pointer;
+        font-family: inherit; transition: .15s;
+    }
+    .cl-xcpt__chip:hover { filter: brightness(.97); }
+    .cl-xcpt__chip.is-active { background: #8A5A2B; color: #fff; border-color: transparent; }
+    .cl-xcpt__input {
+        width: 100%; box-sizing: border-box; border: 1px solid #E7D3BE; border-radius: 10px;
+        padding: 9px 12px; font-size: 12.5px; color: #3B1500; background: #fff;
+        font-family: inherit; resize: vertical;
+    }
+    .cl-xcpt__input:focus { outline: none; border-color: #C9962F; box-shadow: 0 0 0 3px rgba(201,150,47,.12); }
+    .cl-xcpt__actions { display: flex; gap: 8px; align-items: center; }
+    .cl-xcpt__cancel {
+        border: none; background: transparent; color: #9A7256; font-size: 12px; font-weight: 700;
+        cursor: pointer; font-family: inherit; padding: 8px 10px;
+    }
+    .cl-xcpt__save {
+        border: none; border-radius: 10px; background: #8A5A2B; color: #fff; font-size: 12px;
+        font-weight: 800; padding: 9px 16px; cursor: pointer; font-family: inherit;
+        display: inline-flex; align-items: center; gap: 6px; transition: .15s;
+    }
+    .cl-xcpt__save:hover { filter: brightness(.96); }
+    .cl-xcpt__save:disabled { background: #EFE3D2; color: #B7926F; cursor: not-allowed; filter: none; }
 
     /* Kartu submit — gradient gelap sesuai handoff: headline + sub kiri, tombol kanan */
     .cl-mod-submit {
@@ -917,7 +985,8 @@
                         @foreach($grouped as $catTitle => $items)
                             @php
                                 $catIdx++;
-                                $catDone = $items->where('is_done', true)->count();
+                                // "beres" = dicentang ATAU dikecualikan (tidak berlaku hari ini).
+                                $catDone = $items->filter(fn ($i) => $i->is_done || $i->is_excepted)->count();
                                 $catTotal = $items->count();
                                 $catComplete = $catDone === $catTotal;
                                 // Exclusive accordion: hanya kategori pertama yang belum selesai yang terbuka.
@@ -945,14 +1014,27 @@
                                 <div class="cl-mod-cat__body">
                                     <div class="cl-mod-cat__body-inner">
                                     @foreach($items as $item)
-                                        <div class="cl-mod-task {{ $item->is_done ? 'is-done' : '' }} {{ $submission->isEditable() ? '' : 'is-locked' }}"
+                                        <div class="cl-mod-task {{ $item->is_done ? 'is-done' : '' }} {{ $item->is_excepted ? 'is-excepted' : '' }} {{ $submission->isEditable() ? '' : 'is-locked' }}"
                                              data-item-id="{{ $item->id }}"
                                              data-toggle-url="{{ route('mychecklist.item.toggle', $item->id) }}"
+                                             @if($submission->isEditable())
+                                             data-except-url="{{ route('mychecklist.item.except', $item->id) }}"
+                                             data-unexcept-url="{{ route('mychecklist.item.unexcept', $item->id) }}"
+                                             @endif
                                              data-editable="{{ $submission->isEditable() ? '1' : '0' }}">
                                             <span class="cl-mod-task__check"></span>
                                             <div class="cl-mod-task__name">{{ $item->task_title_snapshot }}</div>
-                                            @if($item->done_at)
+                                            @if($item->done_at && ! $item->is_excepted)
                                                 <div class="cl-mod-task__time">{{ $item->done_at->format('H:i') }}</div>
+                                            @endif
+
+                                            {{-- Tombol buka form pengecualian. Disembunyikan saat item sudah
+                                                 dikecualikan (lihat CSS). stopPropagation di JS supaya tak men-toggle. --}}
+                                            @if($submission->isEditable())
+                                                <button type="button" class="cl-xcpt__open" data-xcpt-open
+                                                        title="Tandai pertanyaan ini tidak perlu diisi hari ini">
+                                                    <i class="fas fa-ban"></i> <span>Kecualikan</span>
+                                                </button>
                                             @endif
 
                                             {{-- Catatan per item (opsional). Di luar area toggle (stopPropagation
@@ -967,6 +1049,33 @@
                                             @elseif($item->note)
                                                 <div class="cl-mod-task__note cl-mod-task__note--ro">
                                                     <div class="cl-mod-note__ro"><strong>Catatan:</strong> {{ $item->note }}</div>
+                                                </div>
+                                            @endif
+
+                                            {{-- Flag "Dikecualikan" (full-width). Selalu tampil bila is_excepted,
+                                                 tombol Batalkan hanya saat editable. --}}
+                                            <div class="cl-xcpt__flag" data-xcpt-flag @unless($item->is_excepted) hidden @endunless>
+                                                <span class="cl-xcpt__pill"><i class="fas fa-ban"></i> Dikecualikan</span>
+                                                <span class="cl-xcpt__reason" data-xcpt-reason>{{ $item->exception_reason }}</span>
+                                                @if($submission->isEditable())
+                                                    <button type="button" class="cl-xcpt__undo" data-xcpt-undo>Batalkan</button>
+                                                @endif
+                                            </div>
+
+                                            {{-- Form alasan pengecualian (full-width, tersembunyi sampai dibuka). --}}
+                                            @if($submission->isEditable())
+                                                <div class="cl-xcpt__form" data-xcpt-form hidden>
+                                                    <div class="cl-xcpt__label">Tandai <b>Dikecualikan</b> — pertanyaan ini tak berlaku/tak terjadi hari ini. Tetap dihitung 100%.</div>
+                                                    <div class="cl-xcpt__chips">
+                                                        <button type="button" class="cl-xcpt__chip" data-xcpt-preset="Tidak terjadi hari ini">Tidak terjadi hari ini</button>
+                                                        <button type="button" class="cl-xcpt__chip" data-xcpt-preset="Alat/ruangan tidak dipakai">Alat/ruangan tidak dipakai</button>
+                                                        <button type="button" class="cl-xcpt__chip" data-xcpt-preset="Tidak ada kegiatan terkait">Tidak ada kegiatan terkait</button>
+                                                    </div>
+                                                    <textarea class="cl-xcpt__input" rows="2" maxlength="500" placeholder="Alasan pengecualian…"></textarea>
+                                                    <div class="cl-xcpt__actions">
+                                                        <button type="button" class="cl-xcpt__cancel" data-xcpt-cancel>Batal</button>
+                                                        <button type="button" class="cl-xcpt__save" data-xcpt-save disabled><i class="fas fa-ban"></i> Tandai Dikecualikan</button>
+                                                    </div>
                                                 </div>
                                             @endif
                                         </div>
@@ -1184,14 +1293,29 @@
     const countEl = document.getElementById('clProgressCount');
     const submitBtn = document.getElementById('clSubmitBtn');
 
+    // Tampilkan/sembunyikan state "Dikecualikan" pada satu item (class + flag).
+    function setExceptedUI(task, on, reason) {
+        task.classList.toggle('is-excepted', on);
+        const flag = task.querySelector('[data-xcpt-flag]');
+        if (flag) {
+            flag.hidden = ! on;
+            if (on && typeof reason === 'string') {
+                const r = flag.querySelector('[data-xcpt-reason]');
+                if (r) r.textContent = reason;
+            }
+        }
+    }
+
     document.querySelectorAll('[data-item-id]').forEach(task => {
         task.addEventListener('click', async (e) => {
             if (task.dataset.editable !== '1') return;
             const url = task.dataset.toggleUrl;
 
-            // Optimistic UI
+            // Optimistic UI. Mencentang item yang dikecualikan → batalkan pengecualiannya.
             const wasDone = task.classList.contains('is-done');
+            const wasExcepted = task.classList.contains('is-excepted');
             task.classList.toggle('is-done');
+            if (task.classList.contains('is-done') && wasExcepted) setExceptedUI(task, false);
             updateCatCounter(task);
 
             try {
@@ -1207,13 +1331,83 @@
                 if (! data.ok) throw new Error(data.error || 'Gagal toggle');
 
                 task.classList.toggle('is-done', data.is_done);
+                if (data.is_done) setExceptedUI(task, false);
                 updateProgressGlobal(data.progress);
             } catch (err) {
                 task.classList.toggle('is-done', wasDone);
+                if (wasExcepted) setExceptedUI(task, true);
                 updateCatCounter(task);
                 alert(navigator.onLine
                     ? ('Gagal menyimpan: ' + (err.message || err) + '\nBila status checklist sudah berubah (mis. sudah direview), muat ulang halaman.')
                     : 'Koneksi terputus — perubahan belum tersimpan. Coba lagi setelah kembali online.');
+            }
+        });
+    });
+
+    // ── Pengecualian per-item: buka form, chip preset, simpan, batalkan ──
+    // Semua kontrol pengecualian stopPropagation supaya klik tak ikut men-toggle.
+    document.querySelectorAll('[data-xcpt-open], [data-xcpt-form], [data-xcpt-flag]').forEach(el => {
+        el.addEventListener('click', e => e.stopPropagation());
+    });
+    document.querySelectorAll('[data-item-id]').forEach(task => {
+        const form = task.querySelector('[data-xcpt-form]');
+        if (! form) return;   // item non-editable
+        const openBtn = task.querySelector('[data-xcpt-open]');
+        const input   = form.querySelector('.cl-xcpt__input');
+        const saveBtn = form.querySelector('[data-xcpt-save]');
+        const cancel  = form.querySelector('[data-xcpt-cancel]');
+        const chips   = form.querySelectorAll('[data-xcpt-preset]');
+        const undoBtn = task.querySelector('[data-xcpt-undo]');
+
+        function syncSave() {
+            saveBtn.disabled = input.value.trim() === '';
+            chips.forEach(c => c.classList.toggle('is-active', c.getAttribute('data-xcpt-preset') === input.value.trim()));
+        }
+        if (openBtn) openBtn.addEventListener('click', () => { form.hidden = false; input.focus(); });
+        if (cancel)  cancel.addEventListener('click',  () => { form.hidden = true; input.value = ''; syncSave(); });
+        chips.forEach(c => c.addEventListener('click', () => { input.value = c.getAttribute('data-xcpt-preset'); syncSave(); }));
+        input.addEventListener('input', syncSave);
+        syncSave();
+
+        if (saveBtn) saveBtn.addEventListener('click', async () => {
+            const reason = input.value.trim();
+            if (! reason) return;
+            saveBtn.disabled = true;
+            try {
+                const res = await fetch(task.dataset.exceptUrl, {
+                    method: 'PATCH',
+                    headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ reason }),
+                });
+                const data = await res.json();
+                if (! data.ok) throw new Error(data.error || 'Gagal');
+                task.classList.remove('is-done');   // tak boleh dicentang + dikecualikan
+                setExceptedUI(task, true, data.reason || reason);
+                form.hidden = true;
+                updateCatCounter(task);
+                updateProgressGlobal(data.progress);
+            } catch (err) {
+                syncSave();
+                alert('Gagal menyimpan pengecualian: ' + (err.message || err));
+            }
+        });
+
+        if (undoBtn) undoBtn.addEventListener('click', async () => {
+            undoBtn.disabled = true;
+            try {
+                const res = await fetch(task.dataset.unexceptUrl, {
+                    method: 'PATCH',
+                    headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf, 'Content-Type': 'application/json' },
+                });
+                const data = await res.json();
+                if (! data.ok) throw new Error(data.error || 'Gagal');
+                setExceptedUI(task, false);
+                input.value = ''; syncSave();
+                updateCatCounter(task);
+                updateProgressGlobal(data.progress);
+            } catch (err) {
+                undoBtn.disabled = false;
+                alert('Gagal membatalkan pengecualian: ' + (err.message || err));
             }
         });
     });
@@ -1253,7 +1447,8 @@
         const block = task.closest('[data-cat-block]');
         if (! block) return;
         const all   = block.querySelectorAll('[data-item-id]');
-        const done  = block.querySelectorAll('[data-item-id].is-done');
+        // "beres" = dicentang ATAU dikecualikan.
+        const done  = block.querySelectorAll('[data-item-id].is-done, [data-item-id].is-excepted');
         const total = all.length;
         const cnt   = done.length;
         const complete = cnt === total;

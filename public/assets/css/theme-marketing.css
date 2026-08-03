@@ -624,7 +624,7 @@ body[data-theme="marketing"] .main-menu-inner .menu-body .nav-item ul li > a:hov
 
     /* Title */
     .note-title-wrap { margin-bottom:24px; }
-    .note-title-input { width:100%; border:none; outline:none; background:transparent; font-size:32px; font-weight:900; color:#0a4f4d; line-height:1.2; padding:0; font-family:'Montserrat',sans-serif; }
+    .note-title-input { width:100%; border:none; outline:none; background:transparent; font-size:32px; font-weight:900; color:#0a4f4d; line-height:1.2; padding:0; font-family:'Montserrat',sans-serif; display:block; resize:none; overflow:hidden; overflow-wrap:break-word; word-break:break-word; }
     .note-title-input::placeholder { color:#7a9290; font-weight:800; }
     .note-title-input.is-invalid { border-bottom:2px solid #c62828; }
 
@@ -843,7 +843,7 @@ body[data-theme="marketing"] .main-menu-inner .menu-body .nav-item ul li > a:hov
     /* Reuse Notion-style classes */
     .note-page { background:#fff; border-radius:14px; border:1px solid #c4ebe9; padding:36px 48px; margin-bottom:20px; box-shadow:0 2px 12px rgba(19, 146, 142,0.04); }
     .note-title-wrap { margin-bottom:24px; }
-    .note-title-input { width:100%; border:none; outline:none; background:transparent; font-size:32px; font-weight:900; color:#0a4f4d; line-height:1.2; padding:0; font-family:'Montserrat',sans-serif; }
+    .note-title-input { width:100%; border:none; outline:none; background:transparent; font-size:32px; font-weight:900; color:#0a4f4d; line-height:1.2; padding:0; font-family:'Montserrat',sans-serif; display:block; resize:none; overflow:hidden; overflow-wrap:break-word; word-break:break-word; }
     .note-title-input::placeholder { color:#7a9290; font-weight:800; }
 
     .note-props { display:flex; flex-direction:column; gap:6px; }

@@ -109,7 +109,8 @@
                             <div style="width:36px;height:36px;flex:none;border-radius:50%;background:{{ $avColor }};color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px">{{ $avInit }}</div>
                             <div style="flex:1;min-width:0">
                                 <div style="font-size:13px;font-weight:700;color:#3B1500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ $r->user?->nama ?? '—' }} <span style="font-weight:600;color:#9A7256">· {{ $r->division?->name ?? $r->division_id }}</span></div>
-                                <div style="font-size:11.5px;color:#9A7256;margin-top:1px;font-variant-numeric:tabular-nums">{{ $r->submission_date->translatedFormat('d M Y') }} · {{ $r->done_tasks }}/{{ $r->total_tasks }} tugas @if($r->branch)· {{ $r->branch->name }} @endif</div>
+                                @php $rExcepted = $r->exceptedCount(); @endphp
+                                <div style="font-size:11.5px;color:#9A7256;margin-top:1px;font-variant-numeric:tabular-nums">{{ $r->submission_date->translatedFormat('d M Y') }} · {{ $r->satisfiedCount() }}/{{ $r->total_tasks }} tugas@if($rExcepted > 0) <span style="color:#8A5A2B;font-weight:700">({{ $rExcepted }} dikecualikan)</span>@endif @if($r->branch)· {{ $r->branch->name }} @endif</div>
                             </div>
                             <span style="display:inline-flex;align-items:center;font-size:11px;font-weight:800;padding:4px 11px;border-radius:20px;background:{{ $sc['bg'] }};color:{{ $sc['c'] }};white-space:nowrap;flex:none">{{ $opt['label'] }}</span>
                         </a>
@@ -175,7 +176,8 @@
 
 <style>
     .dash-kpis    { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:13px; }
-    .dash-2col    { display:grid; grid-template-columns:1.1fr 1fr; gap:14px; align-items:start; }
+    /* stretch (bukan start) → kartu Progres per Divisi & Aktivitas Terbaru sama tinggi/sejajar */
+    .dash-2col    { display:grid; grid-template-columns:1.1fr 1fr; gap:14px; align-items:stretch; }
     .dash-actions { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; }
     .dash-row     { transition:background .12s ease; color:inherit; }
     .dash-row:hover { background:#FBF4EC !important; color:inherit; text-decoration:none; }
