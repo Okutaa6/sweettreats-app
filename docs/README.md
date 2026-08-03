@@ -7,6 +7,7 @@ Peta isi folder `docs/`. **Mulai dari sini** kalau bingung cari apa.
 | Kalau kamu mau… | Buka |
 |---|---|
 | **Lihat potret utuh proyek (status, utang, rencana)** | `status-proyek.md` |
+| **Kirim update milestone ke task-management (Gemini)** | `log-update.md` (entri teratas) |
 | Tahu aturan warna/tema per halaman | `spec/peta-tema.md` |
 | Tahu pola interaksi (chevron, toast, tombol-mati, dll) | `spec/pola-interaksi.md` |
 | Tahu "kalau X gimana?" soal absensi & cuti | `spec/sop-absensi-cuti.md` |
