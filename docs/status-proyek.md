@@ -5,8 +5,9 @@
 > Teknis & coding dikerjakan di chat Claude; file ini adalah **potret proyek**:
 > apa yang sudah, sedang, dan akan dikerjakan, plus utang yang belum dibayar.
 >
-> **Terakhir diperbarui: 2026-08-05 — batch "rapi-rapi pasca-launch" selesai
-> LOKAL (4 item, menunggu review Ekky → dev). Prod tetap di gerbong 06938ed.**
+> **Terakhir diperbarui: 2026-08-05 — batch "rapi-rapi pasca-launch" (4 item)
+> sudah DIAUDIT & NAIK DEV, terverifikasi. Prod tetap di gerbong 06938ed;
+> kenaikan prod dikerjakan Ekky di chat terpisah.**
 > Kalau tanggal ini sudah jauh lewat,
 > minta chat teknis menyegarkan file ini sebelum dipakai mengambil keputusan.
 
@@ -49,13 +50,17 @@ checklist operasional, dan integrasi akunting (Accurate).
 > (Reza), buat 14 akun karyawan sisanya via Pusat Akun, kabari kredensial
 > (Yovanka-Alif-Talitha email berubah), demo 2026-08-05 office+Bintaro.
 >
-> **Batch "rapi-rapi pasca-launch" (ACC 2026-08-05): 4 item SELESAI LOKAL**
-> di branch `feature/rapi-pasca-launch` — (1) sidebar absensi pintu tunggal
-> "Kehadiran", (2) absen HP digerbang di desktop, (3) persetujuan absensi
-> 1 lapis + command `absensi:selesaikan-l2`, (4) sidebar marketing 3 kelompok
-> + fix typo Referral. Menunggu review Ekky → commit → deploy dev (2 SQL +
-> access:rebuild + selesaikan-l2 + cek akun Robi Executive). Detail: entri
-> log-update 2026-08-05.
+> **Batch "rapi-rapi pasca-launch" (ACC 2026-08-05): 4 item LIVE DI DEV**
+> — (1) sidebar absensi pintu tunggal "Kehadiran", (2) absen HP digerbang di
+> desktop, (3) persetujuan absensi 1 lapis + `absensi:selesaikan-l2`,
+> (4) sidebar marketing 3 kelompok + fix typo Referral. Sudah lewat audit
+> adversarial (1 bug SQL lintas-server difix sebelum naik) dan verifikasi
+> 41 halaman per peran — semua 200, log bersih.
+> **Dev berjalan di branch `feature/rapi-pasca-launch`** (= feature/rop + 4
+> item ini); penggabungan ke `feature/rop` belum dilakukan karena worktree-nya
+> dipakai chat lain. **Prod: menunggu Ekky, chat terpisah** — urutannya 2 SQL
+> → access:rebuild → absensi:selesaikan-l2 → cek role Executive ada
+> penghuninya. Detail: entri log-update 2026-08-05.
 
 ### Arsip rencana (sudah terlaksana):
 

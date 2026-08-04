@@ -7,6 +7,60 @@
 
 ---
 
+## 2026-08-05 — Batch rapi-rapi: AUDIT + NAIK DEV (terverifikasi, prod belum)
+
+Dev sekarang menjalankan branch `feature/rapi-pasca-launch` (5 commit, dari
+feature/rop). **Prod TIDAK disentuh** — dikerjakan Ekky di chat terpisah.
+
+**Audit adversarial dulu (dua penelaah, kode + SQL).** Area inti dinyatakan
+bersih; 6 temuan, yang layak sudah diperbaiki sebelum naik:
+
+- **BUG NYATA, ketemu & difix**: SQL Kehadiran meresolusi induk lewat link
+  `absensi` — pembawa link itu BEDA antar server (lokal: induk "Absensi";
+  dev/prod: anaknya "Upload Data"), jadi di dev/prod node-nya tak akan pernah
+  dibuat dan gagalnya DIAM. Diganti resolusi lewat nama induk. Ini persis
+  kelas jebakan yang bikin insiden 15 node saat gerbong kemarin.
+- **Jaring pengaman ditambah**: `absensi:selesaikan-l2` kini juga dijadwalkan
+  harian 06:25, bukan cuma langkah manual — kalau satu server lupa
+  menjalankannya, pengajuan warisan sembuh sendiri, tidak beku diam-diam.
+- **Jejak audit**: finalisasi menulis baris persetujuan seperti ACC manusia,
+  jadi "siapa yang menyelesaikan ini" tetap terjawab dari riwayat.
+- **Kedua SQL dibungkus transaksi** — gagal di tengah = tak berubah sama
+  sekali, jadi aman diulang (sebelumnya, putus di titik tertentu bisa membuat
+  urutan menu terkali dua kali).
+- **Gerbang absen HP**: alasan tertulisnya dikoreksi (halaman ini memakai
+  kamera langsung, bukan pemilih berkas — yang dijaga adalah absen dari meja
+  mana pun), dan halaman di baliknya dimatikan betulan supaya Tab+Enter tak
+  bisa menjalankan alur kamera tak terlihat.
+- **Dicatat, tidak diubah** (perilaku lama, di luar batch): kalau role
+  Executive tak punya penghuni aktif, pengajuan para head bisa lolos sendiri.
+  Di dev aman — Robi & Hari dua-duanya aktif sebagai Executive.
+
+**Verifikasi dev — semua lulus:**
+- Data menu: nol duplikat link, typo "Kode Refferal" hilang, node Kehadiran
+  terpasang, **8 grant link `absensi` utuh** (kunci akses seluruh /absensi/*),
+  3 section marketing berdiri, urutan menu lain tak bergeser.
+- Sidebar per peran: Finance melihat "Kehadiran" (tab-tab lama sudah tidak
+  muncul), Head Marketing melihat tepat 3 kelompok baru, Executive tetap
+  memegang Rekap Pengeluaran, Head IT/Supervisor/FO tak lagi melihat baris
+  absensi yang dulu berujung 403.
+- **41 halaman dijalankan per peran: semua 200**, termasuk seluruh halaman tab
+  (masih terjangkau dari bar tab walau tak ada di sidebar) dan 14 halaman
+  marketing. Yang bukan haknya tetap ditolak dengan pesan jelas.
+- Persetujuan: 16 jabatan semua 1 lapis dengan penyetuju benar; 2 pengajuan
+  warisan difinalkan + jejaknya tercatat; sisa pending_l2 = nol.
+- Absen HP: gerbang komputer tampil utuh, alur kamera halaman tetap utuh.
+- Log dev bersih (0 error aplikasi).
+
+**Catatan koordinasi**: kerjaan ini belum digabung ke `feature/rop` — worktree
+branch itu sedang dipakai chat pola-interaksi, dan penggabungannya perlu
+dilakukan dari sana (atau dengan izin terpisah). Dev untuk sementara berjalan
+di branch batch ini, yang isinya = feature/rop + 4 item ini.
+
+**Kalau nanti naik prod, urutannya**: 2 SQL (`2026_08_05_sidebar_kehadiran`,
+`2026_08_05_sidebar_marketing`) → `php artisan access:rebuild` →
+`php artisan absensi:selesaikan-l2` → pastikan role Executive ada penghuninya.
+
 ## 2026-08-05 — Batch "rapi-rapi pasca-launch" SELESAI LOKAL (4 item, menunggu review → dev)
 
 Keempat item yang di-ACC kemarin selesai dibangun & diuji di lokal (branch
