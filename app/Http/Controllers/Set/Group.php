@@ -371,57 +371,20 @@ class Group extends Controller
 
 
     
+    /**
+     * Tulis ulang berkas pohon menu milik satu group.
+     *
+     * Dulu fungsi ini menyalin sendiri logika pembangunan pohon — kembar
+     * dengan `access:rebuild`. Dua salinan berarti perbaikan di satu tempat
+     * tidak ikut ke tempat lain, dan itu sudah jadi jebakan: penyisipan
+     * leluhur-wadah (supaya halaman yang diberikan tak lenyap gara-gara
+     * akarnya tak ikut diberikan) hanya hidup di command, sehingga sekali
+     * admin menyimpan akses lewat layar ini, menu orang itu diam-diam rusak
+     * lagi. Sekarang keduanya memakai SATU implementasi.
+     */
     private function access_generator($id)
     {
-        $access_data = [];
-
-        // parent
-        $parent_data = GroupAccess::with('access')
-            ->whereHas('access', function ($query) {
-                $query->where(function($q) {
-                    $q->whereNull('pid')->orWhere('pid', '');
-                })->orderBy('urutan', 'asc');
-            })
-            ->where('group_id', $id)
-            ->get();
-
-        foreach ($parent_data as $pid => $parent) {
-            $access_data[$pid] = $parent->access->toArray();
-
-            // subparent
-            $subparent_data = GroupAccess::with('access')
-                ->whereHas('access', function ($query) use ($parent) {
-                    $query->where('pid', $parent->access->id)
-                        ->orderBy('urutan', 'asc');
-                })
-                ->where('group_id', $id)
-                ->get();
-
-            foreach ($subparent_data as $sid => $subparent) {
-                $access_data[$pid]['sub'][$sid] = $subparent->access->toArray();
-
-                // child
-                $child_data = GroupAccess::with('access')
-                    ->whereHas('access', function ($query) use ($subparent) {
-                        $query->where('pid', $subparent->access->id)
-                            ->orderBy('urutan', 'asc');
-                    })
-                    ->where('group_id', $id)
-                    ->get();
-
-                foreach ($child_data as $child) {
-                    $access_data[$pid]['sub'][$sid]['child'][] = $child->access->toArray();
-                }
-            }
-        }
-
-        // write to file
-        $filecontent = json_encode($access_data, JSON_PRETTY_PRINT);
-        $filepath = storage_path('app/group_access/' . $id . '.txt');
-        file_put_contents($filepath, $filecontent);
-
-        // Invalidate sidebar cache for this group
-        \Illuminate\Support\Facades\Cache::forget('group_access_' . $id);
+        \Illuminate\Support\Facades\Artisan::call('access:rebuild', ['--group' => $id]);
 
         return true;
     }

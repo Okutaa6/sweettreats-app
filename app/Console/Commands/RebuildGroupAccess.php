@@ -76,10 +76,9 @@ class RebuildGroupAccess extends Command
             return [];
         }
 
-        $paths = DB::table('access_path')
-            ->whereIn('id', $accessIds)
-            ->orderBy('urutan')
-            ->get();
+        $paths = $this->denganLeluhurWadah(
+            DB::table('access_path')->whereIn('id', $accessIds)->orderBy('urutan')->get()
+        );
 
         $tree = [];
 
@@ -117,5 +116,60 @@ class RebuildGroupAccess extends Command
         }
 
         return $tree;
+    }
+
+    /**
+     * Lengkapi daftar node dengan LELUHUR yang tidak di-grant, sebagai WADAH saja.
+     *
+     * Kenapa perlu: pohon di bawah dibangun mulai dari node level-0 yang
+     * di-grant. Kalau seseorang diberi halaman tapi induk/akarnya tidak ikut
+     * diberi, halaman itu tak pernah muncul di menu — sementara di tabel akses
+     * kelihatan lengkap. Gagal DIAM, dan sudah tiga kali menggigit dalam dua
+     * hari: 15 node saat gerbong naik, menu personal role lama, lalu paket
+     * sales Anisa & akses Doctor/Reservasi Irma yang di-ACC tapi tak terlihat.
+     *
+     * Kenapa tidak diselesaikan dengan meng-grant akarnya saja: akar "Data
+     * Center" membawa link `MetricaSetting`. Meng-grant akar = memberi halaman
+     * itu juga — persis yang dikecualikan waktu Supervisor diberi paket sales.
+     * Wadah dan halaman tak boleh dipaksa jadi satu keputusan.
+     *
+     * Yang disuntikkan hanyalah node PEMBUNGKUS: `link` dikosongkan supaya
+     * tidak menambah akses apa pun. AuthGuard menanyai tabel langsung (tak
+     * lewat berkas ini), `hasMenuAccess()` mencocokkan link sehingga tak akan
+     * cocok, dan perender menu memang mengabaikan node ber-link kosong.
+     * Jadi ini murni soal TAMPIL, bukan soal izin.
+     */
+    private function denganLeluhurWadah(\Illuminate\Support\Collection $paths): \Illuminate\Support\Collection
+    {
+        $punya = $paths->keyBy('id');
+        $tambahan = [];
+
+        // Telusuri ke atas dari tiap node sampai akar; maksimal beberapa lapis
+        // (pohon menu = parent → sub → child), penjaga anti-siklus tetap ada.
+        foreach ($paths as $node) {
+            $pid = $node->pid ?? null;
+            $lapis = 0;
+            while (! empty($pid) && $lapis < 5) {
+                if ($punya->has($pid) || isset($tambahan[$pid])) {
+                    $pid = ($punya[$pid] ?? $tambahan[$pid])->pid ?? null;
+                } else {
+                    $induk = DB::table('access_path')->where('id', $pid)->first();
+                    if (! $induk) break;
+                    $wadah = clone $induk;
+                    $wadah->link = '';           // wadah, bukan halaman — tak memberi akses
+                    $tambahan[$pid] = $wadah;
+                    $pid = $induk->pid ?? null;
+                }
+                $lapis++;
+            }
+        }
+
+        if (! $tambahan) {
+            return $paths;
+        }
+
+        return $paths->concat(array_values($tambahan))
+            ->sortBy(fn ($n) => (int) ($n->urutan ?? 0))
+            ->values();
     }
 }
