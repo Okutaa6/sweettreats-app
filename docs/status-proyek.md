@@ -5,7 +5,7 @@
 > Teknis & coding dikerjakan di chat Claude; file ini adalah **potret proyek**:
 > apa yang sudah, sedang, dan akan dikerjakan, plus utang yang belum dibayar.
 >
-> **Terakhir diperbarui: 2026-08-04 malam (fitur Aturan Kerja selesai lokal).**
+> **Terakhir diperbarui: 2026-08-05 dini hari — GERBONG SUDAH NAIK PROD.**
 > Kalau tanggal ini sudah jauh lewat,
 > minta chat teknis menyegarkan file ini sebelum dipakai mengambil keputusan.
 
@@ -21,8 +21,8 @@ checklist operasional, dan integrasi akunting (Accurate).
 **Lingkungan:**
 | Env | URL | Branch git | Keadaan |
 |---|---|---|---|
-| Prod | app.sweettreats.id | `main` (`b8b8f2d`, 25 Jul) | versi lama — belum dapat absensi/ROP |
-| Dev | dev.sweettreats.id | `feature/rop` (ikut commit terbaru) | gerbong lengkap, sedang dites |
+| Prod | app.sweettreats.id | `main` (`06938ed`, 4 Agu) | GERBONG LIVE — absensi, ROP, semua fitur baru |
+| Dev | dev.sweettreats.id | `feature/rop` | = main + data demo |
 | Lokal | 2 working tree (utama + worktree rop) | `feature/absensi` (pensiun) / `feature/rop` | — |
 
 **Orang-orang:**
