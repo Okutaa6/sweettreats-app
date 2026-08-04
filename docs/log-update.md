@@ -7,6 +7,21 @@
 
 ---
 
+## 2026-08-04 — Dev diisi data demo + fix grup cabang Anisa/Irma
+
+- Dev diisi data dummy untuk demo: 943 hari-kerja absensi (1 Jul–4 Agu, 27
+  karyawan, pola realistis: hadir/telat/alpa/libur-Senin), 10 pengajuan
+  cuti/izin/WFH/lembur approved, 7 potongan saldo cuti, dan 14 pengajuan ROP
+  lintas status (menunggu ACC s/d selesai, termasuk 1 urgent, 1 ditolak,
+  1 kadaluarsa). Halaman Kehadiran, Cuti, antrian ROP, dan Rekap sekarang
+  hidup untuk demo.
+- Penanda dummy: att_day rentang 1 Jul–4 Agu; att_request & mutasi cuti
+  berawalan "[DEMO]" — gampang dibersihkan saat mau data asli.
+- Fix data: Anisa & Irma tadinya nongol "Belum ada cabang" di kalender —
+  kolom cabang mereka kosong. Diisi Sunter (cabang asal sesuai roster).
+  Catatan: mereka TIDAK masuk grup "Kantor (ABG)" karena grup itu khusus
+  aturan jam-bebas (tak dinilai), sedangkan mereka dinilai jam FO-Asdent.
+
 ## 2026-08-03 — Push Reza ke-2 masuk + bug 500 checklist difix
 
 - Kerjaan baru Reza (export Excel checklist harian/mingguan + pengecualian
