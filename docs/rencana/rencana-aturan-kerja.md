@@ -47,9 +47,11 @@ UI di atas data yang sudah ada. **JANGAN merombak mesin rekonsiliasi.**
 
 ## 3. Aturan main (default usulan — Ekky boleh ubah)
 
-- **Siapa boleh ubah**: Head IT + Finance (+ Super Admin). Ini menentukan
-  gaji — bukan setting sembarangan. Gate via role di controller (jangan
-  andalkan `hasMenuAccess` — cuma nemu node level 3).
+- **Siapa boleh ubah** (revisi 2026-08-04, usul Ekky): **Supervisor (Nissa)**
+  + Head IT + Finance (+ Super Admin). Nissa = pengatur operasional harian —
+  dialah yang paling tahu jadwal; Head IT/Finance tetap ikut karena aturan
+  menentukan gaji. Gate via role di controller (jangan andalkan
+  `hasMenuAccess` — cuma nemu node level 3). Semua perubahan berjejak.
 - **Berlaku ke depan saja**: `att_day` itu materialized (telat_menit,
   wajib_pulang tersimpan) — masa lalu beku. Setelah ubah aturan JANGAN
   re-reconcile massal ke belakang; koreksi masa lalu tetap lewat pengajuan
