@@ -7,6 +7,28 @@
 
 ---
 
+## 2026-08-05 — Penyesuaian hari pertama prod (feedback Ekky)
+
+- **Supervisor (Nisa) dapat paket pengawasan sales** di prod & dev: Reservasi,
+  Pasien, Doctor, Laporan Penjualan, Dashboard Sales (karena dia SPV sales;
+  MetricaSetting sengaja tidak — wilayah IT).
+- **Lembar Gaji disembunyikan di prod** (fitur belum selesai; dev tetap ada).
+- WiFi "Sunter" yang kemarin dicurigai salah label ternyata BENAR — Ekky
+  memang menguji dari cabang Sunter.
+- Ditemukan keterikatan arsitektur: node menu "Upload Data" (link `absensi`)
+  adalah syarat gerbang semua halaman /absensi/* — tidak bisa dicabut dari
+  sidebar tanpa perubahan kode (dibuktikan: dicabut → Aturan Kerja ikut mati
+  → dikembalikan).
+- **Batch "rapi-rapi pasca-launch" di-ACC Ekky**, dikerjakan menyusul:
+  (1) sidebar absensi dikonsolidasi — "Kehadiran" jadi pintu tunggal, Upload/
+  Mapping/Rekap/Periode jadi tab (tab bar-nya sudah ada); Rekap Pengeluaran
+  ROP sama; (2) absen HP: akses dari desktop ditutup sopan (kekhawatiran:
+  desktop bisa unggah file foto, bukan kamera langsung); (3) persetujuan
+  absensi jadi SATU lapis — staf di-ACC atasan langsung (Nisa/Irma), pengajuan
+  head/SPV/koordinator di-ACC Executive (Dani ATAU Robi); (4) sidebar
+  marketing ditata 3 kelompok (struktur datanya tidak berubah oleh gerbong —
+  tampilan beda karena shell baru reskin).
+
 ## 2026-08-04 tengah malam — 🚀 GERBONG NAIK PROD (deploy besar selesai)
 
 - **Prod (app.sweettreats.id) sekarang menjalankan gerbong penuh** — commit
