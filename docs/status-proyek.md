@@ -123,7 +123,8 @@ bukan symlink).
   per hari + konfirmasi "berlaku utk N karyawan mulai besok"; (2) Penugasan:
   ganti aturan = baris baru bertanggal (riwayat gaji utuh) + default per role
   utk akun baru Pusat Akun; (3) Kalender Libur: exception pola Lebaran, rambu
-  libur ≠ cuti bersama. Gate Head IT/Finance/Super Admin di controller; semua
+  libur ≠ cuti bersama. Gate Supervisor/Head IT/Finance/Super Admin di
+  controller (Supervisor ditambah saat review); semua
   perubahan forward-only; mesin rekonsiliasi tak disentuh; log `att_rule_log`.
   Uji 28/28 lulus + smoke HTTP (termasuk audit putaran-2: fix section JS,
   default-role menggantung, self-XSS confirm, old() lintas-form).
