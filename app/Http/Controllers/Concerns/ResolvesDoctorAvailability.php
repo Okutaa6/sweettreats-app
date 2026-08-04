@@ -68,15 +68,20 @@ trait ResolvesDoctorAvailability
                 continue;
             }
 
-            // Skip kalau dokter sedang cuti di tanggal ini (leave menang)
-            $isOnLeave = false;
-            foreach ($leaves as $leave) {
-                if ($date->between(Carbon::parse($leave->start_date), Carbon::parse($leave->end_date))) {
-                    $isOnLeave = true;
-                    break;
+            // Cuti menutup jadwal REGULER, tapi exception (Hari Tambahan /
+            // Jam Berbeda) di tanggal yang sama tetap menang — dokter secara
+            // eksplisit membuka/mengubah tanggal itu. Jadi cuti hanya dipakai
+            // kalau TIDAK ada exception (konsisten dgn resolveWorkingRanges()).
+            if (!$hasException) {
+                $isOnLeave = false;
+                foreach ($leaves as $leave) {
+                    if ($date->between(Carbon::parse($leave->start_date), Carbon::parse($leave->end_date))) {
+                        $isOnLeave = true;
+                        break;
+                    }
                 }
+                if ($isOnLeave) continue;
             }
-            if ($isOnLeave) continue;
 
             $dates[] = [
                 'date'  => $dateStr,
@@ -319,29 +324,42 @@ trait ResolvesDoctorAvailability
             }
         }
 
+        // Cuti dokter pada tanggal ini (full-day). Cuti membatalkan jadwal
+        // REGULER, tapi tidak membatalkan exception: 'replace' menang penuh
+        // (ganti jam & tembus cuti), dan 'add' (Hari Tambahan) tetap dibuka
+        // walau dokter cuti / hari itu biasanya libur.
+        $onLeave = DB::table('raw_doctor_leave')
+            ->where('raw_doctor_id', $doctorId)
+            ->where('start_date', '<=', $date)
+            ->where('end_date', '>=', $date)
+            ->exists();
+
+        $replaceRanges = collect();
+        $addRanges     = collect();
+
         if (config('features.flexible_scheduling')) {
             $exceptions = RawDoctorScheduleException::where('raw_doctor_id', $doctorId)
                 ->where('raw_branch_id', $branchId)
                 ->where('date', $date)
                 ->get();
 
-            $replaceExceptions = $exceptions->where('type', RawDoctorScheduleException::TYPE_REPLACE);
-            $addExceptions     = $exceptions->where('type', RawDoctorScheduleException::TYPE_ADD);
-
-            if ($replaceExceptions->isNotEmpty()) {
-                $ranges = $replaceExceptions->map(fn($e) => [
-                    'start_hour' => $e->start_hour,
-                    'end_hour'   => $e->end_hour,
-                ]);
-            }
-
-            $ranges = $ranges->concat(
-                $addExceptions->map(fn($e) => [
-                    'start_hour' => $e->start_hour,
-                    'end_hour'   => $e->end_hour,
-                ])
-            )->sortBy('start_hour')->values();
+            $replaceRanges = $exceptions->where('type', RawDoctorScheduleException::TYPE_REPLACE)
+                ->map(fn($e) => ['start_hour' => $e->start_hour, 'end_hour' => $e->end_hour]);
+            $addRanges = $exceptions->where('type', RawDoctorScheduleException::TYPE_ADD)
+                ->map(fn($e) => ['start_hour' => $e->start_hour, 'end_hour' => $e->end_hour]);
         }
+
+        if ($replaceRanges->isNotEmpty()) {
+            // 'replace' mengganti jam reguler (dan menembus cuti).
+            $ranges = $replaceRanges;
+        } elseif ($onLeave) {
+            // Cuti membatalkan jadwal reguler bila tidak ada 'replace'.
+            $ranges = collect();
+        }
+
+        // 'add' (Hari Tambahan) selalu ditambahkan — membuka tanggal walau
+        // dokter cuti atau hari itu biasanya libur.
+        $ranges = $ranges->concat($addRanges)->sortBy('start_hour')->values();
 
         return $ranges;
     }
@@ -412,12 +430,14 @@ trait ResolvesDoctorAvailability
             ->where('date', $date)
             ->whereNotNull('start_hour')
             ->whereNotNull('end_hour')
-            // Reservasi yang DIBATALKAN tidak lagi menahan slot — jamnya
-            // otomatis kembali tersedia untuk pasien lain. Baris dgn status
-            // NULL (data lama) tetap dianggap terisi supaya tidak salah bebas.
+            // Reservasi yang DIBATALKAN atau masuk WAITING LIST tidak lagi menahan
+            // slot — jamnya otomatis kembali tersedia untuk pasien lain. Baris dgn
+            // status NULL (data lama) tetap dianggap terisi supaya tidak salah bebas.
             ->where(function ($q) {
-                $q->where('status', '!=', \App\Models\RawCusReservation::STATUS_CANCELLED)
-                  ->orWhereNull('status');
+                $q->whereNotIn('status', [
+                    \App\Models\RawCusReservation::STATUS_CANCELLED,
+                    \App\Models\RawCusReservation::STATUS_WAITLIST,
+                ])->orWhereNull('status');
             })
             ->when($excludeId, fn($q) => $q->where('id', '!=', $excludeId))
             ->get()

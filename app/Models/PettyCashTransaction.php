@@ -31,10 +31,8 @@ class PettyCashTransaction extends Model
     public const CATEGORIES = [
         'makan'       => 'Konsumsi',
         'transport'   => 'Transport',
-        'atk'         => 'ATK',
         'bensin'      => 'Bensin',
         'operasional' => 'Operasional',
-        'lain_lain'   => 'Lain-lain',
     ];
 
     protected $fillable = [

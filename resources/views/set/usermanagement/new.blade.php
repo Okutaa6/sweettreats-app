@@ -22,6 +22,11 @@
                                 <i class="fa fa-arrow-left"></i> Kembali
                             </a>
 
+                            <div style="background:#FBEFD9;border:1px solid #f0dca8;border-radius:10px;padding:11px 14px;font-size:13px;color:#9A6614;margin-bottom:16px;display:flex;gap:9px">
+                                <i class="fa fa-info-circle" style="margin-top:2px"></i>
+                                <span>Password sementara dibuat <strong>otomatis</strong> dan ditampilkan sekali setelah akun jadi — kasih ke orangnya. Dia <strong>wajib menggantinya</strong> saat login pertama.</span>
+                            </div>
+
                             <table class="st-table">
                                 <tr>
                                     <td width="20%" style="font-weight:600;">Email</td>
@@ -44,40 +49,20 @@
                                     </td>
                                 </tr>
                                 <tr>
-                                    <td style="font-weight:600;">Password</td>
-                                    <td>
-                                        <input class="form-control {{ $errors->has('password') ? 'is-invalid' : '' }}"
-                                            type="password" name="password" />
-                                        @if ($errors->has('password'))
-                                            <div class="invalid-feedback">{{ $errors->first('password') }}</div>
-                                        @endif
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td style="font-weight:600;">Konfirmasi Password</td>
-                                    <td>
-                                        <input class="form-control {{ $errors->has('confirmNewPass') ? 'is-invalid' : '' }}"
-                                            type="password" name="confirmNewPass" />
-                                        @if ($errors->has('confirmNewPass'))
-                                            <div class="invalid-feedback">{{ $errors->first('confirmNewPass') }}</div>
-                                        @endif
-                                    </td>
-                                </tr>
-                                <tr>
                                     <td style="font-weight:600;">Role</td>
                                     <td>
-                                        <select class="select2 form-control {{ $errors->has('group') ? 'is-invalid' : '' }}"
+                                        <select class="select2 form-control {{ $errors->has('group_id') ? 'is-invalid' : '' }}"
                                             name="group_id">
                                             <option value="">- Pilih Role -</option>
                                             @foreach ($groups as $row)
                                                 <option value="{{ $row['id'] }}"
-                                                    {{ old('group') == $row['id'] ? 'selected' : '' }}>
+                                                    {{ old('group_id') == $row['id'] ? 'selected' : '' }}>
                                                     {{ $row['nama'] }}
                                                 </option>
                                             @endforeach
                                         </select>
-                                        @if ($errors->has('group'))
-                                            <div class="invalid-feedback">{{ $errors->first('group') }}</div>
+                                        @if ($errors->has('group_id'))
+                                            <div class="invalid-feedback">{{ $errors->first('group_id') }}</div>
                                         @endif
                                     </td>
                                 </tr>
@@ -87,7 +72,7 @@
                                         <select class="select2 form-control" name="raw_branch_id">
                                             <option value="">- Semua Cabang -</option>
                                             @foreach ($branches as $branch)
-                                                <option value="{{ $branch['id'] }}">{{ $branch['name'] }}</option>
+                                                <option value="{{ $branch['id'] }}" {{ old('raw_branch_id') == $branch['id'] ? 'selected' : '' }}>{{ $branch['name'] }}</option>
                                             @endforeach
                                         </select>
                                     </td>

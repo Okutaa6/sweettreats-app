@@ -12,7 +12,7 @@
 
     @php
         $hasFilter = request('spec') || request('status');
-        $avatarColors = ['#7A3415', '#52200A', '#8A3A12', '#6B2400', '#9A6614', '#5A2410', '#7E2E0E', '#693012'];
+        $avatarColors = ['#8A3A12', '#A8481B', '#2F8E55', '#3C5FA8', '#B5701A', '#7A3415', '#5A6B2E', '#8E2419'];
         // Preserve state untuk link segment.
         $segBase = array_filter([
             'search' => $filterSearch ?: null,

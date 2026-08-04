@@ -23,13 +23,13 @@ class ChecklistTask extends Model
     const DELETED_AT = 'deleted_at';
 
     protected $fillable = [
-        'id', 'category_id', 'title', 'description', 'day_of_week', 'requires_note',
-        'requires_photo', 'sort_order', 'is_active', 'created_at', 'updated_at', 'deleted_at',
+        'id', 'category_id', 'title', 'description', 'day_of_week',
+        'requires_photo', 'photo_before_after', 'sort_order', 'is_active', 'created_at', 'updated_at', 'deleted_at',
     ];
 
     protected $casts = [
-        'requires_note' => 'boolean',
-        'requires_photo'=> 'boolean',
+        'requires_photo'    => 'boolean',
+        'photo_before_after'=> 'boolean',
         'day_of_week'   => 'integer',
         'sort_order'    => 'integer',
         'is_active'     => 'boolean',

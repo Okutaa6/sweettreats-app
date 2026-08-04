@@ -11,6 +11,13 @@ use Symfony\Component\HttpFoundation\Response;
 class AuthGuard
 {
     /**
+     * Segment yang di-skip dari RBAC — SATU-SATUNYA sumber kebenaran.
+     * Dipakai juga oleh Set\KesehatanController (detektor landing) dan
+     * Set\UserManagement (flaggedUserIds) — jangan bikin salinan baru.
+     */
+    public const SKIP_RBAC = ['export', 'api', 'auditlog', 'executive', 'fund-sources', 'finance'];
+
+    /**
      * Handle an incoming request.
      *
      * @param  \Closure(\Illuminate\Http\Request): (\Symfony\Component\HttpFoundation\Response)  $next
@@ -18,7 +25,11 @@ class AuthGuard
     public function handle(Request $request, Closure $next): Response
     {
         if (!session()->has('isLoggedIn')) { // check if user is logged in
-            return redirect()->route('signin')->with('error', 'Silahkan login terlebih dahulu');
+            // "Ingat perangkat ini": sesi habis tapi cookie perangkat masih
+            // hidup → bangun ulang sesi diam-diam, tanpa nyuruh login ulang.
+            if (!app(\App\Services\DeviceAuth::class)->attempt($request)) {
+                return redirect()->route('signin')->with('error', 'Silahkan login terlebih dahulu');
+            }
         }
 
         $expires_in = session('expires_in');
@@ -26,12 +37,38 @@ class AuthGuard
 
         if ($expires_in < $current_time) { // check if session is expired
             session()->flush();
-            return redirect()->route('signin')->with('error', 'Sesi login telah berakhir, silahkan login kembali');
+            // Sesi idle kelamaan — tapi kalau perangkat diingat, hidupkan lagi.
+            if (!app(\App\Services\DeviceAuth::class)->attempt($request)) {
+                return redirect()->route('signin')->with('error', 'Sesi login telah berakhir, silahkan login kembali');
+            }
         }
 
         // Get the first URI segment as controller identifier
         $controller = $request->segment(1);
         $group_id = session()->get('group_id');
+        $uid = session('id');
+
+        // ── Pusat Akun: wajib ganti password (must_change_password) ──
+        // Selama flag hidup, giring ke halaman ganti-password (di luar grup ini).
+        // 'signout' tetap boleh biar user bisa bail.
+        if (session('must_change_password') && $controller !== 'signout') {
+            return redirect()->route('ganti.password');
+        }
+
+        // ── Pusat Akun: last_seen (monitoring) + paksa-logout, throttle 60s ──
+        // Satu SELECT + satu UPDATE per user tiap ≥60 detik aktivitas — murah.
+        if ($uid && (time() - (int) session('pa_touch')) >= 60) {
+            session(['pa_touch' => time()]);
+            $u = \Illuminate\Support\Facades\DB::table('users')->where('id', $uid)->first(['force_logout_at']);
+            if ($u) {
+                // IT klik "Paksa Logout" → stempel > waktu login sesi ini → tendang.
+                if ($u->force_logout_at && strtotime($u->force_logout_at) > (int) session('login_at')) {
+                    session()->flush();
+                    return redirect()->route('signin')->with('error', 'Sesi kamu diakhiri oleh IT. Silakan login kembali.');
+                }
+                \Illuminate\Support\Facades\DB::table('users')->where('id', $uid)->update(['last_seen_at' => now()]);
+            }
+        }
 
         // Allow home route (/) without access check
         if ($controller === null || $controller === '') {
@@ -45,8 +82,7 @@ class AuthGuard
         // sendiri (FundSourceController::guard).
         // finance: dashboard monitoring + approval top-up, di-guard di
         // FinanceDashboardController + TopupRequestController via canSeeAllBranches().
-        $skipRbac = ['export', 'api', 'auditlog', 'executive', 'fund-sources', 'finance'];
-        if (in_array($controller, $skipRbac)) {
+        if (in_array($controller, self::SKIP_RBAC)) {
             session(['expires_in' => time() + 3600]);
             return $next($request);
         }
@@ -59,13 +95,21 @@ class AuthGuard
             
         if (empty($groupAccess)) { // user doesn't have access
             $landingPage = GroupPath::where('id', $group_id)->first();
-            
-            // Prevent redirect loop - if already on landing page, just deny access
-            if ($request->route()->getName() === $landingPage->landing_page) {
+
+            // Role user sudah dihapus / landing kosong → jangan fatal 500,
+            // beri 403 yang jujur (kasusnya nyata: Group::destroy).
+            if (! $landingPage || ! $landingPage->landing_page) {
                 abort(403, 'Anda tidak memiliki akses ke halaman ini');
             }
-            
-            return redirect()->route($landingPage->landing_page)->with('error', 'Anda tidak memiliki akses ke halaman tersebut');
+
+            // landing_page = PATH (bisa multi-segmen). Anti redirect-loop
+            // dibandingkan pakai SEGMENT-1-nya — kalau dibandingkan utuh,
+            // landing 'absensi/recap' bikin loop redirect tanpa henti.
+            if ($request->segment(1) === explode('/', $landingPage->landing_page)[0]) {
+                abort(403, 'Anda tidak memiliki akses ke halaman ini');
+            }
+
+            return redirect()->to($landingPage->landing_page)->with('error', 'Anda tidak memiliki akses ke halaman tersebut');
         }
 
         // Refresh session expiry on successful access

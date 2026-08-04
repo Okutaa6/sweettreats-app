@@ -25,6 +25,7 @@ class RawCustomer extends Model
         'nik',
         'tempat_lahir',
         'alamat',
+        'social_media',
         'tanggal_daftar',
         'raw_branch_id',
         'raw_doc_service_id',
@@ -37,6 +38,28 @@ class RawCustomer extends Model
     public $incrementing = false;
     public $timestamps = false;
     protected $keyType = 'string';
+
+    protected $casts = [
+        'social_media' => 'array',
+    ];
+
+    /**
+     * URL profil publik dari platform + username. Dipakai untuk menjadikan
+     * username sebagai tautan yang bisa diklik. Null kalau platform tak dikenal.
+     */
+    public static function socialProfileUrl(?string $platform, ?string $username): ?string
+    {
+        $username = ltrim(trim((string) $username), '@');
+        if ($username === '') {
+            return null;
+        }
+        return match (strtolower((string) $platform)) {
+            'instagram' => 'https://instagram.com/' . $username,
+            'tiktok'    => 'https://tiktok.com/@' . $username,
+            'facebook'  => 'https://facebook.com/' . $username,
+            default     => null,
+        };
+    }
 
     public function contact()
     {

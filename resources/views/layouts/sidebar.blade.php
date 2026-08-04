@@ -1,110 +1,106 @@
-
-
 @php
-    // Identitas user untuk chip akun di footer sidebar (dipindah dari header).
     $sbUserName = session('name') ?? 'User';
     $sbUserRole = optional(\App\Models\GroupPath::find(session('group_id')))->nama ?? 'User';
     $sbInitial  = strtoupper(mb_substr($sbUserName, 0, 1));
+    $sbBranch   = session('raw_branch_id') ? optional(\App\Models\RawBranch::find(session('raw_branch_id')))->name : null;
+    $sbBrandSub = $sbBranch ? ('Cabang ' . $sbBranch) : 'Dental · 5 Cabang';
+
+    $sbSections = shellMenuSections();
+    $sbAccount  = shellAccountLinks();
 @endphp
 
-<div class="left-sidenav {{ hasMultipleParents() ? '' : 'no-icon-bar' }}">
-    @if(hasMultipleParents())
-    <div class="main-icon-menu">
-        <nav class="nav">
-            {!! getSidebarParent() !!}
-        </nav>
-    </div>
-    @endif
+<aside class="left-sidenav sbx">
 
-    <div class="main-menu-inner" id="mainMenuInner">
-        <div class="menu-body slimscroll">
-            {!! getSidebarChild() !!}
-        </div>
-
-        {{-- Chip akun (satu-satunya tempat identitas user; ikut design) --}}
-        <div class="st-side-account">
-            <div class="st-side-avatar">{{ $sbInitial }}</div>
-            <div class="st-side-acc-meta">
-                <div class="st-side-acc-name">{{ $sbUserName }}</div>
-                <div class="st-side-acc-role">{{ $sbUserRole }}</div>
-            </div>
-            <a href="{{ route('signout') }}" class="st-side-logout" title="Logout" aria-label="Logout">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-                    <polyline points="16 17 21 12 16 7"/>
-                    <line x1="21" y1="12" x2="9" y2="12"/>
-                </svg>
-            </a>
+    {{-- Brand --}}
+    <div class="sbx-brand">
+        <div class="sbx-brand-logo"><img src="{{ asset('sysprofile/' . session('syslogo')) }}" alt="logo"></div>
+        <div class="sbx-brand-tx">
+            <div class="sbx-brand-name">Sweet Treats</div>
+            <div class="sbx-brand-sub">{{ $sbBrandSub }}</div>
         </div>
     </div>
 
-    <!-- Tombol Collapse -->
-    <button class="sidebar-collapse-btn" id="sidebarCollapseBtn" title="Toggle Sidebar">
-        <i class="fas fa-chevron-left"></i>
-    </button>
-</div>
+    {{-- Menu (per-role, scroll) --}}
+    <nav class="sbx-menu">
+        @forelse($sbSections as $sec)
+            <div class="sbx-sec-label">{{ $sec['label'] }}</div>
+            @foreach($sec['items'] as $it)
+                @php
+                    // Badge Kesehatan (Pusat Akun) — jumlah temuan detektor, cached 10 mnt.
+                    $sbBadge = ($it['link'] ?? '') === 'setkesehatan'
+                        ? \App\Http\Controllers\Set\KesehatanController::totalCached() : 0;
+                @endphp
+                <a class="sbx-item {{ $it['active'] ? 'active' : '' }}" href="{{ url($it['link']) }}" title="{{ $it['nama'] }}">
+                    <span class="sbx-item-ic">@if($it['icon'])<i class="{{ $it['icon'] }}"></i>@endif</span>
+                    <span class="sbx-item-tx">{{ $it['nama'] }}</span>
+                    @if($sbBadge)<span class="sbx-drop-badge">{{ $sbBadge > 99 ? '99+' : $sbBadge }}</span>@endif
+                </a>
+            @endforeach
+        @empty
+        @endforelse
+    </nav>
+
+    {{-- Akun + drop-up --}}
+    <div class="sbx-account-wrap">
+        <div class="sbx-dropup" id="sbxDropup" hidden>
+            @foreach($sbAccount as $a)
+                <a class="sbx-drop-item" href="{{ url($a['link']) }}">
+                    <span class="sbx-drop-ic"><i class="{{ $a['icon'] }}"></i></span>
+                    <span class="sbx-drop-tx">{{ $a['label'] }}</span>
+                    @if($a['badge'])<span class="sbx-drop-badge">{{ $a['badge'] > 9 ? '9+' : $a['badge'] }}</span>@endif
+                </a>
+            @endforeach
+            @if(count($sbAccount))<div class="sbx-drop-div"></div>@endif
+            <a class="sbx-drop-item" href="{{ url('ganti-password') }}"><span class="sbx-drop-ic"><i class="fas fa-key"></i></span><span class="sbx-drop-tx">Ganti kata sandi</span></a>
+            <a class="sbx-drop-item sbx-drop-danger" href="{{ route('signout') }}"><span class="sbx-drop-ic"><i class="fas fa-sign-out-alt"></i></span><span class="sbx-drop-tx">Keluar</span></a>
+        </div>
+
+        <button type="button" class="sbx-account" id="sbxAccountBtn" aria-haspopup="true" aria-expanded="false">
+            <span class="sbx-avatar">{{ $sbInitial }}</span>
+            <span class="sbx-acc-meta">
+                <span class="sbx-acc-name">{{ $sbUserName }}</span>
+                <span class="sbx-acc-role">{{ $sbUserRole }}</span>
+            </span>
+            <span class="sbx-acc-caret"><i class="fas fa-chevron-up"></i></span>
+        </button>
+    </div>
+</aside>
 
 <script>
-    (function () {
-        const btn = document.getElementById('sidebarCollapseBtn');
-        const menu = document.getElementById('mainMenuInner');
-        const body = document.body;
+document.addEventListener('DOMContentLoaded', function () {
+    var body   = document.body;
+    var scrim  = document.getElementById('sbxScrim');
+    var accBtn = document.getElementById('sbxAccountBtn');
+    var dropup = document.getElementById('sbxDropup');
+    var toggles = document.querySelectorAll('.js-sbtoggle');
+    var mq     = window.matchMedia('(max-width:1024px)');
+    var isMobile = function () { return mq.matches; };
 
-        // Untuk user single-parent (no-icon-bar), skip state 'collapsed' karena icon bar sudah tidak ada
-        // Collapse selalu ke icon-only (≈74px, ala design) — berlaku utk icon-bar
-        // (rail tersisa) maupun no-icon-bar (kolom menyusut, label disembunyikan).
-        const STATES = ['normal', 'collapsed'];
+    function closeDrawer() { body.classList.remove('sbx-drawer-open'); body.style.overflow = ''; }
+    function openDrawer()  { body.classList.add('sbx-drawer-open'); body.style.overflow = 'hidden'; }
+    function applyCollapse(on) { body.classList.toggle('sbx-collapsed', on); localStorage.setItem('sbxCollapsed', on ? '1' : '0'); }
+    applyCollapse(localStorage.getItem('sbxCollapsed') === '1');
 
-        function applyState(state) {
-            menu.classList.toggle('collapsed', state === 'collapsed' || state === 'hidden');
-            body.classList.toggle('sidebar-collapsed', state === 'collapsed');
-            body.classList.toggle('sidebar-hidden', state === 'hidden');
-            btn.classList.toggle('is-collapsed', state === 'collapsed');
-            localStorage.setItem('sidebarState', state);
-        }
-
-        let current = localStorage.getItem('sidebarState');
-        if (!STATES.includes(current)) {
-            // backward compat: lama menyimpan sidebarCollapsed=true/false
-            current = localStorage.getItem('sidebarCollapsed') === 'true' ? 'collapsed' : 'normal';
-        }
-        applyState(current);
-
-        function toggle() {
-            // Saat sudah hidden, klik lagi = kembali ke normal (sidebar muncul)
-            if (current === 'hidden') {
-                current = 'normal';
-            } else {
-                const idx = STATES.indexOf(current);
-                current = STATES[(idx + 1) % STATES.length];
-            }
-            applyState(current);
-        }
-        btn.addEventListener('click', toggle);
-
-        // Hamburger di header memicu toggle yang sama
-        const hamburger = document.getElementById('headerHamburger');
-        if (hamburger) hamburger.addEventListener('click', toggle);
-    })();
-
-    // Parent switcher: klik icon parent → ganti pane child yang ditampilkan
-    (function () {
-        const parentLinks = document.querySelectorAll('.main-icon-menu .nav-link[data-parent-target]');
-        if (!parentLinks.length) return;
-
-        parentLinks.forEach(function (link) {
-            link.addEventListener('click', function (e) {
-                e.preventDefault();
-                const targetId = link.getAttribute('data-parent-target');
-
-                parentLinks.forEach(function (l) { l.classList.remove('active'); });
-                link.classList.add('active');
-
-                document.querySelectorAll('.main-menu-inner .main-icon-menu-pane')
-                    .forEach(function (pane) { pane.classList.remove('active'); });
-                const target = document.getElementById(targetId);
-                if (target) target.classList.add('active');
-            });
+    toggles.forEach(function (toggle) {
+        toggle.addEventListener('click', function () {
+            if (isMobile()) { body.classList.contains('sbx-drawer-open') ? closeDrawer() : openDrawer(); }
+            else { applyCollapse(!body.classList.contains('sbx-collapsed')); }
         });
-    })();
+    });
+    if (scrim) scrim.addEventListener('click', closeDrawer);
+
+    function closeDrop() { if (dropup) { dropup.hidden = true; accBtn.classList.remove('open'); accBtn.setAttribute('aria-expanded', 'false'); } }
+    if (accBtn) accBtn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var willOpen = dropup.hidden;
+        dropup.hidden = !willOpen;
+        accBtn.classList.toggle('open', willOpen);
+        accBtn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+    });
+    document.addEventListener('click', function (e) {
+        if (dropup && !dropup.hidden && !dropup.contains(e.target) && !accBtn.contains(e.target)) closeDrop();
+    });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { closeDrawer(); closeDrop(); } });
+    mq.addEventListener('change', function () { closeDrawer(); closeDrop(); });
+});
 </script>

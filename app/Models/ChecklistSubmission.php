@@ -52,12 +52,12 @@ class ChecklistSubmission extends Model
     public static function statusOptions(): array
     {
         return [
-            self::STATUS_DRAFT     => ['label' => 'Draft',              'color' => 'neutral', 'desc' => 'Sedang diisi karyawan'],
+            self::STATUS_DRAFT     => ['label' => 'Belum Dikirim',     'color' => 'neutral', 'desc' => 'Sudah dibuat, belum dikirim ke supervisor'],
             self::STATUS_SUBMITTED => ['label' => 'Menunggu Approval',  'color' => 'warning', 'desc' => 'Sudah disubmit, menunggu review supervisor'],
             self::STATUS_APPROVED  => ['label' => 'Disetujui',          'color' => 'success', 'desc' => 'Telah diverifikasi supervisor'],
             self::STATUS_REJECTED  => ['label' => 'Ditolak',            'color' => 'danger',  'desc' => 'Perlu diperbaiki — lihat catatan supervisor'],
-            self::STATUS_MISSED    => ['label' => 'Tidak Diisi',        'color' => 'neutral', 'desc' => 'Tanggal sudah lewat — checklist tidak diisi'],
-            self::STATUS_EXCUSED   => ['label' => 'Dikecualikan',       'color' => 'neutral', 'desc' => 'Hari ini tidak perlu diisi (mis. sedang menangani pasien)'],
+            self::STATUS_MISSED    => ['label' => 'Tidak Diisi',        'color' => 'slate',   'desc' => 'Tanggal sudah lewat — checklist tidak diisi'],
+            self::STATUS_EXCUSED   => ['label' => 'Dikecualikan',       'color' => 'coffee',  'desc' => 'Hari ini tidak perlu diisi (mis. sedang menangani pasien)'],
         ];
     }
 
@@ -75,6 +75,31 @@ class ChecklistSubmission extends Model
     {
         if (! $this->total_tasks) return 0;
         return (int) round(($this->done_tasks / $this->total_tasks) * 100);
+    }
+
+    /**
+     * Jumlah task yang "beres": sudah dicentang ATAU dikecualikan (tidak berlaku
+     * hari ini). Dipakai untuk gating submit & progress tampilan — bukan
+     * menggantikan done_tasks yang tetap = benar-benar dikerjakan.
+     */
+    public function satisfiedCount(): int
+    {
+        return $this->items
+            ->filter(fn ($item) => $item->is_done || $item->is_excepted)
+            ->count();
+    }
+
+    /** Jumlah item yang dikecualikan (untuk penanda di monitoring/export). */
+    public function exceptedCount(): int
+    {
+        return $this->items->where('is_excepted', true)->count();
+    }
+
+    /** Persentase "beres" (dicentang + dikecualikan) — untuk tampilan progress. */
+    public function satisfiedPct(): int
+    {
+        if (! $this->total_tasks) return 0;
+        return (int) round(($this->satisfiedCount() / $this->total_tasks) * 100);
     }
 
     public function isEditable(): bool

@@ -1,0 +1,979 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   Pengajuan / ROP — token & komponen
+   ───────────────────────────────────────────────────────────────────────────
+   Sumber: design_handoff_rop/README.md (high-fidelity, warna & spasi final).
+
+   SEMUA aturan di-scope ke .rop-surface (pengaju, cokelat) atau .rop-fin
+   (Finance, burgundy) — SENGAJA tidak memakai body-class:
+     • layouts/app.blade.php sedang dimodifikasi reskin Kehadiran di working
+       tree utama; menyentuhnya dari branch ini = konflik merge yang tidak perlu.
+     • public/assets/css/zona.css (yang membawa body.zona-finance) juga belum
+       ada di branch ini. Chrome burgundy karena itu ditulis eksplisit di sini
+       supaya halaman berdiri sendiri; saat zona.css menyusul keduanya sejalan.
+
+   Tanpa emoji. Ikon = SVG garis 1.5px stroke currentColor.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.rop-surface,
+.rop-fin {
+    --rop-bg:          #F4ECE2;
+    --rop-card:        #FFFFFF;
+    --rop-card-hover:  #FFFDFA;
+    --rop-border:      #EFE0CE;
+    --rop-divider:     #F4EADD;
+    --rop-ink:         #3B1500;
+    --rop-muted:       #9A7256;
+    --rop-muted-2:     #A9866A;
+    --rop-faint:       #B79A82;
+    --rop-primary:     linear-gradient(135deg, #6B2400, #461500);
+    --rop-primary-ink: #FFEAD6;
+    --rop-headfill:    linear-gradient(120deg, #5A2410, #3A1100);
+    --rop-attention:   #E8842B;
+    --rop-gold:        #C9962F;
+
+    --rop-shadow:      0 1px 2px rgba(70, 21, 0, .04), 0 10px 26px rgba(70, 21, 0, .05);
+    --rop-shadow-lift: 0 2px 6px rgba(70, 21, 0, .06), 0 16px 36px rgba(70, 21, 0, .08);
+
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    color: var(--rop-ink);
+}
+
+/* Chrome Finance — HANYA untuk chrome (header tabel, tab aktif, tombol export,
+   header drawer). Merah terang #C0392B tetap khusus makna negatif. */
+.rop-fin {
+    --rop-burgundy:      #8A2E43;
+    --rop-burgundy-dark: #6B2333;
+    --rop-burgundy-fill: linear-gradient(120deg, #7A2739, #5A1B29);
+    --rop-burgundy-ink:  #F0CDD5;
+    --rop-burgundy-soft: #F6E3E7;
+    --rop-burgundy-bd:   #EBCBD3;
+    --rop-row-hover:     #FDF6F7;
+    --rop-row-urgent:    #FFFBFB;
+}
+
+.rop-surface *,
+.rop-fin * { box-sizing: border-box; }
+
+/* Jarak tepi halaman. Halaman lain mendapatkannya dari .container-fluid;
+   di sini ditulis sendiri karena isi ROP tidak dibungkus container itu
+   (tabel Finance perlu mengatur scroller-nya sendiri). */
+.rop-surface,
+.rop-fin { padding: 18px 22px 40px; }
+
+@media (max-width: 767px) {
+    .rop-surface,
+    .rop-fin { padding: 14px 14px 32px; }
+}
+
+/* `.rop-fin` menanggung DUA peran: pembawa token burgundy DAN padding halaman.
+   Drawer & modal butuh tokennya, tapi TIDAK boleh ikut padding halaman —
+   tanpa penegasan ini kepala drawer turun 18px dan kakinya menggantung 40px
+   dari dasar layar (persis keluhan "header & tombol berantakan"). */
+.rop-drawer.rop-fin,
+.rop-fin .modal-dialog { padding: 0; }
+
+.rop-surface :where(h1, h2, h3, h4, p, dl, dd) { margin: 0; }
+
+/* Angka & tanggal tidak pernah pecah baris. */
+.rop-num {
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+/* ─── Kamus status (WAJIB sama di semua layar) ─── */
+.rop-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 11px;
+    border-radius: 20px;
+    font-weight: 700;
+    font-size: 12.5px;
+    line-height: 1.25;
+    white-space: nowrap;
+}
+.rop-pill--diajukan   { color: #B5701A; background: #FBEFD9; }
+.rop-pill--disetujui  { color: #3C5FA8; background: #E4EAF6; }
+.rop-pill--ditolak    { color: #C0392B; background: #FBE3DE; }
+.rop-pill--dibayar    { color: #2F8E55; background: #E3F4E8; }
+.rop-pill--selesai    { color: #3B1500; background: #EDE4D9; }
+.rop-pill--kadaluarsa { color: #6B6257; background: #EFEAE3; }
+
+.rop-badge-darurat {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 9px;
+    border-radius: 7px;
+    background: #FBE3DE;
+    color: #C0392B;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+}
+
+/* Badge umur — makin tua makin mencolok. */
+.rop-umur {
+    display: inline-block;
+    padding: 3px 9px;
+    border-radius: 7px;
+    font-size: 12px;
+    font-weight: 700;
+    background: #F1E7DC;
+    color: #8A6A52;
+    white-space: nowrap;
+}
+.rop-umur--1 { background: #FBEFD9; color: #B5701A; }
+.rop-umur--3 { background: #FBE3DE; color: #C0392B; }
+.rop-umur--5 { background: #C0392B; color: #fff; }
+
+/* ─── Kartu ─── */
+.rop-card {
+    background: var(--rop-card);
+    border: 1px solid var(--rop-border);
+    border-radius: 16px;
+    box-shadow: var(--rop-shadow);
+}
+.rop-card + .rop-card { margin-top: 12px; }
+
+.rop-label {
+    font-size: 11.5px;
+    font-weight: 800;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--rop-muted);
+}
+
+/* ─── Tombol ─── */
+.rop-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 44px;
+    padding: 11px 18px;
+    border: 1px solid transparent;
+    border-radius: 13px;
+    font-family: inherit;
+    font-size: 14.5px;
+    font-weight: 700;
+    cursor: pointer;
+    text-decoration: none;
+    transition: transform .12s ease, box-shadow .12s ease, opacity .12s ease;
+}
+.rop-btn:active { transform: translateY(1px); }
+.rop-btn--primary {
+    background: var(--rop-primary);
+    color: var(--rop-primary-ink);
+    box-shadow: 0 8px 20px rgba(70, 21, 0, .22);
+}
+.rop-btn--primary:hover { color: var(--rop-primary-ink); }
+.rop-btn--ghost {
+    background: #fff;
+    border-color: var(--rop-border);
+    color: var(--rop-ink);
+}
+.rop-btn--ghost:hover { background: var(--rop-card-hover); color: var(--rop-ink); }
+/* Tolak di kaki drawer: berona merah supaya terbaca aksi negatif, tapi tetap
+   garis-tipis (bukan blok merah) — menolak harus disengaja, bukan refleks. */
+.rop-btn--tolak { border-color: #F2D2CB; color: #C0392B; }
+.rop-btn--tolak:hover { background: #FDF6F5; color: #C0392B; }
+.rop-btn--ok {
+    background: linear-gradient(135deg, #37A164, #2F8E55);
+    color: #fff;
+    box-shadow: 0 8px 20px rgba(47, 142, 85, .25);
+}
+.rop-btn--ok:hover { color: #fff; }
+.rop-btn--warn { background: #B5701A; color: #fff; }
+.rop-btn--danger { background: #fff; border-color: #EFC9C1; color: #C0392B; }
+.rop-btn--block { width: 100%; }
+.rop-btn[disabled],
+.rop-btn--mati {
+    opacity: .42;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+/* Tombol Setujui saat belum boleh ditekan: warna netral, BUKAN hijau
+   ditransparankan — hijau pudar masih terbaca "boleh", dan opacity bikin
+   teksnya kurang kontras. Sesuai handoff desain. */
+.rop-btn--ok.rop-btn--mati,
+.rop-btn--ok[disabled] {
+    opacity: 1;
+    background: #E7DACB;
+    color: #B0997F;
+    box-shadow: none;
+}
+
+.rop-fin .rop-btn--fin {
+    background: linear-gradient(135deg, var(--rop-burgundy), var(--rop-burgundy-dark));
+    color: #fff;
+    box-shadow: 0 8px 20px rgba(138, 46, 67, .22);
+}
+.rop-fin .rop-btn--fin:hover { color: #fff; }
+
+/* ─── Kontrol isian ─── */
+.rop-input,
+.rop-select,
+.rop-textarea {
+    width: 100%;
+    min-height: 46px;
+    padding: 12px 14px;
+    background: #fff;
+    border: 1px solid var(--rop-border);
+    border-radius: 12px;
+    font-family: inherit;
+    font-size: 15px;
+    color: var(--rop-ink);
+}
+.rop-textarea { min-height: 92px; resize: vertical; }
+.rop-input:focus,
+.rop-select:focus,
+.rop-textarea:focus {
+    outline: none;
+    border-color: #8A5A2B;
+    box-shadow: 0 0 0 3px rgba(138, 90, 43, .12);
+}
+.rop-fin .rop-input:focus,
+.rop-fin .rop-select:focus,
+.rop-fin .rop-textarea:focus {
+    border-color: var(--rop-burgundy);
+    box-shadow: 0 0 0 3px rgba(138, 46, 67, .12);
+}
+.rop-input::placeholder,
+.rop-textarea::placeholder { color: var(--rop-faint); }
+
+/* Chip pilihan cepat (nominal, tanggal, filter). */
+.rop-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 38px;
+    padding: 8px 15px;
+    background: #fff;
+    border: 1px solid var(--rop-border);
+    border-radius: 20px;
+    font-family: inherit;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--rop-ink);
+    cursor: pointer;
+    text-decoration: none;
+    white-space: nowrap;
+}
+.rop-chip:hover { background: var(--rop-card-hover); color: var(--rop-ink); }
+.rop-chip--aktif {
+    background: var(--rop-primary);
+    border-color: transparent;
+    color: var(--rop-primary-ink);
+}
+.rop-chip--aktif:hover { color: var(--rop-primary-ink); }
+.rop-chip--pilih { border-color: var(--rop-gold); background: #FDF6E7; }
+
+.rop-chip-row {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    scrollbar-width: none;
+}
+.rop-chip-row::-webkit-scrollbar { display: none; }
+/* Alasan cepat penolakan HARUS terlihat semua — kalau ikut scroller mendatar
+   tanpa scrollbar, dua alasan terakhir tak pernah ketahuan ada. Handoff
+   memakai flex-wrap di sini. */
+#ropDTolakBlok .rop-chip-row { flex-wrap: wrap; overflow-x: visible; }
+
+/* ═══ Layar pengaju (cokelat) ═══ */
+
+.rop-surface { max-width: 604px; margin: 0 auto; padding-bottom: 96px; }
+.rop-surface--lebar { max-width: 1320px; }
+
+.rop-head { margin-bottom: 14px; }
+.rop-head h1 { font-size: 26px; font-weight: 800; letter-spacing: -.02em; }
+.rop-head .rop-sub { color: var(--rop-muted); font-size: 13.5px; margin-top: 2px; }
+
+/* Tiga kartu angka yang sekaligus jadi filter. */
+.rop-stat-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-bottom: 14px;
+}
+.rop-stat {
+    display: block;
+    padding: 13px;
+    background: var(--rop-card);
+    border: 1px solid var(--rop-border);
+    border-radius: 15px;
+    box-shadow: var(--rop-shadow);
+    text-decoration: none;
+    color: var(--rop-ink);
+}
+.rop-stat:hover { background: var(--rop-card-hover); color: var(--rop-ink); }
+.rop-stat--aktif { border-color: #B98A48; box-shadow: 0 0 0 1.5px #B98A48; }
+.rop-stat b { display: block; font-size: 26px; font-weight: 800; line-height: 1.05; }
+.rop-stat span { display: block; margin-top: 4px; font-size: 12.5px; color: var(--rop-muted); }
+.rop-stat--kuning b { color: #B5701A; }
+.rop-stat--hijau b  { color: #2F8E55; }
+.rop-stat--merah b  { color: #C0392B; }
+
+/* Kartu pengajuan di daftar. */
+.rop-item {
+    display: block;
+    position: relative;
+    padding: 14px 16px 14px 18px;
+    background: var(--rop-card);
+    border: 1px solid var(--rop-border);
+    border-radius: 16px;
+    box-shadow: var(--rop-shadow);
+    text-decoration: none;
+    color: var(--rop-ink);
+    overflow: hidden;
+}
+.rop-item + .rop-item { margin-top: 10px; }
+.rop-item:hover { background: var(--rop-card-hover); color: var(--rop-ink); box-shadow: var(--rop-shadow-lift); }
+.rop-item::before {
+    content: '';
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 4px;
+    background: var(--rop-strip, transparent);
+}
+.rop-item--diajukan   { --rop-strip: #E8842B; }
+.rop-item--disetujui  { --rop-strip: #3C5FA8; }
+.rop-item--ditolak    { --rop-strip: #C0392B; }
+.rop-item--dibayar    { --rop-strip: #2F8E55; }
+.rop-item--selesai    { --rop-strip: #C4B29E; }
+.rop-item--kadaluarsa { --rop-strip: #B6ADA2; }
+
+.rop-item__atas {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    font-size: 12.5px;
+    color: var(--rop-faint);
+}
+.rop-item__vendor { margin-top: 5px; font-size: 16px; font-weight: 700; }
+.rop-item__ket {
+    margin-top: 2px;
+    color: var(--rop-muted-2);
+    font-size: 13.5px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.rop-item__bawah {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 9px;
+}
+.rop-item__nominal { font-size: 21px; font-weight: 800; letter-spacing: -.01em; }
+
+/* Baris dorongan: satu kalimat yang memberitahu apa langkah berikutnya. */
+.rop-nudge {
+    display: flex;
+    align-items: flex-start;
+    gap: 7px;
+    margin-top: 11px;
+    padding-top: 10px;
+    border-top: 1px dashed var(--rop-divider);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--rop-muted);
+}
+.rop-nudge--kuning { color: #B5701A; }
+.rop-nudge--hijau  { color: #2F8E55; }
+.rop-nudge--merah  { color: #C0392B; }
+.rop-nudge svg { flex: none; margin-top: 1px; }
+
+/* Tombol utama menempel di bawah, dalam jangkauan jempol. */
+.rop-dock {
+    position: sticky;
+    bottom: 0;
+    margin: 16px -4px -4px;
+    padding: 16px 4px 8px;
+    background: linear-gradient(180deg, rgba(244, 236, 226, 0) 0%, var(--rop-bg) 42%);
+}
+
+.rop-kosong {
+    padding: 46px 24px;
+    text-align: center;
+    background: var(--rop-card);
+    border: 1px solid var(--rop-border);
+    border-radius: 16px;
+}
+.rop-kosong h3 { font-size: 17px; font-weight: 800; margin-bottom: 6px; }
+.rop-kosong p { color: var(--rop-muted); font-size: 14px; margin-bottom: 16px; }
+
+/* ─── Form ─── */
+.rop-field { margin-bottom: 16px; }
+.rop-field > .rop-label { display: block; margin-bottom: 7px; }
+.rop-hint { margin-top: 6px; font-size: 12.5px; color: var(--rop-muted); }
+
+/* Input rupiah besar. */
+.rop-uang {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    background: #fff;
+    border: 1px solid var(--rop-border);
+    border-radius: 14px;
+}
+.rop-uang span { font-size: 19px; font-weight: 700; color: var(--rop-muted); }
+.rop-uang input {
+    flex: 1;
+    min-width: 0;
+    border: 0;
+    outline: none;
+    background: transparent;
+    font-family: inherit;
+    font-size: 30px;
+    font-weight: 800;
+    color: var(--rop-ink);
+    font-variant-numeric: tabular-nums;
+}
+.rop-uang:focus-within { border-color: #8A5A2B; box-shadow: 0 0 0 3px rgba(138, 90, 43, .12); }
+
+/* Kartu pintasan "Ajukan lagi". */
+.rop-ulang {
+    flex: none;
+    width: 208px;
+    padding: 12px 14px;
+    background: var(--rop-card);
+    border: 1px solid var(--rop-border);
+    border-radius: 14px;
+    text-align: left;
+    text-decoration: none;
+    color: var(--rop-ink);
+    box-shadow: var(--rop-shadow);
+}
+.rop-ulang:hover { background: var(--rop-card-hover); color: var(--rop-ink); }
+.rop-ulang b {
+    display: block;
+    font-size: 14px;
+    font-weight: 700;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.rop-ulang i {
+    display: block;
+    margin: 3px 0;
+    font-style: normal;
+    font-size: 16px;
+    font-weight: 800;
+    color: #6B2400;
+}
+.rop-ulang small {
+    display: block;
+    color: var(--rop-muted-2);
+    font-size: 12.5px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Kartu peringatan & catatan. */
+.rop-note {
+    padding: 13px 15px;
+    border-radius: 14px;
+    border: 1px solid;
+    font-size: 13.5px;
+    line-height: 1.5;
+}
+.rop-note--kuning { background: #FDF6EA; border-color: #EBD6AE; color: #7A4A10; }
+.rop-note--merah  { background: #FBE3DE; border-color: #EFC1B6; color: #8C2A1D; }
+.rop-note--hijau  { background: #E9F6EE; border-color: #BFE3CD; color: #256B41; }
+.rop-note b { font-weight: 800; }
+
+/* Ambil foto: dua tombol (kamera / galeri) menggantikan kontrol berkas bawaan
+   browser, yang di HP tampil sebagai "Choose file — No file chosen" dan tidak
+   memberi tahu apa pun soal memotret. Input aslinya disembunyikan, bukan
+   dihapus — dialog berkasnya tetap yang asli. */
+.rop-file-asli { display: none; }
+.rop-file-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.rop-file-btns .rop-chip { min-height: 44px; padding: 10px 16px; }
+
+/* Baris pilihan (mis. Darurat). Warna ditulis eksplisit karena <label> dan
+   <b> di dalamnya kena warna tautan dari CSS global tema — sempat tampil biru
+   di HP. */
+.rop-toggle {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    cursor: pointer;
+    color: var(--rop-ink);
+}
+.rop-toggle input { margin-top: 3px; flex: none; width: 18px; height: 18px; accent-color: #6B2400; }
+.rop-toggle b { display: block; font-size: 14.5px; font-weight: 700; color: var(--rop-ink); }
+.rop-toggle span { color: var(--rop-muted); }
+.rop-toggle .rop-hint { margin: 2px 0 0; }
+
+/* Pratinjau lampiran. */
+.rop-thumb {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px 8px 8px;
+    background: #fff;
+    border: 1px dashed var(--rop-border);
+    border-radius: 13px;
+    font-size: 13px;
+    color: var(--rop-muted);
+    text-decoration: none;
+}
+.rop-thumb img {
+    width: 46px;
+    height: 46px;
+    object-fit: cover;
+    border-radius: 9px;
+}
+.rop-thumb:hover { color: var(--rop-ink); }
+
+/* ─── Detail ─── */
+.rop-hero { padding: 18px; }
+.rop-hero__vendor { color: var(--rop-muted); font-size: 14px; font-weight: 600; }
+.rop-hero__nominal {
+    margin: 4px 0 10px;
+    font-size: 32px;
+    font-weight: 800;
+    letter-spacing: -.02em;
+}
+.rop-hero__ket { margin-top: 12px; font-size: 14.5px; line-height: 1.55; }
+.rop-hero__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 14px;
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid var(--rop-divider);
+}
+.rop-hero__grid .rop-label { display: block; margin-bottom: 3px; }
+.rop-hero__grid b { font-size: 14.5px; font-weight: 700; }
+/* Di dalam drawer yang cuma 520px, auto-fit memaksa 3 kolom sehingga nama
+   vendor ("Toko Gunung Agung") pecah baris. Handoff memakai 2 kolom tetap. */
+.rop-drawer .rop-hero__grid { grid-template-columns: 1fr 1fr; }
+.rop-drawer__ket { margin-top: 13px; padding-top: 12px; border-top: 1px solid var(--rop-divider); }
+.rop-drawer__ket p { margin: 4px 0 0; font-size: 13.5px; font-weight: 600; line-height: 1.5; color: var(--rop-ink); }
+
+/* Timeline vertikal — langkah belum jalan tampil redup, bukan disembunyikan. */
+.rop-time { list-style: none; margin: 0; padding: 0; }
+.rop-time li {
+    position: relative;
+    padding: 0 0 20px 34px;
+}
+.rop-time li:last-child { padding-bottom: 0; }
+.rop-time li::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 1px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: #DCC9B3;
+}
+.rop-time li::after {
+    content: '';
+    position: absolute;
+    left: 10px;
+    top: 25px;
+    bottom: 2px;
+    width: 2px;
+    background: #EADFD1;
+}
+.rop-time li:last-child::after { display: none; }
+.rop-time li.is-jalan::before {
+    background: #2F8E55;
+    box-shadow: inset 0 0 0 2px #2F8E55;
+}
+.rop-time li.is-jalan::after { background: #BCE0C9; }
+.rop-time li.is-tolak::before { background: #C0392B; }
+.rop-time b { display: block; font-size: 14.5px; font-weight: 700; }
+.rop-time span { font-size: 13px; color: var(--rop-muted); }
+.rop-time li:not(.is-jalan):not(.is-tolak) b { color: var(--rop-faint); font-weight: 600; }
+
+.rop-tanda-jalan {
+    position: absolute;
+    left: 5px;
+    top: 6px;
+    color: #fff;
+}
+
+/* ═══ Layar Finance (burgundy) ═══ */
+
+.rop-fin__head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+}
+.rop-fin__head h1 { font-size: 24px; font-weight: 800; letter-spacing: -.02em; }
+.rop-fin__head .rop-sub { color: var(--rop-muted); font-size: 13.5px; margin-top: 2px; }
+
+.rop-fin-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 12px;
+    margin-bottom: 16px;
+}
+.rop-fin-stat {
+    padding: 15px 16px;
+    background: var(--rop-card);
+    border: 1px solid var(--rop-border);
+    border-radius: 15px;
+    box-shadow: var(--rop-shadow);
+}
+.rop-fin-stat--utama {
+    background: var(--rop-burgundy-fill);
+    border-color: transparent;
+    color: #fff;
+}
+.rop-fin-stat--utama .rop-label { color: var(--rop-burgundy-ink); }
+.rop-fin-stat--utama small { color: var(--rop-burgundy-ink); }
+.rop-fin-stat b {
+    display: block;
+    margin-top: 6px;
+    font-size: 25px;
+    font-weight: 800;
+    line-height: 1.1;
+}
+.rop-fin-stat small { display: block; margin-top: 3px; font-size: 12.5px; color: var(--rop-muted); }
+.rop-fin-stat--bahaya b { color: #C0392B; }
+
+.rop-tabs {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+}
+.rop-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 16px;
+    background: #fff;
+    border: 1px solid var(--rop-border);
+    border-radius: 20px;
+    font-size: 13.5px;
+    font-weight: 700;
+    color: var(--rop-ink);
+    text-decoration: none;
+}
+.rop-tab:hover { background: var(--rop-card-hover); color: var(--rop-ink); }
+.rop-tab--aktif {
+    background: linear-gradient(135deg, var(--rop-burgundy), var(--rop-burgundy-dark));
+    border-color: transparent;
+    color: #fff;
+}
+.rop-tab--aktif:hover { color: #fff; }
+.rop-tab__n {
+    padding: 1px 8px;
+    border-radius: 10px;
+    background: var(--rop-burgundy-soft);
+    color: var(--rop-burgundy);
+    font-size: 12px;
+    font-weight: 800;
+}
+.rop-tab--aktif .rop-tab__n { background: rgba(255, 255, 255, .22); color: #fff; }
+
+.rop-toolbar {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-bottom: 14px;
+}
+.rop-toolbar .rop-input,
+.rop-toolbar .rop-select { width: auto; min-width: 170px; min-height: 42px; }
+.rop-toolbar .rop-input--cari { flex: 1; min-width: 220px; }
+
+/* Tabel antrian: scroller sendiri supaya kolom aksi tidak pernah terpotong. */
+.rop-tabel-wrap {
+    background: var(--rop-card);
+    border: 1px solid var(--rop-border);
+    border-radius: 16px;
+    box-shadow: var(--rop-shadow);
+    overflow-x: auto;
+}
+.rop-tabel {
+    width: 100%;
+    min-width: 1020px;
+    border-collapse: collapse;
+    /* Lebar kolom ditentukan colgroup, bukan diserahkan ke isi sel: tanpa ini
+       kolom "Untuk apa" memakan hampir semua ruang dan kolom nominal sampai
+       aksi berdempetan di tepi kanan. */
+    table-layout: fixed;
+}
+.rop-tabel td { word-break: break-word; }
+/* Gradient dipasang di BARIS, bukan di tiap sel: kalau di sel, masing-masing
+   kolom memulai gradientnya sendiri dari awal dan header terlihat terpotong
+   jadi blok-blok warna. Sudut membulatnya diurus .rop-tabel-wrap yang memang
+   memotong isinya. */
+.rop-tabel thead tr {
+    background-image: var(--rop-burgundy-fill);
+}
+.rop-tabel thead th {
+    padding: 12px 14px;
+    background: transparent;
+    color: var(--rop-burgundy-ink);
+    font-size: 11.5px;
+    font-weight: 800;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    text-align: left;
+    white-space: nowrap;
+}
+.rop-tabel td {
+    padding: 13px 14px;
+    border-top: 1px solid var(--rop-divider);
+    font-size: 14px;
+    vertical-align: middle;
+}
+/* Tombol aksi tidak boleh pecah dua baris — kolomnya sempit dan labelnya
+   ("Tandai dibayar") termasuk panjang. */
+.rop-tabel td .rop-btn { white-space: nowrap; }
+.rop-tabel tbody tr:hover td { background: var(--rop-row-hover); }
+/* Baris = pintu masuk detail (pola Reservasi/Pasien/Doctor) */
+.rop-tabel tbody tr[data-rop-buka] { cursor: pointer; }
+/* Chevron di ujung baris = afordansi "bisa dibuka" — sama dengan .st-chev-cell
+   di Reservasi, tapi SVG garis (ROP tak bergantung FontAwesome).
+   Burgundy (aksen zona = penanda interaktif) + goresan tebal 2.4 supaya
+   bobot visualnya setara chevron solid FontAwesome di Reservasi; versi
+   1.5px terlalu ringan, nyaris tak terlihat. Diam: agak redup; hover baris:
+   penuh + maju 2px. */
+.rop-chev-cell { width: 52px; padding-right: 22px !important; text-align: right; color: var(--rop-burgundy); }
+.rop-chev-cell svg { stroke-width: 2.6; opacity: .8; transition: transform .15s ease, opacity .15s ease; }
+.rop-tabel tbody tr[data-rop-buka]:hover .rop-chev-cell svg { opacity: 1; transform: translateX(3px); }
+.rop-tabel .rop-td-kanan { text-align: right; }
+
+.rop-baris--darurat td:first-child { box-shadow: inset 3px 0 0 #C0392B; }
+.rop-baris--darurat td { background: var(--rop-row-urgent); }
+.rop-baris--telat td:first-child { box-shadow: inset 3px 0 0 #E8842B; }
+
+/* Grup prioritas: "hari ini bayar apa dulu" terjawab tanpa membaca tiap baris. */
+.rop-grup td {
+    padding: 10px 14px;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+}
+.rop-grup--now td   { background: #FBEDE9; color: #C0392B; }
+.rop-grup--soon td  { background: #FDF6EA; color: #B5701A; }
+.rop-grup--later td { background: #FBF5EE; color: #8A6A52; }
+.rop-grup__total { float: right; font-weight: 800; letter-spacing: 0; text-transform: none; }
+
+.rop-mini {
+    color: var(--rop-muted);
+    font-size: 12.5px;
+    margin-top: 2px;
+}
+
+/* ─── Drawer ACC ─── */
+.rop-drawer-scrim {
+    position: fixed;
+    inset: 0;
+    background: rgba(40, 12, 0, .38);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .2s ease;
+    z-index: 1040;
+}
+.rop-drawer {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: min(520px, 100vw);
+    display: flex;
+    flex-direction: column;
+    background: var(--rop-bg);
+    box-shadow: -12px 0 40px rgba(40, 12, 0, .28);
+    transform: translateX(100%);
+    transition: transform .24s ease;
+    z-index: 1050;
+}
+.rop-drawer.is-buka { transform: none; }
+.rop-drawer-scrim.is-buka { opacity: 1; pointer-events: auto; }
+/* Tiga bagian drawer = flex column: kepala & kaki TETAP (flex:none), badan
+   yang menggulung. `min-height:0` WAJIB di badan — tanpa itu min-height:auto
+   bawaan flex bikin badan menolak menyusut, isinya meluber, dan kepala/kaki
+   ikut kepencet. */
+.rop-drawer__head {
+    flex: none;
+    padding: 19px 22px;
+    background: var(--rop-burgundy-fill);
+    color: #fff;
+}
+.rop-drawer__head .rop-label { color: var(--rop-burgundy-ink); }
+.rop-drawer__nominal { margin: 7px 0 11px; font-size: 27px; font-weight: 800; line-height: 1.1; }
+.rop-drawer__body { flex: 1; min-height: 0; overflow-y: auto; padding: 17px 22px; }
+.rop-drawer__foot {
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+    padding: 15px 22px 18px;
+    background: var(--rop-bg);
+    border-top: 1px solid #EDDFCE;
+}
+/* Baris aksi: Setujui memuai, Tolak selebar isinya — menolak bukan aksi
+   yang sejajar bobotnya dengan menyetujui. */
+.rop-drawer__aksi { display: flex; gap: 9px; }
+.rop-drawer__aksi > form { flex: 1; display: flex; }
+.rop-drawer__foot .rop-btn--ok { flex: 1; }
+.rop-drawer__foot .rop-btn--ghost { flex: none; }
+.rop-drawer__hint { font-size: 11.5px; color: #B0855F; font-weight: 600; text-align: center; }
+.rop-drawer__tutup {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    width: 34px;
+    height: 34px;
+    display: grid;
+    place-items: center;
+    background: rgba(255, 255, 255, .16);
+    border: 0;
+    border-radius: 10px;
+    color: #fff;
+    cursor: pointer;
+}
+
+.rop-akun-pilih {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 14px;
+    background: #E9F6EE;
+    border: 1px solid #BFE3CD;
+    border-radius: 13px;
+}
+.rop-akun-pilih b { font-size: 14px; }
+.rop-saran {
+    padding: 12px 14px;
+    border: 1px dashed var(--rop-burgundy-bd);
+    background: var(--rop-burgundy-soft);
+    border-radius: 13px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .rop-drawer, .rop-drawer-scrim { transition: none; }
+}
+
+/* ─── Toast "Urungkan" ─── */
+.rop-toast {
+    position: fixed;
+    left: 50%;
+    bottom: 26px;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    max-width: min(560px, calc(100vw - 32px));
+    padding: 13px 16px;
+    background: #2A1006;
+    color: #FFEAD6;
+    border-radius: 14px;
+    box-shadow: 0 18px 44px rgba(20, 6, 0, .38);
+    font-size: 14px;
+    z-index: 1060;
+}
+.rop-toast b { font-weight: 800; }
+.rop-toast small { display: block; color: #C6A98F; font-size: 12.5px; }
+.rop-toast button {
+    flex: none;
+    padding: 8px 14px;
+    background: rgba(255, 255, 255, .14);
+    border: 0;
+    border-radius: 10px;
+    color: #FFEAD6;
+    font-family: inherit;
+    font-size: 13.5px;
+    font-weight: 700;
+    cursor: pointer;
+}
+.rop-toast button:hover { background: rgba(255, 255, 255, .24); }
+/* Garis waktu tipis — memberi tahu jendela urungnya menipis, tanpa
+   angka hitung mundur yang bikin panik. */
+.rop-toast__bar {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    height: 3px;
+    background: #E8842B;
+    border-radius: 0 0 14px 14px;
+    animation: rop-susut 5.2s linear forwards;
+}
+@keyframes rop-susut { from { width: 100%; } to { width: 0; } }
+/* Varian galat: latar merah tua, bar merah — dipakai toast error jalur fetch. */
+.rop-toast--galat { background: #5A1512; }
+.rop-toast--galat small { color: #E8B7B0; }
+.rop-toast--galat .rop-toast__bar { background: #C0392B; animation-duration: 6s; }
+
+/* Kerangka pemuatan drawer — batang berkilau halus selama fetch detail. */
+.rop-muat__bar {
+    height: 14px;
+    margin-bottom: 11px;
+    border-radius: 8px;
+    background: linear-gradient(90deg, #EFE0CE 25%, #F9F1E7 45%, #EFE0CE 65%);
+    background-size: 200% 100%;
+    animation: rop-kilau 1.1s ease-in-out infinite;
+}
+@keyframes rop-kilau { from { background-position: 180% 0; } to { background-position: -60% 0; } }
+@media (prefers-reduced-motion: reduce) { .rop-muat__bar { animation: none; } }
+
+@media (prefers-reduced-motion: reduce) {
+    .rop-toast__bar { animation: none; width: 100%; }
+}
+
+/* ─── Rekap ─── */
+.rop-rekap-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 12px;
+}
+.rop-bar {
+    height: 4px;
+    margin-top: 5px;
+    border-radius: 3px;
+    background: var(--rop-burgundy);
+}
+/* Tabel ringkas menyesuaikan isinya sendiri — kolomnya sedikit dan panjang
+   namanya berbeda-beda, jadi lebar tetap justru merugikan. */
+.rop-tabel--ringkas { min-width: 0; table-layout: auto; }
+.rop-tabel--ringkas thead th {
+    background: var(--rop-burgundy-soft);
+    color: var(--rop-burgundy-dark);
+}
+.rop-tabel--ringkas tfoot td {
+    font-weight: 800;
+    background: #FBF7F8;
+    white-space: nowrap;
+}
+
+/* ─── Layar pengaju versi lebar (master–detail) ─── */
+@media (min-width: 992px) {
+    .rop-md {
+        display: grid;
+        grid-template-columns: minmax(300px, 360px) 1fr;
+        gap: 14px;
+        align-items: start;
+    }
+    .rop-md__list { max-height: calc(100vh - 210px); overflow-y: auto; padding-right: 4px; }
+    .rop-md__panel { position: sticky; top: 12px; }
+    .rop-item--aktif { border-color: #B98A48; box-shadow: 0 0 0 1.5px #B98A48; }
+}
+
+@media (max-width: 575px) {
+    .rop-stat b { font-size: 22px; }
+    .rop-hero__nominal { font-size: 28px; }
+    .rop-uang input { font-size: 26px; }
+}

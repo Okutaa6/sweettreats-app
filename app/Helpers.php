@@ -104,6 +104,143 @@ function getSidebarChild()
     }
 }
 
+/* ══════════════════════════════════════════════════════════════════════════
+   SHELL REDESIGN (2026-07) — render sidebar SATU-KOLOM dari data RBAC yang sama
+   (getGroupAccessData). Node personal (Absensi Saya / Checklist Saya / Persetujuan)
+   dibuang dari menu utama → pindah ke DROP-UP akun. Menu tetap DINAMIS per-role.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+if (!function_exists('shellPersonalMap')) {
+    /** link (segment-1) => [label tetap, ikon FontAwesome] untuk item drop-up akun. */
+    function shellPersonalMap(): array
+    {
+        return [
+            'akun'         => ['Absensi Saya',   'fas fa-calendar-check'],
+            'my-checklist' => ['Checklist Saya', 'fas fa-tasks'],
+            'persetujuan'  => ['Persetujuan',    'fas fa-check-circle'],
+        ];
+    }
+}
+
+if (!function_exists('shellCollectLeaves')) {
+    /**
+     * Kumpulkan node NAVIGABLE (leaf ber-link) di subtree, rekursif.
+     * Node yang punya anak = grup (section) → link-nya sendiri TIDAK di-emit,
+     * cuma anak-anaknya. Cocok utk tree parent→sub→child dengan link di level mana pun.
+     */
+    function shellCollectLeaves(array $node): array
+    {
+        $kids = $node['sub'] ?? $node['child'] ?? [];
+        if ($kids) {
+            $out = [];
+            foreach ($kids as $k) {
+                if (is_array($k)) $out = array_merge($out, shellCollectLeaves($k));
+            }
+            return $out;
+        }
+        $link = trim((string) ($node['link'] ?? ''));
+        if ($link === '' || $link === '-') return [];
+        return [[
+            'nama' => $node['nama'] ?? $link,
+            'link' => $link,
+            'icon' => trim((string) ($node['icon'] ?? '')),
+        ]];
+    }
+}
+
+if (!function_exists('shellAccountLinks')) {
+    /**
+     * Item personal untuk DROP-UP akun — hanya yang user punya grant-nya
+     * (dinamis, ngecek getGroupAccessData). Persetujuan dapat badge = jumlah menunggu.
+     */
+    function shellAccountLinks(): array
+    {
+        $map  = shellPersonalMap();
+        $data = getGroupAccessData();
+        if (!is_array($data)) return [];
+
+        $have = [];
+        foreach ($data as $p) {
+            if (!is_array($p)) continue;
+            foreach (shellCollectLeaves($p) as $leaf) {
+                if (isset($map[$leaf['link']])) $have[$leaf['link']] = true;
+            }
+        }
+
+        $out = [];
+        foreach ($map as $link => [$label, $icon]) {
+            if (empty($have[$link])) continue;
+            $badge = null;
+            if ($link === 'persetujuan') {
+                try {
+                    $badge = (new \App\Services\AttendanceRequestWorkflow())
+                        ->pendingFor((string) session('id'))->count() ?: null;
+                } catch (\Throwable $e) {}
+            }
+            $out[] = compact('label', 'link', 'icon', 'badge');
+        }
+        return $out;
+    }
+}
+
+if (!function_exists('shellMenuSections')) {
+    /**
+     * Menu utama single-column: daftar section {label, icon, items:[{nama,link,icon,active}]}.
+     * Node personal dibuang (pindah ke drop-up). Parent yang isinya cuma personal → section
+     * hilang sendiri. Section dengan 1 item tetap ditampilkan (label = nama parent).
+     */
+    function shellMenuSections(): array
+    {
+        $data = getGroupAccessData();
+        if (!is_array($data)) return [];
+
+        $personal   = array_keys(shellPersonalMap());
+        $controller = request()->segment(1);
+        $sections   = [];
+
+        // Ada leaf ber-sub-path yang cocok persis dengan URL sekarang?
+        // (mis. WiFi Cabang 'absensi/wifi' saat membuka /absensi/wifi)
+        // Kalau ada, leaf satu-segmen se-prefix (mis. 'absensi' = Upload Data)
+        // TIDAK ikut menyala — dulu dua menu nyala barengan.
+        $deepActive = false;
+        foreach ($data as $p) {
+            if (!is_array($p)) continue;
+            foreach (shellCollectLeaves($p) as $l) {
+                if (strpos((string) $l['link'], '/') !== false && request()->is($l['link'])) {
+                    $deepActive = true;
+                    break 2;
+                }
+            }
+        }
+
+        foreach ($data as $p) {
+            if (!is_array($p)) continue;
+            $leaves = array_values(array_filter(
+                shellCollectLeaves($p),
+                fn ($l) => !in_array($l['link'], $personal, true)
+            ));
+            if (!$leaves) continue;
+
+            // Link ber-sub-path (mis. 'checklist/positions') dicocokkan ke path
+            // penuh; link satu-segmen cukup cocok segment-1 — kecuali sedang ada
+            // leaf sub-path yang cocok persis (lihat $deepActive di atas).
+            foreach ($leaves as &$l) {
+                $l['active'] = (strpos((string) $l['link'], '/') !== false)
+                    ? request()->is($l['link'])
+                    : (! $deepActive && $l['link'] === $controller);
+            }
+            unset($l);
+
+            $sections[] = [
+                'label' => $p['nama'] ?? '',
+                'icon'  => trim((string) ($p['icon'] ?? '')),
+                'items' => $leaves,
+            ];
+        }
+        return $sections;
+    }
+}
+
 /**
  * Nama halaman aktif untuk judul header — diambil dari menu (group_access)
  * berdasarkan child yang link-nya cocok dengan segment URL pertama. Konsisten
@@ -115,15 +252,23 @@ if (!function_exists('getActivePageName')) {
         $controller = request()->segment(1);
         $data = getGroupAccessData();
         if (is_array($data)) {
+            // Cocokkan link ber-sub-path (mis. 'absensi/wifi') dulu — supaya
+            // judul header ikut node yang paling spesifik, baru segment-1.
+            $fallback = null;
             foreach ($data as $row) {
                 foreach (($row['sub'] ?? []) as $subrow) {
                     foreach (($subrow['child'] ?? []) as $childrow) {
-                        if (($childrow['link'] ?? null) === $controller) {
+                        $link = $childrow['link'] ?? null;
+                        if ($link && strpos($link, '/') !== false && request()->is($link)) {
                             return $childrow['nama'];
+                        }
+                        if ($link === $controller && $fallback === null) {
+                            $fallback = $childrow['nama'];
                         }
                     }
                 }
             }
+            if ($fallback !== null) return $fallback;
         }
         return $controller ? ucwords(str_replace(['-', '_'], ' ', $controller)) : 'Dashboard';
     }
@@ -221,19 +366,195 @@ if (!function_exists('canEditPettyCash')) {
 }
 
 /**
- * True kalau user yang sedang login boleh mengelola/review modul Checklist
- * Akreditasi. Untuk MVP reuse role admin existing — supaya tidak perlu
- * seeder role baru. Karyawan biasa tetap bisa akses /my-checklist (cuma
- * untuk pengisian, bukan setup/review).
+ * True kalau role yang login DICENTANG minimal satu halaman PENGAWAS checklist
+ * di UI Akses (Set > Role > Akses). Sumber kebenaran SAMA dgn AuthGuard: join
+ * group_access ⋈ access_path pada kolom `link` — bebas dari kedalaman pohon
+ * menu (entri checklist ada di level "sub", bukan "child", jadi hasMenuAccess()
+ * TIDAK bisa dipakai untuk ini). 'my-checklist' TIDAK dihitung (itu self-service
+ * karyawan, bukan pengawas). Cached per-request.
  */
-if (!function_exists('isChecklistSupervisor')) {
-    function isChecklistSupervisor(): bool
+if (!function_exists('checklistHasSupervisorPageAccess')) {
+    function checklistHasSupervisorPageAccess(): bool
+    {
+        static $cached = false;
+        static $value  = false;
+
+        if ($cached) return $value;
+        $cached = true;
+
+        $gid = session('group_id');
+        if (! $gid) return $value = false;
+
+        try {
+            $value = \App\Models\GroupAccess::query()
+                ->join('access_path', 'group_access.access_id', '=', 'access_path.id')
+                ->where('group_access.group_id', $gid)
+                ->whereIn('access_path.link', [
+                    'checklist', 'checklist/positions', 'checklist/setup',
+                    'checklist/review', 'checklist/audit',
+                ])
+                ->exists();
+        } catch (\Throwable $e) {
+            // Tabel akses belum ada / query gagal → anggap tak punya akses.
+            $value = false;
+        }
+
+        return $value;
+    }
+}
+
+/**
+ * True kalau user yang sedang login adalah "overseer" checklist global —
+ * melihat SEMUA divisi lintas penugasan.
+ *
+ * Hanya jaring pengaman admin: Super Admin / Admin General / Admin Backup selalu
+ * lihat semua. Punya halaman Checklist TIDAK lagi berarti "lihat semua" — cakupan
+ * divisi supervisor biasa ditentukan hierarki role (lihat checklistVisibleDivisionIds).
+ */
+if (!function_exists('checklistSeesAllDivisions')) {
+    function checklistSeesAllDivisions(): bool
     {
         return in_array(session('group_name'), [
             'Super Admin',
             'Admin General',
             'Admin Backup',
         ], true);
+    }
+}
+
+/**
+ * Divisi checklist yang boleh DI-REVIEW user yang sedang login (sisi supervisor).
+ *
+ * Model "role operasional = divisi": divisi dikenali dari NAMA role bawahan yang
+ * sama persis dgn nama divisi (Front Office↔FO, General Services↔GS, Assistant
+ * Dentist↔ASDENT). Jadi:
+ *   - Overseer global (checklistSeesAllDivisions) → SEMUA divisi aktif.
+ *   - Selainnya → divisi yang namanya cocok dgn salah satu BAWAHAN (descendant,
+ *     strict) role user. Bawahan non-operasional (Sales/HR/dst) tak punya divisi
+ *     bernama sama → terabaikan. Role daun tak punya bawahan → kosong → bukan supervisor.
+ *
+ * Cached per-request (pola sama dgn currentUserPosition).
+ */
+if (!function_exists('checklistVisibleDivisionIds')) {
+    function checklistVisibleDivisionIds(): array
+    {
+        static $cached = false;
+        static $value  = [];
+
+        if ($cached) return $value;
+        $cached = true;
+
+        try {
+            $active = \App\Models\ChecklistDivision::where('is_active', 1);
+
+            if (checklistSeesAllDivisions()) {
+                return $value = $active->pluck('id')->all();
+            }
+
+            $gid  = session('group_id');
+            $role = $gid ? \App\Models\GroupPath::find($gid) : null;
+            if (! $role) return $value = [];
+
+            // Strict descendants (tanpa diri) → staf tak me-review divisinya sendiri.
+            // Cocokkan NAMA role bawahan ke NAMA divisi (hanya 3 role operasional yg cocok).
+            $descNames = $role->descendants()->pluck('nama')->filter()->all();
+            if (! $descNames) return $value = [];
+
+            $value = $active->whereIn('name', $descNames)->pluck('id')->all();
+        } catch (\Throwable $e) {
+            // Kolom/tabel belum di-migrate → anggap kosong biar UI tetap rapi.
+            $value = [];
+        }
+
+        return $value;
+    }
+}
+
+/**
+ * Divisi checklist milik sebuah ROLE (group_path.id) — dikenali dari NAMA role
+ * yang sama persis dgn nama divisi. Dipakai untuk menurunkan divisi user OTOMATIS
+ * dari role-nya (tanpa pilih manual). Null kalau nama role tak cocok divisi mana pun.
+ */
+if (!function_exists('checklistDivisionForGroup')) {
+    function checklistDivisionForGroup(?string $groupId): ?\App\Models\ChecklistDivision
+    {
+        if (! $groupId) return null;
+
+        try {
+            $role = \App\Models\GroupPath::find($groupId);
+            if (! $role || ! $role->nama) return null;
+
+            return \App\Models\ChecklistDivision::where('is_active', 1)
+                ->where('name', $role->nama)
+                ->first();
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+}
+
+/**
+ * Nama role ATASAN (rantai ancestor, atasan langsung → atas) dari role staf
+ * pemilik sebuah divisi. Dipakai untuk menargetkan notifikasi checklist ke
+ * HIERARKI (via AdminNotification::notifyRole/target_role), bukan broadcast
+ * cabang — supaya konsisten dgn wewenang review (checklistVisibleDivisionIds).
+ * Kosong kalau divisi belum ditautkan ke role atau role tak punya atasan.
+ */
+if (!function_exists('checklistSupervisorRoleNamesForDivision')) {
+    function checklistSupervisorRoleNamesForDivision(?string $divisionId): array
+    {
+        if (! $divisionId) return [];
+
+        try {
+            $div = \App\Models\ChecklistDivision::find($divisionId);
+            if (! $div || ! $div->name) return [];
+
+            // Role operasional = role yang namanya sama persis dgn nama divisi.
+            $role = \App\Models\GroupPath::where('nama', $div->name)->first();
+            if (! $role) return [];
+
+            return $role->ancestors()->pluck('nama')->filter()->values()->all();
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
+}
+
+/**
+ * True kalau user yang sedang login boleh mengelola/review modul Checklist
+ * Akreditasi. DINAMIS: overseer global, atau role yang ditugaskan mensupervisi
+ * minimal satu divisi (langsung / lewat bawahannya). Diatur di halaman Ubah Role.
+ * Karyawan biasa tetap bisa akses /my-checklist (pengisian, bukan setup/review).
+ */
+if (!function_exists('isChecklistSupervisor')) {
+    function isChecklistSupervisor(): bool
+    {
+        // Admin overseer = bypass. Selainnya WAJIB punya halaman Checklist (Kelola
+        // Halaman) DAN minimal satu bawahan operasional (divisi cocok nama).
+        return checklistSeesAllDivisions()
+            || (checklistHasSupervisorPageAccess() && count(checklistVisibleDivisionIds()) > 0);
+    }
+}
+
+/**
+ * Teks Info / pengumuman (running-text) yang tampil di semua halaman my-checklist.
+ * Global (satu teks untuk semua), disimpan di sys_setting key 'checklist_info_text'
+ * dan bisa diedit admin di halaman Setup Tugas. Fallback ke teks default kalau
+ * belum pernah diisi / tabel belum ada. Cached per-request.
+ */
+if (!function_exists('checklistInfoText')) {
+    function checklistInfoText(): string
+    {
+        static $cached = null;
+        if ($cached !== null) return $cached;
+
+        // Tanpa emoji (docs/spec/peta-tema.md §6) — teks ini tampil di UI
+        // my-checklist, bukan keluaran CLI.
+        $default = 'Isi & submit semua checklist harian sebelum pulang.'
+            . '   •   Sterilisasi alat & jaga kebersihan ruang sesuai SOP.'
+            . '   •   Sapa setiap pasien dengan senyum — Sweet, Cool & Friendly!';
+
+        return $cached = (string) \App\Models\Setting::get('checklist_info_text', $default);
     }
 }
 
@@ -283,6 +604,31 @@ if (!function_exists('resolveChecklistBranchId')) {
         if ($session) return $session;
         if (! canSeeAllBranches()) return null;
         return $requested ?: null;
+    }
+}
+
+/**
+ * Jumlah unit AC yang TERLAMBAT dicuci di cabang user GS yang sedang login.
+ * Dipakai untuk badge merah tombol "Cuci AC" di navbar my-checklist.
+ * Return 0 kalau user bukan divisi GS / belum di-assign posisi / tabel
+ * belum di-migrate. Cached per-request.
+ */
+if (!function_exists('acOverdueCountForCurrentGs')) {
+    function acOverdueCountForCurrentGs(): int
+    {
+        static $cached = null;
+        if ($cached !== null) return $cached;
+
+        $position = currentUserPosition();
+        if (! $position || $position->division_id !== 'GS' || ! $position->raw_branch_id) {
+            return $cached = 0;
+        }
+
+        try {
+            return $cached = \App\Models\AcUnit::overdueCountForBranch($position->raw_branch_id);
+        } catch (\Throwable $e) {
+            return $cached = 0;
+        }
     }
 }
 
@@ -383,6 +729,83 @@ if (!function_exists('hasMenuAccess')) {
             }
         }
         return false;
+    }
+}
+
+/**
+ * Peta terpusat: tipe notifikasi (branch broadcast) → access_path.link
+ * halaman/fitur tempat aksi notif itu berada.
+ *
+ * Dipakai untuk gate notifikasi supaya user cuma lihat notif fitur yang
+ * bisa ia buka. Tipe di luar peta ini TIDAK di-gate (mis. pengumuman
+ * 'system' global tetap tampil ke semua). Tambah entry di sini kalau ada
+ * tipe/fitur baru yang perlu dibatasi.
+ */
+if (!function_exists('notificationTypeAccessMap')) {
+    function notificationTypeAccessMap(): array
+    {
+        return [
+            'reservation'   => 'rawreservation',
+            'status_change' => 'rawreservation',
+            'commission'    => 'rawreservation',
+            'topup_request' => 'finance',
+        ];
+    }
+}
+
+/**
+ * Daftar `type` notifikasi yang harus DISEMBUNYIKAN dari user aktif karena
+ * ia tidak punya akses ke halaman/fitur terkait (lihat
+ * notificationTypeAccessMap()).
+ *
+ * Cek akses pakai pola otoritatif yang sama dgn AuthGuard: join
+ * group_access ⋈ access_path on link. Super Admin selalu lolos (return []).
+ * Hasil di-cache per-request.
+ */
+if (!function_exists('notificationBlockedTypesForUser')) {
+    function notificationBlockedTypesForUser(): array
+    {
+        static $cached = false;
+        static $value  = [];
+
+        if ($cached) return $value;
+        $cached = true;
+
+        if (function_exists('isSuperAdmin') && isSuperAdmin()) {
+            return $value = [];
+        }
+
+        $gid = session('group_id');
+        if (! $gid) {
+            // Tanpa role → tak bisa buktikan akses ke fitur apapun → gate semua
+            // tipe yang terpetakan.
+            return $value = array_values(array_unique(array_keys(notificationTypeAccessMap())));
+        }
+
+        $map = notificationTypeAccessMap();
+
+        // Cek akses per-link sekali saja (satu link bisa dipakai banyak tipe).
+        $linkHasAccess = [];
+        foreach ($map as $type => $link) {
+            if (! array_key_exists($link, $linkHasAccess)) {
+                try {
+                    $linkHasAccess[$link] = \App\Models\GroupAccess::query()
+                        ->join('access_path', 'group_access.access_id', '=', 'access_path.id')
+                        ->where('group_access.group_id', $gid)
+                        ->where('access_path.link', $link)
+                        ->exists();
+                } catch (\Throwable $e) {
+                    // Tabel akses belum ada / query gagal → anggap tak punya akses.
+                    $linkHasAccess[$link] = false;
+                }
+            }
+            if (! $linkHasAccess[$link]) {
+                $value[] = $type;
+            }
+        }
+
+        $value = array_values(array_unique($value));
+        return $value;
     }
 }
 

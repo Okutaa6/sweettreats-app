@@ -240,6 +240,32 @@ class CustomerController extends Controller
         return view('crud.customer.new', compact('branches', 'services', 'doctors', 'promos', 'userBranch'));
     }
 
+    /**
+     * Bersihkan input media sosial repeatable dari form (social_media[i][platform|username]).
+     * Buang baris tanpa platform valid / username kosong, normalisasi username
+     * (trim + hapus '@' di depan). Return null kalau tak ada baris valid.
+     */
+    private function cleanSocialMedia($raw): ?array
+    {
+        if (! is_array($raw)) {
+            return null;
+        }
+        $allowed = ['instagram', 'tiktok', 'facebook'];
+        $out = [];
+        foreach ($raw as $item) {
+            if (! is_array($item)) {
+                continue;
+            }
+            $platform = strtolower(trim($item['platform'] ?? ''));
+            $username = ltrim(trim($item['username'] ?? ''), '@');
+            if (! in_array($platform, $allowed, true) || $username === '') {
+                continue;
+            }
+            $out[] = ['platform' => $platform, 'username' => $username];
+        }
+        return $out ? array_values($out) : null;
+    }
+
     public function store()
     {
         // Model 1-nomor-banyak-pasien: nomor BOLEH duplikat (keluarga / pasien
@@ -271,6 +297,7 @@ class CustomerController extends Controller
                 'nik'                => request('nik'),
                 'tempat_lahir'       => request('tempat_lahir'),
                 'alamat'             => request('alamat'),
+                'social_media'       => $this->cleanSocialMedia(request('social_media')),
                 'tanggal_daftar'     => request('tanggal_daftar') ?: null,
                 'source_app'         => request('source_app'),
                 'raw_branch_id'      => request('raw_branch_id') ?: null,
@@ -588,6 +615,7 @@ class CustomerController extends Controller
                 'nik'                => request('nik'),
                 'tempat_lahir'       => request('tempat_lahir'),
                 'alamat'             => request('alamat'),
+                'social_media'       => $this->cleanSocialMedia(request('social_media')),
                 'tanggal_daftar'     => request('tanggal_daftar') ?: null,
                 'source_app'         => request('source_app'),
                 'raw_branch_id'      => request('raw_branch_id') ?: null,

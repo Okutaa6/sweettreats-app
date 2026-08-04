@@ -1,0 +1,45 @@
+/* ==========================================================================
+   ZONA WARNA per halaman — docs/spec/peta-tema.md §3–§4
+   ==========================================================================
+   Cokelat = default (tanpa kelas). Halaman zona spesial diberi body-class oleh
+   layouts/app.blade.php berdasarkan segment URL:
+
+     body.zona-finance  → Finance  (burgundy #8A2E43)
+     body.zona-it       → IT/Sistem (grafit #3A3A36)
+
+   PRINSIP (peta-tema §2):
+   - Override HANYA di .page-content — SHELL (sidebar/brand/header) selalu
+     cokelat #461500, jangan pernah ikut zona.
+   - Yang di-override cuma keluarga var aksen (--brown*). Netral (cream, teks,
+     border) TIDAK disentuh: aksen itu bumbu, bukan cat tembok.
+   - Token semantik (error/sukses/warning/info/nol) tidak boleh ditabrak.
+   ========================================================================== */
+
+/* ── FINANCE — burgundy (Petty Cash, Laporan, Rekonsiliasi, Executive) ── */
+body.zona-finance .page-content {
+    --brown:            #8A2E43;   /* aksen utama (peta-tema: burgundy) */
+    --brown-2:          #A3455C;
+    --brown-3:          #B5677A;
+    --brown-pale:       #E9CCD4;
+    --brown-hover:      #6B2333;
+    --brown-light:      rgba(233, 204, 212, 0.45);
+    --brown-bg:         #FBF6F7;
+    --brown-cream:      #F4E1E6;
+    --brown-row-hover:  #F7E9EC;
+}
+
+/* hover tombol utama Petty Cash hardcode #5c1f00 — samakan ke burgundy tua */
+body.zona-finance .fpc-action-btn--primary:hover { background: #6B2333; }
+
+/* ── IT / SISTEM — grafit (WiFi Cabang; Pusat Akun sudah punya skin sendiri) ── */
+body.zona-it .page-content {
+    --brown:            #3A3A36;
+    --brown-2:          #55554F;
+    --brown-3:          #6E6E67;
+    --brown-pale:       #D9D9D4;
+    --brown-hover:      #242422;
+    --brown-light:      rgba(217, 217, 212, 0.45);
+    --brown-bg:         #F7F7F5;
+    --brown-cream:      #ECECE8;
+    --brown-row-hover:  #EFEFEC;
+}

@@ -176,6 +176,11 @@ body.redesign-pasien .px-table tbody td {
 body.redesign-pasien .px-table tbody tr:last-child td { border-bottom: none; }
 body.redesign-pasien .px-table tbody tr { cursor: pointer; transition: background .12s ease; }
 body.redesign-pasien .px-table tbody tr:hover td { background: var(--px-row-hover); }
+/* Chevron ujung baris = penanda "baris bisa dibuka" (pola-interaksi P1),
+   pola yang sama dengan Reservasi (.st-chev-cell) & ROP (.rop-chev-cell). */
+body.redesign-pasien .px-chev { width: 38px; text-align: center; color: var(--brown, #8A3A12); }
+body.redesign-pasien .px-chev i { font-size: 13px; opacity: .8; transition: transform .15s ease, opacity .15s ease; }
+body.redesign-pasien .px-table tbody tr[data-href]:hover .px-chev i { opacity: 1; transform: translateX(2px); }
 body.redesign-pasien .px-tnum { font-variant-numeric: tabular-nums; }
 body.redesign-pasien .px-muted { color: var(--px-muted); }
 

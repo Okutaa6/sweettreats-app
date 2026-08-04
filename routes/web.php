@@ -12,6 +12,17 @@ use App\Http\Controllers\Crud\BranchController;
 use App\Http\Controllers\Crud\CustomerController;
 use App\Http\Controllers\Crud\ReservationController;
 use App\Http\Controllers\Crud\ReservationImportController;
+use App\Http\Controllers\Absensi\AbsensiUploadController;
+use App\Http\Controllers\Absensi\AbsensiRecapController;
+use App\Http\Controllers\Absensi\AbsensiPeriodController;
+use App\Http\Controllers\Absensi\AbsensiMappingController;
+use App\Http\Controllers\Absensi\AbsensiBranchIpController;
+use App\Http\Controllers\Absensi\AturanKerjaController;
+use App\Http\Controllers\Absensi\AkunAbsenController;
+use App\Http\Controllers\Absensi\AkunAbsensiController;
+use App\Http\Controllers\Absensi\AkunPengajuanController;
+use App\Http\Controllers\Absensi\PengawasanController;
+use App\Http\Controllers\Absensi\PersetujuanController;
 use App\Http\Controllers\Crud\ReservasiCabangController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\PublicDoctorScheduleController;
@@ -37,15 +48,18 @@ use App\Http\Controllers\Crud\FundSourceController;
 use App\Http\Controllers\Crud\DigitalChecklistController;
 use App\Http\Controllers\Crud\ChecklistSetupController;
 use App\Http\Controllers\Crud\MyChecklistController;
+use App\Http\Controllers\Crud\AcMaintenanceController;
 use App\Http\Controllers\Finance\FinanceDashboardController;
 use App\Http\Controllers\Finance\TopupRequestController;
+use App\Http\Controllers\Finance\RopQueueController;
+use App\Http\Controllers\Finance\RopRekapController;
+use App\Http\Controllers\Rop\PengajuanController;
 
 
 Route::get('/', function () {
-    $services    = \App\Models\RawDocService::orderBy('name')->get();
-    $branches    = \App\Models\RawBranch::orderBy('name')->get();
-    $branchCount = $branches->count();
-    return view('landing', compact('services', 'branches', 'branchCount'));
+    // Landing baru hanya butuh jumlah cabang.
+    $branchCount = \App\Models\RawBranch::count();
+    return view('landing', compact('branchCount'));
 })->name('home');
 
 Route::get('/reservasi', function () {
@@ -190,8 +204,18 @@ Route::middleware([AuthGuard::class])->group(function () {
         Route::get('komisi', [\App\Http\Controllers\ExportController::class, 'commissions'])->name('export.komisi');
     });
 
+    // Pusat Akun → Kesehatan (detektor kegagalan-senyap) — segment 'setkesehatan'
+    Route::get('setkesehatan', [\App\Http\Controllers\Set\KesehatanController::class, 'index'])->name('setkesehatan');
+
     // Access
     Route::get('setaccess', [Access::class, 'index'])->name('setaccess');
+    // Pusat Akun Akses — grant/cabut role + rebuild (3-4 segmen, tak bentrok edit {id})
+    Route::post('setaccess/rebuild',            [Access::class, 'rebuild'])->name('setaccess.rebuild');
+    Route::post('setaccess/node',               [Access::class, 'storeNode'])->name('setaccess.store-node');
+    Route::post('setaccess/{id}/grant',         [Access::class, 'grantRole'])->name('setaccess.grant');
+    Route::post('setaccess/{id}/revoke/{gid}',  [Access::class, 'revokeRole'])->name('setaccess.revoke');
+    Route::post('setaccess/{id}/update-node',   [Access::class, 'updateNode'])->name('setaccess.update-node');
+    Route::post('setaccess/{id}/delete-node',   [Access::class, 'destroyNode'])->name('setaccess.delete-node');
     Route::get('setaccess/new', [Access::class, 'create'])->name('setaccess.new');
     Route::post('setaccess/new', [Access::class, 'store'])->name('setaccess.store');
     Route::get('setaccess/{id}', [Access::class, 'edit'])->name('setaccess.edit');
@@ -200,6 +224,12 @@ Route::middleware([AuthGuard::class])->group(function () {
 
     // User Management
     Route::get('setusermanagement', [UserManagement::class, 'index'])->name('setusermanagement');
+    // Pusat Akun — detail user + aksi IT (3 segmen, tak bentrok dgn edit {id} 2-segmen)
+    Route::get('setusermanagement/detail/{id}',            [UserManagement::class, 'detail'])->name('setusermanagement.detail');
+    Route::post('setusermanagement/{id}/force-logout',     [UserManagement::class, 'forceLogout'])->name('setusermanagement.force-logout');
+    Route::post('setusermanagement/{id}/toggle-status',    [UserManagement::class, 'toggleStatus'])->name('setusermanagement.toggle-status');
+    Route::post('setusermanagement/{id}/revoke-all',       [UserManagement::class, 'revokeAllDevices'])->name('setusermanagement.revoke-all');
+    Route::post('setusermanagement/{id}/revoke-device/{deviceId}', [UserManagement::class, 'revokeDevice'])->name('setusermanagement.revoke-device');
     Route::get('setusermanagement/new', [UserManagement::class, 'create'])->name('setusermanagement.new');
     Route::post('setusermanagement/new', [UserManagement::class, 'store'])->name('setusermanagement.store');
     Route::get('setusermanagement/{id}', [UserManagement::class, 'edit'])->name('setusermanagement.edit');
@@ -214,11 +244,14 @@ Route::middleware([AuthGuard::class])->group(function () {
     Route::get('setgroup', [Group::class, 'index'])->name('setgroup');
     Route::get('setgroup/new', [Group::class, 'create'])->name('setgroup.new');
     Route::post('setgroup/new', [Group::class, 'store'])->name('setgroup.store');
+    Route::post('setgroup/reparent', [Group::class, 'reparent'])->name('setgroup.reparent');
+    Route::post('setgroup/{id}/detach', [Group::class, 'detach'])->name('setgroup.detach');
     Route::get('setgroup/{id}', [Group::class, 'edit'])->name('setgroup.edit');
     Route::put('setgroup/{id}', [Group::class, 'update'])->name('setgroup.update');
     Route::delete('setgroup/{id}', [Group::class, 'destroy'])->name('setgroup.destroy');
     Route::get('setgroup/access/{id}', [Group::class, 'access'])->name('setgroup.access');
     Route::put('setgroup/access/{id}', [Group::class, 'accessProcess'])->name('setgroup.access.process');
+
 
     // Notifications
     Route::get('api/notifications', [\App\Http\Controllers\NotificationController::class, 'index'])->name('api.notifications');
@@ -285,6 +318,69 @@ Route::middleware([AuthGuard::class])->group(function () {
     Route::post('rawreservation/import/batch/{id}/auto-process', [ReservationImportController::class, 'autoProcess'])->name('rawreservation.import.batch.auto-process');
     Route::post('rawreservation/import/batch/{id}/rematch-doctors', [ReservationImportController::class, 'reMatchDoctors'])->name('rawreservation.import.batch.rematch-doctors');
     Route::delete('rawreservation/import/batch/{id}',            [ReservationImportController::class, 'destroyBatch'])->name('rawreservation.import.batch.destroy');
+
+    // ── Absensi (rekonsiliasi) — segment(1) = 'absensi'. AuthGuard cek link=='absensi' ──
+    Route::get('absensi',              [AbsensiUploadController::class, 'index'])->name('absensi.upload');
+    Route::post('absensi/upload/file', [AbsensiUploadController::class, 'upload'])->name('absensi.upload.file');
+    Route::get('absensi/recap',        [AbsensiRecapController::class, 'index'])->name('absensi.recap');
+    Route::get('absensi/kehadiran',    [\App\Http\Controllers\Absensi\AbsensiKehadiranController::class, 'index'])->name('absensi.kehadiran');
+
+    // Lembar Gaji — rekap kehadiran/lembur per karyawan per bulan (Finance/IT/admin)
+    Route::get('absensi/lembar-gaji',        [\App\Http\Controllers\Absensi\LembarGajiController::class, 'index'])->name('absensi.lembargaji');
+    Route::get('absensi/lembar-gaji/export', [\App\Http\Controllers\Absensi\LembarGajiController::class, 'export'])->name('absensi.lembargaji.export');
+
+    // Cuti — rekap saldo + cuti bersama + koreksi + kontrak baru (Finance/IT/admin)
+    Route::get ('absensi/cuti',               [\App\Http\Controllers\Absensi\CutiController::class, 'index'])->name('absensi.cuti');
+    Route::post('absensi/cuti/bersama',       [\App\Http\Controllers\Absensi\CutiController::class, 'bersama'])->name('absensi.cuti.bersama');
+    Route::post('absensi/cuti/bersama-undo',  [\App\Http\Controllers\Absensi\CutiController::class, 'bersamaUndo'])->name('absensi.cuti.bersama.undo');
+    Route::post('absensi/cuti/koreksi',       [\App\Http\Controllers\Absensi\CutiController::class, 'koreksi'])->name('absensi.cuti.koreksi');
+    Route::post('absensi/cuti/kontrak-baru',  [\App\Http\Controllers\Absensi\CutiController::class, 'kontrakBaru'])->name('absensi.cuti.kontrak');
+    Route::get('absensi/mapping',         [AbsensiMappingController::class, 'index'])->name('absensi.mapping');
+    Route::post('absensi/mapping/assign', [AbsensiMappingController::class, 'assign'])->name('absensi.mapping.assign');
+    Route::post('absensi/mapping/ignore', [AbsensiMappingController::class, 'ignore'])->name('absensi.mapping.ignore');
+    Route::get('absensi/periode',            [AbsensiPeriodController::class, 'index'])->name('absensi.period');
+    Route::post('absensi/periode',           [AbsensiPeriodController::class, 'store'])->name('absensi.period.store');
+    Route::post('absensi/periode/{id}/close', [AbsensiPeriodController::class, 'close'])->name('absensi.period.close');
+    Route::get('absensi/periode/{id}/export', [AbsensiPeriodController::class, 'export'])->name('absensi.period.export');
+
+    // ── Akun Saya (self-service karyawan, mobile) — segment(1) = 'akun' ──
+    Route::get('akun', [AkunAbsensiController::class, 'index'])->name('akun.absensi');
+    Route::get('akun/absensi/foto/{id}', [AkunAbsensiController::class, 'foto'])->name('akun.absensi.foto');
+    Route::get('akun/pengajuan',  [AkunPengajuanController::class, 'create'])->name('akun.pengajuan');
+    Route::post('akun/pengajuan', [AkunPengajuanController::class, 'store'])->name('akun.pengajuan.store');
+    Route::get('akun/pengajuan/prefill-lembur', [AkunPengajuanController::class, 'prefillLembur'])->name('akun.pengajuan.prefill');
+    Route::get('akun/pengajuan/{id}', [AkunPengajuanController::class, 'show'])->name('akun.pengajuan.show');
+    Route::get('akun/absen',  [AkunAbsenController::class, 'index'])->name('akun.absen');
+    Route::post('akun/absen', [AkunAbsenController::class, 'store'])->name('akun.absen.store');
+
+    // ── Pengawasan Absen (review SPV) — segment(1) = 'pengawasan', node awas-* ──
+    Route::get('pengawasan',                    [PengawasanController::class, 'index'])->name('pengawasan');
+    Route::get('pengawasan/foto/{id}',          [PengawasanController::class, 'foto'])->name('pengawasan.foto');
+    Route::post('pengawasan/{id}/dicek',        [PengawasanController::class, 'dicek'])->name('pengawasan.dicek');
+    Route::post('pengawasan/{id}/selesai',      [PengawasanController::class, 'selesai'])->name('pengawasan.selesai');
+    Route::post('pengawasan/grup-selesai',      [PengawasanController::class, 'selesaiGrup'])->name('pengawasan.grup');
+    Route::post('pengawasan/daftarkan-ip',      [PengawasanController::class, 'daftarkanIp'])->name('pengawasan.daftarkan-ip');
+
+    // ── WiFi Cabang (admin IP absen HP) — segment(1) = 'absensi', guard canSeeAllBranches ──
+    Route::get('absensi/wifi',              [AbsensiBranchIpController::class, 'index'])->name('absensi.wifi');
+    Route::post('absensi/wifi',             [AbsensiBranchIpController::class, 'store'])->name('absensi.wifi.store');
+    Route::post('absensi/wifi/{id}/toggle', [AbsensiBranchIpController::class, 'toggle'])->name('absensi.wifi.toggle');
+
+    // ── Aturan Kerja (jam kerja + penugasan + kalender libur) — gate role di
+    //    controller (Head IT/Finance/Super Admin), menulis tabel yang dibaca
+    //    mesin, TIDAK menyentuh reconcile. docs/rencana/rencana-aturan-kerja.md ──
+    Route::get('absensi/aturan',                    [AturanKerjaController::class, 'index'])->name('absensi.aturan');
+    Route::post('absensi/aturan/rule',              [AturanKerjaController::class, 'storeRule'])->name('absensi.aturan.rule.buat');
+    Route::post('absensi/aturan/rule/{id}',         [AturanKerjaController::class, 'updateRule'])->name('absensi.aturan.rule.ubah');
+    Route::post('absensi/aturan/rule/{id}/hapus',   [AturanKerjaController::class, 'deleteRule'])->name('absensi.aturan.rule.hapus');
+    Route::post('absensi/aturan/penugasan',         [AturanKerjaController::class, 'assign'])->name('absensi.aturan.penugasan');
+    Route::post('absensi/aturan/default-role',      [AturanKerjaController::class, 'defaultRole'])->name('absensi.aturan.default-role');
+    Route::post('absensi/aturan/libur',             [AturanKerjaController::class, 'storeException'])->name('absensi.aturan.libur.buat');
+    Route::post('absensi/aturan/libur/{id}/hapus',  [AturanKerjaController::class, 'deleteException'])->name('absensi.aturan.libur.hapus');
+
+    // ── Persetujuan (inbox approver, mobile) — segment(1) = 'persetujuan' ──
+    Route::get('persetujuan',          [PersetujuanController::class, 'index'])->name('persetujuan.inbox');
+    Route::post('persetujuan/{id}/act', [PersetujuanController::class, 'act'])->name('persetujuan.act');
 
     Route::get('rawreservation/{id}', [ReservationController::class, 'edit'])->name('rawreservation.edit');
     Route::put('rawreservation/{id}', [ReservationController::class, 'update'])->name('rawreservation.update');
@@ -371,7 +467,32 @@ Route::middleware([AuthGuard::class])->group(function () {
         Route::get ('pettycash/request/{id}',               [TopupRequestController::class, 'show'])->name('finance.topup.show');
         Route::post('pettycash/request/{id}/approve',       [TopupRequestController::class, 'approve'])->name('finance.topup.approve');
         Route::post('pettycash/request/{id}/reject',        [TopupRequestController::class, 'reject'])->name('finance.topup.reject');
+
+        // Pengajuan / ROP — antrian & rekap Finance (zona burgundy).
+        // Rute literal ('rekap', 'export') dideklarasikan SEBELUM wildcard {id}
+        // supaya tidak ditelan pola angka/segmen bebas.
+        Route::get ('rop',                    [RopQueueController::class, 'index'])->name('finance.rop');
+        Route::get ('rop/rekap',              [RopRekapController::class, 'index'])->name('finance.rop.rekap');
+        Route::get ('rop/rekap/export',       [RopRekapController::class, 'exportCsv'])->name('finance.rop.rekap.export');
+        Route::get ('rop/export/accurate',    [RopRekapController::class, 'exportAccurate'])->name('finance.rop.export.accurate');
+        Route::get ('rop/{id}',               [RopQueueController::class, 'show'])->name('finance.rop.show');
+        Route::post('rop/{id}/setujui',       [RopQueueController::class, 'setujui'])->name('finance.rop.setujui');
+        Route::post('rop/{id}/urungkan',      [RopQueueController::class, 'urungkan'])->name('finance.rop.urungkan');
+        Route::post('rop/{id}/tolak',         [RopQueueController::class, 'tolak'])->name('finance.rop.tolak');
+        Route::post('rop/{id}/bayar',         [RopQueueController::class, 'bayar'])->name('finance.rop.bayar');
     });
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Pengajuan / ROP — sisi PENGAJU (kepala departemen), zona cokelat, HP-first.
+    // Pengganti formulir kertas "Request of Payment".
+    // Rencana: docs/rencana/rencana-pengajuan-rop.md
+    // ═══════════════════════════════════════════════════════════════════════
+    Route::get ('pengajuan',              [PengajuanController::class, 'index'])->name('rop.pengajuan.index');
+    Route::get ('pengajuan/baru',         [PengajuanController::class, 'create'])->name('rop.pengajuan.create');
+    Route::post('pengajuan',              [PengajuanController::class, 'store'])->name('rop.pengajuan.store');
+    Route::get ('pengajuan/{id}',         [PengajuanController::class, 'show'])->name('rop.pengajuan.show');
+    Route::post('pengajuan/{id}/batal',   [PengajuanController::class, 'batal'])->name('rop.pengajuan.batal');
+    Route::post('pengajuan/{id}/selesai', [PengajuanController::class, 'selesai'])->name('rop.pengajuan.selesai');
 
     // CRUD - Fund Sources (sumber dana: cash / bank / e-wallet) — Super Admin
     Route::get('fund-sources',                    [FundSourceController::class, 'index'])->name('fundsource');
@@ -388,13 +509,13 @@ Route::middleware([AuthGuard::class])->group(function () {
 
     // Dashboard + Audit (Supervisor only)
     Route::get ('checklist',                        [DigitalChecklistController::class, 'dashboard'])  ->name('checklist');
+    Route::get ('checklist/export',                 [DigitalChecklistController::class, 'exportDaily'])->name('checklist.export');
+    Route::get ('checklist/export/weekly',          [DigitalChecklistController::class, 'exportWeekly'])->name('checklist.export.weekly');
     Route::get ('checklist/audit',                  [DigitalChecklistController::class, 'audit'])      ->name('checklist.audit');
 
     // Kelola Posisi Karyawan (Supervisor)
     Route::get   ('checklist/positions',            [DigitalChecklistController::class, 'positions'])       ->name('checklist.positions');
     Route::post  ('checklist/positions',            [DigitalChecklistController::class, 'positionAssign'])  ->name('checklist.positions.assign');
-    Route::post  ('checklist/positions/{id}/confirm',[DigitalChecklistController::class, 'positionConfirm'])->name('checklist.positions.confirm');
-    Route::delete('checklist/positions/{id}/reject',[DigitalChecklistController::class, 'positionReject'])  ->name('checklist.positions.reject');
     Route::delete('checklist/positions/{id}',       [DigitalChecklistController::class, 'positionRemove'])  ->name('checklist.positions.remove');
 
     // Setup Tugas (Supervisor only)
@@ -403,9 +524,10 @@ Route::middleware([AuthGuard::class])->group(function () {
     Route::put ('checklist/setup/category/{id}',    [ChecklistSetupController::class, 'updateCategory'])->name('checklist.setup.cat.update');
     Route::delete('checklist/setup/category/{id}',  [ChecklistSetupController::class, 'destroyCategory'])->name('checklist.setup.cat.destroy');
     Route::post('checklist/setup/task',             [ChecklistSetupController::class, 'storeTask'])    ->name('checklist.setup.task.store');
+    Route::post('checklist/setup/weekly-task',      [ChecklistSetupController::class, 'storeWeeklyTask'])->name('checklist.setup.weekly-task.store');
     Route::put ('checklist/setup/task/{id}',        [ChecklistSetupController::class, 'updateTask'])   ->name('checklist.setup.task.update');
     Route::delete('checklist/setup/task/{id}',      [ChecklistSetupController::class, 'destroyTask'])  ->name('checklist.setup.task.destroy');
-    Route::post('checklist/setup/reorder',          [ChecklistSetupController::class, 'reorder'])      ->name('checklist.setup.reorder');
+    Route::post('checklist/setup/info',             [ChecklistSetupController::class, 'updateInfo'])   ->name('checklist.setup.info');
 
     // Review & Approval Harian (Supervisor)
     Route::get  ('checklist/review',                [DigitalChecklistController::class, 'reviewIndex'])->name('checklist.review');
@@ -423,28 +545,54 @@ Route::middleware([AuthGuard::class])->group(function () {
     Route::patch('checklist/review/{id}/reopen',    [DigitalChecklistController::class, 'reopen'])     ->name('checklist.review.reopen')->where('id', '[0-9a-fA-F-]{36}');
     Route::patch('checklist/review/{id}/revoke-excuse', [DigitalChecklistController::class, 'revokeExcuse'])->name('checklist.review.excuse.revoke')->where('id', '[0-9a-fA-F-]{36}');
 
+    // Jadwal Cuci AC — Monitoring + kelola unit (Supervisor)
+    Route::get   ('checklist/ac',                   [AcMaintenanceController::class, 'monitor'])       ->name('checklist.ac');
+    Route::get   ('checklist/ac/unit/{id}/history', [AcMaintenanceController::class, 'unitHistory'])   ->name('checklist.ac.unit.history');
+    Route::post  ('checklist/ac/unit',              [AcMaintenanceController::class, 'storeUnit'])     ->name('checklist.ac.unit.store');
+    Route::put   ('checklist/ac/unit/{id}',         [AcMaintenanceController::class, 'updateUnit'])    ->name('checklist.ac.unit.update');
+    Route::delete('checklist/ac/unit/{id}',         [AcMaintenanceController::class, 'destroyUnit'])   ->name('checklist.ac.unit.destroy');
+    Route::delete('checklist/ac/service/{id}',      [AcMaintenanceController::class, 'destroyService'])->name('checklist.ac.service.destroy');
+    Route::post  ('checklist/ac/service',              [AcMaintenanceController::class, 'storeServiceBySupervisor'])->name('checklist.ac.service.store');
+    Route::post  ('checklist/ac/service/{id}/approve', [AcMaintenanceController::class, 'approveService'])->name('checklist.ac.service.approve');
+    Route::post  ('checklist/ac/service/{id}/reject',  [AcMaintenanceController::class, 'rejectService']) ->name('checklist.ac.service.reject');
+
     // Pengisian Karyawan — Harian
     Route::get  ('my-checklist',                    [MyChecklistController::class, 'index'])           ->name('mychecklist');
     Route::get  ('my-checklist/weekly',             [MyChecklistController::class, 'weekly'])          ->name('mychecklist.weekly');
     Route::get  ('my-checklist/history',            [MyChecklistController::class, 'history'])         ->name('mychecklist.history');
+    Route::get  ('my-checklist/history/{type}/{id}',[MyChecklistController::class, 'historyShow'])     ->name('mychecklist.history.show')->where('type', 'daily|weekly');
     Route::patch('my-checklist/item/{id}',          [MyChecklistController::class, 'toggleItem'])      ->name('mychecklist.item.toggle');
     Route::patch('my-checklist/item/{id}/note',     [MyChecklistController::class, 'updateNote'])      ->name('mychecklist.item.note');
+    Route::patch('my-checklist/item/{id}/except',   [MyChecklistController::class, 'exceptItem'])      ->name('mychecklist.item.except');
+    Route::patch('my-checklist/item/{id}/unexcept', [MyChecklistController::class, 'unexceptItem'])    ->name('mychecklist.item.unexcept');
     Route::post ('my-checklist/submit',             [MyChecklistController::class, 'submit'])          ->name('mychecklist.submit');
     Route::post ('my-checklist/reopen-self',        [MyChecklistController::class, 'reopenSelf'])      ->name('mychecklist.reopen-self');
     Route::post ('my-checklist/excuse',             [MyChecklistController::class, 'excuseToday'])     ->name('mychecklist.excuse');
     Route::post ('my-checklist/unexcuse',           [MyChecklistController::class, 'unexcuseToday'])   ->name('mychecklist.unexcuse');
-    Route::post ('my-checklist/position',           [MyChecklistController::class, 'proposePosition']) ->name('mychecklist.position.propose');
 
     // Pengisian Karyawan — Form Mingguan
     Route::get  ('my-checklist/weekform',                [MyChecklistController::class, 'weekForm'])      ->name('mychecklist.weekform');
     Route::patch('my-checklist/weekform/item/{id}',      [MyChecklistController::class, 'weekToggleItem'])->name('mychecklist.weekform.item.toggle');
     Route::patch('my-checklist/weekform/item/{id}/note', [MyChecklistController::class, 'weekUpdateNote'])->name('mychecklist.weekform.item.note');
+    Route::patch('my-checklist/weekform/item/{id}/except',   [MyChecklistController::class, 'weekExceptItem'])  ->name('mychecklist.weekform.item.except');
+    Route::patch('my-checklist/weekform/item/{id}/unexcept', [MyChecklistController::class, 'weekUnexceptItem'])->name('mychecklist.weekform.item.unexcept');
     Route::post ('my-checklist/weekform/item/{id}/photo', [MyChecklistController::class, 'weekUploadPhoto'])->name('mychecklist.weekform.item.photo.upload');
     Route::delete('my-checklist/weekform/item/{id}/photo',[MyChecklistController::class, 'weekDeletePhoto'])->name('mychecklist.weekform.item.photo.delete');
+    // Foto before/after opsional (khusus divisi GS) — slot: before|after.
+    Route::post ('my-checklist/weekform/item/{id}/ba-photo/{slot}',  [MyChecklistController::class, 'weekUploadBaPhoto'])->name('mychecklist.weekform.item.baphoto.upload');
+    Route::delete('my-checklist/weekform/item/{id}/ba-photo/{slot}', [MyChecklistController::class, 'weekDeleteBaPhoto'])->name('mychecklist.weekform.item.baphoto.delete');
     Route::post ('my-checklist/weekform/submit',         [MyChecklistController::class, 'weekSubmit'])    ->name('mychecklist.weekform.submit');
     Route::post ('my-checklist/weekform/reopen-self',    [MyChecklistController::class, 'weekReopenSelf'])->name('mychecklist.weekform.reopen-self');
-    Route::post ('my-checklist/weekform/excuse',         [MyChecklistController::class, 'weekExcuse'])    ->name('mychecklist.weekform.excuse');
-    Route::post ('my-checklist/weekform/unexcuse',       [MyChecklistController::class, 'weekUnexcuse'])  ->name('mychecklist.weekform.unexcuse');
+    Route::post ('my-checklist/weekform/day-excuse',     [MyChecklistController::class, 'dayExcuse'])     ->name('mychecklist.weekform.day.excuse');
+    Route::post ('my-checklist/weekform/day-unexcuse',   [MyChecklistController::class, 'dayUnexcuse'])   ->name('mychecklist.weekform.day.unexcuse');
+
+    // Jadwal Cuci AC — Input servis (GS cabang)
+    Route::get   ('my-checklist/ac',                   [AcMaintenanceController::class, 'myIndex'])          ->name('mychecklist.ac');
+    Route::post  ('my-checklist/ac/service',           [AcMaintenanceController::class, 'storeService'])     ->name('mychecklist.ac.service.store');
+    Route::delete('my-checklist/ac/service/{id}',      [AcMaintenanceController::class, 'destroyOwnService'])->name('mychecklist.ac.service.destroy');
+    // Riwayat per unit versi GS — WAJIB prefix my-checklist: AuthGuard cek RBAC
+    // per segmen-1 URL, dan GS tidak punya akses halaman 'checklist'.
+    Route::get   ('my-checklist/ac/unit/{id}/history', [AcMaintenanceController::class, 'unitHistory'])      ->name('mychecklist.ac.unit.history');
 
     // CRUD - Setoran (cash deposit dari pasien)
     Route::get('setoran',                         [CashDepositController::class, 'index'])->name('setoran');
@@ -554,10 +702,14 @@ Route::middleware([AuthGuard::class])->group(function () {
     Route::put('content-review/{id}', [\App\Http\Controllers\Set\ContentReviewController::class, 'update'])->name('content.review.update');
     Route::patch('content-review/{id}/approve', [\App\Http\Controllers\Set\ContentReviewController::class, 'approve'])->name('content.review.approve');
     Route::patch('content-review/{id}/reject', [\App\Http\Controllers\Set\ContentReviewController::class, 'reject'])->name('content.review.reject');
-});
 
     // CRUD - Sweet Mates (Program Rewards)
+    // Dulu route ini berada DI LUAR blok AuthGuard (indentasinya menipu: masih
+    // menjorok, tapi '});' penutup ada di atasnya) sehingga halaman daftar member
+    // KOL/KOC beserta nilai komisinya bisa dibuka SIAPA PUN tanpa login.
+    // Controllernya juga tak punya penjaga sendiri.
     Route::get('sweet-mates', [SweetMatesController::class, 'index'])->name('sweetmates');
+});
 
 Route::middleware([IsLoggedIn::class])->group(function () {
     Route::prefix('signin')->group(function () {
@@ -573,3 +725,9 @@ Route::middleware([IsLoggedIn::class])->group(function () {
 });
 
 Route::get('signout', [AuthController::class, 'logout'])->name('signout');
+
+// Ganti password wajib (must_change_password) — DI LUAR AuthGuard biar tak kena
+// RBAC (bukan menu); guard cukup cek session di controller. AuthGuard menggiring
+// ke sini saat must_change; setelah ganti, balik ke landing normal.
+Route::get('ganti-password',  [AuthController::class, 'gantiPassword'])->name('ganti.password');
+Route::post('ganti-password', [AuthController::class, 'gantiPasswordProcess'])->name('ganti.password.process');

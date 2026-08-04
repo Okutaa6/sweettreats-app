@@ -18,35 +18,33 @@
         <span class="st-pill st-pill--neutral">{{ $row->user->group_name ?? '—' }}</span>
     </td>
     <td>
-        @if($row->division)
-            <span class="st-pill st-pill--success">{{ $row->division->name }}</span>
-        @elseif($row->pending)
-            <span style="display:inline-flex; align-items:center; gap:4px; font-size:11.5px; font-weight:700; background:#FAEEDA; color:#A66019; border:1px solid #EBD6B4; padding:3px 10px; border-radius:999px;">
-                <i class="fas fa-hourglass-half" style="font-size:9px;"></i> {{ $row->pending->division?->name ?? '—' }}
+        {{-- Divisi otomatis dari role (terkunci) --}}
+        @if($row->roleDivision)
+            <span class="st-pill st-pill--success" title="Otomatis dari role">
+                <i class="fas fa-lock" style="font-size:9px;"></i> {{ $row->roleDivision->name }}
             </span>
         @else
-            <span style="color:var(--cl-subtle); font-style:italic; font-size:12px;">Belum di-assign</span>
+            <span style="color:var(--cl-subtle); font-style:italic; font-size:12px;">Role tanpa divisi</span>
         @endif
     </td>
     <td style="color:var(--cl-muted); font-size:12.5px;">
-        {{ $row->branch?->name ?? $row->pending?->branch?->name ?? '—' }}
+        {{ $row->branch?->name ?? '—' }}
     </td>
     <td>
         <form method="POST" action="{{ route('checklist.positions.assign') }}"
               style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
             @csrf
             <input type="hidden" name="user_id" value="{{ $row->user->id }}">
-            @php $prefill = $row->position ?? $row->pending; @endphp
-            <select name="division_id" required class="cl-inline-select" style="flex:1; min-width:130px;">
-                <option value="">— Divisi —</option>
-                @foreach($divisions as $div)
-                    <option value="{{ $div->id }}" {{ optional($prefill)->division_id === $div->id ? 'selected' : '' }}>{{ $div->name }}</option>
-                @endforeach
-            </select>
+            @php
+                $prefill = $row->position;
+                // Default cabang: posisi aktif kalau ada, kalau belum → cabang user (dari profil).
+                $defaultBranch = optional($prefill)->raw_branch_id ?: ($row->user->raw_branch_id ?? '');
+            @endphp
+            {{-- Divisi tidak dipilih — otomatis dari role user, dikunci. Cabang otomatis dari cabang user, bisa diubah. --}}
             <select name="raw_branch_id" required class="cl-inline-select" style="flex:1; min-width:140px;">
                 <option value="">— Cabang —</option>
                 @foreach($branches as $b)
-                    <option value="{{ $b->id }}" {{ optional($prefill)->raw_branch_id === $b->id ? 'selected' : '' }}>{{ $b->name }}</option>
+                    <option value="{{ $b->id }}" {{ (string) $defaultBranch === (string) $b->id ? 'selected' : '' }}>{{ $b->name }}</option>
                 @endforeach
             </select>
             <button type="submit" class="st-btn-brand" style="padding:7px 14px; font-size:12px; white-space:nowrap;">
@@ -58,32 +56,13 @@
         @if($row->position)
             <form method="POST" action="{{ route('checklist.positions.remove', $row->position->id) }}"
                   style="display:inline;"
-                  onsubmit="return confirm('Nonaktifkan posisi {{ $row->user->nama }} dari {{ $row->division->name ?? '-' }}? Karyawan tidak akan bisa isi checklist sampai di-assign ulang.');">
+                  onsubmit="return confirm('Keluarkan posisi {{ $row->user->nama }} dari {{ $row->division->name ?? '-' }}? Karyawan tidak akan bisa isi checklist sampai di-assign ulang.');">
                 @csrf @method('DELETE')
-                <button type="submit" class="st-icon-btn" title="Nonaktifkan posisi"
+                <button type="submit" class="st-icon-btn" title="Keluarkan (take out) posisi"
                         style="color:var(--cl-danger); border-color:var(--cl-danger-bg);">
                     <i class="fas fa-user-slash"></i>
                 </button>
             </form>
-        @elseif($row->pending)
-            <div style="display:inline-flex; gap:5px;">
-                <form method="POST" action="{{ route('checklist.positions.confirm', $row->pending->id) }}" style="display:inline;"
-                      onsubmit="return confirm('Konfirmasi posisi {{ $row->user->nama }} sebagai {{ $row->pending->division?->name ?? '-' }} ({{ $row->pending->branch?->name ?? '-' }})?');">
-                    @csrf
-                    <button type="submit" class="st-icon-btn" title="Konfirmasi usulan"
-                            style="color:var(--cl-success); border-color:var(--cl-success-bg);">
-                        <i class="fas fa-check"></i>
-                    </button>
-                </form>
-                <form method="POST" action="{{ route('checklist.positions.reject', $row->pending->id) }}" style="display:inline;"
-                      onsubmit="return confirm('Tolak usulan posisi {{ $row->user->nama }}? Usulan akan dihapus.');">
-                    @csrf @method('DELETE')
-                    <button type="submit" class="st-icon-btn" title="Tolak usulan"
-                            style="color:var(--cl-danger); border-color:var(--cl-danger-bg);">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </form>
-            </div>
         @else
             <span style="color:var(--cl-subtle); font-size:11px;">—</span>
         @endif

@@ -27,10 +27,9 @@
 <div class="note-page">
     {{-- ─────────── BIG TITLE ─────────── --}}
     <div class="note-title-wrap">
-        <input type="text" name="judul"
-               class="note-title-input {{ $errors->has('judul') ? 'is-invalid' : '' }}"
-               value="{{ old('judul', $konten->judul ?? '') }}"
-               placeholder="Judul konten..." required>
+        <textarea name="judul" rows="1" id="noteTitleInput"
+                  class="note-title-input {{ $errors->has('judul') ? 'is-invalid' : '' }}"
+                  placeholder="Judul konten..." required>{{ old('judul', $konten->judul ?? '') }}</textarea>
         @if($errors->has('judul'))
             <div class="text-danger small mt-1">{{ $errors->first('judul') }}</div>
         @endif
@@ -387,5 +386,33 @@
                 });
             });
         });
+    })();
+
+    // ─── Judul: textarea auto-grow, tanpa newline ───────────
+    (function () {
+        const title = document.getElementById('noteTitleInput');
+        if (!title) return;
+
+        function resize() {
+            title.style.height = 'auto';
+            title.style.height = title.scrollHeight + 'px';
+        }
+
+        title.addEventListener('input', function () {
+            if (title.value.indexOf('\n') !== -1) {
+                title.value = title.value.replace(/\n/g, ' ');
+            }
+            resize();
+        });
+
+        title.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                if (title.form) title.form.requestSubmit();
+            }
+        });
+
+        window.addEventListener('resize', resize);
+        resize();
     })();
 </script>

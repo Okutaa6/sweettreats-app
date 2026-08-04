@@ -10,12 +10,21 @@ use App\Models\ChecklistSubmission;
 use App\Models\ChecklistSubmissionItem;
 use App\Models\ChecklistWeeklySubmission;
 use App\Models\ChecklistWeeklySubmissionItem;
+use App\Models\ChecklistCategory;
+use App\Models\GroupPath;
 use App\Models\RawBranch;
 use App\Models\Users;
 use App\Models\UserPosition;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Border;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * Modul Checklist Akreditasi — sisi Supervisor.
@@ -49,9 +58,12 @@ class DigitalChecklistController extends Controller
 
         $branchId = resolveChecklistBranchId($request->get('branch'));
         $today    = Carbon::today();
+        $visible  = checklistVisibleDivisionIds();   // divisi yang boleh disupervisi user ini
 
-        // Karyawan aktif yang punya position hari ini (basis denominator).
-        $activeUserIdsQuery = UserPosition::query()->activeOn($today);
+        // Karyawan aktif yang punya position hari ini (basis denominator),
+        // dibatasi ke divisi yang disupervisi user ini.
+        $activeUserIdsQuery = UserPosition::query()->activeOn($today)
+            ->whereIn('division_id', $visible);
         if ($branchId) $activeUserIdsQuery->where('raw_branch_id', $branchId);
         $activeUserIds = $activeUserIdsQuery->pluck('user_id')->unique()->values();
         $totalActiveEmployees = $activeUserIds->count();
@@ -80,7 +92,9 @@ class DigitalChecklistController extends Controller
         ];
 
         // Progres per divisi: berapa karyawan tiap divisi sudah submit hari ini.
-        $divisions = ChecklistDivision::query()->where('is_active', 1)->orderBy('sort_order')->get();
+        // Hanya divisi yang disupervisi user ini yang ditampilkan.
+        $divisions = ChecklistDivision::query()->where('is_active', 1)
+            ->whereIn('id', $visible)->orderBy('sort_order')->get();
         $perDivision = $divisions->map(function ($div) use ($activeUserIds, $branchId, $today) {
             $userIds = UserPosition::query()->activeOn($today)
                 ->where('division_id', $div->id)
@@ -113,12 +127,14 @@ class DigitalChecklistController extends Controller
         });
 
         // Aktivitas terbaru (10 submission terakhir, lintas status).
+        // Eager-load items supaya satisfiedCount() (dicentang + dikecualikan) tak N+1.
         $recent = ChecklistSubmission::query()
-            ->with(['user', 'division', 'branch'])
+            ->with(['user', 'division', 'branch', 'items'])
+            ->whereIn('division_id', $visible)
             ->when($branchId, fn($q) => $q->where('raw_branch_id', $branchId))
             ->orderByDesc('updated_at')
             ->orderByDesc('created_at')
-            ->limit(10)
+            ->limit(5)
             ->get();
 
         $branches = canSeeAllBranches() ? RawBranch::orderBy('name')->get() : collect();
@@ -126,6 +142,520 @@ class DigitalChecklistController extends Controller
         return view('crud.checklist.dashboard', compact(
             'kpis', 'perDivision', 'recent', 'branches', 'branchId', 'today'
         ));
+    }
+
+    /* ─── Export Excel (rekap checklist harian per divisi) ─────────────────
+       Satu file .xlsx untuk 1 divisi + 1 bulan; tiap karyawan jadi 1 sheet
+       (tab) sendiri. Grid ala form kertas "CEKLIS HARIAN": baris = tugas per
+       seksi, kolom = tanggal 1..akhir bulan, sel = centang bila tugas dikerjakan.
+       Semua karyawan yang posisinya aktif di divisi pada bulan tsb dapat tab —
+       walau belum mengisi (grid kosong). */
+
+    public function exportDaily(Request $request): StreamedResponse
+    {
+        $this->guard();
+
+        $branchId    = resolveChecklistBranchId($request->get('branch'));
+        $division    = $this->resolveExportDivision($request);
+        $start       = $this->exportMonthStart($request);
+        $end         = $start->copy()->endOfMonth();
+        $daysInMonth = $start->daysInMonth;
+
+        // Karyawan: posisi aktif (confirmed) di divisi ini yang overlap bulan tsb.
+        $posUserIds = $this->exportPositionUserIds($division->id, $branchId, $start, $end);
+
+        // Union dgn siapa pun yang sempat submit di divisi ini bulan tsb (jaga-jaga pindah divisi).
+        $subUserIds = ChecklistSubmission::query()
+            ->where('division_id', $division->id)
+            ->whereBetween('submission_date', [$start, $end])
+            ->when($branchId, fn ($q) => $q->where('raw_branch_id', $branchId))
+            ->pluck('user_id');
+
+        $userIds = $posUserIds->merge($subUserIds)->unique()->values();
+        $users   = Users::query()->whereIn('id', $userIds)->orderBy('nama')->get();
+
+        // Submissions bulan tsb, dikelompokkan per user.
+        $subsByUser = ChecklistSubmission::query()
+            ->whereIn('user_id', $userIds)
+            ->where('division_id', $division->id)
+            ->whereBetween('submission_date', [$start, $end])
+            ->with('items')
+            ->get()
+            ->groupBy('user_id');
+
+        // Baris tugas (union snapshot lintas karyawan/tanggal).
+        $rows = $this->exportTaskRows($subsByUser, $division->id);
+
+        // ── Bangun workbook ──
+        $spreadsheet = new Spreadsheet();
+        $spreadsheet->removeSheetByIndex(0);   // buang sheet default kosong
+
+        if ($users->isEmpty()) {
+            $info = $spreadsheet->createSheet();
+            $info->setTitle('Info');
+            $info->setCellValue('A1', 'Tidak ada karyawan aktif di divisi ' . $division->name
+                . ' pada ' . $start->translatedFormat('F Y') . '.');
+        }
+
+        $usedTitles = [];
+        foreach ($users as $u) {
+            $sheet = $spreadsheet->createSheet();
+            $sheet->setTitle($this->uniqueSheetTitle($u->nama ?: 'Karyawan', $usedTitles));
+            $this->fillEmployeeSheet(
+                $sheet, $u, $division, $start, $daysInMonth, $rows, $subsByUser->get($u->id)
+            );
+        }
+
+        $spreadsheet->setActiveSheetIndex(0);
+
+        $filename = 'checklist_harian_' . $division->id . '_' . $start->format('Y-m') . '.xlsx';
+
+        return new StreamedResponse(function () use ($spreadsheet) {
+            (new Xlsx($spreadsheet))->save('php://output');
+        }, 200, [
+            'Content-Type'        => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+            'Cache-Control'       => 'max-age=0',
+        ]);
+    }
+
+    /**
+     * Kumpulkan baris tugas unik (grid) dari snapshot item seluruh karyawan.
+     * Kalau bulan itu tak ada data sama sekali → fallback ke katalog aktif
+     * sekarang supaya grid tetap punya baris.
+     */
+    private function exportTaskRows($subsByUser, string $divisionId): array
+    {
+        $rows = [];
+        foreach ($subsByUser as $subs) {
+            foreach ($subs as $sub) {
+                foreach ($sub->items as $it) {
+                    $key = $it->task_id ?: ('t:' . $it->category_title_snapshot . '|' . $it->task_title_snapshot);
+                    if (! isset($rows[$key])) {
+                        $rows[$key] = (object) [
+                            'key'      => $key,
+                            'category' => $it->category_title_snapshot,
+                            'catSort'  => (int) $it->category_sort_order,
+                            'title'    => $it->task_title_snapshot,
+                            'taskSort' => (int) $it->task_sort_order,
+                        ];
+                    }
+                }
+            }
+        }
+
+        if (empty($rows)) {
+            $cats = ChecklistCategory::query()
+                ->where('division_id', $divisionId)
+                ->where('cadence', ChecklistCategory::CADENCE_DAILY)
+                ->where('is_active', 1)
+                ->with('activeTasks')
+                ->orderBy('sort_order')
+                ->get();
+            foreach ($cats as $cat) {
+                foreach ($cat->activeTasks as $task) {
+                    $rows[$task->id] = (object) [
+                        'key'      => $task->id,
+                        'category' => $cat->name,
+                        'catSort'  => (int) $cat->sort_order,
+                        'title'    => $task->title,
+                        'taskSort' => (int) $task->sort_order,
+                    ];
+                }
+            }
+        }
+
+        $rows = array_values($rows);
+        usort($rows, fn ($a, $b) => [$a->catSort, $a->taskSort, $a->category, $a->title]
+                                <=> [$b->catSort, $b->taskSort, $b->category, $b->title]);
+        return $rows;
+    }
+
+    /** Isi satu sheet karyawan dengan grid tugas × tanggal. */
+    private function fillEmployeeSheet($sheet, $user, ChecklistDivision $division, Carbon $start, int $daysInMonth, array $rows, $userSubs): void
+    {
+        $userSubs = $userSubs ?? collect();
+
+        // day => [rowKey => 'done'|'excepted'|false]
+        $doneByDay = [];
+        foreach ($userSubs as $sub) {
+            $map = [];
+            foreach ($sub->items as $it) {
+                $key = $it->task_id ?: ('t:' . $it->category_title_snapshot . '|' . $it->task_title_snapshot);
+                $map[$key] = $it->is_done ? 'done' : ($it->is_excepted ? 'excepted' : false);
+            }
+            $doneByDay[(int) $sub->submission_date->day] = $map;
+        }
+
+        $firstDateCol  = 3;                                   // A=No, B=Uraian, C.. = tanggal
+        $lastDateCol   = $firstDateCol + $daysInMonth - 1;
+        $lastColLetter = Coordinate::stringFromColumnIndex($lastDateCol);
+
+        // ── Judul ──
+        $sheet->setCellValue('A1', 'CEKLIS HARIAN ' . mb_strtoupper($division->name));
+        $sheet->mergeCells('A1:' . $lastColLetter . '1');
+        $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(13);
+        $sheet->getStyle('A1')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet->setCellValue('A2', 'Nama: ' . ($user->nama ?: '-'));
+        $sheet->setCellValue('A3', 'Bulan: ' . $start->translatedFormat('F Y'));
+        $sheet->getStyle('A2:A3')->getFont()->setBold(true);
+
+        // ── Header kolom (baris 5) ──
+        $hdr = 5;
+        $sheet->setCellValue('A' . $hdr, 'No');
+        $sheet->setCellValue('B' . $hdr, 'Uraian');
+        for ($d = 1; $d <= $daysInMonth; $d++) {
+            $col  = Coordinate::stringFromColumnIndex($firstDateCol + $d - 1);
+            $sheet->setCellValue($col . $hdr, $d);
+            if ($start->copy()->day($d)->dayOfWeekIso === 7) {   // tandai Minggu
+                $sheet->getStyle($col . $hdr)->getFill()->setFillType(Fill::FILL_SOLID)
+                    ->getStartColor()->setRGB('FBE3DE');
+            }
+        }
+        $hdrRange = 'A' . $hdr . ':' . $lastColLetter . $hdr;
+        $sheet->getStyle($hdrRange)->getFont()->setBold(true);
+        $sheet->getStyle($hdrRange)->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('F1E6D7');
+        $sheet->getStyle($hdrRange)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+
+        // ── Baris tugas (grup per seksi) ──
+        $r       = $hdr + 1;
+        $no      = 0;
+        $lastCat = null;
+        $secNo   = 0;
+        foreach ($rows as $row) {
+            if ($row->category !== $lastCat) {
+                $secNo++;
+                $sheet->setCellValue('A' . $r, $secNo . '.');
+                $sheet->setCellValue('B' . $r, mb_strtoupper($row->category));
+                $sheet->mergeCells('B' . $r . ':' . $lastColLetter . $r);
+                $sheet->getStyle('A' . $r . ':' . $lastColLetter . $r)->getFont()->setBold(true);
+                $sheet->getStyle('A' . $r . ':' . $lastColLetter . $r)->getFill()
+                    ->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('FBEFD9');
+                $r++;
+                $lastCat = $row->category;
+                $no      = 0;
+            }
+            $no++;
+            $sheet->setCellValue('A' . $r, $no);
+            $sheet->setCellValue('B' . $r, $row->title);
+            for ($d = 1; $d <= $daysInMonth; $d++) {
+                $st = $doneByDay[$d][$row->key] ?? false;
+                if ($st) {
+                    $col = Coordinate::stringFromColumnIndex($firstDateCol + $d - 1);
+                    $sheet->setCellValue($col . $r, $st === 'excepted' ? '–' : '✓');
+                }
+            }
+            $r++;
+        }
+        $lastRow = max($r - 1, $hdr);
+
+        // Legend
+        $lgRow = $lastRow + 2;
+        $sheet->setCellValue('A' . $lgRow, 'Keterangan: ✓ = dikerjakan   ·   – = dikecualikan   ·   kosong = belum/tidak diisi');
+        $sheet->mergeCells('A' . $lgRow . ':' . $lastColLetter . $lgRow);
+        $sheet->getStyle('A' . $lgRow)->getFont()->setItalic(true)->setSize(9)->getColor()->setRGB('8A6A4F');
+
+        // ── Kosmetik ──
+        $sheet->getColumnDimension('A')->setWidth(4);
+        $sheet->getColumnDimension('B')->setWidth(42);
+        for ($d = 1; $d <= $daysInMonth; $d++) {
+            $sheet->getColumnDimension(Coordinate::stringFromColumnIndex($firstDateCol + $d - 1))->setWidth(3.4);
+        }
+        $sheet->getStyle(Coordinate::stringFromColumnIndex($firstDateCol) . $hdr . ':' . $lastColLetter . $lastRow)
+            ->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet->getStyle('A' . $hdr . ':' . $lastColLetter . $lastRow)->getBorders()
+            ->getAllBorders()->setBorderStyle(Border::BORDER_THIN)->getColor()->setRGB('D9C9B5');
+        $sheet->freezePane('C' . ($hdr + 1));   // kunci kolom No/Uraian + header
+    }
+
+    /* ─── Export Excel (rekap checklist MINGGUAN per divisi) ───────────────
+       Konsep = matriks bersih (bukan tiru form kertas): baris = tugas
+       dikelompokkan per HARI (Selasa..Minggu), kolom = minggu ke-1..N dalam
+       bulan tsb, sel = centang bila dikerjakan (– = hari dikecualikan).
+       Tiap karyawan jadi 1 sheet (tab) sendiri. */
+
+    public function exportWeekly(Request $request): StreamedResponse
+    {
+        $this->guard();
+
+        $branchId = resolveChecklistBranchId($request->get('branch'));
+        $division = $this->resolveExportDivision($request);
+        $start    = $this->exportMonthStart($request);
+        $end      = $start->copy()->endOfMonth();
+
+        // Kolom = tiap minggu (week_start_date = Senin) yang overlap bulan tsb.
+        $weeks  = [];
+        $cursor = $start->copy()->startOfWeek(Carbon::MONDAY);
+        while ($cursor->lte($end)) {
+            $weeks[] = $cursor->copy();
+            $cursor->addWeek();
+        }
+        $mondayKeys = array_map(fn ($m) => $m->toDateString(), $weeks);
+
+        // Karyawan: posisi aktif overlap bulan + union yang sempat mengisi minggu2 tsb.
+        $posUserIds = $this->exportPositionUserIds($division->id, $branchId, $start, $end);
+        $subUserIds = ChecklistWeeklySubmission::query()
+            ->where('division_id', $division->id)
+            ->whereIn('week_start_date', $mondayKeys)
+            ->when($branchId, fn ($q) => $q->where('raw_branch_id', $branchId))
+            ->pluck('user_id');
+
+        $userIds = $posUserIds->merge($subUserIds)->unique()->values();
+        $users   = Users::query()->whereIn('id', $userIds)->orderBy('nama')->get();
+
+        $subsByUser = ChecklistWeeklySubmission::query()
+            ->whereIn('user_id', $userIds)
+            ->where('division_id', $division->id)
+            ->whereIn('week_start_date', $mondayKeys)
+            ->with(['items', 'dayExcuses'])
+            ->get()
+            ->groupBy('user_id');
+
+        $rows = $this->exportWeeklyTaskRows($subsByUser, $division->id);
+
+        $spreadsheet = new Spreadsheet();
+        $spreadsheet->removeSheetByIndex(0);
+
+        if ($users->isEmpty()) {
+            $info = $spreadsheet->createSheet();
+            $info->setTitle('Info');
+            $info->setCellValue('A1', 'Tidak ada karyawan aktif di divisi ' . $division->name
+                . ' pada ' . $start->translatedFormat('F Y') . '.');
+        }
+
+        $usedTitles = [];
+        foreach ($users as $u) {
+            $sheet = $spreadsheet->createSheet();
+            $sheet->setTitle($this->uniqueSheetTitle($u->nama ?: 'Karyawan', $usedTitles));
+            $this->fillEmployeeWeeklySheet(
+                $sheet, $u, $division, $start, $weeks, $rows, $subsByUser->get($u->id)
+            );
+        }
+
+        $spreadsheet->setActiveSheetIndex(0);
+
+        $filename = 'checklist_mingguan_' . $division->id . '_' . $start->format('Y-m') . '.xlsx';
+
+        return new StreamedResponse(function () use ($spreadsheet) {
+            (new Xlsx($spreadsheet))->save('php://output');
+        }, 200, [
+            'Content-Type'        => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+            'Cache-Control'       => 'max-age=0',
+        ]);
+    }
+
+    /** Baris tugas mingguan unik (grup per hari) dari snapshot; fallback katalog aktif. */
+    private function exportWeeklyTaskRows($subsByUser, string $divisionId): array
+    {
+        $rows = [];
+        foreach ($subsByUser as $subs) {
+            foreach ($subs as $sub) {
+                foreach ($sub->items as $it) {
+                    $key = $it->task_id ?: ('t:' . $it->day_of_week . '|' . $it->task_title_snapshot);
+                    if (! isset($rows[$key])) {
+                        $rows[$key] = (object) [
+                            'key'      => $key,
+                            'day'      => (int) $it->day_of_week,
+                            'title'    => $it->task_title_snapshot,
+                            'taskSort' => (int) $it->task_sort_order,
+                        ];
+                    }
+                }
+            }
+        }
+
+        if (empty($rows)) {
+            $cats = ChecklistCategory::query()
+                ->where('division_id', $divisionId)
+                ->where('cadence', ChecklistCategory::CADENCE_WEEKLY)
+                ->where('is_active', 1)
+                ->with('activeTasks')
+                ->get();
+            foreach ($cats as $cat) {
+                foreach ($cat->activeTasks as $task) {
+                    if (! $task->day_of_week) continue;
+                    $rows[$task->id] = (object) [
+                        'key'      => $task->id,
+                        'day'      => (int) $task->day_of_week,
+                        'title'    => $task->title,
+                        'taskSort' => (int) $task->sort_order,
+                    ];
+                }
+            }
+        }
+
+        $rows = array_values($rows);
+        usort($rows, fn ($a, $b) => [$a->day, $a->taskSort, $a->title] <=> [$b->day, $b->taskSort, $b->title]);
+        return $rows;
+    }
+
+    /** Isi satu sheet karyawan: grid tugas (grup per hari) × minggu. */
+    private function fillEmployeeWeeklySheet($sheet, $user, ChecklistDivision $division, Carbon $start, array $weeks, array $rows, $userSubs): void
+    {
+        $userSubs  = $userSubs ?? collect();
+        $dayLabels = \App\Models\ChecklistTask::dayLabels();
+
+        // weekKey => [rowKey => 'done'|'excepted'|false] ; weekKey => [hari dikecualikan]
+        $doneByWeek = [];
+        $excusedByWeek = [];
+        foreach ($userSubs as $sub) {
+            $wk  = $sub->week_start_date->toDateString();
+            $map = [];
+            foreach ($sub->items as $it) {
+                $key = $it->task_id ?: ('t:' . $it->day_of_week . '|' . $it->task_title_snapshot);
+                $map[$key] = $it->is_done ? 'done' : ($it->is_excepted ? 'excepted' : false);
+            }
+            $doneByWeek[$wk]    = $map;
+            $excusedByWeek[$wk] = $sub->excusedDayNumbers();
+        }
+
+        $firstCol   = 3;                                  // A=No, B=Uraian, C.. = minggu
+        $nWeeks     = count($weeks);
+        $lastCol    = $firstCol + max($nWeeks, 1) - 1;
+        $lastLetter = Coordinate::stringFromColumnIndex($lastCol);
+
+        // ── Judul ──
+        $sheet->setCellValue('A1', 'CEKLIS MINGGUAN ' . mb_strtoupper($division->name));
+        $sheet->mergeCells('A1:' . $lastLetter . '1');
+        $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(13);
+        $sheet->getStyle('A1')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet->setCellValue('A2', 'Nama: ' . ($user->nama ?: '-'));
+        $sheet->setCellValue('A3', 'Bulan: ' . $start->translatedFormat('F Y'));
+        $sheet->getStyle('A2:A3')->getFont()->setBold(true);
+
+        // ── Header: baris 5 = "Minggu n", baris 6 = rentang tanggal ──
+        $hdr  = 5;
+        $shdr = 6;
+        $sheet->setCellValue('A' . $hdr, 'No');
+        $sheet->setCellValue('B' . $hdr, 'Hari / Uraian Tugas');
+        $sheet->mergeCells('A' . $hdr . ':A' . $shdr);
+        $sheet->mergeCells('B' . $hdr . ':B' . $shdr);
+        foreach ($weeks as $i => $mon) {
+            $col   = Coordinate::stringFromColumnIndex($firstCol + $i);
+            $wkEnd = $mon->copy()->addDays(6);
+            $range = $mon->month === $wkEnd->month
+                ? $mon->translatedFormat('d') . '–' . $wkEnd->translatedFormat('d M')
+                : $mon->translatedFormat('d M') . '–' . $wkEnd->translatedFormat('d M');
+            $sheet->setCellValue($col . $hdr, 'Minggu ' . ($i + 1));
+            $sheet->setCellValue($col . $shdr, $range);
+        }
+        $hdrRange = 'A' . $hdr . ':' . $lastLetter . $shdr;
+        $sheet->getStyle($hdrRange)->getFont()->setBold(true);
+        $sheet->getStyle($hdrRange)->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('F1E6D7');
+        $sheet->getStyle($hdrRange)->getAlignment()
+            ->setHorizontal(Alignment::HORIZONTAL_CENTER)->setVertical(Alignment::VERTICAL_CENTER);
+        $sheet->getStyle(Coordinate::stringFromColumnIndex($firstCol) . $shdr . ':' . $lastLetter . $shdr)
+            ->getFont()->setBold(false)->setSize(9)->setItalic(true);
+
+        // ── Baris tugas (grup per hari) ──
+        $r       = $shdr + 1;
+        $lastDay = null;
+        $no      = 0;
+        foreach ($rows as $row) {
+            if ($row->day !== $lastDay) {
+                $sheet->setCellValue('A' . $r, ($dayLabels[$row->day] ?? '-'));
+                $sheet->mergeCells('A' . $r . ':' . $lastLetter . $r);
+                $sheet->getStyle('A' . $r . ':' . $lastLetter . $r)->getFont()->setBold(true);
+                $sheet->getStyle('A' . $r . ':' . $lastLetter . $r)->getFill()
+                    ->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('DCEAF6');   // biru muda ala form mingguan
+                $r++;
+                $lastDay = $row->day;
+                $no      = 0;
+            }
+            $no++;
+            $sheet->setCellValue('A' . $r, $no);
+            $sheet->setCellValue('B' . $r, $row->title);
+            foreach ($weeks as $i => $mon) {
+                $wk  = $mon->toDateString();
+                $col = Coordinate::stringFromColumnIndex($firstCol + $i);
+                $st = $doneByWeek[$wk][$row->key] ?? false;
+                if (in_array($row->day, $excusedByWeek[$wk] ?? [], true) || $st === 'excepted') {
+                    $sheet->setCellValue($col . $r, '–');
+                } elseif ($st === 'done') {
+                    $sheet->setCellValue($col . $r, '✓');
+                }
+            }
+            $r++;
+        }
+        $lastRow = max($r - 1, $shdr);
+
+        // Legend
+        $lgRow = $lastRow + 2;
+        $sheet->setCellValue('A' . $lgRow, 'Keterangan: ✓ = dikerjakan   ·   – = dikecualikan (hari/pertanyaan)   ·   kosong = belum/tidak diisi');
+        $sheet->mergeCells('A' . $lgRow . ':' . $lastLetter . $lgRow);
+        $sheet->getStyle('A' . $lgRow)->getFont()->setItalic(true)->setSize(9)->getColor()->setRGB('8A6A4F');
+
+        // ── Kosmetik ──
+        $sheet->getColumnDimension('A')->setWidth(5);
+        $sheet->getColumnDimension('B')->setWidth(46);
+        foreach ($weeks as $i => $mon) {
+            $sheet->getColumnDimension(Coordinate::stringFromColumnIndex($firstCol + $i))->setWidth(12);
+        }
+        $sheet->getStyle(Coordinate::stringFromColumnIndex($firstCol) . $hdr . ':' . $lastLetter . $lastRow)
+            ->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet->getStyle('B' . ($shdr + 1) . ':B' . $lastRow)->getAlignment()->setWrapText(true);
+        $sheet->getStyle('A' . $hdr . ':' . $lastLetter . $lastRow)->getBorders()
+            ->getAllBorders()->setBorderStyle(Border::BORDER_THIN)->getColor()->setRGB('D9C9B5');
+        $sheet->freezePane('C' . ($shdr + 1));   // kunci kolom No/Uraian + header
+    }
+
+    /* ─── Shared export helpers ────────────────────────────────────────── */
+
+    /** Bulan (YYYY-MM) → awal bulan; default bulan berjalan. */
+    private function exportMonthStart(Request $request): Carbon
+    {
+        try {
+            return $request->get('month')
+                ? Carbon::createFromFormat('Y-m', (string) $request->get('month'))->startOfMonth()
+                : Carbon::today()->startOfMonth();
+        } catch (\Throwable $e) {
+            return Carbon::today()->startOfMonth();
+        }
+    }
+
+    /** Divisi export wajib & dalam cakupan supervisi user ini. */
+    private function resolveExportDivision(Request $request): ChecklistDivision
+    {
+        $divisionId = (string) $request->get('division', '');
+        if (! in_array($divisionId, checklistVisibleDivisionIds(), true)) {
+            abort(403, 'Divisi ini di luar cakupan supervisi Anda.');
+        }
+        return ChecklistDivision::findOrFail($divisionId);
+    }
+
+    /** user_id karyawan yg posisinya aktif (confirmed) di divisi & overlap [start,end]. */
+    private function exportPositionUserIds(string $divisionId, ?string $branchId, Carbon $start, Carbon $end)
+    {
+        return UserPosition::query()
+            ->where('is_primary', 1)
+            ->whereNotNull('confirmed_at')
+            ->where('division_id', $divisionId)
+            ->when($branchId, fn ($q) => $q->where('raw_branch_id', $branchId))
+            ->whereDate('effective_from', '<=', $end)
+            ->where(function ($q) use ($start) {
+                $q->whereNull('effective_to')->orWhereDate('effective_to', '>=', $start);
+            })
+            ->pluck('user_id');
+    }
+
+    /** Judul sheet valid (≤31 char, tanpa karakter ilegal Excel) & unik. */
+    private function uniqueSheetTitle(string $name, array &$used): string
+    {
+        $title = preg_replace('#[\\\\/?*:\[\]]#', ' ', $name);
+        $title = trim(preg_replace('/\s+/', ' ', $title));
+        if ($title === '') $title = 'Karyawan';
+        $title = mb_substr($title, 0, 31);
+
+        $base = $title;
+        $i    = 2;
+        while (in_array(mb_strtolower($title), $used, true)) {
+            $suffix = '~' . $i;
+            $title  = mb_substr($base, 0, 31 - mb_strlen($suffix)) . $suffix;
+            $i++;
+        }
+        $used[] = mb_strtolower($title);
+        return $title;
     }
 
     /* ─── Review queue ─────────────────────────────────────────────────── */
@@ -139,8 +669,10 @@ class DigitalChecklistController extends Controller
         $filterDiv  = $request->get('division', 'all');
         $filterStat = $request->get('status', ChecklistSubmission::STATUS_SUBMITTED);
         $search     = trim((string) $request->get('q', ''));
+        $visible    = checklistVisibleDivisionIds();   // divisi yang boleh disupervisi user ini
 
         $base = ChecklistSubmission::query()
+            ->whereIn('division_id', $visible)
             ->when($branchId, fn($q) => $q->where('raw_branch_id', $branchId));
 
         // Status tab counts (hitung sebelum apply filter status).
@@ -163,6 +695,22 @@ class DigitalChecklistController extends Controller
             'missed'    => (clone $countsBase)->where('status', ChecklistSubmission::STATUS_MISSED)->count(),
         ];
 
+        // Jumlah submission per divisi (untuk tab divisi) — ikut filter tanggal/status/cari, TANPA filter divisi.
+        $divCountBase = (clone $base);
+        if ($filterDate) $divCountBase->whereDate('submission_date', $filterDate);
+        if ($filterStat !== 'all') $divCountBase->where('status', $filterStat);
+        if ($search !== '') {
+            $divCountBase->whereExists(function ($q) use ($search) {
+                $q->select(DB::raw(1))->from('users')
+                  ->whereRaw('users.id = sys_checklist_submission.user_id')
+                  ->where('users.nama', 'like', "%{$search}%");
+            });
+        }
+        $divCounts = (clone $divCountBase)
+            ->select('division_id', DB::raw('count(*) as c'))
+            ->groupBy('division_id')
+            ->pluck('c', 'division_id');
+
         $query = (clone $base)->with(['user', 'division', 'branch']);
         if ($filterDate) $query->whereDate('submission_date', $filterDate);
         if ($filterDiv !== 'all') $query->where('division_id', $filterDiv);
@@ -182,11 +730,12 @@ class DigitalChecklistController extends Controller
             ->paginate($this->perPage)
             ->appends($request->query());
 
-        $divisions = ChecklistDivision::query()->where('is_active', 1)->orderBy('sort_order')->get();
+        $divisions = ChecklistDivision::query()->where('is_active', 1)
+            ->whereIn('id', $visible)->orderBy('sort_order')->get();
         $branches  = canSeeAllBranches() ? RawBranch::orderBy('name')->get() : collect();
 
         return view('crud.checklist.review.index', compact(
-            'submissions', 'counts', 'divisions', 'branches', 'branchId',
+            'submissions', 'counts', 'divCounts', 'divisions', 'branches', 'branchId',
             'filterDate', 'filterDiv', 'filterStat', 'search'
         ));
     }
@@ -200,6 +749,7 @@ class DigitalChecklistController extends Controller
             ->findOrFail($id);
 
         $this->abortIfBranchMismatch($submission);
+        $this->abortIfDivisionOutOfScope($submission->division_id);
 
         // Grup items per kategori untuk render rapi.
         $grouped = $submission->items->groupBy('category_title_snapshot');
@@ -213,6 +763,7 @@ class DigitalChecklistController extends Controller
 
         $sub = ChecklistSubmission::findOrFail($id);
         $this->abortIfBranchMismatch($sub);
+        $this->abortIfDivisionOutOfScope($sub->division_id);
 
         if ($sub->status !== ChecklistSubmission::STATUS_SUBMITTED) {
             return back()->with('error', 'Submission ini sudah tidak menunggu approval.');
@@ -244,6 +795,7 @@ class DigitalChecklistController extends Controller
 
         $sub = ChecklistSubmission::findOrFail($id);
         $this->abortIfBranchMismatch($sub);
+        $this->abortIfDivisionOutOfScope($sub->division_id);
 
         if ($sub->status !== ChecklistSubmission::STATUS_SUBMITTED) {
             return back()->with('error', 'Submission ini sudah tidak menunggu approval.');
@@ -278,6 +830,7 @@ class DigitalChecklistController extends Controller
 
         $sub = ChecklistSubmission::findOrFail($id);
         $this->abortIfBranchMismatch($sub);
+        $this->abortIfDivisionOutOfScope($sub->division_id);
 
         if (! in_array($sub->status, [ChecklistSubmission::STATUS_APPROVED, ChecklistSubmission::STATUS_REJECTED], true)) {
             return back()->with('error', 'Hanya checklist yang sudah final yang bisa di-reopen.');
@@ -308,6 +861,7 @@ class DigitalChecklistController extends Controller
 
         $sub = ChecklistSubmission::findOrFail($id);
         $this->abortIfBranchMismatch($sub);
+        $this->abortIfDivisionOutOfScope($sub->division_id);
 
         if ($sub->status !== ChecklistSubmission::STATUS_EXCUSED) {
             return back()->with('error', 'Hanya checklist berstatus Dikecualikan yang bisa dibatalkan.');
@@ -341,8 +895,31 @@ class DigitalChecklistController extends Controller
         $dateTo     = $request->get('date_to');
         $actor      = trim((string) $request->get('actor', ''));
 
+        // Supervisor divisi hanya lihat log yang menyangkut divisinya (submission
+        // harian/mingguan atau posisi karyawan). Overseer global lihat semua.
+        $visible = checklistVisibleDivisionIds();
+
         $query = ChecklistAuditLog::query()
             ->with(['actor', 'branch'])
+            ->when(! checklistSeesAllDivisions(), function ($q) use ($visible) {
+                $q->where(function ($outer) use ($visible) {
+                    $outer->whereExists(function ($s) use ($visible) {
+                            $s->select(DB::raw(1))->from('sys_checklist_submission')
+                              ->whereColumn('sys_checklist_submission.id', 'sys_checklist_audit_log.target_id')
+                              ->whereIn('sys_checklist_submission.division_id', $visible);
+                        })
+                        ->orWhereExists(function ($s) use ($visible) {
+                            $s->select(DB::raw(1))->from('sys_checklist_weekly_submission')
+                              ->whereColumn('sys_checklist_weekly_submission.id', 'sys_checklist_audit_log.target_id')
+                              ->whereIn('sys_checklist_weekly_submission.division_id', $visible);
+                        })
+                        ->orWhereExists(function ($s) use ($visible) {
+                            $s->select(DB::raw(1))->from('sys_user_position')
+                              ->whereColumn('sys_user_position.id', 'sys_checklist_audit_log.target_id')
+                              ->whereIn('sys_user_position.division_id', $visible);
+                        });
+                });
+            })
             ->when($branchId,           fn($q) => $q->where('raw_branch_id', $branchId))
             ->when($filterAct !== 'all',  fn($q) => $q->where('action', $filterAct))
             ->when($filterType !== 'all', fn($q) => $q->where('target_type', $filterType))
@@ -377,21 +954,25 @@ class DigitalChecklistController extends Controller
     {
         $this->guard();
 
-        // Daftar group_name yang dianggap "karyawan operasional" — bisa
-        // di-extend kalau ada role lain di masa depan.
-        $operasionalGroupNames = ['Operasional', 'KARYAWAN'];
-
-        $branchId = resolveChecklistBranchId($request->get('branch'));
-        $search   = trim((string) $request->get('q', ''));
+        $branchId  = resolveChecklistBranchId($request->get('branch'));
+        $search    = trim((string) $request->get('q', ''));
         $filterDiv = $request->get('division', 'all');
+        $visible   = checklistVisibleDivisionIds();   // divisi yang boleh disupervisi user ini
 
-        // Build query: users dengan group_name di list operasional.
-        // Pakai DB query langsung biar bisa filter by group nama tanpa
-        // perlu eager-load semua user.
+        // Model "role operasional = divisi": divisi dikenali dari NAMA role yang
+        // sama persis dgn nama divisi (tanpa penautan manual).
+        $divisionsInScope = ChecklistDivision::query()->where('is_active', 1)
+            ->whereIn('id', $visible)->orderBy('sort_order')->get();
+        $divByName        = $divisionsInScope->keyBy('name');
+        $scopeRoles       = GroupPath::whereIn('nama', $divisionsInScope->pluck('name'))->get();
+        $roleToDivision   = $scopeRoles->mapWithKeys(fn ($r) => [$r->id => $divByName->get($r->nama)]); // role id => divisi
+        $visibleRoleIds   = $scopeRoles->pluck('id')->values();
+
+        // Staf = user yang role-nya adalah role-divisi dalam cakupan supervisor.
         $query = Users::query()
             ->select('users.*', 'group_path.nama as group_name', 'group_path.id as gid')
             ->join('group_path', 'users.group_id', '=', 'group_path.id')
-            ->whereIn('group_path.nama', $operasionalGroupNames);
+            ->whereIn('users.group_id', $visibleRoleIds);
 
         if ($search !== '') {
             $query->where(function ($q) use ($search) {
@@ -400,57 +981,46 @@ class DigitalChecklistController extends Controller
             });
         }
 
-        $users = $query->orderBy('users.nama')->get()->keyBy('id');
+        $users   = $query->orderBy('users.nama')->get()->keyBy('id');
         $userIds = $users->keys();
 
         // Posisi AKTIF (confirmed) & USULAN pending, per user.
         $today = Carbon::today();
-        $active = UserPosition::query()
-            ->activeOn($today)
+        $active = UserPosition::query()->activeOn($today)
             ->whereIn('user_id', $userIds)
-            ->with(['division', 'branch'])
-            ->get()
-            ->keyBy('user_id');
-        $pending = UserPosition::query()
-            ->pending()
+            ->with(['division', 'branch'])->get()->keyBy('user_id');
+        $pending = UserPosition::query()->pending()
             ->whereIn('user_id', $userIds)
-            ->with(['division', 'branch'])
-            ->get()
-            ->keyBy('user_id');
+            ->with(['division', 'branch'])->get()->keyBy('user_id');
 
-        // Hanya user yang punya posisi aktif ATAU usulan pending yang muncul —
-        // user yang belum mengajukan apa pun tidak ditampilkan.
-        $relevantIds = $active->keys()->merge($pending->keys())->unique();
-
-        $rows = $relevantIds->map(function ($uid) use ($users, $active, $pending) {
-            $u = $users->get($uid);
-            if (! $u) return null;
-            $pos  = $active->get($uid);
-            $prop = $pending->get($uid);
+        // Semua staf dalam cakupan ditampilkan (termasuk yang belum punya posisi),
+        // supaya supervisor bisa set cabang. Divisi otomatis dari role (dikunci).
+        $rows = $users->map(function ($u) use ($active, $pending, $roleToDivision) {
+            $pos  = $active->get($u->id);
+            $prop = $pending->get($u->id);
             return (object) [
-                'user'      => $u,
-                'position'  => $pos,
-                'division'  => $pos?->division,
-                'branch'    => $pos?->branch,
-                'pending'   => $prop,
+                'user'         => $u,
+                'position'     => $pos,
+                'division'     => $pos?->division,
+                'branch'       => $pos?->branch,
+                'pending'      => $prop,
+                'roleDivision' => $roleToDivision->get($u->group_id),   // divisi otomatis dari role
             ];
-        })->filter()->sortBy(fn($r) => $r->user->nama)->values();
+        })->sortBy(fn($r) => $r->user->nama)->values();
 
-        // Filter divisi/cabang berlaku ke posisi aktif ATAU usulan.
+        // Filter divisi = filter role (divisi ⇄ role). Filter cabang ke posisi/usulan.
         if ($filterDiv !== 'all') {
-            $rows = $rows->filter(fn($r) =>
-                ($r->position && $r->position->division_id === $filterDiv)
-                || ($r->pending && $r->pending->division_id === $filterDiv)
-            )->values();
+            $rows = $rows->filter(fn($r) => optional($r->roleDivision)->id === $filterDiv)->values();
         }
         if ($branchId) {
             $rows = $rows->filter(fn($r) =>
                 ($r->position && $r->position->raw_branch_id === $branchId)
                 || ($r->pending && $r->pending->raw_branch_id === $branchId)
+                || (! $r->position && ! $r->pending)   // belum ada posisi → tetap tampil
             )->values();
         }
 
-        $divisions = ChecklistDivision::query()->where('is_active', 1)->orderBy('sort_order')->get();
+        $divisions = $divisionsInScope;
         $branches  = RawBranch::orderBy('name')->get();
 
         // Stats
@@ -472,12 +1042,25 @@ class DigitalChecklistController extends Controller
 
         $data = $request->validate([
             'user_id'       => 'required|string|exists:users,id',
-            'division_id'   => 'required|string|exists:sys_checklist_division,id',
             'raw_branch_id' => 'required|string|exists:raw_branch,id',
         ]);
 
-        $today = Carbon::today();
         $userId = $data['user_id'];
+        $user   = Users::find($userId);
+
+        // Divisi OTOMATIS dari role user (model "role staf = divisi") — tidak dipilih manual.
+        $division = checklistDivisionForGroup($user?->group_id);
+        if (! $division) {
+            return back()->with('error', 'Role user ini bukan role operasional checklist (nama role tak cocok divisi mana pun: Front Office / General Services / Assistant Dentist).');
+        }
+        $data['division_id'] = $division->id;
+
+        // Cegah supervisor menempatkan staf ke divisi di luar cakupannya.
+        if (! in_array($division->id, checklistVisibleDivisionIds(), true)) {
+            abort(403, 'Divisi ini di luar cakupan supervisi Anda.');
+        }
+
+        $today = Carbon::today();
 
         // Cari posisi aktif user. Kalau ada & sudah identik → no-op.
         $current = UserPosition::query()->activeOn($today)->where('user_id', $userId)->first();
@@ -536,6 +1119,7 @@ class DigitalChecklistController extends Controller
         $this->guard();
 
         $pos = UserPosition::with(['user', 'division'])->findOrFail($id);
+        $this->abortIfDivisionOutOfScope($pos->division_id);
 
         // effective_to = kemarin, bukan hari ini — sebab scope activeOn() pakai
         // "effective_to >= hari ini" (inklusif). Kalau di-set hari ini, posisi
@@ -559,75 +1143,6 @@ class DigitalChecklistController extends Controller
             ->with('success', 'Posisi karyawan dinonaktifkan.');
     }
 
-    /**
-     * Supervisor mengonfirmasi usulan posisi (pending → aktif). Menutup posisi
-     * aktif lama user (kalau ada) supaya hanya 1 yang aktif.
-     */
-    public function positionConfirm(string $id)
-    {
-        $this->guard();
-
-        $pos = UserPosition::with(['user', 'division'])->findOrFail($id);
-        if ($pos->confirmed_at) {
-            return back()->with('info', 'Posisi ini sudah dikonfirmasi.');
-        }
-
-        $today = Carbon::today();
-
-        // Tutup posisi aktif lama user (kalau ada) sebelum aktifkan usulan ini.
-        UserPosition::query()->activeOn($today)
-            ->where('user_id', $pos->user_id)
-            ->where('id', '!=', $pos->id)
-            ->update(['effective_to' => $today->copy()->subDay(), 'updated_at' => now()]);
-
-        $pos->update([
-            'confirmed_at'   => now(),
-            'confirmed_by'   => session('id'),
-            'effective_from' => $today,
-            'updated_at'     => now(),
-        ]);
-
-        ChecklistAuditLog::write(
-            'submission',
-            $pos->id,
-            ChecklistAuditLog::ACTION_UPDATE,
-            null,
-            ['division_id' => $pos->division_id, 'raw_branch_id' => $pos->raw_branch_id],
-            'Konfirmasi posisi ' . ($pos->user?->nama ?? '-') . ' → ' . ($pos->division?->name ?? $pos->division_id)
-        );
-
-        return redirect()->route('checklist.positions')
-            ->with('success', 'Posisi ' . ($pos->user?->nama ?? '-') . ' dikonfirmasi — karyawan sekarang bisa mengisi checklist.');
-    }
-
-    /**
-     * Supervisor menolak usulan posisi (pending) — row dihapus. Yang sudah
-     * dikonfirmasi tidak bisa ditolak (pakai Nonaktifkan).
-     */
-    public function positionReject(string $id)
-    {
-        $this->guard();
-
-        $pos = UserPosition::with(['user', 'division'])->findOrFail($id);
-        if ($pos->confirmed_at) {
-            return back()->with('error', 'Posisi yang sudah dikonfirmasi tidak bisa ditolak — gunakan Nonaktifkan.');
-        }
-
-        ChecklistAuditLog::write(
-            'submission',
-            $pos->id,
-            ChecklistAuditLog::ACTION_DELETE,
-            ['division_id' => $pos->division_id, 'raw_branch_id' => $pos->raw_branch_id],
-            null,
-            'Usulan posisi ' . ($pos->user?->nama ?? '-') . ' (' . ($pos->division?->name ?? $pos->division_id) . ') ditolak'
-        );
-
-        $pos->delete();
-
-        return redirect()->route('checklist.positions')
-            ->with('success', 'Usulan posisi ditolak.');
-    }
-
     /* ─── Review Form Mingguan (supervisor) ────────────────────────────── */
 
     public function weeklyReviewIndex(Request $request)
@@ -635,12 +1150,23 @@ class DigitalChecklistController extends Controller
         $this->guard();
 
         $branchId   = resolveChecklistBranchId($request->get('branch'));
-        $filterWeek = $request->get('week'); // YYYY-MM-DD (Monday) atau null
+        // Terima tanggal apa saja → normalisasi ke Senin minggu tsb (week_start_date
+        // selalu Senin), supaya supervisor tak perlu tepat memilih hari Senin.
+        $filterWeek = $request->get('week');
+        if ($filterWeek) {
+            try {
+                $filterWeek = Carbon::parse($filterWeek)->startOfWeek(Carbon::MONDAY)->toDateString();
+            } catch (\Throwable $e) {
+                $filterWeek = null;
+            }
+        }
         $filterDiv  = $request->get('division', 'all');
         $filterStat = $request->get('status', ChecklistWeeklySubmission::STATUS_SUBMITTED);
         $search     = trim((string) $request->get('q', ''));
+        $visible    = checklistVisibleDivisionIds();   // divisi yang boleh disupervisi user ini
 
         $base = ChecklistWeeklySubmission::query()
+            ->whereIn('division_id', $visible)
             ->when($branchId, fn($q) => $q->where('raw_branch_id', $branchId));
 
         $countsBase = (clone $base);
@@ -659,8 +1185,25 @@ class DigitalChecklistController extends Controller
             'approved'  => (clone $countsBase)->where('status', ChecklistWeeklySubmission::STATUS_APPROVED)->count(),
             'rejected'  => (clone $countsBase)->where('status', ChecklistWeeklySubmission::STATUS_REJECTED)->count(),
             'excused'   => (clone $countsBase)->where('status', ChecklistWeeklySubmission::STATUS_EXCUSED)->count(),
+            'missed'    => (clone $countsBase)->where('status', ChecklistWeeklySubmission::STATUS_MISSED)->count(),
             'draft'     => (clone $countsBase)->where('status', ChecklistWeeklySubmission::STATUS_DRAFT)->count(),
         ];
+
+        // Jumlah submission per divisi (untuk tab divisi) — ikut filter minggu/status/cari, TANPA filter divisi.
+        $divCountBase = (clone $base);
+        if ($filterWeek) $divCountBase->whereDate('week_start_date', $filterWeek);
+        if ($filterStat !== 'all') $divCountBase->where('status', $filterStat);
+        if ($search !== '') {
+            $divCountBase->whereExists(function ($q) use ($search) {
+                $q->select(DB::raw(1))->from('users')
+                  ->whereRaw('users.id = sys_checklist_weekly_submission.user_id')
+                  ->where('users.nama', 'like', "%{$search}%");
+            });
+        }
+        $divCounts = (clone $divCountBase)
+            ->select('division_id', DB::raw('count(*) as c'))
+            ->groupBy('division_id')
+            ->pluck('c', 'division_id');
 
         $query = (clone $base)->with(['user', 'division', 'branch']);
         if ($filterWeek) $query->whereDate('week_start_date', $filterWeek);
@@ -681,11 +1224,12 @@ class DigitalChecklistController extends Controller
             ->paginate($this->perPage)
             ->appends($request->query());
 
-        $divisions = ChecklistDivision::query()->where('is_active', 1)->orderBy('sort_order')->get();
+        $divisions = ChecklistDivision::query()->where('is_active', 1)
+            ->whereIn('id', $visible)->orderBy('sort_order')->get();
         $branches  = canSeeAllBranches() ? RawBranch::orderBy('name')->get() : collect();
 
         return view('crud.checklist.review.weekly-index', compact(
-            'submissions', 'counts', 'divisions', 'branches', 'branchId',
+            'submissions', 'counts', 'divCounts', 'divisions', 'branches', 'branchId',
             'filterWeek', 'filterDiv', 'filterStat', 'search'
         ));
     }
@@ -695,18 +1239,23 @@ class DigitalChecklistController extends Controller
         $this->guard();
 
         $submission = ChecklistWeeklySubmission::query()
-            ->with(['user', 'reviewer', 'division', 'branch', 'items'])
+            ->with(['user', 'reviewer', 'division', 'branch', 'items', 'dayExcuses'])
             ->findOrFail($id);
 
         $this->abortIfBranchMismatchWeekly($submission);
+        $this->abortIfDivisionOutOfScope($submission->division_id);
 
-        // Items di-group per day_of_week → category, supaya view bisa render
-        // ala form kertas (Selasa column, Kamis column, dst).
-        $grouped = $submission->items->groupBy('day_of_week')->map(function ($dayItems) {
-            return $dayItems->groupBy('category_title_snapshot');
-        });
+        // Items di-group per day_of_week saja (tanpa kategori), supaya view bisa
+        // render ala form kertas (Selasa, Kamis, dst) — task langsung per hari.
+        $grouped = $submission->items
+            ->sortBy(fn($i) => sprintf('%06d-%06d', $i->category_sort_order ?? 0, $i->task_sort_order ?? 0))
+            ->groupBy('day_of_week');
 
-        return view('crud.checklist.review.weekly-show', compact('submission', 'grouped'));
+        // Hari yang ditandai "tidak perlu diisi" (iso => alasan) untuk badge di view.
+        $excusedDays = $submission->dayExcuses->pluck('reason', 'day_of_week')
+            ->mapWithKeys(fn ($reason, $iso) => [(int) $iso => $reason])->all();
+
+        return view('crud.checklist.review.weekly-show', compact('submission', 'grouped', 'excusedDays'));
     }
 
     public function weeklyApprove(Request $request, string $id)
@@ -715,6 +1264,7 @@ class DigitalChecklistController extends Controller
 
         $sub = ChecklistWeeklySubmission::findOrFail($id);
         $this->abortIfBranchMismatchWeekly($sub);
+        $this->abortIfDivisionOutOfScope($sub->division_id);
 
         if ($sub->status !== ChecklistWeeklySubmission::STATUS_SUBMITTED) {
             return back()->with('error', 'Form Mingguan ini sudah tidak menunggu approval.');
@@ -746,6 +1296,7 @@ class DigitalChecklistController extends Controller
 
         $sub = ChecklistWeeklySubmission::findOrFail($id);
         $this->abortIfBranchMismatchWeekly($sub);
+        $this->abortIfDivisionOutOfScope($sub->division_id);
 
         if ($sub->status !== ChecklistWeeklySubmission::STATUS_SUBMITTED) {
             return back()->with('error', 'Form Mingguan ini sudah tidak menunggu approval.');
@@ -780,6 +1331,7 @@ class DigitalChecklistController extends Controller
 
         $sub = ChecklistWeeklySubmission::findOrFail($id);
         $this->abortIfBranchMismatchWeekly($sub);
+        $this->abortIfDivisionOutOfScope($sub->division_id);
 
         if (! in_array($sub->status, [ChecklistWeeklySubmission::STATUS_APPROVED, ChecklistWeeklySubmission::STATUS_REJECTED], true)) {
             return back()->with('error', 'Hanya Form Mingguan yang sudah final yang bisa di-reopen.');
@@ -809,6 +1361,7 @@ class DigitalChecklistController extends Controller
 
         $sub = ChecklistWeeklySubmission::findOrFail($id);
         $this->abortIfBranchMismatchWeekly($sub);
+        $this->abortIfDivisionOutOfScope($sub->division_id);
 
         if ($sub->status !== ChecklistWeeklySubmission::STATUS_EXCUSED) {
             return back()->with('error', 'Hanya Form Mingguan berstatus Dikecualikan yang bisa dibatalkan.');
@@ -845,6 +1398,14 @@ class DigitalChecklistController extends Controller
         $branchId = resolveChecklistBranchId(null);
         if ($branchId && $sub->raw_branch_id !== $branchId) {
             abort(403, 'Tidak punya akses ke Form Mingguan cabang lain.');
+        }
+    }
+
+    /** Tolak akses kalau divisi di luar cakupan supervisi user (buka via id langsung). */
+    private function abortIfDivisionOutOfScope(?string $divisionId): void
+    {
+        if (! in_array($divisionId, checklistVisibleDivisionIds(), true)) {
+            abort(403, 'Divisi ini di luar cakupan supervisi Anda.');
         }
     }
 

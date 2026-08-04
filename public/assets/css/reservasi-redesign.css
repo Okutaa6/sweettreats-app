@@ -648,6 +648,14 @@ body.redesign-reservasi .rr-drawer__close { position: absolute; top: 14px; right
 body.redesign-reservasi .rr-drawer__close:hover { background: rgba(255, 250, 245, .26); }
 body.redesign-reservasi .rr-drawer__eyebrow { font-size: 10px; letter-spacing: 1.2px; color: #C79C7E; font-weight: 700; text-transform: uppercase; }
 body.redesign-reservasi .rr-drawer__name { font-size: 20px; font-weight: 800; margin: 4px 0 8px; color: #fff; }
+/* Nama pasien sebagai tombol menuju halaman detail data pasien. */
+body.redesign-reservasi .rr-drawer__namebtn { display: inline-flex; align-items: center; gap: 8px; max-width: 100%; margin: 0 -8px 4px; padding: 2px 8px; border-radius: 10px; text-decoration: none; color: inherit; cursor: pointer; transition: background .15s ease; }
+body.redesign-reservasi .rr-drawer__namebtn .rr-drawer__name { margin: 4px 0; }
+body.redesign-reservasi .rr-drawer__namebtn:hover { background: rgba(255, 250, 245, .14); }
+body.redesign-reservasi .rr-drawer__namechevron { font-size: 13px; color: #C79C7E; flex-shrink: 0; transition: transform .15s ease, color .15s ease; }
+body.redesign-reservasi .rr-drawer__namebtn:hover .rr-drawer__namechevron { transform: translateX(3px); color: #fff; }
+body.redesign-reservasi .rr-drawer__namebtn.is-disabled { pointer-events: none; }
+body.redesign-reservasi .rr-drawer__namebtn.is-disabled .rr-drawer__namechevron { display: none; }
 body.redesign-reservasi .rr-drawer__headmeta { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 body.redesign-reservasi .rr-drawer__wa { color: #7FE0A8; font-weight: 600; font-size: 13px; text-decoration: none; display: inline-flex; align-items: center; gap: 5px; }
 body.redesign-reservasi .rr-drawer__statuspill { font-weight: 700; font-size: 11px; padding: 5px 11px; border-radius: 20px; }

@@ -25,6 +25,11 @@ class Users extends Model
         'register_token',
         'group_id',
         'raw_branch_id', // branch
+        // Pusat Akun Fase B
+        'last_seen_at',
+        'must_change_password',
+        'force_logout_at',
+        'created_at', // $timestamps=false → diisi manual saat create (masa tenggang detektor)
     ];
 
     public $incrementing = false;
