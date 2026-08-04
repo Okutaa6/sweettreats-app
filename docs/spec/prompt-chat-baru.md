@@ -104,34 +104,39 @@ Peran chat ini:
 - Deploy: dev kapan saja bila diminta; PROD hanya kalau aku sebut prod
   eksplisit.
 
-Status per 2026-07-25:
-- PROD: sudah dapat hotfix reservasi (drawer tutup otomatis + tombol anti-race).
-- DEV (feature/absensi): absen HP selfie, remember-me, Pusat Akun + Fase D
-  audit, Jatah Cuti, Lembar Gaji, fix IPv6 /64, fix backdate re-reconcile,
-  batch konsistensi style. Semua sudah di-push & terverifikasi di dev.
-- BELUM: deploy prod absensi+cuti (butuh 8 role + 29 akun + verifikasi
-  TrustProxies + SQL audit_log). Runbook: docs/deploy/deploy-absensi.md.
+Status per 2026-08-05 (baca docs/status-proyek.md untuk potret penuh):
+- PROD LIVE GERBONG PENUH (main 06938ed, deploy 4 Agu malam): absensi, absen
+  HP selfie, Pusat Akun, cuti, checklist+cuci AC, ROP, Aturan Kerja, reskin
+  zona. Lembar Gaji DISEMBUNYIKAN di prod (belum selesai; dev masih ada).
+- 12 akun gelombang-1 hidup, semua wajib-ganti-password. Kredensial:
+  database/sql/local/akun-prod-2026-08.local.md (LOKAL, gitignored — jangan
+  pindah ke Drive/push). 3 akun marketing PINDAH email ke @sweettreats.id.
+- Branch: integrasi = feature/rop (semua kerjaan bermuara ke sini);
+  release/2026-08-pengeluaran selalu disamakan; dev = prod + data demo
+  (penanda [DEMO], att_day 1 Jul-4 Agu — hapus saat mau data asli).
+- Cron prod TERBUKTI hidup (schedule:run via hPanel; omnicare:sync jalan
+  harian → rop:sapu dkk otomatis).
+- Chat paralel yang sedang jalan: batch rapi-rapi (§F: konsolidasi sidebar
+  absensi+ROP, gerbang desktop absen, ACC 1 lapis Dani/Robi, penataan
+  marketing) · pola-interaksi (WIP unstaged di worktree sweettreats-rop —
+  JANGAN diganggu) · security hardening (handoff).
 
 Keputusan/menggantung:
-- CSV kandidat reservasi yang mungkin tertimpa selama regresi 14-25 Jul
-  (nunggu head sales; scan read-only prod sudah dilakukan: 150 kandidat —
-  Sunter 60 / Bintaro 46 / Cinere 23 / Kalideres 17 / Pamulang 4. Catatan
-  penting: reservasi TIDAK punya audit-trail, jadi identitas pasien lama yang
-  tertimpa TIDAK bisa dipulihkan dari data — CSV hanya untuk cross-check FO).
-- Reza: keputusan day-excuse checklist + izin reskin halaman Role.
-- Finance/Dani: cuti potong hari kalender vs hari kerja; cuti seminggu penuh
-  tanpa pengajuan; tanggal kontrak 29 orang; akun Yanwar Fauzi & Madalena
-  belum ada di dev.
-- Landing: polish (deep-link /reservasi, kartu pasien lebih dominan,
-  cross-link ke sweettreats.id) — halaman Reza, koordinasi dulu.
+- 14 akun karyawan sisanya via Pusat Akun (Rokhmatun & Madalena belum ketemu
+  utk saldo cuti) + kabari kredensial semua orang.
+- CSV 150 kandidat reservasi tertimpa (nunggu head sales; tak bisa dipulihkan
+  dari data, hanya cross-check FO).
+- Finance/Dani: cuti hari kalender vs kerja; tanggal kontrak 29 orang.
+- Fitur Penempatan: rencana siap (rencana-penempatan.md), serahkan ke Reza.
+- Template impor Accurate ROP di-pause (bahas dgn Finance).
 
-Aturan kerja: chat ini pegang docs/memori + deploy, JANGAN commit kode aplikasi
-(itu tugas chat visual/security, biar tak tabrakan branch). Jangan deploy prod
-tanpa aku sebut prod eksplisit. Sebelum deploy prod besar, cek prasyarat:
-TrustProxies (premis WiFi-saksi), tabel audit_log
-(database/sql/2026_07_24_pusat_akun_audit.sql — prod tanpa ini = semua login
-500), 8 role + 29 akun, grant akses BY LINK bukan by id node, urutan SQL +
-access:rebuild + cuti:saldo-awal --terapkan.
+Aturan kerja: chat ini pegang docs/memori + koordinasi + deploy; JANGAN commit
+kode aplikasi (tugas chat build). Folder utama sweettreats dipakai bergantian
+antar chat — cek `git status` + branch dulu sebelum apa pun. Worktree
+sweettreats-rop = feature/rop. Jangan deploy prod tanpa aku sebut "prod".
+Sebelum aksi prod: baca docs/deploy/manifest-prod.md. WAJIB tiap milestone:
+entri docs/log-update.md (+status-proyek.md bila peta berubah) → commit →
+salin keduanya ke "G:\My Drive\Task Management\Sweet Treats\" (dibaca Gemini).
 ```
 
 ---
@@ -238,8 +243,10 @@ Catat keputusan penting ke docs/ + memori sebelum chat ditutup.
 
 ## F. Chat: BATCH RAPI-RAPI PASCA-LAUNCH (2026-08-05)
 
-> Saran model: bebas. Isinya 5 pekerjaan menengah yang saling lepas —
+> Saran model: bebas. Isinya 4 pekerjaan menengah yang saling lepas —
 > kerjakan URUT, uji per item di lokal, deploy dev per batch.
+> (Item ke-5 lama — mode lihat-saja Irma — DIBATALKAN 2026-08-05: Ekky
+> memutuskan Irma dapat akses penuh Doctor+Reservasi, sudah terpasang.)
 
 ```
 Lanjutkan proyek SweetTreats lewat memori. Chat ini mengerjakan BATCH
@@ -250,7 +257,7 @@ Lanjutkan proyek SweetTreats lewat memori. Chat ini mengerjakan BATCH
 Baca dulu: docs/README.md · docs/spec/peta-tema.md · docs/spec/
 pola-interaksi.md · memori project_absensi_status_deploy.
 
-5 pekerjaan (urut prioritas):
+4 pekerjaan (urut prioritas):
 1. KONSOLIDASI SIDEBAR ABSENSI — "Kehadiran" jadi pintu tunggal di sidebar;
    Upload Data / Mapping / Rekap Persetujuan / Periode Gaji cukup lewat bar
    tab yang SUDAH ADA (resources/views/absensi/_finance_tabs.blade.php).
@@ -276,10 +283,6 @@ pola-interaksi.md · memori project_absensi_status_deploy.
    Framework, Review Konten, Keyword) · "Referral & Member" (Kode Referral,
    Affiliate, KOL, KOC, Sweet Mates). Fix typo "Refferal"→"Referral".
    SQL node idempoten + grant BY LINK; ingat node id beda antar env.
-5. MODE LIHAT-SAJA IRMA — Coordinator Dentist dapat halaman Doctor +
-   Reservasi VIEW-ONLY: grant halaman + sembunyikan/matikan tombol aksi
-   (tambah/ubah/hapus) untuk role itu, server-side juga menolak POST-nya
-   (bukan cuma CSS). Kecil tapi teliti.
 
 Aturan kerja: worktree/branch SENDIRI dari feature/rop TERBARU (worktree
 sweettreats-rop DIPAKAI chat pola-interaksi — jangan sentuh; koordinasi
