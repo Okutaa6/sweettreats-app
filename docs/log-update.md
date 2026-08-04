@@ -7,6 +7,84 @@
 
 ---
 
+## 2026-08-05 — Akar dari semua "menu hilang": PROD menjalankan kode basi (DIPERBAIKI)
+
+Berangkat dari empat permintaan Ekky (cabut Promo Talitha, Pengajuan pindah ke
+drop-up, HP mendarat di absensi, dan "sidebar Anisa kok belum berubah"), yang
+ketemu jauh lebih dalam.
+
+### Temuan utama: prod memuat kelas dari berkas basi
+
+`php artisan access:rebuild` di prod **selama ini menjalankan kode tertanggal
+4 Juni**. Sebabnya: prod menyimpan **162 salinan berpenanda tanggal** (sisa era
+FileZilla, mis. `RebuildGroupAccess20260604.php`) di dalam `app/`, dan
+salinan-salinan itu mendeklarasikan **nama kelas yang sama** dengan berkas
+aslinya. Saat Artisan memindai folder Commands, berkas basi ikut dimuat lebih
+dulu, lalu versi asli tak pernah dipakai lagi.
+
+Akibatnya nyata dan sempat membingungkan: perbaikan menu sudah benar di dev,
+dinaikkan ke prod, `access:rebuild` dijalankan — **dan tidak terjadi apa-apa**.
+Dev bersih dari salinan semacam ini (nol berkas), jadi masalahnya hanya muncul
+di prod. Ini juga berarti setiap "kok di prod nggak ngefek" di masa lalu layak
+dicurigai ke arah yang sama.
+
+**Beres**: 162 berkas dipindahkan (bukan dihapus) ke
+`~/backups/shadow-app-2026-08-05/`, autoloader dibangun ulang, cache
+dibersihkan. Terverifikasi kelasnya kini dimuat dari berkas yang benar, dan
+20 command lain memang sudah sehat sejak awal. Semua berkas itu **tak terlacak
+git**, jadi tak ada yang hilang dari repo.
+
+### Kenapa menu Anisa & Irma tak pernah muncul
+
+Paket sales Anisa (Pasien, Doctor, Reservation, Laporan Penjualan, Dashboard
+Sales) dan akses Doctor+Reservasi Irma sudah di-ACC dan sudah di-grant sejak
+5 Agu — **dan tak pernah terlihat**. Menu dirender sebagai pohon yang hanya
+dibangun dari node level-0 yang di-grant; halaman yang diberikan tapi akarnya
+tidak ikut diberikan hilang tanpa suara. Ini penyebab yang sama dengan insiden
+15 node saat gerbong naik dan menu personal role lama — **tiga kali dalam dua
+hari, satu akar masalah**.
+
+Diperbaiki di kodenya: pembangun pohon kini menyisipkan leluhur yang tak
+di-grant sebagai **wadah** dengan link dikosongkan — murni soal tampil, bukan
+izin. Diuji dan terbukti: `hasMenuAccess()` tetap menolak, grant di tabel tak
+bertambah, tapi menunya muncul. `Set > Group > Access` juga disatukan ke
+implementasi yang sama, karena dulu ia menyalin logika pohon sendiri — sekali
+admin menyimpan akses lewat layar itu, perbaikan ini akan hilang diam-diam.
+
+**Jebakan yang hampir kena**: sempat direncanakan memperbaikinya dengan
+meng-grant akar "Data Center" saja. Untung diuji di dev dulu — node akar itu
+membawa link `MetricaSetting`, jadi itu sama dengan **memberi Anisa & Irma
+halaman yang justru dikecualikan** waktu paket sales diputuskan. Ternyata
+halaman itu bahkan tidak ada (tak ada rutenya, 404), jadi link matinya
+dikosongkan supaya akar itu jadi wadah murni dan aman di-grant kapan pun.
+
+### Yang berubah untuk pengguna
+
+- **Pengajuan pindah ke drop-up akun.** Mengajukan pengeluaran itu kerjaan
+  pribadi; buktinya bagi Anisa & Yovanka section "Keuangan" di menu utama
+  berdiri hanya untuk menampung satu baris itu. Antrian & Rekap tetap di menu
+  utama karena itu kerjaan role Finance/pengelola.
+- **Dibuka dari HP, halaman pertama jadi Absensi Saya.** Sengaja sempit: HP
+  saja (tablet & komputer tidak berubah), hanya saat masuk (tautan langsung
+  tak pernah dialihkan), dan hanya untuk yang punya akses absen — akun peran
+  bersama (Sales, Admin, Super Admin, Branch Executive) tidak ikut, terverifikasi.
+- **Anisa** kini punya Pasien, Doctor, Reservation, Laporan Penjualan,
+  Dashboard Sales. **Irma** punya Doctor + Reservation.
+- **Talitha** tak lagi punya menu Promo (keputusan Ekky).
+- **Baris kembar dibersihkan**: Anisa sempat akan melihat "Reservasi" empat
+  kali dan "Laporan Penjualan" dua kali (node kembar lama). Admin General juga
+  ikut dirapikan — akun itu sudah melihat dua baris untuk satu halaman
+  sebelum ini.
+
+### Hasil audit & verifikasi
+
+Sebelum dan sesudah naik prod, sapuan yang sama dijalankan: **nol baris
+kembar, nol section kosong, nol peran tanpa menu, nol kebocoran izin,
+nol menu yang mengarah ke halaman tak ada** (satu-satunya tadinya
+`MetricaSetting`, sudah dibereskan), dan **nol role yang landing-nya tak
+di-grant**. Ke-17 peran yang ada penghuninya dirender satu per satu di dev
+dan di prod. Log aplikasi prod bersih.
+
 ## 2026-08-05 — Yovanka tak bisa absen → ketemu lubang akses yang lebih gawat (DIPERBAIKI di prod)
 
 Ekky melapor: drop-up akun Yovanka (Head Marketing) cuma berisi "Ganti kata

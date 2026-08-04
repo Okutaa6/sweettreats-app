@@ -5,11 +5,12 @@
 > Teknis & coding dikerjakan di chat Claude; file ini adalah **potret proyek**:
 > apa yang sudah, sedang, dan akan dikerjakan, plus utang yang belum dibayar.
 >
-> **Terakhir diperbarui: 2026-08-05 — batch "rapi-rapi pasca-launch" (4 item)
-> sudah NAIK PROD dan terverifikasi, menyusul perbaikan akses: 6 orang (Yovanka,
-> Talitha, Alif, Dani, Hari, Robi) tadinya tak bisa absen, dan rantai
-> persetujuan putus di Head Marketing & Executive — dua-duanya sudah dibereskan.
-> Prod = `main` @ `69f4ccd`; keempat branch (rapi, rop, release, main) sejajar.
+> **Terakhir diperbarui: 2026-08-05 — batch "rapi-rapi pasca-launch" naik prod,
+> lalu dua ronde perbaikan akses: (1) 6 orang tak bisa absen & rantai
+> persetujuan putus di Head Marketing/Executive; (2) akar semua "menu hilang"
+> ketemu — prod menyimpan 162 salinan berkas basi yang membajak
+> `access:rebuild`, sudah disingkirkan. Menu Anisa & Irma yang di-ACC 5 Agu kini
+> benar-benar muncul. Prod = `main` @ `6fc928b`; keempat branch sejajar.
 > Pengguna perlu logout-login sekali supaya menu barunya muncul.**
 > Kalau tanggal ini sudah jauh lewat,
 > minta chat teknis menyegarkan file ini sebelum dipakai mengambil keputusan.
@@ -26,7 +27,7 @@ checklist operasional, dan integrasi akunting (Accurate).
 **Lingkungan:**
 | Env | URL | Branch git | Keadaan |
 |---|---|---|---|
-| Prod | app.sweettreats.id | `main` (`69f4ccd`, 5 Agu) | GERBONG LIVE + batch rapi-rapi (sidebar, absen HP, 1 lapis) + fix akses menu personal |
+| Prod | app.sweettreats.id | `main` (`6fc928b`, 5 Agu) | GERBONG LIVE + batch rapi-rapi + fix akses menu (personal, Anisa/Irma, berkas basi disingkirkan) |
 | Dev | dev.sweettreats.id | `feature/rapi-pasca-launch` (= main) | = main + data demo |
 | Lokal | 2 working tree (utama + worktree rop) | `feature/absensi` (pensiun) / `feature/rop` | — |
 
