@@ -183,6 +183,29 @@ if (!function_exists('shellAccountLinks')) {
     }
 }
 
+if (!function_exists('shellTabbedLinks')) {
+    /**
+     * Link yang halamannya sudah terjangkau lewat bar tab / tombol di dalam
+     * halaman "pintu"-nya → tidak perlu baris sidebar sendiri. Peta:
+     * link tab => link pintu tunggalnya.
+     *
+     * Ini murni soal RENDER menu. Grant node-nya TIDAK dicabut: node ber-link
+     * 'absensi' adalah kunci AuthGuard untuk SEMUA /absensi/* (cabut grant =
+     * seluruh halaman absensi role itu mati — terbukti di prod 2026-08-05,
+     * lalu dikembalikan). Sembunyikan di sini, biarkan grant hidup.
+     */
+    function shellTabbedLinks(): array
+    {
+        return [
+            'absensi'           => 'absensi/kehadiran', // Upload Data → tab di Kehadiran (_finance_tabs)
+            'absensi/mapping'   => 'absensi/kehadiran',
+            'absensi/recap'     => 'absensi/kehadiran',
+            'absensi/periode'   => 'absensi/kehadiran',
+            'finance/rop/rekap' => 'finance/rop',       // Rekap → tombol "Rekap" di Antrian
+        ];
+    }
+}
+
 if (!function_exists('shellMenuSections')) {
     /**
      * Menu utama single-column: daftar section {label, icon, items:[{nama,link,icon,active}]}.
@@ -197,6 +220,42 @@ if (!function_exists('shellMenuSections')) {
         $personal   = array_keys(shellPersonalMap());
         $controller = request()->segment(1);
         $sections   = [];
+
+        // Semua link yang role ini pegang — untuk tahu apakah "pintu" dari
+        // sebuah link ber-tab ikut ter-grant (lihat shellTabbedLinks).
+        $allLinks = [];
+        foreach ($data as $p) {
+            if (!is_array($p)) continue;
+            foreach (shellCollectLeaves($p) as $l) $allLinks[$l['link']] = true;
+        }
+
+        // Link ber-tab disembunyikan kalau:
+        //  a) role memegang pintunya (navigasi lewat tab tersedia), ATAU
+        //  b) khusus klaster absensi: role toh 403 di halamannya
+        //     (controller upload/mapping/recap/periode semua menjaga
+        //     canSeeAllBranches) — baris sidebar yang berujung 403 adalah
+        //     kegagalan senyap, bukan pintu.
+        // 'finance/rop/rekap' TIDAK ikut aturan (b): Executive hanya pegang
+        // Rekap tanpa Antrian — sembunyikan buta = pintu satu-satunya hilang.
+        $tabbed = shellTabbedLinks();
+        $hidden = [];
+        $doorPatterns = [];
+        foreach ($tabbed as $tab => $door) {
+            $hasDoor = !empty($allLinks[$door]);
+            $isAbsensiCluster = $door === 'absensi/kehadiran';
+            if ($hasDoor || ($isAbsensiCluster && !canSeeAllBranches())) {
+                $hidden[$tab] = true;
+            }
+            if ($hasDoor) {
+                // Pintu ikut menyala saat user sedang berada di salah satu
+                // halaman tab-nya (Upload/Mapping/Rekap/Periode → Kehadiran).
+                if (!isset($doorPatterns[$door])) {
+                    $doorPatterns[$door] = [$door, $door.'/*'];
+                }
+                $doorPatterns[$door][] = $tab;
+                if (strpos($tab, '/') !== false) $doorPatterns[$door][] = $tab.'/*';
+            }
+        }
 
         // Ada leaf ber-sub-path yang cocok persis dengan URL sekarang?
         // (mis. WiFi Cabang 'absensi/wifi' saat membuka /absensi/wifi)
@@ -217,17 +276,23 @@ if (!function_exists('shellMenuSections')) {
             if (!is_array($p)) continue;
             $leaves = array_values(array_filter(
                 shellCollectLeaves($p),
-                fn ($l) => !in_array($l['link'], $personal, true)
+                fn ($l) => !in_array($l['link'], $personal, true) && empty($hidden[$l['link']])
             ));
             if (!$leaves) continue;
 
             // Link ber-sub-path (mis. 'checklist/positions') dicocokkan ke path
             // penuh; link satu-segmen cukup cocok segment-1 — kecuali sedang ada
             // leaf sub-path yang cocok persis (lihat $deepActive di atas).
+            // Link "pintu" (doorPatterns) menyala untuk seluruh klaster tab-nya.
             foreach ($leaves as &$l) {
-                $l['active'] = (strpos((string) $l['link'], '/') !== false)
-                    ? request()->is($l['link'])
-                    : (! $deepActive && $l['link'] === $controller);
+                $link = (string) $l['link'];
+                if (isset($doorPatterns[$link])) {
+                    $l['active'] = request()->is(...$doorPatterns[$link]);
+                } elseif (strpos($link, '/') !== false) {
+                    $l['active'] = request()->is($link);
+                } else {
+                    $l['active'] = ! $deepActive && $link === $controller;
+                }
             }
             unset($l);
 
@@ -257,13 +322,16 @@ if (!function_exists('getActivePageName')) {
             $fallback = null;
             foreach ($data as $row) {
                 foreach (($row['sub'] ?? []) as $subrow) {
-                    foreach (($subrow['child'] ?? []) as $childrow) {
-                        $link = $childrow['link'] ?? null;
+                    // Node level-sub tanpa anak (mis. Kehadiran, Cuti, Aturan
+                    // Kerja) adalah leaf juga — ikut dicek, bukan cuma 'child'.
+                    $nodes = array_merge([$subrow], $subrow['child'] ?? []);
+                    foreach ($nodes as $node) {
+                        $link = $node['link'] ?? null;
                         if ($link && strpos($link, '/') !== false && request()->is($link)) {
-                            return $childrow['nama'];
+                            return $node['nama'];
                         }
                         if ($link === $controller && $fallback === null) {
-                            $fallback = $childrow['nama'];
+                            $fallback = $node['nama'];
                         }
                     }
                 }
