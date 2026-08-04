@@ -9,11 +9,23 @@
 
 ## 1. Keadaan hari ini
 
+> ⚠️ **SUDAH DIEKSEKUSI — dokumen ini kini ARSIP, bukan daftar tugas.**
+> Gerbong besar naik prod 4 Agu malam (`06938ed`), batch rapi-rapi menyusul
+> 5 Agu (`b12019e`). Semua yang di bawah (32 SQL, 19 migration, 8 role,
+> langkah manual) **sudah dijalankan di prod**. Jangan dipakai sebagai
+> checklist yang belum dikerjakan. Nilainya sekarang ada di §4.3, §5, §6a:
+> **gotcha yang tetap berlaku untuk deploy berikutnya** (grant BY LINK,
+> rsync aset, DELIMITER via mysql CLI, baseline migration setengah-jalan).
+> Potret terkini: `../status-proyek.md` · jurnal: `../log-update.md`.
+
 | | Branch | Commit | Catatan |
 |---|---|---|---|
-| **PROD** | `main` | `b8b8f2d` (25 Jul) | cuma sampai hotfix reservasi |
-| **DEV** | `feature/rop` | `253c02e` (4 Agu) | gerbong LENGKAP + Aturan Kerja, teruji |
-| **Calon rilis** | `release/2026-08-pengeluaran` | `253c02e` | selalu disamakan dgn feature/rop, ini yang di-PR ke `main` |
+| **PROD** | `main` | `b12019e` (5 Agu) | gerbong + batch rapi-rapi, LIVE |
+| **DEV** | `feature/rapi-pasca-launch` | `b12019e` | = main + data demo |
+| **Calon rilis** | `release/2026-08-pengeluaran` | `b12019e` | sejajar dgn main |
+
+*Keadaan aslinya saat dokumen ini ditulis (2026-08-01): prod `b8b8f2d`, dev
+`feature/rop` `253c02e`. Disimpan sebagai konteks isi di bawah.*
 
 Gerbong = **91 commit / 298 berkas** di depan `main`. Isinya: absensi lengkap,
 absen HP, Pusat Akun, jatah cuti, lembar gaji, checklist + cuci AC (Reza),
