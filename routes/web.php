@@ -17,6 +17,7 @@ use App\Http\Controllers\Absensi\AbsensiRecapController;
 use App\Http\Controllers\Absensi\AbsensiPeriodController;
 use App\Http\Controllers\Absensi\AbsensiMappingController;
 use App\Http\Controllers\Absensi\AbsensiBranchIpController;
+use App\Http\Controllers\Absensi\AturanKerjaController;
 use App\Http\Controllers\Absensi\AkunAbsenController;
 use App\Http\Controllers\Absensi\AkunAbsensiController;
 use App\Http\Controllers\Absensi\AkunPengajuanController;
@@ -364,6 +365,18 @@ Route::middleware([AuthGuard::class])->group(function () {
     Route::get('absensi/wifi',              [AbsensiBranchIpController::class, 'index'])->name('absensi.wifi');
     Route::post('absensi/wifi',             [AbsensiBranchIpController::class, 'store'])->name('absensi.wifi.store');
     Route::post('absensi/wifi/{id}/toggle', [AbsensiBranchIpController::class, 'toggle'])->name('absensi.wifi.toggle');
+
+    // ── Aturan Kerja (jam kerja + penugasan + kalender libur) — gate role di
+    //    controller (Head IT/Finance/Super Admin), menulis tabel yang dibaca
+    //    mesin, TIDAK menyentuh reconcile. docs/rencana/rencana-aturan-kerja.md ──
+    Route::get('absensi/aturan',                    [AturanKerjaController::class, 'index'])->name('absensi.aturan');
+    Route::post('absensi/aturan/rule',              [AturanKerjaController::class, 'storeRule'])->name('absensi.aturan.rule.buat');
+    Route::post('absensi/aturan/rule/{id}',         [AturanKerjaController::class, 'updateRule'])->name('absensi.aturan.rule.ubah');
+    Route::post('absensi/aturan/rule/{id}/hapus',   [AturanKerjaController::class, 'deleteRule'])->name('absensi.aturan.rule.hapus');
+    Route::post('absensi/aturan/penugasan',         [AturanKerjaController::class, 'assign'])->name('absensi.aturan.penugasan');
+    Route::post('absensi/aturan/default-role',      [AturanKerjaController::class, 'defaultRole'])->name('absensi.aturan.default-role');
+    Route::post('absensi/aturan/libur',             [AturanKerjaController::class, 'storeException'])->name('absensi.aturan.libur.buat');
+    Route::post('absensi/aturan/libur/{id}/hapus',  [AturanKerjaController::class, 'deleteException'])->name('absensi.aturan.libur.hapus');
 
     // ── Persetujuan (inbox approver, mobile) — segment(1) = 'persetujuan' ──
     Route::get('persetujuan',          [PersetujuanController::class, 'index'])->name('persetujuan.inbox');

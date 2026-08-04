@@ -165,6 +165,32 @@ class UserManagement extends Controller
         // aktif, tanpa perlu karyawan mengajukan / supervisor konfirmasi.
         try { \App\Models\UserPosition::syncFromUser($user, session('id')); } catch (\Throwable $e) {}
 
+        // Aturan kerja default per role (group_path.att_default_rule_id, diatur
+        // di halaman Aturan Kerja Tab Penugasan). Tanpa ini akun baru tak punya
+        // att_user_rule → scan-nya diam-diam tak dinilai (pelajaran 538 scan).
+        // hasColumn: kolomnya datang dari SQL 2026_08_04_aturan_kerja.sql —
+        // environment yang belum apply jangan sampai gagal bikin akun.
+        if (\Illuminate\Support\Facades\Schema::hasColumn('group_path', 'att_default_rule_id')) {
+            $defaultRule = \Illuminate\Support\Facades\DB::table('group_path')
+                ->where('id', $user->group_id)->value('att_default_rule_id');
+            // find() dulu, BARU insert: kolomnya soft reference — kalau aturannya
+            // sudah dihapus, jangan sampai FK att_user_rule meledakkan bikin-akun.
+            $ruleDefault = $defaultRule ? \App\Models\AttWorkRule::find($defaultRule) : null;
+            if ($ruleDefault) {
+                \App\Models\AttUserRule::create([
+                    'user_id'        => $user->id,
+                    'rule_id'        => $ruleDefault->id,
+                    'effective_from' => now()->toDateString(),
+                ]);
+                \App\Models\AttRuleLog::catat('penugasan', $user->nama, [
+                    'dari'  => '(akun baru)',
+                    'ke'    => $ruleDefault->nama,
+                    'mulai' => now()->toDateString(),
+                    'via'   => 'default role',
+                ]);
+            }
+        }
+
         \App\Models\AuditLog::record('create', 'Buat akun: ' . $user->nama, $user);
 
         return redirect()->route('setusermanagement.detail', $user->id)
