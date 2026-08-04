@@ -53,7 +53,7 @@ checklist operasional, dan integrasi akunting (Accurate).
 ## 2a. Rencana deploy prod (setelah Aturan Kerja selesai)
 
 Rujukan wajib: **`docs/deploy/manifest-prod.md`** (daftar centang lengkap:
-30 SQL urut, 19 migration, 8 role baru + 29 akun, rsync aset, verifikasi
+32 SQL urut, 19 migration, 8 role baru + 29 akun, rsync aset, verifikasi
 per peran). Jangan deploy dari ingatan.
 
 Dua kiriman, urut:

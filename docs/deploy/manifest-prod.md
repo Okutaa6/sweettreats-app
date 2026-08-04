@@ -12,8 +12,8 @@
 | | Branch | Commit | Catatan |
 |---|---|---|---|
 | **PROD** | `main` | `b8b8f2d` (25 Jul) | cuma sampai hotfix reservasi |
-| **DEV** | `feature/rop` | `3dd604a` (1 Agu) | gerbong LENGKAP, sudah diuji |
-| **Calon rilis** | `release/2026-08-pengeluaran` | `3dd604a` | dipotong dari feature/rop, ini yang di-PR ke `main` |
+| **DEV** | `feature/rop` | `253c02e` (4 Agu) | gerbong LENGKAP + Aturan Kerja, teruji |
+| **Calon rilis** | `release/2026-08-pengeluaran` | `253c02e` | selalu disamakan dgn feature/rop, ini yang di-PR ke `main` |
 
 Gerbong = **91 commit / 298 berkas** di depan `main`. Isinya: absensi lengkap,
 absen HP, Pusat Akun, jatah cuti, lembar gaji, checklist + cuci AC (Reza),
@@ -72,7 +72,7 @@ baru tampil tanpa gaya.
 Hasil pemeriksaan prod hari ini: tabel `att_*` **0**, tabel cuti **0**, tabel
 `sys_ac*` **0**, `sys_checklist*` **8 (sudah ada)**, `audit_log` **sudah ada**.
 
-### 4.1 SQL manual — 30 berkas, urut tanggal
+### 4.1 SQL manual — 32 berkas, urut tanggal
 
 Absensi (9): `2026_07_17_absensi_core` · `2026_07_18_absensi_work_rule` ·
 `2026_07_18_absensi_day` · `2026_07_18_absensi_request` ·
@@ -104,6 +104,13 @@ Accurate untuk ROP (1): `2026_06_12_accurate_tables` — lihat §4.3. Urutkan
 **sebelum** `2026_07_31_rop_access`, karena dropdown akun bergantung padanya.
 
 ROP (2): `2026_07_31_rop_core` · `2026_07_31_rop_access`
+
+Checklist Reza (1): `2026_08_01_checklist_item_exception` — ⚠️ WAJIB via
+**mysql CLI** (pakai DELIMITER; gagal lewat tinker/DB::unprepared).
+
+Aturan Kerja (1): `2026_08_04_aturan_kerja` — node menu + kolom default rule
++ tabel att_rule_log; jalankan PALING AKHIR (butuh parent menu Absensi dan
+role sudah ada). Grant: Supervisor + Head IT + Finance + Super Admin.
 
 ### 4.2 Migration — 19 berkas
 
