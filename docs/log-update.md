@@ -7,6 +7,42 @@
 
 ---
 
+## 2026-08-04 malam — Fitur Aturan Kerja SELESAI di lokal (halaman 3 tab)
+
+- Halaman **Aturan Kerja** (`/absensi/aturan`, menu seksi Absensi) selesai
+  dibangun & lolos uji di lokal — branch baru `feature/aturan-kerja` dari
+  `feature/rop`. Tiga tab sesuai rencana:
+  1. **Aturan** — daftar aturan (GS / FO-Asdent / Fleksibel) + tambah/ubah/
+     hapus, editor jam per hari (libur, window masuk, pulang, mulai lembur).
+     Ubah aturan yang dipakai orang → konfirmasi "berlaku untuk N karyawan
+     mulai besok".
+  2. **Penugasan** — tabel karyawan → aturan aktif; ganti aturan = baris baru
+     ber-tanggal-mulai, baris lama ditutup otomatis (riwayat = jejak gaji,
+     tidak pernah diedit). Plus **default per role** untuk akun baru
+     (Pusat Akun otomatis pasang aturan saat akun dibuat).
+  3. **Kalender Libur** — libur nasional/tanggal khusus (input manual SKB
+     3 Menteri), mekanisme = baris exception pola SQL Lebaran, nol perubahan
+     mesin. Libur ≠ cuti bersama (ada rambu + link ke halaman Cuti).
+- Rel pengaman sesuai rencana: gate role di controller (Head IT + Finance +
+  Super Admin), semua perubahan berlaku KE DEPAN saja (backdate ditolak),
+  mesin rekonsiliasi TIDAK disentuh, tiap perubahan tercatat di log baru
+  `att_rule_log` (siapa, kapan, dari→ke — tampil di bawah halaman).
+- Uji: 28/28 skenario headless lulus (guard 403, CRUD aturan, tutup-baris-lama,
+  engine baca aturan lama utk kemarin & baru utk hari ini, overlap libur
+  ditolak, libur lampau terkunci) + smoke HTTP login Head IT → halaman render
+  utuh dengan menu sidebar & JS aktif.
+- Audit putaran kedua (sesi sama) menemukan & memperbaiki 5 hal: (1) KRITIS —
+  section JS salah nama (`script` vs yield layout `js`) bikin seluruh JS
+  halaman mati; (2) hapus aturan meninggalkan default-role menggantung →
+  bikin AKUN BARU bisa 500, kini default ikut dilepas + hook Pusat Akun
+  defensif; (3) nama aturan/libur tak lagi diinterpolasi ke JS confirm
+  (celah self-XSS); (4) old() dibatasi ke form create saja (gagal-validasi
+  satu form tadinya menulari nilai semua editor — bahaya rename tak sengaja);
+  (5) minor: atribut `data-toggle` diganti `data-buka` (hindari data-API
+  Bootstrap), colspan empty-state log, log rule.ubah simetris dari↔ke.
+- Deploy nanti butuh: `database/sql/2026_08_04_aturan_kerja.sql` +
+  `php artisan access:rebuild`. BELUM di-commit — menunggu review Ekky.
+
 ## 2026-08-04 malam — Deploy prod ditunda menunggu fitur Aturan Kerja; demo besok
 
 - Keputusan Ekky: deploy prod MENUNGGU fitur Aturan Kerja selesai — fitur itu

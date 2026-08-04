@@ -5,7 +5,8 @@
 > Teknis & coding dikerjakan di chat Claude; file ini adalah **potret proyek**:
 > apa yang sudah, sedang, dan akan dikerjakan, plus utang yang belum dibayar.
 >
-> **Terakhir diperbarui: 2026-08-04.** Kalau tanggal ini sudah jauh lewat,
+> **Terakhir diperbarui: 2026-08-04 malam (fitur Aturan Kerja selesai lokal).**
+> Kalau tanggal ini sudah jauh lewat,
 > minta chat teknis menyegarkan file ini sebelum dipakai mengambil keputusan.
 
 ## 1. Apa aplikasi ini
@@ -116,14 +117,23 @@ bukan symlink).
   `main`, TERPISAH dari gerbong. Lintas-isu: TrustProxies kosong memengaruhi
   throttle DAN premis WiFi-saksi absen HP.
 
+### Selesai di LOKAL — menunggu review Ekky (2026-08-04 malam)
+- **Aturan Kerja** (`/absensi/aturan`, branch `feature/aturan-kerja` dari
+  `feature/rop`, BELUM commit): halaman 3 tab — (1) Aturan: CRUD + editor jam
+  per hari + konfirmasi "berlaku utk N karyawan mulai besok"; (2) Penugasan:
+  ganti aturan = baris baru bertanggal (riwayat gaji utuh) + default per role
+  utk akun baru Pusat Akun; (3) Kalender Libur: exception pola Lebaran, rambu
+  libur ≠ cuti bersama. Gate Head IT/Finance/Super Admin di controller; semua
+  perubahan forward-only; mesin rekonsiliasi tak disentuh; log `att_rule_log`.
+  Uji 28/28 lulus + smoke HTTP (termasuk audit putaran-2: fix section JS,
+  default-role menggantung, self-XSS confirm, old() lintas-form).
+  Deploy: SQL `2026_08_04_aturan_kerja.sql` +
+  `access:rebuild`. Rencana: `rencana/rencana-aturan-kerja.md`.
+
 ### Rencana yang SUDAH di-ACC, belum dibangun
 - **Paket "Pengaturan Operasional"** (ACC 2026-08-04, dibagi dua pemilik,
-  keduanya basis `feature/rop`, prioritas: setelah prod stabil):
-  - **Aturan Kerja — dikerjakan EKKY, SEKARANG (prasyarat deploy prod)**
-    (`rencana/rencana-aturan-kerja.md`): UI kelola jam kerja + penugasan
-    aturan per orang (default per role) + kalender libur nasional. Mesin
-    sudah data-driven; ini cuma pintunya. Tanpa brief desain — ikuti pola
-    halaman setting yang ada.
+  keduanya basis `feature/rop`):
+  - ~~Aturan Kerja (Ekky)~~ → **SELESAI di lokal**, lihat blok di atas.
   - **Penempatan — dikerjakan REZA** (`rencana/rencana-penempatan.md`):
     staf rolling/backup ke cabang lain tercatat resmi; checklist ikut cabang
     penempatan; Nissa & Irma boleh menempatkan staf mana pun di bawah bagan
