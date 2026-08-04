@@ -128,10 +128,13 @@ class RebuildGroupAccess extends Command
      * hari: 15 node saat gerbong naik, menu personal role lama, lalu paket
      * sales Anisa & akses Doctor/Reservasi Irma yang di-ACC tapi tak terlihat.
      *
-     * Kenapa tidak diselesaikan dengan meng-grant akarnya saja: akar "Data
-     * Center" membawa link `MetricaSetting`. Meng-grant akar = memberi halaman
-     * itu juga — persis yang dikecualikan waktu Supervisor diberi paket sales.
-     * Wadah dan halaman tak boleh dipaksa jadi satu keputusan.
+     * Kenapa tidak diselesaikan dengan meng-grant akarnya saja: sebuah node
+     * bisa merangkap wadah DAN halaman. Akar "Data Center" dulu membawa link
+     * `MetricaSetting`, jadi meng-grant akar = memberi halaman itu juga —
+     * persis yang dikecualikan waktu Supervisor diberi paket sales. (Link itu
+     * ternyata mati — rutenya tak ada — dan sudah dikosongkan lewat
+     * `database/sql/2026_08_05_akses_data_center_root.sql`.) Prinsipnya tetap:
+     * "tampilkan wadahnya" dan "beri halamannya" harus bisa diputus terpisah.
      *
      * Yang disuntikkan hanyalah node PEMBUNGKUS: `link` dikosongkan supaya
      * tidak menambah akses apa pun. AuthGuard menanyai tabel langsung (tak

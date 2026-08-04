@@ -66,11 +66,14 @@ WHERE g.`nama` IN ('Supervisor', 'Coordinator Dentist')
 --
 --    Dibatasi HANYA pada dua peran ini — peran lain tidak disentuh.
 -- ─────────────────────────────────────────────────────────────────────────────
+--    Admin General ikut dibereskan: akun itu SUDAH melihat "Reservasi" dan
+--    "Reservation" berdampingan hari ini (bukan akibat perubahan ini) — dua
+--    baris, satu halaman.
 DELETE ga FROM `group_access` ga
 JOIN `group_path` g ON g.`id` = ga.`group_id`
 JOIN `access_path` ap ON ap.`id` = ga.`access_id`
 LEFT JOIN `access_path` induk ON induk.`id` = ap.`pid`
-WHERE g.`nama` IN ('Supervisor', 'Coordinator Dentist')
+WHERE g.`nama` IN ('Supervisor', 'Coordinator Dentist', 'Admin General')
   AND ap.`link` = 'rawreservation'
   AND (induk.`nama` IS NULL OR induk.`nama` <> 'Reservation Data Center');
 
@@ -78,9 +81,31 @@ DELETE ga FROM `group_access` ga
 JOIN `group_path` g ON g.`id` = ga.`group_id`
 JOIN `access_path` ap ON ap.`id` = ga.`access_id`
 LEFT JOIN `access_path` induk ON induk.`id` = ap.`pid`
-WHERE g.`nama` IN ('Supervisor', 'Coordinator Dentist')
+WHERE g.`nama` IN ('Supervisor', 'Coordinator Dentist', 'Admin General')
   AND ap.`link` = 'report'
   AND (induk.`nama` IS NULL OR induk.`nama` <> 'Report');
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 2b. TUTUP JEBAKANNYA: kosongkan link mati di akar "Data Center".
+--
+--     Akar itu membawa link `MetricaSetting` — dan halamannya TIDAK ADA:
+--     tak ada rutenya sama sekali, /MetricaSetting menjawab 404, dan tak satu
+--     baris kode pun menyebutnya. Jadi link ini murni sisa lama.
+--
+--     Selama link itu menempel di akar, "menampilkan wadahnya" dan "memberi
+--     halamannya" jadi satu keputusan yang tak bisa dipisah — persis jebakan
+--     yang tadi hampir membuat Anisa & Irma diberi MetricaSetting. Dikosongkan
+--     supaya akar itu jadi wadah murni dan siapa pun boleh meng-grant-nya
+--     dengan aman di kemudian hari.
+--
+--     Tidak ada yang kehilangan apa pun: yang dilepas adalah link ke halaman
+--     yang memang tak ada. 10 peran yang memegang akar ini tetap memegangnya.
+-- ─────────────────────────────────────────────────────────────────────────────
+UPDATE `access_path`
+   SET `link` = ''
+ WHERE `nama` = 'Data Center'
+   AND (`pid` IS NULL OR `pid` = '')
+   AND `link` = 'MetricaSetting';
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- 3. Cabut "Promo (Marketing)" dari Content Creator — keputusan Ekky 2026-08-05.
