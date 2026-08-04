@@ -81,7 +81,8 @@ class AuthController extends Controller
                     $deviceAuth->issue($user->id, request());
                 }
 
-                return redirect()->to($user->landing_page);
+                // Dari HP, mendarat di Absensi Saya (lihat landingUntukPerangkat).
+                return redirect()->to(landingUntukPerangkat($user->landing_page, $user->group_id));
             } else {
                 return redirect()->back()->with('error', 'Email or password is incorrect')->withInput();
             }

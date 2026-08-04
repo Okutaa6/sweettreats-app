@@ -106,19 +106,82 @@ function getSidebarChild()
 
 /* ══════════════════════════════════════════════════════════════════════════
    SHELL REDESIGN (2026-07) — render sidebar SATU-KOLOM dari data RBAC yang sama
-   (getGroupAccessData). Node personal (Absensi Saya / Checklist Saya / Persetujuan)
-   dibuang dari menu utama → pindah ke DROP-UP akun. Menu tetap DINAMIS per-role.
+   (getGroupAccessData). Node personal (Absensi Saya / Checklist Saya / Pengajuan /
+   Persetujuan) dibuang dari menu utama → pindah ke DROP-UP akun. Menu tetap
+   DINAMIS per-role.
    ══════════════════════════════════════════════════════════════════════════ */
 
 if (!function_exists('shellPersonalMap')) {
-    /** link (segment-1) => [label tetap, ikon FontAwesome] untuk item drop-up akun. */
+    /**
+     * link (segment-1) => [label tetap, ikon FontAwesome] untuk item drop-up akun.
+     *
+     * Isinya = kerjaan PRIBADI (dibawa orangnya, bukan jabatannya). Menu utama
+     * dipakai untuk kerjaan ROLE. 'pengajuan' masuk sini sejak 2026-08-05:
+     * mengajukan pengeluaran adalah tindakan pribadi — buktinya bagi Supervisor
+     * & Head Marketing, section "Keuangan" di menu utama berdiri hanya untuk
+     * menampung satu baris itu. Antrian & Rekap TIDAK ikut pindah: keduanya
+     * kerjaan role Finance/pengelola, tempatnya memang di menu utama.
+     */
     function shellPersonalMap(): array
     {
         return [
             'akun'         => ['Absensi Saya',   'fas fa-calendar-check'],
             'my-checklist' => ['Checklist Saya', 'fas fa-tasks'],
+            'pengajuan'    => ['Pengajuan',      'fas fa-file-invoice-dollar'],
             'persetujuan'  => ['Persetujuan',    'fas fa-check-circle'],
         ];
+    }
+}
+
+if (!function_exists('landingUntukPerangkat')) {
+    /**
+     * Halaman pertama sesudah login, disesuaikan dengan perangkat.
+     *
+     * Sebagian besar landing_page per-role menunjuk halaman lebar yang belum
+     * responsif (marketing-dashboard, report, rawreservation, setgroup, sales-
+     * dashboard). Dibuka dari HP, orang mendarat di halaman yang sulit dipakai —
+     * padahal alasan utama membuka aplikasi dari HP adalah ABSEN. Lima role
+     * memang sudah landing di 'akun'; sisanya tidak, termasuk Front Office yang
+     * justru paling sering absen lewat HP.
+     *
+     * Aturannya sengaja sempit supaya tidak bikin kaget:
+     *   • hanya HP (pointer-nya jempol), BUKAN tablet/desktop — tablet layarnya
+     *     masih memadai untuk halaman lebar;
+     *   • hanya pada saat MASUK (login / auto-login perangkat). Tautan langsung
+     *     ke halaman mana pun tidak pernah dialihkan;
+     *   • hanya kalau role-nya memang punya akses 'akun' — kalau tidak, dia akan
+     *     mendarat di 403, dan itu lebih buruk daripada dashboard yang lebar.
+     *
+     * Deteksi lewat User-Agent memang kasar; risikonya kecil dan sepihak —
+     * salah tebak paling banter membuat orang mendarat di halaman absennya
+     * sendiri, satu klik dari mana pun.
+     */
+    function landingUntukPerangkat(?string $landing, ?string $groupId): string
+    {
+        $landing = trim((string) $landing);
+        $fallback = $landing !== '' ? $landing : '/';
+
+        if ($groupId === null || $groupId === '') return $fallback;
+
+        $ua = (string) request()->header('User-Agent', '');
+        // 'Mobile' ada di UA browser HP Android & iPhone; tablet Android dan
+        // iPad justru TIDAK memuatnya (atau memuat 'iPad') → tablet lolos.
+        $hp = preg_match('/iPhone|Windows Phone|Mobile/i', $ua) && !preg_match('/iPad|Tablet/i', $ua);
+        if (! $hp) return $fallback;
+
+        // Sudah mendarat di zona absensi pribadi → biarkan.
+        if ($landing === 'akun' || strpos($landing, 'akun/') === 0) return $fallback;
+
+        try {
+            $punyaAkun = \App\Models\GroupAccess::join('access_path', 'group_access.access_id', '=', 'access_path.id')
+                ->where('group_access.group_id', $groupId)
+                ->where('access_path.link', 'akun')
+                ->exists();
+        } catch (\Throwable $e) {
+            return $fallback;
+        }
+
+        return $punyaAkun ? 'akun' : $fallback;
     }
 }
 

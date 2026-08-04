@@ -30,7 +30,7 @@ class IsLoggedIn
             // (landing_page = PATH, bukan nama-route -> pakai ->to(), konsisten
             // dgn AuthController::loginProcess & AuthGuard). Fallback '/' jika kosong.
             $landingPage = GroupPath::where('id', session('group_id'))->value('landing_page');
-            return redirect()->to($landingPage ?: '/');
+            return redirect()->to(landingUntukPerangkat($landingPage, session('group_id')));
         }
 
         // Buka /signin padahal perangkat "diingat" → langsung masuk tanpa form.
@@ -43,7 +43,7 @@ class IsLoggedIn
             // attempt() sudah mengisi session landing_page — arahkan ke sana,
             // konsisten dengan jalur sesi-aktif di atas (role baru bisa punya
             // landing selain '/').
-            return redirect()->to(session('landing_page') ?: '/');
+            return redirect()->to(landingUntukPerangkat(session('landing_page'), session('group_id')));
         }
 
         return $next($request);
