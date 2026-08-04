@@ -6,8 +6,9 @@
 > apa yang sudah, sedang, dan akan dikerjakan, plus utang yang belum dibayar.
 >
 > **Terakhir diperbarui: 2026-08-05 — batch "rapi-rapi pasca-launch" (4 item)
-> sudah DIAUDIT & NAIK DEV, terverifikasi. Prod tetap di gerbong 06938ed;
-> kenaikan prod dikerjakan Ekky di chat terpisah.**
+> sudah NAIK PROD dan terverifikasi. Prod = `main` @ `b26eb26`; keempat branch
+> (rapi, rop, release, main) kini sejajar. Pengguna perlu logout-login sekali
+> supaya sidebar barunya muncul.**
 > Kalau tanggal ini sudah jauh lewat,
 > minta chat teknis menyegarkan file ini sebelum dipakai mengambil keputusan.
 
@@ -23,8 +24,8 @@ checklist operasional, dan integrasi akunting (Accurate).
 **Lingkungan:**
 | Env | URL | Branch git | Keadaan |
 |---|---|---|---|
-| Prod | app.sweettreats.id | `main` (`06938ed`, 4 Agu) | GERBONG LIVE — absensi, ROP, semua fitur baru |
-| Dev | dev.sweettreats.id | `feature/rop` | = main + data demo |
+| Prod | app.sweettreats.id | `main` (`b26eb26`, 5 Agu) | GERBONG LIVE + batch rapi-rapi (sidebar, absen HP, 1 lapis) |
+| Dev | dev.sweettreats.id | `feature/rapi-pasca-launch` (= main) | = main + data demo |
 | Lokal | 2 working tree (utama + worktree rop) | `feature/absensi` (pensiun) / `feature/rop` | — |
 
 **Orang-orang:**

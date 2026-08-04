@@ -7,6 +7,59 @@
 
 ---
 
+## 2026-08-05 — Batch rapi-rapi NAIK PROD (4 item, terverifikasi)
+
+Prod sekarang berjalan di `main` @ `b26eb26`. Keempat item batch "rapi-rapi
+pasca-launch" sudah live: sidebar Absensi jadi pintu tunggal "Kehadiran",
+gerbang sopan absen HP di komputer, persetujuan absensi satu lapis, dan
+sidebar Marketing tertata tiga kelompok. Tidak ada perubahan aset (CSS/JS),
+jadi rsync `public_html` tidak diperlukan kali ini.
+
+**Diaudit ulang dari nol sebelum naik** (chat HUB, bukan mengandalkan laporan
+chat pembuatnya). Yang diperiksa dan hasilnya:
+
+- Klaim "baris sidebar yang disembunyikan memang berujung 403" **dibuktikan
+  langsung di kode**: keempat controller (Upload, Mapping, Rekap, Periode)
+  benar-benar dijaga `canSeeAllBranches`. Jadi yang hilang dari sidebar
+  memang pintu buntu, bukan halaman yang bisa dipakai.
+- Grant node "Kehadiran" **persis sama** dengan daftar `canSeeAllBranches`
+  (Super Admin, Admin General, Admin Backup, Finance) — tidak lebih.
+- Kasus paling mudah salah **ditangani benar**: Executive hanya memegang Rekap
+  Pengeluaran tanpa Antrian, dan kode sengaja mengecualikannya dari aturan
+  penyembunyian — kalau tidak, satu-satunya pintunya ikut hilang.
+- Prasyarat prod dicek dulu, bukan diasumsikan: induk menu "Absensi" dan
+  "Marketing" ada, node kol/koc sudah ada (jadi blok pembuatnya no-op),
+  14 halaman marketing masing-masing tepat satu node, dan aturan persetujuan
+  tetap 13 baris.
+- **Risiko "Executive kosong" tidak berlaku di prod**: ada 3 penghuni aktif
+  (Robi, Hari, Dani). Catatan untuk Ekky: **Hari** juga berperan Executive,
+  jadi ia ikut menerima pengajuan para head/SPV — kalau itu tidak diinginkan,
+  perannya perlu diubah.
+- Backlog persetujuan warisan **nihil**: prod belum punya satu pun pengajuan
+  absensi (`att_request` kosong), jadi `absensi:selesaikan-l2` memang no-op.
+
+**Urutan eksekusi**: backup DB prod (`~/backups/prod_pre_rapi_2026-08-05.sql.gz`,
+45 MB) → `deploy.sh main` → 2 SQL (`2026_08_05_sidebar_kehadiran`,
+`2026_08_05_sidebar_marketing`) → `access:rebuild` + `cache:clear` +
+`view:clear` → `absensi:selesaikan-l2`.
+
+**Verifikasi prod — semua lulus**: nol link menu dobel; typo "Kode Refferal"
+sudah jadi "Kode Referral"; tiga section marketing berdiri dengan 14 halaman
+di kelompok yang benar; urutan menu lain tidak bergeser (parent dikali sepuluh
+sekali saja, section baru menyelip di 41–43 antara Marketing 40 dan Keluhan
+50); tidak ada node yatim; berkas akses hasil rebuild memuat "Kehadiran" untuk
+tepat empat peran itu dan tidak untuk Supervisor; situs 200; **0 error** di log
+aplikasi.
+
+**Branch**: `feature/rapi-pasca-launch` digabung maju (fast-forward) ke
+`feature/rop`, `release/2026-08-pengeluaran`, dan `main` — keempatnya kini di
+`b26eb26`, jadi tidak ada lagi cabang yang tertinggal. WIP chat pola-interaksi
+di worktree `feature/rop` tidak tersentuh (12 berkasnya tidak beririsan dengan
+11 berkas batch).
+
+**Yang perlu diketahui pengguna**: menu berubah, jadi semua orang perlu
+logout-login sekali supaya sidebar barunya muncul.
+
 ## 2026-08-05 — Batch rapi-rapi: AUDIT + NAIK DEV (terverifikasi, prod belum)
 
 Dev sekarang menjalankan branch `feature/rapi-pasca-launch` (5 commit, dari
