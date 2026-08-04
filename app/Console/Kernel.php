@@ -84,6 +84,16 @@ class Kernel extends ConsoleKernel
             ->withoutOverlapping(10)
             ->appendOutputTo(storage_path('logs/absensi-cron.log'));
 
+        // Jaring pengaman persetujuan 1 lapis (2026-08-05). Pengajuan warisan
+        // yang tertahan di pending_l2 TIDAK muncul di inbox siapa pun lagi —
+        // kalau langkah manual `absensi:selesaikan-l2` terlewat saat deploy,
+        // mereka beku selamanya tanpa gejala. Command-nya idempoten & diam
+        // kalau tak ada apa-apa, jadi murah dijalankan harian sebagai jaring.
+        $schedule->command('absensi:selesaikan-l2')
+            ->dailyAt('06:25')
+            ->withoutOverlapping(10)
+            ->appendOutputTo(storage_path('logs/absensi-cron.log'));
+
         // Reset kontrak cuti yang lewat tanggal — dorman selama kontrak_akhir
         // belum diisi (data tanggal masih dikumpulkan), nyala sendiri begitu
         // tanggalnya ada. docs/rencana/rencana-jatah-cuti.md.

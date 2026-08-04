@@ -10,17 +10,22 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Alur approval form absen: submit → pending_l1 (head) → pending_l2 (Dani) → approved.
+ * Alur approval form absen: submit → pending_l1 (atasan langsung) → approved.
+ *
+ * SATU LAPIS untuk semua jenis form (keputusan Ekky 2026-08-05, batch rapi-rapi
+ * pasca-launch): staf → atasan langsung SELESAI; pengajuan milik head/SPV/
+ * koordinator → role Executive (any-one: Dani ATAU Robi, siapa cepat).
+ * Status pending_l2 tinggal warisan — backlog-nya difinalkan
+ * `absensi:selesaikan-l2` saat deploy (lihat selesaikanBacklogL2()).
  *
  * Rantai approver di-resolve PER-ROLE dari tabel att_approval_rule (role pengaju →
  * [role approver], any-one), BUKAN per-user (att_approver lama = DORMANT, tak dibaca).
  * Resolver jalan NAIK graf role: tiap lapis = daftar USER dari role approver di
  * frontier saat itu. Decoupled dari pohon checklist/org — §5.4, keputusan 2026-07-18/22.
- * Jumlah lapis TERGANTUNG jenis form (MAX_LEVELS): cuti & lembur = 2 lapis;
- * izin/libur/wfh = 1 lapis. Finance = recap/view-only approved, BUKAN gate (recapForFinance).
+ * Finance = recap/view-only approved, BUKAN gate (recapForFinance).
  *
- * Rantai contoh (cuti/lembur): GS → Nisa (L1) → Dani (L2). Head (Nisa) → Dani (L1 saja).
- * Dani (Executive/apex) → tak punya rule → auto. izin/libur/wfh dipangkas jadi 1 lapis.
+ * Rantai contoh: GS → Nisa, selesai. Head (Nisa) → Executive, selesai.
+ * Dani (Executive/apex) → tak punya rule → auto.
  *
  * Semantik multi-approver dalam satu lapis (Asdent → Coordinator Dentist + Supervisor):
  * SATU yang approve cukup untuk maju (any-one). Role approver yang KOSONG (belum ada
@@ -32,18 +37,17 @@ use Illuminate\Support\Facades\DB;
 class AttendanceRequestWorkflow
 {
     /**
-     * Berapa lapis approval yang diperlukan per jenis form (§5.4):
-     *   cuti & lembur = 2 lapis (atasan langsung → finance/management/Dani);
-     *   izin, libur, wfh = cukup 1 lapis (atasan langsung).
-     * Angka ini PLAFON: kalau rantai nyata lebih pendek (mis. head → Dani saja),
-     * yang dipakai tetap yang lebih pendek.
+     * Berapa lapis approval yang diperlukan per jenis form.
+     * SEMUA = 1 sejak 2026-08-05 (dulu cuti/lembur 2 lapis; ACC Ekky: atasan
+     * langsung cukup, Executive tinggal jadi approver bagi para head/SPV lewat
+     * grafik att_approval_rule — bukan lapis tambahan di atas semua orang).
+     * Struktur map per-tipe dipertahankan: plafonnya keputusan produk yang
+     * bisa berubah lagi per jenis form. Angka ini PLAFON: kalau rantai nyata
+     * lebih pendek, yang dipakai tetap yang lebih pendek.
      */
     private const MAX_LEVELS = [
-        'cuti' => 2, 'lembur' => 2,
+        'cuti' => 1, 'lembur' => 1,
         'izin' => 1, 'libur' => 1, 'wfh' => 1,
-        // Koreksi absen = bantahan atas scan, cukup 1 lapis (atasan langsung).
-        // Sengaja TIDAK 2 lapis: makin panjang rantainya makin lama hari yg
-        // terlanjur kehitung alpa dibiarkan salah sampai tutup periode.
         'koreksi' => 1,
     ];
 
@@ -260,6 +264,51 @@ class AttendanceRequestWorkflow
                 $req->user_id
             );
         } catch (\Throwable $e) {}
+    }
+
+    /**
+     * Finalisasi warisan pengajuan yang tertahan di pending_l2.
+     *
+     * Sejak persetujuan jadi 1 lapis (2026-08-05), chainFor() hanya punya
+     * lapis 1 — pengajuan yang KEBURU lolos L1 dan sedang menunggu L2 tidak
+     * akan pernah muncul di inbox siapa pun (levels[1] tak ada) dan macet
+     * selamanya tanpa error. Secara kebijakan baru mereka justru SUDAH
+     * disetujui penuh (atasan langsung sudah ACC) → finalkan di sini lengkap
+     * dengan efek samping approve normal (potong cuti + recalc att_day +
+     * kabar ke pengaju). Idempoten: tak ada pending_l2 = no-op.
+     * Dipanggil command `absensi:selesaikan-l2` sekali saat deploy.
+     */
+    public function selesaikanBacklogL2(): int
+    {
+        $n = 0;
+        foreach (AttRequest::where('status', 'pending_l2')->get() as $req) {
+            // Pakai approver L1 yang sudah bertindak sebagai "penyetuju" di
+            // notifikasi — dialah manusia terakhir yang menyetujui.
+            $l1 = AttRequestApproval::where('request_id', $req->id)
+                ->where('action', 'approve')->orderByDesc('acted_at')->first();
+
+            // Jejak audit: jalur act() SELALU menulis baris approval, jadi
+            // finalisasi ini pun menulis — tanpa itu tak ada jawaban untuk
+            // "siapa/apa yang menyelesaikan pengajuan ini?" selain notifikasi.
+            // approver_user_id = approver L1 (manusia terakhir yang memutuskan);
+            // catatan menyebut sebabnya supaya tak terbaca sebagai ACC manusia.
+            AttRequestApproval::create([
+                'request_id' => $req->id,
+                'level' => 2,
+                'approver_user_id' => (string) ($l1->approver_user_id ?? ''),
+                'action' => 'approve',
+                'catatan' => 'Diselesaikan sistem: persetujuan absensi menjadi satu lapis (2026-08-05).',
+                'acted_at' => Carbon::now(),
+                'created_at' => Carbon::now(),
+            ]);
+
+            $req->update(['status' => 'approved']);
+            $this->potongJatahCuti($req);
+            $this->recalcAttDay($req);
+            $this->notifyRequester($req, 'disetujui', (string) ($l1->approver_user_id ?? ''));
+            $n++;
+        }
+        return $n;
     }
 
     /** Form yang menunggu tindakan approver ini (buat inbox UI). */

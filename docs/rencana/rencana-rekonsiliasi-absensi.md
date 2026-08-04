@@ -652,6 +652,16 @@ satu kerjaan, dua fitur kepake.
 >   pendek head→Dani, reject, inbox approver, + engine konsumsi approved→att_day cuti.
 >   Fix: AttRequestApproval $timestamps=false (append-only, sama pola AttScan).
 >
+> **UPDATE 2026-08-05 — PERSETUJUAN JADI SATU LAPIS (ACC Ekky, batch rapi-rapi pasca-launch):**
+>   staf → atasan langsung SELESAI (tanpa L2); pengajuan milik head/SPV/koordinator → role
+>   Executive (any-one: Dani ATAU Robi, siapa cepat — dua-duanya sah). Mekanisme: grafik
+>   `att_approval_rule` 13 aturan TIDAK berubah (isinya memang sudah "atasan langsung" per role);
+>   yang berubah plafon `AttendanceRequestWorkflow::MAX_LEVELS` — semua tipe = 1 (dulu
+>   cuti/lembur = 2). Warisan pengajuan yang keburu nunggu lapis 2 difinalkan
+>   `php artisan absensi:selesaikan-l2` (idempoten; WAJIB sekali tiap env saat deploy — tanpa
+>   ini mereka macet tak terlihat selamanya, chainFor tak lagi punya lapis 2). Prasyarat data:
+>   akun Robi ber-role Executive di env ybs (kalau belum ada, praktisnya hanya Dani yang menerima).
+>
 > **=== SELURUH LOGIKA BACKEND ABSEN LENGKAP di LOCAL (2026-07-18) ===**
 > import(3 format)→scan→reconcile(lintas cabang/dawn/telat/alpa)→form(5 jenis)→approval(2 lapis)→att_day.
 >
