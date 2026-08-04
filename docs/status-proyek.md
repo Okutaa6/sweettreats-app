@@ -5,7 +5,7 @@
 > Teknis & coding dikerjakan di chat Claude; file ini adalah **potret proyek**:
 > apa yang sudah, sedang, dan akan dikerjakan, plus utang yang belum dibayar.
 >
-> **Terakhir diperbarui: 2026-08-03.** Kalau tanggal ini sudah jauh lewat,
+> **Terakhir diperbarui: 2026-08-04.** Kalau tanggal ini sudah jauh lewat,
 > minta chat teknis menyegarkan file ini sebelum dipakai mengambil keputusan.
 
 ## 1. Apa aplikasi ini
@@ -108,6 +108,15 @@ bukan symlink).
   throttle DAN premis WiFi-saksi absen HP.
 
 ### Rencana yang SUDAH di-ACC, belum dibangun
+- **Paket "Pengaturan Operasional"** (ACC 2026-08-04, dibagi dua pemilik,
+  keduanya basis `feature/rop`, prioritas: setelah prod stabil):
+  - **Aturan Kerja — dikerjakan EKKY** (`rencana/rencana-aturan-kerja.md`):
+    UI kelola jam kerja + penugasan aturan per orang (default per role) +
+    kalender libur nasional. Mesin sudah data-driven; ini cuma pintunya.
+  - **Penempatan — dikerjakan REZA** (`rencana/rencana-penempatan.md`):
+    staf rolling/backup ke cabang lain tercatat resmi; checklist ikut cabang
+    penempatan; Nissa & Irma boleh menempatkan staf mana pun di bawah bagan
+    (lintas domain); tanggal akhir wajib; cabang asal tak pernah disentuh.
 - **ROP fase 2**: threshold ACC Executive > 2 jt, four-eyes untuk pengajuan
   Finance, budget per departemen, multi-item, rekening vendor, push otomatis
   ke Accurate. Template impor Accurate **di-pause** (tunggu bahas dengan

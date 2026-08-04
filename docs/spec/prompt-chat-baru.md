@@ -11,6 +11,7 @@ Copy blok yang dibutuhkan, tempel sebagai pesan pertama.
 | **B. Security** | rate-limit + sapu lubang lain | `hotfix/*` dari `main` |
 | **C. Planning / verifikasi / deploy** | koordinasi, audit, deploy dev & prod | docs/memori + deploy |
 | **D. Build ROP / Pengeluaran** | bangun fitur Pengajuan/ROP + adopsi petty cash | `feature/rop` dari `feature/absensi` |
+| **E. Build Aturan Kerja** | UI jam kerja + penugasan + kalender libur | `feature/aturan-kerja` dari `feature/rop` |
 
 **Dua aturan biar chat paralel tidak tabrakan:**
 1. **Chat tidak bisa saling lihat.** Jembatan satu-satunya = file di disk
@@ -191,4 +192,44 @@ sweettreats2026). Diskusi dulu tiap keputusan produk baru. Jangan commit
 tanpa izin (kerjaan dibiarkan unstaged buat review). Jangan push/deploy
 tanpa diminta. Tanpa emoji di UI. Catat keputusan penting ke docs/ + memori
 sebelum chat ditutup.
+```
+
+---
+
+## E. Chat: BUILD ATURAN KERJA
+
+> Saran model: bebas. Fitur ini UI di atas data yang sudah ada — bahayanya
+> bukan kerumitan, tapi kesalahan menyentuh mesin rekonsiliasi.
+
+```
+Lanjutkan proyek SweetTreats lewat memori. Chat ini fokus BUILD fitur
+Aturan Kerja (UI kelola jam kerja + penugasan aturan + kalender libur).
+
+Baca dulu:
+- docs/README.md — indeks dokumentasi
+- docs/rencana/rencana-aturan-kerja.md — plan yang sudah di-ACC (3 tab,
+  aturan main, batas scope). Ikuti itu, jangan karang ulang.
+- docs/rencana/rencana-rekonsiliasi-absensi.md — cara mesin membaca aturan
+  (att_work_rule / _day / _exception / att_user_rule). WAJIB paham sebelum
+  menulis apa pun.
+- docs/spec/peta-tema.md — zona cokelat, tanpa emoji (ikon SVG).
+
+Aturan keras:
+- JANGAN sentuh mesin rekonsiliasi (reconcile, att_day) — fitur ini cuma
+  menulis ke tabel aturan yang mesin baca.
+- Penugasan aturan = baris baru ber-effective_from, BUKAN edit baris lama.
+- Berlaku ke depan saja; jangan bikin re-reconcile massal.
+- Gate role di controller (Head IT + Finance + Super Admin), jangan
+  andalkan hasMenuAccess (cuma nemu node level 3).
+- Libur nasional ditulis sebagai att_work_rule_exception semua aturan baku
+  (pola SQL lebaran) — bukan mekanisme baru.
+
+Aturan kerja: branch BARU `feature/aturan-kerja` dari `feature/rop`
+TERBARU (cek origin dulu). Test di LOKAL (php artisan serve --host=0.0.0.0
+--port=8899 · muhamad.ikhsan@sweettreats.local / sweettreats2026). Diskusi
+dulu tiap keputusan produk baru. Jangan commit tanpa izin. Jangan push/
+deploy tanpa diminta. Selesai milestone: entri docs/log-update.md +
+status-proyek.md bila peta berubah + SALIN keduanya ke
+"G:\My Drive\Task Management\Sweet Treats\" (kewajiban sinkron Gemini).
+Catat keputusan penting ke docs/ + memori sebelum chat ditutup.
 ```

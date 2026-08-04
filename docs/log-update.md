@@ -7,6 +7,21 @@
 
 ---
 
+## 2026-08-04 — Paket "Pengaturan Operasional" di-ACC: 2 fitur, 2 pemilik
+
+- Dua fitur baru direncanakan & di-ACC Ekky, dikerjakan setelah prod stabil:
+  1. **Aturan Kerja (Ekky)** — UI kelola jam kerja, penugasan aturan per
+     karyawan (default per role), kalender libur nasional. Selama ini semua
+     itu harus lewat SQL. Rencana: `docs/rencana/rencana-aturan-kerja.md`.
+  2. **Penempatan (Reza)** — staf rolling/backup ke cabang lain tercatat
+     resmi; checklist otomatis ikut cabang penempatan (selama ini salah
+     gedung); Nissa & Irma boleh menempatkan staf mana pun di bawah bagan
+     (lintas domain). Rencana: `docs/rencana/rencana-penempatan.md`.
+- Keputusan kunci: cabang asal karyawan TIDAK PERNAH diubah untuk rolling;
+  penempatan wajib bertanggal akhir; jam kerja tidak ikut penempatan.
+- Prompt chat build Aturan Kerja siap di `docs/spec/prompt-chat-baru.md` §E.
+  Rencana Penempatan siap diserahkan ke Reza (basis branch `feature/rop`).
+
 ## 2026-08-04 — Dev diisi data demo + fix grup cabang Anisa/Irma
 
 - Dev diisi data dummy untuk demo: 943 hari-kerja absensi (1 Jul–4 Agu, 27

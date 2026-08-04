@@ -16,6 +16,8 @@ Peta isi folder `docs/`. **Mulai dari sini** kalau bingung cari apa.
 | Paham absen HP selfie (WiFi = saksi, flag) | `rencana/rencana-absen-hp.md` |
 | Paham jatah cuti per kontrak | `rencana/rencana-jatah-cuti.md` |
 | Paham pengajuan ROP (expenses digital) | `rencana/rencana-pengajuan-rop.md` |
+| Paham fitur Aturan Kerja (jam kerja/libur — Ekky) | `rencana/rencana-aturan-kerja.md` |
+| Paham fitur Penempatan (rolling cabang — Reza) | `rencana/rencana-penempatan.md` |
 | Deploy absensi ke dev/prod | `deploy/deploy-absensi.md` |
 | Tahu apa saja yang belum naik prod (+ peta cabang GitHub) | `deploy/manifest-prod.md` |
 | Kerjakan hardening keamanan | `handoff/handoff-security-hardening.md` |
