@@ -31,8 +31,17 @@
   12/12 akun baru terkunci wajib-ganti-password.
 - Kredensial akun: file LOKAL (gitignored), BUKAN di Drive.
 - PR: tidak lewat PR — merge langsung sesuai jendela deploy malam ini.
-- Tersisa (bukan penghalang): cek cron hPanel `schedule:run`, setup divisi
-  checklist utk role baru (Reza), 14 karyawan sisanya dibuat via Pusat Akun.
+- **Checklist prod DIBERESKAN juga (tanpa nunggu Reza)** — 403 Supervisor
+  ternyata 3 lapis data yang hilang di prod: (1) bagan role (parent/level)
+  belum diisi → disalin dari dev (17 role); (2) tabel divisi checklist prod
+  KOSONG → 3 divisi (FO/GS/ASDENT) disalin; (3) posisi user belum di-sync →
+  dijalankan logika resmi UserPosition::syncFromUser utk 12 akun (4 staf
+  operasional dapat posisi). Hasil: Nissa bisa buka dashboard/review/setup/
+  monitoring-AC checklist di prod (semua 200) — siap setup data besok;
+  Firda dapat form checklist FO berisi tugas.
+- Tersisa (bukan penghalang): cek cron hPanel `schedule:run`, 14 karyawan
+  sisanya dibuat via Pusat Akun, kabari kredensial (terutama 3 akun marketing
+  yang emailnya berubah).
 
 ## 2026-08-04 malam — Fitur Aturan Kerja SELESAI di lokal (halaman 3 tab)
 
