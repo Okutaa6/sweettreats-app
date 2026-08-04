@@ -7,6 +7,56 @@
 
 ---
 
+## 2026-08-05 — Yovanka tak bisa absen → ketemu lubang akses yang lebih gawat (DIPERBAIKI di prod)
+
+Ekky melapor: drop-up akun Yovanka (Head Marketing) cuma berisi "Ganti kata
+sandi" dan "Keluar" — menu **Absensi Saya hilang**, jadi ia tak bisa absen.
+
+**Bukan akibat batch rapi-rapi.** Dibuktikan, bukan dikira-kira: seluruh
+pasangan (peran, node) dari backup pra-deploy dibandingkan dengan keadaan
+sesudahnya — **nol grant hilang**, 376 → 397 baris, murni bertambah.
+
+**Akar masalahnya dari gerbong 4 Agu**: waktu itu node menu + grant disalin
+dev→prod hanya untuk **8 role BARU**. Role LAMA yang sudah lama ada di prod —
+Executive, Head Marketing, Content Creator, Creative — tak pernah kebagian
+node personal. Ini kelas kegagalan yang sama dengan insiden 15 node: yang
+kurang adalah DATA, dan gagalnya diam.
+
+**Temuan yang jauh lebih gawat, ketemu sambil menelusuri**: Head Marketing dan
+Executive adalah **penyetuju** di `att_approval_rule`, tapi tak punya menu
+Inbox Persetujuan sama sekali. Sejak persetujuan jadi satu lapis hari ini,
+Executive adalah satu-satunya penyetuju bagi para head/SPV (Yovanka, Della,
+Ekky, Anisa, Irma) dan Head Marketing satu-satunya bagi Talitha & Alif. Tanpa
+inbox, **pengajuan pertama akan menggantung tanpa gejala apa pun** — pengaju
+merasa sudah mengirim, penyetuju tak pernah tahu. Belum ada korban semata-mata
+karena prod belum punya satu pun pengajuan absensi.
+
+**Perbaikan** (`database/sql/2026_08_05_menu_personal_role_lama.sql`, sudah
+jalan di prod + dev, `access:rebuild` sudah):
+- **Absensi Saya** untuk Executive, Head Marketing, Content Creator, Creative
+  → 6 orang nyata kini bisa absen: Yovanka, Talitha, Alif, Dani, Hari, Robi.
+- **Inbox Persetujuan** untuk Head Marketing & Executive → rantai persetujuan
+  tersambung. Diverifikasi: **nol peran penyetuju yang tanpa inbox**.
+
+**Sengaja TIDAK diberi** (keputusan sadar, ditulis di berkas SQL-nya):
+- Absen untuk **akun-peran bersama** — Sales (6 akun cabang), Admin, Admin
+  General, Admin Backup, Super Admin, Branch Executive. Itu akun peran, bukan
+  orang; memberi mereka absen sama dengan mengarang data kehadiran. Orangnya
+  absen dari akun pribadi masing-masing.
+- Inbox untuk Content Creator & Creative — mereka bukan penyetuju, inboxnya
+  dijamin selalu kosong. Dev memberi grant ini, prod sengaja beda.
+
+**Selisih dev vs prod yang SUDAH BENAR begini (jangan "dilengkapi")**: menu
+Accurate (proyek di-pause), Lembar Gaji (sengaja disembunyikan di prod, belum
+selesai), dan node cruft berawalan garis-miring (`/my-checklist`,
+`/report/executive`) yang cuma ada di dev.
+
+**Masih menggantung, butuh keputusan Ekky** (tidak diubah sepihak):
+- **Yovanka tak punya menu Promo** (`marketing-promo`) padahal Talitha
+  (Content Creator) punya — atasan tak bisa melihat yang stafnya kelola.
+- Super Admin (Admin_Reza) tak punya menu Checklist di prod, dev punya.
+- Admin/Admin General/Admin Backup/Super Admin tak punya Petty Cash di prod.
+
 ## 2026-08-05 — Batch rapi-rapi NAIK PROD (4 item, terverifikasi)
 
 Prod sekarang berjalan di `main` @ `b26eb26`. Keempat item batch "rapi-rapi

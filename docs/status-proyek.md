@@ -6,9 +6,11 @@
 > apa yang sudah, sedang, dan akan dikerjakan, plus utang yang belum dibayar.
 >
 > **Terakhir diperbarui: 2026-08-05 — batch "rapi-rapi pasca-launch" (4 item)
-> sudah NAIK PROD dan terverifikasi. Prod = `main` @ `b26eb26`; keempat branch
-> (rapi, rop, release, main) kini sejajar. Pengguna perlu logout-login sekali
-> supaya sidebar barunya muncul.**
+> sudah NAIK PROD dan terverifikasi, menyusul perbaikan akses: 6 orang (Yovanka,
+> Talitha, Alif, Dani, Hari, Robi) tadinya tak bisa absen, dan rantai
+> persetujuan putus di Head Marketing & Executive — dua-duanya sudah dibereskan.
+> Prod = `main` @ `69f4ccd`; keempat branch (rapi, rop, release, main) sejajar.
+> Pengguna perlu logout-login sekali supaya menu barunya muncul.**
 > Kalau tanggal ini sudah jauh lewat,
 > minta chat teknis menyegarkan file ini sebelum dipakai mengambil keputusan.
 
@@ -24,7 +26,7 @@ checklist operasional, dan integrasi akunting (Accurate).
 **Lingkungan:**
 | Env | URL | Branch git | Keadaan |
 |---|---|---|---|
-| Prod | app.sweettreats.id | `main` (`b26eb26`, 5 Agu) | GERBONG LIVE + batch rapi-rapi (sidebar, absen HP, 1 lapis) |
+| Prod | app.sweettreats.id | `main` (`69f4ccd`, 5 Agu) | GERBONG LIVE + batch rapi-rapi (sidebar, absen HP, 1 lapis) + fix akses menu personal |
 | Dev | dev.sweettreats.id | `feature/rapi-pasca-launch` (= main) | = main + data demo |
 | Lokal | 2 working tree (utama + worktree rop) | `feature/absensi` (pensiun) / `feature/rop` | — |
 
