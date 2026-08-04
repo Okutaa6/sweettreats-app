@@ -47,7 +47,43 @@ WHERE g.`nama` IN ('Supervisor', 'Coordinator Dentist')
   AND (ap.`pid` IS NULL OR ap.`pid` = '');
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- 2. Cabut "Promo (Marketing)" dari Content Creator — keputusan Ekky 2026-08-05.
+-- 2. Buang GRANT KEMBAR — satu halaman, satu baris menu.
+--
+--    `rawreservation` punya 4 node dan `report` punya 2 node (cruft menu lama,
+--    tersebar di bawah Dashboard>Menu, Marketing>Schedule, Data Center>Schedule,
+--    Data Center>Reservation Data Center, dan Laporan>Laporan). Selama akarnya
+--    tak di-grant, kembaran itu tak kelihatan — begitu menu diperbaiki supaya
+--    leluhurnya ikut tampil, Anisa akan melihat "Reservasi" EMPAT KALI dan
+--    "Laporan Penjualan" dua kali. Terlihat seperti kerusakan, padahal cuma
+--    grant berlebih.
+--
+--    Yang DIPERTAHANKAN dipilih supaya sekelompok dengan halaman sebelahnya:
+--      • rawreservation → node di bawah "Reservation Data Center"
+--        (setetangga dengan Pasien & Doctor)
+--      • report         → node di bawah "Report" (di dalam Data Center)
+--    Akses ke halamannya TIDAK berubah: izin dinilai dari link, dan link itu
+--    tetap dipegang lewat node yang dipertahankan.
+--
+--    Dibatasi HANYA pada dua peran ini — peran lain tidak disentuh.
+-- ─────────────────────────────────────────────────────────────────────────────
+DELETE ga FROM `group_access` ga
+JOIN `group_path` g ON g.`id` = ga.`group_id`
+JOIN `access_path` ap ON ap.`id` = ga.`access_id`
+LEFT JOIN `access_path` induk ON induk.`id` = ap.`pid`
+WHERE g.`nama` IN ('Supervisor', 'Coordinator Dentist')
+  AND ap.`link` = 'rawreservation'
+  AND (induk.`nama` IS NULL OR induk.`nama` <> 'Reservation Data Center');
+
+DELETE ga FROM `group_access` ga
+JOIN `group_path` g ON g.`id` = ga.`group_id`
+JOIN `access_path` ap ON ap.`id` = ga.`access_id`
+LEFT JOIN `access_path` induk ON induk.`id` = ap.`pid`
+WHERE g.`nama` IN ('Supervisor', 'Coordinator Dentist')
+  AND ap.`link` = 'report'
+  AND (induk.`nama` IS NULL OR induk.`nama` <> 'Report');
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 3. Cabut "Promo (Marketing)" dari Content Creator — keputusan Ekky 2026-08-05.
 --    (Talitha satu-satunya penghuni role ini.)
 -- ─────────────────────────────────────────────────────────────────────────────
 DELETE ga FROM `group_access` ga
