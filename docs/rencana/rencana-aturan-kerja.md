@@ -3,7 +3,11 @@
 > Status: ACC 2026-08-04 — **dikerjakan EKKY** di chat build terpisah
 > (prompt: `docs/spec/prompt-chat-baru.md` §E). Pasangannya: fitur
 > **Penempatan** dikerjakan Reza (`rencana-penempatan.md`).
-> Prioritas: SETELAH gerbong prod naik & stabil, sebelum ROP fase 2.
+> Prioritas (REVISI 2026-08-04 malam): **dikerjakan SEKARANG — gerbong prod
+> MENUNGGU fitur ini selesai.** Demo ke office/ABG + Bintaro 2026-08-05
+> pakai dev. Desain: TANPA brief claude.ai/design — ikuti pola halaman
+> setting yang ada (Pusat Akun / WiFi Cabang); hanya editor jam-per-hari
+> yang komponen baru.
 
 ## 1. Masalah
 

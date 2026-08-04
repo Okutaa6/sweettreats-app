@@ -40,7 +40,16 @@ checklist operasional, dan integrasi akunting (Accurate).
 - DB pakai SQL manual di `database/sql/` (bukan migration), KECUALI kerjaan
   Reza yang pakai migration — dua-duanya harus dijalankan saat deploy.
 
-## 2. FOKUS MINGGU INI: deploy prod (rencana: minggu 2026-08-03)
+## 2. FOKUS MINGGU INI: demo + fitur Aturan Kerja, lalu deploy prod
+
+> **REVISI 2026-08-04 malam**: deploy prod DITUNDA sampai fitur **Aturan
+> Kerja** selesai (dikerjakan Ekky sekarang, masuk gerbong). Besok
+> **2026-08-05: demo di office/ABG + cabang Bintaro** memakai dev — data
+> demo sudah terisi (absensi Juli–Agustus, cuti/lembur, 14 ROP).
+> Hotfix sweet-mates (kiriman 1) TIDAK ikut ditunda — tetap bisa naik
+> duluan kapan pun Ekky bilang "prod".
+
+## 2a. Rencana deploy prod (setelah Aturan Kerja selesai)
 
 Rujukan wajib: **`docs/deploy/manifest-prod.md`** (daftar centang lengkap:
 30 SQL urut, 19 migration, 8 role baru + 29 akun, rsync aset, verifikasi
@@ -110,9 +119,11 @@ bukan symlink).
 ### Rencana yang SUDAH di-ACC, belum dibangun
 - **Paket "Pengaturan Operasional"** (ACC 2026-08-04, dibagi dua pemilik,
   keduanya basis `feature/rop`, prioritas: setelah prod stabil):
-  - **Aturan Kerja — dikerjakan EKKY** (`rencana/rencana-aturan-kerja.md`):
-    UI kelola jam kerja + penugasan aturan per orang (default per role) +
-    kalender libur nasional. Mesin sudah data-driven; ini cuma pintunya.
+  - **Aturan Kerja — dikerjakan EKKY, SEKARANG (prasyarat deploy prod)**
+    (`rencana/rencana-aturan-kerja.md`): UI kelola jam kerja + penugasan
+    aturan per orang (default per role) + kalender libur nasional. Mesin
+    sudah data-driven; ini cuma pintunya. Tanpa brief desain — ikuti pola
+    halaman setting yang ada.
   - **Penempatan — dikerjakan REZA** (`rencana/rencana-penempatan.md`):
     staf rolling/backup ke cabang lain tercatat resmi; checklist ikut cabang
     penempatan; Nissa & Irma boleh menempatkan staf mana pun di bawah bagan

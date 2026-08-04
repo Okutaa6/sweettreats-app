@@ -7,6 +7,17 @@
 
 ---
 
+## 2026-08-04 malam — Deploy prod ditunda menunggu fitur Aturan Kerja; demo besok
+
+- Keputusan Ekky: deploy prod MENUNGGU fitur Aturan Kerja selesai — fitur itu
+  naik prioritas jadi dikerjakan sekarang dan ikut gerbong rilis.
+- Besok (2026-08-05) demo di office/ABG + cabang Bintaro memakai dev — data
+  demo absensi/cuti/ROP sudah terisi.
+- Hotfix keamanan sweet-mates tidak ikut ditunda; tetap siap naik duluan.
+- Aturan Kerja dibangun TANPA brief desain claude.ai/design — halaman setting
+  internal, mengikuti pola desain yang sudah ada; hanya komponen editor
+  jam-per-hari yang baru.
+
 ## 2026-08-04 — Paket "Pengaturan Operasional" di-ACC: 2 fitur, 2 pemilik
 
 - Dua fitur baru direncanakan & di-ACC Ekky, dikerjakan setelah prod stabil:
