@@ -233,3 +233,58 @@ status-proyek.md bila peta berubah + SALIN keduanya ke
 "G:\My Drive\Task Management\Sweet Treats\" (kewajiban sinkron Gemini).
 Catat keputusan penting ke docs/ + memori sebelum chat ditutup.
 ```
+
+---
+
+## F. Chat: BATCH RAPI-RAPI PASCA-LAUNCH (2026-08-05)
+
+> Saran model: bebas. Isinya 5 pekerjaan menengah yang saling lepas —
+> kerjakan URUT, uji per item di lokal, deploy dev per batch.
+
+```
+Lanjutkan proyek SweetTreats lewat memori. Chat ini mengerjakan BATCH
+"rapi-rapi pasca-launch" — 5 item yang sudah di-ACC Ekky 2026-08-05
+(memori project_absensi_status_deploy bagian BATCH; log-update.md entri
+2026-08-05). PROD SUDAH LIVE — hati-hati, semua lewat dev dulu.
+
+Baca dulu: docs/README.md · docs/spec/peta-tema.md · docs/spec/
+pola-interaksi.md · memori project_absensi_status_deploy.
+
+5 pekerjaan (urut prioritas):
+1. KONSOLIDASI SIDEBAR ABSENSI — "Kehadiran" jadi pintu tunggal di sidebar;
+   Upload Data / Mapping / Rekap Persetujuan / Periode Gaji cukup lewat bar
+   tab yang SUDAH ADA (resources/views/absensi/_finance_tabs.blade.php).
+   ⚠️ JEBAKAN TERBUKTI: AuthGuard meloloskan /absensi/* hanya kalau role
+   pegang node ber-link 'absensi' — mencabut grant node = SEMUA halaman
+   absensi role itu mati (sudah diuji di prod, lalu dikembalikan). Jadi ini
+   perubahan KODE (AuthGuard / cara menu render), bukan cabut-grant.
+   Perlakukan "Rekap Pengeluaran" ROP sama (tab di antrian, keluar sidebar).
+2. GERBANG ABSEN HP — /akun/absen dari DESKTOP ditutup gerbang sopan
+   (pola resources/views/layouts/_gerbang_sopan.blade.php): jelaskan "absen
+   lewat HP/tablet di titik absen cabang". HP + TABLET tetap boleh.
+   Alasan: file-picker desktop = bisa unggah foto lama, bukan kamera.
+   Jangan hide menu-nya (hide senyap = katalog kegagalan-senyap) — halaman
+   tetap ada, isinya yang menjelaskan.
+3. PERSETUJUAN ABSENSI 1 LAPIS — rework att_approval_rule (13 aturan):
+   staf (FO/GS/Asdent/dst) → ACC atasan langsung (Supervisor/Coordinator)
+   SELESAI (tanpa L2); pengajuan milik head/SPV/koordinator → ACC role
+   Executive (Dani ATAU Robi — dua-duanya sah, siapa cepat).
+   Pahami dulu engine approval di rencana-rekonsiliasi-absensi.md.
+4. SIDEBAR MARKETING 3 KELOMPOK — restrukturisasi node menu marketing:
+   "Dashboard & Laporan" (Dashboard Marketing, Report Referral, Klaim
+   Komisi) · "Konten" (Konten Pillar, EP Konten, Breakdown, Campaign
+   Framework, Review Konten, Keyword) · "Referral & Member" (Kode Referral,
+   Affiliate, KOL, KOC, Sweet Mates). Fix typo "Refferal"→"Referral".
+   SQL node idempoten + grant BY LINK; ingat node id beda antar env.
+5. MODE LIHAT-SAJA IRMA — Coordinator Dentist dapat halaman Doctor +
+   Reservasi VIEW-ONLY: grant halaman + sembunyikan/matikan tombol aksi
+   (tambah/ubah/hapus) untuk role itu, server-side juga menolak POST-nya
+   (bukan cuma CSS). Kecil tapi teliti.
+
+Aturan kerja: worktree/branch SENDIRI dari feature/rop TERBARU (worktree
+sweettreats-rop DIPAKAI chat pola-interaksi — jangan sentuh; koordinasi
+lewat feature/rop). Test lokal → minta izin → deploy dev → verifikasi →
+PROD HANYA kalau Ekky sebut prod. Tanpa emoji di UI. Selesai tiap item:
+entri docs/log-update.md + salin log-update.md & status-proyek.md ke
+"G:\My Drive\Task Management\Sweet Treats\". Catat keputusan ke docs/memori.
+```
