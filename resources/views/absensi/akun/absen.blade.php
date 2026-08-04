@@ -136,6 +136,9 @@
     $jenisBerikut = $masuk ? 'pulang' : 'masuk';
     $lengkap = $masuk && $pulang;
 @endphp
+{{-- Dibuka di komputer → ditutup gerbang sopan (file-picker desktop bisa
+     mengunggah foto lama; kamera langsung hanya di HP/tablet). --}}
+@include('absensi.akun._gerbang_desktop')
 <div class="abshp-wrap">
     <a href="{{ route('akun.absensi') }}" class="abshp-back">‹ Absensi Saya</a>
 
