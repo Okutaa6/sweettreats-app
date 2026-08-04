@@ -7,6 +7,53 @@
 
 ---
 
+## 2026-08-05 — Batch "rapi-rapi pasca-launch" SELESAI LOKAL (4 item, menunggu review → dev)
+
+Keempat item yang di-ACC kemarin selesai dibangun & diuji di lokal (branch
+`feature/rapi-pasca-launch` dari feature/rop; belum di-commit, menunggu review
+Ekky sebelum naik dev). PROD TIDAK disentuh.
+
+- **(1) Sidebar Absensi = pintu tunggal "Kehadiran"** — Upload Data / Mapping /
+  Rekap Persetujuan / Periode Gaji keluar dari sidebar, cukup lewat bar tab
+  yang sudah ada di dalam halaman; "Rekap Pengeluaran" ROP sama (tombol Rekap
+  di Antrian sudah ada sejak awal). Dikerjakan lewat KODE render menu
+  (`shellTabbedLinks` di Helpers) — grant TIDAK dicabut, kunci AuthGuard
+  `absensi` aman (jebakan prod kemarin tak terulang). Node menu "Kehadiran"
+  baru via SQL `2026_08_05_sidebar_kehadiran.sql` (grant hanya role yang
+  memang boleh buka: Finance/Admin General/Admin Backup/Super Admin).
+  Bonus: entri sidebar yang selama ini berujung 403 (mis. Upload Data di
+  Head IT/IT) ikut hilang — kegagalan senyap berkurang. Role Executive tetap
+  pegang "Rekap Pengeluaran" (satu-satunya pintu dia — dilindungi khusus).
+  Teruji per 6 role × 6 halaman: menu, sorot aktif, judul header benar.
+- **(2) Absen HP ditutup sopan di komputer** — /akun/absen dibuka dari desktop
+  kini menampilkan penjelasan "absen lewat HP/tablet di titik absen cabang"
+  (+ arahan Koreksi Absensi kalau darurat), tanpa tombol lanjut. HP + TABLET
+  tetap normal (deteksi: pointer mouse tanpa layar sentuh). Menu TIDAK
+  disembunyikan — halaman tetap ada, isinya yang menjelaskan.
+- **(3) Persetujuan absensi jadi SATU lapis** — staf di-ACC atasan langsung,
+  selesai (FO/GS/Sales→Supervisor; Asdent→Koordinator ATAU Supervisor;
+  Creative/CC→Head Marketing; IT→Head IT); pengajuan milik head/SPV/
+  koordinator/Finance di-ACC role Executive (Dani ATAU Robi, siapa cepat).
+  13 aturan `att_approval_rule` TIDAK berubah (isinya memang sudah atasan
+  langsung) — yang dipangkas plafon lapis di engine (semua jenis form = 1).
+  Pengajuan lama yang keburu menunggu lapis-2 difinalkan otomatis command
+  baru `absensi:selesaikan-l2` (wajib dijalankan sekali saat deploy; kalau
+  tidak, mereka macet tak terlihat selamanya). Teruji: rantai 11 role semua
+  1 lapis, approver benar; command idempoten.
+  ⚠️ Prasyarat data di dev/prod: akun Robi ber-role Executive (di lokal baru
+  Dani) — tanpa itu praktisnya hanya Dani yang menerima.
+- **(4) Sidebar marketing 3 kelompok** — "Dashboard & Laporan" (Dashboard
+  Marketing, Report Referral, Klaim Komisi) · "Konten" (Konten Pillar,
+  EP Konten, Breakdown, Campaign Framework, Review Konten, Keyword) ·
+  "Referral & Member" (Kode Referral, Affiliate, KOL, KOC, Sweet Mates).
+  SQL `2026_08_05_sidebar_marketing.sql`: pindah node BY LINK (id beda antar
+  env aman), parent section baru + grant mengikuti pemegang anak, typo
+  "Refferal"→"Referral" dibereskan sekalian, node KOL/KOC dibuat hanya di
+  env yang belum punya. Promo sengaja tetap di Data Center (di luar
+  keputusan). Idempoten — diuji jalan 2×, hasil sama.
+- **Deploy dev nanti butuh**: 2 SQL di atas + `php artisan access:rebuild` +
+  `php artisan absensi:selesaikan-l2` + verifikasi akun Robi (Executive).
+
 ## 2026-08-05 — Penyesuaian hari pertama prod (feedback Ekky)
 
 - **Supervisor (Nisa) dapat paket pengawasan sales** di prod & dev: Reservasi,
