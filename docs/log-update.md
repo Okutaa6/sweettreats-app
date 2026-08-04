@@ -23,8 +23,9 @@
   3. **Kalender Libur** — libur nasional/tanggal khusus (input manual SKB
      3 Menteri), mekanisme = baris exception pola SQL Lebaran, nol perubahan
      mesin. Libur ≠ cuti bersama (ada rambu + link ke halaman Cuti).
-- Rel pengaman sesuai rencana: gate role di controller (Head IT + Finance +
-  Super Admin), semua perubahan berlaku KE DEPAN saja (backdate ditolak),
+- Rel pengaman sesuai rencana: gate role di controller (Supervisor + Head IT +
+  Finance + Super Admin — Supervisor ditambah Ekky saat review 2026-08-04),
+  semua perubahan berlaku KE DEPAN saja (backdate ditolak),
   mesin rekonsiliasi TIDAK disentuh, tiap perubahan tercatat di log baru
   `att_rule_log` (siapa, kapan, dari→ke — tampil di bawah halaman).
 - Uji: 28/28 skenario headless lulus (guard 403, CRUD aturan, tutup-baris-lama,
