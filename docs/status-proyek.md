@@ -41,7 +41,14 @@ checklist operasional, dan integrasi akunting (Accurate).
 - DB pakai SQL manual di `database/sql/` (bukan migration), KECUALI kerjaan
   Reza yang pakai migration — dua-duanya harus dijalankan saat deploy.
 
-## 2. FOKUS MINGGU INI: demo + fitur Aturan Kerja, lalu deploy prod
+## 2. FOKUS SEKARANG: stabilisasi prod pasca-gerbong (deploy SELESAI 2026-08-04)
+
+> Gerbong SUDAH NAIK — lihat entri log-update 2026-08-04 tengah malam.
+> Sisa: cek cron hPanel `schedule:run`, setup divisi checklist role baru
+> (Reza), buat 14 akun karyawan sisanya via Pusat Akun, kabari kredensial
+> (Yovanka-Alif-Talitha email berubah), demo 2026-08-05 office+Bintaro.
+
+### Arsip rencana (sudah terlaksana):
 
 > **REVISI 2026-08-04 malam**: deploy prod DITUNDA sampai fitur **Aturan
 > Kerja** selesai (dikerjakan Ekky sekarang, masuk gerbong). Besok

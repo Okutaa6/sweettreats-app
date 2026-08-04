@@ -7,6 +7,33 @@
 
 ---
 
+## 2026-08-04 tengah malam — 🚀 GERBONG NAIK PROD (deploy besar selesai)
+
+- **Prod (app.sweettreats.id) sekarang menjalankan gerbong penuh** — commit
+  `06938ed`: absensi + absen HP + Pusat Akun + cuti + lembar gaji + checklist/
+  AC + dashboard marketing + login baru + reskin zona + ROP + Aturan Kerja.
+- Sebelum naik: fitur Aturan Kerja diuji fungsional di dev (10/10 lolos:
+  CRUD aturan, log jejak, penugasan backdate ditolak, kalender libur +
+  tumpang-tindih ditolak, gate role, hapus bersih).
+- Eksekusi prod: backup DB 45MB → merge rilis→main (1 konflik komentar) →
+  deploy kode → **8 role baru** (UUID = dev) → **32 SQL** (2 via mysql CLI
+  karena DELIMITER) → **24 migration** → 9 akun karyawan baru + 3 akun
+  marketing dipindah ke email @sweettreats.id → akses FO = salinan Sales →
+  WiFi Bintaro+Sunter didaftarkan → saldo cuti dibuka (9 akun) → 75 vendor +
+  CoA Accurate ditarik → rsync aset.
+- **Insiden saat deploy, ketemu & dibereskan**: 15 node menu (Absensi, Akun,
+  Persetujuan, Checklist) ternyata tak pernah dibikin SQL mana pun — dulu
+  dibuat manual di dev → disalin utuh ke prod + seluruh grant 8 role
+  disalin dari dev (50 baris). Pelajaran: grant BY LINK diam saja kalau
+  node-nya tak ada.
+- Verifikasi akhir per peran di prod: Head IT, Finance, Supervisor, FO —
+  semua halaman kunci 200, yang bukan haknya tertolak, log prod 0 error.
+  12/12 akun baru terkunci wajib-ganti-password.
+- Kredensial akun: file LOKAL (gitignored), BUKAN di Drive.
+- PR: tidak lewat PR — merge langsung sesuai jendela deploy malam ini.
+- Tersisa (bukan penghalang): cek cron hPanel `schedule:run`, setup divisi
+  checklist utk role baru (Reza), 14 karyawan sisanya dibuat via Pusat Akun.
+
 ## 2026-08-04 malam — Fitur Aturan Kerja SELESAI di lokal (halaman 3 tab)
 
 - Halaman **Aturan Kerja** (`/absensi/aturan`, menu seksi Absensi) selesai
