@@ -127,9 +127,42 @@ if (!function_exists('shellPersonalMap')) {
         return [
             'akun'         => ['Absensi Saya',   'fas fa-calendar-check'],
             'my-checklist' => ['Checklist Saya', 'fas fa-tasks'],
+            // Riwayat checklist = milik sendiri juga. Node-nya hanya ada di
+            // sebagian environment; entri di sini tak berefek apa pun di
+            // environment yang tidak punya node itu.
+            'my-checklist/history' => ['Riwayat Checklist', 'fas fa-history'],
             'pengajuan'    => ['Pengajuan',      'fas fa-file-invoice-dollar'],
             'persetujuan'  => ['Persetujuan',    'fas fa-check-circle'],
         ];
+    }
+}
+
+if (!function_exists('shellSemuaNode')) {
+    /**
+     * SEMUA node ber-link di subtree — TERMASUK yang punya anak.
+     *
+     * Beda dengan shellCollectLeaves yang sengaja melewatkan node ber-anak: di
+     * menu utama, node ber-anak berlaku sebagai judul section, bukan tautan.
+     * Untuk drop-up akun aturan itu tak berlaku — sebuah node bisa merangkap
+     * HALAMAN dan INDUK sekaligus, dan halamannya tak boleh hilang cuma karena
+     * kebetulan punya anak.
+     *
+     * Kasus nyata (audit 2026-08-05): "Checklist Saya" (link `my-checklist`)
+     * berubah jadi induk begitu leluhur-wadah disuntikkan ke pohon akses —
+     * akibatnya halaman checklist milik General Services & Assistant Dentist
+     * lenyap dari menu SAMA SEKALI, bukan cuma pindah tempat.
+     */
+    function shellSemuaNode(array $node): array
+    {
+        $out  = [];
+        $link = trim((string) ($node['link'] ?? ''));
+        if ($link !== '' && $link !== '-') {
+            $out[] = ['nama' => $node['nama'] ?? $link, 'link' => $link];
+        }
+        foreach (($node['sub'] ?? $node['child'] ?? []) as $k) {
+            if (is_array($k)) $out = array_merge($out, shellSemuaNode($k));
+        }
+        return $out;
     }
 }
 
@@ -222,11 +255,13 @@ if (!function_exists('shellAccountLinks')) {
         $data = getGroupAccessData();
         if (!is_array($data)) return [];
 
+        // Pakai shellSemuaNode (bukan shellCollectLeaves): halaman pribadi yang
+        // kebetulan punya anak tetap harus muncul di drop-up.
         $have = [];
         foreach ($data as $p) {
             if (!is_array($p)) continue;
-            foreach (shellCollectLeaves($p) as $leaf) {
-                if (isset($map[$leaf['link']])) $have[$leaf['link']] = true;
+            foreach (shellSemuaNode($p) as $n) {
+                if (isset($map[$n['link']])) $have[$n['link']] = true;
             }
         }
 
