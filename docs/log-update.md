@@ -83,6 +83,64 @@ tidak ada, dan kolom `branch_id` yang memang bukan nama kolom sebenarnya) dan
 satu gangguan koneksi DB sekejap. Diperiksa: tak ada kode aplikasi yang
 menyebut kolom itu.
 
+## 2026-08-05 sore — AUDIT MENYELURUH prod + dev (2 bug diperbaiki, 3 utang dicatat)
+
+Permintaan Ekky: scan ulang seluruhnya, cari error/bug/inkonsistensi. Diperiksa
+19 pemeriksaan otomatis di KEDUA server: struktur menu, render menu tiap peran,
+koherensi data absensi, rantai persetujuan, aturan kerja, perintah terjadwal,
+detektor Kesehatan, dan log.
+
+**Dikonfirmasi beres**: perbaikan "absen langsung terlihat" sudah live di prod
+& dev (prod `cb6dbe5`); 9 orang tercatat hadir; tak ada scan yang tak punya
+baris harian; tak ada pengajuan tertahan lapis-2; semua rantai persetujuan
+1 lapis; role Executive ada penghuninya; 4 perintah terjadwal terdaftar.
+
+### Dua bug NYATA ditemukan & diperbaiki (dev)
+
+1. **Executive Report 403 padahal di-grant.** Tiga node menu di dev menyimpan
+   link berawalan garis miring (`/report/executive`, `/my-checklist`,
+   `/my-checklist/history`). Gerbang halaman mencocokkan link tanpa garis
+   miring, jadi Executive/Admin/Super Admin ditolak di halaman yang menunya
+   tampil. Prod bersih sejak awal. Diperbaiki
+   (`2026_08_05_normalisasi_link_node.sql`) — terbukti 403 → 200.
+   Perlakuannya beda per node, sengaja: yang punya kembaran bersih grant-nya
+   dipindah lalu node lamanya dibuang (kalau di-strip begitu saja hasilnya
+   justru "node dobel"), sisanya cukup dibuang garis miringnya.
+
+2. **Halaman pribadi lenyap kalau kebetulan punya anak.** Ini regresi gabungan
+   hari ini: perbaikan "leluhur-wadah" membuat "Checklist Saya" berubah jadi
+   induk, dan pengumpul menu sengaja melewatkan node ber-anak — akibatnya
+   halaman checklist milik General Services & Assistant Dentist **hilang dari
+   menu sama sekali**, bukan cuma pindah tempat. Gejalanya diam, tanpa error.
+   Diperbaiki di kode: drop-up akun kini memakai pengumpul yang menyertakan
+   node ber-anak. Sekalian "Riwayat Checklist" ditempatkan sebagai halaman
+   pribadi (drop-up), bukan berdiri sendiri di menu utama.
+   Sesudahnya prod & dev seragam: GS/Asdent menu utama kosong (memang begitu
+   desainnya — kerjaan mereka semua pribadi) dengan drop-up lengkap.
+
+### Tiga utang dicatat, BUKAN diperbaiki (butuh keputusan / bukan hari ini)
+
+1. **Node menu ber-link kembar** — prod: `pettycash` ×2, `rawreservation` ×4,
+   `report` ×2; dev serupa. Bahayanya: mencabut akses lewat satu node tidak
+   mencabut aksesnya, karena gerbang cukup menemukan grant di node kembarannya.
+   **Semuanya warisan lama, bukan dari kerjaan hari ini**, dan detektor
+   Kesehatan memang sudah menandainya (badge 8 di prod). Perlu keputusan mana
+   node yang sah sebelum dirapikan — bukan tebakan.
+2. **Menu mati**: node "Sales" ber-link `complaint` tidak punya route
+   (prod & dev) — tak dipegang siapa pun, jadi tak terlihat; cruft. Di dev
+   ada lima menu Accurate (`accurate-*`) tanpa route karena proyeknya
+   di-pause, tapi **masih dipegang Creative & Head Marketing** → kalau diklik
+   berujung 404. Prod tidak kena.
+3. **Satu galat DB sekilas di prod** 14:13 (`SQLSTATE[2002] Operation not
+   permitted` saat membaca `users`) — sekali saja, khas gangguan koneksi
+   sesaat hosting, bukan pola. Dicatat supaya kalau berulang sudah ada jejaknya.
+   (Tiga galat prod lainnya berasal dari skrip diagnosa saya sendiri dan satu
+   perintah salah opsi — bukan aplikasi.)
+
+Catatan: "peran ber-grant tapi menu utama kosong" (GS, Asdent, FO di dev)
+diperiksa satu per satu dan **bukan cacat** — semua grant mereka memang
+halaman pribadi yang tempatnya di drop-up.
+
 ## 2026-08-05 siang — PROD DIBERESKAN: absensi resmi mulai 5 Agustus, 9 orang tercatat hadir
 
 Lanjutan temuan di bawah. Keputusan Ekky: **4 Agustus dinyatakan tidak berlaku,
