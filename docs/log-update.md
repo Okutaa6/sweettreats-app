@@ -7,6 +7,37 @@
 
 ---
 
+## 2026-08-05 siang — PROD DIBERESKAN: absensi resmi mulai 5 Agustus, 9 orang tercatat hadir
+
+Lanjutan temuan di bawah. Keputusan Ekky: **4 Agustus dinyatakan tidak berlaku,
+penilaian absensi dimulai 5 Agustus.** Dikerjakan langsung di prod (backup
+dulu: `~/backups/prod_pre_absensi_start_2026-08-05.sql.gz`).
+
+**Hasil di prod, terverifikasi:**
+- **9 orang yang absen hari ini kini tercatat "hadir"** — Reza 07:33, Yovanka/
+  Firda/Talitha 09:31, Della 09:33, Afrina 09:48, Rizka 10:16, Ikhsan 10:43,
+  Anisa 11:36. Layar mereka tidak lagi menyangkal absen mereka.
+- **6 alpa palsu 4 Agustus terhapus**, dan tidak akan lahir lagi.
+- Mulai-berlaku aturan kerja 15 orang digeser ke 2026-08-05.
+
+**Kenapa bukan sekadar menghapus barisnya**: menghapus itu sementara — siapa
+pun yang kelak menjalankan ulang perhitungan untuk rentang yang memuat 4
+Agustus akan melahirkan alpa itu lagi, tanpa ada yang sadar. Yang dipakai
+adalah mekanisme sistem sendiri (mulai-berlaku aturan kerja), jadi tanggal
+sebelum 5 Agustus tidak menghasilkan baris apa pun dan pembersih bawaan
+membuang yang lama. Berkas: `2026_08_05_absensi_mulai_5_agustus.sql`.
+**Konsekuensi yang disadari & bisa dibalik**: kalau kelak data mesin sidik
+jari 1–4 Agustus diunggah, scan itu tidak akan dinilai. Kalau suatu saat perlu,
+cukup mundurkan lagi tanggalnya — tidak ada data yang dibuang.
+
+**MASIH MENGGANTUNG — perbaikan kodenya belum di prod.** Yang di atas
+membereskan data hari ini; supaya besok-besok absen langsung terlihat tanpa
+disuruh jalan manual, kode `fix(absensi): absen langsung terlihat hari itu
+juga` perlu naik prod. Prod melacak branch `main`, dan **push ke `main`
+diblokir pengaman** — perlu Ekky mengizinkan atau melakukannya sendiri.
+Tanpa itu, tiap hari absen baru terlihat besok paginya (atau harus dijalankan
+`att:reconcile <hari-ini> <hari-ini>` manual).
+
 ## 2026-08-05 siang — "Sudah absen kok ditulis Belum absen?" (sebabnya ketemu, fix ada di dev)
 
 Ekky melapor dari HP: sudah absen, tapi layar Absensi Saya tetap menulis
