@@ -7,6 +7,265 @@
 
 ---
 
+## 2026-08-05 sore — Kode absensi NAIK PROD + daftar WiFi Bintaro dirapikan
+
+Menutup dua utang yang masih menggantung dari entri di bawah.
+
+### 1. Perbaikan "absen langsung terlihat" akhirnya di prod
+
+Prod naik dari `f309061` ke `6b6ed60`. Sebelum ini prod sudah punya **datanya**
+benar (9 orang tercatat hadir) tapi belum punya **kodenya** — artinya besok
+absen akan kembali tak terlihat sampai lusa, kecuali dijalankan manual tiap
+hari. Sekarang tidak perlu lagi: begitu absen tersimpan, catatan hariannya
+langsung dihitung untuk orang itu saja.
+
+**Diaudit dulu, tidak langsung dinaikkan.** Yang diperiksa:
+- Perubahan kodenya cuma satu berkas (`AkunAbsenController`), dibungkus
+  try/catch — kalau perhitungannya gagal, absennya tetap sah tersimpan.
+- **Perbaikan tipe Carbon dibuktikan bekerja**, bukan dipercaya. Di dev
+  ditemukan jejak nyata kegagalannya jam 13:14 (`reconcile kilat gagal:
+  Argument #1 must be of type Illuminate\Support\Carbon`) — error itu tertelan
+  try/catch, jadi absen tetap masuk tapi perhitungannya diam-diam mati. Jalur
+  kodenya dijalankan ulang di dev dengan versi yang sudah diperbaiki: tipenya
+  benar, reconcile lolos tanpa error.
+- **Pelajaran berkas bayangan dipakai**: setelah deploy, diverifikasi lewat
+  refleksi bahwa PHP benar-benar memuat `AkunAbsenController.php` yang asli
+  (bukan salinan bertanggal) dan method barunya ada. Tanpa cek ini, deploy bisa
+  "berhasil" tapi tak berefek — persis yang terjadi tadi siang.
+- SQL `2026_08_05_absensi_mulai_5_agustus.sql` sudah dijalankan sebelumnya;
+  diverifikasi: 15 aturan semuanya mulai 2026-08-05, **0 baris** att_day
+  sebelum 5 Agustus, 9 baris `hadir` untuk 5 Agustus.
+- Reconcile dijalankan ulang untuk hari ini → tetap 9 `hadir`, tidak ada baris
+  ganda. Idempotensinya nyata, bukan klaim.
+
+Backup sebelum eksekusi: `~/backups/prod_pre_kilat_2026-08-05.sql`.
+
+### 2. Daftar WiFi Bintaro: 10 baris → 5, dan petanya akhirnya jelas
+
+Ekky menelusuri sendiri tiap SSID kantor lewat halaman WiFi Cabang. Hasilnya
+**Bintaro punya DUA jalur internet, bukan tiga**:
+
+- **Jalur A** — SSID Xiaomi_FD3D_5G, Sweet Treats Lt.2, Sweet Treats BO →
+  IPv4 `180.252.168.224`, IPv6 prefix `2001:448a:2092:2313::/64`
+- **Jalur B** — SSID Sweet Treats (dan kemungkinan Lt.1) →
+  IPv4 `180.252.170.180`, IPv6 prefix `2001:448a:2092:134e::/64`
+
+Dua penemuan yang menjelaskan kebingungan sejak pagi: **Lt.2 dan BO memberi
+alamat yang sama persis** (satu jaringan, dua nama SSID), dan **router Xiaomi
+tidak melayani IPv6 sama sekali** — makanya tidak ada menu IPv6 di panelnya,
+dan siapa pun lewat SSID itu selalu tampak sebagai IPv4.
+
+**Kenapa daftarnya membengkak jadi 10**: pencocokan IPv6 memakai 64 bit
+pertama, tapi pemeriksaan duplikat pada **formulir** membandingkan teks alamat.
+Karena ekor IPv6 tiap HP berbeda, jaringan yang sudah tercakup bisa
+didaftarkan berulang tanpa peringatan apa pun. Lima dari sepuluh baris lahir
+begitu — termasuk dua yang didaftarkan sore ini saat menelusuri.
+
+Dinonaktifkan (bukan dihapus) lewat `2026_08_05_wifi_bintaro_rapikan.sql`:
+tiga baris kembar, plus **dua baris prefix `ab6` dari 25 Juli yang sudah tak
+dipakai**. Yang basi itu bukan sekadar berantakan — kalau Telkom sudah melepas
+prefix-nya ke pelanggan lain, orang di luar kantor bisa terbaca sebagai
+Bintaro. Sisa **tepat 5 baris aktif**: empat wajah Bintaro + Sunter.
+
+**Uji sebenarnya besok pagi**: kalau orang Bintaro absen tanpa flag `ip_asing`,
+kedua jalur sudah tertutup benar.
+
+### Utang baru yang dicatat
+
+**Formulir WiFi perlu sadar-jaringan.** Pemeriksaan duplikatnya harus
+membandingkan jaringan (64 bit pertama untuk IPv6), bukan teks alamat, dan
+bilang "jaringan ini sudah tercakup entri X". Tanpa itu daftarnya akan
+menggemuk lagi dengan sendirinya.
+
+Catatan kebersihan: 3 error di log prod hari ini semuanya **bukan bug
+aplikasi** — dua query diagnostik dari sesi kerja (termasuk `--columns` yang
+tidak ada, dan kolom `branch_id` yang memang bukan nama kolom sebenarnya) dan
+satu gangguan koneksi DB sekejap. Diperiksa: tak ada kode aplikasi yang
+menyebut kolom itu.
+
+## 2026-08-05 sore — AUDIT MENYELURUH prod + dev (2 bug diperbaiki, 3 utang dicatat)
+
+Permintaan Ekky: scan ulang seluruhnya, cari error/bug/inkonsistensi. Diperiksa
+19 pemeriksaan otomatis di KEDUA server: struktur menu, render menu tiap peran,
+koherensi data absensi, rantai persetujuan, aturan kerja, perintah terjadwal,
+detektor Kesehatan, dan log.
+
+**Dikonfirmasi beres**: perbaikan "absen langsung terlihat" sudah live di prod
+& dev (prod `cb6dbe5`); 9 orang tercatat hadir; tak ada scan yang tak punya
+baris harian; tak ada pengajuan tertahan lapis-2; semua rantai persetujuan
+1 lapis; role Executive ada penghuninya; 4 perintah terjadwal terdaftar.
+
+### Dua bug NYATA ditemukan & diperbaiki (dev)
+
+1. **Executive Report 403 padahal di-grant.** Tiga node menu di dev menyimpan
+   link berawalan garis miring (`/report/executive`, `/my-checklist`,
+   `/my-checklist/history`). Gerbang halaman mencocokkan link tanpa garis
+   miring, jadi Executive/Admin/Super Admin ditolak di halaman yang menunya
+   tampil. Prod bersih sejak awal. Diperbaiki
+   (`2026_08_05_normalisasi_link_node.sql`) — terbukti 403 → 200.
+   Perlakuannya beda per node, sengaja: yang punya kembaran bersih grant-nya
+   dipindah lalu node lamanya dibuang (kalau di-strip begitu saja hasilnya
+   justru "node dobel"), sisanya cukup dibuang garis miringnya.
+
+2. **Halaman pribadi lenyap kalau kebetulan punya anak.** Ini regresi gabungan
+   hari ini: perbaikan "leluhur-wadah" membuat "Checklist Saya" berubah jadi
+   induk, dan pengumpul menu sengaja melewatkan node ber-anak — akibatnya
+   halaman checklist milik General Services & Assistant Dentist **hilang dari
+   menu sama sekali**, bukan cuma pindah tempat. Gejalanya diam, tanpa error.
+   Diperbaiki di kode: drop-up akun kini memakai pengumpul yang menyertakan
+   node ber-anak. Sekalian "Riwayat Checklist" ditempatkan sebagai halaman
+   pribadi (drop-up), bukan berdiri sendiri di menu utama.
+   Sesudahnya prod & dev seragam: GS/Asdent menu utama kosong (memang begitu
+   desainnya — kerjaan mereka semua pribadi) dengan drop-up lengkap.
+
+### Tiga utang dicatat, BUKAN diperbaiki (butuh keputusan / bukan hari ini)
+
+1. **Node menu ber-link kembar** — prod: `pettycash` ×2, `rawreservation` ×4,
+   `report` ×2; dev serupa. Bahayanya: mencabut akses lewat satu node tidak
+   mencabut aksesnya, karena gerbang cukup menemukan grant di node kembarannya.
+   **Semuanya warisan lama, bukan dari kerjaan hari ini**, dan detektor
+   Kesehatan memang sudah menandainya (badge 8 di prod). Perlu keputusan mana
+   node yang sah sebelum dirapikan — bukan tebakan.
+2. **Menu mati**: node "Sales" ber-link `complaint` tidak punya route
+   (prod & dev) — tak dipegang siapa pun, jadi tak terlihat; cruft. Di dev
+   ada lima menu Accurate (`accurate-*`) tanpa route karena proyeknya
+   di-pause, tapi **masih dipegang Creative & Head Marketing** → kalau diklik
+   berujung 404. Prod tidak kena.
+3. **Satu galat DB sekilas di prod** 14:13 (`SQLSTATE[2002] Operation not
+   permitted` saat membaca `users`) — sekali saja, khas gangguan koneksi
+   sesaat hosting, bukan pola. Dicatat supaya kalau berulang sudah ada jejaknya.
+   (Tiga galat prod lainnya berasal dari skrip diagnosa saya sendiri dan satu
+   perintah salah opsi — bukan aplikasi.)
+
+Catatan: "peran ber-grant tapi menu utama kosong" (GS, Asdent, FO di dev)
+diperiksa satu per satu dan **bukan cacat** — semua grant mereka memang
+halaman pribadi yang tempatnya di drop-up.
+
+## 2026-08-05 siang — PROD DIBERESKAN: absensi resmi mulai 5 Agustus, 9 orang tercatat hadir
+
+Lanjutan temuan di bawah. Keputusan Ekky: **4 Agustus dinyatakan tidak berlaku,
+penilaian absensi dimulai 5 Agustus.** Dikerjakan langsung di prod (backup
+dulu: `~/backups/prod_pre_absensi_start_2026-08-05.sql.gz`).
+
+**Hasil di prod, terverifikasi:**
+- **9 orang yang absen hari ini kini tercatat "hadir"** — Reza 07:33, Yovanka/
+  Firda/Talitha 09:31, Della 09:33, Afrina 09:48, Rizka 10:16, Ikhsan 10:43,
+  Anisa 11:36. Layar mereka tidak lagi menyangkal absen mereka.
+- **6 alpa palsu 4 Agustus terhapus**, dan tidak akan lahir lagi.
+- Mulai-berlaku aturan kerja 15 orang digeser ke 2026-08-05.
+
+**Kenapa bukan sekadar menghapus barisnya**: menghapus itu sementara — siapa
+pun yang kelak menjalankan ulang perhitungan untuk rentang yang memuat 4
+Agustus akan melahirkan alpa itu lagi, tanpa ada yang sadar. Yang dipakai
+adalah mekanisme sistem sendiri (mulai-berlaku aturan kerja), jadi tanggal
+sebelum 5 Agustus tidak menghasilkan baris apa pun dan pembersih bawaan
+membuang yang lama. Berkas: `2026_08_05_absensi_mulai_5_agustus.sql`.
+**Konsekuensi yang disadari & bisa dibalik**: kalau kelak data mesin sidik
+jari 1–4 Agustus diunggah, scan itu tidak akan dinilai. Kalau suatu saat perlu,
+cukup mundurkan lagi tanggalnya — tidak ada data yang dibuang.
+
+**MASIH MENGGANTUNG — perbaikan kodenya belum di prod.** Yang di atas
+membereskan data hari ini; supaya besok-besok absen langsung terlihat tanpa
+disuruh jalan manual, kode `fix(absensi): absen langsung terlihat hari itu
+juga` perlu naik prod. Prod melacak branch `main`, dan **push ke `main`
+diblokir pengaman** — perlu Ekky mengizinkan atau melakukannya sendiri.
+Tanpa itu, tiap hari absen baru terlihat besok paginya (atau harus dijalankan
+`att:reconcile <hari-ini> <hari-ini>` manual).
+
+## 2026-08-05 siang — "Sudah absen kok ditulis Belum absen?" (sebabnya ketemu, fix ada di dev)
+
+Ekky melapor dari HP: sudah absen, tapi layar Absensi Saya tetap menulis
+**"Belum absen"** dan rekap Agustus **"0 hari tercatat"**. Diperiksa langsung
+di prod (baca-saja): absennya **tidak hilang** dan datanya **tidak rusak**.
+
+**Sebabnya sederhana tapi berdampak luas**: absen menulis ke tabel scan/bukti,
+sedangkan semua layar absensi membaca tabel harian (`att_day`) yang **hanya
+dibuat sapuan otomatis jam 06:10 pagi**. Jadi absen jam 10:43 baru muncul
+besok pagi.
+
+**Kena SEMUA orang, bukan cuma Ekky.** Diperiksa jam 13:10 di prod: sembilan
+orang sudah absen hari ini (Reza 07:33, Yovanka/Firda/Talitha 09:31, Della
+09:33, Afrina 09:48, Rizka 10:16, Ikhsan 10:43, Anisa 11:36) — dan
+**sembilan-sembilannya belum punya catatan harian**. Semua melihat layar yang
+menyangkal absen mereka. Ini kelas kegagalan-senyap yang paling mahal: orang
+menyimpulkan fiturnya rusak, atau mencoba absen berulang kali.
+
+**Sudah diperbaiki dan live di DEV** (belum di prod): begitu absen tersimpan,
+catatan hariannya langsung dihitung untuk orang itu saja. Aman dilakukan
+tengah hari — perhitungannya idempoten, hanya menyentuh satu orang satu hari,
+melewati periode gaji yang sudah ditutup, dan **tidak** memvonis alpa untuk
+hari yang masih berjalan (penjaga itu memang sudah ada sejak awal). Sapuan
+06:10 tetap jadi vonis final; ini mempercepat, bukan menggantikan. Teruji di
+lokal & dev untuk dua jenis aturan kerja (baku & fleksibel), dijalankan dua
+kali tetap satu baris. Kalau perhitungannya gagal, absennya tetap sah.
+
+**DUA HAL UNTUK CHAT PROD:**
+1. Naikkan kode terbaru, lalu jalankan **sekali**
+   `php artisan att:reconcile 2026-08-05 2026-08-05` — supaya sembilan orang
+   yang sudah terlanjur absen hari ini langsung terlihat, tanpa menunggu besok.
+   (Prod per 13:10 masih di `f309061`, belum memuat perbaikan ini.)
+2. **Keputusan Ekky, bukan teknis**: di prod ada **6 catatan "alpa" tanggal
+   4 Agustus** (Afrina, Anisa, Asih, Firda, Irma, Rizka), dibuat sapuan pagi
+   tadi karena 4 Agustus hari kerja tanpa satu pun scan — padahal absen HP
+   memang baru dipakai 5 Agustus. Sistemnya benar, premisnya yang salah.
+   Pilihan: hapus enam baris itu, tandai 4 Agustus sebagai pengecualian, atau
+   biarkan lalu dikoreksi lewat pengajuan. **Risiko yang sama berulang tiap
+   hari** untuk orang beraturan "baku" yang belum absen lewat HP dan datanya
+   belum diunggah dari mesin sidik jari.
+
+## 2026-08-05 — Hari pertama absen HP: 9 orang kantor masuk ABG + temuan WiFi Bintaro
+
+### Orang kantor masuk ABG (SELESAI, prod + dev)
+
+Yovanka, Talitha, Alif, Dani, Hari, dan Robi **tidak punya aturan kerja sama
+sekali**. Daftar Kehadiran dibangun dari `att_user_rule`, jadi mereka tak
+muncul di halaman Kehadiran mana pun — bukan cuma tak ada di grup ABG. Mereka
+bisa absen (Yovanka & Talitha sudah absen pagi ini) tapi kehadirannya tak
+pernah dinilai, dan justru kena flag `ip_asing`, karena pengecualian flag hanya
+berlaku bagi yang beraturan Fleksibel.
+
+Keputusan Ekky: keenamnya masuk ABG, dan semua penghuni ABG beraturan
+Fleksibel. Terpasang lewat `2026_08_05_abg_fleksibel.sql`. **ABG kini 9 orang.**
+Sisa tanpa aturan tinggal 11 akun peran bersama (Admin\*, Sales\*, Executive
+Pamulang) — memang tidak boleh punya aturan, itu akun jabatan, bukan orang.
+
+Catatan kecil yang menyelamatkan: email Dani/Hari/Robi ternyata `@stdc.id`,
+bukan `@sweettreats.id`. Kalau tidak diperiksa dulu, SQL-nya akan melewati
+mereka bertiga tanpa pesan apa pun.
+
+### Temuan: "WiFi = saksi" belum berjalan di Bintaro
+
+Pagi ini 7 orang absen dari Bintaro dan **tak satu pun cocok dengan WiFi
+terdaftar** — semuanya lewat jalur manual pilih-cabang. Yang cocok WiFi hanya
+Reza di Sunter. Lima orang kena flag `ip_asing`; Anisa sudah meninjau semuanya
+lalu mendaftarkan tiap IP yang muncul, satu per satu, jam 11.17–11.18.
+
+**Anisa tidak salah** — dia melakukan persis yang disediakan sistem. Yang keliru
+premisnya. Dua sebab, dua-duanya terbukti dari data hari ini:
+
+1. **Satu WiFi punya dua wajah.** Jaringan dual-stack punya IPv4 dan IPv6
+   sekaligus; HP mana memakai yang mana tergantung perangkat. Bukti: di halaman
+   WiFi Cabang, IP Ekky terbaca `180.252.168.224` (IPv4, sama persis dengan
+   Yovanka), sedangkan saat absen ia tercatat sebagai IPv6
+   `2001:448a:2092:2313:...`. Satu HP, satu WiFi, dua alamat yang tak mirip.
+2. **Alamatnya berputar.** Prefix IPv6 yang didaftarkan 25 Juli (`ab6`) sudah
+   tidak dipakai hari ini, dan IPv4 IndiHome bersifat dinamis.
+
+Kantor Bintaro punya 3 WiFi, jadi menutupnya butuh 6 entri (3 sambungan × 2
+wajah), bukan 3 — dan itu pun tidak akan bertahan.
+
+**Yang menenangkan**: IP tak cocok **tidak pernah menolak absen**, hanya meminta
+orang memilih cabang lalu memunculkan flag. Jadi taruhannya bukan "orang tak
+bisa absen", melainkan flag palsu tiap hari dan pekerjaan pendaftaran tanpa
+ujung bagi Anisa.
+
+**Perkembangan penting**: Ekky punya akses admin ke router kantor (Xiaomi, di
+belakang modem IndiHome `192.168.1.1`). Itu membuka jalan yang jauh lebih murah
+dan cepat daripada menunggu IP statis Telkom: matikan IPv6 di WiFi staf supaya
+tiap sambungan hanya punya satu wajah, lalu pasang DDNS supaya alamatnya punya
+nama tetap dan aplikasi tinggal mengikuti namanya. Belum dieksekusi, menunggu
+keputusan.
+
 ## 2026-08-05 — Akar dari semua "menu hilang": PROD menjalankan kode basi (DIPERBAIKI)
 
 Berangkat dari empat permintaan Ekky (cabut Promo Talitha, Pengajuan pindah ke

@@ -122,6 +122,8 @@ class AkunAbsenController extends Controller
             return response()->json(['ok' => false, 'pesan' => 'Absen gagal tersimpan. Coba lagi ya.'], 500);
         }
 
+        $this->segarkanHariIni($userId, $svc);
+
         $branchName = $hasil['branch_id']
             ? optional(RawBranch::find($hasil['branch_id']))->name
             : null;
@@ -135,6 +137,39 @@ class AkunAbsenController extends Controller
             // flags sengaja TIDAK dikirim ke staff — review urusan SPV, bukan
             // buat bikin orang panik. Cukup nada netral kalau IP tak dikenal.
         ]);
+    }
+
+    /**
+     * Setelah absen tersimpan, hitung ulang att_day HARI INI untuk orang ini.
+     *
+     * Absen menulis att_scan + att_hp_bukti, tapi SELURUH layar absensi membaca
+     * att_day — dan att_day hanya lahir dari reconcile terjadwal 06:10. Tanpa
+     * ini, orang yang baru saja absen tetap dibilang "Belum absen" sampai besok
+     * pagi, rekapnya "0 hari tercatat", dan SPV tak melihatnya di Kehadiran.
+     * Terlihat di prod hari pertama (2026-08-05): 9 orang absen, sembilan-
+     * sembilannya melihat layar yang menyangkal absen mereka — persis kelas
+     * kegagalan-senyap yang bikin orang absen dua kali atau lapor "rusak".
+     *
+     * Aman dijalankan tengah hari: reconcile idempoten, di-scope ke satu orang
+     * satu hari, melewati periode gaji yang sudah ditutup, dan TIDAK memvonis
+     * alpa untuk hari berjalan (penjaga `$key >= $now` di AttendanceReconciler).
+     * Vonis final tetap dari sapuan 06:10 besok — ini hanya mempercepat.
+     *
+     * Gagal hitung TIDAK boleh membatalkan absen yang sudah sah tersimpan:
+     * cukup dicatat, sapuan besok pagi menyusul.
+     */
+    private function segarkanHariIni(string $userId, AttendanceHpAbsen $svc): void
+    {
+        try {
+            // WAJIB Illuminate\Support\Carbon — reconcile() menuntut tipe itu,
+            // sedangkan berkas ini meng-import Carbon\Carbon (induknya). Sempat
+            // salah: TypeError-nya ketangkap catch di bawah, jadi absen tetap
+            // tersimpan tapi perhitungan hariannya diam-diam tak jalan.
+            $wd = \Illuminate\Support\Carbon::parse($svc->workDate(Carbon::now()))->startOfDay();
+            (new \App\Services\AttendanceReconciler())->reconcile($wd, $wd->copy(), $userId);
+        } catch (\Throwable $e) {
+            \Log::warning('[absen-hp] reconcile kilat gagal: ' . $e->getMessage(), ['user' => $userId]);
+        }
     }
 
     /**
