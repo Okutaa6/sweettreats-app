@@ -7,6 +7,47 @@
 
 ---
 
+## 2026-08-05 siang — "Sudah absen kok ditulis Belum absen?" (sebabnya ketemu, fix ada di dev)
+
+Ekky melapor dari HP: sudah absen, tapi layar Absensi Saya tetap menulis
+**"Belum absen"** dan rekap Agustus **"0 hari tercatat"**. Diperiksa langsung
+di prod (baca-saja): absennya **tidak hilang** dan datanya **tidak rusak**.
+
+**Sebabnya sederhana tapi berdampak luas**: absen menulis ke tabel scan/bukti,
+sedangkan semua layar absensi membaca tabel harian (`att_day`) yang **hanya
+dibuat sapuan otomatis jam 06:10 pagi**. Jadi absen jam 10:43 baru muncul
+besok pagi.
+
+**Kena SEMUA orang, bukan cuma Ekky.** Diperiksa jam 13:10 di prod: sembilan
+orang sudah absen hari ini (Reza 07:33, Yovanka/Firda/Talitha 09:31, Della
+09:33, Afrina 09:48, Rizka 10:16, Ikhsan 10:43, Anisa 11:36) — dan
+**sembilan-sembilannya belum punya catatan harian**. Semua melihat layar yang
+menyangkal absen mereka. Ini kelas kegagalan-senyap yang paling mahal: orang
+menyimpulkan fiturnya rusak, atau mencoba absen berulang kali.
+
+**Sudah diperbaiki dan live di DEV** (belum di prod): begitu absen tersimpan,
+catatan hariannya langsung dihitung untuk orang itu saja. Aman dilakukan
+tengah hari — perhitungannya idempoten, hanya menyentuh satu orang satu hari,
+melewati periode gaji yang sudah ditutup, dan **tidak** memvonis alpa untuk
+hari yang masih berjalan (penjaga itu memang sudah ada sejak awal). Sapuan
+06:10 tetap jadi vonis final; ini mempercepat, bukan menggantikan. Teruji di
+lokal & dev untuk dua jenis aturan kerja (baku & fleksibel), dijalankan dua
+kali tetap satu baris. Kalau perhitungannya gagal, absennya tetap sah.
+
+**DUA HAL UNTUK CHAT PROD:**
+1. Naikkan kode terbaru, lalu jalankan **sekali**
+   `php artisan att:reconcile 2026-08-05 2026-08-05` — supaya sembilan orang
+   yang sudah terlanjur absen hari ini langsung terlihat, tanpa menunggu besok.
+   (Prod per 13:10 masih di `f309061`, belum memuat perbaikan ini.)
+2. **Keputusan Ekky, bukan teknis**: di prod ada **6 catatan "alpa" tanggal
+   4 Agustus** (Afrina, Anisa, Asih, Firda, Irma, Rizka), dibuat sapuan pagi
+   tadi karena 4 Agustus hari kerja tanpa satu pun scan — padahal absen HP
+   memang baru dipakai 5 Agustus. Sistemnya benar, premisnya yang salah.
+   Pilihan: hapus enam baris itu, tandai 4 Agustus sebagai pengecualian, atau
+   biarkan lalu dikoreksi lewat pengajuan. **Risiko yang sama berulang tiap
+   hari** untuk orang beraturan "baku" yang belum absen lewat HP dan datanya
+   belum diunggah dari mesin sidik jari.
+
 ## 2026-08-05 — Hari pertama absen HP: 9 orang kantor masuk ABG + temuan WiFi Bintaro
 
 ### Orang kantor masuk ABG (SELESAI, prod + dev)
