@@ -8,6 +8,7 @@ use App\Models\ChecklistAuditLog;
 use App\Models\ChecklistDivision;
 use App\Models\ChecklistSubmission;
 use App\Models\ChecklistSubmissionItem;
+use App\Models\ChecklistWeeklyDaySubmit;
 use App\Models\ChecklistWeeklySubmission;
 use App\Models\ChecklistWeeklySubmissionItem;
 use App\Models\ChecklistCategory;
@@ -660,84 +661,90 @@ class DigitalChecklistController extends Controller
 
     /* ─── Review queue ─────────────────────────────────────────────────── */
 
+    /**
+     * Halaman Review Harian = daftar "Checklist Karyawan": tiap karyawan aktif
+     * dalam cakupan supervisor + jumlah checklist yang masih menunggu approval.
+     * Supervisor mengecek per orang (klik → reviewEmployee), bukan per submission
+     * campur aduk — sesuai kebutuhan melihat riwayat checklist tiap karyawan.
+     */
     public function reviewIndex(Request $request)
     {
         $this->guard();
 
-        $branchId   = resolveChecklistBranchId($request->get('branch'));
-        $filterDate = $request->get('date');
-        $filterDiv  = $request->get('division', 'all');
-        $filterStat = $request->get('status', ChecklistSubmission::STATUS_SUBMITTED);
-        $search     = trim((string) $request->get('q', ''));
-        $visible    = checklistVisibleDivisionIds();   // divisi yang boleh disupervisi user ini
-
-        $base = ChecklistSubmission::query()
-            ->whereIn('division_id', $visible)
-            ->when($branchId, fn($q) => $q->where('raw_branch_id', $branchId));
-
-        // Status tab counts (hitung sebelum apply filter status).
-        $countsBase = (clone $base);
-        if ($filterDate) $countsBase->whereDate('submission_date', $filterDate);
-        if ($filterDiv !== 'all') $countsBase->where('division_id', $filterDiv);
-        if ($search !== '') {
-            $countsBase->whereExists(function ($q) use ($search) {
-                $q->select(DB::raw(1))->from('users')
-                  ->whereRaw('users.id = sys_checklist_submission.user_id')
-                  ->where('users.nama', 'like', "%{$search}%");
-            });
-        }
-        $counts = [
-            'all'       => (clone $countsBase)->count(),
-            'submitted' => (clone $countsBase)->where('status', ChecklistSubmission::STATUS_SUBMITTED)->count(),
-            'approved'  => (clone $countsBase)->where('status', ChecklistSubmission::STATUS_APPROVED)->count(),
-            'rejected'  => (clone $countsBase)->where('status', ChecklistSubmission::STATUS_REJECTED)->count(),
-            'excused'   => (clone $countsBase)->where('status', ChecklistSubmission::STATUS_EXCUSED)->count(),
-            'missed'    => (clone $countsBase)->where('status', ChecklistSubmission::STATUS_MISSED)->count(),
-        ];
-
-        // Jumlah submission per divisi (untuk tab divisi) — ikut filter tanggal/status/cari, TANPA filter divisi.
-        $divCountBase = (clone $base);
-        if ($filterDate) $divCountBase->whereDate('submission_date', $filterDate);
-        if ($filterStat !== 'all') $divCountBase->where('status', $filterStat);
-        if ($search !== '') {
-            $divCountBase->whereExists(function ($q) use ($search) {
-                $q->select(DB::raw(1))->from('users')
-                  ->whereRaw('users.id = sys_checklist_submission.user_id')
-                  ->where('users.nama', 'like', "%{$search}%");
-            });
-        }
-        $divCounts = (clone $divCountBase)
-            ->select('division_id', DB::raw('count(*) as c'))
-            ->groupBy('division_id')
-            ->pluck('c', 'division_id');
-
-        $query = (clone $base)->with(['user', 'division', 'branch']);
-        if ($filterDate) $query->whereDate('submission_date', $filterDate);
-        if ($filterDiv !== 'all') $query->where('division_id', $filterDiv);
-        if ($filterStat !== 'all') $query->where('status', $filterStat);
-        if ($search !== '') {
-            $query->whereExists(function ($q) use ($search) {
-                $q->select(DB::raw(1))->from('users')
-                  ->whereRaw('users.id = sys_checklist_submission.user_id')
-                  ->where('users.nama', 'like', "%{$search}%");
-            });
-        }
-
-        $submissions = $query
-            ->orderByDesc('submission_date')
-            ->orderByDesc('submitted_at')
-            ->orderByDesc('created_at')
-            ->paginate($this->perPage)
-            ->appends($request->query());
+        $branchId  = resolveChecklistBranchId($request->get('branch'));
+        $search    = trim((string) $request->get('q', ''));
+        $visible   = checklistVisibleDivisionIds();   // divisi yang boleh disupervisi user ini
 
         $divisions = ChecklistDivision::query()->where('is_active', 1)
             ->whereIn('id', $visible)->orderBy('sort_order')->get();
+
+        // Default ke tab divisi paling kiri saat pertama masuk (bukan 'all').
+        $filterDiv = $request->get('division', optional($divisions->first())->id ?? 'all');
+
+        $people = $this->reviewPeople($visible, $branchId, $filterDiv, $search);
+
         $branches  = canSeeAllBranches() ? RawBranch::orderBy('name')->get() : collect();
 
         return view('crud.checklist.review.index', compact(
-            'submissions', 'counts', 'divCounts', 'divisions', 'branches', 'branchId',
-            'filterDate', 'filterDiv', 'filterStat', 'search'
+            'people', 'divisions', 'branches', 'branchId', 'filterDiv', 'search'
         ));
+    }
+
+    /**
+     * Daftar karyawan aktif dalam cakupan supervisor + jumlah checklist yang
+     * masih "Menunggu Approval" (lintas tanggal) per orang — untuk tabel
+     * "Checklist Karyawan". Urut: yang punya antrian di atas, lalu nama.
+     * Dipakai dua kali: Harian (default) & Mingguan (model + kolom tanggal beda).
+     *
+     * @return \Illuminate\Support\Collection of stdClass{user,division,branch,pending,pendingMonth}
+     */
+    private function reviewPeople(array $visible, ?string $branchId, string $filterDiv, string $search,
+                                  string $modelClass = ChecklistSubmission::class, string $dateCol = 'submission_date',
+                                  $pendingOverride = null)
+    {
+        $positions = UserPosition::query()->activeOn(Carbon::today())
+            ->whereIn('division_id', $visible)
+            ->when($branchId, fn($q) => $q->where('raw_branch_id', $branchId))
+            ->when($filterDiv !== 'all', fn($q) => $q->where('division_id', $filterDiv))
+            ->whereIn('user_id', Users::query()->where('status', 1)->select('id'))
+            ->with(['user', 'division', 'branch'])
+            ->get()
+            ->unique('user_id');
+
+        if ($positions->isEmpty()) {
+            return collect();
+        }
+
+        // Jumlah antrian "Menunggu Approval" per user (lintas tanggal) + bulan
+        // antrian TERBARU — supaya link "Lihat" langsung membuka bulan tsb.
+        // Mingguan memakai $pendingOverride berbasis HARI menunggu review (mid-week).
+        $pendingRows = $pendingOverride ?? $modelClass::query()
+            ->whereIn('division_id', $visible)
+            ->when($branchId, fn($q) => $q->where('raw_branch_id', $branchId))
+            ->where('status', ChecklistSubmission::STATUS_SUBMITTED)
+            ->whereIn('user_id', $positions->pluck('user_id'))
+            ->select('user_id', DB::raw('count(*) as c'), DB::raw("max({$dateCol}) as last_date"))
+            ->groupBy('user_id')
+            ->get()
+            ->keyBy('user_id');
+
+        return $positions
+            ->map(function ($p) use ($pendingRows) {
+                $row = $pendingRows->get($p->user_id);
+                return (object) [
+                    'user'         => $p->user,
+                    'division'     => $p->division,
+                    'branch'       => $p->branch,
+                    'pending'      => (int) ($row->c ?? 0),
+                    'pendingMonth' => $row && $row->last_date ? Carbon::parse($row->last_date)->format('Y-m') : null,
+                ];
+            })
+            ->when($search !== '', function ($c) use ($search) {
+                $needle = mb_strtolower($search);
+                return $c->filter(fn($r) => mb_strpos(mb_strtolower($r->user?->nama ?? ''), $needle) !== false);
+            })
+            ->sortBy(fn($r) => sprintf('%09d|%s', 999999999 - $r->pending, mb_strtolower($r->user?->nama ?? '')))
+            ->values();
     }
 
     public function reviewShow(string $id)
@@ -786,6 +793,10 @@ class DigitalChecklistController extends Controller
         $this->notifyEmployee($sub, 'checklist.approved', 'Checklist anda disetujui',
             'Pengisian checklist tanggal ' . $sub->submission_date->format('d M Y') . ' telah disetujui supervisor.');
 
+        if ($ru = $request->get('return_user')) {
+            return redirect()->route('checklist.review.employee', array_merge(['user' => $ru], array_filter(['month' => $request->get('return_month')])))
+                ->with('success', 'Checklist disetujui.');
+        }
         return redirect()->route('checklist.review')->with('success', 'Checklist disetujui.');
     }
 
@@ -821,6 +832,10 @@ class DigitalChecklistController extends Controller
         $this->notifyEmployee($sub, 'checklist.rejected', 'Checklist anda ditolak',
             'Pengisian ' . $sub->submission_date->format('d M Y') . ' perlu diperbaiki. Catatan: ' . $notes);
 
+        if ($ru = $request->get('return_user')) {
+            return redirect()->route('checklist.review.employee', array_merge(['user' => $ru], array_filter(['month' => $request->get('return_month')])))
+                ->with('success', 'Checklist ditolak. Karyawan akan diberitahu.');
+        }
         return redirect()->route('checklist.review')->with('success', 'Checklist ditolak. Karyawan akan diberitahu.');
     }
 
@@ -880,6 +895,158 @@ class DigitalChecklistController extends Controller
             'Pengecualian checklist ' . $sub->submission_date->format('d M Y') . ' dibatalkan supervisor — silakan isi checklist.');
 
         return redirect()->route('checklist.review')->with('success', 'Pengecualian dibatalkan. Karyawan diminta mengisi checklist.');
+    }
+
+    /* ─── Riwayat & aksi per karyawan (drill-down "Riwayat Karyawan") ───── */
+
+    /**
+     * Riwayat checklist HARIAN satu karyawan dalam 1 bulan (navigasi ← →),
+     * lengkap dengan aksi approve inline & "Approve semua yg menunggu". Supaya
+     * supervisor bisa mengecek & membereskan per orang sekaligus.
+     */
+    public function reviewEmployee(Request $request, string $user)
+    {
+        $this->guard();
+
+        $employee = Users::with('branch')->findOrFail($user);
+        $visible  = checklistVisibleDivisionIds();
+        $branchId = resolveChecklistBranchId($request->get('branch'));
+
+        // Cakupan: karyawan harus di divisi yang boleh disupervisi user ini —
+        // dari divisi role-nya sekarang ATAU pernah punya submission di divisi
+        // dalam cakupan (menjaga akses riwayat setelah pindah role).
+        $empDiv  = checklistDivisionForGroup($employee->group_id);
+        $inScope = ($empDiv && in_array($empDiv->id, $visible, true))
+            || ChecklistSubmission::where('user_id', $user)->whereIn('division_id', $visible)->exists();
+        if (! $inScope) {
+            abort(403, 'Karyawan ini di luar cakupan supervisi Anda.');
+        }
+
+        $month = $request->get('month', Carbon::now()->format('Y-m'));
+        try {
+            $start = Carbon::createFromFormat('Y-m', $month)->startOfMonth();
+        } catch (\Throwable $e) {
+            $start = Carbon::now()->startOfMonth();
+            $month = $start->format('Y-m');
+        }
+        $end        = $start->copy()->endOfMonth();
+        $prevMonth  = $start->copy()->subMonth()->format('Y-m');
+        $nextMonth  = $start->copy()->addMonth()->format('Y-m');
+        $monthLabel = $start->translatedFormat('F Y');
+        $today      = Carbon::today();
+
+        // Submission asli bulan ini dalam cakupan cabang.
+        $realSubs = ChecklistSubmission::query()
+            ->where('user_id', $user)
+            ->when($branchId, fn($q) => $q->where('raw_branch_id', $branchId))
+            ->whereBetween('submission_date', [$start->toDateString(), $end->toDateString()])
+            ->get();
+        $existingDates = $realSubs->keyBy(fn($s) => $s->submission_date->toDateString());
+
+        // Sintesis "Tidak Diisi" untuk hari operasional bulan ini yang SUDAH
+        // LEWAT saat karyawan aktif tapi tak ada pengisian — supaya tampil tanpa
+        // menunggu cron checklist:mark-missed. Aturan sama dengan cron: lewati
+        // Senin (klinik tutup), hanya tanggal < hari ini, dan karyawan harus aktif
+        // (posisi primary confirmed, dalam rentang efektif).
+        $positions = UserPosition::query()->where('user_id', $user)
+            ->where('is_primary', 1)->whereNotNull('confirmed_at')
+            ->get(['raw_branch_id', 'effective_from', 'effective_to']);
+        $synth   = collect();
+        $loopEnd = $end->lt($today) ? $end->copy() : $today->copy()->subDay();
+        for ($d = $start->copy(); $d->lte($loopEnd); $d->addDay()) {
+            if ($d->dayOfWeekIso === 1) continue;                       // Senin: klinik tutup
+            if ($existingDates->has($d->toDateString())) continue;      // sudah ada baris asli
+            $active = $positions->contains(function ($p) use ($d, $branchId) {
+                if ($p->effective_from && $d->lt($p->effective_from)) return false;
+                if ($p->effective_to && $d->gt($p->effective_to)) return false;
+                if ($branchId && $p->raw_branch_id !== $branchId) return false;
+                return true;
+            });
+            if (! $active) continue;
+            $m = new ChecklistSubmission();
+            $m->status          = ChecklistSubmission::STATUS_MISSED;
+            $m->submission_date = $d->toDateString();
+            $m->total_tasks     = 0;
+            $m->done_tasks      = 0;
+            $synth->push($m);
+        }
+
+        $allSubs = $realSubs->concat($synth)
+            ->sortByDesc(fn($s) => $s->submission_date->format('Y-m-d'))
+            ->values();
+
+        $countByStatus = $allSubs->groupBy('status')->map->count();
+        $stats = [
+            'total'    => $allSubs->count(),
+            'approved' => (int) ($countByStatus[ChecklistSubmission::STATUS_APPROVED]  ?? 0),
+            'pending'  => (int) ($countByStatus[ChecklistSubmission::STATUS_SUBMITTED] ?? 0),
+            'rejected' => (int) ($countByStatus[ChecklistSubmission::STATUS_REJECTED]  ?? 0),
+            'excused'  => (int) ($countByStatus[ChecklistSubmission::STATUS_EXCUSED]   ?? 0),
+            'missed'   => (int) ($countByStatus[ChecklistSubmission::STATUS_MISSED]    ?? 0),
+            'draft'    => (int) ($countByStatus[ChecklistSubmission::STATUS_DRAFT]     ?? 0),
+        ];
+
+        // Filter status (opsional) — hanya mempersempit DAFTAR tabel. 'draft' = Belum Dikirim.
+        $status = $request->get('status');
+        if (! in_array($status, [
+            ChecklistSubmission::STATUS_SUBMITTED, ChecklistSubmission::STATUS_APPROVED,
+            ChecklistSubmission::STATUS_REJECTED, ChecklistSubmission::STATUS_EXCUSED,
+            ChecklistSubmission::STATUS_MISSED, ChecklistSubmission::STATUS_DRAFT,
+        ], true)) {
+            $status = null;
+        }
+        $subs = $status ? $allSubs->where('status', $status)->values() : $allSubs;
+
+        return view('crud.checklist.review.employee', compact(
+            'employee', 'empDiv', 'subs', 'month', 'monthLabel', 'prevMonth', 'nextMonth',
+            'stats', 'branchId', 'status'
+        ));
+    }
+
+    /**
+     * Approve sekaligus SEMUA checklist harian karyawan yang masih "Menunggu
+     * Approval" dalam cakupan supervisor. Bila param month diisi, dibatasi ke
+     * bulan itu (mengikuti bulan yang sedang dibuka di halaman riwayat).
+     */
+    public function approveEmployeePending(Request $request, string $user)
+    {
+        $this->guard();
+
+        $visible  = checklistVisibleDivisionIds();
+        $branchId = resolveChecklistBranchId(null);
+        $month    = $request->get('month');
+
+        $q = ChecklistSubmission::query()
+            ->where('user_id', $user)
+            ->whereIn('division_id', $visible)
+            ->when($branchId, fn($q) => $q->where('raw_branch_id', $branchId))
+            ->where('status', ChecklistSubmission::STATUS_SUBMITTED);
+
+        if ($month) {
+            try {
+                $start = Carbon::createFromFormat('Y-m', $month)->startOfMonth();
+                $q->whereBetween('submission_date', [$start->toDateString(), $start->copy()->endOfMonth()->toDateString()]);
+            } catch (\Throwable $e) { /* abaikan filter bulan bila format salah */ }
+        }
+
+        $pending = $q->get();
+        foreach ($pending as $sub) {
+            $before = ['status' => $sub->status];
+            $sub->update([
+                'status'           => ChecklistSubmission::STATUS_APPROVED,
+                'reviewer_user_id' => session('id'),
+                'reviewed_at'      => now(),
+                'updated_at'       => now(),
+            ]);
+            ChecklistAuditLog::write('submission', $sub->id, ChecklistAuditLog::ACTION_APPROVE,
+                $before, ['status' => $sub->status], 'Approve massal per karyawan.');
+            $this->notifyEmployee($sub, 'checklist.approved', 'Checklist anda disetujui',
+                'Pengisian checklist tanggal ' . $sub->submission_date->format('d M Y') . ' telah disetujui supervisor.');
+        }
+
+        $n = $pending->count();
+        return redirect()->route('checklist.review.employee', array_merge(['user' => $user], array_filter(['month' => $month])))
+            ->with('success', $n > 0 ? "{$n} checklist disetujui." : 'Tidak ada checklist yang menunggu approval.');
     }
 
     /* ─── Audit Trail ──────────────────────────────────────────────────── */
@@ -984,18 +1151,27 @@ class DigitalChecklistController extends Controller
         $users   = $query->orderBy('users.nama')->get()->keyBy('id');
         $userIds = $users->keys();
 
-        // Posisi AKTIF (confirmed) & USULAN pending, per user.
+        // Posisi ASAL (home) aktif + USULAN pending, per user. Kolom "posisi"
+        // selalu cabang HOME; rolling ditampilkan sebagai badge terpisah supaya
+        // supervisor tahu cabang asal vs penempatan sementara.
         $today = Carbon::today();
-        $active = UserPosition::query()->activeOn($today)
+        $active = UserPosition::query()->activeOn($today)->where('kind', 'home')
             ->whereIn('user_id', $userIds)
             ->with(['division', 'branch'])->get()->keyBy('user_id');
         $pending = UserPosition::query()->pending()
             ->whereIn('user_id', $userIds)
             ->with(['division', 'branch'])->get()->keyBy('user_id');
 
+        // Rolling aktif & yang akan datang (effective_to >= hari ini) per user,
+        // untuk badge "ditempatkan di … s/d …".
+        $rolls = UserPosition::query()->where('kind', 'rolling')
+            ->whereIn('user_id', $userIds)
+            ->whereDate('effective_to', '>=', $today)
+            ->with('branch')->orderBy('effective_from')->get()->groupBy('user_id');
+
         // Semua staf dalam cakupan ditampilkan (termasuk yang belum punya posisi),
         // supaya supervisor bisa set cabang. Divisi otomatis dari role (dikunci).
-        $rows = $users->map(function ($u) use ($active, $pending, $roleToDivision) {
+        $rows = $users->map(function ($u) use ($active, $pending, $rolls, $roleToDivision) {
             $pos  = $active->get($u->id);
             $prop = $pending->get($u->id);
             return (object) [
@@ -1004,6 +1180,7 @@ class DigitalChecklistController extends Controller
                 'division'     => $pos?->division,
                 'branch'       => $pos?->branch,
                 'pending'      => $prop,
+                'rolls'        => $rolls->get($u->id) ?? collect(),   // rolling aktif/mendatang
                 'roleDivision' => $roleToDivision->get($u->group_id),   // divisi otomatis dari role
             ];
         })->sortBy(fn($r) => $r->user->nama)->values();
@@ -1062,8 +1239,11 @@ class DigitalChecklistController extends Controller
 
         $today = Carbon::today();
 
-        // Cari posisi aktif user. Kalau ada & sudah identik → no-op.
-        $current = UserPosition::query()->activeOn($today)->where('user_id', $userId)->first();
+        // Cari posisi ASAL (home) aktif user — reassign permanen hanya menyentuh
+        // row home; rolling (penugasan sementara) tak boleh ikut ter-reassign.
+        // Kalau ada & sudah identik → no-op.
+        $current = UserPosition::query()->activeOn($today)->where('kind', 'home')
+            ->where('user_id', $userId)->first();
 
         if ($current
             && $current->division_id   === $data['division_id']
@@ -1086,6 +1266,7 @@ class DigitalChecklistController extends Controller
             'division_id'    => $data['division_id'],
             'raw_branch_id'  => $data['raw_branch_id'],
             'is_primary'     => 1,
+            'kind'           => 'home',
             'effective_from' => $today,
             'effective_to'   => null,
             'confirmed_at'   => now(),
@@ -1143,95 +1324,334 @@ class DigitalChecklistController extends Controller
             ->with('success', 'Posisi karyawan dinonaktifkan.');
     }
 
+    /* ─── Rolling cabang (penugasan sementara) ────────────────────────────
+       Supervisor menempatkan karyawan ke cabang LAIN untuk rentang tanggal.
+       Rolling = row sys_user_position kind='rolling' (bounded) yang MENANG atas
+       posisi home selama window-nya, lalu otomatis lepas begitu effective_to
+       lewat (revert tanpa aksi manual). Divisi tetap dari role — hanya cabang
+       yang berpindah. Pindah PERMANEN tetap lewat positionAssign. */
+
+    public function rollingAssign(Request $request)
+    {
+        $this->guard();
+
+        $data = $request->validate([
+            'user_id'        => 'required|string|exists:users,id',
+            'raw_branch_id'  => 'required|string|exists:raw_branch,id',
+            'effective_from' => 'required|date',
+            'effective_to'   => 'required|date|after_or_equal:effective_from',
+            'note'           => 'nullable|string|max:500',
+        ]);
+
+        $from = Carbon::parse($data['effective_from'])->startOfDay();
+        $to   = Carbon::parse($data['effective_to'])->startOfDay();
+
+        [$ok, $msg] = $this->makeRolling(
+            $data['user_id'], $data['raw_branch_id'], $from, $to, $data['note'] ?? null
+        );
+
+        return redirect()->route('checklist.positions')->with($ok ? 'success' : 'error', $msg);
+    }
+
+    public function rollingSwap(Request $request)
+    {
+        $this->guard();
+
+        $data = $request->validate([
+            'user_a'         => 'required|string|exists:users,id|different:user_b',
+            'user_b'         => 'required|string|exists:users,id',
+            'branch_a'       => 'required|string|exists:raw_branch,id',   // cabang tujuan A
+            'branch_b'       => 'required|string|exists:raw_branch,id',   // cabang tujuan B
+            'effective_from' => 'required|date',
+            'effective_to'   => 'required|date|after_or_equal:effective_from',
+            'note'           => 'nullable|string|max:500',
+        ]);
+
+        $from = Carbon::parse($data['effective_from'])->startOfDay();
+        $to   = Carbon::parse($data['effective_to'])->startOfDay();
+        $note = $data['note'] ?? 'Tukar cabang (swap)';
+
+        try {
+            DB::transaction(function () use ($data, $from, $to, $note) {
+                [$okA, $msgA] = $this->makeRolling($data['user_a'], $data['branch_a'], $from, $to, $note);
+                if (! $okA) throw new \RuntimeException($msgA);
+                [$okB, $msgB] = $this->makeRolling($data['user_b'], $data['branch_b'], $from, $to, $note);
+                if (! $okB) throw new \RuntimeException($msgB);
+            });
+        } catch (\RuntimeException $e) {
+            return redirect()->route('checklist.positions')->with('error', 'Swap gagal — ' . $e->getMessage());
+        }
+
+        return redirect()->route('checklist.positions')->with('success', 'Tukar cabang (swap) ditetapkan.');
+    }
+
+    public function rollingRemove(string $id)
+    {
+        $this->guard();
+
+        $pos = UserPosition::with(['user', 'branch'])->where('kind', 'rolling')->findOrFail($id);
+        $this->abortIfDivisionOutOfScope($pos->division_id);
+
+        // Belum mulai → batalkan total. Sudah/sedang berjalan → akhiri (effective_to
+        // = kemarin, konsisten dgn positionRemove: activeOn inklusif hari ini).
+        if ($pos->effective_from && $pos->effective_from->gt(Carbon::today())) {
+            $pos->delete();
+        } else {
+            $pos->update(['effective_to' => Carbon::today()->subDay(), 'updated_at' => now()]);
+        }
+
+        ChecklistAuditLog::write(
+            'submission',
+            $pos->id,
+            ChecklistAuditLog::ACTION_DELETE,
+            ['raw_branch_id' => $pos->raw_branch_id],
+            null,
+            'Rolling ' . ($pos->user?->nama ?? '-') . ' (' . ($pos->branch?->name ?? $pos->raw_branch_id) . ') diakhiri.'
+        );
+
+        return redirect()->route('checklist.positions')->with('success', 'Rolling diakhiri.');
+    }
+
+    /**
+     * Inti pembuatan 1 baris rolling (dipakai rollingAssign & rollingSwap).
+     * Return [bool ok, string message]. abort(403) bila divisi di luar cakupan.
+     */
+    private function makeRolling(string $userId, string $branchId, Carbon $from, Carbon $to, ?string $note): array
+    {
+        $user = Users::find($userId);
+
+        // Divisi tetap dari role — rolling HANYA memindah cabang, bukan divisi.
+        $division = checklistDivisionForGroup($user?->group_id);
+        if (! $division) {
+            return [false, ($user?->nama ?? 'Karyawan') . ': role bukan operasional checklist (FO / GS / Asdent).'];
+        }
+        if (! in_array($division->id, checklistVisibleDivisionIds(), true)) {
+            abort(403, 'Divisi ini di luar cakupan supervisi Anda.');
+        }
+        if ($from->lt(Carbon::today())) {
+            return [false, 'Tanggal mulai rolling tidak boleh di masa lalu.'];
+        }
+
+        // Tolak overlap dgn rolling lain milik user yang sama (window bersinggungan).
+        $overlap = UserPosition::where('kind', 'rolling')
+            ->where('user_id', $userId)
+            ->whereDate('effective_from', '<=', $to->toDateString())
+            ->whereDate('effective_to', '>=', $from->toDateString())
+            ->exists();
+        if ($overlap) {
+            return [false, ($user?->nama ?? 'Karyawan') . ': sudah ada rolling yang beririsan tanggalnya — akhiri dulu yang lama.'];
+        }
+
+        $pos = UserPosition::create([
+            'user_id'        => $userId,
+            'division_id'    => $division->id,
+            'raw_branch_id'  => $branchId,
+            'is_primary'     => 1,
+            'kind'           => 'rolling',
+            'effective_from' => $from,
+            'effective_to'   => $to,
+            'confirmed_at'   => now(),
+            'confirmed_by'   => session('id'),
+            'note'           => $note,
+            'created_at'     => now(),
+            'updated_at'     => now(),
+        ]);
+
+        $branch  = RawBranch::find($branchId);
+        $rangeTx = $from->translatedFormat('d M') . '–' . $to->translatedFormat('d M Y');
+        ChecklistAuditLog::write(
+            'submission',
+            $pos->id,
+            ChecklistAuditLog::ACTION_CREATE,
+            null,
+            ['raw_branch_id' => $pos->raw_branch_id, 'effective_from' => $from->toDateString(), 'effective_to' => $to->toDateString()],
+            'Rolling ' . ($user?->nama ?? '-') . ' → ' . ($branch?->name ?? $branchId) . ' (' . $rangeTx . ')'
+        );
+
+        // Kabari karyawan yang dirolling.
+        try {
+            \App\Models\AdminNotification::notify(
+                'checklist.rolling',
+                'Penempatan sementara',
+                'Kamu ditempatkan sementara di cabang ' . ($branch?->name ?? '-') . ' pada ' . $rangeTx . '. Checklist mengikuti cabang tsb selama periode ini.',
+                url('my-checklist'),
+                $pos->raw_branch_id,
+                $userId
+            );
+        } catch (\Throwable $e) {}
+
+        return [true, 'Rolling ditetapkan — ' . ($user?->nama ?? '-') . ' → ' . ($branch?->name ?? $branchId) . ' (' . $rangeTx . ').'];
+    }
+
     /* ─── Review Form Mingguan (supervisor) ────────────────────────────── */
 
+    /**
+     * Review Mingguan = daftar "Checklist Karyawan" (mirror Harian): tiap
+     * karyawan aktif + jumlah Form Mingguan yang masih menunggu approval.
+     * Supervisor mengecek per orang (klik → weeklyReviewEmployee).
+     */
     public function weeklyReviewIndex(Request $request)
     {
         $this->guard();
 
-        $branchId   = resolveChecklistBranchId($request->get('branch'));
-        // Terima tanggal apa saja → normalisasi ke Senin minggu tsb (week_start_date
-        // selalu Senin), supaya supervisor tak perlu tepat memilih hari Senin.
-        $filterWeek = $request->get('week');
-        if ($filterWeek) {
-            try {
-                $filterWeek = Carbon::parse($filterWeek)->startOfWeek(Carbon::MONDAY)->toDateString();
-            } catch (\Throwable $e) {
-                $filterWeek = null;
-            }
-        }
-        $filterDiv  = $request->get('division', 'all');
-        $filterStat = $request->get('status', ChecklistWeeklySubmission::STATUS_SUBMITTED);
-        $search     = trim((string) $request->get('q', ''));
-        $visible    = checklistVisibleDivisionIds();   // divisi yang boleh disupervisi user ini
-
-        $base = ChecklistWeeklySubmission::query()
-            ->whereIn('division_id', $visible)
-            ->when($branchId, fn($q) => $q->where('raw_branch_id', $branchId));
-
-        $countsBase = (clone $base);
-        if ($filterWeek) $countsBase->whereDate('week_start_date', $filterWeek);
-        if ($filterDiv !== 'all') $countsBase->where('division_id', $filterDiv);
-        if ($search !== '') {
-            $countsBase->whereExists(function ($q) use ($search) {
-                $q->select(DB::raw(1))->from('users')
-                  ->whereRaw('users.id = sys_checklist_weekly_submission.user_id')
-                  ->where('users.nama', 'like', "%{$search}%");
-            });
-        }
-        $counts = [
-            'all'       => (clone $countsBase)->count(),
-            'submitted' => (clone $countsBase)->where('status', ChecklistWeeklySubmission::STATUS_SUBMITTED)->count(),
-            'approved'  => (clone $countsBase)->where('status', ChecklistWeeklySubmission::STATUS_APPROVED)->count(),
-            'rejected'  => (clone $countsBase)->where('status', ChecklistWeeklySubmission::STATUS_REJECTED)->count(),
-            'excused'   => (clone $countsBase)->where('status', ChecklistWeeklySubmission::STATUS_EXCUSED)->count(),
-            'missed'    => (clone $countsBase)->where('status', ChecklistWeeklySubmission::STATUS_MISSED)->count(),
-            'draft'     => (clone $countsBase)->where('status', ChecklistWeeklySubmission::STATUS_DRAFT)->count(),
-        ];
-
-        // Jumlah submission per divisi (untuk tab divisi) — ikut filter minggu/status/cari, TANPA filter divisi.
-        $divCountBase = (clone $base);
-        if ($filterWeek) $divCountBase->whereDate('week_start_date', $filterWeek);
-        if ($filterStat !== 'all') $divCountBase->where('status', $filterStat);
-        if ($search !== '') {
-            $divCountBase->whereExists(function ($q) use ($search) {
-                $q->select(DB::raw(1))->from('users')
-                  ->whereRaw('users.id = sys_checklist_weekly_submission.user_id')
-                  ->where('users.nama', 'like', "%{$search}%");
-            });
-        }
-        $divCounts = (clone $divCountBase)
-            ->select('division_id', DB::raw('count(*) as c'))
-            ->groupBy('division_id')
-            ->pluck('c', 'division_id');
-
-        $query = (clone $base)->with(['user', 'division', 'branch']);
-        if ($filterWeek) $query->whereDate('week_start_date', $filterWeek);
-        if ($filterDiv !== 'all') $query->where('division_id', $filterDiv);
-        if ($filterStat !== 'all') $query->where('status', $filterStat);
-        if ($search !== '') {
-            $query->whereExists(function ($q) use ($search) {
-                $q->select(DB::raw(1))->from('users')
-                  ->whereRaw('users.id = sys_checklist_weekly_submission.user_id')
-                  ->where('users.nama', 'like', "%{$search}%");
-            });
-        }
-
-        $submissions = $query
-            ->orderByDesc('week_start_date')
-            ->orderByDesc('submitted_at')
-            ->orderByDesc('created_at')
-            ->paginate($this->perPage)
-            ->appends($request->query());
+        $branchId  = resolveChecklistBranchId($request->get('branch'));
+        $search    = trim((string) $request->get('q', ''));
+        $visible   = checklistVisibleDivisionIds();
 
         $divisions = ChecklistDivision::query()->where('is_active', 1)
             ->whereIn('id', $visible)->orderBy('sort_order')->get();
+
+        // Default ke tab divisi paling kiri saat pertama masuk (bukan 'all').
+        $filterDiv = $request->get('division', optional($divisions->first())->id ?? 'all');
+
+        // Antrian mingguan = HARI yang menunggu review (pending), bukan minggu penuh —
+        // supaya form muncul di antrian begitu ada 1 hari siap direview (mid-week).
+        $pendingOverride = ChecklistWeeklyDaySubmit::query()
+            ->join('sys_checklist_weekly_submission as s', 's.id', '=', 'sys_checklist_weekly_day_submit.submission_id')
+            ->whereIn('s.division_id', $visible)
+            ->when($branchId, fn($q) => $q->where('s.raw_branch_id', $branchId))
+            ->where('sys_checklist_weekly_day_submit.review_status', ChecklistWeeklyDaySubmit::REVIEW_PENDING)
+            ->select('s.user_id', DB::raw('count(*) as c'), DB::raw('max(s.week_start_date) as last_date'))
+            ->groupBy('s.user_id')
+            ->get()
+            ->keyBy('user_id');
+
+        $people = $this->reviewPeople($visible, $branchId, $filterDiv, $search,
+            ChecklistWeeklySubmission::class, 'week_start_date', $pendingOverride);
+
         $branches  = canSeeAllBranches() ? RawBranch::orderBy('name')->get() : collect();
 
         return view('crud.checklist.review.weekly-index', compact(
-            'submissions', 'counts', 'divCounts', 'divisions', 'branches', 'branchId',
-            'filterWeek', 'filterDiv', 'filterStat', 'search'
+            'people', 'divisions', 'branches', 'branchId', 'filterDiv', 'search'
         ));
+    }
+
+    /**
+     * Riwayat Form Mingguan satu karyawan dalam 1 bulan (navigasi ← →) +
+     * approve inline & "Approve semua". Mirror reviewEmployee (Harian).
+     */
+    public function weeklyReviewEmployee(Request $request, string $user)
+    {
+        $this->guard();
+
+        $employee = Users::with('branch')->findOrFail($user);
+        $visible  = checklistVisibleDivisionIds();
+        $branchId = resolveChecklistBranchId($request->get('branch'));
+
+        $empDiv  = checklistDivisionForGroup($employee->group_id);
+        $inScope = ($empDiv && in_array($empDiv->id, $visible, true))
+            || ChecklistWeeklySubmission::where('user_id', $user)->whereIn('division_id', $visible)->exists();
+        if (! $inScope) {
+            abort(403, 'Karyawan ini di luar cakupan supervisi Anda.');
+        }
+
+        $month = $request->get('month', Carbon::now()->format('Y-m'));
+        try {
+            $start = Carbon::createFromFormat('Y-m', $month)->startOfMonth();
+        } catch (\Throwable $e) {
+            $start = Carbon::now()->startOfMonth();
+            $month = $start->format('Y-m');
+        }
+        $end        = $start->copy()->endOfMonth();
+        $prevMonth  = $start->copy()->subMonth()->format('Y-m');
+        $nextMonth  = $start->copy()->addMonth()->format('Y-m');
+        $monthLabel = $start->translatedFormat('F Y');
+
+        // Form Mingguan yang week_start_date-nya jatuh di bulan ini.
+        $subs = ChecklistWeeklySubmission::query()
+            ->where('user_id', $user)
+            ->when($branchId, fn($q) => $q->where('raw_branch_id', $branchId))
+            ->whereBetween('week_start_date', [$start->toDateString(), $end->toDateString()])
+            ->with(['items', 'dayExcuses', 'daySubmits'])
+            ->orderByDesc('week_start_date')
+            ->get();
+
+        // Jumlah HARI menunggu review per minggu — dipakai tombol approve inline & badge.
+        foreach ($subs as $s) {
+            $s->pending_days = count($s->pendingReviewDayNumbers());
+        }
+
+        $countByStatus = $subs->groupBy('status')->map->count();
+        $stats = [
+            'total'    => $subs->count(),
+            'approved' => (int) ($countByStatus[ChecklistWeeklySubmission::STATUS_APPROVED]  ?? 0),
+            // "Menunggu Approval" = minggu yang punya minimal 1 hari pending review.
+            'pending'  => $subs->filter(fn ($s) => $s->pending_days > 0)->count(),
+            'rejected' => (int) ($countByStatus[ChecklistWeeklySubmission::STATUS_REJECTED]  ?? 0),
+            'excused'  => (int) ($countByStatus[ChecklistWeeklySubmission::STATUS_EXCUSED]   ?? 0),
+            'missed'   => (int) ($countByStatus[ChecklistWeeklySubmission::STATUS_MISSED]    ?? 0),
+            'draft'    => (int) ($countByStatus[ChecklistWeeklySubmission::STATUS_DRAFT]     ?? 0),
+        ];
+
+        $status = $request->get('status');
+        if (! in_array($status, [
+            ChecklistWeeklySubmission::STATUS_SUBMITTED, ChecklistWeeklySubmission::STATUS_APPROVED,
+            ChecklistWeeklySubmission::STATUS_REJECTED, ChecklistWeeklySubmission::STATUS_EXCUSED,
+            ChecklistWeeklySubmission::STATUS_MISSED, ChecklistWeeklySubmission::STATUS_DRAFT,
+        ], true)) {
+            $status = null;
+        }
+        if ($status === ChecklistWeeklySubmission::STATUS_SUBMITTED) {
+            // "Menunggu Approval" = ada hari pending (bukan sekadar header submitted).
+            $subs = $subs->filter(fn ($s) => $s->pending_days > 0)->values();
+        } elseif ($status) {
+            $subs = $subs->where('status', $status)->values();
+        }
+
+        return view('crud.checklist.review.weekly-employee', compact(
+            'employee', 'empDiv', 'subs', 'month', 'monthLabel', 'prevMonth', 'nextMonth',
+            'stats', 'branchId', 'status'
+        ));
+    }
+
+    /**
+     * Approve sekaligus semua Form Mingguan karyawan yang menunggu approval
+     * (dibatasi bulan bila param month diisi). Mirror approveEmployeePending.
+     */
+    public function weeklyApproveEmployeePending(Request $request, string $user)
+    {
+        $this->guard();
+
+        $visible  = checklistVisibleDivisionIds();
+        $branchId = resolveChecklistBranchId(null);
+        $month    = $request->get('month');
+
+        $q = ChecklistWeeklySubmission::query()
+            ->where('user_id', $user)
+            ->whereIn('division_id', $visible)
+            ->when($branchId, fn($q) => $q->where('raw_branch_id', $branchId))
+            ->with(['items', 'dayExcuses', 'daySubmits']);
+
+        if ($month) {
+            try {
+                $start = Carbon::createFromFormat('Y-m', $month)->startOfMonth();
+                $q->whereBetween('week_start_date', [$start->toDateString(), $start->copy()->endOfMonth()->toDateString()]);
+            } catch (\Throwable $e) { /* abaikan filter bulan bila format salah */ }
+        }
+
+        // Approve semua HARI yang pending (lintas minggu di bulan itu).
+        $days = 0;
+        foreach ($q->get() as $sub) {
+            $pending = $sub->daySubmits->where('review_status', ChecklistWeeklyDaySubmit::REVIEW_PENDING);
+            if ($pending->isEmpty()) continue;
+            foreach ($pending as $day) {
+                $iso = (int) $day->day_of_week;
+                $day->update([
+                    'review_status'    => ChecklistWeeklyDaySubmit::REVIEW_APPROVED,
+                    'reviewer_user_id' => session('id'),
+                    'review_notes'     => null,
+                    'reviewed_at'      => now(),
+                    'updated_at'       => now(),
+                ]);
+                ChecklistAuditLog::write('weekly_submission', $sub->id, ChecklistAuditLog::ACTION_APPROVE,
+                    null, ['day_of_week' => $iso], $this->weeklyDayLabel($iso) . ' disetujui (approve massal).');
+                $days++;
+            }
+            $this->afterDayReview($sub);
+        }
+
+        return redirect()->route('checklist.review.weekly.employee', array_merge(['user' => $user], array_filter(['month' => $month])))
+            ->with('success', $days > 0 ? "{$days} hari disetujui." : 'Tidak ada hari yang menunggu approval.');
     }
 
     public function weeklyReviewShow(string $id)
@@ -1239,7 +1659,7 @@ class DigitalChecklistController extends Controller
         $this->guard();
 
         $submission = ChecklistWeeklySubmission::query()
-            ->with(['user', 'reviewer', 'division', 'branch', 'items', 'dayExcuses'])
+            ->with(['user', 'reviewer', 'division', 'branch', 'items', 'dayExcuses', 'daySubmits.reviewer'])
             ->findOrFail($id);
 
         $this->abortIfBranchMismatchWeekly($submission);
@@ -1255,101 +1675,242 @@ class DigitalChecklistController extends Controller
         $excusedDays = $submission->dayExcuses->pluck('reason', 'day_of_week')
             ->mapWithKeys(fn ($reason, $iso) => [(int) $iso => $reason])->all();
 
-        return view('crud.checklist.review.weekly-show', compact('submission', 'grouped', 'excusedDays'));
+        // Peta hari → row submit (status review, reviewer, catatan) untuk aksi per-hari.
+        $dayReviews = $submission->daySubmits->keyBy(fn ($ds) => (int) $ds->day_of_week)->all();
+
+        return view('crud.checklist.review.weekly-show', compact('submission', 'grouped', 'excusedDays', 'dayReviews'));
     }
 
-    public function weeklyApprove(Request $request, string $id)
-    {
-        $this->guard();
+    /* ─── Review PER-HARI (mid-week) + roll-up mingguan ──────────────── */
 
-        $sub = ChecklistWeeklySubmission::findOrFail($id);
+    /** Ambil submission + guard scope, relasi hari ter-load. */
+    private function weeklyForReview(string $id): ChecklistWeeklySubmission
+    {
+        $sub = ChecklistWeeklySubmission::with(['items', 'dayExcuses', 'daySubmits'])->findOrFail($id);
         $this->abortIfBranchMismatchWeekly($sub);
         $this->abortIfDivisionOutOfScope($sub->division_id);
+        return $sub;
+    }
 
-        if ($sub->status !== ChecklistWeeklySubmission::STATUS_SUBMITTED) {
-            return back()->with('error', 'Form Mingguan ini sudah tidak menunggu approval.');
+    private function weeklyDayLabel(int $iso): string
+    {
+        return \App\Models\ChecklistTask::dayLabels()[$iso] ?? ('Hari ' . $iso);
+    }
+
+    /**
+     * Sesudah aksi review per-hari: hitung ulang status header. Kalau SELURUH
+     * minggu jadi 'approved', beri tahu karyawan sekali + isi reviewer header.
+     */
+    private function afterDayReview(ChecklistWeeklySubmission $sub): void
+    {
+        $sub->load(['items', 'dayExcuses', 'daySubmits']);
+        $wasApproved = $sub->status === ChecklistWeeklySubmission::STATUS_APPROVED;
+        $sub->recomputeStatus();
+        $sub->refresh();
+
+        if (! $wasApproved && $sub->status === ChecklistWeeklySubmission::STATUS_APPROVED) {
+            $sub->update(['reviewer_user_id' => session('id')]);
+            $this->notifyEmployeeWeekly($sub, 'checklist.weekly.approved', 'Form Mingguan anda disetujui',
+                'Form Mingguan ' . $sub->weekLabel() . ' telah disetujui supervisor.');
+        }
+    }
+
+    /** Approve SATU hari (pending → approved). */
+    public function weeklyDayApprove(Request $request, string $id, int $iso)
+    {
+        $this->guard();
+        $sub = $this->weeklyForReview($id);
+        $day = $sub->daySubmits->firstWhere('day_of_week', $iso);
+
+        if (! $day || $day->review_status !== ChecklistWeeklyDaySubmit::REVIEW_PENDING) {
+            return back()->with('error', $this->weeklyDayLabel($iso) . ' tidak sedang menunggu approval.');
         }
 
-        $notes = trim((string) $request->get('review_notes', ''));
-
-        $before = ['status' => $sub->status];
-        $sub->update([
-            'status'           => ChecklistWeeklySubmission::STATUS_APPROVED,
+        $day->update([
+            'review_status'    => ChecklistWeeklyDaySubmit::REVIEW_APPROVED,
             'reviewer_user_id' => session('id'),
-            'review_notes'     => $notes ?: null,
+            'review_notes'     => null,
             'reviewed_at'      => now(),
             'updated_at'       => now(),
         ]);
-        $after = ['status' => $sub->status, 'reviewer_user_id' => $sub->reviewer_user_id];
+        ChecklistAuditLog::write('weekly_submission', $sub->id, ChecklistAuditLog::ACTION_APPROVE,
+            null, ['day_of_week' => $iso], $this->weeklyDayLabel($iso) . ' disetujui.');
 
-        ChecklistAuditLog::write('weekly_submission', $sub->id, ChecklistAuditLog::ACTION_APPROVE, $before, $after, $notes ?: null);
-
-        $this->notifyEmployeeWeekly($sub, 'checklist.weekly.approved', 'Form Mingguan anda disetujui',
-            'Form Mingguan ' . $sub->weekLabel() . ' telah disetujui supervisor.');
-
-        return redirect()->route('checklist.review.weekly')->with('success', 'Form Mingguan disetujui.');
+        $this->afterDayReview($sub);
+        return back()->with('success', $this->weeklyDayLabel($iso) . ' disetujui.');
     }
 
+    /** Tolak SATU hari (→ rejected, catatan wajib). Hanya hari itu dibuka lagi utk karyawan. */
+    public function weeklyDayReject(Request $request, string $id, int $iso)
+    {
+        $this->guard();
+        $sub = $this->weeklyForReview($id);
+
+        $notes = trim((string) $request->get('review_notes', ''));
+        if ($notes === '') {
+            return back()->with('error', 'Catatan wajib diisi saat menolak.');
+        }
+
+        $day = $sub->daySubmits->firstWhere('day_of_week', $iso);
+        if (! $day || ! in_array($day->review_status, [
+            ChecklistWeeklyDaySubmit::REVIEW_PENDING, ChecklistWeeklyDaySubmit::REVIEW_APPROVED,
+        ], true)) {
+            return back()->with('error', $this->weeklyDayLabel($iso) . ' tidak bisa ditolak.');
+        }
+
+        $day->update([
+            'review_status'    => ChecklistWeeklyDaySubmit::REVIEW_REJECTED,
+            'reviewer_user_id' => session('id'),
+            'review_notes'     => $notes,
+            'reviewed_at'      => now(),
+            'updated_at'       => now(),
+        ]);
+        ChecklistAuditLog::write('weekly_submission', $sub->id, ChecklistAuditLog::ACTION_REJECT,
+            null, ['day_of_week' => $iso], $this->weeklyDayLabel($iso) . ' ditolak: ' . $notes);
+
+        $this->afterDayReview($sub);
+
+        $this->notifyEmployeeWeekly($sub, 'checklist.weekly.day_rejected', 'Ada hari yang perlu diperbaiki',
+            $this->weeklyDayLabel($iso) . ' — Form Mingguan ' . $sub->weekLabel() . ' ditolak. Catatan: ' . $notes);
+
+        return back()->with('success', $this->weeklyDayLabel($iso) . ' ditolak. Karyawan diberi tahu.');
+    }
+
+    /** Buka lagi review satu hari yang sudah DISETUJUI (approved → pending). */
+    public function weeklyDayReopen(Request $request, string $id, int $iso)
+    {
+        $this->guard();
+        $sub = $this->weeklyForReview($id);
+        $day = $sub->daySubmits->firstWhere('day_of_week', $iso);
+
+        if (! $day || $day->review_status !== ChecklistWeeklyDaySubmit::REVIEW_APPROVED) {
+            return back()->with('error', 'Hanya hari yang sudah disetujui yang bisa dibuka lagi.');
+        }
+
+        $day->update([
+            'review_status'    => ChecklistWeeklyDaySubmit::REVIEW_PENDING,
+            'reviewer_user_id' => null,
+            'review_notes'     => null,
+            'reviewed_at'      => null,
+            'updated_at'       => now(),
+        ]);
+        ChecklistAuditLog::write('weekly_submission', $sub->id, ChecklistAuditLog::ACTION_REOPEN,
+            null, ['day_of_week' => $iso], $this->weeklyDayLabel($iso) . ' dibuka lagi untuk review.');
+
+        $this->afterDayReview($sub);
+        return back()->with('success', $this->weeklyDayLabel($iso) . ' dibuka lagi — menunggu approval.');
+    }
+
+    /** Setujui SEMUA hari yang masih pending (approve minggu sekali klik). */
+    public function weeklyApproveAllDays(Request $request, string $id)
+    {
+        $this->guard();
+        $sub = $this->weeklyForReview($id);
+
+        $pending = $sub->daySubmits->where('review_status', ChecklistWeeklyDaySubmit::REVIEW_PENDING);
+        if ($pending->isEmpty()) {
+            return back()->with('error', 'Tidak ada hari yang menunggu approval.');
+        }
+
+        foreach ($pending as $day) {
+            $iso = (int) $day->day_of_week;
+            $day->update([
+                'review_status'    => ChecklistWeeklyDaySubmit::REVIEW_APPROVED,
+                'reviewer_user_id' => session('id'),
+                'review_notes'     => null,
+                'reviewed_at'      => now(),
+                'updated_at'       => now(),
+            ]);
+            ChecklistAuditLog::write('weekly_submission', $sub->id, ChecklistAuditLog::ACTION_APPROVE,
+                null, ['day_of_week' => $iso], $this->weeklyDayLabel($iso) . ' disetujui (setujui semua).');
+        }
+
+        $this->afterDayReview($sub);
+
+        $n = $pending->count();
+        if ($ru = $request->get('return_user')) {
+            return redirect()->route('checklist.review.weekly.employee', array_merge(['user' => $ru], array_filter(['month' => $request->get('return_month')])))
+                ->with('success', "{$n} hari disetujui.");
+        }
+        return back()->with('success', "{$n} hari disetujui.");
+    }
+
+    /** Kompat: tombol "Approve" lama = setujui semua hari yang pending. */
+    public function weeklyApprove(Request $request, string $id)
+    {
+        return $this->weeklyApproveAllDays($request, $id);
+    }
+
+    /** Tolak SELURUH minggu: tandai semua hari terkirim (pending/approved) → rejected. */
     public function weeklyReject(Request $request, string $id)
     {
         $this->guard();
-
-        $sub = ChecklistWeeklySubmission::findOrFail($id);
-        $this->abortIfBranchMismatchWeekly($sub);
-        $this->abortIfDivisionOutOfScope($sub->division_id);
-
-        if ($sub->status !== ChecklistWeeklySubmission::STATUS_SUBMITTED) {
-            return back()->with('error', 'Form Mingguan ini sudah tidak menunggu approval.');
-        }
+        $sub = $this->weeklyForReview($id);
 
         $notes = trim((string) $request->get('review_notes', ''));
         if ($notes === '') {
             return back()->with('error', 'Catatan wajib diisi saat menolak Form Mingguan.');
         }
 
-        $before = ['status' => $sub->status];
-        $sub->update([
-            'status'           => ChecklistWeeklySubmission::STATUS_REJECTED,
-            'reviewer_user_id' => session('id'),
-            'review_notes'     => $notes,
-            'reviewed_at'      => now(),
-            'updated_at'       => now(),
+        $targets = $sub->daySubmits->whereIn('review_status', [
+            ChecklistWeeklyDaySubmit::REVIEW_PENDING, ChecklistWeeklyDaySubmit::REVIEW_APPROVED,
         ]);
-        $after = ['status' => $sub->status, 'reviewer_user_id' => $sub->reviewer_user_id];
+        if ($targets->isEmpty()) {
+            return back()->with('error', 'Tidak ada hari yang bisa ditolak.');
+        }
 
-        ChecklistAuditLog::write('weekly_submission', $sub->id, ChecklistAuditLog::ACTION_REJECT, $before, $after, $notes);
+        foreach ($targets as $day) {
+            $iso = (int) $day->day_of_week;
+            $day->update([
+                'review_status'    => ChecklistWeeklyDaySubmit::REVIEW_REJECTED,
+                'reviewer_user_id' => session('id'),
+                'review_notes'     => $notes,
+                'reviewed_at'      => now(),
+                'updated_at'       => now(),
+            ]);
+            ChecklistAuditLog::write('weekly_submission', $sub->id, ChecklistAuditLog::ACTION_REJECT,
+                null, ['day_of_week' => $iso], $this->weeklyDayLabel($iso) . ' ditolak (tolak minggu): ' . $notes);
+        }
+
+        $this->afterDayReview($sub);
 
         $this->notifyEmployeeWeekly($sub, 'checklist.weekly.rejected', 'Form Mingguan anda ditolak',
             'Form Mingguan ' . $sub->weekLabel() . ' perlu diperbaiki. Catatan: ' . $notes);
 
+        if ($ru = $request->get('return_user')) {
+            return redirect()->route('checklist.review.weekly.employee', array_merge(['user' => $ru], array_filter(['month' => $request->get('return_month')])))
+                ->with('success', 'Form Mingguan ditolak. Karyawan akan diberitahu.');
+        }
         return redirect()->route('checklist.review.weekly')->with('success', 'Form Mingguan ditolak. Karyawan akan diberitahu.');
     }
 
+    /** Reopen minggu yang sudah DISETUJUI: semua hari approved → pending lagi. */
     public function weeklyReopen(Request $request, string $id)
     {
         $this->guard();
+        $sub = $this->weeklyForReview($id);
 
-        $sub = ChecklistWeeklySubmission::findOrFail($id);
-        $this->abortIfBranchMismatchWeekly($sub);
-        $this->abortIfDivisionOutOfScope($sub->division_id);
-
-        if (! in_array($sub->status, [ChecklistWeeklySubmission::STATUS_APPROVED, ChecklistWeeklySubmission::STATUS_REJECTED], true)) {
-            return back()->with('error', 'Hanya Form Mingguan yang sudah final yang bisa di-reopen.');
+        if ($sub->status !== ChecklistWeeklySubmission::STATUS_APPROVED) {
+            return back()->with('error', 'Hanya Form Mingguan yang sudah disetujui yang bisa di-reopen.');
         }
 
-        $notes  = trim((string) $request->get('review_notes', ''));
-        $before = ['status' => $sub->status];
-        $sub->update([
-            'status'      => ChecklistWeeklySubmission::STATUS_SUBMITTED,
-            'reviewed_at' => null,
-            'updated_at'  => now(),
-        ]);
-        $after = ['status' => $sub->status];
+        foreach ($sub->daySubmits->where('review_status', ChecklistWeeklyDaySubmit::REVIEW_APPROVED) as $day) {
+            $day->update([
+                'review_status'    => ChecklistWeeklyDaySubmit::REVIEW_PENDING,
+                'reviewer_user_id' => null,
+                'review_notes'     => null,
+                'reviewed_at'      => null,
+                'updated_at'       => now(),
+            ]);
+        }
+        ChecklistAuditLog::write('weekly_submission', $sub->id, ChecklistAuditLog::ACTION_REOPEN,
+            ['status' => $sub->status], ['status' => ChecklistWeeklySubmission::STATUS_SUBMITTED],
+            trim((string) $request->get('review_notes', '')) ?: 'Reopen seluruh minggu.');
 
-        ChecklistAuditLog::write('weekly_submission', $sub->id, ChecklistAuditLog::ACTION_REOPEN, $before, $after, $notes ?: null);
+        $this->afterDayReview($sub);
 
         return redirect()->route('checklist.review.weekly.show', $sub->id)
-            ->with('success', 'Form Mingguan di-reopen — kembali ke status Menunggu Approval.');
+            ->with('success', 'Form Mingguan di-reopen — semua hari kembali menunggu approval.');
     }
 
     /**

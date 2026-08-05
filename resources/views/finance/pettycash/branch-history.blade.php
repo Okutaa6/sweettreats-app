@@ -24,7 +24,7 @@
                     </span>
                     <span class="pc-page-meta__divider"></span>
                     <span class="pc-page-meta__item">
-                        <i class="fa fa-list"></i> {{ count($rows) }} transaksi
+                        <i class="fa fa-list"></i> {{ count($rows) }} pengeluaran
                     </span>
                     @if($period->is_closed)
                         <span class="pc-page-meta__divider"></span>
@@ -55,6 +55,20 @@
                class="fpc-action-btn" title="Bulan berikutnya">
                 <i class="fa fa-chevron-right"></i>
             </a>
+            @if(isSuperAdmin())
+                {{-- Reset jejak transaksi cabang+bulan ini (hard delete) — hanya Super Admin. --}}
+                <form method="POST"
+                      action="{{ route('finance.pettycash.branch-history.reset', ['branchId' => $branch->id]) }}"
+                      onsubmit="return confirm('Reset SEMUA jejak transaksi {{ $branch->name }} untuk {{ $monthName }} {{ $year }}?\n\n• Seluruh transaksi (pengeluaran, top up, transfer) periode ini dihapus PERMANEN.\n• Aksi TIDAK bisa di-undo.\n\nLanjut?');"
+                      style="margin:0;">
+                    @csrf
+                    <input type="hidden" name="year"  value="{{ $year }}">
+                    <input type="hidden" name="month" value="{{ $month }}">
+                    <button type="submit" class="fpc-action-btn fpc-action-btn--danger" title="Reset jejak transaksi bulan ini (permanen)">
+                        <i class="fa fa-trash"></i> Reset Jejak
+                    </button>
+                </form>
+            @endif
         </div>
     </div>
 
@@ -84,7 +98,7 @@
     <div class="fpc-section">
         <div class="fpc-section__head">
             <h5 class="fpc-section__title"><i class="fa fa-list-ul"></i> Jejak Transaksi</h5>
-            <small class="fpc-section__sub">Termasuk transaksi yang sudah dihapus (ditandai). Saldo berjalan hanya dihitung dari transaksi aktif.</small>
+            <small class="fpc-section__sub">Hanya menampilkan pengeluaran; top up &amp; transfer tak ditampilkan. Termasuk yang sudah dihapus (ditandai).</small>
         </div>
 
         @if(count($rows) === 0)
@@ -101,10 +115,9 @@
                             <tr>
                                 <th width="96">Tanggal</th>
                                 <th>Keterangan</th>
+                                <th width="130">Kategori</th>
                                 <th width="140">Wallet</th>
-                                <th class="text-right" width="120">Cash In</th>
-                                <th class="text-right" width="120">Cash Out</th>
-                                <th class="text-right" width="130">Saldo</th>
+                                <th class="text-right" width="130">Jumlah</th>
                                 <th class="fbh-col-meta" width="160">Dicatat / Diubah oleh</th>
                             </tr>
                         </thead>
@@ -122,13 +135,6 @@
                                     <td>
                                         <div class="fbh-desc">
                                             {{ $r->description ?: '—' }}
-                                            @if($r->is_topup)
-                                                <span class="fbh-tag fbh-tag--topup">Top Up</span>
-                                            @elseif($r->is_transfer)
-                                                <span class="fbh-tag fbh-tag--transfer">Transfer</span>
-                                            @elseif($r->category_label)
-                                                <span class="fbh-tag fbh-tag--cat">{{ $r->category_label }}</span>
-                                            @endif
                                             @if($r->deleted)
                                                 <span class="fbh-tag fbh-tag--deleted"><i class="fa fa-trash"></i> Dihapus</span>
                                             @endif
@@ -138,31 +144,20 @@
                                         @endif
                                     </td>
                                     <td>
+                                        @if($r->category_label)
+                                            <span class="fbh-tag fbh-tag--cat">{{ $r->category_label }}</span>
+                                        @else
+                                            <span class="fbh-amt--muted">—</span>
+                                        @endif
+                                    </td>
+                                    <td>
                                         <span class="fbh-wallet">
                                             <span class="fbh-wallet-badge" style="background: {{ $r->wallet_color }};">{{ $r->wallet_short }}</span>
                                             {{ $r->wallet_name }}
                                         </span>
                                     </td>
                                     <td class="text-right">
-                                        @if($r->is_in)
-                                            <span class="fbh-amt fbh-amt--in">{{ $rupiah($r->amount) }}</span>
-                                        @else
-                                            <span class="fbh-amt--muted">—</span>
-                                        @endif
-                                    </td>
-                                    <td class="text-right">
-                                        @if(! $r->is_in)
-                                            <span class="fbh-amt fbh-amt--out">{{ $rupiah($r->amount) }}</span>
-                                        @else
-                                            <span class="fbh-amt--muted">—</span>
-                                        @endif
-                                    </td>
-                                    <td class="text-right">
-                                        @if($r->saldo === null)
-                                            <span class="fbh-amt--muted">—</span>
-                                        @else
-                                            <span class="fbh-saldo">{{ $rupiah($r->saldo) }}</span>
-                                        @endif
+                                        <span class="fbh-amt fbh-amt--out">{{ $rupiah($r->amount) }}</span>
                                     </td>
                                     <td class="fbh-col-meta">
                                         <span class="fbh-by">
@@ -182,10 +177,8 @@
                         </tbody>
                         <tfoot>
                             <tr class="fbh-foot">
-                                <td colspan="3">Total bulan ini (transaksi aktif)</td>
-                                <td class="text-right"><span class="fbh-amt fbh-amt--in">{{ $rupiah($cashIn) }}</span></td>
+                                <td colspan="4">Total pengeluaran bulan ini (transaksi aktif)</td>
                                 <td class="text-right"><span class="fbh-amt fbh-amt--out">{{ $rupiah($cashOut) }}</span></td>
-                                <td class="text-right"><span class="fbh-saldo">{{ $rupiah($closing) }}</span></td>
                                 <td class="fbh-col-meta"></td>
                             </tr>
                         </tfoot>
@@ -236,6 +229,8 @@
 .fpc-action-btn i { font-size: 11px; }
 .fpc-action-btn--primary { background: var(--brown); color: #fff; border-color: var(--brown); }
 .fpc-action-btn--primary:hover { background: #5c1f00; color: #fff; }
+.fpc-action-btn--danger { background: #fff; color: #b91c1c; border-color: #f3c9c9; }
+.fpc-action-btn--danger:hover { background: #fef2f2; color: #b91c1c; border-color: #dc2626; }
 
 /* ── Section wrapper ── */
 .fpc-section { margin: 24px 0; }

@@ -39,6 +39,9 @@ docs/untuk-reza/git-workflow-reza.html
 # Foto upload dokter — aset yang di-upload user, jangan di-track di git.
 /public/uploads/doctors/
 
+# Foto bukti checklist mingguan — di-upload karyawan saat runtime, bukan aset repo.
+/public/uploads/checklist-photos/
+
 # Lampiran Pengajuan/ROP: penawaran, bukti transfer, nota pertanggungjawaban.
 # Dokumen keuangan milik cabang — tidak ada gunanya di repo, dan sekali masuk
 # git ia ikut ke setiap klon selamanya.

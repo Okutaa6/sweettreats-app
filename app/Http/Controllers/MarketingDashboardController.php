@@ -473,7 +473,12 @@ class MarketingDashboardController extends Controller
     private function buildPromos(?string $selected)
     {
         $today = Carbon::now()->format('Y-m-d');
-        $q = DB::table('marketing_promo')->where('is_active', 1);
+        $q = DB::table('marketing_promo')->where('is_active', 1)
+            // Buang promo yang sudah berakhir (periode_end lewat) — dihitung dari
+            // tanggal langsung, tak bergantung cron promo:sync-status. Batas
+            // inklusif: promo masih tampil di hari terakhirnya. Promo tanpa
+            // periode_end dibiarkan (dianggap terus berjalan).
+            ->where(fn($w) => $w->whereNull('periode_end')->orWhereDate('periode_end', '>=', $today));
         if ($selected) {
             $q->where(function ($w) use ($selected) {
                 $w->whereNotExists(function ($sub) {

@@ -71,6 +71,22 @@
                                     </td>
                                 </tr>
                                 <tr>
+                                    <td style="font-weight:600;">Atasan tambahan</td>
+                                    <td>
+                                        <select class="form-control {{ $errors->has('parent_id_2') ? 'is-invalid' : '' }}" name="parent_id_2">
+                                            <option value="">— Tidak ada —</option>
+                                            @foreach ($parents as $p)
+                                                <option value="{{ $p->id }}" {{ old('parent_id_2', $group->parent_id_2) == $p->id ? 'selected' : '' }}>
+                                                    {{ str_repeat('— ', $p->level) }}{{ $p->nama }}
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                        @if ($errors->has('parent_id_2'))
+                                            <div class="invalid-feedback">{{ $errors->first('parent_id_2') }}</div>
+                                        @endif
+                                    </td>
+                                </tr>
+                                <tr>
                                     <td></td>
                                     <td>
                                         <button class="st-btn-brand" type="submit">

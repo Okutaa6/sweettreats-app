@@ -588,7 +588,9 @@ if (!function_exists('checklistVisibleDivisionIds')) {
 
             // Strict descendants (tanpa diri) → staf tak me-review divisinya sendiri.
             // Cocokkan NAMA role bawahan ke NAMA divisi (hanya 3 role operasional yg cocok).
-            $descNames = $role->descendants()->pluck('nama')->filter()->all();
+            // supervisedDescendants: ikut atasan utama DAN atasan kedua (parent_id_2)
+            // → satu divisi bisa disupervisi dua atasan (mis. GS oleh Supervisor & Coordinator Dentist).
+            $descNames = $role->supervisedDescendants()->pluck('nama')->filter()->all();
             if (! $descNames) return $value = [];
 
             $value = $active->whereIn('name', $descNames)->pluck('id')->all();
@@ -644,7 +646,9 @@ if (!function_exists('checklistSupervisorRoleNamesForDivision')) {
             $role = \App\Models\GroupPath::where('nama', $div->name)->first();
             if (! $role) return [];
 
-            return $role->ancestors()->pluck('nama')->filter()->values()->all();
+            // supervisorAncestors: ikut atasan utama DAN atasan kedua (parent_id_2)
+            // → notifikasi sampai ke semua atasan role (mis. GS ke Supervisor & Coordinator Dentist).
+            return $role->supervisorAncestors()->pluck('nama')->filter()->values()->all();
         } catch (\Throwable $e) {
             return [];
         }
@@ -720,6 +724,27 @@ if (!function_exists('currentUserPosition')) {
         }
 
         return $value;
+    }
+}
+
+/**
+ * Cabang efektif seorang user pada tanggal tertentu. Rolling (penugasan
+ * sementara) MENANG atas cabang asal (home) selama window-nya, sesudah itu
+ * kembali ke home — semuanya ditentukan scopeActiveOn() (satu sumber:
+ * sys_user_position). Return null kalau user tak punya posisi aktif di tanggal
+ * itu. Dipakai mis. saat menandai hari cuti pada minggu yang belum pernah dibuka.
+ */
+if (!function_exists('positionBranchOn')) {
+    function positionBranchOn(string $userId, \Carbon\Carbon $date): ?string
+    {
+        try {
+            return \App\Models\UserPosition::query()
+                ->activeOn($date)
+                ->where('user_id', $userId)
+                ->value('raw_branch_id');
+        } catch (\Throwable $e) {
+            return null;
+        }
     }
 }
 

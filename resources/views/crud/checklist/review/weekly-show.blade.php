@@ -110,6 +110,29 @@
         font-size: 15px; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,.25);
         display: flex; align-items: center; justify-content: center;
     }
+
+    /* ── Aksi review per-hari ── */
+    .wkr-day__review { padding: 12px 16px; border-top: 1px dashed #EAD9C2; background: #FCFAF6; }
+    .wkr-rev-actions { display: flex; align-items: flex-start; gap: 8px; flex-wrap: wrap; }
+    .wkr-rev-btn {
+        display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
+        font-size: 12.5px; font-weight: 700; padding: 8px 14px; border-radius: 8px;
+        border: 1px solid transparent; line-height: 1;
+    }
+    .wkr-rev-btn--ok { background: linear-gradient(180deg,#2E9E4B,#1F7D39); color: #fff; }
+    .wkr-rev-btn--ok:hover { filter: brightness(1.06); }
+    .wkr-rev-btn--bad { background: #fff; color: #C0392B; border-color: #E3B7B0; }
+    .wkr-rev-btn--bad:hover { background: #FDF1EF; }
+    .wkr-rev-btn--ghost { background: #fff; color: #6B4423; border-color: #D9C4A6; }
+    .wkr-rev-btn--ghost:hover { background: #FAF0E2; }
+    .wkr-reject-box { flex-basis: 100%; margin-top: 6px; }
+    .wkr-reject-box textarea { font-size: 13px; }
+    .wkr-rev-note { display: flex; align-items: flex-start; gap: 9px; font-size: 12.5px; font-weight: 600; line-height: 1.45; }
+    .wkr-rev-note--ok { color: #256B37; }
+    .wkr-rev-note--ok i { color: #2E9E4B; margin-top: 2px; }
+    .wkr-rev-note--bad { color: #8A2B1E; }
+    .wkr-rev-note--bad i { color: #C0392B; margin-top: 2px; }
+    .wkr-rev-note strong { color: inherit; }
 </style>
 @endsection
 
@@ -120,11 +143,10 @@
     $satisfied = $submission->satisfiedCount();
     $exceptedN = $submission->exceptedCount();
     $pct = $submission->satisfiedPct();
-    $isPending = $submission->status === \App\Models\ChecklistWeeklySubmission::STATUS_SUBMITTED;
-    $isFinal   = in_array($submission->status, [
-        \App\Models\ChecklistWeeklySubmission::STATUS_APPROVED,
-        \App\Models\ChecklistWeeklySubmission::STATUS_REJECTED,
-    ], true);
+    // Review per-hari: hari yang masih menunggu approval + apakah minggu bisa di-reopen.
+    $pendingDays   = $submission->pendingReviewDayNumbers();
+    $pendingCount  = count($pendingDays);
+    $canReopenWeek = $submission->status === \App\Models\ChecklistWeeklySubmission::STATUS_APPROVED;
     $dayLabels = \App\Models\ChecklistTask::dayLabels();
     $dayShorts = \App\Models\ChecklistTask::dayShortLabels();
 @endphp
@@ -146,7 +168,13 @@
 
                     {{-- HEADER --}}
                     <div style="padding:20px 22px; border-bottom:1px solid #E0D2C1; background:linear-gradient(180deg,#FFFFFF 0%, #FAF4EC 100%);">
-                        <a href="{{ route('checklist.review.weekly') }}" class="st-btn-outline-brown" style="display:inline-flex; align-items:center; gap:7px; margin-bottom:16px;">
+                        @php
+                            // Kembali ke halaman karyawan asal (bila datang dari sana), bukan daftar awal.
+                            $backUrl = request('return_user')
+                                ? route('checklist.review.weekly.employee', array_filter(['user' => request('return_user'), 'month' => request('return_month')]))
+                                : route('checklist.review.weekly');
+                        @endphp
+                        <a href="{{ $backUrl }}" class="st-btn-outline-brown" style="display:inline-flex; align-items:center; gap:7px; margin-bottom:16px;">
                             <i class="fas fa-arrow-left"></i> Kembali
                         </a>
                         <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap;">
@@ -260,6 +288,9 @@
                                     // "beres" = dicentang ATAU dikecualikan per-item.
                                     $doneDay  = $dayItems->filter(fn ($i) => $i->is_done || $i->is_excepted)->count();
                                     $dayExcuseReason = $excusedDays[$dow] ?? null;
+                                    // Status review hari ini (pending/approved/rejected/null).
+                                    $dayRev = $dayReviews[$dow] ?? null;
+                                    $drs    = $dayRev->review_status ?? null;
                                 @endphp
                                 <div class="wkr-day">
                                     <div class="wkr-day__head">
@@ -273,13 +304,24 @@
                                                 <div class="wkr-day__date">{{ $dayDate->translatedFormat('d F Y') }}</div>
                                             </div>
                                         </div>
+                                        <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
                                         @if($dayExcuseReason)
-                                            <span class="st-pill st-pill--neutral"><i class="fas fa-mug-hot"></i> Dikecualikan</span>
+                                            <span class="st-pill st-pill--neutral" title="{{ $dayExcuseReason }}"><i class="fas fa-mug-hot"></i> Dikecualikan</span>
                                         @else
                                             <span class="st-pill st-pill--{{ $doneDay === $totalDay ? 'success' : 'warning' }}">
                                                 {{ $doneDay }}/{{ $totalDay }} tugas
                                             </span>
+                                            @if($drs === 'approved')
+                                                <span class="st-pill st-pill--success"><i class="fas fa-check-circle"></i> Disetujui</span>
+                                            @elseif($drs === 'pending')
+                                                <span class="st-pill st-pill--warning"><i class="fas fa-clock"></i> Menunggu review</span>
+                                            @elseif($drs === 'rejected')
+                                                <span class="st-pill" style="background:#FBE3DE; color:#C0392B;"><i class="fas fa-times-circle"></i> Ditolak</span>
+                                            @else
+                                                <span class="st-pill st-pill--neutral">Belum dikirim</span>
+                                            @endif
                                         @endif
+                                        </div>
                                     </div>
                                     @if($dayExcuseReason)
                                         <div style="margin:2px 0 8px; padding:9px 12px; background:#FCF4E7; border:1px solid #E7D3B8; border-left:3px solid #A66019; border-radius:8px; font-size:12.5px; color:#6B4423;">
@@ -351,45 +393,74 @@
                                                 @endif
                                             </div>
                                         @endforeach
+
+                                    {{-- Aksi review PER-HARI (approve/tolak/reopen hari ini) --}}
+                                    @if(! $dayExcuseReason && $drs !== null)
+                                        <div class="wkr-day__review">
+                                            @if($drs === 'approved')
+                                                <div class="wkr-rev-note wkr-rev-note--ok">
+                                                    <i class="fas fa-check-circle"></i>
+                                                    <span>Disetujui @if($dayRev->reviewer)oleh {{ $dayRev->reviewer->nama }} @endif @if($dayRev->reviewed_at)· {{ $dayRev->reviewed_at->format('d M, H:i') }} @endif</span>
+                                                    <form method="POST" action="{{ route('checklist.review.weekly.day.reopen', ['id' => $submission->id, 'iso' => $dow]) }}" style="margin-left:auto;"
+                                                          onsubmit="return confirm('Buka lagi review {{ $dayLabels[$dow] ?? '' }}? Kembali menunggu approval.');">
+                                                        @csrf @method('PATCH')
+                                                        <button type="submit" class="wkr-rev-btn wkr-rev-btn--ghost"><i class="fas fa-undo"></i> Buka lagi</button>
+                                                    </form>
+                                                </div>
+                                            @elseif($drs === 'rejected')
+                                                <div class="wkr-rev-note wkr-rev-note--bad">
+                                                    <i class="fas fa-times-circle"></i>
+                                                    <div>
+                                                        <strong>Ditolak @if($dayRev->reviewer)oleh {{ $dayRev->reviewer->nama }} @endif.</strong>@if($dayRev->review_notes) {{ $dayRev->review_notes }}@endif
+                                                        <div style="opacity:.8; margin-top:2px;">Menunggu karyawan mengirim ulang hari ini.</div>
+                                                    </div>
+                                                </div>
+                                            @elseif($drs === 'pending')
+                                                <div class="wkr-rev-actions">
+                                                    <form method="POST" action="{{ route('checklist.review.weekly.day.approve', ['id' => $submission->id, 'iso' => $dow]) }}"
+                                                          onsubmit="return confirm('Setujui {{ $dayLabels[$dow] ?? '' }}?');">
+                                                        @csrf @method('PATCH')
+                                                        <button type="submit" class="wkr-rev-btn wkr-rev-btn--ok"><i class="fas fa-check"></i> Setujui hari ini</button>
+                                                    </form>
+                                                    <button type="button" class="wkr-rev-btn wkr-rev-btn--bad" data-reject-toggle><i class="fas fa-times"></i> Tolak</button>
+                                                    <form method="POST" action="{{ route('checklist.review.weekly.day.reject', ['id' => $submission->id, 'iso' => $dow]) }}" class="wkr-reject-box" data-reject-box hidden
+                                                          onsubmit="var n=this.querySelector('textarea').value.trim(); if(!n){alert('Catatan wajib diisi saat menolak.');return false;} return confirm('Tolak {{ $dayLabels[$dow] ?? '' }}? Karyawan diminta perbaiki hari ini.');">
+                                                        @csrf @method('PATCH')
+                                                        <textarea name="review_notes" rows="2" class="form-control" placeholder="Alasan menolak {{ $dayLabels[$dow] ?? '' }} (wajib)…"></textarea>
+                                                        <button type="submit" class="wkr-rev-btn wkr-rev-btn--bad" style="margin-top:6px;"><i class="fas fa-times-circle"></i> Konfirmasi tolak</button>
+                                                    </form>
+                                                </div>
+                                            @endif
+                                        </div>
+                                    @endif
                                 </div>
                             @endforeach
                         @endif
                     </div>
 
-                    {{-- ACTION FOOTER --}}
-                    @if($isPending || $isFinal)
+                    {{-- ACTION FOOTER: bulk setujui semua hari menunggu / reopen minggu --}}
+                    @if($pendingCount > 0 || $canReopenWeek)
                         <div style="padding:18px 22px; border-top:1px solid #E0D2C1; background:#FFFFFF; position:sticky; bottom:0; z-index:10;">
-                            @if($isPending)
-                                <div style="margin-bottom:12px;">
-                                    <label style="font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.4px; color:#6B4423; margin-bottom:4px; display:block;">
-                                        Catatan Supervisor <small style="color:#9B8578; font-weight:400; text-transform:none; letter-spacing:0;">(wajib jika menolak)</small>
-                                    </label>
-                                    <textarea id="reviewNotes" rows="2" class="form-control" placeholder="Mis: tugas Kamis belum lengkap, mohon dilengkapi..."></textarea>
-                                </div>
-                                <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                                    <form method="POST" action="{{ route('checklist.review.weekly.approve', $submission->id) }}" style="display:inline;" onsubmit="this.querySelector('input[name=review_notes]').value = document.getElementById('reviewNotes').value; return confirm('Setujui Form Mingguan ini?');">
+                            @if($pendingCount > 0)
+                                <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+                                    <form method="POST" action="{{ route('checklist.review.weekly.approve-all', $submission->id) }}"
+                                          onsubmit="return confirm('Setujui semua {{ $pendingCount }} hari yang menunggu review?');">
                                         @csrf @method('PATCH')
-                                        <input type="hidden" name="review_notes" value="">
                                         <button type="submit" class="st-btn-brand">
-                                            <i class="fas fa-check-circle"></i> Setujui
+                                            <i class="fas fa-check-double"></i> Setujui semua hari menunggu ({{ $pendingCount }})
                                         </button>
                                     </form>
-                                    <form method="POST" action="{{ route('checklist.review.weekly.reject', $submission->id) }}" style="display:inline;" onsubmit="var n=document.getElementById('reviewNotes').value.trim(); if(!n){alert('Catatan wajib diisi saat menolak.'); return false;} this.querySelector('input[name=review_notes]').value = n; return confirm('Yakin tolak Form Mingguan ini? Karyawan akan diberitahu untuk perbaiki.');">
-                                        @csrf @method('PATCH')
-                                        <input type="hidden" name="review_notes" value="">
-                                        <button type="submit" class="st-btn-outline-brown" style="color:#A32D2D; border-color:#A32D2D;">
-                                            <i class="fas fa-times-circle"></i> Tolak
-                                        </button>
-                                    </form>
+                                    <small style="color:#6B4423;">Atau setujui / tolak <b>per hari</b> di tiap kartu di atas.</small>
                                 </div>
-                            @elseif($isFinal)
-                                <form method="POST" action="{{ route('checklist.review.weekly.reopen', $submission->id) }}" onsubmit="return confirm('Reopen Form Mingguan ini? Status akan kembali ke Menunggu Approval.');">
+                            @elseif($canReopenWeek)
+                                <form method="POST" action="{{ route('checklist.review.weekly.reopen', $submission->id) }}"
+                                      onsubmit="return confirm('Reopen Form Mingguan ini? Semua hari kembali menunggu approval.');">
                                     @csrf @method('PATCH')
                                     <button type="submit" class="st-btn-outline-brown">
-                                        <i class="fas fa-undo"></i> Reopen
+                                        <i class="fas fa-undo"></i> Reopen (buka semua hari)
                                     </button>
                                     <small style="color:#6B4423; margin-left:8px;">
-                                        Reopen untuk mengubah keputusan review jika ada kesalahan.
+                                        Semua hari yang sudah disetujui kembali ke Menunggu Approval.
                                     </small>
                                 </form>
                             @endif
@@ -436,6 +507,16 @@
     });
     document.querySelectorAll('[data-modal-close]').forEach(function (el) { el.addEventListener('click', close); });
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
+
+    // Toggle kotak alasan tolak per-hari.
+    document.querySelectorAll('[data-reject-toggle]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var box = btn.parentElement.querySelector('[data-reject-box]');
+            if (! box) return;
+            box.hidden = ! box.hidden;
+            if (! box.hidden) { var t = box.querySelector('textarea'); if (t) t.focus(); }
+        });
+    });
 })();
 </script>
 @endsection

@@ -23,6 +23,9 @@
                 <i class="fas fa-chevron-left"></i> Checklist Saya
             </a>
             <span class="ac-nav-active"><i class="fas fa-snowflake"></i> Jadwal Cuci AC</span>
+            <button type="button" class="ac-btn-submit" data-ac-modal-open="acModalCreate" style="width:auto;">
+                <i class="fas fa-plus"></i> Tambah Unit AC
+            </button>
         </div>
 
         {{-- ─── HERO + CHIP FILTER ─── --}}
@@ -67,7 +70,7 @@
             <div class="ac-empty">
                 <div class="ac-empty__icon"><i class="fas fa-snowflake"></i></div>
                 <h5>Belum ada unit AC terdaftar</h5>
-                <p>Hubungi supervisor untuk menambahkan daftar ruangan &amp; unit AC.</p>
+                <p>Tambahkan ruangan &amp; unit AC cabang Anda lewat tombol <b>"Tambah Unit AC"</b> di atas, lalu mulai catat servisnya.</p>
             </div>
          @else
             <div class="ac-grid" data-ac-grid>
@@ -76,6 +79,56 @@
                  @endforeach
             </div>
          @endif
+    </div>
+</div>
+
+{{-- ─── MODAL: TAMBAH UNIT (GS cabang, langsung aktif) ─── --}}
+<div class="ac-modal" id="acModalCreate" hidden>
+    <div class="ac-modal__backdrop" data-ac-modal-close></div>
+    <div class="ac-modal__box" role="dialog" aria-modal="true" aria-label="Tambah unit AC">
+        <div class="ac-modal__head">
+            <i class="fas fa-plus-circle"></i>
+            <div class="ac-modal__title">Tambah Unit AC — {{ $branch?->name ?? 'Cabang Anda' }}</div>
+            <button type="button" class="ac-modal__x" data-ac-modal-close>✕</button>
+        </div>
+        <form method="POST" action="{{ route('mychecklist.ac.unit.store') }}">
+            @csrf
+            <div class="ac-modal__body">
+                {{-- $branches kosong → partial render input hidden raw_branch_id; server
+                     tetap memaksa cabang = cabang GS, jadi tak bisa pilih cabang lain. --}}
+                @include('crud.checklist.ac._unit_fields', ['branches' => collect(), 'branchId' => null])
+            </div>
+            <div class="ac-modal__foot">
+                <button type="button" class="ac-btn-outline" data-ac-modal-close>Batal</button>
+                <button type="submit" class="ac-btn-submit" style="width:auto;"><i class="fas fa-check"></i> Simpan</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{{-- ─── MODAL: EDIT UNIT (GS cabang, cabang terkunci) ─── --}}
+<div class="ac-modal" id="acModalEdit" hidden>
+    <div class="ac-modal__backdrop" data-ac-modal-close></div>
+    <div class="ac-modal__box" role="dialog" aria-modal="true" aria-label="Edit unit AC">
+        <div class="ac-modal__head">
+            <i class="fas fa-pen"></i>
+            <div class="ac-modal__title">Edit Unit AC</div>
+            <button type="button" class="ac-modal__x" data-ac-modal-close>✕</button>
+        </div>
+        <form method="POST" action="" id="acEditForm">
+            @csrf
+            @method('PUT')
+            {{-- Optimistic locking: nilai updated_at saat form dibuka; dibandingkan
+                 server agar edit dari 2 tab/orang tidak saling menimpa diam-diam. --}}
+            <input type="hidden" name="expected_updated_at" id="acEditUpdatedAt" value="">
+            <div class="ac-modal__body">
+                @include('crud.checklist.ac._unit_fields', ['branches' => collect(), 'branchId' => null])
+            </div>
+            <div class="ac-modal__foot">
+                <button type="button" class="ac-btn-outline" data-ac-modal-close>Batal</button>
+                <button type="submit" class="ac-btn-submit" style="width:auto;"><i class="fas fa-check"></i> Simpan Perubahan</button>
+            </div>
+        </form>
     </div>
 </div>
 
@@ -392,6 +445,7 @@
     // ── Modal riwayat per unit ──
     var historyUrl = @json(route('mychecklist.ac.unit.history', ['id' => '__ID__']));
     var serviceDestroyUrl = @json(route('mychecklist.ac.service.destroy', ['id' => '__ID__']));
+    var unitUpdateUrl = @json(route('mychecklist.ac.unit.update', ['id' => '__ID__']));
     var csrf = @json(csrf_token());
 
     function openModal(id) {
@@ -405,7 +459,28 @@
     document.querySelectorAll('[data-ac-modal-close]').forEach(function (el) {
         el.addEventListener('click', closeModals);
     });
+    document.querySelectorAll('[data-ac-modal-open]').forEach(function (btn) {
+        btn.addEventListener('click', function () { openModal(btn.getAttribute('data-ac-modal-open')); });
+    });
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeModals(); });
+
+    // ── Edit unit: isi form dari data-attribute kartu, lalu buka modal ──
+    document.querySelectorAll('[data-ac-edit]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var form = document.getElementById('acEditForm');
+            if (! form) return;
+            form.action = unitUpdateUrl.replace('__ID__', btn.getAttribute('data-ac-edit'));
+            form.querySelector('[name=room_name]').value          = btn.getAttribute('data-room') || '';
+            form.querySelector('[name=capacity_pk]').value        = btn.getAttribute('data-pk') || '';
+            form.querySelector('[name=wash_interval_days]').value = btn.getAttribute('data-interval') || 60;
+            form.querySelector('[name=sort_order]').value         = btn.getAttribute('data-sort') || 0;
+            form.querySelector('[name=notes]').value              = btn.getAttribute('data-notes') || '';
+            form.querySelector('#acEditUpdatedAt').value          = btn.getAttribute('data-updated') || '';
+            var branchField = form.querySelector('[name=raw_branch_id]');
+            if (branchField) branchField.value = btn.getAttribute('data-branch') || '';
+            openModal('acModalEdit');
+        });
+    });
 
     var esc = function (s) {
         return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {

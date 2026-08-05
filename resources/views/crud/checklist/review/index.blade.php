@@ -18,23 +18,6 @@
     .rv-seg a.is-active--daily:hover { filter:brightness(1.08); background:linear-gradient(120deg,#A66019,#5C2E15); }
     .rv-seg a.is-active--weekly { background:linear-gradient(120deg,#1F6E5F,#155148); color:#E4F3EF; }
 
-    .rv-sttab {
-        display:inline-flex; align-items:center; gap:8px;
-        border-radius:20px; padding:8px 15px;
-        font-weight:700; font-size:12px; text-decoration:none;
-        background:#fff; color:#7A5B43; border:1px solid #EADCC9;
-        transition:background-color .15s ease, border-color .15s ease;
-        white-space:nowrap;
-    }
-    .rv-sttab:hover { background:#FBF4EC; color:#5A3A22; border-color:#D9C3AC; }
-    .rv-sttab__dot { width:7px; height:7px; border-radius:50%; flex:none; }
-    .rv-sttab__badge {
-        min-width:19px; text-align:center;
-        font-size:10.5px; font-weight:800; border-radius:20px; padding:1px 6px;
-        background:#EADCC9; color:#7A5B43;
-        font-variant-numeric:tabular-nums;
-    }
-
     .rv-input {
         border:1px solid #E7D3BE; border-radius:11px; padding:9px 12px;
         font-family:inherit; font-size:13px; color:#3B1500; background:#fff;
@@ -56,7 +39,7 @@
     .rv-export-btn:hover { filter:brightness(1.08); box-shadow:0 5px 15px rgba(31,110,95,.28); }
     .rv-export-btn:active { transform:translateY(1px); }
 
-    .rv-table { width:100%; border-collapse:collapse; min-width:820px; }
+    .rv-table { width:100%; border-collapse:collapse; min-width:760px; }
     .rv-table thead tr { background:linear-gradient(120deg,#3A1505,#52200A); }
     .rv-table thead th {
         padding:13px 18px; text-align:left;
@@ -75,13 +58,6 @@
         transition:filter .15s ease;
     }
     .rv-btn-review:hover { filter:brightness(1.1); color:#FFEAD6; text-decoration:none; }
-    .rv-btn-eye {
-        display:inline-flex; align-items:center; justify-content:center;
-        width:32px; height:32px; border-radius:9px;
-        border:1px solid #E7D3BE; background:#fff; color:#7A5B43;
-        text-decoration:none; transition:background-color .15s ease, border-color .15s ease;
-    }
-    .rv-btn-eye:hover { background:#FBF4EC; border-color:#D9C3AC; color:#5A3A22; }
 </style>
 <div class="container-fluid">
 
@@ -93,7 +69,7 @@
     <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;background:#fff;border:1px solid #EFE0CE;border-radius:16px;padding:18px 22px;box-shadow:0 1px 2px rgba(70,21,0,.04);margin-bottom:14px">
         <div style="flex:1;min-width:240px">
             <div style="font-size:21px;font-weight:800;color:#3B1500">Review &amp; Approve Checklist</div>
-            <div style="font-size:13px;color:#9A7256;margin-top:3px">Verifikasi pengisian karyawan. Filter berdasarkan tanggal, divisi, dan status.</div>
+            <div style="font-size:13px;color:#9A7256;margin-top:3px">Pilih karyawan untuk melihat riwayat checklist &amp; melakukan approval per orang.</div>
         </div>
         <a href="{{ route('checklist') }}" class="cl-btn-dash" style="flex:none;background:#fff;color:#5A3A22;border:1px solid #E7D3BE;border-radius:11px;padding:10px 16px;font-weight:700;font-size:13px;text-decoration:none">← Dashboard</a>
     </div>
@@ -113,35 +89,9 @@
         </div>
     </div>
 
-    {{-- ─── TAB STATUS (chip berbadge) ─── --}}
-    @php
-        $statusTabs = [
-            'submitted' => ['label' => 'Menunggu Approval', 'count' => $counts['submitted'], 'c' => '#B5701A', 'bg' => '#FBEFD9'],
-            'approved'  => ['label' => 'Disetujui',          'count' => $counts['approved'],  'c' => '#2F8E55', 'bg' => '#E3F4E8'],
-            'rejected'  => ['label' => 'Ditolak',            'count' => $counts['rejected'],  'c' => '#C0392B', 'bg' => '#FBE3DE'],
-            'excused'   => ['label' => 'Dikecualikan',       'count' => $counts['excused'],   'c' => '#8A5A2B', 'bg' => '#F2E7D8'],
-            'missed'    => ['label' => 'Tidak Diisi',        'count' => $counts['missed'],    'c' => '#9B8578', 'bg' => '#EFE7DE'],
-        ];
-    @endphp
-    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">
-        @foreach($statusTabs as $key => $tab)
-            @php $on = $filterStat === $key; @endphp
-            <a href="{{ route('checklist.review', array_merge(request()->except(['status','page']), ['status' => $key])) }}"
-               class="rv-sttab"
-               @if($on) style="background:{{ $tab['bg'] }};color:{{ $tab['c'] }};border:1.5px solid {{ $tab['c'] }}55" @endif>
-                <span class="rv-sttab__dot" style="background:{{ $tab['c'] }}"></span>
-                {{ $tab['label'] }}
-                @if($tab['count'] > 0)
-                    <span class="rv-sttab__badge" @if($on) style="background:{{ $tab['c'] }};color:#fff" @endif>{{ $tab['count'] }}</span>
-                @endif
-            </a>
-        @endforeach
-    </div>
-
     {{-- ─── FILTER CARD ─── --}}
     <form method="GET" action="{{ route('checklist.review') }}"
           style="background:#fff;border:1px solid #EFE0CE;border-radius:16px;padding:13px 16px;display:flex;align-items:center;gap:11px;flex-wrap:wrap;box-shadow:0 1px 2px rgba(70,21,0,.04);margin-bottom:14px">
-        <input type="hidden" name="status" value="{{ $filterStat }}">
         <input type="hidden" name="division" value="{{ $filterDiv }}">
 
         @if(canSeeAllBranches() && $branches->count())
@@ -155,8 +105,6 @@
             <input type="hidden" name="branch" value="{{ $branchId }}">
         @endif
 
-        <input type="date" name="date" value="{{ $filterDate }}" onchange="this.form.submit();" class="rv-input">
-
         <div style="position:relative;flex:1;min-width:190px">
             <i class="fas fa-search" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#B79A82;font-size:13px"></i>
             <input type="text" name="q" value="{{ $search }}" placeholder="Nama karyawan…" class="rv-input" style="width:100%;box-sizing:border-box;padding-left:36px;background:#FFFCF8">
@@ -164,16 +112,15 @@
 
         <button type="submit" style="background:linear-gradient(135deg,#6B2400,#461500);color:#FFEAD6;border:none;border-radius:10px;padding:9px 16px;font-weight:700;font-size:12.5px;font-family:inherit;cursor:pointer">Cari</button>
 
-        @if($search || $filterDate || $filterDiv !== 'all')
-            <a href="{{ route('checklist.review', ['status' => $filterStat]) }}" style="font-size:12px;font-weight:700;color:#B0855F;text-decoration:underline">Reset</a>
+        @if($search || $filterDiv !== 'all')
+            <a href="{{ route('checklist.review') }}" style="font-size:12px;font-weight:700;color:#B0855F;text-decoration:underline">Reset</a>
         @endif
 
-        <span style="margin-left:auto;font-size:12.5px;color:#9A7256">Menampilkan <b style="color:#3B1500">{{ $submissions->count() }}</b> dari <b style="color:#3B1500">{{ $submissions->total() }}</b> submission</span>
+        <span style="margin-left:auto;font-size:12.5px;color:#9A7256"><b style="color:#3B1500">{{ $people->count() }}</b> karyawan · <b style="color:#3B1500">{{ $people->sum('pending') }}</b> menunggu approval</span>
     </form>
 
     {{-- ─── EXPORT EXCEL (rekap harian divisi yang sedang dibuka — tiap karyawan jadi tab) ─── --}}
     @php
-        // Ikut tab divisi aktif; kalau lagi "semua", jatuh ke divisi pertama dalam cakupan.
         $exportDiv = $filterDiv !== 'all' ? $divisions->firstWhere('id', $filterDiv) : $divisions->first();
     @endphp
     @if($exportDiv)
@@ -202,90 +149,59 @@
     </form>
     @endif
 
-    {{-- ─── TABEL SUBMISSION ─── --}}
+    {{-- ─── TABEL CHECKLIST KARYAWAN ─── --}}
     <div style="background:#fff;border:1px solid #EFE0CE;border-radius:18px;overflow-x:auto;box-shadow:0 1px 2px rgba(70,21,0,.04),0 10px 26px rgba(70,21,0,.05)">
-        @if($submissions->isEmpty())
+        @if($people->isEmpty())
             <div style="padding:34px 20px;text-align:center;font-size:12.5px;color:#9A7256">
-                Tidak ada submission untuk filter ini — coba ubah tanggal, divisi, atau status.
+                Tidak ada karyawan aktif untuk filter ini — coba ubah divisi, cabang, atau pencarian.
             </div>
         @else
             <table class="rv-table">
                 <thead>
                     <tr>
-                        <th style="width:150px;">Tanggal</th>
                         <th>Karyawan</th>
-                        <th style="width:120px;">Cabang</th>
-                        <th style="width:190px;">Progres</th>
-                        <th style="width:165px;">Status</th>
-                        <th style="width:104px;">Lihat</th>
+                        <th style="width:160px;">Divisi</th>
+                        <th style="width:130px;">Cabang</th>
+                        <th style="width:160px;">Antrian Approval</th>
+                        <th style="width:120px;">Lihat</th>
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach($submissions as $s)
+                    @php $avPaletteP = ['#8A3A12','#A8481B','#2F8E55','#3C5FA8','#B5701A','#7A3415','#5A6B2E','#8E2419']; @endphp
+                    @foreach($people as $p)
                         @php
-                            // Status → warna pill (map handoff): submitted=pending, excused=excluded, missed=none.
-                            $stMap = [
-                                'submitted' => ['label' => 'Menunggu Approval', 'c' => '#B5701A', 'bg' => '#FBEFD9'],
-                                'approved'  => ['label' => 'Disetujui',          'c' => '#2F8E55', 'bg' => '#E3F4E8'],
-                                'rejected'  => ['label' => 'Ditolak',            'c' => '#C0392B', 'bg' => '#FBE3DE'],
-                                'excused'   => ['label' => 'Dikecualikan',       'c' => '#8A5A2B', 'bg' => '#F2E7D8'],
-                                'missed'    => ['label' => 'Tidak Diisi',        'c' => '#9B8578', 'bg' => '#EFE7DE'],
-                                'draft'     => ['label' => 'Belum Dikirim',     'c' => '#9B8578', 'bg' => '#EFE7DE'],
-                            ];
-                            $st  = $stMap[$s->status] ?? ['label' => $s->status, 'c' => '#9B8578', 'bg' => '#EFE7DE'];
-                            $pct = $s->progressPct();
-                            $barColor = $s->status === 'excused'
-                                ? '#C7AC92'
-                                : ($pct >= 80 ? '#2F8E55' : ($pct >= 50 ? '#C9962F' : '#C0392B'));
-                            // Avatar 2 huruf + warna per orang (palet handoff).
-                            $avPalette  = ['#8A3A12','#A8481B','#2F8E55','#3C5FA8','#B5701A','#7A3415','#5A6B2E','#8E2419'];
-                            $avName     = trim($s->user?->nama ?? '');
+                            $avName     = trim($p->user?->nama ?? '');
                             $avParts    = preg_split('/\s+/', $avName, -1, PREG_SPLIT_NO_EMPTY);
                             $avInitials = strtoupper(mb_substr($avParts[0] ?? '?', 0, 1) . (isset($avParts[1]) ? mb_substr($avParts[1], 0, 1) : ''));
-                            $avColor    = $avPalette[abs(crc32($avName !== '' ? $avName : '?')) % 8];
+                            $avColor    = $avPaletteP[abs(crc32($avName !== '' ? $avName : '?')) % 8];
+                            // Punya antrian → langsung buka bulan antrian, filter Menunggu Approval.
+                            $empLink = $p->pending > 0 && $p->pendingMonth
+                                ? ['user' => $p->user?->id, 'status' => 'submitted', 'month' => $p->pendingMonth]
+                                : ['user' => $p->user?->id];
                         @endphp
-                        <tr>
-                            <td>
-                                <div style="font-size:12.5px;font-weight:600;color:#5A3A22;font-variant-numeric:tabular-nums">{{ $s->submission_date->translatedFormat('D, d M Y') }}</div>
-                                @if($s->submitted_at)
-                                    <div style="font-size:10.5px;color:#B79A82;margin-top:2px">submit {{ $s->submitted_at->format('H:i') }}</div>
-                                @endif
-                            </td>
+                        <tr @if($p->pending > 0) style="background:#FFFBF4" @endif>
                             <td>
                                 <div style="display:flex;align-items:center;gap:10px;min-width:0">
                                     <div style="width:32px;height:32px;border-radius:50%;background:{{ $avColor }};color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:11px;flex-shrink:0">{{ $avInitials }}</div>
-                                    <span style="font-size:13px;font-weight:700;color:#3B1500">{{ $s->user?->nama ?? '—' }}</span>
+                                    <a href="{{ route('checklist.review.employee', $empLink) }}" style="font-size:13px;font-weight:700;color:#3B1500;text-decoration:none" title="Lihat checklist karyawan">{{ $p->user?->nama ?? '—' }}</a>
                                 </div>
                             </td>
-                            <td style="font-size:12.5px;color:#7A5B43;">{{ $s->branch?->name ?? '—' }}</td>
+                            <td style="font-size:12.5px;color:#7A5B43;">{{ $p->division?->name ?? '—' }}</td>
+                            <td style="font-size:12.5px;color:#7A5B43;">{{ $p->branch?->name ?? '—' }}</td>
                             <td>
-                                <div style="display:flex;align-items:center;gap:9px">
-                                    <div style="flex:1;min-width:70px;height:7px;border-radius:6px;background:#F1E6D7;overflow:hidden"><div style="height:100%;width:{{ $pct }}%;background:{{ $barColor }};border-radius:6px"></div></div>
-                                    <span style="font-size:11.5px;font-weight:800;color:#5A3A22;flex:none;font-variant-numeric:tabular-nums">{{ $s->done_tasks }}/{{ $s->total_tasks }}</span>
-                                </div>
-                            </td>
-                            <td>
-                                <span style="display:inline-flex;align-items:center;font-size:11px;font-weight:800;padding:4px 11px;border-radius:20px;background:{{ $st['bg'] }};color:{{ $st['c'] }};white-space:nowrap">{{ $st['label'] }}</span>
-                            </td>
-                            <td>
-                                @if($s->status === \App\Models\ChecklistSubmission::STATUS_SUBMITTED)
-                                    <a href="{{ route('checklist.review.show', $s->id) }}" class="rv-btn-review">Review</a>
+                                @if($p->pending > 0)
+                                    <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:800;padding:4px 11px;border-radius:20px;background:#FBEFD9;color:#B5701A;white-space:nowrap"><span style="width:6px;height:6px;border-radius:50%;background:#B5701A"></span>{{ $p->pending }} menunggu</span>
                                 @else
-                                    <a href="{{ route('checklist.review.show', $s->id) }}" class="rv-btn-eye" title="Lihat detail">
-                                        <i class="fas fa-eye"></i>
-                                    </a>
+                                    <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;padding:4px 11px;border-radius:20px;background:#E3F4E8;color:#2F8E55;white-space:nowrap"><i class="fas fa-check" style="font-size:9px"></i> Tidak ada</span>
                                 @endif
+                            </td>
+                            <td>
+                                <a href="{{ route('checklist.review.employee', $empLink) }}" class="rv-btn-review">Lihat</a>
                             </td>
                         </tr>
                     @endforeach
                 </tbody>
             </table>
-
-            @if($submissions->hasPages())
-                <div style="padding:14px 18px;border-top:1px solid #F4EADD;background:#fff;">
-                    {{ $submissions->links() }}
-                </div>
-            @endif
         @endif
     </div>
 

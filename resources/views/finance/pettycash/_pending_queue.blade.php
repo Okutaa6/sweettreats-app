@@ -29,14 +29,20 @@
                         ? $req->fundSource->accountForBranch((string) $req->raw_branch_id)
                         : null;
                 @endphp
-                <div class="fpc-queue-card">
+                <div class="fpc-queue-card {{ $req->is_urgent ? 'fpc-queue-card--urgent' : '' }}">
                     <div class="fpc-queue-card__main">
                         <div class="fpc-queue-card__meta">
                             <span class="fpc-queue-card__branch">{{ $req->branch?->name ?? '-' }}</span>
                             <span class="fpc-queue-card__sep">·</span>
-                            <span class="fpc-queue-card__requester">{{ $req->requester?->nama ?? '-' }}</span>
+                            <span class="fpc-queue-card__requester">{{ $req->requester_name ?: ($req->requester?->nama ?? '-') }}</span>
                             <span class="fpc-queue-card__sep">·</span>
                             <span class="fpc-queue-card__time">{{ $req->requested_at?->translatedFormat('d M, H:i') ?? '-' }}</span>
+                            @if($req->is_urgent)
+                                <span class="fpc-queue-card__urgent"><i class="fa fa-bolt"></i> DARURAT</span>
+                            @endif
+                            @if($req->needed_by)
+                                <span class="fpc-queue-card__needed"><i class="fa fa-clock"></i> Butuh: {{ $req->needed_by->translatedFormat('d M Y') }}</span>
+                            @endif
                         </div>
                         <div class="fpc-queue-card__detail">
                             <span class="fpc-queue-card__amount">{{ $rupiah($req->amount_requested) }}</span>
@@ -71,6 +77,12 @@
                         @endif
                     </div>
                     <div class="fpc-queue-card__actions">
+                        <button type="button" class="fpc-btn fpc-btn--ghost"
+                                data-ftv-download="{{ $req->id }}"
+                                data-ftv-filename="pengajuan-topup_{{ \Illuminate\Support\Str::slug($req->branch?->name ?? 'cabang') }}_{{ optional($req->requested_at)->format('Ymd') }}_{{ $req->id }}.png"
+                                title="Unduh detail sebagai gambar">
+                            <i class="fa fa-download"></i> Gambar
+                        </button>
                         <button type="button" class="fpc-btn fpc-btn--approve"
                                 data-fpc-approve
                                 data-fpc-detail-url="{{ route('finance.topup.show', $req->id) }}"
@@ -129,6 +141,21 @@
 }
 .fpc-queue-card__branch { font-weight: 700; color: var(--brown); }
 .fpc-queue-card__sep { color: #cbd5e1; }
+
+/* Flag DARURAT + "butuh kapan" dari pengajuan Sales */
+.fpc-queue-card--urgent { border-left-color: #dc2626; }
+.fpc-queue-card__urgent {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 1px 8px; border-radius: 999px;
+    background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5;
+    font-size: 10px; font-weight: 800; letter-spacing: .3px;
+}
+.fpc-queue-card__urgent i { font-size: 9px; }
+.fpc-queue-card__needed {
+    display: inline-flex; align-items: center; gap: 4px;
+    color: #92400e; font-weight: 700;
+}
+.fpc-queue-card__needed i { font-size: 9px; color: #d97706; }
 .fpc-queue-card__detail {
     display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
 }
@@ -199,6 +226,8 @@
 .fpc-btn--approve:hover { background: #15803d; transform: translateY(-1px); }
 .fpc-btn--reject  { background: #fff; color: #dc2626; border-color: #fecaca; }
 .fpc-btn--reject:hover  { background: #fef2f2; border-color: #fca5a5; }
+.fpc-btn--ghost   { background: #fff; color: var(--brown); border-color: var(--divider-soft); }
+.fpc-btn--ghost:hover   { background: #fdf9f3; border-color: var(--brown-2); }
 
 /* Empty states — friendly, illustrated */
 .fpc-empty {

@@ -26,10 +26,13 @@ class TopupRequest extends Model
     protected $fillable = [
         'raw_branch_id',
         'requested_by',
+        'requester_name',
         'fund_source_id',
         'amount_requested',
         'amount_approved',
         'description',
+        'needed_by',
+        'is_urgent',
         'attachment_path',
         'status',
         'requested_at',
@@ -44,6 +47,8 @@ class TopupRequest extends Model
         'fund_source_id'   => 'integer',
         'amount_requested' => 'decimal:2',
         'amount_approved'  => 'decimal:2',
+        'needed_by'        => 'date',
+        'is_urgent'        => 'boolean',
         'requested_at'     => 'datetime',
         'reviewed_at'      => 'datetime',
         'executed_trx_id'  => 'integer',
@@ -91,12 +96,13 @@ class TopupRequest extends Model
     }
 
     /**
-     * Antrian untuk Finance: pending dulu (oldest first), diikuti
-     * reviewed kalau dipakai untuk audit feed campuran.
+     * Antrian untuk Finance: pending saja. DARURAT diprioritaskan ke atas,
+     * lalu oldest first (requested_at asc).
      */
     public function scopeForFinanceQueue($q)
     {
         return $q->where('status', self::STATUS_PENDING)
+                 ->orderByDesc('is_urgent')
                  ->orderBy('requested_at', 'asc');
     }
 

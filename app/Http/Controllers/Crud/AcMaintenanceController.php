@@ -230,6 +230,78 @@ class AcMaintenanceController extends Controller
         return back()->with('success', 'Catatan servis dihapus.');
     }
 
+    /**
+     * GS cabang menambah unit AC untuk cabangnya sendiri — langsung aktif.
+     * Cabang dipaksa = cabang GS; nilai raw_branch_id yang diposting diabaikan
+     * supaya GS tak bisa menambah unit ke cabang lain.
+     */
+    public function storeOwnUnit(Request $request)
+    {
+        $position = $this->guardGs();
+
+        $request->merge(['raw_branch_id' => $position->raw_branch_id]);
+        $data = $this->validateUnit($request);
+
+        $unit = AcUnit::create(array_merge($data, [
+            'id' => (string) Str::uuid(),
+        ]));
+
+        ChecklistAuditLog::write('ac_unit', $unit->id, 'create_gs', null, [
+            'room_name'     => $unit->room_name,
+            'raw_branch_id' => $unit->raw_branch_id,
+            'interval'      => $unit->wash_interval_days,
+        ]);
+
+        return back()->with('success', 'Unit AC "' . $unit->room_name . '" ditambahkan.');
+    }
+
+    /**
+     * GS cabang mengedit info unit AC cabangnya sendiri (nama ruangan, PK,
+     * interval cuci, urutan, catatan). Cabang dikunci = cabang GS; unit lain
+     * cabang ditolak. Optimistic locking sama seperti sisi supervisor.
+     */
+    public function updateOwnUnit(Request $request, string $id)
+    {
+        $position = $this->guardGs();
+
+        $unit = AcUnit::findOrFail($id);
+        if ($unit->raw_branch_id !== $position->raw_branch_id) {
+            abort(403, 'Unit AC bukan milik cabang Anda.');
+        }
+
+        // Optimistic locking: tolak kalau unit sudah berubah sejak form dibuka
+        // (edit bersamaan dari 2 tab/orang) — cegah timpa-menimpa diam-diam.
+        $expected = (string) $request->input('expected_updated_at', '');
+        $current  = $unit->updated_at ? $unit->updated_at->toIso8601String() : '';
+        if ($expected !== $current) {
+            return back()->with('error', 'Unit ini baru saja diubah dari sesi/perangkat lain. Muat ulang halaman lalu ulangi.');
+        }
+
+        // Cabang dipaksa = cabang GS; nilai raw_branch_id yang diposting diabaikan.
+        $request->merge(['raw_branch_id' => $position->raw_branch_id]);
+        $data = $this->validateUnit($request, $unit->id);
+
+        $before = [
+            'room_name'     => $unit->room_name,
+            'raw_branch_id' => $unit->raw_branch_id,
+            'capacity_pk'   => $unit->capacity_pk,
+            'interval'      => $unit->wash_interval_days,
+        ];
+
+        $unit->fill($data);
+        $unit->updated_at = now();
+        $unit->save();
+
+        ChecklistAuditLog::write('ac_unit', $unit->id, 'update_gs', $before, [
+            'room_name'     => $unit->room_name,
+            'raw_branch_id' => $unit->raw_branch_id,
+            'capacity_pk'   => $unit->capacity_pk,
+            'interval'      => $unit->wash_interval_days,
+        ]);
+
+        return back()->with('success', 'Unit AC "' . $unit->room_name . '" diperbarui.');
+    }
+
     /* ─── Sisi Supervisor ──────────────────────────────────────────────── */
 
     public function monitor(Request $request)

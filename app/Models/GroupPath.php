@@ -21,6 +21,7 @@ class GroupPath extends Model
         'id',
         'nama',
         'parent_id',
+        'parent_id_2',
         'level',
         'deskripsi',
         'landing_page',
@@ -89,5 +90,70 @@ class GroupPath extends Model
     public function subtreeIds(): array
     {
         return $this->descendants()->pluck('id')->prepend($this->id)->all();
+    }
+
+    /* ---------- Atasan kedua (khusus supervisi checklist) ---------- */
+    // `parent_id` di atas tetap atasan UTAMA & satu-satunya penentu struktur
+    // pohon (level, drag-drop, siklus). Yang di bawah ini HANYA dipakai konsumen
+    // checklist supaya satu role bisa disupervisi DUA atasan — tak menyentuh
+    // logika pohon di atas.
+
+    /** Atasan kedua (opsional). */
+    public function parent2()
+    {
+        return $this->belongsTo(self::class, 'parent_id_2', 'id');
+    }
+
+    /** Role yang menjadikan node ini ATASAN KEDUA-nya. */
+    public function extraChildren()
+    {
+        return $this->hasMany(self::class, 'parent_id_2', 'id')->orderBy('nama');
+    }
+
+    /**
+     * Semua bawahan supervisi (rekursif) lewat atasan utama DAN atasan kedua.
+     * BFS dgn visited-set: pohon jadi DAG (parent_id_2 bisa menyilang cabang lain),
+     * jadi cegah kunjungan ganda / loop tak berujung. Dipakai untuk menentukan
+     * divisi checklist yang boleh di-review sebuah role.
+     */
+    public function supervisedDescendants(): \Illuminate\Support\Collection
+    {
+        $out   = collect();
+        $seen  = [$this->id => true];
+        $queue = [$this];
+
+        while ($queue) {
+            $node = array_shift($queue);
+            foreach ($node->children->merge($node->extraChildren) as $child) {
+                if (isset($seen[$child->id])) continue;
+                $seen[$child->id] = true;
+                $out->push($child);
+                $queue[] = $child;
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * Semua atasan supervisi (rekursif) lewat atasan utama DAN atasan kedua.
+     * BFS dgn visited-set (DAG, lihat supervisedDescendants). Dipakai untuk
+     * menargetkan notifikasi checklist ke SEMUA atasan sebuah role.
+     */
+    public function supervisorAncestors(): \Illuminate\Support\Collection
+    {
+        $out   = collect();
+        $seen  = [$this->id => true];
+        $queue = [$this];
+
+        while ($queue) {
+            $node = array_shift($queue);
+            foreach ([$node->parent, $node->parent2] as $up) {
+                if (! $up || isset($seen[$up->id])) continue;
+                $seen[$up->id] = true;
+                $out->push($up);
+                $queue[] = $up;
+            }
+        }
+        return $out;
     }
 }

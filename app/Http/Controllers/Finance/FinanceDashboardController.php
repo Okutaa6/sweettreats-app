@@ -271,6 +271,12 @@ class FinanceDashboardController extends Controller
                 }
             }
 
+            // Tabel jejak hanya menampilkan PENGELUARAN (cash out non-transfer).
+            // Top up (direction in) & transfer tak masuk tabel — tapi tetap ikut
+            // dihitung di ringkasan/saldo di atas.
+            $isExpense = $t->direction === PettyCashTransaction::DIR_OUT && ! $t->is_transfer;
+            if (! $isExpense) continue;
+
             $rows[] = (object) [
                 'date'           => $t->trx_date instanceof Carbon ? $t->trx_date : Carbon::parse($t->trx_date),
                 'description'    => $t->description,
@@ -278,11 +284,7 @@ class FinanceDashboardController extends Controller
                 'wallet_name'    => $t->fundSource?->name ?? '-',
                 'wallet_short'   => $t->fundSource?->effectiveShortLabel() ?? '?',
                 'wallet_color'   => $t->fundSource?->effectiveBrandColor() ?? '#64748b',
-                'is_in'          => $isIn,
-                'is_topup'       => (bool) $t->is_topup,
-                'is_transfer'    => (bool) $t->is_transfer,
                 'amount'         => $amt,
-                'saldo'          => $isDeleted ? null : $saldo,
                 'by'             => $t->created_by ? ($userNames[$t->created_by] ?? '—') : '—',
                 'recorded_at'    => $t->created_at, // jam asli saat transaksi dicatat ke sistem
                 'edited'         => $t->updated_by !== null && $t->edited_at !== null,
@@ -313,5 +315,79 @@ class FinanceDashboardController extends Controller
             'year', 'month', 'monthName', 'bulanLabel',
             'prevDate', 'nextDate'
         ));
+    }
+
+    /**
+     * POST /finance/pettycash/branch/{branchId}/riwayat/reset
+     *
+     * Reset (hard delete) SELURUH jejak transaksi 1 cabang untuk 1 bulan.
+     * Khusus Super Admin. Cakupan hanya periode yang dibuka (branch+bulan);
+     * cabang/bulan lain tidak tersentuh. Model TIDAK pakai trait SoftDeletes
+     * (deleted_at manual), jadi ->delete() = DELETE SQL sungguhan — ikut
+     * membuang baris yang deleted_at-nya terisi supaya tabel benar-benar bersih.
+     */
+    public function resetBranchHistory(Request $request, string $branchId)
+    {
+        $this->guard();
+        if (! isSuperAdmin()) {
+            abort(403, 'Hanya Super Admin yang boleh reset jejak transaksi.');
+        }
+
+        $branch = RawBranch::find($branchId);
+        if (! $branch) {
+            abort(404, 'Cabang tidak ditemukan.');
+        }
+
+        $today = Carbon::today();
+        $year  = (int) $request->get('year',  $today->year);
+        $month = (int) $request->get('month', $today->month);
+        if ($year < 2000 || $year > 2100) $year = (int) $today->year;
+        if ($month < 1   || $month > 12)  $month = (int) $today->month;
+
+        $period = PettyCashPeriod::ensurePeriod(
+            $year,
+            $month,
+            (float) ($branch->petty_cash_default_float ?? 1500000),
+            (string) $branch->id,
+        );
+
+        $deleted = PettyCashTransaction::forPeriod($period->id)->delete();
+
+        $bulanLabel = [
+            1 => 'Januari',  2 => 'Februari', 3 => 'Maret',
+            4 => 'April',    5 => 'Mei',      6 => 'Juni',
+            7 => 'Juli',     8 => 'Agustus',  9 => 'September',
+            10 => 'Oktober', 11 => 'November', 12 => 'Desember',
+        ];
+        $monthName = $bulanLabel[$month] ?? '-';
+
+        return redirect()
+            ->route('finance.pettycash.branch-history',
+                    ['branchId' => $branch->id, 'year' => $year, 'month' => $month])
+            ->with('success', "Jejak transaksi {$branch->name} ({$monthName} {$year}) direset — {$deleted} transaksi dihapus permanen.");
+    }
+
+    /**
+     * POST /finance/pettycash/review/reset
+     *
+     * Reset "Riwayat Review Terakhir" — hard delete SEMUA pengajuan top-up yang
+     * sudah di-review (approved/rejected). Khusus Super Admin. Pengajuan yang
+     * masih pending (antrian) tidak tersentuh. Transaksi petty cash yang sudah
+     * terlanjur dibuat dari approval TIDAK ikut terhapus (tak ada cascade;
+     * backlink hanya di topup_requests.executed_trx_id) — jadi saldo/ledger aman,
+     * yang dibersihkan hanya jejak review-nya.
+     */
+    public function resetReviewHistory(Request $request)
+    {
+        $this->guard();
+        if (! isSuperAdmin()) {
+            abort(403, 'Hanya Super Admin yang boleh reset riwayat review.');
+        }
+
+        $deleted = TopupRequest::where('status', '!=', TopupRequest::STATUS_PENDING)->delete();
+
+        return redirect()
+            ->route('finance.pettycash')
+            ->with('success', "Riwayat review direset — {$deleted} pengajuan yang sudah di-review dihapus. Antrian pending & transaksi petty cash tidak terpengaruh.");
     }
 }

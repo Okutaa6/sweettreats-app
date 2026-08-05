@@ -265,6 +265,9 @@ class PettyCashController extends Controller
         $branches      = $sessionBranch ? collect() : RawBranch::orderBy('name')->get();
         $activeBranch  = $branchId ? RawBranch::find($branchId) : null;
 
+        // Prefill nama pemohon di modal "Ajukan Top Up" (boleh diedit di form).
+        $requesterName = (string) (\App\Models\Users::whereKey(session('id'))->value('nama') ?? '');
+
         // Status pengajuan top-up Sales untuk cabang aktif: kalau ada yang
         // pending, _summary_cards bisa tampil badge "menunggu Finance".
         $pendingTopupCount = $branchId
@@ -279,7 +282,7 @@ class PettyCashController extends Controller
             'isCurrentMonth', 'isReadOnly', 'isFinanceViewOnly', 'showTrxActions',
             'kind', 'tabs', 'fundSources', 'fundSourcesGrouped',
             'branches', 'activeBranch', 'branchId', 'sessionBranch',
-            'branchAccountMap', 'pendingTopupCount'
+            'branchAccountMap', 'pendingTopupCount', 'requesterName'
         ));
     }
 
@@ -705,14 +708,27 @@ class PettyCashController extends Controller
             'fund_source_id' => 'required|integer|exists:fund_sources,id',
             'amount'         => 'required|numeric|min:1',
             'description'    => 'nullable|string|max:255',
+            'requester_name' => 'nullable|string|max:255',
+            'needed_by'      => 'nullable|date',
+            'is_urgent'      => 'nullable|boolean',
         ]);
+
+        // Nama pemohon: pakai yang diketik di form, fallback ke nama user login.
+        $requesterName = trim((string) ($data['requester_name'] ?? ''));
+        if ($requesterName === '') {
+            $requesterName = (string) (\App\Models\Users::whereKey(session('id'))->value('nama') ?? '');
+        }
+        $isUrgent = (bool) ($data['is_urgent'] ?? false);
 
         $req = \App\Models\TopupRequest::create([
             'raw_branch_id'    => $branchId,
             'requested_by'     => (string) session('id'),
+            'requester_name'   => $requesterName !== '' ? $requesterName : null,
             'fund_source_id'   => (int) $data['fund_source_id'],
             'amount_requested' => (float) $data['amount'],
             'description'      => $data['description'] ?? null,
+            'needed_by'        => $data['needed_by'] ?? null,
+            'is_urgent'        => $isUrgent,
             'attachment_path'  => null,
             'status'           => \App\Models\TopupRequest::STATUS_PENDING,
             'requested_at'     => now(),
@@ -726,8 +742,9 @@ class PettyCashController extends Controller
         $nominal    = number_format((float) $data['amount'], 0, ',', '.');
         \App\Models\AdminNotification::notify(
             'topup_request',
-            'Pengajuan top up baru — ' . $branchName,
-            $branchName . ' mengajukan top up Rp ' . $nominal . ' untuk ' . $wallet . '.',
+            ($isUrgent ? '[DARURAT] ' : '') . 'Pengajuan top up baru — ' . $branchName,
+            $branchName . ' mengajukan top up Rp ' . $nominal . ' untuk ' . $wallet . '.'
+                . ($isUrgent ? ' Ditandai DARURAT.' : ''),
             url('finance/pettycash'),
             $branchId,
         );

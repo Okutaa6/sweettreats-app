@@ -10,6 +10,12 @@
          title="Tarik ke role lain untuk ganti atasan · klik untuk lihat anggota">
         <div class="oc-node__name">{{ $node->nama }}</div>
 
+        @if ($node->parent_id_2)
+            <div class="oc-node__extra-boss" title="Atasan kedua (khusus supervisi checklist)">
+                <i class="fas fa-user-plus"></i> Atasan lain: {{ optional($node->parent2)->nama }}
+            </div>
+        @endif
+
         <div class="oc-node__holder {{ $cnt === 0 ? 'empty' : '' }}">
             @if ($cnt > 0)
                 <i class="fas fa-users"></i> {{ $cnt }} anggota

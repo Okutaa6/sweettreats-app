@@ -97,6 +97,8 @@ class Group extends Controller
             'deskripsi'    => 'required',
             'landing_page' => 'required',
             'parent_id'    => 'nullable|exists:group_path,id',
+            // Atasan kedua (khusus supervisi checklist) — tak boleh sama dgn atasan utama.
+            'parent_id_2'  => 'nullable|exists:group_path,id|different:parent_id',
         ]);
 
         // 'id' ikut $fillable (seeder butuh) — jangan sampai bisa disusupkan
@@ -104,6 +106,7 @@ class Group extends Controller
         // dengan pembanding segment-1 di AuthGuard & detektor Kesehatan.
         $data = request()->except('_token', '_method', 'id');
         $data['parent_id']    = $data['parent_id'] ?: null;
+        $data['parent_id_2']  = ($data['parent_id_2'] ?? null) ?: null;
         $data['level']        = $this->levelFor($data['parent_id']);
         $data['landing_page'] = ltrim(trim($data['landing_page']), '/');
 
@@ -129,19 +132,28 @@ class Group extends Controller
             'deskripsi'    => 'required',
             'landing_page' => 'required',
             'parent_id'    => 'nullable|exists:group_path,id',
+            'parent_id_2'  => 'nullable|exists:group_path,id|different:parent_id',
         ]);
 
-        $group    = GroupPath::findOrFail($id);
-        $parentId = request('parent_id') ?: null;
+        $group     = GroupPath::findOrFail($id);
+        $parentId  = request('parent_id') ?: null;
+        $parentId2 = request('parent_id_2') ?: null;
 
         // Cegah siklus: parent tak boleh diri sendiri atau bawahannya.
-        if ($parentId !== null && in_array($parentId, $group->subtreeIds(), true)) {
+        $subtree = $group->subtreeIds();
+        if ($parentId !== null && in_array($parentId, $subtree, true)) {
             return redirect()->route('setgroup.edit', $id)
                 ->with('error', 'Atasan tidak boleh diri sendiri atau bawahannya (siklus).');
+        }
+        // Atasan kedua: guard yang sama (bukan diri/bawahan) supaya tak bikin loop supervisi.
+        if ($parentId2 !== null && in_array($parentId2, $subtree, true)) {
+            return redirect()->route('setgroup.edit', $id)
+                ->with('error', 'Atasan tambahan tidak boleh diri sendiri atau bawahannya (siklus).');
         }
 
         $data = request()->except('_token', '_method', 'id');
         $data['parent_id']    = $parentId;
+        $data['parent_id_2']  = $parentId2;
         $data['level']        = $this->levelFor($parentId);
         $data['landing_page'] = ltrim(trim($data['landing_page']), '/');
 
@@ -239,6 +251,12 @@ class Group extends Controller
 
         if ($group->children()->exists()) {
             return redirect()->route('setgroup')->with('error', 'Role masih punya bawahan, pindahkan dulu.');
+        }
+
+        // Masih jadi ATASAN KEDUA role lain → hapus akan menyisakan pointer nyangkut.
+        if ($group->extraChildren()->exists()) {
+            return redirect()->route('setgroup')->with('error',
+                'Role masih dipakai sebagai atasan tambahan role lain. Lepas dulu di role tersebut.');
         }
 
         // Role yang masih jadi bagian rantai persetujuan absensi tak boleh

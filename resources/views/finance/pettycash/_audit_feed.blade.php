@@ -17,6 +17,17 @@
         <h5 class="fpc-section__title">
             <i class="fa fa-history"></i> Riwayat Review Terakhir
         </h5>
+        @if(isSuperAdmin() && ! $recentReviewed->isEmpty())
+            {{-- Reset riwayat review (hard delete pengajuan yang sudah di-review) — hanya Super Admin. --}}
+            <form method="POST" action="{{ route('finance.pettycash.review.reset') }}"
+                  onsubmit="return confirm('Reset SEMUA riwayat review?\n\n• Seluruh pengajuan yang sudah di-review (approved/rejected) dihapus PERMANEN.\n• Antrian pending & transaksi petty cash TIDAK terpengaruh.\n• Aksi TIDAK bisa di-undo.\n\nLanjut?');"
+                  style="margin:0;">
+                @csrf
+                <button type="submit" class="fpc-reset-btn" title="Reset riwayat review (permanen)">
+                    <i class="fa fa-trash"></i> Reset Riwayat
+                </button>
+            </form>
+        @endif
     </div>
 
     @if($recentReviewed->isEmpty())
@@ -37,6 +48,7 @@
                         <th class="text-right" width="140">Nominal</th>
                         <th>Catatan</th>
                         <th width="140">Reviewer</th>
+                        <th width="60" class="text-center">Gambar</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -83,6 +95,14 @@
                                     <span class="fpc-reviewer-avatar" style="background: {{ $avatarBg($reviewerNm) }};">{{ $reviewerInt }}</span>
                                 </span>
                             </td>
+                            <td class="text-center">
+                                <button type="button" class="fpc-img-btn"
+                                        data-ftv-download="{{ $r->id }}"
+                                        data-ftv-filename="pengajuan-topup_{{ \Illuminate\Support\Str::slug($r->branch?->name ?? 'cabang') }}_{{ optional($r->requested_at)->format('Ymd') }}_{{ $r->id }}.png"
+                                        title="Unduh detail sebagai gambar" aria-label="Unduh gambar">
+                                    <i class="fa fa-download"></i>
+                                </button>
+                            </td>
                         </tr>
                     @endforeach
                 </tbody>
@@ -92,6 +112,16 @@
 </div>
 
 <style>
+.fpc-reset-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 7px 14px;
+    background: #fff; color: #b91c1c;
+    border: 1px solid #f3c9c9; border-radius: 999px;
+    font-size: 12px; font-weight: 700; cursor: pointer;
+    white-space: nowrap; transition: background .15s, border-color .15s;
+}
+.fpc-reset-btn:hover { background: #fef2f2; border-color: #dc2626; color: #b91c1c; }
+.fpc-reset-btn i { font-size: 11px; }
 .fpc-audit-card {
     background: #fff;
     border: 1px solid var(--divider-soft);
@@ -160,4 +190,16 @@
     color: #fff;
     font-size: 11px; font-weight: 800;
 }
+
+.fpc-audit-table thead th.text-center { text-align: center; }
+.fpc-audit-table td.text-center { text-align: center; }
+.fpc-img-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 30px; height: 30px;
+    background: #fff; color: var(--brown);
+    border: 1px solid var(--divider-soft); border-radius: 8px;
+    cursor: pointer; transition: background .15s, border-color .15s;
+}
+.fpc-img-btn:hover { background: #fdf9f3; border-color: var(--brown-2); }
+.fpc-img-btn i { font-size: 12px; }
 </style>
