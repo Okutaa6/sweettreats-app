@@ -161,7 +161,11 @@ class AkunAbsenController extends Controller
     private function segarkanHariIni(string $userId, AttendanceHpAbsen $svc): void
     {
         try {
-            $wd = Carbon::parse($svc->workDate(Carbon::now()))->startOfDay();
+            // WAJIB Illuminate\Support\Carbon — reconcile() menuntut tipe itu,
+            // sedangkan berkas ini meng-import Carbon\Carbon (induknya). Sempat
+            // salah: TypeError-nya ketangkap catch di bawah, jadi absen tetap
+            // tersimpan tapi perhitungan hariannya diam-diam tak jalan.
+            $wd = \Illuminate\Support\Carbon::parse($svc->workDate(Carbon::now()))->startOfDay();
             (new \App\Services\AttendanceReconciler())->reconcile($wd, $wd->copy(), $userId);
         } catch (\Throwable $e) {
             \Log::warning('[absen-hp] reconcile kilat gagal: ' . $e->getMessage(), ['user' => $userId]);
