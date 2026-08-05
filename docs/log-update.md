@@ -7,6 +7,82 @@
 
 ---
 
+## 2026-08-05 sore — Kode absensi NAIK PROD + daftar WiFi Bintaro dirapikan
+
+Menutup dua utang yang masih menggantung dari entri di bawah.
+
+### 1. Perbaikan "absen langsung terlihat" akhirnya di prod
+
+Prod naik dari `f309061` ke `6b6ed60`. Sebelum ini prod sudah punya **datanya**
+benar (9 orang tercatat hadir) tapi belum punya **kodenya** — artinya besok
+absen akan kembali tak terlihat sampai lusa, kecuali dijalankan manual tiap
+hari. Sekarang tidak perlu lagi: begitu absen tersimpan, catatan hariannya
+langsung dihitung untuk orang itu saja.
+
+**Diaudit dulu, tidak langsung dinaikkan.** Yang diperiksa:
+- Perubahan kodenya cuma satu berkas (`AkunAbsenController`), dibungkus
+  try/catch — kalau perhitungannya gagal, absennya tetap sah tersimpan.
+- **Perbaikan tipe Carbon dibuktikan bekerja**, bukan dipercaya. Di dev
+  ditemukan jejak nyata kegagalannya jam 13:14 (`reconcile kilat gagal:
+  Argument #1 must be of type Illuminate\Support\Carbon`) — error itu tertelan
+  try/catch, jadi absen tetap masuk tapi perhitungannya diam-diam mati. Jalur
+  kodenya dijalankan ulang di dev dengan versi yang sudah diperbaiki: tipenya
+  benar, reconcile lolos tanpa error.
+- **Pelajaran berkas bayangan dipakai**: setelah deploy, diverifikasi lewat
+  refleksi bahwa PHP benar-benar memuat `AkunAbsenController.php` yang asli
+  (bukan salinan bertanggal) dan method barunya ada. Tanpa cek ini, deploy bisa
+  "berhasil" tapi tak berefek — persis yang terjadi tadi siang.
+- SQL `2026_08_05_absensi_mulai_5_agustus.sql` sudah dijalankan sebelumnya;
+  diverifikasi: 15 aturan semuanya mulai 2026-08-05, **0 baris** att_day
+  sebelum 5 Agustus, 9 baris `hadir` untuk 5 Agustus.
+- Reconcile dijalankan ulang untuk hari ini → tetap 9 `hadir`, tidak ada baris
+  ganda. Idempotensinya nyata, bukan klaim.
+
+Backup sebelum eksekusi: `~/backups/prod_pre_kilat_2026-08-05.sql`.
+
+### 2. Daftar WiFi Bintaro: 10 baris → 5, dan petanya akhirnya jelas
+
+Ekky menelusuri sendiri tiap SSID kantor lewat halaman WiFi Cabang. Hasilnya
+**Bintaro punya DUA jalur internet, bukan tiga**:
+
+- **Jalur A** — SSID Xiaomi_FD3D_5G, Sweet Treats Lt.2, Sweet Treats BO →
+  IPv4 `180.252.168.224`, IPv6 prefix `2001:448a:2092:2313::/64`
+- **Jalur B** — SSID Sweet Treats (dan kemungkinan Lt.1) →
+  IPv4 `180.252.170.180`, IPv6 prefix `2001:448a:2092:134e::/64`
+
+Dua penemuan yang menjelaskan kebingungan sejak pagi: **Lt.2 dan BO memberi
+alamat yang sama persis** (satu jaringan, dua nama SSID), dan **router Xiaomi
+tidak melayani IPv6 sama sekali** — makanya tidak ada menu IPv6 di panelnya,
+dan siapa pun lewat SSID itu selalu tampak sebagai IPv4.
+
+**Kenapa daftarnya membengkak jadi 10**: pencocokan IPv6 memakai 64 bit
+pertama, tapi pemeriksaan duplikat pada **formulir** membandingkan teks alamat.
+Karena ekor IPv6 tiap HP berbeda, jaringan yang sudah tercakup bisa
+didaftarkan berulang tanpa peringatan apa pun. Lima dari sepuluh baris lahir
+begitu — termasuk dua yang didaftarkan sore ini saat menelusuri.
+
+Dinonaktifkan (bukan dihapus) lewat `2026_08_05_wifi_bintaro_rapikan.sql`:
+tiga baris kembar, plus **dua baris prefix `ab6` dari 25 Juli yang sudah tak
+dipakai**. Yang basi itu bukan sekadar berantakan — kalau Telkom sudah melepas
+prefix-nya ke pelanggan lain, orang di luar kantor bisa terbaca sebagai
+Bintaro. Sisa **tepat 5 baris aktif**: empat wajah Bintaro + Sunter.
+
+**Uji sebenarnya besok pagi**: kalau orang Bintaro absen tanpa flag `ip_asing`,
+kedua jalur sudah tertutup benar.
+
+### Utang baru yang dicatat
+
+**Formulir WiFi perlu sadar-jaringan.** Pemeriksaan duplikatnya harus
+membandingkan jaringan (64 bit pertama untuk IPv6), bukan teks alamat, dan
+bilang "jaringan ini sudah tercakup entri X". Tanpa itu daftarnya akan
+menggemuk lagi dengan sendirinya.
+
+Catatan kebersihan: 3 error di log prod hari ini semuanya **bukan bug
+aplikasi** — dua query diagnostik dari sesi kerja (termasuk `--columns` yang
+tidak ada, dan kolom `branch_id` yang memang bukan nama kolom sebenarnya) dan
+satu gangguan koneksi DB sekejap. Diperiksa: tak ada kode aplikasi yang
+menyebut kolom itu.
+
 ## 2026-08-05 siang — PROD DIBERESKAN: absensi resmi mulai 5 Agustus, 9 orang tercatat hadir
 
 Lanjutan temuan di bawah. Keputusan Ekky: **4 Agustus dinyatakan tidak berlaku,
