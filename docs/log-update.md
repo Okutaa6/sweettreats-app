@@ -7,6 +7,59 @@
 
 ---
 
+## 2026-08-05 — Hari pertama absen HP: 9 orang kantor masuk ABG + temuan WiFi Bintaro
+
+### Orang kantor masuk ABG (SELESAI, prod + dev)
+
+Yovanka, Talitha, Alif, Dani, Hari, dan Robi **tidak punya aturan kerja sama
+sekali**. Daftar Kehadiran dibangun dari `att_user_rule`, jadi mereka tak
+muncul di halaman Kehadiran mana pun — bukan cuma tak ada di grup ABG. Mereka
+bisa absen (Yovanka & Talitha sudah absen pagi ini) tapi kehadirannya tak
+pernah dinilai, dan justru kena flag `ip_asing`, karena pengecualian flag hanya
+berlaku bagi yang beraturan Fleksibel.
+
+Keputusan Ekky: keenamnya masuk ABG, dan semua penghuni ABG beraturan
+Fleksibel. Terpasang lewat `2026_08_05_abg_fleksibel.sql`. **ABG kini 9 orang.**
+Sisa tanpa aturan tinggal 11 akun peran bersama (Admin\*, Sales\*, Executive
+Pamulang) — memang tidak boleh punya aturan, itu akun jabatan, bukan orang.
+
+Catatan kecil yang menyelamatkan: email Dani/Hari/Robi ternyata `@stdc.id`,
+bukan `@sweettreats.id`. Kalau tidak diperiksa dulu, SQL-nya akan melewati
+mereka bertiga tanpa pesan apa pun.
+
+### Temuan: "WiFi = saksi" belum berjalan di Bintaro
+
+Pagi ini 7 orang absen dari Bintaro dan **tak satu pun cocok dengan WiFi
+terdaftar** — semuanya lewat jalur manual pilih-cabang. Yang cocok WiFi hanya
+Reza di Sunter. Lima orang kena flag `ip_asing`; Anisa sudah meninjau semuanya
+lalu mendaftarkan tiap IP yang muncul, satu per satu, jam 11.17–11.18.
+
+**Anisa tidak salah** — dia melakukan persis yang disediakan sistem. Yang keliru
+premisnya. Dua sebab, dua-duanya terbukti dari data hari ini:
+
+1. **Satu WiFi punya dua wajah.** Jaringan dual-stack punya IPv4 dan IPv6
+   sekaligus; HP mana memakai yang mana tergantung perangkat. Bukti: di halaman
+   WiFi Cabang, IP Ekky terbaca `180.252.168.224` (IPv4, sama persis dengan
+   Yovanka), sedangkan saat absen ia tercatat sebagai IPv6
+   `2001:448a:2092:2313:...`. Satu HP, satu WiFi, dua alamat yang tak mirip.
+2. **Alamatnya berputar.** Prefix IPv6 yang didaftarkan 25 Juli (`ab6`) sudah
+   tidak dipakai hari ini, dan IPv4 IndiHome bersifat dinamis.
+
+Kantor Bintaro punya 3 WiFi, jadi menutupnya butuh 6 entri (3 sambungan × 2
+wajah), bukan 3 — dan itu pun tidak akan bertahan.
+
+**Yang menenangkan**: IP tak cocok **tidak pernah menolak absen**, hanya meminta
+orang memilih cabang lalu memunculkan flag. Jadi taruhannya bukan "orang tak
+bisa absen", melainkan flag palsu tiap hari dan pekerjaan pendaftaran tanpa
+ujung bagi Anisa.
+
+**Perkembangan penting**: Ekky punya akses admin ke router kantor (Xiaomi, di
+belakang modem IndiHome `192.168.1.1`). Itu membuka jalan yang jauh lebih murah
+dan cepat daripada menunggu IP statis Telkom: matikan IPv6 di WiFi staf supaya
+tiap sambungan hanya punya satu wajah, lalu pasang DDNS supaya alamatnya punya
+nama tetap dan aplikasi tinggal mengikuti namanya. Belum dieksekusi, menunggu
+keputusan.
+
 ## 2026-08-05 — Akar dari semua "menu hilang": PROD menjalankan kode basi (DIPERBAIKI)
 
 Berangkat dari empat permintaan Ekky (cabut Promo Talitha, Pengajuan pindah ke
