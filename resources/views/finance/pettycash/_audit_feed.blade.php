@@ -17,8 +17,8 @@
         <h5 class="fpc-section__title">
             <i class="fa fa-history"></i> Riwayat Review Terakhir
         </h5>
-        @if(isSuperAdmin() && ! $recentReviewed->isEmpty())
-            {{-- Reset riwayat review (hard delete pengajuan yang sudah di-review) — hanya Super Admin. --}}
+        @if(isSuperAdmin() && ! $recentReviewed->isEmpty() && pettyCashResetEnabled())
+            {{-- Reset riwayat review (hard delete pengajuan yang sudah di-review) — hanya Super Admin, hanya di dev. --}}
             <form method="POST" action="{{ route('finance.pettycash.review.reset') }}"
                   onsubmit="return confirm('Reset SEMUA riwayat review?\n\n• Seluruh pengajuan yang sudah di-review (approved/rejected) dihapus PERMANEN.\n• Antrian pending & transaksi petty cash TIDAK terpengaruh.\n• Aksi TIDAK bisa di-undo.\n\nLanjut?');"
                   style="margin:0;">

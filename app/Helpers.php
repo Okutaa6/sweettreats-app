@@ -465,6 +465,19 @@ if (!function_exists('isSuperAdmin')) {
 }
 
 /**
+ * True kalau tombol Reset Petty Cash (hard-delete jejak transaksi & riwayat
+ * review) boleh muncul. Alat bersih-bersih data demo — default hanya hidup di
+ * dev; di prod mati. Dipakai di controller (gate abort 404) & Blade (sembunyikan
+ * tombol). Diatur via config('features.petty_cash_reset').
+ */
+if (!function_exists('pettyCashResetEnabled')) {
+    function pettyCashResetEnabled(): bool
+    {
+        return (bool) config('features.petty_cash_reset');
+    }
+}
+
+/**
  * True kalau user yang sedang login adalah Admin General. Dipakai bareng
  * isSuperAdmin() untuk gate fitur admin-level (mis. "Kelola Halaman" untuk
  * atur mode akses View Only per role).

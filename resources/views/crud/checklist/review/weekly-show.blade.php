@@ -317,6 +317,9 @@
                                                 <span class="st-pill st-pill--warning"><i class="fas fa-clock"></i> Menunggu review</span>
                                             @elseif($drs === 'rejected')
                                                 <span class="st-pill" style="background:#FBE3DE; color:#C0392B;"><i class="fas fa-times-circle"></i> Ditolak</span>
+                                            @elseif($dayDate->lt(\Illuminate\Support\Carbon::today()))
+                                                {{-- Hari operasional yang sudah lewat tapi tak pernah dikirim → Tidak Diisi. --}}
+                                                <span class="st-pill" style="background:#EFE7DE; color:#9B8578;"><i class="fas fa-ban" style="font-size:10px;"></i> Tidak Diisi</span>
                                             @else
                                                 <span class="st-pill st-pill--neutral">Belum dikirim</span>
                                             @endif

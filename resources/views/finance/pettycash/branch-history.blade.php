@@ -55,8 +55,8 @@
                class="fpc-action-btn" title="Bulan berikutnya">
                 <i class="fa fa-chevron-right"></i>
             </a>
-            @if(isSuperAdmin())
-                {{-- Reset jejak transaksi cabang+bulan ini (hard delete) — hanya Super Admin. --}}
+            @if(isSuperAdmin() && pettyCashResetEnabled())
+                {{-- Reset jejak transaksi cabang+bulan ini (hard delete) — hanya Super Admin, hanya di dev. --}}
                 <form method="POST"
                       action="{{ route('finance.pettycash.branch-history.reset', ['branchId' => $branch->id]) }}"
                       onsubmit="return confirm('Reset SEMUA jejak transaksi {{ $branch->name }} untuk {{ $monthName }} {{ $year }}?\n\n• Seluruh transaksi (pengeluaran, top up, transfer) periode ini dihapus PERMANEN.\n• Aksi TIDAK bisa di-undo.\n\nLanjut?');"

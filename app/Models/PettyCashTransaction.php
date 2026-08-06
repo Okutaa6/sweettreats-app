@@ -25,6 +25,13 @@ class PettyCashTransaction extends Model
     public const DIR_OUT = 'out';
 
     /**
+     * Batas atas nominal 1 transaksi (top up / pengeluaran / transfer /
+     * pengajuan). Menahan salah ketik ekstrem agar memicu pesan validasi,
+     * bukan error. Dipakai bersama oleh PettyCashController & TopupRequestController.
+     */
+    public const MAX_AMOUNT = 50000000;
+
+    /**
      * Kategori pengeluaran (hanya relevan saat direction='out' & is_topup=0 & is_transfer=0).
      * NULL untuk top up / transfer / data lama.
      */

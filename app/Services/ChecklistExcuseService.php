@@ -51,6 +51,17 @@ class ChecklistExcuseService
             $sub = $this->submissionForDate($req->user_id, $d);
             if (! $sub) continue;
 
+            $touched[$sub->id] = $sub;
+
+            // JANGAN timpa excuse MANUAL karyawan (mis. "alat rusak"). Hari itu
+            // sudah dikecualikan, jadi row sistem tak perlu — sekaligus mencegah
+            // alasan asli hilang bila cuti kelak DITOLAK (unexcuseForLeave hanya
+            // menghapus source='system', maka row manual yang tak tertimpa aman).
+            if (ChecklistWeeklyDayExcuse::where('submission_id', $sub->id)
+                    ->where('day_of_week', $iso)->where('source', 'manual')->exists()) {
+                continue;
+            }
+
             // updateOrCreate tetap menulis walau minggu sudah submitted/approved
             // (jejak audit) — TAPI finalizeIfComplete di-guard isEditable, jadi
             // minggu final tak dipaksa reopen.
@@ -64,14 +75,20 @@ class ChecklistExcuseService
                     'created_at' => now(),
                 ]
             );
-
-            $touched[$sub->id] = $sub;
         }
 
         foreach ($touched as $sub) {
             $sub->load(['items', 'dayExcuses', 'daySubmits']);
             $before = $sub->status;
-            $sub->recomputeStatus();
+            // Roll-up HANYA untuk minggu yang masih editable (draft/rejected).
+            // Menambah excuse cuma MENGURANGI kewajiban (hari aktif berkurang),
+            // jadi minggu yang sudah final (submitted/approved) memang sudah beres —
+            // melewati recompute tak pernah meninggalkannya "butuh diisi", tapi
+            // MENCEGAH approved→draft yang menimpa reviewer_user_id/reviewed_at jadi
+            // null (jejak approval hilang). Baris excuse tetap ditulis di atas.
+            if ($sub->isEditable()) {
+                $sub->recomputeStatus();
+            }
             // Baru "otomatis dikirim" bila roll-up memindahkan ke submitted (mis.
             // seluruh hari kerja jadi excused) — beri tahu supervisor sekali.
             if ($before !== ChecklistWeeklySubmission::STATUS_SUBMITTED
@@ -85,11 +102,25 @@ class ChecklistExcuseService
     public function unexcuseForLeave(AttRequest $req): void
     {
         // Hanya hapus row milik-sistem untuk ref_id ini — excuse manual karyawan
-        // di hari lain tetap aman. Sengaja TIDAK auto-reopen minggu yang sudah
-        // submitted; itu keputusan supervisor (weeklyReopen).
+        // di hari lain tetap aman.
+        $subIds = ChecklistWeeklyDayExcuse::where('source', 'system')
+            ->where('ref_id', (string) $req->id)
+            ->pluck('submission_id')->unique();
+
         ChecklistWeeklyDayExcuse::where('source', 'system')
             ->where('ref_id', (string) $req->id)
             ->delete();
+
+        // WAJIB roll-up ulang: menghapus excuse MENAMBAH kewajiban (hari kembali
+        // aktif) sehingga status hanya bisa turun/terbuka. Tanpa ini, minggu yang
+        // sempat 'submitted' karena sepekan di-excuse tetap terkunci selamanya
+        // (isEditable false → karyawan tak bisa isi, supervisor 0 pending).
+        // Aman: minggu yang benar-benar di-ACC punya baris day_submit 'approved',
+        // jadi deriveStatus() tetap 'approved' — takkan salah membuka minggu sah.
+        foreach ($subIds as $sid) {
+            $sub = ChecklistWeeklySubmission::with(['items', 'dayExcuses', 'daySubmits'])->find($sid);
+            if ($sub) $sub->recomputeStatus();
+        }
     }
 
     /**
@@ -119,6 +150,11 @@ class ChecklistExcuseService
             for ($d = $from->copy(); $d->lte($to); $d->addDay()) {
                 $iso = $d->isoWeekday();
                 if ($iso < 2 || $iso > 7) continue;
+                // Jangan timpa excuse MANUAL — lihat catatan di excuseForLeave().
+                if (ChecklistWeeklyDayExcuse::where('submission_id', $sub->id)
+                        ->where('day_of_week', $iso)->where('source', 'manual')->exists()) {
+                    continue;
+                }
                 ChecklistWeeklyDayExcuse::updateOrCreate(
                     ['submission_id' => $sub->id, 'day_of_week' => $iso],
                     [

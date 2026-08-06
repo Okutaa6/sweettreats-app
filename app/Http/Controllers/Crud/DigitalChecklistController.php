@@ -935,9 +935,12 @@ class DigitalChecklistController extends Controller
         $monthLabel = $start->translatedFormat('F Y');
         $today      = Carbon::today();
 
-        // Submission asli bulan ini dalam cakupan cabang.
+        // Submission asli bulan ini dalam cakupan cabang DAN divisi yang boleh
+        // disupervisi — supaya riwayat divisi lain (mis. karyawan yang pernah
+        // pindah role) tidak bocor ke supervisor di luar cakupannya.
         $realSubs = ChecklistSubmission::query()
             ->where('user_id', $user)
+            ->whereIn('division_id', $visible)
             ->when($branchId, fn($q) => $q->where('raw_branch_id', $branchId))
             ->whereBetween('submission_date', [$start->toDateString(), $end->toDateString()])
             ->get();
@@ -1428,6 +1431,20 @@ class DigitalChecklistController extends Controller
         if (! in_array($division->id, checklistVisibleDivisionIds(), true)) {
             abort(403, 'Divisi ini di luar cakupan supervisi Anda.');
         }
+        // Supervisor terkunci cabang hanya boleh memindahkan staf DARI cabangnya
+        // sendiri. Cabang asal (home) staf diambil dari posisi home aktif, fallback
+        // ke user.raw_branch_id. Efek samping: swap lintas-cabang (2 staf beda
+        // cabang) otomatis hanya berhasil untuk user yang bisa lihat semua cabang
+        // (admin/Finance, di mana $sbid null).
+        $sbid = resolveChecklistBranchId(null);
+        if ($sbid) {
+            $homeBranch = UserPosition::query()->activeOn(Carbon::today())
+                ->where('user_id', $userId)->where('kind', 'home')
+                ->value('raw_branch_id') ?? $user?->raw_branch_id;
+            if ((string) $homeBranch !== (string) $sbid) {
+                return [false, ($user?->nama ?? 'Karyawan') . ': hanya bisa memindahkan staf dari cabang Anda sendiri.'];
+            }
+        }
         if ($from->lt(Carbon::today())) {
             return [false, 'Tanggal mulai rolling tidak boleh di masa lalu.'];
         }
@@ -1557,18 +1574,23 @@ class DigitalChecklistController extends Controller
         $nextMonth  = $start->copy()->addMonth()->format('Y-m');
         $monthLabel = $start->translatedFormat('F Y');
 
-        // Form Mingguan yang week_start_date-nya jatuh di bulan ini.
+        // Form Mingguan yang week_start_date-nya jatuh di bulan ini. Difilter ke
+        // divisi dalam cakupan supaya riwayat divisi lain (karyawan yang pernah
+        // pindah role) tak bocor ke supervisor di luar cakupannya.
         $subs = ChecklistWeeklySubmission::query()
             ->where('user_id', $user)
+            ->whereIn('division_id', $visible)
             ->when($branchId, fn($q) => $q->where('raw_branch_id', $branchId))
             ->whereBetween('week_start_date', [$start->toDateString(), $end->toDateString()])
             ->with(['items', 'dayExcuses', 'daySubmits'])
             ->orderByDesc('week_start_date')
             ->get();
 
-        // Jumlah HARI menunggu review per minggu — dipakai tombol approve inline & badge.
+        // Jumlah HARI menunggu review + jumlah HARI "Tidak Diisi" (lewat & tak
+        // pernah dikirim) per minggu — dipakai badge & tombol approve inline.
         foreach ($subs as $s) {
             $s->pending_days = count($s->pendingReviewDayNumbers());
+            $s->missed_days  = count($s->missedDayNumbers());
         }
 
         $countByStatus = $subs->groupBy('status')->map->count();

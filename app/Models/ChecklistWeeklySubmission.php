@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -114,6 +115,29 @@ class ChecklistWeeklySubmission extends Model
     public function isDaySubmitted(int $iso): bool
     {
         return in_array($iso, $this->submittedDayNumbers(), true);
+    }
+
+    /**
+     * Hari operasional (ISO 2–7) yang "Tidak Diisi": punya tugas, TIDAK
+     * dikecualikan, TIDAK pernah dikirim (tak ada row day_submit sama sekali),
+     * dan tanggalnya SUDAH LEWAT (< hari ini). Menutup celah minggu setengah
+     * jalan — mis. kirim Selasa lalu abaikan sisanya — yang tak pernah dilaporkan
+     * cron (partial di-skip). Dihitung on-the-fly (bukan disimpan) supaya otomatis
+     * hilang bila karyawan mengisinya belakangan. Butuh relasi items/dayExcuses/
+     * daySubmits ter-load.
+     */
+    public function missedDayNumbers(?Carbon $today = null): array
+    {
+        $today   = $today ?: Carbon::today();
+        $attempted = $this->daySubmits->pluck('day_of_week')->map(fn ($d) => (int) $d)->all();
+        $missed  = [];
+        foreach ($this->activeDayNumbers() as $iso) { // sudah mengecualikan hari excused
+            if (in_array($iso, $attempted, true)) continue;
+            $dayDate = $this->week_start_date->copy()->addDays($iso - 1);
+            if ($dayDate->gte($today)) continue; // hari ini/mendatang belum "tidak diisi"
+            $missed[] = $iso;
+        }
+        return $missed;
     }
 
     /** Kunci sisi karyawan: hari terkunci bila terkirim & belum ditolak. */

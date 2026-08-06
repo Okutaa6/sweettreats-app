@@ -152,6 +152,9 @@
                                 @if($s->pending_days > 0)
                                     <div style="font-size:10.5px;color:#B5701A;font-weight:700;margin-top:3px"><i class="fas fa-clock" style="font-size:9px"></i> {{ $s->pending_days }} hari menunggu review</div>
                                 @endif
+                                @if($s->missed_days > 0)
+                                    <div style="font-size:10.5px;color:#9B8578;font-weight:700;margin-top:3px"><i class="fas fa-ban" style="font-size:9px"></i> {{ $s->missed_days }} hari Tidak Diisi</div>
+                                @endif
                             </td>
                             <td>
                                 <div style="display:flex;align-items:center;gap:7px">

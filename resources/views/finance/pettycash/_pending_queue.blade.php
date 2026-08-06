@@ -28,13 +28,24 @@
                     $accountNumber = $req->fundSource && $req->raw_branch_id
                         ? $req->fundSource->accountForBranch((string) $req->raw_branch_id)
                         : null;
+
+                    // Nama pemohon: yang DIKETIK di form vs nama AKUN yang login.
+                    // Tampilkan keduanya bila berbeda supaya identitas asli terlihat.
+                    $typedName   = trim((string) $req->requester_name);
+                    $accountName = (string) ($req->requester?->nama ?? '');
                 @endphp
                 <div class="fpc-queue-card {{ $req->is_urgent ? 'fpc-queue-card--urgent' : '' }}">
                     <div class="fpc-queue-card__main">
                         <div class="fpc-queue-card__meta">
                             <span class="fpc-queue-card__branch">{{ $req->branch?->name ?? '-' }}</span>
                             <span class="fpc-queue-card__sep">·</span>
-                            <span class="fpc-queue-card__requester">{{ $req->requester_name ?: ($req->requester?->nama ?? '-') }}</span>
+                            <span class="fpc-queue-card__requester">
+                                @if($typedName !== '' && $accountName !== '' && $typedName !== $accountName)
+                                    diketik: {{ $typedName }} <span class="fpc-queue-card__reqsub">· akun: {{ $accountName }}</span>
+                                @else
+                                    {{ $typedName !== '' ? $typedName : ($accountName !== '' ? $accountName : '-') }}
+                                @endif
+                            </span>
                             <span class="fpc-queue-card__sep">·</span>
                             <span class="fpc-queue-card__time">{{ $req->requested_at?->translatedFormat('d M, H:i') ?? '-' }}</span>
                             @if($req->is_urgent)

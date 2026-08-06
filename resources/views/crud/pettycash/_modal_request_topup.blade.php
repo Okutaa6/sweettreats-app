@@ -113,6 +113,7 @@
                         <button type="button" class="rtu-chip" data-rtu-hari="7">1 minggu</button>
                     </div>
                     <input type="date" class="rtu-input" id="rtuNeededBy" name="needed_by"
+                           min="{{ now()->toDateString() }}"
                            value="{{ old('needed_by') }}">
                 </div>
 

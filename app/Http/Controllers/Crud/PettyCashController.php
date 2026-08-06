@@ -567,12 +567,14 @@ class PettyCashController extends Controller
             'trx_date'       => 'required|date',
             'description'    => 'required|string|max:255',
             'category'       => 'required|in:' . implode(',', $categoryKeys),
-            'amount'         => 'required|numeric|min:1',
+            'amount'         => 'required|numeric|min:1|max:' . \App\Models\PettyCashTransaction::MAX_AMOUNT,
             'fund_source_id' => 'required|integer|exists:fund_sources,id',
             'ref_no'         => 'nullable|string|max:50',
             // Bukti pengeluaran opsional: gambar (jpg/png/webp) atau PDF.
             // Max 5MB — cukup besar untuk foto HP modern, kecil untuk storage.
             'attachment'     => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf|max:5120',
+        ], [
+            'amount.max' => 'Nominal maksimal Rp 50.000.000.',
         ]);
 
         $period = $periodClass::findOrFail($data['period_id']);
@@ -625,7 +627,7 @@ class PettyCashController extends Controller
             'period_id'      => 'required|integer|exists:' . $tableName . ',id',
             'trx_date'       => 'required|date',
             'description'    => 'nullable|string|max:255',
-            'amount'         => 'required|numeric|min:1',
+            'amount'         => 'required|numeric|min:1|max:' . \App\Models\PettyCashTransaction::MAX_AMOUNT,
             'fund_source_id' => 'required|integer|exists:fund_sources,id',
             'ref_no'         => 'nullable|string|max:50',
             'account_number' => 'nullable|string|max:50',
@@ -635,6 +637,8 @@ class PettyCashController extends Controller
             // Top Up" tidak menambahkannya.
             'is_topup'       => 'nullable|boolean',
             'attachment'     => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf|max:5120',
+        ], [
+            'amount.max' => 'Nominal maksimal Rp 50.000.000.',
         ]);
 
         $period = $periodClass::findOrFail($data['period_id']);
@@ -706,11 +710,14 @@ class PettyCashController extends Controller
 
         $data = $request->validate([
             'fund_source_id' => 'required|integer|exists:fund_sources,id',
-            'amount'         => 'required|numeric|min:1',
+            'amount'         => 'required|numeric|min:1|max:' . \App\Models\PettyCashTransaction::MAX_AMOUNT,
             'description'    => 'nullable|string|max:255',
             'requester_name' => 'nullable|string|max:255',
-            'needed_by'      => 'nullable|date',
+            'needed_by'      => 'nullable|date|after_or_equal:today',
             'is_urgent'      => 'nullable|boolean',
+        ], [
+            'amount.max'              => 'Nominal maksimal Rp 50.000.000.',
+            'needed_by.after_or_equal' => 'Tanggal kebutuhan tidak boleh di masa lalu.',
         ]);
 
         // Nama pemohon: pakai yang diketik di form, fallback ke nama user login.
@@ -903,12 +910,13 @@ class PettyCashController extends Controller
             'trx_date'         => 'required|date',
             'from_source_id'   => 'required|integer|exists:fund_sources,id',
             'to_source_id'     => 'required|integer|exists:fund_sources,id|different:from_source_id',
-            'amount'           => 'required|numeric|min:1',
+            'amount'           => 'required|numeric|min:1|max:' . \App\Models\PettyCashTransaction::MAX_AMOUNT,
             'description'      => 'nullable|string|max:200',
             'to_account_number' => 'nullable|string|max:50',
             'attachment'       => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf|max:5120',
         ], [
             'to_source_id.different' => 'Sumber tujuan tidak boleh sama dengan sumber asal.',
+            'amount.max'             => 'Nominal maksimal Rp 50.000.000.',
         ]);
 
         $period = $periodClass::findOrFail($data['period_id']);

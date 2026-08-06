@@ -329,6 +329,9 @@ class FinanceDashboardController extends Controller
     public function resetBranchHistory(Request $request, string $branchId)
     {
         $this->guard();
+        if (! pettyCashResetEnabled()) {
+            abort(404); // fitur reset tak tersedia di lingkungan ini (prod)
+        }
         if (! isSuperAdmin()) {
             abort(403, 'Hanya Super Admin yang boleh reset jejak transaksi.');
         }
@@ -380,6 +383,9 @@ class FinanceDashboardController extends Controller
     public function resetReviewHistory(Request $request)
     {
         $this->guard();
+        if (! pettyCashResetEnabled()) {
+            abort(404); // fitur reset tak tersedia di lingkungan ini (prod)
+        }
         if (! isSuperAdmin()) {
             abort(403, 'Hanya Super Admin yang boleh reset riwayat review.');
         }

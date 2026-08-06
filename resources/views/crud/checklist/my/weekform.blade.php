@@ -106,11 +106,16 @@
     .wf-progress.is-good .wf-progress__bar > i { background: #2F8E55; }
     .wf-progress.is-warn .wf-progress__bar > i { background: #C9962F; }
     .wf-progress.is-bad  .wf-progress__bar > i { background: #C0392B; }
-    @media (max-width: 540px) {
+    /* Mobile: pisahkan nav (1 baris penuh) & progres (di bawahnya). Hitungan
+       "N dari N tugas · N belum" turun ke baris sendiri biar tak kepotong —
+       sebelumnya nowrap + body min-width:140 bikin overflow di layar sempit. */
+    @media (max-width: 640px) {
         .wf-toolbar { padding: 14px 16px; }
         .wf-toolbar__sep { display: none; }
-        .wf-progress { min-width: 100%; }
-        .wf-progress__count { white-space: normal; }
+        .wf-nav { width: 100%; justify-content: space-between; }
+        .wf-progress { min-width: 100%; flex-wrap: wrap; row-gap: 10px; }
+        .wf-progress__body { min-width: 0; }
+        .wf-progress__count { white-space: normal; flex-basis: 100%; text-align: left; }
     }
 
     /* Banners */

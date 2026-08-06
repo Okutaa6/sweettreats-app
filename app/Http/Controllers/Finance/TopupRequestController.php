@@ -75,11 +75,13 @@ class TopupRequestController extends Controller
         $this->guard();
 
         $data = $request->validate([
-            'amount_approved' => 'required|numeric|min:1',
+            'amount_approved' => 'required|numeric|min:1|max:' . \App\Models\PettyCashTransaction::MAX_AMOUNT,
             'fund_source_id'  => 'required|integer|exists:fund_sources,id',
             'trx_date'        => 'required|date',
             'approval_note'   => 'nullable|string|max:255',
             'attachment'      => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf|max:5120',
+        ], [
+            'amount_approved.max' => 'Nominal maksimal Rp 50.000.000.',
         ]);
 
         // Simpan bukti foto di luar transaction (file IO) — kalau gagal,
@@ -91,6 +93,9 @@ class TopupRequestController extends Controller
                 $req = TopupRequest::lockForUpdate()->findOrFail($id);
                 if ($req->status !== TopupRequest::STATUS_PENDING) {
                     abort(409, 'Request ini sudah di-review sebelumnya.');
+                }
+                if ((string) $req->requested_by === (string) session('id')) {
+                    abort(403, 'Tidak boleh menyetujui pengajuan sendiri.');
                 }
 
                 $branchId = (string) $req->raw_branch_id;
@@ -172,6 +177,9 @@ class TopupRequestController extends Controller
                 $req = TopupRequest::lockForUpdate()->findOrFail($id);
                 if ($req->status !== TopupRequest::STATUS_PENDING) {
                     abort(409, 'Request ini sudah di-review sebelumnya.');
+                }
+                if ((string) $req->requested_by === (string) session('id')) {
+                    abort(403, 'Tidak boleh menolak pengajuan sendiri.');
                 }
                 $req->update([
                     'status'          => TopupRequest::STATUS_REJECTED,
