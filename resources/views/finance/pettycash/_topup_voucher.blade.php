@@ -93,11 +93,6 @@
         @endif
     </div>
 
-    <div class="ftv-voucher__verify">
-        <span class="ftv-voucher__verify-badge">BUKAN DOKUMEN RESMI</span>
-        <span class="ftv-voucher__verify-note">Verifikasi keaslian di dashboard Petty Cash dengan No. #{{ $req->id }}</span>
-    </div>
-
     <div class="ftv-voucher__foot">Dashboard Monitoring Petty Cash · Sweet Treats</div>
 </div>
 
@@ -162,27 +157,10 @@
     font-size: 11px; font-weight: 500; color: #9A7256;
 }
 
-/* Penanda keaslian — kode verifikasi berbasis No. dari server + label bukti.
-   Tidak menghentikan edit DOM, tapi memberi jalur verifikasi silang. */
-.ftv-voucher__verify {
-    margin: 6px 22px 0; padding: 10px 14px;
-    background: #FBF3E4; border: 1px dashed #d8c3a6; border-radius: 10px;
-    text-align: center;
-}
-.ftv-voucher__verify-badge {
-    display: inline-block; margin-bottom: 4px;
-    padding: 2px 10px; border-radius: 999px;
-    background: #B91C1C; color: #ffffff;
-    font-size: 10px; font-weight: 800; letter-spacing: .6px;
-}
-.ftv-voucher__verify-note {
-    display: block; font-size: 10.5px; font-weight: 600; color: #9A7256;
-}
-
 .ftv-voucher__foot {
-    padding: 12px 22px 16px;
+    padding: 14px 22px 16px;
     font-size: 10.5px; color: #b09a86; text-align: center;
-    border-top: 1px solid #f4eadd; margin-top: 4px;
+    border-top: 1px solid #f4eadd; margin-top: 6px;
 }
 </style>
 @endonce

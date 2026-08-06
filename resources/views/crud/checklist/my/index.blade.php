@@ -847,7 +847,7 @@
                 @php
                     $hour = (int) now()->format('H');
                     $greet = $hour < 11 ? 'Selamat Pagi' : ($hour < 15 ? 'Selamat Siang' : ($hour < 18 ? 'Selamat Sore' : 'Selamat Malam'));
-                    $statusOpt = \App\Models\ChecklistSubmission::statusOptions()[$submission->status] ?? null;
+                    $statusOpt = $submission ? (\App\Models\ChecklistSubmission::statusOptions()[$submission->status] ?? null) : null;
                     $statusColorMap = [
                         'success' => 'success', 'warning' => 'warning', 'danger' => 'danger',
                         'coffee'  => 'coffee',  'slate'   => 'slate',   'neutral' => 'draft',
@@ -868,6 +868,11 @@
                                 <div class="cl-mod-hero__meta">
                                     <i class="fas fa-calendar-day" style="font-size:11px; opacity:.85;"></i>
                                     {{ $today->translatedFormat('l, d F Y') }}
+                                    @if($isReopen ?? false)
+                                        <span class="cl-mod-hero__chip" style="background:#8A3A12; color:#fff;">
+                                            <i class="fas fa-unlock" style="font-size:10px;"></i> Dibuka kembali
+                                        </span>
+                                    @endif
                                     <span class="cl-mod-hero__chip">
                                         <i class="fas fa-id-badge" style="font-size:10px;"></i>
                                         {{ $position->division?->name ?? $position->division_id }}
@@ -885,9 +890,153 @@
                     </div>
                 </div>
 
+                {{-- ═══ NAVIGASI TANGGAL: mundur ke hari sebelumnya (maks 60 hari) ═══ --}}
+                <div class="cl-dn">
+                    @if($canPrev ?? false)
+                        <a href="{{ route('mychecklist', ['date' => $prevDate->toDateString()]) }}" class="cl-dn__nav"><i class="fas fa-chevron-left"></i> Sebelumnya</a>
+                    @else
+                        <span class="cl-dn__nav is-off"><i class="fas fa-chevron-left"></i> Sebelumnya</span>
+                    @endif
+
+                    <div class="cl-dn__center">
+                        <div class="cl-dn__date">{{ $today->translatedFormat('l, d M Y') }}</div>
+                        @if($isToday ?? true)
+                            <span class="cl-dn__tag">Hari ini</span>
+                        @else
+                            <a href="{{ route('mychecklist') }}" class="cl-dn__back"><i class="fas fa-rotate-left"></i> Kembali ke hari ini</a>
+                        @endif
+                    </div>
+
+                    @if($canNext ?? false)
+                        <a href="{{ ($nextDate ?? null) && $nextDate->isSameDay($realToday ?? $today) ? route('mychecklist') : route('mychecklist', ['date' => $nextDate->toDateString()]) }}" class="cl-dn__nav">Berikutnya <i class="fas fa-chevron-right"></i></a>
+                    @else
+                        <span class="cl-dn__nav is-off">Berikutnya <i class="fas fa-chevron-right"></i></span>
+                    @endif
+                </div>
+                <style>
+                    .cl-dn { display:flex; align-items:center; gap:10px; background:#fff; border:1px solid #EADCC9; border-radius:14px; padding:8px; margin-bottom:14px; box-shadow:0 1px 2px rgba(70,21,0,.04); }
+                    .cl-dn__nav { display:inline-flex; align-items:center; gap:6px; font-size:12.5px; font-weight:700; color:#6B4423; background:#FBF6EE; border:1px solid #ECDCC7; border-radius:10px; padding:8px 13px; text-decoration:none; white-space:nowrap; transition:.15s; }
+                    .cl-dn__nav:hover { background:#F4E7D5; color:#5A3A22; }
+                    .cl-dn__nav.is-off { opacity:.35; pointer-events:none; }
+                    .cl-dn__center { flex:1; min-width:0; text-align:center; display:flex; flex-direction:column; align-items:center; gap:3px; }
+                    .cl-dn__date { font-size:13.5px; font-weight:800; color:#3B1500; line-height:1.2; }
+                    .cl-dn__tag { font-size:10.5px; font-weight:800; color:#2F8E55; background:#E3F4E8; border-radius:20px; padding:2px 10px; }
+                    .cl-dn__back { font-size:11.5px; font-weight:700; color:#8A3A12; text-decoration:none; display:inline-flex; align-items:center; gap:5px; }
+                    .cl-dn__back:hover { text-decoration:underline; }
+                    @media (max-width:560px){ .cl-dn__nav { padding:7px 10px; font-size:11.5px; } }
+                </style>
+
+                {{-- ═══ TANGGAL LAMPAU BELUM DIBUKA: panel read-only + minta buka ═══ --}}
+                @if(! ($isToday ?? true) && ! ($isReopen ?? false))
+                    @php
+                        $lockedStatusText  = $submission ? (\App\Models\ChecklistSubmission::statusOptions()[$submission->status]['label'] ?? $submission->status) : 'Tidak Diisi';
+                        $lockedStatusColor = $submission ? (\App\Models\ChecklistSubmission::statusOptions()[$submission->status]['color'] ?? 'slate') : 'slate';
+                    @endphp
+                    <div class="cl-past">
+                        <div class="cl-past__top">
+                            <span class="cl-past__ico"><i class="fas fa-{{ ($isClosedDay ?? false) ? 'store-slash' : 'lock' }}"></i></span>
+                            <div class="cl-past__meta">
+                                <div class="cl-past__ttl">Checklist {{ $today->translatedFormat('d F Y') }}</div>
+                                <div class="cl-past__desc">
+                                    @if($isClosedDay ?? false)
+                                        Hari <b>Senin</b> klinik tutup — tidak ada checklist harian.
+                                    @else
+                                        Tanggal ini sudah lewat — ajukan <b>buka kembali</b> untuk mengisi atau menyusulkan.
+                                    @endif
+                                </div>
+                            </div>
+                            <span class="cl-past__status cl-past__status--{{ ($isClosedDay ?? false) ? 'slate' : $lockedStatusColor }}">{{ ($isClosedDay ?? false) ? 'Libur' : $lockedStatusText }}</span>
+                        </div>
+
+                        @if(($isClosedDay ?? false))
+                            <div class="cl-past__action">
+                                <div class="cl-past__note cl-past__note--wait" style="background:#EEE7DC; color:#6B5A44;">
+                                    <i class="fas fa-mug-hot"></i> <span>Klinik tutup setiap Senin — gunakan navigasi tanggal untuk memilih hari operasional (Selasa–Minggu).</span>
+                                </div>
+                            </div>
+                        @elseif($submission)
+                            <div class="cl-past__prog">
+                                <div class="cl-past__prog-row">
+                                    <span>Progres tersimpan</span>
+                                    <b>{{ $progress['done'] }}/{{ $progress['total'] }} tugas · {{ $progress['pct'] }}%</b>
+                                </div>
+                                <div class="cl-past__track"><i style="width:{{ $progress['pct'] }}%"></i></div>
+                                <a class="cl-past__detail" href="{{ route('mychecklist.history.show', ['type' => 'daily', 'id' => $submission->id]) }}">
+                                    <i class="fas fa-list-ul"></i> Lihat rincian tugas di Riwayat
+                                </a>
+                            </div>
+                        @endif
+
+                        @unless($isClosedDay ?? false)
+                        <div class="cl-past__action">
+                            @if(($reopenState ?? null) === 'final')
+                                <div class="cl-past__note cl-past__note--ok"><i class="fas fa-check-circle"></i> <span>Checklist tanggal ini sudah final — tidak perlu dibuka kembali.</span></div>
+                            @elseif(($reopenState ?? null) === 'pending')
+                                <div class="cl-past__note cl-past__note--wait"><i class="fas fa-hourglass-half"></i> <span><b>Menunggu persetujuan atasan.</b> Permintaan buka kembali sedang direview.</span></div>
+                            @else
+                                <div class="cl-past__form-head"><i class="fas fa-unlock-alt"></i> Minta buka kembali tanggal ini</div>
+                                @if(($reopenLatest ?? null) && $reopenLatest->status === \App\Models\ChecklistReopenRequest::STATUS_REJECTED)
+                                    <div class="cl-past__rej">Permintaan sebelumnya ditolak{{ $reopenLatest->review_notes ? ': ' . $reopenLatest->review_notes : '' }}</div>
+                                @endif
+                                <form method="POST" action="{{ route('mychecklist.reopen.request') }}"
+                                      data-confirm="Kirim permintaan buka kembali {{ $today->translatedFormat('d M Y') }}? Menunggu persetujuan atasan.">
+                                    @csrf
+                                    <input type="hidden" name="scope" value="daily">
+                                    <input type="hidden" name="target_date" value="{{ $today->toDateString() }}">
+                                    <textarea name="reason" rows="2" maxlength="500" required class="cl-past__input" placeholder="Alasan (wajib) — mis. lupa mengirim / belum sempat isi…"></textarea>
+                                    <button type="submit" class="cl-past__btn"><i class="fas fa-paper-plane"></i> Kirim permintaan</button>
+                                </form>
+                            @endif
+                        </div>
+                        @endunless
+                    </div>
+                    <style>
+                        .cl-past { background:#fff; border:1px solid #E7D6C2; border-radius:16px; box-shadow:0 2px 10px rgba(70,21,0,.05); overflow:hidden; }
+                        .cl-past__top { display:flex; align-items:flex-start; gap:12px; padding:16px 18px; background:linear-gradient(180deg,#FBF4EC,#FFFFFF); border-bottom:1px solid #F0E6D8; }
+                        .cl-past__ico { flex:none; width:38px; height:38px; border-radius:11px; background:#EFE3D2; color:#8A5A2B; display:inline-flex; align-items:center; justify-content:center; font-size:15px; }
+                        .cl-past__meta { flex:1; min-width:0; }
+                        .cl-past__ttl { font-size:15px; font-weight:800; color:#2D1810; }
+                        .cl-past__desc { font-size:12.5px; color:#7A5B43; margin-top:2px; line-height:1.5; }
+                        .cl-past__status { flex:none; font-size:11px; font-weight:800; padding:5px 12px; border-radius:20px; white-space:nowrap; }
+                        .cl-past__status--slate, .cl-past__status--neutral { background:#EEE7DC; color:#6B5A44; }
+                        .cl-past__status--warning { background:#FBEFD9; color:#B5701A; }
+                        .cl-past__status--danger { background:#FCEBEB; color:#C0392B; }
+                        .cl-past__status--success { background:#E3F4E8; color:#2F8E55; }
+                        .cl-past__status--coffee { background:#F2E7D8; color:#8A5A2B; }
+                        .cl-past__prog { padding:14px 18px; border-bottom:1px solid #F4EADD; }
+                        .cl-past__prog-row { display:flex; justify-content:space-between; gap:10px; font-size:12.5px; color:#7A5B43; margin-bottom:7px; }
+                        .cl-past__prog-row b { color:#3B1500; }
+                        .cl-past__track { height:8px; background:#F0E6D8; border-radius:5px; overflow:hidden; }
+                        .cl-past__track i { display:block; height:100%; background:linear-gradient(90deg,#C9962F,#A66019); border-radius:5px; }
+                        .cl-past__detail { display:inline-flex; align-items:center; gap:7px; margin-top:11px; font-size:12.5px; font-weight:700; color:#8A3A12; text-decoration:none; }
+                        .cl-past__detail:hover { text-decoration:underline; }
+                        .cl-past__action { padding:16px 18px; }
+                        .cl-past__form-head { font-size:13px; font-weight:800; color:#8A5A2B; display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+                        .cl-past__rej { font-size:12px; color:#C0392B; background:#FCEBEB; border:1px solid #F1D2CE; border-radius:9px; padding:8px 11px; margin-bottom:10px; }
+                        .cl-past__input { width:100%; box-sizing:border-box; border:1px solid #E7D3BE; border-radius:11px; padding:11px 13px; font-size:12.5px; color:#3B1500; background:#FFFDF9; font-family:inherit; resize:vertical; }
+                        .cl-past__input:focus { outline:none; border-color:#C9962F; box-shadow:0 0 0 3px rgba(201,150,47,.12); }
+                        .cl-past__btn { margin-top:11px; border:none; border-radius:11px; background:linear-gradient(180deg,#5C2E15,#471500); color:#fff; font-size:13px; font-weight:800; padding:11px 20px; cursor:pointer; display:inline-flex; align-items:center; gap:8px; font-family:inherit; transition:.15s; }
+                        .cl-past__btn:hover { filter:brightness(1.08); }
+                        .cl-past__note { display:flex; align-items:center; gap:9px; font-size:13px; font-weight:600; border-radius:11px; padding:12px 14px; }
+                        .cl-past__note--ok { background:#E3F4E8; color:#1F6E5F; }
+                        .cl-past__note--wait { background:#FBEFD9; color:#8A5A1A; }
+                    </style>
+                @else
+
                 {{-- ═══ Wrapper "Checklist Hari Ini": banner + progress + daftar tugas
                      dibungkus 1 kartu biar tidak terlihat kepisah (satu kesatuan). ═══ --}}
                 <div class="cl-today">
+
+                {{-- ─── BANNER "DIBUKA KEMBALI" (tanggal lampau bergrant) ─── --}}
+                @if($isReopen ?? false)
+                    <div class="cl-mod-banner cl-mod-banner--coffee">
+                        <i class="fas fa-unlock"></i>
+                        <div style="flex:1;">
+                            <strong>Checklist {{ $today->translatedFormat('d M Y') }} dibuka kembali oleh atasan.</strong>
+                            <div style="margin-top:4px;">Selesaikan semua tugas lalu kirim. Setelah dikirim, tanggal ini terkunci lagi.</div>
+                        </div>
+                    </div>
+                @endif
 
                 {{-- ─── BANNER STATUS ─── --}}
                 @if($submission->status === \App\Models\ChecklistSubmission::STATUS_REJECTED)
@@ -1091,8 +1240,9 @@
                 {{-- ─── SUBMIT FOOTER (modern) ─── --}}
                 @if($submission->isEditable() && $grouped->isNotEmpty())
                     <form method="POST" action="{{ route('mychecklist.submit') }}"
-                          data-confirm="Submit checklist hari ini? Setelah submit, anda tidak bisa edit lagi sampai supervisor review.">
+                          data-confirm="Submit checklist {{ ($isReopen ?? false) ? $today->translatedFormat('d M Y') : 'hari ini' }}? Setelah submit, anda tidak bisa edit lagi sampai supervisor review.">
                         @csrf
+                        @if($isReopen ?? false)<input type="hidden" name="date" value="{{ $today->toDateString() }}">@endif
                         <div class="cl-mod-submit">
                             @php $isComplete = $progress['total'] > 0 && $progress['done'] === $progress['total']; @endphp
                             {{-- Kalimat mengikuti handoff: headline tebal + sub redup. --}}
@@ -1124,7 +1274,8 @@
                 @endif
 
                 {{-- ─── Aksi "Dikecualikan" — di luar wrapper submit, tampil sbg dropdown button ─── --}}
-                @if($submission->isEditable())
+                {{-- Hanya untuk hari ini: pengecualian menyasar tanggal hari ini, bukan tanggal lampau yang dibuka kembali. --}}
+                @if($submission->isEditable() && ! ($isReopen ?? false))
                     @include('crud.checklist.my._excuse_block')
                     <style>
                         /* Kartu pengecualian sesuai handoff: bg krem, border putus-putus, aksen coklat #8A5A2B */
@@ -1150,30 +1301,11 @@
                         .cl-excuse__submit:disabled { background: #EFE3D2; color: #B7926F; cursor: not-allowed; filter: none; }
                     </style>
                 @endif
+                @endif {{-- /editable-vs-pastlocked --}}
             </div>{{-- /main column --}}
 
             {{-- ─── SIDEBAR ─── --}}
             <aside>
-                {{-- Stats: Streak + Rate minggu ini --}}
-                <div class="cl-mini">
-                    <div class="cl-mini__head">
-                        <h6 class="cl-mini__title"><i class="fas fa-chart-line"></i> Statistik</h6>
-                    </div>
-                    <div class="cl-stat-grid">
-                        <div class="cl-stat-cell">
-                            <span class="cl-stat-cell__icon cl-stat-cell__icon--fire"><i class="fas fa-fire"></i></span>
-                            <div class="cl-stat-cell__label">Streak</div>
-                            <div class="cl-stat-cell__val">{{ $extras['streak'] }} <small>hari</small></div>
-                        </div>
-                        <div class="cl-stat-cell">
-                            <span class="cl-stat-cell__icon cl-stat-cell__icon--good"><i class="fas fa-calendar-week"></i></span>
-                            <div class="cl-stat-cell__label">Minggu Ini</div>
-                            <div class="cl-stat-cell__val">{{ $extras['week_rate'] }}<small>%</small></div>
-                            <div style="font-size:10.5px; color:#6B4423; margin-top:2px;">{{ $extras['week_submitted'] }}/{{ $extras['week_total'] }} hari isi</div>
-                        </div>
-                    </div>
-                </div>
-
                 {{-- Heatmap 14 hari (widget review — desktop only) --}}
                 <div class="cl-mini cl-mini--mreview">
                     <div class="cl-mini__head">

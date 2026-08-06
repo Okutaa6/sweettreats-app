@@ -2,7 +2,7 @@
 
 @section('css')
 <style>
-    .wf-wrap { max-width: 1100px; margin: 0 auto; padding-bottom: 32px; }
+    .wf-wrap { max-width: 1240px; margin: 0 auto; padding-bottom: 32px; }
     /* Hero ala handoff: gradient 120deg + aksen kiri teal (identitas Mingguan),
        ikon tile teal 44px, judul + (sub & pill dalam SATU baris di bawahnya) */
     .wf-hero {
@@ -10,27 +10,27 @@
         color: #FFFFFF;
         border-radius: 18px;
         border-left: 5px solid #1F6E5F;
-        padding: 18px 22px;
-        margin-bottom: 14px;
+        padding: 24px 28px;
+        margin-bottom: 16px;
         position: relative;
         overflow: hidden;
         box-shadow: 0 8px 24px rgba(70,21,0,.22);
     }
     .wf-hero__row {
         display: flex; align-items: center;
-        gap: 15px; flex-wrap: wrap; position: relative; z-index: 1;
+        gap: 18px; flex-wrap: wrap; position: relative; z-index: 1;
     }
     .wf-hero__icon {
-        width: 44px; height: 44px; flex-shrink: 0;
-        border-radius: 12px;
+        width: 50px; height: 50px; flex-shrink: 0;
+        border-radius: 14px;
         background: linear-gradient(135deg, #1F6E5F, #155148);
         display: flex; align-items: center; justify-content: center;
-        color: #DFF3EC; font-size: 18px;
+        color: #DFF3EC; font-size: 20px;
     }
-    .wf-hero__title { margin: 0; font-size: 17px; font-weight: 800; color: #FBF1E7; letter-spacing: -0.01em; }
+    .wf-hero__title { margin: 0; font-size: 20px; font-weight: 800; color: #FBF1E7; letter-spacing: -0.01em; }
     .wf-hero__meta {
-        display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
-        margin-top: 5px;
+        display: flex; gap: 9px; row-gap: 8px; flex-wrap: wrap; align-items: center;
+        margin-top: 8px;
     }
     .wf-hero__sub { font-size: 12px; color: #D8B99C; font-weight: 600; }
     .wf-hero__chip {
@@ -588,15 +588,6 @@
                             @endif
                         </div>
                     </div>
-                    @if($submission && $submission->status !== \App\Models\ChecklistWeeklySubmission::STATUS_DRAFT && $statusOpt)
-                        <span class="wf-hero__status wf-hero__status--{{ $heroStatusColor }}" style="margin-left:auto;">
-                            @if($submission->status === 'approved')<i class="fas fa-check-circle"></i>
-                            @elseif($submission->status === 'rejected')<i class="fas fa-times-circle"></i>
-                            @else<i class="fas fa-clock"></i>
-                            @endif
-                            {{ $statusOpt['label'] }}
-                        </span>
-                    @endif
                 </div>
             </div>
 
@@ -695,6 +686,7 @@
                     </button>
                 </div>
                 <div class="wf-day-list">
+                    @php $reopenGrants = $reopenGrants ?? []; $reopenPending = $reopenPending ?? []; @endphp
                     @foreach($days as $day)
                         @php
                             $dayItems = $grouped->get($day->iso, collect());
@@ -717,10 +709,18 @@
                             $daySubmitAt      = $dayReview->submitted_at ?? null;
                             $dayReviewedAt    = $dayReview->reviewed_at ?? null;
                             $dayRejectNote    = $isDayRejected ? ($dayReview->review_notes ?? null) : null;
-                            // Hari bisa diubah hanya bila form editable, tak dikecualikan, DAN tidak terkunci.
-                            $dayEditable = $submission && $submission->isEditable() && ! $isDayExcused && ! $isDayLocked;
+                            // Permintaan "buka kembali" untuk MINGGU LAMPAU (per-hari).
+                            $dayHasGrant   = isset($reopenGrants[$day->iso]);   // disetujui & belum dipakai
+                            $dayReopenPend = isset($reopenPending[$day->iso]);  // masih menunggu persetujuan
+                            // Boleh diedit: minggu ini, ATAU minggu lampau dgn grant aktif, ATAU hari 'rejected'.
+                            $dayReopenable = ($weekOffset === 0) || $dayHasGrant || $isDayRejected;
+                            // Hari bisa diubah hanya bila form editable, tak dikecualikan, tidak terkunci, DAN reopenable.
+                            $dayEditable = $submission && $submission->isEditable() && ! $isDayExcused && ! $isDayLocked && $dayReopenable;
                             $canDayExcuse = $submission && $submission->isEditable() && $weekOffset === 0 && $totalDay > 0 && ! $isDayLocked;
-                            $canDaySubmit = $dayEditable && $weekOffset === 0 && $totalDay > 0;
+                            $canDaySubmit = $dayEditable && $totalDay > 0;
+                            // Boleh minta buka: minggu lampau, ada tugas, belum dikirim/dikecualikan/ditolak, belum ada grant/pending.
+                            $canReopenReq = $weekOffset < 0 && $totalDay > 0 && ! $isDayExcused && ! $isDayLocked
+                                            && ! $isDayRejected && ! $dayHasGrant && ! $dayReopenPend;
                             $dayClass = '';
                             if ($day->is_today) $dayClass .= ' is-today';
                             elseif ($day->is_past) $dayClass .= ' is-past';
@@ -973,12 +973,52 @@
                                     </div>
                                 @endif
 
+                                {{-- MINGGU LAMPAU: status/permintaan buka kembali --}}
+                                @if($dayHasGrant)
+                                    <div class="wf-day-sent wf-day-sent--ok" style="background:#eaf6ef; border-color:#bfe3cd;">
+                                        <div class="wf-day-sent__text">
+                                            <i class="fas fa-unlock"></i>
+                                            <span>Dibuka kembali oleh atasan — selesaikan lalu kirim.</span>
+                                        </div>
+                                    </div>
+                                @elseif($dayReopenPend)
+                                    <div class="wf-day-sent">
+                                        <div class="wf-day-sent__text">
+                                            <i class="fas fa-hourglass-half"></i>
+                                            <span>Menunggu persetujuan atasan untuk dibuka kembali.</span>
+                                        </div>
+                                    </div>
+                                @elseif($canReopenReq)
+                                    <div class="cl-excuse cl-excuse--day">
+                                        <button type="button" class="cl-excuse__trigger" data-excuse-toggle>
+                                            <span class="cl-excuse__trigger-label"><i class="fas fa-unlock-alt"></i> Minta buka kembali hari ini</span>
+                                            <i class="fas fa-chevron-down cl-excuse__caret"></i>
+                                        </button>
+                                        <div class="cl-excuse__reveal">
+                                            <div class="cl-excuse__reveal-inner">
+                                                <form method="POST" action="{{ route('mychecklist.reopen.request') }}" class="cl-excuse__form"
+                                                      data-confirm="Kirim permintaan buka kembali {{ $day->label }} ({{ $day->date->translatedFormat('d M Y') }})? Menunggu persetujuan atasan.">
+                                                    @csrf
+                                                    <input type="hidden" name="scope" value="weekly">
+                                                    <input type="hidden" name="week_start_date" value="{{ $weekStart->toDateString() }}">
+                                                    <input type="hidden" name="day_of_week" value="{{ $day->iso }}">
+                                                    <div class="cl-excuse__label">Alasan minta buka (wajib) — mis. lupa dikirim / belum sempat isi:</div>
+                                                    <textarea name="reason" class="cl-excuse__input" rows="2" maxlength="500" required
+                                                              placeholder="Contoh: lupa mengirim hari itu…"></textarea>
+                                                    <button type="submit" class="cl-excuse__submit"><i class="fas fa-paper-plane"></i> Kirim permintaan</button>
+                                                </form>
+                                            </div>
+                                        </div>
+                                    </div>
+                                @endif
+
                                 {{-- FORM KIRIM: hari belum dikirim ATAU sudah ditolak (perbaiki & kirim ulang) --}}
                                 @if($canDaySubmit)
                                     <form method="POST" action="{{ route('mychecklist.weekform.day.submit') }}" class="wf-day-submit"
                                           data-confirm="Kirim tugas {{ $day->label }}? Setelah dikirim, hari ini menunggu review supervisor.">
                                         @csrf
                                         <input type="hidden" name="day_of_week" value="{{ $day->iso }}">
+                                        <input type="hidden" name="week_start_date" value="{{ $weekStart->toDateString() }}">
                                         <textarea name="note" class="wf-day-submit__note" rows="1" maxlength="1000"
                                                   placeholder="Catatan untuk supervisor (opsional)…"></textarea>
                                         <button type="submit" class="wf-day-submit__btn" data-day-submit-btn {{ $isComplete ? '' : 'disabled' }}>
@@ -992,6 +1032,44 @@
                         </div>
                     @endforeach
                 </div>
+
+                {{-- CSS cl-excuse (dipakai excuse-hari & "minta buka kembali") — selalu
+                     dirender selama daftar hari tampil, termasuk minggu lampau. --}}
+                <style>
+                    .cl-excuse { margin-top: 14px; border: 1px solid #E0D2C1; border-radius: 12px; background: #FFFDF9; box-shadow: 0 1px 3px rgba(45,24,16,.05); }
+                    .cl-excuse__trigger { list-style: none; cursor: pointer; padding: 13px 16px; font-size: 13px; font-weight: 700; color: #6B4423; display: flex; align-items: center; justify-content: space-between; gap: 8px; border-radius: 12px; transition: background .15s; }
+                    .cl-excuse__trigger:hover { background: #FAF0E2; }
+                    .cl-excuse__trigger::-webkit-details-marker { display: none; }
+                    .cl-excuse__trigger-label { display: inline-flex; align-items: center; gap: 8px; }
+                    .cl-excuse__trigger i { color: #A66019; }
+                    .cl-excuse__caret { font-size: 12px; transition: transform .2s ease; }
+                    .cl-excuse[open] .cl-excuse__trigger { border-radius: 12px 12px 0 0; border-bottom: 1px solid #EFE1CF; background: #FAF0E2; }
+                    .cl-excuse[open] .cl-excuse__caret { transform: rotate(180deg); }
+                    .cl-excuse__form { padding: 12px 16px 16px; }
+                    .cl-excuse__label { font-size: 12px; font-weight: 700; color: #6B4423; margin-bottom: 8px; }
+                    .cl-excuse__chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+                    .cl-excuse__chip { font-size: 11px; font-weight: 700; padding: 5px 12px; border-radius: 20px; border: 1px dashed #D9C4A6; background: #FBF6EE; color: #8A5A2B; cursor: pointer; transition: .15s; font-family: inherit; }
+                    .cl-excuse__chip:hover { filter: brightness(.97); }
+                    .cl-excuse__input { width: 100%; box-sizing: border-box; border: 1px solid #E0D2C1; border-radius: 8px; padding: 8px 10px; font-size: 13px; color: #2D1810; font-family: inherit; resize: vertical; }
+                    .cl-excuse__input:focus { outline: none; border-color: #A66019; box-shadow: 0 0 0 3px rgba(166,96,25,.10); }
+                    .cl-excuse__submit { margin-top: 10px; border: none; border-radius: 8px; background: linear-gradient(180deg,#5C2E15,#471500); color: #fff; font-size: 13px; font-weight: 700; padding: 9px 16px; cursor: pointer; display: inline-flex; align-items: center; gap: 7px; }
+                    .cl-excuse__submit:hover { filter: brightness(1.08); }
+                    /* Varian per-hari: tampil di dalam kartu hari (lebih ringkas). */
+                    .cl-excuse--day { margin: 10px 0 2px; }
+                    .cl-excuse--day .cl-excuse__trigger { width: 100%; background: transparent; border: none; font-family: inherit; padding: 11px 14px; font-size: 12.5px; }
+                    /* Dropdown halus: pakai trik grid-rows 0fr↔1fr seperti accordion hari. */
+                    .cl-excuse--day .cl-excuse__reveal { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .28s cubic-bezier(.4,0,.2,1); }
+                    .cl-excuse--day .cl-excuse__reveal-inner { overflow: hidden; min-height: 0; }
+                    .cl-excuse--day.is-open .cl-excuse__reveal { grid-template-rows: 1fr; }
+                    .cl-excuse--day.is-open .cl-excuse__trigger { border-radius: 12px 12px 0 0; border-bottom: 1px solid #EFE1CF; background: #FAF0E2; }
+                    .cl-excuse--day.is-open .cl-excuse__caret { transform: rotate(180deg); }
+                    /* Banner "hari ini dikecualikan" + tombol batalkan. */
+                    .wf-day-excused { margin: 10px 0 2px; padding: 12px 14px; border: 1px solid #E7D3B8; border-left: 4px solid #A66019; border-radius: 10px; background: #FCF4E7; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+                    .wf-day-excused__text { display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; color: #6B4423; }
+                    .wf-day-excused__text i { color: #A66019; }
+                    .wf-day-excused__undo { border: 1px solid #C9A26B; border-radius: 8px; background: #fff; color: #5C2E15; font-size: 12px; font-weight: 700; padding: 7px 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+                    .wf-day-excused__undo:hover { background: #FAF0E2; }
+                </style>
 
                 {{-- FOOTER: ringkasan submit per-hari (submit dilakukan di tiap kartu hari) --}}
                 @if($submission->isEditable() && $weekOffset === 0)
@@ -1017,42 +1095,6 @@
                             </div>
                         </div>
                     </div>
-
-                    <style>
-                        .cl-excuse { margin-top: 14px; border: 1px solid #E0D2C1; border-radius: 12px; background: #FFFDF9; box-shadow: 0 1px 3px rgba(45,24,16,.05); }
-                        .cl-excuse__trigger { list-style: none; cursor: pointer; padding: 13px 16px; font-size: 13px; font-weight: 700; color: #6B4423; display: flex; align-items: center; justify-content: space-between; gap: 8px; border-radius: 12px; transition: background .15s; }
-                        .cl-excuse__trigger:hover { background: #FAF0E2; }
-                        .cl-excuse__trigger::-webkit-details-marker { display: none; }
-                        .cl-excuse__trigger-label { display: inline-flex; align-items: center; gap: 8px; }
-                        .cl-excuse__trigger i { color: #A66019; }
-                        .cl-excuse__caret { font-size: 12px; transition: transform .2s ease; }
-                        .cl-excuse[open] .cl-excuse__trigger { border-radius: 12px 12px 0 0; border-bottom: 1px solid #EFE1CF; background: #FAF0E2; }
-                        .cl-excuse[open] .cl-excuse__caret { transform: rotate(180deg); }
-                        .cl-excuse__form { padding: 12px 16px 16px; }
-                        .cl-excuse__label { font-size: 12px; font-weight: 700; color: #6B4423; margin-bottom: 8px; }
-                        .cl-excuse__chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
-                        .cl-excuse__chip { font-size: 11px; font-weight: 700; padding: 5px 12px; border-radius: 20px; border: 1px dashed #D9C4A6; background: #FBF6EE; color: #8A5A2B; cursor: pointer; transition: .15s; font-family: inherit; }
-                        .cl-excuse__chip:hover { filter: brightness(.97); }
-                        .cl-excuse__input { width: 100%; box-sizing: border-box; border: 1px solid #E0D2C1; border-radius: 8px; padding: 8px 10px; font-size: 13px; color: #2D1810; font-family: inherit; resize: vertical; }
-                        .cl-excuse__input:focus { outline: none; border-color: #A66019; box-shadow: 0 0 0 3px rgba(166,96,25,.10); }
-                        .cl-excuse__submit { margin-top: 10px; border: none; border-radius: 8px; background: linear-gradient(180deg,#5C2E15,#471500); color: #fff; font-size: 13px; font-weight: 700; padding: 9px 16px; cursor: pointer; display: inline-flex; align-items: center; gap: 7px; }
-                        .cl-excuse__submit:hover { filter: brightness(1.08); }
-                        /* Varian per-hari: tampil di dalam kartu hari (lebih ringkas). */
-                        .cl-excuse--day { margin: 10px 0 2px; }
-                        .cl-excuse--day .cl-excuse__trigger { width: 100%; background: transparent; border: none; font-family: inherit; padding: 11px 14px; font-size: 12.5px; }
-                        /* Dropdown halus: pakai trik grid-rows 0fr↔1fr seperti accordion hari. */
-                        .cl-excuse--day .cl-excuse__reveal { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .28s cubic-bezier(.4,0,.2,1); }
-                        .cl-excuse--day .cl-excuse__reveal-inner { overflow: hidden; min-height: 0; }
-                        .cl-excuse--day.is-open .cl-excuse__reveal { grid-template-rows: 1fr; }
-                        .cl-excuse--day.is-open .cl-excuse__trigger { border-radius: 12px 12px 0 0; border-bottom: 1px solid #EFE1CF; background: #FAF0E2; }
-                        .cl-excuse--day.is-open .cl-excuse__caret { transform: rotate(180deg); }
-                        /* Banner "hari ini dikecualikan" + tombol batalkan. */
-                        .wf-day-excused { margin: 10px 0 2px; padding: 12px 14px; border: 1px solid #E7D3B8; border-left: 4px solid #A66019; border-radius: 10px; background: #FCF4E7; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
-                        .wf-day-excused__text { display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; color: #6B4423; }
-                        .wf-day-excused__text i { color: #A66019; }
-                        .wf-day-excused__undo { border: 1px solid #C9A26B; border-radius: 8px; background: #fff; color: #5C2E15; font-size: 12px; font-weight: 700; padding: 7px 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
-                        .wf-day-excused__undo:hover { background: #FAF0E2; }
-                    </style>
                 @elseif($weekOffset !== 0 && $submission->isEditable())
                     <div class="wf-banner wf-banner--info" style="margin-top:14px;">
                         <i class="fas fa-info-circle"></i>

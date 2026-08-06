@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AdminNotification;
 use App\Models\ChecklistAuditLog;
 use App\Models\ChecklistDivision;
+use App\Models\ChecklistReopenRequest;
 use App\Models\ChecklistSubmission;
 use App\Models\ChecklistSubmissionItem;
 use App\Models\ChecklistWeeklyDaySubmit;
@@ -895,6 +896,152 @@ class DigitalChecklistController extends Controller
             'Pengecualian checklist ' . $sub->submission_date->format('d M Y') . ' dibatalkan supervisor — silakan isi checklist.');
 
         return redirect()->route('checklist.review')->with('success', 'Pengecualian dibatalkan. Karyawan diminta mengisi checklist.');
+    }
+
+    /* ─── Permintaan "Buka Kembali" checklist lampau (approval atasan) ──── */
+
+    /**
+     * Daftar permintaan karyawan untuk membuka kembali checklist lampau
+     * (harian & mingguan), di-scope ke divisi + cabang yang disupervisi user.
+     * Default menampilkan yang 'pending'.
+     */
+    public function reopenRequestsIndex(Request $request)
+    {
+        $this->guard();
+
+        $branchId     = resolveChecklistBranchId($request->get('branch'));
+        $visible      = checklistVisibleDivisionIds();
+        $statusFilter = $request->get('status', ChecklistReopenRequest::STATUS_PENDING);
+        if (! in_array($statusFilter, ['pending', 'approved', 'rejected', 'all'], true)) {
+            $statusFilter = ChecklistReopenRequest::STATUS_PENDING;
+        }
+
+        $requests = ChecklistReopenRequest::query()
+            ->whereIn('division_id', $visible)
+            ->when($branchId, fn ($q) => $q->where('raw_branch_id', $branchId))
+            ->when($statusFilter !== 'all', fn ($q) => $q->where('status', $statusFilter))
+            ->with(['user', 'reviewer', 'division', 'branch'])
+            ->orderByDesc('created_at')
+            ->paginate($this->perPage)
+            ->appends($request->query());
+
+        $pendingCount = ChecklistReopenRequest::query()
+            ->whereIn('division_id', $visible)
+            ->when($branchId, fn ($q) => $q->where('raw_branch_id', $branchId))
+            ->where('status', ChecklistReopenRequest::STATUS_PENDING)
+            ->count();
+
+        $branches = canSeeAllBranches() ? RawBranch::orderBy('name')->get() : collect();
+
+        return view('crud.checklist.review.reopen', compact(
+            'requests', 'statusFilter', 'branchId', 'branches', 'pendingCount'
+        ));
+    }
+
+    public function reopenApprove(Request $request, string $id)
+    {
+        $this->guard();
+
+        $req = ChecklistReopenRequest::findOrFail($id);
+        $this->abortIfDivisionOutOfScope($req->division_id);
+        $this->abortIfReopenBranchMismatch($req);
+
+        if ($req->status !== ChecklistReopenRequest::STATUS_PENDING) {
+            return back()->with('error', 'Permintaan ini sudah diproses.');
+        }
+
+        $req->update([
+            'status'           => ChecklistReopenRequest::STATUS_APPROVED,
+            'reviewer_user_id' => session('id'),
+            'reviewed_at'      => now(),
+            'updated_at'       => now(),
+        ]);
+
+        ChecklistAuditLog::write('reopen_request', $req->id, ChecklistAuditLog::ACTION_APPROVE,
+            ['status' => 'pending'], ['status' => 'approved'], 'Buka kembali disetujui: ' . $req->targetLabel());
+
+        $this->notifyReopenDecision($req, true);
+
+        return back()->with('success', 'Permintaan disetujui — karyawan bisa mengisi tanggal itu.');
+    }
+
+    public function reopenReject(Request $request, string $id)
+    {
+        $this->guard();
+
+        $req = ChecklistReopenRequest::findOrFail($id);
+        $this->abortIfDivisionOutOfScope($req->division_id);
+        $this->abortIfReopenBranchMismatch($req);
+
+        if ($req->status !== ChecklistReopenRequest::STATUS_PENDING) {
+            return back()->with('error', 'Permintaan ini sudah diproses.');
+        }
+
+        $notes = trim((string) $request->get('review_notes', ''));
+        if ($notes === '') {
+            return back()->with('error', 'Catatan wajib diisi saat menolak permintaan.');
+        }
+
+        $req->update([
+            'status'           => ChecklistReopenRequest::STATUS_REJECTED,
+            'reviewer_user_id' => session('id'),
+            'review_notes'     => $notes,
+            'reviewed_at'      => now(),
+            'updated_at'       => now(),
+        ]);
+
+        ChecklistAuditLog::write('reopen_request', $req->id, ChecklistAuditLog::ACTION_REJECT,
+            ['status' => 'pending'], ['status' => 'rejected'], $notes);
+
+        $this->notifyReopenDecision($req, false, $notes);
+
+        return back()->with('success', 'Permintaan ditolak. Karyawan akan diberitahu.');
+    }
+
+    private function abortIfReopenBranchMismatch(ChecklistReopenRequest $req): void
+    {
+        $branchId = resolveChecklistBranchId(null);
+        if ($branchId && $req->raw_branch_id !== $branchId) {
+            abort(403, 'Tidak punya akses ke permintaan cabang lain.');
+        }
+    }
+
+    /** Notif keputusan permintaan buka kembali ke karyawan pengaju. */
+    private function notifyReopenDecision(ChecklistReopenRequest $req, bool $approved, ?string $notes = null): void
+    {
+        try {
+            if ($approved) {
+                if ($req->scope === ChecklistReopenRequest::SCOPE_DAILY) {
+                    $link = route('mychecklist', ['date' => optional($req->target_date)->toDateString()]);
+                } else {
+                    $offset = (int) Carbon::today()->startOfWeek(Carbon::MONDAY)
+                        ->diffInWeeks($req->week_start_date, false);
+                    $link = route('mychecklist.weekform', $offset !== 0 ? ['week' => $offset] : []);
+                }
+                $type  = 'checklist.reopen_approved';
+                $title = 'Permintaan buka kembali disetujui';
+                $body  = 'Checklist ' . $req->targetLabel() . ' dibuka kembali — silakan isi lalu kirim.';
+            } else {
+                $link  = $req->scope === ChecklistReopenRequest::SCOPE_DAILY
+                    ? route('mychecklist.history')
+                    : route('mychecklist.weekform');
+                $type  = 'checklist.reopen_rejected';
+                $title = 'Permintaan buka kembali ditolak';
+                $body  = 'Checklist ' . $req->targetLabel() . ' tidak dibuka. Catatan: ' . $notes;
+            }
+
+            AdminNotification::create([
+                'user_id'       => $req->user_id,
+                'raw_branch_id' => $req->raw_branch_id,
+                'type'          => $type,
+                'title'         => $title,
+                'body'          => $body,
+                'link'          => $link,
+                'created_at'    => now(),
+            ]);
+        } catch (\Throwable $e) {
+            // jangan gagalkan keputusan kalau notif error
+        }
     }
 
     /* ─── Riwayat & aksi per karyawan (drill-down "Riwayat Karyawan") ───── */

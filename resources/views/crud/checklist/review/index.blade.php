@@ -86,6 +86,15 @@
         <div class="rv-seg" style="margin-left:auto">
             <a href="{{ route('checklist.review', $divParam) }}" class="is-active--daily"><i class="fas fa-sun"></i> Checklist Harian</a>
             <a href="{{ route('checklist.review.weekly', $divParam) }}"><i class="fas fa-calendar-week"></i> Checklist Mingguan</a>
+            @php
+                $reopenPendingCount = \App\Models\ChecklistReopenRequest::whereIn('division_id', checklistVisibleDivisionIds())
+                    ->where('status', \App\Models\ChecklistReopenRequest::STATUS_PENDING)->count();
+            @endphp
+            <a href="{{ route('checklist.reopen.index') }}"><i class="fas fa-unlock-alt"></i> Permintaan Buka
+                @if($reopenPendingCount > 0)
+                    <span style="display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:#C0392B;color:#fff;font-size:10.5px;font-weight:800;">{{ $reopenPendingCount }}</span>
+                @endif
+            </a>
         </div>
     </div>
 
