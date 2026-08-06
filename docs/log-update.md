@@ -7,6 +7,50 @@
 
 ---
 
+## 2026-08-07 dini hari — Fitur "Minta Buka Kembali" checklist (Reza) NAIK PROD, teruji
+
+Ekky menyerahkan malam ini penuh ke HUB ("lanjut tanpa aku"): audit → dev →
+uji → prod → uji ulang. Semua selesai, tak ada temuan yang menahan.
+
+**Isinya**: karyawan bisa meminta membuka tanggal checklist yang sudah lewat
+supaya bisa diisi; atasan menyetujui/menolak dari halaman baru
+`/checklist/reopen-requests`. Izin bersifat **sekali pakai** — begitu
+dikirim, harinya terkunci lagi. Plus perbaikan kecil voucher topup petty cash
+dan form mingguan. (Branch `feat/checklist-reopen-request`, 1 commit, 13
+berkas; merge bersih tanpa konflik.)
+
+**Hasil audit kode (sebelum naik)**:
+- Rute baru semua di bawah prefix `checklist` / `my-checklist` yang sudah ada
+  → tak butuh node menu baru, bebas dari jebakan "grant tanpa node".
+- Gerbang atasan berlapis: supervisor checklist + dibatasi divisi + dibatasi
+  cabang. Gerbang karyawan ditegakkan **di server**, bukan cuma di tampilan —
+  kirim tanggal lampau tanpa izin ditolak dengan pesan jelas.
+- SQL `2026_08_06_checklist_reopen_request.sql` idempoten, collation sudah
+  disamakan dgn `users` (Reza belajar dari insiden illegal-mix kemarin).
+- Catatan kecil yang DITERIMA sebagai wajar: mencentang item hari lampau
+  berstatus draf tidak dijaga izin — tapi **kirim**-nya dijaga, jadi tak ada
+  riwayat yang bisa dipalsukan.
+
+**Uji fungsional 11 kasus — LULUS SEMUA di dev DAN prod** (data uji bertanda,
+dibersihkan sendiri, diverifikasi nol sisa): pending bukan izin · izin hanya
+untuk orang+tanggal yang diminta · sekali pakai lalu mati · varian mingguan ·
+anti-dobel pengajuan · JOIN users bebas masalah collation.
+
+**Uji HTTP di dev** (login sungguhan): Afrina (FO) — my-checklist hari ini,
+tanggal lampau, riwayat semua 200; Anisa — checklist, review, dan halaman baru
+reopen-requests semua 200. Catatan: akun dev Firda tak bisa dipakai uji
+(wajib-ganti-password) — bukan bug.
+
+**Prod**: backup `~/backups/prod_pre_reopen_2026-08-07.sql.gz` (45MB) → main
+`27ddb7a` → SQL → autoload+cache → verifikasi: tabel 16 kolom, 8 rute reopen,
+seluruh Blade terkompilasi, situs 200, halaman baru mental ke signin tanpa
+login, **0 error pasca-deploy**, data lama utuh (224 task, 27 petty cash, 39
+bukti absen, 11 hadir hari ini).
+
+**Penyetuju di prod saat ini** = pemegang menu checklist: **Anisa & Irma**
+(+Super Admin secara kode, tapi belum pegang menunya — utang lama). Kalau Ekky
+mau ikut menyetujui, tinggal grant menu checklist ke role-nya.
+
 ## 2026-08-06 — Push Reza (checklist mingguan + petty cash) NAIK DEV
 
 Branch Reza `minorfixing-pettycash-weeklychecklist` (1 commit, 17 berkas)
