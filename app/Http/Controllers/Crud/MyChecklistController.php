@@ -7,6 +7,7 @@ use App\Models\AdminNotification;
 use App\Models\ChecklistAuditLog;
 use App\Models\ChecklistCategory;
 use App\Models\ChecklistDivision;
+use App\Models\ChecklistReopenRequest;
 use App\Models\ChecklistSubmission;
 use App\Models\ChecklistSubmissionItem;
 use App\Models\ChecklistTask;
@@ -74,54 +75,131 @@ class MyChecklistController extends Controller
             ]);
         }
 
-        $today = Carbon::today();
+        $today   = Carbon::today();
+        $minDate = $today->copy()->subDays(60);   // batas mundur navigasi/permintaan
 
-        $submission = ChecklistSubmission::firstOrCreate(
-            ['user_id' => session('id'), 'submission_date' => $today->toDateString()],
-            [
-                'id'             => (string) Str::uuid(),
-                'division_id'    => $position->division_id,
-                'raw_branch_id'  => $position->raw_branch_id,
-                'status'         => ChecklistSubmission::STATUS_DRAFT,
-                'total_tasks'    => 0,
-                'done_tasks'     => 0,
-                'created_at'     => now(),
-                'updated_at'     => now(),
-            ]
-        );
+        // Tanggal yang ditampilkan (default hari ini). Bisa mundur ke tanggal
+        // lampau (dalam 60 hari) untuk MELIHAT & mengajukan "buka kembali", atau
+        // MENGISI bila sudah dibuka atasan. Di luar rentang / masa depan → hari ini.
+        $viewDate = $today;
+        if ($request->filled('date')) {
+            $parsed = null;
+            try { $parsed = Carbon::parse($request->get('date'))->startOfDay(); } catch (\Throwable $e) {}
+            if ($parsed && $parsed->lt($today) && $parsed->gte($minDate)) {
+                $viewDate = $parsed;
+            }
+        }
+        $isToday = $viewDate->isSameDay($today);
 
-        // Bootstrap items kalau kosong (submission baru tercipta).
-        if ($submission->items()->count() === 0) {
-            $this->bootstrapItems($submission, $position->division_id, $position->raw_branch_id);
-        } else if ($submission->isEditable()) {
-            // Reconcile: kalau ada task baru di katalog yang belum punya item, tambahkan.
-            $this->reconcileItems($submission, $position->division_id, $position->raw_branch_id);
+        // Grant "buka kembali" aktif (disetujui & belum dipakai) untuk tgl lampau.
+        $reopenGrant = $isToday ? null : ChecklistReopenRequest::activeDailyGrant(session('id'), $viewDate);
+        $isReopen    = ! $isToday && $reopenGrant !== null;   // lampau + boleh diisi
+
+        // Submission: buat/isi HANYA untuk hari ini atau tanggal lampau yang sudah
+        // dibuka. Tanggal lampau tanpa grant → ambil baris yang sudah ada saja
+        // (read-only); JANGAN buat baris baru supaya status "Tidak Diisi" tetap
+        // akurat di monitoring supervisor.
+        if ($isToday || $isReopen) {
+            $submission = ChecklistSubmission::firstOrCreate(
+                ['user_id' => session('id'), 'submission_date' => $viewDate->toDateString()],
+                [
+                    'id'             => (string) Str::uuid(),
+                    'division_id'    => $position->division_id,
+                    'raw_branch_id'  => $position->raw_branch_id,
+                    'status'         => ChecklistSubmission::STATUS_DRAFT,
+                    'total_tasks'    => 0,
+                    'done_tasks'     => 0,
+                    'created_at'     => now(),
+                    'updated_at'     => now(),
+                ]
+            );
+
+            if ($submission->items()->count() === 0) {
+                $this->bootstrapItems($submission, $position->division_id, $position->raw_branch_id);
+            } elseif ($submission->isEditable()) {
+                $this->reconcileItems($submission, $position->division_id, $position->raw_branch_id);
+            }
+        } else {
+            $submission = ChecklistSubmission::where('user_id', session('id'))
+                ->whereDate('submission_date', $viewDate->toDateString())
+                ->first();
         }
 
-        $items = $submission->items()->get();
-        $grouped = $items->groupBy('category_title_snapshot');
+        // State "buka kembali" untuk tgl lampau yang BELUM dibuka (panel read-only):
+        //   final       → sudah submitted/approved/excused, tak perlu diajukan
+        //   pending     → sudah diajukan, menunggu persetujuan
+        //   requestable → boleh diajukan (termasuk kalau permintaan lalu ditolak)
+        $reopenState  = null;
+        $reopenLatest = null;
+        if (! $isToday && ! $isReopen) {
+            $reopenLatest = ChecklistReopenRequest::where('user_id', session('id'))
+                ->where('scope', ChecklistReopenRequest::SCOPE_DAILY)
+                ->whereDate('target_date', $viewDate->toDateString())
+                ->orderByDesc('created_at')->first();
+            $st = $submission?->status;
+            if (in_array($st, [ChecklistSubmission::STATUS_SUBMITTED, ChecklistSubmission::STATUS_APPROVED, ChecklistSubmission::STATUS_EXCUSED], true)) {
+                $reopenState = 'final';
+            } elseif ($reopenLatest && $reopenLatest->status === ChecklistReopenRequest::STATUS_PENDING) {
+                $reopenState = 'pending';
+            } else {
+                $reopenState = 'requestable';
+            }
+        }
 
-        // Progress tampilan & gating berbasis "satisfied" (dicentang ATAU
-        // dikecualikan) supaya ring atas + tombol submit menghormati item yang
-        // ditandai tidak perlu diisi. done_tasks di DB tetap = benar-benar dikerjakan.
-        $satisfied = $items->filter(fn ($it) => $it->is_done || $it->is_excepted)->count();
-        $progress = [
-            'done'  => $satisfied,
-            'total' => $submission->total_tasks,
-            'pct'   => $submission->total_tasks ? (int) round($satisfied / $submission->total_tasks * 100) : 0,
-        ];
+        // Items & progress hanya bila submission ada.
+        $grouped  = collect();
+        $progress = ['done' => 0, 'total' => 0, 'pct' => 0];
+        if ($submission) {
+            $items   = $submission->items()->get();
+            $grouped = $items->groupBy('category_title_snapshot');
+            $satisfied = $items->filter(fn ($it) => $it->is_done || $it->is_excepted)->count();
+            $progress = [
+                'done'  => $satisfied,
+                'total' => $submission->total_tasks,
+                'pct'   => $submission->total_tasks ? (int) round($satisfied / $submission->total_tasks * 100) : 0,
+            ];
+        }
 
-        // Kalau status rejected, tampilkan banner dengan catatan supervisor.
-        $rejectedNote = $submission->status === ChecklistSubmission::STATUS_REJECTED
+        $rejectedNote = ($submission && $submission->status === ChecklistSubmission::STATUS_REJECTED)
             ? $submission->review_notes
             : null;
+
+        // Senin = klinik tutup → tak ada checklist harian (konsisten dgn logika
+        // "Tidak Diisi" di dashboard atasan). Tgl lampau yang jatuh Senin dikunci.
+        $isClosedDay = ! $isToday && $viewDate->dayOfWeekIso === 1;
+
+        // Navigasi tanggal (mundur maks 60 hari; lompati Senin; tak ke masa depan).
+        $prevDate = $viewDate->copy()->subDay();
+        while ($prevDate->dayOfWeekIso === 1) $prevDate->subDay();
+        $nextDate = $viewDate->copy()->addDay();
+        while ($nextDate->dayOfWeekIso === 1) $nextDate->addDay();
+        if ($nextDate->gt($today)) $nextDate = $today->copy();
+        $canPrev  = $prevDate->gte($minDate);
+        $canNext  = ! $isToday;
 
         // ─── Extra widgets: heatmap 14 hari, stats, recent activity ─────
         $extras = $this->buildSidebarExtras($today);
 
-        return view('crud.checklist.my.index', compact(
-            'position', 'submission', 'grouped', 'today', 'progress', 'rejectedNote', 'extras'
-        ));
+        return view('crud.checklist.my.index', [
+            'position'     => $position,
+            'submission'   => $submission,
+            'grouped'      => $grouped,
+            'today'        => $viewDate,      // tanggal yang ditampilkan (bisa lampau)
+            'realToday'    => $today,
+            'isToday'      => $isToday,
+            'isReopen'     => $isReopen,
+            'reopenGrant'  => $reopenGrant,
+            'reopenState'  => $reopenState,
+            'reopenLatest' => $reopenLatest,
+            'prevDate'     => $prevDate,
+            'nextDate'     => $nextDate,
+            'canPrev'      => $canPrev,
+            'canNext'      => $canNext,
+            'isClosedDay'  => $isClosedDay,
+            'progress'     => $progress,
+            'rejectedNote' => $rejectedNote,
+            'extras'       => $extras,
+        ]);
     }
 
 
@@ -352,8 +430,25 @@ class MyChecklistController extends Controller
 
     public function submit(Request $request)
     {
+        // Default hari ini; tanggal lampau hanya boleh bila ada grant "buka
+        // kembali" yang aktif (disetujui atasan & belum dipakai).
+        $today = Carbon::today();
+        $date  = $today;
+        $grant = null;
+        if ($request->filled('date')) {
+            $parsed = null;
+            try { $parsed = Carbon::parse($request->get('date'))->startOfDay(); } catch (\Throwable $e) {}
+            if ($parsed && $parsed->lt($today)) {
+                $grant = ChecklistReopenRequest::activeDailyGrant(session('id'), $parsed);
+                if (! $grant) {
+                    return back()->with('error', 'Tanggal itu belum dibuka atau izinnya sudah dipakai.');
+                }
+                $date = $parsed;
+            }
+        }
+
         $sub = ChecklistSubmission::where('user_id', session('id'))
-            ->whereDate('submission_date', Carbon::today())
+            ->whereDate('submission_date', $date)
             ->firstOrFail();
 
         if (! $sub->isEditable()) {
@@ -387,11 +482,17 @@ class MyChecklistController extends Controller
                 $before, ['status' => $sub->status, 'done' => $done, 'total' => $total]);
         });
 
+        // Grant "buka kembali" (kalau ini tanggal lampau) habis begitu dikirim —
+        // hari terkunci lagi (isEditable() false), tak bisa dipakai ulang.
+        if ($grant) {
+            $grant->update(['fulfilled_at' => now(), 'updated_at' => now()]);
+        }
+
         // Notif ke ATASAN divisi (hierarki), di-scope ke cabang submission.
         try {
             $user = Users::find(session('id'));
             $name = $user?->nama ?? 'Karyawan';
-            $body = $name . ' (' . $sub->division_id . ') sudah submit checklist hari ini.';
+            $body = $name . ' (' . $sub->division_id . ') sudah submit checklist ' . $sub->submission_date->format('d M Y') . '.';
             foreach (checklistSupervisorRoleNamesForDivision($sub->division_id) as $roleName) {
                 AdminNotification::notifyRole(
                     $roleName,
@@ -513,6 +614,117 @@ class MyChecklistController extends Controller
         return redirect()->route('mychecklist')->with('success', 'Pengecualian dibatalkan — checklist kembali bisa diisi.');
     }
 
+    /* ─── Permintaan "Buka Kembali" checklist lampau ──────────────────── */
+
+    /**
+     * Karyawan mengajukan permintaan membuka kembali tanggal/hari yang sudah
+     * lewat supaya bisa diisi & dikirim. Perlu persetujuan atasan (dashboard
+     * monitoring) lebih dulu — di sini hanya membuat baris 'pending' + notif.
+     * Berlaku untuk harian (scope=daily, target_date) & mingguan per-hari
+     * (scope=weekly, week_start_date + day_of_week).
+     */
+    public function reopenRequestStore(Request $request)
+    {
+        $position = currentUserPosition();
+        if (! $position) {
+            return back()->with('error', 'Posisi checklist Anda belum aktif — hubungi admin.');
+        }
+
+        $data = $request->validate([
+            'scope'           => 'required|in:daily,weekly',
+            'reason'          => 'required|string|min:3|max:500',
+            'target_date'     => 'nullable|date',
+            'week_start_date' => 'nullable|date',
+            'day_of_week'     => 'nullable|integer|between:2,7',
+        ], [
+            'reason.required' => 'Alasan wajib diisi.',
+            'reason.min'      => 'Alasan terlalu pendek — jelaskan sedikit (min. 3 karakter).',
+        ]);
+
+        $today = Carbon::today();
+        $uid   = session('id');
+
+        $attrs = [
+            'id'            => (string) Str::uuid(),
+            'user_id'       => $uid,
+            'division_id'   => $position->division_id,
+            'raw_branch_id' => $position->raw_branch_id,
+            'reason'        => $data['reason'],
+            'status'        => ChecklistReopenRequest::STATUS_PENDING,
+            'created_at'    => now(),
+            'updated_at'    => now(),
+        ];
+
+        if ($data['scope'] === ChecklistReopenRequest::SCOPE_DAILY) {
+            if (empty($data['target_date'])) {
+                return back()->with('error', 'Tanggal target wajib diisi.');
+            }
+            $date = Carbon::parse($data['target_date'])->startOfDay();
+            if (! $date->lt($today)) {
+                return back()->with('error', 'Hanya tanggal yang sudah lewat yang bisa diminta buka.');
+            }
+            if ($date->dayOfWeekIso === 1) {
+                return back()->with('error', 'Senin klinik tutup — tidak ada checklist harian untuk hari itu.');
+            }
+            if ($date->lt($today->copy()->subDays(60))) {
+                return back()->with('error', 'Maksimal 60 hari ke belakang.');
+            }
+            if (ChecklistReopenRequest::hasOpenRequestDaily($uid, $date)) {
+                return back()->with('error', 'Sudah ada permintaan/izin aktif untuk tanggal itu.');
+            }
+            $attrs['scope']       = ChecklistReopenRequest::SCOPE_DAILY;
+            $attrs['target_date'] = $date->toDateString();
+            $targetLabel = $date->translatedFormat('d M Y');
+        } else {
+            if (empty($data['week_start_date']) || empty($data['day_of_week'])) {
+                return back()->with('error', 'Minggu & hari target wajib diisi.');
+            }
+            $iso              = (int) $data['day_of_week'];
+            $weekStart        = Carbon::parse($data['week_start_date'])->startOfWeek(Carbon::MONDAY);
+            $currentWeekStart = $today->copy()->startOfWeek(Carbon::MONDAY);
+            if (! $weekStart->lt($currentWeekStart)) {
+                return back()->with('error', 'Hanya minggu yang sudah lewat yang bisa diminta buka.');
+            }
+            if ($weekStart->lt($currentWeekStart->copy()->subWeeks(8))) {
+                return back()->with('error', 'Maksimal 8 minggu ke belakang.');
+            }
+            if (ChecklistReopenRequest::hasOpenRequestWeekly($uid, $weekStart, $iso)) {
+                return back()->with('error', 'Sudah ada permintaan/izin aktif untuk hari itu.');
+            }
+            $attrs['scope']           = ChecklistReopenRequest::SCOPE_WEEKLY;
+            $attrs['week_start_date'] = $weekStart->toDateString();
+            $attrs['day_of_week']     = $iso;
+            $dayLabel    = ChecklistTask::dayLabels()[$iso] ?? ('Hari ' . $iso);
+            $targetLabel = $dayLabel . ', ' . $weekStart->copy()->addDays($iso - 1)->translatedFormat('d M Y');
+        }
+
+        $req = ChecklistReopenRequest::create($attrs);
+
+        ChecklistAuditLog::write('reopen_request', $req->id, ChecklistAuditLog::ACTION_SUBMIT,
+            null, ['scope' => $req->scope], 'Minta buka kembali: ' . $targetLabel . ' — ' . $data['reason']);
+
+        // Notif ke ATASAN divisi (hierarki), di-scope ke cabang.
+        try {
+            $user = Users::find($uid);
+            $name = $user?->nama ?? 'Karyawan';
+            $body = $name . ' (' . $position->division_id . ') minta buka kembali checklist ' . $targetLabel . '. Alasan: ' . $data['reason'];
+            foreach (checklistSupervisorRoleNamesForDivision($position->division_id) as $roleName) {
+                AdminNotification::notifyRole(
+                    $roleName,
+                    'checklist.reopen_requested',
+                    "Permintaan buka kembali — {$name}",
+                    $body,
+                    route('checklist.reopen.index'),
+                    $position->raw_branch_id
+                );
+            }
+        } catch (\Throwable $e) {
+            // jangan gagalkan pengajuan kalau notif error
+        }
+
+        return back()->with('success', 'Permintaan buka kembali dikirim — menunggu persetujuan atasan.');
+    }
+
     /* ─── Form Checklist Mingguan (karyawan) ──────────────────────────── */
 
     /**
@@ -627,6 +839,25 @@ class MyChecklistController extends Controller
             ? $submission->daySubmits->keyBy(fn ($ds) => (int) $ds->day_of_week)->all()
             : [];
 
+        // Peta permintaan "buka kembali" per-hari untuk MINGGU LAMPAU:
+        //   $reopenGrants[iso]  = request (disetujui & belum dipakai) → hari boleh diisi lagi.
+        //   $reopenPending[iso] = true → masih menunggu persetujuan atasan.
+        $reopenGrants  = [];
+        $reopenPending = [];
+        if ($submission && $weekOffset < 0) {
+            foreach (ChecklistReopenRequest::where('user_id', session('id'))
+                        ->where('scope', ChecklistReopenRequest::SCOPE_WEEKLY)
+                        ->whereDate('week_start_date', $weekStart->toDateString())
+                        ->get() as $rr) {
+                $iso = (int) $rr->day_of_week;
+                if ($rr->isActiveGrant()) {
+                    $reopenGrants[$iso] = $rr;
+                } elseif ($rr->status === ChecklistReopenRequest::STATUS_PENDING) {
+                    $reopenPending[$iso] = true;
+                }
+            }
+        }
+
         // Progress form berjalan berbasis "satisfied" (dicentang ATAU hari
         // dikecualikan) supaya ring atas & teks "belum dikerjakan" menghormati
         // hari yang di-skip. done_tasks di DB tetap = benar-benar dikerjakan.
@@ -644,7 +875,8 @@ class MyChecklistController extends Controller
 
         return view('crud.checklist.my.weekform', compact(
             'position', 'submission', 'days', 'grouped', 'progress', 'excusedDays', 'dayReviews',
-            'weekOffset', 'weekStart', 'weekEnd', 'rejectedNote', 'isFuture'
+            'weekOffset', 'weekStart', 'weekEnd', 'rejectedNote', 'isFuture',
+            'reopenGrants', 'reopenPending'
         ));
     }
 
@@ -1039,7 +1271,25 @@ class MyChecklistController extends Controller
      */
     private function weekDayLockGuard(ChecklistWeeklySubmission $sub, ChecklistWeeklySubmissionItem $item)
     {
-        if ($sub->isDaySubmitted((int) $item->day_of_week)) {
+        $iso = (int) $item->day_of_week;
+
+        // MINGGU LAMPAU terkunci — hanya boleh diubah kalau ada grant "buka
+        // kembali" aktif untuk hari itu, ATAU hari itu memang sedang 'rejected'
+        // (sudah dibuka atasan untuk diperbaiki). Menutup celah lama: dulu item
+        // minggu lampau bisa dicentang tanpa izin.
+        $currentWeekStart = Carbon::today()->startOfWeek(Carbon::MONDAY);
+        if ($sub->week_start_date->lt($currentWeekStart)) {
+            $hasGrant   = ChecklistReopenRequest::activeWeeklyGrant($sub->user_id, $sub->week_start_date, $iso) !== null;
+            $isRejected = $sub->dayReviewStatus($iso) === ChecklistWeeklyDaySubmit::REVIEW_REJECTED;
+            if (! $hasGrant && ! $isRejected) {
+                return response()->json([
+                    'ok'    => false,
+                    'error' => 'Minggu lampau terkunci — minta buka kembali dulu & tunggu persetujuan atasan.',
+                ], 422);
+            }
+        }
+
+        if ($sub->isDaySubmitted($iso)) {
             return response()->json([
                 'ok'    => false,
                 'error' => 'Hari ini sudah dikirim — batalkan kirim dulu untuk mengubah.',
@@ -1068,21 +1318,39 @@ class MyChecklistController extends Controller
     public function weekDaySubmit(Request $request)
     {
         $data = $request->validate([
-            'day_of_week' => 'required|integer|between:2,7',
-            'note'        => 'nullable|string|max:1000',
+            'day_of_week'     => 'required|integer|between:2,7',
+            'note'            => 'nullable|string|max:1000',
+            'week_start_date' => 'nullable|date',
         ]);
 
-        $weekStart = Carbon::today()->startOfWeek(Carbon::MONDAY);
+        $iso              = (int) $data['day_of_week'];
+        $dayLabel         = ChecklistTask::dayLabels()[$iso] ?? ('Hari ' . $iso);
+        $currentWeekStart = Carbon::today()->startOfWeek(Carbon::MONDAY);
+        $weekStart        = $currentWeekStart;
+        $grant            = null;
+
+        // Minggu LAMPAU: butuh grant "buka kembali" aktif untuk hari itu (atau
+        // hari itu sedang 'rejected' → sudah dibuka atasan untuk diperbaiki).
+        if (! empty($data['week_start_date'])) {
+            $ws = Carbon::parse($data['week_start_date'])->startOfWeek(Carbon::MONDAY);
+            if ($ws->lt($currentWeekStart)) {
+                $grant     = ChecklistReopenRequest::activeWeeklyGrant(session('id'), $ws, $iso);
+                $weekStart = $ws;
+            }
+        }
+
         $sub = ChecklistWeeklySubmission::where('user_id', session('id'))
             ->whereDate('week_start_date', $weekStart)
             ->firstOrFail();
 
+        if ($weekStart->lt($currentWeekStart) && ! $grant
+            && $sub->dayReviewStatus($iso) !== ChecklistWeeklyDaySubmit::REVIEW_REJECTED) {
+            return back()->with('error', $dayLabel . ' minggu lampau belum dibuka — minta buka kembali & tunggu persetujuan atasan.');
+        }
+
         if (! $sub->isEditable()) {
             return back()->with('error', 'Form Mingguan sudah tidak bisa diubah.');
         }
-
-        $iso      = (int) $data['day_of_week'];
-        $dayLabel = ChecklistTask::dayLabels()[$iso] ?? ('Hari ' . $iso);
 
         if ($sub->isDayExcused($iso)) {
             return back()->with('error', $dayLabel . ' sudah ditandai tidak perlu diisi — tak perlu dikirim.');
@@ -1125,10 +1393,17 @@ class MyChecklistController extends Controller
         $sub->load(['items', 'dayExcuses', 'daySubmits']);
         $sub->recomputeStatus();
 
+        // Grant "buka kembali" (minggu lampau) habis begitu hari dikirim.
+        if ($grant) {
+            $grant->update(['fulfilled_at' => now(), 'updated_at' => now()]);
+        }
+
         // Notif supervisor TIAP hari dikirim — biar bisa langsung review harian.
         $this->notifyWeeklyDaySubmitted($sub, $dayLabel);
 
-        return redirect()->route('mychecklist.weekform')
+        // Tetap di minggu yang sama (offset negatif utk minggu lampau).
+        $offset = (int) $currentWeekStart->diffInWeeks($weekStart, false);
+        return redirect()->route('mychecklist.weekform', $offset !== 0 ? ['week' => $offset] : [])
             ->with('success', $dayLabel . ' sudah dikirim.');
     }
 

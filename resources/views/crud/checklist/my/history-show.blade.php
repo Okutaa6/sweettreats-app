@@ -95,9 +95,17 @@
     @include('layouts.notif')
 
     <div class="rvh-wrap">
-        <a href="{{ $backUrl }}" class="st-btn-outline-brown" style="display:inline-flex; align-items:center; gap:7px; margin-bottom:14px;">
-            <i class="fas fa-arrow-left"></i> Kembali ke Riwayat
-        </a>
+        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:14px;">
+            <a href="{{ $backUrl }}" class="st-btn-outline-brown" style="display:inline-flex; align-items:center; gap:7px;">
+                <i class="fas fa-arrow-left"></i> Kembali ke Riwayat
+            </a>
+            @if($type === 'daily' && $submission->submission_date->lt(\Carbon\Carbon::today()))
+                <a href="{{ route('mychecklist', ['date' => $submission->submission_date->toDateString()]) }}"
+                   class="st-btn-brand" style="display:inline-flex; align-items:center; gap:7px;">
+                    <i class="fas fa-unlock-alt"></i> Buka di Checklist Harian
+                </a>
+            @endif
+        </div>
 
         @php
             $isMissed = $submission->status === $statusClass::STATUS_MISSED;

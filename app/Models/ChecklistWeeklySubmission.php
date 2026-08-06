@@ -82,7 +82,7 @@ class ChecklistWeeklySubmission extends Model
      * bulan: Senin tgl 1–7 = mgg 1, 8–14 = mgg 2, dst. Dipakai memfilter task
      * mingguan yang punya weeks_of_month (rotasi bulanan).
      */
-    public static function weekOfMonthForDate(Carbon $monday): int
+    public static function weekOfMonthForDate(\Carbon\CarbonInterface $monday): int
     {
         return intdiv($monday->day - 1, 7) + 1;
     }

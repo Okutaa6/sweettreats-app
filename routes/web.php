@@ -564,6 +564,11 @@ Route::middleware([AuthGuard::class])->group(function () {
     Route::get  ('checklist/review/employee/{user}',                 [DigitalChecklistController::class, 'reviewEmployee'])        ->name('checklist.review.employee');
     Route::patch('checklist/review/employee/{user}/approve-pending', [DigitalChecklistController::class, 'approveEmployeePending'])->name('checklist.review.employee.approve-pending');
 
+    // Permintaan "Buka Kembali" checklist lampau (approval atasan)
+    Route::get  ('checklist/reopen-requests',              [DigitalChecklistController::class, 'reopenRequestsIndex'])->name('checklist.reopen.index');
+    Route::patch('checklist/reopen-requests/{id}/approve', [DigitalChecklistController::class, 'reopenApprove'])     ->name('checklist.reopen.approve');
+    Route::patch('checklist/reopen-requests/{id}/reject',  [DigitalChecklistController::class, 'reopenReject'])      ->name('checklist.reopen.reject');
+
     // Jadwal Cuci AC — Monitoring + kelola unit (Supervisor)
     Route::get   ('checklist/ac',                   [AcMaintenanceController::class, 'monitor'])       ->name('checklist.ac');
     Route::get   ('checklist/ac/unit/{id}/history', [AcMaintenanceController::class, 'unitHistory'])   ->name('checklist.ac.unit.history');
@@ -586,6 +591,7 @@ Route::middleware([AuthGuard::class])->group(function () {
     Route::patch('my-checklist/item/{id}/unexcept', [MyChecklistController::class, 'unexceptItem'])    ->name('mychecklist.item.unexcept');
     Route::post ('my-checklist/submit',             [MyChecklistController::class, 'submit'])          ->name('mychecklist.submit');
     Route::post ('my-checklist/reopen-self',        [MyChecklistController::class, 'reopenSelf'])      ->name('mychecklist.reopen-self');
+    Route::post ('my-checklist/reopen-request',     [MyChecklistController::class, 'reopenRequestStore'])->name('mychecklist.reopen.request');
     Route::post ('my-checklist/excuse',             [MyChecklistController::class, 'excuseToday'])     ->name('mychecklist.excuse');
     Route::post ('my-checklist/unexcuse',           [MyChecklistController::class, 'unexcuseToday'])   ->name('mychecklist.unexcuse');
 
