@@ -69,6 +69,15 @@ Hari diuji 7 skenario lewat controller (pintu yang dipakai orang, bukan fungsi
 di baliknya — pelajaran dari bug Carbon kemarin); lembur 4 skenario; gerbang &
 kalender diuji untuk empat kelompok aturan. Tombol "Terapkan" idempoten.
 
+**Diuji sendiri 2026-08-06 (Ekky keluar)**: uji ujung-ke-ujung 30 pemeriksaan
+di dev — SEMUA LULUS. Satu BUG NYATA ketemu & diperbaiki di situ: jenis `tukar`
+belum terdaftar di plafon lapis persetujuan, jadi Tukar Hari naik ke lapis DUA
+lalu menggantung tak terlihat siapa pun (kelas kesalahan yang sama dengan bug
+Carbon kemarin — sesuatu yang baru lupa didaftarkan di sebuah peta, lalu gagal
+dengan diam). Selain angkanya ditambah, `submit()` kini MENOLAK jenis yang belum
+terdaftar supaya kelalaian berikutnya berbunyi keras di dev, bukan diam sampai
+ke gaji. Dev ditinggal bersih: nol sisa data uji, log nol error.
+
 **Belum naik prod.** Butuh 2 SQL (`2026_08_06_tukar_hari.sql` — **wajib mysql
 CLI karena DELIMITER** — dan `2026_08_06_jadwal_fleksibel.sql`).
 
