@@ -356,7 +356,21 @@ class AttendanceReconciler
             // ── fleksibel: cuma penanda, tak pernah alpa ──
             if ($rule->tipe === 'fleksibel') {
                 if ($absence) { $out[] = $this->row($userId, $key, $rule->id, $day, $absence, 0, null, $lembur, $now); continue; }
-                if ($n === 0) continue;
+                if ($n === 0) {
+                    // Hari libur TERJADWAL (mis. Minggu & Senin bagi orang
+                    // kantor) ditandai `libur`, bukan dibiarkan kosong. Kosong
+                    // itu ambigu — tak bisa dibedakan dari "belum ada datanya",
+                    // padahal Ekky minta tukar hari punya laporan yang terbaca:
+                    // hari libur pengganti harus terlihat KONTRAS dengan libur
+                    // biasa. Aturan fleksibel tanpa konfigurasi hari (Executive)
+                    // tetap tak menghasilkan baris apa pun — memang tak
+                    // dijadwalkan.
+                    $rd = $ruleDays[$rule->id][$d->dayOfWeek] ?? null;
+                    if ($rd && ($rd->libur ?? false)) {
+                        $out[] = $this->row($userId, $key, $rule->id, $day, 'libur', 0, null, $lembur, $now);
+                    }
+                    continue;
+                }
                 $out[] = $this->row($userId, $key, $rule->id, $day, 'hadir', 0, null, $lembur, $now);
                 continue;
             }

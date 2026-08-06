@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Absensi;
 
+use App\Http\Controllers\Absensi\AkunPengajuanController;
 use App\Http\Controllers\Controller;
 use App\Models\AttHpBukti;
 use App\Models\AttBranchIp;
@@ -64,6 +65,13 @@ class AkunAbsenController extends Controller
             'workDate'     => $workDate,
             'me'           => $me,
             'lupaKemarin'  => $lupaKemarin,
+            // Hari ini libur terjadwal? null = tak bisa dijawab (aturan kerja
+            // belum diatur, atau memang tak dijadwalkan seperti Executive) —
+            // jangan munculkan gerbang berdasarkan ketidaktahuan.
+            'liburHariIni' => hariLiburTerjadwal($userId, Carbon::parse($workDate)),
+            // Jenis yang boleh dia pakai — menentukan tombol mana yang layak
+            // ditawarkan di gerbang (Tukar Hari hanya untuk yang fleksibel).
+            'bolehTukar'   => isset(AkunPengajuanController::jenisUntuk($userId)['tukar']),
         ]);
     }
 

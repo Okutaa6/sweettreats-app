@@ -1029,3 +1029,45 @@ if (!function_exists('aturanKerjaFleksibel')) {
         return tipeAturanKerja($userId) === 'fleksibel';
     }
 }
+
+/**
+ * Apakah tanggal ini HARI LIBUR TERJADWAL bagi seseorang?
+ *
+ * Membaca konfigurasi hari aturan kerjanya (att_work_rule_day). Null berarti
+ * "tak bisa dijawab" — aturan kerjanya belum diatur, atau aturannya memang
+ * tidak dijadwalkan (mis. Executive). Null SENGAJA dibedakan dari false:
+ * pemanggil tak boleh menyimpulkan "berarti hari kerja" dari ketidaktahuan,
+ * karena itu akan memunculkan gerbang/label pada orang yang memang tak punya
+ * jadwal sama sekali.
+ *
+ * Kalender libur nasional (att_work_rule_exception) TIDAK dilihat di sini —
+ * itu urusan mesin rekonsiliasi; fungsi ini khusus pola mingguan.
+ */
+if (!function_exists('hariLiburTerjadwal')) {
+    function hariLiburTerjadwal(string $userId, ?\Carbon\Carbon $tanggal = null): ?bool
+    {
+        $t = $tanggal ?: \Carbon\Carbon::today();
+
+        try {
+            $ruleId = \Illuminate\Support\Facades\DB::table('att_user_rule')
+                ->where('user_id', $userId)
+                ->where('effective_from', '<=', $t->toDateString())
+                ->where(function ($q) use ($t) {
+                    $q->whereNull('effective_to')->orWhere('effective_to', '>=', $t->toDateString());
+                })
+                ->orderByDesc('effective_from')
+                ->value('rule_id');
+            if (! $ruleId) return null;
+
+            $libur = \Illuminate\Support\Facades\DB::table('att_work_rule_day')
+                ->where('rule_id', $ruleId)->where('day', $t->dayOfWeek)
+                ->value('libur');
+
+            // Aturan tanpa baris hari = tidak dijadwalkan → tak bisa dijawab.
+            return $libur === null ? null : (bool) $libur;
+        } catch (\Throwable $e) {
+            report($e);
+            return null;
+        }
+    }
+}
