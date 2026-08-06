@@ -199,6 +199,9 @@ class ChecklistSetupController extends Controller
             'day_of_week'   => 'nullable|integer|between:1,7',
             'requires_photo'=> 'nullable|boolean',
             'photo_before_after' => 'nullable|boolean',
+            'weeks_mode'      => 'nullable|in:all,specific',
+            'weeks_of_month'  => 'nullable|array',
+            'weeks_of_month.*'=> 'integer|between:1,5',
         ]);
 
         $cat = ChecklistCategory::whereNull('deleted_at')->findOrFail($data['category_id']);
@@ -206,17 +209,20 @@ class ChecklistSetupController extends Controller
 
         // Untuk kategori mingguan, hari wajib. Untuk harian, paksa NULL.
         // Foto hanya berlaku untuk kategori mingguan. Mode before/after khusus GS,
-        // dan mengimplikasikan requires_photo=1.
+        // dan mengimplikasikan requires_photo=1. weeks_of_month (rotasi bulanan)
+        // hanya untuk mingguan; harian selalu NULL.
         if ($cat->isWeekly()) {
             $dayOfWeek = (int) ($data['day_of_week'] ?? 0);
             if (! in_array($dayOfWeek, [2, 3, 4, 5, 6, 7], true)) {
                 return back()->withErrors(['day_of_week' => 'Hari tugas mingguan harus Selasa–Minggu (Senin klinik tutup).'])->withInput();
             }
             [$requiresPhoto, $beforeAfter] = $this->normalizePhotoMode($cat->division_id, $data);
+            $weeksOfMonth = $this->normalizeWeeksOfMonth($data);
         } else {
             $dayOfWeek = null;
             $requiresPhoto = 0;
             $beforeAfter = 0;
+            $weeksOfMonth = null;
         }
 
         $nextOrder = (int) (ChecklistTask::where('category_id', $cat->id)
@@ -228,6 +234,7 @@ class ChecklistSetupController extends Controller
             'title'         => $data['title'],
             'description'   => $data['description'] ?? null,
             'day_of_week'   => $dayOfWeek,
+            'weeks_of_month'=> $weeksOfMonth,
             'requires_photo'=> $requiresPhoto,
             'photo_before_after' => $beforeAfter,
             'sort_order'    => $nextOrder,
@@ -237,7 +244,7 @@ class ChecklistSetupController extends Controller
         ]);
 
         ChecklistAuditLog::write('task', $task->id, ChecklistAuditLog::ACTION_CREATE,
-            null, ['category_id' => $cat->id, 'title' => $task->title, 'day_of_week' => $dayOfWeek]);
+            null, ['category_id' => $cat->id, 'title' => $task->title, 'day_of_week' => $dayOfWeek, 'weeks_of_month' => $weeksOfMonth]);
 
         return redirect()->route('checklist.setup', ['division' => $cat->division_id])
             ->with('success', 'Task "' . $task->title . '" ditambahkan.');
@@ -257,6 +264,26 @@ class ChecklistSetupController extends Controller
     }
 
     /**
+     * Normalisasi input rotasi bulanan → CSV "1,3" atau NULL.
+     * Mode "setiap minggu" (weeks_mode != 'specific') atau tak ada minggu tercentang
+     * → NULL (setiap minggu). Selain itu ambil weeks_of_month[], validasi 1..5,
+     * unique + terurut, join koma.
+     */
+    private function normalizeWeeksOfMonth(array $data): ?string
+    {
+        if (($data['weeks_mode'] ?? '') !== 'specific') return null;
+
+        $weeks = [];
+        foreach ((array) ($data['weeks_of_month'] ?? []) as $part) {
+            $n = (int) $part;
+            if ($n >= 1 && $n <= 5) $weeks[$n] = $n;
+        }
+        if (empty($weeks)) return null;
+        sort($weeks);
+        return implode(',', $weeks);
+    }
+
+    /**
      * Tambah task Mingguan langsung (tanpa pilih kategori). Task nempel ke
      * "kategori payung" mingguan divisi — dibuat otomatis kalau belum ada.
      */
@@ -270,6 +297,9 @@ class ChecklistSetupController extends Controller
             'description'   => 'nullable|string|max:1000',
             'requires_photo'=> 'nullable|boolean',
             'photo_before_after' => 'nullable|boolean',
+            'weeks_mode'      => 'nullable|in:all,specific',
+            'weeks_of_month'  => 'nullable|array',
+            'weeks_of_month.*'=> 'integer|between:1,5',
         ]);
         $this->abortIfDivisionOutOfScope($data['division_id']);
 
@@ -279,6 +309,7 @@ class ChecklistSetupController extends Controller
             ->whereNull('deleted_at')->max('sort_order') ?? 0) + 10;
 
         [$requiresPhoto, $beforeAfter] = $this->normalizePhotoMode($data['division_id'], $data);
+        $weeksOfMonth = $this->normalizeWeeksOfMonth($data);
 
         $task = ChecklistTask::create([
             'id'            => (string) Str::uuid(),
@@ -286,6 +317,7 @@ class ChecklistSetupController extends Controller
             'title'         => $data['title'],
             'description'   => $data['description'] ?? null,
             'day_of_week'   => (int) $data['day_of_week'],
+            'weeks_of_month'=> $weeksOfMonth,
             'requires_photo'=> $requiresPhoto,
             'photo_before_after' => $beforeAfter,
             'sort_order'    => $nextOrder,
@@ -295,7 +327,7 @@ class ChecklistSetupController extends Controller
         ]);
 
         ChecklistAuditLog::write('task', $task->id, ChecklistAuditLog::ACTION_CREATE,
-            null, ['category_id' => $cat->id, 'title' => $task->title, 'day_of_week' => (int) $data['day_of_week']]);
+            null, ['category_id' => $cat->id, 'title' => $task->title, 'day_of_week' => (int) $data['day_of_week'], 'weeks_of_month' => $weeksOfMonth]);
 
         return redirect()->route('checklist.setup', ['division' => $data['division_id']])
             ->with('success', 'Task "' . $task->title . '" ditambahkan.');
@@ -314,6 +346,9 @@ class ChecklistSetupController extends Controller
             'requires_photo'=> 'nullable|boolean',
             'photo_before_after' => 'nullable|boolean',
             'is_active'     => 'nullable|boolean',
+            'weeks_mode'      => 'nullable|in:all,specific',
+            'weeks_of_month'  => 'nullable|array',
+            'weeks_of_month.*'=> 'integer|between:1,5',
         ]);
 
         $cat = $task->category;
@@ -323,23 +358,26 @@ class ChecklistSetupController extends Controller
                 return back()->withErrors(['day_of_week' => 'Hari tugas mingguan harus Selasa–Minggu (Senin klinik tutup).'])->withInput();
             }
             [$requiresPhoto, $beforeAfter] = $this->normalizePhotoMode($cat->division_id, $data);
+            $weeksOfMonth = $this->normalizeWeeksOfMonth($data);
         } else {
             $dayOfWeek = null;
             $requiresPhoto = 0;
             $beforeAfter = 0;
+            $weeksOfMonth = null;
         }
 
-        $before = ['title' => $task->title, 'is_active' => $task->is_active, 'day_of_week' => $task->day_of_week];
+        $before = ['title' => $task->title, 'is_active' => $task->is_active, 'day_of_week' => $task->day_of_week, 'weeks_of_month' => $task->weeks_of_month];
         $task->update([
             'title'         => $data['title'],
             'description'   => $data['description'] ?? null,
             'day_of_week'   => $dayOfWeek,
+            'weeks_of_month'=> $weeksOfMonth,
             'requires_photo'=> $requiresPhoto,
             'photo_before_after' => $beforeAfter,
             'is_active'     => isset($data['is_active']) ? (int) $data['is_active'] : $task->is_active,
             'updated_at'    => now(),
         ]);
-        $after = ['title' => $task->title, 'is_active' => $task->is_active, 'day_of_week' => $task->day_of_week];
+        $after = ['title' => $task->title, 'is_active' => $task->is_active, 'day_of_week' => $task->day_of_week, 'weeks_of_month' => $task->weeks_of_month];
 
         ChecklistAuditLog::write('task', $task->id, ChecklistAuditLog::ACTION_UPDATE, $before, $after);
 

@@ -1344,9 +1344,15 @@ class MyChecklistController extends Controller
             ->get();
 
         // Peta task master (id → task) untuk sinkronisasi item lama + deteksi baru.
+        // Filter rotasi bulanan: task yang tak berlaku di minggu ke-ini tidak masuk
+        // taskMap → item lama-nya ikut jalur stale-removal, item yg berlaku ditambah.
+        $weekOfMonth = ChecklistWeeklySubmission::weekOfMonthForDate($sub->week_start_date);
         $taskMap = [];
         foreach ($categories as $cat) {
-            foreach ($cat->tasks as $task) $taskMap[$task->id] = ['task' => $task, 'cat' => $cat];
+            foreach ($cat->tasks as $task) {
+                if (! $task->appliesToWeekOfMonth($weekOfMonth)) continue;
+                $taskMap[$task->id] = ['task' => $task, 'cat' => $cat];
+            }
         }
 
         $newRows = [];

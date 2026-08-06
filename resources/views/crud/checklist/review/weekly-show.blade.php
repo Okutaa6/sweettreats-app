@@ -198,7 +198,7 @@
                                     <i class="fas fa-calendar-week" style="color:#9B5E2C; font-size:11px;"></i>
                                     Minggu {{ $submission->weekLabel() }}
                                 </div>
-                                <div style="font-size:11px; color:#9B8578; margin-top:2px;">{{ $submission->year_week }}</div>
+                                <div style="font-size:11px; color:#9B8578; margin-top:2px;">{{ $submission->year_week }} · Minggu ke-{{ $submission->weekOfMonth() }} bulan ini</div>
                             </div>
                         </div>
 

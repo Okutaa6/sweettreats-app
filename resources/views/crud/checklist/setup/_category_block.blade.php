@@ -79,6 +79,9 @@
                                 @else
                                     <span style="font-size:11px; color:#A32D2D; font-style:italic;">Belum diset</span>
                                 @endif
+                                @if($task->weeksOfMonthArray())
+                                    <span class="st-pill" style="font-size:9.5px; background:#EDE3FB; color:#6B3FA0; margin-top:3px; display:inline-block;" title="Berlaku minggu ke-{{ implode(', ', $task->weeksOfMonthArray()) }} tiap bulan">{{ $task->weeksLabel() }}</span>
+                                @endif
                             </td>
                         @endif
                         <td>

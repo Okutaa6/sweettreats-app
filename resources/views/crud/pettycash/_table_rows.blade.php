@@ -124,23 +124,28 @@
                     $delMsg = "PERHATIAN: Anda akan menghapus KEDUA sisi transfer ini "
                         . "(uang keluar Rp {$delAmount} dari " . ($r->source_name ?? '-')
                         . " DAN uang masuk Rp {$delAmount} ke " . (($r->source_to->name ?? '') ?: '-')
-                        . "). Saldo kedua sumber akan berubah. Tindakan ini TIDAK BISA di-undo.\n\nLanjutkan hapus?";
+                        . "). Saldo kedua sumber akan berubah.\n\nTransaksi akan pindah ke tab Riwayat. Lanjutkan hapus?";
                 } else {
                     $delType = $r->is_topup ? 'Top Up' : ($r->cash_in > 0 ? 'Pemasukan' : 'Pengeluaran');
                     $delMsg = "Hapus transaksi {$delType} Rp {$delAmount} dari "
-                        . ($r->source_name ?? '-') . "?\n\nTindakan ini TIDAK BISA di-undo.";
+                        . ($r->source_name ?? '-') . "?\n\nTransaksi akan pindah ke tab Riwayat.";
                 }
             @endphp
             @php
                 // Edit hanya untuk pengeluaran biasa (bukan topup / transfer)
                 // dan dalam 24 jam sejak created_at. Guard yang sama di-enforce
                 // di controller — UI cuma sembunyikan tombol untuk discoverability.
+                $inWindow = !empty($r->created_at)
+                    && \Carbon\Carbon::parse($r->created_at)->gt(now()->subHours(24));
                 $canEdit = !$isComposite
                     && !$r->is_topup
                     && !$r->is_transfer
                     && $r->cash_out > 0
-                    && !empty($r->created_at)
-                    && \Carbon\Carbon::parse($r->created_at)->gt(now()->subHours(24));
+                    && $inWindow;
+                // Hapus (semua jenis: pengeluaran / top up / transfer) juga
+                // dibatasi 24 jam sejak created_at — samakan dgn edit. Server
+                // meng-enforce ulang di destroy() (abortIfBeyondEditWindow).
+                $canDelete = $inWindow;
             @endphp
             <td>
                 <div class="pc-row-actions">
@@ -158,18 +163,20 @@
                             <i class="fa fa-pen"></i>
                         </button>
                     @endif
-                    <form method="POST" action="{{ route('pettycash.destroy', ['id' => $r->id, 'tab' => $kind]) }}"
-                          onsubmit="return confirm({{ \Illuminate\Support\Js::from($delMsg) }})">
-                        @csrf
-                        @method('DELETE')
-                        @if(!session('raw_branch_id') && $branchId)
-                            <input type="hidden" name="branch" value="{{ $branchId }}">
-                        @endif
-                        <button type="submit" class="pc-icon-btn"
-                                title="{{ $isComposite ? 'Hapus transfer (kedua sisi)' : 'Hapus transaksi' }}">
-                            <i class="fa fa-trash"></i>
-                        </button>
-                    </form>
+                    @if($canDelete)
+                        <form method="POST" action="{{ route('pettycash.destroy', ['id' => $r->id, 'tab' => $kind]) }}"
+                              onsubmit="return confirm({{ \Illuminate\Support\Js::from($delMsg) }})">
+                            @csrf
+                            @method('DELETE')
+                            @if(!session('raw_branch_id') && $branchId)
+                                <input type="hidden" name="branch" value="{{ $branchId }}">
+                            @endif
+                            <button type="submit" class="pc-icon-btn"
+                                    title="{{ $isComposite ? 'Hapus transfer (kedua sisi, dalam 24 jam)' : 'Hapus transaksi (dalam 24 jam)' }}">
+                                <i class="fa fa-trash"></i>
+                            </button>
+                        </form>
+                    @endif
                 </div>
             </td>
         @endif

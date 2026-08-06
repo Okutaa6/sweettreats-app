@@ -57,6 +57,7 @@ class PettyCashTransaction extends Model
         'created_by',
         'updated_by',
         'edited_at',
+        'deleted_by',
     ];
 
     protected $casts = [

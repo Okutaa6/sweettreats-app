@@ -207,6 +207,16 @@
                 Mutasi
                 <span class="pc-trx-subtab__count">{{ $rowsTransfer->count() }}</span>
             </button>
+            <button type="button"
+                    class="pc-trx-subtab"
+                    data-trx-tab="riwayat"
+                    role="tab"
+                    aria-selected="false"
+                    title="Jejak transaksi yang diedit atau dihapus">
+                <i class="fa fa-history"></i>
+                Riwayat
+                <span class="pc-trx-subtab__count">{{ $rowsRiwayat->count() }}</span>
+            </button>
         </div>
 
         {{-- TAB 1: Top Up & Pengeluaran --}}
@@ -285,6 +295,58 @@
                             'emptyIcon'  => 'fa-exchange-alt',
                             'emptyCta'   => $emptyCtaTransfer,
                         ])
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        {{-- TAB 3: Riwayat — jejak transaksi yang diedit / dihapus --}}
+        <div class="st-card__body pc-trx-pane" data-trx-content="riwayat" style="padding:0;" hidden>
+            <div class="st-table-wrap--scroll">
+                <table class="st-table pc-table">
+                    <thead>
+                        <tr>
+                            <th width="110">Tanggal</th>
+                            <th width="140">Wallet</th>
+                            <th>Keterangan</th>
+                            <th class="text-right" width="130">Nominal</th>
+                            <th width="110">Aksi</th>
+                            <th width="150">Oleh</th>
+                            <th width="150">Waktu</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse($rowsRiwayat as $rw)
+                            <tr>
+                                <td>{{ \Carbon\Carbon::parse($rw->trx_date)->translatedFormat('d M Y') }}</td>
+                                <td>{{ $rw->source_name ?? '—' }}</td>
+                                <td>{{ $rw->description }}</td>
+                                <td class="text-right">{{ number_format($rw->amount, 0, ',', '.') }}</td>
+                                <td>
+                                    @if($rw->action === 'deleted')
+                                        <span class="pc-badge" style="background:#ffebee;color:#b71c1c;border:1px solid #ffcdd2;">
+                                            <i class="fa fa-trash"></i> Dihapus
+                                        </span>
+                                    @else
+                                        <span class="pc-badge" style="background:#fff4e0;color:#b9770e;border:1px solid #f6dca6;">
+                                            <i class="fa fa-pen"></i> Diedit
+                                        </span>
+                                    @endif
+                                </td>
+                                <td>{{ $rw->actor }}</td>
+                                <td>{{ $rw->at ? \Carbon\Carbon::parse($rw->at)->translatedFormat('d M Y H:i') : '—' }}</td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="7">
+                                    <div class="pc-empty-state">
+                                        <i class="fa fa-history pc-empty-state__icon"></i>
+                                        <div class="pc-empty-state__title">Belum ada riwayat perubahan</div>
+                                        <div class="pc-empty-state__desc">Transaksi yang <strong>diedit</strong> atau <strong>dihapus</strong> bulan ini akan muncul di sini beserta siapa &amp; kapan.</div>
+                                    </div>
+                                </td>
+                            </tr>
+                        @endforelse
                     </tbody>
                 </table>
             </div>
