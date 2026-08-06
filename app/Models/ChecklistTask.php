@@ -23,7 +23,7 @@ class ChecklistTask extends Model
     const DELETED_AT = 'deleted_at';
 
     protected $fillable = [
-        'id', 'category_id', 'title', 'description', 'day_of_week',
+        'id', 'category_id', 'title', 'description', 'day_of_week', 'weeks_of_month',
         'requires_photo', 'photo_before_after', 'sort_order', 'is_active', 'created_at', 'updated_at', 'deleted_at',
     ];
 
@@ -62,6 +62,49 @@ class ChecklistTask extends Model
     public function dayLabel(): ?string
     {
         return $this->day_of_week ? (self::dayLabels()[$this->day_of_week] ?? null) : null;
+    }
+
+    /* ─── Minggu ke-berapa dalam bulan (rotasi bulanan) ─────────────────────
+     * weeks_of_month: CSV "1,3" = task hanya berlaku di minggu ke-1 & ke-3.
+     * NULL/kosong = SETIAP minggu (perilaku lama → backward-compatible).
+     * Minggu-ke dihitung dari tanggal Senin (reset tiap bulan), lihat
+     * ChecklistWeeklySubmission::weekOfMonthForDate().
+     * ──────────────────────────────────────────────────────────────────── */
+
+    /** Parse CSV weeks_of_month → array int terurut. `[]` bila null/kosong (=setiap minggu). */
+    public function weeksOfMonthArray(): array
+    {
+        $raw = trim((string) $this->weeks_of_month);
+        if ($raw === '') return [];
+
+        $weeks = [];
+        foreach (explode(',', $raw) as $part) {
+            $n = (int) trim($part);
+            if ($n >= 1 && $n <= 5) $weeks[$n] = $n;
+        }
+        sort($weeks);
+        return array_values($weeks);
+    }
+
+    /**
+     * Apakah task ini berlaku di minggu ke-$w (1..5) bulan berjalan?
+     * Kosong = setiap minggu. Minggu ke-5 (parsial) memakai tugas minggu ke-4
+     * sbg fallback — sesuai keputusan setup.
+     */
+    public function appliesToWeekOfMonth(int $w): bool
+    {
+        $weeks = $this->weeksOfMonthArray();
+        if (empty($weeks))                            return true;   // setiap minggu
+        if (in_array($w, $weeks, true))               return true;
+        if ($w === 5 && in_array(4, $weeks, true))    return true;   // fallback mgg-5 → mgg-4
+        return false;
+    }
+
+    /** Label ringkas utk badge setup, mis. "Tiap mgg" / "Mgg 1,3". */
+    public function weeksLabel(): string
+    {
+        $weeks = $this->weeksOfMonthArray();
+        return empty($weeks) ? 'Tiap mgg' : 'Mgg ' . implode(',', $weeks);
     }
 
     public function category()

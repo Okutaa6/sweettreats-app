@@ -622,6 +622,7 @@
                             @else
                                 {{ $weekOffset }} minggu lagi
                             @endif
+                            · Minggu ke-{{ \App\Models\ChecklistWeeklySubmission::weekOfMonthForDate($weekStart) }} bulan ini
                         </div>
                     </div>
                     <a href="{{ route('mychecklist.weekform', ['week' => $weekOffset + 1]) }}" class="wf-nav__btn" title="Minggu berikutnya">

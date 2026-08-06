@@ -113,14 +113,16 @@ class PettyCashController extends Controller
     }
 
     /**
-     * Gate khusus EDIT & HAPUS transaksi — dibatasi Super Admin (kebijakan
-     * audit). Role lain boleh mencatat transaksi baru tapi tidak boleh
-     * mengubah/menghapus yang sudah ada. Panggil di update() & destroy().
+     * Batas waktu 24 jam untuk EDIT & HAPUS transaksi (kebijakan audit).
+     * Setelah 24 jam sejak created_at, transaksi terkunci — perbaikan harus
+     * lewat jalur lain (mis. koreksi transaksi baru). Dipakai bersama oleh
+     * update() ($verb='diedit') & destroy() ($verb='dihapus'). Guard yang
+     * sama disembunyikan di UI lewat $canEdit/$canDelete di _table_rows.
      */
-    private function requireTrxEditor(): void
+    private function abortIfBeyondEditWindow($trx, string $verb): void
     {
-        if (! isSuperAdmin()) {
-            abort(403, 'Hanya Super Admin yang boleh mengedit atau menghapus transaksi petty cash.');
+        if ($trx->created_at && $trx->created_at->lt(now()->subHours(24))) {
+            abort(403, "Transaksi sudah lebih dari 24 jam — tidak bisa {$verb} lagi.");
         }
     }
 
@@ -246,12 +248,13 @@ class PettyCashController extends Controller
         $isFinanceViewOnly = ! canEditPettyCash();
         $isReadOnly        = (bool) $period->is_closed || ! $isCurrentMonth || $isFinanceViewOnly;
 
-        // Edit & hapus transaksi dibatasi Super Admin saja (kebijakan audit):
-        // role lain (Admin General/Backup, Sales) tetap bisa MENCATAT transaksi
-        // baru, tapi tidak boleh mengubah/menghapus yang sudah ada. Terpisah dari
-        // $isReadOnly supaya fitur tulis lain (tambah pengeluaran, top up) tetap
-        // jalan. Guard yang sama di-enforce server-side di update() & destroy().
-        $showTrxActions = ! $isReadOnly && isSuperAdmin();
+        // Edit & hapus transaksi terbuka untuk semua role penulis (Admin
+        // General/Backup, Sales) — Finance tetap view-only lewat $isReadOnly
+        // ($isFinanceViewOnly). Batas waktu 24 jam sejak dibuat di-enforce
+        // per-baris di _table_rows ($canEdit / $canDelete) & server-side di
+        // update()/destroy(). Setiap edit/hapus meninggalkan jejak di tab
+        // "Riwayat" (updated_by/edited_at & deleted_by/deleted_at).
+        $showTrxActions = ! $isReadOnly;
 
         $tabs = [[
             'kind'   => $kind,
@@ -274,6 +277,42 @@ class PettyCashController extends Controller
             ? \App\Models\TopupRequest::pending()->forBranch($branchId)->count()
             : 0;
 
+        // Jejak transaksi (tab "Riwayat"): transaksi periode ini yang pernah
+        // diedit (masih aktif, edited_at != NULL) atau dihapus (deleted_at !=
+        // NULL). scopeActive() sengaja TIDAK dipakai supaya baris terhapus
+        // ikut tertarik. Read-only — hanya untuk audit siapa & kapan.
+        $riwayatTrx = $trxClass::with('fundSource')
+            ->forPeriod($period->id)
+            ->where(function ($q) {
+                $q->whereNotNull('deleted_at')->orWhereNotNull('edited_at');
+            })
+            ->orderByRaw('COALESCE(deleted_at, edited_at) DESC')
+            ->get();
+
+        $actorIds   = $riwayatTrx->pluck('deleted_by')
+            ->merge($riwayatTrx->pluck('updated_by'))
+            ->filter()->unique()->values();
+        $actorNames = $actorIds->isEmpty()
+            ? collect()
+            : \App\Models\Users::whereIn('id', $actorIds)->pluck('nama', 'id');
+
+        $rowsRiwayat = $riwayatTrx->map(function ($t) use ($actorNames) {
+            $isDeleted = ! empty($t->deleted_at);
+            $actorId   = $isDeleted ? $t->deleted_by : $t->updated_by;
+            return (object) [
+                'trx_date'    => $t->trx_date,
+                'description' => $t->description,
+                'source_name' => $t->fundSource?->name,
+                'amount'      => (float) $t->amount,
+                'direction'   => $t->direction,
+                'is_topup'    => (bool) $t->is_topup,
+                'is_transfer' => (bool) $t->is_transfer,
+                'action'      => $isDeleted ? 'deleted' : 'edited',
+                'actor'       => $actorId ? ($actorNames[$actorId] ?? '—') : '—',
+                'at'          => $isDeleted ? $t->deleted_at : $t->edited_at,
+            ];
+        });
+
         return view('crud.pettycash.index', compact(
             'period', 'rows', 'summary', 'sourceBalances',
             'year', 'month', 'bulanLabel',
@@ -282,7 +321,8 @@ class PettyCashController extends Controller
             'isCurrentMonth', 'isReadOnly', 'isFinanceViewOnly', 'showTrxActions',
             'kind', 'tabs', 'fundSources', 'fundSourcesGrouped',
             'branches', 'activeBranch', 'branchId', 'sessionBranch',
-            'branchAccountMap', 'pendingTopupCount', 'requesterName'
+            'branchAccountMap', 'pendingTopupCount', 'requesterName',
+            'rowsRiwayat'
         ));
     }
 
@@ -1015,7 +1055,6 @@ class PettyCashController extends Controller
     public function destroy(Request $request, $id)
     {
         $this->requireWriteAccess();
-        $this->requireTrxEditor();
         $kind     = $this->kind($request);
         $trxClass = $this->trxClass($kind);
 
@@ -1023,20 +1062,24 @@ class PettyCashController extends Controller
         $period = $trx->period;
         $this->abortIfReadOnly($period);
         $this->abortIfBranchMismatch($request, $period);
+        $this->abortIfBeyondEditWindow($trx, 'dihapus');
 
-        $now = now();
+        // Jejak siapa yang menghapus — tampil di tab "Riwayat".
+        $actorId = session('id');
+        $now     = now();
         if ($trx->is_transfer && $trx->ref_no) {
             // Hapus seluruh bundle yang share ref_no: 2 leg transfer +
             // (opsional) expense bundle. ref_no transfer pakai prefix "TRF-"
             // jadi tidak collide dgn ref_no manual user.
             $affected = $trxClass::active()
                 ->where('ref_no', $trx->ref_no)
-                ->update(['deleted_at' => $now]);
+                ->update(['deleted_at' => $now, 'deleted_by' => $actorId]);
             $msg = $affected > 2
                 ? 'Transfer + pengeluaran bundel dihapus (' . $affected . ' baris).'
                 : 'Transfer dihapus (kedua sisi).';
         } else {
             $trx->deleted_at = $now;
+            $trx->deleted_by = $actorId;
             $trx->save();
             $msg = 'Transaksi dihapus.';
         }
@@ -1062,7 +1105,6 @@ class PettyCashController extends Controller
     public function update(Request $request, $id)
     {
         $this->requireWriteAccess();
-        $this->requireTrxEditor();
         $kind     = $this->kind($request);
         $trxClass = $this->trxClass($kind);
 
@@ -1077,9 +1119,7 @@ class PettyCashController extends Controller
         }
 
         // Guard: window 24 jam sejak created_at.
-        if ($trx->created_at && $trx->created_at->lt(now()->subHours(24))) {
-            abort(403, 'Transaksi sudah lebih dari 24 jam — tidak bisa diedit lagi.');
-        }
+        $this->abortIfBeyondEditWindow($trx, 'diedit');
 
         $categoryKeys = array_keys($trxClass::CATEGORIES);
         $data = $request->validate([
@@ -1506,6 +1546,9 @@ class PettyCashController extends Controller
                     'short' => $inRow->source_short,
                     'logo'  => $inRow->source_logo,
                 ],
+                // created_at (dari OUT leg) dipakai _table_rows untuk window
+                // 24 jam tombol hapus transfer.
+                'created_at'    => $outRow->created_at ?? null,
                 'children'      => [$outRow, $inRow],
             ];
 

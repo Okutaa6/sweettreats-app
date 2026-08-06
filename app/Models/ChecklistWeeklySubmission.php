@@ -77,6 +77,22 @@ class ChecklistWeeklySubmission extends Model
         return in_array($this->status, [self::STATUS_DRAFT, self::STATUS_REJECTED], true);
     }
 
+    /**
+     * Minggu ke-berapa dalam bulan (1..5) berdasarkan tanggal Senin — reset tiap
+     * bulan: Senin tgl 1–7 = mgg 1, 8–14 = mgg 2, dst. Dipakai memfilter task
+     * mingguan yang punya weeks_of_month (rotasi bulanan).
+     */
+    public static function weekOfMonthForDate(Carbon $monday): int
+    {
+        return intdiv($monday->day - 1, 7) + 1;
+    }
+
+    /** Minggu ke-berapa dalam bulan untuk submission ini (dari week_start_date). */
+    public function weekOfMonth(): int
+    {
+        return self::weekOfMonthForDate(Carbon::parse($this->week_start_date));
+    }
+
     /** Nomor hari (ISO 2–7) yang ditandai "tidak perlu diisi" di minggu ini. */
     public function excusedDayNumbers(): array
     {
@@ -387,9 +403,13 @@ class ChecklistWeeklySubmission extends Model
             ->orderBy('sort_order')
             ->get();
 
+        // Filter rotasi bulanan: hanya task yang berlaku di minggu ke-berapa ini.
+        $weekOfMonth = $this->weekOfMonth();
+
         $rows = [];
         foreach ($categories as $cat) {
             foreach ($cat->tasks as $task) {
+                if (! $task->appliesToWeekOfMonth($weekOfMonth)) continue;
                 $rows[] = [
                     'id'                      => (string) Str::uuid(),
                     'submission_id'           => $this->id,

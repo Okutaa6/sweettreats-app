@@ -174,6 +174,9 @@
                                             <div class="cl-wtask {{ $task->is_active ? '' : 'is-off' }}">
                                                 <div class="cl-wtask__main">
                                                     <span class="cl-wtask__title">{{ $task->title }}</span>
+                                                    @if($task->weeksOfMonthArray())
+                                                        <span class="cl-wtask__tag" style="background:#EDE3FB;color:#6B3FA0;" title="Berlaku minggu ke-{{ implode(', ', $task->weeksOfMonthArray()) }} tiap bulan"><i class="fas fa-sync-alt"></i> {{ $task->weeksLabel() }}</span>
+                                                    @endif
                                                     @if($task->requires_photo)
                                                         <span class="cl-wtask__tag cl-wtask__tag--photo"><i class="fas fa-camera"></i> {{ $task->photo_before_after ? 'Foto before/after' : 'Perlu foto' }}</span>
                                                     @endif
@@ -335,6 +338,35 @@
         font-style: italic;
     }
     .cl-section__empty i { display: block; font-size: 22px; color: #C9B69A; margin-bottom: 6px; font-style: normal; }
+
+    /* ─── Field "Jadwal tugas" (rotasi mingguan) ─── */
+    .cl-wk__modes { display: flex; gap: 8px; flex-wrap: wrap; }
+    .cl-wk__mode { flex: 1; min-width: 160px; margin: 0; }
+    .cl-wk__mode > input { position: absolute; opacity: 0; width: 0; height: 0; }
+    .cl-wk__mode > span {
+        display: flex; flex-direction: column; gap: 2px;
+        border: 1.5px solid #E7D9C7; border-radius: 11px; padding: 10px 13px;
+        background: #FFFDFB; cursor: pointer; transition: border-color .12s, background .12s, box-shadow .12s;
+    }
+    .cl-wk__mode > span strong { font-size: 12.5px; font-weight: 700; color: #5C2E15; }
+    .cl-wk__mode > span small  { font-size: 10.5px; color: #9B8578; line-height: 1.3; }
+    .cl-wk__mode > input:checked + span { border-color: #9B5E2C; background: #FBF1E7; box-shadow: inset 0 0 0 1px #9B5E2C; }
+    .cl-wk__mode > input:focus-visible + span { outline: 2px solid #C98A4B; outline-offset: 1px; }
+
+    .cl-wk__weeks { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+    .cl-wk__weeks.is-hidden { display: none; }
+    .cl-wk__chip { margin: 0; }
+    .cl-wk__chip > input { position: absolute; opacity: 0; width: 0; height: 0; }
+    .cl-wk__chip > span {
+        display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+        min-width: 66px; padding: 8px 14px; border-radius: 22px;
+        border: 1.5px solid #E7D9C7; background: #FFFDFB;
+        font-size: 12px; font-weight: 700; color: #7A5B43; cursor: pointer;
+        transition: border-color .12s, background .12s, color .12s;
+    }
+    .cl-wk__chip > input:checked + span { border-color: #6B3FA0; background: #EDE3FB; color: #6B3FA0; }
+    .cl-wk__chip > input:checked + span::before { content: "\f00c"; font-family: "Font Awesome 5 Free"; font-weight: 900; font-size: 10px; }
+    .cl-wk__chip > input:focus-visible + span { outline: 2px solid #B79AE0; outline-offset: 1px; }
 </style>
 
 <script>
@@ -430,6 +462,7 @@
                     </select>
                     <small class="text-muted" style="font-size:11.5px;">Tugas muncul di Form Mingguan pada hari ini (Senin klinik tutup).</small>
                 </div>
+                @include('crud.checklist.setup._weeks_of_month_field', ['selected' => []])
                 <div class="form-group">
                     <label>Deskripsi <small class="text-muted">(opsional)</small></label>
                     <textarea name="description" rows="2" maxlength="1000" class="form-control" placeholder="Detail / SOP singkat..."></textarea>
@@ -534,6 +567,7 @@
                             </select>
                             <small class="text-muted" style="font-size:11.5px;">Task ini hanya muncul di Form Mingguan pada hari yang dipilih.</small>
                         </div>
+                        @include('crud.checklist.setup._weeks_of_month_field', ['selected' => []])
                     @endif
                     <div class="form-group">
                         <label>Deskripsi <small class="text-muted">(opsional)</small></label>
@@ -589,6 +623,7 @@
                                     @endforeach
                                 </select>
                             </div>
+                            @include('crud.checklist.setup._weeks_of_month_field', ['selected' => $task->weeksOfMonthArray()])
                         @endif
                         <div class="form-group">
                             <label>Deskripsi</label>
@@ -861,6 +896,27 @@
         if (!parent || !ba) return;
         if (t === ba && ba.checked) parent.checked = true;
         if (t === parent && !parent.checked) ba.checked = false;
+    });
+})();
+</script>
+
+<script>
+// Jadwal tugas: tampilkan/sembunyikan chip "Minggu 1..5" mengikuti pilihan
+// "Sama tiap minggu" vs "Ganti tiap minggu".
+(function () {
+    document.addEventListener('change', function (e) {
+        var t = e.target;
+        if (!t || !t.classList || !t.classList.contains('cl-wk-mode')) return;
+        var wrap = t.closest('.cl-wk');
+        if (!wrap) return;
+        var weeks = wrap.querySelector('.cl-wk__weeks');
+        if (!weeks) return;
+        var specific = t.value === 'specific' && t.checked;
+        weeks.classList.toggle('is-hidden', !specific);
+        weeks.querySelectorAll('input[type=checkbox]').forEach(function (c) {
+            c.disabled = !specific;
+            if (!specific) c.checked = false;
+        });
     });
 })();
 </script>
