@@ -5,16 +5,20 @@
 > Teknis & coding dikerjakan di chat Claude; file ini adalah **potret proyek**:
 > apa yang sudah, sedang, dan akan dikerjakan, plus utang yang belum dibayar.
 >
-> **Terakhir diperbarui: 2026-08-05 sore — hari pertama absen HP selesai
-> dibereskan. Berurutan hari ini: batch "rapi-rapi pasca-launch" naik prod →
-> perbaikan akses (6 orang tak bisa absen, rantai persetujuan putus di Head
-> Marketing/Executive) → akar semua "menu hilang" ketemu (prod menyimpan 162
-> salinan berkas basi yang membajak `access:rebuild`, sudah disingkirkan) →
-> 9 orang kantor masuk ABG → absensi resmi dimulai 5 Agustus (4 Agustus
-> dinyatakan tak berlaku, 6 alpa palsu hilang) → kode "absen langsung terlihat"
-> naik prod → daftar WiFi Bintaro dirapikan 10 baris jadi 5.
-> Prod = `main` @ `6b6ed60`; keempat branch sejajar. Pengguna perlu
-> logout-login sekali supaya menu barunya muncul.**
+> **Terakhir diperbarui: 2026-08-06 malam — hari besar: gabungan Reza + fitur
+> absensi NAIK PROD (`e28f89b`).** Berurutan: push Reza (checklist+pettycash)
+> diaudit dua penelaah → 8 temuan parah menahan prod → Reza memperbaiki
+> semuanya dan lolos uji ulang → sementara itu fitur absensi dibangun terpisah
+> (Tukar Hari satu-pengajuan-dua-sisi, lembur datang-awal, jadwal fleksibel
+> per role — Anisa & Irma via "Fleksibel Operasional", gerbang absen hari
+> libur, alasan koreksi pasca-fingerprint, jenis pengajuan disaring per
+> aturan) → keduanya digabung nol konflik → naik prod, 40 halaman lintas
+> peran 200. Dua ranjau keamanan ditutup: `APP_DEBUG=true` di prod (halaman
+> error membocorkan isi .env) dan `APP_ENV=local` di prod (hampir menyalakan
+> tombol hapus-data-uang Reza yang defaultnya "local = boleh"). Tombol Reset
+> petty cash kini berdaftar-putih (mati kecuali dinyalakan) DAN empat
+> lubangnya dibereskan. Pelajaran tertulis: fitur destruktif = daftar-putih;
+> migrate dulu baru SQL.**
 > Kalau tanggal ini sudah jauh lewat,
 > minta chat teknis menyegarkan file ini sebelum dipakai mengambil keputusan.
 
@@ -30,9 +34,14 @@ checklist operasional, dan integrasi akunting (Accurate).
 **Lingkungan:**
 | Env | URL | Branch git | Keadaan |
 |---|---|---|---|
-| Prod | app.sweettreats.id | `main` (`6b6ed60`, 5 Agu) | GERBONG LIVE + batch rapi-rapi + fix akses menu (personal, Anisa/Irma, berkas basi disingkirkan) + absen langsung terlihat + WiFi Bintaro rapi |
-| Dev | dev.sweettreats.id | `feature/rapi-pasca-launch` (= main) | = main + data demo |
-| Lokal | 2 working tree (utama + worktree rop) | `feature/absensi` (pensiun) / `feature/rop` | — |
+| Prod | app.sweettreats.id | `main` (`e28f89b`, 6 Agu malam) | SEMUA live: gerbong + rapi-rapi + checklist/pettycash Reza (sudah diperbaiki pasca-audit) + Tukar Hari + lembur datang-awal + jadwal fleksibel per role. `APP_ENV=production`, debug mati, tombol Reset mati (daftar-putih) |
+| Dev | dev.sweettreats.id | `integrasi/dev-2026-08-06` (= main + docs) | = prod + data demo; tombol Reset MENYALA (alat bersih-bersih Reza) |
+| Lokal | worktree `sweettreats-rapi` | `integrasi/dev-2026-08-06` | branch kerja aktif |
+
+**Branch mati (jangan dilanjutkan)**: `checklist-pettycash` (digantikan
+`fixing-pettycash-checklist` yang di-squash Reza; berisi juga draf SQL
+`anisa_irma_fleksibel` yang SUDAH USANG — digantikan jadwal per role),
+`feature/rapi-pasca-launch` & `feature/rop` (isinya sudah di main).
 
 **Orang-orang:**
 - **Ekky** (= Muhamad Ikhsan, Head IT) — pemilik keputusan, bisa mengubah SOP.
@@ -50,24 +59,26 @@ checklist operasional, dan integrasi akunting (Accurate).
 - DB pakai SQL manual di `database/sql/` (bukan migration), KECUALI kerjaan
   Reza yang pakai migration — dua-duanya harus dijalankan saat deploy.
 
-## 2. FOKUS SEKARANG: stabilisasi prod pasca-gerbong (deploy SELESAI 2026-08-04)
+## 2. FOKUS SEKARANG: pemantauan pasca-rilis besar 2026-08-06
 
-> Gerbong SUDAH NAIK — lihat entri log-update 2026-08-04 tengah malam.
-> Sisa: cek cron hPanel `schedule:run`, setup divisi checklist role baru
-> (Reza), buat 14 akun karyawan sisanya via Pusat Akun, kabari kredensial
-> (Yovanka-Alif-Talitha email berubah), demo 2026-08-05 office+Bintaro.
+> **Semua yang direncanakan minggu ini sudah LIVE di prod** (`e28f89b`):
+> gerbong absensi, batch rapi-rapi, checklist+pettycash Reza (pasca-audit +
+> perbaikan), Tukar Hari, lembur datang-awal, jadwal fleksibel per role.
+> Verifikasi terakhir: 40 halaman lintas peran 200, log nol error, absensi
+> hari berjalan tetap jalan (11 bukti HP = 11 baris harian).
 >
-> **Batch "rapi-rapi pasca-launch" (ACC 2026-08-05): 4 item LIVE DI DEV**
-> — (1) sidebar absensi pintu tunggal "Kehadiran", (2) absen HP digerbang di
-> desktop, (3) persetujuan absensi 1 lapis + `absensi:selesaikan-l2`,
-> (4) sidebar marketing 3 kelompok + fix typo Referral. Sudah lewat audit
-> adversarial (1 bug SQL lintas-server difix sebelum naik) dan verifikasi
-> 41 halaman per peran — semua 200, log bersih.
-> **Dev berjalan di branch `feature/rapi-pasca-launch`** (= feature/rop + 4
-> item ini); penggabungan ke `feature/rop` belum dilakukan karena worktree-nya
-> dipakai chat lain. **Prod: menunggu Ekky, chat terpisah** — urutannya 2 SQL
-> → access:rebuild → absensi:selesaikan-l2 → cek role Executive ada
-> penghuninya. Detail: entri log-update 2026-08-05.
+> **Pantau beberapa hari ke depan**: (1) sapuan pagi 06:10 menghasilkan baris
+> yang benar utk 3 kelompok fleksibel baru (tanpa jadwal / Kantor / Operasional
+> — Anisa & Irma kini dinilai "masuk Minggu, libur Senin"); (2) pengajuan
+> Tukar Hari pertama dari orang sungguhan lolos ACC & kalendernya benar;
+> (3) form mingguan checklist lama yang di-backfill bisa di-ACC supervisor.
+>
+> **Utang lama yang masih hidup**: cek cron hPanel `schedule:run` · 14 akun
+> karyawan sisanya via Pusat Akun · node menu kembar lintas-seksi (analisis
+> ada, menunggu keputusan konsolidasi) · menu accurate-* di dev menunjuk route
+> yang tak ada (proyek Accurate pause) · `APP_DEBUG` dev masih true (wajar
+> untuk dev) · tombol Reset petty cash: kalau kelak mau dinyalakan di prod,
+> empat perbaikannya SUDAH terpasang — tinggal set `PETTY_CASH_RESET_ENABLED`.
 
 ### Arsip rencana (sudah terlaksana):
 
