@@ -324,7 +324,21 @@
                     form.querySelector('#jamFrom').value = d.jam_from;
                     form.querySelector('#jamTo').value = d.jam_to;
                     calcDur();
-                    note.textContent = 'Terisi dari mesin absen (pulang ' + d.scan_last + '). Cek & ganti kalau perlu.';
+                    // Sebutkan SISI mana yang diisikan. "Terisi dari mesin absen"
+                    // polos bikin orang mengira ini jam pulang, padahal bisa jadi
+                    // jam datang-awal — dan angkanya tetap boleh diubah.
+                    note.textContent = d.sisi === 'datang_awal'
+                        ? 'Terisi dari datang lebih awal (absen ' + d.jam_from + ', jadwal masuk ' + d.jam_to + '). Cek & ganti kalau perlu.'
+                        : 'Terisi dari pulang lebih lambat (absen pulang ' + d.scan_last + '). Cek & ganti kalau perlu.';
+                    // Hari yang punya dua-duanya: beri tahu, jangan diam-diam
+                    // memilihkan satu saja.
+                    if (d.opsi && d.opsi.datang_awal && d.opsi.pulang_lambat) {
+                        note.textContent += ' Hari ini juga ada sisi satunya ('
+                            + (d.sisi === 'datang_awal'
+                                ? 'pulang ' + d.opsi.pulang_lambat.jam_from + '–' + d.opsi.pulang_lambat.jam_to
+                                : 'datang ' + d.opsi.datang_awal.jam_from + '–' + d.opsi.datang_awal.jam_to)
+                            + ') — ajukan terpisah kalau dua-duanya lembur.';
+                    }
                 } else { note.textContent = d.reason || 'Tidak bisa ambil dari mesin absen.'; }
             })
             .catch(function () { note.textContent = 'Gagal ambil data absen.'; });

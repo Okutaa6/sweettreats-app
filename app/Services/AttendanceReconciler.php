@@ -140,18 +140,68 @@ class AttendanceReconciler
         if (!$rule || $rule->tipe === 'fleksibel') return null;   // office tak dinilai scan (§3.3)
 
         $rd = $ruleDays[$rule->id][$d->dayOfWeek] ?? null;
+
+        // ── Lembur DATANG-AWAL (keputusan Ekky 2026-08-05) ──
+        // Kasus nyata operasional: jadwal masuk 10:00, orangnya absen 08:00
+        // untuk persiapan. Dua jam itu kerja, dan selama ini sama sekali tak
+        // terbaca — mesin saran cuma mengenal sisi pulang.
+        //
+        // Patokannya jam_masuk_AWAL (batas paling pagi jadwal itu), bukan
+        // jam_masuk_akhir yang cuma ambang telat. Kalau memakai ambang telat,
+        // orang yang datang tepat waktu pun akan tampak lembur.
+        //
+        // Ini USULAN, bukan vonis: datang awal tak selalu berarti bekerja —
+        // bisa jadi menghindari macet atau menunggu. Yang memutuskan tetap
+        // manusia lewat form + persetujuan atasan.
+        $awal = null;
+        $mulaiJadwal = $rd->jam_masuk_awal ?? null;
+        if ($mulaiJadwal && ! ($rd->libur ?? false)) {
+            $first = $day['scans'][0];
+            $mulaiAt = Carbon::parse($date . ' ' . $mulaiJadwal);
+            // minimal 30 menit supaya datang 5 menit lebih pagi tak jadi tawaran
+            if ($first->toDateString() === $date && $first->lt($mulaiAt)
+                && $first->diffInMinutes($mulaiAt) >= 30) {
+                $awal = [
+                    'jam_from' => $first->format('H:i'),
+                    'jam_to'   => substr((string) $mulaiJadwal, 0, 5),
+                    'menit'    => $first->diffInMinutes($mulaiAt),
+                ];
+            }
+        }
+
+        // ── Lembur PULANG-LAMBAT (perilaku lama) ──
+        $lambat = null;
         $base = $rd->jam_lembur_mulai ?? $rd->jam_pulang ?? null;
-        if (!$base) return null;
-        $baseAt = Carbon::parse($date . ' ' . $base);
-        if (!$last->gt($baseAt)) return null;                     // scan tak lewat baseline → tak ada lembur
-        // scan pulang lintas tengah malam (di-pushback dari hari berikut): field jam
-        // (time-only) tak bisa mewakili → biar diisi manual, jangan prefill invalid.
-        if ($last->toDateString() !== $date) return null;
+        if ($base) {
+            $baseAt = Carbon::parse($date . ' ' . $base);
+            // scan pulang lintas tengah malam (di-pushback dari hari berikut):
+            // field jam (time-only) tak bisa mewakili → biar diisi manual.
+            if ($last->gt($baseAt) && $last->toDateString() === $date) {
+                $lambat = [
+                    'jam_from' => substr($base, 0, 5),
+                    'jam_to'   => $last->format('H:i'),
+                    'menit'    => $baseAt->diffInMinutes($last),
+                ];
+            }
+        }
+
+        if (! $awal && ! $lambat) return null;
+
+        // Yang dikembalikan sebagai isian utama: yang paling lama. Keduanya
+        // tetap dikirim supaya layar bisa menawarkan pilihan kalau hari itu
+        // memang datang lebih awal DAN pulang lebih lambat.
+        $utama = $lambat;
+        if ($awal && (! $lambat || $awal['menit'] > $lambat['menit'])) $utama = $awal;
 
         return [
-            'jam_from'  => substr($base, 0, 5),
-            'jam_to'    => $last->format('H:i'),
+            'jam_from'  => $utama['jam_from'],
+            'jam_to'    => $utama['jam_to'],
             'scan_last' => $last->format('H:i'),
+            'sisi'      => $utama === $awal ? 'datang_awal' : 'pulang_lambat',
+            'opsi'      => array_filter([
+                'datang_awal'   => $awal,
+                'pulang_lambat' => $lambat,
+            ]),
         ];
     }
 
