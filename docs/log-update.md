@@ -7,6 +7,56 @@
 
 ---
 
+## 2026-08-06 sore — Perbaikan Reza diperiksa & DIGABUNG; satu default berbahaya dicegat
+
+Reza mengirim perbaikan atas 8 temuan audit — di branch BARU
+`fixing-pettycash-checklist` (dicabang dari `main`, semuanya disquash jadi satu
+commit), bukan melanjutkan branch lama. Sudah diperiksa, digabung dengan fitur
+absensi, dan **dev sekarang menjalankan keduanya** (`integrasi/dev-2026-08-06`).
+Cadangan `~/backups/dev_pre_integrasi_2026-08-06.sql.gz`.
+
+**Perbaikannya bagus — dan saya uji perilakunya, bukan cuma baca kodenya:**
+- **Form mingguan lama tak lagi buntu** — backfill (migration + SQL) mengisi
+  baris per-hari untuk submission lama; diperiksa: nol submission
+  submitted/approved yang tanpa baris, dan baris approved membawa reviewer-nya.
+- **Minggu yang sudah disetujui tak turun jadi draft** saat cuti backdate
+  di-ACC — diuji sungguhan: status tetap approved, jejak reviewer utuh.
+- **Mencabut pengecualian tak lagi mengunci minggu selamanya** — diuji: cuti
+  sepekan di-ACC memasang 6 pengecualian, ditolak → tercabut semua, dan
+  minggunya bisa diisi lagi.
+- **Pengecualian MANUAL karyawan tak lagi ditimpa** jadi bawaan sistem.
+- **Kartu antrian menampilkan nama yang diketik DAN nama akun**, jadi identitas
+  asli tak bisa tertutupi teks bebas.
+- **Lima temuan tombol Reset ditutup lewat gerbang fitur** — rutenya 404 kalau
+  gerbangnya mati. Rancangan yang tepat.
+
+**⚠️ SATU HAL SAYA CEGAT — dan Reza tak mungkin tahu.** Gerbang itu default-nya
+disimpulkan dari `APP_ENV === 'local'`, artinya "kalau local berarti dev, jadi
+boleh". **Produksi kita berjalan dengan `APP_ENV=local`** (temuan kemarin, belum
+dibereskan karena mengubahnya bisa menggeser hal lain). Jadi default itu justru
+akan **MENYALAKAN penghapusan permanen data uang di produksi** — persis
+kebalikan dari maksudnya. Diubah jadi daftar-putih: mati kecuali dinyalakan
+eksplisit lewat `.env`. Dev dinyalakan (`PETTY_CASH_RESET_ENABLED=true`) supaya
+alat bersih-bersih Reza tetap ada; prod tak perlu apa-apa karena default-nya
+sudah aman. Pelajarannya: **fitur destruktif pakai daftar-putih, bukan
+daftar-hitam** — lingkungan yang salah label lalu jadi aman, bukan terbuka.
+
+**Masih menggantung (aman karena di balik gerbang, tapi belum beres):** tombol
+reset tetap tanpa cek periode-tertutup, tanpa hitung-ulang saldo bulan
+berikutnya, tanpa jejak audit, dan "Reset Riwayat Review" masih menghapus
+seluruh cabang sepanjang masa. Kalau kelak gerbangnya dinyalakan di prod, empat
+itu harus dibereskan dulu.
+
+**Verifikasi gabungan di dev**: 42 halaman lintas 8 peran semuanya 200; uji
+absensi 30 pemeriksaan lulus; uji perbaikan Reza 9 pemeriksaan lulus; log nol
+error. Merge tanpa satu pun konflik — dua perubahan di berkas yang sama
+(`submit()` dan halaman Audit Trail) menyatu utuh.
+
+**Yang perlu diputuskan**: `APP_ENV=local` di produksi sebaiknya dibetulkan
+jadi `production`. Sekarang tak ada kode yang bercabang atasnya selain config
+bawaan, tapi ini ranjau — pustaka mana pun yang menganggap "local = boleh
+macam-macam" akan salah kaprah, dan kejadian hari ini contoh pertamanya.
+
 ## 2026-08-06 — Tukar Hari, lembur datang-awal, jadwal per role — LIVE DI DEV
 
 Lima keputusan produk dari diskusi 5–6 Agustus dibangun sekaligus, di branch
