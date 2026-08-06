@@ -365,8 +365,85 @@ class AturanKerjaController extends Controller
         AttRuleLog::catat('penugasan.default-role', $role->nama, ['dari' => $lama, 'ke' => $baru]);
 
         return redirect()->route('absensi.aturan', ['tab' => 'penugasan'])
-            ->with('success', 'Default role "' . $role->nama . '": ' . $baru .
-                '. Hanya berlaku untuk AKUN BARU — orang yang sudah ada tidak berubah.');
+            ->with('success', 'Aturan role "' . $role->nama . '": ' . $baru .
+                '. Berlaku untuk akun baru. Untuk karyawan yang sudah ada, tekan "Terapkan".');
+    }
+
+    /**
+     * Terapkan aturan default sebuah ROLE ke karyawan aktif yang memegang role
+     * itu — mulai HARI INI.
+     *
+     * Ada supaya pemetaan aturan kerja bisa diurus lewat ROLE dan diatur dari
+     * halaman ini (permintaan Ekky 2026-08-06), bukan lewat daftar nama orang
+     * yang dikunci di dalam SQL/kode. Menaruh nama di kode berarti tiap
+     * perubahan orang menuntut deploy, dan cepat atau lambat ada yang lupa.
+     *
+     * Tiga penjaga, semuanya sengaja:
+     *   • MULAI HARI INI, tak pernah mundur — masa lalu sudah ternilai dan
+     *     dipakai hitungan gaji; koreksi masa lalu jalurnya pengajuan koreksi.
+     *   • Orang yang sudah punya penugasan mulai hari ini/ke depan DILEWATI,
+     *     supaya rencana yang sudah diketik manual tak tertimpa diam-diam.
+     *   • Yang aturannya sudah sesuai tidak disentuh — tak perlu baris baru
+     *     yang isinya sama.
+     * Yang dilewati DILAPORKAN, tidak dibuang diam-diam.
+     */
+    public function terapkanDefaultRole(Request $request)
+    {
+        $this->guard();
+
+        $data = $request->validate(['group_id' => 'required|exists:group_path,id']);
+
+        $role = DB::table('group_path')->where('id', $data['group_id'])
+            ->first(['id', 'nama', 'att_default_rule_id']);
+
+        if (! $role->att_default_rule_id) {
+            return back()->with('error',
+                'Role "' . $role->nama . '" belum punya aturan default — pilih dulu lalu Simpan.');
+        }
+
+        $rule  = AttWorkRule::findOrFail($role->att_default_rule_id);
+        $hari  = now()->toDateString();
+        $ubah  = 0;
+        $lewat = [];
+        $sudah = 0;
+
+        DB::transaction(function () use ($role, $rule, $hari, &$ubah, &$lewat, &$sudah) {
+            $orang = DB::table('users')->where('group_id', $role->id)->where('status', 1)
+                ->get(['id', 'nama']);
+
+            foreach ($orang as $u) {
+                $rows = AttUserRule::where('user_id', $u->id)
+                    ->orderByDesc('effective_from')->lockForUpdate()->get();
+
+                if ($rows->first() && $rows->first()->effective_from >= $hari) {
+                    $lewat[] = $u->nama;                       // ada rencana ke depan
+                    continue;
+                }
+                if ($rows->first() && (int) $rows->first()->rule_id === (int) $rule->id) {
+                    $sudah++;                                   // sudah sesuai
+                    continue;
+                }
+
+                AttUserRule::create([
+                    'user_id'        => $u->id,
+                    'rule_id'        => $rule->id,
+                    'effective_from' => $hari,
+                ]);
+                $ubah++;
+            }
+
+            AttRuleLog::catat('penugasan.terapkan-role', $role->nama, [
+                'aturan' => $rule->nama, 'diubah' => $ubah, 'sudah_sesuai' => $sudah,
+                'dilewati' => $lewat,
+            ]);
+        });
+
+        $pesan = $ubah . ' karyawan ber-role "' . $role->nama . '" kini memakai aturan "'
+            . $rule->nama . '" mulai ' . Carbon::parse($hari)->translatedFormat('d M Y') . '.';
+        if ($sudah)  $pesan .= ' ' . $sudah . ' orang sudah sesuai sebelumnya.';
+        if ($lewat)  $pesan .= ' Dilewati karena sudah punya penugasan terjadwal: ' . implode(', ', $lewat) . '.';
+
+        return redirect()->route('absensi.aturan', ['tab' => 'penugasan'])->with('success', $pesan);
     }
 
     // ═════════════════════════ Tab 3 — Kalender Libur ═════════════════════════

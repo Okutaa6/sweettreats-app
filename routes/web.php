@@ -375,6 +375,7 @@ Route::middleware([AuthGuard::class])->group(function () {
     Route::post('absensi/aturan/rule/{id}/hapus',   [AturanKerjaController::class, 'deleteRule'])->name('absensi.aturan.rule.hapus');
     Route::post('absensi/aturan/penugasan',         [AturanKerjaController::class, 'assign'])->name('absensi.aturan.penugasan');
     Route::post('absensi/aturan/default-role',      [AturanKerjaController::class, 'defaultRole'])->name('absensi.aturan.default-role');
+    Route::post('absensi/aturan/default-role/terapkan', [AturanKerjaController::class, 'terapkanDefaultRole'])->name('absensi.aturan.default-role.terapkan');
     Route::post('absensi/aturan/libur',             [AturanKerjaController::class, 'storeException'])->name('absensi.aturan.libur.buat');
     Route::post('absensi/aturan/libur/{id}/hapus',  [AturanKerjaController::class, 'deleteException'])->name('absensi.aturan.libur.hapus');
 
