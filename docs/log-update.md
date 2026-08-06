@@ -7,6 +7,71 @@
 
 ---
 
+## 2026-08-06 — Tukar Hari, lembur datang-awal, jadwal per role — LIVE DI DEV
+
+Lima keputusan produk dari diskusi 5–6 Agustus dibangun sekaligus, di branch
+`feature/absensi-tukar-hari` yang **dipotong dari `main` dan bersih dari
+kerjaan Reza** — jadi bisa naik prod sendiri tanpa menunggu perbaikan Reza.
+Dev untuk sementara diambil alih (izin Ekky); cadangan
+`~/backups/dev_pre_tukar_2026-08-06.sql.gz`, dev sebelumnya di
+`checklist-pettycash` @ dbbe44a kalau perlu dikembalikan.
+
+**1. Tukar Hari — satu pengajuan, dua sisi.** "Saya masuk 9+10, gantinya libur
+12+13", satu kali ACC. Bukan dua form terpisah: kalau kedua sisi bisa diputus
+sendiri-sendiri, orang bisa dapat libur pengganti tanpa hari masuknya — persis
+lubang yang bikin fitur ini ada. Tanggalnya DAFTAR, bukan rentang, supaya tukar
+9+10 ↔ 12+13 tidak menyeret tanggal 11 yang tak terlibat (terbukti di uji).
+Dijaga: jumlah kedua sisi harus sama, satu tanggal tak boleh di dua sisi, dan
+semuanya satu periode gaji — jatuh ke bulan kalender kalau Finance belum
+membuat periodenya, supaya fiturnya tak macet menunggu pekerjaan orang lain.
+
+**2. Jenis pengajuan disaring per aturan kerja.** Tukar Hari & Kerja dari Rumah
+hanya untuk yang fleksibel. Disaring di layar DAN ditolak di server lewat
+fungsi yang sama — tombol yang disembunyikan tetap bisa dikirim lewat form
+buatan sendiri.
+
+**3. Jadwal hari lewat ROLE, bukan nama orang** (permintaan Ekky). Kuncinya
+memisahkan dua hal: `tipe` aturan menentukan CARA MENILAI (fleksibel = tak
+pernah alpa, boleh Tukar Hari & WFH), konfigurasi hari menentukan HARI MANA
+yang libur. Jadi sekarang ada tiga aturan yang sama-sama fleksibel:
+- **Fleksibel** — tanpa jadwal (Executive: Dani, Hari, Robi)
+- **Fleksibel Kantor** — libur Minggu + Senin (Head IT, IT, Finance, Head
+  Marketing, Creative, Content Creator)
+- **Fleksibel Operasional** — masuk Minggu, libur Senin (Supervisor,
+  Coordinator Dentist → Anisa & Irma)
+Tidak ada satu pun `if nama == 'Anisa'`. Halaman Aturan Kerja juga dapat tombol
+**"Terapkan ke karyawan yang sudah ada"** — sebelumnya aturan per role hanya
+berlaku untuk AKUN BARU, dan itulah yang selama ini memaksa daftar nama muncul
+di SQL. Tombolnya terpisah dari Simpan karena mengubah aturan kerja orang yang
+sedang berjalan itu keputusan, bukan efek samping.
+
+**4. Lembur datang-awal akhirnya terbaca.** Jadwal masuk 10:00 tapi absen 08:00
+untuk persiapan — dua jam itu kerja, dan selama ini mesin saran cuma mengenal
+sisi pulang. Patokannya jam masuk paling awal, bukan ambang telat (kalau pakai
+ambang telat, orang tepat waktu pun tampak lembur). Ambang 30 menit. Hari yang
+punya dua sisi mengisikan yang terlama tapi menyebut sisi satunya — memilihkan
+diam-diam berarti separuh lemburnya hilang. Tetap usulan: yang memutuskan
+manusia lewat form + ACC atasan.
+
+**5. Gerbang absen di hari libur + kalender tak lagi kosong.** Absen di hari
+libur terjadwal memunculkan pertanyaan "dalam rangka apa — Tukar hari atau
+Lembur", ditanya SEKARANG selagi orangnya paling tahu alasannya. Absennya tak
+pernah ditolak. Hari libur terjadwal orang fleksibel kini menghasilkan baris
+`libur` alih-alih kosong — kosong itu ambigu, tak bisa dibedakan dari "belum
+ada datanya", padahal tukar hari perlu terlihat kontras dengan libur biasa.
+
+**Alasan koreksi absen diperbarui** ke kosakata pasca-fingerprint, termasuk
+"Salah pilih cabang" yang sekaligus jadi isyarat bagi SPV bahwa pendaftaran
+WiFi cabang itu belum beres.
+
+**Verifikasi dev**: 38 halaman lintas 8 peran semuanya 200, log bersih. Tukar
+Hari diuji 7 skenario lewat controller (pintu yang dipakai orang, bukan fungsi
+di baliknya — pelajaran dari bug Carbon kemarin); lembur 4 skenario; gerbang &
+kalender diuji untuk empat kelompok aturan. Tombol "Terapkan" idempoten.
+
+**Belum naik prod.** Butuh 2 SQL (`2026_08_06_tukar_hari.sql` — **wajib mysql
+CLI karena DELIMITER** — dan `2026_08_06_jadwal_fleksibel.sql`).
+
 ## 2026-08-05 sore — Kode absensi NAIK PROD + daftar WiFi Bintaro dirapikan
 
 Menutup dua utang yang masih menggantung dari entri di bawah.
