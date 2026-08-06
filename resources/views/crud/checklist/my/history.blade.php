@@ -125,6 +125,21 @@
         to   { opacity: 1; transform: translateY(0); }
     }
 
+    /* ── Mobile: head kartu jadi 2 baris — tanggal + pill status + chevron di
+       baris atas, bar progres full-width di bawah. Sebelumnya 1 baris rata
+       kesamping bikin pill status ("Menunggu Approval") kepotong overflow. ── */
+    @media (max-width: 560px) {
+        .cl-hist-card__head {
+            flex-wrap: wrap;
+            gap: 7px 10px;
+            padding: 12px 14px;
+        }
+        .cl-hist-card__date { width: auto; flex: 1 1 auto; order: 1; }
+        .cl-hist-card__pill { order: 2; }
+        .cl-hist-card__chev { order: 3; }
+        .cl-hist-card__body { order: 4; flex: 1 1 100%; min-width: 0; }
+    }
+
     /* Catatan supervisor inline */
     .cl-hist-note {
         background: #FFFFFF;

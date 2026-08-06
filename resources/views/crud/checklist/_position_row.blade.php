@@ -29,6 +29,17 @@
     </td>
     <td style="color:var(--cl-muted); font-size:12.5px;">
         {{ $row->branch?->name ?? '—' }}
+        @if(isset($row->rolls) && $row->rolls->count())
+            @foreach($row->rolls as $roll)
+                <div style="margin-top:4px;">
+                    <span class="st-pill st-pill--warning" title="Penempatan sementara (rolling)">
+                        <i class="fas fa-people-arrows" style="font-size:9px;"></i>
+                        {{ $roll->branch?->name ?? $roll->raw_branch_id }}
+                        <span style="opacity:.8;">s/d {{ optional($roll->effective_to)->translatedFormat('d M') }}</span>
+                    </span>
+                </div>
+            @endforeach
+        @endif
     </td>
     <td>
         <form method="POST" action="{{ route('checklist.positions.assign') }}"

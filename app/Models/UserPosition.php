@@ -21,8 +21,8 @@ class UserPosition extends Model
     protected $keyType = 'string';
 
     protected $fillable = [
-        'id', 'user_id', 'division_id', 'raw_branch_id', 'is_primary',
-        'effective_from', 'effective_to', 'confirmed_at', 'confirmed_by',
+        'id', 'user_id', 'division_id', 'raw_branch_id', 'is_primary', 'kind',
+        'effective_from', 'effective_to', 'confirmed_at', 'confirmed_by', 'note',
         'created_at', 'updated_at',
     ];
 
@@ -65,7 +65,15 @@ class UserPosition extends Model
             })
             ->where(function ($q2) use ($d) {
                 $q2->whereNull('effective_from')->orWhere('effective_from', '<=', $d);
-            });
+            })
+            // Rolling (penugasan sementara) MENANG atas home selama window-nya,
+            // supaya cabang efektif = cabang rolling. Begitu effective_to lewat,
+            // row rolling gugur dari filter tanggal di atas → home menang lagi
+            // (auto-revert tanpa tulis apa pun). Urutan: rolling dulu, lalu row
+            // bounded dulu, lalu effective_from terbaru → ->first() deterministik.
+            ->orderByRaw("CASE WHEN kind = 'rolling' THEN 0 ELSE 1 END")
+            ->orderByRaw("CASE WHEN effective_to IS NULL THEN 1 ELSE 0 END")
+            ->orderByDesc('effective_from');
     }
 
     /**
@@ -75,6 +83,7 @@ class UserPosition extends Model
     public function scopePending($q)
     {
         return $q->where('is_primary', 1)
+            ->where('kind', 'home')
             ->whereNull('confirmed_at')
             ->whereNull('effective_to');
     }
@@ -99,14 +108,19 @@ class UserPosition extends Model
         // tidak cron mark-missed terus mencetak "Tidak Diisi" di divisi lamanya.
         if (! $division) {
             static::query()->activeOn(Carbon::today())->where('user_id', $user->id)
+                ->where('kind', 'home')
                 ->update(['effective_to' => Carbon::today()->subDay(), 'updated_at' => now()]);
             return null;
         }
 
         $today = Carbon::today();
 
-        // Posisi aktif saat ini. Kalau sudah identik → tidak ada perubahan.
-        $current = static::query()->activeOn($today)->where('user_id', $user->id)->first();
+        // Posisi ASAL (home) aktif saat ini — syncFromUser hanya mengurus row home,
+        // TIDAK boleh membaca/menutup row rolling (penugasan sementara punya alur
+        // sendiri & harus tetap utuh saat cabang home diubah). Kalau sudah identik
+        // → tidak ada perubahan.
+        $current = static::query()->activeOn($today)->where('user_id', $user->id)
+            ->where('kind', 'home')->first();
         if ($current
             && $current->division_id   === $division->id
             && $current->raw_branch_id === $user->raw_branch_id) {
@@ -126,6 +140,7 @@ class UserPosition extends Model
             'division_id'    => $division->id,
             'raw_branch_id'  => $user->raw_branch_id,
             'is_primary'     => 1,
+            'kind'           => 'home',
             'effective_from' => $today,
             'effective_to'   => null,
             'confirmed_at'   => now(),

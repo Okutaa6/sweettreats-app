@@ -19,7 +19,7 @@ class ChecklistWeeklyDayExcuse extends Model
     protected $keyType = 'string';
 
     protected $fillable = [
-        'id', 'submission_id', 'day_of_week', 'reason',
+        'id', 'submission_id', 'day_of_week', 'reason', 'source', 'ref_id',
         'created_at', 'updated_at',
     ];
 

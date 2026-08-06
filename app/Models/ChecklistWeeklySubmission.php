@@ -4,6 +4,9 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 /**
  * Header pengisian checklist mingguan — 1 row per (user, ISO week).
@@ -83,6 +86,127 @@ class ChecklistWeeklySubmission extends Model
     public function isDayExcused(int $iso): bool
     {
         return in_array($iso, $this->excusedDayNumbers(), true);
+    }
+
+    /** Row submit hari tertentu (dari relasi), null bila belum dikirim. */
+    public function daySubmit(int $iso): ?ChecklistWeeklyDaySubmit
+    {
+        return $this->daySubmits->firstWhere('day_of_week', $iso);
+    }
+
+    /** Status review hari: pending|approved|rejected, atau null bila belum dikirim. */
+    public function dayReviewStatus(int $iso): ?string
+    {
+        return optional($this->daySubmit($iso))->review_status;
+    }
+
+    /**
+     * Nomor hari (ISO 2–7) yang "terkirim & tidak ditolak" (pending/approved).
+     * Hari yang di-reject dianggap BELUM terkirim (dibuka lagi untuk diperbaiki),
+     * jadi tak dihitung di sini — supaya lock & roll-up status benar.
+     */
+    public function submittedDayNumbers(): array
+    {
+        return $this->daySubmits
+            ->filter(fn ($ds) => $ds->review_status !== ChecklistWeeklyDaySubmit::REVIEW_REJECTED)
+            ->pluck('day_of_week')->map(fn ($d) => (int) $d)->all();
+    }
+
+    public function isDaySubmitted(int $iso): bool
+    {
+        return in_array($iso, $this->submittedDayNumbers(), true);
+    }
+
+    /**
+     * Hari operasional (ISO 2–7) yang "Tidak Diisi": punya tugas, TIDAK
+     * dikecualikan, TIDAK pernah dikirim (tak ada row day_submit sama sekali),
+     * dan tanggalnya SUDAH LEWAT (< hari ini). Menutup celah minggu setengah
+     * jalan — mis. kirim Selasa lalu abaikan sisanya — yang tak pernah dilaporkan
+     * cron (partial di-skip). Dihitung on-the-fly (bukan disimpan) supaya otomatis
+     * hilang bila karyawan mengisinya belakangan. Butuh relasi items/dayExcuses/
+     * daySubmits ter-load.
+     */
+    public function missedDayNumbers(?Carbon $today = null): array
+    {
+        $today   = $today ?: Carbon::today();
+        $attempted = $this->daySubmits->pluck('day_of_week')->map(fn ($d) => (int) $d)->all();
+        $missed  = [];
+        foreach ($this->activeDayNumbers() as $iso) { // sudah mengecualikan hari excused
+            if (in_array($iso, $attempted, true)) continue;
+            $dayDate = $this->week_start_date->copy()->addDays($iso - 1);
+            if ($dayDate->gte($today)) continue; // hari ini/mendatang belum "tidak diisi"
+            $missed[] = $iso;
+        }
+        return $missed;
+    }
+
+    /** Kunci sisi karyawan: hari terkunci bila terkirim & belum ditolak. */
+    public function isDayLocked(int $iso): bool
+    {
+        return $this->isDaySubmitted($iso);
+    }
+
+    private function dayNumbersByReview(string $reviewStatus): array
+    {
+        return $this->daySubmits
+            ->filter(fn ($ds) => $ds->review_status === $reviewStatus)
+            ->pluck('day_of_week')->map(fn ($d) => (int) $d)->all();
+    }
+
+    /** Hari aktif yang menunggu review supervisor. */
+    public function pendingReviewDayNumbers(): array
+    {
+        return array_values(array_intersect(
+            $this->activeDayNumbers(),
+            $this->dayNumbersByReview(ChecklistWeeklyDaySubmit::REVIEW_PENDING)
+        ));
+    }
+
+    public function approvedDayNumbers(): array
+    {
+        return $this->dayNumbersByReview(ChecklistWeeklyDaySubmit::REVIEW_APPROVED);
+    }
+
+    public function rejectedDayNumbers(): array
+    {
+        return $this->dayNumbersByReview(ChecklistWeeklyDaySubmit::REVIEW_REJECTED);
+    }
+
+    /**
+     * Hari (ISO 2–7) yang WAJIB disubmit: punya minimal 1 item DAN tidak
+     * dikecualikan penuh. Hari kosong / dikecualikan tak perlu tombol submit.
+     */
+    public function activeDayNumbers(): array
+    {
+        $excused = $this->excusedDayNumbers();
+        return $this->items
+            ->pluck('day_of_week')
+            ->map(fn ($d) => (int) $d)
+            ->unique()
+            ->reject(fn ($iso) => in_array($iso, $excused, true))
+            ->values()
+            ->all();
+    }
+
+    /**
+     * true bila setiap hari ber-tugas sudah "beres di level hari": submitted
+     * ATAU dikecualikan. Dipakai untuk auto-finalize header ke 'submitted'.
+     * (Termasuk kasus seluruh minggu dikecualikan — semua hari excused.)
+     */
+    public function allDaysAccountedFor(): bool
+    {
+        $daysWithItems = $this->items
+            ->pluck('day_of_week')->map(fn ($d) => (int) $d)->unique()->values()->all();
+        if (count($daysWithItems) === 0) return false; // tak ada tugas sama sekali
+
+        $excused   = $this->excusedDayNumbers();
+        $submitted = $this->submittedDayNumbers();
+        foreach ($daysWithItems as $iso) {
+            if (! in_array($iso, $excused, true) && ! in_array($iso, $submitted, true)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**
@@ -165,5 +289,128 @@ class ChecklistWeeklySubmission extends Model
     {
         return $this->hasMany(ChecklistWeeklyDayExcuse::class, 'submission_id', 'id')
             ->orderBy('day_of_week');
+    }
+
+    public function daySubmits()
+    {
+        return $this->hasMany(ChecklistWeeklyDaySubmit::class, 'submission_id', 'id')
+            ->orderBy('day_of_week');
+    }
+
+    /**
+     * Turunkan status header dari kumpulan status review PER-HARI (roll-up).
+     * Aturan (di antara hari AKTIF = punya item & tak dikecualikan):
+     *   - ada hari rejected            → header 'rejected' (editable, karyawan perbaiki hari itu)
+     *   - belum semua hari terkirim    → header 'draft'    (masih diisi)
+     *   - semua hari sudah approved     → header 'approved' (final)
+     *   - selainnya (semua terkirim)    → header 'submitted' (sebagian masih pending review)
+     * Tidak menulis audit sendiri — aksi per-hari (submit/approve/reject) yang mengaudit.
+     * Lewati jalur legacy whole-week 'excused'/'missed'.
+     *
+     * Catatan: relasi items/dayExcuses/daySubmits harus fresh; pemanggil sebaiknya
+     * $sub->load(['items','dayExcuses','daySubmits']) dulu sesudah mengubah data hari.
+     */
+    public function recomputeStatus(): void
+    {
+        if (in_array($this->status, [self::STATUS_EXCUSED, self::STATUS_MISSED], true)) return;
+
+        $target = $this->deriveStatus();
+        if ($target === null) return;
+
+        $total = $this->items()->count();
+        $done  = $this->items()->where('is_done', 1)->count();
+        $attrs = ['total_tasks' => $total, 'done_tasks' => $done, 'updated_at' => now()];
+
+        if ($target !== $this->status) {
+            $attrs['status'] = $target;
+            if (in_array($target, [self::STATUS_SUBMITTED, self::STATUS_APPROVED], true) && ! $this->submitted_at) {
+                $attrs['submitted_at'] = now();
+            }
+            if ($target === self::STATUS_APPROVED) {
+                $attrs['reviewed_at'] = now();
+            }
+            if (in_array($target, [self::STATUS_DRAFT, self::STATUS_REJECTED], true)) {
+                // Kembali editable — bersihkan jejak review header (detail ada per-hari).
+                $attrs['reviewed_at']      = null;
+                $attrs['reviewer_user_id'] = null;
+            }
+        }
+
+        $this->update($attrs);
+    }
+
+    /** Status header yang seharusnya berdasarkan state hari. null = tak perlu ubah. */
+    private function deriveStatus(): ?string
+    {
+        $active = $this->activeDayNumbers();
+
+        // Tak ada hari aktif: entah tak ada tugas, atau semua hari dikecualikan.
+        if (count($active) === 0) {
+            $hasItems = $this->items->pluck('day_of_week')->unique()->isNotEmpty();
+            return $hasItems ? self::STATUS_SUBMITTED : self::STATUS_DRAFT;
+        }
+
+        $submitted = $this->submittedDayNumbers(); // pending/approved (bukan rejected)
+        $approved  = $this->approvedDayNumbers();
+        $rejected  = $this->rejectedDayNumbers();
+
+        if (count(array_intersect($active, $rejected)) > 0) return self::STATUS_REJECTED;
+        if (count(array_diff($active, $submitted)) > 0)     return self::STATUS_DRAFT;
+        if (count(array_diff($active, $approved)) === 0)    return self::STATUS_APPROVED;
+        return self::STATUS_SUBMITTED;
+    }
+
+    /**
+     * Bootstrap item mingguan dari katalog aktif (kategori cadence=weekly + task
+     * ber-day_of_week 2..7) untuk divisi + cabang tsb. No-op kalau submission
+     * sudah punya item. Satu sumber logika katalog — dipakai MyChecklistController
+     * (form karyawan) & ChecklistExcuseService (auto-excuse cuti/izin).
+     */
+    public function bootstrapItems(string $divisionId, string $branchId): void
+    {
+        if ($this->items()->count() > 0) return;
+
+        $categories = ChecklistCategory::query()
+            ->where('division_id', $divisionId)
+            ->whereNull('deleted_at')
+            ->where('is_active', 1)
+            ->where('cadence', ChecklistCategory::CADENCE_WEEKLY)
+            ->where(function ($q) use ($branchId) {
+                $q->whereNull('raw_branch_id')->orWhere('raw_branch_id', $branchId);
+            })
+            ->with(['tasks' => function ($q) {
+                $q->whereNull('deleted_at')->where('is_active', 1)
+                  ->whereNotNull('day_of_week')
+                  ->whereIn('day_of_week', [2, 3, 4, 5, 6, 7])
+                  ->orderBy('day_of_week')->orderBy('sort_order');
+            }])
+            ->orderBy('sort_order')
+            ->get();
+
+        $rows = [];
+        foreach ($categories as $cat) {
+            foreach ($cat->tasks as $task) {
+                $rows[] = [
+                    'id'                      => (string) Str::uuid(),
+                    'submission_id'           => $this->id,
+                    'task_id'                 => $task->id,
+                    'category_title_snapshot' => $cat->name,
+                    'task_title_snapshot'     => $task->title,
+                    'category_sort_order'     => (int) $cat->sort_order,
+                    'task_sort_order'         => (int) $task->sort_order,
+                    'day_of_week'             => (int) $task->day_of_week,
+                    'is_done'                 => 0,
+                    'note'                    => null,
+                    'requires_photo'          => (int) $task->requires_photo,
+                    'photo_before_after'      => (int) $task->photo_before_after,
+                    'photo_path'              => null,
+                    'done_at'                 => null,
+                    'created_at'              => now(),
+                ];
+            }
+        }
+        if ($rows) DB::table('sys_checklist_weekly_submission_item')->insert($rows);
+
+        $this->update(['total_tasks' => count($rows), 'updated_at' => now()]);
     }
 }

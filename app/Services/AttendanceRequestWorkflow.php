@@ -165,6 +165,7 @@ class AttendanceRequestWorkflow
             $req->update(['status' => 'approved']);
             $this->potongJatahCuti($req);
             $this->recalcAttDay($req);
+            $this->terapkanPengecualianChecklist($req);
             return $req;
         }
         $req->update(['status' => 'pending_l1']);
@@ -200,6 +201,9 @@ class AttendanceRequestWorkflow
 
         if ($action === 'reject') {
             $req->update(['status' => 'rejected']);
+            // Kalau pengajuan ini sempat approved & sudah bikin excuse sistem,
+            // cabut (no-op kalau belum ada). Aman dipanggil dari reject pending.
+            $this->cabutPengecualianChecklist($req);
             $this->notifyRequester($req, 'ditolak', $approverUserId);
             return $req;
         }
@@ -212,6 +216,7 @@ class AttendanceRequestWorkflow
             $req->update(['status' => 'approved']);
             $this->potongJatahCuti($req);
             $this->recalcAttDay($req);
+            $this->terapkanPengecualianChecklist($req);
             $this->notifyRequester($req, 'disetujui', $approverUserId);
         }
         return $req;
@@ -227,6 +232,31 @@ class AttendanceRequestWorkflow
     {
         try {
             app(\App\Services\CutiService::class)->potongDariPengajuan($req);
+        } catch (\Throwable $e) {
+            report($e);
+        }
+    }
+
+    /**
+     * ACC final cuti/izin → tandai hari checklist "dikecualikan" otomatis
+     * (source=system, tak bisa dibatalkan karyawan). Gagal sinkron TIDAK
+     * membatalkan approval — report() saja, reconcile ulang saat karyawan buka
+     * Form Mingguan. Hanya berefek untuk tipe cuti & izin (di-guard di service).
+     */
+    private function terapkanPengecualianChecklist(AttRequest $req): void
+    {
+        try {
+            app(\App\Services\ChecklistExcuseService::class)->excuseForLeave($req);
+        } catch (\Throwable $e) {
+            report($e);
+        }
+    }
+
+    /** Kebalikan: pengajuan yang tadinya approved kini ditolak/batal → cabut excuse sistemnya. */
+    private function cabutPengecualianChecklist(AttRequest $req): void
+    {
+        try {
+            app(\App\Services\ChecklistExcuseService::class)->unexcuseForLeave($req);
         } catch (\Throwable $e) {
             report($e);
         }
@@ -328,6 +358,7 @@ class AttendanceRequestWorkflow
             $req->update(['status' => 'approved']);
             $this->potongJatahCuti($req);
             $this->recalcAttDay($req);
+            $this->terapkanPengecualianChecklist($req);
             $this->notifyRequester($req, 'disetujui', (string) ($l1->approver_user_id ?? ''));
             $n++;
         }

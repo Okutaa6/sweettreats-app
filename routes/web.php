@@ -465,6 +465,10 @@ Route::middleware([AuthGuard::class])->group(function () {
         // "Riwayat" di kartu cabang. Deklarasi SEBELUM 'pettycash/request/{id}'
         // aman karena segmen 'branch' literal (tidak tabrakan wildcard).
         Route::get ('pettycash/branch/{branchId}/riwayat',  [FinanceDashboardController::class, 'branchHistory'])->name('finance.pettycash.branch-history');
+        // Reset jejak transaksi cabang+bulan (hard delete) — khusus Super Admin (dicek di controller).
+        Route::post('pettycash/branch/{branchId}/riwayat/reset', [FinanceDashboardController::class, 'resetBranchHistory'])->name('finance.pettycash.branch-history.reset');
+        // Reset riwayat review (hard delete pengajuan yang sudah di-review) — khusus Super Admin (dicek di controller).
+        Route::post('pettycash/review/reset',               [FinanceDashboardController::class, 'resetReviewHistory'])->name('finance.pettycash.review.reset');
         Route::get ('pettycash/request/{id}',               [TopupRequestController::class, 'show'])->name('finance.topup.show');
         Route::post('pettycash/request/{id}/approve',       [TopupRequestController::class, 'approve'])->name('finance.topup.approve');
         Route::post('pettycash/request/{id}/reject',        [TopupRequestController::class, 'reject'])->name('finance.topup.reject');
@@ -518,6 +522,10 @@ Route::middleware([AuthGuard::class])->group(function () {
     Route::get   ('checklist/positions',            [DigitalChecklistController::class, 'positions'])       ->name('checklist.positions');
     Route::post  ('checklist/positions',            [DigitalChecklistController::class, 'positionAssign'])  ->name('checklist.positions.assign');
     Route::delete('checklist/positions/{id}',       [DigitalChecklistController::class, 'positionRemove'])  ->name('checklist.positions.remove');
+    // Rolling cabang (penugasan sementara) — di halaman posisi yang sama.
+    Route::post  ('checklist/positions/rolling',      [DigitalChecklistController::class, 'rollingAssign'])->name('checklist.positions.rolling');
+    Route::post  ('checklist/positions/rolling/swap', [DigitalChecklistController::class, 'rollingSwap'])  ->name('checklist.positions.rolling.swap');
+    Route::delete('checklist/positions/rolling/{id}', [DigitalChecklistController::class, 'rollingRemove'])->name('checklist.positions.rolling.remove');
 
     // Setup Tugas (Supervisor only)
     Route::get ('checklist/setup',                  [ChecklistSetupController::class, 'index'])        ->name('checklist.setup');
@@ -534,17 +542,28 @@ Route::middleware([AuthGuard::class])->group(function () {
     Route::get  ('checklist/review',                [DigitalChecklistController::class, 'reviewIndex'])->name('checklist.review');
     // Review Mingguan — taruh SEBELUM /review/{id} supaya 'weekly' tidak ditangkap sebagai {id}.
     Route::get  ('checklist/review/weekly',         [DigitalChecklistController::class, 'weeklyReviewIndex'])->name('checklist.review.weekly');
+    // Riwayat & aksi Form Mingguan per karyawan (drill-down) — SEBELUM /weekly/{id}.
+    Route::get  ('checklist/review/weekly/employee/{user}',                 [DigitalChecklistController::class, 'weeklyReviewEmployee'])        ->name('checklist.review.weekly.employee');
+    Route::patch('checklist/review/weekly/employee/{user}/approve-pending', [DigitalChecklistController::class, 'weeklyApproveEmployeePending'])->name('checklist.review.weekly.employee.approve-pending');
     Route::get  ('checklist/review/weekly/{id}',    [DigitalChecklistController::class, 'weeklyReviewShow'])  ->name('checklist.review.weekly.show');
     Route::patch('checklist/review/weekly/{id}/approve',[DigitalChecklistController::class, 'weeklyApprove'])->name('checklist.review.weekly.approve');
     Route::patch('checklist/review/weekly/{id}/reject', [DigitalChecklistController::class, 'weeklyReject']) ->name('checklist.review.weekly.reject');
     Route::patch('checklist/review/weekly/{id}/reopen', [DigitalChecklistController::class, 'weeklyReopen']) ->name('checklist.review.weekly.reopen');
     Route::patch('checklist/review/weekly/{id}/revoke-excuse', [DigitalChecklistController::class, 'weeklyRevokeExcuse'])->name('checklist.review.weekly.excuse.revoke');
+    // Review PER-HARI (mid-week): approve/tolak/reopen tiap hari + setujui semua.
+    Route::patch('checklist/review/weekly/{id}/approve-all',        [DigitalChecklistController::class, 'weeklyApproveAllDays'])->name('checklist.review.weekly.approve-all');
+    Route::patch('checklist/review/weekly/{id}/day/{iso}/approve',  [DigitalChecklistController::class, 'weeklyDayApprove'])->name('checklist.review.weekly.day.approve')->whereNumber('iso');
+    Route::patch('checklist/review/weekly/{id}/day/{iso}/reject',   [DigitalChecklistController::class, 'weeklyDayReject']) ->name('checklist.review.weekly.day.reject')->whereNumber('iso');
+    Route::patch('checklist/review/weekly/{id}/day/{iso}/reopen',   [DigitalChecklistController::class, 'weeklyDayReopen']) ->name('checklist.review.weekly.day.reopen')->whereNumber('iso');
     // Harian — pakai constraint UUID supaya tidak tabrakan dgn 'weekly' di atas.
     Route::get  ('checklist/review/{id}',           [DigitalChecklistController::class, 'reviewShow']) ->name('checklist.review.show')->where('id', '[0-9a-fA-F-]{36}');
     Route::patch('checklist/review/{id}/approve',   [DigitalChecklistController::class, 'approve'])    ->name('checklist.review.approve')->where('id', '[0-9a-fA-F-]{36}');
     Route::patch('checklist/review/{id}/reject',    [DigitalChecklistController::class, 'reject'])     ->name('checklist.review.reject')->where('id', '[0-9a-fA-F-]{36}');
     Route::patch('checklist/review/{id}/reopen',    [DigitalChecklistController::class, 'reopen'])     ->name('checklist.review.reopen')->where('id', '[0-9a-fA-F-]{36}');
     Route::patch('checklist/review/{id}/revoke-excuse', [DigitalChecklistController::class, 'revokeExcuse'])->name('checklist.review.excuse.revoke')->where('id', '[0-9a-fA-F-]{36}');
+    // Riwayat & aksi per karyawan (drill-down dari mode "Riwayat Karyawan").
+    Route::get  ('checklist/review/employee/{user}',                 [DigitalChecklistController::class, 'reviewEmployee'])        ->name('checklist.review.employee');
+    Route::patch('checklist/review/employee/{user}/approve-pending', [DigitalChecklistController::class, 'approveEmployeePending'])->name('checklist.review.employee.approve-pending');
 
     // Jadwal Cuci AC — Monitoring + kelola unit (Supervisor)
     Route::get   ('checklist/ac',                   [AcMaintenanceController::class, 'monitor'])       ->name('checklist.ac');
@@ -582,8 +601,10 @@ Route::middleware([AuthGuard::class])->group(function () {
     // Foto before/after opsional (khusus divisi GS) — slot: before|after.
     Route::post ('my-checklist/weekform/item/{id}/ba-photo/{slot}',  [MyChecklistController::class, 'weekUploadBaPhoto'])->name('mychecklist.weekform.item.baphoto.upload');
     Route::delete('my-checklist/weekform/item/{id}/ba-photo/{slot}', [MyChecklistController::class, 'weekDeleteBaPhoto'])->name('mychecklist.weekform.item.baphoto.delete');
-    Route::post ('my-checklist/weekform/submit',         [MyChecklistController::class, 'weekSubmit'])    ->name('mychecklist.weekform.submit');
-    Route::post ('my-checklist/weekform/reopen-self',    [MyChecklistController::class, 'weekReopenSelf'])->name('mychecklist.weekform.reopen-self');
+    // Submit per-hari (menggantikan submit mingguan sekaligus). Header otomatis
+    // ter-finalize saat semua hari ber-tugas sudah dikirim/dikecualikan.
+    Route::post ('my-checklist/weekform/day-submit',     [MyChecklistController::class, 'weekDaySubmit'])  ->name('mychecklist.weekform.day.submit');
+    Route::post ('my-checklist/weekform/day-unsubmit',   [MyChecklistController::class, 'weekDayUnsubmit'])->name('mychecklist.weekform.day.unsubmit');
     Route::post ('my-checklist/weekform/day-excuse',     [MyChecklistController::class, 'dayExcuse'])     ->name('mychecklist.weekform.day.excuse');
     Route::post ('my-checklist/weekform/day-unexcuse',   [MyChecklistController::class, 'dayUnexcuse'])   ->name('mychecklist.weekform.day.unexcuse');
 
@@ -591,6 +612,10 @@ Route::middleware([AuthGuard::class])->group(function () {
     Route::get   ('my-checklist/ac',                   [AcMaintenanceController::class, 'myIndex'])          ->name('mychecklist.ac');
     Route::post  ('my-checklist/ac/service',           [AcMaintenanceController::class, 'storeService'])     ->name('mychecklist.ac.service.store');
     Route::delete('my-checklist/ac/service/{id}',      [AcMaintenanceController::class, 'destroyOwnService'])->name('mychecklist.ac.service.destroy');
+    // GS cabang menambah unit AC untuk cabangnya sendiri — langsung aktif.
+    Route::post  ('my-checklist/ac/unit',              [AcMaintenanceController::class, 'storeOwnUnit'])     ->name('mychecklist.ac.unit.store');
+    // GS cabang mengedit info unit AC cabangnya sendiri.
+    Route::put   ('my-checklist/ac/unit/{id}',         [AcMaintenanceController::class, 'updateOwnUnit'])    ->name('mychecklist.ac.unit.update');
     // Riwayat per unit versi GS — WAJIB prefix my-checklist: AuthGuard cek RBAC
     // per segmen-1 URL, dan GS tidak punya akses halaman 'checklist'.
     Route::get   ('my-checklist/ac/unit/{id}/history', [AcMaintenanceController::class, 'unitHistory'])      ->name('mychecklist.ac.unit.history');

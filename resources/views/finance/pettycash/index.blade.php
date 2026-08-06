@@ -118,6 +118,14 @@
 {{-- Modals approve & reject — shared, prefill via JS dari tombol di pending queue --}}
 @include('finance.pettycash._modal_approve', ['fundSources' => $fundSources])
 @include('finance.pettycash._modal_reject')
+
+{{-- Stage tersembunyi: 1 kartu voucher per pengajuan (pending + reviewed),
+     target rasterisasi html2canvas untuk tombol "Unduh Gambar". --}}
+<div class="ftv-stage" aria-hidden="true">
+    @foreach($pendingRequests->concat($recentReviewed)->unique('id') as $voucherReq)
+        @include('finance.pettycash._topup_voucher', ['req' => $voucherReq, 'rupiah' => $rupiah])
+    @endforeach
+</div>
 @endsection
 
 @section('css')
@@ -245,8 +253,57 @@
 @endsection
 
 @section('js')
+<script src="{{ asset('assets/plugins/html2canvas/html2canvas.min.js') }}?v={{ @filemtime(public_path('assets/plugins/html2canvas/html2canvas.min.js')) }}"></script>
 <script>
 (function () {
+    // ─── Unduh gambar (PNG) 1 pengajuan top up via html2canvas ───
+    // Tombol [data-ftv-download=id] → capture node #ftv-voucher-{id} di stage
+    // off-screen, lalu trigger download. Delegasi supaya kena tombol di
+    // pending queue maupun audit feed.
+    document.addEventListener('click', function (e) {
+        var btn = e.target.closest('[data-ftv-download]');
+        if (!btn) return;
+        e.preventDefault();
+        if (btn.dataset.ftvBusy === '1') return;
+
+        var id   = btn.dataset.ftvDownload;
+        var node = document.getElementById('ftv-voucher-' + id);
+        if (!node || typeof html2canvas === 'undefined') return;
+
+        var original = btn.innerHTML;
+        btn.dataset.ftvBusy = '1';
+        btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Menyiapkan…';
+
+        function restore() {
+            btn.dataset.ftvBusy = '';
+            btn.innerHTML = original;
+        }
+
+        html2canvas(node, { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false })
+            .then(function (canvas) {
+                var filename = btn.dataset.ftvFilename || ('pengajuan-topup-' + id + '.png');
+                function trigger(url, revoke) {
+                    var a = document.createElement('a');
+                    a.href = url; a.download = filename;
+                    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                    if (revoke) setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+                }
+                if (canvas.toBlob) {
+                    canvas.toBlob(function (blob) {
+                        if (blob) { trigger(URL.createObjectURL(blob), true); }
+                        else { trigger(canvas.toDataURL('image/png'), false); }
+                        restore();
+                    }, 'image/png');
+                } else {
+                    trigger(canvas.toDataURL('image/png'), false);
+                    restore();
+                }
+            })
+            .catch(function () {
+                restore();
+                alert('Gagal membuat gambar. Coba lagi.');
+            });
+    });
     // Util: format rupiah saat user input nominal
     document.querySelectorAll('.pc-amount-input').forEach(function (el) {
         const hidden = document.getElementById(el.dataset.target);

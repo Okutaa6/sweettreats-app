@@ -359,6 +359,8 @@
             'fundSourcesGrouped' => $fundSourcesGrouped,
             'branchId'           => $branchId,
             'activeBranch'       => $activeBranch,
+            'branchAccountMap'   => $branchAccountMap,
+            'requesterName'      => $requesterName,
         ])
     @endif
 @endif
