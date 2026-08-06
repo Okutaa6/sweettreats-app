@@ -7,6 +7,36 @@
 
 ---
 
+## 2026-08-06 — Push Reza (checklist mingguan + petty cash) NAIK DEV
+
+Branch Reza `minorfixing-pettycash-weeklychecklist` (1 commit, 17 berkas)
+digabung ke branch integrasi `integrasi/dev-2026-08-06` — **tanpa konflik** —
+lalu naik dev. Isinya dua hal: kolom `weeks_of_month` per task checklist
+(rotasi tugas "minggu ke-berapa dalam bulan", kosong = tiap minggu seperti
+sebelumnya), dan jejak `deleted_by` untuk petty cash + transport.
+
+**Diperiksa sebelum naik.** Reza mengirim migration DAN file SQL untuk kolom
+yang sama — sekilas itu resep dijalankan dua kali. Ternyata aman: migration-nya
+berhenti lebih dulu kalau kolomnya sudah ada, SQL-nya mengecek
+`information_schema`, dan Reza memang menulisnya sebagai cermin yang disengaja
+(prod pakai jalur SQL manual). Kedua SQL murni menambah kolom nullable — tak
+ada yang merusak data lama. Dijalankan di dev, ketiga kolom terpasang benar.
+
+Verifikasi dev: situs 200, `view:cache` berhasil mengompilasi **seluruh** Blade
+(penangkap bug sintaks seperti kasus `@if` menempel dulu), dan tak ada error
+baru setelah deploy. Dua error di log hari ini berasal dari percobaan
+diagnostik sesi ini pukul 11:44–11:45, lebih dari sejam sebelum deploy.
+
+**⚠️ BUTUH KEPUTUSAN EKKY SEBELUM NAIK PROD — perubahan kendali keuangan.**
+Sebelumnya edit & hapus transaksi petty cash **hanya boleh Super Admin**.
+Commit ini **mencabut syarat itu** dan menggantinya dengan batas **24 jam sejak
+transaksi dibuat**. Jadi orang cabang kini bisa mengubah/menghapus transaksi di
+cabangnya sendiri selama masih di bawah 24 jam. Penyeimbangnya sudah ada:
+Finance tetap view-only, cabang terkunci ke cabangnya, dan siapa yang menghapus
+kini tercatat (`deleted_by`, tampil di sub-tab Riwayat). Rancangannya masuk
+akal, tapi ini melonggarkan kendali uang tunai — **jangan naik prod sebelum
+Ekky menyatakan setuju.**
+
 ## 2026-08-06 malam — 🚀 NAIK PROD: gabungan Reza + absensi, plus dua ranjau ditutup
 
 Prod naik dari `07fd818` ke `e28f89b`. Backup dulu:
