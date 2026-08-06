@@ -7,6 +7,60 @@
 
 ---
 
+## 2026-08-06 malam — 🚀 NAIK PROD: gabungan Reza + absensi, plus dua ranjau ditutup
+
+Prod naik dari `07fd818` ke `e28f89b`. Backup dulu:
+`~/backups/prod_pre_gabungan_2026-08-06.sql.gz` (45MB) +
+`~/backups/prod_env_pre_gabungan_2026-08-06.bak`.
+
+**Isinya**: seluruh perbaikan checklist & petty cash dari Reza · Tukar Hari ·
+lembur datang-awal · jadwal fleksibel per role · gerbang absen di hari libur ·
+alasan koreksi baru · jenis pengajuan disaring per aturan kerja.
+
+**Sebelum naik, empat lubang tombol Reset petty cash dibereskan** (sebelumnya
+cuma tertutup gerbang fitur — sekarang tombolnya sendiri memang layak pakai):
+- **Periode yang sudah DITUTUP ditolak.** Jalur lain semua menghormati itu;
+  reset tak boleh jadi satu-satunya pintu belakang ke angka yang sudah
+  di-sign-off.
+- **Saldo bulan-bulan berikutnya dihitung ulang.** Saldo awal itu SNAPSHOT saat
+  periode dibuat, bukan turunan hidup — menghapus transaksi bulan lalu tanpa
+  menghitung ulang meninggalkan selisih hantu yang terbawa selamanya. Periode
+  yang sudah ditutup dilewati DAN menghentikan rantai: selisihnya tetap ada,
+  tapi itu keputusan sadar yang terlihat, bukan kerusakan senyap.
+- **Jejak audit**: siapa, kapan, cabang/periode mana, berapa baris, berapa
+  nilainya — dicatat SEBELUM barisnya hilang.
+- **"Reset Riwayat Review" dipersempit** ke baris yang benar-benar tampil.
+  Dulu judulnya "20 terakhir" tapi perintahnya menghapus seluruh cabang
+  sepanjang masa, termasuk satu-satunya catatan siapa menyetujui berapa untuk
+  uang yang sudah cair. Tanpa pilihan kini tak menghapus apa pun.
+Diuji di dev: periode tertutup ditolak & transaksinya utuh · saldo berikutnya
+terkoreksi 700rb→1jt · periode tertutup menghentikan rantai · pilih 1 dari 3
+riwayat hanya menghapus 1 · jejak audit tercatat.
+
+**DUA RANJAU DITUTUP:**
+1. **`APP_ENV` prod akhirnya dibetulkan** dari `local` → `production`. Ini
+   bukan kosmetik: gerbang fitur Reza menyimpulkan "local berarti dev, boleh
+   hapus" — di prod kita itu berarti tombol hapus-permanen data uang MENYALA.
+   Sudah kuubah jadi daftar-putih (mati kecuali dinyalakan eksplisit), jadi
+   sekarang dua lapis: environment benar DAN default aman.
+2. **Kejutan saat migrate**: tabel `sys_checklist_weekly_day_submit` sudah ada
+   padahal migration-nya belum tercatat — DDL terlanjur jalan tanpa catatan.
+   Karena isinya nol baris, tabelnya di-drop lalu dibuat ulang oleh migration
+   supaya struktur & catatan konsisten. Semua 7 migration kini tercatat,
+   **0 tertunda**.
+
+**Verifikasi prod**: 40 halaman lintas peran semuanya 200 · halaman depan &
+login 200 · log nol error baru · `environment=production`, debug MATI, tombol
+reset MATI · skema baru lengkap (att_request_hari, weekly_day_submit,
+parent_id_2, kind, requester_name, excuse.source, jenis 'tukar') · 5 aturan
+kerja dengan hari yang benar · **absensi hari ini tetap jalan: 11 bukti absen
+HP, 11 baris att_day** — perbaikan "absen langsung terlihat" tak terganggu ·
+aset publik ikut di-rsync (public_html prod itu COPY, bukan symlink).
+
+**Yang masih menggantung**: tombol Reset tetap MATI di prod (daftar-putih).
+Kalau kelak perlu dinyalakan, sekarang sudah aman dipakai — empat lubangnya
+sudah ditutup.
+
 ## 2026-08-06 sore — Perbaikan Reza diperiksa & DIGABUNG; satu default berbahaya dicegat
 
 Reza mengirim perbaikan atas 8 temuan audit — di branch BARU
