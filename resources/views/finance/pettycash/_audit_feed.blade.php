@@ -20,9 +20,15 @@
         @if(isSuperAdmin() && ! $recentReviewed->isEmpty() && pettyCashResetEnabled())
             {{-- Reset riwayat review (hard delete pengajuan yang sudah di-review) — hanya Super Admin, hanya di dev. --}}
             <form method="POST" action="{{ route('finance.pettycash.review.reset') }}"
-                  onsubmit="return confirm('Reset SEMUA riwayat review?\n\n• Seluruh pengajuan yang sudah di-review (approved/rejected) dihapus PERMANEN.\n• Antrian pending & transaksi petty cash TIDAK terpengaruh.\n• Aksi TIDAK bisa di-undo.\n\nLanjut?');"
+                  onsubmit="return confirm('Reset {{ $recentReviewed->count() }} riwayat review yang tampil di layar ini?\n\n• Hanya baris yang terlihat di bawah yang dihapus PERMANEN.\n• Riwayat lain, antrian pending, & transaksi petty cash TIDAK terpengaruh.\n• Aksi TIDAK bisa di-undo.\n\nLanjut?');"
                   style="margin:0;">
                 @csrf
+                {{-- Kirim id yang BENAR-BENAR ditampilkan: tombolnya jadi sepadan
+                     dengan apa yang dilihat operator. Dulu perintahnya menghapus
+                     seluruh cabang sepanjang masa padahal layarnya cuma 20 baris. --}}
+                @foreach($recentReviewed as $rr)
+                    <input type="hidden" name="ids[]" value="{{ $rr->id }}">
+                @endforeach
                 <button type="submit" class="fpc-reset-btn" title="Reset riwayat review (permanen)">
                     <i class="fa fa-trash"></i> Reset Riwayat
                 </button>
