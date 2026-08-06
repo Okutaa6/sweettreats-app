@@ -104,7 +104,11 @@ class AkunAbsensiController extends Controller
         $notifCount = AdminNotification::unreadForUser()->count();
 
         // ── Data untuk drawer "Ajukan Permohonan" ──
-        $tipeList = \App\Http\Controllers\Absensi\AkunPengajuanController::TIPE;
+        // Jenis yang DITAWARKAN disaring per aturan kerja (Tukar Hari & WFH
+        // hanya untuk yang fleksibel); jenis untuk MEMBACA riwayat tetap
+        // lengkap, supaya pengajuan lama tak berubah jadi kode mentah.
+        $tipeList    = \App\Http\Controllers\Absensi\AkunPengajuanController::jenisUntuk($userId);
+        $tipeRiwayat = \App\Http\Controllers\Absensi\AkunPengajuanController::TIPE_RIWAYAT;
         $ajTipe   = null;
         // Kuota WFH bulan berjalan (approved+pending) — buat peringatan di drawer (2/bulan).
         // Jatah kerja dari rumah dihitung dalam HARI (bukan jumlah form) dan
@@ -122,7 +126,7 @@ class AkunAbsensiController extends Controller
 
         return view('absensi.akun.absensi', compact(
             'days', 'rekap', 'requests', 'anchor', 'from', 'to', 'me', 'today', 'notifCount',
-            'tipeList', 'ajTipe', 'wfhUsed', 'korAlasan', 'cutiSisa', 'buktiMap'
+            'tipeList', 'tipeRiwayat', 'ajTipe', 'wfhUsed', 'korAlasan', 'cutiSisa', 'buktiMap'
         ));
     }
 

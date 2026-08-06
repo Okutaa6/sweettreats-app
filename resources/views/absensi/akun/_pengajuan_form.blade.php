@@ -47,8 +47,37 @@
             <div>Jatah kerja dari rumah bulan ini: <b class="num">{{ $ajWfhUsed }}/2</b> hari terpakai. Sisa <b class="num">{{ max(0, 2 - $ajWfhUsed) }}</b> hari.</div>
         </div>
 
+        {{-- ── TUKAR HARI: dua daftar tanggal, bukan rentang ──
+             Satu kesepakatan = satu pengajuan = satu ACC. Jumlah kedua sisi
+             wajib sama; tombol kirim bilang sendiri kalau belum seimbang
+             (pola-interaksi P3) alih-alih ditolak setelah dikirim. --}}
+        <div id="grp-tukar" style="display:none">
+            <div class="absk-hint" style="margin-bottom:10px">
+                Masukkan hari yang <b>kamu masuk</b> dan hari <b>libur penggantinya</b>.
+                Jumlahnya harus sama, dan semuanya dalam periode yang sama.
+            </div>
+
+            <div class="absk-grid2" style="align-items:start">
+                <div>
+                    <label class="absk-lbl">Saya masuk <span class="req">*</span></label>
+                    <div id="listMasuk" class="absk-tukarlist"></div>
+                    <button type="button" class="absk-prefill" data-tambah="masuk" style="margin-top:6px">+ Tambah hari masuk</button>
+                </div>
+                <div>
+                    <label class="absk-lbl">Gantinya libur <span class="req">*</span></label>
+                    <div id="listLibur" class="absk-tukarlist"></div>
+                    <button type="button" class="absk-prefill" data-tambah="libur" style="margin-top:6px">+ Tambah hari libur</button>
+                </div>
+            </div>
+
+            <div class="absk-durbox" id="tukarSeimbang" style="margin-top:10px">
+                <span>Keseimbangan</span>
+                <span class="num" id="tukarInfo">0 masuk · 0 libur</span>
+            </div>
+        </div>
+
         {{-- Tanggal + Jam (grid 2×2) --}}
-        <div class="absk-grid2">
+        <div class="absk-grid2" id="grp-rentang">
             <div>
                 <label class="absk-lbl" id="lblFrom">Tanggal Mulai <span class="req">*</span></label>
                 <input type="date" name="tanggal_from" id="tglFrom" class="absk-input" value="{{ old('tanggal_from', now()->toDateString()) }}" required>
@@ -138,6 +167,21 @@
     function sync() {
         var t = tipeHidden.value;
         var isLembur = t === 'lembur';
+        var isTukar  = t === 'tukar';
+
+        // Tukar hari memakai dua DAFTAR tanggal; rentang mulai–selesai tak
+        // punya arti di sana, jadi bagian itu disingkirkan seluruhnya (termasuk
+        // atribut required-nya, kalau tidak form tak bisa dikirim karena
+        // mengeluh pada kolom yang tak terlihat).
+        var grpTukar  = form.querySelector('#grp-tukar');
+        var grpRent   = form.querySelector('#grp-rentang');
+        if (grpTukar) grpTukar.style.display = isTukar ? '' : 'none';
+        if (grpRent)  grpRent.style.display  = isTukar ? 'none' : '';
+        ['tglFrom', 'tglTo'].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) { el.required = !isTukar; el.disabled = isTukar; }
+        });
+
         grpSub.style.display = isLembur ? '' : 'none';
         showCells(isLembur || t === 'izin');
         grpPrefill.style.display = isLembur ? '' : 'none';
@@ -158,11 +202,69 @@
             if (isLembur) tglTo.value = tglFrom.value;
         }
 
-        submitBtn.disabled = !t;
         var ajTeks = form.querySelector('#ajSubmitTeks');
-        if (ajTeks) ajTeks.textContent = t ? 'Kirim Permohonan' : 'Pilih jenis dulu';
+        if (isTukar) {
+            syncTukar();                       // dia sendiri yang mengatur tombol
+        } else {
+            submitBtn.disabled = !t;
+            if (ajTeks) ajTeks.textContent = t ? 'Kirim Permohonan' : 'Pilih jenis dulu';
+        }
         if (isLembur) calcDur();
     }
+
+    // ── Tukar hari: dua daftar tanggal yang harus seimbang ──
+    function barisTanggal(sisi) {
+        var row = document.createElement('div');
+        row.style.cssText = 'display:flex;gap:6px;margin-bottom:6px';
+        var inp = document.createElement('input');
+        inp.type = 'date'; inp.name = sisi + '[]'; inp.className = 'absk-input';
+        inp.style.flex = '1';
+        inp.addEventListener('change', syncTukar);
+        var del = document.createElement('button');
+        del.type = 'button'; del.className = 'absk-batal';
+        del.style.cssText = 'padding:0 12px;min-height:0';
+        del.textContent = '✕';
+        del.setAttribute('aria-label', 'Hapus tanggal ini');
+        del.addEventListener('click', function () { row.remove(); syncTukar(); });
+        row.appendChild(inp); row.appendChild(del);
+        return row;
+    }
+
+    function isiTanggal(sisi) {
+        var box = form.querySelector(sisi === 'masuk' ? '#listMasuk' : '#listLibur');
+        if (!box) return [];
+        return Array.prototype.slice.call(box.querySelectorAll('input[type=date]'))
+            .map(function (i) { return i.value; }).filter(Boolean);
+    }
+
+    function syncTukar() {
+        if (tipeHidden.value !== 'tukar') return;
+        var m = isiTanggal('masuk'), l = isiTanggal('libur');
+        var info = form.querySelector('#tukarInfo');
+        if (info) info.textContent = m.length + ' masuk · ' + l.length + ' libur';
+
+        var teks = form.querySelector('#ajSubmitTeks');
+        var pesan = null;
+        if (!m.length && !l.length)      pesan = 'Isi tanggalnya dulu';
+        else if (m.length !== l.length)  pesan = 'Jumlahnya belum seimbang';
+        else {
+            // Tanggal kembar lintas sisi juga ditolak server; dibilang di sini
+            // supaya orang tak perlu mengirim dulu untuk tahu.
+            var kembar = m.filter(function (d) { return l.indexOf(d) !== -1; });
+            if (kembar.length) pesan = 'Ada tanggal yang sama di dua sisi';
+        }
+        submitBtn.disabled = !!pesan;
+        if (teks) teks.textContent = pesan || 'Kirim Tukar Hari';
+    }
+
+    form.querySelectorAll('[data-tambah]').forEach(function (b) {
+        b.addEventListener('click', function () {
+            var sisi = b.getAttribute('data-tambah');
+            form.querySelector(sisi === 'masuk' ? '#listMasuk' : '#listLibur')
+                .appendChild(barisTanggal(sisi));
+            syncTukar();
+        });
+    });
 
     // Chip Jenis
     form.querySelectorAll('.absk-jchip[data-jenis]').forEach(function (b) {

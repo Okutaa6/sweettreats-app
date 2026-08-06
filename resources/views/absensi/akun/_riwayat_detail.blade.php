@@ -2,7 +2,28 @@
     // ikut satu sumber kebenaran, jangan disalin ulang (jenis baru pernah terlewat)
     // (komentar PHP, BUKAN {{-- --}} — blade comment di dalam @php tidak di-strip
     //  oleh compiler dan jadi syntax error saat view dirender)
-    $tipeMap = \App\Http\Controllers\Absensi\AkunPengajuanController::TIPE;
+    // TIPE_RIWAYAT, bukan TIPE: jenis lama yang tak lagi ditawarkan (mis.
+    // 'libur') tetap harus punya nama saat riwayatnya dibuka.
+    $tipeMap = \App\Http\Controllers\Absensi\AkunPengajuanController::TIPE_RIWAYAT;
+
+    // Tukar Hari menyimpan DAFTAR tanggal, bukan rentang. Menampilkan
+    // "09 – 13 Sep" untuk tukar 09+10 ↔ 12+13 itu bohong: hari 11 tak terlibat
+    // sama sekali. Jadi tanggalnya dibaca dari daftarnya sendiri.
+    $tukarHari = null;
+    if ($req->tipe === 'tukar') {
+        $baris = \App\Models\AttRequestHari::where('request_id', $req->id)
+            ->orderBy('tanggal')->get();
+        if ($baris->count()) {
+            $fmt = fn ($c) => $c->groupBy(fn ($h) => $h->peran);
+            $g = $fmt($baris);
+            $tukarHari = [
+                'masuk' => ($g[\App\Models\AttRequestHari::PERAN_MASUK] ?? collect())
+                    ->map(fn ($h) => $h->tanggal->translatedFormat('d M Y'))->all(),
+                'libur' => ($g[\App\Models\AttRequestHari::PERAN_LIBUR] ?? collect())
+                    ->map(fn ($h) => $h->tanggal->translatedFormat('d M Y'))->all(),
+            ];
+        }
+    }
     $stPill  = ['approved'=>'hadir','rejected'=>'alpa','cancelled'=>'alpa','pending_l1'=>'telat','pending_l2'=>'telat','draft'=>'libur'];
     $stText  = ['approved'=>'Disetujui','rejected'=>'Ditolak','cancelled'=>'Dibatalkan','pending_l1'=>'Menunggu','pending_l2'=>'Menunggu','draft'=>'Draf'];
     $stLbl   = ['menunggu'=>'Menunggu','disetujui'=>'Disetujui','ditolak'=>'Ditolak','batal'=>'—','belum'=>'Belum'];
@@ -16,7 +37,12 @@
     </div>
 
     <div class="rdt-info">
-        <div class="rdt-row"><span class="rdt-k">Tanggal</span><span class="num">{{ \Illuminate\Support\Carbon::parse($req->tanggal_from)->translatedFormat('d M Y') }}@if($req->tanggal_to != $req->tanggal_from) – {{ \Illuminate\Support\Carbon::parse($req->tanggal_to)->translatedFormat('d M Y') }}@endif</span></div>
+        @if($tukarHari)
+            <div class="rdt-row"><span class="rdt-k">Masuk</span><span class="num">{{ implode(' · ', $tukarHari['masuk']) }}</span></div>
+            <div class="rdt-row"><span class="rdt-k">Gantinya libur</span><span class="num">{{ implode(' · ', $tukarHari['libur']) }}</span></div>
+        @else
+            <div class="rdt-row"><span class="rdt-k">Tanggal</span><span class="num">{{ \Illuminate\Support\Carbon::parse($req->tanggal_from)->translatedFormat('d M Y') }}@if($req->tanggal_to != $req->tanggal_from) – {{ \Illuminate\Support\Carbon::parse($req->tanggal_to)->translatedFormat('d M Y') }}@endif</span></div>
+        @endif
         @if($req->jam_from)<div class="rdt-row"><span class="rdt-k">Jam</span><span class="num">{{ $hm($req->jam_from) }}@if($req->jam_to) – {{ $hm($req->jam_to) }}@endif</span></div>@endif
         @if($req->alasan)<div class="rdt-row"><span class="rdt-k">Alasan</span><span>{{ $req->alasan }}</span></div>@endif
         @if($req->foto)<div class="rdt-row"><span class="rdt-k">Foto</span><a href="{{ asset('uploads/att_request/'.$req->foto) }}" target="_blank">Lihat foto bukti</a></div>@endif

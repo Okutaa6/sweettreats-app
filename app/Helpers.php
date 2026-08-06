@@ -975,3 +975,57 @@ if (!function_exists('notificationBlockedTypesForUser')) {
     }
 }
 
+
+/**
+ * Tipe aturan kerja seseorang: 'baku' | 'fleksibel' | null (belum diatur).
+ *
+ * SATU SUMBER KEBENARAN untuk pertanyaan "orang ini dinilai jamnya atau tidak".
+ * Sengaja diturunkan dari aturan kerja (att_user_rule → att_work_rule.tipe),
+ * BUKAN dari nama jabatan: menaruh pengecualian sebagai daftar nama di kode
+ * berarti setiap fitur baru harus mengingat daftar itu, dan cepat atau lambat
+ * ada yang lupa. Dengan cara ini, memindahkan aturan kerja seseorang otomatis
+ * membuat semua fitur ikut benar — tanpa satu pun `if nama == '...'`.
+ *
+ * Dipakai antara lain untuk memutuskan jenis pengajuan mana yang ditawarkan:
+ * Tukar Hari & Kerja dari Rumah hanya untuk yang fleksibel (keputusan Ekky
+ * 2026-08-05). Di-cache per-request karena dipanggil beberapa kali per halaman.
+ */
+if (!function_exists('tipeAturanKerja')) {
+    function tipeAturanKerja(?string $userId = null): ?string
+    {
+        static $cache = [];
+
+        $uid = $userId ?: (string) session('id');
+        if (! $uid) return null;
+        if (array_key_exists($uid, $cache)) return $cache[$uid];
+
+        try {
+            $hari = now()->toDateString();
+            $tipe = \Illuminate\Support\Facades\DB::table('att_user_rule as ur')
+                ->join('att_work_rule as r', 'r.id', '=', 'ur.rule_id')
+                ->where('ur.user_id', $uid)
+                ->where('ur.effective_from', '<=', $hari)
+                ->where(function ($q) use ($hari) {
+                    $q->whereNull('ur.effective_to')->orWhere('ur.effective_to', '>=', $hari);
+                })
+                ->orderByDesc('ur.effective_from')
+                ->value('r.tipe');
+        } catch (\Throwable $e) {
+            // Skema absensi belum terpasang di environment ini — jangan bikin
+            // halaman jatuh, tapi jangan diam juga: yang memanggil akan
+            // memperlakukan null sebagai "belum diatur".
+            report($e);
+            $tipe = null;
+        }
+
+        return $cache[$uid] = $tipe;
+    }
+}
+
+/** True kalau aturan kerjanya fleksibel (orang kantor/ABG + penyelia). */
+if (!function_exists('aturanKerjaFleksibel')) {
+    function aturanKerjaFleksibel(?string $userId = null): bool
+    {
+        return tipeAturanKerja($userId) === 'fleksibel';
+    }
+}

@@ -369,6 +369,21 @@ class AttendanceReconciler
     {
         $absence = null; $lembur = 0; $koreksi = false;
         foreach ($reqs as $r) {
+            // Pengajuan bertanggal EKSPLISIT (Tukar Hari): hanya tanggal yang
+            // terdaftar yang berlaku — hari di antaranya TIDAK ikut tertandai.
+            // Perannya menentukan artinya: 'libur' = hari libur pengganti,
+            // 'masuk' = hari dia justru bekerja (bukan ketidakhadiran, jadi
+            // sengaja tidak mengisi $absence).
+            $hari = $r->hari ?? null;
+            if (is_array($hari)) {
+                $peran = $hari[$date] ?? null;
+                if ($peran === null) continue;
+                if ($peran === \App\Models\AttRequestHari::PERAN_LIBUR && $absence === null) {
+                    $absence = 'libur';
+                }
+                continue;
+            }
+
             if ($date < $r->tanggal_from || $date > $r->tanggal_to) continue;
             if ($r->tipe === 'lembur') {
                 // Hitung HANYA di tanggal mulainya. claimed_menit itu total satu
@@ -448,9 +463,27 @@ class AttendanceReconciler
             ->where('status', 'approved')
             ->where('tanggal_from', '<=', $to->toDateString())
             ->where('tanggal_to', '>=', $from->toDateString())
-            ->get(['user_id', 'tipe', 'tanggal_from', 'tanggal_to', 'claimed_menit']);
+            ->get(['id', 'user_id', 'tipe', 'tanggal_from', 'tanggal_to', 'claimed_menit']);
+
+        // Tanggal EKSPLISIT (att_request_hari) — dipakai Tukar Hari, yang
+        // tanggalnya bisa terpisah-pisah dan punya dua peran dalam satu
+        // pengajuan. Kalau sebuah pengajuan punya baris di sini, hanya tanggal
+        // itu yang berlaku; rentang from..to-nya diabaikan (lihat
+        // requestsForDate). Pengajuan lama tak punya baris → perilaku lama utuh.
+        $hari = [];
+        if ($rows->isNotEmpty()) {
+            foreach (DB::table('att_request_hari')
+                        ->whereIn('request_id', $rows->pluck('id')->all())
+                        ->get(['request_id', 'tanggal', 'peran']) as $h) {
+                $hari[$h->request_id][substr((string) $h->tanggal, 0, 10)] = $h->peran;
+            }
+        }
+
         $out = [];
-        foreach ($rows as $r) $out[$r->user_id][] = $r;
+        foreach ($rows as $r) {
+            $r->hari = $hari[$r->id] ?? null;   // null = pakai rentang seperti biasa
+            $out[$r->user_id][] = $r;
+        }
         return $out;
     }
 

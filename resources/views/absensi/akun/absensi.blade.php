@@ -409,7 +409,7 @@
                             $rl = $reqLabel[$r->status] ?? [$r->status, '#F1E9DF', '#8A6A52', '#E4D8C9'];
                         @endphp
                         <div class="aks-rw" data-detail="{{ route('akun.pengajuan.show', $r->id) }}" role="button" tabindex="0">
-                            <span class="aks-rw-type" style="background:{{ $tc[0] }};color:{{ $tc[1] }};border-color:{{ $tc[2] }}">{{ $tipeList[$r->tipe] ?? $r->tipe }}</span>
+                            <span class="aks-rw-type" style="background:{{ $tc[0] }};color:{{ $tc[1] }};border-color:{{ $tc[2] }}">{{ ($tipeRiwayat ?? $tipeList)[$r->tipe] ?? $r->tipe }}</span>
                             <div style="flex:1;min-width:0">
                                 <div class="aks-rw-date num">
                                     {{ Carbon::parse($r->tanggal_from)->translatedFormat('d M Y') }}@if($r->tanggal_to != $r->tanggal_from) – {{ Carbon::parse($r->tanggal_to)->translatedFormat('d M Y') }}@endif
