@@ -465,6 +465,19 @@ if (!function_exists('isSuperAdmin')) {
 }
 
 /**
+ * True kalau tombol Reset Petty Cash (hard-delete jejak transaksi & riwayat
+ * review) boleh muncul. Alat bersih-bersih data demo — default hanya hidup di
+ * dev; di prod mati. Dipakai di controller (gate abort 404) & Blade (sembunyikan
+ * tombol). Diatur via config('features.petty_cash_reset').
+ */
+if (!function_exists('pettyCashResetEnabled')) {
+    function pettyCashResetEnabled(): bool
+    {
+        return (bool) config('features.petty_cash_reset');
+    }
+}
+
+/**
  * True kalau user yang sedang login adalah Admin General. Dipakai bareng
  * isSuperAdmin() untuk gate fitur admin-level (mis. "Kelola Halaman" untuk
  * atur mode akses View Only per role).
@@ -623,7 +636,9 @@ if (!function_exists('checklistVisibleDivisionIds')) {
 
             // Strict descendants (tanpa diri) → staf tak me-review divisinya sendiri.
             // Cocokkan NAMA role bawahan ke NAMA divisi (hanya 3 role operasional yg cocok).
-            $descNames = $role->descendants()->pluck('nama')->filter()->all();
+            // supervisedDescendants: ikut atasan utama DAN atasan kedua (parent_id_2)
+            // → satu divisi bisa disupervisi dua atasan (mis. GS oleh Supervisor & Coordinator Dentist).
+            $descNames = $role->supervisedDescendants()->pluck('nama')->filter()->all();
             if (! $descNames) return $value = [];
 
             $value = $active->whereIn('name', $descNames)->pluck('id')->all();
@@ -679,7 +694,9 @@ if (!function_exists('checklistSupervisorRoleNamesForDivision')) {
             $role = \App\Models\GroupPath::where('nama', $div->name)->first();
             if (! $role) return [];
 
-            return $role->ancestors()->pluck('nama')->filter()->values()->all();
+            // supervisorAncestors: ikut atasan utama DAN atasan kedua (parent_id_2)
+            // → notifikasi sampai ke semua atasan role (mis. GS ke Supervisor & Coordinator Dentist).
+            return $role->supervisorAncestors()->pluck('nama')->filter()->values()->all();
         } catch (\Throwable $e) {
             return [];
         }
@@ -755,6 +772,27 @@ if (!function_exists('currentUserPosition')) {
         }
 
         return $value;
+    }
+}
+
+/**
+ * Cabang efektif seorang user pada tanggal tertentu. Rolling (penugasan
+ * sementara) MENANG atas cabang asal (home) selama window-nya, sesudah itu
+ * kembali ke home — semuanya ditentukan scopeActiveOn() (satu sumber:
+ * sys_user_position). Return null kalau user tak punya posisi aktif di tanggal
+ * itu. Dipakai mis. saat menandai hari cuti pada minggu yang belum pernah dibuka.
+ */
+if (!function_exists('positionBranchOn')) {
+    function positionBranchOn(string $userId, \Carbon\Carbon $date): ?string
+    {
+        try {
+            return \App\Models\UserPosition::query()
+                ->activeOn($date)
+                ->where('user_id', $userId)
+                ->value('raw_branch_id');
+        } catch (\Throwable $e) {
+            return null;
+        }
     }
 }
 
@@ -975,3 +1013,99 @@ if (!function_exists('notificationBlockedTypesForUser')) {
     }
 }
 
+
+/**
+ * Tipe aturan kerja seseorang: 'baku' | 'fleksibel' | null (belum diatur).
+ *
+ * SATU SUMBER KEBENARAN untuk pertanyaan "orang ini dinilai jamnya atau tidak".
+ * Sengaja diturunkan dari aturan kerja (att_user_rule → att_work_rule.tipe),
+ * BUKAN dari nama jabatan: menaruh pengecualian sebagai daftar nama di kode
+ * berarti setiap fitur baru harus mengingat daftar itu, dan cepat atau lambat
+ * ada yang lupa. Dengan cara ini, memindahkan aturan kerja seseorang otomatis
+ * membuat semua fitur ikut benar — tanpa satu pun `if nama == '...'`.
+ *
+ * Dipakai antara lain untuk memutuskan jenis pengajuan mana yang ditawarkan:
+ * Tukar Hari & Kerja dari Rumah hanya untuk yang fleksibel (keputusan Ekky
+ * 2026-08-05). Di-cache per-request karena dipanggil beberapa kali per halaman.
+ */
+if (!function_exists('tipeAturanKerja')) {
+    function tipeAturanKerja(?string $userId = null): ?string
+    {
+        static $cache = [];
+
+        $uid = $userId ?: (string) session('id');
+        if (! $uid) return null;
+        if (array_key_exists($uid, $cache)) return $cache[$uid];
+
+        try {
+            $hari = now()->toDateString();
+            $tipe = \Illuminate\Support\Facades\DB::table('att_user_rule as ur')
+                ->join('att_work_rule as r', 'r.id', '=', 'ur.rule_id')
+                ->where('ur.user_id', $uid)
+                ->where('ur.effective_from', '<=', $hari)
+                ->where(function ($q) use ($hari) {
+                    $q->whereNull('ur.effective_to')->orWhere('ur.effective_to', '>=', $hari);
+                })
+                ->orderByDesc('ur.effective_from')
+                ->value('r.tipe');
+        } catch (\Throwable $e) {
+            // Skema absensi belum terpasang di environment ini — jangan bikin
+            // halaman jatuh, tapi jangan diam juga: yang memanggil akan
+            // memperlakukan null sebagai "belum diatur".
+            report($e);
+            $tipe = null;
+        }
+
+        return $cache[$uid] = $tipe;
+    }
+}
+
+/** True kalau aturan kerjanya fleksibel (orang kantor/ABG + penyelia). */
+if (!function_exists('aturanKerjaFleksibel')) {
+    function aturanKerjaFleksibel(?string $userId = null): bool
+    {
+        return tipeAturanKerja($userId) === 'fleksibel';
+    }
+}
+
+/**
+ * Apakah tanggal ini HARI LIBUR TERJADWAL bagi seseorang?
+ *
+ * Membaca konfigurasi hari aturan kerjanya (att_work_rule_day). Null berarti
+ * "tak bisa dijawab" — aturan kerjanya belum diatur, atau aturannya memang
+ * tidak dijadwalkan (mis. Executive). Null SENGAJA dibedakan dari false:
+ * pemanggil tak boleh menyimpulkan "berarti hari kerja" dari ketidaktahuan,
+ * karena itu akan memunculkan gerbang/label pada orang yang memang tak punya
+ * jadwal sama sekali.
+ *
+ * Kalender libur nasional (att_work_rule_exception) TIDAK dilihat di sini —
+ * itu urusan mesin rekonsiliasi; fungsi ini khusus pola mingguan.
+ */
+if (!function_exists('hariLiburTerjadwal')) {
+    function hariLiburTerjadwal(string $userId, ?\Carbon\Carbon $tanggal = null): ?bool
+    {
+        $t = $tanggal ?: \Carbon\Carbon::today();
+
+        try {
+            $ruleId = \Illuminate\Support\Facades\DB::table('att_user_rule')
+                ->where('user_id', $userId)
+                ->where('effective_from', '<=', $t->toDateString())
+                ->where(function ($q) use ($t) {
+                    $q->whereNull('effective_to')->orWhere('effective_to', '>=', $t->toDateString());
+                })
+                ->orderByDesc('effective_from')
+                ->value('rule_id');
+            if (! $ruleId) return null;
+
+            $libur = \Illuminate\Support\Facades\DB::table('att_work_rule_day')
+                ->where('rule_id', $ruleId)->where('day', $t->dayOfWeek)
+                ->value('libur');
+
+            // Aturan tanpa baris hari = tidak dijadwalkan → tak bisa dijawab.
+            return $libur === null ? null : (bool) $libur;
+        } catch (\Throwable $e) {
+            report($e);
+            return null;
+        }
+    }
+}

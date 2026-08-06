@@ -11,6 +11,7 @@ use App\Models\ChecklistSubmission;
 use App\Models\ChecklistSubmissionItem;
 use App\Models\ChecklistTask;
 use App\Models\ChecklistWeeklyDayExcuse;
+use App\Models\ChecklistWeeklyDaySubmit;
 use App\Models\ChecklistWeeklySubmission;
 use App\Models\ChecklistWeeklySubmissionItem;
 use App\Models\RawBranch;
@@ -532,6 +533,7 @@ class MyChecklistController extends Controller
                 'days'       => [],
                 'grouped'    => collect(),
                 'excusedDays' => [],
+                'dayReviews' => [],
                 'progress'   => ['done' => 0, 'total' => 0, 'pct' => 0],
                 'weekOffset' => 0,
                 'weekStart'  => Carbon::today()->startOfWeek(Carbon::MONDAY),
@@ -572,6 +574,16 @@ class MyChecklistController extends Controller
             } elseif ($submission->isEditable()) {
                 $this->reconcileWeeklyItems($submission, $position->division_id, $position->raw_branch_id);
             }
+
+            // Terapkan pengecualian dari cuti/izin approved yang menutupi minggu ini
+            // (menghormati cuti yang disetujui SEBELUM minggu ini dibuat). Idempoten;
+            // gagal tak boleh menggagalkan render form.
+            try {
+                app(\App\Services\ChecklistExcuseService::class)->reconcileWeek($submission);
+                $submission->refresh();
+            } catch (\Throwable $e) {
+                // biarkan — form tetap tampil; reconcile ulang lain kali
+            }
         }
 
         // Build 6 hari row metadata (Selasa → Minggu). Senin dilewati — klinik tutup.
@@ -601,10 +613,18 @@ class MyChecklistController extends Controller
             $grouped = $items->groupBy('day_of_week');
         }
 
-        // Peta hari yang dikecualikan (iso => alasan) untuk minggu ini.
+        // Peta hari yang dikecualikan (iso => ['reason'=>.., 'source'=>..]) untuk
+        // minggu ini. source='system' = otomatis dari cuti/izin → tak bisa dibatalkan.
         $excusedDays = $submission
-            ? $submission->dayExcuses->pluck('reason', 'day_of_week')
-                ->mapWithKeys(fn ($reason, $iso) => [(int) $iso => $reason])->all()
+            ? $submission->dayExcuses->mapWithKeys(fn ($ex) => [
+                (int) $ex->day_of_week => ['reason' => $ex->reason, 'source' => $ex->source ?? 'manual'],
+            ])->all()
+            : [];
+
+        // Peta hari → row submit (status review, waktu kirim, catatan tolak) untuk
+        // render per-hari: pending / approved / rejected.
+        $dayReviews = $submission
+            ? $submission->daySubmits->keyBy(fn ($ds) => (int) $ds->day_of_week)->all()
             : [];
 
         // Progress form berjalan berbasis "satisfied" (dicentang ATAU hari
@@ -623,7 +643,7 @@ class MyChecklistController extends Controller
             : null;
 
         return view('crud.checklist.my.weekform', compact(
-            'position', 'submission', 'days', 'grouped', 'progress', 'excusedDays',
+            'position', 'submission', 'days', 'grouped', 'progress', 'excusedDays', 'dayReviews',
             'weekOffset', 'weekStart', 'weekEnd', 'rejectedNote', 'isFuture'
         ));
     }
@@ -637,6 +657,7 @@ class MyChecklistController extends Controller
         if (! $sub->isEditable()) {
             return response()->json(['ok' => false, 'error' => 'Form mingguan sudah submitted/approved.'], 422);
         }
+        if ($r = $this->weekDayLockGuard($sub, $item)) return $r;
 
         $newState = ! $item->is_done;
 
@@ -679,6 +700,7 @@ class MyChecklistController extends Controller
         $sub  = $item->submission;
         if ($sub->user_id !== session('id')) abort(403);
         if (! $sub->isEditable()) return response()->json(['ok' => false], 422);
+        if ($r = $this->weekDayLockGuard($sub, $item)) return $r;
 
         $data = $request->validate(['note' => 'nullable|string|max:1000']);
         $item->update(['note' => $data['note'] ?? null]);
@@ -699,6 +721,7 @@ class MyChecklistController extends Controller
         if (! $sub->isEditable()) {
             return response()->json(['ok' => false, 'error' => 'Form mingguan sudah submitted/approved.'], 422);
         }
+        if ($r = $this->weekDayLockGuard($sub, $item)) return $r;
 
         $request->merge(['reason' => trim((string) $request->input('reason'))]);
         $data = $request->validate(
@@ -748,6 +771,7 @@ class MyChecklistController extends Controller
         if (! $sub->isEditable()) {
             return response()->json(['ok' => false, 'error' => 'Form mingguan sudah submitted/approved.'], 422);
         }
+        if ($r = $this->weekDayLockGuard($sub, $item)) return $r;
 
         $item->update([
             'is_excepted'      => 0,
@@ -787,6 +811,7 @@ class MyChecklistController extends Controller
         if (! $sub->isEditable()) {
             return response()->json(['ok' => false, 'error' => 'Form mingguan sudah submitted/approved.'], 422);
         }
+        if ($r = $this->weekDayLockGuard($sub, $item)) return $r;
         if (! $item->requires_photo || $item->photo_before_after) {
             return response()->json(['ok' => false, 'error' => 'Task ini tidak memakai foto tunggal.'], 422);
         }
@@ -804,17 +829,8 @@ class MyChecklistController extends Controller
         // Hapus foto lama (foto ulang) supaya tidak menumpuk.
         $this->deletePhotoFile($item->photo_path);
 
-        $file   = $request->file('photo');
-        $week   = optional($sub->week_start_date)->isoFormat('GGGG-[W]WW') ?: date('Y-\WW');
-        [$year, $wk] = array_pad(explode('-', $week), 2, 'W00');
-        $relDir = "uploads/checklist-photos/{$year}/{$wk}";
-        $absDir = public_path($relDir);
-        if (! is_dir($absDir)) @mkdir($absDir, 0775, true);
-
-        $ext      = strtolower($file->getClientOriginalExtension() ?: 'jpg');
-        $filename = (string) Str::uuid() . '.' . $ext;
-        $file->move($absDir, $filename);
-        $path = "{$relDir}/{$filename}";
+        // Simpan file + cap tanggal/jam/nama/cabang ke gambar.
+        $path = $this->storeChecklistPhoto($request->file('photo'), $sub);
 
         $item->update(['photo_path' => $path]);
 
@@ -838,6 +854,7 @@ class MyChecklistController extends Controller
         if (! $sub->isEditable()) {
             return response()->json(['ok' => false, 'error' => 'Form mingguan sudah submitted/approved.'], 422);
         }
+        if ($r = $this->weekDayLockGuard($sub, $item)) return $r;
 
         $this->deletePhotoFile($item->photo_path);
 
@@ -890,22 +907,15 @@ class MyChecklistController extends Controller
             ]
         );
 
+        if ($r = $this->weekDayLockGuard($sub, $item)) return $r;
+
         $col = "photo_{$slot}_path";
 
         // Hapus foto lama slot ini (foto ulang) supaya tidak menumpuk.
         $this->deletePhotoFile($item->{$col});
 
-        $file   = $request->file('photo');
-        $week   = optional($sub->week_start_date)->isoFormat('GGGG-[W]WW') ?: date('Y-\WW');
-        [$year, $wk] = array_pad(explode('-', $week), 2, 'W00');
-        $relDir = "uploads/checklist-photos/{$year}/{$wk}";
-        $absDir = public_path($relDir);
-        if (! is_dir($absDir)) @mkdir($absDir, 0775, true);
-
-        $ext      = strtolower($file->getClientOriginalExtension() ?: 'jpg');
-        $filename = (string) Str::uuid() . '.' . $ext;
-        $file->move($absDir, $filename);
-        $path = "{$relDir}/{$filename}";
+        // Simpan file + cap tanggal/jam/nama/cabang ke gambar.
+        $path = $this->storeChecklistPhoto($request->file('photo'), $sub);
 
         $item->update([$col => $path]);
 
@@ -930,6 +940,7 @@ class MyChecklistController extends Controller
         if (! $sub->isEditable()) {
             return response()->json(['ok' => false, 'error' => 'Form mingguan sudah submitted/approved.'], 422);
         }
+        if ($r = $this->weekDayLockGuard($sub, $item)) return $r;
 
         $col = "photo_{$slot}_path";
         $this->deletePhotoFile($item->{$col});
@@ -946,90 +957,246 @@ class MyChecklistController extends Controller
         if (is_file($abs)) @unlink($abs);
     }
 
-    public function weekSubmit(Request $request)
+    /**
+     * Pindahkan file upload ke folder mingguan + cap tanggal/jam/nama/cabang,
+     * kembalikan path relatif dari public/. Dipakai foto tunggal & before/after.
+     */
+    private function storeChecklistPhoto($file, ChecklistWeeklySubmission $sub): string
     {
-        $weekStart = Carbon::today()->startOfWeek(Carbon::MONDAY);
+        $week   = optional($sub->week_start_date)->isoFormat('GGGG-[W]WW') ?: date('Y-\WW');
+        [$year, $wk] = array_pad(explode('-', $week), 2, 'W00');
+        $relDir = "uploads/checklist-photos/{$year}/{$wk}";
+        $absDir = public_path($relDir);
+        if (! is_dir($absDir)) @mkdir($absDir, 0775, true);
 
+        $ext      = strtolower($file->getClientOriginalExtension() ?: 'jpg');
+        $filename = (string) Str::uuid() . '.' . $ext;
+        $file->move($absDir, $filename);
+        $abs = $absDir . DIRECTORY_SEPARATOR . $filename;
+
+        $this->stampPhoto($abs, $sub);
+
+        return "{$relDir}/{$filename}";
+    }
+
+    /**
+     * Bakar keterangan ke foto (server-side, tak bisa dimanipulasi jam HP):
+     * baris 1 = tanggal + jam server (WIB), baris 2 = nama karyawan — cabang.
+     * Kalau gagal (mis. GD tanpa FreeType), foto asli tetap tersimpan.
+     */
+    private function stampPhoto(string $absPath, ChecklistWeeklySubmission $sub): void
+    {
+        try {
+            $user   = Users::find(session('id'));
+            $nama   = trim((string) ($user?->nama ?? 'Karyawan')) ?: 'Karyawan';
+            $cabang = trim((string) ($sub->branch?->name ?? $sub->raw_branch_id ?? ''));
+            $waktu  = now()->translatedFormat('d/m/Y H:i') . ' WIB';
+            $line2  = $cabang !== '' ? ($nama . ' — ' . $cabang) : $nama;
+
+            $font = public_path('assets/fonts/stamp-sans.ttf');
+
+            $manager = new \Intervention\Image\ImageManager(new \Intervention\Image\Drivers\Gd\Driver());
+            $img = $manager->read($absPath);
+            $img->orient(); // luruskan rotasi EXIF dari kamera HP dulu.
+
+            $w   = $img->width();
+            $h   = $img->height();
+            // Font besar & proporsional lebar foto biar tetap kebaca saat thumbnail.
+            $fs  = max(24, (int) round($w / 26));
+            $pad = (int) round($fs * 0.55);
+            $lh  = (int) round($fs * 1.32);
+            $barH = $pad * 2 + $lh * 2;
+
+            // Bar gelap semi-transparan di bawah supaya teks putih selalu terbaca.
+            $img->drawRectangle(0, $h - $barH, function ($r) use ($w, $barH) {
+                $r->size($w, $barH);
+                $r->background('rgba(0, 0, 0, 0.62)');
+            });
+
+            $tx = $pad;
+            $ty = $h - $barH + $pad;
+            foreach ([$waktu, $line2] as $i => $line) {
+                // Stroke hitam tipis → tetap kontras walau kena latar terang/putih.
+                $img->text($line, $tx, $ty + $i * $lh, function ($f) use ($font, $fs) {
+                    $f->filename($font);
+                    $f->size($fs);
+                    $f->color('#ffffff');
+                    $f->align('left');
+                    $f->valign('top');
+                    $f->stroke('#000000', 2);
+                });
+            }
+
+            $img->save($absPath, quality: 85);
+        } catch (\Throwable $e) {
+            \Log::warning('stampPhoto gagal: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * 422 kalau hari dari item sudah "dikirim" (submit per-hari) — hari terkunci
+     * sampai karyawan membatalkan kirim. null artinya boleh diubah.
+     */
+    private function weekDayLockGuard(ChecklistWeeklySubmission $sub, ChecklistWeeklySubmissionItem $item)
+    {
+        if ($sub->isDaySubmitted((int) $item->day_of_week)) {
+            return response()->json([
+                'ok'    => false,
+                'error' => 'Hari ini sudah dikirim — batalkan kirim dulu untuk mengubah.',
+            ], 422);
+        }
+        // Hari yang dikecualikan OTOMATIS dari cuti/izin (source=system) terkunci —
+        // karyawan tak boleh mencentang untuk menimpanya.
+        $sysExcused = $sub->dayExcuses()
+            ->where('day_of_week', (int) $item->day_of_week)
+            ->where('source', 'system')->exists();
+        if ($sysExcused) {
+            return response()->json([
+                'ok'    => false,
+                'error' => 'Hari ini dikecualikan otomatis (cuti/izin) — tidak bisa diubah.',
+            ], 422);
+        }
+        return null;
+    }
+
+    /**
+     * Kirim tugas SATU hari pada minggu berjalan. Setelah dikirim, hari itu
+     * terkunci (tak bisa centang/foto lagi) sampai dibatalkan. Begitu semua hari
+     * ber-tugas sudah dikirim/dikecualikan, header otomatis di-finalize ke
+     * 'submitted' dan masuk antrian review supervisor (review tetap per-minggu).
+     */
+    public function weekDaySubmit(Request $request)
+    {
+        $data = $request->validate([
+            'day_of_week' => 'required|integer|between:2,7',
+            'note'        => 'nullable|string|max:1000',
+        ]);
+
+        $weekStart = Carbon::today()->startOfWeek(Carbon::MONDAY);
         $sub = ChecklistWeeklySubmission::where('user_id', session('id'))
             ->whereDate('week_start_date', $weekStart)
             ->firstOrFail();
 
         if (! $sub->isEditable()) {
-            return back()->with('error', 'Form mingguan sudah disubmit.');
+            return back()->with('error', 'Form Mingguan sudah tidak bisa diubah.');
         }
 
-        // Hitung ulang dari item — jangan percaya counter header. satisfiedCount()
-        // = tugas selesai ATAU jatuh di hari yang dikecualikan.
-        $total     = $sub->items()->count();
-        $done      = $sub->items()->where('is_done', 1)->count();
-        $satisfied = $sub->satisfiedCount();
-        if ((int) $sub->total_tasks !== $total || (int) $sub->done_tasks !== $done) {
-            $sub->update(['total_tasks' => $total, 'done_tasks' => $done]);
+        $iso      = (int) $data['day_of_week'];
+        $dayLabel = ChecklistTask::dayLabels()[$iso] ?? ('Hari ' . $iso);
+
+        if ($sub->isDayExcused($iso)) {
+            return back()->with('error', $dayLabel . ' sudah ditandai tidak perlu diisi — tak perlu dikirim.');
         }
-        if ($total === 0) {
-            return back()->with('error', 'Belum ada tugas mingguan untuk minggu ini — tidak perlu submit.');
-        }
-        if ($satisfied < $total) {
-            return back()->with('error', 'Semua tugas minggu ini harus diselesaikan atau ditandai tidak perlu diisi (100%) sebelum submit.');
+        if ($sub->isDaySubmitted($iso)) {
+            return back()->with('error', $dayLabel . ' sudah dikirim.');
         }
 
-        $data = $request->validate(['note' => 'nullable|string|max:1000']);
+        // Gate per-hari: semua item hari itu harus beres (dicentang / dikecualikan).
+        $dayItems = $sub->items()->where('day_of_week', $iso)->get();
+        if ($dayItems->count() === 0) {
+            return back()->with('error', 'Tidak ada tugas di ' . $dayLabel . ' untuk dikirim.');
+        }
+        $unresolved = $dayItems->filter(fn ($i) => ! ($i->is_done || $i->is_excepted))->count();
+        if ($unresolved > 0) {
+            return back()->with('error', 'Selesaikan semua tugas ' . $dayLabel . ' dulu sebelum kirim.');
+        }
 
-        $before = ['status' => $sub->status];
-        DB::transaction(function () use ($sub, $data, $before, $done, $total) {
-            $sub->update([
-                'status'       => ChecklistWeeklySubmission::STATUS_SUBMITTED,
-                'submit_note'  => $data['note'] ?? null,
-                'submitted_at' => now(),
-                'updated_at'   => now(),
-                'total_tasks'  => $total,
-                'done_tasks'   => $done,
-            ]);
+        DB::transaction(function () use ($sub, $iso, $data, $dayLabel) {
+            // Kirim (atau kirim ulang hari yang tadinya ditolak) → review_status pending,
+            // bersihkan jejak review lama supaya masuk antrian lagi.
+            ChecklistWeeklyDaySubmit::updateOrCreate(
+                ['submission_id' => $sub->id, 'day_of_week' => $iso],
+                [
+                    'note'             => $data['note'] ?? null,
+                    'review_status'    => ChecklistWeeklyDaySubmit::REVIEW_PENDING,
+                    'reviewer_user_id' => null,
+                    'review_notes'     => null,
+                    'reviewed_at'      => null,
+                    'submitted_at'     => now(),
+                    'updated_at'       => now(),
+                    'created_at'       => now(),
+                ]
+            );
             ChecklistAuditLog::write('weekly_submission', $sub->id, ChecklistAuditLog::ACTION_SUBMIT,
-                $before, ['status' => $sub->status, 'done' => $done, 'total' => $total]);
+                null, ['day_of_week' => $iso], $dayLabel . ' dikirim.');
         });
 
-        // Notif ke ATASAN divisi (hierarki), di-scope ke cabang submission.
+        // Turunkan status header dari state per-hari (draft/submitted/dst).
+        $sub->load(['items', 'dayExcuses', 'daySubmits']);
+        $sub->recomputeStatus();
+
+        // Notif supervisor TIAP hari dikirim — biar bisa langsung review harian.
+        $this->notifyWeeklyDaySubmitted($sub, $dayLabel);
+
+        return redirect()->route('mychecklist.weekform')
+            ->with('success', $dayLabel . ' sudah dikirim.');
+    }
+
+    /**
+     * Batalkan kirim satu hari (untuk koreksi) — selama header masih editable.
+     * Hari itu kembali terbuka untuk diubah.
+     */
+    public function weekDayUnsubmit(Request $request)
+    {
+        $data = $request->validate(['day_of_week' => 'required|integer|between:2,7']);
+
+        $weekStart = Carbon::today()->startOfWeek(Carbon::MONDAY);
+        $sub = ChecklistWeeklySubmission::where('user_id', session('id'))
+            ->whereDate('week_start_date', $weekStart)
+            ->firstOrFail();
+
+        if (! $sub->isEditable()) {
+            return back()->with('error', 'Form Mingguan sudah tidak bisa diubah.');
+        }
+
+        $iso      = (int) $data['day_of_week'];
+        $dayLabel = ChecklistTask::dayLabels()[$iso] ?? ('Hari ' . $iso);
+
+        // Hanya hari yang MASIH pending yang boleh dibatalkan — kalau sudah
+        // di-approve/tolak supervisor, karyawan tak boleh mencabut sepihak.
+        $status = $sub->dayReviewStatus($iso);
+        if ($status === null) {
+            return back()->with('error', $dayLabel . ' belum dikirim.');
+        }
+        if ($status !== ChecklistWeeklyDaySubmit::REVIEW_PENDING) {
+            return back()->with('error', $dayLabel . ' sudah direview supervisor — tak bisa dibatalkan.');
+        }
+
+        ChecklistWeeklyDaySubmit::where('submission_id', $sub->id)
+            ->where('day_of_week', $iso)
+            ->delete();
+
+        ChecklistAuditLog::write('weekly_submission', $sub->id, ChecklistAuditLog::ACTION_REOPEN,
+            null, ['day_of_week' => $iso], 'Kiriman ' . $dayLabel . ' dibatalkan.');
+
+        $sub->load(['items', 'dayExcuses', 'daySubmits']);
+        $sub->recomputeStatus();
+
+        return redirect()->route('mychecklist.weekform')
+            ->with('success', 'Kiriman ' . $dayLabel . ' dibatalkan — hari ini terbuka lagi.');
+    }
+
+    /**
+     * Notif ke ATASAN divisi (hierarki) tiap kali karyawan mengirim satu hari,
+     * di-scope ke cabang submission. Link ke halaman review supervisor.
+     */
+    private function notifyWeeklyDaySubmitted(ChecklistWeeklySubmission $sub, string $dayLabel): void
+    {
         try {
             $user = Users::find(session('id'));
             $name = $user?->nama ?? 'Karyawan';
-            $body = $name . ' (' . $sub->division_id . ') submit Form Mingguan ' . $sub->weekLabel() . '.';
+            $body = $name . ' (' . $sub->division_id . ') mengirim tugas ' . $dayLabel . ' — ' . $sub->weekLabel() . '.';
             foreach (checklistSupervisorRoleNamesForDivision($sub->division_id) as $roleName) {
                 AdminNotification::notifyRole(
                     $roleName,
-                    'checklist.weekly.submitted',
-                    "Form Mingguan dari {$name}",
+                    'checklist.weekly.day_submitted',
+                    "Tugas {$dayLabel} dari {$name}",
                     $body,
                     route('checklist.review.weekly.show', $sub->id),
                     $sub->raw_branch_id
                 );
             }
         } catch (\Throwable $e) {}
-
-        return redirect()->route('mychecklist.weekform')->with('success', 'Form Mingguan disubmit. Menunggu review supervisor.');
-    }
-
-    public function weekReopenSelf(Request $request)
-    {
-        $weekStart = Carbon::today()->startOfWeek(Carbon::MONDAY);
-        $sub = ChecklistWeeklySubmission::where('user_id', session('id'))
-            ->whereDate('week_start_date', $weekStart)
-            ->firstOrFail();
-
-        if ($sub->status !== ChecklistWeeklySubmission::STATUS_REJECTED) {
-            return back()->with('error', 'Hanya Form Mingguan berstatus Rejected yang bisa diperbaiki.');
-        }
-
-        $before = ['status' => $sub->status];
-        $sub->update([
-            'status'       => ChecklistWeeklySubmission::STATUS_DRAFT,
-            'submitted_at' => null,
-            'updated_at'   => now(),
-        ]);
-        ChecklistAuditLog::write('weekly_submission', $sub->id, ChecklistAuditLog::ACTION_REOPEN,
-            $before, ['status' => $sub->status], 'Karyawan membuka Form Mingguan setelah ditolak.');
-
-        return redirect()->route('mychecklist.weekform')->with('success', 'Form Mingguan dibuka kembali untuk diperbaiki.');
     }
 
     /**
@@ -1089,6 +1256,10 @@ class MyChecklistController extends Controller
             // jangan gagalkan aksi kalau notif error
         }
 
+        // Mengecualikan hari mengubah komposisi hari aktif → hitung ulang status header.
+        $sub->load(['items', 'dayExcuses', 'daySubmits']);
+        $sub->recomputeStatus();
+
         return redirect()->route('mychecklist.weekform')->with('success', $dayLabel . ' ditandai "tidak perlu diisi".');
     }
 
@@ -1111,14 +1282,28 @@ class MyChecklistController extends Controller
         }
 
         $iso = (int) $data['day_of_week'];
+
+        // Pengecualian otomatis dari cuti/izin (source=system) TIDAK boleh
+        // dibatalkan karyawan — hanya batal saat pengajuannya ditolak/dicabut.
+        $excuse = ChecklistWeeklyDayExcuse::where('submission_id', $sub->id)
+            ->where('day_of_week', $iso)->first();
+        if ($excuse && ($excuse->source ?? 'manual') === 'system') {
+            return back()->with('error', 'Pengecualian ini otomatis dari cuti/izin yang disetujui — tidak bisa dibatalkan manual.');
+        }
+
+        // Defense-in-depth: hanya hapus pengecualian manual.
         ChecklistWeeklyDayExcuse::where('submission_id', $sub->id)
             ->where('day_of_week', $iso)
+            ->where('source', 'manual')
             ->delete();
         $sub->update(['updated_at' => now()]);
 
         $dayLabel = ChecklistTask::dayLabels()[$iso] ?? ('Hari ' . $iso);
         ChecklistAuditLog::write('weekly_submission', $sub->id, ChecklistAuditLog::ACTION_REOPEN,
             null, ['day_of_week' => $iso], 'Karyawan membatalkan pengecualian ' . $dayLabel . '.');
+
+        $sub->load(['items', 'dayExcuses', 'daySubmits']);
+        $sub->recomputeStatus();
 
         return redirect()->route('mychecklist.weekform')->with('success', 'Pengecualian ' . $dayLabel . ' dibatalkan — hari itu kembali wajib diisi.');
     }
@@ -1129,48 +1314,9 @@ class MyChecklistController extends Controller
      */
     private function bootstrapWeeklyItems(ChecklistWeeklySubmission $sub, string $divisionId, string $branchId): void
     {
-        $categories = ChecklistCategory::query()
-            ->where('division_id', $divisionId)
-            ->whereNull('deleted_at')
-            ->where('is_active', 1)
-            ->where('cadence', ChecklistCategory::CADENCE_WEEKLY)
-            ->where(function ($q) use ($branchId) {
-                $q->whereNull('raw_branch_id')->orWhere('raw_branch_id', $branchId);
-            })
-            ->with(['tasks' => function ($q) {
-                $q->whereNull('deleted_at')->where('is_active', 1)
-                  ->whereNotNull('day_of_week')
-                  ->whereIn('day_of_week', [2, 3, 4, 5, 6, 7])
-                  ->orderBy('day_of_week')->orderBy('sort_order');
-            }])
-            ->orderBy('sort_order')
-            ->get();
-
-        $rows = [];
-        foreach ($categories as $cat) {
-            foreach ($cat->tasks as $task) {
-                $rows[] = [
-                    'id'                      => (string) Str::uuid(),
-                    'submission_id'           => $sub->id,
-                    'task_id'                 => $task->id,
-                    'category_title_snapshot' => $cat->name,
-                    'task_title_snapshot'     => $task->title,
-                    'category_sort_order'     => (int) $cat->sort_order,
-                    'task_sort_order'         => (int) $task->sort_order,
-                    'day_of_week'             => (int) $task->day_of_week,
-                    'is_done'                 => 0,
-                    'note'                    => null,
-                    'requires_photo'          => (int) $task->requires_photo,
-                    'photo_before_after'      => (int) $task->photo_before_after,
-                    'photo_path'              => null,
-                    'done_at'                 => null,
-                    'created_at'              => now(),
-                ];
-            }
-        }
-        if ($rows) DB::table('sys_checklist_weekly_submission_item')->insert($rows);
-
-        $sub->update(['total_tasks' => count($rows), 'updated_at' => now()]);
+        // Logika katalog dipindah ke model supaya ChecklistExcuseService (auto-excuse
+        // cuti/izin) memakai sumber yang sama.
+        $sub->bootstrapItems($divisionId, $branchId);
     }
 
     /**

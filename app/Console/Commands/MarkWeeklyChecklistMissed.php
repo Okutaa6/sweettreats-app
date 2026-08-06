@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\ChecklistCategory;
 use App\Models\ChecklistTask;
+use App\Models\ChecklistWeeklyDaySubmit;
 use App\Models\ChecklistWeeklySubmission;
 use App\Models\UserPosition;
 use Carbon\Carbon;
@@ -163,6 +164,17 @@ class MarkWeeklyChecklistMissed extends Command
                 $convertIds[] = $sub->id;
             } else {
                 $skipped++;
+            }
+        }
+
+        // Jangan tandai "missed" minggu yang sudah SEBAGIAN jalan (ada hari terkirim/
+        // approved/rejected) — itu bukan "tidak diisi". Biarkan status per-hari-nya.
+        if ($convertIds) {
+            $partial = ChecklistWeeklyDaySubmit::whereIn('submission_id', $convertIds)
+                ->distinct()->pluck('submission_id')->all();
+            if ($partial) {
+                $convertIds = array_values(array_diff($convertIds, $partial));
+                $skipped   += count($partial);
             }
         }
 

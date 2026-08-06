@@ -317,10 +317,12 @@
 
         <div class="ak-card">
             <div class="ak-card-pad" style="border-bottom:1px solid #F4EADD">
-                <h5>Default per role — untuk akun baru</h5>
-                <div class="ak-hint" style="margin-top:3px">Saat akun baru dibuat di Pusat Akun, aturan ini otomatis
-                    terpasang (mis. Front Office → FO-Asdent). Orang yang sudah ada TIDAK berubah; pengecualian per
-                    orang (kasus Anisa/Irma) tetap lewat tabel di atas.</div>
+                <h5>Aturan per role</h5>
+                <div class="ak-hint" style="margin-top:3px">Akun baru otomatis memakai aturan role-nya (mis. Front
+                    Office → FO-Asdent). Untuk karyawan yang <b>sudah ada</b>, pakai tombol
+                    <b>Terapkan</b> — berlaku mulai hari ini, tidak mengubah masa lalu yang sudah ternilai.
+                    Penugasan per orang di tabel atas tetap menang, dan orang yang sudah punya penugasan
+                    terjadwal ke depan sengaja dilewati.</div>
             </div>
             <table class="ak-table">
                 <thead><tr><th>Role</th><th>Aturan default</th><th style="width:140px"></th></tr></thead>
@@ -340,6 +342,18 @@
                                 </select>
                                 <button type="submit" class="ak-btn ak-btn-sec ak-btn-kecil">Simpan</button>
                             </form>
+                            @if($role->att_default_rule_id)
+                                {{-- Tombol terpisah, bukan otomatis saat Simpan: mengubah
+                                     aturan kerja orang yang sedang berjalan itu keputusan,
+                                     bukan efek samping. --}}
+                                <form method="POST" action="{{ route('absensi.aturan.default-role.terapkan') }}"
+                                      style="margin-top:6px"
+                                      onsubmit="return confirm('Terapkan aturan ini ke semua karyawan aktif ber-role {{ addslashes($role->nama) }}, mulai hari ini?')">
+                                    @csrf
+                                    <input type="hidden" name="group_id" value="{{ $role->id }}">
+                                    <button type="submit" class="ak-btn ak-btn-kecil">Terapkan ke karyawan yang sudah ada</button>
+                                </form>
+                            @endif
                         </td>
                     </tr>
                 @endforeach

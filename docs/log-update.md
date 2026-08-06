@@ -7,6 +7,130 @@
 
 ---
 
+## 2026-08-06 sore — Perbaikan Reza diperiksa & DIGABUNG; satu default berbahaya dicegat
+
+Reza mengirim perbaikan atas 8 temuan audit — di branch BARU
+`fixing-pettycash-checklist` (dicabang dari `main`, semuanya disquash jadi satu
+commit), bukan melanjutkan branch lama. Sudah diperiksa, digabung dengan fitur
+absensi, dan **dev sekarang menjalankan keduanya** (`integrasi/dev-2026-08-06`).
+Cadangan `~/backups/dev_pre_integrasi_2026-08-06.sql.gz`.
+
+**Perbaikannya bagus — dan saya uji perilakunya, bukan cuma baca kodenya:**
+- **Form mingguan lama tak lagi buntu** — backfill (migration + SQL) mengisi
+  baris per-hari untuk submission lama; diperiksa: nol submission
+  submitted/approved yang tanpa baris, dan baris approved membawa reviewer-nya.
+- **Minggu yang sudah disetujui tak turun jadi draft** saat cuti backdate
+  di-ACC — diuji sungguhan: status tetap approved, jejak reviewer utuh.
+- **Mencabut pengecualian tak lagi mengunci minggu selamanya** — diuji: cuti
+  sepekan di-ACC memasang 6 pengecualian, ditolak → tercabut semua, dan
+  minggunya bisa diisi lagi.
+- **Pengecualian MANUAL karyawan tak lagi ditimpa** jadi bawaan sistem.
+- **Kartu antrian menampilkan nama yang diketik DAN nama akun**, jadi identitas
+  asli tak bisa tertutupi teks bebas.
+- **Lima temuan tombol Reset ditutup lewat gerbang fitur** — rutenya 404 kalau
+  gerbangnya mati. Rancangan yang tepat.
+
+**⚠️ SATU HAL SAYA CEGAT — dan Reza tak mungkin tahu.** Gerbang itu default-nya
+disimpulkan dari `APP_ENV === 'local'`, artinya "kalau local berarti dev, jadi
+boleh". **Produksi kita berjalan dengan `APP_ENV=local`** (temuan kemarin, belum
+dibereskan karena mengubahnya bisa menggeser hal lain). Jadi default itu justru
+akan **MENYALAKAN penghapusan permanen data uang di produksi** — persis
+kebalikan dari maksudnya. Diubah jadi daftar-putih: mati kecuali dinyalakan
+eksplisit lewat `.env`. Dev dinyalakan (`PETTY_CASH_RESET_ENABLED=true`) supaya
+alat bersih-bersih Reza tetap ada; prod tak perlu apa-apa karena default-nya
+sudah aman. Pelajarannya: **fitur destruktif pakai daftar-putih, bukan
+daftar-hitam** — lingkungan yang salah label lalu jadi aman, bukan terbuka.
+
+**Masih menggantung (aman karena di balik gerbang, tapi belum beres):** tombol
+reset tetap tanpa cek periode-tertutup, tanpa hitung-ulang saldo bulan
+berikutnya, tanpa jejak audit, dan "Reset Riwayat Review" masih menghapus
+seluruh cabang sepanjang masa. Kalau kelak gerbangnya dinyalakan di prod, empat
+itu harus dibereskan dulu.
+
+**Verifikasi gabungan di dev**: 42 halaman lintas 8 peran semuanya 200; uji
+absensi 30 pemeriksaan lulus; uji perbaikan Reza 9 pemeriksaan lulus; log nol
+error. Merge tanpa satu pun konflik — dua perubahan di berkas yang sama
+(`submit()` dan halaman Audit Trail) menyatu utuh.
+
+**Yang perlu diputuskan**: `APP_ENV=local` di produksi sebaiknya dibetulkan
+jadi `production`. Sekarang tak ada kode yang bercabang atasnya selain config
+bawaan, tapi ini ranjau — pustaka mana pun yang menganggap "local = boleh
+macam-macam" akan salah kaprah, dan kejadian hari ini contoh pertamanya.
+
+## 2026-08-06 — Tukar Hari, lembur datang-awal, jadwal per role — LIVE DI DEV
+
+Lima keputusan produk dari diskusi 5–6 Agustus dibangun sekaligus, di branch
+`feature/absensi-tukar-hari` yang **dipotong dari `main` dan bersih dari
+kerjaan Reza** — jadi bisa naik prod sendiri tanpa menunggu perbaikan Reza.
+Dev untuk sementara diambil alih (izin Ekky); cadangan
+`~/backups/dev_pre_tukar_2026-08-06.sql.gz`, dev sebelumnya di
+`checklist-pettycash` @ dbbe44a kalau perlu dikembalikan.
+
+**1. Tukar Hari — satu pengajuan, dua sisi.** "Saya masuk 9+10, gantinya libur
+12+13", satu kali ACC. Bukan dua form terpisah: kalau kedua sisi bisa diputus
+sendiri-sendiri, orang bisa dapat libur pengganti tanpa hari masuknya — persis
+lubang yang bikin fitur ini ada. Tanggalnya DAFTAR, bukan rentang, supaya tukar
+9+10 ↔ 12+13 tidak menyeret tanggal 11 yang tak terlibat (terbukti di uji).
+Dijaga: jumlah kedua sisi harus sama, satu tanggal tak boleh di dua sisi, dan
+semuanya satu periode gaji — jatuh ke bulan kalender kalau Finance belum
+membuat periodenya, supaya fiturnya tak macet menunggu pekerjaan orang lain.
+
+**2. Jenis pengajuan disaring per aturan kerja.** Tukar Hari & Kerja dari Rumah
+hanya untuk yang fleksibel. Disaring di layar DAN ditolak di server lewat
+fungsi yang sama — tombol yang disembunyikan tetap bisa dikirim lewat form
+buatan sendiri.
+
+**3. Jadwal hari lewat ROLE, bukan nama orang** (permintaan Ekky). Kuncinya
+memisahkan dua hal: `tipe` aturan menentukan CARA MENILAI (fleksibel = tak
+pernah alpa, boleh Tukar Hari & WFH), konfigurasi hari menentukan HARI MANA
+yang libur. Jadi sekarang ada tiga aturan yang sama-sama fleksibel:
+- **Fleksibel** — tanpa jadwal (Executive: Dani, Hari, Robi)
+- **Fleksibel Kantor** — libur Minggu + Senin (Head IT, IT, Finance, Head
+  Marketing, Creative, Content Creator)
+- **Fleksibel Operasional** — masuk Minggu, libur Senin (Supervisor,
+  Coordinator Dentist → Anisa & Irma)
+Tidak ada satu pun `if nama == 'Anisa'`. Halaman Aturan Kerja juga dapat tombol
+**"Terapkan ke karyawan yang sudah ada"** — sebelumnya aturan per role hanya
+berlaku untuk AKUN BARU, dan itulah yang selama ini memaksa daftar nama muncul
+di SQL. Tombolnya terpisah dari Simpan karena mengubah aturan kerja orang yang
+sedang berjalan itu keputusan, bukan efek samping.
+
+**4. Lembur datang-awal akhirnya terbaca.** Jadwal masuk 10:00 tapi absen 08:00
+untuk persiapan — dua jam itu kerja, dan selama ini mesin saran cuma mengenal
+sisi pulang. Patokannya jam masuk paling awal, bukan ambang telat (kalau pakai
+ambang telat, orang tepat waktu pun tampak lembur). Ambang 30 menit. Hari yang
+punya dua sisi mengisikan yang terlama tapi menyebut sisi satunya — memilihkan
+diam-diam berarti separuh lemburnya hilang. Tetap usulan: yang memutuskan
+manusia lewat form + ACC atasan.
+
+**5. Gerbang absen di hari libur + kalender tak lagi kosong.** Absen di hari
+libur terjadwal memunculkan pertanyaan "dalam rangka apa — Tukar hari atau
+Lembur", ditanya SEKARANG selagi orangnya paling tahu alasannya. Absennya tak
+pernah ditolak. Hari libur terjadwal orang fleksibel kini menghasilkan baris
+`libur` alih-alih kosong — kosong itu ambigu, tak bisa dibedakan dari "belum
+ada datanya", padahal tukar hari perlu terlihat kontras dengan libur biasa.
+
+**Alasan koreksi absen diperbarui** ke kosakata pasca-fingerprint, termasuk
+"Salah pilih cabang" yang sekaligus jadi isyarat bagi SPV bahwa pendaftaran
+WiFi cabang itu belum beres.
+
+**Verifikasi dev**: 38 halaman lintas 8 peran semuanya 200, log bersih. Tukar
+Hari diuji 7 skenario lewat controller (pintu yang dipakai orang, bukan fungsi
+di baliknya — pelajaran dari bug Carbon kemarin); lembur 4 skenario; gerbang &
+kalender diuji untuk empat kelompok aturan. Tombol "Terapkan" idempoten.
+
+**Diuji sendiri 2026-08-06 (Ekky keluar)**: uji ujung-ke-ujung 30 pemeriksaan
+di dev — SEMUA LULUS. Satu BUG NYATA ketemu & diperbaiki di situ: jenis `tukar`
+belum terdaftar di plafon lapis persetujuan, jadi Tukar Hari naik ke lapis DUA
+lalu menggantung tak terlihat siapa pun (kelas kesalahan yang sama dengan bug
+Carbon kemarin — sesuatu yang baru lupa didaftarkan di sebuah peta, lalu gagal
+dengan diam). Selain angkanya ditambah, `submit()` kini MENOLAK jenis yang belum
+terdaftar supaya kelalaian berikutnya berbunyi keras di dev, bukan diam sampai
+ke gaji. Dev ditinggal bersih: nol sisa data uji, log nol error.
+
+**Belum naik prod.** Butuh 2 SQL (`2026_08_06_tukar_hari.sql` — **wajib mysql
+CLI karena DELIMITER** — dan `2026_08_06_jadwal_fleksibel.sql`).
+
 ## 2026-08-05 sore — Kode absensi NAIK PROD + daftar WiFi Bintaro dirapikan
 
 Menutup dua utang yang masih menggantung dari entri di bawah.

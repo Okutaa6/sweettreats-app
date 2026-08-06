@@ -106,11 +106,16 @@
     .wf-progress.is-good .wf-progress__bar > i { background: #2F8E55; }
     .wf-progress.is-warn .wf-progress__bar > i { background: #C9962F; }
     .wf-progress.is-bad  .wf-progress__bar > i { background: #C0392B; }
-    @media (max-width: 540px) {
+    /* Mobile: pisahkan nav (1 baris penuh) & progres (di bawahnya). Hitungan
+       "N dari N tugas · N belum" turun ke baris sendiri biar tak kepotong —
+       sebelumnya nowrap + body min-width:140 bikin overflow di layar sempit. */
+    @media (max-width: 640px) {
         .wf-toolbar { padding: 14px 16px; }
         .wf-toolbar__sep { display: none; }
-        .wf-progress { min-width: 100%; }
-        .wf-progress__count { white-space: normal; }
+        .wf-nav { width: 100%; justify-content: space-between; }
+        .wf-progress { min-width: 100%; flex-wrap: wrap; row-gap: 10px; }
+        .wf-progress__body { min-width: 0; }
+        .wf-progress__count { white-space: normal; flex-basis: 100%; text-align: left; }
     }
 
     /* Banners */
@@ -182,6 +187,30 @@
     .wf-day__pill--warn { background: #FAEEDA; color: #B5701A; }
     .wf-day__pill--neutral { background: #F5EDE0; color: #B7926F; font-weight: 700; }
     .wf-day__pill--excused { background: #F2E7D8; color: #8A5A2B; }
+    .wf-day__pill--danger { background: #FBE3DE; color: #C0392B; }
+
+    /* Panel status per-hari (kirim / menunggu review / disetujui / ditolak) — SELALU termuat
+       walau minggu sudah tak editable, supaya tampilan approved/ditolak tetap berkartu. */
+    .wf-day-submit { margin: 12px 0 2px; padding: 12px 14px; border: 1px solid #E0D2C1; border-radius: 10px; background: #FFFDF9; display: flex; flex-direction: column; gap: 10px; }
+    .wf-day-submit__note { width: 100%; box-sizing: border-box; border: 1px solid #E0D2C1; border-radius: 8px; padding: 8px 10px; font-size: 13px; color: #2D1810; font-family: inherit; resize: vertical; }
+    .wf-day-submit__note:focus { outline: none; border-color: #A66019; box-shadow: 0 0 0 3px rgba(166,96,25,.10); }
+    .wf-day-submit__btn { align-self: flex-start; border: none; border-radius: 8px; background: linear-gradient(180deg,#5C2E15,#471500); color: #fff; font-size: 13px; font-weight: 700; padding: 10px 18px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; }
+    .wf-day-submit__btn:hover:not(:disabled) { filter: brightness(1.08); }
+    .wf-day-submit__btn:disabled { background: #D9C9B6; color: #8A7A66; cursor: not-allowed; }
+    /* Menunggu review (pending) — kartu amber */
+    .wf-day-sent { margin: 12px 0 2px; padding: 11px 14px; border: 1px solid #E7D3B8; border-left: 4px solid #B5701A; border-radius: 10px; background: #FCF7EE; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+    .wf-day-sent__text { display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 700; color: #6B4423; }
+    .wf-day-sent__text i { color: #B5701A; }
+    .wf-day-sent__undo { border: 1px solid #C9A26B; border-radius: 8px; background: #fff; color: #5C2E15; font-size: 12px; font-weight: 700; padding: 7px 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+    .wf-day-sent__undo:hover { background: #FAF0E2; }
+    /* Disetujui — kartu hijau */
+    .wf-day-sent--ok { border-color: #BFE3C4; border-left-color: #2E9E4B; background: #F1FBF3; }
+    .wf-day-sent--ok .wf-day-sent__text { color: #256B37; }
+    .wf-day-sent--ok .wf-day-sent__text i { color: #2E9E4B; }
+    /* Ditolak — kartu merah */
+    .wf-day-reject { margin: 12px 0 2px; padding: 11px 14px; border: 1px solid #F1C9C1; border-left: 4px solid #C0392B; border-radius: 10px; background: #FDF1EF; display: flex; align-items: flex-start; gap: 10px; font-size: 12.5px; color: #8A2B1E; line-height: 1.45; }
+    .wf-day-reject i { color: #C0392B; margin-top: 2px; }
+    .wf-day-reject strong { color: #A32D2D; }
 
     /* Accordion: head jadi tombol buka/tutup, body diciutkan halus (0fr↔1fr) */
     .wf-day__body {
@@ -628,14 +657,8 @@
                 <div class="wf-banner wf-banner--danger">
                     <i class="fas fa-times-circle"></i>
                     <div style="flex:1;">
-                        <strong>Form Mingguan ditolak supervisor.</strong>
-                        @if($rejectedNote)<div style="margin-top:4px;">Catatan: {{ $rejectedNote }}</div>@endif
-                        <form method="POST" action="{{ route('mychecklist.weekform.reopen-self') }}" style="margin-top:10px;">
-                            @csrf
-                            <button type="submit" class="st-btn-brand" style="font-size:12.5px; padding:6px 14px;">
-                                <i class="fas fa-pen"></i> Perbaiki Form
-                            </button>
-                        </form>
+                        <strong>Ada hari yang ditolak supervisor.</strong>
+                        <div style="margin-top:4px;">Perbaiki hari yang ditandai <b>merah</b> di bawah, lalu <b>kirim ulang</b> hari itu. Hari yang sudah disetujui tak perlu diulang.</div>
                     </div>
                 </div>
             @elseif($submission && $submission->status === \App\Models\ChecklistWeeklySubmission::STATUS_SUBMITTED)
@@ -679,13 +702,31 @@
                             $doneDay  = $dayItems->filter(fn ($i) => $i->is_done || $i->is_excepted)->count();
                             $isComplete = $totalDay > 0 && $doneDay === $totalDay;
                             $isDayExcused = array_key_exists($day->iso, $excusedDays);
-                            $dayExcuseReason = $excusedDays[$day->iso] ?? null;
-                            $canDayExcuse = $submission && $submission->isEditable() && $weekOffset === 0 && $totalDay > 0;
+                            $dayExcuseReason = $excusedDays[$day->iso]['reason'] ?? null;
+                            // source='system' = otomatis dari cuti/izin disetujui → karyawan tak boleh membatalkan.
+                            $daySystemExcuse = ($excusedDays[$day->iso]['source'] ?? 'manual') === 'system';
+                            // Status review per-hari: pending | approved | rejected | null (belum dikirim).
+                            $dayReview        = $dayReviews[$day->iso] ?? null;
+                            $dayReviewStatus  = $dayReview->review_status ?? null;
+                            $isDayApproved    = $dayReviewStatus === 'approved';
+                            $isDayPending     = $dayReviewStatus === 'pending';
+                            $isDayRejected    = $dayReviewStatus === 'rejected';
+                            // Terkunci = terkirim & belum ditolak (pending/approved). Rejected = terbuka lagi.
+                            $isDayLocked      = $isDayPending || $isDayApproved;
+                            $daySubmitAt      = $dayReview->submitted_at ?? null;
+                            $dayReviewedAt    = $dayReview->reviewed_at ?? null;
+                            $dayRejectNote    = $isDayRejected ? ($dayReview->review_notes ?? null) : null;
+                            // Hari bisa diubah hanya bila form editable, tak dikecualikan, DAN tidak terkunci.
+                            $dayEditable = $submission && $submission->isEditable() && ! $isDayExcused && ! $isDayLocked;
+                            $canDayExcuse = $submission && $submission->isEditable() && $weekOffset === 0 && $totalDay > 0 && ! $isDayLocked;
+                            $canDaySubmit = $dayEditable && $weekOffset === 0 && $totalDay > 0;
                             $dayClass = '';
                             if ($day->is_today) $dayClass .= ' is-today';
                             elseif ($day->is_past) $dayClass .= ' is-past';
                             if ($totalDay === 0) $dayClass .= ' is-empty';
                             if ($isDayExcused) $dayClass .= ' is-excused';
+                            if ($isDayLocked) $dayClass .= ' is-sent';
+                            if ($isDayRejected) $dayClass .= ' is-rejected';
                         @endphp
                         <div class="wf-day {{ $dayClass }}">
                             <div class="wf-day__head">
@@ -706,6 +747,12 @@
                                 {{-- Pill hitung di kanan (sebelum caret) — ikut handoff --}}
                                 @if($isDayExcused)
                                     <span class="wf-day__pill wf-day__pill--excused">Dikecualikan</span>
+                                @elseif($isDayApproved)
+                                    <span class="wf-day__pill wf-day__pill--good"><i class="fas fa-check-circle" style="font-size:9px;"></i> Disetujui</span>
+                                @elseif($isDayPending)
+                                    <span class="wf-day__pill wf-day__pill--warn"><i class="fas fa-clock" style="font-size:9px;"></i> Menunggu review</span>
+                                @elseif($isDayRejected)
+                                    <span class="wf-day__pill wf-day__pill--danger"><i class="fas fa-times-circle" style="font-size:9px;"></i> Ditolak</span>
                                 @elseif($totalDay > 0)
                                     <span class="wf-day__pill wf-day__pill--{{ $isComplete ? 'good' : 'warn' }}" data-day-pill>
                                         @if($isComplete)<i class="fas fa-check" style="font-size:9px;"></i>@endif
@@ -722,14 +769,14 @@
                                     <div class="wf-day__empty">Tidak ada tugas terjadwal di hari ini.</div>
                                 @else
                                     @foreach($dayItems as $item)
-                                            <div class="wf-task {{ $item->is_done ? 'is-done' : '' }} {{ $item->is_excepted && ! $isDayExcused ? 'is-excepted' : '' }} {{ $submission->isEditable() && ! $isDayExcused ? '' : 'is-locked' }} {{ $isDayExcused ? 'is-excused' : '' }} {{ ! $isDayExcused && ! $item->is_excepted && $item->requires_photo && ! $item->photo_before_after && ! $item->photo_path ? 'needs-photo' : '' }}"
+                                            <div class="wf-task {{ $item->is_done ? 'is-done' : '' }} {{ $item->is_excepted && ! $isDayExcused ? 'is-excepted' : '' }} {{ $dayEditable ? '' : 'is-locked' }} {{ $isDayExcused ? 'is-excused' : '' }} {{ $isDayLocked ? 'is-sent' : '' }} {{ ! $isDayExcused && ! $item->is_excepted && $item->requires_photo && ! $item->photo_before_after && ! $item->photo_path ? 'needs-photo' : '' }}"
                                                  data-item-id="{{ $item->id }}"
                                                  data-toggle-url="{{ route('mychecklist.weekform.item.toggle', $item->id) }}"
-                                                 @if($submission->isEditable() && ! $isDayExcused)
+                                                 @if($dayEditable)
                                                  data-except-url="{{ route('mychecklist.weekform.item.except', $item->id) }}"
                                                  data-unexcept-url="{{ route('mychecklist.weekform.item.unexcept', $item->id) }}"
                                                  @endif
-                                                 data-editable="{{ $submission->isEditable() && ! $isDayExcused ? '1' : '0' }}"
+                                                 data-editable="{{ $dayEditable ? '1' : '0' }}"
                                                  data-requires-photo="{{ $item->requires_photo && ! $item->photo_before_after ? '1' : '0' }}"
                                                  @if($item->requires_photo && ! $item->photo_before_after)
                                                  data-photo-upload-url="{{ route('mychecklist.weekform.item.photo.upload', $item->id) }}"
@@ -756,9 +803,9 @@
                                                                             data-url="{{ $baPath ? asset($baPath) : '' }}">
                                                                         <i class="fas fa-{{ $baPath ? 'image' : 'camera' }}" data-ba-icon></i>
                                                                         <span class="wf-ba__pill-cap">{{ $slotLabel }}</span>
-                                                                        <span data-ba-state>@if($baPath)Lihat @else{{ $submission->isEditable() ? 'Ambil foto' : 'Tidak ada' }}@endif</span>
+                                                                        <span data-ba-state>@if($baPath)Lihat @else{{ $dayEditable ? 'Ambil foto' : 'Tidak ada' }}@endif</span>
                                                                     </button>
-                                                                    @if($submission->isEditable())
+                                                                    @if($dayEditable)
                                                                         <div class="wf-ba__tools">
                                                                             <button type="button" class="wf-ba__mini" data-ba-take>
                                                                                 <i class="fas fa-camera"></i> <span data-ba-label>{{ $baPath ? 'Ganti' : 'Ambil' }}</span>
@@ -781,7 +828,7 @@
                                                                         style="{{ $item->photo_path ? '' : 'display:none;' }}">
                                                                     <i class="fas fa-image"></i> Lihat foto
                                                                 </button>
-                                                                @if($submission->isEditable())
+                                                                @if($dayEditable)
                                                                     <button type="button" class="wf-photo__btn" data-photo-take>
                                                                         <i class="fas fa-camera"></i> <span data-photo-label>{{ $item->photo_path ? 'Foto ulang' : 'Ambil foto' }}</span>
                                                                     </button>
@@ -800,11 +847,11 @@
                                                         <div class="cl-xcpt__flag" data-xcpt-flag>
                                                             <span class="cl-xcpt__pill"><i class="fas fa-ban"></i> Dikecualikan</span>
                                                             <span class="cl-xcpt__reason" data-xcpt-reason>{{ $item->exception_reason }}</span>
-                                                            @if($submission->isEditable() && ! $isDayExcused)
+                                                            @if($dayEditable)
                                                                 <button type="button" class="cl-xcpt__undo" data-xcpt-undo>Batalkan</button>
                                                             @endif
                                                         </div>
-                                                    @elseif($submission->isEditable() && ! $isDayExcused)
+                                                    @elseif($dayEditable)
                                                         <div class="cl-xcpt__flag" data-xcpt-flag hidden>
                                                             <span class="cl-xcpt__pill"><i class="fas fa-ban"></i> Dikecualikan</span>
                                                             <span class="cl-xcpt__reason" data-xcpt-reason></span>
@@ -813,7 +860,7 @@
                                                     @endif
 
                                                     {{-- Tombol + form pengecualian (hanya editable & hari tidak dikecualikan). --}}
-                                                    @if($submission->isEditable() && ! $isDayExcused)
+                                                    @if($dayEditable)
                                                         <button type="button" class="cl-xcpt__open" data-xcpt-open
                                                                 title="Tandai pertanyaan ini tidak perlu diisi minggu ini">
                                                             <i class="fas fa-ban"></i> <span>Kecualikan</span>
@@ -844,17 +891,24 @@
                                     @if($isDayExcused)
                                         <div class="wf-day-excused">
                                             <div class="wf-day-excused__text">
-                                                <i class="fas fa-mug-hot"></i>
+                                                <i class="fas {{ $daySystemExcuse ? 'fa-calendar-check' : 'fa-mug-hot' }}"></i>
                                                 <span>Hari ini dikecualikan — <strong>{{ $dayExcuseReason }}</strong></span>
                                             </div>
-                                            <form method="POST" action="{{ route('mychecklist.weekform.day.unexcuse') }}"
-                                                  data-confirm="Batalkan pengecualian dan isi {{ $day->label }} seperti biasa?">
-                                                @csrf
-                                                <input type="hidden" name="day_of_week" value="{{ $day->iso }}">
-                                                <button type="submit" class="wf-day-excused__undo">
-                                                    <i class="fas fa-undo"></i> Batalkan, isi hari ini
-                                                </button>
-                                            </form>
+                                            @if($daySystemExcuse)
+                                                <span class="wf-day-excused__auto" title="Otomatis dari cuti/izin yang disetujui"
+                                                      style="display:inline-flex; align-items:center; gap:5px; font-size:11.5px; font-weight:700; color:#7a5b12; background:#fdf3d3; border:1px solid #efd98a; padding:4px 9px; border-radius:999px;">
+                                                    <i class="fas fa-lock" style="font-size:9px;"></i> otomatis dari cuti/izin
+                                                </span>
+                                            @else
+                                                <form method="POST" action="{{ route('mychecklist.weekform.day.unexcuse') }}"
+                                                      data-confirm="Batalkan pengecualian dan isi {{ $day->label }} seperti biasa?">
+                                                    @csrf
+                                                    <input type="hidden" name="day_of_week" value="{{ $day->iso }}">
+                                                    <button type="submit" class="wf-day-excused__undo">
+                                                        <i class="fas fa-undo"></i> Batalkan, isi hari ini
+                                                    </button>
+                                                </form>
+                                            @endif
                                         </div>
                                     @else
                                         <div class="cl-excuse cl-excuse--day">
@@ -884,44 +938,82 @@
                                         </div>
                                     @endif
                                 @endif
+
+                                {{-- STATUS REVIEW HARI: disetujui / menunggu review / ditolak --}}
+                                @if($isDayApproved)
+                                    <div class="wf-day-sent wf-day-sent--ok">
+                                        <div class="wf-day-sent__text">
+                                            <i class="fas fa-check-circle"></i>
+                                            <span>Disetujui supervisor @if($dayReviewedAt)• {{ $dayReviewedAt->translatedFormat('d M Y, H:i') }} @endif</span>
+                                        </div>
+                                    </div>
+                                @elseif($isDayPending)
+                                    <div class="wf-day-sent">
+                                        <div class="wf-day-sent__text">
+                                            <i class="fas fa-clock"></i>
+                                            <span>Terkirim · menunggu review @if($daySubmitAt)• {{ $daySubmitAt->translatedFormat('d M Y, H:i') }} @endif</span>
+                                        </div>
+                                        @if($submission->isEditable() && $weekOffset === 0)
+                                            <form method="POST" action="{{ route('mychecklist.weekform.day.unsubmit') }}"
+                                                  data-confirm="Batalkan kiriman {{ $day->label }} dan buka lagi untuk diubah?">
+                                                @csrf
+                                                <input type="hidden" name="day_of_week" value="{{ $day->iso }}">
+                                                <button type="submit" class="wf-day-sent__undo"><i class="fas fa-undo"></i> Batalkan kirim</button>
+                                            </form>
+                                        @endif
+                                    </div>
+                                @elseif($isDayRejected)
+                                    <div class="wf-day-reject">
+                                        <i class="fas fa-times-circle"></i>
+                                        <div>
+                                            <strong>Ditolak supervisor.</strong>@if($dayRejectNote) {{ $dayRejectNote }}@endif
+                                            <div style="opacity:.85; margin-top:2px;">Perbaiki lalu kirim ulang hari ini.</div>
+                                        </div>
+                                    </div>
+                                @endif
+
+                                {{-- FORM KIRIM: hari belum dikirim ATAU sudah ditolak (perbaiki & kirim ulang) --}}
+                                @if($canDaySubmit)
+                                    <form method="POST" action="{{ route('mychecklist.weekform.day.submit') }}" class="wf-day-submit"
+                                          data-confirm="Kirim tugas {{ $day->label }}? Setelah dikirim, hari ini menunggu review supervisor.">
+                                        @csrf
+                                        <input type="hidden" name="day_of_week" value="{{ $day->iso }}">
+                                        <textarea name="note" class="wf-day-submit__note" rows="1" maxlength="1000"
+                                                  placeholder="Catatan untuk supervisor (opsional)…"></textarea>
+                                        <button type="submit" class="wf-day-submit__btn" data-day-submit-btn {{ $isComplete ? '' : 'disabled' }}>
+                                            <i class="fas fa-paper-plane"></i>
+                                            <span data-day-submit-label>{{ $isComplete ? ($isDayRejected ? 'Kirim ulang hari ini' : 'Kirim tugas hari ini') : 'Selesaikan semua tugas dulu' }}</span>
+                                        </button>
+                                    </form>
+                                @endif
                                 </div>
                             </div>
                         </div>
                     @endforeach
                 </div>
 
-                {{-- SUBMIT FOOTER --}}
+                {{-- FOOTER: ringkasan submit per-hari (submit dilakukan di tiap kartu hari) --}}
                 @if($submission->isEditable() && $weekOffset === 0)
-                    <form id="wfSubmitForm" method="POST" action="{{ route('mychecklist.weekform.submit') }}"
-                          style="display:none;"
-                          data-confirm="Submit Form Mingguan minggu ini? Setelah submit, tidak bisa edit sampai supervisor review.">
-                        @csrf
-                    </form>
+                    @php
+                        $activeDays  = $submission->activeDayNumbers();
+                        $sentDays    = array_values(array_intersect($submission->submittedDayNumbers(), $activeDays));
+                        $activeCount = count($activeDays);
+                        $sentCount   = count($sentDays);
+                    @endphp
                     <div class="wf-submit">
-                        @php $wfComplete = $progress['total'] > 0 && $progress['done'] === $progress['total']; @endphp
                         <div class="wf-submit__top">
-                            {{-- Kalimat mengikuti handoff: headline tebal + sub redup. --}}
                             <div class="wf-submit__text">
-                                <div class="wf-submit__headline" id="wfHint">
-                                    @if($wfComplete)
-                                        Semua tugas minggu ini terpenuhi — siap dikirim!
+                                <div class="wf-submit__headline">
+                                    @if($activeCount === 0)
+                                        Belum ada hari yang perlu dikirim minggu ini.
+                                    @elseif($sentCount >= $activeCount)
+                                        Semua hari sudah dikirim — menunggu review supervisor.
                                     @else
-                                        Selesaikan semua tugas dulu.
+                                        {{ $sentCount }}/{{ $activeCount }} hari sudah dikirim.
                                     @endif
                                 </div>
-                                <div class="wf-submit__sub">Form Mingguan bisa disubmit setelah semua tugas selesai atau harinya dikecualikan.</div>
+                                <div class="wf-submit__sub">Kirim tugas tiap hari lewat tombol <b>Kirim tugas hari ini</b> di kartu hari. Form otomatis diteruskan ke supervisor saat semua hari selesai atau dikecualikan.</div>
                             </div>
-                            <button type="submit" form="wfSubmitForm" class="wf-submit__btn" id="wfSubmitBtn" {{ $wfComplete ? '' : 'disabled' }}>
-                                @if($wfComplete)
-                                    <i class="fas fa-paper-plane"></i> Kirim Form Mingguan
-                                @else
-                                    <i class="fas fa-paper-plane"></i> Belum 100%
-                                @endif
-                            </button>
-                        </div>
-                        <div class="wf-submit__note">
-                            <textarea id="wfNote" name="note" form="wfSubmitForm" rows="2" maxlength="1000"
-                                      placeholder="Catatan untuk supervisor (opsional) — mis. hari Kamis alat pel rusak, sudah lapor ke admin cabang…"></textarea>
                         </div>
                     </div>
 
@@ -987,8 +1079,6 @@
     const pctEl   = document.getElementById('wfPct');
     const fillEl  = document.getElementById('wfFill');
     const countEl = document.getElementById('wfCount');
-    const hintEl  = document.getElementById('wfHint');
-    const submitBtn = document.getElementById('wfSubmitBtn');
 
     document.querySelectorAll('[data-item-id]').forEach(task => {
         // Klik area task (check/judul) → toggle. Foto bersifat opsional, jadi
@@ -1336,6 +1426,13 @@
             chip.classList.toggle('wf-day__pill--good', complete);
             chip.classList.toggle('wf-day__pill--warn', ! complete);
         }
+        // Tombol "Kirim tugas hari ini" aktif hanya bila semua tugas hari itu beres.
+        const dayBtn = dayCard.querySelector('[data-day-submit-btn]');
+        if (dayBtn) {
+            dayBtn.disabled = ! complete;
+            const lbl = dayBtn.querySelector('[data-day-submit-label]');
+            if (lbl) lbl.textContent = complete ? 'Kirim tugas hari ini' : 'Selesaikan semua tugas dulu';
+        }
     }
 
     const wfProgressCard = document.getElementById('wfProgressCard');
@@ -1351,19 +1448,6 @@
         if (countEl) {
             const remaining = Math.max(0, p.total - p.done);
             countEl.innerHTML = '<strong>' + p.done + '</strong> dari ' + p.total + ' tugas <small>· ' + remaining + ' belum</small>';
-        }
-        const complete = p.total > 0 && p.done === p.total;
-        if (submitBtn) {
-            submitBtn.disabled = ! complete;
-            submitBtn.innerHTML = complete
-                ? '<i class="fas fa-paper-plane"></i> Kirim Form Mingguan'
-                : '<i class="fas fa-paper-plane"></i> Belum 100%';
-        }
-        if (hintEl) {
-            // Headline mengikuti handoff — sub di bawahnya statis.
-            hintEl.textContent = complete
-                ? 'Semua tugas minggu ini terpenuhi — siap dikirim!'
-                : 'Selesaikan semua tugas dulu.';
         }
     }
 })();

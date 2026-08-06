@@ -61,9 +61,28 @@
         </div>
     </div>
 
-    {{-- ─── CARD: FILTER + TABLE ─── --}}
+    {{-- ─── TABS ─── --}}
+    @php
+        $allRolls = $rows->flatMap(function ($r) {
+            return $r->rolls->map(fn ($roll) => (object) ['roll' => $roll, 'user' => $r->user]);
+        })->sortBy(fn ($x) => optional($x->roll->effective_from)->timestamp)->values();
+    @endphp
     <div class="cl-panel" style="padding:0;">
+        <div class="cl-postab">
+            <button type="button" class="cl-postab__btn is-active" data-postab="home">
+                <i class="fas fa-user-tag"></i> Posisi (Cabang Asal)
+            </button>
+            <button type="button" class="cl-postab__btn" data-postab="rolling">
+                <i class="fas fa-people-arrows"></i> Rolling (Sementara)
+                @if($allRolls->count())<span class="cl-postab__count">{{ $allRolls->count() }}</span>@endif
+            </button>
+            <button type="button" class="cl-postab__btn" data-postab="swap">
+                <i class="fas fa-exchange-alt"></i> Tukar (Swap)
+            </button>
+        </div>
 
+    {{-- ═══ PANE: POSISI (HOME) ═══ --}}
+    <div data-postab-pane="home">
         <form method="GET" action="{{ route('checklist.positions') }}" class="cl-filter">
             <label>Cari</label>
             <input type="text" name="q" value="{{ $search }}" placeholder="Nama / email karyawan...">
@@ -131,7 +150,179 @@
                 </table>
             </div>
         @endif
-    </div>
+    </div>{{-- /pane home --}}
+
+    {{-- ═══ PANE: ROLLING (SEMENTARA) ═══ --}}
+    <div data-postab-pane="rolling" hidden>
+        <div style="padding:16px 18px;">
+            <p style="font-size:12.5px; color:var(--cl-muted); margin:0 0 12px;">
+                Tempatkan karyawan ke <strong>cabang lain</strong> untuk rentang tanggal tertentu. Selama periode itu
+                checklist-nya mengikuti cabang tujuan; setelah tanggal berakhir <strong>otomatis kembali</strong> ke cabang asal.
+                Divisi/role tidak berubah — hanya cabang. Untuk pindah permanen, pakai tab <em>Posisi</em>.
+            </p>
+
+            <form method="POST" action="{{ route('checklist.positions.rolling') }}"
+                  class="cl-roll-form" style="display:flex; gap:8px; align-items:flex-end; flex-wrap:wrap; margin-bottom:16px;">
+                @csrf
+                <div>
+                    <label class="cl-roll-lbl">Divisi</label>
+                    <select class="cl-inline-select" style="min-width:150px;" data-emp-filter="#roll-emp">
+                        <option value="">Semua divisi</option>
+                        @foreach($divisions as $div)
+                            <option value="{{ $div->id }}">{{ $div->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div>
+                    <label class="cl-roll-lbl">Karyawan</label>
+                    <select name="user_id" id="roll-emp" required class="cl-inline-select" style="min-width:200px;">
+                        <option value="">— Pilih karyawan —</option>
+                        @foreach($rows as $r)
+                            <option value="{{ $r->user->id }}" data-div="{{ optional($r->roleDivision)->id }}">{{ $r->user->nama }} @if($r->roleDivision)· {{ $r->roleDivision->name }}@endif</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div>
+                    <label class="cl-roll-lbl">Cabang tujuan</label>
+                    <select name="raw_branch_id" required class="cl-inline-select" style="min-width:160px;">
+                        <option value="">— Cabang —</option>
+                        @foreach($branches as $b)
+                            <option value="{{ $b->id }}">{{ $b->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div>
+                    <label class="cl-roll-lbl">Mulai</label>
+                    <input type="date" name="effective_from" required class="cl-inline-select" min="{{ now()->toDateString() }}" value="{{ now()->toDateString() }}">
+                </div>
+                <div>
+                    <label class="cl-roll-lbl">Selesai</label>
+                    <input type="date" name="effective_to" required class="cl-inline-select" min="{{ now()->toDateString() }}">
+                </div>
+                <div style="flex:1; min-width:160px;">
+                    <label class="cl-roll-lbl">Alasan (opsional)</label>
+                    <input type="text" name="note" maxlength="500" class="cl-inline-select" style="width:100%;" placeholder="mis. gantikan rekan cuti">
+                </div>
+                <button type="submit" class="st-btn-brand" style="white-space:nowrap;">
+                    <i class="fas fa-people-arrows"></i> Tetapkan
+                </button>
+            </form>
+
+            @if($allRolls->isEmpty())
+                <div class="cl-empty" style="padding:24px;">
+                    <span class="cl-empty__icon"><i class="fas fa-people-arrows"></i></span>
+                    <div class="cl-empty__title">Belum ada rolling aktif</div>
+                    <div class="cl-empty__desc">Penempatan sementara yang sedang/akan berjalan akan muncul di sini.</div>
+                </div>
+            @else
+                <div class="st-table-wrap st-table-wrap--scroll">
+                    <table class="st-table">
+                        <thead><tr>
+                            <th>Karyawan</th>
+                            <th style="width:180px;">Cabang tujuan</th>
+                            <th style="width:200px;">Periode</th>
+                            <th>Alasan</th>
+                            <th style="width:90px; text-align:center;">Aksi</th>
+                        </tr></thead>
+                        <tbody>
+                            @foreach($allRolls as $x)
+                                <tr>
+                                    <td style="font-weight:600; color:var(--cl-ink);">{{ $x->user->nama }}</td>
+                                    <td><span class="st-pill st-pill--warning">{{ $x->roll->branch?->name ?? $x->roll->raw_branch_id }}</span></td>
+                                    <td style="font-size:12.5px; color:var(--cl-muted);">
+                                        {{ optional($x->roll->effective_from)->translatedFormat('d M Y') }} –
+                                        {{ optional($x->roll->effective_to)->translatedFormat('d M Y') }}
+                                        @if($x->roll->effective_from && $x->roll->effective_from->gt(now()))
+                                            <span class="st-pill st-pill--neutral" style="margin-left:4px;">akan datang</span>
+                                        @endif
+                                    </td>
+                                    <td style="font-size:12px; color:var(--cl-subtle);">{{ $x->roll->note ?: '—' }}</td>
+                                    <td style="text-align:center;">
+                                        <form method="POST" action="{{ route('checklist.positions.rolling.remove', $x->roll->id) }}"
+                                              style="display:inline;"
+                                              onsubmit="return confirm('Akhiri rolling {{ $x->user->nama }} ke {{ $x->roll->branch?->name ?? '-' }}? Karyawan kembali ke cabang asal.');">
+                                            @csrf @method('DELETE')
+                                            <button type="submit" class="st-icon-btn" title="Akhiri rolling"
+                                                    style="color:var(--cl-danger); border-color:var(--cl-danger-bg);">
+                                                <i class="fas fa-times"></i>
+                                            </button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            @endif
+        </div>
+    </div>{{-- /pane rolling --}}
+
+    {{-- ═══ PANE: TUKAR (SWAP) ═══ --}}
+    <div data-postab-pane="swap" hidden>
+        <div style="padding:16px 18px;">
+            <p style="font-size:12.5px; color:var(--cl-muted); margin:0 0 12px;">
+                Tukar dua karyawan sekaligus untuk satu rentang tanggal — masing-masing ditempatkan ke cabang tujuannya.
+                Ini hanya membuat <strong>dua rolling</strong> sekaligus (bisa juga dibuat satu per satu di tab Rolling).
+            </p>
+            <form method="POST" action="{{ route('checklist.positions.rolling.swap') }}"
+                  style="display:flex; gap:8px; align-items:flex-end; flex-wrap:wrap;">
+                @csrf
+                <div>
+                    <label class="cl-roll-lbl">Divisi</label>
+                    <select class="cl-inline-select" style="min-width:150px;" data-emp-filter="#swap-a,#swap-b">
+                        <option value="">Semua divisi</option>
+                        @foreach($divisions as $div)
+                            <option value="{{ $div->id }}">{{ $div->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div>
+                    <label class="cl-roll-lbl">Karyawan A</label>
+                    <select name="user_a" id="swap-a" required class="cl-inline-select" style="min-width:180px;">
+                        <option value="">— Pilih —</option>
+                        @foreach($rows as $r)
+                            <option value="{{ $r->user->id }}" data-div="{{ optional($r->roleDivision)->id }}">{{ $r->user->nama }} @if($r->roleDivision)· {{ $r->roleDivision->name }}@endif</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div>
+                    <label class="cl-roll-lbl">A → cabang</label>
+                    <select name="branch_a" required class="cl-inline-select" style="min-width:150px;">
+                        <option value="">— Cabang —</option>
+                        @foreach($branches as $b)<option value="{{ $b->id }}">{{ $b->name }}</option>@endforeach
+                    </select>
+                </div>
+                <div>
+                    <label class="cl-roll-lbl">Karyawan B</label>
+                    <select name="user_b" id="swap-b" required class="cl-inline-select" style="min-width:180px;">
+                        <option value="">— Pilih —</option>
+                        @foreach($rows as $r)
+                            <option value="{{ $r->user->id }}" data-div="{{ optional($r->roleDivision)->id }}">{{ $r->user->nama }} @if($r->roleDivision)· {{ $r->roleDivision->name }}@endif</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div>
+                    <label class="cl-roll-lbl">B → cabang</label>
+                    <select name="branch_b" required class="cl-inline-select" style="min-width:150px;">
+                        <option value="">— Cabang —</option>
+                        @foreach($branches as $b)<option value="{{ $b->id }}">{{ $b->name }}</option>@endforeach
+                    </select>
+                </div>
+                <div>
+                    <label class="cl-roll-lbl">Mulai</label>
+                    <input type="date" name="effective_from" required class="cl-inline-select" min="{{ now()->toDateString() }}" value="{{ now()->toDateString() }}">
+                </div>
+                <div>
+                    <label class="cl-roll-lbl">Selesai</label>
+                    <input type="date" name="effective_to" required class="cl-inline-select" min="{{ now()->toDateString() }}">
+                </div>
+                <button type="submit" class="st-btn-brand" style="white-space:nowrap;">
+                    <i class="fas fa-exchange-alt"></i> Tukar
+                </button>
+            </form>
+        </div>
+    </div>{{-- /pane swap --}}
+    </div>{{-- /cl-panel --}}
 </div>
 
 <style>
@@ -152,6 +343,12 @@
         border-color: var(--cl-brown-2);
         box-shadow: 0 0 0 3px rgba(92,46,21,.10);
     }
+
+    .cl-roll-lbl {
+        display: block; font-size: 11px; font-weight: 700; color: var(--cl-muted);
+        margin-bottom: 4px; text-transform: uppercase; letter-spacing: .02em;
+    }
+    input.cl-inline-select { line-height: normal; }
 
     /* Tabs posisi */
     .cl-postab { display: flex; gap: 6px; padding: 14px 18px 0; flex-wrap: wrap; }
@@ -182,6 +379,27 @@
             var tab = btn.dataset.postab;
             btns.forEach(function (b) { b.classList.toggle('is-active', b === btn); });
             panes.forEach(function (p) { p.hidden = (p.dataset.postabPane !== tab); });
+        });
+    });
+
+    // Filter dropdown karyawan berdasarkan divisi yang dipilih.
+    document.querySelectorAll('[data-emp-filter]').forEach(function (divSel) {
+        var targets = divSel.dataset.empFilter.split(',')
+            .map(function (s) { return document.querySelector(s.trim()); })
+            .filter(Boolean);
+        divSel.addEventListener('change', function () {
+            var div = divSel.value;
+            targets.forEach(function (emp) {
+                var selHidden = false;
+                Array.prototype.forEach.call(emp.options, function (opt) {
+                    if (!opt.value) return; // placeholder selalu tampil
+                    var show = !div || opt.dataset.div === div;
+                    opt.hidden = !show;
+                    opt.disabled = !show;
+                    if (!show && opt.selected) selHidden = true;
+                });
+                if (selHidden) emp.value = ''; // reset kalau pilihan lama kini tersembunyi
+            });
         });
     });
 })();

@@ -189,6 +189,28 @@
         @endif
     </div>
 
+    {{-- Absen di HARI LIBUR terjadwal → tanyakan dalam rangka apa, SEKARANG,
+         selagi orangnya paling tahu alasannya. Kerja di luar jadwal hanya sah
+         kalau dideklarasikan (keputusan Ekky 2026-08-05); tanpa itu harinya
+         tidak dihitung — tapi absennya TIDAK PERNAH ditolak, dan tak ada yang
+         memaksa mengisi sekarang juga.
+         $liburHariIni null = tak bisa dijawab (aturan kerja belum diatur, atau
+         memang tak dijadwalkan) → jangan bertanya berdasarkan ketidaktahuan. --}}
+    @if(($liburHariIni ?? null) === true)
+        <div class="abshp-ingat" style="border-color:#C4DCEE;background:#F4F9FD">
+            <b>Hari ini jadwalmu libur</b>
+            <span>Kalau kamu tetap masuk, catat dulu dalam rangka apa — kalau tidak, hari ini tidak dihitung sebagai hari kerja. Absennya tetap tersimpan.</span>
+            <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+                @if($bolehTukar ?? false)
+                    <a class="abshp-btn abshp-btn-kedua" style="flex:1;min-width:130px;padding:10px;font-size:14px"
+                       href="{{ route('akun.pengajuan', ['tipe' => 'tukar']) }}">Tukar hari</a>
+                @endif
+                <a class="abshp-btn abshp-btn-kedua" style="flex:1;min-width:130px;padding:10px;font-size:14px"
+                   href="{{ route('akun.pengajuan', ['tipe' => 'lembur']) }}">Lembur</a>
+            </div>
+        </div>
+    @endif
+
     @if($lupaKemarin)
         <div class="abshp-ingat" style="display:flex;align-items:center;gap:10px">
             <div style="flex:1">

@@ -89,6 +89,9 @@
                                 @unless ($isRoot)
                                     <span class="rgx-chip"><i class="fas fa-level-up-alt fa-rotate-90"></i> {{ optional($role->parent)->nama }}</span>
                                 @endunless
+                                @if ($role->parent_id_2)
+                                    <span class="rgx-chip" title="Atasan kedua (khusus supervisi checklist)"><i class="fas fa-user-plus"></i> {{ optional($role->parent2)->nama }}</span>
+                                @endif
                                 <span class="rgx-chip rgx-chip--soft"><i class="fas fa-sign-in-alt"></i> {{ $role->landing_page }}</span>
                             </div>
 

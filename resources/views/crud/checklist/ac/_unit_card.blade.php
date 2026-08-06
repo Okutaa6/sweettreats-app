@@ -74,6 +74,17 @@
                 data-label-open="Catat Servis" data-label-close="Tutup Form">
                 <i class="fas fa-plus"></i> <span>Catat Servis</span>
             </button>
+            <button type="button" class="ac-btn-outline"
+                data-ac-edit="{{ $unit->id }}"
+                data-room="{{ $unit->room_name }}"
+                data-branch="{{ $unit->raw_branch_id }}"
+                data-pk="{{ $unit->capacity_pk }}"
+                data-interval="{{ $unit->wash_interval_days }}"
+                data-sort="{{ $unit->sort_order }}"
+                data-notes="{{ $unit->notes }}"
+                data-updated="{{ $unit->updated_at ? $unit->updated_at->toIso8601String() : '' }}">
+                <i class="fas fa-pen"></i> Edit
+            </button>
             <button type="button" class="ac-btn-outline" data-ac-history="{{ $unit->id }}" data-room="{{ $unit->room_name }}">
                 <i class="fas fa-history"></i> Riwayat
             </button>
