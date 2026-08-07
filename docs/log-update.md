@@ -7,6 +7,43 @@
 
 ---
 
+## 2026-08-07 — WiFi Kalideres didaftarkan (diverifikasi FOTO, bukan tebakan IP)
+
+Rizka absen dari jaringan tak dikenal dua kali (6 Agu 20:40 pulang, 7 Agu 09:59
+masuk) — **alamat sama persis sampai ekornya**, `2001:448a:90b0:ebf:...`,
+dua sesi berjarak 13 jam. Stabil sebagai jaringan, tapi datanya TIDAK bisa
+membedakan dua cerita: WiFi cabang, atau WiFi rumah (pulang setelah sampai
+rumah, masuk sebelum berangkat) — polanya identik.
+
+**Yang memutuskan: foto selfie.** Ekky membuka bukti absennya dan memastikan
+Rizka memang berada di cabang. Baru setelah itu didaftarkan (label menyebut
+verifikasi fotonya). Ini pelajaran yang layak diulang: **kalau IP ambigu,
+fotonya yang menjawab** — 10 detik melihat bukti mengalahkan berhari-hari
+menunggu data IP menumpuk. Ongkos salahnya timpang: tak mendaftarkan = flag
+harian yang merepotkan; salah mendaftarkan = orang bisa absen dari rumah
+TANPA flag, dan flag itu satu-satunya pemicu pemeriksaan.
+
+**Alurnya (normal, bukan anomali)**: Rizka masuk di Bintaro 6 Agu, pindah
+penempatan ke Kalideres, menginap, lalu absen dari Kalideres 7 Agu. Roster
+tetap Bintaro karena penempatannya **sementara** — dan itu memang rancangannya:
+`att_day.raw_branch_id` cuma untuk pengelompokan laporan, bukan sumber
+kebenaran, dan satu hari kerja memang boleh lintas cabang (preseden lama:
+Rokhmatun, perawat Sunter yang menutup Kalideres, tercatat di 4 mesin).
+⚠️ Saran sebelumnya agar roster Rizka dipindah ke Kalideres **KELIRU** dan
+dibatalkan — jangan diulang. Kebutuhan yang sebenarnya sudah punya rumah:
+fitur **Penempatan** milik Reza (`docs/rencana/rencana-penempatan.md`).
+
+Diuji setelah didaftarkan: alamat Rizka cocok Kalideres, HP lain di prefix yang
+sama juga cocok, prefix tetangga TIDAK ikut cocok, dan Bintaro/Sunter/Pamulang
+tetap pada cabangnya masing-masing.
+
+**Cakupan saksi WiFi sekarang** — Bintaro 2 IPv4 + 2 IPv6 (lengkap) · Sunter
+1+1 (lengkap) · Kalideres 0+1 · Pamulang 0+1 · Cinere kosong (belum ada yang
+pernah absen dari sana). Kalideres & Pamulang belum punya wajah IPv4-nya:
+orang pertama yang HP-nya lewat IPv4 akan manual sekali, lalu tinggal
+didaftarkan. Sisa: 2 flag Rizka hari ini (`ip_asing` masih "baru", `pola_ip`
+sudah "dicek") — sebabnya sudah jelas, tinggal ditutup Anisa.
+
 ## 2026-08-07 dini hari — Fitur "Minta Buka Kembali" checklist (Reza) NAIK PROD, teruji
 
 Ekky menyerahkan malam ini penuh ke HUB ("lanjut tanpa aku"): audit → dev →
