@@ -272,7 +272,8 @@
                     'f' => array_map(fn ($f) => ['id' => $f['id'], 'j' => $f['jenis'], 'w' => $f['jam'] ?? null], $c['foto']),
                 ];
             }
-            $rows[] = ['id' => (string) $r['id'], 'n' => $r['nama'], 'r' => $r['role'], 'cells' => $cells];
+            // lb = hari libur milik orang ini (0=Minggu..6=Sabtu) menurut aturan kerjanya
+            $rows[] = ['id' => (string) $r['id'], 'n' => $r['nama'], 'r' => $r['role'], 'lb' => $r['libur'] ?? [], 'cells' => $cells];
         }
         $payloadGroups[] = ['key' => $gkey, 'label' => $g['label'], 'flex' => (bool) $g['flex'], 'rows' => $rows];
     }
@@ -301,6 +302,7 @@ var KH_DATA = {
     urlBase: @json(url('absensi/kehadiran')),
     initBranch: @json((string) ($branchFilter ?? '')),
     initView: @json($initView),
+    tutup: @json(array_values($tutupDow ?? [])),
     initDay: {{ $selDay ?: 'null' }}
 };
 </script>
@@ -331,6 +333,11 @@ var KH_DATA = {
     });
     function shortLabel(g) { return g.label.replace(/^Cabang\s+/i, ''); }
     function dow(d) { return new Date(D.year, D.month0, d).getDay(); }
+    // Hari tutup klinik — dari aturan kerja, BUKAN asumsi "akhir pekan".
+    var TUTUP = D.tutup || [];
+    function isTutup(wd) { return TUTUP.indexOf(wd) >= 0; }
+    // Hari libur milik satu orang (aturannya sendiri bisa beda dari klinik).
+    function rowLibur(r, wd) { return !!(r && r.lb && r.lb.indexOf(wd) >= 0); }
     function lemburJam(min) { return Math.round(min / 60 * 10) / 10; }
     function visRows() {
         var q = S.q.trim().toLowerCase(), out = [];
@@ -460,8 +467,7 @@ var KH_DATA = {
     function colBg(d) {
         var wd = dow(d);
         if (d === D.todayD) return '#FBF0DE';
-        if (wd === 0) return '#FDF5F3';
-        if (wd === 6) return '#FCF9F5';
+        if (isTutup(wd)) return '#FDF5F3';
         return 'transparent';
     }
     function renderMatrix(vis, ds) {
@@ -474,7 +480,7 @@ var KH_DATA = {
         h += '<div class="kh2-mx-head" style="grid-template-columns:' + gridCols + '">';
         h += '<div class="kh2-mx-head-name">KARYAWAN</div>';
         ds.forEach(function (d) {
-            var wd = dow(d), isToday = d === D.todayD, red = wd === 0;
+            var wd = dow(d), isToday = d === D.todayD, red = isTutup(wd);
             h += '<div class="kh2-hd" style="padding:' + (pekan ? '10px 0' : '8px 0') + ';background:' + colBg(d) + ';' + (isToday ? 'border-top:2px solid #B5701A;' : '') + '">'
                 + '<div style="font-size:' + (pekan ? 11 : 9.5) + 'px;font-weight:800;letter-spacing:.3px;color:' + (isToday ? '#B5701A' : (red ? '#C0392B' : '#A9866A')) + '">' + (pekan ? DOWF[wd] : DOW2[wd]) + '</div>'
                 + (isToday
@@ -499,9 +505,15 @@ var KH_DATA = {
                 ds.forEach(function (d) {
                     var c = r.cells[d];
                     if (c) { if (c.s === 'hadir') hh++; else if (c.s === 'telat') tt++; else if (c.s === 'alpa') aa++; }
-                    var wrap = '<div class="kh2-cellwrap" style="height:' + rowH + 'px;padding:0 ' + (pekan ? 4 : 2) + 'px;background:' + colBg(d) + '">';
+                    // Hari libur orang ini ikut disorot walau klinik buka — orang
+                    // kantor libur Minggu+Senin, rekannya cuma Senin.
+                    var offDiri = rowLibur(r, dow(d));
+                    var cellBg = colBg(d);
+                    if (cellBg === 'transparent' && offDiri) cellBg = '#FDF5F3';
+                    var wrap = '<div class="kh2-cellwrap" style="height:' + rowH + 'px;padding:0 ' + (pekan ? 4 : 2) + 'px;background:' + cellBg + '">';
                     if (!c) {
-                        wrap += '<div class="kh2-cell empty" style="height:' + chipH + 'px;border-radius:' + (pekan ? 10 : 6) + 'px" title="belum ada data"></div>';
+                        // sel kosong di hari liburnya sendiri BUKAN data hilang
+                        wrap += '<div class="kh2-cell empty" style="height:' + chipH + 'px;border-radius:' + (pekan ? 10 : 6) + 'px" title="' + (offDiri ? 'libur menurut aturan kerjanya' : 'belum ada data') + '"></div>';
                     } else {
                         var at = ST[c.s] || ST.libur, dim = S.focus && c.s !== S.focus;
                         var title = d + ' ' + D.monthShort + ' · ' + at.l;
@@ -585,7 +597,7 @@ var KH_DATA = {
         var sd = Math.min(S.selDay, N), wd = dow(sd);
         var h = '<div class="kh2-strip" id="khStrip">';
         for (var d = 1; d <= N; d++) {
-            var sel = d === sd, isToday = d === D.todayD, red = dow(d) === 0;
+            var sel = d === sd, isToday = d === D.todayD, red = isTutup(dow(d));
             h += '<button type="button" class="kh2-pill kh2-btn" data-sel="' + d + '" style="'
                 + (sel ? 'background:linear-gradient(135deg,#6B2400,#461500);border-color:transparent;' : (isToday ? 'background:#FBF0DE;border-color:#E3B77A;' : '')) + '">'
                 + '<span style="font-size:9.5px;font-weight:800;letter-spacing:.4px;color:' + (sel ? '#E0BFA6' : (red ? '#C0392B' : '#A9866A')) + '">' + DOW2[dow(d)] + '</span>'
