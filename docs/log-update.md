@@ -7,6 +7,66 @@
 
 ---
 
+## 2026-08-07 (tutup hari) — WiFi Cinere muncul sendiri; 2 catatan koreksi
+
+Entri "WiFi Kalideres" di bawah ditulis siang 7 Agu. Sore harinya data berubah,
+jadi tiga hal di sana perlu disusul — **entri lama tidak diedit, ini susulannya.**
+
+**1. Cinere TIDAK kosong lagi.** Entri siang bilang "Cinere kosong (belum ada
+yang pernah absen dari sana)". Sore itu juga muncul jaringan baru
+`2001:448a:2033:12b8` — 3 absen, Talitha (masuk 10:29, pulang 18:35) dan Alif
+(pulang 18:34), dua-duanya memilih **Cinere** manual. Belum terdaftar.
+
+**Bukti bahwa ini WiFi tempat kerja, bukan rumah, jauh lebih kuat daripada
+kasus Kalideres**: dua ORANG BERBEDA di satu jaringan berjarak satu menit
+(18:34 & 18:35). Satu rumah tak menghasilkan pola itu. Kalideres kemarin butuh
+verifikasi foto justru karena cuma satu orang — Rizka — sehingga WiFi cabang
+dan WiFi rumah terlihat sama persis. **Aturan praktisnya: ≥2 orang berbeda di
+satu /64 dalam rentang menit = jaringan tempat kerja.** Kalau cuma satu orang,
+baru buka fotonya.
+
+Ketiga alamat itu punya 64 bit belakang yang berbeda-beda (`2420:…`, `bfb9:…`,
+`ca2:…`) — persis privacy extension yang sudah diantisipasi. Mendaftarkan SATU
+saja langsung menutup Talitha dan Alif sekaligus.
+
+**2. Pendaftaran Pamulang belum pernah terpakai.** Anisa mendaftarkan
+`2001:448a:2020:27df` (Pamulang) jam 09:35 berdasarkan data 6 Agu — hari itu
+Alif, Talitha, dan Yovanka absen dari sana dalam satu menit (21:52–21:53).
+Tapi 7 Agu **tak ada satu pun** absen dari prefix itu: Alif & Talitha justru di
+Cinere, Yovanka tidak absen. `last_seen_at` masih kosong. Bukan salah daftar —
+cuma belum kepakai. Perlu dilihat lagi setelah beberapa hari; kalau tetap sepi
+sementara orangnya rutin di Cinere, berarti yang 6 Agu itu yang perlu
+dipertanyakan.
+
+**3. Rizka dapat flag KETIGA.** Entri siang menyebut 2 flag; sorenya bertambah
+`luar_seharian`. Sebabnya: absen pulang 20:16 lewat **data seluler Telkomsel**
+(`114.10.70.167`), bukan WiFi Kalideres — jadi kedua absennya hari itu tak
+cocok, dan flag "di luar jaringan seharian" wajar menyala. ⚠️ **IP seluler
+tidak bisa didaftarkan** (CGNAT, berputar, dipakai jutaan orang — mendaftarkan
+= membuka absen dari mana saja). Jadi selama orang absen pakai kuota, flag ini
+akan terus muncul dan memang harus ditutup manual. Bukan cacat.
+
+**⚠️ JAM DI `att_branch_ip` BISA MELESET 7 JAM — jangan salah baca urutan.**
+MySQL & OS server jalan di **UTC**, sedangkan Laravel menulis **Asia/Jakarta**.
+Baris yang ditulis lewat aplikasi = WIB; baris yang ditulis lewat SQL langsung
+= UTC. Baris Kalideres (id 13) tercatat `03:16` padahal aslinya **10:16 WIB**.
+Akibatnya berbahaya: dibaca apa adanya, pendaftaran (03:16) seolah SEBELUM
+absen Rizka (09:59) — dan kesimpulan yang menggoda adalah "pencocokan IP
+rusak". **Itu keliru.** Urutan sebenarnya 09:59 absen → 10:16 daftar, dan
+pencocokan sehat. Penanda gampang: `id` 13 lebih besar dari `id` 12 (09:35),
+padahal AUTO_INCREMENT tak bisa mundur — kalau id dan jam bertentangan,
+**percaya id-nya.**
+
+**Cakupan saksi WiFi per akhir 7 Agu** — Bintaro 2 IPv4 + 2 IPv6 (lengkap,
+aktif) · Sunter 1+1 (lengkap, aktif) · Kalideres 0+1 (belum pernah cocok) ·
+Pamulang 0+1 (belum pernah cocok) · **Cinere 0+0 — ada jaringan aktif yang
+belum didaftarkan.** Dari 20 absen 7 Agu, 5 tak cocok (25%): Rizka ×2,
+Talitha ×2, Alif ×1.
+
+**Tindakan berikutnya (kecil, belum dikerjakan):** daftarkan
+`2001:448a:2033:12b8:…` sebagai Cinere — buktinya sudah cukup kuat tanpa perlu
+buka foto; lalu Anisa menutup 3 flag Rizka yang sebabnya sudah terang.
+
 ## 2026-08-07 — WiFi Kalideres didaftarkan (diverifikasi FOTO, bukan tebakan IP)
 
 Rizka absen dari jaringan tak dikenal dua kali (6 Agu 20:40 pulang, 7 Agu 09:59
