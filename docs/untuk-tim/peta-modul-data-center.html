@@ -1,0 +1,481 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SweetTreats — Peta Modul &amp; Alur Data Center</title>
+<!--
+  ═══════════════════════════════════════════════════════════════════
+  PETA MODUL & ALUR — SweetTreats Data Center
+  Untuk: bos + spesialis UI/UX (bahan konsultasi proyek)
+  Dibuat: 8 Agustus 2026 · basis: database produksi + kode aplikasi
+
+  CARA KUSTOM:
+  • Semua warna ada di :root di bawah — ganti di satu tempat.
+  • Tiap bagian dibungkus <section id="..."> — hapus/geser bebas.
+  • Peta besar = satu blok <svg> (id="peta") — koordinat pakai
+    viewBox 1240×830, aman di-edit langsung.
+  ═══════════════════════════════════════════════════════════════════
+-->
+<style>
+:root{
+  /* identitas — cokelat utama TERKUNCI */
+  --brand:#461500; --brand-2:#6B2400; --cream:#FBF5ED; --card:#FFFFFF;
+  --ink:#3B1500; --ink-2:#5A3A22; --muted:#9A7256; --faint:#B99B7E;
+  --line:#EAD9C6; --line-soft:#F2E6D8;
+  /* aksen domain (selaras zona tema aplikasi) */
+  --d-klinik:#8A5A3B; --d-sdm:#2E6E62; --d-keu:#7A2E3A; --d-mkt:#B5701A; --d-it:#4A4A52;
+  /* chip status */
+  --ok-bg:#E3F2E7; --ok:#1E7A46;
+  --new-bg:#E2EFF1; --new:#2A6F77;
+  --thin-bg:#F7ECD9; --thin:#9A6614;
+  --plan-bg:#EFE9E1; --plan:#6B6259;
+  --pause-bg:#E8E8EC; --pause:#55565E;
+  --dead-bg:#FBE3DE; --dead:#C0392B;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--cream);color:var(--ink);line-height:1.55;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1240px;margin:0 auto;padding:26px 20px 70px}
+
+/* ── hero ── */
+.hero{background:linear-gradient(125deg,var(--brand-2),var(--brand) 55%);color:#FBEADB;border-radius:22px;padding:34px 36px 30px;margin-bottom:26px}
+.hero .eyebrow{font-size:11.5px;font-weight:800;letter-spacing:2.2px;color:#D9AE8C;text-transform:uppercase;margin-bottom:10px}
+.hero h1{font-size:clamp(24px,4vw,36px);letter-spacing:-.5px;line-height:1.15}
+.hero p{margin-top:12px;max-width:820px;font-size:14.5px;color:#F0D9C4}
+.hero .meta{display:flex;gap:8px;flex-wrap:wrap;margin-top:18px}
+.hero .meta span{background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.16);border-radius:20px;padding:5px 13px;font-size:12px;font-weight:700}
+
+/* ── section ── */
+section{margin-top:38px}
+.shead{display:flex;align-items:baseline;gap:12px;margin-bottom:6px}
+.snum{font-size:13px;font-weight:800;color:var(--faint);letter-spacing:1px}
+.shead h2{font-size:clamp(19px,2.6vw,25px);letter-spacing:-.3px}
+.ssub{color:var(--muted);font-size:13.5px;max-width:860px;margin-bottom:18px}
+
+/* ── chip ── */
+.chip{display:inline-block;border-radius:20px;padding:2px 10px;font-size:10.5px;font-weight:800;letter-spacing:.4px;white-space:nowrap;vertical-align:1px}
+.c-ok{background:var(--ok-bg);color:var(--ok)} .c-new{background:var(--new-bg);color:var(--new)}
+.c-thin{background:var(--thin-bg);color:var(--thin)} .c-plan{background:var(--plan-bg);color:var(--plan)}
+.c-pause{background:var(--pause-bg);color:var(--pause)} .c-dead{background:var(--dead-bg);color:var(--dead)}
+.legend{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 14px}
+
+/* ── peta (svg) ── */
+.mapbox{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:14px;overflow-x:auto;box-shadow:0 1px 3px rgba(70,21,0,.05)}
+.mapbox svg{display:block;min-width:980px;width:100%;height:auto}
+.mapbox text{font-family:inherit}
+
+/* ── kartu domain ── */
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px}
+.dcard{background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden;box-shadow:0 1px 3px rgba(70,21,0,.05)}
+.dcard .dh{display:flex;align-items:center;gap:10px;padding:13px 18px;color:#fff;font-weight:800;font-size:14.5px;letter-spacing:.2px}
+.dcard .dh small{margin-left:auto;font-weight:700;font-size:11px;opacity:.8}
+.mrow{display:flex;gap:12px;align-items:baseline;padding:11px 18px;border-top:1px solid var(--line-soft)}
+.mrow b{font-size:13.5px;white-space:nowrap}
+.mrow p{font-size:12.5px;color:var(--muted);flex:1}
+.mrow .chip{flex:none}
+
+/* ── alur bisnis ── */
+.fcard{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px 22px;margin-bottom:16px;box-shadow:0 1px 3px rgba(70,21,0,.05)}
+.fcard h3{font-size:16.5px;margin-bottom:2px}
+.fcard .fsub{font-size:12.5px;color:var(--muted);margin-bottom:15px}
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+.fstep{flex:1 1 148px;min-width:148px;background:#FDFAF5;border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.fstep b{display:block;font-size:12.5px;margin-bottom:3px}
+.fstep span{font-size:11.5px;color:var(--muted);display:block}
+.fstep.auto{background:#F3EEE6;border-style:dashed}
+.fstep .tag{display:inline-block;background:#E5DACB;color:#7A5A3E;border-radius:9px;padding:1px 7px;font-size:9.5px;font-weight:800;letter-spacing:.5px;margin-bottom:5px}
+.fstep.ext{background:#EFF4F3;border-color:#CFE0DC}
+.farr{display:flex;align-items:center;color:#C9A279;font-weight:800;font-size:15px}
+.fnote{margin-top:13px;font-size:12.5px;color:var(--ink-2);background:#FBF0DE;border-left:3px solid var(--d-mkt);border-radius:0 10px 10px 0;padding:9px 14px}
+
+/* ── alur data ── */
+.twocol{display:grid;grid-template-columns:minmax(280px,380px) 1fr;gap:16px}
+@media (max-width:880px){.twocol{grid-template-columns:1fr}}
+.tl{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px 20px}
+.tl h3{font-size:15px;margin-bottom:12px}
+.tlrow{display:flex;gap:12px;padding:7px 0;border-top:1px dashed var(--line-soft);font-size:12.5px}
+.tlrow:first-of-type{border-top:none}
+.tlt{font-weight:800;color:var(--brand-2);flex:none;width:46px;font-variant-numeric:tabular-nums}
+.tlrow.dim{opacity:.55}
+.dtbl{background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden}
+.dtbl-scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:640px}
+th{background:#F6EEE2;text-align:left;font-size:10.5px;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);padding:11px 16px}
+td{padding:11px 16px;border-top:1px solid var(--line-soft);font-size:12.5px;vertical-align:top}
+td b{font-size:13px}
+.dir{font-weight:800;white-space:nowrap}
+.dir.in{color:var(--ok)} .dir.out{color:var(--d-keu)} .dir.duo{color:var(--new)}
+
+/* ── adopsi ── */
+.adop{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
+.acard{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px}
+.acard b{display:block;font-size:13.5px;margin-bottom:5px}
+.acard p{font-size:12.5px;color:var(--muted)}
+
+/* ── uiux ── */
+.uicard{border-left:4px solid var(--d-sdm)}
+.uicard .mrow b{white-space:normal}
+
+/* ── footer ── */
+footer{margin-top:44px;padding-top:18px;border-top:1px solid var(--line);font-size:12px;color:var(--muted)}
+@media print{.mapbox{overflow:visible} body{background:#fff}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="hero">
+  <div class="eyebrow">SweetTreats · Dokumen Orientasi Proyek</div>
+  <h1>Peta Modul &amp; Alur — Data Center</h1>
+  <p>Satu aplikasi menjadi pusat data lima cabang klinik: pasien, reservasi, karyawan, dan keuangan tinggal di satu tempat, lalu modul-modul ERP dan sistem luar mengelilinginya. Halaman ini memetakan <b>apa saja modulnya, bagaimana bisnis mengalir melewatinya, dan ke mana data bergerak</b> — dibaca langsung dari database produksi, bukan dari ingatan.</p>
+  <div class="meta">
+    <span>5 cabang</span><span>±30 karyawan</span><span>14 rb pasien</span><span>4,5 rb reservasi</span><span>133 rb baris penjualan</span><span>per 8 Agu 2026</span>
+  </div>
+</div>
+
+<!-- ════════════════ 1 · PETA BESAR ════════════════ -->
+<section id="peta-besar">
+  <div class="shead"><span class="snum">01</span><h2>Peta besar — semua jalan lewat pusat</h2></div>
+  <p class="ssub">Lima rumpun modul bekerja di dalam aplikasi dan membaca-menulis ke inti data yang sama. Dunia luar (vendor, mesin, HP karyawan) tidak pernah saling bicara langsung — semuanya masuk atau keluar lewat Data Center.</p>
+
+  <div class="mapbox">
+  <svg id="peta" viewBox="0 0 1240 830" role="img" aria-label="Peta hub Data Center">
+    <defs>
+      <marker id="mk" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0 0 L10 5 L0 10 z" fill="#8A5A3B"/>
+      </marker>
+      <marker id="mkg" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0 0 L10 5 L0 10 z" fill="#9A9AA4"/>
+      </marker>
+    </defs>
+
+    <text x="24" y="16" font-size="11" font-weight="800" letter-spacing="1.5" fill="#B99B7E">MODUL ERP — DI DALAM APLIKASI</text>
+
+    <!-- garis domain → pusat -->
+    <g stroke="#D8BFA6" stroke-width="2">
+      <line x1="132" y1="124" x2="505" y2="350"/>
+      <line x1="376" y1="124" x2="565" y2="350"/>
+      <line x1="620" y1="124" x2="620" y2="350"/>
+      <line x1="864" y1="124" x2="675" y2="350"/>
+      <line x1="1108" y1="124" x2="735" y2="350"/>
+    </g>
+
+    <!-- garis luar → pusat -->
+    <g stroke="#8A5A3B" stroke-width="2" fill="none">
+      <line x1="115"  y1="726" x2="480" y2="544" marker-end="url(#mk)"/>
+      <line x1="319"  y1="726" x2="530" y2="544" marker-end="url(#mk)" marker-start="url(#mk)"/>
+      <line x1="523"  y1="726" x2="585" y2="544" marker-end="url(#mk)"/>
+      <line x1="727"  y1="726" x2="655" y2="544" marker-end="url(#mk)" stroke-dasharray="6 5"/>
+      <line x1="931"  y1="726" x2="710" y2="544" marker-end="url(#mk)"/>
+    </g>
+    <line x1="760" y1="544" x2="1135" y2="726" stroke="#9A9AA4" stroke-width="2" stroke-dasharray="6 5" marker-end="url(#mkg)"/>
+
+    <!-- label garis luar -->
+    <g font-size="11" font-weight="700" fill="#8A6A52" text-anchor="middle" paint-order="stroke" stroke="#FFFFFF" stroke-width="4">
+      <text x="277" y="640">realtime</text>
+      <text x="415" y="662">webhook masuk · API keluar</text>
+      <text x="551" y="640">realtime</text>
+      <text x="694" y="662">CSV/USB · belum rutin</text>
+      <text x="833" y="640">tarik tiap malam 02:00</text>
+      <text x="962" y="662" fill="#77777F">push 03:30 · PAUSE</text>
+    </g>
+
+    <!-- kartu domain -->
+    <g>
+      <rect x="24" y="28" width="216" height="96" rx="15" fill="#FFFFFF" stroke="#EAD9C6"/>
+      <rect x="24" y="28" width="216" height="6" rx="3" fill="#8A5A3B"/>
+      <text x="40" y="56" font-size="14.5" font-weight="800" fill="#3B1500">Operasional Klinik</text>
+      <text x="40" y="76" font-size="10.5" fill="#9A7256">Reservasi · Pasien · Dokter</text>
+      <text x="40" y="92" font-size="10.5" fill="#9A7256">Checklist · Komplain · Cuci AC</text>
+    </g>
+    <g>
+      <rect x="268" y="28" width="216" height="96" rx="15" fill="#FFFFFF" stroke="#EAD9C6"/>
+      <rect x="268" y="28" width="216" height="6" rx="3" fill="#2E6E62"/>
+      <text x="284" y="56" font-size="14.5" font-weight="800" fill="#3B1500">SDM &amp; Absensi</text>
+      <text x="284" y="76" font-size="10.5" fill="#9A7256">Absen HP+mesin · Kehadiran</text>
+      <text x="284" y="92" font-size="10.5" fill="#9A7256">Pengajuan · Aturan Kerja · Gaji</text>
+    </g>
+    <g>
+      <rect x="512" y="28" width="216" height="96" rx="15" fill="#FFFFFF" stroke="#EAD9C6"/>
+      <rect x="512" y="28" width="216" height="6" rx="3" fill="#7A2E3A"/>
+      <text x="528" y="56" font-size="14.5" font-weight="800" fill="#3B1500">Keuangan</text>
+      <text x="528" y="76" font-size="10.5" fill="#9A7256">Petty Cash · Topup · ROP</text>
+      <text x="528" y="92" font-size="10.5" fill="#9A7256">Transport · Setoran · Komisi</text>
+    </g>
+    <g>
+      <rect x="756" y="28" width="216" height="96" rx="15" fill="#FFFFFF" stroke="#EAD9C6"/>
+      <rect x="756" y="28" width="216" height="6" rx="3" fill="#B5701A"/>
+      <text x="772" y="56" font-size="14.5" font-weight="800" fill="#3B1500">Marketing &amp; Sales</text>
+      <text x="772" y="76" font-size="10.5" fill="#9A7256">Dashboard Sales &amp; Marketing</text>
+      <text x="772" y="92" font-size="10.5" fill="#9A7256">Editorial Plan · Promo · Affiliate</text>
+    </g>
+    <g>
+      <rect x="1000" y="28" width="216" height="96" rx="15" fill="#FFFFFF" stroke="#EAD9C6"/>
+      <rect x="1000" y="28" width="216" height="6" rx="3" fill="#4A4A52"/>
+      <text x="1016" y="56" font-size="14.5" font-weight="800" fill="#3B1500">Platform &amp; IT</text>
+      <text x="1016" y="76" font-size="10.5" fill="#9A7256">Akses &amp; Menu · WiFi · Audit Log</text>
+      <text x="1016" y="92" font-size="10.5" fill="#9A7256">API Vendor · Tracker · Pusat Akun</text>
+    </g>
+
+    <!-- pusat -->
+    <g>
+      <rect x="445" y="350" width="350" height="190" rx="22" fill="#461500"/>
+      <text x="620" y="404" text-anchor="middle" font-size="27" font-weight="800" fill="#FBEADB" letter-spacing="1">DATA CENTER</text>
+      <text x="620" y="430" text-anchor="middle" font-size="12.5" fill="#D9AE8C">aplikasi &amp; database — satu sumber kebenaran</text>
+      <line x1="495" y1="448" x2="745" y2="448" stroke="#6B3A1E"/>
+      <text x="620" y="474" text-anchor="middle" font-size="12" fill="#E8C9AF">Pasien · Kontak · Reservasi · Dokter</text>
+      <text x="620" y="496" text-anchor="middle" font-size="12" fill="#E8C9AF">Karyawan · Cabang · Akses &amp; Menu</text>
+      <text x="620" y="522" text-anchor="middle" font-size="10.5" fill="#B98A66">jejak lengkap di audit log</text>
+    </g>
+
+    <text x="22" y="716" font-size="11" font-weight="800" letter-spacing="1.5" fill="#B99B7E">SISTEM &amp; PERANGKAT LUAR</text>
+
+    <!-- pil eksternal -->
+    <g font-weight="800" fill="#3B1500">
+      <g>
+        <rect x="22" y="730" width="186" height="76" rx="18" fill="#FDFBF7" stroke="#C9AE90" stroke-dasharray="7 5"/>
+        <text x="115" y="762" text-anchor="middle" font-size="13">Web Publik</text>
+        <text x="115" y="782" text-anchor="middle" font-size="10" font-weight="600" fill="#9A7256">form reservasi pasien</text>
+      </g>
+      <g>
+        <rect x="226" y="730" width="186" height="76" rx="18" fill="#FDFBF7" stroke="#C9AE90" stroke-dasharray="7 5"/>
+        <text x="319" y="762" text-anchor="middle" font-size="13">CRM WhatsApp</text>
+        <text x="319" y="782" text-anchor="middle" font-size="10" font-weight="600" fill="#9A7256">Cekat — chat &amp; kontak</text>
+      </g>
+      <g>
+        <rect x="430" y="730" width="186" height="76" rx="18" fill="#FDFBF7" stroke="#C9AE90" stroke-dasharray="7 5"/>
+        <text x="523" y="762" text-anchor="middle" font-size="13">HP Karyawan</text>
+        <text x="523" y="782" text-anchor="middle" font-size="10" font-weight="600" fill="#9A7256">absen selfie + WiFi saksi</text>
+      </g>
+      <g>
+        <rect x="634" y="730" width="186" height="76" rx="18" fill="#FDFBF7" stroke="#C9AE90" stroke-dasharray="7 5"/>
+        <text x="727" y="762" text-anchor="middle" font-size="13">Mesin Sidik Jari</text>
+        <text x="727" y="782" text-anchor="middle" font-size="10" font-weight="600" fill="#9A7256">5 unit — satu per cabang</text>
+      </g>
+      <g>
+        <rect x="838" y="730" width="186" height="76" rx="18" fill="#FDFBF7" stroke="#C9AE90" stroke-dasharray="7 5"/>
+        <text x="931" y="762" text-anchor="middle" font-size="13">Omnicare</text>
+        <text x="931" y="782" text-anchor="middle" font-size="10" font-weight="600" fill="#9A7256">sistem klinik (Lokadok)</text>
+      </g>
+      <g opacity=".62">
+        <rect x="1042" y="730" width="186" height="76" rx="18" fill="#F4F4F6" stroke="#ABABB5" stroke-dasharray="7 5"/>
+        <text x="1135" y="762" text-anchor="middle" font-size="13" fill="#55565E">Accurate</text>
+        <text x="1135" y="782" text-anchor="middle" font-size="10" font-weight="600" fill="#84848E">akuntansi — pause</text>
+      </g>
+    </g>
+  </svg>
+  </div>
+</section>
+
+<!-- ════════════════ 2 · MODUL PER RUMPUN ════════════════ -->
+<section id="modul">
+  <div class="shead"><span class="snum">02</span><h2>Modul per rumpun — dan seberapa hidup</h2></div>
+  <p class="ssub">Status diambil dari pemakaian nyata di database produksi (rapor adopsi 7 Agu), bukan dari rencana. Jujur di sini penting: beberapa modul dibangun tapi belum menemukan pemakainya.</p>
+  <div class="legend">
+    <span class="chip c-ok">HIDUP — dipakai rutin</span>
+    <span class="chip c-new">BARU — baru live, belum teruji waktu</span>
+    <span class="chip c-thin">TIPIS — dipakai tapi sedikit</span>
+    <span class="chip c-plan">RENCANA / WIP</span>
+    <span class="chip c-pause">PAUSE — sengaja dihentikan</span>
+    <span class="chip c-dead">MANGKRAK — dibangun, tak dipakai</span>
+  </div>
+
+  <div class="grid2">
+    <div class="dcard">
+      <div class="dh" style="background:var(--d-klinik)">Operasional Klinik <small>6 modul</small></div>
+      <div class="mrow"><b>Reservasi &amp; CRM</b><p>janji temu, perjalanan pasien, form publik</p><span class="chip c-ok">HIDUP</span></div>
+      <div class="mrow"><b>Pasien</b><p>profil gabungan CRM + tarikan Omnicare; satu nomor WA bisa beberapa pasien</p><span class="chip c-ok">HIDUP</span></div>
+      <div class="mrow"><b>Dokter</b><p>jadwal praktik, durasi layanan, cuti &amp; jadwal khusus</p><span class="chip c-ok">HIDUP</span></div>
+      <div class="mrow"><b>Checklist</b><p>tugas rutin harian/mingguan per divisi + izin buka-kembali</p><span class="chip c-ok">HIDUP</span></div>
+      <div class="mrow"><b>Komplain</b><p>pencatatan keluhan pasien</p><span class="chip c-thin">TIPIS</span></div>
+      <div class="mrow"><b>Cuci AC</b><p>unit &amp; riwayat servis — live 4 Agu, belum ada unit terdaftar</p><span class="chip c-new">BARU</span></div>
+    </div>
+
+    <div class="dcard">
+      <div class="dh" style="background:var(--d-sdm)">SDM &amp; Absensi <small>8 modul</small></div>
+      <div class="mrow"><b>Absen HP Selfie</b><p>kamera live; WiFi jadi saksi, bukan gerbang — tak pernah menolak absen</p><span class="chip c-ok">HIDUP</span></div>
+      <div class="mrow"><b>Kehadiran</b><p>matriks bulanan untuk Finance, foto selfie menempel di sel</p><span class="chip c-ok">HIDUP</span></div>
+      <div class="mrow"><b>Pengajuan</b><p>cuti/izin/lembur/WFH/tukar hari/koreksi, persetujuan berjenjang</p><span class="chip c-ok">HIDUP</span></div>
+      <div class="mrow"><b>Pengawasan</b><p>antrian kejanggalan untuk SPV; periode gaji terkunci selama ada flag</p><span class="chip c-ok">HIDUP</span></div>
+      <div class="mrow"><b>Aturan Kerja</b><p>jam kerja per peran + kalender libur (klinik tutup Senin)</p><span class="chip c-ok">HIDUP</span></div>
+      <div class="mrow"><b>Lembar Gaji</b><p>rekap telat/lembur/alpa per periode — siap, periode pertama belum dibuka</p><span class="chip c-new">BARU</span></div>
+      <div class="mrow"><b>Impor Mesin Sidik Jari</b><p>CSV via USB; arah jangka panjang: tersambung langsung (ADMS)</p><span class="chip c-plan">RENCANA</span></div>
+      <div class="mrow"><b>Jatah Cuti &amp; Sakit</b><p>saldo cuti per kontrak; jenis “sakit” belum ada di sistem</p><span class="chip c-plan">RENCANA</span></div>
+    </div>
+
+    <div class="dcard">
+      <div class="dh" style="background:var(--d-keu)">Keuangan <small>6 modul</small></div>
+      <div class="mrow"><b>Petty Cash</b><p>kas kecil per cabang; 27 transaksi dalam 2 bulan — proses belum pindah</p><span class="chip c-thin">TIPIS</span></div>
+      <div class="mrow"><b>Topup</b><p>permintaan isi ulang dana cabang</p><span class="chip c-thin">TIPIS</span></div>
+      <div class="mrow"><b>ROP</b><p>pengajuan pengeluaran digital, pengganti Formulir A kertas</p><span class="chip c-new">BARU</span></div>
+      <div class="mrow"><b>Biaya Transport</b><p>pencatatan biaya perjalanan — live 6 Agu</p><span class="chip c-new">BARU</span></div>
+      <div class="mrow"><b>Setoran Kas</b><p>dibangun Juni, nol data sampai sekarang</p><span class="chip c-dead">MANGKRAK</span></div>
+      <div class="mrow"><b>Klaim Komisi</b><p>dibangun Mei, nol data sampai sekarang</p><span class="chip c-dead">MANGKRAK</span></div>
+    </div>
+
+    <div class="dcard">
+      <div class="dh" style="background:var(--d-mkt)">Marketing &amp; Sales <small>5 modul</small></div>
+      <div class="mrow"><b>Dashboard Sales</b><p>omzet &amp; promo dari data penjualan Omnicare</p><span class="chip c-ok">HIDUP</span></div>
+      <div class="mrow"><b>Dashboard Marketing</b><p>akuisisi pasien per sumber, konten, roster</p><span class="chip c-ok">HIDUP</span></div>
+      <div class="mrow"><b>Editorial Plan</b><p>kalender konten dipakai harian; kerangka kampanye tak pernah terisi</p><span class="chip c-ok">HIDUP</span></div>
+      <div class="mrow"><b>Promo</b><p>master promo, masa berlaku diperbarui otomatis tiap malam</p><span class="chip c-ok">HIDUP</span></div>
+      <div class="mrow"><b>Affiliate</b><p>konten &amp; reward mitra — terakhir bergerak 20 Jul</p><span class="chip c-thin">TIPIS</span></div>
+    </div>
+
+    <div class="dcard" style="grid-column:1/-1">
+      <div class="dh" style="background:var(--d-it)">Platform &amp; IT <small>6 modul — fondasi yang dipakai semua rumpun</small></div>
+      <div class="mrow"><b>Akses &amp; Menu</b><p>18 lapis peran; siapa boleh melihat halaman apa, dibangun ulang per grup</p><span class="chip c-ok">HIDUP</span></div>
+      <div class="mrow"><b>WiFi Cabang</b><p>daftar jaringan resmi tiap cabang — saksi untuk absen HP</p><span class="chip c-ok">HIDUP</span></div>
+      <div class="mrow"><b>Audit Log</b><p>jejak aksi penting lintas modul</p><span class="chip c-ok">HIDUP</span></div>
+      <div class="mrow"><b>API Vendor</b><p>pintu resmi vendor luar dengan token per klien (Cekat yang pertama)</p><span class="chip c-new">BARU</span></div>
+      <div class="mrow"><b>Project Tracker</b><p>proyek &gt; tugas &gt; to-do internal tim</p><span class="chip c-plan">WIP</span></div>
+      <div class="mrow"><b>Pusat Akun</b><p>kesehatan akun + detektor kegagalan senyap — rencana sudah di-ACC</p><span class="chip c-plan">RENCANA</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════ 3 · ALUR BISNIS ════════════════ -->
+<section id="alur-bisnis">
+  <div class="shead"><span class="snum">03</span><h2>Alur bisnis — tiga perjalanan utama</h2></div>
+  <p class="ssub">Hampir semua yang terjadi di perusahaan bisa dibaca lewat tiga alur ini. Kotak putus-putus berarti langkahnya dikerjakan mesin, tanpa tangan manusia.</p>
+
+  <div class="fcard">
+    <h3>① Perjalanan pasien — dari iklan sampai datanya kembali</h3>
+    <div class="fsub">Rumpun: Marketing → Operasional Klinik → Omnicare → kembali ke Data Center</div>
+    <div class="flow">
+      <div class="fstep"><b>Konten &amp; promo</b><span>Editorial Plan, promo aktif per cabang</span></div>
+      <div class="farr">→</div>
+      <div class="fstep"><b>Chat WhatsApp masuk</b><span>via Cekat; kontak &amp; percakapan tercatat otomatis</span></div>
+      <div class="farr">→</div>
+      <div class="fstep"><b>Reservasi dibuat</b><span>oleh admin, atau pasien sendiri lewat form publik</span></div>
+      <div class="farr">→</div>
+      <div class="fstep ext"><b>Datang &amp; ditindak</b><span>tindakan + kasir dicatat di <b>Omnicare</b> oleh cabang</span></div>
+      <div class="farr">→</div>
+      <div class="fstep auto"><span class="tag">OTOMATIS 02:00</span><b>Data ditarik pulang</b><span>penjualan, rekam medis, pasien — lalu dijodohkan</span></div>
+      <div class="farr">→</div>
+      <div class="fstep"><b>Dashboard &amp; rekap</b><span>sales, marketing, profil pasien utuh</span></div>
+    </div>
+    <div class="fnote"><b>Titik penting:</b> janji temu hidup di Data Center, tindakan &amp; pembayaran hidup di Omnicare. Dua dunia ini dijahit tiap malam — ditarik 02:00, pasien dijodohkan 02:45, reservasi dicocokkan dengan kunjungan 03:00. Selisihnya masuk antrian review manusia, tidak ditebak.</div>
+  </div>
+
+  <div class="fcard">
+    <h3>② Hari kerja karyawan — dari absen sampai gaji</h3>
+    <div class="fsub">Rumpun: SDM &amp; Absensi — pipa terpanjang dan paling banyak penjaganya</div>
+    <div class="flow">
+      <div class="fstep"><b>Aturan kerja</b><span>jam &amp; hari libur per peran; kantor fleksibel tak dinilai jam</span></div>
+      <div class="farr">→</div>
+      <div class="fstep"><b>Absen masuk</b><span>selfie HP (WiFi cabang jadi saksi) / mesin sidik jari</span></div>
+      <div class="farr">→</div>
+      <div class="fstep"><b>Bekerja</b><span>checklist harian divisi berjalan paralel</span></div>
+      <div class="farr">→</div>
+      <div class="fstep"><b>Absen pulang</b><span>lupa pulang? ada jalur koreksi resmi</span></div>
+      <div class="farr">→</div>
+      <div class="fstep auto"><span class="tag">OTOMATIS 06:10</span><b>Status harian disusun</b><span>hadir / telat / alpa / libur — pengajuan yang disetujui menang atas scan</span></div>
+      <div class="farr">→</div>
+      <div class="fstep"><b>Review flag</b><span>kejanggalan diperiksa SPV satu per satu</span></div>
+      <div class="farr">→</div>
+      <div class="fstep"><b>Periode &amp; gaji</b><span>tak bisa ditutup selama masih ada flag terbuka</span></div>
+    </div>
+    <div class="fnote"><b>Filosofi:</b> sistem tidak pernah menghalangi orang absen — ia mencatat, menandai yang janggal, dan menyerahkan vonis ke manusia. Gerbang satu-satunya ada di ujung: periode gaji.</div>
+  </div>
+
+  <div class="fcard">
+    <h3>③ Uang keluar cabang — dari kebutuhan sampai laporan</h3>
+    <div class="fsub">Rumpun: Keuangan — alur yang paling perlu didorong adopsinya</div>
+    <div class="flow">
+      <div class="fstep"><b>Kebutuhan muncul</b><span>di cabang atau kantor</span></div>
+      <div class="farr">→</div>
+      <div class="fstep"><b>Pengajuan ROP</b><span>digital, menggantikan Formulir A kertas</span></div>
+      <div class="farr">→</div>
+      <div class="fstep"><b>Persetujuan</b><span>berjenjang sesuai nilai &amp; peran</span></div>
+      <div class="farr">→</div>
+      <div class="fstep"><b>Dana &amp; transaksi</b><span>petty cash per cabang, topup bila kurang</span></div>
+      <div class="farr">→</div>
+      <div class="fstep"><b>Rekap Finance</b><span>per periode, per cabang</span></div>
+      <div class="farr">→</div>
+      <div class="fstep auto" style="opacity:.6"><span class="tag">PAUSE</span><b>Dorong ke Accurate</b><span>jembatan akuntansi — sengaja ditunda</span></div>
+    </div>
+    <div class="fnote"><b>Kenyataan hari ini:</b> rantainya sudah terpasang ujung ke ujung, tapi baru sedikit yang lewat — petty cash 27 transaksi, ROP 2 pengajuan, setoran kas &amp; klaim komisi kosong. Ini bukan masalah teknis; proses kerjanya yang belum pindah ke sistem.</div>
+  </div>
+</section>
+
+<!-- ════════════════ 4 · ALUR DATA ════════════════ -->
+<section id="alur-data">
+  <div class="shead"><span class="snum">04</span><h2>Alur data — apa yang bergerak, kapan, ke arah mana</h2></div>
+  <p class="ssub">Tiap malam server bekerja sendirian menjahit semua sistem. Paginya, orang tinggal membaca hasilnya.</p>
+
+  <div class="twocol">
+    <div class="tl">
+      <h3>Ritme malam (otomatis, tiap hari)</h3>
+      <div class="tlrow"><span class="tlt">00:05</span><div>Status promo diperbarui (aktif/berakhir)</div></div>
+      <div class="tlrow"><span class="tlt">00:10</span><div>Checklist yang bolong kemarin ditandai <i>missed</i></div></div>
+      <div class="tlrow"><span class="tlt">02:00</span><div><b>Tarik data Omnicare</b> — penjualan, pasien, rekam medis, 5 cabang</div></div>
+      <div class="tlrow"><span class="tlt">02:45</span><div>Pasien Omnicare dijodohkan dengan kontak CRM</div></div>
+      <div class="tlrow"><span class="tlt">03:00</span><div>Reservasi dicocokkan dengan kunjungan nyata; selisih → antrian review</div></div>
+      <div class="tlrow dim"><span class="tlt">03:30</span><div>Push ke Accurate — <i>dilewati selama pause</i></div></div>
+      <div class="tlrow"><span class="tlt">06:10</span><div><b>Absensi disusun</b> — scan kemarin+hari ini jadi status harian</div></div>
+      <div class="tlrow"><span class="tlt">06:20</span><div>Sapu kejanggalan absen → antrian flag SPV</div></div>
+    </div>
+
+    <div class="dtbl">
+      <div class="dtbl-scroll">
+      <table>
+        <thead><tr><th>Jalur</th><th>Arah</th><th>Irama</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr><td><b>Omnicare → Data Center</b><br><span style="color:var(--muted)">penjualan · pasien · rekam medis · dokter</span></td><td class="dir in">MASUK</td><td>tiap malam 02:00 + backfill saat deploy</td><td><span class="chip c-ok">AKTIF</span> satu arah; usulan v2 (menulis balik) sudah diajukan ke vendor</td></tr>
+          <tr><td><b>WhatsApp (Cekat) → Data Center</b><br><span style="color:var(--muted)">kontak baru &amp; isi percakapan</span></td><td class="dir in">MASUK</td><td>realtime (webhook)</td><td><span class="chip c-ok">AKTIF</span></td></tr>
+          <tr><td><b>Data Center → vendor</b><br><span style="color:var(--muted)">Open API, token per klien</span></td><td class="dir out">KELUAR</td><td>saat vendor meminta</td><td><span class="chip c-new">BARU</span> Cekat klien pertama</td></tr>
+          <tr><td><b>HP karyawan → Data Center</b><br><span style="color:var(--muted)">selfie absen + jaringan WiFi</span></td><td class="dir in">MASUK</td><td>realtime</td><td><span class="chip c-ok">AKTIF</span> live 5 Agu</td></tr>
+          <tr><td><b>Mesin sidik jari → Data Center</b><br><span style="color:var(--muted)">5 unit, satu per cabang</span></td><td class="dir in">MASUK</td><td>CSV via USB</td><td><span class="chip c-plan">BELUM RUTIN</span> arah: tersambung langsung (ADMS)</td></tr>
+          <tr><td><b>Web publik → Data Center</b><br><span style="color:var(--muted)">form reservasi mandiri</span></td><td class="dir in">MASUK</td><td>realtime</td><td><span class="chip c-ok">AKTIF</span></td></tr>
+          <tr><td><b>Data Center → Accurate</b><br><span style="color:var(--muted)">jurnal penjualan &amp; kas (staging)</span></td><td class="dir out">KELUAR</td><td>03:30 (terjadwal)</td><td><span class="chip c-pause">PAUSE</span> sejak 21 Jun — menu disembunyikan</td></tr>
+        </tbody>
+      </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════ 5 · KESEHATAN ADOPSI ════════════════ -->
+<section id="adopsi">
+  <div class="shead"><span class="snum">05</span><h2>Kesehatan adopsi — bahan diskusi prioritas</h2></div>
+  <p class="ssub">Ringkasan rapor adopsi 7 Agu (dokumen lengkap: <i>rapor-adopsi-2026-08-07</i>). Satu kalimat: <b>intinya sehat, pinggirannya menumpuk.</b></p>
+  <div class="adop">
+    <div class="acard" style="border-top:4px solid var(--ok)"><b>Empat rumpun benar-benar hidup</b><p>Penjualan Omnicare, reservasi/pasien, absensi, checklist — semuanya ditulis setiap hari dan menyumbang hampir seluruh volume data.</p></div>
+    <div class="acard" style="border-top:4px solid var(--dead)"><b>Keuangan paling sering mangkrak</b><p>Setoran kas 0 · klaim komisi 0 · petty cash 27 transaksi · ROP 2 pengajuan. Bukan soal kode — proses Finance belum berpindah. Mendorong adopsi lebih berdampak daripada membangun fitur keuangan baru.</p></div>
+    <div class="acard" style="border-top:4px solid var(--thin)"><b>Beberapa fitur dipakai separuh</b><p>Editorial Plan: kalender kontennya ramai, kerangka kampanyenya kosong total. Sinyal sehat — yang berguna dipakai, yang tidak layak dihapus saja.</p></div>
+    <div class="acard" style="border-top:4px solid var(--plan)"><b>Satu pertanyaan ke lapangan</b><p>Cuci AC live sejak 4 Agu, belum satu unit pun didaftarkan. Belum tahu, belum sempat, atau alurnya menyulitkan?</p></div>
+  </div>
+</section>
+
+<!-- ════════════════ 6 · CATATAN UI/UX ════════════════ -->
+<section id="uiux">
+  <div class="shead"><span class="snum">06</span><h2>Catatan untuk spesialis UI/UX</h2></div>
+  <p class="ssub">Sistem desain yang sudah berjalan — supaya diskusi mulai dari keadaan nyata, bukan dari nol.</p>
+  <div class="grid2">
+    <div class="dcard uicard">
+      <div class="dh" style="background:var(--d-sdm)">Fondasi yang sudah disepakati</div>
+      <div class="mrow"><b>Identitas warna</b><p>cokelat <b>#461500</b> terkunci sebagai warna utama; krem jadi latar; aksen (brown-2/3/pale, cream-*) fleksibel</p></div>
+      <div class="mrow"><b>Peta tema &amp; zona</b><p>satu dunia cokelat default + 3 zona spesial (teal · grafit · burgundy), 3 lapis warna — spec: <i>docs/spec/peta-tema.md</i></p></div>
+      <div class="mrow"><b>Zona role vs pribadi</b><p>menu utama = pekerjaan role (komputer/tablet); drop-up = urusan pribadi (HP). Menu utama yang kosong itu disengaja, bukan cacat</p></div>
+      <div class="mrow"><b>Pola interaksi P1–P6</b><p>kamus baku: chevron, toast + urungkan, tombol mati yang bilang kenapa, dll — spec: <i>docs/spec/pola-interaksi.md</i></p></div>
+      <div class="mrow"><b>Ikon</b><p>FontAwesome 5.8.2 (bukan 6) + SVG garis minimalis; emoji dihindari di UI</p></div>
+    </div>
+    <div class="dcard uicard">
+      <div class="dh" style="background:var(--d-mkt)">Pekerjaan visual yang sedang berjalan</div>
+      <div class="mrow"><b>Alur kerja desain</b><p>design brief → prototipe handoff → implementasi — sudah 5+ siklus (absen HP, kehadiran, project tracker, reservasi, pasien)</p></div>
+      <div class="mrow"><b>Reservasi</b><p>re-skin fase 1 selesai; drawer &amp; shell global ditunda sadar</p></div>
+      <div class="mrow"><b>Pasien &amp; Dokter</b><p>List + Detail dari handoff; Dokter fase A selesai, B–D menyusul</p></div>
+      <div class="mrow"><b>Kehadiran &amp; zona absensi</b><p>4 halaman + kamus status seragam (komponen KAH)</p></div>
+      <div class="mrow"><b>Halaman prioritas</b><p>form reservasi publik + daftar reservasi admin — dua layar yang paling sering dilihat orang</p></div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <b>Metode &amp; sumber:</b> peta ini disusun dari pembacaan langsung database produksi (7–8 Agustus 2026), kode aplikasi (jadwal otomatis dibaca dari scheduler, arah panah dari kode integrasi), dan rapor adopsi 7 Agu. Angka pemakaian adalah jumlah baris nyata, tanpa membuka satu pun isi data pasien. Dokumen orientasi — bukan spesifikasi teknis. · SweetTreats Data Center · 8 Agu 2026
+</footer>
+
+</div>
+</body>
+</html>
