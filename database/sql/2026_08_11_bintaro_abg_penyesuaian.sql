@@ -114,12 +114,35 @@ WHERE u.`email` IN ('fajri@sweettreats.id','apajri@sweettreats.id')
 UPDATE `users` SET `nama` = 'Alpajri Suhendar Al Qhusni'
 WHERE `email` IN ('fajri@sweettreats.id','apajri@sweettreats.id');
 
--- ── CATATAN: kontrak BELUM diisi ─────────────────────────────────────────────
--- Kolom kontrak_mulai / kontrak_akhir sengaja dibiarkan kosong. Sheet cuma
--- punya SATU kolom tanggal ("Kontrak") sementara skema butuh mulai DAN akhir,
--- dan belum dipastikan tanggal itu tanggal berakhir. Mengarang tanggal mulai
--- = merusak perhitungan reset jatah cuti setahun ke depan. Menyusul setelah
--- Ekky memastikan.
+-- ── 5) Kontrak operasional Bintaro ───────────────────────────────────────────
+-- Sheet cuma punya SATU kolom tanggal, dan Ekky menjelaskan artinya: tanggal
+-- itu HARI JADI kontrak — akhir periode yang sedang berjalan, sekaligus awal
+-- periode berikutnya kalau diperpanjang. Jadi periode berjalan = 12 bulan
+-- mundur dari tanggal itu.
+--
+-- ⚠️ ASUMSI YANG DIPAKAI: masa kontrak 12 bulan (sesuai rencana-jatah-cuti).
+-- Kalau ada yang kontraknya 6 atau 24 bulan, tanggal MULAI-nya jadi salah
+-- (tanggal AKHIR tetap benar karena itu yang tertulis di sheet). Reset jatah
+-- cuti berpatokan pada periode ini, jadi kekeliruan di sini baru terasa saat
+-- reset — sebutkan kalau ada yang tidak 12 bulan.
+UPDATE `att_cuti_periode` p JOIN `users` u ON u.`id` = p.`user_id`
+SET p.`kontrak_akhir` = CASE u.`email`
+        WHEN 'firda@sweettreats.id'  THEN '2026-09-12'
+        WHEN 'rizka@sweettreats.id'  THEN '2026-10-24'
+        WHEN 'asih@sweettreats.id'   THEN '2026-09-30'
+        WHEN 'afrina@sweettreats.id' THEN '2026-10-28'
+        ELSE '2026-11-13'                              -- Alpajri
+    END,
+    p.`kontrak_mulai` = DATE_SUB(CASE u.`email`
+        WHEN 'firda@sweettreats.id'  THEN '2026-09-12'
+        WHEN 'rizka@sweettreats.id'  THEN '2026-10-24'
+        WHEN 'asih@sweettreats.id'   THEN '2026-09-30'
+        WHEN 'afrina@sweettreats.id' THEN '2026-10-28'
+        ELSE '2026-11-13'
+    END, INTERVAL 12 MONTH),
+    p.`updated_at` = DATE_ADD(NOW(), INTERVAL 7 HOUR)
+WHERE u.`email` IN ('firda@sweettreats.id','rizka@sweettreats.id','asih@sweettreats.id',
+                    'afrina@sweettreats.id','fajri@sweettreats.id','apajri@sweettreats.id');
 --
 -- ── CATATAN: alpa Asih 5 Agu ─────────────────────────────────────────────────
 -- TIDAK disentuh di sini. Dia benar-benar tidak masuk (sakit), jadi
