@@ -7,6 +7,57 @@
 
 ---
 
+## 2026-08-11 — Penyesuaian data ABG + Bintaro NAIK PROD (bertahap)
+
+Prod digelar **bertahap**: sekarang baru ABG/Office + operasional Bintaro,
+cabang lain menyusul minggu per minggu. Jadi 13 nama cabang lain yang belum
+ada di prod itu **bukan data hilang** — memang belum gilirannya. Ini penting
+dicatat karena sempat terbaca sebagai kekurangan.
+
+**SQL `2026_08_11_bintaro_abg_penyesuaian.sql`** — diuji dua kali di dev
+(idempoten), lalu naik prod. Isinya:
+
+1. **Empat orang ABG lepas dari cabang** (Ikhsan, Reza, Anisa, Irma). Anisa &
+   Irma = Fleksibel Operasional, Ikhsan & Reza = Fleksibel Kantor. Ini bukan
+   kosmetik: `session('raw_branch_id')` diisi dari kolom itu saat login, dan
+   ReservationController **mengunci keras** daftar reservasi ke cabang
+   tersebut — dropdown filternya pun terkunci. Selama kolom terisi, orang
+   kantor cuma bisa melihat SATU cabang.
+2. **Aturan kerja rangkap dibereskan** — 8 orang punya dua baris aktif karena
+   penugasan 6 Agu tak menutup yang 5 Agu. Aturan mana yang berlaku jadi
+   ditentukan urutan balikan MySQL. Untuk Anisa & Irma salah satunya `baku`,
+   yang bisa memunculkan alpa pada orang yang jam kerjanya justru tidak
+   dinilai — **dan itu sumber alpa Irma 5 Agu**. Aturan baku mereka dibuat
+   TAK PERNAH berlaku (salah tempel sejak awal, bukan kebijakan sehari);
+   baris tetap disimpan + jejak di `att_rule_log`.
+3. **Alpajri diberi aturan GS** — dia absen tapi tak punya aturan sama sekali,
+   jadi tak pernah dinilai.
+4. **Saldo cuti & kontrak ikut sheet HR**: Firda 6 · Rizka 6 · Asih 7 ·
+   Afrina 0 · Alpajri 0. Kolom "Kontrak" di sheet = **hari jadi kontrak**
+   (akhir periode berjalan sekaligus awal periode berikutnya saat
+   diperpanjang), jadi periode berjalan = 12 bulan mundur dari tanggal itu.
+   ⚠️ Asumsi 12 bulan; kalau ada kontrak 6/24 bulan, tanggal MULAI-nya salah.
+
+**Hasil di prod: alpa turun dari 2 tinggal 1.** Alpa Irma hilang sendiri
+(memang bukan bolos). Yang tersisa alpa Asih 5 Agu — dia benar-benar sakit,
+dan sengaja TIDAK ditambal lewat UPDATE; menunggu fitur Sakit naik prod lalu
+ditutup lewat pengajuan resmi supaya ada pengaju, penyetuju, dan jejaknya.
+
+### Dua jebakan yang ketahuan karena diuji dulu, bukan diasumsikan
+
+**Email Alpajri berbeda antar lingkungan** — prod `fajri@`, dev `apajri@`.
+Versi pertama skrip cuma cocok ke prod, jadi di dev bagian saldonya diam-diam
+tak kena. Kalau langsung dijalankan ke prod, selisihnya baru ketahuan entah
+kapan. Sekarang dicocokkan ke dua-duanya, sekalian ejaan dev "Apajri"
+disamakan jadi "Alpajri" (sheet & prod sudah benar).
+
+**Aturan Alpajri sempat bikin 3 alpa palsu.** Awalnya disetel berlaku 5 Agu
+mengikuti yang lain — hasilnya dia langsung dapat alpa 5–7 Agu, padahal scan
+pertamanya memang baru 8 Agu: dia belum ikut sistem absen waktu itu. Menilai
+orang untuk hari sebelum dia terdaftar sama dengan menghukumnya atas data
+yang belum pernah ada. Diperbaiki jadi berlaku sejak 8 Agu. **Ketahuan karena
+hasil reconcile diperiksa, bukan dianggap beres.**
+
 ## 2026-08-11 — Jenis "Sakit" + beres-beres flag borongan (di dev, nunggu review)
 
 Dua keputusan Ekky hari ini, dibangun satu gerbong di `integrasi/dev-2026-08-06`
