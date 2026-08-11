@@ -316,6 +316,11 @@
                     <span class="knob"></span> Semua tanggal
                 </a>
                 <span style="color:#8a7263;font-size:12.5px;margin-left:6px"><b>{{ $totalFlagTanggal }}</b> absen ditampilkan</span>
+                {{-- batas dikatakan terus terang: daftar terpotong tanpa diberi tahu
+                     terbaca sebagai "cuma segini", padahal bukan. --}}
+                @if($batasArsip)
+                    <span style="color:#B5701A;font-size:12px;margin-left:2px">· hanya 90 hari terakhir</span>
+                @endif
             </div>
 
             @if($errors->any())
@@ -461,8 +466,9 @@
                 <div id="aws-p-riwayat-wrap">
                     <div class="aws-h6">Riwayat singkat</div>
                     <div class="aws-stats">
-                        <div class="aws-stat"><b id="aws-p-hf">0</b><span>pernah dicek bulan ini</span></div>
-                        <div class="aws-stat"><b id="aws-p-hp">0</b><span>lupa pulang</span></div>
+                        {{-- bulannya disebut: di mode lintas tanggal, "bulan ini" jadi ambigu --}}
+                        <div class="aws-stat"><b id="aws-p-hf">0</b><span>pernah dicek {{ $bulanRiwayat }}</span></div>
+                        <div class="aws-stat"><b id="aws-p-hp">0</b><span>lupa pulang {{ $bulanRiwayat }}</span></div>
                     </div>
                 </div>
 

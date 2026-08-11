@@ -72,10 +72,19 @@ class PengawasanController extends Controller
         // tanggal berarti bolak-balik date-picker. Lintas tanggal menampilkan
         // semua yang belum selesai sekaligus, diselesaikan lewat centang.
         $lintasHari = $request->boolean('semua');
+
+        // Batas 90 hari HANYA untuk mode lintas + filter 'selesai': flag terbuka
+        // jumlahnya wajar (justru layar ini yang menghabiskannya), tapi yang
+        // SUDAH selesai menumpuk selamanya — tanpa batas, layar ini makin berat
+        // tiap bulan sampai suatu hari berhenti terbuka.
+        $batasArsip = $lintasHari && $statusFilter === 'selesai'
+            ? Carbon::parse($date)->subDays(90)->toDateString() : null;
+
         $flags = AttFlag::with('user')
             ->when(! $lintasHari, fn ($q) => $q->where('work_date', $date))
             ->when($lintasHari && ! $statusFilter, fn ($q) => $q->where('status', '!=', 'selesai'))
             ->when($statusFilter, fn ($q) => $q->where('status', $statusFilter))
+            ->when($batasArsip, fn ($q) => $q->where('work_date', '>=', $batasArsip))
             ->orderBy('work_date')
             ->orderByRaw("FIELD(status,'baru','dicek','selesai')")
             ->orderBy('created_at')
@@ -261,6 +270,11 @@ class PengawasanController extends Controller
             'tanggalLabel'  => Carbon::parse($date)->translatedFormat('l, d F Y'),
             'lintasHari'    => $lintasHari,
             'saranBeres'    => $saranBeres,
+            'batasArsip'    => $batasArsip,
+            // Kartu riwayat menghitung flag di bulan TANGGAL TERPILIH. Di mode
+            // lintas, panel bisa memuat flag dari bulan lain — labelnya harus
+            // menyebut bulannya, bukan "bulan ini" yang jadi ambigu.
+            'bulanRiwayat'  => Carbon::parse($date)->translatedFormat('F'),
         ]);
     }
 
