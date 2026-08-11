@@ -105,6 +105,16 @@ class AbsensiKehadiranController extends Controller
             ->where(function ($q) use ($from) {
                 $q->whereNull('ur.effective_to')->orWhere('ur.effective_to', '>=', $from->toDateString());
             })
+            // Satu orang BISA punya lebih dari satu baris aturan aktif (penugasan
+            // baru yang lupa menutup yang lama — terjadi pada 8 orang di prod,
+            // 5→6 Agu 2026). keyBy() menyimpan baris TERAKHIR, jadi tanpa urutan
+            // yang menang ditentukan MySQL: orang yang sama bisa terbaca
+            // 'fleksibel' sekali muat dan 'baku' di muat berikutnya — dan yang
+            // 'baku' bisa memunculkan alpa. Diurutkan supaya yang TERBARU selalu
+            // menang, sama seperti tipeAturanKerja(). Ini penambal, bukan obat:
+            // baris rangkapnya tetap harus dibereskan di data.
+            ->orderBy('ur.effective_from')
+            ->orderBy('ur.id')
             ->get(['u.id', 'u.nama', 'u.raw_branch_id', 'wr.id as rule_id', 'wr.tipe', 'gp.nama as role'])
             ->keyBy('id');
 
