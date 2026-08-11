@@ -44,11 +44,22 @@ beraturan **fleksibel tak pernah kena alpa** (§3.3) sehingga tak bisa dipakai
 menguji ini — sempat terbaca "gagal" sebelum subjeknya diganti ke yang murni
 baku.
 
-⚠️ **Deploy prod butuh SQL** `database/sql/2026_08_11_aturan_sakit.sql`
-(idempoten). Sesudah live: alpa Asih 5 Agu ditutup lewat **pengajuan sakit
-resmi**, bukan UPDATE manual — koreksi kehadiran harus punya pengaju,
-penyetuju, dan jejaknya. Irma 5 Agu **belum dipastikan sebabnya**, jangan asal
-ditutup.
+### ⚠️ URUTAN DEPLOY PROD (dibaca sebelum naik)
+
+1. **SQL DULU** — `database/sql/2026_08_11_aturan_sakit.sql` (idempoten).
+   Terbalik = halaman yang menulis status meledak, karena enum belum menerima
+   `sakit`. Sebaliknya aman: SQL duluan tanpa kode cuma menambah nilai enum
+   yang belum terpakai.
+2. `bash deploy.sh main` — sudah termasuk `access:rebuild` + clear cache
+   config/route/view (rute lampiran yang baru butuh ini).
+3. **Pindahkan lampiran lama** keluar dari webroot — sengaja TIDAK dijalankan
+   otomatis tanpa kehadiran Ekky:
+   `mv <prod>/public/uploads/att_request/* <prod>/storage/app/att_request/`
+   Aman karena rute lampiran punya fallback; setelah pindah, berkas lama ikut
+   terlindungi dan fallback-nya boleh dicabut.
+4. Sesudah live: alpa **Asih 5 Agu** ditutup lewat **pengajuan sakit resmi**,
+   bukan UPDATE manual — koreksi kehadiran harus punya pengaju, penyetuju, dan
+   jejaknya. **Irma 5 Agu belum dipastikan sebabnya**, jangan asal ditutup.
 
 ### Audit pasca-build (`af479b5`) — 6 celah ketemu & ditutup
 
@@ -78,6 +89,55 @@ orang lain dilaporkan sebagai "jenisnya harus diperiksa satu per satu". Kini
 jalur sebenarnya (HTTP + reconcile + kirim borongan), bukan sekadar keberadaan
 konstanta. Termasuk regresi: `wfh` tetap TIDAK mengecualikan checklist seperti
 sebelumnya.
+
+### Audit putaran 2 (`1d394d5`, `448bb16`) — sudut keamanan, kuota, batas
+
+Putaran pertama mencari "daftar yang terlewat". Putaran kedua sengaja mencari
+yang lain: hak akses, kuota, dan perilaku saat data menumpuk.
+
+**🔒 TEMUAN TERBESAR — surat dokter tersimpan telanjang di `public/`.**
+Lampiran `att_request` ditulis ke `public/uploads/att_request` dan bisa diambil
+**siapa pun yang punya URL-nya, tanpa login sama sekali** — terukur, bukan
+dugaan: `200` di dev, sementara foto selfie karyawan justru sudah benar (`302`
+ke login). Selama lampiran cuma foto lembur, ini kelalaian lama yang tenang;
+begitu jenis **sakit** ada, isinya berubah jadi **surat dokter — data
+kesehatan**. Alasannya sama persis dengan foto selfie yang dulu dipindah:
+"wajah karyawan bukan aset publik" — surat dokter apalagi.
+Diperbaiki: unggahan baru masuk `storage/app/att_request` (di luar webroot),
+disajikan lewat rute ber-auth `akun/pengajuan/berkas/{id}` yang cuma
+mengizinkan **pemiliknya, Finance/Admin, atau orang di rantai
+persetujuannya** — selebihnya 403. Nama berkas dikunci `basename()` supaya
+baris DB yang aneh tak bisa keluar folder. Lampiran LAMA tetap terbaca lewat
+fallback, jadi tak ada yang rusak.
+
+**Dua temuan "layar berbohong pelan-pelan":**
+- Mode lintas + filter *Selesai* memuat SELURUH flag selesai sejak awal. Flag
+  terbuka jumlahnya wajar (layar ini yang menghabiskannya), tapi yang sudah
+  selesai menumpuk selamanya → layar makin berat tiap bulan sampai suatu hari
+  berhenti terbuka. Dibatasi **90 hari**, dan batasnya **dikatakan di layar** —
+  daftar terpotong diam-diam terbaca sebagai "cuma segini".
+- Kartu riwayat menghitung flag di bulan **tanggal terpilih** tapi berlabel
+  "bulan ini" — ambigu begitu panel memuat flag dari bulan lain. Kini
+  menyebut nama bulannya.
+
+**Yang diperiksa dan ternyata SUDAH benar** (dicatat supaya tak diaudit ulang):
+jatah cuti tak terpotong oleh sakit (`potongDariPengajuan` berhenti kalau tipe
+bukan `cuti`) · validasi unggahan ketat (`image|mimes|max:4096`) · tanggal
+terbalik dijaga `after_or_equal` · label jenis di layar Rekap & Persetujuan
+mewarisi satu sumber sehingga "Sakit" muncul sendiri · tak ada `whereIn('tipe')`
+lain yang diam-diam melewatkan sakit · `deploy.sh` sudah membersihkan cache
+rute (rute baru takkan 404).
+
+**Uji akhir dev — semua lulus:** 13 fitur inti · 18 temuan audit putaran 1 ·
+8 perlindungan lampiran (termasuk uji path-traversal `../../../.env` dan
+fallback berkas lama) · **52 sapuan halaman × 4 peran, nol galat 500**, dengan
+matriks akses masuk akal (Supervisor tak bisa buka layar Finance, karyawan
+dilempar dari layar admin).
+
+⚠️ Catatan kejujuran uji: satu pemeriksaan sempat terbaca "tanpa login → 200"
+dan itu **cacat skripnya**, bukan lubang — session store dipakai ulang antar
+request dalam satu proses. Diverifikasi ulang lewat HTTP asli tanpa cookie:
+`302` ke login. Skrip sapuan halaman kini mem-`flush()` sesi tiap request.
 
 ## 2026-08-07 (tutup hari) — WiFi Cinere muncul sendiri; 2 catatan koreksi
 
