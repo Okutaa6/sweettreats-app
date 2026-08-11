@@ -76,25 +76,43 @@ WHERE u.`email` IN ('anisa@sweettreats.id','irma@sweettreats.id')
 -- kerja sama sekali — jadi kehadirannya tak pernah dinilai dan dia cuma
 -- tertangkap jaring pengaman di layar Kehadiran. Aturan GS (baku, libur Senin)
 -- sudah ada di prod tapi belum dipakai siapa pun.
+--
+-- ⚠️ EMAILNYA BEDA ANTAR LINGKUNGAN: prod 'fajri@', dev 'apajri@'. Ketahuan
+-- justru karena skrip ini diuji ke dev dulu — kalau langsung ke prod, bagian
+-- ini diam-diam tak kena di salah satu sisi. Dicocokkan ke dua-duanya.
 INSERT INTO `att_user_rule` (`user_id`, `rule_id`, `effective_from`, `created_at`, `updated_at`)
 SELECT u.`id`, 1, '2026-08-05', DATE_ADD(NOW(), INTERVAL 7 HOUR), DATE_ADD(NOW(), INTERVAL 7 HOUR)
 FROM `users` u
-WHERE u.`email` = 'fajri@sweettreats.id'
+WHERE u.`email` IN ('fajri@sweettreats.id','apajri@sweettreats.id')
   AND NOT EXISTS (SELECT 1 FROM `att_user_rule` r WHERE r.`user_id` = u.`id`);
 
 -- ── 4) Saldo cuti operasional Bintaro — IKUT SHEET ───────────────────────────
--- Sheet HR yang jadi acuan, bukan angka yang terlanjur ada di DB.
---   Firda 6 · Rizka 6 · Asih 7 (ketiganya sudah cocok) · Afrina 0 (DB: 1)
---   · Alpajri 0 (DB: belum punya baris sama sekali)
+-- Sheet HR yang jadi acuan, BUKAN angka yang terlanjur ada di DB. Kelimanya
+-- ditulis eksplisit (bukan cuma yang selisih) supaya prod & dev bertemu di
+-- angka yang sama, apa pun isinya sekarang:
+--   Firda 6 · Rizka 6 · Asih 7 · Afrina 0 · Alpajri 0
 UPDATE `att_cuti_periode` p JOIN `users` u ON u.`id` = p.`user_id`
-SET p.`saldo_awal` = 0.0, p.`updated_at` = DATE_ADD(NOW(), INTERVAL 7 HOUR)
-WHERE u.`email` = 'afrina@sweettreats.id';
+SET p.`saldo_awal` = CASE u.`email`
+        WHEN 'firda@sweettreats.id' THEN 6.0
+        WHEN 'rizka@sweettreats.id' THEN 6.0
+        WHEN 'asih@sweettreats.id'  THEN 7.0
+        ELSE 0.0                                   -- Afrina & Alpajri
+    END,
+    p.`updated_at` = DATE_ADD(NOW(), INTERVAL 7 HOUR)
+WHERE u.`email` IN ('firda@sweettreats.id','rizka@sweettreats.id','asih@sweettreats.id',
+                    'afrina@sweettreats.id','fajri@sweettreats.id','apajri@sweettreats.id');
 
 INSERT INTO `att_cuti_periode` (`user_id`, `saldo_awal`, `berjalan`, `created_at`, `updated_at`)
 SELECT u.`id`, 0.0, 1, DATE_ADD(NOW(), INTERVAL 7 HOUR), DATE_ADD(NOW(), INTERVAL 7 HOUR)
 FROM `users` u
-WHERE u.`email` = 'fajri@sweettreats.id'
+WHERE u.`email` IN ('fajri@sweettreats.id','apajri@sweettreats.id')
   AND NOT EXISTS (SELECT 1 FROM `att_cuti_periode` c WHERE c.`user_id` = u.`id`);
+
+-- Ejaan nama: sheet HR & prod menulis "Alpajri", dev "Apajri" (kurang huruf L).
+-- Disamakan supaya satu orang tak punya dua ejaan antar lingkungan — persis
+-- kebingungan yang memakan waktu saat membandingkan data ini.
+UPDATE `users` SET `nama` = 'Alpajri Suhendar Al Qhusni'
+WHERE `email` IN ('fajri@sweettreats.id','apajri@sweettreats.id');
 
 -- ── CATATAN: kontrak BELUM diisi ─────────────────────────────────────────────
 -- Kolom kontrak_mulai / kontrak_akhir sengaja dibiarkan kosong. Sheet cuma
