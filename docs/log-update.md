@@ -7,6 +7,49 @@
 
 ---
 
+## 2026-08-11 — Jenis "Sakit" + beres-beres flag borongan (di dev, nunggu review)
+
+Dua keputusan Ekky hari ini, dibangun satu gerbong di `integrasi/dev-2026-08-06`
+(`c47eba8`). **Belum naik prod** — nunggu review, sepaket dengan fix kolom libur
+Kehadiran (`dab9d92`).
+
+**SAKIT — sebelumnya tak punya tempat sama sekali.** Orang sakit yang tak
+mengajukan apa pun otomatis jadi **alpa**; itu yang menimpa Asih 5 Agu.
+Menutupnya pakai "izin" sebenarnya mempan, tapi menulis alasan yang SALAH ke
+catatan permanen orang — dan sekali tercatat begitu, bedanya hilang selamanya.
+Aturannya (keputusan Ekky): **surat dokter wajib mulai 3 hari berturut** (1–2
+hari cukup kabar — menuntut surat untuk demam semalam justru mendorong orang
+masuk sambil sakit), **dibayar penuh** (kolom sendiri di lembar gaji + CSV, nol
+logika potongan, jatah cuti tak disentuh), **persetujuan satu lapis** (sakit
+mendesak, sering diajukan atas nama orangnya).
+
+**FLAG BORONGAN.** Antrian Pengawasan terikat SATU tanggal, padahal rotasi WiFi
+menebar flag serumpun lintas hari (16 terbuka 5–11 Agu). Sekarang ada toggle
+**"Semua tanggal"**, centang pilih-banyak, dan **"pilih semua sejenis"**. Tiga
+pagar yang sengaja dipasang: hanya jenis cerita-jaringan yang boleh diborong
+(`single_scan` & `perangkat_desktop` tetap satuan — ceritanya per-orang),
+**catatan wajib** dan ikut masuk audit log, dan gruping-otomatis-harian
+dimatikan di mode lintas karena kunci "serentak" bisa palsu antar hari. Semua
+ditegakkan **di server**, bukan cuma tombol yang disembunyikan.
+
+Bonusnya **banner pintar**: flag `ip_asing` yang alamatnya KINI sudah cocok ke
+jaringan terdaftar dikenali sendiri oleh sistem dan ditawarkan selesai sekali
+klik — persis kelas kejadian yang sudah 3× berulang seminggu ini.
+
+**Uji di dev: 31 pemeriksaan, semua lulus** — termasuk yang paling menentukan,
+rantai penuh **alpa → pengajuan sakit disetujui → reconcile → sakit** (subjek
+Ahmad Saipulloh, 9 Agu; keadaan dikembalikan setelah uji), dan pagar server
+yang menolak menutup `single_scan` lewat borongan. Catatan dari uji: orang
+beraturan **fleksibel tak pernah kena alpa** (§3.3) sehingga tak bisa dipakai
+menguji ini — sempat terbaca "gagal" sebelum subjeknya diganti ke yang murni
+baku.
+
+⚠️ **Deploy prod butuh SQL** `database/sql/2026_08_11_aturan_sakit.sql`
+(idempoten). Sesudah live: alpa Asih 5 Agu ditutup lewat **pengajuan sakit
+resmi**, bukan UPDATE manual — koreksi kehadiran harus punya pengaju,
+penyetuju, dan jejaknya. Irma 5 Agu **belum dipastikan sebabnya**, jangan asal
+ditutup.
+
 ## 2026-08-07 (tutup hari) — WiFi Cinere muncul sendiri; 2 catatan koreksi
 
 Entri "WiFi Kalideres" di bawah ditulis siang 7 Agu. Sore harinya data berubah,
