@@ -7,6 +7,59 @@
 
 ---
 
+## 2026-08-11 — GERBONG BESAR NAIK PROD: Sakit · flag borongan · keamanan lampiran
+
+Prod dari `bf15798` → **`bc5f3c9`** (17 commit). Urutan yang dijalankan:
+SQL sakit **dulu** → `deploy.sh main` → **rsync aset** (wajib: `public_html`
+prod itu SALINAN, bukan symlink — CSS baru takkan terkirim tanpa ini) →
+verifikasi. Tak ada lampiran lama di webroot prod (0 berkas), jadi langkah
+pemindahan gugur dengan sendirinya.
+
+**Isinya**: jenis **Sakit** (surat dokter wajib ≥3 hari, dibayar penuh, satu
+lapis persetujuan) · **flag borongan** lintas tanggal + banner pintar ·
+**kolom libur Kehadiran** dibaca dari aturan kerja (Senin, bukan Minggu) ·
+**lampiran pengajuan diamankan** (surat dokter tak lagi bisa diambil tanpa
+login) · 8 celah dari dua putaran audit · **penunjuk "Sakit?" di modal
+Koreksi**.
+
+### Penunjuk "Sakit?" — dan apa yang ketahuan saat membangunnya
+
+Semua alasan koreksi berarti hal yang sama: *"saya SEBENARNYA masuk,
+catatannya yang keliru"* — makanya koreksi yang disetujui dicatat **hadir**.
+Jadi "Sakit" TIDAK boleh jadi salah satu alasan koreksi: menyetujuinya akan
+menandai orang **hadir** di hari dia justru terbaring di rumah. Yang dipasang
+penunjuk arah, bukan opsi baru.
+
+⚠️ **Temuan saat menguji**: modal Koreksi ternyata **cuma bisa dibuka untuk
+HARI INI** — lewat satu tombol "Absen hari ini keliru? Lapor koreksi". Hari
+lampau **tidak bisa diketuk sama sekali**. Dua akibatnya:
+1. Penunjuk ini menyala hanya kalau **hari ini** berstatus alpa (teruji).
+2. **Alpa hari lampau tak punya jalur mandiri bagi karyawan** — Asih tak bisa
+   membereskan alpa 5 Agu-nya sendiri dari layar Absensi Saya. Ini lubang
+   TERPISAH yang belum diputuskan mau ditutup atau tidak.
+
+Tanggalnya ikut dibawa ke form Sakit: kalau orang harus memilih ulang tanggal,
+gesekan itu justru mendorongnya balik ke jalur koreksi yang keliru.
+
+### Uji di prod sesudah deploy — semua lulus
+
+52 sapuan halaman × 4 peran (nol galat 500, matriks akses masuk akal) · 13
+pemeriksaan fitur inti · 8 perlindungan lampiran (termasuk path-traversal) ·
+9 pemeriksaan penunjuk Sakit di dev termasuk kasus "hari ini alpa" · log
+Laravel bersih · nol sisa data uji.
+
+⚠️ Catatan jujur: satu pemeriksaan lagi-lagi terbaca "tanpa login → 200" —
+itu **cacat skrip uji** (session store dipakai ulang antar request dalam satu
+proses), bukan lubang. Diverifikasi ulang lewat HTTP asli tanpa cookie: `302`
+ke login. Skrip sapuan halaman sudah di-`flush()`; `uji_berkas.php` belum —
+kalau dipakai lagi, benahi dulu.
+
+### Sisa pekerjaan
+
+**Alpa Asih 5 Agu masih terbuka** — sekarang sudah BISA ditutup lewat
+pengajuan Sakit resmi (fiturnya live), tapi sengaja belum dikerjakan karena
+butuh pengaju & penyetuju sungguhan, bukan disuntik lewat SQL.
+
 ## 2026-08-11 — Penyesuaian data ABG + Bintaro NAIK PROD (bertahap)
 
 Prod digelar **bertahap**: sekarang baru ABG/Office + operasional Bintaro,
