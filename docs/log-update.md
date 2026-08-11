@@ -50,6 +50,35 @@ resmi**, bukan UPDATE manual — koreksi kehadiran harus punya pengaju,
 penyetuju, dan jejaknya. Irma 5 Agu **belum dipastikan sebabnya**, jangan asal
 ditutup.
 
+### Audit pasca-build (`af479b5`) — 6 celah ketemu & ditutup
+
+Sapu ulang SEMUA tempat yang mendaftar status/tipe, karena menambah satu nilai
+enum artinya menyentuh belasan daftar yang tersebar. Hasilnya enam celah, dan
+yang terbesar justru di luar zona absensi:
+
+1. **Lintas modul — orang sakit tetap dicap "checklist bolong".**
+   `ChecklistExcuseService` hanya mengecualikan cuti & izin, jadi karyawan
+   sakit dihukum untuk hari yang justru sudah resmi diizinkan.
+2. **Absensi Saya**: hari sakit tak masuk ember rekap mana pun — bukan hadir,
+   bukan alpa, bukan cuti. Angkanya jadi tak genap sebulan dan terlihat
+   seperti data hilang.
+3. **Absensi Saya**: deteksi "bulan ini ada kehadiran asli" tak mengenal sakit.
+4. **Periode Gaji**: CSV payroll tak punya kolom Sakit.
+5. **Rekap pengajuan**: ringkasan per tipe tak menghitung sakit.
+6. **Pengawasan**: kartu "kehadiran hari itu" dikunci per ORANG saja, padahal
+   mode lintas tanggal memuat flag dari banyak hari — flag 5 Agu disodori
+   kehadiran 11 Agu. Salah hari, tapi tampil meyakinkan seolah benar. Kunci
+   diubah jadi orang+tanggal; tiap flag membawa tanggalnya sendiri.
+
+Plus pesan hasil borongan yang tadinya berbohong: flag yang baru saja ditutup
+orang lain dilaporkan sebagai "jenisnya harus diperiksa satu per satu". Kini
+"salah jenis" dan "sudah selesai duluan" dihitung terpisah.
+
+**Uji audit di dev: 18 pemeriksaan, semua lulus** — menguji perilaku lewat
+jalur sebenarnya (HTTP + reconcile + kirim borongan), bukan sekadar keberadaan
+konstanta. Termasuk regresi: `wfh` tetap TIDAK mengecualikan checklist seperti
+sebelumnya.
+
 ## 2026-08-07 (tutup hari) — WiFi Cinere muncul sendiri; 2 catatan koreksi
 
 Entri "WiFi Kalideres" di bawah ditulis siang 7 Agu. Sore harinya data berubah,
