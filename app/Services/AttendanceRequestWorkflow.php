@@ -47,7 +47,7 @@ class AttendanceRequestWorkflow
      */
     private const MAX_LEVELS = [
         'cuti' => 1, 'lembur' => 1,
-        'izin' => 1, 'libur' => 1, 'wfh' => 1,
+        'izin' => 1, 'sakit' => 1, 'libur' => 1, 'wfh' => 1,
         'koreksi' => 1, 'tukar' => 1,
     ];
 

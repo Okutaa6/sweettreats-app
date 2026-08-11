@@ -92,10 +92,11 @@ window.KAH = (function () {
         alpa:  { l: 'Alpa',  code: 'A', bg: '#FBE3DE', c: '#C0392B', br: '#F2CFC7', ico: 'cross' },
         cuti:  { l: 'Cuti',  code: 'C', bg: '#E4ECFB', c: '#3F6BAF', br: '#CFDCF3', ico: 'sun' },
         izin:  { l: 'Izin',  code: 'I', bg: '#F4E7D6', c: '#9A6614', br: '#E8D5B9', ico: 'note' },
+        sakit: { l: 'Sakit', code: 'S', bg: '#EDE6F4', c: '#6B4C9A', br: '#DCD0EA', ico: 'note' },
         libur: { l: 'Libur', code: 'L', bg: '#F1E9DF', c: '#8A6A52', br: '#E4D8C9', ico: 'moon' },
         wfh:   { l: 'WFH',   code: 'W', bg: '#DFEDE9', c: '#2E7D74', br: '#C7DED8', ico: 'home' }
     };
-    var ORDER = ['hadir', 'telat', 'alpa', 'cuti', 'izin', 'libur', 'wfh'];
+    var ORDER = ['hadir', 'telat', 'alpa', 'cuti', 'izin', 'sakit', 'libur', 'wfh'];
 
     function esc(s) {
         return String(s == null ? '' : s)

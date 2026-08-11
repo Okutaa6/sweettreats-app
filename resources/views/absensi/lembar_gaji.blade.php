@@ -109,7 +109,7 @@
                 <tr>
                     <th>KARYAWAN</th><th>ROLE</th><th>CABANG</th>
                     <th>HADIR</th><th>TELAT (HARI)</th><th>TELAT (MENIT)</th><th>LEMBUR (JAM)</th>
-                    <th>ALPA</th><th>CUTI</th><th>IZIN</th><th>LIBUR</th><th>WFH</th><th>SISA CUTI</th>
+                    <th>ALPA</th><th>CUTI</th><th>IZIN</th><th>SAKIT</th><th>LIBUR</th><th>WFH</th><th>SISA CUTI</th>
                 </tr>
             </thead>
             <tbody>
@@ -125,12 +125,13 @@
                         <td class="num {{ $b['alpa'] ? 'lg-red' : 'lg-muted' }}">{{ $b['alpa'] ?: '—' }}</td>
                         <td class="num">{{ $b['cuti'] ?: '' }}</td>
                         <td class="num">{{ $b['izin'] ?: '' }}</td>
+                        <td class="num">{{ $b['sakit'] ?: '' }}</td>
                         <td class="num">{{ $b['libur'] ?: '' }}</td>
                         <td class="num">{{ $b['wfh'] ?: '' }}</td>
                         <td class="num {{ $b['sisa_cuti'] === null ? 'lg-muted' : ($b['sisa_cuti'] < 0 ? 'lg-red' : '') }}">{{ $b['sisa_cuti'] === null ? '—' : $fmtJam($b['sisa_cuti']) }}</td>
                     </tr>
                 @empty
-                    <tr><td colspan="13" style="text-align:center;padding:30px;color:#9A7256">Belum ada data untuk bulan ini.</td></tr>
+                    <tr><td colspan="14" style="text-align:center;padding:30px;color:#9A7256">Belum ada data untuk bulan ini.</td></tr>
                 @endforelse
             </tbody>
             @if($baris->count())
@@ -142,7 +143,7 @@
                         <td class="num">{{ $sum['telat_menit'] }}</td>
                         <td class="num">{{ $fmtJam($sum['lembur_jam']) }}</td>
                         <td class="num">{{ $sum['alpa'] }}</td>
-                        <td colspan="5"></td>
+                        <td colspan="6"></td>
                     </tr>
                 </tfoot>
             @endif

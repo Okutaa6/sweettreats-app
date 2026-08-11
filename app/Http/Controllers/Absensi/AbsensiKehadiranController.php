@@ -40,6 +40,7 @@ class AbsensiKehadiranController extends Controller
         'alpa'  => ['label' => 'Alpa',  'bg' => '#FBE3DE', 'c' => '#C0392B'],
         'cuti'  => ['label' => 'Cuti',  'bg' => '#E4ECFB', 'c' => '#3F6BAF'],
         'izin'  => ['label' => 'Izin',  'bg' => '#F4E7D6', 'c' => '#9A6614'],
+        'sakit' => ['label' => 'Sakit', 'bg' => '#EDE6F4', 'c' => '#6B4C9A'],
         'libur' => ['label' => 'Libur', 'bg' => '#F1E9DF', 'c' => '#8A6A52'],
         'wfh'   => ['label' => 'WFH',   'bg' => '#DFEDE9', 'c' => '#2E7D74'],
     ];

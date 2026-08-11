@@ -26,7 +26,14 @@ class AttRequest extends Model
         'claimed_menit' => 'integer',
     ];
 
-    public const ABSENCE_TYPES = ['cuti', 'izin', 'libur', 'wfh'];
+    public const ABSENCE_TYPES = ['cuti', 'izin', 'sakit', 'libur', 'wfh'];
+
+    /**
+     * Sakit ≥ sekian hari berturut → surat dokter WAJIB (keputusan Ekky
+     * 2026-08-11). 1–2 hari cukup kabar ke atasan: menuntut surat untuk demam
+     * semalam justru mendorong orang masuk kerja sambil sakit.
+     */
+    public const SAKIT_HARI_WAJIB_SURAT = 3;
 
     public function user()
     {

@@ -27,6 +27,7 @@ class AkunPengajuanController extends Controller
     public const TIPE = [
         'cuti'    => 'Cuti',
         'izin'    => 'Izin',
+        'sakit'   => 'Sakit',
         'tukar'   => 'Tukar Hari',
         'lembur'  => 'Lembur',
         'wfh'     => 'Kerja dari Rumah',
@@ -209,7 +210,7 @@ class AkunPengajuanController extends Controller
         $data = $request->validate([
             // 'libur' masih diterima demi kiriman lama yang masih terbuka di
             // tab seseorang; jenis ini tak lagi ditawarkan di layar.
-            'tipe'           => 'required|in:cuti,izin,libur,lembur,wfh,koreksi',
+            'tipe'           => 'required|in:cuti,izin,sakit,libur,lembur,wfh,koreksi',
             'sub_tipe'       => 'nullable|in:jam,tambah_hari',
             'tanggal_from'   => 'required|date',
             'tanggal_to'     => 'required_unless:tipe,koreksi|nullable|date|after_or_equal:tanggal_from',
@@ -262,6 +263,21 @@ class AkunPengajuanController extends Controller
                 return back()->with('error',
                     'Koreksi untuk tanggal ' . Carbon::parse($data['tanggal_from'])->translatedFormat('d M Y')
                     . ' sudah pernah dikirim dan masih diproses.');
+            }
+        }
+
+        // Sakit ≥3 hari berturut → surat dokter WAJIB (keputusan Ekky 2026-08-11).
+        // Ditegakkan DI SERVER, bukan cuma lewat atribut `required` di form:
+        // input file yang disembunyikan tetap bisa dilewati form buatan sendiri.
+        // 1–2 hari sengaja tanpa surat — menuntutnya untuk demam semalam justru
+        // mendorong orang masuk kerja sambil sakit.
+        if ($data['tipe'] === 'sakit') {
+            $hari = Carbon::parse($data['tanggal_from'])
+                ->diffInDays(Carbon::parse($data['tanggal_to'])) + 1;
+            if ($hari >= AttRequest::SAKIT_HARI_WAJIB_SURAT && ! $request->hasFile('foto')) {
+                return back()->withInput()->with('error',
+                    'Sakit ' . $hari . ' hari perlu surat dokter — unggah fotonya dulu. '
+                    . '(Sakit 1–2 hari tidak perlu surat.)');
             }
         }
 

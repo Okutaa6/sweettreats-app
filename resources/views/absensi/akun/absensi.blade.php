@@ -157,6 +157,7 @@
         'alpa'  => ['l' => 'Alpa',  'bg' => '#FBE3DE', 'c' => '#C0392B', 'br' => '#F2CFC7', 'ico' => 'cross'],
         'cuti'  => ['l' => 'Cuti',  'bg' => '#E4ECFB', 'c' => '#3F6BAF', 'br' => '#CFDCF3', 'ico' => 'sun'],
         'izin'  => ['l' => 'Izin',  'bg' => '#F4E7D6', 'c' => '#9A6614', 'br' => '#E8D5B9', 'ico' => 'note'],
+        'sakit' => ['l' => 'Sakit', 'bg' => '#EDE6F4', 'c' => '#6B4C9A', 'br' => '#DCD0EA', 'ico' => 'note'],
         'wfh'   => ['l' => 'WFH',   'bg' => '#DFEDE9', 'c' => '#2E7D74', 'br' => '#C7DED8', 'ico' => 'home'],
         'libur' => ['l' => 'Libur', 'bg' => '#F1E9DF', 'c' => '#8A6A52', 'br' => '#E4D8C9', 'ico' => 'moon'],
     ];
@@ -173,6 +174,7 @@
     $typeColor = [
         'cuti' => ['#E4ECFB', '#3F6BAF', '#CFDCF3'],
         'izin' => ['#F4E7D6', '#9A6614', '#E8D5B9'],
+        'sakit' => ['#EDE6F4', '#6B4C9A', '#DCD0EA'],
         'tukar_libur' => ['#F1E9DF', '#8A6A52', '#E4D8C9'],
         'lembur' => ['#FBEFD9', '#B5701A', '#F0DDBB'],
         'wfh' => ['#DFEDE9', '#2E7D74', '#C7DED8'],

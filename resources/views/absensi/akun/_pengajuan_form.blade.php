@@ -118,7 +118,10 @@
 
         {{-- Foto bukti (drop-zone) --}}
         <div class="absk-field">
-            <label class="absk-lbl">Foto Bukti <span class="absk-lbl-note">(opsional — kalau lembur/kerja dari rumah tanpa absen mesin, foto ini buktinya)</span></label>
+            {{-- Sakit ≥3 hari: label berubah jadi "surat dokter" dan wajib.
+                 Server tetap penjaga sesungguhnya — ini cuma biar orang tahu
+                 sebelum kirim, bukan ditolak sesudahnya (P3). --}}
+            <label class="absk-lbl" id="fotoLbl">Foto Bukti <span class="absk-lbl-note" id="fotoNote">(opsional — kalau lembur/kerja dari rumah tanpa absen mesin, foto ini buktinya)</span></label>
             <div class="absk-dropzone" id="fotoZone">
                 <span id="fotoLabel">Klik untuk lampirkan foto</span>
             </div>
@@ -164,6 +167,45 @@
 
     function showCells(show) { jamCells.forEach(function (c) { c.style.display = show ? '' : 'none'; }); }
 
+    // ── Sakit: surat dokter wajib mulai 3 hari berturut ──
+    // Ambangnya dibaca dari model (satu sumber angka), bukan diketik ulang di
+    // sini — kalau kebijakannya berubah, tak ada dua tempat yang bisa beda.
+    var SAKIT_MIN_SURAT = {{ \App\Models\AttRequest::SAKIT_HARI_WAJIB_SURAT }};
+    function sakitHari() {
+        var a = document.getElementById('tglFrom'), b = document.getElementById('tglTo');
+        if (!a || !b || !a.value || !b.value) return 1;
+        var d = (new Date(b.value) - new Date(a.value)) / 86400000;
+        return isNaN(d) ? 1 : Math.max(1, Math.floor(d) + 1);
+    }
+    function suratDokter(t) {
+        var lbl = document.getElementById('fotoLbl'), note = document.getElementById('fotoNote');
+        var input = document.getElementById('fotoInput');
+        if (!lbl || !note || !input) return;
+        var wajib = (t === 'sakit') && sakitHari() >= SAKIT_MIN_SURAT;
+
+        if (t === 'sakit') {
+            lbl.childNodes[0].nodeValue = wajib ? 'Surat Dokter ' : 'Foto Bukti ';
+            note.textContent = wajib
+                ? '(wajib — sakit ' + sakitHari() + ' hari perlu surat dokter)'
+                : '(opsional — sakit 1–2 hari tidak perlu surat dokter)';
+            note.style.color = wajib ? '#C0392B' : '';
+        } else {
+            lbl.childNodes[0].nodeValue = 'Foto Bukti ';
+            note.textContent = '(opsional — kalau lembur/kerja dari rumah tanpa absen mesin, foto ini buktinya)';
+            note.style.color = '';
+        }
+        input.required = wajib;
+    }
+    // Rentang tanggal ikut menentukan wajib-tidaknya surat, jadi label harus
+    // ikut berubah saat tanggalnya digeser — bukan cuma saat jenis dipilih.
+    ['tglFrom', 'tglTo'].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el) el.addEventListener('change', function () {
+            var t = document.getElementById('tipeHidden');
+            if (t) suratDokter(t.value);
+        });
+    });
+
     function sync() {
         var t = tipeHidden.value;
         var isLembur = t === 'lembur';
@@ -188,6 +230,7 @@
         durBox.style.display = isLembur ? '' : 'none';
         wfhBlocked.style.display = (t === 'wfh' && wfhUsed >= 2) ? '' : 'none';
         wfhInfo.style.display    = (t === 'wfh' && wfhUsed < 2) ? '' : 'none';
+        suratDokter(t);
 
         // Lembur = satu hari saja: sembunyikan "Tanggal Selesai" dan samakan
         // nilainya, biar tak ada rentang yang tak akan dihormati server.
