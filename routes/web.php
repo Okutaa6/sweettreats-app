@@ -349,6 +349,8 @@ Route::middleware([AuthGuard::class])->group(function () {
     Route::get('akun/pengajuan',  [AkunPengajuanController::class, 'create'])->name('akun.pengajuan');
     Route::post('akun/pengajuan', [AkunPengajuanController::class, 'store'])->name('akun.pengajuan.store');
     Route::get('akun/pengajuan/prefill-lembur', [AkunPengajuanController::class, 'prefillLembur'])->name('akun.pengajuan.prefill');
+    // lampiran pengajuan (bisa surat dokter) — ber-auth, JANGAN dilayani dari public/
+    Route::get('akun/pengajuan/berkas/{id}', [AkunPengajuanController::class, 'berkas'])->name('akun.pengajuan.berkas');
     Route::get('akun/pengajuan/{id}', [AkunPengajuanController::class, 'show'])->name('akun.pengajuan.show');
     Route::get('akun/absen',  [AkunAbsenController::class, 'index'])->name('akun.absen');
     Route::post('akun/absen', [AkunAbsenController::class, 'store'])->name('akun.absen.store');

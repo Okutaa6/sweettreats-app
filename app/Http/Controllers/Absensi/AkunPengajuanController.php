@@ -139,6 +139,42 @@ class AkunPengajuanController extends Controller
     }
 
     /** Detail satu pengajuan + rantai persetujuan (buat drawer riwayat). Owner-scoped. */
+    /**
+     * Sajikan lampiran pengajuan (termasuk SURAT DOKTER) di balik login.
+     *
+     * Boleh dilihat: pemiliknya sendiri · Finance/Admin lintas cabang · dan
+     * orang yang memang berada di rantai persetujuannya. Selain itu 403 —
+     * lampiran sakit itu data kesehatan, bukan bacaan sekantor.
+     *
+     * Fallback ke public/uploads dipertahankan supaya lampiran LAMA (yang
+     * terlanjur tersimpan di sana) tetap terbaca. Setelah berkas lama
+     * dipindah ke storage, fallback ini boleh dicabut.
+     */
+    public function berkas(Request $request, $id)
+    {
+        $userId = $this->userId();
+        $req = AttRequest::findOrFail($id);
+        abort_unless($req->foto, 404);
+
+        $boleh = $req->user_id === $userId || canSeeAllBranches();
+        if (! $boleh) {
+            $rantai = collect((new AttendanceRequestWorkflow())->chainFor($req->user_id, $req->tipe))
+                ->flatten()->map(fn ($u) => (string) $u);
+            $boleh = $rantai->contains($userId);
+        }
+        abort_unless($boleh, 403, 'Lampiran ini bukan untukmu.');
+
+        // nama berkas dari DB, tapi tetap dikunci ke basename — jangan sampai
+        // baris DB yang aneh (mis. "../.env") jadi jalan keluar dari folder.
+        $nama = basename((string) $req->foto);
+        foreach ([storage_path('app/att_request/' . $nama), public_path('uploads/att_request/' . $nama)] as $path) {
+            if (is_file($path)) {
+                return response()->file($path, ['Cache-Control' => 'private, max-age=3600']);
+            }
+        }
+        abort(404);
+    }
+
     public function show(Request $request, $id)
     {
         $userId = $this->userId();
@@ -303,9 +339,17 @@ class AkunPengajuanController extends Controller
 
         // foto bukti — wajib secara SOP untuk lembur/wfh yg tak ada scan, tapi tak
         // dipaksa di sini (biar tak nge-block; approver yang menilai kelengkapan).
+        //
+        // ⚠️ DISIMPAN DI storage/, BUKAN public/. Sejak jenis "sakit" ada, lampiran
+        // ini bisa berupa SURAT DOKTER — data kesehatan. Folder public/ bisa
+        // diambil siapa pun yang punya URL-nya, tanpa login (terukur: 200).
+        // Alasannya sama persis dengan foto selfie yang dulu dipindah ke storage:
+        // "wajah karyawan bukan aset publik" — surat dokter apalagi.
+        // Berkas LAMA tetap di public/ dan tetap terbaca lewat jalur fallback di
+        // berkas() — tak ada yang rusak, tapi unggahan baru tak lagi telanjang.
         $fotoName = null;
         if ($request->hasFile('foto')) {
-            $dir = public_path('uploads/att_request');
+            $dir = storage_path('app/att_request');
             if (! is_dir($dir)) mkdir($dir, 0755, true);
             $file = $request->file('foto');
             $ext = strtolower($file->getClientOriginalExtension() ?: 'jpg');

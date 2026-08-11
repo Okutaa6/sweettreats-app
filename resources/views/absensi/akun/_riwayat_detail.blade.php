@@ -45,7 +45,7 @@
         @endif
         @if($req->jam_from)<div class="rdt-row"><span class="rdt-k">Jam</span><span class="num">{{ $hm($req->jam_from) }}@if($req->jam_to) – {{ $hm($req->jam_to) }}@endif</span></div>@endif
         @if($req->alasan)<div class="rdt-row"><span class="rdt-k">Alasan</span><span>{{ $req->alasan }}</span></div>@endif
-        @if($req->foto)<div class="rdt-row"><span class="rdt-k">Foto</span><a href="{{ asset('uploads/att_request/'.$req->foto) }}" target="_blank">Lihat foto bukti</a></div>@endif
+        @if($req->foto)<div class="rdt-row"><span class="rdt-k">{{ $req->tipe === 'sakit' ? 'Surat Dokter' : 'Foto' }}</span><a href="{{ route('akun.pengajuan.berkas', $req->id) }}" target="_blank">Lihat {{ $req->tipe === 'sakit' ? 'surat dokter' : 'foto bukti' }}</a></div>@endif
     </div>
 
     <div class="rdt-sechead">RANTAI PERSETUJUAN</div>
