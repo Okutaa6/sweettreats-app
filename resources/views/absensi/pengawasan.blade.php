@@ -547,6 +547,10 @@
         'hasil'   => $f->hasil,
         'catatan' => $f->catatan,
         'bukti_id'=> $f->ref_type === 'att_hp_bukti' ? $f->ref_id : null,
+        // wd = tanggal kerja flag ini. Wajib: di mode lintas tanggal, panel
+        // harus mengambil kehadiran HARI FLAG-nya, bukan hari yang terpilih.
+        'wd'      => \Carbon\Carbon::parse($f->work_date)->toDateString(),
+        'wd_label'=> \Carbon\Carbon::parse($f->work_date)->translatedFormat('l, d F Y'),
     ])->toJson() !!};
 
     var AWS_RIWAYAT = {!! $riwayat->toJson() !!};
@@ -554,6 +558,7 @@
     var AWS_HARI = {!! json_encode($hariMap) !!};
     var AWS_SUB = {!! json_encode($subOrang) !!};
     var AWS_TGL_LABEL = @json($tanggalLabel);
+    var AWS_TGL = @json($date);   // tanggal terpilih — kunci kehadiran utk foto di strip
     var AWS_URL_SELESAI = "{{ url('pengawasan') }}/";  // + id + /selesai
     var AWS_URL_DICEK   = "{{ url('pengawasan') }}/";  // + id + /dicek
     var AWS_CSRF = document.querySelector('meta[name="csrf-token"]').content;
@@ -601,14 +606,17 @@
         // status, jam masuk/pulang, telat, lembur, lintas cabang dalam bahasa yang
         // sama dengan layar Kehadiran dan Kehadiran Saya.
         var uidKah = flag ? flag.user_id : (bukti ? bukti.user_id : null);
-        var hari = uidKah != null ? AWS_HARI[uidKah] : null;
+        // Kunci kehadiran = orang + TANGGAL. Flag membawa tanggalnya sendiri;
+        // foto di strip selalu milik tanggal yang sedang dipilih.
+        var wdKah = flag && flag.wd ? flag.wd : AWS_TGL;
+        var hari = uidKah != null ? AWS_HARI[uidKah + '|' + wdKah] : null;
         var kahWrap = document.getElementById('aws-p-kah-wrap');
         if (hari) {
             kahWrap.classList.remove('aws-hidden');
             document.getElementById('aws-p-kah').innerHTML = KAH.render({
                 person: flag ? flag.nama : (bukti ? bukti.nama : '—'),
                 roleBranch: AWS_SUB[uidKah] || '',
-                dateLabel: AWS_TGL_LABEL,
+                dateLabel: (flag && flag.wd_label) ? flag.wd_label : AWS_TGL_LABEL,
                 status: hari.st,
                 jamIn: hari.in, jamOut: hari.out, single: hari.single,
                 lateMin: hari.late, lemburJam: Math.round(hari.lembur / 60 * 10) / 10,

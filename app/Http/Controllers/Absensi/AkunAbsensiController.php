@@ -32,7 +32,7 @@ class AkunAbsensiController extends Controller
             // Kalau bulan berjalan belum ada KEHADIRAN asli (biar tak nyangkut di
             // bulan yang cuma alpa-palsu), lompat ke bulan terbaru yang ada hadir/
             // telat/cuti/izin/wfh. Data sample lampau → demo selalu tampil isi.
-            $real = ['hadir', 'telat', 'cuti', 'izin', 'wfh'];
+            $real = ['hadir', 'telat', 'cuti', 'izin', 'sakit', 'wfh'];
             $hasCurrent = AttDay::where('user_id', $userId)
                 ->whereBetween('work_date', [$anchor->toDateString(), $anchor->copy()->endOfMonth()->toDateString()])
                 ->whereIn('status', $real)
@@ -72,7 +72,10 @@ class AkunAbsensiController extends Controller
             'hadir' => $days->where('status', 'hadir')->count(),
             'telat' => $days->where('status', 'telat')->count(),
             'alpa'  => $days->where('status', 'alpa')->count(),
-            'cuti'  => $days->whereIn('status', ['cuti', 'izin', 'wfh', 'libur'])->count(),
+            // ember "bukan hadir tapi juga bukan alpa". 'sakit' WAJIB ikut:
+            // tanpa itu hari sakit tak terhitung di mana pun dan jumlah kartu
+            // rekap tak lagi genap sebulan — terlihat seperti data hilang.
+            'cuti'  => $days->whereIn('status', ['cuti', 'izin', 'sakit', 'wfh', 'libur'])->count(),
             'telat_menit' => $days->sum('telat_menit'),
             'lembur_menit' => $days->sum('lembur_menit_disetujui'),
         ];

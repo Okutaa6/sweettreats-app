@@ -119,11 +119,19 @@ class PengawasanController extends Controller
             ->where(fn ($q) => $q->whereNull('ur.effective_to')->orWhere('ur.effective_to', '>=', $date))
             ->pluck('ur.user_id')->flip();
         $branchNameAll = RawBranch::pluck('name', 'id');
+        // Kartu "kehadiran hari itu" dikunci per ORANG + TANGGAL, bukan per orang
+        // saja. Di mode lintas tanggal satu layar memuat flag dari banyak hari;
+        // kunci per-orang membuat flag 5 Agu disodori kehadiran 11 Agu — salah
+        // hari, tapi tampil meyakinkan seolah benar.
+        $tanggalDilihat = $flags->pluck('work_date')
+            ->map(fn ($d) => $d instanceof Carbon ? $d->toDateString() : (string) $d)
+            ->push($date)->unique()->values()->all();
+
         $hariMap = [];
         $attRows = DB::table('att_day')
-            ->where('work_date', $date)
+            ->whereIn('work_date', $tanggalDilihat)
             ->whereIn('user_id', $orangTerlihat)
-            ->get(['user_id', 'status', 'scan_first', 'scan_last', 'telat_menit',
+            ->get(['user_id', 'work_date', 'status', 'scan_first', 'scan_last', 'telat_menit',
                    'single_scan', 'lembur_menit_disetujui', 'cabang_terlibat', 'raw_branch_id']);
         foreach ($attRows as $r) {
             $info = $infoOrang->get($r->user_id);
@@ -136,7 +144,7 @@ class PengawasanController extends Controller
                     if ($bid !== $home && isset($branchNameAll[$bid])) $lain[$branchNameAll[$bid]] = true;
                 }
             }
-            $hariMap[$r->user_id] = [
+            $hariMap[$r->user_id . '|' . substr((string) $r->work_date, 0, 10)] = [
                 'st'     => $r->status,
                 'in'     => $r->scan_first ? substr($r->scan_first, 11, 5) : null,
                 'out'    => $r->scan_last && substr($r->scan_last, 11, 5) !== substr((string) $r->scan_first, 11, 5)
@@ -327,14 +335,25 @@ class PengawasanController extends Controller
 
         // Buang yang jenisnya tak boleh diborong SEBELUM update, lalu laporkan
         // apa adanya — jangan diam-diam menutup yang seharusnya dilihat satuan.
-        $boleh = AttFlag::whereIn('id', $ids)->whereIn('jenis', self::JENIS_BORONGAN)
+        //
+        // "salah jenis" dan "sudah selesai" DIHITUNG TERPISAH: menggabungkannya
+        // membuat pesan berbohong — flag yang tadi sudah ditutup orang lain
+        // akan dilaporkan sebagai "harus diperiksa satu per satu", dan reviewer
+        // mengira ada yang salah padahal tidak ada.
+        $kandidat = AttFlag::whereIn('id', $ids)->get(['id', 'jenis', 'status']);
+        $boleh = $kandidat->whereIn('jenis', self::JENIS_BORONGAN)
             ->where('status', '!=', 'selesai')->pluck('id')->all();
-        $ditolak = count($ids) - count($boleh);
+        $salahJenis = $kandidat->reject(fn ($f) => in_array($f->jenis, self::JENIS_BORONGAN, true))->count();
+        $sudahBeres = $kandidat->whereIn('jenis', self::JENIS_BORONGAN)
+            ->where('status', 'selesai')->count();
+
+        $sisipan = [];
+        if ($salahJenis) $sisipan[] = "{$salahJenis} dilewati (jenisnya harus diperiksa satu per satu)";
+        if ($sudahBeres) $sisipan[] = "{$sudahBeres} sudah selesai sebelumnya";
+        $ekor = $sisipan ? ' ' . ucfirst(implode(', ', $sisipan)) . '.' : '';
 
         if (! $boleh) {
-            return back()->with('success', $ditolak
-                ? "Tidak ada yang diselesaikan — {$ditolak} flag jenisnya harus diperiksa satu per satu."
-                : 'Tidak ada flag terbuka yang cocok.');
+            return back()->with('success', trim('Tidak ada yang diselesaikan.' . $ekor));
         }
         $ids = $boleh;
 
@@ -353,9 +372,7 @@ class PengawasanController extends Controller
                 "Selesaikan {$n} flag absensi sekaligus ({$data['hasil']}) — \"{$data['catatan']}\" — id: " . implode(',', $ids));
         }
 
-        return back()->with('success', $ditolak
-            ? "{$n} flag diselesaikan. {$ditolak} dilewati — jenisnya harus diperiksa satu per satu."
-            : "{$n} flag diselesaikan sekaligus.");
+        return back()->with('success', "{$n} flag diselesaikan sekaligus." . $ekor);
     }
 
     /**

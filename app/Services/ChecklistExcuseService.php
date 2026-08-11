@@ -19,14 +19,21 @@ use Illuminate\Support\Str;
  * MyChecklistController::dayUnexcuse & weekToggleItem). Idempoten via unique
  * (submission_id, day_of_week) + ref_id = att_request.id.
  *
- * HANYA tipe cuti & izin (bukan libur/wfh/lembur) — keputusan produk.
+ * HANYA tipe cuti, izin & sakit (bukan libur/wfh/lembur) — keputusan produk.
  * Dipanggil AttendanceRequestWorkflow di setiap titik status→approved, dan
  * di-reconcile ulang saat karyawan membuka Form Mingguan (weekForm).
  */
 class ChecklistExcuseService
 {
-    /** Jenis pengajuan yang mengecualikan hari checklist. */
-    private const EXCUSE_TYPES = ['cuti', 'izin'];
+    /**
+     * Jenis pengajuan yang mengecualikan hari checklist.
+     *
+     * 'sakit' masuk sejak 2026-08-11 dengan alasan yang sama seperti izin:
+     * orang yang tak ada di tempat tak bisa mengerjakan checklist. Tanpa ini,
+     * karyawan yang sakit tetap dapat cap "checklist bolong" — dihukum untuk
+     * hari yang justru sudah resmi diizinkan.
+     */
+    private const EXCUSE_TYPES = ['cuti', 'izin', 'sakit'];
 
     /** Terapkan pengecualian untuk 1 pengajuan yang sudah approved. */
     public function excuseForLeave(AttRequest $req): void
