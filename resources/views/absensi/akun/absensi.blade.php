@@ -576,6 +576,7 @@ var AKS_TODAY = @json($todayIso);
     if (ajScrim) ajScrim.addEventListener('click', closeAj);
 
     // ── Modal Koreksi ──
+    var KOR_URL_SAKIT = @json(route('akun.pengajuan'));
     var korWrap = document.getElementById('korWrap');
     var korForm = document.getElementById('korForm');
     var korSubmit = document.getElementById('korSubmit');
@@ -592,6 +593,18 @@ var AKS_TODAY = @json($todayIso);
         pill.textContent = statusLbl;
         pill.className = 'absk-pill ' + klas;
         document.getElementById('korJam').textContent = 'tercatat ' + jam;
+
+        // Penunjuk ke pengajuan Sakit HANYA di hari alpa — di hari lain dia cuma
+        // gangguan. Tanggalnya ikut dibawa: kalau orang harus memilih ulang
+        // tanggal di form berikutnya, gesekan itu justru mendorongnya balik ke
+        // jalur koreksi yang salah.
+        var sakitHint = document.getElementById('korSakitHint');
+        if (sakitHint) {
+            var alpa = klas === 's-alpa';
+            sakitHint.hidden = !alpa;
+            if (alpa) sakitHint.href = KOR_URL_SAKIT + '?tipe=sakit&tanggal=' + encodeURIComponent(iso);
+        }
+
         body.classList.add('absk-koropen');
     }
     function closeKor() { body.classList.remove('absk-koropen'); }

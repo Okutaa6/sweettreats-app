@@ -135,7 +135,20 @@ class AkunPengajuanController extends Controller
         // habis, lalu server menolak. Salah info, bukan sekadar info hilang.
         $wfhUsed = self::hariWfhTerpakaiBulan($userId, Carbon::now());
 
-        return view('absensi.akun.pengajuan', compact('tipeList', 'tipe', 'wfhUsed'));
+        // Tanggal boleh dibawa dari layar lain (mis. penunjuk "Sakit?" di modal
+        // Koreksi hari alpa). Tanpa ini orang mendarat di form bertanggal HARI
+        // INI dan harus memilih ulang tanggal alpanya — gesekan tepat di titik
+        // yang justru mendorongnya balik ke jalur koreksi yang keliru.
+        $tglAwal = null;
+        if ($request->filled('tanggal')) {
+            try {
+                $tglAwal = Carbon::parse($request->input('tanggal'))->toDateString();
+            } catch (\Throwable $e) {
+                $tglAwal = null;   // tanggal ngawur diabaikan diam-diam, bukan bikin galat
+            }
+        }
+
+        return view('absensi.akun.pengajuan', compact('tipeList', 'tipe', 'wfhUsed', 'tglAwal'));
     }
 
     /** Detail satu pengajuan + rantai persetujuan (buat drawer riwayat). Owner-scoped. */

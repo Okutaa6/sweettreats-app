@@ -80,14 +80,14 @@
         <div class="absk-grid2" id="grp-rentang">
             <div>
                 <label class="absk-lbl" id="lblFrom">Tanggal Mulai <span class="req">*</span></label>
-                <input type="date" name="tanggal_from" id="tglFrom" class="absk-input" value="{{ old('tanggal_from', now()->toDateString()) }}" required>
+                <input type="date" name="tanggal_from" id="tglFrom" class="absk-input" value="{{ old('tanggal_from', $tglAwal ?? now()->toDateString()) }}" required>
             </div>
             {{-- Lembur selalu 1 hari (menitnya dari sepasang jam), jadi kolom
                  "sampai" disembunyikan supaya tak menjanjikan rentang yg memang
                  tak didukung. Server juga memaksa tanggal_to = tanggal_from. --}}
             <div id="cellTglTo">
                 <label class="absk-lbl">Tanggal Selesai <span class="req">*</span></label>
-                <input type="date" name="tanggal_to" id="tglTo" class="absk-input" value="{{ old('tanggal_to', now()->toDateString()) }}" required>
+                <input type="date" name="tanggal_to" id="tglTo" class="absk-input" value="{{ old('tanggal_to', $tglAwal ?? now()->toDateString()) }}" required>
             </div>
             <div class="absk-jamcell" style="display:none">
                 <label class="absk-lbl">Jam Mulai</label>
