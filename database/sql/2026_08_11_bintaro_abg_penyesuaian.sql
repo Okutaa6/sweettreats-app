@@ -80,11 +80,24 @@ WHERE u.`email` IN ('anisa@sweettreats.id','irma@sweettreats.id')
 -- ⚠️ EMAILNYA BEDA ANTAR LINGKUNGAN: prod 'fajri@', dev 'apajri@'. Ketahuan
 -- justru karena skrip ini diuji ke dev dulu — kalau langsung ke prod, bagian
 -- ini diam-diam tak kena di salah satu sisi. Dicocokkan ke dua-duanya.
+-- ⚠️ BERLAKU SEJAK SCAN PERTAMANYA (2026-08-08), BUKAN 5 Agu seperti yang lain.
+-- Percobaan pertama memakai 5 Agu — hasilnya dia langsung dapat 3 alpa (5–7
+-- Agu) padahal scan pertamanya memang baru 8 Agu: dia belum ikut sistem absen
+-- waktu itu. Menilai orang untuk hari sebelum dia terdaftar = menghukum orang
+-- atas data yang belum pernah ada. Aturan mulai berlaku sejak dia benar-benar
+-- masuk sistem.
 INSERT INTO `att_user_rule` (`user_id`, `rule_id`, `effective_from`, `created_at`, `updated_at`)
-SELECT u.`id`, 1, '2026-08-05', DATE_ADD(NOW(), INTERVAL 7 HOUR), DATE_ADD(NOW(), INTERVAL 7 HOUR)
+SELECT u.`id`, 1, '2026-08-08', DATE_ADD(NOW(), INTERVAL 7 HOUR), DATE_ADD(NOW(), INTERVAL 7 HOUR)
 FROM `users` u
 WHERE u.`email` IN ('fajri@sweettreats.id','apajri@sweettreats.id')
   AND NOT EXISTS (SELECT 1 FROM `att_user_rule` r WHERE r.`user_id` = u.`id`);
+
+-- Kalau baris aturannya sudah terlanjur dibuat mulai 5 Agu (jalan pertama
+-- skrip ini), majukan ke 8 Agu supaya alpa palsunya ikut hilang saat reconcile.
+UPDATE `att_user_rule` ur JOIN `users` u ON u.`id` = ur.`user_id`
+SET ur.`effective_from` = '2026-08-08'
+WHERE u.`email` IN ('fajri@sweettreats.id','apajri@sweettreats.id')
+  AND ur.`rule_id` = 1 AND ur.`effective_from` < '2026-08-08';
 
 -- ── 4) Saldo cuti operasional Bintaro — IKUT SHEET ───────────────────────────
 -- Sheet HR yang jadi acuan, BUKAN angka yang terlanjur ada di DB. Kelimanya
