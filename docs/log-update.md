@@ -7,6 +7,52 @@
 
 ---
 
+## 2026-08-12 — WiFi Cabang belajar sendiri: DIBANGUN, live di DEV (belum prod)
+
+Branch `feature/wifi-belajar-sendiri`. Nomor IPv6 dari Telkom berputar kira-kira
+mingguan; tiap rotasi seisi cabang kena flag "absen dari luar WiFi" sampai ada
+manusia yang mendaftarkan nomor barunya — 11 Agu lima orang Bintaro ke-flag
+dalam sejam. Ini masalah **kebisingan**, bukan integritas: tak ada yang gagal
+absen (WiFi cuma saksi). Ongkosnya waktu review Anisa, dan flag jadi terbiasa
+merah sehingga kejanggalan asli tenggelam.
+
+Sekarang jaringan yang nomornya baru berganti **mendaftarkan dirinya sendiri**
+begitu 3 orang cabang itu terbukti memakainya dalam 72 jam — asalkan blok
+alamatnya sekerabat dengan jalur cabang yang sudah terdaftar. Pemicunya saat
+**absen**, bukan saat review: itu yang membuat rekan yang datang sesudahnya
+langsung cocok dan tak ikut ke-flag. Tiga orang pertama tetap ke-flag.
+
+**Pagarnya**: satu orang tak pernah cukup · jaringan seluler tak pernah ikut
+(hanya IPv6 yang lewat pintu ini) · blok `/48` harus sekerabat, kalau tidak
+cuma ditawarkan ke IT · orang berjadwal fleksibel tak menguatkan apa pun ·
+baris hasilnya berlabel "perlu ditinjau" dan disorot di halaman WiFi Cabang ·
+IT dapat notifikasi tiap kejadian · ada saklar mati yang bisa diklik admin.
+
+### Diuji dengan memutar ulang kejadian nyata, bukan dengan membuka halaman
+
+Delapan kasus dijalankan lewat `AttendanceHpAbsen::absen()` — jalur kode yang
+sama persis dengan HP karyawan — memakai salinan baris prod 5–12 Agu. Semua
+lulus. Rotasi `10d5` mendaftar sendiri di orang ketiga (Rizka 09:39) dan flag
+11 Agu turun dari 5 jadi 3. Seluler ditolak walau dipakai 3 orang sekaligus.
+
+Cara ini yang menyelamatkan: labelnya menembus batas kolom `varchar(191)`, dan
+karena fitur ini sengaja menelan galat supaya absen tak pernah gagal, akibatnya
+**senyap** — pendaftaran tak pernah terjadi padahal syaratnya lengkap. Uji yang
+cuma mengecek "halaman kebuka" tak akan pernah melihatnya.
+
+### Satu kasus di rencana ternyata mustahil
+
+§6 menuntut `2777` mendaftar otomatis di orang ke-3. Orang ketiganya **Yovanka,
+berjadwal Fleksibel Kantor** — sementara baris lain di tabel yang sama bilang
+fleksibel tak ikut hitungan. Keduanya tak bisa benar bersamaan. Aturannya yang
+dipertahankan (ACC Ekky): semua orang fleksibel punya cabang asal KOSONG di
+sistem, jadi syaratnya memang tak bisa diperiksa untuk mereka — dan merekalah
+yang paling sering absen dari cabang lain. `2777` tetap manual (sudah, 12 Agu).
+
+**Belum prod.** Butuh SQL `2026_08_12_wifi_belajar_sendiri.sql` lebih dulu.
+
+---
+
 ## 2026-08-11 — GERBONG BESAR NAIK PROD: Sakit · flag borongan · keamanan lampiran
 
 Prod dari `bf15798` → **`bc5f3c9`** (17 commit). Urutan yang dijalankan:

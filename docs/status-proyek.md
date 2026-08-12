@@ -131,6 +131,13 @@ bukan symlink).
   manual dari mesin sidik jari — arah ADMS masih rencana.)
 - **Absen HP selfie**: WiFi cabang sebagai saksi + IP cabang, fix IPv6 /64,
   remember-me, paksa ganti password.
+- **WiFi Cabang belajar sendiri** *(12 Agu, live DEV — belum prod)*: nomor IPv6
+  Telkom berputar mingguan, dan tiap rotasi seisi cabang kena flag "absen dari
+  luar WiFi" sampai ada yang mendaftarkan nomor barunya. Sekarang jaringannya
+  mendaftar sendiri begitu **3 orang cabang itu** memakainya dalam 72 jam dan
+  blok alamatnya sekerabat dengan jalur yang sudah terdaftar. Satu orang tak
+  pernah cukup; jaringan seluler tak pernah ikut; ada saklar mati untuk admin.
+  Naik prod butuh SQL `2026_08_12_wifi_belajar_sendiri.sql` dulu.
 - **Pusat Akun**: Kesehatan (detektor kegagalan-senyap), User, Akses, Role,
   Setting, audit log login.
 - **Jatah cuti** per kontrak 12 bulan (saldo boleh minus, cuti bersama) +
@@ -253,6 +260,7 @@ bukan symlink).
 | Daftar centang deploy prod | `deploy/manifest-prod.md` (+ `deploy/deploy-absensi.md`) |
 | Cara kerja mesin absensi | `rencana/rencana-rekonsiliasi-absensi.md` |
 | Absen HP (WiFi saksi) | `rencana/rencana-absen-hp.md` |
+| WiFi cabang belajar sendiri | `rencana/rencana-wifi-belajar-sendiri.md` |
 | Jatah cuti | `rencana/rencana-jatah-cuti.md` |
 | ROP lengkap | `rencana/rencana-pengajuan-rop.md` + `handoff/handoff-rop.md` |
 | Aturan tema/zona warna | `spec/peta-tema.md` |

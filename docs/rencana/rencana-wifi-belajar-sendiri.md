@@ -1,6 +1,9 @@
 # Rencana: WiFi Cabang Belajar Sendiri (auto-daftar prefix baru)
 
-> Status: **ACC Ekky 2026-08-12** — ambang **3 orang**, **otomatis penuh**.
+> Status: **DIBANGUN — live di dev, belum prod** (12 Agu 2026, branch
+> `feature/wifi-belajar-sendiri`). Delapan kasus §6 lulus diputar ulang di dev
+> memakai baris prod asli; satu kasus dikoreksi, lihat §6.
+> ACC Ekky 2026-08-12 — ambang **3 orang**, **otomatis penuh**.
 > Basis kode: `integrasi/dev-2026-08-06` (= `main` = prod, `645dc12`).
 > Dokumen ini ditulis supaya sesi/chat BARU bisa langsung membangun tanpa
 > mengulang penyelidikan seminggu terakhir.
@@ -106,15 +109,37 @@ semuanya terlanjur merah — tak ada gunanya.
 
 ## 6. Uji yang WAJIB lulus (putar ulang data nyata minggu ini)
 
-| Kasus | Harus |
-|---|---|
-| `10d5` 11 Agu — 7 org Bintaro/1 jam, se-`/48` | **auto** di orang ke-3; flag turun 7 → 3 |
-| `2777` — Firda 11/8 mlm + Alpajri & Yovanka 12/8 pagi (72 jam), se-`/48` | **auto** saat orang ke-3 |
-| Cinere `2033:12b8` 7 Agu — 2 org, tak se-`/48` | **TIDAK** auto (tawarkan klik) |
-| Kalideres `90b0:ebf` — 1 org | **TIDAK** auto |
-| 3 org beda cabang di satu jaringan | **TIDAK** auto |
-| Seluler (`114.10.x`, CGNAT) | **TIDAK PERNAH** auto — dipakai jutaan orang |
-| Orang `fleksibel` | tak ikut hitungan (flag-nya memang di-suppress) |
+| Kasus | Harus | Hasil uji |
+|---|---|---|
+| `10d5` 11 Agu — 7 org Bintaro/1 jam, se-`/48` | **auto** di orang ke-3; flag tinggal 3 | ✅ auto di Rizka 09:39 |
+| `2777` — Firda 11/8 mlm + Alpajri & Yovanka 12/8 pagi | ~~auto saat orang ke-3~~ → **TIDAK** auto, hanya 2 orang memenuhi syarat | ✅ ditolak (lihat koreksi) |
+| Cinere `2033:12b8` 7 Agu — 2 org, tak se-`/48` | **TIDAK** auto (tawarkan klik) | ✅ ditolak |
+| Kalideres `90b0:ebf` — 1 org | **TIDAK** auto | ✅ ditolak |
+| 3 org beda cabang di satu jaringan | **TIDAK** auto | ✅ ditolak |
+| Seluler (`114.10.x`, CGNAT) | **TIDAK PERNAH** auto — dipakai jutaan orang | ✅ ditolak walau 3 org |
+| 3 org cabang sama tapi `/48` asing | **tawarkan** ke IT, jangan auto | ✅ tawarkan |
+| Saklar dimatikan | tak pernah auto | ✅ mati total |
+| Orang `fleksibel` | tak ikut hitungan (flag-nya memang di-suppress) | ✅ Talitha & Reza tak menguatkan |
+
+### ⚠️ Koreksi kasus `2777` (12 Agu, setelah data prod diputar ulang)
+
+Kasus 2 sebagaimana ditulis **tidak bisa berlaku** — ia bertabrakan dengan
+baris terakhir tabel ini sendiri. Orang ketiga di `2777` adalah **Yovanka, dan
+dia berjadwal "Fleksibel Kantor"**. Kalau fleksibel ikut dihitung supaya kasus 2
+lolos, maka di kasus 1 Talitha juga ikut — auto bergeser ke orang ke-3 yang
+lebih awal dan flag tersisa jadi **2**, bukan 3. Kedua harapan itu tak bisa
+benar bersamaan.
+
+Yang dipertahankan: **aturannya** (ACC Ekky 12 Agu). Alasannya bukan sekadar
+konsistensi — **semua** orang berjadwal fleksibel punya `cabang asal` KOSONG di
+sistem, jadi syarat §3 no. 2 memang tak bisa diperiksa untuk mereka. Mereka juga
+justru orang yang paling sering absen dari cabang lain: Talitha tercatat di
+Cinere, Pamulang, dan Bintaro dalam sepekan yang sama. Saksi paling lemah untuk
+"jaringan ini milik cabang X".
+
+Akibat nyatanya: `2777` tetap perlu didaftarkan manual (dan memang sudah, 12
+Agu). Orang Bintaro non-fleksibel ketiga yang menyentuh jalur itu akan
+memicunya sendiri.
 
 ⚠️ **Jangan pernah mendaftarkan IP seluler.** Rizka 7 Agu absen pulang lewat
 Telkomsel `114.10.70.167`. CGNAT — mendaftarkannya = membuka absen dari mana pun.
@@ -140,6 +165,32 @@ melewati rotasi IPv6. Yang berputar khusus IPv6.
 🔴 **Cincin merah di Pengawasan menandai ORANG pada hari itu**, bukan tiap absen.
 Satu flag terbuka → semua fotonya hari itu ikut merah, termasuk absen yang
 sebenarnya cocok.
+
+## 7b. Sudah dibangun — apa yang ada di mana (12 Agu 2026)
+
+Branch `feature/wifi-belajar-sendiri`, **live di dev, BELUM prod.**
+
+| Berkas | Isi |
+|---|---|
+| `app/Services/WifiBelajarSendiri.php` | otak keputusan. `nilai()` murni (tak menulis apa pun), `pelajari()` menulis |
+| `app/Services/AttendanceHpAbsen.php` | pemicunya — sesudah bukti ditulis, sebelum flag dinilai |
+| `app/Console/Commands/WifiBelajarUji.php` | pemutar-ulang 8 kasus §6 lewat jalur absen sungguhan |
+| `database/sql/2026_08_12_wifi_belajar_sendiri.sql` | kolom `att_branch_ip.sumber` + saklar `sys_setting` |
+| `resources/views/absensi/wifi.blade.php` | kartu saklar, spanduk "perlu ditinjau", baris auto disorot |
+
+**Vonis** yang dikembalikan bukan cuma ya/tidak, tapi beralasan — `bukan_ipv6`,
+`orang_kurang`, `kerabat_48_tak_ada`, `saklar_mati`, `sudah_cocok`, `lengkap`.
+Itu yang membuat kasus "ditolak" bisa dibedakan satu sama lain saat diuji.
+
+**Hanya IPv6.** Itu yang membuktikan larangan "jangan pernah daftarkan IP
+seluler" tanpa perlu menebak operator: IPv4 tak pernah lewat pintu ini, dan
+IPv6 seluler tetap gugur di pagar `/48`. `::ffff:` (IPv4 menyamar) ikut ditolak.
+
+**Tiga orang pertama tetap ke-flag.** Itu harga bukti yang mereka kumpulkan, dan
+gampang ditutup borongan di Pengawasan.
+
+Menjalankan ulang ujinya: `php artisan att:wifi-uji` (dikunci mati di produksi —
+ia menulis data uji). Sesudah selesai, daftar WiFi dipulihkan otomatis.
 
 ## 8. Sesudah dibangun
 
