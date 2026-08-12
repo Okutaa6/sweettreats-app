@@ -80,7 +80,7 @@ WHERE u.`email` IN ('dellaps@sweettreats.id','talitha@sweettreats.id',
 --   Yovanka : 12 − 6 penyesuaian − 2 tercatat = 4  ✓ sheet
 --   Ikhsan  : 12 − 4 penyesuaian − 0 tercatat = 8  ✓ sheet
 INSERT INTO `att_cuti_mutasi`
-    (`periode_id`, `user_id`, `tanggal`, `hari`, `jenis`, `sumber`, `keterangan`, `created_at`, `updated_at`)
+    (`periode_id`, `user_id`, `tanggal`, `hari`, `jenis`, `sumber`, `keterangan`, `created_at`)
 SELECT p.`id`, u.`id`, DATE(DATE_ADD(NOW(), INTERVAL 7 HOUR)),
        CASE u.`email`
            WHEN 'anisa@sweettreats.id'   THEN 7.0
@@ -89,7 +89,7 @@ SELECT p.`id`, u.`id`, DATE(DATE_ADD(NOW(), INTERVAL 7 HOUR)),
        END,
        'koreksi', 'manual',
        'Penyesuaian saldo awal: selisih dari jatah 12 saat sistem mulai mencatat (sumber: sheet HR 12 Agu 2026)',
-       DATE_ADD(NOW(), INTERVAL 7 HOUR), DATE_ADD(NOW(), INTERVAL 7 HOUR)
+       DATE_ADD(NOW(), INTERVAL 7 HOUR)
 FROM `users` u JOIN `att_cuti_periode` p ON p.`user_id` = u.`id`
 WHERE u.`email` IN ('anisa@sweettreats.id','yovanka@sweettreats.id','ikhsan@sweettreats.id')
   AND NOT EXISTS (
