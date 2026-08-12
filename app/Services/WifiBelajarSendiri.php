@@ -245,9 +245,22 @@ class WifiBelajarSendiri
      */
     private function daftarkan(string $prefix, string $branchDipilih, array $hasil): ?AttBranchIp
     {
-        $nama = implode(', ', array_slice($hasil['pendukung'], 0, 5));
-        $label = 'OTOMATIS — perlu ditinjau · ' . $hasil['n'] . ' orang cabang ini memakai jaringan ini '
-               . 'dalam ' . self::JENDELA_JAM . " jam ({$nama}) · /48 sekerabat dengan jalur cabang yang sudah terdaftar";
+        $cabang = optional(\App\Models\RawBranch::find($branchDipilih))->name ?? $branchDipilih;
+        $nama   = implode(', ', array_slice($hasil['pendukung'], 0, 5));
+
+        // label = varchar(191). Nama panjang ("Alpajri Suhendar Al Qhusni") cepat
+        // menembusnya, dan kolom penuh TIDAK boleh menjatuhkan absen orangnya —
+        // jadi: nama depan saja, lalu dipotong keras sebagai jaring pengaman.
+        // Keterangan utuh tetap ada di notifikasi IT & AuditLog.
+        $depan = implode(', ', array_map(
+            fn ($n) => strtok(trim($n), ' '),
+            array_slice($hasil['pendukung'], 0, 4)
+        ));
+        $label = mb_substr(
+            "Otomatis · {$hasil['n']} orang {$cabang} dalam " . self::JENDELA_JAM
+            . " jam: {$depan} · /48 sekerabat — perlu ditinjau",
+            0, 191
+        );
 
         try {
             $baris = AttBranchIp::firstOrCreate(
@@ -272,8 +285,6 @@ class WifiBelajarSendiri
         if (! $baris->wasRecentlyCreated) {
             return $baris;
         }
-
-        $cabang = optional($baris->branch)->name ?? $branchDipilih;
 
         // Beri tahu IT tiap kali ini terjadi (§3, sisa risiko yang diterima
         // sadar): kafe/tetangga se-/48 yang didatangi >=3 staf bisa ikut

@@ -57,6 +57,7 @@ class WifiBelajarUji extends Command
 
     private array $userId = [];
     private array $gagal  = [];
+    private int   $kasusGagal = 0;
 
     public function handle(): int
     {
@@ -84,7 +85,8 @@ class WifiBelajarUji extends Command
 
         $this->newLine();
         if ($this->gagal) {
-            $this->error('GAGAL ' . count($this->gagal) . ' dari ' . $kasus->count() . ' kasus:');
+            $this->error("GAGAL {$this->kasusGagal} dari " . $kasus->count() . ' kasus ('
+                . count($this->gagal) . ' harapan meleset):');
             foreach ($this->gagal as $g) $this->line('  · ' . $g);
             return 1;
         }
@@ -282,6 +284,7 @@ class WifiBelajarUji extends Command
         if (count($this->gagal) === $sebelum) {
             $this->line("   <fg=green>✓ sesuai harapan</>");
         } else {
+            $this->kasusGagal++;
             foreach (array_slice($this->gagal, $sebelum) as $g) $this->line("   <fg=red>✗ {$g}</>");
         }
     }
