@@ -49,7 +49,29 @@ dipertahankan (ACC Ekky): semua orang fleksibel punya cabang asal KOSONG di
 sistem, jadi syaratnya memang tak bisa diperiksa untuk mereka — dan merekalah
 yang paling sering absen dari cabang lain. `2777` tetap manual (sudah, 12 Agu).
 
-**Belum prod.** Butuh SQL `2026_08_12_wifi_belajar_sendiri.sql` lebih dulu.
+### Audit sesudah dibangun — 5 temuan, semua diperbaiki
+
+Yang paling merugikan **tak akan pernah kelihatan dari layar**: pemberitahuan
+"ada WiFi baru terdaftar" dikirim ke role bernama `IT`, padahal halaman itu
+dipegang **`Head IT` DAN `IT`** — dua role terpisah, dan sasaran notifikasi
+harus cocok persis. Head IT takkan pernah menerima satu pun. Pengawasan yang
+dijanjikan sebagai penutup risiko jadi separuh buta.
+
+Sisanya: (2) kalau IT menonaktifkan sebuah baris lalu orang bertiga datang
+lagi, hasilnya benar tapi **laporannya bohong** — sistem tetap bilang
+"DAFTAR" padahal tak menulis apa pun; (3) pembelajaran berjalan **di dalam**
+transaksi absen sambil menelan galat, dan deadlock InnoDB membatalkan seluruh
+transaksi sehingga absennya justru jatuh — persis yang mau dihindari, kini
+dipindah ke sesudah commit; (4) satu query per baris bukti di jalur yang
+dilewati tiap absen ber-IP asing; (5) jendela 72 jam memindai seluruh tabel
+karena indeksnya tak cocok.
+
+Kasus uji naik dari 8 jadi **10** — dua tambahan mengunci veto IT dan
+jangkauan notifikasi (termasuk menolak nama role yang tak ada di `group_path`,
+karena salah ketik di situ = notifikasi yang tak pernah dibaca siapa pun).
+
+**Belum prod.** Butuh SQL `2026_08_12_wifi_belajar_sendiri.sql` lebih dulu
+(kolom `sumber`, indeks `idx_bukti_taken`, saklar).
 
 ---
 

@@ -179,8 +179,20 @@ Branch `feature/wifi-belajar-sendiri`, **live di dev, BELUM prod.**
 | `resources/views/absensi/wifi.blade.php` | kartu saklar, spanduk "perlu ditinjau", baris auto disorot |
 
 **Vonis** yang dikembalikan bukan cuma ya/tidak, tapi beralasan — `bukan_ipv6`,
-`orang_kurang`, `kerabat_48_tak_ada`, `saklar_mati`, `sudah_cocok`, `lengkap`.
-Itu yang membuat kasus "ditolak" bisa dibedakan satu sama lain saat diuji.
+`orang_kurang`, `kerabat_48_tak_ada`, `saklar_mati`, `sudah_cocok`,
+`ditolak_it`, `lengkap`, `galat`. Itu yang membuat kasus "ditolak" bisa
+dibedakan satu sama lain saat diuji.
+
+**`ditolak_it`** = baris untuk prefix itu pernah lahir lalu dinonaktifkan IT.
+Keputusan itu permanen dan tak pernah ditawar ulang. Sengaja seketat teks
+prefix: baris berekor yang mati karena rotasi (mis. `2313` lama) BUKAN veto —
+kalau jalur itu kembali dipakai bertiga, memang sudah semestinya dikenali lagi.
+
+**Notifikasi dikirim per role** (`ROLE_PENINJAU = ['Head IT', 'IT']`).
+`target_role` harus cocok PERSIS dengan `group_path.nama` dan tak mengenal
+hierarki — satu baris "IT" saja berarti Head IT tak pernah diberi tahu. Kalau
+nanti ada role baru yang memegang halaman ini, tambahkan namanya di sana; K10
+akan menolak nama yang tak ada di `group_path`.
 
 **Hanya IPv6.** Itu yang membuktikan larangan "jangan pernah daftarkan IP
 seluler" tanpa perlu menebak operator: IPv4 tak pernah lewat pintu ini, dan
