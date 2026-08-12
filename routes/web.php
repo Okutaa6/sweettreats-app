@@ -447,6 +447,7 @@ Route::middleware([AuthGuard::class])->group(function () {
     Route::get('pettycash',                       [PettyCashController::class, 'index'])->name('pettycash');
     Route::get('pettycash/export',                [PettyCashController::class, 'export'])->name('pettycash.export');
     Route::post('pettycash/expense',              [PettyCashController::class, 'store'])->name('pettycash.expense');
+    Route::post('pettycash/loan-return',          [PettyCashController::class, 'returnLoan'])->name('pettycash.loanReturn');
     Route::post('pettycash/topup',                [PettyCashController::class, 'topup'])->name('pettycash.topup');
     Route::post('pettycash/topup-request',        [PettyCashController::class, 'requestTopup'])->name('pettycash.requestTopup');
     Route::post('pettycash/account',              [PettyCashController::class, 'saveAccount'])->name('pettycash.account.save');

@@ -32,7 +32,7 @@
     @endphp
     <tr class="{{ $r->is_topup ? 'pc-row-topup' : '' }} {{ $r->is_transfer ? 'pc-row-transfer' : '' }} {{ $isComposite ? 'pc-row-composite' : '' }}"
         @if($isComposite) data-pc-composite-parent="{{ $rowId }}" @endif>
-        <td class="pc-date">{{ \Carbon\Carbon::parse($r->trx_date)->translatedFormat('d M') }}</td>
+        <td class="pc-date">{{ \Carbon\Carbon::parse($r->trx_date)->translatedFormat('d M Y') }}</td>
         <td>
             @if($isComposite && isset($r->source_to))
                 <span class="pc-source-inline pc-source-inline--pair">
@@ -83,7 +83,17 @@
             @endif
             <strong>{{ $r->description }}</strong>
             @if(!empty($r->category) && isset($categoryMap[$r->category]))
-                <span class="pc-pill-category">{{ $categoryMap[$r->category] }}</span>
+                @php
+                    // Pinjaman + arah cash-in = pengembalian (uang balik) →
+                    // tampil "Pinjaman Lunas". Peminjaman awal (cash-out) tetap
+                    // pill "Pinjaman" biasa.
+                    $isLoanReturn = $r->category === 'pinjaman' && ($r->cash_in ?? 0) > 0;
+                @endphp
+                @if($isLoanReturn)
+                    <span class="pc-pill-category pc-pill-category--lunas">Pinjaman Lunas</span>
+                @else
+                    <span class="pc-pill-category pc-pill-category--{{ $r->category }}">{{ $categoryMap[$r->category] }}</span>
+                @endif
             @endif
             @if($r->is_topup)
                 <span class="pc-pill-topup">top up</span>

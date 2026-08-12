@@ -40,6 +40,9 @@ class PettyCashTransaction extends Model
         'transport'   => 'Transport',
         'bensin'      => 'Bensin',
         'operasional' => 'Operasional',
+        'pinjaman'    => 'Pinjaman',
+        'server'      => 'Server',
+        'prv'         => 'PRV',
     ];
 
     protected $fillable = [

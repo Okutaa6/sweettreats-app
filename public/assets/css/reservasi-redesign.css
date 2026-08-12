@@ -506,6 +506,10 @@ body.redesign-reservasi .rr-drawer { transition: visibility 0s linear .25s; }
 body.redesign-reservasi .rr-drawer.is-open { transition: visibility 0s linear 0s; }
 /* Head form cuma 2 baris (lebih pendek dari Detail) → center-kan tombol close. */
 body.redesign-reservasi .rr-drawer--form .rr-drawer__close { top: 50%; transform: translateY(-50%); }
+/* Patient drawer (Tambah Pasien Baru) — tumpuk DI ATAS Form Drawer (1300). */
+body.redesign-reservasi .rr-drawer--patient { z-index: 1400; }
+body.redesign-reservasi .rr-drawer--patient .rr-drawer__panel { width: 560px; }
+body.redesign-reservasi .rr-drawer--patient .rr-drawer__close { top: 50%; transform: translateY(-50%); }
 
 /* ── Quick-add pasien (form Tambah/Edit di-inject ke drawer) ──
    Duplikat dari @section('css') edit/new (yang dipakai halaman standalone);
@@ -520,6 +524,12 @@ body.redesign-reservasi .qp-trigger {
     cursor:pointer; transition:.15s;
 }
 body.redesign-reservasi .qp-trigger:hover { background:#fff4e8; border-color:#461500; }
+/* Tombol "Tambah Pasien Baru" (pasien betul-betul baru → side-drawer) di bawah dropdown Pasien.
+   Solid + border penuh biar beda jelas dari trigger "di nomor ini" (dashed). */
+body.redesign-reservasi .qp-trigger--newpatient {
+    margin-top:8px; border-style:solid; background:#fff7ef; border-color:rgba(70,21,0,.55);
+}
+body.redesign-reservasi .qp-trigger--newpatient:hover { background:#fdeeda; }
 body.redesign-reservasi .qp-card {
     margin-top:12px; border:1px solid #e6d5c4; border-radius:12px;
     background:#fffaf5; overflow:hidden;

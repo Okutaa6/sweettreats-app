@@ -592,12 +592,17 @@ class ReservationController extends Controller
     {
         $this->abortIfViewOnly();
         $data = request()->validate([
-            'name'          => 'required|max:255',
-            'phone'         => 'required|regex:/^0[0-9]{9,14}$/',
-            'email'         => 'nullable|email|max:100',
-            'jenis_kelamin' => 'nullable|in:L,P',
-            'tanggal_lahir' => 'nullable|date|before:today',
-            'relasi'        => 'nullable|in:diri_sendiri,pasangan,anak,orang_tua,lainnya',
+            'name'             => 'required|max:255',
+            'phone'            => 'required|regex:/^0[0-9]{9,14}$/',
+            'email'            => 'nullable|email|max:100',
+            'jenis_kelamin'    => 'nullable|in:L,P',
+            'tanggal_lahir'    => 'nullable|date|before:today',
+            'relasi'           => 'nullable|in:diri_sendiri,pasangan,anak,orang_tua,lainnya',
+            'nik'              => 'nullable|string|max:20',
+            'alamat'           => 'nullable|string|max:65535',
+            'tempat_lahir'     => 'nullable|string|max:255',
+            'source_app'       => 'nullable|string|max:255',
+            'pasien_baru_lama' => 'nullable|in:baru,lama',
         ], [
             'name.required'  => 'Nama pasien wajib diisi.',
             'phone.required' => 'Nomor HP wajib diisi.',
@@ -618,10 +623,13 @@ class ReservationController extends Controller
                 'email'            => $data['email'] ?? null,
                 'jenis_kelamin'    => $data['jenis_kelamin'] ?? null,
                 'tanggal_lahir'    => $data['tanggal_lahir'] ?? null,
+                'nik'              => $data['nik'] ?? null,
+                'alamat'           => $data['alamat'] ?? null,
+                'tempat_lahir'     => $data['tempat_lahir'] ?? null,
                 'tanggal_daftar'   => now()->toDateString(),
-                'pasien_baru_lama' => 'baru',
+                'pasien_baru_lama' => $data['pasien_baru_lama'] ?? 'baru',
                 'raw_branch_id'    => $sessionBranch ?: null,
-                'source_app'       => 'admin',
+                'source_app'       => $data['source_app'] ?? 'admin',
                 'channel'          => 'admin',
             ]);
         });
@@ -648,7 +656,7 @@ class ReservationController extends Controller
             'raw_branch_id'      => 'required',
             'raw_customer_id'    => 'required',
             'raw_doctor_id'      => 'required',
-            'date'               => 'required|date',
+            'date'               => 'nullable|date|required_unless:is_waiting,1',
             'start_hour'         => 'required_unless:is_waiting,1',
             'end_hour'           => 'required_unless:is_waiting,1',
             'keterangan'         => 'nullable|string|max:65535',
@@ -680,7 +688,7 @@ class ReservationController extends Controller
                 'raw_branch_id'      => request('raw_branch_id'),
                 'raw_customer_id'    => request('raw_customer_id'),
                 'raw_doctor_id'      => request('raw_doctor_id'),
-                'date'               => request('date'),
+                'date'               => request('date') ?: null, // waitlist boleh tanpa tanggal → NULL
                 'start_hour'         => $isWaiting ? null : request('start_hour'),
                 'end_hour'           => $isWaiting ? null : request('end_hour'),
                 'keterangan'         => request('keterangan'),

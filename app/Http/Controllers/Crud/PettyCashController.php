@@ -186,13 +186,12 @@ class PettyCashController extends Controller
         $periodClass = $this->periodClass($kind);
         $trxClass    = $this->trxClass($kind);
 
-        // Validasi category terhadap CATEGORIES milik kind aktif — kalau kind
-        // diganti dan key kategori lama tidak ada di kind baru, abaikan.
+        // Filter kategori MULTI-SELECT — user bisa pilih beberapa kategori
+        // sekaligus (categories[]=makan&categories[]=transport). Backward
+        // compat: param lama `category` tunggal tetap diterima. Array kosong
+        // = semua kategori.
         $categoryOptions = $trxClass::CATEGORIES;
-        $category        = (string) $request->get('category', '');
-        if ($category !== '' && ! array_key_exists($category, $categoryOptions)) {
-            $category = '';
-        }
+        $categories      = $this->parseCategories($request, $categoryOptions);
 
         $period = $periodClass::ensurePeriod(
             $year,
@@ -210,18 +209,16 @@ class PettyCashController extends Controller
             $fundSourceId = 0;
         }
 
+        // PENTING: filter kategori / search / wallet TIDAK di-apply di query.
+        // Ambil SELURUH transaksi periode supaya saldo & summary cards selalu
+        // mencerminkan posisi sebenarnya (uang tunai fisik), lalu filter cuma
+        // menyaring baris yang tampil di tabel (di-handle dalam buildRows,
+        // pola sama dengan filter tanggal). Kalau filter di-apply di query,
+        // saldo ikut dihitung ulang dari subset → angka menyesatkan
+        // (mis. filter "Pinjaman" bikin saldo tampil saldo_awal − pinjaman).
         $transactions = $trxClass::active()
             ->with('fundSource')
             ->forPeriod($period->id)
-            ->when($search !== '', function ($q) use ($search) {
-                $q->where('description', 'like', "%{$search}%");
-            })
-            ->when($category !== '', function ($q) use ($category) {
-                $q->where('category', $category);
-            })
-            ->when($fundSourceId > 0, function ($q) use ($fundSourceId) {
-                $q->where('fund_source_id', $fundSourceId);
-            })
             ->orderBy('trx_date')
             ->orderBy('id')
             ->get();
@@ -231,9 +228,17 @@ class PettyCashController extends Controller
         $branchAccountMap = FundSourceBranchAccount::mapForBranch($branchId);
 
         // Summary cards & source breakdown tetap mencerminkan SELURUH periode
-        // — range tanggal cuma menyempitkan baris yang ditampilkan di tabel.
+        // — filter tanggal/kategori/wallet/search cuma menyempitkan baris tabel.
         [$rows, $summary, $sourceBalances] =
-            $this->buildRows($period, $transactions, $fundSources, $startDate, $endDate, $branchAccountMap);
+            $this->buildRows($period, $transactions, $fundSources, $startDate, $endDate, $branchAccountMap, $categories, $search, $fundSourceId);
+
+        // Kategori aktif + label untuk strip "filter aktif" (buildRows sengaja
+        // tidak tahu CATEGORIES — labelnya di-inject di sini).
+        $summary['filter_categories']        = $categories;
+        $summary['filter_categories_labels'] = array_map(
+            fn($c) => $categoryOptions[$c] ?? $c,
+            $categories,
+        );
 
         $bulanLabel = [
             1 => 'Januari',  2 => 'Februari', 3 => 'Maret',
@@ -317,7 +322,7 @@ class PettyCashController extends Controller
             'period', 'rows', 'summary', 'sourceBalances',
             'year', 'month', 'bulanLabel',
             'startDate', 'endDate', 'monthStartStr', 'monthEndStr',
-            'search', 'category', 'categoryOptions', 'fundSourceId',
+            'search', 'categories', 'categoryOptions', 'fundSourceId',
             'isCurrentMonth', 'isReadOnly', 'isFinanceViewOnly', 'showTrxActions',
             'kind', 'tabs', 'fundSources', 'fundSourcesGrouped',
             'branches', 'activeBranch', 'branchId', 'sessionBranch',
@@ -371,11 +376,8 @@ class PettyCashController extends Controller
         // Filter tambahan — match dengan filter di view index supaya
         // hasil export = data yang user lihat di layar.
         $search       = trim((string) $request->get('q', ''));
-        $category     = (string) $request->get('category', '');
         $categoryMap  = $trxClass::CATEGORIES;
-        if ($category !== '' && ! array_key_exists($category, $categoryMap)) {
-            $category = '';
-        }
+        $categories   = $this->parseCategories($request, $categoryMap);
         $fundSourceId = (int) $request->get('fund_source_id', 0);
         if ($fundSourceId > 0 && ! FundSource::whereKey($fundSourceId)->exists()) {
             $fundSourceId = 0;
@@ -399,8 +401,8 @@ class PettyCashController extends Controller
             ->when($search !== '', function ($q) use ($search) {
                 $q->where('description', 'like', "%{$search}%");
             })
-            ->when($category !== '', function ($q) use ($category) {
-                $q->where('category', $category);
+            ->when(! empty($categories), function ($q) use ($categories) {
+                $q->whereIn('category', $categories);
             })
             ->when($fundSourceId > 0, function ($q) use ($fundSourceId) {
                 $q->where('fund_source_id', $fundSourceId);
@@ -430,7 +432,7 @@ class PettyCashController extends Controller
         // export ini hasil dari filter mana.
         $filterParts = [];
         if ($walletName !== '')      $filterParts[] = 'Wallet: ' . $walletName;
-        if ($category !== '')        $filterParts[] = 'Kategori: ' . ($categoryMap[$category] ?? $category);
+        if (! empty($categories))    $filterParts[] = 'Kategori: ' . implode(', ', array_map(fn($c) => $categoryMap[$c] ?? $c, $categories));
         if ($search !== '')          $filterParts[] = 'Cari: "' . $search . '"';
         $sheet->setCellValue('A4', 'Filter');
         $sheet->setCellValue('B4', empty($filterParts) ? '-' : implode(' · ', $filterParts));
@@ -650,6 +652,78 @@ class PettyCashController extends Controller
         return redirect()
             ->route('pettycash', $this->preserveParams($kind))
             ->with('success', 'Pengeluaran berhasil ditambahkan.');
+    }
+
+    /**
+     * POST /pettycash/loan-return?tab={kind} → catat pengembalian pinjaman.
+     *
+     * Uang yang dulu dipinjam (pengeluaran kategori 'pinjaman') dikembalikan
+     * ke wallet. Dicatat sebagai KAS MASUK berkategori 'pinjaman' (is_topup=0),
+     * sehingga otomatis:
+     *   - piutang wallet (Σ pinjaman keluar − Σ pinjaman masuk) berkurang;
+     *   - saldo fisik wallet naik lagi (uang balik ke laci);
+     *   - TIDAK dihitung sebagai "Total top up" — ini bukan dana baru, cuma
+     *     uang petty cash sendiri yang balik.
+     */
+    public function returnLoan(Request $request)
+    {
+        $this->requireWriteAccess();
+        $kind = $this->kind($request);
+        $periodClass = $this->periodClass($kind);
+        $trxClass    = $this->trxClass($kind);
+
+        // Kategori 'pinjaman' hanya ada di petty cash — modul lain tidak punya.
+        if (! array_key_exists('pinjaman', $trxClass::CATEGORIES)) {
+            abort(404);
+        }
+
+        $tableName = (new $periodClass)->getTable();
+        $data = $request->validate([
+            'period_id'      => 'required|integer|exists:' . $tableName . ',id',
+            'trx_date'       => 'required|date',
+            'description'    => 'nullable|string|max:255',
+            'amount'         => 'required|numeric|min:1|max:' . \App\Models\PettyCashTransaction::MAX_AMOUNT,
+            'fund_source_id' => 'required|integer|exists:fund_sources,id',
+        ], [
+            'amount.max' => 'Nominal maksimal Rp 50.000.000.',
+        ]);
+
+        $period = $periodClass::findOrFail($data['period_id']);
+        $this->abortIfReadOnly($period);
+        $this->abortIfBranchMismatch($request, $period);
+
+        // Tidak boleh mengembalikan lebih dari piutang wallet ini supaya
+        // piutang tidak jadi negatif.
+        $piutang = $this->computeSourcePiutang($period, (int) $data['fund_source_id'], $trxClass);
+        if ($piutang <= 0) {
+            return redirect()
+                ->route('pettycash', $this->preserveParams($kind))
+                ->with('error', 'Wallet ini tidak punya piutang pinjaman yang belum kembali.');
+        }
+        if ((float) $data['amount'] > $piutang + 0.001) {
+            return redirect()
+                ->route('pettycash', $this->preserveParams($kind))
+                ->with('error', 'Jumlah pengembalian melebihi piutang wallet ini (Rp ' . number_format($piutang, 0, ',', '.') . ').');
+        }
+
+        $note = trim((string) ($data['description'] ?? ''));
+        $description = 'Pengembalian pinjaman' . ($note !== '' ? ': ' . $note : '');
+
+        $trxClass::create([
+            'period_id'       => $period->id,
+            'trx_date'        => $data['trx_date'],
+            'description'     => $description,
+            'category'        => 'pinjaman',
+            'direction'       => $trxClass::DIR_IN,
+            'amount'          => $data['amount'],
+            'fund_source_id'  => $data['fund_source_id'],
+            'is_topup'        => 0,
+            'created_by'      => session('id'),
+        ]);
+
+        return redirect()
+            ->route('pettycash', $this->preserveParams($kind))
+            ->with('success', 'Pengembalian pinjaman berhasil dicatat.');
     }
 
     /**
@@ -1287,7 +1361,7 @@ class PettyCashController extends Controller
         return "{$relDir}/{$filename}";
     }
 
-    private function buildRows($period, $transactions, $fundSources = null, ?string $startDate = null, ?string $endDate = null, array $branchAccountMap = []): array
+    private function buildRows($period, $transactions, $fundSources = null, ?string $startDate = null, ?string $endDate = null, array $branchAccountMap = [], array $categories = [], string $search = '', int $fundSourceId = 0): array
     {
         // Opening per source = single source of truth (snapshot JSON).
         // Self-heal di openingPerSourceResolved() juga sync scalar
@@ -1301,6 +1375,11 @@ class PettyCashController extends Controller
         $saldo   = $opening;
         $totalIn = 0.0;
         $totalOut = 0.0;
+
+        // Total & jumlah transaksi untuk kategori yang sedang difilter —
+        // dipakai strip "filter aktif" biar nominal asli kategori jelas.
+        $filterCatTotal = 0.0;
+        $filterCatCount = 0;
 
         // Inisialisasi breakdown saldo per source.
         $cashSourceId = null;
@@ -1318,13 +1397,16 @@ class PettyCashController extends Controller
                     'in'             => 0.0,
                     'out'            => 0.0,
                     'balance'        => 0.0,
+                    // Piutang pinjaman: uang dari wallet ini yang dipinjam &
+                    // belum dikembalikan. Saldo sesungguhnya = balance + piutang.
+                    'piutang'        => 0.0,
                 ];
                 if ($cashSourceId === null && $fs->category === \App\Models\FundSource::CAT_CASH) {
                     $cashSourceId = $fs->id;
                 }
             }
         }
-        $uncategorized = ['in' => 0.0, 'out' => 0.0, 'balance' => 0.0];
+        $uncategorized = ['in' => 0.0, 'out' => 0.0, 'balance' => 0.0, 'piutang' => 0.0];
 
         // Distribusi opening ke per-source (pakai $openingPerSource yang
         // sudah di-resolve di atas). Backward compat: kalau snapshot
@@ -1353,6 +1435,16 @@ class PettyCashController extends Controller
             $isTopup    = (bool) ($t->is_topup ?? false);
             $cashIn  = $t->direction === 'in'  ? (float) $t->amount : 0.0;
             $cashOut = $t->direction === 'out' ? (float) $t->amount : 0.0;
+            $rowCategory = $t->category ?? null;
+
+            // Total kategori terfilter dari SELURUH transaksi periode (sebelum
+            // baris disaring untuk tampilan) — buat strip "filter aktif". Hanya
+            // baris pengeluaran (cashOut) yang dihitung; baris pengembalian
+            // pinjaman (kas masuk) tidak ikut biar total = jumlah dipinjamkan.
+            if (! empty($categories) && in_array($rowCategory, $categories, true) && $cashOut > 0) {
+                $filterCatTotal += $cashOut;
+                $filterCatCount++;
+            }
 
             // Transfer = pergerakan INTERNAL antar sumber dana, bukan cash
             // flow eksternal. Jadi:
@@ -1380,10 +1472,16 @@ class PettyCashController extends Controller
                 $sourceMeta[$sid]['in']      += $cashIn;
                 $sourceMeta[$sid]['out']     += $cashOut;
                 $sourceMeta[$sid]['balance'] += ($cashIn - $cashOut);
+                if ($rowCategory === 'pinjaman') {
+                    $sourceMeta[$sid]['piutang'] += $cashOut - $cashIn;
+                }
             } else {
                 $uncategorized['in']      += $cashIn;
                 $uncategorized['out']     += $cashOut;
                 $uncategorized['balance'] += ($cashIn - $cashOut);
+                if ($rowCategory === 'pinjaman') {
+                    $uncategorized['piutang'] += $cashOut - $cashIn;
+                }
             }
 
             // Date-range filter: running saldo & summary tetap dihitung dari
@@ -1396,6 +1494,13 @@ class PettyCashController extends Controller
 
             if ($startDate !== null && $trxDateStr < $startDate) continue;
             if ($endDate   !== null && $trxDateStr > $endDate)   continue;
+
+            // Filter kategori/search/wallet — sama seperti tanggal: cuma
+            // menyaring baris tampilan, saldo & summary sudah terlanjur
+            // terhitung dari seluruh transaksi di atas.
+            if (! empty($categories) && ! in_array($rowCategory, $categories, true)) continue;
+            if ($search !== '' && stripos((string) $t->description, $search) === false) continue;
+            if ($fundSourceId > 0 && (int) $t->fund_source_id !== $fundSourceId) continue;
 
             $fs = $t->fundSource;
             $rows[] = (object) [
@@ -1436,6 +1541,9 @@ class PettyCashController extends Controller
             'total_out'       => $totalOut,
             'closing'         => $saldo,
             'suggested_topup' => max(0, (float) $period->float_amount - $saldo),
+            // Ringkasan kategori yang sedang difilter (label di-inject controller).
+            'filter_category_total' => $filterCatTotal,
+            'filter_category_count' => $filterCatCount,
         ];
 
         // Drop source yang tidak punya aktivitas & balance 0 (selain Cash agar
@@ -1625,5 +1733,51 @@ class PettyCashController extends Controller
         }
 
         return $balance;
+    }
+
+    /**
+     * Piutang pinjaman wallet = Σ(pinjaman keluar) − Σ(pinjaman masuk) untuk
+     * fund source ini di periode ini. Dipakai returnLoan() untuk guard supaya
+     * pengembalian tidak melebihi piutang.
+     */
+    private function computeSourcePiutang($period, int $fundSourceId, string $trxClass): float
+    {
+        $rows = $trxClass::active()
+            ->forPeriod($period->id)
+            ->where('fund_source_id', $fundSourceId)
+            ->where('category', 'pinjaman')
+            ->get(['direction', 'amount']);
+
+        $piutang = 0.0;
+        foreach ($rows as $r) {
+            $amt = (float) $r->amount;
+            $piutang += $r->direction === $trxClass::DIR_OUT ? $amt : -$amt;
+        }
+
+        return max(0.0, $piutang);
+    }
+
+    /**
+     * Ambil daftar kategori terpilih dari request (multi-select). Menerima
+     * param `categories[]` (baru) maupun `category` tunggal (backward compat).
+     * Hanya key yang valid di $categoryOptions yang dikembalikan, tanpa
+     * duplikat. Array kosong = semua kategori.
+     */
+    private function parseCategories(Request $request, array $categoryOptions): array
+    {
+        $raw = $request->get('categories', $request->get('category', []));
+        if (! is_array($raw)) {
+            $raw = ($raw === '' || $raw === null) ? [] : [(string) $raw];
+        }
+
+        $valid = [];
+        foreach ($raw as $c) {
+            $c = (string) $c;
+            if ($c !== '' && array_key_exists($c, $categoryOptions) && ! in_array($c, $valid, true)) {
+                $valid[] = $c;
+            }
+        }
+
+        return $valid;
     }
 }
