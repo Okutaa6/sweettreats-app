@@ -40,6 +40,7 @@ class AbsensiKehadiranController extends Controller
         'alpa'  => ['label' => 'Alpa',  'bg' => '#FBE3DE', 'c' => '#C0392B'],
         'cuti'  => ['label' => 'Cuti',  'bg' => '#E4ECFB', 'c' => '#3F6BAF'],
         'izin'  => ['label' => 'Izin',  'bg' => '#F4E7D6', 'c' => '#9A6614'],
+        'sakit' => ['label' => 'Sakit', 'bg' => '#EDE6F4', 'c' => '#6B4C9A'],
         'libur' => ['label' => 'Libur', 'bg' => '#F1E9DF', 'c' => '#8A6A52'],
         'wfh'   => ['label' => 'WFH',   'bg' => '#DFEDE9', 'c' => '#2E7D74'],
     ];
@@ -104,8 +105,28 @@ class AbsensiKehadiranController extends Controller
             ->where(function ($q) use ($from) {
                 $q->whereNull('ur.effective_to')->orWhere('ur.effective_to', '>=', $from->toDateString());
             })
-            ->get(['u.id', 'u.nama', 'u.raw_branch_id', 'wr.tipe', 'gp.nama as role'])
+            // Satu orang BISA punya lebih dari satu baris aturan aktif (penugasan
+            // baru yang lupa menutup yang lama — terjadi pada 8 orang di prod,
+            // 5→6 Agu 2026). keyBy() menyimpan baris TERAKHIR, jadi tanpa urutan
+            // yang menang ditentukan MySQL: orang yang sama bisa terbaca
+            // 'fleksibel' sekali muat dan 'baku' di muat berikutnya — dan yang
+            // 'baku' bisa memunculkan alpa. Diurutkan supaya yang TERBARU selalu
+            // menang, sama seperti tipeAturanKerja(). Ini penambal, bukan obat:
+            // baris rangkapnya tetap harus dibereskan di data.
+            ->orderBy('ur.effective_from')
+            ->orderBy('ur.id')
+            ->get(['u.id', 'u.nama', 'u.raw_branch_id', 'wr.id as rule_id', 'wr.tipe', 'gp.nama as role'])
             ->keyBy('id');
+
+        // Hari libur DIBACA dari aturan kerja, bukan diasumsikan akhir pekan.
+        // Klinik tutup SENIN, bukan Minggu — sebelumnya kolom merah di-hardcode
+        // `dow === 0` sehingga matriks menyorot hari yang justru buka.
+        $liburByRule = DB::table('att_work_rule_day')
+            ->where('libur', 1)
+            ->get(['rule_id', 'day'])
+            ->groupBy('rule_id')
+            ->map(fn ($rows) => $rows->pluck('day')->map(fn ($d) => (int) $d)->sort()->values()->all())
+            ->all();
 
         // jaring-pengaman: ada att_day tapi orangnya tak punya aturan (data lama)
         $orphan = $days->pluck('user_id')->unique()->diff($roster->keys());
@@ -115,17 +136,32 @@ class AbsensiKehadiranController extends Controller
                 ->whereIn('u.id', $orphan)
                 ->get(['u.id', 'u.nama', 'u.raw_branch_id', 'gp.nama as role']) as $o) {
                 $o->tipe = 'baku';
+                $o->rule_id = null;          // tanpa aturan → tak ada hari libur yang bisa diklaim
                 $roster->put($o->id, $o);
             }
         }
 
         $flex = $roster->where('tipe', 'fleksibel')->keys()->flip();
 
-        // header hari (dow + tanggal + minggu)
+        // KOLOM MERAH = hari klinik tutup, diambil dari aturan `baku` (yang scan-nya
+        // memang dinilai). Sengaja BUKAN gabungan semua aturan: rule "Fleksibel"
+        // dipakai 9 orang tapi nol hari libur, jadi irisan seluruh aturan selalu
+        // kosong dan tak ada yang tersorot. Irisan antar-aturan baku = hari yang
+        // benar-benar tutup untuk semua yang dinilai.
+        $bakuRules = $roster->pluck('rule_id')->filter()->unique()
+            ->filter(fn ($rid) => ($roster->firstWhere('rule_id', $rid)->tipe ?? null) === 'baku')
+            ->values();
+        $tutupDow = [];
+        foreach ($bakuRules as $i => $rid) {
+            $hari = $liburByRule[$rid] ?? [];
+            $tutupDow = $i === 0 ? $hari : array_values(array_intersect($tutupDow, $hari));
+        }
+
+        // header hari (dow + tanggal + hari tutup)
         $head = [];
         for ($d = 1; $d <= $daysInMonth; $d++) {
             $dow = $anchor->copy()->day($d)->dayOfWeek;
-            $head[$d] = ['n' => $d, 'dow' => self::DOW[$dow], 'sun' => ($dow === 0)];
+            $head[$d] = ['n' => $d, 'dow' => self::DOW[$dow], 'tutup' => in_array($dow, $tutupDow, true)];
         }
 
         // semua baris dibuat dulu dari roster (termasuk yg nol scan bulan ini)
@@ -152,6 +188,9 @@ class AbsensiKehadiranController extends Controller
                 'key'     => $key,
                 'label'   => $label,
                 'flex'    => $isFlex,
+                // hari libur milik ORANG INI (aturannya sendiri) — orang kantor
+                // libur Minggu+Senin, yang lain Senin saja.
+                'libur'   => $liburByRule[$u->rule_id ?? ''] ?? [],
                 'cells'   => [],
                 'h' => 0, 't' => 0, 'a' => 0,
             ];
@@ -231,7 +270,7 @@ class AbsensiKehadiranController extends Controller
         return view('absensi.kehadiran', compact(
             'groups', 'summary', 'daysInMonth', 'head', 'anchor', 'monthShort',
             'branches', 'branchFilter', 'statusMeta', 'abgKey', 'abgLabel',
-            'today', 'selDay', 'initView'
+            'today', 'selDay', 'initView', 'tutupDow'
         ));
     }
 }

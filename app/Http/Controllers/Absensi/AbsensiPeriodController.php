@@ -111,6 +111,7 @@ class AbsensiPeriodController extends Controller
                 DB::raw("SUM(status='alpa') AS alpa"),
                 DB::raw("SUM(status='cuti') AS cuti"),
                 DB::raw("SUM(status='izin') AS izin"),
+                DB::raw("SUM(status='sakit') AS sakit"),
                 DB::raw("SUM(status='wfh') AS wfh"),
                 DB::raw("SUM(status='libur') AS libur"),
                 DB::raw("SUM(telat_menit) AS telat_menit"),
@@ -131,12 +132,12 @@ class AbsensiPeriodController extends Controller
         return response()->streamDownload(function () use ($agg, $names) {
             $out = fopen('php://output', 'w');
             fprintf($out, "\xEF\xBB\xBF");   // BOM UTF-8 biar Excel benar
-            fputcsv($out, ['Nama', 'Hadir', 'Telat', 'Alpa', 'Cuti', 'Izin', 'WFH', 'Libur',
+            fputcsv($out, ['Nama', 'Hadir', 'Telat', 'Alpa', 'Cuti', 'Izin', 'Sakit', 'WFH', 'Libur',
                 'Total Telat (menit)', 'Lembur (menit)', 'Lembur (jam)', 'Single-scan', 'Total Hari']);
             foreach ($agg as $r) {
                 fputcsv($out, [
                     $names[$r->user_id] ?? '(?)',
-                    $r->hadir, $r->telat, $r->alpa, $r->cuti, $r->izin, $r->wfh, $r->libur,
+                    $r->hadir, $r->telat, $r->alpa, $r->cuti, $r->izin, $r->sakit, $r->wfh, $r->libur,
                     $r->telat_menit, $r->lembur_menit, round($r->lembur_menit / 60, 2),
                     $r->single_scan, $r->total_hari,
                 ]);

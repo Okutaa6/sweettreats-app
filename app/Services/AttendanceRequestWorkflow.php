@@ -47,9 +47,30 @@ class AttendanceRequestWorkflow
      */
     private const MAX_LEVELS = [
         'cuti' => 1, 'lembur' => 1,
-        'izin' => 1, 'libur' => 1, 'wfh' => 1,
-        'koreksi' => 1,
+        'izin' => 1, 'sakit' => 1, 'libur' => 1, 'wfh' => 1,
+        'koreksi' => 1, 'tukar' => 1,
     ];
+
+    /**
+     * Jenis yang TIDAK terdaftar di MAX_LEVELS memakai rantai PENUH — dan itu
+     * berarti persetujuan berlapis, padahal sejak 2026-08-05 semua satu lapis.
+     * Lupa mendaftarkan jenis baru = pengajuannya naik ke lapis dua lalu
+     * menggantung, karena tak ada lagi layar yang menampilkan lapis dua.
+     * Kejadian nyata: 'tukar' saat pertama dibuat (ketahuan uji ujung-ke-ujung
+     * di dev, bukan dari kode). Penjaga ini membuat kelalaian yang sama
+     * berbunyi keras di lingkungan pengembangan, bukan diam sampai produksi.
+     */
+    private function pastikanJenisTerdaftar(string $tipe): void
+    {
+        if (isset(self::MAX_LEVELS[$tipe])) return;
+
+        $pesan = "Jenis pengajuan '{$tipe}' belum terdaftar di AttendanceRequestWorkflow::MAX_LEVELS "
+            . '— tambahkan dulu, kalau tidak rantai persetujuannya jadi berlapis.';
+        if (! app()->environment('production')) {
+            throw new \RuntimeException($pesan);
+        }
+        \Illuminate\Support\Facades\Log::error('[absensi] ' . $pesan);
+    }
 
     /**
      * Rantai approval untuk seorang pengaju: [[id approver lapis 1], [id lapis 2], ...].
@@ -136,6 +157,8 @@ class AttendanceRequestWorkflow
     /** Submit form: hitung rantai, set status awal. Rantai kosong → langsung approved. */
     public function submit(AttRequest $req): AttRequest
     {
+        $this->pastikanJenisTerdaftar((string) $req->tipe);
+
         $levels = $this->chainFor($req->user_id, $req->tipe);
         if (!$levels) {
             $this->pastikanApexBukanSalahKonfigurasi($req->user_id);

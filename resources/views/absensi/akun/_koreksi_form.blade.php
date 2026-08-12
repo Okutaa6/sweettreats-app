@@ -18,6 +18,22 @@
     </div>
 
     <div class="absk-korbody">
+        {{-- Penunjuk arah untuk hari ALPA (dimunculkan JS, lihat openKorPrefill).
+             Semua alasan koreksi berarti "saya SEBENARNYA masuk" — koreksi yang
+             disetujui dicatat HADIR. Orang yang tak masuk karena sakit paling
+             mungkin mendarat di sini, memilih "Lainnya", menulis "saya sakit",
+             lalu disetujui — dan hari sakitnya diam-diam tercatat sebagai hadir.
+             Salah tanpa ada yang merasa salah. Makanya dialihkan sejak awal. --}}
+        <a class="absk-korsakit" id="korSakitHint" href="#" hidden>
+            <span class="ikon">?</span>
+            <span class="tx">
+                <b>Tidak masuk karena sakit?</b>
+                Itu bukan koreksi — koreksi dipakai kalau kamu <i>sebenarnya masuk</i>
+                tapi absennya gagal. Ajukan <b>Sakit</b> supaya tercatat dengan benar.
+            </span>
+            <span class="pan">→</span>
+        </a>
+
         <label class="absk-korlbl">APA YANG KELIRU? <span class="absk-req">*</span></label>
         <div class="absk-korreasons">
             @foreach($korAlasan as $a)

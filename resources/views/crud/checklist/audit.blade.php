@@ -97,6 +97,19 @@
                                 $actOpt = $actionOptions[$log->action] ?? ['label' => $log->action, 'color' => 'neutral'];
                                 $before = $log->before_json ? json_decode($log->before_json, true) : null;
                                 $after  = $log->after_json  ? json_decode($log->after_json, true)  : null;
+
+                                // Ringkas satu nilai jadi teks. WAJIB tahan nilai BERSARANG:
+                                // penulis log bebas menyimpan array (mis. aksi create_approved
+                                // menyimpan `items: ["Cuci AC = 100000", …]`), dan "$k=$v" polos
+                                // pada array melempar "Array to string conversion" — satu baris
+                                // seperti itu cukup mematikan SELURUH halaman audit untuk semua
+                                // orang. Halaman baca-saja tak boleh jatuh karena bentuk data.
+                                $ringkas = function ($v) use (&$ringkas) {
+                                    if (is_array($v)) return implode(' | ', array_map($ringkas, $v));
+                                    if (is_bool($v)) return $v ? 'ya' : 'tidak';
+                                    if ($v === null) return '—';
+                                    return (string) $v;
+                                };
                             @endphp
                             <tr>
                                 <td>
@@ -126,10 +139,10 @@
                                     @if($before || $after)
                                         <div style="font-size:11px; color:var(--cl-muted); margin-top:3px; font-family:Consolas,Monaco,monospace;">
                                             @if($before)
-                                                <span style="color:var(--cl-danger);">− {{ collect($before)->map(fn($v,$k) => "$k=$v")->implode(', ') }}</span>
+                                                <span style="color:var(--cl-danger);">− {{ collect($before)->map(fn($v,$k) => $k.'='.$ringkas($v))->implode(', ') }}</span>
                                             @endif
                                             @if($after)
-                                                <span style="color:var(--cl-success); {{ $before ? 'margin-left:8px;' : '' }}">+ {{ collect($after)->map(fn($v,$k) => "$k=$v")->implode(', ') }}</span>
+                                                <span style="color:var(--cl-success); {{ $before ? 'margin-left:8px;' : '' }}">+ {{ collect($after)->map(fn($v,$k) => $k.'='.$ringkas($v))->implode(', ') }}</span>
                                             @endif
                                         </div>
                                     @endif

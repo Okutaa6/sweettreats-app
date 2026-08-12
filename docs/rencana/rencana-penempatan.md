@@ -1,9 +1,13 @@
 # Rencana: Penempatan (staf kerja sementara di cabang lain)
 
 > Status: ACC 2026-08-04 — **dikerjakan REZA**. Pasangannya: fitur Aturan
-> Kerja dikerjakan Ekky (`rencana-aturan-kerja.md`). Basis kode: branch
-> **`feature/rop`** terbaru (JANGAN dari branch lama — sudah berisi absensi,
-> checklist terbaru, dan aturan kerja repo: semua bermuara ke feature/rop).
+> Kerja dikerjakan Ekky (`rencana-aturan-kerja.md`).
+>
+> ⚠️ **Basis kode (diperbarui 2026-08-07): cabang dari `integrasi/dev-2026-08-06`**
+> — branch integrasi yang berlaku sekarang, isinya sama dengan `main`/prod.
+> `feature/rop` dan `release/2026-08-pengeluaran` yang disebut versi lama
+> dokumen ini sudah **pensiun** — jangan dipakai lagi. Semua kerjaan tetap
+> bermuara ke SATU branch integrasi, tak ada yang lompat langsung ke `main`.
 
 ## 1. Masalah nyata
 
@@ -18,6 +22,16 @@ FO Sunter di-rolling backup ke Bintaro. Hari itu:
 Tidak ada satu tempat yang menyatakan "hari X, si A ditugaskan di cabang B".
 Orang tergoda mengubah cabang asal tiap rolling — itu merusak identitas
 roster & rekap. Fitur ini = tempat resminya.
+
+**Kasus nyata yang baru terjadi (2026-08-06/07) — pakai ini sebagai bahan uji:**
+Rizka Noviyanti (Assistant Dentist, roster **Bintaro**) absen masuk di Bintaro
+6 Agu pagi, siangnya dipindah ke **Kalideres**, menginap, lalu absen masuk lagi
+dari Kalideres 7 Agu. Yang terjadi tanpa fitur ini: absensinya benar (lintas
+cabang memang by design), tapi **tak ada catatan bahwa dia ditugaskan** — jadi
+dia muncul di kalender sebagai orang Bintaro tanpa jejak, dan checklist yang
+disodorkan tetap milik cabang asal. Ekky sempat ditawari memindahkan roster-nya
+ke Kalideres dan **itu keputusan yang salah** (penempatannya sementara);
+justru inilah lubang yang fitur ini tutup.
 
 ## 2. Bentuk
 

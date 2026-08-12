@@ -157,6 +157,7 @@
         'alpa'  => ['l' => 'Alpa',  'bg' => '#FBE3DE', 'c' => '#C0392B', 'br' => '#F2CFC7', 'ico' => 'cross'],
         'cuti'  => ['l' => 'Cuti',  'bg' => '#E4ECFB', 'c' => '#3F6BAF', 'br' => '#CFDCF3', 'ico' => 'sun'],
         'izin'  => ['l' => 'Izin',  'bg' => '#F4E7D6', 'c' => '#9A6614', 'br' => '#E8D5B9', 'ico' => 'note'],
+        'sakit' => ['l' => 'Sakit', 'bg' => '#EDE6F4', 'c' => '#6B4C9A', 'br' => '#DCD0EA', 'ico' => 'note'],
         'wfh'   => ['l' => 'WFH',   'bg' => '#DFEDE9', 'c' => '#2E7D74', 'br' => '#C7DED8', 'ico' => 'home'],
         'libur' => ['l' => 'Libur', 'bg' => '#F1E9DF', 'c' => '#8A6A52', 'br' => '#E4D8C9', 'ico' => 'moon'],
     ];
@@ -173,6 +174,7 @@
     $typeColor = [
         'cuti' => ['#E4ECFB', '#3F6BAF', '#CFDCF3'],
         'izin' => ['#F4E7D6', '#9A6614', '#E8D5B9'],
+        'sakit' => ['#EDE6F4', '#6B4C9A', '#DCD0EA'],
         'tukar_libur' => ['#F1E9DF', '#8A6A52', '#E4D8C9'],
         'lembur' => ['#FBEFD9', '#B5701A', '#F0DDBB'],
         'wfh' => ['#DFEDE9', '#2E7D74', '#C7DED8'],
@@ -409,7 +411,7 @@
                             $rl = $reqLabel[$r->status] ?? [$r->status, '#F1E9DF', '#8A6A52', '#E4D8C9'];
                         @endphp
                         <div class="aks-rw" data-detail="{{ route('akun.pengajuan.show', $r->id) }}" role="button" tabindex="0">
-                            <span class="aks-rw-type" style="background:{{ $tc[0] }};color:{{ $tc[1] }};border-color:{{ $tc[2] }}">{{ $tipeList[$r->tipe] ?? $r->tipe }}</span>
+                            <span class="aks-rw-type" style="background:{{ $tc[0] }};color:{{ $tc[1] }};border-color:{{ $tc[2] }}">{{ ($tipeRiwayat ?? $tipeList)[$r->tipe] ?? $r->tipe }}</span>
                             <div style="flex:1;min-width:0">
                                 <div class="aks-rw-date num">
                                     {{ Carbon::parse($r->tanggal_from)->translatedFormat('d M Y') }}@if($r->tanggal_to != $r->tanggal_from) – {{ Carbon::parse($r->tanggal_to)->translatedFormat('d M Y') }}@endif
@@ -574,6 +576,7 @@ var AKS_TODAY = @json($todayIso);
     if (ajScrim) ajScrim.addEventListener('click', closeAj);
 
     // ── Modal Koreksi ──
+    var KOR_URL_SAKIT = @json(route('akun.pengajuan'));
     var korWrap = document.getElementById('korWrap');
     var korForm = document.getElementById('korForm');
     var korSubmit = document.getElementById('korSubmit');
@@ -590,6 +593,18 @@ var AKS_TODAY = @json($todayIso);
         pill.textContent = statusLbl;
         pill.className = 'absk-pill ' + klas;
         document.getElementById('korJam').textContent = 'tercatat ' + jam;
+
+        // Penunjuk ke pengajuan Sakit HANYA di hari alpa — di hari lain dia cuma
+        // gangguan. Tanggalnya ikut dibawa: kalau orang harus memilih ulang
+        // tanggal di form berikutnya, gesekan itu justru mendorongnya balik ke
+        // jalur koreksi yang salah.
+        var sakitHint = document.getElementById('korSakitHint');
+        if (sakitHint) {
+            var alpa = klas === 's-alpa';
+            sakitHint.hidden = !alpa;
+            if (alpa) sakitHint.href = KOR_URL_SAKIT + '?tipe=sakit&tanggal=' + encodeURIComponent(iso);
+        }
+
         body.classList.add('absk-koropen');
     }
     function closeKor() { body.classList.remove('absk-koropen'); }

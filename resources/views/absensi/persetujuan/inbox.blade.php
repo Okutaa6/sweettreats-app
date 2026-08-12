@@ -66,7 +66,7 @@
                         <div class="appr-chips">
                             <span class="appr-chip num">{{ \Illuminate\Support\Carbon::parse($r->tanggal_from)->translatedFormat('d M Y') }}@if($r->tanggal_to != $r->tanggal_from) – {{ \Illuminate\Support\Carbon::parse($r->tanggal_to)->translatedFormat('d M') }}@endif</span>
                             @if($r->jam_from)<span class="appr-chip num">{{ substr($r->jam_from,0,5) }}@if($r->jam_to) – {{ substr($r->jam_to,0,5) }}@endif</span>@endif
-                            @if($r->foto)<a href="{{ asset('uploads/att_request/'.$r->foto) }}" target="_blank" class="appr-photo" title="Lihat foto bukti"><i class="fa fa-image"></i></a>@endif
+                            @if($r->foto)<a href="{{ route('akun.pengajuan.berkas', $r->id) }}" target="_blank" class="appr-photo" title="{{ $r->tipe === 'sakit' ? 'Lihat surat dokter' : 'Lihat foto bukti' }}"><i class="fa fa-image"></i></a>@endif
                         </div>
 
                         @if($r->alasan)<div class="appr-reason">"{{ $r->alasan }}"</div>@endif

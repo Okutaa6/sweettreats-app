@@ -75,6 +75,7 @@ class AbsensiRecapController extends Controller
             'total'  => $items->count(),
             'cuti'   => $items->where('tipe', 'cuti')->count(),
             'izin'   => $items->where('tipe', 'izin')->count(),
+            'sakit'  => $items->where('tipe', 'sakit')->count(),
             'libur'  => $items->where('tipe', 'libur')->count(),
             'wfh'    => $items->where('tipe', 'wfh')->count(),
             'lembur' => $items->where('tipe', 'lembur')->count(),

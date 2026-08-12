@@ -49,6 +49,10 @@ class LembarGajiController extends Controller
                 DB::raw("SUM(status = 'alpa') AS alpa"),
                 DB::raw("SUM(status = 'cuti') AS cuti"),
                 DB::raw("SUM(status = 'izin') AS izin"),
+                // Sakit dihitung TERPISAH dari izin & tak pernah dikurangi dari
+                // apa pun — dibayar penuh (keputusan Ekky 2026-08-11). Kolomnya
+                // ada supaya Finance bisa melihat polanya, bukan buat memotong.
+                DB::raw("SUM(status = 'sakit') AS sakit"),
                 DB::raw("SUM(status = 'libur') AS libur"),
                 DB::raw("SUM(status = 'wfh') AS wfh"))
             ->whereBetween('work_date', [$from, $to])
@@ -83,6 +87,7 @@ class LembarGajiController extends Controller
                 'alpa'         => (int) ($a->alpa ?? 0),
                 'cuti'         => (int) ($a->cuti ?? 0),
                 'izin'         => (int) ($a->izin ?? 0),
+                'sakit'        => (int) ($a->sakit ?? 0),
                 'libur'        => (int) ($a->libur ?? 0),
                 'wfh'          => (int) ($a->wfh ?? 0),
                 'sisa_cuti'    => isset($sisaCuti[$u->id]) ? $svc->sisa($u->id) : null,
@@ -136,13 +141,13 @@ class LembarGajiController extends Controller
             $out = fopen('php://output', 'w');
             fprintf($out, "\xEF\xBB\xBF"); // BOM biar Excel baca UTF-8
             fputcsv($out, ['Nama', 'Role', 'Cabang', 'Hari Hadir', 'Hari Telat',
-                'Total Telat (menit)', 'Lembur (jam)', 'Alpa', 'Cuti', 'Izin',
+                'Total Telat (menit)', 'Lembur (jam)', 'Alpa', 'Cuti', 'Izin', 'Sakit',
                 'Libur', 'WFH', 'Sisa Cuti (hari)']);
             foreach ($baris as $b) {
                 fputcsv($out, [
                     $b['nama'], $b['role'], $b['cabang'], $b['hadir'], $b['telat_hari'],
                     $b['telat_menit'], $b['lembur_jam'], $b['alpa'], $b['cuti'],
-                    $b['izin'], $b['libur'], $b['wfh'],
+                    $b['izin'], $b['sakit'], $b['libur'], $b['wfh'],
                     $b['sisa_cuti'] === null ? '-' : $b['sisa_cuti'],
                 ]);
             }

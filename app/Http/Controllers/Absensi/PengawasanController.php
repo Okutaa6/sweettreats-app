@@ -25,6 +25,14 @@ class PengawasanController extends Controller
     private const GRUP_MIN = 3;
 
     /**
+     * Jenis yang boleh diselesaikan BORONGAN (centang banyak): cerita-jaringan,
+     * satu sebab menjelaskan banyak baris. single_scan & perangkat_desktop
+     * sengaja TIDAK ikut — ceritanya per-orang, wajib dibuka satu-satu.
+     * Keputusan Ekky 2026-08-11.
+     */
+    public const JENIS_BORONGAN = ['ip_asing', 'pola_ip', 'luar_seharian'];
+
+    /**
      * Halaman BOLEH dilihat semua pemegang node 'pengawasan' (termasuk Finance —
      * flag-lah yang mengunci tutup periode gaji, dia berhak tahu apa yang
      * ngeblok). Tapi AKSI (dicek/selesai/daftarkan IP) = reviewer saja:
@@ -58,10 +66,26 @@ class PengawasanController extends Controller
             ->orderBy('taken_at')
             ->get();
 
-        // ── Antrian flag hari terpilih ──
+        // ── Antrian flag: hari terpilih, atau LINTAS TANGGAL (?semua=1) ──
+        // Mode beres-beres: rotasi prefix WiFi / pendaftaran jaringan yang telat
+        // melahirkan flag serumpun yang tersebar berhari-hari; menyisirnya per
+        // tanggal berarti bolak-balik date-picker. Lintas tanggal menampilkan
+        // semua yang belum selesai sekaligus, diselesaikan lewat centang.
+        $lintasHari = $request->boolean('semua');
+
+        // Batas 90 hari HANYA untuk mode lintas + filter 'selesai': flag terbuka
+        // jumlahnya wajar (justru layar ini yang menghabiskannya), tapi yang
+        // SUDAH selesai menumpuk selamanya — tanpa batas, layar ini makin berat
+        // tiap bulan sampai suatu hari berhenti terbuka.
+        $batasArsip = $lintasHari && $statusFilter === 'selesai'
+            ? Carbon::parse($date)->subDays(90)->toDateString() : null;
+
         $flags = AttFlag::with('user')
-            ->where('work_date', $date)
+            ->when(! $lintasHari, fn ($q) => $q->where('work_date', $date))
+            ->when($lintasHari && ! $statusFilter, fn ($q) => $q->where('status', '!=', 'selesai'))
             ->when($statusFilter, fn ($q) => $q->where('status', $statusFilter))
+            ->when($batasArsip, fn ($q) => $q->where('work_date', '>=', $batasArsip))
+            ->orderBy('work_date')
             ->orderByRaw("FIELD(status,'baru','dicek','selesai')")
             ->orderBy('created_at')
             ->get();
@@ -104,11 +128,19 @@ class PengawasanController extends Controller
             ->where(fn ($q) => $q->whereNull('ur.effective_to')->orWhere('ur.effective_to', '>=', $date))
             ->pluck('ur.user_id')->flip();
         $branchNameAll = RawBranch::pluck('name', 'id');
+        // Kartu "kehadiran hari itu" dikunci per ORANG + TANGGAL, bukan per orang
+        // saja. Di mode lintas tanggal satu layar memuat flag dari banyak hari;
+        // kunci per-orang membuat flag 5 Agu disodori kehadiran 11 Agu — salah
+        // hari, tapi tampil meyakinkan seolah benar.
+        $tanggalDilihat = $flags->pluck('work_date')
+            ->map(fn ($d) => $d instanceof Carbon ? $d->toDateString() : (string) $d)
+            ->push($date)->unique()->values()->all();
+
         $hariMap = [];
         $attRows = DB::table('att_day')
-            ->where('work_date', $date)
+            ->whereIn('work_date', $tanggalDilihat)
             ->whereIn('user_id', $orangTerlihat)
-            ->get(['user_id', 'status', 'scan_first', 'scan_last', 'telat_menit',
+            ->get(['user_id', 'work_date', 'status', 'scan_first', 'scan_last', 'telat_menit',
                    'single_scan', 'lembur_menit_disetujui', 'cabang_terlibat', 'raw_branch_id']);
         foreach ($attRows as $r) {
             $info = $infoOrang->get($r->user_id);
@@ -121,7 +153,7 @@ class PengawasanController extends Controller
                     if ($bid !== $home && isset($branchNameAll[$bid])) $lain[$branchNameAll[$bid]] = true;
                 }
             }
-            $hariMap[$r->user_id] = [
+            $hariMap[$r->user_id . '|' . substr((string) $r->work_date, 0, 10)] = [
                 'st'     => $r->status,
                 'in'     => $r->scan_first ? substr($r->scan_first, 11, 5) : null,
                 'out'    => $r->scan_last && substr($r->scan_last, 11, 5) !== substr((string) $r->scan_first, 11, 5)
@@ -158,10 +190,13 @@ class PengawasanController extends Controller
             })->values();
         }
 
+        // Auto-grup HANYA di mode per-hari: kunci grupnya "serentak di hari yang
+        // sama" — lintas tanggal, dua kejadian beda hari bisa tampak serentak
+        // palsu. Di mode lintas, centang borongan yang mengambil peran ini.
         $grup = [];
         $flagTunggal = [];
         foreach ($flags as $f) {
-            if ($f->jenis === 'ip_asing' && $f->status !== 'selesai') {
+            if (! $lintasHari && $f->jenis === 'ip_asing' && $f->status !== 'selesai') {
                 $key = $cabangDariBukti($f) ?: 'tanpa-cabang';
                 $grup[$key][] = $f;
             } else {
@@ -186,6 +221,34 @@ class PengawasanController extends Controller
         // Bukti yang orangnya punya flag terbuka hari itu → ring merah di strip
         $userFlagged = $flags->where('status', '!=', 'selesai')->pluck('user_id')->unique()->flip();
 
+        // ── Banner pintar "sebabnya sudah beres": flag ip_asing terbuka LINTAS
+        //    tanggal yang IP-nya SEKARANG cocok ke jaringan terdaftar — tipikal
+        //    pendaftaran WiFi telat / rotasi prefix (3× kejadian 5–11 Agu).
+        //    Sistem hanya menawarkan yang bisa ia jelaskan; vonis + catatan
+        //    tetap lewat tangan reviewer. ──
+        $saranBeres = ['ids' => [], 'n' => 0, 'jaringan' => []];
+        $openIpAsing = AttFlag::where('jenis', 'ip_asing')->where('status', '!=', 'selesai')
+            ->get(['id', 'ref_type', 'ref_id']);
+        if ($openIpAsing->isNotEmpty()) {
+            $buktiSaran = AttHpBukti::whereIn('id', $openIpAsing->where('ref_type', 'att_hp_bukti')->pluck('ref_id'))
+                ->get(['id', 'ip'])->keyBy('id');
+            $matchCache = [];   // matchBranch query per alamat unik, bukan per flag
+            foreach ($openIpAsing as $f) {
+                $b = $buktiSaran->get($f->ref_id);
+                if (! $b) continue;
+                $key = strtolower((string) $b->ip);
+                if (! array_key_exists($key, $matchCache)) {
+                    $matchCache[$key] = AttBranchIp::matchBranch($b->ip);
+                }
+                if ($matchCache[$key]) {
+                    $saranBeres['ids'][] = $f->id;
+                    $saranBeres['jaringan'][$branchName->get($matchCache[$key]->raw_branch_id, '?')] = true;
+                }
+            }
+            $saranBeres['n'] = count($saranBeres['ids']);
+            $saranBeres['jaringan'] = array_keys($saranBeres['jaringan']);
+        }
+
         return view('absensi.pengawasan', [
             'bolehAksi'     => in_array(session('group_name'), ['Supervisor', 'Super Admin', 'Admin General', 'Admin Backup', 'Admin'], true),
             'date'          => $date,
@@ -205,6 +268,13 @@ class PengawasanController extends Controller
             'hariMap'       => $hariMap,
             'subOrang'      => $subOrang,
             'tanggalLabel'  => Carbon::parse($date)->translatedFormat('l, d F Y'),
+            'lintasHari'    => $lintasHari,
+            'saranBeres'    => $saranBeres,
+            'batasArsip'    => $batasArsip,
+            // Kartu riwayat menghitung flag di bulan TANGGAL TERPILIH. Di mode
+            // lintas, panel bisa memuat flag dari bulan lain — labelnya harus
+            // menyebut bulannya, bukan "bulan ini" yang jadi ambigu.
+            'bulanRiwayat'  => Carbon::parse($date)->translatedFormat('F'),
         ]);
     }
 
@@ -252,17 +322,55 @@ class PengawasanController extends Controller
         return back()->with('success', 'Flag diselesaikan.');
     }
 
-    /** Selesaikan grup serentak sekaligus (mis. WiFi cabang gangguan). */
+    /**
+     * Selesaikan banyak flag sekaligus — grup serentak sehari, atau centang
+     * borongan lintas tanggal.
+     *
+     * Dua pagar (keputusan Ekky 2026-08-11), dua-duanya DITEGAKKAN DI SERVER
+     * karena centang di layar gampang dilewati:
+     *   1. Catatan WAJIB. Flag adalah satu-satunya jejak audit absensi —
+     *      "kenapa 14 flag ditutup sekaligus" pasti ditanya berbulan kemudian.
+     *   2. Hanya JENIS_BORONGAN (cerita-jaringan) yang boleh diborong.
+     *      single_scan & perangkat_desktop ceritanya per-orang → tetap satuan.
+     */
     public function selesaiGrup(Request $request)
     {
         $this->guardAksi();
         $data = $request->validate([
             'ids'     => 'required|string',
             'hasil'   => 'required|in:wajar,perlu_koreksi,pelanggaran',
-            'catatan' => 'nullable|string|max:500',
+            'catatan' => 'required|string|min:3|max:500',
+        ], [
+            'catatan.required' => 'Catatan wajib diisi saat menyelesaikan banyak flag sekaligus.',
+            'catatan.min'      => 'Catatan terlalu pendek — tulis sebabnya singkat saja.',
         ]);
 
         $ids = array_filter(array_map('intval', explode(',', $data['ids'])));
+
+        // Buang yang jenisnya tak boleh diborong SEBELUM update, lalu laporkan
+        // apa adanya — jangan diam-diam menutup yang seharusnya dilihat satuan.
+        //
+        // "salah jenis" dan "sudah selesai" DIHITUNG TERPISAH: menggabungkannya
+        // membuat pesan berbohong — flag yang tadi sudah ditutup orang lain
+        // akan dilaporkan sebagai "harus diperiksa satu per satu", dan reviewer
+        // mengira ada yang salah padahal tidak ada.
+        $kandidat = AttFlag::whereIn('id', $ids)->get(['id', 'jenis', 'status']);
+        $boleh = $kandidat->whereIn('jenis', self::JENIS_BORONGAN)
+            ->where('status', '!=', 'selesai')->pluck('id')->all();
+        $salahJenis = $kandidat->reject(fn ($f) => in_array($f->jenis, self::JENIS_BORONGAN, true))->count();
+        $sudahBeres = $kandidat->whereIn('jenis', self::JENIS_BORONGAN)
+            ->where('status', 'selesai')->count();
+
+        $sisipan = [];
+        if ($salahJenis) $sisipan[] = "{$salahJenis} dilewati (jenisnya harus diperiksa satu per satu)";
+        if ($sudahBeres) $sisipan[] = "{$sudahBeres} sudah selesai sebelumnya";
+        $ekor = $sisipan ? ' ' . ucfirst(implode(', ', $sisipan)) . '.' : '';
+
+        if (! $boleh) {
+            return back()->with('success', trim('Tidak ada yang diselesaikan.' . $ekor));
+        }
+        $ids = $boleh;
+
         $n = AttFlag::whereIn('id', $ids)->where('status', '!=', 'selesai')->update([
             'status'        => 'selesai',
             'hasil'         => $data['hasil'],
@@ -272,12 +380,13 @@ class PengawasanController extends Controller
         ]);
 
         // Update massal tidak menyalakan observer audit — catat manual.
+        // Catatan reviewer ikut masuk jejak: itu inti kenapa ia diwajibkan.
         if ($n > 0) {
             \App\Models\AuditLog::record('update',
-                "Selesaikan {$n} flag absensi serentak ({$data['hasil']}) — id: " . implode(',', $ids));
+                "Selesaikan {$n} flag absensi sekaligus ({$data['hasil']}) — \"{$data['catatan']}\" — id: " . implode(',', $ids));
         }
 
-        return back()->with('success', "{$n} flag diselesaikan sekaligus.");
+        return back()->with('success', "{$n} flag diselesaikan sekaligus." . $ekor);
     }
 
     /**

@@ -7,6 +7,591 @@
 
 ---
 
+## 2026-08-11 — GERBONG BESAR NAIK PROD: Sakit · flag borongan · keamanan lampiran
+
+Prod dari `bf15798` → **`bc5f3c9`** (17 commit). Urutan yang dijalankan:
+SQL sakit **dulu** → `deploy.sh main` → **rsync aset** (wajib: `public_html`
+prod itu SALINAN, bukan symlink — CSS baru takkan terkirim tanpa ini) →
+verifikasi. Tak ada lampiran lama di webroot prod (0 berkas), jadi langkah
+pemindahan gugur dengan sendirinya.
+
+**Isinya**: jenis **Sakit** (surat dokter wajib ≥3 hari, dibayar penuh, satu
+lapis persetujuan) · **flag borongan** lintas tanggal + banner pintar ·
+**kolom libur Kehadiran** dibaca dari aturan kerja (Senin, bukan Minggu) ·
+**lampiran pengajuan diamankan** (surat dokter tak lagi bisa diambil tanpa
+login) · 8 celah dari dua putaran audit · **penunjuk "Sakit?" di modal
+Koreksi**.
+
+### Penunjuk "Sakit?" — dan apa yang ketahuan saat membangunnya
+
+Semua alasan koreksi berarti hal yang sama: *"saya SEBENARNYA masuk,
+catatannya yang keliru"* — makanya koreksi yang disetujui dicatat **hadir**.
+Jadi "Sakit" TIDAK boleh jadi salah satu alasan koreksi: menyetujuinya akan
+menandai orang **hadir** di hari dia justru terbaring di rumah. Yang dipasang
+penunjuk arah, bukan opsi baru.
+
+⚠️ **Temuan saat menguji**: modal Koreksi ternyata **cuma bisa dibuka untuk
+HARI INI** — lewat satu tombol "Absen hari ini keliru? Lapor koreksi". Hari
+lampau **tidak bisa diketuk sama sekali**. Dua akibatnya:
+1. Penunjuk ini menyala hanya kalau **hari ini** berstatus alpa (teruji).
+2. **Alpa hari lampau tak punya jalur mandiri bagi karyawan** — Asih tak bisa
+   membereskan alpa 5 Agu-nya sendiri dari layar Absensi Saya. Ini lubang
+   TERPISAH yang belum diputuskan mau ditutup atau tidak.
+
+Tanggalnya ikut dibawa ke form Sakit: kalau orang harus memilih ulang tanggal,
+gesekan itu justru mendorongnya balik ke jalur koreksi yang keliru.
+
+### Uji di prod sesudah deploy — semua lulus
+
+52 sapuan halaman × 4 peran (nol galat 500, matriks akses masuk akal) · 13
+pemeriksaan fitur inti · 8 perlindungan lampiran (termasuk path-traversal) ·
+9 pemeriksaan penunjuk Sakit di dev termasuk kasus "hari ini alpa" · log
+Laravel bersih · nol sisa data uji.
+
+⚠️ Catatan jujur: satu pemeriksaan lagi-lagi terbaca "tanpa login → 200" —
+itu **cacat skrip uji** (session store dipakai ulang antar request dalam satu
+proses), bukan lubang. Diverifikasi ulang lewat HTTP asli tanpa cookie: `302`
+ke login. Skrip sapuan halaman sudah di-`flush()`; `uji_berkas.php` belum —
+kalau dipakai lagi, benahi dulu.
+
+### Sisa pekerjaan
+
+**Alpa Asih 5 Agu masih terbuka** — sekarang sudah BISA ditutup lewat
+pengajuan Sakit resmi (fiturnya live), tapi sengaja belum dikerjakan karena
+butuh pengaju & penyetuju sungguhan, bukan disuntik lewat SQL.
+
+## 2026-08-11 — Penyesuaian data ABG + Bintaro NAIK PROD (bertahap)
+
+Prod digelar **bertahap**: sekarang baru ABG/Office + operasional Bintaro,
+cabang lain menyusul minggu per minggu. Jadi 13 nama cabang lain yang belum
+ada di prod itu **bukan data hilang** — memang belum gilirannya. Ini penting
+dicatat karena sempat terbaca sebagai kekurangan.
+
+**SQL `2026_08_11_bintaro_abg_penyesuaian.sql`** — diuji dua kali di dev
+(idempoten), lalu naik prod. Isinya:
+
+1. **Empat orang ABG lepas dari cabang** (Ikhsan, Reza, Anisa, Irma). Anisa &
+   Irma = Fleksibel Operasional, Ikhsan & Reza = Fleksibel Kantor. Ini bukan
+   kosmetik: `session('raw_branch_id')` diisi dari kolom itu saat login, dan
+   ReservationController **mengunci keras** daftar reservasi ke cabang
+   tersebut — dropdown filternya pun terkunci. Selama kolom terisi, orang
+   kantor cuma bisa melihat SATU cabang.
+2. **Aturan kerja rangkap dibereskan** — 8 orang punya dua baris aktif karena
+   penugasan 6 Agu tak menutup yang 5 Agu. Aturan mana yang berlaku jadi
+   ditentukan urutan balikan MySQL. Untuk Anisa & Irma salah satunya `baku`,
+   yang bisa memunculkan alpa pada orang yang jam kerjanya justru tidak
+   dinilai — **dan itu sumber alpa Irma 5 Agu**. Aturan baku mereka dibuat
+   TAK PERNAH berlaku (salah tempel sejak awal, bukan kebijakan sehari);
+   baris tetap disimpan + jejak di `att_rule_log`.
+3. **Alpajri diberi aturan GS** — dia absen tapi tak punya aturan sama sekali,
+   jadi tak pernah dinilai.
+4. **Saldo cuti & kontrak ikut sheet HR**: Firda 6 · Rizka 6 · Asih 7 ·
+   Afrina 0 · Alpajri 0. Kolom "Kontrak" di sheet = **hari jadi kontrak**
+   (akhir periode berjalan sekaligus awal periode berikutnya saat
+   diperpanjang), jadi periode berjalan = 12 bulan mundur dari tanggal itu.
+   ⚠️ Asumsi 12 bulan; kalau ada kontrak 6/24 bulan, tanggal MULAI-nya salah.
+
+**Hasil di prod: alpa turun dari 2 tinggal 1.** Alpa Irma hilang sendiri
+(memang bukan bolos). Yang tersisa alpa Asih 5 Agu — dia benar-benar sakit,
+dan sengaja TIDAK ditambal lewat UPDATE; menunggu fitur Sakit naik prod lalu
+ditutup lewat pengajuan resmi supaya ada pengaju, penyetuju, dan jejaknya.
+
+### Dua jebakan yang ketahuan karena diuji dulu, bukan diasumsikan
+
+**Email Alpajri berbeda antar lingkungan** — prod `fajri@`, dev `apajri@`.
+Versi pertama skrip cuma cocok ke prod, jadi di dev bagian saldonya diam-diam
+tak kena. Kalau langsung dijalankan ke prod, selisihnya baru ketahuan entah
+kapan. Sekarang dicocokkan ke dua-duanya, sekalian ejaan dev "Apajri"
+disamakan jadi "Alpajri" (sheet & prod sudah benar).
+
+**Aturan Alpajri sempat bikin 3 alpa palsu.** Awalnya disetel berlaku 5 Agu
+mengikuti yang lain — hasilnya dia langsung dapat alpa 5–7 Agu, padahal scan
+pertamanya memang baru 8 Agu: dia belum ikut sistem absen waktu itu. Menilai
+orang untuk hari sebelum dia terdaftar sama dengan menghukumnya atas data
+yang belum pernah ada. Diperbaiki jadi berlaku sejak 8 Agu. **Ketahuan karena
+hasil reconcile diperiksa, bukan dianggap beres.**
+
+## 2026-08-11 — Jenis "Sakit" + beres-beres flag borongan (di dev, nunggu review)
+
+Dua keputusan Ekky hari ini, dibangun satu gerbong di `integrasi/dev-2026-08-06`
+(`c47eba8`). **Belum naik prod** — nunggu review, sepaket dengan fix kolom libur
+Kehadiran (`dab9d92`).
+
+**SAKIT — sebelumnya tak punya tempat sama sekali.** Orang sakit yang tak
+mengajukan apa pun otomatis jadi **alpa**; itu yang menimpa Asih 5 Agu.
+Menutupnya pakai "izin" sebenarnya mempan, tapi menulis alasan yang SALAH ke
+catatan permanen orang — dan sekali tercatat begitu, bedanya hilang selamanya.
+Aturannya (keputusan Ekky): **surat dokter wajib mulai 3 hari berturut** (1–2
+hari cukup kabar — menuntut surat untuk demam semalam justru mendorong orang
+masuk sambil sakit), **dibayar penuh** (kolom sendiri di lembar gaji + CSV, nol
+logika potongan, jatah cuti tak disentuh), **persetujuan satu lapis** (sakit
+mendesak, sering diajukan atas nama orangnya).
+
+**FLAG BORONGAN.** Antrian Pengawasan terikat SATU tanggal, padahal rotasi WiFi
+menebar flag serumpun lintas hari (16 terbuka 5–11 Agu). Sekarang ada toggle
+**"Semua tanggal"**, centang pilih-banyak, dan **"pilih semua sejenis"**. Tiga
+pagar yang sengaja dipasang: hanya jenis cerita-jaringan yang boleh diborong
+(`single_scan` & `perangkat_desktop` tetap satuan — ceritanya per-orang),
+**catatan wajib** dan ikut masuk audit log, dan gruping-otomatis-harian
+dimatikan di mode lintas karena kunci "serentak" bisa palsu antar hari. Semua
+ditegakkan **di server**, bukan cuma tombol yang disembunyikan.
+
+Bonusnya **banner pintar**: flag `ip_asing` yang alamatnya KINI sudah cocok ke
+jaringan terdaftar dikenali sendiri oleh sistem dan ditawarkan selesai sekali
+klik — persis kelas kejadian yang sudah 3× berulang seminggu ini.
+
+**Uji di dev: 31 pemeriksaan, semua lulus** — termasuk yang paling menentukan,
+rantai penuh **alpa → pengajuan sakit disetujui → reconcile → sakit** (subjek
+Ahmad Saipulloh, 9 Agu; keadaan dikembalikan setelah uji), dan pagar server
+yang menolak menutup `single_scan` lewat borongan. Catatan dari uji: orang
+beraturan **fleksibel tak pernah kena alpa** (§3.3) sehingga tak bisa dipakai
+menguji ini — sempat terbaca "gagal" sebelum subjeknya diganti ke yang murni
+baku.
+
+### ⚠️ URUTAN DEPLOY PROD (dibaca sebelum naik)
+
+1. **SQL DULU** — `database/sql/2026_08_11_aturan_sakit.sql` (idempoten).
+   Terbalik = halaman yang menulis status meledak, karena enum belum menerima
+   `sakit`. Sebaliknya aman: SQL duluan tanpa kode cuma menambah nilai enum
+   yang belum terpakai.
+2. `bash deploy.sh main` — sudah termasuk `access:rebuild` + clear cache
+   config/route/view (rute lampiran yang baru butuh ini).
+3. **Pindahkan lampiran lama** keluar dari webroot — sengaja TIDAK dijalankan
+   otomatis tanpa kehadiran Ekky:
+   `mv <prod>/public/uploads/att_request/* <prod>/storage/app/att_request/`
+   Aman karena rute lampiran punya fallback; setelah pindah, berkas lama ikut
+   terlindungi dan fallback-nya boleh dicabut.
+4. Sesudah live: alpa **Asih 5 Agu** ditutup lewat **pengajuan sakit resmi**,
+   bukan UPDATE manual — koreksi kehadiran harus punya pengaju, penyetuju, dan
+   jejaknya. **Irma 5 Agu belum dipastikan sebabnya**, jangan asal ditutup.
+
+### Audit pasca-build (`af479b5`) — 6 celah ketemu & ditutup
+
+Sapu ulang SEMUA tempat yang mendaftar status/tipe, karena menambah satu nilai
+enum artinya menyentuh belasan daftar yang tersebar. Hasilnya enam celah, dan
+yang terbesar justru di luar zona absensi:
+
+1. **Lintas modul — orang sakit tetap dicap "checklist bolong".**
+   `ChecklistExcuseService` hanya mengecualikan cuti & izin, jadi karyawan
+   sakit dihukum untuk hari yang justru sudah resmi diizinkan.
+2. **Absensi Saya**: hari sakit tak masuk ember rekap mana pun — bukan hadir,
+   bukan alpa, bukan cuti. Angkanya jadi tak genap sebulan dan terlihat
+   seperti data hilang.
+3. **Absensi Saya**: deteksi "bulan ini ada kehadiran asli" tak mengenal sakit.
+4. **Periode Gaji**: CSV payroll tak punya kolom Sakit.
+5. **Rekap pengajuan**: ringkasan per tipe tak menghitung sakit.
+6. **Pengawasan**: kartu "kehadiran hari itu" dikunci per ORANG saja, padahal
+   mode lintas tanggal memuat flag dari banyak hari — flag 5 Agu disodori
+   kehadiran 11 Agu. Salah hari, tapi tampil meyakinkan seolah benar. Kunci
+   diubah jadi orang+tanggal; tiap flag membawa tanggalnya sendiri.
+
+Plus pesan hasil borongan yang tadinya berbohong: flag yang baru saja ditutup
+orang lain dilaporkan sebagai "jenisnya harus diperiksa satu per satu". Kini
+"salah jenis" dan "sudah selesai duluan" dihitung terpisah.
+
+**Uji audit di dev: 18 pemeriksaan, semua lulus** — menguji perilaku lewat
+jalur sebenarnya (HTTP + reconcile + kirim borongan), bukan sekadar keberadaan
+konstanta. Termasuk regresi: `wfh` tetap TIDAK mengecualikan checklist seperti
+sebelumnya.
+
+### Audit putaran 2 (`1d394d5`, `448bb16`) — sudut keamanan, kuota, batas
+
+Putaran pertama mencari "daftar yang terlewat". Putaran kedua sengaja mencari
+yang lain: hak akses, kuota, dan perilaku saat data menumpuk.
+
+**🔒 TEMUAN TERBESAR — surat dokter tersimpan telanjang di `public/`.**
+Lampiran `att_request` ditulis ke `public/uploads/att_request` dan bisa diambil
+**siapa pun yang punya URL-nya, tanpa login sama sekali** — terukur, bukan
+dugaan: `200` di dev, sementara foto selfie karyawan justru sudah benar (`302`
+ke login). Selama lampiran cuma foto lembur, ini kelalaian lama yang tenang;
+begitu jenis **sakit** ada, isinya berubah jadi **surat dokter — data
+kesehatan**. Alasannya sama persis dengan foto selfie yang dulu dipindah:
+"wajah karyawan bukan aset publik" — surat dokter apalagi.
+Diperbaiki: unggahan baru masuk `storage/app/att_request` (di luar webroot),
+disajikan lewat rute ber-auth `akun/pengajuan/berkas/{id}` yang cuma
+mengizinkan **pemiliknya, Finance/Admin, atau orang di rantai
+persetujuannya** — selebihnya 403. Nama berkas dikunci `basename()` supaya
+baris DB yang aneh tak bisa keluar folder. Lampiran LAMA tetap terbaca lewat
+fallback, jadi tak ada yang rusak.
+
+**Dua temuan "layar berbohong pelan-pelan":**
+- Mode lintas + filter *Selesai* memuat SELURUH flag selesai sejak awal. Flag
+  terbuka jumlahnya wajar (layar ini yang menghabiskannya), tapi yang sudah
+  selesai menumpuk selamanya → layar makin berat tiap bulan sampai suatu hari
+  berhenti terbuka. Dibatasi **90 hari**, dan batasnya **dikatakan di layar** —
+  daftar terpotong diam-diam terbaca sebagai "cuma segini".
+- Kartu riwayat menghitung flag di bulan **tanggal terpilih** tapi berlabel
+  "bulan ini" — ambigu begitu panel memuat flag dari bulan lain. Kini
+  menyebut nama bulannya.
+
+**Yang diperiksa dan ternyata SUDAH benar** (dicatat supaya tak diaudit ulang):
+jatah cuti tak terpotong oleh sakit (`potongDariPengajuan` berhenti kalau tipe
+bukan `cuti`) · validasi unggahan ketat (`image|mimes|max:4096`) · tanggal
+terbalik dijaga `after_or_equal` · label jenis di layar Rekap & Persetujuan
+mewarisi satu sumber sehingga "Sakit" muncul sendiri · tak ada `whereIn('tipe')`
+lain yang diam-diam melewatkan sakit · `deploy.sh` sudah membersihkan cache
+rute (rute baru takkan 404).
+
+**Uji akhir dev — semua lulus:** 13 fitur inti · 18 temuan audit putaran 1 ·
+8 perlindungan lampiran (termasuk uji path-traversal `../../../.env` dan
+fallback berkas lama) · **52 sapuan halaman × 4 peran, nol galat 500**, dengan
+matriks akses masuk akal (Supervisor tak bisa buka layar Finance, karyawan
+dilempar dari layar admin).
+
+⚠️ Catatan kejujuran uji: satu pemeriksaan sempat terbaca "tanpa login → 200"
+dan itu **cacat skripnya**, bukan lubang — session store dipakai ulang antar
+request dalam satu proses. Diverifikasi ulang lewat HTTP asli tanpa cookie:
+`302` ke login. Skrip sapuan halaman kini mem-`flush()` sesi tiap request.
+
+## 2026-08-07 (tutup hari) — WiFi Cinere muncul sendiri; 2 catatan koreksi
+
+Entri "WiFi Kalideres" di bawah ditulis siang 7 Agu. Sore harinya data berubah,
+jadi tiga hal di sana perlu disusul — **entri lama tidak diedit, ini susulannya.**
+
+**1. Cinere TIDAK kosong lagi.** Entri siang bilang "Cinere kosong (belum ada
+yang pernah absen dari sana)". Sore itu juga muncul jaringan baru
+`2001:448a:2033:12b8` — 3 absen, Talitha (masuk 10:29, pulang 18:35) dan Alif
+(pulang 18:34), dua-duanya memilih **Cinere** manual. Belum terdaftar.
+
+**Bukti bahwa ini WiFi tempat kerja, bukan rumah, jauh lebih kuat daripada
+kasus Kalideres**: dua ORANG BERBEDA di satu jaringan berjarak satu menit
+(18:34 & 18:35). Satu rumah tak menghasilkan pola itu. Kalideres kemarin butuh
+verifikasi foto justru karena cuma satu orang — Rizka — sehingga WiFi cabang
+dan WiFi rumah terlihat sama persis. **Aturan praktisnya: ≥2 orang berbeda di
+satu /64 dalam rentang menit = jaringan tempat kerja.** Kalau cuma satu orang,
+baru buka fotonya.
+
+Ketiga alamat itu punya 64 bit belakang yang berbeda-beda (`2420:…`, `bfb9:…`,
+`ca2:…`) — persis privacy extension yang sudah diantisipasi. Mendaftarkan SATU
+saja langsung menutup Talitha dan Alif sekaligus.
+
+**2. Pendaftaran Pamulang belum pernah terpakai.** Anisa mendaftarkan
+`2001:448a:2020:27df` (Pamulang) jam 09:35 berdasarkan data 6 Agu — hari itu
+Alif, Talitha, dan Yovanka absen dari sana dalam satu menit (21:52–21:53).
+Tapi 7 Agu **tak ada satu pun** absen dari prefix itu: Alif & Talitha justru di
+Cinere, Yovanka tidak absen. `last_seen_at` masih kosong. Bukan salah daftar —
+cuma belum kepakai. Perlu dilihat lagi setelah beberapa hari; kalau tetap sepi
+sementara orangnya rutin di Cinere, berarti yang 6 Agu itu yang perlu
+dipertanyakan.
+
+**3. Rizka dapat flag KETIGA.** Entri siang menyebut 2 flag; sorenya bertambah
+`luar_seharian`. Sebabnya: absen pulang 20:16 lewat **data seluler Telkomsel**
+(`114.10.70.167`), bukan WiFi Kalideres — jadi kedua absennya hari itu tak
+cocok, dan flag "di luar jaringan seharian" wajar menyala. ⚠️ **IP seluler
+tidak bisa didaftarkan** (CGNAT, berputar, dipakai jutaan orang — mendaftarkan
+= membuka absen dari mana saja). Jadi selama orang absen pakai kuota, flag ini
+akan terus muncul dan memang harus ditutup manual. Bukan cacat.
+
+**⚠️ JAM DI `att_branch_ip` BISA MELESET 7 JAM — jangan salah baca urutan.**
+MySQL & OS server jalan di **UTC**, sedangkan Laravel menulis **Asia/Jakarta**.
+Baris yang ditulis lewat aplikasi = WIB; baris yang ditulis lewat SQL langsung
+= UTC. Baris Kalideres (id 13) tercatat `03:16` padahal aslinya **10:16 WIB**.
+Akibatnya berbahaya: dibaca apa adanya, pendaftaran (03:16) seolah SEBELUM
+absen Rizka (09:59) — dan kesimpulan yang menggoda adalah "pencocokan IP
+rusak". **Itu keliru.** Urutan sebenarnya 09:59 absen → 10:16 daftar, dan
+pencocokan sehat. Penanda gampang: `id` 13 lebih besar dari `id` 12 (09:35),
+padahal AUTO_INCREMENT tak bisa mundur — kalau id dan jam bertentangan,
+**percaya id-nya.**
+
+**Cakupan saksi WiFi per akhir 7 Agu** — Bintaro 2 IPv4 + 2 IPv6 (lengkap,
+aktif) · Sunter 1+1 (lengkap, aktif) · Kalideres 0+1 (belum pernah cocok) ·
+Pamulang 0+1 (belum pernah cocok) · **Cinere 0+0 — ada jaringan aktif yang
+belum didaftarkan.** Dari 20 absen 7 Agu, 5 tak cocok (25%): Rizka ×2,
+Talitha ×2, Alif ×1.
+
+**Tindakan berikutnya (kecil, belum dikerjakan):** daftarkan
+`2001:448a:2033:12b8:…` sebagai Cinere — buktinya sudah cukup kuat tanpa perlu
+buka foto; lalu Anisa menutup 3 flag Rizka yang sebabnya sudah terang.
+
+## 2026-08-07 — WiFi Kalideres didaftarkan (diverifikasi FOTO, bukan tebakan IP)
+
+Rizka absen dari jaringan tak dikenal dua kali (6 Agu 20:40 pulang, 7 Agu 09:59
+masuk) — **alamat sama persis sampai ekornya**, `2001:448a:90b0:ebf:...`,
+dua sesi berjarak 13 jam. Stabil sebagai jaringan, tapi datanya TIDAK bisa
+membedakan dua cerita: WiFi cabang, atau WiFi rumah (pulang setelah sampai
+rumah, masuk sebelum berangkat) — polanya identik.
+
+**Yang memutuskan: foto selfie.** Ekky membuka bukti absennya dan memastikan
+Rizka memang berada di cabang. Baru setelah itu didaftarkan (label menyebut
+verifikasi fotonya). Ini pelajaran yang layak diulang: **kalau IP ambigu,
+fotonya yang menjawab** — 10 detik melihat bukti mengalahkan berhari-hari
+menunggu data IP menumpuk. Ongkos salahnya timpang: tak mendaftarkan = flag
+harian yang merepotkan; salah mendaftarkan = orang bisa absen dari rumah
+TANPA flag, dan flag itu satu-satunya pemicu pemeriksaan.
+
+**Alurnya (normal, bukan anomali)**: Rizka masuk di Bintaro 6 Agu, pindah
+penempatan ke Kalideres, menginap, lalu absen dari Kalideres 7 Agu. Roster
+tetap Bintaro karena penempatannya **sementara** — dan itu memang rancangannya:
+`att_day.raw_branch_id` cuma untuk pengelompokan laporan, bukan sumber
+kebenaran, dan satu hari kerja memang boleh lintas cabang (preseden lama:
+Rokhmatun, perawat Sunter yang menutup Kalideres, tercatat di 4 mesin).
+⚠️ Saran sebelumnya agar roster Rizka dipindah ke Kalideres **KELIRU** dan
+dibatalkan — jangan diulang. Kebutuhan yang sebenarnya sudah punya rumah:
+fitur **Penempatan** milik Reza (`docs/rencana/rencana-penempatan.md`).
+
+Diuji setelah didaftarkan: alamat Rizka cocok Kalideres, HP lain di prefix yang
+sama juga cocok, prefix tetangga TIDAK ikut cocok, dan Bintaro/Sunter/Pamulang
+tetap pada cabangnya masing-masing.
+
+**Cakupan saksi WiFi sekarang** — Bintaro 2 IPv4 + 2 IPv6 (lengkap) · Sunter
+1+1 (lengkap) · Kalideres 0+1 · Pamulang 0+1 · Cinere kosong (belum ada yang
+pernah absen dari sana). Kalideres & Pamulang belum punya wajah IPv4-nya:
+orang pertama yang HP-nya lewat IPv4 akan manual sekali, lalu tinggal
+didaftarkan. Sisa: 2 flag Rizka hari ini (`ip_asing` masih "baru", `pola_ip`
+sudah "dicek") — sebabnya sudah jelas, tinggal ditutup Anisa.
+
+## 2026-08-07 dini hari — Fitur "Minta Buka Kembali" checklist (Reza) NAIK PROD, teruji
+
+Ekky menyerahkan malam ini penuh ke HUB ("lanjut tanpa aku"): audit → dev →
+uji → prod → uji ulang. Semua selesai, tak ada temuan yang menahan.
+
+**Isinya**: karyawan bisa meminta membuka tanggal checklist yang sudah lewat
+supaya bisa diisi; atasan menyetujui/menolak dari halaman baru
+`/checklist/reopen-requests`. Izin bersifat **sekali pakai** — begitu
+dikirim, harinya terkunci lagi. Plus perbaikan kecil voucher topup petty cash
+dan form mingguan. (Branch `feat/checklist-reopen-request`, 1 commit, 13
+berkas; merge bersih tanpa konflik.)
+
+**Hasil audit kode (sebelum naik)**:
+- Rute baru semua di bawah prefix `checklist` / `my-checklist` yang sudah ada
+  → tak butuh node menu baru, bebas dari jebakan "grant tanpa node".
+- Gerbang atasan berlapis: supervisor checklist + dibatasi divisi + dibatasi
+  cabang. Gerbang karyawan ditegakkan **di server**, bukan cuma di tampilan —
+  kirim tanggal lampau tanpa izin ditolak dengan pesan jelas.
+- SQL `2026_08_06_checklist_reopen_request.sql` idempoten, collation sudah
+  disamakan dgn `users` (Reza belajar dari insiden illegal-mix kemarin).
+- Catatan kecil yang DITERIMA sebagai wajar: mencentang item hari lampau
+  berstatus draf tidak dijaga izin — tapi **kirim**-nya dijaga, jadi tak ada
+  riwayat yang bisa dipalsukan.
+
+**Uji fungsional 11 kasus — LULUS SEMUA di dev DAN prod** (data uji bertanda,
+dibersihkan sendiri, diverifikasi nol sisa): pending bukan izin · izin hanya
+untuk orang+tanggal yang diminta · sekali pakai lalu mati · varian mingguan ·
+anti-dobel pengajuan · JOIN users bebas masalah collation.
+
+**Uji HTTP di dev** (login sungguhan): Afrina (FO) — my-checklist hari ini,
+tanggal lampau, riwayat semua 200; Anisa — checklist, review, dan halaman baru
+reopen-requests semua 200. Catatan: akun dev Firda tak bisa dipakai uji
+(wajib-ganti-password) — bukan bug.
+
+**Prod**: backup `~/backups/prod_pre_reopen_2026-08-07.sql.gz` (45MB) → main
+`27ddb7a` → SQL → autoload+cache → verifikasi: tabel 16 kolom, 8 rute reopen,
+seluruh Blade terkompilasi, situs 200, halaman baru mental ke signin tanpa
+login, **0 error pasca-deploy**, data lama utuh (224 task, 27 petty cash, 39
+bukti absen, 11 hadir hari ini).
+
+**Penyetuju di prod saat ini** = pemegang menu checklist: **Anisa & Irma**
+(+Super Admin secara kode, tapi belum pegang menunya — utang lama). Kalau Ekky
+mau ikut menyetujui, tinggal grant menu checklist ke role-nya.
+
+## 2026-08-06 — Push Reza (checklist mingguan + petty cash) NAIK DEV
+
+Branch Reza `minorfixing-pettycash-weeklychecklist` (1 commit, 17 berkas)
+digabung ke branch integrasi `integrasi/dev-2026-08-06` — **tanpa konflik** —
+lalu naik dev. Isinya dua hal: kolom `weeks_of_month` per task checklist
+(rotasi tugas "minggu ke-berapa dalam bulan", kosong = tiap minggu seperti
+sebelumnya), dan jejak `deleted_by` untuk petty cash + transport.
+
+**Diperiksa sebelum naik.** Reza mengirim migration DAN file SQL untuk kolom
+yang sama — sekilas itu resep dijalankan dua kali. Ternyata aman: migration-nya
+berhenti lebih dulu kalau kolomnya sudah ada, SQL-nya mengecek
+`information_schema`, dan Reza memang menulisnya sebagai cermin yang disengaja
+(prod pakai jalur SQL manual). Kedua SQL murni menambah kolom nullable — tak
+ada yang merusak data lama. Dijalankan di dev, ketiga kolom terpasang benar.
+
+Verifikasi dev: situs 200, `view:cache` berhasil mengompilasi **seluruh** Blade
+(penangkap bug sintaks seperti kasus `@if` menempel dulu), dan tak ada error
+baru setelah deploy. Dua error di log hari ini berasal dari percobaan
+diagnostik sesi ini pukul 11:44–11:45, lebih dari sejam sebelum deploy.
+
+**⚠️ BUTUH KEPUTUSAN EKKY SEBELUM NAIK PROD — perubahan kendali keuangan.**
+Sebelumnya edit & hapus transaksi petty cash **hanya boleh Super Admin**.
+Commit ini **mencabut syarat itu** dan menggantinya dengan batas **24 jam sejak
+transaksi dibuat**. Jadi orang cabang kini bisa mengubah/menghapus transaksi di
+cabangnya sendiri selama masih di bawah 24 jam. Penyeimbangnya sudah ada:
+Finance tetap view-only, cabang terkunci ke cabangnya, dan siapa yang menghapus
+kini tercatat (`deleted_by`, tampil di sub-tab Riwayat). Rancangannya masuk
+akal, tapi ini melonggarkan kendali uang tunai — **jangan naik prod sebelum
+Ekky menyatakan setuju.**
+
+## 2026-08-06 malam — 🚀 NAIK PROD: gabungan Reza + absensi, plus dua ranjau ditutup
+
+Prod naik dari `07fd818` ke `e28f89b`. Backup dulu:
+`~/backups/prod_pre_gabungan_2026-08-06.sql.gz` (45MB) +
+`~/backups/prod_env_pre_gabungan_2026-08-06.bak`.
+
+**Isinya**: seluruh perbaikan checklist & petty cash dari Reza · Tukar Hari ·
+lembur datang-awal · jadwal fleksibel per role · gerbang absen di hari libur ·
+alasan koreksi baru · jenis pengajuan disaring per aturan kerja.
+
+**Sebelum naik, empat lubang tombol Reset petty cash dibereskan** (sebelumnya
+cuma tertutup gerbang fitur — sekarang tombolnya sendiri memang layak pakai):
+- **Periode yang sudah DITUTUP ditolak.** Jalur lain semua menghormati itu;
+  reset tak boleh jadi satu-satunya pintu belakang ke angka yang sudah
+  di-sign-off.
+- **Saldo bulan-bulan berikutnya dihitung ulang.** Saldo awal itu SNAPSHOT saat
+  periode dibuat, bukan turunan hidup — menghapus transaksi bulan lalu tanpa
+  menghitung ulang meninggalkan selisih hantu yang terbawa selamanya. Periode
+  yang sudah ditutup dilewati DAN menghentikan rantai: selisihnya tetap ada,
+  tapi itu keputusan sadar yang terlihat, bukan kerusakan senyap.
+- **Jejak audit**: siapa, kapan, cabang/periode mana, berapa baris, berapa
+  nilainya — dicatat SEBELUM barisnya hilang.
+- **"Reset Riwayat Review" dipersempit** ke baris yang benar-benar tampil.
+  Dulu judulnya "20 terakhir" tapi perintahnya menghapus seluruh cabang
+  sepanjang masa, termasuk satu-satunya catatan siapa menyetujui berapa untuk
+  uang yang sudah cair. Tanpa pilihan kini tak menghapus apa pun.
+Diuji di dev: periode tertutup ditolak & transaksinya utuh · saldo berikutnya
+terkoreksi 700rb→1jt · periode tertutup menghentikan rantai · pilih 1 dari 3
+riwayat hanya menghapus 1 · jejak audit tercatat.
+
+**DUA RANJAU DITUTUP:**
+1. **`APP_ENV` prod akhirnya dibetulkan** dari `local` → `production`. Ini
+   bukan kosmetik: gerbang fitur Reza menyimpulkan "local berarti dev, boleh
+   hapus" — di prod kita itu berarti tombol hapus-permanen data uang MENYALA.
+   Sudah kuubah jadi daftar-putih (mati kecuali dinyalakan eksplisit), jadi
+   sekarang dua lapis: environment benar DAN default aman.
+2. **Kejutan saat migrate**: tabel `sys_checklist_weekly_day_submit` sudah ada
+   padahal migration-nya belum tercatat — DDL terlanjur jalan tanpa catatan.
+   Karena isinya nol baris, tabelnya di-drop lalu dibuat ulang oleh migration
+   supaya struktur & catatan konsisten. Semua 7 migration kini tercatat,
+   **0 tertunda**.
+
+**Verifikasi prod**: 40 halaman lintas peran semuanya 200 · halaman depan &
+login 200 · log nol error baru · `environment=production`, debug MATI, tombol
+reset MATI · skema baru lengkap (att_request_hari, weekly_day_submit,
+parent_id_2, kind, requester_name, excuse.source, jenis 'tukar') · 5 aturan
+kerja dengan hari yang benar · **absensi hari ini tetap jalan: 11 bukti absen
+HP, 11 baris att_day** — perbaikan "absen langsung terlihat" tak terganggu ·
+aset publik ikut di-rsync (public_html prod itu COPY, bukan symlink).
+
+**Yang masih menggantung**: tombol Reset tetap MATI di prod (daftar-putih).
+Kalau kelak perlu dinyalakan, sekarang sudah aman dipakai — empat lubangnya
+sudah ditutup.
+
+## 2026-08-06 sore — Perbaikan Reza diperiksa & DIGABUNG; satu default berbahaya dicegat
+
+Reza mengirim perbaikan atas 8 temuan audit — di branch BARU
+`fixing-pettycash-checklist` (dicabang dari `main`, semuanya disquash jadi satu
+commit), bukan melanjutkan branch lama. Sudah diperiksa, digabung dengan fitur
+absensi, dan **dev sekarang menjalankan keduanya** (`integrasi/dev-2026-08-06`).
+Cadangan `~/backups/dev_pre_integrasi_2026-08-06.sql.gz`.
+
+**Perbaikannya bagus — dan saya uji perilakunya, bukan cuma baca kodenya:**
+- **Form mingguan lama tak lagi buntu** — backfill (migration + SQL) mengisi
+  baris per-hari untuk submission lama; diperiksa: nol submission
+  submitted/approved yang tanpa baris, dan baris approved membawa reviewer-nya.
+- **Minggu yang sudah disetujui tak turun jadi draft** saat cuti backdate
+  di-ACC — diuji sungguhan: status tetap approved, jejak reviewer utuh.
+- **Mencabut pengecualian tak lagi mengunci minggu selamanya** — diuji: cuti
+  sepekan di-ACC memasang 6 pengecualian, ditolak → tercabut semua, dan
+  minggunya bisa diisi lagi.
+- **Pengecualian MANUAL karyawan tak lagi ditimpa** jadi bawaan sistem.
+- **Kartu antrian menampilkan nama yang diketik DAN nama akun**, jadi identitas
+  asli tak bisa tertutupi teks bebas.
+- **Lima temuan tombol Reset ditutup lewat gerbang fitur** — rutenya 404 kalau
+  gerbangnya mati. Rancangan yang tepat.
+
+**⚠️ SATU HAL SAYA CEGAT — dan Reza tak mungkin tahu.** Gerbang itu default-nya
+disimpulkan dari `APP_ENV === 'local'`, artinya "kalau local berarti dev, jadi
+boleh". **Produksi kita berjalan dengan `APP_ENV=local`** (temuan kemarin, belum
+dibereskan karena mengubahnya bisa menggeser hal lain). Jadi default itu justru
+akan **MENYALAKAN penghapusan permanen data uang di produksi** — persis
+kebalikan dari maksudnya. Diubah jadi daftar-putih: mati kecuali dinyalakan
+eksplisit lewat `.env`. Dev dinyalakan (`PETTY_CASH_RESET_ENABLED=true`) supaya
+alat bersih-bersih Reza tetap ada; prod tak perlu apa-apa karena default-nya
+sudah aman. Pelajarannya: **fitur destruktif pakai daftar-putih, bukan
+daftar-hitam** — lingkungan yang salah label lalu jadi aman, bukan terbuka.
+
+**Masih menggantung (aman karena di balik gerbang, tapi belum beres):** tombol
+reset tetap tanpa cek periode-tertutup, tanpa hitung-ulang saldo bulan
+berikutnya, tanpa jejak audit, dan "Reset Riwayat Review" masih menghapus
+seluruh cabang sepanjang masa. Kalau kelak gerbangnya dinyalakan di prod, empat
+itu harus dibereskan dulu.
+
+**Verifikasi gabungan di dev**: 42 halaman lintas 8 peran semuanya 200; uji
+absensi 30 pemeriksaan lulus; uji perbaikan Reza 9 pemeriksaan lulus; log nol
+error. Merge tanpa satu pun konflik — dua perubahan di berkas yang sama
+(`submit()` dan halaman Audit Trail) menyatu utuh.
+
+**Yang perlu diputuskan**: `APP_ENV=local` di produksi sebaiknya dibetulkan
+jadi `production`. Sekarang tak ada kode yang bercabang atasnya selain config
+bawaan, tapi ini ranjau — pustaka mana pun yang menganggap "local = boleh
+macam-macam" akan salah kaprah, dan kejadian hari ini contoh pertamanya.
+
+## 2026-08-06 — Tukar Hari, lembur datang-awal, jadwal per role — LIVE DI DEV
+
+Lima keputusan produk dari diskusi 5–6 Agustus dibangun sekaligus, di branch
+`feature/absensi-tukar-hari` yang **dipotong dari `main` dan bersih dari
+kerjaan Reza** — jadi bisa naik prod sendiri tanpa menunggu perbaikan Reza.
+Dev untuk sementara diambil alih (izin Ekky); cadangan
+`~/backups/dev_pre_tukar_2026-08-06.sql.gz`, dev sebelumnya di
+`checklist-pettycash` @ dbbe44a kalau perlu dikembalikan.
+
+**1. Tukar Hari — satu pengajuan, dua sisi.** "Saya masuk 9+10, gantinya libur
+12+13", satu kali ACC. Bukan dua form terpisah: kalau kedua sisi bisa diputus
+sendiri-sendiri, orang bisa dapat libur pengganti tanpa hari masuknya — persis
+lubang yang bikin fitur ini ada. Tanggalnya DAFTAR, bukan rentang, supaya tukar
+9+10 ↔ 12+13 tidak menyeret tanggal 11 yang tak terlibat (terbukti di uji).
+Dijaga: jumlah kedua sisi harus sama, satu tanggal tak boleh di dua sisi, dan
+semuanya satu periode gaji — jatuh ke bulan kalender kalau Finance belum
+membuat periodenya, supaya fiturnya tak macet menunggu pekerjaan orang lain.
+
+**2. Jenis pengajuan disaring per aturan kerja.** Tukar Hari & Kerja dari Rumah
+hanya untuk yang fleksibel. Disaring di layar DAN ditolak di server lewat
+fungsi yang sama — tombol yang disembunyikan tetap bisa dikirim lewat form
+buatan sendiri.
+
+**3. Jadwal hari lewat ROLE, bukan nama orang** (permintaan Ekky). Kuncinya
+memisahkan dua hal: `tipe` aturan menentukan CARA MENILAI (fleksibel = tak
+pernah alpa, boleh Tukar Hari & WFH), konfigurasi hari menentukan HARI MANA
+yang libur. Jadi sekarang ada tiga aturan yang sama-sama fleksibel:
+- **Fleksibel** — tanpa jadwal (Executive: Dani, Hari, Robi)
+- **Fleksibel Kantor** — libur Minggu + Senin (Head IT, IT, Finance, Head
+  Marketing, Creative, Content Creator)
+- **Fleksibel Operasional** — masuk Minggu, libur Senin (Supervisor,
+  Coordinator Dentist → Anisa & Irma)
+Tidak ada satu pun `if nama == 'Anisa'`. Halaman Aturan Kerja juga dapat tombol
+**"Terapkan ke karyawan yang sudah ada"** — sebelumnya aturan per role hanya
+berlaku untuk AKUN BARU, dan itulah yang selama ini memaksa daftar nama muncul
+di SQL. Tombolnya terpisah dari Simpan karena mengubah aturan kerja orang yang
+sedang berjalan itu keputusan, bukan efek samping.
+
+**4. Lembur datang-awal akhirnya terbaca.** Jadwal masuk 10:00 tapi absen 08:00
+untuk persiapan — dua jam itu kerja, dan selama ini mesin saran cuma mengenal
+sisi pulang. Patokannya jam masuk paling awal, bukan ambang telat (kalau pakai
+ambang telat, orang tepat waktu pun tampak lembur). Ambang 30 menit. Hari yang
+punya dua sisi mengisikan yang terlama tapi menyebut sisi satunya — memilihkan
+diam-diam berarti separuh lemburnya hilang. Tetap usulan: yang memutuskan
+manusia lewat form + ACC atasan.
+
+**5. Gerbang absen di hari libur + kalender tak lagi kosong.** Absen di hari
+libur terjadwal memunculkan pertanyaan "dalam rangka apa — Tukar hari atau
+Lembur", ditanya SEKARANG selagi orangnya paling tahu alasannya. Absennya tak
+pernah ditolak. Hari libur terjadwal orang fleksibel kini menghasilkan baris
+`libur` alih-alih kosong — kosong itu ambigu, tak bisa dibedakan dari "belum
+ada datanya", padahal tukar hari perlu terlihat kontras dengan libur biasa.
+
+**Alasan koreksi absen diperbarui** ke kosakata pasca-fingerprint, termasuk
+"Salah pilih cabang" yang sekaligus jadi isyarat bagi SPV bahwa pendaftaran
+WiFi cabang itu belum beres.
+
+**Verifikasi dev**: 38 halaman lintas 8 peran semuanya 200, log bersih. Tukar
+Hari diuji 7 skenario lewat controller (pintu yang dipakai orang, bukan fungsi
+di baliknya — pelajaran dari bug Carbon kemarin); lembur 4 skenario; gerbang &
+kalender diuji untuk empat kelompok aturan. Tombol "Terapkan" idempoten.
+
+**Diuji sendiri 2026-08-06 (Ekky keluar)**: uji ujung-ke-ujung 30 pemeriksaan
+di dev — SEMUA LULUS. Satu BUG NYATA ketemu & diperbaiki di situ: jenis `tukar`
+belum terdaftar di plafon lapis persetujuan, jadi Tukar Hari naik ke lapis DUA
+lalu menggantung tak terlihat siapa pun (kelas kesalahan yang sama dengan bug
+Carbon kemarin — sesuatu yang baru lupa didaftarkan di sebuah peta, lalu gagal
+dengan diam). Selain angkanya ditambah, `submit()` kini MENOLAK jenis yang belum
+terdaftar supaya kelalaian berikutnya berbunyi keras di dev, bukan diam sampai
+ke gaji. Dev ditinggal bersih: nol sisa data uji, log nol error.
+
+**Belum naik prod.** Butuh 2 SQL (`2026_08_06_tukar_hari.sql` — **wajib mysql
+CLI karena DELIMITER** — dan `2026_08_06_jadwal_fleksibel.sql`).
+
 ## 2026-08-05 sore — Kode absensi NAIK PROD + daftar WiFi Bintaro dirapikan
 
 Menutup dua utang yang masih menggantung dari entri di bawah.

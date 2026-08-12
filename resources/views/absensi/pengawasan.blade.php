@@ -115,6 +115,40 @@
     .aws-catatan { width: 100%; border: 1px solid #E7D3BE; border-radius: 11px; padding: 10px 12px; font-size: 13px; font-family: inherit; }
     .aws-p-footer { position: sticky; bottom: 0; margin: 14px -18px -16px; padding: 14px 18px; border-top: 1px solid #EDDFCE; background: #FBF5EE; }
     .aws-hidden { display: none !important; }
+
+    /* ── beres-beres borongan (lintas tanggal + centang) ── */
+    .aws-sw { display: inline-flex; align-items: center; gap: 7px; background: #fff; border: 1px solid #E7D3BE; border-radius: 99px; padding: 5px 12px 5px 7px; font-size: 12px; font-weight: 700; color: #6b4a2f; cursor: pointer; }
+    .aws-sw .knob { width: 30px; height: 17px; border-radius: 99px; background: #E2D2BF; position: relative; transition: background .15s; flex: none; }
+    .aws-sw .knob::after { content: ''; position: absolute; top: 2px; left: 2px; width: 13px; height: 13px; border-radius: 50%; background: #fff; transition: transform .15s; }
+    .aws-sw.on { border-color: #B5701A; color: #8a5310; }
+    .aws-sw.on .knob { background: #B5701A; } .aws-sw.on .knob::after { transform: translateX(13px); }
+
+    /* saran pintar — jaringan sudah terdaftar */
+    .aws-saran { border: 1.5px solid #bcd9c6; background: #f2f9f4; border-radius: 14px; padding: 14px; margin-bottom: 12px; }
+    .aws-saran b { color: #1E7A46; }
+    .aws-saran .why { color: #4a7159; font-size: 12.5px; margin: 3px 0 9px; }
+
+    /* baris flag dengan centang */
+    .aws-pick { display: flex; align-items: center; gap: 10px; background: #fff; border: 1px solid #EFE0CE; border-radius: 14px; padding: 10px 13px; margin-bottom: 9px; }
+    .aws-pick.checked { border-color: #B5701A; background: #fffaf2; }
+    .aws-pick input[type=checkbox] { width: 17px; height: 17px; accent-color: #B5701A; cursor: pointer; flex: none; }
+    .aws-pick .body { flex: 1; min-width: 0; background: none; border: none; padding: 0; text-align: left; cursor: pointer; font-family: inherit; }
+    .aws-pick .body b { color: #461500; font-size: 13.5px; display: block; }
+    .aws-pick .body small { color: #8a7263; }
+    .aws-pick .tgl { font-size: 11px; font-weight: 800; color: #B5701A; background: #FBF0DE; border-radius: 7px; padding: 2px 8px; flex: none; }
+    .aws-pick.satuan { border-style: dashed; opacity: .92; }
+    .aws-pick .kunci { font-size: 10.5px; color: #9A7256; flex: none; }
+
+    /* bar aksi melayang */
+    .aws-bar { position: sticky; bottom: 10px; z-index: 20; background: #461500; color: #FBEADB; border-radius: 16px; padding: 12px 14px; box-shadow: 0 8px 22px rgba(70,21,0,.28); margin-top: 12px; }
+    .aws-bar .top { display: flex; align-items: center; gap: 10px; margin-bottom: 9px; }
+    .aws-bar .n { font-size: 14px; font-weight: 800; }
+    .aws-bar .lnk { background: none; border: none; color: #E8C9AF; font-size: 12px; font-weight: 700; cursor: pointer; font-family: inherit; text-decoration: underline; padding: 0; }
+    .aws-bar .row { display: flex; gap: 8px; flex-wrap: wrap; }
+    .aws-bar select, .aws-bar input { border: 1px solid #7A4A2A; background: #FFF8F0; color: #3B1500; border-radius: 10px; padding: 9px 11px; font-size: 13px; font-family: inherit; }
+    .aws-bar input { flex: 1; min-width: 170px; }
+    .aws-bar button.go { background: #FBEADB; color: #461500; border: none; border-radius: 10px; padding: 9px 16px; font-size: 13px; font-weight: 800; font-family: inherit; cursor: pointer; }
+    .aws-bar .hint { font-size: 11px; color: #C9A98D; margin-top: 7px; }
 </style>
 @endsection
 
@@ -268,13 +302,53 @@
 
         {{-- ── TAB ANTRIAN ── --}}
         <div id="tab-flag" class="aws-hidden">
-            <div class="aws-chipst" style="align-items:center">
+            <div class="aws-chipst" style="align-items:center;flex-wrap:wrap">
                 @foreach(['' => 'Semua', 'baru' => 'Baru', 'dicek' => 'Dicek', 'selesai' => 'Selesai'] as $val => $lbl)
                     <a class="aws-chip {{ ($statusFilter ?? '') === $val ? 'aktif' : '' }}"
                        href="{{ request()->fullUrlWithQuery(['status' => $val ?: null]) }}">{{ $lbl }}</a>
                 @endforeach
+
+                {{-- Beres-beres: lepas antrian dari SATU tanggal. Rotasi WiFi /
+                     pendaftaran telat menebar flag serumpun lintas hari. --}}
+                <a class="aws-sw {{ $lintasHari ? 'on' : '' }}" style="margin-left:6px"
+                   href="{{ request()->fullUrlWithQuery(['semua' => $lintasHari ? null : 1]) }}"
+                   title="Tampilkan semua flag belum selesai dari semua tanggal">
+                    <span class="knob"></span> Semua tanggal
+                </a>
                 <span style="color:#8a7263;font-size:12.5px;margin-left:6px"><b>{{ $totalFlagTanggal }}</b> absen ditampilkan</span>
+                {{-- batas dikatakan terus terang: daftar terpotong tanpa diberi tahu
+                     terbaca sebagai "cuma segini", padahal bukan. --}}
+                @if($batasArsip)
+                    <span style="color:#B5701A;font-size:12px;margin-left:2px">· hanya 90 hari terakhir</span>
+                @endif
             </div>
+
+            @if($errors->any())
+                <div class="alert alert-danger">{{ $errors->first() }}</div>
+            @endif
+
+            {{-- ── Saran pintar: sebabnya sudah beres ──
+                 Flag ip_asing terbuka yang alamatnya SEKARANG cocok jaringan
+                 terdaftar = sisa dari WiFi yang telat didaftarkan. Sistem cuma
+                 menawarkan yang bisa ia jelaskan; vonis tetap di tangan SPV. --}}
+            @if($bolehAksi && ($saranBeres['n'] ?? 0) > 0)
+                <form method="POST" action="{{ route('pengawasan.grup') }}" class="aws-saran">
+                    @csrf
+                    <b>{{ $saranBeres['n'] }} flag lama sebabnya sudah beres</b>
+                    <div class="why">
+                        Alamat WiFi-nya sekarang sudah terdaftar
+                        @if($saranBeres['jaringan'])sebagai <b>{{ implode(', ', $saranBeres['jaringan']) }}</b>@endif —
+                        ke-flag dulu karena jaringannya belum didaftarkan waktu itu.
+                    </div>
+                    <input type="hidden" name="ids" value="{{ implode(',', $saranBeres['ids']) }}">
+                    <input type="hidden" name="hasil" value="wajar">
+                    <div style="display:flex;gap:8px;flex-wrap:wrap">
+                        <input type="text" name="catatan" class="aws-catatan" style="flex:1;min-width:200px" required
+                               value="WiFi cabang belum terdaftar saat itu; jaringannya kini sudah terdaftar.">
+                        <button type="submit" class="aws-btn">Selesaikan {{ $saranBeres['n'] }} (wajar)</button>
+                    </div>
+                </form>
+            @endif
 
             {{-- grup serentak --}}
             @foreach($grup as $key => $items)
@@ -293,27 +367,72 @@
                         @csrf
                         <input type="hidden" name="ids" value="{{ collect($items)->pluck('id')->implode(',') }}">
                         <input type="hidden" name="hasil" value="wajar">
-                        <input type="text" name="catatan" class="aws-catatan" style="flex:1;min-width:180px" placeholder="Catatan (mis. WiFi gangguan)">
+                        <input type="text" name="catatan" class="aws-catatan" style="flex:1;min-width:180px" required
+                               placeholder="Catatan — wajib (mis. WiFi cabang gangguan)">
                         <button type="submit" class="aws-btn">Selesaikan {{ count($items) }} sekaligus (wajar)</button>
                     </form>
                 </div>
             @endforeach
 
-            {{-- flag tunggal --}}
-            @forelse($flagTunggal as $f)
-                <button type="button" class="aws-flag" data-nav-flag="{{ $f->id }}" onclick="awsBukaFlag({{ $f->id }})">
-                    <div class="ikn"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 21V4M6 4h11l-2.2 3.5L17 11H6"/></svg></div>
-                    <div class="isi">
-                        <b>{{ optional($f->user)->nama }}</b>
-                        <small>{{ $labelJenis[$f->jenis] ?? $f->jenis }}</small>
+            {{-- ── flag satuan + centang borongan ──
+                 Centang hanya untuk jenis cerita-jaringan; lupa-pulang &
+                 absen-dari-laptop ceritanya per-orang → tetap dibuka satuan
+                 (pagarnya juga ditegakkan server, bukan cuma disembunyikan). --}}
+            @php $jenisBorongan = \App\Http\Controllers\Absensi\PengawasanController::JENIS_BORONGAN; @endphp
+            <form method="POST" action="{{ route('pengawasan.grup') }}" id="aws-borong">
+                @csrf
+                <input type="hidden" name="ids" id="aws-borong-ids">
+                @forelse($flagTunggal as $f)
+                    @php $bisaBorong = $bolehAksi && in_array($f->jenis, $jenisBorongan, true) && $f->status !== 'selesai'; @endphp
+                    <div class="aws-pick {{ $bisaBorong ? '' : 'satuan' }}">
+                        @if($bisaBorong)
+                            <input type="checkbox" class="aws-cb" value="{{ $f->id }}" data-jenis="{{ $f->jenis }}"
+                                   aria-label="Pilih flag {{ optional($f->user)->nama }}">
+                        @endif
+                        <button type="button" class="body" data-nav-flag="{{ $f->id }}" onclick="awsBukaFlag({{ $f->id }})">
+                            <b>{{ optional($f->user)->nama }}</b>
+                            <small>{{ $labelJenis[$f->jenis] ?? $f->jenis }}</small>
+                        </button>
+                        @if($lintasHari)
+                            <span class="tgl">{{ \Carbon\Carbon::parse($f->work_date)->translatedFormat('d M') }}</span>
+                        @endif
+                        @if(! $bisaBorong && $bolehAksi && $f->status !== 'selesai')
+                            <span class="kunci" title="Jenis ini ceritanya per-orang — buka satu per satu">satuan</span>
+                        @endif
+                        <span class="aws-st aws-st-{{ $f->status }}">{{ ucfirst($f->status) }}</span>
                     </div>
-                    <span class="aws-st aws-st-{{ $f->status }}">{{ ucfirst($f->status) }}</span>
-                </button>
-            @empty
-                @if(empty($grup))
-                    <div class="aws-card" style="color:#8a7263">Tidak ada yang perlu dicek di tanggal ini{{ $statusFilter ? ' dengan status itu' : '' }}.</div>
-                @endif
-            @endforelse
+                @empty
+                    @if(empty($grup) && ($saranBeres['n'] ?? 0) === 0)
+                        <div class="aws-card" style="color:#8a7263">
+                            @if($lintasHari)
+                                Bersih — tidak ada flag terbuka di tanggal mana pun. 🎉
+                            @else
+                                Tidak ada yang perlu dicek di tanggal ini{{ $statusFilter ? ' dengan status itu' : '' }}.
+                            @endif
+                        </div>
+                    @endif
+                @endforelse
+
+                {{-- bar aksi: muncul begitu ada yang dicentang --}}
+                <div class="aws-bar aws-hidden" id="aws-bar">
+                    <div class="top">
+                        <span class="n"><span id="aws-bar-n">0</span> flag dipilih</span>
+                        <button type="button" class="lnk" id="aws-pick-sejenis">Pilih semua sejenis</button>
+                        <button type="button" class="lnk" id="aws-pick-clear">Batal</button>
+                    </div>
+                    <div class="row">
+                        <select name="hasil">
+                            <option value="wajar">Wajar</option>
+                            <option value="perlu_koreksi">Perlu Koreksi</option>
+                            <option value="pelanggaran">Pelanggaran</option>
+                        </select>
+                        <input type="text" name="catatan" required minlength="3"
+                               placeholder="Catatan — wajib, berlaku untuk semua yang dipilih">
+                        <button type="submit" class="go">Selesaikan</button>
+                    </div>
+                    <div class="hint">Catatan ini tersimpan di jejak audit sebagai alasan penutupan.</div>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -347,8 +466,9 @@
                 <div id="aws-p-riwayat-wrap">
                     <div class="aws-h6">Riwayat singkat</div>
                     <div class="aws-stats">
-                        <div class="aws-stat"><b id="aws-p-hf">0</b><span>pernah dicek bulan ini</span></div>
-                        <div class="aws-stat"><b id="aws-p-hp">0</b><span>lupa pulang</span></div>
+                        {{-- bulannya disebut: di mode lintas tanggal, "bulan ini" jadi ambigu --}}
+                        <div class="aws-stat"><b id="aws-p-hf">0</b><span>pernah dicek {{ $bulanRiwayat }}</span></div>
+                        <div class="aws-stat"><b id="aws-p-hp">0</b><span>lupa pulang {{ $bulanRiwayat }}</span></div>
                     </div>
                 </div>
 
@@ -433,6 +553,10 @@
         'hasil'   => $f->hasil,
         'catatan' => $f->catatan,
         'bukti_id'=> $f->ref_type === 'att_hp_bukti' ? $f->ref_id : null,
+        // wd = tanggal kerja flag ini. Wajib: di mode lintas tanggal, panel
+        // harus mengambil kehadiran HARI FLAG-nya, bukan hari yang terpilih.
+        'wd'      => \Carbon\Carbon::parse($f->work_date)->toDateString(),
+        'wd_label'=> \Carbon\Carbon::parse($f->work_date)->translatedFormat('l, d F Y'),
     ])->toJson() !!};
 
     var AWS_RIWAYAT = {!! $riwayat->toJson() !!};
@@ -440,6 +564,7 @@
     var AWS_HARI = {!! json_encode($hariMap) !!};
     var AWS_SUB = {!! json_encode($subOrang) !!};
     var AWS_TGL_LABEL = @json($tanggalLabel);
+    var AWS_TGL = @json($date);   // tanggal terpilih — kunci kehadiran utk foto di strip
     var AWS_URL_SELESAI = "{{ url('pengawasan') }}/";  // + id + /selesai
     var AWS_URL_DICEK   = "{{ url('pengawasan') }}/";  // + id + /dicek
     var AWS_CSRF = document.querySelector('meta[name="csrf-token"]').content;
@@ -487,14 +612,17 @@
         // status, jam masuk/pulang, telat, lembur, lintas cabang dalam bahasa yang
         // sama dengan layar Kehadiran dan Kehadiran Saya.
         var uidKah = flag ? flag.user_id : (bukti ? bukti.user_id : null);
-        var hari = uidKah != null ? AWS_HARI[uidKah] : null;
+        // Kunci kehadiran = orang + TANGGAL. Flag membawa tanggalnya sendiri;
+        // foto di strip selalu milik tanggal yang sedang dipilih.
+        var wdKah = flag && flag.wd ? flag.wd : AWS_TGL;
+        var hari = uidKah != null ? AWS_HARI[uidKah + '|' + wdKah] : null;
         var kahWrap = document.getElementById('aws-p-kah-wrap');
         if (hari) {
             kahWrap.classList.remove('aws-hidden');
             document.getElementById('aws-p-kah').innerHTML = KAH.render({
                 person: flag ? flag.nama : (bukti ? bukti.nama : '—'),
                 roleBranch: AWS_SUB[uidKah] || '',
-                dateLabel: AWS_TGL_LABEL,
+                dateLabel: (flag && flag.wd_label) ? flag.wd_label : AWS_TGL_LABEL,
                 status: hari.st,
                 jamIn: hari.in, jamOut: hari.out, single: hari.single,
                 lateMin: hari.late, lemburJam: Math.round(hari.lembur / 60 * 10) / 10,
@@ -678,5 +806,61 @@
             if (!btn.disabled) { e.preventDefault(); fs.requestSubmit ? fs.requestSubmit() : fs.submit(); }
         }
     });
+
+    // ── Beres-beres borongan: centang → bar aksi ──
+    // "Pilih semua sejenis" (bukan pilih-semua-tampil) — sengaja: satu vonis
+    // untuk satu sebab. Memilih lintas jenis berarti satu catatan dipakai
+    // menjelaskan dua cerita berbeda.
+    (function () {
+        var form = document.getElementById('aws-borong');
+        if (!form) return;
+        var bar   = document.getElementById('aws-bar');
+        var nEl   = document.getElementById('aws-bar-n');
+        var idsEl = document.getElementById('aws-borong-ids');
+        var cbs   = Array.prototype.slice.call(form.querySelectorAll('.aws-cb'));
+        if (!cbs.length) return;
+
+        function terpilih() { return cbs.filter(function (c) { return c.checked; }); }
+
+        function sync() {
+            var pick = terpilih();
+            cbs.forEach(function (c) { c.closest('.aws-pick').classList.toggle('checked', c.checked); });
+            nEl.textContent = pick.length;
+            idsEl.value = pick.map(function (c) { return c.value; }).join(',');
+            bar.classList.toggle('aws-hidden', pick.length === 0);
+        }
+
+        cbs.forEach(function (c) { c.addEventListener('change', sync); });
+
+        document.getElementById('aws-pick-sejenis').addEventListener('click', function () {
+            var pertama = terpilih()[0];
+            if (!pertama) return;
+            var jenis = pertama.getAttribute('data-jenis');
+            cbs.forEach(function (c) { if (c.getAttribute('data-jenis') === jenis) c.checked = true; });
+            sync();
+        });
+
+        document.getElementById('aws-pick-clear').addEventListener('click', function () {
+            cbs.forEach(function (c) { c.checked = false; });
+            sync();
+        });
+
+        form.addEventListener('submit', function (e) {
+            var pick = terpilih();
+            if (!pick.length) { e.preventDefault(); return; }
+            // Satu catatan untuk banyak jenis = satu alasan menjelaskan dua
+            // cerita. Tahan di sini, bukan di server, supaya bisa dijelaskan.
+            var jenis = {};
+            pick.forEach(function (c) { jenis[c.getAttribute('data-jenis')] = true; });
+            if (Object.keys(jenis).length > 1 &&
+                !confirm('Pilihanmu mencampur ' + Object.keys(jenis).length + ' jenis kejanggalan.\n\n' +
+                         'Satu catatan akan dipakai untuk semuanya. Lanjutkan?')) {
+                e.preventDefault(); return;
+            }
+            idsEl.value = pick.map(function (c) { return c.value; }).join(',');
+        });
+
+        sync();
+    })();
 </script>
 @endsection

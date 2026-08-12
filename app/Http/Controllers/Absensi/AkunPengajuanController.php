@@ -27,20 +27,70 @@ class AkunPengajuanController extends Controller
     public const TIPE = [
         'cuti'    => 'Cuti',
         'izin'    => 'Izin',
-        'libur'   => 'Libur / Tukar Hari',
+        'sakit'   => 'Sakit',
+        'tukar'   => 'Tukar Hari',
         'lembur'  => 'Lembur',
         'wfh'     => 'Kerja dari Rumah',
         'koreksi' => 'Koreksi Absen',
     ];
 
+    /**
+     * Jenis yang HANYA berlaku untuk aturan kerja fleksibel (ABG/office +
+     * penyelia). Keputusan Ekky 2026-08-05.
+     *
+     * Alasannya berbeda untuk keduanya, tapi ujungnya sama — menawarkannya ke
+     * staf lantai klinik adalah pintu yang tak pernah boleh dilewati:
+     *   • Tukar Hari — kebijakan resminya memang cuma untuk orang kantor.
+     *   • Kerja dari Rumah — pekerjaan FO/Asdent/GS tak bisa dikerjakan
+     *     dari rumah.
+     *
+     * Ini BUKAN sekadar menyembunyikan tombol: store() menolak jenis yang
+     * tidak berlaku, karena tombol yang disembunyikan tetap bisa dikirim
+     * lewat form buatan sendiri.
+     *
+     * `libur` (jenis lama) sengaja dipertahankan supaya riwayat pengajuan lama
+     * tetap terbaca — lihat TIPE_RIWAYAT.
+     */
+    public const TIPE_KHUSUS_FLEKSIBEL = ['tukar', 'wfh'];
+
+    /**
+     * Label untuk MENAMPILKAN riwayat, termasuk jenis yang tak lagi ditawarkan.
+     * Pengajuan lama bertipe 'libur' harus tetap punya nama di layar; kalau
+     * dibuang dari peta, riwayatnya berubah jadi kode mentah "libur".
+     */
+    public const TIPE_RIWAYAT = self::TIPE + ['libur' => 'Libur / Tukar Hari'];
+
     /** Jatah kerja dari rumah per bulan kalender, dalam HARI (§3.3). */
     public const WFH_JATAH_BULANAN = 2;
 
-    /** Pilihan "apa yang keliru?" di form koreksi (ikut handoff). */
+    /**
+     * Pilihan "apa yang keliru?" di form koreksi.
+     *
+     * Diperbarui 2026-08-05 (keputusan Ekky): absen sekarang lewat HP/selfie,
+     * sedangkan daftar lama masih berbahasa mesin sidik jari ("scan", "sidik
+     * jari gagal terbaca"). Isi baru diturunkan dari kegagalan yang BENAR-BENAR
+     * terjadi di absen HP hari pertama.
+     *
+     * "Salah pilih cabang" sengaja ada meski terdengar sepele: WiFi cabang
+     * sering tak dikenali sehingga orang memilih cabang manual, dan salah pilih
+     * jadi nyata. Selain memperbaiki datanya, pilihan ini juga jadi ISYARAT
+     * bagi SPV bahwa pendaftaran WiFi cabang itu belum beres.
+     *
+     * Mesin sidik jari TIDAK dipensiunkan — dia cadangan kalau sistem tak bisa
+     * dipakai (keputusan Ekky). Kegagalan mesin memang tak diberi pilihan
+     * sendiri karena langka; "Lainnya" + catatan sudah menampungnya, dan
+     * daftarnya tetap bersih untuk kejadian sehari-hari.
+     *
+     * ⚠️ Nilai di sini disimpan APA ADANYA ke att_request.alasan. Mengubah teks
+     * berarti pengajuan lama tetap menyimpan teks lama — itu memang disengaja
+     * (riwayat tak boleh berubah surut), jadi jangan "rapikan" data lama.
+     */
     public const KOREKSI_ALASAN = [
-        'Lupa scan masuk',
-        'Lupa scan pulang',
-        'Sidik jari gagal terbaca',
+        'Lupa absen masuk',
+        'Lupa absen pulang',
+        'HP mati / rusak',
+        'Absen gagal terkirim (sinyal atau kamera)',
+        'Salah pilih cabang',
         'Jam tercatat keliru',
         'Lainnya',
     ];
@@ -52,11 +102,30 @@ class AkunPengajuanController extends Controller
         return $id;
     }
 
+    /**
+     * Jenis pengajuan yang BOLEH dipakai orang ini, sesuai aturan kerjanya.
+     *
+     * Dipakai dua arah: menyusun pilihan di layar DAN menolak kiriman yang
+     * tak berlaku di store(). Satu fungsi untuk keduanya supaya tak mungkin
+     * bergeser — layar yang menawarkan sesuatu yang lalu ditolak server itu
+     * lebih membingungkan daripada tak menawarkannya sama sekali.
+     *
+     * Aturan kerja belum diatur (null) → diperlakukan seperti baku: yang
+     * khusus fleksibel tidak ditawarkan. Lebih baik kurang menawarkan
+     * daripada memberi hak yang belum tentu dia punya.
+     */
+    public static function jenisUntuk(?string $userId = null): array
+    {
+        if (aturanKerjaFleksibel($userId)) return self::TIPE;
+
+        return array_diff_key(self::TIPE, array_flip(self::TIPE_KHUSUS_FLEKSIBEL));
+    }
+
     public function create(Request $request)
     {
         $userId = $this->userId();
 
-        $tipeList = self::TIPE;
+        $tipeList = self::jenisUntuk($userId);
         // pra-isi tipe kalau datang dari tombol tipe tertentu (mis. ?tipe=lembur)
         $tipe = $request->input('tipe');
         if ($tipe && ! isset($tipeList[$tipe])) $tipe = null;
@@ -66,10 +135,59 @@ class AkunPengajuanController extends Controller
         // habis, lalu server menolak. Salah info, bukan sekadar info hilang.
         $wfhUsed = self::hariWfhTerpakaiBulan($userId, Carbon::now());
 
-        return view('absensi.akun.pengajuan', compact('tipeList', 'tipe', 'wfhUsed'));
+        // Tanggal boleh dibawa dari layar lain (mis. penunjuk "Sakit?" di modal
+        // Koreksi hari alpa). Tanpa ini orang mendarat di form bertanggal HARI
+        // INI dan harus memilih ulang tanggal alpanya — gesekan tepat di titik
+        // yang justru mendorongnya balik ke jalur koreksi yang keliru.
+        $tglAwal = null;
+        if ($request->filled('tanggal')) {
+            try {
+                $tglAwal = Carbon::parse($request->input('tanggal'))->toDateString();
+            } catch (\Throwable $e) {
+                $tglAwal = null;   // tanggal ngawur diabaikan diam-diam, bukan bikin galat
+            }
+        }
+
+        return view('absensi.akun.pengajuan', compact('tipeList', 'tipe', 'wfhUsed', 'tglAwal'));
     }
 
     /** Detail satu pengajuan + rantai persetujuan (buat drawer riwayat). Owner-scoped. */
+    /**
+     * Sajikan lampiran pengajuan (termasuk SURAT DOKTER) di balik login.
+     *
+     * Boleh dilihat: pemiliknya sendiri · Finance/Admin lintas cabang · dan
+     * orang yang memang berada di rantai persetujuannya. Selain itu 403 —
+     * lampiran sakit itu data kesehatan, bukan bacaan sekantor.
+     *
+     * Fallback ke public/uploads dipertahankan supaya lampiran LAMA (yang
+     * terlanjur tersimpan di sana) tetap terbaca. Setelah berkas lama
+     * dipindah ke storage, fallback ini boleh dicabut.
+     */
+    public function berkas(Request $request, $id)
+    {
+        $userId = $this->userId();
+        $req = AttRequest::findOrFail($id);
+        abort_unless($req->foto, 404);
+
+        $boleh = $req->user_id === $userId || canSeeAllBranches();
+        if (! $boleh) {
+            $rantai = collect((new AttendanceRequestWorkflow())->chainFor($req->user_id, $req->tipe))
+                ->flatten()->map(fn ($u) => (string) $u);
+            $boleh = $rantai->contains($userId);
+        }
+        abort_unless($boleh, 403, 'Lampiran ini bukan untukmu.');
+
+        // nama berkas dari DB, tapi tetap dikunci ke basename — jangan sampai
+        // baris DB yang aneh (mis. "../.env") jadi jalan keluar dari folder.
+        $nama = basename((string) $req->foto);
+        foreach ([storage_path('app/att_request/' . $nama), public_path('uploads/att_request/' . $nama)] as $path) {
+            if (is_file($path)) {
+                return response()->file($path, ['Cache-Control' => 'private, max-age=3600']);
+            }
+        }
+        abort(404);
+    }
+
     public function show(Request $request, $id)
     {
         $userId = $this->userId();
@@ -131,8 +249,17 @@ class AkunPengajuanController extends Controller
     {
         $userId = $this->userId();
 
+        // Tukar Hari punya bentuk sendiri (dua daftar tanggal, bukan rentang),
+        // jadi jalurnya dipisah sejak validasi. Tetap lewat store() yang sama
+        // supaya alur sesudahnya — persetujuan, notifikasi, riwayat — satu.
+        if ($request->input('tipe') === 'tukar') {
+            return $this->simpanTukarHari($request, $userId);
+        }
+
         $data = $request->validate([
-            'tipe'           => 'required|in:cuti,izin,libur,lembur,wfh,koreksi',
+            // 'libur' masih diterima demi kiriman lama yang masih terbuka di
+            // tab seseorang; jenis ini tak lagi ditawarkan di layar.
+            'tipe'           => 'required|in:cuti,izin,sakit,libur,lembur,wfh,koreksi',
             'sub_tipe'       => 'nullable|in:jam,tambah_hari',
             'tanggal_from'   => 'required|date',
             'tanggal_to'     => 'required_unless:tipe,koreksi|nullable|date|after_or_equal:tanggal_from',
@@ -147,6 +274,14 @@ class AkunPengajuanController extends Controller
             'alasan.required_unless'    => 'Alasan wajib diisi — yang menyetujui butuh konteksnya.',
             'koreksi_alasan.required_if' => 'Pilih dulu apa yang keliru.',
         ]);
+
+        // Jenis yang tak berlaku untuk aturan kerjanya ditolak DI SERVER —
+        // tombol yang disembunyikan tetap bisa dikirim lewat form buatan
+        // sendiri, dan diam-diam menerimanya berarti kebijakan cuma hiasan.
+        if (! isset(self::jenisUntuk($userId)[$data['tipe']]) && $data['tipe'] !== 'libur') {
+            return back()->withInput()->with('error',
+                'Jenis pengajuan ini tidak berlaku untuk jam kerjamu.');
+        }
 
         // Lembur SELALU 1 hari. claimed_menit dihitung dari SATU pasang jam
         // (jam_from–jam_to), jadi rentang banyak hari tak punya arti: menitnya
@@ -180,6 +315,21 @@ class AkunPengajuanController extends Controller
             }
         }
 
+        // Sakit ≥3 hari berturut → surat dokter WAJIB (keputusan Ekky 2026-08-11).
+        // Ditegakkan DI SERVER, bukan cuma lewat atribut `required` di form:
+        // input file yang disembunyikan tetap bisa dilewati form buatan sendiri.
+        // 1–2 hari sengaja tanpa surat — menuntutnya untuk demam semalam justru
+        // mendorong orang masuk kerja sambil sakit.
+        if ($data['tipe'] === 'sakit') {
+            $hari = Carbon::parse($data['tanggal_from'])
+                ->diffInDays(Carbon::parse($data['tanggal_to'])) + 1;
+            if ($hari >= AttRequest::SAKIT_HARI_WAJIB_SURAT && ! $request->hasFile('foto')) {
+                return back()->withInput()->with('error',
+                    'Sakit ' . $hari . ' hari perlu surat dokter — unggah fotonya dulu. '
+                    . '(Sakit 1–2 hari tidak perlu surat.)');
+            }
+        }
+
         // Jatah kerja dari rumah: 2 HARI per bulan (§3.3). Cek dipindah ke dalam
         // transaksi store() supaya tak bisa dijebol dua kiriman berbarengan.
 
@@ -202,9 +352,17 @@ class AkunPengajuanController extends Controller
 
         // foto bukti — wajib secara SOP untuk lembur/wfh yg tak ada scan, tapi tak
         // dipaksa di sini (biar tak nge-block; approver yang menilai kelengkapan).
+        //
+        // ⚠️ DISIMPAN DI storage/, BUKAN public/. Sejak jenis "sakit" ada, lampiran
+        // ini bisa berupa SURAT DOKTER — data kesehatan. Folder public/ bisa
+        // diambil siapa pun yang punya URL-nya, tanpa login (terukur: 200).
+        // Alasannya sama persis dengan foto selfie yang dulu dipindah ke storage:
+        // "wajah karyawan bukan aset publik" — surat dokter apalagi.
+        // Berkas LAMA tetap di public/ dan tetap terbaca lewat jalur fallback di
+        // berkas() — tak ada yang rusak, tapi unggahan baru tak lagi telanjang.
         $fotoName = null;
         if ($request->hasFile('foto')) {
-            $dir = public_path('uploads/att_request');
+            $dir = storage_path('app/att_request');
             if (! is_dir($dir)) mkdir($dir, 0755, true);
             $file = $request->file('foto');
             $ext = strtolower($file->getClientOriginalExtension() ?: 'jpg');
@@ -232,6 +390,158 @@ class AkunPengajuanController extends Controller
             : 'Pengajuan terkirim, menunggu persetujuan atasan.';
 
         return redirect()->route('akun.absensi')->with('success', $pesan);
+    }
+
+    /**
+     * Tukar Hari — satu pengajuan, dua sisi: hari yang saya masuk ↔ hari libur
+     * penggantinya. Keputusan Ekky 2026-08-05.
+     *
+     * Kenapa satu pengajuan, bukan dua: kalau sisi masuk dan sisi libur bisa
+     * diputus terpisah, orang bisa memperoleh libur pengganti tanpa hari
+     * masuknya — persis lubang yang membuat fitur ini ada. Satu kesepakatan =
+     * satu keputusan atasan.
+     *
+     * Aturan yang ditegakkan di sini (semuanya juga tercermin di layar):
+     *   • hanya untuk aturan kerja fleksibel;
+     *   • jumlah hari masuk HARUS sama dengan jumlah hari libur pengganti;
+     *   • satu tanggal tak boleh muncul dua kali, termasuk lintas sisi;
+     *   • semuanya dalam SATU periode (lihat batasPeriode()).
+     */
+    private function simpanTukarHari(Request $request, string $userId)
+    {
+        if (! aturanKerjaFleksibel($userId)) {
+            return back()->withInput()->with('error',
+                'Tukar hari hanya berlaku untuk jam kerja fleksibel (kantor/ABG).');
+        }
+
+        $data = $request->validate([
+            'masuk'   => 'required|array|min:1|max:31',
+            'masuk.*' => 'required|date',
+            'libur'   => 'required|array|min:1|max:31',
+            'libur.*' => 'required|date',
+            'alasan'  => 'required|string|max:2000',
+        ], [
+            'masuk.required'  => 'Isi dulu hari yang kamu masuk.',
+            'libur.required'  => 'Isi dulu hari libur penggantinya.',
+            'alasan.required' => 'Alasan wajib diisi — yang menyetujui butuh konteksnya.',
+        ]);
+
+        $masuk = array_values(array_unique(array_map(
+            fn ($d) => Carbon::parse($d)->toDateString(), $data['masuk'])));
+        $libur = array_values(array_unique(array_map(
+            fn ($d) => Carbon::parse($d)->toDateString(), $data['libur'])));
+
+        if (count($masuk) !== count($libur)) {
+            return back()->withInput()->with('error', sprintf(
+                'Jumlahnya belum seimbang: %d hari masuk, %d hari libur pengganti. '
+                . 'Tukar hari harus satu-lawan-satu.', count($masuk), count($libur)));
+        }
+
+        $bentrok = array_intersect($masuk, $libur);
+        if ($bentrok) {
+            return back()->withInput()->with('error',
+                'Tanggal ' . Carbon::parse(reset($bentrok))->translatedFormat('d M Y')
+                . ' ditulis sebagai hari masuk sekaligus hari libur. Pilih salah satu.');
+        }
+
+        // Satu periode: kalau Finance sudah membuat periode gaji yang memuat
+        // tanggal-tanggal ini, itu yang dipakai; kalau belum, jatuh ke bulan
+        // kalender. Dua-duanya dipikirkan supaya fitur ini tak pernah macet
+        // hanya karena Finance belum sempat membuka periode (keputusan Ekky).
+        $semua = array_merge($masuk, $libur);
+        sort($semua);
+        [$awal, $akhir, $labelPeriode] = $this->batasPeriode($semua[0]);
+        foreach ($semua as $t) {
+            if ($t < $awal || $t > $akhir) {
+                return back()->withInput()->with('error',
+                    'Semua tanggal harus berada dalam periode yang sama (' . $labelPeriode
+                    . '). Tanggal ' . Carbon::parse($t)->translatedFormat('d M Y') . ' di luar itu.');
+            }
+        }
+
+        try {
+            $req = DB::transaction(function () use ($masuk, $libur, $semua, $userId, $data) {
+                $r = AttRequest::create([
+                    'user_id'       => $userId,
+                    'raw_branch_id' => session('raw_branch_id') ?: null,
+                    'tipe'          => 'tukar',
+                    // Rentang tetap diisi (paling awal–paling akhir) supaya
+                    // penyaringan rentang di query lain tetap bekerja; tanggal
+                    // yang sebenarnya berlaku ada di att_request_hari.
+                    'tanggal_from'  => $semua[0],
+                    'tanggal_to'    => end($semua),
+                    'alasan'        => $data['alasan'],
+                    'status'        => 'draft',
+                ]);
+
+                foreach ($masuk as $t) {
+                    \App\Models\AttRequestHari::create([
+                        'request_id' => $r->id, 'tanggal' => $t,
+                        'peran' => \App\Models\AttRequestHari::PERAN_MASUK,
+                    ]);
+                }
+                foreach ($libur as $t) {
+                    \App\Models\AttRequestHari::create([
+                        'request_id' => $r->id, 'tanggal' => $t,
+                        'peran' => \App\Models\AttRequestHari::PERAN_LIBUR,
+                    ]);
+                }
+
+                return (new AttendanceRequestWorkflow())->submit($r);
+            });
+        } catch (\RuntimeException $e) {
+            return back()->withInput()->with('error', $e->getMessage());
+        }
+
+        $pesan = $req->status === 'approved'
+            ? 'Tukar hari tercatat dan langsung disetujui (tak ada atasan di atas kamu).'
+            : 'Tukar hari terkirim, menunggu persetujuan atasan.';
+
+        return redirect()->route('akun.absensi')->with('success', $pesan);
+    }
+
+    /**
+     * Batas periode yang memuat sebuah tanggal: [awal, akhir, label].
+     *
+     * Periode gaji Finance menang kalau ada — itu satuan yang dipakai saat
+     * menutup buku, jadi tukar hari tak boleh melintasinya. Kalau Finance
+     * belum membuat periodenya, jatuh ke bulan kalender: fitur ini tak boleh
+     * bergantung diam-diam pada pekerjaan orang lain.
+     */
+    private function batasPeriode(string $tanggal): array
+    {
+        // Kolomnya `periode_from`/`periode_to`, dan periode bisa berlaku global
+        // (raw_branch_id NULL) atau khusus satu cabang — pola yang sama dipakai
+        // AttendanceReconciler::isDateLocked. Yang khusus cabang didahulukan.
+        if (\Illuminate\Support\Facades\Schema::hasTable('att_period')) {
+            $cabang = session('raw_branch_id') ?: null;
+
+            $p = DB::table('att_period')
+                ->where('periode_from', '<=', $tanggal)
+                ->where('periode_to', '>=', $tanggal)
+                ->where(function ($q) use ($cabang) {
+                    $q->whereNull('raw_branch_id');
+                    if ($cabang) $q->orWhere('raw_branch_id', $cabang);
+                })
+                ->orderByRaw('raw_branch_id IS NULL')   // yang spesifik cabang duluan
+                ->first(['periode_from', 'periode_to']);
+
+            if ($p) {
+                return [
+                    substr((string) $p->periode_from, 0, 10),
+                    substr((string) $p->periode_to, 0, 10),
+                    Carbon::parse($p->periode_from)->translatedFormat('d M')
+                        . ' – ' . Carbon::parse($p->periode_to)->translatedFormat('d M Y'),
+                ];
+            }
+        }
+
+        $c = Carbon::parse($tanggal);
+        return [
+            $c->copy()->startOfMonth()->toDateString(),
+            $c->copy()->endOfMonth()->toDateString(),
+            $c->translatedFormat('F Y'),
+        ];
     }
 
     /**

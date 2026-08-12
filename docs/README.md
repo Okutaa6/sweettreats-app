@@ -24,6 +24,8 @@ Peta isi folder `docs/`. **Mulai dari sini** kalau bingung cari apa.
 | Paham reskin Kehadiran/zona Absensi + cara deploy-nya | `handoff/handoff-kehadiran-reskin.md` |
 | Kasih dokumen ke Reza | `untuk-reza/` |
 | Kasih dokumen ke tim ops/management | `untuk-tim/` |
+| Tahu modul mana yang beneran dipakai vs mangkrak | `untuk-tim/rapor-adopsi-*.md` |
+| Kenalin proyek ke orang luar (bos/konsultan/UI-UX) | `untuk-tim/peta-modul-data-center.html` |
 | Lihat spesifikasi API vendor (Cekat/Omnicare) | `api/` |
 | Cari brief desain yang belum dikerjakan | `brief-desain/` |
 | Cari dokumen lama / sudah selesai | `arsip/` |

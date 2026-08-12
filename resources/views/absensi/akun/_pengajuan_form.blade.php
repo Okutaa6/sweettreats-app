@@ -47,18 +47,47 @@
             <div>Jatah kerja dari rumah bulan ini: <b class="num">{{ $ajWfhUsed }}/2</b> hari terpakai. Sisa <b class="num">{{ max(0, 2 - $ajWfhUsed) }}</b> hari.</div>
         </div>
 
+        {{-- ── TUKAR HARI: dua daftar tanggal, bukan rentang ──
+             Satu kesepakatan = satu pengajuan = satu ACC. Jumlah kedua sisi
+             wajib sama; tombol kirim bilang sendiri kalau belum seimbang
+             (pola-interaksi P3) alih-alih ditolak setelah dikirim. --}}
+        <div id="grp-tukar" style="display:none">
+            <div class="absk-hint" style="margin-bottom:10px">
+                Masukkan hari yang <b>kamu masuk</b> dan hari <b>libur penggantinya</b>.
+                Jumlahnya harus sama, dan semuanya dalam periode yang sama.
+            </div>
+
+            <div class="absk-grid2" style="align-items:start">
+                <div>
+                    <label class="absk-lbl">Saya masuk <span class="req">*</span></label>
+                    <div id="listMasuk" class="absk-tukarlist"></div>
+                    <button type="button" class="absk-prefill" data-tambah="masuk" style="margin-top:6px">+ Tambah hari masuk</button>
+                </div>
+                <div>
+                    <label class="absk-lbl">Gantinya libur <span class="req">*</span></label>
+                    <div id="listLibur" class="absk-tukarlist"></div>
+                    <button type="button" class="absk-prefill" data-tambah="libur" style="margin-top:6px">+ Tambah hari libur</button>
+                </div>
+            </div>
+
+            <div class="absk-durbox" id="tukarSeimbang" style="margin-top:10px">
+                <span>Keseimbangan</span>
+                <span class="num" id="tukarInfo">0 masuk · 0 libur</span>
+            </div>
+        </div>
+
         {{-- Tanggal + Jam (grid 2×2) --}}
-        <div class="absk-grid2">
+        <div class="absk-grid2" id="grp-rentang">
             <div>
                 <label class="absk-lbl" id="lblFrom">Tanggal Mulai <span class="req">*</span></label>
-                <input type="date" name="tanggal_from" id="tglFrom" class="absk-input" value="{{ old('tanggal_from', now()->toDateString()) }}" required>
+                <input type="date" name="tanggal_from" id="tglFrom" class="absk-input" value="{{ old('tanggal_from', $tglAwal ?? now()->toDateString()) }}" required>
             </div>
             {{-- Lembur selalu 1 hari (menitnya dari sepasang jam), jadi kolom
                  "sampai" disembunyikan supaya tak menjanjikan rentang yg memang
                  tak didukung. Server juga memaksa tanggal_to = tanggal_from. --}}
             <div id="cellTglTo">
                 <label class="absk-lbl">Tanggal Selesai <span class="req">*</span></label>
-                <input type="date" name="tanggal_to" id="tglTo" class="absk-input" value="{{ old('tanggal_to', now()->toDateString()) }}" required>
+                <input type="date" name="tanggal_to" id="tglTo" class="absk-input" value="{{ old('tanggal_to', $tglAwal ?? now()->toDateString()) }}" required>
             </div>
             <div class="absk-jamcell" style="display:none">
                 <label class="absk-lbl">Jam Mulai</label>
@@ -89,7 +118,10 @@
 
         {{-- Foto bukti (drop-zone) --}}
         <div class="absk-field">
-            <label class="absk-lbl">Foto Bukti <span class="absk-lbl-note">(opsional — kalau lembur/kerja dari rumah tanpa absen mesin, foto ini buktinya)</span></label>
+            {{-- Sakit ≥3 hari: label berubah jadi "surat dokter" dan wajib.
+                 Server tetap penjaga sesungguhnya — ini cuma biar orang tahu
+                 sebelum kirim, bukan ditolak sesudahnya (P3). --}}
+            <label class="absk-lbl" id="fotoLbl">Foto Bukti <span class="absk-lbl-note" id="fotoNote">(opsional — kalau lembur/kerja dari rumah tanpa absen mesin, foto ini buktinya)</span></label>
             <div class="absk-dropzone" id="fotoZone">
                 <span id="fotoLabel">Klik untuk lampirkan foto</span>
             </div>
@@ -135,15 +167,70 @@
 
     function showCells(show) { jamCells.forEach(function (c) { c.style.display = show ? '' : 'none'; }); }
 
+    // ── Sakit: surat dokter wajib mulai 3 hari berturut ──
+    // Ambangnya dibaca dari model (satu sumber angka), bukan diketik ulang di
+    // sini — kalau kebijakannya berubah, tak ada dua tempat yang bisa beda.
+    var SAKIT_MIN_SURAT = {{ \App\Models\AttRequest::SAKIT_HARI_WAJIB_SURAT }};
+    function sakitHari() {
+        var a = document.getElementById('tglFrom'), b = document.getElementById('tglTo');
+        if (!a || !b || !a.value || !b.value) return 1;
+        var d = (new Date(b.value) - new Date(a.value)) / 86400000;
+        return isNaN(d) ? 1 : Math.max(1, Math.floor(d) + 1);
+    }
+    function suratDokter(t) {
+        var lbl = document.getElementById('fotoLbl'), note = document.getElementById('fotoNote');
+        var input = document.getElementById('fotoInput');
+        if (!lbl || !note || !input) return;
+        var wajib = (t === 'sakit') && sakitHari() >= SAKIT_MIN_SURAT;
+
+        if (t === 'sakit') {
+            lbl.childNodes[0].nodeValue = wajib ? 'Surat Dokter ' : 'Foto Bukti ';
+            note.textContent = wajib
+                ? '(wajib — sakit ' + sakitHari() + ' hari perlu surat dokter)'
+                : '(opsional — sakit 1–2 hari tidak perlu surat dokter)';
+            note.style.color = wajib ? '#C0392B' : '';
+        } else {
+            lbl.childNodes[0].nodeValue = 'Foto Bukti ';
+            note.textContent = '(opsional — kalau lembur/kerja dari rumah tanpa absen mesin, foto ini buktinya)';
+            note.style.color = '';
+        }
+        input.required = wajib;
+    }
+    // Rentang tanggal ikut menentukan wajib-tidaknya surat, jadi label harus
+    // ikut berubah saat tanggalnya digeser — bukan cuma saat jenis dipilih.
+    ['tglFrom', 'tglTo'].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el) el.addEventListener('change', function () {
+            var t = document.getElementById('tipeHidden');
+            if (t) suratDokter(t.value);
+        });
+    });
+
     function sync() {
         var t = tipeHidden.value;
         var isLembur = t === 'lembur';
+        var isTukar  = t === 'tukar';
+
+        // Tukar hari memakai dua DAFTAR tanggal; rentang mulai–selesai tak
+        // punya arti di sana, jadi bagian itu disingkirkan seluruhnya (termasuk
+        // atribut required-nya, kalau tidak form tak bisa dikirim karena
+        // mengeluh pada kolom yang tak terlihat).
+        var grpTukar  = form.querySelector('#grp-tukar');
+        var grpRent   = form.querySelector('#grp-rentang');
+        if (grpTukar) grpTukar.style.display = isTukar ? '' : 'none';
+        if (grpRent)  grpRent.style.display  = isTukar ? 'none' : '';
+        ['tglFrom', 'tglTo'].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) { el.required = !isTukar; el.disabled = isTukar; }
+        });
+
         grpSub.style.display = isLembur ? '' : 'none';
         showCells(isLembur || t === 'izin');
         grpPrefill.style.display = isLembur ? '' : 'none';
         durBox.style.display = isLembur ? '' : 'none';
         wfhBlocked.style.display = (t === 'wfh' && wfhUsed >= 2) ? '' : 'none';
         wfhInfo.style.display    = (t === 'wfh' && wfhUsed < 2) ? '' : 'none';
+        suratDokter(t);
 
         // Lembur = satu hari saja: sembunyikan "Tanggal Selesai" dan samakan
         // nilainya, biar tak ada rentang yang tak akan dihormati server.
@@ -158,11 +245,69 @@
             if (isLembur) tglTo.value = tglFrom.value;
         }
 
-        submitBtn.disabled = !t;
         var ajTeks = form.querySelector('#ajSubmitTeks');
-        if (ajTeks) ajTeks.textContent = t ? 'Kirim Permohonan' : 'Pilih jenis dulu';
+        if (isTukar) {
+            syncTukar();                       // dia sendiri yang mengatur tombol
+        } else {
+            submitBtn.disabled = !t;
+            if (ajTeks) ajTeks.textContent = t ? 'Kirim Permohonan' : 'Pilih jenis dulu';
+        }
         if (isLembur) calcDur();
     }
+
+    // ── Tukar hari: dua daftar tanggal yang harus seimbang ──
+    function barisTanggal(sisi) {
+        var row = document.createElement('div');
+        row.style.cssText = 'display:flex;gap:6px;margin-bottom:6px';
+        var inp = document.createElement('input');
+        inp.type = 'date'; inp.name = sisi + '[]'; inp.className = 'absk-input';
+        inp.style.flex = '1';
+        inp.addEventListener('change', syncTukar);
+        var del = document.createElement('button');
+        del.type = 'button'; del.className = 'absk-batal';
+        del.style.cssText = 'padding:0 12px;min-height:0';
+        del.textContent = '✕';
+        del.setAttribute('aria-label', 'Hapus tanggal ini');
+        del.addEventListener('click', function () { row.remove(); syncTukar(); });
+        row.appendChild(inp); row.appendChild(del);
+        return row;
+    }
+
+    function isiTanggal(sisi) {
+        var box = form.querySelector(sisi === 'masuk' ? '#listMasuk' : '#listLibur');
+        if (!box) return [];
+        return Array.prototype.slice.call(box.querySelectorAll('input[type=date]'))
+            .map(function (i) { return i.value; }).filter(Boolean);
+    }
+
+    function syncTukar() {
+        if (tipeHidden.value !== 'tukar') return;
+        var m = isiTanggal('masuk'), l = isiTanggal('libur');
+        var info = form.querySelector('#tukarInfo');
+        if (info) info.textContent = m.length + ' masuk · ' + l.length + ' libur';
+
+        var teks = form.querySelector('#ajSubmitTeks');
+        var pesan = null;
+        if (!m.length && !l.length)      pesan = 'Isi tanggalnya dulu';
+        else if (m.length !== l.length)  pesan = 'Jumlahnya belum seimbang';
+        else {
+            // Tanggal kembar lintas sisi juga ditolak server; dibilang di sini
+            // supaya orang tak perlu mengirim dulu untuk tahu.
+            var kembar = m.filter(function (d) { return l.indexOf(d) !== -1; });
+            if (kembar.length) pesan = 'Ada tanggal yang sama di dua sisi';
+        }
+        submitBtn.disabled = !!pesan;
+        if (teks) teks.textContent = pesan || 'Kirim Tukar Hari';
+    }
+
+    form.querySelectorAll('[data-tambah]').forEach(function (b) {
+        b.addEventListener('click', function () {
+            var sisi = b.getAttribute('data-tambah');
+            form.querySelector(sisi === 'masuk' ? '#listMasuk' : '#listLibur')
+                .appendChild(barisTanggal(sisi));
+            syncTukar();
+        });
+    });
 
     // Chip Jenis
     form.querySelectorAll('.absk-jchip[data-jenis]').forEach(function (b) {
@@ -222,7 +367,21 @@
                     form.querySelector('#jamFrom').value = d.jam_from;
                     form.querySelector('#jamTo').value = d.jam_to;
                     calcDur();
-                    note.textContent = 'Terisi dari mesin absen (pulang ' + d.scan_last + '). Cek & ganti kalau perlu.';
+                    // Sebutkan SISI mana yang diisikan. "Terisi dari mesin absen"
+                    // polos bikin orang mengira ini jam pulang, padahal bisa jadi
+                    // jam datang-awal — dan angkanya tetap boleh diubah.
+                    note.textContent = d.sisi === 'datang_awal'
+                        ? 'Terisi dari datang lebih awal (absen ' + d.jam_from + ', jadwal masuk ' + d.jam_to + '). Cek & ganti kalau perlu.'
+                        : 'Terisi dari pulang lebih lambat (absen pulang ' + d.scan_last + '). Cek & ganti kalau perlu.';
+                    // Hari yang punya dua-duanya: beri tahu, jangan diam-diam
+                    // memilihkan satu saja.
+                    if (d.opsi && d.opsi.datang_awal && d.opsi.pulang_lambat) {
+                        note.textContent += ' Hari ini juga ada sisi satunya ('
+                            + (d.sisi === 'datang_awal'
+                                ? 'pulang ' + d.opsi.pulang_lambat.jam_from + '–' + d.opsi.pulang_lambat.jam_to
+                                : 'datang ' + d.opsi.datang_awal.jam_from + '–' + d.opsi.datang_awal.jam_to)
+                            + ') — ajukan terpisah kalau dua-duanya lembur.';
+                    }
                 } else { note.textContent = d.reason || 'Tidak bisa ambil dari mesin absen.'; }
             })
             .catch(function () { note.textContent = 'Gagal ambil data absen.'; });

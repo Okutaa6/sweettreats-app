@@ -32,7 +32,7 @@ class AkunAbsensiController extends Controller
             // Kalau bulan berjalan belum ada KEHADIRAN asli (biar tak nyangkut di
             // bulan yang cuma alpa-palsu), lompat ke bulan terbaru yang ada hadir/
             // telat/cuti/izin/wfh. Data sample lampau → demo selalu tampil isi.
-            $real = ['hadir', 'telat', 'cuti', 'izin', 'wfh'];
+            $real = ['hadir', 'telat', 'cuti', 'izin', 'sakit', 'wfh'];
             $hasCurrent = AttDay::where('user_id', $userId)
                 ->whereBetween('work_date', [$anchor->toDateString(), $anchor->copy()->endOfMonth()->toDateString()])
                 ->whereIn('status', $real)
@@ -72,7 +72,10 @@ class AkunAbsensiController extends Controller
             'hadir' => $days->where('status', 'hadir')->count(),
             'telat' => $days->where('status', 'telat')->count(),
             'alpa'  => $days->where('status', 'alpa')->count(),
-            'cuti'  => $days->whereIn('status', ['cuti', 'izin', 'wfh', 'libur'])->count(),
+            // ember "bukan hadir tapi juga bukan alpa". 'sakit' WAJIB ikut:
+            // tanpa itu hari sakit tak terhitung di mana pun dan jumlah kartu
+            // rekap tak lagi genap sebulan — terlihat seperti data hilang.
+            'cuti'  => $days->whereIn('status', ['cuti', 'izin', 'sakit', 'wfh', 'libur'])->count(),
             'telat_menit' => $days->sum('telat_menit'),
             'lembur_menit' => $days->sum('lembur_menit_disetujui'),
         ];
@@ -104,7 +107,11 @@ class AkunAbsensiController extends Controller
         $notifCount = AdminNotification::unreadForUser()->count();
 
         // ── Data untuk drawer "Ajukan Permohonan" ──
-        $tipeList = \App\Http\Controllers\Absensi\AkunPengajuanController::TIPE;
+        // Jenis yang DITAWARKAN disaring per aturan kerja (Tukar Hari & WFH
+        // hanya untuk yang fleksibel); jenis untuk MEMBACA riwayat tetap
+        // lengkap, supaya pengajuan lama tak berubah jadi kode mentah.
+        $tipeList    = \App\Http\Controllers\Absensi\AkunPengajuanController::jenisUntuk($userId);
+        $tipeRiwayat = \App\Http\Controllers\Absensi\AkunPengajuanController::TIPE_RIWAYAT;
         $ajTipe   = null;
         // Kuota WFH bulan berjalan (approved+pending) — buat peringatan di drawer (2/bulan).
         // Jatah kerja dari rumah dihitung dalam HARI (bukan jumlah form) dan
@@ -122,7 +129,7 @@ class AkunAbsensiController extends Controller
 
         return view('absensi.akun.absensi', compact(
             'days', 'rekap', 'requests', 'anchor', 'from', 'to', 'me', 'today', 'notifCount',
-            'tipeList', 'ajTipe', 'wfhUsed', 'korAlasan', 'cutiSisa', 'buktiMap'
+            'tipeList', 'tipeRiwayat', 'ajTipe', 'wfhUsed', 'korAlasan', 'cutiSisa', 'buktiMap'
         ));
     }
 

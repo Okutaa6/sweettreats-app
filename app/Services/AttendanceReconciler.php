@@ -140,18 +140,68 @@ class AttendanceReconciler
         if (!$rule || $rule->tipe === 'fleksibel') return null;   // office tak dinilai scan (§3.3)
 
         $rd = $ruleDays[$rule->id][$d->dayOfWeek] ?? null;
+
+        // ── Lembur DATANG-AWAL (keputusan Ekky 2026-08-05) ──
+        // Kasus nyata operasional: jadwal masuk 10:00, orangnya absen 08:00
+        // untuk persiapan. Dua jam itu kerja, dan selama ini sama sekali tak
+        // terbaca — mesin saran cuma mengenal sisi pulang.
+        //
+        // Patokannya jam_masuk_AWAL (batas paling pagi jadwal itu), bukan
+        // jam_masuk_akhir yang cuma ambang telat. Kalau memakai ambang telat,
+        // orang yang datang tepat waktu pun akan tampak lembur.
+        //
+        // Ini USULAN, bukan vonis: datang awal tak selalu berarti bekerja —
+        // bisa jadi menghindari macet atau menunggu. Yang memutuskan tetap
+        // manusia lewat form + persetujuan atasan.
+        $awal = null;
+        $mulaiJadwal = $rd->jam_masuk_awal ?? null;
+        if ($mulaiJadwal && ! ($rd->libur ?? false)) {
+            $first = $day['scans'][0];
+            $mulaiAt = Carbon::parse($date . ' ' . $mulaiJadwal);
+            // minimal 30 menit supaya datang 5 menit lebih pagi tak jadi tawaran
+            if ($first->toDateString() === $date && $first->lt($mulaiAt)
+                && $first->diffInMinutes($mulaiAt) >= 30) {
+                $awal = [
+                    'jam_from' => $first->format('H:i'),
+                    'jam_to'   => substr((string) $mulaiJadwal, 0, 5),
+                    'menit'    => $first->diffInMinutes($mulaiAt),
+                ];
+            }
+        }
+
+        // ── Lembur PULANG-LAMBAT (perilaku lama) ──
+        $lambat = null;
         $base = $rd->jam_lembur_mulai ?? $rd->jam_pulang ?? null;
-        if (!$base) return null;
-        $baseAt = Carbon::parse($date . ' ' . $base);
-        if (!$last->gt($baseAt)) return null;                     // scan tak lewat baseline → tak ada lembur
-        // scan pulang lintas tengah malam (di-pushback dari hari berikut): field jam
-        // (time-only) tak bisa mewakili → biar diisi manual, jangan prefill invalid.
-        if ($last->toDateString() !== $date) return null;
+        if ($base) {
+            $baseAt = Carbon::parse($date . ' ' . $base);
+            // scan pulang lintas tengah malam (di-pushback dari hari berikut):
+            // field jam (time-only) tak bisa mewakili → biar diisi manual.
+            if ($last->gt($baseAt) && $last->toDateString() === $date) {
+                $lambat = [
+                    'jam_from' => substr($base, 0, 5),
+                    'jam_to'   => $last->format('H:i'),
+                    'menit'    => $baseAt->diffInMinutes($last),
+                ];
+            }
+        }
+
+        if (! $awal && ! $lambat) return null;
+
+        // Yang dikembalikan sebagai isian utama: yang paling lama. Keduanya
+        // tetap dikirim supaya layar bisa menawarkan pilihan kalau hari itu
+        // memang datang lebih awal DAN pulang lebih lambat.
+        $utama = $lambat;
+        if ($awal && (! $lambat || $awal['menit'] > $lambat['menit'])) $utama = $awal;
 
         return [
-            'jam_from'  => substr($base, 0, 5),
-            'jam_to'    => $last->format('H:i'),
+            'jam_from'  => $utama['jam_from'],
+            'jam_to'    => $utama['jam_to'],
             'scan_last' => $last->format('H:i'),
+            'sisi'      => $utama === $awal ? 'datang_awal' : 'pulang_lambat',
+            'opsi'      => array_filter([
+                'datang_awal'   => $awal,
+                'pulang_lambat' => $lambat,
+            ]),
         ];
     }
 
@@ -306,7 +356,21 @@ class AttendanceReconciler
             // ── fleksibel: cuma penanda, tak pernah alpa ──
             if ($rule->tipe === 'fleksibel') {
                 if ($absence) { $out[] = $this->row($userId, $key, $rule->id, $day, $absence, 0, null, $lembur, $now); continue; }
-                if ($n === 0) continue;
+                if ($n === 0) {
+                    // Hari libur TERJADWAL (mis. Minggu & Senin bagi orang
+                    // kantor) ditandai `libur`, bukan dibiarkan kosong. Kosong
+                    // itu ambigu — tak bisa dibedakan dari "belum ada datanya",
+                    // padahal Ekky minta tukar hari punya laporan yang terbaca:
+                    // hari libur pengganti harus terlihat KONTRAS dengan libur
+                    // biasa. Aturan fleksibel tanpa konfigurasi hari (Executive)
+                    // tetap tak menghasilkan baris apa pun — memang tak
+                    // dijadwalkan.
+                    $rd = $ruleDays[$rule->id][$d->dayOfWeek] ?? null;
+                    if ($rd && ($rd->libur ?? false)) {
+                        $out[] = $this->row($userId, $key, $rule->id, $day, 'libur', 0, null, $lembur, $now);
+                    }
+                    continue;
+                }
                 $out[] = $this->row($userId, $key, $rule->id, $day, 'hadir', 0, null, $lembur, $now);
                 continue;
             }
@@ -369,6 +433,21 @@ class AttendanceReconciler
     {
         $absence = null; $lembur = 0; $koreksi = false;
         foreach ($reqs as $r) {
+            // Pengajuan bertanggal EKSPLISIT (Tukar Hari): hanya tanggal yang
+            // terdaftar yang berlaku — hari di antaranya TIDAK ikut tertandai.
+            // Perannya menentukan artinya: 'libur' = hari libur pengganti,
+            // 'masuk' = hari dia justru bekerja (bukan ketidakhadiran, jadi
+            // sengaja tidak mengisi $absence).
+            $hari = $r->hari ?? null;
+            if (is_array($hari)) {
+                $peran = $hari[$date] ?? null;
+                if ($peran === null) continue;
+                if ($peran === \App\Models\AttRequestHari::PERAN_LIBUR && $absence === null) {
+                    $absence = 'libur';
+                }
+                continue;
+            }
+
             if ($date < $r->tanggal_from || $date > $r->tanggal_to) continue;
             if ($r->tipe === 'lembur') {
                 // Hitung HANYA di tanggal mulainya. claimed_menit itu total satu
@@ -448,9 +527,27 @@ class AttendanceReconciler
             ->where('status', 'approved')
             ->where('tanggal_from', '<=', $to->toDateString())
             ->where('tanggal_to', '>=', $from->toDateString())
-            ->get(['user_id', 'tipe', 'tanggal_from', 'tanggal_to', 'claimed_menit']);
+            ->get(['id', 'user_id', 'tipe', 'tanggal_from', 'tanggal_to', 'claimed_menit']);
+
+        // Tanggal EKSPLISIT (att_request_hari) — dipakai Tukar Hari, yang
+        // tanggalnya bisa terpisah-pisah dan punya dua peran dalam satu
+        // pengajuan. Kalau sebuah pengajuan punya baris di sini, hanya tanggal
+        // itu yang berlaku; rentang from..to-nya diabaikan (lihat
+        // requestsForDate). Pengajuan lama tak punya baris → perilaku lama utuh.
+        $hari = [];
+        if ($rows->isNotEmpty()) {
+            foreach (DB::table('att_request_hari')
+                        ->whereIn('request_id', $rows->pluck('id')->all())
+                        ->get(['request_id', 'tanggal', 'peran']) as $h) {
+                $hari[$h->request_id][substr((string) $h->tanggal, 0, 10)] = $h->peran;
+            }
+        }
+
         $out = [];
-        foreach ($rows as $r) $out[$r->user_id][] = $r;
+        foreach ($rows as $r) {
+            $r->hari = $hari[$r->id] ?? null;   // null = pakai rentang seperti biasa
+            $out[$r->user_id][] = $r;
+        }
         return $out;
     }
 
