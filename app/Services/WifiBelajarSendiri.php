@@ -51,6 +51,15 @@ class WifiBelajarSendiri
     /** Saklar mati — sys_setting, bisa dimatikan dari halaman WiFi Cabang (§3). */
     public const KUNCI_SAKLAR = 'wifi_belajar_sendiri';
 
+    /**
+     * Siapa yang diberi tahu saat sebuah jaringan mendaftar sendiri. Harus
+     * COCOK PERSIS dengan group_name (kolom group_path.nama) — notifikasi
+     * ber-target_role tidak mengenal hierarki, "Head IT" bukan bagian dari
+     * "IT". Samakan dengan guard AbsensiBranchIpController: yang diberi tahu
+     * harus yang bisa membuka halamannya.
+     */
+    public const ROLE_PENINJAU = ['Head IT', 'IT'];
+
     // ── Vonis ────────────────────────────────────────────────────────────────
     public const DAFTAR   = 'daftar';    // empat syarat lengkap → didaftarkan
     public const TAWARKAN = 'tawarkan';  // 1-3 lengkap, /48 tak sekerabat → tanya IT
@@ -100,6 +109,18 @@ class WifiBelajarSendiri
         // Sudah dikenal (mungkin baru didaftarkan orang lain sedetik lalu) — diam.
         if (AttBranchIp::matchBranch($ip)) {
             return $tolak('sudah_cocok', $prefixTeks);
+        }
+
+        // Baris untuk prefix INI pernah ada lalu dinonaktifkan = IT sudah
+        // melihatnya dan bilang tidak. Jangan pernah menawar ulang keputusan
+        // itu, dan jangan pula mengaku "DAFTAR" padahal UNIQUE(ip) membuat
+        // penulisannya tak berefek apa-apa. Pemeriksaannya sengaja seketat
+        // teks prefix: baris berekor yang dinonaktifkan karena rotasi (mis.
+        // 2313 lama) BUKAN veto — kalau jalur itu kembali dipakai bertiga,
+        // memang sudah semestinya dikenali lagi.
+        $veto = AttBranchIp::where('ip', $prefixTeks)->where('status', 'nonaktif')->first();
+        if ($veto) {
+            return $tolak('ditolak_it', $prefixTeks);
         }
 
         // ── Syarat 1-3: siapa saja yang memakai /64 ini dalam 72 jam ──────────
@@ -196,30 +217,81 @@ class WifiBelajarSendiri
             ->orderBy('taken_at')
             ->get(['id', 'user_id', 'ip', 'branch_id_cocok', 'branch_id_manual', 'taken_at']);
 
-        $orang = [];
+        // Saring dulu yang alamat & cabang-buktinya cocok, ambil kejadian
+        // PERTAMA tiap orang. Baru sesudah itu tanya DB sekali untuk semuanya —
+        // jalur ini dilewati tiap absen yang IP-nya tak dikenal, jadi jangan
+        // menembak satu query per baris.
+        $calon = [];
         foreach ($rows as $b) {
+            if (isset($calon[$b->user_id])) {
+                continue;
+            }
             $rbin = @inet_pton((string) $b->ip);
             if ($rbin === false || strlen($rbin) !== 16 || substr($rbin, 0, 8) !== $prefix64) {
                 continue;
             }
-            if (isset($orang[$b->user_id])) {
-                continue;
-            }
-            // Bukti ini mengaku di cabang mana?
+            // Bukti ini mengaku di cabang mana? Rizka yang asalnya Bintaro tapi
+            // absen memilih Kalideres tak boleh menguatkan Bintaro.
             if (($b->branch_id_cocok ?: $b->branch_id_manual) !== $branchDipilih) {
                 continue;
             }
-            $u = \App\Models\Users::find($b->user_id);
-            if (! $u || $u->raw_branch_id !== $branchDipilih) {
-                continue;   // cabang asal beda / tak terisi
-            }
-            if ($hp->isFleksibel($b->user_id, $hp->workDate(Carbon::parse($b->taken_at)))) {
+            $calon[$b->user_id] = $hp->workDate(Carbon::parse($b->taken_at));
+        }
+
+        if (! $calon) {
+            return [[], 0];
+        }
+
+        $ids = array_keys($calon);
+
+        // Syarat 2: cabang ASAL harus cabang ini. Yang kosong (semua orang
+        // fleksibel) otomatis gugur di sini juga.
+        $namaOrang = \App\Models\Users::whereIn('id', $ids)
+            ->where('raw_branch_id', $branchDipilih)
+            ->pluck('nama', 'id');
+
+        $flex = $this->fleksibel(array_keys($namaOrang->all()));
+
+        $orang = [];
+        foreach ($namaOrang as $uid => $nama) {
+            if ($flex($uid, $calon[$uid])) {
                 continue;
             }
-            $orang[$b->user_id] = $u->nama ?: $b->user_id;
+            $orang[$uid] = $nama ?: $uid;
         }
 
         return [array_values($orang), count($orang)];
+    }
+
+    /**
+     * Pemeriksa "berjadwal fleksibel di tanggal ini", dimuat sekali untuk
+     * banyak orang. Sepadan dengan AttendanceHpAbsen::isFleksibel, tapi tanpa
+     * satu query per orang.
+     *
+     * @return callable(string,string):bool
+     */
+    private function fleksibel(array $ids): callable
+    {
+        if (! $ids) {
+            return fn ($u, $d) => false;
+        }
+
+        $aturan = \Illuminate\Support\Facades\DB::table('att_user_rule as ur')
+            ->join('att_work_rule as wr', 'wr.id', '=', 'ur.rule_id')
+            ->whereIn('ur.user_id', $ids)
+            ->where('wr.tipe', 'fleksibel')
+            ->get(['ur.user_id', 'ur.effective_from', 'ur.effective_to'])
+            ->groupBy('user_id');
+
+        return function (string $userId, string $tanggal) use ($aturan): bool {
+            foreach ($aturan->get($userId, []) as $r) {
+                if ($r->effective_from <= $tanggal
+                    && ($r->effective_to === null || $r->effective_to >= $tanggal)) {
+                    return true;
+                }
+            }
+            return false;
+        };
     }
 
     /** Cabang ini punya prefix IPv6 aktif yang /48-nya sama? */
@@ -289,13 +361,20 @@ class WifiBelajarSendiri
         // Beri tahu IT tiap kali ini terjadi (§3, sisa risiko yang diterima
         // sadar): kafe/tetangga se-/48 yang didatangi >=3 staf bisa ikut
         // terdaftar. Ongkosnya kecil, tapi harus ADA yang melihatnya.
-        AdminNotification::notifyRole('IT', 'wifi_otomatis',
-            "WiFi baru terdaftar otomatis — {$cabang}",
-            "Jaringan {$prefix} didaftarkan sendiri oleh sistem karena {$hasil['n']} orang {$cabang} "
-            . "memakainya dalam " . self::JENDELA_JAM . " jam terakhir ({$nama}), dan blok /48-nya sekerabat "
-            . "dengan jalur {$cabang} yang sudah terdaftar. Tinjau di halaman WiFi Cabang — "
-            . 'nonaktifkan kalau ini bukan jaringan cabang.',
-            'absensi/wifi');
+        //
+        // Satu baris per role, BUKAN satu baris "IT" saja: notifikasi dikirim
+        // ke target_role yang harus COCOK PERSIS dengan group_name pemakai, dan
+        // halaman WiFi Cabang dipegang dua role terpisah — "Head IT" takkan
+        // pernah melihat baris yang ditujukan ke "IT".
+        foreach (self::ROLE_PENINJAU as $role) {
+            AdminNotification::notifyRole($role, 'wifi_otomatis',
+                "WiFi baru terdaftar otomatis — {$cabang}",
+                "Jaringan {$prefix} didaftarkan sendiri oleh sistem karena {$hasil['n']} orang {$cabang} "
+                . "memakainya dalam " . self::JENDELA_JAM . " jam terakhir ({$nama}), dan blok /48-nya sekerabat "
+                . "dengan jalur {$cabang} yang sudah terdaftar. Tinjau di halaman WiFi Cabang — "
+                . 'nonaktifkan kalau ini bukan jaringan cabang.',
+                'absensi/wifi');
+        }
 
         \App\Models\AuditLog::record('create',
             "WiFi belajar sendiri: {$prefix} terdaftar otomatis ke {$cabang} "

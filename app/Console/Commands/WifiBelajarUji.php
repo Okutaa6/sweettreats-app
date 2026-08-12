@@ -242,6 +242,61 @@ class WifiBelajarUji extends Command
                     $this->wajib($j[2]['belajar']['alasan'] === 'saklar_mati', 'alasan harus saklar_mati — dapat ' . $j[2]['belajar']['alasan']);
                 },
             ],
+            [
+                'kode'  => 'K9',
+                'judul' => 'IT sudah menonaktifkan baris ini · orang bertiga datang lagi',
+                'harap' => 'TIDAK daftar ulang, dan vonisnya jujur bilang ditolak_it',
+                'baseline' => array_merge(self::BASELINE_BINTARO, [
+                    [self::BINTARO, '2001:448a:2092:10d5::', 'nonaktif'],
+                ]),
+                'saklar' => '1',
+                'events' => [
+                    ['2026-08-11 07:42:32', 'Alpajri Suhendar Al Qhusni', 'masuk', '2001:448a:2092:10d5:7614:ae78:98b6:c1f5', $b],
+                    ['2026-08-11 09:36:06', 'Firda Mareta Naskah',        'masuk', '2001:448a:2092:10d5:b0cc:8a6a:22f5:8c53', $b],
+                    ['2026-08-11 09:39:55', 'Rizka Noviyanti',            'masuk', '2001:448a:2092:10d5:f424:5430:e974:be48', $b],
+                ],
+                'periksa' => function (array $j) {
+                    $this->takAdaPendaftaran($j);
+                    foreach ($j as $i => $r) {
+                        $this->wajib($r['belajar']['alasan'] === 'ditolak_it',
+                            'kejadian ke-' . ($i + 1) . ' harus bilang ditolak_it — dapat ' . $r['belajar']['alasan']);
+                    }
+                    // Veto IT tak boleh diam-diam dihidupkan lagi.
+                    $tetapMati = AttBranchIp::where('ip', '2001:448a:2092:10d5::')->value('status');
+                    $this->wajib($tetapMati === 'nonaktif', "baris harus tetap nonaktif — dapat {$tetapMati}");
+                    // Semua orang tetap ke-flag: jaringannya memang tak diakui.
+                    $n = AttFlag::where('jenis', 'ip_asing')->where('work_date', '2026-08-11')->count();
+                    $this->wajib($n === 3, "ketiganya harus tetap ke-flag — dapat {$n}");
+                },
+            ],
+            [
+                'kode'  => 'K10',
+                'judul' => 'Notifikasi sampai ke SEMUA role peninjau, bukan cuma "IT"',
+                'harap' => 'satu baris notifikasi per role di ROLE_PENINJAU',
+                'baseline' => self::BASELINE_BINTARO,
+                'saklar' => '1',
+                'events' => [
+                    ['2026-08-11 07:42:32', 'Alpajri Suhendar Al Qhusni', 'masuk', '2001:448a:2092:10d5:7614:ae78:98b6:c1f5', $b],
+                    ['2026-08-11 09:36:06', 'Firda Mareta Naskah',        'masuk', '2001:448a:2092:10d5:b0cc:8a6a:22f5:8c53', $b],
+                    ['2026-08-11 09:39:55', 'Rizka Noviyanti',            'masuk', '2001:448a:2092:10d5:f424:5430:e974:be48', $b],
+                ],
+                'periksa' => function (array $j) {
+                    $this->wajib($j[2]['belajar']['vonis'] === WifiBelajarSendiri::DAFTAR, 'prasyarat: harus mendaftar dulu');
+
+                    $sasaran = DB::table('admin_notification')->where('type', 'wifi_otomatis')
+                        ->pluck('target_role')->sort()->values()->all();
+                    $harap = collect(WifiBelajarSendiri::ROLE_PENINJAU)->sort()->values()->all();
+                    $this->wajib($sasaran === $harap,
+                        'notifikasi harus ke [' . implode(', ', $harap) . '] — dapat [' . implode(', ', $sasaran) . ']');
+
+                    // Role penerima harus benar-benar ada; salah ketik = notif
+                    // yang tak pernah dibaca siapa pun, dan itu tak kelihatan.
+                    foreach (WifiBelajarSendiri::ROLE_PENINJAU as $role) {
+                        $ada = DB::table('group_path')->where('nama', $role)->exists();
+                        $this->wajib($ada, "role \"{$role}\" tak ada di group_path — notifikasinya takkan pernah terbaca");
+                    }
+                },
+            ],
         ];
     }
 
@@ -302,6 +357,9 @@ class WifiBelajarUji extends Command
             AttHpBukti::whereIn('id', $buktiIds)->delete();
             AttScan::where('source', 'mobile')->whereBetween('scanned_at', [$dari, $sampai])->delete();
             AttBranchIp::query()->delete();
+            // Kalau tidak, notifikasi kasus sebelumnya menumpuk dan K10 menghitung
+            // sasaran dari kejadian yang bukan miliknya.
+            DB::table('admin_notification')->where('type', 'wifi_otomatis')->delete();
         });
     }
 
@@ -342,13 +400,15 @@ class WifiBelajarUji extends Command
 
     private function pasangBaseline(array $rows): void
     {
-        foreach ($rows as [$branch, $ip]) {
+        foreach ($rows as $r) {
             AttBranchIp::create([
-                'raw_branch_id' => $branch,
-                'ip'            => $ip,
+                'raw_branch_id' => $r[0],
+                'ip'            => $r[1],
                 'label'         => 'baseline uji',
-                'status'        => 'aktif',
-                'sumber'        => 'manual',
+                'status'        => $r[2] ?? 'aktif',
+                // Baris nonaktif di baseline mewakili "IT sudah meninjau lalu
+                // menolak", jadi sumbernya memang otomatis.
+                'sumber'        => ($r[2] ?? 'aktif') === 'nonaktif' ? 'otomatis' : 'manual',
             ]);
         }
     }
@@ -371,7 +431,9 @@ class WifiBelajarUji extends Command
     /** Tak boleh ada baris otomatis yang lahir sepanjang kasus ini. */
     private function takAdaPendaftaran(array $jejak): void
     {
-        $n = AttBranchIp::where('sumber', 'otomatis')->count();
+        // AKTIF saja: baris otomatis yang sudah dinonaktifkan IT (baseline K9)
+        // memang boleh ada — yang dilarang adalah jalur baru yang hidup.
+        $n = AttBranchIp::where('sumber', 'otomatis')->where('status', 'aktif')->count();
         $this->wajib($n === 0, "tidak boleh ada pendaftaran otomatis — lahir {$n} baris");
 
         foreach ($jejak as $i => $r) {

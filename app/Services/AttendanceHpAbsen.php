@@ -94,23 +94,6 @@ class AttendanceHpAbsen
                 $match->forceFill(['last_seen_at' => $now])->save();
             }
 
-            // ── WiFi belajar sendiri ─────────────────────────────────────────
-            // Prefix IPv6 IndiHome berputar mingguan; tiap rotasi seisi cabang
-            // ke-flag sampai ada manusia yang mendaftarkan nomor barunya. Kalau
-            // orang ini ternyata yang KETIGA memakai jaringan tak dikenal yang
-            // sama, jaringannya didaftarkan di sini juga — supaya rekan yang
-            // datang sesudahnya langsung cocok dan tak ikut ke-flag.
-            //
-            // Sengaja SESUDAH bukti ditulis (dia ikut dihitung sebagai orang
-            // ketiga) tapi SEBELUM flag dinilai — walau $match TIDAK dihitung
-            // ulang: yang bersangkutan tetap ke-flag. Tiga orang pertama memang
-            // menanggung flag; itu harga bukti yang mereka kumpulkan, dan
-            // gampang ditutup borongan di Pengawasan.
-            $belajar = null;
-            if (! $match && $branchManual) {
-                $belajar = (new WifiBelajarSendiri())->pelajari($ip, $branchManual, $now);
-            }
-
             $flags = $fleksibel ? [] : $this->evaluasiFlags($userId, $jenis, $workDate, $now, $bukti, $device);
 
             return [
@@ -121,9 +104,32 @@ class AttendanceHpAbsen
                 'cocok'     => (bool) $match,
                 'fleksibel' => $fleksibel,
                 'flags'     => $flags,
-                'belajar'   => $belajar,
+                'belajar'   => null,
             ];
         });
+
+        // ── WiFi belajar sendiri ─────────────────────────────────────────────
+        // Prefix IPv6 IndiHome berputar mingguan; tiap rotasi seisi cabang
+        // ke-flag sampai ada manusia yang mendaftarkan nomor barunya. Kalau
+        // orang ini ternyata yang KETIGA memakai jaringan tak dikenal yang sama,
+        // jaringannya didaftarkan sekarang juga — supaya rekan yang datang
+        // sesudahnya langsung cocok dan tak ikut ke-flag.
+        //
+        // SESUDAH transaksi absen ditutup, bukan di dalamnya. Sebabnya:
+        // pelajari() sengaja menelan galat supaya absen tak pernah gagal karena
+        // fitur kenyamanan — tapi menelan QueryException di dalam transaksi yang
+        // masih terbuka itu jebakan. Deadlock/lock-timeout di InnoDB membatalkan
+        // SELURUH transaksi, sehingga penulisan berikutnya (flag) ikut gagal dan
+        // absennya jatuh — persis yang mau dihindari. Di luar transaksi, kegagalan
+        // terburuknya cuma "jaringan belum dipelajari", dan itu memang boleh.
+        //
+        // Bukti orang ini sudah ter-commit, jadi dia tetap ikut dihitung sebagai
+        // orang ketiga. $match TIDAK dihitung ulang: yang bersangkutan tetap
+        // ke-flag. Tiga orang pertama memang menanggung flag; itu harga bukti
+        // yang mereka kumpulkan, dan gampang ditutup borongan di Pengawasan.
+        if (! $match && $branchManual) {
+            $result['belajar'] = (new WifiBelajarSendiri())->pelajari($ip, $branchManual, $now);
+        }
 
         return $result;
     }
