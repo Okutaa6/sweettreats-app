@@ -66,6 +66,15 @@ class WifiBelajarUji extends Command
             return 1;
         }
 
+        // Jendela ujinya tumpang tindih dengan HARI INI. Kalau ada yang baru saja
+        // mencoba absen dari HP di lingkungan ini, datanya ikut terhapus — dan
+        // itu bukan hal yang boleh terjadi diam-diam.
+        $bukti = AttHpBukti::whereBetween('taken_at', ['2026-08-05 00:00:00', '2026-08-14 00:00:00'])->count();
+        if ($bukti > 0) {
+            $this->warn("PERHATIAN: {$bukti} bukti absen 5–13 Agu di lingkungan ini akan DIHAPUS "
+                . '(tiap kasus butuh baseline bersih). Batalkan dengan Ctrl-C kalau itu data percobaanmu.');
+        }
+
         $this->petakanUser();
 
         $kasus = collect($this->kasus());

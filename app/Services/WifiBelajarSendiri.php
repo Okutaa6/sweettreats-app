@@ -118,8 +118,7 @@ class WifiBelajarSendiri
         // teks prefix: baris berekor yang dinonaktifkan karena rotasi (mis.
         // 2313 lama) BUKAN veto — kalau jalur itu kembali dipakai bertiga,
         // memang sudah semestinya dikenali lagi.
-        $veto = AttBranchIp::where('ip', $prefixTeks)->where('status', 'nonaktif')->first();
-        if ($veto) {
+        if (AttBranchIp::where('ip', $prefixTeks)->where('status', 'nonaktif')->exists()) {
             return $tolak('ditolak_it', $prefixTeks);
         }
 
