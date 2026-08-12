@@ -98,6 +98,12 @@
                                 <div class="invalid-feedback">{{ $errors->first('raw_customer_id') }}</div>
                             @endif
                             <small class="text-muted rrf-hint">1 nomor bisa punya banyak pasien (mis. anak / pasangan).</small>
+                            {{-- Pasien betul-betul BARU (nomor baru) → buka side-drawer #rrPatientDrawer
+                                 (markup + handler di list.blade.php). Beda dari "di nomor ini" di bawah
+                                 yang reuse nomor pasien terpilih. Drawer reservasi tetap utuh. --}}
+                            <button type="button" class="qp-trigger qp-trigger--newpatient" id="rrAddPatientBtn">
+                                <i class="fa fa-user-plus"></i> Tambah Pasien Baru
+                            </button>
                         </div>
                         <div class="rrf-col">
                             <label class="rrf-lbl">Dokter</label>

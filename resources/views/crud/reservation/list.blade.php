@@ -879,6 +879,87 @@
         </div>
     </aside>
 </div>
+
+{{-- ════════ Patient Drawer (Tambah Pasien Baru) — statis, tumpuk DI ATAS Form Drawer ════════
+     Dibuka dari tombol #rrAddPatientBtn di dalam form reservasi. Simpan via AJAX ke
+     rawreservation.quickpatient → inject ke #customerSelect → drawer reservasi tetap utuh.
+     Handler open/close/save: blok JS di bawah (bind sekali saat page load). --}}
+<div id="rrPatientDrawer" class="rr-drawer rr-drawer--patient" aria-hidden="true">
+    <div class="rr-drawer__scrim" data-rrpatient-close></div>
+    <aside class="rr-drawer__panel" role="dialog" aria-label="Tambah Pasien Baru">
+        <div class="rr-drawer__head">
+            <button type="button" class="rr-drawer__close" data-rrpatient-close aria-label="Tutup">&times;</button>
+            <div class="rr-drawer__eyebrow">PASIEN</div>
+            <h3 class="rr-drawer__name">Tambah Pasien Baru</h3>
+        </div>
+        <div class="rr-drawer__body">
+            <div class="rrf">
+                <section class="rrf-sec">
+                    <div class="rrf-sec__title"><span class="rrf-sec__bar"></span>Data Pasien</div>
+                    <div class="row">
+                        <div class="col-md-8 form-group">
+                            <label class="rrf-lbl">Nama Pasien <span class="qp-req">*</span></label>
+                            <input type="text" id="rrpName" class="form-control" placeholder="Nama lengkap pasien">
+                        </div>
+                        <div class="col-md-4 form-group">
+                            <label class="rrf-lbl">No. HP <span class="qp-req">*</span></label>
+                            <input type="text" id="rrpPhone" class="form-control" placeholder="08xxxxxxxxxx">
+                        </div>
+                        <div class="col-md-4 form-group">
+                            <label class="rrf-lbl">Jenis Kelamin</label>
+                            <select id="rrpJk" class="form-control">
+                                <option value="">- Pilih -</option>
+                                <option value="L">Laki-laki</option>
+                                <option value="P">Perempuan</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4 form-group">
+                            <label class="rrf-lbl">Tanggal Lahir</label>
+                            <input type="text" id="rrpTgl" class="form-control" placeholder="Pilih tanggal" readonly>
+                        </div>
+                        <div class="col-md-4 form-group">
+                            <label class="rrf-lbl">Pasien ini adalah</label>
+                            <select id="rrpRelasi" class="form-control">
+                                <option value="diri_sendiri" selected>Diri sendiri</option>
+                                <option value="pasangan">Pasangan</option>
+                                <option value="anak">Anak</option>
+                                <option value="orang_tua">Orang tua</option>
+                                <option value="lainnya">Lainnya</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 form-group">
+                            <label class="rrf-lbl">Email <span class="qp-opt">(opsional)</span></label>
+                            <input type="email" id="rrpEmail" class="form-control" placeholder="email@contoh.com">
+                        </div>
+                        <div class="col-md-6 form-group">
+                            <label class="rrf-lbl">NIK <span class="qp-opt">(opsional)</span></label>
+                            <input type="text" id="rrpNik" class="form-control" placeholder="16 digit NIK" maxlength="20">
+                        </div>
+                        <div class="col-md-6 form-group">
+                            <label class="rrf-lbl">Tempat Lahir <span class="qp-opt">(opsional)</span></label>
+                            <input type="text" id="rrpTempat" class="form-control" placeholder="Kota kelahiran">
+                        </div>
+                        <div class="col-md-6 form-group">
+                            <label class="rrf-lbl">Referensi <span class="qp-opt">(opsional)</span></label>
+                            <input type="text" id="rrpSource" class="form-control" placeholder="Contoh: Instagram, Teman, Walk-in">
+                        </div>
+                        <div class="col-md-12 form-group">
+                            <label class="rrf-lbl">Alamat <span class="qp-opt">(opsional)</span></label>
+                            <textarea id="rrpAlamat" class="form-control" rows="2" placeholder="Alamat pasien..."></textarea>
+                        </div>
+                    </div>
+                    <div id="rrpStatus" class="qp-status"></div>
+                </section>
+            </div>
+        </div>
+        <div class="rr-drawer__foot">
+            <button type="button" class="st-btn-ghost" data-rrpatient-close>Batal</button>
+            <button type="button" id="rrpSaveBtn" class="st-btn-brand">
+                <i class="fa fa-check"></i> Simpan &amp; Pilih Pasien
+            </button>
+        </div>
+    </aside>
+</div>
 @endif
 
 {{-- ════════ Day Drawer (Jadwal Harian) — kalender: klik hari → list reservasi ════════
@@ -1688,8 +1769,84 @@ document.querySelectorAll('.st-status-select').forEach(function (sel) {
 
     $(document).on('click', '[data-rrform-close]', rrFormClose);
     $(document).on('keydown', function (e) {
-        if (e.key === 'Escape' && $fd.hasClass('is-open')) rrFormClose();
+        // Escape menutup Form Drawer HANYA jika Patient Drawer tidak sedang terbuka
+        // (patient drawer tumpuk di atas → dia yang menangkap Escape lebih dulu).
+        if (e.key === 'Escape' && $fd.hasClass('is-open') && !$('#rrPatientDrawer').hasClass('is-open')) rrFormClose();
     });
+
+    // ════════ Patient Drawer (Tambah Pasien Baru) ════════
+    // Statis di DOM (tidak ikut di-inject) → handler bind SEKALI di sini, anti double-bind.
+    (function initPatientDrawer() {
+        var $pd = $('#rrPatientDrawer');
+        if (!$pd.length) return; // view-only: drawer tidak dirender
+
+        // flatpickr tanggal lahir (maks hari ini).
+        if (window.flatpickr) {
+            flatpickr('#rrpTgl', { dateFormat: 'Y-m-d', altInput: true, altFormat: 'd M Y', maxDate: 'today', disableMobile: true });
+        }
+
+        function pdReset() {
+            $('#rrpName,#rrpPhone,#rrpEmail,#rrpNik,#rrpTempat,#rrpSource,#rrpAlamat').val('');
+            $('#rrpJk').val(''); $('#rrpRelasi').val('diri_sendiri');
+            if ($('#rrpTgl')[0] && $('#rrpTgl')[0]._flatpickr) $('#rrpTgl')[0]._flatpickr.clear();
+            $('#rrpStatus').empty();
+        }
+        function pdClose() { $pd.removeClass('is-open').attr('aria-hidden', 'true'); }
+        function pdOpen() {
+            pdReset();
+            // Pre-fill No.HP dari pasien yang sudah terpilih (kasus 1 nomor banyak pasien: anak/pasangan).
+            var text = $('#customerSelect option:selected').text() || '';
+            var m = text.match(/\(([^)]+)\)\s*$/);
+            var phone = m ? m[1].trim() : '';
+            if (phone && phone !== '-') $('#rrpPhone').val(phone);
+            $pd.addClass('is-open').attr('aria-hidden', 'false');
+            setTimeout(function () { $('#rrpName').focus(); }, 60);
+        }
+
+        // Tombol pemicu ada di dalam form yang di-inject → delegated.
+        $(document).on('click', '#rrAddPatientBtn', function (e) { e.preventDefault(); pdOpen(); });
+        $pd.on('click', '[data-rrpatient-close]', pdClose);
+        // Escape: tutup patient drawer dulu (didahulukan sebelum form drawer via guard di atas).
+        $(document).on('keydown', function (e) { if (e.key === 'Escape' && $pd.hasClass('is-open')) pdClose(); });
+
+        $('#rrpSaveBtn').on('click', function () {
+            var $btn = $(this);
+            var payload = {
+                _token:           $('#rrReservationForm input[name=_token]').first().val(),
+                name:             ($('#rrpName').val() || '').trim(),
+                phone:            ($('#rrpPhone').val() || '').trim(),
+                email:            ($('#rrpEmail').val() || '').trim(),
+                jenis_kelamin:    $('#rrpJk').val(),
+                tanggal_lahir:    ($('#rrpTgl').val() || '').trim(),
+                relasi:           $('#rrpRelasi').val(),
+                nik:              ($('#rrpNik').val() || '').trim(),
+                tempat_lahir:     ($('#rrpTempat').val() || '').trim(),
+                source_app:       ($('#rrpSource').val() || '').trim(),
+                alamat:           ($('#rrpAlamat').val() || '').trim(),
+                pasien_baru_lama: 'baru'
+            };
+            if (!payload.name)  { $('#rrpStatus').html('<span class="qp-msg qp-err">Nama pasien wajib diisi.</span>'); return; }
+            if (!payload.phone) { $('#rrpStatus').html('<span class="qp-msg qp-err">No. HP wajib diisi.</span>'); return; }
+
+            var url = (window.rrFormConfig && window.rrFormConfig.quickPatientUrl) || '{{ route("rawreservation.quickpatient") }}';
+            var html = $btn.html();
+            $btn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Menyimpan...');
+            $.post(url, payload, function (res) {
+                var opt = new Option(res.text, res.id, true, true);
+                $('#customerSelect').append(opt).trigger('change');
+                $('#rrpStatus').html('<span class="qp-msg qp-ok"><i class="fa fa-check-circle"></i> Pasien ditambahkan &amp; dipilih.</span>');
+                setTimeout(pdClose, 700);
+            }).fail(function (xhr) {
+                var msg = 'Gagal menyimpan pasien.';
+                if (xhr.responseJSON && xhr.responseJSON.errors) {
+                    msg = Object.values(xhr.responseJSON.errors).map(function (a) { return a[0]; }).join(' ');
+                }
+                $('#rrpStatus').html('<span class="qp-msg qp-err">' + msg + '</span>');
+            }).always(function () {
+                $btn.prop('disabled', false).html(html);
+            });
+        });
+    })();
 
     // Tombol "Tambah" → buka form drawer (mode add). preventDefault → tidak navigasi.
     // Kalau JS mati, <a href> tetap fallback ke halaman /rawreservation/new.

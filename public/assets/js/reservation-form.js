@@ -376,6 +376,9 @@ window.initReservationForm = function () {
         if (lbl) lbl.textContent = on ? 'Masukkan ke Waiting List' : 'Simpan Reservasi';
         const icon = document.querySelector('#submitReservationBtn i');
         if (icon) icon.className = on ? 'fa fa-hourglass-half' : 'fa fa-save';
+        // Waiting list → tanggal boleh dikosongkan (server: nullable saat is_waiting=1).
+        const dateInput = document.getElementById('datePickerReschedule');
+        if (dateInput) dateInput.placeholder = on ? 'Opsional untuk waiting list…' : 'Pilih tanggal...';
     }
 
     function refreshWaitingState(isFull) {
@@ -724,6 +727,8 @@ window.initReservationForm = function () {
     });
 
     // ===== QUICK ADD PASIEN DI NOMOR INI =====
+    // Kartu inline untuk menambah pasien LAIN di nomor yang sama (anak/pasangan).
+    // Beda dari tombol "Tambah Pasien Baru" (#rrAddPatientBtn) → side-drawer di list.blade.php.
     flatpickr('#qpTgl', {
         dateFormat: 'Y-m-d', altInput: true, altFormat: 'd M Y',
         maxDate: 'today', disableMobile: true

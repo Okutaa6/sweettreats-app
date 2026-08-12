@@ -59,7 +59,7 @@
                     'branch'         => $branches->isNotEmpty() ? $branchId : null,
                     'start_date'     => $startDate,
                     'end_date'       => $endDate,
-                    'category'       => $category,
+                    'categories'     => $categories,
                     'q'              => $search,
                     'fund_source_id' => ($fundSourceId ?? 0) ?: null,
                ])) }}"
@@ -123,7 +123,7 @@
         'monthStartStr'   => $monthStartStr,
         'monthEndStr'     => $monthEndStr,
         'search'          => $search,
-        'category'        => $category,
+        'categories'      => $categories,
         'categoryOptions' => $categoryOptions,
         'fundSources'     => $fundSources,
         'fundSourceId'    => $fundSourceId ?? 0,
@@ -136,6 +136,51 @@
         'bulanLabel'      => $bulanLabel,
     ])
 
+    {{-- ─── STRIP FILTER KATEGORI AKTIF ───
+         Muncul saat sebuah kategori difilter — bikin nominal asli kategori
+         itu langsung kelihatan, tanpa ikut mengubah kartu saldo di atas. --}}
+    @if(! empty($summary['filter_categories']))
+        @php $isPinjamanFilter = in_array('pinjaman', $summary['filter_categories'], true); @endphp
+        <div class="pc-filter-active {{ $isPinjamanFilter ? 'pc-filter-active--piutang' : '' }}">
+            <span class="pc-filter-active__icon" aria-hidden="true">
+                <i class="fa {{ $isPinjamanFilter ? 'fa-hand-holding-usd' : 'fa-filter' }}"></i>
+            </span>
+            <div class="pc-filter-active__text">
+                Menampilkan kategori
+                <strong>{{ implode(', ', $summary['filter_categories_labels']) }}</strong>
+                &middot; {{ (int) ($summary['filter_category_count'] ?? 0) }} transaksi
+                &middot; Total <strong>{{ $rupiah($summary['filter_category_total'] ?? 0) }}</strong>
+                @if($isPinjamanFilter)
+                    <span class="pc-filter-active__note">
+                        Pinjaman = piutang: uang ini harus dikembalikan ke petty cash &mdash;
+                        lihat <strong>Saldo sesungguhnya</strong> di kartu wallet terkait.
+                    </span>
+                @endif
+            </div>
+            <a href="{{ route('pettycash', array_filter([
+                    'tab'            => $kind,
+                    'branch'         => $branches->isNotEmpty() ? $branchId : null,
+                    'start_date'     => $startDate,
+                    'end_date'       => $endDate,
+                    'q'              => $search ?: null,
+                    'fund_source_id' => ($fundSourceId ?? 0) ?: null,
+                ])) }}" class="pc-filter-active__clear" title="Hapus filter kategori">
+                <i class="fa fa-times"></i> Semua kategori
+            </a>
+        </div>
+        <style>
+            .pc-filter-active{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:#eff6ff;border:1px solid #bfdbfe;border-left:4px solid #2563eb;color:#1e3a8a;padding:10px 14px;border-radius:8px;margin:0 0 14px;font-size:13.5px;line-height:1.5;}
+            .pc-filter-active--piutang{background:#fffbeb;border-color:#fde68a;border-left-color:#d97706;color:#78350f;}
+            .pc-filter-active__icon{flex-shrink:0;width:28px;height:28px;border-radius:7px;display:inline-flex;align-items:center;justify-content:center;background:#dbeafe;color:#1d4ed8;}
+            .pc-filter-active--piutang .pc-filter-active__icon{background:#fef3c7;color:#b45309;}
+            .pc-filter-active__text{flex:1;min-width:200px;}
+            .pc-filter-active__text strong{font-weight:700;}
+            .pc-filter-active__note{display:block;margin-top:3px;font-size:12px;opacity:.9;}
+            .pc-filter-active__clear{flex-shrink:0;display:inline-flex;align-items:center;gap:5px;padding:5px 12px;background:#fff;border:1px solid #cbd5e1;border-radius:999px;color:#334155;text-decoration:none;font-size:12.5px;font-weight:600;transition:background .15s,border-color .15s;}
+            .pc-filter-active__clear:hover{background:#f1f5f9;border-color:#94a3b8;}
+        </style>
+    @endif
+
     {{-- ─── TABLE — split jadi 2 sub-tab ─── --}}
     @php
         // Klasifikasi "setor cash langsung": cash IN tapi BUKAN top up &
@@ -143,7 +188,10 @@
         // Dipindahkan ke tab Mutasi supaya tab utama Pengeluaran cuma
         // berisi Top Up + Pengeluaran murni.
         $isSetorCash = function ($r) {
-            return ! $r->is_transfer && ! $r->is_topup && (float) $r->cash_in > 0;
+            // Pengembalian pinjaman (kas masuk kategori 'pinjaman') tetap di
+            // tab Pengeluaran bareng baris pinjamannya, bukan di Mutasi.
+            return ! $r->is_transfer && ! $r->is_topup && (float) $r->cash_in > 0
+                && ($r->category ?? null) !== 'pinjaman';
         };
 
         // Pisahkan transaksi:
@@ -155,6 +203,20 @@
         $rowsTransfer = collect($rows)
             ->filter(fn($r) => $r->is_transfer || $isSetorCash($r))
             ->values();
+
+        // Footer "Total" tab Pengeluaran: kalau ada filter aktif (kategori,
+        // cari, wallet, atau rentang tanggal dipersempit), total cash in/out
+        // harus mengikuti baris yang tampil — bukan total sebulan penuh
+        // ($summary) — supaya angka footer tidak menyesatkan. Saldo tetap
+        // saldo akhir sesungguhnya (posisi kas terkini, apa pun filternya).
+        $pcFilterActive = ! empty($categories)
+            || $search !== ''
+            || (int) ($fundSourceId ?? 0) > 0
+            || $startDate !== $monthStartStr
+            || $endDate   !== $monthEndStr;
+        $regFootIn    = $pcFilterActive ? $rowsRegular->sum('cash_in')  : $summary['total_in'];
+        $regFootOut   = $pcFilterActive ? $rowsRegular->sum('cash_out') : $summary['total_out'];
+        $regFootLabel = $pcFilterActive ? 'Total hasil filter' : 'Total bulan ini';
 
         $tableHasAnySource = collect($sourceBalances ?? [])->contains(function ($sb) {
             return abs((float) ($sb->balance ?? 0)) > 0.005
@@ -253,10 +315,15 @@
                     @if($rowsRegular->count() > 0)
                         <tfoot>
                             <tr class="pc-row-total">
-                                <td colspan="3"><strong>Total bulan ini</strong></td>
-                                <td class="text-right pc-cash-in">{{ number_format($summary['total_in'], 0, ',', '.') }}</td>
-                                <td class="text-right pc-cash-out">{{ number_format($summary['total_out'], 0, ',', '.') }}</td>
-                                <td class="text-right pc-saldo-cell"><strong>{{ number_format($summary['closing'], 0, ',', '.') }}</strong></td>
+                                <td colspan="3"><strong>{{ $regFootLabel }}</strong></td>
+                                <td class="text-right pc-cash-in">{{ number_format($regFootIn, 0, ',', '.') }}</td>
+                                <td class="text-right pc-cash-out">{{ number_format($regFootOut, 0, ',', '.') }}</td>
+                                <td class="text-right pc-saldo-cell">
+                                    <strong>{{ number_format($summary['closing'], 0, ',', '.') }}</strong>
+                                    @if($pcFilterActive)
+                                        <span class="pc-foot-hint">saldo akhir</span>
+                                    @endif
+                                </td>
                                 @if($showTrxActions)<td></td>@endif
                             </tr>
                         </tfoot>
@@ -412,6 +479,12 @@
     @include('crud.pettycash.modal-edit-expense', [
         'period' => $period,
         'kind'   => $kind,
+    ])
+    @include('crud.pettycash.modal-loan-return', [
+        'period'         => $period,
+        'kind'           => $kind,
+        'sourceBalances' => $sourceBalances ?? [],
+        'rupiah'         => $rupiah,
     ])
 
     {{-- Modal Ajukan Top Up — Sales selalu, admin saat buka cabang spesifik --}}
@@ -1371,6 +1444,48 @@
             });
         });
     })();
+})();
+</script>
+
+<script>
+// Modal "Catat Pengembalian Pinjaman": preselect wallet dari tombol kartu,
+// tampilkan batas maksimal (= piutang wallet), dan cap nominal ke maksimal.
+(function () {
+    var modal = document.getElementById('pcModalLoanReturn');
+    if (!modal) return;
+    var sel     = modal.querySelector('[data-pc-loan-source]');
+    var maxHint = modal.querySelector('[data-pc-loan-max]');
+    var amtVis  = modal.querySelector('.pc-amount-input[data-target="loanReturnAmount"]');
+    var amtHid  = document.getElementById('loanReturnAmount');
+
+    function currentMax() {
+        if (!sel) return 0;
+        var opt = sel.options[sel.selectedIndex];
+        return opt ? Math.round(parseFloat(opt.dataset.piutang || '0')) : 0;
+    }
+    function refreshHint() {
+        if (maxHint) maxHint.textContent = 'Maksimal Rp ' + currentMax().toLocaleString('id-ID');
+    }
+    function capAmount() {
+        if (!amtVis) return;
+        var max = currentMax();
+        var raw = parseInt((amtVis.value || '').replace(/\D/g, ''), 10) || 0;
+        if (max > 0 && raw > max) raw = max;
+        amtVis.value = raw ? raw.toLocaleString('id-ID') : '';
+        if (amtHid) amtHid.value = raw || '';
+    }
+    if (sel)    sel.addEventListener('change', function () { refreshHint(); capAmount(); });
+    if (amtVis) amtVis.addEventListener('input', capAmount);
+    refreshHint();
+
+    // Tombol "Catat Pengembalian" di kartu wallet → preselect wallet itu.
+    document.querySelectorAll('[data-loan-source]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            if (sel) { sel.value = btn.dataset.loanSource; refreshHint(); }
+            if (amtVis) amtVis.value = '';
+            if (amtHid) amtHid.value = '';
+        });
+    });
 })();
 </script>
 @endsection

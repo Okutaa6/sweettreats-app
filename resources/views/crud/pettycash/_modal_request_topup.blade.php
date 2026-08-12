@@ -230,6 +230,14 @@
 #pcModalRequestTopup .rtu-toggle input { margin-top: 2px; width: 18px; height: 18px; accent-color: #6B2400; flex-shrink: 0; }
 #pcModalRequestTopup .rtu-toggle b { display: block; color: #3B1500; font-size: 14px; }
 #pcModalRequestTopup .rtu-toggle .rtu-hint { margin-top: 2px; }
+/* Dicentang → wrapper jadi merah (penanda flag darurat aktif). */
+#pcModalRequestTopup .rtu-toggle:has(input:checked) {
+    border-color: #dc2626;
+    background: #fef2f2;
+}
+#pcModalRequestTopup .rtu-toggle:has(input:checked) input { accent-color: #dc2626; }
+#pcModalRequestTopup .rtu-toggle:has(input:checked) b { color: #b91c1c; }
+#pcModalRequestTopup .rtu-toggle:has(input:checked) .rtu-hint { color: #dc2626; }
 </style>
 
 <script>

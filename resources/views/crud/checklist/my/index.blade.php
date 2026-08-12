@@ -926,8 +926,10 @@
                     @media (max-width:560px){ .cl-dn__nav { padding:7px 10px; font-size:11.5px; } }
                 </style>
 
-                {{-- ═══ TANGGAL LAMPAU BELUM DIBUKA: panel read-only + minta buka ═══ --}}
-                @if(! ($isToday ?? true) && ! ($isReopen ?? false))
+                {{-- ═══ HARI LIBUR (Senin) atau TANGGAL LAMPAU BELUM DIBUKA: panel
+                     read-only. Hari libur (termasuk hari ini kalau Senin) tampilkan
+                     info "Libur", tak ada checkbox checklist. ═══ --}}
+                @if(($isClosedDay ?? false) || (! ($isToday ?? true) && ! ($isReopen ?? false)))
                     @php
                         $lockedStatusText  = $submission ? (\App\Models\ChecklistSubmission::statusOptions()[$submission->status]['label'] ?? $submission->status) : 'Tidak Diisi';
                         $lockedStatusColor = $submission ? (\App\Models\ChecklistSubmission::statusOptions()[$submission->status]['color'] ?? 'slate') : 'slate';

@@ -4232,6 +4232,16 @@
 }
 
 .pc-row-total td { font-weight: 800; }
+/* Hint kecil di footer saat filter aktif: tegaskan angka saldo = saldo akhir
+   sesungguhnya, bukan hasil penjumlahan baris yang tampil. */
+.pc-foot-hint {
+    display: block;
+    margin-top: 1px;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: none;
+}
 
 .pc-pill-topup {
     display: inline-block;
@@ -4272,6 +4282,17 @@
     letter-spacing: 0.4px;
     border: 1px solid #e7d4c0;
 }
+/* Warna per kategori — biar mudah dibedakan sekilas di tabel. Tiap kategori
+   punya rona sendiri (bg lembut + teks & border senada). Base di atas jadi
+   fallback untuk kategori yang belum punya warna khusus. */
+.pc-pill-category--makan       { background: #ffedd5; color: #9a3412; border-color: #fed7aa; } /* Konsumsi — oranye */
+.pc-pill-category--transport   { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; } /* Transport — biru */
+.pc-pill-category--bensin      { background: #dcfce7; color: #166534; border-color: #bbf7d0; } /* Bensin — hijau */
+.pc-pill-category--operasional { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; } /* Operasional — ungu */
+.pc-pill-category--pinjaman    { background: #ffe4e6; color: #9f1239; border-color: #fecdd3; } /* Pinjaman — rose */
+.pc-pill-category--server      { background: #cffafe; color: #155e75; border-color: #a5f3fc; } /* Server — cyan */
+.pc-pill-category--prv         { background: #e2e8f0; color: #334155; border-color: #cbd5e1; } /* PRV — slate */
+.pc-pill-category--lunas       { background: #dcfce7; color: #15803d; border-color: #bbf7d0; } /* Pinjaman Lunas — hijau (uang kembali) */
 .pc-row-actions {
     display: inline-flex;
     align-items: center;

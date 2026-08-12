@@ -512,6 +512,15 @@
 .rop-toggle b { display: block; font-size: 14.5px; font-weight: 700; color: var(--rop-ink); }
 .rop-toggle span { color: var(--rop-muted); }
 .rop-toggle .rop-hint { margin: 2px 0 0; }
+/* Dicentang → wrapper jadi merah (penanda flag darurat aktif). */
+.rop-toggle:has(input:checked) {
+    border-color: #dc2626;
+    background: #fef2f2;
+}
+.rop-toggle:has(input:checked) input { accent-color: #dc2626; }
+.rop-toggle:has(input:checked) b,
+.rop-toggle:has(input:checked) span,
+.rop-toggle:has(input:checked) .rop-hint { color: #dc2626; }
 
 /* Pratinjau lampiran. */
 .rop-thumb {

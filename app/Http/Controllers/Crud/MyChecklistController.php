@@ -91,15 +91,20 @@ class MyChecklistController extends Controller
         }
         $isToday = $viewDate->isSameDay($today);
 
+        // Senin = klinik tutup → tak ada checklist harian (konsisten dgn logika
+        // "Tidak Diisi" di dashboard atasan). Berlaku untuk hari ini MAUPUN tgl
+        // lampau: kalau hari yang ditampilkan Senin, tampilkan info libur.
+        $isClosedDay = $viewDate->dayOfWeekIso === 1;
+
         // Grant "buka kembali" aktif (disetujui & belum dipakai) untuk tgl lampau.
         $reopenGrant = $isToday ? null : ChecklistReopenRequest::activeDailyGrant(session('id'), $viewDate);
         $isReopen    = ! $isToday && $reopenGrant !== null;   // lampau + boleh diisi
 
         // Submission: buat/isi HANYA untuk hari ini atau tanggal lampau yang sudah
-        // dibuka. Tanggal lampau tanpa grant → ambil baris yang sudah ada saja
-        // (read-only); JANGAN buat baris baru supaya status "Tidak Diisi" tetap
-        // akurat di monitoring supervisor.
-        if ($isToday || $isReopen) {
+        // dibuka — DAN bukan hari libur (Senin). Tanggal lampau tanpa grant /
+        // hari libur → ambil baris yang sudah ada saja (read-only); JANGAN buat
+        // baris baru supaya status "Tidak Diisi" tetap akurat di monitoring.
+        if (($isToday || $isReopen) && ! $isClosedDay) {
             $submission = ChecklistSubmission::firstOrCreate(
                 ['user_id' => session('id'), 'submission_date' => $viewDate->toDateString()],
                 [
@@ -163,10 +168,6 @@ class MyChecklistController extends Controller
         $rejectedNote = ($submission && $submission->status === ChecklistSubmission::STATUS_REJECTED)
             ? $submission->review_notes
             : null;
-
-        // Senin = klinik tutup → tak ada checklist harian (konsisten dgn logika
-        // "Tidak Diisi" di dashboard atasan). Tgl lampau yang jatuh Senin dikunci.
-        $isClosedDay = ! $isToday && $viewDate->dayOfWeekIso === 1;
 
         // Navigasi tanggal (mundur maks 60 hari; lompati Senin; tak ke masa depan).
         $prevDate = $viewDate->copy()->subDay();
