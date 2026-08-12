@@ -82,6 +82,7 @@ class WifiBelajarUji extends Command
         }
 
         Carbon::setTestNow();
+        $this->pulihkan();
 
         $this->newLine();
         if ($this->gagal) {
@@ -302,6 +303,41 @@ class WifiBelajarUji extends Command
             AttScan::where('source', 'mobile')->whereBetween('scanned_at', [$dari, $sampai])->delete();
             AttBranchIp::query()->delete();
         });
+    }
+
+    /**
+     * Uji ini menghapus att_branch_ip berkali-kali (tiap kasus butuh baseline
+     * yang terkendali), jadi lingkungan tak boleh ditinggal kosong: pasang
+     * kembali jalur AKTIF yang sama dengan produksi per 12 Agu 2026, plus
+     * saklar menyala. Dengan begitu dev tetap layak dipakai mencoba manual
+     * sesudah uji, dan tak ada yang mengira daftarnya memang habis.
+     */
+    private function pulihkan(): void
+    {
+        $this->bersihkan();
+        Setting::put(WifiBelajarSendiri::KUNCI_SAKLAR, '1');
+
+        $aktif = [
+            [self::BINTARO,  '180.252.168.224',                             'Jalur A · IPv4'],
+            [self::BINTARO,  '180.252.170.180',                             'Jalur B · IPv4'],
+            [self::BINTARO,  '2001:448a:2092:10d5::',                       'Jalur A · IPv6 (rotasi 11 Agu)'],
+            [self::BINTARO,  '2001:448a:2092:2777::',                       'Jalur B · IPv6 (rotasi 11 Agu)'],
+            [self::SUNTER,   '2001:448a:2062:208c:465d:430d:3098:7584',     'Sunter'],
+            [self::SUNTER,   '180.245.81.112',                              'Sunter · IPv4'],
+            [self::PAMULANG, '2001:448a:2020:27df:527:c68d:f6d7:21e9',      'Pamulang'],
+            [self::KALIDERES,'2001:448a:90b0:ebf:1038:9c18:777b:b5c1',      'Kalideres'],
+            [self::CINERE,   '2001:448a:2033:12b8::',                       'Cinere · jalur /64'],
+        ];
+        foreach ($aktif as [$branch, $ip, $label]) {
+            AttBranchIp::create([
+                'raw_branch_id' => $branch, 'ip' => $ip,
+                'label' => $label . ' · dipulihkan att:wifi-uji',
+                'status' => 'aktif', 'sumber' => 'manual',
+            ]);
+        }
+
+        $this->newLine();
+        $this->line('<fg=gray>   daftar WiFi dipulihkan ke ' . count($aktif) . ' jalur aktif (cerminan prod 12 Agu), saklar menyala.</>');
     }
 
     private function pasangBaseline(array $rows): void
