@@ -94,6 +94,23 @@ class AttendanceHpAbsen
                 $match->forceFill(['last_seen_at' => $now])->save();
             }
 
+            // ── WiFi belajar sendiri ─────────────────────────────────────────
+            // Prefix IPv6 IndiHome berputar mingguan; tiap rotasi seisi cabang
+            // ke-flag sampai ada manusia yang mendaftarkan nomor barunya. Kalau
+            // orang ini ternyata yang KETIGA memakai jaringan tak dikenal yang
+            // sama, jaringannya didaftarkan di sini juga — supaya rekan yang
+            // datang sesudahnya langsung cocok dan tak ikut ke-flag.
+            //
+            // Sengaja SESUDAH bukti ditulis (dia ikut dihitung sebagai orang
+            // ketiga) tapi SEBELUM flag dinilai — walau $match TIDAK dihitung
+            // ulang: yang bersangkutan tetap ke-flag. Tiga orang pertama memang
+            // menanggung flag; itu harga bukti yang mereka kumpulkan, dan
+            // gampang ditutup borongan di Pengawasan.
+            $belajar = null;
+            if (! $match && $branchManual) {
+                $belajar = (new WifiBelajarSendiri())->pelajari($ip, $branchManual, $now);
+            }
+
             $flags = $fleksibel ? [] : $this->evaluasiFlags($userId, $jenis, $workDate, $now, $bukti, $device);
 
             return [
@@ -104,6 +121,7 @@ class AttendanceHpAbsen
                 'cocok'     => (bool) $match,
                 'fleksibel' => $fleksibel,
                 'flags'     => $flags,
+                'belajar'   => $belajar,
             ];
         });
 

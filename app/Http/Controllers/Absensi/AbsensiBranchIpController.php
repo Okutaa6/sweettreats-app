@@ -38,7 +38,32 @@ class AbsensiBranchIpController extends Controller
             ->get();
         $branches = RawBranch::orderBy('name')->get(['id', 'name']);
 
-        return view('absensi.wifi', compact('ips', 'branches'));
+        // Baris yang lahir sendiri dan belum disentuh manusia naik ke atas —
+        // itu satu-satunya hal di halaman ini yang menunggu keputusan.
+        $perluTinjau = $ips->where('sumber', 'otomatis')->where('status', 'aktif');
+        $belajarAktif = \App\Services\WifiBelajarSendiri::aktif();
+
+        return view('absensi.wifi', compact('ips', 'branches', 'perluTinjau', 'belajarAktif'));
+    }
+
+    /**
+     * Saklar WiFi-belajar-sendiri. Disimpan sebagai data (sys_setting), bukan
+     * .env: rencana §3 minta fiturnya bisa dimatikan dari halaman ini juga
+     * ketika yang memegangnya bukan orang yang bisa deploy.
+     */
+    public function saklar()
+    {
+        $this->guard();
+
+        $nyala = ! \App\Services\WifiBelajarSendiri::aktif();
+        \App\Models\Setting::put(\App\Services\WifiBelajarSendiri::KUNCI_SAKLAR, $nyala ? '1' : '0');
+
+        \App\Models\AuditLog::record('update',
+            'WiFi belajar sendiri ' . ($nyala ? 'DINYALAKAN' : 'DIMATIKAN') . ' dari halaman WiFi Cabang');
+
+        return back()->with('success', $nyala
+            ? 'Belajar sendiri dinyalakan — jaringan baru bisa terdaftar otomatis lagi.'
+            : 'Belajar sendiri dimatikan. Jaringan baru harus didaftarkan manual; baris yang sudah ada tidak berubah.');
     }
 
     public function store(Request $request)

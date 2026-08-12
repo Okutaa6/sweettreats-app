@@ -14,6 +14,13 @@
     .wifi-nonaktif { background: #f1e7df; color: #8a7263; }
     .wifi-btn { background: #461500; color: #fff; border: 0; border-radius: 8px; padding: 8px 16px; font-weight: 600; }
     .wifi-btn-kecil { background: #f1e7df; color: #461500; border: 0; border-radius: 8px; padding: 4px 12px; font-size: 13px; }
+    /* Baris yang lahir sendiri: satu-satunya hal di halaman ini yang menunggu
+       keputusan manusia, jadi ia yang boleh menarik mata. */
+    .wifi-auto { background: #fff8e6; }
+    .wifi-tag-auto { background: #f6a609; color: #3d2a00; padding: 2px 8px; border-radius: 99px; font-size: 11px; font-weight: 700; letter-spacing: .03em; }
+    .wifi-saklar { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+    .wifi-saklar-mati { border-color: #e0c9c9; background: #fdf6f6; }
+    .wifi-label-panjang { font-size: 12px; color: #8a7263; max-width: 380px; display: inline-block; }
 </style>
 @endsection
 
@@ -26,6 +33,38 @@
     @if(session('success'))<div class="alert alert-success">{{ session('success') }}</div>@endif
     @if(session('error'))<div class="alert alert-danger">{{ session('error') }}</div>@endif
     @if($errors->any())<div class="alert alert-danger">{{ $errors->first() }}</div>@endif
+
+    @if($perluTinjau->isNotEmpty())
+        <div class="alert" style="background:#fff8e6;border:1px solid #f0d79a;color:#3d2a00">
+            <strong>{{ $perluTinjau->count() }} jaringan terdaftar sendiri dan belum ditinjau.</strong>
+            Sistem mendaftarkannya karena beberapa orang cabang itu terbukti memakainya dan blok alamatnya
+            sekerabat dengan jalur cabang yang sudah ada. Kalau salah satunya ternyata bukan jaringan cabang
+            (mis. kafe sebelah), <strong>nonaktifkan</strong> — barisnya disorot kuning di bawah.
+        </div>
+    @endif
+
+    <div class="wifi-card {{ $belajarAktif ? '' : 'wifi-saklar-mati' }}">
+        <div class="wifi-saklar">
+            <div>
+                <h5 style="margin-bottom:4px">Belajar sendiri: {{ $belajarAktif ? 'menyala' : 'mati' }}</h5>
+                <div style="font-size:13px;color:#8a7263;max-width:560px">
+                    Nomor IPv6 dari Telkom berganti kira-kira seminggu sekali. Saat menyala, jaringan yang
+                    nomornya baru berganti didaftarkan sendiri begitu <strong>3 orang cabang itu</strong>
+                    terbukti memakainya dalam 72 jam — asalkan blok alamatnya sekerabat dengan jalur cabang
+                    yang sudah terdaftar. Satu orang tak pernah cukup, dan jaringan seluler tak pernah ikut.
+                    @unless($belajarAktif)
+                        <br><strong>Sedang mati</strong> — tiap rotasi harus didaftarkan manual lagi.
+                    @endunless
+                </div>
+            </div>
+            <form method="POST" action="{{ route('absensi.wifi.saklar') }}">
+                @csrf
+                <button type="submit" class="{{ $belajarAktif ? 'wifi-btn-kecil' : 'wifi-btn' }}">
+                    {{ $belajarAktif ? 'Matikan' : 'Nyalakan' }}
+                </button>
+            </form>
+        </div>
+    </div>
 
     <div class="wifi-card">
         <h5>Daftarkan jaringan baru</h5>
@@ -53,10 +92,15 @@
             <thead><tr><th>Cabang</th><th>IP</th><th>Label</th><th>Status</th><th>Terakhir terlihat</th><th></th></tr></thead>
             <tbody>
             @forelse($ips as $row)
-                <tr>
+                <tr class="{{ $row->sumber === 'otomatis' && $row->status === 'aktif' ? 'wifi-auto' : '' }}">
                     <td><strong>{{ optional($row->branch)->name ?? '—' }}</strong></td>
                     <td><code>{{ $row->ip }}</code></td>
-                    <td>{{ $row->label ?? '—' }}</td>
+                    <td>
+                        @if($row->sumber === 'otomatis')
+                            <span class="wifi-tag-auto">OTOMATIS</span><br>
+                        @endif
+                        <span class="wifi-label-panjang">{{ $row->label ?? '—' }}</span>
+                    </td>
                     <td><span class="wifi-badge wifi-{{ $row->status }}">{{ $row->status }}</span></td>
                     <td>{{ $row->last_seen_at ? $row->last_seen_at->format('d M Y H.i') : 'belum pernah' }}</td>
                     <td>

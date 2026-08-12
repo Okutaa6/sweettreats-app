@@ -367,6 +367,7 @@ Route::middleware([AuthGuard::class])->group(function () {
     Route::get('absensi/wifi',              [AbsensiBranchIpController::class, 'index'])->name('absensi.wifi');
     Route::post('absensi/wifi',             [AbsensiBranchIpController::class, 'store'])->name('absensi.wifi.store');
     Route::post('absensi/wifi/{id}/toggle', [AbsensiBranchIpController::class, 'toggle'])->name('absensi.wifi.toggle');
+    Route::post('absensi/wifi/saklar',      [AbsensiBranchIpController::class, 'saklar'])->name('absensi.wifi.saklar');
 
     // ── Aturan Kerja (jam kerja + penugasan + kalender libur) — gate role di
     //    controller (Head IT/Finance/Super Admin), menulis tabel yang dibaca

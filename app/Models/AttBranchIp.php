@@ -15,7 +15,7 @@ class AttBranchIp extends Model
     protected $table = 'att_branch_ip';
 
     protected $fillable = [
-        'raw_branch_id', 'ip', 'label', 'status', 'last_seen_at', 'created_by',
+        'raw_branch_id', 'ip', 'label', 'status', 'last_seen_at', 'created_by', 'sumber',
     ];
 
     protected $casts = [
