@@ -79,23 +79,35 @@ WHERE u.`email` IN ('dellaps@sweettreats.id','talitha@sweettreats.id',
 --   Anisa   : 12 − 7 penyesuaian − 1 tercatat = 4  ✓ sheet
 --   Yovanka : 12 − 6 penyesuaian − 2 tercatat = 4  ✓ sheet
 --   Ikhsan  : 12 − 4 penyesuaian − 0 tercatat = 8  ✓ sheet
+-- ⚠️ Besar penyesuaian DIHITUNG, bukan dipatok. Versi pertama skrip ini
+-- mematok angkanya (7 dan 6) dari cuti tercatat di PROD — lalu di dev hasilnya
+-- meleset, karena catatan cuti tiap lingkungan berbeda. Yang dipatok adalah
+-- SISA YANG DITUJU (dari sheet HR); selisihnya dibiarkan dihitung sendiri:
+--     penyesuaian = 12 − sisa_tujuan − cuti_yang_sudah_tercatat
 INSERT INTO `att_cuti_mutasi`
     (`periode_id`, `user_id`, `tanggal`, `hari`, `jenis`, `sumber`, `keterangan`, `created_at`)
-SELECT p.`id`, u.`id`, DATE(DATE_ADD(NOW(), INTERVAL 7 HOUR)),
-       CASE u.`email`
-           WHEN 'anisa@sweettreats.id'   THEN 7.0
-           WHEN 'yovanka@sweettreats.id' THEN 6.0
-           ELSE 4.0                                     -- Ikhsan
-       END,
+SELECT x.`periode_id`, x.`user_id`, DATE(DATE_ADD(NOW(), INTERVAL 7 HOUR)), x.`selisih`,
        'koreksi', 'manual',
        'Penyesuaian saldo awal: selisih dari jatah 12 saat sistem mulai mencatat (sumber: sheet HR 12 Agu 2026)',
        DATE_ADD(NOW(), INTERVAL 7 HOUR)
-FROM `users` u JOIN `att_cuti_periode` p ON p.`user_id` = u.`id`
-WHERE u.`email` IN ('anisa@sweettreats.id','yovanka@sweettreats.id','ikhsan@sweettreats.id')
-  AND NOT EXISTS (
-      SELECT 1 FROM `att_cuti_mutasi` m
-      WHERE m.`user_id` = u.`id` AND m.`keterangan` LIKE 'Penyesuaian saldo awal:%'
-  );
+FROM (
+    SELECT p.`id` AS periode_id, u.`id` AS user_id,
+           12.0
+           - CASE u.`email`
+                 WHEN 'anisa@sweettreats.id'   THEN 4.0
+                 WHEN 'yovanka@sweettreats.id' THEN 4.0
+                 ELSE 8.0                                  -- Ikhsan
+             END
+           - COALESCE((SELECT SUM(m2.`hari`) FROM `att_cuti_mutasi` m2
+                       WHERE m2.`user_id` = u.`id` AND m2.`periode_id` = p.`id`), 0) AS selisih
+    FROM `users` u JOIN `att_cuti_periode` p ON p.`user_id` = u.`id`
+    WHERE u.`email` IN ('anisa@sweettreats.id','yovanka@sweettreats.id','ikhsan@sweettreats.id')
+      AND NOT EXISTS (
+          SELECT 1 FROM `att_cuti_mutasi` m
+          WHERE m.`user_id` = u.`id` AND m.`keterangan` LIKE 'Penyesuaian saldo awal:%'
+      )
+) x
+WHERE x.`selisih` <> 0;
 
 -- ── CATATAN ────────────────────────────────────────────────────────────────
 -- • ANISA PERMANEN: kontrak_mulai & kontrak_akhir sengaja NULL — dia memang tak
