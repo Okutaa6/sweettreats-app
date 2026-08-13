@@ -66,6 +66,155 @@ Role yang ada sekarang tak ada yang cocok — "Assistant Dentist" dan
 
 **DILEWATI dulu (keputusan Ekky):** cuti dokter.
 
+### 5b. Rekam medis untuk dokter — BISA, dengan satu prasyarat keras
+
+> ⚠️ **KOREKSI 13 Agu.** Versi awal bagian ini menutup fitur ini dengan alasan
+> "data klinis basi 54 hari". **Itu salah** — angkanya diambil dari **dev**.
+> **Prod sinkron normal**: sync terakhir 13 Agu 02:04, rekam terbaru 12 Agu,
+> 50.133 baris. Yang basi cuma salinan dev (sync dev berhenti 20 Jun).
+> Keberatan itu gugur; jangan dipakai lagi sebagai alasan.
+
+Datanya memang sudah ada dan hidup. Yang belum ada bukan datanya, melainkan
+**cara memastikan dokter hanya melihat pasiennya sendiri.**
+
+#### ✅ Rancangan yang dipilih (ACC Ekky 13 Agu)
+
+| Keputusan | Isi |
+|---|---|
+| **Gerbang akses** | Riwayat pasien terbuka **hanya bila pasien itu punya reservasi ke dokter tsb**. Sekali terbuka, riwayatnya UTUH — termasuk kunjungan yang ditangani dokter lain. |
+| **Isi yang tampil** | `procedures` (tindakan) + `diagnose_note` + `chief_complaint`. |
+| **TIDAK tampil** | `prescription`, tanda vital, NIK, alamat, email, no asuransi. Disaring **di lapisan query**, bukan di Blade. |
+
+Gerbang lewat reservasi itu dipilih karena menjawab kasus nyata: **pasien
+rujukan/pengganti** yang baru pertama ditangani dokter ini justru paling butuh
+riwayat dokter sebelumnya. Kalau dibatasi "rekam yang saya tangani sendiri",
+pasien seperti itu tampak tanpa riwayat sama sekali — padahal dokternya butuh.
+
+**Rantai otorisasi — seluruhnya data KITA, tidak menyentuh `doc_id`:**
+
+```
+dokter (users.raw_doctor_id)
+  → raw_cus_reservation.raw_doctor_id      ← GERBANG di sini
+  → raw_customer
+  → customer_omnicare_link.omnicare_pid
+  → omnicare_medical_record.p_id
+```
+
+**Diuji di prod 13 Agu — semua 6 dokter menghasilkan data nyata:**
+
+| Dokter | reservasi | pasien unik | tertaut Omni | rekam tersedia |
+|---|---|---|---|---|
+| Ahmad Haikal Noor | 142 | 56 | 50 | 433 |
+| Putri Moortiningsih | 124 | 61 | 53 | 409 |
+| **Maharetta Ditaprilia** | 128 | 59 | 51 | **425** |
+| Irine Krisnawati | 45 | 23 | 21 | 104 |
+| Nadya Ayustia | 10 | 10 | 8 | 28 |
+| Yusmaini Maizir | 177 | 80 | 66 | 150 |
+
+Dua temuan yang **membatalkan kekhawatiran sebelumnya**:
+
+1. **Maharetta bukan lagi masalah.** Ia nol rekam di bawah namanya sendiri, tapi
+   punya **425 rekam tersedia** lewat 59 pasiennya. Karena gerbangnya reservasi
+   dan bukan `doc_id`, soal "nama Omnicare tak cocok" **lenyap seluruhnya**.
+2. **Isi klinis jauh lebih lengkap dari dugaan.** Global cuma 27%/39% punya
+   keluhan/diagnosa — tapi pada populasi pasien yang benar-benar dilihat dokter,
+   angkanya **82%** (337 dari 409). Sebabnya masuk akal: pasien ortho/behel
+   dengan kontrol berulang, dan di situ keluhan memang diisi. Peringatan "kartu
+   kosong 3 dari 4 kali" **tidak berlaku** untuk kasus ini.
+
+> **Karena itu, pemetaan `doc_id` di bawah TURUN dari prasyarat wajib menjadi
+> catatan.** Nama dokter di rekam medis tetap dipakai sebagai **label tampilan**
+> ("ditangani: Irine Krisnawati") — tapi TIDAK PERNAH untuk otorisasi.
+
+#### ⚠️ Catatan: JANGAN cocokkan nama untuk apa pun yang bersifat otorisasi
+
+Mencocokkan nama dokter Omnicare ke `raw_doctor` **gagal berbahaya**, bukan
+gagal kosong. Dibuktikan di prod 13 Agu:
+
+| Dicari | `doc_id` terjaring | Sebenarnya | Rekam |
+|---|---|---|---|
+| drg. Ahmad **Haikal** Noor | `20685` | ✅ Haikal Noor | 602 |
+| | `14634` | ❌ **Nugroho Ahmad Riyadi** | 4.389 |
+| | `20682` | ❌ **Ahmad Pambuko** | 92 |
+| drg. **Putri** Moortiningsih | `20683` | ✅ Putri Moortiningsih | 787 |
+| | `18428` | ❌ **Nabila Daneta Putri** | 285 |
+
+Token nama depan bertabrakan antar dokter. Akibatnya bukan layar kosong —
+**dokter membaca rekam medis pasien dokter lain.** Untuk data klinis, itu jenis
+kegagalan yang tak boleh punya kemungkinan terjadi sama sekali.
+
+`RawDoctor::resolveByIdOrName()` **tidak boleh dipakai untuk jalur ini.** Ia
+dibuat untuk impor CSV & Open API, di mana salah tebak berarti reservasi nyasar
+— mahal, tapi bisa diperbaiki. Di sini biayanya beda kelas.
+
+**Yang dipakai: tabel pemetaan eksplisit**, diisi manusia sekali, tak pernah
+oleh tebakan:
+
+- `doc_id` terisi **100%** (50.133 dari 50.133) dan **bersih 1:1** ke nama —
+  nol `doc_id` yang dipakai lebih dari satu nama.
+- Totalnya cuma **52 `doc_id` untuk 49 nama** — pekerjaan sekali duduk.
+- Satu dokter boleh punya beberapa `doc_id` (2 kasus: Annisa Basyira 3, Ira
+  Septiani 2 — kemungkinan pendaftaran ulang), jadi pemetaannya **satu-ke-banyak**.
+- ⚠️ **drg. Maharetta Ditaprilia nol rekam** padahal punya 128 reservasi di
+  sistem kita. Entah nama Omnicare-nya berbeda, entah memang belum pernah.
+  Harus dipastikan manusia saat memetakan, jangan ditebak.
+
+#### Prasyarat kedua: jejak audit
+
+Belum ada satu pun pencatatan saat rekam medis dibuka. Untuk kehadiran itu bisa
+ditolerir; untuk rekam medis, "siapa membuka rekam siapa" justru biasanya
+kewajiban intinya. (Kepatuhan Permenkes 24/2022 soal Rekam Medis Elektronik
+perlu dicek ke yang menangani legal/klinis — bukan disimpulkan dari dokumen ini.)
+
+#### Yang perlu diketahui saat merancang layarnya
+
+Kelengkapan isi klinis **timpang**, dan itu menentukan bentuk kartunya
+(prod, 13.143 rekam 12 bulan terakhir):
+
+| Field | Terisi |
+|---|---|
+| `procedures` | **100%** |
+| `prescription` | 92% |
+| `diagnose_note` | 39% |
+| `chief_complaint` | 27% |
+| `subjective` / `objective` | 26% / 24% |
+
+Jadi kartu riwayat harus bertumpu pada **tindakan**, dengan keluhan/diagnosa
+sebagai bonus kalau ada — bukan sebaliknya. Kalau dibalik, layarnya akan tampak
+rusak di mayoritas kunjungan.
+
+⚠️ Tabel ini **bukan cuma isi klinis**: NIK 19.116 · alamat 46.508 · email
+44.104 · tgl lahir 46.986 · resep 44.692. Penyaringan field **wajib di lapisan
+query**, bukan sekadar tidak ditampilkan di Blade.
+
+ℹ️ Dokter **sudah punya akses Omnicare sendiri**. Jadi nilai tambah layar kita
+bukan menggantikan EMR, melainkan **konteksnya**: rekam medis muncul di tempat
+dokter sudah berada — di samping jadwal dan daftar pasien hari ini, di HP,
+di sela pasien. Untuk pendalaman klinis, tautkan ke Omnicare.
+
+#### Yang masih WAJIB dibangun sebelum dibuka ke dokter sungguhan
+
+1. **Jejak audit** saat rekam medis dibuka — sekarang nol. Minimal: siapa,
+   pasien mana, kapan. Pakai `AuditLog` yang sudah ada.
+2. **Penyaringan field di lapisan query** — `select()` eksplisit hanya kolom
+   yang boleh, jangan `select *` lalu disembunyikan di Blade.
+
+#### Catatan penyajian
+
+`procedures` berisi **kode internal** yang tak berguna bagi pembaca —
+mis. `26CON178 - Control Metal Braces;26SC262 - Scaling kls 1`. Bersihkan
+kodenya dan pecah per `;` sebelum ditampilkan.
+
+Isi Omnicare juga membawa artefak escaping HTML (`<br>`, `&nbsp;`) —
+`OmnicareEncounters::buildClinicalSummary()` sudah menanganinya, pakai ulang
+jangan tulis sendiri.
+
+#### Keadaan dev untuk pengujian
+
+Sync medical dev dijalankan ulang 13 Agu (izin Ekky) termasuk backfill
+15 Jun–13 Agu: **50.324 baris, rekam terbaru 13 Agu, tak ada lubang lagi**.
+Dev kini setara prod untuk keperluan uji.
+
 **JANGAN dimasukkan:** lembar gaji (dokter kemungkinan dibayar per tindakan,
 bukan gaji bulanan) dan checklist (itu urusan staf operasional klinik).
 
