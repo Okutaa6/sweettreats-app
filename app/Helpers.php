@@ -1140,6 +1140,31 @@ if (!function_exists('hariLiburTerjadwal')) {
                 ->value('rule_id');
             if (! $ruleId) return null;
 
+            // ── Aturan bertipe `jadwal` (dokter) ──
+            // Tak punya baris hari sama sekali; yang menjawab "hari ini praktik
+            // atau tidak" adalah jadwal prakteknya sendiri — sumber yang sama
+            // dengan yang dipakai pasien saat memesan.
+            //
+            // ⚠️ Perhatikan penomoran hari: cabang di BAWAH memakai
+            // $t->dayOfWeek (Carbon, 0=Minggu) karena att_work_rule_day memang
+            // begitu; jadwal praktik memakai ISO (1=Senin..7=Minggu) dan
+            // konversinya ditangani di dalam DoctorSchedule. Jangan pernah
+            // mengoper $t->dayOfWeek ke sisi jadwal praktik.
+            $tipe = \Illuminate\Support\Facades\DB::table('att_work_rule')
+                ->where('id', $ruleId)->value('tipe');
+
+            if ($tipe === 'jadwal') {
+                $dokterId = \Illuminate\Support\Facades\Schema::hasColumn('users', 'raw_doctor_id')
+                    ? \Illuminate\Support\Facades\DB::table('users')->where('id', $userId)->value('raw_doctor_id')
+                    : null;
+                // Belum tertaut ke dokter mana pun → jangan tebak. Null di sini
+                // membuat layar Absen tidak memasang gerbang apa pun, dan itu
+                // memang perilaku yang benar untuk ketidaktahuan.
+                if (! $dokterId) return null;
+
+                return ! (new \App\Services\DoctorSchedule())->praktikPada($dokterId, $t->toDateString());
+            }
+
             $libur = \Illuminate\Support\Facades\DB::table('att_work_rule_day')
                 ->where('rule_id', $ruleId)->where('day', $t->dayOfWeek)
                 ->value('libur');

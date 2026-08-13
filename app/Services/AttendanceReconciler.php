@@ -13,13 +13,22 @@ use Illuminate\Support\Facades\DB;
  *   0b. scan < ambang dini hari (default 06:00) → LEMPAR BALIK ke hari sebelumnya
  *       sebagai pulang (§2.8, Sunter jam 00:54)
  *   1.  dedup jarak <= N menit (default 5), lintas mesin
- *   2.  ambil aturan user (att_user_rule aktif) → baku / fleksibel
+ *   2.  ambil aturan user (att_user_rule aktif) → baku / fleksibel / jadwal
  *   3.  exception (att_work_rule_exception) menang atas aturan harian
  *   4.  (Fase C) form approved → cuti/izin/wfh; belum ada → skip
  *
  *   fleksibel : scan cuma penanda "masuk". Tak pernah alpa. Baris cuma dibuat kalau ada scan.
  *   baku      : libur → status libur; kerja + tak ada scan → ALPA; scan pertama > window
  *               check-in → telat (dorong jam pulang). Lembur HANYA dari form (Fase C).
+ *   jadwal    : DOKTER. Jam kerja tidak disimpan di aturan — dibaca dari jadwal
+ *               praktik (raw_doctor_schedule + jadwal khusus + cuti dokter) lewat
+ *               users.raw_doctor_id, memakai mesin yang sama dengan pemesanan
+ *               pasien. Tak praktik → tak ada baris (atau `libur` kalau ternyata
+ *               datang). Praktik + scan → hadir; telat dicatat sebagai INFORMASI
+ *               dan TIDAK menurunkan wajib_pulang (konsekuensi dokter telat itu
+ *               pasien menunggu, bukan potong gaji). Praktik TANPA scan → belum
+ *               divonis, cuma dihitung & dilaporkan sampai cara bayar dokter
+ *               dijawab Finance. Lihat rencana-akun-dokter-absensi-jadwal.md.
  *   1 scan    → dianggap hadir, tak dinilai telat (§3.2).
  *
  * Idempoten: upsert per (user_id, work_date). Aman dijalankan ulang kapan saja.
@@ -227,13 +236,29 @@ class AttendanceReconciler
         // home branch (buat resolve exception cabang)
         $homeBranch = DB::table('users')->pluck('raw_branch_id', 'id')->all();
 
+        // Penautan akun→dokter, dimuat SEKALI (bukan per orang per hari).
+        // Kolomnya lahir bareng akun dokter; environment yang belum apply
+        // SQL-nya jangan sampai bikin rekonsiliasi seluruh roster gagal.
+        $dokterUser = \Illuminate\Support\Facades\Schema::hasColumn('users', 'raw_doctor_id')
+            ? DoctorSchedule::petaDokterUser()
+            : [];
+
+        // Akumulator temuan yang tak menghasilkan baris att_day tapi WAJIB
+        // terlihat — diam tanpa hitungan itu kegagalan-senyap.
+        $laporan = (object) [
+            'praktikTanpaScan'   => [],
+            'hadirDiLuarJadwal'  => [],
+            'cabangBedaJadwal'   => [],
+            'tanpaDokter'        => [],
+        ];
+
         $perStatus = [];
         $dayCount = 0;
         $basi = 0;
         $now = Carbon::now();
 
         foreach ($userRules as $userId => $urs) {
-            $rows = $this->reconcileUser($userId, $urs, $rules, $ruleDays, $exceptions, $requests[$userId] ?? [], $homeBranch[$userId] ?? null, $from, $to, $now, $closedPeriods);
+            $rows = $this->reconcileUser($userId, $urs, $rules, $ruleDays, $exceptions, $requests[$userId] ?? [], $homeBranch[$userId] ?? null, $from, $to, $now, $closedPeriods, $dokterUser[$userId] ?? null, $laporan);
             foreach ($rows as $r) $perStatus[$r['status']] = ($perStatus[$r['status']] ?? 0) + 1;
             $dayCount += count($rows);
             foreach (array_chunk($rows, 200) as $chunk) {
@@ -275,6 +300,14 @@ class AttendanceReconciler
             'per_status' => $perStatus,
             'tanpa_aturan' => $tanpaAturan,
             'basi_dibuang' => $basi,
+
+            // ── Temuan aturan `jadwal` (dokter) ──
+            // Tak satu pun menghasilkan baris att_day, jadi tanpa dilaporkan di
+            // sini mereka betul-betul tak terlihat di mana pun.
+            'dokter_praktik_tanpa_scan'  => $laporan->praktikTanpaScan,
+            'dokter_hadir_di_luar_jadwal'=> $laporan->hadirDiLuarJadwal,
+            'dokter_cabang_beda_jadwal'  => $laporan->cabangBedaJadwal,
+            'dokter_tak_tertaut'         => array_keys($laporan->tanpaDokter),
         ];
     }
 
@@ -324,8 +357,9 @@ class AttendanceReconciler
         return count($hapus);
     }
 
-    private function reconcileUser($userId, array $urs, array $rules, array $ruleDays, array $exceptions, array $reqs, ?string $home, Carbon $from, Carbon $to, Carbon $now, array $closedPeriods = []): array
+    private function reconcileUser($userId, array $urs, array $rules, array $ruleDays, array $exceptions, array $reqs, ?string $home, Carbon $from, Carbon $to, Carbon $now, array $closedPeriods = [], ?string $dokterId = null, ?\stdClass $laporan = null): array
     {
+        $laporan ??= (object) ['praktikTanpaScan' => [], 'hadirDiLuarJadwal' => [], 'cabangBedaJadwal' => [], 'tanpaDokter' => []];
         // ambil scan [from 00:00 .. (to+1) 06:00) supaya scan dini hari (to+1) kebawa ke workday `to`
         $lo = $from->copy()->startOfDay();
         $hi = $to->copy()->addDay()->setTime(6, 0);
@@ -372,6 +406,19 @@ class AttendanceReconciler
                     continue;
                 }
                 $out[] = $this->row($userId, $key, $rule->id, $day, 'hadir', 0, null, $lembur, $now);
+                continue;
+            }
+
+            // ── jadwal (dokter): jam kerja dibaca dari JADWAL PRAKTIK ──
+            // Aturan bertipe ini tak membawa jam sendiri. Yang menentukan hari
+            // ini kerja atau tidak adalah raw_doctor_schedule + jadwal khusus +
+            // cuti dokter — sumber yang SAMA dengan yang dipakai pasien saat
+            // memesan. Satu sumber kebenaran: jadwal diubah di halaman Dokter,
+            // penilaian absensi ikut berubah hari itu juga.
+            if ($rule->tipe === 'jadwal') {
+                $out = array_merge($out, $this->hariDokter(
+                    $userId, $key, $rule, $day, $absence, $lembur, $now, $dokterId, $laporan
+                ));
                 continue;
             }
 
@@ -423,6 +470,121 @@ class AttendanceReconciler
             $out[] = $this->row($userId, $key, $rule->id, $day, $status, $telat, $wajibPulang, $lembur, $now);
         }
         return $out;
+    }
+
+    /**
+     * Satu hari untuk aturan bertipe `jadwal` (dokter).
+     *
+     * Bedanya dengan `baku` bukan cuma sumber jamnya, tapi APA ARTI hari kosong.
+     * Karyawan `baku` yang tak scan di hari kerja = alpa, dan alpa itu alat
+     * pemotong gaji. Dokter kemungkinan dibayar per tindakan (rencana §5) —
+     * kalau benar, "alpa" jadi label tanpa konsekuensi yang cuma menakut-nakuti
+     * rekap Finance. Pertanyaan itu BELUM terjawab (menunggu Finance), jadi
+     * sikapnya: hari praktik tanpa scan TIDAK menghasilkan baris sama sekali,
+     * tapi DIHITUNG dan dilaporkan. Diam tanpa hitungan itu kegagalan-senyap;
+     * diam DENGAN hitungan itu sikap yang bisa dipertanggungjawabkan.
+     *
+     * Begitu jawabannya datang, cukup ubah cabang `$adaJadwal && $n === 0` di
+     * bawah lalu reconcile ulang — `hapusHariBasi()` sudah membereskan baris
+     * lama, jadi tak ada yang perlu dibersihkan dengan tangan.
+     *
+     * @param  array  $laporan  akumulator lintas-hari (by reference lewat objek)
+     * @return array<int,array> nol atau satu baris att_day
+     */
+    private function hariDokter(
+        string $userId,
+        string $date,
+        $rule,
+        array $day,
+        ?string $absence,
+        int $lembur,
+        Carbon $now,
+        ?string $dokterId,
+        \stdClass $laporan
+    ): array {
+        $n = count($day['scans']);
+
+        // Akun bertipe `jadwal` TAPI tak tertaut ke dokter mana pun. Tak ada
+        // jadwal yang bisa dibaca, jadi hari ini tak bisa dinilai sama sekali.
+        // Ini salah pasang, bukan keadaan normal — laporkan, jangan tebak.
+        if (! $dokterId) {
+            $laporan->tanpaDokter[$userId] = true;
+            return $n ? [$this->row($userId, $date, $rule->id, $day, 'hadir', 0, null, $lembur, $now)] : [];
+        }
+
+        // Form absen resmi yang disetujui menang atas jadwal — sama seperti
+        // jalur `baku` (§4: deklarasi manusia menang atas scan).
+        if ($absence) {
+            return [$this->row($userId, $date, $rule->id, $day, $absence, 0, null, $lembur, $now)];
+        }
+
+        $perCabang = $this->dokterSchedule()->rangesPerBranchOn($dokterId, $date);
+        $adaJadwal = $perCabang !== [];
+
+        // ── Tidak dijadwalkan praktik hari ini ──
+        if (! $adaJadwal) {
+            if ($lembur > 0) {
+                return [$this->row($userId, $date, $rule->id, $day, 'hadir', 0, null, $lembur, $now)];
+            }
+            if ($n === 0) return [];   // tak praktik & tak datang → tak perlu baris
+            // Datang di hari yang bukan hari prakteknya: bukan pelanggaran, tapi
+            // layak terlihat apa adanya.
+            $laporan->hadirDiLuarJadwal[] = ['user_id' => $userId, 'tanggal' => $date];
+            return [$this->row($userId, $date, $rule->id, $day, 'libur', 0, null, 0, $now)];
+        }
+
+        // ── Dijadwalkan praktik, tapi tak ada satu pun scan ──
+        if ($n === 0) {
+            // Hari yang belum lewat bukan bukti apa-apa — hari ini masih
+            // berjalan, besok belum terjadi (penjaga yang sama dgn jalur baku).
+            if ($date >= $now->toDateString()) return [];
+            $laporan->praktikTanpaScan[] = ['user_id' => $userId, 'tanggal' => $date];
+            return [];                                  // ← K1 belum dijawab
+        }
+
+        // ── Dijadwalkan praktik dan ada scan → hadir ──
+        // Telat DICATAT sebagai informasi, tapi TIDAK menurunkan wajib_pulang.
+        // Bagi karyawan, telat mendorong jam pulang — itu logika gaji. Bagi
+        // dokter konsekuensinya lain sama sekali: pasien yang sudah memesan
+        // slot itu yang menunggu. Angkanya berguna, hukumannya tidak berlaku.
+        $telat = 0;
+        [$mulai] = $this->dokterSchedule()->rentangHarian($dokterId, $date);
+        if ($n >= 2 && $mulai) {                        // 1 scan = hadir (§3.2)
+            $batas = Carbon::parse($date . ' ' . $mulai);
+            $first = $day['scans'][0];
+            if ($first->gt($batas)) {
+                $menit = $first->diffInMinutes($batas);
+                if ($menit <= $this->telatCeilingMinutes) $telat = $menit;
+            }
+        }
+
+        // Cabang yang didatangi vs cabang yang dijadwalkan. Sengaja TIDAK
+        // dijadikan flag: flag terbuka MEMBLOKIR tutup periode gaji untuk
+        // SEMUA orang di semua cabang (AbsensiPeriodController), dan memakai
+        // alat sekeras itu untuk dokter yang mungkin tak bergaji bulanan —
+        // atas keputusan (K2) yang belum di-ACC — bisa menyandera gajian satu
+        // klinik. Dilaporkan dulu; jadikan flag setelah K1/K2 dijawab.
+        $dijadwalkan = array_keys($perCabang);
+        $didatangi   = array_values(array_unique(array_filter($day['branches'])));
+        $asing       = array_values(array_diff($didatangi, $dijadwalkan));
+        if ($asing) {
+            $laporan->cabangBedaJadwal[] = [
+                'user_id'     => $userId,
+                'tanggal'     => $date,
+                'didatangi'   => $didatangi,
+                'dijadwalkan' => $dijadwalkan,
+            ];
+        }
+
+        return [$this->row($userId, $date, $rule->id, $day,
+            $telat > 0 ? 'telat' : 'hadir', $telat, null, $lembur, $now)];
+    }
+
+    /** Resolver jadwal praktik — satu instans dipakai ulang selama proses. */
+    private ?DoctorSchedule $dokterSchedule = null;
+    private function dokterSchedule(): DoctorSchedule
+    {
+        return $this->dokterSchedule ??= new DoctorSchedule();
     }
 
     /**
