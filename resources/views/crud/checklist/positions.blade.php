@@ -231,7 +231,9 @@
                                     <td><span class="st-pill st-pill--warning">{{ $x->roll->branch?->name ?? $x->roll->raw_branch_id }}</span></td>
                                     <td style="font-size:12.5px; color:var(--cl-muted);">
                                         {{ optional($x->roll->effective_from)->translatedFormat('d M Y') }} –
-                                        {{ optional($x->roll->effective_to)->translatedFormat('d M Y') }}
+                                        {{ $x->roll->effective_to
+                                            ? $x->roll->effective_to->translatedFormat('d M Y')
+                                            : 'terbuka' }}
                                         @if($x->roll->effective_from && $x->roll->effective_from->gt(now()))
                                             <span class="st-pill st-pill--neutral" style="margin-left:4px;">akan datang</span>
                                         @endif

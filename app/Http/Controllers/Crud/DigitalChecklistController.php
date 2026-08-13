@@ -1312,11 +1312,17 @@ class DigitalChecklistController extends Controller
             ->whereIn('user_id', $userIds)
             ->with(['division', 'branch'])->get()->keyBy('user_id');
 
-        // Rolling aktif & yang akan datang (effective_to >= hari ini) per user,
-        // untuk badge "ditempatkan di … s/d …".
+        // Rolling aktif & yang akan datang per user, untuk badge "ditempatkan di
+        // … s/d …". effective_to NULL = penempatan TERBUKA (belum diketahui
+        // sampai kapan) — sah menurut kolomnya & menurut scopeActiveOn, jadi
+        // harus ikut terdaftar. Kalau tidak, penempatan terbuka jadi tak terlihat
+        // supervisor DAN tombol "Akhiri rolling"-nya hilang: tak ada jalan
+        // mengakhirinya lewat layar.
         $rolls = UserPosition::query()->where('kind', 'rolling')
             ->whereIn('user_id', $userIds)
-            ->whereDate('effective_to', '>=', $today)
+            ->where(function ($q) use ($today) {
+                $q->whereNull('effective_to')->orWhereDate('effective_to', '>=', $today);
+            })
             ->with('branch')->orderBy('effective_from')->get()->groupBy('user_id');
 
         // Semua staf dalam cakupan ditampilkan (termasuk yang belum punya posisi),

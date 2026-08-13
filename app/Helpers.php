@@ -802,11 +802,18 @@ if (!function_exists('positionBranchOn')) {
  * Checklist, dll — 75 titik) menyaring lewat session('raw_branch_id') yang
  * sama, jadi cukup benar di SATU tempat ini, bukan di tiap controller.
  *
- * Aturannya sengaja sempit:
+ * Aturannya sengaja sempit — HANYA baris `rolling` yang boleh menang:
  * - Cabang asal NULL (ABG/Office: Ikhsan, Reza, Anisa, Irma) → tetap NULL.
  *   NULL artinya "lihat semua cabang"; baris posisi TIDAK boleh menguncinya.
- * - Selain itu: cabang posisi aktif hari ini (rolling menang atas home lewat
- *   scopeActiveOn) — kalau tak ada, jatuh balik ke cabang asal.
+ * - Ada rolling aktif hari ini → cabang rolling. Selain itu → cabang asal.
+ *
+ * ⚠️ Baris `home` sengaja TIDAK ikut dibaca, walau positionBranchOn() membacanya.
+ * Sebabnya: tombol reassign di halaman Posisi Checklist menulis baris home tanpa
+ * menyentuh `users.raw_branch_id` (DigitalChecklistController::positionAssign),
+ * sehingga keduanya bisa berselisih. Kalau home ikut menang, supervisor checklist
+ * diam-diam bisa memindahkan Reservasi/Petty Cash/Pasien seseorang — wewenang
+ * yang tak pernah diberikan ke peran itu. Rolling justru dibuat persis untuk
+ * penempatan sementara, punya tanggal & jejak audit, jadi itu yang dipakai.
  *
  * ⚠️ Kolom `users.raw_branch_id` TIDAK disentuh. Cabang asal tetap identitas
  * roster & dasar rekap (lihat §4 rencana gelar Cinere-Pamulang); yang berubah
@@ -817,7 +824,18 @@ if (!function_exists('cabangSesiUntuk')) {
     {
         if (! $userId || ! $homeBranchId) return $homeBranchId;
 
-        return positionBranchOn($userId, \Carbon\Carbon::today()) ?: $homeBranchId;
+        try {
+            $rolling = \App\Models\UserPosition::query()
+                ->activeOn()
+                ->where('user_id', $userId)
+                ->where('kind', 'rolling')
+                ->value('raw_branch_id');
+        } catch (\Throwable $e) {
+            // Tabel/kolom belum ada di lingkungan ini → perilaku lama.
+            $rolling = null;
+        }
+
+        return $rolling ?: $homeBranchId;
     }
 }
 

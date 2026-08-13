@@ -87,13 +87,22 @@ class AkunAbsensiController extends Controller
             ->get();
 
         // ── Header identitas (nama · jabatan · cabang) untuk kartu profil ──
-        $branchName = session('raw_branch_id')
-            ? optional(RawBranch::find(session('raw_branch_id')))->name
-            : null;
+        // Kartu ini IDENTITAS, jadi cabangnya cabang ASAL dari kolom users —
+        // sumber yang sama dengan layar Kehadiran, rekap, dan kartu absen HP
+        // (AkunAbsenController). JANGAN pakai session('raw_branch_id'): sejak
+        // cabang sesi berarti "hari ini kerja di mana", kartu ini akan bilang
+        // Cinere sementara rekapnya menghitung Sunter — dua layar, dua jawaban.
+        // Penempatan sementara ditulis terpisah supaya tetap terbaca.
+        $homeBranchId = \Illuminate\Support\Facades\DB::table('users')
+            ->where('id', $userId)->value('raw_branch_id');
+        $efektifId    = cabangSesiUntuk($userId, $homeBranchId);
         $me = [
             'nama'    => session('name') ?: 'Rekan',
             'jabatan' => session('group_name') ?: null,
-            'cabang'  => $branchName,
+            'cabang'  => $homeBranchId ? optional(RawBranch::find($homeBranchId))->name : null,
+            'ditempatkan' => ($efektifId && $efektifId !== $homeBranchId)
+                ? optional(RawBranch::find($efektifId))->name
+                : null,
             'inisial' => strtoupper(mb_substr((string) (session('name') ?: 'R'), 0, 1)),
         ];
 
