@@ -35,6 +35,10 @@ use Illuminate\Support\Facades\DB;
  * membagikan satu sandi lisan ke satu ruangan jauh lebih praktis daripada
  * membacakan sandi acak satu per satu. Aman karena `must_change_password`
  * tetap menyala: sandi seragam ini cuma pintu masuk sekali, bukan sandi mereka.
+ *
+ * Penyetelan ulang itu MELEWATI orang yang sudah mengganti sandinya sendiri —
+ * sandi yang sudah jadi miliknya tak boleh dicabut oleh gelombang cabang
+ * berikutnya. Lihat alasan lengkapnya di handle().
  */
 class GelarAkunCabang extends Command
 {
@@ -113,7 +117,27 @@ class GelarAkunCabang extends Command
                 // dengan sandi acak lalu diputuskan pakai sandi seragam —
                 // tanpa ini, satu-satunya jalan adalah menghapus lalu membuat
                 // ulang akun, dan itu ikut membuang riwayat absennya.
-                if ($sandiTetap && ! $kering) {
+                //
+                // ⚠️ TAPI JANGAN SENTUH ORANG YANG SUDAH GANTI SANDI SENDIRI.
+                // Perintah ini idempoten dan dijalankan ulang tiap gelombang
+                // cabang, jadi daftar ORANG makin panjang sementara isinya
+                // makin banyak yang sudah aktif. Tanpa gerbang ini, menggelar
+                // Kalideres akan menghapus sandi pribadi seluruh Cinere,
+                // Pamulang, dan Sunter — mereka terkunci di luar tanpa tahu
+                // kenapa, dan satu-satunya petunjuk cuma ada di layar orang
+                // yang menjalankan perintahnya.
+                //
+                // `must_change_password` dipakai sbg penanda "sandinya masih
+                // sandi bagian, belum jadi miliknya": bernilai 1 sejak akun
+                // lahir dan baru jadi 0 setelah dia benar-benar menggantinya.
+                //
+                // (Nyaris kejadian 13 Agu: Alviona, Mutiara, dan Ramdan sudah
+                // ganti sandi beberapa jam sebelum gelombang Sunter dijalankan.)
+                $sudahMilikDia = (int) $ada->must_change_password === 0;
+
+                if ($sandiTetap && $sudahMilikDia) {
+                    $this->line("  – {$o['nama']}: sudah ganti sandi sendiri, TIDAK disentuh");
+                } elseif ($sandiTetap && ! $kering) {
                     $ada->update([
                         'password'             => password_hash($sandiTetap, PASSWORD_DEFAULT),
                         'must_change_password' => 1,
