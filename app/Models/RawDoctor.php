@@ -43,6 +43,20 @@ class RawDoctor extends Model
     }
 
     /**
+     * Akun aplikasi milik dokter ini — NULL kalau dokter ini belum punya akun
+     * (35 dari 35 dokter prod dalam keadaan itu per 12 Agu 2026).
+     *
+     * Arah kolomnya di sisi `users` (users.raw_doctor_id UNIQUE), jadi ini
+     * hasOne, bukan belongsTo. UNIQUE di sana yang menjamin "satu" — tanpa itu
+     * dua akun bisa memegang dokter yang sama dan hasOne diam-diam memilih
+     * salah satunya.
+     */
+    public function user()
+    {
+        return $this->hasOne(Users::class, 'raw_doctor_id', 'id');
+    }
+
+    /**
      * Jadwal dokter (per cabang & hari)
      */
     public function schedules()

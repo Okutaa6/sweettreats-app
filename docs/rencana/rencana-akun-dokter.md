@@ -1,6 +1,6 @@
 # Rencana: Akun Dokter (tampilan + absen)
 
-> Status: **BAHAN TERKUMPUL, belum dibangun** — 12 Agu 2026.
+> Status: **PRASYARAT 1 & 2 SIAP DEPLOY, 3 & 4 menunggu** — diperbarui 13 Agu 2026.
 > Desain layar lewat claude.ai/design (brief: `docs/brief-desain/design-brief-akun-dokter.md`).
 > Basis kode: `integrasi/dev-2026-08-06`.
 
@@ -105,7 +105,24 @@ Arah ini perlu diputuskan sebelum membangun, bukan sesudah.
 
 ## 8. Prasyarat sebelum mulai
 
-1. Kolom penghubung `users.raw_doctor_id` (§3)
-2. Role "Dokter" berdiri sendiri (§4)
-3. Keputusan arah absensi berbasis jadwal (§6)
-4. Desain layar — brief di `docs/brief-desain/design-brief-akun-dokter.md`
+1. ✅ **SIAP DEPLOY** — Kolom penghubung `users.raw_doctor_id` (§3).
+   `database/sql/2026_08_13_akun_dokter_prasyarat.sql` +
+   migration `2026_08_13_100000_add_raw_doctor_id_to_users_table.php`.
+   Relasi model terpasang: `Users::doctor()` / `RawDoctor::user()`.
+2. ✅ **SIAP DEPLOY** — Role "Dokter" berdiri sendiri (§4), di file SQL yang
+   sama. `parent_id` NULL, `level` 0, landing `akun`, grant zona pribadi saja.
+   ⚠️ Sesudah SQL: `php artisan access:rebuild`.
+3. ✅ **DIPUTUSKAN 13 Agu** — arah absensi berbasis jadwal (§6):
+   **tipe aturan baru `jadwal`** yang membaca jadwal praktik langsung, ACC Ekky.
+   Rinciannya + urutan kerja di `docs/rencana/rencana-akun-dokter-absensi-jadwal.md`.
+   Temuan yang mengubah §6: absen lintas cabang **sudah** jalan hari ini, jadi
+   alasan mengosongkan cabang dokter gugur — yang tersisa cuma "hari praktik
+   dinilai atau tidak".
+   ⏳ Sisa satu pertanyaan ke Finance: **dokter dibayar per tindakan atau gaji
+   bulanan?** Itu menentukan vonis "tak scan di hari praktik". TIDAK memblokir
+   pembangunan — sikap sementaranya sudah ditulis dan aman dibalik.
+4. ⏳ Desain layar — brief di `docs/brief-desain/design-brief-akun-dokter.md`,
+   dibawa Ekky ke claude.ai/design.
+
+⚠️ Butir 1 & 2 **belum dijalankan di database mana pun** — masih berupa berkas
+di branch `integrasi/dev-2026-08-06`.

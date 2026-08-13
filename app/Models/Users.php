@@ -25,6 +25,7 @@ class Users extends Model
         'register_token',
         'group_id',
         'raw_branch_id', // branch
+        'raw_doctor_id', // NULL = akun ini bukan dokter (rencana-akun-dokter.md §3)
         // Pusat Akun Fase B
         'last_seen_at',
         'must_change_password',
@@ -50,5 +51,24 @@ class Users extends Model
     public function branch()
     {
         return $this->belongsTo(RawBranch::class, 'raw_branch_id', 'id');
+    }
+
+    /**
+     * Dokter yang diwakili akun ini — NULL untuk akun karyawan biasa.
+     *
+     * Ini pintu ke seluruh dunia dokter yang sudah lengkap di database tapi
+     * selama ini tak bisa dilihat pemiliknya: jadwal praktik, jadwal khusus,
+     * layanan, dan reservasi (rencana-akun-dokter.md §1). Dari sini
+     * `->doctor->schedules` / `->doctor->reservations` langsung terpakai.
+     */
+    public function doctor()
+    {
+        return $this->belongsTo(RawDoctor::class, 'raw_doctor_id', 'id');
+    }
+
+    /** Akun ini mewakili seorang dokter? Dipakai sebagai gerbang layar dokter. */
+    public function isDoctor(): bool
+    {
+        return $this->raw_doctor_id !== null;
     }
 }
