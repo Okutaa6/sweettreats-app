@@ -244,11 +244,15 @@ DROP PROCEDURE IF EXISTS `dok_cek_grant`;
 -- 3. Role Dokter punya menu pribadi. JANGAN mematok angka — kalau ada node
 --    ber-link kembar (utang audit menu 5 Agu), jumlahnya sah lebih dari 2.
 --    Yang WAJIB benar: node ber-link 'akun' ADA, dan tiap node cuma sekali.
+--    ⚠️ Kolom non-agregat WAJIB semuanya masuk GROUP BY — server dev & prod
+--    menyalakan ONLY_FULL_GROUP_BY, jadi `GROUP BY ap.id` saja mati dengan
+--    galat 1055, bukan menjawab pertanyaannya (terbukti di dev 13 Agu).
 --      SELECT ap.nama, IFNULL(ap.link,'(induk)') AS link, COUNT(*) AS n
 --        FROM group_access ga
 --        JOIN access_path ap ON ap.id=ga.access_id
 --        JOIN group_path g   ON g.id=ga.group_id
---       WHERE g.nama='Dokter' GROUP BY ap.id;      -- tiap n HARUS 1
+--       WHERE g.nama='Dokter'
+--       GROUP BY ap.id, ap.nama, ap.link;          -- tiap n HARUS 1
 --    dan minimal satu barisnya ber-link 'akun'.
 --
 -- 4. `php artisan access:rebuild` — TANPA ini menu tak muncul walau grant ada.
