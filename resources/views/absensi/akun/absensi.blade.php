@@ -220,7 +220,20 @@
             <div class="aks-ph-av">{{ $me['inisial'] }}</div>
             <div style="flex:1;min-width:0">
                 <div class="aks-ph-name">{{ $me['nama'] }}</div>
-                <div class="aks-ph-sub">{{ $me['jabatan'] ?? 'Karyawan' }}@if($me['cabang']) · Cabang {{ $me['cabang'] }}@endif@if(!empty($me['ditempatkan'])) · ditempatkan di {{ $me['ditempatkan'] }}@endif</div>
+                {{-- Dirakit di PHP, bukan ditempel dua percabangan berturut-turut.
+                     Sebabnya: dua direktif Blade yang DEMPET tanpa spasi membuat
+                     yang kedua tak dikenali — ia lolos jadi teks mentah sementara
+                     penutupnya tetap dikompilasi, jadi ada penutup yatim dan
+                     SELURUH halaman galat 500. (Sengaja tak menulis contoh
+                     direktifnya di sini: Blade mengkompilasi direktif SEBELUM
+                     membuang komentar, jadi contoh pun ikut diproses.)
+                     Cara ini kebal masalah itu sekaligus merapikan pemisah "·"
+                     saat salah satu bagian kosong. --}}
+                <div class="aks-ph-sub">{{ implode(' · ', array_filter([
+                    $me['jabatan'] ?? 'Karyawan',
+                    $me['cabang'] ? 'Cabang ' . $me['cabang'] : null,
+                    ! empty($me['ditempatkan']) ? 'ditempatkan di ' . $me['ditempatkan'] : null,
+                ])) }}</div>
             </div>
             <a href="#" class="aks-bell" title="Notifikasi">
                 <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M9 2.5a4 4 0 0 0-4 4c0 3.6-1.5 5-1.5 5h11S13 10.1 13 6.5a4 4 0 0 0-4-4ZM7.3 14a1.9 1.9 0 0 0 3.4 0" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
