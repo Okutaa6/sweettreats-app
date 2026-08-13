@@ -30,11 +30,11 @@ SET g.`att_default_rule_id` = r.`id`
 WHERE g.`nama` IN ('Front Office', 'Assistant Dentist', 'General Services')
   AND (g.`att_default_rule_id` IS NULL OR g.`att_default_rule_id` <> r.`id`);
 
--- ── Catatan sengaja ────────────────────────────────────────────────────────
--- Role KANTOR (Creative, Finance, Head Marketing, dst) sengaja TIDAK diisi.
--- Mereka beraturan fleksibel, dan penugasannya lebih sering perkecualian
--- daripada pola — memberi bawaan justru membuat orang berhenti memikirkannya.
--- Yang dibawakan cuma tiga role yang aturannya memang seragam per peran.
+-- ── Catatan ────────────────────────────────────────────────────────────────
+-- Role KANTOR (Creative, Finance, dst) TERNYATA SUDAH punya bawaan
+-- "Fleksibel Kantor" sejak awal. Jadi kosongnya ketiga role operasional ini
+-- memang KELALAIAN, bukan pilihan — justru role yang jam kerjanya paling
+-- seragam & paling perlu dinilai yang malah terlewat.
 --
 -- Role "Dokter" (kalau nanti dibuat) TIDAK boleh diberi bawaan `FO-Asdent`
 -- atau `GS`. Jam kerja dokter datang dari jadwal praktik, bukan pola mingguan.
