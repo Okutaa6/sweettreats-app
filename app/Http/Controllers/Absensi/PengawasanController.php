@@ -408,6 +408,18 @@ class PengawasanController extends Controller
                 optional($sudahAda->branch)->name . ', status ' . $sudahAda->status . ').');
         }
 
+        // Jaringannya bisa saja sudah dikenali lewat alamat lain — pencocokan
+        // IPv6 membaca blok jaringan, bukan alamat tiap HP. Lazim terjadi di
+        // sini: flag lama dibuka lagi setelah jaringannya terlanjur didaftarkan
+        // (atau mendaftar sendiri). Menambah baris cuma bikin daftar kembar;
+        // yang dibutuhkan tinggal menutup flag-nya.
+        $cakupan = AttBranchIp::matchBranch($data['ip']);
+        if ($cakupan) {
+            return back()->with('error', 'Jaringan ini sudah dikenali lewat baris ' . $cakupan->ip .
+                ' (cabang ' . optional($cakupan->branch)->name . '), jadi tak perlu didaftarkan lagi — ' .
+                'flag ini tinggal diselesaikan.');
+        }
+
         AttBranchIp::create([
             'raw_branch_id' => $data['raw_branch_id'],
             'ip'            => $data['ip'],

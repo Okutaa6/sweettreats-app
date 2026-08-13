@@ -83,6 +83,21 @@ class AbsensiBranchIpController extends Controller
                 ' — satu IP hanya boleh satu cabang. Nonaktifkan dulu yang lama kalau memang pindah.');
         }
 
+        // Pencocokan IPv6 hanya membaca 64 bit pertama, jadi jaringan yang sama
+        // bisa ditulis dengan tak terhingga alamat berbeda — tiap HP punya ekor
+        // sendiri. Membandingkan TEKS saja (cek di atas) membuat siapa pun bisa
+        // menambah baris untuk jaringan yang SUDAH tercakup, tanpa peringatan.
+        // Begitulah daftar Bintaro membengkak jadi 10 baris sebelum dirapikan
+        // 5 Agu: lima di antaranya kembar. Sekarang dicegat di sini.
+        $cakupan = AttBranchIp::matchBranch($data['ip']);
+        if ($cakupan) {
+            return back()->with('error',
+                'Jaringan ini SUDAH dikenali lewat baris ' . $cakupan->ip . ' (cabang ' .
+                optional($cakupan->branch)->name . '). Menambah baris lagi tidak mengubah apa pun — ' .
+                'pencocokan IPv6 hanya membaca blok jaringannya, bukan alamat tiap HP. ' .
+                'Kalau jaringan ini seharusnya milik cabang lain, nonaktifkan dulu baris itu.');
+        }
+
         AttBranchIp::create($data + [
             'status'     => 'aktif',
             'created_by' => (string) session('id') ?: null,
