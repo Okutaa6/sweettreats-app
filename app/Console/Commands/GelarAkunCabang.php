@@ -29,10 +29,18 @@ use Illuminate\Support\Facades\DB;
  *
  * IDEMPOTEN: orang yang sudah punya akun dilewati, bukan dibuat dua kali.
  * KERING (--dry): tampilkan rencana tanpa menulis apa pun.
+ *
+ * --sandi=X : semua akun memakai kata sandi yang sama, DAN akun yang sudah ada
+ * ikut disetel ulang ke sandi itu. Dipakai untuk penggelaran cabang, karena
+ * membagikan satu sandi lisan ke satu ruangan jauh lebih praktis daripada
+ * membacakan sandi acak satu per satu. Aman karena `must_change_password`
+ * tetap menyala: sandi seragam ini cuma pintu masuk sekali, bukan sandi mereka.
  */
 class GelarAkunCabang extends Command
 {
-    protected $signature = 'att:gelar-akun {--dry : tampilkan rencana tanpa menulis}';
+    protected $signature = 'att:gelar-akun
+        {--dry : tampilkan rencana tanpa menulis}
+        {--sandi= : pakai kata sandi ini utk semua (juga MENYETEL ulang yang sudah ada); kosong = acak per orang}';
 
     protected $description = 'Buat akun karyawan cabang (penggelaran bertahap) lengkap dgn aturan kerja, posisi, dan jatah cuti';
 
@@ -68,7 +76,8 @@ class GelarAkunCabang extends Command
 
     public function handle(): int
     {
-        $kering = (bool) $this->option('dry');
+        $kering = (bool) $this->option("dry");
+        $sandiTetap = trim((string) $this->option("sandi")) ?: null;
         $hariIni = Carbon::today()->toDateString();
 
         $peranId  = DB::table('group_path')->pluck('id', 'nama');
@@ -81,7 +90,23 @@ class GelarAkunCabang extends Command
         foreach (self::ORANG as $o) {
             $ada = Users::where('email', $o['email'])->first();
             if ($ada) {
-                $this->line("  – {$o['nama']}: sudah punya akun, dilewati");
+                // Dengan --sandi, orang yang sudah ada TIDAK cuma dilewati:
+                // sandinya disetel ulang. Gunanya saat akun terlanjur dibuat
+                // dengan sandi acak lalu diputuskan pakai sandi seragam —
+                // tanpa ini, satu-satunya jalan adalah menghapus lalu membuat
+                // ulang akun, dan itu ikut membuang riwayat absennya.
+                if ($sandiTetap && ! $kering) {
+                    $ada->update([
+                        'password'             => password_hash($sandiTetap, PASSWORD_DEFAULT),
+                        'must_change_password' => 1,
+                    ]);
+                    AuditLog::record('update', 'Gelar cabang — setel ulang sandi sementara: ' . $ada->nama, $ada);
+                    $this->line("  ~ {$o['nama']}: akun sudah ada, sandi disetel ulang");
+                } elseif ($sandiTetap) {
+                    $this->line("  ~ {$o['nama']}: akun sudah ada, sandi AKAN disetel ulang");
+                } else {
+                    $this->line("  – {$o['nama']}: sudah punya akun, dilewati");
+                }
                 $dilewati++;
                 continue;
             }
@@ -95,7 +120,7 @@ class GelarAkunCabang extends Command
                 }
             }
 
-            $temp = $this->sandiSementara();
+            $temp = $sandiTetap ?: $this->sandiSementara();
             $sandi[$o['nama']] = $temp;
 
             if ($kering) {
