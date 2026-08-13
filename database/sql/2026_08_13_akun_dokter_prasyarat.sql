@@ -185,6 +185,45 @@ GROUP BY g.`id`, p.`id`;
 COMMIT;
 
 
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 4. GERBANG: pastikan grant benar-benar menempel — jangan gagal diam
+-- ─────────────────────────────────────────────────────────────────────────────
+-- Kedua INSERT di atas memakai JOIN ke `access_path` ber-link 'akun'. Kalau
+-- environment ini kebetulan TIDAK punya node itu, JOIN-nya kosong, INSERT
+-- memasukkan NOL baris, dan berkas ini selesai dengan tenang seolah beres.
+--
+-- Akibatnya persis kegagalan #1 di detektor Kesehatan: role Dokter berdiri
+-- dengan landing_page 'akun' yang TIDAK di-grant ke dirinya → tiap dokter yang
+-- login kena 403 selamanya, tanpa satu pun pesan. Sudah kejadian 3× di proyek
+-- ini (Sales prod, FO/Asdent/Koord dev, Finance/IT baru).
+--
+-- Jadi keadaan itu dijadikan GALAT KERAS di sini. Lebih baik berkas ini berhenti
+-- dengan pesan yang jelas daripada meninggalkan role yang tampak sehat.
+
+DROP PROCEDURE IF EXISTS `dok_cek_grant`;
+DELIMITER $$
+CREATE PROCEDURE `dok_cek_grant`()
+BEGIN
+  DECLARE n INT DEFAULT 0;
+
+  SELECT COUNT(*) INTO n
+  FROM `group_access` ga
+  JOIN `access_path` ap ON ap.`id` = ga.`access_id`
+  JOIN `group_path`  g  ON g.`id`  = ga.`group_id`
+  WHERE g.`nama` = 'Dokter' AND ap.`link` = 'akun';
+
+  IF n = 0 THEN
+    SIGNAL SQLSTATE '45000'
+      SET MESSAGE_TEXT = 'GAGAL: role Dokter tak punya grant ber-link akun. Tak ada access_path ber-link "akun" di database ini? Role Dokter kini punya landing yang tak bisa dibuka — perbaiki dulu SEBELUM membuat akun dokter.';
+  END IF;
+END$$
+DELIMITER ;
+
+CALL dok_cek_grant();
+
+DROP PROCEDURE IF EXISTS `dok_cek_grant`;
+
+
 -- ============================================================================
 -- VERIFIKASI setelah jalan (JANGAN DILEWATI)
 -- ============================================================================
