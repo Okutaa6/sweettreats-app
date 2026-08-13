@@ -7,6 +7,56 @@
 
 ---
 
+## 2026-08-13 — Sunter digelar ke PROD (4 akun) + Irma dapat Pengawasan Absen
+
+Prod sekarang memuat **4 dari 5 cabang**: ABG/Office, Bintaro, Cinere, Pamulang,
+dan Sunter. Tinggal **Kalideres** — menunggu sheet HR & info penempatannya.
+
+**Sunter (4 akun baru)**: Putri Syafira (Asdent, sisa cuti 7) · Rokhmatun
+(Asdent, 0) · Tito Muhammad Taqiyuddin (GS, 0) · Melani Safrida (FO, 0). Verini
+sudah lebih dulu digelar kemarin karena penempatannya di Cinere. Saldo 0 pada
+ketiga orang itu berarti **belum berhak** — kontrak pertama belum genap sekali
+perpanjangan — bukan cutinya habis; karena itu ditulis jatah 0 tanpa baris
+penyesuaian, supaya tak terbaca seolah haknya sudah terpakai.
+
+Semua bersandi sementara `sweettreats2026` dan wajib ganti saat login pertama.
+Dibuktikan lewat login HTTP sungguhan: masuk → langsung dipagari halaman Ganti
+Password, tanpa galat.
+
+⚠️ **Kontrak Rokhmatun habis 11 Agu 2026** — sudah lewat saat akunnya dibuat.
+Sengaja dimasukkan apa adanya supaya perpanjangannya terlihat, bukan tenggelam.
+
+**Satu ranjau ditutup di perkakasnya.** `att:gelar-akun --sandi=` dulu menyetel
+ulang sandi SEMUA orang di daftar, termasuk yang sudah ada. Karena perintah ini
+dijalankan ulang tiap gelombang cabang sementara daftarnya makin panjang,
+menggelar Kalideres nanti akan mencabut sandi pribadi seluruh Cinere, Pamulang,
+dan Sunter sekaligus — mereka terkunci di luar tanpa galat, dan satu-satunya
+petunjuk cuma lewat di layar orang yang menjalankan perintahnya. Sekarang
+penyetelan ulang **melewati orang yang sudah mengganti sandinya sendiri**.
+Nyaris kejadian hari ini: Alviona, Mutiara, dan Ramdan sudah ganti sandi
+beberapa jam sebelum gelombang Sunter dijalankan.
+
+**Irma (Coordinator Dentist) dapat Pengawasan Absen** — setara Nissa
+(`Admin_Nisa`, Admin Backup) di sisi pengawasan. Diuji di dev dengan login
+sungguhan: `/pengawasan` terbuka, `/absensi/kehadiran` dipental. Kontrol kedua
+itu yang penting — membuktikan haknya berhenti tepat di batas yang diminta.
+Node admin absensi Nissa yang lain (Kehadiran, Cuti, WiFi Cabang, Upload Data)
+sengaja **tidak** ikut: itu wewenang yang tak pernah diputuskan siapa pun.
+
+Dua hal yang perlu diketahui pemakainya: halaman Pengawasan Absen **tak
+menyaring per cabang** (Irma yang ABG melihat seluruh klinik, sama seperti
+Nissa), dan haknya menempel di **role** — sekarang isinya Irma seorang, tapi
+Coordinator Dentist berikutnya akan mewarisinya.
+
+**Catatan pemeriksaan**: verifikasi sisa cuti sempat salah baca (Putri terlihat
+17, padahal 7). `CutiPeriode::sisa()` menghitung `saldo_awal − Σ mutasi.hari`;
+baris penyesuaian bernilai positif berarti MEMOTONG. Datanya benar sejak awal —
+query pemeriksanya yang keliru arah.
+
+Prod: `97b14bd`.
+
+---
+
 ## 2026-08-12 — WiFi Cabang belajar sendiri: DIBANGUN, live di DEV (belum prod)
 
 Branch `feature/wifi-belajar-sendiri`. Nomor IPv6 dari Telkom berputar kira-kira

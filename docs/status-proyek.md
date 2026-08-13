@@ -21,6 +21,36 @@
 > migrate dulu baru SQL.**
 > Kalau tanggal ini sudah jauh lewat,
 > minta chat teknis menyegarkan file ini sebelum dipakai mengambil keputusan.
+>
+> ⚠️ **Sisipan 2026-08-13** — badan file di bawah masih potret 6 Agu dan belum
+> disegarkan menyeluruh. Yang sudah berubah sejak itu ada di `log-update.md`
+> (entri 11, 12, dan 13 Agu). Satu hal yang paling sering ditanyakan
+> diringkas di §1a tepat di bawah.
+
+## 1a. Penggelaran akun per cabang — keadaan 13 Agu 2026
+
+Akun karyawan sengaja digelar **cabang per cabang**, bukan sekaligus. Nama yang
+belum ada di prod itu **bukan data hilang**.
+
+| Kelompok | Prod |
+|---|---|
+| ABG/Office + Bintaro | ✅ live 11 Agu |
+| Cinere + Pamulang (5 akun) | ✅ live 13 Agu |
+| Sunter (4 akun) | ✅ live 13 Agu |
+| **Kalideres** | ❌ **belum** — menunggu sheet HR & info penempatan |
+
+Perkakasnya `php artisan att:gelar-akun` (daftar orang di `const ORANG`,
+`app/Console/Commands/GelarAkunCabang.php`). Idempoten; jalankan `--dry` dulu.
+Untuk Kalideres nanti: **tambah baris ke `const ORANG`**, jangan tulis SQL
+manual — sandi perlu di-hash dan ada tiga ekor yang gampang terlupa
+(`sys_user_position`, `att_user_rule`, `att_cuti_periode`).
+
+Akun gelombang mana pun lahir bersandi sementara seragam dan **wajib ganti saat
+login pertama**. Orang yang sudah mengganti sandinya sendiri tak akan disentuh
+gelombang berikutnya.
+
+**Utang terbuka**: kontrak Rokhmatun (Sunter) habis 11 Agu 2026 — perlu
+diperpanjang HR. Kontrak Alif & Reza masih dikosongkan, menunggu data.
 
 ## 1. Apa aplikasi ini
 
