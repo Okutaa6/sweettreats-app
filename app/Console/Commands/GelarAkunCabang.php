@@ -171,13 +171,22 @@ class GelarAkunCabang extends Command
             if ($kering) { $this->line("  + rolling {$u->nama} → {$namaCabang}"); continue; }
 
             $home = UserPosition::where('user_id', $u->id)->where('kind', 'home')->first();
+            // ⚠️ is_primary=1 dan confirmed_at WAJIB terisi. scopeActiveOn()
+            // menyaring `is_primary=1 AND confirmed_at IS NOT NULL` — baris
+            // rolling tanpa keduanya tersaring keluar diam-diam: barisnya ADA
+            // di tabel, tapi cabang efektif tetap cabang asal. Tak ada galat,
+            // tak ada peringatan. (Kejadian nyata saat deploy 13 Agu.)
+            // "primary" di sini berarti "posisi yang berlaku", bukan "yang asal";
+            // rolling menang atas home lewat urutan di scope-nya, bukan flag ini.
             UserPosition::create([
                 'user_id'        => $u->id,
                 'division_id'    => $home->division_id ?? null,
                 'raw_branch_id'  => $cabangId[$namaCabang],
-                'is_primary'     => 0,
+                'is_primary'     => 1,
                 'kind'           => 'rolling',
                 'effective_from' => $hariIni,
+                'confirmed_at'   => now(),
+                'confirmed_by'   => $home->confirmed_by ?? null,
                 'note'           => 'Penempatan sementara — penggelaran cabang ' . $namaCabang,
             ]);
             $this->info("  + rolling {$u->nama} → {$namaCabang}");
