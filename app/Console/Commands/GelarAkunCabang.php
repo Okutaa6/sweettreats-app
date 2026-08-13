@@ -66,6 +66,24 @@ class GelarAkunCabang extends Command
         // (identitas roster); penempatan diurus baris rolling, lihat --rolling.
         ['nama' => 'Ramdan Ramdhani',        'email' => 'ramdan@sweettreats.id',    'role' => 'General Services',  'cabang' => 'Kalideres', 'aturan' => 'GS',        'jatah' => 12.0, 'sesuai' => 0.0,  'kontrak' => '2027-07-24'],
         ['nama' => 'Verini Selvia Naskah',   'email' => 'verini@sweettreats.id',    'role' => 'Front Office',      'cabang' => 'Sunter',    'aturan' => 'FO-Asdent', 'jatah' => 0.0,  'sesuai' => 0.0,  'kontrak' => '2026-11-07'],
+
+        // ── SUNTER, 13 Agu 2026 ────────────────────────────────────────────
+        // Verini (di atas) sudah lebih dulu digelar karena penempatannya di
+        // Cinere; keempat orang ini melengkapi rosternya.
+        //
+        // Hanya Putri yang berjatah. Ketiga lainnya bersaldo 0 karena BELUM
+        // BERHAK — kontrak pertama belum genap sekali perpanjangan — sama
+        // seperti Verini, bukan karena cutinya habis. Karena itu jatahnya
+        // ditulis 0 tanpa baris penyesuaian; menulis 12 lalu memotong 12 akan
+        // terbaca seolah mereka sudah memakai seluruh haknya.
+        //
+        // ⚠️ Kontrak Rokhmatun HABIS 11 Agu 2026 — sudah lewat saat baris ini
+        // ditulis. Sengaja dimasukkan apa adanya: akunnya tetap perlu ada, dan
+        // tanggal yang jujur membuat perpanjangannya terlihat, bukan tenggelam.
+        ['nama' => 'Putri Syafira',            'email' => 'putri@sweettreats.id',     'role' => 'Assistant Dentist', 'cabang' => 'Sunter',    'aturan' => 'FO-Asdent', 'jatah' => 12.0, 'sesuai' => 5.0,  'kontrak' => '2027-01-01'],
+        ['nama' => 'Rokhmatun',                'email' => 'rokhmatun@sweettreats.id', 'role' => 'Assistant Dentist', 'cabang' => 'Sunter',    'aturan' => 'FO-Asdent', 'jatah' => 0.0,  'sesuai' => 0.0,  'kontrak' => '2026-08-11'],
+        ['nama' => 'Tito Muhammad Taqiyuddin', 'email' => 'tito@sweettreats.id',      'role' => 'General Services',  'cabang' => 'Sunter',    'aturan' => 'GS',        'jatah' => 0.0,  'sesuai' => 0.0,  'kontrak' => '2027-05-11'],
+        ['nama' => 'Melani Safrida',           'email' => 'melani@sweettreats.id',    'role' => 'Front Office',      'cabang' => 'Sunter',    'aturan' => 'FO-Asdent', 'jatah' => 0.0,  'sesuai' => 0.0,  'kontrak' => '2027-05-11'],
     ];
 
     /** Penempatan sementara: email => cabang tempat dia bekerja sekarang. */
