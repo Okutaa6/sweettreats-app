@@ -1,6 +1,7 @@
 # Rencana: Akun Dokter (tampilan + absen)
 
-> Status: **PRASYARAT 1 & 2 SIAP DEPLOY, 3 & 4 menunggu** — diperbarui 13 Agu 2026.
+> Status: **PRASYARAT 1–3 SELESAI & LIVE DEV, 4 menunggu handoff desain** — 13 Agu 2026.
+> Prod belum disentuh sama sekali.
 > Desain layar lewat claude.ai/design (brief: `docs/brief-desain/design-brief-akun-dokter.md`).
 > Basis kode: `integrasi/dev-2026-08-06`.
 
@@ -105,11 +106,11 @@ Arah ini perlu diputuskan sebelum membangun, bukan sesudah.
 
 ## 8. Prasyarat sebelum mulai
 
-1. ✅ **SIAP DEPLOY** — Kolom penghubung `users.raw_doctor_id` (§3).
+1. ✅ **LIVE DEV** — Kolom penghubung `users.raw_doctor_id` (§3).
    `database/sql/2026_08_13_akun_dokter_prasyarat.sql` +
    migration `2026_08_13_100000_add_raw_doctor_id_to_users_table.php`.
    Relasi model terpasang: `Users::doctor()` / `RawDoctor::user()`.
-2. ✅ **SIAP DEPLOY** — Role "Dokter" berdiri sendiri (§4), di file SQL yang
+2. ✅ **LIVE DEV** — Role "Dokter" berdiri sendiri (§4), di file SQL yang
    sama. `parent_id` NULL, `level` 0, landing `akun`, grant zona pribadi saja.
    ⚠️ Sesudah SQL: `php artisan access:rebuild`.
 3. ✅ **DIPUTUSKAN 13 Agu** — arah absensi berbasis jadwal (§6):
@@ -124,5 +125,11 @@ Arah ini perlu diputuskan sebelum membangun, bukan sesudah.
 4. ⏳ Desain layar — brief di `docs/brief-desain/design-brief-akun-dokter.md`,
    dibawa Ekky ke claude.ai/design.
 
-⚠️ Butir 1 & 2 **belum dijalankan di database mana pun** — masih berupa berkas
-di branch `integrasi/dev-2026-08-06`.
+⚠️ Butir 1–3 sudah jalan di **DEV saja** (`c544ea7`). **PROD belum disentuh.**
+Urutan deploy prod nanti: `php artisan migrate --force` → SQL prasyarat → SQL
+aturan jadwal → `php artisan access:rebuild`.
+
+⚠️⚠️ **JANGAN buat akun dokter di prod sebelum SQL aturan `jadwal` jalan di
+sana.** Reconciler hanya menyapa orang yang punya `att_user_rule`; akun yang
+lahir sebelum `att_default_rule_id` role Dokter terisi akan punya scan YATIM
+yang tak pernah dinilai, tanpa satu pun pesan.

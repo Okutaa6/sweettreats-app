@@ -1,8 +1,23 @@
 # Arah Absensi Dokter — berbasis jadwal praktik (§6)
 
-> Status: **ARAH DIPUTUSKAN — pilihan C (tipe `jadwal`) ACC Ekky 13 Agu 2026.**
-> Satu pertanyaan masih terbuka: **K1** (cara bayar dokter) — perlu tanya Finance.
-> Sikap sementara untuk K1 ada di §4 K1; ia TIDAK memblokir pembangunan.
+> Status: **DIBANGUN & LIVE DEV 13 Agu 2026** — pilihan C (tipe `jadwal`), ACC Ekky.
+> Prod BELUM. Satu pertanyaan masih terbuka: **K1** (cara bayar dokter) — Finance.
+>
+> Terpasang di dev (`c544ea7`): `App\Services\DoctorSchedule`, cabang `jadwal` di
+> `AttendanceReconciler`, `hariLiburTerjadwal()` membaca jadwal praktik, SQL
+> `2026_08_13_aturan_jadwal_dokter.sql`.
+>
+> **Uji dengan data dokter ASLI di dev — 17 butir lulus, 0 gagal:**
+> - 7 hari × 6 dokter gelombang pertama cocok dengan baris `raw_doctor_schedule`
+>   mentah, **termasuk Minggu** (ISO 7 vs Carbon 0 = kasus terburuk jebakan §5.1)
+> - **112 pasangan (dokter, tanggal, cabang): absensi & mesin pemesanan menjawab
+>   IDENTIK** — bukti langsung klaim "satu sumber kebenaran"
+> - lintas cabang nyata terbaca (Putri: Pamulang+Bintaro; Yusmaini: Pamulang+Cinere)
+> - jadwal khusus `replace` terbaca; cuti dokter menutup jadwal reguler
+> - 6 kasus reconciler end-to-end dgn scan sintetis (hadir/telat-tak-menghukum/
+>   praktik-tanpa-scan/hadir-di-luar-jadwal/hari-depan/cabang-beda/salah-pasang)
+> - idempotensi utuh: reconcile 2× menghasilkan baris identik, cabang `jadwal`
+>   tidak bocor ke jalur `baku`/`fleksibel`
 > Prasyarat §8 butir 3 dari `docs/rencana/rencana-akun-dokter.md`.
 > Basis kode: `integrasi/dev-2026-08-06`. Semua temuan di bawah dibaca dari kode,
 > bukan dugaan — nomor barisnya ditulis supaya bisa diperiksa ulang.
