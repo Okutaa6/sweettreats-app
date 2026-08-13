@@ -70,6 +70,23 @@ class AuthGuard
             }
         }
 
+        // ── Cabang efektif: hitung ulang kalau TANGGAL sudah ganti ──
+        // Cabang sesi diisi saat login (cabangSesiUntuk). Sesi cabang sering
+        // hidup melewati tengah malam (tablet jarang logout), jadi rolling yang
+        // mulai/berakhir hari ini tak akan kepakai kalau cuma mengandalkan
+        // login. Satu query per sesi per HARI — murah.
+        // Batas yang diterima sadar: rolling yang dibuat di tengah hari baru
+        // berlaku setelah keluar-masuk sekali.
+        if ($uid && session('branch_day') !== date('Y-m-d')) {
+            session(['branch_day' => date('Y-m-d')]);
+            $ub = \Illuminate\Support\Facades\DB::table('users')->where('id', $uid)->first(['raw_branch_id']);
+            // Baris user hilang → JANGAN sentuh sesi. Menulis null di sini
+            // sama saja memberi akses semua cabang secara diam-diam.
+            if ($ub) {
+                session(['raw_branch_id' => cabangSesiUntuk($uid, $ub->raw_branch_id)]);
+            }
+        }
+
         // Allow home route (/) without access check
         if ($controller === null || $controller === '') {
             // Refresh session expiry

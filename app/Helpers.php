@@ -797,6 +797,31 @@ if (!function_exists('positionBranchOn')) {
 }
 
 /**
+ * Cabang yang DITARUH DI SESI saat login = "hari ini orang ini bekerja di
+ * cabang mana". Semua layar (Reservasi, Pasien, Dokter, Petty Cash, Cuci AC,
+ * Checklist, dll — 75 titik) menyaring lewat session('raw_branch_id') yang
+ * sama, jadi cukup benar di SATU tempat ini, bukan di tiap controller.
+ *
+ * Aturannya sengaja sempit:
+ * - Cabang asal NULL (ABG/Office: Ikhsan, Reza, Anisa, Irma) → tetap NULL.
+ *   NULL artinya "lihat semua cabang"; baris posisi TIDAK boleh menguncinya.
+ * - Selain itu: cabang posisi aktif hari ini (rolling menang atas home lewat
+ *   scopeActiveOn) — kalau tak ada, jatuh balik ke cabang asal.
+ *
+ * ⚠️ Kolom `users.raw_branch_id` TIDAK disentuh. Cabang asal tetap identitas
+ * roster & dasar rekap (lihat §4 rencana gelar Cinere-Pamulang); yang berubah
+ * cuma penyaringan layar. Absensi tak terpengaruh — ia membaca kolom langsung.
+ */
+if (!function_exists('cabangSesiUntuk')) {
+    function cabangSesiUntuk(?string $userId, ?string $homeBranchId): ?string
+    {
+        if (! $userId || ! $homeBranchId) return $homeBranchId;
+
+        return positionBranchOn($userId, \Carbon\Carbon::today()) ?: $homeBranchId;
+    }
+}
+
+/**
  * Branch ID yang dipakai untuk filter di halaman checklist supervisor.
  * Pakai pola sama dgn PettyCashController::resolveBranchId() — admin
  * bisa dropdown, role lain locked ke session.

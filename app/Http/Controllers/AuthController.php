@@ -54,7 +54,10 @@ class AuthController extends Controller
                     'syslogo'        => $sysprofile->syslogo,
                     'sysname'        => $sysprofile->sysname,
                     'isLoggedIn'     => true,
-                    'raw_branch_id'  => $user->raw_branch_id,
+                    // Cabang EFEKTIF hari ini (rolling menang atas cabang asal),
+                    // bukan mentah dari kolom — lihat cabangSesiUntuk().
+                    'raw_branch_id'  => cabangSesiUntuk($user->id, $user->raw_branch_id),
+                    'branch_day'     => date('Y-m-d'),
                     // Pusat Akun: stempel login (buat force-logout) + flag wajib-ganti
                     // + landing (dipakai redirect setelah ganti password)
                     'login_at'             => time(),
