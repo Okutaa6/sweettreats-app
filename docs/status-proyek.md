@@ -49,8 +49,14 @@ Akun gelombang mana pun lahir bersandi sementara seragam dan **wajib ganti saat
 login pertama**. Orang yang sudah mengganti sandinya sendiri tak akan disentuh
 gelombang berikutnya.
 
-**Utang terbuka**: kontrak Rokhmatun (Sunter) habis 11 Agu 2026 — perlu
-diperpanjang HR. Kontrak Alif & Reza masih dikosongkan, menunggu data.
+**Utang terbuka**: kontrak Alif & Reza masih dikosongkan, menunggu data.
+(Kontrak Rokhmatun sudah diperpanjang HR 13 Agu → 11 Agu 2027, jatah 12.)
+
+⚠️ **Perlu dipastikan: penjadwal harian jalan atau tidak di prod?** Bukti tak
+langsung menunjuk ke TIDAK. Kalau memang mati, yang ikut mati diam-diam:
+reset kontrak cuti, `att:reconcile` harian, `att:flag-sweep`,
+`absensi:selesaikan-l2`, sapuan ROP, dan sinkron Omnicare. Cek cron
+`php artisan schedule:run` tiap menit di hPanel.
 
 ## 1. Apa aplikasi ini
 

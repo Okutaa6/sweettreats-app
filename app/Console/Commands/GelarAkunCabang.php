@@ -81,11 +81,15 @@ class GelarAkunCabang extends Command
         // ditulis 0 tanpa baris penyesuaian; menulis 12 lalu memotong 12 akan
         // terbaca seolah mereka sudah memakai seluruh haknya.
         //
-        // ⚠️ Kontrak Rokhmatun HABIS 11 Agu 2026 — sudah lewat saat baris ini
-        // ditulis. Sengaja dimasukkan apa adanya: akunnya tetap perlu ada, dan
-        // tanggal yang jujur membuat perpanjangannya terlihat, bukan tenggelam.
+        // Rokhmatun sempat dibuat dengan kontrak yang sudah habis (11 Agu 2026)
+        // karena itulah keadaan sebenarnya saat akunnya lahir. HR lalu
+        // memperpanjangnya hari itu juga → 11 Agu 2027, jatah 12. Baris ini
+        // dibuat menyusul supaya cerminnya tetap benar; perpanjangannya sendiri
+        // dikerjakan lewat jalur resmi (tombol "Kontrak Baru" di Absensi →
+        // Cuti / CutiService::mulaiKontrakBaru), yang menutup periode lama dan
+        // membuka yang baru — bukan menimpa masa lalu.
         ['nama' => 'Putri Syafira',            'email' => 'putri@sweettreats.id',     'role' => 'Assistant Dentist', 'cabang' => 'Sunter',    'aturan' => 'FO-Asdent', 'jatah' => 12.0, 'sesuai' => 5.0,  'kontrak' => '2027-01-01'],
-        ['nama' => 'Rokhmatun',                'email' => 'rokhmatun@sweettreats.id', 'role' => 'Assistant Dentist', 'cabang' => 'Sunter',    'aturan' => 'FO-Asdent', 'jatah' => 0.0,  'sesuai' => 0.0,  'kontrak' => '2026-08-11'],
+        ['nama' => 'Rokhmatun',                'email' => 'rokhmatun@sweettreats.id', 'role' => 'Assistant Dentist', 'cabang' => 'Sunter',    'aturan' => 'FO-Asdent', 'jatah' => 12.0, 'sesuai' => 0.0,  'kontrak' => '2027-08-11'],
         ['nama' => 'Tito Muhammad Taqiyuddin', 'email' => 'tito@sweettreats.id',      'role' => 'General Services',  'cabang' => 'Sunter',    'aturan' => 'GS',        'jatah' => 0.0,  'sesuai' => 0.0,  'kontrak' => '2027-05-11'],
         ['nama' => 'Melani Safrida',           'email' => 'melani@sweettreats.id',    'role' => 'Front Office',      'cabang' => 'Sunter',    'aturan' => 'FO-Asdent', 'jatah' => 0.0,  'sesuai' => 0.0,  'kontrak' => '2027-05-11'],
     ];

@@ -23,8 +23,21 @@ Semua bersandi sementara `sweettreats2026` dan wajib ganti saat login pertama.
 Dibuktikan lewat login HTTP sungguhan: masuk → langsung dipagari halaman Ganti
 Password, tanpa galat.
 
-⚠️ **Kontrak Rokhmatun habis 11 Agu 2026** — sudah lewat saat akunnya dibuat.
+**Kontrak Rokhmatun habis 11 Agu 2026** — sudah lewat saat akunnya dibuat.
 Sengaja dimasukkan apa adanya supaya perpanjangannya terlihat, bukan tenggelam.
+**Sore itu juga HR mengonfirmasi sudah diperpanjang** → 11 Agu 2027, jatah 12.
+Dikerjakan lewat jalur resmi (`CutiService::mulaiKontrakBaru`, sama dengan
+tombol **Kontrak Baru** di Absensi → Cuti): periode lama ditutup, periode baru
+dibuka 12 Agu 2026 – 11 Agu 2027 saldo 12. Riwayat kontrak pertamanya tetap
+utuh, tidak ditimpa. Dia satu-satunya yang kontraknya lewat tanggal.
+
+⚠️ **Penjadwal harian sepertinya TIDAK berjalan di prod.** `resetKontrakKedaluwarsa()`
+terdaftar tiap 01:20 dan seharusnya memperbarui kontrak kedaluwarsa sendiri,
+tapi seluruh `att_day` bercap satu waktu yang sama (hitung-ulang manual), bukan
+pola harian. `crontab` tak bisa dibaca dari shell (dikelola hPanel), jadi belum
+terbukti hitam-putih — **perlu dipastikan**. Kalau memang mati, yang ikut mati
+diam-diam: reset kontrak cuti, `att:reconcile` harian, `att:flag-sweep`,
+`absensi:selesaikan-l2`, sapuan ROP, dan sinkron Omnicare.
 
 **Satu ranjau ditutup di perkakasnya.** `att:gelar-akun --sandi=` dulu menyetel
 ulang sandi SEMUA orang di daftar, termasuk yang sudah ada. Karena perintah ini
