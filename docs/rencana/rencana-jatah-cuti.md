@@ -1,5 +1,28 @@
 # Rencana: Jatah Cuti (per kontrak 12 bulan)
 
+> ## ⚠️ SISIPAN 2026-08-14 — "Belum ada koding" DI BAWAH SUDAH BASI
+>
+> Sebagian besar rencana ini **sudah terbangun dan jalan di PROD**:
+>
+> * tabel `att_cuti_periode` & `att_cuti_mutasi` — berisi data nyata
+> * `App\Services\CutiService` lengkap: `JATAH_KONTRAK=12`, `periodeBerjalan()`,
+>   `sisa()`, `potongDariPengajuan()`, `cutiBersama()`, `koreksi()`,
+>   `mulaiKontrakBaru()`, `resetKontrakKedaluwarsa()`
+> * layar **Absensi → Cuti** (`CutiController` + `absensi/cuti.blade.php`),
+>   termasuk tombol **Kontrak Baru** yang sudah dipakai sungguhan
+>   (perpanjangan kontrak Rokhmatun 14 Agu, tercatat di `audit_log`)
+>
+> Jadi jangan membangun ulang. **Audit dulu** apa yang ada vs apa yang diminta
+> dokumen ini, lalu segarkan dokumennya. Yang kelihatannya benar-benar belum
+> ada: layar input massal cuti bersama, dan kewajiban HR mengisi jatah sendiri
+> saat menekan "Kontrak Baru" (sekarang otomatis 12).
+>
+> ⚠️ **Sisa cuti = `saldo_awal − SUM(mutasi.hari)`** (`CutiPeriode::sisa()`).
+> Baris penyesuaian bernilai POSITIF berarti MEMOTONG. Jangan verifikasi dengan
+> SQL `saldo_awal + SUM(...)`.
+>
+> Prompt chat: `docs/spec/prompt-chat-baru.md` §I.
+
 Status: DRAFT — nunggu ACC. Disusun 2026-07-25 dari diskusi + Excel roster cuti
 (sheet cabang + HQ). Belum ada koding.
 

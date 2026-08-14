@@ -291,3 +291,148 @@ PROD HANYA kalau Ekky sebut prod. Tanpa emoji di UI. Selesai tiap item:
 entri docs/log-update.md + salin log-update.md & status-proyek.md ke
 "G:\My Drive\Task Management\Sweet Treats\". Catat keputusan ke docs/memori.
 ```
+
+---
+
+## G. Chat: BUILD LEMBAR BAYAR ROP (2026-08-14)
+
+> Saran model: bebas. Satu fitur utuh, rencananya sudah lengkap dan ACC —
+> tinggal dieksekusi. Ada halaman cetak (`@media print`), pola pertama di repo.
+
+```
+Lanjutkan proyek SweetTreats lewat memori. Chat ini membangun LEMBAR BAYAR ROP
+— rekap pembayaran yang Finance kirim ke bos sebagai SATU PDF, pengganti
+kebiasaan kirim 30 berkas satu per satu. ACC Ekky 2026-08-14.
+
+BACA DULU, jangan mulai sebelum selesai:
+· docs/rencana/rencana-lembar-bayar-rop.md   ← rencana lengkap, sudah ACC
+· docs/rencana/rencana-pengajuan-rop.md      §11 (tema burgundy, device-intent)
+· docs/spec/peta-tema.md · docs/spec/pola-interaksi.md
+· memori project_rop_pengajuan
+
+Fiturnya SEPASANG, jangan cuma yang pertama:
+1. Lembar cetak (daftar + total + terbilang + lampiran, satu PDF)
+2. Tandai dibayar SEKALIGUS — satu bukti transfer untuk beberapa ROP
+
+Alasan yang kedua wajib: bos sering bayar beberapa ROP dalam satu transfer,
+tapi bayar() sekarang satu-per-satu, jadi Finance mengunggah berkas yang sama
+berulang kali. Tanpa ini, kerja Finance cuma pindah tempat.
+
+TIGA HAL YANG PALING MUDAH DISALAHKAN — semuanya sudah dibuktikan 14 Agu:
+· Rute WAJIB di bawah segmen `finance/`. Segmen-1 BARU akan dipantulkan ke
+  beranda untuk SEMUA orang, Super Admin sekalipun, dan gejalanya 302 ke
+  beranda BUKAN 403 — terlihat seperti tombol rusak. Ini yang mematikan fitur
+  kategori petty cash Reza. Lihat AuthGuard::SKIP_RBAC.
+· `pay_to_text` itu NOMOR REKENING. Kolom bank di tabel vendors semuanya NULL
+  dan vendor_id selalu NULL; orang menulis "VA MANDIRI - 896 085888064313" di
+  kolom bebas itu. Cetak apa adanya, menonjol, jangan dipecah. Terpotong =
+  uang salah alamat.
+· Halaman cetak JANGAN @extends('layouts.app') — sidebar ikut tercetak.
+
+Pakai ulang, jangan tulis ulang: RopService::nomorBaru() (penomoran atomik),
+RopService::tandaiDibayar(), RopService::TRANSISI, RopAttachment::simpan(),
+RopStatusLog, pola guard() Finance. Rinciannya di §3 rencana.
+
+Aturan kerja: branch SENDIRI dari main terbaru. SQL di dev dulu & jalankan dua
+kali (uji idempoten). Uji gerbang lewat HTTP sungguhan — jangan menebak dari
+kode, dan JANGAN percaya `curl -L` (bisa mengikuti pentalan ke halaman login
+lalu melaporkan 200; sudah dua kali menipu). Menyentuh public/assets/** →
+prod WAJIB rsync sesudah deploy. Test lokal → dev → verifikasi → PROD HANYA
+kalau Ekky sebut prod. Tanpa emoji di UI. Selesai: entri docs/log-update.md +
+salin log-update.md & status-proyek.md ke "G:\My Drive\Task Management\Sweet
+Treats\". Catat keputusan ke memori.
+```
+
+---
+
+## H. Chat: BERES-BERES FLAG ABSENSI (2026-08-14)
+
+> Saran model: bebas, condong ke yang cepat. Ini sebagian besar kerja
+> OPERASIONAL (menilai flag nyata), bukan koding. Perkakas borongannya
+> sudah ada dan sudah live.
+
+```
+Lanjutkan proyek SweetTreats lewat memori. Chat ini membereskan FLAG PENGAWASAN
+yang menumpuk di prod, dan menutup celah yang membuatnya menumpuk.
+
+Keadaan 14 Agu 2026 (prod): 15 flag `baru`, 7 `dicek`, 13 `selesai`.
+
+BACA DULU:
+· memori project_flag_borongan   ← perkakas borongan, sudah live
+· memori project_kehadiran_reskin · project_absen_hp (PETA WiFi Bintaro)
+· memori project_wifi_belajar_sendiri  ← kenapa flag WiFi muncul berulang
+
+PERKAKASNYA SUDAH ADA — jangan bangun ulang. PengawasanController punya
+JENIS_BORONGAN (ip_asing, pola_ip, luar_seharian), lintas hari (?semua=1),
+centang jenis-jaringan, pilih-semua-sejenis, catatan wajib, dan banner saran.
+Tugasnya MEMAKAINYA, lalu menambal yang bocor.
+
+Yang perlu dikerjakan:
+1. Bereskan 22 flag yang menggantung. Sebagian besar sebab-akibatnya sudah
+   diketahui: rotasi prefix IPv6 Telkom (~mingguan) + jeda pendaftaran WiFi.
+   Rizka & Verini & Ramdan contoh yang sudah terverifikasi bukan kejanggalan.
+2. Nilai apakah ambang pola_ip = 3 ip_asing/bulan masih masuk akal. Rizka
+   kena pola_ip padahal WiFi-nya konsisten (Bintaro + Kalideres, dua-duanya
+   jaringan klinik) — flag turunan yang menyala karena rotasi nomor, bukan
+   karena orangnya. Kalau ambangnya terlalu peka, ia melatih orang mengabaikan
+   merah, dan kejanggalan asli tenggelam.
+3. ⚠️ CEK DULU sebelum menyimpulkan apa pun: FOTO SELFIE adalah kebenaran
+   dasar. 14 Agu aku sempat menyimpulkan IPv4 Pamulang salah daftar karena
+   staf Bintaro ikut cocok — ternyata orangnya memang sedang di Pamulang, dan
+   fotonya membuktikannya. Jangan menuduh jaringan sebelum melihat fotonya.
+
+Aturan kerja: ini menyentuh DATA PROD, bukan kode — tiap pembereskan flag
+adalah keputusan yang tercatat namanya. Jangan borongan-kan tanpa membaca.
+Kalau ada perubahan kode, lewat dev dulu. Selesai: entri docs/log-update.md +
+salin ke Google Drive. Catat keputusan ambang ke memori.
+```
+
+---
+
+## I. Chat: JATAH CUTI (2026-08-14)
+
+> Saran model: bebas. ⚠️ MULAI DENGAN AUDIT, bukan koding — rencananya
+> menyesatkan (lihat di bawah).
+
+```
+Lanjutkan proyek SweetTreats lewat memori. Chat ini mengerjakan JATAH CUTI.
+
+⚠️ HAL PERTAMA YANG HARUS KAMU TAHU: docs/rencana/rencana-jatah-cuti.md
+menulis "Belum ada koding" — ITU BASI DAN MENYESATKAN. Per 14 Agu 2026
+sebagian besar sudah TERBANGUN DAN JALAN DI PROD:
+
+· tabel att_cuti_periode & att_cuti_mutasi — berisi data nyata
+· App\Services\CutiService lengkap: JATAH_KONTRAK=12, periodeBerjalan(),
+  sisa(), potongDariPengajuan(), cutiBersama(), koreksi(),
+  mulaiKontrakBaru(), resetKontrakKedaluwarsa()
+· layar Absensi → Cuti (CutiController + absensi/cuti.blade.php), lengkap
+  tombol "Kontrak Baru" yang SUDAH DIPAKAI SUNGGUHAN (perpanjangan kontrak
+  Rokhmatun, 14 Agu, tercatat di audit_log)
+
+Jadi TUGAS PERTAMA: audit apa yang sudah ada vs apa yang rencananya minta,
+lalu segarkan rencananya. Jangan membangun ulang yang sudah jalan.
+
+BACA: docs/rencana/rencana-jatah-cuti.md (dengan skeptis) · memori
+project_jatah_cuti · feedback_alpa_palsu_aturan_kerja · project_roster_karyawan
+
+Yang kelihatannya BELUM ada / belum diputuskan:
+1. Satu asumsi terbuka di rencana: sisa positif HANGUS saat reset kontrak —
+   sudah dijawab di dokumen tapi verifikasi implementasinya
+   (mulaiKontrakBaru: saldo_awal = 12 + min(sisaLama, 0))
+2. Input MASSAL cuti bersama + pengecualian per-orang — cutiBersama() ada di
+   service, tapi apakah ada layarnya?
+3. Saat HR menekan "Kontrak Baru", jatahnya masih otomatis 12. Ekky pernah
+   minta HR/Finance WAJIB mengisi jatahnya sendiri (boleh 0, boleh 100) —
+   belum dibangun. Ini bagian "hardcoded → bisa diatur admin" yang lebih besar.
+4. Kontrak Alif & Reza masih dikosongkan (data belum ada).
+
+⚠️ JEBAKAN: sisa cuti = saldo_awal − SUM(mutasi.hari) (CutiPeriode::sisa()).
+Baris penyesuaian POSITIF berarti MEMOTONG. Jangan verifikasi dengan SQL
+saldo_awal + SUM(...) — pernah bikin aku kira Putri punya 17 padahal 7.
+
+Aturan kerja: branch SENDIRI dari main terbaru. SQL di dev dulu, dua kali
+(idempoten). Ini menyentuh HAK KARYAWAN — salah hitung = orang kehilangan
+cuti, jadi verifikasi pakai logika APLIKASI (CutiPeriode::sisa()), bukan SQL
+buatan sendiri. Test lokal → dev → PROD hanya kalau Ekky sebut prod. Selesai:
+entri docs/log-update.md + salin ke Google Drive. Catat keputusan ke memori.
+```
