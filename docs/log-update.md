@@ -87,6 +87,26 @@ terpisah" tinggal jalan mundur yang jarang muncul.
 Hasil di dev: lembar contoh naik dari 5 jadi **6 halaman**, semuanya dalam satu
 berkas, penanda `PDF*` hilang sama sekali.
 
+### Data uji seragam menciptakan bug palsu
+
+Ekky mencetak lembar 7-item dan berkata *"jujur, gua ga nemu bukti-bukti dari si
+pengaju, apa emang ga ada?"* — kecurigaan yang **beralasan**: di PDF-nya halaman
+2–5 berisi **invoice yang identik**, semuanya bernominal Rp 12.852.000, padahal
+ROP-nya Rp 113.392 / Rp 46.600 / Rp 279.000. Lembar itu memang tampak salah.
+
+Sebabnya bukan fiturnya: **semua lampiran dev kuarahkan ke satu berkas contoh
+yang sama.** Dicek ke prod sebagai pembanding — **10 lampiran, 10 berkas UNIK**
+(dibandingkan lewat md5), 15–109 KB, nama UUID, 9 `.jpg` + 1 `.pdf`, nol yang
+hilang dari disk. Bukti dari pengaju memang ada dan berbeda-beda per pengajuan.
+
+Diperbaiki dengan membuat invoice tiruan **satu per ROP**, angka & uraiannya
+cocok dengan ROP masing-masing. Foto asli prod **tidak disalin** ke dev: itu
+dokumen usaha sungguhan (nota vendor, sebagian memuat nomor rekening), dan dev
+lebih longgar.
+
+**Pelajaran:** data uji yang seragam bukan cuma menyembunyikan bug — ia
+**menciptakan bug palsu** dan membuang waktu orang yang memeriksanya.
+
 ### Salah paham yang kusebabkan sendiri
 
 Gambar lampiran di dev bertuliskan "INVOICE UJI" dan Ekky mengiranya bagian dari
