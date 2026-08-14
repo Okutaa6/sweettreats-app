@@ -58,6 +58,42 @@ dengan pesan Indonesia yang menjelaskan · catatan 450 huruf tetap berhasil ·
 8 layar 200 · gerbang non-Finance **403 di keenam endpoint** (GET index/show/
 cetak + POST store/bayar-banyak/dikirim) dengan CSRF sah. Akun uji dihapus.
 
+### Potret data ROP prod (baca-saja) + data contoh dev disamakan bentuknya
+
+Dicek langsung ke prod atas permintaan Ekky, **read-only**. Tiga hal yang
+mengubah gambaran:
+
+**a. `accurate_staging_glaccount` TERNYATA SUDAH ADA di prod — 1035 baris.**
+Catatan lama (31 Juli) bilang tabel ini belum ada dan karena itu Finance tak
+akan bisa meng-ACC di prod. **Itu sudah tidak benar.** Dropdown akun beban akan
+terisi, jadi jalur "akun beban wajib" di lembar bayar aman dipakai di prod.
+Catatan lama sudah dikoreksi supaya tidak dipakai menunda apa pun.
+
+**b. Separuh tujuan transfer di prod TIDAK BISA DITRANSFER.** Dari 12 pengajuan,
+**6 `pay_to_text`-nya polos — nama saja tanpa nomor rekening** ("ALIF IMAM
+FADILLAH", "TRIYANI ( MAS ENDRIK)", "Ekky"). Artinya lembar bayar bisa sampai ke
+bos dengan separuh baris yang tak bisa dieksekusi, dan dia bertanya balik —
+persis kerja bolak-balik yang mau dihapus fitur ini. **Ini soal DATA, bukan
+kode**; perlu disepakati dengan Dela apakah nomor rekening diwajibkan saat
+mengajukan.
+
+**c. Formatnya benar-benar tak seragam** — separator `;` · `//` · ` - ` · `( )` ·
+spasi polos. Konfirmasi kuat bahwa `pay_to_text` **tak boleh dipecah** dengan
+parsing; dicetak apa adanya memang satu-satunya cara yang benar.
+
+Angka prod: **7 diajukan Rp 17.516.682 · 5 dibayar Rp 1.118.125 · 0 disetujui**
+(membenarkan klaim rencana bahwa status `disetujui` tak pernah terpakai). Yang
+sudah dibayar semuanya reimbursement FIN; yang besar (Rp 12.852.000 Marketing,
+Rp 3.887.400 Bintaro) justru masih menunggu. `vendor_id` NULL di semua baris;
+75 vendor, `bank_rekening` terisi **nol**. `rop_payment_sheets` belum ada di prod.
+
+**Data contoh dev disamakan bentuknya**: jumlah, status, rentang nominal
+(Rp 38.290–12.852.000), campuran 6 ber-nomor / 6 polos, dan 4 foto + 1 PDF +
+2 tanpa lampiran — semuanya persis prod. **Nama & nomor rekeningnya KARANGAN**:
+menyalin nama orang dan rekening asli ke dev tidak dilakukan dengan sengaja,
+karena dev lebih longgar dan akun ujinya gampang dibuat. Lembar contoh
+`BAYAR/2608/001` (7 item, Rp 17.516.682, 5 halaman) sudah dibuat untuk ditinjau.
+
 ### Masukan Dela (Finance) 15.46 — kolom "Unit" → "Departemen"
 
 Diterapkan. Alasannya tepat: kolom itu bersebelahan dengan **Jumlah**, jadi
