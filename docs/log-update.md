@@ -58,6 +58,51 @@ dengan pesan Indonesia yang menjelaskan · catatan 450 huruf tetap berhasil ·
 8 layar 200 · gerbang non-Finance **403 di keenam endpoint** (GET index/show/
 cetak + POST store/bayar-banyak/dikirim) dengan CSRF sah. Akun uji dihapus.
 
+### Finance bisa MELENGKAPI tujuan transfer — dan koreksi angka yang kusebut sebelumnya
+
+⚠️ **Ralat.** Aku sempat menyebut *"6 dari 12 tujuan transfer prod tidak bisa
+ditransfer"*. Itu **menyesatkan**: aku menghitung semua baris termasuk yang
+**sudah dibayar** dan tak akan pernah masuk lembar lagi. Yang benar, dari **7
+pengajuan yang betul-betul akan masuk lembar: 5 sudah bernomor rekening, 2
+tidak** (`TRIYANI ( MAS ENDRIK)`, `Ekky`) — dan keduanya reimbursement internal.
+Empat "polos" sisanya semuanya `ALIF IMAM FADILLAH` yang sudah lunas, yang
+rekeningnya pun sebenarnya diketahui dari salah satu pengajuannya.
+
+Ekky menunjuk hal yang benar: **nomor rekening sudah ditulis langsung di kolom
+"dibayarkan kepada"** — praktiknya sudah jalan, jadi **tidak perlu kolom nomor
+rekening baru di pengajuan**. Bukti terkuatnya: kolom `vendors.bank_nama`/
+`bank_rekening`/`bank_atas_nama` sudah disiapkan sejak awal dan setelah 75
+vendor tersinkron **terisi NOL**. Kolom yang disediakan tapi tak dipakai jadi
+sampah.
+
+Yang dibangun justru yang paling murah dan tepat sasaran: **Finance melengkapi
+tujuan transfer DI LEMBAR**, untuk baris yang pengajunya menulis tanpa rekening.
+
+**Kenapa di lembar, bukan di pengajuan** — ini yang menentukan benar-salahnya:
+pengajuan **terkunci setelah dikirim** (aturan audit bersih yang sudah berlaku).
+Menambal `pay_to_text` berarti mengubah tulisan pengaju dan membuat jejaknya
+berbohong. Lembar bayar itu **dokumen Finance**, jadi melengkapinya di sana
+adalah tindakan Finance atas dokumennya sendiri. Kolomnya per-ITEM, bukan
+per-ROP, karena satu ROP bisa masuk beberapa lembar dan tiap lembar dokumen
+tersendiri.
+
+- `tujuan_transfer` + `tujuan_oleh` di `rop_payment_sheet_items`. NULL = pakai
+  tulisan pengaju apa adanya; disimpan **hanya kalau beda**, jadi jelas baris
+  mana yang disentuh Finance.
+- `tujuanBerlaku()` / `tujuanBernomor()` / `tujuanDilengkapi()` di model =
+  satu-satunya tempat aturannya ditulis; layar & halaman cetak lewat sana.
+- Layar pilih: hanya baris **tanpa** nomor rekening yang dapat isian, ter-prefill
+  dari lengkapan **lembar sebelumnya** — rekening yang sudah susah dicari tidak
+  perlu diketik ulang tiap ROP itu masuk lembar baru.
+- Masih bisa dibetulkan **selama lembar belum dicap dikirim**; sesudah itu
+  dikunci (form hilang DAN POST ditolak — dua-duanya diuji). Alasannya:
+  dokumennya sudah beredar di luar sistem, dan dua versi kebenaran lebih
+  berbahaya daripada satu versi yang kurang rapi.
+
+SQL `2026_08_14_rop_sheet_tujuan_transfer.sql` dijalankan **dua kali** di dev —
+kolom tak berganda, FK tetap **tepat satu** (MariaDB tak punya
+`ADD CONSTRAINT IF NOT EXISTS`, jadi dijaga lewat `information_schema`).
+
 ### Lampiran PDF akhirnya IKUT TERCETAK — "dikirim terpisah" dihapus
 
 Ekky bertanya "apa ga bisa digabung ya?" saat melihat catatan *lampiran PDF
