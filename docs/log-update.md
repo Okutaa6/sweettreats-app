@@ -58,6 +58,46 @@ dengan pesan Indonesia yang menjelaskan · catatan 450 huruf tetap berhasil ·
 8 layar 200 · gerbang non-Finance **403 di keenam endpoint** (GET index/show/
 cetak + POST store/bayar-banyak/dikirim) dengan CSRF sah. Akun uji dihapus.
 
+### Lampiran PDF akhirnya IKUT TERCETAK — "dikirim terpisah" dihapus
+
+Ekky bertanya "apa ga bisa digabung ya?" saat melihat catatan *lampiran PDF
+dikirim terpisah*. **Ternyata bisa** — dan rencana semula menyerah terlalu cepat.
+
+Rencana §4.3 menetapkan PDF tak bisa ditempel di halaman cetak, jadi berkasnya
+dikirim tersendiri. Itu menyisakan persis kerepotan yang mau dihapus fitur ini:
+Finance tetap mengirim berkas kedua, bos tetap mencocokkan sendiri. Dicek ke
+server: **Ghostscript (`/usr/bin/gs`) + ekstensi PHP Imagick dengan delegate PDF
+ADA di dev DAN prod.** Jadi PDF dirender jadi gambar dan diperlakukan persis
+seperti foto.
+
+`RopPratinjauPdf` (baru): render 150 dpi, maksimal 5 halaman, hasilnya di-cache
+di `public/uploads/rop/pratinjau` dengan kunci memuat `mtime` berkas asal —
+lampiran yang diganti dirender ulang sendiri, cetak ulang tidak memanggil
+Ghostscript lagi (terbukti: 0,86 dtk → 0,31 dtk).
+
+⚠️ **Gagal render tidak menjatuhkan lembar.** Semua kegagalan (ekstensi hilang,
+PDF rusak/terkunci, kebijakan Imagick memblokir) pulang sebagai array kosong dan
+lembar kembali ke perilaku lama. Lembar selalu terbit.
+
+Satu lampiran kini boleh jadi beberapa halaman, tiap halaman diberi penomoran
+"lampiran halaman 1 dari 2" supaya tak ada yang terasa hilang. Kolom Lampiran
+menandai PDF yang sudah tergabung sebagai "terlampir"; catatan "perlu dikirim
+terpisah" tinggal jalan mundur yang jarang muncul.
+
+Hasil di dev: lembar contoh naik dari 5 jadi **6 halaman**, semuanya dalam satu
+berkas, penanda `PDF*` hilang sama sekali.
+
+### Salah paham yang kusebabkan sendiri
+
+Gambar lampiran di dev bertuliskan "INVOICE UJI" dan Ekky mengiranya bagian dari
+fitur. Itu berkas palsu buatanku untuk menguji. Sudah kuganti jadi tiruan invoice
+seukuran foto asli (905×1280, sama dengan hasil kompresi `rop-foto.js`) — sekalian
+menjawab keluhan "halaman lampirannya kosong melompong": itu karena gambar ujiku
+cuma 600×360, bukan karena desainnya.
+
+Catatan untuk Dela: saat "Save as PDF" dari HP, **Paper size-nya default Letter**.
+Chrome HP mengabaikan `@page { size: A4 }`, jadi harus dipilih A4 di dialog.
+
 ### Potret data ROP prod (baca-saja) + data contoh dev disamakan bentuknya
 
 Dicek langsung ke prod atas permintaan Ekky, **read-only**. Tiga hal yang
