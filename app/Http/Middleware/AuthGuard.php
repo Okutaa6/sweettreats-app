@@ -15,7 +15,16 @@ class AuthGuard
      * Dipakai juga oleh Set\KesehatanController (detektor landing) dan
      * Set\UserManagement (flaggedUserIds) — jangan bikin salinan baru.
      */
-    public const SKIP_RBAC = ['export', 'api', 'auditlog', 'executive', 'fund-sources', 'finance'];
+    public const SKIP_RBAC = ['export', 'api', 'auditlog', 'executive', 'fund-sources', 'finance',
+        // petty-cash-categories: aksi CRUD kategori pengeluaran, dipakai DARI
+        // halaman `fund-sources` (Kelola Wallet). Segmen-1-nya berbeda dari
+        // halaman induknya, jadi tanpa baris ini RBAC memantulkannya ke landing
+        // page — untuk SEMUA orang, Super Admin sekalipun, karena tak ada node
+        // `access_path` berlink 'petty-cash-categories'. Gejalanya menipu:
+        // bukan 403, melainkan 302 ke beranda seolah tombolnya tak berbuat apa
+        // apa. Gerbang Super Admin sungguhannya ada di
+        // PettyCashCategoryController::guard(), sama polanya dengan fund-sources.
+        'petty-cash-categories'];
 
     /**
      * Handle an incoming request.
