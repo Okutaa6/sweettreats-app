@@ -9,6 +9,7 @@ use App\Models\RopRequest;
 use App\Models\SysProfile;
 use App\Services\RopAttachment;
 use App\Services\RopCoaCatalog;
+use App\Services\RopPratinjauPdf;
 use App\Services\RopService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -48,6 +49,7 @@ class RopLembarBayarController extends Controller
         private RopService $rop,
         private RopCoaCatalog $coa,
         private RopAttachment $lampiran,
+        private RopPratinjauPdf $pratinjau,
     ) {}
 
     /**
@@ -282,20 +284,31 @@ class RopLembarBayarController extends Controller
             'items.rop.requester', 'items.rop.vendor', 'items.rop.costCentre', 'pembuat',
         ])->findOrFail($id);
 
-        // Lampiran dipilah di sini, bukan di view: PDF tidak bisa ditempel di
-        // halaman cetak, jadi ia harus disebut di daftar supaya Finance ingat
-        // menyertakan berkasnya dan bos tahu ada yang menyusul.
+        // Lampiran dipilah di sini, bukan di view.
+        //
+        // PDF TIDAK lagi otomatis "dikirim terpisah": kalau server bisa
+        // merendernya jadi gambar (Ghostscript + Imagick), halamannya ikut
+        // tercetak seperti foto biasa — satu berkas untuk bos, tanpa kiriman
+        // kedua. Kalau render gagal, barulah kembali ke perilaku lama.
         $lampiran = [];
         foreach ($lembar->items as $item) {
             $path = $item->rop?->attachment_path;
             $ext  = $path ? strtolower(pathinfo($path, PATHINFO_EXTENSION)) : null;
 
-            $lampiran[$item->rop_id] = match (true) {
-                $path === null || $path === ''                    => ['jenis' => 'kosong', 'path' => null],
-                in_array($ext, ['jpg', 'jpeg', 'png', 'webp', 'gif'], true)
-                                                                  => ['jenis' => 'gambar', 'path' => $path],
-                default                                           => ['jenis' => 'pdf',    'path' => $path],
-            };
+            if ($path === null || $path === '') {
+                $lampiran[$item->rop_id] = ['jenis' => 'kosong', 'halaman' => [], 'dari_pdf' => false];
+                continue;
+            }
+
+            if (in_array($ext, ['jpg', 'jpeg', 'png', 'webp', 'gif'], true)) {
+                $lampiran[$item->rop_id] = ['jenis' => 'gambar', 'halaman' => [$path], 'dari_pdf' => false];
+                continue;
+            }
+
+            $halaman = $this->pratinjau->halaman($path);
+            $lampiran[$item->rop_id] = $halaman
+                ? ['jenis' => 'gambar', 'halaman' => $halaman, 'dari_pdf' => true]
+                : ['jenis' => 'pdf',    'halaman' => [],       'dari_pdf' => true];
         }
 
         return view('finance.rop.lembar-bayar.cetak', [

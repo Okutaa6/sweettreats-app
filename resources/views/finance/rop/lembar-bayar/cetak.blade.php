@@ -175,6 +175,8 @@
 @php
     $rupiah = fn ($v) => 'Rp ' . number_format((float) $v, 0, ',', '.');
     // Dua daftar yang harus diketahui bos & Finance sebelum berkas dikirim.
+    // `pdfTerpisah` kini HANYA berisi PDF yang GAGAL dirender — yang berhasil
+    // ikut tercetak sebagai halaman lampiran biasa.
     $pdfTerpisah = [];
     $tanpaLampiran = [];
     foreach ($lembar->items as $it) {
@@ -182,9 +184,24 @@
         if ($j === 'pdf')    $pdfTerpisah[]   = $it->rop?->number;
         if ($j === 'kosong') $tanpaLampiran[] = $it->rop?->number;
     }
-    $halamanLampiran = $lembar->items->filter(
-        fn ($it) => ($lampiran[$it->rop_id]['jenis'] ?? null) === 'gambar'
-    );
+
+    // Satu lampiran bisa jadi BEBERAPA halaman (PDF berhalaman banyak), jadi
+    // yang dihitung halamannya, bukan itemnya.
+    $halamanLampiran = [];
+    foreach ($lembar->items as $it) {
+        $l = $lampiran[$it->rop_id] ?? null;
+        if (($l['jenis'] ?? null) !== 'gambar') continue;
+        $total = count($l['halaman']);
+        foreach ($l['halaman'] as $i => $gbr) {
+            $halamanLampiran[] = [
+                'item'     => $it,
+                'gambar'   => $gbr,
+                'ke'       => $i + 1,
+                'dari'     => $total,
+                'dari_pdf' => $l['dari_pdf'] ?? false,
+            ];
+        }
+    }
 @endphp
 
 {{-- Bilah ini tidak pernah ikut tercetak (.no-print). Sengaja TIDAK
@@ -193,8 +210,8 @@
 <div class="bar no-print">
     <b>{{ $lembar->number }}</b>
     <span>{{ $lembar->jumlah_item }} item &middot; {{ $rupiah($lembar->total) }}
-        @if ($halamanLampiran->isNotEmpty())
-            &middot; {{ $halamanLampiran->count() }} halaman lampiran
+        @if (count($halamanLampiran) > 0)
+            &middot; {{ count($halamanLampiran) }} halaman lampiran
         @endif
     </span>
     <button type="button" onclick="window.print()">Cetak / Simpan PDF</button>
@@ -286,10 +303,14 @@
 
     @if ($pdfTerpisah || $tanpaLampiran)
         <div class="awas">
+            {{-- Jalan mundur yang jarang terpakai: PDF NORMALNYA ikut tercetak
+                 sebagai halaman lampiran (dirender jadi gambar). Blok ini cuma
+                 muncul kalau berkasnya gagal dibaca — rusak, terkunci sandi,
+                 atau perender di server sedang bermasalah. --}}
             @if ($pdfTerpisah)
-                <b>* Lampiran PDF dikirim terpisah</b>
-                <div>Lampiran berformat PDF tidak bisa ditempel di lembar ini, jadi berkasnya
-                    disertakan sebagai kiriman tersendiri:
+                <b>* Lampiran PDF perlu dikirim terpisah</b>
+                <div>Berkas PDF berikut tidak bisa dibaca untuk ditempelkan ke lembar ini,
+                    jadi harus disertakan sebagai kiriman tersendiri:
                     {{ implode(', ', array_filter($pdfTerpisah)) }}.</div>
             @endif
             @if ($tanpaLampiran)
@@ -319,26 +340,36 @@
 
     <div class="kaki">
         {{ $lembar->number }} &middot; dicetak {{ now()->translatedFormat('d F Y, H:i') }}
-        @if ($halamanLampiran->isNotEmpty())
-            &middot; diikuti {{ $halamanLampiran->count() }} halaman lampiran
+        @if (count($halamanLampiran) > 0)
+            &middot; diikuti {{ count($halamanLampiran) }} halaman lampiran
         @endif
     </div>
 </div>
 
-{{-- ══════════════ Halaman lampiran — satu per halaman ══════════════ --}}
-@foreach ($halamanLampiran as $item)
-    @php $r = $item->rop; @endphp
+{{-- ══════════════ Halaman lampiran — satu gambar per halaman ══════════════
+     PDF yang berhasil dirender ikut di sini, jadi bos cuma menerima SATU
+     berkas. Kalau lampirannya berhalaman banyak, tiap halaman dapat
+     penomoran sendiri supaya tidak ada yang terasa hilang. --}}
+@foreach ($halamanLampiran as $h)
+    @php $item = $h['item']; $r = $item->rop; @endphp
     <div class="page">
         <div class="lampiran-kop">
             <div>
                 <b class="num">{{ $r?->number }}</b>
-                <div class="kecil">{{ $r?->namaPenerima() }} &middot; {{ $r?->description }}</div>
+                <div class="kecil">
+                    {{ $r?->namaPenerima() }} &middot; {{ $r?->description }}
+                    @if ($h['dari'] > 1)
+                        &middot; lampiran halaman {{ $h['ke'] }} dari {{ $h['dari'] }}
+                    @endif
+                    @if ($h['dari_pdf'])
+                        &middot; dari berkas PDF
+                    @endif
+                </div>
             </div>
             <div class="nom num">{{ $rupiah($item->amount) }}</div>
         </div>
         <div class="lampiran-gbr">
-            <img src="{{ asset($lampiran[$item->rop_id]['path']) }}"
-                 alt="Lampiran {{ $r?->number }}">
+            <img src="{{ asset($h['gambar']) }}" alt="Lampiran {{ $r?->number }}">
         </div>
     </div>
 @endforeach
