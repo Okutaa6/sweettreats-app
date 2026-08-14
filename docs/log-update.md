@@ -7,6 +7,73 @@
 
 ---
 
+## 2026-08-14 — Gerbong dev: WiFi cabang efektif + kategori petty cash Reza
+
+Branch `integrasi/dev-2026-08-14` (`064dd08`), **live di dev, belum prod**.
+Isinya push Reza + dua perbaikan.
+
+**1. WiFi belajar-sendiri: saksi ditimbang pakai cabang EFEKTIF.**
+Penilainya membandingkan `users.raw_branch_id` dengan cabang yang dipilih,
+sehingga orang yang sedang DITEMPATKAN di suatu cabang tak pernah terhitung —
+padahal dialah saksi paling sahih (penugasannya tertulis, bertanggal, berjejak
+konfirmasi). Ongkosnya terukur: **dua cabang tak akan pernah bisa mendaftarkan
+jaringannya sendiri**, karena staf asalnya lebih sedikit dari ambang 3 —
+Pamulang punya 2, Kalideres punya 1.
+
+Dua kejadian nyata, keduanya berhenti di 2 dari 3:
+* 13 Agu 14.49–14.51, /64 baru Pamulang — yang hilang: **Ramdan**
+* 14 Agu 09.02–09.16, /64 baru Cinere — yang hilang: **Verini**
+
+Penempatan ditimbang pada tanggal bukti masing-masing, bukan hari ini (jendela
+72 jam bisa memuat penempatan yang mulai/berakhir di tengahnya). Pagar lain tak
+disentuh: /48 tetap harus sekerabat, orang fleksibel tetap tak menguatkan.
+
+Diuji: `att:wifi-uji` **10/10 lulus** (tak ada regresi), plus pemutaran ulang
+kejadian Cinere pagi ini — Verini kini muncul di daftar pendukung, orang ketiga
+memicu DAFTAR.
+
+**2. Push Reza — kategori pengeluaran dinamis + jendela edit.** Kategori pindah
+dari konstanta ke tabel `petty_cash_categories`, dikelola Super Admin dari
+Kelola Wallet. Kualitasnya jelas naik dari audit sebelumnya: SQL idempoten, seed
+cocok persis dengan konstanta lama, gerbang Super Admin di tiap aksi, kategori
+terpakai tak bisa dihapus, dan **ada fallback kalau tabelnya belum dibuat** —
+jadi kode boleh naik sebelum SQL. Pelajaran "migrate dulu baru SQL" diterapkan.
+
+**3. Tapi fiturnya mati total — dan ini yang paling berharga dari review.**
+Keempat aksi CRUD dipasang di segmen `petty-cash-categories`, sementara
+`AuthGuard` mencocokkan SEGMEN-1 dengan node `access_path`. Tak ada node
+berlink itu dan segmennya tak masuk `SKIP_RBAC`, jadi **tiap POST dipantulkan
+ke landing page sebelum menyentuh controller — untuk semua orang, Super Admin
+sekalipun**. Halaman induknya (`fund-sources`) selamat justru karena sudah lebih
+dulu ada di `SKIP_RBAC`; fitur barunya mewarisi asumsinya tanpa mewarisi
+barisnya.
+
+Gejalanya menipu: bukan 403, melainkan 302 ke beranda — tombolnya tampak
+sekadar tak berbuat apa-apa, gampang dikira soal tampilan.
+
+Dibuktikan di dev sebelum & sesudah: POST Super Admin semula 302 ke `/setgroup`
+dengan nol baris tercipta; sesudah perbaikan kategori benar-benar dibuat.
+Karena segmen itu kini melewati RBAC, gerbang controller-nya diuji hidup-hidup:
+user non-Super-Admin **403**, nol tercipta, kategori sistem `pinjaman` utuh.
+
+**Keputusan yang menunggu Ekky** (kebijakan, bukan bug): jendela edit turun
+24 jam → 8 jam untuk user biasa, DAN Super Admin kini bebas tanpa batas — dulu
+kunci berlaku untuk semua. Super Admin di prod cuma satu (Admin_Reza), jadi
+setiap koreksi lewat 8 jam harus lewat dia. Jejaknya tetap ada (`edited_at`,
+`updated_by`, layar Riwayat).
+
+**Sisi data (prod, di luar gerbong):** WiFi Kalideres `2001:448a:90b0:48a1::`
+didaftarkan (rotasi dari `ebf`) — Rizka langsung cocok. Sunter mulai terpakai:
+Putri & Tito absen dan cocok otomatis.
+
+**Catatan koreksi:** sempat saya duga IPv4 Pamulang `180.251.180.38` salah
+daftar karena Asih (staf Bintaro) ikut cocok ke Pamulang. Keliru — fotonya
+menunjukkan dia memang sedang di Pamulang, dan sistem menandainya lintas cabang
+Bintaro → Pamulang dengan benar. Pelajarannya: selfie itu kebenaran dasar;
+jangan menyimpulkan jaringan salah sebelum melihat fotonya.
+
+---
+
 ## 2026-08-13 — Sunter digelar ke PROD (4 akun) + Irma dapat Pengawasan Absen
 
 Prod sekarang memuat **4 dari 5 cabang**: ABG/Office, Bintaro, Cinere, Pamulang,
