@@ -243,16 +243,67 @@ class WifiBelajarSendiri
 
         $ids = array_keys($calon);
 
-        // Syarat 2: cabang ASAL harus cabang ini. Yang kosong (semua orang
-        // fleksibel) otomatis gugur di sini juga.
-        $namaOrang = \App\Models\Users::whereIn('id', $ids)
-            ->where('raw_branch_id', $branchDipilih)
-            ->pluck('nama', 'id');
+        // ── Syarat 2: cabang orang ini harus cabang yang dipilih ─────────────
+        //
+        // Yang dipakai cabang EFEKTIF — penempatan (rolling) menang atas cabang
+        // asal — bukan `raw_branch_id` mentah.
+        //
+        // KENAPA: orang yang SEDANG DITEMPATKAN di suatu cabang justru saksi
+        // paling sahih bahwa jaringan itu milik cabang tersebut — dia memang
+        // ditugaskan ke sana, tertulis, dengan tanggal dan jejak konfirmasi.
+        // Membandingkan cabang asal membuat dia selamanya tak terhitung, dan
+        // itu bukan kehati-hatian melainkan kebutaan.
+        //
+        // Ongkosnya nyata dan terukur: 13 Agu 14.49-14.51 empat orang absen
+        // dari /64 baru Pamulang — Irma (fleksibel, memang gugur), Ramdan
+        // (ditempatkan di Pamulang, asalnya Kalideres), Mutiara & Alviona
+        // (asal Pamulang). Terhitung dua, ambangnya tiga. Padahal Pamulang
+        // cuma punya DUA staf asal, jadi tanpa Ramdan cabang itu tak akan
+        // pernah bisa mendaftarkan jaringannya sendiri — selamanya. Kalideres
+        // (satu staf asal) lebih parah lagi.
+        //
+        // Penempatan ditimbang pada TANGGAL bukti masing-masing, bukan hari
+        // ini: jendelanya 72 jam, dan penempatan bisa mulai/berakhir di
+        // tengahnya. Memakai "hari ini" akan menilai bukti kemarin dengan
+        // penugasan yang belum berlaku saat itu.
+        //
+        // Cabang asal yang KOSONG (orang fleksibel/ABG) tetap gugur di sini —
+        // null tak akan pernah sama dengan $branchDipilih.
+        $baris = \App\Models\Users::whereIn('id', $ids)->get(['id', 'nama', 'raw_branch_id']);
 
-        $flex = $this->fleksibel(array_keys($namaOrang->all()));
+        // Semua baris rolling milik para calon, ditimbang di PHP supaya tak
+        // menembak satu query per orang (jalur ini dilewati tiap absen).
+        $rolling = \App\Models\UserPosition::query()
+            ->whereIn('user_id', $ids)
+            ->where('kind', 'rolling')
+            ->where('is_primary', 1)
+            ->whereNotNull('confirmed_at')
+            ->get(['user_id', 'raw_branch_id', 'effective_from', 'effective_to'])
+            ->groupBy('user_id');
+
+        $cocokCabang = [];
+        foreach ($baris as $u) {
+            $tanggal = $calon[$u->id];
+            $cabang  = $u->raw_branch_id;
+
+            foreach ($rolling->get($u->id, []) as $p) {
+                $dari = $p->effective_from?->toDateString();
+                $sampai = $p->effective_to?->toDateString();
+                if ($dari && $dari > $tanggal) continue;
+                if ($sampai && $sampai < $tanggal) continue;
+                $cabang = $p->raw_branch_id;   // penempatan menang
+                break;
+            }
+
+            if ($cabang === $branchDipilih) {
+                $cocokCabang[$u->id] = $u->nama;
+            }
+        }
+
+        $flex = $this->fleksibel(array_keys($cocokCabang));
 
         $orang = [];
-        foreach ($namaOrang as $uid => $nama) {
+        foreach ($cocokCabang as $uid => $nama) {
             if ($flex($uid, $calon[$uid])) {
                 continue;
             }
