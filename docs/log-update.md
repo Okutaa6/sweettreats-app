@@ -7,6 +7,65 @@
 
 ---
 
+## 2026-08-14 (lanjutan) — AUDIT ULANG Lembar Bayar: 5 temuan, 2 di antaranya 500 sungguhan
+
+Diminta menyisir ulang kode sendiri. **Uji fungsional hijau semua ternyata bukan
+jaminan** — dua jalur yang tak pernah kulewati saat menguji ternyata berujung
+Server Error, dan satu cacat cetak justru ditemukan Ekky dari cetakan sungguhan
+di HP, bukan oleh 39 uji otomatis.
+
+| # | Temuan | Akibat | Status |
+|---|---|---|---|
+| 1 | `pilih[]` berisi id kembar | **HTTP 500** | diperbaiki di akarnya |
+| 2 | Catatan bayar 500 huruf | **HTTP 500** | diperbaiki + sabuk kedua |
+| 3 | Nominal pecah dua baris di lembar cetak | dokumen ambigu | diperbaiki |
+| 4 | `sys_profile` kosong → warning di halaman cetak | kotor | diperbaiki |
+| 5 | Tautan penanda beda huruf & biru asing | drift visual | diperbaiki |
+
+**1. Pilihan kembar → 500.** Dua id sama dalam satu kiriman menabrak
+`UNIQUE(sheet_id, rop_id)`. Yang membuatnya jadi 500 dan bukan pesan sopan:
+`QueryException` **bukan** `HttpException`, jadi lolos dari penangkap galat yang
+sudah ada. `jumlah_item` dan `total` juga ikut menggelembung. Diperbaiki di
+akarnya (`array_unique` sebelum apa pun disentuh), bukan dengan memperlebar
+penangkap galat — karena yang salah datanya, bukan penanganannya. Terbukti:
+kirim `15,15,9` → lembar berisi **2** baris, total & urutan tepat.
+
+**2. Catatan 500 huruf → 500.** Catatan pembayaran masih ditempeli
+`" (lembar BAYAR/2608/001)"` sebelum masuk `rop_status_log.catatan` yang
+`varchar(500)` → *Data too long*, dan **seluruh pembayaran gagal**, bukan cuma
+catatannya. Batas validasi turun ke 450 (menyamai `maxlength` di layar) + dipotong
+`mb_substr` 500 sebagai sabuk kedua: kalau kelak sufiksnya berubah, yang terjadi
+catatan terpotong — bukan uang gagal tercatat. Catatan log terpanjang kini 474.
+
+**3. Nominal pecah dua baris** — "Rp" di satu baris, "2.100.000" di baris
+berikutnya, TOTAL juga. **Ditemukan Ekky dari cetakan sungguhan**; uji otomatisku
+memeriksa apakah angkanya ADA, bukan bagaimana ia JATUH. Pelajarannya: uji
+berbasis string tak bisa menggantikan melihat. Kolom jumlah & nomor ROP kini
+`white-space: nowrap` + lebarnya disetel.
+
+**4 & 5.** `$profil->sysname` tanpa `?->` (tak konsisten dengan baris logo tepat
+di atasnya) → warning kalau `sys_profile` kosong. Dan `a { font-family: Poppins }`
+di `style.css` menang atas font warisan `.rop-fin`, jadi penanda lampiran yang
+kebetulan berupa tautan beda huruf dari yang bukan — **sekeluarga dengan bug
+"label Darurat jadi biru"** dulu: aturan tingkat-ELEMEN mengalahkan pewarisan.
+
+**Juga:** `whereNumber` dipasang pada rute `lembar-bayar/{id}` (disamakan dengan
+`rop/{id}`) → `/lembar-bayar/abc` kini 404 rapi. Label kartu "Belum dibayar
+seluruhnya" yang membingungkan → "Layak masuk lembar".
+
+**Sesudah perbaikan (dev, `bb3f6fb`):** kedua kasus yang tadinya 500 kini 302
+dengan pesan Indonesia yang menjelaskan · catatan 450 huruf tetap berhasil ·
+8 layar 200 · gerbang non-Finance **403 di keenam endpoint** (GET index/show/
+cetak + POST store/bayar-banyak/dikirim) dengan CSRF sah. Akun uji dihapus.
+
+**Yang TIDAK diperbaiki, sengaja — perlu keputusan Ekky:** membuat lembar
+sekaligus **menyetujui** isinya, dan lembar **tidak bisa dihapus**. Jadi lembar
+yang salah dibuat meninggalkan pengajuan dalam status `disetujui` tanpa jalan
+mundur dari layar (tombol "Urungkan" di antrian cuma hidup 2 menit dan hanya
+untuk yang menyetujui). Belum jadi masalah nyata, tapi ini utang yang sadar.
+
+---
+
 ## 2026-08-14 — Lembar Bayar ROP dibangun & lolos uji di DEV (belum prod)
 
 **Branch `feature/rop-lembar-bayar` (`14ca406`), live di dev.** Menjawab keluhan
