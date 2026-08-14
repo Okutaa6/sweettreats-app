@@ -22,6 +22,13 @@
 > Kalau tanggal ini sudah jauh lewat,
 > minta chat teknis menyegarkan file ini sebelum dipakai mengambil keputusan.
 >
+> ⚠️ **Sisipan 2026-08-14** — **Lembar Bayar ROP** selesai dibangun & lolos uji
+> di **dev** (branch `feature/rop-lembar-bayar`, belum prod): Finance kini bisa
+> menyusun satu berkas cetak untuk bos — daftar + total + terbilang + lampiran —
+> menggantikan kebiasaan mengirim 30 berkas satu per satu di WhatsApp, DAN
+> menandai beberapa ROP lunas dengan satu bukti transfer. Rinciannya di
+> `log-update.md` entri 14 Agu paling atas.
+>
 > ⚠️ **Sisipan 2026-08-13** — badan file di bawah masih potret 6 Agu dan belum
 > disegarkan menyeluruh. Yang sudah berubah sejak itu ada di `log-update.md`
 > (entri 11, 12, dan 13 Agu). Satu hal yang paling sering ditanyakan
@@ -182,6 +189,14 @@ bukan symlink).
   burgundy, ACC + pilih akun beban Accurate per buku, tahap dibayar + bukti,
   nota pertanggungjawaban, "Ajukan lagi", deteksi dobel, toast Urungkan 2
   menit, auto-expire 30 hari, master 73 vendor tarik-otomatis, rekap + export.
+  - **Lembar Bayar** (14 Agu, **di dev, belum prod**): rekap pembayaran yang
+    dikirim Finance ke bos sebagai SATU berkas cetak (daftar + total +
+    terbilang + halaman lampiran), pengganti kirim 30 berkas satu per satu di
+    WhatsApp — **plus "tandai dibayar sekaligus"**: satu bukti transfer untuk
+    beberapa ROP. Yang kedua itu wajib, bukan pelengkap: bos membayar beberapa
+    ROP dalam satu transfer, jadi tanpa itu kerja Finance cuma pindah dari
+    kirim 30 berkas jadi unggah 1 berkas 15 kali. Naik prod butuh SQL
+    `2026_08_14_rop_payment_sheet.sql` + **rsync aset** (CSS ikut berubah).
 - **Kerjaan Reza**: login redesign, dashboard marketing, monitoring cuci AC,
   foto before/after checklist, export Excel checklist, pengecualian
   per-pertanyaan, grup promo.

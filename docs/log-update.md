@@ -7,6 +7,109 @@
 
 ---
 
+## 2026-08-14 — Lembar Bayar ROP dibangun & lolos uji di DEV (belum prod)
+
+**Branch `feature/rop-lembar-bayar` (`14ca406`), live di dev.** Menjawab keluhan
+nyata Finance: ROP dikirim ke bos **satu per satu** lewat WhatsApp — satu berkas
+ROP + satu invoice per item, 15 pembayaran = 30 berkas. Sekarang jadi **satu
+lembar cetak**: daftar, total, terbilang, dan lampirannya.
+
+### Fiturnya SEPASANG — yang kedua yang menentukan
+
+Bos sering membayar beberapa ROP dalam **satu transfer**, tapi `paid_proof_path`
+itu per-ROP dan `bayar()` menerima satu id. Kalau cuma lembar cetaknya yang
+dibangun, kerja Finance **cuma pindah tempat**: dari kirim 30 berkas jadi unggah
+1 berkas 15 kali. Karena itu ada **"tandai dibayar sekaligus"** — centang
+beberapa item, unggah SATU bukti, berkas disimpan sekali dan path yang sama
+dipakai untuk tiap ROP lewat `RopService::tandaiDibayar()`, jadi transisi
+status, jejak audit, dan notifikasi ke pengaju tetap utuh per pengajuan.
+
+**Terbukti di dev:** ROP/MKT/2607/002 + ROP/BIN/2608/001 kini menunjuk berkas
+bukti yang **sama persis** (`cfb4f665…png`), dengan baris `rop_status_log`
+sendiri-sendiri.
+
+### Yang dipakai ulang, bukan ditulis ulang
+
+Mesin sekuens atomik `nomorBaru()` diangkat jadi `urutBaru()` dan dipakai
+bersama `nomorLembarBayar()` — nomor lembar `BAYAR/2608/001` memakai
+`rop_counter` dengan kunci semu `BAYAR`, jadi **tak ada SQL `LAST_INSERT_ID`
+yang disalin** dan sifat atomiknya tak perlu dibuktikan dua kali. Lampiran lewat
+`RopAttachment`, jejak lewat `RopStatusLog`, gerbang menyalin pola `guard()`
+Finance yang sudah ada.
+
+### Keputusan yang menempel (rencana §5)
+
+**Membuat lembar = Finance menyetujui.** Status `disetujui` selama ini praktis
+tak terpakai. Kini item yang masuk lembar naik ke `disetujui`, lalu
+`bayar-banyak` menaikkannya ke `dibayar` — peta transisi dihormati tanpa
+menyuruh Finance menekan tombol dua kali.
+
+⚠️ **Satu keputusan yang TIDAK ada di rencana dan perlu diketahui:** `setujui()`
+mewajibkan akun beban, sedangkan drawer antrian hanya menawarkan pilihan akun
+untuk status `diajukan`. Kalau lembar menaikkan item ke `disetujui` tanpa akun,
+item itu **tak akan pernah bisa dilengkapi lagi dari layar mana pun** dan rekap
+Accurate-nya bolong selamanya. Karena itu layar lembar meminta akun beban per
+baris — **dengan saran akun dari penerima yang sama sudah terpilih otomatis**,
+jadi umumnya tinggal dilihat sekilas. Satu-satunya kelonggaran: kalau staging
+Accurate belum ada di server itu, daftarnya memang kosong → lembar tetap boleh
+dibuat, dan `RopService::lengkapiAkun()` yang menambalnya kelak.
+
+### Tiga ranjau yang sengaja dijinakkan di depan
+
+1. **Rute di bawah segmen `finance/`** (sudah di `AuthGuard::SKIP_RBAC`), dan
+   dideklarasikan **di atas** wildcard `rop/{id}` — kalau di bawah, wildcard itu
+   menelannya jadi `show('lembar-bayar')` → 404. Wildcard-nya sekalian diberi
+   `whereNumber('id')` supaya lubangnya tertutup dari dua sisi.
+2. **`pay_to_text` = NOMOR REKENING** (kolom bank `vendors` semuanya NULL,
+   `vendor_id` selalu NULL). Dicetak apa adanya, tebal, boleh membungkus, tanpa
+   `Str::limit` — terpotong = uang salah alamat. Diuji: `CAHAYA TIGA BINTANG
+   ABADI` tercetak utuh.
+3. **Halaman cetak berdiri sendiri**, tanpa `@extends('layouts.app')`. Gayanya
+   inline (bukan dari `public/assets`) supaya dokumen yang harus tercetak benar
+   tidak bergantung pada aset yang bisa 404, dan tanpa Google Fonts supaya tak
+   menunggu jaringan. Ini pemakai `@media print` pertama di repo ini.
+
+### Cara pembuktiannya (dev, HTTP sungguhan)
+
+**38 dari 39 uji lolos**; satu-satunya gagal ternyata **alat ujinya**, bukan
+fiturnya (`printf` merusak byte PNG di Git Bash; `curl.exe` tak bisa membaca
+jalur MSYS `/tmp`) — diulang setelah diperbaiki, lolos.
+
+- **SQL dijalankan DUA KALI** di dev → idempoten, struktur & FK sesuai rancangan.
+- **Gerbang diuji lewat HTTP, bukan ditebak dari kode**, dan `curl -L` **tidak**
+  dipercaya: yang diperiksa kode status mentah + `%{url_effective}`. Front Office
+  dapat **403 di ketiga endpoint tulis** (buat lembar, bayar-banyak, dikirim)
+  **dengan CSRF token yang SAH** — sempat 419, dan 419 itu menguji lapisan CSRF,
+  bukan gerbang perannya. Uji pertama juga sempat "lolos" palsu karena login
+  gagal diam-diam (rute login ternyata `/signin`, bukan `/login`).
+- Nomor berurutan 001 → 002 → 003 tanpa tabrakan; total & terbilang benar
+  (Rp 5.530.000 → "Lima juta lima ratus tiga puluh ribu rupiah"); snapshot
+  nominal cocok; sidebar tidak ikut tercetak; ketiga keadaan lampiran benar
+  (foto → halaman sendiri · PDF → ditandai `PDF*` + catatan dikirim terpisah ·
+  tak ada → ditandai di kolomnya); pembayaran ganda ditolak dengan pesan yang
+  menjelaskan; lembar tak ada → 404, bukan 500.
+- Akun uji dihapus setelah selesai — dan itu **sekalian membuktikan FK
+  `ON DELETE SET NULL`**: lembar tetap hidup dengan `dibuat_oleh` NULL, semua
+  layar & halaman cetak tetap 200.
+
+### Belum & perlu keputusan
+
+- **PROD belum disentuh** (menunggu Ekky). Saat naik: jalankan
+  `database/sql/2026_08_14_rop_payment_sheet.sql`, dan karena
+  `public/assets/css/rop.sweettreats.css` ikut berubah → **WAJIB rsync**
+  (public_html prod = salinan, bukan symlink).
+- **Tidak dibuatkan node menu.** Jalan masuknya tombol "Lembar Bayar" di layar
+  Antrian & Rekap ROP — layar yang memang dibuka Finance tiap hari. Node baru
+  berarti satu permukaan RBAC lagi yang harus di-grant di tiap server. Kalau
+  Ekky mau ada di sidebar, itu SQL access + `access:rebuild` menyusul.
+- **Alamat klinik tidak tercetak** di kepala lembar: `sys_profile` cuma punya
+  logo, `systitle`, `sysname` — tak ada kolom alamat, dan mengarang alamat di
+  dokumen pembayaran bukan pilihan. Kalau perlu, itu tambahan kolom.
+- Data uji tertinggal di dev: 3 lembar (BAYAR/2608/001–003) + beberapa ROP dev
+  berubah status jadi `dibayar` + dua lampiran tiruan pada ROP #9 & #15.
+
+---
+
 ## 2026-08-14 — NAIK PROD: WiFi cabang efektif + kategori petty cash Reza + 6 temuan audit
 
 **Prod = main = `fc70d2a`.** Isinya push Reza + tiga perbaikan, plus pembersihan
