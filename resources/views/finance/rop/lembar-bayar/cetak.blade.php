@@ -227,8 +227,13 @@
             <tr>
                 <th class="tengah" style="width:24px">No</th>
                 <th style="width:84px">No. ROP</th>
-                <th style="width:46px">Unit</th>
-                <th style="width:142px">Dibayarkan kepada</th>
+                {{-- "Departemen", bukan "Unit" — masukan Dela (Finance) 14 Agu:
+                     bersebelahan dengan kolom Jumlah, "Unit" terbaca sebagai
+                     satuan barang (pcs/box), padahal isinya cost centre. Di
+                     dokumen pembayaran, kolom yang salah dibaca itu mahal.
+                     Lebarnya ikut naik supaya "Kantor Pusat" tidak terpotong. --}}
+                <th style="width:82px">Departemen</th>
+                <th style="width:136px">Dibayarkan kepada</th>
                 <th>Keterangan</th>
                 <th class="kanan" style="width:96px">Jumlah</th>
                 <th class="tengah" style="width:48px">Lampiran</th>
