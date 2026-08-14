@@ -73,6 +73,35 @@
         </div>
     </div>
 
+    {{-- Penuntun langkah (pola-interaksi P5/P6: layar mengajarkan langkah
+         berikutnya, tidak menunggu orangnya hafal). Langkah yang SEDANG
+         berjalan disorot; yang sudah lewat diberi centang. Lembar bayar
+         dipakai mungkin seminggu sekali — terlalu jarang untuk dihafal,
+         terlalu sering untuk dibuatkan dokumen sendiri. --}}
+    @php
+        $adaYangDibayar = $dibayar > 0;
+        $langkah = [
+            ['n' => 1, 'judul' => 'Cetak jadi PDF',        'ket' => 'tombol di kanan atas, pilih A4',      'selesai' => true],
+            ['n' => 2, 'judul' => 'Kirim ke bos',          'ket' => 'satu berkas lewat WhatsApp',          'selesai' => $lembar->sudahDikirim()],
+            ['n' => 3, 'judul' => 'Tandai sudah dikirim',  'ket' => 'supaya ketahuan mana yang menggantung', 'selesai' => $lembar->sudahDikirim()],
+            ['n' => 4, 'judul' => 'Tandai dibayar',        'ket' => 'centang yang cair, unggah satu bukti', 'selesai' => $dibayar >= $lembar->jumlah_item && $lembar->jumlah_item > 0],
+        ];
+        // Langkah aktif = yang pertama belum selesai (langkah 1 selalu dianggap
+        // tersedia, jadi sorotan jatuh ke yang benar-benar menunggu tindakan).
+        $aktif = $lembar->sudahDikirim() ? 4 : 2;
+    @endphp
+    <ol class="rop-langkah">
+        @foreach ($langkah as $l)
+            <li class="{{ $l['selesai'] ? 'is-selesai' : '' }} {{ $l['n'] === $aktif && ! $l['selesai'] ? 'is-aktif' : '' }}">
+                <b>{{ $l['selesai'] ? '✓' : $l['n'] }}</b>
+                <div>
+                    <span>{{ $l['judul'] }}</span>
+                    <small>{{ $l['ket'] }}</small>
+                </div>
+            </li>
+        @endforeach
+    </ol>
+
     @if (! $lembar->sudahDikirim())
         <form method="POST" action="{{ route('finance.rop.lembar.dikirim', $lembar->id) }}"
               style="margin-bottom:14px">

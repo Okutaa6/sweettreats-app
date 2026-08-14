@@ -215,7 +215,10 @@
         @endif
     </span>
     <button type="button" onclick="window.print()">Cetak / Simpan PDF</button>
-    <span>atau tekan Ctrl+P &middot; pilih "Save as PDF"</span>
+    {{-- Ukuran kertas disebut TERANG-TERANGAN: dialog cetak Chrome di HP
+         default-nya "Letter" dan mengabaikan @page size di atas, jadi kalau
+         tidak diingatkan, lembar tercetak di kertas yang salah. --}}
+    <span>lalu pilih <b>"Save as PDF"</b> &middot; ukuran kertas <b>A4</b></span>
     <a href="{{ route('finance.rop.lembar.show', $lembar->id) }}">Kembali</a>
 </div>
 
