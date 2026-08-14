@@ -968,6 +968,76 @@
     white-space: nowrap;
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   Lembar Bayar — layar pilih & isi lembar (Finance, burgundy)
+   ───────────────────────────────────────────────────────────────────────────
+   Halaman CETAK-nya tidak memakai berkas ini: gayanya inline di
+   resources/views/finance/rop/lembar-bayar/cetak.blade.php, supaya dokumen
+   yang harus tercetak benar tidak bergantung pada aset yang bisa 404.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Kolom kotak centang. Sengaja sempit tapi kotaknya besar (18px + accent
+   burgundy): yang dilakukan Finance di layar ini memang mencentang. */
+.rop-cek-cell {
+    width: 42px;
+    padding-left: 18px !important;
+    padding-right: 0 !important;
+    text-align: left;
+    vertical-align: middle !important;
+}
+.rop-cek-cell input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    accent-color: var(--rop-burgundy);
+    cursor: pointer;
+}
+/* Baris di tabel pilih = area centang, jadi seluruh barisnya berkursor. */
+.rop-tabel tbody tr:has(.rop-cek-cell input) { cursor: pointer; }
+
+/* Select akun beban di dalam sel tabel — dipendekkan supaya baris tidak
+   melompat tinggi, tapi tetap 34px agar nyaman diklik. */
+.rop-select--mini {
+    width: 100%;
+    min-width: 0;
+    min-height: 34px;
+    padding: 6px 9px;
+    font-size: 12.5px;
+}
+
+/* Tujuan transfer. pay_to_text itu NOMOR REKENING yang diketik bebas
+   ("VA MANDIRI - 896 085888064313") — boleh membungkus, TIDAK boleh dipotong
+   atau di-ellipsis: terpotong = uang salah alamat. */
+.rop-rek {
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    word-break: break-word;
+    line-height: 1.4;
+}
+
+/* Penanda ringkas (lampiran, status kirim) — token semantik §2 lapis 3,
+   bukan aksen zona. */
+.rop-tanda {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 7px;
+    font-size: 11.5px;
+    font-weight: 700;
+    white-space: nowrap;
+    text-decoration: none;
+}
+.rop-tanda--ok   { color: #2F8E55; background: #E3F4E8; }
+.rop-tanda--info { color: #3F6BAF; background: #E4ECFB; }
+.rop-tanda--awas { color: #B5701A; background: #FBEFD9; }
+.rop-tanda--nihil { color: #C0392B; background: #FBE3DE; }
+
+/* Tiga kolom form bayar-sekaligus; menumpuk sendiri di layar sempit. */
+.rop-bayar-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 12px;
+}
+
 /* ─── Layar pengaju versi lebar (master–detail) ─── */
 @media (min-width: 992px) {
     .rop-md {

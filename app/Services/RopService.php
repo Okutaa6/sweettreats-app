@@ -77,10 +77,16 @@ class RopService
     /* ═════════════════════ Penomoran ═════════════════════ */
 
     /**
+     * Kunci semu di `rop_counter` untuk sekuens nomor LEMBAR BAYAR. Bukan cost
+     * centre sungguhan — rop_counter tidak punya FK ke rop_cost_centre, jadi
+     * kunci ini sah tanpa baris master baru, dan sekuensnya jadi terpisah dari
+     * nomor pengajuan (BAYAR/2608/001 hidup sendiri, tidak mencuri nomor BIN).
+     */
+    public const KUNCI_LEMBAR = 'BAYAR';
+
+    /**
      * Ambil nomor berikutnya untuk sebuah cost centre: ROP/{CC}/{YYMM}/{NNN}.
      *
-     * Atomik lewat `LAST_INSERT_ID(last_no + 1)` — dua orang menekan Kirim di
-     * detik yang sama tetap dapat nomor berbeda. Jangan diganti MAX(number)+1.
      * Sekuens reset sendiri tiap bulan karena `periode` bagian dari primary key.
      */
     public function nomorBaru(string $costCentre, ?\DateTimeInterface $saat = null): string
@@ -88,6 +94,32 @@ class RopService
         $saat    = $saat ?: now();
         $periode = $saat->format('ym');
 
+        return sprintf('ROP/%s/%s/%03d', $costCentre, $periode, $this->urutBaru($costCentre, $periode));
+    }
+
+    /**
+     * Nomor lembar bayar: BAYAR/{YYMM}/{NNN}.
+     *
+     * Memakai mesin sekuens yang sama dengan nomor pengajuan (lihat urutBaru) —
+     * bukan salinan SQL-nya, supaya sifat atomiknya tidak perlu dibuktikan dua
+     * kali. Rencana: docs/rencana/rencana-lembar-bayar-rop.md §4.1.
+     */
+    public function nomorLembarBayar(?\DateTimeInterface $saat = null): string
+    {
+        $saat    = $saat ?: now();
+        $periode = $saat->format('ym');
+
+        return sprintf('BAYAR/%s/%03d', $periode, $this->urutBaru(self::KUNCI_LEMBAR, $periode));
+    }
+
+    /**
+     * Naikkan sekuens satu langkah dan kembalikan nomor urutnya.
+     *
+     * Atomik lewat `LAST_INSERT_ID(last_no + 1)` — dua orang menekan Kirim di
+     * detik yang sama tetap dapat nomor berbeda. Jangan diganti MAX(number)+1.
+     */
+    private function urutBaru(string $kunci, string $periode): int
+    {
         // LAST_INSERT_ID(1) di VALUES itu WAJIB, bukan gaya-gayaan: tabel ini
         // tanpa AUTO_INCREMENT, jadi INSERT baris baru tidak menyentuh
         // LAST_INSERT_ID() dan nilai sisa pemanggilan sebelumnya akan terbaca
@@ -96,7 +128,7 @@ class RopService
             'INSERT INTO rop_counter (cost_centre, periode, last_no, updated_at)
              VALUES (?, ?, LAST_INSERT_ID(1), NOW())
              ON DUPLICATE KEY UPDATE last_no = LAST_INSERT_ID(last_no + 1), updated_at = NOW()',
-            [$costCentre, $periode]
+            [$kunci, $periode]
         );
 
         $row = DB::selectOne('SELECT LAST_INSERT_ID() AS no');
@@ -104,11 +136,11 @@ class RopService
 
         if ($urut < 1) { // jaring pengaman kalau driver tidak meneruskan nilainya
             $urut = (int) DB::table('rop_counter')
-                ->where('cost_centre', $costCentre)->where('periode', $periode)
+                ->where('cost_centre', $kunci)->where('periode', $periode)
                 ->value('last_no') ?: 1;
         }
 
-        return sprintf('ROP/%s/%s/%03d', $costCentre, $periode, $urut);
+        return $urut;
     }
 
     /**
@@ -275,6 +307,40 @@ class RopService
             'reviewed_at' => now(),
         ], 'rop_disetujui', 'Pengajuan disetujui', function (RopRequest $r) {
             return $r->number . ' (' . $this->rupiah($r->amount) . ') disetujui, menunggu pembayaran.';
+        });
+    }
+
+    /**
+     * Isi akun beban yang MASIH KOSONG pada pengajuan yang sudah disetujui.
+     *
+     * Bukan transisi status — cuma menambal kolom yang tertinggal kosong, jadi
+     * sengaja tidak lewat pindah(). Kenapa perlu ada: kalau staging Accurate
+     * belum ada di sebuah server, persetujuan lewat lembar bayar terpaksa
+     * tersimpan tanpa akun beban, dan drawer antrian hanya menampilkan pilihan
+     * akun untuk status `diajukan` — tanpa jalan ini, pengajuan itu tidak akan
+     * pernah bisa dilengkapi lagi dan rekap Accurate-nya bolong selamanya.
+     *
+     * Yang sudah terisi TIDAK ditimpa: mengganti akun beban yang sudah dipilih
+     * itu keputusan lain (dan butuh jejak lain), bukan "melengkapi".
+     */
+    public function lengkapiAkun(RopRequest $rop, string $coaNo, string $coaName, string $actorId): bool
+    {
+        return DB::transaction(function () use ($rop, $coaNo, $coaName, $actorId) {
+            /** @var RopRequest $segar */
+            $segar = RopRequest::lockForUpdate()->findOrFail($rop->id);
+
+            if ($segar->coa_no !== null && $segar->coa_no !== '') {
+                return false;
+            }
+            if (! in_array($segar->status, [RopRequest::STATUS_DIAJUKAN, RopRequest::STATUS_DISETUJUI], true)) {
+                return false;
+            }
+
+            $segar->update(['coa_no' => $coaNo, 'coa_name' => $coaName]);
+            $this->catat($segar, $segar->status, $segar->status, $actorId,
+                'Akun beban dilengkapi: ' . $coaNo . ' — ' . $coaName);
+
+            return true;
         });
     }
 

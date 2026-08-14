@@ -34,6 +34,13 @@
             <div class="rop-sub">Pengganti formulir Request of Payment — ACC, bayar, dan catat akun bebannya di satu tempat.</div>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
+            {{-- Jalan masuk Lembar Bayar. Tidak dibuatkan node menu sendiri:
+                 layar ini yang dibuka Finance tiap hari, dan node baru berarti
+                 satu permukaan RBAC lagi yang harus di-grant di tiap server. --}}
+            <a class="rop-btn rop-btn--fin" href="{{ route('finance.rop.lembar') }}">
+                @include('rop._ikon', ['n' => 'kirim'])
+                Lembar Bayar
+            </a>
             <a class="rop-btn rop-btn--ghost" href="{{ route('finance.rop.rekap') }}">
                 @include('rop._ikon', ['n' => 'grafik'])
                 Rekap

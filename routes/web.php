@@ -52,6 +52,7 @@ use App\Http\Controllers\Crud\MyChecklistController;
 use App\Http\Controllers\Crud\AcMaintenanceController;
 use App\Http\Controllers\Finance\FinanceDashboardController;
 use App\Http\Controllers\Finance\TopupRequestController;
+use App\Http\Controllers\Finance\RopLembarBayarController;
 use App\Http\Controllers\Finance\RopQueueController;
 use App\Http\Controllers\Finance\RopRekapController;
 use App\Http\Controllers\Rop\PengajuanController;
@@ -485,7 +486,23 @@ Route::middleware([AuthGuard::class])->group(function () {
         Route::get ('rop/rekap',              [RopRekapController::class, 'index'])->name('finance.rop.rekap');
         Route::get ('rop/rekap/export',       [RopRekapController::class, 'exportCsv'])->name('finance.rop.rekap.export');
         Route::get ('rop/export/accurate',    [RopRekapController::class, 'exportAccurate'])->name('finance.rop.export.accurate');
-        Route::get ('rop/{id}',               [RopQueueController::class, 'show'])->name('finance.rop.show');
+
+        // Lembar Bayar — rekap pembayaran yang dikirim Finance ke bos sebagai
+        // satu berkas cetak + tandai dibayar sekaligus (satu bukti transfer
+        // untuk beberapa ROP). Rencana: docs/rencana/rencana-lembar-bayar-rop.md
+        //
+        // ⚠️ HARUS di atas 'rop/{id}': wildcard itu tanpa batasan angka akan
+        // menelan 'rop/lembar-bayar' dan mengirimnya ke RopQueueController::show
+        // ('lembar-bayar' sebagai id → 404). Batasan whereNumber di bawah
+        // menutup lubangnya dari sisi lain, keduanya sengaja dipasang.
+        Route::get ('rop/lembar-bayar',                  [RopLembarBayarController::class, 'index'])->name('finance.rop.lembar');
+        Route::post('rop/lembar-bayar',                  [RopLembarBayarController::class, 'store'])->name('finance.rop.lembar.store');
+        Route::get ('rop/lembar-bayar/{id}',             [RopLembarBayarController::class, 'show'])->name('finance.rop.lembar.show');
+        Route::get ('rop/lembar-bayar/{id}/cetak',       [RopLembarBayarController::class, 'cetak'])->name('finance.rop.lembar.cetak');
+        Route::post('rop/lembar-bayar/{id}/dikirim',     [RopLembarBayarController::class, 'dikirim'])->name('finance.rop.lembar.dikirim');
+        Route::post('rop/lembar-bayar/{id}/bayar-banyak', [RopLembarBayarController::class, 'bayarBanyak'])->name('finance.rop.lembar.bayar-banyak');
+
+        Route::get ('rop/{id}',               [RopQueueController::class, 'show'])->name('finance.rop.show')->whereNumber('id');
         Route::post('rop/{id}/setujui',       [RopQueueController::class, 'setujui'])->name('finance.rop.setujui');
         Route::post('rop/{id}/urungkan',      [RopQueueController::class, 'urungkan'])->name('finance.rop.urungkan');
         Route::post('rop/{id}/tolak',         [RopQueueController::class, 'tolak'])->name('finance.rop.tolak');
