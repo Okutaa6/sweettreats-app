@@ -7,10 +7,55 @@
 
 ---
 
-## 2026-08-14 — Gerbong dev: WiFi cabang efektif + kategori petty cash Reza
+## 2026-08-14 — NAIK PROD: WiFi cabang efektif + kategori petty cash Reza + 6 temuan audit
 
-Branch `integrasi/dev-2026-08-14` (`064dd08`), **live di dev, belum prod**.
-Isinya push Reza + dua perbaikan.
+**Prod = main = `fc70d2a`.** Isinya push Reza + tiga perbaikan, plus pembersihan
+data hasil audit.
+
+### Temuan audit prod (dikerjakan setelah deploy dev, sebelum naik prod)
+
+**a. Rahmat tak pernah muncul di Kehadiran — dan sebabnya sistemik.** Dia absen
+14 Agu 11.19 (foto ada, WiFi cocok) tapi tak muncul di layar mana pun. Sebab:
+tak punya `att_user_rule`, dan layar Kehadiran menyusun rosternya DARI tabel
+itu. Akarnya role `Consultant` tak punya `att_default_rule_id` — lubang yang
+sama dengan Alpajri, yang kukira sudah tertutup 13 Agu (ternyata cuma 3 role
+operasional yang kuurus). Kini: Rahmat dapat `Fleksibel` (ACC Ekky), role
+Consultant dapat bawaan, Hari dipindah ke Consultant.
+
+**b. LIMA ALPA PALSU — dan aku penyebabnya.** Della Raqisiah, Melani, Putri,
+Rokhmatun, Tito tercatat `alpa` 13 Agu. Akun mereka kubuat 13 Agu sore dengan
+aturan berlaku hari itu juga, padahal mereka baru mulai absen 14 Agu. Ini
+PERSIS jebakan Alpajri yang peringatannya kutulis sendiri — dan tetap kumasuki,
+karena yang kutulis cuma komentar, bukan perbaikan pada perkakasnya. Sudah
+dibereskan (effective_from dimajukan ke absen pertama → dihitung ulang → 5
+baris basi gugur). Prod kini **nol alpa**. `att:gelar-akun` sekarang punya
+`--mulai=` dan selalu mencetak tanggalnya sebelum menulis.
+
+**c. Satu jam absen salah 4 jam.** `att_scan.scanned_at` Rahmat tertulis
+07.19.46 padahal kejadiannya 11.19.46 — dan `att_day` membaca kolom itu, jadi
+Kehadiran menampilkan jam keliru sementara Pengawasan menampilkan yang benar.
+Waktu asli dibuktikan dari kolom `hash` baris itu sendiri (sha1 atas jam
+kejadian) + nama berkas fotonya. Data sudah dibetulkan & dihitung ulang.
+⚠️ **MEKANISMENYA BELUM TERJELASKAN**: `scanned_at` dan `taken_at` ditulis dari
+satu variabel `$now` yang sama dalam satu transaksi, dan `$now` tak pernah
+dimutasi (`workDate()` pakai `->copy()`). Satu kejadian dari 193 scan. Kalau
+menimpa orang ber-aturan `baku`, geseran 4 jam bisa membalik tepat-waktu jadi
+telat. **Perlu ditengok lagi** — bukti lengkapnya ada di baris `att_scan` 193.
+
+**d. Bersih**: tak ada aturan kerja ganda · tak ada baris rolling lumpuh · tak
+ada kategori transaksi yatim · jam scan vs bukti kini nol selisih.
+
+**e. Masih terbuka**: role `Executive` (2 org) & `Branch Executive` (1 org)
+belum punya aturan bawaan — akun BARU di sana akan lenyap seperti Rahmat.
+Akun "Executive Pamulang" tak punya aturan kerja (tampaknya akun peran, bukan
+orang). Anisa 5 Agu punya absen tanpa `att_day`. Flag: 15 baru, 7 dicek.
+
+**f. Kewenangan Super Admin petty cash: DISETUJUI Ekky** — jendela edit 8 jam
+untuk user biasa, Super Admin bebas tanpa batas.
+
+---
+
+### Isi gerbongnya
 
 **1. WiFi belajar-sendiri: saksi ditimbang pakai cabang EFEKTIF.**
 Penilainya membandingkan `users.raw_branch_id` dengan cabang yang dipilih,
