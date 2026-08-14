@@ -151,6 +151,14 @@ class RopLembarBayarController extends Controller
 
         $akunKiriman = (array) ($data['akun'] ?? []);
 
+        // Kiriman kembar dibuang SEBELUM apa pun disentuh. Layar normal tidak
+        // mengirim id yang sama dua kali, tapi kiriman apa pun bisa dibuat
+        // tangan — dan tanpa ini baris kedua menabrak UNIQUE(sheet_id, rop_id)
+        // dan meledak jadi 500 (QueryException bukan HttpException, jadi lolos
+        // dari penangkap di bawah). Selain itu jumlah_item & total ikut
+        // menggelembung. array_values supaya kuncinya rapat lagi.
+        $data['pilih'] = array_values(array_unique(array_map('intval', $data['pilih'])));
+
         try {
             $lembar = DB::transaction(function () use ($data, $akunKiriman) {
                 /** @var \Illuminate\Support\Collection<int,RopRequest> $terpilih */
@@ -341,10 +349,15 @@ class RopLembarBayarController extends Controller
             'pilih.*' => 'integer',
             'paid_at' => 'nullable|date',
             'bukti'   => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf|max:5120',
-            'catatan' => 'nullable|string|max:500',
+            // 450, bukan 500: catatan ini masih ditempeli "(lembar BAYAR/…)"
+            // sebelum masuk rop_status_log.catatan yang varchar(500). Dengan 500
+            // di sini, catatan terpanjang membuat MySQL menolak dan seluruh
+            // pembayaran gagal jadi 500 — sudah terbukti, bukan hipotesis.
+            'catatan' => 'nullable|string|max:450',
         ], [
             'pilih.required' => 'Pilih dulu item yang sudah dibayar.',
             'pilih.min'      => 'Pilih dulu item yang sudah dibayar.',
+            'catatan.max'    => 'Catatan maksimal 450 huruf.',
             'bukti.mimes'    => 'Bukti transfer harus berupa foto (JPG/PNG/WebP) atau PDF.',
             'bukti.max'      => 'Ukuran bukti transfer maksimal 5 MB.',
         ]);
@@ -373,12 +386,21 @@ class RopLembarBayarController extends Controller
         try {
             $bukti = $this->lampiran->simpan($request, 'bukti', 'bukti-transfer');
 
-            DB::transaction(function () use ($itemBayar, $bukti, $data, $lembar) {
+            // Dipangkas ke 500 (lebar kolom rop_status_log.catatan) sebagai
+            // sabuk kedua di samping batas 450 di validasi: kalau kelak nomor
+            // lembar memanjang atau sufiksnya berubah, yang terjadi adalah
+            // catatan terpotong — bukan pembayaran yang gagal total.
+            $catatan = mb_substr(
+                trim(($data['catatan'] ?? '') . ' (lembar ' . $lembar->number . ')'),
+                0, 500
+            );
+
+            DB::transaction(function () use ($itemBayar, $bukti, $data, $catatan) {
                 foreach ($itemBayar as $i) {
                     $this->rop->tandaiDibayar($i->rop, [
                         'paid_at'         => $data['paid_at'] ?? now(),
                         'paid_proof_path' => $bukti,
-                        'catatan'         => trim(($data['catatan'] ?? '') . ' (lembar ' . $lembar->number . ')'),
+                        'catatan'         => $catatan,
                     ], (string) session('id'));
                 }
             });

@@ -88,6 +88,12 @@
         table.daftar .kanan, table.daftar th.kanan { text-align: right; }
         table.daftar .tengah, table.daftar th.tengah { text-align: center; }
 
+        /* Nominal & nomor ROP TIDAK boleh membungkus. "Rp" di satu baris dan
+           "2.100.000" di baris berikutnya bikin angka jadi ambigu sekilas — di
+           dokumen yang dipakai mengeluarkan uang itu tidak bisa diterima.
+           (Ketahuan dari cetakan sungguhan, bukan dari uji otomatis.) */
+        table.daftar td.kanan, table.daftar td.nowrap { white-space: nowrap; }
+
         /* Tujuan transfer: bagian paling mahal kalau salah. Boleh melebar,
            boleh membungkus, tidak boleh terpotong. */
         .rek { font-weight: 800; font-size: 12px; word-break: break-word; }
@@ -102,7 +108,7 @@
             border-top: 2px solid #3A1100; background: #F7F1EA;
             font-size: 13px; font-weight: 800; padding: 9px 6px;
         }
-        tr.total td.jml { font-size: 15px; }
+        tr.total td.jml { font-size: 15px; white-space: nowrap; }
 
         .terbilang {
             margin-top: 10px; padding: 9px 11px;
@@ -202,9 +208,11 @@
         @if ($profil?->syslogo)
             <img src="{{ asset('sysprofile/' . $profil->syslogo) }}" alt="">
         @endif
+        {{-- `?->` di kedua baris: kalau sys_profile kosong, dokumen tetap
+             tercetak dengan nama cadangan — bukan halaman galat. --}}
         <div class="kop__id">
-            <b>{{ $profil->sysname ?? 'Sweet Treats' }}</b>
-            <span>{{ $profil->systitle ?? '' }}</span>
+            <b>{{ $profil?->sysname ?: 'Sweet Treats' }}</b>
+            <span>{{ $profil?->systitle ?: '' }}</span>
         </div>
         <div class="kop__doc">
             <b>REKAP PERMINTAAN PEMBAYARAN</b>
@@ -217,13 +225,13 @@
     <table class="daftar">
         <thead>
             <tr>
-                <th class="tengah" style="width:26px">No</th>
-                <th style="width:78px">No. ROP</th>
-                <th style="width:52px">Unit</th>
-                <th style="width:150px">Dibayarkan kepada</th>
+                <th class="tengah" style="width:24px">No</th>
+                <th style="width:84px">No. ROP</th>
+                <th style="width:46px">Unit</th>
+                <th style="width:142px">Dibayarkan kepada</th>
                 <th>Keterangan</th>
-                <th class="kanan" style="width:82px">Jumlah</th>
-                <th class="tengah" style="width:50px">Lampiran</th>
+                <th class="kanan" style="width:96px">Jumlah</th>
+                <th class="tengah" style="width:48px">Lampiran</th>
             </tr>
         </thead>
         <tbody>
@@ -234,7 +242,7 @@
             @endphp
             <tr>
                 <td class="tengah num">{{ $item->urutan ?: $loop->iteration }}</td>
-                <td class="num">{{ $r?->number ?: '—' }}</td>
+                <td class="num nowrap">{{ $r?->number ?: '—' }}</td>
                 <td>{{ $r?->costCentre?->nama ?: $r?->cost_centre }}</td>
                 {{-- Nomor rekening apa adanya — tanpa dipotong, tanpa dipecah. --}}
                 <td><span class="rek">{{ $r?->namaPenerima() ?: '—' }}</span></td>

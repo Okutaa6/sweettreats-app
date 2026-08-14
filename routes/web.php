@@ -497,10 +497,10 @@ Route::middleware([AuthGuard::class])->group(function () {
         // menutup lubangnya dari sisi lain, keduanya sengaja dipasang.
         Route::get ('rop/lembar-bayar',                  [RopLembarBayarController::class, 'index'])->name('finance.rop.lembar');
         Route::post('rop/lembar-bayar',                  [RopLembarBayarController::class, 'store'])->name('finance.rop.lembar.store');
-        Route::get ('rop/lembar-bayar/{id}',             [RopLembarBayarController::class, 'show'])->name('finance.rop.lembar.show');
-        Route::get ('rop/lembar-bayar/{id}/cetak',       [RopLembarBayarController::class, 'cetak'])->name('finance.rop.lembar.cetak');
-        Route::post('rop/lembar-bayar/{id}/dikirim',     [RopLembarBayarController::class, 'dikirim'])->name('finance.rop.lembar.dikirim');
-        Route::post('rop/lembar-bayar/{id}/bayar-banyak', [RopLembarBayarController::class, 'bayarBanyak'])->name('finance.rop.lembar.bayar-banyak');
+        Route::get ('rop/lembar-bayar/{id}',             [RopLembarBayarController::class, 'show'])->name('finance.rop.lembar.show')->whereNumber('id');
+        Route::get ('rop/lembar-bayar/{id}/cetak',       [RopLembarBayarController::class, 'cetak'])->name('finance.rop.lembar.cetak')->whereNumber('id');
+        Route::post('rop/lembar-bayar/{id}/dikirim',     [RopLembarBayarController::class, 'dikirim'])->name('finance.rop.lembar.dikirim')->whereNumber('id');
+        Route::post('rop/lembar-bayar/{id}/bayar-banyak', [RopLembarBayarController::class, 'bayarBanyak'])->name('finance.rop.lembar.bayar-banyak')->whereNumber('id');
 
         Route::get ('rop/{id}',               [RopQueueController::class, 'show'])->name('finance.rop.show')->whereNumber('id');
         Route::post('rop/{id}/setujui',       [RopQueueController::class, 'setujui'])->name('finance.rop.setujui');

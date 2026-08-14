@@ -55,9 +55,9 @@
                 <small class="rop-num" id="lbTotal">Rp 0</small>
             </div>
             <div class="rop-fin-stat">
-                <span class="rop-label">Belum dibayar seluruhnya</span>
+                <span class="rop-label">Layak masuk lembar</span>
                 <b class="rop-num">{{ $layak->count() }}</b>
-                <small class="rop-num">{{ $rupiah($layak->sum('amount')) }}</small>
+                <small class="rop-num">{{ $rupiah($layak->sum('amount')) }} belum dibayar</small>
             </div>
         </div>
 

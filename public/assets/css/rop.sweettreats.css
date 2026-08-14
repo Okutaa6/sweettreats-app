@@ -1025,6 +1025,19 @@
     font-weight: 700;
     white-space: nowrap;
     text-decoration: none;
+    /* style.css memberi `a { font-family: Poppins }` di tingkat ELEMEN, dan itu
+       menang atas font yang diwarisi dari .rop-fin — penanda yang kebetulan
+       berupa tautan jadi beda huruf dari yang bukan. Warnanya sendiri aman
+       (selector kelas menang atas selector elemen), tapi fontnya harus
+       dikembalikan eksplisit. Sekeluarga dengan bug "label Darurat jadi biru". */
+    font-family: inherit;
+}
+/* Tautan kecil di dalam sel tabel (mis. "bukti transfer") — ikut aksen zona,
+   bukan biru tautan global yang asing di layar burgundy. */
+.rop-fin .rop-mini a {
+    color: var(--rop-burgundy);
+    font-family: inherit;
+    font-weight: 700;
 }
 .rop-tanda--ok   { color: #2F8E55; background: #E3F4E8; }
 .rop-tanda--info { color: #3F6BAF; background: #E4ECFB; }
