@@ -253,6 +253,7 @@ class FinanceDashboardController extends Controller
         $cashIn   = 0.0;
         $cashOut  = 0.0;
         $rows     = [];
+        $categoryMap = PettyCashTransaction::categoryMap();
         foreach ($transactions as $t) {
             $isDeleted = $t->deleted_at !== null;
             $amt       = (float) $t->amount;
@@ -280,7 +281,7 @@ class FinanceDashboardController extends Controller
             $rows[] = (object) [
                 'date'           => $t->trx_date instanceof Carbon ? $t->trx_date : Carbon::parse($t->trx_date),
                 'description'    => $t->description,
-                'category_label' => $t->category ? (PettyCashTransaction::CATEGORIES[$t->category] ?? $t->category) : null,
+                'category_label' => $t->category ? ($categoryMap[$t->category] ?? $t->category) : null,
                 'wallet_name'    => $t->fundSource?->name ?? '-',
                 'wallet_short'   => $t->fundSource?->effectiveShortLabel() ?? '?',
                 'wallet_color'   => $t->fundSource?->effectiveBrandColor() ?? '#64748b',

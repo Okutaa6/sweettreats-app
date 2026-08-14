@@ -54,6 +54,14 @@
             </div>
         </div>
         <div class="pc-page-header__actions">
+            @if(isSuperAdmin())
+                <a href="{{ route('fundsource') }}"
+                   class="st-btn-outline-brown"
+                   data-pc-tooltip-pos="bottom"
+                   data-pc-tooltip="Kelola daftar wallet: tambah/edit jenis Cash, Bank, dan E-Wallet (nama, logo, warna, nomor rekening). Hanya Super Admin.">
+                    <i class="fa fa-cog"></i> Kelola Wallet
+                </a>
+            @endif
             <a href="{{ route('pettycash.export', array_filter([
                     'tab'            => $kind,
                     'branch'         => $branches->isNotEmpty() ? $branchId : null,
@@ -1014,6 +1022,26 @@
         const maxHint     = modal.querySelector('#pcEditAmountMaxHint');
         const descInput   = modal.querySelector('#pcEditDescription');
         const actionTpl   = form.getAttribute('data-action-tpl') || '';
+        // Elemen bukti (opsional).
+        const attachCurrent = modal.querySelector('#pcEditAttachCurrent');
+        const attachLink    = modal.querySelector('#pcEditAttachLink');
+        const attachRemove  = modal.querySelector('#pcEditAttachRemove');
+        const attachInput   = modal.querySelector('#editAttachInput');
+        const attachZone    = modal.querySelector('#editAttachZone');
+
+        // Reset zona upload bukti ke kondisi awal (dipanggil tiap buka modal).
+        function resetAttachZone() {
+            if (attachInput) attachInput.value = '';
+            if (attachRemove) attachRemove.checked = false;
+            if (attachZone) {
+                const label   = attachZone.querySelector('.pc-attach-label');
+                const preview = attachZone.querySelector('.pc-attach-preview');
+                const thumb   = attachZone.querySelector('.pc-attach-preview__thumb');
+                if (label)   label.hidden = false;
+                if (preview) preview.hidden = true;
+                if (thumb)   thumb.innerHTML = '<i class="fa fa-file"></i>';
+            }
+        }
 
         // Format Rp dengan thousand separator.
         function fmt(n) {
@@ -1042,9 +1070,21 @@
             const trxCategory   = btn.dataset.trxCategory || '';
             const trxSourceName = btn.dataset.trxSourceName || '—';
             const trxSourceId   = btn.dataset.trxSourceId || '';
+            const trxAttachment = btn.dataset.trxAttachment || '';
 
             // Set form action: replace __ID__ placeholder dengan id transaksi.
             form.action = actionTpl.replace('__ID__', trxId);
+
+            // Bukti saat ini: tampilkan link kalau ada, reset zona upload.
+            resetAttachZone();
+            if (attachCurrent) {
+                if (trxAttachment) {
+                    if (attachLink) attachLink.href = trxAttachment;
+                    attachCurrent.hidden = false;
+                } else {
+                    attachCurrent.hidden = true;
+                }
+            }
 
             // Prefill display fields.
             dateLabel.textContent   = trxDate;

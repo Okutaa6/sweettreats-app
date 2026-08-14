@@ -113,16 +113,23 @@ class PettyCashController extends Controller
     }
 
     /**
-     * Batas waktu 24 jam untuk EDIT & HAPUS transaksi (kebijakan audit).
-     * Setelah 24 jam sejak created_at, transaksi terkunci — perbaikan harus
-     * lewat jalur lain (mis. koreksi transaksi baru). Dipakai bersama oleh
-     * update() ($verb='diedit') & destroy() ($verb='dihapus'). Guard yang
-     * sama disembunyikan di UI lewat $canEdit/$canDelete di _table_rows.
+     * Batas waktu EDIT & HAPUS transaksi (kebijakan audit).
+     *   - Super Admin  → bebas, tanpa batas waktu.
+     *   - User biasa    → PettyCashTransaction::EDIT_WINDOW_HOURS (8 jam) sejak
+     *                     created_at; setelah itu terkunci (perbaikan lewat
+     *                     koreksi transaksi baru).
+     * Dipakai bersama oleh update() ($verb='diedit') & destroy()
+     * ($verb='dihapus'). Guard yang sama disembunyikan di UI lewat
+     * $canEdit/$canDelete di _table_rows.
      */
     private function abortIfBeyondEditWindow($trx, string $verb): void
     {
-        if ($trx->created_at && $trx->created_at->lt(now()->subHours(24))) {
-            abort(403, "Transaksi sudah lebih dari 24 jam — tidak bisa {$verb} lagi.");
+        if (isSuperAdmin()) {
+            return; // Super Admin: bypass total.
+        }
+        $hours = \App\Models\PettyCashTransaction::EDIT_WINDOW_HOURS;
+        if ($trx->created_at && $trx->created_at->lt(now()->subHours($hours))) {
+            abort(403, "Transaksi sudah lebih dari {$hours} jam — tidak bisa {$verb} lagi.");
         }
     }
 
@@ -190,7 +197,9 @@ class PettyCashController extends Controller
         // sekaligus (categories[]=makan&categories[]=transport). Backward
         // compat: param lama `category` tunggal tetap diterima. Array kosong
         // = semua kategori.
-        $categoryOptions = $trxClass::CATEGORIES;
+        // Filter tampilkan SEMUA kategori (aktif + nonaktif) supaya transaksi
+        // lama yang kategorinya sudah dinonaktifkan tetap bisa difilter.
+        $categoryOptions = \App\Models\PettyCashTransaction::categoryMap();
         $categories      = $this->parseCategories($request, $categoryOptions);
 
         $period = $periodClass::ensurePeriod(
@@ -376,7 +385,7 @@ class PettyCashController extends Controller
         // Filter tambahan — match dengan filter di view index supaya
         // hasil export = data yang user lihat di layar.
         $search       = trim((string) $request->get('q', ''));
-        $categoryMap  = $trxClass::CATEGORIES;
+        $categoryMap  = \App\Models\PettyCashTransaction::categoryMap();
         $categories   = $this->parseCategories($request, $categoryMap);
         $fundSourceId = (int) $request->get('fund_source_id', 0);
         if ($fundSourceId > 0 && ! FundSource::whereKey($fundSourceId)->exists()) {
@@ -457,7 +466,7 @@ class PettyCashController extends Controller
         $sheet->getRowDimension($headerRow)->setRowHeight(22);
 
         // Map kategori key → label untuk tampilan di Excel.
-        $categoryMap = $trxClass::CATEGORIES;
+        $categoryMap = \App\Models\PettyCashTransaction::categoryMap();
 
         // ─── Saldo awal row (row 6) ───
         // Pakai sum snapshot per-source (sama seperti dashboard buildRows())
@@ -603,7 +612,8 @@ class PettyCashController extends Controller
         $trxClass    = $this->trxClass($kind);
 
         $tableName = (new $periodClass)->getTable();
-        $categoryKeys = array_keys($trxClass::CATEGORIES);
+        // Transaksi baru hanya boleh pakai kategori AKTIF.
+        $categoryKeys = \App\Models\PettyCashTransaction::activeCategoryKeys();
         $data = $request->validate([
             'period_id'      => 'required|integer|exists:' . $tableName . ',id',
             'trx_date'       => 'required|date',
@@ -673,7 +683,7 @@ class PettyCashController extends Controller
         $trxClass    = $this->trxClass($kind);
 
         // Kategori 'pinjaman' hanya ada di petty cash — modul lain tidak punya.
-        if (! array_key_exists('pinjaman', $trxClass::CATEGORIES)) {
+        if (! array_key_exists('pinjaman', \App\Models\PettyCashTransaction::categoryMap())) {
             abort(404);
         }
 
@@ -1195,11 +1205,16 @@ class PettyCashController extends Controller
         // Guard: window 24 jam sejak created_at.
         $this->abortIfBeyondEditWindow($trx, 'diedit');
 
-        $categoryKeys = array_keys($trxClass::CATEGORIES);
+        // Saat edit, izinkan SEMUA kategori yang pernah ada (termasuk yang kini
+        // nonaktif) supaya transaksi lama tetap bisa disimpan ulang.
+        $categoryKeys = array_keys(\App\Models\PettyCashTransaction::categoryMap());
         $data = $request->validate([
-            'amount'      => 'required|numeric|min:1',
-            'description' => 'required|string|max:255',
-            'category'    => 'required|in:' . implode(',', $categoryKeys),
+            'amount'            => 'required|numeric|min:1',
+            'description'       => 'required|string|max:255',
+            'category'          => 'required|in:' . implode(',', $categoryKeys),
+            // Bukti opsional — sama seperti saat input (gambar / PDF, maks 5MB).
+            'attachment'        => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf|max:5120',
+            'remove_attachment' => 'nullable|in:1',
         ]);
 
         // Guard tambahan: nominal baru tidak boleh bikin saldo wallet asal jadi
@@ -1221,12 +1236,26 @@ class PettyCashController extends Controller
             }
         }
 
+        // Bukti: ganti file baru, atau hapus bukti lama bila diminta.
+        $attachmentPath = $trx->attachment_path;
+        if ($request->hasFile('attachment')) {
+            $newPath = $this->storeAttachment($request, $trx->trx_date->format('Y-m-d'));
+            if ($newPath) {
+                $this->deleteAttachmentFile($attachmentPath);
+                $attachmentPath = $newPath;
+            }
+        } elseif ($request->boolean('remove_attachment')) {
+            $this->deleteAttachmentFile($attachmentPath);
+            $attachmentPath = null;
+        }
+
         $trx->update([
-            'amount'      => $data['amount'],
-            'description' => $data['description'],
-            'category'    => $data['category'],
-            'updated_by'  => session('id'),
-            'edited_at'   => now(),
+            'amount'          => $data['amount'],
+            'description'     => $data['description'],
+            'category'        => $data['category'],
+            'attachment_path' => $attachmentPath,
+            'updated_by'      => session('id'),
+            'edited_at'       => now(),
         ]);
 
         return redirect()
@@ -1359,6 +1388,21 @@ class PettyCashController extends Controller
         $filename = \Illuminate\Support\Str::uuid() . '.' . $ext;
         $file->move($absDir, $filename);
         return "{$relDir}/{$filename}";
+    }
+
+    /**
+     * Hapus file bukti dari disk. Hanya menyentuh file di dalam folder
+     * uploads/expense-receipts/ (guard supaya tak menghapus file lain).
+     */
+    private function deleteAttachmentFile(?string $path): void
+    {
+        if (! $path || strpos($path, 'uploads/expense-receipts/') !== 0) {
+            return;
+        }
+        $abs = public_path($path);
+        if (is_file($abs)) {
+            @unlink($abs);
+        }
     }
 
     private function buildRows($period, $transactions, $fundSources = null, ?string $startDate = null, ?string $endDate = null, array $branchAccountMap = [], array $categories = [], string $search = '', int $fundSourceId = 0): array

@@ -18,7 +18,10 @@
     // Resolve category label map sekali, dipakai untuk render badge kategori
     // di kolom keterangan. Map kosong → tidak render badge (transfer/topup
     // umumnya tidak punya kategori).
-    $categoryMap = \App\Models\PettyCashTransaction::CATEGORIES;
+    $categoryMap = \App\Models\PettyCashTransaction::categoryMap();
+    // Window edit/hapus: Super Admin bebas; user biasa dibatasi N jam.
+    $pcIsSuperAdmin  = isSuperAdmin();
+    $pcEditWindowHrs = \App\Models\PettyCashTransaction::EDIT_WINDOW_HOURS;
 @endphp
 @forelse($rowsInput as $r)
     @php
@@ -143,19 +146,24 @@
             @endphp
             @php
                 // Edit hanya untuk pengeluaran biasa (bukan topup / transfer)
-                // dan dalam 24 jam sejak created_at. Guard yang sama di-enforce
-                // di controller — UI cuma sembunyikan tombol untuk discoverability.
-                $inWindow = !empty($r->created_at)
-                    && \Carbon\Carbon::parse($r->created_at)->gt(now()->subHours(24));
+                // dan dalam window sejak created_at. Super Admin bebas tanpa
+                // batas waktu. Guard yang sama di-enforce di controller — UI
+                // cuma sembunyikan tombol untuk discoverability.
+                $inWindow = $pcIsSuperAdmin || (
+                    !empty($r->created_at)
+                    && \Carbon\Carbon::parse($r->created_at)->gt(now()->subHours($pcEditWindowHrs))
+                );
                 $canEdit = !$isComposite
                     && !$r->is_topup
                     && !$r->is_transfer
                     && $r->cash_out > 0
                     && $inWindow;
                 // Hapus (semua jenis: pengeluaran / top up / transfer) juga
-                // dibatasi 24 jam sejak created_at — samakan dgn edit. Server
-                // meng-enforce ulang di destroy() (abortIfBeyondEditWindow).
+                // dibatasi window yang sama — server meng-enforce ulang di
+                // destroy() (abortIfBeyondEditWindow).
                 $canDelete = $inWindow;
+                // Teks tooltip window (dipakai di tombol edit & hapus).
+                $windowHint = $pcIsSuperAdmin ? 'tanpa batas waktu' : "dalam {$pcEditWindowHrs} jam";
             @endphp
             <td>
                 <div class="pc-row-actions">
@@ -169,7 +177,8 @@
                                 data-trx-category="{{ $r->category }}"
                                 data-trx-source-id="{{ $r->source_id }}"
                                 data-trx-source-name="{{ $r->source_name }}"
-                                title="Edit transaksi (dalam 24 jam)">
+                                data-trx-attachment="{{ !empty($r->attachment_path) ? asset($r->attachment_path) : '' }}"
+                                title="Edit transaksi ({{ $windowHint }})">
                             <i class="fa fa-pen"></i>
                         </button>
                     @endif
@@ -182,7 +191,7 @@
                                 <input type="hidden" name="branch" value="{{ $branchId }}">
                             @endif
                             <button type="submit" class="pc-icon-btn"
-                                    title="{{ $isComposite ? 'Hapus transfer (kedua sisi, dalam 24 jam)' : 'Hapus transaksi (dalam 24 jam)' }}">
+                                    title="{{ $isComposite ? 'Hapus transfer (kedua sisi, ' . $windowHint . ')' : 'Hapus transaksi (' . $windowHint . ')' }}">
                                 <i class="fa fa-trash"></i>
                             </button>
                         </form>
