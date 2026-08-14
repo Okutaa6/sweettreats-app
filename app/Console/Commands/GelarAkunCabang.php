@@ -44,7 +44,8 @@ class GelarAkunCabang extends Command
 {
     protected $signature = 'att:gelar-akun
         {--dry : tampilkan rencana tanpa menulis}
-        {--sandi= : pakai kata sandi ini utk semua (juga MENYETEL ulang yang sudah ada); kosong = acak per orang}';
+        {--sandi= : pakai kata sandi ini utk semua (juga MENYETEL ulang yang sudah ada); kosong = acak per orang}
+        {--mulai= : tanggal mulai aturan kerja (YYYY-MM-DD); kosong = hari ini}';
 
     protected $description = 'Buat akun karyawan cabang (penggelaran bertahap) lengkap dgn aturan kerja, posisi, dan jatah cuti';
 
@@ -105,6 +106,30 @@ class GelarAkunCabang extends Command
         $kering = (bool) $this->option("dry");
         $sandiTetap = trim((string) $this->option("sandi")) ?: null;
         $hariIni = Carbon::today()->toDateString();
+
+        // ⚠️ TANGGAL MULAI ATURAN KERJA — sumber alpa palsu kalau salah.
+        //
+        // Aturan kerja yang berlaku sejak hari H membuat orangnya DINILAI
+        // sejak hari H. Kalau akunnya dibuat sore lalu orangnya baru mulai
+        // absen besok, hari H jadi ALPA — padahal sistemnya belum di tangan
+        // dia. Sudah kejadian DUA KALI: Alpajri (3 alpa, Agustus) dan
+        // gelombang Sunter+Della 13 Agu (5 alpa, ketahuan saat audit 14 Agu).
+        //
+        // Karena itu tanggalnya bisa ditentukan: pakai --mulai=YYYY-MM-DD dan
+        // isi dengan hari pertama mereka BENAR-BENAR bekerja, bukan hari kamu
+        // membuat akunnya. Kalau ragu, pilih yang lebih belakangan — aturan
+        // yang telat sehari cuma membuat hari itu tak dinilai; aturan yang
+        // kecepatan sehari menuduh orang bolos.
+        $mulaiAturan = trim((string) $this->option('mulai')) ?: $hariIni;
+        try {
+            $mulaiAturan = Carbon::parse($mulaiAturan)->toDateString();
+        } catch (\Throwable $e) {
+            $this->error("  ! --mulai '{$mulaiAturan}' bukan tanggal yang sah (pakai YYYY-MM-DD).");
+            return self::FAILURE;
+        }
+
+        $this->line("  Aturan kerja berlaku mulai: {$mulaiAturan}"
+            . ($mulaiAturan === $hariIni ? ' (hari ini — pastikan mereka memang mulai absen HARI INI)' : ''));
 
         $peranId  = DB::table('group_path')->pluck('id', 'nama');
         $cabangId = RawBranch::pluck('id', 'name');
@@ -175,7 +200,7 @@ class GelarAkunCabang extends Command
                 continue;
             }
 
-            DB::transaction(function () use ($o, $temp, $peranId, $cabangId, $aturanId, $hariIni) {
+            DB::transaction(function () use ($o, $temp, $peranId, $cabangId, $aturanId, $hariIni, $mulaiAturan) {
                 $user = Users::create([
                     'nama'                 => $o['nama'],
                     'email'                => $o['email'],
@@ -191,10 +216,12 @@ class GelarAkunCabang extends Command
                 try { UserPosition::syncFromUser($user, null); } catch (\Throwable $e) { report($e); }
 
                 // Aturan kerja EKSPLISIT (role belum punya bawaan).
+                // Tanggalnya dari --mulai, BUKAN hari pembuatan akun — lihat
+                // alasannya di handle(): salah sehari = alpa palsu.
                 AttUserRule::create([
                     'user_id'        => $user->id,
                     'rule_id'        => $aturanId[$o['aturan']],
-                    'effective_from' => $hariIni,
+                    'effective_from' => $mulaiAturan,
                 ]);
 
                 // Periode cuti + penyesuaian saldo.
