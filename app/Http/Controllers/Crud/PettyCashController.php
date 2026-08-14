@@ -286,10 +286,17 @@ class PettyCashController extends Controller
         $requesterName = (string) (\App\Models\Users::whereKey(session('id'))->value('nama') ?? '');
 
         // Status pengajuan top-up Sales untuk cabang aktif: kalau ada yang
-        // pending, _summary_cards bisa tampil badge "menunggu Finance".
-        $pendingTopupCount = $branchId
-            ? \App\Models\TopupRequest::pending()->forBranch($branchId)->count()
-            : 0;
+        // pending, _summary_cards tampil badge "menunggu Finance" yang bisa
+        // diklik → modal rincian pengajuan (read-only). Ambil koleksi lengkap
+        // (bukan cuma count) supaya modal punya detail nominal/wallet/alasan.
+        $pendingTopups = $branchId
+            ? \App\Models\TopupRequest::with('fundSource')
+                ->pending()->forBranch($branchId)
+                ->orderByDesc('is_urgent')
+                ->orderBy('requested_at', 'asc')
+                ->get()
+            : collect();
+        $pendingTopupCount = $pendingTopups->count();
 
         // Jejak transaksi (tab "Riwayat"): transaksi periode ini yang pernah
         // diedit (masih aktif, edited_at != NULL) atau dihapus (deleted_at !=
@@ -335,7 +342,7 @@ class PettyCashController extends Controller
             'isCurrentMonth', 'isReadOnly', 'isFinanceViewOnly', 'showTrxActions',
             'kind', 'tabs', 'fundSources', 'fundSourcesGrouped',
             'branches', 'activeBranch', 'branchId', 'sessionBranch',
-            'branchAccountMap', 'pendingTopupCount', 'requesterName',
+            'branchAccountMap', 'pendingTopupCount', 'pendingTopups', 'requesterName',
             'rowsRiwayat'
         ));
     }

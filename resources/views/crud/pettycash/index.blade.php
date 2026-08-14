@@ -506,6 +506,16 @@
             'requesterName'      => $requesterName,
         ])
     @endif
+
+    {{-- Modal Rincian Pengajuan Menunggu — dibuka dari badge "N menunggu".
+         Tampil kapan pun ada pengajuan pending untuk cabang aktif. --}}
+    @if($branchId && ($pendingTopupCount ?? 0) > 0)
+        @include('crud.pettycash._modal_pending_topups', [
+            'pendingTopups' => $pendingTopups ?? collect(),
+            'rupiah'        => $rupiah,
+            'activeBranch'  => $activeBranch,
+        ])
+    @endif
 @endif
 @endsection
 

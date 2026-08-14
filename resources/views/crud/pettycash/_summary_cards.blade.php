@@ -98,9 +98,15 @@
             <div class="pc-source-breakdown__title">
                 <i class="fa fa-wallet"></i> Rincian Saldo per Wallet
                 @if($pendingTopupCount > 0)
-                    <span class="pc-pending-badge" title="Pengajuan top up sedang menunggu Finance">
-                        <i class="fa fa-clock"></i> {{ $pendingTopupCount }} menunggu
-                    </span>
+                    {{-- Badge klik → modal rincian pengajuan top up yang masih
+                         menunggu persetujuan Finance. --}}
+                    <button type="button" class="pc-pending-badge"
+                            data-pc-modal="pcModalPendingTopups"
+                            title="Klik untuk lihat rincian {{ $pendingTopupCount }} pengajuan top up yang menunggu persetujuan Finance">
+                        <i class="fa fa-clock"></i>
+                        {{ $pendingTopupCount }} pengajuan menunggu Finance
+                        <i class="fa fa-chevron-right pc-pending-badge__chevron"></i>
+                    </button>
                 @endif
             </div>
             @if($canRequestTopup)
@@ -339,17 +345,26 @@
 .pc-pending-badge {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
+    gap: 5px;
     margin-left: 8px;
-    padding: 2px 8px;
+    padding: 3px 9px;
     background: #fef3c7;
     color: #92400e;
     border: 1px solid #fde68a;
     border-radius: 999px;
+    font-family: inherit;
     font-size: 11px;
     font-weight: 700;
+    cursor: pointer;
+    transition: background .15s, border-color .15s, transform .15s;
+}
+.pc-pending-badge:hover {
+    background: #fde68a;
+    border-color: #f59e0b;
+    transform: translateY(-1px);
 }
 .pc-pending-badge i { font-size: 10px; }
+.pc-pending-badge__chevron { font-size: 8px; opacity: .7; }
 .pc-btn-request-topup {
     display: inline-flex;
     align-items: center;
