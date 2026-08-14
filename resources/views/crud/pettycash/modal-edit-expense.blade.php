@@ -12,11 +12,14 @@
     Field di-lock (read-only display saja, dikirim hidden): trx_date, wallet.
 --}}
 @php
-    $editCategories = \App\Models\PettyCashTransaction::CATEGORIES;
+    // Semua kategori (aktif + nonaktif) supaya transaksi lama yang kategorinya
+    // sudah dinonaktifkan tetap muncul & bisa dipilih ulang saat edit.
+    $editCategories = \App\Models\PettyCashTransaction::categoryMap();
+    $editWindowHours = \App\Models\PettyCashTransaction::EDIT_WINDOW_HOURS;
 @endphp
 <div class="pc-modal" id="pcModalEditExpense" role="dialog" aria-modal="true">
     <div class="pc-modal__dialog">
-        <form method="POST" id="pcEditExpenseForm" data-action-tpl="{{ url('pettycash/transaction') }}/__ID__?tab={{ $kind }}">
+        <form method="POST" id="pcEditExpenseForm" enctype="multipart/form-data" data-action-tpl="{{ url('pettycash/transaction') }}/__ID__?tab={{ $kind }}">
             @csrf
             @method('PATCH')
             @if(!session('raw_branch_id') && $period->raw_branch_id)
@@ -29,7 +32,12 @@
                         <i class="fa fa-pen" style="color:#7c2d12;"></i> Edit Pengeluaran
                     </h5>
                     <small class="pc-muted">
-                        Boleh edit nominal, kategori, dan keterangan (dalam 24 jam sejak input).
+                        Boleh edit nominal, kategori, keterangan, dan bukti
+                        @if(isSuperAdmin())
+                            (Super Admin — tanpa batas waktu).
+                        @else
+                            (dalam {{ $editWindowHours }} jam sejak input).
+                        @endif
                     </small>
                 </div>
                 <button type="button" class="pc-modal__close" data-pc-modal-close aria-label="Tutup">&times;</button>
@@ -84,6 +92,48 @@
                            placeholder="Isi keterangan pengeluaran"
                            class="pc-input">
                 </div>
+
+                {{-- Bukti: tampil bukti lama (kalau ada) + opsi ganti/hapus.
+                     Struktur .pc-attach-zone sama dengan form pengeluaran →
+                     handler preview generik di index.blade.php ikut mengurusnya. --}}
+                <div class="pc-form-row">
+                    <label>Bukti <small class="pc-muted">— opsional</small></label>
+
+                    <div class="pc-edit-attach-current" id="pcEditAttachCurrent" hidden>
+                        <a href="#" target="_blank" rel="noopener" id="pcEditAttachLink" class="pc-edit-attach-link">
+                            <i class="fa fa-paperclip"></i> Lihat bukti saat ini
+                        </a>
+                        <label class="pc-edit-attach-remove">
+                            <input type="checkbox" name="remove_attachment" value="1" id="pcEditAttachRemove">
+                            Hapus bukti
+                        </label>
+                    </div>
+
+                    <div class="pc-attach-zone" id="editAttachZone">
+                        <input type="file" name="attachment"
+                               id="editAttachInput"
+                               accept=".jpg,.jpeg,.png,.webp,.pdf,image/*,application/pdf"
+                               class="pc-attach-input">
+                        <label for="editAttachInput" class="pc-attach-label">
+                            <i class="fa fa-camera"></i>
+                            <span class="pc-attach-label__main">Tap untuk pilih foto / PDF</span>
+                            <span class="pc-attach-label__hint">Maks 5 MB</span>
+                        </label>
+                        <div class="pc-attach-preview" id="editAttachPreview" hidden>
+                            <div class="pc-attach-preview__thumb" id="editAttachThumb">
+                                <i class="fa fa-file"></i>
+                            </div>
+                            <div class="pc-attach-preview__meta">
+                                <div class="pc-attach-preview__name" id="editAttachName">—</div>
+                                <div class="pc-attach-preview__size" id="editAttachSize">—</div>
+                            </div>
+                            <button type="button" class="pc-attach-preview__remove" id="editAttachRemove" title="Hapus file">
+                                <i class="fa fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <small class="pc-muted">Upload untuk mengganti / menambah bukti. Kosongkan bila tidak ingin mengubah.</small>
+                </div>
             </div>
 
             <div class="pc-modal__footer">
@@ -103,4 +153,8 @@
     .pc-edit-locked-hint{display:flex;align-items:center;gap:4px;font-size:11px;color:#94a3b8;margin:0 0 12px;}
     .pc-edit-locked-hint i{font-size:10px;}
     .pc-pill-edited{display:inline-block;margin-left:6px;padding:1px 8px;border-radius:50px;background:#fef3c7;color:#92400e;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;border:1px solid #fde68a;}
+    .pc-edit-attach-current{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:8px 12px;margin-bottom:8px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;}
+    .pc-edit-attach-link{display:inline-flex;align-items:center;gap:6px;color:#7c2d12;font-weight:600;font-size:13px;text-decoration:none;}
+    .pc-edit-attach-link:hover{text-decoration:underline;}
+    .pc-edit-attach-remove{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#b91c1c;cursor:pointer;}
 </style>

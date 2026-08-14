@@ -27,8 +27,8 @@
         ($fundSourcesGrouped[\App\Models\FundSource::CAT_CASH] ?? collect())->first()
     )->id;
     // Kategori expense — dipakai di form Pengeluaran & checkbox "sekalian
-    // pengeluaran" di Tarik Tunai.
-    $expenseCategories = \App\Models\PettyCashTransaction::CATEGORIES;
+    // pengeluaran" di Tarik Tunai. Hanya kategori aktif untuk input baru.
+    $expenseCategories = \App\Models\PettyCashTransaction::activeCategoryOptions();
 @endphp
 <div class="pc-modal" id="pcModalTransfer" role="dialog" aria-modal="true"
      data-pc-cash-source-id="{{ $cashSourceId }}">

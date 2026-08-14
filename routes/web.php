@@ -45,6 +45,7 @@ use App\Http\Controllers\Crud\SweetMatesController;
 use App\Http\Controllers\Crud\PettyCashController;
 use App\Http\Controllers\Crud\CashDepositController;
 use App\Http\Controllers\Crud\FundSourceController;
+use App\Http\Controllers\Crud\PettyCashCategoryController;
 use App\Http\Controllers\Crud\DigitalChecklistController;
 use App\Http\Controllers\Crud\ChecklistSetupController;
 use App\Http\Controllers\Crud\MyChecklistController;
@@ -507,6 +508,12 @@ Route::middleware([AuthGuard::class])->group(function () {
     Route::post('fund-sources',                   [FundSourceController::class, 'store'])->name('fundsource.store');
     Route::post('fund-sources/{id}',              [FundSourceController::class, 'update'])->name('fundsource.update');
     Route::post('fund-sources/{id}/toggle',       [FundSourceController::class, 'toggle'])->name('fundsource.toggle');
+
+    // CRUD - Kategori Pengeluaran Petty Cash — Super Admin (list di halaman Kelola Wallet)
+    Route::post('petty-cash-categories',            [PettyCashCategoryController::class, 'store'])->name('pccategory.store');
+    Route::post('petty-cash-categories/{id}',       [PettyCashCategoryController::class, 'update'])->name('pccategory.update');
+    Route::post('petty-cash-categories/{id}/toggle',[PettyCashCategoryController::class, 'toggle'])->name('pccategory.toggle');
+    Route::post('petty-cash-categories/{id}/delete',[PettyCashCategoryController::class, 'destroy'])->name('pccategory.destroy');
 
     // ═══════════════════════════════════════════════════════════════════════
     // CRUD - Checklist Akreditasi (operasional klinik harian)

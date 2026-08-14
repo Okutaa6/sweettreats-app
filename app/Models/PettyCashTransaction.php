@@ -32,8 +32,21 @@ class PettyCashTransaction extends Model
     public const MAX_AMOUNT = 50000000;
 
     /**
+     * Batas waktu (jam) EDIT & HAPUS transaksi untuk USER BIASA sejak
+     * created_at (kebijakan audit). Super Admin bebas tanpa batas — lihat
+     * PettyCashController::abortIfBeyondEditWindow() & _table_rows.blade.php.
+     */
+    public const EDIT_WINDOW_HOURS = 8;
+
+    /**
      * Kategori pengeluaran (hanya relevan saat direction='out' & is_topup=0 & is_transfer=0).
      * NULL untuk top up / transfer / data lama.
+     *
+     * CATATAN: ini sekarang cuma FALLBACK seed. Sumber kebenaran = tabel
+     * `petty_cash_categories` (dikelola dari halaman Kelola Wallet). Dipakai
+     * lagi hanya kalau tabel belum ada / kosong (mis. DB lokal belum di-apply
+     * SQL 2026_08_14_petty_cash_categories.sql). Gunakan categoryMap() /
+     * activeCategoryOptions() untuk baca kategori, JANGAN const ini langsung.
      */
     public const CATEGORIES = [
         'makan'       => 'Konsumsi',
@@ -44,6 +57,57 @@ class PettyCashTransaction extends Model
         'server'      => 'Server',
         'prv'         => 'PRV',
     ];
+
+    /** Cache per-request untuk seluruh baris kategori. */
+    private static $categoryRowsCache = null;
+
+    /**
+     * Ambil semua baris kategori dari DB (ordered), dengan fallback aman.
+     * Return Collection|null (null = tabel belum ada / kosong → pakai const).
+     */
+    private static function categoryRows()
+    {
+        if (self::$categoryRowsCache !== null) {
+            return self::$categoryRowsCache ?: null;
+        }
+        try {
+            $rows = PettyCashCategory::orderBy('sort_order')->orderBy('label')->get();
+            self::$categoryRowsCache = $rows->isNotEmpty() ? $rows : false;
+        } catch (\Throwable $e) {
+            // Tabel belum di-apply / DB error → fallback ke const.
+            self::$categoryRowsCache = false;
+        }
+        return self::$categoryRowsCache ?: null;
+    }
+
+    /**
+     * Peta SEMUA kategori [key => label] (aktif + nonaktif). Dipakai untuk
+     * MENAMPILKAN label (badge tabel, export, dashboard) supaya transaksi lama
+     * yang kategorinya sudah dinonaktifkan tetap tampil labelnya.
+     */
+    public static function categoryMap(): array
+    {
+        $rows = self::categoryRows();
+        return $rows ? $rows->pluck('label', 'key')->all() : self::CATEGORIES;
+    }
+
+    /**
+     * Peta kategori AKTIF saja [key => label]. Dipakai untuk pilihan input
+     * transaksi baru (dropdown pengeluaran).
+     */
+    public static function activeCategoryOptions(): array
+    {
+        $rows = self::categoryRows();
+        return $rows
+            ? $rows->where('is_active', true)->pluck('label', 'key')->all()
+            : self::CATEGORIES;
+    }
+
+    /** Key kategori aktif — untuk rule validasi transaksi baru. */
+    public static function activeCategoryKeys(): array
+    {
+        return array_keys(self::activeCategoryOptions());
+    }
 
     protected $fillable = [
         'period_id',

@@ -8,15 +8,39 @@
         'bank'    => 'fa-university',
         'ewallet' => 'fa-mobile-alt',
     ];
+    // Accent warna per kategori — dipakai di section head & garis kiri kartu.
+    $catAccent     = [
+        'cash'    => '#16a34a',
+        'bank'    => '#2563eb',
+        'ewallet' => '#7c3aed',
+    ];
+    $totalCount    = $sources->count();
+    $activeCount   = $sources->where('is_active', true)->count();
+    $inactiveCount = $totalCount - $activeCount;
 @endphp
 <div class="container-fluid">
 
-    <div class="pc-page-header">
-        <div>
-            <h4 class="page-title mb-1">Kelola Wallet</h4>
-            <div class="pc-page-sub">
-                Master wallet (Cash, Bank, E-Wallet) untuk Petty Cash.
-                Atur logo, warna brand, dan label.
+    <div class="pc-page-header pc-page-header--v2">
+        <div class="pc-page-header__main">
+            <div class="pc-page-icon">
+                <i class="fa fa-wallet"></i>
+            </div>
+            <div class="pc-page-header__heading">
+                <h4 class="pc-page-title">Kelola Wallet</h4>
+                <div class="pc-page-meta">
+                    <span class="pc-page-meta__item">
+                        <i class="fa fa-layer-group"></i> {{ $totalCount }} wallet
+                    </span>
+                    <span class="pc-page-meta__divider"></span>
+                    <span class="fs-stat fs-stat--on">
+                        <span class="fs-stat__dot"></span> {{ $activeCount }} aktif
+                    </span>
+                    @if($inactiveCount > 0)
+                        <span class="fs-stat fs-stat--off">
+                            <span class="fs-stat__dot"></span> {{ $inactiveCount }} nonaktif
+                        </span>
+                    @endif
+                </div>
             </div>
         </div>
         <div class="pc-page-header__actions">
@@ -29,15 +53,27 @@
         </div>
     </div>
 
+    <div class="fs-page-hint">
+        <i class="fa fa-info-circle"></i>
+        <span>
+            Master wallet <strong>Cash, Bank, &amp; E-Wallet</strong> untuk Petty Cash.
+            Atur nama, logo, warna brand, label pendek, dan urutan tampil.
+            Wallet nonaktif tidak muncul saat mencatat transaksi.
+        </span>
+    </div>
+
     @include('layouts.notif')
 
     {{-- ─── SECTIONS: Wallet per Kategori ─── --}}
     @foreach(['cash', 'bank', 'ewallet'] as $cat)
         @if($grouped->has($cat))
+            @php $accent = $catAccent[$cat] ?? 'var(--brown)'; @endphp
             <div class="fs-section">
                 <div class="fs-section__head">
                     <h5 class="fs-section__title">
-                        <i class="fa {{ $catIcon[$cat] ?? 'fa-wallet' }}"></i>
+                        <span class="fs-section__icon" style="background:{{ $accent }}1a; color:{{ $accent }};">
+                            <i class="fa {{ $catIcon[$cat] ?? 'fa-wallet' }}"></i>
+                        </span>
                         {{ $categoryLabels[$cat] }}
                         <span class="fs-section__count">{{ $grouped[$cat]->count() }}</span>
                     </h5>
@@ -48,7 +84,8 @@
                             $color = $fs->effectiveBrandColor();
                             $short = $fs->effectiveShortLabel();
                         @endphp
-                        <div class="fs-card {{ $fs->is_active ? '' : 'is-inactive' }}">
+                        <div class="fs-card {{ $fs->is_active ? '' : 'is-inactive' }}"
+                             style="border-top-color: {{ $color }};">
                             {{-- Summary kompak: badge + nama + code + status --}}
                             <div class="fs-card__head">
                                 @include('crud.pettycash._fund_source_badge', [
@@ -166,6 +203,157 @@
             </div>
         @endif
     @endforeach
+
+    {{-- ─── SECTION: Kategori Pengeluaran ─── --}}
+    <div class="fs-section fs-section--cat">
+        <div class="fs-section__head">
+            <h5 class="fs-section__title">
+                <span class="fs-section__icon" style="background:#c2410c1a; color:#c2410c;">
+                    <i class="fa fa-tags"></i>
+                </span>
+                Kategori Pengeluaran
+                <span class="fs-section__count">{{ $expenseCategories->count() }}</span>
+            </h5>
+            <button type="button" class="st-btn-outline-brown st-btn-outline-brown--sm" data-pc-modal="fsCatModalCreate">
+                <i class="fa fa-plus"></i> Tambah Kategori
+            </button>
+        </div>
+
+        <div class="fs-page-hint">
+            <i class="fa fa-info-circle"></i>
+            <span>
+                Kategori dipakai saat mencatat pengeluaran. <strong>Nonaktifkan</strong> untuk
+                menyembunyikan dari pilihan input baru tanpa mengubah data lama.
+                Kategori yang sudah dipakai transaksi tidak bisa dihapus permanen.
+            </span>
+        </div>
+
+        <div class="fs-grid">
+            @foreach($expenseCategories as $c)
+                @php $used = (int) ($categoryUsage[$c->key] ?? 0); @endphp
+                <div class="fs-card fs-card--cat {{ $c->is_active ? '' : 'is-inactive' }}"
+                     style="border-top-color: {{ $c->is_active ? '#c2410c' : '#cbd5e1' }};">
+                    <div class="fs-card__head">
+                        <div class="fs-cat-badge" aria-hidden="true">
+                            <i class="fa fa-tag"></i>
+                        </div>
+                        <div class="fs-card__title">
+                            <strong>{{ $c->label }}</strong>
+                            <small>{{ $c->key }}</small>
+                        </div>
+                        @if($c->is_system)
+                            <span class="fs-pill fs-pill--system" title="Kategori sistem — terkunci"><i class="fa fa-lock"></i> Sistem</span>
+                        @elseif(!$c->is_active)
+                            <span class="fs-pill fs-pill--inactive">Nonaktif</span>
+                        @endif
+                    </div>
+
+                    <div class="fs-card__meta">
+                        <span class="fs-card__chip fs-card__chip--muted">Urutan {{ $c->sort_order }}</span>
+                        @if($used > 0)
+                            <span class="fs-card__chip" style="background:#ecfdf5; color:#047857;">
+                                <i class="fa fa-receipt" style="font-size:9px;"></i> {{ $used }} transaksi
+                            </span>
+                        @else
+                            <span class="fs-card__chip fs-card__chip--muted">Belum dipakai</span>
+                        @endif
+                    </div>
+
+                    <div class="fs-card__actions">
+                        <button type="button" class="fs-btn fs-btn--edit" data-fs-toggle-edit aria-expanded="false">
+                            <i class="fa fa-pen"></i> Edit
+                        </button>
+                        @if($c->is_system)
+                            <span class="fs-btn fs-btn--locked" title="Kategori sistem tidak bisa dinonaktifkan / dihapus">
+                                <i class="fa fa-lock"></i> Terkunci
+                            </span>
+                        @else
+                            <form method="POST" action="{{ route('pccategory.toggle', ['id' => $c->id]) }}"
+                                  class="fs-card__toggle"
+                                  onsubmit="return confirm('{{ $c->is_active ? 'Nonaktifkan' : 'Aktifkan' }} kategori ini?')">
+                                @csrf
+                                <button type="submit" class="fs-btn {{ $c->is_active ? 'fs-btn--off' : 'fs-btn--on' }}"
+                                        title="{{ $c->is_active ? 'Nonaktifkan' : 'Aktifkan' }}">
+                                    <i class="fa {{ $c->is_active ? 'fa-eye-slash' : 'fa-eye' }}"></i>
+                                    {{ $c->is_active ? 'Nonaktifkan' : 'Aktifkan' }}
+                                </button>
+                            </form>
+                        @endif
+                    </div>
+
+                    @if(!$c->is_system && $used === 0)
+                        <form method="POST" action="{{ route('pccategory.destroy', ['id' => $c->id]) }}"
+                              class="fs-cat-delete"
+                              onsubmit="return confirm('Hapus permanen kategori \'{{ $c->label }}\'? Tindakan ini tidak bisa dibatalkan.')">
+                            @csrf
+                            <button type="submit" class="fs-cat-delete__btn">
+                                <i class="fa fa-trash"></i> Hapus permanen
+                            </button>
+                        </form>
+                    @endif
+
+                    {{-- Edit panel — collapsed default --}}
+                    <form method="POST" action="{{ route('pccategory.update', ['id' => $c->id]) }}"
+                          class="fs-card__edit" hidden>
+                        @csrf
+                        <div class="fs-form-row">
+                            <label>Nama tampilan</label>
+                            <input type="text" name="label" value="{{ $c->label }}"
+                                   required maxlength="100" class="pc-input">
+                        </div>
+                        <div class="fs-form-row">
+                            <label>Urutan</label>
+                            <input type="number" name="sort_order" value="{{ $c->sort_order }}"
+                                   min="0" max="9999" class="pc-input pc-input--sm">
+                        </div>
+                        <small class="pc-muted"><i class="fa fa-info-circle"></i> Kode <code>{{ $c->key }}</code> tidak bisa diubah.</small>
+                        <div class="fs-card__edit-actions">
+                            <button type="button" class="st-btn-outline-brown" data-fs-toggle-edit>Batal</button>
+                            <button type="submit" class="st-btn-brand"><i class="fa fa-save"></i> Simpan</button>
+                        </div>
+                    </form>
+                </div>
+            @endforeach
+        </div>
+    </div>
+</div>
+
+{{-- Modal: Tambah kategori pengeluaran baru --}}
+<div class="pc-modal" id="fsCatModalCreate" role="dialog" aria-modal="true">
+    <div class="pc-modal__dialog">
+        <form method="POST" action="{{ route('pccategory.store') }}">
+            @csrf
+            <div class="pc-modal__header pc-modal__header--wallet">
+                <span class="pc-modal__icon-box" aria-hidden="true">
+                    <i class="fa fa-tags"></i>
+                </span>
+                <div class="pc-modal__heading">
+                    <h5 class="pc-modal__title">Tambah Kategori</h5>
+                    <small class="pc-muted">Kategori pengeluaran baru untuk Petty Cash</small>
+                </div>
+                <button type="button" class="pc-modal__close pc-modal__close--boxed" data-pc-modal-close aria-label="Tutup">&times;</button>
+            </div>
+            <div class="pc-modal__body">
+                <div class="pc-form-row">
+                    <label>Nama kategori <span class="text-danger">*</span></label>
+                    <input type="text" name="label" required maxlength="100"
+                           placeholder="Mis: Perlengkapan" class="pc-input">
+                    <small class="pc-muted">Kode teknis dibuat otomatis dari nama (mis. "Perlengkapan" → <code>perlengkapan</code>).</small>
+                </div>
+                <div class="pc-form-row">
+                    <label>Urutan <small class="pc-muted">(opsional)</small></label>
+                    <input type="number" name="sort_order" min="0" max="9999"
+                           placeholder="otomatis di akhir" class="pc-input pc-input--sm">
+                </div>
+            </div>
+            <div class="pc-modal__footer">
+                <button type="button" class="st-btn-outline-brown" data-pc-modal-close>Batal</button>
+                <button type="submit" class="st-btn-brand">
+                    <i class="fa fa-save"></i> Tambah Kategori
+                </button>
+            </div>
+        </form>
+    </div>
 </div>
 
 {{-- Modal: Tambah wallet baru --}}
@@ -247,17 +435,51 @@
 
 {{-- ─── Inline CSS: section akses + polish layout ─── --}}
 <style>
-.pc-page-header__actions { display: flex; gap: 8px; }
+/* Ringkasan aktif/nonaktif di header */
+.fs-stat {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12.5px;
+    font-weight: 700;
+}
+.fs-stat__dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex: 0 0 auto;
+}
+.fs-stat--on { color: #15803d; }
+.fs-stat--on .fs-stat__dot { background: #16a34a; }
+.fs-stat--off { color: #64748b; }
+.fs-stat--off .fs-stat__dot { background: #94a3b8; }
+
+/* Hint di bawah header */
+.fs-page-hint {
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+    margin-bottom: 22px;
+    padding: 11px 14px;
+    background: var(--cream-header, #fdf6ee);
+    border: 1px solid var(--divider-soft);
+    border-radius: 10px;
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: var(--text-muted);
+}
+.fs-page-hint i { color: var(--brown-2); margin-top: 2px; flex: 0 0 auto; }
+.fs-page-hint strong { color: var(--brown); }
 
 /* Section header umum — judul + count + hint subtle */
-.fs-section { margin-bottom: 28px; }
+.fs-section { margin-bottom: 26px; }
 .fs-section__head {
     display: flex;
-    align-items: baseline;
+    align-items: center;
     justify-content: space-between;
     gap: 12px;
-    margin-bottom: 12px;
-    padding-bottom: 8px;
+    margin-bottom: 14px;
+    padding-bottom: 9px;
     border-bottom: 1px solid var(--divider-soft);
 }
 .fs-section__title {
@@ -267,9 +489,20 @@
     color: var(--brown);
     display: inline-flex;
     align-items: center;
-    gap: 8px;
+    gap: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
 }
-.fs-section__title i { font-size: 14px; color: var(--brown-2); }
+.fs-section__icon {
+    width: 26px;
+    height: 26px;
+    border-radius: 7px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    flex: 0 0 auto;
+}
 .fs-section__count {
     display: inline-flex;
     align-items: center;
@@ -299,15 +532,20 @@
 .fs-card {
     background: #fff;
     border: 1px solid var(--divider-soft);
+    border-top: 3px solid var(--divider-soft);
     border-radius: 12px;
-    padding: 12px 14px;
+    padding: 13px 15px 14px;
     display: flex;
     flex-direction: column;
     gap: 10px;
-    transition: box-shadow .15s, border-color .15s;
+    transition: box-shadow .15s, transform .15s, border-color .15s;
 }
-.fs-card:hover { box-shadow: 0 4px 12px rgba(70,21,0,0.06); border-color: #e7d4c0; }
-.fs-card.is-inactive { opacity: 0.7; }
+.fs-card:hover {
+    box-shadow: 0 6px 18px rgba(70,21,0,0.08);
+    transform: translateY(-2px);
+}
+.fs-card.is-inactive { opacity: 0.62; filter: saturate(0.6); }
+.fs-card.is-inactive:hover { opacity: 0.85; }
 
 /* Summary head: badge + name/code + status pill */
 .fs-card__head {
@@ -444,6 +682,63 @@
 
 @media (max-width: 600px) {
     .fs-form-row--inline { grid-template-columns: 1fr 1fr; }
+}
+
+/* ─── Kategori Pengeluaran ─── */
+.fs-section--cat { margin-top: 34px; }
+.st-btn-outline-brown--sm { padding: 6px 12px !important; font-size: 12.5px !important; }
+.fs-cat-badge {
+    flex: 0 0 auto;
+    width: 38px;
+    height: 38px;
+    border-radius: 9px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #fff7ed;
+    color: #c2410c;
+    font-size: 15px;
+    border: 1px solid #fed7aa;
+}
+.fs-pill--system {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: #f5f3ff;
+    color: #6d28d9;
+    border: 1px solid #ddd6fe;
+}
+.fs-pill--system i { font-size: 8px; }
+.fs-btn--locked {
+    background: #f8fafc;
+    border-color: var(--divider-soft);
+    color: #94a3b8;
+    cursor: default;
+}
+.fs-cat-delete { margin: 0; }
+.fs-cat-delete__btn {
+    width: 100%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 6px 10px;
+    background: #fff;
+    color: #b91c1c;
+    border: 1px solid #fecaca;
+    border-radius: 8px;
+    font-size: 11.5px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background .15s, border-color .15s;
+}
+.fs-cat-delete__btn:hover { background: #fef2f2; border-color: #f87171; }
+.fs-cat-delete__btn i { font-size: 10px; }
+.fs-card__edit code, .pc-form-row code {
+    background: var(--cream-header, #fdf6ee);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 11px;
 }
 </style>
 

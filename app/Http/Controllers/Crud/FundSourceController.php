@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Crud;
 
 use App\Http\Controllers\Controller;
 use App\Models\FundSource;
+use App\Models\PettyCashCategory;
+use App\Models\PettyCashTransaction;
 use Illuminate\Http\Request;
 
 /**
@@ -51,8 +53,19 @@ class FundSourceController extends Controller
             FundSource::CAT_EWALLET => 'E-Wallet',
         ];
 
+        // Kategori pengeluaran petty cash (dikelola di halaman ini juga).
+        // + hitung berapa transaksi memakai tiap kategori → yang terpakai
+        //   tak boleh dihapus (hanya dinonaktifkan).
+        $expenseCategories = PettyCashCategory::orderBy('sort_order')->orderBy('label')->get();
+        $categoryUsage = PettyCashTransaction::query()
+            ->whereNotNull('category')
+            ->selectRaw('category, COUNT(*) as cnt')
+            ->groupBy('category')
+            ->pluck('cnt', 'category')
+            ->all();
+
         return view('crud.fundsource.index', compact(
-            'sources', 'categoryLabels'
+            'sources', 'categoryLabels', 'expenseCategories', 'categoryUsage'
         ));
     }
 
