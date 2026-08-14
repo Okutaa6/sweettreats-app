@@ -58,6 +58,21 @@ dengan pesan Indonesia yang menjelaskan · catatan 450 huruf tetap berhasil ·
 8 layar 200 · gerbang non-Finance **403 di keenam endpoint** (GET index/show/
 cetak + POST store/bayar-banyak/dikirim) dengan CSRF sah. Akun uji dihapus.
 
+### Masukan Dela (Finance) 15.46 — kolom "Unit" → "Departemen"
+
+Diterapkan. Alasannya tepat: kolom itu bersebelahan dengan **Jumlah**, jadi
+"Unit" terbaca sebagai satuan barang (pcs/box), padahal isinya cost centre.
+Lebar kolom ikut dinaikkan supaya "Kantor Pusat" (12 huruf, cost centre
+terpanjang) tidak terpotong.
+
+⚠️ **Catatan istilah yang belum diputuskan:** lima dari sembilan cost centre itu
+**klinik** (Bintaro, Sunter, Kalideres, Pamulang, Cinere), bukan departemen —
+"Departemen: Bintaro" sedikit janggal secara harfiah walau jelas maksudnya.
+Dan benda yang sama kini punya **tiga nama** di aplikasi: "Cost centre" (filter
+antrian & rekap), "Dibebankan ke" (drawer ACC), "Departemen" (lembar cetak).
+Perlu disatukan kapan-kapan — atau disepakati bahwa layar internal pakai istilah
+Accurate dan dokumen untuk bos pakai bahasa awam.
+
 **Yang TIDAK diperbaiki, sengaja — perlu keputusan Ekky:** membuat lembar
 sekaligus **menyetujui** isinya, dan lembar **tidak bisa dihapus**. Jadi lembar
 yang salah dibuat meninggalkan pengajuan dalam status `disetujui` tanpa jalan
