@@ -105,8 +105,26 @@
                             <div class="rop-mini">{{ $r->costCentre?->nama ?: $r->cost_centre }}</div>
                         </td>
                         {{-- pay_to_text = nomor rekening yang dipakai bos ("VA MANDIRI
-                             - 896 085888064313"). Ditampilkan utuh, tidak dipotong. --}}
-                        <td><span class="rop-rek">{{ $r->namaPenerima() }}</span></td>
+                             - 896 085888064313"). Ditampilkan utuh, tidak dipotong.
+
+                             Kalau pengaju menulisnya TANPA nomor rekening, Finance
+                             melengkapinya di sini — di lembar, bukan di pengajuan:
+                             pengajuan terkunci setelah dikirim, dan menambal
+                             tulisan pengaju bikin jejaknya berbohong. --}}
+                        @php $bernomor = preg_match('/\d[\d\s.\-]{5,}\d/', $r->namaPenerima()); @endphp
+                        <td>
+                            <span class="rop-rek">{{ $r->namaPenerima() }}</span>
+                            @unless ($bernomor)
+                                <input type="text" class="rop-input rop-input--mini lb-tujuan"
+                                       name="tujuan[{{ $r->id }}]"
+                                       value="{{ $tujuanSebelumnya[$r->id] ?? $r->namaPenerima() }}"
+                                       maxlength="191"
+                                       placeholder="{{ $r->namaPenerima() }} — BCA 1234567890">
+                                <div class="rop-mini" style="color:#B5701A">
+                                    belum ada nomor rekening — lengkapi supaya bos bisa langsung transfer
+                                </div>
+                            @endunless
+                        </td>
                         <td>
                             {{ \Illuminate\Support\Str::limit($r->description, 70) }}
                             @if ($r->needed_by)

@@ -995,6 +995,18 @@
 /* Baris di tabel pilih = area centang, jadi seluruh barisnya berkursor. */
 .rop-tabel tbody tr:has(.rop-cek-cell input) { cursor: pointer; }
 
+/* Isian tujuan transfer di dalam sel tabel — sama pendeknya dengan select
+   akun beban supaya baris tidak melompat tinggi. */
+.rop-input--mini {
+    width: 100%;
+    min-width: 0;
+    flex: 1;
+    min-height: 34px;
+    margin-top: 6px;
+    padding: 6px 9px;
+    font-size: 12.5px;
+}
+
 /* Select akun beban di dalam sel tabel — dipendekkan supaya baris tidak
    melompat tinggi, tapi tetap 34px agar nyaman diklik. */
 .rop-select--mini {

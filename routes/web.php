@@ -499,6 +499,7 @@ Route::middleware([AuthGuard::class])->group(function () {
         Route::post('rop/lembar-bayar',                  [RopLembarBayarController::class, 'store'])->name('finance.rop.lembar.store');
         Route::get ('rop/lembar-bayar/{id}',             [RopLembarBayarController::class, 'show'])->name('finance.rop.lembar.show')->whereNumber('id');
         Route::get ('rop/lembar-bayar/{id}/cetak',       [RopLembarBayarController::class, 'cetak'])->name('finance.rop.lembar.cetak')->whereNumber('id');
+        Route::post('rop/lembar-bayar/{id}/tujuan',      [RopLembarBayarController::class, 'lengkapiTujuan'])->name('finance.rop.lembar.tujuan')->whereNumber('id');
         Route::post('rop/lembar-bayar/{id}/dikirim',     [RopLembarBayarController::class, 'dikirim'])->name('finance.rop.lembar.dikirim')->whereNumber('id');
         Route::post('rop/lembar-bayar/{id}/bayar-banyak', [RopLembarBayarController::class, 'bayarBanyak'])->name('finance.rop.lembar.bayar-banyak')->whereNumber('id');
 

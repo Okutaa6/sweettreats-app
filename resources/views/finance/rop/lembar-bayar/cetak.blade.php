@@ -269,8 +269,10 @@
                 <td class="tengah num">{{ $item->urutan ?: $loop->iteration }}</td>
                 <td class="num nowrap">{{ $r?->number ?: '—' }}</td>
                 <td>{{ $r?->costCentre?->nama ?: $r?->cost_centre }}</td>
-                {{-- Nomor rekening apa adanya — tanpa dipotong, tanpa dipecah. --}}
-                <td><span class="rek">{{ $r?->namaPenerima() ?: '—' }}</span></td>
+                {{-- Nomor rekening apa adanya — tanpa dipotong, tanpa dipecah.
+                     tujuanBerlaku() = lengkapan Finance kalau ada, kalau tidak
+                     tulisan pengaju. Aturannya hidup di model, bukan di sini. --}}
+                <td><span class="rek">{{ $item->tujuanBerlaku() }}</span></td>
                 <td class="ket">{{ $r?->description }}</td>
                 <td class="kanan num" style="font-weight:700">{{ $rupiah($item->amount) }}</td>
                 <td class="tengah">
@@ -360,7 +362,7 @@
             <div>
                 <b class="num">{{ $r?->number }}</b>
                 <div class="kecil">
-                    {{ $r?->namaPenerima() }} &middot; {{ $r?->description }}
+                    {{ $item->tujuanBerlaku() }} &middot; {{ $r?->description }}
                     @if ($h['dari'] > 1)
                         &middot; lampiran halaman {{ $h['ke'] }} dari {{ $h['dari'] }}
                     @endif

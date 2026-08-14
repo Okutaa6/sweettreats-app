@@ -107,15 +107,25 @@ class RopLembarBayarController extends Controller
             $saran[$r->id] = $this->rop->bahanAkun($r)['saran'];
         }
 
+        // Tujuan transfer yang PERNAH dilengkapi Finance untuk ROP yang sama di
+        // lembar sebelumnya — supaya rekening yang sudah susah payah dicari
+        // tidak perlu diketik ulang tiap kali ROP itu masuk lembar baru.
+        $tujuanSebelumnya = RopPaymentSheetItem::whereIn('rop_id', $layak->pluck('id'))
+            ->whereNotNull('tujuan_transfer')
+            ->orderByDesc('id')
+            ->pluck('tujuan_transfer', 'rop_id')
+            ->all();
+
         $lembar = RopPaymentSheet::with(['items.rop', 'pembuat'])
             ->orderByDesc('id')
             ->paginate(20);
 
         return view('finance.rop.lembar-bayar.index', [
-            'layak'  => $layak,
-            'akun'   => $akun,
-            'saran'  => $saran,
-            'lembar' => $lembar,
+            'layak'            => $layak,
+            'akun'             => $akun,
+            'saran'            => $saran,
+            'tujuanSebelumnya' => $tujuanSebelumnya,
+            'lembar'           => $lembar,
         ]);
     }
 
@@ -144,14 +154,18 @@ class RopLembarBayarController extends Controller
         $data = $request->validate([
             'pilih'   => 'required|array|min:1',
             'pilih.*' => 'integer',
-            'akun'    => 'nullable|array',
-            'catatan' => 'nullable|string|max:500',
+            'akun'      => 'nullable|array',
+            'tujuan'    => 'nullable|array',
+            'tujuan.*'  => 'nullable|string|max:191',
+            'catatan'   => 'nullable|string|max:500',
         ], [
             'pilih.required' => 'Pilih dulu pengajuan yang mau dimasukkan ke lembar.',
             'pilih.min'      => 'Pilih dulu pengajuan yang mau dimasukkan ke lembar.',
+            'tujuan.*.max'   => 'Tujuan transfer maksimal 191 huruf.',
         ]);
 
-        $akunKiriman = (array) ($data['akun'] ?? []);
+        $akunKiriman   = (array) ($data['akun'] ?? []);
+        $tujuanKiriman = (array) ($data['tujuan'] ?? []);
 
         // Kiriman kembar dibuang SEBELUM apa pun disentuh. Layar normal tidak
         // mengirim id yang sama dua kali, tapi kiriman apa pun bisa dibuat
@@ -162,7 +176,7 @@ class RopLembarBayarController extends Controller
         $data['pilih'] = array_values(array_unique(array_map('intval', $data['pilih'])));
 
         try {
-            $lembar = DB::transaction(function () use ($data, $akunKiriman) {
+            $lembar = DB::transaction(function () use ($data, $akunKiriman, $tujuanKiriman) {
                 /** @var \Illuminate\Support\Collection<int,RopRequest> $terpilih */
                 $terpilih = RopRequest::whereIn('id', $data['pilih'])
                     ->lockForUpdate()
@@ -222,12 +236,21 @@ class RopLembarBayarController extends Controller
                 ]);
 
                 foreach ($urut as $i => $r) {
+                    // Tujuan transfer versi Finance disimpan HANYA kalau memang
+                    // beda dari tulisan pengaju — kalau sama, biarkan NULL supaya
+                    // jelas mana baris yang disentuh Finance dan mana yang tidak.
+                    $tujuan = trim((string) ($tujuanKiriman[$r->id] ?? ''));
+                    $asli   = trim((string) $r->namaPenerima());
+                    $isiTujuan = ($tujuan !== '' && $tujuan !== $asli) ? $tujuan : null;
+
                     RopPaymentSheetItem::create([
-                        'sheet_id'   => $lembar->id,
-                        'rop_id'     => $r->id,
-                        'amount'     => $r->amount,   // SNAPSHOT — yang tercetak = yang tersimpan
-                        'urutan'     => $i + 1,
-                        'created_at' => now(),
+                        'sheet_id'        => $lembar->id,
+                        'rop_id'          => $r->id,
+                        'amount'          => $r->amount,   // SNAPSHOT — yang tercetak = yang tersimpan
+                        'urutan'          => $i + 1,
+                        'tujuan_transfer' => $isiTujuan,
+                        'tujuan_oleh'     => $isiTujuan ? (string) session('id') : null,
+                        'created_at'      => now(),
                     ]);
 
                     [$no, $nama] = $akunFinal[$r->id] ?? [null, null];
@@ -317,6 +340,57 @@ class RopLembarBayarController extends Controller
             'profil'    => SysProfile::select('systitle', 'sysname', 'syslogo')->first(),
             'terbilang' => terbilang($lembar->total),
         ]);
+    }
+
+    /* ═════════════════════ Lengkapi tujuan transfer ═════════════════════ */
+
+    /**
+     * Finance melengkapi tujuan transfer sebuah baris di lembar ini.
+     *
+     * TIDAK menyentuh `rop_requests`: pengajuan terkunci setelah dikirim (aturan
+     * audit bersih), dan menambal tulisan pengaju akan membuat jejaknya
+     * berbohong. Yang dilengkapi adalah baris LEMBAR — dokumen milik Finance.
+     *
+     * Hanya selagi lembar belum dicap "dikirim ke bos": sesudah itu dokumennya
+     * sudah beredar di luar sistem, dan mengubah angka/tujuan pada berkas yang
+     * sudah dipegang orang lain justru menciptakan dua versi kebenaran.
+     */
+    public function lengkapiTujuan(Request $request, $id)
+    {
+        $this->guard();
+
+        $data = $request->validate([
+            'rop_id' => 'required|integer',
+            'tujuan' => 'nullable|string|max:191',
+        ], [
+            'tujuan.max' => 'Tujuan transfer maksimal 191 huruf.',
+        ]);
+
+        $lembar = RopPaymentSheet::with('items.rop')->findOrFail($id);
+
+        if ($lembar->sudahDikirim()) {
+            return $this->kembali($lembar->id)->with('error',
+                'Lembar ini sudah dikirim ke bos — tujuan transfernya tidak bisa diubah lagi. '
+                . 'Kalau ada yang keliru, buat lembar baru untuk sisanya.');
+        }
+
+        $item = $lembar->items->firstWhere('rop_id', (int) $data['rop_id']);
+        if (! $item) {
+            return $this->kembali($lembar->id)->with('error', 'Baris itu tidak ada di lembar ini.');
+        }
+
+        $tujuan = trim((string) ($data['tujuan'] ?? ''));
+        $asli   = trim((string) ($item->rop?->namaPenerima() ?: ''));
+
+        // Sama dengan tulisan pengaju → kosongkan lagi, jangan menyimpan
+        // duplikat yang bikin baris tampak "disentuh Finance" padahal tidak.
+        $item->update([
+            'tujuan_transfer' => ($tujuan !== '' && $tujuan !== $asli) ? $tujuan : null,
+            'tujuan_oleh'     => ($tujuan !== '' && $tujuan !== $asli) ? (string) session('id') : null,
+        ]);
+
+        return $this->kembali($lembar->id)->with('success',
+            ($item->rop?->number ?: 'Baris') . ' — tujuan transfer diperbarui.');
     }
 
     /* ═════════════════════ Cap "sudah dikirim" ═════════════════════ */

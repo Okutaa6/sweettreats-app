@@ -18,7 +18,10 @@ class RopPaymentSheetItem extends Model
 
     public const UPDATED_AT = null; // baris lembar tidak pernah diubah setelah dibuat
 
-    protected $fillable = ['sheet_id', 'rop_id', 'amount', 'urutan', 'created_at'];
+    protected $fillable = [
+        'sheet_id', 'rop_id', 'amount', 'urutan', 'created_at',
+        'tujuan_transfer', 'tujuan_oleh',
+    ];
 
     protected $casts = [
         'sheet_id'   => 'integer',
@@ -28,6 +31,31 @@ class RopPaymentSheetItem extends Model
         'created_at' => 'datetime',
     ];
 
-    public function sheet() { return $this->belongsTo(RopPaymentSheet::class, 'sheet_id', 'id'); }
-    public function rop()   { return $this->belongsTo(RopRequest::class, 'rop_id', 'id'); }
+    public function sheet()      { return $this->belongsTo(RopPaymentSheet::class, 'sheet_id', 'id'); }
+    public function rop()        { return $this->belongsTo(RopRequest::class, 'rop_id', 'id'); }
+    public function pelengkap()  { return $this->belongsTo(Users::class, 'tujuan_oleh', 'id'); }
+
+    /**
+     * Tujuan transfer yang BERLAKU untuk baris ini: lengkapan Finance kalau ada,
+     * kalau tidak apa yang ditulis pengaju. Satu-satunya tempat aturan ini
+     * ditulis — layar & halaman cetak wajib lewat sini supaya tidak pernah beda.
+     */
+    public function tujuanBerlaku(): string
+    {
+        $lengkap = trim((string) $this->tujuan_transfer);
+
+        return $lengkap !== '' ? $lengkap : (string) ($this->rop?->namaPenerima() ?: '-');
+    }
+
+    /** True kalau tujuan yang berlaku memuat rentetan angka yang masuk akal sebagai rekening. */
+    public function tujuanBernomor(): bool
+    {
+        return (bool) preg_match('/\d[\d\s.\-]{5,}\d/', $this->tujuanBerlaku());
+    }
+
+    /** True kalau yang tercetak adalah tulisan Finance, bukan tulisan pengaju. */
+    public function tujuanDilengkapi(): bool
+    {
+        return trim((string) $this->tujuan_transfer) !== '';
+    }
 }

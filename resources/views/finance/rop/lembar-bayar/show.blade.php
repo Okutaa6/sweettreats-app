@@ -169,8 +169,32 @@
                             <div class="rop-mini">{{ $r?->costCentre?->nama ?: $r?->cost_centre }}</div>
                         </td>
                         <td>{{ $r?->requester?->nama ?: '—' }}</td>
-                        {{-- pay_to_text = nomor rekening. Utuh, tidak dipotong. --}}
-                        <td><span class="rop-rek">{{ $r?->namaPenerima() ?: '—' }}</span></td>
+                        {{-- Tujuan transfer yang BERLAKU: lengkapan Finance kalau ada.
+                             Selama lembar belum dikirim ke bos, masih bisa dibetulkan
+                             di sini — sesudah dikirim dikunci, karena dokumennya sudah
+                             beredar dan dua versi kebenaran lebih berbahaya daripada
+                             satu versi yang kurang rapi. --}}
+                        <td>
+                            <span class="rop-rek">{{ $item->tujuanBerlaku() }}</span>
+                            @if ($item->tujuanDilengkapi())
+                                <div class="rop-mini">dilengkapi {{ $item->pelengkap?->nama ?: 'Finance' }}</div>
+                            @endif
+                            @if (! $item->tujuanBernomor())
+                                <div class="rop-mini" style="color:#B5701A">belum ada nomor rekening</div>
+                            @endif
+                            @if (! $lembar->sudahDikirim() && $r)
+                                <form method="POST" action="{{ route('finance.rop.lembar.tujuan', $lembar->id) }}"
+                                      style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">
+                                    @csrf
+                                    <input type="hidden" name="rop_id" value="{{ $r->id }}">
+                                    <input type="text" class="rop-input rop-input--mini" name="tujuan"
+                                           value="{{ $item->tujuanBerlaku() }}" maxlength="191"
+                                           aria-label="Tujuan transfer {{ $r->number }}">
+                                    <button class="rop-btn rop-btn--ghost"
+                                            style="min-height:34px;padding:6px 12px;font-size:12.5px">Simpan</button>
+                                </form>
+                            @endif
+                        </td>
                         <td>{{ \Illuminate\Support\Str::limit($r?->description, 70) }}</td>
                         <td class="rop-td-kanan rop-num" style="font-weight:700">
                             {{ $rupiah($item->amount) }}
