@@ -49,7 +49,14 @@ HANYA disentuh cron dan yang capnya TIDAK pernah ditimpa proses manual.
 
 ### Push Reza — checklist terkunci setelah "buka kembali" di-ACC
 
-Sudah di dev (`007312a`), belum prod. `checklist:mark-missed` mengecap tanggal
+**KOREKSI: sudah PROD sejak `c5cee46`, bukan "dev saja".** Perbaikannya ikut naik
+saat deploy Noval, karena aku mendorong seluruh ujung cabang integrasi ke main —
+cabang itu sudah memuat merge-nya. Aku sempat melaporkan "belum prod"; keliru.
+Kode itu jadi hidup tanpa keputusan sadar. **Pelajaran: `push integrasi:main`
+membawa SEMUA yang ada di cabang itu, bukan cuma commit terakhir — periksa
+`git log origin/main..HEAD` sebelum mendorong.**
+
+Diaudit sesudahnya dan hasilnya bersih (lihat entri di bawah). `checklist:mark-missed` mengecap tanggal
 lampau `missed`, sedangkan `isEditable()` hanya true untuk draft/rejected — jadi
 atasan meng-approve, banner muncul, tapi checklist tetap terkunci tanpa tombol
 Kirim. **Hanya kelihatan di prod** karena di lokal/dev cron tak jalan.
@@ -61,6 +68,37 @@ tak ada jalan membuka kunci tanpa persetujuan.
 
 Ini melahirkan aturan yang lebih umum: **kalau membangun fitur yang membuka
 kembali sesuatu di masa lampau, periksa apakah ada cron yang menutupnya lagi.**
+
+### Audit ulang prod sesudah Reza uji di dev (15 Agu sore) — BERSIH
+
+Sembilan pemeriksaan, semuanya lolos: tak ada aturan kerja aktif ganda · tak ada
+periode cuti berjalan ganda · tak ada baris rolling lumpuh · tak ada selisih jam
+scan vs bukti · tak ada staf bercabang tanpa baris posisi. Alpa cuma Alviona
+(nyata). Absen-tanpa-penilaian cuma Anisa 5 Agu (historis). Tanpa aturan kerja
+cuma "Executive Pamulang" (akun peran, bukan orang).
+
+**Perbaikan Reza terbukti bekerja di prod, dari pemakaian NYATA** — bukan uji
+karangan. Tiga baris `missed` berubah jadi `draft` saat orangnya membuka halaman
+pukul 12.54–12.56 (Firda 6 & 12 Agu, Verini 14 Agu). Yang dibuka sebelum deploy
+(11.0x) masih `missed` — konsisten, karena perbaikannya di jalur baca dan
+menyembuhkan saat halaman dibuka.
+
+**Jalur cron diuji kering**: `checklist:mark-missed --dry-run` → **0 draft→missed**.
+Artinya baris `draft` milik Verini (14 Agu, grant aktif) TIDAK akan dicap missed
+nanti malam. Tanpa perbaikan ini, cron akan mengunci ulang checklist yang baru
+dibuka atasannya siang tadi. Mingguan juga 0.
+
+⚠️ **Catatan yang belum jadi masalah tapi perlu diketahui**: grant "buka kembali"
+**tak punya kedaluwarsa**. 13 grant disetujui, **nol** terpakai. Selama grant
+menggantung, cron melewati orang itu untuk tanggal itu **selamanya** — jadi hari
+tersebut tak pernah masuk hitungan "tidak diisi". Wajar sekarang (fiturnya baru
+jalan hari ini), tapi kalau grant menumpuk tak terpakai, angka kepatuhan
+checklist diam-diam jadi lebih bagus dari kenyataannya.
+
+⚠️ **Galat koneksi DB prod menyembur**: 43 galat hari ini, **semuanya dalam dua
+menit** (12.37–12.38), pada query `group_access` — query terpanas aplikasi
+(AuthGuard). 14 Agu: 66. Pola semburan, bukan rembesan; bukan disebabkan
+perubahan kode. Sudah lama ada, layak diselidiki terpisah.
 
 ### Temuan lain
 
