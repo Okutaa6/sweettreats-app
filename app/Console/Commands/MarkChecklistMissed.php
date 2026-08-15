@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Models\ChecklistReopenRequest;
 use App\Models\ChecklistSubmission;
 use App\Models\UserPosition;
 use Carbon\Carbon;
@@ -131,11 +132,29 @@ class MarkChecklistMissed extends Command
             ->get(['id', 'user_id', 'status'])
             ->keyBy('user_id');
 
+        // User dengan grant "buka kembali" AKTIF (disetujui, belum dipakai) untuk
+        // tanggal ini — jangan dicap "missed", karyawan sedang diberi kesempatan
+        // mengisi ulang. Kalau tetap dicap missed, checklist-nya terkunci walau
+        // atasan sudah meng-approve (isEditable() false utk missed).
+        $granted = ChecklistReopenRequest::query()
+            ->where('scope', ChecklistReopenRequest::SCOPE_DAILY)
+            ->whereDate('target_date', $ds)
+            ->where('status', ChecklistReopenRequest::STATUS_APPROVED)
+            ->whereNull('fulfilled_at')
+            ->whereIn('user_id', $userIds)
+            ->pluck('user_id')
+            ->flip();
+
         $newRows    = [];
         $convertIds = [];
         $skipped    = 0;
 
         foreach ($positions as $uid => $pos) {
+            if ($granted->has($uid)) {
+                $skipped++;
+                continue;
+            }
+
             $sub = $existing->get($uid);
 
             if (! $sub) {

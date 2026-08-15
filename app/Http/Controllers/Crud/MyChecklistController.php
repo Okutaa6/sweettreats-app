@@ -119,6 +119,19 @@ class MyChecklistController extends Controller
                 ]
             );
 
+            // Grant "buka kembali" aktif: baris tgl lampau yang sudah dicap "missed"
+            // oleh cron malam (checklist:mark-missed) harus dikembalikan ke draft,
+            // supaya bisa diisi & disubmit lagi. Tanpa ini banner "dibuka kembali"
+            // muncul tapi checklist tetap terkunci (isEditable() false utk missed) —
+            // gejala yang hanya terlihat di prod (di lokal/dev cron tak jalan → tak
+            // pernah jadi missed). firstOrCreate hanya set status saat INSERT.
+            if ($isReopen && $submission->status === ChecklistSubmission::STATUS_MISSED) {
+                $submission->update([
+                    'status'     => ChecklistSubmission::STATUS_DRAFT,
+                    'updated_at' => now(),
+                ]);
+            }
+
             if ($submission->items()->count() === 0) {
                 $this->bootstrapItems($submission, $position->division_id, $position->raw_branch_id);
             } elseif ($submission->isEditable()) {
@@ -781,6 +794,27 @@ class MyChecklistController extends Controller
                     'updated_at'      => now(),
                 ]
             );
+
+            // Grant "buka kembali" mingguan aktif: header yang sudah dicap "missed"
+            // oleh cron (checklist:mark-weekly-missed) dikembalikan ke draft supaya
+            // hari yang diberi grant bisa diisi lagi. Tanpa ini $dayEditable selalu
+            // false (isEditable() false utk missed) walau atasan sudah approve —
+            // gejala yang hanya muncul di prod (lokal/dev cron tak jalan). Sejalan
+            // dgn reset harian di index().
+            if ($weekOffset < 0 && $submission->status === ChecklistWeeklySubmission::STATUS_MISSED) {
+                $hasActiveGrant = ChecklistReopenRequest::where('user_id', session('id'))
+                    ->where('scope', ChecklistReopenRequest::SCOPE_WEEKLY)
+                    ->whereDate('week_start_date', $weekStart->toDateString())
+                    ->where('status', ChecklistReopenRequest::STATUS_APPROVED)
+                    ->whereNull('fulfilled_at')
+                    ->exists();
+                if ($hasActiveGrant) {
+                    $submission->update([
+                        'status'     => ChecklistWeeklySubmission::STATUS_DRAFT,
+                        'updated_at' => now(),
+                    ]);
+                }
+            }
 
             if ($submission->items()->count() === 0) {
                 $this->bootstrapWeeklyItems($submission, $position->division_id, $position->raw_branch_id);
