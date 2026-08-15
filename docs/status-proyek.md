@@ -37,7 +37,7 @@ belum ada di prod itu **bukan data hilang**.
 | ABG/Office + Bintaro | ✅ live 11 Agu |
 | Cinere + Pamulang (5 akun) | ✅ live 13 Agu |
 | Sunter (4 akun) | ✅ live 13 Agu |
-| **Kalideres** | ❌ **belum** — menunggu sheet HR & info penempatan |
+| Kalideres (3 akun) | ✅ live 15 Agu — **kelima cabang lengkap** |
 
 Perkakasnya `php artisan att:gelar-akun` (daftar orang di `const ORANG`,
 `app/Console/Commands/GelarAkunCabang.php`). Idempoten; jalankan `--dry` dulu.
@@ -52,11 +52,11 @@ gelombang berikutnya.
 **Utang terbuka**: kontrak Alif & Reza masih dikosongkan, menunggu data.
 (Kontrak Rokhmatun sudah diperpanjang HR 13 Agu → 11 Agu 2027, jatah 12.)
 
-⚠️ **Perlu dipastikan: penjadwal harian jalan atau tidak di prod?** Bukti tak
-langsung menunjuk ke TIDAK. Kalau memang mati, yang ikut mati diam-diam:
-reset kontrak cuti, `att:reconcile` harian, `att:flag-sweep`,
-`absensi:selesaikan-l2`, sapuan ROP, dan sinkron Omnicare. Cek cron
-`php artisan schedule:run` tiap menit di hPanel.
+✅ **Penjadwal harian prod: TERBUKTI JALAN** (15 Agu). Baris `missed` checklist
+bercap 00:10 tiap hari selama sepuluh hari berturut — itu cron. Dugaan 14 Agu
+yang menyimpulkan sebaliknya sudah **ditarik**; inferensinya cacat karena
+memakai `att_day.computed_at`, yang ditimpa tiap kali `att:reconcile` dijalankan
+manual. Tak perlu lagi cek hPanel.
 
 ## 1. Apa aplikasi ini
 

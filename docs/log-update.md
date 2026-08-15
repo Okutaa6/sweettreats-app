@@ -7,6 +7,70 @@
 
 ---
 
+## 2026-08-15 — KALIDERES digelar: KELIMA CABANG LENGKAP + koreksi soal penjadwal
+
+**Prod = main = `c5cee46`.**
+
+### Kalideres — cabang terakhir
+
+3 akun baru: **Cici Nurjanah** (Asdent, sisa cuti 7) · **Rivanti Nadiana** (FO,
+sisa 4) · **Noval Fijriansyah** (GS, karyawan baru — menggantikan Ramdan, yang
+kini ditempatkan di Pamulang). Angka cuti Cici & Rivanti cocok persis dengan
+sheet HR dan dengan dev.
+
+Dengan ini **kelima cabang lengkap di prod**: Bintaro 5 · Sunter 5 · Kalideres 4 ·
+Cinere 3 · Pamulang 2 = 19 staf operasional.
+
+Aturan kerja dipasang mulai **16 Agu**, bukan hari pembuatan akun — demo hari ini
+perkenalan, mereka mulai dinilai besok. Memasang hari ini akan mengulang 5 alpa
+palsu gelombang Sunter. Perkakasnya sekarang mencetak tanggal itu di layar
+sebelum menulis apa pun, jadi salahnya kelihatan sebelum terjadi.
+
+**Lubang yang ketahuan gara-gara Noval**: `Carbon::parse(null)` diam-diam
+menghasilkan HARI INI, jadi karyawan baru tanpa tanggal kontrak akan terlihat
+punya kontrak yang berakhir setahun lagi — dan `resetKontrakKedaluwarsa()` kelak
+memberinya jatah 12 tanpa dasar. Sekarang kontrak null tetap null dan periodenya
+**dorman**, seperti yang memang dirancang.
+
+### ⚠️ KOREKSI: penjadwal prod TERNYATA JALAN
+
+Entri 14 Agu menyimpulkan `schedule:run` sepertinya **tidak** berjalan di prod.
+**Itu keliru.** Buktinya tegas: baris `sys_checklist_submission` berstatus
+`missed` bercap **00:10:01–00:10:02 tiap hari** selama sepuluh hari berturut
+(5–15 Agu). Itu cron, bukan manusia.
+
+Inferensi 14 Agu cacat: aku menyimpulkan dari `att_day.computed_at` yang seragam,
+padahal satu `att:reconcile` rentang-lebar memang menimpa seluruh jendela — jadi
+capnya seragam entah cron jalan atau tidak. Keberatan itu kutulis sendiri lalu
+kuabaikan. **Reza yang benar.**
+
+Pelajaran yang bisa dipakai lagi: untuk membuktikan cron jalan, cari tabel yang
+HANYA disentuh cron dan yang capnya TIDAK pernah ditimpa proses manual.
+
+### Push Reza — checklist terkunci setelah "buka kembali" di-ACC
+
+Sudah di dev (`007312a`), belum prod. `checklist:mark-missed` mengecap tanggal
+lampau `missed`, sedangkan `isEditable()` hanya true untuk draft/rejected — jadi
+atasan meng-approve, banner muncul, tapi checklist tetap terkunci tanpa tombol
+Kirim. **Hanya kelihatan di prod** karena di lokal/dev cron tak jalan.
+
+Diperbaiki dua lapis: jalur baca mengembalikan `missed`→`draft` saat grant aktif,
+dan jalur cron melewati orang yang punya grant aktif. Ditelaah: gerbangnya benar —
+`activeDailyGrant()` menyaring `status=approved` DAN `fulfilled_at IS NULL`, jadi
+tak ada jalan membuka kunci tanpa persetujuan.
+
+Ini melahirkan aturan yang lebih umum: **kalau membangun fitur yang membuka
+kembali sesuatu di masa lampau, periksa apakah ada cron yang menutupnya lagi.**
+
+### Temuan lain
+
+**Alviona alpa 14 Agu — nyata, bukan buatan sistem.** Dia satu-satunya staf
+berjadwal baku yang tak absen hari itu, dan tak punya pengajuan izin/sakit/cuti
+apa pun. Sejak akunnya dibuat dia baru sekali absen (13 Agu, saat demo). Perlu
+ditanyakan Anisa — bukan ditambal dari sini.
+
+---
+
 ## 2026-08-14 — NAIK PROD: WiFi cabang efektif + kategori petty cash Reza + 6 temuan audit
 
 **Prod = main = `fc70d2a`.** Isinya push Reza + tiga perbaikan, plus pembersihan
