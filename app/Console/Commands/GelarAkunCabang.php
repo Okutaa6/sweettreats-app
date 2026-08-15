@@ -104,6 +104,12 @@ class GelarAkunCabang extends Command
         // Sunter yang sebagian besar masih kontrak pertama.
         ['nama' => 'Cici Nurjanah',            'email' => 'cici@sweettreats.id',      'role' => 'Assistant Dentist', 'cabang' => 'Kalideres', 'aturan' => 'FO-Asdent', 'jatah' => 12.0, 'sesuai' => 5.0,  'kontrak' => '2026-12-10'],
         ['nama' => 'Rivanti Nadiana',          'email' => 'rivanti@sweettreats.id',   'role' => 'Front Office',      'cabang' => 'Kalideres', 'aturan' => 'FO-Asdent', 'jatah' => 12.0, 'sesuai' => 8.0,  'kontrak' => '2027-05-25'],
+
+        // Noval — GS Kalideres yang menggantikan Ramdan (Ramdan kini ditempatkan
+        // di Pamulang). Karyawan BARU: belum berhak cuti, dan tanggal kontraknya
+        // belum diserahkan HR — `kontrak` sengaja null, periodenya jadi DORMAN
+        // sampai datanya ada. Tidak ada di sheet HR 14 Agu karena masuk sesudahnya.
+        ['nama' => 'Noval Fijriansyah',        'email' => 'noval@sweettreats.id',     'role' => 'General Services',  'cabang' => 'Kalideres', 'aturan' => 'GS',        'jatah' => 0.0,  'sesuai' => 0.0,  'kontrak' => null],
     ];
 
     /** Penempatan sementara: email => cabang tempat dia bekerja sekarang. */
@@ -236,11 +242,21 @@ class GelarAkunCabang extends Command
                 ]);
 
                 // Periode cuti + penyesuaian saldo.
+                //
+                // ⚠️ `kontrak` BOLEH null — karyawan baru yang tanggal kontraknya
+                // belum diserahkan HR. Jangan `Carbon::parse(null)`: itu diam-diam
+                // menghasilkan HARI INI, jadi orangnya seolah punya kontrak yang
+                // berakhir setahun lagi dan `resetKontrakKedaluwarsa()` akan
+                // memberinya jatah 12 tanpa dasar. Periode tanpa tanggal memang
+                // DORMAN by design — penjadwal melewatinya (lihat
+                // CutiService::resetKontrakKedaluwarsa: `whereNotNull('kontrak_akhir')`).
                 $periodeId = DB::table('att_cuti_periode')->insertGetId([
                     'user_id'       => $user->id,
                     'saldo_awal'    => $o['jatah'],
                     'kontrak_akhir' => $o['kontrak'],
-                    'kontrak_mulai' => Carbon::parse($o['kontrak'])->subYear()->toDateString(),
+                    'kontrak_mulai' => $o['kontrak']
+                        ? Carbon::parse($o['kontrak'])->subYear()->toDateString()
+                        : null,
                     'berjalan'      => 1,
                     'created_at'    => now(),
                     'updated_at'    => now(),
