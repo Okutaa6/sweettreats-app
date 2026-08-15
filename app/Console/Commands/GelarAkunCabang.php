@@ -93,6 +93,17 @@ class GelarAkunCabang extends Command
         ['nama' => 'Rokhmatun',                'email' => 'rokhmatun@sweettreats.id', 'role' => 'Assistant Dentist', 'cabang' => 'Sunter',    'aturan' => 'FO-Asdent', 'jatah' => 12.0, 'sesuai' => 0.0,  'kontrak' => '2027-08-11'],
         ['nama' => 'Tito Muhammad Taqiyuddin', 'email' => 'tito@sweettreats.id',      'role' => 'General Services',  'cabang' => 'Sunter',    'aturan' => 'GS',        'jatah' => 0.0,  'sesuai' => 0.0,  'kontrak' => '2027-05-11'],
         ['nama' => 'Melani Safrida',           'email' => 'melani@sweettreats.id',    'role' => 'Front Office',      'cabang' => 'Sunter',    'aturan' => 'FO-Asdent', 'jatah' => 0.0,  'sesuai' => 0.0,  'kontrak' => '2027-05-11'],
+
+        // ── KALIDERES, 14 Agu 2026 — cabang TERAKHIR ───────────────────────
+        // Ramdan (di atas) sudah lebih dulu digelar karena penempatannya di
+        // Pamulang; kedua orang ini melengkapi rosternya, dan dengan itu
+        // kelima cabang lengkap di prod.
+        //
+        // Keduanya SUDAH BERHAK (sheet HR 14 Agu: Cici sisa 7, Rivanti sisa 4),
+        // jadi polanya jatah 12 + baris penyesuaian — beda dari gelombang
+        // Sunter yang sebagian besar masih kontrak pertama.
+        ['nama' => 'Cici Nurjanah',            'email' => 'cici@sweettreats.id',      'role' => 'Assistant Dentist', 'cabang' => 'Kalideres', 'aturan' => 'FO-Asdent', 'jatah' => 12.0, 'sesuai' => 5.0,  'kontrak' => '2026-12-10'],
+        ['nama' => 'Rivanti Nadiana',          'email' => 'rivanti@sweettreats.id',   'role' => 'Front Office',      'cabang' => 'Kalideres', 'aturan' => 'FO-Asdent', 'jatah' => 12.0, 'sesuai' => 8.0,  'kontrak' => '2027-05-25'],
     ];
 
     /** Penempatan sementara: email => cabang tempat dia bekerja sekarang. */
