@@ -7,6 +7,87 @@
 
 ---
 
+## 2026-08-18 — Rotasi Telkom menyapu 5 cabang · ambang saksi WiFi 3 → 2
+
+**Prod = main = `92c0c66`.**
+
+### Yang terjadi
+
+Telkom memutar prefix IPv6 di **semua cabang** sekitar 18 Agu. Dampaknya
+terukur: **16 orang berbeda ke-flag dalam sehari** (14–16 Agu rata-rata 6–8).
+Flag menggantung menumpuk jadi 50 (37 baru + 13 dicek).
+
+### Belajar-sendiri AKHIRNYA memicu — 3 kali
+
+Pertama kali sejak fitur ini dibuat:
+
+| Cabang | Kapan | Saksinya |
+|---|---|---|
+| Cinere `2033:e6c` | 15 Agu | Anggita, Wahyudin, **Verini** |
+| Pamulang `2020:d63e` | 18 Agu | Alviona, Mutiara, **Ramdan** |
+| Bintaro `2092:d21` | 18 Agu | Afrina, Asih, Alpajri |
+
+**Dua dari tiga hanya mungkin karena perbaikan cabang-efektif 15 Agu** — Verini
+dan Ramdan sama-sama orang yang *ditempatkan*, yang sebelum itu tak pernah
+dihitung. Pamulang cuma punya 2 staf asal; tanpa Ramdan terhitung, cabang itu
+tak akan pernah bisa mendaftar sendiri. Perbaikan yang kemarin cuma teori,
+hari ini berbuah.
+
+### Tapi dua mentok di 2-dari-3 → didaftarkan tangan
+
+`2001:448a:90b0:58::` (Kalideres, 7 flag) dan `2001:448a:2092:270e::` (Bintaro
+jalur-2, 5 flag). Keduanya sekerabat /48 — mesin sudah yakin, cuma kurang satu
+saksi. Sesudah didaftarkan, **semua** alamat IPv6 yang tadi merah langsung cocok.
+
+### Ambang diturunkan 3 → 2 (ACC Ekky)
+
+Akar masalahnya bukan sial, tapi aritmetika. Calon saksi = staf asal ber-aturan
+baku:
+
+| Cabang | Calon saksi | Ambang 3 |
+|---|---|---|
+| Pamulang | 2 | **tak pernah cukup** sendirian |
+| Cinere | 3 | butuh **100%** staf dalam 72 jam |
+| Kalideres | 4 | butuh 3 dari 4 |
+| Bintaro · Sunter | 5 | lega |
+
+Untuk **tiga dari lima cabang**, ambangnya sama atau lebih tinggi dari jumlah
+orangnya — mesin dirancang gagal di sana, dan sisanya jatuh ke tangan manusia
+tiap kali Telkom memutar prefix (~mingguan). Itu yang bikin Ekky bolak-balik
+mendaftarkan.
+
+⚠️ **Yang menjaga keamanan bukan angka itu**, melainkan pagar kekerabatan /48:
+tiap cabang punya blok Telkom sendiri, jadi dua orang di kafe tak akan pernah
+lolos — blok kafe bukan blok klinik. **Pagar itu tidak diturunkan**, dan batas
+"satu orang tak pernah cukup" juga tetap.
+
+**Kasus uji: 4 dari 10 berubah, semuanya lulus (10/10 di dev).**
+* `K1` pemicunya kini Firda (sah ke-2). Penjaga §6 "fleksibel tak menguatkan"
+  PINDAH ke sini — kalau Talitha ikut dihitung, pemicunya jadi kejadiannya.
+* `K2` **berubah arti**: dulu membuktikan "2 belum cukup", kini membuktikan
+  bukti boleh **melintasi hari** di dalam jendela 72 jam (Firda malam 11/8,
+  Alpajri pagi 12/8).
+* `K7` ditambah assertion terpenting: di orang ke-2 (ambang tercapai) vonisnya
+  **TAWARKAN**, bukan DAFTAR — inilah yang membuktikan pagar /48 berdiri
+  sendiri dari ambang orang.
+* `K10` prasyarat bergeser ke kejadian ke-2.
+
+Diperiksa sebelum naik: sesudah dua pendaftaran manual, **sisa jaringan yang
+belum cocok semuanya IPv4** — yang tak pernah lewat pintu otomatis, ambang
+berapa pun. Jadi tak ada yang mengendap menunggu mendaftar sendiri.
+
+### Kalideres: akunnya terpakai
+
+Cici & Noval absen 16 & 18 Agu. Rivanti baru login pertama 18 Agu 10.58 lalu
+absen semenit kemudian — alpa 16 Agu-nya karena belum memegang akun, bukan
+bolos. 17 Agu kosong karena Senin (klinik tutup).
+
+⚠️ **Sisa**: 12 flag dari kedua prefix itu sekarang sudah jelas sebabnya dan
+tinggal dibereskan — kerjaan chat beres-beres flag. Delapan alamat IPv4 masih
+merah dan memang tak akan pernah mendaftar sendiri.
+
+---
+
 ## 2026-08-15 — KALIDERES digelar: KELIMA CABANG LENGKAP + koreksi soal penjadwal
 
 **Prod = main = `c5cee46`.**
