@@ -20,8 +20,10 @@ use Carbon\Carbon;
  * review Anisa, dan flag jadi terbiasa merah sehingga yang asli tenggelam.
  *
  * EMPAT SYARAT (semua wajib, §3 — sudah di-ACC, jangan dilonggarkan diam-diam):
- *   1. >= 3 orang BERBEDA memakai /64 ini
- *   2. ketiganya cabang asalnya sama dengan cabang yang dipilih
+ *   1. >= AMBANG_ORANG orang BERBEDA memakai /64 ini (2 sejak 18 Agu 2026;
+ *      dulu 3 — alasan lengkap ada di konstantanya)
+ *   2. semuanya cabang EFEKTIFnya sama dengan cabang yang dipilih
+ *      (penempatan/rolling menang atas cabang asal — lihat pendukung())
  *   3. dalam 72 jam terakhir
  *   4. /48-nya sekerabat dengan prefix cabang itu yang sudah terdaftar
  *
@@ -41,8 +43,34 @@ use Carbon\Carbon;
  */
 class WifiBelajarSendiri
 {
-    /** Berapa orang berbeda yang harus terbukti memakai satu /64. ACC Ekky 2026-08-12. */
-    public const AMBANG_ORANG = 3;
+    /**
+     * Berapa orang berbeda yang harus terbukti memakai satu /64.
+     *
+     * DITURUNKAN 3 → 2 pada 2026-08-18 (ACC Ekky), setelah angka 3 terbukti
+     * TAK TERJANGKAU bagi sebagian cabang. Calon saksi = staf asal ber-aturan
+     * `baku`; orang fleksibel/ABG memang tak dihitung (lihat pendukung()):
+     *
+     *     Pamulang  2 orang → ambang 3 mustahil sendirian
+     *     Cinere    3 orang → butuh 100% staf, dalam 72 jam
+     *     Kalideres 4 orang → butuh 3 dari 4
+     *     Bintaro/Sunter 5  → lega
+     *
+     * Jadi untuk tiga dari lima cabang, ambangnya sama atau lebih tinggi dari
+     * jumlah orangnya — mesin dirancang gagal di sana, dan sisanya jatuh ke
+     * tangan manusia. Terbukti 18 Agu: Telkom memutar prefix di semua cabang,
+     * 16 orang ke-flag dalam sehari; tiga jaringan berhasil mendaftar sendiri
+     * tapi DUA mentok di 2-dari-3 dan harus didaftarkan tangan
+     * (Kalideres `90b0:58`, Bintaro jalur-2 `2092:270e`).
+     *
+     * ⚠️ YANG MENJAGA KEAMANAN BUKAN ANGKA INI, tapi pagar kekerabatan /48 —
+     * tiap cabang punya blok Telkom sendiri, jadi /64 baru di dalam blok cabang
+     * itu hampir pasti gedung yang sama. Dua orang di kafe tak akan pernah
+     * lolos: blok kafe bukan blok klinik. Pagar itu TIDAK diturunkan.
+     *
+     * KENAPA TIDAK 1: lihat catatan "satu orang tak pernah cukup" di atas —
+     * satu orang tak bisa dibedakan dari WiFi rumahnya sendiri. Batas itu tetap.
+     */
+    public const AMBANG_ORANG = 2;
 
     /** Seberapa jauh ke belakang bukti dihitung. Rotasi mingguan, jadi 72 jam
      *  cukup lebar untuk menangkap satu gelombang tanpa memungut jaringan basi. */
@@ -69,10 +97,10 @@ class WifiBelajarSendiri
      * Timbang satu alamat. MURNI — tidak menulis apa pun, aman dipanggil dari
      * perkakas uji/pengintip. Yang menulis: pelajari().
      *
-     * Alasan sengaja dikembalikan sebagai kode, bukan cuma bool: tujuh kasus uji
-     * §6 menuntut pembedaan "ditolak karena APA" — satu orang dan tiga orang
-     * beda cabang sama-sama ditolak lewat pintu yang berbeda, dan yang
-     * "3 orang tapi /48 asing" harus jadi tawaran, bukan diam.
+     * Alasan sengaja dikembalikan sebagai kode, bukan cuma bool: kasus uji §6
+     * menuntut pembedaan "ditolak karena APA" — kurang orang dan orang-cukup-
+     * tapi-beda-cabang sama-sama ditolak lewat pintu yang berbeda, dan yang
+     * "orang cukup tapi /48 asing" harus jadi tawaran, bukan diam.
      *
      * @return array{vonis:string, alasan:string, prefix:?string, n:int, pendukung:string[]}
      */
@@ -116,7 +144,7 @@ class WifiBelajarSendiri
         // itu, dan jangan pula mengaku "DAFTAR" padahal UNIQUE(ip) membuat
         // penulisannya tak berefek apa-apa. Pemeriksaannya sengaja seketat
         // teks prefix: baris berekor yang dinonaktifkan karena rotasi (mis.
-        // 2313 lama) BUKAN veto — kalau jalur itu kembali dipakai bertiga,
+        // 2313 lama) BUKAN veto — kalau jalur itu kembali dipakai ramai-ramai,
         // memang sudah semestinya dikenali lagi.
         if (AttBranchIp::where('ip', $prefixTeks)->where('status', 'nonaktif')->exists()) {
             return $tolak('ditolak_it', $prefixTeks);

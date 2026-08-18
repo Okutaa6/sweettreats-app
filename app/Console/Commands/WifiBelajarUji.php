@@ -24,7 +24,7 @@ use Illuminate\Support\Facades\DB;
  *
  * Kejadiannya SALINAN PERSIS baris prod 5–12 Agu 2026 — jam, alamat, dan orang
  * yang sama. Tiga kasus terakhir dikarang karena tak ada padanannya di data
- * nyata (3 orang beda cabang, /48 asing, saklar mati).
+ * nyata (orang beda cabang, /48 asing, saklar mati).
  *
  * ⚠️ MENULIS ke DB: tiap kasus menghapus absensi di jendela ujinya lalu menyusun
  * ulang att_branch_ip. Karena itu dikunci mati untuk lingkungan produksi.
@@ -114,7 +114,7 @@ class WifiBelajarUji extends Command
             [
                 'kode'  => 'K1',
                 'judul' => 'Rotasi 10d5 · 11 Agu · 7 orang Bintaro dalam sejam, se-/48',
-                'harap' => 'DAFTAR di orang ke-3 (Rizka 09:39) → flag ip_asing tinggal 3',
+                'harap' => 'DAFTAR di orang sah ke-2 (Firda 09:36) → flag ip_asing tinggal 2',
                 'baseline' => self::BASELINE_BINTARO,
                 'saklar' => '1',
                 'events' => [
@@ -127,23 +127,29 @@ class WifiBelajarUji extends Command
                     ['2026-08-11 10:38:03', 'Reza Fauzi Ramadhan',        'masuk',  '2001:448a:2092:10d5:986a:57f:fa0c:e113',  $b],
                 ],
                 'periksa' => function (array $j) {
-                    // Orang ke-3 yang BOLEH dihitung adalah Rizka, bukan Firda:
-                    // Talitha fleksibel, jadi ia tidak menguatkan apa pun (§6).
-                    $this->wajib($j[2]['belajar']['n'] === 2, 'saat Firda absen hitungannya harus 2 (Talitha fleksibel, tak ikut) — dapat ' . $j[2]['belajar']['n']);
-                    $this->wajib($j[3]['belajar']['vonis'] === WifiBelajarSendiri::DAFTAR, 'Rizka (orang ke-3) harus memicu pendaftaran — dapat ' . $j[3]['belajar']['vonis'] . '/' . $j[3]['belajar']['alasan']);
-                    $this->wajib($j[3]['belajar']['prefix'] === '2001:448a:2092:10d5::', 'yang didaftarkan harus prefix bersih 2001:448a:2092:10d5:: — dapat ' . $j[3]['belajar']['prefix']);
+                    // ⚠️ INI penjaga §6 sekarang: Talitha datang KEDUA dan
+                    // fleksibel. Kalau ia ikut terhitung, hitungannya jadi 2 dan
+                    // pendaftaran memicu di kejadiannya — jadi assertion ini
+                    // yang membuktikan orang fleksibel tak menguatkan apa pun.
+                    $this->wajib($j[1]['belajar']['n'] === 1, 'saat Talitha (fleksibel) absen hitungan harus tetap 1 — dapat ' . $j[1]['belajar']['n']);
+                    $this->wajib($j[1]['belajar']['vonis'] !== WifiBelajarSendiri::DAFTAR, 'Talitha fleksibel TIDAK boleh memicu pendaftaran — dapat ' . $j[1]['belajar']['vonis']);
+
+                    // Orang sah ke-2 adalah Firda (Alpajri #1, Talitha tak dihitung).
+                    $this->wajib($j[2]['belajar']['n'] === 2, 'saat Firda absen hitungannya harus 2 — dapat ' . $j[2]['belajar']['n']);
+                    $this->wajib($j[2]['belajar']['vonis'] === WifiBelajarSendiri::DAFTAR, 'Firda (orang sah ke-2) harus memicu pendaftaran — dapat ' . $j[2]['belajar']['vonis'] . '/' . $j[2]['belajar']['alasan']);
+                    $this->wajib($j[2]['belajar']['prefix'] === '2001:448a:2092:10d5::', 'yang didaftarkan harus prefix bersih 2001:448a:2092:10d5:: — dapat ' . $j[2]['belajar']['prefix']);
                     // Sesudah terdaftar, rekan yang datang berikutnya langsung cocok.
-                    foreach ([4, 5, 6] as $i) {
+                    foreach ([3, 4, 5, 6] as $i) {
                         $this->wajib($j[$i]['cocok'] === true, "orang ke-" . ($i + 1) . " ({$j[$i]['nama']}) harusnya sudah COCOK, tak ke-flag lagi");
                     }
                     $n = AttFlag::where('jenis', 'ip_asing')->where('work_date', '2026-08-11')->count();
-                    $this->wajib($n === 3, "flag ip_asing 11 Agu harus tinggal 3 (Alpajri, Firda, Rizka) — dapat {$n}");
+                    $this->wajib($n === 2, "flag ip_asing 11 Agu harus tinggal 2 (Alpajri, Firda) — dapat {$n}");
                 },
             ],
             [
                 'kode'  => 'K2',
                 'judul' => 'Jalur kedua 2777 · Firda 11/8 malam + Alpajri & Yovanka 12/8 pagi',
-                'harap' => 'TIDAK daftar — hanya 2 orang memenuhi syarat (Yovanka fleksibel). KOREKSI §6.',
+                'harap' => 'DAFTAR di Alpajri (orang sah ke-2) — bukti melintasi HARI, jendela 72 jam',
                 'baseline' => array_merge(self::BASELINE_BINTARO, [[self::BINTARO, '2001:448a:2092:10d5::']]),
                 'saklar' => '1',
                 'events' => [
@@ -151,11 +157,21 @@ class WifiBelajarUji extends Command
                     ['2026-08-12 07:35:41', 'Alpajri Suhendar Al Qhusni', 'masuk',  '2001:448a:2092:2777:2610:b0ab:1fa:adb7',  $b],
                     ['2026-08-12 09:19:01', 'Yovanka Rima Millennia',     'masuk',  '2001:448a:2092:2777:1893:da0b:a1c4:2660', $b],
                 ],
+                // Sejak ambang turun jadi 2 (18 Agu), kasus ini berubah arti:
+                // dulu ia membuktikan "2 orang belum cukup", sekarang ia
+                // membuktikan bukti boleh MELINTASI HARI selama masih di dalam
+                // jendela 72 jam — Firda malam 11/8, Alpajri pagi 12/8.
+                // Penjaga "fleksibel tak dihitung" pindah ke K1.
                 'periksa' => function (array $j) {
-                    $this->takAdaPendaftaran($j);
-                    $akhir = $j[2]['belajar'];
-                    $this->wajib($akhir['n'] === 2, 'hitungan akhir harus 2 (Yovanka fleksibel, tak ikut) — dapat ' . $akhir['n']);
-                    $this->wajib($akhir['alasan'] === 'orang_kurang', 'alasan tolak harus orang_kurang — dapat ' . $akhir['alasan']);
+                    $this->wajib($j[0]['belajar']['n'] === 1, 'Firda sendirian harus terhitung 1 — dapat ' . $j[0]['belajar']['n']);
+                    $this->wajib($j[0]['belajar']['vonis'] !== WifiBelajarSendiri::DAFTAR, 'satu orang tak boleh cukup — dapat ' . $j[0]['belajar']['vonis']);
+
+                    $this->wajib($j[1]['belajar']['vonis'] === WifiBelajarSendiri::DAFTAR, 'Alpajri (hari BERIKUTNYA) harus memicu pendaftaran — dapat ' . $j[1]['belajar']['vonis'] . '/' . $j[1]['belajar']['alasan']);
+                    $this->wajib($j[1]['belajar']['n'] === 2, 'hitungannya harus 2 — dapat ' . $j[1]['belajar']['n']);
+                    $this->wajib($j[1]['belajar']['prefix'] === '2001:448a:2092:2777::', 'prefix yang didaftarkan harus 2777:: — dapat ' . $j[1]['belajar']['prefix']);
+
+                    // Yovanka datang sesudahnya → jaringannya sudah dikenal.
+                    $this->wajib($j[2]['cocok'] === true, 'Yovanka harusnya sudah COCOK, tak ke-flag lagi');
                 },
             ],
             [
@@ -230,6 +246,13 @@ class WifiBelajarUji extends Command
                 ],
                 'periksa' => function (array $j) {
                     $this->takAdaPendaftaran($j);
+                    // Pagar /48 berdiri SENDIRI dari ambang orang: begitu orang
+                    // ke-2 datang (ambang tercapai), vonisnya sudah TAWARKAN —
+                    // bukan DAFTAR. Inilah yang menjaga keamanan sesudah ambang
+                    // diturunkan, jadi assertion ini yang paling penting di sini.
+                    $this->wajib($j[1]['belajar']['vonis'] === WifiBelajarSendiri::TAWARKAN, 'di orang ke-2 (ambang tercapai) vonis harus TAWARKAN, bukan DAFTAR — dapat ' . $j[1]['belajar']['vonis']);
+                    $this->wajib($j[1]['belajar']['alasan'] === 'kerabat_48_tak_ada', 'alasannya harus pagar /48 — dapat ' . $j[1]['belajar']['alasan']);
+
                     $akhir = $j[2]['belajar'];
                     $this->wajib($akhir['vonis'] === WifiBelajarSendiri::TAWARKAN, 'vonis harus TAWARKAN — dapat ' . $akhir['vonis']);
                     $this->wajib($akhir['n'] === 3, 'tiga orang harus tetap terhitung (yang gagal cuma pagar /48) — dapat ' . $akhir['n']);
@@ -290,7 +313,8 @@ class WifiBelajarUji extends Command
                     ['2026-08-11 09:39:55', 'Rizka Noviyanti',            'masuk', '2001:448a:2092:10d5:f424:5430:e974:be48', $b],
                 ],
                 'periksa' => function (array $j) {
-                    $this->wajib($j[2]['belajar']['vonis'] === WifiBelajarSendiri::DAFTAR, 'prasyarat: harus mendaftar dulu');
+                    // Ambang 2 → pemicunya Firda (kejadian ke-2), bukan Rizka.
+                    $this->wajib($j[1]['belajar']['vonis'] === WifiBelajarSendiri::DAFTAR, 'prasyarat: harus mendaftar dulu — dapat ' . $j[1]['belajar']['vonis']);
 
                     $sasaran = DB::table('admin_notification')->where('type', 'wifi_otomatis')
                         ->pluck('target_role')->sort()->values()->all();
