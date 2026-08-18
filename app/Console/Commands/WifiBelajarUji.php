@@ -202,7 +202,7 @@ class WifiBelajarUji extends Command
             [
                 'kode'  => 'K5',
                 'judul' => '3 orang di satu jaringan tapi BEDA cabang (dikarang)',
-                'harap' => 'TIDAK daftar — tak ada satu cabang pun yang mencapai 3',
+                'harap' => 'TIDAK daftar — tak ada satu cabang pun yang mencapai ambang',
                 'baseline' => self::BASELINE_BINTARO,
                 'saklar' => '1',
                 'events' => [
