@@ -293,7 +293,28 @@ class RopLembarBayarController extends Controller
             'items.pelengkap', 'pembuat', 'pengirim',
         ])->findOrFail($id);
 
-        return view('finance.rop.lembar-bayar.show', ['lembar' => $lembar]);
+        // Gambar kecil lampiran, supaya kelengkapan bisa dinilai SEKALI PANDANG
+        // sebelum lembar dikirim ke bos — tanpa membuka tab satu per satu.
+        // PDF ikut dapat gambar karena perendernya sudah ada dan hasilnya
+        // di-cache; halaman cetak memakai berkas render yang sama persis.
+        $pratinjau = [];
+        foreach ($lembar->items as $item) {
+            $path = $item->rop?->attachment_path;
+            if (! $path) { $pratinjau[$item->rop_id] = null; continue; }
+
+            $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+            if (in_array($ext, ['jpg', 'jpeg', 'png', 'webp', 'gif'], true)) {
+                $pratinjau[$item->rop_id] = $path;
+                continue;
+            }
+            // Gagal render → null, dan sel kembali ke penanda teks biasa.
+            $pratinjau[$item->rop_id] = $this->pratinjau->halaman($path)[0] ?? null;
+        }
+
+        return view('finance.rop.lembar-bayar.show', [
+            'lembar'    => $lembar,
+            'pratinjau' => $pratinjau,
+        ]);
     }
 
     /* ═════════════════════ Halaman cetak ═════════════════════ */

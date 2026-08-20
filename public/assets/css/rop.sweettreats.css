@@ -1093,6 +1093,48 @@
 }
 .rop-langkah .is-aktif b { background: var(--rop-burgundy); color: #fff; }
 
+/* Gambar kecil lampiran di layar isi lembar. Kelengkapan harus bisa dinilai
+   sekali pandang sebelum lembar dikirim ke bos — kata "foto" tidak cukup.
+   object-fit: cover + rasio tetap supaya baris tabel tidak melompat tinggi
+   walau invoice-nya potret, lanskap, atau nyaris persegi. */
+.rop-lampiran-gbr {
+    position: relative;
+    display: block;
+    width: 62px;
+    height: 62px;
+    border-radius: 9px;
+    overflow: hidden;
+    border: 1px solid var(--rop-border);
+    background: #FBF7F2;
+    transition: box-shadow .15s ease, transform .15s ease;
+}
+.rop-lampiran-gbr img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    /* Invoice dipotret dari atas: bagian ATAS yang memuat nama toko & nomor
+       adalah yang paling menolong saat dilihat sekilas. */
+    object-position: top center;
+    display: block;
+}
+.rop-lampiran-gbr:hover {
+    box-shadow: 0 0 0 2px var(--rop-burgundy-bd);
+    transform: translateY(-1px);
+}
+/* Penanda kecil untuk lampiran yang aslinya PDF — gambarnya hasil render,
+   dan Finance perlu tahu berkas aslinya bukan foto. */
+.rop-lampiran-gbr__tag {
+    position: absolute;
+    right: 0; bottom: 0;
+    padding: 1px 5px;
+    font-size: 9.5px;
+    font-weight: 800;
+    letter-spacing: .04em;
+    color: #fff;
+    background: rgba(43, 76, 134, .92);
+    border-top-left-radius: 6px;
+}
+
 /* Tiga kolom form bayar-sekaligus; menumpuk sendiri di layar sempit. */
 .rop-bayar-grid {
     display: grid;

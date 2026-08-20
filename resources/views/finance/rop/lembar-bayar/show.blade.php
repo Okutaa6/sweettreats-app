@@ -225,13 +225,27 @@
                             @endif
                         </td>
                         <td>
+                            {{-- Gambar kecil, bukan cuma tautan: sebelum lembar
+                                 dikirim ke bos, Finance perlu memastikan tiap baris
+                                 punya invoice yang benar — dan itu tidak bisa dinilai
+                                 dari kata "foto". PDF ikut bergambar karena
+                                 perendernya sudah ada (hasil render yang sama
+                                 dipakai halaman cetak, jadi tidak ada kerja dobel). --}}
+                            @php $gbr = $pratinjau[$item->rop_id] ?? null; @endphp
                             @if (! $path)
                                 <span class="rop-tanda rop-tanda--awas">tak ada</span>
-                            @else
-                                <a class="rop-tanda {{ in_array($ext, ['jpg','jpeg','png','webp','gif'], true) ? 'rop-tanda--ok' : 'rop-tanda--info' }}"
-                                   href="{{ asset($path) }}" target="_blank" rel="noopener">
-                                    {{ in_array($ext, ['jpg','jpeg','png','webp','gif'], true) ? 'foto' : 'PDF' }}
+                            @elseif ($gbr)
+                                <a class="rop-lampiran-gbr" href="{{ asset($path) }}"
+                                   target="_blank" rel="noopener"
+                                   title="Buka lampiran {{ $r?->number }}">
+                                    <img src="{{ asset($gbr) }}" alt="Lampiran {{ $r?->number }}" loading="lazy">
+                                    @if ($ext === 'pdf')<span class="rop-lampiran-gbr__tag">PDF</span>@endif
                                 </a>
+                            @else
+                                {{-- Ada berkasnya tapi tak bisa dijadikan gambar
+                                     (mis. PDF gagal dirender) — jangan diam, beri tautan. --}}
+                                <a class="rop-tanda rop-tanda--info"
+                                   href="{{ asset($path) }}" target="_blank" rel="noopener">buka berkas</a>
                             @endif
                             @if ($lunas && $r->paid_proof_path)
                                 <div class="rop-mini">
