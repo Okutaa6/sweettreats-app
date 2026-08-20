@@ -7,6 +7,38 @@
 
 ---
 
+## 2026-08-14 (lanjutan 4) — UJI PENUH ulang: 41 dari 41 lolos
+
+Sapu statis + uji ujung-ke-ujung di dev dari keadaan bersih, 16 bab:
+login & sesi · layar pilih · tiga jalur negatif · buat lembar 7 item ·
+nomor & snapshot · tujuan transfer · lampiran · thumbnail · struktur form ·
+bayar-banyak · kunci setelah dibayar · catatan kepanjangan · cap dikirim ·
+sekuens nomor · gerbang · rute. **41 lolos, 0 gagal.**
+
+Yang dibuktikan ulang, bukan diasumsikan:
+- **3 ROP dibayar dengan SATU berkas bukti** — inti fiturnya; dicek sampai ke
+  DB: ketiganya menunjuk berkas yang sama, dan masing-masing dapat **tepat
+  satu** baris `rop_status_log` untuk lembar itu, plus notifikasi ke pengaju.
+- Total Rp 17.516.682 & terbilangnya — angka yang sama persis dengan prod.
+- Tujuan yang dilengkapi Finance tercetak, tujuan asli pengaju tetap utuh.
+- Lampiran PDF tergabung; yang tanpa lampiran disebut; nol PDF gagal render.
+- Struktur form diperiksa lewat `DOMDocument`: 7 form tujuan, **nol bersarang,
+  nol medan nyasar**.
+- Gerbang non-Finance **403 di ketujuh titik** dengan CSRF sah.
+
+**Dua "kegagalan" pertama ternyata harapan ujiku yang salah, bukan bug:**
+(a) nomor lembar tak mulai dari 001 karena uji pilihan-kembar di atasnya
+**sah** memakai sekuens — setelah di-dedup, kiriman itu memang permintaan
+satu item yang valid; skripnya kini menguji FORMAT + kenaikan tepat satu,
+bukan angka mati. (b) hitungan baris log terlihat 3 karena log **append-only**
+dan status sempat kureset berkali-kali tanpa menghapus jejak — justru bukti
+jejaknya jujur. Setelah disaring per lembar: tepat 1 baris per ROP.
+
+Pelajaran: **uji yang memancing bug palsu sama merepotkannya dengan bug
+asli** — patokan uji harus ikut diaudit, bukan cuma kodenya.
+
+---
+
 ## 2026-08-14 (lanjutan 3) — Thumbnail lampiran di layar isi lembar
 
 Ekky **dua kali** mengharapkan foto muncul di layar Lembar Bayar. Itu bukan
