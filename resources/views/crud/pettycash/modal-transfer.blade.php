@@ -538,7 +538,7 @@
                     <hr class="pc-source-danger__divider">
                     <form method="POST" action="{{ route('pettycash.source.destroy', ['tab' => $kind]) }}"
                           id="pcSourceDestroyForm"
-                          onsubmit="return confirm('Yakin hapus SEMUA data wallet ini di periode aktif?\n\n• Saldo awal wallet ini akan di-reset\n• Semua transaksi (cash in, cash out, transfer) yg pakai wallet ini akan dihapus\n• Aksi TIDAK bisa di-undo.\n\nLanjut?');">
+                          onsubmit="return confirm('Yakin hapus SEMUA data wallet ini di periode aktif?\n\n• Saldo awal wallet ini akan di-reset\n• Semua transaksi (cash in, cash out, transfer) yg pakai wallet ini akan dihapus\n• TERMASUK transaksi yang dicatat ORANG LAIN di periode ini — bukan hanya milikmu\n• Tidak bisa di-undo dari layar ini\n\nJumlahnya akan disebutkan sesudah dihapus, dan namamu tercatat.\n\nLanjut?');">
                         @csrf
                         <input type="hidden" name="period_id" value="{{ $period->id }}">
                         <input type="hidden" name="tab" value="{{ $kind }}">

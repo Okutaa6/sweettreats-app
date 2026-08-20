@@ -1418,11 +1418,50 @@ class PettyCashController extends Controller
             ->pluck('ref_no')
             ->all();
 
+        // ── Siapa yang menghapus, dan apa saja yang ikut terbawa ─────────────
+        //
+        // ⚠️ Penghapusan dompet menyapu transaksi ORANG LAIN di periode yang
+        // sama, bukan cuma milik yang mengklik. Sebelum ini efeknya SENYAP:
+        // `deleted_by` tak diisi (beda dari destroy() biasa yang mengisinya),
+        // dan pesan suksesnya cuma bilang "berhasil dihapus" tanpa angka.
+        //
+        // Kejadian nyata 15 Agu 2026 19.50.36: pengeluaran Verini Rp21.000 di
+        // periode Sunter lenyap sebagai efek samping pembersihan dompet Bank
+        // BCA. Bukan keputusan siapa pun atas transaksi itu — dia cuma memakai
+        // dompet yang sedang dibereskan. Karena `deleted_by` kosong, tak ada
+        // yang bisa ditunjuk, dan baru ketahuan lima hari kemudian saat
+        // Verini bertanya ke mana catatannya.
+        //
+        // Sekarang: dihitung dulu, dicap namanya, dicatat di audit log, dan
+        // jumlahnya disebut terang-terangan di pesan hasil.
+        $actorId = (string) session('id');
+
+        $terdampak = $trxClass::active()
+            ->forPeriod($period->id)
+            ->where(function ($q) use ($sourceId, $refNos) {
+                $q->where('fund_source_id', $sourceId);
+                if (! empty($refNos)) {
+                    $q->orWhere(fn ($q2) => $q2->whereIn('ref_no', $refNos)->where('is_transfer', 1));
+                }
+            })
+            ->get(['id', 'created_by', 'amount']);
+
+        $jumlah = $terdampak->count();
+        $nilai  = (float) $terdampak->sum('amount');
+
+        $idOrangLain = $terdampak->pluck('created_by')->filter()
+            ->reject(fn ($id) => (string) $id === $actorId)->unique()->values();
+        $namaOrangLain = $idOrangLain->isEmpty() ? collect() : \App\Models\Users::whereIn('id', $idOrangLain)
+            ->pluck('nama');
+        $jumlahOrangLain = $terdampak->filter(
+            fn ($t) => $t->created_by && (string) $t->created_by !== $actorId
+        )->count();
+
         // Step 2: soft-delete semua transaksi yang langsung pakai source ini.
         $trxClass::active()
             ->forPeriod($period->id)
             ->where('fund_source_id', $sourceId)
-            ->update(['deleted_at' => $now]);
+            ->update(['deleted_at' => $now, 'deleted_by' => $actorId]);
 
         // Step 3: soft-delete sibling kaki transfer (source LAIN dgn ref_no sama).
         if (! empty($refNos)) {
@@ -1430,7 +1469,7 @@ class PettyCashController extends Controller
                 ->forPeriod($period->id)
                 ->whereIn('ref_no', $refNos)
                 ->where('is_transfer', 1)
-                ->update(['deleted_at' => $now]);
+                ->update(['deleted_at' => $now, 'deleted_by' => $actorId]);
         }
 
         // Step 4: buang entry source dari snapshot opening, re-sync scalar.
@@ -1441,9 +1480,36 @@ class PettyCashController extends Controller
         $period->opening_balance         = array_sum($snapshot);
         $period->save();
 
+        // Jejak permanen. Modul petty cash tak punya audit log sendiri, padahal
+        // ini aksi paling merusak di layar ini — sekali klik, transaksi sebulan
+        // beberapa orang bisa hilang sekaligus.
+        $namaDompet = optional(FundSource::find($sourceId))->name ?? ('#' . $sourceId);
+        $namaCabang = optional(RawBranch::find($period->raw_branch_id))->name ?? '?';
+        \App\Models\AuditLog::record('delete', sprintf(
+            'Petty cash: dompet "%s" dihapus dari periode %s %d-%02d — %d transaksi (Rp%s) ikut terhapus%s.',
+            $namaDompet, $namaCabang, $period->period_year, $period->period_month,
+            $jumlah, number_format($nilai, 0, ',', '.'),
+            $jumlahOrangLain > 0
+                ? sprintf(', %d di antaranya milik %s', $jumlahOrangLain, $namaOrangLain->implode(', '))
+                : ''
+        ), $period);
+
+        // Pesan hasil menyebut angkanya. Kalau ada milik orang lain, sebut
+        // namanya — supaya yang menghapus tahu harus mengabari siapa, bukan
+        // menemukannya berhari-hari kemudian.
+        $pesan = $jumlah === 0
+            ? sprintf('Dompet "%s" dihapus dari periode ini. Tidak ada transaksi yang terpengaruh.', $namaDompet)
+            : sprintf('Dompet "%s" dihapus — %d transaksi (Rp%s) ikut terhapus.',
+                $namaDompet, $jumlah, number_format($nilai, 0, ',', '.'));
+
+        if ($jumlahOrangLain > 0) {
+            $pesan .= sprintf(' ⚠️ %d di antaranya dicatat oleh %s — tolong kabari.',
+                $jumlahOrangLain, $namaOrangLain->implode(', '));
+        }
+
         return redirect()
             ->route('pettycash', $this->preserveParams($kind))
-            ->with('success', 'Data sumber dana di periode ini berhasil dihapus.');
+            ->with($jumlahOrangLain > 0 ? 'error' : 'success', $pesan);
     }
 
     /**
