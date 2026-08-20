@@ -79,16 +79,16 @@
          dipakai mungkin seminggu sekali — terlalu jarang untuk dihafal,
          terlalu sering untuk dibuatkan dokumen sendiri. --}}
     @php
-        $adaYangDibayar = $dibayar > 0;
         $langkah = [
-            ['n' => 1, 'judul' => 'Cetak jadi PDF',        'ket' => 'tombol di kanan atas, pilih A4',      'selesai' => true],
+            ['n' => 1, 'judul' => 'Cetak jadi PDF',        'ket' => 'tombol di kanan atas, pilih A4',      'selesai' => $lembar->sudahDikirim()],
             ['n' => 2, 'judul' => 'Kirim ke bos',          'ket' => 'satu berkas lewat WhatsApp',          'selesai' => $lembar->sudahDikirim()],
             ['n' => 3, 'judul' => 'Tandai sudah dikirim',  'ket' => 'supaya ketahuan mana yang menggantung', 'selesai' => $lembar->sudahDikirim()],
             ['n' => 4, 'judul' => 'Tandai dibayar',        'ket' => 'centang yang cair, unggah satu bukti', 'selesai' => $dibayar >= $lembar->jumlah_item && $lembar->jumlah_item > 0],
         ];
-        // Langkah aktif = yang pertama belum selesai (langkah 1 selalu dianggap
-        // tersedia, jadi sorotan jatuh ke yang benar-benar menunggu tindakan).
-        $aktif = $lembar->sudahDikirim() ? 4 : 2;
+        // Langkah 1 TIDAK dicentang otomatis: sistem tak tahu apakah lembarnya
+        // benar-benar sudah dicetak. Yang diketahui cuma 'sudah dikirim' —
+        // dan kalau sudah dikirim, berarti dicetak lebih dulu.
+        $aktif = $lembar->sudahDikirim() ? 4 : 1;
     @endphp
     <ol class="rop-langkah">
         @foreach ($langkah as $l)
@@ -155,6 +155,10 @@
                         $path  = $r?->attachment_path;
                         $ext   = $path ? strtolower(pathinfo($path, PATHINFO_EXTENSION)) : null;
                         $beda  = $r && (float) $r->amount !== (float) $item->amount;
+                        // Tujuan boleh dibetulkan hanya selagi lembar belum dikirim
+                        // DAN uangnya belum keluar. Mengubah tujuan setelah transfer
+                        // cuma bikin catatan berbeda dari kenyataan.
+                        $bisaUbahTujuan = ! $lembar->sudahDikirim() && ! $lunas;
                     @endphp
                     <tr>
                         <td class="rop-cek-cell">
@@ -182,17 +186,23 @@
                             @if (! $item->tujuanBernomor())
                                 <div class="rop-mini" style="color:#B5701A">belum ada nomor rekening</div>
                             @endif
-                            @if (! $lembar->sudahDikirim() && $r)
-                                <form method="POST" action="{{ route('finance.rop.lembar.tujuan', $lembar->id) }}"
-                                      style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">
-                                    @csrf
-                                    <input type="hidden" name="rop_id" value="{{ $r->id }}">
+                            {{-- Kolom ini berada DI DALAM form bayar-banyak, dan
+                                 HTML melarang form bersarang — parser browser
+                                 membuang tag form dalamnya, sehingga tombolnya
+                                 malah mengirim form bayar-banyak. Karena itu
+                                 form-nya ditaruh di luar tabel dan medannya
+                                 ditautkan lewat atribut form="" (HTML5). --}}
+                            @if ($bisaUbahTujuan && $r)
+                                <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">
                                     <input type="text" class="rop-input rop-input--mini" name="tujuan"
+                                           form="formTujuan{{ $r->id }}"
                                            value="{{ $item->tujuanBerlaku() }}" maxlength="191"
                                            aria-label="Tujuan transfer {{ $r->number }}">
-                                    <button class="rop-btn rop-btn--ghost"
+                                    <button class="rop-btn rop-btn--ghost" form="formTujuan{{ $r->id }}"
                                             style="min-height:34px;padding:6px 12px;font-size:12.5px">Simpan</button>
-                                </form>
+                                </div>
+                            @elseif ($r && ! $lembar->sudahDikirim() && $lunas)
+                                <div class="rop-mini">terkunci — sudah dibayar</div>
                             @endif
                         </td>
                         <td>{{ \Illuminate\Support\Str::limit($r?->description, 70) }}</td>
@@ -281,6 +291,21 @@
             </div>
         @endif
     </form>
+
+    {{-- Form pelengkap tujuan transfer ditaruh DI LUAR form bayar-banyak.
+         Medannya di dalam tabel ditautkan lewat atribut form="" (HTML5).
+         Form bersarang itu HTML tidak sah: parser browser membuang tag
+         dalamnya, dan tombol Simpan malah mengirim form bayar-banyak. --}}
+    @foreach ($lembar->items as $item)
+        @php $r = $item->rop; $lunas = $r && in_array($r->status, ['dibayar', 'selesai'], true); @endphp
+        @if ($r && ! $lembar->sudahDikirim() && ! $lunas)
+            <form method="POST" id="formTujuan{{ $r->id }}"
+                  action="{{ route('finance.rop.lembar.tujuan', $lembar->id) }}">
+                @csrf
+                <input type="hidden" name="rop_id" value="{{ $r->id }}">
+            </form>
+        @endif
+    @endforeach
 </div>
 @endsection
 

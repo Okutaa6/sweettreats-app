@@ -39,8 +39,9 @@ class RopPratinjauPdf
      * halaman PDF. Array KOSONG artinya "tidak bisa dirender" — pemanggil
      * wajib menyediakan jalan mundur.
      */
-    public function halaman(?string $relAsli): array
+    public function halaman(?string $relAsli, ?int &$totalAsli = null): array
     {
+        $totalAsli = 0;
         if (! $relAsli) {
             return [];
         }
@@ -61,6 +62,12 @@ class RopPratinjauPdf
         $sudah = glob($absDir . '/' . $kunci . '-*.png') ?: [];
         if ($sudah) {
             sort($sudah);
+            // Jumlah halaman ASLI disimpan di berkas pendamping. Tanpa ini,
+            // saat hasil render dipakai ulang kita kehilangan informasi
+            // "PDF-nya sebenarnya berapa halaman" — dan pemotongan jadi
+            // senyap, persis yang tidak boleh terjadi di dokumen pembayaran.
+            $catatan   = $absDir . DIRECTORY_SEPARATOR . $kunci . '-total.txt';
+            $totalAsli = is_file($catatan) ? (int) file_get_contents($catatan) : count($sudah);
             return array_map(fn ($f) => self::DIR . '/' . basename($f), $sudah);
         }
 
@@ -69,20 +76,33 @@ class RopPratinjauPdf
             $im->setResolution(self::DPI, self::DPI);
             $im->readImage($abs);
 
-            $hasil = [];
-            foreach ($im as $i => $halaman) {
-                if ($i >= self::MAKS_HALAMAN) {
-                    break;
-                }
+            // Halaman diambil SATU per SATU lewat setIteratorIndex + getImage().
+            // Sebelumnya dipakai mergeImageLayers() di dalam foreach, dan itu
+            // berbahaya: fungsi itu meratakan SELURUH urutan gambar, bukan
+            // frame yang sedang ditunjuk — untuk PDF berhalaman banyak, tiap
+            // halaman berisiko ditulis sebagai gabungan semua halaman.
+            // getImage() mengembalikan salinan frame ini saja, jadi tak ambigu.
+            $totalAsli = $im->getNumberImages();
+            $jumlah    = min($totalAsli, self::MAKS_HALAMAN);
+            $hasil     = [];
+
+            file_put_contents($absDir . DIRECTORY_SEPARATOR . $kunci . '-total.txt', (string) $totalAsli);
+
+            for ($i = 0; $i < $jumlah; $i++) {
+                $im->setIteratorIndex($i);
+                $frame = $im->getImage();
+
                 // PDF sering transparan; tanpa latar putih hasilnya hitam pekat
                 // saat diratakan.
-                $halaman->setImageFormat('png');
-                $halaman->setImageBackgroundColor('white');
-                $rata = $halaman->mergeImageLayers(Imagick::LAYERMETHOD_FLATTEN);
+                $frame->setImageFormat('png');
+                $frame->setImageBackgroundColor('white');
+                $rata = $frame->flattenImages();
 
                 $nama = sprintf('%s-%02d.png', $kunci, $i + 1);
                 $rata->writeImage($absDir . DIRECTORY_SEPARATOR . $nama);
+
                 $rata->clear();
+                $frame->clear();
 
                 $hasil[] = self::DIR . '/' . $nama;
             }

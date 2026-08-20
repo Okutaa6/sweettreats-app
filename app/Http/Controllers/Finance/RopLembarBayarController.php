@@ -112,7 +112,10 @@ class RopLembarBayarController extends Controller
         // tidak perlu diketik ulang tiap kali ROP itu masuk lembar baru.
         $tujuanSebelumnya = RopPaymentSheetItem::whereIn('rop_id', $layak->pluck('id'))
             ->whereNotNull('tujuan_transfer')
-            ->orderByDesc('id')
+            // MENAIK, bukan menurun: pluck() menimpa kunci yang sama, jadi yang
+            // dibaca terakhir yang menang. Dengan orderByDesc, justru lengkapan
+            // PALING LAMA yang terpakai — kebalikan dari yang dimaksud.
+            ->orderBy('id')
             ->pluck('tujuan_transfer', 'rop_id')
             ->all();
 
@@ -287,7 +290,7 @@ class RopLembarBayarController extends Controller
 
         $lembar = RopPaymentSheet::with([
             'items.rop.requester', 'items.rop.vendor', 'items.rop.costCentre',
-            'pembuat', 'pengirim',
+            'items.pelengkap', 'pembuat', 'pengirim',
         ])->findOrFail($id);
 
         return view('finance.rop.lembar-bayar.show', ['lembar' => $lembar]);
@@ -319,19 +322,27 @@ class RopLembarBayarController extends Controller
             $ext  = $path ? strtolower(pathinfo($path, PATHINFO_EXTENSION)) : null;
 
             if ($path === null || $path === '') {
-                $lampiran[$item->rop_id] = ['jenis' => 'kosong', 'halaman' => [], 'dari_pdf' => false];
+                $lampiran[$item->rop_id] = ['jenis' => 'kosong', 'halaman' => [], 'dari_pdf' => false, 'dipotong' => 0];
                 continue;
             }
 
             if (in_array($ext, ['jpg', 'jpeg', 'png', 'webp', 'gif'], true)) {
-                $lampiran[$item->rop_id] = ['jenis' => 'gambar', 'halaman' => [$path], 'dari_pdf' => false];
+                $lampiran[$item->rop_id] = ['jenis' => 'gambar', 'halaman' => [$path], 'dari_pdf' => false, 'dipotong' => 0];
                 continue;
             }
 
-            $halaman = $this->pratinjau->halaman($path);
+            $totalPdf = 0;
+            $halaman  = $this->pratinjau->halaman($path, $totalPdf);
             $lampiran[$item->rop_id] = $halaman
-                ? ['jenis' => 'gambar', 'halaman' => $halaman, 'dari_pdf' => true]
-                : ['jenis' => 'pdf',    'halaman' => [],       'dari_pdf' => true];
+                ? [
+                    'jenis'    => 'gambar',
+                    'halaman'  => $halaman,
+                    'dari_pdf' => true,
+                    // PDF tebal dipotong di MAKS_HALAMAN. Sisanya TIDAK boleh
+                    // hilang diam-diam dari dokumen pembayaran — disebut di lembar.
+                    'dipotong' => max(0, $totalPdf - count($halaman)),
+                  ]
+                : ['jenis' => 'pdf', 'halaman' => [], 'dari_pdf' => true, 'dipotong' => 0];
         }
 
         return view('finance.rop.lembar-bayar.cetak', [
@@ -377,6 +388,13 @@ class RopLembarBayarController extends Controller
         $item = $lembar->items->firstWhere('rop_id', (int) $data['rop_id']);
         if (! $item) {
             return $this->kembali($lembar->id)->with('error', 'Baris itu tidak ada di lembar ini.');
+        }
+
+        // Uangnya sudah keluar → tujuan dikunci. Mengubahnya setelah transfer
+        // cuma membuat catatan berbeda dari kenyataan.
+        if ($item->rop && in_array($item->rop->status, [RopRequest::STATUS_DIBAYAR, RopRequest::STATUS_SELESAI], true)) {
+            return $this->kembali($lembar->id)->with('error',
+                ($item->rop->number) . ' sudah dibayar — tujuan transfernya tidak bisa diubah lagi.');
         }
 
         $tujuan = trim((string) ($data['tujuan'] ?? ''));

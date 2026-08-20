@@ -179,10 +179,13 @@
     // ikut tercetak sebagai halaman lampiran biasa.
     $pdfTerpisah = [];
     $tanpaLampiran = [];
+    $pdfTerpotong = [];
     foreach ($lembar->items as $it) {
         $j = $lampiran[$it->rop_id]['jenis'] ?? 'kosong';
         if ($j === 'pdf')    $pdfTerpisah[]   = $it->rop?->number;
         if ($j === 'kosong') $tanpaLampiran[] = $it->rop?->number;
+        $sisa = $lampiran[$it->rop_id]['dipotong'] ?? 0;
+        if ($sisa > 0) $pdfTerpotong[] = ($it->rop?->number) . ' (' . $sisa . ' halaman)';
     }
 
     // Satu lampiran bisa jadi BEBERAPA halaman (PDF berhalaman banyak), jadi
@@ -306,7 +309,7 @@
         </div>
     @endif
 
-    @if ($pdfTerpisah || $tanpaLampiran)
+    @if ($pdfTerpisah || $tanpaLampiran || $pdfTerpotong)
         <div class="awas">
             {{-- Jalan mundur yang jarang terpakai: PDF NORMALNYA ikut tercetak
                  sebagai halaman lampiran (dirender jadi gambar). Blok ini cuma
@@ -318,8 +321,13 @@
                     jadi harus disertakan sebagai kiriman tersendiri:
                     {{ implode(', ', array_filter($pdfTerpisah)) }}.</div>
             @endif
+            @if ($pdfTerpotong)
+                <b style="{{ $pdfTerpisah ? 'margin-top:6px' : '' }}">Lampiran PDF terlalu panjang</b>
+                <div>Hanya {{ \App\Services\RopPratinjauPdf::MAKS_HALAMAN }} halaman pertama yang ditempel.
+                    Sisanya perlu dikirim terpisah: {{ implode(', ', $pdfTerpotong) }}.</div>
+            @endif
             @if ($tanpaLampiran)
-                <b style="{{ $pdfTerpisah ? 'margin-top:6px' : '' }}">Tanpa lampiran</b>
+                <b style="{{ ($pdfTerpisah || $pdfTerpotong) ? 'margin-top:6px' : '' }}">Tanpa lampiran</b>
                 <div>Permintaan berikut tidak menyertakan penawaran/invoice:
                     {{ implode(', ', array_filter($tanpaLampiran)) }}.</div>
             @endif

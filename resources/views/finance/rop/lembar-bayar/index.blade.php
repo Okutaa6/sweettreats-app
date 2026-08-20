@@ -111,7 +111,7 @@
                              melengkapinya di sini — di lembar, bukan di pengajuan:
                              pengajuan terkunci setelah dikirim, dan menambal
                              tulisan pengaju bikin jejaknya berbohong. --}}
-                        @php $bernomor = preg_match('/\d[\d\s.\-]{5,}\d/', $r->namaPenerima()); @endphp
+                        @php $bernomor = \App\Models\RopPaymentSheetItem::terlihatBernomor($r->namaPenerima()); @endphp
                         <td>
                             <span class="rop-rek">{{ $r->namaPenerima() }}</span>
                             @unless ($bernomor)

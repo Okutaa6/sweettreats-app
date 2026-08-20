@@ -47,10 +47,20 @@ class RopPaymentSheetItem extends Model
         return $lengkap !== '' ? $lengkap : (string) ($this->rop?->namaPenerima() ?: '-');
     }
 
-    /** True kalau tujuan yang berlaku memuat rentetan angka yang masuk akal sebagai rekening. */
+    /**
+     * SATU-SATUNYA definisi "teks ini memuat nomor rekening". Dipakai model,
+     * layar pilih, dan layar isi lembar — jangan menyalin regexnya ke view,
+     * karena dua salinan pasti berbeda cepat atau lambat.
+     */
+    public static function terlihatBernomor(?string $teks): bool
+    {
+        return (bool) preg_match('/\d[\d\s.\-]{5,}\d/', (string) $teks);
+    }
+
+    /** True kalau tujuan yang BERLAKU untuk baris ini memuat nomor rekening. */
     public function tujuanBernomor(): bool
     {
-        return (bool) preg_match('/\d[\d\s.\-]{5,}\d/', $this->tujuanBerlaku());
+        return self::terlihatBernomor($this->tujuanBerlaku());
     }
 
     /** True kalau yang tercetak adalah tulisan Finance, bukan tulisan pengaju. */
