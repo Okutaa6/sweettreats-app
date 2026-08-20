@@ -22,6 +22,10 @@
     // Window edit/hapus: Super Admin bebas; user biasa dibatasi N jam.
     $pcIsSuperAdmin  = isSuperAdmin();
     $pcEditWindowHrs = \App\Models\PettyCashTransaction::EDIT_WINDOW_HOURS;
+    // Chip "dicatat oleh" — hanya aktif saat ada >1 pencatat berbeda di
+    // periode ini (mis. rolling/backup). Default aman kalau tak dikirim.
+    $recorderNames = $recorderNames ?? collect();
+    $showRecorder  = $showRecorder ?? false;
 @endphp
 @forelse($rowsInput as $r)
     @php
@@ -87,21 +91,41 @@
             <strong>{{ $r->description }}</strong>
             @if(!empty($r->category) && isset($categoryMap[$r->category]))
                 @php
-                    // Pinjaman + arah cash-in = pengembalian (uang balik) →
-                    // tampil "Pinjaman Lunas". Peminjaman awal (cash-out) tetap
-                    // pill "Pinjaman" biasa.
+                    // Baris pinjaman punya 3 varian tampilan:
+                    //   - cash-in (pengembalian)             → pill "Pengembalian"
+                    //   - cash-out dengan status (loan_status) → pill "Pinjaman"
+                    //       + status LUNAS / SEBAGIAN / BELUM LUNAS + sisa
+                    //   - kategori lain                       → pill kategori biasa
                     $isLoanReturn = $r->category === 'pinjaman' && ($r->cash_in ?? 0) > 0;
                 @endphp
                 @if($isLoanReturn)
-                    <span class="pc-pill-category pc-pill-category--lunas">Pinjaman Lunas</span>
+                    <span class="pc-pill-category pc-pill-category--lunas">Pengembalian</span>
                 @else
                     <span class="pc-pill-category pc-pill-category--{{ $r->category }}">{{ $categoryMap[$r->category] }}</span>
+                    @if(!empty($r->loan_status))
+                        @if($r->loan_status === 'lunas')
+                            <span class="pc-pill-loan pc-pill-loan--lunas">Lunas</span>
+                        @elseif($r->loan_status === 'sebagian')
+                            <span class="pc-pill-loan pc-pill-loan--sebagian"
+                                  title="Sudah dikembalikan Rp {{ number_format($r->loan_paid, 0, ',', '.') }} dari Rp {{ number_format($r->cash_out, 0, ',', '.') }}">
+                                Sebagian · sisa Rp {{ number_format($r->loan_sisa, 0, ',', '.') }}
+                            </span>
+                        @else
+                            <span class="pc-pill-loan pc-pill-loan--belum">Belum Lunas</span>
+                        @endif
+                    @endif
+                @endif
+                @if(!empty($r->borrower_name) && ! $isLoanReturn)
+                    <span class="pc-loan-borrower"><i class="fa fa-user"></i>{{ $r->borrower_name }}</span>
                 @endif
             @endif
             @if($r->is_topup)
                 <span class="pc-pill-topup">top up</span>
             @elseif($r->is_transfer)
                 <span class="pc-pill-transfer">{{ $pillLabel }}</span>
+            @endif
+            @if($showRecorder && !empty($r->created_by) && !empty($recorderNames[$r->created_by]))
+                <span class="pc-pill-recorder" title="Dicatat oleh {{ $recorderNames[$r->created_by] }}"><i class="fa fa-user-edit"></i>{{ $recorderNames[$r->created_by] }}</span>
             @endif
             @if(!empty($r->edited_at))
                 <span class="pc-pill-edited" title="Terakhir diedit {{ \Carbon\Carbon::parse($r->edited_at)->translatedFormat('d M Y H:i') }}">diedit</span>
@@ -175,9 +199,11 @@
                                 data-trx-amount="{{ $r->cash_out }}"
                                 data-trx-description="{{ $r->description }}"
                                 data-trx-category="{{ $r->category }}"
+                                data-trx-borrower="{{ $r->borrower_name }}"
                                 data-trx-source-id="{{ $r->source_id }}"
                                 data-trx-source-name="{{ $r->source_name }}"
                                 data-trx-attachment="{{ !empty($r->attachment_path) ? asset($r->attachment_path) : '' }}"
+                                @unless($pcIsSuperAdmin)@if(!empty($r->created_at))data-trx-edit-deadline="{{ \Carbon\Carbon::parse($r->created_at)->addHours($pcEditWindowHrs)->timestamp }}"@endif @endunless
                                 title="Edit transaksi ({{ $windowHint }})">
                             <i class="fa fa-pen"></i>
                         </button>
@@ -187,6 +213,7 @@
                               onsubmit="return confirm({{ \Illuminate\Support\Js::from($delMsg) }})">
                             @csrf
                             @method('DELETE')
+                            @include('crud.pettycash._filter_hidden')
                             @if(!session('raw_branch_id') && $branchId)
                                 <input type="hidden" name="branch" value="{{ $branchId }}">
                             @endif
@@ -235,6 +262,10 @@
         @endforeach
     @endif
 @empty
+    {{-- Kalau ada baris "dompet operator lain" yang dirender di atas (shared
+         list), JANGAN tampilkan empty-state besar — biar tidak kontradiktif
+         (baris di atas + "belum ada pengeluaran"). --}}
+    @unless($suppressEmpty ?? false)
     <tr>
         <td colspan="{{ $showTrxActions ? 7 : 6 }}">
             <div class="pc-empty-state">
@@ -251,4 +282,5 @@
             </div>
         </td>
     </tr>
+    @endunless
 @endforelse

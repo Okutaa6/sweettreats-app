@@ -48,17 +48,35 @@ class PettyCashController extends Controller
     private function defaultFloat(string $kind): int   { return self::DEFAULT_FLOAT; }
 
     /**
+     * Cabang efektif (rolling-aware) untuk user yang TERKUNCI cabang.
+     *   - Admin / canSeeAllBranches (tak punya session lock) → null (dropdown jalan).
+     *   - Terkunci + punya posisi aktif hari ini → cabang rolling/home dari
+     *     sys_user_position (rolling menang selama window, auto-revert sesudahnya).
+     *   - Terkunci tanpa posisi terkonfirmasi → fallback session('raw_branch_id')
+     *     (perilaku lama) supaya user tanpa checklist position tetap jalan.
+     * Satu sumber kebenaran untuk resolve DAN guard mutasi — keduanya harus
+     * memakai ini supaya user rolling tidak kena 403 saat mengubah data.
+     */
+    private function lockedBranchId(): ?string
+    {
+        $session = session('raw_branch_id');
+        if (! $session) return null;                 // admin → biarkan dropdown
+        $eff = positionBranchOn((string) session('id'), \Carbon\Carbon::today());
+        return $eff ?: (string) $session;            // fallback aman ke home
+    }
+
+    /**
      * Resolve branch yang sedang diakses:
-     *   - Sales (punya session('raw_branch_id')) → selalu cabang dia.
+     *   - User terkunci cabang → cabang efektif rolling-aware (lockedBranchId).
      *   - Admin → ambil dari ?branch=, validasi, default ke cabang pertama
      *     kalau tidak ada / invalid.
      * Return null kalau di DB belum ada cabang sama sekali (case ekstrem).
      */
     private function resolveBranchId(Request $request): ?string
     {
-        $session = session('raw_branch_id');
-        if ($session) {
-            return (string) $session;
+        $locked = $this->lockedBranchId();
+        if ($locked) {
+            return $locked;
         }
         if (! canSeeAllBranches()) {
             abort(403, 'Anda belum di-assign ke cabang manapun.');
@@ -96,6 +114,23 @@ class PettyCashController extends Controller
         $params = ['tab' => $kind];
         if (! session('raw_branch_id') && request()->filled('branch')) {
             $params['branch'] = request()->get('branch');
+        }
+        // Pertahankan filter aktif (kategori, cari, wallet, rentang tanggal,
+        // bulan/tahun) supaya setelah mutasi (pengeluaran, top up, transfer,
+        // edit, hapus) filter TIDAK ter-reset sendiri. Nilai dibawa lewat
+        // hidden input di tiap form (_filter_hidden.blade.php); filter hanya
+        // hilang saat user hapus manual.
+        foreach (['start_date', 'end_date', 'bulan', 'tahun', 'fund_source_id', 'q'] as $key) {
+            if (request()->filled($key)) {
+                $params[$key] = request()->get($key);
+            }
+        }
+        $cats = array_values(array_filter(
+            (array) request('categories', []),
+            fn ($c) => $c !== null && $c !== '',
+        ));
+        if (! empty($cats)) {
+            $params['categories'] = $cats;
         }
         return $params;
     }
@@ -236,9 +271,9 @@ class PettyCashController extends Controller
         // pre-fill input account di modal top-up & untuk tampil di card.
         $branchAccountMap = FundSourceBranchAccount::mapForBranch($branchId);
 
-        // Summary cards & source breakdown tetap mencerminkan SELURUH periode
+        // Summary cards & source breakdown mencerminkan SELURUH transaksi periode
         // — filter tanggal/kategori/wallet/search cuma menyempitkan baris tabel.
-        [$rows, $summary, $sourceBalances] =
+        [$rows, $summary, $sourceBalances, $openLoans] =
             $this->buildRows($period, $transactions, $fundSources, $startDate, $endDate, $branchAccountMap, $categories, $search, $fundSourceId);
 
         // Kategori aktif + label untuk strip "filter aktif" (buildRows sengaja
@@ -248,6 +283,14 @@ class PettyCashController extends Controller
             fn($c) => $categoryOptions[$c] ?? $c,
             $categories,
         );
+
+        // Chip "dicatat oleh": peta id→nama pencatat, tampil bila ada >1 pencatat
+        // berbeda di periode ini (mis. operator backup mencatat bareng FO resident).
+        $nameIds = collect($rows)->pluck('created_by')->filter()->unique()->values();
+        $recorderNames = $nameIds->isEmpty()
+            ? collect()
+            : \App\Models\Users::whereIn('id', $nameIds)->pluck('nama', 'id');
+        $showRecorder = $nameIds->count() > 1;
 
         $bulanLabel = [
             1 => 'Januari',  2 => 'Februari', 3 => 'Maret',
@@ -260,6 +303,7 @@ class PettyCashController extends Controller
         // Role Finance view-only: ikut path read-only yang sudah ada supaya
         // semua tombol write otomatis hilang di view, modal, dan filter.
         $isFinanceViewOnly = ! canEditPettyCash();
+        // Read-only bila: periode ditutup / bukan bulan ini / role Finance.
         $isReadOnly        = (bool) $period->is_closed || ! $isCurrentMonth || $isFinanceViewOnly;
 
         // Edit & hapus transaksi terbuka untuk semua role penulis (Admin
@@ -286,10 +330,17 @@ class PettyCashController extends Controller
         $requesterName = (string) (\App\Models\Users::whereKey(session('id'))->value('nama') ?? '');
 
         // Status pengajuan top-up Sales untuk cabang aktif: kalau ada yang
-        // pending, _summary_cards bisa tampil badge "menunggu Finance".
-        $pendingTopupCount = $branchId
-            ? \App\Models\TopupRequest::pending()->forBranch($branchId)->count()
-            : 0;
+        // pending, _summary_cards tampil badge "menunggu Finance" yang bisa
+        // diklik → modal rincian pengajuan (read-only). Ambil koleksi lengkap
+        // (bukan cuma count) supaya modal punya detail nominal/wallet/alasan.
+        $pendingTopups = $branchId
+            ? \App\Models\TopupRequest::with('fundSource')
+                ->pending()->forBranch($branchId)
+                ->orderByDesc('is_urgent')
+                ->orderBy('requested_at', 'asc')
+                ->get()
+            : collect();
+        $pendingTopupCount = $pendingTopups->count();
 
         // Jejak transaksi (tab "Riwayat"): transaksi periode ini yang pernah
         // diedit (masih aktif, edited_at != NULL) atau dihapus (deleted_at !=
@@ -328,15 +379,15 @@ class PettyCashController extends Controller
         });
 
         return view('crud.pettycash.index', compact(
-            'period', 'rows', 'summary', 'sourceBalances',
+            'period', 'rows', 'summary', 'sourceBalances', 'openLoans',
             'year', 'month', 'bulanLabel',
             'startDate', 'endDate', 'monthStartStr', 'monthEndStr',
             'search', 'categories', 'categoryOptions', 'fundSourceId',
             'isCurrentMonth', 'isReadOnly', 'isFinanceViewOnly', 'showTrxActions',
             'kind', 'tabs', 'fundSources', 'fundSourcesGrouped',
             'branches', 'activeBranch', 'branchId', 'sessionBranch',
-            'branchAccountMap', 'pendingTopupCount', 'requesterName',
-            'rowsRiwayat'
+            'branchAccountMap', 'pendingTopupCount', 'pendingTopups', 'requesterName',
+            'rowsRiwayat', 'recorderNames', 'showRecorder'
         ));
     }
 
@@ -395,7 +446,7 @@ class PettyCashController extends Controller
             ? (string) FundSource::whereKey($fundSourceId)->value('name')
             : '';
 
-        // Tarik HANYA top up & pengeluaran (skip transfer).
+        // Tarik HANYA top up & pengeluaran (skip transfer) — catatan penuh cabang.
         $transactions = $trxClass::active()
             ->with('fundSource')
             ->forPeriod($period->id)
@@ -619,6 +670,9 @@ class PettyCashController extends Controller
             'trx_date'       => 'required|date',
             'description'    => 'required|string|max:255',
             'category'       => 'required|in:' . implode(',', $categoryKeys),
+            // Peminjam wajib khusus kategori 'pinjaman' — supaya bisa dilacak
+            // per-orang & dilunasi (settles_transaction_id). Kategori lain: NULL.
+            'borrower_name'  => 'required_if:category,pinjaman|nullable|string|max:120',
             'amount'         => 'required|numeric|min:1|max:' . \App\Models\PettyCashTransaction::MAX_AMOUNT,
             'fund_source_id' => 'required|integer|exists:fund_sources,id',
             'ref_no'         => 'nullable|string|max:50',
@@ -650,6 +704,9 @@ class PettyCashController extends Controller
             'trx_date'        => $data['trx_date'],
             'description'     => $data['description'],
             'category'        => $data['category'],
+            'borrower_name'   => $data['category'] === 'pinjaman'
+                ? trim((string) ($data['borrower_name'] ?? '')) ?: null
+                : null,
             'direction'       => $trxClass::DIR_OUT,
             'amount'          => $data['amount'],
             'fund_source_id'  => $data['fund_source_id'],
@@ -668,9 +725,10 @@ class PettyCashController extends Controller
      * POST /pettycash/loan-return?tab={kind} → catat pengembalian pinjaman.
      *
      * Uang yang dulu dipinjam (pengeluaran kategori 'pinjaman') dikembalikan
-     * ke wallet. Dicatat sebagai KAS MASUK berkategori 'pinjaman' (is_topup=0),
+     * ke wallet. Dicatat sebagai KAS MASUK berkategori 'pinjaman' (is_topup=0)
+     * yang MENUNJUK ke baris pinjaman aslinya lewat settles_transaction_id,
      * sehingga otomatis:
-     *   - piutang wallet (Σ pinjaman keluar − Σ pinjaman masuk) berkurang;
+     *   - status pinjaman itu berubah (LUNAS / SEBAGIAN) + sisa terhitung;
      *   - saldo fisik wallet naik lagi (uang balik ke laci);
      *   - TIDAK dihitung sebagai "Total top up" — ini bukan dana baru, cuma
      *     uang petty cash sendiri yang balik.
@@ -689,11 +747,12 @@ class PettyCashController extends Controller
 
         $tableName = (new $periodClass)->getTable();
         $data = $request->validate([
-            'period_id'      => 'required|integer|exists:' . $tableName . ',id',
-            'trx_date'       => 'required|date',
-            'description'    => 'nullable|string|max:255',
-            'amount'         => 'required|numeric|min:1|max:' . \App\Models\PettyCashTransaction::MAX_AMOUNT,
-            'fund_source_id' => 'required|integer|exists:fund_sources,id',
+            'period_id'              => 'required|integer|exists:' . $tableName . ',id',
+            'trx_date'               => 'required|date',
+            'description'            => 'nullable|string|max:255',
+            'amount'                 => 'required|numeric|min:1|max:' . \App\Models\PettyCashTransaction::MAX_AMOUNT,
+            // Pinjaman spesifik yang dilunasi (baris cash-out kategori pinjaman).
+            'settles_transaction_id' => 'required|integer',
         ], [
             'amount.max' => 'Nominal maksimal Rp 50.000.000.',
         ]);
@@ -702,33 +761,53 @@ class PettyCashController extends Controller
         $this->abortIfReadOnly($period);
         $this->abortIfBranchMismatch($request, $period);
 
-        // Tidak boleh mengembalikan lebih dari piutang wallet ini supaya
-        // piutang tidak jadi negatif.
-        $piutang = $this->computeSourcePiutang($period, (int) $data['fund_source_id'], $trxClass);
-        if ($piutang <= 0) {
+        // Ambil baris pinjaman aslinya & pastikan valid: masih aktif, di periode
+        // ini, benar-benar pengeluaran pinjaman (cash-out kategori pinjaman).
+        $loan = $trxClass::active()
+            ->where('id', (int) $data['settles_transaction_id'])
+            ->where('period_id', $period->id)
+            ->where('category', 'pinjaman')
+            ->where('direction', $trxClass::DIR_OUT)
+            ->first();
+        if (! $loan) {
             return redirect()
                 ->route('pettycash', $this->preserveParams($kind))
-                ->with('error', 'Wallet ini tidak punya piutang pinjaman yang belum kembali.');
-        }
-        if ((float) $data['amount'] > $piutang + 0.001) {
-            return redirect()
-                ->route('pettycash', $this->preserveParams($kind))
-                ->with('error', 'Jumlah pengembalian melebihi piutang wallet ini (Rp ' . number_format($piutang, 0, ',', '.') . ').');
+                ->with('error', 'Pinjaman yang dipilih tidak ditemukan / sudah dihapus.');
         }
 
-        $note = trim((string) ($data['description'] ?? ''));
-        $description = 'Pengembalian pinjaman' . ($note !== '' ? ': ' . $note : '');
+        // Tidak boleh mengembalikan lebih dari sisa pinjaman ini.
+        $sisa = $this->computeLoanSisa($loan, $trxClass);
+        if ($sisa <= 0) {
+            return redirect()
+                ->route('pettycash', $this->preserveParams($kind))
+                ->with('error', 'Pinjaman ini sudah lunas.');
+        }
+        if ((float) $data['amount'] > $sisa + 0.001) {
+            return redirect()
+                ->route('pettycash', $this->preserveParams($kind))
+                ->with('error', 'Jumlah pengembalian melebihi sisa pinjaman ini (Rp ' . number_format($sisa, 0, ',', '.') . ').');
+        }
+
+        // Keterangan: sebutkan peminjam (dari pinjaman asli) + catatan opsional.
+        $note  = trim((string) ($data['description'] ?? ''));
+        $who   = trim((string) ($loan->borrower_name ?? ''));
+        $description = 'Pengembalian pinjaman'
+            . ($who !== '' ? ': ' . $who : '')
+            . ($note !== '' ? ' — ' . $note : '');
 
         $trxClass::create([
-            'period_id'       => $period->id,
-            'trx_date'        => $data['trx_date'],
-            'description'     => $description,
-            'category'        => 'pinjaman',
-            'direction'       => $trxClass::DIR_IN,
-            'amount'          => $data['amount'],
-            'fund_source_id'  => $data['fund_source_id'],
-            'is_topup'        => 0,
-            'created_by'      => session('id'),
+            'period_id'              => $period->id,
+            'trx_date'               => $data['trx_date'],
+            'description'            => $description,
+            'category'               => 'pinjaman',
+            'borrower_name'          => $loan->borrower_name,
+            'settles_transaction_id' => $loan->id,
+            'direction'              => $trxClass::DIR_IN,
+            'amount'                 => $data['amount'],
+            // Pengembalian selalu masuk ke wallet asal pinjaman.
+            'fund_source_id'         => $loan->fund_source_id,
+            'is_topup'               => 0,
+            'created_by'             => session('id'),
         ]);
 
         return redirect()
@@ -818,10 +897,12 @@ class PettyCashController extends Controller
     public function requestTopup(Request $request)
     {
         $this->requireWriteAccess();
-        $sessionBranch = session('raw_branch_id');
+        // Cabang efektif rolling-aware — kalau user sedang rolling, pengajuan
+        // top-up ikut ke cabang rolling, bukan cabang home.
+        $lockedBranch = $this->lockedBranchId();
 
-        if ($sessionBranch) {
-            $branchId = (string) $sessionBranch;
+        if ($lockedBranch) {
+            $branchId = $lockedBranch;
         } elseif (canSeeAllBranches()) {
             $submitted = (string) $request->input('branch_id', '');
             if ($submitted === '' || ! RawBranch::whereKey($submitted)->exists()) {
@@ -1059,7 +1140,7 @@ class PettyCashController extends Controller
 
         $fromSource = FundSource::findOrFail($data['from_source_id']);
         $toSource   = FundSource::findOrFail($data['to_source_id']);
-        $ref        = 'TRF-' . $period->id . '-' . time() . '-' . random_int(100, 999);
+        $ref        = 'TRF-' . $period->id . '-' . now()->format('YmdHis') . '-' . \Illuminate\Support\Str::random(8);
         $note       = trim((string) ($data['description'] ?? ''));
 
         // Pilih verb sesuai semantik arah dana:
@@ -1212,10 +1293,33 @@ class PettyCashController extends Controller
             'amount'            => 'required|numeric|min:1',
             'description'       => 'required|string|max:255',
             'category'          => 'required|in:' . implode(',', $categoryKeys),
+            'borrower_name'     => 'required_if:category,pinjaman|nullable|string|max:120',
             // Bukti opsional — sama seperti saat input (gambar / PDF, maks 5MB).
             'attachment'        => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf|max:5120',
             'remove_attachment' => 'nullable|in:1',
         ]);
+
+        // Guard pinjaman: nominal tidak boleh turun di bawah yang sudah dilunasi
+        // (bikin sisa negatif & status kacau). Juga cegah pindah kategori keluar
+        // dari 'pinjaman' bila sudah ada pelunasan menempel ke baris ini.
+        if ($trx->category === 'pinjaman') {
+            $paid = $this->computeLoanPaid($trx, $trxClass);
+            if ($paid > 0) {
+                if ($data['category'] !== 'pinjaman') {
+                    return redirect()
+                        ->route('pettycash', $this->preserveParams($kind))
+                        ->with('error', 'Pinjaman ini sudah punya pengembalian — kategori tidak bisa diubah. Hapus pengembalian dulu bila perlu.');
+                }
+                if ((float) $data['amount'] + 0.001 < $paid) {
+                    return redirect()
+                        ->route('pettycash', $this->preserveParams($kind))
+                        ->with('error', sprintf(
+                            'Nominal pinjaman tidak boleh lebih kecil dari yang sudah dikembalikan (Rp %s).',
+                            number_format($paid, 0, ',', '.'),
+                        ));
+                }
+            }
+        }
 
         // Guard tambahan: nominal baru tidak boleh bikin saldo wallet asal jadi
         // negatif. Kasus: user input Rp 100k tadi, mau ubah ke Rp 500k tapi saldo
@@ -1253,6 +1357,9 @@ class PettyCashController extends Controller
             'amount'          => $data['amount'],
             'description'     => $data['description'],
             'category'        => $data['category'],
+            'borrower_name'   => $data['category'] === 'pinjaman'
+                ? trim((string) ($data['borrower_name'] ?? '')) ?: null
+                : null,
             'attachment_path' => $attachmentPath,
             'updated_by'      => session('id'),
             'edited_at'       => now(),
@@ -1351,7 +1458,9 @@ class PettyCashController extends Controller
 
         $period = $periodClass::findOrFail($periodId);
         $this->abortIfBranchMismatch($request, $period);
+
         if (! $period->is_closed) {
+            // Tutup periode = kunci total fisik kas cabang.
             $net = (float) $trxClass::netForPeriod($period->id);
             $period->update([
                 'closing_balance' => (float) $period->opening_balance + $net,
@@ -1362,6 +1471,91 @@ class PettyCashController extends Controller
         return redirect()
             ->route('pettycash', $this->preserveParams($kind))
             ->with('success', 'Periode ditutup.');
+    }
+
+    /**
+     * POST /pettycash/period/{id}/move
+     *
+     * Pindahkan (atau TUKAR) periode kas kecil ke cabang lain — untuk
+     * membereskan salah cabang akibat rolling (mis. Della home Cinere yang
+     * rolling ke Sunter tapi periode + pengeluarannya masih tercatat Cinere).
+     *
+     * Karena semua transaksi menempel ke periode via period_id, cukup ubah
+     * raw_branch_id periode → seluruh ledger (pengeluaran + rincian saldo)
+     * ikut pindah, tanpa copy/hapus baris.
+     *
+     *   - Cabang tujuan BELUM punya periode bulan ini → re-point 1 arah.
+     *   - Cabang tujuan SUDAH punya periode (belum ditutup) → TUKAR cabang
+     *     kedua periode (swap). Karena ada unique key
+     *     (period_year, period_month, raw_branch_id), parkir sementara
+     *     period_year salah satu periode ke sentinel supaya update di tengah
+     *     tidak tabrakan (raw_branch_id = FK → tak bisa pakai nilai palsu).
+     *
+     * Guard: hanya Super Admin, periode asal (dan tujuan bila ada) belum
+     * ditutup, cabang tujuan valid & ≠ cabang asal.
+     */
+    public function movePeriod(Request $request, $periodId)
+    {
+        $this->requireWriteAccess();
+        if (! isSuperAdmin()) {
+            abort(403, 'Hanya Super Admin yang bisa memindahkan periode antar cabang.');
+        }
+
+        $kind   = $this->kind($request);
+        $period = PettyCashPeriod::findOrFail($periodId);
+
+        if ($period->is_closed) {
+            abort(403, 'Periode sudah ditutup — tidak bisa dipindah.');
+        }
+
+        $data = $request->validate([
+            'target_branch_id' => 'required|string|exists:raw_branch,id',
+        ]);
+        $target = (string) $data['target_branch_id'];
+        $source = (string) $period->raw_branch_id;
+
+        if ($target === $source) {
+            return redirect()
+                ->route('pettycash', $this->preserveParams($kind))
+                ->with('error', 'Cabang tujuan sama dengan cabang asal.');
+        }
+
+        // Periode cabang tujuan di bulan yang sama (kalau sudah ada).
+        $targetPeriod = PettyCashPeriod::where('period_year', $period->period_year)
+            ->where('period_month', $period->period_month)
+            ->where('raw_branch_id', $target)
+            ->first();
+
+        if ($targetPeriod && $targetPeriod->is_closed) {
+            abort(403, 'Periode cabang tujuan sudah ditutup — tidak bisa ditukar.');
+        }
+
+        DB::transaction(function () use ($period, $targetPeriod, $source, $target) {
+            if (! $targetPeriod) {
+                // Re-point 1 arah: seluruh transaksi ikut via period_id.
+                $period->update(['raw_branch_id' => $target]);
+                return;
+            }
+            // SWAP dua periode. Parkir period_year periode asal ke sentinel
+            // dulu supaya update di tengah tidak melanggar unique
+            // (period_year, period_month, raw_branch_id). Semua dalam 1
+            // transaksi → state antara tidak terlihat dari luar.
+            $origYear = $period->period_year;
+            $period->update(['period_year' => 9999]);
+            $targetPeriod->update(['raw_branch_id' => $source]);
+            $period->update(['raw_branch_id' => $target, 'period_year' => $origYear]);
+        });
+
+        // Redirect ke cabang tujuan supaya Super Admin langsung melihat data
+        // yang sudah pindah (branch dibawa via query — admin tak ter-lock).
+        $params           = $this->preserveParams($kind);
+        $params['branch'] = $target;
+
+        $branchName = optional(RawBranch::find($target))->name ?? 'cabang tujuan';
+
+        return redirect()
+            ->route('pettycash', $params)
+            ->with('success', "Periode berhasil dipindahkan ke {$branchName}.");
     }
 
     /* ───────── Internal ───────── */
@@ -1473,6 +1667,43 @@ class PettyCashController extends Controller
             }
         }
 
+        // Pra-pass pinjaman: (a) petakan total pelunasan per pinjaman (dari
+        // baris cash-in yang menunjuk settles_transaction_id) untuk menghitung
+        // status/sisa tiap baris pinjaman; (b) kumpulkan daftar pinjaman yang
+        // masih terbuka (sisa>0) untuk modal "Catat Pengembalian". Keduanya
+        // dihitung dari SELURUH transaksi periode — TIDAK terpengaruh filter
+        // tabel (tanggal/kategori/wallet/search) supaya status & daftar akurat.
+        $settlementByLoan = [];
+        foreach ($transactions as $t) {
+            if (($t->category ?? null) === 'pinjaman'
+                && $t->direction === 'in'
+                && ! empty($t->settles_transaction_id)) {
+                $lid = (int) $t->settles_transaction_id;
+                $settlementByLoan[$lid] = ($settlementByLoan[$lid] ?? 0.0) + (float) $t->amount;
+            }
+        }
+        $openLoans = [];
+        foreach ($transactions as $t) {
+            if (($t->category ?? null) === 'pinjaman' && $t->direction === 'out') {
+                $amt  = (float) $t->amount;
+                $paid = (float) ($settlementByLoan[$t->id] ?? 0.0);
+                $sisa = $amt - $paid;
+                if ($sisa > 0.001) {
+                    $openLoans[] = (object) [
+                        'id'          => $t->id,
+                        'borrower'    => $t->borrower_name,
+                        'description' => $t->description,
+                        'amount'      => $amt,
+                        'paid'        => $paid,
+                        'sisa'        => $sisa,
+                        'trx_date'    => $t->trx_date,
+                        'source_id'   => $t->fund_source_id,
+                        'source_name' => $t->fundSource?->name,
+                    ];
+                }
+            }
+        }
+
         $rows = [];
         foreach ($transactions as $t) {
             $isTransfer = (bool) ($t->is_transfer ?? false);
@@ -1546,12 +1777,30 @@ class PettyCashController extends Controller
             if ($search !== '' && stripos((string) $t->description, $search) === false) continue;
             if ($fundSourceId > 0 && (int) $t->fund_source_id !== $fundSourceId) continue;
 
+            // Status pinjaman (hanya untuk baris pengeluaran pinjaman): LUNAS
+            // bila total pengembalian ≥ nominal, SEBAGIAN bila ada tapi kurang,
+            // BELUM bila belum ada pengembalian sama sekali.
+            $isLoanOut  = ($rowCategory === 'pinjaman') && $cashOut > 0;
+            $loanPaid   = $isLoanOut ? (float) ($settlementByLoan[$t->id] ?? 0.0) : 0.0;
+            $loanSisa   = $isLoanOut ? max(0.0, $cashOut - $loanPaid) : 0.0;
+            $loanStatus = null;
+            if ($isLoanOut) {
+                if ($loanPaid <= 0.001)                 $loanStatus = 'belum';
+                elseif ($loanPaid + 0.001 >= $cashOut)  $loanStatus = 'lunas';
+                else                                    $loanStatus = 'sebagian';
+            }
+
             $fs = $t->fundSource;
             $rows[] = (object) [
                 'id'              => $t->id,
                 'trx_date'        => $t->trx_date,
                 'description'     => $t->description,
                 'category'        => $t->category ?? null,
+                'borrower_name'   => $t->borrower_name ?? null,
+                'settles_transaction_id' => $t->settles_transaction_id ?? null,
+                'loan_status'     => $loanStatus,
+                'loan_paid'       => $loanPaid,
+                'loan_sisa'       => $loanSisa,
                 'is_topup'        => (bool) $t->is_topup,
                 'is_transfer'     => $isTransfer,
                 'is_composite'    => false,
@@ -1567,6 +1816,7 @@ class PettyCashController extends Controller
                 'source_logo'     => $fs?->logo_url,
                 'source_id'       => $fs?->id,
                 'created_at'      => $t->created_at,
+                'created_by'      => $t->created_by,
                 'edited_at'       => $t->edited_at ?? null,
                 'children'        => [],
             ];
@@ -1611,7 +1861,7 @@ class PettyCashController extends Controller
             ]);
         }
 
-        return [$rows, $summary, $sourceBalances];
+        return [$rows, $summary, $sourceBalances, $openLoans];
     }
 
     /**
@@ -1740,18 +1990,19 @@ class PettyCashController extends Controller
      */
     private function abortIfBranchMismatch(Request $request, $period): void
     {
-        $session = session('raw_branch_id');
-        if ($session && (string) $period->raw_branch_id !== (string) $session) {
+        // Pakai cabang efektif rolling-aware yang SAMA dengan resolveBranchId,
+        // supaya user yang sedang rolling boleh mengubah data cabang rolling-nya
+        // (bukan cuma cabang home dari session).
+        $eff = $this->lockedBranchId();
+        if ($eff && (string) $period->raw_branch_id !== (string) $eff) {
             abort(403, 'Anda tidak boleh mengubah data cabang lain.');
         }
     }
 
     /**
-     * Hitung saldo current untuk satu fund_source di periode tertentu.
-     * Opening per source diambil dari snapshot JSON
-     * source_opening_balances (di-resolve via self-heal kalau NULL).
-     * Fallback legacy: kalau snapshot kosong, opening scalar di-dump ke
-     * Cash (perilaku lama).
+     * Hitung saldo current satu fund_source di periode: saldo awal per-source
+     * (snapshot; fallback scalar ke Cash) + net semua transaksi aktif periode
+     * untuk source itu.
      */
     private function computeSourceBalance($period, int $fundSourceId, string $trxClass): float
     {
@@ -1772,8 +2023,7 @@ class PettyCashController extends Controller
             ->get(['direction', 'amount']);
 
         foreach ($rows as $r) {
-            $amt = (float) $r->amount;
-            $balance += $r->direction === $trxClass::DIR_IN ? $amt : -$amt;
+            $balance += $r->direction === $trxClass::DIR_IN ? (float) $r->amount : -(float) $r->amount;
         }
 
         return $balance;
@@ -1799,6 +2049,28 @@ class PettyCashController extends Controller
         }
 
         return max(0.0, $piutang);
+    }
+
+    /**
+     * Total yang sudah dikembalikan untuk SATU pinjaman = Σ amount baris
+     * pelunasan (cash-in kategori pinjaman) yang menunjuk ke id pinjaman ini.
+     */
+    private function computeLoanPaid($loan, string $trxClass): float
+    {
+        return (float) $trxClass::active()
+            ->where('settles_transaction_id', $loan->id)
+            ->where('category', 'pinjaman')
+            ->where('direction', $trxClass::DIR_IN)
+            ->sum('amount');
+    }
+
+    /**
+     * Sisa pinjaman = nominal pinjaman − total yang sudah dikembalikan.
+     * Dipakai returnLoan() untuk guard supaya tidak overpay.
+     */
+    private function computeLoanSisa($loan, string $trxClass): float
+    {
+        return max(0.0, (float) $loan->amount - $this->computeLoanPaid($loan, $trxClass));
     }
 
     /**
