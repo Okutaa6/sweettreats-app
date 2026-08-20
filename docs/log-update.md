@@ -42,10 +42,21 @@ sistem tak tahu apakah benar dicetak. Kini ikut status dikirim.
 satu sumber `RopPaymentSheetItem::terlihatBernomor()`. Plus variabel mati
 dibuang, relasi `pelengkap` ikut eager-load.
 
-⚠️ **Belum diverifikasi saat runtime**: perbaikan 1, 2, 3, 5 baru terbukti
-secara statis. **Dev sedang dipakai branch lain** (`fix/pettycash-hapus-dompet-
-berjejak`) — bukti tersendiri dari gotcha "dev = satu working copy bersama".
-Perlu izin sebelum dev dikembalikan ke branch ini.
+**SUDAH DIVERIFIKASI RUNTIME di dev** (sesudah branch petty cash selesai &
+sudah masuk main, dev dikembalikan ke branch ini):
+- **1** — HTML hasil render di-parse pakai `DOMDocument` (aturan parsing yang
+  sama dengan browser): 3 form tujuan berdiri sendiri, **nol yang bersarang**,
+  dan semua `form=""` menunjuk id yang benar-benar ada.
+- **2 & 3** — PDF **7 halaman** diuji: melaporkan 7 asli, merender 5, memotong
+  2; **md5 kelima halaman berbeda semua** (bug penggabungan memang hilang);
+  saat cache dipakai ulang jumlah asli tetap terbaca 7; dan lembar cetak
+  menyebut "Hanya 5 halaman pertama yang ditempel … (2 halaman)".
+- **4** — lengkapan tujuan TERBARU yang di-prefill di lembar berikutnya.
+- **5** — item yang sudah dibayar: form-nya hilang dari DOM **dan** POST
+  langsungnya ditolak; yang belum dibayar tetap bisa diubah.
+- **6** — langkah "Cetak jadi PDF" kini bertanda `1`+`is-aktif`, bukan centang.
+- Gerbang non-Finance **403 di keenam endpoint**, termasuk `/tujuan` yang baru.
+  Akun uji & berkas uji dibersihkan.
 
 ---
 
