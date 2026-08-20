@@ -7,6 +7,101 @@
 
 ---
 
+## 2026-08-20b — Petty cash Sunter & Cinere direkonsiliasi sampai rupiah
+
+Sehari penuh menelusuri kenapa Verini melihat uang Sunter di layar Cinere.
+Ujungnya bukan satu bug, tapi rantai empat kejadian.
+
+### Rantainya
+
+1. **Petty cash tak mengikuti penempatan.** Sebelum push Reza hari ini,
+   `resolveBranchId()` membaca cabang dari SESI, yang hanya dihitung ulang
+   sekali sehari. Verini (ditempatkan di Cinere sejak 13 Agu) mencatat
+   pengeluaran 15 Agu ke **Sunter** — keterangannya sendiri berbunyi "kirim
+   ledermix dari pamulang **ke cinere**". Della kebalikannya.
+   Diperbaiki push Reza: `lockedBranchId()` membaca `positionBranchOn()`
+   segar tiap permintaan.
+2. **Penghapusan dompet menyapu data orang lain, senyap.** 15 Agu 19.50.33
+   `destroySource()` menghapus 5 baris — 4 transfer Della + pengeluaran
+   Verini Rp21.000 — tanpa mengisi `deleted_by`. Verini baru sadar 5 hari
+   kemudian. **Sejak insiden itu Della berhenti mencatat ke sistem** dan
+   lanjut memakai buku manual.
+3. **Tombol Pindah Periode dipakai 1,5 jam setelah naik prod** (20 Agu
+   13.37.02) pada pasangan Cinere↔Sunter. Karena Sunter sudah punya periode,
+   ia **menukar**, bukan memindahkan searah — ikut menyeret saldo awal kedua
+   periode. Tak ada jejak audit; ketahuan hanya dari cap `updated_at` dua
+   periode yang sama persis sedetik.
+4. **Top-up Rp970.940 (19 Agu) tak pernah masuk sistem** — tak ada pengajuan
+   top-up untuk Sunter maupun Cinere sama sekali.
+
+### Rekonsiliasinya cocok SAMPAI RUPIAH
+
+Buku manual Della konsisten dari ujung ke ujung, dan sistem meleset persis
+sebesar yang belum dicatat:
+
+```
+Sistem sebelum        1.310.500
+8 pengeluaran hilang   −836.962
+                      ──────────
+                        473.538   = saldo akhir buku Della
+```
+
+Delapan pengeluaran yang SUDAH tercatat berjumlah Rp660.440 — sama persis
+dengan delapan baris pertama sheet-nya, satu per satu. Dan top-up 970.940
+itu angka ganjil justru karena **menggenapkan**: saldo Della tinggal
+Rp29.060, ditambah 970.940 pas Rp1.000.000.
+
+### Yang dikerjakan (semua ada jejak auditnya)
+
+| Jam | Tindakan |
+|---|---|
+| 14.56 | 8 setoran Della (Rp4.737.000) dikembalikan Cinere → Sunter |
+| 15.09 | Pengeluaran Verini Rp21.000 dipulihkan → Cinere |
+| 15.42 | 4 transfer Della dipulihkan (korban insiden yang sama) |
+| 15.46 | Saldo awal Cinere dikoreksi Rp1.033.170 → Rp83.300 |
+| 15.57 | Top-up Rp970.940 dicatat, ref bank `1908/FTSCY/WS95271` |
+| 16.06 | 8 pengeluaran dari buku Della dicatat (Rp836.962) |
+
+**Hasil**: Sunter kas kerja **Rp473.538** (= bukunya). Cinere **Rp14.800**
+(= hitungan Verini: 83.300 − 21.000 − 47.500).
+
+### Keputusan yang diambil sadar
+
+* **Pencatat diisi Admin_Ekky, bukan Della/Verini.** Yang mengetik memang
+  bukan mereka; menaruh nama mereka akan membuat jejaknya berbohong. Nama
+  mereka ada di keterangan sebagai yang mengeluarkan uang.
+* **Pengajuan top-up Verini Rp985.200 TIDAK dibuat** — itu permintaan uang
+  atas namanya yang lewat persetujuan; harus dia sendiri.
+* **Bukti fisik belum dilampirkan** untuk yang dicatat menyusul; ditulis
+  terang-terangan di keterangan & audit.
+* **Pembagian dompet direkonstruksi dari tanggal** (15 Agu = BSI, 16 Agu ke
+  atas = BCA) karena buku Della tak memisahkan dompet. Yang terverifikasi
+  persis adalah TOTALNYA.
+
+### Perbaikan kode: penghapusan dompet tak lagi senyap (`b0c126e`, prod)
+
+`destroySource()` kini mengisi `deleted_by`, menghitung dulu berapa baris &
+milik siapa, menulis `AuditLog`, dan menampilkan hasilnya **merah** dengan
+nama pemiliknya bila menyentuh data orang lain. Teks konfirmasi menyebut
+terus terang bahwa transaksi orang lain ikut terhapus.
+
+Diuji lewat HTTP di dev: `deleted_by` terisi, audit menyebut "2 di antaranya
+milik Afrina Apriliani", pesan tampil `alert-danger`.
+
+⚠️ **Masih ada 27 baris terhapus tanpa nama** — semuanya Bintaro, 15 kejadian
+Juni–Agustus, beberapa bernilai jutaan. Tak bisa diatribusikan surut.
+
+### Sisa
+
+* **`movePeriod` masih tanpa jejak audit** dan masih menukar diam-diam kalau
+  periode tujuan berisi. Perbaikan yang sama seperti `destroySource` belum
+  dikerjakan — ini yang paling layak berikutnya.
+* Verini perlu mengajukan top-up Rp985.200 sendiri.
+* BSI Sunter menyisakan Rp58.190; buku Della tak memisahkan dompet, jadi
+  angka itu sisa rekonstruksi, bukan uang yang hilang.
+
+---
+
 ## 2026-08-20 — Push Reza (petty cash dompet-holder) NAIK PROD + 1 tambalan
 
 **Prod = main = `260ddef`.** Isinya push Reza `fix/pettycash-update` +
