@@ -7,6 +7,83 @@
 
 ---
 
+## 2026-08-20 — Push Reza (petty cash dompet-holder) NAIK PROD + 1 tambalan
+
+**Prod = main = `260ddef`.** Isinya push Reza `fix/pettycash-update` +
+satu perbaikan SQL dariku.
+
+### Isi push Reza
+
+Status pinjaman per-baris (LUNAS/SEBAGIAN/BELUM lewat `settles_transaction_id`
++ `borrower_name`) · sub-dompet per operator untuk rolling (`holder_user_id`,
+NULL = kas cabang) · chip "dicatat oleh" saat >1 pencatat · **modal pindah
+periode antar cabang** · modal rincian pengajuan top-up.
+
+Kualitasnya naik lagi. Runbook `fix_pettycash_cinere_to_sunter.sql` layak
+dicontoh: verifikasi `SELECT` dulu, guard di `WHERE` supaya tak bisa kena baris
+salah, blok ROLLBACK, dan urutan wajib yang menjelaskan **kenapa** SQL harus
+duluan sebelum rolling dibuat. `movePeriod` juga rapi — Super Admin + periode
+tertutup ditolak di kedua sisi + satu transaksi + sentinel `period_year=9999`
+untuk menghindari tabrakan unique saat menukar dua periode.
+
+### Yang kutambal
+
+`2026_08_19_pettycash_holder_wallet.sql` memakai `ALTER` polos sementara **dua
+saudaranya** dijaga lewat `INFORMATION_SCHEMA`. Dijalankan dua kali:
+
+    ERROR 1060 (42S21): Duplicate column name 'holder_user_id'
+
+Penting karena SQL prod dijalankan TANGAN — sekali ragu lalu mengulang,
+prosesnya berhenti dan mudah dikira ada yang rusak. Dan itu **bukan hipotetis**:
+saat SQL dijalankan di prod, ketiga berkas melaporkan "already exists" di jalan
+PERTAMA — Reza sudah menerapkannya manual duluan. Versi aslinya akan berhenti
+dengan galat di situ.
+
+### ⚠️ Kesalahanku: dev mundur 44 commit
+
+Cabang Reza bercabang dari `283dade` (14 Agu) — **44 commit di belakang main**.
+Aku men-`reset --hard` dev ke cabangnya, jadi dev kehilangan seluruh WiFi
+belajar-sendiri (berkasnya tak ada), `att:gelar-akun`, perbaikan RBAC kategori,
+dan semua docs. Dev tidak rusak — cuma jadi snapshot lama yang konsisten —
+tapi tetap salah, dan kalau ada yang menguji di sana hasilnya menyesatkan.
+
+Dibetulkan dengan **menggabung, bukan mengganti**: `integrasi/dev-2026-08-20` =
+`main` + cabang Reza (nol konflik). Dev dipulihkan, `att:wifi-uji` kembali
+10/10.
+
+**Pelajaran: sebelum men-deploy cabang orang lain ke dev, periksa dulu
+`git log <cabang>..origin/main`.** Kalau tidak kosong, cabang itu tertinggal —
+gabungkan ke branch integrasi, jangan checkout langsung.
+
+### ⚠️ Utang yang belum dibayar
+
+**Runbook Cinere → Sunter BELUM dijalankan.** Ia berisi `<placeholder>` dan
+harus dijalankan bertahap sambil membaca hasil tiap langkah — tak boleh dipipe
+ke `mysql`. Butuh koordinasi Ekky: minta Della berhenti mencatat → STEP 1
+verifikasi → STEP 2 eksekusi → STEP 3 validasi → **baru** buat rolling
+Della→Sunter → Super Admin serahkan saldo ke dompet Della.
+
+**Pemindahan periode tak mencatat SIAPA.** `petty_cash_periods` cuma punya
+`created_at`/`updated_at`, dan `PettyCashController` tak punya satu pun
+`AuditLog::record` — sementara Absensi, Cuti, dan Akses mencatat. Jadi
+memindahkan sebulan uang antar cabang tercatat *kapan*, tak pernah *oleh siapa*.
+Digabung dengan kewenangan Super Admin bebas mengedit transaksi seumur apa pun
+(ACC 15 Agu) dan hanya ada SATU Super Admin di prod, ini pergeseran wewenang
+yang layak diputuskan sadar — bukan cacat kode.
+
+### Verifikasi
+
+Dev: `att:wifi-uji` 10/10 · 4 halaman kunci 200 tanpa galat · gerbang
+pindah-periode **403** untuk Front Office (yang memang bisa membuka
+`/pettycash`, jadi RBAC meloloskannya sampai ke controller — uji yang sah,
+bukan pentalan 302 yang menipu) · ketiga SQL idempoten dua kali jalan.
+
+Prod: rute terdaftar · halaman sehat · **rsync aset dijalankan** —
+`components.sweettreats.css` md5-nya berbeda sebelum rsync, sama sesudahnya ·
+nol galat di log.
+
+---
+
 ## 2026-08-18 — Rotasi Telkom menyapu 5 cabang · ambang saksi WiFi 3 → 2
 
 **Prod = main = `92c0c66`.**
