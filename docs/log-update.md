@@ -7,6 +7,33 @@
 
 ---
 
+## 2026-08-14 (lanjutan 3) — Thumbnail lampiran di layar isi lembar
+
+Ekky **dua kali** mengharapkan foto muncul di layar Lembar Bayar. Itu bukan
+salah paham yang perlu diluruskan — itu sinyal kebutuhan: sebelum lembar
+dikirim ke bos, Finance perlu memastikan tiap baris punya invoice yang BENAR,
+dan itu tak bisa dinilai dari kata "foto". Sebelumnya harus membuka tab satu
+per satu.
+
+Kolom Lampiran kini menampilkan gambar 62px. **PDF ikut bergambar** —
+`RopPratinjauPdf` dipakai ulang, dan hasil rendernya **berkas yang sama**
+dengan yang dipakai halaman cetak, jadi tidak ada kerja dobel; diberi tanda
+"PDF" di pojok supaya jelas berkas aslinya bukan foto. `object-position: top`
+dipilih karena bagian ATAS invoice (nama toko & nomor) yang paling menolong
+saat dilihat sekilas. Ada berkas tapi gagal dirender → tautan "buka berkas",
+bukan sel yang diam.
+
+Terbukti di dev untuk ketiga keadaan: foto → thumbnail fotonya; PDF →
+thumbnail halaman pertama + tanda PDF; tanpa lampiran → penanda "tak ada".
+Struktur form tetap sehat (nol bersarang) dan halaman cetak tidak berubah.
+
+⚠️ Sekalian ralat: satu lampiran di dev sempat kosong karena **aku sendiri**
+yang menimpanya dengan PDF uji 7 halaman lalu mengosongkannya saat
+bersih-bersih — dan itu kebetulan baris pertama lembar, jadi paling kelihatan.
+Sudah dipulihkan; 10 dari 12 ROP dev berlampiran, nol berkas hilang.
+
+---
+
 ## 2026-08-14 (lanjutan 2) — AUDIT KEDUA: 7 temuan, satu bikin tombol salah kirim
 
 Audit ulang setelah fitur PDF-tergabung & lengkapi-tujuan ditambahkan. Yang
