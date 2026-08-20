@@ -91,6 +91,26 @@ milik Afrina Apriliani", pesan tampil `alert-danger`.
 ⚠️ **Masih ada 27 baris terhapus tanpa nama** — semuanya Bintaro, 15 kejadian
 Juni–Agustus, beberapa bernilai jutaan. Tak bisa diatribusikan surut.
 
+### ⚠️ Agustus Sunter SENGAJA parsial (keputusan Ekky)
+
+Sistem memuat 12 Agu ke atas saja. Saldo akhir BENAR (Rp473.538), tapi isi
+1-11 Agu tidak ada — dan itu diputuskan sadar, bukan terlewat.
+
+```
+saldo awal kurang catat      −126.000   (tercatat 1jt, sebenarnya 874.000)
+2 top-up tak tercatat      +1.675.455   (906.400 8 Agu · 769.055 13 Agu)
+22 pengeluaran tak tercatat −1.549.455
+                           ───────────
+                                    0   ← saling meniadakan
+```
+
+Itu sebabnya saldo akhirnya tetap tepat meski bulannya bolong.
+
+**KONSEKUENSI: laporan pengeluaran Sunter Agustus kurang catat ~Rp1,55 juta.**
+Jangan dipakai untuk rekap per kategori tanpa membaca catatan ini. Sumbernya
+lengkap di buku manual Della; bisa dilengkapi kapan saja (±25 baris).
+Catatan yang sama ditulis di `audit_log` supaya terbaca dari dalam aplikasi.
+
 ### Sisa
 
 * **`movePeriod` masih tanpa jejak audit** dan masih menukar diam-diam kalau
