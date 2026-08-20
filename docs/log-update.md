@@ -7,6 +7,48 @@
 
 ---
 
+## 2026-08-14 (lanjutan 2) — AUDIT KEDUA: 7 temuan, satu bikin tombol salah kirim
+
+Audit ulang setelah fitur PDF-tergabung & lengkapi-tujuan ditambahkan. Yang
+paling penting: **uji HTTP hijau tidak membuktikan UI-nya jalan.**
+
+**1. Form bersarang — tombol mengirim form yang salah.** Form "lengkapi tujuan"
+berada DI DALAM form bayar-banyak. HTML melarang form bersarang: parser browser
+membuang tag form dalamnya, jadi tombol Simpan **mengirim form bayar-banyak**.
+Uji HTTP-ku lolos karena menembak endpoint langsung dengan curl — form-nya
+sendiri tak pernah teruji dari browser. Fix: form dipindah ke luar tabel,
+medannya ditautkan lewat atribut `form=""` (HTML5).
+
+**2. PDF berhalaman banyak berisiko salah render.** `mergeImageLayers()`
+meratakan SELURUH urutan gambar, bukan frame yang sedang ditunjuk — tiap
+halaman berisiko ditulis sebagai gabungan semua halaman. Diganti
+`setIteratorIndex()` + `getImage()` yang tak ambigu. Uji PDF 1 halaman dulu
+lolos justru karena cuma satu halaman.
+
+**3. Pemotongan PDF senyap.** PDF lebih dari 5 halaman dipotong tanpa memberi
+tahu siapa pun. Di dokumen pembayaran itu tak bisa diterima. Jumlah halaman
+asli kini dicatat di berkas pendamping (supaya cache tidak menghilangkan
+informasinya) dan sisanya disebut di lembar.
+
+**4. `pluck()` mengambil yang salah.** `orderByDesc` + `pluck` menyisakan
+lengkapan tujuan **paling lama**, karena kunci yang sama ditimpa oleh yang
+dibaca terakhir. Kebalikan dari maksudnya. Diganti menaik.
+
+**5.** Tujuan masih bisa diubah setelah item **dibayar** — uangnya sudah keluar;
+kini dikunci per baris, di layar DAN di server.
+**6.** Penuntun langkah berbohong: "Cetak jadi PDF" selalu tercentang padahal
+sistem tak tahu apakah benar dicetak. Kini ikut status dikirim.
+**7.** Regex "teks ini memuat nomor rekening" tersalin di model DAN view →
+satu sumber `RopPaymentSheetItem::terlihatBernomor()`. Plus variabel mati
+dibuang, relasi `pelengkap` ikut eager-load.
+
+⚠️ **Belum diverifikasi saat runtime**: perbaikan 1, 2, 3, 5 baru terbukti
+secara statis. **Dev sedang dipakai branch lain** (`fix/pettycash-hapus-dompet-
+berjejak`) — bukti tersendiri dari gotcha "dev = satu working copy bersama".
+Perlu izin sebelum dev dikembalikan ke branch ini.
+
+---
+
 ## 2026-08-14 (lanjutan) — AUDIT ULANG Lembar Bayar: 5 temuan, 2 di antaranya 500 sungguhan
 
 Diminta menyisir ulang kode sendiri. **Uji fungsional hijau semua ternyata bukan
