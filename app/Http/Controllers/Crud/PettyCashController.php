@@ -1503,7 +1503,7 @@ class PettyCashController extends Controller
                 $namaDompet, $jumlah, number_format($nilai, 0, ',', '.'));
 
         if ($jumlahOrangLain > 0) {
-            $pesan .= sprintf(' ⚠️ %d di antaranya dicatat oleh %s — tolong kabari.',
+            $pesan .= sprintf(' PERHATIAN: %d di antaranya dicatat oleh %s — tolong kabari mereka.',
                 $jumlahOrangLain, $namaOrangLain->implode(', '));
         }
 
