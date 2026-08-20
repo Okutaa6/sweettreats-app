@@ -47,16 +47,19 @@
 
 @php
     // First-time / fresh setup: kalau semua sumber masih 0 (tidak ada saldo,
-    // tidak ada aktivitas in/out), tampilkan empty state ajakan setoran awal /
-    // migrasi. Begitu user mulai setor saldo, breakdown akan otomatis muncul.
+    // tidak ada aktivitas in/out), tampilkan empty state. Begitu ada saldo,
+    // breakdown akan otomatis muncul.
     $hasAnyData = collect($sourceBalances)->contains(function ($sb) {
         return abs((float) ($sb->balance ?? 0)) > 0.005
             || abs((float) ($sb->in ?? 0))      > 0.005
             || abs((float) ($sb->out ?? 0))     > 0.005;
     });
+    $activeBranch = $activeBranch ?? null;
+    $rupiah       = $rupiah ?? (fn($v) => 'Rp ' . number_format((float) $v, 0, ',', '.'));
+    $showSetupEmpty = ! $hasAnyData && ! $isReadOnly;
 @endphp
 
-@if(! $hasAnyData && ! $isReadOnly)
+@if($showSetupEmpty)
     <div class="pc-source-empty">
         {{-- Skeleton placeholder cards — visual hint bahwa di sini nanti wallet
              user akan tampil setelah setoran awal. --}}
@@ -81,7 +84,7 @@
         </div>
         <button type="button" class="pc-btn-topup pc-btn-topup--solid"
                 data-pc-modal="pcModalOpening"
-                data-pc-tooltip="Daftarkan saldo awal kas, bank, e-wallet saat periode baru dimulai. Tidak masuk ke tabel transaksi — hanya menentukan posisi saldo pembuka.">
+                data-pc-tooltip="Daftarkan saldo awal kas, bank, e-wallet. Tidak masuk ke tabel transaksi — hanya menentukan posisi saldo pembuka.">
             <i class="fa fa-plus"></i> Mulai Setoran Awal
         </button>
     </div>
@@ -262,6 +265,35 @@
     border: 2px dashed var(--brown-2);
     border-radius: 14px;
     text-align: center;
+}
+/* Varian serah terima rolling — palette ungu + badge status rolling. */
+.pc-source-empty--rolling {
+    background: linear-gradient(180deg, #f5f3ff 0%, #ffffff 100%);
+    border-color: #c4b5fd;
+}
+.pc-source-empty__rolling-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    margin-bottom: 16px;
+    padding: 5px 14px;
+    background: #ede9fe;
+    color: #5b21b6;
+    border: 1px solid #ddd6fe;
+    border-radius: 999px;
+    font-size: 12.5px;
+    font-weight: 700;
+}
+.pc-source-empty--rolling .pc-source-empty__icon {
+    background: #7c3aed;
+    box-shadow: 0 4px 12px rgba(124,58,237,0.25);
+}
+.pc-source-empty--rolling .pc-source-empty__title { color: #4c1d95; }
+.pc-source-empty--rolling .pc-btn-topup--solid {
+    background: #7c3aed !important;
+}
+.pc-source-empty--rolling .pc-btn-topup--solid:hover {
+    background: #6d28d9 !important;
 }
 /* Skeleton placeholder cards — visual hint untuk wallet yg akan tampil. */
 .pc-source-empty__skeletons {

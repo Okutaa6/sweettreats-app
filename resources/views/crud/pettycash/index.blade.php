@@ -61,6 +61,15 @@
                    data-pc-tooltip="Kelola daftar wallet: tambah/edit jenis Cash, Bank, dan E-Wallet (nama, logo, warna, nomor rekening). Hanya Super Admin.">
                     <i class="fa fa-cog"></i> Kelola Wallet
                 </a>
+                @if(! $period->is_closed && $branches->isNotEmpty())
+                    <button type="button"
+                            class="st-btn-outline-brown"
+                            data-pc-modal="pcModalMovePeriod"
+                            data-pc-tooltip-pos="bottom"
+                            data-pc-tooltip="Pindahkan / tukar seluruh periode kas kecil (transaksi + saldo) ke cabang lain. Untuk membereskan salah cabang akibat rolling. Hanya Super Admin.">
+                        <i class="fa fa-exchange-alt"></i> Pindah Cabang
+                    </button>
+                @endif
             @endif
             <a href="{{ route('pettycash.export', array_filter([
                     'tab'            => $kind,
@@ -122,6 +131,7 @@
         'kind'               => $kind,
         'branchId'           => $branchId,
         'pendingTopupCount'  => $pendingTopupCount ?? 0,
+        'activeBranch'       => $activeBranch ?? null,
     ])
 
     {{-- ─── FILTER ─── --}}
@@ -314,6 +324,8 @@
                             'kind'       => $kind,
                             'branchId'   => $branchId,
                             'tabKind'    => 'regular',
+                            'recorderNames' => $recorderNames,
+                            'showRecorder'  => $showRecorder,
                             'emptyTitle' => 'Belum ada Top Up atau Pengeluaran bulan ini',
                             'emptyDesc'  => $emptyDescRegular,
                             'emptyIcon'  => 'fa-file-alt',
@@ -365,6 +377,8 @@
                             'kind'       => $kind,
                             'branchId'   => $branchId,
                             'tabKind'    => 'transfer',
+                            'recorderNames' => $recorderNames,
+                            'showRecorder'  => $showRecorder,
                             'emptyTitle' => 'Belum ada Mutasi Antar Wallet bulan ini',
                             'emptyDesc'  => $emptyDescTransfer,
                             'emptyIcon'  => 'fa-exchange-alt',
@@ -463,6 +477,20 @@
     </div>
 </div>
 
+{{-- Modal "Pindah Cabang" (Super Admin) — kondisi sama dgn tombol pemicu di
+     header supaya tombol tak pernah menunjuk modal yang tak ter-render. --}}
+@if(isSuperAdmin() && ! $period->is_closed && $branches->isNotEmpty())
+    @include('crud.pettycash.modal-move-period', [
+        'period'       => $period,
+        'kind'         => $kind,
+        'branches'     => $branches,
+        'branchId'     => $branchId,
+        'activeBranch' => $activeBranch ?? null,
+        'monthName'    => $monthName,
+        'year'         => $year,
+    ])
+@endif
+
 @if(!$isReadOnly)
     @include('crud.pettycash.modal-topup', [
         'period'             => $period,
@@ -492,6 +520,7 @@
         'period'         => $period,
         'kind'           => $kind,
         'sourceBalances' => $sourceBalances ?? [],
+        'openLoans'      => $openLoans ?? [],
         'rupiah'         => $rupiah,
     ])
 
@@ -1027,11 +1056,19 @@
         const dateLabel   = modal.querySelector('#pcEditTrxDate');
         const walletLabel = modal.querySelector('#pcEditWallet');
         const categorySel = modal.querySelector('#pcEditCategory');
+        const borrowerField = modal.querySelector('#pcEditBorrowerField');
+        const borrowerInput = modal.querySelector('#pcEditBorrower');
         const amountVis   = modal.querySelector('#pcEditAmountVisible');
         const amountHid   = modal.querySelector('#pcEditAmount');
         const maxHint     = modal.querySelector('#pcEditAmountMaxHint');
         const descInput   = modal.querySelector('#pcEditDescription');
         const actionTpl   = form.getAttribute('data-action-tpl') || '';
+        const submitBtn   = form.querySelector('button[type="submit"]');
+        // Hitung mundur sisa waktu edit (window 8 jam). Hanya untuk user biasa;
+        // Super Admin tak punya data-trx-edit-deadline → elemen tetap hidden.
+        const countdownEl  = modal.querySelector('#pcEditCountdown');
+        const countdownVal = modal.querySelector('#pcEditCountdownValue');
+        let countdownTimer = null;
         // Elemen bukti (opsional).
         const attachCurrent = modal.querySelector('#pcEditAttachCurrent');
         const attachLink    = modal.querySelector('#pcEditAttachLink');
@@ -1058,6 +1095,19 @@
             return Number(n || 0).toLocaleString('id-ID');
         }
 
+        // Tampilkan field Peminjam hanya untuk kategori "pinjaman" & wajibkan
+        // saat tampil (server juga validasi required_if:category,pinjaman).
+        function syncBorrowerField() {
+            if (!borrowerField) return;
+            const isLoan = categorySel && categorySel.value === 'pinjaman';
+            borrowerField.hidden = !isLoan;
+            if (borrowerInput) {
+                borrowerInput.required = !!isLoan;
+                if (!isLoan) borrowerInput.value = '';
+            }
+        }
+        if (categorySel) categorySel.addEventListener('change', syncBorrowerField);
+
         // Lookup balance wallet berdasarkan source-id (dari kartu wallet
         // di atas — pc-source-card punya data-source-id & data-source-balance).
         function lookupWalletBalance(sourceId) {
@@ -1067,6 +1117,52 @@
             );
             return card ? parseFloat(card.dataset.sourceBalance || '0') : 0;
         }
+
+        // Format sisa detik → teks "Xj Ym" (>1 jam) atau "Ym Zd" (<1 jam).
+        function fmtRemaining(secs) {
+            const h = Math.floor(secs / 3600);
+            const m = Math.floor((secs % 3600) / 60);
+            const s = Math.floor(secs % 60);
+            if (h > 0) return h + 'j ' + m + 'm';
+            if (m > 0) return m + 'm ' + s + 'd';
+            return s + 'd';
+        }
+
+        function stopCountdown() {
+            if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null; }
+        }
+
+        // Mulai hitung mundur ke deadline (epoch detik). Update tiap detik,
+        // ganti warna saat mendekati batas, dan kunci tombol simpan bila habis.
+        function startCountdown(deadlineTs) {
+            stopCountdown();
+            if (!countdownEl) return;
+            if (!deadlineTs) { countdownEl.hidden = true; return; }
+            countdownEl.hidden = false;
+
+            function tick() {
+                const remaining = deadlineTs - Math.floor(Date.now() / 1000);
+                countdownEl.classList.remove('is-warning', 'is-danger');
+                if (remaining <= 0) {
+                    if (countdownVal) countdownVal.textContent = 'waktu edit sudah habis';
+                    countdownEl.classList.add('is-danger');
+                    if (submitBtn) submitBtn.disabled = true;
+                    stopCountdown();
+                    return;
+                }
+                if (countdownVal) countdownVal.textContent = fmtRemaining(remaining);
+                if (remaining <= 900)       countdownEl.classList.add('is-danger');  // ≤15 menit
+                else if (remaining <= 3600) countdownEl.classList.add('is-warning'); // ≤1 jam
+                if (submitBtn) submitBtn.disabled = false;
+            }
+            tick();
+            countdownTimer = setInterval(tick, 1000);
+        }
+
+        // Hentikan timer saat modal ditutup (hemat resource).
+        modal.querySelectorAll('[data-pc-modal-close]').forEach(function (btn) {
+            btn.addEventListener('click', stopCountdown);
+        });
 
         document.addEventListener('click', function (e) {
             const btn = e.target.closest('[data-pc-edit-trx]');
@@ -1078,9 +1174,11 @@
             const trxAmount     = parseFloat(btn.dataset.trxAmount || '0');
             const trxDesc       = btn.dataset.trxDescription || '';
             const trxCategory   = btn.dataset.trxCategory || '';
+            const trxBorrower   = btn.dataset.trxBorrower || '';
             const trxSourceName = btn.dataset.trxSourceName || '—';
             const trxSourceId   = btn.dataset.trxSourceId || '';
             const trxAttachment = btn.dataset.trxAttachment || '';
+            const trxDeadline   = parseInt(btn.dataset.trxEditDeadline || '0', 10) || 0;
 
             // Set form action: replace __ID__ placeholder dengan id transaksi.
             form.action = actionTpl.replace('__ID__', trxId);
@@ -1100,6 +1198,8 @@
             dateLabel.textContent   = trxDate;
             walletLabel.textContent = trxSourceName;
             categorySel.value       = trxCategory;
+            if (borrowerInput) borrowerInput.value = trxBorrower;
+            syncBorrowerField();
             descInput.value         = trxDesc;
             amountVis.value         = fmt(trxAmount);
             amountHid.value         = String(trxAmount);
@@ -1110,6 +1210,16 @@
             const walletBalance = lookupWalletBalance(trxSourceId);
             const maxAmount     = walletBalance + trxAmount;
             if (maxHint) maxHint.textContent = fmt(maxAmount);
+
+            // Sisa waktu edit (hitung mundur). Super Admin: trxDeadline = 0 →
+            // elemen countdown disembunyikan, tombol simpan tetap aktif.
+            if (submitBtn) submitBtn.disabled = false;
+            if (trxDeadline) {
+                startCountdown(trxDeadline);
+            } else {
+                stopCountdown();
+                if (countdownEl) countdownEl.hidden = true;
+            }
 
             // Buka modal (konvensi project: .pc-modal.is-open → display:flex).
             modal.classList.add('is-open');
@@ -1498,12 +1608,14 @@
 </script>
 
 <script>
-// Modal "Catat Pengembalian Pinjaman": preselect wallet dari tombol kartu,
-// tampilkan batas maksimal (= piutang wallet), dan cap nominal ke maksimal.
+// Modal "Catat Pengembalian Pinjaman": pilih PINJAMAN spesifik yang dilunasi,
+// tampilkan batas maksimal (= sisa pinjaman itu), dan cap nominal ke maksimal.
+// Tombol "Catat Pengembalian" di kartu wallet memilih pinjaman pertama milik
+// wallet tersebut sebagai default.
 (function () {
     var modal = document.getElementById('pcModalLoanReturn');
     if (!modal) return;
-    var sel     = modal.querySelector('[data-pc-loan-source]');
+    var sel     = modal.querySelector('[data-pc-loan-select]');
     var maxHint = modal.querySelector('[data-pc-loan-max]');
     var amtVis  = modal.querySelector('.pc-amount-input[data-target="loanReturnAmount"]');
     var amtHid  = document.getElementById('loanReturnAmount');
@@ -1511,10 +1623,10 @@
     function currentMax() {
         if (!sel) return 0;
         var opt = sel.options[sel.selectedIndex];
-        return opt ? Math.round(parseFloat(opt.dataset.piutang || '0')) : 0;
+        return opt ? Math.round(parseFloat(opt.dataset.sisa || '0')) : 0;
     }
     function refreshHint() {
-        if (maxHint) maxHint.textContent = 'Maksimal Rp ' + currentMax().toLocaleString('id-ID');
+        if (maxHint) maxHint.textContent = 'Sisa pinjaman: Rp ' + currentMax().toLocaleString('id-ID');
     }
     function capAmount() {
         if (!amtVis) return;
@@ -1528,13 +1640,46 @@
     if (amtVis) amtVis.addEventListener('input', capAmount);
     refreshHint();
 
-    // Tombol "Catat Pengembalian" di kartu wallet → preselect wallet itu.
+    // Tombol "Catat Pengembalian" di kartu wallet → pilih pinjaman pertama
+    // yang wallet-nya cocok (data-source == id wallet). Kalau tidak ada, biar
+    // default option pertama.
     document.querySelectorAll('[data-loan-source]').forEach(function (btn) {
         btn.addEventListener('click', function () {
-            if (sel) { sel.value = btn.dataset.loanSource; refreshHint(); }
+            if (sel) {
+                var want = String(btn.dataset.loanSource || '');
+                for (var i = 0; i < sel.options.length; i++) {
+                    if (String(sel.options[i].dataset.source || '') === want) {
+                        sel.selectedIndex = i;
+                        break;
+                    }
+                }
+                refreshHint();
+            }
             if (amtVis) amtVis.value = '';
             if (amtHid) amtHid.value = '';
         });
+    });
+})();
+
+// Form pengeluaran (di modal wallet): field "Peminjam" hanya tampil & wajib
+// untuk kategori "pinjaman". Server memvalidasi required_if:category,pinjaman.
+(function () {
+    document.querySelectorAll('[data-pc-expense-category]').forEach(function (selCat) {
+        var form  = selCat.closest('form');
+        if (!form) return;
+        var field = form.querySelector('[data-pc-borrower-field]');
+        var input = form.querySelector('[data-pc-borrower-input]');
+        if (!field) return;
+        function sync() {
+            var isLoan = selCat.value === 'pinjaman';
+            field.hidden = !isLoan;
+            if (input) {
+                input.required = isLoan;
+                if (!isLoan) input.value = '';
+            }
+        }
+        selCat.addEventListener('change', sync);
+        sync();
     });
 })();
 </script>
