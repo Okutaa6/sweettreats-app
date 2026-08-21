@@ -43,7 +43,12 @@ class AbsensiBranchIpController extends Controller
         $perluTinjau = $ips->where('sumber', 'otomatis')->where('status', 'aktif');
         $belajarAktif = \App\Services\WifiBelajarSendiri::aktif();
 
-        return view('absensi.wifi', compact('ips', 'branches', 'perluTinjau', 'belajarAktif'));
+        return view('absensi.wifi', compact('ips', 'branches', 'perluTinjau', 'belajarAktif') + [
+            // Angka diambil dari konstantanya, TIDAK diketik ulang: teks lama
+            // menulis "3 orang" berbulan-bulan sesudah ambangnya turun jadi 2.
+            'ambangOrang' => \App\Services\WifiBelajarSendiri::AMBANG_ORANG,
+            'jendelaJam'  => \App\Services\WifiBelajarSendiri::JENDELA_JAM,
+        ]);
     }
 
     /**
