@@ -108,9 +108,10 @@ Peran chat ini:
 
 == KEADAAN PER 2026-08-21 ==
 
-PROD sehat dan MUTAKHIR: main = prod = `618ca57` (deploy 21 Agu 10.50, berisi
-pelebaran pencocokan WiFi /48). Kelima cabang hidup (Bintaro, Sunter, Cinere,
-Pamulang, Kalideres), 19 staf operasional berakun.
+PROD sehat dan MUTAKHIR: main dan prod DISAMAKAN 21 Agu (pelebaran pencocokan
+WiFi /48 sudah live). Kelima cabang hidup (Bintaro, Sunter, Cinere, Pamulang,
+Kalideres), 19 staf operasional berakun. Hash sengaja tak ditulis di sini —
+cek sendiri dengan `git rev-parse --short origin/main` dan di server prod.
 
 Yang live & dipakai harian: absensi + absen HP selfie, WiFi-sebagai-saksi,
 Pusat Akun, cuti (+Kontrak Baru), checklist, ROP/Pengeluaran, Aturan Kerja,
