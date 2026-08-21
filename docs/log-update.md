@@ -7,6 +7,111 @@
 
 ---
 
+## 2026-08-21d — Libur cabang ikut cabang BERTUGAS · DEV LULUS 11/11, prod menunggu
+
+Perbaikan dari entri `2026-08-21c` dibangun dan diuji di dev. **Semua 11 uji
+terima §7 lulus**, termasuk uji 1–3 dengan data prod yang diputar ulang.
+Branch `fix/libur-cabang-bertugas` (`9da2d5d`). **Prod belum** — menunggu izin
+Ekky. Tenggatnya Selasa 25 Agu; kalau lewat, rencana cadangan §8 tetap berlaku.
+
+### Yang dikerjakan
+
+**1. `CabangBertugas` — resolusi cabang bertugas, pramuat sekali.**
+Kelas baru di `app/Services/`. `muat()` menarik seluruh baris `rolling` dalam
+satu kueri; `pada()` menyelesaikan per tanggal **di memori**. Cabang bertugas
+itu per-orang per-TANGGAL — memanggil `positionBranchOn()` di dalam loop harian
+akan jadi jumlah-orang × jumlah-hari kueri.
+
+Aturannya sengaja **sempit**: hanya `kind='rolling'` yang menang, `home`
+**tidak** — alasan yang sama persis dengan `cabangSesiUntuk()`. Tombol reassign
+di Posisi Checklist menulis baris `home` tanpa menyentuh `users.raw_branch_id`,
+jadi kalau `home` ikut menang, supervisor checklist diam-diam bisa memindahkan
+**hari libur** seseorang. Sejak libur menentukan gaji, itu wewenang yang tak
+pernah diberikan ke peran itu.
+
+**2. `resolveDay()` TAMBAH parameter, tidak menukar.**
+`isDateLocked()` dan `hapusHariBasi()` tetap memakai cabang asal. Ini dibuktikan
+uji 6, bukan sekadar diklaim — lihat bawah.
+
+**3. Kalender libur akhirnya tampil di Kehadiran.**
+Strip di atas matriks ("25 Agt · MAULID NABI · Bintaro · Cinere · Kalideres")
+plus penanda per-sel **per-orang**. `hariLiburTerjadwal()` **tidak disentuh** —
+pemisahannya disengaja (dipakai gerbang absen), jadi sumbernya terpisah.
+
+**4. Rentang penempatan terbalik ditolak di titik simpan.**
+`UserPosition::booted()` melempar kalau `effective_to < effective_from`.
+Akar penyebabnya juga ditutup: `akhiriSekarang()` **menghapus** penempatan yang
+belum berjalan sehari pun, bukan menyimpannya cacat. Empat titik penutupan
+(`positionAssign`, `positionRemove`, `rollingRemove`, `syncFromUser`) semua
+lewat situ sekarang.
+
+### Uji terima §7 — 11/11 lulus
+
+Uji 1–3 memakai data prod yang diputar ulang di dev (orang, penempatan, dan
+kalender libur asli), bukan data karangan.
+
+| # | Hasil |
+|---|---|
+| 1 | Verini → `libur`, tanpa form apa pun ✅ |
+| 2 | Della → `hadir`, 09:48–18:12, telat 0 ✅ |
+| 3 | Ramdan → `hadir`, 08:41–17:05 ✅ |
+| 4 | Afrina (Bintaro, non-rolling) → tetap `libur` ✅ |
+| 5 | Melani (Sunter) & Ahmad (Pamulang) → tetap hari kerja ✅ |
+| 6 | Penguncian **tidak** ikut berpindah ✅ (lihat bawah) |
+| 7 | Kueri **652 → 653** (+1 pramuat), 200ms → 235ms ✅ |
+| 8 | Libur ditambah sesudah reconcile → alpa basi bersih ✅ |
+| 9 | Kehadiran menandai 3 cabang tutup saja ✅ |
+| 10 | Absensi Saya: Verini `LIBUR`, Della `HADIR` ✅ |
+| 11 | Simpan rentang terbalik → ditolak ✅ |
+
+**Uji 6 dibuat cermin supaya tak bisa lolos karena kebetulan.** Periode gaji
+**Sunter** ditutup, lalu baris kedua orang sengaja dirusak jadi `izin`:
+- **Verini** (asal Sunter, *bertugas* Cinere) → tetap `izin` = **beku**. Kunci
+  ikut cabang asal.
+- **Della** (asal Cinere, *bertugas* Sunter yang dikunci) → ditulis ulang jadi
+  `hadir` = **tidak beku**. Kunci tidak ikut rolling.
+
+Keduanya berlawanan arah, jadi hasil ini tak mungkin kebetulan.
+
+**Bukti "sebelum" diambil pada data yang sama.** Dengan kode lama, Della &
+Ramdan tercatat `libur` **dengan `scan_count = 2`** — masuk sehari penuh,
+kerjanya dibuang. Untuk Verini, penjaga "alpa tak boleh dicap ke tanggal yang
+belum lewat" menyembunyikan akibatnya di tanggal 25, jadi klaim ALPA-nya diuji
+A/B di **tanggal lampau** (18 Agu): kode lama → **`alpa`**, kode baru →
+**`libur`**. Terbukti, bukan diasumsikan.
+
+### Dua hal yang berubah dari rencana — perlu diketahui
+
+**a. Libur kalender tanpa scan sekarang MENGHASILKAN baris `libur`.**
+Kode lama tak menulis baris sama sekali kalau hari tutup dan tak ada scan, jadi
+perbaikannya cuma membuat Verini "tidak kena alpa" — layarnya tetap kosong, dan
+kosong tak bisa dibedakan dari "belum ada datanya". Itu persis keadaan yang
+membuat libur cabang tak pernah terlihat. Uji 1 & 10 memang meminta baris
+`libur`, jadi baris itu ditulis. Libur **pola mingguan** sengaja tidak ikut —
+Senin tutup sudah terbaca dari aturan kerjanya dan tersorot di matriks.
+
+⚠️ **Efeknya**: kolom "Libur" di lembar gaji kini menghitung hari libur
+kalender, bukan cuma "datang di hari tutup". Kolom informasi — tak ada yang
+dihitung darinya, dan baris tanpa scan tetap terbedakan lewat `scan_count = 0`.
+
+**b. Rentang terbalik di prod ada DUA, bukan satu.**
+Selain baris Verini (`a2821d77…`), ada `a27346ed…` — baris `home` Bintaro
+2026-08-08 → 08-07 milik user yang sudah tak ada. Lahir dari mekanisme yang
+sama. Menguatkan bahwa ini cacat sistemik, bukan satu kecelakaan.
+
+### Naik prod butuh apa
+
+1. Deploy `fix/libur-cabang-bertugas` (ada class baru → deploy PENUH, bukan
+   `--quick`; ada CSS blade → **rsync `public/`**, public_html prod itu salinan).
+2. `database/sql/2026_08_21_sapu_rentang_penempatan_terbalik.sql` (2 baris).
+3. `php artisan att:reconcile` untuk rentang yang memuat 25 Agu, **sesudah**
+   deploy — kalau tidak, baris lamanya tetap salah.
+
+Kalender libur 25 Agu di prod **sudah benar** (3 baris per-cabang, Sunter &
+Pamulang memang buka) — jangan diubah jadi "Semua cabang".
+
+---
+
 ## 2026-08-21c — Libur cabang tak mengikuti rolling · tiga orang salah dua arah
 
 Ekky bertanya soal libur Maulid Nabi Selasa 25 Agu: *"apa benar fiturnya sudah
