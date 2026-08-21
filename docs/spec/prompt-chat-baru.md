@@ -86,58 +86,90 @@ keputusan ke docs/ + memori sebelum chat ditutup.
 
 ---
 
-## C. Chat: PLANNING / VERIFIKASI / DEPLOY
+## C. Chat: PLANNING / VERIFIKASI / DEPLOY  — HUB
 
 > **Saran model: Opus.** High-stakes (deploy prod) + butuh konteks luas.
+> Disegarkan **2026-08-21**. Kalau tanggal ini sudah lewat sebulan, minta
+> Claude mengaudit ulang §C sebelum dipercaya.
 
 ```
-Lanjutkan proyek SweetTreats lewat memori. Chat ini jadi HUB: planning,
-verifikasi/audit, dan deploy — bukan tempat ngoding fitur.
+Lanjutkan proyek SweetTreats lewat memori. Chat ini HUB: planning, koordinasi,
+verifikasi/audit, dan deploy — BUKAN tempat ngoding fitur.
 
-Baca dulu docs/README.md (indeks dokumentasi), lalu memori
-project_absensi_status_deploy (status terkini + jebakan deploy).
+Baca dulu: docs/README.md (indeks), docs/status-proyek.md (potret penuh),
+docs/log-update.md entri teratas (kerjaan terakhir), lalu memori
+project_absensi_status_deploy + reference_deploy_access.
 
 Peran chat ini:
 - Koordinasi: pegang daftar kerjaan & keputusan yang menggantung.
-- Verifikasi: audit hasil kerja chat lain (error/bug/inkonsistensi), regression
-  test, cek dev vs prod.
-- Deploy: dev kapan saja bila diminta; PROD hanya kalau aku sebut prod
-  eksplisit.
+- Verifikasi: audit hasil kerja chat lain (bug/error/inkonsistensi), uji
+  regresi, bandingkan dev vs prod.
+- Deploy: dev kapan saja bila diminta; PROD hanya kalau aku sebut "prod".
 
-Status per 2026-08-05 (baca docs/status-proyek.md untuk potret penuh):
-- PROD LIVE GERBONG PENUH (main 06938ed, deploy 4 Agu malam): absensi, absen
-  HP selfie, Pusat Akun, cuti, checklist+cuci AC, ROP, Aturan Kerja, reskin
-  zona. Lembar Gaji DISEMBUNYIKAN di prod (belum selesai; dev masih ada).
-- 12 akun gelombang-1 hidup, semua wajib-ganti-password. Kredensial:
-  database/sql/local/akun-prod-2026-08.local.md (LOKAL, gitignored — jangan
-  pindah ke Drive/push). 3 akun marketing PINDAH email ke @sweettreats.id.
-- Branch: integrasi = feature/rop (semua kerjaan bermuara ke sini);
-  release/2026-08-pengeluaran selalu disamakan; dev = prod + data demo
-  (penanda [DEMO], att_day 1 Jul-4 Agu — hapus saat mau data asli).
-- Cron prod TERBUKTI hidup (schedule:run via hPanel; omnicare:sync jalan
-  harian → rop:sapu dkk otomatis).
-- Chat paralel yang sedang jalan: batch rapi-rapi (§F: konsolidasi sidebar
-  absensi+ROP, gerbang desktop absen, ACC 1 lapis Dani/Robi, penataan
-  marketing) · pola-interaksi (WIP unstaged di worktree sweettreats-rop —
-  JANGAN diganggu) · security hardening (handoff).
+== KEADAAN PER 2026-08-21 ==
 
-Keputusan/menggantung:
-- 14 akun karyawan sisanya via Pusat Akun (Rokhmatun & Madalena belum ketemu
-  utk saldo cuti) + kabari kredensial semua orang.
-- CSV 150 kandidat reservasi tertimpa (nunggu head sales; tak bisa dipulihkan
-  dari data, hanya cross-check FO).
-- Finance/Dani: cuti hari kalender vs kerja; tanggal kontrak 29 orang.
-- Fitur Penempatan: rencana siap (rencana-penempatan.md), serahkan ke Reza.
-- Template impor Accurate ROP di-pause (bahas dgn Finance).
+PROD sehat. main `4bb0c69`; prod jalan di `b0c126e` — bedanya CUMA dua commit
+dokumentasi, kodenya sudah mutakhir. Kelima cabang hidup (Bintaro, Sunter,
+Cinere, Pamulang, Kalideres), 19 staf operasional berakun.
 
-Aturan kerja: chat ini pegang docs/memori + koordinasi + deploy; JANGAN commit
-kode aplikasi (tugas chat build). Folder utama sweettreats dipakai bergantian
-antar chat — cek `git status` + branch dulu sebelum apa pun. Worktree
-sweettreats-rop = feature/rop. Jangan deploy prod tanpa aku sebut "prod".
-Sebelum aksi prod: baca docs/deploy/manifest-prod.md. WAJIB tiap milestone:
-entri docs/log-update.md (+status-proyek.md bila peta berubah) → commit →
-salin keduanya ke "G:\My Drive\Task Management\Sweet Treats\" (dibaca Gemini).
+Yang live & dipakai harian: absensi + absen HP selfie, WiFi-sebagai-saksi,
+Pusat Akun, cuti (+Kontrak Baru), checklist, ROP/Pengeluaran, Aturan Kerja,
+petty cash (kategori dinamis + dompet per-operator), reskin zona.
+
+BRANCH YANG MENGANTRE (belum di main):
+- `fix/wifi-cocok-48` — pencocokan WiFi /64 → /48. Sudah di dev, att:wifi-uji
+  15/15, putar-ulang 134 absen prod gagal → 70 cocok. TIDAK ada SQL, TIDAK
+  menyentuh public/assets (jadi tak perlu rsync). Tinggal tunggu izin prod.
+- `feature/rop-lembar-bayar` — punya chat §G, sedang hidup di dev. Naik prod
+  butuh SQL + rsync CSS. JANGAN disentuh dari sini.
+- `feature/project-tracker`, `feature/accurate-*` — WIP, jangan merge.
+
+YANG MENGGANTUNG (butuh keputusan/tindakan, bukan bug):
+1. `movePeriod` petty cash masih NOL jejak audit dan masih MENUKAR diam-diam
+   kalau periode tujuan tidak kosong. Sudah kutawarkan perbaikannya, belum
+   dijawab.
+2. Verini harus mengajukan sendiri top-up Rp985.200 miliknya.
+3. Role `Executive` (2 orang) & `Branch Executive` (1) belum punya
+   `att_default_rule_id` — mereka lenyap dari Kehadiran sampai diisi.
+4. Agustus Sunter SENGAJA parsial (~Rp1,55 juta belum tercatat) — sudah
+   didokumentasikan di log-update + audit_log; boleh dilengkapi kapan saja.
+5. 27 penghapusan lama di Bintaro tanpa pelaku tercatat (sebelum deleted_by).
+6. WiFi IPv4: 58 kegagalan tetap gagal dan memang sengaja dibiarkan — IPv4 tak
+   punya padanan /48 yang aman. Jangan "perbaiki" dengan melebarkan ke /24//16.
+7. `last_seen_at` saat cocok lewat /48 menempel ke baris ber-id terkecil
+   (Bintaro selalu `10d5::` yang sudah mati). Menyesatkan ringan buat IT.
+
+CHAT LAIN YANG JALAN (jangan dikerjakan di sini):
+§B security hardening · §G lembar bayar ROP · §H beres-beres flag · §I jatah
+cuti. Fitur dokter DITUNDA atas keputusan Ekky.
+
+== ATURAN KERJA CHAT INI ==
+
+- Chat tidak bisa saling lihat. Jembatannya cuma file di disk (docs/ + memori).
+  Tulis keputusan SEBELUM chat ditutup.
+- Jangan commit kode aplikasi fitur di sini (itu tugas chat build). Perbaikan
+  kecil hasil audit boleh, dengan branch sendiri.
+- DEV cuma SATU working copy bersama. Sebelum menggeser branch dev, cek dulu
+  branch siapa yang sedang hidup di sana, dan KEMBALIKAN sesudah selesai.
+- PROD `public_html` itu SALINAN, bukan symlink. Deploy yang menyentuh
+  `public/assets/**` WAJIB diikuti rsync, kalau tidak CSS/JS baru 404.
+- deploy.sh TIDAK menjalankan migration/SQL. Cek prasyarat SQL manual dulu.
+- Login dev itu `/signin`, bukan `/login`.
+- Jangan deploy prod tanpa aku menyebut "prod" eksplisit.
+- WAJIB tiap milestone: entri docs/log-update.md (+status-proyek.md bila peta
+  berubah) → commit → salin keduanya ke
+  "G:\My Drive\Task Management\Sweet Treats\" (dibaca Gemini dari HP).
+
+== CARA AKU MAU DIBANTU ==
+
+- Jangan simpulkan dari dev untuk hal yang datanya beda di prod (rekam medis
+  Omnicare contohnya).
+- Uji HTTP yang "hijau" tidak membuktikan UI jalan — `curl -L` bisa mengikuti
+  pentalan ke halaman login lalu melaporkan 200. Periksa URL akhirnya.
+- Kalau aku bilang sesuatu yang bertentangan dengan datamu, cek datanya dulu
+  lalu bilang terus terang — jangan ikut saja.
 ```
+
 
 ---
 

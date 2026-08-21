@@ -7,6 +7,97 @@
 
 ---
 
+## 2026-08-21 — Absen HP: pencocokan WiFi pindah dari /64 ke /48
+
+Keluhan Ekky: "kena flag terus padahal kemarin sudah didaftarkan dan diperbaiki".
+Ternyata dua hal berbeda, dan yang kedua jauh lebih besar dari keluhannya.
+
+### Yang pertama: itu bukan flag, dan melesetnya 68 detik
+
+Ekky ber-aturan `Fleksibel Kantor`, dan `AttendanceHpAbsen` melewati evaluasi
+flag untuk orang fleksibel (`$flags = $fleksibel ? [] : ...`). `att_flag`
+miliknya **kosong sama sekali**. Yang dia lihat adalah layar "WiFi tidak
+dikenali — pilih cabangmu dulu ya", bukan flag.
+
+Absennya 21 Agu 09.53.14; IP `180.252.169.218` didaftarkan 09.54.22. Meleset
+**68 detik**. Barisnya bersih, tak ada spasi siluman — bukan bug.
+
+### Yang kedua: rotasi Telkom lebih cepat daripada tangan manusia
+
+Bintaro memakai **tujuh prefix /64 berbeda dalam 17 hari** — kira-kira tiap dua
+hari. Tiap rotasi menghanguskan seluruh pendaftaran. Belajar-sendiri menutup
+sebagian, tapi butuh 2 saksi dalam 72 jam, jadi absen pertama-kedua di tiap
+prefix baru **selalu** gagal. Mekanismenya benar, cuma permanen ketinggalan.
+
+Terukur di prod: **133 dari 474 absen HP sepanjang Agustus (28,1%) gagal cocok.**
+
+Tapi ketujuh prefix Bintaro duduk di `2001:448a:2092::/48` yang SAMA — yang
+berputar cuma 16 bit di dalam jatah pelanggan. Dan `WifiBelajarSendiri` sudah
+memakai kekerabatan /48 sebagai pagar keamanannya. Jadi selama ini pencocokan
+memakai /64 sementara pagarnya memakai /48: dua ukuran untuk satu pertanyaan.
+
+### Yang dikerjakan — branch `fix/wifi-cocok-48`, DEV SAJA (prod belum)
+
+`AttBranchIp::matchBranch()` kini membandingkan **/48**, dengan /64 yang persis
+tetap diutamakan. Dua pagar dipasang bersamaan:
+
+- **Veto IT menang atas kekerabatan.** Baris nonaktif yang `ip`-nya persis teks
+  prefix bersih (`2001:448a:2092:d21::`) tetap menolak. Baris nonaktif BEREKOR
+  bukan veto — pembedaan yang persis sama sudah dipakai `nilai()` sejak dulu.
+  Tanpa pagar ini, kekerabatan /48 akan menghidupkan kembali prefix yang sudah
+  dimatikan manusia, diam-diam.
+- **Pendaftaran menolak /48 yang sudah dimiliki cabang lain**, di KEDUA pintu:
+  `AbsensiBranchIpController::store()` dan `PengawasanController::daftarkanIp()`.
+  Pintu kedua ketemu waktu audit — dan justru itu yang lebih rawan, dipegang SPV
+  dari layar flag, bukan IT yang paham peta jaringan.
+
+### Buktinya
+
+- `att:wifi-uji` **15/15 lulus** (dari 10 kasus; K1/K2/K5/K8/K10 berubah arti,
+  K11–K15 baru).
+- **K1 adalah bukti utamanya**: kejadian nyata 11 Agu yang dulu mem-flag tujuh
+  orang Bintaro sekarang mem-flag **nol**.
+- Putar ulang **134 absen prod yang gagal cocok** lewat kode baru + tabel
+  pendaftaran prod, di dalam transaksi yang dibatalkan (DB dev tak berubah):
+  **70 jadi cocok (52,2%)**. IPv6: 57 tertolong, 6 tetap gagal — keenamnya HP
+  pribadi/seluler, memang seharusnya gagal.
+- Hanya **satu** absen berpindah cabang: Irma 13 Agu memilih Cinere padahal
+  jaringannya Pamulang. Dia memang sedang di Pamulang (tercatat di docblock
+  `WifiBelajarSendiri`) — jaringannya yang benar, orangnya yang salah pilih.
+- Pra-terbang prod: tak ada /48 dipegang dua cabang, dan ketujuh baris nonaktif
+  semuanya berekor sehingga tak satu pun berubah jadi veto. Nol regresi.
+
+### Efek samping yang disengaja
+
+Vonis **DAFTAR praktis mati** — prefix sekerabat sudah cocok sendiri, jadi
+`pelajari()` bahkan tak dipanggil. Karena itulah satu-satunya jalur yang dulu
+memberi tahu IT, **TAWARKAN kini benar-benar dikirim**. Sebelumnya vonis itu
+cuma dikembalikan sebagai nilai dan **tak pernah dibaca siapa pun**, meski
+docblock kelasnya menjanjikan "tawarkan sekali klik ke IT".
+
+### Temuan audit yang berdiri sendiri dari perubahan ini
+
+- Layar WiFi Cabang menulis **"3 orang"** padahal `AMBANG_ORANG` sudah
+  diturunkan jadi 2 pada 18 Agu — salah sejak sebelum perubahan ini, tak pernah
+  ikut diperbarui. Angkanya kini diambil dari konstantanya supaya tak bisa
+  melenceng lagi. Kalimat "berganti seminggu sekali" juga dibetulkan (data prod:
+  ~2 hari).
+- **Saklar belajar-sendiri TIDAK lagi mengembalikan pencocokan ke /64.** Ia
+  mengurus pendaftaran, bukan pencocokan. Dipatok di K11 supaya tak ditemukan
+  sebagai kejutan waktu ada insiden.
+- `last_seen_at` saat cocok lewat /48 distempel ke baris ber-id terkecil di /48
+  itu — untuk Bintaro selalu `10d5::` yang sudah tak dipakai. Menyesatkan
+  ringan bagi IT; belum diperbaiki.
+
+### Yang sengaja TIDAK diperbaiki
+
+**IPv4: 58 dari 70 kegagalan tetap gagal.** IPv4 tak punya padanan /48 yang
+aman — melebarkannya ke /24 atau /16 berarti menerima satu wilayah ISP utuh.
+Jalur IPv4 sengaja tak disentuh, dan itu dikunci lewat K14 (`180.252.169.219`
+tak boleh cocok dengan `180.252.169.218` yang terdaftar).
+
+---
+
 ## 2026-08-20b — Petty cash Sunter & Cinere direkonsiliasi sampai rupiah
 
 Sehari penuh menelusuri kenapa Verini melihat uang Sunter di layar Cinere.

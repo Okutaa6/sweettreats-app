@@ -165,15 +165,20 @@ bukan symlink).
 - **Absensi**: mesin rekonsiliasi scan→hari kerja, lintas cabang, aturan per
   orang, persetujuan, periode gaji, rekap. (Data scan bulanan tetap di-upload
   manual dari mesin sidik jari — arah ADMS masih rencana.)
-- **Absen HP selfie**: WiFi cabang sebagai saksi + IP cabang, fix IPv6 /64,
-  remember-me, paksa ganti password.
-- **WiFi Cabang belajar sendiri** *(12 Agu, live DEV — belum prod)*: nomor IPv6
-  Telkom berputar mingguan, dan tiap rotasi seisi cabang kena flag "absen dari
-  luar WiFi" sampai ada yang mendaftarkan nomor barunya. Sekarang jaringannya
-  mendaftar sendiri begitu **3 orang cabang itu** memakainya dalam 72 jam dan
-  blok alamatnya sekerabat dengan jalur yang sudah terdaftar. Satu orang tak
-  pernah cukup; jaringan seluler tak pernah ikut; ada saklar mati untuk admin.
-  Naik prod butuh SQL `2026_08_12_wifi_belajar_sendiri.sql` dulu.
+- **Absen HP selfie**: WiFi cabang sebagai saksi + IP cabang, pencocokan IPv6
+  per blok **/48**, remember-me, paksa ganti password.
+- **WiFi Cabang — rotasi Telkom** *(belajar-sendiri live prod; pelebaran /48
+  menunggu izin prod di `fix/wifi-cocok-48`)*: nomor IPv6 Telkom berputar
+  kira-kira tiap dua hari. Dengan pencocokan /64, tiap rotasi membuat seisi
+  cabang kena "WiFi tidak dikenali" sampai ada yang mendaftarkan nomor
+  barunya — **28,1% absen HP sepanjang Agustus gagal cocok** karenanya.
+  Sejak 21 Agu pencocokan memakai **blok /48** cabang, jadi nomor baru di blok
+  yang sama langsung dikenali tanpa didaftarkan siapa pun. Belajar-sendiri
+  tetap ada tapi perannya menyempit: **melaporkan ke IT** kalau ada blok yang
+  asing sama sekali (2 orang dalam 72 jam) — bukan lagi mendaftarkan sendiri.
+  Veto IT menang atas kekerabatan /48, dan pendaftaran menolak /48 yang sudah
+  dimiliki cabang lain. Saklar mati tetap ada, tapi ia mematikan PELAPORAN,
+  bukan pencocokan /48.
 - **Pusat Akun**: Kesehatan (detektor kegagalan-senyap), User, Akses, Role,
   Setting, audit log login.
 - **Jatah cuti** per kontrak 12 bulan (saldo boleh minus, cuti bersama) +
