@@ -22,6 +22,16 @@
 > Kalau tanggal ini sudah jauh lewat,
 > minta chat teknis menyegarkan file ini sebelum dipakai mengambil keputusan.
 >
+> ⚠️ **Sisipan 2026-08-21b** — **Konsultan**: arah baru yang diputuskan Ekky.
+> Konsultan wajib absen, tapi **tak boleh meng-ACC pengajuan orang** (cuti/
+> lembur/izin). Role `Consultant` yang sudah ada ternyata **sudah** memenuhi itu
+> sendiri. Akun **Achmad Haickal** (konsultan finance) dibuat di PROD 21 Agu di
+> role yang sama dengan Hari & Rahmat — role khusus per bidang (`Konsultan
+> Finance`/`Marketing`/`IT`) menyusul setelah rencananya jadi, dan itu **butuh
+> perubahan kode**, bukan cuma config. Rincian + tiga temuan soal mesin ACC ada
+> di `log-update.md` entri 21 Agu b. ⚠️ Terbuka: konsultan (termasuk Hari dari
+> domain luar) kini bisa membuka Laporan Penjualan → Executive.
+>
 > ⚠️ **Sisipan 2026-08-13** — badan file di bawah masih potret 6 Agu dan belum
 > disegarkan menyeluruh. Yang sudah berubah sejak itu ada di `log-update.md`
 > (entri 11, 12, dan 13 Agu). Satu hal yang paling sering ditanyakan

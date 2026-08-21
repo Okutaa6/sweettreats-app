@@ -7,6 +7,106 @@
 
 ---
 
+## 2026-08-21b — Akun konsultan Haickal naik PROD · desain role Konsultan diputuskan
+
+Ekky membuka arah baru: **konsultan** yang wajib absen tapi tak boleh punya
+wewenang. Sebelum apa pun dibangun, mesin wewenangnya diaudit dulu — dan
+ternyata separuh yang diminta **sudah berlaku sendiri**.
+
+### Yang diaudit dulu: siapa sebenarnya yang boleh meng-ACC
+
+Dugaan Ekky "bawahan cuma bisa di-ACC atasannya" **terkonfirmasi**, dan bukan
+hardcode: tabel `att_approval_rule` (role → role), 13 baris. Content Creator
+(Talitha) & Creative (Alif) → **Head Marketing (Yovan)**, persis seperti yang
+dia sebut. Dicek juga ke kenyataan, bukan cuma ke konfigurasi: dari 116 baris
+ACC nyata, pelakunya hanya Anisa (72), Irma (22), Dani (16), Ekky (5),
+Yovanka (1). Tak ada yang menembus jalur.
+
+**Tiga temuan yang mengubah rencana:**
+
+1. **`sort_order` BUKAN lapis berjenjang.** `chainFor()` mengumpulkan semua
+   approver-role satu frontier jadi **satu lapis**, dan `MAX_LEVELS` semua = 1.
+   Jadi Assistant Dentist hari ini bisa di-ACC **Irma ATAU Anisa, siapa saja
+   duluan** — bukan Irma dulu baru Anisa. Datanya cocok (Irma 22, Anisa 72).
+   Konsekuensi untuk rencana Koordinator GS: kalau GS punya baris ke Koordinator
+   GS **dan** masih punya baris ke Supervisor, Fajri **atau** Anisa sama-sama
+   bisa ACC. Mau Fajri saja → baris Supervisor harus dicabut.
+
+2. **Bagan organisasi TIDAK menggerakkan wewenang ACC.** `group_path.parent_id`
+   cuma menggerakkan bagan + cakupan review Checklist Akreditasi;
+   `att_approval_rule` yang menentukan ACC. Dua tabel terpisah — mengubah satu
+   saja menghasilkan struktur yang salah **tanpa error apa pun**.
+
+3. **Gerbang nama role justru menguntungkan.** Role bernama `Konsultan Finance`
+   otomatis tak cocok dengan `RopService::ROLE_PENYETUJU = 'Finance'`, jadi ia
+   tak bisa menyetujui ROP tanpa kita berbuat apa-apa. Sisi buruknya: sebagian
+   besar menu Finance (Cuti, Aturan Kerja, Antrian ROP, Pengawasan) **juga**
+   dijaga nama role — kloning menu bulat-bulat berujung **403**, kegagalan
+   senyap yang justru diburu detektor Pusat Akun.
+
+### Role `Consultant` ternyata sudah ada, dan sudah sesuai maunya
+
+Hari (`hari@stdc.id`, konsultan marketing) & Rahmat (`rahmat@sweettreats.id`,
+konsultan IT) sudah hidup di prod. Tanpa dikerjakan apa pun, mereka **sudah**
+wajib absen (aturan *Fleksibel*), **sudah** nol wewenang ACC (nol baris sebagai
+`approver_role_id`), dan **sudah** tak bisa mengajukan apa pun.
+
+Yang terakhir itu bekerja lewat jalan yang menyesatkan:
+`pastikanApexBukanSalahKonfigurasi()` **menolak mentah** kiriman dari role yang
+tak dikenal grafik ACC, dengan pesan *"Alur persetujuan untuk jabatan ini belum
+diatur… Hubungi admin"*. Sesuai kebijakan, tapi terbaca seperti **kerusakan**.
+Utang: teksnya perlu dijujurkan jadi kebijakan, bukan galat.
+
+### Akun Achmad Haickal — DIBUAT DI PROD
+
+Konsultan finance baru. Sengaja ditaruh di role `Consultant` yang **sama persis**
+dengan Hari & Rahmat (keputusan Ekky: role khusus menyusul setelah rencananya
+jadi; sekarang cukup bisa login & absen).
+
+| | |
+|---|---|
+| email | `haickal@sweettreats.id` |
+| role | `Consultant` (identik Hari & Rahmat) |
+| aturan kerja | Fleksibel, `effective_from` **2026-08-21** |
+| sandi | sementara acak, `must_change_password=1` |
+
+Dibuat lewat skrip yang meniru `UserManagement::store()` — model yang sama
+dengan layar Pusat Akun — **kecuali** `effective_from` ditetapkan eksplisit,
+karena layar itu selalu memakai `now()`. Itulah lubang yang dua kali melahirkan
+alpa palsu; di sini ditutup dengan bertanya lebih dulu kapan orangnya mulai
+kerja. Jejak audit **beratas-nama Muhamad Ikhsan**, bukan pelaku kosong.
+
+**16 pemeriksaan lulus, 0 gagal** — termasuk yang tak bisa dibuktikan oleh
+"tak ada error": `password_verify` terhadap sandi yang diserahkan, kemunculannya
+di **query roster Kehadiran yang sama dengan layarnya**, dan `AuthGuard`
+mengizinkan segmen `/akun` sehingga layar absen benar-benar terbuka.
+
+### Keputusan Ekky yang tercatat
+
+- **Konsultan Finance = Finance utuh, TERMASUK menyetujui ROP.** Larangan
+  "tak boleh ACC" berlaku untuk **pengajuan orang** (cuti/lembur/izin), bukan
+  untuk pekerjaan Finance sendiri. ⚠️ Ini **perubahan kode**, bukan config:
+  `ROLE_PENYETUJU` harus jadi daftar, plus `CutiController::BOLEH`,
+  `LembarGajiController::BOLEH`, `canSeeAllBranches()`.
+- **"Koordinator Asdent" = `Coordinator Dentist` yang sudah ada** (typo Ekky).
+  Tak ada role baru; Irma tetap.
+- **Fajri = Alpajri Suhendar Al Qhusni** (`fajri@`, General Services) — bukan
+  Mutiara Nurul Fajri di Front Office.
+- Role baru yang benar-benar baru hanya **Koordinator GS**.
+
+### ⚠️ Terbuka, belum dijawab
+
+**Konsultan bisa membuka Laporan Penjualan → Executive.** `report/executive`
+adalah salah satu dari 6 node akses role `Consultant`, jadi **Hari — konsultan
+dari domain luar `stdc.id` — sudah bisa melihat laporan penjualan eksekutif
+prod sekarang.** Kalau tak disengaja, pencabutannya cuma 2 baris `group_access`
++ `access:rebuild`. Menunggu keputusan.
+
+Juga menggantung: apakah `Coordinator Dentist` pindah ke bawah Supervisor atau
+tetap di bawah Executive.
+
+---
+
 ## 2026-08-21 — Absen HP: pencocokan WiFi pindah dari /64 ke /48 · LIVE PROD
 
 Keluhan Ekky: "kena flag terus padahal kemarin sudah didaftarkan dan diperbaiki".
