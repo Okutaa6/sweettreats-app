@@ -83,6 +83,20 @@ class AbsensiBranchIpController extends Controller
                 ' — satu IP hanya boleh satu cabang. Nonaktifkan dulu yang lama kalau memang pindah.');
         }
 
+        // Sejak pencocokan melebar ke /48 (AttBranchIp::matchBranch), satu /48
+        // yang dipegang DUA cabang membuat absen di salah satunya terbaca
+        // sebagai cabang yang lain — diam-diam, tanpa gejala apa pun. Seluruh
+        // pelebaran itu bersandar pada asumsi "satu /48 = satu pelanggan
+        // Telkom"; di sinilah asumsi itu diuji tiap kali ada baris baru.
+        $bentrok48 = AttBranchIp::pemilik48Lain($data['ip'], $data['raw_branch_id']);
+        if ($bentrok48) {
+            return back()->with('error',
+                'Blok /48 milik ' . $data['ip'] . ' sudah dipakai cabang ' .
+                optional($bentrok48->branch)->name . ' (lewat ' . $bentrok48->ip . '). ' .
+                'Karena pencocokan IPv6 memakai /48, mendaftarkan ini akan membuat absen ' .
+                'kedua cabang tertukar. Nonaktifkan dulu baris yang lama kalau jalurnya memang pindah.');
+        }
+
         AttBranchIp::create($data + [
             'status'     => 'aktif',
             'created_by' => (string) session('id') ?: null,

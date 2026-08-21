@@ -40,6 +40,18 @@ use Carbon\Carbon;
  * KENAPA SATU ORANG TAK PERNAH CUKUP: satu orang tak bisa dibedakan dari WiFi
  * rumahnya sendiri. Kasus Kalideres (Rizka, 6-7 Agu) membuktikannya — waktu itu
  * penyelesaiannya lewat memeriksa foto selfie, bukan lewat jumlah.
+ *
+ * ⚠️ SEJAK 21 AGU 2026 — VONIS "DAFTAR" PRAKTIS TAK PERNAH TERBIT LAGI.
+ * AttBranchIp::matchBranch kini mencocokkan /48, bukan /64. Akibatnya /64 baru
+ * yang /48-nya sekerabat sudah cocok dengan sendirinya, sehingga
+ * AttendanceHpAbsen tak pernah lagi memanggil pelajari() untuk kasus itu — dan
+ * syarat 4 (kekerabatan /48) memang syarat yang sama yang membuat pencocokan
+ * berhasil. Jalur DAFTAR tersubsumsi: yang dulu menunggu 2 saksi dalam 72 jam
+ * sekarang dikenali seketika.
+ *
+ * Kode DAFTAR/daftarkan() SENGAJA DIPERTAHANKAN — kalau pelebaran /48 suatu
+ * saat harus dibatalkan, mekanismenya harus masih utuh. Yang hidup sehari-hari
+ * sekarang adalah TAWARKAN: /48 yang asing sama sekali, dipakai ramai-ramai.
  */
 class WifiBelajarSendiri
 {
@@ -191,6 +203,13 @@ class WifiBelajarSendiri
     {
         try {
             $hasil = $this->nilai($ip, $branchDipilih, $saat);
+
+            // TAWARKAN kini vonis hidup satu-satunya sehari-hari — kirimkan ke
+            // IT, jangan cuma dikembalikan sebagai nilai yang tak dibaca siapa pun.
+            if ($hasil['vonis'] === self::TAWARKAN) {
+                $this->tawarkan($hasil, $branchDipilih, $saat ? $saat->copy() : Carbon::now());
+                return $hasil;
+            }
 
             if ($hasil['vonis'] !== self::DAFTAR) {
                 return $hasil;
@@ -459,6 +478,49 @@ class WifiBelajarSendiri
             . "({$hasil['n']} orang: {$nama})");
 
         return $baris;
+    }
+
+    /**
+     * Beri tahu IT bahwa ada jaringan ASING yang dipakai ramai-ramai.
+     *
+     * Sejak pencocokan melebar ke /48 (AttBranchIp::matchBranch, 21 Agu 2026),
+     * vonis DAFTAR praktis tak pernah terbit lagi — lihat catatan di docblock
+     * kelas. Yang tersisa justru kasus yang MEMANG butuh manusia: /48 yang tak
+     * dikenal sama sekali, dipakai >= AMBANG_ORANG staf cabang itu.
+     *
+     * Dulu vonis ini cuma dikembalikan sebagai nilai dan tak pernah sampai ke
+     * siapa pun — tak ada notifikasi, tak ada layar yang membacanya, meski
+     * docblock kelas menjanjikan "tawarkan sekali klik ke IT". Dibiarkan
+     * begitu, pelebaran /48 akan membuat halaman WiFi Cabang membisu total.
+     *
+     * Sekali per prefix per jendela: satu jaringan dipakai belasan kali sehari,
+     * dan notifikasi berulang justru membuat IT berhenti membacanya.
+     */
+    private function tawarkan(array $hasil, string $branchDipilih, Carbon $saat): void
+    {
+        $prefix = (string) $hasil['prefix'];
+        $cabang = optional(\App\Models\RawBranch::find($branchDipilih))->name ?? $branchDipilih;
+
+        $sudah = AdminNotification::where('type', 'wifi_tawaran')
+            ->where('title', 'like', '%' . $prefix . '%')
+            ->where('created_at', '>=', $saat->copy()->subHours(self::JENDELA_JAM))
+            ->exists();
+        if ($sudah) {
+            return;
+        }
+
+        $nama = implode(', ', array_slice($hasil['pendukung'], 0, 5));
+
+        foreach (self::ROLE_PENINJAU as $role) {
+            AdminNotification::notifyRole($role, 'wifi_tawaran',
+                "WiFi asing dipakai ramai — {$prefix} ({$cabang})",
+                "{$hasil['n']} orang {$cabang} memakai jaringan {$prefix} dalam " . self::JENDELA_JAM
+                . " jam terakhir ({$nama}), tapi blok /48-nya TIDAK sekerabat dengan jalur {$cabang} "
+                . 'mana pun yang sudah terdaftar. Sistem sengaja tidak mendaftarkannya sendiri. '
+                . 'Kalau ini memang jalur baru cabang, daftarkan di halaman WiFi Cabang; kalau bukan '
+                . '(rumah, kafe, atau seluler), biarkan saja.',
+                'absensi/wifi');
+        }
     }
 
     /** 8 byte pertama → "2001:448a:2092:2777::" */

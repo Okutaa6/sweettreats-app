@@ -30,28 +30,132 @@ class AttBranchIp extends Model
     /**
      * Cari cabang dari IP request. NULL = IP tak dikenal (bukan error — flag).
      *
-     * IPv4 → cocok penuh. IPv6 → cocok prefix /64 (64 bit pertama = blok
-     * jaringan cabang dari ISP). Sebab: IPv6 privacy extension memutar 64 bit
-     * terakhir (interface id) tiap sesi/HP, jadi alamat PENUH tak pernah sama
-     * dua kali walau di WiFi yang sama — cocok-penuh = selalu "tak terdaftar".
-     * Mendaftarkan satu IPv6 dari WiFi cabang otomatis mengenali seluruh /64-nya.
+     * IPv4 → cocok penuh. IPv6 → cocok prefix /48, dengan /64 yang persis
+     * diutamakan.
+     *
+     * KENAPA /48, BUKAN /64 LAGI (diubah 2026-08-21, ACC Ekky)
+     * ────────────────────────────────────────────────────────────────────────
+     * Telkom memutar /64 pelanggan kira-kira tiap DUA HARI — Bintaro memakai
+     * TUJUH /64 berbeda dalam 17 hari — sementara /48-nya tak pernah berubah.
+     * Dengan pencocokan /64, tiap rotasi menghanguskan seluruh pendaftaran dan
+     * seisi cabang jatuh ke "pilih cabang manual" sampai ada manusia yang
+     * mendaftarkan nomor barunya. Terukur di prod sepanjang Agustus 2026:
+     * 133 dari 474 absen HP (28,1%) gagal cocok, dan 57 dari 63 kegagalan IPv6
+     * akan cocok seandainya yang dibandingkan /48.
+     *
+     * INI BUKAN PELONGGARAN KEAMANAN BARU. WifiBelajarSendiri sudah memakai
+     * kekerabatan /48 sebagai pagar yang memutuskan pendaftaran otomatis (lihat
+     * docblock AMBANG_ORANG di sana: "yang menjaga keamanan bukan angka ini,
+     * tapi pagar kekerabatan /48"). Yang berubah cuma JEDANYA — dulu /64 baru
+     * harus menunggu 2 saksi dalam 72 jam, sekarang langsung dikenali.
+     *
+     * Bukti /48 memang membedakan: lima cabang memakai lima /48 terpisah tanpa
+     * tumpang-tindih, dan dua HP pribadi yang bertetangga — 2404:c0:5d10
+     * (Talitha) vs 2404:c0:5d1a (Reza) — tetap jatuh di /48 berlainan.
+     * Melebarkan ke /32 akan menyatukan keduanya; /48 tidak.
+     *
+     * ⚠️ ASUMSI YANG DIPEGANG: Telkom mendelegasikan /48 per pelanggan. Itu
+     * kesimpulan dari 17 hari data prod, BUKAN janji tertulis dari Telkom.
+     * Kalau suatu saat dua pelanggan berbagi /48, pagar ini bocor. Penjaganya:
+     * AbsensiBranchIpController::store() menolak mendaftarkan /48 yang sudah
+     * dimiliki cabang lain — jadi kebocoran ketahuan saat pendaftaran, bukan
+     * diam-diam saat pencocokan.
+     *
+     * VETO IT MENANG ATAS KEKERABATAN: baris nonaktif yang ip-nya PERSIS teks
+     * prefix bersih ("2001:448a:2092:d21::") berarti IT sudah melihat jalur itu
+     * lalu bilang tidak — /48 sekerabat tak boleh menghidupkannya lagi. Baris
+     * nonaktif BEREKOR (alamat satu HP, mis. "...d21:23d8:ac94:b34:8c05") BUKAN
+     * veto: itu cuma bersih-bersih rotasi gaya lama. Pembedaan yang persis sama
+     * dipakai WifiBelajarSendiri::nilai() — jangan dibuat berbeda di dua tempat.
      */
     public static function matchBranch(string $ip): ?self
     {
         $bin  = @inet_pton($ip);
         $isV6 = $bin !== false && strlen($bin) === 16;
 
+        // ::ffff:x.x.x.x — IPv4 menyamar jadi IPv6. Tetap IPv4 (CGNAT seluler
+        // bisa lewat bentuk ini), jangan sampai ikut jalur pelebaran prefix.
+        $v4Menyamar = $isV6 && substr($bin, 0, 12) === "\0\0\0\0\0\0\0\0\0\0\xff\xff";
+
         // IPv4 (atau string tak valid) → jalur cepat cocok-penuh.
-        if (! $isV6) {
+        if (! $isV6 || $v4Menyamar) {
             return static::where('ip', $ip)->where('status', 'aktif')->first();
         }
 
-        // IPv6 → bandingkan 64 bit pertama (8 byte) secara biner, supaya bentuk
-        // tertulis apa pun (terkompresi '::', huruf besar/kecil) tetap cocok.
-        $prefix = substr($bin, 0, 8);
-        foreach (static::where('status', 'aktif')->get() as $row) {
-            $rbin = @inet_pton($row->ip);
-            if ($rbin !== false && strlen($rbin) === 16 && substr($rbin, 0, 8) === $prefix) {
+        $p64        = substr($bin, 0, 8);
+        $p48        = substr($bin, 0, 6);
+        $prefixTeks = (string) inet_ntop($p64 . str_repeat("\0", 8));
+
+        $persisAktif = null;   // baris aktif ber-/64 sama → paling tepat
+        $adaVeto     = false;  // baris nonaktif ber-teks-prefix persis → IT bilang tidak
+        $kerabat     = null;   // baris aktif se-/48 → cadangan saat rotasi
+
+        // Banding BINER, bukan SQL: satu prefix punya tak terhingga bentuk
+        // tertulis ('::' terkompresi, huruf besar/kecil, ekor privacy extension
+        // yang berganti tiap sesi). Tabelnya puluhan baris, sekali muat cukup.
+        // orderBy('id') supaya pilihan kerabat deterministik, bukan urutan acak.
+        foreach (static::orderBy('id')->get() as $row) {
+            $rbin = @inet_pton((string) $row->ip);
+            if ($rbin === false || strlen($rbin) !== 16) {
+                continue;
+            }
+
+            if (substr($rbin, 0, 8) === $p64) {
+                if ($row->status === 'aktif') {
+                    $persisAktif = $persisAktif ?: $row;
+                } elseif ((string) $row->ip === $prefixTeks) {
+                    $adaVeto = true;
+                }
+                continue;
+            }
+
+            if ($kerabat === null && $row->status === 'aktif' && substr($rbin, 0, 6) === $p48) {
+                $kerabat = $row;
+            }
+        }
+
+        if ($persisAktif) {
+            return $persisAktif;
+        }
+
+        // IT sudah menolak prefix INI. Kekerabatan /48 tidak boleh membatalkan
+        // keputusan manusia — biar jatuh ke pilih-cabang-manual seperti dulu.
+        if ($adaVeto) {
+            return null;
+        }
+
+        return $kerabat;
+    }
+
+    /**
+     * Cabang lain yang sudah memiliki /48 milik $ip, kalau ada.
+     *
+     * Dipakai saat MENDAFTARKAN, bukan saat mencocokkan: karena pencocokan kini
+     * melebar ke /48, satu /48 yang dipegang dua cabang membuat absen di salah
+     * satunya terbaca sebagai cabang yang lain — diam-diam, tanpa gejala.
+     * Lebih baik ditolak di pintu masuk.
+     *
+     * NULL untuk IPv4 (tak punya padanan /48) dan untuk /48 yang belum dimiliki
+     * siapa pun, atau yang dimiliki cabang itu sendiri.
+     */
+    public static function pemilik48Lain(string $ip, string $branchId): ?self
+    {
+        $bin = @inet_pton($ip);
+        if ($bin === false || strlen($bin) !== 16) {
+            return null;
+        }
+        if (substr($bin, 0, 12) === "\0\0\0\0\0\0\0\0\0\0\xff\xff") {
+            return null;
+        }
+
+        $p48 = substr($bin, 0, 6);
+
+        foreach (static::where('status', 'aktif')->orderBy('id')->get() as $row) {
+            if ((string) $row->raw_branch_id === $branchId) {
+                continue;
+            }
+            $rbin = @inet_pton((string) $row->ip);
+            if ($rbin !== false && strlen($rbin) === 16 && substr($rbin, 0, 6) === $p48) {
                 return $row;
             }
         }

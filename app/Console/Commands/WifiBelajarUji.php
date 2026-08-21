@@ -23,8 +23,8 @@ use Illuminate\Support\Facades\DB;
  * berkas foto (tak ada gambar sungguhan; logikanya tak menyentuh isi berkas).
  *
  * Kejadiannya SALINAN PERSIS baris prod 5–12 Agu 2026 — jam, alamat, dan orang
- * yang sama. Tiga kasus terakhir dikarang karena tak ada padanannya di data
- * nyata (orang beda cabang, /48 asing, saklar mati).
+ * yang sama. K5–K8 dan K11–K15 dikarang karena tak ada padanannya di data nyata
+ * (klaim cabang keliru, CGNAT, /48 asing, saklar mati, veto, IPv4, pagar daftar).
  *
  * ⚠️ MENULIS ke DB: tiap kasus menghapus absensi di jendela ujinya lalu menyusun
  * ulang att_branch_ip. Karena itu dikunci mati untuk lingkungan produksi.
@@ -114,7 +114,7 @@ class WifiBelajarUji extends Command
             [
                 'kode'  => 'K1',
                 'judul' => 'Rotasi 10d5 · 11 Agu · 7 orang Bintaro dalam sejam, se-/48',
-                'harap' => 'DAFTAR di orang sah ke-2 (Firda 09:36) → flag ip_asing tinggal 2',
+                'harap' => 'NOL flag — rotasi diserap pencocokan /48, tak ada yang perlu dipelajari',
                 'baseline' => self::BASELINE_BINTARO,
                 'saklar' => '1',
                 'events' => [
@@ -126,30 +126,37 @@ class WifiBelajarUji extends Command
                     ['2026-08-11 09:54:15', 'Afrina Apriliani',           'masuk',  '2001:448a:2092:10d5:cd9b:b9d6:de1e:eae',  $b],
                     ['2026-08-11 10:38:03', 'Reza Fauzi Ramadhan',        'masuk',  '2001:448a:2092:10d5:986a:57f:fa0c:e113',  $b],
                 ],
+                // ARTI KASUS INI BERUBAH TOTAL pada 21 Agu 2026.
+                //
+                // Dulu: pendaftaran otomatis memicu di orang sah ke-2 (Firda),
+                // dan dua orang pertama tetap menanggung flag sebagai "harga
+                // bukti yang mereka kumpulkan". Sekarang pencocokan memakai /48
+                // dan 10d5 sekerabat dengan 2313/134e di baseline — jadi ORANG
+                // PERTAMA pun langsung cocok.
+                //
+                // Inilah bukti utama pelebaran /48: kejadian nyata 11 Agu yang
+                // dulu membakar tujuh orang kini tak membakar seorang pun.
                 'periksa' => function (array $j) {
-                    // ⚠️ INI penjaga §6 sekarang: Talitha datang KEDUA dan
-                    // fleksibel. Kalau ia ikut terhitung, hitungannya jadi 2 dan
-                    // pendaftaran memicu di kejadiannya — jadi assertion ini
-                    // yang membuktikan orang fleksibel tak menguatkan apa pun.
-                    $this->wajib($j[1]['belajar']['n'] === 1, 'saat Talitha (fleksibel) absen hitungan harus tetap 1 — dapat ' . $j[1]['belajar']['n']);
-                    $this->wajib($j[1]['belajar']['vonis'] !== WifiBelajarSendiri::DAFTAR, 'Talitha fleksibel TIDAK boleh memicu pendaftaran — dapat ' . $j[1]['belajar']['vonis']);
-
-                    // Orang sah ke-2 adalah Firda (Alpajri #1, Talitha tak dihitung).
-                    $this->wajib($j[2]['belajar']['n'] === 2, 'saat Firda absen hitungannya harus 2 — dapat ' . $j[2]['belajar']['n']);
-                    $this->wajib($j[2]['belajar']['vonis'] === WifiBelajarSendiri::DAFTAR, 'Firda (orang sah ke-2) harus memicu pendaftaran — dapat ' . $j[2]['belajar']['vonis'] . '/' . $j[2]['belajar']['alasan']);
-                    $this->wajib($j[2]['belajar']['prefix'] === '2001:448a:2092:10d5::', 'yang didaftarkan harus prefix bersih 2001:448a:2092:10d5:: — dapat ' . $j[2]['belajar']['prefix']);
-                    // Sesudah terdaftar, rekan yang datang berikutnya langsung cocok.
-                    foreach ([3, 4, 5, 6] as $i) {
-                        $this->wajib($j[$i]['cocok'] === true, "orang ke-" . ($i + 1) . " ({$j[$i]['nama']}) harusnya sudah COCOK, tak ke-flag lagi");
+                    foreach ($j as $i => $r) {
+                        $ke = 'orang ke-' . ($i + 1) . " ({$r['nama']})";
+                        $this->wajib($r['cocok'] === true, "{$ke} harus langsung COCOK lewat kekerabatan /48");
+                        $this->wajib($r['branch_id'] === self::BINTARO, "{$ke} harus terbaca di Bintaro — dapat {$r['branch_id']}");
+                        $this->wajib($r['belajar']['alasan'] === 'sudah_cocok',
+                            "{$ke} tak boleh masuk jalur belajar sama sekali — dapat " . $r['belajar']['alasan']);
                     }
-                    $n = AttFlag::where('jenis', 'ip_asing')->where('work_date', '2026-08-11')->count();
-                    $this->wajib($n === 2, "flag ip_asing 11 Agu harus tinggal 2 (Alpajri, Firda) — dapat {$n}");
+
+                    // Rotasi tak lagi menambah baris: daftar WiFi berhenti membengkak.
+                    $n = AttBranchIp::where('sumber', 'otomatis')->count();
+                    $this->wajib($n === 0, "rotasi tak boleh melahirkan baris baru lagi — lahir {$n}");
+
+                    $f = AttFlag::where('jenis', 'ip_asing')->where('work_date', '2026-08-11')->count();
+                    $this->wajib($f === 0, "flag ip_asing 11 Agu harus NOL (dulu 2) — dapat {$f}");
                 },
             ],
             [
                 'kode'  => 'K2',
                 'judul' => 'Jalur kedua 2777 · Firda 11/8 malam + Alpajri & Yovanka 12/8 pagi',
-                'harap' => 'DAFTAR di Alpajri (orang sah ke-2) — bukti melintasi HARI, jendela 72 jam',
+                'harap' => 'NOL flag di dua hari — jalur kedua pun se-/48',
                 'baseline' => array_merge(self::BASELINE_BINTARO, [[self::BINTARO, '2001:448a:2092:10d5::']]),
                 'saklar' => '1',
                 'events' => [
@@ -157,21 +164,20 @@ class WifiBelajarUji extends Command
                     ['2026-08-12 07:35:41', 'Alpajri Suhendar Al Qhusni', 'masuk',  '2001:448a:2092:2777:2610:b0ab:1fa:adb7',  $b],
                     ['2026-08-12 09:19:01', 'Yovanka Rima Millennia',     'masuk',  '2001:448a:2092:2777:1893:da0b:a1c4:2660', $b],
                 ],
-                // Sejak ambang turun jadi 2 (18 Agu), kasus ini berubah arti:
-                // dulu ia membuktikan "2 orang belum cukup", sekarang ia
-                // membuktikan bukti boleh MELINTASI HARI selama masih di dalam
-                // jendela 72 jam — Firda malam 11/8, Alpajri pagi 12/8.
-                // Penjaga "fleksibel tak dihitung" pindah ke K1.
+                // Kasus ini sudah dua kali berganti arti. Mula-mula membuktikan
+                // "2 orang belum cukup" (ambang 3). Lalu, sesudah ambang turun,
+                // membuktikan bukti boleh MELINTASI HARI di dalam jendela 72 jam.
+                // Sekarang pertanyaan itu hilang seluruhnya: jalur kedua Bintaro
+                // ada di /48 yang sama, jadi tak ada bukti yang perlu dikumpulkan.
                 'periksa' => function (array $j) {
-                    $this->wajib($j[0]['belajar']['n'] === 1, 'Firda sendirian harus terhitung 1 — dapat ' . $j[0]['belajar']['n']);
-                    $this->wajib($j[0]['belajar']['vonis'] !== WifiBelajarSendiri::DAFTAR, 'satu orang tak boleh cukup — dapat ' . $j[0]['belajar']['vonis']);
-
-                    $this->wajib($j[1]['belajar']['vonis'] === WifiBelajarSendiri::DAFTAR, 'Alpajri (hari BERIKUTNYA) harus memicu pendaftaran — dapat ' . $j[1]['belajar']['vonis'] . '/' . $j[1]['belajar']['alasan']);
-                    $this->wajib($j[1]['belajar']['n'] === 2, 'hitungannya harus 2 — dapat ' . $j[1]['belajar']['n']);
-                    $this->wajib($j[1]['belajar']['prefix'] === '2001:448a:2092:2777::', 'prefix yang didaftarkan harus 2777:: — dapat ' . $j[1]['belajar']['prefix']);
-
-                    // Yovanka datang sesudahnya → jaringannya sudah dikenal.
-                    $this->wajib($j[2]['cocok'] === true, 'Yovanka harusnya sudah COCOK, tak ke-flag lagi');
+                    foreach ($j as $i => $r) {
+                        $this->wajib($r['cocok'] === true,
+                            'orang ke-' . ($i + 1) . " ({$r['nama']}) harus langsung cocok — jalur B se-/48 dengan jalur A");
+                    }
+                    foreach (['2026-08-11', '2026-08-12'] as $hari) {
+                        $f = AttFlag::where('jenis', 'ip_asing')->where('work_date', $hari)->count();
+                        $this->wajib($f === 0, "flag ip_asing {$hari} harus NOL — dapat {$f}");
+                    }
                 },
             ],
             [
@@ -201,8 +207,8 @@ class WifiBelajarUji extends Command
             ],
             [
                 'kode'  => 'K5',
-                'judul' => '3 orang di satu jaringan tapi BEDA cabang (dikarang)',
-                'harap' => 'TIDAK daftar — tak ada satu cabang pun yang mencapai ambang',
+                'judul' => 'Se-/48 Bintaro tapi tiga orang MENGAKU cabang berbeda',
+                'harap' => 'ketiganya terbaca BINTARO — saksi WiFi menang atas pilihan manual',
                 'baseline' => self::BASELINE_BINTARO,
                 'saklar' => '1',
                 'events' => [
@@ -210,7 +216,25 @@ class WifiBelajarUji extends Command
                     ['2026-08-11 08:05:00', 'Rizka Noviyanti',     'masuk', '2001:448a:2092:9911:2::', self::SUNTER],
                     ['2026-08-11 08:10:00', 'Asih Wulan Sari',     'masuk', '2001:448a:2092:9911:3::', self::CINERE],
                 ],
-                'periksa' => fn (array $j) => $this->takAdaPendaftaran($j),
+                // Dulu kasus ini menguji "tak ada satu cabang pun yang mencapai
+                // ambang". Sejak pencocokan /48, prefix karangan 9911 berada di
+                // DALAM blok Bintaro — jadi pertanyaannya berubah jadi yang lebih
+                // penting: kalau orang mengaku di Sunter padahal jaringannya
+                // milik Bintaro, siapa yang dipercaya? Jawabannya: jaringannya.
+                'periksa' => function (array $j) {
+                    foreach ($j as $i => $r) {
+                        $ke = 'orang ke-' . ($i + 1) . " ({$r['nama']})";
+                        $this->wajib($r['cocok'] === true, "{$ke} harus cocok lewat /48 Bintaro");
+                        $this->wajib($r['branch_id'] === self::BINTARO,
+                            "{$ke} harus terbaca BINTARO walau memilih cabang lain — dapat {$r['branch_id']}");
+                    }
+                    // Klaim manual tak boleh ikut tercatat saat WiFi mengenali:
+                    // yang tersimpan harus bukti, bukan pengakuan.
+                    $manual = AttHpBukti::whereBetween('taken_at', ['2026-08-11 00:00:00', '2026-08-12 00:00:00'])
+                        ->whereNotNull('branch_id_manual')->count();
+                    $this->wajib($manual === 0, "pilihan manual tak boleh tercatat saat WiFi mengenali — dapat {$manual}");
+                    $this->takAdaPendaftaran($j);
+                },
             ],
             [
                 'kode'  => 'K6',
@@ -236,7 +260,7 @@ class WifiBelajarUji extends Command
             [
                 'kode'  => 'K7',
                 'judul' => '3 orang cabang sama tapi /48 ASING (dikarang — pola "cabang baru")',
-                'harap' => 'TAWARKAN ke IT, bukan daftar otomatis (§3)',
+                'harap' => 'TAWARKAN ke IT + notifikasi benar-benar terkirim, sekali saja',
                 'baseline' => self::BASELINE_BINTARO,
                 'saklar' => '1',
                 'events' => [
@@ -249,35 +273,51 @@ class WifiBelajarUji extends Command
                     // Pagar /48 berdiri SENDIRI dari ambang orang: begitu orang
                     // ke-2 datang (ambang tercapai), vonisnya sudah TAWARKAN —
                     // bukan DAFTAR. Inilah yang menjaga keamanan sesudah ambang
-                    // diturunkan, jadi assertion ini yang paling penting di sini.
+                    // diturunkan, dan kini juga sesudah pencocokan dilebarkan.
                     $this->wajib($j[1]['belajar']['vonis'] === WifiBelajarSendiri::TAWARKAN, 'di orang ke-2 (ambang tercapai) vonis harus TAWARKAN, bukan DAFTAR — dapat ' . $j[1]['belajar']['vonis']);
                     $this->wajib($j[1]['belajar']['alasan'] === 'kerabat_48_tak_ada', 'alasannya harus pagar /48 — dapat ' . $j[1]['belajar']['alasan']);
 
                     $akhir = $j[2]['belajar'];
                     $this->wajib($akhir['vonis'] === WifiBelajarSendiri::TAWARKAN, 'vonis harus TAWARKAN — dapat ' . $akhir['vonis']);
                     $this->wajib($akhir['n'] === 3, 'tiga orang harus tetap terhitung (yang gagal cuma pagar /48) — dapat ' . $akhir['n']);
+
+                    // BARU 21 Agu 2026. Sebelum ini, TAWARKAN cuma dikembalikan
+                    // sebagai nilai dan TAK PERNAH sampai ke siapa pun — tak ada
+                    // notifikasi, tak ada layar yang membacanya, meski docblock
+                    // kelasnya menjanjikan "tawarkan sekali klik ke IT". Karena
+                    // pelebaran /48 mematikan jalur DAFTAR (satu-satunya yang
+                    // dulu memberi tahu IT), tanpa ini halaman WiFi Cabang akan
+                    // membisu total.
+                    $notif = DB::table('admin_notification')->where('type', 'wifi_tawaran')->get();
+                    $harus = count(WifiBelajarSendiri::ROLE_PENINJAU);
+                    $this->wajib($notif->count() === $harus,
+                        "harus tepat {$harus} notifikasi (satu per role, TIDAK berulang walau dua kejadian bervonis TAWARKAN) — dapat " . $notif->count());
+                    $bersebut = $notif->filter(fn ($r) => str_contains((string) $r->title, '2404:c0:20b3:82d9::'))->count();
+                    $this->wajib($bersebut === $notif->count(), 'judul notifikasi harus menyebut prefixnya');
                 },
             ],
             [
                 'kode'  => 'K8',
-                'judul' => 'Saklar dimatikan · ulangi K1 yang tadinya lulus',
-                'harap' => 'TIDAK daftar — fitur mati total',
+                'judul' => 'Saklar dimatikan · /48 asing dipakai bertiga',
+                'harap' => 'TIDAK daftar, TIDAK menawarkan, tidak ada notifikasi — fitur mati total',
                 'baseline' => self::BASELINE_BINTARO,
                 'saklar' => '0',
                 'events' => [
-                    ['2026-08-11 07:42:32', 'Alpajri Suhendar Al Qhusni', 'masuk', '2001:448a:2092:10d5:7614:ae78:98b6:c1f5', $b],
-                    ['2026-08-11 09:36:06', 'Firda Mareta Naskah',        'masuk', '2001:448a:2092:10d5:b0cc:8a6a:22f5:8c53', $b],
-                    ['2026-08-11 09:39:55', 'Rizka Noviyanti',            'masuk', '2001:448a:2092:10d5:f424:5430:e974:be48', $b],
+                    ['2026-08-11 08:00:00', 'Firda Mareta Naskah', 'masuk', '2404:c0:20b3:82d9:1::', $b],
+                    ['2026-08-11 08:05:00', 'Rizka Noviyanti',     'masuk', '2404:c0:20b3:82d9:2::', $b],
+                    ['2026-08-11 08:10:00', 'Asih Wulan Sari',     'masuk', '2404:c0:20b3:82d9:3::', $b],
                 ],
                 'periksa' => function (array $j) {
                     $this->takAdaPendaftaran($j);
                     $this->wajib($j[2]['belajar']['alasan'] === 'saklar_mati', 'alasan harus saklar_mati — dapat ' . $j[2]['belajar']['alasan']);
+                    $n = DB::table('admin_notification')->whereIn('type', ['wifi_otomatis', 'wifi_tawaran'])->count();
+                    $this->wajib($n === 0, "saklar mati berarti IT pun tak diganggu — dapat {$n} notifikasi");
                 },
             ],
             [
                 'kode'  => 'K9',
                 'judul' => 'IT sudah menonaktifkan baris ini · orang bertiga datang lagi',
-                'harap' => 'TIDAK daftar ulang, dan vonisnya jujur bilang ditolak_it',
+                'harap' => 'TIDAK cocok & TIDAK daftar ulang — veto IT menang atas kekerabatan /48',
                 'baseline' => array_merge(self::BASELINE_BINTARO, [
                     [self::BINTARO, '2001:448a:2092:10d5::', 'nonaktif'],
                 ]),
@@ -287,16 +327,21 @@ class WifiBelajarUji extends Command
                     ['2026-08-11 09:36:06', 'Firda Mareta Naskah',        'masuk', '2001:448a:2092:10d5:b0cc:8a6a:22f5:8c53', $b],
                     ['2026-08-11 09:39:55', 'Rizka Noviyanti',            'masuk', '2001:448a:2092:10d5:f424:5430:e974:be48', $b],
                 ],
+                // KASUS PALING GENTING SESUDAH PELEBARAN /48.
+                // Baseline Bintaro berisi 2313 & 134e yang AKTIF dan se-/48
+                // dengan 10d5. Tanpa pagar veto di matchBranch, kekerabatan akan
+                // menghidupkan kembali prefix yang sudah dimatikan manusia —
+                // diam-diam, tanpa gejala. Kasus ini yang menahannya.
                 'periksa' => function (array $j) {
                     $this->takAdaPendaftaran($j);
                     foreach ($j as $i => $r) {
+                        $this->wajib($r['cocok'] === false,
+                            'kejadian ke-' . ($i + 1) . ' TIDAK boleh cocok — /48 sekerabat tak boleh membatalkan veto IT');
                         $this->wajib($r['belajar']['alasan'] === 'ditolak_it',
                             'kejadian ke-' . ($i + 1) . ' harus bilang ditolak_it — dapat ' . $r['belajar']['alasan']);
                     }
-                    // Veto IT tak boleh diam-diam dihidupkan lagi.
                     $tetapMati = AttBranchIp::where('ip', '2001:448a:2092:10d5::')->value('status');
                     $this->wajib($tetapMati === 'nonaktif', "baris harus tetap nonaktif — dapat {$tetapMati}");
-                    // Semua orang tetap ke-flag: jaringannya memang tak diakui.
                     $n = AttFlag::where('jenis', 'ip_asing')->where('work_date', '2026-08-11')->count();
                     $this->wajib($n === 3, "ketiganya harus tetap ke-flag — dapat {$n}");
                 },
@@ -304,19 +349,18 @@ class WifiBelajarUji extends Command
             [
                 'kode'  => 'K10',
                 'judul' => 'Notifikasi sampai ke SEMUA role peninjau, bukan cuma "IT"',
-                'harap' => 'satu baris notifikasi per role di ROLE_PENINJAU',
+                'harap' => 'satu baris wifi_tawaran per role di ROLE_PENINJAU',
                 'baseline' => self::BASELINE_BINTARO,
                 'saklar' => '1',
                 'events' => [
-                    ['2026-08-11 07:42:32', 'Alpajri Suhendar Al Qhusni', 'masuk', '2001:448a:2092:10d5:7614:ae78:98b6:c1f5', $b],
-                    ['2026-08-11 09:36:06', 'Firda Mareta Naskah',        'masuk', '2001:448a:2092:10d5:b0cc:8a6a:22f5:8c53', $b],
-                    ['2026-08-11 09:39:55', 'Rizka Noviyanti',            'masuk', '2001:448a:2092:10d5:f424:5430:e974:be48', $b],
+                    ['2026-08-11 07:42:32', 'Alpajri Suhendar Al Qhusni', 'masuk', '2404:c0:5d10:7a1:1::', $b],
+                    ['2026-08-11 09:36:06', 'Firda Mareta Naskah',        'masuk', '2404:c0:5d10:7a1:2::', $b],
+                    ['2026-08-11 09:39:55', 'Rizka Noviyanti',            'masuk', '2404:c0:5d10:7a1:3::', $b],
                 ],
                 'periksa' => function (array $j) {
-                    // Ambang 2 → pemicunya Firda (kejadian ke-2), bukan Rizka.
-                    $this->wajib($j[1]['belajar']['vonis'] === WifiBelajarSendiri::DAFTAR, 'prasyarat: harus mendaftar dulu — dapat ' . $j[1]['belajar']['vonis']);
+                    $this->wajib($j[1]['belajar']['vonis'] === WifiBelajarSendiri::TAWARKAN, 'prasyarat: harus menawarkan dulu — dapat ' . $j[1]['belajar']['vonis']);
 
-                    $sasaran = DB::table('admin_notification')->where('type', 'wifi_otomatis')
+                    $sasaran = DB::table('admin_notification')->where('type', 'wifi_tawaran')
                         ->pluck('target_role')->sort()->values()->all();
                     $harap = collect(WifiBelajarSendiri::ROLE_PENINJAU)->sort()->values()->all();
                     $this->wajib($sasaran === $harap,
@@ -328,6 +372,128 @@ class WifiBelajarUji extends Command
                         $ada = DB::table('group_path')->where('nama', $role)->exists();
                         $this->wajib($ada, "role \"{$role}\" tak ada di group_path — notifikasinya takkan pernah terbaca");
                     }
+                },
+            ],
+            [
+                'kode'  => 'K11',
+                'judul' => 'Saklar mati TIDAK mengembalikan pencocokan ke /64',
+                'harap' => 'rotasi se-/48 tetap cocok walau belajar-sendiri dimatikan',
+                'baseline' => self::BASELINE_BINTARO,
+                'saklar' => '0',
+                'events' => [
+                    ['2026-08-11 07:42:32', 'Alpajri Suhendar Al Qhusni', 'masuk', '2001:448a:2092:10d5:7614:ae78:98b6:c1f5', $b],
+                    ['2026-08-11 09:36:06', 'Firda Mareta Naskah',        'masuk', '2001:448a:2092:10d5:b0cc:8a6a:22f5:8c53', $b],
+                ],
+                // PERUBAHAN ARTI YANG HARUS DIKETAHUI IT.
+                // Saklar `wifi_belajar_sendiri` mematikan PENDAFTARAN OTOMATIS,
+                // bukan pencocokan. Sejak 21 Agu 2026 mematikannya TIDAK lagi
+                // mengembalikan perilaku lama "cuma /64 persis yang dipercaya".
+                // Kalau suatu saat IT memang butuh saklar untuk itu, itu saklar
+                // yang berbeda. Dipatok di sini supaya tak ditemukan sebagai
+                // kejutan waktu ada insiden.
+                'periksa' => function (array $j) {
+                    foreach ($j as $i => $r) {
+                        $this->wajib($r['cocok'] === true,
+                            'orang ke-' . ($i + 1) . ' tetap harus cocok lewat /48 meski saklar belajar mati');
+                    }
+                    $this->takAdaPendaftaran($j);
+                },
+            ],
+            [
+                'kode'  => 'K12',
+                'judul' => 'Veto IT berlaku untuk /64 ITU saja, bukan seluruh /48',
+                'harap' => '10d5 (diveto) tetap ditolak, 2777 (saudaranya) tetap cocok',
+                'baseline' => array_merge(self::BASELINE_BINTARO, [
+                    [self::BINTARO, '2001:448a:2092:10d5::', 'nonaktif'],
+                ]),
+                'saklar' => '1',
+                'events' => [
+                    ['2026-08-11 07:42:32', 'Alpajri Suhendar Al Qhusni', 'masuk',  '2001:448a:2092:10d5:7614:ae78:98b6:c1f5', $b],
+                    ['2026-08-11 18:20:00', 'Alpajri Suhendar Al Qhusni', 'pulang', '2001:448a:2092:2777:2610:b0ab:1fa:adb7',  $b],
+                ],
+                // Menolak satu jalur tak boleh berarti menolak seluruh gedung.
+                // Kalau veto menular ke se-/48, satu klik IT akan mematikan
+                // cabangnya tanpa ada yang menyadari sebabnya.
+                'periksa' => function (array $j) {
+                    $this->wajib($j[0]['cocok'] === false, 'prefix yang diveto harus tetap ditolak');
+                    $this->wajib($j[0]['belajar']['alasan'] === 'ditolak_it', 'alasannya harus ditolak_it — dapat ' . $j[0]['belajar']['alasan']);
+                    $this->wajib($j[1]['cocok'] === true, 'saudara se-/48 yang TIDAK diveto harus tetap cocok');
+                },
+            ],
+            [
+                'kode'  => 'K13',
+                'judul' => 'Baris nonaktif BEREKOR bukan veto — cuma bersih-bersih rotasi lama',
+                'harap' => 'tetap cocok lewat /48; veto hanya kalau ip-nya persis teks prefix',
+                'baseline' => array_merge(self::BASELINE_BINTARO, [
+                    [self::BINTARO, '2001:448a:2092:10d5:aaaa:bbbb:cccc:dddd', 'nonaktif'],
+                ]),
+                'saklar' => '1',
+                'events' => [
+                    ['2026-08-11 07:42:32', 'Alpajri Suhendar Al Qhusni', 'masuk', '2001:448a:2092:10d5:7614:ae78:98b6:c1f5', $b],
+                ],
+                // Pembedaan ini sudah dipakai WifiBelajarSendiri::nilai() sejak
+                // dulu (baris berekor = sisa gaya lama, bukan keputusan manusia).
+                // matchBranch WAJIB memakai pembedaan yang sama, kalau tidak dua
+                // tempat akan menjawab berbeda untuk pertanyaan yang sama — dan
+                // di prod ada TUJUH baris berekor nonaktif seperti ini.
+                'periksa' => function (array $j) {
+                    $this->wajib($j[0]['cocok'] === true,
+                        'baris nonaktif berekor TIDAK boleh dianggap veto — dapat tidak cocok');
+                    $this->wajib($j[0]['belajar']['alasan'] === 'sudah_cocok',
+                        'harusnya cocok lewat /48 — dapat ' . $j[0]['belajar']['alasan']);
+                },
+            ],
+            [
+                'kode'  => 'K14',
+                'judul' => 'IPv4 TIDAK ikut dilebarkan — tetap cocok-penuh',
+                'harap' => '180.252.169.219 (beda satu angka) harus ditolak; .218 cocok',
+                'baseline' => [
+                    [self::BINTARO, '180.252.169.218'],
+                    [self::BINTARO, '2001:448a:2092:2313:1fe9:bc37:8ef7:93cd'],
+                ],
+                'saklar' => '1',
+                'events' => [
+                    ['2026-08-11 08:00:00', 'Firda Mareta Naskah', 'masuk',  '180.252.169.219', $b],
+                    ['2026-08-11 18:00:00', 'Firda Mareta Naskah', 'pulang', '180.252.169.218', $b],
+                ],
+                // IPv4 tak punya padanan /48 yang aman: melebarkannya ke /24 atau
+                // /16 berarti menerima satu wilayah ISP utuh. Jalur IPv4 sengaja
+                // TIDAK disentuh, dan itu harus terkunci — bukan sekadar tertulis.
+                'periksa' => function (array $j) {
+                    $this->wajib($j[0]['cocok'] === false, 'IPv4 tetangga TIDAK boleh cocok — pelebaran hanya untuk IPv6');
+                    $this->wajib($j[1]['cocok'] === true, 'IPv4 yang persis terdaftar harus cocok');
+                },
+            ],
+            [
+                'kode'  => 'K15',
+                'judul' => 'Pagar pendaftaran: /48 milik cabang lain harus tertolak',
+                'harap' => 'pemilik48Lain menunjuk baris bentrok; /48 sendiri & IPv4 lolos',
+                'baseline' => self::BASELINE_BINTARO,
+                'saklar' => '1',
+                'events' => [],
+                // SATU-SATUNYA kasus di berkas ini yang TIDAK lewat jalur absen
+                // (lihat docblock kelas). Sengaja: pagar inilah yang menjaga
+                // asumsi "satu /48 = satu pelanggan Telkom", dan kalau asumsi itu
+                // bocor seluruh pelebaran /48 ikut bocor. Terlalu penting untuk
+                // cuma hidup di komentar.
+                'periksa' => function (array $j) {
+                    // /48 Bintaro didaftarkan ke Sunter → harus bentrok.
+                    $bentrok = AttBranchIp::pemilik48Lain('2001:448a:2092:beef:1::', self::SUNTER);
+                    $this->wajib($bentrok !== null, '/48 Bintaro yang didaftarkan ke Sunter harus tertolak');
+                    $this->wajib($bentrok && $bentrok->raw_branch_id === self::BINTARO,
+                        'baris bentrok harus menunjuk Bintaro sebagai pemilik sah');
+
+                    // /48 yang sama, cabang yang sama → bukan bentrok.
+                    $this->wajib(AttBranchIp::pemilik48Lain('2001:448a:2092:beef:1::', self::BINTARO) === null,
+                        'menambah jalur di /48 miliknya sendiri harus boleh');
+
+                    // /48 yang belum dimiliki siapa pun → bukan bentrok.
+                    $this->wajib(AttBranchIp::pemilik48Lain('2404:c0:20b3:82d9:1::', self::SUNTER) === null,
+                        '/48 yang belum dimiliki siapa pun harus boleh didaftarkan');
+
+                    // IPv4 tak punya /48 → tak pernah bentrok lewat pintu ini.
+                    $this->wajib(AttBranchIp::pemilik48Lain('180.252.168.224', self::SUNTER) === null,
+                        'IPv4 tak boleh dinilai lewat pagar /48');
                 },
             ],
         ];
@@ -390,9 +556,9 @@ class WifiBelajarUji extends Command
             AttHpBukti::whereIn('id', $buktiIds)->delete();
             AttScan::where('source', 'mobile')->whereBetween('scanned_at', [$dari, $sampai])->delete();
             AttBranchIp::query()->delete();
-            // Kalau tidak, notifikasi kasus sebelumnya menumpuk dan K10 menghitung
-            // sasaran dari kejadian yang bukan miliknya.
-            DB::table('admin_notification')->where('type', 'wifi_otomatis')->delete();
+            // Kalau tidak, notifikasi kasus sebelumnya menumpuk dan K7/K10
+            // menghitung sasaran dari kejadian yang bukan miliknya.
+            DB::table('admin_notification')->whereIn('type', ['wifi_otomatis', 'wifi_tawaran'])->delete();
         });
     }
 
