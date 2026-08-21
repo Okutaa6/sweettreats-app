@@ -7,6 +7,33 @@
 
 ---
 
+## 2026-08-21 — Lembar Bayar ROP: main ditarik masuk, 41 uji hijau lagi
+
+Branch `feature/rop-lembar-bayar` sempat **23 commit tertinggal** dari main —
+main jalan terus (petty cash dompet-holder, rekonsiliasi Sunter/Cinere, WiFi
+/48 yang sudah naik prod). Dibiarkan lebih lama, merge-nya cuma makin mahal
+dan berisiko menarik mundur kerjaan orang lain.
+
+Main ditarik masuk. **Tabrakan cuma satu berkas** (`docs/log-update.md`);
+`routes/web.php` dan `status-proyek.md` menyatu otomatis, dan nol berkas kode
+ROP yang bentrok. Sesudah merge: 483 rute terdaftar, semua blade kompilasi,
+**41 uji ujung-ke-ujung hijau lagi**, dan layar milik orang lain tetap sehat
+(petty cash · antrian & rekap ROP · Kehadiran · Pengajuan · Akun semuanya 200).
+
+⚠️ **Ralat tanggal jurnal.** Tiga entri yang kutulis berlabel "14 Agu
+(lanjutan 2/3/4)" sebenarnya kerja **20 Agu** (commit 15:25–17:08); yang
+14 Agu cuma build awal + audit pertama. Sudah dibetulkan dan diurutkan ulang.
+Jurnal yang salah tanggal menyesatkan pembacanya — apalagi file ini dibaca
+alat lain di luar chat.
+
+⚠️ **Temuan sampingan, bukan punyaku**: dev **belum menjalankan SQL petty cash**
+dari main — `petty_cash_transaction.loan_id`, `petty_cash_period.opening_set_by`,
+dan tabel `petty_cash_holder_wallet` semuanya belum ada di dev (di prod sudah).
+Layar petty cash dev masih 200, tapi kalau ada yang mau menguji fitur itu di
+dev, empat SQL `2026_08_18_*` & `2026_08_19_*` perlu dijalankan dulu.
+
+---
+
 ## 2026-08-21 — Absen HP: pencocokan WiFi pindah dari /64 ke /48 · LIVE PROD
 
 Keluhan Ekky: "kena flag terus padahal kemarin sudah didaftarkan dan diperbaiki".
