@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Crud;
 
 use App\Http\Controllers\Controller;
 use App\Models\EpKontenPillar;
+use App\Models\EpGpDoctor;
+use App\Models\RawDoctor;
 use Illuminate\Support\Str;
 
 class KontenPillarController extends Controller
@@ -30,9 +32,23 @@ class KontenPillarController extends Controller
         $totalActive   = EpKontenPillar::where('is_active', 1)->count();
         $totalInactive = EpKontenPillar::where('is_active', 0)->count();
 
+        // Tab "Dokter Branding GP"
+        $activeTab   = request('tab', 'pillar'); // pillar | gp-doctor
+        $gpDoctorIds = EpGpDoctor::pluck('raw_doctor_id')->all();
+        $gpDoctors   = EpGpDoctor::with('doctor')
+            ->orderBy('sort_order')
+            ->get()
+            ->filter(fn ($g) => $g->doctor !== null); // buang membership yang dokternya sudah hilang
+        // Dokter yang belum masuk daftar GP → opsi dropdown "tambah"
+        $availableDoctors = RawDoctor::active()
+            ->whereNotIn('id', $gpDoctorIds)
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
         return view('crud.konten-pillar.list', compact(
             'pillars', 'filterStatus', 'search',
-            'totalActive', 'totalInactive'
+            'totalActive', 'totalInactive',
+            'activeTab', 'gpDoctors', 'availableDoctors'
         ));
     }
 

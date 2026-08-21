@@ -16,6 +16,7 @@ class EpKonten extends Model
         'judul',
         'deskripsi',
         'platforms',
+        'gp_doctor_id',
         'tipe_konten',
         'is_breakdown',
         'lokasi',
@@ -179,6 +180,15 @@ class EpKonten extends Model
     public function campaign()
     {
         return $this->belongsTo(EpCampaignFramework::class, 'ep_campaign_framework_id', 'id');
+    }
+
+    /**
+     * Dokter Branding GP untuk konten ini (hanya relevan kalau platform 'gp').
+     * gp_doctor_id menyimpan raw_doctor.id langsung.
+     */
+    public function gpDoctor()
+    {
+        return $this->belongsTo(RawDoctor::class, 'gp_doctor_id', 'id');
     }
 
     public function images()
