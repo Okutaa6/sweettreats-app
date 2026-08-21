@@ -591,6 +591,10 @@ body[data-theme="marketing"] .main-menu-inner .menu-body .nav-item ul li > a:hov
     .ep-cal-card.ep-cal-card--tiktok   .ep-cal-card-title { color:#854d0e; }
     .ep-cal-card.ep-cal-card--tiktok:hover { background:#fde68a; color:#854d0e; }
 
+    .ep-cal-card.ep-cal-card--gp       { background:#f3e8ff; border-color:#e9d5ff; color:#6b21a8; }
+    .ep-cal-card.ep-cal-card--gp       .ep-cal-card-title { color:#6b21a8; }
+    .ep-cal-card.ep-cal-card--gp:hover { background:#e9d5ff; color:#6b21a8; }
+
     /* Add button (floating per cell, shown on hover) */
     .ep-cal-add-btn { position:absolute; right:6px; bottom:6px; width:22px; height:22px; border-radius:50%; border:none; background:#13928e; color:#fff; cursor:pointer; opacity:0; transition:all .15s; font-size:10px; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 6px rgba(19, 146, 142,0.3); }
     .ep-cal-cell:hover .ep-cal-add-btn { opacity:1; }

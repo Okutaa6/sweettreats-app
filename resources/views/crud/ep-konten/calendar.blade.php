@@ -35,6 +35,7 @@
         'ig_post'  => ['label' => 'IG Post',    'icon' => 'fa-brands fa-instagram'],
         'ig_story' => ['label' => 'IG Stories', 'icon' => 'fa-regular fa-play-circle'],
         'tiktok'   => ['label' => 'TikTok',     'icon' => 'fa-brands fa-tiktok'],
+        'gp'       => ['label' => 'Branding GP','icon' => 'fa-solid fa-user-doctor'],
     ];
 
     $qs = function ($overrides = []) {
@@ -212,10 +213,10 @@
                                     $sCfg  = $statusColors[$k->status] ?? $statusColors['draft'];
                                     $tCfg  = $k->tipe_konten ? ($tipeColors[$k->tipe_konten] ?? null) : null;
 
-                                    // Pilih platform "primer" buat warna card (prioritas: ig_post → ig_story → tiktok)
+                                    // Pilih platform "primer" buat warna card (prioritas: ig_post → ig_story → tiktok → gp)
                                     $kPlatforms = $k->platforms ?? [];
                                     $primaryPlatform = null;
-                                    foreach (['ig_post', 'ig_story', 'tiktok'] as $pref) {
+                                    foreach (['ig_post', 'ig_story', 'tiktok', 'gp'] as $pref) {
                                         if (in_array($pref, $kPlatforms, true)) { $primaryPlatform = $pref; break; }
                                     }
                                     $platformClass = $primaryPlatform ? 'ep-cal-card--' . str_replace('_', '-', $primaryPlatform) : '';
@@ -294,7 +295,7 @@
                                 @php $pc = $platformColors[$key] ?? null; @endphp
                                 <label class="ep-quick-pill" style="--pill-bg:{{ $pc['bg'] ?? '#e6f5f4' }}; --pill-text:{{ $pc['text'] ?? '#0a4f4d' }};">
                                     <input type="checkbox" name="platforms[]" value="{{ $key }}">
-                                    <span><i class="fa-brands {{ $pc['icon'] ?? 'fa-circle' }}"></i> {{ $label }}</span>
+                                    <span><i class="{{ $pc['icon'] ?? 'fa-solid fa-circle' }}"></i> {{ $label }}</span>
                                 </label>
                             @endforeach
                         </div>
