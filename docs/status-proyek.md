@@ -22,6 +22,27 @@
 > Kalau tanggal ini sudah jauh lewat,
 > minta chat teknis menyegarkan file ini sebelum dipakai mengambil keputusan.
 >
+> ⚠️ **Sisipan 2026-08-21c** — **Libur cabang tak mengikuti rolling.** Libur
+> per-cabang dicocokkan ke cabang ASAL orang, bukan cabang tempat dia bertugas
+> hari itu — 3 orang salah dua arah pada 25 Agu (Verini berisiko alpa; Della &
+> Ramdan kerjanya dicatat "libur"). Rencana + tenggat di
+> `rencana/rencana-libur-cabang-bertugas.md`. Ikut ketahuan: **kalender libur
+> tak pernah ditampilkan di layar mana pun**, jadi salah-catat baru terlihat
+> setelah harinya lewat. Tiga chat build baru disiapkan: §J §K §L di
+> `spec/prompt-chat-baru.md`.
+>
+> ⚠️ **Sisipan 2026-08-21b** — **Konsultan**: arah baru yang diputuskan Ekky.
+> Konsultan wajib absen, tapi **tak boleh meng-ACC pengajuan orang** (cuti/
+> lembur/izin). Role `Consultant` yang sudah ada ternyata **sudah** memenuhi itu
+> sendiri. Akun **Achmad Haickal** (konsultan finance) dibuat di PROD 21 Agu di
+> role yang sama dengan Hari & Rahmat — role khusus per bidang (`Konsultan
+> Finance`/`Marketing`/`IT`) menyusul setelah rencananya jadi, dan itu **butuh
+> perubahan kode**, bukan cuma config. Rincian + tiga temuan soal mesin ACC ada
+> di `log-update.md` entri 21 Agu b. Rencana lengkapnya — 3 role konsultan,
+> `Coordinator Dentist` pindah ke bawah Supervisor, role baru `Koordinator GS`
+> untuk Alpajri — di `rencana/rencana-konsultan-struktur.md`. Dev dulu, prod
+> menyusul setelah uji terima lulus.
+>
 > ⚠️ **Sisipan 2026-08-13** — badan file di bawah masih potret 6 Agu dan belum
 > disegarkan menyeluruh. Yang sudah berubah sejak itu ada di `log-update.md`
 > (entri 11, 12, dan 13 Agu). Satu hal yang paling sering ditanyakan

@@ -7,6 +7,213 @@
 
 ---
 
+## 2026-08-21c — Libur cabang tak mengikuti rolling · tiga orang salah dua arah
+
+Ekky bertanya soal libur Maulid Nabi Selasa 25 Agu: *"apa benar fiturnya sudah
+bekerja? kalau anak-anak tak masuk, tidak dihitung alpa?"* Jawabannya ya —
+mesinnya sehat. Yang tidak sehat adalah **siapa yang dianggap terkena liburnya.**
+
+### Mesinnya memang bekerja
+
+`AttendanceReconciler::resolveDay()` — exception **menang** atas aturan harian
+dan langsung mengembalikan "libur", jadi yang tak masuk tidak dihitung alpa.
+Ada pula `hapusHariBasi()` yang membersihkan alpa lama kalau libur ditambahkan
+*sesudah* rekonsiliasi terlanjur jalan. Logikanya benar.
+
+### Yang salah: pencocokan pakai cabang ASAL, bukan cabang BERTUGAS
+
+`resolveDay()` mencocokkan exception ke `users.raw_branch_id`. Reconciler
+**tidak pernah** memanggil `positionBranchOn()` maupun `cabangSesiUntuk()` —
+fitur rolling sudah tahu persis siapa di mana pada tanggal berapa, tapi
+pencocokan liburnya tak pernah bertanya ke situ.
+
+25 Agu: **Bintaro/Cinere/Kalideres tutup, Sunter/Pamulang buka.** Tiga orang
+yang sedang rolling jadi salah — dan salahnya ke **dua arah berlawanan**:
+
+| Orang | Asal | Bertugas | Akibat sekarang |
+|---|---|---|---|
+| **Verini** | Sunter (buka) | Cinere (**tutup**) | dinilai hari kerja → tak masuk = **ALPA** |
+| **Della Raqisiah** | Cinere (tutup) | Sunter (**buka**) | dicatat **libur**, scan-nya dibuang |
+| **Ramdan** | Kalideres (tutup) | Pamulang (**buka**) | sama |
+
+"Kerjanya hilang" bukan bahasa berlebihan. Cabang `if ($libur)` di reconciler
+tetap menulis baris `libur` **walaupun ada scan**; satu-satunya jalur yang
+membuatnya "hadir" adalah **form lembur** — yang berarti membayar upah lembur
+untuk hari kerja biasa.
+
+### Keputusan Ekky: ikut rolling, dan tanpa form apa pun
+
+Instingnya tepat, dan itu memang satu-satunya perbaikan yang dibutuhkan. Kalau
+pencocokan mengikuti penempatan efektif, ketiganya beres sendiri: Verini libur,
+Della & Ramdan hari kerja biasa. **Nol form.** Datanya sudah ada — ini menghapus
+beban dari orang, bukan menambah.
+
+⚠️ **Jebakan yang harus dibawa ke perbaikannya**: `$home` dipakai untuk **tiga
+arti** yang kebetulan dilebur jadi satu variabel. Yang berubah hanya
+`resolveDay()`. `isDateLocked()` dan `hapusHariBasi()` harus **tetap** memakai
+cabang asal — menukarnya borongan membuat penguncian periode gaji ikut
+berpindah mengikuti rolling, kerusakan yang jauh lebih sunyi.
+
+### Temuan kedua: kalender libur TIDAK PERNAH tampil di layar mana pun
+
+Ini yang membuat masalahnya tak terdeteksi sampai Ekky bertanya. **Kehadiran**
+hanya membaca `att_work_rule_day` (pola mingguan); **Absensi Saya** memakai
+`hariLiburTerjadwal()`, yang docblock-nya menyatakan terang-terangan bahwa
+kalender libur *"tidak dilihat di sini"*.
+
+Jadi `att_work_rule_exception` **ditulis satu layar dan dibaca satu pembaca
+saja: mesin malam hari.** Nisa tak punya cara memverifikasi catatannya benar
+selain menunggu harinya lewat. Kalau libur tampil di Kehadiran, cabang yang
+belum tercatat akan **terlihat sendiri** — layar yang menampilkan keadaan itu
+alat audit, bukan hiasan.
+
+### Temuan ketiga
+
+Baris `sys_user_position` id `a2821d77…` milik Verini: `effective_from` 15 Agu,
+`effective_to` **14 Agu** — berakhir sebelum dimulai, lolos tanpa validasi. Tak
+berbahaya sekarang, tapi begitu perbaikan di atas mendarat, **data penempatan
+ikut menentukan gaji** — jadi validasinya jadi bagian perbaikan, bukan tambahan.
+
+### ⚠️ RALAT — kesalahanku sendiri, dan bentuknya penting
+
+Awalnya kulaporkan **"7 orang berisiko alpa"** karena Sunter & Pamulang tak
+punya baris libur, dan kusarankan menggantinya dengan satu baris "Semua cabang
+(nasional)". **Itu salah.** Ekky meralat: kedua cabang itu memang **BUKA** hari
+itu; penutupan tiga cabang itu keputusan operasional yang disengaja.
+
+Aku menyimpulkan "hari besar agama = libur nasional" dari sifat harinya, bukan
+dari data. Bentuk kesalahan yang sama persis dengan `stdc.id` beberapa jam
+sebelumnya: **menyimpulkan dari sifat sesuatu, bukan dari yang tercatat.**
+Untungnya kusampaikan sebagai temuan untuk dikonfirmasi, bukan langsung
+dieksekusi — kalau baris Nisa telanjur kuganti jadi nasional, **10 orang di dua
+cabang yang seharusnya masuk akan mendapat libur palsu.**
+
+Entri libur Nisa **benar apa adanya. Jangan diubah jadi nasional.**
+
+### Yang dihasilkan
+
+Tiga rencana + tiga prompt chat baru (§J, §K, §L di
+`docs/spec/prompt-chat-baru.md`):
+
+| Rencana | Isi |
+|---|---|
+| `rencana-libur-cabang-bertugas.md` | ⏰ **tenggat Selasa 25 Agu** — perbaikan di atas + tampilkan kalender libur + validasi penempatan |
+| `rencana-konsultan-struktur.md` | role Konsultan + restrukturisasi Supervisor |
+| `rencana-alur-persetujuan.md` | layar admin `att_approval_rule` + delegasi |
+
+Kalau perbaikan libur tak sempat sebelum Selasa: **tidak apa-apa.** Cadangannya
+murah — 3 baris `att_day` dikoreksi setelah lewat, oleh chat HUB, berjejak
+audit. Yang penting kita tahu **sebelum** kejadian, bukan menemukannya di rekap
+gaji.
+
+---
+
+## 2026-08-21b — Akun konsultan Haickal naik PROD · desain role Konsultan diputuskan
+
+Ekky membuka arah baru: **konsultan** yang wajib absen tapi tak boleh punya
+wewenang. Sebelum apa pun dibangun, mesin wewenangnya diaudit dulu — dan
+ternyata separuh yang diminta **sudah berlaku sendiri**.
+
+### Yang diaudit dulu: siapa sebenarnya yang boleh meng-ACC
+
+Dugaan Ekky "bawahan cuma bisa di-ACC atasannya" **terkonfirmasi**, dan bukan
+hardcode: tabel `att_approval_rule` (role → role), 13 baris. Content Creator
+(Talitha) & Creative (Alif) → **Head Marketing (Yovan)**, persis seperti yang
+dia sebut. Dicek juga ke kenyataan, bukan cuma ke konfigurasi: dari 116 baris
+ACC nyata, pelakunya hanya Anisa (72), Irma (22), Dani (16), Ekky (5),
+Yovanka (1). Tak ada yang menembus jalur.
+
+**Tiga temuan yang mengubah rencana:**
+
+1. **`sort_order` BUKAN lapis berjenjang.** `chainFor()` mengumpulkan semua
+   approver-role satu frontier jadi **satu lapis**, dan `MAX_LEVELS` semua = 1.
+   Jadi Assistant Dentist hari ini bisa di-ACC **Irma ATAU Anisa, siapa saja
+   duluan** — bukan Irma dulu baru Anisa. Datanya cocok (Irma 22, Anisa 72).
+   Konsekuensi untuk rencana Koordinator GS: kalau GS punya baris ke Koordinator
+   GS **dan** masih punya baris ke Supervisor, Fajri **atau** Anisa sama-sama
+   bisa ACC. Mau Fajri saja → baris Supervisor harus dicabut.
+
+2. **Bagan organisasi TIDAK menggerakkan wewenang ACC.** `group_path.parent_id`
+   cuma menggerakkan bagan + cakupan review Checklist Akreditasi;
+   `att_approval_rule` yang menentukan ACC. Dua tabel terpisah — mengubah satu
+   saja menghasilkan struktur yang salah **tanpa error apa pun**.
+
+3. **Gerbang nama role justru menguntungkan.** Role bernama `Konsultan Finance`
+   otomatis tak cocok dengan `RopService::ROLE_PENYETUJU = 'Finance'`, jadi ia
+   tak bisa menyetujui ROP tanpa kita berbuat apa-apa. Sisi buruknya: sebagian
+   besar menu Finance (Cuti, Aturan Kerja, Antrian ROP, Pengawasan) **juga**
+   dijaga nama role — kloning menu bulat-bulat berujung **403**, kegagalan
+   senyap yang justru diburu detektor Pusat Akun.
+
+### Role `Consultant` ternyata sudah ada, dan sudah sesuai maunya
+
+Hari (`hari@stdc.id`, konsultan marketing) & Rahmat (`rahmat@sweettreats.id`,
+konsultan IT) sudah hidup di prod. Tanpa dikerjakan apa pun, mereka **sudah**
+wajib absen (aturan *Fleksibel*), **sudah** nol wewenang ACC (nol baris sebagai
+`approver_role_id`), dan **sudah** tak bisa mengajukan apa pun.
+
+Yang terakhir itu bekerja lewat jalan yang menyesatkan:
+`pastikanApexBukanSalahKonfigurasi()` **menolak mentah** kiriman dari role yang
+tak dikenal grafik ACC, dengan pesan *"Alur persetujuan untuk jabatan ini belum
+diatur… Hubungi admin"*. Sesuai kebijakan, tapi terbaca seperti **kerusakan**.
+Utang: teksnya perlu dijujurkan jadi kebijakan, bukan galat.
+
+### Akun Achmad Haickal — DIBUAT DI PROD
+
+Konsultan finance baru. Sengaja ditaruh di role `Consultant` yang **sama persis**
+dengan Hari & Rahmat (keputusan Ekky: role khusus menyusul setelah rencananya
+jadi; sekarang cukup bisa login & absen).
+
+| | |
+|---|---|
+| email | `haickal@sweettreats.id` |
+| role | `Consultant` (identik Hari & Rahmat) |
+| aturan kerja | Fleksibel, `effective_from` **2026-08-21** |
+| sandi | sementara acak, `must_change_password=1` |
+
+Dibuat lewat skrip yang meniru `UserManagement::store()` — model yang sama
+dengan layar Pusat Akun — **kecuali** `effective_from` ditetapkan eksplisit,
+karena layar itu selalu memakai `now()`. Itulah lubang yang dua kali melahirkan
+alpa palsu; di sini ditutup dengan bertanya lebih dulu kapan orangnya mulai
+kerja. Jejak audit **beratas-nama Muhamad Ikhsan**, bukan pelaku kosong.
+
+**16 pemeriksaan lulus, 0 gagal** — termasuk yang tak bisa dibuktikan oleh
+"tak ada error": `password_verify` terhadap sandi yang diserahkan, kemunculannya
+di **query roster Kehadiran yang sama dengan layarnya**, dan `AuthGuard`
+mengizinkan segmen `/akun` sehingga layar absen benar-benar terbuka.
+
+### Keputusan Ekky yang tercatat
+
+- **Konsultan Finance = Finance utuh, TERMASUK menyetujui ROP.** Larangan
+  "tak boleh ACC" berlaku untuk **pengajuan orang** (cuti/lembur/izin), bukan
+  untuk pekerjaan Finance sendiri. ⚠️ Ini **perubahan kode**, bukan config:
+  `ROLE_PENYETUJU` harus jadi daftar, plus `CutiController::BOLEH`,
+  `LembarGajiController::BOLEH`, `canSeeAllBranches()`.
+- **"Koordinator Asdent" = `Coordinator Dentist` yang sudah ada** (typo Ekky).
+  Tak ada role baru; Irma tetap.
+- **Fajri = Alpajri Suhendar Al Qhusni** (`fajri@`, General Services) — bukan
+  Mutiara Nurul Fajri di Front Office.
+- Role baru yang benar-benar baru hanya **Koordinator GS**.
+
+### Dua yang tadinya terbuka — sudah dijawab Ekky di hari yang sama
+
+**`stdc.id` itu domain LAMA Sweet Treats Dental Clinic, bukan pihak luar.**
+Sempat kucatat sebagai dugaan kebocoran karena `report/executive` melekat di
+role `Consultant` — itu **kesimpulan yang salah, ditarik dari nama domain, bukan
+dari data.** Akses Hari ke Laporan Penjualan → Executive **disengaja dan sah**;
+jangan "diperbaiki". Pelajarannya sama tuanya dengan proyek ini: nama bukan
+bukti — sudah pernah kena lewat Anisa ≠ Admin_Nisa dan dua orang bernama Fajri.
+
+**`Coordinator Dentist` PINDAH ke bawah Supervisor.** Pengajuan Irma yang
+tadinya ke Dani menjadi ke Anisa. Rencana lengkapnya ditulis hari itu juga di
+`docs/rencana/rencana-konsultan-struktur.md` — termasuk satu risiko yang belum
+kelihatan sebelumnya: memindahkan Fajri ke role `Koordinator GS` **berisiko
+mematikan divisi Checklist Akreditasi-nya**, karena `sys_checklist_division`
+mencocokkan nama divisi **persis** dengan nama role, dan tak ada divisi bernama
+"Koordinator GS".
+
+---
+
 ## 2026-08-21 — Absen HP: pencocokan WiFi pindah dari /64 ke /48 · LIVE PROD
 
 Keluhan Ekky: "kena flag terus padahal kemarin sudah didaftarkan dan diperbaiki".

@@ -16,6 +16,9 @@ Peta isi folder `docs/`. **Mulai dari sini** kalau bingung cari apa.
 | Paham absen HP selfie (WiFi = saksi, flag) | `rencana/rencana-absen-hp.md` |
 | Paham jatah cuti per kontrak | `rencana/rencana-jatah-cuti.md` |
 | Paham pengajuan ROP (expenses digital) | `rencana/rencana-pengajuan-rop.md` |
+| Paham role Konsultan & restrukturisasi Supervisor | `rencana/rencana-konsultan-struktur.md` |
+| Paham kenapa libur cabang ikut tempat bertugas (rolling) | `rencana/rencana-libur-cabang-bertugas.md` |
+| Paham layar admin alur persetujuan + delegasi | `rencana/rencana-alur-persetujuan.md` |
 | Paham fitur Aturan Kerja (jam kerja/libur — Ekky) | `rencana/rencana-aturan-kerja.md` |
 | Paham fitur Penempatan (rolling cabang — Reza) | `rencana/rencana-penempatan.md` |
 | Deploy absensi ke dev/prod | `deploy/deploy-absensi.md` |
@@ -44,6 +47,17 @@ PHP/SQL menunjuk ke sini (mis. `docs/rencana/rencana-rekonsiliasi-absensi.md §5
 - `rencana-jatah-cuti.md` — jatah cuti per kontrak 12 bulan, ledger, cuti
   bersama. Dirujuk 7× dari kode.
 - `rencana-pusat-akun.md` — Pusat Akun: Kesehatan, User, Akses, Role, Setting.
+- `rencana-konsultan-struktur.md` — role Konsultan (wajib absen, nol wewenang
+  ACC) + Supervisor membawahi Coordinator Dentist/FO/Koordinator GS. Berisi
+  peta mesin ACC: `att_approval_rule` vs bagan organisasi, dan kenapa
+  `sort_order` bukan lapis berjenjang.
+- `rencana-libur-cabang-bertugas.md` — libur per-cabang harus mengikuti cabang
+  tempat orang BERTUGAS (rolling), bukan cabang asalnya. Berisi jebakan `$home`
+  yang dipakai tiga arti, dan catatan bahwa kalender libur tak pernah tampil di
+  layar mana pun.
+- `rencana-alur-persetujuan.md` — layar admin untuk `att_approval_rule` +
+  delegasi penyetuju. Empat pagar wajib; pernah ada insiden "SEMUA cuti
+  auto-approve".
 
 ### `spec/` — spesifikasi & aturan kerja (AKTIF)
 - `peta-tema.md` — **peta tema/zona visual**: cokelat = default; Marketing teal,
