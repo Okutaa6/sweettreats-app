@@ -466,3 +466,179 @@ cuti, jadi verifikasi pakai logika APLIKASI (CutiPeriode::sisa()), bukan SQL
 buatan sendiri. Test lokal → dev → PROD hanya kalau Ekky sebut prod. Selesai:
 entri docs/log-update.md + salin ke Google Drive. Catat keputusan ke memori.
 ```
+
+---
+
+## J. Chat: ROLE KONSULTAN + RESTRUKTURISASI SUPERVISOR (2026-08-21)
+
+> Saran model: yang kuat. Sebagian besar SQL/config, tapi ada 4 titik kode
+> hardcode yang kalau salah sentuh bikin menu tampil-tapi-403.
+
+```
+Lanjutkan proyek SweetTreats lewat memori. Chat ini MEMBANGUN role Konsultan +
+restrukturisasi Supervisor. Dev dulu; prod menunggu uji terima lulus.
+
+BACA DULU — rencananya sudah lengkap, JANGAN menyusun ulang:
+· docs/rencana/rencana-konsultan-struktur.md   ← dokumen utama, 10 bagian
+· memori project_konsultan_role
+· memori reference_deploy_access · project_absensi_status_deploy
+
+Ringkas tugasnya:
+1. 3 role konsultan per bidang (Konsultan Finance/Marketing/IT) — kloning akses
+   dari role induk, att_default_rule_id = Fleksibel, landing_page = 'akun',
+   NOL baris di att_approval_rule (itu yang bikin mereka tak bisa ACC & tak
+   bisa mengajukan). Pindahkan Hari, Rahmat, Haickal ke role barunya.
+2. Role baru Koordinator GS untuk Alpajri Suhendar Al Qhusni (fajri@).
+3. Coordinator Dentist pindah ke bawah Supervisor (group_path) DAN
+   att_approval_rule-nya ikut diubah — DUA TABEL, lihat §3.1 rencana.
+4. Kode: RopService::ROLE_PENYETUJU jadi daftar + CutiController::BOLEH +
+   LembarGajiController::BOLEH + canSeeAllBranches() — tambahkan
+   'Konsultan Finance'. Plus jujurkan pesan tolak pengajuan konsultan.
+
+TIGA HAL YANG PALING GAMPANG SALAH (rincian di §3 rencana):
+· ACC datang dari att_approval_rule, BUKAN group_path.parent_id. Memindah kotak
+  di bagan TIDAK memindahkan wewenang.
+· sort_order BUKAN lapis berjenjang — semua approver jadi SATU lapis
+  (MAX_LEVELS=1). Mau satu penyetuju saja? Baris lain harus DICABUT.
+· Kloning group_access cuma memberi MENU. Kemampuannya dijaga nama role yang
+  di-hardcode. Menu tampil tapi 403 = kegagalan senyap.
+
+⚠️ RISIKO yang sudah ditemukan, jangan diabaikan: memindahkan Fajri ke role
+Koordinator GS BISA mematikan divisi Checklist Akreditasi-nya, karena
+sys_checklist_division mencocokkan nama divisi PERSIS dengan nama role dan tak
+ada divisi bernama "Koordinator GS". PERIKSA jalur mana yang benar-benar dibaca
+(name vs group_id) SEBELUM memindahkan orangnya. Uji terima #10.
+
+⚠️ JANGAN me-rename role apa pun — gerbang di seluruh aplikasi membandingkan
+session('group_name') sebagai teks.
+
+Keputusan Ekky yang sudah final: Konsultan Finance = Finance UTUH termasuk
+menyetujui ROP; larangan "tak boleh ACC" cuma untuk pengajuan orang.
+Assistant Dentist → Irma saja; General Services → Fajri + Anisa (sampai Fajri
+terbukti).
+
+Aturan kerja: dev = SATU working copy bersama, cek branch siapa yang hidup
+sebelum menggeser, kembalikan sesudahnya. Kerjaan SQL tak perlu menggeser
+branch. Sesudah menyentuh group_access WAJIB `php artisan access:rebuild` dan
+pastikan berkas storage/app/group_access/<id>.txt benar-benar berubah.
+Selesai: entri docs/log-update.md + salin ke Google Drive + catat ke memori.
+```
+
+---
+
+## K. Chat: LIBUR IKUT CABANG BERTUGAS (2026-08-21) — ⏰ ADA TENGGAT
+
+> Saran model: yang kuat. Ini menyentuh MESIN ABSENSI yang menghitung gaji.
+> Tenggatnya Selasa 25 Agu 2026 — tapi jangan mengorbankan uji demi tenggat,
+> ada rencana cadangan yang murah.
+
+```
+Lanjutkan proyek SweetTreats lewat memori. Chat ini memperbaiki pencocokan
+LIBUR CABANG supaya mengikuti cabang tempat orang BERTUGAS hari itu, bukan
+cabang asalnya. ⏰ Tenggat: Selasa 25 Agustus 2026.
+
+BACA DULU — rencananya sudah lengkap, JANGAN menyusun ulang:
+· docs/rencana/rencana-libur-cabang-bertugas.md   ← dokumen utama
+· docs/rencana/rencana-rekonsiliasi-absensi.md    ← mesin absensi
+· memori project_absensi_lintas_cabang · project_gelar_cabang
+· memori reference_deploy_access
+
+Masalahnya: AttendanceReconciler mencocokkan libur ke users.raw_branch_id
+(cabang ASAL) dan tak pernah memanggil positionBranchOn(). Selasa 25 Agu
+Bintaro/Cinere/Kalideres TUTUP, Sunter/Pamulang BUKA — dan tiga orang yang
+sedang rolling jadi salah, dua arah:
+· Verini (asal Sunter, bertugas Cinere/tutup) → akan kena ALPA, harusnya libur
+· Della Raqisiah (asal Cinere/tutup, bertugas Sunter/buka) → kerjanya dicatat
+  "libur", scan-nya dibuang
+· Ramdan (asal Kalideres/tutup, bertugas Pamulang/buka) → sama
+
+⚠️ JEBAKAN UTAMA: $home dipakai untuk TIGA arti berbeda. Yang berubah HANYA
+resolveDay(). isDateLocked() dan hapusHariBasi() harus TETAP pakai cabang asal
+— menukarnya borongan bikin penguncian periode gaji ikut berpindah mengikuti
+rolling. Itu kerusakan yang jauh lebih sunyi. TAMBAH parameter, jangan tukar.
+
+⚠️ PERFORMA: cabang bertugas itu per-orang-per-TANGGAL. JANGAN panggil
+positionBranchOn() di dalam loop harian — pramuat sys_user_position sekali lalu
+selesaikan di memori, seperti loadExceptions()/loadRules(). Catat waktu
+reconcile sebulan penuh sebelum & sesudah.
+
+Ikut sepaket (§4 & §5 rencana):
+· Kalender libur TIDAK PERNAH ditampilkan di layar mana pun — Kehadiran cuma
+  baca att_work_rule_day, hariLiburTerjadwal() sengaja tak membacanya. Tampilkan
+  dari sumber terpisah; JANGAN mengubah hariLiburTerjadwal() (dipakai gerbang
+  absen, pemisahannya disengaja).
+· Validasi rentang penempatan (effective_to >= effective_from). Sudah ada satu
+  baris rusak milik Verini: id a2821d77, from 15 Agu to 14 Agu.
+
+JANGAN mengubah entri libur Nisa jadi "Semua cabang" — Sunter & Pamulang memang
+BUKA, tiga baris per-cabang itu benar dan disengaja.
+
+Uji terima §7 rencana, 11 poin. Uji 1-3 WAJIB memakai data prod yang diputar
+ulang di dev, bukan data karangan — ketiga orang itu kasus nyata.
+
+Kalau tak sempat sebelum Selasa: TIDAK APA-APA. Rencana cadangan §8 = koreksi
+3 baris att_day setelah lewat, dikerjakan chat HUB. Jangan menyuruh mereka
+mengisi form lembur/izin — itu memasang harga yang salah pada keadaan yang
+bukan salah mereka.
+
+Aturan kerja: dev = SATU working copy bersama, cek branch siapa yang hidup dan
+kembalikan sesudahnya. Prod hanya kalau Ekky menyebut "prod" eksplisit.
+Selesai: entri docs/log-update.md + salin ke Google Drive + catat ke memori.
+```
+
+---
+
+## L. Chat: LAYAR ADMIN ALUR PERSETUJUAN (2026-08-21)
+
+> Saran model: yang kuat. Fitur baru yang menyentuh jalur persetujuan — pernah
+> ada insiden "SEMUA cuti auto-approve" gara-gara tabel ini rusak.
+
+```
+Lanjutkan proyek SweetTreats lewat memori. Chat ini MEMBANGUN layar admin untuk
+mengatur alur persetujuan (att_approval_rule) + delegasi penyetuju.
+Tanpa tenggat. Dev dulu.
+
+BACA DULU — rencananya sudah lengkap, JANGAN menyusun ulang:
+· docs/rencana/rencana-alur-persetujuan.md   ← dokumen utama
+· memori project_konsultan_role   ← peta mesin ACC
+· memori project_pusat_akun       ← detektor kegagalan-senyap
+
+Latar: keputusan Ekky 2026-08-21 — hierarki itu ATURAN, bukan kebiasaan. Itu
+menuntut DUA hal sekaligus: layar untuk mengaturnya, DAN jawaban untuk
+penyetuju yang sedang tak ada. Yang kedua bukan tambahan — tanpa itu hierarki
+ketat = pengajuan beku, karena act() mewajibkan penyetuju ada di rantai dan
+Super Admin pun tak bisa menerobos.
+
+Rumahnya: tab ke-4 di /absensi/aturan (sudah ada Aturan · Penugasan · Kalender
+Libur). Pondasi yang SUDAH ADA, jangan bangun ulang: detektor Kesehatan #5
+"Aturan persetujuan nyasar", dan pagar hapus-role di Set\Group.
+
+EMPAT PAGAR WAJIB (§3 rencana) — tanpa ini layarnya justru berbahaya:
+1. Perubahan berlaku SURUT ke pengajuan yang menggantung (expected_role_id NULL
+   di seluruh 116 baris; rantai dihitung ulang saat tombol ditekan). Layar harus
+   memberi tahu "N pengajuan menunggu akan terpengaruh" sebelum menyimpan.
+2. Pagar auto-approve TIDAK melindungi role yang dirinya penyetuju. Menghapus
+   "Supervisor -> Executive" membuat pengajuan Anisa lolos otomatis diam-diam.
+   Layar harus MENOLAK, bukan sekadar memperingatkan. Ini persis bentuk insiden
+   yang dulu: "SEMUA cuti auto-approve".
+3. sort_order BUKAN lapis. MAX_LEVELS=1, semua approver jadi satu lapis.
+   Buktinya di data: Asdent di-ACC Irma 22 / Anisa 20 — siapa saja duluan.
+   Tampilkan sebagai "siapa saja di daftar ini boleh", JANGAN "Lapis 1/2".
+4. Tak ada FK ke group_path, dan collation-nya beda (general_ci vs unicode_ci,
+   join polos = error 1267). Validasi di aplikasi.
+
+DELEGASI (§4): jangan bikin tabel baru. att_approver SUDAH ADA sejak 18 Juli,
+dirancang persis untuk ini, dan NOL pembacaan di seluruh kode. Hidupkan +
+tambahkan rentang tanggal. Lapis pertama yang disarankan: otomatis dari cuti
+(penyetuju yang cutinya disetujui diperlakukan seperti tak ada).
+
+JANGAN me-rename role dari layar ini — gerbang di seluruh aplikasi
+membandingkan session('group_name') sebagai teks.
+
+Uji terima §5 rencana, 9 poin. Uji #8: detektor Kesehatan #5 harus tetap bersih
+sesudah semua perubahan.
+
+Aturan kerja: dev = SATU working copy bersama, cek branch siapa yang hidup dan
+kembalikan sesudahnya. Prod hanya kalau Ekky menyebut "prod" eksplisit.
+Selesai: entri docs/log-update.md + salin ke Google Drive + catat ke memori.
+```

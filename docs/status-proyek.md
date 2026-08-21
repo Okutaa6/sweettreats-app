@@ -22,6 +22,15 @@
 > Kalau tanggal ini sudah jauh lewat,
 > minta chat teknis menyegarkan file ini sebelum dipakai mengambil keputusan.
 >
+> ⚠️ **Sisipan 2026-08-21c** — **Libur cabang tak mengikuti rolling.** Libur
+> per-cabang dicocokkan ke cabang ASAL orang, bukan cabang tempat dia bertugas
+> hari itu — 3 orang salah dua arah pada 25 Agu (Verini berisiko alpa; Della &
+> Ramdan kerjanya dicatat "libur"). Rencana + tenggat di
+> `rencana/rencana-libur-cabang-bertugas.md`. Ikut ketahuan: **kalender libur
+> tak pernah ditampilkan di layar mana pun**, jadi salah-catat baru terlihat
+> setelah harinya lewat. Tiga chat build baru disiapkan: §J §K §L di
+> `spec/prompt-chat-baru.md`.
+>
 > ⚠️ **Sisipan 2026-08-21b** — **Konsultan**: arah baru yang diputuskan Ekky.
 > Konsultan wajib absen, tapi **tak boleh meng-ACC pengajuan orang** (cuti/
 > lembur/izin). Role `Consultant` yang sudah ada ternyata **sudah** memenuhi itu

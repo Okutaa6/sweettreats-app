@@ -7,6 +7,107 @@
 
 ---
 
+## 2026-08-21c — Libur cabang tak mengikuti rolling · tiga orang salah dua arah
+
+Ekky bertanya soal libur Maulid Nabi Selasa 25 Agu: *"apa benar fiturnya sudah
+bekerja? kalau anak-anak tak masuk, tidak dihitung alpa?"* Jawabannya ya —
+mesinnya sehat. Yang tidak sehat adalah **siapa yang dianggap terkena liburnya.**
+
+### Mesinnya memang bekerja
+
+`AttendanceReconciler::resolveDay()` — exception **menang** atas aturan harian
+dan langsung mengembalikan "libur", jadi yang tak masuk tidak dihitung alpa.
+Ada pula `hapusHariBasi()` yang membersihkan alpa lama kalau libur ditambahkan
+*sesudah* rekonsiliasi terlanjur jalan. Logikanya benar.
+
+### Yang salah: pencocokan pakai cabang ASAL, bukan cabang BERTUGAS
+
+`resolveDay()` mencocokkan exception ke `users.raw_branch_id`. Reconciler
+**tidak pernah** memanggil `positionBranchOn()` maupun `cabangSesiUntuk()` —
+fitur rolling sudah tahu persis siapa di mana pada tanggal berapa, tapi
+pencocokan liburnya tak pernah bertanya ke situ.
+
+25 Agu: **Bintaro/Cinere/Kalideres tutup, Sunter/Pamulang buka.** Tiga orang
+yang sedang rolling jadi salah — dan salahnya ke **dua arah berlawanan**:
+
+| Orang | Asal | Bertugas | Akibat sekarang |
+|---|---|---|---|
+| **Verini** | Sunter (buka) | Cinere (**tutup**) | dinilai hari kerja → tak masuk = **ALPA** |
+| **Della Raqisiah** | Cinere (tutup) | Sunter (**buka**) | dicatat **libur**, scan-nya dibuang |
+| **Ramdan** | Kalideres (tutup) | Pamulang (**buka**) | sama |
+
+"Kerjanya hilang" bukan bahasa berlebihan. Cabang `if ($libur)` di reconciler
+tetap menulis baris `libur` **walaupun ada scan**; satu-satunya jalur yang
+membuatnya "hadir" adalah **form lembur** — yang berarti membayar upah lembur
+untuk hari kerja biasa.
+
+### Keputusan Ekky: ikut rolling, dan tanpa form apa pun
+
+Instingnya tepat, dan itu memang satu-satunya perbaikan yang dibutuhkan. Kalau
+pencocokan mengikuti penempatan efektif, ketiganya beres sendiri: Verini libur,
+Della & Ramdan hari kerja biasa. **Nol form.** Datanya sudah ada — ini menghapus
+beban dari orang, bukan menambah.
+
+⚠️ **Jebakan yang harus dibawa ke perbaikannya**: `$home` dipakai untuk **tiga
+arti** yang kebetulan dilebur jadi satu variabel. Yang berubah hanya
+`resolveDay()`. `isDateLocked()` dan `hapusHariBasi()` harus **tetap** memakai
+cabang asal — menukarnya borongan membuat penguncian periode gaji ikut
+berpindah mengikuti rolling, kerusakan yang jauh lebih sunyi.
+
+### Temuan kedua: kalender libur TIDAK PERNAH tampil di layar mana pun
+
+Ini yang membuat masalahnya tak terdeteksi sampai Ekky bertanya. **Kehadiran**
+hanya membaca `att_work_rule_day` (pola mingguan); **Absensi Saya** memakai
+`hariLiburTerjadwal()`, yang docblock-nya menyatakan terang-terangan bahwa
+kalender libur *"tidak dilihat di sini"*.
+
+Jadi `att_work_rule_exception` **ditulis satu layar dan dibaca satu pembaca
+saja: mesin malam hari.** Nisa tak punya cara memverifikasi catatannya benar
+selain menunggu harinya lewat. Kalau libur tampil di Kehadiran, cabang yang
+belum tercatat akan **terlihat sendiri** — layar yang menampilkan keadaan itu
+alat audit, bukan hiasan.
+
+### Temuan ketiga
+
+Baris `sys_user_position` id `a2821d77…` milik Verini: `effective_from` 15 Agu,
+`effective_to` **14 Agu** — berakhir sebelum dimulai, lolos tanpa validasi. Tak
+berbahaya sekarang, tapi begitu perbaikan di atas mendarat, **data penempatan
+ikut menentukan gaji** — jadi validasinya jadi bagian perbaikan, bukan tambahan.
+
+### ⚠️ RALAT — kesalahanku sendiri, dan bentuknya penting
+
+Awalnya kulaporkan **"7 orang berisiko alpa"** karena Sunter & Pamulang tak
+punya baris libur, dan kusarankan menggantinya dengan satu baris "Semua cabang
+(nasional)". **Itu salah.** Ekky meralat: kedua cabang itu memang **BUKA** hari
+itu; penutupan tiga cabang itu keputusan operasional yang disengaja.
+
+Aku menyimpulkan "hari besar agama = libur nasional" dari sifat harinya, bukan
+dari data. Bentuk kesalahan yang sama persis dengan `stdc.id` beberapa jam
+sebelumnya: **menyimpulkan dari sifat sesuatu, bukan dari yang tercatat.**
+Untungnya kusampaikan sebagai temuan untuk dikonfirmasi, bukan langsung
+dieksekusi — kalau baris Nisa telanjur kuganti jadi nasional, **10 orang di dua
+cabang yang seharusnya masuk akan mendapat libur palsu.**
+
+Entri libur Nisa **benar apa adanya. Jangan diubah jadi nasional.**
+
+### Yang dihasilkan
+
+Tiga rencana + tiga prompt chat baru (§J, §K, §L di
+`docs/spec/prompt-chat-baru.md`):
+
+| Rencana | Isi |
+|---|---|
+| `rencana-libur-cabang-bertugas.md` | ⏰ **tenggat Selasa 25 Agu** — perbaikan di atas + tampilkan kalender libur + validasi penempatan |
+| `rencana-konsultan-struktur.md` | role Konsultan + restrukturisasi Supervisor |
+| `rencana-alur-persetujuan.md` | layar admin `att_approval_rule` + delegasi |
+
+Kalau perbaikan libur tak sempat sebelum Selasa: **tidak apa-apa.** Cadangannya
+murah — 3 baris `att_day` dikoreksi setelah lewat, oleh chat HUB, berjejak
+audit. Yang penting kita tahu **sebelum** kejadian, bukan menemukannya di rekap
+gaji.
+
+---
+
 ## 2026-08-21b — Akun konsultan Haickal naik PROD · desain role Konsultan diputuskan
 
 Ekky membuka arah baru: **konsultan** yang wajib absen tapi tak boleh punya
