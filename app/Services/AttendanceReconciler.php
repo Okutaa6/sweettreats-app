@@ -443,12 +443,29 @@ class AttendanceReconciler
             // Libur dicocokkan ke cabang tempat orang ini BERTUGAS hari itu,
             // bukan cabang asalnya — selesai di memori, nol kueri per hari.
             $cabangKerja = CabangBertugas::pada($rolling, $key, $home);
-            [$libur, $masukAkhir, $pulang] = $this->resolveDay($rule, $d, $cabangKerja, $ruleDays, $exceptions);
+            [$libur, $masukAkhir, $pulang, $exception] = $this->resolveDay($rule, $d, $cabangKerja, $ruleDays, $exceptions);
 
             if ($libur) {
                 // kerja di hari libur cuma sah kalau ada form lembur (tambah_hari) → hadir + lembur
                 if ($lembur > 0) { $out[] = $this->row($userId, $key, $rule->id, $day, 'hadir', 0, null, $lembur, $now); continue; }
-                if ($n === 0) continue;               // hari tutup & tak ada scan → tak perlu baris
+
+                // Libur KALENDER tanpa scan tetap menghasilkan baris `libur`.
+                // Kosong itu ambigu — tak bisa dibedakan dari "belum ada
+                // datanya", dan justru ketiadaan baris inilah yang membuat
+                // libur cabang tak pernah terlihat di layar mana pun (§4).
+                // Alasan yang sama sudah dipakai cabang `fleksibel` di atas.
+                //
+                // Libur POLA MINGGUAN sengaja TIDAK ikut: hari Senin tutup
+                // sudah terbaca dari aturan kerjanya sendiri dan tersorot di
+                // matriks Kehadiran, jadi barisnya cuma akan menggandakan apa
+                // yang sudah terlihat — untuk seluruh roster, setiap minggu.
+                if ($n === 0) {
+                    if ($exception) {
+                        $out[] = $this->row($userId, $key, $rule->id, $day, 'libur', 0, null, 0, $now);
+                    }
+                    continue;
+                }
+
                 $out[] = $this->row($userId, $key, $rule->id, $day, 'libur', 0, null, 0, $now);
                 continue;
             }
@@ -758,7 +775,13 @@ class AttendanceReconciler
      *         asal — kalau ikut berpindah, penguncian periode gaji ikut
      *         berpindah mengikuti rolling.
      *
-     * @return array{0:bool,1:?string,2:?string} [libur, jam_masuk_akhir, jam_pulang]
+     * @return array{0:bool,1:?string,2:?string,3:?object}
+     *         [libur, jam_masuk_akhir, jam_pulang, exception yang cocok]
+     *
+     *         Elemen ke-4 memisahkan DUA sebab libur yang selama ini dilebur:
+     *         pola mingguan (Senin tutup) versus KALENDER (Maulid, Lebaran,
+     *         tutup cabang). Yang pertama sudah terbaca di layar dari aturan
+     *         kerjanya sendiri; yang kedua tak bisa ditebak dari pola apa pun.
      */
     private function resolveDay($rule, Carbon $date, ?string $cabangKerja, array $ruleDays, array $exceptions): array
     {
@@ -774,11 +797,11 @@ class AttendanceReconciler
         foreach ($exceptions as $e) {
             if ($e->tgl_from <= $ds && $e->tgl_to >= $ds
                 && ($e->raw_branch_id === null || $e->raw_branch_id === $cabangKerja)) {
-                if ($e->libur) return [true, null, null];
-                return [false, $e->jam_masuk ?? $masukAkhir, $e->jam_pulang ?? $pulang];
+                if ($e->libur) return [true, null, null, $e];
+                return [false, $e->jam_masuk ?? $masukAkhir, $e->jam_pulang ?? $pulang, $e];
             }
         }
-        return [$libur, $masukAkhir, $pulang];
+        return [$libur, $masukAkhir, $pulang, null];
     }
 
     private function loadRules(): array
