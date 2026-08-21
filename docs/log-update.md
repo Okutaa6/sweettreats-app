@@ -7,7 +7,7 @@
 
 ---
 
-## 2026-08-21 — Absen HP: pencocokan WiFi pindah dari /64 ke /48
+## 2026-08-21 — Absen HP: pencocokan WiFi pindah dari /64 ke /48 · LIVE PROD
 
 Keluhan Ekky: "kena flag terus padahal kemarin sudah didaftarkan dan diperbaiki".
 Ternyata dua hal berbeda, dan yang kedua jauh lebih besar dari keluhannya.
@@ -95,6 +95,41 @@ docblock kelasnya menjanjikan "tawarkan sekali klik ke IT".
 aman — melebarkannya ke /24 atau /16 berarti menerima satu wilayah ISP utuh.
 Jalur IPv4 sengaja tak disentuh, dan itu dikunci lewat K14 (`180.252.169.219`
 tak boleh cocok dengan `180.252.169.218` yang terdaftar).
+
+### NAIK PROD 21 Agu 10.50 — `618ca57` (titik balik `b0c126e`)
+
+Tanpa SQL, tanpa sentuhan `public/assets` (jadi tanpa rsync). `deploy.sh main`
+bersih.
+
+**Uji regresi di prod, bukan di dev.** Sebelum deploy, hasil pencocokan kode
+LAMA direkam untuk **351 alamat unik** yang pernah dipakai absen sejak 1 Agu.
+Sesudah deploy direkam ulang lalu dibandingkan baris per baris:
+
+| | |
+|---|---|
+| tetap sama | 299 |
+| **baru cocok** | **52** |
+| hilang cocoknya | **0** |
+| pindah cabang | **0** |
+
+Cocok naik dari 265 → 317 dari 351 alamat. Nol kehilangan, nol perpindahan.
+
+*(Jangan rancu dengan "1 pindah" pada putar-ulang di dev: yang itu diukur
+terhadap pilihan manual orangnya — Irma — bukan terhadap kecocokan sebelumnya.)*
+
+**Verifikasi hidup-hidup di prod**, semuanya lulus:
+
+- rotasi karangan yang belum pernah ada di **kelima** cabang langsung dikenali
+  (`2001:448a:2092:ffff::…` → Bintaro, dst) — itu inti perubahannya
+- yang harus ditolak tetap ditolak: CGNAT Telkomsel, IPv4 tetangga
+  `…169.219`, HP pribadi Reza, seluler Rokhmatun, dan `::ffff:` IPv4 menyamar
+- pagar pendaftaran /48 bekerja di prod; nol /48 dipegang dua cabang
+- halaman WiFi Cabang benar-benar ter-render (49.828 byte) dan teksnya sudah
+  memuat angka dari konstanta, bukan "3 orang"
+- **`APP_ENV` prod = `production`**, jadi kunci mati `att:wifi-uji` memang
+  aktif di sana. Sengaja diperiksa: kalau nilainya bukan itu, perintah uji bisa
+  MENGHAPUS absensi prod.
+
 
 ---
 

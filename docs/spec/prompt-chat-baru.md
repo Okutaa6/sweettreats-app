@@ -108,18 +108,15 @@ Peran chat ini:
 
 == KEADAAN PER 2026-08-21 ==
 
-PROD sehat. main `4bb0c69`; prod jalan di `b0c126e` — bedanya CUMA dua commit
-dokumentasi, kodenya sudah mutakhir. Kelima cabang hidup (Bintaro, Sunter,
-Cinere, Pamulang, Kalideres), 19 staf operasional berakun.
+PROD sehat dan MUTAKHIR: main = prod = `618ca57` (deploy 21 Agu 10.50, berisi
+pelebaran pencocokan WiFi /48). Kelima cabang hidup (Bintaro, Sunter, Cinere,
+Pamulang, Kalideres), 19 staf operasional berakun.
 
 Yang live & dipakai harian: absensi + absen HP selfie, WiFi-sebagai-saksi,
 Pusat Akun, cuti (+Kontrak Baru), checklist, ROP/Pengeluaran, Aturan Kerja,
 petty cash (kategori dinamis + dompet per-operator), reskin zona.
 
 BRANCH YANG MENGANTRE (belum di main):
-- `fix/wifi-cocok-48` — pencocokan WiFi /64 → /48. Sudah di dev, att:wifi-uji
-  15/15, putar-ulang 134 absen prod gagal → 70 cocok. TIDAK ada SQL, TIDAK
-  menyentuh public/assets (jadi tak perlu rsync). Tinggal tunggu izin prod.
 - `feature/rop-lembar-bayar` — punya chat §G, sedang hidup di dev. Naik prod
   butuh SQL + rsync CSS. JANGAN disentuh dari sini.
 - `feature/project-tracker`, `feature/accurate-*` — WIP, jangan merge.

@@ -167,8 +167,8 @@ bukan symlink).
   manual dari mesin sidik jari — arah ADMS masih rencana.)
 - **Absen HP selfie**: WiFi cabang sebagai saksi + IP cabang, pencocokan IPv6
   per blok **/48**, remember-me, paksa ganti password.
-- **WiFi Cabang — rotasi Telkom** *(belajar-sendiri live prod; pelebaran /48
-  menunggu izin prod di `fix/wifi-cocok-48`)*: nomor IPv6 Telkom berputar
+- **WiFi Cabang — rotasi Telkom** *(LIVE PROD 21 Agu `618ca57`, termasuk
+  pelebaran /48)*: nomor IPv6 Telkom berputar
   kira-kira tiap dua hari. Dengan pencocokan /64, tiap rotasi membuat seisi
   cabang kena "WiFi tidak dikenali" sampai ada yang mendaftarkan nomor
   barunya — **28,1% absen HP sepanjang Agustus gagal cocok** karenanya.
