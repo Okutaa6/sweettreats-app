@@ -94,16 +94,22 @@ mengizinkan segmen `/akun` sehingga layar absen benar-benar terbuka.
   Mutiara Nurul Fajri di Front Office.
 - Role baru yang benar-benar baru hanya **Koordinator GS**.
 
-### ⚠️ Terbuka, belum dijawab
+### Dua yang tadinya terbuka — sudah dijawab Ekky di hari yang sama
 
-**Konsultan bisa membuka Laporan Penjualan → Executive.** `report/executive`
-adalah salah satu dari 6 node akses role `Consultant`, jadi **Hari — konsultan
-dari domain luar `stdc.id` — sudah bisa melihat laporan penjualan eksekutif
-prod sekarang.** Kalau tak disengaja, pencabutannya cuma 2 baris `group_access`
-+ `access:rebuild`. Menunggu keputusan.
+**`stdc.id` itu domain LAMA Sweet Treats Dental Clinic, bukan pihak luar.**
+Sempat kucatat sebagai dugaan kebocoran karena `report/executive` melekat di
+role `Consultant` — itu **kesimpulan yang salah, ditarik dari nama domain, bukan
+dari data.** Akses Hari ke Laporan Penjualan → Executive **disengaja dan sah**;
+jangan "diperbaiki". Pelajarannya sama tuanya dengan proyek ini: nama bukan
+bukti — sudah pernah kena lewat Anisa ≠ Admin_Nisa dan dua orang bernama Fajri.
 
-Juga menggantung: apakah `Coordinator Dentist` pindah ke bawah Supervisor atau
-tetap di bawah Executive.
+**`Coordinator Dentist` PINDAH ke bawah Supervisor.** Pengajuan Irma yang
+tadinya ke Dani menjadi ke Anisa. Rencana lengkapnya ditulis hari itu juga di
+`docs/rencana/rencana-konsultan-struktur.md` — termasuk satu risiko yang belum
+kelihatan sebelumnya: memindahkan Fajri ke role `Koordinator GS` **berisiko
+mematikan divisi Checklist Akreditasi-nya**, karena `sys_checklist_division`
+mencocokkan nama divisi **persis** dengan nama role, dan tak ada divisi bernama
+"Koordinator GS".
 
 ---
 

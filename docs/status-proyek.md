@@ -29,8 +29,10 @@
 > role yang sama dengan Hari & Rahmat — role khusus per bidang (`Konsultan
 > Finance`/`Marketing`/`IT`) menyusul setelah rencananya jadi, dan itu **butuh
 > perubahan kode**, bukan cuma config. Rincian + tiga temuan soal mesin ACC ada
-> di `log-update.md` entri 21 Agu b. ⚠️ Terbuka: konsultan (termasuk Hari dari
-> domain luar) kini bisa membuka Laporan Penjualan → Executive.
+> di `log-update.md` entri 21 Agu b. Rencana lengkapnya — 3 role konsultan,
+> `Coordinator Dentist` pindah ke bawah Supervisor, role baru `Koordinator GS`
+> untuk Alpajri — di `rencana/rencana-konsultan-struktur.md`. Dev dulu, prod
+> menyusul setelah uji terima lulus.
 >
 > ⚠️ **Sisipan 2026-08-13** — badan file di bawah masih potret 6 Agu dan belum
 > disegarkan menyeluruh. Yang sudah berubah sejak itu ada di `log-update.md`
