@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\ChecklistCategory;
+use App\Models\ChecklistReopenRequest;
 use App\Models\ChecklistTask;
 use App\Models\ChecklistWeeklyDaySubmit;
 use App\Models\ChecklistWeeklySubmission;
@@ -132,11 +133,28 @@ class MarkWeeklyChecklistMissed extends Command
             ->get(['id', 'user_id', 'status'])
             ->keyBy('user_id');
 
+        // User dengan grant "buka kembali" mingguan AKTIF (disetujui, belum dipakai)
+        // untuk minggu ini — jangan dicap "missed", supaya hari yang di-approve tetap
+        // bisa diisi (isEditable() false utk missed akan mengunci seluruh grid).
+        $granted = ChecklistReopenRequest::query()
+            ->where('scope', ChecklistReopenRequest::SCOPE_WEEKLY)
+            ->whereDate('week_start_date', $weekStart->toDateString())
+            ->where('status', ChecklistReopenRequest::STATUS_APPROVED)
+            ->whereNull('fulfilled_at')
+            ->whereIn('user_id', $userIds)
+            ->pluck('user_id')
+            ->flip();
+
         $newRows    = [];
         $convertIds = [];
         $skipped    = 0;
 
         foreach ($positions as $uid => $pos) {
+            if ($granted->has($uid)) {
+                $skipped++;
+                continue;
+            }
+
             // Gate: divisi (per cabang) harus punya tugas mingguan aktif.
             $total = $this->weeklyTaskCount($pos->division_id, $pos->raw_branch_id);
             if ($total === 0) {

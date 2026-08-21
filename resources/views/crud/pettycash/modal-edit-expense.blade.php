@@ -22,6 +22,7 @@
         <form method="POST" id="pcEditExpenseForm" enctype="multipart/form-data" data-action-tpl="{{ url('pettycash/transaction') }}/__ID__?tab={{ $kind }}">
             @csrf
             @method('PATCH')
+            @include('crud.pettycash._filter_hidden')
             @if(!session('raw_branch_id') && $period->raw_branch_id)
                 <input type="hidden" name="branch" value="{{ $period->raw_branch_id }}">
             @endif
@@ -44,6 +45,16 @@
             </div>
 
             <div class="pc-modal__body">
+                {{-- Sisa waktu edit: hitung mundur sampai window {{ $editWindowHours }} jam
+                     terkunci. Diisi & di-update oleh JS dari data-trx-edit-deadline.
+                     Super Admin tanpa batas waktu → elemen ini tetap hidden. --}}
+                <div class="pc-edit-countdown" id="pcEditCountdown" hidden>
+                    <i class="fa fa-clock"></i>
+                    <span class="pc-edit-countdown__text">
+                        Sisa waktu edit: <strong id="pcEditCountdownValue">—</strong>
+                    </span>
+                </div>
+
                 {{-- Info read-only: tanggal & wallet, supaya user paham field
                      ini di-lock & tahu konteks transaksi mana yang sedang diedit. --}}
                 <div class="pc-edit-context">
@@ -69,6 +80,15 @@
                             <option value="{{ $catKey }}">{{ $catLabel }}</option>
                         @endforeach
                     </select>
+                </div>
+
+                {{-- Peminjam: tampil hanya saat kategori "Pinjaman" (toggle JS di
+                     index.blade.php). Server validasi required_if:category,pinjaman. --}}
+                <div class="pc-form-row" id="pcEditBorrowerField" hidden>
+                    <label>Peminjam <span class="text-danger">*</span></label>
+                    <input type="text" name="borrower_name" id="pcEditBorrower"
+                           maxlength="120" placeholder="Nama orang yang meminjam"
+                           class="pc-input">
                 </div>
 
                 <div class="pc-form-row">
@@ -146,6 +166,11 @@
     </div>
 </div>
 <style>
+    .pc-edit-countdown{display:flex;align-items:center;gap:8px;background:#ecfdf5;border:1px solid #a7f3d0;color:#065f46;border-radius:8px;padding:9px 14px;margin-bottom:12px;font-size:13px;font-weight:600;}
+    .pc-edit-countdown i{font-size:13px;}
+    .pc-edit-countdown strong{font-weight:800;}
+    .pc-edit-countdown.is-warning{background:#fffbeb;border-color:#fcd34d;color:#92400e;}
+    .pc-edit-countdown.is-danger{background:#fef2f2;border-color:#fecaca;color:#b91c1c;}
     .pc-edit-context{display:flex;gap:16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:10px 14px;margin-bottom:6px;}
     .pc-edit-context__item{display:flex;flex-direction:column;gap:2px;}
     .pc-edit-context__label{font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#64748b;font-weight:600;}

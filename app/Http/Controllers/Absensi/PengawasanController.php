@@ -408,6 +408,20 @@ class PengawasanController extends Controller
                 optional($sudahAda->branch)->name . ', status ' . $sudahAda->status . ').');
         }
 
+        // Pagar yang sama dengan AbsensiBranchIpController::store(). WAJIB ada
+        // di KEDUA pintu: sejak pencocokan IPv6 melebar ke /48, satu /48 yang
+        // dipegang dua cabang membuat absen keduanya tertukar diam-diam. Pintu
+        // ini justru yang lebih rawan — dipegang SPV dari layar flag, bukan IT
+        // yang paham peta jaringan.
+        $bentrok48 = AttBranchIp::pemilik48Lain($data['ip'], $data['raw_branch_id']);
+        if ($bentrok48) {
+            return back()->with('error',
+                'Blok /48 milik ' . $data['ip'] . ' sudah dipakai cabang ' .
+                optional($bentrok48->branch)->name . ' (lewat ' . $bentrok48->ip . '). ' .
+                'Karena pencocokan IPv6 memakai /48, mendaftarkan ini akan membuat absen ' .
+                'kedua cabang tertukar. Minta IT memeriksanya dulu di halaman WiFi Cabang.');
+        }
+
         AttBranchIp::create([
             'raw_branch_id' => $data['raw_branch_id'],
             'ip'            => $data['ip'],

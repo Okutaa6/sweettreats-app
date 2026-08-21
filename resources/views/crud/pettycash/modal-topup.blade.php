@@ -21,6 +21,7 @@
     <div class="pc-modal__dialog">
         <form method="POST" action="{{ route('pettycash.topup', ['tab' => $kind]) }}" enctype="multipart/form-data">
             @csrf
+            @include('crud.pettycash._filter_hidden')
             <input type="hidden" name="period_id" value="{{ $period->id }}">
             <input type="hidden" name="tab" value="{{ $kind }}">
             @if(!session('raw_branch_id') && $period->raw_branch_id)

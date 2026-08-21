@@ -27,6 +27,8 @@ class PettyCashPeriod extends Model
         'float_amount',
         'opening_balance',
         'source_opening_balances',
+        'opening_set_by',
+        'handover_at',
         'closing_balance',
         'is_closed',
     ];
@@ -39,6 +41,7 @@ class PettyCashPeriod extends Model
         'source_opening_balances' => 'array',
         'closing_balance'         => 'decimal:2',
         'is_closed'               => 'boolean',
+        'handover_at'             => 'datetime',
         'created_at'              => 'datetime',
         'updated_at'              => 'datetime',
     ];
@@ -94,6 +97,8 @@ class PettyCashPeriod extends Model
             if ($prev->closing_balance !== null) {
                 $opening = (float) $prev->closing_balance;
             } else {
+                // Carry-forward = total fisik kas cabang = opening + net semua
+                // transaksi periode sebelumnya.
                 $opening = (float) $prev->opening_balance + (float) PettyCashTransaction::netForPeriod($prev->id);
             }
             $sourceOpening = $prev->computeClosingPerSource();
@@ -131,6 +136,8 @@ class PettyCashPeriod extends Model
     {
         $balances = $this->openingPerSourceResolved();
 
+        // Total per source = opening + net semua transaksi periode ini →
+        // di-carry-forward ke bulan berikutnya.
         $rows = PettyCashTransaction::active()
             ->forPeriod($this->id)
             ->get(['fund_source_id', 'direction', 'amount']);

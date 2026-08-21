@@ -43,7 +43,12 @@ class AbsensiBranchIpController extends Controller
         $perluTinjau = $ips->where('sumber', 'otomatis')->where('status', 'aktif');
         $belajarAktif = \App\Services\WifiBelajarSendiri::aktif();
 
-        return view('absensi.wifi', compact('ips', 'branches', 'perluTinjau', 'belajarAktif'));
+        return view('absensi.wifi', compact('ips', 'branches', 'perluTinjau', 'belajarAktif') + [
+            // Angka diambil dari konstantanya, TIDAK diketik ulang: teks lama
+            // menulis "3 orang" berbulan-bulan sesudah ambangnya turun jadi 2.
+            'ambangOrang' => \App\Services\WifiBelajarSendiri::AMBANG_ORANG,
+            'jendelaJam'  => \App\Services\WifiBelajarSendiri::JENDELA_JAM,
+        ]);
     }
 
     /**
@@ -81,6 +86,20 @@ class AbsensiBranchIpController extends Controller
             return back()->with('error',
                 'IP ' . $data['ip'] . ' sudah terdaftar di cabang ' . optional($sudahAda->branch)->name .
                 ' — satu IP hanya boleh satu cabang. Nonaktifkan dulu yang lama kalau memang pindah.');
+        }
+
+        // Sejak pencocokan melebar ke /48 (AttBranchIp::matchBranch), satu /48
+        // yang dipegang DUA cabang membuat absen di salah satunya terbaca
+        // sebagai cabang yang lain — diam-diam, tanpa gejala apa pun. Seluruh
+        // pelebaran itu bersandar pada asumsi "satu /48 = satu pelanggan
+        // Telkom"; di sinilah asumsi itu diuji tiap kali ada baris baru.
+        $bentrok48 = AttBranchIp::pemilik48Lain($data['ip'], $data['raw_branch_id']);
+        if ($bentrok48) {
+            return back()->with('error',
+                'Blok /48 milik ' . $data['ip'] . ' sudah dipakai cabang ' .
+                optional($bentrok48->branch)->name . ' (lewat ' . $bentrok48->ip . '). ' .
+                'Karena pencocokan IPv6 memakai /48, mendaftarkan ini akan membuat absen ' .
+                'kedua cabang tertukar. Nonaktifkan dulu baris yang lama kalau jalurnya memang pindah.');
         }
 
         AttBranchIp::create($data + [

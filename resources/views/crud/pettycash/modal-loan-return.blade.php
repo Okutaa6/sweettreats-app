@@ -1,23 +1,23 @@
 {{--
     Petty Cash — modal "Catat Pengembalian Pinjaman".
-    Variables: $period, $kind, $sourceBalances, $rupiah.
+    Variables: $period, $kind, $openLoans, $rupiah.
 
     Mencatat uang pinjaman yang dikembalikan sebagai KAS MASUK berkategori
-    'pinjaman' (is_topup=0). Efek: piutang wallet berkurang, saldo fisik naik,
-    tidak menambah "Total top up". Hanya wallet yang punya piutang > 0 yang
-    tampil di dropdown.
+    'pinjaman' (is_topup=0) yang MENUNJUK ke baris pinjaman aslinya lewat
+    settles_transaction_id. Efek: status pinjaman itu jadi LUNAS/SEBAGIAN,
+    saldo fisik wallet naik, tidak menambah "Total top up". Hanya pinjaman
+    yang masih punya sisa > 0 yang tampil di dropdown.
 --}}
 @php
     $kind = $kind ?? 'petty_cash';
-    // Wallet yang masih punya piutang pinjaman belum kembali.
-    $piutangWallets = collect($sourceBalances ?? [])
-        ->filter(fn($sb) => round((float) ($sb->piutang ?? 0), 2) > 0)
-        ->values();
+    // Daftar pinjaman yang masih terbuka (sisa > 0), dari buildRows().
+    $loans = collect($openLoans ?? [])->values();
 @endphp
 <div class="pc-modal" id="pcModalLoanReturn" role="dialog" aria-modal="true">
     <div class="pc-modal__dialog">
         <form method="POST" action="{{ route('pettycash.loanReturn', ['tab' => $kind]) }}">
             @csrf
+            @include('crud.pettycash._filter_hidden')
             <input type="hidden" name="period_id" value="{{ $period->id }}">
             <input type="hidden" name="tab" value="{{ $kind }}">
             @if(!session('raw_branch_id') && $period->raw_branch_id)
@@ -35,19 +35,24 @@
             </div>
 
             <div class="pc-modal__body">
-                @if($piutangWallets->isEmpty())
+                @if($loans->isEmpty())
                     <div class="pc-suggest-box">
                         <i class="fa fa-info-circle"></i>
-                        Belum ada piutang pinjaman yang perlu dikembalikan.
+                        Belum ada pinjaman yang perlu dilunasi.
                     </div>
                 @else
                     <div class="pc-form-row">
-                        <label>Wallet <span class="text-danger">*</span></label>
-                        <select name="fund_source_id" required class="pc-input" data-pc-loan-source>
-                            @foreach($piutangWallets as $sb)
-                                <option value="{{ $sb->id }}"
-                                        data-piutang="{{ round((float) $sb->piutang, 2) }}">
-                                    {{ $sb->name }} — piutang {{ $rupiah($sb->piutang) }}
+                        <label>Pinjaman yang dilunasi <span class="text-danger">*</span></label>
+                        <select name="settles_transaction_id" required class="pc-input" data-pc-loan-select>
+                            @foreach($loans as $ln)
+                                <option value="{{ $ln->id }}"
+                                        data-sisa="{{ round((float) $ln->sisa, 2) }}"
+                                        data-source="{{ $ln->source_id }}"
+                                        data-borrower="{{ $ln->borrower }}">
+                                    {{ $ln->borrower ?: \Illuminate\Support\Str::limit($ln->description, 30) }}
+                                    — sisa {{ $rupiah($ln->sisa) }}
+                                    @if($ln->paid > 0) (dari {{ $rupiah($ln->amount) }}) @endif
+                                    · {{ $ln->source_name }}
                                 </option>
                             @endforeach
                         </select>
@@ -66,12 +71,13 @@
                                data-target="loanReturnAmount"
                                placeholder="0">
                         <input type="hidden" name="amount" id="loanReturnAmount" required>
+                        <small class="pc-muted">Kosongkan? Isi sesuai jumlah yang dikembalikan. Maks = sisa pinjaman.</small>
                     </div>
 
                     <div class="pc-form-row">
-                        <label>Keterangan <small class="pc-muted">(opsional)</small></label>
+                        <label>Catatan <small class="pc-muted">(opsional)</small></label>
                         <input type="text" name="description" maxlength="255"
-                               placeholder="Mis: Pelunasan pinjaman kasir"
+                               placeholder="Mis: dibayar tunai ke kasir"
                                class="pc-input">
                     </div>
                 @endif
@@ -79,7 +85,7 @@
 
             <div class="pc-modal__footer">
                 <button type="button" class="st-btn-outline-brown" data-pc-modal-close>Batal</button>
-                @if($piutangWallets->isNotEmpty())
+                @if($loans->isNotEmpty())
                     <button type="submit" class="pc-btn-topup-solid" style="background:#047857;">
                         <i class="fa fa-hand-holding-usd"></i> Simpan Pengembalian
                     </button>

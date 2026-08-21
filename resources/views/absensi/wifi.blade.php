@@ -48,12 +48,18 @@
             <div>
                 <h5 style="margin-bottom:4px">Belajar sendiri: {{ $belajarAktif ? 'menyala' : 'mati' }}</h5>
                 <div style="font-size:13px;color:#8a7263;max-width:560px">
-                    Nomor IPv6 dari Telkom berganti kira-kira seminggu sekali. Saat menyala, jaringan yang
-                    nomornya baru berganti didaftarkan sendiri begitu <strong>3 orang cabang itu</strong>
-                    terbukti memakainya dalam 72 jam — asalkan blok alamatnya sekerabat dengan jalur cabang
-                    yang sudah terdaftar. Satu orang tak pernah cukup, dan jaringan seluler tak pernah ikut.
+                    Nomor IPv6 dari Telkom berganti kira-kira tiap dua hari. <strong>Rotasi itu sendiri
+                    sudah tertangani</strong> — absen dicocokkan per blok /48 cabang, jadi nomor baru di
+                    blok yang sama langsung dikenali tanpa perlu didaftarkan siapa pun.
+                    <br><br>
+                    Saklar ini mengatur hal yang berbeda: jaringan yang bloknya <strong>sama sekali asing</strong>
+                    (mis. cabang ganti jalur internet, atau orang absen dari tempat lain). Saat menyala,
+                    jaringan seperti itu <strong>dilaporkan ke IT</strong> begitu {{ $ambangOrang }} orang cabang
+                    itu terbukti memakainya dalam {{ $jendelaJam }} jam — dilaporkan, bukan didaftarkan sendiri.
+                    Satu orang tak pernah cukup, dan jaringan seluler tak pernah ikut.
                     @unless($belajarAktif)
-                        <br><strong>Sedang mati</strong> — tiap rotasi harus didaftarkan manual lagi.
+                        <br><strong>Sedang mati</strong> — blok asing tidak akan dilaporkan ke siapa pun.
+                        Pencocokan /48 tetap berjalan seperti biasa.
                     @endunless
                 </div>
             </div>

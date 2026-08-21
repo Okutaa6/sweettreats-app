@@ -463,6 +463,7 @@ Route::middleware([AuthGuard::class])->group(function () {
     Route::delete('pettycash/transaction/{id}',   [PettyCashController::class, 'destroy'])->name('pettycash.destroy');
     Route::post('pettycash/source/destroy',       [PettyCashController::class, 'destroySource'])->name('pettycash.source.destroy');
     Route::post('pettycash/period/{id}/close',    [PettyCashController::class, 'close'])->name('pettycash.close');
+    Route::post('pettycash/period/{id}/move',     [PettyCashController::class, 'movePeriod'])->name('pettycash.period.move');
 
     // Finance: dashboard monitoring + approval workflow top-up request
     Route::prefix('finance')->group(function () {

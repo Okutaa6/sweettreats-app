@@ -7,7 +7,133 @@
 
 ---
 
-## 2026-08-14 (lanjutan 4) — UJI PENUH ulang: 41 dari 41 lolos
+## 2026-08-21 — Absen HP: pencocokan WiFi pindah dari /64 ke /48 · LIVE PROD
+
+Keluhan Ekky: "kena flag terus padahal kemarin sudah didaftarkan dan diperbaiki".
+Ternyata dua hal berbeda, dan yang kedua jauh lebih besar dari keluhannya.
+
+### Yang pertama: itu bukan flag, dan melesetnya 68 detik
+
+Ekky ber-aturan `Fleksibel Kantor`, dan `AttendanceHpAbsen` melewati evaluasi
+flag untuk orang fleksibel (`$flags = $fleksibel ? [] : ...`). `att_flag`
+miliknya **kosong sama sekali**. Yang dia lihat adalah layar "WiFi tidak
+dikenali — pilih cabangmu dulu ya", bukan flag.
+
+Absennya 21 Agu 09.53.14; IP `180.252.169.218` didaftarkan 09.54.22. Meleset
+**68 detik**. Barisnya bersih, tak ada spasi siluman — bukan bug.
+
+### Yang kedua: rotasi Telkom lebih cepat daripada tangan manusia
+
+Bintaro memakai **tujuh prefix /64 berbeda dalam 17 hari** — kira-kira tiap dua
+hari. Tiap rotasi menghanguskan seluruh pendaftaran. Belajar-sendiri menutup
+sebagian, tapi butuh 2 saksi dalam 72 jam, jadi absen pertama-kedua di tiap
+prefix baru **selalu** gagal. Mekanismenya benar, cuma permanen ketinggalan.
+
+Terukur di prod: **133 dari 474 absen HP sepanjang Agustus (28,1%) gagal cocok.**
+
+Tapi ketujuh prefix Bintaro duduk di `2001:448a:2092::/48` yang SAMA — yang
+berputar cuma 16 bit di dalam jatah pelanggan. Dan `WifiBelajarSendiri` sudah
+memakai kekerabatan /48 sebagai pagar keamanannya. Jadi selama ini pencocokan
+memakai /64 sementara pagarnya memakai /48: dua ukuran untuk satu pertanyaan.
+
+### Yang dikerjakan — branch `fix/wifi-cocok-48`, DEV SAJA (prod belum)
+
+`AttBranchIp::matchBranch()` kini membandingkan **/48**, dengan /64 yang persis
+tetap diutamakan. Dua pagar dipasang bersamaan:
+
+- **Veto IT menang atas kekerabatan.** Baris nonaktif yang `ip`-nya persis teks
+  prefix bersih (`2001:448a:2092:d21::`) tetap menolak. Baris nonaktif BEREKOR
+  bukan veto — pembedaan yang persis sama sudah dipakai `nilai()` sejak dulu.
+  Tanpa pagar ini, kekerabatan /48 akan menghidupkan kembali prefix yang sudah
+  dimatikan manusia, diam-diam.
+- **Pendaftaran menolak /48 yang sudah dimiliki cabang lain**, di KEDUA pintu:
+  `AbsensiBranchIpController::store()` dan `PengawasanController::daftarkanIp()`.
+  Pintu kedua ketemu waktu audit — dan justru itu yang lebih rawan, dipegang SPV
+  dari layar flag, bukan IT yang paham peta jaringan.
+
+### Buktinya
+
+- `att:wifi-uji` **15/15 lulus** (dari 10 kasus; K1/K2/K5/K8/K10 berubah arti,
+  K11–K15 baru).
+- **K1 adalah bukti utamanya**: kejadian nyata 11 Agu yang dulu mem-flag tujuh
+  orang Bintaro sekarang mem-flag **nol**.
+- Putar ulang **134 absen prod yang gagal cocok** lewat kode baru + tabel
+  pendaftaran prod, di dalam transaksi yang dibatalkan (DB dev tak berubah):
+  **70 jadi cocok (52,2%)**. IPv6: 57 tertolong, 6 tetap gagal — keenamnya HP
+  pribadi/seluler, memang seharusnya gagal.
+- Hanya **satu** absen berpindah cabang: Irma 13 Agu memilih Cinere padahal
+  jaringannya Pamulang. Dia memang sedang di Pamulang (tercatat di docblock
+  `WifiBelajarSendiri`) — jaringannya yang benar, orangnya yang salah pilih.
+- Pra-terbang prod: tak ada /48 dipegang dua cabang, dan ketujuh baris nonaktif
+  semuanya berekor sehingga tak satu pun berubah jadi veto. Nol regresi.
+
+### Efek samping yang disengaja
+
+Vonis **DAFTAR praktis mati** — prefix sekerabat sudah cocok sendiri, jadi
+`pelajari()` bahkan tak dipanggil. Karena itulah satu-satunya jalur yang dulu
+memberi tahu IT, **TAWARKAN kini benar-benar dikirim**. Sebelumnya vonis itu
+cuma dikembalikan sebagai nilai dan **tak pernah dibaca siapa pun**, meski
+docblock kelasnya menjanjikan "tawarkan sekali klik ke IT".
+
+### Temuan audit yang berdiri sendiri dari perubahan ini
+
+- Layar WiFi Cabang menulis **"3 orang"** padahal `AMBANG_ORANG` sudah
+  diturunkan jadi 2 pada 18 Agu — salah sejak sebelum perubahan ini, tak pernah
+  ikut diperbarui. Angkanya kini diambil dari konstantanya supaya tak bisa
+  melenceng lagi. Kalimat "berganti seminggu sekali" juga dibetulkan (data prod:
+  ~2 hari).
+- **Saklar belajar-sendiri TIDAK lagi mengembalikan pencocokan ke /64.** Ia
+  mengurus pendaftaran, bukan pencocokan. Dipatok di K11 supaya tak ditemukan
+  sebagai kejutan waktu ada insiden.
+- `last_seen_at` saat cocok lewat /48 distempel ke baris ber-id terkecil di /48
+  itu — untuk Bintaro selalu `10d5::` yang sudah tak dipakai. Menyesatkan
+  ringan bagi IT; belum diperbaiki.
+
+### Yang sengaja TIDAK diperbaiki
+
+**IPv4: 58 dari 70 kegagalan tetap gagal.** IPv4 tak punya padanan /48 yang
+aman — melebarkannya ke /24 atau /16 berarti menerima satu wilayah ISP utuh.
+Jalur IPv4 sengaja tak disentuh, dan itu dikunci lewat K14 (`180.252.169.219`
+tak boleh cocok dengan `180.252.169.218` yang terdaftar).
+
+### NAIK PROD 21 Agu 10.50 — `618ca57` (titik balik `b0c126e`)
+
+Tanpa SQL, tanpa sentuhan `public/assets` (jadi tanpa rsync). `deploy.sh main`
+bersih.
+
+**Uji regresi di prod, bukan di dev.** Sebelum deploy, hasil pencocokan kode
+LAMA direkam untuk **351 alamat unik** yang pernah dipakai absen sejak 1 Agu.
+Sesudah deploy direkam ulang lalu dibandingkan baris per baris:
+
+| | |
+|---|---|
+| tetap sama | 299 |
+| **baru cocok** | **52** |
+| hilang cocoknya | **0** |
+| pindah cabang | **0** |
+
+Cocok naik dari 265 → 317 dari 351 alamat. Nol kehilangan, nol perpindahan.
+
+*(Jangan rancu dengan "1 pindah" pada putar-ulang di dev: yang itu diukur
+terhadap pilihan manual orangnya — Irma — bukan terhadap kecocokan sebelumnya.)*
+
+**Verifikasi hidup-hidup di prod**, semuanya lulus:
+
+- rotasi karangan yang belum pernah ada di **kelima** cabang langsung dikenali
+  (`2001:448a:2092:ffff::…` → Bintaro, dst) — itu inti perubahannya
+- yang harus ditolak tetap ditolak: CGNAT Telkomsel, IPv4 tetangga
+  `…169.219`, HP pribadi Reza, seluler Rokhmatun, dan `::ffff:` IPv4 menyamar
+- pagar pendaftaran /48 bekerja di prod; nol /48 dipegang dua cabang
+- halaman WiFi Cabang benar-benar ter-render (49.828 byte) dan teksnya sudah
+  memuat angka dari konstanta, bukan "3 orang"
+- **`APP_ENV` prod = `production`**, jadi kunci mati `att:wifi-uji` memang
+  aktif di sana. Sengaja diperiksa: kalau nilainya bukan itu, perintah uji bisa
+  MENGHAPUS absensi prod.
+
+
+---
+
+## 2026-08-20 (17:08) — Lembar Bayar ROP: UJI PENUH ulang: 41 dari 41 lolos
 
 Sapu statis + uji ujung-ke-ujung di dev dari keadaan bersih, 16 bab:
 login & sesi · layar pilih · tiga jalur negatif · buat lembar 7 item ·
@@ -39,7 +165,7 @@ asli** — patokan uji harus ikut diaudit, bukan cuma kodenya.
 
 ---
 
-## 2026-08-14 (lanjutan 3) — Thumbnail lampiran di layar isi lembar
+## 2026-08-20 (16:56) — Lembar Bayar ROP: Thumbnail lampiran di layar isi lembar
 
 Ekky **dua kali** mengharapkan foto muncul di layar Lembar Bayar. Itu bukan
 salah paham yang perlu diluruskan — itu sinyal kebutuhan: sebelum lembar
@@ -66,7 +192,7 @@ Sudah dipulihkan; 10 dari 12 ROP dev berlampiran, nol berkas hilang.
 
 ---
 
-## 2026-08-14 (lanjutan 2) — AUDIT KEDUA: 7 temuan, satu bikin tombol salah kirim
+## 2026-08-20 (15:25) — Lembar Bayar ROP: AUDIT KEDUA: 7 temuan, satu bikin tombol salah kirim
 
 Audit ulang setelah fitur PDF-tergabung & lengkapi-tujuan ditambahkan. Yang
 paling penting: **uji HTTP hijau tidak membuktikan UI-nya jalan.**
@@ -118,6 +244,379 @@ sudah masuk main, dev dikembalikan ke branch ini):
   Akun uji & berkas uji dibersihkan.
 
 ---
+
+## 2026-08-20b — Petty cash Sunter & Cinere direkonsiliasi sampai rupiah
+
+Sehari penuh menelusuri kenapa Verini melihat uang Sunter di layar Cinere.
+Ujungnya bukan satu bug, tapi rantai empat kejadian.
+
+### Rantainya
+
+1. **Petty cash tak mengikuti penempatan.** Sebelum push Reza hari ini,
+   `resolveBranchId()` membaca cabang dari SESI, yang hanya dihitung ulang
+   sekali sehari. Verini (ditempatkan di Cinere sejak 13 Agu) mencatat
+   pengeluaran 15 Agu ke **Sunter** — keterangannya sendiri berbunyi "kirim
+   ledermix dari pamulang **ke cinere**". Della kebalikannya.
+   Diperbaiki push Reza: `lockedBranchId()` membaca `positionBranchOn()`
+   segar tiap permintaan.
+2. **Penghapusan dompet menyapu data orang lain, senyap.** 15 Agu 19.50.33
+   `destroySource()` menghapus 5 baris — 4 transfer Della + pengeluaran
+   Verini Rp21.000 — tanpa mengisi `deleted_by`. Verini baru sadar 5 hari
+   kemudian. **Sejak insiden itu Della berhenti mencatat ke sistem** dan
+   lanjut memakai buku manual.
+3. **Tombol Pindah Periode dipakai 1,5 jam setelah naik prod** (20 Agu
+   13.37.02) pada pasangan Cinere↔Sunter. Karena Sunter sudah punya periode,
+   ia **menukar**, bukan memindahkan searah — ikut menyeret saldo awal kedua
+   periode. Tak ada jejak audit; ketahuan hanya dari cap `updated_at` dua
+   periode yang sama persis sedetik.
+4. **Top-up Rp970.940 (19 Agu) tak pernah masuk sistem** — tak ada pengajuan
+   top-up untuk Sunter maupun Cinere sama sekali.
+
+### Rekonsiliasinya cocok SAMPAI RUPIAH
+
+Buku manual Della konsisten dari ujung ke ujung, dan sistem meleset persis
+sebesar yang belum dicatat:
+
+```
+Sistem sebelum        1.310.500
+8 pengeluaran hilang   −836.962
+                      ──────────
+                        473.538   = saldo akhir buku Della
+```
+
+Delapan pengeluaran yang SUDAH tercatat berjumlah Rp660.440 — sama persis
+dengan delapan baris pertama sheet-nya, satu per satu. Dan top-up 970.940
+itu angka ganjil justru karena **menggenapkan**: saldo Della tinggal
+Rp29.060, ditambah 970.940 pas Rp1.000.000.
+
+### Yang dikerjakan (semua ada jejak auditnya)
+
+| Jam | Tindakan |
+|---|---|
+| 14.56 | 8 setoran Della (Rp4.737.000) dikembalikan Cinere → Sunter |
+| 15.09 | Pengeluaran Verini Rp21.000 dipulihkan → Cinere |
+| 15.42 | 4 transfer Della dipulihkan (korban insiden yang sama) |
+| 15.46 | Saldo awal Cinere dikoreksi Rp1.033.170 → Rp83.300 |
+| 15.57 | Top-up Rp970.940 dicatat, ref bank `1908/FTSCY/WS95271` |
+| 16.06 | 8 pengeluaran dari buku Della dicatat (Rp836.962) |
+
+**Hasil**: Sunter kas kerja **Rp473.538** (= bukunya). Cinere **Rp14.800**
+(= hitungan Verini: 83.300 − 21.000 − 47.500).
+
+### Keputusan yang diambil sadar
+
+* **Pencatat diisi Admin_Ekky, bukan Della/Verini.** Yang mengetik memang
+  bukan mereka; menaruh nama mereka akan membuat jejaknya berbohong. Nama
+  mereka ada di keterangan sebagai yang mengeluarkan uang.
+* **Pengajuan top-up Verini Rp985.200 TIDAK dibuat** — itu permintaan uang
+  atas namanya yang lewat persetujuan; harus dia sendiri.
+* **Bukti fisik belum dilampirkan** untuk yang dicatat menyusul; ditulis
+  terang-terangan di keterangan & audit.
+* **Pembagian dompet direkonstruksi dari tanggal** (15 Agu = BSI, 16 Agu ke
+  atas = BCA) karena buku Della tak memisahkan dompet. Yang terverifikasi
+  persis adalah TOTALNYA.
+
+### Perbaikan kode: penghapusan dompet tak lagi senyap (`b0c126e`, prod)
+
+`destroySource()` kini mengisi `deleted_by`, menghitung dulu berapa baris &
+milik siapa, menulis `AuditLog`, dan menampilkan hasilnya **merah** dengan
+nama pemiliknya bila menyentuh data orang lain. Teks konfirmasi menyebut
+terus terang bahwa transaksi orang lain ikut terhapus.
+
+Diuji lewat HTTP di dev: `deleted_by` terisi, audit menyebut "2 di antaranya
+milik Afrina Apriliani", pesan tampil `alert-danger`.
+
+⚠️ **Masih ada 27 baris terhapus tanpa nama** — semuanya Bintaro, 15 kejadian
+Juni–Agustus, beberapa bernilai jutaan. Tak bisa diatribusikan surut.
+
+### ⚠️ Agustus Sunter SENGAJA parsial (keputusan Ekky)
+
+Sistem memuat 12 Agu ke atas saja. Saldo akhir BENAR (Rp473.538), tapi isi
+1-11 Agu tidak ada — dan itu diputuskan sadar, bukan terlewat.
+
+```
+saldo awal kurang catat      −126.000   (tercatat 1jt, sebenarnya 874.000)
+2 top-up tak tercatat      +1.675.455   (906.400 8 Agu · 769.055 13 Agu)
+22 pengeluaran tak tercatat −1.549.455
+                           ───────────
+                                    0   ← saling meniadakan
+```
+
+Itu sebabnya saldo akhirnya tetap tepat meski bulannya bolong.
+
+**KONSEKUENSI: laporan pengeluaran Sunter Agustus kurang catat ~Rp1,55 juta.**
+Jangan dipakai untuk rekap per kategori tanpa membaca catatan ini. Sumbernya
+lengkap di buku manual Della; bisa dilengkapi kapan saja (±25 baris).
+Catatan yang sama ditulis di `audit_log` supaya terbaca dari dalam aplikasi.
+
+### Sisa
+
+* **`movePeriod` masih tanpa jejak audit** dan masih menukar diam-diam kalau
+  periode tujuan berisi. Perbaikan yang sama seperti `destroySource` belum
+  dikerjakan — ini yang paling layak berikutnya.
+* Verini perlu mengajukan top-up Rp985.200 sendiri.
+* BSI Sunter menyisakan Rp58.190; buku Della tak memisahkan dompet, jadi
+  angka itu sisa rekonstruksi, bukan uang yang hilang.
+
+---
+
+## 2026-08-20 — Push Reza (petty cash dompet-holder) NAIK PROD + 1 tambalan
+
+**Prod = main = `260ddef`.** Isinya push Reza `fix/pettycash-update` +
+satu perbaikan SQL dariku.
+
+### Isi push Reza
+
+Status pinjaman per-baris (LUNAS/SEBAGIAN/BELUM lewat `settles_transaction_id`
++ `borrower_name`) · sub-dompet per operator untuk rolling (`holder_user_id`,
+NULL = kas cabang) · chip "dicatat oleh" saat >1 pencatat · **modal pindah
+periode antar cabang** · modal rincian pengajuan top-up.
+
+Kualitasnya naik lagi. Runbook `fix_pettycash_cinere_to_sunter.sql` layak
+dicontoh: verifikasi `SELECT` dulu, guard di `WHERE` supaya tak bisa kena baris
+salah, blok ROLLBACK, dan urutan wajib yang menjelaskan **kenapa** SQL harus
+duluan sebelum rolling dibuat. `movePeriod` juga rapi — Super Admin + periode
+tertutup ditolak di kedua sisi + satu transaksi + sentinel `period_year=9999`
+untuk menghindari tabrakan unique saat menukar dua periode.
+
+### Yang kutambal
+
+`2026_08_19_pettycash_holder_wallet.sql` memakai `ALTER` polos sementara **dua
+saudaranya** dijaga lewat `INFORMATION_SCHEMA`. Dijalankan dua kali:
+
+    ERROR 1060 (42S21): Duplicate column name 'holder_user_id'
+
+Penting karena SQL prod dijalankan TANGAN — sekali ragu lalu mengulang,
+prosesnya berhenti dan mudah dikira ada yang rusak. Dan itu **bukan hipotetis**:
+saat SQL dijalankan di prod, ketiga berkas melaporkan "already exists" di jalan
+PERTAMA — Reza sudah menerapkannya manual duluan. Versi aslinya akan berhenti
+dengan galat di situ.
+
+### ⚠️ Kesalahanku: dev mundur 44 commit
+
+Cabang Reza bercabang dari `283dade` (14 Agu) — **44 commit di belakang main**.
+Aku men-`reset --hard` dev ke cabangnya, jadi dev kehilangan seluruh WiFi
+belajar-sendiri (berkasnya tak ada), `att:gelar-akun`, perbaikan RBAC kategori,
+dan semua docs. Dev tidak rusak — cuma jadi snapshot lama yang konsisten —
+tapi tetap salah, dan kalau ada yang menguji di sana hasilnya menyesatkan.
+
+Dibetulkan dengan **menggabung, bukan mengganti**: `integrasi/dev-2026-08-20` =
+`main` + cabang Reza (nol konflik). Dev dipulihkan, `att:wifi-uji` kembali
+10/10.
+
+**Pelajaran: sebelum men-deploy cabang orang lain ke dev, periksa dulu
+`git log <cabang>..origin/main`.** Kalau tidak kosong, cabang itu tertinggal —
+gabungkan ke branch integrasi, jangan checkout langsung.
+
+### ⚠️ Utang yang belum dibayar
+
+**Runbook Cinere → Sunter BELUM dijalankan.** Ia berisi `<placeholder>` dan
+harus dijalankan bertahap sambil membaca hasil tiap langkah — tak boleh dipipe
+ke `mysql`. Butuh koordinasi Ekky: minta Della berhenti mencatat → STEP 1
+verifikasi → STEP 2 eksekusi → STEP 3 validasi → **baru** buat rolling
+Della→Sunter → Super Admin serahkan saldo ke dompet Della.
+
+**Pemindahan periode tak mencatat SIAPA.** `petty_cash_periods` cuma punya
+`created_at`/`updated_at`, dan `PettyCashController` tak punya satu pun
+`AuditLog::record` — sementara Absensi, Cuti, dan Akses mencatat. Jadi
+memindahkan sebulan uang antar cabang tercatat *kapan*, tak pernah *oleh siapa*.
+Digabung dengan kewenangan Super Admin bebas mengedit transaksi seumur apa pun
+(ACC 15 Agu) dan hanya ada SATU Super Admin di prod, ini pergeseran wewenang
+yang layak diputuskan sadar — bukan cacat kode.
+
+### Verifikasi
+
+Dev: `att:wifi-uji` 10/10 · 4 halaman kunci 200 tanpa galat · gerbang
+pindah-periode **403** untuk Front Office (yang memang bisa membuka
+`/pettycash`, jadi RBAC meloloskannya sampai ke controller — uji yang sah,
+bukan pentalan 302 yang menipu) · ketiga SQL idempoten dua kali jalan.
+
+Prod: rute terdaftar · halaman sehat · **rsync aset dijalankan** —
+`components.sweettreats.css` md5-nya berbeda sebelum rsync, sama sesudahnya ·
+nol galat di log.
+
+---
+
+## 2026-08-18 — Rotasi Telkom menyapu 5 cabang · ambang saksi WiFi 3 → 2
+
+**Prod = main = `92c0c66`.**
+
+### Yang terjadi
+
+Telkom memutar prefix IPv6 di **semua cabang** sekitar 18 Agu. Dampaknya
+terukur: **16 orang berbeda ke-flag dalam sehari** (14–16 Agu rata-rata 6–8).
+Flag menggantung menumpuk jadi 50 (37 baru + 13 dicek).
+
+### Belajar-sendiri AKHIRNYA memicu — 3 kali
+
+Pertama kali sejak fitur ini dibuat:
+
+| Cabang | Kapan | Saksinya |
+|---|---|---|
+| Cinere `2033:e6c` | 15 Agu | Anggita, Wahyudin, **Verini** |
+| Pamulang `2020:d63e` | 18 Agu | Alviona, Mutiara, **Ramdan** |
+| Bintaro `2092:d21` | 18 Agu | Afrina, Asih, Alpajri |
+
+**Dua dari tiga hanya mungkin karena perbaikan cabang-efektif 15 Agu** — Verini
+dan Ramdan sama-sama orang yang *ditempatkan*, yang sebelum itu tak pernah
+dihitung. Pamulang cuma punya 2 staf asal; tanpa Ramdan terhitung, cabang itu
+tak akan pernah bisa mendaftar sendiri. Perbaikan yang kemarin cuma teori,
+hari ini berbuah.
+
+### Tapi dua mentok di 2-dari-3 → didaftarkan tangan
+
+`2001:448a:90b0:58::` (Kalideres, 7 flag) dan `2001:448a:2092:270e::` (Bintaro
+jalur-2, 5 flag). Keduanya sekerabat /48 — mesin sudah yakin, cuma kurang satu
+saksi. Sesudah didaftarkan, **semua** alamat IPv6 yang tadi merah langsung cocok.
+
+### Ambang diturunkan 3 → 2 (ACC Ekky)
+
+Akar masalahnya bukan sial, tapi aritmetika. Calon saksi = staf asal ber-aturan
+baku:
+
+| Cabang | Calon saksi | Ambang 3 |
+|---|---|---|
+| Pamulang | 2 | **tak pernah cukup** sendirian |
+| Cinere | 3 | butuh **100%** staf dalam 72 jam |
+| Kalideres | 4 | butuh 3 dari 4 |
+| Bintaro · Sunter | 5 | lega |
+
+Untuk **tiga dari lima cabang**, ambangnya sama atau lebih tinggi dari jumlah
+orangnya — mesin dirancang gagal di sana, dan sisanya jatuh ke tangan manusia
+tiap kali Telkom memutar prefix (~mingguan). Itu yang bikin Ekky bolak-balik
+mendaftarkan.
+
+⚠️ **Yang menjaga keamanan bukan angka itu**, melainkan pagar kekerabatan /48:
+tiap cabang punya blok Telkom sendiri, jadi dua orang di kafe tak akan pernah
+lolos — blok kafe bukan blok klinik. **Pagar itu tidak diturunkan**, dan batas
+"satu orang tak pernah cukup" juga tetap.
+
+**Kasus uji: 4 dari 10 berubah, semuanya lulus (10/10 di dev).**
+* `K1` pemicunya kini Firda (sah ke-2). Penjaga §6 "fleksibel tak menguatkan"
+  PINDAH ke sini — kalau Talitha ikut dihitung, pemicunya jadi kejadiannya.
+* `K2` **berubah arti**: dulu membuktikan "2 belum cukup", kini membuktikan
+  bukti boleh **melintasi hari** di dalam jendela 72 jam (Firda malam 11/8,
+  Alpajri pagi 12/8).
+* `K7` ditambah assertion terpenting: di orang ke-2 (ambang tercapai) vonisnya
+  **TAWARKAN**, bukan DAFTAR — inilah yang membuktikan pagar /48 berdiri
+  sendiri dari ambang orang.
+* `K10` prasyarat bergeser ke kejadian ke-2.
+
+Diperiksa sebelum naik: sesudah dua pendaftaran manual, **sisa jaringan yang
+belum cocok semuanya IPv4** — yang tak pernah lewat pintu otomatis, ambang
+berapa pun. Jadi tak ada yang mengendap menunggu mendaftar sendiri.
+
+### Kalideres: akunnya terpakai
+
+Cici & Noval absen 16 & 18 Agu. Rivanti baru login pertama 18 Agu 10.58 lalu
+absen semenit kemudian — alpa 16 Agu-nya karena belum memegang akun, bukan
+bolos. 17 Agu kosong karena Senin (klinik tutup).
+
+⚠️ **Sisa**: 12 flag dari kedua prefix itu sekarang sudah jelas sebabnya dan
+tinggal dibereskan — kerjaan chat beres-beres flag. Delapan alamat IPv4 masih
+merah dan memang tak akan pernah mendaftar sendiri.
+
+---
+
+## 2026-08-15 — KALIDERES digelar: KELIMA CABANG LENGKAP + koreksi soal penjadwal
+
+**Prod = main = `c5cee46`.**
+
+### Kalideres — cabang terakhir
+
+3 akun baru: **Cici Nurjanah** (Asdent, sisa cuti 7) · **Rivanti Nadiana** (FO,
+sisa 4) · **Noval Fijriansyah** (GS, karyawan baru — menggantikan Ramdan, yang
+kini ditempatkan di Pamulang). Angka cuti Cici & Rivanti cocok persis dengan
+sheet HR dan dengan dev.
+
+Dengan ini **kelima cabang lengkap di prod**: Bintaro 5 · Sunter 5 · Kalideres 4 ·
+Cinere 3 · Pamulang 2 = 19 staf operasional.
+
+Aturan kerja dipasang mulai **16 Agu**, bukan hari pembuatan akun — demo hari ini
+perkenalan, mereka mulai dinilai besok. Memasang hari ini akan mengulang 5 alpa
+palsu gelombang Sunter. Perkakasnya sekarang mencetak tanggal itu di layar
+sebelum menulis apa pun, jadi salahnya kelihatan sebelum terjadi.
+
+**Lubang yang ketahuan gara-gara Noval**: `Carbon::parse(null)` diam-diam
+menghasilkan HARI INI, jadi karyawan baru tanpa tanggal kontrak akan terlihat
+punya kontrak yang berakhir setahun lagi — dan `resetKontrakKedaluwarsa()` kelak
+memberinya jatah 12 tanpa dasar. Sekarang kontrak null tetap null dan periodenya
+**dorman**, seperti yang memang dirancang.
+
+### ⚠️ KOREKSI: penjadwal prod TERNYATA JALAN
+
+Entri 14 Agu menyimpulkan `schedule:run` sepertinya **tidak** berjalan di prod.
+**Itu keliru.** Buktinya tegas: baris `sys_checklist_submission` berstatus
+`missed` bercap **00:10:01–00:10:02 tiap hari** selama sepuluh hari berturut
+(5–15 Agu). Itu cron, bukan manusia.
+
+Inferensi 14 Agu cacat: aku menyimpulkan dari `att_day.computed_at` yang seragam,
+padahal satu `att:reconcile` rentang-lebar memang menimpa seluruh jendela — jadi
+capnya seragam entah cron jalan atau tidak. Keberatan itu kutulis sendiri lalu
+kuabaikan. **Reza yang benar.**
+
+Pelajaran yang bisa dipakai lagi: untuk membuktikan cron jalan, cari tabel yang
+HANYA disentuh cron dan yang capnya TIDAK pernah ditimpa proses manual.
+
+### Push Reza — checklist terkunci setelah "buka kembali" di-ACC
+
+**KOREKSI: sudah PROD sejak `c5cee46`, bukan "dev saja".** Perbaikannya ikut naik
+saat deploy Noval, karena aku mendorong seluruh ujung cabang integrasi ke main —
+cabang itu sudah memuat merge-nya. Aku sempat melaporkan "belum prod"; keliru.
+Kode itu jadi hidup tanpa keputusan sadar. **Pelajaran: `push integrasi:main`
+membawa SEMUA yang ada di cabang itu, bukan cuma commit terakhir — periksa
+`git log origin/main..HEAD` sebelum mendorong.**
+
+Diaudit sesudahnya dan hasilnya bersih (lihat entri di bawah). `checklist:mark-missed` mengecap tanggal
+lampau `missed`, sedangkan `isEditable()` hanya true untuk draft/rejected — jadi
+atasan meng-approve, banner muncul, tapi checklist tetap terkunci tanpa tombol
+Kirim. **Hanya kelihatan di prod** karena di lokal/dev cron tak jalan.
+
+Diperbaiki dua lapis: jalur baca mengembalikan `missed`→`draft` saat grant aktif,
+dan jalur cron melewati orang yang punya grant aktif. Ditelaah: gerbangnya benar —
+`activeDailyGrant()` menyaring `status=approved` DAN `fulfilled_at IS NULL`, jadi
+tak ada jalan membuka kunci tanpa persetujuan.
+
+Ini melahirkan aturan yang lebih umum: **kalau membangun fitur yang membuka
+kembali sesuatu di masa lampau, periksa apakah ada cron yang menutupnya lagi.**
+
+### Audit ulang prod sesudah Reza uji di dev (15 Agu sore) — BERSIH
+
+Sembilan pemeriksaan, semuanya lolos: tak ada aturan kerja aktif ganda · tak ada
+periode cuti berjalan ganda · tak ada baris rolling lumpuh · tak ada selisih jam
+scan vs bukti · tak ada staf bercabang tanpa baris posisi. Alpa cuma Alviona
+(nyata). Absen-tanpa-penilaian cuma Anisa 5 Agu (historis). Tanpa aturan kerja
+cuma "Executive Pamulang" (akun peran, bukan orang).
+
+**Perbaikan Reza terbukti bekerja di prod, dari pemakaian NYATA** — bukan uji
+karangan. Tiga baris `missed` berubah jadi `draft` saat orangnya membuka halaman
+pukul 12.54–12.56 (Firda 6 & 12 Agu, Verini 14 Agu). Yang dibuka sebelum deploy
+(11.0x) masih `missed` — konsisten, karena perbaikannya di jalur baca dan
+menyembuhkan saat halaman dibuka.
+
+**Jalur cron diuji kering**: `checklist:mark-missed --dry-run` → **0 draft→missed**.
+Artinya baris `draft` milik Verini (14 Agu, grant aktif) TIDAK akan dicap missed
+nanti malam. Tanpa perbaikan ini, cron akan mengunci ulang checklist yang baru
+dibuka atasannya siang tadi. Mingguan juga 0.
+
+⚠️ **Catatan yang belum jadi masalah tapi perlu diketahui**: grant "buka kembali"
+**tak punya kedaluwarsa**. 13 grant disetujui, **nol** terpakai. Selama grant
+menggantung, cron melewati orang itu untuk tanggal itu **selamanya** — jadi hari
+tersebut tak pernah masuk hitungan "tidak diisi". Wajar sekarang (fiturnya baru
+jalan hari ini), tapi kalau grant menumpuk tak terpakai, angka kepatuhan
+checklist diam-diam jadi lebih bagus dari kenyataannya.
+
+⚠️ **Galat koneksi DB prod menyembur**: 43 galat hari ini, **semuanya dalam dua
+menit** (12.37–12.38), pada query `group_access` — query terpanas aplikasi
+(AuthGuard). 14 Agu: 66. Pola semburan, bukan rembesan; bukan disebabkan
+perubahan kode. Sudah lama ada, layak diselidiki terpisah.
+
+### Temuan lain
+
+**Alviona alpa 14 Agu — nyata, bukan buatan sistem.** Dia satu-satunya staf
+berjadwal baku yang tak absen hari itu, dan tak punya pengajuan izin/sakit/cuti
+apa pun. Sejak akunnya dibuat dia baru sekali absen (13 Agu, saat demo). Perlu
+ditanyakan Anisa — bukan ditambal dari sini.
 
 ## 2026-08-14 (lanjutan) — AUDIT ULANG Lembar Bayar: 5 temuan, 2 di antaranya 500 sungguhan
 

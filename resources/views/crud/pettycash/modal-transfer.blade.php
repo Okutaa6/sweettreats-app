@@ -129,6 +129,7 @@
                   data-tab-content="transfer" class="pc-tab-content"
                   enctype="multipart/form-data">
                 @csrf
+                @include('crud.pettycash._filter_hidden')
                 <input type="hidden" name="period_id" value="{{ $period->id }}">
                 <input type="hidden" name="tab" value="{{ $kind }}">
                 @if(!session('raw_branch_id') && $period->raw_branch_id)
@@ -249,6 +250,7 @@
                       id="tarikTunaiForm"
                       enctype="multipart/form-data">
                     @csrf
+                    @include('crud.pettycash._filter_hidden')
                     <input type="hidden" name="period_id" value="{{ $period->id }}">
                     <input type="hidden" name="tab" value="{{ $kind }}">
                     @if(!session('raw_branch_id') && $period->raw_branch_id)
@@ -351,6 +353,7 @@
                       enctype="multipart/form-data"
                       hidden>
                     @csrf
+                    @include('crud.pettycash._filter_hidden')
                     <input type="hidden" name="period_id" value="{{ $period->id }}">
                     <input type="hidden" name="tab" value="{{ $kind }}">
                     @if(!session('raw_branch_id') && $period->raw_branch_id)
@@ -427,6 +430,7 @@
                   enctype="multipart/form-data"
                   hidden>
                 @csrf
+                @include('crud.pettycash._filter_hidden')
                 <input type="hidden" name="period_id" value="{{ $period->id }}">
                 <input type="hidden" name="tab" value="{{ $kind }}">
                 @if(!session('raw_branch_id') && $period->raw_branch_id)
@@ -445,12 +449,23 @@
 
                 <div class="pc-form-row">
                     <label>Kategori</label>
-                    <select name="category" required class="pc-input">
+                    <select name="category" required class="pc-input" data-pc-expense-category>
                         <option value="">Pilih kategori…</option>
                         @foreach($expenseCategories as $catKey => $catLabel)
                             <option value="{{ $catKey }}">{{ $catLabel }}</option>
                         @endforeach
                     </select>
+                </div>
+
+                {{-- Peminjam: hanya relevan & wajib untuk kategori "Pinjaman".
+                     Disembunyikan JS untuk kategori lain (lihat index.blade.php).
+                     Server memvalidasi required_if:category,pinjaman. --}}
+                <div class="pc-form-row" data-pc-borrower-field hidden>
+                    <label>Peminjam <span class="text-danger">*</span></label>
+                    <input type="text" name="borrower_name" maxlength="120"
+                           placeholder="Nama orang yang meminjam"
+                           class="pc-input" data-pc-borrower-input>
+                    <small class="pc-muted">Dipakai untuk melacak & melunasi pinjaman ini.</small>
                 </div>
 
                 <div class="pc-form-row">
@@ -523,7 +538,7 @@
                     <hr class="pc-source-danger__divider">
                     <form method="POST" action="{{ route('pettycash.source.destroy', ['tab' => $kind]) }}"
                           id="pcSourceDestroyForm"
-                          onsubmit="return confirm('Yakin hapus SEMUA data wallet ini di periode aktif?\n\n• Saldo awal wallet ini akan di-reset\n• Semua transaksi (cash in, cash out, transfer) yg pakai wallet ini akan dihapus\n• Aksi TIDAK bisa di-undo.\n\nLanjut?');">
+                          onsubmit="return confirm('Yakin hapus SEMUA data wallet ini di periode aktif?\n\n• Saldo awal wallet ini akan di-reset\n• Semua transaksi (cash in, cash out, transfer) yg pakai wallet ini akan dihapus\n• TERMASUK transaksi yang dicatat ORANG LAIN di periode ini — bukan hanya milikmu\n• Tidak bisa di-undo dari layar ini\n\nJumlahnya akan disebutkan sesudah dihapus, dan namamu tercatat.\n\nLanjut?');">
                         @csrf
                         <input type="hidden" name="period_id" value="{{ $period->id }}">
                         <input type="hidden" name="tab" value="{{ $kind }}">
