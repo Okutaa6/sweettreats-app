@@ -128,6 +128,37 @@ class AbsensiKehadiranController extends Controller
             ->map(fn ($rows) => $rows->pluck('day')->map(fn ($d) => (int) $d)->sort()->values()->all())
             ->all();
 
+        // ── KALENDER LIBUR (att_work_rule_exception) ──
+        // Sampai 2026-08-21 tabel ini ditulis oleh satu layar (Aturan Kerja) dan
+        // dibaca oleh SATU pembaca saja: mesin rekonsiliasi. Tak ada layar mana
+        // pun yang menampilkannya, jadi salah catat baru ketahuan setelah
+        // harinya lewat — persis bagaimana kasus 25 Agu 2026 lolos.
+        //
+        // Sumbernya SENGAJA terpisah dari `hariLiburTerjadwal()`: fungsi itu
+        // khusus pola mingguan dan dipakai gerbang absen; menambalnya supaya
+        // ikut membaca kalender libur akan mengubah perilaku gerbang. Lihat §4
+        // docs/rencana/rencana-libur-cabang-bertugas.md.
+        $liburTgl = [];   // 'Y-m-d' => [rows]
+        foreach (DB::table('att_work_rule_exception')
+            ->where('libur', 1)
+            ->where('tgl_from', '<=', $to->toDateString())
+            ->where('tgl_to', '>=', $from->toDateString())
+            ->get(['raw_branch_id', 'tgl_from', 'tgl_to', 'alasan']) as $e) {
+            $a = Carbon::parse($e->tgl_from)->max($from);
+            $b = Carbon::parse($e->tgl_to)->min($to);
+            for ($x = $a->copy(); $x->lte($b); $x->addDay()) {
+                $liburTgl[$x->toDateString()][] = $e;
+            }
+        }
+
+        ksort($liburTgl);
+
+        // Penempatan sementara, dipramuat sekali — libur per-cabang berlaku bagi
+        // siapa pun yang hari itu BERTUGAS di cabang tersebut, jadi layar ini
+        // harus memakai resolusi yang sama dengan mesin rekonsiliasi. Kalau
+        // tidak, layar dan gaji akan bercerita dua hal berbeda.
+        $rollingBranch = $liburTgl ? \App\Services\CabangBertugas::muat() : [];
+
         // jaring-pengaman: ada att_day tapi orangnya tak punya aturan (data lama)
         $orphan = $days->pluck('user_id')->unique()->diff($roster->keys());
         if ($orphan->isNotEmpty()) {
@@ -191,6 +222,14 @@ class AbsensiKehadiranController extends Controller
                 // hari libur milik ORANG INI (aturannya sendiri) — orang kantor
                 // libur Minggu+Senin, yang lain Senin saja.
                 'libur'   => $liburByRule[$u->rule_id ?? ''] ?? [],
+                // TANGGAL libur kalender bagi orang ini: cabang tempat dia
+                // BERTUGAS hari itu sedang tutup. Per-orang, sebab orang yang
+                // sedang rolling ikut cabang tempatnya bertugas — 25 Agu 2026
+                // Verini libur (bertugas di Cinere yang tutup) sementara rekan
+                // se-cabang-asalnya di Sunter tetap masuk.
+                'libur_tgl' => $this->liburKalender(
+                    $liburTgl, $rollingBranch[$u->id] ?? [], $homeId, $from, $daysInMonth
+                ),
                 'cells'   => [],
                 'h' => 0, 't' => 0, 'a' => 0,
             ];
@@ -259,6 +298,27 @@ class AbsensiKehadiranController extends Controller
         ];
 
         $branches = RawBranch::orderBy('name')->get(['id', 'name']);
+
+        // Ringkasan libur bulan ini untuk STRIP di atas matriks. Ini alat audit,
+        // bukan hiasan: cukup dibaca sekali untuk tahu cabang mana yang tutup
+        // tanggal berapa — pertanyaan yang sebelumnya cuma bisa dijawab dengan
+        // membuka tabel di database atau menunggu harinya lewat.
+        $liburRingkas = [];
+        foreach ($liburTgl as $ds => $rows) {
+            $nama = [];
+            $nasional = false;
+            foreach ($rows as $e) {
+                if ($e->raw_branch_id === null) { $nasional = true; continue; }
+                $nama[] = $branchName[$e->raw_branch_id] ?? $e->raw_branch_id;
+            }
+            sort($nama);
+            $liburRingkas[] = [
+                'tgl'    => (int) Carbon::parse($ds)->day,
+                'label'  => Carbon::parse($ds)->translatedFormat('j M'),
+                'alasan' => $rows[0]->alasan,
+                'cabang' => $nasional ? 'semua cabang' : implode(' · ', $nama),
+            ];
+        }
         $statusMeta = self::STATUS;
         $monthShort = $anchor->translatedFormat('M');
         $abgKey = self::ABG_KEY;
@@ -270,7 +330,41 @@ class AbsensiKehadiranController extends Controller
         return view('absensi.kehadiran', compact(
             'groups', 'summary', 'daysInMonth', 'head', 'anchor', 'monthShort',
             'branches', 'branchFilter', 'statusMeta', 'abgKey', 'abgLabel',
-            'today', 'selDay', 'initView', 'tutupDow'
+            'today', 'selDay', 'initView', 'tutupDow', 'liburRingkas'
         ));
+    }
+
+    /**
+     * Tanggal-tanggal bulan ini yang KLINIK-nya tutup bagi satu orang.
+     *
+     * Murni memori — `$rolling` sudah dipramuat, jadi tak ada kueri di dalam
+     * loop harian meski dipanggil sekali per orang.
+     *
+     * @param  array   $liburTgl  'Y-m-d' => baris exception
+     * @param  array   $rolling   baris penempatan sementara milik orang ini
+     * @param  ?string $home      cabang asal
+     * @return array<int,string>  tanggal (1..31) => alasan
+     */
+    private function liburKalender(array $liburTgl, array $rolling, ?string $home, Carbon $from, int $daysInMonth): array
+    {
+        if (! $liburTgl) return [];
+
+        $out = [];
+        for ($d = 1; $d <= $daysInMonth; $d++) {
+            $ds = $from->copy()->day($d)->toDateString();
+            if (! isset($liburTgl[$ds])) continue;
+
+            $cabangKerja = \App\Services\CabangBertugas::pada($rolling, $ds, $home);
+            foreach ($liburTgl[$ds] as $e) {
+                // NULL = nasional (berlaku untuk semua, termasuk orang kantor
+                // yang cabang asalnya memang kosong).
+                if ($e->raw_branch_id === null || $e->raw_branch_id === $cabangKerja) {
+                    $out[$d] = $e->alasan;
+                    break;
+                }
+            }
+        }
+
+        return $out;
     }
 }

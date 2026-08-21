@@ -14,7 +14,10 @@ use Illuminate\Support\Facades\DB;
  *       sebagai pulang (§2.8, Sunter jam 00:54)
  *   1.  dedup jarak <= N menit (default 5), lintas mesin
  *   2.  ambil aturan user (att_user_rule aktif) → baku / fleksibel / jadwal
- *   3.  exception (att_work_rule_exception) menang atas aturan harian
+ *   3.  exception (att_work_rule_exception) menang atas aturan harian —
+ *       dicocokkan ke CABANG BERTUGAS hari itu (rolling menang atas cabang
+ *       asal), sebab "klinik ini tutup" berlaku bagi siapa pun yang hari itu
+ *       ada di sana. Cabang asal tetap dipakai untuk penguncian periode gaji.
  *   4.  (Fase C) form approved → cuti/izin/wfh; belum ada → skip
  *
  *   fleksibel : scan cuma penanda "masuk". Tak pernah alpa. Baris cuma dibuat kalau ada scan.
@@ -233,8 +236,15 @@ class AttendanceReconciler
             ->groupBy('user_id')
             ->map(fn ($rows) => $rows->sortByDesc('effective_from')->values()->all());
 
-        // home branch (buat resolve exception cabang)
+        // Cabang ASAL. Dipakai untuk penguncian periode gaji (isDateLocked /
+        // hapusHariBasi) dan sebagai dasar cabang bertugas kalau tak ada rolling.
         $homeBranch = DB::table('users')->pluck('raw_branch_id', 'id')->all();
+
+        // Penempatan sementara (rolling), dimuat SEKALI. Cabang bertugas itu
+        // per-orang per-TANGGAL; memanggil positionBranchOn() di dalam loop
+        // harian berarti jumlah-orang × jumlah-hari kueri (puluhan ribu untuk
+        // sebulan penuh). Pola yang sama dengan loadRules()/loadExceptions().
+        $rollingBranch = CabangBertugas::muat($onlyUser);
 
         // Penautan akun→dokter, dimuat SEKALI (bukan per orang per hari).
         // Kolomnya lahir bareng akun dokter; environment yang belum apply
@@ -258,7 +268,7 @@ class AttendanceReconciler
         $now = Carbon::now();
 
         foreach ($userRules as $userId => $urs) {
-            $rows = $this->reconcileUser($userId, $urs, $rules, $ruleDays, $exceptions, $requests[$userId] ?? [], $homeBranch[$userId] ?? null, $from, $to, $now, $closedPeriods, $dokterUser[$userId] ?? null, $laporan);
+            $rows = $this->reconcileUser($userId, $urs, $rules, $ruleDays, $exceptions, $requests[$userId] ?? [], $homeBranch[$userId] ?? null, $from, $to, $now, $closedPeriods, $dokterUser[$userId] ?? null, $laporan, $rollingBranch[$userId] ?? []);
             foreach ($rows as $r) $perStatus[$r['status']] = ($perStatus[$r['status']] ?? 0) + 1;
             $dayCount += count($rows);
             foreach (array_chunk($rows, 200) as $chunk) {
@@ -357,7 +367,14 @@ class AttendanceReconciler
         return count($hapus);
     }
 
-    private function reconcileUser($userId, array $urs, array $rules, array $ruleDays, array $exceptions, array $reqs, ?string $home, Carbon $from, Carbon $to, Carbon $now, array $closedPeriods = [], ?string $dokterId = null, ?\stdClass $laporan = null): array
+    /**
+     * @param  ?string  $home     cabang ASAL (users.raw_branch_id). Dipakai untuk
+     *         penguncian periode gaji — JANGAN ditukar dengan cabang bertugas.
+     * @param  array    $rolling  baris penempatan sementara milik user ini,
+     *         hasil pramuat CabangBertugas::muat(). Dipakai HANYA untuk
+     *         mencocokkan libur per-cabang.
+     */
+    private function reconcileUser($userId, array $urs, array $rules, array $ruleDays, array $exceptions, array $reqs, ?string $home, Carbon $from, Carbon $to, Carbon $now, array $closedPeriods = [], ?string $dokterId = null, ?\stdClass $laporan = null, array $rolling = []): array
     {
         $laporan ??= (object) ['praktikTanpaScan' => [], 'hadirDiLuarJadwal' => [], 'cabangBedaJadwal' => [], 'tanpaDokter' => []];
         // ambil scan [from 00:00 .. (to+1) 06:00) supaya scan dini hari (to+1) kebawa ke workday `to`
@@ -423,7 +440,10 @@ class AttendanceReconciler
             }
 
             // ── baku ──
-            [$libur, $masukAkhir, $pulang] = $this->resolveDay($rule, $d, $home, $ruleDays, $exceptions);
+            // Libur dicocokkan ke cabang tempat orang ini BERTUGAS hari itu,
+            // bukan cabang asalnya — selesai di memori, nol kueri per hari.
+            $cabangKerja = CabangBertugas::pada($rolling, $key, $home);
+            [$libur, $masukAkhir, $pulang] = $this->resolveDay($rule, $d, $cabangKerja, $ruleDays, $exceptions);
 
             if ($libur) {
                 // kerja di hari libur cuma sah kalau ada form lembur (tambah_hari) → hadir + lembur
@@ -724,8 +744,23 @@ class AttendanceReconciler
         return null;
     }
 
-    /** @return array{0:bool,1:?string,2:?string} [libur, jam_masuk_akhir, jam_pulang] */
-    private function resolveDay($rule, Carbon $date, ?string $home, array $ruleDays, array $exceptions): array
+    /**
+     * @param  ?string  $cabangKerja  cabang tempat orang ini BERTUGAS tanggal itu
+     *         (rolling menang atas cabang asal) — BUKAN `users.raw_branch_id`.
+     *         Libur per-cabang artinya "klinik ini tutup", jadi yang terdampak
+     *         adalah siapa pun yang hari itu bertugas di sana. Lihat §3
+     *         docs/rencana/rencana-libur-cabang-bertugas.md.
+     *
+     *         ⚠️ JANGAN menyamakannya dengan `$home` yang dipakai
+     *         `isDateLocked()` / `hapusHariBasi()`. Keduanya kebetulan bernilai
+     *         sama untuk orang yang tak sedang rolling, tapi artinya berbeda:
+     *         yang di sana "gajinya ikut cabang mana" dan HARUS tetap cabang
+     *         asal — kalau ikut berpindah, penguncian periode gaji ikut
+     *         berpindah mengikuti rolling.
+     *
+     * @return array{0:bool,1:?string,2:?string} [libur, jam_masuk_akhir, jam_pulang]
+     */
+    private function resolveDay($rule, Carbon $date, ?string $cabangKerja, array $ruleDays, array $exceptions): array
     {
         $dow = $date->dayOfWeek;   // 0=Minggu..6=Sabtu
         $rd = $ruleDays[$rule->id][$dow] ?? null;
@@ -733,11 +768,12 @@ class AttendanceReconciler
         $masukAkhir = $rd?->jam_masuk_akhir;
         $pulang = $rd?->jam_pulang;
 
-        // exception: cabang NULL (nasional) atau cabang == home. Ambil yg terbaru cocok.
+        // exception: cabang NULL (nasional) atau cabang == CABANG BERTUGAS.
+        // Ambil yg terbaru cocok.
         $ds = $date->toDateString();
         foreach ($exceptions as $e) {
             if ($e->tgl_from <= $ds && $e->tgl_to >= $ds
-                && ($e->raw_branch_id === null || $e->raw_branch_id === $home)) {
+                && ($e->raw_branch_id === null || $e->raw_branch_id === $cabangKerja)) {
                 if ($e->libur) return [true, null, null];
                 return [false, $e->jam_masuk ?? $masukAkhir, $e->jam_pulang ?? $pulang];
             }
