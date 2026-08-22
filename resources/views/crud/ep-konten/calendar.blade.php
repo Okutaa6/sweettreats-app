@@ -29,12 +29,17 @@
     $todayYear  = now()->year;
     $isCurrentMonth = ($month === $todayMonth && $year === $todayYear);
     $platformLabel = $platform === 'all' ? 'Semua Platform' : ($platforms[$platform] ?? $platform);
+    // Nama dokter untuk drill-down tab Branding GP
+    $gpDoctorName = ($platform === 'gp' && !empty($gpDoctorFilter))
+        ? optional($gpDoctors->firstWhere('id', $gpDoctorFilter))->name
+        : null;
 
     $platformTabs = [
         'all'      => ['label' => 'Semua',      'icon' => 'fa-solid fa-th-large'],
         'ig_post'  => ['label' => 'IG Post',    'icon' => 'fa-brands fa-instagram'],
         'ig_story' => ['label' => 'IG Stories', 'icon' => 'fa-regular fa-play-circle'],
         'tiktok'   => ['label' => 'TikTok',     'icon' => 'fa-brands fa-tiktok'],
+        'gp'       => ['label' => 'Branding GP','icon' => 'fa-solid fa-user-doctor'],
     ];
 
     $qs = function ($overrides = []) {
@@ -55,7 +60,7 @@
                 <span class="ep-cal-meta-sep">·</span>
                 <span class="ep-cal-meta-text"><strong>{{ $monthTotal }}</strong> konten bulan ini</span>
                 <span class="ep-cal-meta-sep">·</span>
-                <span class="ep-cal-meta-text">Filter: <strong>{{ $platformLabel }}</strong></span>
+                <span class="ep-cal-meta-text">Filter: <strong>{{ $platformLabel }}@if($gpDoctorName) : {{ $gpDoctorName }}@endif</strong></span>
             </div>
         </div>
         <div class="ep-cal-actions">
@@ -96,13 +101,44 @@
             <div class="ep-cal-tabs">
                 @foreach ($platformTabs as $key => $tab)
                     @php $isActive = $platform === $key; @endphp
-                    <a href="{{ route('epkonten') }}?{{ $qs(['platform' => $key]) }}"
-                       class="ep-cal-tab {{ $isActive ? 'is-active' : '' }}">
-                        <i class="{{ $tab['icon'] }}"></i>
-                        {{ $tab['label'] }}
-                    </a>
+                    @if ($key === 'gp')
+                        {{-- Tab Branding GP = dropdown dokter. Klik → buka menu dokter. --}}
+                        <div class="ep-cal-tab-dd">
+                            <button type="button"
+                                    class="ep-cal-tab ep-cal-tab-ddbtn {{ $isActive ? 'is-active' : '' }}"
+                                    onclick="toggleGpTabMenu(event)">
+                                <i class="{{ $tab['icon'] }}"></i>
+                                {{ $tab['label'] }}@if($gpDoctorName): {{ $gpDoctorName }}@endif
+                                <i class="fa fa-chevron-down ep-cal-tab-caret"></i>
+                            </button>
+                            <div class="ep-cal-tab-menu" id="gpTabMenu">
+                                <a href="{{ route('epkonten') }}?{{ $qs(['platform' => 'gp', 'gp_doctor' => null]) }}"
+                                   class="ep-cal-tab-menu-item {{ $isActive && !$gpDoctorFilter ? 'is-active' : '' }}">
+                                    <i class="fa-solid fa-user-md"></i> Semua dokter
+                                </a>
+                                @forelse ($gpDoctors as $doc)
+                                    <a href="{{ route('epkonten') }}?{{ $qs(['platform' => 'gp', 'gp_doctor' => $doc->id]) }}"
+                                       class="ep-cal-tab-menu-item {{ $gpDoctorFilter == $doc->id ? 'is-active' : '' }}">
+                                        {{ $doc->name }}
+                                    </a>
+                                @empty
+                                    <div class="ep-cal-tab-menu-empty">
+                                        Belum ada dokter GP —
+                                        <a href="{{ route('kontenpillar', ['tab' => 'gp-doctor']) }}">tambah</a>
+                                    </div>
+                                @endforelse
+                            </div>
+                        </div>
+                    @else
+                        <a href="{{ route('epkonten') }}?{{ $qs(['platform' => $key, 'gp_doctor' => null]) }}"
+                           class="ep-cal-tab {{ $isActive ? 'is-active' : '' }}">
+                            <i class="{{ $tab['icon'] }}"></i>
+                            {{ $tab['label'] }}
+                        </a>
+                    @endif
                 @endforeach
             </div>
+
             {{-- Kind chips: Regular vs Khusus --}}
             <div class="ep-cal-kind-chips">
                 @foreach ($kindOptions as $key => $opt)
@@ -121,6 +157,9 @@
             <input type="hidden" name="month"    value="{{ $month }}">
             <input type="hidden" name="year"     value="{{ $year }}">
             <input type="hidden" name="platform" value="{{ $platform }}">
+            @if($platform === 'gp' && $gpDoctorFilter)
+                <input type="hidden" name="gp_doctor" value="{{ $gpDoctorFilter }}">
+            @endif
 
             <div class="ep-search-wrap">
                 <i class="fa fa-search ep-search-icon"></i>
@@ -212,10 +251,10 @@
                                     $sCfg  = $statusColors[$k->status] ?? $statusColors['draft'];
                                     $tCfg  = $k->tipe_konten ? ($tipeColors[$k->tipe_konten] ?? null) : null;
 
-                                    // Pilih platform "primer" buat warna card (prioritas: ig_post → ig_story → tiktok)
+                                    // Pilih platform "primer" buat warna card (prioritas: ig_post → ig_story → tiktok → gp)
                                     $kPlatforms = $k->platforms ?? [];
                                     $primaryPlatform = null;
-                                    foreach (['ig_post', 'ig_story', 'tiktok'] as $pref) {
+                                    foreach (['ig_post', 'ig_story', 'tiktok', 'gp'] as $pref) {
                                         if (in_array($pref, $kPlatforms, true)) { $primaryPlatform = $pref; break; }
                                     }
                                     $platformClass = $primaryPlatform ? 'ep-cal-card--' . str_replace('_', '-', $primaryPlatform) : '';
@@ -235,6 +274,11 @@
                                             <span class="ep-cal-status-dot" style="background:{{ $sCfg['dot'] }};"></span>
                                             {{ $statuses[$k->status]['label'] ?? $k->status }}
                                         </span>
+                                        @if ($k->gpDoctor)
+                                            <span class="ep-cal-gp-doctor" title="Dokter Branding GP">
+                                                <i class="fa-solid fa-user-md"></i> {{ $k->gpDoctor->name }}
+                                            </span>
+                                        @endif
                                     </div>
                                     @if ($k->pillars->isNotEmpty() || $tCfg)
                                         <div class="ep-cal-card-tags">
@@ -293,11 +337,26 @@
                             @foreach ($platforms as $key => $label)
                                 @php $pc = $platformColors[$key] ?? null; @endphp
                                 <label class="ep-quick-pill" style="--pill-bg:{{ $pc['bg'] ?? '#e6f5f4' }}; --pill-text:{{ $pc['text'] ?? '#0a4f4d' }};">
-                                    <input type="checkbox" name="platforms[]" value="{{ $key }}">
-                                    <span><i class="fa-brands {{ $pc['icon'] ?? 'fa-circle' }}"></i> {{ $label }}</span>
+                                    <input type="checkbox" name="platforms[]" value="{{ $key }}"
+                                           @if($key === 'gp') data-gp-platform @endif>
+                                    <span><i class="{{ $pc['icon'] ?? 'fa-solid fa-circle' }}"></i> {{ $label }}</span>
                                 </label>
                             @endforeach
                         </div>
+                    </div>
+
+                    {{-- Dokter GP — muncul kalau Branding GP dicentang --}}
+                    <div class="form-group" id="quickAddGpDoctorGroup" style="display:none;">
+                        <label style="font-weight:700; font-size:12px; text-transform:uppercase; letter-spacing:0.5px; color:#0a4f4d;">Dokter GP</label>
+                        <select name="gp_doctor_id" id="quickAddGpDoctor" class="form-control">
+                            <option value="">— Pilih dokter —</option>
+                            @foreach ($gpDoctors as $doc)
+                                <option value="{{ $doc->id }}">{{ $doc->name }}</option>
+                            @endforeach
+                        </select>
+                        @if($gpDoctors->isEmpty())
+                            <small class="text-muted">Belum ada dokter Branding GP. Tambahkan di <a href="{{ route('kontenpillar', ['tab' => 'gp-doctor']) }}" target="_blank">Konten Pillar → Dokter Branding GP</a>.</small>
+                        @endif
                     </div>
 
                     <div class="form-group">
@@ -409,9 +468,38 @@ function openQuickAdd(dateStr) {
     if (currentPlatform && currentPlatform !== 'all') {
         $('#quickAddPlatforms input[value="' + currentPlatform + '"]').prop('checked', true);
     }
+    syncQuickAddGpDoctor();
     $modal.modal('show');
     setTimeout(() => $modal.find('input[name="judul"]').focus(), 250);
 }
+
+// ─── Tab Branding GP = dropdown dokter ───
+function toggleGpTabMenu(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    const menu = document.getElementById('gpTabMenu');
+    if (menu) menu.classList.toggle('is-open');
+}
+document.addEventListener('click', function (e) {
+    const dd = e.target.closest('.ep-cal-tab-dd');
+    if (!dd) {
+        const menu = document.getElementById('gpTabMenu');
+        if (menu) menu.classList.remove('is-open');
+    }
+});
+
+// Dokter GP: tampil hanya kalau Branding GP dicentang
+function syncQuickAddGpDoctor() {
+    const cb  = document.querySelector('#quickAddPlatforms input[value="gp"]');
+    const grp = document.getElementById('quickAddGpDoctorGroup');
+    const sel = document.getElementById('quickAddGpDoctor');
+    if (!cb || !grp || !sel) return;
+    const on = cb.checked;
+    grp.style.display = on ? '' : 'none';
+    sel.required = on;
+    if (!on) sel.value = '';
+}
+$(document).on('change', '#quickAddPlatforms input[value="gp"]', syncQuickAddGpDoctor);
 
 function cellAddClick(e, dateStr) {
     // Only trigger if click was on cell itself (not on card or button)

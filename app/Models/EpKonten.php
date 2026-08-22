@@ -16,6 +16,7 @@ class EpKonten extends Model
         'judul',
         'deskripsi',
         'platforms',
+        'gp_doctor_id',
         'tipe_konten',
         'is_breakdown',
         'lokasi',
@@ -54,6 +55,7 @@ class EpKonten extends Model
             'ig_post'  => 'Instagram Post',
             'ig_story' => 'Instagram Stories',
             'tiktok'   => 'TikTok',
+            'gp'       => 'Branding GP',
         ];
     }
 
@@ -135,9 +137,10 @@ class EpKonten extends Model
     public static function platformColors(): array
     {
         return [
-            'ig_post'  => ['bg' => '#dbeafe', 'text' => '#1e3a8a', 'icon' => 'fa-instagram'],
-            'ig_story' => ['bg' => '#d1fae5', 'text' => '#065f46', 'icon' => 'fa-instagram'],
-            'tiktok'   => ['bg' => '#fef3c7', 'text' => '#854d0e', 'icon' => 'fa-tiktok'],
+            'ig_post'  => ['bg' => '#dbeafe', 'text' => '#1e3a8a', 'icon' => 'fa-brands fa-instagram'],
+            'ig_story' => ['bg' => '#d1fae5', 'text' => '#065f46', 'icon' => 'fa-brands fa-instagram'],
+            'tiktok'   => ['bg' => '#fef3c7', 'text' => '#854d0e', 'icon' => 'fa-brands fa-tiktok'],
+            'gp'       => ['bg' => '#f3e8ff', 'text' => '#6b21a8', 'icon' => 'fa-solid fa-user-doctor'],
         ];
     }
 
@@ -177,6 +180,15 @@ class EpKonten extends Model
     public function campaign()
     {
         return $this->belongsTo(EpCampaignFramework::class, 'ep_campaign_framework_id', 'id');
+    }
+
+    /**
+     * Dokter Branding GP untuk konten ini (hanya relevan kalau platform 'gp').
+     * gp_doctor_id menyimpan raw_doctor.id langsung.
+     */
+    public function gpDoctor()
+    {
+        return $this->belongsTo(RawDoctor::class, 'gp_doctor_id', 'id');
     }
 
     public function images()
