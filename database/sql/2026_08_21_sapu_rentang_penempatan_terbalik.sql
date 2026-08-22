@@ -14,7 +14,21 @@
 -- lebih awal daripada hari mulainya. Sudah ditutup di kode (akhiriSekarang()
 -- menghapus, bukan menyimpan cacat) — ini membersihkan yang telanjur ada.
 --
--- Prod per 2026-08-21: 1 baris (a2821d77-…, Verini, 15 Agu → 14 Agu).
+-- Prod per 2026-08-21: DUA baris —
+--   a2821d77-… Verini,          rolling Cinere, 15 Agu → 14 Agu
+--   a27346ed-… (user tak ada),  home Bintaro,   08 Agu → 07 Agu
+-- Yang kedua lahir dari jalur HAPUS USER (UserManagement): user dihapus di hari
+-- yang sama dengan lahirnya posisi, lalu ditutup "kemarin" — dan usernya ikut
+-- hilang sehingga tak ada lagi yang bisa menjelaskan barisnya. Jalur itu sudah
+-- ditutup di kode.
+--
+-- ⚠️ TABEL LAIN, di luar lingkup sapu ini: `att_user_rule` prod juga punya 2
+-- baris terbalik (id 8 Irma, id 9 Anisa — FO-Asdent 5 Agu → 4 Agu, lahir saat
+-- keduanya dipindah ke "Fleksibel Operasional" 6 Agu). Akibatnya nyata: 5 Agu
+-- mereka tak punya aturan kerja sama sekali, sehingga scan Anisa hari itu tak
+-- pernah jadi hari kerja. JANGAN disapu tanpa keputusan — menambalnya mengubah
+-- siapa yang dinilai pada 5 Agu dan bisa memunculkan alpa baru.
+--
 -- Aman diulang.
 
 -- Lihat dulu sebelum menghapus (jalankan terpisah kalau mau memeriksa):

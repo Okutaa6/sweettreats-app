@@ -82,9 +82,17 @@ class UserManagement extends Controller
             app(\App\Services\DeviceAuth::class)->revokeAllFor($id);
             // Tutup posisi checklist-nya — tanpa ini cron mark-missed terus
             // mencetak "Tidak Diisi" untuk akun yang sudah nonaktif.
+            //
+            // Lewat akhiriSekarang() per baris, BUKAN mass-update: posisi yang
+            // lahir HARI INI akan jadi rentang terbalik kalau ditutup "kemarin".
+            // Mass-update juga melewati penjaga UserPosition::booted() (query
+            // builder tak membangkitkan event model), jadi cacatnya lolos tanpa
+            // suara — dan sejak penempatan ikut menentukan libur, libur ikut
+            // menentukan gaji. Lihat §5 rencana-libur-cabang-bertugas.md.
             try {
-                \App\Models\UserPosition::query()->activeOn(\Carbon\Carbon::today())->where('user_id', $id)
-                    ->update(['effective_to' => now()->subDay()->toDateString(), 'updated_at' => now()]);
+                \App\Models\UserPosition::query()->activeOn(\Carbon\Carbon::today())
+                    ->where('user_id', $id)->get()
+                    ->each(fn (\App\Models\UserPosition $p) => $p->akhiriSekarang());
             } catch (\Throwable $e) {}
         } else {
             // Diaktifkan lagi → buka kembali posisi checklist dari data user-nya.
@@ -255,9 +263,17 @@ class UserManagement extends Controller
 
         \App\Models\AuditLog::record('delete', 'Hapus akun: ' . $user->nama . ' (' . $user->email . ')');
         // Tutup posisi checklist yang masih terbuka sebelum user hilang.
+        //
+        // ⚠️ Jalur inilah yang paling mungkin melahirkan baris yatim `a27346ed…`
+        // di prod (home Bintaro 2026-08-08 → 08-07, pemiliknya sudah tak ada):
+        // user dihapus di hari yang sama dengan lahirnya posisi → ditutup
+        // "kemarin" → rentang terbalik, dan usernya ikut hilang sehingga tak
+        // ada lagi yang bisa menjelaskannya. akhiriSekarang() menghapus posisi
+        // yang belum berjalan sehari pun, bukan menyimpannya cacat.
         try {
-            \App\Models\UserPosition::query()->activeOn(\Carbon\Carbon::today())->where('user_id', $id)
-                ->update(['effective_to' => now()->subDay()->toDateString(), 'updated_at' => now()]);
+            \App\Models\UserPosition::query()->activeOn(\Carbon\Carbon::today())
+                ->where('user_id', $id)->get()
+                ->each(fn (\App\Models\UserPosition $p) => $p->akhiriSekarang());
         } catch (\Throwable $e) {}
         $user->delete();
         return redirect()->route('setusermanagement')->with('success', 'User berhasil dihapus');
