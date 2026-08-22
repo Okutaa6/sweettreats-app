@@ -64,6 +64,12 @@
     .kh2-fchips { display: none; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 13px; }
     .kh2-fchips.on { display: flex; }
     .kh2-fchips-k { font-size: 11px; font-weight: 800; letter-spacing: .5px; color: #A9866A; }
+    .kh2-libur { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 13px;
+                 background: #FDF5F3; border: 1px solid #F3DED8; border-radius: 11px; padding: 9px 13px; }
+    .kh2-libur-k { font-size: 11px; font-weight: 800; letter-spacing: .5px; color: #C0392B; }
+    .kh2-libur-item { display: inline-flex; align-items: baseline; gap: 7px; font-size: 12px; color: #8A6A52; }
+    .kh2-libur-item b { color: #5A3A22; font-weight: 800; }
+    .kh2-libur-item i { font-style: normal; color: #A9866A; font-size: 11px; }
     .kh2-fchip { display: inline-flex; align-items: center; gap: 7px; background: #fff; border: 1px solid #E7D3BE; color: #5A3A22; border-radius: 20px; padding: 7px 12px; font-family: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
     .kh2-fclear { border: none; background: transparent; color: #8A3A12; font-family: inherit; font-size: 12px; font-weight: 700; text-decoration: underline; cursor: pointer; padding: 6px 4px; }
 
@@ -225,6 +231,23 @@
     {{-- Filter aktif --}}
     <div class="kh2-fchips" id="khFchips"></div>
 
+    {{-- KALENDER LIBUR bulan ini. Sampai 21 Agu 2026 tabel att_work_rule_exception
+         tak pernah tampil di layar mana pun — ditulis di Aturan Kerja, dibaca cuma
+         oleh mesin rekonsiliasi. Salah catat baru ketahuan setelah harinya lewat.
+         Strip ini alat audit: sekali lihat, tahu cabang mana tutup tanggal berapa. --}}
+    @if (!empty($liburRingkas))
+    <div class="kh2-libur">
+        <span class="kh2-libur-k">{{ count($liburRingkas) > 1 ? 'LIBUR BULAN INI' : 'LIBUR' }}</span>
+        @foreach ($liburRingkas as $l)
+            <span class="kh2-libur-item">
+                <b class="num">{{ $l['label'] }}</b>
+                <span>{{ $l['alasan'] }}</span>
+                <i>{{ $l['cabang'] }}</i>
+            </span>
+        @endforeach
+    </div>
+    @endif
+
     {{-- Matriks (Bulan/Pekan) --}}
     <div class="kh2-matrix-wrap" id="khMatrixWrap">
         <div class="kh2-card">
@@ -273,7 +296,11 @@
                 ];
             }
             // lb = hari libur milik orang ini (0=Minggu..6=Sabtu) menurut aturan kerjanya
-            $rows[] = ['id' => (string) $r['id'], 'n' => $r['nama'], 'r' => $r['role'], 'lb' => $r['libur'] ?? [], 'cells' => $cells];
+            // lt = TANGGAL libur kalender bagi orang ini (tgl => alasan) — klinik
+            //      tempat dia BERTUGAS hari itu tutup. Beda dari lb: lb pola
+            //      mingguan, lt tanggal tertentu (Maulid, Lebaran, tutup cabang).
+            $rows[] = ['id' => (string) $r['id'], 'n' => $r['nama'], 'r' => $r['role'],
+                       'lb' => $r['libur'] ?? [], 'lt' => (object) ($r['libur_tgl'] ?? []), 'cells' => $cells];
         }
         $payloadGroups[] = ['key' => $gkey, 'label' => $g['label'], 'flex' => (bool) $g['flex'], 'rows' => $rows];
     }
@@ -338,6 +365,10 @@ var KH_DATA = {
     function isTutup(wd) { return TUTUP.indexOf(wd) >= 0; }
     // Hari libur milik satu orang (aturannya sendiri bisa beda dari klinik).
     function rowLibur(r, wd) { return !!(r && r.lb && r.lb.indexOf(wd) >= 0); }
+    // Libur KALENDER pada tanggal tertentu — alasannya (string) atau null.
+    // Per-orang: yang sedang rolling ikut cabang tempatnya bertugas, jadi dua
+    // orang di grup cabang yang sama bisa beda.
+    function rowLiburTgl(r, d) { return (r && r.lt && r.lt[d]) ? r.lt[d] : null; }
     function lemburJam(min) { return Math.round(min / 60 * 10) / 10; }
     function visRows() {
         var q = S.q.trim().toLowerCase(), out = [];
@@ -508,12 +539,18 @@ var KH_DATA = {
                     // Hari libur orang ini ikut disorot walau klinik buka — orang
                     // kantor libur Minggu+Senin, rekannya cuma Senin.
                     var offDiri = rowLibur(r, dow(d));
+                    // Libur kalender (Maulid, Lebaran, tutup cabang) disorot
+                    // sama seperti libur mingguan — tapi alasannya disebutkan,
+                    // sebab tanggal begini tak bisa ditebak dari pola minggu.
+                    var offTgl = rowLiburTgl(r, d);
                     var cellBg = colBg(d);
-                    if (cellBg === 'transparent' && offDiri) cellBg = '#FDF5F3';
+                    if (cellBg === 'transparent' && (offDiri || offTgl)) cellBg = '#FDF5F3';
                     var wrap = '<div class="kh2-cellwrap" style="height:' + rowH + 'px;padding:0 ' + (pekan ? 4 : 2) + 'px;background:' + cellBg + '">';
                     if (!c) {
                         // sel kosong di hari liburnya sendiri BUKAN data hilang
-                        wrap += '<div class="kh2-cell empty" style="height:' + chipH + 'px;border-radius:' + (pekan ? 10 : 6) + 'px" title="' + (offDiri ? 'libur menurut aturan kerjanya' : 'belum ada data') + '"></div>';
+                        var kosongTitle = offTgl ? ('klinik tutup — ' + offTgl)
+                            : (offDiri ? 'libur menurut aturan kerjanya' : 'belum ada data');
+                        wrap += '<div class="kh2-cell empty" style="height:' + chipH + 'px;border-radius:' + (pekan ? 10 : 6) + 'px" title="' + esc(kosongTitle) + '"></div>';
                     } else {
                         var at = ST[c.s] || ST.libur, dim = S.focus && c.s !== S.focus;
                         var title = d + ' ' + D.monthShort + ' · ' + at.l;
@@ -523,6 +560,7 @@ var KH_DATA = {
                         if (c.l) title += ' · lembur ' + KAH.jamNum(lemburJam(c.l)) + ' jam';
                         if (c.g) title += ' · scan tunggal';
                         if (c.x && c.x.length) title += ' · scan di ' + c.x.join(', ');
+                        if (offTgl) title += ' · klinik tutup — ' + offTgl;
                         wrap += '<div class="kh2-cell' + (dim ? ' dim' : '') + '" data-uid="' + r.id + '" data-d="' + d + '" title="' + esc(title) + '" '
                             + 'style="height:' + chipH + 'px;border-radius:' + (pekan ? 10 : 6) + 'px;background:' + at.bg + ';border-color:' + at.br + ';color:' + at.c + ';'
                             + (pekan ? 'gap:7px;padding:0 10px;justify-content:flex-start;' : 'justify-content:center;') + '">';

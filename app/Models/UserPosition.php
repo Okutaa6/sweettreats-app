@@ -35,6 +35,62 @@ class UserPosition extends Model
         'updated_at'     => 'datetime',
     ];
 
+    /**
+     * Rentang penempatan yang BERAKHIR SEBELUM DIMULAI ditolak di titik simpan.
+     *
+     * Dulu tak berbahaya — baris nol-panjang cuma tak pernah terpilih. Sejak
+     * penempatan ikut menentukan HARI LIBUR (dan libur menentukan gaji), rentang
+     * rusak yang lolos diam-diam jadi jauh lebih mahal: satu baris terbalik
+     * berarti satu orang libur/kerja di cabang yang salah tanpa ada yang tahu.
+     * Prod sudah punya satu (Verini, id a2821d77: 15 Agu → 14 Agu, lahir dari
+     * rollingRemove di hari yang sama dengan hari mulainya).
+     *
+     * Lihat §5 docs/rencana/rencana-libur-cabang-bertugas.md.
+     */
+    protected static function booted(): void
+    {
+        static::saving(function (self $pos) {
+            $from = $pos->effective_from;
+            $to   = $pos->effective_to;
+            if ($from && $to && Carbon::parse($to)->lt(Carbon::parse($from))) {
+                throw new \InvalidArgumentException(
+                    'Rentang penempatan tidak sah: tanggal selesai ('
+                    . Carbon::parse($to)->toDateString() . ') lebih awal daripada tanggal mulai ('
+                    . Carbon::parse($from)->toDateString() . ').'
+                );
+            }
+        });
+    }
+
+    /**
+     * Akhiri penempatan ini SEKARANG — nonaktif seketika.
+     *
+     * `effective_to` = KEMARIN, bukan hari ini, sebab `activeOn()` memakai
+     * "effective_to >= hari ini" (inklusif); di-set hari ini berarti masih aktif
+     * seharian, seolah tidak tercabut.
+     *
+     * ⚠️ Kalau penempatannya baru MULAI hari ini (atau nanti), "kemarin" akan
+     * membuat rentangnya terbalik. Penempatan yang tak pernah berjalan sehari
+     * pun bukanlah catatan tentang apa-apa — barisnya DIHAPUS, bukan disimpan
+     * cacat. Ini persis cara baris rusak Verini lahir.
+     *
+     * @return bool true kalau barisnya dihapus (bukan sekadar ditutup)
+     */
+    public function akhiriSekarang(): bool
+    {
+        $kemarin = Carbon::today()->subDay();
+
+        // effective_from NULL = berlaku sejak kapan pun → tak mungkin terbalik,
+        // cukup ditutup. Yang dihapus hanya yang mulainya SETELAH kemarin.
+        if ($this->effective_from && Carbon::parse($this->effective_from)->gt($kemarin)) {
+            $this->delete();
+            return true;
+        }
+
+        $this->update(['effective_to' => $kemarin, 'updated_at' => now()]);
+        return false;
+    }
+
     public function user()
     {
         return $this->belongsTo(Users::class, 'user_id', 'id');
@@ -107,9 +163,12 @@ class UserPosition extends Model
         // atau cabangnya dikosongkan → posisi aktifnya HARUS ditutup, kalau
         // tidak cron mark-missed terus mencetak "Tidak Diisi" di divisi lamanya.
         if (! $division) {
+            // Lewat akhiriSekarang() satu per satu, bukan mass-update: posisi
+            // yang baru dibuat HARI INI akan jadi rentang terbalik kalau
+            // ditutup "kemarin" borongan.
             static::query()->activeOn(Carbon::today())->where('user_id', $user->id)
-                ->where('kind', 'home')
-                ->update(['effective_to' => Carbon::today()->subDay(), 'updated_at' => now()]);
+                ->where('kind', 'home')->get()
+                ->each(fn (self $p) => $p->akhiriSekarang());
             return null;
         }
 
@@ -127,12 +186,10 @@ class UserPosition extends Model
             return $current;
         }
 
-        // Beda divisi/cabang → tutup posisi lama (nonaktif mulai kemarin).
+        // Beda divisi/cabang → tutup posisi lama (nonaktif mulai kemarin; kalau
+        // baru lahir hari ini, dibuang — lihat akhiriSekarang()).
         if ($current) {
-            $current->update([
-                'effective_to' => $today->copy()->subDay(),
-                'updated_at'   => now(),
-            ]);
+            $current->akhiriSekarang();
         }
 
         $pos = static::create([

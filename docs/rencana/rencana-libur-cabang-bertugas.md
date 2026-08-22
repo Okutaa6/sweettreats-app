@@ -1,6 +1,11 @@
 # Rencana — Libur cabang mengikuti CABANG BERTUGAS, bukan cabang asal
 
-> **Status**: rencana, ACC Ekky 2026-08-21. **⏰ ADA TENGGAT: Selasa 25 Agu 2026.**
+> **Status**: ✅ **DIBANGUN & LULUS 11/11 di DEV 2026-08-21** — branch
+> `fix/libur-cabang-bertugas` (`9da2d5d`). **PROD BELUM**, menunggu izin Ekky
+> (langkahnya di §10). Rencana asli di bawah dipertahankan apa adanya; dua
+> ralat terhadapnya dicatat di §10.
+>
+> **Status semula**: rencana, ACC Ekky 2026-08-21. **⏰ ADA TENGGAT: Selasa 25 Agu 2026.**
 > Kalau perbaikan lolos uji dev & naik prod sebelum Selasa, tiga orang di §2
 > tak perlu dikoreksi sama sekali. Kalau tidak, rencana cadangan di §8.
 >
@@ -191,3 +196,96 @@ bukan salah mereka.
    fungsi itu dipakai gerbang absen dan pemisahannya disengaja (§4).
 3. **Jangan menyentuh `isDateLocked()` / `hapusHariBasi()`** (§3).
 4. Prod menunggu dev lulus §7.
+
+---
+
+## 10. Hasil pelaksanaan (2026-08-21) — dua ralat terhadap rencana di atas
+
+Branch `fix/libur-cabang-bertugas` (`9da2d5d`). Uji terima §7 **lulus 11/11 di
+dev**, uji 1–3 dengan data prod yang diputar ulang. Rincian di
+`docs/log-update.md` entri `2026-08-21d`.
+
+### Ralat 1 — §7 uji 1 menuntut baris yang kode lama tak pernah tulis
+
+Cabang `if ($libur)` di reconciler **tidak menulis baris sama sekali** kalau
+hari tutup dan tak ada scan (`if ($n === 0) continue;`). Jadi perbaikan §3 saja
+membuat Verini "tidak kena alpa" — tapi `att_day`-nya **kosong**, bukan
+`libur`, dan Absensi Saya (uji 10) tak menampilkan apa pun.
+
+Karena kosong tak bisa dibedakan dari "belum ada datanya" — persis keadaan yang
+membuat masalah ini tak terdeteksi (§4) — libur **kalender** tanpa scan kini
+menghasilkan baris `libur`. Libur **pola mingguan** sengaja tidak ikut: Senin
+tutup sudah terbaca dari aturan kerjanya sendiri dan tersorot di matriks, jadi
+barisnya cuma menggandakan yang sudah terlihat, untuk seluruh roster, tiap
+minggu. `resolveDay()` mengembalikan exception yang cocok supaya dua sebab itu
+bisa dibedakan.
+
+⚠️ Efek yang perlu disadari: kolom **"Libur"** di lembar gaji kini menghitung
+hari libur kalender, bukan cuma "datang di hari tutup". Kolom informasi; tak ada
+yang dihitung darinya, dan baris tanpa scan tetap terbedakan lewat
+`scan_count = 0`.
+
+### Ralat 2 — §5 menghitung satu baris rusak, aslinya DUA
+
+Selain `a2821d77-…` (Verini), prod juga punya `a27346ed-…`: baris `home`
+Bintaro `2026-08-08 → 2026-08-07`, pemiliknya user yang sudah tak ada. Lahir
+dari mekanisme yang sama, jadi ini cacat sistemik — bukan satu kecelakaan.
+
+**Akarnya ditemukan dan ditutup:** `rollingRemove`/`positionRemove` menutup
+penempatan dengan `effective_to = kemarin`. Untuk baris yang **mulai hari itu
+juga**, "kemarin" lebih awal daripada hari mulainya. Syaratnya `> hari ini`,
+jadi rolling yang mulai hari ini jatuh ke cabang yang salah. Sekarang
+`UserPosition::akhiriSekarang()` **menghapus** penempatan yang belum berjalan
+sehari pun, dan `booted()` menolak rentang terbalik di titik simpan.
+
+### Ralat 3 — penjaga model saja TIDAK cukup: dua jalur melewatinya
+
+Ditemukan saat menyapu sisa: `UserManagement` menutup posisi lewat **mass-update
+query builder** di dua tempat (nonaktifkan akun `:87`, hapus akun `:260`).
+Query builder **tidak membangkitkan event model**, jadi penjaga
+`UserPosition::booted()` dilewati tanpa suara — dan untuk posisi yang lahir hari
+itu juga, "kemarin" tetap menghasilkan rentang terbalik.
+
+Terbukti berdampingan di dev pada bentuk data yang sama:
+
+| Pola | Hasil |
+|---|---|
+| baru (`akhiriSekarang()` per baris) | posisi **dihapus**, 0 rentang terbalik |
+| lama (mass-update) | `2026-08-22 → 2026-08-21`, **lolos tanpa suara** |
+
+Jalur **hapus akun** inilah yang paling mungkin melahirkan baris yatim
+`a27346ed…` di prod: user dihapus di hari yang sama dengan lahirnya posisi, dan
+usernya ikut hilang sehingga tak ada lagi yang bisa menjelaskan barisnya.
+Keduanya kini lewat `akhiriSekarang()`.
+
+**Pelajaran umum:** penjaga di model hanya menjaga jalur Eloquent. Setiap
+`DB::table(...)->update()` / `Model::query()->update()` melewatinya. Kalau
+penjaga itu dianggap jaminan, tulis juga daftar jalur yang melewatinya.
+
+### Temuan sampingan (di luar lingkup, JANGAN disapu tanpa keputusan)
+
+`att_user_rule` prod punya **2 baris terbalik** dengan sebab yang sama —
+id 8 (**Irma**) & id 9 (**Anisa**), `FO-Asdent` `2026-08-05 → 2026-08-04`,
+lahir saat keduanya dipindah ke `Fleksibel Operasional` per 6 Agu.
+
+**Akibatnya nyata, bukan teoretis**: karena baris FO-Asdent berpanjang nol dan
+aturan berikutnya baru mulai 6 Agu, **5 Agu keduanya tak punya aturan kerja sama
+sekali**. `resolveRule()` mengembalikan null → harinya dilewati. Anisa punya
+**1 scan pada 5 Agu yang tak pernah menjadi hari kerja**. Ini kemungkinan besar
+jawaban dari "Irma 5 Agu masih tanda tanya" di catatan aturan sakit.
+
+Sengaja **tidak** ditambal di sini: memperbaikinya mengubah siapa yang dinilai
+pada 5 Agu dan bisa memunculkan alpa baru — itu keputusan Ekky, bukan efek
+samping perbaikan libur.
+
+### Langkah naik prod
+
+1. Deploy branch — ada **class baru** (`CabangBertugas`) → deploy PENUH, bukan
+   `--quick`. Ada perubahan CSS blade → **rsync `public/`** sesudahnya
+   (public_html prod itu salinan, bukan symlink).
+2. `database/sql/2026_08_21_sapu_rentang_penempatan_terbalik.sql` — 2 baris.
+3. `php artisan att:reconcile` untuk rentang yang memuat 25 Agu, **sesudah**
+   deploy. Tanpa ini baris lamanya tetap salah.
+
+Kalender libur 25 Agu di prod sudah benar — 3 baris per-cabang, Sunter &
+Pamulang memang buka (§9.1).
