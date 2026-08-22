@@ -22,6 +22,16 @@
 > Kalau tanggal ini sudah jauh lewat,
 > minta chat teknis menyegarkan file ini sebelum dipakai mengambil keputusan.
 >
+> ⚠️ **Sisipan 2026-08-22 malam** — **DUA GERBONG NAIK PROD** (`722d164`):
+> (1) **libur cabang ikut cabang BERTUGAS** — Verini dkk tak lagi salah dinilai,
+> hanya `libur` yang bergerak 57→68, nol alpa baru; (2) **Branding GP** kerjaan
+> Reza (diaudit dulu, 3 temuan non-penahan untuk ditindaklanjuti). Celah
+> `att_user_rule` 5 Agustus (Irma & Anisa) ditutup — lembur Anisa akhirnya punya
+> hari kerja. **Terjadwal**: Ramdan pindah PENUH ke Bintaro + Fajri jadi
+> Koordinator GS, **setelah operasional Minggu 23 Agu**, urutan Ramdan-dulu;
+> Ramdan libur Selasa 25, Pamulang sengaja kosong GS. ⛔ **Konsultan + Alur
+> Persetujuan MENAHAN** — kodenya belum di-commit dan tak bisa dipisah.
+>
 > ✅ **Sisipan 2026-08-21d** — **Libur cabang: SUDAH DIBANGUN, lulus 11/11 di
 > dev**, branch `fix/libur-cabang-bertugas` (`9da2d5d`). **PROD BELUM** —
 > menunggu izin Ekky; tenggat Selasa 25 Agu. Naik prod = deploy PENUH (ada

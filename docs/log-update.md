@@ -7,6 +7,134 @@
 
 ---
 
+## 2026-08-22 malam — DUA GERBONG NAIK PROD + celah 5 Agustus ditutup
+
+Jendela sepi terverifikasi sebelum menyentuh apa pun: **nol user aktif dalam 30
+menit terakhir** (server 23:38 WIB Sabtu, aktivitas terakhir 22:17). Prod naik
+dari `a49a0ef` → `0e309a8` → **`722d164`**.
+
+### Gerbong 1 — Libur ikut cabang BERTUGAS · `0e309a8`
+
+Backup 47 MB (`prod_pre_libur_cabang_20260822_1639.sql.gz`) → merge → deploy
+penuh → SQL sapu rentang terbalik → `att:reconcile 2026-08-01 2026-08-31`.
+
+**Rentang reconcile sengaja cuma Agustus, dan itu diputuskan setelah memeriksa,
+bukan ditebak**: dari 9 baris `att_work_rule_exception` prod, **cuma 3 yang
+per-cabang dan semuanya 25 Agu** — sisanya NASIONAL, jadi tak tersentuh
+perbaikan ini. Ditambah **nol periode gaji tertutup**. Reconcile lebih lebar tak
+ada gunanya dan cuma memperbesar permukaan risiko.
+
+**Hasilnya: HANYA `libur` yang bergerak, 57 → 68.** `hadir` 261, `telat` 28,
+`cuti` 13, `sakit` 3, `izin` 1 — tak bergeser sedikit pun. 10/10 uji lulus:
+
+| Orang | Asal | Bertugas 25 Agu | Hasil |
+|---|---|---|---|
+| **Verini** | Sunter (buka) | **Cinere (tutup)** | **`libur`** — batal jadi alpa |
+| **Della Raqisiah** | Cinere (tutup) | Sunter (buka) | hari kerja |
+| **Ramdan** | Kalideres (tutup) | Pamulang (buka) | hari kerja |
+
+SQL sapu menghapus **persis 2 baris** yang sudah didokumentasikan. **rsync
+memindahkan 0 berkas** — mengonfirmasi branch ini memang tak menyentuh
+`public/`, meralat catatan yang menyebut rsync wajib.
+
+### Gerbong 2 — Branding GP (Reza) · `722d164`
+
+Diaudit dulu, statis **dan** hidup di dev, sebelum naik. **Reza menghindari
+jebakan langganan proyek ini**: rute barunya diberi prefix `konten-pillar/`
+supaya mewarisi RBAC, lengkap dengan komentar. SQL-nya **terbukti idempoten**
+(dijalankan 2× di dev: nol galat, kolom & index tak kembar, data utuh).
+
+Naik prod: SQL lewat **mysql CLI** (ada `DELIMITER`) → deploy penuh → **rsync
+memindahkan 1 berkas** (`theme-marketing.css` — kali ini memang perlu).
+14/14 uji lulus: skema + index + prosedur sementara dibuang, **185 konten lama
+utuh**, CSS di `public_html` md5-nya cocok, dan keempat layar render termasuk
+tab yang tak dia sentuh.
+
+**Tiga temuan, tak satu pun menahan** — untuk ditindaklanjuti Reza:
+1. **Hapus dokter GP = hapus keras, nol jejak** (nol `AuditLog` di seluruh diff;
+   dibuktikan: `audit_log` tak bertambah sesudah penghapusan).
+2. **Dan itu satu-satunya cara mengeluarkan dokter** — skema punya `is_active` +
+   `scopeActive()`, tapi cuma ada 3 rute (tambah/ubah/hapus). Jalur lembutnya
+   ada di database tapi tak terjangkau. Ini yang paling layak diminta: satu
+   tombol nonaktifkan menyelesaikan temuan 1 sekaligus.
+3. **Kurasi tak dipaksakan di server** — `gp_doctor_id` cuma divalidasi
+   `exists:raw_doctor,id`; dokter di luar daftar GP tetap diterima (dibuktikan).
+
+Bukan temuan Reza tapi perlu dicatat: `calendar.blade.php` **memuat FontAwesome
+6.5.1 dari cdnjs** — sudah ada di `main` sebelum push-nya. Halaman itu
+bergantung host luar untuk menampilkan ikon, padahal stack resmi FA 5.8.2 lokal.
+
+### Celah 5 Agustus ditutup — opsi C
+
+`att_user_rule` Irma & Anisa berbunyi `FO-Asdent` **5 Agu → 4 Agu** (panjang
+nol), dan `Fleksibel Operasional` baru mulai 6 Agu. **5 Agustus tak tertutup
+aturan apa pun** → hari itu dilewati mesin. Anisa punya **scan 11:36 + lembur
+120 menit yang SUDAH di-ACC** tanpa hari kerja di belakangnya.
+
+Ditutup pakai **Fleksibel Operasional** (dimundurkan ke 5 Agu), bukan FO-Asdent
+— menutup pakai aturan baku akan memberi **Irma alpa palsu** (nol scan, nol
+pengajuan, Rabu = hari kerja), padahal sehari kemudian dia memang fleksibel dan
+tak pernah dinilai alpa. Hasil: **Anisa `hadir` + lembur tercatat**, **Irma nol
+alpa**, **alpa Agustus tetap 0**. Kemungkinan besar ini juga menutup pertanyaan
+lama *"Irma 5 Agu"*.
+
+### Demo Lembar Bayar ROP di dev
+
+Data prod di-mirror ke dev untuk demo ke Della: 33 baris hidup, 30 lampiran +
+5 bukti transfer, 12/12 metrik sama dengan prod. ⚠️ **Id user BERBEDA antara
+prod dan dev** — `requester_id` punya FK ke `users`, jadi salinan mentah
+**DITOLAK database**, bukan rusak diam-diam; impor wajib memetakan lewat email.
+Perkakas siap pakai: **`bash ~/tools/reset-rop-demo.sh`** di server dev, aman
+diulang.
+
+⚠️ **Pelajaran**: menguji fitur yang MENGUBAH STATUS di atas data yang mau
+dipakai demo itu salah urutan. Uji ujung-ke-ujung sempat menyetujui 6 pengajuan
+dan meninggalkan 6 baris `rop_status_log`; `coa_no` dikembalikan tapi statusnya
+terlupa — **Ekky yang menemukannya** lewat perbandingan tangkapan layar dev vs
+prod, bukan aku.
+
+### Keputusan terjadwal — Ramdan & Fajri
+
+**Jendelanya: setelah operasional Minggu 23 Agu selesai.** Bukan lebih awal —
+Minggu itu Ramdan masih mengisi checklist **Pamulang** dan Fajri masih mengisi
+**Bintaro**.
+
+**Urutan: Ramdan DULU, baru Fajri** — prinsipnya *isi dulu, baru kosongkan*.
+Bintaro sekarang cuma punya Alpajri sebagai GS; kalau Fajri lebih dulu jadi
+peninjau, Bintaro nol pengisi, dan kalau pemindahan Ramdan tersandung, lubang
+itu jadi tak tentu ujungnya. Ramdan dulu = Bintaro sempat punya dua, lalu
+tersisa satu. **Tak ada satu momen pun kosong.**
+
+- **Ramdan**: pindah **PENUH** Kalideres → Bintaro (bukan rolling). Tiga baris
+  data: `users.raw_branch_id`, posisi `home`, dan posisi `rolling` Pamulang
+  **ditutup** (bukan dihapus). Nol kode. Riwayat 8 hari Pamulang-nya **tidak
+  berubah** — `att_day.raw_branch_id` datang dari mesin scan, bukan data user.
+- **Konsekuensi disepakati**: **Ramdan libur Selasa 25 Agu** ikut Bintaro yang
+  tutup, dan **Pamulang sengaja dibiarkan kosong GS** sampai orang baru masuk.
+- **Fajri**: menyusul di malam yang sama — **kalau** chat Konsultan sempat
+  commit hari Minggu. Kalau tidak, Ramdan tetap jalan sendiri dan Fajri
+  menyusul; tak ada lubang karena Alpajri tetap mengisi sampai dia beralih.
+
+### ⛔ Yang MENAHAN gerbong berikutnya
+
+Kerjaan **Konsultan + Alur Persetujuan masih belum di-commit** — cuma ada di
+branch penyelamat `wip/snapshot-konsultan-alur-2026-08-22` (`06905c4`, 4.687
+baris) yang isinya campuran dua chat.
+
+**Keduanya tak bisa dipisah**: `AttendanceRequestWorkflow::__construct()`
+sekarang menerima `AlurPersetujuanService` sebagai ketergantungan, dan kode
+delegasinya memanggil konsep Konsultan (*"Delegat yang jabatannya PENGAMAT
+dilewati"*). Konsultan tak bisa berangkat tanpa Alur.
+
+⚠️ **Dan menjalankan SQL-nya saja BUKAN jalan pintas**: `canEditPettyCash()`
+isinya `! isFinance()` — satu-satunya daftar hardcode yang MENUTUP pintu. Tanpa
+kodenya, `Konsultan Finance` lolos sebagai "bukan Finance" lalu **bisa mengedit
+petty cash** — kuasa yang Finance sendiri tak punya.
+
+→ Chat pemiliknya yang harus commit; mereka tahu potongan mana miliknya.
+
+---
+
 ## 2026-08-21d — Libur cabang ikut cabang BERTUGAS · DEV LULUS 11/11, prod menunggu
 
 Perbaikan dari entri `2026-08-21c` dibangun dan diuji di dev. **Semua 11 uji
