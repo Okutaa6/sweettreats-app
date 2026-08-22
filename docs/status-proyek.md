@@ -27,6 +27,9 @@
 > menunggu izin Ekky; tenggat Selasa 25 Agu. Naik prod = deploy PENUH (ada
 > class baru) + rsync `public/` + 1 SQL sapu + `att:reconcile` sesudahnya.
 > Kalender libur kini **tampil di Kehadiran** (temuan kedua di bawah: beres).
+> ⚠️ Temuan sampingan **belum ditambal**: `att_user_rule` prod punya 2 baris
+> rentang-terbalik (Irma & Anisa) — 5 Agu mereka tak punya aturan kerja, scan
+> Anisa hari itu hilang. Butuh keputusan Ekky, bukan efek samping.
 > Dua ralat terhadap rencana dicatat di §10 rencananya. Rincian:
 > `log-update.md` entri `2026-08-21d`. Rencana cadangan §8 (koreksi 3 baris
 > `att_day` sesudah 25 Agu) tetap berlaku kalau prod tak sempat.

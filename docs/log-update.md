@@ -99,6 +99,29 @@ Selain baris Verini (`a2821d77…`), ada `a27346ed…` — baris `home` Bintaro
 2026-08-08 → 08-07 milik user yang sudah tak ada. Lahir dari mekanisme yang
 sama. Menguatkan bahwa ini cacat sistemik, bukan satu kecelakaan.
 
+**c. Penjaga di model saja TIDAK cukup — dua jalur melewatinya.**
+`UserManagement` menutup posisi lewat **mass-update query builder** (nonaktifkan
+akun & hapus akun). Query builder tak membangkitkan event model, jadi penjaga
+`UserPosition::booted()` **dilewati tanpa suara**. Terbukti berdampingan di dev:
+pola baru → posisi dihapus, 0 terbalik; pola lama → `2026-08-22 → 2026-08-21`.
+Jalur **hapus akun** itulah yang paling mungkin melahirkan baris yatim di (b) —
+usernya ikut hilang, jadi tak ada lagi yang bisa menjelaskan barisnya. Sudah
+ditutup. Pelajarannya umum: penjaga model hanya menjaga jalur Eloquent.
+
+### ⚠️ Temuan sampingan yang BELUM ditambal (butuh keputusan Ekky)
+
+`att_user_rule` prod punya **2 baris terbalik** dengan sebab yang sama: id 8
+(**Irma**) & id 9 (**Anisa**), `FO-Asdent` `2026-08-05 → 2026-08-04`, lahir saat
+keduanya dipindah ke `Fleksibel Operasional` per 6 Agu.
+
+Akibatnya nyata: karena barisnya berpanjang nol dan aturan berikutnya baru mulai
+6 Agu, **5 Agu keduanya tak punya aturan kerja sama sekali** → harinya dilewati
+`resolveRule()`. **Anisa punya 1 scan pada 5 Agu yang tak pernah jadi hari
+kerja.** Ini kemungkinan besar jawaban dari *"Irma 5 Agu masih tanda tanya"*.
+
+Sengaja tidak ditambal bersama perbaikan libur: memperbaikinya mengubah siapa
+yang dinilai pada 5 Agu dan bisa memunculkan alpa baru.
+
 ### Naik prod butuh apa
 
 1. Deploy `fix/libur-cabang-bertugas` (ada class baru → deploy PENUH, bukan

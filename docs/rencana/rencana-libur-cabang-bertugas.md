@@ -238,6 +238,46 @@ jadi rolling yang mulai hari ini jatuh ke cabang yang salah. Sekarang
 `UserPosition::akhiriSekarang()` **menghapus** penempatan yang belum berjalan
 sehari pun, dan `booted()` menolak rentang terbalik di titik simpan.
 
+### Ralat 3 — penjaga model saja TIDAK cukup: dua jalur melewatinya
+
+Ditemukan saat menyapu sisa: `UserManagement` menutup posisi lewat **mass-update
+query builder** di dua tempat (nonaktifkan akun `:87`, hapus akun `:260`).
+Query builder **tidak membangkitkan event model**, jadi penjaga
+`UserPosition::booted()` dilewati tanpa suara — dan untuk posisi yang lahir hari
+itu juga, "kemarin" tetap menghasilkan rentang terbalik.
+
+Terbukti berdampingan di dev pada bentuk data yang sama:
+
+| Pola | Hasil |
+|---|---|
+| baru (`akhiriSekarang()` per baris) | posisi **dihapus**, 0 rentang terbalik |
+| lama (mass-update) | `2026-08-22 → 2026-08-21`, **lolos tanpa suara** |
+
+Jalur **hapus akun** inilah yang paling mungkin melahirkan baris yatim
+`a27346ed…` di prod: user dihapus di hari yang sama dengan lahirnya posisi, dan
+usernya ikut hilang sehingga tak ada lagi yang bisa menjelaskan barisnya.
+Keduanya kini lewat `akhiriSekarang()`.
+
+**Pelajaran umum:** penjaga di model hanya menjaga jalur Eloquent. Setiap
+`DB::table(...)->update()` / `Model::query()->update()` melewatinya. Kalau
+penjaga itu dianggap jaminan, tulis juga daftar jalur yang melewatinya.
+
+### Temuan sampingan (di luar lingkup, JANGAN disapu tanpa keputusan)
+
+`att_user_rule` prod punya **2 baris terbalik** dengan sebab yang sama —
+id 8 (**Irma**) & id 9 (**Anisa**), `FO-Asdent` `2026-08-05 → 2026-08-04`,
+lahir saat keduanya dipindah ke `Fleksibel Operasional` per 6 Agu.
+
+**Akibatnya nyata, bukan teoretis**: karena baris FO-Asdent berpanjang nol dan
+aturan berikutnya baru mulai 6 Agu, **5 Agu keduanya tak punya aturan kerja sama
+sekali**. `resolveRule()` mengembalikan null → harinya dilewati. Anisa punya
+**1 scan pada 5 Agu yang tak pernah menjadi hari kerja**. Ini kemungkinan besar
+jawaban dari "Irma 5 Agu masih tanda tanya" di catatan aturan sakit.
+
+Sengaja **tidak** ditambal di sini: memperbaikinya mengubah siapa yang dinilai
+pada 5 Agu dan bisa memunculkan alpa baru — itu keputusan Ekky, bukan efek
+samping perbaikan libur.
+
 ### Langkah naik prod
 
 1. Deploy branch — ada **class baru** (`CabangBertugas`) → deploy PENUH, bukan
