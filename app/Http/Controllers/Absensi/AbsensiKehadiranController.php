@@ -235,6 +235,11 @@ class AbsensiKehadiranController extends Controller
             ];
         }
 
+        // Menit DODO per orang per tanggal — satu kueri, dari LemburDodo yang
+        // sama dengan yang dipakai Lembar Gaji. Dua layar yang memutuskan
+        // sendiri-sendiri "mana yang DODO" adalah cara angka mulai berselisih.
+        $dodoHari = \App\Services\LemburDodo::menitPerHari($from->toDateString(), $to->toDateString());
+
         foreach ($days as $d) {
             $uid = $d->user_id;
             if (! isset($matrix[$uid])) continue;
@@ -257,6 +262,11 @@ class AbsensiKehadiranController extends Controller
                 'telat'  => (int) $d->telat_menit,
                 'single' => (int) $d->single_scan,
                 'lembur' => (int) $d->lembur_menit_disetujui,
+                // Porsi DODO (lembur di hari libur — tarifnya beda). PECAHAN
+                // dari 'lembur' di atas, bukan tambahan: reconciler menjumlah
+                // semua lembur di-ACC tanpa memeriksa jenisnya. Yang dijumlah
+                // layar sebagai "lembur biasa" = lembur − dodo.
+                'dodo'   => min((int) ($dodoHari[$uid][$d->work_date] ?? 0), (int) $d->lembur_menit_disetujui),
                 'lain'   => array_keys($lain),
                 'jam_in' => $d->scan_first ? substr($d->scan_first, 11, 5) : null,
                 // beda detik saja (scan dobel) tetap dianggap satu jam — jangan tampil "10:22–10:22"

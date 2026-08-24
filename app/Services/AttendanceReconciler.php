@@ -750,6 +750,56 @@ class AttendanceReconciler
         return $out;
     }
 
+    /**
+     * Apakah tanggal-tanggal ini HARI LIBUR bagi orangnya? — dipakai layar lain
+     * (mis. pemeriksaan chip DODO di LemburDodo) supaya tak ada yang menyalin
+     * definisi "libur" ke tempat kedua.
+     *
+     * Definisi itu tidak sesederhana "akhir pekan": ia menyangkut aturan kerja
+     * mingguan orangnya, kalender libur (`att_work_rule_exception`), DAN cabang
+     * tempat dia BERTUGAS hari itu — libur per-cabang artinya "klinik itu
+     * tutup", jadi yang menentukan cabang bertugas, bukan cabang asal. Salinan
+     * yang lupa satu saja dari ketiganya akan berbohong dengan meyakinkan.
+     *
+     * Jawabannya SENGAJA tak ada (kunci tak diisi) untuk tanggal yang aturannya
+     * tak diketahui — lebih baik diam daripada menuduh berdasarkan tebakan.
+     *
+     * @param  array<int,array{0:string,1:string}>  $pasangan  [[userId, 'Y-m-d'], ...]
+     * @return array<string,bool>  "userId|Y-m-d" => libur?
+     */
+    public function liburUntuk(array $pasangan): array
+    {
+        if (! $pasangan) return [];
+
+        [$rules, $ruleDays] = $this->loadRules();
+        $exceptions = $this->loadExceptions();
+
+        $userIds = array_values(array_unique(array_map(fn ($p) => $p[0], $pasangan)));
+
+        $userRules = DB::table('att_user_rule')
+            ->whereIn('user_id', $userIds)
+            ->get()
+            ->groupBy('user_id')
+            ->map(fn ($rows) => $rows->sortByDesc('effective_from')->values()->all());
+
+        $home    = DB::table('users')->whereIn('id', $userIds)->pluck('raw_branch_id', 'id')->all();
+        $rolling = CabangBertugas::muat(count($userIds) === 1 ? $userIds[0] : null);
+
+        $hasil = [];
+        foreach ($pasangan as [$uid, $tgl]) {
+            $d    = Carbon::parse($tgl)->startOfDay();
+            $rule = $this->resolveRule($userRules[$uid] ?? [], $d, $rules);
+            if (! $rule) continue;                     // tanpa aturan → tak bisa dijawab
+
+            $cabangKerja = CabangBertugas::pada($rolling[$uid] ?? [], $tgl, $home[$uid] ?? null);
+            [$libur] = $this->resolveDay($rule, $d, $cabangKerja, $ruleDays, $exceptions);
+
+            $hasil[$uid . '|' . $tgl] = (bool) $libur;
+        }
+
+        return $hasil;
+    }
+
     private function resolveRule(array $urs, Carbon $date, array $rules)
     {
         foreach ($urs as $ur) {   // sudah diurut effective_from DESC
