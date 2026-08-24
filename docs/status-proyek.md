@@ -22,6 +22,14 @@
 > Kalau tanggal ini sudah jauh lewat,
 > minta chat teknis menyegarkan file ini sebelum dipakai mengambil keputusan.
 >
+> ⚠️ **Sisipan 2026-08-24** — **DODO naik prod** (`2ef8a35`): lembur di hari
+> libur kini terpisah dari lembur biasa di Lembar Gaji & Kehadiran. **Dua
+> bayar-salah ditutup**: lembur kembar Afrina (115 menit dibayar 230) dan chip
+> salah Ekky (masih pending, dibetulkan). **10 IPv4 WiFi didaftarkan** di 5
+> cabang — kegagalan cocok 21 hari turun 158 → 128 tertolong. Dua utang
+> disiapkan jadi chat build: **§M pagar lembur** & **§N belajar-sendiri IPv4**.
+> ⛔ Konsultan + Alur Persetujuan masih menahan (kodenya belum di-commit).
+>
 > ⚠️ **Sisipan 2026-08-22 malam** — **DUA GERBONG NAIK PROD** (`722d164`):
 > (1) **libur cabang ikut cabang BERTUGAS** — Verini dkk tak lagi salah dinilai,
 > hanya `libur` yang bergerak 57→68, nol alpa baru; (2) **Branding GP** kerjaan

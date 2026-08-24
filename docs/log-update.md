@@ -7,6 +7,109 @@
 
 ---
 
+## 2026-08-24 dini hari — DODO NAIK PROD · sapu IPv4 lima cabang · dua bayar-salah ditutup
+
+Malam panjang: satu fitur naik prod, satu lubang jaringan disapu di kelima
+cabang, dan **dua kesalahan bayar ditemukan lalu ditutup** — dua-duanya
+ketahuan bukan dari laporan orang, tapi karena datanya diperiksa.
+
+### DODO naik prod — `2ef8a35`
+
+Lembur di **hari libur** tarifnya beda, jadi Finance harus bisa melihatnya
+terpisah. Diaudit dulu sebelum naik, statis **dan** hidup di dev.
+
+**Yang membuat kodenya layak dipercaya:**
+- `AttendanceReconciler` **penambahan MURNI** (`liburUntuk()`), **nol baris lama
+  diubah** — bentuk teraman untuk kode yang menghitung gaji.
+- Memakai `CabangBertugas` (naik 22 Agu), **tidak** menyalin ulang definisi
+  "libur" yang menyangkut aturan mingguan + kalender + cabang bertugas.
+- **`biasa = total − dodo`** ditulis sebagai PENGURANGAN + clamp `min()`, jadi
+  `biasa + dodo` **selalu** sama persis dengan angka lama. Kalau suatu hari tak
+  sama, itu tanda bocor — bukan pembulatan.
+- **Kolom CSV diganti nama, bukan disisipi** (`Lembur (jam)` → `Lembur Biasa
+  (jam)` + `DODO (jam)`). Kalau namanya dibiarkan sama sementara isinya
+  mengecil, spreadsheet Finance lama akan diam-diam memakai angka yang salah.
+  Perubahan yang berisik jauh lebih aman daripada yang sopan.
+
+**Verifikasi prod (6/6)**: invarian pegang di **31 pasangan orang-bulan** ·
+Agustus total **22.699** = biasa **22.464** + DODO **235** menit ·
+`chipMencurigakan` **0 temuan, 4 ms** · Lembar Gaji & Kehadiran render.
+Nol SQL, nol rsync. Merge nol konflik.
+
+### ⚠️ Bayar-salah #1 — lembur kembar Afrina, 115 menit dibayar 230
+
+Ketemu saat mengaudit DODO; **bukan bug DODO** — fiturnya cuma membuatnya
+kelihatan. req#30 & req#31: jam sama (19:15–21:10), alasan sama kata per kata,
+115 menit masing-masing, dibuat **berselang 116 detik**, dua-duanya di-ACC
+Anisa berselang 8 menit. Reconciler menjumlahkan keduanya → **230 menit untuk
+sesi 115 menit.**
+
+Ditutup: req#31 di-`rejected` (**bukan dihapus** — jejaknya dijaga) + baris
+`att_request_approval` berisi alasannya, lalu `att:reconcile 2026-08-10`.
+**230 → 115.** Prod kini **nol kasus kembar**. Pagarnya belum ada → §M.
+
+### ⚠️ Bayar-salah #2 — chip salah, dan yang pertama tertangkap justru Ekky
+
+`req#172` milik Ekky: 23 Agu (**Minggu**), 660 menit, chip `jam` (lembur
+biasa). Aturannya `Fleksibel Kantor` yang libur **Minggu & Senin** → itu DODO
+yang akan dibayar tarif biasa. Masih `pending_l1`, jadi belum ada uang bergerak;
+chip dibetulkan jadi `tambah_hari` dengan jejak di `att_rule_log`.
+
+**Dan celahnya justru terbuka di situ**: `chipMencurigakan()` menyaring
+`status='approved'`, jadi peringatannya datang **sesudah** keputusan diambil.
+Dijalankan dengan menyertakan `pending_l1`, ia langsung menangkap satu lagi:
+**Melani Safrida req#162**, 22 Agu (**Sabtu** = hari kerja biasa baginya),
+chip `tambah_hari`, 129 menit — arah sebaliknya. **Sengaja dibiarkan**,
+menunggu Ekky mengonfirmasi ke Nissa. → §M.
+
+### WiFi: lubang IPv4 di kelima cabang
+
+Ekky di Kalideres, minta WiFi-nya dicek. IPv6-nya sudah beres sejak /48. Yang
+ketemu: **Kalideres tak pernah punya satu pun IPv4 terdaftar** → 13 absen dalam
+3 minggu harus **pilih cabang manual**. Cinere juga nol.
+
+`WifiBelajarSendiri` **sengaja melewati IPv4** (asumsi "IPv4 cabang bertahan",
+cukup didaftarkan manual sekali). Yang tak diantisipasi: sebuah cabang bisa tak
+pernah kebagian pendaftaran manual itu.
+
+Disapu dengan pagar bukti: **≥2 orang berbeda, pilihan cabang konsisten, tak
+pernah dipakai cabang lain**. Dari 39 kandidat: **10 didaftarkan, 31 ditolak**
+(mayoritas 1 orang — ambangnya bekerja). Putar ulang 21 hari:
+**158 kegagalan → 128 kini cocok & benar.** Uji 16/16: kesepuluh cocok, dan
+**tetangga oktet +1 tetap ditolak** — IPv4 tetap cocok-penuh, nol pelebaran.
+
+⚠️ **RALAT yang perlu diingat**: aku sempat menyimpulkan absen ber-IPv4 itu
+"orang pakai data seluler". **Ekky bertanya langsung ke Cici — dia memakai WiFi
+klinik**, dan datanya membenarkan Cici: `36.77.252.85` dipakai **4 orang
+berbeda** dalam 5 hari, semuanya memilih Kalideres. Satu alamat dipakai banyak
+orang = jaringan bersama. Pengulangan pelajaran peta WiFi Bintaro: **jangan
+tebak identitas jaringan dari bentuk alamatnya.**
+
+**Jangan lebarkan IPv4 ke /24** — bukan cuma berisiko, tak akan menolong:
+alamat satu cabang melompat antar blok tak berkerabat. → §N.
+
+### Utang yang disiapkan jadi dua chat build
+
+| | Isi | Rencana |
+|---|---|---|
+| **§M** | pagar lembur kembar + peringatan chip di titik keputusan | `rencana-pagar-lembur.md` |
+| **§N** | belajar-sendiri IPv4 (cocok-penuh, nol pelebaran) | `rencana-wifi-ipv4-belajar.md` |
+
+Urutan nilainya: **pagar kembar dulu** — itu satu-satunya yang sudah
+benar-benar menyebabkan bayar dobel.
+
+### Terjadwal & tertahan
+
+**Malam ini**: Ramdan pindah PENUH Kalideres → Bintaro, lalu Fajri jadi
+Koordinator GS — urutan Ramdan-dulu supaya Bintaro tak pernah kosong pengisi.
+Ramdan libur Selasa 25; Pamulang sengaja kosong GS.
+
+⛔ **Konsultan + Alur Persetujuan masih MENAHAN** — kodenya belum di-commit dan
+tak bisa dipisah (`AttendanceRequestWorkflow` kini bergantung pada
+`AlurPersetujuanService`). Chat pemiliknya yang harus commit.
+
+---
+
 ## 2026-08-22 malam — DUA GERBONG NAIK PROD + celah 5 Agustus ditutup
 
 Jendela sepi terverifikasi sebelum menyentuh apa pun: **nol user aktif dalam 30
