@@ -109,11 +109,17 @@ class AttendanceHpAbsen
         });
 
         // ── WiFi belajar sendiri ─────────────────────────────────────────────
-        // Prefix IPv6 IndiHome berputar mingguan; tiap rotasi seisi cabang
-        // ke-flag sampai ada manusia yang mendaftarkan nomor barunya. Kalau
-        // orang ini ternyata yang KETIGA memakai jaringan tak dikenal yang sama,
-        // jaringannya didaftarkan sekarang juga — supaya rekan yang datang
-        // sesudahnya langsung cocok dan tak ikut ke-flag.
+        // Jaringan cabang berganti nomor tanpa memberi tahu siapa pun; tiap
+        // pergantian, seisi cabang ke-flag sampai ada manusia yang mendaftarkan
+        // nomor barunya. Kalau orang ini ternyata melengkapi ambang saksi untuk
+        // jaringan tak dikenal yang sama, jaringannya didaftarkan sekarang juga
+        // — supaya rekan yang datang sesudahnya langsung cocok dan tak ke-flag.
+        //
+        // ⚠️ JANGAN menuliskan ambangnya atau keluarga alamatnya di sini.
+        // Komentar ini pernah berbunyi "yang KETIGA" berbulan-bulan sesudah
+        // ambangnya turun jadi dua, dan bilang "prefix IPv6" sesudah IPv4 ikut
+        // masuk (27 Agu 2026). Angkanya milik WifiBelajarSendiri::AMBANG_ORANG,
+        // keluarga alamat yang dilayani milik nilai(). Baca di sana.
         //
         // SESUDAH transaksi absen ditutup, bukan di dalamnya. Sebabnya:
         // pelajari() sengaja menelan galat supaya absen tak pernah gagal karena
@@ -124,9 +130,10 @@ class AttendanceHpAbsen
         // terburuknya cuma "jaringan belum dipelajari", dan itu memang boleh.
         //
         // Bukti orang ini sudah ter-commit, jadi dia tetap ikut dihitung sebagai
-        // orang ketiga. $match TIDAK dihitung ulang: yang bersangkutan tetap
-        // ke-flag. Tiga orang pertama memang menanggung flag; itu harga bukti
-        // yang mereka kumpulkan, dan gampang ditutup borongan di Pengawasan.
+        // saksi yang melengkapi ambang. $match TIDAK dihitung ulang: yang
+        // bersangkutan tetap ke-flag. Para saksi pertama memang menanggung flag;
+        // itu harga bukti yang mereka kumpulkan, dan gampang ditutup borongan
+        // di Pengawasan.
         if (! $match && $branchManual) {
             $result['belajar'] = (new WifiBelajarSendiri())->pelajari($ip, $branchManual, $now);
         }

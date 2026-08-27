@@ -69,7 +69,7 @@ tersisa cuma risikonya** — K6 yang harus merah duluan.
 
 ### Uji terima §7 rencana — 12 poin, semuanya hijau
 
-`att:wifi-uji` **15 → 21 kasus, 21/21 hijau di dev.**
+`att:wifi-uji` **15 → 22 kasus, 22/22 hijau di dev.**
 
 ⚠️ **K6 BERUBAH ARTI.** Dulu harapannya *"IPv4/CGNAT TIDAK PERNAH daftar"* —
 ditulis sebagai pengerasan sadar. Sekarang kasus itu justru mengunci hal yang
@@ -165,6 +165,30 @@ barisnya **tak akan pernah cocok DAN tak bisa didaftarkan ulang** (UNIQUE(ip)
 menolak kembarannya) — macet tanpa gejala. Kini dibakukan di **tiga** tempat:
 `matchBranch()`, jalur belajar, dan **kedua pintu pendaftaran manual**
 (`AbsensiBranchIpController::store()` + `PengawasanController::daftarkanIp()`).
+
+### Audit pra-prod — dua temuan, keduanya ditutup
+
+Diminta sebelum naik prod. Selain 22 kasus, dijalankan pemeriksa terpisah untuk
+jalur yang tak disentuh kasus mana pun (masukan aneh, kedua pintu pendaftaran
+lewat HTTP, render Pengawasan & WiFi Cabang) — semua di dalam transaksi yang
+dibatalkan.
+
+**⚠️ Bug: alamat DALAM bisa terdaftar otomatis.** `127.0.0.1`, `10.0.0.5`,
+`0.0.0.0` lolos sampai penghitungan saksi. Bahayanya baru kelihatan kalau
+dirangkai dengan risiko yang sudah lama tercatat: seandainya aplikasi berada di
+belakang proxy tanpa `TrustProxies`, `request()->ip()` berubah jadi **satu
+alamat yang sama untuk semua orang**. Dua orang cabang mana pun memenuhi ambang,
+alamat itu terdaftar, dan **seluruh absen lima cabang terbaca sebagai satu
+cabang** — sementara flag `ip_asing` berhenti berbunyi tepat saat dibutuhkan.
+Ditutup: menolak privat/loopback/link-local/cadangan + `100.64/10`. Menahan
+**mesin** saja — manusia tetap boleh mendaftarkannya, dan baris yang sudah ada
+dihormati. Dikunci **K22**.
+
+**⚠️ Inkonsistensi: dokumentasi membantah kodenya sendiri.** Docblock kelas masih
+membuka dengan "mendaftarkan prefix IPv6" + EMPAT SYARAT versi IPv6 walau IPv4
+sudah ikut; komentar di titik panggil masih menulis "yang KETIGA" padahal
+ambangnya 2 sejak 18 Agu. Keduanya diluruskan, dan kini membawa peringatan agar
+angka aturan tak diketik ulang di luar tempat asalnya.
 
 ### Catatan uji: K10 sempat merah — dan itu DATA DEV, bukan kode
 

@@ -129,7 +129,7 @@ dibatalkan — pola yang sama dengan perbaikan /48 (21 Agu) dan libur-cabang
 
 ## 9. Hasil uji terima — DEV LULUS 2026-08-27
 
-`att:wifi-uji` **15 → 21 kasus, 21/21 hijau**. Halaman WiFi Cabang dirender
+`att:wifi-uji` **15 → 22 kasus, 22/22 hijau**. Halaman WiFi Cabang dirender
 sungguhan (bukan cuma `php -l`). Nol SQL, nol `public/assets/**`.
 
 | # | Yang diuji | Hasil | Buktinya |
@@ -143,6 +143,7 @@ sungguhan (bukan cuma `php -l`). Nol SQL, nol `public/assets/**`.
 | 7 | `::ffff:` menyamar | ✅ | K20 — jalur IPv4, dua bentuk jadi SATU baris |
 | 8 | IPv6 tak berubah | ✅ | K1–K5, K7–K13 hijau tanpa diubah |
 | 9 | 15 kasus lama tetap hijau | ✅ | K6 **berubah arti** (lihat bawah); K10 diperbaiki karena data dev |
+| + | Pagar alamat-dalam (temuan audit) | ✅ | K22 — `10.x`/`127.0.0.1`/`100.64/10` tak bisa terdaftar otomatis |
 | 10 | Putar ulang absen prod | ✅ | 130 tertolong · **0 hilang** · **0 pindah** |
 | 11 | /48 baru sama sekali | ✅ | K7 — TAWARKAN, bukan daftar diam-diam |
 | 12 | /64 se-/48 tanpa tinjauan | ✅ | K21 + render halaman: 1 disorot dari 11 |
@@ -197,6 +198,53 @@ kosong, jadi syarat "cabang asal sama" tak bisa diperiksa).
 Alternatif ini sudah pernah dicatat waktu ambang diturunkan 3→2 dan belum
 pernah ditolak — tapi ia melonggarkan satu-satunya pagar struktural yang dimiliki
 jalur IPv4, jadi keputusannya milik Ekky, bukan milik chat build.
+
+### Audit pra-prod 27 Agu — dua temuan, keduanya ditutup
+
+Diminta Ekky sebelum naik prod: uji ulang di dev + audit bug & inkonsistensi.
+Selain 22 kasus, dijalankan pemeriksa terpisah untuk jalur yang TIDAK disentuh
+kasus mana pun — masukan aneh ke `nilai()` & `perluTinjau()`, kedua pintu
+pendaftaran lewat HTTP, `matchBranch` untuk dua bentuk tulisan, dan render
+halaman Pengawasan + WiFi Cabang. Semua di dalam transaksi yang dibatalkan.
+
+**⚠️ TEMUAN 1 (bug, ditutup) — alamat DALAM bisa terdaftar otomatis.**
+`127.0.0.1`, `10.0.0.5`, `0.0.0.0` semuanya lolos sampai ke penghitungan saksi.
+Konsekuensinya baru kelihatan kalau dirangkai: seandainya aplikasi suatu saat
+berada di belakang proxy yang `TrustProxies`-nya belum dipasang — risiko yang
+sudah tercatat sejak audit absen-HP — maka `request()->ip()` berhenti menjadi
+alamat karyawan dan berubah jadi **satu alamat yang sama untuk semua orang**,
+sering `10.x`. Dua orang cabang mana pun langsung memenuhi ambang, alamat itu
+terdaftar, lalu **seluruh absen di lima cabang terbaca sebagai satu cabang** —
+sementara flag `ip_asing` berhenti berbunyi justru saat ia paling dibutuhkan.
+
+Ditutup dengan pagar `ipv4Publik()`: menolak privat, loopback, link-local,
+ruang cadangan, dan `100.64/10` (CGNAT bersama RFC 6598, tak terjaring filter
+bawaan PHP). **Ini bukan menebak identitas dari bentuk alamat** — §5 melarang
+itu dan benar; ini fakta struktural: alamat-dalam tak bisa menjadi alamat
+internet publik sebuah cabang. Pagar hanya menahan **mesin**; manusia tetap
+boleh mendaftarkannya manual, dan baris yang sudah ada tetap dihormati
+(`nilai()` menjawab `sudah_cocok`, bukan menimpanya). Jalur IPv6 tak
+membutuhkannya: ULA & link-local tak akan sekerabat /48 dengan blok cabang.
+Dikunci **K22**.
+
+**⚠️ TEMUAN 2 (inkonsistensi, ditutup) — dokumentasi membantah kodenya sendiri.**
+Dua tempat:
+- Docblock kelas `WifiBelajarSendiri` masih membuka dengan *"mendaftarkan prefix
+  IPv6"* + "EMPAT SYARAT" versi IPv6, padahal 20 baris di bawahnya menyatakan
+  IPv4 ikut. Pembaca yang berhenti di atas menyimpulkan hal yang salah — persis
+  asal-usul lubang ini.
+- Komentar di titik panggil (`AttendanceHpAbsen`) menulis *"yang KETIGA"*
+  (ambangnya 2 sejak 18 Agu) dan *"prefix IPv6 berputar mingguan"*.
+
+Keduanya diluruskan, dan masing-masing kini membawa peringatan agar angka
+aturan & keluarga alamat **tidak diketik ulang** di luar tempat asalnya —
+pelajaran yang sama dengan "3 orang" yang bertahan di layar berbulan-bulan.
+
+Sisanya hijau: 10 masukan aneh ke `nilai()` tak ada yang melempar dan tak ada
+yang bervonis DAFTAR · kedua pintu pendaftaran membakukan `::ffff:` dan menolak
+bentuk kembarannya sebagai duplikat · `matchBranch` menjawab sama untuk kedua
+bentuk dan tetap menolak tetangga · Pengawasan & WiFi Cabang render dengan baris
+IPv4 otomatis terpasang · jumlah baris disorot sama dengan angka banner.
 
 ### Catatan: K10 sempat merah karena DATA DEV
 
