@@ -21,8 +21,20 @@ use Illuminate\Support\Facades\DB;
  */
 class RopService
 {
-    /** Role yang meng-ACC. Notifikasi pengajuan baru dikirim ke sini. */
-    public const ROLE_PENYETUJU = 'Finance';
+    /**
+     * Role yang meng-ACC. Notifikasi pengajuan baru dikirim ke sini.
+     *
+     * DAFTAR sejak 2026-08-21 (dulu satu teks). `Konsultan Finance` ikut karena
+     * keputusan Ekky: konsultan = bidangnya UTUH, dan menyetujui ROP itu memang
+     * tugas Finance — bukan wewenang tambahan. Larangan "konsultan tak boleh
+     * ACC" berlaku untuk PENGAJUAN ORANG (cuti/lembur/izin), dan itu ditegakkan
+     * di tempat lain: nol baris di att_approval_rule.
+     *
+     * AdminNotification::notifyRole() menerima SATU nama role dan mencocokkannya
+     * dengan session('group_name'), jadi pemanggilnya harus mengulang per nama —
+     * bukan mengoper array. Lihat pemakaiannya di bawah dan di RopSapu.
+     */
+    public const ROLE_PENYETUJU = ['Finance', 'Konsultan Finance'];
 
     /**
      * Role yang boleh membuka layar antrian Finance, di luar admin lintas-cabang
@@ -34,10 +46,10 @@ class RopService
      * PERSEMPIT JUGA grant di SQL itu: menu yang tampil tapi berujung 403
      * adalah kegagalan senyap, persis yang diburu detektor Pusat Akun.
      */
-    public const ROLE_ANTRIAN = ['Head IT', 'IT'];
+    public const ROLE_ANTRIAN = ['Head IT', 'IT', 'Konsultan IT'];
 
     /** Rekap boleh dibaca Executive juga (rencana §9) — hanya membaca. */
-    public const ROLE_REKAP = ['Head IT', 'IT', 'Executive'];
+    public const ROLE_REKAP = ['Head IT', 'IT', 'Executive', 'Konsultan IT'];
 
     /** Pengajuan diam selama ini (hari) → dikadaluarsakan otomatis. */
     public const HARI_KADALUARSA = 30;
@@ -195,13 +207,15 @@ class RopService
             $this->catat($rop, null, RopRequest::STATUS_DIAJUKAN, $requesterId,
                 $rop->resubmit_of ? 'Pengajuan ulang dari #' . $rop->asal?->number : null);
 
-            AdminNotification::notifyRole(
-                self::ROLE_PENYETUJU,
-                'rop_baru',
-                'Pengajuan baru: ' . $rop->number,
-                $this->ringkasan($rop) . ' — dari ' . ($rop->requester?->nama ?: 'pengaju'),
-                url('finance/rop'),
-            );
+            foreach (self::ROLE_PENYETUJU as $role) {
+                AdminNotification::notifyRole(
+                    $role,
+                    'rop_baru',
+                    'Pengajuan baru: ' . $rop->number,
+                    $this->ringkasan($rop) . ' — dari ' . ($rop->requester?->nama ?: 'pengaju'),
+                    url('finance/rop'),
+                );
+            }
 
             return $rop;
         });

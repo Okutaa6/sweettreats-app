@@ -24,8 +24,12 @@ use Illuminate\Support\Facades\DB;
  */
 class LembarGajiController extends Controller
 {
-    /** Samakan dgn grant SQL + halaman Cuti: Finance pemilik, IT akses penuh. */
-    private const BOLEH = ['Finance', 'Head IT', 'IT', 'Super Admin', 'Admin General', 'Admin Backup', 'Admin'];
+    /**
+     * Samakan dgn grant SQL + halaman Cuti: Finance pemilik, IT akses penuh.
+     * Konsultan Finance/IT ikut — menunya kloningan role induk (2026-08-21).
+     */
+    private const BOLEH = ['Finance', 'Head IT', 'IT', 'Konsultan Finance', 'Konsultan IT',
+        'Super Admin', 'Admin General', 'Admin Backup', 'Admin'];
 
     private function guard(): void
     {

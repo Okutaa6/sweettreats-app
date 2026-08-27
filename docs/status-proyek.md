@@ -85,6 +85,30 @@
 > Ramdan libur Selasa 25, Pamulang sengaja kosong GS. ⛔ **Konsultan + Alur
 > Persetujuan MENAHAN** — kodenya belum di-commit dan tak bisa dipisah.
 >
+> ⚠️ **Sisipan 2026-08-22a** — **Role Konsultan + restrukturisasi Supervisor
+> JADI di dev (23/23 uji lulus), prod belum.** Tiga role per bidang (`Konsultan
+> Finance`/`Marketing`/`IT`) + role struktural baru **`Koordinator GS`** untuk
+> Alpajri. Bagan pindah: Coordinator Dentist & Koordinator GS di bawah
+> Supervisor, General Services di bawah Koordinator GS. Wewenang ACC ikut
+> dipindah di `att_approval_rule` (bukan cuma bagan): Asdent → **Irma saja**,
+> GS → **Fajri + Anisa**, Irma → **Anisa** (bukan lagi Dani). Konsultan **nol
+> baris dua arah** — tak meng-ACC, tak mengajukan.
+> **Tiga temuan:** (1) `isFinance()` itu MEMBATASI bukan memberi — tanpa
+> mendaftarkan Konsultan Finance di situ ia malah boleh **mengedit petty cash**,
+> kuasa yang Finance sendiri tak punya; (2) memindahkan Fajri **menutup baris
+> posisinya** lewat `syncFromUser()`, bukan sekadar menyembunyikan divisi —
+> `sys_checklist_division.group_id` ada tapi **tak pernah dibaca**; absensinya
+> aman karena cabang efektif jatuh balik ke `users.raw_branch_id`; (3) **id node
+> menu berbeda antar lingkungan**, jadi SQL-nya mengkloning dengan membaca role
+> induk, bukan daftar id.
+> **Keputusan Ekky:** Fajri jadi **peninjau** checklist GS (bukan pengisi);
+> Konsultan IT dapat menu Head IT **dikurangi lima alat keamanan** (User, Role,
+> Akses, Setting, WiFi Cabang) — Kesehatan tetap.
+> ⚠️ **Perubahan kodenya masih UNSTAGED** dan bercampur pekerjaan chat lain di
+> working copy bersama; sengaja tak di-commit. Uji #1/#2/#4 (login & nol 403)
+> baru diaudit statis, belum diuji hidup. Rincian: `log-update.md` entri 22 Agu a.
+>
+>
 > ✅ **Sisipan 2026-08-21d** — **Libur cabang: SUDAH DIBANGUN, lulus 11/11 di
 > dev**, branch `fix/libur-cabang-bertugas` (`9da2d5d`). **PROD BELUM** —
 > menunggu izin Ekky; tenggat Selasa 25 Agu. Naik prod = deploy PENUH (ada

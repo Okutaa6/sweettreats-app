@@ -158,6 +158,7 @@ class AttendanceRequestWorkflow
     public function submit(AttRequest $req): AttRequest
     {
         $this->pastikanJenisTerdaftar((string) $req->tipe);
+        $this->pastikanBolehMengajukan($req->user_id);
 
         $levels = $this->chainFor($req->user_id, $req->tipe);
         if (!$levels) {
@@ -183,6 +184,10 @@ class AttendanceRequestWorkflow
         if ($idx === null) {
             throw new \RuntimeException("Form tidak dalam tahap approval (status {$req->status}).");
         }
+        if (isPengamat($this->roleOf($approverUserId))) {
+            throw new \RuntimeException('Jabatan ini tidak menyetujui pengajuan cuti, lembur, atau izin.');
+        }
+
         $levels = $this->chainFor($req->user_id, $req->tipe);
         $current = $levels[$idx] ?? [];
         if (!in_array($approverUserId, $current, true)) {
@@ -389,6 +394,12 @@ class AttendanceRequestWorkflow
     }
 
     // ── internal ──
+
+    private function pastikanBolehMengajukan(string $userId): void
+    {
+        if (! isPengamat($this->roleOf($userId))) return;
+        throw new \RuntimeException('Jabatan ini tidak mengajukan cuti, lembur, atau izin lewat sistem ini.');
+    }
 
     /** Role (group_path.id) pengaju. Null kalau user tak ada. */
     private function roleOf(string $userId): ?string
