@@ -33,6 +33,9 @@ class RawCustomer extends Model
         'pasien_baru_lama',
         'raw_promo_id',
         'catatan',
+        'lead_status',
+        'lead_followed_up_at',
+        'lead_followed_up_by',
     ];
 
     public $incrementing = false;
@@ -40,7 +43,19 @@ class RawCustomer extends Model
     protected $keyType = 'string';
 
     protected $casts = [
-        'social_media' => 'array',
+        'social_media'        => 'array',
+        'lead_followed_up_at' => 'datetime',
+    ];
+
+    /** Lead dari form publik "Pasien Baru" (source_app='pasien_baru'). */
+    const SOURCE_PASIEN_BARU = 'pasien_baru';
+
+    /** @var array<string,string> Label status lead untuk tampilan. */
+    const LEAD_STATUSES = [
+        'baru'        => 'Baru',
+        'dihubungi'   => 'Sudah dihubungi',
+        'dijadwalkan' => 'Dijadwalkan',
+        'batal'       => 'Batal',
     ];
 
     /**

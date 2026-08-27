@@ -27,9 +27,26 @@
                                     <td width="20%" style="font-weight:600;">Nama Cabang</td>
                                     <td>
                                         <input class="form-control {{ $errors->has('name') ? 'is-invalid' : '' }}"
-                                            type="text" name="name" value="{{ old('name') }}" />
+                                            type="text" name="name" id="branchName" value="{{ old('name') }}" />
                                         @if ($errors->has('name'))
                                             <div class="invalid-feedback">{{ $errors->first('name') }}</div>
+                                        @endif
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="font-weight:600;">Slug URL</td>
+                                    <td>
+                                        <div class="input-group">
+                                            <div class="input-group-prepend">
+                                                <span class="input-group-text" style="font-size:12px;">{{ url('/pasien-baru') }}/</span>
+                                            </div>
+                                            <input class="form-control {{ $errors->has('slug') ? 'is-invalid' : '' }}"
+                                                type="text" name="slug" id="branchSlug" maxlength="120"
+                                                value="{{ old('slug') }}" placeholder="otomatis dari nama" />
+                                        </div>
+                                        <small class="text-muted">Dipakai untuk link form Pasien Baru cabang ini. Kosongkan untuk mengisi otomatis dari nama.</small>
+                                        @if ($errors->has('slug'))
+                                            <div class="text-danger" style="font-size:12px;">{{ $errors->first('slug') }}</div>
                                         @endif
                                     </td>
                                 </tr>
@@ -61,4 +78,25 @@
             </div>
         </div>
     </div>
+@endsection
+
+@section('js')
+<script>
+    // Isi slug otomatis dari nama SELAMA user belum mengetik slug sendiri.
+    (function () {
+        var name = document.getElementById('branchName');
+        var slug = document.getElementById('branchSlug');
+        if (!name || !slug) return;
+
+        var manual = slug.value.trim() !== '';
+        slug.addEventListener('input', function () { manual = true; });
+
+        name.addEventListener('input', function () {
+            if (manual) return;
+            slug.value = name.value.toString().toLowerCase()
+                .replace(/[^a-z0-9]+/g, '-')
+                .replace(/^-+|-+$/g, '');
+        });
+    })();
+</script>
 @endsection

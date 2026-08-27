@@ -30,10 +30,13 @@ class ReservationController extends Controller
         // disembunyikan. Super Admin / Admin General override → selalu full.
         $isViewOnly = isReservationViewOnly();
 
-        // Tab view: 'list' (default) | 'cal' | 'waitlist' | 'jadwal'. 'new' = filter chip, bukan tab terpisah.
+        // Tab view: 'list' (default) | 'cal' | 'waitlist' | 'pasienbaru' | 'jadwal'.
+        // 'new' = filter chip, bukan tab terpisah.
         $view = request('view', 'list');
-        // View-only tidak boleh akses tab waitlist (defensive — UI sudah hide).
-        if ($isViewOnly && $view === 'waitlist') {
+        // View-only tidak boleh akses tab waitlist & pasienbaru (defensive — UI
+        // sudah hide). Tab Pasien Baru memuat nomor HP + keluhan calon pasien,
+        // jadi role pemantau tidak diberi akses sama sekali.
+        if ($isViewOnly && in_array($view, ['waitlist', 'pasienbaru'], true)) {
             $view = 'list';
         }
 
@@ -327,8 +330,47 @@ class ReservationController extends Controller
             }
         }
 
+        // ── Tab "Pasien Baru" (lead dari form publik) ────────────────────────
+        // Query RawCustomer (BUKAN reservation): lead source_app='pasien_baru',
+        // belum 'batal', DAN belum punya reservasi. Begitu sales membuatkan
+        // reservasi, lead otomatis hilang dari tab (whereDoesntHave).
+        // Cabang: user yang terkunci cabang pakai session; Super Admin / Admin
+        // General ikut dropdown filter cabang seperti tab reservasi.
+        $leadBase = RawCustomer::query()
+            ->where('source_app', RawCustomer::SOURCE_PASIEN_BARU)
+            ->where(function ($q) {
+                $q->whereNull('lead_status')->orWhere('lead_status', '!=', 'batal');
+            })
+            ->whereDoesntHave('reservations')
+            ->when($sessionBranch, fn ($q) => $q->where('raw_branch_id', $sessionBranch))
+            ->when(! $sessionBranch && $filterBranch, fn ($q) => $q->where('raw_branch_id', $filterBranch));
+
+        // Badge dihitung SEBELUM filter pencarian ditempel, supaya angkanya
+        // tidak ikut berubah saat user mengetik di kolom cari pada tab lain.
+        $pasienBaruCount = $isViewOnly ? 0 : (clone $leadBase)->count();
+
+        $leads = $view === 'pasienbaru'
+            ? $leadBase->with('branch')
+                ->when($filterSearch, function ($q) use ($filterSearch) {
+                    $q->where(function ($qq) use ($filterSearch) {
+                        $qq->where('name', 'like', "%{$filterSearch}%")
+                           ->orWhere('phone', 'like', "%{$filterSearch}%");
+                    });
+                })
+                ->orderByDesc('tanggal_daftar')
+                // Belum pernah di-follow-up (NULL) naik ke atas dalam hari yang
+                // sama; tie-break `id` supaya pagination stabil.
+                ->orderByRaw('lead_followed_up_at IS NULL DESC')
+                ->orderByDesc('lead_followed_up_at')
+                ->orderBy('id')
+                ->paginate($perPage)
+                ->withQueryString()
+            : null;
+
         return view('crud.reservation.list', compact(
             'reservations',
+            'leads',
+            'pasienBaruCount',
             'filterSearch',
             'filterBranch',
             'filterDoctor',
@@ -548,6 +590,30 @@ class ReservationController extends Controller
             }
         }
 
+        // ── Bridge dari kartu Lead "Pasien Baru" ──
+        // Dipanggil ?lead_id=X dari tab Pasien Baru → pre-fill pasien + cabang
+        // + keluhan (catatan) ke form reservasi. Pasien sudah tersimpan sejak
+        // submit form publik, jadi cukup pre-select. Idempotent via flashInput/old().
+        if (($leadId = request('lead_id')) && ! request()->session()->has('_old_input')) {
+            $lead = RawCustomer::where('id', $leadId)
+                ->where('source_app', RawCustomer::SOURCE_PASIEN_BARU)
+                ->first();
+            if ($lead) {
+                session()->flashInput([
+                    'raw_customer_id' => $lead->id,
+                    'raw_branch_id'   => $lead->raw_branch_id,
+                    'keterangan'      => $lead->catatan,
+                ]);
+                session()->flash('_lead_source', [
+                    'name'    => $lead->name,
+                    'phone'   => $lead->phone,
+                    'keluhan' => $lead->catatan,
+                ]);
+                $redirectParams = request()->boolean('drawer') ? ['drawer' => 1] : [];
+                return redirect()->route('rawreservation.new', $redirectParams);
+            }
+        }
+
         $sessionBranch = session('raw_branch_id');
 
         // Fallback Database
@@ -591,6 +657,12 @@ class ReservationController extends Controller
     public function storeQuickPatient()
     {
         $this->abortIfViewOnly();
+
+        // Normalisasi dulu baru validasi — sales sering menempel nomor dari
+        // WhatsApp dalam format "+62812…" / "0812-3456-7890"; regex di bawah
+        // hanya penjaga akhir. Sama persis dengan PasienBaruController::store().
+        request()->merge(['phone' => Phone::normalize(request('phone')) ?? request('phone')]);
+
         $data = request()->validate([
             'name'             => 'required|max:255',
             'phone'            => 'required|regex:/^0[0-9]{9,14}$/',
@@ -606,11 +678,11 @@ class ReservationController extends Controller
         ], [
             'name.required'  => 'Nama pasien wajib diisi.',
             'phone.required' => 'Nomor HP wajib diisi.',
-            'phone.regex'    => 'Nomor tidak valid (diawali 0, 10-15 digit).',
+            'phone.regex'    => 'Nomor HP tidak valid. Contoh: 081234567890.',
         ]);
 
         $sessionBranch = session('raw_branch_id');
-        $phone = Phone::normalize($data['phone']) ?: $data['phone'];
+        $phone = $data['phone'];
 
         $customer = \Illuminate\Support\Facades\DB::transaction(function () use ($data, $phone, $sessionBranch) {
             $contact = $this->resolveContact($phone, $data['name'], 'admin', 'admin');
@@ -645,6 +717,36 @@ class ReservationController extends Controller
                 . ($relLabel ? ' · ' . $relLabel : '')
                 . ' (' . $customer->phone . ')',
         ]);
+    }
+
+    /**
+     * PATCH /rawreservation/lead/{id}/status — ubah status follow-up lead
+     * "Pasien Baru" (baru → dihubungi / batal). Dipakai tombol di kartu tab.
+     */
+    public function updateLeadStatus($id)
+    {
+        $this->abortIfViewOnly();
+        $data = request()->validate([
+            'lead_status' => 'required|in:baru,dihubungi,dijadwalkan,batal',
+        ]);
+
+        // Scope cabang: user yang terkunci cabang tidak boleh mengubah status
+        // lead cabang lain walau tahu UUID-nya.
+        $lead = RawCustomer::where('id', $id)
+            ->where('source_app', RawCustomer::SOURCE_PASIEN_BARU)
+            ->when(session('raw_branch_id'), fn ($q, $b) => $q->where('raw_branch_id', $b))
+            ->firstOrFail();
+
+        $lead->update([
+            'lead_status'         => $data['lead_status'],
+            'lead_followed_up_at' => now(),
+            'lead_followed_up_by' => session('id'),
+        ]);
+
+        if ($this->wantsJsonResponse()) {
+            return response()->json(['ok' => true, 'lead_status' => $lead->lead_status]);
+        }
+        return back()->with('success', 'Status lead diperbarui.');
     }
 
     public function store()
@@ -707,6 +809,18 @@ class ReservationController extends Controller
             RawCustomer::where('id', request('raw_customer_id'))
                 ->whereNull('raw_branch_id')
                 ->update(['raw_branch_id' => request('raw_branch_id')]);
+
+            // Kalau pasien ini berasal dari lead "Pasien Baru" (form publik),
+            // tandai sudah DIJADWALKAN sebagai jejak follow-up. Tab Pasien Baru
+            // sendiri otomatis menyembunyikannya begitu punya reservasi
+            // (whereDoesntHave('reservations')), ini hanya untuk audit trail.
+            RawCustomer::where('id', request('raw_customer_id'))
+                ->where('source_app', RawCustomer::SOURCE_PASIEN_BARU)
+                ->update([
+                    'lead_status'         => 'dijadwalkan',
+                    'lead_followed_up_at' => now(),
+                    'lead_followed_up_by' => session('id'),
+                ]);
 
             // Insert layanan terpilih (sama logika dengan update()).
             $servicesInput = request('services', []);

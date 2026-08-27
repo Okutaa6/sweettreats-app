@@ -63,6 +63,30 @@
                 </div>
             @endif
 
+            {{-- Banner: form ini dipicu dari kartu lead tab "Pasien Baru" --}}
+            @if(session('_lead_source'))
+                @php $ldSource = session('_lead_source'); @endphp
+                <div class="st-alert st-alert--info" style="margin-bottom:14px;background:#FBE7CF;border-color:#D9B478;color:#4A2A12;">
+                    <i class="fa fa-user-plus st-alert__icon" style="color:#8A4B12;"></i>
+                    <div class="st-alert__body">
+                        <span style="color:#6B4628;font-weight:600;">Dari lead Cekat AI:</span>
+                        <strong style="color:#3A1F0C;">{{ $ldSource['name'] ?? '—' }}</strong>
+                        @if(!empty($ldSource['phone']))
+                            · <code style="font-size:0.9em;color:#5C2E15;background:#FFF6EA;padding:1px 6px;border-radius:5px;">{{ $ldSource['phone'] }}</code>
+                        @endif
+                        @if(!empty($ldSource['keluhan']))
+                            <div style="margin-top:7px;padding:9px 11px;background:#FFF6EA;border:1px solid #E5C896;border-radius:9px;font-size:0.92em;color:#3A1F0C;line-height:1.45;">
+                                <i class="fa fa-comment-medical" style="color:#A66019;"></i>
+                                <strong style="color:#8A4B12;">Keluhan:</strong> {{ $ldSource['keluhan'] }}
+                            </div>
+                        @endif
+                        <div style="font-size:0.82em;margin-top:6px;color:#7A5636;">
+                            Pasien &amp; cabang sudah ter-pilih otomatis. Setelah Simpan, lead hilang dari tab Pasien Cekat AI.
+                        </div>
+                    </div>
+                </div>
+            @endif
+
             <div class="rrf">
                 {{-- ── INFORMASI RESERVASI ── --}}
                 <section class="rrf-sec">

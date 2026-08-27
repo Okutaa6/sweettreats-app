@@ -95,6 +95,14 @@
                                 @endif
                             </a>
                             @if(!$isViewOnly)
+                                <a href="{{ route('rawreservation', array_merge(request()->except(['new', 'view']), ['view' => 'pasienbaru'])) }}" class="view-tab {{ request('view') === 'pasienbaru' ? 'active' : '' }}" title="Lead calon pasien baru dari Cekat AI yang perlu di-follow-up & dibuatkan jadwal">
+                                    <i class="fa fa-user-plus"></i> Pasien Cekat AI
+                                    @if(($pasienBaruCount ?? 0) > 0)
+                                        <span class="view-tab-badge">{{ $pasienBaruCount }}</span>
+                                    @endif
+                                </a>
+                            @endif
+                            @if(!$isViewOnly)
                                 <a href="{{ route('rawreservation', array_merge(request()->except(['new', 'view']), ['view' => 'waitlist'])) }}" class="view-tab {{ request('view') === 'waitlist' ? 'active' : '' }}">
                                     <i class="fa fa-hourglass-half"></i> Waiting List
                                     @if(($waitlistCount ?? 0) > 0)
@@ -377,6 +385,128 @@
                                 <i class="fa fa-check-circle"></i>
                                 <div class="rr-baru-empty__title">Tidak ada reservasi baru</div>
                                 <div class="rr-baru-empty__sub">Reservasi yang masuk dalam 6 jam terakhir akan muncul di sini.</div>
+                            </div>
+                        @endif
+                    @elseif(($view ?? 'list') === 'pasienbaru')
+                        {{-- ══════════════════════════════════════
+                             VIEW: PASIEN BARU (lead dari Cekat AI, form publik per cabang)
+                             Kartu lead RawCustomer (source_app='pasien_baru') yang belum
+                             punya reservasi. Tombol Follow-up WA + Tambah Reservasi
+                             (pre-fill pasien via ?lead_id=). Dropdown ubah status follow-up.
+                             Lead hilang otomatis begitu reservasi dibuat / di-set 'batal'.
+                        ══════════════════════════════════════ --}}
+                        <style>
+                            .rr-lead-badge { font-size: 0.68rem; font-weight: 800; padding: 3px 10px; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.4px; white-space: nowrap; }
+                            .rr-lead-badge--baru { background: #fdecea; color: #c0392b; }
+                            .rr-lead-badge--dihubungi { background: #fff4e0; color: #b26a00; }
+                            .rr-lead-badge--dijadwalkan { background: #e8f5e9; color: #2e7d32; }
+                            .rr-lead-badge--batal { background: #f0f0f0; color: #888; }
+                            /* Keluhan = info paling penting buat follow-up, jadi dikasih
+                               wrapper blok kuning + aksen kiri supaya kebaca duluan. */
+                            .rrb-card__complaint { font-size: 0.82rem; color: #5a3a20; margin-top: 10px; line-height: 1.5; background: #fff8e9; border: 1px solid rgba(178,106,0,0.18); border-left: 3px solid #b26a00; border-radius: 8px; padding: 8px 10px; }
+                            .rrb-card__complaint i { color: #b26a00; margin-right: 4px; }
+                            .rrb-card__label { font-weight: 700; color: #461500; }
+                            .rr-lead-statusbar { margin-top: 10px; display: flex; align-items: center; gap: 8px; }
+                            .rr-lead-statusbar label { font-size: 0.72rem; color: #8b7a6b; font-weight: 600; }
+                            .rr-lead-select { flex: 1; font-size: 0.8rem; padding: 6px 10px; border: 1px solid rgba(70,21,0,0.15); border-radius: 8px; background: #fffaf5; color: #461500; font-weight: 600; cursor: pointer; }
+                        </style>
+                        <div class="rr-baru-banner">
+                            <div class="rr-baru-banner__icon"><i class="fa fa-user-plus"></i></div>
+                            <div class="rr-baru-banner__text">
+                                <div class="rr-baru-banner__title"><strong>{{ $leads->total() }}</strong> calon pasien baru</div>
+                                <div class="rr-baru-banner__sub">Lead dari Cekat AI — follow-up via WhatsApp, lalu buatkan reservasinya</div>
+                            </div>
+                        </div>
+
+                        @if($leads->count())
+                            <div class="rr-baru-grid">
+                                @foreach ($leads as $lead)
+                                    @php
+                                        $lWa = \App\Support\Phone::toWa($lead->phone);
+                                        $lStatus = $lead->lead_status ?: 'baru';
+                                        $lStatusLabel = \App\Models\RawCustomer::LEAD_STATUSES[$lStatus] ?? 'Baru';
+                                        $lAge = $lead->tanggal_lahir ? \Carbon\Carbon::parse($lead->tanggal_lahir)->age . ' th' : null;
+                                        $lGender = $lead->jenis_kelamin === 'L' ? 'Laki-laki' : ($lead->jenis_kelamin === 'P' ? 'Perempuan' : null);
+                                        $lWaMsg = rawurlencode('Halo ' . ($lead->name ?? '') . ', kami dari Sweet Treats Dental'
+                                            . ($lead->branch?->name ? ' ' . $lead->branch->name : '')
+                                            . '. Terima kasih sudah mendaftar sebagai pasien baru 😊 Boleh kami bantu atur jadwal, dokter, dan perawatannya?');
+                                    @endphp
+                                    <div class="rrb-card">
+                                        <div class="rrb-card__head">
+                                            <div class="rrb-card__id">
+                                                <div class="rrb-card__name">{{ $lead->name ?? '—' }}</div>
+                                                @if($lWa)
+                                                    <a href="https://wa.me/{{ $lWa }}" target="_blank" rel="noopener" class="rrb-card__phone">
+                                                        <i class="fab fa-whatsapp"></i> {{ $lead->phone }}
+                                                    </a>
+                                                @elseif($lead->phone)
+                                                    <span class="rrb-card__phone" title="Nomor tidak valid, tidak bisa dibuka di WhatsApp">
+                                                        <i class="fa fa-exclamation-triangle"></i> {{ $lead->phone }}
+                                                    </span>
+                                                @endif
+                                            </div>
+                                            <span class="rr-lead-badge rr-lead-badge--{{ $lStatus }}">{{ $lStatusLabel }}</span>
+                                        </div>
+                                        <div class="rrb-card__chips">
+                                            @if($lGender)<span class="rrb-card__treat">{{ $lGender }}</span>@endif
+                                            @if($lAge)<span class="rrb-card__treat">{{ $lAge }}</span>@endif
+                                            <span class="rrb-card__treat">{{ $lead->branch?->name ?? '—' }}</span>
+                                        </div>
+                                        @if($lead->catatan)
+                                            <div class="rrb-card__complaint">
+                                                <i class="fa fa-comment-medical"></i>
+                                                <span class="rrb-card__label">Keluhan Pasien:</span>
+                                                {{ \Illuminate\Support\Str::limit($lead->catatan, 120) }}
+                                            </div>
+                                        @endif
+                                        <div class="rrb-card__meta">
+                                            <span class="rrb-card__label">Reservasi Masuk:</span>
+                                            {{ $lead->tanggal_daftar ? \Carbon\Carbon::parse($lead->tanggal_daftar)->translatedFormat('j F Y') : '—' }}
+                                        </div>
+                                        @if(!$isViewOnly)
+                                            <div class="rrb-card__actions">
+                                                @if($lWa)
+                                                    <a href="https://wa.me/{{ $lWa }}?text={{ $lWaMsg }}" target="_blank" rel="noopener" class="rrb-card__wa">
+                                                        <i class="fab fa-whatsapp"></i> Follow-up WA
+                                                    </a>
+                                                @endif
+                                                {{-- Buka Form Drawer (sama seperti tombol Tambah di toolbar) supaya
+                                                     staf tidak kehilangan konteks daftar lead. onclick INLINE: kalau
+                                                     mesin drawer belum siap (koneksi lambat), fallback ke halaman penuh. --}}
+                                                <a href="{{ route('rawreservation.new', ['lead_id' => $lead->id]) }}" class="rrb-card__confirm"
+                                                   onclick="if(window.rrOpenFormDrawer){window.rrOpenFormDrawer({title:'Tambah Reservasi',url:this.href,mode:'add'});return false;}">
+                                                    <i class="fa fa-calendar-plus"></i> Tambah Reservasi
+                                                </a>
+                                            </div>
+                                            <div class="rr-lead-statusbar">
+                                                <label>Status:</label>
+                                                <form method="POST" action="{{ route('rawreservation.lead.status', $lead->id) }}" style="flex:1;margin:0;">
+                                                    @csrf
+                                                    @method('PATCH')
+                                                    <select name="lead_status" class="rr-lead-select" onchange="this.form.submit()">
+                                                        {{-- 'dijadwalkan' di-set otomatis saat reservasi dibuat, jadi
+                                                             tidak boleh dipilih manual. Tetap dirender (disabled) saat
+                                                             lead memang berstatus itu, supaya cocok dengan badge. --}}
+                                                        @foreach(\App\Models\RawCustomer::LEAD_STATUSES as $k => $lbl)
+                                                            @if($k !== 'dijadwalkan' || $lStatus === 'dijadwalkan')
+                                                                <option value="{{ $k }}" {{ $lStatus === $k ? 'selected' : '' }} {{ $k === 'dijadwalkan' ? 'disabled' : '' }}>{{ $lbl }}</option>
+                                                            @endif
+                                                        @endforeach
+                                                    </select>
+                                                </form>
+                                            </div>
+                                        @endif
+                                    </div>
+                                @endforeach
+                            </div>
+                            @if($leads->hasPages())
+                                <div style="margin-top:16px;">{{ $leads->links() }}</div>
+                            @endif
+                        @else
+                            <div class="rr-baru-empty">
+                                <i class="fa fa-user-plus"></i>
+                                <div class="rr-baru-empty__title">Belum ada pasien baru</div>
+                                <div class="rr-baru-empty__sub">Lead dari Cekat AI (link form pasien baru per cabang) akan muncul di sini.</div>
                             </div>
                         @endif
                     @elseif(($view ?? 'list') === 'waitlist')
@@ -699,6 +829,10 @@
                         </table>
                         </div>
                     @endif
+                        {{-- Bar paginasi global milik $reservations. Tab "Pasien Baru"
+                             pakai paginator sendiri ($leads), jadi bar ini disembunyikan
+                             di sana supaya tidak muncul halaman yang tidak nyambung. --}}
+                        @if(($view ?? 'list') !== 'pasienbaru')
                         <div class="st-pagination-bar">
                             <div class="st-perpage">
                                 <span>Tampilkan</span>
@@ -711,6 +845,7 @@
                             </div>
                             <div>{{ $reservations->appends(request()->all())->links() }}</div>
                         </div>
+                        @endif
                     </div>
 
                     {{-- ══════════════════════════════════════
@@ -1696,10 +1831,12 @@ document.querySelectorAll('.st-status-select').forEach(function (sel) {
         });
     }
 
-    $(document).on('click', '.rrb-card__confirm', function () { confirmCard($(this)); });
+    // Selector sengaja dibatasi ke <button>: kartu lead di tab "Pasien Baru"
+    // memakai class yang sama pada <a> "Tambah Reservasi" (hanya untuk style).
+    $(document).on('click', 'button.rrb-card__confirm', function () { confirmCard($(this)); });
 
     $(document).on('click', '#rrBaruConfirmAll', function () {
-        var $btns = $('.rrb-card').not('.is-confirmed').find('.rrb-card__confirm');
+        var $btns = $('.rrb-card').not('.is-confirmed').find('button.rrb-card__confirm');
         if (!$btns.length) { alert('Semua reservasi baru sudah dikonfirmasi.'); return; }
         if (!confirm('Konfirmasi semua ' + $btns.length + ' reservasi baru?')) return;
         $btns.each(function () { confirmCard($(this)); });

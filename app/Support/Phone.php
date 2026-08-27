@@ -34,4 +34,17 @@ class Phone
 
         return preg_match('/^0[0-9]{9,14}$/', $digits) ? $digits : null;
     }
+
+    /**
+     * Format nomor ke bentuk internasional 62xxxx untuk tautan wa.me
+     * (mis. wa.me/62812xxxx). Null bila nomor tak valid.
+     */
+    public static function toWa(?string $raw): ?string
+    {
+        $norm = self::normalize($raw);
+        if ($norm === null) {
+            return null;
+        }
+        return '62' . ltrim($norm, '0');
+    }
 }
