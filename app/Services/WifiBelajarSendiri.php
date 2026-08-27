@@ -537,10 +537,10 @@ class WifiBelajarSendiri
         // berbeda: IPv6 dijamin kekerabatan /48 (jalur cabang yang sudah
         // dikenal), IPv4 cuma dijamin perilaku saksi. Yang kedua perlu mata
         // manusia; yang pertama tidak (§6 rencana).
+        $v4     = AttBranchIp::teksIpv4($prefix) !== null;
         $tinjau = static::perluTinjau($prefix, $branchDipilih, AttBranchIp::all());
-        $ekor   = $tinjau
-            ? ' · IPv4 cocok-penuh — PERLU DITINJAU'
-            : ' · /48 sekerabat — disahkan';
+        $dasar  = $v4 ? 'IPv4 cocok-penuh' : ($tinjau ? 'blok /48 baru' : '/48 sekerabat');
+        $ekor   = " · {$dasar}" . ($tinjau ? ' — PERLU DITINJAU' : ' — disahkan');
         $label = mb_substr(
             "Otomatis · {$hasil['n']} orang {$cabang} dalam " . self::JENDELA_JAM
             . " jam: {$depan}{$ekor}",
@@ -572,21 +572,26 @@ class WifiBelajarSendiri
         }
 
         // Beri tahu IT tiap kali ini terjadi (§3, sisa risiko yang diterima
-        // sadar): kafe/tetangga se-/48 yang didatangi >=3 staf bisa ikut
-        // terdaftar. Ongkosnya kecil, tapi harus ADA yang melihatnya.
+        // sadar): jaringan yang didatangi AMBANG_ORANG staf cabang yang sama —
+        // kafe se-/48, atau satu alamat CGNAT yang kebetulan dibagi — bisa ikut
+        // terdaftar. Ongkosnya kecil, tapi harus ADA yang melihatnya. Untuk
+        // IPv4 ini BUKAN sekadar kesopanan: notifikasi + label adalah SATU-
+        // SATUNYA pertahanan yang tersisa, karena tak ada pagar kekerabatan.
         //
         // Satu baris per role, BUKAN satu baris "IT" saja: notifikasi dikirim
         // ke target_role yang harus COCOK PERSIS dengan group_name pemakai, dan
         // halaman WiFi Cabang dipegang dua role terpisah — "Head IT" takkan
         // pernah melihat baris yang ditujukan ke "IT".
-        $penjamin = $tinjau
-            ? "Alamat IPv4 ini didaftarkan COCOK-PENUH (tetangganya tetap ditolak), dan tak ada "
-              . "kekerabatan blok yang menjaminnya — yang menjaminnya cuma perilaku: {$hasil['n']} orang "
-              . 'yang berbeda tak akan berbagi satu alamat kalau itu data seluler pribadi. '
-              . 'PERLU DITINJAU: kalau ini ternyata bukan jaringan cabang, nonaktifkan.'
+        $penjamin = $v4
+            ? 'Alamat IPv4 ini didaftarkan COCOK-PENUH — tetangganya yang cuma beda satu angka tetap '
+              . 'ditolak. Tak ada kekerabatan blok yang menjaminnya; yang menjaminnya cuma perilaku: '
+              . "{$hasil['n']} orang berbeda tak akan berbagi satu alamat kalau itu data seluler pribadi."
             : "Blok /48-nya sekerabat dengan jalur {$cabang} yang sudah terdaftar, jadi jaringan ini "
-              . 'praktis sudah dikenali dengan sendirinya. Tinjau di halaman WiFi Cabang — '
-              . 'nonaktifkan kalau ini bukan jaringan cabang.';
+              . 'praktis sudah dikenali dengan sendirinya.';
+
+        $ajakan = $tinjau
+            ? ' PERLU DITINJAU di halaman WiFi Cabang — nonaktifkan kalau ini bukan jaringan cabang.'
+            : ' Tinjau di halaman WiFi Cabang kalau sempat; nonaktifkan kalau ini bukan jaringan cabang.';
 
         foreach (self::ROLE_PENINJAU as $role) {
             AdminNotification::notifyRole($role, 'wifi_otomatis',
