@@ -136,6 +136,43 @@ class PagarLemburTest extends TestCase
             'Lembur pagi dan lembur malam di hari yang sama itu sah.');
     }
 
+    /**
+     * §3 #3, versi PRODUKSI — dua giliran sah milik Alpajri Suhendar, 11 Agu 2026.
+     *
+     * Bentuknya diambil apa adanya dari prod (sapuan baca-saja 27 Agu):
+     *   req#113  08:00–10:00  120 menit  approved
+     *   req#92   18:00–23:31  331 menit  approved
+     *   att_day  hadir, scan 07:42–23:31, lembur 451 = 120 + 331 (cocok)
+     *
+     * Orang ini benar-benar bekerja dua giliran dan reconciler benar
+     * menjumlahkannya. Kalau pagar kembar menolak yang seperti ini, ia menolak
+     * orang yang jujur — kegagalan yang jauh lebih mahal daripada kembar yang
+     * lolos, karena korbannya berhenti memakai formnya sama sekali.
+     *
+     * Sengaja dipisah dari uji sesi-terpisah yang jamnya karangan: fixture nyata
+     * memakai jam ganjil (23:31, bukan 21:00) dan rentang yang jauh lebih
+     * panjang — persis jenis angka yang membuat pembanding ceroboh tergelincir.
+     */
+    public function test_dua_giliran_sah_dari_prod_alpajri_11_agu_tetap_lewat(): void
+    {
+        $pagi = $this->lembur($this->kerjaKe, '08:00', '10:00', 'approved');
+
+        // Giliran malam menyusul — inilah yang dulu tak punya pagar sama sekali,
+        // dan yang sekarang tak boleh ikut terjaring.
+        $this->assertSame([], LemburKembar::bertindih($this->orang->id, $this->kerjaKe, '18:00', '23:31'),
+            'Dua giliran terpisah di hari yang sama WAJIB lewat — ini kejadian nyata di prod.');
+
+        $malam = $this->lembur($this->kerjaKe, '18:00', '23:31', 'approved');
+
+        // Dan dari arah sebaliknya juga: kartu mana pun tak boleh menuduh yang lain.
+        $rows = \App\Models\AttRequest::whereIn('id', [$pagi, $malam])->get();
+        $this->assertSame([], LemburKembar::peta($rows),
+            'Layar persetujuan pun tak boleh memberi peringatan pada dua giliran yang sah.');
+
+        // Angka yang dijumlahkan reconciler tetap seperti di prod: 120 + 331.
+        $this->assertSame(451, (int) DB::table('att_request')->whereIn('id', [$pagi, $malam])->sum('claimed_menit'));
+    }
+
     /** Sesi yang BERSAMBUNG (10:00 selesai → 10:00 mulai) bukan tindihan. */
     public function test_sesi_bersambung_bukan_tindihan(): void
     {
