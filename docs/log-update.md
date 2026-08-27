@@ -89,6 +89,31 @@ yang ketemu di dev belum terjadi di prod; satu-satunya kembar prod (Afrina) suda
 ditutup 23 Agu. Jadi pagar ini naik sebagai **pencegahan, bukan pemadam** —
 blast radius nol.
 
+**Kelasnya sendiri lalu DIADU dengan data prod — 8/8.** Sapuan pertama memakai
+kueri irisan yang berdiri sendiri, bukan `LemburKembar` — dua implementasi yang
+belum pernah diadu, dan "0" dari kueri yang tak akan pernah hidup di prod itu
+keyakinan yang bersandar pada tempat yang salah. Ditutup tanpa menggeser prod:
+kelasnya diambil lewat `git show` ke `/tmp` lalu di-`require` di skrip yang
+mem-bootstrap aplikasi prod — nol tulis, HEAD prod tetap `0e7f26d`. `peta()`
+atas **158 lembur aktif prod** → 0 kartu berperingatan, **sepakat** dengan kueri
+yang berdiri sendiri.
+
+⚠️ Yang membuat hasil itu bermakna bukan angka nolnya, melainkan **kontrol
+negatifnya**: giliran sisipan 22:00–23:00 (di dalam giliran malam Alpajri) dan
+09:30–11:00 (serempet 30 menit) **tertangkap, dan diakui SEBAGIAN — bukan
+persis**. Tanpa kontrol itu, "0 temuan" tak bisa dibedakan dari "pemeriksanya
+tidur". Sisi sahnya juga diuji: klaim baru 12:00–14:00 di celah antara dua
+giliran Alpajri → 0, tak diganggu.
+
+⚠️ **Jebakan yang ikut ketemu, dan sudah ditambal di komentar (`bc5c10e`)**:
+menyapu baris yang SUDAH ADA dengan `bertindih()` tanpa `$kecualiId` membuat
+tiap baris dibandingkan dengan **dirinya sendiri** — semuanya terbaca "kembar
+persis". Itu yang membuat percobaan pertama melaporkan Alpajri "gagal 2×";
+harness-nya, bukan kodenya. Bentuk hasil palsu yang paling meyakinkan: angkanya
+rapi dan salah. `peta()` menutupnya sendiri, jadi untuk penyapuan itulah pintu
+yang benar. **Ini kali ketiga dalam beberapa hari uji merah ternyata patokannya
+yang salah, bukan kodenya** — patokan uji memang harus ikut diaudit.
+
 Yang paling meyakinkan justru datang dari **data dev yang sudah ada**: sapuan
 menemukan **kembar sungguhan yang masih hidup** — **Fajri, 15 Agu**, req#34
 (18:00–21:00, sudah di-ACC) dan req#35 (18:07–21:00, masih menunggu). Dengan
