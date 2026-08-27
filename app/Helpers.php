@@ -1177,3 +1177,69 @@ if (!function_exists('hariLiburTerjadwal')) {
         }
     }
 }
+
+/**
+ * Ubah angka rupiah jadi kata-kata: 1119572 → "satu juta seratus sembilan
+ * belas ribu lima ratus tujuh puluh dua rupiah".
+ *
+ * Dipakai di lembar bayar ROP (docs/rencana/rencana-lembar-bayar-rop.md §4.5):
+ * di dokumen yang dipakai mengeluarkan uang, terbilang adalah pengaman kedua —
+ * angka yang salah baca satu digit masih tertangkap kalau hurufnya dibaca.
+ *
+ * Fungsi MURNI: tanpa sentuhan DB, sesi, atau waktu — supaya bisa diuji dengan
+ * satu baris. Nominal dibulatkan ke rupiah utuh (kolom amount decimal(15,2),
+ * tapi praktiknya selalu .00 dan tidak ada mata uang sen yang dipakai di sini).
+ */
+function terbilang($angka): string
+{
+    $n = (int) round((float) $angka);
+
+    if ($n < 0) {
+        return 'minus ' . terbilang(-$n);
+    }
+
+    return trim(terbilangAngka($n) ?: 'nol') . ' rupiah';
+}
+
+/**
+ * Bagian rekursif terbilang() — mengembalikan kata untuk sebuah bilangan bulat
+ * tanpa satuan mata uang. Dipisah supaya terbilang() tetap satu kalimat, dan
+ * supaya "seratus"/"seribu" (bukan "satu ratus"/"satu ribu") ditangani di satu
+ * tempat saja.
+ */
+function terbilangAngka(int $n): string
+{
+    $satuan = ['', 'satu', 'dua', 'tiga', 'empat', 'lima', 'enam', 'tujuh',
+               'delapan', 'sembilan', 'sepuluh', 'sebelas'];
+
+    if ($n < 12) {
+        return $satuan[$n];
+    }
+    if ($n < 20) {
+        // 12–19 = "dua belas" … "sembilan belas"
+        return $satuan[$n - 10] . ' belas';
+    }
+    if ($n < 100) {
+        return trim($satuan[intdiv($n, 10)] . ' puluh ' . terbilangAngka($n % 10));
+    }
+    if ($n < 200) {
+        return trim('seratus ' . terbilangAngka($n - 100));
+    }
+    if ($n < 1000) {
+        return trim($satuan[intdiv($n, 100)] . ' ratus ' . terbilangAngka($n % 100));
+    }
+    if ($n < 2000) {
+        return trim('seribu ' . terbilangAngka($n - 1000));
+    }
+    if ($n < 1000000) {
+        return trim(terbilangAngka(intdiv($n, 1000)) . ' ribu ' . terbilangAngka($n % 1000));
+    }
+    if ($n < 1000000000) {
+        return trim(terbilangAngka(intdiv($n, 1000000)) . ' juta ' . terbilangAngka($n % 1000000));
+    }
+    if ($n < 1000000000000) {
+        return trim(terbilangAngka(intdiv($n, 1000000000)) . ' miliar ' . terbilangAngka($n % 1000000000));
+    }
+
+    return trim(terbilangAngka(intdiv($n, 1000000000000)) . ' triliun ' . terbilangAngka($n % 1000000000000));
+}

@@ -74,6 +74,13 @@
 > untuk Alpajri — di `rencana/rencana-konsultan-struktur.md`. Dev dulu, prod
 > menyusul setelah uji terima lulus.
 >
+> ⚠️ **Sisipan 2026-08-14** — **Lembar Bayar ROP** selesai dibangun & lolos uji
+> di **dev** (branch `feature/rop-lembar-bayar`, belum prod): Finance kini bisa
+> menyusun satu berkas cetak untuk bos — daftar + total + terbilang + lampiran —
+> menggantikan kebiasaan mengirim 30 berkas satu per satu di WhatsApp, DAN
+> menandai beberapa ROP lunas dengan satu bukti transfer. Rinciannya di
+> `log-update.md` entri 14 Agu paling atas.
+>
 > ⚠️ **Sisipan 2026-08-13** — badan file di bawah masih potret 6 Agu dan belum
 > disegarkan menyeluruh. Yang sudah berubah sejak itu ada di `log-update.md`
 > (entri 11, 12, dan 13 Agu). Satu hal yang paling sering ditanyakan

@@ -33,6 +33,12 @@
                 @include('rop._ikon', ['n' => 'kembali'])
                 Antrian
             </a>
+            {{-- Layar sebelah, bukan versi lain dari halaman ini: yang di sini
+                 rekap AKUNTANSI bulanan, yang di sana dokumen minta uang. --}}
+            <a class="rop-btn rop-btn--ghost" href="{{ route('finance.rop.lembar') }}">
+                @include('rop._ikon', ['n' => 'kirim'])
+                Lembar Bayar
+            </a>
             <a class="rop-btn rop-btn--ghost"
                href="{{ route('finance.rop.rekap.export', ['bulan' => $periode->format('Y-m'), 'cc' => $cc]) }}">
                 @include('rop._ikon', ['n' => 'unduh'])

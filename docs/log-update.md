@@ -573,6 +573,33 @@ mencocokkan nama divisi **persis** dengan nama role, dan tak ada divisi bernama
 
 ---
 
+## 2026-08-21 — Lembar Bayar ROP: main ditarik masuk, 41 uji hijau lagi
+
+Branch `feature/rop-lembar-bayar` sempat **23 commit tertinggal** dari main —
+main jalan terus (petty cash dompet-holder, rekonsiliasi Sunter/Cinere, WiFi
+/48 yang sudah naik prod). Dibiarkan lebih lama, merge-nya cuma makin mahal
+dan berisiko menarik mundur kerjaan orang lain.
+
+Main ditarik masuk. **Tabrakan cuma satu berkas** (`docs/log-update.md`);
+`routes/web.php` dan `status-proyek.md` menyatu otomatis, dan nol berkas kode
+ROP yang bentrok. Sesudah merge: 483 rute terdaftar, semua blade kompilasi,
+**41 uji ujung-ke-ujung hijau lagi**, dan layar milik orang lain tetap sehat
+(petty cash · antrian & rekap ROP · Kehadiran · Pengajuan · Akun semuanya 200).
+
+⚠️ **Ralat tanggal jurnal.** Tiga entri yang kutulis berlabel "14 Agu
+(lanjutan 2/3/4)" sebenarnya kerja **20 Agu** (commit 15:25–17:08); yang
+14 Agu cuma build awal + audit pertama. Sudah dibetulkan dan diurutkan ulang.
+Jurnal yang salah tanggal menyesatkan pembacanya — apalagi file ini dibaca
+alat lain di luar chat.
+
+⚠️ **Temuan sampingan, bukan punyaku**: dev **belum menjalankan SQL petty cash**
+dari main — `petty_cash_transaction.loan_id`, `petty_cash_period.opening_set_by`,
+dan tabel `petty_cash_holder_wallet` semuanya belum ada di dev (di prod sudah).
+Layar petty cash dev masih 200, tapi kalau ada yang mau menguji fitur itu di
+dev, empat SQL `2026_08_18_*` & `2026_08_19_*` perlu dijalankan dulu.
+
+---
+
 ## 2026-08-21 — Absen HP: pencocokan WiFi pindah dari /64 ke /48 · LIVE PROD
 
 Keluhan Ekky: "kena flag terus padahal kemarin sudah didaftarkan dan diperbaiki".
@@ -696,6 +723,118 @@ terhadap pilihan manual orangnya — Irma — bukan terhadap kecocokan sebelumny
   aktif di sana. Sengaja diperiksa: kalau nilainya bukan itu, perintah uji bisa
   MENGHAPUS absensi prod.
 
+
+---
+
+## 2026-08-20 (17:08) — Lembar Bayar ROP: UJI PENUH ulang: 41 dari 41 lolos
+
+Sapu statis + uji ujung-ke-ujung di dev dari keadaan bersih, 16 bab:
+login & sesi · layar pilih · tiga jalur negatif · buat lembar 7 item ·
+nomor & snapshot · tujuan transfer · lampiran · thumbnail · struktur form ·
+bayar-banyak · kunci setelah dibayar · catatan kepanjangan · cap dikirim ·
+sekuens nomor · gerbang · rute. **41 lolos, 0 gagal.**
+
+Yang dibuktikan ulang, bukan diasumsikan:
+- **3 ROP dibayar dengan SATU berkas bukti** — inti fiturnya; dicek sampai ke
+  DB: ketiganya menunjuk berkas yang sama, dan masing-masing dapat **tepat
+  satu** baris `rop_status_log` untuk lembar itu, plus notifikasi ke pengaju.
+- Total Rp 17.516.682 & terbilangnya — angka yang sama persis dengan prod.
+- Tujuan yang dilengkapi Finance tercetak, tujuan asli pengaju tetap utuh.
+- Lampiran PDF tergabung; yang tanpa lampiran disebut; nol PDF gagal render.
+- Struktur form diperiksa lewat `DOMDocument`: 7 form tujuan, **nol bersarang,
+  nol medan nyasar**.
+- Gerbang non-Finance **403 di ketujuh titik** dengan CSRF sah.
+
+**Dua "kegagalan" pertama ternyata harapan ujiku yang salah, bukan bug:**
+(a) nomor lembar tak mulai dari 001 karena uji pilihan-kembar di atasnya
+**sah** memakai sekuens — setelah di-dedup, kiriman itu memang permintaan
+satu item yang valid; skripnya kini menguji FORMAT + kenaikan tepat satu,
+bukan angka mati. (b) hitungan baris log terlihat 3 karena log **append-only**
+dan status sempat kureset berkali-kali tanpa menghapus jejak — justru bukti
+jejaknya jujur. Setelah disaring per lembar: tepat 1 baris per ROP.
+
+Pelajaran: **uji yang memancing bug palsu sama merepotkannya dengan bug
+asli** — patokan uji harus ikut diaudit, bukan cuma kodenya.
+
+---
+
+## 2026-08-20 (16:56) — Lembar Bayar ROP: Thumbnail lampiran di layar isi lembar
+
+Ekky **dua kali** mengharapkan foto muncul di layar Lembar Bayar. Itu bukan
+salah paham yang perlu diluruskan — itu sinyal kebutuhan: sebelum lembar
+dikirim ke bos, Finance perlu memastikan tiap baris punya invoice yang BENAR,
+dan itu tak bisa dinilai dari kata "foto". Sebelumnya harus membuka tab satu
+per satu.
+
+Kolom Lampiran kini menampilkan gambar 62px. **PDF ikut bergambar** —
+`RopPratinjauPdf` dipakai ulang, dan hasil rendernya **berkas yang sama**
+dengan yang dipakai halaman cetak, jadi tidak ada kerja dobel; diberi tanda
+"PDF" di pojok supaya jelas berkas aslinya bukan foto. `object-position: top`
+dipilih karena bagian ATAS invoice (nama toko & nomor) yang paling menolong
+saat dilihat sekilas. Ada berkas tapi gagal dirender → tautan "buka berkas",
+bukan sel yang diam.
+
+Terbukti di dev untuk ketiga keadaan: foto → thumbnail fotonya; PDF →
+thumbnail halaman pertama + tanda PDF; tanpa lampiran → penanda "tak ada".
+Struktur form tetap sehat (nol bersarang) dan halaman cetak tidak berubah.
+
+⚠️ Sekalian ralat: satu lampiran di dev sempat kosong karena **aku sendiri**
+yang menimpanya dengan PDF uji 7 halaman lalu mengosongkannya saat
+bersih-bersih — dan itu kebetulan baris pertama lembar, jadi paling kelihatan.
+Sudah dipulihkan; 10 dari 12 ROP dev berlampiran, nol berkas hilang.
+
+---
+
+## 2026-08-20 (15:25) — Lembar Bayar ROP: AUDIT KEDUA: 7 temuan, satu bikin tombol salah kirim
+
+Audit ulang setelah fitur PDF-tergabung & lengkapi-tujuan ditambahkan. Yang
+paling penting: **uji HTTP hijau tidak membuktikan UI-nya jalan.**
+
+**1. Form bersarang — tombol mengirim form yang salah.** Form "lengkapi tujuan"
+berada DI DALAM form bayar-banyak. HTML melarang form bersarang: parser browser
+membuang tag form dalamnya, jadi tombol Simpan **mengirim form bayar-banyak**.
+Uji HTTP-ku lolos karena menembak endpoint langsung dengan curl — form-nya
+sendiri tak pernah teruji dari browser. Fix: form dipindah ke luar tabel,
+medannya ditautkan lewat atribut `form=""` (HTML5).
+
+**2. PDF berhalaman banyak berisiko salah render.** `mergeImageLayers()`
+meratakan SELURUH urutan gambar, bukan frame yang sedang ditunjuk — tiap
+halaman berisiko ditulis sebagai gabungan semua halaman. Diganti
+`setIteratorIndex()` + `getImage()` yang tak ambigu. Uji PDF 1 halaman dulu
+lolos justru karena cuma satu halaman.
+
+**3. Pemotongan PDF senyap.** PDF lebih dari 5 halaman dipotong tanpa memberi
+tahu siapa pun. Di dokumen pembayaran itu tak bisa diterima. Jumlah halaman
+asli kini dicatat di berkas pendamping (supaya cache tidak menghilangkan
+informasinya) dan sisanya disebut di lembar.
+
+**4. `pluck()` mengambil yang salah.** `orderByDesc` + `pluck` menyisakan
+lengkapan tujuan **paling lama**, karena kunci yang sama ditimpa oleh yang
+dibaca terakhir. Kebalikan dari maksudnya. Diganti menaik.
+
+**5.** Tujuan masih bisa diubah setelah item **dibayar** — uangnya sudah keluar;
+kini dikunci per baris, di layar DAN di server.
+**6.** Penuntun langkah berbohong: "Cetak jadi PDF" selalu tercentang padahal
+sistem tak tahu apakah benar dicetak. Kini ikut status dikirim.
+**7.** Regex "teks ini memuat nomor rekening" tersalin di model DAN view →
+satu sumber `RopPaymentSheetItem::terlihatBernomor()`. Plus variabel mati
+dibuang, relasi `pelengkap` ikut eager-load.
+
+**SUDAH DIVERIFIKASI RUNTIME di dev** (sesudah branch petty cash selesai &
+sudah masuk main, dev dikembalikan ke branch ini):
+- **1** — HTML hasil render di-parse pakai `DOMDocument` (aturan parsing yang
+  sama dengan browser): 3 form tujuan berdiri sendiri, **nol yang bersarang**,
+  dan semua `form=""` menunjuk id yang benar-benar ada.
+- **2 & 3** — PDF **7 halaman** diuji: melaporkan 7 asli, merender 5, memotong
+  2; **md5 kelima halaman berbeda semua** (bug penggabungan memang hilang);
+  saat cache dipakai ulang jumlah asli tetap terbaca 7; dan lembar cetak
+  menyebut "Hanya 5 halaman pertama yang ditempel … (2 halaman)".
+- **4** — lengkapan tujuan TERBARU yang di-prefill di lembar berikutnya.
+- **5** — item yang sudah dibayar: form-nya hilang dari DOM **dan** POST
+  langsungnya ditolak; yang belum dibayar tetap bisa diubah.
+- **6** — langkah "Cetak jadi PDF" kini bertanda `1`+`is-aktif`, bukan centang.
+- Gerbang non-Finance **403 di keenam endpoint**, termasuk `/tujuan` yang baru.
+  Akun uji & berkas uji dibersihkan.
 
 ---
 
@@ -1071,6 +1210,322 @@ perubahan kode. Sudah lama ada, layak diselidiki terpisah.
 berjadwal baku yang tak absen hari itu, dan tak punya pengajuan izin/sakit/cuti
 apa pun. Sejak akunnya dibuat dia baru sekali absen (13 Agu, saat demo). Perlu
 ditanyakan Anisa — bukan ditambal dari sini.
+
+## 2026-08-14 (lanjutan) — AUDIT ULANG Lembar Bayar: 5 temuan, 2 di antaranya 500 sungguhan
+
+Diminta menyisir ulang kode sendiri. **Uji fungsional hijau semua ternyata bukan
+jaminan** — dua jalur yang tak pernah kulewati saat menguji ternyata berujung
+Server Error, dan satu cacat cetak justru ditemukan Ekky dari cetakan sungguhan
+di HP, bukan oleh 39 uji otomatis.
+
+| # | Temuan | Akibat | Status |
+|---|---|---|---|
+| 1 | `pilih[]` berisi id kembar | **HTTP 500** | diperbaiki di akarnya |
+| 2 | Catatan bayar 500 huruf | **HTTP 500** | diperbaiki + sabuk kedua |
+| 3 | Nominal pecah dua baris di lembar cetak | dokumen ambigu | diperbaiki |
+| 4 | `sys_profile` kosong → warning di halaman cetak | kotor | diperbaiki |
+| 5 | Tautan penanda beda huruf & biru asing | drift visual | diperbaiki |
+
+**1. Pilihan kembar → 500.** Dua id sama dalam satu kiriman menabrak
+`UNIQUE(sheet_id, rop_id)`. Yang membuatnya jadi 500 dan bukan pesan sopan:
+`QueryException` **bukan** `HttpException`, jadi lolos dari penangkap galat yang
+sudah ada. `jumlah_item` dan `total` juga ikut menggelembung. Diperbaiki di
+akarnya (`array_unique` sebelum apa pun disentuh), bukan dengan memperlebar
+penangkap galat — karena yang salah datanya, bukan penanganannya. Terbukti:
+kirim `15,15,9` → lembar berisi **2** baris, total & urutan tepat.
+
+**2. Catatan 500 huruf → 500.** Catatan pembayaran masih ditempeli
+`" (lembar BAYAR/2608/001)"` sebelum masuk `rop_status_log.catatan` yang
+`varchar(500)` → *Data too long*, dan **seluruh pembayaran gagal**, bukan cuma
+catatannya. Batas validasi turun ke 450 (menyamai `maxlength` di layar) + dipotong
+`mb_substr` 500 sebagai sabuk kedua: kalau kelak sufiksnya berubah, yang terjadi
+catatan terpotong — bukan uang gagal tercatat. Catatan log terpanjang kini 474.
+
+**3. Nominal pecah dua baris** — "Rp" di satu baris, "2.100.000" di baris
+berikutnya, TOTAL juga. **Ditemukan Ekky dari cetakan sungguhan**; uji otomatisku
+memeriksa apakah angkanya ADA, bukan bagaimana ia JATUH. Pelajarannya: uji
+berbasis string tak bisa menggantikan melihat. Kolom jumlah & nomor ROP kini
+`white-space: nowrap` + lebarnya disetel.
+
+**4 & 5.** `$profil->sysname` tanpa `?->` (tak konsisten dengan baris logo tepat
+di atasnya) → warning kalau `sys_profile` kosong. Dan `a { font-family: Poppins }`
+di `style.css` menang atas font warisan `.rop-fin`, jadi penanda lampiran yang
+kebetulan berupa tautan beda huruf dari yang bukan — **sekeluarga dengan bug
+"label Darurat jadi biru"** dulu: aturan tingkat-ELEMEN mengalahkan pewarisan.
+
+**Juga:** `whereNumber` dipasang pada rute `lembar-bayar/{id}` (disamakan dengan
+`rop/{id}`) → `/lembar-bayar/abc` kini 404 rapi. Label kartu "Belum dibayar
+seluruhnya" yang membingungkan → "Layak masuk lembar".
+
+**Sesudah perbaikan (dev, `bb3f6fb`):** kedua kasus yang tadinya 500 kini 302
+dengan pesan Indonesia yang menjelaskan · catatan 450 huruf tetap berhasil ·
+8 layar 200 · gerbang non-Finance **403 di keenam endpoint** (GET index/show/
+cetak + POST store/bayar-banyak/dikirim) dengan CSRF sah. Akun uji dihapus.
+
+### Finance bisa MELENGKAPI tujuan transfer — dan koreksi angka yang kusebut sebelumnya
+
+⚠️ **Ralat.** Aku sempat menyebut *"6 dari 12 tujuan transfer prod tidak bisa
+ditransfer"*. Itu **menyesatkan**: aku menghitung semua baris termasuk yang
+**sudah dibayar** dan tak akan pernah masuk lembar lagi. Yang benar, dari **7
+pengajuan yang betul-betul akan masuk lembar: 5 sudah bernomor rekening, 2
+tidak** (`TRIYANI ( MAS ENDRIK)`, `Ekky`) — dan keduanya reimbursement internal.
+Empat "polos" sisanya semuanya `ALIF IMAM FADILLAH` yang sudah lunas, yang
+rekeningnya pun sebenarnya diketahui dari salah satu pengajuannya.
+
+Ekky menunjuk hal yang benar: **nomor rekening sudah ditulis langsung di kolom
+"dibayarkan kepada"** — praktiknya sudah jalan, jadi **tidak perlu kolom nomor
+rekening baru di pengajuan**. Bukti terkuatnya: kolom `vendors.bank_nama`/
+`bank_rekening`/`bank_atas_nama` sudah disiapkan sejak awal dan setelah 75
+vendor tersinkron **terisi NOL**. Kolom yang disediakan tapi tak dipakai jadi
+sampah.
+
+Yang dibangun justru yang paling murah dan tepat sasaran: **Finance melengkapi
+tujuan transfer DI LEMBAR**, untuk baris yang pengajunya menulis tanpa rekening.
+
+**Kenapa di lembar, bukan di pengajuan** — ini yang menentukan benar-salahnya:
+pengajuan **terkunci setelah dikirim** (aturan audit bersih yang sudah berlaku).
+Menambal `pay_to_text` berarti mengubah tulisan pengaju dan membuat jejaknya
+berbohong. Lembar bayar itu **dokumen Finance**, jadi melengkapinya di sana
+adalah tindakan Finance atas dokumennya sendiri. Kolomnya per-ITEM, bukan
+per-ROP, karena satu ROP bisa masuk beberapa lembar dan tiap lembar dokumen
+tersendiri.
+
+- `tujuan_transfer` + `tujuan_oleh` di `rop_payment_sheet_items`. NULL = pakai
+  tulisan pengaju apa adanya; disimpan **hanya kalau beda**, jadi jelas baris
+  mana yang disentuh Finance.
+- `tujuanBerlaku()` / `tujuanBernomor()` / `tujuanDilengkapi()` di model =
+  satu-satunya tempat aturannya ditulis; layar & halaman cetak lewat sana.
+- Layar pilih: hanya baris **tanpa** nomor rekening yang dapat isian, ter-prefill
+  dari lengkapan **lembar sebelumnya** — rekening yang sudah susah dicari tidak
+  perlu diketik ulang tiap ROP itu masuk lembar baru.
+- Masih bisa dibetulkan **selama lembar belum dicap dikirim**; sesudah itu
+  dikunci (form hilang DAN POST ditolak — dua-duanya diuji). Alasannya:
+  dokumennya sudah beredar di luar sistem, dan dua versi kebenaran lebih
+  berbahaya daripada satu versi yang kurang rapi.
+
+SQL `2026_08_14_rop_sheet_tujuan_transfer.sql` dijalankan **dua kali** di dev —
+kolom tak berganda, FK tetap **tepat satu** (MariaDB tak punya
+`ADD CONSTRAINT IF NOT EXISTS`, jadi dijaga lewat `information_schema`).
+
+### Lampiran PDF akhirnya IKUT TERCETAK — "dikirim terpisah" dihapus
+
+Ekky bertanya "apa ga bisa digabung ya?" saat melihat catatan *lampiran PDF
+dikirim terpisah*. **Ternyata bisa** — dan rencana semula menyerah terlalu cepat.
+
+Rencana §4.3 menetapkan PDF tak bisa ditempel di halaman cetak, jadi berkasnya
+dikirim tersendiri. Itu menyisakan persis kerepotan yang mau dihapus fitur ini:
+Finance tetap mengirim berkas kedua, bos tetap mencocokkan sendiri. Dicek ke
+server: **Ghostscript (`/usr/bin/gs`) + ekstensi PHP Imagick dengan delegate PDF
+ADA di dev DAN prod.** Jadi PDF dirender jadi gambar dan diperlakukan persis
+seperti foto.
+
+`RopPratinjauPdf` (baru): render 150 dpi, maksimal 5 halaman, hasilnya di-cache
+di `public/uploads/rop/pratinjau` dengan kunci memuat `mtime` berkas asal —
+lampiran yang diganti dirender ulang sendiri, cetak ulang tidak memanggil
+Ghostscript lagi (terbukti: 0,86 dtk → 0,31 dtk).
+
+⚠️ **Gagal render tidak menjatuhkan lembar.** Semua kegagalan (ekstensi hilang,
+PDF rusak/terkunci, kebijakan Imagick memblokir) pulang sebagai array kosong dan
+lembar kembali ke perilaku lama. Lembar selalu terbit.
+
+Satu lampiran kini boleh jadi beberapa halaman, tiap halaman diberi penomoran
+"lampiran halaman 1 dari 2" supaya tak ada yang terasa hilang. Kolom Lampiran
+menandai PDF yang sudah tergabung sebagai "terlampir"; catatan "perlu dikirim
+terpisah" tinggal jalan mundur yang jarang muncul.
+
+Hasil di dev: lembar contoh naik dari 5 jadi **6 halaman**, semuanya dalam satu
+berkas, penanda `PDF*` hilang sama sekali.
+
+### Data uji seragam menciptakan bug palsu
+
+Ekky mencetak lembar 7-item dan berkata *"jujur, gua ga nemu bukti-bukti dari si
+pengaju, apa emang ga ada?"* — kecurigaan yang **beralasan**: di PDF-nya halaman
+2–5 berisi **invoice yang identik**, semuanya bernominal Rp 12.852.000, padahal
+ROP-nya Rp 113.392 / Rp 46.600 / Rp 279.000. Lembar itu memang tampak salah.
+
+Sebabnya bukan fiturnya: **semua lampiran dev kuarahkan ke satu berkas contoh
+yang sama.** Dicek ke prod sebagai pembanding — **10 lampiran, 10 berkas UNIK**
+(dibandingkan lewat md5), 15–109 KB, nama UUID, 9 `.jpg` + 1 `.pdf`, nol yang
+hilang dari disk. Bukti dari pengaju memang ada dan berbeda-beda per pengajuan.
+
+Diperbaiki dengan membuat invoice tiruan **satu per ROP**, angka & uraiannya
+cocok dengan ROP masing-masing. Foto asli prod **tidak disalin** ke dev: itu
+dokumen usaha sungguhan (nota vendor, sebagian memuat nomor rekening), dan dev
+lebih longgar.
+
+**Pelajaran:** data uji yang seragam bukan cuma menyembunyikan bug — ia
+**menciptakan bug palsu** dan membuang waktu orang yang memeriksanya.
+
+### Salah paham yang kusebabkan sendiri
+
+Gambar lampiran di dev bertuliskan "INVOICE UJI" dan Ekky mengiranya bagian dari
+fitur. Itu berkas palsu buatanku untuk menguji. Sudah kuganti jadi tiruan invoice
+seukuran foto asli (905×1280, sama dengan hasil kompresi `rop-foto.js`) — sekalian
+menjawab keluhan "halaman lampirannya kosong melompong": itu karena gambar ujiku
+cuma 600×360, bukan karena desainnya.
+
+Catatan untuk Dela: saat "Save as PDF" dari HP, **Paper size-nya default Letter**.
+Chrome HP mengabaikan `@page { size: A4 }`, jadi harus dipilih A4 di dialog.
+
+### Potret data ROP prod (baca-saja) + data contoh dev disamakan bentuknya
+
+Dicek langsung ke prod atas permintaan Ekky, **read-only**. Tiga hal yang
+mengubah gambaran:
+
+**a. `accurate_staging_glaccount` TERNYATA SUDAH ADA di prod — 1035 baris.**
+Catatan lama (31 Juli) bilang tabel ini belum ada dan karena itu Finance tak
+akan bisa meng-ACC di prod. **Itu sudah tidak benar.** Dropdown akun beban akan
+terisi, jadi jalur "akun beban wajib" di lembar bayar aman dipakai di prod.
+Catatan lama sudah dikoreksi supaya tidak dipakai menunda apa pun.
+
+**b. Separuh tujuan transfer di prod TIDAK BISA DITRANSFER.** Dari 12 pengajuan,
+**6 `pay_to_text`-nya polos — nama saja tanpa nomor rekening** ("ALIF IMAM
+FADILLAH", "TRIYANI ( MAS ENDRIK)", "Ekky"). Artinya lembar bayar bisa sampai ke
+bos dengan separuh baris yang tak bisa dieksekusi, dan dia bertanya balik —
+persis kerja bolak-balik yang mau dihapus fitur ini. **Ini soal DATA, bukan
+kode**; perlu disepakati dengan Dela apakah nomor rekening diwajibkan saat
+mengajukan.
+
+**c. Formatnya benar-benar tak seragam** — separator `;` · `//` · ` - ` · `( )` ·
+spasi polos. Konfirmasi kuat bahwa `pay_to_text` **tak boleh dipecah** dengan
+parsing; dicetak apa adanya memang satu-satunya cara yang benar.
+
+Angka prod: **7 diajukan Rp 17.516.682 · 5 dibayar Rp 1.118.125 · 0 disetujui**
+(membenarkan klaim rencana bahwa status `disetujui` tak pernah terpakai). Yang
+sudah dibayar semuanya reimbursement FIN; yang besar (Rp 12.852.000 Marketing,
+Rp 3.887.400 Bintaro) justru masih menunggu. `vendor_id` NULL di semua baris;
+75 vendor, `bank_rekening` terisi **nol**. `rop_payment_sheets` belum ada di prod.
+
+**Data contoh dev disamakan bentuknya**: jumlah, status, rentang nominal
+(Rp 38.290–12.852.000), campuran 6 ber-nomor / 6 polos, dan 4 foto + 1 PDF +
+2 tanpa lampiran — semuanya persis prod. **Nama & nomor rekeningnya KARANGAN**:
+menyalin nama orang dan rekening asli ke dev tidak dilakukan dengan sengaja,
+karena dev lebih longgar dan akun ujinya gampang dibuat. Lembar contoh
+`BAYAR/2608/001` (7 item, Rp 17.516.682, 5 halaman) sudah dibuat untuk ditinjau.
+
+### Masukan Dela (Finance) 15.46 — kolom "Unit" → "Departemen"
+
+Diterapkan. Alasannya tepat: kolom itu bersebelahan dengan **Jumlah**, jadi
+"Unit" terbaca sebagai satuan barang (pcs/box), padahal isinya cost centre.
+Lebar kolom ikut dinaikkan supaya "Kantor Pusat" (12 huruf, cost centre
+terpanjang) tidak terpotong.
+
+⚠️ **Catatan istilah yang belum diputuskan:** lima dari sembilan cost centre itu
+**klinik** (Bintaro, Sunter, Kalideres, Pamulang, Cinere), bukan departemen —
+"Departemen: Bintaro" sedikit janggal secara harfiah walau jelas maksudnya.
+Dan benda yang sama kini punya **tiga nama** di aplikasi: "Cost centre" (filter
+antrian & rekap), "Dibebankan ke" (drawer ACC), "Departemen" (lembar cetak).
+Perlu disatukan kapan-kapan — atau disepakati bahwa layar internal pakai istilah
+Accurate dan dokumen untuk bos pakai bahasa awam.
+
+**Yang TIDAK diperbaiki, sengaja — perlu keputusan Ekky:** membuat lembar
+sekaligus **menyetujui** isinya, dan lembar **tidak bisa dihapus**. Jadi lembar
+yang salah dibuat meninggalkan pengajuan dalam status `disetujui` tanpa jalan
+mundur dari layar (tombol "Urungkan" di antrian cuma hidup 2 menit dan hanya
+untuk yang menyetujui). Belum jadi masalah nyata, tapi ini utang yang sadar.
+
+---
+
+## 2026-08-14 — Lembar Bayar ROP dibangun & lolos uji di DEV (belum prod)
+
+**Branch `feature/rop-lembar-bayar` (`14ca406`), live di dev.** Menjawab keluhan
+nyata Finance: ROP dikirim ke bos **satu per satu** lewat WhatsApp — satu berkas
+ROP + satu invoice per item, 15 pembayaran = 30 berkas. Sekarang jadi **satu
+lembar cetak**: daftar, total, terbilang, dan lampirannya.
+
+### Fiturnya SEPASANG — yang kedua yang menentukan
+
+Bos sering membayar beberapa ROP dalam **satu transfer**, tapi `paid_proof_path`
+itu per-ROP dan `bayar()` menerima satu id. Kalau cuma lembar cetaknya yang
+dibangun, kerja Finance **cuma pindah tempat**: dari kirim 30 berkas jadi unggah
+1 berkas 15 kali. Karena itu ada **"tandai dibayar sekaligus"** — centang
+beberapa item, unggah SATU bukti, berkas disimpan sekali dan path yang sama
+dipakai untuk tiap ROP lewat `RopService::tandaiDibayar()`, jadi transisi
+status, jejak audit, dan notifikasi ke pengaju tetap utuh per pengajuan.
+
+**Terbukti di dev:** ROP/MKT/2607/002 + ROP/BIN/2608/001 kini menunjuk berkas
+bukti yang **sama persis** (`cfb4f665…png`), dengan baris `rop_status_log`
+sendiri-sendiri.
+
+### Yang dipakai ulang, bukan ditulis ulang
+
+Mesin sekuens atomik `nomorBaru()` diangkat jadi `urutBaru()` dan dipakai
+bersama `nomorLembarBayar()` — nomor lembar `BAYAR/2608/001` memakai
+`rop_counter` dengan kunci semu `BAYAR`, jadi **tak ada SQL `LAST_INSERT_ID`
+yang disalin** dan sifat atomiknya tak perlu dibuktikan dua kali. Lampiran lewat
+`RopAttachment`, jejak lewat `RopStatusLog`, gerbang menyalin pola `guard()`
+Finance yang sudah ada.
+
+### Keputusan yang menempel (rencana §5)
+
+**Membuat lembar = Finance menyetujui.** Status `disetujui` selama ini praktis
+tak terpakai. Kini item yang masuk lembar naik ke `disetujui`, lalu
+`bayar-banyak` menaikkannya ke `dibayar` — peta transisi dihormati tanpa
+menyuruh Finance menekan tombol dua kali.
+
+⚠️ **Satu keputusan yang TIDAK ada di rencana dan perlu diketahui:** `setujui()`
+mewajibkan akun beban, sedangkan drawer antrian hanya menawarkan pilihan akun
+untuk status `diajukan`. Kalau lembar menaikkan item ke `disetujui` tanpa akun,
+item itu **tak akan pernah bisa dilengkapi lagi dari layar mana pun** dan rekap
+Accurate-nya bolong selamanya. Karena itu layar lembar meminta akun beban per
+baris — **dengan saran akun dari penerima yang sama sudah terpilih otomatis**,
+jadi umumnya tinggal dilihat sekilas. Satu-satunya kelonggaran: kalau staging
+Accurate belum ada di server itu, daftarnya memang kosong → lembar tetap boleh
+dibuat, dan `RopService::lengkapiAkun()` yang menambalnya kelak.
+
+### Tiga ranjau yang sengaja dijinakkan di depan
+
+1. **Rute di bawah segmen `finance/`** (sudah di `AuthGuard::SKIP_RBAC`), dan
+   dideklarasikan **di atas** wildcard `rop/{id}` — kalau di bawah, wildcard itu
+   menelannya jadi `show('lembar-bayar')` → 404. Wildcard-nya sekalian diberi
+   `whereNumber('id')` supaya lubangnya tertutup dari dua sisi.
+2. **`pay_to_text` = NOMOR REKENING** (kolom bank `vendors` semuanya NULL,
+   `vendor_id` selalu NULL). Dicetak apa adanya, tebal, boleh membungkus, tanpa
+   `Str::limit` — terpotong = uang salah alamat. Diuji: `CAHAYA TIGA BINTANG
+   ABADI` tercetak utuh.
+3. **Halaman cetak berdiri sendiri**, tanpa `@extends('layouts.app')`. Gayanya
+   inline (bukan dari `public/assets`) supaya dokumen yang harus tercetak benar
+   tidak bergantung pada aset yang bisa 404, dan tanpa Google Fonts supaya tak
+   menunggu jaringan. Ini pemakai `@media print` pertama di repo ini.
+
+### Cara pembuktiannya (dev, HTTP sungguhan)
+
+**38 dari 39 uji lolos**; satu-satunya gagal ternyata **alat ujinya**, bukan
+fiturnya (`printf` merusak byte PNG di Git Bash; `curl.exe` tak bisa membaca
+jalur MSYS `/tmp`) — diulang setelah diperbaiki, lolos.
+
+- **SQL dijalankan DUA KALI** di dev → idempoten, struktur & FK sesuai rancangan.
+- **Gerbang diuji lewat HTTP, bukan ditebak dari kode**, dan `curl -L` **tidak**
+  dipercaya: yang diperiksa kode status mentah + `%{url_effective}`. Front Office
+  dapat **403 di ketiga endpoint tulis** (buat lembar, bayar-banyak, dikirim)
+  **dengan CSRF token yang SAH** — sempat 419, dan 419 itu menguji lapisan CSRF,
+  bukan gerbang perannya. Uji pertama juga sempat "lolos" palsu karena login
+  gagal diam-diam (rute login ternyata `/signin`, bukan `/login`).
+- Nomor berurutan 001 → 002 → 003 tanpa tabrakan; total & terbilang benar
+  (Rp 5.530.000 → "Lima juta lima ratus tiga puluh ribu rupiah"); snapshot
+  nominal cocok; sidebar tidak ikut tercetak; ketiga keadaan lampiran benar
+  (foto → halaman sendiri · PDF → ditandai `PDF*` + catatan dikirim terpisah ·
+  tak ada → ditandai di kolomnya); pembayaran ganda ditolak dengan pesan yang
+  menjelaskan; lembar tak ada → 404, bukan 500.
+- Akun uji dihapus setelah selesai — dan itu **sekalian membuktikan FK
+  `ON DELETE SET NULL`**: lembar tetap hidup dengan `dibuat_oleh` NULL, semua
+  layar & halaman cetak tetap 200.
+
+### Belum & perlu keputusan
+
+- **PROD belum disentuh** (menunggu Ekky). Saat naik: jalankan
+  `database/sql/2026_08_14_rop_payment_sheet.sql`, dan karena
+  `public/assets/css/rop.sweettreats.css` ikut berubah → **WAJIB rsync**
+  (public_html prod = salinan, bukan symlink).
+- **Tidak dibuatkan node menu.** Jalan masuknya tombol "Lembar Bayar" di layar
+  Antrian & Rekap ROP — layar yang memang dibuka Finance tiap hari. Node baru
+  berarti satu permukaan RBAC lagi yang harus di-grant di tiap server. Kalau
+  Ekky mau ada di sidebar, itu SQL access + `access:rebuild` menyusul.
+- **Alamat klinik tidak tercetak** di kepala lembar: `sys_profile` cuma punya
+  logo, `systitle`, `sysname` — tak ada kolom alamat, dan mengarang alamat di
+  dokumen pembayaran bukan pilihan. Kalau perlu, itu tambahan kolom.
+- Data uji tertinggal di dev: 3 lembar (BAYAR/2608/001–003) + beberapa ROP dev
+  berubah status jadi `dibayar` + dua lampiran tiruan pada ROP #9 & #15.
 
 ---
 
