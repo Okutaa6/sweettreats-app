@@ -42,6 +42,16 @@ use Illuminate\Support\Facades\DB;
  */
 class LemburDodo
 {
+    /**
+     * Status yang ikut diperiksa detektor chip. `approved` = uangnya sudah
+     * mengalir; `pending_*` = masih bisa dicegah, dan itu justru yang paling
+     * murah. `pending_l2` diikutkan walau lembur hari ini hanya satu lapis —
+     * kalau suatu saat rantainya diperpanjang, pagar ini tak ikut berlubang
+     * diam-diam. (Pola yang sudah dua kali menggigit: sesuatu yang baru lupa
+     * didaftarkan di sebuah peta, lalu gagal dengan diam.)
+     */
+    private const STATUS_DIPERIKSA = ['approved', 'pending_l1', 'pending_l2'];
+
     /** Reconciler menghitung lembur HANYA pada tanggal mulainya (bukan sepanjang rentang). */
     private static function dasar(string $from, string $to)
     {
@@ -102,35 +112,38 @@ class LemburDodo
      * diselesaikan diam-diam oleh sistem — yang berhak membetulkan itu manusia
      * yang tahu duduk perkaranya, sebelum gaji dibayar.
      *
-     * @return array<int,array{user_id:string,nama:string,tanggal:string,menit:int,sub_tipe:string,libur:bool,masalah:string}>
+     * ── Kenapa yang PENDING ikut diperiksa ──
+     * Sampai 24 Agu penyaringnya cuma `status = 'approved'`, jadi peringatannya
+     * datang SESUDAH keputusan diambil: menolong Finance membatalkan, tapi tak
+     * menolong penyetuju menghindari. Dua kejadian nyata dalam 48 jam
+     * membuktikan itu bukan teori — req#172 (Minggu, chip `jam`, akan terbayar
+     * tarif biasa) dan req#162 (Sabtu hari kerja, chip `tambah_hari`, akan
+     * terbayar tarif libur) — keduanya masih `pending_l1` dan karena itu tak
+     * terlihat sama sekali. Menangkap sebelum ACC jauh lebih murah daripada
+     * mencabut ACC yang sudah jadi.
+     *
+     * @return array<int,array{user_id:string,nama:string,tanggal:string,menit:int,sub_tipe:string,status:string,libur:bool,masalah:string}>
      */
     public static function chipMencurigakan(string $from, string $to): array
     {
         $rows = DB::table('att_request as r')
             ->join('users as u', 'u.id', '=', 'r.user_id')
             ->where('r.tipe', 'lembur')
-            ->where('r.status', 'approved')
+            ->whereIn('r.status', self::STATUS_DIPERIKSA)
             ->whereBetween('r.tanggal_from', [$from, $to])
             ->orderBy('r.tanggal_from')
-            ->get(['r.user_id', 'r.tanggal_from', 'r.claimed_menit', 'r.sub_tipe', 'u.nama']);
+            ->get(['r.user_id', 'r.tanggal_from', 'r.claimed_menit', 'r.sub_tipe', 'r.status', 'u.nama']);
 
         if ($rows->isEmpty()) return [];
 
-        // "Hari ini libur atau tidak" ditanyakan ke rekonsiliasi, bukan dihitung
-        // ulang di sini — definisinya menyangkut aturan mingguan, kalender libur,
-        // DAN cabang tempat orangnya bertugas hari itu. Menyalinnya ke sini
-        // berarti dua definisi yang lambat laun berselisih.
-        $pasangan = $rows->map(fn ($r) => [(string) $r->user_id, substr((string) $r->tanggal_from, 0, 10)])->all();
-        $libur    = (new AttendanceReconciler())->liburUntuk($pasangan);
+        $libur = self::liburUntukBaris($rows);
 
         $hasil = [];
         foreach ($rows as $r) {
-            $tgl  = substr((string) $r->tanggal_from, 0, 10);
+            $tgl     = substr((string) $r->tanggal_from, 0, 10);
             $isLibur = $libur[$r->user_id . '|' . $tgl] ?? null;
-            if ($isLibur === null) continue;              // aturannya tak diketahui → jangan menuduh
-
-            $dodo = ($r->sub_tipe === 'tambah_hari');
-            if ($dodo === $isLibur) continue;             // cocok
+            $masalah = self::masalahChip($isLibur, $r->sub_tipe);
+            if ($masalah === null) continue;
 
             $hasil[] = [
                 'user_id'  => (string) $r->user_id,
@@ -138,13 +151,91 @@ class LemburDodo
                 'tanggal'  => $tgl,
                 'menit'    => (int) $r->claimed_menit,
                 'sub_tipe' => (string) ($r->sub_tipe ?? '-'),
+                'status'   => (string) $r->status,
                 'libur'    => $isLibur,
-                'masalah'  => $isLibur
-                    ? 'Hari libur, tapi diajukan sebagai lembur biasa — kemungkinan DODO yang terbayar tarif biasa.'
-                    : 'Ditandai "masuk hari libur", padahal hari itu hari kerja biasa.',
+                'masalah'  => $masalah,
             ];
         }
 
         return $hasil;
+    }
+
+    /**
+     * Peta "chip ini bermasalah atau tidak" untuk sekumpulan pengajuan yang
+     * sudah ada di tangan — dipakai layar persetujuan, yang memeriksa kartu di
+     * inbox, bukan rentang tanggal.
+     *
+     * Statusnya sengaja TIDAK disaring di sini: pemanggilnya yang menentukan
+     * baris mana yang relevan (inbox hanya berisi yang menunggu keputusan).
+     *
+     * @param  iterable  $pengajuan  baris dengan id, user_id, tanggal_from, sub_tipe
+     * @return array<string,array{libur:bool,masalah:string}>  id => temuan
+     */
+    public static function petaChip(iterable $pengajuan): array
+    {
+        $rows = collect($pengajuan)->filter(fn ($r) => ($r->tipe ?? 'lembur') === 'lembur')->values();
+        if ($rows->isEmpty()) return [];
+
+        $libur = self::liburUntukBaris($rows);
+
+        $hasil = [];
+        foreach ($rows as $r) {
+            $tgl     = self::tanggal($r->tanggal_from);
+            $isLibur = $libur[$r->user_id . '|' . $tgl] ?? null;
+            $masalah = self::masalahChip($isLibur, $r->sub_tipe);
+            if ($masalah === null) continue;
+
+            $hasil[(string) $r->id] = ['libur' => $isLibur, 'masalah' => $masalah];
+        }
+
+        return $hasil;
+    }
+
+    /**
+     * SATU-SATUNYA tempat "chip cocok atau tidak" diputuskan. Layar Lembar Gaji
+     * dan layar persetujuan memakai yang sama persis; kalau suatu hari
+     * aturannya berubah, dua-duanya ikut berubah bersamaan.
+     *
+     * @param  ?bool  $isLibur  null = aturan kerjanya tak bisa dijawab
+     * @return ?string  null kalau tak ada masalah
+     */
+    public static function masalahChip(?bool $isLibur, ?string $subTipe): ?string
+    {
+        // Orang ber-aturan `Fleksibel` tak punya baris hari sama sekali, jadi
+        // "hari itu libur atau tidak" memang tak punya jawaban. Menuduh
+        // berdasarkan ketidaktahuan = peringatan yang lama-lama diabaikan.
+        if ($isLibur === null) return null;
+
+        $dodo = ($subTipe === 'tambah_hari');
+        if ($dodo === $isLibur) return null;
+
+        return $isLibur
+            ? 'Hari libur, tapi diajukan sebagai lembur biasa — kemungkinan DODO yang terbayar tarif biasa.'
+            : 'Ditandai "masuk hari libur", padahal hari itu hari kerja biasa.';
+    }
+
+    /**
+     * "Hari ini libur atau tidak" ditanyakan ke rekonsiliasi, TIDAK dihitung
+     * ulang di sini — definisinya menyangkut aturan mingguan, kalender libur,
+     * DAN cabang tempat orangnya bertugas hari itu. Menyalinnya berarti dua
+     * definisi yang lambat laun berselisih; jalan pintas `att_day.status =
+     * 'libur'` sudah terbukti memberi 2 positif palsu (reconciler menulis
+     * `hadir` ketika orang bekerja di hari liburnya).
+     *
+     * @return array<string,bool>  "userId|Y-m-d" => libur
+     */
+    private static function liburUntukBaris($rows): array
+    {
+        $pasangan = collect($rows)
+            ->map(fn ($r) => [(string) $r->user_id, self::tanggal($r->tanggal_from)])
+            ->all();
+
+        return (new AttendanceReconciler())->liburUntuk($pasangan);
+    }
+
+    /** `tanggal_from` datang sebagai string (DB::table) atau Carbon (model). */
+    private static function tanggal($v): string
+    {
+        return $v instanceof \DateTimeInterface ? $v->format('Y-m-d') : substr((string) $v, 0, 10);
     }
 }

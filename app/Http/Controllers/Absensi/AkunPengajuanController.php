@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AttRequest;
 use App\Services\AttendanceReconciler;
 use App\Services\AttendanceRequestWorkflow;
+use App\Services\LemburKembar;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -330,6 +331,27 @@ class AkunPengajuanController extends Controller
             }
         }
 
+        // Lembur KEMBAR: kiriman dengan (orang + tanggal + jam) yang PERSIS sama
+        // dengan pengajuan yang masih hidup ditolak di sini — bukan cuma
+        // disembunyikan tombolnya, karena form buatan sendiri tetap bisa POST
+        // (pelajaran yang sama dengan jenisUntuk() dan surat dokter sakit).
+        // Dicek DUA KALI: di sini supaya pesannya jelas dan berkas foto tak
+        // terlanjur tersimpan sia-sia, lalu sekali lagi di dalam transaksi di
+        // bawah supaya dua kiriman berbarengan tak saling menyelinap.
+        // Tindihan SEBAGIAN sengaja TIDAK ditolak di sini — dua sesi terpisah di
+        // hari yang sama itu sah; penyetuju yang diberi tahu, lihat
+        // PersetujuanController.
+        if ($data['tipe'] === 'lembur') {
+            $tindihan = LemburKembar::bertindih(
+                $userId, $data['tanggal_from'], $data['jam_from'] ?? null, $data['jam_to'] ?? null
+            );
+            if (LemburKembar::adaYangPersis($tindihan)) {
+                return back()->withInput()->with('error', LemburKembar::pesanTolak(
+                    $tindihan, $data['tanggal_from'], $data['jam_from'] ?? null, $data['jam_to'] ?? null
+                ));
+            }
+        }
+
         // Jatah kerja dari rumah: 2 HARI per bulan (§3.3). Cek dipindah ke dalam
         // transaksi store() supaya tak bisa dijebol dua kiriman berbarengan.
 
@@ -377,6 +399,9 @@ class AkunPengajuanController extends Controller
             $req = DB::transaction(function () use ($data, $userId, $subTipe, $claimedMenit, $scanEvidence, $verifikasi, $fotoName) {
                 if ($data['tipe'] === 'wfh') {
                     $this->pastikanJatahWfhCukup($userId, $data['tanggal_from'], $data['tanggal_to']);
+                }
+                if ($data['tipe'] === 'lembur') {
+                    $this->pastikanLemburTakKembar($userId, $data);
                 }
                 $r = $this->buatPengajuan($data, $userId, $subTipe, $claimedMenit, $scanEvidence, $verifikasi, $fotoName);
                 return (new AttendanceRequestWorkflow())->submit($r);
@@ -542,6 +567,30 @@ class AkunPengajuanController extends Controller
             $c->copy()->endOfMonth()->toDateString(),
             $c->translatedFormat('F Y'),
         ];
+    }
+
+    /**
+     * Gerbang terakhir lembur kembar, DI DALAM transaksi.
+     *
+     * Pemeriksaan yang sama sudah dijalankan lebih awal di store() supaya
+     * pesannya rapi dan foto tak terlanjur tersimpan; yang ini menutup celah
+     * dua kiriman berbarengan (klik ganda / kirim ulang cepat — Afrina
+     * berselang 116 detik, tapi tombol yang di-klik dua kali cuma berselang
+     * milidetik).
+     *
+     * @throws \RuntimeException bila ada pengajuan hidup dengan jam persis sama.
+     */
+    private function pastikanLemburTakKembar(string $userId, array $data): void
+    {
+        $tindihan = LemburKembar::bertindih(
+            $userId, $data['tanggal_from'], $data['jam_from'] ?? null, $data['jam_to'] ?? null
+        );
+
+        if (LemburKembar::adaYangPersis($tindihan)) {
+            throw new \RuntimeException(LemburKembar::pesanTolak(
+                $tindihan, $data['tanggal_from'], $data['jam_from'] ?? null, $data['jam_to'] ?? null
+            ));
+        }
     }
 
     /**

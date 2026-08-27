@@ -124,8 +124,13 @@
             jenis yang dipilih tak cocok dengan hari libur orangnya. Betulkan sebelum gaji dihitung.
             <ul>
                 @foreach($curiga as $c)
+                    {{-- Status ikut disebut sejak yang masih MENUNGGU ikut diperiksa:
+                         yang belum di-ACC masih bisa dibetulkan pengajunya tanpa
+                         mencabut apa pun, jadi tindakannya beda. --}}
                     <li><strong>{{ $c['nama'] }}</strong> · {{ $c['tanggal'] }} ·
-                        {{ round($c['menit'] / 60, 1) }} jam — {{ $c['masalah'] }}</li>
+                        {{ round($c['menit'] / 60, 1) }} jam ·
+                        <em>{{ ($c['status'] ?? 'approved') === 'approved' ? 'sudah di-ACC' : 'belum di-ACC' }}</em>
+                        — {{ $c['masalah'] }}</li>
                 @endforeach
             </ul>
         </div>

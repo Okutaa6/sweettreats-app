@@ -5,6 +5,22 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="{{ asset('assets/css/absensi.sweettreats.css') }}?v={{ @filemtime(public_path('assets/css/absensi.sweettreats.css')) ?: '1' }}">
+<style>
+    /* Peringatan "uang bisa salah bayar" — sengaja DI SINI, bukan di berkas CSS
+       bersama: public_html produksi itu SALINAN, bukan symlink, jadi tiap
+       sentuhan pada public/assets menuntut rsync tersendiri saat deploy.
+       Sepotong gaya sekecil ini tak sepadan dengan risiko lupa. */
+    .appr-flag { display: flex; gap: 8px; align-items: flex-start; border-radius: 11px;
+                 padding: 9px 11px; margin: 8px 0 0; font-size: 12px; font-weight: 600; line-height: 1.45; }
+    .appr-flag svg { flex: none; margin-top: 1px; }
+    .appr-flag b { font-weight: 800; }
+    .appr-flag .appr-flag-sub { display: block; font-weight: 500; margin-top: 2px; opacity: .92; }
+    /* Merah = jam yang sama diklaim dua kali; amber = jenis lembur kemungkinan
+       salah. Dua warna karena akibatnya beda: yang satu dibayar dobel, yang
+       satu dibayar tarif keliru. */
+    .appr-flag.dup  { background: #FBE4DF; color: #9B3016; }
+    .appr-flag.chip { background: #FBEFD9; color: #96601A; }
+</style>
 @endsection
 
 @php
@@ -87,6 +103,31 @@
                                     <span>Didukung scan <b class="num">{{ $jamOf($s['supported_menit']) }} jam</b></span>
                                 </div>
                                 <div class="appr-bar"><div class="appr-bar-fill" style="width:{{ $pct }}%"></div></div>
+                            </div>
+                        @endif
+
+                        {{-- Ditaruh TEPAT DI ATAS tombol Setujui, bukan di pojok
+                             kartu: yang mau dicegah adalah keputusan, bukan
+                             ketidaktahuan. Sistem cuma memberi tahu — tak ada
+                             yang dikunci, tak ada yang digabung otomatis; dua
+                             sesi lembur terpisah di hari yang sama itu sah. --}}
+                        @if($c->kembar ?? null)
+                            <div class="appr-flag dup">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 8v5M12 16.5v.1M10.3 3.9 2.6 17.4A2 2 0 0 0 4.3 20.4h15.4a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>
+                                <div>
+                                    <b>Jam ini bertindih dengan pengajuan lain di tanggal yang sama</b> — {{ $c->kembar }}.
+                                    <span class="appr-flag-sub">Kalau ini kiriman ulang yang sama, setujui satu saja: menit yang di-ACC dijumlahkan, jadi dua-duanya = dibayar dobel. Kalau memang dua sesi terpisah, lanjutkan.</span>
+                                </div>
+                            </div>
+                        @endif
+
+                        @if($c->chip ?? null)
+                            <div class="appr-flag chip">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 8.5v5M12 16.6v.1"/><circle cx="12" cy="12" r="9"/></svg>
+                                <div>
+                                    <b>Jenis lembur perlu dicek</b> — {{ $c->chip }}
+                                    <span class="appr-flag-sub">Tarifnya beda antara lembur biasa dan masuk hari libur. Anda yang tahu duduk perkaranya; kalau jenisnya keliru, minta pengaju membetulkan sebelum di-ACC.</span>
+                                </div>
                             </div>
                         @endif
 
