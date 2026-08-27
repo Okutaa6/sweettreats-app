@@ -22,6 +22,23 @@
 > Kalau tanggal ini sudah jauh lewat,
 > minta chat teknis menyegarkan file ini sebelum dipakai mengambil keputusan.
 >
+> ⚠️ **Sisipan 2026-08-27** — **Belajar-sendiri IPv4 LULUS DEV** (§N dari
+> sisipan 24 Agu, branch `feat/wifi-ipv4-belajar`, **prod belum**). WiFi cabang
+> ber-IPv4 kini bisa terdaftar sendiri setelah 2 orang cabang yang sama memakainya
+> dalam 72 jam — **cocok-penuh, nol pelebaran**; tetangga yang beda satu angka
+> tetap ditolak. `att:wifi-uji` **22/22** + audit pra-prod (2 temuan ditutup: alamat
+> privat/loopback bisa terdaftar otomatis kalau proxy tak terpasang, dan docblock
+> yang membantah kodenya sendiri). Putar ulang **data prod** (transaksi
+> dibatalkan, aplikasi prod tak disentuh): **130 absen tertolong, 0 hilang, 0
+> pindah cabang**. Mesin akan menangkap **7 dari 11** alamat yang 23 Agu
+> didaftarkan manusia — semuanya **lebih awal** — plus **2 alamat baru yang
+> sedang gagal cocok hari ini**, bukti daftar manual sudah basi dalam 4 hari.
+> ⚠️ **Butuh keputusan**: 4 alamat manual TIDAK tergantikan karena saksinya
+> orang fleksibel (cabang asal kosong) — jadi **jangan cabut 10 baris manual
+> 23 Agu**. Pilihan yang tersedia: izinkan fleksibel jadi saksi PENDUKUNG
+> (≥1 staf asal + total ≥2). ⚠️ Sisa risiko diterima sadar: CGNAT yang dibagi
+> 2 staf bisa terdaftar — dibayar dengan label PERLU DITINJAU + notifikasi IT.
+>
 > ⚠️ **Sisipan 2026-08-24** — **DODO naik prod** (`2ef8a35`): lembur di hari
 > libur kini terpisah dari lembur biasa di Lembar Gaji & Kehadiran. **Dua
 > bayar-salah ditutup**: lembur kembar Afrina (115 menit dibayar 230) dan chip

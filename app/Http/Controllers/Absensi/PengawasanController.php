@@ -402,6 +402,14 @@ class PengawasanController extends Controller
             'raw_branch_id' => 'required|exists:raw_branch,id',
         ]);
 
+        // Satu alamat, satu bentuk tulisan. Aturan `ip` Laravel meloloskan
+        // ::ffff:a.b.c.d sebagai IP yang sah; kalau bentuk itu yang tersimpan,
+        // barisnya tak akan pernah cocok dengan permintaan bertitik — DAN tak
+        // bisa didaftarkan ulang, karena UNIQUE(ip) menolak kembarannya. Macet
+        // senyap. Dibakukan di pintu masuk, sebelum pemeriksaan duplikat, sama
+        // seperti yang dilakukan matchBranch saat mencari.
+        $data['ip'] = AttBranchIp::teksIpv4($data['ip']) ?? $data['ip'];
+
         $sudahAda = AttBranchIp::where('ip', $data['ip'])->first();
         if ($sudahAda) {
             return back()->with('error', 'IP ' . $data['ip'] . ' sudah terdaftar (cabang ' .

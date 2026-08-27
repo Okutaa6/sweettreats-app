@@ -1,6 +1,8 @@
 # Rencana — Belajar-sendiri untuk IPv4 (cocok-penuh, tanpa pelebaran)
 
-> **Status**: rencana, ACC Ekky 2026-08-23. Belum dibangun. Tanpa tenggat.
+> **Status**: ✅ **DIBANGUN & LULUS DEV 2026-08-27** — branch
+> `feat/wifi-ipv4-belajar`, **prod belum**. Hasil uji terima §7 ada di §9 di
+> bawah; jurnalnya di `docs/log-update.md` 27 Agu. ACC Ekky 2026-08-23.
 > Tambalan manualnya sudah jalan di prod (§2) — ini yang membuatnya berhenti
 > butuh manusia. Semua angka diverifikasi ke DB **prod** 2026-08-23.
 
@@ -122,3 +124,132 @@ dibatalkan — pola yang sama dengan perbaikan /48 (21 Agu) dan libur-cabang
 4. `180.242.129–131.x` (jalur kedua Kalideres, berotasi lintas /24) tetap tak
    bisa ditangani cocok-penuh maupun pelebaran. **Pantau**, jangan dipaksa.
 5. Prod menunggu dev lulus §7.
+
+---
+
+## 9. Hasil uji terima — DEV LULUS 2026-08-27
+
+`att:wifi-uji` **15 → 22 kasus, 22/22 hijau**. Halaman WiFi Cabang dirender
+sungguhan (bukan cuma `php -l`). Nol SQL, nol `public/assets/**`.
+
+| # | Yang diuji | Hasil | Buktinya |
+|---|---|---|---|
+| 1 | 2 orang, 1 cabang, 72 jam | ✅ | K16 — daftar di orang ke-2, alamat penuh |
+| 2 | 1 orang berkali-kali | ✅ | K17 — `orang_kurang`, n=1 berapa kali pun |
+| 3 | 2 orang cabang berbeda | ✅ | K18 — tak terdaftar untuk cabang mana pun |
+| 4 | Pernah dipakai cabang lain | ✅ | K19 — `pernah_cabang_lain` walau n=2 |
+| 5 | Tetangga oktet ±1 | ✅ | K16 — `.84 .86 .251.85 .185` semua ditolak |
+| 6 | `180.252.169.219` vs `.218` | ✅ | K14 tetap hijau, tak disentuh |
+| 7 | `::ffff:` menyamar | ✅ | K20 — jalur IPv4, dua bentuk jadi SATU baris |
+| 8 | IPv6 tak berubah | ✅ | K1–K5, K7–K13 hijau tanpa diubah |
+| 9 | 15 kasus lama tetap hijau | ✅ | K6 **berubah arti** (lihat bawah); K10 diperbaiki karena data dev |
+| + | Pagar alamat-dalam (temuan audit) | ✅ | K22 — `10.x`/`127.0.0.1`/`100.64/10` tak bisa terdaftar otomatis |
+| 10 | Putar ulang absen prod | ✅ | 130 tertolong · **0 hilang** · **0 pindah** |
+| 11 | /48 baru sama sekali | ✅ | K7 — TAWARKAN, bukan daftar diam-diam |
+| 12 | /64 se-/48 tanpa tinjauan | ✅ | K21 + render halaman: 1 disorot dari 11 |
+
+### ⚠️ K6 berubah arti — jangan dikira rusak
+
+Harapan lamanya *"IPv4/CGNAT TIDAK PERNAH daftar"*. Itu tak bisa dipertahankan
+bersamaan dengan §3, dan §5 menjelaskan kenapa: `114.10.70.167` (CGNAT
+Telkomsel) dan `110.137.194.229` (WiFi Bintaro, diverifikasi manusia) **identik
+dari sisi bukti** — satu alamat, tiga orang Bintaro, sepuluh menit. Membedakan
+keduanya menuntut menebak dari bentuk alamat, kesalahan yang sudah pernah dibuat.
+
+K6 kini mengunci **pertahanannya**, bukan penolakannya: cocok-penuh (tetangga
+tetap ditolak) + label `PERLU DITINJAU` + notifikasi ke tiap role peninjau.
+Kalau salah satu dari itu lepas, K6 yang merah duluan.
+
+### Putar ulang data prod — dua putaran, dua pertanyaan berbeda
+
+Dijalankan dari **worktree terpisah** di server prod. ⚠️ `vendor` harus
+**disalin**, bukan di-symlink: lewat symlink, autoloader Composer menghitung
+`$baseDir` dari path yang sudah di-resolve sehingga `App\…` menunjuk balik ke
+`app/` prod — simulasinya diam-diam menjalankan kode LAMA. Aplikasi prod yang
+hidup tak disentuh; `att_branch_ip` 38 & `att_hp_bukti` 685 sama sebelum-sesudah.
+
+**A — tabel apa adanya (regresi murni), 685 absen**: tertolong **130**,
+hilang **0**, pindah **0**, tetap gagal 44.
+
+**B — 10 baris manual 23 Agu dicabut dulu** ("apakah mesin menangkapnya sendiri"):
+**7 dari 11** ter-belajar, **semuanya lebih awal dari manusia** (16–21 Agu vs
+23 Agu). Plus **2 alamat baru** yang belum pernah didaftarkan siapa pun dan
+**sedang gagal cocok hari ini**: `36.69.103.246` (Sunter, 25 Agu) dan
+`180.251.182.171` (Pamulang, 26 Agu). Tiga "hilang" di putaran ini semuanya di
+`125.165.188.209` — alamat yang memang dicabut paksa, bukan regresi.
+
+### ⚠️ Aturan ini LEBIH KETAT dari sapuan manual — dan itu butuh keputusan
+
+Empat alamat manual tak tergantikan, sebabnya satu dan sama: **cuma punya SATU
+saksi yang sah**, sisanya orang fleksibel (yang `raw_branch_id`-nya memang
+kosong, jadi syarat "cabang asal sama" tak bisa diperiksa).
+
+| alamat | pemakai | saksi sah |
+|---|---|---|
+| `110.137.194.229` | Asih · Yovanka · Alif · Ikhsan | 1 |
+| `180.252.80.82` | Irma · Verini | 0 (Verini asalnya Sunter, barisnya Cinere) |
+| `125.165.189.132` | Asih · Della P. · Talitha | 1 |
+| `125.165.188.209` | Asih · Della P. · Anisa · Talitha | 1 |
+
+→ **§8-3 terbukti: jangan cabut sepuluh baris manual 23 Agu.**
+
+**Pilihan yang tersedia, belum diambil**: izinkan orang fleksibel jadi saksi
+**PENDUKUNG** (butuh ≥1 staf asal **dan** total ≥2). Keempatnya akan tertangkap.
+Alternatif ini sudah pernah dicatat waktu ambang diturunkan 3→2 dan belum
+pernah ditolak — tapi ia melonggarkan satu-satunya pagar struktural yang dimiliki
+jalur IPv4, jadi keputusannya milik Ekky, bukan milik chat build.
+
+### Audit pra-prod 27 Agu — dua temuan, keduanya ditutup
+
+Diminta Ekky sebelum naik prod: uji ulang di dev + audit bug & inkonsistensi.
+Selain 22 kasus, dijalankan pemeriksa terpisah untuk jalur yang TIDAK disentuh
+kasus mana pun — masukan aneh ke `nilai()` & `perluTinjau()`, kedua pintu
+pendaftaran lewat HTTP, `matchBranch` untuk dua bentuk tulisan, dan render
+halaman Pengawasan + WiFi Cabang. Semua di dalam transaksi yang dibatalkan.
+
+**⚠️ TEMUAN 1 (bug, ditutup) — alamat DALAM bisa terdaftar otomatis.**
+`127.0.0.1`, `10.0.0.5`, `0.0.0.0` semuanya lolos sampai ke penghitungan saksi.
+Konsekuensinya baru kelihatan kalau dirangkai: seandainya aplikasi suatu saat
+berada di belakang proxy yang `TrustProxies`-nya belum dipasang — risiko yang
+sudah tercatat sejak audit absen-HP — maka `request()->ip()` berhenti menjadi
+alamat karyawan dan berubah jadi **satu alamat yang sama untuk semua orang**,
+sering `10.x`. Dua orang cabang mana pun langsung memenuhi ambang, alamat itu
+terdaftar, lalu **seluruh absen di lima cabang terbaca sebagai satu cabang** —
+sementara flag `ip_asing` berhenti berbunyi justru saat ia paling dibutuhkan.
+
+Ditutup dengan pagar `ipv4Publik()`: menolak privat, loopback, link-local,
+ruang cadangan, dan `100.64/10` (CGNAT bersama RFC 6598, tak terjaring filter
+bawaan PHP). **Ini bukan menebak identitas dari bentuk alamat** — §5 melarang
+itu dan benar; ini fakta struktural: alamat-dalam tak bisa menjadi alamat
+internet publik sebuah cabang. Pagar hanya menahan **mesin**; manusia tetap
+boleh mendaftarkannya manual, dan baris yang sudah ada tetap dihormati
+(`nilai()` menjawab `sudah_cocok`, bukan menimpanya). Jalur IPv6 tak
+membutuhkannya: ULA & link-local tak akan sekerabat /48 dengan blok cabang.
+Dikunci **K22**.
+
+**⚠️ TEMUAN 2 (inkonsistensi, ditutup) — dokumentasi membantah kodenya sendiri.**
+Dua tempat:
+- Docblock kelas `WifiBelajarSendiri` masih membuka dengan *"mendaftarkan prefix
+  IPv6"* + "EMPAT SYARAT" versi IPv6, padahal 20 baris di bawahnya menyatakan
+  IPv4 ikut. Pembaca yang berhenti di atas menyimpulkan hal yang salah — persis
+  asal-usul lubang ini.
+- Komentar di titik panggil (`AttendanceHpAbsen`) menulis *"yang KETIGA"*
+  (ambangnya 2 sejak 18 Agu) dan *"prefix IPv6 berputar mingguan"*.
+
+Keduanya diluruskan, dan masing-masing kini membawa peringatan agar angka
+aturan & keluarga alamat **tidak diketik ulang** di luar tempat asalnya —
+pelajaran yang sama dengan "3 orang" yang bertahan di layar berbulan-bulan.
+
+Sisanya hijau: 10 masukan aneh ke `nilai()` tak ada yang melempar dan tak ada
+yang bervonis DAFTAR · kedua pintu pendaftaran membakukan `::ffff:` dan menolak
+bentuk kembarannya sebagai duplikat · `matchBranch` menjawab sama untuk kedua
+bentuk dan tetap menolak tetangga · Pengawasan & WiFi Cabang render dengan baris
+IPv4 otomatis terpasang · jumlah baris disorot sama dengan angka banner.
+
+### Catatan: K10 sempat merah karena DATA DEV
+
+`users.raw_branch_id` Alpajri **kosong di dev** (aturan `baku`), jadi ia tak
+pernah bisa jadi saksi. Diperiksa ke prod: **prod normal** — Alpajri di Bintaro,
+dan **tak ada** orang ber-aturan `baku` yang cabang asalnya kosong. Dipastikan
+bukan regresi dengan menjalankan K10 di `main`: merah juga di sana. K10 kini
+mencari sendiri kejadian saat ambang tercapai; urutan ambang tetap dikunci K7.

@@ -37,9 +37,11 @@
     @if($perluTinjau->isNotEmpty())
         <div class="alert" style="background:#fff8e6;border:1px solid #f0d79a;color:#3d2a00">
             <strong>{{ $perluTinjau->count() }} jaringan terdaftar sendiri dan belum ditinjau.</strong>
-            Sistem mendaftarkannya karena beberapa orang cabang itu terbukti memakainya dan blok alamatnya
-            sekerabat dengan jalur cabang yang sudah ada. Kalau salah satunya ternyata bukan jaringan cabang
-            (mis. kafe sebelah), <strong>nonaktifkan</strong> — barisnya disorot kuning di bawah.
+            Sistem mendaftarkannya karena {{ $ambangOrang }} orang cabang itu atau lebih terbukti memakai
+            alamat yang sama dalam {{ $jendelaJam }} jam — dan alamat itu <em>tidak</em> punya blok kerabat
+            yang menjaminnya. Yang menjaminnya cuma perilaku: orang yang berbeda tak berbagi satu alamat
+            kalau itu data seluler pribadi. Kalau salah satunya ternyata bukan jaringan cabang (mis. kafe
+            sebelah), <strong>nonaktifkan</strong> — barisnya disorot kuning di bawah.
         </div>
     @endif
 
@@ -52,13 +54,18 @@
                     sudah tertangani</strong> — absen dicocokkan per blok /48 cabang, jadi nomor baru di
                     blok yang sama langsung dikenali tanpa perlu didaftarkan siapa pun.
                     <br><br>
-                    Saklar ini mengatur hal yang berbeda: jaringan yang bloknya <strong>sama sekali asing</strong>
-                    (mis. cabang ganti jalur internet, atau orang absen dari tempat lain). Saat menyala,
-                    jaringan seperti itu <strong>dilaporkan ke IT</strong> begitu {{ $ambangOrang }} orang cabang
-                    itu terbukti memakainya dalam {{ $jendelaJam }} jam — dilaporkan, bukan didaftarkan sendiri.
-                    Satu orang tak pernah cukup, dan jaringan seluler tak pernah ikut.
+                    Saklar ini mengatur dua hal yang berbeda dari itu, keduanya butuh
+                    <strong>{{ $ambangOrang }} orang cabang yang berbeda</strong> dalam {{ $jendelaJam }} jam
+                    (satu orang tak pernah cukup — tak bisa dibedakan dari WiFi rumahnya sendiri):
+                    <br>· <strong>Blok IPv6 yang sama sekali asing</strong> (mis. cabang ganti jalur internet,
+                    atau orang absen dari tempat lain) — <strong>dilaporkan ke IT</strong>, bukan didaftarkan
+                    sendiri.
+                    <br>· <strong>Alamat IPv4</strong> — <strong>didaftarkan sendiri, persis alamat itu saja</strong>.
+                    Tetangganya yang cuma beda satu angka tetap ditolak; tak ada blok yang ikut terbuka.
+                    Barisnya ditandai perlu ditinjau dan IT diberi tahu, karena tak ada kekerabatan blok yang
+                    menjaminnya.
                     @unless($belajarAktif)
-                        <br><strong>Sedang mati</strong> — blok asing tidak akan dilaporkan ke siapa pun.
+                        <br><strong>Sedang mati</strong> — tidak ada yang dilaporkan maupun didaftarkan sendiri.
                         Pencocokan /48 tetap berjalan seperti biasa.
                     @endunless
                 </div>
@@ -98,7 +105,10 @@
             <thead><tr><th>Cabang</th><th>IP</th><th>Label</th><th>Status</th><th>Terakhir terlihat</th><th></th></tr></thead>
             <tbody>
             @forelse($ips as $row)
-                <tr class="{{ $row->sumber === 'otomatis' && $row->status === 'aktif' ? 'wifi-auto' : '' }}">
+                {{-- Disorot hanya yang benar-benar menunggu keputusan, bukan semua
+                     yang lahir sendiri — kalau tidak, sorotannya jadi hiasan tetap
+                     dan berhenti berarti apa-apa. --}}
+                <tr class="{{ in_array($row->id, $idTinjau, true) ? 'wifi-auto' : '' }}">
                     <td><strong>{{ optional($row->branch)->name ?? '—' }}</strong></td>
                     <td><code>{{ $row->ip }}</code></td>
                     <td>
