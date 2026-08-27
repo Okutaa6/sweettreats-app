@@ -419,7 +419,21 @@ class WifiBelajarUji extends Command
                     ['2026-08-11 09:39:55', 'Rizka Noviyanti',            'masuk', '2404:c0:5d10:7a1:3::', $b],
                 ],
                 'periksa' => function (array $j) {
-                    $this->wajib($j[1]['belajar']['vonis'] === WifiBelajarSendiri::TAWARKAN, 'prasyarat: harus menawarkan dulu — dapat ' . $j[1]['belajar']['vonis']);
+                    // JANGAN mematok kejadian ke-berapa. Siapa yang BOLEH jadi
+                    // saksi bergantung pada data roster (cabang asal + aturan
+                    // kerja), dan roster dev bergerak — 27 Agu 2026 kasus ini
+                    // merah karena `users.raw_branch_id` Alpajri kosong di dev,
+                    // sehingga ambang baru tercapai di orang ke-3, bukan ke-2.
+                    // Itu cacat DATA, bukan cacat aturan, dan kasus ini bukan
+                    // tempatnya diuji: yang dijaga di sini adalah ke SIAPA
+                    // notifikasinya sampai. Urutan ambang sudah dikunci K7.
+                    $tawar = null;
+                    foreach ($j as $r) {
+                        if ($r['belajar']['vonis'] === WifiBelajarSendiri::TAWARKAN) { $tawar = $r; break; }
+                    }
+                    $this->wajib($tawar !== null, 'prasyarat: harus ada kejadian bervonis TAWARKAN — dapat '
+                        . implode(', ', array_map(
+                            fn ($r) => $r['nama'] . ':' . $r['belajar']['alasan'] . '/n=' . $r['belajar']['n'], $j)));
 
                     $sasaran = DB::table('admin_notification')->where('type', 'wifi_tawaran')
                         ->pluck('target_role')->sort()->values()->all();
