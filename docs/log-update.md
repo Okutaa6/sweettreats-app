@@ -7,6 +7,111 @@
 
 ---
 
+## 2026-08-27 — EMPAT GERBONG NAIK PROD dalam satu hari
+
+Prod berjalan `a49a0ef` → … → **`761d7a7`**. Empat gerbong, masing-masing
+di-backup, diverifikasi, dan dicatat sendiri-sendiri.
+
+| Jam | Gerbong | Commit | Verifikasi |
+|---|---|---|---|
+| 11.23 | **Lembar Bayar ROP** | `0e7f26d` | 16/16 |
+| 16.34 | **§M dua pagar lembur** | `26381ee` | 8/8 + kendali negatif |
+| 16.57 | **Pasien Baru / Cekat** (Reza) | `67cd56b` | 31 dev + 16 prod |
+| 17.24 | **§N belajar-sendiri IPv4** | `761d7a7` | 15/15 + dua putar-ulang |
+
+### §N — belajar-sendiri IPv4, dan cara membuktikannya tanpa memercayai siapa pun
+
+Yang naik: `WifiBelajarSendiri` kini juga belajar IPv4, ambang saksi sama
+dengan IPv6 (**2 orang / 72 jam**), tapi hasilnya baris **COCOK-PENUH**, bukan
+prefix. Nol SQL, nol rsync (blade berubah, `public/` tidak). Deploy **PENUH**
+karena ada class baru `WifiIpv4Simulasi`.
+
+**Angka c5 tidak dipercaya begitu saja — diulang sendiri.** Caranya: worktree
+terpisah di server PROD dari `origin/feat/wifi-ipv4-belajar`, **vendor DISALIN
+80 MB, bukan di-symlink**. Symlink membuat `$baseDir` Composer menunjuk balik ke
+`app/` prod, jadi yang jalan diam-diam kode LAMA dan hasilnya hijau palsu.
+Pagar: `ReflectionClass::getFileName()` dicetak sebelum apa pun dihitung.
+
+**Putaran A** (dunia nyata, 2–27 Agu, 686 absen):
+
+```
+tertolong   130     hilang  0  ← HARUS NOL
+pindah        0     ← cocok ke cabang LAIN, HARUS NOL
+tetap cocok 511  ·  tetap gagal  45
+✓ att_branch_ip 38 baris, att_hp_bukti 686 — sama seperti sebelum.
+```
+
+Cocok persis dengan laporan c5 (mereka 44 tetap-gagal, aku 45 — satu absen baru
+masuk di antara dua putaran). **Reproduksi independen, bukan konfirmasi sopan.**
+
+**Putaran B** — mencabut dulu 11 baris IPv4 manual 23 Agu, lalu tanya: *apakah
+mesin menangkapnya sendiri?* **7 dari 11 ter-belajar, semuanya lebih awal dari
+manusia** (mis. `180.244.158.43` Sunter 16 Agu vs manual 23 Agu). Dan
+`hilang 3` di putaran ini **bukan regresi** — kita memang sengaja mencabut
+barisnya; **4 alamat tak tergantikan** (Bintaro ×3, Cinere ×1) saksinya orang
+fleksibel sehingga tak pernah mencapai ambang. Itulah sebabnya perintahnya:
+
+> ⛔ **JANGAN cabut 10 baris IPv4 manual 23 Agu.** Tujuh punya pengganti
+> otomatis, empat **tidak**.
+
+**Pagar `ipv4Publik()` wajib tetap ada** — dan isinya lebih teliti dari dugaan:
+selain `FILTER_FLAG_NO_PRIV_RANGE`, ia menutup **100.64.0.0/10 (CGNAT)** secara
+khusus, blok yang flag PHP itu justru tak cakup. Tanpa pagar ini, di belakang
+proxy yang salah konfigurasi satu alamat bisa terdaftar dan **kelima cabang
+terbaca jadi satu**.
+
+**Verifikasi prod 15/15**: 10 baris manual utuh · 4 tak-tergantikan utuh ·
+`att_branch_ip` tetap 38 (deploy tak menulis apa pun) · tiga alamat terdaftar
+cocok sementara **tetangga oktet +1 tetap DITOLAK** (nol pelebaran) · lima
+alamat privat/CGNAT/loopback ditolak · blade kompilasi bersih · 4 rute & 2
+perintah artisan terdaftar · **nol galat baru di `laravel.log` sesudah deploy**.
+
+**Bukan janji — ditunjukkan.** Simulasi dijalankan lagi di prod dengan kode yang
+sekarang hidup (24–27 Agu): mesin **mendaftarkan sendiri** `36.69.103.246`
+(Sunter, saksi Della & Melani) dan `180.251.182.171` (Pamulang, saksi Mutiara &
+Ramdan) — persis dua alamat yang c5 ramalkan. Sementara `125.165.152.185`
+(Bintaro, muncul hari ini) **tetap ditolak: `orang_kurang`**. Ambangnya bekerja,
+bukan meloloskan borongan.
+
+Cocok otomatis per pekan: **77% · 72% · 74% · 81%** — dan angka pekan berjalan
+belum memuat efek §N sama sekali, karena deploy baru jam 17.24.
+
+### Yang perlu diketahui, bukan temuan gerbong ini
+
+- **`[2002] Operation not permitted` muncul 41 kali di prod hari ini**, semuanya
+  **sebelum** deploy. Ini penolakan koneksi MySQL hosting bersama, gejala yang
+  sama dengan yang membatasi phpunit ke ±17 uji per proses. Sesudah deploy: nol.
+  Bukan disebabkan gerbong mana pun, tapi layak diawasi sendiri.
+- **Daftar "alamat masih gagal" itu SEJARAH, bukan keadaan sekarang.**
+  `branch_id_cocok` ditulis pada saat absen; baris sebelum pendaftaran manual
+  23 Agu selamanya berbunyi gagal. Yang benar-benar masih gagal sesudah 23 Agu
+  cuma **tiga**, dan dua di antaranya kini punya jalan keluar otomatis.
+
+### Dev dikembalikan — ke `main`, bukan ke branch asalnya
+
+Dev tadinya di `feat/wifi-ipv4-belajar`. Dikembalikan ke **`main` `761d7a7`**,
+bukan `feature/rop-lembar-bayar` seperti catatan serah-terima, **setelah
+diperiksa** bahwa branch itu **0 commit di depan main** — jadi tak ada yang
+hilang, dan dev kini cermin prod. Sepuluh perubahan di dev semuanya
+**untracked**, aman melewati pindah branch.
+
+⛔ **Dan tujuh berkas Konsultan + Alur Persetujuan MASIH menunggu di-commit** —
+`AlurPersetujuanService`, `AlurPersetujuanController`, `AuditRole`, dua berkas
+uji, dua SQL. Ada di dev, di working copy lokal, dan di
+`wip/snapshot-konsultan-alur-2026-08-22`. Sudah diperiksa masih utuh sesudah
+dev pindah branch. **Chat pemiliknya yang harus commit.**
+
+### Catatan kerja
+
+Tiga kali skrip verifikasi merah karena **nama kolom ditebak**: `ip_address`
+(sebenarnya `ip`), `branch_name` (sebenarnya `name`). Semua di skrip pemeriksa,
+nol di kode yang naik. Pengulangan pelajaran lama: **baca
+`Schema::getColumnListing()` dulu, jangan tebak.** Satu galat 255 tanpa keluaran
+sama sekali ternyata cuma `require "vendor/autoload.php"` yang lupa —
+`display_errors` mati di CLI prod, jadi fatal error keluar senyap.
+
+---
+
 ## 2026-08-27 — DUA PAGAR PENGAJUAN LEMBUR (dev lulus, prod belum)
 
 Rencana `docs/rencana/rencana-pagar-lembur.md` dibangun utuh. Keduanya lahir

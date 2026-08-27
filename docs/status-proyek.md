@@ -22,6 +22,34 @@
 > Kalau tanggal ini sudah jauh lewat,
 > minta chat teknis menyegarkan file ini sebelum dipakai mengambil keputusan.
 >
+>
+> ⚠️ **Sisipan 2026-08-27 malam — EMPAT GERBONG NAIK PROD.** Prod kini
+> **`761d7a7`**, dev = prod = main. Berurutan hari ini: **Lembar Bayar ROP**
+> (`0e7f26d`, 16/16) → **§M dua pagar lembur** (`26381ee`, 8/8) → **Pasien Baru
+> / Cekat milik Reza** (`67cd56b`, 31 dev + 16 prod) → **§N belajar-sendiri
+> IPv4** (`761d7a7`, 15/15). Nol SQL dan nol rsync untuk §N.
+> **§N tidak diterima atas dasar laporan** — angkanya diulang sendiri di worktree
+> terpisah di server prod dengan **vendor disalin, bukan di-symlink** (symlink
+> membuat Composer memuat balik kode prod lama dan memberi hijau palsu), dan
+> hasilnya cocok: **130 absen tertolong, 0 hilang, 0 pindah cabang**. Lalu
+> ditunjukkan hidup: simulasi dengan kode yang kini jalan **mendaftarkan sendiri**
+> `36.69.103.246` (Sunter) dan `180.251.182.171` (Pamulang), sementara
+> `125.165.152.185` (Bintaro) **tetap ditolak karena saksinya kurang** — ambangnya
+> bekerja, bukan meloloskan borongan. Cocok otomatis per pekan Agustus:
+> **77% · 72% · 74% · 81%**, dan pekan berjalan belum memuat efek §N.
+> ⛔ **DUA LARANGAN yang ikut permanen**: (1) **jangan cabut 10 baris IPv4 manual
+> 23 Agu** — 7 punya pengganti otomatis, **4 tidak** (Bintaro ×3, Cinere ×1,
+> saksinya orang fleksibel); (2) **jangan cabut pagar `ipv4Publik()`** — ia
+> menutup CGNAT `100.64.0.0/10` yang flag bawaan PHP justru tak cakup; tanpa itu,
+> di belakang proxy salah-konfigurasi kelima cabang bisa terbaca jadi satu.
+> ⛔ **Yang MASIH menahan**: tujuh berkas **Konsultan + Alur Persetujuan** belum
+> di-commit (ada di dev, di working copy lokal, dan di
+> `wip/snapshot-konsultan-alur-2026-08-22`) — sudah diperiksa utuh sesudah dev
+> pindah branch. **Chat pemiliknya yang harus commit.** Ditunda atas permintaan
+> Ekky: **Ramdan & Fajri**. Jangan disentuh: **req#162 Melani**, menunggu Nissa.
+> ℹ️ Perlu diawasi terpisah: **`[2002] Operation not permitted` 41 kali di prod
+> hari ini**, semuanya **sebelum** deploy — penolakan koneksi MySQL hosting
+> bersama, bukan akibat gerbong mana pun.
 > ⚠️ **Sisipan 2026-08-27** — **Belajar-sendiri IPv4 LULUS DEV** (§N dari
 > sisipan 24 Agu, branch `feat/wifi-ipv4-belajar`, **prod belum**). WiFi cabang
 > ber-IPv4 kini bisa terdaftar sendiri setelah 2 orang cabang yang sama memakainya
