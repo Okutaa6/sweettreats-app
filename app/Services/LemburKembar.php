@@ -48,6 +48,14 @@ class LemburKembar
     /**
      * Pengajuan lembur lain yang bertindih dengan (user, tanggal, jam) ini.
      *
+     * ⚠️ **Menyapu baris yang SUDAH ADA? Isi `$kecualiId`, atau pakai `peta()`.**
+     * Tanpa itu setiap baris dibandingkan dengan DIRINYA SENDIRI dan semuanya
+     * terbaca "kembar persis" — bentuk paling meyakinkan dari hasil palsu,
+     * karena angkanya rapi dan salah. `$kecualiId` boleh kosong hanya untuk
+     * kiriman BARU, yang memang belum punya id. Sudah menjebak satu orang saat
+     * pengadu-an ke data prod (27 Agu); `peta()` menutupnya sendiri, jadi untuk
+     * penyapuan itulah pintu yang benar.
+     *
      * @param  string|int|null  $kecualiId  id pengajuan yang sedang diperiksa
      *                                      (dipakai layar persetujuan, supaya
      *                                      kartu tak menuduh dirinya sendiri)
