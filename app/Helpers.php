@@ -504,9 +504,15 @@ if (!function_exists('canManagePageAccess')) {
 /**
  * True kalau user yang sedang login boleh melihat data lintas-cabang
  * (mis. dropdown cabang di Petty Cash, dashboard Monitoring Petty Cash).
- * Role yang boleh: Super Admin, Admin General, Admin Backup, Finance.
+ * Role yang boleh: Super Admin, Admin General, Admin Backup, Finance,
+ * Konsultan Finance.
  *
  * Sales / staff cabang lain otomatis ke-lock ke session('raw_branch_id').
+ *
+ * `Konsultan Finance` (2026-08-21): tanpa ini konsultan terkunci ke satu cabang
+ * dan SEMUA halaman ber-guard canSeeAllBranches ikut 403 — Upload Data,
+ * Kehadiran, Mapping, Periode Gaji, Rekap Persetujuan, Petty Cash Monitoring,
+ * antrian & rekap ROP. Satu baris ini yang membuka semuanya sekaligus.
  */
 if (!function_exists('canSeeAllBranches')) {
     function canSeeAllBranches(): bool
@@ -516,7 +522,60 @@ if (!function_exists('canSeeAllBranches')) {
             'Admin General',
             'Admin Backup',
             'Finance',
+            'Konsultan Finance',
         ], true);
+    }
+}
+
+/**
+ * Role yang bersifat PENGAMAT: tidak mengajukan apa pun (cuti/lembur/izin
+ * MAUPUN ROP) dan tidak meng-ACC pengajuan siapa pun. Dipakai untuk role
+ * konsultan.
+ *
+ * SUMBER KEBENARAN = kolom `group_path.wewenang_pengajuan`, supaya konsultan
+ * bidang berikutnya cukup satu baris SQL dan NOL koding. Jangan menambahkan
+ * nama role ke daftar parasut di bawah — itu bukan daftar yang dirawat,
+ * melainkan jaring untuk SATU keadaan: kode sudah naik, SQL-nya belum. Tanpa
+ * parasut, urutan deploy yang terbalik akan menghilangkan pagarnya diam-diam.
+ *
+ * Sifat ini TIDAK menyentuh pekerjaan bidang: Konsultan Finance tetap
+ * menyetujui ROP (jalurnya RopService), yang dilarang adalah MENGAJUKAN.
+ *
+ * Hasil DESCRIBE-nya di-cache (skema tak berubah saat runtime) tapi barisnya
+ * dibaca segar — tabelnya 20-an baris, dan itu membuat perubahan kolom langsung
+ * berlaku tanpa perlu menunggu request baru.
+ */
+if (!function_exists('rolePengamatIds')) {
+    function rolePengamatIds(): array
+    {
+        static $adaKolom = null;
+
+        $parasut = ['Consultant', 'Konsultan Finance', 'Konsultan Marketing', 'Konsultan IT'];
+
+        try {
+            if ($adaKolom === null) {
+                $adaKolom = \Illuminate\Support\Facades\Schema::hasColumn('group_path', 'wewenang_pengajuan');
+            }
+            if ($adaKolom) {
+                return \Illuminate\Support\Facades\DB::table('group_path')
+                    ->where('wewenang_pengajuan', 'pengamat')->pluck('id', 'id')->all();
+            }
+        } catch (\Throwable $e) {
+            // Tabel/kolom tak terbaca → parasut.
+        }
+
+        return \Illuminate\Support\Facades\DB::table('group_path')
+            ->whereIn('nama', $parasut)->pluck('id', 'id')->all();
+    }
+}
+
+/** True kalau role ini pengamat. Tanpa argumen = role yang sedang login. */
+if (!function_exists('isPengamat')) {
+    function isPengamat(?string $roleId = null): bool
+    {
+        $roleId = $roleId ?? session('group_id');
+
+        return $roleId !== null && isset(rolePengamatIds()[$roleId]);
     }
 }
 
@@ -524,11 +583,18 @@ if (!function_exists('canSeeAllBranches')) {
  * True kalau user yang sedang login adalah role Finance. Dipakai untuk
  * gate aksi mutasi di Petty Cash cabang — Finance hanya view-only,
  * tidak boleh tambah/edit/hapus transaksi, top-up, transfer, dll.
+ *
+ * ⚠️ `Konsultan Finance` WAJIB ikut, dan alasannya kebalikan dari daftar-daftar
+ * lain di berkas ini. Fungsi ini MEMBATASI, bukan memberi: canEditPettyCash()
+ * = ! isFinance(). Kalau konsultan tak disebut di sini, ia lolos jadi "bukan
+ * Finance" lalu boleh MENGEDIT petty cash — kuasa yang Finance sendiri tak
+ * punya. Menambahkan nama role ke gerbang biasanya membuka pintu; di sini ia
+ * menutupnya, dan melewatkannya = eskalasi hak diam-diam.
  */
 if (!function_exists('isFinance')) {
     function isFinance(): bool
     {
-        return session('group_name') === 'Finance';
+        return in_array(session('group_name'), ['Finance', 'Konsultan Finance'], true);
     }
 }
 

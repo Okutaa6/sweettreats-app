@@ -38,9 +38,26 @@ class AturanKerjaController extends Controller
      * controller (rencana §3); hasMenuAccess cuma nemu node level 3, jangan
      * diandalkan sebagai gerbang.
      */
+    /**
+     * Daftar role yang boleh membuka layar ini. Sengaja KONSTANTA PUBLIK, bukan
+     * array inline: layar ini punya beberapa tab yang gerbangnya harus sama
+     * persis, dan salinan daftar yang tersebar pasti berselisih cepat atau
+     * lambat. `att:audit-role` juga membacanya lewat refleksi supaya
+     * detektornya tak memelihara cermin yang bisa basi diam-diam.
+     *
+     * Konsultan Finance/IT ikut (2026-08-22) karena menunya dikloning bulat
+     * dari role induknya dan node `absensi/aturan` ikut terbawa — dibiarkan di
+     * luar daftar ini, menunya tampil lalu 403.
+     * ⚠️ Layar ini MENENTUKAN GAJI. Kalau Ekky menilai itu kelewat jauh untuk
+     * orang luar, cabut dua nama ini DAN buang node `absensi/aturan` dari
+     * group_access kedua role konsultan — dua-duanya, jangan satu saja.
+     */
+    public const BOLEH = ['Supervisor', 'Head IT', 'Finance', 'Super Admin',
+                          'Konsultan Finance', 'Konsultan IT'];
+
     private function guard(): void
     {
-        if (! in_array(session('group_name'), ['Supervisor', 'Head IT', 'Finance', 'Super Admin'], true)) {
+        if (! in_array(session('group_name'), self::BOLEH, true)) {
             abort(403, 'Halaman ini khusus Supervisor / Head IT / Finance.');
         }
     }

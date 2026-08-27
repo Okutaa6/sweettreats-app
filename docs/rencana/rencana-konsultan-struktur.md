@@ -311,3 +311,88 @@ bukti HP), jadi tak berpengaruh ke absensi. Dibiarkan.
    menggigit saat akun **baru** dibuat di role itu.
 4. **Prod menunggu dev lulus §8.** Tak ada satu pun langkah di dokumen ini yang
    boleh dijalankan langsung di prod.
+
+---
+
+## 11. STANDAR role konsultan — resep untuk bidang berikutnya
+
+> Ditulis 2026-08-22 sesudah tiga role pertama berdiri dan diaudit. Tujuannya
+> satu: konsultan bidang berikutnya (HR, Ops, apa pun) **tidak** menuntut
+> perubahan kode, dan tidak bisa gagal diam-diam.
+
+### 11.1 Yang membuat sebuah role jadi "konsultan" = SATU KOLOM
+
+`group_path.wewenang_pengajuan` = `'pengamat'`.
+
+Itu saja. Kolom itu yang dibaca `AttendanceRequestWorkflow` di **dua** pagar —
+`pastikanBolehMengajukan()` (sisi kirim) dan `act()` (sisi ACC). Artinya:
+
+- **JANGAN** menambahkan nama role baru ke daftar mana pun di kode.
+  `ROLE_PENGAMAT_PARASUT` bukan daftar yang harus dirawat — ia parasut untuk
+  satu keadaan saja: kode sudah naik, SQL belum.
+- Kolom ini **tidak** menyentuh pekerjaan bidang. Konsultan Finance tetap
+  menyetujui ROP; jalurnya `RopService`, bukan `att_approval_rule`.
+- Diuji: menandai `General Services` sebagai pengamat langsung memblokirnya,
+  dan mengembalikan konsultan ke `penuh` langsung melepas pagarnya — jadi yang
+  bekerja memang kolomnya, bukan namanya.
+
+### 11.2 Resep membuat konsultan bidang baru
+
+1. `INSERT` role `Konsultan <Bidang>` — `landing_page = 'akun'`,
+   `att_default_rule_id` = *Fleksibel*, `parent_id` = role induk bidangnya,
+   `wewenang_pengajuan = 'pengamat'`.
+2. Kloning `group_access` dari role induk dengan **membaca barisnya di
+   lingkungan itu** — jangan pernah menulis daftar id node (id berbeda antar
+   dev/prod).
+3. **Cabut daftar baku alat keamanan** (§11.3).
+4. **NOL baris** `att_approval_rule`, dua arah.
+5. `php artisan access:rebuild`, lalu pastikan `storage/app/group_access/<id>.txt`
+   benar-benar berubah mtime-nya.
+6. `php artisan att:audit-role` — harus nol temuan BERAT.
+7. Kalau menu induknya memuat halaman bergerbang nama-role (§3.3), tambahkan
+   nama role baru ke gerbang itu **atau** buang node-nya. Jangan tinggalkan
+   menu yang 403 — auditor akan menandainya.
+
+### 11.3 Daftar baku yang DICABUT saat mengkloning
+
+Alat keamanan & administrasi tak pernah "kerjaan bidang". Tak satu pun dijaga
+gerbang nama-role, jadi **node-nya saja sudah memberi kuasanya penuh**:
+
+| link | kenapa dicabut |
+|---|---|
+| `setusermanagement` | bisa membuat & menyunting akun siapa pun |
+| `setgroup` | bisa mengubah role, termasuk role dirinya |
+| `setaccess` | bisa memberi dirinya sendiri akses apa pun |
+| `setsystemprofile` | setelan sistem |
+| `absensi/wifi` | saksi WiFi absensi |
+| `auditlog` | jejak siapa mengubah apa |
+
+`setkesehatan` **tidak** dicabut: route GET saja, papan diagnosa.
+
+Daftar ini hidup di `App\Console\Commands\AuditRole::ALAT_KEAMANAN` dan
+**ditegakkan**, bukan sekadar diingat: role pengamat yang memegang salah satunya
+jadi temuan BERAT.
+
+**Ditambah `pengajuan` (ROP).** Keputusan Ekky 2026-08-22: konsultan tak
+mengajukan **apa pun**, termasuk pengeluaran uang. Kategorinya sengaja dipisah
+(`AuditRole::NODE_PENGAJUAN`) karena alasannya bukan keamanan sistem melainkan
+wewenang. Ini kemampuan yang **tak sengaja diberikan** oleh kloning: role
+`Consultant` lama tak punya node itu, dan `PengajuanController::store()` tak
+bergerbang nama-role — jadi node-nya saja sudah cukup.
+Pagar kodenya: `PengajuanController::tolakPengamat()` (`isPengamat()`),
+dipasang di `index`, `create`, dan `store`.
+
+### 11.4 Yang diperiksa auditor tiap dijalankan
+
+`php artisan att:audit-role` (`--berat` untuk cron):
+
+menu tampil-tapi-403 · rujukan role hantu di `att_approval_rule` (tabel itu tak
+punya FK) · role berpenghuni yang pengajuannya **lolos sendiri tanpa jejak** ·
+role penyetuju yang kosong penghuninya · siklus di rantai ACC maupun bagan ·
+role pengamat yang punya wewenang/alat keamanan · divisi checklist tanpa role
+senama · pengawas checklist tanpa divisi · user ber-role hantu.
+
+Gerbangnya **dievaluasi dari sumbernya** — `canSeeAllBranches()` dipanggil
+sungguhan dengan sesi palsu per role, konstanta controller dibaca lewat
+refleksi — supaya auditornya tak jadi salinan yang basi. Satu yang masih cermin
+(`absensi/aturan`, array inline di metode privat) ditandai jelas di keluarannya.

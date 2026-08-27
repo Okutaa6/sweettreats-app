@@ -64,14 +64,16 @@ class RopSapu extends Command
             $this->line("ingatkan ACC: {$r->number} — {$r->umurHari()} hari menunggu");
             if ($kering) continue;
 
-            AdminNotification::notifyRole(
-                RopService::ROLE_PENYETUJU,
-                'rop_menunggu_lama',
-                'Pengajuan menunggu ' . $r->umurHari() . ' hari',
-                $r->number . ' (' . $this->rupiah($r->amount) . ') dari '
-                    . ($r->requester?->nama ?: 'pengaju') . ' belum diputuskan.',
-                url('finance/rop'),
-            );
+            foreach (RopService::ROLE_PENYETUJU as $role) {
+                AdminNotification::notifyRole(
+                    $role,
+                    'rop_menunggu_lama',
+                    'Pengajuan menunggu ' . $r->umurHari() . ' hari',
+                    $r->number . ' (' . $this->rupiah($r->amount) . ') dari '
+                        . ($r->requester?->nama ?: 'pengaju') . ' belum diputuskan.',
+                    url('finance/rop'),
+                );
+            }
             $this->tandaiDiingatkan($r);
         }
 
@@ -85,14 +87,16 @@ class RopSapu extends Command
             $this->line("ingatkan BAYAR: {$r->number} — disetujui {$hari} hari lalu, belum dibayar");
             if ($kering) continue;
 
-            AdminNotification::notifyRole(
-                RopService::ROLE_PENYETUJU,
-                'rop_belum_dibayar',
-                'Disetujui ' . $hari . ' hari lalu, belum dibayar',
-                $r->number . ' (' . $this->rupiah($r->amount) . ') untuk '
-                    . ($r->requester?->nama ?: 'pengaju') . ' masih menunggu transfer.',
-                url('finance/rop?tab=disetujui'),
-            );
+            foreach (RopService::ROLE_PENYETUJU as $role) {
+                AdminNotification::notifyRole(
+                    $role,
+                    'rop_belum_dibayar',
+                    'Disetujui ' . $hari . ' hari lalu, belum dibayar',
+                    $r->number . ' (' . $this->rupiah($r->amount) . ') untuk '
+                        . ($r->requester?->nama ?: 'pengaju') . ' masih menunggu transfer.',
+                    url('finance/rop?tab=disetujui'),
+                );
+            }
             $this->tandaiDiingatkan($r);
         }
 
