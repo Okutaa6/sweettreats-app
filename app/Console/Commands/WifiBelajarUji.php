@@ -238,8 +238,8 @@ class WifiBelajarUji extends Command
             ],
             [
                 'kode'  => 'K6',
-                'judul' => 'Seluler CGNAT 114.10.70.167 · 3 orang Bintaro sekalipun (diperkeras)',
-                'harap' => 'TIDAK PERNAH daftar — IPv4/CGNAT dipakai jutaan orang',
+                'judul' => 'IPv4 dipakai ramai · CGNAT 114.10.70.167 DAN jalur cabang 110.137.194.229',
+                'harap' => 'keduanya terdaftar COCOK-PENUH, IT diberi tahu, label PERLU DITINJAU, nol pelebaran',
                 'baseline' => self::BASELINE_BINTARO,
                 'saklar' => '1',
                 'events' => [
@@ -250,11 +250,72 @@ class WifiBelajarUji extends Command
                     ['2026-08-11 09:05:00', 'Rizka Noviyanti',     'pulang','110.137.194.229', $b],
                     ['2026-08-11 09:10:00', 'Asih Wulan Sari',     'pulang','110.137.194.229', $b],
                 ],
+                // ⚠️ KASUS INI BERUBAH ARTI PADA 27 AGU 2026 — BACA SEBELUM
+                // MENGIRA ADA YANG RUSAK.
+                //
+                // Dulu harapannya "TIDAK PERNAH daftar", dan itu ditulis sebagai
+                // pengerasan sadar: IPv4/CGNAT dipakai jutaan orang, jadi jangan
+                // pernah lewat. Yang dilewatkan waktu itu: dengan aturan itu,
+                // sebuah cabang bisa TAK PERNAH punya baris IPv4 sama sekali —
+                // Kalideres nol baris sampai 23 Agu, Cinere juga, dan 13 absen
+                // dalam 3 minggu harus pilih cabang manual tanpa ada yang
+                // berteriak.
+                //
+                // Yang PALING penting dari kasus ini sekarang: dua alamat di
+                // bawah TIDAK BISA DIBEDAKAN oleh sistem. 114.10.70.167 memang
+                // CGNAT Telkomsel (Rizka, 7 Agu); 110.137.194.229 memang jalur
+                // WiFi Bintaro (didaftarkan manusia 23 Agu setelah diverifikasi).
+                // Dari sisi bukti keduanya identik: satu alamat, tiga orang
+                // Bintaro, dalam sepuluh menit. Menebak mana yang mana dari
+                // BENTUK alamatnya persis kesalahan yang §5 rencana larang —
+                // dan yang sudah terbukti keliru sekali (kasus Cici).
+                //
+                // Jadi keduanya didaftarkan, dan pertahanannya bukan penolakan
+                // melainkan KELIHATAN: label PERLU DITINJAU + notifikasi IT +
+                // cocok-penuh (tetangganya tetap ditolak). Kalau suatu saat
+                // pertahanan itu dilepas, kasus ini yang harus merah duluan.
                 'periksa' => function (array $j) {
-                    $this->takAdaPendaftaran($j);
-                    foreach ($j as $i => $r) {
-                        $this->wajib($r['belajar']['alasan'] === 'bukan_ipv6', "kejadian ke-" . ($i + 1) . " harus ditolak sebagai bukan_ipv6 — dapat " . $r['belajar']['alasan']);
+                    $cgnat = '114.10.70.167';
+                    $jalur = '110.137.194.229';
+
+                    // Orang ke-2 tiap alamat = ambang tercapai → DAFTAR.
+                    foreach ([1 => $cgnat, 4 => $jalur] as $i => $ip) {
+                        $v = $j[$i]['belajar'];
+                        $this->wajib($v['vonis'] === WifiBelajarSendiri::DAFTAR,
+                            "{$ip}: di orang ke-2 vonis harus DAFTAR — dapat {$v['vonis']}");
+                        $this->wajib($v['alasan'] === WifiBelajarSendiri::LENGKAP_V4,
+                            "{$ip}: alasannya harus " . WifiBelajarSendiri::LENGKAP_V4 . " — dapat {$v['alasan']}");
+                        $this->wajib($v['prefix'] === $ip,
+                            "{$ip}: yang didaftarkan harus alamat penuh, bukan blok — dapat {$v['prefix']}");
                     }
+
+                    // Orang ke-3 sudah menikmatinya: cocok, tanpa perlu memilih.
+                    foreach ([2, 5] as $i) {
+                        $this->wajib($j[$i]['cocok'] === true,
+                            'orang ke-3 (' . $j[$i]['nama'] . ') harus langsung cocok setelah alamatnya terdaftar');
+                    }
+
+                    foreach ([$cgnat, $jalur] as $ip) {
+                        $row = AttBranchIp::where('ip', $ip)->first();
+                        $this->wajib($row !== null, "{$ip} harus punya baris");
+                        $this->wajib($row && $row->sumber === 'otomatis' && $row->status === 'aktif',
+                            "{$ip} harus lahir sebagai baris otomatis yang aktif");
+                        $this->wajib($row && str_contains((string) $row->label, 'PERLU DITINJAU'),
+                            "{$ip} WAJIB berlabel PERLU DITINJAU — tak ada kekerabatan yang menjaminnya");
+                    }
+
+                    // NOL PELEBARAN — pertahanan yang tak boleh ikut longgar.
+                    foreach (['114.10.70.168', '110.137.194.230', '110.137.194.228'] as $tetangga) {
+                        $this->wajib(AttBranchIp::matchBranch($tetangga) === null,
+                            "tetangga {$tetangga} TIDAK boleh ikut cocok — IPv4 selalu cocok-penuh");
+                    }
+
+                    // Risikonya diterima HANYA karena kelihatan. Kalau notifikasi
+                    // ini hilang, yang tersisa cuma risikonya.
+                    $harus = count(WifiBelajarSendiri::ROLE_PENINJAU) * 2;
+                    $n = DB::table('admin_notification')->where('type', 'wifi_otomatis')->count();
+                    $this->wajib($n === $harus,
+                        "IT harus diberi tahu untuk KEDUA alamat ({$harus} baris, satu per role) — dapat {$n}");
                 },
             ],
             [
@@ -496,6 +557,222 @@ class WifiBelajarUji extends Command
                         'IPv4 tak boleh dinilai lewat pagar /48');
                 },
             ],
+
+            // ═════ IPv4 belajar sendiri · rencana-wifi-ipv4-belajar.md §7 ═════
+
+            [
+                'kode'  => 'K16',
+                'judul' => 'IPv4 · 2 orang berbeda, cabang konsisten, dalam 72 jam (§7-1, §7-5)',
+                'harap' => 'didaftarkan COCOK-PENUH di orang ke-2; tetangga oktet ±1 tetap ditolak',
+                'baseline' => self::BASELINE_BINTARO,
+                'saklar' => '1',
+                'events' => [
+                    ['2026-08-11 08:00:00', 'Firda Mareta Naskah', 'masuk', '36.77.252.85', $b],
+                    ['2026-08-11 08:05:00', 'Asih Wulan Sari',     'masuk', '36.77.252.85', $b],
+                    ['2026-08-11 08:10:00', 'Afrina Apriliani',    'masuk', '36.77.252.85', $b],
+                ],
+                // Alamat sungguhan: 36.77.252.85 dipakai Anisa, Rivanti, Cici,
+                // dan Reza dalam 5 hari di Kalideres, semuanya memilih cabang
+                // yang sama. Manusia baru mendaftarkannya 23 Agu — tiga minggu
+                // sesudah orang pertama memakainya. Kasus ini mengunci bahwa
+                // mesin menangkapnya di orang KEDUA, hari itu juga.
+                'periksa' => function (array $j) {
+                    $this->wajib($j[0]['belajar']['alasan'] === 'orang_kurang',
+                        'orang ke-1 belum boleh cukup — dapat ' . $j[0]['belajar']['alasan']);
+                    $this->wajib($j[0]['belajar']['n'] === 1, 'orang ke-1 harus terhitung n=1 — dapat ' . $j[0]['belajar']['n']);
+
+                    $v = $j[1]['belajar'];
+                    $this->wajib($v['vonis'] === WifiBelajarSendiri::DAFTAR,
+                        'orang ke-2 harus memicu DAFTAR — dapat ' . $v['vonis']);
+                    $this->wajib($v['n'] === 2, 'harus dua saksi — dapat ' . $v['n']);
+
+                    $row = AttBranchIp::where('ip', '36.77.252.85')->first();
+                    $this->wajib($row !== null, 'barisnya harus lahir dengan alamat PERSIS, bukan blok');
+                    $this->wajib($row && $row->raw_branch_id === self::BINTARO, 'barisnya harus milik cabang yang dipilih');
+                    $this->wajib($row && $row->sumber === 'otomatis', 'sumbernya harus otomatis');
+
+                    // Orang ke-3 memetik hasilnya tanpa memilih cabang lagi.
+                    $this->wajib($j[2]['cocok'] === true, 'orang ke-3 harus langsung cocok');
+                    $this->wajib($j[2]['branch_id'] === self::BINTARO, 'orang ke-3 harus terbaca Bintaro');
+
+                    // §7-5 — nol pelebaran, ke dua arah.
+                    foreach (['36.77.252.84', '36.77.252.86', '36.77.251.85', '36.77.252.185'] as $t) {
+                        $this->wajib(AttBranchIp::matchBranch($t) === null,
+                            "tetangga {$t} TIDAK boleh ikut cocok");
+                    }
+                    // Satu-satunya baris IPv4 baru yang boleh lahir adalah itu.
+                    $n = AttBranchIp::where('sumber', 'otomatis')->count();
+                    $this->wajib($n === 1, "harus lahir tepat SATU baris otomatis — lahir {$n}");
+                },
+            ],
+            [
+                'kode'  => 'K17',
+                'judul' => 'IPv4 · satu orang saja, berkali-kali, berhari-hari (§7-2)',
+                'harap' => 'TIDAK didaftarkan — satu orang tak bisa dibedakan dari WiFi rumahnya sendiri',
+                'baseline' => self::BASELINE_BINTARO,
+                'saklar' => '1',
+                'events' => [
+                    ['2026-08-09 08:01:00', 'Firda Mareta Naskah', 'masuk',  '36.71.209.30', $b],
+                    ['2026-08-09 18:04:00', 'Firda Mareta Naskah', 'pulang', '36.71.209.30', $b],
+                    ['2026-08-10 08:02:00', 'Firda Mareta Naskah', 'masuk',  '36.71.209.30', $b],
+                    ['2026-08-10 18:07:00', 'Firda Mareta Naskah', 'pulang', '36.71.209.30', $b],
+                ],
+                // Batas "satu orang tak pernah cukup" berlaku sama untuk IPv4.
+                // Justru di sinilah ambang itu paling menentukan: IPv4 tak punya
+                // pagar kekerabatan /48, jadi jumlah orang adalah pagar utamanya.
+                'periksa' => function (array $j) {
+                    foreach ($j as $i => $r) {
+                        $this->wajib($r['belajar']['alasan'] === 'orang_kurang',
+                            'kejadian ke-' . ($i + 1) . ' harus ditolak sebagai orang_kurang — dapat ' . $r['belajar']['alasan']);
+                        $this->wajib($r['belajar']['n'] === 1,
+                            'kejadian ke-' . ($i + 1) . ' tetap satu orang berapa kali pun diulang — dapat ' . $r['belajar']['n']);
+                    }
+                    $this->takAdaPendaftaran($j);
+                    $this->wajib(AttBranchIp::matchBranch('36.71.209.30') === null, 'alamatnya tak boleh dikenali');
+                },
+            ],
+            [
+                'kode'  => 'K18',
+                'judul' => 'IPv4 · dua orang, tapi memilih cabang BERBEDA (§7-3)',
+                'harap' => 'TIDAK didaftarkan untuk cabang mana pun',
+                'baseline' => self::BASELINE_BINTARO,
+                'saklar' => '1',
+                'events' => [
+                    ['2026-08-11 08:00:00', 'Firda Mareta Naskah', 'masuk', '180.242.129.44', $b],
+                    ['2026-08-11 08:05:00', 'Rizka Noviyanti',     'masuk', '180.242.129.44', self::SUNTER],
+                ],
+                // Alamat yang dua orangnya sendiri tak sepakat itu di cabang mana
+                // BUKAN jaringan cabang — itu alamat yang berpindah tangan.
+                // 180.242.129-131.x memang jalur kedua Kalideres yang berotasi
+                // lintas /24; sengaja dibiarkan tak tertangani (§8-4 rencana),
+                // dan kasus ini memastikan ia tak tertangkap secara kebetulan.
+                'periksa' => function (array $j) {
+                    $this->takAdaPendaftaran($j);
+                    foreach ($j as $i => $r) {
+                        $this->wajib($r['belajar']['alasan'] === 'orang_kurang',
+                            'kejadian ke-' . ($i + 1) . ' harus kurang saksi — dapat ' . $r['belajar']['alasan']);
+                    }
+                    $this->wajib(AttBranchIp::matchBranch('180.242.129.44') === null, 'alamatnya tak boleh dikenali');
+                },
+            ],
+            [
+                'kode'  => 'K19',
+                'judul' => 'IPv4 · alamat pernah dipakai memilih cabang LAIN di masa lalu (§7-4)',
+                'harap' => 'TIDAK didaftarkan walau dua saksi di jendela sudah sepakat',
+                'baseline' => self::BASELINE_BINTARO,
+                'saklar' => '1',
+                'events' => [
+                    ['2026-08-06 10:00:00', 'Rizka Noviyanti',     'masuk', '180.252.87.18', self::SUNTER],
+                    ['2026-08-11 08:00:00', 'Firda Mareta Naskah', 'masuk', '180.252.87.18', $b],
+                    ['2026-08-11 08:05:00', 'Asih Wulan Sari',     'masuk', '180.252.87.18', $b],
+                ],
+                // Kejadian 6 Agu berada DI LUAR jendela 72 jam, jadi ia tak
+                // mengurangi jumlah saksi — dan memang tak boleh: syarat 3
+                // sengaja tanpa batas waktu. Jendela menjawab "siapa di sana
+                // sekarang"; syarat 3 menjawab "alamat ini pernah jadi milik
+                // siapa lagi". Dua pertanyaan berbeda, dua rentang berbeda.
+                'periksa' => function (array $j) {
+                    $v = $j[2]['belajar'];
+                    $this->wajib($v['n'] === 2, 'dua saksi di jendela harus tetap terhitung — dapat ' . $v['n']);
+                    $this->wajib($v['alasan'] === 'pernah_cabang_lain',
+                        'yang menjatuhkannya harus riwayat cabang lain — dapat ' . $v['alasan']);
+                    $this->takAdaPendaftaran($j);
+                    $this->wajib(AttBranchIp::matchBranch('180.252.87.18') === null, 'alamatnya tak boleh dikenali');
+                },
+            ],
+            [
+                'kode'  => 'K20',
+                'judul' => 'IPv4 menyamar ::ffff: · satu alamat, dua bentuk tulisan (§7-7)',
+                'harap' => 'lewat jalur IPv4 cocok-penuh; kedua bentuk tulisan jadi SATU baris',
+                'baseline' => self::BASELINE_BINTARO,
+                'saklar' => '1',
+                'events' => [
+                    ['2026-08-11 08:00:00', 'Firda Mareta Naskah', 'masuk', '::ffff:180.242.130.7', $b],
+                    ['2026-08-11 08:05:00', 'Asih Wulan Sari',     'masuk', '::ffff:180.242.130.7', $b],
+                    ['2026-08-11 08:10:00', 'Afrina Apriliani',    'masuk', '180.242.130.7',        $b],
+                ],
+                // Bentuk ::ffff:a.b.c.d WAJIB ikut jalur IPv4. Kalau ia lewat
+                // jalur prefix, "/48"-nya (::ffff:0.0.0.0) akan menampung
+                // SELURUH internet v4 dalam satu blok — kebocoran terbesar yang
+                // mungkin ada di berkas ini.
+                //
+                // Sekaligus mengunci pembakuan bentuk: baris lahir dari bentuk
+                // menyamar, permintaan ketiga datang bertitik, dan keduanya
+                // harus bertemu. Tanpa itu jaringan ini tak akan pernah cocok
+                // DAN tak akan pernah bisa didaftarkan ulang (UNIQUE(ip) menolak
+                // kembarannya) — macet senyap.
+                'periksa' => function (array $j) {
+                    $v = $j[1]['belajar'];
+                    $this->wajib($v['vonis'] === WifiBelajarSendiri::DAFTAR, 'orang ke-2 harus DAFTAR — dapat ' . $v['vonis']);
+                    $this->wajib($v['prefix'] === '180.242.130.7',
+                        'yang tersimpan harus bentuk bertitik yang dibakukan — dapat ' . $v['prefix']);
+
+                    $baris = AttBranchIp::where('sumber', 'otomatis')->get();
+                    $this->wajib($baris->count() === 1, 'harus tepat satu baris, bukan dua bentuk tulisan — dapat ' . $baris->count());
+                    $this->wajib($baris->first() && ! str_contains((string) $baris->first()->ip, ':'),
+                        'baris IPv4 tak boleh tersimpan dalam bentuk ber-titik-dua');
+
+                    $this->wajib($j[2]['cocok'] === true, 'bentuk bertitik harus cocok dengan baris yang lahir dari bentuk menyamar');
+                    $this->wajib(AttBranchIp::matchBranch('::ffff:180.242.130.7') !== null,
+                        'bentuk menyamar juga harus cocok dengan barisnya sendiri');
+
+                    // Yang menyamar TIDAK boleh membuka blok apa pun.
+                    foreach (['::ffff:180.242.130.8', '180.242.130.8', '::ffff:8.8.8.8'] as $t) {
+                        $this->wajib(AttBranchIp::matchBranch($t) === null, "{$t} TIDAK boleh ikut cocok");
+                    }
+                },
+            ],
+            [
+                'kode'  => 'K21',
+                'judul' => 'Tinjauan hanya untuk yang tak dijamin kekerabatan /48 (§6, §7-12)',
+                'harap' => 'IPv4 selalu perlu ditinjau; /64 se-/48 dengan jalur manusia disahkan saja',
+                'baseline' => array_merge(self::BASELINE_BINTARO, [
+                    // Baris OTOMATIS yang aktif di /48 yang belum pernah disahkan
+                    // manusia — dipakai membuktikan ia tak boleh menjamin saudaranya.
+                    [self::CINERE, '2001:448a:2033:aaaa::', 'aktif', 'otomatis'],
+                ]),
+                'saklar' => '1',
+                'events' => [],
+                // Kasus kedua di berkas ini (setelah K15) yang tidak lewat jalur
+                // absen. Sengaja: aturan ini dipakai DI DUA TEMPAT — label saat
+                // mendaftarkan dan sorotan di halaman WiFi Cabang — dan justru
+                // pembedaan yang dipakai dua tempat yang paling gampang
+                // menyimpang (pelajaran veto /48).
+                'periksa' => function (array $j) {
+                    $semua = AttBranchIp::all();
+                    $t = fn ($ip, $branch) => WifiBelajarSendiri::perluTinjau($ip, $branch, $semua);
+
+                    // IPv4 — SELALU. Tak ada kekerabatan yang menjaminnya.
+                    foreach (['36.77.252.85', '180.252.168.224', '::ffff:36.77.252.85'] as $ip) {
+                        $this->wajib($t($ip, self::BINTARO) === true, "IPv4 {$ip} harus selalu perlu ditinjau");
+                    }
+
+                    // /64 se-/48 dengan jalur Bintaro yang ditaruh manusia → cukup disahkan.
+                    $this->wajib($t('2001:448a:2092:9911::', self::BINTARO) === false,
+                        '/64 se-/48 dengan jalur manusia TIDAK perlu ditinjau — sudah cocok sendiri sejak 21 Agu');
+
+                    // /48 yang asing sama sekali → perlu ditinjau.
+                    $this->wajib($t('2404:c0:20b3:82d9::', self::BINTARO) === true,
+                        '/48 yang benar-benar baru harus perlu ditinjau');
+
+                    // Kekerabatan dihitung PER CABANG: /48 Bintaro tak menjamin Sunter.
+                    $this->wajib($t('2001:448a:2092:9911::', self::SUNTER) === true,
+                        '/48 milik cabang lain tidak boleh menjamin cabang ini');
+
+                    // Baris otomatis TIDAK boleh menjamin baris otomatis lain —
+                    // kalau boleh, satu baris keliru mengesahkan seluruh /48 di
+                    // belakangnya tanpa seorang pun pernah melihatnya.
+                    $this->wajib($t('2001:448a:2033:bbbb::', self::CINERE) === true,
+                        'baris otomatis tak boleh mengesahkan saudaranya sendiri');
+
+                    // Dan yang di prod sekarang: kelima baris otomatis se-/48
+                    // dengan jalur manual → tak satu pun boleh menuntut tinjauan.
+                    foreach (['2001:448a:2092:10d5::', '2001:448a:2092:2777::'] as $ip) {
+                        $this->wajib($t($ip, self::BINTARO) === false,
+                            "{$ip} se-/48 dengan jalur Bintaro — tak perlu ditinjau");
+                    }
+                },
+            ],
         ];
     }
 
@@ -606,8 +883,9 @@ class WifiBelajarUji extends Command
                 'label'         => 'baseline uji',
                 'status'        => $r[2] ?? 'aktif',
                 // Baris nonaktif di baseline mewakili "IT sudah meninjau lalu
-                // menolak", jadi sumbernya memang otomatis.
-                'sumber'        => ($r[2] ?? 'aktif') === 'nonaktif' ? 'otomatis' : 'manual',
+                // menolak", jadi sumbernya memang otomatis. Elemen ke-4 boleh
+                // memaksanya (K21 butuh baris otomatis yang AKTIF).
+                'sumber'        => $r[3] ?? (($r[2] ?? 'aktif') === 'nonaktif' ? 'otomatis' : 'manual'),
             ]);
         }
     }

@@ -78,8 +78,16 @@ class AttBranchIp extends Model
         $v4Menyamar = $isV6 && substr($bin, 0, 12) === "\0\0\0\0\0\0\0\0\0\0\xff\xff";
 
         // IPv4 (atau string tak valid) → jalur cepat cocok-penuh.
+        //
+        // Dibakukan dulu: ::ffff:36.77.252.85 dan 36.77.252.85 adalah alamat
+        // yang SAMA, cuma ditulis berbeda, dan proxy bisa mengirim bentuk mana
+        // saja. Tanpa pembakuan, baris yang lahir dari bentuk satu tak akan
+        // pernah cocok dengan permintaan berbentuk lain — DAN tak akan pernah
+        // bisa didaftarkan ulang, karena UNIQUE(ip) menolak bentuk kembarannya.
+        // Macet senyap; persis jenis kegagalan yang tak kelihatan dari layar.
         if (! $isV6 || $v4Menyamar) {
-            return static::where('ip', $ip)->where('status', 'aktif')->first();
+            $cari = static::teksIpv4($ip) ?? $ip;
+            return static::where('ip', $cari)->where('status', 'aktif')->first();
         }
 
         $p64        = substr($bin, 0, 8);
@@ -125,6 +133,30 @@ class AttBranchIp extends Model
         }
 
         return $kerabat;
+    }
+
+    /**
+     * Bentuk baku sebuah IPv4, atau NULL kalau alamat ini bukan IPv4.
+     *
+     * Menerima kedua bentuk — "36.77.252.85" dan "::ffff:36.77.252.85" — dan
+     * selalu mengembalikan yang bertitik. Dipakai bersama oleh pencocokan
+     * (matchBranch) dan pembelajaran (WifiBelajarSendiri): satu alamat harus
+     * punya satu nama, kalau tidak dua tempat akan menjawab berbeda untuk
+     * pertanyaan yang sama.
+     */
+    public static function teksIpv4(string $ip): ?string
+    {
+        $bin = @inet_pton($ip);
+        if ($bin === false) {
+            return null;
+        }
+        if (strlen($bin) === 4) {
+            return (string) inet_ntop($bin);
+        }
+        if (strlen($bin) === 16 && substr($bin, 0, 12) === "\0\0\0\0\0\0\0\0\0\0\xff\xff") {
+            return (string) inet_ntop(substr($bin, 12));
+        }
+        return null;
     }
 
     /**

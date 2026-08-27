@@ -38,12 +38,27 @@ class AbsensiBranchIpController extends Controller
             ->get();
         $branches = RawBranch::orderBy('name')->get(['id', 'name']);
 
-        // Baris yang lahir sendiri dan belum disentuh manusia naik ke atas —
-        // itu satu-satunya hal di halaman ini yang menunggu keputusan.
-        $perluTinjau = $ips->where('sumber', 'otomatis')->where('status', 'aktif');
+        // Baris yang lahir sendiri dan belum disentuh manusia — itu satu-satunya
+        // hal di halaman ini yang menunggu keputusan.
+        //
+        // ⚠️ TIDAK semua baris otomatis menunggu keputusan (§6 rencana IPv4).
+        // Yang se-/48 dengan jalur yang sudah disahkan manusia sudah cocok
+        // dengan sendirinya sejak pencocokan /48 (21 Agu 2026) — terdaftar atau
+        // tidak, hasilnya sama. Menandainya "perlu ditinjau" tak menambah apa
+        // pun, dan halaman yang berteriak untuk hal yang bukan keputusan akan
+        // berhenti dibaca. Kelima baris otomatis di prod semuanya jenis itu.
+        //
+        // Aturannya MILIK SERVIS, tidak disalin ke sini: label yang ditulis saat
+        // mendaftarkan dan sorotan di layar ini harus selalu sepakat.
+        $perluTinjau = $ips->where('sumber', 'otomatis')->where('status', 'aktif')
+            ->filter(fn ($r) => \App\Services\WifiBelajarSendiri::perluTinjau(
+                (string) $r->ip, $r->raw_branch_id, $ips
+            ))
+            ->values();
+        $idTinjau = $perluTinjau->pluck('id')->all();
         $belajarAktif = \App\Services\WifiBelajarSendiri::aktif();
 
-        return view('absensi.wifi', compact('ips', 'branches', 'perluTinjau', 'belajarAktif') + [
+        return view('absensi.wifi', compact('ips', 'branches', 'perluTinjau', 'idTinjau', 'belajarAktif') + [
             // Angka diambil dari konstantanya, TIDAK diketik ulang: teks lama
             // menulis "3 orang" berbulan-bulan sesudah ambangnya turun jadi 2.
             'ambangOrang' => \App\Services\WifiBelajarSendiri::AMBANG_ORANG,

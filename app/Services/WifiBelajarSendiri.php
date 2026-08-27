@@ -30,12 +30,42 @@ use Carbon\Carbon;
  * Syarat 1-3 terpenuhi tapi 4 tidak (mis. cabang baru yang belum punya prefix
  * apa pun) → JANGAN otomatis, tawarkan sekali klik ke IT.
  *
- * KENAPA HANYA IPv6: itulah satu-satunya yang berputar (IPv4 cabang bertahan
- * berhari-hari melewati rotasi, §7). Sekaligus cara membuktikan larangan
- * "jangan pernah daftarkan IP seluler" (§6) tanpa menebak-nebak operator —
- * Rizka 7 Agu absen lewat Telkomsel 114.10.70.167 yang CGNAT, dipakai jutaan
- * orang; mendaftarkannya = membuka absen dari mana pun. IPv4 tak pernah lewat
- * sini. IPv6 seluler pun tetap gugur di pagar /48.
+ * ⚠️ SEJAK 27 AGU 2026 — IPv4 IKUT DIPELAJARI, TAPI COCOK-PENUH.
+ * (docs/rencana/rencana-wifi-ipv4-belajar.md)
+ *
+ * Dulu IPv4 sengaja tak pernah lewat sini, dengan alasan "IPv4 cabang bertahan
+ * berhari-hari melewati rotasi, jadi cukup didaftarkan manual sekali". Alasan
+ * itu benar; yang tak diantisipasi: sebuah cabang bisa TAK PERNAH KEBAGIAN
+ * pendaftaran manual itu sama sekali. Kalideres punya NOL baris IPv4 sampai
+ * 23 Agu 2026 — 13 absen dalam 3 minggu harus pilih cabang manual, dan tak ada
+ * yang berteriak. Cinere juga nol. Jatuh di antara dua jalur: belajar-sendiri
+ * melewatinya, pencocokan /48 cuma untuk IPv6.
+ *
+ * Jalur IPv4 memakai AMBANG DAN JENDELA YANG SAMA (2 orang / 72 jam) dan saksi
+ * yang dinilai dengan pendukung() yang sama, tapi hasilnya baris COCOK-PENUH,
+ * bukan prefix. Nol pelebaran: 180.252.169.219 tetap ditolak walau .218
+ * terdaftar (dikunci K14).
+ *
+ * ⚠️ JANGAN MELEBARKAN IPv4 ke /24 atau apa pun. Bukan cuma berisiko — TAK AKAN
+ * MENOLONG: alamat satu cabang melompat antar blok yang tak berkerabat sama
+ * sekali (Kalideres memakai 36.77.251/252.x DAN 180.242.129–131.x dalam periode
+ * yang sama). Tak ada satu /24 pun yang menampung keduanya.
+ *
+ * ⚠️ LARANGAN LAMA "jangan daftarkan IP seluler" TIDAK dicabut — cara
+ * membuktikannya yang berubah. Dulu dibuktikan dari BENTUK alamat (v4 = curiga).
+ * Itu terbukti keliru: absen ber-IPv4 di Kalideres sempat disimpulkan "orang
+ * pakai data seluler", lalu Ekky bertanya langsung ke Cici — dia memakai WiFi
+ * klinik, dan datanya membenarkan Cici (36.77.252.85 dipakai EMPAT orang
+ * berbeda dalam 5 hari, semuanya memilih Kalideres). Sekarang dibuktikan dari
+ * PERILAKU: data seluler pribadi memberi tiap orang alamat sendiri, jadi satu
+ * alamat yang dipakai >= AMBANG_ORANG orang cabang yang sama adalah jaringan
+ * bersama. Bukti yang sah = berapa orang berbeda memakainya, bukan bloknya.
+ *
+ * SISA RISIKO YANG DITERIMA SADAR: kalau CGNAT seluler benar-benar memberi
+ * alamat yang sama kepada dua staf cabang yang sama dalam 72 jam, alamat itu
+ * akan terdaftar. Karena IPv4 tak punya pagar kekerabatan /48 yang menjaminnya,
+ * tiap baris IPv4 otomatis WAJIB berisik: notifikasi IT + label "perlu
+ * ditinjau" + AuditLog (lihat perluTinjau()). Terdaftar tapi kelihatan.
  *
  * KENAPA SATU ORANG TAK PERNAH CUKUP: satu orang tak bisa dibedakan dari WiFi
  * rumahnya sendiri. Kasus Kalideres (Rizka, 6-7 Agu) membuktikannya — waktu itu
@@ -100,6 +130,15 @@ class WifiBelajarSendiri
      */
     public const ROLE_PENINJAU = ['Head IT', 'IT'];
 
+    /**
+     * Alasan di balik vonis DAFTAR. Dibedakan karena KONSEKUENSINYA berbeda:
+     * yang IPv6 dijamin kekerabatan /48 (jalur cabang yang sudah dikenal, nomor
+     * baru) sehingga tak menambah apa-apa untuk ditinjau; yang IPv4 cuma
+     * dijamin perilaku saksi, jadi selalu perlu mata manusia. Lihat perluTinjau().
+     */
+    public const LENGKAP_V6 = 'lengkap';
+    public const LENGKAP_V4 = 'lengkap_ipv4';
+
     // ── Vonis ────────────────────────────────────────────────────────────────
     public const DAFTAR   = 'daftar';    // empat syarat lengkap → didaftarkan
     public const TAWARKAN = 'tawarkan';  // 1-3 lengkap, /48 tak sekerabat → tanya IT
@@ -131,15 +170,17 @@ class WifiBelajarSendiri
             return $tolak('tanpa_cabang');
         }
 
-        $bin = @inet_pton($ip);
-        if ($bin === false || strlen($bin) !== 16) {
-            return $tolak('bukan_ipv6');
+        // IPv4 — termasuk ::ffff:x.x.x.x yang menyamar sebagai IPv6 — dinilai
+        // COCOK-PENUH lewat jalurnya sendiri, tak pernah lewat prefix. Yang
+        // menyamar wajib ikut jalur ini: kalau tidak, "/48" dari ::ffff:0.0.0.0
+        // akan menampung seluruh internet v4 dalam satu blok.
+        if (($v4 = AttBranchIp::teksIpv4($ip)) !== null) {
+            return $this->nilaiIpv4($v4, $branchDipilih, $saat);
         }
 
-        // ::ffff:x.x.x.x — IPv4 yang menyamar sebagai IPv6. Tetap IPv4 (dan
-        // CGNAT seluler bisa lewat bentuk ini), jangan sampai lolos.
-        if (substr($bin, 0, 12) === "\0\0\0\0\0\0\0\0\0\0\xff\xff") {
-            return $tolak('bukan_ipv6');
+        $bin = @inet_pton($ip);
+        if ($bin === false || strlen($bin) !== 16) {
+            return $tolak('alamat_tak_sah');
         }
 
         $prefix64 = substr($bin, 0, 8);
@@ -163,7 +204,11 @@ class WifiBelajarSendiri
         }
 
         // ── Syarat 1-3: siapa saja yang memakai /64 ini dalam 72 jam ──────────
-        [$pendukung, $n] = $this->pendukung($prefix64, $branchDipilih, $saat);
+        [$pendukung, $n] = $this->pendukung(
+            fn (string $ipBukti): bool => static::sePrefix64($ipBukti, $prefix64),
+            $branchDipilih,
+            $saat
+        );
 
         if ($n < self::AMBANG_ORANG) {
             return $tolak('orang_kurang', $prefixTeks, $n, $pendukung);
@@ -183,8 +228,66 @@ class WifiBelajarSendiri
         }
 
         return [
-            'vonis' => self::DAFTAR, 'alasan' => 'lengkap',
+            'vonis' => self::DAFTAR, 'alasan' => self::LENGKAP_V6,
             'prefix' => $prefixTeks, 'n' => $n, 'pendukung' => $pendukung,
+        ];
+    }
+
+    /**
+     * Jalur IPv4 — COCOK-PENUH, nol pelebaran (§3 & §4 rencana).
+     *
+     * Empat syarat, urutannya sengaja: yang paling murah & paling menentukan
+     * dulu, supaya jalur ini (dilewati tiap absen ber-IP tak dikenal) tak
+     * menembak kueri saksi untuk alamat yang toh sudah punya baris.
+     *
+     *   1. >= AMBANG_ORANG orang BERBEDA memakai alamat ini dalam jendela
+     *   2. semuanya memilih cabang yang SAMA — dan cabang efektif mereka
+     *      memang cabang itu (pendukung() yang sama dengan IPv6)
+     *   3. alamat ini TAK PERNAH dipakai memilih cabang lain sepanjang sejarah
+     *   4. alamat ini BELUM terdaftar untuk cabang mana pun
+     *
+     * Syarat 4 diperiksa lebih dulu karena baris yang sudah ada juga membawa
+     * keputusan manusia: baris NONAKTIF ber-alamat persis = IT sudah melihat
+     * lalu bilang tidak, dan itu tak boleh ditawar ulang. Ini pembedaan yang
+     * sama dengan veto IPv6 — bedanya IPv4 tak punya "baris berekor", satu
+     * alamat cuma punya satu bentuk tertulis, jadi tak ada yang perlu dibedakan.
+     */
+    private function nilaiIpv4(string $alamat, string $branchDipilih, Carbon $saat): array
+    {
+        $tolak = fn (string $alasan, int $n = 0, array $p = []) =>
+            ['vonis' => self::TOLAK, 'alasan' => $alasan, 'prefix' => $alamat, 'n' => $n, 'pendukung' => $p];
+
+        // ── Syarat 4 ─────────────────────────────────────────────────────────
+        // UNIQUE(ip) → paling banyak satu baris. Aktif = sudah dikenal (diam);
+        // nonaktif = veto IT (jangan pernah didaftarkan ulang diam-diam).
+        $baris = AttBranchIp::where('ip', $alamat)->first();
+        if ($baris) {
+            return $tolak($baris->status === 'aktif' ? 'sudah_cocok' : 'ditolak_it');
+        }
+
+        // ── Syarat 1-2 ───────────────────────────────────────────────────────
+        [$pendukung, $n] = $this->pendukung(
+            fn (string $ipBukti): bool => AttBranchIp::teksIpv4($ipBukti) === $alamat,
+            $branchDipilih,
+            $saat
+        );
+
+        if ($n < self::AMBANG_ORANG) {
+            return $tolak('orang_kurang', $n, $pendukung);
+        }
+
+        // ── Syarat 3 ─────────────────────────────────────────────────────────
+        // SEPANJANG SEJARAH, bukan cuma di dalam jendela. Alamat yang bulan lalu
+        // membaca Sunter lalu minggu ini membaca Cinere bukan jaringan cabang —
+        // itu alamat yang berpindah tangan (rotasi ISP, hotspot, kantor bersama),
+        // dan mendaftarkannya berarti membaca cabang yang salah diam-diam.
+        if ($this->pernahCabangLain($alamat, $branchDipilih)) {
+            return $tolak('pernah_cabang_lain', $n, $pendukung);
+        }
+
+        return [
+            'vonis' => self::DAFTAR, 'alasan' => self::LENGKAP_V4,
+            'prefix' => $alamat, 'n' => $n, 'pendukung' => $pendukung,
         ];
     }
 
@@ -232,7 +335,12 @@ class WifiBelajarSendiri
     // ─────────────────────────────────────────────────────────────────────────
 
     /**
-     * Orang berbeda yang memakai /64 ini dalam jendela, yang BOLEH dihitung.
+     * Orang berbeda yang memakai alamat/prefix ini dalam jendela, yang BOLEH
+     * dihitung. SATU implementasi untuk dua jalur: IPv6 melewatkan pencocok
+     * per-/64, IPv4 melewatkan pencocok cocok-penuh. Syarat siapa-yang-boleh-
+     * jadi-saksi (cabang efektif, bukan fleksibel) sengaja identik — untuk IPv4
+     * justru lebih penting, karena di sana tak ada pagar kekerabatan /48 yang
+     * menyaring "dua orang di kafe".
      *
      * Yang TIDAK dihitung:
      *  • orang berjadwal FLEKSIBEL — §6. Bukan karena buktinya palsu, tapi
@@ -247,15 +355,16 @@ class WifiBelajarSendiri
      *
      * @return array{0:string[], 1:int} [nama-nama pendukung, jumlah orang]
      */
-    private function pendukung(string $prefix64, string $branchDipilih, Carbon $saat): array
+    private function pendukung(callable $alamatSama, string $branchDipilih, Carbon $saat): array
     {
         $sejak = $saat->copy()->subHours(self::JENDELA_JAM);
         $hp    = new AttendanceHpAbsen();
 
-        // Prefix tak bisa dicocokkan di SQL: satu /64 punya tak terhingga bentuk
+        // Alamat tak bisa dicocokkan di SQL: satu /64 punya tak terhingga bentuk
         // tertulis (ekor privacy extension berganti tiap sesi, '::' terkompresi,
-        // huruf besar/kecil). Sama seperti AttBranchIp::matchBranch, banding
-        // dilakukan BINER di PHP. Jendelanya sempit (72 jam ~ puluhan baris).
+        // huruf besar/kecil), dan satu IPv4 bisa datang sebagai ::ffff:a.b.c.d.
+        // Sama seperti AttBranchIp::matchBranch, banding dilakukan BINER di PHP.
+        // Jendelanya sempit (72 jam ~ puluhan baris).
         $rows = AttHpBukti::query()
             ->where('taken_at', '>=', $sejak)
             ->where('taken_at', '<=', $saat)
@@ -272,8 +381,7 @@ class WifiBelajarSendiri
             if (isset($calon[$b->user_id])) {
                 continue;
             }
-            $rbin = @inet_pton((string) $b->ip);
-            if ($rbin === false || strlen($rbin) !== 16 || substr($rbin, 0, 8) !== $prefix64) {
+            if (! $alamatSama((string) $b->ip)) {
                 continue;
             }
             // Bukti ini mengaku di cabang mana? Rizka yang asalnya Bintaro tapi
@@ -425,9 +533,17 @@ class WifiBelajarSendiri
             fn ($n) => strtok(trim($n), ' '),
             array_slice($hasil['pendukung'], 0, 4)
         ));
+        // Label harus menyebut APA yang menjamin baris ini, karena penjaminnya
+        // berbeda: IPv6 dijamin kekerabatan /48 (jalur cabang yang sudah
+        // dikenal), IPv4 cuma dijamin perilaku saksi. Yang kedua perlu mata
+        // manusia; yang pertama tidak (§6 rencana).
+        $tinjau = static::perluTinjau($prefix, $branchDipilih, AttBranchIp::all());
+        $ekor   = $tinjau
+            ? ' · IPv4 cocok-penuh — PERLU DITINJAU'
+            : ' · /48 sekerabat — disahkan';
         $label = mb_substr(
             "Otomatis · {$hasil['n']} orang {$cabang} dalam " . self::JENDELA_JAM
-            . " jam: {$depan} · /48 sekerabat — perlu ditinjau",
+            . " jam: {$depan}{$ekor}",
             0, 191
         );
 
@@ -463,13 +579,20 @@ class WifiBelajarSendiri
         // ke target_role yang harus COCOK PERSIS dengan group_name pemakai, dan
         // halaman WiFi Cabang dipegang dua role terpisah — "Head IT" takkan
         // pernah melihat baris yang ditujukan ke "IT".
+        $penjamin = $tinjau
+            ? "Alamat IPv4 ini didaftarkan COCOK-PENUH (tetangganya tetap ditolak), dan tak ada "
+              . "kekerabatan blok yang menjaminnya — yang menjaminnya cuma perilaku: {$hasil['n']} orang "
+              . 'yang berbeda tak akan berbagi satu alamat kalau itu data seluler pribadi. '
+              . 'PERLU DITINJAU: kalau ini ternyata bukan jaringan cabang, nonaktifkan.'
+            : "Blok /48-nya sekerabat dengan jalur {$cabang} yang sudah terdaftar, jadi jaringan ini "
+              . 'praktis sudah dikenali dengan sendirinya. Tinjau di halaman WiFi Cabang — '
+              . 'nonaktifkan kalau ini bukan jaringan cabang.';
+
         foreach (self::ROLE_PENINJAU as $role) {
             AdminNotification::notifyRole($role, 'wifi_otomatis',
                 "WiFi baru terdaftar otomatis — {$cabang}",
                 "Jaringan {$prefix} didaftarkan sendiri oleh sistem karena {$hasil['n']} orang {$cabang} "
-                . "memakainya dalam " . self::JENDELA_JAM . " jam terakhir ({$nama}), dan blok /48-nya sekerabat "
-                . "dengan jalur {$cabang} yang sudah terdaftar. Tinjau di halaman WiFi Cabang — "
-                . 'nonaktifkan kalau ini bukan jaringan cabang.',
+                . 'memakainya dalam ' . self::JENDELA_JAM . " jam terakhir ({$nama}). {$penjamin}",
                 'absensi/wifi');
         }
 
@@ -521,6 +644,98 @@ class WifiBelajarSendiri
                 . '(rumah, kafe, atau seluler), biarkan saja.',
                 'absensi/wifi');
         }
+    }
+
+    /**
+     * §6 — baris otomatis ini perlu mata manusia, atau cukup disahkan?
+     *
+     * IPv4: SELALU perlu. Tak ada kekerabatan yang menjaminnya — cuma perilaku
+     * saksi, dan perilaku bisa menipu (CGNAT yang kebetulan dibagi dua staf
+     * cabang yang sama). Itu sisa risiko yang diterima sadar, dan syarat
+     * menerimanya adalah baris itu KELIHATAN.
+     *
+     * IPv6: perlu HANYA kalau /48-nya benar-benar baru — yaitu belum ada baris
+     * yang DITARUH MANUSIA di /48 itu untuk cabang yang sama. Yang se-/48
+     * dengan jalur yang sudah disahkan manusia tak menambah apa-apa untuk
+     * ditinjau: sejak pencocokan /48 (21 Agu 2026) alamat seperti itu sudah
+     * cocok dengan sendirinya, terdaftar atau tidak. Menandainya "perlu
+     * ditinjau" cuma membuat halaman WiFi Cabang berteriak untuk sesuatu yang
+     * bukan keputusan — dan halaman yang berteriak untuk hal sepele akan
+     * berhenti dibaca. Kelima baris otomatis di prod (id 20, 21, 22, 25, 26)
+     * semuanya jenis ini.
+     *
+     * Baris ber-sumber otomatis TIDAK boleh menjamin baris otomatis lain:
+     * kalau boleh, satu baris keliru akan mengesahkan seluruh /48 di
+     * belakangnya tanpa seorang pun pernah melihatnya.
+     *
+     * ⚠️ SATU aturan untuk DUA tempat — label saat menulis (daftarkan()) DAN
+     * daftar tinjauan di halaman WiFi Cabang. Pelajaran mahal dari veto /48:
+     * pembedaan yang sama pernah ditulis di dua tempat lalu menyimpang.
+     *
+     * @param iterable<AttBranchIp> $semua seluruh isi att_branch_ip
+     */
+    public static function perluTinjau(string $ip, ?string $branchId, iterable $semua): bool
+    {
+        if (AttBranchIp::teksIpv4($ip) !== null) {
+            return true;
+        }
+
+        $bin = @inet_pton($ip);
+        if ($bin === false || strlen($bin) !== 16) {
+            return true;   // tak terbaca = jangan ditebak, minta manusia
+        }
+        $p48 = substr($bin, 0, 6);
+
+        foreach ($semua as $row) {
+            if ($row->sumber === 'otomatis' || $row->status !== 'aktif') {
+                continue;
+            }
+            if ((string) $row->raw_branch_id !== (string) $branchId) {
+                continue;
+            }
+            $rbin = @inet_pton((string) $row->ip);
+            if ($rbin !== false && strlen($rbin) === 16 && substr($rbin, 0, 6) === $p48) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Alamat ini pernah dipakai memilih cabang LAIN, kapan pun? (§3 syarat 3)
+     *
+     * Tanpa batas waktu — sengaja. Jendela 72 jam menjawab "siapa yang di sana
+     * sekarang"; pertanyaan ini lain: "alamat ini pernah jadi milik siapa lagi".
+     * Alamat yang bulan lalu terbaca Sunter tak boleh diam-diam jadi Cinere —
+     * itu ciri alamat yang berpindah tangan (rotasi ISP, hotspot, kantor
+     * bersama), bukan ciri jaringan cabang.
+     *
+     * Kedua bentuk tulisan diperiksa: bukti lama bisa tersimpan sebagai
+     * ::ffff:a.b.c.d sementara yang dinilai sekarang bentuk bertitik.
+     */
+    private function pernahCabangLain(string $alamat, string $branchDipilih): bool
+    {
+        $rows = AttHpBukti::query()
+            ->whereIn('ip', [$alamat, '::ffff:' . $alamat])
+            ->get(['branch_id_cocok', 'branch_id_manual']);
+
+        foreach ($rows as $b) {
+            $cabang = $b->branch_id_cocok ?: $b->branch_id_manual;
+            if ($cabang !== null && (string) $cabang !== $branchDipilih) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /** Bukti ini berada di /64 yang sama? Banding BINER — lihat pendukung(). */
+    private static function sePrefix64(string $ip, string $prefix64): bool
+    {
+        $bin = @inet_pton($ip);
+
+        return $bin !== false && strlen($bin) === 16 && substr($bin, 0, 8) === $prefix64;
     }
 
     /** 8 byte pertama → "2001:448a:2092:2777::" */
