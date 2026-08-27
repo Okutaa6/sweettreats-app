@@ -70,8 +70,24 @@ hari liburnya.
 
 ### Uji terima §3 — 11 poin, semua lulus di dev
 
-**27 uji baru+lama hijau** (9 `LemburDodoTest` lama + 15 `PagarLemburTest` +
-3 `PagarLemburLayarTest`), 89 assertion.
+**28 uji baru+lama hijau** (9 `LemburDodoTest` lama + 16 `PagarLemburTest` +
+3 `PagarLemburLayarTest`), 72 assertion.
+
+Satu di antaranya **fixture nyata dari prod**, disumbang sesi HUB yang menyapu
+prod baca-saja: **Alpajri Suhendar, 11 Agu** — req#113 (08:00–10:00, 120 menit)
+dan req#92 (18:00–23:31, 331 menit), dua-duanya di-ACC, `att_day` 451 = 120+331.
+Orang ini benar-benar bekerja dua giliran dan reconciler benar menjumlahkannya.
+Pagar kembar **wajib** membiarkannya lewat — pagar yang menolak orang jujur
+lebih mahal daripada kembar yang lolos, karena korbannya berhenti memakai
+formnya sama sekali. Jamnya dipertahankan apa adanya (23:31, bukan dibulatkan
+jadi 21:00): angka ganjil dan rentang panjang justru yang menjatuhkan pembanding
+ceroboh. Diuji dari dua arah — saat mengajukan **dan** lewat `peta()` yang
+dipakai layar persetujuan.
+
+**Sapuan prod (baca-saja, oleh sesi HUB): 0 pasang bertindih.** Pola Fajri-15-Agu
+yang ketemu di dev belum terjadi di prod; satu-satunya kembar prod (Afrina) sudah
+ditutup 23 Agu. Jadi pagar ini naik sebagai **pencegahan, bukan pemadam** —
+blast radius nol.
 
 Yang paling meyakinkan justru datang dari **data dev yang sudah ada**: sapuan
 menemukan **kembar sungguhan yang masih hidup** — **Fajri, 15 Agu**, req#34

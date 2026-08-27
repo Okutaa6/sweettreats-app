@@ -266,7 +266,10 @@ bukan symlink).
      dan peringatannya tampil di **layar persetujuan**, bukan cuma Lembar Gaji.
      "Hari libur" tetap dari `AttendanceReconciler::liburUntuk()` — tak ada
      definisi kedua.
-  - **27 uji hijau** · invarian `biasa + dodo = total` pegang di 51 pasangan
+  - **28 uji hijau** (termasuk fixture nyata prod: dua giliran sah Alpajri
+    11 Agu, 08:00–10:00 + 18:00–23:31, wajib lewat) · **sapuan prod baca-saja:
+    0 pasang bertindih**, jadi pagar ini pencegahan bukan pemadam ·
+    invarian `biasa + dodo = total` pegang di 51 pasangan
     orang-bulan dev · cacah baris 5 tabel tak bergeser · menemukan **kembar
     sungguhan yang masih hidup di dev** (Fajri 15 Agu, req#34 vs #35).
   - Deploy: **nol SQL, nol rsync**, tapi ada kelas baru → **deploy PENUH**.
