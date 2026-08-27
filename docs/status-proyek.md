@@ -253,6 +253,30 @@ bukan symlink).
   Finance burgundy), Kehadiran gaya kalender Google, sapuan emoji→ikon SVG.
 - **Fix dokter**: jadwal khusus menang atas cuti di resolusi slot reservasi.
 
+### Lulus di DEV — menunggu izin prod (2026-08-27)
+- **Dua pagar pengajuan lembur** — branch `feat/pagar-lembur` (`c363de9`, dari
+  `main` `0e7f26d`); rencana `rencana/rencana-pagar-lembur.md`; dev ditinggal di
+  branch ini.
+  1. **Lembur kembar**: jam persis sama → **ditolak** saat mengajukan (pesannya
+     menyebut nomor pengajuan yang sudah ada); bertindih sebagian → **tetap
+     boleh**, tapi penyetuju diberi tahu di kartu. Dipasang di titik simpan
+     **dan** titik ACC — tombol tersembunyi bukan pagar. Nol penggabungan
+     otomatis: dua sesi terpisah di hari yang sama itu sah.
+  2. **Peringatan chip DODO maju ke titik keputusan**: `pending` ikut diperiksa,
+     dan peringatannya tampil di **layar persetujuan**, bukan cuma Lembar Gaji.
+     "Hari libur" tetap dari `AttendanceReconciler::liburUntuk()` — tak ada
+     definisi kedua.
+  - **28 uji hijau** (termasuk fixture nyata prod: dua giliran sah Alpajri
+    11 Agu, 08:00–10:00 + 18:00–23:31, wajib lewat) · **sapuan prod baca-saja:
+    0 pasang bertindih**, jadi pagar ini pencegahan bukan pemadam ·
+    invarian `biasa + dodo = total` pegang di 51 pasangan
+    orang-bulan dev · cacah baris 5 tabel tak bergeser · menemukan **kembar
+    sungguhan yang masih hidup di dev** (Fajri 15 Agu, req#34 vs #35).
+  - Deploy: **nol SQL, nol rsync**, tapi ada kelas baru → **deploy PENUH**.
+  - ⚠️ Jalankan phpunit **per kelas**: >±17 uji ber-DB dalam satu proses membuat
+    MySQL dev menolak koneksi (batas hosting bersama, bukan cacat kode — uji
+    lama pun ikut gagal).
+
 ### Berjalan PARALEL di chat lain (belum selesai)
 - **Pola interaksi (UX)** — kamus P1–P6 (chevron, toast-urungkan, tombol mati
   yang bilang kenapa, dll) sedang disebar bertahap; spec:

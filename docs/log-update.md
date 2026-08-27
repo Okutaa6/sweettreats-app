@@ -7,6 +7,148 @@
 
 ---
 
+## 2026-08-27 — DUA PAGAR PENGAJUAN LEMBUR (dev lulus, prod belum)
+
+Rencana `docs/rencana/rencana-pagar-lembur.md` dibangun utuh. Keduanya lahir
+dari audit DODO 23–24 Agu, dan keduanya soal **uang salah bayar tanpa ada yang
+bersuara**. Branch `feat/pagar-lembur` (dari `main` `0e7f26d`), commit
+`c363de9`. **Nol SQL, nol `public/assets`** → tak perlu migration maupun rsync.
+
+### Pagar 1 — pengajuan lembur KEMBAR
+
+Sebelum ini, tak ada apa pun yang mencegah dua pengajuan lembur di-ACC untuk
+orang + tanggal + jam yang sama. Kejadian nyata: **Afrina, 10 Agu** — req#30 &
+req#31 dikirim berselang **116 detik**, jam (19:15–21:10), alasan, dan menit
+identik; Anisa menyetujui keduanya berselang 8 menit; reconciler menjumlahkan →
+**230 menit dibayar untuk sesi 115 menit**. Sudah dibetulkan 23 Agu, tapi
+pagarnya belum ada.
+
+Kelas baru `App\Services\LemburKembar`. Tiga perlakuan berbeda, sengaja:
+
+| Keadaan | Perlakuan |
+|---|---|
+| jam **persis sama** | **ditolak** saat mengajukan; pesannya menyebut nomor pengajuan yang sudah ada + apa yang harus dilakukan |
+| jam **bertindih sebagian** (19:00–21:00 vs 19:15–21:10) | **diteruskan**, tapi penyetuju melihat peringatannya di kartu, tepat di atas tombol Setujui |
+| bersambung (08–10 lalu 10–12) atau terpisah | lewat, tak diganggu |
+
+Yang **tidak** dilakukan, dan itu disengaja: tak ada penggabungan otomatis, tak
+ada penolakan diam-diam. Dua sesi lembur terpisah di hari yang sama itu **sah**;
+yang salah selama ini adalah tak ada yang diberi tahu. Status `rejected` juga
+sengaja tak ikut memagari — itu justru cara kembar dibetulkan (req#31
+di-`rejected`, bukan dihapus), jadi kalau ia ikut memagari, pengiriman ulang
+yang benar jadi mustahil.
+
+Dipasang di **dua titik**: saat mengajukan DAN saat meng-ACC. Tombol yang
+disembunyikan bukan pagar — form buatan sendiri tetap bisa POST. Di titik simpan
+malah dicek dua kali: sekali lebih awal (pesan rapi, foto tak terlanjur
+tersimpan) dan sekali lagi **di dalam transaksi**, supaya klik ganda tak
+menyelinap.
+
+### Pagar 2 — peringatan chip datang SESUDAH keputusan
+
+`LemburDodo::chipMencurigakan()` menyaring `status = 'approved'`, jadi ia
+memperingatkan Finance soal yang **sudah terlanjur di-ACC**. Uangnya memang
+masih terlindungi (peringatannya di Lembar Gaji, layar terakhir sebelum gaji) —
+jadi ini bukan lubang. Tapi menangkap sebelum ACC jauh lebih murah daripada
+mencabut ACC.
+
+- `pending_l1`/`pending_l2` kini ikut diperiksa. (`pending_l2` diikutkan walau
+  lembur hari ini satu lapis — supaya pagarnya tak ikut berlubang diam-diam
+  kalau rantainya diperpanjang.)
+- Yang lebih berharga: peringatannya kini tampil **di layar persetujuan**.
+  Penyetuju punya konteks "hari itu dia libur atau tidak"; Finance sering tidak.
+- Baris di Lembar Gaji kini menyebut **sudah/belum di-ACC** — yang belum masih
+  bisa dibetulkan pengajunya tanpa mencabut apa pun.
+
+⚠️ "Hari libur" **tidak** dihitung ulang di layar persetujuan: tetap lewat
+`AttendanceReconciler::liburUntuk()` (aturan mingguan + kalender libur + cabang
+bertugas). Keputusan cocok/tidaknya chip dipusatkan di
+`LemburDodo::masalahChip()` supaya dua layar tak punya dua definisi yang
+lambat laun berselisih. Jalan pintas `att_day.status='libur'` sudah terbukti
+memberi 2 positif palsu — reconciler menulis `hadir` ketika orang bekerja di
+hari liburnya.
+
+### Uji terima §3 — 11 poin, semua lulus di dev
+
+**28 uji baru+lama hijau** (9 `LemburDodoTest` lama + 16 `PagarLemburTest` +
+3 `PagarLemburLayarTest`), 72 assertion.
+
+Satu di antaranya **fixture nyata dari prod**, disumbang sesi HUB yang menyapu
+prod baca-saja: **Alpajri Suhendar, 11 Agu** — req#113 (08:00–10:00, 120 menit)
+dan req#92 (18:00–23:31, 331 menit), dua-duanya di-ACC, `att_day` 451 = 120+331.
+Orang ini benar-benar bekerja dua giliran dan reconciler benar menjumlahkannya.
+Pagar kembar **wajib** membiarkannya lewat — pagar yang menolak orang jujur
+lebih mahal daripada kembar yang lolos, karena korbannya berhenti memakai
+formnya sama sekali. Jamnya dipertahankan apa adanya (23:31, bukan dibulatkan
+jadi 21:00): angka ganjil dan rentang panjang justru yang menjatuhkan pembanding
+ceroboh. Diuji dari dua arah — saat mengajukan **dan** lewat `peta()` yang
+dipakai layar persetujuan.
+
+**Sapuan prod (baca-saja, oleh sesi HUB): 0 pasang bertindih.** Pola Fajri-15-Agu
+yang ketemu di dev belum terjadi di prod; satu-satunya kembar prod (Afrina) sudah
+ditutup 23 Agu. Jadi pagar ini naik sebagai **pencegahan, bukan pemadam** —
+blast radius nol.
+
+**Kelasnya sendiri lalu DIADU dengan data prod — 8/8.** Sapuan pertama memakai
+kueri irisan yang berdiri sendiri, bukan `LemburKembar` — dua implementasi yang
+belum pernah diadu, dan "0" dari kueri yang tak akan pernah hidup di prod itu
+keyakinan yang bersandar pada tempat yang salah. Ditutup tanpa menggeser prod:
+kelasnya diambil lewat `git show` ke `/tmp` lalu di-`require` di skrip yang
+mem-bootstrap aplikasi prod — nol tulis, HEAD prod tetap `0e7f26d`. `peta()`
+atas **158 lembur aktif prod** → 0 kartu berperingatan, **sepakat** dengan kueri
+yang berdiri sendiri.
+
+⚠️ Yang membuat hasil itu bermakna bukan angka nolnya, melainkan **kontrol
+negatifnya**: giliran sisipan 22:00–23:00 (di dalam giliran malam Alpajri) dan
+09:30–11:00 (serempet 30 menit) **tertangkap, dan diakui SEBAGIAN — bukan
+persis**. Tanpa kontrol itu, "0 temuan" tak bisa dibedakan dari "pemeriksanya
+tidur". Sisi sahnya juga diuji: klaim baru 12:00–14:00 di celah antara dua
+giliran Alpajri → 0, tak diganggu.
+
+⚠️ **Jebakan yang ikut ketemu, dan sudah ditambal di komentar (`bc5c10e`)**:
+menyapu baris yang SUDAH ADA dengan `bertindih()` tanpa `$kecualiId` membuat
+tiap baris dibandingkan dengan **dirinya sendiri** — semuanya terbaca "kembar
+persis". Itu yang membuat percobaan pertama melaporkan Alpajri "gagal 2×";
+harness-nya, bukan kodenya. Bentuk hasil palsu yang paling meyakinkan: angkanya
+rapi dan salah. `peta()` menutupnya sendiri, jadi untuk penyapuan itulah pintu
+yang benar. **Ini kali ketiga dalam beberapa hari uji merah ternyata patokannya
+yang salah, bukan kodenya** — patokan uji memang harus ikut diaudit.
+
+Yang paling meyakinkan justru datang dari **data dev yang sudah ada**: sapuan
+menemukan **kembar sungguhan yang masih hidup** — **Fajri, 15 Agu**, req#34
+(18:00–21:00, sudah di-ACC) dan req#35 (18:07–21:00, masih menunggu). Dengan
+kode lama, Anisa akan menyetujui #35 tanpa satu pun tanda dan Fajri dibayar dua
+kali untuk satu sesi. Sekarang kartunya berbunyi. Tiga kartu menunggu lainnya
+tetap bersih — nol positif palsu.
+
+Verifikasi lain di dev: **invarian `biasa + dodo = total` pegang di 51 pasangan
+orang-bulan, 0 pelanggaran** · `chipMencurigakan` 0 temuan, 5 ms, cakupan naik
+dari 6 ke 7 baris · seluruh blade terkompilasi · **cacah baris 5 tabel tak
+bergeser sepetak pun** sebelum-sesudah uji (18/6/889/0/48).
+
+⚠️ **Catatan lingkungan, bukan cacat kode**: menjalankan >±17 uji ber-DB dalam
+SATU proses phpunit di dev membuat MySQL menolak koneksi (`SQLSTATE[HY000]
+[2002] Operation not permitted`) — batas laju koneksi hosting bersama. Terbukti
+lingkungan, bukan kode: pada `phpunit` penuh, **`LemburDodoTest` yang tak
+kusentuh pun ikut gagal 9/9**, dan tiap kelas lulus 100% berulang kali saat
+dijalankan sendiri. Untuk sesi berikutnya: **jalankan per kelas**, jangan satu
+proses besar.
+
+### Yang sengaja TIDAK disentuh
+
+- **req#162 (Melani Safrida, 22 Agu, `pending_l1`)** — Ekky sedang mengonfirmasi
+  ke Nissa. Dipakai baca-saja sebagai kasus uji; barisnya ada di **prod**, tak
+  ada di dev, jadi tak mungkin tersentuh dari sini.
+- **`LemburDodo::dasar()`** — invarian `biasa + dodo = total` bergantung
+  padanya, sudah terverifikasi di 31 pasangan orang-bulan prod.
+- Nol penggabungan otomatis pengajuan kembar. Manusia yang memutuskan mana yang
+  sah; sistem cukup memberi tahu.
+
+**PROD BELUM.** Dev ditinggal di `feat/pagar-lembur`, `composer install
+--no-dev --optimize-autoloader` sudah dikembalikan.
+
+---
+
 ## 2026-08-24 dini hari — DODO NAIK PROD · sapu IPv4 lima cabang · dua bayar-salah ditutup
 
 Malam panjang: satu fitur naik prod, satu lubang jaringan disapu di kelima
