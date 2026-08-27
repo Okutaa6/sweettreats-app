@@ -17,6 +17,13 @@
     ];
 
     $oldPlatforms = old('platforms', $konten?->platforms ?? []);
+    // Dokter Branding GP — fallback kalau _form dipakai dari breakdown (tak dikirim controller)
+    $gpDoctors    = $gpDoctors ?? \App\Models\EpGpDoctor::active()->with('doctor')->orderBy('sort_order')->get()
+                        ->filter(fn ($g) => $g->doctor !== null)
+                        ->map(fn ($g) => (object) ['id' => $g->raw_doctor_id, 'name' => $g->doctor->name])
+                        ->values();
+    $oldGpDoctor  = old('gp_doctor_id', $konten->gp_doctor_id ?? '');
+    $gpSelected   = in_array('gp', $oldPlatforms);
     $oldStatus    = old('status', $konten->status ?? 'draft');
     $oldPrio      = old('prioritas', $konten->prioritas ?? 'normal');
     $oldTipe      = old('tipe_konten', $konten->tipe_konten ?? '');
@@ -115,11 +122,34 @@
                         @php $pc = $platformColors[$key] ?? null; @endphp
                         <label class="ep-quick-pill" style="--pill-bg:{{ $pc['bg'] ?? '#e6f5f4' }}; --pill-text:{{ $pc['text'] ?? '#0a4f4d' }};">
                             <input type="checkbox" name="platforms[]" value="{{ $key }}"
-                                   {{ in_array($key, $oldPlatforms) ? 'checked' : '' }}>
+                                   {{ in_array($key, $oldPlatforms) ? 'checked' : '' }}
+                                   @if($key === 'gp') data-gp-platform @endif>
                             <span>{{ $label }}</span>
                         </label>
                     @endforeach
                 </div>
+            </div>
+        </div>
+
+        {{-- Dokter GP — hanya muncul kalau platform Branding GP dipilih --}}
+        <div class="note-prop" id="gpDoctorRow" style="{{ $gpSelected ? '' : 'display:none;' }}">
+            <div class="note-prop-key">
+                <i class="fa-solid fa-user-md"></i>
+                <span>Dokter GP</span>
+            </div>
+            <div class="note-prop-val">
+                <select name="gp_doctor_id" id="gpDoctorSelect" class="note-prop-input note-prop-select {{ $errors->has('gp_doctor_id') ? 'is-invalid' : '' }}">
+                    <option value="">— Pilih dokter —</option>
+                    @foreach ($gpDoctors as $doc)
+                        <option value="{{ $doc->id }}" {{ $oldGpDoctor == $doc->id ? 'selected' : '' }}>{{ $doc->name }}</option>
+                    @endforeach
+                </select>
+                @if($gpDoctors->isEmpty())
+                    <div class="text-muted small mt-1">Belum ada dokter Branding GP. Tambahkan dulu di <a href="{{ route('kontenpillar', ['tab' => 'gp-doctor']) }}">Konten Pillar → Dokter Branding GP</a>.</div>
+                @endif
+                @if($errors->has('gp_doctor_id'))
+                    <div class="text-danger small mt-1">{{ $errors->first('gp_doctor_id') }}</div>
+                @endif
             </div>
         </div>
 
@@ -414,5 +444,22 @@
 
         window.addEventListener('resize', resize);
         resize();
+    })();
+
+    // ─── Dokter GP: tampil hanya kalau platform Branding GP dicentang ───
+    (function () {
+        const cb  = document.querySelector('input[data-gp-platform]');
+        const row = document.getElementById('gpDoctorRow');
+        const sel = document.getElementById('gpDoctorSelect');
+        if (!cb || !row || !sel) return;
+
+        function sync() {
+            const on = cb.checked;
+            row.style.display = on ? '' : 'none';
+            sel.required = on;
+            if (!on) sel.value = '';
+        }
+        cb.addEventListener('change', sync);
+        sync();
     })();
 </script>

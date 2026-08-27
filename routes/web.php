@@ -33,6 +33,7 @@ use App\Http\Controllers\Crud\PromoController;
 use App\Http\Controllers\Crud\MarketingPromoController;
 use App\Http\Controllers\Crud\CommissionClaimController;
 use App\Http\Controllers\Crud\KontenPillarController;
+use App\Http\Controllers\Crud\EpGpDoctorController;
 use App\Http\Controllers\Crud\EpKontenController;
 use App\Http\Controllers\Crud\EpKontenImageController;
 use App\Http\Controllers\Crud\EpBreakdownController;
@@ -721,6 +722,12 @@ Route::middleware([AuthGuard::class])->group(function () {
     Route::get('konten-pillar/{id}',    [KontenPillarController::class, 'edit'])->name('kontenpillar.edit');
     Route::put('konten-pillar/{id}',    [KontenPillarController::class, 'update'])->name('kontenpillar.update');
     Route::delete('konten-pillar/{id}', [KontenPillarController::class, 'destroy'])->name('kontenpillar.destroy');
+
+    // Dokter Branding GP — tab di halaman Konten Pillar.
+    // Prefix "konten-pillar/" supaya inherit RBAC (AuthGuard cek segment(1)).
+    Route::post('konten-pillar/gp-doctor',        [EpGpDoctorController::class, 'store'])->name('gpdoctor.store');
+    Route::put('konten-pillar/gp-doctor/{id}',    [EpGpDoctorController::class, 'update'])->name('gpdoctor.update');
+    Route::delete('konten-pillar/gp-doctor/{id}', [EpGpDoctorController::class, 'destroy'])->name('gpdoctor.destroy');
 
     // Editorial Plan — EP Konten Bulanan/Mingguan (Fase 3C)
     Route::get('ep-konten',                [EpKontenController::class, 'index'])->name('epkonten');

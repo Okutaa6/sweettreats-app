@@ -6,8 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Models\EpKonten;
 use App\Models\EpKontenPillar;
 use App\Models\EpCampaignFramework;
+use App\Models\EpGpDoctor;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class EpKontenController extends Controller
 {
@@ -17,7 +19,8 @@ class EpKontenController extends Controller
         // Tab platform = filter utama. Filter lain (status/pillar/tipe) di sidebar.
         $month = (int) request('month', now()->month);
         $year  = (int) request('year', now()->year);
-        $platform     = request('platform', 'all'); // all | ig_post | ig_story | tiktok
+        $platform     = request('platform', 'all'); // all | ig_post | ig_story | tiktok | gp
+        $gpDoctorFilter = request('gp_doctor'); // hanya relevan kalau platform == gp
         $filterStatus = request('status');
         $filterPillar = request('pillar_id');
         $filterTipe   = request('tipe_konten');
@@ -35,7 +38,7 @@ class EpKontenController extends Controller
         $gridEnd    = $monthEnd->copy()->endOfWeek(\Carbon\Carbon::SATURDAY);
 
         // Query konten dalam range
-        $query = EpKonten::with('pillars')
+        $query = EpKonten::with('pillars', 'gpDoctor')
             ->whereDate('tanggal_upload', '>=', $gridStart->toDateString())
             ->whereDate('tanggal_upload', '<=', $gridEnd->toDateString());
 
@@ -48,6 +51,11 @@ class EpKontenController extends Controller
                 });
             } else {
                 $query->whereRaw("JSON_CONTAINS(platforms, JSON_QUOTE(?))", [$platform]);
+            }
+
+            // Drill-down: filter per dokter (hanya untuk tab Branding GP)
+            if ($platform === 'gp' && $gpDoctorFilter) {
+                $query->where('gp_doctor_id', $gpDoctorFilter);
             }
         }
         if ($filterStatus) $query->where('status', $filterStatus);
@@ -94,6 +102,8 @@ class EpKontenController extends Controller
             'monthStart'    => $monthStart,
             'monthLabel'    => $monthStart->translatedFormat('F Y'),
             'platform'      => $platform,
+            'gpDoctorFilter'=> $gpDoctorFilter,
+            'gpDoctors'     => $this->gpDoctorOptions(),
             'filterStatus'  => $filterStatus,
             'filterPillar'  => $filterPillar,
             'filterTipe'    => $filterTipe,
@@ -146,7 +156,7 @@ class EpKontenController extends Controller
 
     public function edit($id)
     {
-        $konten = EpKonten::with('pillars', 'campaign')->findOrFail($id);
+        $konten = EpKonten::with('pillars', 'campaign', 'gpDoctor')->findOrFail($id);
         $selectedPillarIds = $konten->pillars->pluck('id')->toArray();
 
         return view('crud.ep-konten.edit', array_merge($this->formData(), compact('konten', 'selectedPillarIds')));
@@ -215,6 +225,7 @@ class EpKontenController extends Controller
             'tanggal_upload' => 'required|date',
             'platforms'      => 'nullable|array',
             'platforms.*'    => 'in:' . implode(',', array_keys(EpKonten::platformOptions())),
+            'gp_doctor_id'   => 'nullable|exists:raw_doctor,id',
             'tipe_konten'    => 'nullable|in:' . implode(',', array_keys(EpKonten::tipeKontenOptions())),
             'status'         => 'required|in:' . implode(',', array_keys(EpKonten::statusOptions())),
             'prioritas'      => 'required|in:' . implode(',', array_keys(EpKonten::prioritasOptions())),
@@ -225,14 +236,23 @@ class EpKontenController extends Controller
         $platforms = array_filter((array) request('platforms', []));
         $pillarIds = array_filter((array) request('pillar_ids', []));
 
+        // Dokter GP wajib kalau platform Branding GP dipilih.
+        $gpDoctorId = in_array('gp', $platforms, true) ? (request('gp_doctor_id') ?: null) : null;
+        if (in_array('gp', $platforms, true) && !$gpDoctorId) {
+            throw ValidationException::withMessages([
+                'gp_doctor_id' => 'Dokter GP wajib dipilih untuk konten Branding GP.',
+            ]);
+        }
+
         $id = (string) Str::uuid();
 
-        DB::transaction(function () use ($id, $platforms, $pillarIds) {
+        DB::transaction(function () use ($id, $platforms, $pillarIds, $gpDoctorId) {
             EpKonten::create([
                 'id'             => $id,
                 'judul'          => request('judul'),
                 'tanggal_upload' => request('tanggal_upload'),
                 'platforms'      => empty($platforms) ? null : array_values($platforms),
+                'gp_doctor_id'   => $gpDoctorId,
                 'tipe_konten'    => request('tipe_konten') ?: null,
                 'status'         => request('status'),
                 'prioritas'      => request('prioritas', 'normal'),
@@ -284,10 +304,29 @@ class EpKontenController extends Controller
             'tipes'      => EpKonten::tipeKontenOptions(),
             'statuses'   => EpKonten::statusOptions(),
             'prios'      => EpKonten::prioritasOptions(),
+            'gpDoctors'  => $this->gpDoctorOptions(),
             'campaigns'  => EpCampaignFramework::orderByDesc('tahun')->orderByDesc('bulan')->limit(100)
                                 ->get(['id', 'campaign_name', 'bulan', 'tahun']),
             // Note: tipe colors etc auto-passed via _form.blade.php fallback to model helpers
         ];
+    }
+
+    /**
+     * Opsi dropdown Dokter GP: dokter aktif di daftar Branding GP.
+     * Return collection of {id: raw_doctor.id, name}.
+     */
+    private function gpDoctorOptions()
+    {
+        return EpGpDoctor::active()
+            ->with('doctor')
+            ->orderBy('sort_order')
+            ->get()
+            ->filter(fn ($g) => $g->doctor !== null)
+            ->map(fn ($g) => (object) [
+                'id'   => $g->raw_doctor_id,
+                'name' => $g->doctor->name,
+            ])
+            ->values();
     }
 
     private function validateKonten(): array
@@ -297,6 +336,7 @@ class EpKontenController extends Controller
             'deskripsi'                => 'nullable|string|max:5000',
             'platforms'                => 'nullable|array',
             'platforms.*'              => 'in:' . implode(',', array_keys(EpKonten::platformOptions())),
+            'gp_doctor_id'             => 'nullable|exists:raw_doctor,id',
             'tipe_konten'              => 'nullable|in:' . implode(',', array_keys(EpKonten::tipeKontenOptions())),
             'status'                   => 'required|in:' . implode(',', array_keys(EpKonten::statusOptions())),
             'prioritas'                => 'required|in:' . implode(',', array_keys(EpKonten::prioritasOptions())),
@@ -315,11 +355,20 @@ class EpKontenController extends Controller
 
         $platforms = array_filter((array) request('platforms', []));
 
+        // Dokter GP wajib kalau platform Branding GP dipilih; kalau tidak, di-null-kan.
+        $gpDoctorId = in_array('gp', $platforms, true) ? (request('gp_doctor_id') ?: null) : null;
+        if (in_array('gp', $platforms, true) && !$gpDoctorId) {
+            throw ValidationException::withMessages([
+                'gp_doctor_id' => 'Dokter GP wajib dipilih untuk konten Branding GP.',
+            ]);
+        }
+
         return [
             'konten' => [
                 'judul'                    => request('judul'),
                 'deskripsi'                => request('deskripsi'),
                 'platforms'                => empty($platforms) ? null : array_values($platforms),
+                'gp_doctor_id'             => $gpDoctorId,
                 'tipe_konten'              => request('tipe_konten') ?: null,
                 'status'                   => request('status'),
                 'prioritas'                => request('prioritas', 'normal'),

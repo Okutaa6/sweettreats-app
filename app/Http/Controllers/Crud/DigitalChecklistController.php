@@ -1407,12 +1407,10 @@ class DigitalChecklistController extends Controller
             return back()->with('info', 'Posisi tidak berubah — sudah sama dengan yang aktif.');
         }
 
-        // Kalau ada posisi aktif tapi beda, tutup yang lama (effective_to=kemarin).
+        // Kalau ada posisi aktif tapi beda, tutup yang lama (effective_to=kemarin;
+        // kalau baru lahir hari ini, dibuang — lihat UserPosition::akhiriSekarang()).
         if ($current) {
-            $current->update([
-                'effective_to' => $today->copy()->subDay(),
-                'updated_at'   => now(),
-            ]);
+            $current->akhiriSekarang();
         }
 
         // Assign manual oleh supervisor = langsung dikonfirmasi (confirmed_at terisi).
@@ -1458,14 +1456,10 @@ class DigitalChecklistController extends Controller
         $pos = UserPosition::with(['user', 'division'])->findOrFail($id);
         $this->abortIfDivisionOutOfScope($pos->division_id);
 
-        // effective_to = kemarin, bukan hari ini — sebab scope activeOn() pakai
-        // "effective_to >= hari ini" (inklusif). Kalau di-set hari ini, posisi
-        // masih terhitung aktif seharian → seolah "tidak kecabut". Kemarin =
-        // nonaktif seketika. (Konsisten dgn penutupan posisi lama saat reassign.)
-        $pos->update([
-            'effective_to' => Carbon::today()->subDay(),
-            'updated_at'   => now(),
-        ]);
+        // Nonaktif seketika — effective_to = kemarin, sebab activeOn() memakai
+        // "effective_to >= hari ini" (inklusif). Posisi yang baru mulai hari ini
+        // dibuang, bukan disimpan dengan rentang terbalik.
+        $pos->akhiriSekarang();
 
         ChecklistAuditLog::write(
             'submission',
@@ -1548,13 +1542,12 @@ class DigitalChecklistController extends Controller
         $pos = UserPosition::with(['user', 'branch'])->where('kind', 'rolling')->findOrFail($id);
         $this->abortIfDivisionOutOfScope($pos->division_id);
 
-        // Belum mulai → batalkan total. Sudah/sedang berjalan → akhiri (effective_to
-        // = kemarin, konsisten dgn positionRemove: activeOn inklusif hari ini).
-        if ($pos->effective_from && $pos->effective_from->gt(Carbon::today())) {
-            $pos->delete();
-        } else {
-            $pos->update(['effective_to' => Carbon::today()->subDay(), 'updated_at' => now()]);
-        }
+        // Belum berjalan sehari pun (termasuk yang MULAI HARI INI) → batalkan
+        // total. Sudah berjalan → akhiri di kemarin. Cabang "mulai hari ini"
+        // inilah yang dulu melahirkan rentang terbalik milik Verini: syaratnya
+        // `> hari ini`, jadi rolling yang mulai hari ini jatuh ke cabang tutup
+        // dan menghasilkan `from 15 Agu, to 14 Agu`.
+        $pos->akhiriSekarang();
 
         ChecklistAuditLog::write(
             'submission',

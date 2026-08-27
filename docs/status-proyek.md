@@ -22,6 +22,58 @@
 > Kalau tanggal ini sudah jauh lewat,
 > minta chat teknis menyegarkan file ini sebelum dipakai mengambil keputusan.
 >
+> ⚠️ **Sisipan 2026-08-24** — **DODO naik prod** (`2ef8a35`): lembur di hari
+> libur kini terpisah dari lembur biasa di Lembar Gaji & Kehadiran. **Dua
+> bayar-salah ditutup**: lembur kembar Afrina (115 menit dibayar 230) dan chip
+> salah Ekky (masih pending, dibetulkan). **10 IPv4 WiFi didaftarkan** di 5
+> cabang — kegagalan cocok 21 hari turun 158 → 128 tertolong. Dua utang
+> disiapkan jadi chat build: **§M pagar lembur** & **§N belajar-sendiri IPv4**.
+> ⛔ Konsultan + Alur Persetujuan masih menahan (kodenya belum di-commit).
+>
+> ⚠️ **Sisipan 2026-08-22 malam** — **DUA GERBONG NAIK PROD** (`722d164`):
+> (1) **libur cabang ikut cabang BERTUGAS** — Verini dkk tak lagi salah dinilai,
+> hanya `libur` yang bergerak 57→68, nol alpa baru; (2) **Branding GP** kerjaan
+> Reza (diaudit dulu, 3 temuan non-penahan untuk ditindaklanjuti). Celah
+> `att_user_rule` 5 Agustus (Irma & Anisa) ditutup — lembur Anisa akhirnya punya
+> hari kerja. **Terjadwal**: Ramdan pindah PENUH ke Bintaro + Fajri jadi
+> Koordinator GS, **setelah operasional Minggu 23 Agu**, urutan Ramdan-dulu;
+> Ramdan libur Selasa 25, Pamulang sengaja kosong GS. ⛔ **Konsultan + Alur
+> Persetujuan MENAHAN** — kodenya belum di-commit dan tak bisa dipisah.
+>
+> ✅ **Sisipan 2026-08-21d** — **Libur cabang: SUDAH DIBANGUN, lulus 11/11 di
+> dev**, branch `fix/libur-cabang-bertugas` (`9da2d5d`). **PROD BELUM** —
+> menunggu izin Ekky; tenggat Selasa 25 Agu. Naik prod = deploy PENUH (ada
+> class baru) + rsync `public/` + 1 SQL sapu + `att:reconcile` sesudahnya.
+> Kalender libur kini **tampil di Kehadiran** (temuan kedua di bawah: beres).
+> ⚠️ Temuan sampingan **belum ditambal**: `att_user_rule` prod punya 2 baris
+> rentang-terbalik (Irma & Anisa) — 5 Agu mereka tak punya aturan kerja, scan
+> Anisa hari itu hilang. Butuh keputusan Ekky, bukan efek samping.
+> Dua ralat terhadap rencana dicatat di §10 rencananya. Rincian:
+> `log-update.md` entri `2026-08-21d`. Rencana cadangan §8 (koreksi 3 baris
+> `att_day` sesudah 25 Agu) tetap berlaku kalau prod tak sempat.
+>
+> ⚠️ **Sisipan 2026-08-21c** *(masalahnya — sudah dijawab oleh 21d di atas)* —
+> **Libur cabang tak mengikuti rolling.** Libur
+> per-cabang dicocokkan ke cabang ASAL orang, bukan cabang tempat dia bertugas
+> hari itu — 3 orang salah dua arah pada 25 Agu (Verini berisiko alpa; Della &
+> Ramdan kerjanya dicatat "libur"). Rencana + tenggat di
+> `rencana/rencana-libur-cabang-bertugas.md`. Ikut ketahuan: **kalender libur
+> tak pernah ditampilkan di layar mana pun**, jadi salah-catat baru terlihat
+> setelah harinya lewat. Tiga chat build baru disiapkan: §J §K §L di
+> `spec/prompt-chat-baru.md`.
+>
+> ⚠️ **Sisipan 2026-08-21b** — **Konsultan**: arah baru yang diputuskan Ekky.
+> Konsultan wajib absen, tapi **tak boleh meng-ACC pengajuan orang** (cuti/
+> lembur/izin). Role `Consultant` yang sudah ada ternyata **sudah** memenuhi itu
+> sendiri. Akun **Achmad Haickal** (konsultan finance) dibuat di PROD 21 Agu di
+> role yang sama dengan Hari & Rahmat — role khusus per bidang (`Konsultan
+> Finance`/`Marketing`/`IT`) menyusul setelah rencananya jadi, dan itu **butuh
+> perubahan kode**, bukan cuma config. Rincian + tiga temuan soal mesin ACC ada
+> di `log-update.md` entri 21 Agu b. Rencana lengkapnya — 3 role konsultan,
+> `Coordinator Dentist` pindah ke bawah Supervisor, role baru `Koordinator GS`
+> untuk Alpajri — di `rencana/rencana-konsultan-struktur.md`. Dev dulu, prod
+> menyusul setelah uji terima lulus.
+>
 > ⚠️ **Sisipan 2026-08-14** — **Lembar Bayar ROP** selesai dibangun & lolos uji
 > di **dev** (branch `feature/rop-lembar-bayar`, belum prod): Finance kini bisa
 > menyusun satu berkas cetak untuk bos — daftar + total + terbilang + lampiran —
@@ -194,14 +246,6 @@ bukan symlink).
   burgundy, ACC + pilih akun beban Accurate per buku, tahap dibayar + bukti,
   nota pertanggungjawaban, "Ajukan lagi", deteksi dobel, toast Urungkan 2
   menit, auto-expire 30 hari, master 73 vendor tarik-otomatis, rekap + export.
-  - **Lembar Bayar** (14 Agu, **di dev, belum prod**): rekap pembayaran yang
-    dikirim Finance ke bos sebagai SATU berkas cetak (daftar + total +
-    terbilang + halaman lampiran), pengganti kirim 30 berkas satu per satu di
-    WhatsApp — **plus "tandai dibayar sekaligus"**: satu bukti transfer untuk
-    beberapa ROP. Yang kedua itu wajib, bukan pelengkap: bos membayar beberapa
-    ROP dalam satu transfer, jadi tanpa itu kerja Finance cuma pindah dari
-    kirim 30 berkas jadi unggah 1 berkas 15 kali. Naik prod butuh SQL
-    `2026_08_14_rop_payment_sheet.sql` + **rsync aset** (CSS ikut berubah).
 - **Kerjaan Reza**: login redesign, dashboard marketing, monitoring cuci AC,
   foto before/after checklist, export Excel checklist, pengecualian
   per-pertanyaan, grup promo.

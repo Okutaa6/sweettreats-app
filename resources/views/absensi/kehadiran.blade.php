@@ -64,6 +64,12 @@
     .kh2-fchips { display: none; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 13px; }
     .kh2-fchips.on { display: flex; }
     .kh2-fchips-k { font-size: 11px; font-weight: 800; letter-spacing: .5px; color: #A9866A; }
+    .kh2-libur { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 13px;
+                 background: #FDF5F3; border: 1px solid #F3DED8; border-radius: 11px; padding: 9px 13px; }
+    .kh2-libur-k { font-size: 11px; font-weight: 800; letter-spacing: .5px; color: #C0392B; }
+    .kh2-libur-item { display: inline-flex; align-items: baseline; gap: 7px; font-size: 12px; color: #8A6A52; }
+    .kh2-libur-item b { color: #5A3A22; font-weight: 800; }
+    .kh2-libur-item i { font-style: normal; color: #A9866A; font-size: 11px; }
     .kh2-fchip { display: inline-flex; align-items: center; gap: 7px; background: #fff; border: 1px solid #E7D3BE; color: #5A3A22; border-radius: 20px; padding: 7px 12px; font-family: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
     .kh2-fclear { border: none; background: transparent; color: #8A3A12; font-family: inherit; font-size: 12px; font-weight: 700; text-decoration: underline; cursor: pointer; padding: 6px 4px; }
 
@@ -76,7 +82,12 @@
     .kh2-mx-inner { min-width: max-content; }
     .kh2-mx-head { display: grid; position: sticky; top: 0; z-index: 6; background: #FCF7F1; border-bottom: 1px solid #EDDFCF; }
     .kh2-mx-head-name { position: sticky; left: 0; z-index: 7; background: #FCF7F1; display: flex; align-items: flex-end; padding: 0 14px 9px; font-size: 10px; font-weight: 800; letter-spacing: .7px; color: #A9866A; }
-    .kh2-mx-head-rekap { position: sticky; right: 0; z-index: 7; background: #FCF7F1; display: flex; align-items: flex-end; justify-content: flex-end; padding: 0 14px 9px; font-size: 10px; font-weight: 800; letter-spacing: .7px; color: #A9866A; box-shadow: -7px 0 9px -7px rgba(70,21,0,.16); }
+    /* DUA kolom lengket di kanan: REKAP lalu JAM. Yang kiri harus menempel di
+       right:116px (selebar kolom JAM), kalau tidak keduanya saling menimpa. */
+    .kh2-mx-head-rekap { position: sticky; right: 116px; z-index: 7; background: #FCF7F1; display: flex; align-items: flex-end; justify-content: flex-end; padding: 0 14px 9px; font-size: 10px; font-weight: 800; letter-spacing: .7px; color: #A9866A; box-shadow: -7px 0 9px -7px rgba(70,21,0,.16); }
+    .kh2-mx-head-rekap.jam { right: 0; box-shadow: none; }
+    .kh2-tot-j { right: 0 !important; box-shadow: none !important; flex-direction: column; align-items: flex-end; justify-content: center; gap: 2px; }
+    .kh2-dodo-pill { background: #F4E3D4; color: #8A3A12; border-radius: 7px; padding: 1px 7px; font-size: 10px; font-weight: 800; letter-spacing: .2px; white-space: nowrap; }
     .kh2-hd { display: flex; flex-direction: column; align-items: center; gap: 2px; }
     .kh2-sep { border-bottom: 1px solid #F2E6D8; background: #FBF5ED; padding: 8px 0; }
     .kh2-sep-in { position: sticky; left: 0; display: flex; align-items: center; gap: 9px; padding: 0 14px; width: max-content; max-width: 100vw; }
@@ -101,7 +112,7 @@
     .kh2-cell.empty { border: 1px dashed #E7D3BE; background: transparent; pointer-events: none; }
     .kh2-cell.dim { opacity: .2; }
     .kh2-dot { position: absolute; width: 5px; height: 5px; border-radius: 50%; }
-    .kh2-tot { position: sticky; right: 0; z-index: 2; background: #fff; display: flex; align-items: center; justify-content: flex-end; gap: 5px; padding: 0 14px; box-shadow: -7px 0 9px -7px rgba(70,21,0,.14); }
+    .kh2-tot { position: sticky; right: 116px; z-index: 2; background: #fff; display: flex; align-items: center; justify-content: flex-end; gap: 5px; padding: 0 14px; box-shadow: -7px 0 9px -7px rgba(70,21,0,.14); }
     .kh2-empty-state { padding: 46px 20px; text-align: center; }
     .kh2-legend { display: flex; gap: 15px; padding: 12px 18px; background: #FCF7F0; border-top: 1px solid #F2E6D8; flex-wrap: wrap; align-items: center; }
     .kh2-leg { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; color: #7A5B43; font-weight: 600; }
@@ -225,6 +236,23 @@
     {{-- Filter aktif --}}
     <div class="kh2-fchips" id="khFchips"></div>
 
+    {{-- KALENDER LIBUR bulan ini. Sampai 21 Agu 2026 tabel att_work_rule_exception
+         tak pernah tampil di layar mana pun — ditulis di Aturan Kerja, dibaca cuma
+         oleh mesin rekonsiliasi. Salah catat baru ketahuan setelah harinya lewat.
+         Strip ini alat audit: sekali lihat, tahu cabang mana tutup tanggal berapa. --}}
+    @if (!empty($liburRingkas))
+    <div class="kh2-libur">
+        <span class="kh2-libur-k">{{ count($liburRingkas) > 1 ? 'LIBUR BULAN INI' : 'LIBUR' }}</span>
+        @foreach ($liburRingkas as $l)
+            <span class="kh2-libur-item">
+                <b class="num">{{ $l['label'] }}</b>
+                <span>{{ $l['alasan'] }}</span>
+                <i>{{ $l['cabang'] }}</i>
+            </span>
+        @endforeach
+    </div>
+    @endif
+
     {{-- Matriks (Bulan/Pekan) --}}
     <div class="kh2-matrix-wrap" id="khMatrixWrap">
         <div class="kh2-card">
@@ -251,7 +279,8 @@
 @section('js')
 @php
     // Payload ringkas untuk client-side render. Kunci cell: s=status, i=jam_in,
-    // o=jam_out, t=telat_menit, l=lembur_menit, x=cabang lain, g=single_scan,
+    // o=jam_out, t=telat_menit, l=lembur_menit (TOTAL), dd=porsi DODO di dalamnya,
+    // x=cabang lain, g=single_scan,
     // f=foto [{id,j(enis),w(aktu)}].
     $payloadGroups = [];
     foreach ($groups as $g) {
@@ -267,13 +296,20 @@
                     'o' => $c['jam_out'],
                     't' => (int) $c['telat'],
                     'l' => (int) $c['lembur'],
+                    // dd = porsi DODO (lembur di hari libur, tarif beda).
+                    // PECAHAN dari l, bukan tambahan → lembur biasa = l − dd.
+                    'dd' => (int) ($c['dodo'] ?? 0),
                     'x' => array_values($c['lain']),
                     'g' => (int) $c['single'],
                     'f' => array_map(fn ($f) => ['id' => $f['id'], 'j' => $f['jenis'], 'w' => $f['jam'] ?? null], $c['foto']),
                 ];
             }
             // lb = hari libur milik orang ini (0=Minggu..6=Sabtu) menurut aturan kerjanya
-            $rows[] = ['id' => (string) $r['id'], 'n' => $r['nama'], 'r' => $r['role'], 'lb' => $r['libur'] ?? [], 'cells' => $cells];
+            // lt = TANGGAL libur kalender bagi orang ini (tgl => alasan) — klinik
+            //      tempat dia BERTUGAS hari itu tutup. Beda dari lb: lb pola
+            //      mingguan, lt tanggal tertentu (Maulid, Lebaran, tutup cabang).
+            $rows[] = ['id' => (string) $r['id'], 'n' => $r['nama'], 'r' => $r['role'],
+                       'lb' => $r['libur'] ?? [], 'lt' => (object) ($r['libur_tgl'] ?? []), 'cells' => $cells];
         }
         $payloadGroups[] = ['key' => $gkey, 'label' => $g['label'], 'flex' => (bool) $g['flex'], 'rows' => $rows];
     }
@@ -338,6 +374,10 @@ var KH_DATA = {
     function isTutup(wd) { return TUTUP.indexOf(wd) >= 0; }
     // Hari libur milik satu orang (aturannya sendiri bisa beda dari klinik).
     function rowLibur(r, wd) { return !!(r && r.lb && r.lb.indexOf(wd) >= 0); }
+    // Libur KALENDER pada tanggal tertentu — alasannya (string) atau null.
+    // Per-orang: yang sedang rolling ikut cabang tempatnya bertugas, jadi dua
+    // orang di grup cabang yang sama bisa beda.
+    function rowLiburTgl(r, d) { return (r && r.lt && r.lt[d]) ? r.lt[d] : null; }
     function lemburJam(min) { return Math.round(min / 60 * 10) / 10; }
     function visRows() {
         var q = S.q.trim().toLowerCase(), out = [];
@@ -473,7 +513,8 @@ var KH_DATA = {
     function renderMatrix(vis, ds) {
         var pekan = effView() === 'pekan';
         var colW = pekan ? 132 : 38, rowH = pekan ? 52 : 38, chipH = pekan ? 42 : 26, nameW = 238;
-        var gridCols = nameW + 'px repeat(' + ds.length + ',' + colW + 'px) 84px';
+        // kolom terakhir dipecah: REKAP (hadir·telat·alpa) + JAM (lembur + DODO)
+        var gridCols = nameW + 'px repeat(' + ds.length + ',' + colW + 'px) 84px 116px';
         var h = '<div class="kh2-mx-inner">';
 
         // header tanggal
@@ -488,7 +529,8 @@ var KH_DATA = {
                     : '<div class="num" style="font-size:' + (pekan ? 15 : 12.5) + 'px;font-weight:700;color:' + (red ? '#C0392B' : '#5A3A22') + '">' + d + '</div>')
                 + '</div>';
         });
-        h += '<div class="kh2-mx-head-rekap">REKAP</div></div>';
+        h += '<div class="kh2-mx-head-rekap">REKAP</div>'
+            + '<div class="kh2-mx-head-rekap jam">LEMBUR · DODO</div></div>';
 
         // grup + baris
         vis.forEach(function (o) {
@@ -500,20 +542,27 @@ var KH_DATA = {
                 + (g.flex ? '<span class="kh2-sep-note">' + KAH.svg('info', 12) + 'jam bebas — scan tak dinilai</span>' : '')
                 + '</div></div>';
             o.rows.forEach(function (r) {
-                var hh = 0, tt = 0, aa = 0;
+                var hh = 0, tt = 0, aa = 0, mLembur = 0, mDodo = 0;
                 var cellsH = '';
                 ds.forEach(function (d) {
                     var c = r.cells[d];
                     if (c) { if (c.s === 'hadir') hh++; else if (c.s === 'telat') tt++; else if (c.s === 'alpa') aa++; }
+                    if (c) { mLembur += c.l || 0; mDodo += c.dd || 0; }
                     // Hari libur orang ini ikut disorot walau klinik buka — orang
                     // kantor libur Minggu+Senin, rekannya cuma Senin.
                     var offDiri = rowLibur(r, dow(d));
+                    // Libur kalender (Maulid, Lebaran, tutup cabang) disorot
+                    // sama seperti libur mingguan — tapi alasannya disebutkan,
+                    // sebab tanggal begini tak bisa ditebak dari pola minggu.
+                    var offTgl = rowLiburTgl(r, d);
                     var cellBg = colBg(d);
-                    if (cellBg === 'transparent' && offDiri) cellBg = '#FDF5F3';
+                    if (cellBg === 'transparent' && (offDiri || offTgl)) cellBg = '#FDF5F3';
                     var wrap = '<div class="kh2-cellwrap" style="height:' + rowH + 'px;padding:0 ' + (pekan ? 4 : 2) + 'px;background:' + cellBg + '">';
                     if (!c) {
                         // sel kosong di hari liburnya sendiri BUKAN data hilang
-                        wrap += '<div class="kh2-cell empty" style="height:' + chipH + 'px;border-radius:' + (pekan ? 10 : 6) + 'px" title="' + (offDiri ? 'libur menurut aturan kerjanya' : 'belum ada data') + '"></div>';
+                        var kosongTitle = offTgl ? ('klinik tutup — ' + offTgl)
+                            : (offDiri ? 'libur menurut aturan kerjanya' : 'belum ada data');
+                        wrap += '<div class="kh2-cell empty" style="height:' + chipH + 'px;border-radius:' + (pekan ? 10 : 6) + 'px" title="' + esc(kosongTitle) + '"></div>';
                     } else {
                         var at = ST[c.s] || ST.libur, dim = S.focus && c.s !== S.focus;
                         var title = d + ' ' + D.monthShort + ' · ' + at.l;
@@ -523,6 +572,7 @@ var KH_DATA = {
                         if (c.l) title += ' · lembur ' + KAH.jamNum(lemburJam(c.l)) + ' jam';
                         if (c.g) title += ' · scan tunggal';
                         if (c.x && c.x.length) title += ' · scan di ' + c.x.join(', ');
+                        if (offTgl) title += ' · klinik tutup — ' + offTgl;
                         wrap += '<div class="kh2-cell' + (dim ? ' dim' : '') + '" data-uid="' + r.id + '" data-d="' + d + '" title="' + esc(title) + '" '
                             + 'style="height:' + chipH + 'px;border-radius:' + (pekan ? 10 : 6) + 'px;background:' + at.bg + ';border-color:' + at.br + ';color:' + at.c + ';'
                             + (pekan ? 'gap:7px;padding:0 10px;justify-content:flex-start;' : 'justify-content:center;') + '">';
@@ -556,7 +606,19 @@ var KH_DATA = {
                     + '<div class="kh2-tot num" style="height:' + rowH + 'px">'
                     + '<span style="font-size:12px;font-weight:800;color:#2F8E55">' + hh + '</span><span style="color:#E2D2C0">·</span>'
                     + '<span style="font-size:12px;font-weight:800;color:#B5701A">' + tt + '</span><span style="color:#E2D2C0">·</span>'
-                    + '<span style="font-size:12px;font-weight:800;color:#C0392B">' + aa + '</span></div></div>';
+                    + '<span style="font-size:12px;font-weight:800;color:#C0392B">' + aa + '</span></div>'
+                    // Lembur & DODO di baris orangnya. Tujuannya satu: "siapa
+                    // yang DODO" harus terjawab tanpa membuka tiga puluh modal.
+                    // DODO ditulis dengan namanya, bukan sekadar angka kedua —
+                    // tarifnya beda, jadi tak boleh terbaca sebagai lembur biasa.
+                    + '<div class="kh2-tot kh2-tot-j num" style="height:' + rowH + 'px">'
+                    + (mLembur - mDodo > 0
+                        ? '<span style="font-size:11.5px;font-weight:800;color:#B5701A">' + KAH.jamNum(lemburJam(mLembur - mDodo)) + 'j</span>'
+                        : '<span style="font-size:11.5px;color:#D8C6B2">—</span>')
+                    + (mDodo > 0
+                        ? '<span class="kh2-dodo-pill">DODO ' + KAH.jamNum(lemburJam(mDodo)) + 'j</span>'
+                        : '')
+                    + '</div></div>';
             });
         });
 
@@ -757,14 +819,18 @@ var KH_DATA = {
     function renderPerson() {
         var uid = S.person, r = rowByUid[uid], g = groupByUid[uid];
         if (!r) { closePerson(); return; }
-        var cnt = {}, totLate = 0, totLembur = 0;
+        var cnt = {}, totLate = 0, totLembur = 0, totDodo = 0;
         ORDER.forEach(function (k) { cnt[k] = 0; });
         for (var d = 1; d <= N; d++) {
             var c = r.cells[d];
             if (!c) continue;
             if (cnt[c.s] != null) cnt[c.s]++;
-            totLate += c.t || 0; totLembur += c.l || 0;
+            totLate += c.t || 0; totLembur += c.l || 0; totDodo += c.dd || 0;
         }
+        // DODO itu PECAHAN dari lembur yang di-ACC, bukan tambahan — jadi yang
+        // ditampilkan sebagai "lembur biasa" adalah sisanya. Ditulis sebagai
+        // pengurangan supaya dua angka di layar tak mungkin dijumlahkan dobel.
+        var totBiasa = Math.max(0, totLembur - totDodo);
         var h = '<div class="kh2-dr-head">'
             + '<div class="kh2-av" style="width:40px;height:40px;font-size:16px;background:' + KAH.avColor(r.n) + ';box-shadow:0 0 0 2px rgba(255,255,255,.25)">' + esc(KAH.ini(r.n)) + '</div>'
             + '<div style="flex:1;min-width:0"><div style="font-size:16px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(r.n) + '</div>'
@@ -784,8 +850,11 @@ var KH_DATA = {
         h += '<div class="kh2-dr-tots">'
             + '<div class="kh2-dr-tot"><div style="font-size:10px;font-weight:800;letter-spacing:.5px;color:#A9866A">TOTAL TELAT</div>'
             + '<div class="num" style="font-size:17px;font-weight:800;color:#B5701A;margin-top:2px">' + totLate + ' menit</div></div>'
-            + '<div class="kh2-dr-tot"><div style="font-size:10px;font-weight:800;letter-spacing:.5px;color:#A9866A">LEMBUR DISETUJUI</div>'
-            + '<div class="num" style="font-size:17px;font-weight:800;color:#B5701A;margin-top:2px">' + KAH.jamNum(lemburJam(totLembur)) + ' jam</div></div></div>';
+            + '<div class="kh2-dr-tot"><div style="font-size:10px;font-weight:800;letter-spacing:.5px;color:#A9866A">LEMBUR BIASA</div>'
+            + '<div class="num" style="font-size:17px;font-weight:800;color:#B5701A;margin-top:2px">' + KAH.jamNum(lemburJam(totBiasa)) + ' jam</div></div>'
+            + '<div class="kh2-dr-tot"><div style="font-size:10px;font-weight:800;letter-spacing:.5px;color:#A9866A">DODO</div>'
+            + '<div class="num" style="font-size:17px;font-weight:800;color:#8A3A12;margin-top:2px">' + KAH.jamNum(lemburJam(totDodo)) + ' jam</div>'
+            + '<div style="font-size:9.5px;color:#A9866A;margin-top:1px">masuk di hari libur</div></div></div>';
 
         h += '<div class="kh2-dr-cal"><div class="kh2-dr-dow">';
         DOW2.forEach(function (d2) { h += '<div style="text-align:center;font-size:10px;font-weight:800;letter-spacing:.4px;color:#8A6A52;padding:9px 0">' + d2 + '</div>'; });
@@ -801,8 +870,17 @@ var KH_DATA = {
                 var a2 = ST[cc.s];
                 h += '<span class="kh2-spill" style="background:' + a2.bg + ';color:' + a2.c + ';border-color:' + a2.br + ';align-self:flex-start">' + a2.l + '</span>';
                 if (jamTxt(cc)) h += '<div class="mono" style="font-size:9.5px;color:#A9866A">' + jamTxt(cc) + '</div>';
-                var extra = cc.t ? ('telat ' + cc.t + 'm') : (cc.l ? ('+' + KAH.jamNum(lemburJam(cc.l)) + 'j') : '');
-                if (extra) h += '<div style="font-size:9.5px;font-weight:700;color:#B5701A">' + extra + '</div>';
+                // DODO ditulis dengan namanya dan warna sendiri — kalau cuma
+                // tampil "+3,8j" seperti lembur biasa, hari bertarif beda jadi
+                // tak terbedakan di kalender.
+                if (cc.dd) {
+                    h += '<div style="font-size:9.5px;font-weight:800;color:#8A3A12">DODO +' + KAH.jamNum(lemburJam(cc.dd)) + 'j</div>';
+                    var sisa = Math.max(0, (cc.l || 0) - cc.dd);
+                    if (sisa) h += '<div style="font-size:9.5px;font-weight:700;color:#B5701A">+' + KAH.jamNum(lemburJam(sisa)) + 'j</div>';
+                } else {
+                    var extra = cc.t ? ('telat ' + cc.t + 'm') : (cc.l ? ('+' + KAH.jamNum(lemburJam(cc.l)) + 'j') : '');
+                    if (extra) h += '<div style="font-size:9.5px;font-weight:700;color:#B5701A">' + extra + '</div>';
+                }
             }
             h += '</div>';
             cur++;

@@ -7,6 +7,572 @@
 
 ---
 
+## 2026-08-24 dini hari — DODO NAIK PROD · sapu IPv4 lima cabang · dua bayar-salah ditutup
+
+Malam panjang: satu fitur naik prod, satu lubang jaringan disapu di kelima
+cabang, dan **dua kesalahan bayar ditemukan lalu ditutup** — dua-duanya
+ketahuan bukan dari laporan orang, tapi karena datanya diperiksa.
+
+### DODO naik prod — `2ef8a35`
+
+Lembur di **hari libur** tarifnya beda, jadi Finance harus bisa melihatnya
+terpisah. Diaudit dulu sebelum naik, statis **dan** hidup di dev.
+
+**Yang membuat kodenya layak dipercaya:**
+- `AttendanceReconciler` **penambahan MURNI** (`liburUntuk()`), **nol baris lama
+  diubah** — bentuk teraman untuk kode yang menghitung gaji.
+- Memakai `CabangBertugas` (naik 22 Agu), **tidak** menyalin ulang definisi
+  "libur" yang menyangkut aturan mingguan + kalender + cabang bertugas.
+- **`biasa = total − dodo`** ditulis sebagai PENGURANGAN + clamp `min()`, jadi
+  `biasa + dodo` **selalu** sama persis dengan angka lama. Kalau suatu hari tak
+  sama, itu tanda bocor — bukan pembulatan.
+- **Kolom CSV diganti nama, bukan disisipi** (`Lembur (jam)` → `Lembur Biasa
+  (jam)` + `DODO (jam)`). Kalau namanya dibiarkan sama sementara isinya
+  mengecil, spreadsheet Finance lama akan diam-diam memakai angka yang salah.
+  Perubahan yang berisik jauh lebih aman daripada yang sopan.
+
+**Verifikasi prod (6/6)**: invarian pegang di **31 pasangan orang-bulan** ·
+Agustus total **22.699** = biasa **22.464** + DODO **235** menit ·
+`chipMencurigakan` **0 temuan, 4 ms** · Lembar Gaji & Kehadiran render.
+Nol SQL, nol rsync. Merge nol konflik.
+
+### ⚠️ Bayar-salah #1 — lembur kembar Afrina, 115 menit dibayar 230
+
+Ketemu saat mengaudit DODO; **bukan bug DODO** — fiturnya cuma membuatnya
+kelihatan. req#30 & req#31: jam sama (19:15–21:10), alasan sama kata per kata,
+115 menit masing-masing, dibuat **berselang 116 detik**, dua-duanya di-ACC
+Anisa berselang 8 menit. Reconciler menjumlahkan keduanya → **230 menit untuk
+sesi 115 menit.**
+
+Ditutup: req#31 di-`rejected` (**bukan dihapus** — jejaknya dijaga) + baris
+`att_request_approval` berisi alasannya, lalu `att:reconcile 2026-08-10`.
+**230 → 115.** Prod kini **nol kasus kembar**. Pagarnya belum ada → §M.
+
+### ⚠️ Bayar-salah #2 — chip salah, dan yang pertama tertangkap justru Ekky
+
+`req#172` milik Ekky: 23 Agu (**Minggu**), 660 menit, chip `jam` (lembur
+biasa). Aturannya `Fleksibel Kantor` yang libur **Minggu & Senin** → itu DODO
+yang akan dibayar tarif biasa. Masih `pending_l1`, jadi belum ada uang bergerak;
+chip dibetulkan jadi `tambah_hari` dengan jejak di `att_rule_log`.
+
+**Dan celahnya justru terbuka di situ**: `chipMencurigakan()` menyaring
+`status='approved'`, jadi peringatannya datang **sesudah** keputusan diambil.
+Dijalankan dengan menyertakan `pending_l1`, ia langsung menangkap satu lagi:
+**Melani Safrida req#162**, 22 Agu (**Sabtu** = hari kerja biasa baginya),
+chip `tambah_hari`, 129 menit — arah sebaliknya. **Sengaja dibiarkan**,
+menunggu Ekky mengonfirmasi ke Nissa. → §M.
+
+### WiFi: lubang IPv4 di kelima cabang
+
+Ekky di Kalideres, minta WiFi-nya dicek. IPv6-nya sudah beres sejak /48. Yang
+ketemu: **Kalideres tak pernah punya satu pun IPv4 terdaftar** → 13 absen dalam
+3 minggu harus **pilih cabang manual**. Cinere juga nol.
+
+`WifiBelajarSendiri` **sengaja melewati IPv4** (asumsi "IPv4 cabang bertahan",
+cukup didaftarkan manual sekali). Yang tak diantisipasi: sebuah cabang bisa tak
+pernah kebagian pendaftaran manual itu.
+
+Disapu dengan pagar bukti: **≥2 orang berbeda, pilihan cabang konsisten, tak
+pernah dipakai cabang lain**. Dari 39 kandidat: **10 didaftarkan, 31 ditolak**
+(mayoritas 1 orang — ambangnya bekerja). Putar ulang 21 hari:
+**158 kegagalan → 128 kini cocok & benar.** Uji 16/16: kesepuluh cocok, dan
+**tetangga oktet +1 tetap ditolak** — IPv4 tetap cocok-penuh, nol pelebaran.
+
+⚠️ **RALAT yang perlu diingat**: aku sempat menyimpulkan absen ber-IPv4 itu
+"orang pakai data seluler". **Ekky bertanya langsung ke Cici — dia memakai WiFi
+klinik**, dan datanya membenarkan Cici: `36.77.252.85` dipakai **4 orang
+berbeda** dalam 5 hari, semuanya memilih Kalideres. Satu alamat dipakai banyak
+orang = jaringan bersama. Pengulangan pelajaran peta WiFi Bintaro: **jangan
+tebak identitas jaringan dari bentuk alamatnya.**
+
+**Jangan lebarkan IPv4 ke /24** — bukan cuma berisiko, tak akan menolong:
+alamat satu cabang melompat antar blok tak berkerabat. → §N.
+
+### Utang yang disiapkan jadi dua chat build
+
+| | Isi | Rencana |
+|---|---|---|
+| **§M** | pagar lembur kembar + peringatan chip di titik keputusan | `rencana-pagar-lembur.md` |
+| **§N** | belajar-sendiri IPv4 (cocok-penuh, nol pelebaran) | `rencana-wifi-ipv4-belajar.md` |
+
+Urutan nilainya: **pagar kembar dulu** — itu satu-satunya yang sudah
+benar-benar menyebabkan bayar dobel.
+
+### Terjadwal & tertahan
+
+**Malam ini**: Ramdan pindah PENUH Kalideres → Bintaro, lalu Fajri jadi
+Koordinator GS — urutan Ramdan-dulu supaya Bintaro tak pernah kosong pengisi.
+Ramdan libur Selasa 25; Pamulang sengaja kosong GS.
+
+⛔ **Konsultan + Alur Persetujuan masih MENAHAN** — kodenya belum di-commit dan
+tak bisa dipisah (`AttendanceRequestWorkflow` kini bergantung pada
+`AlurPersetujuanService`). Chat pemiliknya yang harus commit.
+
+---
+
+## 2026-08-22 malam — DUA GERBONG NAIK PROD + celah 5 Agustus ditutup
+
+Jendela sepi terverifikasi sebelum menyentuh apa pun: **nol user aktif dalam 30
+menit terakhir** (server 23:38 WIB Sabtu, aktivitas terakhir 22:17). Prod naik
+dari `a49a0ef` → `0e309a8` → **`722d164`**.
+
+### Gerbong 1 — Libur ikut cabang BERTUGAS · `0e309a8`
+
+Backup 47 MB (`prod_pre_libur_cabang_20260822_1639.sql.gz`) → merge → deploy
+penuh → SQL sapu rentang terbalik → `att:reconcile 2026-08-01 2026-08-31`.
+
+**Rentang reconcile sengaja cuma Agustus, dan itu diputuskan setelah memeriksa,
+bukan ditebak**: dari 9 baris `att_work_rule_exception` prod, **cuma 3 yang
+per-cabang dan semuanya 25 Agu** — sisanya NASIONAL, jadi tak tersentuh
+perbaikan ini. Ditambah **nol periode gaji tertutup**. Reconcile lebih lebar tak
+ada gunanya dan cuma memperbesar permukaan risiko.
+
+**Hasilnya: HANYA `libur` yang bergerak, 57 → 68.** `hadir` 261, `telat` 28,
+`cuti` 13, `sakit` 3, `izin` 1 — tak bergeser sedikit pun. 10/10 uji lulus:
+
+| Orang | Asal | Bertugas 25 Agu | Hasil |
+|---|---|---|---|
+| **Verini** | Sunter (buka) | **Cinere (tutup)** | **`libur`** — batal jadi alpa |
+| **Della Raqisiah** | Cinere (tutup) | Sunter (buka) | hari kerja |
+| **Ramdan** | Kalideres (tutup) | Pamulang (buka) | hari kerja |
+
+SQL sapu menghapus **persis 2 baris** yang sudah didokumentasikan. **rsync
+memindahkan 0 berkas** — mengonfirmasi branch ini memang tak menyentuh
+`public/`, meralat catatan yang menyebut rsync wajib.
+
+### Gerbong 2 — Branding GP (Reza) · `722d164`
+
+Diaudit dulu, statis **dan** hidup di dev, sebelum naik. **Reza menghindari
+jebakan langganan proyek ini**: rute barunya diberi prefix `konten-pillar/`
+supaya mewarisi RBAC, lengkap dengan komentar. SQL-nya **terbukti idempoten**
+(dijalankan 2× di dev: nol galat, kolom & index tak kembar, data utuh).
+
+Naik prod: SQL lewat **mysql CLI** (ada `DELIMITER`) → deploy penuh → **rsync
+memindahkan 1 berkas** (`theme-marketing.css` — kali ini memang perlu).
+14/14 uji lulus: skema + index + prosedur sementara dibuang, **185 konten lama
+utuh**, CSS di `public_html` md5-nya cocok, dan keempat layar render termasuk
+tab yang tak dia sentuh.
+
+**Tiga temuan, tak satu pun menahan** — untuk ditindaklanjuti Reza:
+1. **Hapus dokter GP = hapus keras, nol jejak** (nol `AuditLog` di seluruh diff;
+   dibuktikan: `audit_log` tak bertambah sesudah penghapusan).
+2. **Dan itu satu-satunya cara mengeluarkan dokter** — skema punya `is_active` +
+   `scopeActive()`, tapi cuma ada 3 rute (tambah/ubah/hapus). Jalur lembutnya
+   ada di database tapi tak terjangkau. Ini yang paling layak diminta: satu
+   tombol nonaktifkan menyelesaikan temuan 1 sekaligus.
+3. **Kurasi tak dipaksakan di server** — `gp_doctor_id` cuma divalidasi
+   `exists:raw_doctor,id`; dokter di luar daftar GP tetap diterima (dibuktikan).
+
+Bukan temuan Reza tapi perlu dicatat: `calendar.blade.php` **memuat FontAwesome
+6.5.1 dari cdnjs** — sudah ada di `main` sebelum push-nya. Halaman itu
+bergantung host luar untuk menampilkan ikon, padahal stack resmi FA 5.8.2 lokal.
+
+### Celah 5 Agustus ditutup — opsi C
+
+`att_user_rule` Irma & Anisa berbunyi `FO-Asdent` **5 Agu → 4 Agu** (panjang
+nol), dan `Fleksibel Operasional` baru mulai 6 Agu. **5 Agustus tak tertutup
+aturan apa pun** → hari itu dilewati mesin. Anisa punya **scan 11:36 + lembur
+120 menit yang SUDAH di-ACC** tanpa hari kerja di belakangnya.
+
+Ditutup pakai **Fleksibel Operasional** (dimundurkan ke 5 Agu), bukan FO-Asdent
+— menutup pakai aturan baku akan memberi **Irma alpa palsu** (nol scan, nol
+pengajuan, Rabu = hari kerja), padahal sehari kemudian dia memang fleksibel dan
+tak pernah dinilai alpa. Hasil: **Anisa `hadir` + lembur tercatat**, **Irma nol
+alpa**, **alpa Agustus tetap 0**. Kemungkinan besar ini juga menutup pertanyaan
+lama *"Irma 5 Agu"*.
+
+### Demo Lembar Bayar ROP di dev
+
+Data prod di-mirror ke dev untuk demo ke Della: 33 baris hidup, 30 lampiran +
+5 bukti transfer, 12/12 metrik sama dengan prod. ⚠️ **Id user BERBEDA antara
+prod dan dev** — `requester_id` punya FK ke `users`, jadi salinan mentah
+**DITOLAK database**, bukan rusak diam-diam; impor wajib memetakan lewat email.
+Perkakas siap pakai: **`bash ~/tools/reset-rop-demo.sh`** di server dev, aman
+diulang.
+
+⚠️ **Pelajaran**: menguji fitur yang MENGUBAH STATUS di atas data yang mau
+dipakai demo itu salah urutan. Uji ujung-ke-ujung sempat menyetujui 6 pengajuan
+dan meninggalkan 6 baris `rop_status_log`; `coa_no` dikembalikan tapi statusnya
+terlupa — **Ekky yang menemukannya** lewat perbandingan tangkapan layar dev vs
+prod, bukan aku.
+
+### Keputusan terjadwal — Ramdan & Fajri
+
+**Jendelanya: setelah operasional Minggu 23 Agu selesai.** Bukan lebih awal —
+Minggu itu Ramdan masih mengisi checklist **Pamulang** dan Fajri masih mengisi
+**Bintaro**.
+
+**Urutan: Ramdan DULU, baru Fajri** — prinsipnya *isi dulu, baru kosongkan*.
+Bintaro sekarang cuma punya Alpajri sebagai GS; kalau Fajri lebih dulu jadi
+peninjau, Bintaro nol pengisi, dan kalau pemindahan Ramdan tersandung, lubang
+itu jadi tak tentu ujungnya. Ramdan dulu = Bintaro sempat punya dua, lalu
+tersisa satu. **Tak ada satu momen pun kosong.**
+
+- **Ramdan**: pindah **PENUH** Kalideres → Bintaro (bukan rolling). Tiga baris
+  data: `users.raw_branch_id`, posisi `home`, dan posisi `rolling` Pamulang
+  **ditutup** (bukan dihapus). Nol kode. Riwayat 8 hari Pamulang-nya **tidak
+  berubah** — `att_day.raw_branch_id` datang dari mesin scan, bukan data user.
+- **Konsekuensi disepakati**: **Ramdan libur Selasa 25 Agu** ikut Bintaro yang
+  tutup, dan **Pamulang sengaja dibiarkan kosong GS** sampai orang baru masuk.
+- **Fajri**: menyusul di malam yang sama — **kalau** chat Konsultan sempat
+  commit hari Minggu. Kalau tidak, Ramdan tetap jalan sendiri dan Fajri
+  menyusul; tak ada lubang karena Alpajri tetap mengisi sampai dia beralih.
+
+### ⛔ Yang MENAHAN gerbong berikutnya
+
+Kerjaan **Konsultan + Alur Persetujuan masih belum di-commit** — cuma ada di
+branch penyelamat `wip/snapshot-konsultan-alur-2026-08-22` (`06905c4`, 4.687
+baris) yang isinya campuran dua chat.
+
+**Keduanya tak bisa dipisah**: `AttendanceRequestWorkflow::__construct()`
+sekarang menerima `AlurPersetujuanService` sebagai ketergantungan, dan kode
+delegasinya memanggil konsep Konsultan (*"Delegat yang jabatannya PENGAMAT
+dilewati"*). Konsultan tak bisa berangkat tanpa Alur.
+
+⚠️ **Dan menjalankan SQL-nya saja BUKAN jalan pintas**: `canEditPettyCash()`
+isinya `! isFinance()` — satu-satunya daftar hardcode yang MENUTUP pintu. Tanpa
+kodenya, `Konsultan Finance` lolos sebagai "bukan Finance" lalu **bisa mengedit
+petty cash** — kuasa yang Finance sendiri tak punya.
+
+→ Chat pemiliknya yang harus commit; mereka tahu potongan mana miliknya.
+
+---
+
+## 2026-08-21d — Libur cabang ikut cabang BERTUGAS · DEV LULUS 11/11, prod menunggu
+
+Perbaikan dari entri `2026-08-21c` dibangun dan diuji di dev. **Semua 11 uji
+terima §7 lulus**, termasuk uji 1–3 dengan data prod yang diputar ulang.
+Branch `fix/libur-cabang-bertugas` (`9da2d5d`). **Prod belum** — menunggu izin
+Ekky. Tenggatnya Selasa 25 Agu; kalau lewat, rencana cadangan §8 tetap berlaku.
+
+### Yang dikerjakan
+
+**1. `CabangBertugas` — resolusi cabang bertugas, pramuat sekali.**
+Kelas baru di `app/Services/`. `muat()` menarik seluruh baris `rolling` dalam
+satu kueri; `pada()` menyelesaikan per tanggal **di memori**. Cabang bertugas
+itu per-orang per-TANGGAL — memanggil `positionBranchOn()` di dalam loop harian
+akan jadi jumlah-orang × jumlah-hari kueri.
+
+Aturannya sengaja **sempit**: hanya `kind='rolling'` yang menang, `home`
+**tidak** — alasan yang sama persis dengan `cabangSesiUntuk()`. Tombol reassign
+di Posisi Checklist menulis baris `home` tanpa menyentuh `users.raw_branch_id`,
+jadi kalau `home` ikut menang, supervisor checklist diam-diam bisa memindahkan
+**hari libur** seseorang. Sejak libur menentukan gaji, itu wewenang yang tak
+pernah diberikan ke peran itu.
+
+**2. `resolveDay()` TAMBAH parameter, tidak menukar.**
+`isDateLocked()` dan `hapusHariBasi()` tetap memakai cabang asal. Ini dibuktikan
+uji 6, bukan sekadar diklaim — lihat bawah.
+
+**3. Kalender libur akhirnya tampil di Kehadiran.**
+Strip di atas matriks ("25 Agt · MAULID NABI · Bintaro · Cinere · Kalideres")
+plus penanda per-sel **per-orang**. `hariLiburTerjadwal()` **tidak disentuh** —
+pemisahannya disengaja (dipakai gerbang absen), jadi sumbernya terpisah.
+
+**4. Rentang penempatan terbalik ditolak di titik simpan.**
+`UserPosition::booted()` melempar kalau `effective_to < effective_from`.
+Akar penyebabnya juga ditutup: `akhiriSekarang()` **menghapus** penempatan yang
+belum berjalan sehari pun, bukan menyimpannya cacat. Empat titik penutupan
+(`positionAssign`, `positionRemove`, `rollingRemove`, `syncFromUser`) semua
+lewat situ sekarang.
+
+### Uji terima §7 — 11/11 lulus
+
+Uji 1–3 memakai data prod yang diputar ulang di dev (orang, penempatan, dan
+kalender libur asli), bukan data karangan.
+
+| # | Hasil |
+|---|---|
+| 1 | Verini → `libur`, tanpa form apa pun ✅ |
+| 2 | Della → `hadir`, 09:48–18:12, telat 0 ✅ |
+| 3 | Ramdan → `hadir`, 08:41–17:05 ✅ |
+| 4 | Afrina (Bintaro, non-rolling) → tetap `libur` ✅ |
+| 5 | Melani (Sunter) & Ahmad (Pamulang) → tetap hari kerja ✅ |
+| 6 | Penguncian **tidak** ikut berpindah ✅ (lihat bawah) |
+| 7 | Kueri **652 → 653** (+1 pramuat), 200ms → 235ms ✅ |
+| 8 | Libur ditambah sesudah reconcile → alpa basi bersih ✅ |
+| 9 | Kehadiran menandai 3 cabang tutup saja ✅ |
+| 10 | Absensi Saya: Verini `LIBUR`, Della `HADIR` ✅ |
+| 11 | Simpan rentang terbalik → ditolak ✅ |
+
+**Uji 6 dibuat cermin supaya tak bisa lolos karena kebetulan.** Periode gaji
+**Sunter** ditutup, lalu baris kedua orang sengaja dirusak jadi `izin`:
+- **Verini** (asal Sunter, *bertugas* Cinere) → tetap `izin` = **beku**. Kunci
+  ikut cabang asal.
+- **Della** (asal Cinere, *bertugas* Sunter yang dikunci) → ditulis ulang jadi
+  `hadir` = **tidak beku**. Kunci tidak ikut rolling.
+
+Keduanya berlawanan arah, jadi hasil ini tak mungkin kebetulan.
+
+**Bukti "sebelum" diambil pada data yang sama.** Dengan kode lama, Della &
+Ramdan tercatat `libur` **dengan `scan_count = 2`** — masuk sehari penuh,
+kerjanya dibuang. Untuk Verini, penjaga "alpa tak boleh dicap ke tanggal yang
+belum lewat" menyembunyikan akibatnya di tanggal 25, jadi klaim ALPA-nya diuji
+A/B di **tanggal lampau** (18 Agu): kode lama → **`alpa`**, kode baru →
+**`libur`**. Terbukti, bukan diasumsikan.
+
+### Dua hal yang berubah dari rencana — perlu diketahui
+
+**a. Libur kalender tanpa scan sekarang MENGHASILKAN baris `libur`.**
+Kode lama tak menulis baris sama sekali kalau hari tutup dan tak ada scan, jadi
+perbaikannya cuma membuat Verini "tidak kena alpa" — layarnya tetap kosong, dan
+kosong tak bisa dibedakan dari "belum ada datanya". Itu persis keadaan yang
+membuat libur cabang tak pernah terlihat. Uji 1 & 10 memang meminta baris
+`libur`, jadi baris itu ditulis. Libur **pola mingguan** sengaja tidak ikut —
+Senin tutup sudah terbaca dari aturan kerjanya dan tersorot di matriks.
+
+⚠️ **Efeknya**: kolom "Libur" di lembar gaji kini menghitung hari libur
+kalender, bukan cuma "datang di hari tutup". Kolom informasi — tak ada yang
+dihitung darinya, dan baris tanpa scan tetap terbedakan lewat `scan_count = 0`.
+
+**b. Rentang terbalik di prod ada DUA, bukan satu.**
+Selain baris Verini (`a2821d77…`), ada `a27346ed…` — baris `home` Bintaro
+2026-08-08 → 08-07 milik user yang sudah tak ada. Lahir dari mekanisme yang
+sama. Menguatkan bahwa ini cacat sistemik, bukan satu kecelakaan.
+
+**c. Penjaga di model saja TIDAK cukup — dua jalur melewatinya.**
+`UserManagement` menutup posisi lewat **mass-update query builder** (nonaktifkan
+akun & hapus akun). Query builder tak membangkitkan event model, jadi penjaga
+`UserPosition::booted()` **dilewati tanpa suara**. Terbukti berdampingan di dev:
+pola baru → posisi dihapus, 0 terbalik; pola lama → `2026-08-22 → 2026-08-21`.
+Jalur **hapus akun** itulah yang paling mungkin melahirkan baris yatim di (b) —
+usernya ikut hilang, jadi tak ada lagi yang bisa menjelaskan barisnya. Sudah
+ditutup. Pelajarannya umum: penjaga model hanya menjaga jalur Eloquent.
+
+### ⚠️ Temuan sampingan yang BELUM ditambal (butuh keputusan Ekky)
+
+`att_user_rule` prod punya **2 baris terbalik** dengan sebab yang sama: id 8
+(**Irma**) & id 9 (**Anisa**), `FO-Asdent` `2026-08-05 → 2026-08-04`, lahir saat
+keduanya dipindah ke `Fleksibel Operasional` per 6 Agu.
+
+Akibatnya nyata: karena barisnya berpanjang nol dan aturan berikutnya baru mulai
+6 Agu, **5 Agu keduanya tak punya aturan kerja sama sekali** → harinya dilewati
+`resolveRule()`. **Anisa punya 1 scan pada 5 Agu yang tak pernah jadi hari
+kerja.** Ini kemungkinan besar jawaban dari *"Irma 5 Agu masih tanda tanya"*.
+
+Sengaja tidak ditambal bersama perbaikan libur: memperbaikinya mengubah siapa
+yang dinilai pada 5 Agu dan bisa memunculkan alpa baru.
+
+### Naik prod butuh apa
+
+1. Deploy `fix/libur-cabang-bertugas` (ada class baru → deploy PENUH, bukan
+   `--quick`; ada CSS blade → **rsync `public/`**, public_html prod itu salinan).
+2. `database/sql/2026_08_21_sapu_rentang_penempatan_terbalik.sql` (2 baris).
+3. `php artisan att:reconcile` untuk rentang yang memuat 25 Agu, **sesudah**
+   deploy — kalau tidak, baris lamanya tetap salah.
+
+Kalender libur 25 Agu di prod **sudah benar** (3 baris per-cabang, Sunter &
+Pamulang memang buka) — jangan diubah jadi "Semua cabang".
+
+---
+
+## 2026-08-21c — Libur cabang tak mengikuti rolling · tiga orang salah dua arah
+
+Ekky bertanya soal libur Maulid Nabi Selasa 25 Agu: *"apa benar fiturnya sudah
+bekerja? kalau anak-anak tak masuk, tidak dihitung alpa?"* Jawabannya ya —
+mesinnya sehat. Yang tidak sehat adalah **siapa yang dianggap terkena liburnya.**
+
+### Mesinnya memang bekerja
+
+`AttendanceReconciler::resolveDay()` — exception **menang** atas aturan harian
+dan langsung mengembalikan "libur", jadi yang tak masuk tidak dihitung alpa.
+Ada pula `hapusHariBasi()` yang membersihkan alpa lama kalau libur ditambahkan
+*sesudah* rekonsiliasi terlanjur jalan. Logikanya benar.
+
+### Yang salah: pencocokan pakai cabang ASAL, bukan cabang BERTUGAS
+
+`resolveDay()` mencocokkan exception ke `users.raw_branch_id`. Reconciler
+**tidak pernah** memanggil `positionBranchOn()` maupun `cabangSesiUntuk()` —
+fitur rolling sudah tahu persis siapa di mana pada tanggal berapa, tapi
+pencocokan liburnya tak pernah bertanya ke situ.
+
+25 Agu: **Bintaro/Cinere/Kalideres tutup, Sunter/Pamulang buka.** Tiga orang
+yang sedang rolling jadi salah — dan salahnya ke **dua arah berlawanan**:
+
+| Orang | Asal | Bertugas | Akibat sekarang |
+|---|---|---|---|
+| **Verini** | Sunter (buka) | Cinere (**tutup**) | dinilai hari kerja → tak masuk = **ALPA** |
+| **Della Raqisiah** | Cinere (tutup) | Sunter (**buka**) | dicatat **libur**, scan-nya dibuang |
+| **Ramdan** | Kalideres (tutup) | Pamulang (**buka**) | sama |
+
+"Kerjanya hilang" bukan bahasa berlebihan. Cabang `if ($libur)` di reconciler
+tetap menulis baris `libur` **walaupun ada scan**; satu-satunya jalur yang
+membuatnya "hadir" adalah **form lembur** — yang berarti membayar upah lembur
+untuk hari kerja biasa.
+
+### Keputusan Ekky: ikut rolling, dan tanpa form apa pun
+
+Instingnya tepat, dan itu memang satu-satunya perbaikan yang dibutuhkan. Kalau
+pencocokan mengikuti penempatan efektif, ketiganya beres sendiri: Verini libur,
+Della & Ramdan hari kerja biasa. **Nol form.** Datanya sudah ada — ini menghapus
+beban dari orang, bukan menambah.
+
+⚠️ **Jebakan yang harus dibawa ke perbaikannya**: `$home` dipakai untuk **tiga
+arti** yang kebetulan dilebur jadi satu variabel. Yang berubah hanya
+`resolveDay()`. `isDateLocked()` dan `hapusHariBasi()` harus **tetap** memakai
+cabang asal — menukarnya borongan membuat penguncian periode gaji ikut
+berpindah mengikuti rolling, kerusakan yang jauh lebih sunyi.
+
+### Temuan kedua: kalender libur TIDAK PERNAH tampil di layar mana pun
+
+Ini yang membuat masalahnya tak terdeteksi sampai Ekky bertanya. **Kehadiran**
+hanya membaca `att_work_rule_day` (pola mingguan); **Absensi Saya** memakai
+`hariLiburTerjadwal()`, yang docblock-nya menyatakan terang-terangan bahwa
+kalender libur *"tidak dilihat di sini"*.
+
+Jadi `att_work_rule_exception` **ditulis satu layar dan dibaca satu pembaca
+saja: mesin malam hari.** Nisa tak punya cara memverifikasi catatannya benar
+selain menunggu harinya lewat. Kalau libur tampil di Kehadiran, cabang yang
+belum tercatat akan **terlihat sendiri** — layar yang menampilkan keadaan itu
+alat audit, bukan hiasan.
+
+### Temuan ketiga
+
+Baris `sys_user_position` id `a2821d77…` milik Verini: `effective_from` 15 Agu,
+`effective_to` **14 Agu** — berakhir sebelum dimulai, lolos tanpa validasi. Tak
+berbahaya sekarang, tapi begitu perbaikan di atas mendarat, **data penempatan
+ikut menentukan gaji** — jadi validasinya jadi bagian perbaikan, bukan tambahan.
+
+### ⚠️ RALAT — kesalahanku sendiri, dan bentuknya penting
+
+Awalnya kulaporkan **"7 orang berisiko alpa"** karena Sunter & Pamulang tak
+punya baris libur, dan kusarankan menggantinya dengan satu baris "Semua cabang
+(nasional)". **Itu salah.** Ekky meralat: kedua cabang itu memang **BUKA** hari
+itu; penutupan tiga cabang itu keputusan operasional yang disengaja.
+
+Aku menyimpulkan "hari besar agama = libur nasional" dari sifat harinya, bukan
+dari data. Bentuk kesalahan yang sama persis dengan `stdc.id` beberapa jam
+sebelumnya: **menyimpulkan dari sifat sesuatu, bukan dari yang tercatat.**
+Untungnya kusampaikan sebagai temuan untuk dikonfirmasi, bukan langsung
+dieksekusi — kalau baris Nisa telanjur kuganti jadi nasional, **10 orang di dua
+cabang yang seharusnya masuk akan mendapat libur palsu.**
+
+Entri libur Nisa **benar apa adanya. Jangan diubah jadi nasional.**
+
+### Yang dihasilkan
+
+Tiga rencana + tiga prompt chat baru (§J, §K, §L di
+`docs/spec/prompt-chat-baru.md`):
+
+| Rencana | Isi |
+|---|---|
+| `rencana-libur-cabang-bertugas.md` | ⏰ **tenggat Selasa 25 Agu** — perbaikan di atas + tampilkan kalender libur + validasi penempatan |
+| `rencana-konsultan-struktur.md` | role Konsultan + restrukturisasi Supervisor |
+| `rencana-alur-persetujuan.md` | layar admin `att_approval_rule` + delegasi |
+
+Kalau perbaikan libur tak sempat sebelum Selasa: **tidak apa-apa.** Cadangannya
+murah — 3 baris `att_day` dikoreksi setelah lewat, oleh chat HUB, berjejak
+audit. Yang penting kita tahu **sebelum** kejadian, bukan menemukannya di rekap
+gaji.
+
+---
+
+## 2026-08-21b — Akun konsultan Haickal naik PROD · desain role Konsultan diputuskan
+
+Ekky membuka arah baru: **konsultan** yang wajib absen tapi tak boleh punya
+wewenang. Sebelum apa pun dibangun, mesin wewenangnya diaudit dulu — dan
+ternyata separuh yang diminta **sudah berlaku sendiri**.
+
+### Yang diaudit dulu: siapa sebenarnya yang boleh meng-ACC
+
+Dugaan Ekky "bawahan cuma bisa di-ACC atasannya" **terkonfirmasi**, dan bukan
+hardcode: tabel `att_approval_rule` (role → role), 13 baris. Content Creator
+(Talitha) & Creative (Alif) → **Head Marketing (Yovan)**, persis seperti yang
+dia sebut. Dicek juga ke kenyataan, bukan cuma ke konfigurasi: dari 116 baris
+ACC nyata, pelakunya hanya Anisa (72), Irma (22), Dani (16), Ekky (5),
+Yovanka (1). Tak ada yang menembus jalur.
+
+**Tiga temuan yang mengubah rencana:**
+
+1. **`sort_order` BUKAN lapis berjenjang.** `chainFor()` mengumpulkan semua
+   approver-role satu frontier jadi **satu lapis**, dan `MAX_LEVELS` semua = 1.
+   Jadi Assistant Dentist hari ini bisa di-ACC **Irma ATAU Anisa, siapa saja
+   duluan** — bukan Irma dulu baru Anisa. Datanya cocok (Irma 22, Anisa 72).
+   Konsekuensi untuk rencana Koordinator GS: kalau GS punya baris ke Koordinator
+   GS **dan** masih punya baris ke Supervisor, Fajri **atau** Anisa sama-sama
+   bisa ACC. Mau Fajri saja → baris Supervisor harus dicabut.
+
+2. **Bagan organisasi TIDAK menggerakkan wewenang ACC.** `group_path.parent_id`
+   cuma menggerakkan bagan + cakupan review Checklist Akreditasi;
+   `att_approval_rule` yang menentukan ACC. Dua tabel terpisah — mengubah satu
+   saja menghasilkan struktur yang salah **tanpa error apa pun**.
+
+3. **Gerbang nama role justru menguntungkan.** Role bernama `Konsultan Finance`
+   otomatis tak cocok dengan `RopService::ROLE_PENYETUJU = 'Finance'`, jadi ia
+   tak bisa menyetujui ROP tanpa kita berbuat apa-apa. Sisi buruknya: sebagian
+   besar menu Finance (Cuti, Aturan Kerja, Antrian ROP, Pengawasan) **juga**
+   dijaga nama role — kloning menu bulat-bulat berujung **403**, kegagalan
+   senyap yang justru diburu detektor Pusat Akun.
+
+### Role `Consultant` ternyata sudah ada, dan sudah sesuai maunya
+
+Hari (`hari@stdc.id`, konsultan marketing) & Rahmat (`rahmat@sweettreats.id`,
+konsultan IT) sudah hidup di prod. Tanpa dikerjakan apa pun, mereka **sudah**
+wajib absen (aturan *Fleksibel*), **sudah** nol wewenang ACC (nol baris sebagai
+`approver_role_id`), dan **sudah** tak bisa mengajukan apa pun.
+
+Yang terakhir itu bekerja lewat jalan yang menyesatkan:
+`pastikanApexBukanSalahKonfigurasi()` **menolak mentah** kiriman dari role yang
+tak dikenal grafik ACC, dengan pesan *"Alur persetujuan untuk jabatan ini belum
+diatur… Hubungi admin"*. Sesuai kebijakan, tapi terbaca seperti **kerusakan**.
+Utang: teksnya perlu dijujurkan jadi kebijakan, bukan galat.
+
+### Akun Achmad Haickal — DIBUAT DI PROD
+
+Konsultan finance baru. Sengaja ditaruh di role `Consultant` yang **sama persis**
+dengan Hari & Rahmat (keputusan Ekky: role khusus menyusul setelah rencananya
+jadi; sekarang cukup bisa login & absen).
+
+| | |
+|---|---|
+| email | `haickal@sweettreats.id` |
+| role | `Consultant` (identik Hari & Rahmat) |
+| aturan kerja | Fleksibel, `effective_from` **2026-08-21** |
+| sandi | sementara acak, `must_change_password=1` |
+
+Dibuat lewat skrip yang meniru `UserManagement::store()` — model yang sama
+dengan layar Pusat Akun — **kecuali** `effective_from` ditetapkan eksplisit,
+karena layar itu selalu memakai `now()`. Itulah lubang yang dua kali melahirkan
+alpa palsu; di sini ditutup dengan bertanya lebih dulu kapan orangnya mulai
+kerja. Jejak audit **beratas-nama Muhamad Ikhsan**, bukan pelaku kosong.
+
+**16 pemeriksaan lulus, 0 gagal** — termasuk yang tak bisa dibuktikan oleh
+"tak ada error": `password_verify` terhadap sandi yang diserahkan, kemunculannya
+di **query roster Kehadiran yang sama dengan layarnya**, dan `AuthGuard`
+mengizinkan segmen `/akun` sehingga layar absen benar-benar terbuka.
+
+### Keputusan Ekky yang tercatat
+
+- **Konsultan Finance = Finance utuh, TERMASUK menyetujui ROP.** Larangan
+  "tak boleh ACC" berlaku untuk **pengajuan orang** (cuti/lembur/izin), bukan
+  untuk pekerjaan Finance sendiri. ⚠️ Ini **perubahan kode**, bukan config:
+  `ROLE_PENYETUJU` harus jadi daftar, plus `CutiController::BOLEH`,
+  `LembarGajiController::BOLEH`, `canSeeAllBranches()`.
+- **"Koordinator Asdent" = `Coordinator Dentist` yang sudah ada** (typo Ekky).
+  Tak ada role baru; Irma tetap.
+- **Fajri = Alpajri Suhendar Al Qhusni** (`fajri@`, General Services) — bukan
+  Mutiara Nurul Fajri di Front Office.
+- Role baru yang benar-benar baru hanya **Koordinator GS**.
+
+### Dua yang tadinya terbuka — sudah dijawab Ekky di hari yang sama
+
+**`stdc.id` itu domain LAMA Sweet Treats Dental Clinic, bukan pihak luar.**
+Sempat kucatat sebagai dugaan kebocoran karena `report/executive` melekat di
+role `Consultant` — itu **kesimpulan yang salah, ditarik dari nama domain, bukan
+dari data.** Akses Hari ke Laporan Penjualan → Executive **disengaja dan sah**;
+jangan "diperbaiki". Pelajarannya sama tuanya dengan proyek ini: nama bukan
+bukti — sudah pernah kena lewat Anisa ≠ Admin_Nisa dan dua orang bernama Fajri.
+
+**`Coordinator Dentist` PINDAH ke bawah Supervisor.** Pengajuan Irma yang
+tadinya ke Dani menjadi ke Anisa. Rencana lengkapnya ditulis hari itu juga di
+`docs/rencana/rencana-konsultan-struktur.md` — termasuk satu risiko yang belum
+kelihatan sebelumnya: memindahkan Fajri ke role `Koordinator GS` **berisiko
+mematikan divisi Checklist Akreditasi-nya**, karena `sys_checklist_division`
+mencocokkan nama divisi **persis** dengan nama role, dan tak ada divisi bernama
+"Koordinator GS".
+
+---
+
 ## 2026-08-21 — Lembar Bayar ROP: main ditarik masuk, 41 uji hijau lagi
 
 Branch `feature/rop-lembar-bayar` sempat **23 commit tertinggal** dari main —
