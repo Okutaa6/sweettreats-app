@@ -592,7 +592,7 @@ class WifiBelajarSendiri
             AdminNotification::notifyRole($role, 'wifi_otomatis',
                 "WiFi baru terdaftar otomatis — {$cabang}",
                 "Jaringan {$prefix} didaftarkan sendiri oleh sistem karena {$hasil['n']} orang {$cabang} "
-                . 'memakainya dalam ' . self::JENDELA_JAM . " jam terakhir ({$nama}). {$penjamin}",
+                . 'memakainya dalam ' . self::JENDELA_JAM . " jam terakhir ({$nama}). {$penjamin}{$ajakan}",
                 'absensi/wifi');
         }
 
