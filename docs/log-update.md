@@ -7,6 +7,179 @@
 
 ---
 
+## 2026-08-27 — WiFi belajar sendiri untuk IPv4: cocok-penuh, nol pelebaran (DEV)
+
+Tiga hari lalu sepuluh alamat IPv4 didaftarkan **dengan tangan** ke lima cabang,
+dan catatannya sendiri menyebut itu *stopgap*: IPv4 berotasi, daftar itu akan
+basi. Hari ini penggantinya dibangun — dan pemutaran ulang data prod menunjukkan
+**daftar manual itu memang sudah basi dalam empat hari.**
+
+**Belum naik prod.** Dev lulus penuh; prod menunggu keputusan Ekky.
+Branch `feat/wifi-ipv4-belajar`. Nol SQL, nol `public/assets/**` (tak perlu rsync).
+
+### Lubangnya
+
+`WifiBelajarSendiri` **sengaja melewati IPv4** — docblock-nya sendiri menulis
+*"IPv4 tak pernah lewat"* — dengan alasan "IPv4 cabang bertahan, cukup
+didaftarkan manual sekali". Alasannya benar. Yang tak diantisipasi: **sebuah
+cabang bisa tak pernah kebagian pendaftaran manual itu sama sekali.**
+
+Kalideres **nol baris IPv4** sampai 23 Agu. Akibatnya 13 absen dalam 3 minggu
+harus pilih cabang manual — belajar-sendiri melewatinya (lewat IPv4), pencocokan
+/48 tak menolongnya (cuma IPv6). Jatuh di antara dua jalur, dan tak ada yang
+berteriak. Cinere juga nol.
+
+### Yang dibangun
+
+Ambang, jendela, dan penilai saksi **persis sama dengan IPv6** — 2 orang
+berbeda / 72 jam, cabang efektif, orang fleksibel tak dihitung — tapi hasilnya
+baris **cocok-penuh**, bukan prefix. Empat syarat:
+
+1. alamat itu **belum** terdaftar (baris **nonaktif = veto IT**, tak boleh
+   ditawar ulang — pembedaan yang sama dengan veto IPv6),
+2. **≥ 2 orang berbeda** memakainya dalam 72 jam,
+3. semuanya **memilih cabang yang sama**,
+4. alamat itu **tak pernah** dipakai memilih cabang lain **sepanjang sejarah**
+   (tanpa batas waktu — jendela menjawab "siapa di sana sekarang", syarat ini
+   menjawab "alamat ini pernah jadi milik siapa lagi").
+
+**Nol pelebaran.** `180.252.169.219` tetap ditolak walau `.218` terdaftar.
+Melebarkan ke /24 bukan cuma berisiko, **tak akan menolong**: alamat satu cabang
+melompat antar blok tak berkerabat (Kalideres memakai `36.77.251/252.x` **dan**
+`180.242.129–131.x` dalam periode yang sama).
+
+### Larangan "jangan daftarkan IP seluler" TIDAK dicabut — buktinya yang berubah
+
+Dulu dibuktikan dari **bentuk alamat** (v4 = curiga). Cara itu sudah terbukti
+keliru sekali: absen ber-IPv4 di Kalideres sempat disimpulkan "orang pakai data
+seluler", lalu Ekky bertanya langsung ke Cici — dia memakai WiFi klinik, dan
+datanya membenarkan Cici.
+
+Sekarang dibuktikan dari **perilaku**: data seluler pribadi memberi tiap orang
+alamat sendiri, jadi satu alamat yang dipakai beberapa orang cabang yang sama
+adalah jaringan bersama. Bukti yang sah = berapa orang berbeda memakainya,
+bukan bloknya.
+
+⚠️ **Sisa risikonya diterima sadar, dan dibayar dengan KELIHATAN.** Kalau CGNAT
+seluler benar-benar dibagi dua staf cabang yang sama dalam 72 jam, alamat itu
+akan terdaftar. Karena IPv4 tak punya pagar kekerabatan /48, tiap baris IPv4
+otomatis **wajib** berlabel `PERLU DITINJAU` + notifikasi IT + AuditLog.
+Terdaftar tapi kelihatan. **Kalau pertahanan itu suatu saat dilepas, yang
+tersisa cuma risikonya** — K6 yang harus merah duluan.
+
+### Uji terima §7 rencana — 12 poin, semuanya hijau
+
+`att:wifi-uji` **15 → 21 kasus, 21/21 hijau di dev.**
+
+⚠️ **K6 BERUBAH ARTI.** Dulu harapannya *"IPv4/CGNAT TIDAK PERNAH daftar"* —
+ditulis sebagai pengerasan sadar. Sekarang kasus itu justru mengunci hal yang
+lebih penting: dua alamat di dalamnya **tak bisa dibedakan oleh sistem**.
+`114.10.70.167` memang CGNAT Telkomsel; `110.137.194.229` memang WiFi Bintaro
+(diverifikasi manusia). Dari sisi bukti keduanya identik — satu alamat, tiga
+orang Bintaro, sepuluh menit. Menebak mana yang mana dari bentuk alamatnya
+adalah kesalahan yang sudah pernah dibuat. Jadi keduanya didaftarkan, dan yang
+diuji sekarang adalah pertahanannya: cocok-penuh + label + notifikasi IT.
+
+Kasus baru: **K16** (2 saksi → daftar, tetangga ±1 ditolak) · **K17** (satu
+orang berkali-kali → tidak) · **K18** (2 orang beda cabang → tidak) · **K19**
+(pernah dipakai cabang lain → tidak, walau 2 saksi sepakat) · **K20**
+(`::ffff:` menyamar → jalur IPv4, dua bentuk tulisan jadi SATU baris) ·
+**K21** (§6 tinjauan).
+
+### Uji 10 — putar ulang **data prod**, di dalam transaksi yang dibatalkan
+
+Perkakas baru `att:wifi-ipv4-simulasi`. Dijalankan dari **worktree terpisah** di
+server prod (vendor **disalin**, bukan di-symlink — symlink membuat autoloader
+menunjuk balik ke `app/` prod dan diam-diam menjalankan kode LAMA). Aplikasi
+prod yang hidup tak disentuh sama sekali; `att_branch_ip` 38 baris & `att_hp_bukti`
+685 baris **sama persis sebelum dan sesudah**.
+
+**Putaran A — tabel pendaftaran apa adanya (regresi murni), 685 absen:**
+
+| | |
+|---|---|
+| tertolong | **130** (dulu gagal cocok, kini cocok) |
+| hilang | **0** |
+| pindah cabang | **0** |
+| tetap gagal | 44 |
+
+**Putaran B — sepuluh baris manual 23 Agu dicabut dulu**, untuk menjawab
+"apakah mesin akan menangkapnya sendiri":
+
+- **7 dari 11** baris manual ter-belajar sendiri — dan **semuanya lebih awal
+  dari manusia**: 16 Agu (`180.244.158.43`), 19 Agu (`180.251.180.196`,
+  `36.77.251.46`), 20 Agu (`36.71.209.30`), 21 Agu (`36.77.252.85`,
+  `180.252.87.18`, `125.166.76.115`). Manusia baru mendaftarkannya 23 Agu.
+- **DUA alamat BARU** yang belum pernah didaftarkan siapa pun ikut tertangkap:
+  `36.69.103.246` (Sunter, 25 Agu) dan `180.251.182.171` (Pamulang, 26 Agu).
+  **Keduanya sedang gagal cocok di prod hari ini.** Daftar manual 23 Agu basi
+  dalam empat hari — persis yang diramalkan catatannya sendiri.
+- 3 "hilang" di putaran ini **bukan regresi**: ketiganya di `125.165.188.209`,
+  alamat yang memang dicabut paksa dari tabel.
+
+### ⚠️ Temuan yang butuh keputusan: aturan durable ini **lebih ketat** dari sapuan manual
+
+**Empat** alamat manual tidak ter-belajar: `110.137.194.229` (Bintaro),
+`180.252.80.82` (Cinere), `125.165.189.132` & `125.165.188.209` (Bintaro).
+Sebabnya satu dan sama — **masing-masing cuma punya SATU saksi yang sah**:
+
+| alamat | pemakai | yang sah |
+|---|---|---|
+| `110.137.194.229` | Asih · Yovanka · Alif · Ikhsan | **1** (tiga sisanya fleksibel) |
+| `180.252.80.82` | Irma · Verini | **0** — Irma fleksibel, dan Verini asalnya **Sunter** padahal barisnya Cinere |
+| `125.165.189.132` | Asih · Della P. · Talitha | **1** |
+| `125.165.188.209` | Asih · Della P. · Anisa · Talitha | **1** |
+
+Sapuan manual 23 Agu menghitung **siapa pun**; aturan ini menuntut saksi
+**ber-cabang-asal sama & tidak fleksibel** — dan semua orang fleksibel memang
+`raw_branch_id`-nya kosong, jadi syarat "cabang asal sama" tak bisa diperiksa
+untuk mereka (keputusan lama, sengaja).
+
+Konsekuensi langsung: **§8-3 rencana terbukti benar — jangan cabut sepuluh baris
+manual 23 Agu.** Empat di antaranya tak akan tergantikan.
+
+**Pilihan yang tersedia (belum diambil, menunggu Ekky)**: izinkan orang
+fleksibel jadi saksi **PENDUKUNG** — butuh ≥1 staf asal **dan** total ≥2.
+Keempat alamat di atas akan tertangkap kalau itu dipakai. Ini alternatif yang
+sudah pernah dicatat waktu ambang diturunkan 3→2, dan belum pernah ditolak.
+
+### §6 — "perlu ditinjau" hanya untuk yang tak dijamin kekerabatan
+
+Kelima baris otomatis di prod semuanya se-/48 dengan jalur yang sudah ada; sejak
+pencocokan /48 mereka cocok dengan sendirinya, jadi menandainya "perlu ditinjau"
+tak menambah apa-apa — dan halaman yang berteriak untuk hal yang bukan keputusan
+akan berhenti dibaca. Sekarang tinjauan menyala hanya untuk **baris IPv4** dan
+**/48 yang benar-benar baru**. Baris otomatis tak boleh menjamin baris otomatis
+lain. **Satu aturan** (`WifiBelajarSendiri::perluTinjau`) dipakai label penulisan
+**dan** sorotan layar — dibuktikan dengan merender halamannya sungguhan: banner
+"1 jaringan", tepat **1 baris disorot** dari 11.
+
+Salin layar juga diluruskan: kalimat *"jaringan seluler tak pernah ikut"* sudah
+tidak benar dan sudah dihapus.
+
+### Lubang senyap yang ikut ditutup
+
+`::ffff:a.b.c.d` dan `a.b.c.d` adalah alamat yang sama, dan proxy bisa mengirim
+bentuk mana saja. Kalau bentuk yang tersimpan berbeda dari bentuk yang datang,
+barisnya **tak akan pernah cocok DAN tak bisa didaftarkan ulang** (UNIQUE(ip)
+menolak kembarannya) — macet tanpa gejala. Kini dibakukan di **tiga** tempat:
+`matchBranch()`, jalur belajar, dan **kedua pintu pendaftaran manual**
+(`AbsensiBranchIpController::store()` + `PengawasanController::daftarkanIp()`).
+
+### Catatan uji: K10 sempat merah — dan itu DATA DEV, bukan kode
+
+`users.raw_branch_id` **Alpajri kosong di dev** (aturannya `baku`), sehingga ia
+tak pernah bisa jadi saksi WiFi dan ambang baru tercapai di orang ke-3. Diperiksa
+ke prod: **di prod Alpajri normal (Bintaro), dan tak ada satu pun orang ber-aturan
+`baku` yang cabang asalnya kosong.** Murni cacat data dev. Dipastikan dengan
+menjalankan K10 di `main` — merah juga di sana.
+
+K10 kini tak lagi mematok "kejadian ke-2"; ia mencari sendiri kejadian saat
+ambang tercapai. Urutan ambang tetap terkunci di K7 dengan orang yang datanya
+stabil.
+
+---
+
 ## 2026-08-24 dini hari — DODO NAIK PROD · sapu IPv4 lima cabang · dua bayar-salah ditutup
 
 Malam panjang: satu fitur naik prod, satu lubang jaringan disapu di kelima
