@@ -5,9 +5,34 @@ namespace App\Http\Controllers\Crud;
 use App\Http\Controllers\Controller;
 use App\Models\RawBranch;
 use App\Models\RawBranchTarget;
+use Illuminate\Validation\Rule;
 
 class BranchController extends Controller
 {
+    /**
+     * Aturan validasi slug URL publik (dipakai form Pasien Baru per cabang).
+     * Kosong = biarkan di-generate otomatis dari nama.
+     */
+    private function slugRules(?string $ignoreId = null): array
+    {
+        return [
+            'slug' => [
+                'nullable', 'string', 'max:120',
+                'regex:/^[a-z0-9]+(?:-[a-z0-9]+)*$/',
+                Rule::unique('raw_branch', 'slug')->ignore($ignoreId),
+            ],
+        ];
+    }
+
+    /** @return array<string,string> */
+    private function slugMessages(): array
+    {
+        return [
+            'slug.regex'  => 'Slug hanya boleh huruf kecil, angka, dan tanda hubung (mis. bintaro-2).',
+            'slug.unique' => 'Slug ini sudah dipakai cabang lain.',
+        ];
+    }
+
     public function index()
     {
         $perPage  = $this->perPage;
@@ -25,12 +50,14 @@ class BranchController extends Controller
 
     public function store()
     {
-        request()->validate([
-            'name' => 'required|max:255',
-        ]);
+        request()->validate(
+            ['name' => 'required|max:255'] + $this->slugRules(),
+            $this->slugMessages()
+        );
 
         RawBranch::create([
             'name' => request('name'),
+            'slug' => request('slug') ?: RawBranch::makeUniqueSlug(request('name')),
         ]);
 
         return redirect()->route('rawbranch')->with('success', 'Cabang berhasil ditambahkan');
@@ -54,13 +81,15 @@ class BranchController extends Controller
 
     public function update($id)
     {
-        request()->validate([
-            'name' => 'required|max:255',
-        ]);
+        request()->validate(
+            ['name' => 'required|max:255'] + $this->slugRules($id),
+            $this->slugMessages()
+        );
 
         $branch = RawBranch::findOrFail($id);
         $branch->update([
             'name' => request('name'),
+            'slug' => request('slug') ?: RawBranch::makeUniqueSlug(request('name'), $id),
         ]);
 
         return redirect()->route('rawbranch.edit', $id)->with('success', 'Cabang berhasil diubah');

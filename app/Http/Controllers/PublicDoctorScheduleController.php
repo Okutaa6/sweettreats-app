@@ -19,7 +19,12 @@ class PublicDoctorScheduleController extends Controller
 {
     public function index(Request $request)
     {
-        $branches = RawBranch::orderBy('name')->get(['id', 'name']);
+        $branches = RawBranch::orderBy('name')->get(['id', 'name', 'slug']);
+
+        // Satu skema slug dengan kolom raw_branch.slug (dipakai form Pasien
+        // Baru). Fallback ke Str::slug(name) supaya link embed lama tetap jalan
+        // untuk cabang yang slug-nya belum terisi.
+        $slugOf = fn ($b) => $b->slug ?: Str::slug($b->name);
 
         // Cabang aktif dari ?cabang=. Bisa berupa:
         //   - "all"        → semua cabang (dokter dari seluruh cabang digabung).
@@ -34,8 +39,8 @@ class PublicDoctorScheduleController extends Controller
                 $branchId = $cabang;
             } else {
                 $slug  = Str::slug($cabang);
-                $match = $branches->first(fn ($b) => Str::slug($b->name) === $slug)
-                    ?? $branches->first(fn ($b) => Str::contains(Str::slug($b->name), $slug) && $slug !== '');
+                $match = $branches->first(fn ($b) => $slugOf($b) === $slug)
+                    ?? $branches->first(fn ($b) => Str::contains($slugOf($b), $slug) && $slug !== '');
                 if ($match) {
                     $branchId   = $match->id;
                     $lockBranch = true;
@@ -54,7 +59,7 @@ class PublicDoctorScheduleController extends Controller
         $branchSlug = null;
         if ($lockBranch && $branchId) {
             $branches   = $branches->where('id', $branchId)->values();
-            $branchSlug = Str::slug($branches->first()->name);
+            $branchSlug = $slugOf($branches->first());
         }
 
         // Cabang yang ditampilkan: selalu satu cabang.

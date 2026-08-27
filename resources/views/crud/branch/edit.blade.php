@@ -31,13 +31,50 @@
                                 <td width="25%" style="font-weight:600;">Nama Cabang <span class="text-danger">*</span></td>
                                 <td>
                                     <input class="form-control {{ $errors->has('name') ? 'is-invalid' : '' }}"
-                                        type="text" name="name"
+                                        type="text" name="name" id="branchName"
                                         value="{{ old('name', $branch->name) }}" />
                                     @if ($errors->has('name'))
                                         <div class="invalid-feedback">{{ $errors->first('name') }}</div>
                                     @endif
                                 </td>
                             </tr>
+                            <tr>
+                                <td style="font-weight:600;">Slug URL</td>
+                                <td>
+                                    <div class="input-group">
+                                        <div class="input-group-prepend">
+                                            <span class="input-group-text" style="font-size:12px;">{{ url('/pasien-baru') }}/</span>
+                                        </div>
+                                        <input class="form-control {{ $errors->has('slug') ? 'is-invalid' : '' }}"
+                                            type="text" name="slug" id="branchSlug" maxlength="120"
+                                            value="{{ old('slug', $branch->slug) }}" placeholder="otomatis dari nama" />
+                                    </div>
+                                    <small class="text-muted">Kosongkan untuk mengisi ulang otomatis dari nama cabang.</small>
+                                    @if ($errors->has('slug'))
+                                        <div class="text-danger" style="font-size:12px;">{{ $errors->first('slug') }}</div>
+                                    @endif
+                                </td>
+                            </tr>
+                            @if ($branch->slug)
+                                <tr>
+                                    <td style="font-weight:600;">Link Form Pasien Baru</td>
+                                    <td>
+                                        @php $pbUrl = route('pasien-baru.show', $branch->slug); @endphp
+                                        <div class="input-group">
+                                            <input type="text" class="form-control" id="pbLink" readonly value="{{ $pbUrl }}" />
+                                            <div class="input-group-append">
+                                                <button type="button" class="st-btn-outline-brown" id="pbCopyBtn" data-copy="{{ $pbUrl }}">
+                                                    <i class="fa fa-copy"></i> Salin
+                                                </button>
+                                                <a href="{{ $pbUrl }}" target="_blank" rel="noopener" class="st-btn-outline-brown">
+                                                    <i class="fa fa-external-link-alt"></i> Buka
+                                                </a>
+                                            </div>
+                                        </div>
+                                        <small class="text-muted">Sebarkan link ini di sosmed/WA. Lead yang masuk otomatis tercatat di cabang ini dan muncul di tab "Pasien Baru" halaman Reservasi.</small>
+                                    </td>
+                                </tr>
+                            @endif
                             <tr>
                                 <td></td>
                                 <td>
@@ -150,5 +187,49 @@
             if (result.isConfirmed) { $('#delete').submit(); }
         })
     }
+
+    // Isi slug otomatis dari nama SELAMA user belum mengetik slug sendiri.
+    (function () {
+        var name = document.getElementById('branchName');
+        var slug = document.getElementById('branchSlug');
+        if (!name || !slug) return;
+
+        var manual = slug.value.trim() !== '';
+        slug.addEventListener('input', function () { manual = true; });
+
+        name.addEventListener('input', function () {
+            if (manual) return;
+            slug.value = name.value.toString().toLowerCase()
+                .replace(/[^a-z0-9]+/g, '-')
+                .replace(/^-+|-+$/g, '');
+        });
+    })();
+
+    // Salin link form Pasien Baru.
+    (function () {
+        var btn = document.getElementById('pbCopyBtn');
+        if (!btn) return;
+        btn.addEventListener('click', function () {
+            var text = btn.dataset.copy || '';
+            if (!text) return;
+            var done = function () {
+                var original = btn.innerHTML;
+                btn.innerHTML = '<i class="fa fa-check"></i> Tersalin';
+                setTimeout(function () { btn.innerHTML = original; }, 1200);
+            };
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(done);
+            } else {
+                var ta = document.createElement('textarea');
+                ta.value = text;
+                ta.style.position = 'fixed';
+                ta.style.opacity = '0';
+                document.body.appendChild(ta);
+                ta.select();
+                try { document.execCommand('copy'); done(); } catch (_) {}
+                document.body.removeChild(ta);
+            }
+        });
+    })();
 </script>
 @endsection

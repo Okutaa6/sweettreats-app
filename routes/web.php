@@ -74,6 +74,15 @@ Route::post('/reservasi', [\App\Http\Controllers\LandingReservationController::c
     ->middleware('throttle:20,1')
     ->name('landing.reservation.store');
 
+// Form publik "Pasien Baru" per cabang (link disebar Cekat AI di sosmed).
+// Cabang otomatis dari slug. Submit menyimpan lead di raw_customer.
+Route::get('/pasien-baru/{branch:slug}', [\App\Http\Controllers\PasienBaruController::class, 'show'])
+    ->middleware('throttle:60,1')
+    ->name('pasien-baru.show');
+Route::post('/pasien-baru/{branch:slug}', [\App\Http\Controllers\PasienBaruController::class, 'store'])
+    ->middleware('throttle:20,1')
+    ->name('pasien-baru.store');
+
 // Halaman publik jadwal dokter (read-only, tanpa login)
 Route::get('/jadwal-dokter', [PublicDoctorScheduleController::class, 'index'])
     ->middleware('throttle:60,1')
@@ -306,6 +315,8 @@ Route::middleware([AuthGuard::class])->group(function () {
     Route::get('rawreservation/new', [ReservationController::class, 'create'])->name('rawreservation.new');
     Route::post('rawreservation/new', [ReservationController::class, 'store'])->name('rawreservation.store');
     Route::post('rawreservation/quick-patient', [ReservationController::class, 'storeQuickPatient'])->name('rawreservation.quickpatient');
+    // Ubah status follow-up lead "Pasien Baru". Deklarasi SEBELUM wildcard {id}.
+    Route::patch('rawreservation/lead/{id}/status', [ReservationController::class, 'updateLeadStatus'])->name('rawreservation.lead.status');
 
     // CRUD - Reservation Import (CSV/Sheets → Staging → Promote)
     // PENTING: harus di-deklarasi SEBELUM `rawreservation/{id}` supaya
