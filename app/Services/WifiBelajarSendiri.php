@@ -9,8 +9,17 @@ use App\Models\Setting;
 use Carbon\Carbon;
 
 /**
- * WiFi Cabang belajar sendiri — mendaftarkan prefix IPv6 baru secara otomatis
+ * WiFi Cabang belajar sendiri — mendaftarkan jaringan cabang secara otomatis
  * ketika cukup banyak orang cabang itu terbukti memakainya.
+ *
+ * DUA JALUR, jangan tertukar:
+ *   · IPv6 → didaftarkan sebagai PREFIX /64, dipagari kekerabatan /48
+ *   · IPv4 → didaftarkan COCOK-PENUH, tanpa pagar blok (sejak 27 Agu 2026)
+ *
+ * ⚠️ Docblock ini pernah berbunyi "IPv4 tak pernah lewat sini", dan kalimat itu
+ * bertahan berbulan-bulan sesudah asumsinya patah — itulah yang membuat
+ * Kalideres nol baris IPv4 tanpa ada yang menyadarinya. Kalau salah satu jalur
+ * berubah lagi, ubah kalimat ini di baris yang sama dengan kodenya.
  *
  * MASALAH YANG DIOBATI (docs/rencana/rencana-wifi-belajar-sendiri.md):
  * prefix IPv6 IndiHome berputar kira-kira MINGGUAN. Tiap rotasi, semua orang
@@ -19,7 +28,8 @@ use Carbon\Carbon;
  * integritas — WiFi cuma saksi, tak ada yang gagal absen. Ongkosnya: waktu
  * review Anisa, dan flag jadi terbiasa merah sehingga yang asli tenggelam.
  *
- * EMPAT SYARAT (semua wajib, §3 — sudah di-ACC, jangan dilonggarkan diam-diam):
+ * EMPAT SYARAT JALUR IPv6 (semua wajib, §3 — sudah di-ACC, jangan
+ * dilonggarkan diam-diam). Empat syarat jalur IPv4 ada di nilaiIpv4():
  *   1. >= AMBANG_ORANG orang BERBEDA memakai /64 ini (2 sejak 18 Agu 2026;
  *      dulu 3 — alasan lengkap ada di konstantanya)
  *   2. semuanya cabang EFEKTIFnya sama dengan cabang yang dipilih
@@ -263,6 +273,34 @@ class WifiBelajarSendiri
         $baris = AttBranchIp::where('ip', $alamat)->first();
         if ($baris) {
             return $tolak($baris->status === 'aktif' ? 'sudah_cocok' : 'ditolak_it');
+        }
+
+        // ── Pagar tambahan: alamatnya harus benar-benar alamat INTERNET ──────
+        //
+        // Ditemukan saat audit 27 Agu. Kalau suatu saat aplikasi berada di
+        // belakang proxy yang TrustProxies-nya belum dipasang, request()->ip()
+        // berhenti menjadi alamat karyawan dan berubah jadi alamat proxy —
+        // SATU alamat, SAMA untuk semua orang, sering privat (10.x) atau
+        // 127.0.0.1. Dua orang cabang mana pun akan langsung memenuhi ambang,
+        // alamat itu terdaftar, lalu SELURUH absen di semua cabang terbaca
+        // sebagai cabang itu — dan flag ip_asing berhenti berbunyi justru saat
+        // ia paling dibutuhkan. Kegagalan senyap yang sempurna.
+        //
+        // Ini BUKAN menebak identitas jaringan dari bentuk alamat (§5 rencana
+        // melarang itu, dan benar). Ini fakta struktural: alamat privat,
+        // loopback, link-local, atau ruang bersama CGNAT TIDAK BISA menjadi
+        // alamat internet publik sebuah cabang dilihat dari server. Kalau ia
+        // muncul, yang rusak rantai proxy-nya, bukan WiFi cabangnya.
+        //
+        // Sengaja hanya menahan pendaftaran OTOMATIS. Manusia tetap boleh
+        // mendaftarkan apa pun lewat halaman WiFi Cabang — mis. 127.0.0.1 di
+        // lingkungan uji; ia tahu apa yang sedang dikerjakannya, mesin tidak.
+        //
+        // Jalur IPv6 tak membutuhkan pagar ini: ULA (fc00::/7) dan link-local
+        // (fe80::/10) tak akan pernah sekerabat /48 dengan blok Telkom cabang,
+        // jadi syarat 4 di sana sudah menahannya lebih dulu.
+        if (! static::ipv4Publik($alamat)) {
+            return $tolak('alamat_tak_publik');
         }
 
         // ── Syarat 1-2 ───────────────────────────────────────────────────────
@@ -733,6 +771,35 @@ class WifiBelajarSendiri
         }
 
         return false;
+    }
+
+    /**
+     * Alamat IPv4 ini alamat internet yang wajar, bukan alamat dalam?
+     *
+     * Menolak: privat (10/8, 172.16/12, 192.168/16) · loopback (127/8) ·
+     * link-local (169.254/16) · 0.0.0.0/8 · ruang cadangan (240/4, termasuk
+     * 255.255.255.255) — semuanya lewat filter bawaan PHP — DAN 100.64/10,
+     * ruang bersama CGNAT (RFC 6598) yang tak ikut terjaring filter itu tapi
+     * sama saja artinya: kalau ia sampai ke server, yang salah rantai proxy.
+     */
+    private static function ipv4Publik(string $alamat): bool
+    {
+        $bin = @inet_pton($alamat);
+        if ($bin === false || strlen($bin) !== 4) {
+            return false;
+        }
+
+        // 100.64.0.0/10 — tak dicakup FILTER_FLAG_NO_RES_RANGE.
+        $oktet = array_values(unpack('C4', $bin));
+        if ($oktet[0] === 100 && $oktet[1] >= 64 && $oktet[1] <= 127) {
+            return false;
+        }
+
+        return filter_var(
+            $alamat,
+            FILTER_VALIDATE_IP,
+            FILTER_FLAG_IPV4 | FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE
+        ) !== false;
     }
 
     /** Bukti ini berada di /64 yang sama? Banding BINER — lihat pendukung(). */

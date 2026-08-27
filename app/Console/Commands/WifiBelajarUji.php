@@ -787,6 +787,70 @@ class WifiBelajarUji extends Command
                     }
                 },
             ],
+            [
+                'kode'  => 'K22',
+                'judul' => 'IPv4 privat/loopback TAK boleh dipelajari — pagar proxy-rusak',
+                'harap' => 'alamat_tak_publik, berapa pun saksinya; manusia tetap boleh mendaftar manual',
+                'baseline' => self::BASELINE_BINTARO,
+                'saklar' => '1',
+                'events' => [
+                    ['2026-08-11 08:00:00', 'Firda Mareta Naskah', 'masuk', '10.0.0.5', $b],
+                    ['2026-08-11 08:05:00', 'Asih Wulan Sari',     'masuk', '10.0.0.5', $b],
+                    ['2026-08-11 08:10:00', 'Afrina Apriliani',    'masuk', '10.0.0.5', $b],
+                ],
+                // Ditemukan saat audit 27 Agu, bukan dari rencana.
+                //
+                // Kalau TrustProxies suatu saat belum terpasang sementara
+                // aplikasi berada di belakang proxy, request()->ip() berhenti
+                // menjadi alamat karyawan: SATU alamat, sama untuk semua orang,
+                // sering 10.x atau 127.0.0.1. Tanpa pagar ini, dua orang cabang
+                // mana pun langsung memenuhi ambang, alamat itu terdaftar, dan
+                // SELURUH absen di lima cabang terbaca sebagai satu cabang —
+                // sementara flag ip_asing berhenti berbunyi justru saat ia
+                // paling dibutuhkan. Kegagalan senyap yang sempurna.
+                //
+                // Ini BUKAN menebak identitas jaringan dari bentuk alamat.
+                // Alamat privat/loopback/CGNAT-bersama secara struktural tak
+                // bisa jadi alamat internet publik sebuah cabang; kalau ia
+                // sampai ke server, yang rusak rantai proxy-nya.
+                'periksa' => function (array $j) {
+                    $this->takAdaPendaftaran($j);
+                    foreach ($j as $i => $r) {
+                        $this->wajib($r['belajar']['alasan'] === 'alamat_tak_publik',
+                            'kejadian ke-' . ($i + 1) . ' harus ditolak sebagai alamat_tak_publik — dapat ' . $r['belajar']['alasan']);
+                    }
+
+                    // Seluruh keluarga alamat-dalam, lewat penilai murni.
+                    $w = new WifiBelajarSendiri();
+                    $saat = Carbon::parse('2026-08-11 09:00:00');
+                    foreach (['127.0.0.1', '192.168.1.1', '172.16.0.1', '169.254.1.1',
+                              '100.64.0.1', '0.0.0.0', '255.255.255.255'] as $ip) {
+                        $v = $w->nilai($ip, self::BINTARO, $saat);
+                        $this->wajib($v['alasan'] === 'alamat_tak_publik',
+                            "{$ip} harus alamat_tak_publik — dapat {$v['alasan']}");
+                    }
+
+                    // Alamat publik yang mirip-mirip TIDAK boleh ikut tertahan.
+                    foreach (['36.77.252.85', '100.63.255.255', '100.128.0.1', '172.32.0.1', '11.0.0.1'] as $ip) {
+                        $v = $w->nilai($ip, self::BINTARO, $saat);
+                        $this->wajib($v['alasan'] !== 'alamat_tak_publik',
+                            "{$ip} alamat publik, TIDAK boleh tertahan pagar — dapat {$v['alasan']}");
+                    }
+
+                    // Pagar ini menahan MESIN, bukan manusia: baris yang sudah
+                    // didaftarkan orang tetap dihormati apa adanya.
+                    AttBranchIp::create([
+                        'raw_branch_id' => self::BINTARO, 'ip' => '127.0.0.1',
+                        'label' => 'jalur uji localhost — didaftarkan manusia',
+                        'status' => 'aktif', 'sumber' => 'manual',
+                    ]);
+                    $this->wajib(AttBranchIp::matchBranch('127.0.0.1') !== null,
+                        'baris privat yang didaftarkan manusia tetap harus cocok');
+                    $v = $w->nilai('127.0.0.1', self::BINTARO, $saat);
+                    $this->wajib($v['alasan'] === 'sudah_cocok',
+                        'pagar tak boleh menimpa keputusan manusia — dapat ' . $v['alasan']);
+                },
+            ],
         ];
     }
 
