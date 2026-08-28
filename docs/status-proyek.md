@@ -23,6 +23,31 @@
 > minta chat teknis menyegarkan file ini sebelum dipakai mengambil keputusan.
 >
 >
+> ⚠️ **Sisipan 2026-08-28 pagi — KIRIMAN KE ACCURATE DIJEDA** (`e796d3a`, naik
+> prod 09.00). Finance mapping ulang **di sisi Accurate**, jadi kita berhenti
+> mengirim. Saklar `ACCURATE_PUSH_ENABLED=false` di `.env` prod; bawaannya
+> `true` sehingga deploy sendiri tak mengubah perilaku apa pun.
+> **Berhenti (menulis):** `accurate:push-daily` (jadwal **dan** manual) + jalur
+> buku ASLI `accurate:push-sample`. **Tetap jalan (membaca):** `omnicare:sync`
+> 02.00 — **cermin lokal tetap terisi, nol data hilang** — `pull-glaccount`,
+> `rop:tarik-vendor`, sandbox, dan ekspor CSV ROP (itu impor manual Finance).
+> ⚠️ **Jebakan**: menonaktifkan `accurate_credentials.is_active` **TIDAK**
+> menghentikan push (perintahnya tak pernah membaca kolom itu) tapi **mematikan
+> tarikan COA** yang Finance justru butuhkan — kebalikan dari yang diminta.
+> ⚠️ **Saat menyalakan lagi**: jendela audit cuma **14 hari**. Jeda lebih lama =
+> hari-hari tua **tak akan pernah terkirim**, tanpa ada yang memberi tahu.
+> Gerbangnya mencetak sendiri `--days` yang dibutuhkan tiap kali menolak.
+> Resep: ubah `.env` → `config:clear` → **jalankan sekali manual dengan `--days`
+> itu** → baru serahkan ke cron.
+> ⚠️ **Prod sengaja TIDAK di `main`.** `main` (`2853d07`) sudah memuat gerbong
+> **Konsultan yang belum disetujui prod**, jadi "deploy main" bukan tindakan
+> netral. Prod berjalan dari branch `prod/accurate-saklar`. **Saat Konsultan
+> disetujui: gabung branch ini ke main DULU, baru kembalikan prod ke main** —
+> kalau tidak, saklarnya hilang diam-diam.
+> Terverifikasi dev 9/9 + prod 5/5, termasuk `schedule:run` yang terbukti tidak
+> menjalankannya. Dua bug-ku sendiri ketemu saat menguji (`trans_date` bukan
+> `trx_date`; baris `dry_run` ikut terhitung terkirim) — dua-duanya gagal senyap.
+>
 > ⚠️ **Sisipan 2026-08-27 malam — EMPAT GERBONG NAIK PROD.** Prod kini
 > **`761d7a7`**, dev = prod = main. Berurutan hari ini: **Lembar Bayar ROP**
 > (`0e7f26d`, 16/16) → **§M dua pagar lembur** (`26381ee`, 8/8) → **Pasien Baru

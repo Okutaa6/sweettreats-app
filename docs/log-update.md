@@ -7,6 +7,96 @@
 
 ---
 
+## 2026-08-28 pagi — Kiriman ke Accurate DIJEDA atas permintaan Finance
+
+Finance mapping ulang **di sisi Accurate**, jadi kita harus berhenti mengirim
+apa pun ke sana. Naik prod **`e796d3a`**, jam 09.00 WIB — nol SQL, nol rsync.
+
+### Kenapa ini bukan sekadar mematikan cron
+
+Push harian **bukan cuma menambah**: hari yang berubah **dihapus lalu ditulis
+ulang** (`sales-receipt/delete.do` → `sales-invoice/delete.do` → re-push).
+Run 03.30 pagi ini membuktikannya: 5 hari baru, **1 diperbaiki** (Pamulang
+22 Agu). Membiarkannya menyala selama Finance menata ulang akun = menyiram
+buku Accurate tiap 03.30 dengan dokumen yang mengacu mapping lama.
+
+### ⚠️ Jebakan yang hampir kena — `is_active` TIDAK memagari push
+
+Cara paling naluriah, menonaktifkan `accurate_credentials.is_active`, **tidak
+menghentikan push sama sekali**: `AccuratePushDaily` tak pernah membaca kolom
+itu. Yang mati justru `accurate:pull-glaccount` dan `accurate:resolve-host` —
+tarikan Chart of Accounts yang Finance **butuhkan** untuk mapping ulang.
+Persis kebalikan dari yang diminta. Diperiksa dengan grep, bukan diasumsikan.
+
+### Yang berhenti vs yang tetap hidup
+
+| Berhenti (MENULIS) | Tetap jalan (MEMBACA) |
+|---|---|
+| `accurate:push-daily` — jadwal **dan** manual | `omnicare:sync` 02.00 — cermin lokal tetap terisi, **nol data hilang** |
+| jalur **buku asli** `accurate:push-sample` | `accurate:pull-glaccount` — COA tetap segar |
+| | `rop:tarik-vendor`, sandbox push-sample |
+| | Ekspor CSV ROP — impor **manual** Finance, bukan kiriman kita |
+
+Gerbangnya dipasang di **penjadwal DAN di dalam perintah**. Mematikan cron saja
+tetap membiarkan orang menjalankannya manual — dan perintah ini menghapus
+dokumen. `--force` disediakan untuk sekali jalan terkendali; `push-daily`
+mewariskannya ke `push-sample` karena sudah lolos gerbangnya sendiri.
+
+### Terverifikasi
+
+**Dev 9/9** — bawaan `true` (deploy sendiri tak mengubah apa pun) · jadwal
+muncul saat menyala · menolak saat mati · `--force` menembus · jalur buku asli
+ditolak sementara sandbox lolos · dan yang menentukan: **`schedule:run` tidak
+menjalankannya**.
+
+**Prod 5/5** — perintah menolak dengan sebabnya · `push-sample` buku asli
+ditolak · `schedule:run` diam · keempat tugas Omnicare/vendor tetap terjadwal ·
+`pull-glaccount` sukses di **kelima buku cabang** (176–181 akun).
+
+### Dua kesalahanku sendiri, dua-duanya GAGAL SENYAP
+
+Ditemukan justru saat menguji pagar yang dibuat untuk mencegah kegagalan senyap:
+
+1. Kolomnya **`trans_date`**, bukan `trx_date` — ditebak, tak dibaca.
+   `try/catch` akan menelan galatnya, jadi pengingatnya cuma **tak pernah
+   muncul** dan tak ada yang tahu kenapa.
+2. Filter `!= 'deleted'` ikut menghitung baris **`dry_run`** sebagai terkirim,
+   membuat saran `--days` terlalu pendek. **Saran yang terlalu pendek lebih
+   berbahaya daripada tak ada saran.**
+
+Keduanya ditutup, dan kueri versi benarnya diadu dengan data prod (baca-saja,
+3.118 baris).
+
+### ⚠️ Yang WAJIB diingat saat menyalakan lagi
+
+Jendela auditnya **14 hari**. Kalau jeda lebih lama dari itu, hari-hari yang
+lebih tua **tidak akan pernah ikut terkirim** — dan tak ada yang memberi tahu.
+Karena itu tiap kali gerbangnya menolak, ia mencetak angkanya sendiri:
+
+```
+Terakhir ter-push: 2026-08-27 (1 hari lalu).
+Saat menyalakan lagi jalankan sekali dengan --days=3.
+```
+
+Resep menyalakan: ubah `.env` → `php artisan config:clear` → **jalankan sekali
+manual dengan `--days` yang dicetak** → baru serahkan ke cron.
+
+### ⚠️ Prod sengaja TIDAK di `main`
+
+`main` (`2853d07`) sudah memuat gerbong **Konsultan** yang belum disetujui naik
+prod. Jadi "deploy main" bukan tindakan netral. Saklarnya dipetik terpisah ke
+atas `e70dad8` (pra-Konsultan) sebagai branch **`prod/accurate-saklar`**, dan
+prod berjalan dari situ. **Saat Konsultan disetujui, branch ini digabung ke main
+dulu, baru prod dikembalikan ke main** — kalau tidak, saklarnya hilang.
+
+Cadangan: `~/backup/env.prod.pra-saklar-20260828_0159`, titik balik `761d7a7`.
+
+ℹ️ Bukan temuan kita: sandbox `testing` gagal `pull-glaccount` dengan *"Data
+Session Key tidak tepat"* — **sudah begitu sejak 4 Agustus**, galat & endpoint
+sama persis. Kelima buku asli tak terpengaruh.
+
+---
+
 ## 2026-08-27 — EMPAT GERBONG NAIK PROD dalam satu hari
 
 Prod berjalan `a49a0ef` → … → **`761d7a7`**. Empat gerbong, masing-masing
