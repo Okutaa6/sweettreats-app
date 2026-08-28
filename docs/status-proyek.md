@@ -23,6 +23,41 @@
 > minta chat teknis menyegarkan file ini sebelum dipakai mengambil keputusan.
 >
 >
+> ⛔ **Sisipan 2026-08-29 dini hari — ATURAN BARU rsync, ditulis dengan darah.**
+> `rsync -a laravel/public/ → public_html/` **MEMATIKAN PROD 6 menit** (500 di
+> seluruh situs, 02.00 WIB, nol user aktif). Sebabnya: `public_html` prod itu
+> **salinan sejajar**, jadi `index.php` di sana **sengaja berbeda** — menunjuk
+> `__DIR__.'/../laravel/…`, sedangkan `laravel/public/index.php` menunjuk
+> `__DIR__.'/../…`. Menyalin seluruh direktori menimpanya dan PHP mencari
+> `vendor/` di tempat yang tak ada.
+> ⚠️ **Gejalanya menyesatkan**: `laravel.log` **nol galat**, karena gagalnya
+> sebelum Laravel hidup. "Nol galat" ≠ sehat. Yang membongkar cuma `curl /` → 500.
+> **ATURAN: rsync WAJIB dibatasi ke `assets/`** —
+> `rsync -a laravel/public/assets/ public_html/assets/`. **JANGAN PERNAH**
+> seluruh `public/`.
+> ✅ **Data AMAN dan diperiksa**: SQL malam itu murni menambah (`INSERT IGNORE` +
+> `CREATE INDEX`), nol UPDATE/DELETE/DROP. Sesudah pulih: sales 145.699 ·
+> komisi 87.706 · komisi Agustus **Rp 403.940.654 tak bergeser** ·
+> `accurate_push_log` **3.118 tak bertambah**. Backup 48 MB dibuat sebelum apa pun.
+>
+> ✅ **Sisipan 2026-08-29 — KOMISI DOKTER NAIK PROD** (`86dca82`). Laporan fee
+> dokter untuk Finance, **baca-saja**. Reza menghindari empat jebakan langganan
+> sadar & tertulis: segmen URL sendiri (bukan `finance` yang ada di `SKIP_RBAC`),
+> grant **by link bukan by id node**, ikon **FA5**, dan **tanpa `JOIN` ke
+> `raw_doctor`** (doc_id kembar akan melipatgandakan uang) — dikelompokkan per
+> `doc_id`, bukan nama dokter. Kedua SQL idempoten, dibuktikan 2× di dua keadaan.
+> **Angkanya cocok TIGA arah**: KomisiQuery = SQL pembanding = yang sudah masuk
+> Accurate sebagai "Beban fee dokter" — Rp 403.940.654, selisih Rp 0.
+> 9 kasus render lulus di prod. Naik prod butuh **2 SQL + `access:rebuild` +
+> rsync `assets/`**.
+> ⚠️ Temuan laten: push Accurate menjumlahkan komisi **tanpa** memfilter
+> `commission_role`, Reza memfilter `doctor`. Nol selisih hari ini (semua baris
+> `doctor`); kalau kelak ada role lain, **jurnal Accurate yang salah**.
+> ⚠️ **Prod masih sengaja di luar `main`**: berjalan dari `prod/komisi-dokter` =
+> saklar Accurate + Komisi Dokter, **tanpa Konsultan**. Saat Konsultan disetujui,
+> gabungkan branch prod ini ke main DULU — kalau tidak, saklar DAN Komisi Dokter
+> hilang.
+>
 > ⚠️ **Sisipan 2026-08-28 pagi — KIRIMAN KE ACCURATE DIJEDA** (`e796d3a`, naik
 > prod 09.00). Finance mapping ulang **di sisi Accurate**, jadi kita berhenti
 > mengirim. Saklar `ACCURATE_PUSH_ENABLED=false` di `.env` prod; bawaannya

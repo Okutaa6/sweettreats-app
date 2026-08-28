@@ -7,6 +7,94 @@
 
 ---
 
+## 2026-08-29 dini hari — Komisi Dokter naik prod · dan aku MEMATIKAN PROD 6 menit
+
+Halaman **Komisi Dokter** (Reza) naik prod `86dca82`. Tapi entri ini terutama
+tentang **kesalahanku sendiri**: `rsync` yang kujalankan untuk mengirim CSS/JS
+**menimpa `public_html/index.php`** dan membuat seluruh situs 500.
+
+### ⛔ INSIDEN — `rsync -a public/ public_html/` MEMBUNUH PROD
+
+`public_html` prod adalah **salinan sejajar**, bukan symlink. Karena itu
+`index.php` di sana **sengaja berbeda**: ia menunjuk `__DIR__.'/../laravel/…`,
+sedangkan `laravel/public/index.php` menunjuk `__DIR__.'/../…`. Aku menyalin
+**seluruh** direktori, jadi versi laravel menimpa versi public_html dan PHP
+mencari `vendor/` di tempat yang tak ada.
+
+**Gejalanya menyesatkan**: `laravel.log` **nol galat**, karena gagalnya terjadi
+sebelum Laravel sempat hidup. Aku sempat menyimpulkan "nol galat = sehat"
+padahal situsnya mati. Yang membongkarnya cuma `curl` ke `/` → **500**.
+
+**Aku tahu aturannya** ("public_html prod itu SALINAN") dan tetap menjalankan
+`rsync -a` untuk seluruh `public/`. Aturannya kupakai untuk mengingat *rsync-nya
+wajib*, bukan untuk memikirkan *apa lagi yang ikut tersalin*.
+
+> **ATURAN BARU — rsync ke `public_html` prod WAJIB dibatasi:**
+> ```
+> rsync -a laravel/public/assets/ public_html/assets/
+> ```
+> **JANGAN PERNAH** `rsync` seluruh `public/` → `public_html/`.
+> `index.php` dan berkas akar lain di sana bukan salinan — mereka disesuaikan.
+
+Ditambal dengan mengembalikan ketiga rujukan `index.php` ke `../laravel/`
+(maintenance, vendor/autoload, bootstrap/app). Prod hidup lagi: `/` **200**.
+Padam **±6 menit**, jam 02.00 WIB — nol user aktif.
+
+⚠️ Penambalannya sempat **diblokir classifier** dua kali (menyunting dan bahkan
+membaca `public_html/index.php`). Aku berhenti dan menyerahkan perintahnya ke
+Ekky daripada memaksa lewat jalan lain; akhirnya jalan lewat PowerShell.
+
+### DATA AMAN — dan itu diperiksa, bukan diasumsikan
+
+Yang rusak **hanya satu berkas PHP di pintu depan**. SQL malam ini **murni
+menambah** (`INSERT IGNORE` + `CREATE INDEX`) — nol `UPDATE`, `DELETE`, `DROP`.
+
+| Bukti sesudah pulih | |
+|---|---|
+| `omnicare_sales_detail` | 145.699 baris |
+| `omnicare_commission` | 87.706 (tumbuh 53 dari sync 02.00 — normal) |
+| komisi Agustus | **Rp 403.940.654**, tak bergeser |
+| `accurate_push_log` | **3.118, tak bertambah** — saklar tetap menahan |
+| `att_day` Agustus | 483 baris |
+
+Backup penuh 48 MB dibuat **sebelum** apa pun:
+`~/backup/prod_pre_komisi_20260828_1857.sql.gz`, titik balik kode `e796d3a`.
+
+### Komisi Dokter — auditnya
+
+Reza menghindari **empat** jebakan langganan proyek ini, sadar dan tertulis di
+kodenya: segmen URL sendiri (bukan di bawah `finance` yang ada di `SKIP_RBAC`),
+grant **by link bukan by id node**, ikon **FA5** bukan FA6, dan — yang paling
+penting di halaman uang — **tanpa `JOIN` ke `raw_doctor`**, karena
+`omnicare_doc_id` kembar akan melipatgandakan `SUM(commission_amount)`.
+Dikelompokkan per `doc_id`, bukan nama dokter.
+
+Branch-nya **115 commit di belakang main** tapi merge **nol konflik**. Kedua SQL
+idempoten — dibuktikan dijalankan dua kali di **dua keadaan berbeda** (tabel
+belum ada → skip; index sudah ada → skip).
+
+**Angkanya cocok tiga arah**: KomisiQuery = SQL pembanding independen = **yang
+sudah ditulis push ke Accurate sebagai "Beban fee dokter"**, Rp 403.940.654 ·
+2.324 tindakan · 29 dokter, **selisih Rp 0**.
+
+9 kasus render lulus di prod (19–669 ms), termasuk rentang kosong, **tanggal
+terbalik yang ditukar sendiri**, dan tanggal ngaco yang jatuh ke bawaan.
+
+**Temuan laten, tak menahan**: push Accurate menjumlahkan komisi **tanpa
+memfilter `commission_role`**, Reza memfilter `doctor`. Hari ini selisihnya nol
+(87.706 baris semuanya `doctor`). Kalau Omnicare kelak mengirim role lain,
+**jurnal Accurate yang akan salah**, bukan laporan Reza.
+
+### ⚠️ Prod masih sengaja di luar `main`
+
+Prod berjalan dari **`prod/komisi-dokter`** (`86dca82`) = `prod/accurate-saklar`
++ Komisi Dokter. **Tanpa Konsultan**, yang belum disetujui prod. Saklar
+`ACCURATE_PUSH_ENABLED=false` **terverifikasi masih menahan** sesudah merge.
+Saat Konsultan disetujui: gabungkan branch prod ini ke main DULU, baru
+kembalikan prod ke main — kalau tidak, saklar **dan** Komisi Dokter hilang.
+
+---
+
 ## 2026-08-28 pagi — Kiriman ke Accurate DIJEDA atas permintaan Finance
 
 Finance mapping ulang **di sisi Accurate**, jadi kita harus berhenti mengirim
