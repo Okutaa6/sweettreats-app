@@ -64,7 +64,10 @@ class Kernel extends ConsoleKernel
         // repair yang berubah (late entries), push yang baru. Idempoten penuh
         // via accurate_push_log — aman di-rerun. Skip bersih kalau tabel
         // accurate_credentials belum ada (env yang belum deploy Accurate).
+        // Saklar ACCURATE_PUSH_ENABLED=false mematikannya sementara (mis. Finance
+        // sedang mapping ulang) tanpa menyentuh sync/pull yang cuma MEMBACA.
         $schedule->command('accurate:push-daily --days=14')
+            ->when(fn () => (bool) config('accurate.push_enabled', true))
             ->dailyAt('03:30')
             ->withoutOverlapping(120)
             ->runInBackground()

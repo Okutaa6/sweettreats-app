@@ -33,7 +33,8 @@ class AccuratePushDaily extends Command
                             {--days=14 : window audit ke belakang (hari)}
                             {--branches=all : koma-separated slug cabang, atau "all"}
                             {--skip-sync : lewati sync Omnicare (pakai mirror lokal)}
-                            {--dry-run : audit & rencana saja, tidak menulis apa pun}';
+                            {--dry-run : audit & rencana saja, tidak menulis apa pun}
+                            {--force : jalankan walau saklar accurate.push_enabled mati}';
 
     protected $description = 'Runner harian: sync Omnicare → audit → repair → push ke buku Accurate cabang asli';
 
@@ -44,6 +45,36 @@ class AccuratePushDaily extends Command
 
     public function handle(AccurateClient $client): int
     {
+        // Saklar mati = Finance sedang mapping ulang. Dijaga DI SINI juga,
+        // bukan cuma di penjadwal: mematikan cron saja tetap membiarkan orang
+        // menjalankannya manual, dan push ini MENGHAPUS lalu menulis ulang
+        // dokumen hari yang berubah. Pesannya menyebut sebabnya supaya tidak
+        // terbaca sebagai rusak.
+        if (! config('accurate.push_enabled', true) && ! $this->option('force')) {
+            $this->warn('Push ke Accurate SENGAJA dimatikan (ACCURATE_PUSH_ENABLED=false).');
+            $this->line('Nyalakan lagi lewat .env + `php artisan config:clear`, atau paksa sekali dengan --force.');
+
+            // Jendela audit cuma --days ke belakang. Kalau jeda lebih lama dari
+            // itu, hari-hari yang lebih tua tak akan pernah ikut terkirim dan
+            // TAK ADA yang memberi tahu — jadi angkanya dicetak tiap kali.
+            try {
+                $last = \Illuminate\Support\Facades\Schema::hasTable('accurate_push_log')
+                    ? DB::table('accurate_push_log')->where('status', '!=', 'deleted')->max('trx_date')
+                    : null;
+                if ($last) {
+                    $jeda = (int) abs(now()->startOfDay()->diffInDays(\Carbon\Carbon::parse($last)->startOfDay()));
+                    $this->line(sprintf(
+                        'Terakhir ter-push: %s (%d hari lalu). Saat menyalakan lagi jalankan sekali dengan --days=%d.',
+                        $last, $jeda, $jeda + 2
+                    ));
+                }
+            } catch (\Throwable $e) {
+                // diam — ini cuma pengingat, jangan bikin gerbangnya gagal
+            }
+
+            return self::SUCCESS;
+        }
+
         // Schema guard: skip bersih di env yang belum deploy tabel Accurate
         // (cegah cron error saat kode sudah ada tapi tabel/data belum).
         foreach (['accurate_credentials', 'accurate_push_log', 'accurate_item_account_map', 'accurate_staging_sales_item'] as $t) {
@@ -150,6 +181,7 @@ class AccuratePushDaily extends Command
             foreach (array_merge($newDays, array_keys($fixDays)) as $d) {
                 $rc = Artisan::call('accurate:push-sample', [
                     '--from' => $slug, '--to' => $slug, '--allow-live' => true,
+                    '--force' => true,   // push-daily sudah lolos gerbangnya sendiri
                     '--start' => $d, '--end' => $d,
                 ]);
                 if ($rc === 0) { in_array($d, $newDays, true) ? $totNew++ : $totFix++; }
