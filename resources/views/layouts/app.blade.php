@@ -99,7 +99,7 @@
 
     // Zona warna per halaman (docs/spec/peta-tema.md §4) — hanya aksen konten,
     // shell tetap cokelat. CSS: assets/css/zona.css.
-    $zonaFinance = in_array($currentSegment, ['finance', 'report', 'reconcile'], true) ? ' zona-finance' : '';
+    $zonaFinance = in_array($currentSegment, ['finance', 'report', 'reconcile', 'komisi-dokter'], true) ? ' zona-finance' : '';
     // WiFi Cabang = domain IT walau path-nya masih absensi/wifi (menu sudah di seksi IT).
     $zonaIt = ($currentSegment === 'absensi' && request()->segment(2) === 'wifi') ? ' zona-it' : '';
 
@@ -108,7 +108,7 @@
     // (akun, my-checklist, persetujuan, absen HP, dsb).
     $gerbangSegs = [
         'absensi', 'pengawasan',                                    // HR/absensi desktop
-        'finance', 'report', 'reconcile',                           // Finance
+        'finance', 'report', 'reconcile', 'komisi-dokter',          // Finance
         'setkesehatan', 'setusermanagement', 'setgroup', 'setaccess',
         'setsystemprofile', 'auditlog',                             // Pusat Akun / IT
         'checklist', 'project-tracker',                             // ops desktop

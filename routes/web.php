@@ -202,6 +202,22 @@ Route::middleware([AuthGuard::class])->group(function () {
         Route::get('/executive', [\App\Http\Controllers\ExecutiveReportController::class, 'index'])->name('report.executive');
     });
 
+    // Komisi Dokter — laporan fee dokter untuk Finance (data omnicare_commission).
+    // Segmen URL sendiri, BUKAN di bawah 'finance': segmen 'finance' ada di
+    // AuthGuard::SKIP_RBAC sehingga halaman di bawahnya tidak dijaga RBAC menu.
+    // Dengan segmen sendiri, node access_path ber-link 'komisi-dokter' menjadi
+    // gerbang akses yang sebenarnya (pola sama dengan /sales-dashboard).
+    Route::prefix('komisi-dokter')->group(function () {
+        // Rute literal WAJIB didaftarkan sebelum wildcard {docId}, kalau tidak
+        // '/export' akan ditelan sebagai kode dokter.
+        Route::get('/', [\App\Http\Controllers\Finance\KomisiDokterController::class, 'index'])->name('komisi.index');
+        Route::get('/export', [\App\Http\Controllers\Finance\KomisiDokterController::class, 'exportList'])->name('komisi.export');
+
+        Route::get('/{docId}', [\App\Http\Controllers\Finance\KomisiDokterController::class, 'show'])->name('komisi.show');
+        Route::get('/{docId}/export', [\App\Http\Controllers\Finance\KomisiDokterController::class, 'exportDetail'])->name('komisi.export.detail');
+        Route::get('/{docId}/cetak', [\App\Http\Controllers\Finance\KomisiDokterController::class, 'cetak'])->name('komisi.cetak');
+    })->where(['docId' => '[A-Za-z0-9_.-]+']);
+
     // Rekonsiliasi — reservasi SweetTreats ↔ encounter Omnicare (link='reconcile')
     Route::prefix('reconcile')->group(function () {
         Route::get('/', [\App\Http\Controllers\ReconciliationController::class, 'index'])->name('reconcile.index');

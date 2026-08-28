@@ -1,0 +1,1210 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   Komisi Dokter — token & komponen (zona BURGUNDY / Finance)
+   ───────────────────────────────────────────────────────────────────────────
+   Sumber: design_handoff_komisi_dokter/README.md (high-fidelity).
+
+   Semua aturan di-scope ke .kd. Halaman ini desktop-first 1280px+ — halaman
+   kerja Finance di depan layar besar, bukan halaman yang dibaca sambil jalan.
+
+   Disiplin warna yang tidak boleh dilanggar:
+     • Burgundy HANYA untuk chrome (header tabel, tab aktif, tombol, footer).
+     • Merah terang #C0392B KHUSUS makna negatif (delta turun). Jangan dipakai
+       sebagai aksen dekoratif — kalau tertukar, Finance membaca peringatan
+       di tempat yang tidak ada masalahnya.
+
+   Tanpa emoji. Ikon = SVG garis 1.5px stroke currentColor.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.kd {
+    --kd-bg:          #F4ECE2;
+    --kd-card:        #FFFFFF;
+    --kd-input:       #FFFCF8;
+    --kd-border:      #EFE0CE;
+    --kd-divider:     #F5EBDD;
+    --kd-divider-2:   #F2E6D8;
+    --kd-ink:         #3B1500;
+    --kd-ink-2:       #5A3A22;
+    --kd-ink-3:       #7A5B43;
+    --kd-muted:       #9A7256;
+    --kd-muted-2:     #A9866A;
+    --kd-faint:       #B79A82;
+
+    --kd-brand:       linear-gradient(135deg, #8A2E43, #6B2333);
+    --kd-brand-solid: #8A2E43;
+    --kd-brand-dark:  #7A2739;
+    --kd-brand-deep:  #5A1B29;
+    --kd-headfill:    linear-gradient(120deg, #7A2739, #5A1B29);
+    --kd-head-ink:    #F3D9DE;
+
+    --kd-tint:        #F6E3E7;
+    --kd-tint-ink:    #7A2739;
+    --kd-tint-bd:     #EBCBD3;
+    --kd-row-hover:   #FCF4F5;
+    --kd-subtotal:    #FBF5F6;
+    --kd-subtotal-bd: #EBD9DC;
+
+    --kd-warn-bg:     #FBEFD9;
+    --kd-warn-bd:     #F0DDB8;
+    --kd-warn-ink:    #B5701A;
+    --kd-warn-ink-2:  #8A5514;
+
+    --kd-naik:        #2F8E55;
+    --kd-turun:       #C0392B;
+    --kd-naik-on:     #B6E7C7;
+    --kd-turun-on:    #FFC9C1;
+
+    --kd-off-bg:      #EFEAE3;
+    --kd-off-ink:     #6B6257;
+
+    --kd-shadow:      0 1px 2px rgba(70, 21, 0, .04);
+    --kd-shadow-row:  0 10px 26px rgba(122, 39, 57, .13);
+
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    /* Wajib seluruh halaman: kolom rupiah harus rata kanan DAN digitnya sejajar,
+       kalau tidak Finance tidak bisa memindai kolom secara vertikal. */
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' 1;
+    color: var(--kd-ink);
+    padding: 18px 22px 40px;
+}
+
+.kd * { box-sizing: border-box; }
+
+.kd a { text-decoration: none; }
+
+/* `color: inherit` HANYA untuk tautan tanpa kelas (mis. tombol silang di chip
+   penyaring) — gunanya menetralkan `a { color: #50649c }` dari style.css.
+   JANGAN ditulis sebagai `.kd a { color: inherit }`: selektor itu bernilai
+   0-1-1 dan akan mengalahkan semua aturan warna berbasis satu kelas
+   (.kd-preset--on, .kd-tab--on, .kd-btn--primary), sehingga teks putih pada
+   tombol burgundy tidak pernah terpakai dan tampil nyaris hitam. */
+.kd a:not([class]) { color: inherit; }
+
+/* ── Header halaman ───────────────────────────────────────────────────────── */
+
+/* Header ikut jadi kartu seperti blok lain di halaman ini. Sebelumnya dia
+   satu-satunya yang duduk langsung di latar krem, sehingga terbaca seperti
+   potongan yang belum selesai ditata. */
+.kd__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 13px;
+    padding: 14px 18px;
+    background: var(--kd-card);
+    border: 1px solid var(--kd-border);
+    border-radius: 16px;
+    box-shadow: var(--kd-shadow);
+}
+
+.kd__title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.kd__back {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    border-radius: 11px;
+    border: 1px solid var(--kd-border);
+    background: var(--kd-card);
+    color: var(--kd-ink-2);
+    flex: none;
+}
+
+.kd__back:hover { background: var(--kd-row-hover); color: var(--kd-brand-dark); }
+
+.kd__crumb {
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: .5px;
+    text-transform: uppercase;
+    color: var(--kd-muted);
+    margin-bottom: 2px;
+}
+
+.kd__head h1 {
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: -.3px;
+    margin: 0;
+    line-height: 1.2;
+}
+
+.kd__sub {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--kd-muted);
+    margin-top: 3px;
+}
+
+/* Pill status sinkron. Finance tidak akan percaya angkanya kalau tidak tahu
+   kapan data terakhir masuk — makanya ini di header, bukan di catatan kaki. */
+.kd-sync {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 7px 13px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 700;
+    border: 1px solid var(--kd-tint-bd);
+    background: var(--kd-tint);
+    color: var(--kd-tint-ink);
+    white-space: nowrap;
+}
+
+.kd-sync--awas {
+    background: var(--kd-warn-bg);
+    border-color: var(--kd-warn-bd);
+    color: var(--kd-warn-ink-2);
+}
+
+.kd-sync--netral {
+    background: var(--kd-off-bg);
+    border-color: #E2DBD1;
+    color: var(--kd-off-ink);
+}
+
+.kd-sync__detail {
+    font-weight: 600;
+    opacity: .85;
+}
+
+/* ── Kartu umum ───────────────────────────────────────────────────────────── */
+
+.kd-card {
+    background: var(--kd-card);
+    border: 1px solid var(--kd-border);
+    border-radius: 16px;
+    box-shadow: var(--kd-shadow);
+}
+
+/* ── Filter bar ───────────────────────────────────────────────────────────── */
+
+.kd-filter {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 12px 14px;
+    margin-bottom: 13px;
+}
+
+.kd-filter__dates {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--kd-muted);
+}
+
+.kd-input,
+.kd-select {
+    height: 38px;
+    padding: 0 12px;
+    border-radius: 10px;
+    border: 1px solid var(--kd-border);
+    background: var(--kd-input);
+    color: var(--kd-ink);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.kd-input:focus,
+.kd-select:focus {
+    outline: none;
+    border-color: var(--kd-brand-solid);
+    box-shadow: 0 0 0 3px rgba(138, 46, 67, .12);
+}
+
+.kd-presets {
+    display: flex;
+    gap: 4px;
+    padding: 3px;
+    border-radius: 12px;
+    background: var(--kd-input);
+    border: 1px solid var(--kd-border);
+}
+
+.kd-preset {
+    padding: 7px 13px;
+    border-radius: 9px;
+    font-size: 12.5px;
+    font-weight: 700;
+    color: var(--kd-ink-3);
+    white-space: nowrap;
+}
+
+/* Hover BASE dikecualikan dari yang sedang aktif lewat :not().
+   Kalau ditulis sebagai dua aturan bersaing (.kd-preset:hover dan
+   .kd-preset--on:hover), keduanya bernilai spesifisitas sama dan hasilnya
+   bergantung urutan berkas — tombol aktif ikut mengambil warna teks burgundy
+   tua di atas latar burgundy, jadi terbaca hitam. Dengan :not(), tombol aktif
+   tidak pernah cocok dengan aturan base sama sekali. */
+.kd-preset:not(.kd-preset--on):hover,
+.kd-preset:not(.kd-preset--on):focus { background: var(--kd-tint); color: var(--kd-tint-ink); }
+
+.kd-preset--on {
+    background: var(--kd-brand);
+    color: #FFF;
+}
+
+.kd-preset--on:hover,
+.kd-preset--on:focus { background: var(--kd-brand); color: #FFF; filter: brightness(1.08); }
+
+/* Cabang terkunci — user yang ter-scope ke satu cabang. Digambar sebagai chip
+   bergaris putus dengan gembok supaya jelas ini BUKAN dropdown yang rusak. */
+.kd-lock {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    height: 38px;
+    padding: 0 13px;
+    border-radius: 10px;
+    border: 1px dashed #D9C3A9;
+    background: var(--kd-input);
+    color: var(--kd-ink-3);
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.kd-filter__spacer { flex: 1 1 auto; }
+
+/* ── Tombol ───────────────────────────────────────────────────────────────── */
+
+.kd-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    height: 38px;
+    padding: 0 15px;
+    border-radius: 10px;
+    border: 1px solid var(--kd-border);
+    background: var(--kd-card);
+    color: var(--kd-ink-2);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+/* Tombol burgundy (Unduh CSV) kena masalah yang persis sama: aturan hover base
+   memberi warna teks burgundy tua yang tenggelam di latar burgundy. Dikecualikan
+   dengan :not() supaya tidak bergantung urutan berkas. */
+.kd-btn:not(.kd-btn--primary):hover,
+.kd-btn:not(.kd-btn--primary):focus { background: var(--kd-row-hover); color: var(--kd-brand-dark); }
+
+.kd-btn--primary {
+    background: var(--kd-brand);
+    border-color: transparent;
+    color: #FFF;
+}
+
+.kd-btn--primary:hover,
+.kd-btn--primary:focus { color: #FFF; filter: brightness(1.08); }
+
+.kd-btn--sm { height: 32px; padding: 0 11px; font-size: 12px; }
+
+.kd-btn[disabled],
+.kd-btn--mati {
+    opacity: .45;
+    pointer-events: none;
+}
+
+/* ── Banner "belum final" ─────────────────────────────────────────────────── */
+
+.kd-banner {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    padding: 10px 14px;
+    margin-bottom: 13px;
+    border-radius: 12px;
+    background: var(--kd-warn-bg);
+    border: 1px solid var(--kd-warn-bd);
+    color: var(--kd-warn-ink-2);
+    font-size: 12.5px;
+    font-weight: 600;
+    line-height: 1.45;
+}
+
+.kd-banner svg { flex: none; color: var(--kd-warn-ink); }
+
+.kd-banner__aksi { margin-left: auto; flex: none; }
+
+.kd-banner .kd-btn {
+    background: rgba(255, 255, 255, .7);
+    border-color: var(--kd-warn-bd);
+    color: var(--kd-warn-ink-2);
+}
+
+/* Tombol di dalam banner tetap memakai palet kuningnya sendiri saat di-hover,
+   bukan burgundy dari aturan tombol umum. */
+.kd-banner .kd-btn:hover,
+.kd-banner .kd-btn:focus {
+    background: #FFF;
+    color: var(--kd-warn-ink-2);
+}
+
+/* ── Kartu ringkasan ──────────────────────────────────────────────────────── */
+
+.kd-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 13px;
+    margin-bottom: 13px;
+}
+
+.kd-stats--5 { grid-template-columns: repeat(5, 1fr); }
+
+.kd-stat {
+    padding: 13px 15px;
+    border-radius: 14px;
+    background: var(--kd-card);
+    border: 1px solid var(--kd-border);
+    box-shadow: var(--kd-shadow);
+}
+
+.kd-stat__label {
+    font-size: 10.5px;
+    font-weight: 800;
+    letter-spacing: .5px;
+    text-transform: uppercase;
+    color: var(--kd-muted);
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    flex-wrap: wrap;
+}
+
+.kd-stat__val {
+    font-size: 21px;
+    font-weight: 800;
+    letter-spacing: -.4px;
+    margin-top: 6px;
+    line-height: 1.15;
+    /* Angka kartu ringkasan juga tidak boleh patah setelah "Rp". */
+    white-space: nowrap;
+}
+
+/* Kartu Total Komisi di layar detail — satu-satunya yang bergradien, supaya
+   mata jatuh ke angka yang akan dibayarkan. */
+.kd-stat--utama {
+    background: var(--kd-brand);
+    border-color: transparent;
+    color: #FFF;
+}
+
+.kd-stat--utama .kd-stat__label { color: var(--kd-head-ink); }
+.kd-stat--utama .kd-stat__val { font-size: 27px; }
+.kd-stat--utama .kd-delta--naik  { color: var(--kd-naik-on); }
+.kd-stat--utama .kd-delta--turun { color: var(--kd-turun-on); }
+.kd-stat--utama .kd-delta--netral,
+.kd-stat--utama .kd-delta__sub { color: var(--kd-head-ink); }
+
+.kd-delta {
+    margin-top: 5px;
+    font-size: 11.5px;
+    font-weight: 800;
+}
+
+.kd-delta--naik   { color: var(--kd-naik); }
+.kd-delta--turun  { color: var(--kd-turun); }
+.kd-delta--netral { color: var(--kd-muted); }
+
+.kd-delta__sub {
+    font-weight: 600;
+    color: var(--kd-faint);
+    margin-left: 4px;
+}
+
+/* Badge "BELUM FINAL" — muncul di tiga tempat (banner, angka total, baris bulan
+   berjalan). Sengaja diulang: satu penanda saja mudah terlewat. */
+.kd-final {
+    display: inline-block;
+    padding: 2px 7px;
+    border-radius: 20px;
+    font-size: 9.5px;
+    font-weight: 800;
+    letter-spacing: .4px;
+    background: var(--kd-warn-bg);
+    color: var(--kd-warn-ink);
+    border: 1px solid var(--kd-warn-bd);
+}
+
+.kd-stat--utama .kd-final {
+    background: rgba(255, 255, 255, .18);
+    border-color: rgba(255, 255, 255, .3);
+    color: #FFF;
+}
+
+/* ── Toolbar tabel ────────────────────────────────────────────────────────── */
+
+.kd-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 11px;
+}
+
+.kd-search {
+    position: relative;
+    flex: 0 1 300px;
+}
+
+.kd-search svg {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--kd-muted-2);
+    pointer-events: none;
+}
+
+.kd-search .kd-input { width: 100%; padding-left: 36px; }
+
+.kd-toolbar__label {
+    font-size: 10.5px;
+    font-weight: 800;
+    letter-spacing: .5px;
+    text-transform: uppercase;
+    color: var(--kd-muted);
+}
+
+/* ── Tabel ────────────────────────────────────────────────────────────────── */
+
+.kd-tabel-wrap {
+    background: var(--kd-card);
+    border: 1px solid var(--kd-border);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: var(--kd-shadow);
+}
+
+.kd-tabel {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+/* Gradien digambar SEKALI di baris header, bukan di tiap sel.
+   Kalau tiap <th> menggambar gradiennya sendiri, setiap kolom mulai lagi dari
+   #7A2739 dan berakhir di #5A1B29 — sambungan antar kolom jadi terlihat sebagai
+   belang. Satu gradien di <tr> membuatnya mengalir mulus selebar tabel. */
+.kd-tabel thead tr { background: var(--kd-headfill); }
+
+.kd-tabel thead th {
+    background: transparent;
+    color: var(--kd-head-ink);
+    font-size: 10.5px;
+    font-weight: 800;
+    letter-spacing: .5px;
+    text-transform: uppercase;
+    text-align: left;
+    padding: 11px 14px;
+    white-space: nowrap;
+}
+
+.kd-tabel thead th.num { text-align: right; }
+
+.kd-tabel thead a { color: var(--kd-head-ink); display: inline-flex; gap: 4px; align-items: center; }
+.kd-tabel thead a:hover,
+.kd-tabel thead a.on { color: #FFF; }
+
+.kd-tabel tbody td {
+    padding: 10px 14px;
+    border-top: 1px solid var(--kd-divider);
+    color: var(--kd-ink-2);
+    font-weight: 600;
+    vertical-align: middle;
+}
+
+.kd-tabel tbody td.num { text-align: right; }
+.kd-tabel td.kuat { font-weight: 800; color: var(--kd-ink); }
+
+/* Kolom angka TIDAK BOLEH membungkus baris. "Rp 139.555.400" yang patah jadi
+   "Rp" + "139.555.400" merusak kesejajaran digit antar baris — padahal
+   memindai kolom rupiah secara vertikal itu justru cara Finance membaca tabel
+   ini. Biarkan kolom teks yang mengalah lebarnya. */
+.kd-tabel th.num,
+.kd-tabel td.num { white-space: nowrap; }
+
+.kd-tabel tfoot td {
+    padding: 11px 14px;
+    background: var(--kd-subtotal);
+    border-top: 1px solid var(--kd-subtotal-bd);
+    font-weight: 800;
+    color: var(--kd-tint-ink);
+}
+
+.kd-tabel tfoot td.num { text-align: right; }
+
+.kd-tabel__klik tbody tr.kd-row { cursor: pointer; }
+.kd-tabel__klik tbody tr.kd-row:hover td { background: var(--kd-row-hover); }
+
+.kd-row--off td { opacity: .68; }
+
+/* ── Identitas dokter di dalam baris ──────────────────────────────────────── */
+
+.kd-doc {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+}
+
+.kd-avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: var(--kd-tint);
+    color: var(--kd-tint-ink);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11.5px;
+    font-weight: 800;
+    letter-spacing: .3px;
+    flex: none;
+    overflow: hidden;
+}
+
+.kd-avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+.kd-avatar--lg { width: 54px; height: 54px; font-size: 17px; }
+
+.kd-doc__nama {
+    font-size: 13.5px;
+    font-weight: 800;
+    color: var(--kd-ink);
+    line-height: 1.25;
+}
+
+.kd-doc__meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 3px;
+    flex-wrap: wrap;
+}
+
+.kd-chip {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 20px;
+    font-size: 10.5px;
+    font-weight: 800;
+}
+
+.kd-badge-off {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 20px;
+    font-size: 10.5px;
+    font-weight: 800;
+    background: var(--kd-off-bg);
+    color: var(--kd-off-ink);
+}
+
+.kd-cabang-list {
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--kd-muted);
+}
+
+/* Chevron digambar sebagai TOMBOL BULAT, bukan ikon telanjang.
+   Ikon abu-abu di ujung kanan terlalu lemah sebagai penanda: orang tidak tahu
+   barisnya bisa dibuka sampai tidak sengaja mengkliknya. Bentuk bulat bertepi
+   warna langsung terbaca sebagai kontrol. */
+.kd-chev {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--kd-tint);
+    /* Tepi tipis supaya bentuk tombolnya tetap terbaca dalam keadaan diam,
+       tidak hanya saat terisi warna waktu di-hover. */
+    border: 1px solid var(--kd-tint-bd);
+    color: var(--kd-tint-ink);
+    transition: transform .18s ease, background .18s ease, color .18s ease;
+}
+
+.kd-tabel__klik tbody tr.kd-row:hover .kd-chev,
+.kd-tabel__klik tbody tr.kd-row:focus-visible .kd-chev,
+.kd-row--buka .kd-chev {
+    background: var(--kd-brand);
+    color: #FFF;
+}
+
+.kd-row--buka .kd-chev { transform: rotate(90deg); }
+
+/* Aksen kiri saat di-hover / terbuka. Dipakai inset box-shadow, bukan border,
+   supaya lebar sel tidak bergeser 3px setiap kali kursor lewat. */
+.kd-tabel__klik tbody tr.kd-row:hover td:first-child,
+.kd-tabel__klik tbody tr.kd-row:focus-visible td:first-child,
+.kd-tabel__klik tbody tr.kd-row--buka td:first-child {
+    box-shadow: inset 3px 0 0 var(--kd-brand-solid);
+}
+
+.kd-tabel__klik tbody tr.kd-row:hover .kd-doc__nama,
+.kd-tabel__klik tbody tr.kd-row:hover td.kuat,
+.kd-tabel__klik tbody tr.kd-row:hover td.kuat a { color: var(--kd-brand-dark); }
+
+/* Tautan di dalam sel mengambil warna selnya — yang membedakan bahwa dia bisa
+   diklik adalah penanda barisnya (chevron + aksen tepi), bukan warna biru
+   tautan yang akan merusak palet tabel. */
+.kd-tabel td.kuat a { color: inherit; }
+.kd-tabel td.kuat a:focus-visible {
+    outline: 2px solid var(--kd-brand-solid);
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+
+/* Baris yang sedang terbuka memakai latar yang sama dengan panel di bawahnya,
+   supaya keduanya terbaca sebagai satu blok — bukan baris acak yang kebetulan
+   ada tabel nyangkut di bawahnya. */
+.kd-tabel__klik tbody tr.kd-row--buka td { background: var(--kd-subtotal); }
+
+/* Baris bisa difokus dengan keyboard (tabindex=0); outline bawaan diganti
+   aksen yang sama dengan hover supaya konsisten. */
+.kd-tabel__klik tbody tr.kd-row:focus-visible { outline: none; }
+.kd-tabel__klik tbody tr.kd-row:focus-visible td { background: var(--kd-row-hover); }
+
+/* ── Dropdown beban per cabang ────────────────────────────────────────────── */
+
+.kd-drop > td {
+    padding: 0 !important;
+    background: var(--kd-subtotal);
+    border-top: 1px solid var(--kd-subtotal-bd) !important;
+}
+
+.kd-drop[hidden] { display: none; }
+
+.kd-drop__isi { padding: 13px 16px 16px; }
+
+.kd-drop__head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+}
+
+.kd-drop__judul {
+    font-size: 10.5px;
+    font-weight: 800;
+    letter-spacing: .5px;
+    text-transform: uppercase;
+    color: var(--kd-tint-ink);
+}
+
+.kd-drop__ket {
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--kd-muted);
+}
+
+.kd-subtabel {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12.5px;
+    background: var(--kd-card);
+    border: 1px solid var(--kd-subtotal-bd);
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.kd-subtabel thead th {
+    background: var(--kd-tint);
+    color: var(--kd-tint-ink);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .5px;
+    text-transform: uppercase;
+    text-align: left;
+    padding: 8px 12px;
+    white-space: nowrap;
+}
+
+.kd-subtabel th.num,
+.kd-subtabel td.num { text-align: right; white-space: nowrap; }
+
+.kd-subtabel tbody td {
+    padding: 9px 12px;
+    border-top: 1px solid var(--kd-divider);
+    font-weight: 600;
+    color: var(--kd-ink-2);
+}
+
+.kd-subtabel tbody td.num { text-align: right; }
+.kd-subtabel tbody tr { cursor: pointer; }
+.kd-subtabel td.kuat { font-weight: 800; color: var(--kd-ink); }
+
+/* Baris cabang juga membuka halaman detail, jadi diberi penanda yang sama
+   dengan baris dokter — hanya versi kecil, supaya tabel di dalam panel tidak
+   ikut terasa berat. */
+.kd-chev--sm { width: 22px; height: 22px; }
+
+.kd-subtabel tbody tr:hover td { background: var(--kd-row-hover); }
+.kd-subtabel tbody tr:hover td:first-child { box-shadow: inset 3px 0 0 var(--kd-brand-solid); }
+.kd-subtabel tbody tr:hover td.kuat,
+.kd-subtabel tbody tr:hover td.kuat a { color: var(--kd-brand-dark); }
+.kd-subtabel tbody tr:hover .kd-chev { background: var(--kd-brand); color: #FFF; }
+
+/* Tautan nama cabang mengambil warna selnya; fokus keyboard memakai penanda
+   yang sama dengan hover supaya tidak ada state yang tak terlihat. */
+.kd-subtabel td.kuat a { color: inherit; }
+.kd-subtabel td.kuat a:focus-visible { outline: 2px solid var(--kd-brand-solid); outline-offset: 2px; border-radius: 4px; }
+
+.kd-subtabel tfoot td {
+    padding: 9px 12px;
+    background: var(--kd-subtotal);
+    border-top: 1px solid var(--kd-subtotal-bd);
+    font-weight: 800;
+    color: var(--kd-tint-ink);
+}
+
+.kd-subtabel tfoot td.num { text-align: right; }
+
+/* Bar porsi — angka DAN bar, karena angka saja sulit dibandingkan sekilas
+   dan bar saja tidak bisa dicocokkan ke spreadsheet. */
+.kd-porsi {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    justify-content: flex-end;
+    width: 100%;
+}
+
+.kd-porsi__bar {
+    width: 66px;
+    height: 6px;
+    border-radius: 20px;
+    background: var(--kd-tint);
+    overflow: hidden;
+    flex: none;
+}
+
+.kd-porsi__isi {
+    display: block;
+    height: 100%;
+    border-radius: 20px;
+    background: var(--kd-brand);
+}
+
+.kd-porsi__angka { min-width: 44px; text-align: right; font-weight: 700; }
+
+/* Catatan kecil di bawah baris total. Tanpa ini, orang akan menjumlahkan
+   kolom pasien per cabang dan menyimpulkan tabelnya salah hitung. */
+.kd-nota {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--kd-muted);
+    margin-top: 8px;
+    line-height: 1.5;
+}
+
+/* ── Footer total periode ─────────────────────────────────────────────────── */
+
+.kd-total {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-top: 13px;
+    padding: 14px 18px;
+    border-radius: 14px;
+    background: var(--kd-brand);
+    color: #FFF;
+}
+
+.kd-total__label {
+    font-size: 10.5px;
+    font-weight: 800;
+    letter-spacing: .5px;
+    text-transform: uppercase;
+    color: var(--kd-head-ink);
+}
+
+.kd-total__n { font-size: 13px; font-weight: 700; color: var(--kd-head-ink); }
+
+.kd-total__val {
+    font-size: 21px;
+    font-weight: 800;
+    letter-spacing: -.4px;
+}
+
+.kd-total__aksi { margin-left: auto; }
+
+.kd-total .kd-btn {
+    background: rgba(255, 255, 255, .14);
+    border-color: rgba(255, 255, 255, .26);
+    color: #FFF;
+}
+
+.kd-total .kd-btn:hover { background: rgba(255, 255, 255, .22); color: #FFF; }
+
+/* ── Empty state ──────────────────────────────────────────────────────────── */
+
+.kd-empty {
+    padding: 34px 28px;
+    text-align: center;
+}
+
+.kd-empty__judul {
+    font-size: 15px;
+    font-weight: 800;
+    margin-bottom: 6px;
+}
+
+.kd-empty__ket {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--kd-muted);
+    max-width: 560px;
+    margin: 0 auto 14px;
+    line-height: 1.6;
+}
+
+.kd-empty__list {
+    display: inline-block;
+    text-align: left;
+    margin: 0 auto 16px;
+    padding: 0;
+    list-style: none;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--kd-ink-2);
+}
+
+.kd-empty__list li {
+    padding: 5px 0 5px 20px;
+    position: relative;
+    line-height: 1.5;
+}
+
+.kd-empty__list li::before {
+    content: '';
+    position: absolute;
+    left: 4px;
+    top: 12px;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--kd-brand-solid);
+}
+
+.kd-empty__aksi { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+
+.kd-empty--kecil { padding: 22px 18px; }
+
+/* ── Layar detail: identitas ──────────────────────────────────────────────── */
+
+.kd-ident {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 18px;
+    margin-bottom: 13px;
+}
+
+.kd-ident__nama {
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: -.3px;
+    line-height: 1.2;
+}
+
+.kd-ident__meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 6px;
+    flex-wrap: wrap;
+}
+
+.kd-ident__periode { margin-left: auto; text-align: right; }
+
+/* ── Tab ──────────────────────────────────────────────────────────────────── */
+
+.kd-tabs {
+    display: inline-flex;
+    gap: 4px;
+    padding: 5px;
+    border-radius: 14px;
+    background: var(--kd-card);
+    border: 1px solid var(--kd-border);
+    margin-bottom: 13px;
+    box-shadow: var(--kd-shadow);
+}
+
+.kd-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 8px 15px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--kd-ink-3);
+}
+
+/* Sama seperti .kd-preset: tab aktif dikecualikan dari hover base. */
+.kd-tab:not(.kd-tab--on):hover,
+.kd-tab:not(.kd-tab--on):focus { background: var(--kd-tint); color: var(--kd-tint-ink); }
+
+.kd-tab--on { background: var(--kd-brand); color: #FFF; }
+.kd-tab--on:hover,
+.kd-tab--on:focus { background: var(--kd-brand); color: #FFF; filter: brightness(1.08); }
+
+.kd-tab__n {
+    padding: 1px 7px;
+    border-radius: 20px;
+    font-size: 10.5px;
+    font-weight: 800;
+    background: var(--kd-tint);
+    color: var(--kd-tint-ink);
+}
+
+.kd-tab--on .kd-tab__n { background: rgba(255, 255, 255, .2); color: #FFF; }
+
+.kd-tabbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+/* Chip penyaring drill-down — bisa dihapus satu-satu, konteksnya tidak hilang. */
+.kd-filterchip {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 700;
+    background: var(--kd-tint);
+    color: var(--kd-tint-ink);
+    border: 1px solid var(--kd-tint-bd);
+    margin-bottom: 13px;
+}
+
+.kd-filterchip a { display: inline-flex; opacity: .7; }
+.kd-filterchip a:hover { opacity: 1; }
+
+/* ── Kepala tabel dalam kartu ─────────────────────────────────────────────── */
+
+.kd-blok__head {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    padding: 13px 16px 11px;
+    flex-wrap: wrap;
+}
+
+.kd-blok__judul { font-size: 13.5px; font-weight: 800; }
+
+.kd-blok__ket {
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--kd-muted);
+}
+
+
+/* ── Skema komisi ─────────────────────────────────────────────────────────── */
+
+.kd-skema {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 10px;
+    border-radius: 8px;
+    background: var(--kd-off-bg);
+    color: var(--kd-ink-2);
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+/* Skema beragam antar cabang. Warnanya kuning "perlu diperiksa", BUKAN merah:
+   ini bukan kesalahan, cuma fakta yang perlu diketahui sebelum menjelaskan
+   angkanya ke dokter. */
+.kd-skema--awas {
+    background: var(--kd-warn-bg);
+    color: var(--kd-warn-ink-2);
+}
+
+.kd-skema--awas svg { color: var(--kd-warn-ink); flex: none; }
+
+/* ── Grafik tren ──────────────────────────────────────────────────────────── */
+
+.kd-chart {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+    padding: 18px 16px 12px;
+    min-height: 190px;
+}
+
+.kd-chart__kol {
+    flex: 1 1 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+}
+
+.kd-chart__val {
+    font-size: 10.5px;
+    font-weight: 800;
+    color: var(--kd-ink-2);
+    white-space: nowrap;
+}
+
+.kd-chart__bar {
+    width: 100%;
+    max-width: 46px;
+    border-radius: 8px 8px 0 0;
+    background: var(--kd-brand);
+    min-height: 3px;
+}
+
+/* Bulan berjalan digambar bergaris diagonal — angkanya masih akan bertambah,
+   jangan sampai dibaca sebagai bulan yang sudah selesai. */
+.kd-chart__bar--jalan {
+    background: repeating-linear-gradient(135deg,
+        #B5701A 0, #B5701A 5px, #E5C68C 5px, #E5C68C 10px);
+}
+
+.kd-chart__lbl {
+    font-size: 10.5px;
+    font-weight: 700;
+    color: var(--kd-muted);
+    white-space: nowrap;
+}
+
+.kd-chart__kol--jalan .kd-chart__lbl,
+.kd-chart__kol--jalan .kd-chart__val { color: var(--kd-warn-ink); }
+
+/* ── Tab Rincian: scroller + sticky ───────────────────────────────────────── */
+
+.kd-scroll {
+    max-height: 620px;
+    overflow: auto;
+    border-radius: 0 0 16px 16px;
+}
+
+/* Yang menempel saat di-scroll adalah <thead>, bukan tiap <th>. Sel-nya kini
+   transparan, jadi kalau hanya sel yang sticky, gradien baris header tertinggal
+   di atas dan baris tabel akan terlihat menembus header. */
+.kd-scroll .kd-tabel thead {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+}
+
+/* Dua kolom kiri ikut menempel: tanpa ini, men-scroll ke kanan membuat baris
+   kehilangan identitasnya (tanggal & pasien) dan bukti jadi tidak terbaca. */
+.kd-scroll .kd-tabel th.lengket-1,
+.kd-scroll .kd-tabel td.lengket-1 { position: sticky; left: 0; z-index: 2; }
+
+.kd-scroll .kd-tabel th.lengket-2,
+.kd-scroll .kd-tabel td.lengket-2 {
+    position: sticky;
+    left: 104px;
+    z-index: 2;
+    box-shadow: 8px 0 10px -10px rgba(70, 21, 0, .25);
+}
+
+.kd-scroll .kd-tabel thead th.lengket-1,
+.kd-scroll .kd-tabel thead th.lengket-2 { z-index: 4; }
+
+.kd-scroll .kd-tabel tbody td.lengket-1,
+.kd-scroll .kd-tabel tbody td.lengket-2 { background: var(--kd-card); }
+
+.kd-scroll .kd-tabel tbody tr:hover td.lengket-1,
+.kd-scroll .kd-tabel tbody tr:hover td.lengket-2 { background: var(--kd-row-hover); }
+
+/* ── Footer pagination ────────────────────────────────────────────────────── */
+
+.kd-page {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding: 12px 16px;
+    background: var(--kd-subtotal);
+    border-top: 1px solid var(--kd-subtotal-bd);
+}
+
+.kd-page__sisi { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+
+.kd-page__info {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--kd-ink-2);
+}
+
+.kd-page__sub {
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--kd-muted);
+}
+
+.kd-page__total { font-weight: 800; color: var(--kd-tint-ink); }
+
+/* ── Toast ────────────────────────────────────────────────────────────────── */
+
+.kd-toast {
+    position: fixed;
+    left: 50%;
+    bottom: 28px;
+    transform: translateX(-50%) translateY(12px);
+    padding: 11px 20px;
+    border-radius: 12px;
+    background: #3B1500;
+    color: #FBEADB;
+    font-size: 13px;
+    font-weight: 700;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .18s ease, transform .18s ease;
+    z-index: 9999;
+}
+
+.kd-toast--on { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ── Cetak ────────────────────────────────────────────────────────────────── */
+
+@media print {
+    .kd .noprint,
+    .noprint { display: none !important; }
+
+    .kd { padding: 0; }
+    .kd-scroll { max-height: none; overflow: visible; }
+}
+
+/* ── Layar sempit ─────────────────────────────────────────────────────────────
+   Halaman ini desktop-first dan sudah ada gerbang sopan untuk HP; aturan di
+   bawah hanya menjaga supaya laptop 13" tidak pecah. */
+
+@media (max-width: 1180px) {
+    .kd-stats,
+    .kd-stats--5 { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 767px) {
+    .kd { padding: 14px 14px 32px; }
+    .kd-stats,
+    .kd-stats--5 { grid-template-columns: 1fr; }
+}
