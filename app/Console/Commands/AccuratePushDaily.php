@@ -59,7 +59,10 @@ class AccuratePushDaily extends Command
             // TAK ADA yang memberi tahu — jadi angkanya dicetak tiap kali.
             try {
                 $last = \Illuminate\Support\Facades\Schema::hasTable('accurate_push_log')
-                    ? DB::table('accurate_push_log')->where('status', '!=', 'deleted')->max('trx_date')
+                    // HANYA 'pushed'. Tabelnya juga memuat 'dry_run', 'error', dan
+                    // 'deleted' — menghitung itu sebagai terkirim membuat sarannya
+                    // terlalu pendek, dan sarannya jadi lebih berbahaya dari tak ada.
+                    ? DB::table('accurate_push_log')->where('status', 'pushed')->max('trans_date')
                     : null;
                 if ($last) {
                     $jeda = (int) abs(now()->startOfDay()->diffInDays(\Carbon\Carbon::parse($last)->startOfDay()));
