@@ -23,6 +23,22 @@
 > minta chat teknis menyegarkan file ini sebelum dipakai mengambil keputusan.
 >
 >
+> ⏰ **TENGGAT — 10 September 2026: push ke Accurate.** Dijeda sejak 28 Agu atas
+> permintaan Finance (mapping ulang **di sisi Accurate**), dan **sengaja
+> dibiarkan berhenti sampai Finance minta lanjut**. Terakhir ter-push **27 Agu**.
+> ⚠️ Jendela audit `accurate:push-daily` cuma **14 hari**. Kalau dinyalakan lagi
+> **sesudah 10 Sep** dengan `--days` bawaan, hari-hari yang lebih tua **tidak
+> akan pernah terkirim — dan tak ada yang memberi tahu.** Bukan galat, bukan
+> baris merah; cuma diam.
+> **Cara aman menyalakan** (urutannya penting): ubah `ACCURATE_PUSH_ENABLED=true`
+> di `.env` prod → `php artisan config:clear` → **jalankan sekali manual dengan
+> `--days` yang dicetak gerbangnya** (perintahnya menghitung sendiri: mis.
+> *"Terakhir ter-push 2026-08-27 (5 hari lalu) → --days=7"*) → baru biarkan cron
+> 03.30 mengambil alih.
+> ✅ Sisipan ini juga menandai **prod & main sudah disatukan lagi**: keduanya di
+> `2400896`, tak ada lagi cabang prod terpisah. Peringatan lama "jangan deploy
+> main ke prod" **sudah TIDAK berlaku** — sekarang justru `main` yang benar.
+>
 > ✅ **Sisipan 2026-09-01 — KONSULTAN + RESTRUKTURISASI ROLE NAIK PROD**
 > (`c28b665`). Gerbong yang tertahan sejak 21 Agustus akhirnya naik: tiga role
 > **Konsultan Finance/IT/Marketing**, role **Koordinator GS**, bagan pindah di
