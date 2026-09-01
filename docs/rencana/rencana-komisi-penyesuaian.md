@@ -1,8 +1,8 @@
 # Rencana — Penyesuaian 70% & Baris Manual Komisi Dokter
 
-> Status: **draf, menunggu ACC Ekky**. Ditulis 2026-08-29 oleh chat HUB sesudah
+> Status: **draf, menunggu ACC Ekky**. Ditulis 2026-09-01 oleh chat HUB sesudah
 > rekonsiliasi penuh rekap Finance Agustus 2026 vs `omnicare_commission` prod.
-> Angka & bukti: `docs/log-update.md` entri 2026-08-29.
+> Angka & bukti: `docs/log-update.md` entri 2026-09-01.
 
 ## 1. Masalahnya, dalam satu kalimat
 
@@ -32,7 +32,7 @@ hanyalah fakta yang hidup di spreadsheet Finance.
    Bulan kalender meleset **−Rp 27,7 juta**. Halaman sekarang defaultnya bulan
    kalender → **itu bukan angka yang keluar duitnya.**
 
-2. **Potongan selalu 70%**, rata untuk semua dokter (ACC Ekky 2026-08-29).
+2. **Potongan selalu 70%**, rata untuk semua dokter (ACC Ekky 2026-09-01).
    Bukan variabel per dokter, bukan per tindakan — satu angka.
 
 3. **Berlakunya PER FAKTUR.** Diuji: 10 faktur memuat baris 70%, dan **nol** di
