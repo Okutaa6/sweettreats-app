@@ -7,6 +7,90 @@
 
 ---
 
+## 2026-09-01 dini hari — KONSULTAN + RESTRUKTURISASI ROLE NAIK PROD
+
+Prod `86dca82` → **`c28b665`**. Gerbong yang tertahan sejak 21 Agustus akhirnya
+naik: tiga role Konsultan per bidang, **Koordinator GS**, dan pemindahan bagan
+di bawah Supervisor. Nol SQL tambahan selain satu berkas, **nol rsync**
+(nol berkas `public/` berubah).
+
+### Dua garis yang menyimpang akhirnya disatukan
+
+`main` memuat Konsultan; `prod` memuat saklar Accurate + Komisi Dokter. Keduanya
+digabung jadi `prod/konsultan`: **nol konflik, nol tumpang tindih kode** — kedua
+sisi menyentuh berkas yang berbeda. Diuji di dev lebih dulu karena kombinasi
+ini belum pernah ada di lingkungan mana pun.
+
+### ⚠️ Aku salah memberi tahu: SQL ini MEMINDAHKAN ORANG
+
+Kukatakan ke Ekky "deploy ini membuat role, tanpa memindahkan siapa pun."
+**Salah.** SQL-nya memindahkan empat orang sekaligus:
+
+| Orang | Dari | Ke |
+|---|---|---|
+| Achmad Haickal | Consultant | **Konsultan Finance** |
+| Rahmat | Consultant | **Konsultan IT** |
+| Hari | Consultant | **Konsultan Marketing** |
+| Alpajri Suhendar | General Services | **Koordinator GS** |
+
+Aku sempat melihat keadaan itu di dev 27 Agu dan membacanya sebagai "chat build
+menyiapkan dev", bukan "SQL-nya yang melakukannya". Bukti ada di depan mata,
+kesimpulan salah — pola yang sama dengan salah baca `git reset --hard`.
+
+**Akibatnya bukan cuma salah omong**: begitu SQL jalan tapi kode belum,
+`isFinance()` belum mengenal `Konsultan Finance`, sehingga Haickal sesaat
+**boleh mengedit petty cash** — kuasa yang Finance sendiri tak punya. Jendelanya
+pendek (SQL → deploy berturut-turut, jam 04.46 WIB, nol user aktif) dan langsung
+ditutup, tapi urutan yang benar seharusnya **kode dulu, baru SQL**, persis
+kebalikan dari yang kulakukan.
+
+### ⚠️ Alarm kedua yang TIDAK beralasan — dan datanya yang membuktikan
+
+Sesudah SQL, Alpajri kehilangan cabang (`raw_branch_id` NULL) dan posisi
+aktifnya tertutup. Kuduga itu kerusakan `syncFromUser()`. **Bukan.** Ketiganya
+disengaja dan alasannya tertulis di SQL:
+
+- **Cabang NULL** — Koordinator GS itu peninjau lintas cabang seperti Anisa &
+  Irma, yang juga NULL dan **tetap punya baris `att_day`**, karena cabang datang
+  dari mesin scan bukan dari `users.raw_branch_id`.
+- **Posisi ditutup** — supaya Fajri tak ikut jadi penyebut "staf GS" di
+  dashboard review; kalau dibiarkan **dia meninjau dirinya sendiri**.
+- **Dicocokkan lewat NAMA LENGKAP, bukan email** — email prod/dev berbeda, dan
+  ada akun "Fajri" lain yang **bukan** orang ini.
+
+Aturan kerjanya **`GS Pagi` masih aktif**, jadi dia tak lenyap dari Kehadiran.
+
+### Terverifikasi di prod
+
+**`att:audit-role` berat 0** (7 sedang · **0 ringan** · 4 ok — lebih bersih dari
+dev yang 10/1/2). Pagar uang tertutup: `Konsultan Finance` → `isFinance=true`,
+**`canEditPettyCash=false`**. Ketiga Konsultan `isPengamat=true`. Saklar Accurate
+**tetap mati**. Komisi Dokter tetap hidup. `access:rebuild` 24 berkas, mtime
+bergerak. **Nol galat baru**, semua halaman 200.
+
+Backup: `~/backup/prod_pre_konsultan_20260901_0446.sql.gz` (49 MB), titik balik
+`86dca82`.
+
+### Ramdan — pemindahan Reza berlaku hari ini
+
+Reza memindahkannya **berjadwal**, dan per 1 September posisi `home` Bintaro
+sudah **AKTIF** sementara Kalideres & rolling Pamulang tertutup 31 Agu. Bintaro
+sempat punya dua GS, Kalideres diisi Noval, Pamulang sengaja kosong. Absensinya
+utuh — `att_day` 26–30 Agu tercatat Pamulang dari mesin scan.
+
+⚠️ Untuk Finance: `users.raw_branch_id` Ramdan kini **Bintaro**, dan penguncian
+gaji memakai cabang **asal**. Jadi bulan Agustus ia bekerja di **Pamulang**,
+tercatat di Pamulang, tapi muncul di lembar gaji **Bintaro** — padahal sebelum
+perubahan Reza cabang asalnya **Kalideres**. Tiga cabang dalam satu periode.
+
+### Utang yang tersisa
+
+**Checklist Alpajri belum tuntas**: 1 draft (10 Agu) + 3 missed (25, 27, 30 Agu).
+Posisinya sudah ditutup, jadi **tak ada lagi jalan baginya menyelesaikannya**.
+Ekky sudah diberi tahu sebelum deploy dan memilih lanjut.
+
+---
+
 ## 2026-08-29 dini hari — Komisi Dokter naik prod · dan aku MEMATIKAN PROD 6 menit
 
 Halaman **Komisi Dokter** (Reza) naik prod `86dca82`. Tapi entri ini terutama

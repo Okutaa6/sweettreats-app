@@ -23,6 +23,31 @@
 > minta chat teknis menyegarkan file ini sebelum dipakai mengambil keputusan.
 >
 >
+> ✅ **Sisipan 2026-09-01 — KONSULTAN + RESTRUKTURISASI ROLE NAIK PROD**
+> (`c28b665`). Gerbong yang tertahan sejak 21 Agustus akhirnya naik: tiga role
+> **Konsultan Finance/IT/Marketing**, role **Koordinator GS**, bagan pindah di
+> bawah Supervisor. **`att:audit-role` berat 0** (7 sedang · 0 ringan · 4 ok).
+> Nol rsync. Prod kini `prod/konsultan` = saklar Accurate + Komisi Dokter +
+> Konsultan, semuanya terverifikasi hidup berdampingan.
+> **Empat orang IKUT DIPINDAH oleh SQL-nya**: Haickal→Konsultan Finance,
+> Rahmat→Konsultan IT, Hari→Konsultan Marketing, **Alpajri→Koordinator GS**.
+> ⚠️ **Pelajaran urutan deploy**: aku menjalankan **SQL dulu baru kode**. Di
+> jendela di antaranya, `isFinance()` belum mengenal `Konsultan Finance`
+> sehingga Haickal sesaat **boleh mengedit petty cash**. Jendelanya pendek
+> (04.46 WIB, nol user aktif) dan langsung ditutup, tapi urutan yang benar untuk
+> gerbong yang memindahkan ROLE adalah **KODE DULU, BARU SQL**.
+> ℹ️ Alpajri kehilangan cabang (`raw_branch_id` NULL) dan posisinya ditutup —
+> **itu DISENGAJA**, tertulis alasannya di SQL: Koordinator GS peninjau lintas
+> cabang seperti Anisa & Irma (cabang datang dari mesin scan, bukan dari
+> `users.raw_branch_id`), dan posisinya ditutup supaya dia **tidak meninjau
+> dirinya sendiri** di dashboard review. Aturan kerja `GS Pagi` tetap aktif.
+> ⚠️ **Utang**: checklist Alpajri 1 draft + 3 missed **tak bisa lagi dia
+> selesaikan** karena posisinya tertutup. Ekky diberi tahu sebelum deploy.
+> ⚠️ **Ramdan** (dipindah Reza secara berjadwal) aktif di Bintaro per 1 Sep.
+> Untuk Finance: Agustus ia bekerja di **Pamulang** tapi lembar gajinya
+> mengelompokkan di **Bintaro** (penguncian gaji pakai cabang asal), padahal
+> sebelumnya **Kalideres** — tiga cabang dalam satu periode.
+>
 > ⛔ **Sisipan 2026-08-29 dini hari — ATURAN BARU rsync, ditulis dengan darah.**
 > `rsync -a laravel/public/ → public_html/` **MEMATIKAN PROD 6 menit** (500 di
 > seluruh situs, 02.00 WIB, nol user aktif). Sebabnya: `public_html` prod itu
