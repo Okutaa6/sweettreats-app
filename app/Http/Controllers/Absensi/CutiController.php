@@ -18,8 +18,13 @@ use Illuminate\Http\Request;
  */
 class CutiController extends Controller
 {
-    /** Finance = pemilik proses; IT akses penuh (keputusan Pusat Akun); admin. */
-    private const BOLEH = ['Finance', 'Head IT', 'IT', 'Super Admin', 'Admin General', 'Admin Backup', 'Admin'];
+    /**
+     * Finance = pemilik proses; IT akses penuh (keputusan Pusat Akun); admin.
+     * Konsultan Finance/IT ikut karena menunya dikloning dari role induknya —
+     * tanpa baris ini menu Cuti tampil lalu 403 (kegagalan senyap).
+     */
+    private const BOLEH = ['Finance', 'Head IT', 'IT', 'Konsultan Finance', 'Konsultan IT',
+        'Super Admin', 'Admin General', 'Admin Backup', 'Admin'];
 
     public function __construct(private CutiService $svc)
     {

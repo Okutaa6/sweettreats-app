@@ -23,6 +23,66 @@
 > minta chat teknis menyegarkan file ini sebelum dipakai mengambil keputusan.
 >
 >
+> ⛔ **Sisipan 2026-08-29 dini hari — ATURAN BARU rsync, ditulis dengan darah.**
+> `rsync -a laravel/public/ → public_html/` **MEMATIKAN PROD 6 menit** (500 di
+> seluruh situs, 02.00 WIB, nol user aktif). Sebabnya: `public_html` prod itu
+> **salinan sejajar**, jadi `index.php` di sana **sengaja berbeda** — menunjuk
+> `__DIR__.'/../laravel/…`, sedangkan `laravel/public/index.php` menunjuk
+> `__DIR__.'/../…`. Menyalin seluruh direktori menimpanya dan PHP mencari
+> `vendor/` di tempat yang tak ada.
+> ⚠️ **Gejalanya menyesatkan**: `laravel.log` **nol galat**, karena gagalnya
+> sebelum Laravel hidup. "Nol galat" ≠ sehat. Yang membongkar cuma `curl /` → 500.
+> **ATURAN: rsync WAJIB dibatasi ke `assets/`** —
+> `rsync -a laravel/public/assets/ public_html/assets/`. **JANGAN PERNAH**
+> seluruh `public/`.
+> ✅ **Data AMAN dan diperiksa**: SQL malam itu murni menambah (`INSERT IGNORE` +
+> `CREATE INDEX`), nol UPDATE/DELETE/DROP. Sesudah pulih: sales 145.699 ·
+> komisi 87.706 · komisi Agustus **Rp 403.940.654 tak bergeser** ·
+> `accurate_push_log` **3.118 tak bertambah**. Backup 48 MB dibuat sebelum apa pun.
+>
+> ✅ **Sisipan 2026-08-29 — KOMISI DOKTER NAIK PROD** (`86dca82`). Laporan fee
+> dokter untuk Finance, **baca-saja**. Reza menghindari empat jebakan langganan
+> sadar & tertulis: segmen URL sendiri (bukan `finance` yang ada di `SKIP_RBAC`),
+> grant **by link bukan by id node**, ikon **FA5**, dan **tanpa `JOIN` ke
+> `raw_doctor`** (doc_id kembar akan melipatgandakan uang) — dikelompokkan per
+> `doc_id`, bukan nama dokter. Kedua SQL idempoten, dibuktikan 2× di dua keadaan.
+> **Angkanya cocok TIGA arah**: KomisiQuery = SQL pembanding = yang sudah masuk
+> Accurate sebagai "Beban fee dokter" — Rp 403.940.654, selisih Rp 0.
+> 9 kasus render lulus di prod. Naik prod butuh **2 SQL + `access:rebuild` +
+> rsync `assets/`**.
+> ⚠️ Temuan laten: push Accurate menjumlahkan komisi **tanpa** memfilter
+> `commission_role`, Reza memfilter `doctor`. Nol selisih hari ini (semua baris
+> `doctor`); kalau kelak ada role lain, **jurnal Accurate yang salah**.
+> ⚠️ **Prod masih sengaja di luar `main`**: berjalan dari `prod/komisi-dokter` =
+> saklar Accurate + Komisi Dokter, **tanpa Konsultan**. Saat Konsultan disetujui,
+> gabungkan branch prod ini ke main DULU — kalau tidak, saklar DAN Komisi Dokter
+> hilang.
+>
+> ⚠️ **Sisipan 2026-08-28 pagi — KIRIMAN KE ACCURATE DIJEDA** (`e796d3a`, naik
+> prod 09.00). Finance mapping ulang **di sisi Accurate**, jadi kita berhenti
+> mengirim. Saklar `ACCURATE_PUSH_ENABLED=false` di `.env` prod; bawaannya
+> `true` sehingga deploy sendiri tak mengubah perilaku apa pun.
+> **Berhenti (menulis):** `accurate:push-daily` (jadwal **dan** manual) + jalur
+> buku ASLI `accurate:push-sample`. **Tetap jalan (membaca):** `omnicare:sync`
+> 02.00 — **cermin lokal tetap terisi, nol data hilang** — `pull-glaccount`,
+> `rop:tarik-vendor`, sandbox, dan ekspor CSV ROP (itu impor manual Finance).
+> ⚠️ **Jebakan**: menonaktifkan `accurate_credentials.is_active` **TIDAK**
+> menghentikan push (perintahnya tak pernah membaca kolom itu) tapi **mematikan
+> tarikan COA** yang Finance justru butuhkan — kebalikan dari yang diminta.
+> ⚠️ **Saat menyalakan lagi**: jendela audit cuma **14 hari**. Jeda lebih lama =
+> hari-hari tua **tak akan pernah terkirim**, tanpa ada yang memberi tahu.
+> Gerbangnya mencetak sendiri `--days` yang dibutuhkan tiap kali menolak.
+> Resep: ubah `.env` → `config:clear` → **jalankan sekali manual dengan `--days`
+> itu** → baru serahkan ke cron.
+> ⚠️ **Prod sengaja TIDAK di `main`.** `main` (`2853d07`) sudah memuat gerbong
+> **Konsultan yang belum disetujui prod**, jadi "deploy main" bukan tindakan
+> netral. Prod berjalan dari branch `prod/accurate-saklar`. **Saat Konsultan
+> disetujui: gabung branch ini ke main DULU, baru kembalikan prod ke main** —
+> kalau tidak, saklarnya hilang diam-diam.
+> Terverifikasi dev 9/9 + prod 5/5, termasuk `schedule:run` yang terbukti tidak
+> menjalankannya. Dua bug-ku sendiri ketemu saat menguji (`trans_date` bukan
+> `trx_date`; baris `dry_run` ikut terhitung terkirim) — dua-duanya gagal senyap.
+>
 > ⚠️ **Sisipan 2026-08-27 malam — EMPAT GERBONG NAIK PROD.** Prod kini
 > **`761d7a7`**, dev = prod = main. Berurutan hari ini: **Lembar Bayar ROP**
 > (`0e7f26d`, 16/16) → **§M dua pagar lembur** (`26381ee`, 8/8) → **Pasien Baru
@@ -84,6 +144,30 @@
 > Koordinator GS, **setelah operasional Minggu 23 Agu**, urutan Ramdan-dulu;
 > Ramdan libur Selasa 25, Pamulang sengaja kosong GS. ⛔ **Konsultan + Alur
 > Persetujuan MENAHAN** — kodenya belum di-commit dan tak bisa dipisah.
+>
+> ⚠️ **Sisipan 2026-08-22a** — **Role Konsultan + restrukturisasi Supervisor
+> JADI di dev (23/23 uji lulus), prod belum.** Tiga role per bidang (`Konsultan
+> Finance`/`Marketing`/`IT`) + role struktural baru **`Koordinator GS`** untuk
+> Alpajri. Bagan pindah: Coordinator Dentist & Koordinator GS di bawah
+> Supervisor, General Services di bawah Koordinator GS. Wewenang ACC ikut
+> dipindah di `att_approval_rule` (bukan cuma bagan): Asdent → **Irma saja**,
+> GS → **Fajri + Anisa**, Irma → **Anisa** (bukan lagi Dani). Konsultan **nol
+> baris dua arah** — tak meng-ACC, tak mengajukan.
+> **Tiga temuan:** (1) `isFinance()` itu MEMBATASI bukan memberi — tanpa
+> mendaftarkan Konsultan Finance di situ ia malah boleh **mengedit petty cash**,
+> kuasa yang Finance sendiri tak punya; (2) memindahkan Fajri **menutup baris
+> posisinya** lewat `syncFromUser()`, bukan sekadar menyembunyikan divisi —
+> `sys_checklist_division.group_id` ada tapi **tak pernah dibaca**; absensinya
+> aman karena cabang efektif jatuh balik ke `users.raw_branch_id`; (3) **id node
+> menu berbeda antar lingkungan**, jadi SQL-nya mengkloning dengan membaca role
+> induk, bukan daftar id.
+> **Keputusan Ekky:** Fajri jadi **peninjau** checklist GS (bukan pengisi);
+> Konsultan IT dapat menu Head IT **dikurangi lima alat keamanan** (User, Role,
+> Akses, Setting, WiFi Cabang) — Kesehatan tetap.
+> ⚠️ **Perubahan kodenya masih UNSTAGED** dan bercampur pekerjaan chat lain di
+> working copy bersama; sengaja tak di-commit. Uji #1/#2/#4 (login & nol 403)
+> baru diaudit statis, belum diuji hidup. Rincian: `log-update.md` entri 22 Agu a.
+>
 >
 > ✅ **Sisipan 2026-08-21d** — **Libur cabang: SUDAH DIBANGUN, lulus 11/11 di
 > dev**, branch `fix/libur-cabang-bertugas` (`9da2d5d`). **PROD BELUM** —

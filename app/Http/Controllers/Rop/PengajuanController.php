@@ -37,9 +37,29 @@ class PengajuanController extends Controller
         private RopAttachment $lampiran,
     ) {}
 
+    /**
+     * Jabatan PENGAMAT (konsultan) tidak mengajukan apa pun — termasuk ROP.
+     * Keputusan Ekky 2026-08-22.
+     *
+     * Node menunya memang sudah dicabut dari role konsultan, dan RBAC sudah
+     * memantulkan mereka. Pagar ini tetap perlu karena mencabut menu itu
+     * ditegakkan oleh DATA: satu klik "Set Access" mengembalikan menunya, dan
+     * kemampuannya ikut kembali tanpa siapa pun sadar. Pelajaran yang sama
+     * baru saja kena di alur cuti — kebijakan harus punya pagar di kode, data
+     * jadi lapis kedua. Sumber kebenarannya satu: group_path.wewenang_pengajuan.
+     */
+    private function tolakPengamat(): void
+    {
+        abort_if(isPengamat(), 403,
+            'Jabatan ini tidak mengajukan pengeluaran (ROP). Sampaikan kebutuhannya '
+            . 'ke penanggung jawab bidang yang bersangkutan.');
+    }
+
     /** Daftar pengajuanku + filter status. */
     public function index(Request $request)
     {
+        $this->tolakPengamat();
+
         $status = $request->query('status');
 
         $q = RopRequest::milik($this->userId())->with(['vendor', 'costCentre'])->latest('id');
@@ -80,6 +100,8 @@ class PengajuanController extends Controller
      */
     public function create(Request $request)
     {
+        $this->tolakPengamat();
+
         $dari = null;
         if ($id = $request->query('dari')) {
             $dari = RopRequest::milik($this->userId())->find($id);
@@ -100,6 +122,8 @@ class PengajuanController extends Controller
 
     public function store(Request $request)
     {
+        $this->tolakPengamat();
+
         $data = $request->validate([
             // Harus cost centre yang masih AKTIF: `exists` saja meloloskan yang
             // sudah dipensiunkan, dan pengajuannya lalu memakai kode yang tidak

@@ -7,6 +7,184 @@
 
 ---
 
+## 2026-08-29 dini hari — Komisi Dokter naik prod · dan aku MEMATIKAN PROD 6 menit
+
+Halaman **Komisi Dokter** (Reza) naik prod `86dca82`. Tapi entri ini terutama
+tentang **kesalahanku sendiri**: `rsync` yang kujalankan untuk mengirim CSS/JS
+**menimpa `public_html/index.php`** dan membuat seluruh situs 500.
+
+### ⛔ INSIDEN — `rsync -a public/ public_html/` MEMBUNUH PROD
+
+`public_html` prod adalah **salinan sejajar**, bukan symlink. Karena itu
+`index.php` di sana **sengaja berbeda**: ia menunjuk `__DIR__.'/../laravel/…`,
+sedangkan `laravel/public/index.php` menunjuk `__DIR__.'/../…`. Aku menyalin
+**seluruh** direktori, jadi versi laravel menimpa versi public_html dan PHP
+mencari `vendor/` di tempat yang tak ada.
+
+**Gejalanya menyesatkan**: `laravel.log` **nol galat**, karena gagalnya terjadi
+sebelum Laravel sempat hidup. Aku sempat menyimpulkan "nol galat = sehat"
+padahal situsnya mati. Yang membongkarnya cuma `curl` ke `/` → **500**.
+
+**Aku tahu aturannya** ("public_html prod itu SALINAN") dan tetap menjalankan
+`rsync -a` untuk seluruh `public/`. Aturannya kupakai untuk mengingat *rsync-nya
+wajib*, bukan untuk memikirkan *apa lagi yang ikut tersalin*.
+
+> **ATURAN BARU — rsync ke `public_html` prod WAJIB dibatasi:**
+> ```
+> rsync -a laravel/public/assets/ public_html/assets/
+> ```
+> **JANGAN PERNAH** `rsync` seluruh `public/` → `public_html/`.
+> `index.php` dan berkas akar lain di sana bukan salinan — mereka disesuaikan.
+
+Ditambal dengan mengembalikan ketiga rujukan `index.php` ke `../laravel/`
+(maintenance, vendor/autoload, bootstrap/app). Prod hidup lagi: `/` **200**.
+Padam **±6 menit**, jam 02.00 WIB — nol user aktif.
+
+⚠️ Penambalannya sempat **diblokir classifier** dua kali (menyunting dan bahkan
+membaca `public_html/index.php`). Aku berhenti dan menyerahkan perintahnya ke
+Ekky daripada memaksa lewat jalan lain; akhirnya jalan lewat PowerShell.
+
+### DATA AMAN — dan itu diperiksa, bukan diasumsikan
+
+Yang rusak **hanya satu berkas PHP di pintu depan**. SQL malam ini **murni
+menambah** (`INSERT IGNORE` + `CREATE INDEX`) — nol `UPDATE`, `DELETE`, `DROP`.
+
+| Bukti sesudah pulih | |
+|---|---|
+| `omnicare_sales_detail` | 145.699 baris |
+| `omnicare_commission` | 87.706 (tumbuh 53 dari sync 02.00 — normal) |
+| komisi Agustus | **Rp 403.940.654**, tak bergeser |
+| `accurate_push_log` | **3.118, tak bertambah** — saklar tetap menahan |
+| `att_day` Agustus | 483 baris |
+
+Backup penuh 48 MB dibuat **sebelum** apa pun:
+`~/backup/prod_pre_komisi_20260828_1857.sql.gz`, titik balik kode `e796d3a`.
+
+### Komisi Dokter — auditnya
+
+Reza menghindari **empat** jebakan langganan proyek ini, sadar dan tertulis di
+kodenya: segmen URL sendiri (bukan di bawah `finance` yang ada di `SKIP_RBAC`),
+grant **by link bukan by id node**, ikon **FA5** bukan FA6, dan — yang paling
+penting di halaman uang — **tanpa `JOIN` ke `raw_doctor`**, karena
+`omnicare_doc_id` kembar akan melipatgandakan `SUM(commission_amount)`.
+Dikelompokkan per `doc_id`, bukan nama dokter.
+
+Branch-nya **115 commit di belakang main** tapi merge **nol konflik**. Kedua SQL
+idempoten — dibuktikan dijalankan dua kali di **dua keadaan berbeda** (tabel
+belum ada → skip; index sudah ada → skip).
+
+**Angkanya cocok tiga arah**: KomisiQuery = SQL pembanding independen = **yang
+sudah ditulis push ke Accurate sebagai "Beban fee dokter"**, Rp 403.940.654 ·
+2.324 tindakan · 29 dokter, **selisih Rp 0**.
+
+9 kasus render lulus di prod (19–669 ms), termasuk rentang kosong, **tanggal
+terbalik yang ditukar sendiri**, dan tanggal ngaco yang jatuh ke bawaan.
+
+**Temuan laten, tak menahan**: push Accurate menjumlahkan komisi **tanpa
+memfilter `commission_role`**, Reza memfilter `doctor`. Hari ini selisihnya nol
+(87.706 baris semuanya `doctor`). Kalau Omnicare kelak mengirim role lain,
+**jurnal Accurate yang akan salah**, bukan laporan Reza.
+
+### ⚠️ Prod masih sengaja di luar `main`
+
+Prod berjalan dari **`prod/komisi-dokter`** (`86dca82`) = `prod/accurate-saklar`
++ Komisi Dokter. **Tanpa Konsultan**, yang belum disetujui prod. Saklar
+`ACCURATE_PUSH_ENABLED=false` **terverifikasi masih menahan** sesudah merge.
+Saat Konsultan disetujui: gabungkan branch prod ini ke main DULU, baru
+kembalikan prod ke main — kalau tidak, saklar **dan** Komisi Dokter hilang.
+
+---
+
+## 2026-08-28 pagi — Kiriman ke Accurate DIJEDA atas permintaan Finance
+
+Finance mapping ulang **di sisi Accurate**, jadi kita harus berhenti mengirim
+apa pun ke sana. Naik prod **`e796d3a`**, jam 09.00 WIB — nol SQL, nol rsync.
+
+### Kenapa ini bukan sekadar mematikan cron
+
+Push harian **bukan cuma menambah**: hari yang berubah **dihapus lalu ditulis
+ulang** (`sales-receipt/delete.do` → `sales-invoice/delete.do` → re-push).
+Run 03.30 pagi ini membuktikannya: 5 hari baru, **1 diperbaiki** (Pamulang
+22 Agu). Membiarkannya menyala selama Finance menata ulang akun = menyiram
+buku Accurate tiap 03.30 dengan dokumen yang mengacu mapping lama.
+
+### ⚠️ Jebakan yang hampir kena — `is_active` TIDAK memagari push
+
+Cara paling naluriah, menonaktifkan `accurate_credentials.is_active`, **tidak
+menghentikan push sama sekali**: `AccuratePushDaily` tak pernah membaca kolom
+itu. Yang mati justru `accurate:pull-glaccount` dan `accurate:resolve-host` —
+tarikan Chart of Accounts yang Finance **butuhkan** untuk mapping ulang.
+Persis kebalikan dari yang diminta. Diperiksa dengan grep, bukan diasumsikan.
+
+### Yang berhenti vs yang tetap hidup
+
+| Berhenti (MENULIS) | Tetap jalan (MEMBACA) |
+|---|---|
+| `accurate:push-daily` — jadwal **dan** manual | `omnicare:sync` 02.00 — cermin lokal tetap terisi, **nol data hilang** |
+| jalur **buku asli** `accurate:push-sample` | `accurate:pull-glaccount` — COA tetap segar |
+| | `rop:tarik-vendor`, sandbox push-sample |
+| | Ekspor CSV ROP — impor **manual** Finance, bukan kiriman kita |
+
+Gerbangnya dipasang di **penjadwal DAN di dalam perintah**. Mematikan cron saja
+tetap membiarkan orang menjalankannya manual — dan perintah ini menghapus
+dokumen. `--force` disediakan untuk sekali jalan terkendali; `push-daily`
+mewariskannya ke `push-sample` karena sudah lolos gerbangnya sendiri.
+
+### Terverifikasi
+
+**Dev 9/9** — bawaan `true` (deploy sendiri tak mengubah apa pun) · jadwal
+muncul saat menyala · menolak saat mati · `--force` menembus · jalur buku asli
+ditolak sementara sandbox lolos · dan yang menentukan: **`schedule:run` tidak
+menjalankannya**.
+
+**Prod 5/5** — perintah menolak dengan sebabnya · `push-sample` buku asli
+ditolak · `schedule:run` diam · keempat tugas Omnicare/vendor tetap terjadwal ·
+`pull-glaccount` sukses di **kelima buku cabang** (176–181 akun).
+
+### Dua kesalahanku sendiri, dua-duanya GAGAL SENYAP
+
+Ditemukan justru saat menguji pagar yang dibuat untuk mencegah kegagalan senyap:
+
+1. Kolomnya **`trans_date`**, bukan `trx_date` — ditebak, tak dibaca.
+   `try/catch` akan menelan galatnya, jadi pengingatnya cuma **tak pernah
+   muncul** dan tak ada yang tahu kenapa.
+2. Filter `!= 'deleted'` ikut menghitung baris **`dry_run`** sebagai terkirim,
+   membuat saran `--days` terlalu pendek. **Saran yang terlalu pendek lebih
+   berbahaya daripada tak ada saran.**
+
+Keduanya ditutup, dan kueri versi benarnya diadu dengan data prod (baca-saja,
+3.118 baris).
+
+### ⚠️ Yang WAJIB diingat saat menyalakan lagi
+
+Jendela auditnya **14 hari**. Kalau jeda lebih lama dari itu, hari-hari yang
+lebih tua **tidak akan pernah ikut terkirim** — dan tak ada yang memberi tahu.
+Karena itu tiap kali gerbangnya menolak, ia mencetak angkanya sendiri:
+
+```
+Terakhir ter-push: 2026-08-27 (1 hari lalu).
+Saat menyalakan lagi jalankan sekali dengan --days=3.
+```
+
+Resep menyalakan: ubah `.env` → `php artisan config:clear` → **jalankan sekali
+manual dengan `--days` yang dicetak** → baru serahkan ke cron.
+
+### ⚠️ Prod sengaja TIDAK di `main`
+
+`main` (`2853d07`) sudah memuat gerbong **Konsultan** yang belum disetujui naik
+prod. Jadi "deploy main" bukan tindakan netral. Saklarnya dipetik terpisah ke
+atas `e70dad8` (pra-Konsultan) sebagai branch **`prod/accurate-saklar`**, dan
+prod berjalan dari situ. **Saat Konsultan disetujui, branch ini digabung ke main
+dulu, baru prod dikembalikan ke main** — kalau tidak, saklarnya hilang.
+
+Cadangan: `~/backup/env.prod.pra-saklar-20260828_0159`, titik balik `761d7a7`.
+
+ℹ️ Bukan temuan kita: sandbox `testing` gagal `pull-glaccount` dengan *"Data
+Session Key tidak tepat"* — **sudah begitu sejak 4 Agustus**, galat & endpoint
+sama persis. Kelima buku asli tak terpengaruh.
+
+---
+
 ## 2026-08-27 — EMPAT GERBONG NAIK PROD dalam satu hari
 
 Prod berjalan `a49a0ef` → … → **`761d7a7`**. Empat gerbong, masing-masing
@@ -681,6 +859,293 @@ petty cash** — kuasa yang Finance sendiri tak punya.
 → Chat pemiliknya yang harus commit; mereka tahu potongan mana miliknya.
 
 ---
+
+## 2026-08-22a — Role Konsultan + restrukturisasi Supervisor (dev, 23/23 uji lulus)
+
+Tiga role konsultan per bidang (**Konsultan Finance / Marketing / IT**) dan satu
+role struktural baru (**Koordinator GS**) hidup di dev. Bagan pindah:
+Coordinator Dentist dan Koordinator GS kini di bawah Supervisor; General
+Services di bawah Koordinator GS. Rencana: `rencana/rencana-konsultan-struktur.md`.
+
+**Prod belum.** SQL-nya idempoten dan sudah ditulis supaya jalan di dua
+lingkungan, tapi belum dijalankan di sana.
+
+### Wewenang ACC memang dipindah — dua tabel, bukan satu
+
+Yang membuat restrukturisasi ini nyata bukan kotak di bagan, melainkan
+`att_approval_rule`. Dibuktikan lewat `chainFor()` sungguhan di dev, bukan
+dibaca dari tabel lalu disimpulkan:
+
+| Pengaju | Sebelum | Sesudah |
+|---|---|---|
+| Assistant Dentist | Irma **atau** Anisa | **Irma saja** (baris Supervisor dicabut) |
+| General Services | Anisa | **Fajri + Anisa** (sengaja dua, sampai Fajri terbukti) |
+| Coordinator Dentist (Irma) | Dani | **Anisa** |
+| Koordinator GS (Fajri) | — | **Anisa** |
+
+Konsultan: **nol baris dua-duanya arah** — nol sebagai penyetuju (tak meng-ACC
+siapa pun), nol sebagai pengaju (tak mengajukan cuti/lembur). Itu yang
+menegakkan kebijakannya, bukan menu.
+
+### Tiga temuan yang tak ada di rencana
+
+**1. `isFinance()` itu MEMBATASI, bukan memberi — dan hampir terlewat.**
+`canEditPettyCash()` = `! isFinance()`. Kalau `Konsultan Finance` tidak
+didaftarkan di situ, ia lolos sebagai "bukan Finance" lalu boleh **mengedit
+petty cash** — kuasa yang Finance sendiri tak punya. Menambahkan nama role ke
+gerbang biasanya membuka pintu; di fungsi ini ia menutupnya, dan melewatkannya
+= eskalasi hak diam-diam. Semua daftar hardcode lain memang menambah, yang satu
+ini mengurangi.
+
+**2. Memindahkan Fajri bukan cuma "menyembunyikan divisi" — ia MENUTUP baris
+posisinya.** Rencana §9.1 menduga dia berisiko kehilangan divisi checklist.
+Yang sebenarnya terjadi lebih keras: `checklistDivisionForGroup()` mencocokkan
+**nama** role dengan nama divisi (kolom `sys_checklist_division.group_id` ada
+tapi **tak pernah dibaca** — NULL di dev dan prod), dan begitu divisinya null,
+`UserPosition::syncFromUser()` **aktif menutup** posisi `home`-nya
+(`effective_to` = kemarin). Bukan pasif.
+Yang **aman**: `cabangSesiUntuk()` cuma membaca posisi `kind='rolling'` lalu
+jatuh balik ke `users.raw_branch_id` — jadi absensi dan cabang efektifnya tak
+tersentuh.
+Keputusan Ekky: **Fajri jadi PENINJAU, bukan pengisi.** Node `my-checklist`
+dicabut dari role-nya, halaman pengawas checklist ditambahkan. Hasilnya
+`checklistVisibleDivisionIds()` = `[General Services]` — uji #10 lulus, dan
+tak ada orang yang meninjau divisinya sendiri.
+
+**3. Id node menu BERBEDA antar lingkungan.** "Dashboard Marketing" di dev
+`a2203f78`, di prod `a21e0d15`. Karena itu SQL-nya **tidak** memuat satu pun
+daftar id node: aksesnya dikloning dengan **membaca baris role induk di
+lingkungan itu sendiri**, jadi node yang cuma ada di salah satu sisi (Lembar
+Gaji cuma dev; Data Center pada Head IT cuma prod) ikut dengan sendirinya.
+
+### Konsultan IT: penuh, dikurangi alat keamanan
+
+Keputusan Ekky "penuh kecuali yang sensitif". Head IT ternyata membawa lebih
+dari yang disebut waktu bertanya — bukan cuma Audit Log dan WiFi Cabang, tapi
+**Pusat Akun: User, Role, Akses, Setting**. Tak satu pun dijaga gerbang
+nama-role, jadi node-nya saja sudah memberi kuasanya penuh: bisa membuat akun
+dan memberi dirinya sendiri akses apa pun. Dicabut lima: `setusermanagement`,
+`setgroup`, `setaccess`, `setsystemprofile`, `absensi/wifi`. **Kesehatan tetap**
+(cuma route GET, papan diagnosa). Dicabut, bukan dibiarkan lalu 403 — menu
+tampil-lalu-403 itu kegagalan senyap yang justru diburu detektor Pusat Akun.
+
+Kalau Ekky menilai ini kelewat sempit, kembaliannya satu baris: hapus link-nya
+dari daftar DELETE di langkah 3b.
+
+### Fajri disetarakan dengan Anisa (koreksi Ekky 22 Agu, +13 uji)
+
+Melihat bagannya, Ekky mengoreksi cakupan: Koordinator GS meninjau checklist
+**setara Supervisor** — Assistant Dentist, Front Office, **dan** General
+Services — bukan cuma GS. Dua dugaannya juga benar, dan dua-duanya memang belum
+terjadi sebelum ini:
+
+- **Cakupan 3 divisi** dikerjakan lewat `parent_id_2` ("atasan kedua, khusus
+  supervisi checklist") pada Front Office & Assistant Dentist.
+  `supervisedDescendants()` memang menelusuri `parent_id` **dan** `parent_id_2`
+  — itu mekanisme yang disediakan, dan prod sendiri dulu memakainya begitu
+  (`General Services.parent_id_2 = Assistant Dentist`). **Bagan tak berubah
+  bentuk**: `_orgnode.blade.php` menggambar pohon dari `parent_id` saja dan
+  menampilkan atasan kedua sebagai chip "Atasan lain", jadi Front Office tetap
+  tergambar di bawah Supervisor — sesuai catatan Ekky bahwa **role Koordinator
+  FO memang belum ada**.
+- **Lintas cabang**: `raw_branch_id` Fajri dikosongkan. `resolveChecklistBranchId()`
+  memakai cabang sesi lebih dulu, dan di layar review filternya `if ($branchId)`
+  — jadi **NULL = tanpa filter = semua cabang**. Anisa, Irma, dan Robi semuanya
+  sudah NULL; Fajri disamakan. **Absensinya tak terganggu**: cabang absensi
+  datang dari mesin scan (`att_day.raw_branch_id` + `cabang_terlibat`), bukan
+  dari `users.raw_branch_id` — buktinya Anisa & Irma sama-sama NULL dan tetap
+  punya baris `att_day`; 12 baris `att_day` Fajri utuh.
+- **Posisi checklist lamanya ditutup.** Kalau dibiarkan terbuka, Fajri ikut
+  terhitung sebagai **staf GS di penyebut** dashboard review — dia meninjau
+  dirinya sendiri. Ini yang `syncFromUser()` akan lakukan sendiri; dikerjakan
+  di SQL supaya konsisten sekarang, bukan menunggu admin kebetulan menyunting
+  akunnya.
+
+**Pagar yang ikut diuji**: cakupan review **tidak** menular jadi wewenang ACC.
+Pengajuan Front Office tetap ke **Anisa**, Assistant Dentist tetap ke **Irma** —
+Fajri tak muncul di keduanya. `parent_id_2` memang tak dibaca `chainFor()`.
+
+Uji: **13/13** (`Anisa` vs `Fajri` vs `Tito` staf GS, dibandingkan berdampingan
+lewat helper sungguhan dengan sesi dipalsukan seperti saat login). Dua kegagalan
+pertama ternyata **bug di ujinya sendiri**, bukan di sistem: `?? 'x'`
+memperlakukan `null` sebagai "tak ada", jadi perbandingan `=== null` tak pernah
+bisa benar.
+
+### Pesan tolak konsultan dijujurkan (§10.1 lunas)
+
+Dulu: *"Alur persetujuan untuk jabatan ini belum diatur… Hubungi admin"* —
+terbaca seperti sistem rusak, dan mengirim orang mengejar admin untuk sesuatu
+yang tak akan pernah diperbaiki. Sekarang kalimat kebijakan: *"Jabatan konsultan
+tidak mengajukan cuti, lembur, atau izin lewat sistem ini. Kehadiran tetap
+dicatat lewat absen seperti biasa."*
+
+### Audit + bug yang ketemu DI KODEKU SENDIRI (22 Agu, +12 uji)
+
+Audit subsistem role→akses→ACC dijalankan di **dev dan prod**, jadi bisa
+dipisahkan mana bawaan lama dan mana yang baru.
+
+**Bug nyata, sudah diperbaiki.** Kebijakan "konsultan tak mengajukan" kutaruh di
+dalam `pastikanApexBukanSalahKonfigurasi()` — padahal `submit()` cuma memanggil
+fungsi itu **kalau rantainya kosong**. Artinya kebijakannya cuma tegak selama
+datanya kebetulan kosong: **satu baris** `att_approval_rule` untuk role
+konsultan (sekarang gampang, ada layar Alur Persetujuan) membuat rantainya tak
+kosong, pemeriksaannya tak pernah jalan, dan konsultan **bisa mengajukan**.
+Kebijakan dan data jadi dua sumber kebenaran yang bisa berselisih diam-diam.
+Diperbaiki jadi `pastikanBolehMengajukan()` yang dipanggil **tanpa syarat** di
+awal `submit()`.
+
+`act()` punya penyakit yang sama di arah sebaliknya — "tak meng-ACC siapa pun"
+cuma dijaga data. Dipasangi pagar kembarannya. Konstantanya diganti nama jadi
+`ROLE_TANPA_WEWENANG` (dulu `..._PENGAJUAN`) karena kini menjaga dua arah.
+Diuji lewat **skenario sabotase**: baris aturan sengaja disisipkan untuk
+konsultan, lalu dibuktikan pengajuan & ACC-nya tetap ditolak — 12/12, seluruhnya
+di dalam transaksi yang di-rollback.
+
+**Temuan lain (bawaan lama, BUKAN dari kerjaan ini):**
+
+- **`Admin` bukan anggota `canSeeAllBranches()`** padahal punya node-nya →
+  di prod 3 menu 403 (Upload Data, Antrian Pengajuan, Rekap Pengeluaran); di dev
+  7. Daftar `$ADMIN` di controller lain memuat 'Admin', `canSeeAllBranches()`
+  tidak. Inkonsistensi lama.
+- **Supervisor / IT / Head IT → "Upload Data" 403** di prod. Sama sebabnya.
+- **Pengajuan Executive lolos sendiri tanpa jejak** (apex sah, by design) —
+  disebut di sini supaya tercatat sebagai permukaan risiko, bukan temuan baru.
+- Prod bersih dari: rujukan role hantu, siklus, penyetuju kosong, user yatim.
+
+Kerjaan ini menambah **satu** kombinasi 403 baru: Konsultan IT → "Upload Data",
+warisan persis dari Head IT.
+
+**Kloning diam-diam memberi konsultan node `pengajuan` (ROP)** — role
+`Consultant` lama tidak punya itu, dan `PengajuanController::store()` tak
+bergerbang nama-role, jadi node-nya saja sudah cukup untuk **mengajukan
+pengeluaran uang**. **Keputusan Ekky 2026-08-22: konsultan tak mengajukan apa
+pun, termasuk ROP.** Node-nya dicabut dari ketiga role, DAN dipasangi pagar kode
+`PengajuanController::tolakPengamat()` di `index`/`create`/`store` — karena
+mencabut menu saja itu persis pola rapuh yang baru saja menggigit di alur cuti:
+satu klik "Set Access" mengembalikan menunya, dan kemampuannya ikut kembali
+tanpa siapa pun sadar.
+
+**`Admin` yang punya 3 menu 403 di prod: sengaja DIBIARKAN** (keputusan Ekky).
+Auditor akan terus melaporkannya sebagai SEDANG sampai ada yang memutuskan.
+
+### Standardisasi: "konsultan" jadi SIFAT, bukan nama (ACC Ekky 22 Agu)
+
+Akar semua kerapuhan di atas satu: konsultan dikenali dari **nama**, jadi tiap
+bidang baru menuntut perubahan kode di daftar yang tersebar — dan lupa satu =
+kegagalan senyap, persis yang baru saja terjadi. Tiga hal dibangun.
+
+**1. Kolom `group_path.wewenang_pengajuan`** (`penuh` / `pengamat`). Menemani
+`landing_page`, `theme`, `att_default_rule_id` yang memang sudah menyimpan sifat
+per-role di tabel yang sama — pola lama, bukan mekanisme baru. Kedua pagar
+membacanya. **Konsultan bidang berikutnya = satu baris SQL, nol koding.**
+Dibuktikan dua arah: menandai `General Services` sebagai pengamat langsung
+memblokirnya (namanya sama sekali bukan konsultan), dan mengembalikan konsultan
+ke `penuh` langsung melepas pagarnya. Jadi yang bekerja memang kolomnya.
+Daftar nama lama tinggal jadi **parasut** untuk satu keadaan: kode sudah naik,
+SQL belum — tanpa itu, urutan deploy terbalik akan menghilangkan pagarnya diam-diam.
+
+**2. Daftar baku alat keamanan yang dicabut saat mengkloning** —
+`setusermanagement`, `setgroup`, `setaccess`, `setsystemprofile`, `absensi/wifi`,
+`auditlog`. Bukan sekadar dicatat: role pengamat yang memegang salah satunya
+jadi temuan BERAT di auditor. Resep lengkapnya di rencana §11.
+
+**3. `php artisan att:audit-role`** — detektor kegagalan senyap jadi perintah
+tetap, bukan skrip sekali pakai. Yang sekali pakai menemukan enam menu 403 di
+prod hari ini lalu hilang; yang ini akan menemukannya lagi bulan depan.
+`--berat` untuk cron, dan exit code ≠ 0 kalau ada temuan berat.
+Prinsip yang dijaga: **jangan menyalin daftar gerbang ke dalam auditor** —
+salinan akan basi dan detektornya jadi sumber kebohongan baru. Karena itu
+`canSeeAllBranches()` **dipanggil sungguhan** dengan sesi palsu per role, dan
+konstanta controller dibaca lewat **refleksi**. Satu yang masih cermin
+(`absensi/aturan`) ditandai jelas di keluarannya.
+
+Bukti bahwa ia benar membaca kode nyata: dijalankan di dev yang **kodenya belum
+di-patch**, ia melaporkan 15 menu Konsultan Finance/IT ber-403 — persis yang
+hilang begitu patch kodenya naik.
+
+Uji pagar: **14/14**, termasuk dua skenario sabotase dan dua uji kolom,
+seluruhnya dalam transaksi yang di-rollback.
+
+**Definisi "lolos sendiri" diperbaiki supaya auditornya layak buat cron.**
+Versi pertama menandai pengajuan Executive sebagai BERAT — padahal itu memang
+apex yang sah, jadi exit code-nya selalu ≠ 0 dan alarmnya jadi kebisingan yang
+diabaikan. Pembedanya sekarang diambil dari STRUKTUR, bukan daftar nama: puncak
+sungguhan **tak punya atasan di bagan**. Role yang PUNYA atasan tapi rantai
+ACC-nya buntu = pengajuannya lolos tanpa jejak padahal ada orang di atasnya yang
+seharusnya menyetujui — itu lubang §3.2, dan itu yang pantas membangunkan orang.
+Hasil di dev sesudah patch: **berat 0, exit 0**.
+
+Sifat "pengamat" dipindah ke helper bersama `isPengamat()`/`rolePengamatIds()`
+di `Helpers.php` supaya alur cuti dan controller ROP memakai **satu** sumber,
+bukan dua salinan yang bisa berselisih.
+
+### Uji terima #1/#2/#4 LULUS HIDUP (11/11) — dan satu lulus-palsu yang nyaris lolos
+
+Uji lewat HTTP sungguhan: login betulan, lalu **39 link menu** dibuka satu per
+satu sebagai keempat role (Konsultan Finance 16 · Konsultan IT 10 · Konsultan
+Marketing 8 · Koordinator GS 5).
+
+| # | Hasil |
+|---|---|
+| #1 | keempatnya mendarat di `/akun` (layar absen) |
+| #2 | ketiga konsultan tertolak dari `pengajuan` (ROP) |
+| #4 | **nol 403 dan nol pentalan** di seluruh 39 menu |
+
+**⚠️ Versi pertama uji ini LULUS 15/15 — dan itu bohong.** Rencana §8 sudah
+memperingatkan bahwa `curl -L` bisa mengikuti pentalan ke halaman login lalu
+melapor 200. Yang tak disebut di sana: **RBAC di aplikasi ini tidak menjawab
+403, melainkan MEMANTULKAN (302) ke landing page role**. Jadi menghitung "nol
+403" saja akan meluluskan halaman yang sebenarnya tak bisa dibuka sama sekali —
+semuanya tampak "200 OK". Versi kedua membandingkan **URL akhir** dengan path
+yang diminta, dan langsung menemukan bedanya.
+
+Kejadian susulannya melengkapi pelajaran: versi ketat itu awalnya menandai
+`report` GAGAL karena dialihkan ke `report/sales`. Diperiksa ke rutenya —
+`/report` memang **sengaja** `redirect()->route('report.sales')`, ada komentar
+"dipakai sidebar menu, link='report'". Jadi aturannya diperhalus: pengalihan
+yang tetap di **segmen-1 yang sama** itu sah; yang dihitung gagal adalah 403
+atau terlempar ke segmen lain. Ketat tanpa jadi rewel.
+
+Dikerjakan tanpa menyentuh git: berkas ter-patch ditaruh sementara di dev lalu
+dikembalikan (`git checkout`), akun uji `@uji.local` dibuat lalu dihapus. Dev
+pulih utuh — branch tak bergeser, md5 `Helpers.php` & `AttendanceRequestWorkflow.php`
+kembali ke aslinya. Dua berkas yang isinya bercampur dengan chat sebelah
+(`AturanKerjaController`, `AttendanceRequestWorkflow`) diuji lewat varian
+dev-baseline + suntinganku saja, karena versi lokalnya bergantung pada kelas
+yang belum ada di dev.
+
+### Yang BELUM & utang
+
+- **Prod belum dijalankan.** Uji terima §8 kini LULUS SEMUA di dev
+  (23 struktur + 13 Fajri + 14 pagar + 11 HTTP hidup). Naik prod =
+  1 SQL (`2026_08_21_konsultan_struktur.sql`) + deploy kode + `access:rebuild`.
+- **Akun konsultan di prod sudah ada** (Haickal, Hari, Rahmat) — SQL-nya
+  memindahkan mereka lewat email. Di dev akun uji dibuat lalu dihapus lagi.
+- ⚠️ **Perubahan kode masih UNSTAGED dan bercampur dengan pekerjaan chat lain.**
+  Working copy lokal dipakai bersama; `AturanKerjaController.php` dan
+  `AttendanceRequestWorkflow.php` berisi suntingan dua pihak sekaligus. Sengaja
+  tak di-commit supaya pekerjaan chat sebelah tak ikut terbawa.
+- ⚠️ **Gerbang kembar yang kini berbeda.** `AlurPersetujuanController::guard()`
+  (chat sebelah) dan `AturanKerjaController::guard()` dulu identik dan
+  komentarnya bilang begitu. Aku menambahkan `Konsultan Finance`/`Konsultan IT`
+  ke yang kedua saja. `dataTab()` statis dan tak berpagar, jadi tab-nya tetap
+  terbaca — tapi tombol simpannya 403. Siapa pun yang menggabungkan keduanya
+  harus memutuskan sadar.
+- **Head IT (dan karenanya Konsultan IT) punya menu "Upload Data" yang 403** —
+  `/absensi` berpagar `canSeeAllBranches()` dan Head IT tak di dalamnya. Ini
+  **sudah begitu sejak sebelum kerjaan ini**; diwarisi karena kloning menu.
+  Node-nya **tak boleh** dicabut: `link='absensi'` adalah kunci RBAC untuk
+  SELURUH `absensi/*` (AuthGuard mencocokkan `segment(1)`), jadi mencabutnya
+  malah mematikan Cuti, Aturan Kerja, dan Lembar Gaji sekaligus.
+- **Role `Consultant` lama sengaja tidak dihapus** sampai ketiganya terbukti
+  pindah (§10.2).
+- ⚠️ **Layar Aturan Kerja menentukan gaji**, dan Konsultan Finance/IT sekarang
+  boleh membukanya (konsekuensi "Finance utuh"). Kalau itu kelewat jauh untuk
+  orang luar: cabut dua nama dari `AturanKerjaController` **dan** buang node
+  `absensi/aturan` dari group_access kedua role — dua-duanya, jangan satu saja.
+
+---
+
 
 ## 2026-08-21d — Libur cabang ikut cabang BERTUGAS · DEV LULUS 11/11, prod menunggu
 
