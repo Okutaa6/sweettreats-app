@@ -83,6 +83,30 @@ gaji memakai cabang **asal**. Jadi bulan Agustus ia bekerja di **Pamulang**,
 tercatat di Pamulang, tapi muncul di lembar gaji **Bintaro** — padahal sebelum
 perubahan Reza cabang asalnya **Kalideres**. Tiga cabang dalam satu periode.
 
+### Tambahan sore — akses laporan untuk kedua konsultan
+
+Permintaan Ekky: Hari & Haickal diberi "sales report seperti yang Sales
+punya" + Executive Report. **Diperiksa dulu, dan sebagian besar ternyata
+tak perlu dikerjakan** — `report` (Laporan Penjualan) dan `report/executive`
+sudah mereka miliki dari SQL Konsultan pagi tadi. Yang benar-benar kurang
+cuma **`sales-dashboard`**.
+
+Diberikan lewat `database/sql/2026_09_01_konsultan_dashboard_sales.sql`
+(idempoten, dijalankan 2x hasilnya sama) + `access:rebuild`. Node induknya
+**ikut di-grant** — tanpa itu anak tak muncul di sidebar.
+
+Terverifikasi dengan memanggil gerbang sungguhan, bukan membaca baris grant:
+ketiganya **BOLEH**, dan menunya muncul di `Data Center > Dashboard >
+Dashboard Sales`.
+
+**SENGAJA TIDAK diberikan** walau role Sales punya: `rawdoctor`,
+`rawcustomer`, `pettycash`, `rawreservation` — itu data operasional
+pasien/dokter/uang, bukan laporan, dan konsultan itu PENGAMAT.
+
+ℹ️ Ganjil tapi bukan temuan gerbong ini: **Finance (Della) & Head Marketing
+(Yovanka) TIDAK punya** akses ke dua laporan itu, sementara konsultan punya.
+Diserahkan ke Ekky untuk ditinjau.
+
 ### Utang yang tersisa
 
 **Checklist Alpajri belum tuntas**: 1 draft (10 Agu) + 3 missed (25, 27, 30 Agu).
