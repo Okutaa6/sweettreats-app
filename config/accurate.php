@@ -120,6 +120,29 @@ return [
     |
     */
 
+    /*
+    |--------------------------------------------------------------------------
+    | Saklar PUSH ke Accurate
+    |--------------------------------------------------------------------------
+    |
+    | false = `accurate:push-daily` TIDAK dijadwalkan DAN menolak dijalankan
+    | manual (kecuali --force). Dipakai saat Finance mapping ulang: push harian
+    | menghapus & menulis ulang dokumen hari yang berubah, jadi membiarkannya
+    | menyala saat mapping setengah jadi = menyiram buku Accurate tiap 03:30.
+    |
+    | Yang TIDAK ikut mati (disengaja): omnicare:sync (mirror tetap segar),
+    | accurate:pull-glaccount (Finance butuh COA segar justru untuk mapping),
+    | rop:tarik-vendor. Semuanya MEMBACA, tak menulis ke Accurate.
+    |
+    | ⚠️ Saat dinyalakan lagi, audit cuma melihat --days ke belakang (default
+    | 14). Kalau mapping ulang makan waktu lebih lama dari itu, hari-hari yang
+    | lebih tua TIDAK ikut diperbaiki sendiri — jalankan sekali dengan --days
+    | yang cukup lebar.
+    |
+    */
+
+    'push_enabled' => env('ACCURATE_PUSH_ENABLED', true),
+
     'revenue_exclude_accounts' => ['400302'],
 
     'omnicare_exclude_types' => ['V'],

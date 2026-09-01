@@ -32,7 +32,8 @@ class AccuratePushSample extends Command
                             {--end=2026-04-30 : tanggal akhir}
                             {--dry-run : tampilkan rencana tanpa kirim}
                             {--allow-live : WAJIB untuk push ke buku cabang asli (non-testing)}
-                            {--clean : hapus semua dokumen hasil push di tujuan}';
+                            {--clean : hapus semua dokumen hasil push di tujuan}
+                            {--force : abaikan saklar accurate.push_enabled}';
 
     protected $description = 'Push sample 3-dokumen (invoice+receipt+journal fee dokter) Omnicare → Accurate sandbox';
 
@@ -90,6 +91,17 @@ class AccuratePushSample extends Command
 
     public function handle(AccurateClient $client): int
     {
+        // Saklar mati (Finance mapping ulang) hanya memagari jalur BUKU ASLI.
+        // Sandbox/testing tetap boleh — mematikan itu juga cuma menghalangi
+        // orang menguji mapping barunya, padahal itu justru pekerjaannya.
+        // push-daily mewariskan --force karena sudah lolos gerbangnya sendiri.
+        if ($this->option('allow-live') && ! config('accurate.push_enabled', true) && ! $this->option('force')) {
+            $this->warn('Push ke buku ASLI SENGAJA dimatikan (ACCURATE_PUSH_ENABLED=false).');
+            $this->line('Sandbox (--to=testing) tetap jalan. Paksa sekali dengan --force.');
+
+            return self::SUCCESS;
+        }
+
         $to = (string) $this->option('to');
         $isLive = $to !== 'testing';
         if ($isLive && ! $this->option('allow-live')) {
