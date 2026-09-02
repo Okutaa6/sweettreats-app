@@ -1,6 +1,7 @@
 # Design Brief — IT Request Tracker (SweetTreats)
 
-> Untuk claude.ai/design. Konteks teknis lengkap:
+> Untuk claude.ai/design. **Kelima berkas dilampirkan langsung** (bukan lewat repo).
+> Konteks teknis lengkap:
 > `docs/rencana/rencana-it-tracker.md` (alur, status, gerbang, field).
 > Sistem desain yang berlaku: `docs/spec/peta-tema.md` + `docs/spec/pola-interaksi.md`.
 > Ikon **FontAwesome 5** — nama gaya FA6 akan render sebagai kotak kosong.
@@ -146,6 +147,46 @@ ditampilkan sebagai daftar syarat. Itu **lampu status yang menyala sendiri**
 kalau field-nya terisi — **bukan** checkbox yang dicentang manual. Kalau
 bentuknya seperti checkbox, orang akan mencoba mengkliknya dan bingung; ini
 sudah terbukti membingungkan bahkan pada orang yang merancang sistemnya.
+
+⚠️ **Badge Fase butuh legenda.** "● Fase 2" tanpa keterangan tak berarti apa-apa
+bagi Executive. Sertakan legenda singkat sekali per halaman: Fase 1 = intake +
+papan · Fase 2 = tujuh fase + gerbang · Fase 3 = sambungan Project Tracker +
+penjadwalan Evaluasi.
+
+## 5b. Sembilan hal yang WAJIB ada — bentuknya bebas
+
+Ditulis sebagai **persyaratan, bukan gambar**, supaya idenya ikut tanpa
+mengunci bentuknya. Tujuh di antaranya ditemukan pada percobaan desain pertama
+dan terbukti menjawab tujuan brief ini — sayang kalau hilang, tapi rancang
+ulang bentuknya kalau menemukan yang lebih baik.
+
+1. **Panel ringkas untuk Executive, terbaca dalam 5 detik** — berapa item
+   aktif, dipikul berapa orang, berapa yang macet **dan karena siapa**.
+2. **Panel itu memisahkan sumber beban** — berapa dari formulir permintaan,
+   berapa inisiatif IT sendiri. Ini yang membantah "IT senggang".
+3. **Konsekuensi menambah permintaan ditulis eksplisit** — mis. *"tambah satu
+   sekarang → antre di belakang 7 yang sudah di tangan IT"*. Kalimat inilah
+   yang mengubah refleks jadi keputusan sadar.
+4. **Tiap permintaan menampilkan posisinya di antrean** — *"antre di belakang
+   N item"*.
+5. **Posisi fase terlihat sebagai kemajuan, bukan sekadar label** — mis.
+   *"UAT · 4/5"*, *"Uji Internal · 4/7"*. Head ingin tahu *sampai mana*, bukan
+   cuma *sedang apa*.
+6. **Relasi induk–anak terlihat di kartu** — mis. *"2 fitur di dalam"*. Modul
+   besar berisi fitur; contoh nyata: Omnicare push/write berisi fitur
+   pembayaran.
+7. **Halaman Head menegaskan kapan bola ada di tangan pemohon** — bukan di IT.
+   Termasuk: selama belum diisi, **hitungan hari berjalan di kolom pemohon**.
+8. **Kerjaan yang lahir dari IT tampil berdampingan** dengan permintaan luar di
+   papan yang sama, dengan penanda pembeda. ⛔ **Jangan dipisah ke tab lain** —
+   Executive akan membuka tab permintaan saja lalu menyimpulkan IT senggang.
+9. **Tombol mati menyebut apa yang kurang** — mis. *"Tetapkan jenjang dulu"*,
+   bukan tombol abu-abu tanpa penjelasan. Ini pola P yang sudah berlaku di
+   seluruh aplikasi.
+
+Plus satu keadaan yang mudah terlupa: **tiket `ditunda` tetap tercatat dan
+menjelaskan alasannya** (*"ditunda sampai komisi 70% selesai. Tidak sedang
+dikerjakan, tetap tercatat."*) — ditunda bukan berarti hilang dari papan.
 
 ## 6. Angka nyata untuk mengukur rancangan
 
