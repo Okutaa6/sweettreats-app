@@ -1,8 +1,10 @@
 # IT Request Tracker — Alur, Status, & Field
 
-> **Tahap: pemetaan.** Ditulis chat HUB 2026-09-01 dari hasil pembahasan Ekky.
-> Dokumen ini jadi bahan untuk **dua** hal berikutnya: brief desain
-> (claude.ai/design) dan rencana build penuh. Belum rencana koding.
+> **Tahap: SIAP DIBANGUN.** Ditulis chat HUB 2026-09-01, dilengkapi rencana
+> build (§14) 2026-09-02 sesudah desain selesai.
+> Dokumen ini sumber kebenaran untuk chat build. Paket desain:
+> `C:SERSkky13Downloadsdesign_handoff_it_tracker` — `it-store.js` di
+> situ adalah **implementasi rujukan** mesin fasenya.
 
 ## 1. Masalah yang diselesaikan
 
@@ -399,3 +401,253 @@ aplikasi supaya tak ada yang mengira harus dibangun.
     hanya tabel FR + Kriteria Diterima yang tetap terstruktur. Formulir buruk
     untuk berpikir. ⚠️ Ini menyimpang paling jauh dari templat; Konsultan
     mungkin menginginkan keseragaman.
+
+## 14. Rencana Build
+
+> Ditulis chat HUB 2026-09-02 sesudah desain selesai. **Ini rencana, bukan
+> koding** — chat build yang mengerjakan. Paket desain:
+> `C:\Users\Ekky13\Downloads\design_handoff_it_tracker\`
+
+### 14.1 Patokan yang sudah ada — JANGAN disusun ulang dalam prosa
+
+**`design_handoff_it_tracker/it-store.js` adalah implementasi rujukan mesin
+fasenya**, bukan sekadar data dummy. Terjemahkan ke PHP, jangan tafsirkan ulang:
+
+| Fungsi | Isinya |
+|---|---|
+| `pathFor(j)` | S → `[REQ, DEV]` · M → `[REQ, ANALISIS, DEV, UAT, GOLIVE]` · L → ketujuhnya |
+| `RANK` | urutan fase untuk perbandingan & posisi antrean |
+| `waitOf(t)` | menunggu siapa · berapa hari · **`heat` hanya bila `luar`** |
+| `queuePos(t, all)` | di belakang berapa item |
+| `gateInfo(t)` | **syarat tiap transisi + daftar `missing`** — inti sistem |
+| `PRA` / `PASCA` | checklist Go-Live pra-deploy & pasca |
+
+Aturan pemanasan, tertulis satu baris dan tak boleh diubah:
+
+```js
+const heat = luar ? (days >= 7 ? 2 : days >= 3 ? 1 : 0) : 0;
+```
+
+⚠️ README paket itu menulis *"Belum termasuk: layar triase penuh, Formulir
+Analisis, Checklist Go-Live"* — **baris itu BASI**. Ketiganya ada di HTML dan
+di `screenshots/03` & `05`. Jangan membangunnya dari nol.
+
+### 14.2 Skema — 6 tabel
+
+Konvensi proyek: **SQL manual, bukan migration**. Idempoten
+(`CREATE TABLE IF NOT EXISTS`, `ADD COLUMN IF NOT EXISTS` lewat
+`information_schema`), prefiks `it_`.
+
+**`it_ticket`** — satu baris per tiket
+`id` · `nomor` (`IT-2026-001`, unik) · `judul` · `sumber` (`permintaan`/`inisiatif`) ·
+`pemohon_user_id` (NULL untuk inisiatif IT) · `raw_branch_id` ·
+`jenis_permintaan` · `jenjang` (S/M/L, NULL sebelum triase) · `bobot` (1–5) ·
+`prioritas_pemohon` (Rendah/Sedang/Tinggi) · `prioritas_it` (P1–P3) ·
+`pic_user_id` · `fase` · `fase_since` · `induk_id` (self-FK, relasi modul→fitur) ·
+`evaluator_user_id` · `alasan_parkir` · timestamps.
+
+⚠️ **`prioritas_pemohon` dan `prioritas_it` WAJIB dua kolom.** Menyatukannya
+membatalkan keputusan §11 dan menghapus seluruh gunanya.
+
+**`it_ticket_fase`** — riwayat fase. **Tabel paling penting kedua setelah
+`it_ticket`.**
+`ticket_id` · `fase` · `masuk_at` · `keluar_at` (NULL = sedang berjalan) ·
+`oleh_user_id` · `pihak_menunggu` (`it` / `pemohon` / `executive` / `evaluator`).
+
+Dari tabel ini lahir tiga hal sekaligus:
+1. `waitOf().days` = `NOW() − masuk_at` baris berjalan
+2. **biaya menunggu** yang bisa dicetak di dokumen akhir (§13, belum diputuskan)
+3. jejak audit yang dicari Konsultan
+
+⛔ **Jangan menyimpan "berapa hari menunggu" sebagai kolom angka.** Ia harus
+**dihitung** dari `masuk_at`. Angka yang disimpan akan basi diam-diam — dan
+seluruh kredibilitas papan bergantung pada angka ini benar.
+
+**`it_form`** — payload naratif per formulir
+`ticket_id` · `kode` (`FRM-IT-01`..`07`) · `payload` JSON · `dikonfirmasi_at` ·
+`dikonfirmasi_oleh`. Unik (`ticket_id`,`kode`).
+Untuk field prosa: latar belakang, ruang lingkup, deskripsi solusi, masukan
+end user, hasil evaluasi.
+
+**`it_fr`** — baris Kebutuhan Fungsional (FRM-IT-02 §B)
+`ticket_id` · `kode` (`FR-01`..) · `kebutuhan` · `prioritas` ·
+**`kriteria_diterima`** · `urutan`.
+⚠️ **Dinormalkan, bukan JSON — karena gerbang membacanya**
+(`≥1 FR dengan Kriteria Diterima terisi`).
+
+**`it_test_case`** — TC (FRM-IT-04 §B)
+`ticket_id` · `kode` · `skenario` · `diharapkan` · `aktual` · `status`.
+
+**`it_temuan`** — temuan uji (FRM-IT-04 §C)
+`ticket_id` · `deskripsi` · `tingkat` (Minor/Major) · `pic_user_id` · `status`.
+⚠️ Gerbang UJI→UAT membaca ini: **nol temuan Major terbuka**.
+
+**Nomor tiket**: ikuti pola yang sudah ada di `RopService::nomorBaru()` —
+counter per periode, bukan `MAX(id)+1` (balapan).
+
+### 14.3 Kelas B — bagaimana FRM-IT-03 terisi dari git
+
+⛔ **JANGAN shell `git log` dari request web.** Lambat, dan permukaan
+keamanan yang tak perlu.
+
+Pola yang cocok dengan proyek ini: **perintah artisan + tabel**, seperti
+`accurate:push-daily` dan `att:reconcile`.
+
+- `it_git_ref` — `ticket_nomor` · `branch` · `commit_sha` · `subject` · `commit_at`
+- `php artisan it:sync-git` — jalankan `git log --all --grep='IT-20[0-9][0-9]-[0-9]+'`,
+  urai nomor tiket dari subject, isi tabel. Idempoten (unik pada `commit_sha`).
+- Jadwalkan harian; **plus tombol "segarkan" di layar** supaya IT tak menunggu cron.
+
+Layar FRM-IT-03 lalu membaca `it_git_ref` dan menampilkannya **sudah terisi**
+dengan tombol *"Benar, ini yang kukerjakan — konfirmasi"*, yang mengisi
+`it_form.dikonfirmasi_at`. Gerbang DEV→UJI membaca kolom itu.
+
+FRM-IT-04 dan 06 belum punya sumber otomatis — **isi manual dulu**, tapi
+rancang layarnya dengan bentuk "sudah terisi + konfirmasi" yang sama, supaya
+sumber otomatis bisa disambungkan belakangan tanpa mengubah UI.
+
+### 14.4 Akses
+
+Segmen URL **`it-tracker`** (bukan di bawah `finance` atau `absensi`).
+⚠️ **Butuh node `access_path` ber-`link='it-tracker'`** — tanpa itu RBAC
+**memantulkan SEMUA orang ke beranda, bukan 403**, dan gejalanya menipu.
+Ikuti pola SQL `2026_08_28_komisi_dokter_access.sql`: `INSERT IGNORE`,
+grant **by link bukan by id node**, dan induk menu ikut di-grant
+(`buildTree` hanya menyusun anak di bawah induk yang dimiliki group).
+
+| Role | Boleh |
+|---|---|
+| Head (Marketing/Finance) | ajukan · isi UAT & Evaluasi miliknya · lihat **miliknya + ringkasan beban** |
+| Executive · Konsultan | lihat semua · ACC Go-Live · terlibat di Requirement & Analisis |
+| Head IT (Ekky) | semua, termasuk triase |
+| IT (Reza) | ubah status **tiket yang dia PIC**, hanya di fase DEV/UJI. Tak triase |
+
+Gerbang tulis **di controller**, bukan sekadar menyembunyikan tombol.
+
+### 14.5 Fase build
+
+| | Isi | Selesai kalau |
+|---|---|---|
+| **Fase 1** | `it_ticket` + `it_ticket_fase` · formulir Requirement · triase · Papan Antrean · "menunggu siapa" · panel beban | Ekky & Reza memakainya untuk kerjaan nyata 2 minggu |
+| **Fase 2** | ketujuh fase + `gateInfo` + `it_fr`/`it_test_case`/`it_temuan` · Kelas B + `it:sync-git` · ekspor FRM-IT-01/02/06 | backlog nyata jalan penuh dari Requirement sampai Go Live |
+| **Fase 3** | sambungan Project Tracker (`sys_project`) · penjadwalan Evaluasi · nomor tiket di commit message | — |
+
+⚠️ **Fase 1 harus benar-benar dipakai sebelum Fase 2 dimulai.** Sejarah proyek
+ini: Project Tracker Fase A selesai Juli lalu berhenti; Pusat Akun ACC Juli
+belum dibangun. Sistem proses yang tak dipakai lebih buruk daripada tak ada.
+
+### 14.6 Uji terima
+
+**Mesin fase**
+1. Jenjang S melewati 2 fase, M 5, L 7 — sesuai `pathFor()`.
+2. Mengubah jenjang saat triase **mengubah jumlah fase** tiket itu.
+3. Gerbang ANALISIS→DEV **menolak** tanpa ≥1 `kriteria_diterima`, dan pesannya
+   **menyebut field yang kurang** (bukan tombol abu-abu diam).
+4. Gerbang UJI→UAT **menolak** selama ada temuan `Major` berstatus terbuka.
+5. Gerbang UAT→GOLIVE **hanya** terbuka oleh pemohon, bukan IT.
+6. `it_ticket_fase` bertambah **tepat satu baris** tiap perpindahan, dan baris
+   sebelumnya terisi `keluar_at`.
+
+**"Menunggu siapa"**
+7. Tiket di UAT 4 hari → `luar=true`, `heat=1` (kuning).
+8. Tiket di UAT 8 hari → `heat=2` (merah).
+9. Tiket di DEV 30 hari → **`heat=0`**. ⚠️ **Kendali negatif paling penting** —
+   kalau ini merah, aturannya salah diterjemahkan.
+10. Angka hari **dihitung dari `masuk_at`**, bukan dibaca dari kolom.
+
+**Akses**
+11. Head membuka papan → melihat **ringkasan beban**, **tidak** melihat isi
+    permintaan departemen lain.
+12. Reza mencoba triase → **ditolak di controller**, bukan cuma tombolnya hilang.
+13. Role tanpa grant membuka `/it-tracker` → terpental. ⚠️ Periksa **URL akhir**,
+    bukan cuma kode HTTP — `curl -L` melaporkan 200 setelah mengikuti pentalan.
+
+**Kelas B & ekspor**
+14. `it:sync-git` idempoten — dijalankan 2× tak menggandakan `it_git_ref`.
+15. FRM-IT-03 tampil **sudah terisi** branch/commit; tombol konfirmasi mengisi
+    `dikonfirmasi_at`.
+16. Ekspor FRM-IT-01 memuat **A. Identitas Pemohon terisi** walau layar tak
+    pernah menanyakannya.
+
+**Kendali negatif**
+17. Fitur ini **tidak menyentuh** tabel lama mana pun. Cacah baris `users`,
+    `att_day`, `rop_requests`, `omnicare_commission` **sama sebelum & sesudah**.
+18. `access:rebuild` sesudah SQL → **mtime berkas `group_access` berubah**.
+
+### 14.7 Jebakan yang berlaku
+
+- ⛔ **Rute bersegmen-1 baru wajib punya node `access_path`** — kalau tidak,
+  RBAC memantulkan semua orang ke beranda (302), **bukan 403**. Uji "nol 403"
+  akan lulus palsu.
+- ⛔ **Deploy yang menyentuh `public/assets/**` WAJIB diikuti rsync — DIBATASI
+  ke `assets/`.** `rsync` seluruh `public/` **mematikan prod** (insiden 29 Agu,
+  6 menit): `public_html` prod itu salinan sejajar, `index.php`-nya sengaja
+  berbeda.
+- ⚠️ **`laravel.log` nol galat TIDAK berarti sehat.** Gagal sebelum Laravel
+  hidup tak tercatat di sana. Wajib `curl` beranda cek **200 + URL akhir**.
+- ⚠️ Ikon **FontAwesome 5.8.2**; nama gaya FA6 jadi kotak kosong.
+- ⚠️ **`deploy.sh` tidak menjalankan SQL.** Jalankan manual, cek keadaan
+  sesudahnya (bukan exit code — pipa menyembunyikan kegagalan mysql).
+- ⚠️ Kalau `git checkout -B` **MENOLAK**, itu **pengaman** — `reset --hard`
+  menimpa berkas untracked tanpa peringatan. Berhenti dan periksa.
+
+### 14.8 Lingkungan kerja
+
+**Lokal (terverifikasi 2 Sep, disarankan untuk Fase 1):**
+PHP 8.2.12 · MariaDB 10.4.32 via XAMPP · DB `sweettreats` 1,1 GB / 129 tabel ·
+Laravel boot bersih. Fitur ini tabelnya baru, jadi tak butuh data prod.
+
+- ⚠️ **MariaDB lokal 10.4 vs prod 11.8.8** — SQL yang lolos lokal belum tentu
+  lolos prod. Uji ulang SQL-nya di dev sebelum prod.
+- ⛔ **JANGAN sentuh `rblas_db`** — tablespace-nya punya galat InnoDB
+  *"LSN in the future"* sejak 28 Agu. `sweettreats` tak terdampak.
+- ⛔ **JANGAN pakai `Downloads\sweettreats` langsung** — working copy bersama,
+  masih menyimpan berkas Alur Persetujuan yang belum di-commit. Buat worktree
+  sendiri, **salin** `vendor/` dan `.env` (jangan symlink).
+- ⚠️ `.env` lokal ber-`APP_ENV=local`, dan sebagian fitur destruktif berperilaku
+  "local = boleh". Jangan pernah menyalin `.env` itu ke lingkungan lain.
+
+**Dev** (`dev.sweettreats.id`) untuk uji terima sebelum prod. Login `/signin`.
+Dev di-install `--no-dev` → **phpunit TAK ADA**; `composer install` dulu, lalu
+kembalikan `--no-dev --optimize-autoloader`. phpunit dev mati di >±17 uji
+ber-DB per proses → **jalankan PER KELAS**.
+
+**Prod** hanya kalau Ekky menyebut "prod" eksplisit.
+
+### 14.9 Prompt chat build
+
+```
+Lanjutkan proyek SweetTreats lewat memori. Chat ini MEMBANGUN IT Request
+Tracker — Fase 1 dulu. Lokal & dev; prod hanya kalau Ekky menyebut "prod".
+
+BACA DULU, rencananya lengkap — JANGAN menyusun ulang:
+· docs/rencana/rencana-it-tracker.md         <- dokumen utama, paragraf 14 = rencana build
+· docs/brief-desain/design-brief-it-tracker.md
+· C:\Users\Ekky13\Downloads\design_handoff_it_tracker\   <- mockup + it-store.js + screenshot
+
+it-store.js itu IMPLEMENTASI RUJUKAN mesin fase (pathFor, RANK, waitOf,
+queuePos, gateInfo, PRA/PASCA). Terjemahkan ke PHP, jangan tafsirkan ulang.
+README paket itu menulis triase/Analisis/Go-Live "belum termasuk" — BASI,
+ketiganya ada di HTML dan screenshot.
+
+Yang paling mudah salah:
+1. prioritas_pemohon dan prioritas_it WAJIB dua kolom terpisah
+2. "berapa hari menunggu" DIHITUNG dari it_ticket_fase.masuk_at, JANGAN
+   disimpan sebagai angka — angka tersimpan akan basi diam-diam
+3. heat = luar ? (days>=7?2:days>=3?1:0) : 0 — yang menunggu IT TIDAK memanas.
+   Kendali negatifnya: tiket 30 hari di DEV harus heat=0
+4. Kelas B (FRM-IT-03) tampil SUDAH TERISI dari git lewat perintah artisan
+   it:sync-git + tabel it_git_ref. JANGAN shell git log dari request web
+5. rute segmen-1 baru WAJIB punya node access_path, kalau tidak RBAC
+   memantulkan semua orang ke beranda (302), bukan 403 — uji "nol 403" lulus palsu
+
+Uji terima paragraf 14.6, 18 poin, termasuk kendali negatif: fitur ini tidak
+boleh mengubah cacah baris tabel lama mana pun.
+
+Lokal sudah terverifikasi jalan (PHP 8.2.12 + MariaDB 10.4.32 XAMPP, DB
+sweettreats 129 tabel). JANGAN sentuh rblas_db (InnoDB rusak). JANGAN pakai
+Downloads\sweettreats langsung — working copy bersama dengan berkas belum
+di-commit; buat worktree sendiri, SALIN vendor/ dan .env.
+
+Selesai: entri docs/log-update.md + salin ke Google Drive + catat ke memori.
+```
