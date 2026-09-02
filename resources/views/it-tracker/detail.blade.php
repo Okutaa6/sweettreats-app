@@ -101,6 +101,20 @@
     <div class="itk-detail-grid">
         <div>
             {{-- FRM-IT-01 — isi kebutuhan (baca-saja) --}}
+            @if (! $form01 && ! (in_array($t->jenjang, ['M', 'L'], true) && $t->fase === 'DEV')
+                 && ! ($t->jenjang === 'S' && in_array($t->fase, ['DEV', 'SELESAI'], true)))
+                {{-- tiket tanpa isian formulir (insiden "formulir menyusul") —
+                     jangan biarkan kolom kiri kosong tanpa penjelasan --}}
+                <div class="itk-panel" style="margin-bottom:12px">
+                    <div class="itk-panel-body">
+                        <div class="itk-hint" style="margin:0">
+                            {{ $t->sumber === 'insiden'
+                                ? 'Insiden — masuk langsung ke Development, formulir diisi menyusul (rencana §3).'
+                                : 'Belum ada isi formulir untuk tiket ini. Formulir per fase datang di Fase 2.' }}
+                        </div>
+                    </div>
+                </div>
+            @endif
             @if ($form01)
                 <div class="itk-panel" style="margin-bottom:12px">
                     <div class="itk-beban-bar"><b>FRM-IT-01 — REQUIREMENT REQUEST</b>
