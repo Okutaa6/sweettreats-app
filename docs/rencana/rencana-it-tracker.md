@@ -2,9 +2,9 @@
 
 > **Tahap: SIAP DIBANGUN.** Ditulis chat HUB 2026-09-01, dilengkapi rencana
 > build (§14) 2026-09-02 sesudah desain selesai.
-> Dokumen ini sumber kebenaran untuk chat build. Paket desain:
-> `C:SERSkky13Downloadsdesign_handoff_it_tracker` — `it-store.js` di
-> situ adalah **implementasi rujukan** mesin fasenya.
+> Dokumen ini sumber kebenaran untuk chat build. Paket desain ada di
+> `Downloads\design_handoff_it_tracker\` — `it-store.js` di situ adalah
+> **implementasi rujukan** mesin fasenya, bukan sekadar data dummy.
 
 ## 1. Masalah yang diselesaikan
 
