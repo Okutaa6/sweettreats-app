@@ -67,9 +67,34 @@ mana?"* — dia butuh kedalaman pada satu tiket. Executive bertanya *"IT sedang
 sesibuk apa?"* — dia butuh keluasan tanpa kedalaman. Memaksakan satu tampilan
 untuk keduanya akan mengecewakan dua-duanya.
 
-**Tujuh fase itu banyak.** Kanban tujuh kolom di layar laptop akan sempit dan
-berakhir seperti diagram Gantt yang tak ada yang baca. Perlu cara mengelompokkan
-atau melipat fase yang sepi, tanpa menyembunyikan yang macet.
+**Tujuh fase itu banyak — tapi FASE tetap sumbu papannya.** Kolom = tujuh tahap
+templat (`Requirement · Analysis & Design · Development · Internal Testing ·
+UAT · Go Live · Evaluation`), boleh dikelompokkan jadi `Masuk / Rancang /
+Kerjakan / Rilis` kalau sempit, dan fase sepi boleh terlipat — tapi **jangan
+menyembunyikan yang macet**.
+⛔ **JANGAN menjadikan "siapa yang memegang" sebagai kolom.** Pertanyaan utama
+pengguna adalah *"modul ini sudah sampai tahap mana"*. "Menunggu siapa" tetap
+ada, tapi sebagai **strip di kartu + filter Macet** — dan panel ringkasan di
+atas papan sudah menjawab pertanyaan Executive, jadi kolom tak perlu
+mengulanginya.
+
+**Tujuh formulir, TIGA kelas — ini yang paling mudah salah dirancang.**
+Rinciannya di `rencana-it-tracker.md` §7, tapi intinya:
+- **Kelas A** (01 Requirement · 05 UAT · 07 Evaluation) — diisi **pemohon**.
+  Sedikit field, bahasa manusia.
+- **Kelas B** (03 Development Record · 04 Internal Testing · 06 Go Live) —
+  **TERISI SENDIRI**, IT tinggal mengonfirmasi. Branch/commit diambil dari git,
+  hasil uji dari catatan uji, checklist deploy dari catatan deploy.
+  ⛔ **Kalau ketiganya dirancang sebagai formulir kosong untuk diketik ulang, di
+  situlah sistemnya mati** — itu pekerjaan yang sudah dilakukan IT, bukan
+  kerjaan baru.
+- **Kelas C** (02 Analysis & Design) — satu-satunya yang benar-benar dipikirkan.
+
+**Identitas pemohon jangan ditanyakan.** Nama, departemen, cabang, kontak,
+tanggal — sistem sudah tahu semuanya dari akun yang login. Tapi **ekspor
+FRM-IT-01 tetap harus menampilkannya terisi**, dengan nama bagian resmi templat,
+supaya Konsultan IT & Management mengenali dokumennya. Kertas bertanya karena
+kertas tak tahu; sistem sudah tahu.
 
 **Tiga jenjang, satu papan.** Permintaan **S** (bug kecil) melewati 3 fase;
 **L** (modul) melewati 7. Keduanya hidup di papan yang sama. Kartu harus
@@ -115,6 +140,12 @@ Layar, urut kepentingan:
 Keadaan yang jangan dilupakan: **tiket ditolak**, **tiket ditunda**,
 **jalur Insiden/Hotfix** (masuk langsung ke Development, formulir menyusul),
 dan **Inisiatif IT** (tanpa pemohon).
+
+⚠️ **Indikator gerbang bukan to-do.** Di layar detail, kelengkapan tiap fase
+ditampilkan sebagai daftar syarat. Itu **lampu status yang menyala sendiri**
+kalau field-nya terisi — **bukan** checkbox yang dicentang manual. Kalau
+bentuknya seperti checkbox, orang akan mencoba mengkliknya dan bingung; ini
+sudah terbukti membingungkan bahkan pada orang yang merancang sistemnya.
 
 ## 6. Angka nyata untuk mengukur rancangan
 

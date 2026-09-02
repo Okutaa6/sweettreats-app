@@ -117,43 +117,172 @@ Format **`IT-2026-001`**, berurut, dipakai di ketujuh tahap **dan di commit
 message**. Itu menutup jarak antara papan dan kode — riwayat git bisa dilacak
 balik ke tiketnya, dan sebaliknya.
 
-## 7. Field per fase
+## 7. Ketujuh formulir — TIGA KELAS, jangan diperlakukan sama
 
-Diturunkan dari FRM-IT-01..07, **dengan perubahan** yang disepakati:
+Isinya diambil dari templat FRM-IT-01..07 (`Template_Development_Sweet_Treat.pdf`,
+pemilik: Konsultan IT & Management). **Kata-kata boleh dimanusiakan; ISI tidak
+boleh berkurang.**
 
-**Intake (FRM-IT-01)** — pemohon · departemen · **cabang dari `raw_branch`**
-(bukan "Cabang 1..5") · jenis permintaan · nama modul/fitur · **prioritas
-pemohon** · latar belakang · hasil yang diharapkan · pengguna terdampak ·
-lampiran.
+Pembagian kelas ini menentukan sistemnya hidup atau mati:
 
-**Triase (baru, tak ada di PDF)** — **jenjang S/M/L** · **prioritas IT** ·
-**bobot** · PIC · induk (kalau ini fitur di dalam modul lain).
+| Kelas | Formulir | Sifat |
+|---|---|---|
+| **A** | 01 · 05 · 07 | **diisi pemohon** — sedikit field, bahasa manusia |
+| **B** | 03 · 04 · 06 | **TERISI SENDIRI**, IT tinggal mengonfirmasi |
+| **C** | 02 | **harus benar-benar dipikirkan** — tak bisa diotomatiskan |
 
-**Analisis (FRM-IT-02)** — tujuan · ruang lingkup (termasuk/tidak) · **tabel FR
-dengan `Kriteria Diterima`** · komponen terdampak · hak akses · dampak cabang ·
-**ketergantungan sebagai relasi ke tiket lain, bukan teks bebas** · risiko ·
-mitigasi · **estimasi (internal IT saja)**.
+⛔ **Kelas B adalah pembeda sistem dari PDF.** Ketiganya mendokumentasikan
+pekerjaan yang **sudah** dilakukan IT, bukan menambah kerjaan. Kalau dirancang
+sebagai formulir kosong untuk diketik ulang, **di situlah sistemnya mati.**
 
-**Development (FRM-IT-03)** — catatan implementasi per komponen · **branch /
-commit / SQL** · keterbatasan untuk tester.
-→ **Bagian 3C "Developer Testing" DILEBUR ke fase UJI** (untuk tim 2 orang, itu
-formulir yang sama diisi dua kali).
+Bukti dari kerja nyata 1 Sep: FRM-IT-03 minta *branch/commit/script* — sudah ada
+(`c28b665`, `2026_09_01_konsultan_dashboard_sales.sql`). FRM-IT-04 minta hasil
+uji — sudah ada (`9 lulus 1 gagal`, `att:audit-role berat 0`). FRM-IT-06 minta
+backup/rollback/pemeriksaan pasca — **checklist itu dijalankan manual hari itu**
+(backup 48 MB, titik balik `761d7a7`, `curl` beranda).
 
-**Uji (FRM-IT-04)** — test case (skenario · diharapkan · aktual · status) ·
-temuan (Minor/Major · PIC · status) · ringkasan.
+### Formulir mana untuk jenjang mana
 
-**UAT (FRM-IT-05)** — skenario bisnis · sesuai/tidak · masukan end user ·
-keputusan.
+| Jenjang | Formulir |
+|---|---|
+| **S** — bug, tweak | 01 → catatan singkat (03 ringkas) → selesai |
+| **M** — fitur | 01 → **02 RINGKAS** (hanya tabel FR + Kriteria Diterima + komponen terdampak) → 03 → 05 → 06 |
+| **L** — modul, integrasi | ketujuhnya penuh |
 
-**Go-Live (FRM-IT-06)** — checklist pra-deploy (**backup · script siap ·
-rencana rollback**) · catatan deployment · pemeriksaan pasca Go-Live · hasil.
-⚠️ Formulir ini **paling matang di seluruh set** dan cocok dengan praktik nyata
-kita — pertahankan apa adanya.
+⚠️ **02 penuh JANGAN diminta untuk jenjang M.** Tim dua orang akan tenggelam.
 
-**Evaluasi (FRM-IT-07)** — kesesuaian · kemudahan · stabilitas · dampak ·
-temuan & usulan · tindak lanjut.
-⚠️ **Wajib punya pemicu terjadwal.** Tanpa itu tahap ini tak akan pernah
-terjadi dan cuma jadi beban mati.
+### Tanda tangan minimum (kesepakatan 1–2, bukan 3 seperti templat)
+
+Templat meminta 3 paraf di hampir semua tahap. Di tim 2 orang itu berarti
+**orang yang sama meneken kotak berbeda** — jadi dipangkas:
+
+| Formulir | Persetujuan |
+|---|---|
+| 01 | pemohon (otomatis saat kirim) + **IT** terima/tolak |
+| 02 | IT + **satu** Business Owner (Konsultan atau Executive) |
+| **03, 04** | **IT sendiri — tanpa paraf pihak lain** |
+| 05 | **pemohon saja** (jangan ditambah) |
+| 06 | IT + Business Owner |
+| 07 | evaluator |
+
+---
+
+### FRM-IT-01 — Requirement Request · **Kelas A** · diisi **pemohon**
+
+**A. Identitas Pemohon** — ⚙️ **SEMUANYA OTOMATIS**, jangan ditanyakan:
+nama · departemen/jabatan · cabang (dari `raw_branch`, bisa diubah kalau lintas
+cabang) · kontak · tanggal pengajuan.
+⚠️ Tapi **ekspor/cetak FRM-IT-01 tetap wajib menampilkannya terisi** — Konsultan
+IT & Management harus mengenali dokumennya.
+
+**B. Detail Kebutuhan** — ✍️ ini yang ditanyakan:
+- **Jenis Permintaan** — Modul baru / Fitur baru / Perubahan fitur / Integrasi /
+  Lainnya ← **memberi sinyal jenjang S/M/L saat triase**
+- Nama Modul/Fitur
+- **Prioritas Pemohon** — Rendah/Sedang/Tinggi ← **terpisah dari prioritas IT.
+  Dua kolom berbeda, JANGAN disatukan**
+- Target Waktu / tenggat dari luar
+- Latar Belakang / Masalah Saat Ini
+- Kebutuhan dan Hasil yang Diharapkan
+- Pengguna dan Proses yang Terdampak
+- **Lampiran** — screenshot / contoh laporan / alur proses / dokumen lain
+
+**C. Review Awal** — diisi **IT**: Diterima untuk dianalisis · Perlu dilengkapi ·
+Ditunda/Ditolak + catatan.
+
+### FRM-IT-02 — Analysis & Design · **Kelas C** · diisi **IT** + Business Owner
+
+**A. Ringkasan** — ref FRM-IT-01 (⚙️ otomatis) · nama modul (⚙️) · Business Owner ·
+prioritas · target implementasi · tujuan pengembangan · **ruang lingkup
+termasuk / TIDAK termasuk** · gambaran proses setelah pengembangan.
+
+**B. Kebutuhan Fungsional** — tabel `FR-01..n`: kebutuhan/fungsi · prioritas ·
+**KRITERIA DITERIMA**.
+⚠️ **Field terpenting di seluruh sistem.** Memaksa "selesai" didefinisikan
+sebelum koding. **Jangan opsional** — minimal 1 baris terisi untuk membuka
+gerbang ke Development.
+
+**C. Desain Teknis Ringkas** — komponen diubah (Aplikasi/Database/API/Laporan/
+Hak akses) · modul/tabel/API terkait · hak akses pengguna · dampak ke cabang ·
+**ketergantungan → RELASI ke tiket lain, bukan teks bebas** · deskripsi solusi.
+
+**D. Estimasi & Risiko** — **estimasi hari kerja (INTERNAL IT SAJA, tak tampil ke
+Executive)** · PIC developer · risiko utama · rencana mitigasi.
+
+### FRM-IT-03 — Development Record · **Kelas B** · ⚙️ terisi sendiri
+
+**A. Informasi** — ⚙️ ref 02 · nama modul · developer · tanggal mulai (saat fase
+dimasuki) · tanggal selesai · versi/build.
+
+**B. Catatan Implementasi** — 5 komponen: Aplikasi/Source Code · Database ·
+API/Integrasi · Hak Akses/Konfigurasi · Dokumentasi. IT menambah keterangan.
+
+**Detail Teknis** — ⚙️ **branch/commit/tag** dan **script/migration file**
+**diambil dari git lewat nomor tiket di commit message**. IT tinggal
+mengonfirmasi.
+
+⚠️ Bagian **C. Developer Testing** templat **DILEBUR ke FRM-IT-04** — di tim 2
+orang itu formulir yang sama diisi dua kali.
+
+### FRM-IT-04 — Internal Testing · **Kelas B** · ⚙️ sebagian terisi
+
+**A. Informasi** — ⚙️ ref 03 · nama · tester · tanggal · environment/build.
+
+**B. Test Case** — `TC-01..n`: skenario · hasil diharapkan · aktual · Pass/Fail.
+**C. Temuan** — temuan · **Minor/Major** · PIC · status.
+**Ringkasan** — ⚙️ dihitung: jumlah · pass · fail · temuan terbuka.
+
+Ditambah 5 pemeriksaan dari 03C: fungsi utama · validasi & error handling ·
+database/API · hak akses · **fitur lama terkait tetap berjalan**.
+
+⛔ **Gerbang ke UAT: nol temuan Major terbuka.**
+
+### FRM-IT-05 — UAT · **Kelas A** · diisi **pemohon / End User**
+
+**A. Informasi** — ⚙️ ref 04 · nama · departemen/cabang · penguji · tanggal · build.
+**B. Skenario UAT** — proses/skenario bisnis · hasil diharapkan · **Sesuai/Tidak**
+· catatan. **Masukan End User.**
+**Keputusan** — Disetujui Go Live · Disetujui dengan Catatan · Perlu Perbaikan.
+
+⚠️ **Ini gerbang manusia.** Didiamkan = **menyala di papan**, bukan otomatis
+diterima.
+
+### FRM-IT-06 — Go Live Checklist · **Kelas B** · ⚙️ terisi sendiri
+
+⭐ **Formulir paling matang di seluruh templat** — cocok dengan praktik nyata
+kita. **Pertahankan apa adanya.**
+
+**A. Informasi Release** — ⚙️ ref 05 · nama · versi/release · tanggal & waktu Go
+Live · PIC deployment · target cabang.
+
+**B. Checklist Pra-Deploy** — UAT disetujui (⚙️) · **backup tersedia** ·
+file/script siap (⚙️ dari git) · akses & konfigurasi siap · panduan pengguna ·
+**rencana rollback siap**.
+
+**C. Catatan Deployment** — waktu · aktivitas · PIC · hasil.
+
+**D. Pemeriksaan Pasca Go-Live** — aplikasi dapat diakses · fungsi utama ·
+data/integrasi · hak akses · cabang target terverifikasi.
+⚠️ Tambahkan pelajaran nyata: **`curl` beranda cek 200 + URL akhir** —
+`laravel.log` nol galat TIDAK berarti sehat (insiden rsync 29 Agu).
+
+**Kendala / Tindakan Pemulihan** · **Hasil Monitoring Awal** ·
+keputusan: Berhasil · dengan Monitoring · **Rollback**.
+
+### FRM-IT-07 — Evaluation & Enhancement · **Kelas A** · diisi **evaluator**
+
+**A. Informasi** — ⚙️ ref 06 · nama · periode evaluasi · departemen/cabang ·
+evaluator.
+**B. Hasil** — kesesuaian · kemudahan · stabilitas · dampak ke proses kerja ·
+manfaat yang dirasakan.
+**C. Temuan & Usulan** — **Bug / Enhancement** · deskripsi · prioritas R/S/T ·
+tindak lanjut.
+**Rencana Tindak Lanjut** — Tidak ada · Perbaikan Teknis ·
+**Masuk Requirement Request Baru** ← ⚙️ ini **membuat tiket baru otomatis**,
+menutup lingkarannya.
+
+⚠️ **Wajib punya pemicu terjadwal** (usul: 14 hari sesudah Go Live). Tanpa itu
+tahap ini tak akan pernah terjadi dan cuma jadi beban mati.
 
 ## 8. Hubungan dengan yang sudah ada
 
