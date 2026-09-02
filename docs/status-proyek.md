@@ -486,6 +486,13 @@ bukan symlink).
 - **Launch paket "Pengeluaran"**: petty cash sudah ada tapi **belum diadopsi
   siapa pun** (prod 0 transaksi nyata) — diluncurkan bareng ROP ke Finance +
   para head sebagai satu paket, butuh sosialisasi/demo.
+- **IT Request Tracker** (dipetakan + didesain 2026-09-02, `rencana-it-tracker.md`
+  §14 = rencana build): tiket permintaan IT dengan fase S/M/L dan formulir
+  FRM-IT-01..07. Kunci desainnya: **formulir Kelas B (03/04/06) TERISI SENDIRI**
+  dari git dan hasil uji — kalau dibuat formulir kosong untuk diketik ulang,
+  sistemnya mati dalam dua minggu. Papan hanya memanas untuk tunggu **di luar
+  IT** (tiket 30 hari di DEV tetap dingin). Belum ada kode; chat build terpisah,
+  Fase 1 = papan + FRM-IT-01.
 
 ### Di-PAUSE (sengaja, jangan dikira hilang)
 - **Integrasi Accurate penuh** (pull 6 buku + push engine + 5 halaman laporan

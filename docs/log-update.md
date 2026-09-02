@@ -7,6 +7,101 @@
 
 ---
 
+## 2026-09-02 — IT REQUEST TRACKER: pemetaan + desain + rencana build (belum dikoding)
+
+Fitur baru, belum ada satu baris kode pun. Yang selesai hari ini adalah
+**seluruh pekerjaan berpikirnya**, supaya chat build tinggal membangun.
+
+**Masalahnya.** Permintaan ke IT datang lewat WhatsApp dan omongan. Tak ada
+jejak, tak ada urutan, dan yang paling mahal: **tak ada definisi "selesai"
+yang disepakati sebelum koding dimulai**. Sekitar 5 modul besar per bulan
+lewat begitu saja. Trade-off yang Ekky terima secara sadar: alur ini menambah
+beban, tapi menukarnya dengan tidak semuanya jadi terburu-buru.
+
+**Dasarnya templat FRM-IT-01..07** dari Konsultan IT & Management. Tidak
+ditelan mentah — kata-katanya dimanusiakan, isinya tidak dikurangi.
+
+### Tiga temuan yang menentukan sistem ini hidup atau mati
+
+**1. Ketujuh formulir TIDAK sejenis — ada tiga kelas.**
+
+| Kelas | Formulir | Sifat |
+|---|---|---|
+| A | 01 · 05 · 07 | diisi pemohon, bahasa manusia |
+| B | 03 · 04 · 06 | **TERISI SENDIRI**, IT tinggal mengonfirmasi |
+| C | 02 | harus benar-benar dipikirkan, tak bisa diotomatiskan |
+
+⛔ **Kelas B adalah pembeda sistem ini dari PDF.** Ketiganya mendokumentasikan
+pekerjaan yang **sudah** dilakukan — branch/commit, hasil uji, checklist
+deploy. Bukti dari kerja nyata 1 Sep: FRM-IT-03 minta commit, sudah ada
+(`c28b665`); FRM-IT-04 minta hasil uji, sudah ada (`att:audit-role` berat 0);
+FRM-IT-06 minta backup/rollback, checklist itu memang dijalankan hari itu.
+**Kalau Kelas B dirancang sebagai formulir kosong untuk diketik ulang, di
+situlah sistemnya mati** — orang berhenti mengisi dalam dua minggu.
+
+**2. Jenjang S/M/L, dan 02 penuh JANGAN diminta untuk M.** Tim dua orang akan
+tenggelam. S = 01 + catatan singkat. M = 02 ringkas (hanya tabel FR +
+Kriteria Diterima). L = ketujuhnya penuh.
+
+**3. Paraf dipangkas 3 → 1-2.** Templat minta 3 tanda tangan di hampir tiap
+tahap; di tim 2 orang itu berarti orang yang sama meneken kotak berbeda —
+teater, bukan kendali. FRM-IT-03 dan 04 tanpa paraf pihak lain sama sekali.
+
+### Desain: dimulai ulang atas keputusan Ekky
+
+Ronde pertama dihentikan bukan karena hasilnya jelek, tapi karena
+**tampilannya berubah-ubah dan jadi susah dilacak**. Ekky memilih mulai bersih
+dengan brief tertulis. Keputusan itu benar.
+
+⚠️ **Sumbu papan sempat salah, dan itu salahku.** Brief pertamaku menekankan
+"menunggu siapa — ini bukan detail, ini inti", jadi desainer membuat *pemegang
+tiket* sebagai kolom. Yang benar: **kolomnya FASE**; "menunggu siapa" itu
+atribut di dalam kartu.
+
+Hasilnya paket di `Downloads/design_handoff_it_tracker/`. Yang paling berharga
+di situ bukan gambarnya, tapi **`it-store.js` — implementasi rujukan mesin
+fasenya** (`pathFor` per jenjang, `RANK`, gerbang tiap transisi beserta daftar
+syarat yang kurang, posisi antrean). §14 menunjuk ke berkas itu alih-alih
+menceritakan ulang logikanya dalam prosa; ruang salah tafsirnya jauh lebih kecil.
+
+**Aturan panas yang tak boleh diubah:** hanya menunggu **di luar IT** yang
+memanas (≥3 hari kuning, ≥7 hari merah). Tiket 30 hari yang duduk di DEV
+**tetap heat 0** — papan ini menagih orang lain, bukan menghakimi IT sendiri.
+Ini jadi kendali negatif wajib di uji terima.
+
+### §14 Rencana Build
+
+Enam tabel (`it_ticket`, `it_ticket_fase`, `it_form`, `it_fr`, `it_test_case`,
+`it_temuan`). Dua keputusan skema yang paling mudah salah, dikunci di dokumen:
+
+- `prioritas_pemohon` dan `prioritas_it` **wajib dua kolom terpisah**.
+- "berapa hari menunggu" **dihitung** dari `it_ticket_fase.masuk_at`, tidak
+  disimpan sebagai angka. Angka tersimpan akan basi diam-diam, dan seluruh
+  kredibilitas papan bergantung pada angka ini benar.
+
+Kelas B diisi perintah artisan `it:sync-git` + tabel `it_git_ref` — **bukan**
+menjalankan `git log` dari request web.
+
+**18 uji terima**, termasuk tiga kendali negatif: tiket 30 hari di DEV harus
+`heat=0`, cacah baris tabel lama tak berubah, dan pemeriksaan **URL akhir**
+bukan cuma kode HTTP.
+
+### Lingkungan lokal — diverifikasi jalan
+
+MariaDB lokal yang "crash" 28 Agu ternyata **shutdown bersih**; galat InnoDB
+"LSN in the future" terbatas di `rblas_db` saja. Nyala 0 galat, uji
+CREATE/INSERT/DROP lulus, Laravel boot ke DB `sweettreats` (129 tabel, 36 user).
+Tiga larangan dicatat di §14: jangan sentuh `rblas_db`, jangan pakai working
+copy bersama, jangan salin `.env` ber-`APP_ENV=local` ke mana pun.
+
+### Status
+
+Dokumen: `docs/rencana/rencana-it-tracker.md` (§1-13 pemetaan, §14 build) dan
+`docs/brief-desain/design-brief-it-tracker.md`. **Prod tak tersentuh.**
+Berikutnya: chat build terpisah, Fase 1 (papan + FRM-IT-01) dulu.
+
+---
+
 ## 2026-09-01 dini hari — KONSULTAN + RESTRUKTURISASI ROLE NAIK PROD
 
 Prod `86dca82` → **`c28b665`**. Gerbong yang tertahan sejak 21 Agustus akhirnya
