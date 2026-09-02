@@ -593,14 +593,43 @@ belum dibangun. Sistem proses yang tak dipakai lebih buruk daripada tak ada.
 
 ### 14.8 Lingkungan kerja
 
-**Lokal (terverifikasi 2 Sep, disarankan untuk Fase 1):**
-PHP 8.2.12 · MariaDB 10.4.32 via XAMPP · DB `sweettreats` 1,1 GB / 129 tabel ·
-Laravel boot bersih. Fitur ini tabelnya baru, jadi tak butuh data prod.
+**Lokal — JALAN, TAPI DENGAN SATU RANJAU BESAR (diukur 2 Sep 21:00-21:10):**
+PHP 8.2.12 · MariaDB 10.4.32 via XAMPP · DB `sweettreats` **136 tabel**
+(bukan 129 — angka lama itu keliru) · Laravel boot, kueri data biasa aman.
+
+⛔ **`php artisan db:show` MEMBUNUH MariaDB lokal. Jangan jalankan.**
+Kueri yang memintanya — `information_schema.tables` dengan kolom
+`data_length`/`index_length` untuk seluruh skema `sweettreats` — membuat
+`mysqld.exe` **segfault dan mati**, meninggalkan `mysqld.dmp`. Terjadi
+**7+ kali** dalam sepuluh menit. Bukan teori: tiap kali servernya benar-benar
+tumbang dan harus dinyalakan ulang.
+
+Yang sudah **dikesampingkan dengan pengukuran**, jadi jangan diulang:
+- **Bukan satu tabel rusak.** Tersangka `sys_project_todo` sehat sendirian
+  (24 baris, stats terbaca), dan kueri yang **mengecualikannya tetap crash**.
+- **Bukan ambang jumlah tabel.** 126 tabel crash, tapi **130 tabel selamat**.
+  Non-monoton → **flaky**, bukan deterministik. (Pencarian biner menghasilkan
+  jawaban yang terdengar meyakinkan dan **salah** — kendali negatiflah yang
+  menangkapnya. Kalau menduga "tabel X rusak", uji kecualikan-X dulu.)
+- **Bukan statistik persisten InnoDB.** `innodb_stats_persistent=0` +
+  `innodb_stats_auto_recalc=0` → tetap **crash 3 dari 3**.
+
+**Yang aman dan sudah dibuktikan:** `SELECT` biasa · `count(*)` per tabel ·
+`information_schema` **tanpa** kolom ukuran · skema `rblas_db` (66 tabel,
+sama-sama InnoDB) · migrasi/DDL biasa. Jadi **membangun IT Tracker di lokal
+tetap layak** — cukup jauhi perintah dan panel GUI yang menampilkan *ukuran*
+tabel se-skema.
+
+⚠️ **`mysql_error.log` TIDAK mencatat crash ini** — berkas itu terakhir ditulis
+28 Agustus, karena mysqld dijalankan mode `--console`. Ini persis jebakan yang
+sama dengan `laravel.log` nol galat di prod: **log sepi bukan bukti sehat.**
+Bukti crash ada di `mysqld.dmp` (stempel waktunya diperbarui tiap crash).
 
 - ⚠️ **MariaDB lokal 10.4 vs prod 11.8.8** — SQL yang lolos lokal belum tentu
   lolos prod. Uji ulang SQL-nya di dev sebelum prod.
 - ⛔ **JANGAN sentuh `rblas_db`** — tablespace-nya punya galat InnoDB
-  *"LSN in the future"* sejak 28 Agu. `sweettreats` tak terdampak.
+  *"LSN in the future"* sejak 28 Agu. (Catatan: justru `rblas_db` yang **lolos**
+  uji stats; galat lamanya beda perkara dari crash di atas.)
 - ⛔ **JANGAN pakai `Downloads\sweettreats` langsung** — working copy bersama,
   masih menyimpan berkas Alur Persetujuan yang belum di-commit. Buat worktree
   sendiri, **salin** `vendor/` dan `.env` (jangan symlink).
@@ -644,8 +673,14 @@ Yang paling mudah salah:
 Uji terima paragraf 14.6, 18 poin, termasuk kendali negatif: fitur ini tidak
 boleh mengubah cacah baris tabel lama mana pun.
 
-Lokal sudah terverifikasi jalan (PHP 8.2.12 + MariaDB 10.4.32 XAMPP, DB
-sweettreats 129 tabel). JANGAN sentuh rblas_db (InnoDB rusak). JANGAN pakai
+Lokal jalan (PHP 8.2.12 + MariaDB 10.4.32 XAMPP, DB sweettreats 136 tabel),
+TAPI: JANGAN jalankan `php artisan db:show` - kueri ukuran tabel se-skema
+membuat mysqld SEGFAULT (terjadi 7+ kali 2 Sep). Bukan satu tabel rusak, bukan
+ambang jumlah, dan innodb_stats_persistent=0 tidak menolong - sudah diukur
+semua, jangan diulang. SELECT biasa, count(*), dan migrasi AMAN.
+mysql_error.log TIDAK mencatat crash ini (mode --console) - log sepi bukan
+bukti sehat, sama seperti laravel.log di prod.
+JANGAN sentuh rblas_db. JANGAN pakai
 Downloads\sweettreats langsung — working copy bersama dengan berkas belum
 di-commit; buat worktree sendiri, SALIN vendor/ dan .env.
 

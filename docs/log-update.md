@@ -86,13 +86,42 @@ menjalankan `git log` dari request web.
 `heat=0`, cacah baris tabel lama tak berubah, dan pemeriksaan **URL akhir**
 bukan cuma kode HTTP.
 
-### Lingkungan lokal — diverifikasi jalan
+### Lingkungan lokal — ⚠️ RALAT, klaim awalku terlalu longgar
 
-MariaDB lokal yang "crash" 28 Agu ternyata **shutdown bersih**; galat InnoDB
-"LSN in the future" terbatas di `rblas_db` saja. Nyala 0 galat, uji
-CREATE/INSERT/DROP lulus, Laravel boot ke DB `sweettreats` (129 tabel, 36 user).
-Tiga larangan dicatat di §14: jangan sentuh `rblas_db`, jangan pakai working
-copy bersama, jangan salin `.env` ber-`APP_ENV=local` ke mana pun.
+**Yang kutulis semula (dibiarkan supaya jejaknya terlihat):** *"MariaDB lokal
+yang 'crash' 28 Agu ternyata shutdown bersih; galat InnoDB 'LSN in the future'
+terbatas di `rblas_db` saja. Nyala 0 galat, Laravel boot ke DB `sweettreats`
+(129 tabel, 36 user)."*
+
+**Yang terukur beberapa menit kemudian (2 Sep 21:00-21:10):** mysqld lokal
+**segfault dan mati, 7+ kali**. Pemicunya kueri yang meminta **ukuran** tabel
+se-skema — `information_schema.tables` dengan `data_length` — yaitu persis apa
+yang dijalankan `php artisan db:show` dan kebanyakan panel GUI database.
+⛔ **Jangan jalankan `php artisan db:show` di lokal.**
+
+Bagian "shutdown bersih 28 Agu" itu **tetap benar** — tapi aku memakainya
+sebagai bukti sehat hari ini, dan itu yang salah. Jumlah tabelnya juga keliru:
+**136, bukan 129**.
+
+**Tiga dugaan yang KUTOLAK dengan pengukuran** (dicatat supaya tak diulang):
+- Bukan satu tabel rusak. Tersangka `sys_project_todo` sehat sendirian, dan
+  kueri yang **mengecualikannya tetap crash**.
+- Bukan ambang jumlah tabel. 126 crash, **130 selamat** — non-monoton, flaky.
+- Bukan statistik persisten InnoDB. Dimatikan → **tetap crash 3 dari 3**.
+
+⚠️ Pencarian binerku sempat menghasilkan tersangka yang terdengar meyakinkan
+dan **salah**; yang menangkapnya **kendali negatif**, bukan kecerdasan. Pola
+yang layak diingat: kalau menduga "tabel X rusak", uji dulu *kecualikan X*.
+
+⚠️ Dan jebakan lamanya muncul lagi dalam wujud baru: **`mysql_error.log` tidak
+mencatat crash ini sama sekali** (mysqld jalan mode `--console`), berkasnya
+terakhir ditulis 28 Agustus. Sama persis dengan pelajaran `laravel.log` nol
+galat waktu prod mati 29 Agu: **log sepi bukan bukti sehat.** Buktinya ada di
+`mysqld.dmp`.
+
+**Praktisnya untuk chat build: lokal tetap layak dipakai.** `SELECT` biasa,
+`count(*)`, dan migrasi/DDL semuanya aman dan sudah diuji. Yang harus dijauhi
+cuma perintah/panel yang menampilkan ukuran tabel se-skema.
 
 ### Status
 
