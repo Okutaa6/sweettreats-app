@@ -339,9 +339,63 @@ Sama berlaku untuk kerjaan yang Reza mulai sendiri.
 10. Papan Gemini dipensiunkan.
 11. Backlog berjalan diisi manual setelah sistem jadi.
 
-## 12. Yang masih terbuka
+## 12. Yang tadinya terbuka — SUDAH DIPUTUSKAN 2026-09-02 saat melihat desain
 
-- Ambang warna "menunggu" — 3 hari kuning / 7 merah, atau lain?
-- Siapa **evaluator** default di fase 7 — pemohon, atau Executive?
-- Apakah **Head boleh melihat antrean penuh** (semua tiket) atau hanya miliknya
-  + posisi nomor? Ini menentukan seberapa "telanjang" beban IT terlihat.
+Ketiganya sengaja dibiarkan terbuka sampai ada layar untuk dilihat. Sekarang
+terkunci — **jangan dibuka ulang**.
+
+**Ambang "menunggu" memanas: 3 hari kuning · 7 hari merah — TAPI hanya untuk
+yang menunggu DI LUAR IT** (pemohon / Executive). Yang menunggu IT tidak ikut
+memanas keras: modul jenjang L wajar makan berminggu-minggu, dan kalau semua
+merah sinyalnya mati. ⚠️ Ini yang membuat warna berarti sesuatu.
+
+**Evaluator default fase 7: pemohon, bisa dialihkan.** Pertanyaan tahap 7 adalah
+*"masalah yang kamu tulis di awal masih ada?"* — itu milik orang yang menulisnya.
+Bisa dialihkan karena orang pindah posisi dan modul besar melayani banyak pihak.
+
+**Head melihat: miliknya + RINGKASAN beban IT** — bukan semua tiket.
+Dua pilihan lain ditolak dengan alasan:
+- *hanya miliknya* → Head tahu posisinya tapi tak melihat beban, jadi tetap
+  bisa mendesak tanpa gambaran;
+- *semua tiket read-only* → Head melihat isi permintaan departemen lain, dan itu
+  **bertentangan dengan keputusan Robi** (konsultan yang memegang pandangan
+  lintas-departemen justru supaya head-in-training tak dibebani).
+
+Yang dipilih memberi seluruh manfaatnya — Head melihat *"IT sedang memikul 11
+item (8 permintaan + 3 inisiatif IT)"* dan *"antre di belakang 8"* — tanpa
+melihat isi permintaan orang lain.
+
+### Dua keputusan tambahan dari ronde desain
+
+**Zona warna: Grafit** (zona yang sudah ada di `peta-tema.md`), tanpa aksen
+khusus. Bukan menambah zona ke-4 — menambah dialek warna untuk satu halaman
+adalah awal sistem warna yang pecah.
+
+**Saklar peran = ALAT DEMO, bukan fitur produk.** Berguna saat Ekky presentasi
+ke Executive (berpindah sudut pandang Ekky/Reza/Head/Executive). ⛔ **Jangan
+dibangun sebagai fitur** — di produk, "lihat sebagai" menyiratkan menyamar dan
+soal hak akses. Di mockup ia alat navigasi; bedakan visualnya dari chrome
+aplikasi supaya tak ada yang mengira harus dibangun.
+
+## 13. Yang masih terbuka
+
+- Tampilan **Ekspor FRM-IT-01** belum pernah dilihat. Tombolnya sudah ada di
+  layar detail, tapi isinya belum. Ini satu-satunya layar yang membuktikan
+  cerita tata kelola ke Konsultan & Management — tanpa itu mereka melihat
+  kanban yang tak mereka kenali.
+- Ide yang **ditampung, belum diputuskan** (usul chat HUB, ditunda Ekky):
+  - **estimasi tanpa satuan hari** — ganti dengan ukuran + throughput historis,
+    karena estimasi hari mengandaikan hari itu milik IT (padahal ada meeting &
+    tech support cabang). Tampilkan *"belum cukup data"* sebelum 3 bulan.
+  - **fase 7 diganti satu pertanyaan** — *"masalah yang kamu tulis di awal masih
+    ada?"* ditampilkan berdampingan dengan tulisan pemohon sendiri di FRM-IT-01,
+    menggantikan penilaian kepuasan yang kemungkinan besar diisi asal-asalan.
+  - **`Jenis Permintaan` mengusulkan jenjang otomatis** (Integrasi/Modul → L,
+    Fitur → M, Perubahan → S), IT tinggal mengoreksi.
+  - **deteksi permintaan mirip** saat pemohon mengetik judul.
+  - **biaya menunggu ikut tercetak di dokumen akhir** — templat mencatat
+    keputusan tapi tak pernah mencatat berapa lama tertahan dan pada siapa.
+  - **FRM-IT-02 sebagian sebagai dokumen (teks bebas)**, bukan formulir —
+    hanya tabel FR + Kriteria Diterima yang tetap terstruktur. Formulir buruk
+    untuk berpikir. ⚠️ Ini menyimpang paling jauh dari templat; Konsultan
+    mungkin menginginkan keseragaman.
