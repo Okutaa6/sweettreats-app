@@ -239,6 +239,7 @@ Route::middleware([AuthGuard::class])->group(function () {
         Route::post('/tiket/{id}/uat',      [ItTrackerController::class, 'uat'])->name('it-tracker.uat')->whereNumber('id');
         Route::post('/tiket/{id}/catatan',  [ItTrackerController::class, 'catatan'])->name('it-tracker.catatan')->whereNumber('id');
         Route::post('/tiket/{id}/konfirmasi', [ItTrackerController::class, 'konfirmasi'])->name('it-tracker.konfirmasi')->whereNumber('id');
+        Route::post('/tiket/{id}/pic',      [ItTrackerController::class, 'pic'])->name('it-tracker.pic')->whereNumber('id');
     });
 
     // Rekonsiliasi — reservasi SweetTreats ↔ encounter Omnicare (link='reconcile')

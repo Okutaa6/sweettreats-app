@@ -218,6 +218,17 @@
                     <label><input class="itk-radio" type="radio" name="jenjang" value="M"><span><b>M</b> · fitur — 5 fase</span></label>
                     <label><input class="itk-radio" type="radio" name="jenjang" value="L"><span><b>L</b> · modul — 7 fase</span></label>
                 </div>
+                @if ($picOpsi->count() > 1)
+                    <div style="margin-bottom:13px">
+                        <label class="itk-lbl">DIKERJAKAN SIAPA (PIC)</label>
+                        <div style="display:flex;gap:7px;flex-wrap:wrap">
+                            @foreach ($picOpsi as $p)
+                                <label><input class="itk-radio" type="radio" name="pic_user_id" value="{{ $p->id }}"><span>{{ $p->nama }}</span></label>
+                            @endforeach
+                        </div>
+                        <div class="itk-hint">Opsional — boleh ditentukan nanti; tanpa PIC, yang pertama menarik tiketnya yang jadi pengerja.</div>
+                    </div>
+                @endif
                 <div class="itk-grid2" style="margin-bottom:13px">
                     <div>
                         <label class="itk-lbl">BOBOT (1–5)</label>

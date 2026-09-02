@@ -99,12 +99,13 @@ class ItTrackerController extends Controller
             ->get(['id', 'nomor', 'judul', 'fase', 'fase_since', 'alasan_parkir']);
 
         return view('it-tracker.papan', [
-            'groups' => $groups,
-            'parkir' => $parkir,
-            'beban'  => $this->svc->ringkasanBeban($semuaView),
-            'peran'  => $this->peran(),
-            'filter' => ['q' => $q, 'macet' => (bool) $request->query('macet'),
-                         'sumber' => $sumber, 'jenjang' => $jenjang],
+            'groups'  => $groups,
+            'parkir'  => $parkir,
+            'beban'   => $this->svc->ringkasanBeban($semuaView),
+            'peran'   => $this->peran(),
+            'picOpsi' => $this->peran() === 'head_it' ? $this->picOpsi() : collect(),
+            'filter'  => ['q' => $q, 'macet' => (bool) $request->query('macet'),
+                          'sumber' => $sumber, 'jenjang' => $jenjang],
         ]);
     }
 
@@ -167,6 +168,7 @@ class ItTrackerController extends Controller
             'jalur'  => PhaseEngine::pathFor($t->jenjang),
             'peran'  => $this->peran(),
             'bolehGerak' => $this->bolehGerakkan($t),
+            'picOpsi'    => $this->peran() === 'head_it' ? $this->picOpsi() : collect(),
             'form01' => optional($t->forms->firstWhere('kode', 'FRM-IT-01'))->payload ?? [],
             'form03' => optional($t->forms->firstWhere('kode', 'FRM-IT-03'))->payload ?? [],
         ]);
@@ -232,12 +234,13 @@ class ItTrackerController extends Controller
             'jenjang'      => 'required|in:S,M,L',
             'bobot'        => 'required|integer|min:1|max:5',
             'prioritas_it' => 'required|in:P1,P2,P3',
+            'pic_user_id'  => 'nullable|string|exists:users,id',
         ]);
 
         $t = ItTicket::findOrFail($id);
 
         try {
-            $this->svc->triase($t, $d['jenjang'], (int) $d['bobot'], $d['prioritas_it'], $this->userId());
+            $this->svc->triase($t, $d['jenjang'], (int) $d['bobot'], $d['prioritas_it'], $this->userId(), $d['pic_user_id'] ?? null);
         } catch (DomainException $e) {
             return back()->with('error', $e->getMessage());
         }
@@ -405,6 +408,31 @@ class ItTrackerController extends Controller
         return in_array($this->peran(), ['head_it', 'it_dev'], true);
     }
 
+    /** Kandidat PIC = orang IT (Head IT + IT), untuk triase & ganti PIC. */
+    private function picOpsi()
+    {
+        return \Illuminate\Support\Facades\DB::table('users as u')
+            ->join('group_path as g', 'g.id', '=', 'u.group_id')
+            ->whereIn('g.nama', ['Head IT', 'IT'])
+            ->where('u.status', 1)
+            ->orderBy('u.nama')
+            ->get(['u.id', 'u.nama']);
+    }
+
+    /** Ganti/penunjukan PIC — Head IT. */
+    public function pic(Request $request, int $id)
+    {
+        $this->pastikanHeadIt('Menunjuk PIC hanya dilakukan Head IT.');
+
+        $d = $request->validate(['pic_user_id' => 'required|string|exists:users,id']);
+
+        $t = ItTicket::findOrFail($id);
+        $t->pic_user_id = $d['pic_user_id'];
+        $t->save();
+
+        return back()->with('success', $t->nomor . ' — PIC diperbarui.');
+    }
+
     /** Guard aksi khusus Head IT — satu tempat, jangan disalin per aksi. */
     private function pastikanHeadIt(string $pesan): void
     {
@@ -422,10 +450,12 @@ class ItTrackerController extends Controller
             return ['ok' => true, 'why' => ''];
         }
         if ($peran === 'it_dev') {
-            if (in_array($t->fase, ['DEV', 'UJI'], true) && $t->pic_user_id === $this->userId()) {
+            // ANTRE ikut: "IT menarik kerjaannya" (rencana §4) — menarik tiket
+            // yang memang ditunjuk jadi miliknya adalah awal Development-nya.
+            if (in_array($t->fase, ['ANTRE', 'DEV', 'UJI'], true) && $t->pic_user_id === $this->userId()) {
                 return ['ok' => true, 'why' => ''];
             }
-            return ['ok' => false, 'why' => 'IT pelaksana hanya memindahkan item Development/Uji yang dia kerjakan sendiri.'];
+            return ['ok' => false, 'why' => 'IT pelaksana hanya memindahkan item miliknya sendiri (Antre → Development → Uji).'];
         }
 
         return ['ok' => false, 'why' => 'Aksi ini milik IT.'];

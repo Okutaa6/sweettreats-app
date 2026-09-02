@@ -388,6 +388,29 @@ class ItTrackerTest extends TestCase
         }
     }
 
+    /** Alur dua orang: triase menunjuk PIC Reza → Reza sendiri yang menarik & menggerakkan. */
+    public function test_pic_reza_bisa_menarik_dan_menggerakkan_miliknya(): void
+    {
+        $reza = DB::table('users as u')->join('group_path as g', 'g.id', '=', 'u.group_id')
+            ->where('g.nama', 'IT')->where('u.status', 1)->value('u.id');
+        if (! $reza) $this->markTestSkipped('Tak ada user aktif ber-role IT di DB ini.');
+
+        $t = $this->tiketBaru();
+        $this->svc->triase($t, 'S', 2, 'P1', 'uji-headit', $reza);
+        $this->assertSame($reza, $t->fresh()->pic_user_id);
+
+        // Reza menarik tiketnya sendiri dari ANTRE → DEV lewat HTTP
+        $this->withSession($this->sesi('IT', $reza))
+            ->post('/it-tracker/tiket/' . $t->id . '/maju')
+            ->assertStatus(302);
+        $this->assertSame('DEV', $t->fresh()->fase);
+
+        // …tapi tetap tak boleh mengganti PIC (khusus Head IT)
+        $this->withSession($this->sesi('IT', $reza))
+            ->post('/it-tracker/tiket/' . $t->id . '/pic', ['pic_user_id' => $reza])
+            ->assertStatus(403);
+    }
+
     // ─── kendali negatif ───────────────────────────────────────────────────
 
     /** §14.6 no. 17 — fitur ini tidak mengubah cacah baris tabel lama mana pun. */

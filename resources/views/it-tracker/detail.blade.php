@@ -247,6 +247,19 @@
                     <div class="itk-row" style="grid-template-columns:1fr 1fr"><b>BOBOT</b><span style="text-align:right;font-weight:700">{{ $t->bobot ?? '—' }}</span></div>
                     <div class="itk-row" style="grid-template-columns:1fr 1fr"><b>DIBUAT</b><span style="text-align:right;font-weight:700">{{ $t->created_at?->translatedFormat('j M Y') }}</span></div>
                 </div>
+                @if ($peran === 'head_it' && $picOpsi->count() > 1 && ! in_array($t->fase, ['DITOLAK', 'SELESAI', 'TRIASE'], true))
+                    <form method="post" action="{{ route('it-tracker.pic', $t->id) }}"
+                          style="display:flex;gap:8px;align-items:center;margin-top:11px;border-top:1px solid #F1E5D5;padding-top:11px">
+                        @csrf
+                        <label class="itk-lbl" style="margin:0;flex:none">PIC</label>
+                        <select name="pic_user_id" style="flex:1;border:1px solid #E7D3BE;border-radius:9px;padding:6px 10px;font-family:inherit;font-size:12px;background:#fff">
+                            @foreach ($picOpsi as $p)
+                                <option value="{{ $p->id }}" {{ $t->pic_user_id === $p->id ? 'selected' : '' }}>{{ $p->nama }}</option>
+                            @endforeach
+                        </select>
+                        <button type="submit" class="itk-btn itk-btn-putih" style="padding:6px 11px;font-size:11.5px">Simpan</button>
+                    </form>
+                @endif
                 @if ($peran === 'head_it' && ! in_array($t->fase, ['DITOLAK', 'SELESAI'], true))
                     <details style="margin-top:11px;border-top:1px solid #F1E5D5;padding-top:11px">
                         <summary style="font-size:12px;font-weight:700;color:#5A3A22;cursor:pointer">Tunda / Tolak…</summary>

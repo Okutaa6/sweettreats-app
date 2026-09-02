@@ -130,17 +130,25 @@ class ItTrackerService
         });
     }
 
-    /** Triase (Head IT): jenjang + bobot + prioritas IT → ANTRE. */
-    public function triase(ItTicket $t, string $jenjang, int $bobot, string $prioritasIt, string $userId): void
+    /**
+     * Triase (Head IT): jenjang + bobot + prioritas IT (+ PIC opsional) → ANTRE.
+     * PIC di sini penting untuk alur dua orang: tanpa penunjukan, orang pertama
+     * yang menarik tiket otomatis jadi PIC — semua tiket jadi milik Ekky dan
+     * Reza tak pernah bisa menggerakkan apa pun (keputusan rencana §11 no. 8).
+     */
+    public function triase(ItTicket $t, string $jenjang, int $bobot, string $prioritasIt, string $userId, ?string $picUserId = null): void
     {
         if ($t->fase !== 'TRIASE') {
             throw new DomainException('Tiket ini tidak sedang menunggu triase.');
         }
 
-        DB::transaction(function () use ($t, $jenjang, $bobot, $prioritasIt, $userId) {
+        DB::transaction(function () use ($t, $jenjang, $bobot, $prioritasIt, $userId, $picUserId) {
             $t->jenjang      = $jenjang;
             $t->bobot        = $bobot;
             $t->prioritas_it = $prioritasIt;
+            if ($picUserId) {
+                $t->pic_user_id = $picUserId;
+            }
             $this->pindahFase($t, 'ANTRE', $userId);
         });
     }
