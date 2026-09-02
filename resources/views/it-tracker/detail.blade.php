@@ -216,7 +216,13 @@
                             <div class="itk-hint">Lampu menyala sendiri saat field-nya terisi — bukan untuk dicentang.</div>
                         @endif
                     @else
-                        <div class="itk-blokir">{{ $bolehGerak['why'] }}</div>
+                        {{-- penonton non-IT: jelaskan sedang menunggu siapa, jangan
+                             cuma "aksi ini milik IT" (menyesatkan di GOLIVE/EVALUASI
+                             yang justru menunggu pihak luar) --}}
+                        <div class="itk-blokir">
+                            {{ $wait['label'] ? $wait['label'] . ' · ' . $wait['days'] . ' hari.' : $bolehGerak['why'] }}
+                            {{ in_array($t->fase, ['GOLIVE'], true) ? 'Checklist Go-Live & ACC Business Owner datang di Fase 2.' : '' }}
+                        </div>
                     @endif
                 </div>
             @elseif ($t->fase === 'TRIASE' && $peran === 'head_it')

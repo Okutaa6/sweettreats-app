@@ -7,7 +7,8 @@
 .itk-surface { --itk-ink:#3B1500; --itk-muted:#7A5B43; --itk-soft:#9A7256; --itk-line:#EFE0CE;
   --itk-grafit:#2C2C29; --itk-grafit-2:#3A3A36; --itk-grafit-ink:#E3D8C9;
   --itk-card:#fff; --itk-bg:#FCF7F0; --itk-chip:#F1E9DF;
-  color:var(--itk-ink); padding:4px 2px 60px; }
+  color:var(--itk-ink); padding:6px 26px 60px; }
+@media (max-width: 767px) { .itk-surface { padding:6px 14px 60px; } }
 .itk-surface .num { font-variant-numeric:tabular-nums; }
 
 /* ── kepala halaman ── */

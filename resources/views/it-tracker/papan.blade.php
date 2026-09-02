@@ -96,6 +96,21 @@
     </div>
 
     {{-- Papan --}}
+    @php $totalKartu = collect($groups)->flatten(1)->sum(fn ($f) => $f['cards']->count()); @endphp
+    @if ($totalKartu === 0)
+        <div style="background:#fff;border:1px solid #EFE0CE;border-radius:18px;padding:44px;text-align:center;margin-bottom:14px">
+            <div style="font-size:15px;font-weight:800;color:#5A3A22">
+                {{ ($filter['q'] !== '' || $filter['macet'] || $filter['sumber'] || $filter['jenjang'])
+                    ? 'Tidak ada tiket yang cocok dengan filter ini.'
+                    : 'Papan masih kosong.' }}
+            </div>
+            <div style="font-size:13px;color:#9A7256;margin-top:6px">
+                {{ ($filter['q'] !== '' || $filter['macet'] || $filter['sumber'] || $filter['jenjang'])
+                    ? 'Bersihkan filternya untuk melihat semua tiket aktif.'
+                    : 'Permintaan dari Head masuk lewat formulir; kerjaan IT sendiri dicatat lewat tombol "Catat Inisiatif / Insiden" di kanan atas.' }}
+            </div>
+        </div>
+    @endif
     <div class="itk-board">
         @foreach ($groups as $nama => $fases)
             <div class="itk-kolom">
