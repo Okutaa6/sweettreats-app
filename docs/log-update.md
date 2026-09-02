@@ -7,6 +7,80 @@
 
 ---
 
+## 2026-09-02 — IT REQUEST TRACKER FASE 1: DIBANGUN & LULUS UJI (lokal; dev/prod belum)
+
+Kelanjutan entri rencana di bawah — hari yang sama, chat build. **Fase 1
+selesai dikoding, diaudit 8 sudut pandang, dan lulus 30/30 uji di lokal**
+(11 unit mesin fase + 19 feature ber-DB). Branch `feat/it-tracker` (worktree
+sendiri), BELUM di-merge, BELUM naik dev/prod.
+
+**Audit pasca-build menemukan & menutup 5 jalan buntu nyata** (masing-masing
+kini punya uji regresi):
+1. Tiket **inisiatif/insiden M/L macet PERMANEN di UAT** — `pemohon_user_id`
+   NULL tak pernah lolos pembanding, tak satu akun pun bisa memutuskan.
+   Kini: tiket tanpa pemohon diputuskan Head IT.
+2. **Gerbang DEV→UJI/UAT jenjang M/L tak pernah bisa terbuka** — tak ada
+   satu pun penulis `dikonfirmasi_at`. Kini: panel FRM-IT-03 + tombol
+   "Benar, ini yang kukerjakan — konfirmasi" di detail (rute `/konfirmasi`).
+3. IT memilih "Permintaan" di form → **selalu gagal validasi** pada field yang
+   tak dirender. Kini: opsi itu dihapus — permintaan memang harus diketik
+   pemohonnya sendiri (itu tujuan sistemnya).
+4. **Insiden dipaksa mengarang prosa di tengah kebakaran** — padahal §3 bilang
+   "formulir diisi menyusul". Kini: insiden cukup judul + jenjang.
+5. `parkir()` bisa **menimpa alasan penolakan** (DITOLAK→DITUNDA→hidup lagi)
+   dan memarkir tiket SELESAI. Kini: hanya tiket aktif; tunda/tolak/buka-lagi
+   juga tercatat ke `audit_log` (alasan tunda tak hilang saat dibuka lagi).
+Plus pagar ANTRE-tanpa-jenjang (pathFor(null) jatuh ke jalur L = memotong
+triase), filter papan kini bisa digabung (dulu tiap chip menghapus filter
+lain), catatan-S dipagari ke DEV saja, dan panggilan berat papan/detail/store
+dipangkas (COUNT ber-indeks, muat relasi hanya tiket aktif).
+
+**Yang dibangun (rencana §14.5 Fase 1):**
+
+- **7 tabel** (`database/sql/2026_09_02_it_tracker_core.sql`, idempoten):
+  `it_ticket` (prioritas_pemohon ≠ prioritas_it — dua kolom, sengaja),
+  `it_ticket_fase` (riwayat fase; "berapa hari menunggu" DIHITUNG dari
+  `masuk_at`, tak pernah disimpan), `it_form` (payload JSON FRM-IT-01..07),
+  `it_fr` / `it_test_case` / `it_temuan` (dibaca gerbang — UI-nya Fase 2),
+  `it_counter` (nomor `IT-2026-001` atomik ala `rop_counter`).
+- **Mesin fase** `app/Services/ItTracker/PhaseEngine.php` — terjemahan SETIA
+  `it-store.js` handoff: `pathFor` (S/M/L → 2/5/7 fase), `waitOf` (memanas
+  3/7 hari HANYA bila penunggu di luar IT — kendali negatif: 30 hari di DEV
+  tetap heat 0, terbukti di uji), `queuePos`, `gateInfo` (tombol mati menyebut
+  field yang kurang, pola P3), `PRA`/`PASCA` Go-Live.
+- **Layar**: Papan Antrean (panel "Beban IT saat ini" 5-detik + kalimat
+  konsekuensi "antre di belakang N" + filter macet/sumber/jenjang + parkiran
+  ditunda-beralasan), Halaman Permintaan Head (form Kelas A, identitas otomatis
+  dari akun; merangkap pencatat inisiatif/insiden untuk IT), Detail tiket
+  (rel fase, FRM-IT-01 baca-saja, riwayat fase, prioritas duo, gerbang).
+  Zona GRAFIT via body-class `zona-it`; CSS `it-tracker.sweettreats.css`.
+- **Akses**: section root "IT" + node `link='it-tracker'`
+  (`2026_09_02_it_tracker_access.sql`) — segmen-1 baru, tanpa node RBAC
+  memantulkan semua orang (302). Grant: IT berdua, Executive, Konsultan*,
+  Finance (Della), Head Marketing (Yovan), admin. Gerbang tulis DI CONTROLLER:
+  triase hanya Head IT (Reza dicoba → 403, diuji), Reza hanya menggerakkan
+  tiket PIC-nya di DEV/UJI, UAT hanya pemohon, Head hanya melihat miliknya +
+  ringkasan beban.
+
+**Uji terima §14.6**: 13 dari 18 poin tertutup + 6 uji regresi audit (semua poin mesin fase, akses,
+riwayat, kendali negatif #17 — cacah `users`/`att_day`/`rop_requests`/
+`omnicare_commission` tak berubah). Sisa 5 poin = Kelas B & ekspor (#14-16)
+serta gerbang penuh berbasis formulir — itu Fase 2. `access:rebuild` sesudah
+SQL sudah dijalankan (#18).
+
+**⚠️ Temuan penting di luar fitur:** kueri massal `information_schema.tables`
+ber-`data_length` (dipakai `Schema::hasTable()` Laravel) **membunuh mysqld
+lokal** — terbukti berulang; per-tabel `SHOW TABLE STATUS` aman, bulk crash.
+Jangan pakai `hasTable()` di test/kode yang jalan di lokal; pakai
+`SHOW TABLES LIKE`. MariaDB lokal juga sempat dimatikan/dinyalakan pihak lain
+di tengah sesi (mesin dipakai bersama).
+
+**Langkah berikutnya:** review Ekky (kerja dibiarkan uncommitted di worktree
+`sweettreats-it-tracker` sesuai alur review fase) → commit → uji dev → dipakai
+nyata 2 minggu oleh Ekky+Reza sebelum Fase 2 dimulai (syarat rencana §14.5).
+
+---
+
 ## 2026-09-02 — IT REQUEST TRACKER: pemetaan + desain + rencana build (belum dikoding)
 
 Fitur baru, belum ada satu baris kode pun. Yang selesai hari ini adalah

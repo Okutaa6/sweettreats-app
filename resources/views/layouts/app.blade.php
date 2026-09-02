@@ -101,7 +101,9 @@
     // shell tetap cokelat. CSS: assets/css/zona.css.
     $zonaFinance = in_array($currentSegment, ['finance', 'report', 'reconcile', 'komisi-dokter'], true) ? ' zona-finance' : '';
     // WiFi Cabang = domain IT walau path-nya masih absensi/wifi (menu sudah di seksi IT).
-    $zonaIt = ($currentSegment === 'absensi' && request()->segment(2) === 'wifi') ? ' zona-it' : '';
+    // it-tracker = IT Request Tracker (zona grafit, keputusan desain 2026-09-02).
+    $zonaIt = (($currentSegment === 'absensi' && request()->segment(2) === 'wifi')
+        || $currentSegment === 'it-tracker') ? ' zona-it' : '';
 
     // Gerbang sopan (peta-tema §5): halaman desktop-first dibuka di HP →
     // pesan ramah + "Lanjut lihat". Halaman mobile-ready TIDAK masuk daftar
@@ -111,7 +113,7 @@
         'finance', 'report', 'reconcile', 'komisi-dokter',          // Finance
         'setkesehatan', 'setusermanagement', 'setgroup', 'setaccess',
         'setsystemprofile', 'auditlog',                             // Pusat Akun / IT
-        'checklist', 'project-tracker',                             // ops desktop
+        'checklist', 'project-tracker', 'it-tracker',               // ops desktop
         'rawreservation', 'reservasicabang', 'rawcustomer', 'rawdoctor',
         'rawdocservice', 'rawbranch', 'complaint',                  // CRUD
         'sales-dashboard', 'marketing-dashboard', 'konten-pillar', 'ep-konten',

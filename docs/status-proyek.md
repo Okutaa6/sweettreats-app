@@ -39,6 +39,21 @@
 > `2400896`, tak ada lagi cabang prod terpisah. Peringatan lama "jangan deploy
 > main ke prod" **sudah TIDAK berlaku** — sekarang justru `main` yang benar.
 >
+> ✅ **Sisipan 2026-09-02 — IT REQUEST TRACKER FASE 1 DIBANGUN + DIAUDIT, lulus
+> 30/30 uji lokal** (branch `feat/it-tracker`, worktree sendiri; BELUM
+> commit/dev/prod — menunggu review Ekky). Audit 8-sudut menutup 5 jalan buntu
+> (deadlock UAT tiket tanpa pemohon; gerbang DEV M/L tanpa penulis
+> `dikonfirmasi_at`; form IT "Permintaan" selalu gagal; insiden dipaksa prosa;
+> parkir menimpa alasan tolak) — semuanya kini ber-uji-regresi. Papan antrean + panel "Beban IT" 5-detik + formulir
+> permintaan Head + triase + "menunggu siapa berapa hari" (memanas HANYA bila
+> penunggu di luar IT; 30 hari di DEV tetap dingin — diuji). 7 tabel `it_*`,
+> mesin fase = terjemahan setia `it-store.js`, nomor `IT-2026-001` atomik.
+> Naik dev = 2 SQL (`2026_09_02_it_tracker_core+access.sql`) + `access:rebuild`
+> + deploy penuh (class baru) + rsync CSS `it-tracker.sweettreats.css`.
+> ⚠️ Pelajaran mesin lokal: `Schema::hasTable()` Laravel (kueri massal
+> information_schema ber-data_length) MEMBUNUH mysqld XAMPP — pakai
+> `SHOW TABLES LIKE`; per-tabel `SHOW TABLE STATUS` aman.
+>
 > ✅ **Sisipan 2026-09-01 — KONSULTAN + RESTRUKTURISASI ROLE NAIK PROD**
 > (`c28b665`). Gerbong yang tertahan sejak 21 Agustus akhirnya naik: tiga role
 > **Konsultan Finance/IT/Marketing**, role **Koordinator GS**, bagan pindah di
@@ -486,13 +501,18 @@ bukan symlink).
 - **Launch paket "Pengeluaran"**: petty cash sudah ada tapi **belum diadopsi
   siapa pun** (prod 0 transaksi nyata) — diluncurkan bareng ROP ke Finance +
   para head sebagai satu paket, butuh sosialisasi/demo.
-- **IT Request Tracker** (dipetakan + didesain 2026-09-02, `rencana-it-tracker.md`
-  §14 = rencana build): tiket permintaan IT dengan fase S/M/L dan formulir
-  FRM-IT-01..07. Kunci desainnya: **formulir Kelas B (03/04/06) TERISI SENDIRI**
-  dari git dan hasil uji — kalau dibuat formulir kosong untuk diketik ulang,
-  sistemnya mati dalam dua minggu. Papan hanya memanas untuk tunggu **di luar
-  IT** (tiket 30 hari di DEV tetap dingin). Belum ada kode; chat build terpisah,
-  Fase 1 = papan + FRM-IT-01.
+- **IT Request Tracker** (`rencana-it-tracker.md` §14): tiket permintaan IT
+  dengan fase S/M/L dan formulir FRM-IT-01..07. Kunci desainnya: **formulir
+  Kelas B (03/04/06) TERISI SENDIRI** dari git dan hasil uji — kalau dibuat
+  formulir kosong untuk diketik ulang, sistemnya mati dalam dua minggu. Papan
+  hanya memanas untuk tunggu **di luar IT** (tiket 30 hari di DEV tetap dingin).
+  **FASE 1 SELESAI DIKODING 2026-09-02** di branch `feat/it-tracker` (worktree
+  sendiri), lulus 25/25 uji lokal (mesin fase, gerbang, akses per peran,
+  kendali negatif): 7 tabel `it_*`, PhaseEngine (terjemahan it-store.js),
+  papan antrean + panel beban 5-detik, form permintaan Head, triase, detail;
+  zona grafit, segmen `/it-tracker` ber-node RBAC sendiri. Menunggu review
+  Ekky (belum di-commit) → dev → dipakai nyata 2 minggu sebelum Fase 2
+  (Kelas B + `it:sync-git` + ekspor + tujuh formulir penuh).
 
 ### Di-PAUSE (sengaja, jangan dikira hilang)
 - **Integrasi Accurate penuh** (pull 6 buku + push engine + 5 halaman laporan
