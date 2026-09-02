@@ -7,6 +7,37 @@
 
 ---
 
+## 2026-09-03b — IT TRACKER: demo E2E 4 persona + PENUNJUKAN PIC (gerbong `2eb…`)
+
+Tindak lanjut review Ekky (screenshot HP: konten mentok kiri-kanan) + sesi
+demo end-to-end memerankan 4 pengguna di dev. Empat perbaikan naik dev:
+
+1. **Padding surface** 2px → 26px (14px di HP) — temuan Ekky.
+2. **Penunjukan PIC** — lubang alur dua-orang terakhir dari audit: tanpa ini,
+   penarik pertama otomatis jadi PIC sehingga semua tiket jadi milik Ekky dan
+   Reza terkunci selamanya (keputusan §11 no. 8 mati). Kini: modal triase
+   punya pilihan "dikerjakan siapa", Head IT bisa ganti PIC di detail, dan
+   Reza boleh MENARIK tiket yang ditunjuk miliknya dari Antre.
+3. **Keadaan papan kosong** ber-penjelasan (dulu 4 kolom kosong bisu).
+4. **Pesan gerbang untuk non-IT** — Executive di tiket GOLIVE dulu diberi tahu
+   "aksi ini milik IT" padahal yang ditunggu justru dia; kini menyebut siapa
+   yang ditunggu + berapa hari.
+
+**Demo E2E di dev (akun sekali-pakai, dibersihkan):** Yovan mengajukan M+S →
+Ekky triase (S ditunjuk ke Reza) → Reza menarik, mencatat, menutup S
+sendirian → jalur M: gerbang Analisis menolak sambil menyebut yang kurang →
+FR diisi → Ekky serahkan ke Reza via ganti-PIC → Reza konfirmasi FRM-IT-03 →
+UAT → Yovan setuju dari banner "bola di tanganmu" → GOLIVE → Robi (Executive)
+membuka detail dan mendapat penjelasan yang benar. Riwayat fase utuh di semua
+tiket. Uji lokal 31/31.
+
+**Batas Fase 1 yang disadari** (bukan bug): jalur M/L berhenti di gerbang
+Analisis tanpa UI tabel FR (02-ringkas), dan berhenti di GOLIVE tanpa
+checklist FRM-IT-06 — keduanya wilayah Fase 2; sampai itu ada, FR bisa diisi
+IT via DB/tinker atau tiket M dijalankan sebagai S.
+
+---
+
 ## 2026-09-03 — IT REQUEST TRACKER FASE 1 NAIK DEV: alur nyata + uji visual LULUS
 
 Lanjutan entri di bawah. `feat/it-tracker` (`8dfd6fb`) kini **LIVE di
