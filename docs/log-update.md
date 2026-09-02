@@ -7,6 +7,40 @@
 
 ---
 
+## 2026-09-03 — IT REQUEST TRACKER FASE 1 NAIK DEV: alur nyata + uji visual LULUS
+
+Lanjutan entri di bawah. `feat/it-tracker` (`8dfd6fb`) kini **LIVE di
+dev.sweettreats.id**: 2 SQL jalan (7 tabel + grant 12 role termasuk
+Konsultan*), `access:rebuild` 22 group, beranda 200 di URL-nya sendiri,
+`/it-tracker` tanpa login memantul ke `/signin`.
+
+**Uji di dev, tiga lapis:**
+1. **phpunit 30/30 di server dev** (dev-deps dipasang sementara, dijalankan
+   per potongan <17 uji, lalu `--no-dev` dikembalikan).
+2. **Alur nyata via HTTP** dengan 3 akun uji sekali-pakai (Head IT / IT /
+   Head Marketing): Head dipantulkan ke halamannya → ajukan → `IT-2026-001`
+   terbit dengan kalimat antre; Head IT triase M → tarik → gerbang Analisis
+   MENOLAK sambil menyebut 3 field kurang → FR diisi → Development →
+   konfirmasi FRM-IT-03 → UAT; Head IT coba buka gerbang UAT → 403; pemohon
+   melihat banner "bola di tanganmu" → setuju → GOLIVE. Reza: triase 403,
+   maju tiket bukan miliknya 403, tapi insiden yang DIA catat (cukup
+   judul+jenjang, langsung Development) bisa dia beri catatan & tutup sendiri.
+   Tunda beralasan tampil di parkiran; buka-lagi tiket belum-triase kembali
+   ke TRIASE; riwayat fase utuh (6 baris, tepat 1 berjalan); audit_log terisi.
+   Semua akun & tiket uji dibersihkan, `it_counter` direset — tiket nyata
+   pertama akan bernomor IT-2026-001.
+3. **Uji visual** (screenshot headless 3 layar, kode identik dev): zona
+   grafit hidup, menu sidebar "IT → IT Tracker" tampil ber-ikon FA5, panel
+   beban terbaca 5 detik, DEV 30 hari tetap dingin sementara UAT 4 hr kuning
+   dan GOLIVE 8 hr merah, parkiran + legenda tampil. 1 temuan diperbaiki:
+   kolom kiri detail kosong tanpa penjelasan untuk tiket tanpa formulir
+   (insiden) → kini ber-placeholder (`8dfd6fb`).
+
+**Prod belum.** Berikutnya: dipakai nyata Ekky+Reza (backlog ±10 item)
+sebelum Fase 2.
+
+---
+
 ## 2026-09-02 — IT REQUEST TRACKER FASE 1: DIBANGUN & LULUS UJI (lokal; dev/prod belum)
 
 Kelanjutan entri rencana di bawah — hari yang sama, chat build. **Fase 1

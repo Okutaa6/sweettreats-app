@@ -39,12 +39,13 @@
 > `2400896`, tak ada lagi cabang prod terpisah. Peringatan lama "jangan deploy
 > main ke prod" **sudah TIDAK berlaku** — sekarang justru `main` yang benar.
 >
-> ✅ **Sisipan 2026-09-02 — IT REQUEST TRACKER FASE 1 DIBANGUN + DIAUDIT, lulus
-> 30/30 uji lokal** (branch `feat/it-tracker`, worktree sendiri; BELUM
-> commit/dev/prod — menunggu review Ekky). Audit 8-sudut menutup 5 jalan buntu
-> (deadlock UAT tiket tanpa pemohon; gerbang DEV M/L tanpa penulis
-> `dikonfirmasi_at`; form IT "Permintaan" selalu gagal; insiden dipaksa prosa;
-> parkir menimpa alasan tolak) — semuanya kini ber-uji-regresi. Papan antrean + panel "Beban IT" 5-detik + formulir
+> ✅ **Sisipan 2026-09-03 — IT REQUEST TRACKER FASE 1 LIVE DI DEV** (`8dfd6fb`,
+> `feat/it-tracker`): 2 SQL + access:rebuild jalan di dev, 30/30 uji ULANG di
+> server dev, alur nyata ditelusuri via HTTP dengan 3 akun uji (semua gerbang
+> & pagar peran terbukti; akun/tiket uji dibersihkan, counter direset), uji
+> visual 3 layar lulus (DEV 30 hr dingin · UAT 4 hr kuning · GOLIVE 8 hr
+> merah). Audit 8-sudut sebelumnya menutup 5 jalan buntu ber-uji-regresi.
+> **Prod belum** — dipakai nyata dulu oleh Ekky+Reza sebelum Fase 2. Papan antrean + panel "Beban IT" 5-detik + formulir
 > permintaan Head + triase + "menunggu siapa berapa hari" (memanas HANYA bila
 > penunggu di luar IT; 30 hari di DEV tetap dingin — diuji). 7 tabel `it_*`,
 > mesin fase = terjemahan setia `it-store.js`, nomor `IT-2026-001` atomik.
