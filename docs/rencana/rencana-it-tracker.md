@@ -686,3 +686,78 @@ di-commit; buat worktree sendiri, SALIN vendor/ dan .env.
 
 Selesai: entri docs/log-update.md + salin ke Google Drive + catat ke memori.
 ```
+
+### 14.10 Prompt chat build — FASE 2a (jalan sekarang, tak menunggu desain)
+
+> Ditulis 3 Sep. **Fase 2 dipecah dua.** Pemisahnya satu pertanyaan: *siapa
+> yang mengetik?*
+
+| | Isi | Desain | Beban ketik baru |
+|---|---|---|---|
+| **2a** | FRM-IT-06 Checklist Go Live · ekspor FRM-IT-01 · `it:sync-git` + `it_git_ref` | ✅ sudah ada (paket ronde 1, screenshot 03 & 06, ber-badge FASE 2) | **nol** — semuanya Kelas B, terisi sendiri |
+| **2b** | tabel FR (FRM-IT-02) · test case & temuan (FRM-IT-04) · skenario UAT (FRM-IT-05) | ❌ menunggu `design-brief-it-tracker-ronde2.md` | manusia mengetik |
+
+Urutan ini **disengaja, bukan sekadar mengisi waktu**: ekspor FRM-IT-01 memaksa
+infrastruktur ekspor dibangun sekali, lalu 02/04/06 tinggal menumpang. Dibalik,
+mekanisme yang sama lahir tiga kali dalam bentuk berbeda. 2a juga duduk di
+GOLIVE dan lintas-fase, sedangkan 2b di ANALISIS/UJI/UAT — kopelnya rendah,
+jadi tak ada risiko kerja ulang saat desain 2b turun.
+
+```
+Lanjutkan proyek SweetTreats lewat memori. Chat ini melanjutkan IT Request
+Tracker ke FASE 2a. Fase 1 sudah LIVE DI DEV dan dipakai Ekky & Reza.
+Lokal & dev; prod HANYA kalau Ekky menyebut "prod".
+
+BACA DULU:
+· docs/rencana/rencana-it-tracker.md    <- paragraf 14, terutama 14.3 dan 14.10
+· memori project_it_tracker
+· Downloads\design_handoff_it_tracker\  <- screenshot 03 & 06 = acuan visual 2a
+
+RUANG LINGKUP 2a, hanya tiga:
+1. FRM-IT-06 Checklist Go Live  — acuan 03-checklist-golive.png
+2. Ekspor FRM-IT-01             — acuan 06-ekspor-frm-it-01.png
+3. it:sync-git + tabel it_git_ref (Kelas B)
+
+BATAS KERAS — JANGAN dikerjakan di chat ini:
+tabel FR / 02-ringkas · test case · temuan · skenario UAT.
+Keempatnya SEDANG DIDESAIN (docs/brief-desain/design-brief-it-tracker-ronde2.md).
+Jangan mengarang bentuknya. Fase 1 kemarin sudah terlanjur melewati batas fase
+— membangun PhaseEngine tujuh fase yang menurut 14.5 milik Fase 2. Hasilnya
+bagus, tapi jangan diulang di sini: yang belum didesain justru bagian dengan
+risiko adopsi tertinggi, dan kalau terlanjur dikoding, versi koding yang menang.
+Kalau sebuah gerbang butuh data dari formulir 2b, BIARKAN gerbang itu tertutup
+dengan pesan yang jelas. Jangan bikin formulir daruratnya.
+
+YANG PALING MUDAH SALAH:
+1. Kelas B = TERISI SENDIRI, IT hanya mengonfirmasi. Kalau FRM-IT-06 jadi
+   formulir kosong untuk diketik ulang, sistemnya mati dalam dua minggu — itu
+   seluruh alasan fitur ini dibangun, bukan detail gaya.
+2. it:sync-git itu perintah artisan. JANGAN shell `git log` dari request web.
+3. Checklist pasca Go-Live WAJIB memuat "curl beranda 200 + URL akhir".
+   laravel.log nol galat TIDAK berarti sehat — prod pernah mati 6 menit dengan
+   log bersih, karena gagalnya sebelum Laravel boot.
+4. Ekspor FRM-IT-01 menampilkan identitas pemohon TERISI dengan nama bagian
+   resmi templat, walaupun layarnya tak pernah menanyakannya. Konsultan IT &
+   Management harus mengenali dokumennya.
+
+UJI TERIMA: paragraf 14.6 nomor 14-16, plus dua kendali negatif —
+cacah baris tabel lama tak berubah, dan tiket 30 hari di DEV tetap heat=0.
+
+LINGKUNGAN:
+· Branch feat/it-tracker, worktree Downloads\sweettreats-it-tracker.
+  Cek HEAD sendiri (git log -1); jangan percaya hash yang tertulis di dokumen,
+  cepat basi.
+· dev = SATU working copy bersama DAN SEDANG DIPAKAI ORANG. Di sana ada
+  untracked milik chat Alur Persetujuan. Jalankan
+  `git status --porcelain | grep "^??"` DULU. Pindah branch pakai checkout
+  TANPA reset --hard — reset menimpa untracked tanpa peringatan, sedangkan
+  checkout MENOLAK; penolakan itu pengaman, jangan diakali.
+· JANGAN `php artisan db:show`, JANGAN Schema::hasTable() — keduanya membunuh
+  mysqld lokal (segfault, dan mysql_error.log tak mencatatnya). Pakai
+  SHOW TABLES LIKE.
+· phpunit mati di lebih dari sekitar 17 uji ber-DB per proses → jalankan PER KELAS.
+· Naik dev: SQL → php artisan access:rebuild → deploy penuh (ada class baru)
+  → rsync CSS.
+
+Selesai: entri docs/log-update.md + salin ke Google Drive + catat ke memori.
+```
