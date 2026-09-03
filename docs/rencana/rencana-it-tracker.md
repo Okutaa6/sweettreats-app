@@ -997,3 +997,56 @@ kelimanya **utuh di snapshot `06905c4`** — tak ada yang hilang.
 ✅ Diperiksa 4 Sep: `public_path()` prod benar sendiri
 (`AppServiceProvider::usePublicPath($publicHtml)`), lampiran ROP nyata memang
 mendarat di `public_html/uploads/rop/`. Pola `RopAttachment` aman dipakai ulang.
+
+### 14.16 Paraf: jalan pintas bertanda — dan kesiapan demo dev (4 Sep)
+
+**KEPUTUSAN EKKY: Head IT boleh MELEWATI paraf Business Owner, tapi TERCATAT.**
+Alasannya dinyatakan sendiri: menunggu Konsultan atau Robi memakan waktu,
+padahal kepentingan mereka tak sedalam Head IT. Ini **bukan** "Head IT boleh
+memparaf" — bentuknya berbeda dan perbedaannya penting: yang tercatat adalah
+*pelewatan*, bukan *persetujuan*.
+
+Spesifikasi yang harus dibangun:
+- Tombolnya **bukan** tombol paraf. Labelnya menyatakan apa adanya, mis.
+  *"Teruskan tanpa paraf BO"*.
+- **Alasan satu baris WAJIB** — murah, dan membuat tindakannya disengaja.
+- Yang tersimpan: siapa · kapan · alasan.
+- **Penandanya ikut sampai Go Live dan tercetak di ekspor**, mis.
+  *"Diteruskan Head IT tanpa paraf Business Owner · 4 Sep 14:20 · <alasan>"*.
+  Jangan tampil seperti paraf biasa — kalau menyamar jadi paraf, seluruh
+  gunanya hilang.
+- Tidak ada masa tunggu (Ekky menolak friksi itu). Kejujuran dijaga oleh
+  penanda yang tak bisa disembunyikan, bukan oleh penundaan.
+
+⛔ **TEMUAN yang mengubah artinya — `Admin*` ADA di `ROLE_PENGAWAS`.**
+Terukur 4 Sep: `ROLE_PENGAWAS` = Executive · Consultant · Konsultan
+IT/Finance/Marketing · **Admin General · Admin Backup · Admin**. Dan di dev
+**`Admin General` adalah akun `Admin_Ekky`** (ekky1326@gmail.com).
+Artinya jalan pintas itu **sudah ada hari ini, tanpa catatan**: menulis
+analisis sebagai Head IT, lalu berpindah akun dan memparaf sebagai Admin_Ekky.
+Kode memeriksa **peran, bukan orang**, jadi tak ada yang menahannya dan tak
+ada jejaknya.
+**Rekomendasi HUB: keluarkan `Admin*` dari `ROLE_PENGAWAS`** bersamaan dengan
+membangun jalan pintas bertanda. Kalau pintu sunyi dibiarkan terbuka, pintu
+bertanda tak akan pernah dipakai. **Belum diputuskan Ekky.**
+
+#### Kesiapan demo end-to-end di dev
+
+✅ Siap: dev bersih (**0 tiket**, `it_counter` kosong → tiket pertama
+`IT-2026-001`); Fase 1+2a+2b live (`22c2348`, 78 uji); pemain lengkap —
+pemohon **Yovan** (creative@stdc.id) / **Yovanka**, IT **Reza**,
+BO **Robi** (Executive) / **Hari** (Konsultan Marketing).
+
+⛔ **Penghalang 1 — Ekky tak punya akun Head IT di dev.** `Admin_Ekky`
+bergolongan **Admin General**, yang dibaca kode sebagai **pengawas/BO**, bukan
+Head IT. Dengan akun itu **triase tidak bisa dilakukan**. Head IT di dev
+tercatat atas nama **Muhamad Ikhsan**. Pilihan: beri `Admin_Ekky` peran Head IT
+di dev, atau demo memakai akun Ikhsan.
+
+⚠️ **Penghalang 2 — tembok BO muncul DUA kali**, bukan sekali: paraf 02 di
+ANALISIS→Development, **dan** ACC FRM-IT-06 di Go Live yang sengaja **tak bisa
+dibubuhkan Head IT sekalipun**. Robi/Hari harus siap di dua momen — atau jalan
+pintas bertanda dibangun lebih dulu.
+
+⚠️ **Penghalang 3** — jalan pintas bertanda belum dibangun (baru diputuskan
+hari ini).
