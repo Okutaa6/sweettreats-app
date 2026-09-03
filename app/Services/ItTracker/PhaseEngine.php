@@ -239,7 +239,13 @@ class PhaseEngine
                 $checks[] = ['t' => 'ruang lingkup termasuk / tidak termasuk (02 penuh)',
                              'ok' => ! empty($F['lingkup']) && trim($F['lingkup']) !== ''];
             }
-            $checks[] = ['t' => 'paraf satu Business Owner', 'ok' => ! empty($F['paraf'])];
+            // Jalan pintas BERTANDA (§14.16): Head IT boleh meneruskan tanpa paraf,
+            // lampu menyala tapi TEKSNYA berubah — pelewatan tak boleh menyamar jadi paraf.
+            if (empty($F['paraf']) && ! empty($F['diteruskan'])) {
+                $checks[] = ['t' => 'diteruskan Head IT tanpa paraf BO', 'ok' => true];
+            } else {
+                $checks[] = ['t' => 'paraf satu Business Owner', 'ok' => ! empty($F['paraf'])];
+            }
 
             $m = self::kurangDari($checks);
             return ['kind' => 'advance', 'next' => 'DEV', 'label' => 'Buka gerbang → Development', 'ok' => ! $m, 'missing' => $m, 'checks' => $checks, 'actor' => 'it'];

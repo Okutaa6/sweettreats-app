@@ -479,3 +479,14 @@ body.zona-it .itk-kolom { background:#ECEAE4; border-color:#DDD9CF; }
 .itk-doc-lamp-meta,.itk-doc-lamp-url{font-size:10.5px;color:#55534E;word-break:break-all}
 .itk-doc-lamp-img{max-width:100%;max-height:260px;border:1px solid #DDD5C8;border-radius:6px;margin-top:4px}
 @media print{.itk-doc-lamp-img{max-height:200px;page-break-inside:avoid}}
+
+/* §14.16 jalan pintas paraf BERTANDA — penanda tak boleh menyamar jadi paraf, tak boleh disembunyikan */
+.itk-paraf-lewat{font-size:11.5px;font-weight:700;color:#8E3B2C;background:#FBE3DE;border:1px dashed #E0A090;border-radius:8px;padding:5px 10px;line-height:1.45}
+.itk-paraf-lewat i,.itk-lewat-banner i,.itk-lewat-chip i{margin-right:4px;color:#C0392B}
+.itk-lewat-banner{background:#FBE3DE;color:#8E3B2C;border:1px dashed #E0A090}
+.itk-lewat-susul{display:inline-block;margin-left:8px;font-size:11px;font-weight:800;color:#2F8E55;background:#E3F4E8;border-radius:6px;padding:1px 7px}
+.itk-lewat-chip{font-size:10.5px;font-weight:800;color:#8E3B2C;background:#FBE3DE;border:1px dashed #E0A090;border-radius:6px;padding:2px 7px;white-space:nowrap}
+.itk-lewat-box summary{color:#8E3B2C}
+.itk-btn-oranye{background:#D9772B;color:#fff;border-color:#D9772B}
+.itk-btn-oranye:hover{background:#B5601F}
+.itk-doc-lewat{display:inline-block;margin-top:4px;font-weight:700;color:#8E3B2C;border:1px dashed #C0392B;border-radius:5px;padding:3px 8px}

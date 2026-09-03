@@ -207,8 +207,19 @@
         <div class="itk-paraf">
             <span class="itk-lbl" style="margin:0">PARAF</span>
             <span class="itk-paraf-it">IT — tombol gerbang di "Langkah berikutnya" (kanan) adalah parafnya</span>
+            @php $lewat = $F['diteruskan'] ?? null; @endphp
+            @if ($lewat)
+                {{-- PELEWATAN bertanda (§14.16) — bukan paraf, dan tak boleh tampak seperti paraf.
+                     Tetap tampil walau BO memparaf sesudahnya (keduanya tersimpan). --}}
+                <span class="itk-paraf-lewat num"><i class="fa fa-exclamation-triangle" aria-hidden="true"></i>
+                    Diteruskan {{ $lewat['oleh'] }} (Head IT) <strong>tanpa paraf Business Owner</strong> · {{ \Carbon\Carbon::parse($lewat['at'])->translatedFormat('j M H:i') }} · {{ $lewat['alasan'] }}</span>
+            @endif
             @if ($paraf)
                 <span class="itk-paraf-ok num">✓ Diparaf {{ $paraf['oleh'] }} (Business Owner) · {{ \Carbon\Carbon::parse($paraf['at'])->translatedFormat('j M H:i') }}</span>
+            @elseif ($lewat && $bolehParafBo)
+                <form method="post" action="{{ route('it-tracker.paraf', $t->id) }}">@csrf
+                    <button type="submit" class="itk-btn itk-btn-hijau" style="padding:6px 12px;font-size:11.5px">Paraf sebagai Business Owner (menyusul)</button></form>
+            @elseif ($lewat)
             @elseif ($bolehParafBo)
                 @php $kurangParaf = array_values(array_map(fn ($c) => $c['t'], array_filter($gate['checks'] ?? [], fn ($c) => ! $c['ok'] && $c['t'] !== 'paraf satu Business Owner'))); @endphp
                 @if ($kurangParaf)
@@ -223,6 +234,21 @@
                 <span class="itk-paraf-wait">Menunggu paraf satu Business Owner (Executive / Konsultan)</span>
             @endif
         </div>
+
+        @if ($bolehTeruskan ?? false)
+            {{-- Jalan pintas BERTANDA (§14.16): BO lambat → Head IT boleh MELEWATI, tapi
+                 tercatat & terlihat sampai Go Live + ekspor. Bukan tombol paraf. Alasan wajib. --}}
+            <details class="itk-naik itk-lewat-box">
+                <summary>Business Owner lambat merespons? Teruskan tanpa paraf BO — tercatat</summary>
+                <form method="post" action="{{ route('it-tracker.teruskan', $t->id) }}" class="itk-naik-form" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                    @csrf<input type="hidden" name="gerbang" value="02">
+                    <input class="itk-cell" name="alasan" required minlength="10" maxlength="300" style="flex:1;min-width:260px"
+                           placeholder="alasan satu baris, wajib — mis. Robi cuti sampai 12 Sep, pemohon menunggu">
+                    <button type="submit" class="itk-btn itk-btn-oranye" style="padding:6px 12px;font-size:11.5px">Teruskan tanpa paraf BO</button>
+                    <span class="itk-hint" style="margin:0;flex-basis:100%">Ini <strong>pelewatan, bukan paraf</strong>: penandanya (siapa · kapan · alasan) ikut sampai Go Live, tampil di papan, dan tercetak di ekspor. BO masih bisa memparaf menyusul — jejaknya tetap.</span>
+                </form>
+            </details>
+        @endif
     </div>
 </div>
 

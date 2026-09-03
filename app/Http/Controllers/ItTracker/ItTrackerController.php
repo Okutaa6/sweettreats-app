@@ -177,6 +177,9 @@ class ItTrackerController extends Controller
             // Fase 2b — siapa boleh apa di empat formulir (gerbang aslinya di controller)
             'bolehAnalisis' => $this->peran() === 'head_it' && $t->fase === 'ANALISIS',
             'bolehParafBo'  => $this->peran() === 'pengawas' && $t->fase === 'ANALISIS',
+            // jalan pintas bertanda: Head IT, di ANALISIS, selama belum ada paraf maupun pelewatan
+            'bolehTeruskan' => $this->peran() === 'head_it' && $t->fase === 'ANALISIS'
+                && empty($v['fr02']['paraf']) && empty($v['fr02']['diteruskan']),
             'bolehUji'      => $this->bolehGerakkan($t)['ok'] && $t->fase === 'UJI',
             // predikat yang SAMA dengan rute skenario() — jangan tampilkan formulir yang berujung 403
             'bolehSkenario' => $this->bolehTulisSkenario($t) && in_array($t->fase, ['DEV', 'UJI', 'UAT'], true),
@@ -572,6 +575,9 @@ class ItTrackerController extends Controller
                 'Pengguna & Proses Terdampak'       => $f1['terdampak'] ?? '—',
             ],
             'diterima' => $t->jenjang !== null,
+            // §14.16: penanda pelewatan paraf BO wajib tercetak di ekspor
+            'diteruskan' => optional($t->forms->firstWhere('kode', 'FRM-IT-02'))->payload['diteruskan'] ?? null,
+            'parafBo'    => optional($t->forms->firstWhere('kode', 'FRM-IT-02'))->payload['paraf'] ?? null,
         ]);
     }
 
@@ -691,6 +697,31 @@ class ItTrackerController extends Controller
         }
 
         return back()->with('success', $t->nomor . ' — diparaf sebagai Business Owner.');
+    }
+
+    /**
+     * Jalan pintas BERTANDA (§14.16): Head IT meneruskan gerbang 02 tanpa paraf BO.
+     * Bukan paraf — Reza (it_dev) 403, BO 403 (mereka punya tombol paraf sendiri).
+     */
+    public function teruskan(Request $request, int $id)
+    {
+        $this->pastikanHeadIt('Meneruskan tanpa paraf Business Owner hanya boleh dilakukan Head IT — dan tercatat.');
+        $t = ItTicket::findOrFail($id);
+
+        // validasi SESUDAH otorisasi; pesannya menyebut kenapa (P3)
+        $d = $request->validate(
+            ['alasan' => 'required|string|min:10|max:300', 'gerbang' => 'nullable|string|max:4'],
+            ['alasan.required' => 'Tulis alasan meneruskan tanpa paraf BO — alasan itulah yang tercetak di ekspor.',
+             'alasan.min'      => 'Alasan terlalu pendek — minimal 10 karakter, satu baris yang jujur (mis. "Robi cuti sampai 12 Sep").']
+        );
+
+        try {
+            $this->svc->teruskanTanpaBo($t, $d['gerbang'] ?? '02', $d['alasan'], $this->userId(), (string) session('name'));
+        } catch (DomainException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return back()->with('success', $t->nomor . ' — diteruskan TANPA paraf Business Owner; penandanya ikut sampai Go Live dan tercetak di ekspor.');
     }
 
     /** Naikkan/ubah jenjang dari Analisis (fase TIDAK berubah) — Head IT. */
@@ -1149,6 +1180,8 @@ class ItTrackerController extends Controller
             // Ronde 2: chip "⛓ menunggu IT-…" (hanya dep yang belum selesai) & "↳ dari IT-…"
             'deps'   => array_values(array_filter($v['deps'], fn ($n) => ($this->faseNomor[$n] ?? null) !== 'SELESAI')),
             'parent' => $v['parent'],
+            // penanda pelewatan paraf BO (§14.16) — chip di kartu, tak boleh disembunyikan
+            'diteruskan' => $v['fr02']['diteruskan'] ?? null,
             'tombol' => $tombol,
             'blokir' => $blokir,
             // kunci sortir

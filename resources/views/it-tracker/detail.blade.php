@@ -47,6 +47,15 @@
                     <span>Masuk fase ini {{ $t->fase_since->translatedFormat('j M Y H:i') }}</span>
                     @if (! empty($v['parent']))<span class="num" title="lingkaran tertutup: lahir dari tindak lanjut tiket lain">↳ Lahir dari {{ $v['parent']['id'] }} · {{ $v['parent']['via'] }}</span>@endif
                 </div>
+                @if (! empty($v['fr02']['diteruskan']))
+                    @php $lw = $v['fr02']['diteruskan']; @endphp
+                    {{-- Penanda pelewatan paraf BO (§14.16): di KEPALA tiket supaya ikut sampai Go Live
+                         dan tak bisa disembunyikan — bukan hanya di panel 02 --}}
+                    <div class="itk-banner itk-lewat-banner num"><i class="fa fa-exclamation-triangle" aria-hidden="true"></i>
+                        Diteruskan {{ $lw['oleh'] }} (Head IT) <strong>tanpa paraf Business Owner</strong> · {{ \Carbon\Carbon::parse($lw['at'])->translatedFormat('j M H:i') }} · {{ $lw['alasan'] }}
+                        @if (! empty($v['fr02']['paraf'])) <span class="itk-lewat-susul">BO memparaf menyusul {{ \Carbon\Carbon::parse($v['fr02']['paraf']['at'])->translatedFormat('j M H:i') }}</span>@endif
+                    </div>
+                @endif
                 @if (count($v['children']))
                     <div style="display:flex;align-items:center;gap:7px;margin-top:9px;flex-wrap:wrap">
                         <span style="font-size:11px;font-weight:800;color:#3F6BAF">{{ count($v['children']) }} fitur di dalam modul ini:</span>

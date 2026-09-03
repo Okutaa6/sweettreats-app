@@ -96,6 +96,11 @@
                     @else
                         <br><span style="color:#55534E">Jenjang {{ $t->jenjang }} · bobot {{ $t->bobot }} · prioritas IT {{ $t->prioritas_it }}</span>
                     @endif
+                    @if (! empty($diteruskan))
+                        {{-- §14.16: penanda pelewatan WAJIB tercetak — di sini dan di ekspor 02/06 kelak --}}
+                        <br><span class="itk-doc-lewat">⚠ Diteruskan {{ $diteruskan['oleh'] }} (Head IT) tanpa paraf Business Owner ·
+                            {{ \Carbon\Carbon::parse($diteruskan['at'])->translatedFormat('j M Y H:i') }} · {{ $diteruskan['alasan'] }}{{ ! empty($parafBo) ? ' · BO memparaf menyusul ' . \Carbon\Carbon::parse($parafBo['at'])->translatedFormat('j M Y H:i') : '' }}</span>
+                    @endif
                 </span>
             </div>
         </div>

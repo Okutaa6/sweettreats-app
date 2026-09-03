@@ -143,6 +143,7 @@
                                 {{-- Ronde 2: ketergantungan yang belum selesai & tiket asal --}}
                                 @if ($c['deps'])<span class="itk-dep-chip num" title="menunggu tiket lain"><i class="fa fa-link" aria-hidden="true"></i> menunggu {{ implode(', ', $c['deps']) }}</span>@endif
                                 @if ($c['parent'])<span class="itk-parent-chip num" title="lahir dari {{ $c['parent']['id'] }} · {{ $c['parent']['via'] }}">↳ dari {{ $c['parent']['id'] }}</span>@endif
+                                @if (! empty($c['diteruskan']))<span class="itk-lewat-chip" title="Diteruskan {{ $c['diteruskan']['oleh'] }} tanpa paraf Business Owner · {{ $c['diteruskan']['alasan'] }}"><i class="fa fa-exclamation-triangle" aria-hidden="true"></i> tanpa paraf BO</span>@endif
                             </div>
                             <div class="itk-wait {{ \App\Services\ItTracker\PhaseEngine::waitCls($w, $t->fase) }}">
                                 <i></i>

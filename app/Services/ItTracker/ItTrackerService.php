@@ -596,16 +596,17 @@ class ItTrackerService
         // menekan "Simpan" komponen/lingkup tanpa mengubah apa pun tak boleh
         // menggugurkan persetujuan (audit 3 Sep). Catatan dapur tak ikut dihitung.
         if ($hapusParaf && self::sidikIsi($lama) !== self::sidikIsi($p)) {
-            unset($p['paraf']);
+            // pelewatan bertanda (§14.16) gugur bersama paraf — isinya sudah bukan yang diteruskan
+            unset($p['paraf'], $p['diteruskan']);
         }
         $form->payload = $p;
         $form->save();
     }
 
-    /** Sidik isi FRM-IT-02 yang DILIHAT Business Owner — tanpa paraf & dapur. */
+    /** Sidik isi FRM-IT-02 yang DILIHAT Business Owner — tanpa paraf/pelewatan & dapur. */
     private static function sidikIsi(array $p): string
     {
-        unset($p['paraf'], $p['estimasi'], $p['risiko']);
+        unset($p['paraf'], $p['diteruskan'], $p['estimasi'], $p['risiko']);
         ksort($p);
 
         return json_encode($p, JSON_UNESCAPED_UNICODE);
@@ -615,12 +616,44 @@ class ItTrackerService
     public function hapusParafBo(ItTicket $t): void
     {
         $form = ItForm::where('ticket_id', $t->id)->where('kode', 'FRM-IT-02')->first();
-        if ($form && ! empty($form->payload['paraf'])) {
+        if ($form && (! empty($form->payload['paraf']) || ! empty($form->payload['diteruskan']))) {
             $p = $form->payload;
-            unset($p['paraf']);
+            unset($p['paraf'], $p['diteruskan']);
             $form->payload = $p;
             $form->save();
         }
+    }
+
+    /**
+     * Gerbang yang boleh DILEWATI Head IT tanpa paraf BO (§14.16/§14.19).
+     * '06' (ACC Go Live) SENGAJA tidak ada — menambahkannya = keputusan Ekky.
+     */
+    public const GERBANG_BOLEH_DITERUSKAN = ['02'];
+
+    /**
+     * Jalan pintas BERTANDA: Head IT meneruskan gerbang tanpa paraf Business
+     * Owner. Ini PELEWATAN, bukan paraf — fr02.paraf TIDAK PERNAH diisi dari sini;
+     * yang tersimpan terpisah: fr02.diteruskan = {oleh, oleh_id, at, alasan}.
+     * Alasan satu baris WAJIB (≥10 karakter) — murah, dan membuat tindakannya
+     * disengaja. Tanpa masa tunggu (Ekky menolak friksi itu): kejujuran dijaga
+     * penanda yang ikut sampai Go Live & ekspor, bukan penundaan.
+     */
+    public function teruskanTanpaBo(ItTicket $t, string $gerbang, string $alasan, string $userId, string $nama): void
+    {
+        if (! in_array($gerbang, self::GERBANG_BOLEH_DITERUSKAN, true)) {
+            throw new DomainException('Gerbang ' . $gerbang . ' tidak bisa diteruskan tanpa Business Owner' . ($gerbang === '06' ? ' — ACC Go Live sengaja tetap milik BO.' : '.'));
+        }
+        $this->pastikanDiAnalisis($t);
+
+        $alasan = mb_substr(self::teksBersih(trim(preg_replace('/\s+/u', ' ', $alasan))), 0, 300);
+        if (mb_strlen($alasan) < 10) {
+            throw new DomainException('Tulis alasan meneruskan tanpa paraf BO — minimal 10 karakter (mis. "Robi cuti sampai 12 Sep, pemohon menunggu"). Alasan inilah yang tercetak di ekspor.');
+        }
+
+        $this->tulisFr02($t, function (array $p) use ($userId, $nama, $alasan) {
+            $p['diteruskan'] = ['oleh' => $nama, 'oleh_id' => $userId, 'at' => now()->toIso8601String(), 'alasan' => $alasan];
+            return $p;
+        }, hapusParaf: false);
     }
 
     /**
