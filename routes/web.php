@@ -240,6 +240,12 @@ Route::middleware([AuthGuard::class])->group(function () {
         Route::post('/tiket/{id}/catatan',  [ItTrackerController::class, 'catatan'])->name('it-tracker.catatan')->whereNumber('id');
         Route::post('/tiket/{id}/konfirmasi', [ItTrackerController::class, 'konfirmasi'])->name('it-tracker.konfirmasi')->whereNumber('id');
         Route::post('/tiket/{id}/pic',      [ItTrackerController::class, 'pic'])->name('it-tracker.pic')->whereNumber('id');
+        Route::post('/tiket/{id}/pra',      [ItTrackerController::class, 'pra'])->name('it-tracker.pra')->whereNumber('id');
+        Route::post('/tiket/{id}/pasca',    [ItTrackerController::class, 'pasca'])->name('it-tracker.pasca')->whereNumber('id');
+        Route::post('/tiket/{id}/deploy',   [ItTrackerController::class, 'deploy'])->name('it-tracker.deploy')->whereNumber('id');
+        Route::post('/tiket/{id}/bo',       [ItTrackerController::class, 'businessOwner'])->name('it-tracker.bo')->whereNumber('id');
+        Route::post('/tiket/{id}/sync-git', [ItTrackerController::class, 'syncGit'])->name('it-tracker.syncgit')->whereNumber('id');
+        Route::get ('/tiket/{id}/ekspor',   [ItTrackerController::class, 'ekspor'])->name('it-tracker.ekspor')->whereNumber('id');
     });
 
     // Rekonsiliasi — reservasi SweetTreats ↔ encounter Omnicare (link='reconcile')

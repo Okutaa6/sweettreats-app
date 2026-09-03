@@ -391,6 +391,152 @@ class ItTrackerController extends Controller
         return back()->with('success', 'Development Record dikonfirmasi — gerbang berikutnya terbuka.');
     }
 
+    // ─── FRM-IT-06 Checklist Go Live + ekspor + jejak git (Fase 2a) ────────
+
+    /** Satu baris checklist pra-deploy: Ya / N-A. */
+    public function pra(Request $request, int $id)
+    {
+        $d = $request->validate([
+            'kunci' => 'required|string|max:16',
+            'nilai' => 'required|in:ya,na',
+        ]);
+
+        $t = ItTicket::findOrFail($id);
+        $this->pastikanPetugasDeploy($t);
+
+        try {
+            $this->svc->setPra($t, $d['kunci'], $d['nilai'], $this->userId());
+        } catch (DomainException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return back()->with('success', 'Checklist pra-deploy diperbarui.');
+    }
+
+    /** Satu pemeriksaan pasca Go-Live → Pass. */
+    public function pasca(Request $request, int $id)
+    {
+        $d = $request->validate(['kunci' => 'required|string|max:16']);
+
+        $t = ItTicket::findOrFail($id);
+        $this->pastikanPetugasDeploy($t);
+
+        try {
+            $this->svc->setPasca($t, $d['kunci'], $this->userId());
+        } catch (DomainException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return back()->with('success', 'Pemeriksaan pasca Go-Live dicatat.');
+    }
+
+    /** Catatan deployment (FRM-IT-06 §C). */
+    public function deploy(Request $request, int $id)
+    {
+        $d = $request->validate(['catatan' => 'nullable|string|max:2000']);
+
+        $t = ItTicket::findOrFail($id);
+        $this->pastikanPetugasDeploy($t);
+
+        try {
+            $this->svc->setCatatanDeploy($t, $d['catatan'] ?? null, $this->userId());
+        } catch (DomainException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return back()->with('success', 'Catatan deployment tersimpan.');
+    }
+
+    /**
+     * ACC Business Owner — HANYA Executive/Konsultan.
+     * ⛔ IT sengaja tidak boleh, termasuk Head IT: paraf yang bisa dibubuhkan
+     * sendiri oleh pelaksana bukan kendali, cuma teater (rencana §4).
+     */
+    public function businessOwner(int $id)
+    {
+        if ($this->peran() !== 'pengawas') {
+            abort(403, 'ACC Go-Live milik Business Owner (Executive / Konsultan), bukan IT.');
+        }
+
+        $t = ItTicket::findOrFail($id);
+
+        try {
+            $this->svc->setujuiBusinessOwner($t, $this->userId());
+        } catch (DomainException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return back()->with('success', $t->nomor . ' — disetujui Business Owner.');
+    }
+
+    /**
+     * Tombol "segarkan" jejak git (rencana §14.3).
+     * Yang dipanggil perintah artisan yang sama dengan cron, DIBATASI ke satu
+     * nomor tiket. Halaman sendiri tak pernah memanggil git — ia membaca
+     * it_git_ref. Nomor tiket berasal dari DB, dikirim sebagai argumen argv
+     * (bukan string shell), jadi tak ada permukaan injeksi.
+     */
+    public function syncGit(int $id)
+    {
+        if (! $this->adalahIt()) {
+            abort(403, 'Menyegarkan jejak git dilakukan tim IT.');
+        }
+
+        $t = ItTicket::findOrFail($id);
+
+        $kode = Artisan::call('it:sync-git', ['--ticket' => $t->nomor]);
+        $out  = trim(Artisan::output());
+
+        if ($kode !== 0) {
+            return back()->with('error', 'Gagal membaca git: ' . strtok($out, "\n"));
+        }
+
+        return back()->with('success', 'Jejak git disegarkan — ' . strtok($out, "\n"));
+    }
+
+    /**
+     * Ekspor FRM-IT-01 — dokumen bentuk templat resmi.
+     * ⚠️ Bagian A (identitas pemohon) tampil TERISI dari akun walau layar
+     * pengisian tak pernah menanyakannya: Konsultan IT & Management harus
+     * mengenali dokumennya (rencana §7).
+     */
+    public function ekspor(int $id)
+    {
+        $t = $this->svc->muatRelasi(ItTicket::query())->findOrFail($id);
+        $this->pastikanBolehLihat($t);
+
+        $f1 = optional($t->forms->firstWhere('kode', 'FRM-IT-01'))->payload ?? [];
+
+        if (! $f1) {
+            return back()->with('error',
+                'Tiket ini tak punya FRM-IT-01 (inisiatif/insiden IT tidak lahir dari formulir permintaan).');
+        }
+
+        $p = $t->pemohon;
+
+        return view('it-tracker.ekspor-frm01', [
+            't'      => $t,
+            'f1'     => $f1,
+            'ident'  => [
+                'Nama'                  => $p->nama ?? '—',
+                'Departemen / Jabatan'  => optional($p->group)->nama ?? '—',
+                'Cabang'                => optional($t->branch)->name ?? optional(optional($p)->branch)->name ?? '—',
+                'Kontak'                => $p->email ?? '—',
+                'Tanggal Pengajuan'     => optional($t->created_at)->translatedFormat('j F Y') ?? '—',
+            ],
+            'detail' => [
+                'Jenis Permintaan'                  => $f1['jenis'] ?? ($t->jenis_permintaan ?: '—'),
+                'Nama Modul / Fitur'                => $t->judul,
+                'Prioritas Pemohon'                 => $t->prioritas_pemohon ?: '—',
+                'Target Waktu'                      => $f1['target'] ?? '—',
+                'Latar Belakang / Masalah Saat Ini' => $f1['latar'] ?? '—',
+                'Kebutuhan & Hasil yang Diharapkan' => $f1['kebutuhan'] ?? '—',
+                'Pengguna & Proses Terdampak'       => $f1['terdampak'] ?? '—',
+            ],
+            'diterima' => $t->jenjang !== null,
+        ]);
+    }
+
     // ─── Pembantu ──────────────────────────────────────────────────────────
 
     private function userId(): string
@@ -434,6 +580,21 @@ class ItTrackerController extends Controller
     }
 
     /** Guard aksi khusus Head IT — satu tempat, jangan disalin per aksi. */
+
+    /**
+     * Petugas deploy = tim IT (Head IT, atau IT yang jadi PIC tiket ini).
+     * Checklist Go-Live mencatat pekerjaan deploy, jadi yang mengisinya harus
+     * orang yang benar-benar melakukannya — bukan penonton.
+     */
+    private function pastikanPetugasDeploy(ItTicket $t): void
+    {
+        $peran = $this->peran();
+
+        if ($peran === 'head_it') return;
+        if ($peran === 'it_dev' && $t->pic_user_id === $this->userId()) return;
+
+        abort(403, 'Checklist Go-Live diisi tim IT yang mengerjakan deployment-nya.');
+    }
     private function pastikanHeadIt(string $pesan): void
     {
         if ($this->peran() !== 'head_it') {

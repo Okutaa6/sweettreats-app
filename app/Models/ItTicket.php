@@ -47,6 +47,16 @@ class ItTicket extends Model
         return $this->hasMany(ItTicketFase::class, 'ticket_id');
     }
 
+
+    /**
+     * Jejak git tiket ini (Kelas B) — diisi `it:sync-git`, dicocokkan lewat
+     * NOMOR tiket yang ditulis di commit message, bukan foreign key.
+     */
+    public function gitRefs()
+    {
+        return $this->hasMany(ItGitRef::class, 'ticket_nomor', 'nomor')->orderByDesc('commit_at');
+    }
+
     public function forms()
     {
         return $this->hasMany(ItForm::class, 'ticket_id');

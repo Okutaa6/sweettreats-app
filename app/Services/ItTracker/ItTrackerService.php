@@ -290,6 +290,107 @@ class ItTrackerService
         $form->save();
     }
 
+
+    // ─── FRM-IT-06 Checklist Go Live (Kelas B, Fase 2a) ────────────────────
+
+    /**
+     * Baris pra-deploy yang TIDAK bisa diklik — menyala sendiri dari data yang
+     * sudah ada (lihat viewTicket). Dipakai layanan & layar supaya tak ada
+     * tombol yang menjanjikan sesuatu yang lalu ditolak diam-diam.
+     */
+    public const PRA_OTOMATIS = ['uat', 'script'];
+
+    /**
+     * Jawab satu baris checklist pra-deploy: 'ya' atau 'na'.
+     * Baris otomatis ditolak — kalau bisa diketik manusia, ia berhenti jadi
+     * bukti dan kembali jadi formulir (itu yang mematikan Kelas B).
+     */
+    public function setPra(ItTicket $t, string $kunci, string $nilai, string $userId): void
+    {
+        $this->pastikanDiGoLive($t);
+
+        if (in_array($kunci, self::PRA_OTOMATIS, true)) {
+            throw new DomainException('Baris ini menyala sendiri dari data sistem — tidak diisi tangan.');
+        }
+        if (! in_array($kunci, array_column(PhaseEngine::PRA, 'k'), true)) {
+            throw new DomainException('Baris checklist tidak dikenal.');
+        }
+        if (! in_array($nilai, ['ya', 'na'], true)) {
+            throw new DomainException('Jawaban hanya Ya atau N-A.');
+        }
+
+        $this->tulisFr06($t, function (array $p) use ($kunci, $nilai) {
+            $p['pra'] = array_merge($p['pra'] ?? [], [$kunci => $nilai]);
+            return $p;
+        }, $userId);
+    }
+
+    /** Pemeriksaan pasca Go-Live: satu baris → 'pass'. */
+    public function setPasca(ItTicket $t, string $kunci, string $userId): void
+    {
+        $this->pastikanDiGoLive($t);
+
+        if (! in_array($kunci, array_column(PhaseEngine::PASCA, 'k'), true)) {
+            throw new DomainException('Pemeriksaan tidak dikenal.');
+        }
+
+        $this->tulisFr06($t, function (array $p) use ($kunci) {
+            $p['pasca'] = array_merge($p['pasca'] ?? [], [$kunci => 'pass']);
+            return $p;
+        }, $userId);
+    }
+
+    /** Catatan deployment bebas (FRM-IT-06 §C) — waktu/aktivitas/hasil. */
+    public function setCatatanDeploy(ItTicket $t, ?string $catatan, string $userId): void
+    {
+        $this->pastikanDiGoLive($t);
+
+        $this->tulisFr06($t, function (array $p) use ($catatan) {
+            $p['deploy'] = trim((string) $catatan);
+            return $p;
+        }, $userId);
+    }
+
+    /**
+     * ACC Business Owner — gerbang manusia (rencana §4). Bukan IT: kalau IT
+     * bisa meng-ACC dirinya sendiri, paraf ini kehilangan seluruh artinya.
+     */
+    public function setujuiBusinessOwner(ItTicket $t, string $userId): void
+    {
+        $this->pastikanDiGoLive($t);
+
+        $this->tulisFr06($t, function (array $p) use ($userId) {
+            $p['bo']         = true;
+            $p['bo_oleh']    = $userId;
+            $p['bo_tanggal'] = now()->toIso8601String();
+            return $p;
+        }, $userId);
+    }
+
+    private function pastikanDiGoLive(ItTicket $t): void
+    {
+        if ($t->fase !== 'GOLIVE') {
+            throw new DomainException('Checklist Go Live hanya diisi saat tiket berada di fase Go Live.');
+        }
+    }
+
+    /**
+     * Tulis payload FRM-IT-06. Kunci otomatis (uat/script) DIBUANG sebelum
+     * disimpan: sumbernya tetap data hidup, bukan salinan yang bisa basi.
+     */
+    private function tulisFr06(ItTicket $t, callable $ubah, string $userId): void
+    {
+        $form = ItForm::firstOrNew(['ticket_id' => $t->id, 'kode' => 'FRM-IT-06']);
+        $p    = $ubah($form->payload ?? []);
+
+        foreach (self::PRA_OTOMATIS as $k) {
+            unset($p['pra'][$k]);
+        }
+
+        $form->payload           = $p;
+        $form->dikonfirmasi_oleh = $userId;
+        $form->save();
+    }
     /**
      * Pindah fase — SATU-SATUNYA jalan mengubah it_ticket.fase.
      * Tiap perpindahan: baris riwayat berjalan ditutup (keluar_at) dan TEPAT
@@ -339,6 +440,18 @@ class ItTrackerService
         $fr03 = optional($t->forms->firstWhere('kode', 'FRM-IT-03'))->payload ?? [];
         $fr05 = optional($t->forms->firstWhere('kode', 'FRM-IT-05'))->payload ?? [];
         $fr06 = optional($t->forms->firstWhere('kode', 'FRM-IT-06'))->payload ?? [];
+
+        // ── Kelas B: dua baris pra-deploy MENYALA SENDIRI, tak bisa diklik ──
+        // Sumbernya data yang sudah dimiliki sistem, bukan ketikan ulang:
+        //   uat    ← keputusan FRM-IT-05 (ditulis saat pemohon menyetujui)
+        //   script ← ada tidaknya jejak git tiket ini (it_git_ref, it:sync-git)
+        // Diturunkan DI SINI supaya gerbang (PhaseEngine::gateInfo) dan layar
+        // membaca angka yang sama persis — bukan dua perhitungan yang bisa
+        // berselisih diam-diam.
+        $fr06['pra'] = array_merge($fr06['pra'] ?? [], array_filter([
+            'uat'    => ($fr05['keputusan'] ?? null) === 'setuju' ? 'ya' : null,
+            'script' => $t->gitRefs->isNotEmpty() ? 'ya' : null,
+        ]));
         $fr07 = optional($t->forms->firstWhere('kode', 'FRM-IT-07'))->payload ?? [];
 
         $frmDev = $t->forms->firstWhere('kode', 'FRM-IT-03');
@@ -394,7 +507,7 @@ class ItTrackerService
     /** Muat relasi yang dibutuhkan viewTicket sekali jalan (hindari N+1). */
     public function muatRelasi($query)
     {
-        return $query->with(['pemohon', 'pic', 'forms', 'frs', 'testCases', 'temuan', 'anak']);
+        return $query->with(['pemohon', 'pic', 'forms', 'frs', 'testCases', 'temuan', 'anak', 'gitRefs']);
     }
 
     /**

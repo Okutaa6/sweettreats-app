@@ -132,30 +132,72 @@
             {{-- Konfirmasi Development Record — jenjang M/L di DEV (Kelas B).
                  Fase 2 menampilkan branch/commit hasil it:sync-git di sini;
                  Fase 1 cukup paraf "Benar, ini yang kukerjakan". --}}
-            @if (in_array($t->jenjang, ['M', 'L'], true) && $t->fase === 'DEV')
+            {{-- Jejak git tetap terlihat SESUDAH Development — saat Go Live
+                 justru itu yang dibutuhkan (script mana yang harus dijalankan).
+                 Tombol konfirmasinya sendiri hanya muncul di fase DEV. --}}
+            @if (in_array($t->jenjang, ['M', 'L'], true)
+                 && (\App\Services\ItTracker\PhaseEngine::rankOf($t->fase) >= 3 || $t->fase === 'SELESAI'))
                 <div class="itk-panel" style="margin-bottom:12px">
                     <div class="itk-beban-bar"><b>FRM-IT-03 — DEVELOPMENT RECORD</b>
-                        <span class="itk-badge-fase">FASE 1</span></div>
+                        <span class="itk-badge-fase">FASE 2a</span></div>
                     <div class="itk-panel-body">
                         @php $sudahKonfirmasi = (bool) optional($t->forms->firstWhere('kode', 'FRM-IT-03'))->dikonfirmasi_at; @endphp
+
+                        {{-- Kelas B: TERISI SENDIRI dari git. IT tinggal mengonfirmasi —
+                             kalau ini jadi kotak kosong untuk diketik ulang, sistemnya mati. --}}
+                        <div style="display:flex;align-items:center;gap:8px;background:#E3F4E8;border-radius:10px;padding:8px 12px">
+                            <span style="font-size:11.5px;font-weight:700;color:#2F8E55">
+                                Terisi sendiri dari git lewat nomor tiket di commit message — IT tinggal mengonfirmasi, bukan mengetik ulang.</span>
+                        </div>
+
+                        <div class="itk-git">
+                            <div class="itk-git-lbl">DARI GIT — DILACAK LEWAT {{ $t->nomor }} DI COMMIT MESSAGE</div>
+                            @forelse ($t->gitRefs->groupBy('branch') as $branch => $refs)
+                                <div class="itk-git-branch">{{ $branch ?: '(tanpa branch)' }}</div>
+                                @foreach ($refs as $r)
+                                    <div class="itk-git-commit">{{ substr($r->commit_sha, 0, 7) }} — {{ $r->subject }}</div>
+                                    @foreach ($r->scriptDisebut() as $sq)
+                                        <div class="itk-git-script">{{ $sq }}</div>
+                                    @endforeach
+                                @endforeach
+                            @empty
+                                <div class="itk-git-kosong">Belum ada commit yang menyebut {{ $t->nomor }}.
+                                    Tulis nomornya di baris pertama commit message, lalu segarkan.</div>
+                            @endforelse
+                        </div>
+
+                        @if ($bolehGerak['ok'])
+                            <form method="post" action="{{ route('it-tracker.syncgit', $t->id) }}">
+                                @csrf
+                                <button type="submit" class="itk-btn itk-btn-putih" style="font-size:11.5px;padding:6px 12px">
+                                    Segarkan jejak git</button>
+                                <span class="itk-hint" style="margin:0 0 0 6px">Cron menariknya tiap 06:40; tombol ini untuk yang tak mau menunggu.</span>
+                            </form>
+                        @endif
+
                         @if ($sudahKonfirmasi)
                             <div style="font-size:11.5px;font-weight:800;color:#2F8E55;background:#E3F4E8;border-radius:8px;padding:5px 10px;align-self:flex-start">
                                 ✓ Dikonfirmasi — tanpa paraf pihak lain (FRM-IT-03/04 memang begitu)</div>
                             @if (! empty($form03['note']))
                                 <div style="font-size:13px;line-height:1.5">{{ $form03['note'] }}</div>
                             @endif
-                        @elseif ($bolehGerak['ok'])
+                        @elseif ($bolehGerak['ok'] && $t->fase === 'DEV')
                             <form method="post" action="{{ route('it-tracker.konfirmasi', $t->id) }}">
                                 @csrf
                                 <textarea name="catatan" rows="2"
-                                    placeholder="opsional: apa yang dikerjakan + commit — Fase 2 mengambilnya dari git otomatis">{{ $form03['note'] ?? '' }}</textarea>
+                                    placeholder="opsional: keterangan tambahan — branch & commit sudah diambil sendiri di atas">{{ $form03['note'] ?? '' }}</textarea>
                                 <button type="submit" class="itk-btn itk-btn-grafit" style="margin-top:8px">Benar, ini yang kukerjakan — konfirmasi</button>
                             </form>
-                        @else
+                        @elseif ($t->fase === 'DEV')
                             <div class="itk-hint" style="margin:0">Menunggu konfirmasi pengerjanya ({{ $t->pic->nama ?? 'IT' }}).</div>
                         @endif
                     </div>
                 </div>
+            @endif
+
+            {{-- FRM-IT-06 Checklist Go Live (Kelas B) — partial supaya detail tetap terbaca --}}
+            @if ($t->fase === "GOLIVE")
+                @include("it-tracker._golive")
             @endif
 
             {{-- Catatan singkat pengerjaan — jenjang S (pengganti formulir penuh) --}}
@@ -202,7 +244,7 @@
                             <div class="itk-blokir">Gerbang ini milik pemohon ({{ $t->pemohon->nama ?? 'pemohon' }}) —
                                 menunggu keputusan UAT-nya {{ $wait['days'] }} hari.</div>
                         @endif
-                    @elseif ($bolehGerak['ok'])
+                    @elseif ($bolehGerak['ok'] && $t->fase === 'DEV')
                         <form method="post" action="{{ route('it-tracker.maju', $t->id) }}">
                             @csrf
                             <button type="submit" class="itk-btn itk-btn-grafit" style="width:100%"
@@ -221,7 +263,7 @@
                              yang justru menunggu pihak luar) --}}
                         <div class="itk-blokir">
                             {{ $wait['label'] ? $wait['label'] . ' · ' . $wait['days'] . ' hari.' : $bolehGerak['why'] }}
-                            {{ in_array($t->fase, ['GOLIVE'], true) ? 'Checklist Go-Live & ACC Business Owner datang di Fase 2.' : '' }}
+                            {{ $t->fase === 'GOLIVE' ? 'Checklist Go-Live ada di panel FRM-IT-06 sebelah kiri; ACC Business Owner dibubuhkan Executive/Konsultan di panel yang sama.' : '' }}
                         </div>
                     @endif
                 </div>
@@ -247,6 +289,10 @@
                     <div class="itk-row" style="grid-template-columns:1fr 1fr"><b>BOBOT</b><span style="text-align:right;font-weight:700">{{ $t->bobot ?? '—' }}</span></div>
                     <div class="itk-row" style="grid-template-columns:1fr 1fr"><b>DIBUAT</b><span style="text-align:right;font-weight:700">{{ $t->created_at?->translatedFormat('j M Y') }}</span></div>
                 </div>
+                @if ($form01)
+                    <a class="itk-btn itk-btn-putih" style="display:block;text-align:center;margin-top:11px"
+                       href="{{ route('it-tracker.ekspor', $t->id) }}">Ekspor FRM-IT-01</a>
+                @endif
                 @if ($peran === 'head_it' && $picOpsi->count() > 1 && ! in_array($t->fase, ['DITOLAK', 'SELESAI', 'TRIASE'], true))
                     <form method="post" action="{{ route('it-tracker.pic', $t->id) }}"
                           style="display:flex;gap:8px;align-items:center;margin-top:11px;border-top:1px solid #F1E5D5;padding-top:11px">

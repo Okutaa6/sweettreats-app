@@ -230,3 +230,79 @@ body.zona-it .itk-kolom { background:#ECEAE4; border-color:#DDD9CF; }
   font-size:15px; cursor:pointer; font-family:inherit; }
 .itk-modal-body { padding:16px 18px; display:flex; flex-direction:column; gap:13px; }
 .itk-sekat { height:1px; background:#F1E5D5; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   FASE 2a — dokumen ekspor FRM-IT-01, checklist Go Live, jejak git.
+   Dokumen ekspor sengaja BUKAN bergaya aplikasi: ia harus terlihat seperti
+   berkas templat resmi supaya Konsultan mengenalinya.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.itk-doc-wrap { background:#EDE6DC; min-height:100vh; padding:22px 16px 60px;
+  font-family:'Plus Jakarta Sans', system-ui, sans-serif; }
+.itk-doc-bar { max-width:760px; margin:0 auto 14px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.itk-doc-bar-note { font-size:11.5px; color:#7A5B43; font-weight:600; }
+.itk-doc { max-width:760px; margin:0 auto; background:#fff; border-radius:6px;
+  box-shadow:0 10px 30px rgba(43,32,26,.18); padding:34px 40px; color:#1E1E1C; }
+.itk-doc .num { font-variant-numeric:tabular-nums; }
+.itk-doc-head { display:flex; align-items:center; gap:14px; border-bottom:2.5px solid #2C2C29; padding-bottom:12px; }
+.itk-doc-logo { width:44px; height:44px; border-radius:50%; background:#F4ECE2; display:flex;
+  align-items:center; justify-content:center; font-weight:800; color:#5A2410; font-size:11px; flex:none; }
+.itk-doc-title { font-size:15px; font-weight:800; letter-spacing:.3px; }
+.itk-doc-sub { font-size:11px; color:#6B6B66; font-weight:600; }
+.itk-doc-no { font-size:12px; font-weight:800; }
+.itk-doc-sec { display:flex; align-items:center; gap:8px; margin-top:16px; font-size:11.5px;
+  font-weight:800; letter-spacing:.4px; }
+.itk-doc-auto { font-size:9px; font-weight:800; font-style:normal; color:#2F8E55;
+  background:#E3F4E8; border-radius:4px; padding:1px 6px; }
+.itk-doc-tbl { border:1px solid #C9C2B8; border-radius:4px; margin-top:7px; overflow:hidden; }
+.itk-doc-row { display:grid; grid-template-columns:210px 1fr; border-top:1px solid #E4DED4; }
+.itk-doc-row:first-child { border-top:none; }
+.itk-doc-row .k { font-size:11px; font-weight:700; color:#55534E; padding:7px 12px; background:#F7F4EF; }
+.itk-doc-row .v { font-size:12px; padding:7px 12px; line-height:1.55; }
+.itk-doc-ttd { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-top:26px; }
+.itk-doc-ttd .garis { height:44px; border-bottom:1px solid #9C968C; }
+.itk-doc-ttd .lbl { font-size:10.5px; color:#55534E; font-weight:700; margin-top:5px; text-align:center; }
+.itk-doc-kaki { font-size:10.5px; color:#8A857C; font-weight:600; margin-top:22px;
+  border-top:1px solid #E4DED4; padding-top:12px; }
+
+@media print {
+  .itk-doc-wrap { background:#fff; padding:0; }
+  .itk-doc-bar { display:none !important; }
+  .itk-doc { box-shadow:none; max-width:none; padding:0; }
+}
+
+/* ── FRM-IT-06 checklist ── */
+.itk-cek { border:1px solid var(--itk-line); border-radius:13px; overflow:hidden; margin-bottom:12px; }
+.itk-cek-hd { display:flex; align-items:center; gap:9px; padding:10px 14px;
+  background:linear-gradient(120deg,var(--itk-grafit),var(--itk-grafit-2)); }
+.itk-cek-hd b { font-size:10.5px; font-weight:800; letter-spacing:.6px; color:var(--itk-grafit-ink); }
+.itk-cek-hd .sum { margin-left:auto; font-size:10.5px; font-weight:800; color:var(--itk-grafit-ink);
+  background:rgba(255,255,255,.14); border-radius:9px; padding:2px 9px; }
+.itk-cek-bar { height:4px; background:var(--itk-chip); }
+.itk-cek-bar > div { height:100%; background:linear-gradient(90deg,#2F8E55,#4CAF72); }
+.itk-cek-row { display:flex; align-items:center; gap:10px; padding:10px 14px;
+  border-top:1px solid #F4EADD; background:#fff; flex-wrap:wrap; }
+.itk-cek-dot { display:inline-flex; width:19px; height:19px; border-radius:50%; align-items:center;
+  justify-content:center; font-size:10px; font-weight:800; flex:none;
+  background:#fff; border:1.5px solid #C7AC92; color:#C7AC92; }
+.itk-cek-dot.on { background:#2F8E55; border-color:#2F8E55; color:#fff; }
+.itk-cek-t { font-size:12.5px; color:var(--itk-ink); font-weight:600; }
+.itk-cek-info { font-size:11.5px; color:var(--itk-soft); font-weight:600; }
+.itk-cek-val { margin-left:auto; font-size:10.5px; font-weight:800; color:#2F8E55;
+  background:#E3F4E8; border-radius:7px; padding:3px 11px; }
+.itk-cek-aksi { margin-left:auto; display:flex; gap:5px; }
+.itk-cek-btn { background:#fff; border:1px solid #E7D3BE; color:#7A5B43; border-radius:7px;
+  padding:4px 12px; font-family:inherit; font-size:10.5px; font-weight:800; cursor:pointer; }
+.itk-cek-btn.ya { border-color:#CBE3D2; color:#2F8E55; }
+.itk-cek-btn:hover { filter:brightness(.95); }
+.itk-cek-kaki { padding:8px 14px; border-top:1px solid #F4EADD; background:var(--itk-bg);
+  font-size:10.5px; color:#A08A76; font-weight:600; }
+
+/* ── jejak git (FRM-IT-03) ── */
+.itk-git { background:#232320; border-radius:12px; padding:12px 14px; }
+.itk-git-lbl { font-size:10px; font-weight:800; letter-spacing:.6px; color:#8F8F87; margin-bottom:8px; }
+.itk-git-branch { font-size:12px; color:#C9E4A8; font-weight:600; font-family:ui-monospace,monospace; }
+.itk-git-commit { font-size:12px; color:#D8D8D0; margin-top:5px; font-family:ui-monospace,monospace;
+  font-variant-numeric:tabular-nums; }
+.itk-git-script { font-size:12px; color:#A8C8E8; margin-top:5px; font-family:ui-monospace,monospace; }
+.itk-git-kosong { font-size:12px; color:#8F8F87; font-family:ui-monospace,monospace; }
