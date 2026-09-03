@@ -28,6 +28,22 @@ class ItTrackerService
     public const FASE_PARKIR = ['DITUNDA', 'DITOLAK'];
 
     /**
+     * Rapikan teks bebas sebelum masuk payload JSON.
+     *
+     * `it_form.payload` di-cast array → json_encode, dan json_encode MENOLAK
+     * byte non-UTF-8 dengan melempar — hasilnya 500 telanjang, bukan penolakan
+     * sopan. Browser selalu mengirim UTF-8, tapi tempelan dari sumber lawas,
+     * proksi, atau klien non-browser bisa membawa byte rusak. Byte cacatnya
+     * dibuang di sini supaya kegagalan tak pernah berbentuk halaman error.
+     */
+    public static function teksBersih(?string $s): string
+    {
+        $s = (string) $s;
+
+        return mb_check_encoding($s, 'UTF-8') ? $s : mb_convert_encoding($s, 'UTF-8', 'UTF-8');
+    }
+
+    /**
      * Peran tracker dari nama role sesi: head_it | it_dev | pengawas | head.
      * Role lain yang lolos grant menu diperlakukan sebagai head (pemohon).
      */
@@ -117,10 +133,10 @@ class ItTrackerService
                     'kode'      => 'FRM-IT-01',
                     'payload'   => [
                         'jenis'     => $d['jenis_permintaan'] ?? null,
-                        'target'    => $d['target'] ?? '—',
-                        'latar'     => $d['latar'] ?? '',
-                        'kebutuhan' => $d['kebutuhan'] ?? '',
-                        'terdampak' => $d['terdampak'] ?? '—',
+                        'target'    => self::teksBersih($d['target'] ?? '—'),
+                        'latar'     => self::teksBersih($d['latar'] ?? ''),
+                        'kebutuhan' => self::teksBersih($d['kebutuhan'] ?? ''),
+                        'terdampak' => self::teksBersih($d['terdampak'] ?? '—'),
                         'review'    => null,
                     ],
                 ]);
@@ -170,7 +186,7 @@ class ItTrackerService
         }
 
         DB::transaction(function () use ($t, $ke, $alasan, $userId) {
-            $t->alasan_parkir = trim($alasan);
+            $t->alasan_parkir = self::teksBersih(trim($alasan));
             $this->pindahFase($t, $ke, $userId);
             \App\Models\AuditLog::record('it-tracker.' . strtolower($ke),
                 $t->nomor . ' — ' . trim($alasan), $t);
@@ -263,7 +279,7 @@ class ItTrackerService
     public function catatanDev(ItTicket $t, string $catatan, string $userId): void
     {
         $form = ItForm::firstOrNew(['ticket_id' => $t->id, 'kode' => 'FRM-IT-03']);
-        $form->payload = array_merge($form->payload ?? [], ['note' => trim($catatan)]);
+        $form->payload = array_merge($form->payload ?? [], ['note' => self::teksBersih(trim($catatan))]);
         $form->dikonfirmasi_oleh = $userId;
         $form->dikonfirmasi_at   = now();
         $form->save();
@@ -283,7 +299,7 @@ class ItTrackerService
 
         $form = ItForm::firstOrNew(['ticket_id' => $t->id, 'kode' => 'FRM-IT-03']);
         if ($catatan !== null && trim($catatan) !== '') {
-            $form->payload = array_merge($form->payload ?? [], ['note' => trim($catatan)]);
+            $form->payload = array_merge($form->payload ?? [], ['note' => self::teksBersih(trim($catatan))]);
         }
         $form->dikonfirmasi_oleh = $userId;
         $form->dikonfirmasi_at   = now();
@@ -369,7 +385,7 @@ class ItTrackerService
         $this->pastikanDiGoLive($t);
 
         $this->tulisFr06($t, function (array $p) use ($catatan) {
-            $p['deploy'] = trim((string) $catatan);
+            $p['deploy'] = self::teksBersih(trim((string) $catatan));
             return $p;
         }, $userId);
     }

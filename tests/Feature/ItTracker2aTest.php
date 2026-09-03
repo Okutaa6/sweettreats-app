@@ -463,6 +463,36 @@ class ItTracker2aTest extends TestCase
         }
     }
 
+    /**
+     * Byte non-UTF-8 pernah menghasilkan 500 telanjang ("Unable to encode
+     * attribute [payload] … Malformed UTF-8"), karena payload di-cast JSON dan
+     * json_encode menolaknya. Browser selalu mengirim UTF-8, tapi tempelan
+     * lawas / klien non-browser tidak. Kegagalan tak boleh berbentuk halaman
+     * error — dan teks yang SAH harus lewat utuh, termasuk titik-tengah.
+     */
+    public function test_teks_rusak_tak_meledakkan_payload(): void
+    {
+        $rusak = "02:11 backup \xb7 02:24 curl 200";           // 0xB7 telanjang
+        $sah   = "02:11 backup \xc2\xb7 02:24 curl beranda 200"; // · UTF-8 sah
+
+        $this->assertFalse(mb_check_encoding($rusak, 'UTF-8'));
+        $this->assertTrue(mb_check_encoding(ItTrackerService::teksBersih($rusak), 'UTF-8'));
+        $this->assertSame($sah, ItTrackerService::teksBersih($sah), 'Teks sah harus lewat UTUH.');
+
+        $t = $this->tiketDiGoLive();
+        $t->pic_user_id = 'uji-headit';
+        $t->save();
+
+        $this->withSession($this->sesi('Head IT', 'uji-headit'))
+            ->post('/it-tracker/tiket/' . $t->id . '/deploy', ['catatan' => $rusak])
+            ->assertStatus(302)
+            ->assertSessionHasNoErrors();
+
+        $p = ItForm::where('ticket_id', $t->id)->where('kode', 'FRM-IT-06')->value('payload');
+        $this->assertTrue(mb_check_encoding($p['deploy'], 'UTF-8'));
+        $this->assertStringContainsString('backup', $p['deploy']);
+    }
+
     // ─── Kendali negatif ───────────────────────────────────────────────────
 
     public function test_tabel_lama_tak_tersentuh_dan_dev_tetap_dingin(): void
