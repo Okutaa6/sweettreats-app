@@ -39,6 +39,13 @@
 > `2400896`, tak ada lagi cabang prod terpisah. Peringatan lama "jangan deploy
 > main ke prod" **sudah TIDAK berlaku** — sekarang justru `main` yang benar.
 >
+> ✅ **Sisipan 2026-09-04b — IT TRACKER: LAMPIRAN FRM-IT-01 LIVE DI DEV**
+> (`feat/it-tracker`): utang §14.11 lunas — pemohon melampirkan screenshot/
+> laporan/alur saat mengisi (+ menambah selama TRIASE; Head IT kapan saja),
+> tampil di detail & ekspor. `RopAttachment` diperluas (bukan varian baru),
+> metadata di payload FRM-IT-01, tanpa SQL. Batas = ROP + dokumen kantor,
+> penolakan menyebut yang diterima. 83 uji hijau. Belum merge/prod.
+
 > ✅ **Sisipan 2026-09-04a — IT TRACKER 2b DIAUDIT + DEMO 5 PERSONA** (`22c2348`,
 > `feat/it-tracker`, dev): 1 P0 ditutup ("Disetujui dengan Catatan" macet
 > permanen di Go Live), formulir UAT satu tubuh (jawaban tak hilang saat

@@ -6,6 +6,42 @@
 > file ini append-only.
 
 ---
+## 2026-09-04b — IT TRACKER: Lampiran FRM-IT-01 (utang §14.11) — bukti menempel di tiket, bukan di WhatsApp
+
+Utang kecil yang jatuh di sela-sela pembagian fase (rencana §14.11 no. 2): §7
+bagian B menyebut *screenshot · contoh laporan · alur proses · dokumen lain*,
+tapi tak pernah masuk §14. Padahal ini satu-satunya jalan pemohon menempelkan
+bukti masalahnya — tanpanya orang kembali mengirim gambar lewat WA, persis
+kebiasaan yang mau digantikan sistem ini. **Live di dev**, `feat/it-tracker`.
+
+- **Tanpa pengunggah baru.** `RopAttachment` (pola terbukti, 3 controller ROP)
+  diperluas mundur-kompatibel: satu metode publik `simpanBerkas(UploadedFile,
+  jenis, dasar)` + parameter folder dasar. Pemanggil ROP tak berubah (masih
+  `uploads/rop/<jenis>`, diuji); IT Tracker memakai `uploads/it-tracker/frm01/
+  YYYY/MM`. `public_path()`/`asset()` **tidak disentuh** — di prod sudah benar
+  lewat `usePublicPath`.
+- **Metadata di payload FRM-IT-01** (JSON `lampiran[] = {path, nama, mime,
+  ukuran, oleh, at}`). Tanpa tabel baru, tanpa SQL, tanpa `access:rebuild`.
+- **Siapa boleh:** pemohon saat mengisi + menambah selama tiket masih TRIASE;
+  Head IT kapan saja; yang lain 403 (otorisasi sebelum validasi). Maks 8 per
+  tiket.
+- **Batas = ROP** (5 MB/berkas, JPG/PNG/WEBP/PDF) **+ dokumen kantor**
+  (XLSX/XLS/CSV/DOCX/DOC) — "contoh laporan" hampir selalu Excel. Penolakan
+  **menyebut yang diterima** (P3): *"Lampiran 'virus.exe' tidak dikenali. Yang
+  diterima: gambar (JPG/PNG/WEBP), PDF, Excel…"*; tiket tidak lahir.
+- **Tampil di detail** (kartu: pratinjau gambar / badge XLSX-PDF, nama,
+  ukuran; formulir "Tempelkan" dengan daftar yang diterima) **dan di ekspor**
+  FRM-IT-01 (bagian LAMPIRAN: L-01.., mime · ukuran · tanggal, pratinjau
+  gambar ikut tercetak, dokumen sebagai URL) — §7 menuntut ekspor "dikenali
+  Konsultan IT & Management".
+- Bug yang ditangkap uji sebelum siapa pun melihatnya: metadata dibaca
+  **sesudah** `move()` → berkas sementara lenyap, `getSize()` melempar 500.
+- Uji: kelas baru `ItTrackerLampiranTest` 5/5 (2 berkas → detail+ekspor · jenis
+  asing ditolak dgn pesan · hak akses & bertahan lewat fase · batas jumlah ·
+  tabel lama & ROP tak berubah). **78 uji lama tetap hijau** → total 83.
+- Keterbatasan sadar: tiket insiden/inisiatif tanpa FRM-IT-01 dapat panel
+  LAMPIRAN mandiri untuk Head IT; belum ada hapus lampiran (sengaja — jejak).
+
 ## 2026-09-04a — IT TRACKER 2b: audit dua arah + demo lima persona → 1 P0 macet, 20+ perbaikan (dev)
 
 Sesudah 2b naik dev, Ekky minta *"scan ulang & audit, lalu bertindak seolah user
