@@ -6,6 +6,71 @@
 > file ini append-only.
 
 ---
+## 2026-09-04a — IT TRACKER 2b: audit dua arah + demo lima persona → 1 P0 macet, 20+ perbaikan (dev)
+
+Sesudah 2b naik dev, Ekky minta *"scan ulang & audit, lalu bertindak seolah user
+yang memakai — tiap persona, tiap fase, sampai flawless"*. Dua auditor membaca
+seluruh kode (logika/otorisasi vs acuan r2; blade/JS/CSS dari sudut pemakai
+tanpa pelatihan), sementara **demo lima persona lewat HTTP nyata di dev** (Della
+Head Marketing · Ekky Head IT · Reza IT/PIC · Robi Executive · Hana Konsultan,
+akun sekali-pakai) menjalani jalur M lalu L dari pengajuan sampai SELESAI —
+114 langkah, tiap langkah mencatat teks "Langkah berikutnya" yang dibaca user,
+tombol yang tersedia, dan flash.
+
+### Yang ditangkap demo, bukan audit — dan sebaliknya
+- ⛔ **P0: "Disetujui dengan Catatan" membuat tiket MACET PERMANEN di Go Live.**
+  Lampu pra-deploy "UAT disetujui" hanya menyala untuk `setuju`; Robi sudah ACC,
+  semua pra/pasca terisi, "Tutup → Selesai" tetap menolak: *"Masih perlu:
+  pra-deploy: UAT disetujui"*. Audit blade menemukannya dengan membaca; demo
+  membuktikannya dengan menabraknya. Kini `catatan` juga menyala.
+- ⛔ **P0: jawaban UAT hilang kalau pemohon langsung menekan keputusan.** Tombol
+  keputusan dulu formulir terpisah dari tanda Sesuai/Tidak. Kini SATU formulir
+  (rute `jawab` menerima `keputusan`); "Simpan jawabanku dulu" jadi opsional,
+  tombol "dengan Catatan" menyala sendiri saat catatan diketik. Untuk tiket
+  tanpa pemohon (Head IT menjawab sendiri) formulir jawab menang — dulu dua
+  form saling membungkus dan Masukan tak pernah terkirim.
+- **Paraf mengikuti isi:** BO tak bisa memparaf analisis kosong (tombol mati
+  menyebut yang kurang); simpan-ulang komponen/lingkup identik **tak lagi**
+  menggugurkan paraf (sidik isi); rail BO kini berkata *"Giliranmu: paraf …
+  baris PARAF paling bawah"* — sebelumnya Robi hanya membaca "Dianalisis IT
+  bersama Della · 0 hari" dan harus mencari sendiri.
+- Ubah jenjang → **S ditolak** di tengah Analisis (tiket S tak punya panel 02,
+  gerbangnya tetap menuntut FR+paraf = terkunci tanpa jalan keluar).
+- "Perlu Perbaikan" kini **mengarsipkan** jawaban lama (`putaranLalu`); putaran
+  berikutnya mulai bersih — "Tidak" untuk kode lama bukan jawaban kode baru.
+- Evaluator (pemohon, bukan IT) **boleh menutup tiket** di Evaluasi — copy
+  "menutup tiket adalah parafnya" dulu berujung tombol IT-only.
+- Uji internal: Enter di kotak temuan **membalik Major⇄Minor** (tombol submit
+  pertama di form) → nilai kini dikirim dulu; TC baris-hantu ber-JS (dulu satu
+  TC per simpan); kode TC tak dikenal (tab basi) ditolak, bukan lahir kembar.
+- Spawn: judul dipangkas 255 (masukan 1000 karakter → 500 telanjang),
+  `lockForUpdate` anti klik-ganda; evaluator alih wajib pemohon/Executive/
+  Konsultan aktif; otorisasi sebelum validasi di 3 rute Fase 1 (302→403);
+  formulir skenario hanya untuk Head IT/PIC (dulu tampil lalu 403); Head lain
+  tak melihat judul tiket orang lewat ketergantungan.
+- Pemakaian: penjaga "ketikan belum tersimpan" antar lima formulir FRM-IT-02;
+  label sprint "FASE 2a/2b" yang bocor ke pemohon → label kelas (A diisi
+  pemohon / B terisi sendiri / C dipikirkan bersama); ikon FA5 ganti emoji;
+  badge "Lahir dari" di kepala tiket; kolom PRIO 100px; grid runtuh <1200px.
+
+### Hasil akhir demo
+113/114 langkah lulus (satu sisanya asersi skrip yang salah, bukan sistem):
+kedua jalur M dan L tuntas sampai SELESAI, termasuk putaran "Perlu Perbaikan"
+→ konfirmasi ulang → UJI → UAT → Go Live → Evaluasi → RTL jadi tiket baru di
+Triase dengan chip "↳ dari". **78 uji hijau** (kelas baru `ItTracker2bAuditTest`
+11 regresi), lokal dan dev. Data & akun demo dibersihkan, `it_counter` direset.
+
+### Yang SENGAJA dibiarkan (butuh keputusan Ekky)
+- `ROLE_PENGAWAS` memuat Admin/Admin General/Admin Backup → akun admin bisa
+  paraf BO & ACC Go-Live. Brief bilang BO = Executive/Konsultan. Kebijakan.
+- Rail Go Live tetap "Menunggu Executive (ACC Go-Live)" walau BO sudah ACC dan
+  bolanya di IT — meniru `waitOf` r1/r2 (kontrak terkunci). Panasnya bisa
+  menyalahkan Executive untuk keterlambatan IT sendiri.
+- Gerbang ke UAT tak menuntut ≥1 skenario (kalimatnya sudah diganti "IT belum
+  menulis skenario…"); menambah lampu = mengubah kontrak gateInfo.
+- Label rail "Dianalisis IT bersama {pemohon}" (teks r2) — pemohon tak punya
+  tugas apa pun di fase itu, kata "bersama" membingungkan.
+
 ## 2026-09-03d — IT TRACKER FASE 2b NAIK DEV: empat formulir kerja (FRM-IT-02 · 04 · 05 · 07)
 
 Keempat formulir dari desain ronde 2 (rencana §14.13/§14.14, paket

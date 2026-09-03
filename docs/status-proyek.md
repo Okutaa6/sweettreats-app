@@ -39,6 +39,15 @@
 > `2400896`, tak ada lagi cabang prod terpisah. Peringatan lama "jangan deploy
 > main ke prod" **sudah TIDAK berlaku** — sekarang justru `main` yang benar.
 >
+> ✅ **Sisipan 2026-09-04a — IT TRACKER 2b DIAUDIT + DEMO 5 PERSONA** (`22c2348`,
+> `feat/it-tracker`, dev): 1 P0 ditutup ("Disetujui dengan Catatan" macet
+> permanen di Go Live), formulir UAT satu tubuh (jawaban tak hilang saat
+> langsung memutuskan), paraf BO mengikuti isi, jenjang S ditolak di Analisis,
+> evaluator boleh menutup, +15 perbaikan UX/otorisasi. Demo M+L 113/114 langkah
+> tuntas sampai SELESAI; 78 uji hijau lokal+dev. Tersisa 4 keputusan kebijakan
+> untuk Ekky (Admin sebagai BO; rail Go Live pasca-ACC; gerbang tanpa skenario;
+> label "bersama pemohon"). Belum merge/prod.
+
 > ✅ **Sisipan 2026-09-03d — IT TRACKER FASE 2b LIVE DI DEV** (`962c53d`,
 > `feat/it-tracker`): empat formulir kerja FRM-IT-02/04/05/07 dari desain
 > ronde 2 — jalur M dan L kini utuh sampai Evaluasi. 67 uji hijau lokal +
