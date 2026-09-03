@@ -761,3 +761,188 @@ LINGKUNGAN:
 
 Selesai: entri docs/log-update.md + salin ke Google Drive + catat ke memori.
 ```
+
+### 14.11 Dua hal yang BELUM punya rumah
+
+> Ditemukan 3 Sep saat menyusun peta sesudah Fase 2. Keduanya bukan pekerjaan
+> besar, tapi keduanya **jatuh di sela-sela** pembagian fase yang ada — jadi
+> tak akan dikerjakan siapa pun kalau tidak ditulis di sini.
+
+**1. FRM-IT-07 Evaluasi — punya kolom, tak punya layar.**
+
+Yang sudah ada: kolom `evaluator_user_id`, nilai `evaluator` di
+`pihak_menunggu`, baris akses *"isi UAT & Evaluasi miliknya"*, dan
+*"penjadwalan Evaluasi"* di Fase 3. Yang **tidak** ada: **permukaannya.**
+Terukur — 0 penyebutan di brief ronde 2, dan cuma 1 label di paket desain
+ronde 1.
+
+Jadi ia bukan bagian 2a maupun 2b, dan Fase 3 hanya menjadwalkan sesuatu yang
+belum ada bentuknya. ⚠️ Ini Kelas A: **diisi evaluator, bukan IT.** Isinya per
+§7: kesesuaian · kemudahan · stabilitas · dampak · manfaat · temuan
+Bug/Enhancement · dan **Rencana Tindak Lanjut yang bisa MEMBUAT TIKET BARU** —
+itulah yang menutup lingkaran sistem ini.
+
+**Keputusan yang perlu diambil:** dititipkan ke ronde desain 2b (murah, karena
+chat desainnya sedang jalan) atau jadi ronde tersendiri bersama Fase 3.
+Rekomendasi: **titipkan ke 2b** — bentuknya sederhana dan menunda berarti Fase
+3 akan menjadwalkan formulir yang belum dirancang.
+
+**2. Lampiran FRM-IT-01.** §7 menyebutnya (*screenshot · contoh laporan · alur
+proses · dokumen lain*), tapi **tak pernah masuk §14** dan belum dibangun.
+Padahal ini satu-satunya jalan pemohon menempelkan bukti masalahnya, dan
+tanpanya orang akan menempel gambar lewat WhatsApp — persis kebiasaan yang mau
+digantikan sistem ini. Kecil, cocok dititipkan ke **2a** (ekspor sudah
+menyentuh berkas).
+
+### 14.12 Peta sesudah Fase 2
+
+1. **Sekarang, paralel** — chat build 2a · chat desain 2b (+ FRM-IT-07 kalau
+   keputusan di atas "titipkan").
+2. **Sesudah desain 2b turun** — bangun 2b. Ini yang menutup Fase 2 sesuai
+   §14.5: *backlog nyata jalan penuh dari Requirement sampai Go Live.*
+3. **Fase 3** — sambungan Project Tracker (`sys_project`) · penjadwalan
+   Evaluasi · **nomor tiket di commit message**. Yang terakhir berpasangan
+   dengan `it:sync-git` yang dibangun di 2a: sekali nomor tiket masuk commit,
+   Kelas B terisi tanpa disuruh, dan papan tersambung ke riwayat kode.
+4. **Prod** — pemicunya **belum diputuskan**. Ekky condong ke "sesudah semua
+   fase"; catatan tandingannya ada di §14.5 (sistem proses yang tak dipakai
+   lebih buruk daripada tak ada) dan riwayat dua fitur yang berhenti persis
+   karena tak pernah menyentuh prod. Apa pun keputusannya, **tulis pemicunya**
+   — "nanti kalau sudah siap" bukan pemicu.
+
+### 14.13 Keputusan desain ronde 2 — TERKUNCI
+
+> Paket: `Downloads\design_handoff_it_tracker r2\` (3 Sep). Tujuh pertanyaan
+> desain dijawab chat HUB, semuanya dipatuhi di hasil. Ditulis di sini supaya
+> chat build **tidak menebak ulang**.
+
+| # | Pertanyaan | Keputusan | Alasan singkat |
+|---|---|---|---|
+| 1 | kedalaman 02 | **otomatis dari jenjang + tautan "butuh detail L?" yang menaikkan lewat triase** | blok L terlipat tetap terlihat → rasa "formulirku belum lengkap". Jalan keluar disalurkan lewat triase, sesuai aturan jenjang ditentukan IT |
+| 2 | layar UAT | **tetap di detail; fase UAT jadi kartu besar "Pertanyaan untukmu"** | §4 brief: tetap di detail kecuali alasan kuat. Layar kedua = dua permukaan untuk satu pekerjaan |
+| 3 | tabel FR | **tabel + baris hantu, tanpa tombol Tambah** | ⚠️ syarat: **Kriteria Diterima kolom terlebar & selnya membesar saat diketik** |
+| 4 | "Disetujui dengan Catatan" | **daftar tindak lanjut di tiket + tombol "jadikan tiket" per butir** | melahirkan tiket otomatis membanjiri papan (catatan UAT sering sepele); tombol memberi untungnya tanpa kebisingannya |
+| 5 | lima pemeriksaan tetap | **baris TC bawaan TERKUNCI** | checklist terpisah bikin dua sistem & ringkasan pass/fail ambigu. Terkunci = tak bisa dihapus/ganti nama, **tetap diisi & ikut terhitung** |
+| 6 | bentuk paraf | **baris berstempel waktu, tanpa kotak tanda tangan** | paraf itu keputusan manusia, bukan syarat terhitung — siapa & kapan adalah nilai auditnya. Lampu gerbang tetap ada; baris itulah yang menyalakannya |
+| 7 | pemilih ketergantungan | **semua tiket termasuk yang DITUNDA**, kecualikan DITOLAK | bergantung pada tiket ditunda = terblokir tanpa batas waktu; justru kasus terburuk yang wajib terlihat |
+
+**FRM-IT-07 ikut dirancang** (sebelumnya tak punya rumah, §14.11): lima aspek
+1-5 + `spawnTicket()` yang melahirkan tiket dari rencana tindak lanjut —
+**mekanisme yang sama dengan catatan UAT, bukan dua jalur berbeda.**
+
+**Diverifikasi dengan pengukuran, bukan dari README:** `pathFor` identik ·
+`RANK` identik · aturan panas identik byte · `gateInfo` **aditif** (`missing`
+tetap ada, `checks[]` ditambahkan). ⇒ **`PhaseEngine` tidak perlu ditulis
+ulang.** Ini yang paling mahal kalau meleset, dan ia tidak meleset.
+
+#### Dua temuan yang harus ditindaklanjuti
+
+**T1 — lima screenshot ronde 2 hilang dari paket.** README menjanjikan
+`07-frm02-ringkas-M-kosong.png` … `11-frm07-evaluasi.png`; folder
+`screenshots/` masih berisi enam berkas ronde 1, dan kepala README masih teks
+lama ("4 layar teratas", "6 keadaan kunci"). Isinya ADA di `.dc.html` — ini
+kelalaian pengemasan, minta ulang ke chat desain.
+
+**T2 — paraf bisa jadi kosong artinya.** Boleh-edit dikendalikan
+`ed = canEdit && now` — **peran dan fase, bukan status paraf**. Selama tiket
+masih di ANALISIS, tabel FR tetap bisa diubah **sesudah** BO memparaf, tanpa
+jejak. Jendelanya sempit (pindah ke DEV → terkunci) tapi itu justru jendela
+yang penting, karena paraf BO adalah syarat gerbangnya.
+**Perbaikan yang dipilih — bukan audit trail:** *mengubah baris FR sesudah
+diparaf MENGHAPUS parafnya.* Menegakkan dirinya sendiri, tanpa tabel baru,
+dan jujur: BO diminta menyetujui ulang apa yang berubah.
+
+#### Dari daftar "sengaja tidak dikerjakan" — yang wajib diketahui build
+
+- **Tab pindah antar sel tabel FR tidak dimockup** (hanya Enter di baris
+  hantu). **Tetap harus dipasang** — target "tiket M < 10 menit" bergantung
+  padanya untuk L yang 12 baris.
+- **Ekspor cetak 02/04/05/07 belum didesain** (hanya FRM-IT-01). Tak memblokir
+  Fase 2; infrastruktur ekspornya dibangun di 2a.
+- **Riwayat perubahan formulir** tak ada — sebagian tertutup oleh T2.
+- Saklar demo memperagakan BO oleh Robi (Executive), tapi labelnya sudah
+  benar: **"Business Owner (Executive / Konsultan)"**. Jangan patok Executive.
+
+### 14.14 Prompt chat build — FASE 2b
+
+```
+Lanjutkan proyek SweetTreats lewat memori. Chat ini membangun IT Request
+Tracker FASE 2b: empat formulir kerja. Fase 1 sudah LIVE DI DEV.
+Lokal & dev; prod HANYA kalau Ekky menyebut "prod".
+
+BACA DULU:
+· docs/rencana/rencana-it-tracker.md   <- paragraf 14, terutama 14.13 (keputusan
+                                          desain TERKUNCI) dan 14.14
+· docs/brief-desain/design-brief-it-tracker-ronde2.md
+· memori project_it_tracker
+· Downloads\design_handoff_it_tracker r2\   <- ACUAN UTAMA (dc.html + it-store.js)
+
+RUANG LINGKUP 2b:
+1. FRM-IT-02 Analysis & Design  (Kelas C — Ekky + paraf 1 Business Owner)
+2. FRM-IT-04 Internal Testing   (Kelas B — IT sendiri, tanpa paraf pihak lain)
+3. FRM-IT-05 UAT                (Kelas A — pemohon saja)
+4. FRM-IT-07 Evaluation         (Kelas A — evaluator)
+
+KONTRAK MESIN FASE — sudah diukur, jangan diragukan dan jangan diubah:
+pathFor, RANK, dan aturan panas di it-store.js r2 IDENTIK dengan r1. gateInfo
+ADITIF: `missing` tetap ada, `checks[]` ditambahkan. Jadi PhaseEngine yang
+sudah lulus 31 uji TIDAK perlu ditulis ulang — tambahkan checks[], jangan
+mengganti bentuk lamanya.
+
+KENDALI NEGATIF UTAMA: 31 uji Fase 1 HARUS tetap hijau sesudah 2b.
+Kalau ada yang merah, itu tanda kamu mengubah kontrak — perbaiki kodemu,
+JANGAN memperbarui ujinya supaya lolos.
+
+YANG PALING MUDAH SALAH:
+1. Mengubah baris FR sesudah diparaf HARUS MENGHAPUS parafnya. Desainnya
+   mengunci berdasarkan peran+fase saja, jadi paraf bisa jadi kosong artinya
+   (temuan T2 di 14.13). Ini pagar integritas, bukan kenyamanan.
+2. 02 PENUH jangan pernah muncul untuk jenjang M. M hanya: tabel FR +
+   Kriteria Diterima + komponen. Naik ke L lewat modal triase (fase TIDAK
+   berubah), bukan dengan membuka field L di tiket M.
+3. TC-01..05 terkunci = tak bisa DIHAPUS atau DIGANTI NAMA, tapi kolom aktual
+   dan Pass/Fail diisi normal DAN ikut terhitung di ringkasan.
+   TC-05 "fitur lama terkait tetap berjalan" adalah yang menangkap kerusakan
+   diam-diam — jangan sampai bisa hilang.
+4. Kriteria Diterima: kolom TERLEBAR, selnya membesar saat diketik, dan Tab
+   berpindah antar sel (mockup TIDAK memperagakan Tab — tetap pasang; target
+   tiket M < 10 menit bergantung padanya untuk L yang 12 baris).
+5. Catatan dapur (estimasi & risiko) DINYATAKAN ke non-IT sebagai "ada catatan
+   dapur IT — tidak ditampilkan", bukan disembunyikan diam-diam.
+6. Business Owner = Executive ATAU Konsultan. Saklar demo memperagakan Robi
+   (Executive) — JANGAN patok Executive di kode.
+7. spawnTicket: SATU mekanisme untuk catatan UAT dan rencana tindak lanjut
+   evaluasi. Jangan bikin dua jalur. Tiket lahir di TRIASE, pemohon sama,
+   parent tercatat.
+8. "Perlu Perbaikan" di UAT mengembalikan tiket ke DEV DAN mereset konfirmasi
+   FRM-IT-03. Bukan sekadar catatan.
+9. Gerbang UJI->UAT menolak selama ada temuan Major terbuka, dengan kalimat
+   yang MENYEBUT JUMLAHNYA ("1 temuan Major masih terbuka - menahan gerbang").
+
+UJI TERIMA 2b (tambahan atas paragraf 14.6):
+· tiket M tidak pernah melihat satu pun field khusus L (kendali negatif)
+· edit baris FR sesudah paraf -> paraf hilang, gerbang menutup lagi
+· TC-01..05 tak bisa dihapus; ringkasan menghitungnya
+· 1 Major terbuka -> gerbang UAT tertutup; ditutup -> gerbang terbuka
+· "Perlu Perbaikan" -> fase kembali DEV dan konfirmasi 03 ter-reset
+· rencana tindak lanjut evaluasi -> tiket baru di TRIASE, parent tercatat
+· 31 uji Fase 1 tetap hijau
+· cacah baris tabel lama tak berubah
+
+LINGKUNGAN:
+· Branch feat/it-tracker, worktree Downloads\sweettreats-it-tracker.
+  Cek HEAD sendiri (git log -1); jangan percaya hash di dokumen.
+· Fase 2a mungkin sedang/sudah dikerjakan chat lain di branch yang sama —
+  `git log --oneline -10` dulu, jangan menimpa kerjaannya.
+· dev = SATU working copy bersama DAN SEDANG DIPAKAI ORANG (untracked milik
+  chat Alur Persetujuan ada di sana). `git status --porcelain | grep "^??"`
+  DULU. Pindah branch pakai checkout TANPA reset --hard — reset menimpa
+  untracked tanpa peringatan; checkout MENOLAK, dan penolakan itu pengaman.
+· JANGAN `php artisan db:show`, JANGAN Schema::hasTable() — keduanya membunuh
+  mysqld lokal (segfault, mysql_error.log tak mencatatnya). Pakai
+  SHOW TABLES LIKE.
+· phpunit mati di lebih dari sekitar 17 uji ber-DB per proses -> PER KELAS.
+· Naik dev: SQL -> php artisan access:rebuild -> deploy penuh -> rsync CSS.
+
+Selesai: entri docs/log-update.md + salin ke Google Drive + catat ke memori.
+```
