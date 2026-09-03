@@ -1224,3 +1224,167 @@ LINGKUNGAN:
 
 Selesai: entri docs/log-update.md + salin ke Google Drive + catat ke memori.
 ```
+
+### 14.20 Keputusan Ekky 4 Sep malam — prod, Admin*, penempatan, cabang Reza
+
+**✅ CABUT `Admin*` dari `ROLE_PENGAWAS` — DIPUTUSKAN.** Satu konstanta:
+`ROLE_PENGAWAS −= "Admin General", "Admin Backup", "Admin"`. Nol perubahan
+`group_path`. Ekky tetap Head IT lewat akun Muhamad Ikhsan. Tambahkan uji
+*"Admin_Ekky tak bisa memparaf"*. Boleh dikerjakan chat build tanpa tanya lagi.
+
+**✅ PEMICU PROD — AKHIRNYA TERTULIS.** *"Setelah demo, kita pindahkan semuanya
+ke prod. Dev hanya simulasi end-to-end dan realisasi."* Konsekuensinya:
+- **Tiket di dev = buangan.** Sesudah demo, bersihkan (`DELETE it_*` + reset
+  `it_counter`) — pola sudah ada di chat build.
+- **Tiket nyata dibuat di PROD**, bukan dev. Peta antrian (§5
+  `rencana-peta-antrian-it.md`) dimuat **sesudah IT Tracker naik prod**.
+- Naik prod IT Tracker = gerbong sendiri: merge `feat/it-tracker` → `main`
+  (uji-gabung kering: **0 konflik**) → SQL berurutan (core · access · 2b ·
+  lampiran bila ada) → `access:rebuild` → deploy penuh (class baru) →
+  **rsync `assets/` saja** → `curl` beranda 200 + URL akhir. Hanya saat Ekky
+  menyebut "prod".
+- ⚠️ "Semuanya" di kalimat Ekky dibaca HUB sebagai **IT Tracker**. Enam fitur
+  lain yang antre di UAT (§3 peta) **tidak otomatis ikut** — masing-masing
+  gerbong sendiri, masing-masing butuh kata "prod".
+
+**✅ PENEMPATAN = "rolling" yang sudah ada di checklist, mau dibuat GLOBAL.**
+Kodenya ditemukan: `DigitalChecklistController::rollingAssign / rollingSwap /
+rollingRemove / makeRolling` + helper `cabangSesiUntuk()` (yang sudah dipakai
+absensi untuk cabang-efektif). Jadi tiket 6m di peta berubah dari
+*"kode belum ditemukan"* menjadi **"Rolling global — lepaskan dari checklist,
+jadi satu sumber penempatan untuk absensi/kehadiran/laporan"**, jenjang **L**,
+pemohon HR/Ops, fase **REQ**. Rencana lama `rencana-penempatan.md` (ACC 4 Agu,
+Reza) jadi bahan FRM-IT-02-nya.
+
+**✅ DUA CABANG REZA — diukur, ini putusannya:**
+- `checklist-pettycash`: blade audit-nya **sudah ada di main** (`$ringkas` 4
+  hit — penjaga nilai bersarang masuk lewat gerbong e28f89b); SQL
+  `anisa_irma_fleksibel.sql` **dilarang dijalankan** (memori). → **hapus cabang.**
+- `fitur/detail-pasien-…` (23 Jun): 9 berkas sudah bergerak jauh di main
+  (`reservation/list.blade.php` 16 commit — redesign), **kecuali**
+  `_modal_patient_detail.blade.php` yang **belum pernah ada di main**. → kalau
+  fitur "detail pasien di reservasi" masih diinginkan, **cherry-pick berkas itu
+  saja** sebagai tiket S; sisanya mati. → **hapus cabang sesudah cherry-pick.**
+
+**📄 Proposal v2 DISELAMATKAN ke repo.** `docs/api/proposal-sweet-treats-api-omnicare-v2.md`
+(+ PDF) ternyata hidup hanya di working copy bersama sejak Juni — tak pernah
+di-commit. Sekarang di `main`. Isinya membuktikan: Fase 2 Pembayaran memang
+kita tulis sebagai *"gambaran, spec menyusul"* — vendor menjawab persis yang
+diminta. Spek konkretnya kini ada:
+`docs/api/permintaan-omnicare-endpoint-pembayaran-2026-09.md` — siap dikirim.
+
+### 14.21 RALAT §14.20 + prompt seeding antrian nyata ke dev (4 Sep malam)
+
+⛔ **Ralat.** §14.20 menulis *"tiket di dev = buangan"* dan peta §8 menulis
+*"jangan memuat 30 tiket ke dev"*. **Itu tafsiran HUB, bukan kata Ekky.**
+Ekky dua kali bilang *"data di dev mau aku isi sama data kerjaan sekarang dan
+antriannya"* — supaya demo memakai **beban nyata**. Kalimat *"dev hanya
+simulasi dan realisasi"* berarti *simulasi dengan data nyata*, bukan *data
+dibuang*. Papan dev kosong saat Ekky membukanya adalah akibat langsung
+tafsiran itu.
+
+**Yang benar:**
+- Dev **DIISI SEKARANG** dengan antrian nyata → demo memperlihatkan beban
+  sungguhan.
+- Tiket dev **TIDAK dibuang.** Seeder yang sama **dijalankan ulang di prod**
+  sesudah IT Tracker naik — idempoten by `nomor`, `masuk_at` dipertahankan,
+  pemohon dicari by **email** (portabel antar env; id user berbeda).
+- Tiga tiket **DICORET** dari peta karena ternyata **sudah di prod** (diukur
+  `merge-base --is-ancestor` terhadap `2400896`): libur cabang bertugas,
+  cuti/WFH tak memakan hari libur (`liburUntuk` ada di main), ketersediaan
+  dokter cuti vs jadwal khusus. Memori HUB soal ketiganya **basi**.
+- Sumber kebenaran: **`docs/rencana/seed-antrian-it-2026-09-04.psv`** —
+  27 baris, pipe-separated, kolom: urut · judul · sumber · pemohon_email ·
+  pemohon_nama · pic_email · jenjang · bobot · prioritas_pemohon ·
+  prioritas_it · fase · masuk_at · status · alasan_tunda · parent_urut ·
+  deps_urut · latar.
+
+```
+Lanjutkan proyek SweetTreats lewat memori. Chat ini MENGISI IT Request Tracker
+di DEV dengan antrian kerjaan NYATA untuk demo 5 Sep, lewat seeder yang nanti
+dijalankan ulang di prod. Lokal & dev; prod HANYA kalau Ekky menyebut "prod".
+
+BACA DULU:
+· docs/rencana/seed-antrian-it-2026-09-04.psv   <- SUMBER KEBENARAN, 27 baris
+· docs/rencana/rencana-peta-antrian-it.md        <- konteks tiap baris (§3, §8, §9)
+· docs/rencana/rencana-it-tracker.md §14.21      <- ini
+· memori project_it_tracker
+
+TUGAS: perintah artisan `it:seed-antrian {berkas.psv} {--env-guard=dev}`.
+1. IDEMPOTEN by `urut` → simpan `urut` di kolom baru `it_ticket.seed_urut`
+   (nullable, unik) supaya jalan ulang MEMPERBARUI, bukan menggandakan. Nomor
+   tiket tetap dari it_counter (IT-2026-001..027) — jangan hardcode nomor.
+2. Pemohon dicari by `pemohon_email`, fallback `pemohon_nama`; kalau dua-duanya
+   tak ada → BERHENTI dengan pesan menyebut barisnya (jangan diam-diam
+   melewati). PIC by `pic_email`, boleh kosong.
+3. Fase & `masuk_at`: buat baris `it_ticket_fase` untuk fase saat ini dengan
+   `masuk_at` persis dari berkas (ini yang membuat "berapa hari menunggu"
+   JUJUR — jangan pakai now()). `it_ticket.created_at` = `masuk_at` juga.
+   Tiket yang sudah di ANALISIS/UAT/EVALUASI: JANGAN mengisi FR/paraf/skenario
+   palsu — biarkan formulirnya kosong, lampu gerbangnya mati apa adanya. Itu
+   keadaan nyata: dibangun tanpa formulir karena tracker belum ada.
+4. `sumber`: permintaan → pemohon wajib; inisiatif/insiden → pemohon boleh
+   kosong (aturan Fase 1). Insiden masuk DEV langsung.
+5. `status=ditunda` → panggil parkir yang sudah ada (`alasan_tunda` wajib),
+   supaya tercatat ke audit_log seperti parkir manual.
+6. `parent_urut` → `it_ticket.parent` (induk–anak, sudah ada di skema);
+   `deps_urut` → deps (relasi ke tiket, fitur 2b). Selesaikan induk sebelum
+   anak; dua lintasan bila perlu.
+7. FRM-IT-01 payload minimal: `latar` dari berkas + `jenis` "Perubahan fitur"
+   (untuk permintaan). Jangan mengarang field lain.
+8. Baris 01 (Absensi stabilisasi): fase EVALUASI, evaluator = pemohon (HR).
+   Anak 02/03/26 di DEV di bawahnya.
+9. `--env-guard`: perintah MENOLAK jalan kalau APP_ENV/host tidak cocok dengan
+   argumen. Di dev jalankan dengan `--env-guard=dev`. Untuk prod nanti Ekky
+   sendiri yang memanggil dengan `--env-guard=prod`.
+
+UJI TERIMA:
+· jalan 2× di lokal → 27 tiket, bukan 54; counter 027
+· pemohon tak ditemukan → berhenti, sebut baris
+· "berapa hari menunggu" tiket 07 (13 Agu) ≈ 22 hari; tiket 04 (7 Jul) ≈ 59 hari
+· heat: tiket di DEV tetap 0 walau 59 hari; tiket 08 di UAT menunggu Robi memanas
+· 3 tiket ditunda tampil dengan alasan; tidak dihitung "item aktif"
+· panel beban: item aktif = 24, macet di luar IT ≥ 3
+· cacah baris tabel lama tak berubah; 83 uji lama hijau
+· DEV: buka /it-tracker sebagai Ikhsan → papan terisi; sebagai Yovan →
+  /it-tracker/permintaan menampilkan tiket 11 & 13; sebagai Robi → 08 & 17
+
+LINGKUNGAN:
+· Branch feat/it-tracker, worktree Downloads\sweettreats-it-tracker. Cek HEAD.
+· Nomor tiket di baris pertama commit (pakai IT-2026-005: tracker sendiri).
+· dev = working copy bersama, sedang dipakai demo. `git status --porcelain |
+  grep "^??"` dulu; checkout TANPA reset --hard.
+· ⛔ JANGAN db:show / Schema::hasTable() / SHOW COLUMNS / DESCRIBE — membunuh
+  mysqld lokal. `ADD COLUMN IF NOT EXISTS` + `SELECT kolom LIMIT 0`.
+· phpunit PER KELAS.
+· Naik dev: SQL (kolom seed_urut) → deploy → jalankan `it:seed-antrian
+  docs/rencana/seed-antrian-it-2026-09-04.psv --env-guard=dev` → curl
+  /it-tracker sebagai tiga persona, periksa URL AKHIR.
+
+Selesai: entri docs/log-update.md + salin ke Google Drive + catat ke memori.
+```
+
+### 14.22 Tambahan seed baris 28–30: COGS · Inventory · Slip gaji sebagai DRAF IT
+
+Ekky (4 Sep malam): *"apa bisa kita buatkan requirement-nya, biar tampil dulu,
+biar antriannya jelas?"* — **bisa, dengan satu penanda kejujuran**: ketiganya
+masuk sebagai **permintaan** atas nama pemilik departemennya, tapi latarnya
+diawali **`[DRAF IT — belum dikonfirmasi pemohon]`**. Papan memperlihatkan
+antriannya; teksnya jujur soal siapa yang sudah bicara.
+
+Draf lengkap: `docs/rencana/draf-frm01-cogs-inventory-slipgaji.md`.
+
+| Urut | Tiket | Pemohon | Masuk | Catatan |
+|---|---|---|---|---|
+| 28 | COGS | Della (Finance) | **Triase** | Ekky triase langsung saat demo |
+| 29 | Inventory | **Anisa (Supervisor) — SEMENTARA** | **Triase** | pemilik dept belum disebut Ekky; ganti saat triase |
+| 30 | Slip gaji | Admin_Nisa (HR) | **Antre → Ditunda** | alasan = kata Ekky sendiri: IT fokus Tracker & Finance |
+
+**Untuk seeder (menambah §14.21):** baris 28–30 diperlakukan sama; penanda
+`[DRAF IT …]` **harus tetap tampil** di FRM-IT-01 dan ekspor — jangan
+dibersihkan. Gerbang Triase→Antre untuk 28/29 tetap milik Head IT saat demo.
+Baris 30 sudah bertriase (L·4·P3) lalu diparkir lewat mekanisme parkir.
+
+⚠️ Ini **mengoreksi** peta §9 yang menulis *"sengaja TIDAK ada di seed: COGS,
+Inventory, Slip gaji"*. Prinsip "pemohon yang benar" tetap dijaga lewat
+penanda draf + kewajiban konfirmasi sebelum lolos triase.

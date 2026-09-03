@@ -559,7 +559,7 @@ bukan symlink).
   ke Accurate. Template impor Accurate **di-pause** (tunggu bahas dengan
   Finance; tombol sementara berlabel "Draf untuk Accurate").
 - **Launch paket "Pengeluaran"**: petty cash sudah ada tapi **belum diadopsi
-  siapa pun** (prod 0 transaksi nyata) — diluncurkan bareng ROP ke Finance +
+  siapa pun** (⚠️ RALAT 4 Sep: klaim "0 transaksi" BASI — prod **355 transaksi**, terbaru 3 Sep; sudah dipakai) — diluncurkan bareng ROP ke Finance +
   para head sebagai satu paket, butuh sosialisasi/demo.
 - **IT Request Tracker** (`rencana-it-tracker.md` §14): tiket permintaan IT
   dengan fase S/M/L dan formulir FRM-IT-01..07. Kunci desainnya: **formulir
