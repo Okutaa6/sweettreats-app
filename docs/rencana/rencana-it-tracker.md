@@ -1097,3 +1097,45 @@ pergeseran, jadi tak ada koding 2b yang terbatalkan.
 ⚠️ Cacat kecil untuk diperiksa di UI nyata: di screenshot 07 **tiga baris lampu
 gerbang saling bertindihan** saat dirender. Cacat tata letak mockup, bukan
 logika — jangan ikut disalin.
+
+### 14.18 RALAT PENTING — Muhamad Ikhsan ADALAH Ekky
+
+Ekky mengoreksi 4 Sep: **"Ekky" itu nama panggilan; akun `Muhamad Ikhsan`
+adalah dia sendiri.** Jadi Ekky punya **dua akun**: `Muhamad Ikhsan` (Head IT)
+dan `Admin_Ekky` (Admin General) — pola yang sama dengan
+[[project_roster_karyawan]] soal *"Anisa ≠ Admin_Nisa (dua akun beda)"*.
+
+**Yang batal dari §14.16/§14.17:** kalimat *"Ekky tak punya akun Head IT"*
+**SALAH**. Dia punya. Tidak ada penghalang demo, tak perlu meminjam akun.
+Kesalahan HUB: menyimpulkan dua orang berbeda dari dua nama berbeda, tanpa
+bertanya.
+
+**Yang justru MENGUAT:** lubang paraf bukan lagi hipotetis, tapi
+**terkonfirmasi**. Satu manusia, dua akun: menulis analisis sebagai Ikhsan
+(Head IT), lalu memparaf sebagai Admin_Ekky (`Admin General` ∈
+`ROLE_PENGAWAS`). Tanpa jejak — kode memeriksa **peran, bukan orang**.
+
+**Usulnya jadi lebih sederhana.** Batal paket dua konstanta §14.17; cukup:
+
+> `ROLE_PENGAWAS` **−= `"Admin General"`, `"Admin Backup"`, `"Admin"`**
+
+Satu konstanta. Tak perlu menambah apa pun ke `ROLE_HEAD_IT` karena Ekky sudah
+Head IT lewat Ikhsan. Sesudah itu BO = Executive + Consultant + Konsultan\*,
+persis §7 dan persis label desain (*"Business Owner (Executive / Konsultan)"*).
+**Status: Ekky bilang "boleh, bahas dulu" — belum final.**
+
+#### Catatan kesiapan demo (dev)
+
+- Persona tersedia di dev: **Ekky** (Muhamad Ikhsan = Head IT · Admin_Ekky) ·
+  **Reza** (IT) · **Robi** (Executive/BO) · **Hari** (Konsultan Marketing/BO) ·
+  **Yovan** & **Yovanka** (Head Marketing/pemohon).
+- ⚠️ **Rahmat (Konsultan IT) TIDAK ADA di dev** — hanya prod. Untuk demo pakai
+  **Hari** sebagai persona Konsultan.
+- ⛔ **Jangan membuat akun baru sekadar untuk demo.** Membuat user menyeret
+  aturan kerja absensi; proyek ini sudah 2× kena **alpa palsu** karena
+  `effective_from` diisi tanggal pembuatan akun, bukan tanggal mulai kerja
+  ([[feedback_alpa_palsu_aturan_kerja]]).
+- Password demo bersama boleh disamakan **di dev saja** (`password_verify` +
+  `password_hash(PASSWORD_DEFAULT)` = bcrypt biasa). `dev.sweettreats.id`
+  terbuka di internet → jangan password yang gampang ditebak, dan **jangan
+  pernah di prod**.
