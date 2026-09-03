@@ -189,3 +189,11 @@ saat demo): **24 item aktif** (27 − 3 ditunda) · 3 ditunda beralasan · yang
 memanas di luar IT: tiket 06 & 08 (UAT, menunggu HR/Robi), 11 (Antre >3 hari
 sejak 10 Agu tidak memanas — Antre tak menunggu siapa pun) · tiket 04 di DEV
 59 hari **tetap dingin** — tunjukkan itu saat demo.
+
+## 10. Koreksi §9 — COGS · Inventory · Slip gaji IKUT di seed (baris 28–30)
+
+Atas permintaan Ekky supaya antrian lengkap terlihat, ketiganya masuk sebagai
+**draf IT** dengan penanda `[DRAF IT — belum dikonfirmasi pemohon]` di latar.
+Rincian & aturan: `rencana-it-tracker.md` §14.22; teks FRM-IT-01-nya:
+`draf-frm01-cogs-inventory-slipgaji.md`. Panel beban sesudah seeding:
+**26 item aktif** (30 − 4 ditunda), 4 ditunda beralasan.

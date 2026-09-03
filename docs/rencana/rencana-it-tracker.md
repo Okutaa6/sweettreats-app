@@ -1363,3 +1363,28 @@ LINGKUNGAN:
 
 Selesai: entri docs/log-update.md + salin ke Google Drive + catat ke memori.
 ```
+
+### 14.22 Tambahan seed baris 28–30: COGS · Inventory · Slip gaji sebagai DRAF IT
+
+Ekky (4 Sep malam): *"apa bisa kita buatkan requirement-nya, biar tampil dulu,
+biar antriannya jelas?"* — **bisa, dengan satu penanda kejujuran**: ketiganya
+masuk sebagai **permintaan** atas nama pemilik departemennya, tapi latarnya
+diawali **`[DRAF IT — belum dikonfirmasi pemohon]`**. Papan memperlihatkan
+antriannya; teksnya jujur soal siapa yang sudah bicara.
+
+Draf lengkap: `docs/rencana/draf-frm01-cogs-inventory-slipgaji.md`.
+
+| Urut | Tiket | Pemohon | Masuk | Catatan |
+|---|---|---|---|---|
+| 28 | COGS | Della (Finance) | **Triase** | Ekky triase langsung saat demo |
+| 29 | Inventory | **Anisa (Supervisor) — SEMENTARA** | **Triase** | pemilik dept belum disebut Ekky; ganti saat triase |
+| 30 | Slip gaji | Admin_Nisa (HR) | **Antre → Ditunda** | alasan = kata Ekky sendiri: IT fokus Tracker & Finance |
+
+**Untuk seeder (menambah §14.21):** baris 28–30 diperlakukan sama; penanda
+`[DRAF IT …]` **harus tetap tampil** di FRM-IT-01 dan ekspor — jangan
+dibersihkan. Gerbang Triase→Antre untuk 28/29 tetap milik Head IT saat demo.
+Baris 30 sudah bertriase (L·4·P3) lalu diparkir lewat mekanisme parkir.
+
+⚠️ Ini **mengoreksi** peta §9 yang menulis *"sengaja TIDAK ada di seed: COGS,
+Inventory, Slip gaji"*. Prinsip "pemohon yang benar" tetap dijaga lewat
+penanda draf + kewajiban konfirmasi sebelum lolos triase.
