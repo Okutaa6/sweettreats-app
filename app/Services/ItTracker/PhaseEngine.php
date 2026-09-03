@@ -51,6 +51,28 @@ class PhaseEngine
         ['k' => 'cabang', 't' => 'Cabang target terverifikasi'],
     ];
 
+    /**
+     * Ronde 2 — lima pemeriksaan tetap uji internal (baris TC TERKUNCI: tak
+     * bisa dihapus / diganti nama, tapi diisi & ikut terhitung). TC-05 adalah
+     * yang menangkap kerusakan diam-diam — jangan sampai bisa hilang.
+     */
+    public const TC_TETAP = [
+        ['id' => 'TC-01', 'skenario' => 'Fungsi utama sesuai Kriteria Diterima FR',            'harapan' => 'semua FR lolos kriterianya'],
+        ['id' => 'TC-02', 'skenario' => 'Validasi input & penanganan error',                   'harapan' => 'input salah ditolak sopan, tak ada error 500'],
+        ['id' => 'TC-03', 'skenario' => 'Database / API — data tersimpan & terkirim benar',    'harapan' => 'data konsisten di DB dan sistem tujuan'],
+        ['id' => 'TC-04', 'skenario' => 'Hak akses per role',                                  'harapan' => 'role tanpa hak tidak bisa membuka/mengubah'],
+        ['id' => 'TC-05', 'skenario' => 'Fitur lama terkait tetap berjalan (regresi)',         'harapan' => 'alur lama tidak berubah perilaku'],
+    ];
+
+    /** Ronde 2 — lima aspek evaluasi (FRM-IT-07), skala 1-5. */
+    public const EVAL_ASPEK = [
+        ['k' => 'sesuai',  't' => 'Kesesuaian dengan kebutuhan'],
+        ['k' => 'mudah',   't' => 'Kemudahan penggunaan'],
+        ['k' => 'stabil',  't' => 'Stabilitas'],
+        ['k' => 'dampak',  't' => 'Dampak ke proses kerja'],
+        ['k' => 'manfaat', 't' => 'Manfaat yang dirasakan'],
+    ];
+
     public static function phShort(string $k): string
     {
         foreach (self::PH as $p) if ($p['k'] === $k) return $p['s'];
@@ -133,7 +155,7 @@ class PhaseEngine
         switch ($t['fase']) {
             case 'TRIASE':   $label = 'Menunggu triase IT'; break;
             case 'ANTRE':    $party = null; $label = 'Antre'; break;
-            case 'ANALISIS': $party = 'IT + pemohon'; $label = 'Digodok IT + ' . $pem; break;
+            case 'ANALISIS': $party = 'IT + pemohon'; $label = 'Dianalisis IT bersama ' . $pem; break;
             case 'DEV':
             case 'UJI':      $label = 'Di tangan IT'; break;
             case 'UAT':      $party = $pem; $luar = true; $label = 'Menunggu ' . $pem . ' (UAT)'; break;
@@ -200,16 +222,27 @@ class PhaseEngine
         }
 
         if ($f === 'ANALISIS') {
-            $m  = [];
-            $fr = $t['fr02']['fr'] ?? [];
+            // Ronde 2 (ADITIF): `missing` tetap, `checks[]` ditambah — lampu per
+            // syarat. Ruang lingkup HANYA untuk L (02 penuh tak pernah diminta
+            // dari M); paraf satu Business Owner jadi syarat gerbang.
+            $F  = $t['fr02'] ?? [];
+            $fr = $F['fr'] ?? [];
             $adaKriteria = false;
             foreach ($fr as $r) {
                 if (! empty($r['kriteria']) && trim($r['kriteria']) !== '') { $adaKriteria = true; break; }
             }
-            if (! $adaKriteria)                       $m[] = '≥1 FR dengan Kriteria Diterima';
-            if (empty($t['fr02']['lingkup']))         $m[] = 'ruang lingkup';
-            if (empty($t['fr02']['komponen']))        $m[] = 'komponen terdampak';
-            return ['kind' => 'advance', 'next' => 'DEV', 'label' => 'Buka gerbang → Development', 'ok' => ! $m, 'missing' => $m, 'actor' => 'it'];
+            $checks = [
+                ['t' => '≥1 FR dengan Kriteria Diterima', 'ok' => $adaKriteria],
+                ['t' => 'komponen terdampak',            'ok' => ! empty($F['komponen'])],
+            ];
+            if ($j === 'L') {
+                $checks[] = ['t' => 'ruang lingkup termasuk / tidak termasuk (02 penuh)',
+                             'ok' => ! empty($F['lingkup']) && trim($F['lingkup']) !== ''];
+            }
+            $checks[] = ['t' => 'paraf satu Business Owner', 'ok' => ! empty($F['paraf'])];
+
+            $m = self::kurangDari($checks);
+            return ['kind' => 'advance', 'next' => 'DEV', 'label' => 'Buka gerbang → Development', 'ok' => ! $m, 'missing' => $m, 'checks' => $checks, 'actor' => 'it'];
         }
 
         if ($f === 'DEV') {
@@ -223,22 +256,29 @@ class PhaseEngine
         }
 
         if ($f === 'UJI') {
-            $m  = [];
-            $tc = $t['fr04']['tc'] ?? [];
-            $adaTanpaStatus = ! $tc;
-            foreach ($tc as $r) if (empty($r['status'])) { $adaTanpaStatus = true; break; }
-            if ($adaTanpaStatus) $m[] = 'semua test case berstatus';
-            $open = 0;
-            foreach (($t['fr04']['temuan'] ?? []) as $x) {
-                if (($x['tingkat'] ?? '') === 'Major' && ($x['status'] ?? '') !== 'Selesai') $open++;
-            }
-            if ($open) $m[] = $open . ' temuan Major masih terbuka';
-            return ['kind' => 'advance', 'next' => 'UAT', 'label' => 'Serahkan → UAT', 'ok' => ! $m, 'missing' => $m, 'actor' => 'it'];
+            // Ronde 2 (ADITIF): tiga lampu; kalimat Major MENYEBUT JUMLAHNYA.
+            $tc    = $t['fr04']['tc'] ?? [];
+            $belum = count(array_filter($tc, fn ($r) => empty($r['status'])));
+            $fail  = count(array_filter($tc, fn ($r) => ($r['status'] ?? null) === 'fail'));
+            $open  = count(array_filter($t['fr04']['temuan'] ?? [],
+                fn ($x) => ($x['tingkat'] ?? '') === 'Major' && ($x['status'] ?? '') !== 'Selesai'));
+            $checks = [
+                ['t' => $belum ? $belum . ' test case belum berstatus' : 'semua test case berstatus', 'ok' => count($tc) > 0 && ! $belum],
+                ['t' => $fail ? $fail . ' test case masih Fail' : 'tidak ada test case Fail',        'ok' => ! $fail],
+                ['t' => $open ? $open . ' temuan Major masih terbuka — menahan gerbang' : 'nol temuan Major terbuka', 'ok' => ! $open],
+            ];
+            $m = self::kurangDari($checks);
+            return ['kind' => 'advance', 'next' => 'UAT', 'label' => 'Serahkan → UAT', 'ok' => ! $m, 'missing' => $m, 'checks' => $checks, 'actor' => 'it'];
         }
 
         if ($f === 'UAT') {
-            $ok = ($t['fr05']['keputusan'] ?? null) === 'setuju';
-            return ['kind' => 'advance', 'next' => 'GOLIVE', 'label' => 'Lanjut → Go Live', 'ok' => $ok, 'missing' => $ok ? [] : ['persetujuan pemohon (FRM-IT-05)'], 'actor' => 'pemohon'];
+            // Ronde 2: "Disetujui dengan Catatan" juga membuka gerbang.
+            $k  = $t['fr05']['keputusan'] ?? null;
+            $ok = $k === 'setuju' || $k === 'catatan';
+            return ['kind' => 'advance', 'next' => 'GOLIVE', 'label' => 'Lanjut → Go Live', 'ok' => $ok,
+                'missing' => $ok ? [] : ['keputusan pemohon di FRM-IT-05'],
+                'checks'  => [['t' => 'pemohon menjawab: Disetujui / Disetujui dengan Catatan', 'ok' => $ok]],
+                'actor' => 'pemohon'];
         }
 
         if ($f === 'GOLIVE') {
@@ -257,10 +297,27 @@ class PhaseEngine
         }
 
         if ($f === 'EVALUASI') {
-            $ok = ! empty($t['fr07']['hasil']);
-            return ['kind' => 'advance', 'next' => 'SELESAI', 'label' => 'Tutup tiket', 'ok' => $ok, 'missing' => $ok ? [] : ['hasil evaluasi (atau tutup otomatis 14 hari)'], 'actor' => 'evaluator'];
+            // Ronde 2: lima aspek dinilai (skala 1-5) membuka penutupan tiket;
+            // rencana tindak lanjut yang belum bertiket TIDAK menahan.
+            $a = $t['fr07']['aspek'] ?? [];
+            $n = count(array_filter(self::EVAL_ASPEK, fn ($x) => ! empty($a[$x['k']])));
+            $ok = $n === count(self::EVAL_ASPEK);
+            $rtlOpen = count(array_filter($t['fr07']['rtl'] ?? [], fn ($x) => empty($x['ticketId'])));
+            $checks = [
+                ['t' => $ok ? 'lima aspek dinilai' : $n . '/5 aspek dinilai', 'ok' => $ok],
+                ['t' => $rtlOpen ? $rtlOpen . ' rencana tindak lanjut belum dijadikan tiket (boleh dibiarkan)' : 'tindak lanjut sudah bertiket / tidak ada', 'ok' => true],
+            ];
+            return ['kind' => 'advance', 'next' => 'SELESAI', 'label' => 'Tutup tiket', 'ok' => $ok,
+                'missing' => $ok ? [] : ['lima aspek evaluasi (atau tutup otomatis 14 hari)'],
+                'checks' => $checks, 'actor' => 'evaluator'];
         }
 
         return null;
+    }
+
+    /** `missing` = teks lampu yang belum menyala (urutan dipertahankan). */
+    private static function kurangDari(array $checks): array
+    {
+        return array_values(array_map(fn ($c) => $c['t'], array_filter($checks, fn ($c) => ! $c['ok'])));
     }
 }

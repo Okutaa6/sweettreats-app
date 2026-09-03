@@ -98,13 +98,18 @@ class ItPhaseEngineTest extends TestCase
 
         $this->assertFalse($g['ok']);
         $this->assertContains('≥1 FR dengan Kriteria Diterima', $g['missing']);
-        $this->assertContains('ruang lingkup', $g['missing']);
+        // ⚠️ KONTRAK BERUBAH SADAR (Fase 2b, rencana §14.13 TERKUNCI): r1 mewajibkan
+        // ruang lingkup untuk semua jenjang; r2 hanya untuk L — "02 PENUH jangan
+        // pernah muncul untuk M" — dan menambah paraf satu Business Owner.
+        // Tiket uji ini jenjang M, jadi lingkup TIDAK boleh diminta.
+        $this->assertNotContains('ruang lingkup', $g['missing']);
         $this->assertContains('komponen terdampak', $g['missing']);
+        $this->assertContains('paraf satu Business Owner', $g['missing']);
 
         $lengkap = PhaseEngine::gateInfo($this->tiket(['fase' => 'ANALISIS', 'fr02' => [
             'fr'       => [['id' => 'FR-01', 'kriteria' => 'Selesai kalau X terlihat di layar Y.']],
-            'lingkup'  => 'Termasuk A. Tidak termasuk B.',
             'komponen' => ['Aplikasi'],
+            'paraf'    => ['oleh' => 'Robi', 'at' => '2026-09-03T10:00:00+07:00'],
         ]]));
         $this->assertTrue($lengkap['ok']);
         $this->assertSame('DEV', $lengkap['next']);
@@ -120,7 +125,9 @@ class ItPhaseEngineTest extends TestCase
 
         $g = PhaseEngine::gateInfo($this->tiket($dasar));
         $this->assertFalse($g['ok']);
-        $this->assertContains('1 temuan Major masih terbuka', $g['missing']);
+        // ⚠️ KONTRAK BERUBAH SADAR (Fase 2b, §14.14 no. 9): kalimatnya kini
+        // MENYEBUT JUMLAH dan berakhiran "— menahan gerbang".
+        $this->assertContains('1 temuan Major masih terbuka — menahan gerbang', $g['missing']);
 
         $dasar['fr04']['temuan'][0]['status'] = 'Selesai';
         $this->assertTrue(PhaseEngine::gateInfo($this->tiket($dasar))['ok']);

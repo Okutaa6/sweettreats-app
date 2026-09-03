@@ -3,6 +3,9 @@
 namespace App\Services\ItTracker;
 
 use App\Models\ItForm;
+use App\Models\ItFr;
+use App\Models\ItTemuan;
+use App\Models\ItTestCase;
 use App\Models\ItTicket;
 use App\Models\ItTicketFase;
 use DomainException;
@@ -90,31 +93,45 @@ class ItTrackerService
     public function buat(array $d, string $userId): ItTicket
     {
         $sumber = $d['sumber'] ?? 'permintaan';
-        $fase   = ['permintaan' => 'TRIASE', 'inisiatif' => 'ANTRE', 'insiden' => 'DEV'][$sumber]
-            ?? throw new DomainException('Sumber tiket tidak dikenal.');
 
-        if ($sumber !== 'permintaan' && empty($d['jenjang'])) {
+        // Tiket yang LAHIR dari catatan UAT / RTL evaluasi (spawnTicket r2):
+        // selalu lahir di TRIASE, pemohon sama dengan induknya, tanpa jenjang —
+        // apa pun sumbernya. Satu jalan untuk dua asal (rencana §14.13).
+        $lahir = ! empty($d['_lahir_dari_id']);
+
+        $fase = $lahir ? 'TRIASE'
+            : (['permintaan' => 'TRIASE', 'inisiatif' => 'ANTRE', 'insiden' => 'DEV'][$sumber]
+                ?? throw new DomainException('Sumber tiket tidak dikenal.'));
+
+        if (! $lahir && $sumber !== 'permintaan' && empty($d['jenjang'])) {
             throw new DomainException('Inisiatif/insiden IT wajib langsung diberi jenjang (S/M/L).');
         }
 
-        return DB::transaction(function () use ($d, $sumber, $fase, $userId) {
+        return DB::transaction(function () use ($d, $sumber, $fase, $userId, $lahir) {
             $now = now();
+
+            $pemohon = $lahir
+                ? ($d['pemohon_user_id'] ?? null)
+                : ($sumber === 'permintaan' ? $userId : null);
 
             $ticket = ItTicket::create([
                 'nomor'             => $this->nomorBaru($now),
-                'judul'             => $d['judul'],
+                'judul'             => self::teksBersih($d['judul']),
                 'sumber'            => $sumber,
-                'pemohon_user_id'   => $sumber === 'permintaan' ? $userId : null,
+                'pemohon_user_id'   => $pemohon,
                 'raw_branch_id'     => $d['raw_branch_id'] ?? null,
                 'jenis_permintaan'  => $d['jenis_permintaan'] ?? null,
-                'jenjang'           => $sumber === 'permintaan' ? null : ($d['jenjang'] ?? null),
-                'bobot'             => $sumber === 'permintaan' ? null : ($d['bobot'] ?? null),
-                'prioritas_pemohon' => $sumber === 'permintaan' ? ($d['prioritas_pemohon'] ?? null) : null,
-                'prioritas_it'      => $sumber === 'permintaan' ? null : ($d['prioritas_it'] ?? null),
-                'pic_user_id'       => $sumber === 'permintaan' ? null : $userId,
+                'jenjang'           => ($lahir || $sumber === 'permintaan') ? null : ($d['jenjang'] ?? null),
+                'bobot'             => ($lahir || $sumber === 'permintaan') ? null : ($d['bobot'] ?? null),
+                'prioritas_pemohon' => $lahir ? ($pemohon ? 'Sedang' : null)
+                                        : ($sumber === 'permintaan' ? ($d['prioritas_pemohon'] ?? null) : null),
+                'prioritas_it'      => ($lahir || $sumber === 'permintaan') ? null : ($d['prioritas_it'] ?? null),
+                'pic_user_id'       => ($lahir || $sumber === 'permintaan') ? null : $userId,
                 'fase'              => $fase,
                 'fase_since'        => $now,
                 'induk_id'          => $d['induk_id'] ?? null,
+                'lahir_dari_id'     => $d['_lahir_dari_id'] ?? null,
+                'lahir_via'         => $d['_lahir_via'] ?? null,
             ]);
 
             ItTicketFase::create([
@@ -254,20 +271,56 @@ class ItTrackerService
         if ($t->fase !== 'UAT') {
             throw new DomainException('Tiket ini tidak sedang menunggu UAT.');
         }
-        if (! in_array($keputusan, ['setuju', 'perbaikan'], true)) {
+        if (! in_array($keputusan, ['setuju', 'catatan', 'perbaikan'], true)) {
             throw new DomainException('Keputusan UAT tidak dikenal.');
         }
 
-        $ke = $keputusan === 'setuju' ? 'GOLIVE' : 'DEV';
+        $form = ItForm::firstOrNew(['ticket_id' => $t->id, 'kode' => 'FRM-IT-05']);
+        $p    = $form->payload ?? [];
 
-        DB::transaction(function () use ($t, $keputusan, $ke, $userId) {
-            $form = ItForm::firstOrNew(['ticket_id' => $t->id, 'kode' => 'FRM-IT-05']);
-            $form->payload = array_merge($form->payload ?? [], [
-                'keputusan' => $keputusan,
-                'oleh'      => $userId,
-                'tanggal'   => now()->toIso8601String(),
-            ]);
+        if (in_array($p['keputusan'] ?? null, ['setuju', 'catatan'], true)) {
+            throw new DomainException('UAT tiket ini sudah diputuskan.');
+        }
+
+        // "Disetujui dengan Catatan" hanya bermakna kalau memang ada catatan —
+        // dari baris "Tidak" atau Masukan End User (r2: tombolnya mati tanpa itu).
+        $catatan = [];
+        foreach (($p['skenario'] ?? []) as $s) {
+            if (! empty($s['catatan']) && trim($s['catatan']) !== '') $catatan[] = trim($s['catatan']);
+        }
+        if (! empty($p['masukan']) && trim($p['masukan']) !== '') $catatan[] = trim($p['masukan']);
+
+        if ($keputusan === 'catatan' && ! $catatan) {
+            throw new DomainException('Tulis dulu catatan di baris "Tidak" atau Masukan End User sebelum "Disetujui dengan Catatan".');
+        }
+
+        $ke = $keputusan === 'perbaikan' ? 'DEV' : 'GOLIVE';
+
+        DB::transaction(function () use ($t, $form, $p, $keputusan, $ke, $userId, $catatan) {
+            $p['keputusan'] = $keputusan;
+            $p['oleh']      = $userId;
+            $p['tanggal']   = now()->toIso8601String();
+
+            if ($keputusan === 'catatan') {
+                // Catatan → daftar tindak lanjut di tiket (BUKAN tiket otomatis:
+                // itu membanjiri papan). Tombol "Jadikan tiket" per butir.
+                $ada = $p['tindakLanjut'] ?? [];
+                foreach ($catatan as $txt) {
+                    $ada[] = ['id' => sprintf('TL-%02d', count($ada) + 1), 'txt' => $txt, 'via' => 'UAT', 'ticketId' => null];
+                }
+                $p['tindakLanjut'] = $ada;
+            }
+
+            $form->payload = $p;
             $form->save();
+
+            if ($keputusan === 'perbaikan') {
+                // Kembali ke Development DAN konfirmasi FRM-IT-03 DIRESET — kode
+                // yang ditolak pemohon harus dikonfirmasi ulang, bukan sekadar
+                // dicatat (rencana §14.14 no. 8).
+                ItForm::where('ticket_id', $t->id)->where('kode', 'FRM-IT-03')
+                    ->update(['dikonfirmasi_at' => null, 'dikonfirmasi_oleh' => null]);
+            }
 
             $this->pindahFase($t, $ke, $userId);
         });
@@ -437,6 +490,537 @@ class ItTrackerService
         $form->dikonfirmasi_oleh = $userId;
         $form->save();
     }
+    // ═══════════════════════════════════════════════════════════════════════
+    // FASE 2b — empat formulir kerja (rencana §14.13 TERKUNCI)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /** Komponen terdampak (FRM-IT-02 §C) — pilihan tetap. */
+    public const KOMPONEN = ['Aplikasi', 'Database', 'API', 'Laporan', 'Hak akses'];
+
+    // ─── FRM-IT-02 Analysis & Design (Kelas C — Ekky + paraf 1 Business Owner) ──
+
+    private function pastikanDiAnalisis(ItTicket $t): void
+    {
+        if ($t->fase !== 'ANALISIS') {
+            throw new DomainException('FRM-IT-02 hanya diisi saat tiket berada di fase Analisis.');
+        }
+    }
+
+    /**
+     * Tulis payload FRM-IT-02. Bawaan: MENGHAPUS paraf BO — temuan T2 §14.13:
+     * mengubah isi yang sudah diparaf membatalkan parafnya, tanpa audit trail.
+     * Pagar integritas, bukan kenyamanan; BO diminta menyetujui ulang yang berubah.
+     */
+    private function tulisFr02(ItTicket $t, callable $ubah, bool $hapusParaf = true): void
+    {
+        $form = ItForm::firstOrNew(['ticket_id' => $t->id, 'kode' => 'FRM-IT-02']);
+        $p    = $ubah($form->payload ?? []);
+        if ($hapusParaf) {
+            unset($p['paraf']);
+        }
+        $form->payload = $p;
+        $form->save();
+    }
+
+    /** Hapus paraf BO (dipakai saat isi tabel FR berubah). */
+    public function hapusParafBo(ItTicket $t): void
+    {
+        $form = ItForm::where('ticket_id', $t->id)->where('kode', 'FRM-IT-02')->first();
+        if ($form && ! empty($form->payload['paraf'])) {
+            $p = $form->payload;
+            unset($p['paraf']);
+            $form->payload = $p;
+            $form->save();
+        }
+    }
+
+    /**
+     * Simpan SELURUH tabel FR (ganti-semua, nomor ulang FR-01..). Baris tanpa
+     * kebutuhan dibuang (itulah "baris hantu"). Paraf BO dihapus HANYA kalau
+     * isinya benar-benar berubah — menyimpan ulang tabel yang sama tak boleh
+     * menggugurkan persetujuan.
+     */
+    public function simpanFr(ItTicket $t, array $baris): int
+    {
+        $this->pastikanDiAnalisis($t);
+
+        $bersih = [];
+        foreach ($baris as $b) {
+            $keb = self::teksBersih(trim((string) ($b['kebutuhan'] ?? '')));
+            if ($keb === '') continue;
+            $prio = in_array($b['prioritas'] ?? '', ['Tinggi', 'Sedang', 'Rendah'], true) ? $b['prioritas'] : 'Sedang';
+            $bersih[] = [
+                'kebutuhan'         => mb_substr($keb, 0, 500),
+                'prioritas'         => $prio,
+                'kriteria_diterima' => mb_substr(self::teksBersih(trim((string) ($b['kriteria'] ?? ''))), 0, 1000),
+            ];
+        }
+
+        DB::transaction(function () use ($t, $bersih) {
+            $lama = ItFr::where('ticket_id', $t->id)->orderBy('urutan')->get()
+                ->map(fn ($r) => [$r->kebutuhan, $r->prioritas, (string) $r->kriteria_diterima])->all();
+            $baru = array_map(fn ($b) => [$b['kebutuhan'], $b['prioritas'], $b['kriteria_diterima']], $bersih);
+
+            ItFr::where('ticket_id', $t->id)->delete();
+            foreach ($bersih as $i => $b) {
+                ItFr::create(['ticket_id' => $t->id, 'kode' => sprintf('FR-%02d', $i + 1), 'urutan' => $i + 1] + $b);
+            }
+
+            if ($lama !== $baru) {
+                $this->hapusParafBo($t);
+            }
+        });
+
+        return count($bersih);
+    }
+
+    public function setKomponen(ItTicket $t, array $komponen): void
+    {
+        $this->pastikanDiAnalisis($t);
+        $komponen = array_values(array_intersect(self::KOMPONEN, $komponen));
+
+        $this->tulisFr02($t, function (array $p) use ($komponen) {
+            $p['komponen'] = $komponen;
+            return $p;
+        }, hapusParaf: true);
+    }
+
+    /**
+     * 02 PENUH — ruang lingkup termasuk / tidak termasuk / desain teknis.
+     * ⛔ Hanya jenjang L. M tak pernah melihat field ini; naik ke L lewat
+     * triase (fase tak berubah), bukan dengan membuka field L di tiket M.
+     */
+    public function setLingkupL(ItTicket $t, ?string $lingkup, ?string $luar, ?string $desain): void
+    {
+        $this->pastikanDiAnalisis($t);
+        if ($t->jenjang !== 'L') {
+            throw new DomainException('Ruang lingkup & desain teknis (02 penuh) hanya untuk jenjang L. Naikkan jenjang lewat triase kalau memang perlu.');
+        }
+
+        $this->tulisFr02($t, function (array $p) use ($lingkup, $luar, $desain) {
+            $p['lingkup'] = self::teksBersih(trim((string) $lingkup));
+            $p['luar']    = self::teksBersih(trim((string) $luar));
+            $p['desain']  = self::teksBersih(trim((string) $desain));
+            return $p;
+        });
+    }
+
+    /**
+     * Catatan dapur — estimasi & risiko, internal IT. TIDAK menghapus paraf:
+     * BO tak pernah melihatnya, jadi bukan bagian dari yang ia setujui.
+     */
+    public function setDapur(ItTicket $t, ?string $estimasi, ?string $risiko): void
+    {
+        $this->pastikanDiAnalisis($t);
+
+        $this->tulisFr02($t, function (array $p) use ($estimasi, $risiko) {
+            $p['estimasi'] = self::teksBersih(trim((string) $estimasi));
+            $p['risiko']   = self::teksBersih(trim((string) $risiko));
+            return $p;
+        }, hapusParaf: false);
+    }
+
+    /**
+     * Ketergantungan = RELASI ke tiket lain (nomor), bukan teks bebas.
+     * Semua tiket boleh dipilih termasuk DITUNDA (justru kasus terburuk yang
+     * wajib terlihat); DITOLAK dikecualikan (§14.13 no. 7).
+     */
+    public function tambahDep(ItTicket $t, string $nomor): void
+    {
+        $this->pastikanDiAnalisis($t);
+
+        $lain = ItTicket::where('nomor', $nomor)->first();
+        if (! $lain || $lain->id === $t->id) {
+            throw new DomainException('Tiket yang ditunggu tidak ditemukan.');
+        }
+        if ($lain->fase === 'DITOLAK') {
+            throw new DomainException('Tiket DITOLAK tidak bisa dijadikan ketergantungan.');
+        }
+
+        $this->tulisFr02($t, function (array $p) use ($nomor) {
+            $deps = $p['deps'] ?? [];
+            if (! in_array($nomor, $deps, true)) $deps[] = $nomor;
+            $p['deps'] = array_values($deps);
+            return $p;
+        });
+    }
+
+    public function hapusDep(ItTicket $t, string $nomor): void
+    {
+        $this->pastikanDiAnalisis($t);
+
+        $this->tulisFr02($t, function (array $p) use ($nomor) {
+            $p['deps'] = array_values(array_filter($p['deps'] ?? [], fn ($d) => $d !== $nomor));
+            return $p;
+        });
+    }
+
+    /**
+     * Paraf satu Business Owner = baris berstempel waktu (siapa & kapan),
+     * bukan kotak tanda tangan. Business Owner = Executive ATAU Konsultan —
+     * pemeriksaan perannya di controller, JANGAN patok Executive.
+     */
+    public function parafBo(ItTicket $t, string $userId, string $nama): void
+    {
+        $this->pastikanDiAnalisis($t);
+
+        $this->tulisFr02($t, function (array $p) use ($userId, $nama) {
+            $p['paraf'] = ['oleh' => $nama, 'oleh_id' => $userId, 'at' => now()->toIso8601String()];
+            return $p;
+        }, hapusParaf: false);
+    }
+
+    /**
+     * Ubah jenjang di tengah jalan (mis. M yang ternyata butuh detail L) —
+     * lewat "modal triase mode ubah-jenjang": FASE TIDAK BERUBAH. Paraf BO
+     * dihapus karena syarat gerbangnya ikut berubah.
+     */
+    public function ubahJenjang(ItTicket $t, string $jenjang, int $bobot, string $prioritasIt): void
+    {
+        $this->pastikanDiAnalisis($t);
+        if (! in_array($jenjang, ['S', 'M', 'L'], true)) {
+            throw new DomainException('Jenjang tidak dikenal.');
+        }
+
+        DB::transaction(function () use ($t, $jenjang, $bobot, $prioritasIt) {
+            $t->jenjang      = $jenjang;
+            $t->bobot        = $bobot;
+            $t->prioritas_it = $prioritasIt;
+            $t->save();
+            $this->hapusParafBo($t);
+        });
+    }
+
+    // ─── FRM-IT-04 Internal Testing (Kelas B — IT sendiri, tanpa paraf lain) ──
+
+    private function pastikanDiUji(ItTicket $t): void
+    {
+        if ($t->fase !== 'UJI') {
+            throw new DomainException('FRM-IT-04 hanya diisi saat tiket berada di fase Uji Internal.');
+        }
+    }
+
+    /** Lima pemeriksaan tetap SELALU ada (TC-01..05, terkunci). Idempoten. */
+    public function pastikanTcTetap(ItTicket $t): void
+    {
+        foreach (PhaseEngine::TC_TETAP as $x) {
+            $row = ItTestCase::firstOrNew(['ticket_id' => $t->id, 'kode' => $x['id']]);
+            if (! $row->exists) {
+                $row->skenario   = $x['skenario'];
+                $row->diharapkan = $x['harapan'];
+            }
+            $row->terkunci = true;   // tiket lama yang sudah punya TC-01.. ikut terkunci
+            $row->save();
+        }
+    }
+
+    /**
+     * Simpan tabel TC. Baris TERKUNCI: hanya aktual & status yang boleh diubah
+     * (skenario/diharapkan diabaikan diam-diam? TIDAK — ditolak eksplisit).
+     * Baris baru (kode kosong) ditambah dengan nomor berikutnya.
+     */
+    public function simpanTc(ItTicket $t, array $baris): void
+    {
+        $this->pastikanDiUji($t);
+        $this->pastikanTcTetap($t);
+
+        DB::transaction(function () use ($t, $baris) {
+            $ada = ItTestCase::where('ticket_id', $t->id)->get()->keyBy('kode');
+            $berikut = $this->nomorTcBerikut($t);
+
+            foreach ($baris as $b) {
+                $kode   = trim((string) ($b['kode'] ?? ''));
+                $status = in_array($b['status'] ?? null, ['pass', 'fail'], true) ? $b['status'] : null;
+                $aktual = mb_substr(self::teksBersih(trim((string) ($b['aktual'] ?? ''))), 0, 500);
+
+                if ($kode !== '' && $ada->has($kode)) {
+                    $row = $ada[$kode];
+                    if ($row->terkunci) {
+                        $skenBaru = trim((string) ($b['skenario'] ?? $row->skenario));
+                        if ($skenBaru !== '' && $skenBaru !== $row->skenario) {
+                            throw new DomainException($kode . ' adalah pemeriksaan tetap — skenarionya tak bisa diganti nama.');
+                        }
+                    } else {
+                        $sken = mb_substr(self::teksBersih(trim((string) ($b['skenario'] ?? ''))), 0, 500);
+                        if ($sken !== '') $row->skenario = $sken;
+                        $row->diharapkan = mb_substr(self::teksBersih(trim((string) ($b['diharapkan'] ?? ''))), 0, 500);
+                    }
+                    $row->aktual = $aktual;
+                    $row->status = $status;
+                    $row->save();
+                    continue;
+                }
+
+                // baris baru (hantu) — hanya kalau skenarionya diisi
+                $sken = mb_substr(self::teksBersih(trim((string) ($b['skenario'] ?? ''))), 0, 500);
+                if ($sken === '') continue;
+                ItTestCase::create([
+                    'ticket_id' => $t->id, 'kode' => sprintf('TC-%02d', $berikut++),
+                    'skenario' => $sken,
+                    'diharapkan' => mb_substr(self::teksBersih(trim((string) ($b['diharapkan'] ?? ''))), 0, 500),
+                    'aktual' => $aktual, 'status' => $status, 'terkunci' => false,
+                ]);
+            }
+        });
+    }
+
+    /** TC terkunci TIDAK bisa dihapus; TC bebas dihapus lalu dinomori ulang dari TC-06. */
+    public function hapusTc(ItTicket $t, string $kode): void
+    {
+        $this->pastikanDiUji($t);
+
+        $row = ItTestCase::where('ticket_id', $t->id)->where('kode', $kode)->first();
+        if (! $row) {
+            throw new DomainException('Test case tidak ditemukan.');
+        }
+        if ($row->terkunci) {
+            throw new DomainException($kode . ' adalah pemeriksaan tetap — tak bisa dihapus. TC-05 yang menangkap kerusakan diam-diam.');
+        }
+
+        DB::transaction(function () use ($t, $row) {
+            $row->delete();
+            $n = count(PhaseEngine::TC_TETAP) + 1;
+            foreach (ItTestCase::where('ticket_id', $t->id)->where('terkunci', false)->orderBy('kode')->get() as $r) {
+                $r->kode = sprintf('TC-%02d', $n++);
+                $r->save();
+            }
+        });
+    }
+
+    private function nomorTcBerikut(ItTicket $t): int
+    {
+        $maks = ItTestCase::where('ticket_id', $t->id)->get()
+            ->map(fn ($r) => (int) substr($r->kode, 3))->max() ?? 0;
+        return max($maks, count(PhaseEngine::TC_TETAP)) + 1;
+    }
+
+    public function tambahTemuan(ItTicket $t, string $deskripsi, string $tingkat = 'Minor', ?string $picUserId = null): ItTemuan
+    {
+        $this->pastikanDiUji($t);
+        $deskripsi = mb_substr(self::teksBersih(trim($deskripsi)), 0, 500);
+        if ($deskripsi === '') {
+            throw new DomainException('Deskripsi temuan wajib diisi.');
+        }
+
+        return ItTemuan::create([
+            'ticket_id' => $t->id, 'deskripsi' => $deskripsi,
+            'tingkat' => $tingkat === 'Major' ? 'Major' : 'Minor',
+            'pic_user_id' => $picUserId ?: $t->pic_user_id, 'status' => 'Terbuka',
+        ]);
+    }
+
+    public function ubahTemuan(ItTicket $t, int $rowId, array $d): void
+    {
+        $this->pastikanDiUji($t);
+        $row = ItTemuan::where('ticket_id', $t->id)->where('id', $rowId)->first();
+        if (! $row) {
+            throw new DomainException('Temuan tidak ditemukan.');
+        }
+
+        if (array_key_exists('deskripsi', $d)) {
+            $desc = mb_substr(self::teksBersih(trim((string) $d['deskripsi'])), 0, 500);
+            if ($desc !== '') $row->deskripsi = $desc;
+        }
+        if (isset($d['tingkat']) && in_array($d['tingkat'], ['Minor', 'Major'], true)) $row->tingkat = $d['tingkat'];
+        if (isset($d['status'])  && in_array($d['status'], ['Terbuka', 'Selesai'], true)) $row->status = $d['status'];
+        if (array_key_exists('pic_user_id', $d)) $row->pic_user_id = $d['pic_user_id'] ?: null;
+        $row->save();
+    }
+
+    public function hapusTemuan(ItTicket $t, int $rowId): void
+    {
+        $this->pastikanDiUji($t);
+        ItTemuan::where('ticket_id', $t->id)->where('id', $rowId)->delete();
+    }
+
+    // ─── FRM-IT-05 UAT (Kelas A — pemohon saja) ──────────────────────────────
+
+    private function tulisFr05(ItTicket $t, callable $ubah): void
+    {
+        $form = ItForm::firstOrNew(['ticket_id' => $t->id, 'kode' => 'FRM-IT-05']);
+        $form->payload = $ubah($form->payload ?? []);
+        $form->save();
+    }
+
+    public static function uatSudahDiputuskan(array $fr05): bool
+    {
+        return in_array($fr05['keputusan'] ?? null, ['setuju', 'catatan'], true);
+    }
+
+    /**
+     * Skenario UAT ditulis IT dari sudut pandang pemohon ("coba X, seharusnya
+     * Y") — boleh disiapkan sejak Development sampai UAT, selama belum diputuskan.
+     * Jawaban pemohon (sesuai/catatan) dipertahankan per indeks.
+     */
+    public function simpanSkenario(ItTicket $t, array $baris): void
+    {
+        if (! in_array($t->fase, ['DEV', 'UJI', 'UAT'], true)) {
+            throw new DomainException('Skenario UAT disiapkan di fase Development, Uji Internal, atau UAT.');
+        }
+
+        $this->tulisFr05($t, function (array $p) use ($baris) {
+            if (self::uatSudahDiputuskan($p)) {
+                throw new DomainException('UAT sudah diputuskan — skenarionya terkunci.');
+            }
+            $lama  = $p['skenario'] ?? [];
+            $bersih = [];
+            foreach ($baris as $i => $b) {
+                $proses = mb_substr(self::teksBersih(trim((string) ($b['proses'] ?? ''))), 0, 500);
+                if ($proses === '') continue;
+                $bersih[] = [
+                    'proses'  => $proses,
+                    'harapan' => mb_substr(self::teksBersih(trim((string) ($b['harapan'] ?? ''))), 0, 500),
+                    'sesuai'  => $lama[$i]['sesuai'] ?? null,
+                    'catatan' => $lama[$i]['catatan'] ?? '',
+                ];
+            }
+            $p['skenario'] = $bersih;
+            return $p;
+        });
+    }
+
+    /** Pemohon menjawab: Sesuai / Tidak (+ catatan saat Tidak) + Masukan End User. */
+    public function jawabUat(ItTicket $t, array $jawaban, ?string $masukan): void
+    {
+        if ($t->fase !== 'UAT') {
+            throw new DomainException('Jawaban UAT hanya saat tiket berada di fase UAT.');
+        }
+
+        $this->tulisFr05($t, function (array $p) use ($jawaban, $masukan) {
+            if (self::uatSudahDiputuskan($p)) {
+                throw new DomainException('UAT sudah diputuskan.');
+            }
+            // ⚠️ Bukan foreach-by-reference atas `($p['skenario'] ?? [])`: ekspresi
+            // itu SALINAN sementara, perubahannya lenyap diam-diam (jawaban pemohon
+            // tak pernah tersimpan — ditangkap uji 2b).
+            $sk = $p['skenario'] ?? [];
+            foreach ($sk as $i => $s) {
+                if (! isset($jawaban[$i])) continue;
+                $j = $jawaban[$i];
+                $s['sesuai']  = isset($j['sesuai']) && $j['sesuai'] !== '' ? (bool) (int) $j['sesuai'] : null;
+                $s['catatan'] = mb_substr(self::teksBersih(trim((string) ($j['catatan'] ?? ''))), 0, 500);
+                $sk[$i] = $s;
+            }
+            $p['skenario'] = $sk;
+            $p['masukan']  = mb_substr(self::teksBersih(trim((string) $masukan)), 0, 1000);
+            return $p;
+        });
+    }
+
+    // ─── spawnTicket — SATU mekanisme: catatan UAT & RTL evaluasi ────────────
+
+    /**
+     * Melahirkan tiket baru dari butir tindak lanjut (UAT) atau rencana
+     * tindak lanjut (Evaluasi). Tiket lahir di TRIASE, pemohon sama dengan
+     * induknya, induk tercatat (lahir_dari_id + lahir_via). Menutup lingkaran.
+     */
+    public function lahirkanTiket(ItTicket $parent, string $dari, int $indeks, string $userId): ItTicket
+    {
+        [$kode, $kunci, $via] = $dari === 'evaluasi'
+            ? ['FRM-IT-07', 'rtl', 'Evaluasi']
+            : ['FRM-IT-05', 'tindakLanjut', 'UAT'];
+
+        $form = ItForm::where('ticket_id', $parent->id)->where('kode', $kode)->first();
+        $p    = $form ? ($form->payload ?? []) : [];
+        $item = $p[$kunci][$indeks] ?? null;
+
+        if (! $item || trim((string) ($item['txt'] ?? '')) === '') {
+            throw new DomainException('Butir tindak lanjut tidak ditemukan.');
+        }
+        if (! empty($item['ticketId'])) {
+            throw new DomainException('Butir ini sudah dijadikan tiket ' . $item['ticketId'] . '.');
+        }
+
+        $f1 = optional($parent->forms->firstWhere('kode', 'FRM-IT-01'))->payload ?? [];
+
+        return DB::transaction(function () use ($parent, $form, $p, $kunci, $indeks, $item, $via, $f1, $userId) {
+            $anak = $this->buat([
+                'judul'            => $item['txt'],
+                'sumber'           => $parent->pemohon_user_id ? 'permintaan' : 'inisiatif',
+                'pemohon_user_id'  => $parent->pemohon_user_id,
+                'raw_branch_id'    => $parent->raw_branch_id,
+                'jenis_permintaan' => 'Perubahan fitur',
+                'target'           => '—',
+                'latar'            => 'Tindak lanjut dari ' . $parent->nomor . ' (' . $via . '): ' . $parent->judul,
+                'kebutuhan'        => $item['txt'],
+                'terdampak'        => $f1['terdampak'] ?? '—',
+                '_lahir_dari_id'   => $parent->id,
+                '_lahir_via'       => $via,
+            ], $userId);
+
+            $p[$kunci][$indeks]['ticketId'] = $anak->nomor;
+            $form->payload = $p;
+            $form->save();
+
+            return $anak;
+        });
+    }
+
+    // ─── FRM-IT-07 Evaluation (Kelas A — evaluator) ─────────────────────────
+
+    private function pastikanDiEvaluasi(ItTicket $t): void
+    {
+        if ($t->fase !== 'EVALUASI') {
+            throw new DomainException('FRM-IT-07 hanya diisi saat tiket berada di fase Evaluasi.');
+        }
+    }
+
+    /** Evaluator = evaluator_user_id kalau dialihkan, kalau tidak pemohon. */
+    public static function evaluatorUserId(ItTicket $t): ?string
+    {
+        return $t->evaluator_user_id ?: $t->pemohon_user_id;
+    }
+
+    public function simpanEvaluasi(ItTicket $t, array $aspek, array $temuan, array $rtl): void
+    {
+        $this->pastikanDiEvaluasi($t);
+
+        $form = ItForm::firstOrNew(['ticket_id' => $t->id, 'kode' => 'FRM-IT-07']);
+        $p    = $form->payload ?? [];
+
+        $nilai = [];
+        foreach (PhaseEngine::EVAL_ASPEK as $a) {
+            $v = (int) ($aspek[$a['k']] ?? 0);
+            if ($v >= 1 && $v <= 5) $nilai[$a['k']] = $v;
+        }
+        $p['aspek'] = $nilai;
+
+        $tm = [];
+        foreach ($temuan as $x) {
+            $txt = mb_substr(self::teksBersih(trim((string) ($x['txt'] ?? ''))), 0, 500);
+            if ($txt === '') continue;
+            $tm[] = ['id' => sprintf('E-%02d', count($tm) + 1), 'jenis' => ($x['jenis'] ?? '') === 'Enhancement' ? 'Enhancement' : 'Bug', 'txt' => $txt];
+        }
+        $p['temuan'] = $tm;
+
+        // RTL: ticketId yang sudah lahir DIPERTAHANKAN (dicocokkan lewat id butir).
+        $lamaRtl = collect($p['rtl'] ?? [])->keyBy('id');
+        $baru = [];
+        foreach ($rtl as $x) {
+            $txt = mb_substr(self::teksBersih(trim((string) ($x['txt'] ?? ''))), 0, 500);
+            if ($txt === '') continue;
+            $id  = (string) ($x['id'] ?? '');
+            $tid = $id !== '' && $lamaRtl->has($id) ? ($lamaRtl[$id]['ticketId'] ?? null) : null;
+            $baru[] = ['id' => $id !== '' ? $id : sprintf('R-%02d', count($baru) + 1), 'txt' => $tid ? $lamaRtl[$id]['txt'] : $txt, 'ticketId' => $tid];
+        }
+        // nomori ulang yang belum bertiket supaya rapi
+        $n = 1;
+        foreach ($baru as &$b) { $b['id'] = sprintf('R-%02d', $n++); }
+        unset($b);
+        $p['rtl'] = $baru;
+
+        $form->payload = $p;
+        $form->save();
+    }
+
+    /** Alihkan evaluator (default pemohon). NULL = kembali ke pemohon. */
+    public function alihkanEvaluator(ItTicket $t, ?string $userId): void
+    {
+        $this->pastikanDiEvaluasi($t);
+        $t->evaluator_user_id = $userId ?: null;
+        $t->save();
+    }
+
     /**
      * Pindah fase — SATU-SATUNYA jalan mengubah it_ticket.fase.
      * Tiap perpindahan: baris riwayat berjalan ditutup (keluar_at) dan TEPAT
@@ -461,6 +1045,12 @@ class ItTrackerService
         $t->fase       = $fase;
         $t->fase_since = $now;
         $t->save();
+
+        // Masuk Uji Internal → lima pemeriksaan tetap SUDAH menunggu (Kelas B:
+        // layar terisi, bukan kosong). Idempoten; tiket lama pun aman.
+        if ($fase === 'UJI') {
+            $this->pastikanTcTetap($t);
+        }
     }
 
     /** Penanggung fase (rencana §5) — untuk jejak audit & biaya menunggu. */
@@ -514,11 +1104,15 @@ class ItTrackerService
             'pic'       => $t->pic ? $t->pic->nama : null,
             'fase'      => $t->fase,
             'faseSince' => $t->fase_since->toIso8601String(),
-            // Belum ada penulis evaluator_user_id di Fase 1 — di-null-kan
-            // supaya tak ada Users::find() per tiket (N+1 terpasang diam-diam).
-            // Fase 2: jadikan relasi belongsTo + ikutkan di muatRelasi().
-            'evaluator' => null,
+            // Fase 2b: evaluator kini relasi (eager di muatRelasi) — tak ada N+1.
+            'evaluator' => $t->evaluator ? $t->evaluator->nama : null,
             'children'  => $t->anak->pluck('judul')->all(),
+            // Ronde 2: ketergantungan (relasi ke tiket lain, disimpan nomor) dan
+            // tiket asal kalau tiket ini lahir dari catatan UAT / RTL evaluasi.
+            'deps'      => array_values($fr02['deps'] ?? []),
+            'parent'    => $t->lahir_dari_id
+                ? ['id' => $t->lahirDari ? $t->lahirDari->nomor : ('#' . $t->lahir_dari_id), 'via' => $t->lahir_via]
+                : null,
             'fr02'      => array_merge($fr02, [
                 'fr' => $t->frs->map(fn ($r) => [
                     'id'       => $r->kode,
@@ -531,17 +1125,20 @@ class ItTrackerService
                 'confirmed' => (bool) optional($frmDev)->dikonfirmasi_at,
             ]),
             'fr04'      => [
-                'tc' => $t->testCases->map(fn ($r) => [
+                'tc' => $t->testCases->sortBy('kode')->values()->map(fn ($r) => [
                     'id'       => $r->kode,
                     'skenario' => $r->skenario,
                     'harapan'  => $r->diharapkan,
                     'aktual'   => $r->aktual,
                     'status'   => $r->status,
+                    'locked'   => (bool) $r->terkunci,
                 ])->all(),
                 'temuan' => $t->temuan->map(fn ($r) => [
+                    'rowId'   => $r->id,
                     'desc'    => $r->deskripsi,
                     'tingkat' => $r->tingkat,
                     'status'  => $r->status,
+                    'pic'     => $r->pic_user_id,
                 ])->all(),
             ],
             'fr05'      => $fr05,
@@ -553,7 +1150,7 @@ class ItTrackerService
     /** Muat relasi yang dibutuhkan viewTicket sekali jalan (hindari N+1). */
     public function muatRelasi($query)
     {
-        return $query->with(['pemohon', 'pic', 'forms', 'frs', 'testCases', 'temuan', 'anak', 'gitRefs']);
+        return $query->with(['pemohon', 'pic', 'evaluator', 'lahirDari', 'forms', 'frs', 'testCases', 'temuan', 'anak', 'gitRefs']);
     }
 
     /**

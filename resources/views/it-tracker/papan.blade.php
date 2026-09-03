@@ -140,6 +140,9 @@
                                 <span class="itk-prog num">{{ $c['prog']['label'] ?? 'Menunggu triase' }}</span>
                                 @if ($t->prioritas_it)<span class="itk-prio {{ $t->prioritas_it }}">{{ $t->prioritas_it }}</span>@endif
                                 @if ($c['anak'])<span class="itk-anak">{{ $c['anak'] }} fitur di dalam</span>@endif
+                                {{-- Ronde 2: ketergantungan yang belum selesai & tiket asal --}}
+                                @if ($c['deps'])<span class="itk-dep-chip num" title="menunggu tiket lain">⛓ menunggu {{ implode(', ', $c['deps']) }}</span>@endif
+                                @if ($c['parent'])<span class="itk-parent-chip num" title="lahir dari {{ $c['parent']['id'] }} · {{ $c['parent']['via'] }}">↳ dari {{ $c['parent']['id'] }}</span>@endif
                             </div>
                             <div class="itk-wait {{ \App\Services\ItTracker\PhaseEngine::waitCls($w, $t->fase) }}">
                                 <i></i>

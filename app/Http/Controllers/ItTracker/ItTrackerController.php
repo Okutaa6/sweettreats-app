@@ -81,6 +81,8 @@ class ItTrackerController extends Controller
         ];
 
         $semuaView = $views->values()->all();
+        // fase per nomor — untuk chip dep di kartu (dep yang sudah SELESAI tak ditampilkan)
+        $this->faseNomor = ItTicket::pluck('fase', 'nomor')->all();
         $groups    = [];
         foreach ($grupDef as $nama => $fases) {
             $kolom = [];
@@ -170,6 +172,19 @@ class ItTrackerController extends Controller
             'peran'  => $this->peran(),
             'bolehGerak' => $this->bolehGerakkan($t),
             'picOpsi'    => $this->peran() === 'head_it' ? $this->picOpsi() : collect(),
+            // Fase 2b — siapa boleh apa di empat formulir (gerbang aslinya di controller)
+            'bolehAnalisis' => $this->peran() === 'head_it' && $t->fase === 'ANALISIS',
+            'bolehParafBo'  => $this->peran() === 'pengawas' && $t->fase === 'ANALISIS',
+            'bolehUji'      => $this->bolehGerakkan($t)['ok'] && $t->fase === 'UJI',
+            'bolehSkenario' => $this->adalahIt() && in_array($t->fase, ['DEV', 'UJI', 'UAT'], true),
+            'bolehJawabUat' => $this->bolehJawabUat($t),
+            'bolehEvaluasi' => $this->bolehEvaluasi($t),
+            'depOpsi'       => $this->peran() === 'head_it' && $t->fase === 'ANALISIS'
+                ? ItTicket::where('id', '!=', $t->id)->where('fase', '!=', 'DITOLAK')
+                    ->orderByDesc('id')->get(['nomor', 'judul', 'fase'])
+                : collect(),
+            'depTiket'      => ItTicket::whereIn('nomor', $v['deps'])->get(['nomor', 'judul', 'fase'])->keyBy('nomor'),
+            'evOpsi'        => $this->peran() === 'head_it' && $t->fase === 'EVALUASI' ? $this->pengawasOpsi() : collect(),
             'form01' => optional($t->forms->firstWhere('kode', 'FRM-IT-01'))->payload ?? [],
             'form03' => optional($t->forms->firstWhere('kode', 'FRM-IT-03'))->payload ?? [],
         ]);
@@ -317,7 +332,7 @@ class ItTrackerController extends Controller
     /** Keputusan UAT — hanya pemohon tiketnya. */
     public function uat(Request $request, int $id)
     {
-        $d = $request->validate(['keputusan' => 'required|in:setuju,perbaikan']);
+        $d = $request->validate(['keputusan' => 'required|in:setuju,catatan,perbaikan']);
 
         $t = ItTicket::findOrFail($id);
 
@@ -341,9 +356,11 @@ class ItTrackerController extends Controller
             return back()->with('error', $e->getMessage());
         }
 
-        return back()->with('success', $ke === 'GOLIVE'
-            ? $t->nomor . ' — UAT disetujui → Go Live.'
-            : $t->nomor . ' — dikembalikan ke Development untuk perbaikan.');
+        return back()->with('success', match ($d['keputusan']) {
+            'setuju'  => $t->nomor . ' — UAT disetujui → Go Live.',
+            'catatan' => $t->nomor . ' — Disetujui dengan Catatan → Go Live; catatan jadi tindak lanjut.',
+            default   => $t->nomor . ' — Perlu Perbaikan → kembali ke Development (konfirmasi FRM-IT-03 direset).',
+        });
     }
 
     /** Catatan singkat pengerjaan (jenjang S) — IT yang mengerjakannya. */
@@ -546,6 +563,380 @@ class ItTrackerController extends Controller
         ]);
     }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // FASE 2b — empat formulir kerja
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /** peta nomor→fase untuk kartu papan (diisi index()) */
+    private array $faseNomor = [];
+
+    // ── FRM-IT-02 ──
+
+    public function fr(Request $request, int $id)
+    {
+        $t = ItTicket::findOrFail($id);
+        $this->pastikanAnalisis($t);
+
+        $d = $request->validate([
+            'baris'               => 'nullable|array|max:40',
+            'baris.*.kebutuhan'   => 'nullable|string|max:500',
+            'baris.*.prioritas'   => 'nullable|in:Tinggi,Sedang,Rendah',
+            'baris.*.kriteria'    => 'nullable|string|max:1000',
+        ]);
+
+        try {
+            $n = $this->svc->simpanFr($t, $d['baris'] ?? []);
+        } catch (DomainException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return back()->with('success', 'Tabel FR tersimpan — ' . $n . ' baris.');
+    }
+
+    public function komponen(Request $request, int $id)
+    {
+        $t = ItTicket::findOrFail($id);
+        $this->pastikanAnalisis($t);
+
+        $d = $request->validate(['komponen' => 'nullable|array', 'komponen.*' => 'string|max:20']);
+
+        try {
+            $this->svc->setKomponen($t, $d['komponen'] ?? []);
+        } catch (DomainException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return back()->with('success', 'Komponen terdampak diperbarui.');
+    }
+
+    public function lingkup(Request $request, int $id)
+    {
+        $t = ItTicket::findOrFail($id);
+        $this->pastikanAnalisis($t);
+
+        $d = $request->validate([
+            'lingkup' => 'nullable|string|max:2000',
+            'luar'    => 'nullable|string|max:2000',
+            'desain'  => 'nullable|string|max:3000',
+        ]);
+
+        try {
+            $this->svc->setLingkupL($t, $d['lingkup'] ?? null, $d['luar'] ?? null, $d['desain'] ?? null);
+        } catch (DomainException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return back()->with('success', 'Ruang lingkup & desain teknis tersimpan.');
+    }
+
+    public function dapur(Request $request, int $id)
+    {
+        $t = ItTicket::findOrFail($id);
+        $this->pastikanAnalisis($t);
+
+        $d = $request->validate(['estimasi' => 'nullable|string|max:120', 'risiko' => 'nullable|string|max:500']);
+
+        try {
+            $this->svc->setDapur($t, $d['estimasi'] ?? null, $d['risiko'] ?? null);
+        } catch (DomainException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return back()->with('success', 'Catatan dapur tersimpan (internal IT).');
+    }
+
+    public function dep(Request $request, int $id)
+    {
+        $t = ItTicket::findOrFail($id);
+        $this->pastikanAnalisis($t);
+
+        $d = $request->validate(['nomor' => 'required|string|max:16', 'aksi' => 'nullable|in:tambah,hapus']);
+
+        try {
+            ($d['aksi'] ?? 'tambah') === 'hapus'
+                ? $this->svc->hapusDep($t, $d['nomor'])
+                : $this->svc->tambahDep($t, $d['nomor']);
+        } catch (DomainException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return back()->with('success', 'Ketergantungan diperbarui.');
+    }
+
+    /** Paraf satu Business Owner — Executive ATAU Konsultan (ROLE_PENGAWAS), bukan IT. */
+    public function paraf(int $id)
+    {
+        if ($this->peran() !== 'pengawas') {
+            abort(403, 'Paraf FRM-IT-02 milik Business Owner (Executive / Konsultan), bukan IT.');
+        }
+
+        $t = ItTicket::findOrFail($id);
+
+        try {
+            $this->svc->parafBo($t, $this->userId(), (string) session('name'));
+        } catch (DomainException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return back()->with('success', $t->nomor . ' — diparaf sebagai Business Owner.');
+    }
+
+    /** Naikkan/ubah jenjang dari Analisis (fase TIDAK berubah) — Head IT. */
+    public function jenjang(Request $request, int $id)
+    {
+        $t = ItTicket::findOrFail($id);
+        $this->pastikanAnalisis($t);
+
+        $d = $request->validate([
+            'jenjang'      => 'required|in:S,M,L',
+            'bobot'        => 'required|integer|min:1|max:5',
+            'prioritas_it' => 'required|in:P1,P2,P3',
+        ]);
+
+        try {
+            $this->svc->ubahJenjang($t, $d['jenjang'], (int) $d['bobot'], $d['prioritas_it']);
+        } catch (DomainException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return back()->with('success', $t->nomor . ' — jenjang diubah ke ' . $d['jenjang']
+            . ($d['jenjang'] === 'L' ? '; 02 penuh terbuka.' : '.') . ' Paraf BO (kalau ada) dihapus.');
+    }
+
+    // ── FRM-IT-04 ──
+
+    public function tc(Request $request, int $id)
+    {
+        $t = ItTicket::findOrFail($id);
+        $this->pastikanUji($t);
+
+        $d = $request->validate([
+            'baris'              => 'nullable|array|max:60',
+            'baris.*.kode'       => 'nullable|string|max:8',
+            'baris.*.skenario'   => 'nullable|string|max:500',
+            'baris.*.diharapkan' => 'nullable|string|max:500',
+            'baris.*.aktual'     => 'nullable|string|max:500',
+            'baris.*.status'     => 'nullable|in:pass,fail',
+        ]);
+
+        try {
+            $this->svc->simpanTc($t, $d['baris'] ?? []);
+        } catch (DomainException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return back()->with('success', 'Hasil uji tersimpan.');
+    }
+
+    public function tcHapus(Request $request, int $id)
+    {
+        $t = ItTicket::findOrFail($id);
+        $this->pastikanUji($t);
+
+        $d = $request->validate(['kode' => 'required|string|max:8']);
+
+        try {
+            $this->svc->hapusTc($t, $d['kode']);
+        } catch (DomainException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return back()->with('success', $d['kode'] . ' dihapus.');
+    }
+
+    public function temuan(Request $request, int $id)
+    {
+        $t = ItTicket::findOrFail($id);
+        $this->pastikanUji($t);
+
+        $d = $request->validate([
+            'aksi'        => 'required|in:tambah,ubah,hapus',
+            'row_id'      => 'nullable|integer',
+            'deskripsi'   => 'nullable|string|max:500',
+            'tingkat'     => 'nullable|in:Minor,Major',
+            'status'      => 'nullable|in:Terbuka,Selesai',
+            'pic_user_id' => 'nullable|string|exists:users,id',
+        ]);
+
+        try {
+            match ($d['aksi']) {
+                'tambah' => $this->svc->tambahTemuan($t, $d['deskripsi'] ?? '', $d['tingkat'] ?? 'Minor', $d['pic_user_id'] ?? null),
+                'ubah'   => $this->svc->ubahTemuan($t, (int) ($d['row_id'] ?? 0), $d),
+                'hapus'  => $this->svc->hapusTemuan($t, (int) ($d['row_id'] ?? 0)),
+            };
+        } catch (DomainException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return back()->with('success', 'Temuan diperbarui.');
+    }
+
+    // ── FRM-IT-05 ──
+
+    /** Skenario UAT ditulis IT (Head IT, atau IT yang jadi PIC). */
+    public function skenario(Request $request, int $id)
+    {
+        $t = ItTicket::findOrFail($id);
+        if (! ($this->adalahIt() && ($this->peran() === 'head_it' || $t->pic_user_id === $this->userId()))) {
+            abort(403, 'Skenario UAT ditulis tim IT yang mengerjakan tiketnya.');
+        }
+
+        $d = $request->validate([
+            'baris'           => 'nullable|array|max:30',
+            'baris.*.proses'  => 'nullable|string|max:500',
+            'baris.*.harapan' => 'nullable|string|max:500',
+        ]);
+
+        try {
+            $this->svc->simpanSkenario($t, $d['baris'] ?? []);
+        } catch (DomainException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return back()->with('success', 'Skenario UAT tersimpan.');
+    }
+
+    /** Pemohon menjawab skenario + masukan end user. */
+    public function jawab(Request $request, int $id)
+    {
+        $t = ItTicket::findOrFail($id);
+        if (! $this->bolehJawabUat($t)) {
+            abort(403, 'Jawaban UAT milik pemohon tiket ini.');
+        }
+
+        $d = $request->validate([
+            'jawaban'           => 'nullable|array',
+            'jawaban.*.sesuai'  => 'nullable|in:0,1',
+            'jawaban.*.catatan' => 'nullable|string|max:500',
+            'masukan'           => 'nullable|string|max:1000',
+        ]);
+
+        try {
+            $this->svc->jawabUat($t, $d['jawaban'] ?? [], $d['masukan'] ?? null);
+        } catch (DomainException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return back()->with('success', 'Jawabanmu tersimpan — tinggal putuskan.');
+    }
+
+    /** SATU rute untuk dua asal: butir catatan UAT atau RTL evaluasi → tiket baru di Triase. */
+    public function spawn(Request $request, int $id)
+    {
+        if (! $this->adalahIt()) {
+            abort(403, '"Jadikan tiket" dilakukan tim IT.');
+        }
+
+        $t = $this->svc->muatRelasi(ItTicket::query())->findOrFail($id);
+        $d = $request->validate(['dari' => 'required|in:uat,evaluasi', 'indeks' => 'required|integer|min:0']);
+
+        try {
+            $anak = $this->svc->lahirkanTiket($t, $d['dari'], (int) $d['indeks'], $this->userId());
+        } catch (DomainException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return back()->with('success', 'Tiket baru ' . $anak->nomor . ' lahir dari ' . $t->nomor
+            . ' (' . ($d['dari'] === 'evaluasi' ? 'Evaluasi' : 'UAT') . ') → Triase.');
+    }
+
+    // ── FRM-IT-07 ──
+
+    public function evaluasi(Request $request, int $id)
+    {
+        $t = ItTicket::findOrFail($id);
+        if (! $this->bolehEvaluasi($t)) {
+            abort(403, 'Evaluasi diisi evaluator tiket ini.');
+        }
+
+        $d = $request->validate([
+            'aspek'          => 'nullable|array',
+            'aspek.*'        => 'nullable|integer|min:1|max:5',
+            'temuan'         => 'nullable|array|max:30',
+            'temuan.*.jenis' => 'nullable|in:Bug,Enhancement',
+            'temuan.*.txt'   => 'nullable|string|max:500',
+            'rtl'            => 'nullable|array|max:30',
+            'rtl.*.id'       => 'nullable|string|max:8',
+            'rtl.*.txt'      => 'nullable|string|max:500',
+        ]);
+
+        try {
+            $this->svc->simpanEvaluasi($t, $d['aspek'] ?? [], $d['temuan'] ?? [], $d['rtl'] ?? []);
+        } catch (DomainException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return back()->with('success', 'Evaluasi tersimpan.');
+    }
+
+    /** Alihkan evaluator — Head IT. Kosong = kembali ke pemohon. */
+    public function evaluator(Request $request, int $id)
+    {
+        $this->pastikanHeadIt('Mengalihkan evaluator hanya dilakukan Head IT.');
+        $t = ItTicket::findOrFail($id);
+
+        $d = $request->validate(['evaluator_user_id' => 'nullable|string|exists:users,id']);
+
+        try {
+            $this->svc->alihkanEvaluator($t, $d['evaluator_user_id'] ?? null);
+        } catch (DomainException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return back()->with('success', 'Evaluator diperbarui.');
+    }
+
+    // ── pagar 2b ──
+
+    /** FRM-IT-02 = Kelas C, ditulis Head IT (Ekky). */
+    private function pastikanAnalisis(ItTicket $t): void
+    {
+        $this->pastikanHeadIt('FRM-IT-02 ditulis Head IT.');
+        if ($t->fase !== 'ANALISIS') {
+            abort(403, 'FRM-IT-02 hanya diisi saat tiket berada di fase Analisis.');
+        }
+    }
+
+    /** FRM-IT-04 = IT sendiri (Head IT, atau IT yang jadi PIC). */
+    private function pastikanUji(ItTicket $t): void
+    {
+        $boleh = $this->bolehGerakkan($t);
+        if (! $boleh['ok']) {
+            abort(403, $boleh['why']);
+        }
+        if ($t->fase !== 'UJI') {
+            abort(403, 'FRM-IT-04 hanya diisi saat tiket berada di fase Uji Internal.');
+        }
+    }
+
+    /** Jawaban/keputusan UAT: pemohon; tiket tanpa pemohon → Head IT (aturan Fase 1). */
+    private function bolehJawabUat(ItTicket $t): bool
+    {
+        if ($t->fase !== 'UAT') return false;
+        return $t->pemohon_user_id
+            ? $t->pemohon_user_id === $this->userId()
+            : $this->peran() === 'head_it';
+    }
+
+    /** Evaluator = yang dialihkan, kalau tidak pemohon; tanpa keduanya → Head IT. */
+    private function bolehEvaluasi(ItTicket $t): bool
+    {
+        if ($t->fase !== 'EVALUASI') return false;
+        $ev = ItTrackerService::evaluatorUserId($t);
+        return $ev ? $ev === $this->userId() : $this->peran() === 'head_it';
+    }
+
+    /** Kandidat evaluator alih: Executive / Konsultan (pengawas) yang aktif. */
+    private function pengawasOpsi()
+    {
+        return \Illuminate\Support\Facades\DB::table('users as u')
+            ->join('group_path as g', 'g.id', '=', 'u.group_id')
+            ->whereIn('g.nama', ItTrackerService::ROLE_PENGAWAS)
+            ->where('u.status', 1)
+            ->orderBy('u.nama')
+            ->get(['u.id', 'u.nama', 'g.nama as role']);
+    }
+
     // ─── Pembantu ──────────────────────────────────────────────────────────
 
     private function userId(): string
@@ -672,6 +1063,9 @@ class ItTrackerController extends Controller
             'prog'   => $prog,
             'antre'  => $t->fase === 'ANTRE' ? PhaseEngine::queuePos($v, $semua) : null,
             'anak'   => count($v['children']),
+            // Ronde 2: chip "⛓ menunggu IT-…" (hanya dep yang belum selesai) & "↳ dari IT-…"
+            'deps'   => array_values(array_filter($v['deps'], fn ($n) => ($this->faseNomor[$n] ?? null) !== 'SELESAI')),
+            'parent' => $v['parent'],
             'tombol' => $tombol,
             'blokir' => $blokir,
             // kunci sortir

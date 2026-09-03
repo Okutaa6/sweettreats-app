@@ -19,7 +19,7 @@ class ItTicket extends Model
         'nomor', 'judul', 'sumber', 'pemohon_user_id', 'raw_branch_id',
         'jenis_permintaan', 'jenjang', 'bobot', 'prioritas_pemohon',
         'prioritas_it', 'pic_user_id', 'fase', 'fase_since', 'induk_id',
-        'evaluator_user_id', 'alasan_parkir',
+        'evaluator_user_id', 'alasan_parkir', 'lahir_dari_id', 'lahir_via',
     ];
 
     protected $casts = [
@@ -35,6 +35,18 @@ class ItTicket extends Model
     public function pic()
     {
         return $this->belongsTo(Users::class, 'pic_user_id');
+    }
+
+    /** Evaluator FRM-IT-07 — NULL berarti pemohon (default, bisa dialihkan). */
+    public function evaluator()
+    {
+        return $this->belongsTo(Users::class, 'evaluator_user_id');
+    }
+
+    /** Tiket asal kalau tiket ini LAHIR dari catatan UAT / RTL evaluasi. */
+    public function lahirDari()
+    {
+        return $this->belongsTo(self::class, 'lahir_dari_id');
     }
 
     public function branch()

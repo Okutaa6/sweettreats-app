@@ -306,3 +306,166 @@ body.zona-it .itk-kolom { background:#ECEAE4; border-color:#DDD9CF; }
   font-variant-numeric:tabular-nums; }
 .itk-git-script { font-size:12px; color:#A8C8E8; margin-top:5px; font-family:ui-monospace,monospace; }
 .itk-git-kosong { font-size:12px; color:#8F8F87; font-family:ui-monospace,monospace; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   FASE 2b — empat formulir kerja (FRM-IT-02 / 04 / 05 / 07). Acuan handoff r2.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* lampu gerbang per syarat (ronde 2: checks[]) */
+.itk-lampu li::before { background:#E8C99A; }
+.itk-lampu li.on { color:#2F8E55; }
+.itk-lampu li.on::before { background:#2F8E55; }
+
+/* kedalaman 02 */
+.itk-depth { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:var(--itk-bg); border:1px solid #F1E5D5; border-radius:11px; padding:9px 12px; }
+.itk-depth-tag { font-size:10px; font-weight:800; letter-spacing:.5px; border-radius:6px; padding:3px 8px; white-space:nowrap; }
+.itk-depth-tag.M { background:#E3F4E8; color:#2F8E55; }
+.itk-depth-tag.L { background:var(--itk-grafit); color:var(--itk-grafit-ink); }
+.itk-depth-txt { font-size:12px; color:#5A3A22; font-weight:600; line-height:1.45; flex:1; min-width:200px; }
+.itk-naik { margin-left:auto; }
+.itk-naik summary { font-size:11.5px; font-weight:700; color:var(--itk-grafit-2); cursor:pointer; text-decoration:underline; list-style:none; white-space:nowrap; }
+.itk-naik-form { margin-top:8px; background:#fff; border:1px solid #E7D3BE; border-radius:10px; padding:9px 11px; }
+
+/* tabel formulir (FR / TC / UAT) */
+.itk-tbl-hd { display:flex; align-items:center; gap:8px; margin-bottom:7px; }
+.itk-tbl-sum { margin-left:auto; font-size:10.5px; font-weight:800; color:#5A3A22; background:var(--itk-chip); border-radius:6px; padding:2px 8px; }
+.itk-kosong-fr { background:var(--itk-bg); border:1px dashed #DCC4A8; border-radius:12px 12px 0 0; padding:12px 14px; font-size:12.5px; color:#7A5B43; font-weight:600; line-height:1.5; }
+.itk-tbl { border:1px solid var(--itk-line); border-radius:12px; overflow:hidden; }
+.itk-tbl-row { display:grid; border-top:1px solid #F1E5D5; align-items:center; background:#fff; }
+.itk-tbl-row:first-child { border-top:none; }
+.itk-tbl-head { background:linear-gradient(120deg,var(--itk-grafit),var(--itk-grafit-2)); }
+.itk-tbl-head > span { font-size:10px; font-weight:800; color:var(--itk-grafit-ink); padding:7px 8px; }
+.itk-tbl-head .itk-tbl-key { color:#F0C987; }
+.itk-tbl-fr .itk-tbl-row { grid-template-columns:22px 56px 1fr 84px 1.5fr 26px; }
+.itk-tbl-tc .itk-tbl-row { grid-template-columns:70px 1.3fr 1fr 1fr 124px 26px; }
+.itk-tbl-uat .itk-tbl-row { grid-template-columns:34px 1.2fr 1fr 160px 26px; }
+.itk-tbl-row > span { padding:3px 4px; min-width:0; }
+.itk-tbl-no { font-size:11px; font-weight:800; color:var(--itk-soft); padding:8px 6px !important; white-space:nowrap; }
+.itk-tbl-ghost { background:var(--itk-bg); border-top:1px dashed #E7D3BE !important; }
+.itk-tbl-ghost .itk-tbl-no { color:#C7AC92; }
+.itk-tbl-row.gagal { background:#FFF6F4; }
+.itk-tbl-row.belum { background:#FFFDF9; }
+.itk-tbl-kaki { padding:8px 12px; border-top:1px solid #F4EADD; background:var(--itk-bg); font-size:10.5px; color:#A08A76; font-weight:600; }
+.itk-cell { width:100%; border:1px solid #E7D3BE; border-radius:9px; padding:7px 10px; font-family:inherit; font-size:12px; color:var(--itk-ink); background:#FFFCF8; }
+.itk-cell:focus { background:#fff; border-color:var(--itk-grafit-2); outline:none; }
+.itk-cell-b { font-weight:600; }
+.itk-cell-grow { resize:none; overflow:hidden; min-height:34px; line-height:1.4; }
+.itk-tbl-ghost .itk-cell { border-color:transparent; background:transparent; }
+.itk-tbl-ghost .itk-cell:focus { border-color:var(--itk-grafit-2); background:#fff; }
+.itk-ro { display:block; font-size:12px; color:var(--itk-ink); padding:7px 10px; line-height:1.45; }
+.itk-ro-b { font-weight:600; }
+.itk-ro-blok { font-size:12.5px; line-height:1.5; color:var(--itk-ink); white-space:pre-line; }
+.itk-dotwrap { display:flex; justify-content:center; align-items:center; }
+.itk-dot { display:inline-block; width:8px; height:8px; border-radius:50%; background:#fff; border:1.5px solid #C7AC92; }
+.itk-dot.on { background:#2F8E55; border-color:#2F8E55; }
+.itk-x { background:none; border:none; color:#C7AC92; font-size:13px; cursor:pointer; font-family:inherit; padding:2px 4px; }
+.itk-x:hover { color:#C0392B; }
+.itk-prio-sel, .itk-pic-sel, .itk-jenis-sel { border:1px solid #E7D3BE; border-radius:8px; padding:6px 6px; font-family:inherit; font-size:11px; font-weight:800; color:#5A3A22; background:#fff; width:100%; }
+.itk-prio-chip { display:inline-block; font-size:10.5px; font-weight:800; border-radius:7px; padding:5px 0; width:100%; text-align:center; }
+.itk-prio-chip.Tinggi { background:var(--itk-grafit-2); color:var(--itk-grafit-ink); }
+.itk-prio-chip.Sedang { background:var(--itk-chip); color:#5A3A22; }
+.itk-prio-chip.Rendah { background:#fff; color:#A08A76; border:1px solid #E7D3BE; }
+.itk-lock { font-size:9px; margin-left:2px; }
+
+/* segmen Pass/Fail · Sesuai/Tidak */
+.itk-seg { display:flex; gap:4px; padding:4px 6px !important; }
+.itk-seg-btn { flex:1; text-align:center; border-radius:7px; padding:4px 6px; font-size:10.5px; font-weight:800; cursor:pointer; background:#fff; color:#7A5B43; border:1px solid #E7D3BE; user-select:none; }
+.itk-seg-btn input { display:none; }
+.itk-seg-btn.pass.on, .itk-seg-btn.pass:has(input:checked) { background:#2F8E55; color:#fff; border-color:#2F8E55; }
+.itk-seg-btn.fail.on, .itk-seg-btn.fail:has(input:checked) { background:#C0392B; color:#fff; border-color:#C0392B; }
+.itk-seg-btn.warn.on, .itk-seg-btn.warn:has(input:checked) { background:#B5701A; color:#fff; border-color:#B5701A; }
+
+/* ketergantungan */
+.itk-dep { display:flex; align-items:center; gap:8px; background:#fff; border:1px solid #E7D3BE; border-radius:9px; padding:6px 10px; }
+.itk-dep-no { font-size:11px; font-weight:800; color:var(--itk-grafit-2); }
+.itk-dep-judul { font-size:12px; color:var(--itk-ink); font-weight:600; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.itk-dep .itk-st.AKTIF { background:#E4ECFB; color:#3F6BAF; }
+.itk-dep-sel { border:1px dashed #DCC4A8; border-radius:9px; padding:7px 10px; font-family:inherit; font-size:12px; color:#7A5B43; background:var(--itk-bg); cursor:pointer; width:100%; }
+.itk-dep-chip { font-size:10.5px; font-weight:700; color:#B5701A; background:#FBEFD9; border-radius:6px; padding:2px 7px; }
+.itk-parent-chip { font-size:10.5px; font-weight:700; color:#3F6BAF; background:#E4ECFB; border-radius:6px; padding:2px 7px; }
+
+/* 02 penuh (L saja) */
+.itk-penuh { border:1px solid #DCC4A8; border-radius:13px; overflow:hidden; }
+.itk-penuh-hd { display:flex; align-items:center; gap:8px; padding:8px 13px; background:var(--itk-chip); font-size:11.5px; font-weight:700; color:#5A3A22; }
+.itk-penuh-tag { font-size:10px; font-weight:800; letter-spacing:.5px; color:var(--itk-grafit); background:#fff; border-radius:5px; padding:2px 7px; }
+.itk-penuh-body { display:grid; grid-template-columns:1fr 1fr; gap:10px; padding:12px 13px; }
+.itk-penuh-body textarea { width:100%; margin-top:5px; border:1px solid #E7D3BE; border-radius:10px; padding:8px 11px; font-family:inherit; font-size:12px; color:var(--itk-ink); background:#FFFCF8; resize:vertical; }
+
+/* catatan dapur — internal IT */
+.itk-dapur { background:#232320; border:1px dashed #6B6B64; border-radius:13px; padding:11px 14px; }
+.itk-dapur-hd { display:flex; align-items:center; gap:8px; font-size:10px; font-weight:800; letter-spacing:.7px; color:#F0C987; }
+.itk-dapur-hd em { margin-left:auto; font-style:normal; font-size:9.5px; font-weight:700; color:#8F8F87; letter-spacing:0; }
+.itk-dapur-body { display:grid; grid-template-columns:180px 1fr auto; gap:8px; margin-top:9px; align-items:center; }
+.itk-dapur-body input { border:1px solid #4A4A45; border-radius:9px; padding:7px 10px; font-family:inherit; font-size:12px; color:#F4ECE2; background:#2C2C29; }
+.itk-dapur-body span { font-size:12px; color:#F4ECE2; }
+.itk-dapur-hidden { border:1px dashed #DCC4A8; border-radius:10px; padding:7px 12px; font-size:11.5px; color:var(--itk-soft); font-weight:600; }
+
+/* paraf */
+.itk-paraf { display:flex; align-items:center; gap:10px; flex-wrap:wrap; border-top:1px solid #F1E5D5; padding-top:11px; }
+.itk-paraf-it { font-size:11.5px; font-weight:700; color:#7A5B43; background:var(--itk-chip); border-radius:7px; padding:4px 10px; }
+.itk-paraf-ok { font-size:11.5px; font-weight:800; color:#2F8E55; background:#E3F4E8; border-radius:7px; padding:4px 10px; }
+.itk-paraf-wait { font-size:11.5px; font-weight:700; color:#3F6BAF; background:#E4ECFB; border-radius:7px; padding:4px 10px; }
+
+/* uji internal */
+.itk-auto-note { background:#E3F4E8; border-radius:10px; padding:8px 12px; font-size:11.5px; font-weight:700; color:#2F8E55; }
+.itk-stat4 { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
+.itk-stat { background:var(--itk-bg); border:1px solid #F1E5D5; border-radius:11px; padding:9px 12px; color:#7A5B43; }
+.itk-stat .k { font-size:9px; font-weight:800; letter-spacing:.5px; }
+.itk-stat .n { font-size:20px; font-weight:800; line-height:1.1; margin-top:2px; color:var(--itk-ink); }
+.itk-stat.hijau { background:#E3F4E8; border-color:#E3F4E8; color:#2F8E55; } .itk-stat.hijau .n { color:#2F8E55; }
+.itk-stat.merah { background:#FBE3DE; border-color:#FBE3DE; color:#C0392B; } .itk-stat.merah .n { color:#C0392B; }
+.itk-bar2 { height:5px; background:var(--itk-chip); border-radius:4px; overflow:hidden; display:flex; }
+.itk-bar2 .p { height:100%; background:#2F8E55; } .itk-bar2 .f { height:100%; background:#C0392B; }
+.itk-temuan { display:flex; align-items:center; gap:8px; background:#fff; border:1px solid var(--itk-line); border-radius:11px; padding:7px 10px; }
+.itk-tingkat { border:none; font-size:10px; font-weight:800; border-radius:6px; padding:4px 9px; flex:none; font-family:inherit; cursor:pointer; width:58px; text-align:center; }
+.itk-tingkat.Major { background:#C0392B; color:#fff; } .itk-tingkat.Minor { background:#FBEFD9; color:#B5701A; }
+.itk-tm-status { border-radius:7px; padding:4px 11px; font-family:inherit; font-size:10.5px; font-weight:800; cursor:pointer; flex:none; width:74px; }
+.itk-tm-status.Selesai { background:#E3F4E8; color:#2F8E55; border:1px solid #CBE3D2; }
+.itk-tm-status.Terbuka { background:#fff; color:#B5701A; border:1px solid #E8C99A; }
+.itk-temuan-none { font-size:12px; color:#2F8E55; font-weight:700; background:#E3F4E8; border-radius:9px; padding:7px 11px; }
+
+/* UAT */
+.itk-tanya { background:linear-gradient(135deg,#FFF8EE,#FCEFDD); border:1px solid #F0DCC0; border-radius:14px; padding:16px 18px; }
+.itk-tanya .k { font-size:10px; font-weight:800; letter-spacing:.8px; color:#B5701A; }
+.itk-tanya .q { font-size:19px; font-weight:800; color:var(--itk-ink); margin-top:4px; line-height:1.3; }
+.itk-tanya .s { font-size:12.5px; color:#7A5B43; font-weight:600; margin-top:5px; line-height:1.5; }
+.itk-uat-cat { grid-column:1/-1; padding:0 10px 8px 44px; }
+.itk-uat-cat input { border-color:#E8C99A; background:#FFF8EE; }
+.itk-putus3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; }
+.itk-putus { width:100%; border-radius:12px; padding:12px 14px; font-family:inherit; text-align:left; cursor:pointer; border:1.5px solid transparent; }
+.itk-putus b { display:block; font-size:13px; font-weight:800; }
+.itk-putus span { display:block; font-size:11px; font-weight:600; opacity:.85; margin-top:2px; }
+.itk-putus.hijau { background:#2F8E55; color:#fff; }
+.itk-putus.catatan { background:#fff; color:#B5701A; border-color:#E8C99A; }
+.itk-putus.catatan[disabled] { background:#F7F1E8; color:#B7A48C; border-color:#EFE0CE; cursor:not-allowed; }
+.itk-putus.merah { background:#fff; color:#C0392B; border-color:#F0C1B8; }
+.itk-decided { align-self:flex-start; font-size:12px; font-weight:800; border-radius:9px; padding:6px 12px; }
+.itk-decided.ok { background:#E3F4E8; color:#2F8E55; } .itk-decided.ulang { background:#FBEFD9; color:#B5701A; }
+.itk-banner-tunggu { border-radius:11px; padding:10px 13px; font-size:12.5px; font-weight:700; line-height:1.5; }
+.itk-banner-tunggu.heat0 { background:#E4ECFB; color:#3F6BAF; } .itk-banner-tunggu.heat1 { background:#FBEFD9; color:#B5701A; } .itk-banner-tunggu.heat2 { background:#FBE3DE; color:#C0392B; }
+.itk-tl { display:flex; align-items:center; gap:9px; background:var(--itk-bg); border:1px solid #F1E5D5; border-radius:10px; padding:8px 11px; }
+.itk-tl-txt { font-size:12.5px; color:var(--itk-ink); font-weight:600; flex:1; }
+.itk-tl-done { background:#E3F4E8; color:#2F8E55; border-radius:7px; padding:4px 10px; font-size:11px; font-weight:800; white-space:nowrap; }
+
+/* evaluasi */
+.itk-fase3-tag { border:1px dashed #C7AC92; color:var(--itk-soft); font-size:9px; font-weight:800; border-radius:5px; padding:2px 6px; }
+.itk-aspek { display:grid; grid-template-columns:1fr 210px; align-items:center; border-top:1px solid #F1E5D5; padding:7px 12px; background:#fff; }
+.itk-aspek:first-child { border-top:none; }
+.itk-skala { display:flex; gap:4px; justify-content:flex-end; }
+.itk-skala-btn { width:34px; height:28px; border-radius:7px; font-size:11.5px; font-weight:800; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; background:#fff; color:#A08A76; border:1px solid #E7D3BE; user-select:none; }
+.itk-skala-btn input { display:none; }
+.itk-skala-btn.lewat { background:var(--itk-chip); color:#7A5B43; border-color:var(--itk-chip); }
+.itk-skala-btn.on, .itk-skala-btn:has(input:checked) { background:var(--itk-grafit); color:var(--itk-grafit-ink); border-color:var(--itk-grafit); }
+.itk-jenis-sel { width:auto; }
+.itk-jenis-sel.Bug { color:#C0392B; } .itk-jenis-sel.Enhancement { color:#3F6BAF; }
+
+/* 2b ralat visual: kolom Prio tabel FR sempat terpotong ("Ting▾") */
+.itk-tbl select{min-width:96px}
+.itk-tbl th:nth-child(3),.itk-tbl td:nth-child(3){white-space:nowrap}
+
+/* 2b ralat visual: kotak teks temuan tertekan sampai nol oleh select width:100% */
+.itk-temuan .itk-cell{flex:1 1 160px;min-width:120px;width:auto}
+.itk-temuan .itk-pic-sel{width:auto;flex:0 1 200px;min-width:0}
+.itk-temuan .itk-jenis-sel{flex:none}
+.itk-temuan .itk-jenis-sel{width:124px;flex:0 0 124px}
+.itk-temuan .itk-cell{min-width:0}

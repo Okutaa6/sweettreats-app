@@ -195,6 +195,23 @@
                 </div>
             @endif
 
+            {{-- ═══ FASE 2b — empat formulir kerja (rencana §14.13). Tiap panel muncul
+                 saat fasenya tiba dan TETAP terbaca (baca-saja) sesudahnya — jejak audit
+                 tak boleh lenyap saat fase berganti. Jenjang S tak menyentuh satu pun. ═══ --}}
+            @php $rankKini = \App\Services\ItTracker\PhaseEngine::rankOf($t->fase); $tutup = $t->fase === 'SELESAI'; @endphp
+            @if (in_array($t->jenjang, ['M', 'L'], true) && ($rankKini >= 2 || $tutup))
+                @include('it-tracker._analisis')
+            @endif
+            @if ($t->jenjang === 'L' && ($rankKini >= 4 || $tutup))
+                @include('it-tracker._uji')
+            @endif
+            @if (in_array($t->jenjang, ['M', 'L'], true) && ($rankKini >= 3 || $tutup))
+                @include('it-tracker._uat')
+            @endif
+            @if ($t->jenjang === 'L' && ($rankKini >= 7 || $tutup))
+                @include('it-tracker._evaluasi')
+            @endif
+
             {{-- FRM-IT-06 Checklist Go Live (Kelas B) — partial supaya detail tetap terbaca.
                  Tetap tampil (baca-saja) SESUDAH tiket ditutup: checklist deploy itu
                  jejak audit yang dicari Konsultan; kalau hilang saat fase berganti,
@@ -233,15 +250,10 @@
                 <div class="itk-side">
                     <div class="itk-side-hd"><i></i><b>LANGKAH BERIKUTNYA</b></div>
                     @if ($t->fase === 'UAT')
-                        @if ($t->pemohon_user_id === (string) session('id'))
-                            <form method="post" action="{{ route('it-tracker.uat', $t->id) }}" style="margin-bottom:7px">
-                                @csrf<input type="hidden" name="keputusan" value="setuju">
-                                <button type="submit" class="itk-btn itk-btn-hijau" style="width:100%">Setujui Go Live</button>
-                            </form>
-                            <form method="post" action="{{ route('it-tracker.uat', $t->id) }}">
-                                @csrf<input type="hidden" name="keputusan" value="perbaikan">
-                                <button type="submit" class="itk-btn itk-btn-oranye" style="width:100%">Perlu Perbaikan → Development</button>
-                            </form>
+                        @if ($bolehJawabUat)
+                            {{-- Fase 2b: keputusan penuh (3 pilihan + skenario) ada di panel
+                                 FRM-IT-05 sebelah kiri — rail hanya menunjuk ke sana --}}
+                            <div class="itk-blokir" style="background:#FFF8EE;color:#B5701A">Pertanyaan untukmu ada di panel <strong>FRM-IT-05</strong> sebelah kiri: coba skenarionya, tandai Sesuai/Tidak, lalu putuskan.</div>
                         @else
                             {{-- UAT didiamkan MENYALA di papan, bukan otomatis diterima --}}
                             <div class="itk-blokir">Gerbang ini milik pemohon ({{ $t->pemohon->nama ?? 'pemohon' }}) —
@@ -253,7 +265,13 @@
                             <button type="submit" class="itk-btn itk-btn-grafit" style="width:100%"
                                 {{ empty($gate['ok']) ? 'disabled' : '' }}>{{ $gate['label'] }}</button>
                         </form>
-                        @if (empty($gate['ok']))
+                        @if (! empty($gate['checks']))
+                            {{-- Ronde 2: LAMPU per syarat — menyala sendiri saat terpenuhi,
+                                 bukan checkbox untuk diklik; yang mati menyebut kekurangannya --}}
+                            <ul class="itk-missing itk-lampu">
+                                @foreach ($gate['checks'] as $c)<li class="{{ $c['ok'] ? 'on' : '' }}">{{ $c['t'] }}</li>@endforeach
+                            </ul>
+                        @elseif (empty($gate['ok']))
                             {{-- tombol mati yang bilang kenapa (pola P3) --}}
                             <ul class="itk-missing">
                                 @foreach ($gate['missing'] as $m)<li>{{ $m }}</li>@endforeach

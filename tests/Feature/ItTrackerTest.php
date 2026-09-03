@@ -126,14 +126,17 @@ class ItTrackerTest extends TestCase
             $this->fail('Gerbang ANALISIS→DEV harus menolak tanpa Kriteria Diterima.');
         } catch (DomainException $e) {
             $this->assertStringContainsString('Kriteria Diterima', $e->getMessage());
-            $this->assertStringContainsString('ruang lingkup', $e->getMessage());
+            // ⚠️ KONTRAK BERUBAH SADAR (Fase 2b, §14.13): tiket M tak lagi diminta
+            // ruang lingkup (02 penuh hanya L); paraf satu Business Owner wajib.
+            $this->assertStringNotContainsString('ruang lingkup', $e->getMessage());
+            $this->assertStringContainsString('paraf satu Business Owner', $e->getMessage());
         }
 
-        // Lengkapi: 1 FR berkriteria + lingkup + komponen → gerbang terbuka.
+        // Lengkapi: 1 FR berkriteria + komponen + paraf BO → gerbang terbuka.
         ItFr::create(['ticket_id' => $t->id, 'kode' => 'FR-01', 'kebutuhan' => 'uji',
             'kriteria_diterima' => 'Terlihat di layar X.', 'urutan' => 1]);
         \App\Models\ItForm::create(['ticket_id' => $t->id, 'kode' => 'FRM-IT-02',
-            'payload' => ['lingkup' => 'Termasuk A.', 'komponen' => ['Aplikasi']]]);
+            'payload' => ['komponen' => ['Aplikasi'], 'paraf' => ['oleh' => 'Robi', 'at' => now()->toIso8601String()]]]);
 
         $this->assertSame('DEV', $this->svc->majukan($t->fresh(), 'uji-headit'));
     }
