@@ -946,3 +946,281 @@ LINGKUNGAN:
 
 Selesai: entri docs/log-update.md + salin ke Google Drive + catat ke memori.
 ```
+
+### 14.15 Keputusan Ekky pasca-2b (4 Sep)
+
+**ACC — tiga asersi Fase 1 yang diubah sadar di 2b.** Ketiganya melacak balik
+ke instruksi, bukan penyimpangan: dua konsekuensi langsung keputusan §14.13 #1
+(*"02 PENUH jangan pernah muncul untuk M"* — ruang lingkup bagian dari 02
+penuh), satu kalimat yang ditulis §14.14 no. 9 sendiri.
+
+⚠️ **Pelajaran metode, supaya tak diulang:** prompt §14.14 memerintahkan
+*"31 uji harus tetap hijau, jangan perbarui uji supaya lolos"* — **terlalu
+mutlak, dan bertabrakan dengan keputusan §14.13 #1 di dokumen yang sama.**
+Keputusan itu mustahil dijalankan tanpa mengubah gerbang ANALISIS. Chat build
+menyelesaikannya dengan benar: diubah **sadar**, diberi label
+`KONTRAK BERUBAH SADAR`, dan dieskalasi — bukan diam-diam. Aturan yang lebih
+tepat untuk lain kali: *"uji yang merah adalah pertanyaan, bukan izin. Jawab
+dengan menunjuk keputusan tertulis yang memaksanya, atau perbaiki kodenya."*
+
+⚠️ **Ralat klaim HUB:** waktu §14.13 menulis *"`gateInfo` aditif, kontrak
+utuh"*, yang diukur cuma **bentuknya** (`missing` masih ada, `checks[]`
+ditambah). **Isi** `missing` — daftar syarat gerbang — memang berubah antara
+r1 dan r2. Klaimnya lebih sempit daripada kedengarannya.
+
+**ACC — tiga kebijakan:**
+
+| Pertanyaan | Keputusan | Alasan |
+|---|---|---|
+| Rail Go Live tetap "Menunggu Executive" walau BO sudah ACC di 02 | **tetap** | Go Live punya persetujuan sendiri (FRM-IT-06 = IT + BO); paraf 02 bukan paraf yang sama |
+| Gerbang UAT tanpa ≥1 skenario | **ditolak** | UAT tanpa skenario = menanya "ini yang kamu minta?" tanpa apa pun untuk diperiksa; sejajar aturan ≥1 FR di ANALISIS |
+| Label "Dianalisis IT bersama {pemohon}" | **dipertahankan** | §5 memang menulis ANALISIS = IT + pemohon (bersama) |
+
+**⏳ MENUNGGU — bolehkah Head IT memparaf sebagai Business Owner.**
+Ekky condong **boleh**. Keberatan HUB sudah disampaikan sekali: kalau Head IT
+boleh, maka orang yang menulis analisis juga yang menyetujuinya — persis yang
+§7 hindari saat memangkas 3 paraf jadi 1, dan satu paraf yang bisa diteken IT
+sendiri efektif sama dengan **nol paraf**. Gerbang ANALISIS→Development
+kehilangan satu-satunya syarat dari luar IT.
+Dua bentuk tandingan yang ditawarkan: **(a) lewati tapi tercatat** —
+*"Diteruskan Head IT · BO tak merespons 5 hari"*, tampil di tiket & ekspor;
+**(b) carve-out sempit** — Head IT boleh memparaf hanya untuk tiket
+**inisiatif IT** yang memang tak punya pemohon.
+**Belum dijawab. Jangan dianggap disetujui.**
+
+**Utang terbuka:** lima screenshot ronde 2 (chat desain) · lampiran FRM-IT-01
+(chat build, pakai ulang `RopAttachment`) · pemicu prod **masih belum ditulis**.
+
+✅ Diperiksa 4 Sep: berkas Alur Persetujuan hilang dari working copy dev, tapi
+kelimanya **utuh di snapshot `06905c4`** — tak ada yang hilang.
+
+✅ Diperiksa 4 Sep: `public_path()` prod benar sendiri
+(`AppServiceProvider::usePublicPath($publicHtml)`), lampiran ROP nyata memang
+mendarat di `public_html/uploads/rop/`. Pola `RopAttachment` aman dipakai ulang.
+
+### 14.16 Paraf: jalan pintas bertanda — dan kesiapan demo dev (4 Sep)
+
+**KEPUTUSAN EKKY: Head IT boleh MELEWATI paraf Business Owner, tapi TERCATAT.**
+Alasannya dinyatakan sendiri: menunggu Konsultan atau Robi memakan waktu,
+padahal kepentingan mereka tak sedalam Head IT. Ini **bukan** "Head IT boleh
+memparaf" — bentuknya berbeda dan perbedaannya penting: yang tercatat adalah
+*pelewatan*, bukan *persetujuan*.
+
+Spesifikasi yang harus dibangun:
+- Tombolnya **bukan** tombol paraf. Labelnya menyatakan apa adanya, mis.
+  *"Teruskan tanpa paraf BO"*.
+- **Alasan satu baris WAJIB** — murah, dan membuat tindakannya disengaja.
+- Yang tersimpan: siapa · kapan · alasan.
+- **Penandanya ikut sampai Go Live dan tercetak di ekspor**, mis.
+  *"Diteruskan Head IT tanpa paraf Business Owner · 4 Sep 14:20 · <alasan>"*.
+  Jangan tampil seperti paraf biasa — kalau menyamar jadi paraf, seluruh
+  gunanya hilang.
+- Tidak ada masa tunggu (Ekky menolak friksi itu). Kejujuran dijaga oleh
+  penanda yang tak bisa disembunyikan, bukan oleh penundaan.
+
+⛔ **TEMUAN yang mengubah artinya — `Admin*` ADA di `ROLE_PENGAWAS`.**
+Terukur 4 Sep: `ROLE_PENGAWAS` = Executive · Consultant · Konsultan
+IT/Finance/Marketing · **Admin General · Admin Backup · Admin**. Dan di dev
+**`Admin General` adalah akun `Admin_Ekky`** (ekky1326@gmail.com).
+Artinya jalan pintas itu **sudah ada hari ini, tanpa catatan**: menulis
+analisis sebagai Head IT, lalu berpindah akun dan memparaf sebagai Admin_Ekky.
+Kode memeriksa **peran, bukan orang**, jadi tak ada yang menahannya dan tak
+ada jejaknya.
+**Rekomendasi HUB: keluarkan `Admin*` dari `ROLE_PENGAWAS`** bersamaan dengan
+membangun jalan pintas bertanda. Kalau pintu sunyi dibiarkan terbuka, pintu
+bertanda tak akan pernah dipakai. **Belum diputuskan Ekky.**
+
+#### Kesiapan demo end-to-end di dev
+
+✅ Siap: dev bersih (**0 tiket**, `it_counter` kosong → tiket pertama
+`IT-2026-001`); Fase 1+2a+2b live (`22c2348`, 78 uji); pemain lengkap —
+pemohon **Yovan** (creative@stdc.id) / **Yovanka**, IT **Reza**,
+BO **Robi** (Executive) / **Hari** (Konsultan Marketing).
+
+⛔ **Penghalang 1 — Ekky tak punya akun Head IT di dev.** `Admin_Ekky`
+bergolongan **Admin General**, yang dibaca kode sebagai **pengawas/BO**, bukan
+Head IT. Dengan akun itu **triase tidak bisa dilakukan**. Head IT di dev
+tercatat atas nama **Muhamad Ikhsan**. Pilihan: beri `Admin_Ekky` peran Head IT
+di dev, atau demo memakai akun Ikhsan.
+
+⚠️ **Penghalang 2 — tembok BO muncul DUA kali**, bukan sekali: paraf 02 di
+ANALISIS→Development, **dan** ACC FRM-IT-06 di Go Live yang sengaja **tak bisa
+dibubuhkan Head IT sekalipun**. Robi/Hari harus siap di dua momen — atau jalan
+pintas bertanda dibangun lebih dulu.
+
+⚠️ **Penghalang 3** — jalan pintas bertanda belum dibangun (baru diputuskan
+hari ini).
+
+### 14.17 Peran terbalik untuk Ekky — dev SUDAH sama dengan prod (diukur 4 Sep)
+
+⚠️ **Ralat §14.16.** Di sana tertulis *"Ekky tak punya akun Head IT di dev"*
+seolah dev salah konfigurasi. **Salah.** Prod dan dev diukur berdampingan dan
+**identik**: Admin_Ekky = `Admin General` di KEDUANYA; Head IT di keduanya
+adalah **Muhamad Ikhsan**; Reza = IT; Robi = Executive; Hari = Konsultan
+Marketing; Admin_Nisa = Admin Backup. Beda satu-satunya: dev punya akun
+tambahan **Yovan** (`creative@stdc.id`) di samping Yovanka.
+⇒ **Tak ada yang perlu "disamakan dengan prod". Dev sudah cermin prod.**
+
+**Yang sebenarnya bengkok: perannya terbalik untuk Ekky, di KEDUA environment.**
+Ekky adalah Head IT dalam kenyataan, tapi identitas sistemnya `Admin General` —
+dan `Admin General` justru ada di `ROLE_PENGAWAS`, alias **Business Owner**.
+Sementara kuasa Head IT di tracker menempel pada `ROLE_HEAD_IT` =
+`["Head IT","Super Admin"]`, yaitu Muhamad Ikhsan dan Admin_Reza.
+
+⛔ **Konsekuensi yang menentukan urutan kerja:** mencabut `Admin*` dari
+`ROLE_PENGAWAS` **tidak boleh berdiri sendiri** — kalau begitu saja, Ekky
+kehilangan pijakan sama sekali: bukan Head IT, bukan BO, penonton di sistemnya
+sendiri.
+
+**Usul HUB — satu paket, dua konstanta, NOL perubahan `group_path`:**
+1. `ROLE_HEAD_IT` **+= `"Admin General"`** (itu Ekky, dan memang dia Head IT-nya)
+2. `ROLE_PENGAWAS` **−= `"Admin General"`, `"Admin Backup"`, `"Admin"`**
+
+Hasil: Ekky jadi Head IT penuh di tracker; BO menyusut jadi Executive +
+Consultant + Konsultan\* — persis §7 dan persis label desainnya sendiri
+(*"Menunggu paraf satu Business Owner (Executive / Konsultan)"*, screenshot 07).
+
+✅ **Kenapa ini aman:** dua konstanta di kode, **tak ada golongan yang
+berpindah**. Menu, akses, petty cash, dan fitur lain tak tersentuh — berbeda
+dari gerbong role 1 Sep yang memindahkan 4 orang dan menuntut KODE DULU BARU SQL.
+
+Sesudah paket ini, jalan pintas bertanda §14.16 baru punya arti: satu-satunya
+cara Head IT melewati BO, dan cara itu meninggalkan jejak.
+**Status: diusulkan HUB, Ekky bilang "bahas dulu" — belum diputuskan.**
+
+#### Paket desain `r2 p2` — T1 DITUTUP
+
+`Downloads\design_handoff_it_tracker r2 p2\` (4 Sep). Kelima screenshot ronde 2
+(07-11) lengkap; kepala README diperbaiki (11 keadaan kunci, empat formulir
+kerja disebut). **Keempat berkas desain IDENTIK BYTE dengan r2** — nol
+pergeseran, jadi tak ada koding 2b yang terbatalkan.
+⚠️ Cacat kecil untuk diperiksa di UI nyata: di screenshot 07 **tiga baris lampu
+gerbang saling bertindihan** saat dirender. Cacat tata letak mockup, bukan
+logika — jangan ikut disalin.
+
+### 14.18 RALAT PENTING — Muhamad Ikhsan ADALAH Ekky
+
+Ekky mengoreksi 4 Sep: **"Ekky" itu nama panggilan; akun `Muhamad Ikhsan`
+adalah dia sendiri.** Jadi Ekky punya **dua akun**: `Muhamad Ikhsan` (Head IT)
+dan `Admin_Ekky` (Admin General) — pola yang sama dengan
+[[project_roster_karyawan]] soal *"Anisa ≠ Admin_Nisa (dua akun beda)"*.
+
+**Yang batal dari §14.16/§14.17:** kalimat *"Ekky tak punya akun Head IT"*
+**SALAH**. Dia punya. Tidak ada penghalang demo, tak perlu meminjam akun.
+Kesalahan HUB: menyimpulkan dua orang berbeda dari dua nama berbeda, tanpa
+bertanya.
+
+**Yang justru MENGUAT:** lubang paraf bukan lagi hipotetis, tapi
+**terkonfirmasi**. Satu manusia, dua akun: menulis analisis sebagai Ikhsan
+(Head IT), lalu memparaf sebagai Admin_Ekky (`Admin General` ∈
+`ROLE_PENGAWAS`). Tanpa jejak — kode memeriksa **peran, bukan orang**.
+
+**Usulnya jadi lebih sederhana.** Batal paket dua konstanta §14.17; cukup:
+
+> `ROLE_PENGAWAS` **−= `"Admin General"`, `"Admin Backup"`, `"Admin"`**
+
+Satu konstanta. Tak perlu menambah apa pun ke `ROLE_HEAD_IT` karena Ekky sudah
+Head IT lewat Ikhsan. Sesudah itu BO = Executive + Consultant + Konsultan\*,
+persis §7 dan persis label desain (*"Business Owner (Executive / Konsultan)"*).
+**Status: Ekky bilang "boleh, bahas dulu" — belum final.**
+
+#### Catatan kesiapan demo (dev)
+
+- Persona tersedia di dev: **Ekky** (Muhamad Ikhsan = Head IT · Admin_Ekky) ·
+  **Reza** (IT) · **Robi** (Executive/BO) · **Hari** (Konsultan Marketing/BO) ·
+  **Yovan** & **Yovanka** (Head Marketing/pemohon).
+- ⚠️ **Rahmat (Konsultan IT) TIDAK ADA di dev** — hanya prod. Untuk demo pakai
+  **Hari** sebagai persona Konsultan.
+- ⛔ **Jangan membuat akun baru sekadar untuk demo.** Membuat user menyeret
+  aturan kerja absensi; proyek ini sudah 2× kena **alpa palsu** karena
+  `effective_from` diisi tanggal pembuatan akun, bukan tanggal mulai kerja
+  ([[feedback_alpa_palsu_aturan_kerja]]).
+- Password demo bersama boleh disamakan **di dev saja** (`password_verify` +
+  `password_hash(PASSWORD_DEFAULT)` = bcrypt biasa). `dev.sweettreats.id`
+  terbuka di internet → jangan password yang gampang ditebak, dan **jangan
+  pernah di prod**.
+
+### 14.19 Prompt chat build — jalan pintas paraf BERTANDA (keputusan §14.16)
+
+> Keputusan Ekky 4 Sep: Head IT boleh **melewati** paraf Business Owner, **tapi
+> tercatat**. Bentuknya *pelewatan*, bukan *persetujuan* — tombolnya tidak boleh
+> menyamar jadi paraf. Dibangun **sesudah demo**, bukan sebelum: demo dulu akan
+> memberi tahu apakah BO memang lambat; kalau tidak, fitur ini tak perlu ada.
+
+```
+Lanjutkan proyek SweetTreats lewat memori. Chat ini membangun SATU fitur kecil di
+IT Request Tracker: JALAN PINTAS PARAF BERTANDA. Lokal & dev; prod HANYA kalau
+Ekky menyebut "prod".
+
+BACA DULU:
+· docs/rencana/rencana-it-tracker.md  <- §14.16 (keputusan + spesifikasi),
+                                        §14.18 (kenapa ini penting), §14.19 (ini)
+· memori project_it_tracker
+
+MASALAH YANG DISELESAIKAN:
+Gerbang ANALISIS->Development butuh paraf satu Business Owner (Executive /
+Konsultan). Kalau BO lambat merespons, tiket tersandera dan Head IT tak bisa
+apa-apa. Ekky memutuskan: Head IT boleh MELEWATI, tapi TERCATAT dan TERLIHAT.
+
+BENTUKNYA — ini yang paling mudah salah:
+1. Ini PELEWATAN, bukan paraf. Tombolnya berlabel "Teruskan tanpa paraf BO",
+   BUKAN "Paraf". Jangan pernah mengisi fr02.paraf dari jalur ini.
+2. Simpan TERPISAH: fr02.diteruskan = {oleh, oleh_id, at, alasan}.
+   gateInfo: lampu "paraf satu Business Owner" menyala kalau paraf ADA ATAU
+   diteruskan ADA — tapi teks lampunya berubah jadi
+   "diteruskan Head IT tanpa paraf BO" supaya tak menyamar.
+3. ALASAN WAJIB, satu baris, minimal 10 karakter. Tanpa alasan -> ditolak
+   dengan pesan yang menyebut kenapa (pola P3).
+4. Hanya ROLE_HEAD_IT. Reza (it_dev) -> 403. BO (pengawas) -> 403 (mereka
+   punya tombol paraf sendiri).
+5. PENANDA IKUT SAMPAI GO LIVE dan tercetak:
+   · detail tiket: banner di bagian 02 DAN di kepala tiket, mis.
+     "Diteruskan Head IT tanpa paraf Business Owner · 4 Sep 14:20 · <alasan>"
+   · kartu papan: chip pendek "tanpa paraf BO"
+   · ekspor: baris yang sama di blok status ekspor FRM-IT-01 (satu-satunya
+     ekspor yang ada), dan WAJIB ikut saat ekspor 02/06 dibangun nanti.
+   Kalau penandanya bisa disembunyikan atau tampak seperti paraf biasa,
+   seluruh gunanya hilang.
+6. Konsisten dengan T2 (§14.13): mengubah isi 02 (FR/komponen/lingkup/deps/
+   jenjang) MENGGUGURKAN diteruskan, sama seperti menggugurkan paraf.
+   Simpan-ulang identik & catatan dapur TIDAK menggugurkan.
+7. Kalau BO memparaf SESUDAH diteruskan: simpan keduanya. Paraf tidak
+   menghapus jejak pelewatan.
+8. Tidak ada masa tunggu (Ekky menolak friksi itu). Kejujuran dijaga oleh
+   penanda yang tak bisa disembunyikan, bukan oleh penundaan.
+
+GERBANG MANA: bangun SATU mekanisme teruskanTanpaBo($t, $gerbang, $alasan)
+dengan konstanta GERBANG_BOLEH_DITERUSKAN = ['02']. Go Live ('06') SENGAJA
+TIDAK termasuk — ACC BO Go Live tetap tak bisa dilewati Head IT. Menambahkan
+'06' = satu entri, keputusan Ekky nanti; jangan ditambahkan sendiri.
+
+⏳ HAL YANG BELUM DIPUTUSKAN — JANGAN DIKERJAKAN TANPA KATA EKSPLISIT EKKY
+DI CHAT INI: mencabut "Admin General", "Admin Backup", "Admin" dari
+ROLE_PENGAWAS (§14.18). Ekky bilang "boleh, bahas dulu" — itu BUKAN ya.
+Kalau dia menyebutnya di chat ini: satu konstanta, nol perubahan group_path,
+dan tambahkan uji "Admin_Ekky tak bisa memparaf".
+
+UJI TERIMA:
+· Head IT + alasan -> diteruskan tersimpan, gerbang terbuka, fr02.paraf TETAP
+  kosong
+· tanpa alasan / alasan < 10 karakter -> ditolak, pesan menyebut sebabnya
+· Reza -> 403 · BO -> 403
+· penanda tampil di detail (2 tempat), kartu papan, dan ekspor FRM-IT-01
+· ubah FR sesudah diteruskan -> diteruskan gugur, gerbang menutup lagi
+· BO memparaf sesudah diteruskan -> keduanya tersimpan, penanda tetap tampil
+· teruskanTanpaBo($t, '06', ...) -> ditolak (bukan di daftar)
+· KENDALI NEGATIF: 83 uji yang ada tetap hijau; cacah baris tabel lama tak
+  berubah; tiket yang diparaf BO normal TIDAK menampilkan penanda apa pun
+
+LINGKUNGAN:
+· Branch feat/it-tracker, worktree Downloads\sweettreats-it-tracker. Cek HEAD
+  sendiri (git log -1). Nomor tiket di BARIS PERTAMA commit.
+· dev = SATU working copy bersama DAN sedang dipakai untuk demo — koordinasi
+  sebelum deploy; `git status --porcelain | grep "^??"` dulu; checkout TANPA
+  reset --hard.
+· ⛔ JANGAN db:show / Schema::hasTable() / SHOW COLUMNS / DESCRIBE — membunuh
+  mysqld lokal. Pakai SHOW TABLES LIKE + SELECT kolom LIMIT 0.
+· phpunit PER KELAS.
+
+Selesai: entri docs/log-update.md + salin ke Google Drive + catat ke memori.
+```
