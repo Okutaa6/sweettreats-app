@@ -181,6 +181,7 @@ class ItTrackerController extends Controller
             // predikat yang SAMA dengan rute skenario() — jangan tampilkan formulir yang berujung 403
             'bolehSkenario' => $this->bolehTulisSkenario($t) && in_array($t->fase, ['DEV', 'UJI', 'UAT'], true),
             'bolehJawabUat' => $this->bolehJawabUat($t),
+            'bolehLampiran' => $this->bolehLampiran($t) && $t->fase !== 'DITOLAK',
             'bolehEvaluasi' => $this->bolehEvaluasi($t),
             'depOpsi'       => $this->peran() === 'head_it' && $t->fase === 'ANALISIS'
                 ? ItTicket::where('id', '!=', $t->id)->where('fase', '!=', 'DITOLAK')
@@ -219,7 +220,7 @@ class ItTrackerController extends Controller
             'jenjang'           => 'nullable|in:S,M,L',
             'bobot'             => 'nullable|integer|min:1|max:5',
             'prioritas_it'      => 'nullable|in:P1,P2,P3',
-        ], [], [
+        ] + $this->aturanLampiran(), $this->pesanLampiran(), [
             'judul' => 'nama modul/fitur', 'latar' => 'masalah hari ini',
             'kebutuhan' => 'hasil yang diharapkan',
             'prioritas_pemohon' => 'seberapa mendesak menurutmu',
@@ -230,6 +231,9 @@ class ItTrackerController extends Controller
 
         try {
             $t = $this->svc->buat($d, $this->userId());
+            // Lampiran FRM-IT-01 (§7 B): bukti masalah menempel di tiket, bukan
+            // dikirim lewat WhatsApp — kebiasaan yang mau digantikan sistem ini.
+            $this->svc->tambahLampiran($t, $request->file('lampiran', []), $this->userId());
         } catch (DomainException $e) {
             return back()->withInput()->with('error', $e->getMessage());
         }
@@ -931,6 +935,58 @@ class ItTrackerController extends Controller
     }
 
     /** Jawaban/keputusan UAT: pemohon; tiket tanpa pemohon → Head IT (aturan Fase 1). */
+    // ── Lampiran FRM-IT-01 (rencana §7 B / §14.11) ──
+
+    /** Tambah lampiran belakangan: pemohon selama tiket masih di TRIASE, Head IT kapan saja. */
+    public function lampiran(Request $request, int $id)
+    {
+        $t = ItTicket::findOrFail($id);
+        if (! $this->bolehLampiran($t)) {
+            abort(403, $t->pemohon_user_id === $this->userId()
+                ? 'Lampiran dari pemohon hanya bisa ditambah selama tiket masih menunggu triase — sesudah itu minta Head IT menempelkannya.'
+                : 'Lampiran ditambahkan pemohon tiket (saat menunggu triase) atau Head IT.');
+        }
+
+        // validasi SESUDAH otorisasi; 'lampiran' wajib di rute ini (kosong = tak ada gunanya)
+        $request->validate(['lampiran' => 'required|array|min:1|max:' . ItTrackerService::LAMPIRAN_MAKS] + $this->aturanLampiran(), $this->pesanLampiran());
+
+        try {
+            $n = $this->svc->tambahLampiran($t, $request->file('lampiran', []), $this->userId());
+        } catch (DomainException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return back()->with('success', $n . ' lampiran ditempelkan ke ' . $t->nomor . '.');
+    }
+
+    private function bolehLampiran(ItTicket $t): bool
+    {
+        if ($this->peran() === 'head_it') return true;
+        return $t->pemohon_user_id && $t->pemohon_user_id === $this->userId() && $t->fase === 'TRIASE';
+    }
+
+    private function aturanLampiran(): array
+    {
+        return [
+            'lampiran'   => 'nullable|array|max:' . ItTrackerService::LAMPIRAN_MAKS,
+            'lampiran.*' => 'file|mimes:' . implode(',', ItTrackerService::LAMPIRAN_MIMES) . '|max:' . ItTrackerService::LAMPIRAN_MAX_KB,
+        ];
+    }
+
+    /** Pesan penolakan MENYEBUT yang diterima (pola P3) — bukan "jenis berkas tidak valid". */
+    private function pesanLampiran(): array
+    {
+        $diterima = ItTrackerService::lampiranDiterima();
+
+        return [
+            'lampiran.*.mimes' => 'Lampiran ":input" tidak dikenali. Yang diterima: ' . $diterima . '.',
+            'lampiran.*.file'  => 'Lampiran gagal terunggah. Yang diterima: ' . $diterima . '.',
+            'lampiran.*.max'   => 'Lampiran ":input" terlalu besar. Yang diterima: ' . $diterima . '.',
+            'lampiran.max'     => 'Maksimal ' . ItTrackerService::LAMPIRAN_MAKS . ' lampiran per tiket.',
+            'lampiran.required' => 'Pilih dulu berkasnya. Yang diterima: ' . $diterima . '.',
+        ];
+    }
+
     /** Skenario UAT: Head IT, atau IT yang menjadi PIC tiketnya — dipakai layar DAN rute. */
     private function bolehTulisSkenario(ItTicket $t): bool
     {

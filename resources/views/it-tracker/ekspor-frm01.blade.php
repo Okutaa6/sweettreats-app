@@ -57,6 +57,31 @@
             @endforeach
         </div>
 
+        @php
+            $lamp = $f1['lampiran'] ?? [];
+            $ukuranDoc = fn ($b) => $b >= 1048576 ? round($b / 1048576, 1) . ' MB' : max(1, (int) round($b / 1024)) . ' KB';
+        @endphp
+        <div class="itk-doc-sec"><span>LAMPIRAN</span><em class="itk-doc-auto">{{ count($lamp) }} berkas — screenshot / contoh laporan / alur proses / dokumen lain</em></div>
+        <div class="itk-doc-tbl">
+            @forelse ($lamp as $i => $x)
+                <div class="itk-doc-row itk-doc-lamp">
+                    <span class="k num">L-{{ str_pad($i + 1, 2, '0', STR_PAD_LEFT) }}</span>
+                    <span class="v">
+                        <span class="itk-doc-lamp-nama">{{ $x['nama'] }}</span>
+                        <span class="itk-doc-lamp-meta">{{ $x['mime'] ?? '' }} · {{ $ukuranDoc($x['ukuran'] ?? 0) }}
+                            @if (! empty($x['at'])) · {{ \Carbon\Carbon::parse($x['at'])->translatedFormat('j M Y H:i') }}@endif</span>
+                        @if (str_starts_with((string) ($x['mime'] ?? ''), 'image/'))
+                            <img class="itk-doc-lamp-img" src="{{ asset($x['path']) }}" alt="{{ $x['nama'] }}">
+                        @else
+                            <span class="itk-doc-lamp-url">{{ asset($x['path']) }}</span>
+                        @endif
+                    </span>
+                </div>
+            @empty
+                <div class="itk-doc-row" style="grid-template-columns:1fr"><span class="v" style="color:#8A857C">— tidak ada lampiran —</span></div>
+            @endforelse
+        </div>
+
         <div class="itk-doc-sec"><span>C. REVIEW AWAL (DIISI IT)</span></div>
         <div class="itk-doc-tbl">
             <div class="itk-doc-row" style="grid-template-columns:1fr">

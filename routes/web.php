@@ -246,6 +246,7 @@ Route::middleware([AuthGuard::class])->group(function () {
         Route::post('/tiket/{id}/bo',       [ItTrackerController::class, 'businessOwner'])->name('it-tracker.bo')->whereNumber('id');
         Route::post('/tiket/{id}/sync-git', [ItTrackerController::class, 'syncGit'])->name('it-tracker.syncgit')->whereNumber('id');
         Route::get ('/tiket/{id}/ekspor',   [ItTrackerController::class, 'ekspor'])->name('it-tracker.ekspor')->whereNumber('id');
+        Route::post('/tiket/{id}/lampiran', [ItTrackerController::class, 'lampiran'])->name('it-tracker.lampiran')->whereNumber('id');
         // Fase 2b — empat formulir kerja (rencana §14.13)
         Route::post('/tiket/{id}/fr',        [ItTrackerController::class, 'fr'])->name('it-tracker.fr')->whereNumber('id');
         Route::post('/tiket/{id}/komponen',  [ItTrackerController::class, 'komponen'])->name('it-tracker.komponen')->whereNumber('id');

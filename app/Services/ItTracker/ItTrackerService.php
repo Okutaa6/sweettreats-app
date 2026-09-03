@@ -31,6 +31,68 @@ class ItTrackerService
     public const FASE_PARKIR = ['DITUNDA', 'DITOLAK'];
 
     /**
+     * Lampiran FRM-IT-01 (rencana §7 bagian B: screenshot · contoh laporan ·
+     * alur proses · dokumen lain). Batas = ROP (5 MB) + dokumen kantor, karena
+     * "contoh laporan" hampir selalu Excel/Word. Daftar ini juga yang DISEBUT
+     * di pesan penolakan (pola P3) — jangan dipisah dari aturan validasinya.
+     */
+    public const LAMPIRAN_MIMES  = ['jpg', 'jpeg', 'png', 'webp', 'pdf', 'xlsx', 'xls', 'docx', 'doc', 'csv'];
+    public const LAMPIRAN_MAX_KB = 5120;
+    public const LAMPIRAN_MAKS   = 8;
+
+    public static function lampiranDiterima(): string
+    {
+        return 'gambar (JPG/PNG/WEBP), PDF, Excel (XLSX/XLS/CSV), atau Word (DOCX/DOC) — maksimal 5 MB per berkas';
+    }
+
+    /**
+     * Tempelkan berkas ke FRM-IT-01. Metadata cukup di payload (JSON) — tak
+     * perlu tabel baru. Berkas disimpan lewat RopAttachment (pola terbukti),
+     * folder dasar uploads/it-tracker supaya tak bercampur dengan nota ROP.
+     *
+     * @param  \Illuminate\Http\UploadedFile[] $berkas  sudah tervalidasi mimes/max
+     * @return int jumlah yang ditempelkan
+     */
+    public function tambahLampiran(ItTicket $t, array $berkas, string $userId): int
+    {
+        $berkas = array_values(array_filter($berkas));
+        if (! $berkas) return 0;
+        if ($t->fase === 'DITOLAK') {
+            throw new DomainException('Tiket yang ditolak tidak menerima lampiran.');
+        }
+
+        $form = ItForm::firstOrNew(['ticket_id' => $t->id, 'kode' => 'FRM-IT-01']);
+        $p    = $form->payload ?? [];
+        $ada  = $p['lampiran'] ?? [];
+        if (count($ada) + count($berkas) > self::LAMPIRAN_MAKS) {
+            throw new DomainException('Maksimal ' . self::LAMPIRAN_MAKS . ' lampiran per tiket (sudah ' . count($ada) . ').');
+        }
+
+        $penyimpan = app(\App\Services\RopAttachment::class);
+        foreach ($berkas as $f) {
+            // metadata DIBACA SEBELUM dipindah — sesudah move() berkas sementaranya
+            // lenyap dan getSize() melempar (ditangkap uji, 4 Sep)
+            $nama   = mb_substr(self::teksBersih($f->getClientOriginalName() ?: 'lampiran'), 0, 160);
+            $mime   = (string) ($f->getClientMimeType() ?: 'application/octet-stream');
+            $ukuran = (int) $f->getSize();
+            $path   = $penyimpan->simpanBerkas($f, 'frm01', 'uploads/it-tracker');
+            $ada[]  = [
+                'path'   => $path,
+                'nama'   => $nama,
+                'mime'   => $mime,
+                'ukuran' => $ukuran,
+                'oleh'   => $userId,
+                'at'     => now()->toIso8601String(),
+            ];
+        }
+        $p['lampiran'] = $ada;
+        $form->payload = $p;
+        $form->save();
+
+        return count($berkas);
+    }
+
+    /**
      * Rapikan teks bebas sebelum masuk payload JSON.
      *
      * `it_form.payload` di-cast array → json_encode, dan json_encode MENOLAK

@@ -42,7 +42,7 @@
                 <b>{{ $adalahIt ? 'CATAT INISIATIF / INSIDEN / PERMINTAAN' : 'FORMULIR PERMINTAAN — FRM-IT-01' }}</b>
                 <span class="itk-badge-fase">KELAS A · diisi pemohon</span>
             </div>
-            <form method="post" action="{{ route('it-tracker.store') }}">
+            <form method="post" action="{{ route('it-tracker.store') }}" enctype="multipart/form-data">
                 @csrf
                 <div class="itk-panel-body">
                     <div class="itk-ident">
@@ -137,6 +137,14 @@
                     <div>
                         <label class="itk-lbl">SIAPA YANG TERDAMPAK</label>
                         <input class="itk-in" type="text" name="terdampak" value="{{ old('terdampak') }}" placeholder="mis. FO semua cabang">
+                    </div>
+                    <div>
+                        {{-- §7 B Lampiran: screenshot · contoh laporan · alur proses · dokumen lain.
+                             Tanpa ini buktinya lari ke WhatsApp — kebiasaan yang mau digantikan. --}}
+                        <label class="itk-lbl">LAMPIRAN <span style="font-weight:600;color:#8A857C">(opsional — screenshot, contoh laporan, alur proses)</span></label>
+                        <input class="itk-in itk-file" type="file" name="lampiran[]" multiple
+                               accept=".jpg,.jpeg,.png,.webp,.pdf,.xlsx,.xls,.docx,.doc,.csv" data-lampiran-input>
+                        <div class="itk-hint" style="margin:4px 0 0" data-lampiran-hint>Diterima: {{ \App\Services\ItTracker\ItTrackerService::lampiranDiterima() }}. Bisa ditambah lagi selama tiket belum ditriase.</div>
                     </div>
 
                     <div style="display:flex;align-items:center;gap:12px;border-top:1px solid #F1E5D5;padding-top:14px">

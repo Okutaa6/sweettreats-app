@@ -126,7 +126,14 @@
                         <div class="itk-row"><b>LATAR / MASALAH SAAT INI</b><span>{{ $form01['latar'] ?? '—' }}</span></div>
                         <div class="itk-row"><b>HASIL YANG DIHARAPKAN</b><span>{{ $form01['kebutuhan'] ?? '—' }}</span></div>
                         <div class="itk-row"><b>PENGGUNA TERDAMPAK</b><span>{{ $form01['terdampak'] ?? '—' }}</span></div>
+                        @include('it-tracker._lampiran')
                     </div>
+                </div>
+            @elseif ($bolehLampiran)
+                {{-- tiket tanpa FRM-IT-01 (insiden/inisiatif): Head IT tetap bisa menempelkan bukti --}}
+                <div class="itk-panel" style="margin-bottom:12px">
+                    <div class="itk-beban-bar"><b>LAMPIRAN</b><span class="itk-badge-fase">FRM-IT-01 · bukti</span></div>
+                    <div class="itk-panel-body itk-rows">@include('it-tracker._lampiran')</div>
                 </div>
             @endif
 

@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Str;
 
 /**
@@ -44,9 +45,19 @@ class RopAttachment
 
     private function dariFile(Request $request, string $field, string $jenis): string
     {
-        $file = $request->file($field);
-        $ext  = strtolower($file->getClientOriginalExtension() ?: 'bin');
-        [$relDir, $absDir] = $this->folder($jenis);
+        return $this->simpanBerkas($request->file($field), $jenis);
+    }
+
+    /**
+     * Simpan SATU berkas unggahan yang sudah tervalidasi (mimes/max di controller).
+     * Dipakai ulang IT Tracker (lampiran FRM-IT-01, banyak berkas sekaligus) —
+     * pola yang sama, folder dasar berbeda: uploads/it-tracker/<jenis>/YYYY/MM.
+     * Return path relatif dari public/ (jadi asset($path) benar di dev & prod).
+     */
+    public function simpanBerkas(UploadedFile $file, string $jenis, string $dasar = 'uploads/rop'): string
+    {
+        $ext  = strtolower($file->getClientOriginalExtension() ?: ($file->guessExtension() ?: 'bin'));
+        [$relDir, $absDir] = $this->folder($jenis, $dasar);
         $nama = Str::uuid() . '.' . $ext;
         $file->move($absDir, $nama);
         return "{$relDir}/{$nama}";
@@ -91,9 +102,9 @@ class RopAttachment
      * public/uploads/rop/{jenis}/{YYYY}/{MM} — dipisah per jenis supaya jelas
      * mana lampiran pengaju, mana bukti Finance, mana nota penutup.
      */
-    private function folder(string $jenis): array
+    private function folder(string $jenis, string $dasar = 'uploads/rop'): array
     {
-        $relDir = 'uploads/rop/' . $jenis . '/' . date('Y') . '/' . date('m');
+        $relDir = trim($dasar, '/') . '/' . $jenis . '/' . date('Y') . '/' . date('m');
         $absDir = public_path($relDir);
         if (! is_dir($absDir)) {
             @mkdir($absDir, 0775, true);

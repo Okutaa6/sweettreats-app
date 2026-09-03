@@ -464,3 +464,18 @@ body.zona-it .itk-kolom { background:#ECEAE4; border-color:#DDD9CF; }
 .itk-temuan .itk-pic-sel{width:auto;flex:0 1 200px;min-width:0}
 .itk-temuan .itk-jenis-sel{width:124px;flex:0 0 124px}
 .itk-lock i{font-size:9px;color:#B08A5A;margin-left:2px}
+
+/* Lampiran FRM-IT-01 (§7 B) — daftar di detail + pratinjau gambar; ekspor ikut tercetak */
+.itk-file{padding:6px 8px;font-size:12px;background:#fff}
+.itk-lamp-list{display:flex;flex-wrap:wrap;gap:8px}
+.itk-lamp{display:flex;flex-direction:column;gap:4px;width:132px;padding:6px;border:1px solid var(--itk-line);border-radius:10px;background:#fff;text-decoration:none;color:var(--itk-ink)}
+.itk-lamp:hover{border-color:var(--itk-grafit-2);text-decoration:none}
+.itk-lamp img{width:100%;height:78px;object-fit:cover;border-radius:6px;background:#F3EDE4}
+.itk-lamp-ext{display:flex;align-items:center;justify-content:center;height:78px;border-radius:6px;background:var(--itk-grafit);color:#F0C987;font-size:12px;font-weight:800;letter-spacing:.04em}
+.itk-lamp-nama{font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.itk-lamp-meta{font-size:10px;color:#8A857C;font-weight:600}
+.itk-doc-lamp .v{display:flex;flex-direction:column;gap:3px}
+.itk-doc-lamp-nama{font-weight:700}
+.itk-doc-lamp-meta,.itk-doc-lamp-url{font-size:10.5px;color:#55534E;word-break:break-all}
+.itk-doc-lamp-img{max-width:100%;max-height:260px;border:1px solid #DDD5C8;border-radius:6px;margin-top:4px}
+@media print{.itk-doc-lamp-img{max-height:200px;page-break-inside:avoid}}
