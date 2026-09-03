@@ -946,3 +946,54 @@ LINGKUNGAN:
 
 Selesai: entri docs/log-update.md + salin ke Google Drive + catat ke memori.
 ```
+
+### 14.15 Keputusan Ekky pasca-2b (4 Sep)
+
+**ACC — tiga asersi Fase 1 yang diubah sadar di 2b.** Ketiganya melacak balik
+ke instruksi, bukan penyimpangan: dua konsekuensi langsung keputusan §14.13 #1
+(*"02 PENUH jangan pernah muncul untuk M"* — ruang lingkup bagian dari 02
+penuh), satu kalimat yang ditulis §14.14 no. 9 sendiri.
+
+⚠️ **Pelajaran metode, supaya tak diulang:** prompt §14.14 memerintahkan
+*"31 uji harus tetap hijau, jangan perbarui uji supaya lolos"* — **terlalu
+mutlak, dan bertabrakan dengan keputusan §14.13 #1 di dokumen yang sama.**
+Keputusan itu mustahil dijalankan tanpa mengubah gerbang ANALISIS. Chat build
+menyelesaikannya dengan benar: diubah **sadar**, diberi label
+`KONTRAK BERUBAH SADAR`, dan dieskalasi — bukan diam-diam. Aturan yang lebih
+tepat untuk lain kali: *"uji yang merah adalah pertanyaan, bukan izin. Jawab
+dengan menunjuk keputusan tertulis yang memaksanya, atau perbaiki kodenya."*
+
+⚠️ **Ralat klaim HUB:** waktu §14.13 menulis *"`gateInfo` aditif, kontrak
+utuh"*, yang diukur cuma **bentuknya** (`missing` masih ada, `checks[]`
+ditambah). **Isi** `missing` — daftar syarat gerbang — memang berubah antara
+r1 dan r2. Klaimnya lebih sempit daripada kedengarannya.
+
+**ACC — tiga kebijakan:**
+
+| Pertanyaan | Keputusan | Alasan |
+|---|---|---|
+| Rail Go Live tetap "Menunggu Executive" walau BO sudah ACC di 02 | **tetap** | Go Live punya persetujuan sendiri (FRM-IT-06 = IT + BO); paraf 02 bukan paraf yang sama |
+| Gerbang UAT tanpa ≥1 skenario | **ditolak** | UAT tanpa skenario = menanya "ini yang kamu minta?" tanpa apa pun untuk diperiksa; sejajar aturan ≥1 FR di ANALISIS |
+| Label "Dianalisis IT bersama {pemohon}" | **dipertahankan** | §5 memang menulis ANALISIS = IT + pemohon (bersama) |
+
+**⏳ MENUNGGU — bolehkah Head IT memparaf sebagai Business Owner.**
+Ekky condong **boleh**. Keberatan HUB sudah disampaikan sekali: kalau Head IT
+boleh, maka orang yang menulis analisis juga yang menyetujuinya — persis yang
+§7 hindari saat memangkas 3 paraf jadi 1, dan satu paraf yang bisa diteken IT
+sendiri efektif sama dengan **nol paraf**. Gerbang ANALISIS→Development
+kehilangan satu-satunya syarat dari luar IT.
+Dua bentuk tandingan yang ditawarkan: **(a) lewati tapi tercatat** —
+*"Diteruskan Head IT · BO tak merespons 5 hari"*, tampil di tiket & ekspor;
+**(b) carve-out sempit** — Head IT boleh memparaf hanya untuk tiket
+**inisiatif IT** yang memang tak punya pemohon.
+**Belum dijawab. Jangan dianggap disetujui.**
+
+**Utang terbuka:** lima screenshot ronde 2 (chat desain) · lampiran FRM-IT-01
+(chat build, pakai ulang `RopAttachment`) · pemicu prod **masih belum ditulis**.
+
+✅ Diperiksa 4 Sep: berkas Alur Persetujuan hilang dari working copy dev, tapi
+kelimanya **utuh di snapshot `06905c4`** — tak ada yang hilang.
+
+✅ Diperiksa 4 Sep: `public_path()` prod benar sendiri
+(`AppServiceProvider::usePublicPath($publicHtml)`), lampiran ROP nyata memang
+mendarat di `public_html/uploads/rop/`. Pola `RopAttachment` aman dipakai ulang.
