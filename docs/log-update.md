@@ -6,6 +6,77 @@
 > file ini append-only.
 
 ---
+## 2026-09-03d — IT TRACKER FASE 2b NAIK DEV: empat formulir kerja (FRM-IT-02 · 04 · 05 · 07)
+
+Keempat formulir dari desain ronde 2 (rencana §14.13/§14.14, paket
+`design_handoff_it_tracker r2`) selesai dan **live di dev** (`962c53d`,
+`feat/it-tracker`). Dengan ini tiket M dan L tidak lagi berhenti di gerbang
+Analisis/Uji — seluruh jalur REQ→…→EVALUASI punya rumah. **67 uji hijau**
+(unit 11+7, feature 20+18+11), dijalankan di lokal dan di server dev.
+
+### Kontrak mesin fase: aditif, dan dibuktikan
+`pathFor` / `RANK` / aturan panas **identik r1** — `PhaseEngine` tidak ditulis
+ulang, `gateInfo` hanya ditambah `checks[]` (lampu gerbang) di samping
+`missing` yang lama. Kendali negatifnya 31 uji Fase 1.
+
+⚠️ **Tiga asersi Fase 1 SADAR diubah** — dan ini perlu diveto atau
+disetujui Ekky, bukan lewat begitu saja. r1 mengharuskan *ruang lingkup*
+untuk semua jenjang dan tak mengenal paraf; r2 (§14.13 keputusan 2 & 7)
+memutuskan **M tanpa lingkup**, **paraf satu Business Owner wajib**, dan
+kalimat Major bersufiks "— menahan gerbang". Kode mengikuti acuan r2; tiga
+asersi yang mengunci r1 diperbarui dengan komentar `KONTRAK BERUBAH SADAR`
+menyebut pasalnya. Bukan "ubah uji supaya lolos" — uji yang lama mengunci
+keputusan yang sudah dicabut desainnya.
+
+### Yang dibangun
+- **FRM-IT-02 (Kelas C)** — tabel FR + Kriteria Diterima (kolom terlebar,
+  sel membesar saat diketik, Tab antar sel, Enter melompat baris), komponen
+  terdampak, ketergantungan tiket lain (chip `⛓ menunggu` di papan),
+  **02 PENUH hanya jenjang L** (server menolak lingkup untuk M; M naik ke L
+  lewat ubah jenjang — fase tidak berubah), catatan dapur IT yang ke non-IT
+  **dinyatakan ada tapi tak ditampilkan**, paraf satu Business Owner
+  (**Executive ATAU Konsultan**; Head IT mencoba → 403).
+- **Paraf bukan hiasan (T2 ronde 2):** mengubah isi 02 sesudah diparaf
+  **menghapus paraf** dan gerbang menutup lagi. Catatan dapur tidak
+  menghapus (BO tak pernah melihatnya); simpan-ulang tabel identik juga
+  tidak. Ketiganya ber-uji.
+- **FRM-IT-04 (Kelas B)** — TC-01..05 **terkunci** (lahir sendiri saat masuk
+  UJI; tak bisa dihapus/diganti nama, tapi aktual & Pass/Fail diisi dan
+  terhitung), TC tambahan bebas, temuan Major/Minor. Gerbang UJI→UAT menahan
+  selama Major terbuka dengan kalimat **menyebut jumlahnya** ("1 temuan
+  Major masih terbuka — menahan gerbang"); Minor boleh dibawa.
+- **FRM-IT-05 (Kelas A)** — IT menulis skenario dari sudut pemohon, pemohon
+  menandai Sesuai/Tidak + catatan, tiga keputusan. "Disetujui dengan
+  Catatan" wajib punya catatan → jadi butir tindak lanjut. **"Perlu
+  Perbaikan" mengembalikan ke DEV DAN mereset konfirmasi FRM-IT-03.**
+- **FRM-IT-07 (Kelas A)** — lima aspek skala 1-5, temuan Bug/Enhancement,
+  rencana tindak lanjut; evaluator = pemohon (bisa dialihkan Head IT).
+- **`spawnTicket` SATU mekanisme** untuk catatan UAT dan RTL evaluasi: tiket
+  baru lahir di **TRIASE**, pemohon sama, `lahir_dari_id`/`lahir_via`
+  tercatat (sengaja bukan `induk_id` — relasi berbeda), chip `↳ dari` di
+  papan, tautan `→ IT-2026-0xx` di RTL-nya.
+
+### Yang ditangkap uji, bukan mata
+Jawaban UAT pemohon **tak pernah tersimpan**: `foreach (($p['skenario'] ?? [])
+as &$s)` mengiterasi salinan sementara, perubahan lenyap tanpa suara —
+hanya masukan yang selamat. Uji "catatan → 2 butir" merah, itulah satu-satunya
+tanda. Diperbaiki (iterasi salinan eksplisit, tulis balik).
+
+### Ranjau lokal bertambah
+⛔ Bukan hanya `information_schema` — **`SHOW COLUMNS` / `DESCRIBE` pun
+membunuh mysqld lokal** (crash di baris itu persis, dua kali). SQL 2b memakai
+`ADD COLUMN IF NOT EXISTS` (MariaDB ≥10.2) dan pemeriksaan
+`SELECT kolom … LIMIT 0`; guard uji juga. `SHOW TABLES LIKE` tetap aman.
+
+### Visual
+Lima screenshot ronde 2 yang hilang dari paket (T1) kuganti dengan render
+nyata lima keadaan kunci (M/L Analisis, Uji, UAT pemohon, Evaluasi, papan).
+Dua ralat CSS: kolom Prio terpotong, dan kotak teks temuan tertekan sampai
+nol oleh `select` ber-`width:100%`.
+
+**Sisa:** belum merge ke main, prod belum. Pemakaian nyata dua minggu
+(§14.5) baru bisa dimulai sekarang, karena baru sekarang alurnya utuh.
+
 ## 2026-09-03c — IT TRACKER FASE 2a NAIK DEV: Go Live checklist · ekspor FRM-IT-01 · it:sync-git
 
 Ketiga isi Fase 2a (rencana §14.10) selesai dan **live di dev**. Ciri

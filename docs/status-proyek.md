@@ -39,6 +39,16 @@
 > `2400896`, tak ada lagi cabang prod terpisah. Peringatan lama "jangan deploy
 > main ke prod" **sudah TIDAK berlaku** — sekarang justru `main` yang benar.
 >
+> ✅ **Sisipan 2026-09-03d — IT TRACKER FASE 2b LIVE DI DEV** (`962c53d`,
+> `feat/it-tracker`): empat formulir kerja FRM-IT-02/04/05/07 dari desain
+> ronde 2 — jalur M dan L kini utuh sampai Evaluasi. 67 uji hijau lokal +
+> dev (31 Fase 1 tetap hijau; **3 asersi sadar mengikuti kontrak r2**, minta
+> Ekky veto/ACC). Paraf BO dihapus otomatis saat isi 02 diubah; TC-01..05
+> terkunci; Major terbuka menahan UAT; "Perlu Perbaikan" → DEV + reset 03;
+> spawn tiket dari UAT/RTL lahir di TRIASE. SQL `2026_09_03_it_tracker_2b.sql`
+> sudah jalan di dev. ⛔ `SHOW COLUMNS` ikut membunuh mysqld lokal. Belum
+> merge/prod — mulai pemakaian nyata 2 minggu (§14.5).
+
 > ✅ **Sisipan 2026-09-03c — IT TRACKER FASE 2a LIVE DI DEV** (`feat/it-tracker`):
 > tiga permukaan Kelas B — **Checklist Go Live FRM-IT-06** (dua baris pra-deploy
 > menyala sendiri dari keputusan UAT + jejak git, sengaja tak bisa diklik; ACC
