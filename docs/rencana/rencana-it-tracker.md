@@ -1050,3 +1050,50 @@ pintas bertanda dibangun lebih dulu.
 
 ⚠️ **Penghalang 3** — jalan pintas bertanda belum dibangun (baru diputuskan
 hari ini).
+
+### 14.17 Peran terbalik untuk Ekky — dev SUDAH sama dengan prod (diukur 4 Sep)
+
+⚠️ **Ralat §14.16.** Di sana tertulis *"Ekky tak punya akun Head IT di dev"*
+seolah dev salah konfigurasi. **Salah.** Prod dan dev diukur berdampingan dan
+**identik**: Admin_Ekky = `Admin General` di KEDUANYA; Head IT di keduanya
+adalah **Muhamad Ikhsan**; Reza = IT; Robi = Executive; Hari = Konsultan
+Marketing; Admin_Nisa = Admin Backup. Beda satu-satunya: dev punya akun
+tambahan **Yovan** (`creative@stdc.id`) di samping Yovanka.
+⇒ **Tak ada yang perlu "disamakan dengan prod". Dev sudah cermin prod.**
+
+**Yang sebenarnya bengkok: perannya terbalik untuk Ekky, di KEDUA environment.**
+Ekky adalah Head IT dalam kenyataan, tapi identitas sistemnya `Admin General` —
+dan `Admin General` justru ada di `ROLE_PENGAWAS`, alias **Business Owner**.
+Sementara kuasa Head IT di tracker menempel pada `ROLE_HEAD_IT` =
+`["Head IT","Super Admin"]`, yaitu Muhamad Ikhsan dan Admin_Reza.
+
+⛔ **Konsekuensi yang menentukan urutan kerja:** mencabut `Admin*` dari
+`ROLE_PENGAWAS` **tidak boleh berdiri sendiri** — kalau begitu saja, Ekky
+kehilangan pijakan sama sekali: bukan Head IT, bukan BO, penonton di sistemnya
+sendiri.
+
+**Usul HUB — satu paket, dua konstanta, NOL perubahan `group_path`:**
+1. `ROLE_HEAD_IT` **+= `"Admin General"`** (itu Ekky, dan memang dia Head IT-nya)
+2. `ROLE_PENGAWAS` **−= `"Admin General"`, `"Admin Backup"`, `"Admin"`**
+
+Hasil: Ekky jadi Head IT penuh di tracker; BO menyusut jadi Executive +
+Consultant + Konsultan\* — persis §7 dan persis label desainnya sendiri
+(*"Menunggu paraf satu Business Owner (Executive / Konsultan)"*, screenshot 07).
+
+✅ **Kenapa ini aman:** dua konstanta di kode, **tak ada golongan yang
+berpindah**. Menu, akses, petty cash, dan fitur lain tak tersentuh — berbeda
+dari gerbong role 1 Sep yang memindahkan 4 orang dan menuntut KODE DULU BARU SQL.
+
+Sesudah paket ini, jalan pintas bertanda §14.16 baru punya arti: satu-satunya
+cara Head IT melewati BO, dan cara itu meninggalkan jejak.
+**Status: diusulkan HUB, Ekky bilang "bahas dulu" — belum diputuskan.**
+
+#### Paket desain `r2 p2` — T1 DITUTUP
+
+`Downloads\design_handoff_it_tracker r2 p2\` (4 Sep). Kelima screenshot ronde 2
+(07-11) lengkap; kepala README diperbaiki (11 keadaan kunci, empat formulir
+kerja disebut). **Keempat berkas desain IDENTIK BYTE dengan r2** — nol
+pergeseran, jadi tak ada koding 2b yang terbatalkan.
+⚠️ Cacat kecil untuk diperiksa di UI nyata: di screenshot 07 **tiga baris lampu
+gerbang saling bertindihan** saat dirender. Cacat tata letak mockup, bukan
+logika — jangan ikut disalin.
