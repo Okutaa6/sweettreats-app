@@ -6,6 +6,87 @@
 > file ini append-only.
 
 ---
+## 2026-09-03c — IT TRACKER FASE 2a NAIK DEV: Go Live checklist · ekspor FRM-IT-01 · it:sync-git
+
+Ketiga isi Fase 2a (rencana §14.10) selesai dan **live di dev**. Ciri
+pembedanya satu: **nol beban ketik baru** — semuanya Kelas B, terisi sendiri.
+Batas keras terhadap 2b (tabel FR, test case, temuan, skenario UAT) **tidak
+disentuh**; yang belum didesain dibiarkan belum ada.
+
+### 1. `it:sync-git` + tabel `it_git_ref` — jantung Kelas B
+
+Perintah artisan menarik commit yang menyebut nomor tiket, layar **hanya
+membaca tabel**. Tak pernah shell `git log` dari request web. Dijadwalkan
+06:40 tiap hari, plus tombol "segarkan" di layar yang memanggil perintah yang
+sama dibatasi satu nomor tiket (argumen tervalidasi, argv array — tanpa shell).
+
+Dua keputusan yang layak dicatat karena keduanya menyangkut *jejak yang
+hilang diam-diam*:
+
+- **Nomor diurai dari SUBJECT saja.** Terbukti perlu: commit Fase 1-ku sendiri
+  menyebut `IT-2026-001` di body sebagai contoh prosa — kalau body ikut dibaca,
+  commit itu jadi jejak palsu tiket 001. Tapi selisihnya **diberitahukan**
+  (*"N commit menyebut nomor hanya di BODY — tak dicatat"*), bukan dibuang
+  sunyi. Konsekuensi kebiasaan: **tulis nomor tiket di baris pertama commit.**
+- **Unik `(ticket_nomor, commit_sha)`**, sedikit lebih lebar dari §14.3 yang
+  menulis "unik pada commit_sha". Alasannya: satu commit boleh menyebut dua
+  tiket ("IT-2026-004 + IT-2026-007: satu deploy"), dan dengan unik-sha-saja
+  tiket kedua kehilangan jejak gitnya tanpa suara. Sifat idempotennya sama
+  persis (uji §14.6 no. 14 lulus).
+
+Jejak git kini **tetap terlihat sesudah Development** — saat Go Live justru di
+situ dilihat script mana yang harus dijalankan.
+
+### 2. FRM-IT-06 Go Live Checklist
+
+Bentuknya mengikuti screenshot 03 apa adanya. Yang penting bukan tampilannya:
+
+- **Dua baris pra-deploy MENYALA SENDIRI dan sengaja tak bisa diklik** — "UAT
+  disetujui" dari keputusan pemohon (FRM-IT-05), "File/script siap" dari jejak
+  git. Keduanya **tidak disalin** ke payload: sumbernya tetap data hidup,
+  supaya tak ada salinan yang basi. POST langsung ke baris otomatis ditolak.
+- Empat baris sisanya dijawab petugas deploy Ya / N-A — jawaban, bukan
+  mengetik ulang catatan.
+- **Pemeriksaan pasca Go-Live baris pertamanya `curl beranda 200 + URL akhir`**,
+  dengan peringatan tercetak di layar bahwa `laravel.log` nol galat TIDAK
+  berarti sehat. Ironisnya terbukti hari ini juga — lihat di bawah.
+- **ACC Business Owner sengaja TIDAK bisa dibubuhkan IT**, termasuk Head IT
+  (403, diuji). Paraf yang bisa dibubuhkan pelaksana sendiri bukan kendali.
+
+### 3. Ekspor FRM-IT-01
+
+Dokumen bentuk templat resmi (bukan bergaya aplikasi, supaya Konsultan
+mengenalinya), bisa dicetak/disimpan PDF. **Bagian A Identitas Pemohon tampil
+TERISI** — nama, departemen, cabang, kontak, tanggal — walau layar pengisian
+tak pernah menanyakannya. Kertas bertanya karena kertas tak tahu.
+
+### Uji
+
+43 hijau (11 unit + 20 Fase 1 + 12 Fase 2a), termasuk §14.6 no. 14-16 dan dua
+kendali negatif (cacah baris tabel lama tak berubah; tiket 30 hari di DEV tetap
+`heat=0`). Lalu alur nyata ditelusuri lewat HTTP di dev dengan 3 akun
+sekali-pakai: Yovan mengajukan → ekspor tampil terisi → tiket ke Go Live →
+checklist diisi (baris otomatis menolak diisi tangan) → Head IT coba ACC
+sendiri **403** → Robi ACC → gerbang terbuka → tiket ditutup. Data uji
+dibersihkan, counter direset.
+
+### ⚠️ Satu bug yang HANYA ketahuan di dev
+
+Tombol "segarkan jejak git" **500** karena satu baris `use ... Artisan;` tak
+ikut tertulis. Uji lokal tetap hijau — karena ia memanggil perintahnya
+langsung dan **tak pernah mem-POST rutenya**. Perintah yang benar tak menolong
+kalau tombolnya mati. Ditambal + ditambah uji rute itu sendiri.
+Dan `laravel.log` **diam** untuk 500 ini: pelajaran yang dicetak di checklist
+Go-Live hari ini berlaku untuk chat ini sendiri.
+
+### Batas yang tetap berdiri
+
+Tiket M/L masih berhenti di **gerbang Analisis** (butuh tabel FR = 2b) dan di
+**UJI** (test case & temuan = 2b). Itu disengaja: gerbangnya tertutup dengan
+pesan yang menyebut apa yang kurang, bukan ditambal formulir darurat.
+Prod belum.
+
+---
 
 ## 2026-09-03b — IT TRACKER: demo E2E 4 persona + PENUNJUKAN PIC (gerbong `2eb…`)
 

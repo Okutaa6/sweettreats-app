@@ -39,6 +39,23 @@
 > `2400896`, tak ada lagi cabang prod terpisah. Peringatan lama "jangan deploy
 > main ke prod" **sudah TIDAK berlaku** — sekarang justru `main` yang benar.
 >
+> ✅ **Sisipan 2026-09-03c — IT TRACKER FASE 2a LIVE DI DEV** (`feat/it-tracker`):
+> tiga permukaan Kelas B — **Checklist Go Live FRM-IT-06** (dua baris pra-deploy
+> menyala sendiri dari keputusan UAT + jejak git, sengaja tak bisa diklik; ACC
+> Business Owner sengaja TIDAK bisa dibubuhkan IT, Head IT pun 403), **ekspor
+> FRM-IT-01** bentuk templat resmi dengan identitas terisi dari akun, dan
+> **`it:sync-git` + `it_git_ref`** (cron 06:40 + tombol segarkan; layar hanya
+> membaca tabel, tak pernah shell git dari web). 43 uji hijau + alur nyata
+> ditelusuri HTTP di dev, data uji dibersihkan.
+> ⚠️ **Kebiasaan baru yang diperlukan**: tulis nomor tiket di **baris pertama**
+> commit message — nomor di body sengaja diabaikan (kalau tidak, prosa yang
+> menyebut nomor jadi jejak palsu), tapi selisihnya diberitahukan.
+> ⚠️ Satu bug 500 hanya ketahuan saat alur nyata di dev (impor hilang; uji lokal
+> memanggil perintahnya tapi tak pernah mem-POST rutenya) — dan `laravel.log`
+> DIAM untuk 500 itu. **Batas 2b belum disentuh**: tiket M/L tetap berhenti di
+> gerbang Analisis & Uji sampai tabel FR / test case / temuan didesain.
+> **Prod belum.**
+>
 > ✅ **Sisipan 2026-09-03 — IT REQUEST TRACKER FASE 1 LIVE DI DEV** (`8dfd6fb`,
 > `feat/it-tracker`): 2 SQL + access:rebuild jalan di dev, 30/30 uji ULANG di
 > server dev, alur nyata ditelusuri via HTTP dengan 3 akun uji (semua gerbang
