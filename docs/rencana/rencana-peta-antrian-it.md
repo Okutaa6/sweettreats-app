@@ -157,3 +157,35 @@ latihan. Jangan memuat 30 tiket ke dev — semuanya akan dibuang.
 `feat/it-tracker` → `main` (**0 konflik**, diuji kering 4 Sep) → SQL berurutan
 → `access:rebuild` → deploy penuh → **rsync `assets/` saja** → `curl` beranda
 200 + URL akhir. Enam fitur lain di UAT **tidak ikut otomatis**.
+
+## 9. RALAT 4 Sep malam — §5 & §8 salah tafsir; dev DIISI sekarang
+
+⛔ §8 menulis *"jangan memuat 30 tiket ke dev — semuanya akan dibuang"*. **Itu
+tafsiran HUB atas kalimat Ekky, bukan keputusannya.** Ekky minta dev **diisi
+antrian nyata untuk demo**. Yang berlaku sekarang:
+
+- **Dev diisi malam ini** lewat seeder (prompt di `rencana-it-tracker.md`
+  §14.21). Sumber kebenaran: **`seed-antrian-it-2026-09-04.psv`** (27 baris).
+- **Tidak ada tiket yang "dipindahkan" ke prod dengan tangan.** Seeder yang
+  sama dijalankan ulang di prod sesudah IT Tracker naik — idempoten by
+  `seed_urut`, `masuk_at` dipertahankan, pemohon by email.
+- Urutan §5 tetap berlaku sebagai **urutan baris di berkas**, bukan urutan
+  pemuatan manual.
+
+**Tiga tiket DICORET dari §3 — ternyata sudah di prod** (diukur
+`merge-base --is-ancestor … 2400896`): **6d** libur cabang bertugas, **6e**
+cuti/WFH tak memakan hari libur (`liburUntuk` ada di main), **6f**
+ketersediaan dokter cuti vs jadwal khusus. Memori HUB tentang ketiganya basi;
+sudah diralat.
+
+**Yang sengaja TIDAK ada di berkas seed** (bukan lupa): COGS, Inventory, Slip
+gaji — pemohonnya (Finance, Ops, HR) belum mengajukan; membuatnya atas nama
+mereka melanggar prinsip §3. Kalau saat demo Executive bertanya *"COGS mana?"*,
+jawabannya jujur: *"Finance belum mengajukan — dan itu yang papan ini
+perlihatkan."*
+
+**Angka yang akan tampil di panel beban dev sesudah seeding** (untuk dicocokkan
+saat demo): **24 item aktif** (27 − 3 ditunda) · 3 ditunda beralasan · yang
+memanas di luar IT: tiket 06 & 08 (UAT, menunggu HR/Robi), 11 (Antre >3 hari
+sejak 10 Agu tidak memanas — Antre tak menunggu siapa pun) · tiket 04 di DEV
+59 hari **tetap dingin** — tunjukkan itu saat demo.
