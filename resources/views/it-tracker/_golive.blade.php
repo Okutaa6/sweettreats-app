@@ -78,6 +78,16 @@
                             <button type="submit" name="nilai" value="ya" class="itk-cek-btn ya">Ya</button>
                             <button type="submit" name="nilai" value="na" class="itk-cek-btn">N-A</button>
                         </form>
+                    @elseif ($bolehIsi && $p['k'] === 'script' && ! $val && $t->gitRefs->isEmpty())
+                        {{-- Tanpa jalan keluar ini, tiket tanpa commit ber-nomor
+                             MACET PERMANEN di Go Live: barisnya tak bisa menyala
+                             sendiri dan tak boleh diisi tangan. "Ya" tetap haram. --}}
+                        <form method="post" action="{{ route('it-tracker.pra', $t->id) }}" class="itk-cek-aksi">
+                            @csrf
+                            <input type="hidden" name="kunci" value="script">
+                            <button type="submit" name="nilai" value="na" class="itk-cek-btn"
+                                title="Tak ada commit ber-nomor tiket ini — mis. perubahan konfigurasi murni">N-A · tak ada script</button>
+                        </form>
                     @endif
                 </div>
             @endforeach

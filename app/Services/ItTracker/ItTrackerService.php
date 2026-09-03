@@ -317,7 +317,23 @@ class ItTrackerService
         $this->pastikanDiGoLive($t);
 
         if (in_array($kunci, self::praOtomatis(), true)) {
-            throw new DomainException('Baris ini menyala sendiri dari data sistem — tidak diisi tangan.');
+            // ⛔ SATU pengecualian, dan ia menutup kemacetan permanen:
+            // 'File/script siap' menyala dari jejak git. Tiket yang memang tak
+            // punya commit ber-nomor (perubahan konfigurasi murni, atau nomor
+            // tiket lupa ditulis) TAK AKAN PERNAH bisa lepas dari Go Live —
+            // barisnya tak menyala sendiri dan tak boleh diisi tangan.
+            // Jadi N-A diizinkan, TAPI hanya kalau sistem memang tak punya apa
+            // pun untuk ditunjukkan; 'Ya' tetap haram (mengaku punya bukti yang
+            // tak ada persis yang membuat Kelas B berhenti dipercaya).
+            $bolehNa = $kunci === 'script'
+                && $nilai === 'na'
+                && $t->gitRefs()->count() === 0;
+
+            if (! $bolehNa) {
+                throw new DomainException($kunci === 'script'
+                    ? 'Jejak git sudah ada — baris ini menyala sendiri, tak diisi tangan.'
+                    : 'Baris ini menyala sendiri dari data sistem — tidak diisi tangan.');
+            }
         }
         if (! in_array($kunci, array_column(PhaseEngine::PRA, 'k'), true)) {
             throw new DomainException('Baris checklist tidak dikenal.');
@@ -390,8 +406,15 @@ class ItTrackerService
         $form = ItForm::firstOrNew(['ticket_id' => $t->id, 'kode' => 'FRM-IT-06']);
         $p    = $ubah($form->payload ?? []);
 
+        // Nilai TURUNAN ('ya' hasil hitungan) tak boleh mengendap jadi salinan
+        // yang bisa basi — sumbernya tetap data hidup di viewTicket.
+        // Tapi 'na' pada baris otomatis adalah JAWABAN MANUSIA ("memang tak ada
+        // script"), dan itu harus tersimpan; kalau ikut dibuang, tiket tanpa
+        // commit macet permanen di Go Live.
         foreach (self::praOtomatis() as $k) {
-            unset($p['pra'][$k]);
+            if (($p['pra'][$k] ?? null) !== 'na') {
+                unset($p['pra'][$k]);
+            }
         }
 
         $form->payload           = $p;

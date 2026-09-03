@@ -418,6 +418,51 @@ class ItTracker2aTest extends TestCase
         $this->assertNotEmpty($dariMesin);
     }
 
+    /**
+     * ⛔ Kemacetan permanen yang hampir lolos: "File/script siap" menyala dari
+     * jejak git dan tak boleh diisi tangan — jadi tiket TANPA commit ber-nomor
+     * (perubahan konfigurasi murni) tak akan pernah bisa lepas dari Go Live.
+     * N-A diizinkan HANYA saat sistem memang tak punya apa pun; "Ya" tetap
+     * haram, dan begitu jejak git muncul, bukti mengalahkan pengecualian.
+     */
+    public function test_script_tanpa_commit_tak_boleh_macet_permanen(): void
+    {
+        $t = $this->tiketDiGoLive();
+        $t->pic_user_id = 'uji-headit';
+        $t->save();
+
+        // Mengaku punya bukti yang tak ada: DITOLAK
+        try {
+            $this->svc->setPra($t, 'script', 'ya', 'uji-headit');
+            $this->fail('"Ya" pada baris otomatis harus ditolak.');
+        } catch (DomainException $e) {
+            $this->assertStringContainsString('menyala sendiri', $e->getMessage());
+        }
+
+        // Tak ada jejak git sama sekali → N-A boleh, dan TERSIMPAN
+        $this->svc->setPra($t, 'script', 'na', 'uji-headit');
+        $p = ItForm::where('ticket_id', $t->id)->where('kode', 'FRM-IT-06')->value('payload');
+        $this->assertSame('na', $p['pra']['script'], 'Jawaban manusia tak boleh ikut dibuang.');
+
+        $v = $this->svc->viewTicket($this->svc->muatRelasi(ItTicket::query())->find($t->id));
+        $this->assertSame('na', $v['fr06']['pra']['script']);
+
+        // Begitu jejak git muncul, BUKTI mengalahkan pengecualian
+        ItGitRef::create(['ticket_nomor' => $t->nomor, 'branch' => 'feat/x',
+            'commit_sha' => str_repeat('d', 40), 'subject' => $t->nomor . ': kerja', 'commit_at' => now()]);
+
+        $v = $this->svc->viewTicket($this->svc->muatRelasi(ItTicket::query())->find($t->id));
+        $this->assertSame('ya', $v['fr06']['pra']['script']);
+
+        // …dan sejak itu N-A tak lagi diterima
+        try {
+            $this->svc->setPra($t->fresh(), 'script', 'na', 'uji-headit');
+            $this->fail('N-A harus ditolak saat jejak git sudah ada.');
+        } catch (DomainException $e) {
+            $this->assertStringContainsString('sudah ada', $e->getMessage());
+        }
+    }
+
     // ─── Kendali negatif ───────────────────────────────────────────────────
 
     public function test_tabel_lama_tak_tersentuh_dan_dev_tetap_dingin(): void
