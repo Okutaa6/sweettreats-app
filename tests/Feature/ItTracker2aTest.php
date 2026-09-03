@@ -350,6 +350,74 @@ class ItTracker2aTest extends TestCase
         }
     }
 
+    // ─── Regresi hasil audit ulang (3 Sep sore) ────────────────────────────
+
+    /**
+     * INSIDEN yang latarnya diisi MELAHIRKAN FRM-IT-01 padahal pemohonnya
+     * NULL — dan ekspornya dulu 500 (`optional($p->group)`: argumen fungsi
+     * dievaluasi lebih dulu, tak seperti `??`). Dokumennya harus terbentuk dan
+     * berkata jujur bahwa tiket ini tak punya pemohon.
+     */
+    public function test_ekspor_tiket_tanpa_pemohon_tidak_500(): void
+    {
+        $t = $this->svc->buat([
+            'judul' => 'Uji insiden berlatar ' . Str::random(4), 'sumber' => 'insiden',
+            'jenjang' => 'S', 'bobot' => 1, 'prioritas_it' => 'P1',
+            'jenis_permintaan' => 'Lainnya', 'latar' => 'prod mati 6 menit', 'kebutuhan' => 'pulih',
+        ], 'uji-headit');
+
+        $this->assertNull($t->pemohon_user_id);
+        $this->assertTrue(ItForm::where('ticket_id', $t->id)->where('kode', 'FRM-IT-01')->exists(),
+            'Insiden berlatar memang melahirkan FRM-IT-01 — itu yang membuat jalur ini terjangkau.');
+
+        $this->withSession($this->sesi('Head IT', 'uji-headit'))
+            ->get('/it-tracker/tiket/' . $t->id . '/ekspor')
+            ->assertStatus(200)
+            ->assertSee('lahir dari IT sendiri')
+            ->assertSee('A. IDENTITAS PEMOHON');
+    }
+
+    /** Checklist Go-Live tetap terbaca sesudah tiket ditutup, tapi BACA-SAJA. */
+    public function test_checklist_tetap_terbaca_sesudah_ditutup(): void
+    {
+        $t = $this->tiketDiGoLive();
+        $t->pic_user_id = 'uji-headit';
+        $t->save();
+
+        $this->svc->setPra($t, 'backup', 'ya', 'uji-headit');
+        $this->svc->setPasca($t, 'akses', 'uji-headit');
+        $this->svc->pindahFase($t->fresh(), 'SELESAI', 'uji-headit');
+
+        $this->withSession($this->sesi('Head IT', 'uji-headit'))
+            ->get('/it-tracker/tiket/' . $t->id)
+            ->assertStatus(200)
+            ->assertSee('FRM-IT-06 — GO LIVE CHECKLIST')
+            ->assertSee('baca-saja')
+            ->assertDontSee('Setujui sebagai Business Owner');
+
+        // …dan layanan menolak menulis di luar fase Go Live
+        try {
+            $this->svc->setPra($t->fresh(), 'akses', 'ya', 'uji-headit');
+            $this->fail('Menulis checklist sesudah tutup harus ditolak.');
+        } catch (DomainException $e) {
+            $this->assertStringContainsString('Go Live', $e->getMessage());
+        }
+    }
+
+    /**
+     * Daftar baris otomatis DITURUNKAN dari PhaseEngine::PRA, bukan disalin.
+     * Salinan tangan akan menganga diam-diam: layar menandai "otomatis"
+     * sementara layanan tetap mengizinkannya diketik.
+     */
+    public function test_daftar_baris_otomatis_ikut_phase_engine(): void
+    {
+        $dariMesin = array_column(
+            array_filter(PhaseEngine::PRA, fn ($p) => ! empty($p['auto'])), 'k');
+
+        $this->assertSame($dariMesin, ItTrackerService::praOtomatis());
+        $this->assertNotEmpty($dariMesin);
+    }
+
     // ─── Kendali negatif ───────────────────────────────────────────────────
 
     public function test_tabel_lama_tak_tersentuh_dan_dev_tetap_dingin(): void

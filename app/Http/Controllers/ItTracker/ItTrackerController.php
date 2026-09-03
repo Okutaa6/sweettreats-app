@@ -513,18 +513,24 @@ class ItTrackerController extends Controller
                 'Tiket ini tak punya FRM-IT-01 (inisiatif/insiden IT tidak lahir dari formulir permintaan).');
         }
 
+        // ⚠️ Tiket TANPA pemohon tetap bisa punya FRM-IT-01: insiden yang
+        // latarnya diisi melahirkan formulir itu, sementara pemohon_user_id
+        // NULL. Semua akses di bawah WAJIB aman-null — `optional($p->group)`
+        // dulu 500 karena argumennya dievaluasi lebih dulu (`??` menekan
+        // peringatan, argumen fungsi tidak).
         $p = $t->pemohon;
 
         return view('it-tracker.ekspor-frm01', [
             't'      => $t,
             'f1'     => $f1,
             'ident'  => [
-                'Nama'                  => $p->nama ?? '—',
-                'Departemen / Jabatan'  => optional($p->group)->nama ?? '—',
-                'Cabang'                => optional($t->branch)->name ?? optional(optional($p)->branch)->name ?? '—',
-                'Kontak'                => $p->email ?? '—',
-                'Tanggal Pengajuan'     => optional($t->created_at)->translatedFormat('j F Y') ?? '—',
+                'Nama'                  => $p?->nama ?? ($t->sumber === 'insiden' ? '— (insiden, dicatat IT)' : '— (inisiatif IT)'),
+                'Departemen / Jabatan'  => $p?->group?->nama ?? 'IT',
+                'Cabang'                => $t->branch?->name ?? $p?->branch?->name ?? '—',
+                'Kontak'                => $p?->email ?? '—',
+                'Tanggal Pengajuan'     => $t->created_at?->translatedFormat('j F Y') ?? '—',
             ],
+            'tanpaPemohon' => $p === null,
             'detail' => [
                 'Jenis Permintaan'                  => $f1['jenis'] ?? ($t->jenis_permintaan ?: '—'),
                 'Nama Modul / Fitur'                => $t->judul,

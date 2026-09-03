@@ -22,8 +22,11 @@
 
     // Yang mengisi checklist = yang melakukan deployment-nya (gerbang aslinya
     // tetap di controller; ini hanya menyembunyikan tombol yang akan ditolak).
-    $bolehIsi = $peran === 'head_it'
-        || ($peran === 'it_dev' && $t->pic_user_id === (string) session('id'));
+    // Sesudah tiket lepas dari Go Live, panel ini jadi BACA-SAJA — layanan pun
+    // menolak menulis di luar fase itu.
+    $diGoLive = $t->fase === 'GOLIVE';
+    $bolehIsi = $diGoLive && ($peran === 'head_it'
+        || ($peran === 'it_dev' && $t->pic_user_id === (string) session('id')));
 @endphp
 
 <div class="itk-panel" style="margin-bottom:12px">
@@ -132,14 +135,19 @@
         @if (! empty($fr06['bo']))
             <div style="font-size:11.5px;font-weight:800;color:#2F8E55;background:#E3F4E8;border-radius:8px;padding:5px 10px;align-self:flex-start">
                 ✓ Disetujui Business Owner</div>
-        @elseif ($peran === 'pengawas')
+        @elseif ($diGoLive && $peran === 'pengawas')
             <form method="post" action="{{ route('it-tracker.bo', $t->id) }}">
                 @csrf
                 <button type="submit" class="itk-btn itk-btn-hijau">Setujui sebagai Business Owner</button>
             </form>
-        @else
+        @elseif ($diGoLive)
             <div class="itk-hint" style="margin:0">
                 Menunggu ACC Business Owner (Executive / Konsultan) — sengaja tak bisa dibubuhkan IT sendiri.</div>
         @endif
+
+        @unless ($diGoLive)
+            <div class="itk-hint" style="margin:0">
+                Catatan Go-Live ini <strong>baca-saja</strong> — tiket sudah lepas dari fase Go Live.</div>
+        @endunless
     </div>
 </div>

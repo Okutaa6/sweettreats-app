@@ -295,10 +295,17 @@ class ItTrackerService
 
     /**
      * Baris pra-deploy yang TIDAK bisa diklik — menyala sendiri dari data yang
-     * sudah ada (lihat viewTicket). Dipakai layanan & layar supaya tak ada
-     * tombol yang menjanjikan sesuatu yang lalu ditolak diam-diam.
+     * sudah ada (lihat viewTicket).
+     *
+     * DITURUNKAN dari PhaseEngine::PRA, bukan disalin: kalau kelak ada baris
+     * otomatis baru, daftar ini ikut sendiri. Salinan tangan akan menganga
+     * diam-diam — layar menandainya "otomatis" sementara layanan tetap
+     * mengizinkannya diketik.
      */
-    public const PRA_OTOMATIS = ['uat', 'script'];
+    public static function praOtomatis(): array
+    {
+        return array_column(array_filter(PhaseEngine::PRA, fn ($p) => ! empty($p['auto'])), 'k');
+    }
 
     /**
      * Jawab satu baris checklist pra-deploy: 'ya' atau 'na'.
@@ -309,7 +316,7 @@ class ItTrackerService
     {
         $this->pastikanDiGoLive($t);
 
-        if (in_array($kunci, self::PRA_OTOMATIS, true)) {
+        if (in_array($kunci, self::praOtomatis(), true)) {
             throw new DomainException('Baris ini menyala sendiri dari data sistem — tidak diisi tangan.');
         }
         if (! in_array($kunci, array_column(PhaseEngine::PRA, 'k'), true)) {
@@ -383,7 +390,7 @@ class ItTrackerService
         $form = ItForm::firstOrNew(['ticket_id' => $t->id, 'kode' => 'FRM-IT-06']);
         $p    = $ubah($form->payload ?? []);
 
-        foreach (self::PRA_OTOMATIS as $k) {
+        foreach (self::praOtomatis() as $k) {
             unset($p['pra'][$k]);
         }
 

@@ -43,6 +43,12 @@
                 <div class="itk-doc-row"><span class="k">{{ $k }}</span><span class="v">{{ $v }}</span></div>
             @endforeach
         </div>
+        @if ($tanpaPemohon)
+            <div style="font-size:11px;color:#8A857C;font-weight:600;padding:7px 0 0">
+                Tiket ini lahir dari IT sendiri (inisiatif / insiden), bukan dari formulir permintaan —
+                bagian A tak punya pemohon. Isinya dicatat IT supaya beban ini tetap terlihat di papan.
+            </div>
+        @endif
 
         <div class="itk-doc-sec"><span>B. DETAIL KEBUTUHAN</span></div>
         <div class="itk-doc-tbl">

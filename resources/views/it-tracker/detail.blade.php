@@ -195,9 +195,12 @@
                 </div>
             @endif
 
-            {{-- FRM-IT-06 Checklist Go Live (Kelas B) — partial supaya detail tetap terbaca --}}
-            @if ($t->fase === "GOLIVE")
-                @include("it-tracker._golive")
+            {{-- FRM-IT-06 Checklist Go Live (Kelas B) — partial supaya detail tetap terbaca.
+                 Tetap tampil (baca-saja) SESUDAH tiket ditutup: checklist deploy itu
+                 jejak audit yang dicari Konsultan; kalau hilang saat fase berganti,
+                 buktinya lenyap justru ketika mulai dibutuhkan. --}}
+            @if ($t->fase === 'GOLIVE' || (! empty($v['fr06']['pasca']) || ! empty($v['fr06']['bo'])))
+                @include('it-tracker._golive')
             @endif
 
             {{-- Catatan singkat pengerjaan — jenjang S (pengganti formulir penuh) --}}
