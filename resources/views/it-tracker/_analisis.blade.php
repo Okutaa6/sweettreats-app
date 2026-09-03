@@ -30,7 +30,7 @@
 
 <div class="itk-panel" style="margin-bottom:12px">
     <div class="itk-beban-bar"><b>FRM-IT-02 — ANALYSIS &amp; DESIGN</b>
-        <span class="itk-badge-fase">FASE 2b · KELAS C</span></div>
+        <span class="itk-badge-fase">KELAS C · dipikirkan bersama</span></div>
 
     <div class="itk-panel-body">
         {{-- kedalaman --}}
@@ -44,9 +44,9 @@
                     <summary>butuh detail L? naikkan jenjang</summary>
                     <form method="post" action="{{ route('it-tracker.jenjang', $t->id) }}" class="itk-naik-form">
                         @csrf
-                        <div class="itk-hint" style="margin:0 0 6px">Mode ubah-jenjang: fase <strong>tidak</strong> berubah. Paraf BO yang ada akan dihapus.</div>
+                        <div class="itk-hint" style="margin:0 0 6px">Mode ubah-jenjang: fase <strong>tidak</strong> berubah. Paraf BO yang ada dihapus kalau jenjang berubah. (Kalau ternyata pekerjaan kecil/S: tunda tiketnya lalu buka lagi lewat triase.)</div>
                         <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-                            @foreach (['S','M','L'] as $j)
+                            @foreach (['M','L'] as $j)
                                 <label><input class="itk-radio" type="radio" name="jenjang" value="{{ $j }}" {{ $t->jenjang === $j ? 'checked' : '' }} required><span>{{ $j }}</span></label>
                             @endforeach
                             <span class="itk-lbl" style="margin:0 2px 0 8px">BOBOT</span>
@@ -74,6 +74,8 @@
             @if (! $fr && $ed)
                 <div class="itk-kosong-fr">Belum ada FR. Mulai dari yang paling penting: <strong>apa yang harus bisa dilakukan</strong> —
                     lalu tulis di kolom kanan <strong>kapan itu dianggap selesai</strong>. Satu baris dengan kriteria sudah cukup membuka gerbang.</div>
+            @elseif (! $fr)
+                <div class="itk-kosong-fr">Belum ada FR — Head IT belum mengisi analisisnya. Paraf Business Owner menunggu isinya.</div>
             @endif
             <div class="itk-tbl itk-tbl-fr">
                 <div class="itk-tbl-row itk-tbl-head">
@@ -88,7 +90,7 @@
                         <span>@if ($ed)<input class="itk-cell itk-cell-b" name="baris[{{ $i }}][kebutuhan]" value="{{ $r['desc'] }}" maxlength="500">@else<span class="itk-ro itk-ro-b">{{ $r['desc'] }}</span>@endif</span>
                         <span>@if ($ed)<select class="itk-cell itk-prio-sel" name="baris[{{ $i }}][prioritas]">@foreach ($PRIO as $p)<option {{ ($r['prio'] ?? 'Sedang') === $p ? 'selected' : '' }}>{{ $p }}</option>@endforeach</select>@else<span class="itk-prio-chip {{ $r['prio'] ?? 'Sedang' }}">{{ $r['prio'] ?? 'Sedang' }}</span>@endif</span>
                         <span>@if ($ed)<textarea class="itk-cell itk-cell-grow" name="baris[{{ $i }}][kriteria]" rows="1" maxlength="1000" placeholder="kapan ini dianggap SELESAI?">{{ $r['kriteria'] }}</textarea>@else<span class="itk-ro">{{ $r['kriteria'] ?: '—' }}</span>@endif</span>
-                        <span class="itk-dotwrap">@if ($ed)<button type="button" class="itk-x" title="Hapus baris" data-fr-del>✕</button>@endif</span>
+                        <span class="itk-dotwrap">@if ($ed)<button type="button" class="itk-x" title="Hapus baris" data-fr-del tabindex="-1">✕</button>@endif</span>
                     </div>
                 @endforeach
                 @if ($ed)
@@ -137,7 +139,8 @@
                         @php $d = $depTiket[$n] ?? null; @endphp
                         <div class="itk-dep">
                             <span class="num itk-dep-no">{{ $n }}</span>
-                            <span class="itk-dep-judul">{{ $d ? $d->judul : '(tiket tak ditemukan)' }}</span>
+                            {{-- Head departemen lain hanya melihat tiketnya sendiri — judul tiket orang lain tak bocor lewat sini --}}
+                            <span class="itk-dep-judul">{{ $d ? ($peran === 'head' ? 'tiket lain (' . $labelFaseDep($d->fase) . ')' : $d->judul) : '(tiket tak ditemukan)' }}</span>
                             @if ($d)<span class="itk-st {{ $d->fase === 'SELESAI' ? 'SELESAI' : (isset(\App\Services\ItTracker\PhaseEngine::RANK[$d->fase]) ? 'AKTIF' : 'DITUNDA') }}">{{ $labelFaseDep($d->fase) }}</span>@endif
                             @if ($ed)
                                 <form method="post" action="{{ route('it-tracker.dep', $t->id) }}">@csrf<input type="hidden" name="nomor" value="{{ $n }}"><input type="hidden" name="aksi" value="hapus"><button type="submit" class="itk-x">✕</button></form>
@@ -203,12 +206,19 @@
         {{-- Paraf: IT + satu Business Owner --}}
         <div class="itk-paraf">
             <span class="itk-lbl" style="margin:0">PARAF</span>
-            <span class="itk-paraf-it">IT — tombol gerbang di bawah adalah parafnya</span>
+            <span class="itk-paraf-it">IT — tombol gerbang di "Langkah berikutnya" (kanan) adalah parafnya</span>
             @if ($paraf)
                 <span class="itk-paraf-ok num">✓ Diparaf {{ $paraf['oleh'] }} (Business Owner) · {{ \Carbon\Carbon::parse($paraf['at'])->translatedFormat('j M H:i') }}</span>
             @elseif ($bolehParafBo)
-                <form method="post" action="{{ route('it-tracker.paraf', $t->id) }}">@csrf
-                    <button type="submit" class="itk-btn itk-btn-hijau" style="padding:6px 12px;font-size:11.5px">Paraf sebagai Business Owner</button></form>
+                @php $kurangParaf = array_values(array_map(fn ($c) => $c['t'], array_filter($gate['checks'] ?? [], fn ($c) => ! $c['ok'] && $c['t'] !== 'paraf satu Business Owner'))); @endphp
+                @if ($kurangParaf)
+                    {{-- tombol mati yang bilang kenapa (P3): paraf mengikuti isi, bukan mendahuluinya --}}
+                    <button type="button" class="itk-btn itk-btn-hijau" style="padding:6px 12px;font-size:11.5px" disabled>Paraf sebagai Business Owner</button>
+                    <span class="itk-paraf-wait">Belum bisa diparaf — Head IT belum melengkapi: {{ implode(' · ', $kurangParaf) }}.</span>
+                @else
+                    <form method="post" action="{{ route('it-tracker.paraf', $t->id) }}">@csrf
+                        <button type="submit" class="itk-btn itk-btn-hijau" style="padding:6px 12px;font-size:11.5px">Paraf sebagai Business Owner</button></form>
+                @endif
             @elseif ($t->fase === 'ANALISIS')
                 <span class="itk-paraf-wait">Menunggu paraf satu Business Owner (Executive / Konsultan)</span>
             @endif
@@ -235,7 +245,7 @@
         var g = ghostRow(); if (!g) return;
         g.removeAttribute('data-ghost'); g.classList.remove('itk-tbl-ghost');
         var d = document.createElement('span'); d.className = 'itk-dotwrap';
-        d.innerHTML = '<button type="button" class="itk-x" title="Hapus baris" data-fr-del>✕</button>';
+        d.innerHTML = '<button type="button" class="itk-x" title="Hapus baris" data-fr-del tabindex="-1">✕</button>';
         g.replaceChild(d, g.lastElementChild);
         g.firstElementChild.innerHTML = '<span class="itk-dot"></span>'; g.firstElementChild.className = 'itk-dotwrap';
         var ng = g.cloneNode(true);
@@ -261,6 +271,19 @@
         if (gi) gi.onblur = function () { if (gi.value.trim() && ghostRow() === gi.closest('[data-fr-row]')) spawnGhost(); };
     }
     bind();
+
+    // Beberapa formulir dalam satu panel FRM-IT-02 (FR · komponen · ketergantungan ·
+    // lingkup · dapur): menyimpan satu memuat ulang halaman dan MEMBUANG ketikan
+    // di formulir lain — beri tahu dulu, jangan hilang diam-diam.
+    var panel = form.closest('.itk-panel'), kotor = [];
+    if (panel) panel.querySelectorAll('form').forEach(function (fm) {
+        function tandai() { if (kotor.indexOf(fm) < 0) kotor.push(fm); }
+        fm.addEventListener('input', tandai); fm.addEventListener('change', tandai);
+        fm.addEventListener('submit', function (e) {
+            var lain = kotor.filter(function (x) { return x !== fm; }).length;
+            if (lain && !confirm('Ada ketikan di bagian lain FRM-IT-02 yang belum disimpan dan akan hilang.\nLanjut menyimpan bagian ini saja?')) e.preventDefault();
+        });
+    });
 })();
 </script>
 @endif

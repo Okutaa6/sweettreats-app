@@ -45,6 +45,7 @@
                     @endif
                     @if ($t->pic)<span>PIC: {{ $t->pic->nama }}</span>@endif
                     <span>Masuk fase ini {{ $t->fase_since->translatedFormat('j M Y H:i') }}</span>
+                    @if (! empty($v['parent']))<span class="num" title="lingkaran tertutup: lahir dari tindak lanjut tiket lain">↳ Lahir dari {{ $v['parent']['id'] }} · {{ $v['parent']['via'] }}</span>@endif
                 </div>
                 @if (count($v['children']))
                     <div style="display:flex;align-items:center;gap:7px;margin-top:9px;flex-wrap:wrap">
@@ -110,7 +111,7 @@
                         <div class="itk-hint" style="margin:0">
                             {{ $t->sumber === 'insiden'
                                 ? 'Insiden — masuk langsung ke Development, formulir diisi menyusul (rencana §3).'
-                                : 'Belum ada isi formulir untuk tiket ini. Formulir per fase datang di Fase 2.' }}
+                                : 'Belum ada isi formulir untuk tiket ini — formulir kerja muncul di sini begitu fasenya tiba.' }}
                         </div>
                     </div>
                 </div>
@@ -118,7 +119,7 @@
             @if ($form01)
                 <div class="itk-panel" style="margin-bottom:12px">
                     <div class="itk-beban-bar"><b>FRM-IT-01 — REQUIREMENT REQUEST</b>
-                        <span class="itk-badge-fase">FASE 1</span></div>
+                        <span class="itk-badge-fase">KELAS A · diisi pemohon</span></div>
                     <div class="itk-panel-body itk-rows">
                         <div class="itk-row"><b>JENIS PERMINTAAN</b><span>{{ $form01['jenis'] ?? '—' }}</span></div>
                         <div class="itk-row"><b>TARGET WAKTU</b><span>{{ $form01['target'] ?? '—' }}</span></div>
@@ -139,7 +140,7 @@
                  && (\App\Services\ItTracker\PhaseEngine::rankOf($t->fase) >= 3 || $t->fase === 'SELESAI'))
                 <div class="itk-panel" style="margin-bottom:12px">
                     <div class="itk-beban-bar"><b>FRM-IT-03 — DEVELOPMENT RECORD</b>
-                        <span class="itk-badge-fase">FASE 2a</span></div>
+                        <span class="itk-badge-fase">KELAS B · terisi sendiri</span></div>
                     <div class="itk-panel-body">
                         @php $sudahKonfirmasi = (bool) optional($t->forms->firstWhere('kode', 'FRM-IT-03'))->dikonfirmasi_at; @endphp
 
@@ -224,7 +225,7 @@
             @if ($t->jenjang === 'S' && in_array($t->fase, ['DEV', 'SELESAI'], true))
                 <div class="itk-panel" style="margin-bottom:12px">
                     <div class="itk-beban-bar"><b>CATATAN SINGKAT PENGERJAAN (JENJANG S)</b>
-                        <span class="itk-badge-fase">FASE 1</span></div>
+                        <span class="itk-badge-fase">KELAS A · diisi pemohon</span></div>
                     <div class="itk-panel-body">
                         @if ($bolehGerak['ok'] && $t->fase === 'DEV')
                             <form method="post" action="{{ route('it-tracker.catatan', $t->id) }}">
@@ -259,7 +260,8 @@
                             <div class="itk-blokir">Gerbang ini milik pemohon ({{ $t->pemohon->nama ?? 'pemohon' }}) —
                                 menunggu keputusan UAT-nya {{ $wait['days'] }} hari.</div>
                         @endif
-                    @elseif ($bolehGerak['ok'])
+                    @elseif ($bolehGerak['ok'] || ($t->fase === 'EVALUASI' && $bolehEvaluasi))
+                        {{-- evaluator (bukan IT) juga boleh menutup di EVALUASI — "menutup tiket adalah parafnya" --}}
                         <form method="post" action="{{ route('it-tracker.maju', $t->id) }}">
                             @csrf
                             <button type="submit" class="itk-btn itk-btn-grafit" style="width:100%"
@@ -285,6 +287,10 @@
                         <div class="itk-blokir">
                             {{ $wait['label'] ? $wait['label'] . ' · ' . $wait['days'] . ' hari.' : $bolehGerak['why'] }}
                             {{ $t->fase === 'GOLIVE' ? 'Checklist Go-Live ada di panel FRM-IT-06 sebelah kiri; ACC Business Owner dibubuhkan Executive/Konsultan di panel yang sama.' : '' }}
+                            @if ($t->fase === 'ANALISIS' && $peran === 'pengawas')
+                                {{-- BO tak boleh mencari-cari: parafnya ada di baris PARAF paling bawah FRM-IT-02 --}}
+                                <strong>Giliranmu:</strong> paraf Business Owner ada di panel <strong>FRM-IT-02</strong> sebelah kiri, baris PARAF paling bawah — tombolnya menyala begitu analisis IT lengkap.
+                            @endif
                         </div>
                     @endif
                 </div>

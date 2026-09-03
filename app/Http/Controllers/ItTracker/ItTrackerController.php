@@ -172,11 +172,14 @@ class ItTrackerController extends Controller
             'peran'  => $this->peran(),
             'bolehGerak' => $this->bolehGerakkan($t),
             'picOpsi'    => $this->peran() === 'head_it' ? $this->picOpsi() : collect(),
+            // nama orang IT untuk PIC temuan (FRM-IT-04) — dibaca semua peran, ditulis IT
+            'picIt'      => $this->picOpsi(),
             // Fase 2b — siapa boleh apa di empat formulir (gerbang aslinya di controller)
             'bolehAnalisis' => $this->peran() === 'head_it' && $t->fase === 'ANALISIS',
             'bolehParafBo'  => $this->peran() === 'pengawas' && $t->fase === 'ANALISIS',
             'bolehUji'      => $this->bolehGerakkan($t)['ok'] && $t->fase === 'UJI',
-            'bolehSkenario' => $this->adalahIt() && in_array($t->fase, ['DEV', 'UJI', 'UAT'], true),
+            // predikat yang SAMA dengan rute skenario() — jangan tampilkan formulir yang berujung 403
+            'bolehSkenario' => $this->bolehTulisSkenario($t) && in_array($t->fase, ['DEV', 'UJI', 'UAT'], true),
             'bolehJawabUat' => $this->bolehJawabUat($t),
             'bolehEvaluasi' => $this->bolehEvaluasi($t),
             'depOpsi'       => $this->peran() === 'head_it' && $t->fase === 'ANALISIS'
@@ -310,7 +313,10 @@ class ItTrackerController extends Controller
         $t = $this->svc->muatRelasi(ItTicket::query())->findOrFail($id);
 
         $boleh = $this->bolehGerakkan($t);
-        if (! $boleh['ok']) {
+        // Evaluasi: evaluatornya sendiri boleh menutup tiket — "menutup tiket
+        // adalah parafnya" (FRM-IT-07) tak boleh berakhir di tombol yang IT-only.
+        $evaluatorMenutup = $t->fase === 'EVALUASI' && $this->bolehEvaluasi($t);
+        if (! $boleh['ok'] && ! $evaluatorMenutup) {
             abort(403, $boleh['why']);
         }
 
@@ -332,8 +338,6 @@ class ItTrackerController extends Controller
     /** Keputusan UAT — hanya pemohon tiketnya. */
     public function uat(Request $request, int $id)
     {
-        $d = $request->validate(['keputusan' => 'required|in:setuju,catatan,perbaikan']);
-
         $t = ItTicket::findOrFail($id);
 
         // Gerbang UAT milik pemohon. Tiket TANPA pemohon (inisiatif/insiden —
@@ -349,6 +353,9 @@ class ItTrackerController extends Controller
                 ? 'Keputusan UAT milik pemohon tiket ini.'
                 : 'Tiket tanpa pemohon — keputusan UAT-nya milik Head IT.');
         }
+
+        // validasi SESUDAH otorisasi (terbalik = 302, bukan 403)
+        $d = $request->validate(['keputusan' => 'required|in:setuju,catatan,perbaikan']);
 
         try {
             $ke = $this->svc->uatPutuskan($t, $d['keputusan'], $this->userId());
@@ -366,8 +373,6 @@ class ItTrackerController extends Controller
     /** Catatan singkat pengerjaan (jenjang S) — IT yang mengerjakannya. */
     public function catatan(Request $request, int $id)
     {
-        $d = $request->validate(['catatan' => 'required|string|max:1000']);
-
         $t = ItTicket::findOrFail($id);
 
         $boleh = $this->bolehGerakkan($t);
@@ -380,6 +385,9 @@ class ItTrackerController extends Controller
             abort(403, 'Catatan singkat hanya untuk tiket jenjang S yang sedang di Development.');
         }
 
+        // validasi SESUDAH otorisasi — kalau terbalik, orang tanpa hak dapat 302, bukan 403
+        $d = $request->validate(['catatan' => 'required|string|max:1000']);
+
         $this->svc->catatanDev($t, $d['catatan'], $this->userId());
 
         return back()->with('success', 'Catatan pengerjaan tersimpan.');
@@ -388,8 +396,6 @@ class ItTrackerController extends Controller
     /** Konfirmasi Development Record (jenjang M/L) — pembuka gerbang DEV→UJI/UAT. */
     public function konfirmasi(Request $request, int $id)
     {
-        $d = $request->validate(['catatan' => 'nullable|string|max:1000']);
-
         $t = ItTicket::findOrFail($id);
 
         $boleh = $this->bolehGerakkan($t);
@@ -399,6 +405,8 @@ class ItTrackerController extends Controller
         if (! in_array($t->jenjang, ['M', 'L'], true)) {
             abort(403, 'Jenjang S memakai catatan singkat, bukan konfirmasi FRM-IT-03.');
         }
+
+        $d = $request->validate(['catatan' => 'nullable|string|max:1000']);
 
         try {
             $this->svc->konfirmasiDev($t, $d['catatan'] ?? null, $this->userId());
@@ -777,7 +785,7 @@ class ItTrackerController extends Controller
     public function skenario(Request $request, int $id)
     {
         $t = ItTicket::findOrFail($id);
-        if (! ($this->adalahIt() && ($this->peran() === 'head_it' || $t->pic_user_id === $this->userId()))) {
+        if (! $this->bolehTulisSkenario($t)) {
             abort(403, 'Skenario UAT ditulis tim IT yang mengerjakan tiketnya.');
         }
 
@@ -809,10 +817,23 @@ class ItTrackerController extends Controller
             'jawaban.*.sesuai'  => 'nullable|in:0,1',
             'jawaban.*.catatan' => 'nullable|string|max:500',
             'masukan'           => 'nullable|string|max:1000',
+            // Tombol keputusan berada di formulir yang SAMA dengan jawaban:
+            // pemohon yang langsung menekan "Disetujui …" tak kehilangan tanda
+            // Sesuai/Tidak & catatannya (E2E 3 Sep: jawaban tak tersimpan = hilang).
+            'keputusan'         => 'nullable|in:setuju,catatan,perbaikan',
         ]);
 
         try {
             $this->svc->jawabUat($t, $d['jawaban'] ?? [], $d['masukan'] ?? null);
+            if (! empty($d['keputusan'])) {
+                $this->svc->uatPutuskan($t, $d['keputusan'], $this->userId());
+
+                return back()->with('success', match ($d['keputusan']) {
+                    'setuju'  => $t->nomor . ' — UAT disetujui → Go Live.',
+                    'catatan' => $t->nomor . ' — Disetujui dengan Catatan → Go Live; catatan jadi tindak lanjut.',
+                    default   => $t->nomor . ' — Perlu Perbaikan → kembali ke Development (konfirmasi FRM-IT-03 direset).',
+                });
+            }
         } catch (DomainException $e) {
             return back()->with('error', $e->getMessage());
         }
@@ -910,6 +931,12 @@ class ItTrackerController extends Controller
     }
 
     /** Jawaban/keputusan UAT: pemohon; tiket tanpa pemohon → Head IT (aturan Fase 1). */
+    /** Skenario UAT: Head IT, atau IT yang menjadi PIC tiketnya — dipakai layar DAN rute. */
+    private function bolehTulisSkenario(ItTicket $t): bool
+    {
+        return $this->adalahIt() && ($this->peran() === 'head_it' || $t->pic_user_id === $this->userId());
+    }
+
     private function bolehJawabUat(ItTicket $t): bool
     {
         if ($t->fase !== 'UAT') return false;

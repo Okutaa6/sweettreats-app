@@ -31,7 +31,7 @@
 
 <div class="itk-panel" style="margin-bottom:12px">
     <div class="itk-beban-bar"><b>FRM-IT-06 — GO LIVE CHECKLIST</b>
-        <span class="itk-badge-fase">FASE 2a</span></div>
+        <span class="itk-badge-fase">KELAS B · terisi sendiri</span></div>
 
     <div class="itk-panel-body">
         <div style="display:flex;align-items:center;gap:8px;background:#E3F4E8;border-radius:10px;padding:8px 12px">
@@ -58,8 +58,8 @@
                         <span class="itk-auto" style="margin:0">otomatis</span>
                         <span class="itk-cek-info">
                             @if ($p['k'] === 'uat')
-                                {{ ($v['fr05']['keputusan'] ?? null) === 'setuju'
-                                    ? 'dari keputusan UAT pemohon'
+                                {{ in_array($v['fr05']['keputusan'] ?? null, ['setuju', 'catatan'], true)
+                                    ? 'dari keputusan UAT pemohon' . (($v['fr05']['keputusan'] ?? null) === 'catatan' ? ' (dengan catatan)' : '')
                                     : 'menunggu keputusan UAT' }}
                             @else
                                 {{ $t->gitRefs->count() }} commit terlacak

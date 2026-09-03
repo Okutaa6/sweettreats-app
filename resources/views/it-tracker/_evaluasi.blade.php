@@ -26,7 +26,7 @@
 
 <div class="itk-panel" style="margin-bottom:12px">
     <div class="itk-beban-bar"><b>FRM-IT-07 — EVALUATION &amp; ENHANCEMENT</b>
-        <span class="itk-badge-fase">FASE 2b · KELAS A</span></div>
+        <span class="itk-badge-fase">KELAS A · diisi pemohon</span></div>
 
     <div class="itk-panel-body">
         {{-- evaluator --}}
@@ -155,7 +155,7 @@
 
         <div class="itk-paraf">
             <span class="itk-lbl" style="margin:0">PARAF</span>
-            <span class="itk-paraf-it">Evaluator saja — menutup tiket adalah parafnya. Tiket yang lahir dari tindak lanjut menutup lingkaran.</span>
+            <span class="itk-paraf-it">Evaluator saja — sesudah lima aspek dinilai, tombol <strong>Tutup → Selesai</strong> di "Langkah berikutnya" (kanan) adalah parafnya; IT boleh menutupkan. Tiket yang lahir dari tindak lanjut menutup lingkaran.</span>
         </div>
     </div>
 </div>

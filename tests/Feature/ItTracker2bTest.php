@@ -317,6 +317,15 @@ class ItTracker2bTest extends TestCase
         $this->assertSame(['sesuai' => 5, 'mudah' => 4], $this->lihat($t)['fr07']['aspek']);
 
         // dialihkan ke Robi → Robi boleh, pemohon tidak lagi
+        // evaluator alih kini WAJIB user pengawas NYATA yang aktif (audit 3 Sep) —
+        // akun sekali-pakai ini ikut rollback transaksi uji
+        DB::table('users')->insert(['id' => 'uji-robi', 'nama' => 'Uji Robi', 'email' => 'uji-robi@uji.test', 'password' => 'x', 'status' => 1,
+            'group_id' => DB::table('group_path')->where('nama', 'Executive')->value('id'), 'created_at' => now(), 'updated_at' => now()]);
+        try {
+            $this->svc->alihkanEvaluator($t, 'uji-orang-it');
+            $this->fail('alih ke user tak dikenal harus ditolak');
+        } catch (\DomainException) {
+        }
         $this->svc->alihkanEvaluator($t, 'uji-robi');
         $this->withSession($this->sesi('Head Marketing', 'uji-pemohon'))
             ->post('/it-tracker/tiket/' . $t->id . '/evaluasi', ['aspek' => ['stabil' => 3]])->assertStatus(403);
@@ -339,6 +348,7 @@ class ItTracker2bTest extends TestCase
         $this->svc->tambahTemuan($t, 'x', 'Minor');
         $a = $this->tiket('M');
         $this->svc->simpanFr($a, [['kebutuhan' => 'a', 'kriteria' => 'b']]);
+        $this->svc->setKomponen($a, ['Aplikasi']); // paraf kini menuntut analisis lengkap (FR berkriteria + komponen)
         $this->svc->parafBo($a, 'uji-robi', 'Robi');
 
         foreach ($tabel as $tb) {

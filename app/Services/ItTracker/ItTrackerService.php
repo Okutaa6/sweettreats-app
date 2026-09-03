@@ -311,6 +311,20 @@ class ItTrackerService
                 $p['tindakLanjut'] = $ada;
             }
 
+            if ($keputusan === 'perbaikan') {
+                // Putaran UAT berikutnya mulai BERSIH: jawaban lama diarsipkan
+                // (tetap terbaca sebagai riwayat), bukan pra-terisi — "Tidak"
+                // putaran lalu bukan jawaban untuk kode yang sudah diperbaiki.
+                $p['putaranLalu'][] = [
+                    'tanggal'  => $p['tanggal'],
+                    'oleh'     => $userId,
+                    'skenario' => array_map(fn ($s) => ['proses' => $s['proses'] ?? '', 'sesuai' => $s['sesuai'] ?? null, 'catatan' => $s['catatan'] ?? ''], $p['skenario'] ?? []),
+                    'masukan'  => $p['masukan'] ?? '',
+                ];
+                $p['skenario'] = array_map(function ($s) { $s['sesuai'] = null; $s['catatan'] = ''; return $s; }, $p['skenario'] ?? []);
+                $p['masukan']  = '';
+            }
+
             $form->payload = $p;
             $form->save();
 
@@ -514,12 +528,25 @@ class ItTrackerService
     private function tulisFr02(ItTicket $t, callable $ubah, bool $hapusParaf = true): void
     {
         $form = ItForm::firstOrNew(['ticket_id' => $t->id, 'kode' => 'FRM-IT-02']);
-        $p    = $ubah($form->payload ?? []);
-        if ($hapusParaf) {
+        $lama = $form->payload ?? [];
+        $p    = $ubah($lama);
+        // Paraf gugur HANYA kalau isi yang dilihat BO benar-benar berubah —
+        // menekan "Simpan" komponen/lingkup tanpa mengubah apa pun tak boleh
+        // menggugurkan persetujuan (audit 3 Sep). Catatan dapur tak ikut dihitung.
+        if ($hapusParaf && self::sidikIsi($lama) !== self::sidikIsi($p)) {
             unset($p['paraf']);
         }
         $form->payload = $p;
         $form->save();
+    }
+
+    /** Sidik isi FRM-IT-02 yang DILIHAT Business Owner — tanpa paraf & dapur. */
+    private static function sidikIsi(array $p): string
+    {
+        unset($p['paraf'], $p['estimasi'], $p['risiko']);
+        ksort($p);
+
+        return json_encode($p, JSON_UNESCAPED_UNICODE);
     }
 
     /** Hapus paraf BO (dipakai saat isi tabel FR berubah). */
@@ -664,6 +691,15 @@ class ItTrackerService
     {
         $this->pastikanDiAnalisis($t);
 
+        // Paraf mengikuti isi, bukan mendahuluinya: BO tak boleh memparaf
+        // analisis kosong. Syaratnya = semua lampu gerbang selain paraf itu sendiri.
+        $segar = $this->muatRelasi(ItTicket::query())->find($t->id) ?? $t;
+        foreach (PhaseEngine::gateInfo($this->viewTicket($segar))['checks'] ?? [] as $c) {
+            if (! $c['ok'] && $c['t'] !== 'paraf satu Business Owner') {
+                throw new DomainException('Belum bisa diparaf — "' . $c['t'] . '" belum terpenuhi. Minta Head IT melengkapi analisisnya dulu.');
+            }
+        }
+
         $this->tulisFr02($t, function (array $p) use ($userId, $nama) {
             $p['paraf'] = ['oleh' => $nama, 'oleh_id' => $userId, 'at' => now()->toIso8601String()];
             return $p;
@@ -678,16 +714,23 @@ class ItTrackerService
     public function ubahJenjang(ItTicket $t, string $jenjang, int $bobot, string $prioritasIt): void
     {
         $this->pastikanDiAnalisis($t);
-        if (! in_array($jenjang, ['S', 'M', 'L'], true)) {
-            throw new DomainException('Jenjang tidak dikenal.');
+        // Bukan S: tiket S tak punya panel FRM-IT-02 sedangkan gerbang Analisis
+        // tetap menuntut FR+komponen+paraf → tiket terkunci tanpa jalan keluar
+        // (audit 3 Sep). Pekerjaan yang ternyata kecil: tunda → buka lagi → triase.
+        if (! in_array($jenjang, ['M', 'L'], true)) {
+            throw new DomainException('Di tengah Analisis jenjang hanya bisa M atau L. Kalau ternyata pekerjaan kecil (S): tunda tiketnya, lalu buka lagi lewat triase.');
         }
 
         DB::transaction(function () use ($t, $jenjang, $bobot, $prioritasIt) {
+            $berubah = $t->jenjang !== $jenjang;
             $t->jenjang      = $jenjang;
             $t->bobot        = $bobot;
             $t->prioritas_it = $prioritasIt;
             $t->save();
-            $this->hapusParafBo($t);
+            // paraf gugur hanya kalau JENJANG (= syarat gerbang) berubah, bukan bobot/prio
+            if ($berubah) {
+                $this->hapusParafBo($t);
+            }
         });
     }
 
@@ -749,6 +792,12 @@ class ItTrackerService
                     $row->status = $status;
                     $row->save();
                     continue;
+                }
+
+                // kode terisi tapi tak dikenal = tab basi (baris sudah dihapus/dinomori
+                // ulang di tempat lain) — tolak, jangan diam-diam lahir sebagai baris kembar
+                if ($kode !== '') {
+                    throw new DomainException('Baris ' . $kode . ' tidak dikenal lagi (mungkin sudah dihapus di tab lain) — muat ulang halaman, lalu simpan lagi.');
                 }
 
                 // baris baru (hantu) — hanya kalau skenarionya diisi
@@ -920,22 +969,29 @@ class ItTrackerService
             ? ['FRM-IT-07', 'rtl', 'Evaluasi']
             : ['FRM-IT-05', 'tindakLanjut', 'UAT'];
 
-        $form = ItForm::where('ticket_id', $parent->id)->where('kode', $kode)->first();
-        $p    = $form ? ($form->payload ?? []) : [];
-        $item = $p[$kunci][$indeks] ?? null;
-
-        if (! $item || trim((string) ($item['txt'] ?? '')) === '') {
-            throw new DomainException('Butir tindak lanjut tidak ditemukan.');
-        }
-        if (! empty($item['ticketId'])) {
-            throw new DomainException('Butir ini sudah dijadikan tiket ' . $item['ticketId'] . '.');
+        if ($parent->fase === 'DITOLAK') {
+            throw new DomainException('Tiket yang ditolak tidak melahirkan tiket baru.');
         }
 
         $f1 = optional($parent->forms->firstWhere('kode', 'FRM-IT-01'))->payload ?? [];
 
-        return DB::transaction(function () use ($parent, $form, $p, $kunci, $indeks, $item, $via, $f1, $userId) {
+        return DB::transaction(function () use ($parent, $kode, $kunci, $indeks, $via, $f1, $userId) {
+            // Baris formulir DIKUNCI di dalam transaksi: dua klik "Jadikan tiket"
+            // beruntun tak boleh melahirkan dua tiket dari satu butir.
+            $form = ItForm::where('ticket_id', $parent->id)->where('kode', $kode)->lockForUpdate()->first();
+            $p    = $form ? ($form->payload ?? []) : [];
+            $item = $p[$kunci][$indeks] ?? null;
+
+            if (! $item || trim((string) ($item['txt'] ?? '')) === '') {
+                throw new DomainException('Butir tindak lanjut tidak ditemukan.');
+            }
+            if (! empty($item['ticketId'])) {
+                throw new DomainException('Butir ini sudah dijadikan tiket ' . $item['ticketId'] . '.');
+            }
+
             $anak = $this->buat([
-                'judul'            => $item['txt'],
+                // judul varchar(255); teks penuhnya tetap utuh di 'kebutuhan'
+                'judul'            => mb_substr($item['txt'], 0, 255),
                 'sumber'           => $parent->pemohon_user_id ? 'permintaan' : 'inisiatif',
                 'pemohon_user_id'  => $parent->pemohon_user_id,
                 'raw_branch_id'    => $parent->raw_branch_id,
@@ -1017,6 +1073,16 @@ class ItTrackerService
     public function alihkanEvaluator(ItTicket $t, ?string $userId): void
     {
         $this->pastikanDiEvaluasi($t);
+        // Evaluator hanya pemohon, Executive, atau Konsultan yang aktif — bukan
+        // orang IT (menilai diri sendiri) atau Head departemen lain (403 di detail).
+        if ($userId && $userId !== $t->pemohon_user_id) {
+            $sah = DB::table('users as u')->join('group_path as g', 'g.id', '=', 'u.group_id')
+                ->where('u.id', $userId)->where('u.status', 1)
+                ->whereIn('g.nama', self::ROLE_PENGAWAS)->exists();
+            if (! $sah) {
+                throw new DomainException('Evaluator harus pemohon, Executive, atau Konsultan yang aktif.');
+            }
+        }
         $t->evaluator_user_id = $userId ?: null;
         $t->save();
     }
@@ -1085,7 +1151,9 @@ class ItTrackerService
         // membaca angka yang sama persis — bukan dua perhitungan yang bisa
         // berselisih diam-diam.
         $fr06['pra'] = array_merge($fr06['pra'] ?? [], array_filter([
-            'uat'    => ($fr05['keputusan'] ?? null) === 'setuju' ? 'ya' : null,
+            // "Disetujui dengan Catatan" JUGA menyalakan lampu — dulu hanya 'setuju',
+            // dan tiket ber-catatan macet PERMANEN di Go Live (E2E 3 Sep malam).
+            'uat'    => in_array($fr05['keputusan'] ?? null, ['setuju', 'catatan'], true) ? 'ya' : null,
             'script' => $t->gitRefs->isNotEmpty() ? 'ya' : null,
         ]));
         $fr07 = optional($t->forms->firstWhere('kode', 'FRM-IT-07'))->payload ?? [];

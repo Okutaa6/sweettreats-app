@@ -40,7 +40,7 @@
         <div class="itk-panel">
             <div class="itk-beban-bar">
                 <b>{{ $adalahIt ? 'CATAT INISIATIF / INSIDEN / PERMINTAAN' : 'FORMULIR PERMINTAAN — FRM-IT-01' }}</b>
-                <span class="itk-badge-fase">FASE 1</span>
+                <span class="itk-badge-fase">KELAS A · diisi pemohon</span>
             </div>
             <form method="post" action="{{ route('it-tracker.store') }}">
                 @csrf

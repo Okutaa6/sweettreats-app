@@ -22,7 +22,7 @@
 
 <div class="itk-panel" style="margin-bottom:12px">
     <div class="itk-beban-bar"><b>FRM-IT-04 — INTERNAL TESTING</b>
-        <span class="itk-badge-fase">FASE 2b · KELAS B</span></div>
+        <span class="itk-badge-fase">KELAS B · terisi sendiri</span></div>
 
     <div class="itk-panel-body">
         <div class="itk-auto-note">Lima pemeriksaan tetap sudah menunggu; ringkasan dan gerbang dihitung sendiri. Developer testing templat dilebur ke sini.</div>
@@ -46,7 +46,7 @@
                 @foreach ($tc as $i => $r)
                     @php $lk = ! empty($r['locked']); $st = $r['status'] ?? null; @endphp
                     <div class="itk-tbl-row {{ $st === 'fail' ? 'gagal' : ($st === 'pass' ? '' : 'belum') }}">
-                        <span class="itk-tbl-no num">{{ $r['id'] }} @if ($lk)<span class="itk-lock" title="pemeriksaan tetap">🔒</span>@endif</span>
+                        <span class="itk-tbl-no num">{{ $r['id'] }} @if ($lk)<span class="itk-lock" title="pemeriksaan tetap"><i class="fa fa-lock" aria-hidden="true"></i></span>@endif</span>
                         <span>
                             <input type="hidden" name="baris[{{ $i }}][kode]" value="{{ $r['id'] }}">
                             @if ($ed && ! $lk)<input class="itk-cell itk-cell-b" name="baris[{{ $i }}][skenario]" value="{{ $r['skenario'] }}" maxlength="500">
@@ -78,12 +78,39 @@
                         <span></span>
                     </div>
                 @endif
-                <div class="itk-tbl-kaki">🔒 TC-01–05 = lima pemeriksaan tetap, ada di setiap tiket dan tak bisa dihapus. Ringkasan di atas dihitung sendiri.</div>
+                <div class="itk-tbl-kaki"><i class="fa fa-lock" aria-hidden="true"></i> TC-01–05 = lima pemeriksaan tetap, ada di setiap tiket dan tak bisa dihapus. Ringkasan di atas dihitung sendiri.</div>
             </div>
             @if ($ed)
-                <button type="submit" class="itk-btn itk-btn-grafit" style="margin-top:8px;padding:7px 13px;font-size:12px">Simpan hasil uji</button>
+                <div style="display:flex;align-items:center;gap:10px;margin-top:8px">
+                    <button type="submit" class="itk-btn itk-btn-grafit" style="padding:7px 13px;font-size:12px">Simpan hasil uji</button>
+                    <span class="itk-hint" style="margin:0">Enter di baris terakhir menambah test case baru · nomor diberikan saat disimpan.</span>
+                </div>
             @endif
         </form>
+        @if ($ed)
+        <script>
+        (function () {
+            // Baris hantu TC: Enter menambah baris berikutnya tanpa bolak-balik simpan
+            var f = document.getElementById('itkTcForm'); if (!f) return;
+            var tbl = f.querySelector('.itk-tbl-tc'), kaki = tbl.querySelector('.itk-tbl-kaki');
+            function renum() { var n = 0; tbl.querySelectorAll('.itk-tbl-row:not(.itk-tbl-head)').forEach(function (r) { r.querySelectorAll('[name]').forEach(function (x) { x.name = x.name.replace(/baris\[\d+\]/, 'baris[' + n + ']'); }); n++; }); }
+            function bind() {
+                var g = tbl.querySelector('.itk-tbl-ghost'); if (!g) return;
+                function spawn() {
+                    if (!g.querySelector('input.itk-cell-b').value.trim()) return;
+                    g.classList.remove('itk-tbl-ghost');
+                    var ng = g.cloneNode(true); ng.classList.add('itk-tbl-ghost');
+                    ng.querySelectorAll('input').forEach(function (x) { if (x.type === 'radio') x.checked = false; else x.value = ''; });
+                    var no = ng.querySelector('.itk-tbl-no'), m = no && no.textContent.match(/TC-(\d+)/);
+                    if (m) no.textContent = 'TC-' + String(parseInt(m[1], 10) + 1).padStart(2, '0');
+                    tbl.insertBefore(ng, kaki); renum(); bind(); ng.querySelector('input').focus();
+                }
+                g.querySelectorAll('input.itk-cell').forEach(function (x) { x.onkeydown = function (e) { if (e.key === 'Enter') { e.preventDefault(); spawn(); } }; });
+            }
+            bind();
+        })();
+        </script>
+        @endif
         @if ($ed)
             @foreach ($tc as $i => $r)
                 @unless (! empty($r['locked']))
@@ -102,10 +129,14 @@
                         @if ($ed)
                             <form method="post" action="{{ route('it-tracker.temuan', $t->id) }}" style="display:contents">
                                 @csrf<input type="hidden" name="aksi" value="ubah"><input type="hidden" name="row_id" value="{{ $tm['rowId'] }}">
+                                {{-- nilai SEKARANG dikirim lebih dulu; tombol toggle di bawahnya menimpanya hanya kalau diklik.
+                                     Tanpa ini, Enter di kotak teks memicu tombol pertama = Major⇄Minor terbalik tanpa sengaja. --}}
+                                <input type="hidden" name="tingkat" value="{{ $tm['tingkat'] }}"><input type="hidden" name="status" value="{{ $tm['status'] }}">
+                                <button type="submit" hidden aria-hidden="true" tabindex="-1"></button>
                                 <button type="submit" name="tingkat" value="{{ $tm['tingkat'] === 'Major' ? 'Minor' : 'Major' }}" class="itk-tingkat {{ $tm['tingkat'] }}" title="klik: Minor ⇄ Major">{{ $tm['tingkat'] }}</button>
                                 <input class="itk-cell itk-cell-b" name="deskripsi" value="{{ $tm['desc'] }}" maxlength="500" style="flex:1">
                                 <select name="pic_user_id" class="itk-pic-sel">
-                                    @foreach ($picOpsi ?? [] as $p)<option value="{{ $p->id }}" {{ $tm['pic'] === $p->id ? 'selected' : '' }}>{{ $p->nama }}</option>@endforeach
+                                    @foreach ($picIt as $p)<option value="{{ $p->id }}" {{ $tm['pic'] === $p->id ? 'selected' : '' }}>{{ $p->nama }}</option>@endforeach
                                 </select>
                                 <button type="submit" name="status" value="{{ $tm['status'] === 'Selesai' ? 'Terbuka' : 'Selesai' }}" class="itk-tm-status {{ $tm['status'] }}">{{ $tm['status'] }}</button>
                                 <button type="submit" class="itk-btn itk-btn-putih" style="padding:4px 9px;font-size:10.5px">Simpan</button>
@@ -114,7 +145,7 @@
                         @else
                             <span class="itk-tingkat {{ $tm['tingkat'] }}">{{ $tm['tingkat'] }}</span>
                             <span class="itk-ro itk-ro-b" style="flex:1">{{ $tm['desc'] }}</span>
-                            <span class="itk-hint" style="margin:0">PIC {{ $picNama[$tm['pic']]->nama ?? ($tm['pic'] ? '…' : '—') }}</span>
+                            <span class="itk-hint" style="margin:0">PIC {{ optional($picIt->firstWhere("id", $tm["pic"]))->nama ?? ($tm["pic"] ? "…" : "—") }}</span>
                             <span class="itk-tm-status {{ $tm['status'] }}">{{ $tm['status'] }}</span>
                         @endif
                     </div>
