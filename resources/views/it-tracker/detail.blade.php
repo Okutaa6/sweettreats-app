@@ -244,7 +244,7 @@
                             <div class="itk-blokir">Gerbang ini milik pemohon ({{ $t->pemohon->nama ?? 'pemohon' }}) —
                                 menunggu keputusan UAT-nya {{ $wait['days'] }} hari.</div>
                         @endif
-                    @elseif ($bolehGerak['ok'] && $t->fase === 'DEV')
+                    @elseif ($bolehGerak['ok'])
                         <form method="post" action="{{ route('it-tracker.maju', $t->id) }}">
                             @csrf
                             <button type="submit" class="itk-btn itk-btn-grafit" style="width:100%"
