@@ -143,6 +143,26 @@ class ItTracker2aTest extends TestCase
         }
     }
 
+    /**
+     * Tombol "segarkan" di layar — RUTE-nya, bukan cuma perintahnya.
+     * Ini yang kelewat sekali: uji perintah lulus sementara rutenya 500 karena
+     * satu impor hilang. Perintah yang benar tak menolong kalau tombolnya mati.
+     */
+    public function test_tombol_segarkan_git_jalan_dan_dipagari(): void
+    {
+        $t = $this->tiket();
+
+        $this->withSession($this->sesi('Head IT', 'uji-headit'))
+            ->post('/it-tracker/tiket/' . $t->id . '/sync-git')
+            ->assertStatus(302)
+            ->assertSessionHasNoErrors();
+
+        // Bukan orang IT → ditolak di controller
+        $this->withSession($this->sesi('Executive'))
+            ->post('/it-tracker/tiket/' . $t->id . '/sync-git')
+            ->assertStatus(403);
+    }
+
     public function test_sync_git_menolak_nomor_ngawur(): void
     {
         $this->assertSame(1, Artisan::call('it:sync-git', ['--ticket' => 'bukan-nomor; rm -rf /']));
