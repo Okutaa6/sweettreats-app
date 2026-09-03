@@ -79,6 +79,11 @@ kalau tombolnya mati. Ditambal + ditambah uji rute itu sendiri.
 Dan `laravel.log` **diam** untuk 500 ini: pelajaran yang dicetak di checklist
 Go-Live hari ini berlaku untuk chat ini sendiri.
 
+Satu regresi lagi ditangkap **suite Fase 1**: sebuah `sed` global saat
+menggarap 2a ikut membatasi rail "Langkah berikutnya" ke fase DEV, sehingga
+tombol maju + daftar "masih perlu" hilang di Analisis. Uji lama yang
+menyelamatkannya — alasan bagus untuk tidak pernah memangkas suite lama.
+
 ### Batas yang tetap berdiri
 
 Tiket M/L masih berhenti di **gerbang Analisis** (butuh tabel FR = 2b) dan di
