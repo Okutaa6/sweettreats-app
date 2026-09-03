@@ -6,6 +6,55 @@
 > file ini append-only.
 
 ---
+## 2026-09-04d — IT TRACKER: dev DIISI antrian nyata — `it:seed-antrian`, 30 tiket, "berapa hari" jujur (demo 5 Sep)
+
+Ralat §14.21 ditindaklanjuti: papan dev tidak lagi kosong. Perintah artisan
+**`it:seed-antrian {berkas.psv} --env-guard=dev`** membaca sumber kebenaran
+`docs/rencana/seed-antrian-it-2026-09-04.psv` (30 baris × 17 kolom) dan
+mengisi tracker dengan **antrian kerjaan sungguhan** — seeder yang sama nanti
+diulang di prod oleh Ekky dengan `--env-guard=prod`. Commit `521af5a`
+(`IT-2026-005`, tiket tracker sendiri).
+
+Yang membuatnya jujur, bukan sekadar terisi:
+- **`masuk_at` persis dari berkas** → satu baris `it_ticket_fase` + `created_at`.
+  "Berapa hari menunggu" dihitung dari situ: tiket 04 (input target, 7 Jul) ≈
+  59 hari **tetap dingin** karena di DEV = di tangan IT; tiket 08 (Robi, UAT
+  sejak 1 Sep) memanas begitu ≥3 hari — persis aturan papan.
+- **Tiket di ANALISIS/UAT/EVALUASI TIDAK diisi FR/paraf/skenario palsu.**
+  Lampu gerbangnya mati apa adanya — memang dibangun tanpa formulir karena
+  tracker belum ada. Demo memperlihatkan keadaan nyata, bukan panggung.
+- **Baris TRIASE (13–17, 28, 29) tanpa jenjang** — kolom jenjang/prio di berkas
+  hanya petunjuk untuk Ekky saat men-triase di depan orang.
+- **4 ditunda (12 Omnicare pembayaran · 20 Project Tracker · 21 Accurate ·
+  30 Slip gaji) lewat `parkir()`** yang sudah ada → alasan tampil, tercatat ke
+  `audit_log`, tidak dihitung aktif. Panel beban: **26 aktif · macet ≥3**.
+- **Baris 28–30 = DRAF IT** dengan penanda `[DRAF IT — belum dikonfirmasi
+  pemohon]` yang **dibiarkan** di latar → tampil di detail dan ekspor. 29
+  pemohonnya sementara (Anisa) — tertulis di latarnya sendiri.
+- Induk–anak (01 Absensi ← 02/03/26; 05 Tracker ← 26) dan ketergantungan
+  (13→11, 22→20, 24→23, 29→28, 30→09) — dua lintasan. Evaluator 01 = HR.
+
+Yang menjaga seeder dari kecelakaan:
+- **Idempoten by `seed_urut`** (kolom baru, unik; SQL `ADD COLUMN IF NOT
+  EXISTS`). Jalan 2× = 30 tiket, counter tepat 030 — nomor dari `it_counter`,
+  tak pernah hardcode. **Jalan ulang tak memundurkan** tiket yang sudah
+  bergerak di layar (fase dipertahankan, dicatat di laporan).
+- **Pemohon tak ditemukan → BERHENTI menyebut baris & nilainya** (satu baris
+  merah utuh — `error()` bawaan membungkus email panjang jadi terpotong).
+  Tak ada setengah jalan: seluruhnya satu transaksi.
+- **`--env-guard` wajib cocok** (local · dev · prod, dibaca dari host `APP_URL`
+  + `APP_ENV`); salah → DITOLAK sebelum menyentuh DB. phpunit (`testing`)
+  dipetakan ke local.
+- Uji `ItTrackerSeedAntrianTest` 8/8 memakai **berkas asli** (akun sekali-pakai
+  untuk email yang tak ada di lokal). 91 uji lama tetap hijau → **99**.
+
+Verifikasi di dev (uji sekali-pakai dengan sesi akun asli, **tanpa menyentuh
+password siapa pun**, memeriksa URL akhir + isi): Ikhsan → papan 30 kartu;
+Yovan → 302 ke Permintaanku, melihat 011 & 013; Robi → papan, melihat 008 &
+017; Della → Permintaanku 009/012/021/028 + detail & ekspor 028 memuat
+penanda DRAF. Catatan: seluruh pemohon PSV **ada di dev by email** — termasuk
+Admin_Nisa; kekhawatiran §14.21 soal itu tak terbukti.
+
 ## 2026-09-04c — IT TRACKER: jalan pintas paraf BERTANDA — Head IT boleh melewati BO, tapi tercatat & terlihat (dev)
 
 Keputusan Ekky (rencana §14.16): gerbang Analisis→Development menuntut paraf

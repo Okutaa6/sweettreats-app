@@ -39,6 +39,14 @@
 > `2400896`, tak ada lagi cabang prod terpisah. Peringatan lama "jangan deploy
 > main ke prod" **sudah TIDAK berlaku** — sekarang justru `main` yang benar.
 >
+> ✅ **Sisipan 2026-09-04d — DEV DIISI ANTRIAN NYATA IT TRACKER** (`521af5a`,
+> `feat/it-tracker`): `it:seed-antrian` dari PSV 30 baris → IT-2026-001..030
+> di dev (26 aktif · 4 ditunda beralasan · 7 menunggu triase termasuk 3 DRAF
+> IT bertanda), `masuk_at` jujur dari berkas (hitungan hari & panas nyata),
+> formulir sengaja kosong, idempoten by `seed_urut` + `--env-guard`. 4 persona
+> diverifikasi di dev (URL akhir + isi). 99 uji hijau. Prod: Ekky jalankan
+> sendiri `--env-guard=prod` sesudah tracker naik (SQL `seed_urut` dulu).
+
 > ✅ **Sisipan 2026-09-04c — IT TRACKER: JALAN PINTAS PARAF BERTANDA LIVE DI DEV**
 > (`feat/it-tracker`): Head IT boleh meneruskan gerbang 02 tanpa paraf BO
 > dengan alasan wajib; tersimpan terpisah dari paraf, penanda merah di kepala
