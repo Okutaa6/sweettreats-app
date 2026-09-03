@@ -84,6 +84,44 @@ menggarap 2a ikut membatasi rail "Langkah berikutnya" ke fase DEV, sehingga
 tombol maju + daftar "masih perlu" hilang di Analisis. Uji lama yang
 menyelamatkannya — alasan bagus untuk tidak pernah memangkas suite lama.
 
+### Audit ulang + E2E per persona (sore hari yang sama) — 6 temuan lagi
+
+Diminta menyapu ulang. Yang ketemu, urut dari yang paling mahal:
+
+1. ⛔ **Kemacetan permanen di Go Live.** Baris "File/script siap" menyala dari
+   jejak git dan sengaja tak bisa diklik — jadi tiket yang memang **tak punya
+   commit ber-nomor** (perubahan konfigurasi murni, atau nomor lupa ditulis)
+   **tak akan pernah bisa ditutup**, dan tak seorang pun bisa membukanya. Kelas
+   yang sama dengan deadlock UAT di Fase 1. Kini N-A diizinkan **hanya** saat
+   sistem memang tak punya apa pun untuk ditunjukkan; "Ya" tetap haram, dan
+   begitu jejak git muncul, bukti mengalahkan pengecualian.
+2. **Ekspor FRM-IT-01 500** untuk tiket tanpa pemohon. Terjangkau nyata:
+   insiden yang latarnya diisi melahirkan FRM-IT-01 sementara pemohonnya NULL,
+   jadi tombol Ekspor muncul lalu meledak. Sebabnya `optional($p->group)` —
+   argumen fungsi dievaluasi lebih dulu, tak seperti `??` yang menekan
+   peringatan (itu sebabnya blade aman dan hanya controller yang jatuh).
+3. **Checklist Go-Live lenyap begitu tiket ditutup** — jejak audit yang justru
+   dicari Konsultan hilang tepat saat mulai dibutuhkan. Kini tetap terbaca,
+   baca-saja.
+4. **Byte non-UTF-8 → 500 telanjang** di semua teks bebas (payload JSON;
+   json_encode melempar). Browser selalu mengirim UTF-8 — titik-tengah `·`
+   sudah diadu dan lewat mulus — tapi tempelan lawas / klien non-browser tidak.
+5. **Dua sumber kebenaran** untuk "baris mana yang otomatis"; kini diturunkan
+   dari `PhaseEngine::PRA` supaya tak menganga diam-diam.
+6. **Otorisasi berjalan sesudah validasi** di tiga rute checklist — yang tak
+   berhak dapat 302 umpan-balik validasi alih-alih 403. Tulisannya memang tak
+   pernah terjadi, tapi uji izin bisa lulus palsu karena membaca 302 sebagai
+   "tertahan".
+
+**E2E per persona di dev** (Yovan · Reza · Robi · Ekky, akun sekali-pakai):
+26 pemeriksaan, memeriksa kode HTTP **dan** isi halaman. Yovan dipantulkan ke
+halamannya, melihat ringkasan beban tapi bukan tiket departemen lain, ekspor
+miliknya boleh & milik orang lain 403. Reza: triase 403, ACC 403, checklist
+tiket bukan-PIC-nya 403, tapi tiketnya sendiri tuntas. Robi: lihat semua &
+ekspor boleh, semua aksi IT 403, dan ACC Business Owner-nya berhasil. Ekky:
+seluruh alur, plus pagar fase menolak sopan (302 + pesan, DB tak berubah).
+Uji otomatis 49 hijau (11 unit + 20 Fase 1 + 18 Fase 2a).
+
 ### Batas yang tetap berdiri
 
 Tiket M/L masih berhenti di **gerbang Analisis** (butuh tabel FR = 2b) dan di

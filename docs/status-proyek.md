@@ -55,6 +55,15 @@
 > DIAM untuk 500 itu. **Batas 2b belum disentuh**: tiket M/L tetap berhenti di
 > gerbang Analisis & Uji sampai tabel FR / test case / temuan didesain.
 > **Prod belum.**
+> ✅ **Audit ulang + E2E 4 persona (sore 3 Sep): 6 temuan lagi ditutup**, semua
+> ber-uji-regresi. Terpenting: ⛔ **kemacetan permanen di Go Live** — tiket
+> tanpa commit ber-nomor tak akan pernah bisa ditutup karena baris "File/script
+> siap" menyala sendiri dan tak boleh diisi tangan (kini N-A boleh, TAPI hanya
+> saat sistem memang tak punya bukti apa pun). Plus: ekspor 500 untuk tiket
+> tanpa pemohon, checklist Go-Live lenyap sesudah tiket ditutup, byte non-UTF-8
+> jadi 500 telanjang, dua sumber kebenaran baris otomatis, dan otorisasi yang
+> berjalan sesudah validasi. **49 uji hijau**; 26 pemeriksaan izin per persona
+> di dev memeriksa kode HTTP **dan** isi halaman.
 >
 > ✅ **Sisipan 2026-09-03 — IT REQUEST TRACKER FASE 1 LIVE DI DEV** (`8dfd6fb`,
 > `feat/it-tracker`): 2 SQL + access:rebuild jalan di dev, 30/30 uji ULANG di
