@@ -761,3 +761,51 @@ LINGKUNGAN:
 
 Selesai: entri docs/log-update.md + salin ke Google Drive + catat ke memori.
 ```
+
+### 14.11 Dua hal yang BELUM punya rumah
+
+> Ditemukan 3 Sep saat menyusun peta sesudah Fase 2. Keduanya bukan pekerjaan
+> besar, tapi keduanya **jatuh di sela-sela** pembagian fase yang ada — jadi
+> tak akan dikerjakan siapa pun kalau tidak ditulis di sini.
+
+**1. FRM-IT-07 Evaluasi — punya kolom, tak punya layar.**
+
+Yang sudah ada: kolom `evaluator_user_id`, nilai `evaluator` di
+`pihak_menunggu`, baris akses *"isi UAT & Evaluasi miliknya"*, dan
+*"penjadwalan Evaluasi"* di Fase 3. Yang **tidak** ada: **permukaannya.**
+Terukur — 0 penyebutan di brief ronde 2, dan cuma 1 label di paket desain
+ronde 1.
+
+Jadi ia bukan bagian 2a maupun 2b, dan Fase 3 hanya menjadwalkan sesuatu yang
+belum ada bentuknya. ⚠️ Ini Kelas A: **diisi evaluator, bukan IT.** Isinya per
+§7: kesesuaian · kemudahan · stabilitas · dampak · manfaat · temuan
+Bug/Enhancement · dan **Rencana Tindak Lanjut yang bisa MEMBUAT TIKET BARU** —
+itulah yang menutup lingkaran sistem ini.
+
+**Keputusan yang perlu diambil:** dititipkan ke ronde desain 2b (murah, karena
+chat desainnya sedang jalan) atau jadi ronde tersendiri bersama Fase 3.
+Rekomendasi: **titipkan ke 2b** — bentuknya sederhana dan menunda berarti Fase
+3 akan menjadwalkan formulir yang belum dirancang.
+
+**2. Lampiran FRM-IT-01.** §7 menyebutnya (*screenshot · contoh laporan · alur
+proses · dokumen lain*), tapi **tak pernah masuk §14** dan belum dibangun.
+Padahal ini satu-satunya jalan pemohon menempelkan bukti masalahnya, dan
+tanpanya orang akan menempel gambar lewat WhatsApp — persis kebiasaan yang mau
+digantikan sistem ini. Kecil, cocok dititipkan ke **2a** (ekspor sudah
+menyentuh berkas).
+
+### 14.12 Peta sesudah Fase 2
+
+1. **Sekarang, paralel** — chat build 2a · chat desain 2b (+ FRM-IT-07 kalau
+   keputusan di atas "titipkan").
+2. **Sesudah desain 2b turun** — bangun 2b. Ini yang menutup Fase 2 sesuai
+   §14.5: *backlog nyata jalan penuh dari Requirement sampai Go Live.*
+3. **Fase 3** — sambungan Project Tracker (`sys_project`) · penjadwalan
+   Evaluasi · **nomor tiket di commit message**. Yang terakhir berpasangan
+   dengan `it:sync-git` yang dibangun di 2a: sekali nomor tiket masuk commit,
+   Kelas B terisi tanpa disuruh, dan papan tersambung ke riwayat kode.
+4. **Prod** — pemicunya **belum diputuskan**. Ekky condong ke "sesudah semua
+   fase"; catatan tandingannya ada di §14.5 (sistem proses yang tak dipakai
+   lebih buruk daripada tak ada) dan riwayat dua fitur yang berhenti persis
+   karena tak pernah menyentuh prod. Apa pun keputusannya, **tulis pemicunya**
+   — "nanti kalau sudah siap" bukan pemicu.
