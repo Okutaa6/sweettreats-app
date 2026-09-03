@@ -20,6 +20,7 @@ class ItTicket extends Model
         'jenis_permintaan', 'jenjang', 'bobot', 'prioritas_pemohon',
         'prioritas_it', 'pic_user_id', 'fase', 'fase_since', 'induk_id',
         'evaluator_user_id', 'alasan_parkir', 'lahir_dari_id', 'lahir_via',
+        'seed_urut',
     ];
 
     protected $casts = [
