@@ -493,6 +493,23 @@ class ItTracker2aTest extends TestCase
         $this->assertStringContainsString('backup', $p['deploy']);
     }
 
+    /**
+     * Otorisasi harus berjalan SEBELUM validasi. Kalau terbalik, orang yang
+     * tak berhak dapat umpan balik validasi (302 + daftar error) tentang tiket
+     * yang tak boleh dia sentuh — penolakannya jadi tak jujur, dan uji izin
+     * bisa lulus palsu karena membaca 302 sebagai "tertahan".
+     */
+    public function test_403_datang_sebelum_validasi(): void
+    {
+        $t = $this->tiketDiGoLive();
+
+        foreach (['pra', 'pasca', 'deploy'] as $aksi) {
+            $this->withSession($this->sesi('Head Marketing'))
+                ->post('/it-tracker/tiket/' . $t->id . '/' . $aksi, [])   // sengaja tanpa isi
+                ->assertStatus(403);
+        }
+    }
+
     // ─── Kendali negatif ───────────────────────────────────────────────────
 
     public function test_tabel_lama_tak_tersentuh_dan_dev_tetap_dingin(): void

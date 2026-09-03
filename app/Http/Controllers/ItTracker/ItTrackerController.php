@@ -397,13 +397,15 @@ class ItTrackerController extends Controller
     /** Satu baris checklist pra-deploy: Ya / N-A. */
     public function pra(Request $request, int $id)
     {
+        // Otorisasi DULU, baru validasi: yang tak berhak harus dapat 403, bukan
+        // umpan balik validasi tentang tiket yang tak boleh dia sentuh.
+        $t = ItTicket::findOrFail($id);
+        $this->pastikanPetugasDeploy($t);
+
         $d = $request->validate([
             'kunci' => 'required|string|max:16',
             'nilai' => 'required|in:ya,na',
         ]);
-
-        $t = ItTicket::findOrFail($id);
-        $this->pastikanPetugasDeploy($t);
 
         try {
             $this->svc->setPra($t, $d['kunci'], $d['nilai'], $this->userId());
@@ -417,10 +419,10 @@ class ItTrackerController extends Controller
     /** Satu pemeriksaan pasca Go-Live → Pass. */
     public function pasca(Request $request, int $id)
     {
-        $d = $request->validate(['kunci' => 'required|string|max:16']);
-
         $t = ItTicket::findOrFail($id);
         $this->pastikanPetugasDeploy($t);
+
+        $d = $request->validate(['kunci' => 'required|string|max:16']);
 
         try {
             $this->svc->setPasca($t, $d['kunci'], $this->userId());
@@ -434,10 +436,10 @@ class ItTrackerController extends Controller
     /** Catatan deployment (FRM-IT-06 §C). */
     public function deploy(Request $request, int $id)
     {
-        $d = $request->validate(['catatan' => 'nullable|string|max:2000']);
-
         $t = ItTicket::findOrFail($id);
         $this->pastikanPetugasDeploy($t);
+
+        $d = $request->validate(['catatan' => 'nullable|string|max:2000']);
 
         try {
             $this->svc->setCatatanDeploy($t, $d['catatan'] ?? null, $this->userId());
