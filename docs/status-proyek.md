@@ -39,6 +39,13 @@
 > `2400896`, tak ada lagi cabang prod terpisah. Peringatan lama "jangan deploy
 > main ke prod" **sudah TIDAK berlaku** — sekarang justru `main` yang benar.
 >
+> ✅ **Sisipan 2026-09-04c — IT TRACKER: JALAN PINTAS PARAF BERTANDA LIVE DI DEV**
+> (`feat/it-tracker`): Head IT boleh meneruskan gerbang 02 tanpa paraf BO
+> dengan alasan wajib; tersimpan terpisah dari paraf, penanda merah di kepala
+> tiket + panel 02 + chip papan + ekspor, ikut sampai Go Live; BO bisa memparaf
+> menyusul tanpa menghapus jejak. '06' sengaja tak bisa dilewati. 91 uji hijau.
+> ⏳ Cabut Admin* dari ROLE_PENGAWAS (§14.18) MENUNGGU kata Ekky. Belum merge/prod.
+
 > ✅ **Sisipan 2026-09-04b — IT TRACKER: LAMPIRAN FRM-IT-01 LIVE DI DEV**
 > (`feat/it-tracker`): utang §14.11 lunas — pemohon melampirkan screenshot/
 > laporan/alur saat mengisi (+ menambah selama TRIASE; Head IT kapan saja),

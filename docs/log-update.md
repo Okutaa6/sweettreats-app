@@ -6,6 +6,47 @@
 > file ini append-only.
 
 ---
+## 2026-09-04c — IT TRACKER: jalan pintas paraf BERTANDA — Head IT boleh melewati BO, tapi tercatat & terlihat (dev)
+
+Keputusan Ekky (rencana §14.16): gerbang Analisis→Development menuntut paraf
+satu Business Owner; kalau Robi/Konsultan lambat, tiket tersandera dan Head IT
+tak bisa apa-apa. Jawabannya **bukan** "Head IT boleh memparaf" — bentuknya
+**pelewatan yang tercatat**, dan perbedaan itu yang dibangun. Live di dev,
+`feat/it-tracker`.
+
+- **Pintu masuknya bukan tombol paraf.** Di bawah baris PARAF ada ringkasan
+  yang terlipat: *"Business Owner lambat merespons? Teruskan tanpa paraf BO —
+  tercatat"*; dibuka → satu kotak alasan + tombol oranye *"Teruskan tanpa
+  paraf BO"*. **Alasan wajib ≥10 karakter**; tanpa itu ditolak dengan pesan
+  yang menyebut kenapa dan bahwa alasan itulah yang tercetak di ekspor.
+- **Tersimpan terpisah**: `fr02.diteruskan = {oleh, oleh_id, at, alasan}`;
+  `fr02.paraf` **tidak pernah** diisi dari jalur ini. Lampu gerbang menyala,
+  tapi **teksnya berubah** menjadi *"diteruskan Head IT tanpa paraf BO"* —
+  supaya tak menyamar.
+- **Penanda tak bisa disembunyikan**: banner merah putus-putus di **kepala
+  tiket** (ikut sampai Go Live dan sesudahnya) **dan** di panel 02; chip
+  *"⚠ tanpa paraf BO"* di kartu papan; baris di blok C **ekspor FRM-IT-01**
+  (satu-satunya ekspor yang ada — wajib ikut saat ekspor 02/06 dibangun).
+- **BO memparaf menyusul** tetap bisa (tombolnya berlabel "(menyusul)");
+  keduanya tersimpan, banner menambah *"BO memparaf menyusul <waktu>"* —
+  paraf tidak menghapus jejak pelewatan.
+- **Konsisten T2**: mengubah isi 02 menggugurkan pelewatan bersama paraf;
+  simpan-ulang identik & catatan dapur tidak.
+- **Hanya Head IT** (Reza/BO/pemohon → 403). **Tanpa masa tunggu** — kejujuran
+  dijaga penanda, bukan penundaan.
+- **Gerbang '06' (ACC Go Live) sengaja TIDAK bisa dilewati**: satu konstanta
+  `GERBANG_BOLEH_DITERUSKAN = ['02']`; menambah '06' = satu entri, keputusan
+  Ekky nanti.
+- Uji: kelas baru `ItTrackerTeruskanTest` 8/8 (alasan wajib · 403 · penanda di
+  3 tempat + ikut ke fase berikut · gugur saat isi berubah · paraf menyusul ·
+  '06' ditolak · paraf normal tanpa penanda + tabel lama utuh); **83 uji lama
+  tetap hijau → 91**.
+
+⏳ **Belum dikerjakan (belum ada kata eksplisit Ekky)**: mencabut `Admin
+General`/`Admin Backup`/`Admin` dari `ROLE_PENGAWAS` (§14.18). Selama itu
+dibiarkan, pintu **sunyi** (memparaf sebagai Admin_Ekky) tetap terbuka di
+samping pintu **bertanda** ini — dan pintu sunyi selalu lebih menggoda.
+
 ## 2026-09-04b — IT TRACKER: Lampiran FRM-IT-01 (utang §14.11) — bukti menempel di tiket, bukan di WhatsApp
 
 Utang kecil yang jatuh di sela-sela pembagian fase (rencana §14.11 no. 2): §7
