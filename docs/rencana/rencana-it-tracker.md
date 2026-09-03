@@ -1224,3 +1224,51 @@ LINGKUNGAN:
 
 Selesai: entri docs/log-update.md + salin ke Google Drive + catat ke memori.
 ```
+
+### 14.20 Keputusan Ekky 4 Sep malam — prod, Admin*, penempatan, cabang Reza
+
+**✅ CABUT `Admin*` dari `ROLE_PENGAWAS` — DIPUTUSKAN.** Satu konstanta:
+`ROLE_PENGAWAS −= "Admin General", "Admin Backup", "Admin"`. Nol perubahan
+`group_path`. Ekky tetap Head IT lewat akun Muhamad Ikhsan. Tambahkan uji
+*"Admin_Ekky tak bisa memparaf"*. Boleh dikerjakan chat build tanpa tanya lagi.
+
+**✅ PEMICU PROD — AKHIRNYA TERTULIS.** *"Setelah demo, kita pindahkan semuanya
+ke prod. Dev hanya simulasi end-to-end dan realisasi."* Konsekuensinya:
+- **Tiket di dev = buangan.** Sesudah demo, bersihkan (`DELETE it_*` + reset
+  `it_counter`) — pola sudah ada di chat build.
+- **Tiket nyata dibuat di PROD**, bukan dev. Peta antrian (§5
+  `rencana-peta-antrian-it.md`) dimuat **sesudah IT Tracker naik prod**.
+- Naik prod IT Tracker = gerbong sendiri: merge `feat/it-tracker` → `main`
+  (uji-gabung kering: **0 konflik**) → SQL berurutan (core · access · 2b ·
+  lampiran bila ada) → `access:rebuild` → deploy penuh (class baru) →
+  **rsync `assets/` saja** → `curl` beranda 200 + URL akhir. Hanya saat Ekky
+  menyebut "prod".
+- ⚠️ "Semuanya" di kalimat Ekky dibaca HUB sebagai **IT Tracker**. Enam fitur
+  lain yang antre di UAT (§3 peta) **tidak otomatis ikut** — masing-masing
+  gerbong sendiri, masing-masing butuh kata "prod".
+
+**✅ PENEMPATAN = "rolling" yang sudah ada di checklist, mau dibuat GLOBAL.**
+Kodenya ditemukan: `DigitalChecklistController::rollingAssign / rollingSwap /
+rollingRemove / makeRolling` + helper `cabangSesiUntuk()` (yang sudah dipakai
+absensi untuk cabang-efektif). Jadi tiket 6m di peta berubah dari
+*"kode belum ditemukan"* menjadi **"Rolling global — lepaskan dari checklist,
+jadi satu sumber penempatan untuk absensi/kehadiran/laporan"**, jenjang **L**,
+pemohon HR/Ops, fase **REQ**. Rencana lama `rencana-penempatan.md` (ACC 4 Agu,
+Reza) jadi bahan FRM-IT-02-nya.
+
+**✅ DUA CABANG REZA — diukur, ini putusannya:**
+- `checklist-pettycash`: blade audit-nya **sudah ada di main** (`$ringkas` 4
+  hit — penjaga nilai bersarang masuk lewat gerbong e28f89b); SQL
+  `anisa_irma_fleksibel.sql` **dilarang dijalankan** (memori). → **hapus cabang.**
+- `fitur/detail-pasien-…` (23 Jun): 9 berkas sudah bergerak jauh di main
+  (`reservation/list.blade.php` 16 commit — redesign), **kecuali**
+  `_modal_patient_detail.blade.php` yang **belum pernah ada di main**. → kalau
+  fitur "detail pasien di reservasi" masih diinginkan, **cherry-pick berkas itu
+  saja** sebagai tiket S; sisanya mati. → **hapus cabang sesudah cherry-pick.**
+
+**📄 Proposal v2 DISELAMATKAN ke repo.** `docs/api/proposal-sweet-treats-api-omnicare-v2.md`
+(+ PDF) ternyata hidup hanya di working copy bersama sejak Juni — tak pernah
+di-commit. Sekarang di `main`. Isinya membuktikan: Fase 2 Pembayaran memang
+kita tulis sebagai *"gambaran, spec menyusul"* — vendor menjawab persis yang
+diminta. Spek konkretnya kini ada:
+`docs/api/permintaan-omnicare-endpoint-pembayaran-2026-09.md` — siap dikirim.

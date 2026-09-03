@@ -138,3 +138,22 @@ menggandakan). Urutan **wajib**: `.env` prod `ACCURATE_PUSH_ENABLED=true` →
 biarkan cron 03.30. ⚠️ Main/prod belum punya pesan penasihat `--days` (sisa
 cabang `fix/accurate-push-saklar`), jadi angkanya dari sini, bukan dari
 perintahnya. ⚠️ `is_active` **tidak** memagari push — jangan memakainya.
+
+## 8. Pembaruan 4 Sep malam — empat pertanyaan §6 terjawab
+
+| Pertanyaan §6 | Jawaban |
+|---|---|
+| Versi PDF lain dengan endpoint pembayaran? | **Tidak ada.** Proposal v2 (diselamatkan ke `docs/api/`) menulis Fase 2 sebagai *"gambaran, spec menyusul"* — vendor menjawab persis yang diminta. Spek konkret kini ada: `docs/api/permintaan-omnicare-endpoint-pembayaran-2026-09.md`, siap dikirim. Tiket **1b tetap DITUNDA** sampai vendor menjawab |
+| Penempatan (6m) kodenya di mana? | **Ditemukan**: `DigitalChecklistController::rolling*` + `cabangSesiUntuk()`. Ekky: mau dibuat **global**. Tiket 6m → *"Rolling global"*, **L**, pemohon HR/Ops, **REQ**; `rencana-penempatan.md` jadi bahan 02 |
+| Dua cabang Reza | `checklist-pettycash` → **hapus** (blade sudah di main, SQL dilarang). `fitur/detail-pasien-…` → **cherry-pick `_modal_patient_detail.blade.php` saja** sebagai tiket S bila masih diinginkan, lalu hapus |
+| Cabut `Admin*` | **Ya.** Boleh dikerjakan chat build |
+| Pemicu prod | **Sesudah demo.** Dev = simulasi; **tiket dev dibuang**; tiket nyata dibuat di **prod** |
+
+**⚠️ Konsekuensi untuk §5 (urutan pemuatan):** seluruh urutan itu dijalankan
+**di PROD sesudah IT Tracker naik**, bukan di dev. Dev cuma untuk demo dan
+latihan. Jangan memuat 30 tiket ke dev — semuanya akan dibuang.
+
+**Gerbong prod IT Tracker** (hanya saat Ekky menyebut "prod"): merge
+`feat/it-tracker` → `main` (**0 konflik**, diuji kering 4 Sep) → SQL berurutan
+→ `access:rebuild` → deploy penuh → **rsync `assets/` saja** → `curl` beranda
+200 + URL akhir. Enam fitur lain di UAT **tidak ikut otomatis**.
