@@ -1139,3 +1139,88 @@ persis §7 dan persis label desain (*"Business Owner (Executive / Konsultan)"*).
   `password_hash(PASSWORD_DEFAULT)` = bcrypt biasa). `dev.sweettreats.id`
   terbuka di internet → jangan password yang gampang ditebak, dan **jangan
   pernah di prod**.
+
+### 14.19 Prompt chat build — jalan pintas paraf BERTANDA (keputusan §14.16)
+
+> Keputusan Ekky 4 Sep: Head IT boleh **melewati** paraf Business Owner, **tapi
+> tercatat**. Bentuknya *pelewatan*, bukan *persetujuan* — tombolnya tidak boleh
+> menyamar jadi paraf. Dibangun **sesudah demo**, bukan sebelum: demo dulu akan
+> memberi tahu apakah BO memang lambat; kalau tidak, fitur ini tak perlu ada.
+
+```
+Lanjutkan proyek SweetTreats lewat memori. Chat ini membangun SATU fitur kecil di
+IT Request Tracker: JALAN PINTAS PARAF BERTANDA. Lokal & dev; prod HANYA kalau
+Ekky menyebut "prod".
+
+BACA DULU:
+· docs/rencana/rencana-it-tracker.md  <- §14.16 (keputusan + spesifikasi),
+                                        §14.18 (kenapa ini penting), §14.19 (ini)
+· memori project_it_tracker
+
+MASALAH YANG DISELESAIKAN:
+Gerbang ANALISIS->Development butuh paraf satu Business Owner (Executive /
+Konsultan). Kalau BO lambat merespons, tiket tersandera dan Head IT tak bisa
+apa-apa. Ekky memutuskan: Head IT boleh MELEWATI, tapi TERCATAT dan TERLIHAT.
+
+BENTUKNYA — ini yang paling mudah salah:
+1. Ini PELEWATAN, bukan paraf. Tombolnya berlabel "Teruskan tanpa paraf BO",
+   BUKAN "Paraf". Jangan pernah mengisi fr02.paraf dari jalur ini.
+2. Simpan TERPISAH: fr02.diteruskan = {oleh, oleh_id, at, alasan}.
+   gateInfo: lampu "paraf satu Business Owner" menyala kalau paraf ADA ATAU
+   diteruskan ADA — tapi teks lampunya berubah jadi
+   "diteruskan Head IT tanpa paraf BO" supaya tak menyamar.
+3. ALASAN WAJIB, satu baris, minimal 10 karakter. Tanpa alasan -> ditolak
+   dengan pesan yang menyebut kenapa (pola P3).
+4. Hanya ROLE_HEAD_IT. Reza (it_dev) -> 403. BO (pengawas) -> 403 (mereka
+   punya tombol paraf sendiri).
+5. PENANDA IKUT SAMPAI GO LIVE dan tercetak:
+   · detail tiket: banner di bagian 02 DAN di kepala tiket, mis.
+     "Diteruskan Head IT tanpa paraf Business Owner · 4 Sep 14:20 · <alasan>"
+   · kartu papan: chip pendek "tanpa paraf BO"
+   · ekspor: baris yang sama di blok status ekspor FRM-IT-01 (satu-satunya
+     ekspor yang ada), dan WAJIB ikut saat ekspor 02/06 dibangun nanti.
+   Kalau penandanya bisa disembunyikan atau tampak seperti paraf biasa,
+   seluruh gunanya hilang.
+6. Konsisten dengan T2 (§14.13): mengubah isi 02 (FR/komponen/lingkup/deps/
+   jenjang) MENGGUGURKAN diteruskan, sama seperti menggugurkan paraf.
+   Simpan-ulang identik & catatan dapur TIDAK menggugurkan.
+7. Kalau BO memparaf SESUDAH diteruskan: simpan keduanya. Paraf tidak
+   menghapus jejak pelewatan.
+8. Tidak ada masa tunggu (Ekky menolak friksi itu). Kejujuran dijaga oleh
+   penanda yang tak bisa disembunyikan, bukan oleh penundaan.
+
+GERBANG MANA: bangun SATU mekanisme teruskanTanpaBo($t, $gerbang, $alasan)
+dengan konstanta GERBANG_BOLEH_DITERUSKAN = ['02']. Go Live ('06') SENGAJA
+TIDAK termasuk — ACC BO Go Live tetap tak bisa dilewati Head IT. Menambahkan
+'06' = satu entri, keputusan Ekky nanti; jangan ditambahkan sendiri.
+
+⏳ HAL YANG BELUM DIPUTUSKAN — JANGAN DIKERJAKAN TANPA KATA EKSPLISIT EKKY
+DI CHAT INI: mencabut "Admin General", "Admin Backup", "Admin" dari
+ROLE_PENGAWAS (§14.18). Ekky bilang "boleh, bahas dulu" — itu BUKAN ya.
+Kalau dia menyebutnya di chat ini: satu konstanta, nol perubahan group_path,
+dan tambahkan uji "Admin_Ekky tak bisa memparaf".
+
+UJI TERIMA:
+· Head IT + alasan -> diteruskan tersimpan, gerbang terbuka, fr02.paraf TETAP
+  kosong
+· tanpa alasan / alasan < 10 karakter -> ditolak, pesan menyebut sebabnya
+· Reza -> 403 · BO -> 403
+· penanda tampil di detail (2 tempat), kartu papan, dan ekspor FRM-IT-01
+· ubah FR sesudah diteruskan -> diteruskan gugur, gerbang menutup lagi
+· BO memparaf sesudah diteruskan -> keduanya tersimpan, penanda tetap tampil
+· teruskanTanpaBo($t, '06', ...) -> ditolak (bukan di daftar)
+· KENDALI NEGATIF: 83 uji yang ada tetap hijau; cacah baris tabel lama tak
+  berubah; tiket yang diparaf BO normal TIDAK menampilkan penanda apa pun
+
+LINGKUNGAN:
+· Branch feat/it-tracker, worktree Downloads\sweettreats-it-tracker. Cek HEAD
+  sendiri (git log -1). Nomor tiket di BARIS PERTAMA commit.
+· dev = SATU working copy bersama DAN sedang dipakai untuk demo — koordinasi
+  sebelum deploy; `git status --porcelain | grep "^??"` dulu; checkout TANPA
+  reset --hard.
+· ⛔ JANGAN db:show / Schema::hasTable() / SHOW COLUMNS / DESCRIBE — membunuh
+  mysqld lokal. Pakai SHOW TABLES LIKE + SELECT kolom LIMIT 0.
+· phpunit PER KELAS.
+
+Selesai: entri docs/log-update.md + salin ke Google Drive + catat ke memori.
+```
