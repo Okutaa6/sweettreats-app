@@ -52,9 +52,10 @@ class KatalogController extends Controller
         // dibiarkan bocor lewat panel ringkasan.
         $bolehIsi = fn ($t) => $peran !== 'head' || $t->pemohon_user_id === session('id');
 
-        // fitur diturunkan dari access_path — sekali muat pohon untuk 33 modul
+        // fitur diturunkan dari access_path lewat DAFTAR LINK modul (§14.27),
+        // dedup per link — satu halaman dihitung sekali walau labelnya banyak.
         $fitur = [];
-        foreach ($semua as $m) $fitur[$m->id] = $this->katalog->fitur($m->access_id);
+        foreach ($semua as $m) $fitur[$m->id] = $this->katalog->fiturModul($m);
 
         // penyaring: pencarian menyentuh nama modul, departemen, jenis, DAN nama fiturnya
         $tampil = $semua->filter(function ($m) use ($q, $fitur) {

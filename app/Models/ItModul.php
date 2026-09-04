@@ -17,13 +17,15 @@ class ItModul extends Model
 
     protected $fillable = [
         'nama', 'departemen', 'jenis', 'status', 'sejak', 'sejak_terbukti',
-        'access_id', 'catatan', 'urutan',
+        'access_id', 'fitur_link', 'catatan', 'urutan',
         // pemakaian: PEMETAAN diisi seeder; ANGKA-nya ditulis it:hitung-pemakaian
         'pakai_tabel', 'pakai_kolom', 'pakai_7hari', 'pakai_at',
     ];
 
     protected $casts = [
         'sejak'          => 'date',
+        // daftar access_path.link milik modul ini (§14.27) — fitur dihitung dari sini
+        'fitur_link'     => 'array',
         'sejak_terbukti' => 'bool',
         'urutan'         => 'int',
         'pakai_7hari'    => 'int',

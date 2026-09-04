@@ -152,6 +152,17 @@
         @endif
     </div>
 
+    @if (app()->environment() !== 'production')
+        {{-- ⚠️ Di dev/lokal angka pemakaian SELALU nol karena tak ada yang bekerja
+             di sini — tanpa keterangan ini, siapa pun yang memperagakan katalog
+             dari dev akan menyimpulkan semua modulnya mati (§14.27). --}}
+        <div class="itk-nota-lingkungan">
+            <b>{{ mb_strtoupper(app()->environment()) }}</b>
+            <span>Angka <strong>"dipakai N× 7 hari"</strong> hanya berarti di produksi — lingkungan ini tak dipakai kerja nyata, jadi wajar bila semuanya 0.
+                Yang tetap berarti di sini: jumlah modul, fitur, dan tiket.</span>
+        </div>
+    @endif
+
     {{-- Legenda status: label bertulis, BUKAN saluran warna milik papan --}}
     <div class="itk-kat-legenda">
         <b>STATUS</b>

@@ -12,12 +12,20 @@ use Illuminate\Support\Facades\DB;
  *
  * TIGA ATURAN YANG MEMBENTUK KELAS INI (jangan dilanggar diam-diam):
  *
- * 1. FITUR DITURUNKAN, bukan diketik. `it_modul.access_id` menunjuk satu node
- *    `access_path`; fiturnya = keturunan node itu yang punya `link`. Aturannya
- *    SAMA PERSIS dengan shellCollectLeaves() di app/Helpers.php — node
- *    bercabang menyerahkan hitungan ke anak-anaknya, daun tanpa link tidak
- *    dihitung (ia memang tak pernah tampil di sidebar). Katalog yang diketik
- *    tangan basi dalam dua bulan; yang diturunkan tidak bisa.
+ * 1. FITUR DITURUNKAN, bukan diketik — dan diturunkan **per LINK**, bukan per
+ *    node (§14.27, ralat spesifikasi). `it_modul.fitur_link` menyimpan daftar
+ *    `access_path.link` milik modul; fiturnya = link-link itu, DEDUP PER LINK.
+ *
+ *    Kenapa bukan per node: MENU mengelompokkan berdasarkan NAVIGASI, KATALOG
+ *    berdasarkan KEPEMILIKAN, dan keduanya tak selalu berimpit — Branch·Doctor·
+ *    Doctor Service bersaudara di bawah parent yang juga memuat modul lain.
+ *    Dan `rawreservation` muncul 4× di menu dengan empat nama: menghitung node
+ *    = menghitung LABEL MENU, menghitung link = menghitung HALAMAN. Yang
+ *    dijanjikan katalog kepada Executive adalah "halaman yang bisa dibuka".
+ *
+ *    ⚠️ `link` juga STABIL antar lingkungan, sedangkan id node tidak.
+ *    Modul lama yang belum punya daftar link tetap dilayani lewat node-nya
+ *    (aturan shellCollectLeaves), supaya tak ada yang mendadak nol.
  *
  * 2. TIGA ANGKA DIHITUNG: hidup (status modul) · berjalan & utang (it_ticket).
  *    Tak satu pun disimpan. "utang" = tiket TERBUKA yang menempel di modul
@@ -66,9 +74,51 @@ class KatalogModul
     }
 
     /**
-     * Fitur satu modul = halaman yang bisa dibuka di bawah node-nya.
-     * Bercabang → turun ke anak; daun ber-link → dirinya sendiri; daun tanpa
-     * link → nol (persis seperti sidebar: ia tak pernah tampil).
+     * Fitur satu MODUL — jalur utama (§14.27): daftar link, dedup per link.
+     * Link yang tak ada di menu lingkungan ini tidak dihitung: katalog
+     * menjanjikan halaman yang BISA DIBUKA, bukan yang seharusnya ada.
+     * Modul tanpa daftar link jatuh kembali ke node-nya (perilaku lama).
+     *
+     * @return array<int, array{nama: string, link: string}>
+     */
+    public function fiturModul(ItModul $m): array
+    {
+        $link = array_values(array_filter(array_map('trim', (array) ($m->fitur_link ?? []))));
+        if (! $link) return $this->dedup($this->fitur($m->access_id));
+
+        $this->muatPohon();
+        $out = [];
+        foreach (array_unique($link) as $l) {
+            if ($l === '' || $l === '-') continue;
+            $nama = null;
+            foreach ($this->node as $n) {
+                if (trim((string) $n->link) === $l) { $nama = (string) $n->nama; break; }
+            }
+            if ($nama === null) continue;         // tak ada di menu sini → tak bisa dibuka
+            $out[] = ['nama' => $nama, 'link' => $l];
+        }
+
+        return $out;
+    }
+
+    /** Buang link kembar — satu HALAMAN dihitung sekali walau labelnya banyak. */
+    private function dedup(array $fitur): array
+    {
+        $lihat = [];
+        $out = [];
+        foreach ($fitur as $f) {
+            if (isset($lihat[$f['link']])) continue;
+            $lihat[$f['link']] = true;
+            $out[] = $f;
+        }
+
+        return $out;
+    }
+
+    /**
+     * Fitur dari SATU node (jalur cadangan & perkakas seeder): bercabang → turun
+     * ke anak; daun ber-link → dirinya sendiri; daun tanpa link → nol (persis
+     * seperti sidebar: ia tak pernah tampil).
      *
      * @return array<int, array{nama: string, link: string}>
      */
