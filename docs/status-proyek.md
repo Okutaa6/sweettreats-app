@@ -39,6 +39,21 @@
 > `2400896`, tak ada lagi cabang prod terpisah. Peringatan lama "jangan deploy
 > main ke prod" **sudah TIDAK berlaku** — sekarang justru `main` yang benar.
 >
+> ✅ **Sisipan 2026-09-06 — KATALOG MODUL LIVE DI DEV** (`cad5c59`, 130 uji).
+> Halaman **saudara** papan di `/it-tracker/katalog` (bukan tab keempat):
+> **33 entri · 8 departemen · 25 hidup / 2 dibangun / 6 rencana**, tiga tampilan
+> (Daftar · Kartu · **Matriks 8×4 sekali lihat**) × dua lensa (departemen ⇄
+> jenis), panel geser per modul, tautan dua arah dengan papan (angka tiket
+> diklik → papan `?modul=`). **Tampilan bawaan mengikuti peran**: Executive →
+> Matriks, IT → Daftar. **Tiga keputusan yang menentukan**: ⛔ **tak ada tebakan
+> modul dari judul** (mockup memakai regex — tebakan yang meleset tak terlihat
+> siapa pun; yang kosong masuk baris "Tanpa modul" dengan penjumlahan eksplisit
+> yang **cocok** dengan cacah papan) · **fitur diturunkan dari `access_path`**
+> (Absensi 8 · Konten 6 · Pusat Akun 6 — tak bisa basi; modul tanpa menu = 0
+> fitur, bukan galat) · **status bukan progres** (label bertulis, saluran warna
+> papan tidak dipinjam, tak ada persen). Tanggal yang tak terbukti ditulis
+> "belum terbukti", tak ada yang dikarang. ⏳ **Menunggu Head IT**: 31 tiket dev
+> belum ditautkan ke modul — sengaja tidak ditebak sistem.
 > ✅ **Sisipan 2026-09-05d — GERBONG "PAPAN JUJUR"** (`9d93489`, dev, 115 uji).
 > Empat lubang yang tak pernah bikin galat tapi menyesatkan: **(1)** kolom kosong
 > karena filter kini menyebut ke mana tiketnya pergi (*"0 yang cocok — 3 tiket

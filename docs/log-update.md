@@ -6,6 +6,76 @@
 > file ini append-only.
 
 ---
+## 2026-09-06 — KATALOG MODUL: halaman saudara papan — "apa saja yang kami punya"
+
+Papan menjawab *"apa yang sedang bergerak"*. Executive bertanya hal lain —
+*"apa saja yang kami punya"* — dan sampai hari ini jawabannya cuma ada di
+kepala Head IT. Dua pertanyaan, dua halaman: **`/it-tracker/katalog`**, bukan
+tab keempat (tiga tingkat tab di papan semuanya *jenis tiket*; katalog bukan
+tiket). Live di dev (`cad5c59`), **130 uji hijau** (kelas baru 15 uji).
+
+### Yang dibangun
+- **`it_modul`** (33 entri) + **`it_ticket.modul_id`**. Tak ada kolom jumlah
+  fitur maupun jumlah tiket — keduanya **dihitung**; angka tersimpan basi
+  diam-diam, alasan yang sama dengan larangan kolom "berapa hari menunggu".
+- **Tiga tampilan × dua lensa**, semuanya lewat query string sehingga bisa
+  ditautkan dan di-bookmark: **Daftar** (padat, dipakai IT saat triase) ·
+  **Kartu** · **Matriks 8×4** yang memuat 33 modul dalam satu layar.
+- **Tampilan bawaan mengikuti peran**: Executive/Konsultan/Head mendarat di
+  **Matriks** (datang sebulan sekali, tak akan belajar navigasi), IT di
+  **Daftar**. Paket desain menandai celah ini sendiri; sekarang ditutup.
+- **Panel geser kanan** per modul: sejak · fitur · utang, daftar halaman yang
+  bisa dibuka, ringkasan tiap tiket terbuka (fase, menunggu siapa & berapa
+  hari, PIC, "sudah sampai mana"), lalu catatan & bukti data. **Esc menutup** —
+  celah kedua yang ditandai paket desain.
+- **Seeder `it:seed-katalog --env-guard=`**, idempoten by nama.
+
+### Tiga keputusan yang menentukan bentuknya
+1. **⛔ Tak ada tebakan modul dari judul.** Mockup memakai regex `modulOf()`.
+   Alasan menolaknya: **tebakan yang meleset tidak terlihat siapa pun** —
+   tiket *"Rate-limit API Omnicare"* akan tertangkap `/omnicare/` dan masuk
+   *Integrasi Omnicare* padahal mungkin milik Reservasi, lalu angka utang modul
+   itu salah selamanya tanpa ada yang tahu. `modul_id` diisi manusia saat
+   triase (boleh dikosongkan); yang kosong masuk baris **"Tanpa modul"** dengan
+   **penjumlahan eksplisit** — di dev hari ini: *"0 bertaut + 31 tanpa modul =
+   31 tiket terbuka di papan"*, dan angka itu **cocok** dengan cacah tabel.
+   Angka yang bisa dicocokkan lebih berharga daripada angka yang rapi.
+2. **Fitur diturunkan, tidak pernah diketik.** `access_id` menunjuk satu node
+   `access_path`; fiturnya = keturunan yang punya `link`, aturannya **sama
+   persis** dengan `shellCollectLeaves()` (node bercabang menyerahkan hitungan
+   ke anaknya; daun tanpa link tak dihitung karena ia memang tak pernah tampil
+   di sidebar). Terukur di dev: **Absensi 8 · Konten 6 · Pusat Akun 6**.
+   Modul tanpa menu (Accurate, Omnicare, Kontak & Percakapan, …) → `access_id`
+   NULL, 0 fitur, tertulis *"tanpa menu — berjalan di belakang"*, bukan galat.
+   Katalog yang diketik tangan basi dalam dua bulan; yang diturunkan tidak bisa.
+3. **Status bukan progres.** Label bertulis + tebal-pudarnya nama. ⛔ Saluran
+   warna papan **tidak dipakai** untuk status — panas = isi strip · oranye tepi
+   = unit usaha · putus-merah = pelewatan paraf · teks kuning = basi; kalau
+   katalog meminjamnya, artinya rusak di dua halaman sekaligus. Warna panas
+   dipakai ulang **hanya** di panel, pada strip menunggu tiap tiket, karena di
+   situ artinya memang sama. Tak ada bar persen, skor, atau grafik.
+
+### Sambungan dua arah
+Kepala papan → **Katalog Modul**, kepala katalog → **Papan Antrean**. Angka
+tiket di katalog **bisa diklik** → papan `?modul=` (parkiran ikut disaring,
+karena *utang* termasuk yang ditunda); chip di papan menyebut modulnya dan
+menyediakan jalan balik ke ringkasannya. Detail tiket menyebut *"Modul: X ›"*
+atau *"Tanpa modul katalog"*, dan Head IT bisa menautkan/melepas dari sana —
+tanpa itu, 31 tiket yang sudah lewat triase lama tak akan pernah bisa bertaut.
+
+### Yang jujur soal tanggal
+Modul hidup yang tanggalnya tak bisa dibuktikan ditulis **"belum terbukti"**
+plus penjelasan (*"tak ada tabel yang bisa membuktikan — bukan data hilang"*).
+Yang cuma perkiraan bulan (Dashboard Sales, Persetujuan, Akun Saya) ditandai
+`sejak_terbukti = 0` dan dirender sebagai bulan saja. **Tidak ada tanggal yang
+dikarang.** Penanda **WARISAN** untuk Pusat Akun diturunkan dari tahunnya
+(< 2026), bukan disimpan sebagai bendera kedua yang bisa berselisih.
+
+### Langkah berikutnya yang menunggu manusia
+31 tiket dev belum bertaut ke modul mana pun — **itu memang harus diisi Head
+IT**, bukan ditebak sistem. Sesudah ditaut, angka *berjalan/utang* per modul
+langsung hidup tanpa perawatan tambahan.
+---
 ## 2026-09-05d — IT TRACKER: gerbong "papan jujur" — papan berhenti berbohong pelan-pelan
 
 Empat lubang kecil yang tak satu pun bikin galat, tapi keempatnya membuat orang
