@@ -863,3 +863,14 @@ body.zona-it .itk-fasetab { border-bottom-color:#D8D4CA; }
 .itk-legenda-warna .lg-basi { width:auto; height:auto; font-size:10px; color:#B5701A; font-weight:800; background:none; font-style:normal; }
 .itk-legenda-warna .lg-paraf { width:auto; height:auto; font-size:9px; font-weight:800; color:#C0392B; border:1px dashed #C0392B; border-radius:4px; padding:0 5px; background:none; font-style:normal; }
 @media (max-width:1199px){ .itk-detail-rail { position:static; } }
+
+/* kolom kosong KARENA FILTER — beda rupa dari kosong sungguhan (amber, ada jalan keluar) */
+.itk-fase-saring { border:1px solid #E8C99A; background:#FFF8EE; border-radius:9px; padding:7px 9px; }
+.itk-fase-saring[hidden] { display:none; }
+.itk-fase-saring .hd { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+.itk-fase-saring .lbl { font-size:10.5px; font-weight:800; letter-spacing:.5px; color:#5A3A22; white-space:nowrap; }
+.itk-fase-saring .num { margin-left:auto; font-size:10.5px; font-weight:800; color:#B5701A; white-space:nowrap; }
+.itk-fase-saring .txt { font-size:11px; color:#7A5B43; font-weight:600; line-height:1.4; margin-top:3px; }
+.itk-fase-saring .aksi { display:inline-block; margin-top:5px; background:#fff; border:1px solid #E8C99A; color:#B5701A;
+  border-radius:7px; padding:4px 9px; font-size:10.5px; font-weight:800; text-decoration:none; }
+.itk-fase-saring .aksi:hover { text-decoration:none; color:#B5701A; filter:brightness(.97); }

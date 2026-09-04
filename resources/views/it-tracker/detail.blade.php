@@ -316,7 +316,8 @@
                                     <div class="itk-gerbang-hd"><b>GERBANG KE ANTRE</b><span class="itk-acc-fase f2">FASE 1</span></div>
                                     <ul class="itk-missing"><li>jenjang + bobot + prioritas IT terisi (lewat triase)</li></ul>
                                     @if ($peran === 'head_it')
-                                        <a class="itk-gerbang-btn" href="{{ route('it-tracker.index', ['q' => $t->nomor]) }}">Triase — tetapkan jenjang &amp; prioritas</a>
+                                        <button type="button" class="itk-gerbang-btn"
+                                            onclick="itkBukaTriase('{{ $t->id }}', '{{ $t->nomor }}', @js($t->judul), @js($t->prioritas_pemohon))">Triase — tetapkan jenjang &amp; prioritas</button>
                                     @else
                                         <span class="itk-gerbang-btn mati">Hanya Head IT yang menetapkan triase</span>
                                     @endif
@@ -420,7 +421,9 @@
                 <div class="itk-side">
                     <div class="itk-side-hd"><i></i><b>LANGKAH BERIKUTNYA</b></div>
                     @if ($t->fase === 'TRIASE')
-                        <a class="itk-gerbang-btn" style="margin-top:0;width:100%" href="{{ route('it-tracker.index', ['q' => $t->nomor]) }}">Triase — tetapkan jenjang &amp; prioritas</a>
+                        {{-- triase DI SINI: Head IT yang sedang membaca tiket tak perlu dilempar balik ke papan --}}
+                        <button type="button" class="itk-gerbang-btn" style="margin-top:0;width:100%"
+                            onclick="itkBukaTriase('{{ $t->id }}', '{{ $t->nomor }}', @js($t->judul), @js($t->prioritas_pemohon))">Triase — tetapkan jenjang &amp; prioritas</button>
                     @elseif ($gBtnForm)
                         <form method="post" action="{{ route('it-tracker.maju', $t->id) }}">
                             @csrf
@@ -451,6 +454,15 @@
                 <div class="itk-info-row"><b>Masuk fase</b><span>{{ $t->fase_since->translatedFormat('j M') }}</span></div>
                 @if ($t->jenis_permintaan)<div class="itk-info-row"><b>Jenis</b><span>{{ $t->jenis_permintaan }}</span></div>@endif
                 <div style="display:flex;flex-direction:column;gap:7px;border-top:1px solid #F1E5D5;padding-top:11px">
+                    @if ($adalahIt && $aktif && ! $t->pic_user_id)
+                        {{-- "Tarik": IT pelaksana menunjuk dirinya sendiri. Tanpa ini ia terkunci
+                             di luar tiketnya sendiri sampai Head IT sempat menunjuk PIC. --}}
+                        <form method="post" action="{{ route('it-tracker.tarik', $t->id) }}">
+                            @csrf
+                            <button type="submit" class="itk-btn itk-btn-hijau" style="width:100%">Tarik — aku yang kerjakan</button>
+                        </form>
+                        <div class="itk-hint" style="margin:0">Belum ada PIC. Yang menarik jadi pengerjanya; pemindahan sesudah itu lewat Head IT.</div>
+                    @endif
                     @if ($form01)
                         <a class="itk-rail-btn" href="{{ route('it-tracker.ekspor', $t->id) }}">
                             <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4 1.5h5.5L13 5v9.5H4V1.5Z" stroke="#7A5B43" stroke-width="1.4" stroke-linejoin="round"/><path d="M9.5 1.5V5H13M6 8.5h5M6 11h5" stroke="#7A5B43" stroke-width="1.4" stroke-linecap="round"/></svg>Ekspor FRM-IT-01</a>
@@ -506,6 +518,9 @@
         </div>
     </div>
 </div>
+@if ($peran === 'head_it' && $t->fase === 'TRIASE')
+    @include('it-tracker._modal-triase')
+@endif
 <script>
 (function () {
     // akordeon: klik kepala membuka/menutup; simpul rel membuka fasenya lalu menggulir

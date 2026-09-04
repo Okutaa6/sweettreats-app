@@ -213,10 +213,19 @@
                     ? 'Semua tiket sedang di tempat lain. Matikan filternya untuk melihat semuanya.'
                     : 'Belum ada tiket. Permintaan pertama akan langsung tampil di kolom Requirement.' }}
             </div>
+            @if ($filter['q'] !== '' && $parkir->isNotEmpty())
+                {{-- Pencarian menjangkau parkiran: tiket yang sudah ditutup tetap ADA,
+                     dan papan yang diam saja membuatnya seolah tak pernah ada. --}}
+                <div style="font-size:13px;color:#5A3A22;font-weight:700;margin-top:12px">
+                    Tapi <span class="num">{{ $parkir->count() }}</span> tiket yang cocok ada di <strong>parkiran</strong>:
+                    {{ $parkir->take(3)->map(fn ($p) => $p->nomor . ' (' . ucfirst(strtolower($p->fase)) . ')')->implode(' · ') }}{{ $parkir->count() > 3 ? ' …' : '' }}
+                </div>
+                <div style="margin-top:9px"><button type="button" class="itk-btn itk-btn-putih" onclick="itkBukaParkiran()">Buka parkiran</button></div>
+            @endif
         </div>
     @endif
 
-    <div class="itk-board" id="itkBoard">
+    <div class="itk-board" id="itkBoard" data-saring-teks="{{ $saring['teks'] ?? '' }}">
         @foreach ($groups as $nama => $fases)
             <div class="itk-kolom" data-kolom>
                 {{-- Kepala wilayah: tegas, angka besar --}}
@@ -237,7 +246,9 @@
 
                 <div class="itk-kolom-body">
                 @foreach ($fases as $i => $f)
-                    <div class="itk-fase-panel" data-fp="{{ $i }}" data-fase="{{ $f['k'] }}" data-label="{{ $f['label'] }}">
+                    @php $raw = $rawFase[$f['k']] ?? []; @endphp
+                    <div class="itk-fase-panel" data-fp="{{ $i }}" data-fase="{{ $f['k'] }}" data-label="{{ $f['label'] }}"
+                         data-raw-fitur="{{ $raw['fitur'] ?? 0 }}" data-raw-support="{{ $raw['support'] ?? 0 }}" data-raw-baru="{{ $raw['baru'] ?? 0 }}">
                         @if (count($fases) === 1)
                             <div class="itk-fase-hd"><span class="n num" data-ft-n>{{ $f['cards']->count() }}</span></div>
                         @endif
@@ -314,6 +325,16 @@
                         </div>
                     @endforeach
                         <div class="itk-fase-kosong" data-fase-kosong hidden>Tidak ada tiket di tahap ini.</div>
+                        @if ($saring)
+                            {{-- Kosong karena FILTER ≠ kosong sungguhan: sebut ke mana tiketnya
+                                 pergi + satu jalan keluar sekali klik. Tanpa ini orang menyimpulkan
+                                 "Dev lagi sepi" padahal cuma tersaring. --}}
+                            <div class="itk-fase-saring" data-fase-saring hidden>
+                                <div class="hd"><span class="lbl">{{ $f['label'] }}</span><span class="num" data-saring-n>0 yang cocok</span></div>
+                                <div class="txt"><span data-saring-txt></span></div>
+                                <a class="aksi" href="{{ $saring['href'] }}">{{ $saring['aksi'] }}</a>
+                            </div>
+                        @endif
                     </div>
                 @endforeach
                 </div>
@@ -372,10 +393,22 @@
                     });
                     totalKol += n;
                     panel.setAttribute('data-n', n);
+                    // kosong karena FILTER (server) vs kosong sungguhan — dua pesan berbeda
+                    var rawTab = (+panel.getAttribute('data-raw-' + jenis) || 0) + (+panel.getAttribute('data-raw-baru') || 0);
+                    var saring = panel.querySelector('[data-fase-saring]');
+                    var tersaring = n === 0 && rawTab > 0 && !!saring;
                     var kosong = panel.querySelector('[data-fase-kosong]');
                     if (kosong) {
-                        kosong.hidden = n !== 0;
+                        kosong.hidden = n !== 0 || tersaring;
                         kosong.textContent = alasanKosong(jenis, panel.getAttribute('data-fase') || '', panel.getAttribute('data-label') || 'Tahap');
+                    }
+                    if (saring) {
+                        saring.hidden = ! tersaring;
+                        if (tersaring) {
+                            saring.querySelector('[data-saring-n]').textContent = '0 yang cocok';
+                            saring.querySelector('[data-saring-txt]').textContent =
+                                rawTab + ' tiket ' + (panel.getAttribute('data-label') || 'tahap ini') + ' ' + (board.getAttribute('data-saring-teks') || '');
+                        }
                     }
                     var badge = panel.querySelector('[data-ft-n]');
                     if (badge) badge.textContent = n;
@@ -479,6 +512,7 @@
             b.onclick = function () { pilihParkir(b.getAttribute('data-pk')); };
         });
         if (toggle) toggle.onclick = function () { bukaParkir(parkiran.hidden, true); };
+        window.itkBukaParkiran = function () { bukaParkir(true, true); if (parkiran) parkiran.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
 
         var url = new URL(window.location.href), dariUrl = url.searchParams.get('jenis');
         terap(['support', 'fitur'].indexOf(dariUrl) >= 0 ? dariUrl : bar.getAttribute('data-jenis-awal'), false);
@@ -487,88 +521,8 @@
     </script>
 </div>
 
-{{-- Modal triase (Head IT) — jenjang menentukan fase yang dilewati --}}
+{{-- Modal triase (Head IT) — partial yang SAMA dipakai halaman detail --}}
 @if ($peran === 'head_it')
-<div class="itk-modal-scrim" id="itkModalTriase" onclick="if (event.target === this) itkTutupTriase()">
-    <div class="itk-modal">
-        <div class="itk-modal-hd"><b>TRIASE — DIISI IT, BUKAN PEMOHON</b><span class="itk-badge-fase">FASE 1</span>
-            <button type="button" onclick="itkTutupTriase()">✕</button></div>
-        <div class="itk-modal-body">
-            <div>
-                <span class="itk-no num" id="itkTriaseNo"></span>
-                <div style="font-size:15px;font-weight:800" id="itkTriaseJudul"></div>
-                <div class="itk-hint" id="itkTriasePrioP"></div>
-            </div>
-            <form method="post" id="itkTriaseForm">
-                @csrf
-                <label class="itk-lbl">JENJANG — MENENTUKAN FASE YANG DILEWATI</label>
-                <div style="display:flex;gap:7px;margin-bottom:13px">
-                    <label><input class="itk-radio" type="radio" name="jenjang" value="S" required><span><b>Support</b> · bug/tweak — 2 fase</span></label>
-                    <label><input class="itk-radio" type="radio" name="jenjang" value="M"><span><b>Fitur</b> · 5 fase</span></label>
-                    <label><input class="itk-radio" type="radio" name="jenjang" value="L"><span><b>Modul</b> · 7 fase</span></label>
-                </div>
-                <div class="itk-hint" style="margin:-8px 0 13px">Pilihan ini juga menentukan tabnya: <strong>Support</strong> masuk tab Support;
-                    <strong>Fitur</strong> &amp; <strong>Modul</strong> masuk tab Fitur / Modul.</div>
-                @if ($picOpsi->count() > 1)
-                    <div style="margin-bottom:13px">
-                        <label class="itk-lbl">DIKERJAKAN SIAPA (PIC)</label>
-                        <div style="display:flex;gap:7px;flex-wrap:wrap">
-                            @foreach ($picOpsi as $p)
-                                <label><input class="itk-radio" type="radio" name="pic_user_id" value="{{ $p->id }}"><span>{{ $p->nama }}</span></label>
-                            @endforeach
-                        </div>
-                        <div class="itk-hint">Opsional — boleh ditentukan nanti; tanpa PIC, yang pertama menarik tiketnya yang jadi pengerja.</div>
-                    </div>
-                @endif
-                <div class="itk-grid2" style="margin-bottom:13px">
-                    <div>
-                        <label class="itk-lbl">BOBOT (1–5)</label>
-                        <div style="display:flex;gap:6px">
-                            @foreach (range(1, 5) as $b)
-                                <label><input class="itk-radio" type="radio" name="bobot" value="{{ $b }}" required><span>{{ $b }}</span></label>
-                            @endforeach
-                        </div>
-                    </div>
-                    <div>
-                        <label class="itk-lbl">PRIORITAS IT</label>
-                        <div style="display:flex;gap:6px">
-                            @foreach (['P1', 'P2', 'P3'] as $p)
-                                <label><input class="itk-radio" type="radio" name="prioritas_it" value="{{ $p }}" required><span>{{ $p }}</span></label>
-                            @endforeach
-                        </div>
-                    </div>
-                </div>
-                <button type="submit" class="itk-btn itk-btn-grafit" style="width:100%">Simpan &amp; masukkan antrean</button>
-            </form>
-            <div class="itk-sekat"></div>
-            <form method="post" id="itkParkirForm">
-                @csrf
-                <label class="itk-lbl">ATAU TUNDA / TOLAK — ALASANNYA WAJIB, SUPAYA YANG DITUNDA TIDAK HILANG TANPA JEJAK</label>
-                <input class="itk-in" type="text" name="alasan" required maxlength="500"
-                       placeholder="mis. ditunda sampai komisi 70% selesai">
-                <div style="display:flex;gap:8px;margin-top:9px">
-                    <button type="submit" name="ke" value="DITUNDA" class="itk-btn itk-btn-oranye">Tunda</button>
-                    <button type="submit" name="ke" value="DITOLAK" class="itk-btn itk-btn-putih">Tolak…</button>
-                </div>
-                <div class="itk-hint">Ditunda tetap tampil di parkiran papan dengan alasannya — ditunda bukan berarti hilang.</div>
-            </form>
-        </div>
-    </div>
-</div>
-<script>
-function itkBukaTriase(id, nomor, judul, prioP) {
-    document.getElementById('itkTriaseNo').textContent = nomor;
-    document.getElementById('itkTriaseJudul').textContent = judul;
-    document.getElementById('itkTriasePrioP').textContent = prioP
-        ? 'Prioritas menurut pemohon: ' + prioP + ' — masukan, bukan keputusan. Kolomnya terpisah.'
-        : '';
-    document.getElementById('itkTriaseForm').action = '{{ url('it-tracker/tiket') }}/' + id + '/triase';
-    document.getElementById('itkParkirForm').action = '{{ url('it-tracker/tiket') }}/' + id + '/parkir';
-    document.getElementById('itkModalTriase').classList.add('buka');
-}
-function itkTutupTriase() {
-    document.getElementById('itkModalTriase').classList.remove('buka');
-}
-</script>
+    @include('it-tracker._modal-triase')
 @endif
 @endsection

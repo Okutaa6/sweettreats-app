@@ -240,6 +240,7 @@ Route::middleware([AuthGuard::class])->group(function () {
         Route::post('/tiket/{id}/catatan',  [ItTrackerController::class, 'catatan'])->name('it-tracker.catatan')->whereNumber('id');
         Route::post('/tiket/{id}/konfirmasi', [ItTrackerController::class, 'konfirmasi'])->name('it-tracker.konfirmasi')->whereNumber('id');
         Route::post('/tiket/{id}/pic',      [ItTrackerController::class, 'pic'])->name('it-tracker.pic')->whereNumber('id');
+        Route::post('/tiket/{id}/tarik',    [ItTrackerController::class, 'tarik'])->name('it-tracker.tarik')->whereNumber('id');
         Route::post('/tiket/{id}/pra',      [ItTrackerController::class, 'pra'])->name('it-tracker.pra')->whereNumber('id');
         Route::post('/tiket/{id}/pasca',    [ItTrackerController::class, 'pasca'])->name('it-tracker.pasca')->whereNumber('id');
         Route::post('/tiket/{id}/deploy',   [ItTrackerController::class, 'deploy'])->name('it-tracker.deploy')->whereNumber('id');

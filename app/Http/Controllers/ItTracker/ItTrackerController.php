@@ -55,7 +55,12 @@ class ItTrackerController extends Controller
         // DITUNDA/DITOLAK — bertambah selamanya) cukup 6 kolom skalar.
         [$aktif, $views] = $this->aktifDenganView();
 
-        // Filter papan (q / macet / sumber / jenjang) — sama dengan mockup.
+        // Potret SEBELUM filter — dipakai kolom kosong untuk menyebut ke mana
+        // tiketnya pergi ("3 tiket Development ada di tab Permintaan"). Tanpa ini,
+        // kosong-karena-filter tak bisa dibedakan dari kosong-sungguhan.
+        $aktifAwal = $aktif;
+
+        // Filter papan (q / macet / sumber / jenjang / unit) — sama dengan mockup.
         $q = trim((string) $request->query('q', ''));
         if ($q !== '') {
             $aktif = $aktif->filter(fn ($t) => stripos($t->nomor . ' ' . $t->judul, $q) !== false);
@@ -108,7 +113,45 @@ class ItTrackerController extends Controller
             $groups[$nama] = $kolom;
         }
 
+        // Berapa tiket per fase SEBELUM filter, dipecah per tab jenis — JS memakainya
+        // untuk memutuskan apakah kolom kosong itu "memang kosong" atau "tersaring".
+        $rawFase = [];
+        foreach ($aktifAwal as $x) {
+            $kf = PhaseEngine::phaseOf($x->fase);
+            $kj = $x->jenjang === 'S' ? 'support' : ($x->jenjang ? 'fitur' : 'baru');
+            $rawFase[$kf][$kj] = ($rawFase[$kf][$kj] ?? 0) + 1;
+        }
+
+        // Satu alasan + satu jalan keluar sekali klik. Urutan sengaja: sumber → unit
+        // → macet → pencarian; yang paling sering menyembunyikan disebut lebih dulu.
+        $sisa = fn (array $ubah) => route('it-tracker.index', array_filter(array_merge(
+            array_filter(['q' => $q ?: null, 'macet' => $request->query('macet') ? 1 : null,
+                          'sumber' => $sumber ?: null, 'jenjang' => $jenjang ?: null, 'unit' => $unit ?: null]), $ubah)));
+        $saring = null;
+        if ($sumber) {
+            $lain = $sumber === 'permintaan' ? 'inisiatif' : 'permintaan';
+            $saring = ['teks' => 'ada di tab ' . ($lain === 'permintaan' ? 'Permintaan' : 'Inisiatif IT') . '.',
+                       'aksi' => 'Buka tab ' . ($lain === 'permintaan' ? 'Permintaan' : 'Inisiatif IT'),
+                       'href' => $sisa(['sumber' => $lain])];
+        } elseif ($unit) {
+            $saring = ['teks' => 'bukan tiket ' . ItTrackerService::unitLabel($unit) . '.',
+                       'aksi' => 'Lepas filter ' . ItTrackerService::unitLabel($unit), 'href' => $sisa(['unit' => null])];
+        } elseif ($request->query('macet')) {
+            $saring = ['teks' => 'tidak macet — penunggunya IT atau belum 3 hari.',
+                       'aksi' => 'Lepas filter Macet', 'href' => $sisa(['macet' => null])];
+        } elseif ($q !== '') {
+            $saring = ['teks' => 'tidak cocok pencarian "' . $q . '".',
+                       'aksi' => 'Hapus pencarian', 'href' => $sisa(['q' => null])];
+        } elseif ($jenjang) {
+            $saring = ['teks' => 'bukan jenjang ' . $jenjang . '.',
+                       'aksi' => 'Lepas filter jenjang', 'href' => $sisa(['jenjang' => null])];
+        }
+
+        // Pencarian WAJIB menjangkau parkiran: tiket yang sudah selesai/ditunda tetap
+        // ada, dan papan yang diam saja membuatnya seolah tak pernah ada.
         $parkir = ItTicket::whereIn('fase', self::FASE_PARKIRAN)
+            ->when($q !== '', fn ($w) => $w->where(fn ($x) => $x->where('nomor', 'like', '%' . $q . '%')
+                                                            ->orWhere('judul', 'like', '%' . $q . '%')))
             ->orderByDesc('fase_since')
             // `jenjang` ikut supaya parkiran bisa mengikuti tab jenis permintaan di papan —
             // tanpa itu, tab Support memperlihatkan tiket M/L yang ditunda dan keduanya bercerita beda.
@@ -123,6 +166,8 @@ class ItTrackerController extends Controller
             'filter'  => ['q' => $q, 'macet' => (bool) $request->query('macet'),
                           'sumber' => $sumber, 'jenjang' => $jenjang, 'unit' => $unit],
             'macetChips' => $macetChips,
+            'rawFase'    => $rawFase,
+            'saring'     => $saring,
             'totalAktif' => $views->count(),
         ]);
     }
@@ -1135,6 +1180,35 @@ class ItTrackerController extends Controller
             ->where('u.status', 1)
             ->orderBy('u.nama')
             ->get(['u.id', 'u.nama']);
+    }
+
+    /**
+     * "Tarik — aku yang kerjakan": IT pelaksana menunjuk DIRINYA sendiri saat
+     * tiket belum ber-PIC. Tanpa ini `bolehGerakkan` mengunci it_dev di luar
+     * tiketnya sendiri sementara satu-satunya yang bisa membuka kunci itu
+     * (menunjuk PIC) hanya Head IT — sistem menunggu orang yang tak perlu.
+     * Tiket yang SUDAH ber-PIC tak bisa direbut; pemindahan tetap lewat Head IT.
+     */
+    public function tarik(int $id)
+    {
+        if (! $this->adalahIt()) {
+            abort(403, 'Menarik tiket hanya untuk tim IT.');
+        }
+
+        $t = ItTicket::findOrFail($id);
+
+        if (! isset(PhaseEngine::RANK[$t->fase])) {
+            return back()->with('error', $t->nomor . ' tidak sedang berjalan — tak ada yang bisa ditarik.');
+        }
+        if ($t->pic_user_id !== null && $t->pic_user_id !== $this->userId()) {
+            return back()->with('error', $t->nomor . ' sudah dipegang ' . ($t->pic->nama ?? 'orang lain')
+                . '. Pemindahan PIC lewat Head IT — supaya tak ada tiket yang berpindah tangan diam-diam.');
+        }
+
+        $t->pic_user_id = $this->userId();
+        $t->save();
+
+        return back()->with('success', $t->nomor . ' ditarik — kamu PIC-nya sekarang.');
     }
 
     /** Ganti/penunjukan PIC — Head IT. */
