@@ -39,6 +39,21 @@
 > `2400896`, tak ada lagi cabang prod terpisah. Peringatan lama "jangan deploy
 > main ke prod" **sudah TIDAK berlaku** — sekarang justru `main` yang benar.
 >
+> ✅ **Sisipan 2026-09-06b — KATALOG DIAUDIT: 7 temuan ditutup** (`80a838b`, dev,
+> **139 uji**). Yang terpenting: **kebocoran isi tiket** — panel katalog
+> menampilkan judul SEMUA tiket terbuka, padahal rencana §12 melarang Head
+> departemen membaca tiket departemen lain (aturan yang sudah dipegang detail
+> tiket & FRM-IT-02). Kini Head melihat **angkanya** (beban IT memang harus
+> terbaca) tapi judul orang lain disensor; nomornya tetap supaya penjumlahan
+> tetap bisa dicocokkan — diukur di dev: **0 dari 31 judul bocor**. Tiga temuan
+> lain adalah jenis yang sama dengan pelajaran "papan jujur" (**kosong karena
+> penyaring ≠ kosong sungguhan**): matriks tanpa hasil pencarian diam saja ·
+> papan `?modul=` basi diam saja · tautan "bertindak di papan" tak membuka
+> parkiran padahal utang menghitung yang ditunda. Sisanya: "Permintaan Saya"
+> tak punya pintu ke katalog · katalog menawarkan pintu yang memantul ke Head ·
+> 32 baris CSS mati dibuang (kelas dipakai vs ada di CSS kini **282 : 282**).
+> **Uji E2E per persona** (Della · Ekky · Reza · Robi) jadi kelas tetap, menguji
+> apa yang tiap orang LIHAT — termasuk yang tak boleh ia lihat.
 > ✅ **Sisipan 2026-09-06 — KATALOG MODUL LIVE DI DEV** (`cad5c59`, 130 uji).
 > Halaman **saudara** papan di `/it-tracker/katalog` (bukan tab keempat):
 > **33 entri · 8 departemen · 25 hidup / 2 dibangun / 6 rencana**, tiga tampilan

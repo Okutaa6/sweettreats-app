@@ -6,6 +6,74 @@
 > file ini append-only.
 
 ---
+## 2026-09-06b — AUDIT Katalog Modul: 7 temuan ditutup, satu di antaranya kebocoran isi tiket
+
+Sesudah katalog naik dev, dibaca ulang seluruh kodenya, diuji **end-to-end per
+persona**, dan diperiksa layout/front-end-nya sebagai satu zona. Live di dev
+(`80a838b`), **139 uji hijau** di 13 kelas.
+
+### Temuan 1 — kebocoran isi tiket (yang paling serius)
+Panel ringkasan katalog menampilkan **judul semua tiket terbuka** kepada siapa
+pun yang boleh membuka halaman. Padahal rencana §12 melarang Head departemen
+membaca tiket departemen lain — aturan yang **sudah** dipegang detail tiket
+(403) dan panel ketergantungan FRM-IT-02 ("tiket lain (Analisis)"). Katalog
+lahir tanpa pagar itu, dan tak ada satu pun uji yang menangkapnya karena semua
+uji sebelumnya memakai peran IT/Executive.
+
+Sekarang: Head tetap melihat **angka** semua modul — beban IT memang harus
+terbaca lintas departemen — tapi judul tiket orang lain menjadi *"Tiket
+departemen lain — isinya tidak ditampilkan"*, catatan kemajuannya ikut
+disembunyikan, dan barisnya bukan tautan. **Nomor tiketnya tetap tampil** di
+daftar "Tanpa modul", supaya penjumlahan yang jadi janji halaman ini tetap bisa
+dicocokkan. Diukur di dev dengan akun Head Marketing sungguhan: **0 dari 31
+judul milik orang lain bocor**.
+
+### Temuan 2–4 — tiga kali "diam tanpa sebab"
+Ketiganya jenis kesalahan yang sama, dan gerbong "papan jujur" kemarin
+seharusnya sudah mengajarkannya: **kosong karena penyaring ≠ kosong sungguhan.**
+- **Matriks + pencarian tanpa hasil** → 32 sel titik tanpa satu kata pun.
+- **Papan `?modul=` menunjuk entri yang tak ada** (tautan basi / entri terhapus)
+  → papan kosong tanpa sebab. Kini: *"disaring modul #N yang tidak ada di
+  katalog"* + jalan keluar.
+- **Tautan "bertindak di papan"** dari modul yang punya tiket **ditunda** tidak
+  membuka parkiran, padahal *utang* menghitung yang ditunda — papan tampak
+  **kurang** dari angka yang baru saja diklik. Kini tautannya membawa `parkir=1`
+  bila modul itu memang punya yang ditunda.
+
+### Temuan 5–6 — pintu yang hilang & pintu yang memantul
+- Halaman **"Permintaan Saya" tak punya pintu ke katalog sama sekali**; Head
+  departemen yang tak punya papan jadi tak bisa mencapainya. Ditambahkan.
+- **Katalog menawarkan "Papan Antrean" ke peran Head** — pintu yang memantul,
+  karena controller mengalihkannya ke halaman permintaan. Kini ia melihat
+  "Permintaan Saya".
+
+### Temuan 7 — konsistensi rupa
+Kalimat "tak ada modul yang cocok" disamakan di tiga tampilan, dan **32 baris
+aturan CSS mati** dari ronde-ronde sebelumnya dibuang (`itk-head*`,
+`itk-jenjang`, `itk-prog`, `itk-tabjenis`, `itk-parkir-bar`,
+`itk-kemajuan-blok`, `itk-tj-baru`). Kelas `.itk-*` yang dipakai blade vs yang
+ada di CSS kini **282 : 282** — nol kelas tanpa aturan, nol aturan tanpa
+pemakai.
+
+### Diperiksa, tidak bermasalah
+- **Zona & gerbang HP**: `/it-tracker/katalog` ikut `zona-it` dan daftar gerbang
+  sopan lewat **segmen-1 yang sama** — nol tambahan yang perlu dirawat.
+- **RBAC**: segmen tetap `it-tracker`, node `access_path` yang ada jadi
+  gerbangnya (tak ada ranjau 302-senyap).
+- **Keseimbangan DOM** di 6 kombinasi halaman × persona: seimbang; CSS dimuat
+  sekali; struktur topbar sama di keempat halaman zona.
+- **Papan tanpa `?modul=` tak berubah perilakunya** (kendali negatif diuji).
+
+### Uji E2E per persona (kelas baru `ItKatalogE2ETest`, 9 perjalanan)
+Bukan uji unit: tiap metode meniru **satu orang** memakai sistem dari layar ke
+layar, dan yang diperiksa adalah **apa yang ia lihat — termasuk yang tak boleh
+ia lihat**. Della (Head Finance) mengajukan lalu melihat dampaknya · Ekky
+(Head IT) triase + modul lalu menelusuri angkanya ke papan · Ekky membuat entri
+modul baru lalu menautkannya (modul lahir dari tiket) · Reza (IT) menarik tiket
+lalu menggerakkannya · Robi (Executive) mendarat di matriks dan menyaring
+"semua laporan lintas departemen" · dan penjumlahan yang tetap cocok sesudah
+ada yang ditunda dan ada yang ditolak.
+---
 ## 2026-09-06 — KATALOG MODUL: halaman saudara papan — "apa saja yang kami punya"
 
 Papan menjawab *"apa yang sedang bergerak"*. Executive bertanya hal lain —
