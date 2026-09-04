@@ -58,6 +58,7 @@ use App\Http\Controllers\Finance\RopQueueController;
 use App\Http\Controllers\Finance\RopRekapController;
 use App\Http\Controllers\Rop\PengajuanController;
 use App\Http\Controllers\ItTracker\ItTrackerController;
+use App\Http\Controllers\ItTracker\KatalogController;
 
 
 Route::get('/', function () {
@@ -230,6 +231,10 @@ Route::middleware([AuthGuard::class])->group(function () {
     Route::prefix('it-tracker')->group(function () {
         Route::get ('/',                    [ItTrackerController::class, 'index'])->name('it-tracker.index');
         Route::get ('/permintaan',          [ItTrackerController::class, 'permintaan'])->name('it-tracker.permintaan');
+        // Katalog Modul — halaman SAUDARA papan (rencana §14.24). Segmen-1 tetap
+        // `it-tracker`, jadi node access_path yang sudah ada tetap jadi gerbangnya.
+        Route::get ('/katalog',             [KatalogController::class, 'index'])->name('it-tracker.katalog');
+        Route::post('/katalog/modul',       [KatalogController::class, 'store'])->name('it-tracker.katalog.store');
         Route::post('/tiket',               [ItTrackerController::class, 'store'])->name('it-tracker.store');
         Route::get ('/tiket/{id}',          [ItTrackerController::class, 'show'])->name('it-tracker.show')->whereNumber('id');
         Route::post('/tiket/{id}/triase',   [ItTrackerController::class, 'triase'])->name('it-tracker.triase')->whereNumber('id');
@@ -241,6 +246,7 @@ Route::middleware([AuthGuard::class])->group(function () {
         Route::post('/tiket/{id}/konfirmasi', [ItTrackerController::class, 'konfirmasi'])->name('it-tracker.konfirmasi')->whereNumber('id');
         Route::post('/tiket/{id}/pic',      [ItTrackerController::class, 'pic'])->name('it-tracker.pic')->whereNumber('id');
         Route::post('/tiket/{id}/tarik',    [ItTrackerController::class, 'tarik'])->name('it-tracker.tarik')->whereNumber('id');
+        Route::post('/tiket/{id}/modul',    [ItTrackerController::class, 'modul'])->name('it-tracker.modul')->whereNumber('id');
         Route::post('/tiket/{id}/pra',      [ItTrackerController::class, 'pra'])->name('it-tracker.pra')->whereNumber('id');
         Route::post('/tiket/{id}/pasca',    [ItTrackerController::class, 'pasca'])->name('it-tracker.pasca')->whereNumber('id');
         Route::post('/tiket/{id}/deploy',   [ItTrackerController::class, 'deploy'])->name('it-tracker.deploy')->whereNumber('id');

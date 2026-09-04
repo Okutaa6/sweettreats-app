@@ -27,6 +27,25 @@
                 </div>
                 <div class="itk-hint" style="margin:-8px 0 13px">Pilihan ini juga menentukan tabnya: <strong>Support</strong> masuk tab Support;
                     <strong>Fitur</strong> &amp; <strong>Modul</strong> masuk tab Fitur / Modul.</div>
+                {{-- Modul katalog: satu pertanyaan yang menyambungkan papan & katalog
+                     (rencana §14.24). BOLEH kosong — tiket tanpa modul masuk baris
+                     "Tanpa modul", dan itu jujur; tebakan dari judul tidak. --}}
+                @if (($modulOpsi ?? collect())->isNotEmpty())
+                    <div style="margin-bottom:13px">
+                        <label class="itk-lbl">MODUL YANG DISENTUH — KATALOG</label>
+                        <select name="modul_id" class="itk-dep-sel" style="border-style:solid">
+                            <option value="">— belum ditentukan (masuk "Tanpa modul") —</option>
+                            @foreach ($modulOpsi->groupBy('departemen') as $dept => $grup)
+                                <optgroup label="{{ $dept }}">
+                                    @foreach ($grup as $mo)
+                                        <option value="{{ $mo->id }}">{{ $mo->nama }}{{ $mo->status !== 'hidup' ? ' · ' . \App\Services\ItTracker\KatalogModul::statusLabel($mo->status) : '' }}</option>
+                                    @endforeach
+                                </optgroup>
+                            @endforeach
+                        </select>
+                        <div class="itk-hint">Modul baru? Buat entrinya dulu di <a href="{{ route('it-tracker.katalog') }}">Katalog Modul</a> — begitulah modul lahir, dari tiket.</div>
+                    </div>
+                @endif
                 @if ($picOpsi->count() > 1)
                     <div style="margin-bottom:13px">
                         <label class="itk-lbl">DIKERJAKAN SIAPA (PIC)</label>

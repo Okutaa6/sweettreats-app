@@ -80,6 +80,15 @@ class ItTrackerController extends Controller
         if ($unit = $request->query('unit')) {
             $aktif = $aktif->filter(fn ($t) => $t->unit === $unit);
         }
+        // Katalog → papan: angka "berjalan/utang" di katalog mendarat di sini.
+        // Katalog & papan dua tampilan atas satu data; tanpa saringan ini angkanya
+        // tak bisa ditelusuri — cuma bisa dipercaya.
+        $modul = null;
+        $modulId = (int) $request->query('modul');
+        if ($modulId) {
+            $modul = \App\Models\ItModul::find($modulId);
+            $aktif = $aktif->filter(fn ($t) => (int) $t->modul_id === $modulId);
+        }
 
         // Sumbu papan = FASE, dikelompokkan Masuk/Rancang/Kerjakan/Rilis.
         $grupDef = [
@@ -126,7 +135,8 @@ class ItTrackerController extends Controller
         // → macet → pencarian; yang paling sering menyembunyikan disebut lebih dulu.
         $sisa = fn (array $ubah) => route('it-tracker.index', array_filter(array_merge(
             array_filter(['q' => $q ?: null, 'macet' => $request->query('macet') ? 1 : null,
-                          'sumber' => $sumber ?: null, 'jenjang' => $jenjang ?: null, 'unit' => $unit ?: null]), $ubah)));
+                          'sumber' => $sumber ?: null, 'jenjang' => $jenjang ?: null, 'unit' => $unit ?: null,
+                          'modul' => $modul?->id]), $ubah)));
         $saring = null;
         if ($sumber) {
             $lain = $sumber === 'permintaan' ? 'inisiatif' : 'permintaan';
@@ -145,6 +155,9 @@ class ItTrackerController extends Controller
         } elseif ($jenjang) {
             $saring = ['teks' => 'bukan jenjang ' . $jenjang . '.',
                        'aksi' => 'Lepas filter jenjang', 'href' => $sisa(['jenjang' => null])];
+        } elseif ($modul) {
+            $saring = ['teks' => 'bukan milik modul ' . $modul->nama . '.',
+                       'aksi' => 'Lepas filter modul', 'href' => $sisa(['modul' => null])];
         }
 
         // Pencarian WAJIB menjangkau parkiran: tiket yang sudah selesai/ditunda tetap
@@ -152,6 +165,8 @@ class ItTrackerController extends Controller
         $parkir = ItTicket::whereIn('fase', self::FASE_PARKIRAN)
             ->when($q !== '', fn ($w) => $w->where(fn ($x) => $x->where('nomor', 'like', '%' . $q . '%')
                                                             ->orWhere('judul', 'like', '%' . $q . '%')))
+            // saringan modul ikut ke parkiran: "utang" sebuah modul termasuk yang DITUNDA
+            ->when($modulId, fn ($w) => $w->where('modul_id', $modulId))
             ->orderByDesc('fase_since')
             // `jenjang` ikut supaya parkiran bisa mengikuti tab jenis permintaan di papan —
             // tanpa itu, tab Support memperlihatkan tiket M/L yang ditunda dan keduanya bercerita beda.
@@ -163,8 +178,13 @@ class ItTrackerController extends Controller
             'beban'   => $this->svc->ringkasanBeban($semuaView),
             'peran'   => $this->peran(),
             'picOpsi' => $this->peran() === 'head_it' ? $this->picOpsi() : collect(),
+            // daftar modul katalog untuk pertanyaan modul di modal triase
+            'modulOpsi' => $this->peran() === 'head_it'
+                ? \App\Models\ItModul::orderBy('departemen')->orderBy('nama')->get(['id', 'nama', 'departemen', 'status'])
+                : collect(),
             'filter'  => ['q' => $q, 'macet' => (bool) $request->query('macet'),
-                          'sumber' => $sumber, 'jenjang' => $jenjang, 'unit' => $unit],
+                          'sumber' => $sumber, 'jenjang' => $jenjang, 'unit' => $unit,
+                          'modul' => $modul?->id, 'modulNama' => $modul?->nama],
             'macetChips' => $macetChips,
             'rawFase'    => $rawFase,
             'saring'     => $saring,
@@ -253,6 +273,11 @@ class ItTrackerController extends Controller
                 : collect(),
             'depTiket'      => ItTicket::whereIn('nomor', $v['deps'])->get(['nomor', 'judul', 'fase'])->keyBy('nomor'),
             'evOpsi'        => $this->peran() === 'head_it' && $t->fase === 'EVALUASI' ? $this->pengawasOpsi() : collect(),
+            // Katalog: tiket menyebut modulnya — atau menyebut bahwa ia belum punya
+            'modul'     => $t->modul_id ? \App\Models\ItModul::find($t->modul_id) : null,
+            'modulOpsi' => $this->peran() === 'head_it'
+                ? \App\Models\ItModul::orderBy('departemen')->orderBy('nama')->get(['id', 'nama', 'departemen', 'status'])
+                : collect(),
             'form01' => optional($t->forms->firstWhere('kode', 'FRM-IT-01'))->payload ?? [],
             'form03' => optional($t->forms->firstWhere('kode', 'FRM-IT-03'))->payload ?? [],
         ]);
@@ -324,6 +349,10 @@ class ItTrackerController extends Controller
             'bobot'        => 'required|integer|min:1|max:5',
             'prioritas_it' => 'required|in:P1,P2,P3',
             'pic_user_id'  => 'nullable|string|exists:users,id',
+            // modul katalog — pertanyaan yang menyambungkan papan & katalog.
+            // BOLEH kosong: tiket tanpa modul masuk baris "Tanpa modul" di katalog;
+            // jujur kosong lebih baik daripada tebakan yang meleset tanpa terlihat.
+            'modul_id'     => 'nullable|integer|exists:it_modul,id',
         ]);
 
         $t = ItTicket::findOrFail($id);
@@ -334,8 +363,15 @@ class ItTrackerController extends Controller
             return back()->with('error', $e->getMessage());
         }
 
+        $modulNama = null;
+        if (! empty($d['modul_id'])) {
+            $t->refresh()->update(['modul_id' => (int) $d['modul_id']]);
+            $modulNama = \App\Models\ItModul::find((int) $d['modul_id'])?->nama;
+        }
+
         return back()->with('success',
-            $t->nomor . ' ditriase: jenjang ' . $d['jenjang'] . ', ' . $d['prioritas_it'] . ' → Antre.');
+            $t->nomor . ' ditriase: jenjang ' . $d['jenjang'] . ', ' . $d['prioritas_it'] . ' → Antre.'
+            . ($modulNama ? ' Modul: ' . $modulNama . '.' : ' Belum bertaut ke modul katalog.'));
     }
 
     /** Tunda / tolak beralasan — Head IT. */
@@ -1180,6 +1216,28 @@ class ItTrackerController extends Controller
             ->where('u.status', 1)
             ->orderBy('u.nama')
             ->get(['u.id', 'u.nama']);
+    }
+
+    /**
+     * Taut/lepas modul katalog — Head IT. Triase menanyakannya sekali; tiket yang
+     * sudah lewat triase (atau salah taut) tetap harus bisa dibetulkan, kalau tidak
+     * angka utang per modul membeku salah selamanya.
+     */
+    public function modul(Request $request, int $id)
+    {
+        $this->pastikanHeadIt('Menautkan modul katalog hanya dilakukan Head IT.');
+
+        $d = $request->validate(['modul_id' => 'nullable|integer|exists:it_modul,id']);
+
+        $t = ItTicket::findOrFail($id);
+        $t->modul_id = $d['modul_id'] ?: null;
+        $t->save();
+
+        $nama = $t->modul_id ? \App\Models\ItModul::find($t->modul_id)?->nama : null;
+
+        return back()->with('success', $nama
+            ? $t->nomor . ' ditautkan ke modul ' . $nama . '.'
+            : $t->nomor . ' dilepas dari modul katalog — ia kembali ke baris "Tanpa modul".');
     }
 
     /**

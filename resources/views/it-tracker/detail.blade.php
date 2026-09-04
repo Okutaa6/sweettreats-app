@@ -452,6 +452,31 @@
                 <div class="itk-info-row"><b>Sumber</b><span>{{ $t->sumber === 'permintaan' ? 'Formulir permintaan' : ($t->sumber === 'insiden' ? 'Insiden / hotfix' : 'Inisiatif IT') }}</span></div>
                 <div class="itk-info-row"><b>Fase saat ini</b><span>{{ $aktif ? ($labelFase[$t->fase] ?? PhaseEngine::phLong($kini)) : ($labelFase[$t->fase] ?? $t->fase) }}</span></div>
                 <div class="itk-info-row"><b>Masuk fase</b><span>{{ $t->fase_since->translatedFormat('j M') }}</span></div>
+                {{-- Katalog: tiket ini menyentuh modul yang mana. Yang belum bertaut
+                     MENYEBUT dirinya belum bertaut — tidak ditebak dari judul. --}}
+                <div class="itk-info-row"><b>Modul</b><span>
+                    @if ($modul ?? null)
+                        <a href="{{ route('it-tracker.katalog', ['modul' => $modul->id]) }}">{{ $modul->nama }} ›</a>
+                    @else
+                        <em style="font-weight:600;color:#A99880;font-style:normal">Tanpa modul katalog</em>
+                    @endif
+                </span></div>
+                @if ($peran === 'head_it' && ($modulOpsi ?? collect())->isNotEmpty())
+                    <form method="post" action="{{ route('it-tracker.modul', $t->id) }}" style="display:flex;gap:8px;align-items:center">
+                        @csrf
+                        <select name="modul_id" class="itk-dep-sel" style="border-style:solid;flex:1">
+                            <option value="">— tanpa modul katalog —</option>
+                            @foreach ($modulOpsi->groupBy('departemen') as $dept => $grup)
+                                <optgroup label="{{ $dept }}">
+                                    @foreach ($grup as $mo)
+                                        <option value="{{ $mo->id }}" {{ (int) $t->modul_id === (int) $mo->id ? 'selected' : '' }}>{{ $mo->nama }}</option>
+                                    @endforeach
+                                </optgroup>
+                            @endforeach
+                        </select>
+                        <button type="submit" class="itk-btn itk-btn-putih" style="padding:6px 11px;font-size:11.5px">Simpan</button>
+                    </form>
+                @endif
                 @if ($t->jenis_permintaan)<div class="itk-info-row"><b>Jenis</b><span>{{ $t->jenis_permintaan }}</span></div>@endif
                 <div style="display:flex;flex-direction:column;gap:7px;border-top:1px solid #F1E5D5;padding-top:11px">
                     @if ($adalahIt && $aktif && ! $t->pic_user_id)

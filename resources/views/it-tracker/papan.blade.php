@@ -27,6 +27,7 @@
         'sumber'  => $filter['sumber'],
         'jenjang' => $filter['jenjang'],
         'unit'    => $filter['unit'] ?? null,
+        'modul'   => $filter['modul'] ?? null,
     ]);
     // tiap chip MEMPERTAHANKAN filter lain yang aktif
     $fLink = fn (array $ubah) => route('it-tracker.index', array_filter(array_merge($fAktif, $ubah)));
@@ -50,6 +51,9 @@
         <span class="itk-badge-zona">ZONA IT</span>
         <span class="sub">{{ now()->translatedFormat('l, j M Y') }} · 2 orang IT · 5 cabang + RB Las</span>
         <div class="itk-topbar-nav">
+            {{-- tautan dua arah: papan ⇄ katalog. Papan = apa yang sedang bergerak;
+                 katalog = apa yang kami punya. Dua pertanyaan, dua halaman. --}}
+            <a class="itk-btn itk-btn-putih" href="{{ route('it-tracker.katalog') }}" title="Apa saja yang kami punya — 33 entri, 8 departemen">Katalog Modul</a>
             <a class="itk-btn itk-btn-putih" href="{{ route('it-tracker.permintaan') }}">
                 {{ $adalahIt ? '+ Inisiatif IT' : 'Permintaan Saya' }}</a>
             <div class="itk-avatar" title="{{ session('name') }} · {{ session('group_name') }}">{{ $inisial }}</div>
@@ -133,6 +137,11 @@
         <a class="itk-fchip {{ $filter['sumber'] === 'permintaan' ? 'aktif' : '' }}" href="{{ $fLink(['sumber' => $filter['sumber'] === 'permintaan' ? null : 'permintaan']) }}">Permintaan{{ $filter['sumber'] === 'permintaan' ? '  ✕' : '' }}</a>
         <a class="itk-fchip {{ $filter['sumber'] === 'inisiatif' ? 'aktif' : '' }}" href="{{ $fLink(['sumber' => $filter['sumber'] === 'inisiatif' ? null : 'inisiatif']) }}">Inisiatif IT{{ $filter['sumber'] === 'inisiatif' ? '  ✕' : '' }}</a>
         <a class="itk-fchip {{ ($filter['unit'] ?? null) === 'rblas' ? 'aktif' : '' }}" href="{{ $fLink(['unit' => ($filter['unit'] ?? null) === 'rblas' ? null : 'rblas']) }}">RB Las{{ ($filter['unit'] ?? null) === 'rblas' ? '  ✕' : '' }}</a>
+        @if (! empty($filter['modul']))
+            {{-- datang dari katalog: sebutkan modulnya + jalan balik ke ringkasannya --}}
+            <a class="itk-fchip aktif" href="{{ $fLink(['modul' => null]) }}" title="Lepas saringan modul">Modul: {{ $filter['modulNama'] }}  ✕</a>
+            <a class="itk-fchip" href="{{ route('it-tracker.katalog', ['modul' => $filter['modul']]) }}">Ringkasan modul di katalog ›</a>
+        @endif
         <button type="button" class="itk-parkir-toggle" id="itkParkirToggle">Parkiran · <span class="num" data-parkir-total>{{ $parkir->count() }}</span> <span class="caret">▾</span></button>
     </div>
 
@@ -144,6 +153,7 @@
                 $filter['sumber'] === 'permintaan' ? 'Permintaan' : ($filter['sumber'] === 'inisiatif' ? 'Inisiatif IT' : null),
                 ($filter['unit'] ?? null) === 'rblas' ? 'RB Las' : null,
                 $filter['jenjang'] ? 'jenjang ' . $filter['jenjang'] : null,
+                ! empty($filter['modul']) ? 'modul ' . $filter['modulNama'] : null,
                 $filter['q'] !== '' ? 'cari "' . $filter['q'] . '"' : null,
             ]);
         @endphp

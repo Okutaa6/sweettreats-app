@@ -21,6 +21,8 @@ class ItTicket extends Model
         'prioritas_it', 'pic_user_id', 'fase', 'fase_since', 'induk_id',
         'evaluator_user_id', 'alasan_parkir', 'lahir_dari_id', 'lahir_via',
         'seed_urut', 'unit', 'kemajuan', 'kemajuan_at', 'kemajuan_oleh',
+        // katalog: modul yang disentuh tiket ini (NULL = baris "Tanpa modul")
+        'modul_id',
     ];
 
     protected $casts = [
