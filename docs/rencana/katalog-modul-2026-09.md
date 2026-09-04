@@ -33,11 +33,11 @@ menyaring semua laporan lintas departemen tanpa ada modul bertuan dua.
 | **Master Jadwal & Layanan** | Operasional | Hidup | **11 Mar 2026** | Branch · Doctor · Doctor Service |
 | **Laporan Penjualan** | Laporan & Dashboard | Hidup | — | `report` · Rekonsiliasi |
 | **Dashboard Sales** | Laporan & Dashboard | Hidup | Jun 2026 | `sales-dashboard` |
-| **Keluhan** | Operasional | Hidup | **20 Jun 2026** | Keluhan → Sales |
 | **Pasien Baru / Lead Cekat AI** | Operasional | Hidup | **27 Agu 2026** | form publik per cabang · tab Pasien Cekat AI |
+| **Kontak & Percakapan** | Operasional | Hidup | **18 Feb 2026** | tanpa menu — `raw_contact` 12.231 · `raw_chat` 34.313 |
 
 *Bukti data:* `raw_cus_reservation` 6.039 (7 Apr) · `raw_doctor_schedule` 105
-(11 Mar) · `raw_doc_service_detail` 148 (11 Mar) · `sys_complaint` 3 (20 Jun).
+(11 Mar) · `raw_doc_service_detail` 148 (11 Mar) · `raw_contact` 12.231 (**18 Feb — data tertua di sistem**) · `raw_chat` 34.313 (17 Mar).
 
 ---
 
@@ -84,8 +84,6 @@ sudah ACC lanjut — jalankan sekali manual `--days=12` sebelum menyerahkan ke c
 | **Absensi** | Operasional | Hidup | **4–5 Agu 2026** | Upload Data · Kehadiran · Mapping Karyawan · Aturan Kerja · Cuti · Lembar Gaji · Periode Gaji · Rekap Persetujuan |
 | **Pengawasan Absen** | Operasional | Hidup | **5 Agu 2026** | `pengawasan` · WiFi Cabang |
 | **Checklist Operasional** | Operasional | Hidup | **1 Jul 2026** | Dashboard · Setup Tugas · Review & Approval · Checklist Saya |
-| **Persetujuan** | Platform | Hidup | Agu 2026 | Inbox Persetujuan |
-| **Akun Saya** | Platform | Hidup | Agu 2026 | Absensi Saya |
 | **Slip Gaji & Insentif** | Operasional | **Direncanakan** | — | belum ada |
 | **Rolling / Penempatan global** | Operasional | **Direncanakan** | — | kini masih di dalam Checklist |
 
@@ -101,12 +99,10 @@ sudah ACC lanjut — jalankan sekali manual `--days=12` sebelum menyerahkan ke c
 |---|---|---|---|---|
 | **Data Pasien** | Operasional | Hidup | **5 Apr 2026** | Pasien (`rawcustomer`) |
 | **Integrasi Omnicare** | Integrasi | Hidup | **20 Mei 2026** | tanpa menu — sinkron harian |
-| **Kontak & Percakapan** | Operasional | Hidup | **18 Feb 2026** | tanpa menu — `raw_contact`, `raw_chat` |
 
 *Bukti data:* `raw_customer` **15.656** (5 Apr) · `omnicare_sales_detail`
 **146.542** · `omnicare_medical_record` **51.020** · `omnicare_commission`
-**88.238** (7 Jul) · `raw_contact` 12.231 (**18 Feb — data tertua di sistem**) ·
-`raw_chat` 34.313 (17 Mar).
+**88.238** (7 Jul).
 
 ⚠️ **Rekam medis Omnicare tidak seragam** — tindakan 100%, tapi keluhan 27% dan
 diagnosa 39%; `doc_id` berisi **nama** di rekam medis tapi **angka** di komisi.
@@ -129,6 +125,9 @@ Jangan menjanjikan fitur rekam medis tanpa memeriksa ini dulu.
 | Modul | Jenis | Status | Sejak | Fitur |
 |---|---|---|---|---|
 | **Pusat Akun** | Platform | Hidup *(sebagian warisan)* | **27 Apr 2022** | User · Role · Akses · Setting · Kesehatan · WiFi Cabang |
+| **Persetujuan** | Platform | Hidup | Agu 2026 | Inbox Persetujuan |
+| **Akun Saya** | Platform | Hidup | Agu 2026 | Absensi Saya |
+| **Keluhan Sistem** | Platform | Hidup | **20 Jun 2026** | `complaint` — keluhan atas SISTEM, bukan keluhan pasien |
 | **IT Request Tracker** | Platform | **Sedang dibangun** | — | live di dev, prod belum |
 | **Katalog Modul** | Platform | **Direncanakan** | — | dokumen ini |
 
@@ -151,46 +150,64 @@ harus terlihat.
 
 ---
 
-## 9. Yang perlu KAMU koreksi
+## 9. Koreksi Ekky (4 Sep) — sudah diterapkan
 
-1. **Pasien milik Sales atau Data Pasien?** Kutaruh di **Data Pasien**; Sales
-   memakainya untuk reservasi. Kalau yang mengelola datanya Sales, pindahkan.
-2. **Keluhan** kutaruh di Sales karena node menunya berbunyi *Keluhan → Sales*.
-   Betul, atau ini milik Operasional?
-3. **Kontak & Percakapan** (12.231 kontak, 34.313 chat, sejak Feb) — **data
-   tertua di sistem** dan tak punya menu sama sekali. Ini apa, dan siapa
-   pemiliknya? Aku menebak Data Pasien.
-4. **Dashboard Marketing** benar-benar Hidup, atau kerangka tanpa isi?
-5. **Persetujuan & Akun Saya** kutandai `Platform` karena melayani semua
-   departemen, bukan HR saja. Setuju?
+| # | Pertanyaan | Jawaban Ekky | Status |
+|---|---|---|---|
+| 1 | Pasien milik siapa? | **Data Pasien** | tetap |
+| 2 | Keluhan milik siapa? | **IT** — ini keluhan atas **sistem**, bukan keluhan pasien | dipindah, dinamai ulang *Keluhan Sistem* |
+| 3 | Kontak & Percakapan? | **Sales** | dipindah |
+| 4 | Dashboard Marketing hidup? | **Hidup** | dikonfirmasi terukur |
+| 5 | Persetujuan & Akun Saya? | **IT** | dipindah |
 
-## 10. Temuan sampingan: menu yang menyesatkan
+⚠️ **Nomor 2 adalah koreksi yang paling mengubah arti.** Node menunya berbunyi
+*"Keluhan → Sales"*, dan aku membacanya sebagai keluhan **pasien** yang dikelola
+Sales. Yang benar: ini kanal keluhan **atas sistem**, dan "Sales" di situ nama
+sub-menunya, bukan pemiliknya. Pelajaran: **nama node menu bukan nama pemilik.**
 
-Lima node Marketing **tak punya link dan tak punya anak** — `Dashboard` ·
-`Referral` · `Editorial Plan` · `KOL & KOC Dashboard` — sisa struktur lama yang
-tidak dibuang saat Marketing ditata ulang jadi tiga bagian baru (`Konten`,
-`Referral & Member`, `Dashboard & Laporan`). Di layar mereka terlihat seperti
-menu yang bisa diklik tapi tak menuju ke mana pun.
+## 10. RALAT — tuduhanku soal "menu menyesatkan" SALAH
 
-Ini utang yang sudah tercatat sejak audit menu 5 Agustus (*"menu tanpa route"*)
-dan masih ada. **Bukan bagian katalog** — ini tiket S sendiri.
+Di versi pertama dokumen ini kutulis bahwa empat node Marketing (`Dashboard` ·
+`Referral` · `Editorial Plan` · `KOL & KOC Dashboard`) *"terlihat seperti menu
+yang bisa diklik tapi tak menuju ke mana pun"*. **Itu keliru**, dan Ekky benar
+menantangnya.
 
----
+Yang terukur sesudah diperiksa:
+- Keempatnya memang **tanpa `link` dan tanpa anak** — itu benar.
+- Keempatnya memang **diberi akses** ke Konsultan Marketing, Head Marketing,
+  Content Creator, dkk — jadi dugaanku "sisa yang tak dipakai" juga meleset.
+- **Tapi mereka tidak pernah tampil.** `shellCollectLeaves()` di `app/Helpers.php`
+  melewatkan node tanpa anak yang link-nya kosong
+  (`if ($link === '' || $link === '-') return [];`).
+
+⇒ Mereka **baris mati di basis data**, bukan menu menyesatkan. Tak ada yang
+salah di layar; tak ada yang perlu diperbaiki hari ini. Kalau suatu saat
+dibersihkan, itu kerapian, bukan perbaikan cacat.
+
+Yang Ekky lihat sebagai menu Marketing adalah **tiga akar terpisah** —
+`Konten`, `Referral & Member`, `Dashboard & Laporan` — yang memang hidup,
+berisi, dan diberikan ke role Marketing. Struktur Marketing lama (5 anak) dan
+baru (3 akar) **hidup berdampingan**; hanya yang baru yang terlihat.
 
 ## 11. Ringkasan angka
 
-| Departemen | Modul hidup | Sedang dibangun | Direncanakan |
+| Departemen | Hidup | Sedang dibangun | Direncanakan |
 |---|---|---|---|
 | Sales | 6 | 0 | 0 |
 | Marketing | 4 | 0 | 0 |
 | Finance | 4 | 0 | 1 |
-| Operasional / HR | 5 | 0 | 2 |
-| Data Pasien & Rekam Medis | 3 | 0 | 0 |
+| Operasional / HR | 3 | 0 | 2 |
+| Data Pasien & Rekam Medis | 2 | 0 | 0 |
 | Executive | 2 | 1 | 0 |
-| IT | 1 | 1 | 1 |
+| IT | 4 | 1 | 1 |
 | Stok / Inventory | 0 | 0 | 2 |
 | **TOTAL** | **25** | **2** | **6** |
 
 **25 modul hidup · 33 entri katalog.** Bandingkan dengan **±60 fitur** (daun
 `access_path`) dan **26 tiket aktif** di tracker — tiga angka yang menjawab tiga
 pertanyaan berbeda, dan sekarang ketiganya bisa dilihat.
+
+⚠️ Perhatikan **IT punya 4 modul hidup** sesudah koreksi — Pusat Akun,
+Persetujuan, Akun Saya, Keluhan Sistem. IT bukan cuma pembuat; ia juga
+**pemilik** sebagian perangkat yang dipakai semua departemen. Itu yang membuat
+"berapa beban IT" tak pernah bisa dijawab dari daftar tiket saja.
