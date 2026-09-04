@@ -183,7 +183,7 @@
                                     @else {{ strtoupper($t->pemohon->nama ?? 'PERMINTAAN') }}
                                     @endif
                                 </span>
-                                <span class="itk-jenjang {{ $t->jenjang ?? '' }}">{{ $t->jenjang ?? '?' }}</span>
+                                <span class="itk-jenjang {{ $t->jenjang ?? 'baru' }}">{{ \App\Services\ItTracker\ItTrackerService::jenjangLabel($t->jenjang) }}</span>
                             </div>
                             <div class="itk-card-title">{{ $t->judul }}</div>
                             <div class="itk-card-meta">
@@ -252,7 +252,7 @@
                                 <div class="itk-card-top">
                                     <span class="itk-no num">{{ $p->nomor }}</span>
                                     <span class="itk-st {{ $p->fase }}">{{ $p->fase }}</span>
-                                    <span class="itk-jenjang {{ $p->jenjang ?? '' }}">{{ $p->jenjang ?? '?' }}</span>
+                                    <span class="itk-jenjang {{ $p->jenjang ?? 'baru' }}">{{ \App\Services\ItTracker\ItTrackerService::jenjangLabel($p->jenjang) }}</span>
                                 </div>
                                 <div class="itk-card-title" style="color:#5A3A22">{{ $p->judul }}</div>
                                 @if ($p->alasan_parkir)
@@ -433,12 +433,12 @@
                 @csrf
                 <label class="itk-lbl">JENJANG — MENENTUKAN FASE YANG DILEWATI</label>
                 <div style="display:flex;gap:7px;margin-bottom:13px">
-                    <label><input class="itk-radio" type="radio" name="jenjang" value="S" required><span><b>S</b> · bug/tweak — 2 fase</span></label>
-                    <label><input class="itk-radio" type="radio" name="jenjang" value="M"><span><b>M</b> · fitur — 5 fase</span></label>
-                    <label><input class="itk-radio" type="radio" name="jenjang" value="L"><span><b>L</b> · modul — 7 fase</span></label>
+                    <label><input class="itk-radio" type="radio" name="jenjang" value="S" required><span><b>Support</b> · bug/tweak — 2 fase</span></label>
+                    <label><input class="itk-radio" type="radio" name="jenjang" value="M"><span><b>Fitur</b> · 5 fase</span></label>
+                    <label><input class="itk-radio" type="radio" name="jenjang" value="L"><span><b>Modul</b> · 7 fase</span></label>
                 </div>
-                <div class="itk-hint" style="margin:-8px 0 13px">Jenjang juga menentukan papannya:
-                    <strong>S → Support Request</strong>, <strong>M/L → Feature / Modul Request</strong>.</div>
+                <div class="itk-hint" style="margin:-8px 0 13px">Pilihan ini juga menentukan papannya: <strong>Support</strong> masuk papan Support Request;
+                    <strong>Fitur</strong> &amp; <strong>Modul</strong> masuk Feature / Modul Request.</div>
                 @if ($picOpsi->count() > 1)
                     <div style="margin-bottom:13px">
                         <label class="itk-lbl">DIKERJAKAN SIAPA (PIC)</label>

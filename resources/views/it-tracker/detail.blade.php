@@ -36,7 +36,7 @@
                 <div class="itk-card-top">
                     <span class="itk-no num" style="font-size:12.5px">{{ $t->nomor }}</span>
                     <span class="itk-src {{ $t->sumber }}">{{ $srcLabel[$t->sumber] ?? strtoupper($t->sumber) }}</span>
-                    <span class="itk-jenjang {{ $t->jenjang ?? '' }}">{{ $t->jenjang ?? 'belum ditriase' }}</span>
+                    <span class="itk-jenjang {{ $t->jenjang ?? 'baru' }}">{{ \App\Services\ItTracker\ItTrackerService::jenjangLabel($t->jenjang) }}{{ $t->jenjang ? ' · ' . $t->jenjang : '' }}</span>
                 </div>
                 <div class="itk-detail-title">{{ $t->judul }}</div>
                 <div class="itk-detail-meta">

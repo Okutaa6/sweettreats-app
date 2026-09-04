@@ -31,6 +31,19 @@ class ItTrackerService
     public const FASE_PARKIR = ['DITUNDA', 'DITOLAK'];
 
     /**
+     * Nama jenjang yang DIBACA orang. Huruf S/M/L cuma singkatan internal IT;
+     * di layar ia mubazir sesudah papan dibagi per jenis permintaan, dan "?"
+     * untuk yang belum ditriase justru menyembunyikan satu-satunya keadaan yang
+     * menuntut tindakan. Satu tempat supaya papan, parkiran, dan detail sepakat.
+     */
+    public const JENJANG_LABEL = ['S' => 'Support', 'M' => 'Fitur', 'L' => 'Modul'];
+
+    public static function jenjangLabel(?string $j): string
+    {
+        return self::JENJANG_LABEL[$j] ?? 'belum ditriase';
+    }
+
+    /**
      * Lampiran FRM-IT-01 (rencana §7 bagian B: screenshot · contoh laporan ·
      * alur proses · dokumen lain). Batas = ROP (5 MB) + dokumen kantor, karena
      * "contoh laporan" hampir selalu Excel/Word. Daftar ini juga yang DISEBUT

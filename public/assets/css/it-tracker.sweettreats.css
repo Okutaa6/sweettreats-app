@@ -529,3 +529,12 @@ body.zona-it .itk-kolom { background:#ECEAE4; border-color:#DDD9CF; }
 body.zona-it .itk-parkir-bar .itk-fasetab { background:#ECEAE4; border-color:#DDD9CF; }
 .itk-parkir-bar .itk-ft { flex:0 0 auto; padding:5px 12px; }
 .itk-parkir-panel .itk-parkir { margin-bottom:8px; }
+
+/* Badge jenjang: kata, bukan huruf (S/M/L mubazir sesudah papan bertab).
+   "belum ditriase" sengaja MENONJOL — itu satu-satunya keadaan yang menuntut tindakan. */
+.itk-jenjang { white-space:nowrap; }
+.itk-jenjang.baru { background:#FBEFD9; color:#B5701A; border:1px dashed #E8C99A; }
+/* badge kata lebih lebar dari huruf → biarkan barisnya membungkus, JANGAN memotong nomor tiket */
+.itk-card-top { flex-wrap:wrap; row-gap:4px; }
+.itk-no, .itk-src { white-space:nowrap; }
+.itk-jenjang { margin-left:auto; }

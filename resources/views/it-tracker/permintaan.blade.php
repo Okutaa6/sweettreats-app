@@ -106,9 +106,10 @@
                             <div>
                                 <label class="itk-lbl">JENJANG (INISIATIF / INSIDEN)</label>
                                 <div style="display:flex;gap:6px">
+                                    {{-- kata, bukan huruf — sama seperti badge di papan --}}
                                     @foreach (['S', 'M', 'L'] as $j)
                                         <label><input class="itk-radio" type="radio" name="jenjang" value="{{ $j }}"
-                                            {{ old('jenjang') === $j ? 'checked' : '' }}><span>{{ $j }}</span></label>
+                                            {{ old('jenjang') === $j ? 'checked' : '' }}><span>{{ \App\Services\ItTracker\ItTrackerService::jenjangLabel($j) }}</span></label>
                                     @endforeach
                                 </div>
                             </div>
