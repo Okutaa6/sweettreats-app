@@ -6,6 +6,72 @@
 > file ini append-only.
 
 ---
+## 2026-09-08 — Fitur katalog dipetakan per LINK, bukan per node (§14.27)
+
+Ralat **spesifikasi**, bukan salah koding. Live di dev (`f111832`), **155 uji
+hijau** di 15 kelas.
+
+### Sebabnya satu kalimat
+`it_modul.access_id` menunjuk **satu node** `access_path` — padahal **menu
+mengelompokkan berdasarkan NAVIGASI** sementara **katalog berdasarkan
+KEPEMILIKAN**, dan keduanya tak selalu berimpit. Branch · Doctor · Doctor
+Service bersaudara di bawah *Reservation Data Center*, tapi parent itu juga
+memuat Reservation & Pasien milik modul lain: menunjuk parent **kelebihan**,
+menunjuk satu daun **kekurangan**.
+
+### Perbaikannya: modul memiliki sekumpulan RUTE
+Kolom baru `fitur_link` (JSON daftar `access_path.link`). Fitur = link-link itu,
+**dedup per link**.
+
+**Kenapa per link — bukan sekadar lebih lengkap, lebih JUJUR:** `rawreservation`
+muncul **4×** di menu dengan empat nama berbeda dan `report` **2×**. Menghitung
+node = menghitung **label menu**; menghitung link = menghitung **halaman**. Yang
+dijanjikan katalog kepada Executive adalah *"halaman yang bisa dibuka"*.
+
+**Bonus yang menentukan bentuk kolomnya:** `link` **stabil antar lingkungan**,
+sedangkan id node berbeda (jebakan 2026-07-24) — pemetaan ini tak perlu
+diselesaikan ulang tiap kali menu ditata ulang.
+
+### Hasil terukur di dev
+| | sebelum | sesudah |
+|---|---|---|
+| Reservasi | 1 | **2** |
+| Master Jadwal & Layanan | 1 | **3** |
+| Checklist Operasional | 3 | **4** |
+| Absensi · Konten · Pusat Akun | 8 · 6 · 6 | **tetap** 8 · 6 · 6 |
+| tanpa rute (Accurate · Omnicare · Kontak) | 0 | **tetap 0 + "tanpa menu"** |
+
+Link unik seluruh katalog **54**, dari 63 halaman unik yang ada di menu dev —
+tidak melebihi, dan tidak mendadak menyusut.
+
+### Dua keputusan kecil yang perlu dicatat
+- ⚠️ **Nama kolomnya `fitur_link`, bukan `pakai_link`** seperti usulan prompt:
+  awalan `pakai_*` di tabel ini sudah berarti **pengukuran pemakaian**.
+  Menyatukan dua konsep di satu awalan akan menyesatkan pembaca berikutnya.
+- **Jalur node dipertahankan sebagai cadangan** (modul yang belum berdaftar-link
+  tak mendadak nol) dan kini ikut **dedup per link**. Laporan seeder memakai
+  jalur yang **sama** dengan layar — laporan berjalur lain akan berselisih
+  dengan halaman dan tak ada yang tahu mana yang benar.
+
+### Sekalian: katalog menyebut lingkungannya
+Saat `APP_ENV` bukan production, halaman menulis: *"angka **dipakai N× 7 hari**
+hanya berarti di produksi — lingkungan ini tak dipakai kerja nyata, jadi wajar
+bila semuanya 0."* Tanpa itu, siapa pun yang memperagakan katalog **dari dev**
+akan menyimpulkan semua modulnya mati. Terukur di prod: Reservasi 534 · Absensi
+305 · Checklist 117 · Petty Cash 96 · ROP 33 per 7 hari.
+
+### ⏭️ Yang SENGAJA belum diubah (menunggu kata Ekky)
+Dua modul kemungkinan besar kurang hitung dengan bentuk yang **sama persis**,
+dan buktinya sudah terukur di menu — tapi di luar tiga koreksi yang diminta:
+- **ROP (Pengajuan Pengeluaran)** 1 link (`pengajuan`); menu juga punya
+  `finance/rop` (Antrian Pengajuan) dan `finance/rop/rekap` (Rekap Pengeluaran),
+  yang dokumen katalog memang sebut sebagai fiturnya → seharusnya **3**.
+- **Petty Cash** 1 link (`finance/pettycash`); ada `pettycash` (Operational
+  Expense) di cabang Report yang dokumen sebut sebagai fiturnya → **2**.
+
+Keduanya satu baris di seeder. Tak kuubah sendiri karena penetapan kepemilikan
+halaman adalah keputusan, bukan pengukuran.
+---
 ## 2026-09-07 — Katalog dilengkapi: taut tiket→modul, 37 entri, dan kolom PEMAKAIAN
 
 Empat pekerjaan kecil §14.26 yang saling menopang. Live di dev (`1515bd5`),

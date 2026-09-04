@@ -39,6 +39,21 @@
 > `2400896`, tak ada lagi cabang prod terpisah. Peringatan lama "jangan deploy
 > main ke prod" **sudah TIDAK berlaku** — sekarang justru `main` yang benar.
 >
+> ✅ **Sisipan 2026-09-08 — FITUR KATALOG PER LINK** (`f111832`, dev, **155 uji**):
+> ralat spesifikasi — `access_id` satu node keliru karena **menu mengelompokkan
+> berdasarkan navigasi, katalog berdasarkan kepemilikan**. Kolom baru
+> `fitur_link` (JSON daftar link), fitur = link-link itu **dedup per link**.
+> Lebih jujur, bukan cuma lebih lengkap: `rawreservation` muncul **4×** di menu
+> dengan empat nama — menghitung node = menghitung LABEL, menghitung link =
+> menghitung HALAMAN. Hasil: Reservasi 1→2 · Master Jadwal 1→3 · Checklist 3→4;
+> Absensi/Konten/Pusat Akun **tetap** 8/6/6; tanpa rute tetap 0 + "tanpa menu";
+> 54 link unik dari 63 halaman. ⚠️ Kolomnya `fitur_link` (BUKAN `pakai_link` —
+> awalan `pakai_*` sudah berarti pengukuran pemakaian). ⚠️ Katalog kini menyebut
+> lingkungannya di luar produksi: *"angka pemakaian hanya berarti di produksi"* —
+> di dev semuanya 0 dan itu wajar (prod terukur: Reservasi 534 · Absensi 305).
+> ⏭️ Sengaja belum diubah: ROP (1→3) & Petty Cash (1→2) kurang hitung dengan
+> bentuk yang sama — buktinya terukur, tapi penetapan kepemilikan halaman itu
+> keputusan Ekky, bukan pengukuran.
 > ✅ **Sisipan 2026-09-07 — KATALOG DILENGKAPI** (`1515bd5`, dev, **147 uji**):
 > **(1)** `it:seed-antrian` membaca kolom ke-18 `modul` → 34 tiket seed bertaut
 > modul; nama yang tak ada di katalog membuat perintah **BERHENTI menyebut
