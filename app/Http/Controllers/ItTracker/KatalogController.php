@@ -45,6 +45,13 @@ class KatalogController extends Controller
         $cacah = $this->katalog->cacahTiket();
         $tiket = $this->katalog->tiketTerbuka($this->svc);
 
+        // ⛔ Head departemen hanya boleh melihat ISI tiketnya sendiri (rencana §12 —
+        // aturan yang sama sudah dipegang detail tiket & panel ketergantungan
+        // FRM-IT-02). Di katalog ia tetap melihat ANGKA semua modul — beban IT
+        // memang harus terbaca — tapi judul tiket orang lain disensor, bukan
+        // dibiarkan bocor lewat panel ringkasan.
+        $bolehIsi = fn ($t) => $peran !== 'head' || $t->pemohon_user_id === session('id');
+
         // fitur diturunkan dari access_path — sekali muat pohon untuk 33 modul
         $fitur = [];
         foreach ($semua as $m) $fitur[$m->id] = $this->katalog->fitur($m->access_id);
@@ -120,6 +127,7 @@ class KatalogController extends Controller
             'cacah'     => $cacah,
             'tiket'     => $tiket,
             'yatim'     => $yatim,
+            'bolehIsi'  => $bolehIsi,
             'jumlah'    => [
                 'modul'    => $semua->count(),
                 'dept'     => count(KatalogModul::DEPARTEMEN),

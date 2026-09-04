@@ -158,6 +158,10 @@ class ItTrackerController extends Controller
         } elseif ($modul) {
             $saring = ['teks' => 'bukan milik modul ' . $modul->nama . '.',
                        'aksi' => 'Lepas filter modul', 'href' => $sisa(['modul' => null])];
+        } elseif ($modulId) {
+            // tautan basi / entri katalog terhapus — jangan diam, sebutkan
+            $saring = ['teks' => 'disaring modul #' . $modulId . ' yang tidak ada di katalog.',
+                       'aksi' => 'Lepas filter modul', 'href' => $sisa(['modul' => null])];
         }
 
         // Pencarian WAJIB menjangkau parkiran: tiket yang sudah selesai/ditunda tetap

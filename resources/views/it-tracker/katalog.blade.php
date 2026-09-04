@@ -49,8 +49,15 @@
         if (! $c['terbuka']) return null;
         return $c['terbuka'] . ' tiket' . ($c['ditunda'] ? ' · ' . $c['ditunda'] . ' tunda' : '');
     };
-    // angka tiket bisa DIKLIK → papan yang sudah tersaring ke modul ini
-    $kePapan = fn ($m) => route('it-tracker.index', ['modul' => $m->id]);
+    // Angka tiket bisa DIKLIK → papan yang sudah tersaring ke modul ini.
+    // Kalau modulnya punya tiket DITUNDA, parkiran ikut dibuka: "utang" menghitung
+    // yang ditunda, jadi papan yang menyembunyikannya akan tampak kurang dari
+    // angka yang baru saja diklik — dan angka yang tak bisa dicocokkan itulah
+    // yang mau dihindari halaman ini.
+    $kePapan = fn ($m) => route('it-tracker.index', array_filter([
+        'modul'  => $m->id,
+        'parkir' => ($cacah[$m->id]['ditunda'] ?? 0) > 0 ? 1 : null,
+    ]));
 @endphp
 <div class="itk-surface itk-katalog">
 
@@ -61,8 +68,14 @@
         <span class="itk-badge-zona">ZONA IT</span>
         <span class="sub">Apa saja yang kami punya — siapa pemiliknya, sejak kapan, apa yang sedang terjadi padanya</span>
         <div class="itk-topbar-nav">
-            {{-- tautan dua arah: papan ⇄ katalog, dua tampilan atas satu data --}}
-            <a class="itk-btn itk-btn-putih" href="{{ route('it-tracker.index') }}" title="Halaman aksi: triase, gerbang, UAT">Papan Antrean</a>
+            {{-- tautan dua arah: papan ⇄ katalog, dua tampilan atas satu data.
+                 Head departemen tak punya papan (ItTrackerController mengalihkannya
+                 ke halaman permintaan) — jangan tawarkan pintu yang memantul. --}}
+            @if ($peran === 'head')
+                <a class="itk-btn itk-btn-putih" href="{{ route('it-tracker.permintaan') }}">Permintaan Saya</a>
+            @else
+                <a class="itk-btn itk-btn-putih" href="{{ route('it-tracker.index') }}" title="Halaman aksi: triase, gerbang, UAT">Papan Antrean</a>
+            @endif
             <span class="itk-btn itk-btn-grafit" style="cursor:default">Katalog Modul</span>
             <div class="itk-avatar" title="{{ session('name') }} · {{ session('group_name') }}">{{ $inisial }}</div>
         </div>
@@ -130,7 +143,7 @@
 
     @if ($q !== '' && ! $groups && $tampilan !== 'matriks')
         <div style="background:#fff;border:1px solid #EFE0CE;border-radius:16px;padding:32px;text-align:center">
-            <div style="font-size:14px;font-weight:800;color:#5A3A22">Tidak ada modul yang cocok dengan “{{ $q }}”</div>
+            <div style="font-size:14px;font-weight:800;color:#5A3A22">Tak ada modul yang cocok dengan “{{ $q }}”</div>
             <div style="font-size:12.5px;color:#9A7256;margin-top:5px">Pencarian menyentuh nama modul, departemen, jenis, dan nama fiturnya.
                 <a href="{{ $link(['q' => null]) }}">Hapus pencarian</a></div>
         </div>
@@ -166,6 +179,12 @@
                     <span class="tiket num {{ $r['utang'] >= 3 ? 'banyak' : ($r['utang'] ? 'ada' : '') }}">{{ $r['utang'] ?: '—' }}</span>
                 @endforeach
             </div>
+            @php $adaDiMatriks = collect($matriks)->contains(fn ($r) => collect($r['sel'])->contains(fn ($s) => count($s) > 0)); @endphp
+            @if (! $adaDiMatriks)
+                {{-- kosong karena pencarian ≠ kosong sungguhan (pelajaran gerbong "papan jujur") --}}
+                <div class="itk-mx-kosong">Tak ada modul yang cocok dengan “{{ $q }}”.
+                    <a href="{{ $link(['q' => null]) }}">Hapus pencarian</a> — pencarian menyentuh nama modul, departemen, jenis, dan nama fiturnya.</div>
+            @endif
             <div class="kaki">Klik nama modul untuk membuka ringkasannya — tanpa pindah halaman. Angka kecil di chip = tiket terbuka.</div>
         </div>
     @endif
@@ -268,8 +287,14 @@
                     Sengaja tidak ditebak dari judul: tebakan yang meleset tak terlihat siapa pun.</div>
                 <div class="daftar">
                     @foreach (array_slice($yatim, 0, 12) as $x)
-                        <a class="{{ $x['t']->unit === 'rblas' ? 'rblas' : '' }}" href="{{ route('it-tracker.show', $x['t']->id) }}">
-                            {{ '#' . preg_replace('/^IT-\d{4}-/', '', $x['t']->nomor) }} · {{ \Illuminate\Support\Str::limit($x['t']->judul, 46) }}{{ $x['t']->unit === 'rblas' ? ' — RB Las' : '' }}</a>
+                        @php $bolehY = $bolehIsi($x['t']); @endphp
+                        @if ($bolehY)
+                            <a class="{{ $x['t']->unit === 'rblas' ? 'rblas' : '' }}" href="{{ route('it-tracker.show', $x['t']->id) }}">
+                                {{ '#' . preg_replace('/^IT-\d{4}-/', '', $x['t']->nomor) }} · {{ \Illuminate\Support\Str::limit($x['t']->judul, 46) }}{{ $x['t']->unit === 'rblas' ? ' — RB Las' : '' }}</a>
+                        @else
+                            {{-- judul tiket departemen lain tak ditampilkan ke Head (rencana §12); nomornya tetap, supaya angkanya tetap bisa dicocokkan --}}
+                            <span class="disensor">{{ '#' . preg_replace('/^IT-\d{4}-/', '', $x['t']->nomor) }} · tiket departemen lain</span>
+                        @endif
                     @endforeach
                     @if (count($yatim) > 12)<span class="lagi">+{{ count($yatim) - 12 }} lagi</span>@endif
                 </div>
@@ -328,7 +353,9 @@
                             <div class="tiket-list">
                                 @foreach ($daftarTiket as $x)
                                     @php $t = $x['t']; $w = $x['wait']; @endphp
-                                    <a class="tiket {{ $t->fase === 'DITUNDA' ? 'ditunda' : '' }}" href="{{ route('it-tracker.show', $t->id) }}">
+                                    @php $boleh = $bolehIsi($t); @endphp
+                                    <{{ $boleh ? 'a' : 'div' }} class="tiket {{ $t->fase === 'DITUNDA' ? 'ditunda' : '' }} {{ $boleh ? '' : 'disensor' }}"
+                                        @if ($boleh) href="{{ route('it-tracker.show', $t->id) }}" @endif>
                                         <div class="atas">
                                             <span class="num no">{{ '#' . preg_replace('/^IT-\d{4}-/', '', $t->nomor) }}</span>
                                             <span class="fase {{ PhaseEngine::waitCls($w, $t->fase) }}">
@@ -341,7 +368,7 @@
                                             @if ($t->jenjang)<span class="jenjang">Jenjang {{ $t->jenjang }}</span>@endif
                                             @if ($t->pic)<span class="pic">{{ $t->pic->nama }}</span>@endif
                                         </div>
-                                        <div class="judul">{{ $t->judul }}</div>
+                                        <div class="judul">{{ $boleh ? $t->judul : 'Tiket departemen lain — isinya tidak ditampilkan' }}</div>
                                         {{-- warna panas dipakai ulang DI SINI karena artinya sama: menunggu di luar IT --}}
                                         <span class="itk-wait {{ PhaseEngine::waitCls($w, $t->fase) }}"><i></i>
                                             <span class="num">
@@ -349,14 +376,14 @@
                                                 @else {{ $w['label'] }} · {{ $w['days'] }} hr
                                                 @endif
                                             </span></span>
-                                        @if ($t->kemajuan)
+                                        @if ($t->kemajuan && $boleh)
                                             @php $hariKm = $t->kemajuan_at ? (int) $t->kemajuan_at->diffInDays(now()) : null; @endphp
                                             <div class="itk-kemajuan {{ $hariKm !== null && $hariKm >= 7 ? 'basi' : '' }}">
                                                 <span class="txt">{{ $t->kemajuan }}</span>
                                                 @if ($hariKm !== null)<span class="num">{{ $hariKm >= 7 ? $hariKm . ' hr · basi' : ($hariKm === 0 ? 'hari ini' : $hariKm . ' hr') }}</span>@endif
                                             </div>
                                         @endif
-                                    </a>
+                                    </{{ $boleh ? 'a' : 'div' }}>
                                 @endforeach
                             </div>
                         </div>

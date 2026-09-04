@@ -12,12 +12,8 @@
 .itk-surface .num { font-variant-numeric:tabular-nums; }
 
 /* ── kepala halaman ── */
-.itk-head { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:14px; }
-.itk-head h1 { font-size:20px; font-weight:800; color:var(--itk-ink); margin:0; }
 .itk-badge-zona { font-size:9.5px; font-weight:800; letter-spacing:.8px; color:var(--itk-grafit-ink);
   background:linear-gradient(120deg,var(--itk-grafit),var(--itk-grafit-2)); border-radius:6px; padding:3px 8px; }
-.itk-head-sub { width:100%; font-size:12.5px; color:var(--itk-soft); font-weight:500; }
-.itk-head-nav { margin-left:auto; display:flex; gap:8px; }
 
 /* ── panel beban ── */
 .itk-beban { background:var(--itk-card); border:1px solid var(--itk-line); border-radius:18px;
@@ -88,14 +84,8 @@ body.zona-it .itk-kolom { background:#ECEAE4; border-color:#DDD9CF; }
   background:var(--itk-chip); color:#5A3A22; }
 .itk-src.inisiatif { background:#FBE9DE; color:#A8481B; }
 .itk-src.insiden { background:#FBE3DE; color:#C0392B; }
-.itk-jenjang { margin-left:auto; font-size:10px; font-weight:800; border-radius:6px; padding:2px 7px;
-  background:var(--itk-chip); color:#A08A76; }
-.itk-jenjang.L { background:var(--itk-grafit); color:var(--itk-grafit-ink); }
-.itk-jenjang.M { background:#EFE0CE; color:#5A3A22; }
-.itk-jenjang.S { background:var(--itk-chip); color:#7A5B43; }
 .itk-card-title { font-size:13px; font-weight:700; line-height:1.35; margin-top:6px; }
 .itk-card-meta { display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-top:7px; }
-.itk-prog { font-size:10.5px; font-weight:700; color:#5A3A22; background:var(--itk-chip); border-radius:6px; padding:2px 7px; }
 .itk-prio { font-size:10px; font-weight:800; border-radius:6px; padding:2px 7px; }
 .itk-prio.P1 { background:var(--itk-grafit-2); color:var(--itk-grafit-ink); }
 .itk-prio.P2 { background:#fff; color:var(--itk-grafit-2); border:1px solid #B9B9B2; }
@@ -382,7 +372,6 @@ body.zona-it .itk-kolom { background:#ECEAE4; border-color:#DDD9CF; }
 .itk-dep .itk-st.AKTIF { background:#E4ECFB; color:#3F6BAF; }
 .itk-dep-sel { border:1px dashed #DCC4A8; border-radius:9px; padding:7px 10px; font-family:inherit; font-size:12px; color:#7A5B43; background:var(--itk-bg); cursor:pointer; width:100%; }
 .itk-dep-chip { font-size:10.5px; font-weight:700; color:#B5701A; background:#FBEFD9; border-radius:6px; padding:2px 7px; }
-.itk-parent-chip { font-size:10.5px; font-weight:700; color:#3F6BAF; background:#E4ECFB; border-radius:6px; padding:2px 7px; }
 
 /* 02 penuh (L saja) */
 .itk-penuh { border:1px solid #DCC4A8; border-radius:13px; overflow:hidden; }
@@ -492,7 +481,6 @@ body.zona-it .itk-kolom { background:#ECEAE4; border-color:#DDD9CF; }
 .itk-doc-lewat{display:inline-block;margin-top:4px;font-weight:700;color:#8E3B2C;border:1px dashed #C0392B;border-radius:5px;padding:3px 8px}
 
 /* ── Papan: tab JENIS PERMINTAAN (S = Support · M/L = Fitur & Modul) ────────── */
-.itk-tabjenis { display:flex; align-items:stretch; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
 .itk-tj { display:flex; flex-direction:column; gap:1px; text-align:left; font-family:inherit; cursor:pointer;
   background:var(--itk-card); border:1px solid var(--itk-line); border-radius:14px; padding:9px 14px 8px; position:relative; }
 .itk-tj b { font-size:13px; font-weight:800; color:var(--itk-ink); }
@@ -523,21 +511,13 @@ body.zona-it .itk-kolom { background:#ECEAE4; border-color:#DDD9CF; }
   text-align:center; font-size:13.5px; font-weight:700; color:#9A7256; margin-bottom:14px; }
 
 /* Parkiran bertab: Ditunda · Ditolak · Selesai — bukan satu tumpukan campur */
-.itk-parkir-bar { display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:9px; }
-.itk-parkir-bar b { font-size:11px; font-weight:800; letter-spacing:.8px; color:#9A7256; }
-.itk-parkir-bar .itk-fasetab { margin:0; gap:5px; background:#EFE6D9; border:1px solid #E7D8C4; border-radius:11px; padding:3px; }
-body.zona-it .itk-parkir-bar .itk-fasetab { background:#ECEAE4; border-color:#DDD9CF; }
-.itk-parkir-bar .itk-ft { flex:0 0 auto; padding:5px 12px; }
 .itk-parkir-panel .itk-parkir { margin-bottom:8px; }
 
 /* Badge jenjang: kata, bukan huruf (S/M/L mubazir sesudah papan bertab).
    "belum ditriase" sengaja MENONJOL — itu satu-satunya keadaan yang menuntut tindakan. */
-.itk-jenjang { white-space:nowrap; }
-.itk-jenjang.baru { background:#FBEFD9; color:#B5701A; border:1px dashed #E8C99A; }
 /* badge kata lebih lebar dari huruf → biarkan barisnya membungkus, JANGAN memotong nomor tiket */
 .itk-card-top { flex-wrap:wrap; row-gap:4px; }
 .itk-no, .itk-src { white-space:nowrap; }
-.itk-jenjang { margin-left:auto; }
 
 /* ── Revisi pasca-demo 5 Sep ────────────────────────────────────────────────
    Unit usaha (RB Las = aksen oranye, satu papan), badge PIC, catatan kemajuan. */
@@ -553,20 +533,11 @@ body.zona-it .itk-parkir-bar .itk-fasetab { background:#ECEAE4; border-color:#DD
 .itk-kemajuan .num { color:#7C93BF; font-weight:700; }
 .itk-kemajuan.basi { color:#B5701A; background:#FBEFD9; }
 .itk-kemajuan.basi .num { color:#B5701A; }
-.itk-kemajuan-blok { background:#EEF3FC; border-radius:11px; padding:10px 13px; margin-bottom:9px; }
-.itk-kemajuan-blok .txt { font-size:13.5px; font-weight:700; color:#2F4E86; line-height:1.5; }
-.itk-kemajuan-blok .meta { font-size:11px; font-weight:700; color:#7C93BF; margin-top:4px; }
-.itk-kemajuan-blok.basi { background:#FBEFD9; }
-.itk-kemajuan-blok.basi .txt { color:#8E5A15; }
-.itk-kemajuan-blok.basi .meta { color:#B5701A; }
 
 /* ══ RONDE 3 — kartu dua-detik, tiga tingkat tab yang berbeda rupa ══════════ */
 
 /* tingkat 1 (jenis) tetap seperti dev — kartu putih, aktif = grafit. Tab ketiga
    "Belum ditriase" bertepi amber karena ia antrean tindakan, bukan kategori. */
-.itk-tj-baru { border-color:#E8C99A; }
-.itk-tj-baru i { background:#FBEFD9; color:#B5701A; }
-.itk-tj-baru.aktif { background:var(--itk-grafit); border-color:#B5701A; }
 
 /* tingkat 2 (tahap dalam kolom): teks kecil bergaris bawah — bukan tombol pil */
 .itk-fasetab { gap:12px; margin:8px 0 6px; padding:0 4px; border-bottom:1px solid #DFD4C4; }
@@ -581,10 +552,6 @@ body.zona-it .itk-fasetab { border-bottom-color:#D8D4CA; }
 .itk-ft.kosong { color:#C3B4A2; }
 
 /* tingkat 3 (status parkiran): chip cokelat bergaris putus */
-.itk-parkir-bar .itk-fasetab { border:none; background:none; padding:0; gap:6px; }
-.itk-parkir-bar .itk-ft { border:1px dashed #DCC4A8; border-radius:9px; padding:4px 11px; color:#8A7258; }
-.itk-parkir-bar .itk-ft::after { display:none; }
-.itk-parkir-bar .itk-ft.aktif { background:var(--itk-chip); border-style:solid; border-color:#C9AE90; color:#5A3A22; }
 
 /* kartu: lebih rapat, dan angka kemajuan fase pindah ke ujung strip */
 .itk-card { padding:9px 11px; }
@@ -1110,3 +1077,16 @@ body.zona-it .itk-fasetab { border-bottom-color:#D8D4CA; }
   .itk-mx-grid { grid-template-columns:120px repeat(4,minmax(0,1fr)); }
   .itk-mx-grid .hd.kanan, .itk-mx-grid .tiket { display:none; }
 }
+
+/* Audit katalog (6 Sep):
+   · matriks yang kosong karena PENCARIAN menyebut alasannya — pelajaran gerbong
+     "papan jujur": kosong karena penyaring ≠ kosong sungguhan.
+   · tiket departemen lain untuk peran Head: nomornya tetap (supaya angka bisa
+     dicocokkan) tapi judulnya disensor (rencana §12). */
+.itk-mx-kosong { padding:14px 16px; border-top:1px solid #F4EADD; background:#FFF8EE;
+  font-size:12.5px; font-weight:600; color:#7A5B43; text-align:center; }
+.itk-mx-kosong a { font-weight:800; color:#B5701A; }
+.itk-panel-geser .tiket.disensor { background:var(--itk-bg); border:1px dashed #DCC4A8; cursor:default; }
+.itk-panel-geser .tiket.disensor .judul { color:#A99880; font-weight:600; font-style:italic; }
+.itk-yatim .daftar .disensor { font-size:11px; font-weight:700; border-radius:7px; padding:3px 9px;
+  background:var(--itk-bg); color:#A99880; border:1px dashed #DCC4A8; font-style:italic; }

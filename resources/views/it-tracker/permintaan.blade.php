@@ -33,6 +33,10 @@
             @if ($bolehPapan)
                 <a class="itk-btn itk-btn-putih" href="{{ route('it-tracker.index') }}">Papan Antrean</a>
             @endif
+            {{-- katalog dicapai dari SEMUA halaman zona ini, termasuk halaman Head
+                 yang tak punya papan — kalau tidak, "apa saja yang kami punya"
+                 cuma bisa dibuka orang IT. --}}
+            <a class="itk-btn itk-btn-putih" href="{{ route('it-tracker.katalog') }}" title="Apa saja yang kami punya">Katalog Modul</a>
             <div class="itk-avatar" title="{{ session('name') }} · {{ session('group_name') }}">{{ $inisial }}</div>
         </div>
     </div>
