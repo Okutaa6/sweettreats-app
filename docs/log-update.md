@@ -37,10 +37,22 @@ commit `66cf83b`.
 - Modal triase kini menyebut akibat pilihannya: **S → Support Request**,
   **M/L → Feature / Modul Request** — triase jadi keputusan "papan mana",
   bukan sekadar "berapa fase".
-- Uji: +1 regresi penanda tab (26 kartu = 6 S + 13 M/L + 7 belum ditriase, dan
-  chip S/M/L lama benar-benar tercabut). **99 uji lama tetap hijau → 100.**
-  Diverifikasi ulang di dev dengan data nyata: 26 kartu, 7 tab tahap, CSS baru
-  terlayani.
+- **Parkiran ikut bertab** (permintaan lanjutan Ekky): Ditunda · Ditolak ·
+  Selesai masing-masing berhitungan, bukan satu tumpukan campur; status
+  pertama yang berisi terpilih sendiri. Parkiran **ikut tab jenis** juga —
+  `jenjang` ditambahkan ke kueri parkir, karena papan dan parkiran tak boleh
+  bercerita beda. Chip "Ditunda / ditolak / selesai (N)" ikut berubah angkanya
+  dan menghilang kalau kosong.
+- **Badge S/M/L diganti kata**: **Support · Fitur · Modul**, dan yang belum
+  ditriase kini terbaca **"belum ditriase"** (kuning bergaris putus) — bukan
+  "?" yang menyembunyikan satu-satunya keadaan yang menuntut tindakan. Satu
+  sumber `ItTrackerService::jenjangLabel()` dipakai papan, parkiran, detail,
+  modal triase, dan formulir inisiatif. Detail tiket tetap menyebut hurufnya
+  di belakang kata ("Modul · L") karena huruf itu masih dipakai saat bicara.
+- Uji: +1 regresi penanda tab & parkiran (26 kartu = 6 S + 13 M/L + 7 belum
+  ditriase; 3 panel status parkiran; chip S/M/L lama benar-benar tercabut).
+  **99 uji lama tetap hijau → 100.** Diverifikasi ulang di dev dengan data
+  nyata: 26 kartu, 7 tab tahap, 3 panel parkiran, CSS baru terlayani.
 
 ## 2026-09-04d — IT TRACKER: dev DIISI antrian nyata — `it:seed-antrian`, 30 tiket, "berapa hari" jujur (demo 5 Sep)
 

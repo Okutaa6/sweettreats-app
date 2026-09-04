@@ -43,7 +43,9 @@
 > jenis permintaan — **Support Request** (S, 2 fase) vs **Feature / Modul
 > Request** (M/L, 5–7 fase), menggantikan chip filter S/M/L; tahap di dalam
 > kolom (Development · Uji Internal, dan UAT · Go Live · Evaluasi) jadi **tab**
-> sehingga tak perlu digulir. Tiket belum ditriase tampil di kedua tab dengan
+> sehingga tak perlu digulir. **Parkiran** juga bertab (Ditunda · Ditolak ·
+> Selesai) dan ikut tab jenis. **Badge S/M/L diganti kata** (Support · Fitur ·
+> Modul · "belum ditriase"). Tiket belum ditriase tampil di kedua tab dengan
 > catatan. 100 uji hijau.
 
 > ✅ **Sisipan 2026-09-04d — DEV DIISI ANTRIAN NYATA IT TRACKER** (`521af5a`,
