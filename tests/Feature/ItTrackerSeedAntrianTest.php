@@ -219,10 +219,13 @@ class ItTrackerSeedAntrianTest extends TestCase
         $html = $this->withSession($this->sesi('Head IT', 'uji-headit-seed'))
             ->get(route('it-tracker.index'))->assertOk()
             ->assertSee('Support Request')->assertSee('Feature / Modul Request')
-            ->assertSee('belum ditriase')->getContent();
+            ->assertSee('Belum ditriase')->getContent();
 
         // kartu membawa jenisnya; jumlah penanda = jumlah kartu aktif (26 aktif + 4 ditunda tak di papan)
         $this->assertSame(26, substr_count($html, 'data-kartu data-jenis='));
+        // ronde 3: TIGA tab yang saling lepas — 13 + 6 + 7 = 26, tanpa hitungan ganda
+        $this->assertSame(3, substr_count($html, 'class="itk-tj'), 'tiga tab jenis permintaan');
+        $this->assertStringContainsString('data-jenis="baru"', $html);
         $this->assertSame(6, substr_count($html, 'data-kartu data-jenis="support"'), 'enam tiket S (insiden)');
         $this->assertSame(13, substr_count($html, 'data-kartu data-jenis="fitur"'), 'tiga belas tiket M/L');
         $this->assertSame(7, substr_count($html, 'data-kartu data-jenis="baru"'), 'tujuh belum ditriase');
@@ -231,6 +234,10 @@ class ItTrackerSeedAntrianTest extends TestCase
         $this->assertGreaterThanOrEqual(5, substr_count($html, 'data-ft='));
         $this->assertStringContainsString('data-fasetab', $html);
         $this->assertStringNotContainsString('>S</a>', $html, 'chip filter S/M/L lama sudah dicabut');
+        $this->assertStringNotContainsString('itk-jenjang', $html, 'badge jenjang turun dari kartu papan (mengulang tab jenis)');
+        $this->assertStringNotContainsString('itk-prog', $html, 'chip fase turun dari kartu (mengulang kolom); angkanya pindah ke strip');
+        $this->assertStringContainsString('itk-wait-prog', $html);
+        $this->assertStringContainsString('itk-legenda-warna', $html, 'legenda lima saluran warna');
 
         // parkiran juga bertab (Ditunda · Ditolak · Selesai) dan kartunya berpenanda jenis
         $this->assertSame(3, substr_count($html, 'data-pkp="'), 'tiga panel status parkiran (Ditunda · Ditolak · Selesai)');

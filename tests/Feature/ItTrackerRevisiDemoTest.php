@@ -85,7 +85,9 @@ class ItTrackerRevisiDemoTest extends TestCase
 
         $html = $this->withSession($this->sesi('Head IT', 'uji-headit'))->get(route('it-tracker.index'))->assertOk()->getContent();
         $this->assertStringContainsString('itk-rblas', $html, 'kartu RB Las beraksen oranye');
-        $this->assertStringContainsString('>RB LAS<', $html);
+        // RONDE 3: badge di kartu DIBUANG — RB Las = garis kiri oranye, dijelaskan legenda
+        $this->assertStringNotContainsString('>RB LAS<', $html, 'badge unit turun dari kartu');
+        $this->assertStringContainsString('garis kiri oranye', $html, 'legenda menjelaskan warnanya');
         // yang lazim TIDAK ditandai — menandai semuanya sama saja tak menandai apa pun
         $this->assertStringNotContainsString('itk-unit sweettreats', $html);
     }

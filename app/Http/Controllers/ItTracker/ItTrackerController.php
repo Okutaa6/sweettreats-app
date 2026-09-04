@@ -92,7 +92,7 @@ class ItTrackerController extends Controller
                     ->map(fn ($t) => $this->kartu($t, $views[$t->id], $semuaView))
                     ->sortBy([['heat', 'desc'], ['rank', 'asc'], ['since', 'asc']])
                     ->values();
-                $kolom[] = ['label' => $f['label'], 'cards' => $cards];
+                $kolom[] = ['k' => $f['k'], 'label' => $f['label'], 'cards' => $cards];
             }
             $groups[$nama] = $kolom;
         }
@@ -1216,6 +1216,12 @@ class ItTrackerController extends Controller
             }
         }
 
+        // Ronde 3: "Masih perlu …" hanya naik ke kartu kalau yang harus bertindak
+        // BUKAN IT (mis. paraf Business Owner). Kekurangan yang IT sendiri bisa
+        // beresi cukup di detail — kalau tidak, hampir tiap kartu tumbuh dua baris.
+        $blokirLuar = $blokir !== null && ($wait['luar']
+            || str_contains(mb_strtolower($blokir), 'business owner'));
+
         return [
             't'      => $t,
             'wait'   => $wait,
@@ -1233,6 +1239,7 @@ class ItTrackerController extends Controller
             'diteruskan' => $v['fr02']['diteruskan'] ?? null,
             'tombol' => $tombol,
             'blokir' => $blokir,
+            'blokirLuar' => $blokirLuar,
             // kunci sortir
             'heat'   => $wait['heat'],
             'rank'   => PhaseEngine::rankOf($t->fase),

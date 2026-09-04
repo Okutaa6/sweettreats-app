@@ -141,7 +141,7 @@ class ItTrackerTeruskanTest extends TestCase
             ->assertSee('tanpa paraf Business Owner')->assertSee('Hari sedang di luar kota');
         $this->assertSame(2, substr_count($detail->getContent(), 'Hari sedang di luar kota'), 'kepala tiket + panel 02');
 
-        $this->withSession($ses)->get(route('it-tracker.index'))->assertOk()->assertSee('tanpa paraf BO');
+        $this->withSession($ses)->get(route('it-tracker.index'))->assertOk()->assertSee('itk-lewat-chip', false); // penanda, bukan kata (legenda memuat katanya)
         $this->withSession($ses)->get(route('it-tracker.ekspor', $t->id))->assertOk()
             ->assertSee('itk-doc-lewat', false)->assertSee('tanpa paraf Business Owner')->assertSee('Hari sedang di luar kota');
 
@@ -207,7 +207,7 @@ class ItTrackerTeruskanTest extends TestCase
         $ses = $this->sesi('Head IT', 'uji-headit');
         $this->withSession($ses)->get(route('it-tracker.show', $t->id))->assertOk()
             ->assertDontSee('itk-lewat-banner', false)->assertDontSee('tanpa paraf Business Owner')->assertDontSee('Teruskan tanpa paraf BO');
-        $this->withSession($ses)->get(route('it-tracker.index'))->assertOk()->assertDontSee('tanpa paraf BO');
+        $this->withSession($ses)->get(route('it-tracker.index'))->assertOk()->assertDontSee('itk-lewat-chip', false); // legenda warna memuat KATA itu; yang diuji penandanya
         $this->withSession($ses)->get(route('it-tracker.ekspor', $t->id))->assertOk()->assertDontSee('itk-doc-lewat', false);
 
         foreach ($tabel as $x) $this->assertSame($sebelum[$x], DB::table($x)->count(), $x);

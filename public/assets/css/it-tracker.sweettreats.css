@@ -559,3 +559,56 @@ body.zona-it .itk-parkir-bar .itk-fasetab { background:#ECEAE4; border-color:#DD
 .itk-kemajuan-blok.basi { background:#FBEFD9; }
 .itk-kemajuan-blok.basi .txt { color:#8E5A15; }
 .itk-kemajuan-blok.basi .meta { color:#B5701A; }
+
+/* ══ RONDE 3 — kartu dua-detik, tiga tingkat tab yang berbeda rupa ══════════ */
+
+/* tingkat 1 (jenis) tetap seperti dev — kartu putih, aktif = grafit. Tab ketiga
+   "Belum ditriase" bertepi amber karena ia antrean tindakan, bukan kategori. */
+.itk-tj-baru { border-color:#E8C99A; }
+.itk-tj-baru i { background:#FBEFD9; color:#B5701A; }
+.itk-tj-baru.aktif { background:var(--itk-grafit); border-color:#B5701A; }
+
+/* tingkat 2 (tahap dalam kolom): teks kecil bergaris bawah — bukan tombol pil */
+.itk-fasetab { gap:12px; margin:8px 0 6px; padding:0 4px; border-bottom:1px solid #DFD4C4; }
+body.zona-it .itk-fasetab { border-bottom-color:#D8D4CA; }
+.itk-ft { flex:0 0 auto; background:none; border:none; border-radius:0; padding:4px 1px 6px;
+  font-size:11px; font-weight:800; letter-spacing:.2px; color:#9A8570; position:relative; }
+.itk-ft:hover { background:none; color:#5A3A22; }
+.itk-ft .n { background:none; padding:0 0 0 3px; font-size:10.5px; color:#B5A493; }
+.itk-ft.aktif { background:none; border:none; box-shadow:none; color:#3A3A36; }
+.itk-ft.aktif .n { background:none; color:#8A7258; }
+.itk-ft.aktif::after { content:''; position:absolute; left:0; right:0; bottom:-1px; height:2px; background:var(--itk-grafit); border-radius:2px; }
+.itk-ft.kosong { color:#C3B4A2; }
+
+/* tingkat 3 (status parkiran): chip cokelat bergaris putus */
+.itk-parkir-bar .itk-fasetab { border:none; background:none; padding:0; gap:6px; }
+.itk-parkir-bar .itk-ft { border:1px dashed #DCC4A8; border-radius:9px; padding:4px 11px; color:#8A7258; }
+.itk-parkir-bar .itk-ft::after { display:none; }
+.itk-parkir-bar .itk-ft.aktif { background:var(--itk-chip); border-style:solid; border-color:#C9AE90; color:#5A3A22; }
+
+/* kartu: lebih rapat, dan angka kemajuan fase pindah ke ujung strip */
+.itk-card { padding:9px 11px; }
+.itk-card-title { font-size:12.5px; margin-top:4px; }
+.itk-card-meta { margin-top:5px; }
+.itk-wait { margin-top:6px; }
+.itk-wait-prog { margin-left:auto; opacity:.72; font-size:10px; }
+.itk-card-btn { margin-top:6px; }
+.itk-blokir { margin-top:6px; }
+.itk-kemajuan { margin-top:5px; padding:5px 9px; font-size:11px; }
+
+/* RB Las tetap ORANYE (keputusan Ekky) — tapi hanya di TEPI, tak pernah isi:
+   isi kartu milik strip panas. Badge di kartu dibuang; legenda menjelaskannya. */
+.itk-card.itk-rblas { border-left:4px solid #D9772B; }
+
+/* legenda lima saluran warna */
+.itk-legenda-warna { display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin:2px 0 14px;
+  padding:9px 13px; background:var(--itk-card); border:1px solid var(--itk-line); border-radius:12px;
+  font-size:11px; font-weight:600; color:#7A5B43; line-height:1.5; }
+.itk-legenda-warna b { font-size:10px; font-weight:800; letter-spacing:.7px; color:#9A8570; }
+.itk-legenda-warna span { display:inline-flex; align-items:center; gap:6px; }
+.itk-legenda-warna i { width:16px; height:11px; border-radius:3px; flex:none; }
+.itk-legenda-warna .lg-strip { background:linear-gradient(90deg,var(--itk-chip) 0 34%,#FBEFD9 34% 67%,#FBE3DE 67%); }
+.itk-legenda-warna .lg-rb { background:#fff; border-left:4px solid #D9772B; border-top:1px solid var(--itk-line); border-right:1px solid var(--itk-line); border-bottom:1px solid var(--itk-line); }
+.itk-legenda-warna .lg-paraf { background:#FBE3DE; border:1px dashed #C0392B; }
+.itk-legenda-warna .lg-basi { background:#FBEFD9; }
+.itk-legenda-warna .lg-prio { background:var(--itk-grafit); }

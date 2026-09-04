@@ -110,11 +110,12 @@
             </div>
         </div>
     @endif
-    {{-- ═══ Tab JENIS PERMINTAAN (keputusan Ekky 4 Sep) ═══
-         S = Support Request (2 fase) · M/L = Fitur & Modul Request (5–7 fase).
-         Tiket yang BELUM ditriase belum punya jenjang — muncul di KEDUA tab supaya
-         tak ada yang hilang, dan ditandai "belum ditriase". Semua kartu tetap ada di
-         DOM (pencarian browser & tautan langsung tetap jalan); tab hanya menyaring. --}}
+    {{-- ═══ Tab JENIS PERMINTAAN — TIGA tab (ronde desain 3) ═══
+         S = Support Request (2 fase) · M/L = Feature / Modul Request (5–7 fase) ·
+         yang belum ditriase punya tabnya SENDIRI. Sebelumnya ia muncul di kedua tab
+         sehingga badge tak pernah berjumlah benar; sekarang 13 + 6 + 7 = 26, jujur
+         tanpa catatan pembelaan. Semua kartu tetap ada di DOM (Ctrl+F & tautan
+         langsung tetap jalan); tab hanya menyaring. --}}
     @php
         $semuaKartu = collect($groups)->flatten(1)->flatMap(fn ($f) => $f['cards']);
         $nSupport = $semuaKartu->filter(fn ($c) => $c['t']->jenjang === 'S')->count();
@@ -123,24 +124,21 @@
         $jenisAwal = $filter['jenjang'] === 'S' ? 'support' : 'fitur';
     @endphp
     <div class="itk-tabjenis" id="itkTabJenis" data-jenis-awal="{{ $jenisAwal }}">
-        {{-- Badge = jumlah kartu yang BENAR-BENAR tampil di tab itu (jenisnya + yang belum
-             ditriase). Karena itu 20 + 13 ≠ 26: yang belum ditriase dihitung di keduanya —
-             dan catatan di sebelah kanan mengatakannya, bukan dibiarkan jadi teka-teki. --}}
         <button type="button" class="itk-tj" data-jenis="fitur">
             <b>Feature / Modul Request</b>
             <span>M fitur (5 fase) · L modul (7 fase)</span>
-            <i class="num">{{ $nFitur + $nBaru }}</i>
+            <i class="num">{{ $nFitur }}</i>
         </button>
         <button type="button" class="itk-tj" data-jenis="support">
             <b>Support Request</b>
             <span>S — bug, insiden, tweak (2 fase)</span>
-            <i class="num">{{ $nSupport + $nBaru }}</i>
+            <i class="num">{{ $nSupport }}</i>
         </button>
-        @if ($nBaru)
-            <span class="itk-tj-note"><i class="fa fa-info-circle" aria-hidden="true"></i>
-                {{ $nBaru }} belum ditriase ({{ $nFitur }} fitur/modul · {{ $nSupport }} support sudah pasti)
-                — yang belum ditriase ikut dihitung di <strong>kedua</strong> tab sampai jenjangnya ditetapkan.</span>
-        @endif
+        <button type="button" class="itk-tj itk-tj-baru" data-jenis="baru">
+            <b>Belum ditriase</b>
+            <span>belum punya jenjang — tugas Head IT hari ini</span>
+            <i class="num">{{ $nBaru }}</i>
+        </button>
     </div>
 
     <div class="itk-board" id="itkBoard">
@@ -152,6 +150,8 @@
                 {{-- >1 tahap → TAB, bukan bertumpuk: Development & Uji Internal (dan UAT ·
                      Go Live · Evaluasi) tak perlu digulir sampai bawah. --}}
                 @if (count($fases) > 1)
+                    {{-- tingkat 2: teks kecil bergaris bawah — sengaja TIDAK serupa tab
+                         jenis (tingkat 1) maupun chip parkiran (tingkat 3) --}}
                     <div class="itk-fasetab" data-fasetab>
                         @foreach ($fases as $i => $f)
                             <button type="button" class="itk-ft" data-ft="{{ $i }}">
@@ -161,7 +161,7 @@
                 @endif
 
                 @foreach ($fases as $i => $f)
-                    <div class="itk-fase-panel" data-fp="{{ $i }}">
+                    <div class="itk-fase-panel" data-fp="{{ $i }}" data-fase="{{ $f['k'] }}">
                         @if (count($fases) === 1)
                             <div class="itk-fase-hd {{ $f['cards']->isEmpty() ? 'kosong' : '' }}">
                                 {{ $f['label'] }} <span class="n num" data-ft-n>{{ $f['cards']->count() }}</span></div>
@@ -175,29 +175,29 @@
                              dan form di dalam anchor itu HTML tidak valid --}}
                         <div class="itk-card {{ $t->unit === 'rblas' ? 'itk-rblas' : '' }}" style="cursor:pointer" data-kartu data-jenis="{{ $jenisKartu }}"
                              onclick="window.location='{{ route('it-tracker.show', $t->id) }}'">
+                            {{-- Kartu dua-detik (ronde 3). TURUN dari kartu ke detail: badge
+                                 jenjang (mengulang tab jenis yang sedang dibuka), chip fase
+                                 "Analisis · 2/5" (mengulang kolomnya — angkanya pindah kecil
+                                 ke ujung strip), "N fitur di dalam", "↳ dari IT-xxx", dan
+                                 badge unit (diganti garis oranye di tepi kiri). --}}
                             <div class="itk-card-top">
                                 <span class="itk-no num">{{ $t->nomor }}</span>
-                                {{-- unit ditandai hanya kalau BUKAN yang lazim: menandai semuanya = tak menandai apa pun --}}
-                                @if ($t->unit === 'rblas')<span class="itk-unit rblas">RB LAS</span>@endif
                                 <span class="itk-src {{ $t->sumber }}">
                                     @if ($t->sumber === 'inisiatif') INISIATIF IT
                                     @elseif ($t->sumber === 'insiden') INSIDEN
                                     @else {{ strtoupper($t->pemohon->nama ?? 'PERMINTAAN') }}
                                     @endif
                                 </span>
-                                <span class="itk-jenjang {{ $t->jenjang ?? 'baru' }}">{{ \App\Services\ItTracker\ItTrackerService::jenjangLabel($t->jenjang) }}</span>
+                                @if ($c['pic'])<span class="itk-pic-chip" title="dikerjakan {{ $c['pic'] }}"><i class="fa fa-user" aria-hidden="true"></i> {{ $c['pic'] }}</span>@endif
+                                @if ($t->prioritas_it)<span class="itk-prio {{ $t->prioritas_it }}">{{ $t->prioritas_it }}</span>@endif
                             </div>
                             <div class="itk-card-title">{{ $t->judul }}</div>
-                            <div class="itk-card-meta">
-                                <span class="itk-prog num">{{ $c['prog']['label'] ?? 'Menunggu triase' }}</span>
-                                @if ($t->prioritas_it)<span class="itk-prio {{ $t->prioritas_it }}">{{ $t->prioritas_it }}</span>@endif
-                                @if ($c['anak'])<span class="itk-anak">{{ $c['anak'] }} fitur di dalam</span>@endif
-                                {{-- Ronde 2: ketergantungan yang belum selesai & tiket asal --}}
-                                @if ($c['deps'])<span class="itk-dep-chip num" title="menunggu tiket lain"><i class="fa fa-link" aria-hidden="true"></i> menunggu {{ implode(', ', $c['deps']) }}</span>@endif
-                                @if ($c['parent'])<span class="itk-parent-chip num" title="lahir dari {{ $c['parent']['id'] }} · {{ $c['parent']['via'] }}">↳ dari {{ $c['parent']['id'] }}</span>@endif
-                                @if (! empty($c['diteruskan']))<span class="itk-lewat-chip" title="Diteruskan {{ $c['diteruskan']['oleh'] }} tanpa paraf Business Owner · {{ $c['diteruskan']['alasan'] }}"><i class="fa fa-exclamation-triangle" aria-hidden="true"></i> tanpa paraf BO</span>@endif
-                                @if ($c['pic'])<span class="itk-pic-chip" title="dikerjakan {{ $c['pic'] }}"><i class="fa fa-user" aria-hidden="true"></i> {{ $c['pic'] }}</span>@endif
-                            </div>
+                            @if ($c['deps'] || ! empty($c['diteruskan']))
+                                <div class="itk-card-meta">
+                                    @if ($c['deps'])<span class="itk-dep-chip num" title="menunggu tiket lain"><i class="fa fa-link" aria-hidden="true"></i> menunggu {{ implode(', ', $c['deps']) }}</span>@endif
+                                    @if (! empty($c['diteruskan']))<span class="itk-lewat-chip" title="Diteruskan {{ $c['diteruskan']['oleh'] }} tanpa paraf Business Owner · {{ $c['diteruskan']['alasan'] }}"><i class="fa fa-exclamation-triangle" aria-hidden="true"></i> tanpa paraf BO</span>@endif
+                                </div>
+                            @endif
                             @if ($c['kemajuan'])
                                 @php $basi = $c['kemajuan']['at'] && $c['kemajuan']['at']->diffInDays(now()) >= 7; @endphp
                                 {{-- "sudah sampai mana" — dengan tanggalnya, karena catatan kemajuan
@@ -216,6 +216,7 @@
                                     @else {{ $w['label'] }} · {{ $w['days'] }} hr
                                     @endif
                                 </span>
+                                @if ($c['prog'])<span class="itk-wait-prog num" title="{{ $c['prog']['label'] }}">{{ $c['prog']['i'] }}/{{ $c['prog']['n'] }}</span>@endif
                             </div>
                             @if ($c['tombol'])
                                 @if ($c['tombol']['jenis'] === 'triase')
@@ -229,7 +230,8 @@
                                         <button type="submit" class="itk-btn itk-btn-grafit itk-card-btn">{{ $c['tombol']['label'] }}</button>
                                     </form>
                                 @endif
-                            @elseif ($c['blokir'])
+                            @elseif ($c['blokir'] && $c['blokirLuar'])
+                                {{-- hanya kekurangan yang BUKAN pekerjaan IT sendiri; sisanya di detail --}}
                                 <div class="itk-blokir">{{ $c['blokir'] }}</div>
                             @endif
                         </div>
@@ -241,6 +243,17 @@
         @endforeach
     </div>
     <div class="itk-tab-kosong" id="itkTabKosong" hidden></div>
+
+    {{-- Legenda sistem warna (ronde 3): lima arti, lima saluran yang tak saling
+         meminjam. Tanpa ini, garis oranye RB Las cuma jadi teka-teki. --}}
+    <div class="itk-legenda-warna">
+        <b>SISTEM WARNA</b>
+        <span><i class="lg-strip"></i> strip menunggu = <strong>isi kartu</strong> — memanas hanya bila penunggunya di luar IT (≥3 hr kuning, ≥7 hr merah)</span>
+        <span><i class="lg-rb"></i> garis kiri oranye = <strong>RB Las</strong>; Sweet Treats polos</span>
+        <span><i class="lg-paraf"></i> garis putus merah = <strong>diteruskan tanpa paraf BO</strong></span>
+        <span><i class="lg-basi"></i> teks kuning = <strong>catatan kemajuan basi</strong> (≥7 hari)</span>
+        <span><i class="lg-prio"></i> prioritas IT = grafit, <strong>tanpa warna</strong> — supaya tak berebut dengan panas</span>
+    </div>
 
     {{-- Parkiran: ditunda tetap tampil dengan alasannya — ditunda bukan berarti hilang.
          Ketiga statusnya BERTAB (bukan satu tumpukan campur), dan ikut tab jenis
@@ -266,7 +279,6 @@
                                 <div class="itk-card-top">
                                     <span class="itk-no num">{{ $p->nomor }}</span>
                                     <span class="itk-st {{ $p->fase }}">{{ $p->fase }}</span>
-                                    <span class="itk-jenjang {{ $p->jenjang ?? 'baru' }}">{{ \App\Services\ItTracker\ItTrackerService::jenjangLabel($p->jenjang) }}</span>
                                 </div>
                                 <div class="itk-card-title" style="color:#5A3A22">{{ $p->judul }}</div>
                                 @if ($p->alasan_parkir)
@@ -289,9 +301,17 @@
         var bar = document.getElementById('itkTabJenis'), board = document.getElementById('itkBoard');
         if (!bar || !board) return;
         var kosongPapan = document.getElementById('itkTabKosong');
+        // Tiga tab yang saling lepas: tiap kartu persis di satu tab, jadi
+        // 13 + 6 + 7 = 26 tanpa catatan pembelaan.
         var cocok = function (kartu, jenis) {
-            var j = kartu.getAttribute('data-jenis');
-            return j === 'baru' || j === jenis;              // belum ditriase → tampil di kedua tab
+            return kartu.getAttribute('data-jenis') === jenis;
+        };
+        // Kolom/tahap yang kosong menyebut ALASANNYA, bukan angka 0 polos —
+        // "kosong" dan "memang tak lewat sini" dua hal yang berbeda.
+        var alasanKosong = function (jenis, fase) {
+            if (jenis === 'baru' && fase !== 'REQ') return 'Belum ditriase selalu ada di Masuk — tiket ini belum punya jenjang.';
+            if (jenis === 'support' && fase !== 'REQ' && fase !== 'DEV') return 'Jalur Support hanya Masuk → Development (2 fase) — tahap ini tidak dilewatinya.';
+            return 'Tidak ada tiket di tahap ini.';
         };
 
         function terap(jenis, simpanUrl) {
@@ -311,7 +331,10 @@
                     totalKol += n;
                     panel.setAttribute('data-n', n);
                     var kosong = panel.querySelector('[data-fase-kosong]');
-                    if (kosong) kosong.hidden = n !== 0;
+                    if (kosong) {
+                        kosong.hidden = n !== 0;
+                        kosong.textContent = alasanKosong(jenis, panel.getAttribute('data-fase') || '');
+                    }
                     var badge = panel.querySelector('[data-ft-n]');
                     if (badge) badge.textContent = n;
                     var tombol = kol.querySelector('[data-ft="' + i + '"]');
@@ -321,9 +344,10 @@
                     }
                 });
                 kol.querySelector('[data-kolom-n]').textContent = totalKol;
-                // Support = jalur 2 fase; kolom yang memang tak dilewatinya disembunyikan
-                // (tapi hanya kalau benar-benar kosong — tiket nyasar tetap terlihat).
-                kol.hidden = (jenis === 'support' && totalKol === 0);
+                // Keempat wilayah TETAP tampil di semua tab (ronde 3): strukturnya sama,
+                // yang kosong menyebut alasannya. Menyembunyikan kolom membuat papan
+                // berubah bentuk tiap ganti tab dan orang kehilangan pegangan.
+                kol.hidden = false;
                 totalPapan += totalKol;
 
                 // tab tahap: pilih tahap pertama yang ada isinya, kalau tak ada tahap pertama
@@ -348,7 +372,9 @@
                 kosongPapan.hidden = totalPapan !== 0;
                 kosongPapan.textContent = jenis === 'support'
                     ? 'Tidak ada Support Request aktif. Bug & insiden yang sudah selesai ada di parkiran bawah.'
-                    : 'Tidak ada Feature / Modul Request aktif.';
+                    : (jenis === 'baru'
+                        ? 'Tidak ada tiket yang menunggu triase — antrean masukmu bersih.'
+                        : 'Tidak ada Feature / Modul Request aktif.');
             }
             if (simpanUrl && window.history.replaceState) {
                 var u = new URL(window.location.href);
@@ -421,7 +447,7 @@
         });
 
         var dariUrl = new URL(window.location.href).searchParams.get('jenis');
-        terap(dariUrl === 'support' || dariUrl === 'fitur' ? dariUrl : bar.getAttribute('data-jenis-awal'), false);
+        terap(['support', 'fitur', 'baru'].indexOf(dariUrl) >= 0 ? dariUrl : bar.getAttribute('data-jenis-awal'), false);
     })();
     </script>
 

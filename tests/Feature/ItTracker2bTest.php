@@ -300,7 +300,11 @@ class ItTracker2bTest extends TestCase
         $this->assertSame('TRIASE', $anak2->fase);
 
         // papan menampilkan chip asal
-        $this->withSession($this->sesi('Head IT', 'uji-headit'))->get('/it-tracker')->assertStatus(200)->assertSee('dari ' . $t->nomor);
+        // RONDE 3: chip "↳ dari IT-xxx" TURUN dari kartu papan (kartu dua-detik —
+        // asal-usul bukan keputusan hari ini). Jejaknya dijaga di KEPALA DETAIL anak.
+        $this->withSession($this->sesi('Head IT', 'uji-headit'))->get('/it-tracker')->assertStatus(200);
+        $this->withSession($this->sesi('Head IT', 'uji-headit'))
+            ->get(route('it-tracker.show', $anak->id))->assertOk()->assertSee('Lahir dari ' . $t->nomor);
     }
 
     // ─── FRM-IT-07 ─────────────────────────────────────────────────────────
