@@ -1,7 +1,8 @@
 # Runbook Demo — IT Request Tracker (dev)
 
 > Untuk Ekky memandu demo end-to-end di `dev.sweettreats.id`. Ditulis chat HUB
-> 4 Sep 2026 dari kode yang hidup di dev (`feat/it-tracker`, 83 uji). Bagian
+> 4 Sep 2026 dari kode yang hidup di dev (`feat/it-tracker`, 99 uji).
+> **Diperbarui 4 Sep malam**: dev sudah diisi 30 tiket antrian nyata. Bagian
 > 1–3 untuk **memahami & menjawab pertanyaan**, bagian 4 untuk **dijalankan**.
 > Durasi jalur penuh ±40 menit; jalur pendek 3 menit.
 
@@ -23,9 +24,13 @@
 - Pakai **dua browser** (normal + incognito) supaya berganti peran tanpa logout.
 - **Panaskan dulu**: buka `/it-tracker` dan `/it-tracker/permintaan` sekali sebelum
   demo. Muatan pertama sesudah deploy pernah galat transien.
-- Dev **bersih**: 0 tiket → tiket pertama akan bernomor **IT-2026-001**.
-- **Putuskan sebelum mulai**: tiket demo dibuang sesudahnya, atau jadi tiket nyata
-  pertama? Pola bersih-bersih sudah ada (DELETE `it_*` + reset `it_counter`).
+- ⚠️ **Dev SUDAH TERISI 30 tiket antrian nyata** (seeder `it:seed-antrian`, 4 Sep):
+  26 aktif · 4 ditunda · 3 macet menunggu di luar IT. Papan **tidak kosong** —
+  itu memang tujuannya. Tiket baru yang kamu buat saat demo bernomor
+  **IT-2026-031** dan seterusnya.
+- **Jangan hapus 30 tiket seed.** Seeder idempoten; kalau dijalankan ulang ia
+  memperbarui, tidak menggandakan, dan **tidak memundurkan fase** tiket yang
+  sudah kamu gerakkan saat demo. Tiket demo (031+) boleh dihapus sesudahnya.
 - Ada **dua momen (★)** yang butuh Robi/Hari. Kalau mereka tak ada, **jangan
   dipaksa** — tunjukkan tombol yang menolak Head IT. Penolakan itu justru fiturnya.
 
@@ -41,7 +46,7 @@ bukan bebannya, tapi **bagian yang bisa diisi mesin** — itu inti bagian 3.
 
 ## 2. Istilah yang akan muncul di layar
 
-**Tiket** — satu permintaan. Nomor `IT-2026-001` berurut, dipakai di ketujuh
+**Tiket** — satu permintaan. Nomor `IT-2026-031` (berurut sejak 001), dipakai di ketujuh
 formulir **dan di baris pertama commit message** — jadi git bisa dilacak ke
 tiket, dan sebaliknya.
 
@@ -128,21 +133,29 @@ mayoritas tiket nyata.
 Format tiap langkah: **Siapa** · **Buka** · **Lakukan** · **Yang tampak** ·
 **Katakan**.
 
-### L0 — Papan kosong
+### L0 — Papan dengan beban NYATA
 **Ekky** (Muhamad Ikhsan) · `/it-tracker`
 Lakukan: tunjukkan papan, legenda badge fase, panel *"Beban IT saat ini"*.
-Yang tampak: kolom fase kosong, panel beban nol.
-Katakan: *"Sumbu papan ini fase, bukan orang. 'Menunggu siapa' ada di dalam kartu."*
+Yang tampak: **26 item aktif · 3 macet menunggu di luar IT**; kolom Masuk 7,
+Rancang 3, Kerjakan 6, Rilis 5. Empat tiket ditunda tampil dengan alasannya.
+Katakan: *"Sumbu papan ini fase, bukan orang. 'Menunggu siapa' ada di dalam
+kartu."*
+Lalu **tunjuk dua kartu ini berdampingan** — inilah inti papan:
+· **IT-2026-025** (detail pasien) di *Development* **72 hari** — tetap **dingin**.
+· **IT-2026-007** (akun dokter) di *UAT* **21 hari** — **merah**.
+Katakan: *"Yang lama di tangan IT tidak memerahkan papan. Yang memerah cuma
+yang menunggu di luar IT. Papan ini menagih orang lain, bukan menghakimi kami."*
+Lalu klik **Lihat yang macet** — 3 tiket, semuanya menunggu di luar IT.
 
 ### L1 — Yovan mengajukan (FRM-IT-01, Kelas A)
 **Yovan** · `/it-tracker/permintaan` → *Ajukan permintaan*
 Lakukan: isi **judul**, jenis permintaan, latar belakang, kebutuhan & hasil yang
 diharapkan, pengguna terdampak, target waktu, **prioritas menurut pemohon**,
 dan **lampirkan satu screenshot**. Kirim.
-Yang tampak: tiket **IT-2026-001**, status *Triase*, *"Menunggu triase IT"*.
+Yang tampak: tiket **IT-2026-031**, status *Triase*, *"Menunggu triase IT"*.
 Halaman Yovan menampilkan tiketnya sendiri.
 Katakan: *"Nama, jabatan, cabang, kontak — tak satu pun ditanya. Semua dari
-akun. Tapi nanti di ekspor semuanya tercetak."* Lalu buka `/tiket/1/ekspor`
+akun. Tapi nanti di ekspor semuanya tercetak."* Lalu buka ekspor tiket itu
 sebentar: identitas terisi, lampiran tercetak.
 
 ### L2 — Ekky triase
@@ -186,7 +199,7 @@ gugur — Robi diminta menyetujui ulang."*
 Yang tampak: fase *Development*, *"Di tangan IT"* — **tidak memanas** walau
 lama. Bagian FRM-IT-03: branch/commit **kosong** (belum ada commit ber-nomor
 tiket) + tombol *Segarkan jejak git*.
-Katakan: *"Begitu ada commit yang baris pertamanya menyebut IT-2026-001, ia
+Katakan: *"Begitu ada commit yang baris pertamanya menyebut IT-2026-031, ia
 muncul di sini sendiri tiap pagi 06:40. Tak ada yang mengetik ulang."*
 Lakukan: isi **konfirmasi FRM-IT-03** (catatan implementasi: aplikasi/DB/API/
 hak akses/dokumentasi).
@@ -248,8 +261,8 @@ memakai ini?"*
 Lakukan: nilai **lima aspek** 1–5 (rata-rata terhitung); tambah satu
 *Enhancement* + **Rencana Tindak Lanjut**.
 Lalu **Ekky**: klik **Jadikan tiket** pada tindak lanjut itu.
-Yang tampak: **IT-2026-002 lahir di Triase**, pemohon sama, badge *"Lahir dari
-IT-2026-001 · Evaluasi"*, chip *↳ dari IT-2026-001* di papan.
+Yang tampak: **IT-2026-032 lahir di Triase**, pemohon sama, badge *"Lahir dari
+IT-2026-031 · Evaluasi"*, chip *↳ dari IT-2026-031* di papan.
 Katakan: *"Ini yang menutup lingkaran. Evaluasi tidak berakhir di dokumen — ia
 melahirkan permintaan berikutnya."* Lalu *Tutup → Selesai*.
 
@@ -261,7 +274,7 @@ Katakan: *"Tanpa formulir, tanpa paraf, tanpa BO. Begitulah mayoritas tiket."*
 ### L14 — Penutup: papan & beban
 **Ekky** · `/it-tracker`
 Yang tampak: 2–3 tiket di kolom berbeda, panel beban terisi, filter **Macet**,
-chip *↳ dari*. Buka **ekspor FRM-IT-01** IT-2026-001 sekali lagi.
+chip *↳ dari*. Buka **ekspor FRM-IT-01** IT-2026-031 sekali lagi.
 
 ## 5. Pertanyaan yang mungkin muncul
 

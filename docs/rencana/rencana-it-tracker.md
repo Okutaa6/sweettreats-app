@@ -1388,3 +1388,289 @@ Baris 30 sudah bertriase (L·4·P3) lalu diparkir lewat mekanisme parkir.
 ⚠️ Ini **mengoreksi** peta §9 yang menulis *"sengaja TIDAK ada di seed: COGS,
 Inventory, Slip gaji"*. Prinsip "pemohon yang benar" tetap dijaga lewat
 penanda draf + kewajiban konfirmasi sebelum lolos triase.
+
+### 14.23 Ronde 3 desain — detail tiket & papan (4 Sep malam)
+
+Sesudah dev diisi 30 tiket nyata, Ekky memakai layarnya dengan beban sungguhan
+dan menemukan dua hal yang **tak terlihat saat papan kosong**:
+
+1. **Detail tiket = maraton scroll.** Tujuh fase ditumpuk; *"kalau sudah di
+   Evaluation harus scroll ke ujung banget."* Blade-nya memang besar:
+   Analisis 315 baris · UAT 224 · Evaluasi 189 · Go Live 163 · Uji 170 +
+   kerangka 390 — tiket L merender semuanya sekaligus.
+2. **Papan banyak ruang kosong**, kolom kurang menonjol.
+
+⚠️ **Temuan tambahan HUB (bukan dari Ekky): filter aktif tak terlihat.**
+Papan menulis **KERJAKAN 0** padahal ada **6 tiket di Development** — keenamnya
+`sumber=insiden`, dan tab **"Permintaan"** yang sedang aktif membuangnya
+(`ItTrackerController::index`, filter `sumber`). `0` polos terbaca *"tak ada
+yang dikerjakan"*. **Bukan bug kode** — tapi salah paham yang mahal kalau
+terjadi di depan Executive besok.
+**Untuk demo besok: sadari ini.** Klik **Inisiatif IT** untuk memperlihatkan
+enam tiket Development, atau matikan filter dulu sebelum bicara soal beban.
+
+**Brief: `docs/brief-desain/design-brief-it-tracker-ronde3.md`.** Yang membuat
+brief ini beda dari ronde 1–2: ia membawa **sebaran nyata** (Triase 8 · Antre 4
+· Analisis 4 · Dev 6 · Uji **0** · UAT 4 · Go Live **0** · Evaluasi 1 · Ditunda
+4). Dua fase kosong itu **keadaan normal**, bukan kebetulan — dan itulah sumber
+"empty space". Rancangan yang memberi tiap fase kolom setinggi layar akan
+selamanya memperlihatkan lubang.
+
+Empat patokan terukur ditulis di §7 brief, termasuk yang paling penting:
+**membuka tiket di fase Evaluasi harus memperlihatkan fase berjalan tanpa
+scroll sama sekali**, dan **tiket S tidak pernah menampilkan fase yang tak
+dilaluinya** (S cuma `REQ → DEV`; memperlihatkan 7 itu berbohong).
+
+⛔ Yang dikunci ulang di brief supaya tak dirancang mundur: tujuh keputusan
+§14.13 · sumbu papan = FASE · gerbang = lampu · aturan panas · `it-store.js`
+boleh ditambah, tak boleh diubah bentuknya (99 uji bergantung padanya).
+
+**Urutan:** ronde 3 dikerjakan **sesudah demo**, dengan masukan penonton ikut
+masuk. Jangan menyentuh dev sebelum demo.
+
+### 14.24 Katalog Modul — halaman saudara papan (4 Sep, sesudah demo)
+
+Executive bertanya hal yang **berbeda** dari yang dijawab papan: bukan *"apa
+yang sedang bergerak"* tapi *"apa saja yang sudah kami punya"*. Sampai hari ini
+jawabannya cuma ada di kepala Ekky.
+
+**Peta isinya sudah jadi & DIKOREKSI Ekky**:
+`docs/rencana/katalog-modul-2026-09.md` — **8 departemen · 33 modul · 25
+hidup**, disusun dari 87 node `access_path` prod + sapuan `MIN(created_at)`
+seluruh tabel. **Brief desain**: `docs/brief-desain/design-brief-katalog-modul.md`.
+
+**Model yang disepakati:**
+- **Dua tingkat** — Modul (33, ditentukan manusia) + Fitur (±60, **diturunkan
+  otomatis** dari `access_path`, jadi tak bisa basi).
+- **Dua sumbu** — **Pemilik** (satu departemen, tak pernah dua) dan **Jenis**
+  (`Operasional` · `Laporan & Dashboard` · `Integrasi` · `Platform`). Sumbu
+  kedua menyelesaikan keberatan Ekky: laporan tetap dimiliki departemennya,
+  tapi Executive bisa menyaring semua laporan lintas departemen sekaligus.
+- **Tiga status** — Hidup · Sedang dibangun · Direncanakan. ⛔ **Status bukan
+  progres**; jangan ada bar persen.
+- **Tiga angka terhitung** per departemen & per modul: *hidup* (katalog) ·
+  *berjalan* & *utang* (tabel tiket). **Utang = tiket terbuka yang menempel di
+  modul itu** — bukan konsep baru, jadi tak ada daftar utang terpisah yang basi.
+
+**Satu field baru di tiket: `modul`.** Inilah yang menyambungkan keduanya. Saat
+triase, satu pertanyaan: *kerjaan ini melahirkan modul baru, atau mengubah yang
+sudah ada?* Kalau baru → Head IT membuat entri katalog berstatus *Direncanakan*.
+Begitulah modul lahir — dari tiket.
+
+⛔ **BUKAN tab keempat.** Rute `/it-tracker/katalog`, dicapai dari kepala papan;
+sidebar tetap satu entri. Tiga tingkat tab di papan semuanya *jenis tiket* —
+katalog bukan tiket, memasukkannya akan merusak disiplin itu. ✅ Aman dari
+ranjau RBAC: segmen `it-tracker` sudah punya node `access_path`.
+
+⚠️ **Dua pelajaran dari penyusunan petanya, keduanya kesalahanku:**
+1. **Nama node menu bukan nama pemilik.** Kubaca *"Keluhan → Sales"* sebagai
+   milik Sales; ternyata itu keluhan **atas sistem** (milik IT) dan "Sales"
+   cuma nama sub-menunya.
+2. **Menuduh sebelum mengukur.** Kutulis empat node Marketing *"terlihat bisa
+   diklik tapi tak menuju ke mana pun"*. Ekky menantang; ternyata
+   `shellCollectLeaves()` melewatkan node tanpa anak yang link-nya kosong, jadi
+   mereka **tidak pernah tampil**. Baris mati di DB, bukan cacat di layar.
+
+**Temuan yang layak dibawa lebih jauh:** sesudah koreksi, **IT punya 4 modul
+hidup** (Pusat Akun · Persetujuan · Akun Saya · Keluhan Sistem) — IT bukan cuma
+pembuat, ia juga **pemilik** perangkat yang dipakai semua departemen. Itu
+sebabnya *"berapa beban IT"* tak pernah terjawab dari daftar tiket saja.
+
+### 14.25 Paket desain Katalog Modul — dinilai, + prompt build
+
+Paket: `Downloads\design_handoff_katalog modul\` — `Katalog Modul.dc.html` +
+`katalog-store.js` + 5 screenshot (23–27).
+
+**✅ Kontrak mesin fase utuh** (diukur): `pathFor` · `RANK` · aturan panas
+identik; `gateInfo` tak berubah (`missing` 8, `checks` 11); **nol ekspor
+ditambah maupun dicabut** dari `it-store.js`. Katalog `docs/rencana/
+katalog-modul-2026-09.md` dipakai setia: 17+8+2+6 = **33**, 8 departemen, 25/2/6.
+
+**Yang bagus dan wajib dipertahankan:**
+- **Tiga tampilan atas satu data** — Daftar (padat, untuk Ekky saat triase) ·
+  Kartu · **Matriks 8×4 yang memuat 33 modul dalam satu layar** (untuk Robi
+  yang datang sebulan sekali dan tak akan belajar navigasi).
+- **Lensa tegak lurus tampilan**; di lensa *per jenis*, kolom ketiga **berubah
+  arti jadi PEMILIK** alih-alih mengulang judul kelompok.
+- **Saluran status baru**: label bertulis + tebal-pudarnya nama. Percobaan
+  lingkaran penuh/separuh/titik **dibatalkan sendiri** karena separuh lingkaran
+  bukan metafora yang bisa ditebak pengunjung bulanan. Legendanya menyatakan
+  eksplisit bahwa panas · teal · putus-merah · teks kuning **tetap milik papan**.
+- **Baris "Tanpa modul" dengan penjumlahan eksplisit** (*"28 bertaut + 5 tanpa
+  modul = 33 tiket terbuka"*) — angka yang bisa **dicocokkan**, bukan dipercaya.
+- **"belum terbukti"** menggantikan tanggal kosong, dengan penjelasan *"tak ada
+  tabel yang bisa membuktikan — bukan data hilang"*.
+- Warna panas **dipakai ulang di panel** karena artinya sama di situ. Disiplin
+  yang benar: pakai ulang saat makna cocok, hindari saat tidak.
+
+⛔ **SATU HAL YANG WAJIB BERUBAH SEBELUM DIBANGUN.** `modulOf()` di mockup
+**menebak modul dari judul tiket lewat regex** kalau field `modul` kosong.
+README-nya menandai sendiri, tapi kalimatnya *"di produksi **sebaiknya**
+`modul_id`"* — **terlalu lunak.**
+Alasannya: **tebakan yang salah tidak terlihat.** Tiket *"Rate-limit API
+Omnicare"* akan tertangkap `/omnicare/` dan masuk *Integrasi Omnicare* padahal
+mungkin milik Reservasi; angka utang per modul diam-diam salah selamanya.
+⇒ Di produksi: **field tersimpan, diisi saat triase, TANPA tebakan cadangan.**
+Tiket tanpa modul masuk baris *"Tanpa modul"* — jujur kosong lebih baik daripada
+diam-diam salah. ⚠️ Ini berisiko karena chat build terbukti **menerjemahkan
+setia**; kalau `modulOf` ikut diterjemahkan apa adanya, regex itu naik prod.
+
+**Tiga celah yang ditandai paket sendiri:** tampilan bawaan belum mengikuti
+peran (Robi mendarat di Daftar, padahal Matriks dirancang untuknya) · fitur
+masih diketik di seed (produksi: diturunkan dari `access_path`) · panel belum
+bisa ditutup Esc.
+
+**BPJS = data dummy.** Muncul cuma di seed mockup (*"Integrasi BPJS Kesehatan,
+ditunda sampai keputusan Executive"*); **nol jejak** di kode, docs, dan data
+kita. Bentuk "Tanpa modul" tetap sah; isinya fiktif.
+
+```
+Lanjutkan proyek SweetTreats lewat memori. Chat ini membangun KATALOG MODUL —
+halaman saudara IT Request Tracker. Lokal & dev; prod HANYA kalau Ekky
+menyebut "prod".
+
+BACA DULU:
+· docs/rencana/katalog-modul-2026-09.md      <- ISI NYATA, 33 modul, sudah dikoreksi Ekky
+· docs/brief-desain/design-brief-katalog-modul.md
+· docs/rencana/rencana-it-tracker.md §14.24 (model) dan §14.25 (ini)
+· Downloads\design_handoff_katalog modul\    <- Katalog Modul.dc.html + katalog-store.js
+· memori project_it_tracker
+
+RUANG LINGKUP:
+1. Tabel `it_modul` + kolom `modul_id` di `it_ticket`.
+2. Halaman `/it-tracker/katalog` — tiga tampilan (Daftar · Kartu · Matriks),
+   dua lensa (per departemen ⇄ per jenis), panel geser kanan.
+3. Tautan dua arah: kepala papan <-> kepala katalog; detail tiket menyebut
+   "Modul: X ›" atau "Tanpa modul katalog".
+4. Isian modul saat triase + dialog "＋ Entri modul" (Head IT saja).
+
+⛔ YANG PALING MUDAH SALAH — BACA DUA KALI:
+1. JANGAN menerjemahkan `modulOf()` apa adanya. Mockup menebak modul dari
+   JUDUL lewat regex; itu untuk mockup saja. Di produksi: `modul_id` TERSIMPAN,
+   diisi saat triase, TANPA tebakan cadangan apa pun. Tiket tanpa modul masuk
+   baris "Tanpa modul" — jujur kosong lebih baik daripada diam-diam salah,
+   karena tebakan yang meleset TIDAK TERLIHAT oleh siapa pun.
+2. FITUR DITURUNKAN, bukan diketik. `it_modul.access_id` menunjuk node
+   `access_path`; fitur = keturunan node itu yang punya `link` (kalau node itu
+   sendiri daun ber-link, dia sendirilah fiturnya). Modul tanpa menu
+   (Integrasi Accurate/Omnicare, Kontak & Percakapan) → `access_id` NULL, fitur
+   0, tampilkan "tanpa menu". Katalog yang diketik tangan akan basi dalam dua
+   bulan; yang diturunkan tidak bisa.
+3. Tiga angka DIHITUNG, jangan disimpan: hidup (dari it_modul) · berjalan &
+   utang (dari it_ticket). Angka tersimpan basi diam-diam.
+4. JANGAN pakai saluran warna papan untuk status. Panas = isi strip · teal =
+   unit · putus-merah = pelewatan paraf · teks kuning = basi — semuanya sudah
+   punya arti. Status memakai LABEL BERTULIS + tebal-pudarnya nama, seperti
+   mockup. TAK ADA bar persen, skor, atau grafik: status bukan progres.
+5. Tampilan bawaan MENGIKUTI PERAN: pengawas/Executive -> Matriks; IT ->
+   Daftar. Mockup belum melakukannya dan menandainya sendiri.
+6. Baris "Tanpa modul" WAJIB ada dengan penjumlahan eksplisit
+   ("N bertaut + M tanpa modul = X tiket terbuka di papan") supaya angkanya
+   bisa dicocokkan dengan papan, bukan dipercaya.
+7. Modul hidup yang tanggalnya tak bisa dibuktikan: tulis "belum terbukti" +
+   penjelasan di panel. JANGAN mengarang tanggal, jangan biarkan kosong.
+
+SKEMA (usul; sesuaikan bila perlu, tapi jangan menambah yang tak dipakai):
+  it_modul: id · nama (UNIK) · departemen · jenis · status · sejak (nullable)
+            · sejak_terbukti (bool) · access_id (nullable) · catatan · urutan
+  it_ticket: + modul_id (nullable, index)
+Seed dari docs/rencana/katalog-modul-2026-09.md — 33 baris, 8 departemen.
+Jenis: Operasional · Laporan & Dashboard · Integrasi · Platform.
+Status: hidup · dibangun · rencana.
+
+UJI TERIMA:
+· 33 modul ter-seed; 25 hidup / 2 dibangun / 6 rencana; per jenis 17/8/2/6
+· fitur Absensi = 8, Konten = 6, Pusat Akun = 6 — DITURUNKAN dari access_path
+· modul tanpa access_id → 0 fitur, tampil "tanpa menu", TIDAK galat
+· tiket tanpa modul_id → masuk baris "Tanpa modul"; TIDAK ditebak dari judul
+· penjumlahan "bertaut + tanpa modul" = cacah tiket terbuka di papan
+· klik angka berjalan/utang → papan tersaring ke modul itu
+· lensa per jenis: kolom ketiga berisi PEMILIK, bukan jenis
+· Executive mendarat di Matriks; Head IT di Daftar
+· non-IT membuka /it-tracker/katalog → boleh baca, TIDAK bisa "＋ Entri modul"
+· KENDALI NEGATIF: seluruh uji IT Tracker yang ada tetap hijau; cacah baris
+  tabel lama tak berubah; papan tidak berubah perilakunya sama sekali
+
+LINGKUNGAN:
+· Branch feat/it-tracker, worktree Downloads\sweettreats-it-tracker. Cek HEAD
+  sendiri (git log -1). Nomor tiket di BARIS PERTAMA commit.
+· ✅ RBAC aman: segmen `it-tracker` sudah punya node access_path, jadi rute
+  `/it-tracker/katalog` tidak kena ranjau 302-senyap.
+· dev = SATU working copy bersama DAN dipakai orang. `git status --porcelain |
+  grep "^??"` dulu; checkout TANPA reset --hard.
+· ⛔ JANGAN db:show / Schema::hasTable() / SHOW COLUMNS / DESCRIBE — membunuh
+  mysqld lokal. Pakai SHOW TABLES LIKE + SELECT kolom LIMIT 0.
+· phpunit PER KELAS.
+· Naik dev: SQL → access:rebuild (kalau ada node baru) → deploy → rsync CSS →
+  curl /it-tracker/katalog sebagai Executive DAN Head IT, periksa URL AKHIR.
+
+Selesai: entri docs/log-update.md + salin ke Google Drive + catat ke memori.
+```
+
+### 14.26 Taut tiket→modul, empat tiket stabilisasi, dan kolom pemakaian (4 Sep)
+
+**Kekurangan yang Ekky temukan:** papan katalog menulis *"0 bertaut + 31 tanpa
+modul"* — **bukan cacat desain, tapi kekuranganku**: berkas seed
+`seed-antrian-it-2026-09-04.psv` tak punya kolom `modul` sama sekali. Buktinya
+paling jelas di #028 COGS & #029 Inventory yang **sudah** punya entri katalog
+tapi tetap masuk "Tanpa modul". **Sudah diperbaiki: 34 baris × 18 kolom, nol
+tiket tanpa modul.**
+
+Empat entri katalog baru lahir dari tiket yang memang melahirkan modul —
+**ORTHO** & **Akun Dokter** (Sales) · **Project Tracker** & **Notifikasi** (IT).
+Katalog kini **37 entri** (25 hidup · 3 dibangun · 9 direncanakan).
+
+**Persetujuan & Akun Saya pindah IT → Operasional/HR.** Ekky menantang
+penempatanku, dan pengukuran membenarkannya: `PersetujuanController` ada di
+`app/Http/Controllers/Absensi/`, dan `att_request` isinya **hanya tipe absensi**
+(lembur 258 · koreksi 25 · cuti 20 · tukar 2 · sakit 2 · izin 1). ROP, top-up,
+dan checklist-reopen punya jalur persetujuan sendiri (238 · 18 · 61) yang tak
+lewat inbox ini.
+
+#### Empat tiket stabilisasi — dan kenapa BUKAN enam
+
+Ekky mengusulkan modul yang baru hidup sebulan terakhir masuk **Go Live**
+sebagai transparansi menuju Evaluasi. **Setuju bentuknya**, tapi HUB berbeda
+pendapat soal kriterianya dan itu diterima: **umur bukan kriteria yang tepat.**
+
+- **Komisi Dokter** baru 6 hari tapi **tak punya pertanyaan terbuka** — angkanya
+  sudah cocok tiga arah dengan Accurate dan Finance memakainya. Evaluasinya akan
+  jadi upacara. **Dikeluarkan.**
+- **Petty Cash** sudah 3 bulan tapi punya 3 utang + sejarah kepercayaan goyah.
+  **Masuk.**
+- **Pengawasan Absen** dilebur ke tiket Absensi yang sudah ada (#01): satu
+  rilis, satu evaluator (HR). Dua tiket untuk satu rilis memecah jawaban.
+
+⇒ Kriteria yang dipakai: **ada pertanyaan yang belum terjawab, DAN ada orang
+bernama yang bisa menjawabnya.** Hasilnya empat (#31–34): Petty Cash · Checklist
+Operasional · Pasien Baru/Lead Cekat AI · ROP. Semua di **GOLIVE**, tiap tiket
+membawa angka pemakaian nyata sebagai isi pertanyaannya.
+
+#### Dua keyakinan lama yang PATAH oleh pengukuran
+
+- **ROP bukan lagi "adopsi tipis".** Memori mencatat *2 pengajuan per 11 Agu*;
+  terukur 4 Sep: **89 total, 33 dalam 7 hari**. Adopsinya meledak dan catatannya
+  tak pernah diperbarui.
+- **Della sudah kembali mencatat.** Artefak tiga-modul menutup dengan
+  kekhawatiran *"pastikan sudah kembali"*; terukur: 10 pencatat aktif 30 hari,
+  **Della Raqisiah 70 transaksi** (terakhir 3 Sep), Della Puspita Sari 12.
+
+#### ⚠️ Titik buta katalog yang baru ketahuan
+
+Dengan tiga angka sekarang (hidup · berjalan · utang), **Keluhan Sistem terlihat
+sempurna sehat** — Hidup, nol berjalan, nol utang. Padahal terukur **mati**: 3
+catatan seumur hidup, terakhir **28 Juni**, nol dalam 30 hari. Kemungkinan besar
+ia sudah **tergantikan IT Tracker**.
+
+⇒ Brief katalog ditambah persyaratan **#11: kolom "dipakai N× 7 hari terakhir"**.
+Itu satu-satunya angka yang membedakan modul **tenang karena beres** dari modul
+**sunyi karena ditinggalkan** — dan yang kedua adalah kegagalan paling mahal,
+karena tak ada yang mengeluh.
+
+#### Catatan cara kerja (dari Ekky, 4 Sep)
+
+> *"Aku perlu kamu tidak selalu bilang aku benar dan kamu salah — aku juga bisa
+> salah, makanya kita sering bahas dulu. Jangan malu membantahku."*
+
+Berlaku sejak sekarang. Bantahan pertama sudah dipakai di keputusan empat-vs-enam
+tiket di atas.
