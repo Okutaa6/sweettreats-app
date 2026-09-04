@@ -99,7 +99,9 @@ class ItTrackerController extends Controller
 
         $parkir = ItTicket::whereIn('fase', self::FASE_PARKIRAN)
             ->orderByDesc('fase_since')
-            ->get(['id', 'nomor', 'judul', 'fase', 'fase_since', 'alasan_parkir']);
+            // `jenjang` ikut supaya parkiran bisa mengikuti tab jenis permintaan di papan —
+            // tanpa itu, tab Support memperlihatkan tiket M/L yang ditunda dan keduanya bercerita beda.
+            ->get(['id', 'nomor', 'judul', 'fase', 'fase_since', 'alasan_parkir', 'jenjang']);
 
         return view('it-tracker.papan', [
             'groups'  => $groups,

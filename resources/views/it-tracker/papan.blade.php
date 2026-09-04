@@ -90,7 +90,7 @@
             <a class="itk-chip" href="{{ route('it-tracker.index') }}">bersihkan</a>
         @endif
         @if ($parkir->isNotEmpty())
-            <a class="itk-chip" style="margin-left:auto" href="#itk-parkiran">Ditunda / ditolak / selesai ({{ $parkir->count() }}) ▾</a>
+            <a class="itk-chip" style="margin-left:auto" href="#itk-parkiran" id="itkChipParkir">Ditunda / ditolak / selesai (<span data-parkir-total>{{ $parkir->count() }}</span>) ▾</a>
         @endif
     </div>
 
@@ -228,24 +228,42 @@
     </div>
     <div class="itk-tab-kosong" id="itkTabKosong" hidden></div>
 
-    {{-- Parkiran: ditunda tetap tampil dengan alasannya — ditunda bukan berarti hilang --}}
+    {{-- Parkiran: ditunda tetap tampil dengan alasannya — ditunda bukan berarti hilang.
+         Ketiga statusnya BERTAB (bukan satu tumpukan campur), dan ikut tab jenis
+         permintaan di atas: papan dan parkiran tak boleh bercerita beda. --}}
     @if ($parkir->isNotEmpty())
+        @php $urutStatus = ['DITUNDA' => 'Ditunda', 'DITOLAK' => 'Ditolak', 'SELESAI' => 'Selesai']; @endphp
         <div id="itk-parkiran" style="margin-top:16px">
-            <div class="itk-fase-hd" style="margin-bottom:8px"><b>PARKIRAN — DITUNDA · DITOLAK · SELESAI</b></div>
-            <div class="itk-parkir">
-                @foreach ($parkir as $p)
-                    <a class="itk-parkir-card" href="{{ route('it-tracker.show', $p->id) }}">
-                        <div class="itk-card-top">
-                            <span class="itk-no num">{{ $p->nomor }}</span>
-                            <span class="itk-st {{ $p->fase }}">{{ $p->fase }}</span>
-                        </div>
-                        <div class="itk-card-title" style="color:#5A3A22">{{ $p->judul }}</div>
-                        @if ($p->alasan_parkir)
-                            <div style="font-size:12px;color:#7A5B43;margin-top:5px;line-height:1.45">{{ $p->alasan_parkir }}</div>
-                        @endif
-                    </a>
-                @endforeach
+            <div class="itk-parkir-bar">
+                <b>PARKIRAN</b>
+                <div class="itk-fasetab" data-parkirtab>
+                    @foreach ($urutStatus as $kode => $label)
+                        <button type="button" class="itk-ft" data-pk="{{ $kode }}">
+                            {{ $label }} <i class="n num" data-pk-n>{{ $parkir->where('fase', $kode)->count() }}</i></button>
+                    @endforeach
+                </div>
             </div>
+            @foreach ($urutStatus as $kode => $label)
+                <div class="itk-parkir-panel" data-pkp="{{ $kode }}">
+                    <div class="itk-parkir">
+                        @foreach ($parkir->where('fase', $kode) as $p)
+                            @php $jp = $p->jenjang === 'S' ? 'support' : ($p->jenjang ? 'fitur' : 'baru'); @endphp
+                            <a class="itk-parkir-card" data-parkir data-jenis="{{ $jp }}" href="{{ route('it-tracker.show', $p->id) }}">
+                                <div class="itk-card-top">
+                                    <span class="itk-no num">{{ $p->nomor }}</span>
+                                    <span class="itk-st {{ $p->fase }}">{{ $p->fase }}</span>
+                                    <span class="itk-jenjang {{ $p->jenjang ?? '' }}">{{ $p->jenjang ?? '?' }}</span>
+                                </div>
+                                <div class="itk-card-title" style="color:#5A3A22">{{ $p->judul }}</div>
+                                @if ($p->alasan_parkir)
+                                    <div style="font-size:12px;color:#7A5B43;margin-top:5px;line-height:1.45">{{ $p->alasan_parkir }}</div>
+                                @endif
+                            </a>
+                        @endforeach
+                        <div class="itk-fase-kosong" data-pk-kosong hidden>Tidak ada tiket {{ strtolower($label) }} di jenis permintaan ini.</div>
+                    </div>
+                </div>
+            @endforeach
         </div>
     @endif
 
@@ -311,6 +329,7 @@
                     pilihTahap(kol, pilih);
                 }
             });
+            terapParkir(jenis);
             if (kosongPapan) {
                 kosongPapan.hidden = totalPapan !== 0;
                 kosongPapan.textContent = jenis === 'support'
@@ -323,6 +342,49 @@
                 u.searchParams.delete('jenjang');
                 window.history.replaceState({}, '', u);
             }
+        }
+
+        // Parkiran: tiga status jadi tab, isinya ikut tab jenis permintaan.
+        function terapParkir(jenis) {
+            var wrap = document.getElementById('itk-parkiran');
+            if (!wrap) return;
+            var total = 0, pertamaBerisi = null, aktifKini = wrap.querySelector('[data-pk].aktif');
+            wrap.querySelectorAll('.itk-parkir-panel').forEach(function (panel) {
+                var kode = panel.getAttribute('data-pkp'), n = 0;
+                panel.querySelectorAll('[data-parkir]').forEach(function (k) {
+                    var tampil = cocok(k, jenis);
+                    k.hidden = ! tampil;
+                    if (tampil) n++;
+                });
+                total += n;
+                var kosong = panel.querySelector('[data-pk-kosong]');
+                if (kosong) kosong.hidden = n !== 0;
+                var tombol = wrap.querySelector('[data-pk="' + kode + '"]');
+                if (tombol) {
+                    tombol.querySelector('[data-pk-n]').textContent = n;
+                    tombol.classList.toggle('kosong', n === 0);
+                }
+                if (n > 0 && pertamaBerisi === null) pertamaBerisi = kode;
+            });
+            // pertahankan tab yang sedang dibuka kalau masih ada isinya
+            var pilih = pertamaBerisi || 'DITUNDA';
+            if (aktifKini) {
+                var kodeAktif = aktifKini.getAttribute('data-pk');
+                if (+wrap.querySelector('[data-pk="' + kodeAktif + '"] [data-pk-n]').textContent > 0) pilih = kodeAktif;
+            }
+            pilihParkir(pilih);
+            wrap.hidden = total === 0;
+            var chip = document.getElementById('itkChipParkir');
+            if (chip) {
+                chip.querySelector('[data-parkir-total]').textContent = total;
+                chip.hidden = total === 0;
+            }
+        }
+
+        function pilihParkir(kode) {
+            var wrap = document.getElementById('itk-parkiran');
+            wrap.querySelectorAll('[data-pk]').forEach(function (b) { b.classList.toggle('aktif', b.getAttribute('data-pk') === kode); });
+            wrap.querySelectorAll('.itk-parkir-panel').forEach(function (p) { p.hidden = p.getAttribute('data-pkp') !== kode; });
         }
 
         function pilihTahap(kol, idx) {
@@ -339,6 +401,9 @@
         });
         board.querySelectorAll('[data-ft]').forEach(function (b) {
             b.onclick = function () { pilihTahap(b.closest('[data-kolom]'), +b.getAttribute('data-ft')); };
+        });
+        document.querySelectorAll('[data-pk]').forEach(function (b) {
+            b.onclick = function () { pilihParkir(b.getAttribute('data-pk')); };
         });
 
         var dariUrl = new URL(window.location.href).searchParams.get('jenis');

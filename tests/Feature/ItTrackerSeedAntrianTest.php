@@ -231,6 +231,12 @@ class ItTrackerSeedAntrianTest extends TestCase
         $this->assertGreaterThanOrEqual(5, substr_count($html, 'data-ft='));
         $this->assertStringContainsString('data-fasetab', $html);
         $this->assertStringNotContainsString('>S</a>', $html, 'chip filter S/M/L lama sudah dicabut');
+
+        // parkiran juga bertab (Ditunda · Ditolak · Selesai) dan kartunya berpenanda jenis
+        $this->assertSame(3, substr_count($html, 'data-pkp="'), 'tiga panel status parkiran (Ditunda · Ditolak · Selesai)');
+        $this->assertSame(4, substr_count($html, 'data-parkir data-jenis='), 'empat tiket ditunda dari seed');
+        $this->assertSame(4, substr_count($html, 'data-parkir data-jenis="fitur"'), 'keempatnya M/L');
+        $this->assertStringContainsString('data-pkp="DITOLAK"', $html);
     }
 
     /** Jalan ulang MEMPERBARUI judul/latar tapi TIDAK memundurkan tiket yang sudah bergerak di layar. */
