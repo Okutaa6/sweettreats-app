@@ -35,6 +35,8 @@ menyaring semua laporan lintas departemen tanpa ada modul bertuan dua.
 | **Dashboard Sales** | Laporan & Dashboard | Hidup | Jun 2026 | `sales-dashboard` |
 | **Pasien Baru / Lead Cekat AI** | Operasional | Hidup | **27 Agu 2026** | form publik per cabang · tab Pasien Cekat AI |
 | **Kontak & Percakapan** | Operasional | Hidup | **18 Feb 2026** | tanpa menu — `raw_contact` 12.231 · `raw_chat` 34.313 |
+| **ORTHO — tracking & retensi** | Operasional | **Direncanakan** | — | belum ada |
+| **Akun Dokter** | Operasional | **Sedang dibangun** | — | Hari Ini · Jadwal Saya · Pasien Saya · Absensi Saya |
 
 *Bukti data:* `raw_cus_reservation` 6.039 (7 Apr) · `raw_doctor_schedule` 105
 (11 Mar) · `raw_doc_service_detail` 148 (11 Mar) · `raw_contact` 12.231 (**18 Feb — data tertua di sistem**) · `raw_chat` 34.313 (17 Mar).
@@ -84,6 +86,8 @@ sudah ACC lanjut — jalankan sekali manual `--days=12` sebelum menyerahkan ke c
 | **Absensi** | Operasional | Hidup | **4–5 Agu 2026** | Upload Data · Kehadiran · Mapping Karyawan · Aturan Kerja · Cuti · Lembar Gaji · Periode Gaji · Rekap Persetujuan |
 | **Pengawasan Absen** | Operasional | Hidup | **5 Agu 2026** | `pengawasan` · WiFi Cabang |
 | **Checklist Operasional** | Operasional | Hidup | **1 Jul 2026** | Dashboard · Setup Tugas · Review & Approval · Checklist Saya |
+| **Persetujuan** | Operasional | Hidup | Agu 2026 | Inbox Persetujuan — hanya pengajuan absensi |
+| **Akun Saya** | Operasional | Hidup | Agu 2026 | Absensi Saya |
 | **Slip Gaji & Insentif** | Operasional | **Direncanakan** | — | belum ada |
 | **Rolling / Penempatan global** | Operasional | **Direncanakan** | — | kini masih di dalam Checklist |
 
@@ -125,11 +129,11 @@ Jangan menjanjikan fitur rekam medis tanpa memeriksa ini dulu.
 | Modul | Jenis | Status | Sejak | Fitur |
 |---|---|---|---|---|
 | **Pusat Akun** | Platform | Hidup *(sebagian warisan)* | **27 Apr 2022** | User · Role · Akses · Setting · Kesehatan · WiFi Cabang |
-| **Persetujuan** | Platform | Hidup | Agu 2026 | Inbox Persetujuan |
-| **Akun Saya** | Platform | Hidup | Agu 2026 | Absensi Saya |
 | **Keluhan Sistem** | Platform | Hidup | **20 Jun 2026** | `complaint` — keluhan atas SISTEM, bukan keluhan pasien |
 | **IT Request Tracker** | Platform | **Sedang dibangun** | — | live di dev, prod belum |
 | **Katalog Modul** | Platform | **Direncanakan** | — | dokumen ini |
+| **Project Tracker** | Platform | **Direncanakan** | — | Fase A lokal, diparkir |
+| **Notifikasi** | Platform | **Direncanakan** | — | WA reservasi + hub internal |
 
 ⚠️ **Temuan arkeologi:** `Data Center`, `User`, `Role` ber-UUID **v1** yang
 menyimpan stempel waktu **27 April 2022, 15:51–15:55** — empat tahun sebelum
@@ -193,21 +197,37 @@ baru (3 akar) **hidup berdampingan**; hanya yang baru yang terlihat.
 
 | Departemen | Hidup | Sedang dibangun | Direncanakan |
 |---|---|---|---|
-| Sales | 6 | 0 | 0 |
+| Sales | 6 | 1 | 1 |
 | Marketing | 4 | 0 | 0 |
 | Finance | 4 | 0 | 1 |
-| Operasional / HR | 3 | 0 | 2 |
+| Operasional / HR | 5 | 0 | 2 |
 | Data Pasien & Rekam Medis | 2 | 0 | 0 |
 | Executive | 2 | 1 | 0 |
-| IT | 4 | 1 | 1 |
+| IT | 2 | 1 | 3 |
 | Stok / Inventory | 0 | 0 | 2 |
-| **TOTAL** | **25** | **2** | **6** |
+| **TOTAL** | **25** | **3** | **9** |
 
-**25 modul hidup · 33 entri katalog.** Bandingkan dengan **±60 fitur** (daun
+**25 modul hidup · 37 entri katalog.** Bandingkan dengan **±60 fitur** (daun
 `access_path`) dan **26 tiket aktif** di tracker — tiga angka yang menjawab tiga
 pertanyaan berbeda, dan sekarang ketiganya bisa dilihat.
 
-⚠️ Perhatikan **IT punya 4 modul hidup** sesudah koreksi — Pusat Akun,
-Persetujuan, Akun Saya, Keluhan Sistem. IT bukan cuma pembuat; ia juga
-**pemilik** sebagian perangkat yang dipakai semua departemen. Itu yang membuat
-"berapa beban IT" tak pernah bisa dijawab dari daftar tiket saja.
+⚠️ **Koreksi 4 Sep (Ekky menantang, terukur benar):** Persetujuan & Akun Saya
+**pindah ke Operasional/HR**, bukan IT. Buktinya: `PersetujuanController` ada di
+`app/Http/Controllers/Absensi/`, dan `att_request` isinya **hanya tipe absensi**
+— lembur 258 · koreksi 25 · cuti 20 · tukar 2 · sakit 2 · izin 1. ROP, top-up,
+dan checklist-reopen punya jalur persetujuan **sendiri-sendiri** (238 · 18 · 61
+baris) yang tidak lewat inbox ini. Jadi ini inbox persetujuan **absensi**, bukan
+platform lintas modul.
+
+**Empat entri baru** lahir dari tiket yang memang melahirkan modul:
+**ORTHO** & **Akun Dokter** (Sales) · **Project Tracker** & **Notifikasi** (IT).
+Inilah alur yang disepakati bekerja: modul baru lahir dari tiket, saat triase.
+
+⚠️ **Lubang yang baru ketahuan 4 Sep — katalog belum bisa melihatnya.**
+Dengan tiga angka sekarang (hidup · berjalan · utang), **Keluhan Sistem akan
+terlihat sempurna sehat**: status Hidup, nol tiket berjalan, nol utang. Padahal
+terukur ia **mati** — 3 catatan seumur hidup, terakhir **28 Juni**, nol dalam 30
+hari. Yang hilang adalah **angka pemakaian**. Tanpa kolom *"dipakai N× 7 hari"*,
+modul yang sunyi karena ditinggalkan tak bisa dibedakan dari modul yang tenang
+karena beres — dan yang pertama adalah kegagalan paling mahal, karena tak ada
+yang mengeluh.

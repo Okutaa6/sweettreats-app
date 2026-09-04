@@ -4,7 +4,7 @@
 > Lampirkan paket ronde 3: `IT Request Tracker.dc.html`, `Sidebar.dc.html`,
 > `it-store.js`, `support.js` + 22 screenshot. Zona grafit, bahasa visual, dan
 > sistem lima-saluran-warna **diteruskan apa adanya**.
-> Isi nyata: `docs/rencana/katalog-modul-2026-09.md` (33 modul, sudah dikoreksi Ekky).
+> Isi nyata: `docs/rencana/katalog-modul-2026-09.md` (37 modul, sudah dikoreksi Ekky 2x).
 > Ikon **FontAwesome 5** — nama khas FA6 jadi kotak kosong.
 
 ## 0. Kenapa halaman ini ada
@@ -38,7 +38,7 @@ yang sedang dikerjakan untuk kami.
 ## 2. Model datanya — dua tingkat, dua sumbu, tiga status
 
 **Dua tingkat.** **Modul** = yang disebut departemen kalau ditanya *"sistem apa
-yang kalian punya?"* (33 entri). **Fitur** = halaman yang bisa dibuka (±60,
+yang kalian punya?"* (37 entri). **Fitur** = halaman yang bisa dibuka (±60,
 diturunkan otomatis dari menu — tak pernah basi).
 
 **Dua sumbu, dan ini kuncinya:**
@@ -73,9 +73,9 @@ tersaring ke modul itu. Katalog dan papan adalah dua tampilan atas satu data.
 jenis**. Perpindahan lensa harus terasa seperti memutar sudut pandang, bukan
 membuka halaman lain. Ini interaksi terpenting di layar ini.
 
-**b) Sebaran timpang, dan itu permanen.** Sales 6 · IT 6 · Finance 5 ·
-Operasional/HR 5 · Marketing 4 · Executive 3 · Data Pasien 2 · **Stok/Inventory
-0 hidup**. Departemen kosong harus terbaca **"direncanakan"**, bukan **"rusak"**
+**b) Sebaran timpang, dan itu permanen.** Sales 8 · Operasional/HR 7 · IT 6 ·
+Finance 5 · Marketing 4 · Executive 3 · Data Pasien 2 · **Stok/Inventory 2 —
+semuanya belum ada**. Departemen kosong harus terbaca **"direncanakan"**, bukan **"rusak"**
 — dan ia memang harus tetap tampil, karena kenyataan bahwa departemen itu ada
 di rencana sebelum ada di perangkat lunak adalah informasi yang berguna.
 
@@ -112,12 +112,21 @@ saluran yang belum terpakai untuk membedakan status.
 10. **Penanda "warisan"** untuk Pusat Akun — kerangkanya bertanggal **27 April
     2022**, empat tahun sebelum kerjaan Sweet Treats. Kecil saja, tapi jujur.
 
+11. **Angka pemakaian: "dipakai N× 7 hari terakhir"** per modul. ⚠️ Tanpa ini
+    katalog punya titik buta: **Keluhan Sistem** berstatus Hidup, nol tiket
+    berjalan, nol utang — terlihat sempurna sehat, padahal terukur **mati**
+    (3 catatan seumur hidup, terakhir 28 Juni, nol dalam 30 hari). Angka
+    pemakaian adalah satu-satunya yang membedakan **modul tenang karena beres**
+    dari **modul sunyi karena ditinggalkan** — dan yang kedua adalah kegagalan
+    paling mahal, karena tak ada yang mengeluh.
+
 ## 6. Angka nyata untuk mengukur rancangan
 
-- **33 modul · 25 hidup · 2 sedang dibangun · 6 direncanakan · 8 departemen.**
+- **37 modul · 25 hidup · 3 sedang dibangun · 9 direncanakan · 8 departemen.**
 - **±60 fitur** tersebar tak rata: Absensi 8 · Konten 6 · Pusat Akun 6 ·
   Reservation Data Center 6 · Referral & Member 5 · sisanya 1–4.
-- **26 tiket aktif** di tracker yang akan menempel ke modul-modul ini.
+- **34 tiket** di seed, **semuanya sudah bertaut modul** — termasuk 4 tiket
+  stabilisasi di fase Go Live (Petty Cash · Checklist · Lead Cekat AI · ROP).
 - Modul dengan utang terbanyak hari ini: **Petty Cash (3)**.
 - Executive membuka halaman ini mungkin **sebulan sekali** — ia tidak akan
   belajar navigasinya. Semua harus jelas pada kunjungan pertama.

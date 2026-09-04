@@ -1606,3 +1606,71 @@ LINGKUNGAN:
 
 Selesai: entri docs/log-update.md + salin ke Google Drive + catat ke memori.
 ```
+
+### 14.26 Taut tiket→modul, empat tiket stabilisasi, dan kolom pemakaian (4 Sep)
+
+**Kekurangan yang Ekky temukan:** papan katalog menulis *"0 bertaut + 31 tanpa
+modul"* — **bukan cacat desain, tapi kekuranganku**: berkas seed
+`seed-antrian-it-2026-09-04.psv` tak punya kolom `modul` sama sekali. Buktinya
+paling jelas di #028 COGS & #029 Inventory yang **sudah** punya entri katalog
+tapi tetap masuk "Tanpa modul". **Sudah diperbaiki: 34 baris × 18 kolom, nol
+tiket tanpa modul.**
+
+Empat entri katalog baru lahir dari tiket yang memang melahirkan modul —
+**ORTHO** & **Akun Dokter** (Sales) · **Project Tracker** & **Notifikasi** (IT).
+Katalog kini **37 entri** (25 hidup · 3 dibangun · 9 direncanakan).
+
+**Persetujuan & Akun Saya pindah IT → Operasional/HR.** Ekky menantang
+penempatanku, dan pengukuran membenarkannya: `PersetujuanController` ada di
+`app/Http/Controllers/Absensi/`, dan `att_request` isinya **hanya tipe absensi**
+(lembur 258 · koreksi 25 · cuti 20 · tukar 2 · sakit 2 · izin 1). ROP, top-up,
+dan checklist-reopen punya jalur persetujuan sendiri (238 · 18 · 61) yang tak
+lewat inbox ini.
+
+#### Empat tiket stabilisasi — dan kenapa BUKAN enam
+
+Ekky mengusulkan modul yang baru hidup sebulan terakhir masuk **Go Live**
+sebagai transparansi menuju Evaluasi. **Setuju bentuknya**, tapi HUB berbeda
+pendapat soal kriterianya dan itu diterima: **umur bukan kriteria yang tepat.**
+
+- **Komisi Dokter** baru 6 hari tapi **tak punya pertanyaan terbuka** — angkanya
+  sudah cocok tiga arah dengan Accurate dan Finance memakainya. Evaluasinya akan
+  jadi upacara. **Dikeluarkan.**
+- **Petty Cash** sudah 3 bulan tapi punya 3 utang + sejarah kepercayaan goyah.
+  **Masuk.**
+- **Pengawasan Absen** dilebur ke tiket Absensi yang sudah ada (#01): satu
+  rilis, satu evaluator (HR). Dua tiket untuk satu rilis memecah jawaban.
+
+⇒ Kriteria yang dipakai: **ada pertanyaan yang belum terjawab, DAN ada orang
+bernama yang bisa menjawabnya.** Hasilnya empat (#31–34): Petty Cash · Checklist
+Operasional · Pasien Baru/Lead Cekat AI · ROP. Semua di **GOLIVE**, tiap tiket
+membawa angka pemakaian nyata sebagai isi pertanyaannya.
+
+#### Dua keyakinan lama yang PATAH oleh pengukuran
+
+- **ROP bukan lagi "adopsi tipis".** Memori mencatat *2 pengajuan per 11 Agu*;
+  terukur 4 Sep: **89 total, 33 dalam 7 hari**. Adopsinya meledak dan catatannya
+  tak pernah diperbarui.
+- **Della sudah kembali mencatat.** Artefak tiga-modul menutup dengan
+  kekhawatiran *"pastikan sudah kembali"*; terukur: 10 pencatat aktif 30 hari,
+  **Della Raqisiah 70 transaksi** (terakhir 3 Sep), Della Puspita Sari 12.
+
+#### ⚠️ Titik buta katalog yang baru ketahuan
+
+Dengan tiga angka sekarang (hidup · berjalan · utang), **Keluhan Sistem terlihat
+sempurna sehat** — Hidup, nol berjalan, nol utang. Padahal terukur **mati**: 3
+catatan seumur hidup, terakhir **28 Juni**, nol dalam 30 hari. Kemungkinan besar
+ia sudah **tergantikan IT Tracker**.
+
+⇒ Brief katalog ditambah persyaratan **#11: kolom "dipakai N× 7 hari terakhir"**.
+Itu satu-satunya angka yang membedakan modul **tenang karena beres** dari modul
+**sunyi karena ditinggalkan** — dan yang kedua adalah kegagalan paling mahal,
+karena tak ada yang mengeluh.
+
+#### Catatan cara kerja (dari Ekky, 4 Sep)
+
+> *"Aku perlu kamu tidak selalu bilang aku benar dan kamu salah — aku juga bisa
+> salah, makanya kita sering bahas dulu. Jangan malu membantahku."*
+
+Berlaku sejak sekarang. Bantahan pertama sudah dipakai di keputusan empat-vs-enam
+tiket di atas.
