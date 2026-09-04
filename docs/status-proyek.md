@@ -39,6 +39,21 @@
 > `2400896`, tak ada lagi cabang prod terpisah. Peringatan lama "jangan deploy
 > main ke prod" **sudah TIDAK berlaku** — sekarang justru `main` yang benar.
 >
+> ✅ **Sisipan 2026-09-07 — KATALOG DILENGKAPI** (`1515bd5`, dev, **147 uji**):
+> **(1)** `it:seed-antrian` membaca kolom ke-18 `modul` → 34 tiket seed bertaut
+> modul; nama yang tak ada di katalog membuat perintah **BERHENTI menyebut
+> barisnya** (tak membuat entri sendiri, tak menebak). Tiket demo tanpa
+> `seed_urut` sengaja tetap kosong — bukti baris "Tanpa modul" bekerja;
+> penjumlahan *"34 bertaut + 1 tanpa modul = 35"* **cocok** dengan cacah papan.
+> **(2)** Katalog **37 entri** (+ORTHO, Akun Dokter, Project Tracker,
+> Notifikasi); **Persetujuan & Akun Saya PINDAH ke Operasional/HR** — terukur
+> (PersetujuanController ada di folder Absensi; att_request hanya tipe absensi).
+> **(3)** Kolom **PEMAKAIAN** "dipakai N× 7 hari" + perintah harian
+> `it:hitung-pemakaian` (06.50): ⛔ **"—" bukan nol** — tanpa pemetaan = "belum
+> terukur", terpetakan tapi sunyi = "0×"; angka tersimpan **wajib** ditemani
+> `pakai_at`. Lahir dari temuan **Keluhan Sistem terlihat sehat padahal mati**
+> (3 catatan seumur hidup, terakhir 28 Jun).
+> ⚠️ **Urutan naik mengikat**: `it:seed-katalog` DULU, baru `it:seed-antrian`.
 > ✅ **Sisipan 2026-09-06c — RUPA KATALOG DIPERBAIKI** (`ee6bb13`, dev): chip
 > STATUS tumpang tindih karena legenda katalog **menumpang kelas legenda papan**
 > yang `i`-nya kotak warna 16×11px. Kini legenda katalog berkelas sendiri.

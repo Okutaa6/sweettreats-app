@@ -6,6 +6,72 @@
 > file ini append-only.
 
 ---
+## 2026-09-07 — Katalog dilengkapi: taut tiket→modul, 37 entri, dan kolom PEMAKAIAN
+
+Empat pekerjaan kecil §14.26 yang saling menopang. Live di dev (`1515bd5`),
+**147 uji hijau** di 14 kelas.
+
+### 1. Tiket bertaut modul dari berkas seed — tanpa satu pun tebakan
+`it:seed-antrian` kini membaca **kolom ke-18 (`modul`)** dan mengisi
+`it_ticket.modul_id`, dicocokkan **persis** ke `it_modul.nama`.
+⛔ Nama yang tak ada di katalog membuat perintah **BERHENTI menyebut nomor
+barisnya** — tidak membuat entri sendiri, tidak menebak dari judul, tidak
+melewati diam-diam. Alasannya sama dengan alasan menolak `modulOf()` regex:
+entri yang lahir sendiri membuat katalog berisi modul yang **tak pernah
+diputuskan siapa pun**, dan itu tak terlihat sampai angkanya dipakai mengambil
+keputusan. Kolom kosong tetap sah — tiket tanpa modul memang ada.
+
+Hasil di dev: **34 tiket seed semuanya bertaut**, dan tiket demo
+`IT-2026-031 "customer survey"` (dibuat lewat layar, tanpa `seed_urut`)
+**tetap kosong** — persis seperti yang diminta: ia bukti bahwa baris "Tanpa
+modul" bekerja, bukan cacat. Penjumlahan di layar berbunyi *"34 bertaut + 1
+tanpa modul = 35 tiket terbuka di papan"* dan **cocok** dengan cacah tabel.
+
+### 2. Katalog 37 entri
+Empat entri baru yang lahir dari tiket: **ORTHO — tracking & retensi** ·
+**Akun Dokter** (Sales) · **Project Tracker** · **Notifikasi** (IT).
+Dua entri **pindah departemen**: **Persetujuan** & **Akun Saya** dari IT ke
+**Operasional/HR** — terukur, bukan selera: `PersetujuanController` ada di
+`app/Http/Controllers/Absensi/`, dan `att_request` isinya **hanya tipe absensi**
+(lembur 258 · koreksi 25 · cuti 20 · tukar 2 · sakit 2 · izin 1), sementara
+ROP, top-up, dan checklist-reopen punya jalur persetujuan sendiri.
+Idempoten: jalan dua kali tetap **37** — 25 hidup · 3 dibangun · 9 rencana,
+jenis 21/8/2/6.
+
+### 3. Kolom PEMAKAIAN — "dipakai N× 7 hari terakhir"
+Empat kolom baru (`pakai_tabel` · `pakai_kolom` · `pakai_7hari` · `pakai_at`)
++ perintah harian **`it:hitung-pemakaian`** (06.50, sesudah `it:sync-git`).
+**12 modul** dipetakan ke tabel buktinya.
+
+**Kenapa kolom ini ada** (jangan dihapus saat menyederhanakan): dengan tiga
+angka lama, **Keluhan Sistem terlihat sempurna sehat** — Hidup, nol berjalan,
+nol utang. Padahal terukur **mati**: 3 catatan seumur hidup, terakhir 28 Juni.
+Angka pemakaian satu-satunya yang membedakan modul **tenang karena beres** dari
+modul **sunyi karena ditinggalkan** — dan yang kedua kegagalan paling mahal,
+karena tak ada yang mengeluh.
+
+**Tiga aturan yang menjaganya tetap jujur:**
+- ⛔ **"—" bukan nol.** Modul tanpa pemetaan menulis *"—" + "belum terukur"*;
+  yang terpetakan tapi sunyi menulis **"0×"** beraksen amber. Menyamakan
+  keduanya adalah kebohongan yang paling mudah dipercaya. Terbukti di dev:
+  Keluhan Sistem `0×` · Katalog Modul `—`.
+- **Angkanya disimpan** (tabel sumber sampai 146rb baris) ⇒ **`pakai_at` wajib
+  ikut tampil** (*"per 5 Sep"*). Angka tersimpan boleh, asal usianya kelihatan.
+- **Seeder menetapkan pemetaan, bukan angka; perintah hitung menulis angka,
+  bukan pemetaan.** Tabel yang hilang di suatu lingkungan dilaporkan dan
+  angkanya **dibiarkan apa adanya — tidak dinolkan**.
+
+### 4. Berkas seed 34 baris × 18 kolom
+Empat tiket **stabilisasi** di GOLIVE (Petty Cash · Checklist · Lead Cekat AI ·
+ROP), tiap-tiap membawa angka pemakaian nyata sebagai isi pertanyaan
+evaluasinya. Uji seeder menyesuaikan: 34 tiket · 30 aktif · kartu papan
+6 support / 17 fitur / 7 belum ditriase.
+
+### ⚠️ Urutan naik yang sekarang MENGIKAT
+`it:seed-katalog` **dulu**, baru `it:seed-antrian`. Kalau terbalik, seeder
+antrian berhenti di baris pertama yang bermodul — dan itu memang perilaku yang
+benar, bukan cacat.
+---
 ## 2026-09-06c — Rupa katalog: satu baris CSS milik halaman lain yang menjepit chip status
 
 Ekky mengirim tiga tangkapan layar: chip **HIDUP / DIBANGUN / RENCANA** di
