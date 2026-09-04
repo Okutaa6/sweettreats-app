@@ -1388,3 +1388,42 @@ Baris 30 sudah bertriase (L·4·P3) lalu diparkir lewat mekanisme parkir.
 ⚠️ Ini **mengoreksi** peta §9 yang menulis *"sengaja TIDAK ada di seed: COGS,
 Inventory, Slip gaji"*. Prinsip "pemohon yang benar" tetap dijaga lewat
 penanda draf + kewajiban konfirmasi sebelum lolos triase.
+
+### 14.23 Ronde 3 desain — detail tiket & papan (4 Sep malam)
+
+Sesudah dev diisi 30 tiket nyata, Ekky memakai layarnya dengan beban sungguhan
+dan menemukan dua hal yang **tak terlihat saat papan kosong**:
+
+1. **Detail tiket = maraton scroll.** Tujuh fase ditumpuk; *"kalau sudah di
+   Evaluation harus scroll ke ujung banget."* Blade-nya memang besar:
+   Analisis 315 baris · UAT 224 · Evaluasi 189 · Go Live 163 · Uji 170 +
+   kerangka 390 — tiket L merender semuanya sekaligus.
+2. **Papan banyak ruang kosong**, kolom kurang menonjol.
+
+⚠️ **Temuan tambahan HUB (bukan dari Ekky): filter aktif tak terlihat.**
+Papan menulis **KERJAKAN 0** padahal ada **6 tiket di Development** — keenamnya
+`sumber=insiden`, dan tab **"Permintaan"** yang sedang aktif membuangnya
+(`ItTrackerController::index`, filter `sumber`). `0` polos terbaca *"tak ada
+yang dikerjakan"*. **Bukan bug kode** — tapi salah paham yang mahal kalau
+terjadi di depan Executive besok.
+**Untuk demo besok: sadari ini.** Klik **Inisiatif IT** untuk memperlihatkan
+enam tiket Development, atau matikan filter dulu sebelum bicara soal beban.
+
+**Brief: `docs/brief-desain/design-brief-it-tracker-ronde3.md`.** Yang membuat
+brief ini beda dari ronde 1–2: ia membawa **sebaran nyata** (Triase 8 · Antre 4
+· Analisis 4 · Dev 6 · Uji **0** · UAT 4 · Go Live **0** · Evaluasi 1 · Ditunda
+4). Dua fase kosong itu **keadaan normal**, bukan kebetulan — dan itulah sumber
+"empty space". Rancangan yang memberi tiap fase kolom setinggi layar akan
+selamanya memperlihatkan lubang.
+
+Empat patokan terukur ditulis di §7 brief, termasuk yang paling penting:
+**membuka tiket di fase Evaluasi harus memperlihatkan fase berjalan tanpa
+scroll sama sekali**, dan **tiket S tidak pernah menampilkan fase yang tak
+dilaluinya** (S cuma `REQ → DEV`; memperlihatkan 7 itu berbohong).
+
+⛔ Yang dikunci ulang di brief supaya tak dirancang mundur: tujuh keputusan
+§14.13 · sumbu papan = FASE · gerbang = lampu · aturan panas · `it-store.js`
+boleh ditambah, tak boleh diubah bentuknya (99 uji bergantung padanya).
+
+**Urutan:** ronde 3 dikerjakan **sesudah demo**, dengan masukan penonton ikut
+masuk. Jangan menyentuh dev sebelum demo.
