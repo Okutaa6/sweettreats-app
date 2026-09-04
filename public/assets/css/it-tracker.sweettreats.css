@@ -915,7 +915,7 @@ body.zona-it .itk-fasetab { border-bottom-color:#D8D4CA; }
 .itk-kat-panel > .hd .angka i { display:block; font-size:9.5px; font-weight:700; color:var(--itk-soft);
   letter-spacing:.3px; font-style:normal; }
 
-.itk-kat-row { display:grid; grid-template-columns:86px minmax(0,1fr) 148px 106px 72px 118px 18px; gap:12px;
+.itk-kat-row { display:grid; grid-template-columns:86px minmax(0,1fr) 148px 100px 68px 82px 112px 18px; gap:11px;
   align-items:center; padding:8px 16px; border-top:1px solid #F4EADD; background:#fff; cursor:pointer; }
 .itk-kat-row:hover { background:#FFFCF8; }
 .itk-kat-row.kepala { background:#FBF4EC; border-top:1px solid var(--itk-line); border-bottom:1px solid var(--itk-line);
@@ -1073,7 +1073,8 @@ body.zona-it .itk-fasetab { border-bottom-color:#D8D4CA; }
 @media (max-width:1100px) {
   .itk-kat-tops { grid-template-columns:1fr 1fr; }
   .itk-kat-row { grid-template-columns:78px minmax(0,1fr) 96px 84px; }
-  .itk-kat-row > span:nth-child(5), .itk-kat-row > span:nth-child(6), .itk-kat-row > span:nth-child(7) { display:none; }
+  .itk-kat-row > span:nth-child(5), .itk-kat-row > span:nth-child(6),
+  .itk-kat-row > span:nth-child(7), .itk-kat-row > span:nth-child(8) { display:none; }
   .itk-mx-grid { grid-template-columns:120px repeat(4,minmax(0,1fr)); }
   .itk-mx-grid .hd.kanan, .itk-mx-grid .tiket { display:none; }
 }
@@ -1104,3 +1105,26 @@ body.zona-it .itk-fasetab { border-bottom-color:#D8D4CA; }
 .itk-kat-legenda .ket { display:block; margin-left:auto; max-width:520px; font-size:10.5px;
   font-weight:600; color:#A08A76; }
 @media (max-width:1100px) { .itk-kat-legenda .ket { margin-left:0; max-width:none; } }
+/* PEMAKAIAN — "dipakai N× 7 hari terakhir" (§14.26).
+   Saluran sendiri: angka + stempel waktu kecil di bawahnya. ⛔ Tak memakai
+   warna panas/oranye/putus-merah milik papan; yang membedakan cuma tebal-pudar
+   dan satu tanda amber untuk NOL (sunyi). "—" (belum terukur) sengaja paling
+   pudar — ia BUKAN nol, dan tak boleh terbaca seperti nol. */
+.itk-pakai { display:flex; flex-direction:column; line-height:1.2; min-width:0; }
+.itk-pakai b { font-size:12.5px; font-weight:800; color:var(--itk-ink); }
+.itk-pakai i { font-size:9.5px; font-weight:700; font-style:normal; color:#A08A76; white-space:nowrap; }
+.itk-pakai.sunyi b { color:#B5701A; }
+.itk-pakai.sunyi i { color:#B5701A; opacity:.8; }
+.itk-pakai.takterukur b { color:#C7AC92; font-weight:700; }
+.itk-pakai.takterukur i { color:#C7AC92; font-style:italic; }
+.itk-kat-card .kaki .itk-pakai { margin-left:auto; text-align:right; }
+.itk-kat-card .kaki .itk-pakai + .tiket { margin-left:9px; }
+
+/* panel: kotak keempat */
+.itk-panel-geser .tiga.empat { grid-template-columns:repeat(4,1fr); }
+.itk-panel-geser .tiga .pakai .cap { display:block; font-size:9.5px; font-weight:700; color:#A08A76; margin-top:1px; }
+.itk-panel-geser .tiga .pakai.sunyi { background:#FBEFD9; border-color:#E8C99A; }
+.itk-panel-geser .tiga .pakai.sunyi .k, .itk-panel-geser .tiga .pakai.sunyi .v,
+.itk-panel-geser .tiga .pakai.sunyi .cap { color:#8A5410; }
+.itk-panel-geser .tiga .pakai.takterukur .v { color:#B7A48C; font-style:italic; }
+@media (max-width:1100px) { .itk-panel-geser .tiga.empat { grid-template-columns:repeat(2,1fr); } }

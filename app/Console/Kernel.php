@@ -119,6 +119,15 @@ class Kernel extends ConsoleKernel
             ->withoutOverlapping(15)
             ->appendOutputTo(storage_path('logs/it-tracker-cron.log'));
 
+        // Katalog Modul — "dipakai N× 7 hari terakhir" (rencana §14.26).
+        // Sesudah sync git supaya keduanya jatuh di satu jendela pagi. Angkanya
+        // DISIMPAN karena tabel sumbernya besar; usianya ikut tampil di layar
+        // lewat pakai_at, jadi angka basi ketahuan basi.
+        $schedule->command('it:hitung-pemakaian --diam')
+            ->dailyAt('06:50')
+            ->withoutOverlapping(15)
+            ->appendOutputTo(storage_path('logs/it-tracker-cron.log'));
+
         // Master vendor ROP — Senin 04:10, setelah jendela sync Accurate.
         // Cuma menambah/menyegarkan nama; vendor buatan tangan tak disentuh.
         $schedule->command('rop:tarik-vendor')

@@ -9,7 +9,11 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * it:seed-katalog — mengisi Katalog Modul dari docs/rencana/katalog-modul-2026-09.md
- * (33 entri, 8 departemen, sudah dikoreksi Ekky 4 Sep).
+ * (37 entri, 8 departemen; §14.26 menambah 4 entri & memindahkan 2 departemen).
+ *
+ * ⚠️ Perintah ini juga menetapkan PEMETAAN pemakaian (tabel + kolom waktu),
+ *    bukan angkanya. Angka ditulis `it:hitung-pemakaian` supaya halaman katalog
+ *    tak menghitung 146rb baris tiap kali dibuka.
  *
  * Aturan yang membentuknya:
  * - IDEMPOTEN by `nama` (unik). Jalan ulang memperbarui, tidak menggandakan.
@@ -27,89 +31,123 @@ class ItSeedKatalog extends Command
                             {--env-guard= : local | dev | prod — WAJIB cocok dengan lingkungan ini}
                             {--kering : hanya laporkan, jangan menulis apa pun}';
 
-    protected $description = 'Isi Katalog Modul (33 entri) — idempoten by nama; access_id diselesaikan lewat jalur nama menu';
+    protected $description = 'Isi Katalog Modul (37 entri) — idempoten by nama; access_id & pemetaan pemakaian diselesaikan di sini';
 
     /**
-     * 33 entri: nama · departemen · jenis · status · sejak · terbukti · jalur node menu · catatan.
-     * Sumber tunggal: docs/rencana/katalog-modul-2026-09.md.
+     * 37 entri: nama · departemen · jenis · status · sejak · terbukti · jalur node
+     * menu · catatan · tabel pemakaian · kolom waktu pemakaian.
+     * Sumber tunggal: docs/rencana/katalog-modul-2026-09.md (§14.26 — 37 entri:
+     * 25 hidup · 3 dibangun · 9 direncanakan).
+     *
+     * DUA KOLOM TERAKHIR menjawab pertanyaan yang tak bisa dijawab tiga angka
+     * lama: "modul ini masih dipakai orang atau tidak". NULL = belum terukur →
+     * layar menulis "—", BUKAN 0. Nol berarti MATI, dan itu beda dari tak
+     * terukur. Angkanya ditulis `php artisan it:hitung-pemakaian` (harian).
      */
     private const KATALOG = [
         // ── SALES ──────────────────────────────────────────────────────────
         ['Reservasi', 'Sales', 'Operasional', 'hidup', '2026-04-07', true, 'Data Center>Reservation Data Center>Reservation',
-            'Bukti data: raw_cus_reservation 6.039 (7 Apr). Halaman lain yang memakai modul ini — Reservasi Cabang & Reservasi Pasien — memakai link yang sama (rawreservation) lewat cabang menu lain.'],
+            'Bukti data: raw_cus_reservation 6.039 (7 Apr). Halaman lain yang memakai modul ini — Reservasi Cabang & Reservasi Pasien — memakai link yang sama (rawreservation) lewat cabang menu lain.',
+            'raw_cus_reservation', 'created_at'],
         ['Master Jadwal & Layanan', 'Sales', 'Operasional', 'hidup', '2026-03-11', true, 'Data Center>Reservation Data Center>Doctor',
-            'Bukti data: raw_doctor_schedule 105 · raw_doc_service_detail 148 (11 Mar). Branch & Doctor Service duduk di cabang menu yang sama dengan modul lain, jadi tak ikut terhitung di sini.'],
+            'Bukti data: raw_doctor_schedule 105 · raw_doc_service_detail 148 (11 Mar). Branch & Doctor Service duduk di cabang menu yang sama dengan modul lain, jadi tak ikut terhitung di sini.',
+            null, null],
         ['Laporan Penjualan', 'Sales', 'Laporan & Dashboard', 'hidup', null, false, 'Laporan>Laporan>Laporan Penjualan',
-            'Rekonsiliasi ada di cabang menu yang sama dan dipakai bersama modul lain.'],
+            'Rekonsiliasi ada di cabang menu yang sama dan dipakai bersama modul lain.', null, null],
         ['Dashboard Sales', 'Sales', 'Laporan & Dashboard', 'hidup', '2026-06-01', false, 'Data Center>Dashboard>Dashboard Sales',
-            'Tanggalnya perkiraan bulan (Jun 2026) — tak ada tabel khusus yang membuktikan hari pertamanya.'],
+            'Tanggalnya perkiraan bulan (Jun 2026) — tak ada tabel khusus yang membuktikan hari pertamanya.', null, null],
         ['Pasien Baru / Lead Cekat AI', 'Sales', 'Operasional', 'hidup', '2026-08-27', true, null,
-            'Formulir publik per cabang + tab Pasien Cekat AI — tanpa node menu sendiri.'],
+            'Formulir publik per cabang + tab Pasien Cekat AI — tanpa node menu sendiri.',
+            'raw_contact', 'created_at'],
         ['Kontak & Percakapan', 'Sales', 'Operasional', 'hidup', '2026-02-18', true, null,
-            'Tanpa menu — berjalan di belakang. Bukti data: raw_contact 12.231 (18 Feb — data tertua di sistem) · raw_chat 34.313.'],
+            'Tanpa menu — berjalan di belakang. Bukti data: raw_contact 12.231 (18 Feb — data tertua di sistem) · raw_chat 34.313. Pemakaian dihitung dari raw_chat supaya tak menghitung ganda dengan modul Lead (raw_contact).',
+            'raw_chat', 'created_at'],
+        ['ORTHO — tracking & retensi', 'Sales', 'Operasional', 'rencana', null, false, null,
+            'Lahir dari tiket antrean IT (§14.26). Belum ada perangkat lunaknya.', null, null],
+        ['Akun Dokter', 'Sales', 'Operasional', 'dibangun', null, false, null,
+            'Halaman dokter (Hari Ini · Jadwal Saya · Pasien Saya) duduk di bawah akar menu "Akun Saya", jadi fiturnya terhitung di modul itu — bukan di sini, supaya tak dihitung dua kali.',
+            null, null],
 
         // ── MARKETING ──────────────────────────────────────────────────────
         ['Konten', 'Marketing', 'Operasional', 'hidup', '2026-05-07', true, 'Konten',
-            'Bukti data: ep_konten_pillar 22 (7 Mei) · ep_konten 214 (12 Mei).'],
+            'Bukti data: ep_konten_pillar 22 (7 Mei) · ep_konten 214 (12 Mei).',
+            'ep_konten', 'created_at'],
         ['Referral & Member', 'Marketing', 'Operasional', 'hidup', '2026-04-01', true, 'Referral & Member',
-            'Bukti data: raw_promo 32 (1 Apr) · raw_affiliate 133 (15 Mei).'],
+            'Bukti data: raw_promo 32 (1 Apr) · raw_affiliate 133 (15 Mei).', null, null],
         ['Promo', 'Marketing', 'Operasional', 'hidup', '2026-06-20', true, 'Data Center>Reservation Data Center>Promo (Marketing)',
-            'Bukti data: marketing_promo 16 (20 Jun).'],
+            'Bukti data: marketing_promo 16 (20 Jun).', null, null],
         ['Dashboard & Laporan Marketing', 'Marketing', 'Laporan & Dashboard', 'hidup', null, false, 'Dashboard & Laporan',
-            'Dikonfirmasi Ekky terukur hidup (koreksi #4, 4 Sep). Tanggal pertamanya tak ada tabel yang membuktikan.'],
+            'Dikonfirmasi Ekky terukur hidup (koreksi #4, 4 Sep). Tanggal pertamanya tak ada tabel yang membuktikan.', null, null],
 
         // ── FINANCE ────────────────────────────────────────────────────────
         ['Petty Cash', 'Finance', 'Operasional', 'hidup', '2026-06-04', true, 'Keuangan>Petty Cash',
-            'Bukti data: petty_cash_periods 23 (4 Jun) · petty_cash_transactions 359 (5 Jun). Operational Expense duduk di cabang menu Report.'],
+            'Bukti data: petty_cash_periods 23 (4 Jun) · petty_cash_transactions 359 (5 Jun). Operational Expense duduk di cabang menu Report.',
+            'petty_cash_transactions', 'created_at'],
         ['ROP (Pengajuan Pengeluaran)', 'Finance', 'Operasional', 'hidup', '2026-08-06', true, 'Keuangan>Pengajuan',
-            'Bukti data: rop_requests 89 (6 Agu). Antrian Pengajuan · Rekap Pengeluaran · Lembar Bayar memakai cabang menu yang sama dengan modul Keuangan lain.'],
+            'Bukti data: rop_requests 89 (6 Agu). ⚠️ Keyakinan lama "adopsi tipis" PATAH: terukur 4 Sep 89 total, 33 dalam 7 hari. Antrian Pengajuan · Rekap Pengeluaran · Lembar Bayar memakai cabang menu yang sama dengan modul Keuangan lain.',
+            'rop_requests', 'created_at'],
         ['Komisi Dokter', 'Finance', 'Laporan & Dashboard', 'hidup', '2026-08-29', true, 'Keuangan>Komisi Dokter',
-            'Naik prod 29 Agu; angkanya cocok tiga arah dengan Accurate.'],
+            'Naik prod 29 Agu; angkanya cocok tiga arah dengan Accurate. Tak masuk tiket stabilisasi karena tak punya pertanyaan terbuka (§14.26).',
+            null, null],
         ['Integrasi Accurate', 'Finance', 'Integrasi', 'hidup', '2026-06-12', true, null,
-            'Tanpa menu — berjalan di belakang lewat accurate:push-daily. ⏰ Push DIJEDA sejak 28 Agu, terakhir ter-push 27 Agu; menyalakan lagi WAJIB sekali manual dengan --days lebar dulu. Bukti data: accurate_push_log 3.118 (12 Jun).'],
-        ['Laporan Keuangan', 'Finance', 'Laporan & Dashboard', 'rencana', null, false, null, null],
+            'Tanpa menu — berjalan di belakang lewat accurate:push-daily. ⏰ Push DIJEDA sejak 28 Agu, terakhir ter-push 27 Agu; menyalakan lagi WAJIB sekali manual dengan --days lebar dulu. Bukti data: accurate_push_log 3.118 (12 Jun).',
+            'accurate_push_log', 'created_at'],
+        ['Laporan Keuangan', 'Finance', 'Laporan & Dashboard', 'rencana', null, false, null, null, null, null],
 
         // ── OPERASIONAL / HR ───────────────────────────────────────────────
         ['Absensi', 'Operasional / HR', 'Operasional', 'hidup', '2026-08-04', true, 'Absensi',
-            'Bukti data: att_work_rule 6 + att_user_rule 41 (4 Agu) · att_scan 1.045 (5 Agu) · att_hp_bukti 1.045.'],
+            'Bukti data: att_work_rule 6 + att_user_rule 41 (4 Agu) · att_scan 1.045 (5 Agu) · att_hp_bukti 1.045.',
+            'att_scan', 'created_at'],
         ['Pengawasan Absen', 'Operasional / HR', 'Operasional', 'hidup', '2026-08-05', true, 'Pengawasan',
-            'WiFi Cabang duduk di cabang menu Pusat Akun, jadi terhitung di modul itu.'],
+            'WiFi Cabang duduk di cabang menu Pusat Akun, jadi terhitung di modul itu. Evaluasinya dilebur ke tiket Absensi — satu rilis, satu evaluator (§14.26).',
+            null, null],
         ['Checklist Operasional', 'Operasional / HR', 'Operasional', 'hidup', '2026-07-01', true, 'Monitoring Formchecklist',
-            'Bukti data: sys_checklist_division 3 (1 Jul) · sys_checklist_submission 403 (4 Agu). "Checklist Saya" adalah akar menu terpisah (halaman pribadi).'],
-        ['Slip Gaji & Insentif', 'Operasional / HR', 'Operasional', 'rencana', null, false, null, null],
+            'Bukti data: sys_checklist_division 3 (1 Jul) · sys_checklist_submission 403 (4 Agu). "Checklist Saya" adalah akar menu terpisah (halaman pribadi).',
+            'sys_checklist_submission', 'created_at'],
+        ['Persetujuan', 'Operasional / HR', 'Operasional', 'hidup', '2026-08-01', false, 'Persetujuan',
+            'PINDAH dari IT ke Operasional/HR (koreksi Ekky 4 Sep, terukur): PersetujuanController ada di app/Http/Controllers/Absensi/ dan att_request isinya HANYA tipe absensi (lembur 258 · koreksi 25 · cuti 20 · tukar 2 · sakit 2 · izin 1). ROP, top-up, dan checklist-reopen punya jalur persetujuan sendiri yang tak lewat inbox ini.',
+            'att_request_approval', 'created_at'],
+        ['Akun Saya', 'Operasional / HR', 'Operasional', 'hidup', '2026-08-01', false, 'Akun Saya',
+            'PINDAH dari IT ke Operasional/HR (koreksi Ekky 4 Sep): isinya halaman pribadi absensi & dokter, bukan perkakas IT. Tanggalnya perkiraan bulan.',
+            null, null],
+        ['Slip Gaji & Insentif', 'Operasional / HR', 'Operasional', 'rencana', null, false, null, null, null, null],
         ['Rolling / Penempatan global', 'Operasional / HR', 'Operasional', 'rencana', null, false, null,
-            'Kini masih di dalam Checklist Operasional.'],
+            'Kini masih di dalam Checklist Operasional.', null, null],
 
         // ── DATA PASIEN & REKAM MEDIS ──────────────────────────────────────
         ['Data Pasien', 'Data Pasien & Rekam Medis', 'Operasional', 'hidup', '2026-04-05', true, 'Data Center>Reservation Data Center>Pasien',
-            'Bukti data: raw_customer 15.656 (5 Apr).'],
+            'Bukti data: raw_customer 15.656 (5 Apr).', null, null],
         ['Integrasi Omnicare', 'Data Pasien & Rekam Medis', 'Integrasi', 'hidup', '2026-05-20', true, null,
-            'Tanpa menu — sinkron harian. ⚠️ Rekam medis tidak seragam: tindakan 100%, keluhan 27%, diagnosa 39%; doc_id berisi nama di rekam medis tapi angka di komisi. Jangan menjanjikan fitur rekam medis tanpa memeriksa ini dulu. Bukti data: omnicare_sales_detail 146.542 · omnicare_medical_record 51.020.'],
+            'Tanpa menu — sinkron harian. ⚠️ Rekam medis tidak seragam: tindakan 100%, keluhan 27%, diagnosa 39%; doc_id berisi nama di rekam medis tapi angka di komisi. Jangan menjanjikan fitur rekam medis tanpa memeriksa ini dulu. Bukti data: omnicare_sales_detail 146.542 · omnicare_medical_record 51.020.',
+            'omnicare_sales_detail', 'created_at'],
 
         // ── EXECUTIVE ──────────────────────────────────────────────────────
-        ['Executive Report', 'Executive', 'Laporan & Dashboard', 'hidup', null, false, 'Data Center>Report>Executive', null],
-        ['Ringkasan', 'Executive', 'Laporan & Dashboard', 'hidup', null, false, 'Dashboard>Menu>Ringkasan', null],
+        ['Executive Report', 'Executive', 'Laporan & Dashboard', 'hidup', null, false, 'Data Center>Report>Executive', null, null, null],
+        ['Ringkasan', 'Executive', 'Laporan & Dashboard', 'hidup', null, false, 'Dashboard>Menu>Ringkasan', null, null, null],
         ['Target vs Pencapaian', 'Executive', 'Laporan & Dashboard', 'dibangun', null, false, null,
-            'Lulus dev, prod belum.'],
+            'Lulus dev, prod belum.', null, null],
 
         // ── IT ─────────────────────────────────────────────────────────────
         ['Pusat Akun', 'IT', 'Platform', 'hidup', '2022-04-27', true, 'Data Center>Pusat Akun',
-            'WARISAN: kerangka ber-UUID v1 bertanggal 27 Apr 2022 15:51 — empat tahun sebelum kerjaan Sweet Treats. Bagian mana yang warisan dan mana yang kita tulis ulang belum dipisahkan.'],
-        ['Persetujuan', 'IT', 'Platform', 'hidup', '2026-08-01', false, 'Persetujuan',
-            'Tanggalnya perkiraan bulan (Agu 2026) — tak ada tabel yang membuktikan hari pertamanya.'],
-        ['Akun Saya', 'IT', 'Platform', 'hidup', '2026-08-01', false, 'Akun Saya',
-            'Tanggalnya perkiraan bulan (Agu 2026) — tak ada tabel yang membuktikan hari pertamanya.'],
+            'WARISAN: kerangka ber-UUID v1 bertanggal 27 Apr 2022 15:51 — empat tahun sebelum kerjaan Sweet Treats. Bagian mana yang warisan dan mana yang kita tulis ulang belum dipisahkan.',
+            null, null],
         ['Keluhan Sistem', 'IT', 'Platform', 'hidup', '2026-06-20', true, 'Keluhan',
-            'Keluhan atas SISTEM, bukan keluhan pasien (koreksi #2 Ekky — nama node menu bukan nama pemilik).'],
+            'Keluhan atas SISTEM, bukan keluhan pasien (koreksi #2 Ekky — nama node menu bukan nama pemilik). ⚠️ Terukur SUNYI: 3 catatan seumur hidup, terakhir 28 Jun, nol dalam 30 hari — kemungkinan sudah tergantikan IT Tracker. Inilah modul yang melahirkan kolom pemakaian.',
+            'sys_complaint', 'created_at'],
         ['IT Request Tracker', 'IT', 'Platform', 'dibangun', null, false, 'IT',
-            'Live di dev, prod belum.'],
+            'Live di dev, prod belum.', null, null],
         ['Katalog Modul', 'IT', 'Platform', 'rencana', null, false, null,
-            'Halaman ini — lahir dari pertanyaan Executive "apa saja yang kami punya".'],
+            'Halaman ini — lahir dari pertanyaan Executive "apa saja yang kami punya".', null, null],
+        ['Project Tracker', 'IT', 'Platform', 'rencana', null, false, null,
+            'Fase A selesai di lokal lalu diparkir di branch feature/project-tracker; belum pernah naik dev maupun prod.', null, null],
+        ['Notifikasi', 'IT', 'Platform', 'rencana', null, false, null,
+            'WA reservasi + hub pemberitahuan internal. Hari ini TAK ADA satu pun pemberitahuan keluar aplikasi — itulah kenapa tiket yang menunggu di luar IT cuma terlihat kalau orangnya kebetulan login.',
+            null, null],
 
         // ── STOK / INVENTORY ───────────────────────────────────────────────
         ['Inventory / Stok', 'Stok / Inventory', 'Operasional', 'rencana', null, false, null,
-            'Departemennya ada di rencana sebelum ada di perangkat lunak — dan itu memang harus terlihat.'],
-        ['COGS — kendali harga & HPP', 'Stok / Inventory', 'Operasional', 'rencana', null, false, null, null],
+            'Departemennya ada di rencana sebelum ada di perangkat lunak — dan itu memang harus terlihat.', null, null],
+        ['COGS — kendali harga & HPP', 'Stok / Inventory', 'Operasional', 'rencana', null, false, null, null, null, null],
     ];
 
     public function __construct(private KatalogModul $katalog)
@@ -131,7 +169,7 @@ class ItSeedKatalog extends Command
         $baru = 0; $ubah = 0; $tetap = 0; $tanpaNode = []; $nodeHilang = []; $fitur = [];
 
         DB::transaction(function () use (&$baru, &$ubah, &$tetap, &$tanpaNode, &$nodeHilang, &$fitur, $kering) {
-            foreach (self::KATALOG as $i => [$nama, $dept, $jenis, $status, $sejak, $terbukti, $jalur, $catatan]) {
+            foreach (self::KATALOG as $i => [$nama, $dept, $jenis, $status, $sejak, $terbukti, $jalur, $catatan, $pakaiTabel, $pakaiKolom]) {
                 $accessId = null;
                 if ($jalur !== null) {
                     $accessId = $this->katalog->cariJalur($jalur);
@@ -142,9 +180,12 @@ class ItSeedKatalog extends Command
                     $tanpaNode[] = $nama;
                 }
 
+                // ⛔ pakai_7hari & pakai_at TIDAK ikut di sini: itu milik
+                //    it:hitung-pemakaian. Seeder cuma menetapkan PEMETAANNYA.
                 $isi = ['departemen' => $dept, 'jenis' => $jenis, 'status' => $status,
                     'sejak' => $sejak, 'sejak_terbukti' => $terbukti, 'access_id' => $accessId,
-                    'catatan' => $catatan, 'urutan' => ($i + 1) * 10];
+                    'catatan' => $catatan, 'urutan' => ($i + 1) * 10,
+                    'pakai_tabel' => $pakaiTabel, 'pakai_kolom' => $pakaiKolom];
 
                 $m = ItModul::where('nama', $nama)->first();
                 if (! $m) {

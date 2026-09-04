@@ -18,12 +18,16 @@ class ItModul extends Model
     protected $fillable = [
         'nama', 'departemen', 'jenis', 'status', 'sejak', 'sejak_terbukti',
         'access_id', 'catatan', 'urutan',
+        // pemakaian: PEMETAAN diisi seeder; ANGKA-nya ditulis it:hitung-pemakaian
+        'pakai_tabel', 'pakai_kolom', 'pakai_7hari', 'pakai_at',
     ];
 
     protected $casts = [
         'sejak'          => 'date',
         'sejak_terbukti' => 'bool',
         'urutan'         => 'int',
+        'pakai_7hari'    => 'int',
+        'pakai_at'       => 'datetime',
     ];
 
     public function tiket()

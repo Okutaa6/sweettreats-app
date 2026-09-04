@@ -236,7 +236,7 @@ class ItKatalogE2ETest extends TestCase
             ->assertDontSee('＋ Entri modul')
             ->getContent();
         $this->assertStringContainsString('itk-mx-grid', $html, 'Executive mendarat di Matriks');
-        $this->assertSame(33, substr_count($html, 'itk-mchip'), '33 modul dalam satu layar');
+        $this->assertSame(37, substr_count($html, 'itk-mchip'), '37 modul dalam satu layar (§14.26)');
 
         // pertanyaan khas Robi: "perlihatkan semua laporan & dashboard"
         $lap = $this->withSession($this->robi())

@@ -77,28 +77,28 @@ class ItKatalogModulTest extends TestCase
 
     // ─── Seeder: isi katalog = isi dokumen ─────────────────────────────────
 
-    /** 33 entri · 25 hidup / 2 dibangun / 6 rencana · per jenis 17/8/2/6. Idempoten. */
-    public function test_seeder_mengisi_33_modul_dan_idempoten(): void
+    /** 37 entri · 25 hidup / 3 dibangun / 9 rencana · per jenis 21/8/2/6 (§14.26). Idempoten. */
+    public function test_seeder_mengisi_37_modul_dan_idempoten(): void
     {
         Artisan::call('it:seed-katalog', ['--env-guard' => 'local']);
         $keluaran = Artisan::output();
         $this->assertStringContainsString('hidup 25', $keluaran);
-        $this->assertStringContainsString('dibangun 2', $keluaran);
-        $this->assertStringContainsString('rencana 6', $keluaran);
+        $this->assertStringContainsString('dibangun 3', $keluaran);
+        $this->assertStringContainsString('rencana 9', $keluaran);
 
         $status = ItModul::selectRaw('status, COUNT(*) n')->groupBy('status')->pluck('n', 'status');
         $jenis  = ItModul::selectRaw('jenis, COUNT(*) n')->groupBy('jenis')->pluck('n', 'jenis');
-        $this->assertSame(33, ItModul::count());
-        $this->assertSame([25, 2, 6], [$status['hidup'], $status['dibangun'], $status['rencana']]);
-        $this->assertSame(17, $jenis['Operasional']);
+        $this->assertSame(37, ItModul::count());
+        $this->assertSame([25, 3, 9], [$status['hidup'], $status['dibangun'], $status['rencana']]);
+        $this->assertSame(21, $jenis['Operasional']);
         $this->assertSame(8, $jenis['Laporan & Dashboard']);
         $this->assertSame(2, $jenis['Integrasi']);
         $this->assertSame(6, $jenis['Platform']);
         $this->assertSame(8, ItModul::distinct()->count('departemen'));
 
-        // jalan ulang: memperbarui, TIDAK menggandakan
+        // jalan ulang: memperbarui, TIDAK menggandakan (37, bukan 74)
         Artisan::call('it:seed-katalog', ['--env-guard' => 'local']);
-        $this->assertSame(33, ItModul::count());
+        $this->assertSame(37, ItModul::count());
         $this->assertStringContainsString('0 baru', Artisan::output());
     }
 

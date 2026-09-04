@@ -38,6 +38,12 @@ class ItTrackerSeedAntrianTest extends TestCase
             $this->markTestSkipped('DB ini sudah berisi tiket seed — uji butuh DB tanpa seed.');
         }
         $this->sediakanAkun();
+        // Kolom ke-18 PSV (§14.26) dicocokkan PERSIS ke it_modul.nama; kalau katalog
+        // kosong, seeder memang BERHENTI. Jadi katalog disiapkan dulu — urutan yang
+        // sama dipakai saat naik dev/prod: it:seed-katalog → it:seed-antrian.
+        if (\App\Models\ItModul::count() < 37) {
+            $this->artisan('it:seed-katalog', ['--env-guard' => 'local'])->run();
+        }
     }
 
     /** akun sekali-pakai untuk setiap email/nama di PSV yang belum ada di DB ini */
@@ -73,7 +79,7 @@ class ItTrackerSeedAntrianTest extends TestCase
             'group_name' => $groupName, 'name' => 'Uji', 'branch_day' => date('Y-m-d'), 'expires_in' => time() + 3600, 'login_at' => time(), 'pa_touch' => time()];
     }
 
-    /** Jalan 2× → 30 tiket bukan 60; counter 030; nomor dari counter, bukan hardcode. */
+    /** Jalan 2× → 34 tiket bukan 68; counter maju 34; nomor dari counter, bukan hardcode. */
     public function test_idempoten_dua_kali_jalan(): void
     {
         $lama = collect(['users', 'rop_requests', 'att_day', 'group_access'])->mapWithKeys(fn ($x) => [$x => DB::table($x)->count()]);
@@ -83,10 +89,10 @@ class ItTrackerSeedAntrianTest extends TestCase
         $this->assertSame(0, $this->jalankan());
         $this->assertSame(0, $this->jalankan());
 
-        $this->assertSame($awal + 30, ItTicket::count());
-        $this->assertSame(30, ItTicket::whereNotNull('seed_urut')->count());
-        $this->assertSame(30, ItTicket::whereNotNull('seed_urut')->distinct()->count('nomor'));
-        $this->assertSame($counterAwal + 30, (int) DB::table('it_counter')->where('periode', '2026')->value('last_no'), 'counter maju tepat 30 (bukan 60)');
+        $this->assertSame($awal + 34, ItTicket::count());
+        $this->assertSame(34, ItTicket::whereNotNull('seed_urut')->count());
+        $this->assertSame(34, ItTicket::whereNotNull('seed_urut')->distinct()->count('nomor'));
+        $this->assertSame($counterAwal + 34, (int) DB::table('it_counter')->where('periode', '2026')->value('last_no'), 'counter maju tepat 34 (bukan 68)');
         $this->assertSame(sprintf('IT-2026-%03d', $counterAwal + 1), $this->urut(1)->nomor, 'nomor dari counter, bukan hardcode');
         foreach ($lama as $x => $n) $this->assertSame($n, DB::table($x)->count(), $x);
     }
@@ -147,7 +153,7 @@ class ItTrackerSeedAntrianTest extends TestCase
         $this->assertSame('2026-08-13 13:24', $fase->first()->masuk_at->format('Y-m-d H:i'));
     }
 
-    /** 4 ditunda (12, 20, 21, 30) beralasan, lewat parkir() → audit_log; tak dihitung aktif; beban aktif 26, macet ≥3. */
+    /** 4 ditunda (12, 20, 21, 30) beralasan, lewat parkir() → audit_log; tak dihitung aktif; beban aktif 30, macet ≥3. */
     public function test_ditunda_dan_panel_beban(): void
     {
         $nAudit = DB::table('audit_log')->count();
@@ -163,7 +169,7 @@ class ItTrackerSeedAntrianTest extends TestCase
 
         $views = ItTicket::whereNotNull('seed_urut')->get()->map(fn ($t) => $this->svc->viewTicket($this->svc->muatRelasi(ItTicket::query())->find($t->id)))->all();
         $beban = $this->svc->ringkasanBeban($views);
-        $this->assertSame(26, $beban['aktif']);
+        $this->assertSame(30, $beban['aktif']);
         $this->assertGreaterThanOrEqual(3, $beban['macet']);
     }
 
@@ -221,15 +227,15 @@ class ItTrackerSeedAntrianTest extends TestCase
             ->assertSee('Support')->assertSee('Fitur / Modul')
             ->assertSee('Belum ditriase')->getContent();
 
-        // kartu membawa jenisnya; jumlah penanda = jumlah kartu aktif (26 aktif + 4 ditunda tak di papan)
-        $this->assertSame(26, substr_count($html, 'data-kartu data-jenis='));
+        // kartu membawa jenisnya; jumlah penanda = jumlah kartu aktif (30 aktif + 4 ditunda tak di papan)
+        $this->assertSame(30, substr_count($html, 'data-kartu data-jenis='));
         // r3a: DUA tab; yang belum ditriase ikut dihitung di keduanya (13+7 dan 6+7),
         // dan catatan di kanan band menyebut hitungan gandanya — bukan disembunyikan
         $this->assertSame(2, substr_count($html, 'class="itk-tj" data-jenis'), 'dua tab jenis permintaan');
         $this->assertStringContainsString('tampil di kedua tab', $html);
         $this->assertStringContainsString('data-jenis="baru"', $html);
         $this->assertSame(6, substr_count($html, 'data-kartu data-jenis="support"'), 'enam tiket S (insiden)');
-        $this->assertSame(13, substr_count($html, 'data-kartu data-jenis="fitur"'), 'tiga belas tiket M/L');
+        $this->assertSame(17, substr_count($html, 'data-kartu data-jenis="fitur"'), 'tujuh belas tiket M/L (empat tiket stabilisasi §14.26 ikut)');
         $this->assertSame(7, substr_count($html, 'data-kartu data-jenis="baru"'), 'tujuh belum ditriase');
 
         // tahap di dalam kolom = tab (Development · Uji Internal · UAT · Go Live · Evaluasi)
@@ -259,7 +265,7 @@ class ItTrackerSeedAntrianTest extends TestCase
         $this->assertSame(0, $this->jalankan());
         $t13 = $this->urut(13);
         $this->assertSame('ANALISIS', $t13->fase, 'berkas bilang TRIASE, layar sudah ANALISIS → dipertahankan');
-        $this->assertSame(30, ItTicket::whereNotNull('seed_urut')->count());
+        $this->assertSame(34, ItTicket::whereNotNull('seed_urut')->count());
         // yang belum bergerak tetap sinkron dengan berkas
         $this->assertSame('TRIASE', $this->urut(28)->fase);
     }

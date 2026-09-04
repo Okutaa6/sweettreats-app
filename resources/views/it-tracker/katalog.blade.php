@@ -44,6 +44,26 @@
             : 'Belum ada';
     };
     $fiturTxt = fn ($m) => count($fitur[$m->id]) ? count($fitur[$m->id]) . ' fitur' : ($m->access_id ? '—' : 'tanpa menu');
+
+    // PEMAKAIAN — satu-satunya angka yang membedakan modul tenang karena beres
+    // dari modul sunyi karena ditinggalkan. ⛔ Tanpa pemetaan → "—", BUKAN 0:
+    // nol berarti MATI dan itu beda dari BELUM TERUKUR.
+    // ⚠️ Angkanya tersimpan (dihitung harian), jadi stempel waktunya WAJIB ikut.
+    $pakai = function ($m) {
+        if (! $m->pakai_tabel) {
+            return ['txt' => '—', 'meta' => 'belum terukur', 'kelas' => 'takterukur',
+                'tip' => 'Belum ada tabel yang dipetakan untuk modul ini — beda dari nol. Nol berarti tak dipakai; ini berarti belum diukur.'];
+        }
+        if ($m->pakai_7hari === null) {
+            return ['txt' => '—', 'meta' => 'belum dihitung', 'kelas' => 'takterukur',
+                'tip' => 'Pemetaannya ada (' . $m->pakai_tabel . '), tapi it:hitung-pemakaian belum pernah jalan di lingkungan ini.'];
+        }
+        return ['txt' => $m->pakai_7hari . '×', 'meta' => 'per ' . optional($m->pakai_at)->translatedFormat('j M') ?: 'entah kapan',
+            'kelas' => $m->pakai_7hari === 0 ? 'sunyi' : 'hidup',
+            'tip' => $m->pakai_7hari === 0
+                ? 'Nol dalam 7 hari — periksa: tenang karena beres, atau ditinggalkan? Sumber: ' . $m->pakai_tabel
+                : 'Baris baru di ' . $m->pakai_tabel . ' dalam 7 hari terakhir'];
+    };
     $utangTxt = function ($m) use ($cacah) {
         $c = $cacah[$m->id] ?? ['terbuka' => 0, 'ditunda' => 0];
         if (! $c['terbuka']) return null;
@@ -215,9 +235,11 @@
                                 <span class="itk-jenis-chip {{ $lensa === 'jenis' ? 'pemilik' : \Illuminate\Support\Str::slug($m->jenis) }}">{{ $lensa === 'jenis' ? $m->departemen : $m->jenis }}</span>
                                 @if (KatalogModul::warisan($m))<span class="itk-warisan">WARISAN · {{ $m->sejak->year }}</span>@endif
                             </div>
+                            @php $pk = $pakai($m); @endphp
                             <div class="kaki">
                                 <span class="num sejak {{ $m->sejak ? '' : 'kosong' }}">{{ $sejakTxt($m) }}</span>
                                 <span class="num">{{ $fiturTxt($m) }}</span>
+                                <span class="itk-pakai {{ $pk['kelas'] }}" title="{{ $pk['tip'] }}"><b class="num">{{ $pk['txt'] }}</b><i class="num">{{ $pk['meta'] }}</i></span>
                                 @if ($utangTxt($m))<span class="num tiket {{ ($cacah[$m->id]['terbuka'] ?? 0) >= 3 ? 'banyak' : '' }}">{{ $utangTxt($m) }}</span>@endif
                             </div>
                         </div>
@@ -242,7 +264,7 @@
                 </div>
                 <div class="itk-kat-row kepala">
                     <span>STATUS</span><span>MODUL</span><span>{{ $lensa === 'jenis' ? 'PEMILIK' : 'JENIS' }}</span>
-                    <span>SEJAK</span><span>FITUR</span><span>TIKET TERBUKA</span><span></span>
+                    <span>SEJAK</span><span>FITUR</span><span>DIPAKAI 7 HR</span><span>TIKET TERBUKA</span><span></span>
                 </div>
                 @if ($g['kosong'] && $q === '')
                     @include('it-tracker._katalog-kosong', ['grup' => $g])
@@ -262,6 +284,9 @@
                         <span><i class="itk-jenis-chip {{ $lensa === 'jenis' ? 'pemilik' : \Illuminate\Support\Str::slug($m->jenis) }}">{{ $lensa === 'jenis' ? $m->departemen : $m->jenis }}</i></span>
                         <span class="num sejak {{ $m->sejak ? '' : 'kosong' }}" title="{{ $sejakTip($m) }}">{{ $sejakTxt($m) }}</span>
                         <span class="num fitur">{{ $fiturTxt($m) }}</span>
+                        @php $pk = $pakai($m); @endphp
+                        <span class="itk-pakai {{ $pk['kelas'] }}" title="{{ $pk['tip'] }}">
+                            <b class="num">{{ $pk['txt'] }}</b><i class="num">{{ $pk['meta'] }}</i></span>
                         <span>@if ($utangTxt($m))<i class="num tiket {{ ($cacah[$m->id]['terbuka'] ?? 0) >= 3 ? 'banyak' : '' }}">{{ $utangTxt($m) }}</i>@else<i class="nihil">—</i>@endif</span>
                         <span class="chev">›</span>
                     </div>
@@ -302,6 +327,10 @@
         </div>
     @endif
 
+    <div class="itk-legenda">⛔ <strong>"—" bukan nol.</strong> Nol berarti modul itu memang tak dipakai sepekan ini; "—" berarti belum ada tabel yang
+        dipetakan untuk mengukurnya. Angka pemakaian dihitung sekali sehari dan <strong>stempel waktunya ikut tampil</strong> — angka tersimpan boleh,
+        asal usianya kelihatan. Tanpa kolom ini, modul yang sudah ditinggalkan terlihat sempurna sehat: status Hidup, nol tiket, nol utang.</div>
+
     <div class="itk-legenda">Tiga angka menjawab tiga pertanyaan berbeda: <strong>{{ $jumlah['modul'] }} entri katalog</strong> (apa yang kami punya) ·
         <strong>{{ $jumlah['fitur'] }} fitur</strong> (halaman yang bisa dibuka, diturunkan dari menu — tak pernah basi) ·
         <strong>{{ $jumlah['terbuka'] }} tiket terbuka</strong> (apa yang sedang terjadi). Fitur & angka tiket tak pernah dirawat manual.</div>
@@ -324,9 +353,14 @@
                     <div class="pemilik">Pemilik: {{ $m->departemen }} — satu departemen yang memutuskan &amp; meneken UAT</div>
                 </div>
                 <div class="isi">
-                    <div class="tiga">
+                    @php $pk = $pakai($m); @endphp
+                    <div class="tiga empat">
                         <div><span class="k">SEJAK</span><span class="v num {{ $m->sejak ? '' : 'kosong' }}">{{ $sejakTxt($m) }}</span></div>
                         <div><span class="k">FITUR</span><span class="v num">{{ $fiturTxt($m) }}</span></div>
+                        <div class="pakai {{ $pk['kelas'] }}" title="{{ $pk['tip'] }}">
+                            <span class="k">DIPAKAI 7 HARI</span>
+                            <span class="v num">{{ $pk['txt'] }}</span>
+                            <span class="cap num">{{ $pk['meta'] }}</span></div>
                         <div class="utang {{ $c['terbuka'] >= 3 ? 'banyak' : ($c['terbuka'] ? 'ada' : '') }}">
                             <span class="k">UTANG TERBUKA</span><span class="v num">{{ $c['terbuka'] }}</span></div>
                     </div>

@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\ItForm;
+use App\Models\ItModul;
 use App\Models\ItTicket;
 use App\Models\ItTicketFase;
 use App\Services\ItTracker\ItTrackerService;
@@ -35,7 +36,10 @@ class ItSeedAntrian extends Command
     protected $description = 'Isi IT Request Tracker dengan antrian nyata dari berkas PSV (idempoten by seed_urut)';
 
     private const KOLOM = ['urut', 'judul', 'sumber', 'pemohon_email', 'pemohon_nama', 'pic_email', 'jenjang', 'bobot',
-        'prioritas_pemohon', 'prioritas_it', 'fase', 'masuk_at', 'status', 'alasan_tunda', 'parent_urut', 'deps_urut', 'latar'];
+        'prioritas_pemohon', 'prioritas_it', 'fase', 'masuk_at', 'status', 'alasan_tunda', 'parent_urut', 'deps_urut', 'latar',
+        // kolom ke-18 (§14.26): nama modul katalog, dicocokkan PERSIS ke it_modul.nama.
+        // Boleh kosong — tiket tanpa modul memang sah dan masuk baris "Tanpa modul".
+        'modul'];
 
     public function __construct(private ItTrackerService $svc)
     {
@@ -81,6 +85,26 @@ class ItSeedAntrian extends Command
             $this->gagal('BERHENTI — ' . $e->getMessage());
             return self::FAILURE;
         }
+        // ── 2b. resolusi MODUL katalog ────────────────────────────────────
+        // ⛔ Cocok PERSIS ke it_modul.nama. Tak ditemukan → BERHENTI dan sebut
+        //    barisnya. JANGAN membuat entri katalog otomatis, JANGAN menebak dari
+        //    judul, JANGAN melewati diam-diam: entri yang lahir sendiri membuat
+        //    katalog berisi modul yang tak pernah diputuskan siapa pun, dan
+        //    tebakan yang meleset tak terlihat siapa pun.
+        $petaModul = ItModul::pluck('id', 'nama')->all();
+        foreach ($baris as &$b) {
+            $b['_modul'] = null;
+            $nm = trim((string) ($b['modul'] ?? ''));
+            if ($nm === '') continue;                     // kosong = sah
+            if (! isset($petaModul[$nm])) {
+                $this->gagal("BERHENTI — baris {$b['_baris']} (urut {$b['urut']}): modul '{$nm}' tidak ada di katalog. "
+                    . 'Buat entrinya dulu lewat it:seed-katalog atau tombol "Entri modul" — seeder tidak membuat entri sendiri.');
+                return self::FAILURE;
+            }
+            $b['_modul'] = (int) $petaModul[$nm];
+        }
+        unset($b);
+
         $aktor = $this->cariUser('ikhsan@sweettreats.id', '', 0, false) ?: 'seed-antrian';
 
         // ── 3. lintasan 1: tiket + fase + FRM-IT-01 ───────────────────────
@@ -133,7 +157,8 @@ class ItSeedAntrian extends Command
         $lines = preg_split('/\r\n|\r|\n/', (string) file_get_contents($path));
         $head  = array_map('trim', explode('|', array_shift($lines)));
         if ($head !== self::KOLOM) {
-            throw new \RuntimeException('kepala berkas tidak sesuai 17 kolom yang diharapkan: ' . implode('|', $head));
+            throw new \RuntimeException('kepala berkas tidak sesuai ' . count(self::KOLOM)
+                . ' kolom yang diharapkan: ' . implode('|', $head));
         }
         $out = [];
         foreach ($lines as $i => $line) {
@@ -237,6 +262,7 @@ class ItSeedAntrian extends Command
         $t->prioritas_pemohon = $b['prioritas_pemohon'] ?: null;
         $t->prioritas_it      = $triase ? null : ($b['prioritas_it'] ?: null);
         $t->evaluator_user_id = $b['fase'] === 'EVALUASI' ? $b['_pemohon'] : $t->evaluator_user_id;
+        $t->modul_id          = $b['_modul'];   // NULL pun ditulis: berkas yang berkuasa
         $t->created_at        = $masuk;
 
         // fase & masuk_at — jujur dari berkas; TIDAK memundurkan tiket yang sudah bergerak di layar
