@@ -39,6 +39,22 @@
 > `2400896`, tak ada lagi cabang prod terpisah. Peringatan lama "jangan deploy
 > main ke prod" **sudah TIDAK berlaku** — sekarang justru `main` yang benar.
 >
+> ✅ **Sisipan 2026-09-05d — GERBONG "PAPAN JUJUR"** (`9d93489`, dev, 115 uji).
+> Empat lubang yang tak pernah bikin galat tapi menyesatkan: **(1)** kolom kosong
+> karena filter kini menyebut ke mana tiketnya pergi (*"0 yang cocok — 3 tiket
+> Development ada di tab Permintaan"* + tombol jalan keluar); sebelumnya tak bisa
+> dibedakan dari kolom yang memang kosong · **(2)** **pencarian menjangkau
+> parkiran** — tiket yang sudah ditutup tak lagi seolah lenyap; papan kosong
+> menunjuk *"1 tiket yang cocok ada di parkiran: IT-2026-012 (Selesai)"* ·
+> **(3)** **triase bisa dari halaman detail** (modal jadi partial dipakai papan
+> DAN detail), tak ada lagi lemparan balik ke papan · **(4)** **"Tarik — aku yang
+> kerjakan"**: IT pelaksana menunjuk dirinya sendiri saat PIC kosong — sebelumnya
+> ia terkunci di luar tiketnya sendiri sampai Head IT sempat menunjuk PIC. Tiket
+> yang sudah ber-PIC **tak bisa direbut**, non-IT ditolak 403 di controller.
+> ⏭️ Berikutnya yang diusulkan: **naik prod** (butuh SQL `seed_urut` + seeder
+> `--env-guard=prod` + 2 keputusan yang masih menunggu Ekky), lalu jalur
+> pemberitahuan (tak ada satu pun notifikasi keluar aplikasi — UAT yang menunggu
+> 7 hari hanya terlihat kalau pemohonnya kebetulan login).
 > ✅ **Sisipan 2026-09-05c — RUPA RONDE 3a: DETAIL & FORMULIR IKUT DESAIN**
 > (`ca8e148`, dev). Ekky menaruh mockup berdampingan dengan dev: *"bagian dalem
 > ini belum ada yang berubah… banyak yang ga sesuai"* — ronde sebelumnya hanya

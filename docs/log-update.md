@@ -6,6 +6,57 @@
 > file ini append-only.
 
 ---
+## 2026-09-05d — IT TRACKER: gerbong "papan jujur" — papan berhenti berbohong pelan-pelan
+
+Empat lubang kecil yang tak satu pun bikin galat, tapi keempatnya membuat orang
+mengambil kesimpulan salah atau menunggu orang yang tak perlu. Live di dev
+(`9d93489`), **115 uji hijau** (kelas baru `ItTrackerPapanJujurTest`, 9 uji).
+
+### 1. Kolom kosong karena FILTER ≠ kolom yang memang kosong
+Dulu keduanya terlihat persis sama. Nyalakan chip "Inisiatif IT", kolom
+Development jadi kosong — dan orang menyimpulkan *"Dev lagi sepi"*, padahal 3
+tiketnya cuma tersaring. Sekarang kolom yang kosong karena filter memakai kotak
+amber: **"0 yang cocok — 3 tiket Development ada di tab Permintaan"** plus tombol
+jalan keluar sekali klik (**Buka tab Permintaan**). Supaya ini bisa dihitung,
+controller membuat **potret sebelum filter** per fase per jenis dan menaruhnya di
+DOM (`data-raw-*`) — tab jenis disaring di klien, filter lain di server, jadi
+tanpa potret itu JS tak punya pembanding. Alasannya satu dan berurutan: sumber →
+unit → macet → pencarian → jenjang.
+
+### 2. Pencarian menjangkau parkiran
+Ketik nomor tiket yang sudah ditutup: dulu papan kosong, seolah tiketnya tak
+pernah ada — padahal jejaknya ada dan lengkap. Sekarang kueri parkiran ikut
+disaring `q`, dan papan kosong menyebut hasilnya: *"Tapi 1 tiket yang cocok ada
+di parkiran: IT-2026-012 (Selesai)"* + tombol **Buka parkiran** yang membuka
+panelnya dan menggulir ke sana. Filter LAIN sengaja **tidak** menyentuh parkiran:
+yang dicari orang di sana adalah tiketnya, bukan sudut pandang papan.
+
+### 3. Triase dari halaman detail
+Head IT yang sedang membaca satu tiket tak lagi dilempar balik ke papan lewat
+`?q=nomor` hanya untuk menekan tombol Triase. Modalnya diangkat jadi partial
+`_modal-triase.blade.php` dan dipakai **papan DAN detail** — satu formulir, dua
+pintu, tak ada salinan yang bisa menyimpang.
+
+### 4. "Tarik — aku yang kerjakan"
+Ini yang paling menahan orang: `bolehGerakkan` mengunci IT pelaksana di luar
+tiket yang bukan miliknya, sementara satu-satunya yang bisa membuka kunci itu
+(menunjuk PIC) hanya Head IT. Jadi Reza menunggu Ikhsan hanya untuk boleh mulai.
+Sekarang IT pelaksana **menunjuk dirinya sendiri** selama PIC masih kosong.
+Batasnya tegas dan diuji: tiket yang **sudah** ber-PIC tak bisa direbut
+(pemindahan tetap lewat Head IT — tak boleh ada tiket berpindah tangan
+diam-diam), tiket parkir/selesai tak bisa ditarik, non-IT ditolak **403 di
+controller**, bukan sekadar tombolnya disembunyikan.
+
+### Diperiksa di dev dengan data nyata
+Keempat alasan filter muncul dengan kalimat yang benar (7 kolom masing-masing),
+pencarian `IT-2026-012` menunjuk ke parkiran, detail tiket TRIASE memuat modalnya
+sendiri tanpa lemparan `?q=`, dan Reza melihat tombol Tarik di tiket tanpa PIC.
+
+⚠️ **Pelajaran lama terulang**: `data-fase-saring` muncul juga di JS papan, jadi
+asersi "tanpa filter tak ada kotak alasan" tersandung dan gagal palsu. Uji
+**elemennya** (`class="itk-fase-saring"`), bukan nama atributnya — sama seperti
+jebakan legenda warna yang memuat kata "tanpa paraf BO".
+---
 ## 2026-09-05c — IT TRACKER: RUPA RONDE 3a — papan, detail, dan formulir disamakan dengan mockup
 
 Ekky melihat mockup r3 berdampingan dengan dev dan menemukan yang belum
