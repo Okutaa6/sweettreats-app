@@ -1674,3 +1674,37 @@ karena tak ada yang mengeluh.
 
 Berlaku sejak sekarang. Bantahan pertama sudah dipakai di keputusan empat-vs-enam
 tiket di atas.
+
+### 14.27 Fitur per-LINK, bukan per-node — ralat spesifikasi HUB (5 Sep)
+
+**§14.26 lulus di dev** (`1515bd5`, diukur): `it_modul` **37** entri · Sales 8 ·
+Operasional/HR 7 (Persetujuan & Akun Saya sudah pindah) · **34 dari 35 tiket
+bertaut modul**, dan satu-satunya yang tidak — `IT-2026-031 customer survey`,
+tiket yang lahir saat demo tanpa `seed_urut` — **sengaja dibiarkan** sebagai
+bukti baris "Tanpa modul" bekerja. Empat tiket stabilisasi ada di GOLIVE.
+Kolom `pakai_tabel · pakai_kolom · pakai_7hari · pakai_at` terpasang, dan
+pembedaan **`—` vs `0`** terbukti: 12 modul terpetakan menunjukkan angka, 25
+sisanya NULL.
+
+⛔ **Ralat spesifikasi HUB.** `it_modul.access_id` kuspek sebagai **satu node**
+`access_path`. Itu keliru: **menu mengelompokkan berdasarkan NAVIGASI, katalog
+berdasarkan KEPEMILIKAN**, dan keduanya tidak selalu berimpit. `Branch` ·
+`Doctor` · `Doctor Service` bersaudara di bawah *Reservation Data Center*, tapi
+parent itu juga memuat `Reservation` dan `Pasien` milik modul lain — menunjuk
+parent kelebihan, menunjuk satu daun kekurangan.
+Terukur di dev: **Reservasi 1** (harusnya 2) · **Master Jadwal & Layanan 1**
+(harusnya 3) · **Checklist Operasional 3** (harusnya 4).
+
+**Perbaikan: modul memiliki sekumpulan RUTE, fitur = node yang link-nya ada di
+daftar itu, DEDUP PER LINK.** Ini bukan sekadar lebih lengkap — **lebih jujur**:
+terukur, `rawreservation` muncul **4×** di menu dengan empat nama berbeda dan
+`report` **2×**. Menghitung per node = menghitung *label menu*; per link =
+menghitung *halaman*. Yang dijanjikan katalog kepada Executive adalah *"halaman
+yang bisa dibuka"*. Angkanya juga jadi tepat: **64 link unik**, bukan "±60" yang
+ditulis kira-kira.
+
+⚠️ **Angka pemakaian hanya berarti di PROD.** Di dev semuanya 0 karena dev tak
+dipakai kerja nyata; di prod terukur Reservasi 534 · Absensi 305 · Checklist 117
+· Petty Cash 96 · ROP 33 per 7 hari. Siapa pun yang memperagakan katalog **dari
+dev** akan menyimpulkan semua modul mati. Halaman perlu keterangan kecil saat
+`APP_ENV` bukan production.
