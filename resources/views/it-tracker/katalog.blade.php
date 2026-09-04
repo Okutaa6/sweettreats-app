@@ -133,7 +133,7 @@
     </div>
 
     {{-- Legenda status: label bertulis, BUKAN saluran warna milik papan --}}
-    <div class="itk-legenda-warna itk-kat-legenda">
+    <div class="itk-kat-legenda">
         <b>STATUS</b>
         @foreach (KatalogModul::STATUS as $k => $s)
             <span><i class="itk-st-chip {{ $k }}">{{ $s['nama'] }}</i> {{ $s['sub'] }}</span>

@@ -1045,23 +1045,23 @@ body.zona-it .itk-fasetab { border-bottom-color:#D8D4CA; }
 .itk-panel-geser .fitur span { font-size:11.5px; font-weight:600; color:var(--itk-ink); background:var(--itk-bg);
   border:1px solid var(--itk-line); border-radius:7px; padding:3px 9px; }
 .itk-panel-geser .tiket-list { display:flex; flex-direction:column; gap:7px; }
-.itk-panel-geser a.tiket { display:block; background:#fff; border:1px solid var(--itk-line); border-radius:12px;
+.itk-panel-geser .tiket { display:block; background:#fff; border:1px solid var(--itk-line); border-radius:12px;
   padding:10px 12px; text-decoration:none; color:var(--itk-ink); }
-.itk-panel-geser a.tiket:hover { text-decoration:none; box-shadow:0 4px 14px rgba(70,21,0,.08); }
-.itk-panel-geser a.tiket.ditunda { background:var(--itk-bg); border:1px dashed #DCC4A8; }
-.itk-panel-geser a.tiket .atas { display:flex; align-items:center; gap:7px; flex-wrap:wrap; }
-.itk-panel-geser a.tiket .no { font-size:10.5px; font-weight:800; color:var(--itk-soft); }
-.itk-panel-geser a.tiket .fase { font-size:9.5px; font-weight:800; border-radius:5px; padding:2px 7px; white-space:nowrap; }
-.itk-panel-geser a.tiket .fase.dalam { background:#E4ECFB; color:#3F6BAF; }
-.itk-panel-geser a.tiket .fase.antre { background:#F7F1E8; color:#8A7258; }
-.itk-panel-geser a.tiket .fase.luar { background:#E4ECFB; color:#3F6BAF; }
-.itk-panel-geser a.tiket .fase.panas1 { background:#FBEFD9; color:#B5701A; }
-.itk-panel-geser a.tiket .fase.panas2 { background:#FBE3DE; color:#C0392B; }
-.itk-panel-geser a.tiket .jenjang, .itk-panel-geser a.tiket .pic { font-size:9.5px; font-weight:800; color:#5A3A22;
+.itk-panel-geser .tiket:hover { text-decoration:none; box-shadow:0 4px 14px rgba(70,21,0,.08); }
+.itk-panel-geser .tiket.ditunda { background:var(--itk-bg); border:1px dashed #DCC4A8; }
+.itk-panel-geser .tiket .atas { display:flex; align-items:center; gap:7px; flex-wrap:wrap; }
+.itk-panel-geser .tiket .no { font-size:10.5px; font-weight:800; color:var(--itk-soft); }
+.itk-panel-geser .tiket .fase { font-size:9.5px; font-weight:800; border-radius:5px; padding:2px 7px; white-space:nowrap; }
+.itk-panel-geser .tiket .fase.dalam { background:#E4ECFB; color:#3F6BAF; }
+.itk-panel-geser .tiket .fase.antre { background:#F7F1E8; color:#8A7258; }
+.itk-panel-geser .tiket .fase.luar { background:#E4ECFB; color:#3F6BAF; }
+.itk-panel-geser .tiket .fase.panas1 { background:#FBEFD9; color:#B5701A; }
+.itk-panel-geser .tiket .fase.panas2 { background:#FBE3DE; color:#C0392B; }
+.itk-panel-geser .tiket .jenjang, .itk-panel-geser .tiket .pic { font-size:9.5px; font-weight:800; color:#5A3A22;
   background:var(--itk-chip); border-radius:5px; padding:2px 6px; }
-.itk-panel-geser a.tiket .pic { margin-left:auto; }
-.itk-panel-geser a.tiket .judul { font-size:12.5px; font-weight:700; color:var(--itk-ink); line-height:1.35; margin-top:5px; }
-.itk-panel-geser a.tiket .itk-wait { display:inline-flex; margin-top:6px; }
+.itk-panel-geser .tiket .pic { margin-left:auto; }
+.itk-panel-geser .tiket .judul { font-size:12.5px; font-weight:700; color:var(--itk-ink); line-height:1.35; margin-top:5px; }
+.itk-panel-geser .tiket .itk-wait { display:inline-flex; margin-top:6px; }
 .itk-panel-geser .itk-kosong-hijau { background:#E3F4E8; border-radius:12px; padding:11px 13px; font-size:12.5px;
   font-weight:700; color:#2F8E55; }
 .itk-panel-geser .catatan { display:flex; flex-direction:column; gap:6px; }
@@ -1073,7 +1073,7 @@ body.zona-it .itk-fasetab { border-bottom-color:#D8D4CA; }
 @media (max-width:1100px) {
   .itk-kat-tops { grid-template-columns:1fr 1fr; }
   .itk-kat-row { grid-template-columns:78px minmax(0,1fr) 96px 84px; }
-  .itk-kat-row > span:nth-child(6), .itk-kat-row > span:nth-child(7) { display:none; }
+  .itk-kat-row > span:nth-child(5), .itk-kat-row > span:nth-child(6), .itk-kat-row > span:nth-child(7) { display:none; }
   .itk-mx-grid { grid-template-columns:120px repeat(4,minmax(0,1fr)); }
   .itk-mx-grid .hd.kanan, .itk-mx-grid .tiket { display:none; }
 }
@@ -1090,3 +1090,17 @@ body.zona-it .itk-fasetab { border-bottom-color:#D8D4CA; }
 .itk-panel-geser .tiket.disensor .judul { color:#A99880; font-weight:600; font-style:italic; }
 .itk-yatim .daftar .disensor { font-size:11px; font-weight:700; border-radius:7px; padding:3px 9px;
   background:var(--itk-bg); color:#A99880; border:1px dashed #DCC4A8; font-style:italic; }
+/* Legenda STATUS katalog — kelasnya SENDIRI (6 Sep).
+   Dulu ia menumpang `.itk-legenda-warna` milik papan, yang `i`-nya adalah
+   KOTAK WARNA 16×11px; chip berteks di sini ikut dipaksa seukuran itu dan
+   tulisannya tumpang tindih. Pelajaran: jangan meminjam kelas yang aturannya
+   ditulis untuk bentuk lain — pinjam maknanya, bukan selektornya. */
+.itk-kat-legenda { display:flex; align-items:center; gap:18px; flex-wrap:wrap; margin:2px 0 14px;
+  padding:9px 14px; background:var(--itk-card); border:1px solid var(--itk-line); border-radius:13px;
+  font-size:11.5px; font-weight:600; color:#5A3A22; line-height:1.5; }
+.itk-kat-legenda > b { font-size:9.5px; font-weight:800; letter-spacing:.7px; color:#7A5B43; }
+.itk-kat-legenda > span { display:inline-flex; align-items:center; gap:7px; }
+.itk-kat-legenda .itk-st-chip { flex:none; }
+.itk-kat-legenda .ket { display:block; margin-left:auto; max-width:520px; font-size:10.5px;
+  font-weight:600; color:#A08A76; }
+@media (max-width:1100px) { .itk-kat-legenda .ket { margin-left:0; max-width:none; } }
