@@ -187,6 +187,7 @@ class ItTrackerController extends Controller
             'bolehSkenario' => $this->bolehTulisSkenario($t) && in_array($t->fase, ['DEV', 'UJI', 'UAT'], true),
             'bolehJawabUat' => $this->bolehJawabUat($t),
             'bolehLampiran' => $this->bolehLampiran($t) && $t->fase !== 'DITOLAK',
+            'bolehKemajuan' => $this->bolehKemajuan($t) && isset(PhaseEngine::RANK[$t->fase]),
             'bolehEvaluasi' => $this->bolehEvaluasi($t),
             'depOpsi'       => $this->peran() === 'head_it' && $t->fase === 'ANALISIS'
                 ? ItTicket::where('id', '!=', $t->id)->where('fase', '!=', 'DITOLAK')
@@ -225,6 +226,8 @@ class ItTrackerController extends Controller
             'jenjang'           => 'nullable|in:S,M,L',
             'bobot'             => 'nullable|integer|min:1|max:5',
             'prioritas_it'      => 'nullable|in:P1,P2,P3',
+            // kerjaan ini untuk unit usaha yang mana (SweetTreats / RB Las)
+            'unit'              => 'nullable|in:' . implode(',', array_keys(ItTrackerService::UNIT)),
         ] + $this->aturanLampiran(), $this->pesanLampiran(), [
             'judul' => 'nama modul/fitur', 'latar' => 'masalah hari ini',
             'kebutuhan' => 'hasil yang diharapkan',
@@ -981,15 +984,55 @@ class ItTrackerController extends Controller
         }
 
         // validasi SESUDAH otorisasi; 'lampiran' wajib di rute ini (kosong = tak ada gunanya)
-        $request->validate(['lampiran' => 'required|array|min:1|max:' . ItTrackerService::LAMPIRAN_MAKS] + $this->aturanLampiran(), $this->pesanLampiran());
+        $d = $request->validate([
+            'lampiran' => 'required|array|min:1|max:' . ItTrackerService::LAMPIRAN_MAKS,
+            'kode'     => 'nullable|in:FRM-IT-01,FRM-IT-02',
+        ] + $this->aturanLampiran(), $this->pesanLampiran());
+
+        $kode = $d['kode'] ?? 'FRM-IT-01';
+        // Bahan rancangan (mockup/alur/contoh keluaran) ditempel di FRM-IT-02 —
+        // itu pekerjaan analisis, jadi izinnya izin analisis, bukan izin pemohon.
+        if ($kode === 'FRM-IT-02' && ! ($this->peran() === 'head_it' && $t->fase === 'ANALISIS')) {
+            abort(403, 'Lampiran rancangan (FRM-IT-02) ditempel Head IT selagi tiket di fase Analisis.');
+        }
 
         try {
-            $n = $this->svc->tambahLampiran($t, $request->file('lampiran', []), $this->userId());
+            $n = $this->svc->tambahLampiran($t, $request->file('lampiran', []), $this->userId(), $kode);
         } catch (DomainException $e) {
             return back()->with('error', $e->getMessage());
         }
 
-        return back()->with('success', $n . ' lampiran ditempelkan ke ' . $t->nomor . '.');
+        return back()->with('success', $n . ' lampiran ditempelkan ke ' . $t->nomor
+            . ($kode === 'FRM-IT-02' ? ' (bahan rancangan).' : '.'));
+    }
+
+    /**
+     * Catatan "sudah sampai mana" — ditulis IT (Head IT atau PIC tiketnya).
+     * Bukan hanya di Go Live: bola paling sering hilang justru di tengah jalan.
+     */
+    public function kemajuan(Request $request, int $id)
+    {
+        $t = ItTicket::findOrFail($id);
+        if (! $this->bolehKemajuan($t)) {
+            abort(403, 'Catatan kemajuan ditulis tim IT yang mengerjakan tiketnya.');
+        }
+
+        $d = $request->validate(['kemajuan' => 'nullable|string|max:300']);
+
+        try {
+            $this->svc->setKemajuan($t, $d['kemajuan'] ?? null, $this->userId());
+        } catch (DomainException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return back()->with('success', trim((string) ($d['kemajuan'] ?? '')) === ''
+            ? 'Catatan kemajuan dihapus.'
+            : 'Catatan kemajuan diperbarui — tampil di kartu papan.');
+    }
+
+    private function bolehKemajuan(ItTicket $t): bool
+    {
+        return $this->adalahIt() && ($this->peran() === 'head_it' || $t->pic_user_id === $this->userId());
     }
 
     private function bolehLampiran(ItTicket $t): bool
@@ -1182,6 +1225,10 @@ class ItTrackerController extends Controller
             // Ronde 2: chip "⛓ menunggu IT-…" (hanya dep yang belum selesai) & "↳ dari IT-…"
             'deps'   => array_values(array_filter($v['deps'], fn ($n) => ($this->faseNomor[$n] ?? null) !== 'SELESAI')),
             'parent' => $v['parent'],
+            // revisi pasca-demo: nama PIC, unit usaha, dan "sudah sampai mana" di kartu
+            'pic'    => $t->pic?->nama,
+            'unit'   => $t->unit,
+            'kemajuan' => $t->kemajuan ? ['txt' => $t->kemajuan, 'at' => $t->kemajuan_at] : null,
             // penanda pelewatan paraf BO (§14.16) — chip di kartu, tak boleh disembunyikan
             'diteruskan' => $v['fr02']['diteruskan'] ?? null,
             'tombol' => $tombol,

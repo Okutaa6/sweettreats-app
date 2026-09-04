@@ -44,6 +44,36 @@ class ItTrackerService
     }
 
     /**
+     * Unit usaha yang dilayani. SATU papan untuk keduanya (keputusan Ekky:
+     * "task RB digabung, warnanya dibedain") — ini penanda, bukan pemisah.
+     */
+    public const UNIT = ['sweettreats' => 'Sweet Treats', 'rblas' => 'RB Las'];
+
+    public static function unitLabel(?string $u): string
+    {
+        return self::UNIT[$u] ?? self::UNIT['sweettreats'];
+    }
+
+    /**
+     * Catatan "sudah sampai mana" — ditulis IT kapan saja di fase aktif, tampil
+     * di kartu papan. Siapa & kapan ikut disimpan: catatan kemajuan tanpa
+     * tanggal berbohong pelan-pelan (kelihatan terurus padahal tiga minggu basi).
+     * Kosong = catatan dihapus, bukan disimpan sebagai string kosong.
+     */
+    public function setKemajuan(ItTicket $t, ?string $txt, string $userId): void
+    {
+        if (! isset(PhaseEngine::RANK[$t->fase])) {
+            throw new DomainException('Tiket ' . strtolower($t->fase) . ' tidak menerima catatan kemajuan — buka lagi dulu kalau memang masih berjalan.');
+        }
+
+        $txt = mb_substr(self::teksBersih(trim(preg_replace('/\s+/u', ' ', (string) $txt))), 0, 300);
+        $t->kemajuan      = $txt !== '' ? $txt : null;
+        $t->kemajuan_at   = $txt !== '' ? now() : null;
+        $t->kemajuan_oleh = $txt !== '' ? $userId : null;
+        $t->save();
+    }
+
+    /**
      * Lampiran FRM-IT-01 (rencana §7 bagian B: screenshot · contoh laporan ·
      * alur proses · dokumen lain). Batas = ROP (5 MB) + dokumen kantor, karena
      * "contoh laporan" hampir selalu Excel/Word. Daftar ini juga yang DISEBUT
@@ -66,19 +96,24 @@ class ItTrackerService
      * @param  \Illuminate\Http\UploadedFile[] $berkas  sudah tervalidasi mimes/max
      * @return int jumlah yang ditempelkan
      */
-    public function tambahLampiran(ItTicket $t, array $berkas, string $userId): int
+    public function tambahLampiran(ItTicket $t, array $berkas, string $userId, string $kode = 'FRM-IT-01'): int
     {
         $berkas = array_values(array_filter($berkas));
         if (! $berkas) return 0;
         if ($t->fase === 'DITOLAK') {
             throw new DomainException('Tiket yang ditolak tidak menerima lampiran.');
         }
+        // FRM-IT-01 = bukti masalah dari pemohon · FRM-IT-02 = bahan rancangan
+        // (mockup, alur, contoh keluaran) dari IT. Folder & batasnya sama.
+        if (! in_array($kode, ['FRM-IT-01', 'FRM-IT-02'], true)) {
+            throw new DomainException('Formulir ' . $kode . ' tidak menerima lampiran.');
+        }
 
-        $form = ItForm::firstOrNew(['ticket_id' => $t->id, 'kode' => 'FRM-IT-01']);
+        $form = ItForm::firstOrNew(['ticket_id' => $t->id, 'kode' => $kode]);
         $p    = $form->payload ?? [];
         $ada  = $p['lampiran'] ?? [];
         if (count($ada) + count($berkas) > self::LAMPIRAN_MAKS) {
-            throw new DomainException('Maksimal ' . self::LAMPIRAN_MAKS . ' lampiran per tiket (sudah ' . count($ada) . ').');
+            throw new DomainException('Maksimal ' . self::LAMPIRAN_MAKS . ' lampiran per formulir (sudah ' . count($ada) . ').');
         }
 
         $penyimpan = app(\App\Services\RopAttachment::class);
@@ -88,7 +123,7 @@ class ItTrackerService
             $nama   = mb_substr(self::teksBersih($f->getClientOriginalName() ?: 'lampiran'), 0, 160);
             $mime   = (string) ($f->getClientMimeType() ?: 'application/octet-stream');
             $ukuran = (int) $f->getSize();
-            $path   = $penyimpan->simpanBerkas($f, 'frm01', 'uploads/it-tracker');
+            $path   = $penyimpan->simpanBerkas($f, strtolower(str_replace('FRM-IT-', 'frm', $kode)), 'uploads/it-tracker');
             $ada[]  = [
                 'path'   => $path,
                 'nama'   => $nama,
@@ -195,6 +230,7 @@ class ItTrackerService
                 'sumber'            => $sumber,
                 'pemohon_user_id'   => $pemohon,
                 'raw_branch_id'     => $d['raw_branch_id'] ?? null,
+                'unit'              => isset(self::UNIT[$d['unit'] ?? '']) ? $d['unit'] : 'sweettreats',
                 'jenis_permintaan'  => $d['jenis_permintaan'] ?? null,
                 'jenjang'           => ($lahir || $sumber === 'permintaan') ? null : ($d['jenjang'] ?? null),
                 'bobot'             => ($lahir || $sumber === 'permintaan') ? null : ($d['bobot'] ?? null),
@@ -619,7 +655,7 @@ class ItTrackerService
     /** Sidik isi FRM-IT-02 yang DILIHAT Business Owner — tanpa paraf/pelewatan & dapur. */
     private static function sidikIsi(array $p): string
     {
-        unset($p['paraf'], $p['diteruskan'], $p['estimasi'], $p['risiko']);
+        unset($p['paraf'], $p['diteruskan'], $p['estimasi'], $p['risiko'], $p['lampiran']);
         ksort($p);
 
         return json_encode($p, JSON_UNESCAPED_UNICODE);

@@ -67,6 +67,19 @@
                         <input type="hidden" name="sumber" value="permintaan">
                     @endif
 
+                    {{-- Unit usaha: kerjaan ini untuk siapa. Satu papan untuk keduanya —
+                         yang dibedakan warnanya, bukan tempatnya (keputusan Ekky 5 Sep). --}}
+                    <div>
+                        <label class="itk-lbl">KERJAAN INI UNTUK</label>
+                        <div style="display:flex;gap:7px;flex-wrap:wrap">
+                            @foreach (\App\Services\ItTracker\ItTrackerService::UNIT as $k => $label)
+                                <label><input class="itk-radio" type="radio" name="unit" value="{{ $k }}"
+                                    {{ old('unit', 'sweettreats') === $k ? 'checked' : '' }} required><span>{{ $label }}</span></label>
+                            @endforeach
+                        </div>
+                        <div class="itk-hint">Tiket RB Las tetap satu papan dengan Sweet Treats, hanya ditandai oranye supaya beban keduanya terlihat sekaligus.</div>
+                    </div>
+
                     <div class="itk-grid2">
                         <div>
                             <label class="itk-lbl">JENIS PERMINTAAN</label>

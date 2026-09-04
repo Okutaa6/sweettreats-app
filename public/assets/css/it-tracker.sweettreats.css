@@ -538,3 +538,24 @@ body.zona-it .itk-parkir-bar .itk-fasetab { background:#ECEAE4; border-color:#DD
 .itk-card-top { flex-wrap:wrap; row-gap:4px; }
 .itk-no, .itk-src { white-space:nowrap; }
 .itk-jenjang { margin-left:auto; }
+
+/* ── Revisi pasca-demo 5 Sep ────────────────────────────────────────────────
+   Unit usaha (RB Las = aksen oranye, satu papan), badge PIC, catatan kemajuan. */
+.itk-unit { font-size:10px; font-weight:800; letter-spacing:.4px; border-radius:6px; padding:2px 8px; white-space:nowrap; }
+.itk-unit.rblas { background:#FDEBD9; color:#A8481B; border:1px solid #F0C79B; }
+.itk-unit.sweettreats { background:var(--itk-chip); color:#7A5B43; }
+.itk-card.itk-rblas { border-left:3px solid #D9772B; }
+.itk-card.itk-rblas:hover { box-shadow:0 6px 18px rgba(168,72,27,.14); }
+.itk-pic-chip { font-size:10.5px; font-weight:700; color:#5A3A22; background:var(--itk-chip); border-radius:6px; padding:2px 7px; white-space:nowrap; }
+.itk-pic-chip i { margin-right:4px; color:#A08A76; }
+.itk-kemajuan { margin-top:7px; font-size:11.5px; font-weight:600; line-height:1.45; color:#3F6BAF;
+  background:#EEF3FC; border-radius:9px; padding:6px 10px; }
+.itk-kemajuan .num { color:#7C93BF; font-weight:700; }
+.itk-kemajuan.basi { color:#B5701A; background:#FBEFD9; }
+.itk-kemajuan.basi .num { color:#B5701A; }
+.itk-kemajuan-blok { background:#EEF3FC; border-radius:11px; padding:10px 13px; margin-bottom:9px; }
+.itk-kemajuan-blok .txt { font-size:13.5px; font-weight:700; color:#2F4E86; line-height:1.5; }
+.itk-kemajuan-blok .meta { font-size:11px; font-weight:700; color:#7C93BF; margin-top:4px; }
+.itk-kemajuan-blok.basi { background:#FBEFD9; }
+.itk-kemajuan-blok.basi .txt { color:#8E5A15; }
+.itk-kemajuan-blok.basi .meta { color:#B5701A; }

@@ -36,6 +36,7 @@
                 <div class="itk-card-top">
                     <span class="itk-no num" style="font-size:12.5px">{{ $t->nomor }}</span>
                     <span class="itk-src {{ $t->sumber }}">{{ $srcLabel[$t->sumber] ?? strtoupper($t->sumber) }}</span>
+                    <span class="itk-unit {{ $t->unit }}">{{ \App\Services\ItTracker\ItTrackerService::unitLabel($t->unit) }}</span>
                     <span class="itk-jenjang {{ $t->jenjang ?? 'baru' }}">{{ \App\Services\ItTracker\ItTrackerService::jenjangLabel($t->jenjang) }}{{ $t->jenjang ? ' · ' . $t->jenjang : '' }}</span>
                 </div>
                 <div class="itk-detail-title">{{ $t->judul }}</div>
@@ -110,6 +111,40 @@
 
     <div class="itk-detail-grid">
         <div>
+            {{-- "Sudah sampai mana" (revisi pasca-demo 5 Sep) — paling atas, karena
+                 inilah yang pertama ditanyakan orang. Ditulis IT; dibaca semua orang. --}}
+            @if (($bolehKemajuan ?? false) || $t->kemajuan)
+                <div class="itk-panel" style="margin-bottom:12px">
+                    <div class="itk-beban-bar"><b>SUDAH SAMPAI MANA</b>
+                        <span class="itk-badge-fase">catatan kemajuan IT</span></div>
+                    <div class="itk-panel-body">
+                        @if ($t->kemajuan)
+                            @php $basiD = $t->kemajuan_at ? (int) $t->kemajuan_at->diffInDays(now()) : null; @endphp
+                            <div class="itk-kemajuan-blok {{ $basiD !== null && $basiD >= 7 ? 'basi' : '' }}">
+                                <div class="txt">{{ $t->kemajuan }}</div>
+                                <div class="meta num">
+                                    {{ $picNama[$t->kemajuan_oleh]->nama ?? optional($picIt->firstWhere('id', $t->kemajuan_oleh))->nama ?? 'IT' }}
+                                    @if ($t->kemajuan_at) · {{ $t->kemajuan_at->translatedFormat('j M Y H:i') }}
+                                        @if ($basiD >= 7) · <strong>{{ $basiD }} hari lalu — mungkin sudah basi</strong>@endif
+                                    @endif
+                                </div>
+                            </div>
+                        @elseif ($bolehKemajuan ?? false)
+                            <div class="itk-hint" style="margin:0">Belum ada catatan. Satu kalimat saja sudah menolong pemohon berhenti bertanya —
+                                mis. "menunggu contoh laporan dari Finance" atau "tinggal uji di 2 cabang".</div>
+                        @endif
+                        @if ($bolehKemajuan ?? false)
+                            <form method="post" action="{{ route('it-tracker.kemajuan', $t->id) }}" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                                @csrf
+                                <input class="itk-cell" name="kemajuan" maxlength="300" style="flex:1;min-width:280px"
+                                       value="{{ $t->kemajuan }}" placeholder="sudah sampai mana? satu kalimat, mis. tinggal uji di 2 cabang">
+                                <button type="submit" class="itk-btn itk-btn-putih" style="padding:6px 12px;font-size:11.5px">Simpan</button>
+                                @if ($t->kemajuan)<span class="itk-hint" style="margin:0;flex-basis:100%">Kosongkan lalu simpan untuk menghapus catatan.</span>@endif
+                            </form>
+                        @endif
+                    </div>
+                </div>
+            @endif
             {{-- FRM-IT-01 — isi kebutuhan (baca-saja) --}}
             @if (! $form01 && ! (in_array($t->jenjang, ['M', 'L'], true) && $t->fase === 'DEV')
                  && ! ($t->jenjang === 'S' && in_array($t->fase, ['DEV', 'SELESAI'], true)))

@@ -20,12 +20,13 @@ class ItTicket extends Model
         'jenis_permintaan', 'jenjang', 'bobot', 'prioritas_pemohon',
         'prioritas_it', 'pic_user_id', 'fase', 'fase_since', 'induk_id',
         'evaluator_user_id', 'alasan_parkir', 'lahir_dari_id', 'lahir_via',
-        'seed_urut',
+        'seed_urut', 'unit', 'kemajuan', 'kemajuan_at', 'kemajuan_oleh',
     ];
 
     protected $casts = [
-        'fase_since' => 'datetime',
-        'bobot'      => 'integer',
+        'fase_since'  => 'datetime',
+        'bobot'       => 'integer',
+        'kemajuan_at' => 'datetime',
     ];
 
     public function pemohon()

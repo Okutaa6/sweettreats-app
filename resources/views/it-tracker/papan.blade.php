@@ -173,10 +173,12 @@
                         @endphp
                         {{-- div ber-onclick, bukan <a>: kartu memuat form/tombol aksi
                              dan form di dalam anchor itu HTML tidak valid --}}
-                        <div class="itk-card" style="cursor:pointer" data-kartu data-jenis="{{ $jenisKartu }}"
+                        <div class="itk-card {{ $t->unit === 'rblas' ? 'itk-rblas' : '' }}" style="cursor:pointer" data-kartu data-jenis="{{ $jenisKartu }}"
                              onclick="window.location='{{ route('it-tracker.show', $t->id) }}'">
                             <div class="itk-card-top">
                                 <span class="itk-no num">{{ $t->nomor }}</span>
+                                {{-- unit ditandai hanya kalau BUKAN yang lazim: menandai semuanya = tak menandai apa pun --}}
+                                @if ($t->unit === 'rblas')<span class="itk-unit rblas">RB LAS</span>@endif
                                 <span class="itk-src {{ $t->sumber }}">
                                     @if ($t->sumber === 'inisiatif') INISIATIF IT
                                     @elseif ($t->sumber === 'insiden') INSIDEN
@@ -194,7 +196,19 @@
                                 @if ($c['deps'])<span class="itk-dep-chip num" title="menunggu tiket lain"><i class="fa fa-link" aria-hidden="true"></i> menunggu {{ implode(', ', $c['deps']) }}</span>@endif
                                 @if ($c['parent'])<span class="itk-parent-chip num" title="lahir dari {{ $c['parent']['id'] }} · {{ $c['parent']['via'] }}">↳ dari {{ $c['parent']['id'] }}</span>@endif
                                 @if (! empty($c['diteruskan']))<span class="itk-lewat-chip" title="Diteruskan {{ $c['diteruskan']['oleh'] }} tanpa paraf Business Owner · {{ $c['diteruskan']['alasan'] }}"><i class="fa fa-exclamation-triangle" aria-hidden="true"></i> tanpa paraf BO</span>@endif
+                                @if ($c['pic'])<span class="itk-pic-chip" title="dikerjakan {{ $c['pic'] }}"><i class="fa fa-user" aria-hidden="true"></i> {{ $c['pic'] }}</span>@endif
                             </div>
+                            @if ($c['kemajuan'])
+                                @php $basi = $c['kemajuan']['at'] && $c['kemajuan']['at']->diffInDays(now()) >= 7; @endphp
+                                {{-- "sudah sampai mana" — dengan tanggalnya, karena catatan kemajuan
+                                     tanpa tanggal berbohong pelan-pelan: kelihatan terurus padahal basi --}}
+                                <div class="itk-kemajuan {{ $basi ? 'basi' : '' }}" title="catatan kemajuan dari IT">
+                                    {{ $c['kemajuan']['txt'] }}
+                                    @if ($c['kemajuan']['at'])
+                                        <span class="num">· {{ $c['kemajuan']['at']->translatedFormat('j M') }}{{ $basi ? ' · ' . (int) $c['kemajuan']['at']->diffInDays(now()) . ' hr lalu' : '' }}</span>
+                                    @endif
+                                </div>
+                            @endif
                             <div class="itk-wait {{ \App\Services\ItTracker\PhaseEngine::waitCls($w, $t->fase) }}">
                                 <i></i>
                                 <span class="num">
