@@ -6,6 +6,64 @@
 > file ini append-only.
 
 ---
+## 2026-09-05b — IT TRACKER: ronde desain 3 DIADOPSI — kartu dua-detik, tab ketiga, tiga tingkat tab berbeda rupa
+
+Paket `design_handoff_it_tracker p2 r3` datang dan dinilai bersama Ekky. Bukan
+diambil bulat-bulat: dua hal diputuskan Ekky sendiri, melawan usul desainer.
+Live di dev (`fed5cac`), 106 uji hijau.
+
+### Yang diambil dari r3
+- **Kartu dua-detik.** Yang membuat kartu berat ternyata bukan elemen langka
+  (dep, parent, "tanpa paraf BO" jarang muncul bersamaan) tapi yang ada di
+  **setiap** kartu. Yang turun ke detail: **badge jenjang** (mengulang tab
+  jenis yang sedang dibuka), **chip fase "Analisis · 2/5"** (mengulang
+  kolomnya — angkanya pindah kecil ke ujung strip menunggu), "N fitur di
+  dalam", "↳ dari IT-xxx", badge unit. Dan **"Masih perlu …" hanya naik ke
+  kartu kalau yang harus bertindak BUKAN IT** (mis. paraf BO) — kekurangan
+  yang IT sendiri bisa beresi cukup di detail; kalau tidak, hampir tiap kartu
+  tumbuh dua baris.
+- **Tab ketiga "Belum ditriase".** Ini memperbaiki kejanggalan yang HUB tulis
+  sendiri di brief: dulu tiket tanpa jenjang muncul di kedua tab sehingga
+  badge tak pernah berjumlah benar. Sekarang **13 + 6 + 7 = 26**, jujur tanpa
+  catatan pembelaan, dan triase jadi antrean tindakan Head IT yang berdiri
+  sendiri (tabnya bertepi amber, bukan sekadar kategori ketiga).
+- **Tiga tingkat tab, tiga rupa** — keluhan "ketiganya mirip" memang benar:
+  jenis = kartu putih · tahap = teks kecil bergaris bawah (bukan tombol pil
+  lagi) · parkiran = chip cokelat bergaris putus.
+- **Keempat wilayah tetap tampil di semua tab**, yang kosong menyebut
+  **alasannya**: *"Belum ditriase selalu ada di Masuk"*, *"Jalur Support hanya
+  Masuk → Development (2 fase)"*. Sebelumnya kolom kosong disembunyikan —
+  papan berubah bentuk tiap ganti tab dan orang kehilangan pegangan.
+- **Legenda sistem warna** di bawah papan: lima arti, lima saluran yang tak
+  saling meminjam.
+
+### Dua keputusan Ekky yang melawan usul desainer
+1. **RB Las tetap ORANYE**, bukan teal. Alasan desainer benar (oranye jatuh di
+   antara kuning dan merah panas), tapi jalan tengahnya dipakai: saluran
+   dipisah lewat **perlakuan**, bukan warna — panas selalu **isi kartu**,
+   perusahaan selalu **tepi kiri**. Badge "RB LAS" di kartu dibuang; legenda
+   yang menjelaskan.
+2. **Gaya tab jenis tetap seperti dev** (kartu putih), bukan band grafit r3.
+   Yang diambil dari r3 strukturnya, bukan rupanya — dan keduanya memang tak
+   bertabrakan.
+
+### Dua kesalahan di paket r3 yang tak diikuti
+- README-nya menulis chip *"Masih perlu …"* dibuang dari kartu kecuali
+  penunggunya bukan IT, tapi **screenshot 16 & 19 masih menampilkannya** di
+  kartu yang justru sedang di tangan IT. Yang diikuti README-nya (aturannya),
+  bukan mockup-nya.
+- Seed r3 memuat **6 tiket RB Las berjudul karangan**. Bagus untuk memperagakan
+  warnanya, tapi bukan data: di dev nyatanya **nol**.
+
+### Pelajaran uji
+Tiga asersi disesuaikan karena kontrak tampilan memang berubah (chip parent &
+badge RB LAS turun dari kartu — keduanya dijaga ulang di **detail**, bukan
+dihapus begitu saja). Satu lagi **diperketat**: asersi lama memeriksa kata
+"tanpa paraf BO" di papan, dan legenda baru kebetulan memuat kata itu —
+sejak itu ia menguji **penandanya** (`itk-lewat-chip`), bukan katanya.
+⚠️ Pola yang layak diingat: asersi berbasis kata bisa lulus/gagal palsu begitu
+ada legenda atau bantuan yang menyebut kata yang sama.
+
 ## 2026-09-05 — IT TRACKER: lima revisi pasca-demo + brief desain RONDE 3
 
 Demo 5 Sep jalan, dan Ekky pulang dengan daftar. Kelimanya dibangun langsung

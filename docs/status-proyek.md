@@ -39,6 +39,16 @@
 > `2400896`, tak ada lagi cabang prod terpisah. Peringatan lama "jangan deploy
 > main ke prod" **sudah TIDAK berlaku** — sekarang justru `main` yang benar.
 >
+> ✅ **Sisipan 2026-09-05b — RONDE DESAIN 3 DIADOPSI** (`fed5cac`, dev): kartu
+> papan dipadatkan (badge jenjang, chip fase, "N fitur", "↳ dari", badge unit
+> TURUN ke detail; "Masih perlu" hanya bila penunggunya bukan IT) · **tab ketiga
+> "Belum ditriase"** → 13+6+7=26 jujur tanpa hitungan ganda · tiga tingkat tab
+> dibedakan rupanya · kolom kosong menyebut alasannya · legenda 5 saluran warna.
+> Dua keputusan Ekky melawan usul desainer: **RB Las tetap oranye** (dipisah
+> lewat perlakuan tepi-vs-isi, bukan warna) dan gaya tab jenis tetap versi dev.
+> 106 uji hijau. ⚠️ 2 cacat di paket r3 tak diikuti (README vs screenshot
+> berselisih soal chip "Masih perlu"; seed RB Las-nya karangan).
+
 > ✅ **Sisipan 2026-09-05 — IT TRACKER: 5 REVISI PASCA-DEMO + BRIEF RONDE 3**
 > (`e288ad9`, dev): unit usaha **RB Las** (satu papan, aksen oranye) · catatan
 > kemajuan **"sudah sampai mana"** (semua fase termasuk Go Live; basi >7 hari
