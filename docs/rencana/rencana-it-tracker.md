@@ -1427,3 +1427,51 @@ boleh ditambah, tak boleh diubah bentuknya (99 uji bergantung padanya).
 
 **Urutan:** ronde 3 dikerjakan **sesudah demo**, dengan masukan penonton ikut
 masuk. Jangan menyentuh dev sebelum demo.
+
+### 14.24 Katalog Modul — halaman saudara papan (4 Sep, sesudah demo)
+
+Executive bertanya hal yang **berbeda** dari yang dijawab papan: bukan *"apa
+yang sedang bergerak"* tapi *"apa saja yang sudah kami punya"*. Sampai hari ini
+jawabannya cuma ada di kepala Ekky.
+
+**Peta isinya sudah jadi & DIKOREKSI Ekky**:
+`docs/rencana/katalog-modul-2026-09.md` — **8 departemen · 33 modul · 25
+hidup**, disusun dari 87 node `access_path` prod + sapuan `MIN(created_at)`
+seluruh tabel. **Brief desain**: `docs/brief-desain/design-brief-katalog-modul.md`.
+
+**Model yang disepakati:**
+- **Dua tingkat** — Modul (33, ditentukan manusia) + Fitur (±60, **diturunkan
+  otomatis** dari `access_path`, jadi tak bisa basi).
+- **Dua sumbu** — **Pemilik** (satu departemen, tak pernah dua) dan **Jenis**
+  (`Operasional` · `Laporan & Dashboard` · `Integrasi` · `Platform`). Sumbu
+  kedua menyelesaikan keberatan Ekky: laporan tetap dimiliki departemennya,
+  tapi Executive bisa menyaring semua laporan lintas departemen sekaligus.
+- **Tiga status** — Hidup · Sedang dibangun · Direncanakan. ⛔ **Status bukan
+  progres**; jangan ada bar persen.
+- **Tiga angka terhitung** per departemen & per modul: *hidup* (katalog) ·
+  *berjalan* & *utang* (tabel tiket). **Utang = tiket terbuka yang menempel di
+  modul itu** — bukan konsep baru, jadi tak ada daftar utang terpisah yang basi.
+
+**Satu field baru di tiket: `modul`.** Inilah yang menyambungkan keduanya. Saat
+triase, satu pertanyaan: *kerjaan ini melahirkan modul baru, atau mengubah yang
+sudah ada?* Kalau baru → Head IT membuat entri katalog berstatus *Direncanakan*.
+Begitulah modul lahir — dari tiket.
+
+⛔ **BUKAN tab keempat.** Rute `/it-tracker/katalog`, dicapai dari kepala papan;
+sidebar tetap satu entri. Tiga tingkat tab di papan semuanya *jenis tiket* —
+katalog bukan tiket, memasukkannya akan merusak disiplin itu. ✅ Aman dari
+ranjau RBAC: segmen `it-tracker` sudah punya node `access_path`.
+
+⚠️ **Dua pelajaran dari penyusunan petanya, keduanya kesalahanku:**
+1. **Nama node menu bukan nama pemilik.** Kubaca *"Keluhan → Sales"* sebagai
+   milik Sales; ternyata itu keluhan **atas sistem** (milik IT) dan "Sales"
+   cuma nama sub-menunya.
+2. **Menuduh sebelum mengukur.** Kutulis empat node Marketing *"terlihat bisa
+   diklik tapi tak menuju ke mana pun"*. Ekky menantang; ternyata
+   `shellCollectLeaves()` melewatkan node tanpa anak yang link-nya kosong, jadi
+   mereka **tidak pernah tampil**. Baris mati di DB, bukan cacat di layar.
+
+**Temuan yang layak dibawa lebih jauh:** sesudah koreksi, **IT punya 4 modul
+hidup** (Pusat Akun · Persetujuan · Akun Saya · Keluhan Sistem) — IT bukan cuma
+pembuat, ia juga **pemilik** perangkat yang dipakai semua departemen. Itu
+sebabnya *"berapa beban IT"* tak pernah terjawab dari daftar tiket saja.
