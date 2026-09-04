@@ -6,6 +6,42 @@
 > file ini append-only.
 
 ---
+## 2026-09-04e — IT TRACKER: papan bertab — Support Request vs Feature/Modul Request, tahap jadi tab (dev)
+
+Ekky melihat papan yang sudah terisi 30 tiket dan menemukan dua hal yang
+mengganggu sekaligus: *"kanban jangan accordion tapi tab, jadi Development sama
+Internal Testing ga harus scroll sampe bawah"* dan *"yang M dan L masuk
+Feature/Modul Request, yang S masuk Support Request — jadinya ga bingung"*.
+Keduanya dikerjakan bersama karena memang satu masalah: papan menampilkan tujuh
+tahap sekaligus untuk dua jenis pekerjaan yang jalurnya berbeda. Live di dev,
+commit `66cf83b`.
+
+- **Dua tab jenis permintaan** di atas papan: **Feature / Modul Request**
+  (M 5 fase · L 7 fase) dan **Support Request** (S 2 fase). Chip filter S/M/L
+  lama **dicabut** — dua mekanisme untuk hal yang sama pasti berselisih.
+- **Tiket yang belum ditriase belum punya jenjang**, jadi ia **tampil di kedua
+  tab** dengan catatan yang mengatakannya. Konsekuensinya badge kedua tab
+  (20 + 13) tak berjumlah 26 — itu disengaja dan dijelaskan di layar, bukan
+  dibiarkan jadi teka-teki. Badge selalu = jumlah kartu yang benar-benar
+  tampil di tab itu, jadi tak pernah berselisih dengan angka kolom.
+- **Kolom dengan lebih dari satu tahap kini bertab**, bukan bertumpuk:
+  KERJAKAN (Development · Uji Internal) dan RILIS (UAT · Go Live · Evaluasi).
+  Tab kosong diredupkan; tahap pertama yang berisi terpilih sendiri. Tak ada
+  lagi menggulir sampai bawah untuk melihat Uji Internal.
+- **Di tab Support**, kolom yang memang tak dilewati jalur dua-fase
+  disembunyikan — **tapi hanya kalau benar-benar kosong**, supaya tiket S yang
+  nyasar ke fase lain tetap terlihat, bukan hilang karena aturan tata letak.
+- Semua kartu **tetap ada di DOM** (Ctrl+F dan tautan langsung tetap jalan);
+  tab hanya menyaring, dan hitungan kolom/tahap dihitung ulang tiap ganti tab.
+  Pilihan tab tersimpan di URL (`?jenis=support|fitur`) tanpa muat ulang.
+- Modal triase kini menyebut akibat pilihannya: **S → Support Request**,
+  **M/L → Feature / Modul Request** — triase jadi keputusan "papan mana",
+  bukan sekadar "berapa fase".
+- Uji: +1 regresi penanda tab (26 kartu = 6 S + 13 M/L + 7 belum ditriase, dan
+  chip S/M/L lama benar-benar tercabut). **99 uji lama tetap hijau → 100.**
+  Diverifikasi ulang di dev dengan data nyata: 26 kartu, 7 tab tahap, CSS baru
+  terlayani.
+
 ## 2026-09-04d — IT TRACKER: dev DIISI antrian nyata — `it:seed-antrian`, 30 tiket, "berapa hari" jujur (demo 5 Sep)
 
 Ralat §14.21 ditindaklanjuti: papan dev tidak lagi kosong. Perintah artisan

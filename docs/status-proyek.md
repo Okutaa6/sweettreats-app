@@ -39,6 +39,13 @@
 > `2400896`, tak ada lagi cabang prod terpisah. Peringatan lama "jangan deploy
 > main ke prod" **sudah TIDAK berlaku** — sekarang justru `main` yang benar.
 >
+> ✅ **Sisipan 2026-09-04e — PAPAN IT TRACKER BERTAB** (`66cf83b`, dev): dua tab
+> jenis permintaan — **Support Request** (S, 2 fase) vs **Feature / Modul
+> Request** (M/L, 5–7 fase), menggantikan chip filter S/M/L; tahap di dalam
+> kolom (Development · Uji Internal, dan UAT · Go Live · Evaluasi) jadi **tab**
+> sehingga tak perlu digulir. Tiket belum ditriase tampil di kedua tab dengan
+> catatan. 100 uji hijau.
+
 > ✅ **Sisipan 2026-09-04d — DEV DIISI ANTRIAN NYATA IT TRACKER** (`521af5a`,
 > `feat/it-tracker`): `it:seed-antrian` dari PSV 30 baris → IT-2026-001..030
 > di dev (26 aktif · 4 ditunda beralasan · 7 menunggu triase termasuk 3 DRAF
