@@ -6,6 +6,48 @@
 > file ini append-only.
 
 ---
+## 2026-09-06c — Rupa katalog: satu baris CSS milik halaman lain yang menjepit chip status
+
+Ekky mengirim tiga tangkapan layar: chip **HIDUP / DIBANGUN / RENCANA** di
+legenda katalog **tumpang tindih** dengan keterangannya — di ketiga tampilan.
+Live di dev (`ee6bb13`).
+
+### Sebabnya
+Legenda katalog **menumpang kelas legenda papan** (`.itk-legenda-warna`), yang
+`i`-nya memang **kotak warna**: `width:16px; height:11px`. Chip berteks ikut
+dipaksa seukuran kotak itu, jadi tulisannya meluber ke tetangganya. Bukan salah
+markup katalog, bukan salah aturan papan — salahnya **meminjam**.
+
+⇒ Legenda katalog kini punya kelas & aturan sendiri (`.itk-kat-legenda`).
+Pelajaran ditulis di CSS-nya: **pinjam maknanya, jangan selektornya.** Kelas
+yang aturannya dibuat untuk bentuk lain akan menjepit isi yang lain — dan
+diamnya total: tak ada galat, tak ada uji merah, cuma rupa yang salah.
+
+### Dua temuan lain dari sapuan yang sama
+- **Kartu tiket yang disensor kehilangan bentuknya.** Perbaikan privasi kemarin
+  merender baris tiket departemen lain sebagai `div` (bukan tautan), sedangkan
+  seluruh gayanya ditulis untuk `a.tiket` → padding, border, dan radius hilang.
+  16 selektor `a.tiket` → `.tiket`.
+- **Layar ≤1100px, tampilan Daftar**: grid menyempit jadi 4 kolom tapi hanya
+  kolom 6–7 yang disembunyikan, jadi kolom **FITUR** jatuh ke baris berikutnya
+  dan barisnya patah. Kolom 5 ikut disembunyikan.
+
+### Sapuan pencegah (skrip audit, layak diulang tiap ronde rupa)
+1. **Kelas dipakai blade vs ada di CSS** — 282 : 282, nol yatim dua arah.
+2. **"Kotak sempit berisi tulisan"** — persis bentuk bug ini: nol temuan
+   tersisa; satu-satunya sisa adalah avatar 36px berisi satu huruf, yang memang
+   begitu.
+3. **Struktur grid vs jumlah anak** — daftar 7 kolom : 7 anak · matriks 6
+   kepala, 8 baris departemen, 32 sel, 8 sel tiket: cocok.
+4. **Bentrokan selektor keturunan** — daftar aturan yang menargetkan tag polos
+   (`i`, `span`, `b`) di bawah kelas yang dipakai katalog; inilah yang
+   menemukan sisa `a.tiket`.
+
+⚠️ Satu hal yang **tidak** kutemukan penyebabnya: garis horizontal melintang di
+tangkapan layar tampilan Daftar. Isi di atas dan di bawah garis itu berulang,
+jadi dugaanku itu jahitan tangkapan layar penuh Chrome, bukan CSS — kalau masih
+terlihat sesudah muat ulang, tolong beri tahu.
+---
 ## 2026-09-06b — AUDIT Katalog Modul: 7 temuan ditutup, satu di antaranya kebocoran isi tiket
 
 Sesudah katalog naik dev, dibaca ulang seluruh kodenya, diuji **end-to-end per

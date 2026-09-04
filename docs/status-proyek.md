@@ -39,6 +39,15 @@
 > `2400896`, tak ada lagi cabang prod terpisah. Peringatan lama "jangan deploy
 > main ke prod" **sudah TIDAK berlaku** — sekarang justru `main` yang benar.
 >
+> ✅ **Sisipan 2026-09-06c — RUPA KATALOG DIPERBAIKI** (`ee6bb13`, dev): chip
+> STATUS tumpang tindih karena legenda katalog **menumpang kelas legenda papan**
+> yang `i`-nya kotak warna 16×11px. Kini legenda katalog berkelas sendiri.
+> Pelajaran: **pinjam maknanya, jangan selektornya** — kelas milik bentuk lain
+> menjepit isi diam-diam (nol galat, nol uji merah, cuma rupa yang salah).
+> Ikut diperbaiki: kartu tiket tersensor kehilangan padding/border karena
+> gayanya ditulis untuk `a.tiket` sedangkan ia dirender `div`; dan baris Daftar
+> patah di layar ≤1100px. Empat skrip audit rupa dibuat (kelas 282:282 · kotak
+> sempit berisi teks: nol · struktur grid cocok · bentrokan selektor keturunan).
 > ✅ **Sisipan 2026-09-06b — KATALOG DIAUDIT: 7 temuan ditutup** (`80a838b`, dev,
 > **139 uji**). Yang terpenting: **kebocoran isi tiket** — panel katalog
 > menampilkan judul SEMUA tiket terbuka, padahal rencana §12 melarang Head
