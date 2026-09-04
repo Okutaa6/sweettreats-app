@@ -64,6 +64,51 @@
             @endif
         </div>
 
+        {{-- Bahan rancangan (revisi pasca-demo 5 Sep): mockup, alur proses, contoh
+             keluaran. Sengaja TERPISAH dari lampiran FRM-IT-01 (bukti masalah dari
+             pemohon) dan TIDAK menggugurkan paraf BO — ia bahan bantu, bukan isi
+             yang disetujui. --}}
+        @php
+            $lampAn = $F['lampiran'] ?? [];
+            $ukAn = fn ($b) => $b >= 1048576 ? round($b / 1048576, 1) . ' MB' : max(1, (int) round($b / 1024)) . ' KB';
+        @endphp
+        @if ($lampAn || $ed)
+            <div>
+                <span class="itk-lbl">BAHAN RANCANGAN <span style="font-weight:600;color:#8A857C">(mockup · alur proses · contoh keluaran) — paling atas, karena inilah yang dilihat pemohon lebih dulu</span></span>
+                @if ($lampAn)
+                    <div class="itk-lamp-list">
+                        @foreach ($lampAn as $x)
+                            <a class="itk-lamp {{ str_starts_with((string) ($x['mime'] ?? ''), 'image/') ? 'img' : 'doc' }}"
+                               href="{{ asset($x['path']) }}" target="_blank" rel="noopener" title="{{ $x['nama'] }} · {{ $ukAn($x['ukuran'] ?? 0) }}">
+                                @if (str_starts_with((string) ($x['mime'] ?? ''), 'image/'))
+                                    <img src="{{ asset($x['path']) }}" alt="{{ $x['nama'] }}" loading="lazy">
+                                @else
+                                    <span class="itk-lamp-ext">{{ strtoupper(pathinfo($x['path'], PATHINFO_EXTENSION) ?: 'file') }}</span>
+                                @endif
+                                <span class="itk-lamp-nama">{{ $x['nama'] }}</span>
+                                <span class="itk-lamp-meta num">{{ $ukAn($x['ukuran'] ?? 0) }}</span>
+                            </a>
+                        @endforeach
+                    </div>
+                @elseif (! $ed)
+                    <span class="itk-hint" style="margin:0">Belum ada bahan rancangan.</span>
+                @endif
+                @if ($ed && count($lampAn) < \App\Services\ItTracker\ItTrackerService::LAMPIRAN_MAKS)
+                    <form method="post" action="{{ route('it-tracker.lampiran', $t->id) }}" enctype="multipart/form-data"
+                          style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:7px">
+                        @csrf<input type="hidden" name="kode" value="FRM-IT-02">
+                        <input class="itk-in itk-file" type="file" name="lampiran[]" multiple required style="max-width:340px"
+                               accept=".jpg,.jpeg,.png,.webp,.pdf,.xlsx,.xls,.docx,.doc,.csv">
+                        <button type="submit" class="itk-btn itk-btn-putih" style="padding:6px 11px;font-size:11.5px">Tempelkan</button>
+                        <span class="itk-hint" style="margin:0;flex-basis:100%">Diterima: {{ \App\Services\ItTracker\ItTrackerService::lampiranDiterima() }}.
+                            Bahan rancangan tidak menggugurkan paraf Business Owner.</span>
+                    </form>
+                @elseif ($ed)
+                    <span class="itk-hint" style="margin:0">Sudah {{ count($lampAn) }} berkas — batas per formulir tercapai.</span>
+                @endif
+            </div>
+        @endif
+
         {{-- Tabel FR --}}
         <form method="post" action="{{ route('it-tracker.fr', $t->id) }}" id="itkFrForm">
             @csrf
@@ -201,51 +246,6 @@
             </form>
         @elseif (! empty($F['estimasi']) || ! empty($F['risiko']))
             <div class="itk-dapur-hidden">Ada catatan dapur IT (estimasi &amp; risiko) — internal, tidak ditampilkan di sini.</div>
-        @endif
-
-        {{-- Bahan rancangan (revisi pasca-demo 5 Sep): mockup, alur proses, contoh
-             keluaran. Sengaja TERPISAH dari lampiran FRM-IT-01 (bukti masalah dari
-             pemohon) dan TIDAK menggugurkan paraf BO — ia bahan bantu, bukan isi
-             yang disetujui. --}}
-        @php
-            $lampAn = $F['lampiran'] ?? [];
-            $ukAn = fn ($b) => $b >= 1048576 ? round($b / 1048576, 1) . ' MB' : max(1, (int) round($b / 1024)) . ' KB';
-        @endphp
-        @if ($lampAn || $ed)
-            <div>
-                <span class="itk-lbl">BAHAN RANCANGAN <span style="font-weight:600;color:#8A857C">(mockup · alur proses · contoh keluaran)</span></span>
-                @if ($lampAn)
-                    <div class="itk-lamp-list">
-                        @foreach ($lampAn as $x)
-                            <a class="itk-lamp {{ str_starts_with((string) ($x['mime'] ?? ''), 'image/') ? 'img' : 'doc' }}"
-                               href="{{ asset($x['path']) }}" target="_blank" rel="noopener" title="{{ $x['nama'] }} · {{ $ukAn($x['ukuran'] ?? 0) }}">
-                                @if (str_starts_with((string) ($x['mime'] ?? ''), 'image/'))
-                                    <img src="{{ asset($x['path']) }}" alt="{{ $x['nama'] }}" loading="lazy">
-                                @else
-                                    <span class="itk-lamp-ext">{{ strtoupper(pathinfo($x['path'], PATHINFO_EXTENSION) ?: 'file') }}</span>
-                                @endif
-                                <span class="itk-lamp-nama">{{ $x['nama'] }}</span>
-                                <span class="itk-lamp-meta num">{{ $ukAn($x['ukuran'] ?? 0) }}</span>
-                            </a>
-                        @endforeach
-                    </div>
-                @elseif (! $ed)
-                    <span class="itk-hint" style="margin:0">Belum ada bahan rancangan.</span>
-                @endif
-                @if ($ed && count($lampAn) < \App\Services\ItTracker\ItTrackerService::LAMPIRAN_MAKS)
-                    <form method="post" action="{{ route('it-tracker.lampiran', $t->id) }}" enctype="multipart/form-data"
-                          style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:7px">
-                        @csrf<input type="hidden" name="kode" value="FRM-IT-02">
-                        <input class="itk-in itk-file" type="file" name="lampiran[]" multiple required style="max-width:340px"
-                               accept=".jpg,.jpeg,.png,.webp,.pdf,.xlsx,.xls,.docx,.doc,.csv">
-                        <button type="submit" class="itk-btn itk-btn-putih" style="padding:6px 11px;font-size:11.5px">Tempelkan</button>
-                        <span class="itk-hint" style="margin:0;flex-basis:100%">Diterima: {{ \App\Services\ItTracker\ItTrackerService::lampiranDiterima() }}.
-                            Bahan rancangan tidak menggugurkan paraf Business Owner.</span>
-                    </form>
-                @elseif ($ed)
-                    <span class="itk-hint" style="margin:0">Sudah {{ count($lampAn) }} berkas — batas per formulir tercapai.</span>
-                @endif
-            </div>
         @endif
 
         {{-- Paraf: IT + satu Business Owner --}}

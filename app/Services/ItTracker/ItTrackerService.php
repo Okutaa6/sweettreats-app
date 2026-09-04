@@ -1362,7 +1362,7 @@ class ItTrackerService
     /** Muat relasi yang dibutuhkan viewTicket sekali jalan (hindari N+1). */
     public function muatRelasi($query)
     {
-        return $query->with(['pemohon', 'pic', 'evaluator', 'lahirDari', 'forms', 'frs', 'testCases', 'temuan', 'anak', 'gitRefs']);
+        return $query->with(['pemohon', 'pemohon.group', 'pic', 'evaluator', 'lahirDari', 'forms', 'frs', 'testCases', 'temuan', 'anak', 'gitRefs']);
     }
 
     /**

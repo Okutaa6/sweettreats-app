@@ -208,8 +208,8 @@ class ItTrackerSeedAntrianTest extends TestCase
     }
 
     /**
-     * Papan bertab jenis permintaan (keputusan Ekky 4 Sep): S → Support Request,
-     * M/L → Feature / Modul Request, belum ditriase → tampil di KEDUA tab.
+     * Papan bertab jenis permintaan (r3a, keputusan Ekky 5 Sep): S → Support,
+     * M/L → Fitur / Modul, belum ditriase → tampil di KEDUA tab lagi.
      * Tab bekerja di sisi klien, jadi yang dijaga di sini penandanya: hilang penanda
      * = semua kartu jatuh ke tab yang salah tanpa suara.
      */
@@ -218,13 +218,15 @@ class ItTrackerSeedAntrianTest extends TestCase
         $this->jalankan();
         $html = $this->withSession($this->sesi('Head IT', 'uji-headit-seed'))
             ->get(route('it-tracker.index'))->assertOk()
-            ->assertSee('Support Request')->assertSee('Feature / Modul Request')
+            ->assertSee('Support')->assertSee('Fitur / Modul')
             ->assertSee('Belum ditriase')->getContent();
 
         // kartu membawa jenisnya; jumlah penanda = jumlah kartu aktif (26 aktif + 4 ditunda tak di papan)
         $this->assertSame(26, substr_count($html, 'data-kartu data-jenis='));
-        // ronde 3: TIGA tab yang saling lepas — 13 + 6 + 7 = 26, tanpa hitungan ganda
-        $this->assertSame(3, substr_count($html, 'class="itk-tj'), 'tiga tab jenis permintaan');
+        // r3a: DUA tab; yang belum ditriase ikut dihitung di keduanya (13+7 dan 6+7),
+        // dan catatan di kanan band menyebut hitungan gandanya — bukan disembunyikan
+        $this->assertSame(2, substr_count($html, 'class="itk-tj" data-jenis'), 'dua tab jenis permintaan');
+        $this->assertStringContainsString('tampil di kedua tab', $html);
         $this->assertStringContainsString('data-jenis="baru"', $html);
         $this->assertSame(6, substr_count($html, 'data-kartu data-jenis="support"'), 'enam tiket S (insiden)');
         $this->assertSame(13, substr_count($html, 'data-kartu data-jenis="fitur"'), 'tiga belas tiket M/L');

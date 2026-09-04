@@ -1,10 +1,15 @@
 {{--
-    IT Request Tracker — Papan Antrean (Fase 1).
+    IT Request Tracker — Papan Antrean (Fase 1) · rupa RONDE 3a (mockup r3, "samain aja dulu").
 
     Sumbu papan = FASE (7 tahap templat) dikelompokkan Masuk/Rancang/Kerjakan/
     Rilis; "menunggu siapa" = strip di kartu + filter Macet, BUKAN kolom
     (keputusan design brief §3). Panel beban di atas menjawab pertanyaan
     Executive dalam 5 detik.
+
+    Tiga tingkat tab yang berbeda rupa: (1) jenis permintaan = band grafit,
+    (2) tahap di dalam kolom = teks bergaris bawah, (3) status parkiran = chip
+    cokelat bergaris putus. Tiket belum ditriase tampil di KEDUA tab jenis
+    (keputusan Ekky 5 Sep) — badge menyebutnya, bukan menyembunyikannya.
 --}}
 @extends('layouts.app')
 
@@ -13,31 +18,45 @@
 @endsection
 
 @section('content')
+@php
+    $adalahIt = in_array($peran, ['head_it', 'it_dev'], true);
+    $pendek   = fn ($nomor) => '#' . preg_replace('/^IT-\d{4}-/', '', (string) $nomor);
+    $fAktif = array_filter([
+        'q'       => $filter['q'] !== '' ? $filter['q'] : null,
+        'macet'   => $filter['macet'] ? 1 : null,
+        'sumber'  => $filter['sumber'],
+        'jenjang' => $filter['jenjang'],
+        'unit'    => $filter['unit'] ?? null,
+    ]);
+    // tiap chip MEMPERTAHANKAN filter lain yang aktif
+    $fLink = fn (array $ubah) => route('it-tracker.index', array_filter(array_merge($fAktif, $ubah)));
+    $adaFilter = count($fAktif) > 0;
+    $semuaKartu = collect($groups)->flatten(1)->flatMap(fn ($f) => $f['cards']);
+    $nSupport = $semuaKartu->filter(fn ($c) => $c['t']->jenjang === 'S')->count();
+    $nFitur   = $semuaKartu->filter(fn ($c) => in_array($c['t']->jenjang, ['M', 'L'], true))->count();
+    $nBaru    = $semuaKartu->filter(fn ($c) => ! $c['t']->jenjang)->count();
+    $jenisAwal = $filter['jenjang'] === 'S' ? 'support' : 'fitur';
+    $SUB = ['MASUK' => 'Requirement · triase & antre', 'RANCANG' => 'Analysis & Design',
+            'KERJAKAN' => 'Development · Internal Testing', 'RILIS' => 'UAT · Go Live · Evaluation'];
+    $SHORT = ['DEV' => 'Dev', 'UJI' => 'Uji', 'UAT' => 'UAT', 'GOLIVE' => 'Go Live', 'EVALUASI' => 'Evaluasi'];
+    $inisial = mb_strtoupper(mb_substr((string) session('name'), 0, 1)) ?: 'IT';
+@endphp
 <div class="itk-surface">
 
-    <div class="itk-head">
-        <h1>IT Request Tracker</h1>
-        <span class="itk-badge-zona">ZONA IT</span>
-        <div class="itk-head-nav">
-            <a class="itk-btn itk-btn-putih" href="{{ route('it-tracker.permintaan') }}">
-                {{ in_array($peran, ['head_it','it_dev']) ? 'Catat Inisiatif / Insiden' : 'Permintaanku' }}
-            </a>
+    <div class="itk-topbar">
+        <div>
+            <h1>IT Request Tracker</h1>
         </div>
-        <div class="itk-head-sub">Dipikul 2 orang IT · 5 cabang · warna strip memanas hanya bila penunggunya di luar IT</div>
+        <span class="itk-badge-zona">ZONA IT</span>
+        <span class="sub">{{ now()->translatedFormat('l, j M Y') }} · 2 orang IT · 5 cabang + RB Las</span>
+        <div class="itk-topbar-nav">
+            <a class="itk-btn itk-btn-putih" href="{{ route('it-tracker.permintaan') }}">
+                {{ $adalahIt ? '+ Inisiatif IT' : 'Permintaan Saya' }}</a>
+            <div class="itk-avatar" title="{{ session('name') }} · {{ session('group_name') }}">{{ $inisial }}</div>
+        </div>
     </div>
 
     @include('layouts.notif')
-
-    {{-- Tautan filter: tiap chip MEMPERTAHANKAN filter lain yang aktif --}}
-    @php
-        $fAktif = array_filter([
-            'q'       => $filter['q'] !== '' ? $filter['q'] : null,
-            'macet'   => $filter['macet'] ? 1 : null,
-            'sumber'  => $filter['sumber'],
-            'jenjang' => $filter['jenjang'],
-        ]);
-        $fLink = fn (array $ubah) => route('it-tracker.index', array_filter(array_merge($fAktif, $ubah)));
-    @endphp
 
     {{-- Panel Executive: terbaca 5 detik (brief §5b no. 1-3) --}}
     <div class="itk-beban">
@@ -58,157 +77,213 @@
             <div>
                 <span class="itk-big num" style="color:{{ $beban['macet'] ? '#C0392B' : '#2F8E55' }}">{{ $beban['macet'] }}</span>
                 <span class="itk-big-lbl">macet menunggu di luar IT</span>
-                <div style="margin-top:12px">
-                    <a class="itk-chip {{ $filter['macet'] ? 'aktif' : '' }}"
-                       href="{{ $fLink(['macet' => $filter['macet'] ? null : 1]) }}">Lihat yang macet</a>
-                </div>
+                @if ($macetChips)
+                    {{-- satu chip per tiket macet: nomor + berapa hari — klik membuka detailnya --}}
+                    <div class="itk-macet-chips">
+                        @foreach (array_slice($macetChips, 0, 8) as $m)
+                            <a class="itk-macet-chip num panas{{ $m['heat'] }}" href="{{ route('it-tracker.show', $m['id']) }}"
+                               title="{{ $m['label'] }}">{{ $pendek($m['nomor']) }} · {{ $m['days'] }} hr</a>
+                        @endforeach
+                        @if (count($macetChips) > 8)
+                            <a class="itk-macet-chip panas1" href="{{ $fLink(['macet' => 1]) }}">+{{ count($macetChips) - 8 }} lagi</a>
+                        @endif
+                    </div>
+                @else
+                    <div class="itk-macet-none">Tidak ada — semua tiket bergerak di pihak yang benar.</div>
+                @endif
             </div>
             <div>
                 {{-- Kalimat konsekuensi — inilah yang mengubah refleks jadi keputusan sadar --}}
                 <div class="itk-konsekuensi">Tambah satu permintaan sekarang →
                     <strong>antre di belakang {{ $beban['diTangan'] }}</strong> yang sudah di tangan IT.</div>
+                <div style="margin-top:10px">
+                    <a class="itk-btn itk-btn-grafit" href="{{ route('it-tracker.permintaan') }}">
+                        {{ $adalahIt ? '+ Catat inisiatif IT' : 'Ajukan permintaan' }}</a>
+                </div>
             </div>
         </div>
     </div>
 
-    {{-- Filter — bisa digabung; $fLink didefinisikan di atas panel beban --}}
-    <div class="itk-filter">
-        <form method="get" action="{{ route('it-tracker.index') }}" style="display:inline">
+    {{-- ═══ TINGKAT 1 — tab JENIS permintaan: segmen besar di band grafit ═══
+         Belum ditriase tampil di KEDUA tab (keputusan Ekky 5 Sep): ia belum punya
+         jenjang, jadi belum bisa dipilihkan; badge tiap tab = yang benar-benar
+         tampil di tab itu, dan catatan kanan menjelaskan hitungan gandanya. --}}
+    <div class="itk-tabband" id="itkTabJenis" data-jenis-awal="{{ $jenisAwal }}">
+        <button type="button" class="itk-tj" data-jenis="fitur">
+            <b>Fitur / Modul</b><i class="num" data-tj-n>{{ $nFitur + $nBaru }}</i>
+            <span>jenjang M · L — lewat 5 atau 7 fase</span>
+        </button>
+        <button type="button" class="itk-tj" data-jenis="support">
+            <b>Support</b><i class="num" data-tj-n>{{ $nSupport + $nBaru }}</i>
+            <span>jenjang S — Requirement → Development</span>
+        </button>
+        <span class="itk-tj-note">Belum ditriase (<span class="num">{{ $nBaru }}</span>) belum punya jenjang —<br>tampil di kedua tab, ikut dihitung di keduanya.</span>
+    </div>
+
+    {{-- Filter sekunder — bisa digabung; tiap chip mempertahankan yang lain --}}
+    <div class="itk-filterrow">
+        <form method="get" action="{{ route('it-tracker.index') }}" class="itk-cari">
             @foreach ($fAktif as $k => $vv)
                 @if ($k !== 'q')<input type="hidden" name="{{ $k }}" value="{{ $vv }}">@endif
             @endforeach
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="4.6" stroke="#B79A82" stroke-width="1.5"/><path d="M10.6 10.6 14 14" stroke="#B79A82" stroke-width="1.5" stroke-linecap="round"/></svg>
             <input type="text" name="q" value="{{ $filter['q'] }}" placeholder="IT-2026-005 / accurate...">
         </form>
-        <a class="itk-chip {{ $filter['sumber'] === 'permintaan' ? 'aktif' : '' }}"
-           href="{{ $fLink(['sumber' => $filter['sumber'] === 'permintaan' ? null : 'permintaan']) }}">Permintaan</a>
-        <a class="itk-chip {{ $filter['sumber'] === 'inisiatif' ? 'aktif' : '' }}"
-           href="{{ $fLink(['sumber' => $filter['sumber'] === 'inisiatif' ? null : 'inisiatif']) }}">Inisiatif IT</a>
-        {{-- Chip S/M/L DIHAPUS: digantikan tab jenis permintaan di bawah (dua mekanisme
-             untuk hal yang sama = keduanya akan berselisih). ?jenjang= lama tetap dilayani
-             controller, dan tab menyesuaikan diri lewat data-jenis-awal. --}}
-        @if ($filter['q'] !== '' || $filter['macet'] || $filter['sumber'] || $filter['jenjang'])
-            <a class="itk-chip" href="{{ route('it-tracker.index') }}">bersihkan</a>
-        @endif
-        @if ($parkir->isNotEmpty())
-            <a class="itk-chip" style="margin-left:auto" href="#itk-parkiran" id="itkChipParkir">Ditunda / ditolak / selesai (<span data-parkir-total>{{ $parkir->count() }}</span>) ▾</a>
-        @endif
+        <a class="itk-fchip {{ $filter['macet'] ? 'aktif' : '' }}" href="{{ $fLink(['macet' => $filter['macet'] ? null : 1]) }}">Macet{{ $beban['macet'] ? ' · ' . $beban['macet'] : '' }}{{ $filter['macet'] ? '  ✕' : '' }}</a>
+        <a class="itk-fchip {{ $filter['sumber'] === 'permintaan' ? 'aktif' : '' }}" href="{{ $fLink(['sumber' => $filter['sumber'] === 'permintaan' ? null : 'permintaan']) }}">Permintaan{{ $filter['sumber'] === 'permintaan' ? '  ✕' : '' }}</a>
+        <a class="itk-fchip {{ $filter['sumber'] === 'inisiatif' ? 'aktif' : '' }}" href="{{ $fLink(['sumber' => $filter['sumber'] === 'inisiatif' ? null : 'inisiatif']) }}">Inisiatif IT{{ $filter['sumber'] === 'inisiatif' ? '  ✕' : '' }}</a>
+        <a class="itk-fchip {{ ($filter['unit'] ?? null) === 'rblas' ? 'aktif' : '' }}" href="{{ $fLink(['unit' => ($filter['unit'] ?? null) === 'rblas' ? null : 'rblas']) }}">RB Las{{ ($filter['unit'] ?? null) === 'rblas' ? '  ✕' : '' }}</a>
+        <button type="button" class="itk-parkir-toggle" id="itkParkirToggle">Parkiran · <span class="num" data-parkir-total>{{ $parkir->count() }}</span> <span class="caret">▾</span></button>
     </div>
 
-    {{-- Papan --}}
-    @php $totalKartu = collect($groups)->flatten(1)->sum(fn ($f) => $f['cards']->count()); @endphp
-    @if ($totalKartu === 0)
+    {{-- Bar filter menyala: selalu terlihat saat ada yang aktif --}}
+    @if ($adaFilter)
+        @php
+            $fTeks = array_filter([
+                $filter['macet'] ? 'Macet' : null,
+                $filter['sumber'] === 'permintaan' ? 'Permintaan' : ($filter['sumber'] === 'inisiatif' ? 'Inisiatif IT' : null),
+                ($filter['unit'] ?? null) === 'rblas' ? 'RB Las' : null,
+                $filter['jenjang'] ? 'jenjang ' . $filter['jenjang'] : null,
+                $filter['q'] !== '' ? 'cari "' . $filter['q'] . '"' : null,
+            ]);
+        @endphp
+        <div class="itk-filterbar">
+            <span class="lampu"></span>
+            <b>Filter menyala:</b>
+            <span>{{ implode(' · ', $fTeks) }}</span>
+            <span class="n num">— {{ $semuaKartu->count() }} dari {{ $totalAktif }} tiket aktif tampil</span>
+            <a class="matikan" href="{{ route('it-tracker.index') }}">Matikan semua filter</a>
+        </div>
+    @endif
+
+    {{-- Parkiran (TINGKAT 3): lipat DI ATAS papan — ditunda tetap tampil dengan
+         alasannya, ditunda bukan berarti hilang. Ikut tab jenis di atas. --}}
+    @php $urutStatus = ['DITUNDA' => 'Ditunda', 'DITOLAK' => 'Ditolak', 'SELESAI' => 'Selesai']; @endphp
+    <div class="itk-parkiran-box" id="itkParkiran" hidden>
+        <div class="itk-parkiran-hd">
+            <b>PARKIRAN</b>
+            @foreach ($urutStatus as $kode => $label)
+                <button type="button" class="itk-pk" data-pk="{{ $kode }}">{{ $label }} <span class="n num">· <span data-pk-n>{{ $parkir->where('fase', $kode)->count() }}</span></span></button>
+            @endforeach
+            <span class="catatan">Ditunda bukan berarti hilang — alasannya ikut tampil.</span>
+        </div>
+        @foreach ($urutStatus as $kode => $label)
+            <div class="itk-parkir-panel" data-pkp="{{ $kode }}" hidden>
+                <div class="itk-parkir">
+                    @foreach ($parkir->where('fase', $kode) as $p)
+                        @php $jp = $p->jenjang === 'S' ? 'support' : ($p->jenjang ? 'fitur' : 'baru'); @endphp
+                        <div class="itk-parkir-card" data-parkir data-jenis="{{ $jp }}" onclick="window.location='{{ route('it-tracker.show', $p->id) }}'">
+                            <div class="itk-card-top">
+                                <span class="itk-no num" style="font-size:11.5px;color:#9A7256">{{ $p->nomor }}</span>
+                                <span class="itk-pk-st {{ $p->fase }}">
+                                    @if ($p->fase === 'DITUNDA') DITUNDA — TETAP TERCATAT
+                                    @elseif ($p->fase === 'DITOLAK') DITOLAK
+                                    @else SELESAI · {{ $p->fase_since->translatedFormat('j M') }}
+                                    @endif
+                                </span>
+                                <span class="chev">›</span>
+                            </div>
+                            <div class="itk-card-title" style="font-size:13px;color:#5A3A22;margin-top:5px">{{ $p->judul }}</div>
+                            @if ($p->alasan_parkir)
+                                <div style="font-size:12px;color:#7A5B43;margin-top:5px;line-height:1.45">{{ $p->alasan_parkir }}</div>
+                            @endif
+                            @if ($p->fase === 'DITUNDA' && $peran === 'head_it')
+                                <form method="post" action="{{ route('it-tracker.buka', $p->id) }}" onclick="event.stopPropagation()">
+                                    @csrf
+                                    {{-- yang belum pernah ditriase kembali ke Triase, bukan Antre --}}
+                                    <button type="submit" class="itk-bukalagi">Buka lagi → {{ $p->jenjang ? 'Antre' : 'Triase' }}</button>
+                                </form>
+                            @endif
+                        </div>
+                    @endforeach
+                    <div class="itk-parkir-kosong" data-pk-kosong hidden>Tidak ada tiket di sini.</div>
+                </div>
+            </div>
+        @endforeach
+    </div>
+
+    {{-- Papan: sumbu = FASE, dikelompokkan Masuk/Rancang/Kerjakan/Rilis --}}
+    @if ($semuaKartu->isEmpty())
         <div style="background:#fff;border:1px solid #EFE0CE;border-radius:18px;padding:44px;text-align:center;margin-bottom:14px">
             <div style="font-size:15px;font-weight:800;color:#5A3A22">
-                {{ ($filter['q'] !== '' || $filter['macet'] || $filter['sumber'] || $filter['jenjang'])
-                    ? 'Tidak ada tiket yang cocok dengan filter ini.'
-                    : 'Papan masih kosong.' }}
+                {{ $filter['macet'] ? 'Tidak ada yang macet — antrean sehat' : ($adaFilter ? 'Tidak ada tiket yang cocok dengan filter ini.' : 'Papan kosong') }}
             </div>
             <div style="font-size:13px;color:#9A7256;margin-top:6px">
-                {{ ($filter['q'] !== '' || $filter['macet'] || $filter['sumber'] || $filter['jenjang'])
-                    ? 'Bersihkan filternya untuk melihat semua tiket aktif.'
-                    : 'Permintaan dari Head masuk lewat formulir; kerjaan IT sendiri dicatat lewat tombol "Catat Inisiatif / Insiden" di kanan atas.' }}
+                {{ $adaFilter
+                    ? 'Semua tiket sedang di tempat lain. Matikan filternya untuk melihat semuanya.'
+                    : 'Belum ada tiket. Permintaan pertama akan langsung tampil di kolom Requirement.' }}
             </div>
         </div>
     @endif
-    {{-- ═══ Tab JENIS PERMINTAAN — TIGA tab (ronde desain 3) ═══
-         S = Support Request (2 fase) · M/L = Feature / Modul Request (5–7 fase) ·
-         yang belum ditriase punya tabnya SENDIRI. Sebelumnya ia muncul di kedua tab
-         sehingga badge tak pernah berjumlah benar; sekarang 13 + 6 + 7 = 26, jujur
-         tanpa catatan pembelaan. Semua kartu tetap ada di DOM (Ctrl+F & tautan
-         langsung tetap jalan); tab hanya menyaring. --}}
-    @php
-        $semuaKartu = collect($groups)->flatten(1)->flatMap(fn ($f) => $f['cards']);
-        $nSupport = $semuaKartu->filter(fn ($c) => $c['t']->jenjang === 'S')->count();
-        $nFitur   = $semuaKartu->filter(fn ($c) => in_array($c['t']->jenjang, ['M', 'L'], true))->count();
-        $nBaru    = $semuaKartu->filter(fn ($c) => ! $c['t']->jenjang)->count();
-        $jenisAwal = $filter['jenjang'] === 'S' ? 'support' : 'fitur';
-    @endphp
-    <div class="itk-tabjenis" id="itkTabJenis" data-jenis-awal="{{ $jenisAwal }}">
-        <button type="button" class="itk-tj" data-jenis="fitur">
-            <b>Feature / Modul Request</b>
-            <span>M fitur (5 fase) · L modul (7 fase)</span>
-            <i class="num">{{ $nFitur }}</i>
-        </button>
-        <button type="button" class="itk-tj" data-jenis="support">
-            <b>Support Request</b>
-            <span>S — bug, insiden, tweak (2 fase)</span>
-            <i class="num">{{ $nSupport }}</i>
-        </button>
-        <button type="button" class="itk-tj itk-tj-baru" data-jenis="baru">
-            <b>Belum ditriase</b>
-            <span>belum punya jenjang — tugas Head IT hari ini</span>
-            <i class="num">{{ $nBaru }}</i>
-        </button>
-    </div>
 
     <div class="itk-board" id="itkBoard">
         @foreach ($groups as $nama => $fases)
             <div class="itk-kolom" data-kolom>
-                <div class="itk-kolom-hd"><b>{{ $nama }}</b>
-                    <span class="n num" data-kolom-n>{{ collect($fases)->sum(fn ($f) => $f['cards']->count()) }}</span></div>
+                {{-- Kepala wilayah: tegas, angka besar --}}
+                <div class="itk-kolom-hd">
+                    <span class="n num" data-kolom-n>{{ collect($fases)->sum(fn ($f) => $f['cards']->count()) }}</span>
+                    <div class="nm"><b>{{ $nama }}</b><span>{{ $SUB[$nama] ?? '' }}</span></div>
+                </div>
 
-                {{-- >1 tahap → TAB, bukan bertumpuk: Development & Uji Internal (dan UAT ·
-                     Go Live · Evaluasi) tak perlu digulir sampai bawah. --}}
+                {{-- TINGKAT 2 — tab TAHAP di dalam kolom (hanya kolom bertahap ganda) --}}
                 @if (count($fases) > 1)
-                    {{-- tingkat 2: teks kecil bergaris bawah — sengaja TIDAK serupa tab
-                         jenis (tingkat 1) maupun chip parkiran (tingkat 3) --}}
                     <div class="itk-fasetab" data-fasetab>
                         @foreach ($fases as $i => $f)
                             <button type="button" class="itk-ft" data-ft="{{ $i }}">
-                                {{ $f['label'] }} <i class="n num" data-ft-n>{{ $f['cards']->count() }}</i></button>
+                                {{ $SHORT[$f['k']] ?? $f['label'] }} <i class="n num" data-ft-n>{{ $f['cards']->count() }}</i></button>
                         @endforeach
                     </div>
                 @endif
 
+                <div class="itk-kolom-body">
                 @foreach ($fases as $i => $f)
-                    <div class="itk-fase-panel" data-fp="{{ $i }}" data-fase="{{ $f['k'] }}">
+                    <div class="itk-fase-panel" data-fp="{{ $i }}" data-fase="{{ $f['k'] }}" data-label="{{ $f['label'] }}">
                         @if (count($fases) === 1)
-                            <div class="itk-fase-hd {{ $f['cards']->isEmpty() ? 'kosong' : '' }}">
-                                {{ $f['label'] }} <span class="n num" data-ft-n>{{ $f['cards']->count() }}</span></div>
+                            <div class="itk-fase-hd"><span class="n num" data-ft-n>{{ $f['cards']->count() }}</span></div>
                         @endif
                     @foreach ($f['cards'] as $c)
                         @php
                             $t = $c['t']; $w = $c['wait'];
                             $jenisKartu = $t->jenjang === 'S' ? 'support' : ($t->jenjang ? 'fitur' : 'baru');
+                            $srcTxt = $t->sumber === 'inisiatif' ? 'INISIATIF IT'
+                                : ($t->sumber === 'insiden' ? 'INSIDEN'
+                                : mb_strtoupper(($t->pemohon->nama ?? 'PERMINTAAN') . (! empty($c['dept']) ? ' · ' . $c['dept'] : '')));
                         @endphp
-                        {{-- div ber-onclick, bukan <a>: kartu memuat form/tombol aksi
-                             dan form di dalam anchor itu HTML tidak valid --}}
-                        <div class="itk-card {{ $t->unit === 'rblas' ? 'itk-rblas' : '' }}" style="cursor:pointer" data-kartu data-jenis="{{ $jenisKartu }}"
+                        {{-- Kartu dua-detik: nomor · siapa · PIC · prio → judul → (kemajuan) →
+                             (dep / tanpa paraf) → strip menunggu. Jenjang & fase TIDAK di kartu
+                             (sudah dikatakan tab & kolom). RB Las = garis kiri oranye.
+                             div ber-onclick, bukan <a>: kartu memuat form aksi. --}}
+                        <div class="itk-card {{ $t->unit === 'rblas' ? 'itk-rblas' : '' }} {{ $t->fase === 'TRIASE' ? 'itk-triase' : '' }}"
+                             style="cursor:pointer" data-kartu data-jenis="{{ $jenisKartu }}"
                              onclick="window.location='{{ route('it-tracker.show', $t->id) }}'">
-                            {{-- Kartu dua-detik (ronde 3). TURUN dari kartu ke detail: badge
-                                 jenjang (mengulang tab jenis yang sedang dibuka), chip fase
-                                 "Analisis · 2/5" (mengulang kolomnya — angkanya pindah kecil
-                                 ke ujung strip), "N fitur di dalam", "↳ dari IT-xxx", dan
-                                 badge unit (diganti garis oranye di tepi kiri). --}}
                             <div class="itk-card-top">
-                                <span class="itk-no num">{{ $t->nomor }}</span>
-                                <span class="itk-src {{ $t->sumber }}">
-                                    @if ($t->sumber === 'inisiatif') INISIATIF IT
-                                    @elseif ($t->sumber === 'insiden') INSIDEN
-                                    @else {{ strtoupper($t->pemohon->nama ?? 'PERMINTAAN') }}
-                                    @endif
+                                <span class="itk-no num" title="{{ $t->nomor }}">{{ $pendek($t->nomor) }}</span>
+                                <span class="itk-src {{ $t->sumber }}">{{ $srcTxt }}</span>
+                                <span class="kanan">
+                                    @if ($c['pic'])<span class="itk-pic-chip" title="dikerjakan {{ $c['pic'] }}">{{ $c['pic'] }}</span>@endif
+                                    @if ($t->prioritas_it)<span class="itk-prio {{ $t->prioritas_it }}">{{ $t->prioritas_it }}</span>@endif
+                                    @if ($t->fase === 'TRIASE')<span class="itk-tag-triase">BELUM DITRIASE</span>@endif
                                 </span>
-                                @if ($c['pic'])<span class="itk-pic-chip" title="dikerjakan {{ $c['pic'] }}"><i class="fa fa-user" aria-hidden="true"></i> {{ $c['pic'] }}</span>@endif
-                                @if ($t->prioritas_it)<span class="itk-prio {{ $t->prioritas_it }}">{{ $t->prioritas_it }}</span>@endif
                             </div>
                             <div class="itk-card-title">{{ $t->judul }}</div>
-                            @if ($c['deps'] || ! empty($c['diteruskan']))
-                                <div class="itk-card-meta">
-                                    @if ($c['deps'])<span class="itk-dep-chip num" title="menunggu tiket lain"><i class="fa fa-link" aria-hidden="true"></i> menunggu {{ implode(', ', $c['deps']) }}</span>@endif
-                                    @if (! empty($c['diteruskan']))<span class="itk-lewat-chip" title="Diteruskan {{ $c['diteruskan']['oleh'] }} tanpa paraf Business Owner · {{ $c['diteruskan']['alasan'] }}"><i class="fa fa-exclamation-triangle" aria-hidden="true"></i> tanpa paraf BO</span>@endif
-                                </div>
-                            @endif
                             @if ($c['kemajuan'])
-                                @php $basi = $c['kemajuan']['at'] && $c['kemajuan']['at']->diffInDays(now()) >= 7; @endphp
-                                {{-- "sudah sampai mana" — dengan tanggalnya, karena catatan kemajuan
-                                     tanpa tanggal berbohong pelan-pelan: kelihatan terurus padahal basi --}}
+                                @php $hariKm = $c['kemajuan']['at'] ? (int) $c['kemajuan']['at']->diffInDays(now()) : null; $basi = $hariKm !== null && $hariKm >= 7; @endphp
+                                {{-- "sudah sampai mana": baris ikon kutip; basi = kuning + umur --}}
                                 <div class="itk-kemajuan {{ $basi ? 'basi' : '' }}" title="catatan kemajuan dari IT">
-                                    {{ $c['kemajuan']['txt'] }}
-                                    @if ($c['kemajuan']['at'])
-                                        <span class="num">· {{ $c['kemajuan']['at']->translatedFormat('j M') }}{{ $basi ? ' · ' . (int) $c['kemajuan']['at']->diffInDays(now()) . ' hr lalu' : '' }}</span>
+                                    <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor"><path d="M3 9.5C3 6.5 4.6 4.4 7.3 3.3l.6 1.2C6.3 5.3 5.5 6.3 5.3 7.6c1.2 0 2.1.9 2.1 2.1 0 1.2-1 2.1-2.2 2.1S3 10.9 3 9.5Zm6 0c0-3 1.6-5.1 4.3-6.2l.6 1.2c-1.6.8-2.4 1.8-2.6 3.1 1.2 0 2.1.9 2.1 2.1 0 1.2-1 2.1-2.2 2.1S9 10.9 9 9.5Z"/></svg>
+                                    <span class="txt">{{ $c['kemajuan']['txt'] }}</span>
+                                    @if ($hariKm !== null)
+                                        <span class="num">{{ $basi ? $hariKm . ' hr · basi' : ($hariKm === 0 ? 'hari ini' : $hariKm . ' hr') }}</span>
                                     @endif
                                 </div>
                             @endif
+                            @if ($c['deps'] || ! empty($c['diteruskan']))
+                                <div class="itk-card-meta">
+                                    @if ($c['deps'])<span class="itk-dep-chip num" title="menunggu tiket lain">⛓ menunggu {{ implode(', ', $c['deps']) }}</span>@endif
+                                    @if (! empty($c['diteruskan']))<span class="itk-lewat-chip" title="Diteruskan {{ $c['diteruskan']['oleh'] }} tanpa paraf Business Owner · {{ $c['diteruskan']['alasan'] }}">tanpa paraf BO</span>@endif
+                                </div>
+                            @endif
+                            {{-- Strip menunggu-siapa: jantung kartu --}}
                             <div class="itk-wait {{ \App\Services\ItTracker\PhaseEngine::waitCls($w, $t->fase) }}">
                                 <i></i>
                                 <span class="num">
@@ -217,6 +292,7 @@
                                     @endif
                                 </span>
                                 @if ($c['prog'])<span class="itk-wait-prog num" title="{{ $c['prog']['label'] }}">{{ $c['prog']['i'] }}/{{ $c['prog']['n'] }}</span>@endif
+                                <span class="chev">›</span>
                             </div>
                             @if ($c['tombol'])
                                 @if ($c['tombol']['jenis'] === 'triase')
@@ -224,10 +300,11 @@
                                         onclick="event.stopPropagation(); itkBukaTriase('{{ $t->id }}', '{{ $t->nomor }}', @js($t->judul), @js($t->prioritas_pemohon))">
                                         {{ $c['tombol']['label'] }}</button>
                                 @else
+                                    {{-- tombol maju HIJAU (keputusan Ekky 5 Sep) — beda dari Triase yang grafit --}}
                                     <form method="post" action="{{ route('it-tracker.maju', $t->id) }}"
                                           onclick="event.stopPropagation()">
                                         @csrf
-                                        <button type="submit" class="itk-btn itk-btn-grafit itk-card-btn">{{ $c['tombol']['label'] }}</button>
+                                        <button type="submit" class="itk-btn itk-btn-hijau itk-card-btn">{{ $c['tombol']['label'] }}</button>
                                     </form>
                                 @endif
                             @elseif ($c['blokir'] && $c['blokirLuar'])
@@ -239,59 +316,24 @@
                         <div class="itk-fase-kosong" data-fase-kosong hidden>Tidak ada tiket di tahap ini.</div>
                     </div>
                 @endforeach
+                </div>
             </div>
         @endforeach
     </div>
     <div class="itk-tab-kosong" id="itkTabKosong" hidden></div>
 
-    {{-- Legenda sistem warna (ronde 3): lima arti, lima saluran yang tak saling
-         meminjam. Tanpa ini, garis oranye RB Las cuma jadi teka-teki. --}}
-    <div class="itk-legenda-warna">
+    {{-- Sistem warna: tiap arti punya SALURAN sendiri — tak saling meminjam --}}
+    <div class="itk-legenda-warna" style="margin-top:12px">
         <b>SISTEM WARNA</b>
-        <span><i class="lg-strip"></i> strip menunggu = <strong>isi kartu</strong> — memanas hanya bila penunggunya di luar IT (≥3 hr kuning, ≥7 hr merah)</span>
-        <span><i class="lg-rb"></i> garis kiri oranye = <strong>RB Las</strong>; Sweet Treats polos</span>
-        <span><i class="lg-paraf"></i> garis putus merah = <strong>diteruskan tanpa paraf BO</strong></span>
-        <span><i class="lg-basi"></i> teks kuning = <strong>catatan kemajuan basi</strong> (≥7 hari)</span>
-        <span><i class="lg-prio"></i> prioritas IT = grafit, <strong>tanpa warna</strong> — supaya tak berebut dengan panas</span>
+        <span><i class="lg-strip"></i> strip menunggu — <strong>isi kartu</strong>, memanas hanya bila penunggunya di luar IT (≥3 / ≥7 hr)</span>
+        <span><i class="lg-prio1">P1</i><i class="lg-prio2">P2</i> prioritas — <strong>grafit</strong>, tanpa warna</span>
+        <span><i class="lg-rb"></i> RB Las — <strong>garis kiri oranye</strong>, tepi kartu; Sweet Treats polos</span>
+        <span><i class="lg-paraf">tanpa paraf BO</i> pelewatan paraf — <strong>garis putus merah</strong>, bukan isian</span>
+        <span><i class="lg-parkir"></i> parkir — <strong>hanya di parkiran</strong>, bergaris putus</span>
+        <span><i class="lg-basi">❝ 12 hr</i> catatan kemajuan basi — <strong>teks kuning + umur</strong>, tanpa latar</span>
     </div>
-
-    {{-- Parkiran: ditunda tetap tampil dengan alasannya — ditunda bukan berarti hilang.
-         Ketiga statusnya BERTAB (bukan satu tumpukan campur), dan ikut tab jenis
-         permintaan di atas: papan dan parkiran tak boleh bercerita beda. --}}
-    @if ($parkir->isNotEmpty())
-        @php $urutStatus = ['DITUNDA' => 'Ditunda', 'DITOLAK' => 'Ditolak', 'SELESAI' => 'Selesai']; @endphp
-        <div id="itk-parkiran" style="margin-top:16px">
-            <div class="itk-parkir-bar">
-                <b>PARKIRAN</b>
-                <div class="itk-fasetab" data-parkirtab>
-                    @foreach ($urutStatus as $kode => $label)
-                        <button type="button" class="itk-ft" data-pk="{{ $kode }}">
-                            {{ $label }} <i class="n num" data-pk-n>{{ $parkir->where('fase', $kode)->count() }}</i></button>
-                    @endforeach
-                </div>
-            </div>
-            @foreach ($urutStatus as $kode => $label)
-                <div class="itk-parkir-panel" data-pkp="{{ $kode }}">
-                    <div class="itk-parkir">
-                        @foreach ($parkir->where('fase', $kode) as $p)
-                            @php $jp = $p->jenjang === 'S' ? 'support' : ($p->jenjang ? 'fitur' : 'baru'); @endphp
-                            <a class="itk-parkir-card" data-parkir data-jenis="{{ $jp }}" href="{{ route('it-tracker.show', $p->id) }}">
-                                <div class="itk-card-top">
-                                    <span class="itk-no num">{{ $p->nomor }}</span>
-                                    <span class="itk-st {{ $p->fase }}">{{ $p->fase }}</span>
-                                </div>
-                                <div class="itk-card-title" style="color:#5A3A22">{{ $p->judul }}</div>
-                                @if ($p->alasan_parkir)
-                                    <div style="font-size:12px;color:#7A5B43;margin-top:5px;line-height:1.45">{{ $p->alasan_parkir }}</div>
-                                @endif
-                            </a>
-                        @endforeach
-                        <div class="itk-fase-kosong" data-pk-kosong hidden>Tidak ada tiket {{ strtolower($label) }} di jenis permintaan ini.</div>
-                    </div>
-                </div>
-            @endforeach
-        </div>
-    @endif
+    <div class="itk-legenda">Badge: <strong>Fase 1</strong> = formulir + triase + papan · <strong>Fase 2</strong> = tujuh fase + gerbang ·
+        <strong>Fase 3</strong> = sambungan Project Tracker. Tiga tingkat tab: jenis (band grafit) → tahap (garis bawah di kolom) → status parkir (chip bergaris putus).</div>
 
     <script>
     (function () {
@@ -301,17 +343,17 @@
         var bar = document.getElementById('itkTabJenis'), board = document.getElementById('itkBoard');
         if (!bar || !board) return;
         var kosongPapan = document.getElementById('itkTabKosong');
-        // Tiga tab yang saling lepas: tiap kartu persis di satu tab, jadi
-        // 13 + 6 + 7 = 26 tanpa catatan pembelaan.
+        // belum ditriase (data-jenis="baru") tampil di KEDUA tab — keputusan Ekky 5 Sep
         var cocok = function (kartu, jenis) {
-            return kartu.getAttribute('data-jenis') === jenis;
+            var j = kartu.getAttribute('data-jenis');
+            return j === 'baru' || j === jenis;
         };
-        // Kolom/tahap yang kosong menyebut ALASANNYA, bukan angka 0 polos —
-        // "kosong" dan "memang tak lewat sini" dua hal yang berbeda.
-        var alasanKosong = function (jenis, fase) {
-            if (jenis === 'baru' && fase !== 'REQ') return 'Belum ditriase selalu ada di Masuk — tiket ini belum punya jenjang.';
-            if (jenis === 'support' && fase !== 'REQ' && fase !== 'DEV') return 'Jalur Support hanya Masuk → Development (2 fase) — tahap ini tidak dilewatinya.';
-            return 'Tidak ada tiket di tahap ini.';
+        // Tahap kosong menyebut ALASANNYA, bukan angka 0 polos.
+        var alasanKosong = function (jenis, fase, label) {
+            if (fase === 'UJI') return label + ' kosong — hanya jenjang Modul lewat sini';
+            if (fase === 'GOLIVE') return label + ' kosong — dihuni beberapa hari saja';
+            if (jenis === 'support' && fase !== 'REQ' && fase !== 'DEV') return label + ' kosong — jalur Support hanya Requirement → Development';
+            return label + ' kosong';
         };
 
         function terap(jenis, simpanUrl) {
@@ -333,7 +375,7 @@
                     var kosong = panel.querySelector('[data-fase-kosong]');
                     if (kosong) {
                         kosong.hidden = n !== 0;
-                        kosong.textContent = alasanKosong(jenis, panel.getAttribute('data-fase') || '');
+                        kosong.textContent = alasanKosong(jenis, panel.getAttribute('data-fase') || '', panel.getAttribute('data-label') || 'Tahap');
                     }
                     var badge = panel.querySelector('[data-ft-n]');
                     if (badge) badge.textContent = n;
@@ -344,23 +386,18 @@
                     }
                 });
                 kol.querySelector('[data-kolom-n]').textContent = totalKol;
-                // Keempat wilayah TETAP tampil di semua tab (ronde 3): strukturnya sama,
-                // yang kosong menyebut alasannya. Menyembunyikan kolom membuat papan
-                // berubah bentuk tiap ganti tab dan orang kehilangan pegangan.
+                // Keempat wilayah TETAP tampil di semua tab: strukturnya sama, yang kosong menyebut alasannya.
                 kol.hidden = false;
                 totalPapan += totalKol;
 
-                // tab tahap: pilih tahap pertama yang ada isinya, kalau tak ada tahap pertama
+                // tab tahap: pertahankan yang aktif kalau berisi; kalau tidak, tahap pertama yang berisi
                 var tabs = kol.querySelectorAll('[data-ft]');
                 if (tabs.length) {
                     var aktif = kol.querySelector('[data-ft].aktif'), pilih = -1;
-                    if (aktif && +aktif.parentElement.querySelector('[data-ft="' + aktif.getAttribute('data-ft') + '"] [data-ft-n]').textContent > 0) {
-                        pilih = +aktif.getAttribute('data-ft');
-                    }
+                    if (aktif && +aktif.querySelector('[data-ft-n]').textContent > 0) pilih = +aktif.getAttribute('data-ft');
                     if (pilih < 0) {
                         tabs.forEach(function (b) {
-                            var idx = +b.getAttribute('data-ft');
-                            if (pilih < 0 && +b.querySelector('[data-ft-n]').textContent > 0) pilih = idx;
+                            if (pilih < 0 && +b.querySelector('[data-ft-n]').textContent > 0) pilih = +b.getAttribute('data-ft');
                         });
                     }
                     if (pilih < 0) pilih = 0;
@@ -371,10 +408,8 @@
             if (kosongPapan) {
                 kosongPapan.hidden = totalPapan !== 0;
                 kosongPapan.textContent = jenis === 'support'
-                    ? 'Tidak ada Support Request aktif. Bug & insiden yang sudah selesai ada di parkiran bawah.'
-                    : (jenis === 'baru'
-                        ? 'Tidak ada tiket yang menunggu triase — antrean masukmu bersih.'
-                        : 'Tidak ada Feature / Modul Request aktif.');
+                    ? 'Tidak ada Support aktif. Bug & insiden yang sudah selesai ada di parkiran.'
+                    : 'Tidak ada Fitur / Modul aktif.';
             }
             if (simpanUrl && window.history.replaceState) {
                 var u = new URL(window.location.href);
@@ -384,12 +419,12 @@
             }
         }
 
-        // Parkiran: tiga status jadi tab, isinya ikut tab jenis permintaan.
+        // Parkiran: tiga status jadi chip, isinya ikut tab jenis permintaan.
+        var parkiran = document.getElementById('itkParkiran'), toggle = document.getElementById('itkParkirToggle');
         function terapParkir(jenis) {
-            var wrap = document.getElementById('itk-parkiran');
-            if (!wrap) return;
-            var total = 0, pertamaBerisi = null, aktifKini = wrap.querySelector('[data-pk].aktif');
-            wrap.querySelectorAll('.itk-parkir-panel').forEach(function (panel) {
+            if (!parkiran) return;
+            var total = 0, pertamaBerisi = null, aktifKini = parkiran.querySelector('[data-pk].aktif');
+            parkiran.querySelectorAll('.itk-parkir-panel').forEach(function (panel) {
                 var kode = panel.getAttribute('data-pkp'), n = 0;
                 panel.querySelectorAll('[data-parkir]').forEach(function (k) {
                     var tampil = cocok(k, jenis);
@@ -399,41 +434,39 @@
                 total += n;
                 var kosong = panel.querySelector('[data-pk-kosong]');
                 if (kosong) kosong.hidden = n !== 0;
-                var tombol = wrap.querySelector('[data-pk="' + kode + '"]');
+                var tombol = parkiran.querySelector('[data-pk="' + kode + '"]');
                 if (tombol) {
                     tombol.querySelector('[data-pk-n]').textContent = n;
                     tombol.classList.toggle('kosong', n === 0);
                 }
                 if (n > 0 && pertamaBerisi === null) pertamaBerisi = kode;
             });
-            // pertahankan tab yang sedang dibuka kalau masih ada isinya
             var pilih = pertamaBerisi || 'DITUNDA';
             if (aktifKini) {
                 var kodeAktif = aktifKini.getAttribute('data-pk');
-                if (+wrap.querySelector('[data-pk="' + kodeAktif + '"] [data-pk-n]').textContent > 0) pilih = kodeAktif;
+                if (+parkiran.querySelector('[data-pk="' + kodeAktif + '"] [data-pk-n]').textContent > 0) pilih = kodeAktif;
             }
             pilihParkir(pilih);
-            wrap.hidden = total === 0;
-            var chip = document.getElementById('itkChipParkir');
-            if (chip) {
-                chip.querySelector('[data-parkir-total]').textContent = total;
-                chip.hidden = total === 0;
+            var tot = document.querySelector('[data-parkir-total]');
+            if (tot) tot.textContent = total;
+        }
+        function pilihParkir(kode) {
+            parkiran.querySelectorAll('[data-pk]').forEach(function (b) { b.classList.toggle('aktif', b.getAttribute('data-pk') === kode); });
+            parkiran.querySelectorAll('.itk-parkir-panel').forEach(function (p) { p.hidden = p.getAttribute('data-pkp') !== kode; });
+        }
+        function bukaParkir(buka, simpanUrl) {
+            if (!parkiran) return;
+            parkiran.hidden = ! buka;
+            if (toggle) toggle.classList.toggle('buka', buka);
+            if (simpanUrl && window.history.replaceState) {
+                var u = new URL(window.location.href);
+                if (buka) u.searchParams.set('parkir', '1'); else u.searchParams.delete('parkir');
+                window.history.replaceState({}, '', u);
             }
         }
-
-        function pilihParkir(kode) {
-            var wrap = document.getElementById('itk-parkiran');
-            wrap.querySelectorAll('[data-pk]').forEach(function (b) { b.classList.toggle('aktif', b.getAttribute('data-pk') === kode); });
-            wrap.querySelectorAll('.itk-parkir-panel').forEach(function (p) { p.hidden = p.getAttribute('data-pkp') !== kode; });
-        }
-
         function pilihTahap(kol, idx) {
-            kol.querySelectorAll('[data-ft]').forEach(function (b) {
-                b.classList.toggle('aktif', +b.getAttribute('data-ft') === idx);
-            });
-            kol.querySelectorAll('.itk-fase-panel').forEach(function (p) {
-                p.hidden = +p.getAttribute('data-fp') !== idx;
-            });
+            kol.querySelectorAll('[data-ft]').forEach(function (b) { b.classList.toggle('aktif', +b.getAttribute('data-ft') === idx); });
+            kol.querySelectorAll('.itk-fase-panel').forEach(function (p) { p.hidden = +p.getAttribute('data-fp') !== idx; });
         }
 
         bar.querySelectorAll('.itk-tj').forEach(function (b) {
@@ -445,23 +478,20 @@
         document.querySelectorAll('[data-pk]').forEach(function (b) {
             b.onclick = function () { pilihParkir(b.getAttribute('data-pk')); };
         });
+        if (toggle) toggle.onclick = function () { bukaParkir(parkiran.hidden, true); };
 
-        var dariUrl = new URL(window.location.href).searchParams.get('jenis');
-        terap(['support', 'fitur', 'baru'].indexOf(dariUrl) >= 0 ? dariUrl : bar.getAttribute('data-jenis-awal'), false);
+        var url = new URL(window.location.href), dariUrl = url.searchParams.get('jenis');
+        terap(['support', 'fitur'].indexOf(dariUrl) >= 0 ? dariUrl : bar.getAttribute('data-jenis-awal'), false);
+        bukaParkir(url.searchParams.get('parkir') === '1' || window.location.hash === '#itk-parkiran', false);
     })();
     </script>
-
-    <div class="itk-legenda">Legenda badge: <strong>Fase 1</strong> = formulir masuk + triase + papan ini ·
-        <strong>Fase 2</strong> = tujuh fase + gerbang antar-fase · <strong>Fase 3</strong> = sambungan Project
-        Tracker + evaluasi terjadwal. Warna strip menunggu memanas hanya bila penunggunya
-        <strong>di luar IT</strong> (≥3 hari kuning, ≥7 merah).</div>
 </div>
 
 {{-- Modal triase (Head IT) — jenjang menentukan fase yang dilewati --}}
 @if ($peran === 'head_it')
 <div class="itk-modal-scrim" id="itkModalTriase" onclick="if (event.target === this) itkTutupTriase()">
     <div class="itk-modal">
-        <div class="itk-modal-hd"><b>TRIASE</b><span class="itk-badge-fase">FASE 1</span>
+        <div class="itk-modal-hd"><b>TRIASE — DIISI IT, BUKAN PEMOHON</b><span class="itk-badge-fase">FASE 1</span>
             <button type="button" onclick="itkTutupTriase()">✕</button></div>
         <div class="itk-modal-body">
             <div>
@@ -477,8 +507,8 @@
                     <label><input class="itk-radio" type="radio" name="jenjang" value="M"><span><b>Fitur</b> · 5 fase</span></label>
                     <label><input class="itk-radio" type="radio" name="jenjang" value="L"><span><b>Modul</b> · 7 fase</span></label>
                 </div>
-                <div class="itk-hint" style="margin:-8px 0 13px">Pilihan ini juga menentukan papannya: <strong>Support</strong> masuk papan Support Request;
-                    <strong>Fitur</strong> &amp; <strong>Modul</strong> masuk Feature / Modul Request.</div>
+                <div class="itk-hint" style="margin:-8px 0 13px">Pilihan ini juga menentukan tabnya: <strong>Support</strong> masuk tab Support;
+                    <strong>Fitur</strong> &amp; <strong>Modul</strong> masuk tab Fitur / Modul.</div>
                 @if ($picOpsi->count() > 1)
                     <div style="margin-bottom:13px">
                         <label class="itk-lbl">DIKERJAKAN SIAPA (PIC)</label>
@@ -508,12 +538,12 @@
                         </div>
                     </div>
                 </div>
-                <button type="submit" class="itk-btn itk-btn-grafit" style="width:100%">Simpan triase → Antre</button>
+                <button type="submit" class="itk-btn itk-btn-grafit" style="width:100%">Simpan &amp; masukkan antrean</button>
             </form>
             <div class="itk-sekat"></div>
             <form method="post" id="itkParkirForm">
                 @csrf
-                <label class="itk-lbl">ATAU TUNDA / TOLAK — ALASANNYA WAJIB</label>
+                <label class="itk-lbl">ATAU TUNDA / TOLAK — ALASANNYA WAJIB, SUPAYA YANG DITUNDA TIDAK HILANG TANPA JEJAK</label>
                 <input class="itk-in" type="text" name="alasan" required maxlength="500"
                        placeholder="mis. ditunda sampai komisi 70% selesai">
                 <div style="display:flex;gap:8px;margin-top:9px">

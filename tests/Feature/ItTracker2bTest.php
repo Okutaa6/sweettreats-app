@@ -304,7 +304,7 @@ class ItTracker2bTest extends TestCase
         // asal-usul bukan keputusan hari ini). Jejaknya dijaga di KEPALA DETAIL anak.
         $this->withSession($this->sesi('Head IT', 'uji-headit'))->get('/it-tracker')->assertStatus(200);
         $this->withSession($this->sesi('Head IT', 'uji-headit'))
-            ->get(route('it-tracker.show', $anak->id))->assertOk()->assertSee('Lahir dari ' . $t->nomor);
+            ->get(route('it-tracker.show', $anak->id))->assertOk()->assertSee('Lahir dari')->assertSee($t->nomor);
     }
 
     // ─── FRM-IT-07 ─────────────────────────────────────────────────────────

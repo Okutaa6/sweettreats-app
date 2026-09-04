@@ -336,7 +336,7 @@ class ItTrackerTest extends TestCase
         $this->withSession($this->sesi('Head IT'))
             ->get('/it-tracker/tiket/' . $t->id)
             ->assertStatus(200)
-            ->assertSee('FRM-IT-03 — DEVELOPMENT RECORD')
+            ->assertSee('Development Record')->assertSee('FRM-IT-03')
             ->assertSee('Benar, ini yang kukerjakan');
 
         $this->svc->konfirmasiDev($t->fresh(), 'kerjaan selesai, commit abc123', 'uji-headit');

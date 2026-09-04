@@ -71,6 +71,10 @@ class ItTrackerController extends Controller
         if ($jenjang = $request->query('jenjang')) {
             $aktif = $aktif->filter(fn ($t) => $t->jenjang === $jenjang);
         }
+        // r3: chip "RB Las" — unit usaha (kolom it_ticket.unit)
+        if ($unit = $request->query('unit')) {
+            $aktif = $aktif->filter(fn ($t) => $t->unit === $unit);
+        }
 
         // Sumbu papan = FASE, dikelompokkan Masuk/Rancang/Kerjakan/Rilis.
         $grupDef = [
@@ -81,6 +85,13 @@ class ItTrackerController extends Controller
         ];
 
         $semuaView = $views->values()->all();
+        // r3 panel beban: chip per tiket macet (menunggu di luar IT ≥3 hr) — klik = detail
+        $macetChips = [];
+        foreach ($views as $id => $vw) {
+            $w = PhaseEngine::waitOf($vw);
+            if ($w['heat'] >= 1) $macetChips[] = ['id' => $id, 'nomor' => $vw['id'], 'days' => $w['days'], 'heat' => $w['heat'], 'label' => $w['label']];
+        }
+        usort($macetChips, fn ($a, $b) => $b['days'] <=> $a['days']);
         // fase per nomor — untuk chip dep di kartu (dep yang sudah SELESAI tak ditampilkan)
         $this->faseNomor = ItTicket::pluck('fase', 'nomor')->all();
         $groups    = [];
@@ -110,7 +121,9 @@ class ItTrackerController extends Controller
             'peran'   => $this->peran(),
             'picOpsi' => $this->peran() === 'head_it' ? $this->picOpsi() : collect(),
             'filter'  => ['q' => $q, 'macet' => (bool) $request->query('macet'),
-                          'sumber' => $sumber, 'jenjang' => $jenjang],
+                          'sumber' => $sumber, 'jenjang' => $jenjang, 'unit' => $unit],
+            'macetChips' => $macetChips,
+            'totalAktif' => $views->count(),
         ]);
     }
 
@@ -1233,6 +1246,7 @@ class ItTrackerController extends Controller
             'parent' => $v['parent'],
             // revisi pasca-demo: nama PIC, unit usaha, dan "sudah sampai mana" di kartu
             'pic'    => $t->pic?->nama,
+            'dept'   => $t->pemohon?->group?->nama,
             'unit'   => $t->unit,
             'kemajuan' => $t->kemajuan ? ['txt' => $t->kemajuan, 'at' => $t->kemajuan_at] : null,
             // penanda pelewatan paraf BO (§14.16) — chip di kartu, tak boleh disembunyikan
