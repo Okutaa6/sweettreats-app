@@ -39,6 +39,24 @@
 > `2400896`, tak ada lagi cabang prod terpisah. Peringatan lama "jangan deploy
 > main ke prod" **sudah TIDAK berlaku** — sekarang justru `main` yang benar.
 >
+> ✅ **Sisipan 2026-09-05c — RUPA RONDE 3a: DETAIL & FORMULIR IKUT DESAIN**
+> (`ca8e148`, dev). Ekky menaruh mockup berdampingan dengan dev: *"bagian dalem
+> ini belum ada yang berubah… banyak yang ga sesuai"* — ronde sebelumnya hanya
+> mengambil bagian papan. Sekarang: **detail tiket jadi akordeon per fase**
+> (lampau = satu baris ringkasan, berjalan = terbuka, mendatang = "belum sampai
+> · nanti diisi Della") dengan **gerbang pindah ke DALAM kartu fase** —
+> sebelumnya ia terpisah jauh di rail kanan dari formulir yang menyalakannya ·
+> kepala tiket baru + rel bersimpul "Selesai" yang bisa diklik · bar ❝ SUDAH
+> SAMPAI MANA di paling atas · **formulir permintaan**: tombol kirim mati
+> sambil menyebut apa yang kurang, rail "Permintaan saya" · **papan**: band tab
+> hitam, filter Macet/Permintaan/Inisiatif/**RB Las**, parkiran lipat di atas
+> papan dengan tombol "Buka lagi → Antre", kepala kolom berangka besar, kartu
+> bernomor pendek `#027` + chip pemohon·departemen, chip per tiket macet.
+> **Tiga koreksi keputusan**: tab ketiga "Belum ditriase" DIBATALKAN (tiket tanpa
+> jenjang tampil di kedua tab lagi — hitungan gandanya diterangkan, bukan
+> disembunyikan) · band tab jadi hitam persis mockup · tombol maju jadi hijau
+> supaya beda dari Triase. 106 uji hijau. ⚠️ Kelas `itk-lewat-banner` sengaja
+> dipertahankan di penanda pelewatan paraf yang baru — itu kontrak uji §14.16.
 > ✅ **Sisipan 2026-09-05b — RONDE DESAIN 3 DIADOPSI** (`fed5cac`, dev): kartu
 > papan dipadatkan (badge jenjang, chip fase, "N fitur", "↳ dari", badge unit
 > TURUN ke detail; "Masih perlu" hanya bila penunggunya bukan IT) · **tab ketiga

@@ -6,6 +6,72 @@
 > file ini append-only.
 
 ---
+## 2026-09-05c — IT TRACKER: RUPA RONDE 3a — papan, detail, dan formulir disamakan dengan mockup
+
+Ekky melihat mockup r3 berdampingan dengan dev dan menemukan yang belum
+kuadopsi: **"bagian dalem ini belum ada yang berubah… banyak yang ga sesuai."**
+Ronde sebelumnya hanya mengambil bagian PAPAN; halaman detail dan formulir
+masih rupa lama. Instruksinya tegas: *"biarin deh ikutin desain aja jadi hitam
+dan layout kayak gini, baru kita improve dari sana, untuk sekarang samain aja
+dulu."* Live di dev (`ca8e148`), 106 uji hijau.
+
+### Tiga koreksi keputusan
+1. **Tab ketiga "Belum ditriase" DIBATALKAN.** Kembali dua tab, dan tiket
+   tanpa jenjang **tampil di keduanya lagi** — alasannya kuat: ia belum punya
+   jenjang, jadi belum bisa dipilihkan ke salah satu. Hitungan gandanya tidak
+   disembunyikan: badge tiap tab menghitungnya, dan catatan di kanan band
+   menyebutkan *"Belum ditriase (7) belum punya jenjang — tampil di kedua tab,
+   ikut dihitung di keduanya."* Kejujuran angka dipindah dari *memisah* ke
+   *menerangkan*.
+2. **Band tab jadi hitam persis mockup** (segmen putih di atas grafit, dengan
+   sub-judul "jenjang M · L — lewat 5 atau 7 fase").
+3. **Tombol maju di kartu jadi HIJAU** supaya beda dari tombol Triase yang
+   grafit — dua aksi berbeda tak boleh berwarna sama.
+
+### Papan
+Filter sekunder lengkap: pencarian + chip **Macet · Permintaan · Inisiatif IT
+· RB Las** (filter `unit` baru di controller) + bar hitam "Filter menyala:
+… — N dari M tiket aktif tampil" dengan tombol Matikan semua. **Parkiran
+pindah ke ATAS papan** sebagai panel lipat lewat tombol "Parkiran · N";
+tombol **"Buka lagi → Antre"** ada langsung di kartu yang ditunda, tak perlu
+masuk detail. Kepala kolom jadi grafit berangka besar + sub-judul fase
+("Requirement · triase & antre"). Kartu memakai **nomor pendek `#027`**,
+chip **pemohon · departemen**, dan tag amber BELUM DITRIASE. Panel beban
+mengganti satu tombol "lihat yang macet" dengan **satu chip per tiket macet**
+(nomor + umur) — Executive langsung tahu YANG MANA, bukan cuma berapa.
+
+### Detail — ini yang paling berubah
+Tujuh panel bertumpuk diganti **akordeon per fase**: fase lampau menyusut jadi
+**satu baris ringkasan** ("4 FR · Aplikasi, Database · diparaf Robi 22 Agu"),
+fase berjalan terbuka penuh, fase mendatang jadi baris putus-putus **"belum
+sampai · nanti diisi Della"**. **Gerbang pindah ke DALAM kartu fase berjalan**
+(lampu per syarat + tombol yang bilang kenapa) — sebelumnya ia jauh di rail
+kanan, terpisah dari formulir yang menyalakannya. Kepala tiket baru: avatar,
+pemohon · departemen, jenjang · bobot, unit, penanda TANPA PARAF BO, "Lahir
+dari", daftar fitur anak, kotak menunggu. Rel fase dapat simpul **"Selesai"**
+dan tiap simpulnya bisa diklik untuk melompat ke fasenya. Bar **❝ SUDAH
+SAMPAI MANA** naik ke paling atas kolom kiri dengan badge BASI. Di FRM-IT-02,
+**bahan rancangan naik ke atas tabel FR**.
+
+### Formulir permintaan
+Judul dan urutan field mengikuti mockup, dan **tombol kirim MATI sambil
+menyebut apa yang kurang** — "Pilih jenis permintaannya dulu", "Ceritakan
+masalahnya dulu" (pola P3, sekarang benar-benar dipakai di intake). Lampiran
+jadi drop-zone. Rail kanan "PERMINTAAN SAYA" dengan status, bar kemajuan,
+posisi antrean, dan banner bola-di-tanganmu. **Field "KERJAAN INI UNTUK"
+(unit usaha) DIPERTAHANKAN** — mockup tak punya, tapi tanpa itu tiket RB Las
+tak bisa ditandai sejak lahir.
+
+### Yang perlu diingat
+- Kelas CSS `itk-lewat-banner` **sengaja dipertahankan** di penanda pelewatan
+  paraf yang baru, walau rupanya kini dari `.itk-pintas` — kelas itu kontrak
+  uji §14.16; kalau hilang, penandanya bisa lenyap tanpa satu uji pun merah.
+- Partial FRM (`_analisis/_uji/_uat/_golive/_evaluasi`) dipakai **apa adanya**
+  di dalam akordeon; kulit panelnya dilepas lewat CSS (`.itk-acc-body >
+  .itk-panel`), isinya utuh — tak ada logika formulir yang disalin ulang.
+- Empat asersi uji menyesuaikan rupa baru (judul panel FRM-IT-03 jadi judul
+  akordeon + badge; "Lahir dari" kini teks + tautan nomor; dua tab jenis).
+---
 ## 2026-09-05b — IT TRACKER: ronde desain 3 DIADOPSI — kartu dua-detik, tab ketiga, tiga tingkat tab berbeda rupa
 
 Paket `design_handoff_it_tracker p2 r3` datang dan dinilai bersama Ekky. Bukan
