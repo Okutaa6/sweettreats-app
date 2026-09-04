@@ -39,6 +39,17 @@
 > `2400896`, tak ada lagi cabang prod terpisah. Peringatan lama "jangan deploy
 > main ke prod" **sudah TIDAK berlaku** — sekarang justru `main` yang benar.
 >
+> ✅ **Sisipan 2026-09-05 — IT TRACKER: 5 REVISI PASCA-DEMO + BRIEF RONDE 3**
+> (`e288ad9`, dev): unit usaha **RB Las** (satu papan, aksen oranye) · catatan
+> kemajuan **"sudah sampai mana"** (semua fase termasuk Go Live; basi >7 hari
+> berubah kuning) · badge nama PIC di kartu · unggah bahan rancangan di
+> FRM-IT-02 · badge jenjang jadi kata. SQL `2026_09_05_…`, 106 uji hijau.
+> ⚠️ Dikoding lebih dulu tanpa ronde desain (disetujui Ekky sebagai draf
+> kerja); tiga hal yang menambah bahasa visual baru diserahkan ke
+> `design-brief-it-tracker-ronde3.md` — **ronde koreksi, bukan penambahan**
+> (kartu 15 elemen · warna dua perusahaan · tiga tingkat tab · komponen
+> catatan kemajuan). ⚠️ Dev kini 31 tiket: 1 di antaranya tiket ASLI dari demo.
+
 > ✅ **Sisipan 2026-09-04e — PAPAN IT TRACKER BERTAB** (`66cf83b`, dev): dua tab
 > jenis permintaan — **Support Request** (S, 2 fase) vs **Feature / Modul
 > Request** (M/L, 5–7 fase), menggantikan chip filter S/M/L; tahap di dalam

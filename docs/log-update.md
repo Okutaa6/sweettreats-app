@@ -6,6 +6,64 @@
 > file ini append-only.
 
 ---
+## 2026-09-05 — IT TRACKER: lima revisi pasca-demo + brief desain RONDE 3
+
+Demo 5 Sep jalan, dan Ekky pulang dengan daftar. Kelimanya dibangun langsung
+dalam satu gerbong (`e288ad9`, live di dev) — lalu Ekky bertanya *"wait, di
+desain dulu kan?"*, dan jawabannya jujur: tidak, sudah terlanjur dikerjakan.
+Keputusannya: **biarkan di dev sebagai draf kerja**, dan tiga hal yang memang
+menambah bahasa visual baru diserahkan ke ronde desain 3.
+
+### Yang dibangun
+1. **Kategori unit usaha** (`it_ticket.unit`): kerjaan ini untuk **Sweet Treats
+   atau RB Las**, ditanyakan di formulir permintaan dan catat inisiatif. **Satu
+   papan** untuk keduanya (kata Ekky: *"task RB digabung, warnanya dibedain"*):
+   kartu RB Las bergaris kiri oranye + badge `RB LAS`. Sweet Treats **tidak**
+   diberi badge — menandai semuanya sama saja tak menandai apa pun.
+2. **Catatan kemajuan "sudah sampai mana"** (`kemajuan`, `kemajuan_at`,
+   `kemajuan_oleh`): ditulis Head IT atau PIC **di fase mana pun**, termasuk Go
+   Live — itulah jawaban untuk permintaan *"di Go Live diberi catatan"*. Tampil
+   di kartu papan dan paling atas di detail. Siapa & kapan ikut disimpan, dan
+   catatan yang lewat **7 hari** berubah kuning sambil menyebut umurnya:
+   catatan kemajuan tanpa tanggal berbohong pelan-pelan — kelihatan terurus
+   padahal tiga minggu basi. Kosong = catatan dihapus, bukan disimpan sebagai
+   string kosong. Tiket ditunda/ditolak menolak catatan (buka lagi dulu).
+3. **Badge nama PIC di kartu** — sebelumnya PIC cuma terlihat sesudah membuka
+   tiket.
+4. **Unggah bahan rancangan di FRM-IT-02** (mockup · alur proses · contoh
+   keluaran) lewat `RopAttachment` yang sudah ada, folder
+   `uploads/it-tracker/frm02`. Terpisah dari lampiran FRM-IT-01 (bukti masalah
+   dari pemohon) dan **sengaja tidak menggugurkan paraf BO** — ia bahan bantu,
+   bukan isi yang disetujui. Izinnya izin analisis: Head IT selagi fase ANALISIS.
+5. (Sebelumnya, hari yang sama) papan & parkiran **bertab**, badge jenjang
+   jadi **kata**.
+
+SQL `2026_09_05_it_tracker_unit_kemajuan.sql` (idempoten). Uji: kelas baru
+`ItTrackerRevisiDemoTest` 6/6 → **106 uji**.
+
+### Yang perlu diketahui tentang dev
+Dev kini **31 tiket**, bukan 30: yang ke-31 (*"customer survey"*, Admin_Nisa,
+4 Sep 10:33) **tiket asli yang lahir saat demo**. Seeder tak menyentuhnya —
+ia hanya mengurus tiket ber-`seed_urut`. ⚠️ Kelas uji seeder **ter-skip di dev**
+karena dirancang menolak jalan di DB yang sudah berisi seed; itu bukan
+kegagalan, dan di lokal ia tetap hijau.
+
+### Brief ronde 3 dikirim ke chat desain
+`docs/brief-desain/design-brief-it-tracker-ronde3.md`. Isinya berbeda watak
+dari dua ronde sebelumnya: **ronde koreksi, bukan penambahan.** Empat masalah
+yang diserahkan:
+- **Kartu papan kelebihan muatan** — satu kartu kini bisa membawa **15 elemen**,
+  semuanya lahir dari kebutuhan nyata satu per satu dan tak pernah dinilai
+  bersama-sama.
+- **Dua perusahaan dalam satu papan** — oranye masuk ke ruang warna yang sudah
+  penuh (panas menunggu, prioritas, status parkir, penanda tanpa paraf BO).
+- **Tiga sistem tab di satu layar** (jenis · tahap · status parkiran).
+- **Komponen "sudah sampai mana"** — satu-satunya elemen tanpa rujukan di r1/r2.
+
+Brief itu juga memuat **angka nyata** untuk menguji rancangan (26 kartu aktif,
+tunggu terlama 59 hari, 3 macet di luar IT) — supaya ronde 3 dinilai pada
+papan yang penuh, bukan pada lima kartu contoh.
+
 ## 2026-09-04e — IT TRACKER: papan bertab — Support Request vs Feature/Modul Request, tahap jadi tab (dev)
 
 Ekky melihat papan yang sudah terisi 30 tiket dan menemukan dua hal yang
