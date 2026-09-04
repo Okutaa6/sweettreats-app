@@ -207,6 +207,32 @@ class ItTrackerSeedAntrianTest extends TestCase
         $this->assertStringContainsString('PEMOHON SEMENTARA', ItForm::where('ticket_id', $this->urut(29)->id)->where('kode', 'FRM-IT-01')->value('payload')['latar']);
     }
 
+    /**
+     * Papan bertab jenis permintaan (keputusan Ekky 4 Sep): S → Support Request,
+     * M/L → Feature / Modul Request, belum ditriase → tampil di KEDUA tab.
+     * Tab bekerja di sisi klien, jadi yang dijaga di sini penandanya: hilang penanda
+     * = semua kartu jatuh ke tab yang salah tanpa suara.
+     */
+    public function test_papan_bertab_jenis_permintaan(): void
+    {
+        $this->jalankan();
+        $html = $this->withSession($this->sesi('Head IT', 'uji-headit-seed'))
+            ->get(route('it-tracker.index'))->assertOk()
+            ->assertSee('Support Request')->assertSee('Feature / Modul Request')
+            ->assertSee('belum ditriase')->getContent();
+
+        // kartu membawa jenisnya; jumlah penanda = jumlah kartu aktif (26 aktif + 4 ditunda tak di papan)
+        $this->assertSame(26, substr_count($html, 'data-kartu data-jenis='));
+        $this->assertSame(6, substr_count($html, 'data-kartu data-jenis="support"'), 'enam tiket S (insiden)');
+        $this->assertSame(13, substr_count($html, 'data-kartu data-jenis="fitur"'), 'tiga belas tiket M/L');
+        $this->assertSame(7, substr_count($html, 'data-kartu data-jenis="baru"'), 'tujuh belum ditriase');
+
+        // tahap di dalam kolom = tab (Development · Uji Internal · UAT · Go Live · Evaluasi)
+        $this->assertGreaterThanOrEqual(5, substr_count($html, 'data-ft='));
+        $this->assertStringContainsString('data-fasetab', $html);
+        $this->assertStringNotContainsString('>S</a>', $html, 'chip filter S/M/L lama sudah dicabut');
+    }
+
     /** Jalan ulang MEMPERBARUI judul/latar tapi TIDAK memundurkan tiket yang sudah bergerak di layar. */
     public function test_jalan_ulang_tak_memundurkan_fase(): void
     {

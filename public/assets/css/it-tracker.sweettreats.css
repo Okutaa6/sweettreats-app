@@ -490,3 +490,34 @@ body.zona-it .itk-kolom { background:#ECEAE4; border-color:#DDD9CF; }
 .itk-btn-oranye{background:#D9772B;color:#fff;border-color:#D9772B}
 .itk-btn-oranye:hover{background:#B5601F}
 .itk-doc-lewat{display:inline-block;margin-top:4px;font-weight:700;color:#8E3B2C;border:1px dashed #C0392B;border-radius:5px;padding:3px 8px}
+
+/* ── Papan: tab JENIS PERMINTAAN (S = Support · M/L = Fitur & Modul) ────────── */
+.itk-tabjenis { display:flex; align-items:stretch; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
+.itk-tj { display:flex; flex-direction:column; gap:1px; text-align:left; font-family:inherit; cursor:pointer;
+  background:var(--itk-card); border:1px solid var(--itk-line); border-radius:14px; padding:9px 14px 8px; position:relative; }
+.itk-tj b { font-size:13px; font-weight:800; color:var(--itk-ink); }
+.itk-tj span { font-size:11px; font-weight:600; color:#9A7256; }
+.itk-tj i { position:absolute; top:9px; right:12px; font-style:normal; font-size:11px; font-weight:800;
+  color:#A08A76; background:var(--itk-chip); border-radius:7px; padding:2px 8px; }
+.itk-tj { padding-right:58px; }
+.itk-tj:hover { border-color:var(--itk-grafit-2); }
+.itk-tj.aktif { background:var(--itk-grafit); border-color:var(--itk-grafit); }
+.itk-tj.aktif b { color:var(--itk-grafit-ink); }
+.itk-tj.aktif span { color:#B9B3A7; }
+.itk-tj.aktif i { background:rgba(255,255,255,.14); color:#F0C987; }
+.itk-tj-note { align-self:center; font-size:11px; font-weight:700; color:#9A7256; padding-left:4px; }
+.itk-tj-note i { margin-right:4px; color:#B08A5A; }
+
+/* ── Papan: tab TAHAP di dalam kolom (Development | Uji Internal, dst) ──────── */
+.itk-fasetab { display:flex; gap:4px; margin:6px 0 8px; flex-wrap:wrap; }
+.itk-ft { flex:1 1 auto; display:flex; align-items:center; justify-content:center; gap:5px; cursor:pointer;
+  font-family:inherit; font-size:10.5px; font-weight:800; letter-spacing:.4px; color:#7A5B43;
+  background:transparent; border:1px solid transparent; border-radius:9px; padding:5px 8px; white-space:nowrap; }
+.itk-ft:hover { background:rgba(255,255,255,.55); }
+.itk-ft .n { font-size:10px; font-weight:800; color:#A08A76; background:rgba(255,255,255,.7); border-radius:6px; padding:1px 6px; }
+.itk-ft.aktif { background:var(--itk-card); border-color:var(--itk-line); color:#5A3A22; box-shadow:0 1px 2px rgba(70,21,0,.05); }
+.itk-ft.aktif .n { color:var(--itk-grafit-ink); background:var(--itk-grafit-2); }
+.itk-ft.kosong { color:#B5A493; }
+.itk-fase-kosong { font-size:11.5px; font-weight:600; color:#A08A76; padding:10px 6px 4px; }
+.itk-tab-kosong { background:#fff; border:1px solid #EFE0CE; border-radius:18px; padding:34px;
+  text-align:center; font-size:13.5px; font-weight:700; color:#9A7256; margin-bottom:14px; }
