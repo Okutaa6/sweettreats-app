@@ -76,6 +76,59 @@ Dengan ambang 0, angka Agustus **sama persis** seperti sebelum deploy (DODO 1.14
 biasa 33.783). Menaikkannya ke 420 = keputusan Finance, lewat layar Lembar Gaji,
 tanpa deploy.
 
+### ✅ PAGAR RECONCILE LAMPAU NAIK PROD — `2087022`
+
+Permintaan Ekky, dan sengaja **bukan** dry-run lebih dulu: *"Dry-run menolong
+orang yang sudah curiga; yang membuat kejadian ini adalah orang yang tidak
+curiga."*
+
+`att:reconcile` kini **MENOLAK** tanggal lebih tua dari `BATAS_HARI` (14)
+kecuali `--force`, dan saat menolak ia **mencetak siapa saja** yang
+penempatannya bergeser di rentang itu (`App\Services\PenempatanBergeser`).
+Penjadwal harian (kemarin+hari ini) tak tersentuh — diuji di prod, jalan normal.
+
+**Detektornya diadu dengan pengukuran Ekky sendiri, dan sempat SALAH.**
+Versi pertama menyalin penyaring `CabangBertugas` apa adanya (`kind = 'rolling'`)
+→ menemukan **3 orang**, sementara Ekky mengukur **6**. Yang terlewat — Alpajri,
+Cici, Rivanti — semuanya `kind = 'home'`. Cabang bertugas jatuh kembali ke cabang
+ASAL kalau tak ada rolling, dan baris `home` itulah jejak kapan cabang asal
+berubah; jadi penempatan Bintaro milik Alpajri, **yang melahirkan seluruh temuan
+ini**, justru yang tersaring keluar. Penyaring dibuang. Sesudahnya: **6 orang,
+9 baris — cocok persis dengan hitungan Ekky.**
+
+Pelajarannya: *detektor yang melapor KURANG jauh lebih berbahaya daripada yang
+melapor berlebih* — dan menyalin penyaring dari kelas tetangga adalah cara
+mudah untuk melaporkan kurang.
+
+Keenam nama (jangan reconcile tanggal lampau mereka sampai ada pagar — kini ada):
+Alpajri · Cici Nurjanah · Della Raqisiah · Ramdan · Rivanti Nadiana · Verini.
+
+### ✅ Alpajri 25 Agu dipulihkan — lewat layar, alasan dari Ekky
+
+`alpa → libur`, lewat POST `/absensi/koreksi` sesi Admin_Ekky, jejaknya sejajar
+dengan Melani & Putri. **Alpa Agustus kini 0.** Buku besar koreksi: 3 baris.
+
+### 🔒 Akun bersama dicabut dari gerbang Lembar Gaji
+
+`Admin` & `Admin Backup` dibuang dari `LembarGajiController::BOLEH`. Alasan Ekky:
+bukan lebar gerbangnya yang mengganggu, melainkan bahwa ambang DODO menentukan
+uang — disetel dari akun bersama, `audit_log` mencatat nama yang tak menunjuk
+siapa pun, dan jejak yang tak bisa menunjuk orang bukan jejak. Sisanya dibiarkan.
+Diverifikasi di prod: Finance/Admin General/Head IT **200**, Admin & Admin Backup
+**403**.
+
+### 📌 Ralat lanjutan
+
+- **Layar ambang DODO memang ADA** — Ekky sudah memverifikasinya live. Pencarian
+  string `dodo_ambang_menit` memang cuma menemukan `LemburDodo.php` sebab
+  pemakainya lewat konstanta.
+- **ABG hari ini 15, bukan 16** (ralat Ekky, diterima): aturan Fleksibel Kantor
+  Dodi baru berlaku **8 September**, jadi FK = 7 hari ini dan 8 hari Senin.
+  Tanggalnya memang benar — Dodi nol scan, nol att_day, mulai Senin.
+- Struktur pengelompokan tetap seperti dilaporkan: lewat `att_work_rule.tipe`,
+  bukan cabang NULL. Keduanya kebetulan berimpit sekarang.
+
+**Uji: 80 hijau, 220 assertion** (8 kelas lama + `PagarReconcileLampauTest` 6).
 ### ✅ §C SELESAI — dan sebuah landasan berbahaya ikut tersingkap
 
 Alasan diberikan Ekky sendiri (Maulid; Sunter tetap buka dengan awak minimum —
