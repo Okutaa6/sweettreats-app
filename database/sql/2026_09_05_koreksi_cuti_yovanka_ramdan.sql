@@ -40,6 +40,15 @@
 -- Jadi tiap koreksi masuk sebagai baris BARU yang menyebut nomor baris yang
 -- dibatalkannya.
 --
+-- ⚠️ KONVENSI `ref_id` YANG MENGIKAT — jangan diubah sendirian.
+-- Tiap pembalik memakai `sumber` = 'manual' dan `ref_id` = 'batal-<id asli>'.
+-- Bentuk itu BUKAN sekadar rapi: `att:periksa-kejanggalan` membacanya untuk
+-- mengenali potongan yang SUDAH dibereskan. Buku besar tak pernah menghapus
+-- baris, jadi tanpa penanda ini pemeriksa harian akan melaporkan Yovanka &
+-- Ramdan SETIAP HARI selamanya — dan pemeriksa yang mengulang temuan mati
+-- akan berhenti dibaca orang.
+-- Sumber kebenarannya: App\Console\Commands\AttPeriksaKejanggalan::PREFIX_BATAL.
+--
 -- ⚠️ RAMDAN: SALDONYA TETAP 11 SESUDAH INI, dan itu BENAR.
 -- Yang salah bukan angkanya, melainkan catatannya: 5 baris untuk 1 hari cuti.
 -- Kalau sesudah menjalankan ini saldo Ramdan BERUBAH, ada yang keliru —

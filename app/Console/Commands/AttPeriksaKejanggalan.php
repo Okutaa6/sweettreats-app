@@ -65,6 +65,38 @@ class AttPeriksaKejanggalan extends Command
     /** Nama akun sistem yang dilewati cek 3 — dicetak bersama bagiannya. */
     private array $dikecualikan = [];
 
+    /**
+     * Awalan `ref_id` sebuah mutasi PEMBALIK: `batal-<id asli>`, `sumber` =
+     * 'manual'. Dipakai skrip koreksi buku besar
+     * (database/sql/2026_09_05_koreksi_cuti_yovanka_ramdan.sql).
+     *
+     * ⚠️ KENAPA PEMERIKSA HARUS TAHU SOAL INI. `att_cuti_mutasi` itu buku
+     * besar: membetulkan potongan yang salah TIDAK menghapus barisnya,
+     * melainkan menambah pembalik. Artinya baris salahnya tetap ada selamanya
+     * — dan tanpa pengecualian ini pemeriksa akan melaporkan Yovanka & Ramdan
+     * SETIAP HARI, untuk kesalahan yang sudah dibereskan berbulan-bulan lalu.
+     *
+     * Pemeriksa yang mengulang temuan yang sudah ditutup akan berhenti dibaca,
+     * dan yang berhenti dibaca sama saja dengan tak ada. Sama persis dengan
+     * alasan akun sistem dikecualikan.
+     */
+    public const PREFIX_BATAL = 'batal-';
+
+    /**
+     * id mutasi yang sudah punya pembalik ber-keterangan — sudah dibereskan,
+     * bukan temuan. Dimuat sekali, dipakai kedua pemeriksaan potongan.
+     */
+    private function sudahDibatalkan(): array
+    {
+        return DB::table('att_cuti_mutasi')
+            ->where('sumber', 'manual')
+            ->where('ref_id', 'like', self::PREFIX_BATAL . '%')
+            ->pluck('ref_id')
+            ->map(fn ($r) => (int) substr((string) $r, strlen(self::PREFIX_BATAL)))
+            ->filter()
+            ->all();
+    }
+
     public function handle(): int
     {
         $hari = max(1, (int) $this->option('hari'));
@@ -126,6 +158,7 @@ class AttPeriksaKejanggalan extends Command
         $rows = DB::table('att_cuti_mutasi as m')
             ->join('users as u', DB::raw('u.id COLLATE utf8mb4_unicode_ci'), '=', DB::raw('m.user_id COLLATE utf8mb4_unicode_ci'))
             ->where('m.hari', '>', 0)
+            ->whereNotIn('m.id', $this->sudahDibatalkan())
             ->whereBetween('m.tanggal', [$from->toDateString(), $to->toDateString()])
             ->orderBy('m.tanggal')
             ->get(['m.id', 'm.user_id', 'm.tanggal', 'm.hari', 'm.jenis', 'm.keterangan', 'u.nama']);
@@ -165,6 +198,7 @@ class AttPeriksaKejanggalan extends Command
         $rows = DB::table('att_cuti_mutasi as m')
             ->join('users as u', DB::raw('u.id COLLATE utf8mb4_unicode_ci'), '=', DB::raw('m.user_id COLLATE utf8mb4_unicode_ci'))
             ->where('m.hari', '>', 0)
+            ->whereNotIn('m.id', $this->sudahDibatalkan())
             ->whereBetween('m.tanggal', [$from->toDateString(), $to->toDateString()])
             ->groupBy('m.user_id', 'm.tanggal', 'u.nama')
             ->havingRaw('COUNT(*) > 1')

@@ -88,6 +88,46 @@ class PeriksaKejanggalanTest extends TestCase
             'Stempel wajib diperbarui tiap sapuan selesai.');
     }
 
+    public function test_potongan_yang_sudah_dibalik_berhenti_dilaporkan(): void
+    {
+        // ⚠️ Ini yang membuat pemeriksa tetap dibaca orang.
+        //
+        // att_cuti_mutasi itu BUKU BESAR: membetulkan potongan yang salah tidak
+        // menghapus barisnya, melainkan menambah pembalik. Baris salahnya tetap
+        // ada SELAMANYA. Tanpa pengecualian ini, Yovanka & Ramdan dilaporkan
+        // setiap hari untuk kesalahan yang sudah dibereskan berbulan-bulan lalu —
+        // dan pemeriksa yang mengulang temuan mati akan berhenti dibaca.
+        $p = DB::table('att_cuti_periode')->where('berjalan', 1)->first(['id', 'user_id']);
+        if (! $p) $this->markTestSkipped('Tak ada periode cuti berjalan.');
+
+        $tanggal = now()->subDays(3)->toDateString();
+
+        // dua potongan untuk orang+tanggal yang sama = kembar
+        $id1 = DB::table('att_cuti_mutasi')->insertGetId([
+            'periode_id' => $p->id, 'user_id' => $p->user_id, 'tanggal' => $tanggal,
+            'hari' => 1.0, 'jenis' => 'cuti', 'sumber' => 'manual',
+            'ref_id' => 'uji-a', 'keterangan' => 'uji kembar A', 'created_at' => now(),
+        ]);
+        DB::table('att_cuti_mutasi')->insert([
+            'periode_id' => $p->id, 'user_id' => $p->user_id, 'tanggal' => $tanggal,
+            'hari' => 1.0, 'jenis' => 'cuti', 'sumber' => 'manual',
+            'ref_id' => 'uji-b', 'keterangan' => 'uji kembar B', 'created_at' => now(),
+        ]);
+
+        $this->assertStringContainsString('2 potongan', $this->jalankan(),
+            'Prasyarat: kembar yang belum dibalik memang harus terlihat.');
+
+        // balik salah satunya, dengan konvensi yang dipakai skrip koreksi
+        DB::table('att_cuti_mutasi')->insert([
+            'periode_id' => $p->id, 'user_id' => $p->user_id, 'tanggal' => $tanggal,
+            'hari' => -1.0, 'jenis' => 'ganti_hari', 'sumber' => 'manual',
+            'ref_id' => AttPeriksaKejanggalan::PREFIX_BATAL . $id1,
+            'keterangan' => 'Batalkan mutasi #' . $id1 . ' — uji', 'created_at' => now(),
+        ]);
+
+        $this->assertStringNotContainsString('2 potongan', $this->jalankan(),
+            'Sesudah dibalik, kembar itu sudah dibereskan — tak boleh dilaporkan lagi.');
+    }
     public function test_akun_sistem_tak_dihitung_sebagai_temuan(): void
     {
         $out = $this->jalankan();
