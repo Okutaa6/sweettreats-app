@@ -90,7 +90,11 @@ class PagarReconcileLampauTest extends TestCase
 
         $orang = DB::table('users')->where('status', 1)->first(['id', 'nama']);
         $cab   = DB::table('raw_branch')->first(['id']);
-        if (! $orang || ! $cab) $this->markTestSkipped('Data dasar tak cukup.');
+        // division_id WAJIB (tanpa default). Disalin dari baris yang sudah ada
+        // supaya ujinya memakai bentuk data yang nyata, bukan nilai karangan
+        // yang kebetulan lolos.
+        $contoh = DB::table('sys_user_position')->first();
+        if (! $orang || ! $cab || ! $contoh) $this->markTestSkipped('Data dasar tak cukup.');
 
         $dari   = Carbon::today()->subDays(60)->toDateString();
         $sampai = Carbon::today()->subDays(30)->toDateString();
@@ -99,6 +103,7 @@ class PagarReconcileLampauTest extends TestCase
             'id'             => (string) \Illuminate\Support\Str::uuid(),
             'user_id'        => $orang->id,
             'raw_branch_id'  => $cab->id,
+            'division_id'    => $contoh->division_id,
             'kind'           => 'rolling',
             'is_primary'     => 1,
             'confirmed_at'   => now(),
