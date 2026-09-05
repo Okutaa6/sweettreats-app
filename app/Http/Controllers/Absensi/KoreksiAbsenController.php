@@ -73,6 +73,14 @@ class KoreksiAbsenController extends Controller
     {
         $this->guard();
 
+        // ⚠️ SEBELUM validate(), bukan sesudah. `validate()` melempar, jadi aturan
+        // `in:` akan menang duluan dan yang sampai ke pengguna cuma "The selected
+        // status is invalid" — persis pesan hampa yang pagar ini ada untuk
+        // menghindarinya. Urutan inilah yang membuat penolakannya menerangkan.
+        if ($larangan = KoreksiAbsen::alasanTerlarang((string) $request->input('status'))) {
+            return back()->withInput()->with('error', $larangan);
+        }
+
         $data = $request->validate([
             'user_id'   => 'required|exists:users,id',
             'work_date' => 'required|date',
@@ -84,13 +92,6 @@ class KoreksiAbsenController extends Controller
             // yang tersisa dari keputusan ini cuma kalimat ini.
             'alasan'    => 'required|string|min:8|max:500',
         ]);
-
-        // Validasi di atas menolak 'cuti' dengan pesan generik Laravel yang tak
-        // menerangkan apa pun. Ditangkap lebih awal supaya penolakannya menyebut
-        // ALASAN dan JALAN KELUARNYA — pesan 'tombol mati bilang kenapa'.
-        if ($larangan = KoreksiAbsen::alasanTerlarang((string) $request->input('status'))) {
-            return back()->withInput()->with('error', $larangan);
-        }
 
         $tanggal = Carbon::parse($data['work_date'])->toDateString();
         $namaOrang = DB::table('users')->where('id', $data['user_id'])->value('nama');
