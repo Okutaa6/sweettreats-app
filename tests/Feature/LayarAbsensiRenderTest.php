@@ -39,9 +39,10 @@ class LayarAbsensiRenderTest extends TestCase
         $this->finance = $u;
     }
 
-    private function buka(string $url)
+    /** Sesi Finance sungguhan — group_id-nya yang menentukan akses menu. */
+    private function sesi(): array
     {
-        return $this->withSession([
+        return [
             'isLoggedIn' => true,
             'id'         => $this->finance->id,
             'group_id'   => $this->finance->group_id,
@@ -52,7 +53,17 @@ class LayarAbsensiRenderTest extends TestCase
             'expires_in' => time() + 3600,
             'login_at'   => time(),
             'pa_touch'   => time(),
-        ])->get($url);
+        ];
+    }
+
+    private function buka(string $url)
+    {
+        return $this->withSession($this->sesi())->get($url);
+    }
+
+    private function kirim(string $url, array $data)
+    {
+        return $this->withSession($this->sesi())->post($url, $data);
     }
 
     public function test_layar_koreksi_absen_render_dengan_formulirnya(): void
@@ -89,6 +100,31 @@ class LayarAbsensiRenderTest extends TestCase
         $this->assertStringContainsString('Ambang DODO', $html);
         $this->assertStringContainsString('name="ambang_menit"', $html);
         $this->assertStringContainsString('DODO', $html);
+    }
+
+    public function test_layar_koreksi_menjelaskan_kenapa_cuti_tak_ada(): void
+    {
+        // Pilihan yang hilang tanpa keterangan terbaca sebagai layar rusak.
+        $html = $this->buka('/absensi/koreksi')->getContent();
+
+        $this->assertStringContainsString('sengaja tidak ada', $html);
+        $this->assertStringNotContainsString('<option value="cuti"', $html,
+            'Dropdown status tak boleh menawarkan cuti.');
+    }
+
+    public function test_post_cuti_langsung_ke_server_tetap_ditolak(): void
+    {
+        // Tombol yang disembunyikan bukan pagar — form buatan sendiri tetap bisa
+        // mengirim. Pagarnya harus di server, dan pesannya harus menerangkan.
+        $res = $this->kirim('/absensi/koreksi', [
+            'user_id'   => $this->finance->id,
+            'work_date' => now()->subDays(2)->toDateString(),
+            'status'    => 'cuti',
+            'alasan'    => 'uji otomatis — seharusnya ditolak pagar buku besar',
+        ]);
+
+        $res->assertSessionHas('error');
+        $this->assertStringContainsString('Sisa Cuti', (string) session('error'));
     }
 
     public function test_tab_koreksi_absen_muncul_di_deret_tab(): void

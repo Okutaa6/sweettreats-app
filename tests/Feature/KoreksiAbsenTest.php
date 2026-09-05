@@ -76,7 +76,10 @@ class KoreksiAbsenTest extends TestCase
     /** Status apa pun yang BUKAN status alaminya — supaya perubahannya terlihat. */
     private function statusLain(): string
     {
-        foreach (['izin', 'sakit', 'libur', 'cuti'] as $s) {
+        // Sengaja TANPA 'cuti': layar melarangnya (buku besar sendiri), jadi uji
+        // yang memakainya sebagai status pengganti akan menguji jalan yang tak
+        // pernah dilewati manusia.
+        foreach (['izin', 'sakit', 'libur', 'wfh'] as $s) {
             if ($s !== $this->alami) return $s;
         }
 
@@ -257,6 +260,51 @@ class KoreksiAbsenTest extends TestCase
         ]);
     }
 
+    // ─────────────────── pagar buku besar cuti ───────────────────
+
+    public function test_cuti_tak_ada_di_daftar_pilihan(): void
+    {
+        // Jatah cuti hidup di att_cuti_mutasi dan HANYA berkurang lewat pengajuan
+        // yang di-ACC. Kalau 'cuti' bisa disetel dari layar koreksi, kolom Cuti di
+        // Lembar Gaji naik sementara Sisa Cuti diam — dua angka di satu baris yang
+        // saling membantah, tanpa satu pun galat.
+        $this->assertNotContains('cuti', KoreksiAbsen::STATUS_PILIHAN);
+        $this->assertContains('cuti', KoreksiAbsen::STATUS,
+            'Tetap sah sebagai status att_day — yang dilarang cuma MENYETELNYA dari sini.');
+
+        // Yang tak punya buku besar tetap boleh: diperiksa, bukan diasumsikan.
+        foreach (['libur', 'izin', 'sakit', 'wfh', 'hadir', 'telat', 'alpa'] as $s) {
+            $this->assertContains($s, KoreksiAbsen::STATUS_PILIHAN);
+        }
+    }
+
+    public function test_penolakan_cuti_menyebut_alasan_dan_jalan_keluarnya(): void
+    {
+        // "Tombol mati bilang kenapa": penolakan tanpa jalan keluar cuma membuat
+        // orang mencari jalan memutar — biasanya langsung ke basis data.
+        $pesan = KoreksiAbsen::alasanTerlarang('cuti');
+
+        $this->assertNotNull($pesan);
+        $this->assertStringContainsString('Sisa Cuti', $pesan);
+        $this->assertStringContainsString('rekonsiliasi', $pesan);
+
+        $this->assertNull(KoreksiAbsen::alasanTerlarang('libur'),
+            'Status tanpa buku besar tak boleh ikut terlarang.');
+    }
+
+    public function test_status_lama_cuti_memicu_peringatan_jatah(): void
+    {
+        // Arah sebaliknya tidak diblokir — membetulkan cuti yang salah tercatat
+        // itu pekerjaan yang sah — tapi jatahnya tak kembali sendiri, dan itu
+        // harus DIKATAKAN, bukan ditemukan sendiri saat gajian.
+        $p = KoreksiAbsen::peringatanStatusLama('cuti');
+
+        $this->assertNotNull($p);
+        $this->assertStringContainsString('TIDAK ikut dikembalikan', $p);
+
+        $this->assertNull(KoreksiAbsen::peringatanStatusLama('alpa'));
+        $this->assertNull(KoreksiAbsen::peringatanStatusLama(null));
+    }
     // ─────────────────── kendali negatif ───────────────────
 
     public function test_orang_lain_tidak_ikut_berubah(): void

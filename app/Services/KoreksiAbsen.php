@@ -29,8 +29,65 @@ use Illuminate\Support\Facades\DB;
  */
 class KoreksiAbsen
 {
-    /** Status yang boleh dipilih — sama persis dengan enum att_day.status. */
+    /**
+     * Seluruh status att_day — cerminan enum kolomnya, dipakai terapkan() dan
+     * validasi baris yang SUDAH ada. Bukan daftar yang boleh dipilih manusia;
+     * untuk itu lihat STATUS_PILIHAN.
+     */
     public const STATUS = ['hadir', 'telat', 'alpa', 'cuti', 'izin', 'sakit', 'libur', 'wfh'];
+
+    /**
+     * Status yang punya BUKU BESAR sendiri di luar att_day.
+     *
+     * Cuma `cuti`: jatahnya hidup di `att_cuti_mutasi`, dan yang memotongnya
+     * HANYA AttendanceRequestWorkflow saat sebuah pengajuan di-ACC. Koreksi
+     * absen tak pernah menyentuh buku besar itu — dan tak boleh, sebab jatah
+     * cuti punya alur persetujuannya sendiri.
+     *
+     * ⛔ Akibatnya kalau dibiarkan bisa dipilih: satu baris Lembar Gaji memuat
+     * dua angka yang saling membantah — kolom **Cuti** (dihitung dari
+     * att_day) ikut naik, sementara **Sisa Cuti** (dihitung dari buku besar)
+     * tidak bergerak. Orangnya dapat hari cuti yang tak memakan jatahnya, dan
+     * tak ada satu pun galat yang muncul.
+     *
+     * `sakit`, `izin`, `wfh` TIDAK di sini: ketiganya tak punya jatah
+     * tersimpan di mana pun (diperiksa 5 Sep 2026), jadi mengoreksinya tak
+     * membuat angka mana pun berselisih.
+     */
+    public const STATUS_BERBUKU = ['cuti'];
+
+    /** Status yang boleh DIPILIH di layar koreksi. */
+    public const STATUS_PILIHAN = ['hadir', 'telat', 'alpa', 'izin', 'sakit', 'libur', 'wfh'];
+
+    /**
+     * Kenapa sebuah status tak boleh dipilih — dipakai layar & validasi supaya
+     * penolakannya menyebutkan ALASAN dan JALAN KELUARNYA, bukan cuma menolak.
+     */
+    public static function alasanTerlarang(string $status): ?string
+    {
+        if (! in_array($status, self::STATUS_BERBUKU, true)) return null;
+
+        return 'Status "cuti" tidak bisa disetel lewat koreksi absen, sebab jatah cuti '
+            . 'hidup di buku besarnya sendiri dan hanya berkurang lewat pengajuan yang di-ACC. '
+            . 'Kalau disetel dari sini, kolom Cuti di Lembar Gaji naik sementara Sisa Cuti '
+            . 'tidak bergerak — orangnya dapat hari cuti yang tak memakan jatahnya. '
+            . 'Kalau pengajuan cutinya MEMANG sudah di-ACC tapi harinya belum berubah, '
+            . 'jalankan rekonsiliasi ulang. Kalau belum ada pengajuannya, buat dan setujui dulu.';
+    }
+
+    /**
+     * Peringatan saat status LAMA-nya bertumpu buku besar. Ini TIDAK diblokir —
+     * membetulkan cuti yang salah tercatat memang pekerjaan yang sah — tapi
+     * jatahnya tak ikut kembali sendiri, dan itu harus dikatakan, bukan
+     * dibiarkan ditemukan sendiri saat gajian.
+     */
+    public static function peringatanStatusLama(?string $statusLama): ?string
+    {
+        if (! in_array((string) $statusLama, self::STATUS_BERBUKU, true)) return null;
+
+        return '⚠️ Hari ini sebelumnya tercatat CUTI. Jatah cutinya TIDAK ikut dikembalikan '
+            . 'oleh koreksi ini — kalau memang harus kembali, betulkan lewat layar Cuti.';
+    }
 
     /**
      * Status yang berarti orangnya TIDAK bekerja hari itu. Saat koreksi

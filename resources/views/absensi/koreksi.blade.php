@@ -29,6 +29,7 @@
     .kor-btn:hover { filter: brightness(1.12); }
     .kor-btn-lite { background: #fff; color: #8A5A36; border-color: #E7D9CC; font-weight: 600; padding: 6px 11px; font-size: 12px; }
     .kor-note { background: #FBEFD9; color: #96601A; border-radius: 10px; padding: 11px 14px; font-size: 12.5px; line-height: 1.55; }
+    .kor-note-lite { background: #F4EFE9; color: #6B4A31; margin-top: 10px; }
     .kor-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
     .kor-table th { text-align: left; font-size: 10.5px; letter-spacing: .6px; text-transform: uppercase;
         color: #A9866A; font-weight: 800; padding: 8px 10px; border-bottom: 1px solid #EFE2D6; white-space: nowrap; }
@@ -56,6 +57,18 @@
             Koreksi <strong>bertahan</strong>: rekonsiliasi harian menghitung ulang <code>att_day</code>
             tiap pagi, dan koreksi ini dibacanya sebagai kata terakhir. Tanggal di dalam
             <strong>periode gaji yang sudah ditutup akan ditolak</strong> — angka di sana sudah dibayarkan.
+        </div>
+
+        {{-- Ketiadaan "cuti" di dropdown DIJELASKAN, bukan dibiarkan jadi teka-teki.
+             Pilihan yang hilang tanpa keterangan bikin orang mengira layarnya rusak,
+             lalu mencari jalan memutar — biasanya langsung ke basis data. --}}
+        <div class="kor-note kor-note-lite">
+            <strong>"Cuti" sengaja tidak ada di daftar.</strong> Jatah cuti punya buku besarnya
+            sendiri dan hanya berkurang lewat pengajuan yang di-ACC. Kalau disetel dari sini,
+            kolom <em>Cuti</em> di Lembar Gaji naik sementara <em>Sisa Cuti</em> diam — orangnya
+            dapat hari cuti yang tak memakan jatahnya.
+            Pengajuannya sudah di-ACC tapi harinya belum berubah? Jalankan rekonsiliasi ulang.
+            Belum ada pengajuannya? Buat dan setujui dulu.
         </div>
 
         <form method="POST" action="{{ route('absensi.koreksi.simpan') }}" style="margin-top:14px">

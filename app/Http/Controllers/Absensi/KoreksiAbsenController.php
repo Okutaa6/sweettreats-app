@@ -62,7 +62,9 @@ class KoreksiAbsenController extends Controller
             ->distinct()
             ->get(['u.id', 'u.nama']);
 
-        $status = KoreksiAbsen::STATUS;
+        // Hanya yang boleh dipilih. 'cuti' tak ditawarkan — jatahnya punya buku
+        // besar sendiri; alasannya dijelaskan di layar, bukan cuma dihilangkan.
+        $status = KoreksiAbsen::STATUS_PILIHAN;
 
         return view('absensi.koreksi', compact('riwayat', 'nama', 'orang', 'status'));
     }
@@ -74,11 +76,21 @@ class KoreksiAbsenController extends Controller
         $data = $request->validate([
             'user_id'   => 'required|exists:users,id',
             'work_date' => 'required|date',
-            'status'    => 'required|in:' . implode(',', KoreksiAbsen::STATUS),
+            // STATUS_PILIHAN, bukan STATUS: 'cuti' sengaja di luar jangkauan
+            // layar ini (punya buku besar sendiri). Ditolak di SERVER, bukan cuma
+            // disembunyikan dari dropdown — form buatan sendiri tetap bisa mengirim.
+            'status'    => 'required|in:' . implode(',', KoreksiAbsen::STATUS_PILIHAN),
             // Alasan WAJIB dan tak boleh sekadar "koreksi": enam bulan lagi
             // yang tersisa dari keputusan ini cuma kalimat ini.
             'alasan'    => 'required|string|min:8|max:500',
         ]);
+
+        // Validasi di atas menolak 'cuti' dengan pesan generik Laravel yang tak
+        // menerangkan apa pun. Ditangkap lebih awal supaya penolakannya menyebut
+        // ALASAN dan JALAN KELUARNYA — pesan 'tombol mati bilang kenapa'.
+        if ($larangan = KoreksiAbsen::alasanTerlarang((string) $request->input('status'))) {
+            return back()->withInput()->with('error', $larangan);
+        }
 
         $tanggal = Carbon::parse($data['work_date'])->toDateString();
         $namaOrang = DB::table('users')->where('id', $data['user_id'])->value('nama');
@@ -116,13 +128,22 @@ class KoreksiAbsenController extends Controller
             (string) session('id') ?: null, (string) session('name') ?: null
         );
 
+        // Peringatan ikut MASUK KE JEJAK, bukan cuma ditempel di layar sesaat:
+        // yang membaca audit enam bulan lagi perlu tahu bahwa hari ini dulunya
+        // cuti dan jatahnya tidak ikut dikembalikan.
+        $peringatan = KoreksiAbsen::peringatanStatusLama($sekarang);
+
         AuditLog::record('update',
-            "Koreksi absen {$namaOrang} {$tanggal}: {$sekarang} → {$data['status']} — " . trim($data['alasan']),
+            "Koreksi absen {$namaOrang} {$tanggal}: {$sekarang} → {$data['status']} — " . trim($data['alasan'])
+            . ($peringatan ? ' [jatah cuti TIDAK dikembalikan otomatis]' : ''),
             $k, ['status' => $sekarang]
         );
 
+        // notif.blade hanya merender SATU pesan (if/elseif), jadi peringatannya
+        // disatukan ke pesan sukses — kalau di-flash terpisah, ia tak pernah tampil.
         return redirect()->route('absensi.koreksi')->with('success',
-            "Koreksi tersimpan — {$namaOrang}, {$tanggal}: {$sekarang} → {$data['status']}.");
+            "Koreksi tersimpan — {$namaOrang}, {$tanggal}: {$sekarang} → {$data['status']}."
+            . ($peringatan ? ' ' . $peringatan : ''));
     }
 
     /** Cabut koreksi: hari itu kembali ke hasil rekonsiliasi apa adanya. */
