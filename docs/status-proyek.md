@@ -455,9 +455,18 @@ bukan symlink).
     pernah menghapus baris (ditutup lewat konvensi `ref_id = batal-<id>` yang
     diikat dua arah antara SQL dan `AttPeriksaKejanggalan::PREFIX_BATAL`).
     **67 uji hijau, 176 assertion.**
+  - **Pagar buku besar cuti** (temuan ke-8, sudah ditutup): status `cuti` tak
+    bisa disetel dari layar koreksi — jatahnya hidup di `att_cuti_mutasi` dan
+    hanya berkurang lewat pengajuan di-ACC. Tanpa pagar, kolom **Cuti** naik
+    sementara **Sisa Cuti** diam: dua angka di satu baris Lembar Gaji yang
+    saling membantah. **72 uji hijau, 197 assertion.**
+  - ⚠️ **Ambang DODO RETROAKTIF** — Lembar Gaji menghitung ulang bulan lampau,
+    jadi 7 jam mengubah bulan yang mungkin sudah dibayar. **Deploy dengan
+    `dodo_ambang_menit = 0`** (perilaku persis hari ini), Finance yang
+    menaikkannya kemudian lewat layar. Urutan lengkap:
+    `handoff/checklist-deploy-absensi-koreksi.md`.
   - ⚠️ Dilaporkan, sengaja belum dikerjakan: matriks Kehadiran **tak menandai**
-    sel yang sudah dikoreksi (jejaknya cuma di `/absensi/koreksi`), dan koreksi
-    menimpa pengajuan yang sudah di-ACC tanpa peringatan.
+    sel yang sudah dikoreksi (jejaknya cuma di `/absensi/koreksi`).
   - Deploy: **3 SQL + deploy PENUH** (empat kelas baru), **nol rsync**.
   - ⛔ **Prasyarat yang belum ada**: perbaikan "cuti tak memakan hari libur"
     **TIDAK hidup di prod** meski serah-terima menyatakan sebaliknya — lihat

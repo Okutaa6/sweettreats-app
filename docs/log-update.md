@@ -200,16 +200,57 @@ terjaga dari konstruksinya (kedua pemanggil memakai pengurangan).
 sendirian — **batas laju koneksi hosting dev**, kejadian ke-6 dengan pola yang
 sama. Jangan dikejar sebagai regresi.
 
-### Dua hal yang SENGAJA dilaporkan, bukan diperbaiki
+### Pagar buku besar cuti — dibangun sesudah audit (temuan ke-8)
+
+Gap #2 yang tadinya cuma "dilaporkan" ternyata lebih tajam dari dugaan awal, dan
+ditutup. Diperiksa: jatah cuti dipotong **hanya** oleh `AttendanceRequestWorkflow`
+saat pengajuan di-ACC; `KoreksiAbsen` tak pernah menyentuh `att_cuti_mutasi`.
+
+Akibatnya, kalau `cuti` bisa disetel dari layar koreksi, **satu baris Lembar Gaji
+memuat dua angka yang saling membantah**: kolom **Cuti** (dari `att_day`) naik,
+**Sisa Cuti** (dari buku besar) diam. Orangnya dapat hari cuti yang tak memakan
+jatahnya — tanpa satu pun galat.
+
+- `cuti` **satu-satunya** status ber-buku-besar (diperiksa: `sakit`/`izin`/`wfh`
+  tak punya jatah tersimpan di mana pun). Pagarnya sempit, bukan menyapu.
+- `STATUS` (cermin enum `att_day`) **dipisah** dari `STATUS_PILIHAN` (boleh dipilih).
+- Ditolak di **server**, bukan cuma disembunyikan dari dropdown.
+- Arah sebaliknya (`cuti → lain`) **tidak** diblokir — membetulkan cuti yang
+  salah tercatat itu pekerjaan sah — tapi memicu peringatan bahwa jatahnya tak
+  kembali sendiri, dan peringatan itu **ikut masuk ke jejak audit**.
+- Ketiadaannya **dijelaskan di layar**: pilihan yang hilang tanpa keterangan
+  bikin orang mengira layarnya rusak lalu cari jalan memutar ke basis data.
+
+⚠️ **Dan pagar itu sendiri sempat cacat**: pemeriksaannya kutaruh **sesudah**
+`validate()`. Karena `validate()` melempar, aturan `in:` menang duluan dan yang
+sampai ke pengguna cuma *"The selected status is invalid"* — persis pesan hampa
+yang pagar ini ada untuk menghindarinya. Pagarnya bekerja, **pesannya** yang tak
+pernah tampil. Ditangkap uji HTTP di dev, bukan dengan membaca ulang kode.
+
+### Ambang DODO itu RETROAKTIF — set 0 dulu saat deploy
+
+Lembar Gaji menghitung ulang bulan lampau tiap kali dibuka, jadi ambang 7 jam
+**mengubah bulan yang mungkin sudah dibayar**. Catatan 24–27 Agu: DODO Agustus
+prod = Afrina 115 + Della R 120 menit, **dua-duanya klaim satu hari di bawah
+7 jam** → jadi 0 DODO, pindah ke lembur biasa. Total kekal, **pembagiannya**
+bergeser — dan pembagian itulah yang dikalikan tarif berbeda.
+
+Disarankan deploy dengan `dodo_ambang_menit = 0` (perilaku persis hari ini),
+lalu Finance yang menaikkannya ke 420 sebagai keputusan sadar, lewat layar,
+tanpa deploy. Setelannya memang ada untuk itu.
+
+Checklist deploy lengkap: `docs/handoff/checklist-deploy-absensi-koreksi.md`.
+
+**Uji sesudah pagar: 72 hijau, 197 assertion**, seluruh 8 kelas lulus dalam satu
+lintasan.
+
+### Satu hal yang SENGAJA dilaporkan, bukan diperbaiki
 
 1. **Layar Kehadiran tak menandai sel yang sudah dikoreksi.** Jejaknya lengkap
    di `/absensi/koreksi`, tapi di matriks — tempat orang sebenarnya melihat —
    hari koreksian tampak identik dengan hari hasil hitungan. Yang membaca layar
    melihat *fakta*, bukan *keputusan*. Perbaikannya menyentuh perender sel JS
    di layar yang dipakai harian, jadi tak dikerjakan tanpa diminta.
-2. **Koreksi menimpa pengajuan yang sudah di-ACC tanpa peringatan** (mis.
-   cuti di-ACC lalu di-set `hadir`). Admin memang kata terakhir, tapi layarnya
-   tak menyebut bahwa ada deklarasi lain yang sedang ditimpa.
 ### Lingkungan
 
 Dev dipinjam dari chat IT Tracker dan **dikembalikan persis** ke `feat/it-tracker`
