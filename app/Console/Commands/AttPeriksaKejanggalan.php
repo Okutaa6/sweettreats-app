@@ -62,6 +62,9 @@ class AttPeriksaKejanggalan extends Command
     private const ROLE_SISTEM = ['Admin', 'Admin General', 'Admin Backup', 'Super Admin',
         'Sales', 'Cabang'];
 
+    /** Nama akun sistem yang dilewati cek 3 — dicetak bersama bagiannya. */
+    private array $dikecualikan = [];
+
     public function handle(): int
     {
         $hari = max(1, (int) $this->option('hari'));
@@ -88,7 +91,10 @@ class AttPeriksaKejanggalan extends Command
 
             $this->laporkan('3. Karyawan aktif TANPA aturan kerja', $temuan['tanpa_aturan'],
                 'Tanpa aturan kerja orangnya LENYAP dari layar Kehadiran — scan-nya tetap tersimpan '
-                . 'tapi tak pernah jadi hari kerja. Beri aturan, dengan effective_from = hari MULAI KERJA.');
+                . 'tapi tak pernah jadi hari kerja. Beri aturan, dengan effective_from = hari MULAI KERJA.',
+                $this->dikecualikan
+                    ? count($this->dikecualikan) . ' akun sistem dikecualikan: ' . implode(', ', $this->dikecualikan)
+                    : null);
         }
 
         // Stempel ditulis SETIAP kali selesai, termasuk saat nol temuan —
@@ -189,20 +195,25 @@ class AttPeriksaKejanggalan extends Command
         $rows = DB::table('users as u')
             ->leftJoin('group_path as g', 'g.id', '=', 'u.group_id')
             ->where('u.status', 1)
+            // COLLATE eksplisit, sama seperti dua kueri di atas. Di dev ketiga
+            // kolomnya utf8mb4_unicode_ci (dipaksa sama oleh FK ke users), jadi
+            // ini tak mengubah hasil — yang dihindari adalah SATU kueri di berkas
+            // ini berperilaku beda dari dua saudaranya kalau ada environment yang
+            // collation-nya menyimpang.
             ->whereNotExists(fn ($q) => $q->select(DB::raw(1))->from('att_user_rule as ur')
-                ->whereColumn('ur.user_id', 'u.id'))
+                ->whereRaw('ur.user_id COLLATE utf8mb4_unicode_ci = u.id COLLATE utf8mb4_unicode_ci'))
             ->orderBy('u.nama')
             ->get(['u.id', 'u.nama', 'g.nama as role']);
 
-        // Akun sistem disingkirkan lebih dulu; jumlahnya diumumkan supaya
-        // pengecualiannya terlihat, bukan bekerja diam-diam.
+        // Akun sistem disingkirkan; catatannya DISIMPAN, tidak dicetak dari
+        // sini. Mencetak di dalam pengumpul membuat barisnya muncul di ATAS
+        // seluruh laporan — sebelum judul bagian mana pun — padahal ia milik
+        // bagian 3; dan ia lolos dari --diam, yang gunanya justru membungkam
+        // rincian. Pengumpul mengumpulkan; yang mencetak cuma laporkan().
         $sistem = $rows->filter(fn ($r) => in_array($r->role, self::ROLE_SISTEM, true));
         $rows   = $rows->reject(fn ($r) => in_array($r->role, self::ROLE_SISTEM, true))->values();
 
-        if ($sistem->isNotEmpty()) {
-            $this->line('   (' . $sistem->count() . ' akun sistem dikecualikan: '
-                . $sistem->pluck('nama')->implode(', ') . ')');
-        }
+        $this->dikecualikan = $sistem->pluck('nama')->all();
 
         if ($rows->isEmpty()) return [];
 
@@ -225,10 +236,11 @@ class AttPeriksaKejanggalan extends Command
         ])->all();
     }
 
-    private function laporkan(string $judul, array $baris, string $arahan): void
+    private function laporkan(string $judul, array $baris, string $arahan, ?string $catatan = null): void
     {
         $this->newLine();
         $this->line("── {$judul}");
+        if ($catatan) $this->line('   (' . $catatan . ')');
 
         if (! $baris) {
             $this->info('   ✓ nihil');

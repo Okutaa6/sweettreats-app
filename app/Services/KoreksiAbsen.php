@@ -166,20 +166,26 @@ class KoreksiAbsen
     public static function simpan(string $userId, string $tanggal, string $status, string $alasan,
                                   ?string $olehId, ?string $olehNama): AttDayKoreksi
     {
-        $k = AttDayKoreksi::create([
-            'user_id'     => $userId,
-            'work_date'   => $tanggal,
-            'status'      => $status,
-            'status_lama' => self::statusSekarang($userId, $tanggal),
-            'alasan'      => $alasan,
-            'dibuat_oleh' => $olehId,
-            'dibuat_nama' => $olehNama,
-            'created_at'  => Carbon::now(),
-        ]);
+        // Satu transaksi: baris buku besar dan hari yang dihitung ulang harus
+        // lahir bersama. Kalau catatannya tersimpan tapi hitung-ulangnya gagal,
+        // buku besar bilang "sudah dikoreksi" sementara layar masih menampilkan
+        // status lama — dan selisih itu bertahan sampai penjadwal besok pagi.
+        return DB::transaction(function () use ($userId, $tanggal, $status, $alasan, $olehId, $olehNama) {
+            $k = AttDayKoreksi::create([
+                'user_id'     => $userId,
+                'work_date'   => $tanggal,
+                'status'      => $status,
+                'status_lama' => self::statusSekarang($userId, $tanggal),
+                'alasan'      => $alasan,
+                'dibuat_oleh' => $olehId,
+                'dibuat_nama' => $olehNama,
+                'created_at'  => Carbon::now(),
+            ]);
 
-        self::hitungUlang($userId, $tanggal);
+            self::hitungUlang($userId, $tanggal);
 
-        return $k;
+            return $k;
+        });
     }
 
     /**
@@ -189,14 +195,16 @@ class KoreksiAbsen
      */
     public static function cabut(AttDayKoreksi $k, ?string $olehId, ?string $olehNama, ?string $alasan = null): void
     {
-        $k->update([
-            'dicabut_at'     => Carbon::now(),
-            'dicabut_oleh'   => $olehId,
-            'dicabut_nama'   => $olehNama,
-            'dicabut_alasan' => $alasan,
-        ]);
+        DB::transaction(function () use ($k, $olehId, $olehNama, $alasan) {
+            $k->update([
+                'dicabut_at'     => Carbon::now(),
+                'dicabut_oleh'   => $olehId,
+                'dicabut_nama'   => $olehNama,
+                'dicabut_alasan' => $alasan,
+            ]);
 
-        self::hitungUlang($k->user_id, $k->work_date->toDateString());
+            self::hitungUlang($k->user_id, $k->work_date->toDateString());
+        });
     }
 
     private static function hitungUlang(string $userId, string $tanggal): void

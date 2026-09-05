@@ -139,8 +139,41 @@ class KehadiranEksporTest extends TestCase
 
         $res = $this->withSession($sesi)->get('/absensi/kehadiran/export?from=2027-05-01&to=2027-05-15');
 
-        $this->assertNotSame(200, $res->getStatusCode(),
-            'Role tanpa canSeeAllBranches() tak boleh mengunduh rekap seluruh cabang.');
+        // 403 EKSPLISIT, bukan sekadar "bukan 200". `group_id`-nya tetap milik
+        // Finance, jadi akses menu lolos dan satu-satunya yang bisa menolak
+        // adalah canSeeAllBranches(). Kalau suatu saat ini berubah jadi 302,
+        // artinya yang menolak gerbang MENU — uji lolos karena alasan lain, dan
+        // gerbang perannya tak lagi terbukti.
+        $res->assertStatus(403);
+    }
+
+    public function test_hadir_dan_telat_saling_lepas_sama_seperti_layar(): void
+    {
+        // Matriks di layar memakai if/elseif per sel: hari telat TIDAK ikut
+        // terhitung sebagai hadir. Ekspor periode gaji juga begitu. Kalau ekspor
+        // ini memakai arti Lembar Gaji (hadir sudah termasuk telat), angkanya tak
+        // cocok dengan tabel tepat di atas tombolnya — dan tak ada tandanya.
+        $this->attDay('2027-06-03', 'hadir');
+        $this->attDay('2027-06-04', 'telat');
+
+        $b = $this->barisOrang($this->unduh(['from' => '2027-06-01', 'to' => '2027-06-30']));
+
+        $this->assertSame('1', $b[3], 'Kolom Hadir tak boleh ikut menghitung hari telat.');
+        $this->assertSame('1', $b[4], 'Hari telat dihitung di kolomnya sendiri.');
+    }
+
+    public function test_punya_att_day_tapi_tanpa_aturan_kerja_tetap_terekspor(): void
+    {
+        // Jaring-pengaman yang sama dengan layar (data lama: ada att_day, aturannya
+        // hilang). Tanpa ini orangnya tampil di matriks tapi LENYAP dari ekspor —
+        // selisih yang baru ketahuan sesudah angkanya dipakai rapat.
+        $this->attDay('2027-06-10', 'hadir');
+        DB::table('att_user_rule')->where('user_id', $this->orang->id)->delete();
+
+        $csv = $this->unduh(['from' => '2027-06-01', 'to' => '2027-06-30']);
+
+        $this->assertStringContainsString($this->orang->nama, $csv,
+            'Orang dengan att_day tapi tanpa aturan kerja tetap harus ikut terekspor.');
     }
 
     /** Ambil baris CSV milik orang uji, sebagai array kolom. */

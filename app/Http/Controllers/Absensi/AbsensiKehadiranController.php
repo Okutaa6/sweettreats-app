@@ -412,7 +412,13 @@ class AbsensiKehadiranController extends Controller
         $agg = DB::table('att_day')
             ->whereBetween('work_date', [$from->toDateString(), $to->toDateString()])
             ->select('user_id',
-                DB::raw("SUM(status IN ('hadir','telat')) AS hadir"),
+                // ⚠️ Hadir dan Telat SALING LEPAS — sama seperti matriks di layar
+                // (`if/elseif` per sel) dan ekspor Periode Gaji. Lembar Gaji memakai
+                // arti yang lain (hadir SUDAH termasuk telat) dan menyebutkannya di
+                // labelnya. Kalau ekspor ini ikut arti Lembar Gaji, angkanya tak akan
+                // cocok dengan tabel tepat di atas tombolnya — dan tak ada satu pun
+                // tanda bahwa keduanya menjawab pertanyaan berbeda.
+                DB::raw("SUM(status = 'hadir') AS hadir"),
                 DB::raw("SUM(status = 'telat') AS telat_hari"),
                 DB::raw("SUM(telat_menit) AS telat_menit"),
                 DB::raw("SUM(lembur_menit_disetujui) AS lembur_menit"),
@@ -426,6 +432,21 @@ class AbsensiKehadiranController extends Controller
                 DB::raw("COUNT(*) AS total_hari"))
             ->groupBy('user_id')
             ->get()->keyBy('user_id');
+
+        // Jaring-pengaman yang sama dengan layar: ada att_day tapi orangnya tak
+        // punya aturan kerja (data lama). Tanpa ini mereka tampil di matriks tapi
+        // HILANG dari ekspor — tepat jenis selisih yang baru ketahuan sesudah
+        // angkanya dipakai rapat. Diperlakukan `baku`, sama seperti di index().
+        $orphan = $agg->keys()->diff($roster->keys());
+        if ($orphan->isNotEmpty()) {
+            foreach (DB::table('users as u')
+                ->leftJoin('group_path as gp', 'gp.id', '=', 'u.group_id')
+                ->whereIn('u.id', $orphan)
+                ->get(['u.id', 'u.nama', 'u.raw_branch_id', 'gp.nama as role']) as $o) {
+                $o->tipe = 'baku';
+                $roster->put($o->id, $o);
+            }
+        }
 
         // DODO = pecahan dari lembur, BUKAN tambahan. Dikurangkan, tak pernah
         // dijumlahkan — supaya "Lembur Biasa + DODO" selalu sama persis dengan
