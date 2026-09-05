@@ -25,11 +25,15 @@
 --                          pun jadi att_day karena aturannya belum ada.
 --                          Blok 1 MENCETAK tanggal ini dari data — kalau yang
 --                          tercetak bukan 2026-09-02, pakai yang tercetak.
---   Dodi     hari ini     — nol scan, jadi tak ada bukti kapan ia mulai. Aturan
---                          fleksibel tak pernah melahirkan alpa, jadi tanggal
---                          belakangan tak merugikannya. Kalau Ekky/HR tahu
---                          tanggal aslinya, ganti dan jalankan reconcile lebih
---                          mundur.
+--   Dodi     2026-09-08  — hari pertama ia bekerja, ditetapkan Ekky 5 Sep 2026.
+--                          Tanggal ini MASIH DI DEPAN saat skrip ditulis, dan itu
+--                          benar: sampai 8 Sep ia memang belum dinilai, jadi tak
+--                          ada hari yang bisa salah dituduhkan. Aturan fleksibel
+--                          juga TAK PERNAH melahirkan alpa — diperiksa di
+--                          AttendanceReconciler::reconcileUser(), cabang
+--                          `tipe === 'fleksibel'` hanya menulis libur/hadir atau
+--                          ketidakhadiran yang di-ACC. Jadi orang kantor memang
+--                          tak punya risiko alpa palsu di sini.
 --   Alpajri  hari ini     — dia SUDAH dinilai sebagai GS selama ini. Aturan
 --                          barunya berlaku KE DEPAN; baris GS-nya ditutup, tak
 --                          pernah diubah (jejak gaji masa lalu harus tetap
@@ -50,7 +54,7 @@
 -- ─────────────────────────────────────────────────────────────────────────
 -- SESUDAH SKRIP INI — WAJIB, kalau tidak Ela tetap tertulis "Belum absen"
 -- ─────────────────────────────────────────────────────────────────────────
---     php artisan att:reconcile 2026-09-02 2026-09-05
+--     php artisan att:reconcile 2026-09-02 2026-09-05      # Ela saja; Dodi baru mulai 8 Sep
 --
 -- Rekonsiliasi tak menghitung mundur sendiri. Scan Ela sudah tersimpan sejak
 -- 2 Sep tapi tak pernah jadi hari kerja; perintah itulah yang membuatnya ada.
@@ -156,10 +160,12 @@ WHERE u.nama   = 'Ela'
 
 SELECT ROW_COUNT() AS baris_baru_ela;   -- harus 1
 
--- 3b) DODI — nol scan, jadi tak ada bukti tanggal mulai. Hari ini dipilih
---     sebagai yang paling belakangan & paling aman.
+-- 3b) DODI — mulai kerja 8 Sep 2026 (ditetapkan Ekky). Tanggalnya ditulis
+--     EKSPLISIT, bukan CURDATE(): kalau skrip ini baru dijalankan minggu depan,
+--     CURDATE() diam-diam menggeser hari pertamanya dan hari-hari awalnya
+--     hilang dari rekap tanpa ada yang tahu.
 INSERT INTO att_user_rule (user_id, rule_id, effective_from, effective_to)
-SELECT u.id, w.id, CURDATE(), NULL
+SELECT u.id, w.id, '2026-09-08', NULL
 FROM users u
 JOIN att_work_rule w ON w.nama = 'Fleksibel Kantor'
 WHERE u.nama   = 'Dodi'
@@ -218,7 +224,7 @@ WHERE ur.effective_to IS NULL
 
 -- ═══ BLOK 5 — BACKFILL ELA (jalankan di shell, bukan di sini) ═══
 --
---     php artisan att:reconcile 2026-09-02 2026-09-05
+--     php artisan att:reconcile 2026-09-02 2026-09-05      # Ela saja; Dodi baru mulai 8 Sep
 --
 -- Lalu pastikan barisnya benar-benar lahir — sebelum ini hasilnya NOL:
 --
