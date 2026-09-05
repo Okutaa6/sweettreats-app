@@ -423,6 +423,23 @@ bukan symlink).
   Finance burgundy), Kehadiran gaya kalender Google, sapuan emoji→ikon SVG.
 - **Fix dokter**: jadwal khusus menang atas cuti di resolusi slot reservasi.
 
+### ✅ NAIK PROD 2026-09-05 — koreksi absen · ambang DODO · ekspor rentang
+- Prod `e324d1b`. Backup `prod_pre_koreksiabsen_20260905_0851.sql.gz`. Beranda 200.
+- Data ikut dibereskan: **Yovanka −2 → 0**; **Ramdan tetap 11** (catatannya yang
+  diperbaiki, bukan angkanya); **Alpajri → Fleksibel Operasional**; **Ela** &
+  **Dodi** dapat aturan (masuk ABG); karyawan tanpa aturan **13 → 11**.
+- ⚠️ **`dodo_ambang_menit` diset `0`** — perilaku persis seperti sebelum deploy.
+  Menaikkannya ke 420 = keputusan Finance lewat layar, **tanpa deploy**. Kalau
+  dinaikkan, DODO Agustus jatuh **1.144 → 420 menit** pada bulan yang mungkin
+  sudah dibayar (6 klaim, lima di antaranya di bawah 7 jam).
+- ⏸️ **§C Melani & Putri DITAHAN** menunggu satu kalimat alasan dari Ekky —
+  alasannya tersimpan permanen dan tak boleh dikarang. Fakta terukur: Sunter
+  **tidak** libur Maulid; Verini `libur` karena **rolling ke Cinere**, bukan libur
+  bergantian. Belum ada dasar tercatat kenapa keduanya tak masuk.
+- 🔎 Sampingan: prod mencatat **31–46 galat/hari**, hari ini **40 dari 40**
+  bertipe `[2002] Operation not permitted` (batas koneksi hosting). Kronis,
+  bukan dari deploy ini, tapi berarti ada halaman pengguna yang gagal dimuat.
+
 ### Lulus di DEV — menunggu izin prod (2026-09-05)
 - **Koreksi absen berjejak audit · ambang DODO · ekspor rentang bebas** —
   branch `feat/absensi-koreksi` (dari `main` `13c49cd`); serah-terima

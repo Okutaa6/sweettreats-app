@@ -6,6 +6,102 @@
 > file ini append-only.
 
 ---
+## 2026-09-05 — ✅ NAIK PROD: koreksi absen, ambang DODO, ekspor rentang + koreksi data §A & §B
+
+Prod `e324d1b` (dari `2400896`). Backup `~/backup/prod_pre_koreksiabsen_20260905_0851.sql.gz`
+(49M, gzip diuji). Beranda & signin **200**.
+
+### Yang berubah di prod — diff potret sebelum/sesudah, tak ada yang di luar rencana
+
+| | Sebelum | Sesudah |
+|---|---|---|
+| tabel `att_day_koreksi` | belum ada | ada, 0 baris |
+| `dodo_ambang_menit` | belum ada | **0** (pagar mati = perilaku lama) |
+| Yovanka sisa cuti | **−2.0** | **0.0** |
+| Ramdan sisa cuti | 11.0 | **11.0** (memang tak boleh berubah) |
+| Alpajri | GS Pagi, terbuka | GS Pagi ditutup 4 Sep → **Fleksibel Operasional** 5 Sep |
+| Ela | tak punya aturan | **Fleksibel Kantor** sejak **2026-09-02** (scan pertamanya) |
+| Dodi | tak punya aturan | **Fleksibel Kantor** sejak **2026-09-08** (ditetapkan Ekky) |
+| `att_day` | 676 | 680 (4 hari Ela) |
+| `att_cuti_mutasi` | 42 | 48 (6 pembalik) |
+| aktif tanpa aturan | 13 | 11 |
+
+**Tak bergeser** (kendali negatif): total lembur Agustus 34.927 menit · daftar klaim
+DODO · Melani & Putri tetap `alpa` · `att_scan` · `att_request` · `users` ·
+`att_period` · alpa Agustus tetap 2 · 28 baris buku besar orang lain, 66,0 hari.
+
+### Dua cacat yang ditangkap POTRET PROD, sebelum sempat merusak
+
+**1. Aturan Alpajri ternyata `GS Pagi`, bukan `GS`.** Skrip §B mencocokkan `'GS'`
+→ **nol baris tertutup**, lalu blok berikutnya tetap menyisipkan penugasan baru.
+Alpajri akan berakhir dengan **dua aturan aktif** dan mana yang menang ditentukan
+urutan MySQL — persis cacat "baris rangkap" yang sudah menimpa 8 orang di prod
+5–6 Agu, dan **tanpa satu pun galat**. Ketahuan karena potret dibaca, bukan
+diasumsikan.
+
+**2. `DB::insert()` mengembalikan BOOLEAN, bukan jumlah baris.** Penjaga
+`harus(..., 1)` karena itu **lolos palsu** di §B (true → 1) dan **berhenti palsu**
+di §A. Akibat nyata: §A berhenti separuh jalan — Yovanka sudah terpasang, Ramdan
+belum. Diperbaiki ke `DB::affectingStatement()`, lalu dijalankan ulang (skripnya
+idempoten lewat `NOT EXISTS`, jadi Yovanka menyisipkan 0 dan Ramdan 3+1).
+⚠️ Penjaga §B yang "lulus" itu **tak membuktikan apa pun** — yang membuktikannya
+SELECT verifikasi sesudahnya, yang untungnya memang ada.
+
+### Verifikasi prod
+
+- 4 kelas baru ter-autoload **dari berkas prod** (`ReflectionClass::getFileName()`).
+- **Invarian `biasa + DODO = total`: 59 pasangan orang-bulan, 0 pelanggaran, 0
+  selisih sel-vs-orang.** Kali ini **tidak vakum** — prod punya 34.927 menit lembur
+  nyata (di dev angkanya nol, jadi sapuan dev memang tak membuktikan apa-apa).
+- Empat layar render sungguhan dengan sesi Finance: Koreksi (35.886 B) · Lembar
+  Gaji Agustus (77.771 B) · Kehadiran (179.133 B) · ekspor CSV rentang (2.192 B).
+- Backfill Ela: `att:reconcile 2026-09-02..05` → diff **tepat 4 baris**, semuanya
+  Ela, semuanya `hadir`. Nol baris orang lain bergeser.
+- `att:periksa-kejanggalan` **nihil** untuk cek 1 & 2 — pembalik `batal-*` dikenali,
+  jadi Yovanka & Ramdan **tidak** dilaporkan ulang selamanya. Sisa 1 temuan sah:
+  *Executive Pamulang* (Branch Executive, role yang catatan lama sudah sebut
+  bawaannya kosong).
+
+### ⚠️ Ambang DODO sengaja diset 0 — dan ini bukan basa-basi
+
+Kode berbawaan 420, jadi begitu deploy mendarat ambangnya **langsung aktif**.
+Diset `0` seketika. Buktinya kenapa itu penting, diukur di prod: klaim DODO
+Agustus ada **enam**, bukan dua seperti catatan lama —
+Afrina 115 · Della R 120 · **Melani 129** · **Muhamad Ikhsan 660** · Rokhmatun 60 ·
+Della R 60 = **1.144 menit**. Dengan ambang 420 hanya Ikhsan yang bertahan (jadi
+420); sisanya **nol**. DODO Agustus akan jatuh **1.144 → 420** pada bulan yang
+mungkin sudah dibayar.
+
+Dengan ambang 0, angka Agustus **sama persis** seperti sebelum deploy (DODO 1.144,
+biasa 33.783). Menaikkannya ke 420 = keputusan Finance, lewat layar Lembar Gaji,
+tanpa deploy.
+
+### ⏸️ §C Melani & Putri DITAHAN — sengaja, menunggu satu kalimat dari Ekky
+
+Alatnya siap dan teruji, periodenya **tidak terkunci** (satu-satunya periode
+21/07–20/08 masih `open`), jadi teknis tak ada halangan. Yang menahan: **alasannya
+tersimpan permanen di catatan yang menentukan uang, dan aku tak boleh mengarangnya.**
+
+Draf awalku menyebut "rekan se-cabang juga tercatat libur" — **itu keliru**, dan
+ketahuan saat memeriksa: Verini memang `libur` 25 Agu, tapi karena ia **rolling ke
+Cinere yang tutup**, bukan karena libur bergantian di Sunter. Fakta yang benar-benar
+terukur:
+
+- Maulid Nabi terdaftar libur **hanya** Bintaro, Cinere, Kalideres — **Sunter tidak**.
+- Sunter 25 Agu: Rokhmatun `hadir`, Tito `hadir`, Verini `libur` (rolling ke Cinere),
+  Melani & Putri `alpa`, nol scan, tanpa pengajuan apa pun.
+
+Jadi **belum ada dasar tercatat** kenapa keduanya tidak masuk. Begitu Ekky memberi
+satu kalimat alasannya, koreksinya dijalankan lewat layar.
+
+### 🔎 Temuan sampingan di prod (di luar lingkup, layak ditindak terpisah)
+
+`laravel.log` prod memuat **31–46 galat per hari**, dan **100% hari ini (40 dari
+40)** bertipe `SQLSTATE[HY000] [2002] Operation not permitted` — batas koneksi
+hosting bersama. Nol galat dari fitur baru. Ini **kronis dan sudah ada sebelum
+deploy**, tapi artinya ada pengguna yang halamannya gagal dimuat tiap hari.
+
+---
 ## 2026-09-05 — ABSENSI: koreksi berjejak audit, ambang DODO, ekspor rentang bebas
 
 Tiga fitur dari serah-terima `docs/handoff/handoff-absensi-koreksi-2026-09-05.md`,
