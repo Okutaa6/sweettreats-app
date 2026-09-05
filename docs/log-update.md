@@ -76,6 +76,47 @@ Dengan ambang 0, angka Agustus **sama persis** seperti sebelum deploy (DODO 1.14
 biasa 33.783). Menaikkannya ke 420 = keputusan Finance, lewat layar Lembar Gaji,
 tanpa deploy.
 
+### 🔎 Lembar Gaji TAK PUNYA JALAN MASUK — ditemukan Ekky, dibetulkan
+
+Ekky membuka Kehadiran sebagai Della (Finance) dan bertanya: *"where is lembar
+gaji?"* Ternyata memang tak ada di mana pun.
+
+* Layar itu **tak ada di deret tab Finance** — tab-nya berisi 6 lainnya saja.
+* Node menunya **ADA** (`Lembar Gaji → absensi/lembar-gaji`, `abs-gaji-…`) tapi
+  **NOL role di-grant di prod**, jadi tak muncul di sidebar siapa pun.
+* Di **dev** node yang sama punya **9 grant**. Itulah kenapa ia terlihat normal
+  selama pengembangan dan tak terlihat sama sekali di produksi.
+
+Jadi sejak layar itu dibuat, satu-satunya jalan masuk adalah **mengetik URL** —
+dan aku menyuruh Ekky "buka Absensi → Lembar Gaji" tanpa memeriksa jalannya ada.
+
+**Dibetulkan dua sisi:**
+1. **Tab** `Lembar Gaji` ditambahkan, **tersaring peran**. Bukan ditampilkan ke
+   semua yang lolos `canSeeAllBranches`: kedua gerbang itu tak sama — `Admin
+   Backup` boleh melihat Kehadiran tapi sudah dicabut dari Lembar Gaji, jadi
+   menampilkan tabnya = menu tampil lalu 403. Daftarnya **ditanyakan** ke
+   `LembarGajiController::BOLEH` (kini publik), tidak disalin.
+2. **Grant node** di prod ke `BOLEH` **persis**: Finance, Head IT, IT, Konsultan
+   Finance, Konsultan IT, Super Admin, Admin General — **7 role**.
+   ⚠️ `Admin` & `Admin Backup` **sengaja tidak** diberi, meski dev memberi
+   keduanya. Kendali negatif: total grant sistem 513 → 520 (persis +7).
+
+Diverifikasi sebagai Della sungguhan: deret tab kini memuat **Lembar Gaji**, dan
+sidebar juga.
+
+#### ⚠️ Uji yang gagal karena SALAH LINGKUP, bukan salah kode
+
+Uji negatifnya ("tab tak boleh tampil untuk akun bersama") gagal — dan sempat
+kukejar sebagai cacat blade selama beberapa langkah. Dua kesalahanku:
+
+1. **Jendela debug 700 karakter** memotong tab ke-7, jadi aku menyimpulkan tabnya
+   tak dirender padahal ada. *Periksa panjang jendelanya sebelum menyimpulkan.*
+2. Ujinya menyapu **SELURUH halaman**, padahal sidebar juga memuat tautan yang
+   sama — dan grant sidebar **berbeda antar environment**. Jadi ia lulus/gagal
+   karena sebab yang sama sekali lain. Kini dibatasi ke blok deret tab saja.
+
+Justru kegagalan itu yang menyingkap perbedaan grant dev↔prod — sebab
+sesungguhnya dari pertanyaan Ekky.
 ### ✅ PAGAR RECONCILE LAMPAU NAIK PROD — `2087022`
 
 Permintaan Ekky, dan sengaja **bukan** dry-run lebih dulu: *"Dry-run menolong
