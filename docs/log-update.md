@@ -76,6 +76,39 @@ Dengan ambang 0, angka Agustus **sama persis** seperti sebelum deploy (DODO 1.14
 biasa 33.783). Menaikkannya ke 420 = keputusan Finance, lewat layar Lembar Gaji,
 tanpa deploy.
 
+### ✅ AMBANG DODO DISETEL 420 oleh Della — empat pemeriksaan LULUS
+
+Della Puspita Sari (Finance) menyetelnya lewat layar Lembar Gaji pukul 17:09.
+`audit_log`: *"Ambang DODO diubah: tanpa ambang → 7 jam"*, `old_values`
+`{"ambang_menit":0}` — atas namanya, bukan akun bersama. Persis yang diminta.
+
+| Pemeriksaan | Hasil |
+|---|---|
+| Seluruh klaim DODO Agustus tetap **1.144 menit** (nol menguap) | ✅ |
+| Ikhsan pecah **420 DODO + 240 biasa** | ✅ |
+| Lima klaim lain **0 DODO**, seluruhnya (**484 menit**) jadi lembur biasa | ✅ |
+| Invarian: **0 pelanggaran**, 0 selisih sel-vs-orang | ✅ |
+
+Rincian per klaim sesudah ambang:
+
+```
+Muhamad Ikhsan    23 Agu  klaim 660 -> DODO 420 + biasa 240
+Melani Safrida    22 Agu  klaim 129 -> DODO   0 + biasa 129
+Della Raqisiah    17 Agu  klaim 120 -> DODO   0 + biasa 120
+Afrina Apriliani  10 Agu  klaim 115 -> DODO   0 + biasa 115
+Rokhmatun         25 Agu  klaim  60 -> DODO   0 + biasa  60
+Della Raqisiah    25 Agu  klaim  60 -> DODO   0 + biasa  60
+```
+
+Total lembur `att_day` Agustus **tak bergerak** (34.927 menit) — ambang hanya
+memindahkan menit antar kolom, tak pernah menghilangkannya. DODO Agustus
+1.144 → **420**, sisanya masuk lembur biasa.
+
+⚠️ **Pasangan orang-bulan kini 60, bukan 59** — dan itu BENAR, bukan regresi:
+angka 59 diukur SEBELUM backfill Ela. Ela menyumbang satu pasangan September
+(4 hari, dihitung 15:54). Agustus 31 orang + September 29 = 60.
+*Angka harapan yang dikutip dari pengukuran lama akan basi begitu data
+bertambah — periksa sebabnya sebelum menyebutnya gagal.*
 ### 🔎 Lembar Gaji TAK PUNYA JALAN MASUK — ditemukan Ekky, dibetulkan
 
 Ekky membuka Kehadiran sebagai Della (Finance) dan bertanya: *"where is lembar
