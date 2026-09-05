@@ -448,6 +448,16 @@ bukan symlink).
     di hari libur, potongan kembar, orang tanpa aturan kerja. Tak membetulkan
     apa pun (Ramdan membuktikan kenapa: pembetulan otomatis bisa melahirkan
     kelebihan bayar). Stempel waktu ditulis walau nol temuan.
+  - **Diaudit ulang sesudah selesai — 7 temuan, semua ditutup.** Yang terpenting:
+    ekspor menghilangkan orang tanpa aturan kerja · kolom "Hadir" berarti dua
+    hal berbeda dari layar di atasnya · dan pemeriksa harian akan melaporkan
+    Yovanka & Ramdan **selamanya** sesudah koreksi §A, sebab buku besar tak
+    pernah menghapus baris (ditutup lewat konvensi `ref_id = batal-<id>` yang
+    diikat dua arah antara SQL dan `AttPeriksaKejanggalan::PREFIX_BATAL`).
+    **67 uji hijau, 176 assertion.**
+  - ⚠️ Dilaporkan, sengaja belum dikerjakan: matriks Kehadiran **tak menandai**
+    sel yang sudah dikoreksi (jejaknya cuma di `/absensi/koreksi`), dan koreksi
+    menimpa pengajuan yang sudah di-ACC tanpa peringatan.
   - Deploy: **3 SQL + deploy PENUH** (empat kelas baru), **nol rsync**.
   - ⛔ **Prasyarat yang belum ada**: perbaikan "cuti tak memakan hari libur"
     **TIDAK hidup di prod** meski serah-terima menyatakan sebaliknya — lihat

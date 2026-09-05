@@ -143,6 +143,73 @@ Alatnya (D1) sudah ada dan teruji, tapi tindakannya menyentuh **data prod**, dan
 prod belum diizinkan. Begitu diizinkan: lewat layar `/absensi/koreksi`,
 `alpa → libur`, dengan alasan yang menyebut konfirmasi Nissa — bukan tembak DB.
 
+### Audit ulang atas kerjaan sendiri — 7 temuan, semuanya ditutup
+
+Disisir lagi sesudah selesai, mencari bug & inkonsistensi. Dua yang berarti,
+satu yang menentukan fiturnya dipakai atau diabaikan.
+
+**1. Ekspor MENGHILANGKAN ORANG.** Layar Kehadiran punya jaring-pengaman untuk
+"ada `att_day` tapi tak punya aturan kerja" (data lama) — ekspornya tidak.
+Orangnya tampil di matriks lalu lenyap dari CSV. Nol kasus di dev sekarang,
+tapi jaringnya ada di layar justru karena pernah terjadi. Disamakan.
+
+**2. Kolom "Hadir" berarti DUA hal.** Ekspor memakai `hadir+telat`; matriks di
+layar (`if/elseif` per sel) **dan** ekspor Periode Gaji memakai `hadir` saja.
+Satu kata, dua angka, di layar yang sama — tepat jenis selisih yang baru
+ketahuan sesudah dipakai rapat. Disamakan ke arti layar.
+
+**3. Pemeriksa akan melaporkan Yovanka & Ramdan SELAMANYA.** Yang paling
+menentukan. `att_cuti_mutasi` itu buku besar: koreksi §A menambah pembalik,
+**tidak menghapus** baris salahnya. Jadi begitu koreksi dijalankan, sapuan
+harian melaporkan keduanya **setiap hari**, untuk kesalahan yang sudah
+dibereskan. Pemeriksa yang mengulang temuan mati akan berhenti dibaca — dan
+yang berhenti dibaca sama saja dengan tak ada.
+Ditutup dengan konvensi `ref_id = 'batal-<id asli>'` yang **diikat dua arah**:
+konstanta `AttPeriksaKejanggalan::PREFIX_BATAL` dan catatan di kepala SQL
+koreksi yang menunjuk balik ke konstanta itu.
+
+**4 & 5. Bentuk laporan pemeriksa.** Catatan "akun sistem dikecualikan"
+tercetak dari dalam pengumpul → muncul di **atas seluruh laporan**, sebelum
+judul bagian mana pun, padahal milik bagian 3; dan **lolos dari `--diam`**.
+Sekarang pengumpul mengumpulkan, yang mencetak cuma `laporkan()`.
+
+**6. Satu dari tiga kueri** di `AttPeriksaKejanggalan` tak memakai `COLLATE`
+seperti dua saudaranya. Disamakan. (Diukur: di dev ketiganya `utf8mb4_unicode_ci`
+— FK ke `users` memang memaksanya sama, jadi ini menutup risiko environment,
+bukan cacat yang hidup.)
+
+**7. `simpan()`/`cabut()` tak atomik** — baris buku besar bisa ter-commit
+sementara hitung-ulangnya gagal: buku besar bilang "sudah dikoreksi", layar
+masih status lama, sampai penjadwal besok pagi. Dibungkus `DB::transaction`.
+
+Kendali negatif ekspor dipertegas jadi `assertStatus(403)`: "bukan 200" bisa
+lolos karena pantulan menu, bukan karena gerbang perannya bekerja. Dipastikan
+dengan membaca `AuthGuard` — ia **tak pernah** membaca `group_name`, jadi
+satu-satunya yang bisa menolak memang `canSeeAllBranches()`.
+
+**Diperiksa dan ternyata BERSIH** (supaya tak diperiksa ulang): gerbang keenam
+layar pemakai `_finance_tabs` semuanya `canSeeAllBranches` (tak ada tab tampil
+lalu 403) · `max:64` pada penyaring cabang aman (id `raw_branch` maks 36
+karakter) · rute baru ada di grup middleware yang benar · invarian DODO tetap
+terjaga dari konstruksinya (kedua pemanggil memakai pengurangan).
+
+**Uji sesudah audit: 67 hijau, 176 assertion** (+8 uji baru: `PeriksaKejanggalanTest`
+6, regresi ekspor 2).
+
+⚠️ `LemburDodoTest` sempat MERAH lagi saat dijalankan berurutan, hijau 9/9
+sendirian — **batas laju koneksi hosting dev**, kejadian ke-6 dengan pola yang
+sama. Jangan dikejar sebagai regresi.
+
+### Dua hal yang SENGAJA dilaporkan, bukan diperbaiki
+
+1. **Layar Kehadiran tak menandai sel yang sudah dikoreksi.** Jejaknya lengkap
+   di `/absensi/koreksi`, tapi di matriks — tempat orang sebenarnya melihat —
+   hari koreksian tampak identik dengan hari hasil hitungan. Yang membaca layar
+   melihat *fakta*, bukan *keputusan*. Perbaikannya menyentuh perender sel JS
+   di layar yang dipakai harian, jadi tak dikerjakan tanpa diminta.
+2. **Koreksi menimpa pengajuan yang sudah di-ACC tanpa peringatan** (mis.
+   cuti di-ACC lalu di-set `hadir`). Admin memang kata terakhir, tapi layarnya
+   tak menyebut bahwa ada deklarasi lain yang sedang ditimpa.
 ### Lingkungan
 
 Dev dipinjam dari chat IT Tracker dan **dikembalikan persis** ke `feat/it-tracker`
