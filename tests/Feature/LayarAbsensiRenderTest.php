@@ -39,6 +39,24 @@ class LayarAbsensiRenderTest extends TestCase
         $this->finance = $u;
     }
 
+    /**
+     * Potong hanya blok deret tab.
+     *
+     * ⚠️ Memeriksa SELURUH halaman salah: sidebar juga memuat tautan
+     * `absensi/lembar-gaji` kalau node menunya di-grant, dan grant itu BEDA
+     * antar environment (dev punya 9 role, prod NOL). Uji yang menyapu
+     * seluruh halaman karena itu lulus/gagal karena sebab yang sama sekali
+     * lain — dan persis itu yang terjadi pada percobaan pertama.
+     */
+    private function deretTab(string $html): string
+    {
+        $i = strpos($html, 'fin-tabs');
+        if ($i === false) return '';
+        $j = strpos($html, '</div>', $i);
+
+        return substr($html, $i, $j - $i);
+    }
+
     /** Sesi Finance sungguhan — group_id-nya yang menentukan akses menu. */
     private function sesi(): array
     {
@@ -132,10 +150,8 @@ class LayarAbsensiRenderTest extends TestCase
         // Sampai 5 Sep 2026 Lembar Gaji TAK PUNYA jalan masuk sama sekali: tak ada
         // di deret tab, dan node menunya nol grant — jadi tak muncul di sidebar
         // siapa pun. Halaman yang tak bisa dicapai sama saja dengan tak ada.
-        $html = $this->buka('/absensi/kehadiran')->getContent();
-
-        $this->assertStringContainsString('Lembar Gaji', $html);
-        $this->assertStringContainsString('absensi/lembar-gaji', $html);
+        $this->assertStringContainsString('absensi/lembar-gaji',
+            $this->deretTab($this->buka('/absensi/kehadiran')->getContent()));
     }
 
     public function test_tab_lembar_gaji_TIDAK_muncul_untuk_akun_bersama(): void
@@ -149,7 +165,7 @@ class LayarAbsensiRenderTest extends TestCase
         $res = $this->withSession($sesi)->get('/absensi/kehadiran');
         $res->assertStatus(200);
 
-        $this->assertStringNotContainsString('absensi/lembar-gaji', $res->getContent(),
+        $this->assertStringNotContainsString('absensi/lembar-gaji', $this->deretTab($res->getContent()),
             'Tab Lembar Gaji tak boleh tampil untuk peran yang akan ditolak 403.');
     }
     public function test_akun_bersama_tak_boleh_menyetel_ambang_dodo(): void
