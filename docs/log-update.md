@@ -76,6 +76,63 @@ Dengan ambang 0, angka Agustus **sama persis** seperti sebelum deploy (DODO 1.14
 biasa 33.783). Menaikkannya ke 420 = keputusan Finance, lewat layar Lembar Gaji,
 tanpa deploy.
 
+### ✅ §C SELESAI — dan sebuah landasan berbahaya ikut tersingkap
+
+Alasan diberikan Ekky sendiri (Maulid; Sunter tetap buka dengan awak minimum —
+Rokhmatun asistensi dokter & Tito operasional, keduanya lembur disetujui; Melani
+& Putri diliburkan). Dijalankan lewat **POST `/absensi/koreksi`** dengan sesi
+Admin_Ekky — bukan panggilan service — jadi gerbang peran, validasi, pagar
+periode, dan penulisan jejak audit ikut terbukti. Keduanya `libur`, dan **tetap
+`libur` sesudah `att:reconcile 2026-08-25`**: inti desainnya terbukti di prod.
+
+#### ⛔⛔ REKONSILIASI TANGGAL LAMPAU MENULIS ULANG SEJARAH
+
+Reconcile 25 Agu itu juga **mengubah Alpajri dari `libur` jadi `alpa`** — hari
+yang sebelumnya benar. Rantai buktinya lengkap:
+
+* Backup memuat barisnya apa adanya: id 1692, `rule_id` 6, status **`libur`**,
+  `computed_at` 2026-08-26 06:10.
+* Sebabnya `sys_user_position` menempatkannya di **Bintaro**, dan Bintaro libur
+  Maulid (exception #7, dibuat 21 Agu, per-cabang sejak awal).
+* Penempatan itu **ditutup 1 Sep 04:47** saat restrukturisasi Konsultan.
+* Aturan kerja & pengajuannya **tak berubah** sejak 20 Agu — jadi bukan itu.
+* Reconcile 5 Sep memakai penempatan **sekarang** (tak ada) → tak ada libur
+  cabang → Selasa hari kerja → **`alpa`**.
+
+Artinya: **`att_day` dihitung dari keadaan organisasi HARI INI, bukan keadaan
+saat tanggal itu berlangsung.** Tiap reconcile atas tanggal lampau menimpa baris
+lama dengan struktur terkini — dan hari yang dulu benar bisa berubah jadi salah,
+tanpa satu pun galat.
+
+* Penjadwal harian **aman** (cuma kemarin + hari ini).
+* `att:periksa-kejanggalan` **tidak** menangkapnya — ia memeriksa cuti & aturan,
+  bukan pergeseran status.
+* **Ruang lingkupnya belum diukur.** Mengukurnya butuh dry-run (reconcile di
+  dalam transaksi lalu rollback) — belum dibuat.
+
+**Keadaan: Alpajri 25 Agu MASIH `alpa` di prod** (alpa Agustus = 1, bukan 0).
+Pemulihannya disiapkan tapi **diblokir gerbang keamanan** — tulisan prod di luar
+yang diizinkan Ekky. Menunggu keputusannya.
+
+### 📌 Dua ralat atas laporanku sendiri
+
+**1. Layar ambang DODO ITU ADA.** `grep -rn "dodo_ambang_menit"` hanya menemukan
+`app/Services/LemburDodo.php`, sebab controller/blade/rute memakai **konstanta**
+`LemburDodo::KUNCI_AMBANG` dan field `ambang_menit` — bukan string kuncinya.
+Yang hidup di prod: `LembarGajiController::setelanAmbang()`, rute POST
+`absensi/lembar-gaji/ambang`, dan blok `<details class="lg-ambang">` yang
+terbukti ter-render (77.764 byte, `value="0"`). Carilah dengan **KUNCI_AMBANG /
+ambang_menit / setelanAmbang**.
+⚠️ Gerbangnya `LembarGajiController::BOLEH` — **lebih luas** dari "hanya
+Finance/Head IT". Admin_Ekky (Admin General) boleh menyetel.
+
+**2. "ABG" itu tipe aturan `fleksibel`, bukan "tanpa cabang".** Yang bukan
+fleksibel DAN tanpa cabang masuk grup **"Belum ada cabang"**. Keduanya kebetulan
+berimpit sekarang (nol orang fleksibel yang punya cabang), tapi bukan definisi
+yang sama: sebelum 5 Sep Alpajri (GS Pagi + cabang NULL) ada di "Belum ada
+cabang", **bukan** ABG — ia masuk ABG justru karena aturannya diubah.
+Isi ABG kini **16** = Fleksibel Kantor 8 + Fleksibel 5 + Fleksibel Operasional 3
+(sebelum hari ini 13, sesuai hitungan Ekky).
 ### ⏸️ §C Melani & Putri DITAHAN — sengaja, menunggu satu kalimat dari Ekky
 
 Alatnya siap dan teruji, periodenya **tidak terkunci** (satu-satunya periode
