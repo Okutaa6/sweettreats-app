@@ -39,7 +39,7 @@ class LembarGajiController extends Controller
      *
      * Sisanya dibiarkan — role perorangan, jejaknya bermakna.
      */
-    private const BOLEH = ['Finance', 'Head IT', 'IT', 'Konsultan Finance', 'Konsultan IT',
+    public const BOLEH = ['Finance', 'Head IT', 'IT', 'Konsultan Finance', 'Konsultan IT',
         'Super Admin', 'Admin General'];
 
     private function guard(): void

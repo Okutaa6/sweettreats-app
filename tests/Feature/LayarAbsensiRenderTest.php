@@ -127,6 +127,31 @@ class LayarAbsensiRenderTest extends TestCase
         $this->assertStringContainsString('Sisa Cuti', (string) session('error'));
     }
 
+    public function test_tab_lembar_gaji_muncul_untuk_yang_berhak(): void
+    {
+        // Sampai 5 Sep 2026 Lembar Gaji TAK PUNYA jalan masuk sama sekali: tak ada
+        // di deret tab, dan node menunya nol grant — jadi tak muncul di sidebar
+        // siapa pun. Halaman yang tak bisa dicapai sama saja dengan tak ada.
+        $html = $this->buka('/absensi/kehadiran')->getContent();
+
+        $this->assertStringContainsString('Lembar Gaji', $html);
+        $this->assertStringContainsString('absensi/lembar-gaji', $html);
+    }
+
+    public function test_tab_lembar_gaji_TIDAK_muncul_untuk_akun_bersama(): void
+    {
+        // Kendali negatif, dan inti kenapa tabnya disaring: `Admin Backup` lolos
+        // canSeeAllBranches (boleh melihat Kehadiran) tapi TIDAK boleh membuka
+        // Lembar Gaji. Menampilkan tabnya = menu tampil lalu 403.
+        $sesi = $this->sesi();
+        $sesi['group_name'] = 'Admin Backup';
+
+        $res = $this->withSession($sesi)->get('/absensi/kehadiran');
+        $res->assertStatus(200);
+
+        $this->assertStringNotContainsString('absensi/lembar-gaji', $res->getContent(),
+            'Tab Lembar Gaji tak boleh tampil untuk peran yang akan ditolak 403.');
+    }
     public function test_akun_bersama_tak_boleh_menyetel_ambang_dodo(): void
     {
         // Ambang DODO menentukan uang. Kalau disetel dari akun BERSAMA,
