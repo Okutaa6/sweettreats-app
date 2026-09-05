@@ -25,14 +25,21 @@ class KehadiranEksporTest extends TestCase
     {
         parent::setUp();
 
+        // ⚠️ Personanya WAJIB akun Finance sungguhan, bukan karyawan mana pun
+        // yang diberi group_name 'Finance'. AuthGuard memakai `group_id` untuk
+        // memeriksa akses menu 'absensi' (berkas storage/app/group_access), dan
+        // gerbang itu MEMANTULKAN 302 ke beranda, bukan 403 — jadi persona yang
+        // salah membuat ujinya merah karena alasan yang sama sekali lain.
+        // Ini jebakan yang sudah menggigit: percobaan pertama kelas ini memakai
+        // karyawan acak dan gagal 4 dari 5.
         $u = DB::table('users as u')
+            ->join('group_path as g', 'g.id', '=', 'u.group_id')
             ->join('att_user_rule as ur', 'ur.user_id', '=', 'u.id')
-            ->join('att_work_rule as r', 'r.id', '=', 'ur.rule_id')
-            ->where('u.status', 1)->where('r.tipe', 'baku')
-            ->whereNull('ur.effective_to')
+            ->where('u.status', 1)
+            ->where('g.nama', 'Finance')
             ->first(['u.id', 'u.nama', 'u.group_id', 'u.raw_branch_id']);
 
-        if (! $u) $this->markTestSkipped('Tak ada karyawan ber-aturan baku.');
+        if (! $u) $this->markTestSkipped('Tak ada akun Finance ber-aturan kerja di environment ini.');
 
         $this->orang = $u;
     }
