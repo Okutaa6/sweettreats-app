@@ -38,6 +38,16 @@
        tarifnya beda, jadi mata tak boleh menyamakan keduanya sekilas. */
     .lg-stat.dodo .val { color: #8A3A12; }
     .lg-dodo { color: #8A3A12; font-weight: 800; }
+    .lg-ambang { margin: 14px 0 0; border: 1px solid #E7D9CC; border-radius: 10px; background: #FFFDFA; }
+    .lg-ambang > summary { cursor: pointer; padding: 10px 14px; font-size: 12.5px; color: #6B4A31;
+        display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+    .lg-ambang > summary strong { color: #461500; }
+    .lg-ambang-jelas { font-size: 11.5px; color: #A9866A; }
+    .lg-ambang form { padding: 0 14px 14px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .lg-ambang label { font-size: 11.5px; font-weight: 700; color: #6B4A31; }
+    .lg-ambang input { width: 96px; padding: 6px 9px; border: 1px solid #E7D9CC; border-radius: 8px;
+        font: inherit; text-align: right; }
+    .lg-ambang-hint { font-size: 11.5px; color: #A9866A; flex: 1 1 260px; }
     .lg-curiga { display: flex; gap: 10px; align-items: flex-start; background: #FBEFD9; color: #96601A;
                  border-radius: 12px; padding: 12px 15px; font-size: 12.5px; font-weight: 600; margin-bottom: 14px; }
     .lg-curiga ul { margin: 6px 0 0; padding-left: 18px; font-weight: 500; }
@@ -112,6 +122,31 @@
         <div class="lg-stat dodo"><div class="lbl">DODO</div><div class="val num">{{ $fmtJam($sum['dodo_jam']) }}</div><div class="hint">jam, masuk di hari libur</div></div>
         <div class="lg-stat alpa"><div class="lbl">Total alpa</div><div class="val num">{{ $sum['alpa'] }}</div><div class="hint">hari tanpa keterangan</div></div>
     </div>
+
+    {{-- AMBANG DODO — dipajang, bukan disembunyikan di menu setelan.
+         Angka ini memindahkan jam antara dua tarif, jadi siapa pun yang membaca
+         kolom DODO berhak melihat aturan yang membentuknya di layar yang sama.
+         Kalau ambangnya cuma hidup di basis data, selisih antar bulan tak bisa
+         dijelaskan tanpa bertanya ke IT. --}}
+    <details class="lg-ambang">
+        <summary>
+            <span>Ambang DODO: <strong>{{ $ambangTeks }}</strong></span>
+            <span class="lg-ambang-jelas">
+                di bawah ambang → seluruhnya lembur biasa · di atas ambang → sisanya lembur biasa
+            </span>
+        </summary>
+        <form method="POST" action="{{ route('absensi.lembargaji.ambang') }}">
+            @csrf
+            <label for="lg-ambang-input">Ambang (menit)</label>
+            <input id="lg-ambang-input" type="number" name="ambang_menit" min="0" max="1440" step="5"
+                   value="{{ $ambang }}" required>
+            <button type="submit" class="lg-btn lg-btn-pri">Simpan</button>
+            <span class="lg-ambang-hint">
+                420 = 7 jam. Isi <strong>0</strong> untuk mematikan ambang (DODO = klaim apa adanya).
+                Perubahan tercatat di jejak audit dan langsung berlaku di layar maupun ekspor.
+            </span>
+        </form>
+    </details>
 
     {{-- Chip yang kemungkinan salah pilih = salah TARIF. Ditaruh sebelum tabel
          karena inilah layar terakhir sebelum gaji dihitung — kalau lewat sini,

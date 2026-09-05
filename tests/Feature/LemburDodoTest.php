@@ -28,6 +28,13 @@ class LemburDodoTest extends TestCase
     {
         parent::setUp();
 
+        // Ambang DODO DIMATIKAN untuk kelas ini. Uji di sini menjaga
+        // hubungan chip <-> hari libur <-> pecahan lembur — bukan ambangnya.
+        // Membiarkan ambang bawaan (7 jam) akan membuat skenario 5 jam di
+        // bawah jadi 0 DODO dan ujinya gagal karena alasan yang salah.
+        // Ambangnya diuji sendiri di AmbangDodoTest.
+        \App\Models\Setting::put(\App\Services\LemburDodo::KUNCI_AMBANG, '0');
+
         // Orang ber-aturan BAKU yang punya hari libur mingguan — hanya aturan
         // baku yang menyimpan baris hari, jadi orang fleksibel tak bisa dipakai
         // menguji sisi kalendernya.

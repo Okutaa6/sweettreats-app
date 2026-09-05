@@ -5,6 +5,7 @@
         ['label' => 'Kehadiran',         'url' => url('absensi/kehadiran'), 'on' => str_starts_with($ap, 'absensi/kehadiran')],
         ['label' => 'Mapping Karyawan',  'url' => url('absensi/mapping'),  'on' => str_starts_with($ap, 'absensi/mapping')],
         ['label' => 'Upload Data',       'url' => url('absensi'),          'on' => $ap === 'absensi'],
+        ['label' => 'Koreksi Absen',     'url' => url('absensi/koreksi'),  'on' => str_starts_with($ap, 'absensi/koreksi')],
         ['label' => 'Periode Gaji',      'url' => url('absensi/periode'),  'on' => str_starts_with($ap, 'absensi/periode')],
     ];
 @endphp

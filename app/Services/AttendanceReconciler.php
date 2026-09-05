@@ -267,8 +267,18 @@ class AttendanceReconciler
         $basi = 0;
         $now = Carbon::now();
 
+        // Koreksi admin — DEKLARASI MANUSIA atas satu (orang, tanggal).
+        // Dimuat sekali, seperti aturan & kalender libur; menanyakannya per
+        // hari per orang berarti puluhan ribu kueri untuk sebulan penuh.
+        $koreksi = KoreksiAbsen::petaAktif($from->toDateString(), $to->toDateString(), $onlyUser);
+
         foreach ($userRules as $userId => $urs) {
             $rows = $this->reconcileUser($userId, $urs, $rules, $ruleDays, $exceptions, $requests[$userId] ?? [], $homeBranch[$userId] ?? null, $from, $to, $now, $closedPeriods, $dokterUser[$userId] ?? null, $laporan, $rollingBranch[$userId] ?? []);
+            // Kata terakhir. Ditaruh SEBELUM hitungan status & upsert supaya
+            // laporan, angka tersimpan, dan layar sepakat — koreksi yang cuma
+            // mengubah salah satunya justru melahirkan selisih baru.
+            $rows = KoreksiAbsen::terapkan($rows, $koreksi);
+
             foreach ($rows as $r) $perStatus[$r['status']] = ($perStatus[$r['status']] ?? 0) + 1;
             $dayCount += count($rows);
             foreach (array_chunk($rows, 200) as $chunk) {
@@ -867,6 +877,19 @@ class AttendanceReconciler
     private function loadExceptions(): array
     {
         return DB::table('att_work_rule_exception')->orderByDesc('tgl_from')->get()->all();
+    }
+
+    /**
+     * Versi publik isDateLocked() — dipakai layar Koreksi Absen supaya
+     * "tanggal ini beku atau tidak" punya SATU jawaban. Menyalin syaratnya ke
+     * controller berarti dua definisi yang lambat laun berselisih, dan yang
+     * berselisih di sini adalah angka yang sudah dibayarkan.
+     *
+     * @param  ?string  $home  cabang ASAL orangnya (users.raw_branch_id).
+     */
+    public function tanggalTerkunci(string $tanggal, ?string $home): bool
+    {
+        return $this->isDateLocked($tanggal, $home, $this->loadClosedPeriods());
     }
 
     /** Periode yg SUDAH ditutup finance (att_day di rentangnya beku). */

@@ -354,10 +354,16 @@ Route::middleware([AuthGuard::class])->group(function () {
     Route::post('absensi/upload/file', [AbsensiUploadController::class, 'upload'])->name('absensi.upload.file');
     Route::get('absensi/recap',        [AbsensiRecapController::class, 'index'])->name('absensi.recap');
     Route::get('absensi/kehadiran',    [\App\Http\Controllers\Absensi\AbsensiKehadiranController::class, 'index'])->name('absensi.kehadiran');
+    Route::get('absensi/kehadiran/export', [\App\Http\Controllers\Absensi\AbsensiKehadiranController::class, 'export'])->name('absensi.kehadiran.export');
+    // Koreksi absen admin (berjejak audit) — lihat App\Services\KoreksiAbsen.
+    Route::get ('absensi/koreksi',            [\App\Http\Controllers\Absensi\KoreksiAbsenController::class, 'index'])->name('absensi.koreksi');
+    Route::post('absensi/koreksi',            [\App\Http\Controllers\Absensi\KoreksiAbsenController::class, 'simpan'])->name('absensi.koreksi.simpan');
+    Route::post('absensi/koreksi/{id}/cabut', [\App\Http\Controllers\Absensi\KoreksiAbsenController::class, 'cabut'])->name('absensi.koreksi.cabut');
 
     // Lembar Gaji — rekap kehadiran/lembur per karyawan per bulan (Finance/IT/admin)
     Route::get('absensi/lembar-gaji',        [\App\Http\Controllers\Absensi\LembarGajiController::class, 'index'])->name('absensi.lembargaji');
     Route::get('absensi/lembar-gaji/export', [\App\Http\Controllers\Absensi\LembarGajiController::class, 'export'])->name('absensi.lembargaji.export');
+    Route::post('absensi/lembar-gaji/ambang', [\App\Http\Controllers\Absensi\LembarGajiController::class, 'setelanAmbang'])->name('absensi.lembargaji.ambang');
 
     // Cuti — rekap saldo + cuti bersama + koreksi + kontrak baru (Finance/IT/admin)
     Route::get ('absensi/cuti',               [\App\Http\Controllers\Absensi\CutiController::class, 'index'])->name('absensi.cuti');
