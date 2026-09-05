@@ -6,6 +6,155 @@
 > file ini append-only.
 
 ---
+## 2026-09-05 — ABSENSI: koreksi berjejak audit, ambang DODO, ekspor rentang bebas
+
+Tiga fitur dari serah-terima `docs/handoff/handoff-absensi-koreksi-2026-09-05.md`,
+plus pemeriksa harian. **Semua di dev; prod belum disentuh sama sekali.**
+
+### ⛔ Temuan yang mengubah urutan pekerjaan: perbaikan cuti hari libur TIDAK ADA di prod
+
+Serah-terima menyatakan kode "cuti tak memakan hari libur" **sudah hidup di
+prod**, sehingga yang tersisa cuma membersihkan data lama. Itu tidak benar, dan
+salahnya bukan salah baca — melainkan **pengukuran yang benar atas benda yang
+salah**:
+
+* Branch `fix/cuti-hari-libur` **nol commit** (`reflog`: "Created from
+  origin/main"). Karena itu `git merge-base --is-ancestor` terhadap prod memang
+  LULUS — yang lulus branch **kosong**, bukan perbaikannya.
+* Blob `app/Services/CutiService.php` **sama persis di seluruh branch** repo;
+  `potongDariPengajuan()` masih memotong tiap hari kalender, dan komentarnya
+  sendiri menyebut "belum melihat jadwal kerja/hari libur".
+* Perbaikan aslinya (10 berkas + 6 kelas uji, ±830 baris `app/`) masih
+  **menggantung tanpa commit** di worktree `sweettreats-dodo`.
+
+**Akibatnya:** koreksi §A tetap aman dijalankan (pembalik tak menghapus baris
+asli, jadi penjaga idempoten tak melahirkan potongan lagi), tapi ia **tidak
+menghentikan sumbernya** — pengajuan cuti berikutnya akan tetap memotong hari
+libur. Menyelamatkan kerjaan yang menggantung itu **pekerjaan tersendiri dan
+belum dikerjakan**.
+
+Pelajarannya sudah lama tercatat di proyek ini dan berulang lagi: *bentuk hasil
+palsu yang paling mahal bukan yang kacau, melainkan yang rapi dan salah.*
+**Nama branch bukan bukti isi branch.**
+
+### D1 · Koreksi absen oleh admin — `/absensi/koreksi`
+
+Sebelumnya tak ada satu pun jalan mengubah `alpa` hari LAMPAU; yang ada cuma
+koreksi cuti (saldo) dan modal karyawan untuk hari ini.
+
+**Jebakan yang ditutup:** `att_day` itu tabel **turunan** — reconciler
+meng-`upsert` kolom `status` tiap pagi 06:10. Koreksi yang ditulis langsung ke
+sana akan bertahan sore ini lalu **hilang diam-diam besok**, dan tak ada yang
+akan menghubungkan keduanya. Jadi koreksi disimpan sebagai **deklarasi**
+(`att_day_koreksi`) dan dibaca reconciler sebagai kata terakhir — pola yang sama
+dengan pengajuan yang di-ACC.
+
+* Alasan **wajib** (min 8 karakter), tersimpan bersama nama & waktu + AuditLog.
+* **Periode gaji tertutup DITOLAK** dengan menyebut nama periodenya. Angka di
+  sana sudah dibayarkan.
+* **Buku besar**: baris tak pernah dihapus; membatalkan = mencabut, dan
+  cabutannya ikut tercatat.
+* `telat_menit` dinolkan saat hari dipindah ke status tak-bekerja — kalau tidak,
+  koreksi membetulkan satu angka sambil merusak kolom Total Telat.
+
+### D2 · Ambang DODO bisa diatur — di layar Lembar Gaji
+
+Aturan Ekky: `>=` ambang → DODO sebesar ambang, sisanya lembur biasa;
+`<` ambang → **bukan DODO sama sekali**. Bawaan **7 jam**, disimpan di
+`sys_setting`, diubah Finance tanpa deploy, berjejak audit.
+
+* **Per HARI, bukan per periode.** Dua hari libur penuh tetap dua hari DODO;
+  kalau ambang dikenakan pada jumlah sebulan, hari kedua lenyap tanpa jejak.
+* **Invarian dijaga**: `biasa + DODO` tetap sama persis dengan seluruh lembur
+  di-ACC pada ambang 0/60/420/600/900 — diuji eksplisit. `LemburDodo::dasar()`
+  nol baris disentuh.
+* Jumlah sel Kehadiran == angka Lembar Gaji, juga diuji (dua layar yang
+  berselisih soal DODO adalah cacat yang paling sulit dilacak).
+
+### D3 · Ekspor CSV di layar Kehadiran, rentang tanggal bebas
+
+Ekspor lama hidup di Periode Gaji dan cuma bisa mengeluarkan periode utuh —
+"1–15 Agustus" memaksa orang **membuat periode dulu**, mengubah data supaya bisa
+membacanya. Sekarang dari–sampai bebas, mengikuti **penyaring cabang yang sedang
+aktif** (disalin ke form lewat JS, sebab penyaringan layar ini di sisi klien).
+Roster dari aturan kerja, bukan `att_day`, supaya orang tanpa data tetap tampil.
+
+### E · `att:periksa-kejanggalan` — harian 06:30, BACA-SAJA
+
+Tiga pola yang **sudah terbukti terjadi**: potongan cuti di hari libur, potongan
+kembar, karyawan aktif tanpa aturan kerja.
+
+* **Tak membetulkan apa pun** — Ramdan membuktikan kenapa: potongan janggal bisa
+  sudah tertutup koreksi manual, dan pembetulan otomatis justru melahirkan
+  **kelebihan bayar**. Tiap temuan menyebut apakah orangnya punya koreksi manual.
+* **Stempel waktu ditulis walau nol temuan**, supaya "sudah diperiksa" bisa
+  dibedakan dari "belum pernah jalan".
+* Jalan pertama di dev melaporkan 11 temuan yang semuanya benar tak punya aturan
+  (Admin*, Sales). Akun sistem **dikecualikan, bukan disembunyikan** — jumlah &
+  namanya tetap dicetak. Sisa: 1 temuan nyata.
+
+### Uji — 59 hijau, 161 assertion (dev, PER KELAS)
+
+| Kelas | Hasil |
+|---|---|
+| AmbangDodoTest | 9 · 41 |
+| KoreksiAbsenTest | 13 · 20 |
+| KehadiranEksporTest | 5 · 13 |
+| LayarAbsensiRenderTest | 4 · 15 |
+| LemburDodoTest (regresi) | 9 · 18 |
+| PagarLemburTest (regresi) | 16 · 42 |
+| PagarLemburLayarTest (regresi) | 3 · 12 |
+
+`LemburDodoTest` & `PagarLemburTest` **dipatok ke ambang 0** di setUp: keduanya
+menguji pecahan/chip, bukan ambang. Tanpa itu keduanya merah karena alasan yang
+salah.
+
+### Tiga uji merah yang ternyata salah patokan — bukan salah kode
+
+1. `Carbon\Carbon` vs `Illuminate\Support\Carbon` — **cacat sungguhan**, 9 dari
+   11 uji TypeError. Turunan tak bisa disubstitusi ke atas.
+2. Tanggal uji 2027 dipilih supaya "tak bertabrakan data nyata" → rekonsiliasi
+   **membuang baris masa depan sebagai basi**, jadi yang diuji bukan koreksinya.
+   Sekarang tanggal diambil dari `att_day` yang benar-benar ada.
+3. Persona ekspor memakai karyawan acak ber-`group_name` 'Finance' → **302**,
+   sebab AuthGuard memeriksa akses menu lewat **`group_id`**. Ganti ke akun
+   Finance sungguhan.
+
+⚠️ Sapuan invarian atas seluruh data dev **tidak membuktikan apa-apa soal angka**:
+`att_day.lembur_menit_disetujui` **nol di seluruh dev** (6 lembur di-ACC ada,
+tapi belum terekonsiliasi). 51 pasangan orang-bulan, 0 pelanggaran — vakum.
+Bukti D2 ada di `AmbangDodoTest`, yang membangun skenarionya sendiri.
+
+### Yang MENUNGGU keputusan — belum dijalankan di environment mana pun
+
+| Berkas | Isi |
+|---|---|
+| `2026_09_05_att_day_koreksi.sql` | prasyarat D1 — **sudah dijalankan di dev**, prod belum |
+| `2026_09_05_koreksi_cuti_yovanka_ramdan.sql` | §A — pembalik, bukan hapus |
+| `2026_09_05_aturan_kerja_alpajri_ela_dodi.sql` | §B — + `att:reconcile 2026-09-02 2026-09-05` untuk Ela |
+
+⚠️ **Ramdan: saldonya TETAP 11 sesudah koreksi, dan itu benar.** Yang diperbaiki
+catatannya (5 baris untuk 1 hari cuti), bukan angkanya. Kalau saldonya berubah,
+ada yang keliru.
+
+### §C Melani & Putri 25 Agu — BELUM dikerjakan
+
+Alatnya (D1) sudah ada dan teruji, tapi tindakannya menyentuh **data prod**, dan
+prod belum diizinkan. Begitu diizinkan: lewat layar `/absensi/koreksi`,
+`alpa → libur`, dengan alasan yang menyebut konfirmasi Nissa — bukan tembak DB.
+
+### Lingkungan
+
+Dev dipinjam dari chat IT Tracker dan **dikembalikan persis** ke `feat/it-tracker`
+`f111832` (bukan ke tip origin yang satu commit lebih maju), `--no-dev`
+dipulihkan, berkas untracked mereka utuh, beranda dev `200`. Cacah baris 6 tabel
+tak bergeser — `DatabaseTransactions`, bukan `RefreshDatabase`.
+
+Branch: `feat/absensi-koreksi`. Naik prod butuh **3 SQL + deploy PENUH** (empat
+kelas baru), **nol rsync** (gaya sengaja inline di blade).
+
+---
+
 
 ## 2026-09-02 — IT REQUEST TRACKER: pemetaan + desain + rencana build (belum dikoding)
 

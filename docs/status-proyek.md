@@ -423,6 +423,35 @@ bukan symlink).
   Finance burgundy), Kehadiran gaya kalender Google, sapuan emoji→ikon SVG.
 - **Fix dokter**: jadwal khusus menang atas cuti di resolusi slot reservasi.
 
+### Lulus di DEV — menunggu izin prod (2026-09-05)
+- **Koreksi absen berjejak audit · ambang DODO · ekspor rentang bebas** —
+  branch `feat/absensi-koreksi` (dari `main` `13c49cd`); serah-terima
+  `handoff/handoff-absensi-koreksi-2026-09-05.md`. **59 uji hijau, 161 assertion**
+  (per kelas), dev dipinjam lalu dikembalikan persis ke chat IT Tracker.
+  1. **Koreksi absen `/absensi/koreksi`** — ubah status satu orang satu tanggal
+     dengan alasan wajib, nama pelaku, dan waktu. Sebelumnya `alpa` hari lampau
+     **hanya bisa dibetulkan dengan menembak basis data**. Disimpan sebagai
+     deklarasi di tabel baru `att_day_koreksi`, BUKAN di `att_day` — `att_day`
+     itu turunan dan reconciler menimpanya tiap pagi, jadi koreksi yang ditulis
+     langsung ke sana akan **hilang diam-diam besok paginya**. Periode gaji
+     tertutup **ditolak** dengan menyebut nama periodenya. Buku besar: mencabut,
+     bukan menghapus.
+  2. **Ambang DODO bisa diatur** (`sys_setting`, bawaan **7 jam**, diubah Finance
+     dari layar Lembar Gaji, berjejak audit). `>=` ambang → DODO sebesar ambang,
+     sisanya lembur biasa; `<` ambang → bukan DODO sama sekali. **Per HARI**,
+     bukan per periode. Invarian `biasa + DODO = total` diuji di lima ambang
+     berbeda; `LemburDodo::dasar()` nol baris disentuh.
+  3. **Ekspor CSV di layar Kehadiran, rentang bebas** — tak lagi memaksa orang
+     membuat periode gaji hanya untuk bisa membaca "1–15 Agustus". Ikut penyaring
+     cabang yang sedang aktif.
+  - Bonus: **`att:periksa-kejanggalan`** harian 06:30, BACA-SAJA — potongan cuti
+    di hari libur, potongan kembar, orang tanpa aturan kerja. Tak membetulkan
+    apa pun (Ramdan membuktikan kenapa: pembetulan otomatis bisa melahirkan
+    kelebihan bayar). Stempel waktu ditulis walau nol temuan.
+  - Deploy: **3 SQL + deploy PENUH** (empat kelas baru), **nol rsync**.
+  - ⛔ **Prasyarat yang belum ada**: perbaikan "cuti tak memakan hari libur"
+    **TIDAK hidup di prod** meski serah-terima menyatakan sebaliknya — lihat
+    catatan di §4 Utang.
 ### Lulus di DEV — menunggu izin prod (2026-08-27)
 - **Dua pagar pengajuan lembur** — branch `feat/pagar-lembur` (`c363de9`, dari
   `main` `0e7f26d`); rencana `rencana/rencana-pagar-lembur.md`; dev ditinggal di
@@ -525,6 +554,35 @@ bukan symlink).
 | 10 | Akun Yanwar Fauzi & Madalena belum ada (cuti:saldo-awal 21/23) | kecil | tunggu tanggal kontrak dari Finance |
 | 11 | `Ela #58` (mesin Bintaro) belum di-mapping ke akun | kecil | |
 | 12 | Konversi `public_html` prod jadi symlink (hapus gotcha rsync selamanya) | kecil | perbaikan permanen |
+| 13 | **Perbaikan "cuti tak memakan hari libur" MENGGANTUNG TANPA COMMIT** | **besar — menentukan uang** | ±830 baris `app/` + 6 kelas uji di worktree `sweettreats-dodo`, **hidup di NOL environment**. Lihat kotak di bawah. |
+
+> ### ⛔ Utang #13 — kenapa ini paling gawat di daftar
+>
+> Catatan sebelumnya menyatakan perbaikan ini **sudah di prod**, lengkap dengan
+> pengukuran `git merge-base --is-ancestor` yang **lulus**. Pengukurannya benar;
+> **bendanya yang salah**: branch `fix/cuti-hari-libur` **nol commit**
+> (`reflog`: "Created from origin/main"), jadi tentu saja ia leluhur prod —
+> yang lulus branch **kosong**.
+>
+> Yang bisa diperiksa siapa pun dalam 30 detik:
+> ```
+> git rev-parse main:app/Services/CutiService.php     # sama di SEMUA branch
+> git reflog show fix/cuti-hari-libur                  # satu baris: dibuat, lalu diam
+> ```
+> `potongDariPengajuan()` masih memotong tiap hari kalender — komentarnya
+> sendiri menyebut "belum melihat jadwal kerja/hari libur".
+>
+> **Akibat nyata:** koreksi data Yovanka & Ramdan boleh dijalankan (pembalik
+> tak menghapus baris asli, jadi potongannya tak lahir lagi), tapi **pengajuan
+> cuti berikutnya akan tetap memotong hari libur**. Membersihkan data tanpa
+> menaikkan kodenya = menyapu di bawah keran yang masih menetes.
+>
+> **Langkah berikutnya**: selamatkan 16 berkas itu jadi commit sungguhan di
+> branch bernama benar, uji per kelas di dev, baru koreksi datanya.
+>
+> **Pelajaran yang sudah tercatat dan berulang lagi**: *nama branch bukan bukti
+> isi branch*, dan bentuk hasil palsu yang paling mahal bukan yang kacau —
+> melainkan yang **rapi dan salah**.
 
 ## 5. Menunggu keputusan/aksi ORANG (bukan kerjaan koding)
 
