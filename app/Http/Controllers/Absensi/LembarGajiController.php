@@ -30,9 +30,17 @@ class LembarGajiController extends Controller
     /**
      * Samakan dgn grant SQL + halaman Cuti: Finance pemilik, IT akses penuh.
      * Konsultan Finance/IT ikut — menunya kloningan role induk (2026-08-21).
+     *
+     * ⛔ `Admin` dan `Admin Backup` SENGAJA DICABUT (Ekky, 5 Sep 2026).
+     * Keduanya AKUN BERSAMA. Yang mengganggu bukan lebar gerbangnya, melainkan
+     * bahwa ambang DODO menentukan uang: kalau disetel dari akun bersama,
+     * `audit_log` mencatat nama yang tak menunjuk siapa pun, dan jejak yang tak
+     * bisa menunjuk orang bukan jejak.
+     *
+     * Sisanya dibiarkan — role perorangan, jejaknya bermakna.
      */
     private const BOLEH = ['Finance', 'Head IT', 'IT', 'Konsultan Finance', 'Konsultan IT',
-        'Super Admin', 'Admin General', 'Admin Backup', 'Admin'];
+        'Super Admin', 'Admin General'];
 
     private function guard(): void
     {

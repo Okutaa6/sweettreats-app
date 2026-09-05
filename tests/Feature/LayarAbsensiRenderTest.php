@@ -127,6 +127,35 @@ class LayarAbsensiRenderTest extends TestCase
         $this->assertStringContainsString('Sisa Cuti', (string) session('error'));
     }
 
+    public function test_akun_bersama_tak_boleh_menyetel_ambang_dodo(): void
+    {
+        // Ambang DODO menentukan uang. Kalau disetel dari akun BERSAMA,
+        // audit_log mencatat nama yang tak menunjuk siapa pun — dan jejak yang
+        // tak bisa menunjuk orang bukan jejak. (Keputusan Ekky, 5 Sep 2026.)
+        foreach (['Admin', 'Admin Backup'] as $bersama) {
+            $sesi = $this->sesi();
+            $sesi['group_name'] = $bersama;
+
+            $res = $this->withSession($sesi)->get('/absensi/lembar-gaji');
+
+            $this->assertSame(403, $res->getStatusCode(),
+                "Akun bersama \"{$bersama}\" tak boleh membuka Lembar Gaji.");
+        }
+    }
+
+    public function test_role_perorangan_tetap_boleh(): void
+    {
+        // Kendali negatif: pencabutan di atas tak boleh ikut menutup orang yang
+        // memang berhak — termasuk Admin General, yang dipakai Ekky sendiri.
+        foreach (['Finance', 'Admin General', 'Head IT'] as $role) {
+            $sesi = $this->sesi();
+            $sesi['group_name'] = $role;
+
+            $res = $this->withSession($sesi)->get('/absensi/lembar-gaji');
+
+            $this->assertSame(200, $res->getStatusCode(), "{$role} harus tetap bisa membuka Lembar Gaji.");
+        }
+    }
     public function test_tab_koreksi_absen_muncul_di_deret_tab(): void
     {
         // Fitur yang tak punya jalan masuk sama saja dengan tak ada.
