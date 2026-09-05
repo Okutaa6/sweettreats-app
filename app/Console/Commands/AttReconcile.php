@@ -117,8 +117,8 @@ class AttReconcile extends Command
         $this->warn('  ' . count($geser) . ' penempatan BERGESER sejak rentang ini berlalu — '
             . 'hari mereka paling mungkin berubah:');
         $this->table(
-            ['Nama', 'Cabang', 'Dari', 'Sampai', 'Sebab'],
-            array_map(fn ($g) => [$g['nama'], $g['cabang'] ?? '—', $g['dari'] ?? '—', $g['sampai'] ?? '—', $g['sebab']], $geser)
+            ['Nama', 'Cabang', 'Jenis', 'Dari', 'Sampai', 'Sebab'],
+            array_map(fn ($g) => [$g['nama'], $g['cabang'] ?? '—', $g['jenis'], $g['dari'] ?? '—', $g['sampai'] ?? '—', $g['sebab']], $geser)
         );
         $this->line('  ⚠  Yang bertukar cabang paling berbahaya: hasilnya tetap terlihat masuk akal,');
         $this->line('     jadi tak ada yang akan curiga.');

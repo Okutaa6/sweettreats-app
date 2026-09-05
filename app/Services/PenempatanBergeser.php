@@ -40,7 +40,7 @@ class PenempatanBergeser
      *   2. barisnya DIUBAH sesudah rentang itu berlalu (`updated_at > $to`)
      *      → cabangnya bisa jadi sudah lain sama sekali.
      *
-     * @return array<int,array{nama:string,cabang:?string,dari:?string,sampai:?string,sebab:string}>
+     * @return array<int,array{nama:string,cabang:?string,jenis:string,dari:?string,sampai:?string,sebab:string}>
      */
     public static function dalamRentang(string $from, string $to): array
     {
@@ -48,7 +48,16 @@ class PenempatanBergeser
             $rows = DB::table('sys_user_position as p')
                 ->join('users as u', 'u.id', '=', 'p.user_id')
                 ->leftJoin('raw_branch as b', 'b.id', '=', 'p.raw_branch_id')
-                ->where('p.kind', 'rolling')
+                // ⚠️ SENGAJA TANPA penyaring `kind`. CabangBertugas hanya membaca
+                // `rolling`, tapi cabang bertugas jatuh kembali ke cabang ASAL
+                // (`users.raw_branch_id`) kalau tak ada rolling — dan baris
+                // `kind = 'home'` di sinilah jejak kapan cabang asal itu berubah.
+                //
+                // Menyalin penyaring CabangBertugas apa adanya membuat detektor ini
+                // MELEWATKAN justru kasus yang melahirkannya: penempatan Alpajri di
+                // Bintaro ber-`kind = 'home'`. Diukur 5 Sep 2026 — versi ber-filter
+                // menemukan 3 orang, yang benar 6. Detektor yang melapor KURANG jauh
+                // lebih berbahaya daripada yang melapor berlebih.
                 ->where('p.is_primary', 1)
                 ->whereNotNull('p.confirmed_at')
                 // menyentuh rentang: mulai sebelum `to`, dan belum berakhir sebelum `from`
@@ -58,7 +67,7 @@ class PenempatanBergeser
                     ->whereNotNull('p.effective_to')            // (1) sudah/akan berakhir
                     ->orWhere('p.updated_at', '>', $to))        // (2) disentuh sesudah rentangnya lewat
                 ->orderBy('u.nama')
-                ->get(['u.nama', 'b.name as cabang', 'p.effective_from', 'p.effective_to', 'p.updated_at']);
+                ->get(['u.nama', 'b.name as cabang', 'p.kind', 'p.effective_from', 'p.effective_to', 'p.updated_at']);
         } catch (\Throwable $e) {
             // Tabel belum ada di lingkungan ini → tak ada yang bisa bergeser.
             return [];
@@ -76,6 +85,7 @@ class PenempatanBergeser
             $out[] = [
                 'nama'   => $r->nama,
                 'cabang' => $r->cabang,
+                'jenis'  => $r->kind,
                 'dari'   => $r->effective_from ? substr((string) $r->effective_from, 0, 10) : null,
                 'sampai' => $r->effective_to ? substr((string) $r->effective_to, 0, 10) : null,
                 'sebab'  => $tutup && $diubah ? 'ditutup & diubah sesudah rentang'
