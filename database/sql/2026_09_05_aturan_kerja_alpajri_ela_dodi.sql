@@ -3,7 +3,7 @@
 --
 -- ⛔ DATA PRODUKSI. Jalankan per blok dan baca hasil tiap SELECT.
 --
---   Alpajri Suhendar Al Qhusni  GS            → Fleksibel Operasional
+--   Alpajri Suhendar Al Qhusni  GS Pagi       → Fleksibel Operasional  (diukur di prod)
 --   Ela                         (tak punya)   → Fleksibel Kantor
 --   Dodi                        (tak punya)   → Fleksibel Kantor
 --
@@ -34,7 +34,7 @@
 --                          `tipe === 'fleksibel'` hanya menulis libur/hadir atau
 --                          ketidakhadiran yang di-ACC. Jadi orang kantor memang
 --                          tak punya risiko alpa palsu di sini.
---   Alpajri  hari ini     — dia SUDAH dinilai sebagai GS selama ini. Aturan
+--   Alpajri  hari ini     — dia SUDAH dinilai sebagai GS Pagi selama ini. Aturan
 --                          barunya berlaku KE DEPAN; baris GS-nya ditutup, tak
 --                          pernah diubah (jejak gaji masa lalu harus tetap
 --                          terbaca apa adanya).
@@ -63,8 +63,10 @@
 
 -- ═══ BLOK 1 — POTRET SEBELUM (catat hasilnya) ═══
 
--- Keadaan aturan ketiganya sekarang. Yang diharapkan: Alpajri 1 baris (GS),
--- Ela & Dodi NOL baris.
+-- Keadaan aturan ketiganya sekarang. Diukur di prod 5 Sep 2026: Alpajri DUA baris
+-- (GS s/d 2026-08-20 sudah tertutup, lalu GS Pagi dari 2026-08-21 masih TERBUKA);
+-- Ela & Dodi NOL baris. Kalau yang tercetak berbeda, BERHENTI dan sesuaikan
+-- blok 2a — jangan dipaksa jalan.
 SELECT u.id, u.nama, u.raw_branch_id, w.nama AS aturan,
        ur.effective_from, ur.effective_to
 FROM users u
@@ -106,13 +108,29 @@ WHERE ur.effective_to IS NULL
 -- ternilai sebagai GS; menulis ulang rule_id akan mengubah cerita hari-hari
 -- yang gajinya sudah dibayar.
 
--- 2a) tutup baris GS per kemarin
+-- 2a) tutup baris yang SEKARANG terbuka, per kemarin.
+--
+-- ⚠️ Aturannya **GS Pagi**, bukan 'GS'. Diukur di prod 5 Sep 2026:
+--     ur#48 · GS Pagi · dari 2026-08-21 · effective_to NULL
+--   (baris GS lamanya sudah ditutup 2026-08-20).
+--
+-- Versi pertama skrip ini mencocokkan 'GS' — hasilnya NOL baris tertutup,
+-- lalu blok 2b tetap menyisipkan penugasan baru. Alpajri akan berakhir dengan
+-- DUA aturan aktif sekaligus, dan mana yang menang ditentukan urutan MySQL:
+-- persis cacat 'baris rangkap' yang sudah menimpa 8 orang di prod (5-6 Agu).
+-- Tak ada galat yang muncul; cuma orangnya dinilai dengan aturan yang berubah
+-- sendiri antar pemuatan.
+--
+-- Nama aturannya ditulis eksplisit (bukan "apa pun yang terbuka") supaya
+-- kalau keadaan prod ternyata sudah lain, hasilnya NOL BARIS — bukan menutup
+-- baris yang salah.
 UPDATE att_user_rule ur
 JOIN users u          ON u.id COLLATE utf8mb4_unicode_ci = ur.user_id COLLATE utf8mb4_unicode_ci
 JOIN att_work_rule w  ON w.id = ur.rule_id
 SET ur.effective_to = DATE_SUB(CURDATE(), INTERVAL 1 DAY)
 WHERE u.nama = 'Alpajri Suhendar Al Qhusni'
-  AND w.nama = 'GS'
+  AND w.nama = 'GS Pagi'
+  AND ur.effective_from = '2026-08-21'
   AND ur.effective_to IS NULL
   AND ur.effective_from < CURDATE();
 
