@@ -3,7 +3,9 @@
 namespace App\Services;
 
 use App\Models\AttDayKoreksi;
-use Carbon\Carbon;
+// AttendanceReconciler::reconcile() menuntut Illuminate\Support\Carbon,
+// bukan Carbon\Carbon induknya — turunan tak bisa disubstitusi ke atas.
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 /**
