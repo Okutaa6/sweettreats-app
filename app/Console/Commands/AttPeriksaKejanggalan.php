@@ -49,6 +49,19 @@ class AttPeriksaKejanggalan extends Command
     /** Kunci stempel waktu di sys_setting — dibaca layar Kesehatan. */
     public const KUNCI_JALAN = 'att_periksa_kejanggalan_terakhir';
 
+    /**
+     * Role yang memang TIDAK punya aturan kerja, dan benar begitu: akun
+     * sistem/loket, bukan orang yang absen. Menyebutnya sebagai temuan tiap
+     * hari akan membuat pemeriksaan ini diabaikan dalam sepekan — dan
+     * pemeriksa yang diabaikan sama saja dengan tak ada.
+     *
+     * ⚠️ Dikecualikan, BUKAN disembunyikan: jumlahnya tetap dicetak. Daftar
+     * yang diam-diam menelan baris adalah cara berikutnya sesuatu hilang
+     * tanpa ada yang tahu.
+     */
+    private const ROLE_SISTEM = ['Admin', 'Admin General', 'Admin Backup', 'Super Admin',
+        'Sales', 'Cabang'];
+
     public function handle(): int
     {
         $hari = max(1, (int) $this->option('hari'));
@@ -180,6 +193,16 @@ class AttPeriksaKejanggalan extends Command
                 ->whereColumn('ur.user_id', 'u.id'))
             ->orderBy('u.nama')
             ->get(['u.id', 'u.nama', 'g.nama as role']);
+
+        // Akun sistem disingkirkan lebih dulu; jumlahnya diumumkan supaya
+        // pengecualiannya terlihat, bukan bekerja diam-diam.
+        $sistem = $rows->filter(fn ($r) => in_array($r->role, self::ROLE_SISTEM, true));
+        $rows   = $rows->reject(fn ($r) => in_array($r->role, self::ROLE_SISTEM, true))->values();
+
+        if ($sistem->isNotEmpty()) {
+            $this->line('   (' . $sistem->count() . ' akun sistem dikecualikan: '
+                . $sistem->pluck('nama')->implode(', ') . ')');
+        }
 
         if ($rows->isEmpty()) return [];
 
