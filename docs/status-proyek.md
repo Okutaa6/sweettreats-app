@@ -423,7 +423,7 @@ bukan symlink).
   Finance burgundy), Kehadiran gaya kalender Google, sapuan emoji→ikon SVG.
 - **Fix dokter**: jadwal khusus menang atas cuti di resolusi slot reservasi.
 
-### Lulus di DEV — menunggu izin prod (2026-09-06)
+### ✅ NAIK PROD 2026-09-06 — tiga sebab "error & double input" (`4846b95`)
 - **Tiga sebab "sistem sering error & double input"** — branch
   `fix/galat-2002-kiriman-ganda`, tiga commit terpisah (A/B/C) agar bisa
   di-revert sendiri-sendiri. **45 uji hijau, 170 assertion.**
@@ -434,8 +434,10 @@ bukan symlink).
     `pulang_cepat`; pulang ≤5 mnt boleh DITIMPA pulang berikutnya.
   - **C** Petty cash: pengaman tombol `data-kunci-kirim` (tambah, transfer,
     ROP, pengajuan absensi) + pagar server kembar persis ≤10 dtk, flash ramah.
-  - Deploy: **1 SQL** (`2026_09_06_flag_pulang_cepat.sql`) + deploy PENUH,
-    **nol rsync**. 4 kasus absen lama & `[2002]` hosting = urusan Ekky/sesi lain.
+  - **Diukur di prod**: Pengawasan hari tersibuk `<img>` **57 → 12**, hari ini 39 → 12,
+    `?semua=1` 179 flag → 12. Kendali negatif 5 tabel tak bergeser. `[2002]` hari ini 0
+    (Minggu — bukan bukti; baca hari kerja pertama). 4 kasus absen lama & `[2002]`
+    hosting = urusan Ekky/sesi lain.
 
 ### ✅ NAIK PROD 2026-09-05 — koreksi absen · ambang DODO · ekspor rentang
 - Prod `e324d1b`. Backup `prod_pre_koreksiabsen_20260905_0851.sql.gz`. Beranda 200.

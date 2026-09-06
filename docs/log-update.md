@@ -6,6 +6,46 @@
 > file ini append-only.
 
 ---
+## 2026-09-06 — ✅ NAIK PROD: tiga sebab "sistem sering error & double input"
+
+Prod `4846b95` (dari `171d5c1`, ~21:45 WIB). Backup `prod_pre_galat2002_20260906_1448.sql.gz`
+(50M, gzip diuji). **SQL enum dulu, baru deploy** — kode yang menaikkan flag
+`pulang_cepat` sebelum enumnya ada akan melempar galat di `store()`. Beranda & signin 200.
+
+### Audit ulang sebelum naik — dua yang ketemu, dua-duanya ditutup
+1. Kotak placeholder (130×130, r10) **tak sama** dengan kotak `<img>` tile (130×150, r12,
+   bingkai 3px) → baris strip melompat tingginya dan bingkai merah `.flagged` tak berlaku
+   ke placeholder. Disamakan; `.aws-tile.flagged .aws-tunda` ditambah.
+2. Ketiga halaman ber-`data-kunci-kirim` **memang** memakai `layouts.app` (tempat skripnya
+   hidup) — diperiksa, bukan diasumsikan. `timpaPulang()` menyediakan keempat kunci
+   `$hasil[...]` yang dipakai `store()`. `$descOut` terdefinisi (1177) sebelum pagar (1184).
+
+### Angka SEBELUM → SESUDAH, diukur di prod pada data nyata
+
+| Halaman | tile | `<img>` sebelum | `<img>` sesudah | placeholder | tombol |
+|---|---|---|---|---|---|
+| Pengawasan **21 Agu** (hari tersibuk) | 57 | **57** | **12** | 45 | 9 |
+| Pengawasan **hari ini** | 39 | 39 | **12** | 27 | 9 |
+| `?semua=1` (179 baris flag) | — | 39 | **12** | — | — |
+
+Kode baru ter-autoload **dari berkas prod** (`kembarBaruSaja`, `JEDA_TIMPA_DETIK`,
+`jamPulangTerjadwal`, `LABEL[pulang_cepat]`) · poller `visibilityState` & skrip
+`data-kunci-kirim` tercetak di layout · layar absen akun baku sungguhan render dengan
+`var konfirmasi` + handler `need_confirm` · `/pettycash` memuat **2** form ber-kunci
+(tambah + transfer) · kendali negatif 5 tabel **tak bergeser** (bukti 1158 · scan 1158 ·
+flag 274 · petty 397 · att_day 706).
+
+Galat non-`[2002]` sejak deploy: **nol dari aplikasi** (satu-satunya adalah `shell_exec`
+dari skrip pre-flight-ku sendiri — `shell_exec` dimatikan di hosting). `[2002]` hari ini:
+**0** — tapi ini Minggu, lalu lintas rendah; **bukan bukti**. Bacaan yang sah = hari kerja
+pertama, bandingkan dengan 31–46/hari sebelumnya.
+
+⚠️ Celah kecil yang SENGAJA dibiarkan: `timpaPulang()` tidak memanggil `evaluasiFlags()`,
+jadi pulang-timpa dari IP asing tak menaikkan `ip_asing`/`luar_seharian` baru (flag dari
+pulang pertama tetap ada di bukti yang sama). Kasusnya sempit; dicatat, bukan dikerjakan.
+
+---
+
 ## 2026-09-06 — Tiga sebab "sistem sering error & double input" — DEV LULUS, prod belum
 
 Branch `fix/galat-2002-kiriman-ganda` (dari `main` `d68679f`), **tiga commit
