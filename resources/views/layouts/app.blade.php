@@ -256,8 +256,16 @@
                     });
                 }
 
+                // Berhenti saat tab TERSEMBUNYI, lanjut saat kembali. Bukan penyebab
+                // galat [2002], tapi tiap tab terbuka memakan satu koneksi DB tiap
+                // 30 detik — 84 dari 574 galat 2002 (25 Agu–6 Sep) jatuh di poller
+                // ini, mati diam-diam. Tab yang tak dilihat tak perlu bertanya.
+                function pollNotifJikaTerlihat() {
+                    if (document.visibilityState === 'visible') fetchNotifications();
+                }
                 fetchNotifications();
-                setInterval(fetchNotifications, pollInterval);
+                setInterval(pollNotifJikaTerlihat, pollInterval);
+                document.addEventListener('visibilitychange', pollNotifJikaTerlihat);
             })();
             </script>
 

@@ -1459,8 +1459,14 @@ function checkNewReservations() {
     });
 }
 
-// Poll every 20 seconds
-setInterval(checkNewReservations, 20000);
+// Poll tiap 20 detik — HANYA saat tab terlihat. Tab tersembunyi berhenti
+// bertanya (34 dari 574 galat [2002] 25 Agu–6 Sep jatuh di poller ini,
+// mati diam-diam), lalu langsung bertanya lagi begitu tab kembali dilihat.
+function pollReservasiJikaTerlihat() {
+    if (document.visibilityState === 'visible') checkNewReservations();
+}
+setInterval(pollReservasiJikaTerlihat, 20000);
+document.addEventListener('visibilitychange', pollReservasiJikaTerlihat);
 
 // Render kalender saat halaman dimuat jika tab kalender sedang aktif
 $(document).ready(function() {
