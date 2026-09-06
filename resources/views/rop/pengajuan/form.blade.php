@@ -72,7 +72,7 @@
         </div>
     @endif
 
-    <form method="POST" action="{{ route('rop.pengajuan.store') }}" enctype="multipart/form-data" id="ropForm">
+    <form method="POST" action="{{ route('rop.pengajuan.store') }}" data-kunci-kirim enctype="multipart/form-data" id="ropForm">
         @csrf
         @if ($ulangDari)<input type="hidden" name="resubmit_of" value="{{ $ulangDari }}">@endif
         <input type="hidden" name="abaikan_dobel" id="ropAbaikan" value="{{ $dobel ? '' : '' }}">

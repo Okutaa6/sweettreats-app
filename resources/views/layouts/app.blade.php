@@ -184,6 +184,46 @@
             });
             </script>
 
+            {{-- Pengaman klik ganda untuk form ber-redirect-berat.
+                 Pasang atribut data-kunci-kirim pada <form>: begitu dikirim,
+                 tombol submit mati + berteks "Menyimpan…", kiriman kedua
+                 dibatalkan. Pulih sendiri kalau halaman kembali dari bfcache
+                 (tombol Back) atau sesudah 15 dtk tanpa navigasi (respons
+                 gagal / validasi kembali di halaman yang sama).
+                 Diagnosis 6 Sep 2026: dua pengeluaran petty cash kembar lahir
+                 berjarak 0 dan 4 detik — klik ganda, dan "belum berpindah,
+                 klik lagi". Pengaman tombol bukan pagar (form buatan sendiri
+                 tetap bisa mengirim); pagar sesungguhnya di server. --}}
+            <script>
+            (function () {
+                var TEKS = 'Menyimpan…';
+                function pulihkan(form) {
+                    form.dataset.mengirim = '';
+                    form.querySelectorAll('button[type="submit"],input[type="submit"]').forEach(function (b) {
+                        if (b.dataset.teksAsli !== undefined) {
+                            if (b.tagName === 'INPUT') b.value = b.dataset.teksAsli; else b.innerHTML = b.dataset.teksAsli;
+                        }
+                        b.disabled = b.dataset.matiAsli === '1';
+                    });
+                }
+                document.addEventListener('submit', function (e) {
+                    var form = e.target;
+                    if (!form || !form.hasAttribute('data-kunci-kirim')) return;
+                    if (form.dataset.mengirim === '1') { e.preventDefault(); return; }
+                    form.dataset.mengirim = '1';
+                    form.querySelectorAll('button[type="submit"],input[type="submit"]').forEach(function (b) {
+                        b.dataset.matiAsli = b.disabled ? '1' : '0';
+                        if (b.tagName === 'INPUT') { b.dataset.teksAsli = b.value; b.value = TEKS; }
+                        else { b.dataset.teksAsli = b.innerHTML; b.textContent = TEKS; }
+                        b.disabled = true;
+                    });
+                    setTimeout(function () { pulihkan(form); }, 15000);
+                }, true);
+                window.addEventListener('pageshow', function () {
+                    document.querySelectorAll('form[data-kunci-kirim]').forEach(pulihkan);
+                });
+            })();
+            </script>
             {{-- Notification polling --}}
             <script>
             (function(){
