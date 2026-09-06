@@ -6,6 +6,101 @@
 > file ini append-only.
 
 ---
+## 2026-09-06 — Tiga sebab "sistem sering error & double input" — DEV LULUS, prod belum
+
+Branch `fix/galat-2002-kiriman-ganda` (dari `main` `d68679f`), **tiga commit
+terpisah** supaya bisa di-revert sendiri-sendiri. Diagnosis (sudah terukur di
+prod, tidak diukur ulang): `docs/handoff/handoff-diagnosis-galat-2002-kiriman-ganda-2026-09-06.md`.
+
+| | Commit | Uji |
+|---|---|---|
+| **A** Pengawasan + poller | `5763445` | `PengawasanFotoTest` 4 · 11 |
+| **B** Absen HP masuk→pulang | `c5a553a` | `AbsenHpJedaTest` 7 · 44 |
+| **C** Petty cash kiriman ganda | `6fed3f6` | `PettyCashKembarTest` 5 · 19 |
+
+Regresi: `LayarAbsensiRenderTest` 10 · `PagarLemburLayarTest` 3 · `KoreksiAbsenTest` 16 — hijau.
+**Total 45 uji baru+regresi, 170 assertion**, per kelas.
+
+### A · Pengawasan — 49 `<img>` → 12
+
+Tiap `<img src=pengawasan/foto/N>` = satu boot Laravel + satu koneksi DB, dan
+HTTP/2 mengirim semuanya serentak. Kini **anggaran GLOBAL 12 `<img>`** di
+muatan pertama; sisanya `<span class="aws-tunda" data-src>` + tombol *"Muat N
+foto lagi"* per strip (12 per klik). Tile tetap ada semua — nama & jam terbaca,
+klik tile tetap membuka panel yang memuat fotonya sendiri.
+
+**Angka:** 49 selfie (seed = rata-rata prod) → `<img>` **49 → 12**, 37
+placeholder, 49 tile utuh. ⚠️ Hari tersibuk *dev* cuma **6 selfie** — di bawah
+anggaran, jadi pengukuran atas data dev vakum (6 → 6); yang bermakna adalah
+seed 49 di uji.
+
+Ujinya menghitung **ELEMEN** `<img>` ber-`src` ke rute foto — bukan kata. Kata
+`pengawasan/foto` sengaja tetap muncul 49× (JSON `AWS_BUKTI` + `data-src`);
+menghitung kata akan merah selamanya.
+
+Baris flag (`?semua=1`) **tidak diubah**: tak pernah merender `<img>`; fotonya
+sudah dimuat panel saat baris diklik.
+
+Poller lonceng (30 dtk) & reservasi baru (20 dtk): berhenti saat
+`document.visibilityState !== 'visible'`, lanjut saat kembali. 118 dari 574
+galat 2002 jatuh di dua poller ini.
+
+**Nol berkas di `public/assets`** (gaya inline) → prod **tak butuh rsync**.
+
+### B · Absen HP — peringatan yang bisa dilanjut, bukan penghalang
+
+1. Pulang **<5 menit** sesudah masuk → dialog: *"Kamu baru absen masuk N detik
+   lalu. Yang ini absen PULANG, bukan mengulang masuk. Lanjutkan?"* Server
+   menuntut `confirm=1` — tombol bukan pagar.
+2. Pulang lebih awal dari jam pulang aturan (**baku saja**) → **teks di dalam
+   tombol**: *"Jadwalmu sampai 17.00. Ini pulang cepat 2 jam."* Tetap hidup,
+   tetap tercatat, jadi flag **`pulang_cepat`** (enum ditambah —
+   `2026_09_06_flag_pulang_cepat.sql`, idempoten). Fleksibel: nol peringatan.
+3. Pulang yang tercatat ≤5 menit sesudah masuk boleh **DITIMPA** pulang
+   berikutnya: UPDATE bukti + scan yang ada (bukan insert kedua — reconciler
+   melipat ≤5 menit), jam & foto lama masuk `audit_log`. Pulang **normal** yang
+   sudah ada tetap ditolak.
+
+`JEDA_TIMPA_DETIK = 300`, sengaja = `$dedupMinutes` reconciler (diuji).
+
+⚠️ **Salah baca skema, ketahuan dari uji**: `jam_pulang` hidup di
+**`att_work_rule_day`** (baris hari), bukan di `att_work_rule` — tabel aturan
+tak punya kolom jam sama sekali. Helper `jamPulangTerjadwal()` dibetulkan;
+7 uji sempat *error* (Unknown column), bukan gagal logika.
+
+**4 kasus lama TIDAK disentuh** — koreksi lewat layar, keputusan Ekky.
+
+### C · Petty cash — pengaman tombol + pagar server 10 detik
+
+Pengaman tombol = atribut **`data-kunci-kirim`** pada `<form>`, ditangani satu
+skrip bersama di `layouts/app.blade.php` (tombol mati + "Menyimpan…", kiriman
+kedua dibatalkan; pulih lewat `pageshow`/15 dtk). Dipasang di **tambah &
+transfer** petty cash (yang di `:1149` memang milik modal EDIT), **pengajuan
+ROP**, **pengajuan absensi** — dua terakhir belum punya kembaran, cukup tombol.
+
+Pagar server `PettyCashTransaction::kembarBaruSaja()`: baris IDENTIK
+(`created_by + amount + description + trx_date`) ≤**10 detik** [USULAN HUB]
+→ flash **ramah** *"Pengeluaran yang sama baru saja tersimpan — tidak dicatat
+dua kali"*, bukan galat. Kembar persis ditolak, mirip boleh (pola pagar
+lembur). Di `store()` dan `transfer()` (kunci pada baris keluar).
+
+### Sengaja TIDAK dikerjakan
+
+- **Foto tanpa boot Laravel** (tautan bertanda tangan ke berkas statis) — opsi
+  struktural §1.2 diagnosis; A1 sudah menghilangkan gerombolannya.
+- **Flag `single_scan` yang sudah ada** dari 4 kasus lama — koreksi data, Ekky.
+- **Pagar server untuk ROP & pengajuan absensi** — nol kembaran dalam 14 hari.
+- **Pengaman tombol untuk Tarik Tunai / Setor Cash** — sudah ber-`disabled`
+  sampai valid; tak termasuk lingkup (tambah & transfer).
+- `[2002]` sebagai gejala hosting — sesi terpisah, sesuai kesepakatan.
+
+### Naik prod butuh
+
+**1 SQL** (`2026_09_06_flag_pulang_cepat.sql`) + deploy **PENUH** (helper &
+metode baru) + **nol rsync**. Dev dipinjam dari chat IT Tracker dan dikembalikan
+persis ke `feat/it-tracker` `f111832`, `--no-dev` dipulihkan, beranda 200.
+
+---
 ## 2026-09-05 — ✅ NAIK PROD: koreksi absen, ambang DODO, ekspor rentang + koreksi data §A & §B
 
 Prod `e324d1b` (dari `2400896`). Backup `~/backup/prod_pre_koreksiabsen_20260905_0851.sql.gz`
