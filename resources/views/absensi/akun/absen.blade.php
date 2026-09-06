@@ -123,6 +123,8 @@
     .abshp-spin { width: 46px; height: 46px; border: 4px solid rgba(255,255,255,.25); border-top-color: #F1C994; border-radius: 50%; animation: abshp-rot 0.9s linear infinite; margin: 0 auto 16px; }
     @keyframes abshp-rot { to { transform: rotate(360deg); } }
     /* gagal (handoff mobile-9) */
+    .abshp-btn-cepat { flex-direction: column; gap: 3px; padding-top: 12px; padding-bottom: 12px; }
+    .abshp-cepat { display: block; font-size: 12px; font-weight: 600; opacity: .88; line-height: 1.3; }
     .abshp-thumb-wrap { position: relative; width: 116px; margin: 0 auto 18px; }
     .abshp-thumb { width: 116px; height: 116px; object-fit: cover; border-radius: 22px; }
     .abshp-thumb-x { position: absolute; right: -8px; bottom: -4px; width: 34px; height: 34px; border-radius: 50%; background: #C0392B; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; border: 3px solid #F4ECE2; font-size: 14px; }
@@ -243,8 +245,15 @@
     @if($lengkap)
         <div class="abshp-selesai-info"><span class="abshp-ic">{!! $svgCheck !!}</span> Absen hari ini sudah lengkap</div>
     @else
-        <button id="btn-mulai" class="abshp-btn abshp-btn-utama" data-jenis="{{ $jenisBerikut }}">
+        {{-- Peringatan pulang-cepat = TEKS di dalam tombol, bukan dialog, bukan
+             penghalang (keputusan Ekky 6 Sep 2026). Hanya aturan BAKU yang punya
+             jam pulang; fleksibel tak pernah melihat baris ini. Tercatat sebagai
+             flag pulang_cepat di server supaya terlihat di Pengawasan. --}}
+        <button id="btn-mulai" class="abshp-btn abshp-btn-utama {{ $pulangCepat ? 'abshp-btn-cepat' : '' }}" data-jenis="{{ $jenisBerikut }}">
             <span class="abshp-ic">{!! $svgCam !!}</span> Absen {{ ucfirst($jenisBerikut) }}
+            @if($pulangCepat)
+                <small class="abshp-cepat">Jadwalmu sampai {{ $pulangCepat['jadwal'] }}. Ini pulang cepat {{ $pulangCepat['selisih'] }}.</small>
+            @endif
         </button>
     @endif
 </div>
@@ -366,6 +375,10 @@
 <script>
 (function () {
     var jenis = @json($jenisBerikut);
+    // Diisi true HANYA sesudah orangnya membaca dialog "ini PULANG, bukan
+    // mengulang masuk" dan memilih lanjut. Server menuntut tanda ini (confirm=1)
+    // untuk pulang <5 menit sesudah masuk — tombol bukan pagar.
+    var konfirmasi = false;
     var ipDikenal = @json((bool) $ipCocok);
     var URL_STORE = @json(route('akun.absen.store'));
     var CSRF = document.querySelector('meta[name="csrf-token"]').content;
@@ -486,6 +499,7 @@
         body.append('jenis', jenis);
         body.append('foto_base64', dataUrl);
         if (cabangManual) body.append('branch_manual', cabangManual);
+        if (konfirmasi) body.append('confirm', '1');
 
         // Accept:json WAJIB — tanpanya gagal validasi/CSRF dibalas redirect HTML
         // → r.json() meledak → pesan "koneksi bermasalah" yang bohong.
@@ -504,6 +518,12 @@
                     lihat('ov-kirim', false);
                     if (res.j.ok) { sukses(res.j); }
                     else if (res.j.need_branch) { lihat('ov-cabang', true); }
+                    else if (res.j.need_confirm) {
+                        // Kalimatnya dari server — yang membedakan "pulang" dari
+                        // "mengulang masuk". Lanjut = kirim ulang dengan tanda.
+                        if (window.confirm(res.j.pesan)) { konfirmasi = true; kirim(); }
+                        else { lihat('ov-kamera', false); lihat('ov-sukses', false); }
+                    }
                     else if (res.j.errors) { gagal('Data absen tidak lengkap/valid. Coba ulangi selfienya.'); }
                     else { gagal(res.j.pesan); }
                 }, sisa);

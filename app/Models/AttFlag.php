@@ -34,6 +34,7 @@ class AttFlag extends Model
         'single_scan'     => 'Lupa absen pulang',
         'perangkat_desktop' => 'Absen dari laptop/PC',
         'cabang_beda_jadwal' => 'Dokter absen di cabang di luar jadwalnya',
+        'pulang_cepat'    => 'Pulang lebih awal dari jam pulang jadwalnya',
     ];
 
     public function user()
