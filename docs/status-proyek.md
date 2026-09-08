@@ -39,6 +39,18 @@
 > `2400896`, tak ada lagi cabang prod terpisah. Peringatan lama "jangan deploy
 > main ke prod" **sudah TIDAK berlaku** — sekarang justru `main` yang benar.
 >
+> ✅ **Sisipan 2026-09-09c — TRACKER + KATALOG NAIK PROD SENYAP** (`d607319`,
+> prod local main; `origin/main` belum digeser — push ditolak pengklasifikasi,
+> tinggal `git push origin feat/it-tracker:main`). Kode dulu baru 10 SQL,
+> rsync `assets/` saja, 9 tabel `it_*`, 37 modul, 12 berangka pemakaian
+> (Checklist 113 · Persetujuan 100 · Petty Cash 95 · ROP 63). Diukur dengan
+> akun prod: Della/Yovanka/Admin **302 ke landing**; Robi · **Haickal** · Hari
+> · Ikhsan 200 + drop-up + sidebar tanpa seksi IT + katalog 200. **⛔ Papan
+> prod KOSONG**: `it:seed-antrian` berhenti karena **Yovan (creative@stdc.id)
+> tak punya akun prod** (baris 13 & 33) — buat akunnya atau ganti pemohon,
+> lalu jalankan ulang seeder `--env-guard=prod`. Catatan: group "Consultant"
+> (kosong) ikut ber-grant; node petty cash prod bernama "Pettycash" (seeder
+> katalog cari "Petty Cash") → fitur tetap lewat `fitur_link`.
 > ✅ **Sisipan 2026-09-09b — TRACKER + KATALOG SIAP NAIK PROD SENYAP** (`9f2d98c`,
 > dev). **Peta berubah**: tracker tak lagi "dipakai nyata 2 minggu di dev dulu"
 > — Ekky memutuskan naik prod **tanpa pengumuman**, pintu dari **drop-up profil**
@@ -752,7 +764,8 @@ bukan symlink).
   ⚠️ **PETA BERUBAH 9 Sep 2026**: Fase 1–2 + Katalog Modul (37 entri) sudah
   selesai di dev (`9f2d98c`, 155+ uji) dan **naik prod SENYAP** — pintu drop-up
   profil, akses Konsultan + Executive + IT saja, Head departemen belum — begitu
-  Ekky menyebut "prod" (lihat Sisipan 2026-09-09b di atas).
+  Ekky menyebut "prod". ✅ **SUDAH NAIK PROD 9 Sep** (`d607319`) — papan masih
+  kosong sampai akun Yovan dibuat & seeder dijalankan ulang (Sisipan 2026-09-09c).
 
 ### Di-PAUSE (sengaja, jangan dikira hilang)
 - **Integrasi Accurate penuh** (pull 6 buku + push engine + 5 halaman laporan

@@ -6,6 +6,64 @@
 > file ini append-only.
 
 ---
+## 2026-09-09 — ✅ NAIK PROD SENYAP: IT Request Tracker + Katalog Modul (`d607319`)
+
+Ekky: *"gas ke prod, aman kan?"* Naik lewat `bash deploy.sh feat/it-tracker`
+(ditarik ke local `main` prod, sama seperti gerbong sebelumnya; **`origin/main`
+BELUM digeser** — push ke `main` ditolak pengklasifikasi izin, tinggal
+`git push origin feat/it-tracker:main`, fast-forward murni).
+
+### Urutan yang dijalankan (kode DULU, baru SQL)
+Dibalik dari resep semula dengan sengaja: tanpa grant, kode baru tak
+menampilkan apa pun; sebaliknya grant tanpa kode memunculkan tautan IT di
+sidebar yang 404 selama jendela deploy.
+1. Cadangan: `access_path` 87 · `group_access` 520 · `group_path` 25 baris →
+   `/tmp/cadangan-akses-2026-09-09.json`; 31 berkas menu →
+   `/tmp/group_access-cadangan-2026-09-09/` (di server prod).
+2. `deploy.sh` → HEAD `d607319`; rsync **hanya** `public/assets/` (1 berkas,
+   CSS tracker); curl beranda **200 → /**.
+3. **10 SQL berurutan** lewat app (bukan mysql CLI): access (28 baris) → core →
+   2b → git_ref → seed_urut → unit_kemajuan → modul_katalog → modul_pemakaian →
+   fitur_link → **akses_sementara (6 baris dicabut)**; `access:rebuild` (25
+   berkas) + `cache:clear`. **9 tabel `it_*`** lahir.
+4. `it:seed-katalog --env-guard=prod` → **37 modul**, 51 link unik, 15 tanpa
+   menu (disengaja). `it:hitung-pemakaian` → 12 modul terukur: Checklist 113 ·
+   Persetujuan 100 · Petty Cash 95 · ROP 63 · Konten 1 · Keluhan Sistem 0;
+   25 modul tetap "—".
+
+### Terukur di prod — akun sungguhan lewat AuthGuard
+| akun | `/it-tracker` | drop-up | seksi IT sidebar | katalog |
+|---|---|---|---|---|
+| Finance (Della) | **302 → /absensi** | — | — | — |
+| Head Marketing (Yovanka) | **302 → /marketing-dashboard** | — | — | — |
+| Admin | **302 → /setgroup** | — | — | — |
+| Executive (Robi) | 200 | ADA | hilang | 200 |
+| **Konsultan Finance (Haickal)** | 200 | ADA | hilang | 200 |
+| Konsultan Marketing (Hari) | 200 | ADA | hilang | 200 |
+| Head IT (Ikhsan) | 200 | ADA | hilang | 200 |
+
+Berkas menu Finance/Head Marketing/Admin **nol** `it-tracker`. Tanpa login:
+`/it-tracker` → `/signin`. `laravel.log` **tak bertambah** sesudah deploy (dua
+galat yang ada bertanggal sebelum deploy: probe `checklist_date` 00:04 dan
+`verif_prod.php` 00:37 — berkas itu sudah tidak ada).
+
+### ⛔ BERHENTI — papan prod masih KOSONG (it_ticket 0)
+`it:seed-antrian` **menolak** di baris 13: pemohon **Yovan / creative@stdc.id
+tidak punya akun di prod** (baris 33 juga Yovan, tanpa email). Semua email &
+nama lain di PSV **ada** (Reza · Ikhsan · Admin_Nisa · Robi · Della · Anisa).
+Tak ada satu tiket pun tertulis — seeder memeriksa dulu. **Keputusan Ekky**:
+(a) buat akun Yovan di prod (ingat `effective_from`), lalu jalankan ulang
+`it:seed-antrian … --env-guard=prod`; atau (b) ganti pemohon dua baris itu di
+PSV. Aku tidak menebak.
+
+### Dua catatan kecil
+- Group lama **"Consultant"** (0 akun) ikut dapat grant dari SQL 2 Sep — tak
+  berbahaya, tapi kalau kelak diisi orang, ia langsung melihat tracker.
+- Seeder katalog tak menemukan node **"Keuangan>Petty Cash"** di prod
+  (namanya di prod **"Keuangan > Pettycash"**) → `access_id` NULL; fitur & 95×
+  pemakaian tetap terhitung lewat `fitur_link`. Sinkronkan nama di seeder
+  kalau mau jalur cadangan hidup.
+---
 ## 2026-09-09 — Tracker + Katalog SIAP naik prod SENYAP: pintu drop-up, akses dipangkas (`9f2d98c`, dev)
 
 Keputusan Ekky 9 Sep 2026: IT Request Tracker + Katalog Modul **naik prod tanpa
