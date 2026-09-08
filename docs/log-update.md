@@ -6,7 +6,26 @@
 > file ini append-only.
 
 ---
-## 2026-09-09 — Slot kembar & "Terisi" tanpa orang: gerbong `fix/slot-kembar` LULUS DEV, prod menunggu kata Ekky
+## 2026-09-09 — ✅ NAIK PROD: slot kembar & "Terisi" tanpa orang (`35d332b`)
+
+**Prod `35d332b`** (dari `546044d`, ~00:40 WIB). Backup `prod_pre_slot_20260908_1736.sql.gz`
+(50M, gzip diuji). `deploy.sh main` → **rsync `assets/` saja** → `index.php` public_html utuh (3
+rujukan `laravel/`). Beranda/signin/reservasi **200** dengan URL akhir benar. Diverifikasi dari kode
+yang BENAR-BENAR ter-deploy (autoload prod, bukan `/tmp`): `gabungRentangBertindih` & `otherBranchBookings`
+ada · validasi `after:start_hour` 2 tempat · rute `rawreservation.slots` terdaftar · JS/CSS baru
+ter-serve dari `public_html` · Dharma/Cinere/10 Sep **6 slot** (17:00 = Heri Widodo · Cinere) ·
+publik nol kunci detail · nol `phone` · **165 kombinasi 14 hari, 0 berkembar** · log **0 ERROR**.
+Dev dikembalikan ke `feat/it-tracker` `f111832` + `--no-dev`; 2 baris demo dihapus.
+
+**Tambahan sebelum naik (00:30)** — ACC Ekky sesudah melihat dev: fitur jangan menunggu ditemukan.
+Kotak Terisi di cabang LAIN kini **mencetak nama cabangnya** menggantikan kata "Terisi", ada **ikon ⓘ**
+di sudut, kursor `not-allowed` → `pointer` (kursor ⛔ mengajari orang bahwa tak ada apa-apa di situ).
+Klik tetap membuka nama pasien. Nama cabang kosong → jatuh ke "Terisi". Pesan WA untuk user sudah
+disiapkan di chat.
+
+---
+
+### Sebelum naik (catatan proses)
 
 Laporan 8 Sep: admin mau menambah pasien **drg. Dharma** di **Cinere 10 Sep 17:00** →
 jam kembar (9 kotak: 17:00–18:00 muncul dua kali) **dan** 17:00 "Terisi" padahal

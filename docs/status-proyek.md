@@ -41,7 +41,8 @@
 >
 > ✅ **Sisipan 2026-09-09 — SLOT KEMBAR & "TERISI" LINTAS CABANG: gerbong
 > `fix/slot-kembar` LULUS DEV (10/10 E2E persona + 46/46 unit + diadu data prod
-> 3→0 kembar, 0 jam hilang, 0/518 absensi dokter bergeser), PROD MENUNGGU kata Ekky.**
+> 3→0 kembar, 0 jam hilang, 0/518 absensi dokter bergeser) — ✅ **NAIK PROD `35d332b`
+> 9 Sep ~00:40 WIB**, verifikasi dari kode ter-deploy: 165 kombinasi 14 hari 0 kembar, log 0 ERROR.**
 > Laporan 8 Sep (Dharma, Cinere, 10 Sep) ternyata DUA hal: jam kembar = bug
 > (rentang bertindih dicetak dua kali — juga tiap Sabtu untuk Panji Bintaro, tak
 > pernah dilaporkan) → digabung sebelum dicetak; "Terisi" tanpa orang = BUKAN bug
