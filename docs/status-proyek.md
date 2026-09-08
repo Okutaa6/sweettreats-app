@@ -39,6 +39,25 @@
 > `2400896`, tak ada lagi cabang prod terpisah. Peringatan lama "jangan deploy
 > main ke prod" **sudah TIDAK berlaku** — sekarang justru `main` yang benar.
 >
+> ✅ **Sisipan 2026-09-09b — TRACKER + KATALOG SIAP NAIK PROD SENYAP** (`9f2d98c`,
+> dev). **Peta berubah**: tracker tak lagi "dipakai nyata 2 minggu di dev dulu"
+> — Ekky memutuskan naik prod **tanpa pengumuman**, pintu dari **drop-up profil**
+> (`'it-tracker'` di `shellPersonalMap()`, komentar bertanggal PENEMPATAN
+> SEMENTARA; seksi IT di sidebar lenyap sendiri), akses **Konsultan + Executive
+> + IT saja** — Finance · Head Marketing · Admin dicabut lewat
+> `2026_09_09_it_tracker_akses_sementara.sql` (pemulihan = jalankan ulang SQL
+> akses 2 Sep). `main` sudah digabung masuk (`ac3e2f4`). Diukur di dev dengan
+> akun sungguhan: Finance/Head Marketing **302 ke landing** (bukan 403, nol
+> jejak menu); Robi · Hari · Ikhsan 200 + drop-up + 35 judul tak disensor +
+> katalog 200. PSV #09/#10/#19 → DEV (PIC Ekky, masuk 10 Sep, FR tak dikarang);
+> seeder dev 3/3 maju · 32 diam. Uji per kelas hijau; tiga merah dijawab sebagai
+> **drift DB lokal** (enum `pulang_cepat`, node `pettycash`, kolom `category`)
+> dan `Schema::hasTable` di dalam uji — tak ada uji diubah. **PROD MENUNGGU kata
+> "prod"**: 10 SQL urut → deploy → rsync `assets/` saja → `it:seed-katalog` →
+> `it:seed-antrian` → `it:hitung-pemakaian` (`--env-guard=prod`); cron aman
+> (`proc_open` hidup, `shell_exec` mati); `verif_prod.php` tak ada.
+> Sengaja belum: koreksi link ROP/Petty Cash (§14.27), `Schema::has*` di jalur
+> yang tak diuji.
 > ✅ **Sisipan 2026-09-08 — FITUR KATALOG PER LINK** (`f111832`, dev, **155 uji**):
 > ralat spesifikasi — `access_id` satu node keliru karena **menu mengelompokkan
 > berdasarkan navigasi, katalog berdasarkan kepemilikan**. Kolom baru
@@ -730,6 +749,10 @@ bukan symlink).
   zona grafit, segmen `/it-tracker` ber-node RBAC sendiri. Menunggu review
   Ekky (belum di-commit) → dev → dipakai nyata 2 minggu sebelum Fase 2
   (Kelas B + `it:sync-git` + ekspor + tujuh formulir penuh).
+  ⚠️ **PETA BERUBAH 9 Sep 2026**: Fase 1–2 + Katalog Modul (37 entri) sudah
+  selesai di dev (`9f2d98c`, 155+ uji) dan **naik prod SENYAP** — pintu drop-up
+  profil, akses Konsultan + Executive + IT saja, Head departemen belum — begitu
+  Ekky menyebut "prod" (lihat Sisipan 2026-09-09b di atas).
 
 ### Di-PAUSE (sengaja, jangan dikira hilang)
 - **Integrasi Accurate penuh** (pull 6 buku + push engine + 5 halaman laporan

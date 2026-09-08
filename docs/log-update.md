@@ -6,6 +6,91 @@
 > file ini append-only.
 
 ---
+## 2026-09-09 — Tracker + Katalog SIAP naik prod SENYAP: pintu drop-up, akses dipangkas (`9f2d98c`, dev)
+
+Keputusan Ekky 9 Sep 2026: IT Request Tracker + Katalog Modul **naik prod tanpa
+pengumuman**. Pintunya **drop-up profil** (bukan sidebar), yang boleh masuk
+**Konsultan + Executive + IT** (Head IT · Super Admin · Admin General · Admin
+Backup); **Head departemen TIDAK** — dulu. Dikerjakan & diukur di dev; prod
+**menunggu kata "prod"** dari Ekky.
+
+### Yang berubah
+- **Gabung `main` → `feat/it-tracker`** (`ac3e2f4`): slot kembar, galat 2002 /
+  kiriman ganda, role Konsultan ikut masuk. Konflik hanya di dua berkas docs
+  (digabung union). Dua penjaga `app.blade.php` dari 6 Sep ("Menyimpan…" +
+  poller `visibilityState`) **utuh**.
+- **Drop-up, bukan sidebar**: `'it-tracker'` masuk `shellPersonalMap()` dengan
+  komentar bertanggal **PENEMPATAN SEMENTARA** — rumah aslinya sidebar. Seksi
+  "IT" di sidebar **lenyap sendiri** karena semua daunnya kini pribadi; tak ada
+  kode yang menyembunyikannya secara khusus.
+- **SQL akses sementara** `2026_09_09_it_tracker_akses_sementara.sql`: cabut
+  grant `it-tracker` + induknya dari **Finance · Head Marketing · Admin**
+  (idempoten; di dev **6 baris**; tersisa 9 group). **Pemulihan** = jalankan
+  ulang `2026_09_02_it_tracker_access.sql`. Wajib `access:rebuild` +
+  `cache:clear` sesudahnya.
+- **PSV**: #09 · #10 · #19 **ANALISIS → DEV**, PIC Ekky, masuk 2026-09-10 09:00.
+  **FR & kriteria TIDAK ditambah** — seeder bukan wewenang untuk mengarangnya.
+- `kolomAda()` / `tabelAda()` menggantikan `Schema::hasColumn/hasTable` di
+  empat jalur yang dilewati uji (Helpers, AkunPengajuanController,
+  AttendanceReconciler, KoreksiAbsen): yang lama membaca `information_schema`
+  dan **membunuh mysqld lokal**; di dev/prod hasilnya sama persis.
+
+### Terukur di dev — akun SUNGGUHAN, lewat AuthGuard, bukan sesi rekaan
+| akun | `/it-tracker` | drop-up | seksi IT sidebar | judul tiket | katalog |
+|---|---|---|---|---|---|
+| Finance (Della) | **302 → /absensi** | — | — | — | — |
+| Head Marketing (Yovanka) | **302 → /marketing-dashboard** | — | — | — | — |
+| Executive (Robi) | 200 | ADA | hilang | **35** (tak disensor) | 200 |
+| Konsultan Marketing (Hari) | 200 | ADA | hilang | 35 | 200 |
+| Head IT (Ikhsan) | 200 | ADA | hilang | 35 | 200 |
+
+Berkas menu Finance/Head Marketing/Admin **nol** `it-tracker`. Yang ditolak
+dipantulkan ke landing (**302, bukan 403**) — tak ada jejak fitur ini bagi
+mereka. **Konsultan Finance (Haickal) hanya ada di prod** → diuji pasca-prod.
+**Seeder ulang dev: 3/3 tiket maju ke DEV, 32 tiket lain tak bergeser.**
+
+### Uji — PER KELAS, lokal (dev tak punya phpunit: vendor `--no-dev`)
+15 kelas tracker (155 uji) + PengawasanFoto + AbsenHpJeda + FiturLink +
+**PeluncuranSenyap baru (7 uji elemen, 1 dilewati: Konsultan Finance tak ada di
+lokal)** → **hijau**. Tiga merah **dijawab, bukan diubah**:
+- **AbsenHpJeda** merah karena DB lokal belum mengenal enum `pulang_cepat`
+  (SQL 6 Sep memakai `information_schema`, yang mematikan mysqld lokal) →
+  ALTER-nya dijalankan langsung → **7/7 hijau**.
+- **PettyCashKembar** 4 merah: DB lokal **tanpa node `pettycash`** dan **tanpa
+  kolom `category`** (migrasi kategori Reza tak pernah jalan di lokal). Kode
+  petty cash, AuthGuard, dan berkas ujinya **identik byte dengan main**; fitur
+  live prod sejak 6 Sep. Bukan dampak merge.
+- **PagarReconcileLampau** 4/6 hijau; dua lainnya memanggil
+  `Schema::hasTable` **dari dalam uji** → tak bisa jalan di mysqld lokal;
+  berkas identik main.
+
+### Resep prod — belum dijalankan, menunggu kata "prod"
+1. **10 SQL berurutan** (deploy.sh **tak** menjalankan SQL):
+   `2026_09_02_it_tracker_access` → `2026_09_02_it_tracker_core` →
+   `2026_09_03_it_tracker_2b` → `2026_09_03_it_tracker_git_ref` →
+   `2026_09_04_it_tracker_seed_urut` → `2026_09_05_it_tracker_unit_kemajuan` →
+   `2026_09_06_it_modul_katalog` → `2026_09_07_it_modul_pemakaian` →
+   `2026_09_08_it_modul_fitur_link` → **`2026_09_09_it_tracker_akses_sementara`**
+   → `access:rebuild` + `cache:clear`.
+2. `bash deploy.sh feat/it-tracker` (class baru → deploy penuh), lalu **rsync
+   HANYA `public/assets/`** ke `public_html/assets/` (public_html itu SALINAN;
+   rsync seluruh `public/` pernah mematikan prod 6 menit).
+3. `it:seed-katalog` → `it:seed-antrian docs/rencana/seed-antrian-it-2026-09-04.psv`
+   → `it:hitung-pemakaian`, semuanya `--env-guard=prod`.
+4. Cron 06:40 `it:sync-git` / 06:50 `it:hitung-pemakaian`: **tak memakai
+   `shell_exec`** (`disable_functions` prod mematikannya); `it:sync-git` lewat
+   Symfony Process = `proc_open`, yang **hidup** di prod; git 2.47.3 ada.
+5. `verif_prod.php` di root laravel prod **tidak ada** — nihil yang dihapus.
+6. Sesudahnya: `curl` beranda 200 + URL akhir; Robi → drop-up → papan + katalog
+   berangka pemakaian; Finance → tanpa jejak; Haickal (Konsultan Finance).
+
+### ⏭️ Sengaja TIDAK dikerjakan
+- Koreksi link **ROP (1→3)** & **Petty Cash (1→2)** — masih menunggu Ekky (§14.27).
+- `Schema::has*` lain (CustomerController, Set/UserManagement, RopCoaCatalog,
+  perintah console) **dibiarkan** — tak dilewati uji, dev/prod tak terpengaruh.
+- **Tak ada uji yang diubah**; DB lokal disamakan seperlunya (enum, node).
+- `masuk_at` 10 Sep = besok → hari tunggu tiga tiket itu 0 sampai tanggalnya lewat.
+---
 ## 2026-09-08 — Fitur katalog dipetakan per LINK, bukan per node (§14.27)
 
 Ralat **spesifikasi**, bukan salah koding. Live di dev (`f111832`), **155 uji
