@@ -6,6 +6,86 @@
 > file ini append-only.
 
 ---
+## 2026-09-09 — Slot kembar & "Terisi" tanpa orang: gerbong `fix/slot-kembar` LULUS DEV, prod menunggu kata Ekky
+
+Laporan 8 Sep: admin mau menambah pasien **drg. Dharma** di **Cinere 10 Sep 17:00** →
+jam kembar (9 kotak: 17:00–18:00 muncul dua kali) **dan** 17:00 "Terisi" padahal
+daftar Cinere kosong. Ditelusuri ke prod: **dua hal berbeda**, hanya satu yang bug.
+
+- **Kembar = bug.** Rutin Kamis Cinere `17:00–20:00` ditumpuk Hari Tambahan `17:00–18:30`
+  (Della, 8 Sep 13:35, alasan "dokter on call"); `computeTimeSlots()` mencetak deret per
+  rentang lalu menempelkannya. **Berulang tiap Sabtu** untuk Panji Bintaro (`10:00–20:00` +
+  `15:00–20:00` → **10 jam kembar**) tanpa pernah dilaporkan.
+- **"Terisi" = BUKAN bug.** Ghita Lestary sudah memesan Dharma di **Kalideres** `17:00–17:30`
+  (pending, 5 Sep). `resolveBookedRanges()` sengaja tanpa filter cabang — satu dokter, satu
+  tempat. Yang salah **layarnya diam**. Fakta pendukung: 0 dari 931 hari-dokter sejak Jan
+  2026 pernah dipakai >1 cabang; jadwal lintas-cabang Dharma/Wira = template on-call.
+- **Ops sudah beres sendiri**: Della berkoordinasi — Ghita dibatalkan 14:41, HERI WIDODO
+  dipesan Cinere 17:00 pukul 14:54.
+
+### Isi gerbong (branch `fix/slot-kembar` dari main `546044d`, sudah di origin)
+1. **`gabungRentangBertindih()`** — rentang bertindih digabung sebelum slot dicetak; yang cuma
+   bersentuhan tetap dua sesi; rentang nol/terbalik **TIDAK dibuang** (⚠️ `AttendanceReconciler`
+   menilai "dokter dijadwalkan?" dari koleksi kosong/tidak — membuang = menggeser absensi;
+   prod punya Dharma Bintaro Minggu `22:00–20:00`). Versi pertamaku membuangnya — ketahuan
+   saat audit, sebelum sempat naik.
+2. **`after:start_hour`** pada jam PRAKTIK di `scheduleStore/Update` (istirahat sudah dijaga,
+   praktik kelupaan → asal baris terbalik). Efek sadar: jadwal lintas tengah malam ditolak
+   (prod nol, pencetak slot memang tak bisa).
+3. **Commit Reza `a252215`** — ditinjau baris per baris, **lulus semua pagar**, dan satu hal
+   lebih kuat dari usulan: rute staf **terpisah** `/rawreservation/slots/…` di balik AuthGuard
+   (bukan bendera di rute publik). `booked_by` = cabang · jam · nama pasien; spanduk hari
+   `other_branch_bookings` (menutup "pindah cabang nol menit"); peringatan tumpang tindih di
+   layar jadwal dokter (client-side, tak memblok). **Tanpa nomor HP.** Kotak Terisi = `<span>`
+   supaya tap HP hidup. Segmen `rawreservation` punya 14 grant di prod → lolos jebakan 302.
+4. Rapi kecil: sesi habis di rute staf → "sesi habis — muat ulang", bukan "Unexpected token <".
+5. Handoff `docs/handoff/handoff-penanda-slot-lintas-cabang.md` diluruskan: Reza sudah
+   mengerjakan; kini catatan keputusan + §10 sisa kecil.
+
+**Commit checklist Reza `15dfd1a` SENGAJA TIDAK ikut**: butuh SQL `excuse_source` yang belum
+di prod, dan menggeser cron `checklist:mark-missed` 00:10→06:15 yang terbukti jalan. Gerbong
+sendiri. Dua commitnya terpisah rapi — `a252215` duduk langsung di main, tak perlu dipecah.
+
+### Bukti
+- **46/46 unit** lokal (15 baru, tanpa DB) · **10/10 E2E di dev, 84 asersi** — persona
+  Front Office Cinere (Della) vs form publik vs tanpa sesi: kembar hilang; staf lihat
+  Kalideres·jam·nama; **string HP tak ada di keluaran**; publik nol kunci detail & nol nama;
+  tanpa sesi → 302 signin; jam terbalik ditolak & tak tersimpan; payload peringatan jadwal
+  memuat kedua cabang tanpa baris istirahat.
+- **Diadu ke data prod** (baca-saja, dua proses lama vs baru, asal trait dicetak): **3→0**
+  kombinasi berkembar · **0** jam hilang dari 166 · **0/518** hari-dokter berubah di
+  `praktikPada` (jalur absensi dokter tak tersentuh) · Dharma/Cinere/10 Sep → 6 slot.
+- Dev: `/`, `/signin`, `/reservasi` **200**; JS baru ter-serve.
+
+### Temuan lain — utang, bukan gerbong ini
+- **Label "90 hari" bohong**: loop `computeAvailableDates()` 535 hari; Dharma/Cinere 77 tanggal
+  s/d **24 Feb 2028**, cuma 13 dalam 90 hari. 12 reservasi nyata di luar 90 hari → yang salah
+  **labelnya**, jangan pendekkan jendelanya.
+- Dharma Bintaro Minggu `22:00–20:00`: nol slot, tapi absensi mencatat "praktik tanpa scan"
+  tiap Minggu. Keputusan ops (maksudnya mungkin 20:00–22:00).
+- Dua baris redundan (exception Cinere 10 Sep; Panji Sabtu `15:00–20:00`) — **tak berbahaya
+  lagi**, rapi-rapi Della kapan saja, tanpa tenggat.
+- Pindah cabang nol menit tak dipagari (butuh matriks jarak) — spanduk penggantinya yang jujur.
+- Reza (commit checklist): komentar `AttendanceRequestWorkflow` masih "cron 00:10".
+
+### Naik prod — resep
+`deploy.sh main` → **rsync `assets/` SAJA** (`public/assets/js/reservation-form.js` tersentuh;
+rsync seluruh `public/` pernah mematikan prod 6 menit) → `curl` beranda **200** + cek URL
+akhir → buka Cinere/Dharma/10 Sep: **6 kotak**, 17:00 bertanda Heri Widodo · Cinere.
+**Nol SQL, nol migration, nol urutan mengikat** (gabung membuat baris lama tak berbahaya
+walau dibiarkan; validasi cuma untuk simpanan berikutnya).
+Dev **dibiarkan** di `fix/slot-kembar` (+ composer dev) supaya bisa dilihat mata; kembalikan
+ke `feat/it-tracker` `f111832` + `--no-dev` sesudah prod.
+
+### Pelajaran
+- Satu laporan bisa dua sebab dengan dua nasib — pisahkan dulu, baru perbaiki; kalau tidak,
+  yang bukan bug ikut "diperbaiki" dan justru membuka double-booking.
+- Menggabung rentang: **jangan buang yang kosong** — ada pemanggil lain yang membaca
+  kekosongan koleksi sebagai keputusan (di sini: absensi dokter).
+- Dev tak selalu bisa mereproduksi (Dharma tak punya jadwal Cinere di dev) → E2E pakai
+  fixture dalam transaksi + persona sungguhan, dan **adu kode ke data prod tanpa deploy**.
+
+---
 ## 2026-09-06 — ✅ NAIK PROD: tiga sebab "sistem sering error & double input"
 
 Prod `4846b95` (dari `171d5c1`, ~21:45 WIB). Backup `prod_pre_galat2002_20260906_1448.sql.gz`

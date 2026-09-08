@@ -95,6 +95,10 @@ class ReservationApiController extends Controller
 
     /**
      * GET /api/reservation/slots/{branchId}/{doctorId}/{date}
+     *
+     * ROUTE PUBLIK — dipakai form pasien di /reservasi. TIDAK BOLEH mengirim
+     * 'with_booking_detail': nama pasien lain tak boleh terlihat oleh pasien.
+     * Versi berdetail untuk staf ada di getTimeSlotsAdmin() di bawah.
      */
     public function getTimeSlots($branchId, $doctorId, $date)
     {
@@ -102,6 +106,27 @@ class ReservationApiController extends Controller
             'service_id' => request('service_id'),
             'duration'   => (int) request('duration', 0),
             'exclude_id' => request('exclude_id'),
+        ]));
+    }
+
+    /**
+     * GET /rawreservation/slots/{branchId}/{doctorId}/{date}  (di balik AuthGuard)
+     *
+     * Kembaran getTimeSlots() untuk STAF: slot terisi ikut membawa cabang, jam
+     * & nama pasien, plus daftar janji dokter di cabang lain pada tanggal itu.
+     * Sengaja route terpisah, bukan query-param di route publik — supaya
+     * detailnya tidak pernah ada di permukaan yang bisa disentuh pasien.
+     *
+     * Nomor HP tidak diambil, tidak dikirim, tidak dirender: koordinasinya ke
+     * admin cabang, bukan ke pasien orang lain.
+     */
+    public function getTimeSlotsAdmin($branchId, $doctorId, $date)
+    {
+        return response()->json($this->computeTimeSlots($branchId, $doctorId, $date, [
+            'service_id'          => request('service_id'),
+            'duration'            => (int) request('duration', 0),
+            'exclude_id'          => request('exclude_id'),
+            'with_booking_detail' => true,
         ]));
     }
 

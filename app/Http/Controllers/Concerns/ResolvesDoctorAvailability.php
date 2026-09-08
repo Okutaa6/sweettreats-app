@@ -98,7 +98,8 @@ trait ResolvesDoctorAvailability
      *
      * $opts: service_id, duration (int explicit), exclude_id,
      *        reservation_table (default 'raw_cus_reservation' — sandbox
-     *        kirim 'raw_cus_reservation_dev' supaya cek bentrok ke data dev).
+     *        kirim 'raw_cus_reservation_dev' supaya cek bentrok ke data dev),
+     *        with_booking_detail (lihat di bawah).
      *
      * @return array{slots:array,sessions:array,slot_interval:int}
      */
@@ -112,15 +113,34 @@ trait ResolvesDoctorAvailability
         $excludeId        = $opts['exclude_id'] ?? null;
         $reservationTable = $opts['reservation_table'] ?? 'raw_cus_reservation';
 
+        // Detail booking (cabang · jam · nama pasien) MATI BY DEFAULT — cuma
+        // dinyalakan endpoint admin di balik AuthGuard. Form publik /reservasi
+        // memanggil route publik yang tidak pernah mengirim opsi ini, jadi
+        // pasien tak pernah bisa melihat nama pasien lain. Kalau kelak ada yang
+        // lupa menyalakan, yang terjadi adalah fitur tak muncul — bukan data
+        // bocor. Itu arah gagal yang benar.
+        $withDetail = (bool) ($opts['with_booking_detail'] ?? false);
+
         // === 1. Resolve working ranges untuk tanggal ini ===
         $ranges = $this->resolveWorkingRanges($branchId, $doctorId, $date);
 
         if ($ranges->isEmpty()) {
-            return [
+            $empty = [
                 'slots'         => [],
                 'sessions'      => [],
                 'slot_interval' => 0,
             ];
+
+            // Dokter tak praktik di cabang ini pada tanggal ini, tapi bisa jadi
+            // dia praktik di cabang LAIN — spanduk harinya tetap perlu muncul.
+            if ($withDetail) {
+                $empty['other_branch_bookings'] = $this->otherBranchBookings(
+                    $this->resolveBookedRanges($doctorId, $date, $reservationTable, $excludeId),
+                    $branchId
+                );
+            }
+
+            return $empty;
         }
 
         // === 2. Resolve durasi slot (durasi override per-cabang + sub-detail) ===
@@ -141,16 +161,18 @@ trait ResolvesDoctorAvailability
                 $slotEnd   = $start->copy()->addMinutes($duration)->format('H:i');
 
                 $isBooked = false;
+                $bookedBy = null;
                 foreach ($bookedRanges as $r) {
                     if ($slotStart < $r['end'] && $slotEnd > $r['start']) {
                         $isBooked = true;
+                        $bookedBy = $r;
                         break;
                     }
                 }
 
                 $isPast = $carbonDate->isToday() && Carbon::now()->format('H:i') > $slotStart;
 
-                $slots[] = [
+                $slot = [
                     'time'      => $slotStart,
                     'end_time'  => $slotEnd,
                     'label'     => $slotStart,
@@ -158,6 +180,19 @@ trait ResolvesDoctorAvailability
                     'is_past'   => $isPast,
                     'available' => !$isBooked && !$isPast,
                 ];
+
+                // Tanpa $withDetail, bentuk slot persis seperti sebelumnya —
+                // tidak ada kunci tambahan sama sekali.
+                if ($withDetail && $bookedBy) {
+                    $slot['booked_by'] = [
+                        'branch_id' => $bookedBy['branch_id'] ?? null,
+                        'branch'    => $bookedBy['branch'] ?? null,
+                        'nama'      => $bookedBy['patient'] ?? null,
+                        'jam'       => $bookedBy['start'] . '–' . $bookedBy['end'],
+                    ];
+                }
+
+                $slots[] = $slot;
 
                 $start->addMinutes($duration);
             }
@@ -186,11 +221,17 @@ trait ResolvesDoctorAvailability
             $sessions[$key]['total_count']     = count($s['slots']);
         }
 
-        return [
+        $result = [
             'slots'         => $slots,
             'sessions'      => $sessions,
             'slot_interval' => $duration,
         ];
+
+        if ($withDetail) {
+            $result['other_branch_bookings'] = $this->otherBranchBookings($bookedRanges, $branchId);
+        }
+
+        return $result;
     }
 
     /**
@@ -359,9 +400,79 @@ trait ResolvesDoctorAvailability
 
         // 'add' (Hari Tambahan) selalu ditambahkan — membuka tanggal walau
         // dokter cuti atau hari itu biasanya libur.
-        $ranges = $ranges->concat($addRanges)->sortBy('start_hour')->values();
+        //
+        // Digabung dulu supaya rentang yang BERTINDIH tidak masing-masing
+        // mencetak deret slotnya sendiri — lihat gabungRentangBertindih().
+        $ranges = collect($this->gabungRentangBertindih($ranges->concat($addRanges)));
 
         return $ranges;
+    }
+
+    /**
+     * Satukan rentang jam yang saling BERTINDIH jadi satu rentang.
+     *
+     * Kenapa perlu: satu tanggal bisa mewarisi lebih dari satu rentang untuk
+     * dokter+cabang yang SAMA — dua baris jadwal rutin yang tumpang tindih, atau
+     * 'add' (Hari Tambahan) yang dibuat di hari yang ternyata SUDAH punya jadwal
+     * rutin. computeTimeSlots() mencetak deret slot per rentang lalu
+     * menempelkannya, jadi tanpa penggabungan jam yang sama muncul dua kali di
+     * layar. Kejadian nyata 10 Sep 2026: Cinere rutin 17:00-20:00 (6 slot)
+     * ditumpuk 'add' 17:00-18:30 (3 slot) = 9 kotak untuk 6 jam yang benar-benar
+     * ada. Admin membacanya sebagai sistem rusak, dan itu memicu laporan.
+     *
+     * DIGABUNG, bukan dibuang yang kembar: kalau 'add' justru MEMPERPANJANG
+     * (rutin 17:00-20:00 + add 19:00-21:00), yang benar adalah satu grid
+     * 17:00-21:00. Membuang duplikat saja meninggalkan dua grid dengan titik
+     * mulai berbeda — jamnya jadi ganjil begitu durasinya tak sejajar.
+     *
+     * Yang cuma BERSENTUHAN (10:00-12:00 lalu 12:00-15:00) sengaja TIDAK
+     * digabung: itu dua sesi terpisah, dan menyatukannya menggeser titik grid
+     * untuk durasi yang tak habis membagi rentang — perubahan perilaku di luar
+     * cacat yang sedang diperbaiki. Karena itu pembandingnya '<', bukan '<='.
+     *
+     * @param  \Illuminate\Support\Collection|iterable  $ranges
+     * @return array<int,array{start_hour:string,end_hour:string}>
+     */
+    protected function gabungRentangBertindih($ranges): array
+    {
+        // Rentang nol/terbalik sengaja TIDAK dibuang, walau ia tak pernah
+        // menghasilkan slot. Pemanggil lain menilai "dokter dijadwalkan hari
+        // ini?" dari koleksi ini kosong atau tidak — AttendanceReconciler
+        // memakainya untuk memutuskan hadir/libur seorang dokter — jadi
+        // membuangnya akan diam-diam menggeser hasil ABSENSI, jauh dari cacat
+        // yang sedang diperbaiki. Bukan kekhawatiran teoretis: prod punya satu
+        // baris begitu (Minggu 22:00-20:00).
+        //
+        // Menormalkan saja sudah cukup aman: rentang seperti itu tak bisa
+        // menyerap tetangganya (pembandingnya '<') maupun memanjangkannya
+        // (hanya melebar bila end-nya LEBIH BESAR).
+        $list = [];
+        foreach ($ranges as $r) {
+            $list[] = [
+                'start_hour' => Carbon::parse($r['start_hour'])->format('H:i:s'),
+                'end_hour'   => Carbon::parse($r['end_hour'])->format('H:i:s'),
+            ];
+        }
+
+        if (count($list) < 2) {
+            return $list;
+        }
+
+        usort($list, fn ($a, $b) => $a['start_hour'] <=> $b['start_hour']);
+
+        $hasil = [array_shift($list)];
+        foreach ($list as $r) {
+            $i = count($hasil) - 1;
+            if ($r['start_hour'] < $hasil[$i]['end_hour']) {
+                if ($r['end_hour'] > $hasil[$i]['end_hour']) {
+                    $hasil[$i]['end_hour'] = $r['end_hour'];
+                }
+            } else {
+                $hasil[] = $r;
+            }
+        }
+
+        return $hasil;
     }
 
     /**
@@ -421,30 +532,90 @@ trait ResolvesDoctorAvailability
     /**
      * Rentang [start,end] (H:i) yang sudah ter-booking utk dokter+tanggal.
      *
-     * @return array<int,array{start:string,end:string}>
+     * SENGAJA TANPA FILTER CABANG. Seorang dokter tidak bisa berada di dua
+     * cabang pada jam yang sama, jadi reservasi di cabang MANA PUN menahan
+     * slotnya. Menambahkan ->where('raw_branch_id', ...) di sini membuka
+     * double-booking dokter yang sungguhan, dan gagalnya diam — tidak ada
+     * error, cuma dokter yang tiba-tiba punya dua pasien di dua tempat pada
+     * jam yang sama. Yang dulu kurang adalah PENJELASANNYA di layar, bukan
+     * filternya; karena itu baris ini sekarang ikut membawa cabang & nama
+     * pasien, yang cuma dipakai computeTimeSlots() bila pemanggil eksplisit
+     * minta 'with_booking_detail'.
+     *
+     * @return array<int,array{start:string,end:string,branch_id:mixed,branch:?string,patient:?string}>
      */
     protected function resolveBookedRanges($doctorId, $date, string $reservationTable = 'raw_cus_reservation', $excludeId = null): array
     {
-        return DB::table($reservationTable)
-            ->where('raw_doctor_id', $doctorId)
-            ->where('date', $date)
-            ->whereNotNull('start_hour')
-            ->whereNotNull('end_hour')
+        return DB::table($reservationTable . ' as r')
+            ->leftJoin('raw_branch as b', 'r.raw_branch_id', '=', 'b.id')
+            ->leftJoin('raw_customer as c', 'r.raw_customer_id', '=', 'c.id')
+            ->where('r.raw_doctor_id', $doctorId)
+            ->where('r.date', $date)
+            ->whereNotNull('r.start_hour')
+            ->whereNotNull('r.end_hour')
             // Reservasi yang DIBATALKAN atau masuk WAITING LIST tidak lagi menahan
             // slot — jamnya otomatis kembali tersedia untuk pasien lain. Baris dgn
             // status NULL (data lama) tetap dianggap terisi supaya tidak salah bebas.
             ->where(function ($q) {
-                $q->whereNotIn('status', [
+                $q->whereNotIn('r.status', [
                     \App\Models\RawCusReservation::STATUS_CANCELLED,
                     \App\Models\RawCusReservation::STATUS_WAITLIST,
-                ])->orWhereNull('status');
+                ])->orWhereNull('r.status');
             })
-            ->when($excludeId, fn($q) => $q->where('id', '!=', $excludeId))
-            ->get()
+            ->when($excludeId, fn($q) => $q->where('r.id', '!=', $excludeId))
+            // Kolom di-list eksplisit: tanpa ini `id` dari tiga tabel saling
+            // menimpa dan exclude_id/branch_id ikut kacau.
+            ->get([
+                'r.start_hour',
+                'r.end_hour',
+                'r.raw_branch_id',
+                'b.name as branch_name',
+                'c.name as patient_name',
+            ])
             ->map(fn($r) => [
-                'start' => Carbon::parse($r->start_hour)->format('H:i'),
-                'end'   => Carbon::parse($r->end_hour)->format('H:i'),
+                'start'     => Carbon::parse($r->start_hour)->format('H:i'),
+                'end'       => Carbon::parse($r->end_hour)->format('H:i'),
+                'branch_id' => $r->raw_branch_id,
+                'branch'    => $r->branch_name,
+                'patient'   => $r->patient_name,
             ])->toArray();
+    }
+
+    /**
+     * Janji dokter ini di CABANG LAIN pada tanggal yang sama — bahan spanduk
+     * hari di form reservasi admin.
+     *
+     * Sengaja dihitung dari $bookedRanges (satu hari penuh, lintas cabang),
+     * BUKAN dari slot: sistem cuma mencegah jam bertabrakan, tak pernah
+     * mencegah cabang berpindah. Jadi kasus "pindah cabang nol menit" — 17:30
+     * di Cinere memang kosong, tapi dokternya di Kalideres sampai 17:30 —
+     * tetap ketahuan walau semua slot di cabang yang dibuka bebas.
+     *
+     * @param  array<int,array<string,mixed>>  $bookedRanges
+     * @return array<int,array{branch_id:mixed,branch:?string,nama:?string,jam:string}>
+     */
+    private function otherBranchBookings(array $bookedRanges, $branchId): array
+    {
+        $out = [];
+
+        foreach ($bookedRanges as $r) {
+            $rowBranch = $r['branch_id'] ?? null;
+            if ($rowBranch === null || (string) $rowBranch === (string) $branchId) {
+                continue;
+            }
+
+            $jam = $r['start'] . '–' . $r['end'];
+            // De-dup: satu keluarga bisa punya beberapa baris di jam & cabang
+            // yang sama — spanduknya cukup sekali.
+            $out[$rowBranch . '|' . $jam . '|' . ($r['patient'] ?? '')] = [
+                'branch_id' => $rowBranch,
+                'branch'    => $r['branch'] ?? null,
+                'nama'      => $r['patient'] ?? null,
+                'jam'       => $jam,
+            ];
+        }
+
+        return array_values($out);
     }
 
     /**

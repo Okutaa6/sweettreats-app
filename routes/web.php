@@ -334,6 +334,15 @@ Route::middleware([AuthGuard::class])->group(function () {
     // Ubah status follow-up lead "Pasien Baru". Deklarasi SEBELUM wildcard {id}.
     Route::patch('rawreservation/lead/{id}/status', [ReservationController::class, 'updateLeadStatus'])->name('rawreservation.lead.status');
 
+    // Slot jam versi STAF — sama seperti /api/reservation/slots/... tapi ikut
+    // membawa detail booking lintas cabang (cabang · jam · nama pasien) dan
+    // daftar janji dokter di cabang lain pada tanggal itu. Sengaja di dalam
+    // grup AuthGuard, bukan query-param di route publik: pasien di /reservasi
+    // tidak boleh melihat nama pasien lain, dan pagar itu tidak boleh
+    // bergantung pada satu `if` di route yang terbuka ke luar.
+    // Deklarasi SEBELUM wildcard {id} — kalau di bawah, `{id}` menelan 'slots'.
+    Route::get('rawreservation/slots/{branchId}/{doctorId}/{date}', [\App\Http\Controllers\Api\ReservationApiController::class, 'getTimeSlotsAdmin'])->name('rawreservation.slots');
+
     // CRUD - Reservation Import (CSV/Sheets → Staging → Promote)
     // PENTING: harus di-deklarasi SEBELUM `rawreservation/{id}` supaya
     // `/rawreservation/import` tidak ke-capture wildcard `{id}` di line bawah.
