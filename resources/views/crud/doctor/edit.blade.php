@@ -312,7 +312,7 @@
                 <div class="dxc-head"><i class="fa fa-calendar-plus"></i><span class="dxc-head__t">Jadwal Khusus</span></div>
                 <div class="dxc-sub">Untuk satu tanggal yang berbeda dari jadwal mingguan — jam berubah, atau buka di hari yang biasanya libur.</div>
 
-                <form method="post" action="{{ route('rawdoctor.exception.store', $doctor->id) }}">
+                <form method="post" action="{{ route('rawdoctor.exception.store', $doctor->id) }}" id="dxcExcForm">
                     @csrf
                     <input type="hidden" name="type" id="dxcType" value="replace">
                     <div class="dxc-sit">
@@ -337,6 +337,14 @@
                         <div><label class="dxd-edit__label">Selesai <span style="color:#C0392B;">*</span></label><input type="time" name="end_hour" class="dxd-input" step="300" required></div>
                         <div><label class="dxd-edit__label">Catatan</label><input type="text" name="reason" class="dxd-input" placeholder="Mis: Dokter ada acara" maxlength="255"></div>
                         <button type="submit" class="dxc-btn-add"><i class="fa fa-save"></i> Simpan</button>
+                    </div>
+
+                    {{-- Sama seperti di drawer jam kerja: memberi tahu, tidak memblok.
+                         Ini jalur yang dipakai saat Hari Tambahan Cinere dibuat di
+                         atas jam praktik yang sudah ada. --}}
+                    <div class="st-alert st-alert--warning" id="dxcOverlapWarn" style="display:none; margin-top:4px;">
+                        <i class="fa fa-exclamation-triangle st-alert__icon"></i>
+                        <div class="st-alert__body" id="dxcOverlapBody"></div>
                     </div>
                 </form>
 
@@ -521,6 +529,13 @@
                 </div>
 
                 <div class="dxd-err" id="dxjErr" style="display:none; margin-top:12px;"></div>
+
+                {{-- Peringatan tumpang tindih — MEMBERI TAHU, TIDAK MENGHALANGI.
+                     Tombol Simpan sengaja tidak disentuh sama sekali. --}}
+                <div class="st-alert st-alert--warning" id="dxjOverlapWarn" style="display:none; margin-top:12px;">
+                    <i class="fa fa-exclamation-triangle st-alert__icon"></i>
+                    <div class="st-alert__body" id="dxjOverlapBody"></div>
+                </div>
             </form>
         </div>
         <div class="dxj-drawer__foot">
@@ -529,6 +544,35 @@
         </div>
     </div>
     <form id="dxjDeleteForm" method="POST" style="display:none;">@csrf @method('DELETE')</form>
+
+    {{-- Bahan peringatan tumpang tindih, dipakai dua form (drawer Jam Kerja &
+         Jadwal Khusus). Nol endpoint baru — datanya sudah dikirim controller
+         ke halaman ini. Baris istirahat dibuang: istirahat MEMANG berada di
+         dalam jam kerja, itu bukan bentrok. --}}
+    @php
+        $dxOverlapPayload = [
+            'schedules' => $schedules
+                ->where('type', '!=', \App\Models\RawDoctorSchedule::TYPE_BREAK)
+                ->map(fn ($s) => [
+                    'id'     => $s->id,
+                    'day'    => (int) $s->day,
+                    'branch' => $s->raw_branch_id,
+                    'bname'  => $s->branch->name ?? 'cabang lain',
+                    'start'  => substr($s->start_hour, 0, 5),
+                    'end'    => substr($s->end_hour, 0, 5),
+                ])->values(),
+            'exceptions' => $exceptions->map(fn ($e) => [
+                'id'     => $e->id,
+                'date'   => \Carbon\Carbon::parse($e->date)->toDateString(),
+                'type'   => $e->type,
+                'branch' => $e->raw_branch_id,
+                'bname'  => $e->branch->name ?? 'cabang lain',
+                'start'  => substr($e->start_hour, 0, 5),
+                'end'    => substr($e->end_hour, 0, 5),
+            ])->values(),
+        ];
+    @endphp
+    <script type="application/json" id="dxOverlapData">@json($dxOverlapPayload)</script>
 
     {{-- ════════ SALIN JADWAL DRAWER (antar hari / antar cabang) ════════ --}}
     <div class="dxj-overlay" id="dxcpOverlay"></div>
@@ -590,6 +634,121 @@
 
 @section('js')
 <script>
+// ══ Peringatan tumpang tindih jadwal ══════════════════════════════════════
+// Dipakai dua form: drawer Jam Kerja dan form Jadwal Khusus (tab Cuti).
+// MEMBERI TAHU, TIDAK MENGHALANGI — tombol Simpan tidak pernah disentuh.
+//
+// Kenapa ada: 10 Sep 2026 Hari Tambahan Cinere 17:00–18:30 dibuat di atas
+// jadwal rutin 17:00–20:00 yang sudah ada, tanpa ada yang memberitahu. Nol
+// endpoint baru — datanya sudah dikirim controller ke halaman ini.
+window.dxOverlap = (function () {
+    var el = document.getElementById('dxOverlapData');
+    var DATA = el ? JSON.parse(el.textContent || '{}') : {};
+    var SCHEDULES  = DATA.schedules  || [];
+    var EXCEPTIONS = DATA.exceptions || [];
+    var HARI = ['', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
+
+    function esc(s) {
+        return String(s == null ? '' : s)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+    // BERTINDIH, bukan bersentuhan. 10:00–12:00 lalu 12:00–15:00 itu dua sesi
+    // terpisah yang sah, bukan bentrok.
+    function bertindih(aS, aE, bS, bE) { return aS < bE && aE > bS; }
+
+    // ISO 1=Senin … 7=Minggu, dari string 'YYYY-MM-DD' (parse manual supaya
+    // tidak kena pergeseran zona waktu new Date('2026-09-10')).
+    function hariIso(tgl) {
+        var p = String(tgl || '').split('-');
+        if (p.length !== 3) return null;
+        var d = new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2])).getDay();
+        return d === 0 ? 7 : d;
+    }
+
+    // opts: {day, branch, start, end, skipId, date}
+    // `date` diisi form Jadwal Khusus → jadwal khusus lain di tanggal itu ikut
+    // dibandingkan. `skipId` = baris yang sedang diedit, kalau tidak dibuang
+    // setiap edit melapor bentrok dengan dirinya sendiri.
+    function cari(o) {
+        var hasil = { sama: [], lain: [] };
+        if (!o.day || !o.start || !o.end || o.start >= o.end) return hasil;
+
+        var kandidat = SCHEDULES.filter(function (r) { return r.day === Number(o.day); });
+
+        if (o.date) {
+            EXCEPTIONS.forEach(function (e) {
+                if (e.date === o.date) kandidat.push(e);
+            });
+        }
+
+        kandidat.forEach(function (r) {
+            if (o.skipId && r.id === o.skipId) return;
+            if (!bertindih(o.start, o.end, r.start, r.end)) return;
+            // Cabang belum dipilih → semua dianggap "cabang lain" dulu; begitu
+            // dipilih, pesannya menajam sendiri.
+            (o.branch && String(r.branch) === String(o.branch) ? hasil.sama : hasil.lain).push(r);
+        });
+
+        return hasil;
+    }
+
+    function jam(r) { return esc(r.start + '–' + r.end); }
+
+    function render(boxId, bodyId, o) {
+        var box = document.getElementById(boxId), body = document.getElementById(bodyId);
+        if (!box || !body) return;
+
+        var h = cari(o), pesan = [];
+
+        if (h.sama.length) {
+            pesan.push('Hari itu sudah ada jadwal di cabang ini: <strong>'
+                + h.sama.map(jam).join('</strong>, <strong>') + '</strong>. '
+                + 'Jadwal ini tumpang tindih dan tidak menambah jam praktik.');
+        }
+        if (h.lain.length) {
+            pesan.push('Dokter ini juga terjadwal di '
+                + h.lain.map(function (r) {
+                    return '<strong>' + esc(r.bname) + ' ' + jam(r) + '</strong>';
+                }).join(', ')
+                + ' pada hari yang sama.');
+        }
+
+        if (!pesan.length) { box.style.display = 'none'; body.innerHTML = ''; return; }
+
+        body.innerHTML = pesan.join('<br>')
+            + '<br><span style="opacity:.75;">Tetap bisa disimpan — ini cuma pemberitahuan.</span>';
+        box.style.display = '';
+    }
+
+    return {
+        jadwal: function (o) { render('dxjOverlapWarn', 'dxjOverlapBody', o); },
+        khusus: function (o) {
+            o.day = hariIso(o.date);
+            render('dxcOverlapWarn', 'dxcOverlapBody', o);
+        }
+    };
+})();
+
+// Wiring form Jadwal Khusus (tab Cuti). Drawer Jam Kerja di-wire di dalam
+// IIFE-nya sendiri karena butuh id baris yang sedang diedit.
+(function () {
+    var form = document.getElementById('dxcExcForm');
+    if (!form) return;
+    function cek() {
+        window.dxOverlap.khusus({
+            date:   (form.querySelector('[name="date"]')          || {}).value,
+            branch: (form.querySelector('[name="raw_branch_id"]') || {}).value,
+            start:  (form.querySelector('[name="start_hour"]')    || {}).value,
+            end:    (form.querySelector('[name="end_hour"]')      || {}).value
+        });
+    }
+    ['date', 'raw_branch_id', 'start_hour', 'end_hour'].forEach(function (n) {
+        var f = form.querySelector('[name="' + n + '"]');
+        if (f) { f.addEventListener('change', cek); f.addEventListener('input', cek); }
+    });
+})();
+
     // ── Tab switcher detail dokter ──
     (function () {
         var tabs = document.querySelectorAll('.dxd-tab');
@@ -663,6 +822,20 @@
         var modalTabs = drawer.querySelectorAll('.dxj-modal-tab');
         var modalPanels = drawer.querySelectorAll('.dxj-modal-panel');
 
+        // Baris yang sedang diedit — dibuang dari pembanding, kalau tidak
+        // setiap edit melapor bentrok dengan dirinya sendiri.
+        var editingId = null;
+        function cekOverlap() {
+            window.dxOverlap.jadwal({
+                day: day.value, branch: branch.value,
+                start: start.value, end: end.value, skipId: editingId
+            });
+        }
+        [day, branch, start, end].forEach(function (f) {
+            f.addEventListener('change', cekOverlap);
+            f.addEventListener('input', cekOverlap);
+        });
+
         function openDrawer() { overlay.classList.add('is-open'); drawer.classList.add('is-open'); }
         function closeDrawer() { overlay.classList.remove('is-open'); drawer.classList.remove('is-open'); }
         function currentBranch() { var t = document.querySelector('.dxj-tab.is-active'); return t ? t.dataset.dxjBranch : ''; }
@@ -733,6 +906,7 @@
             } else { start.value = ''; end.value = ''; }
             resetBreaks();
             setModalTab('jadwal');
+            editingId = null; cekOverlap();
             del.style.display = 'none'; err.style.display = 'none'; openDrawer();
         }
         function openEdit(o) {
@@ -743,6 +917,7 @@
             (o.breaks || []).forEach(function (b) { addBreakRow(b.start, b.end, b.id); });
             setModalTab('jadwal');
             delForm.action = destroyTpl.replace('__ID__', o.id);
+            editingId = o.id; cekOverlap();
             del.style.display = ''; err.style.display = 'none'; openDrawer();
         }
 
