@@ -823,7 +823,12 @@ class DoctorController extends Controller
             'raw_branch_id' => 'required',
             'day' => 'required|numeric|min:1|max:7',
             'start_hour' => 'required',
-            'end_hour' => 'required',
+            // Jam istirahat di bawah sudah dijaga 'after' sejak awal, jam PRAKTIK
+            // tidak — dan itu terbukti meloloskan baris terbalik ke prod (Dharma,
+            // Minggu, 22:00-20:00). Rentang seperti itu tak menghasilkan satu slot
+            // pun, jadi gagalnya diam: pemesanan tampak wajar, tapi mesin absensi
+            // tetap menganggap dokternya dijadwalkan hari itu.
+            'end_hour' => 'required|after:start_hour',
             'breaks'   => 'nullable|array',
             'breaks.*.start_hour' => 'required_with:breaks.*.end_hour|date_format:H:i',
             'breaks.*.end_hour'   => 'required_with:breaks.*.start_hour|date_format:H:i|after:breaks.*.start_hour',
@@ -855,7 +860,12 @@ class DoctorController extends Controller
             'raw_branch_id' => 'required',
             'day' => 'required|numeric|min:1|max:7',
             'start_hour' => 'required',
-            'end_hour' => 'required',
+            // Jam istirahat di bawah sudah dijaga 'after' sejak awal, jam PRAKTIK
+            // tidak — dan itu terbukti meloloskan baris terbalik ke prod (Dharma,
+            // Minggu, 22:00-20:00). Rentang seperti itu tak menghasilkan satu slot
+            // pun, jadi gagalnya diam: pemesanan tampak wajar, tapi mesin absensi
+            // tetap menganggap dokternya dijadwalkan hari itu.
+            'end_hour' => 'required|after:start_hour',
             'breaks'   => 'nullable|array',
             'breaks.*.start_hour' => 'required_with:breaks.*.end_hour|date_format:H:i',
             'breaks.*.end_hour'   => 'required_with:breaks.*.start_hour|date_format:H:i|after:breaks.*.start_hour',

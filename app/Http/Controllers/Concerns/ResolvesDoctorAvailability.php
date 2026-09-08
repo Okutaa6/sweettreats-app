@@ -359,9 +359,79 @@ trait ResolvesDoctorAvailability
 
         // 'add' (Hari Tambahan) selalu ditambahkan — membuka tanggal walau
         // dokter cuti atau hari itu biasanya libur.
-        $ranges = $ranges->concat($addRanges)->sortBy('start_hour')->values();
+        //
+        // Digabung dulu supaya rentang yang BERTINDIH tidak masing-masing
+        // mencetak deret slotnya sendiri — lihat gabungRentangBertindih().
+        $ranges = collect($this->gabungRentangBertindih($ranges->concat($addRanges)));
 
         return $ranges;
+    }
+
+    /**
+     * Satukan rentang jam yang saling BERTINDIH jadi satu rentang.
+     *
+     * Kenapa perlu: satu tanggal bisa mewarisi lebih dari satu rentang untuk
+     * dokter+cabang yang SAMA — dua baris jadwal rutin yang tumpang tindih, atau
+     * 'add' (Hari Tambahan) yang dibuat di hari yang ternyata SUDAH punya jadwal
+     * rutin. computeTimeSlots() mencetak deret slot per rentang lalu
+     * menempelkannya, jadi tanpa penggabungan jam yang sama muncul dua kali di
+     * layar. Kejadian nyata 10 Sep 2026: Cinere rutin 17:00-20:00 (6 slot)
+     * ditumpuk 'add' 17:00-18:30 (3 slot) = 9 kotak untuk 6 jam yang benar-benar
+     * ada. Admin membacanya sebagai sistem rusak, dan itu memicu laporan.
+     *
+     * DIGABUNG, bukan dibuang yang kembar: kalau 'add' justru MEMPERPANJANG
+     * (rutin 17:00-20:00 + add 19:00-21:00), yang benar adalah satu grid
+     * 17:00-21:00. Membuang duplikat saja meninggalkan dua grid dengan titik
+     * mulai berbeda — jamnya jadi ganjil begitu durasinya tak sejajar.
+     *
+     * Yang cuma BERSENTUHAN (10:00-12:00 lalu 12:00-15:00) sengaja TIDAK
+     * digabung: itu dua sesi terpisah, dan menyatukannya menggeser titik grid
+     * untuk durasi yang tak habis membagi rentang — perubahan perilaku di luar
+     * cacat yang sedang diperbaiki. Karena itu pembandingnya '<', bukan '<='.
+     *
+     * @param  \Illuminate\Support\Collection|iterable  $ranges
+     * @return array<int,array{start_hour:string,end_hour:string}>
+     */
+    protected function gabungRentangBertindih($ranges): array
+    {
+        // Rentang nol/terbalik sengaja TIDAK dibuang, walau ia tak pernah
+        // menghasilkan slot. Pemanggil lain menilai "dokter dijadwalkan hari
+        // ini?" dari koleksi ini kosong atau tidak — AttendanceReconciler
+        // memakainya untuk memutuskan hadir/libur seorang dokter — jadi
+        // membuangnya akan diam-diam menggeser hasil ABSENSI, jauh dari cacat
+        // yang sedang diperbaiki. Bukan kekhawatiran teoretis: prod punya satu
+        // baris begitu (Minggu 22:00-20:00).
+        //
+        // Menormalkan saja sudah cukup aman: rentang seperti itu tak bisa
+        // menyerap tetangganya (pembandingnya '<') maupun memanjangkannya
+        // (hanya melebar bila end-nya LEBIH BESAR).
+        $list = [];
+        foreach ($ranges as $r) {
+            $list[] = [
+                'start_hour' => Carbon::parse($r['start_hour'])->format('H:i:s'),
+                'end_hour'   => Carbon::parse($r['end_hour'])->format('H:i:s'),
+            ];
+        }
+
+        if (count($list) < 2) {
+            return $list;
+        }
+
+        usort($list, fn ($a, $b) => $a['start_hour'] <=> $b['start_hour']);
+
+        $hasil = [array_shift($list)];
+        foreach ($list as $r) {
+            $i = count($hasil) - 1;
+            if ($r['start_hour'] < $hasil[$i]['end_hour']) {
+                if ($r['end_hour'] > $hasil[$i]['end_hour']) {
+                    $hasil[$i]['end_hour'] = $r['end_hour'];
+                }
+            } else {
+                $hasil[] = $r;
+            }
+        }
+
+        return $hasil;
     }
 
     /**
