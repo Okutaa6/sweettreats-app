@@ -308,10 +308,15 @@ class AcMaintenanceController extends Controller
     {
         $this->guardSupervisor();
 
-        $branchId = resolveChecklistBranchId($request->get('branch'));
-        $branches = canSeeAllBranches() ? RawBranch::orderBy('name')->get() : collect();
+        // Cabang terkunci HANYA untuk non-admin yg di-lock ke session (mis.
+        // Supervisor GS) → cuma lihat cabangnya, tanpa tab. Semua user lintas
+        // cabang — admin ATAU supervisor/coordinator yg tak terkunci (mis.
+        // Coordinator Dentist) — dapat semua cabang + tab & bisa pilih ?branch.
+        $lockedBranch = canSeeAllBranches() ? null : session('raw_branch_id');
+        $branches     = $lockedBranch ? collect() : RawBranch::orderBy('name')->get();
+        $branchId     = $lockedBranch ?: ($request->get('branch') ?: null);
 
-        // Tidak ada opsi "Semua" — admin default ke cabang pertama.
+        // Tidak ada opsi "Semua" — user lintas-cabang default ke cabang pertama.
         if (! $branchId && $branches->isNotEmpty()) {
             $branchId = $branches->first()->id;
         }

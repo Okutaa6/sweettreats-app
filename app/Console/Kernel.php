@@ -18,12 +18,19 @@ class Kernel extends ConsoleKernel
             ->dailyAt('00:05')
             ->withoutOverlapping(10);
 
-        // Checklist "Tidak Diisi" — daily 00:10. Tandai pengisian HARIAN kemarin
+        // Checklist "Tidak Diisi" — daily 06:15. Tandai pengisian HARIAN kemarin
         // yang tidak tuntas (tak ada submission / masih draft) jadi status
         // "missed", supaya muncul di tab "Tidak Diisi" halaman review. Yang
-        // submitted/approved/rejected/excused dilewati. Idempoten — aman rerun.
+        // submitted/approved/rejected/excused dilewati. Karyawan dengan cuti/
+        // izin/sakit approved di tanggal itu ditandai "Dikecualikan", bukan
+        // "Tidak Diisi". Idempoten — aman rerun.
+        //
+        // 06:15, BUKAN 00:10: hari checklist tutup jam 06:00 (lihat
+        // ChecklistSubmission::DAY_CUTOFF_HOUR), jadi jam 00:10 tanggal kemarin
+        // masih boleh diisi. Command-nya sendiri juga menolak tanggal yang belum
+        // tutup, jadi salah setel jadwal tak bisa menghukum orang.
         $schedule->command('checklist:mark-missed')
-            ->dailyAt('00:10')
+            ->dailyAt('06:15')
             ->withoutOverlapping(15);
 
         // Checklist Mingguan "Tidak Diisi" — Senin 00:15. Tandai Form Mingguan

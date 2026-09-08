@@ -906,6 +906,32 @@ if (!function_exists('cabangSesiUntuk')) {
 }
 
 /**
+ * Tanggal checklist HARIAN yang sedang berjalan.
+ *
+ * Hari checklist tidak berganti tengah malam tapi jam 06:00 (lihat
+ * ChecklistSubmission::DAY_CUTOFF_HOUR): sebelum jam 6 pagi, yang masih terbuka
+ * adalah checklist tanggal KEMARIN. Klinik sering beres larut malam, dan tanpa
+ * ini pengisian terpotong persis saat cron mencap "Tidak Diisi".
+ *
+ * Pakai ini menggantikan Carbon::today() di SELURUH alur pengisian harian
+ * (tampilan, submit, pengecualian, permintaan buka kembali, cron) supaya
+ * batasnya cuma didefinisikan sekali. Form Mingguan sengaja TIDAK ikut.
+ */
+if (!function_exists('checklistOperationalDate')) {
+    function checklistOperationalDate(?\Carbon\CarbonInterface $now = null): \Illuminate\Support\Carbon
+    {
+        $now  = $now ? \Illuminate\Support\Carbon::parse($now) : \Illuminate\Support\Carbon::now();
+        $date = $now->copy()->startOfDay();
+
+        if ($now->hour < \App\Models\ChecklistSubmission::DAY_CUTOFF_HOUR) {
+            $date->subDay();
+        }
+
+        return $date;
+    }
+}
+
+/**
  * Branch ID yang dipakai untuk filter di halaman checklist supervisor.
  * Pakai pola sama dgn PettyCashController::resolveBranchId() — admin
  * bisa dropdown, role lain locked ke session.

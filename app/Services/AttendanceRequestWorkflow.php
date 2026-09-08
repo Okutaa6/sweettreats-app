@@ -246,12 +246,23 @@ class AttendanceRequestWorkflow
      * ACC final cuti/izin → tandai hari checklist "dikecualikan" otomatis
      * (source=system, tak bisa dibatalkan karyawan). Gagal sinkron TIDAK
      * membatalkan approval — report() saja, reconcile ulang saat karyawan buka
-     * Form Mingguan. Hanya berefek untuk tipe cuti & izin (di-guard di service).
+     * Form Mingguan / halaman harian. Hanya berefek untuk tipe cuti, izin &
+     * sakit (di-guard di service).
+     *
+     * try/catch SENDIRI-SENDIRI: kegagalan sinkron mingguan tak boleh ikut
+     * menelan sinkron harian — yang harian-lah yang mencegah cron 00:10 mencap
+     * "Tidak Diisi" orang yang jelas-jelas sedang cuti.
      */
     private function terapkanPengecualianChecklist(AttRequest $req): void
     {
         try {
             app(\App\Services\ChecklistExcuseService::class)->excuseForLeave($req);
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
+        try {
+            app(\App\Services\ChecklistExcuseService::class)->excuseDailyForLeave($req);
         } catch (\Throwable $e) {
             report($e);
         }
@@ -262,6 +273,12 @@ class AttendanceRequestWorkflow
     {
         try {
             app(\App\Services\ChecklistExcuseService::class)->unexcuseForLeave($req);
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
+        try {
+            app(\App\Services\ChecklistExcuseService::class)->unexcuseDailyForLeave($req);
         } catch (\Throwable $e) {
             report($e);
         }

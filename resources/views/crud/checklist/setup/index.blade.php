@@ -473,12 +473,12 @@
                         Perlu foto (buka kamera)
                     </label>
                     <small class="text-muted" style="font-size:11.5px;">Muncul tombol kamera untuk melampirkan foto bukti — opsional (tidak memblokir centang).</small>
-                    @if($division->id === 'GS')
+                    @if(\App\Models\ChecklistDivision::supportsPhotoBeforeAfter($division->id))
                         <label class="d-flex align-items-center" style="gap:8px; cursor:pointer; margin-top:8px; margin-left:22px;">
                             <input type="checkbox" name="photo_before_after" value="1" data-photo-ba>
                             Perlu foto before/after
                         </label>
-                        <small class="text-muted" style="font-size:11.5px; margin-left:22px; display:block;">Dua slot foto: sebelum & sesudah. Khusus GS.</small>
+                        <small class="text-muted" style="font-size:11.5px; margin-left:22px; display:block;">Dua slot foto: sebelum & sesudah pengerjaan.</small>
                     @endif
                 </div>
             </div>
@@ -580,12 +580,12 @@
                                 Perlu foto (buka kamera)
                             </label>
                             <small class="text-muted" style="font-size:11.5px;">Muncul tombol kamera untuk melampirkan foto bukti — opsional (tidak memblokir centang).</small>
-                            @if($division->id === 'GS')
+                            @if(\App\Models\ChecklistDivision::supportsPhotoBeforeAfter($division->id))
                                 <label class="d-flex align-items-center" style="gap:8px; cursor:pointer; margin-top:8px; margin-left:22px;">
                                     <input type="checkbox" name="photo_before_after" value="1" data-photo-ba>
                                     Perlu foto before/after
                                 </label>
-                                <small class="text-muted" style="font-size:11.5px; margin-left:22px; display:block;">Dua slot foto: sebelum & sesudah. Khusus GS.</small>
+                                <small class="text-muted" style="font-size:11.5px; margin-left:22px; display:block;">Dua slot foto: sebelum & sesudah pengerjaan.</small>
                             @endif
                         </div>
                     @endif
@@ -636,12 +636,12 @@
                                     Perlu foto (buka kamera)
                                 </label>
                                 <small class="text-muted" style="font-size:11.5px;">Muncul tombol kamera untuk melampirkan foto bukti — opsional (tidak memblokir centang).</small>
-                                @if($division->id === 'GS')
+                                @if(\App\Models\ChecklistDivision::supportsPhotoBeforeAfter($division->id))
                                     <label class="d-flex align-items-center" style="gap:8px; cursor:pointer; margin-top:8px; margin-left:22px;">
                                         <input type="checkbox" name="photo_before_after" value="1" data-photo-ba {{ $task->photo_before_after ? 'checked' : '' }}>
                                         Perlu foto before/after
                                     </label>
-                                    <small class="text-muted" style="font-size:11.5px; margin-left:22px; display:block;">Dua slot foto: sebelum & sesudah. Khusus GS.</small>
+                                    <small class="text-muted" style="font-size:11.5px; margin-left:22px; display:block;">Dua slot foto: sebelum & sesudah pengerjaan.</small>
                                 @endif
                             </div>
                         @endif
@@ -883,7 +883,7 @@
 </script>
 
 <script>
-// Konsistensi checkbox foto (GS): "before/after" mengimplikasikan "perlu foto".
+// Konsistensi checkbox foto: "before/after" mengimplikasikan "perlu foto".
 // Mematikan "perlu foto" otomatis mematikan "before/after".
 (function () {
     document.addEventListener('change', function (e) {
