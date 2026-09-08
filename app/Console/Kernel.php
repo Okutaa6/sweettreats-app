@@ -87,6 +87,18 @@ class Kernel extends ConsoleKernel
             ->withoutOverlapping(10)
             ->appendOutputTo(storage_path('logs/absensi-cron.log'));
 
+        // Sapu kejanggalan absensi/cuti — BACA-SAJA, tak membetulkan apa pun.
+        // Dijalankan SESUDAH reconcile supaya yang diperiksa keadaan hari ini,
+        // bukan keadaan semalam. Nol temuan pun tetap menulis stempel waktu:
+        // "sudah diperiksa" harus bisa dibedakan dari "belum pernah jalan".
+        // Sengaja TANPA --diam: log cron inilah satu-satunya tempat temuan
+        // ini terbaca sampai layar Kesehatan menampilkannya. Ringkasan tanpa
+        // rinciannya cuma memberi tahu bahwa ada yang salah, bukan apa.
+        $schedule->command('att:periksa-kejanggalan')
+            ->dailyAt('06:30')
+            ->withoutOverlapping(10)
+            ->appendOutputTo(storage_path('logs/absensi-cron.log'));
+
         // Jaring pengaman persetujuan 1 lapis (2026-08-05). Pengajuan warisan
         // yang tertahan di pending_l2 TIDAK muncul di inbox siapa pun lagi —
         // kalau langkah manual `absensi:selesaikan-l2` terlewat saat deploy,

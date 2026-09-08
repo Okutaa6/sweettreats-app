@@ -255,6 +255,22 @@
 > information_schema ber-data_length) MEMBUNUH mysqld XAMPP — pakai
 > `SHOW TABLES LIKE`; per-tabel `SHOW TABLE STATUS` aman.
 >
+> ✅ **Sisipan 2026-09-09 — SLOT KEMBAR & "TERISI" LINTAS CABANG: gerbong
+> `fix/slot-kembar` LULUS DEV (10/10 E2E persona + 46/46 unit + diadu data prod
+> 3→0 kembar, 0 jam hilang, 0/518 absensi dokter bergeser) — ✅ **NAIK PROD `35d332b`
+> 9 Sep ~00:40 WIB**, verifikasi dari kode ter-deploy: 165 kombinasi 14 hari 0 kembar, log 0 ERROR.**
+> Laporan 8 Sep (Dharma, Cinere, 10 Sep) ternyata DUA hal: jam kembar = bug
+> (rentang bertindih dicetak dua kali — juga tiap Sabtu untuk Panji Bintaro, tak
+> pernah dilaporkan) → digabung sebelum dicetak; "Terisi" tanpa orang = BUKAN bug
+> (Ghita sudah pesan di Kalideres, satu dokter satu tempat) → kini kotak Terisi
+> **menjelaskan dirinya** (cabang · jam · nama, TANPA HP) + spanduk hari + peringatan
+> tumpang tindih di layar jadwal dokter — commit Reza `a252215`, ditinjau lulus.
+> ⛔ `resolveBookedRanges()` SENGAJA tanpa filter cabang — menambahkannya membuka
+> double-booking dokter. Commit checklist Reza `15dfd1a` TIDAK ikut (butuh SQL +
+> geser cron). Utang: label "90 hari" bohong (535 hari); Dharma Minggu 22:00–20:00.
+> Rincian: `log-update.md` 2026-09-09.
+>
+
 > ✅ **Sisipan 2026-09-01 — KONSULTAN + RESTRUKTURISASI ROLE NAIK PROD**
 > (`c28b665`). Gerbong yang tertahan sejak 21 Agustus akhirnya naik: tiga role
 > **Konsultan Finance/IT/Marketing**, role **Koordinator GS**, bagan pindah di

@@ -1125,6 +1125,781 @@ nyata 2 minggu oleh Ekky+Reza sebelum Fase 2 dimulai (syarat rencana §14.5).
 
 ---
 
+## 2026-09-09 — ✅ NAIK PROD: slot kembar & "Terisi" tanpa orang (`35d332b`)
+
+**Prod `35d332b`** (dari `546044d`, ~00:40 WIB). Backup `prod_pre_slot_20260908_1736.sql.gz`
+(50M, gzip diuji). `deploy.sh main` → **rsync `assets/` saja** → `index.php` public_html utuh (3
+rujukan `laravel/`). Beranda/signin/reservasi **200** dengan URL akhir benar. Diverifikasi dari kode
+yang BENAR-BENAR ter-deploy (autoload prod, bukan `/tmp`): `gabungRentangBertindih` & `otherBranchBookings`
+ada · validasi `after:start_hour` 2 tempat · rute `rawreservation.slots` terdaftar · JS/CSS baru
+ter-serve dari `public_html` · Dharma/Cinere/10 Sep **6 slot** (17:00 = Heri Widodo · Cinere) ·
+publik nol kunci detail · nol `phone` · **165 kombinasi 14 hari, 0 berkembar** · log **0 ERROR**.
+Dev dikembalikan ke `feat/it-tracker` `f111832` + `--no-dev`; 2 baris demo dihapus.
+
+**Tambahan sebelum naik (00:30)** — ACC Ekky sesudah melihat dev: fitur jangan menunggu ditemukan.
+Kotak Terisi di cabang LAIN kini **mencetak nama cabangnya** menggantikan kata "Terisi", ada **ikon ⓘ**
+di sudut, kursor `not-allowed` → `pointer` (kursor ⛔ mengajari orang bahwa tak ada apa-apa di situ).
+Klik tetap membuka nama pasien. Nama cabang kosong → jatuh ke "Terisi". Pesan WA untuk user sudah
+disiapkan di chat.
+
+---
+
+### Sebelum naik (catatan proses)
+
+Laporan 8 Sep: admin mau menambah pasien **drg. Dharma** di **Cinere 10 Sep 17:00** →
+jam kembar (9 kotak: 17:00–18:00 muncul dua kali) **dan** 17:00 "Terisi" padahal
+daftar Cinere kosong. Ditelusuri ke prod: **dua hal berbeda**, hanya satu yang bug.
+
+- **Kembar = bug.** Rutin Kamis Cinere `17:00–20:00` ditumpuk Hari Tambahan `17:00–18:30`
+  (Della, 8 Sep 13:35, alasan "dokter on call"); `computeTimeSlots()` mencetak deret per
+  rentang lalu menempelkannya. **Berulang tiap Sabtu** untuk Panji Bintaro (`10:00–20:00` +
+  `15:00–20:00` → **10 jam kembar**) tanpa pernah dilaporkan.
+- **"Terisi" = BUKAN bug.** Ghita Lestary sudah memesan Dharma di **Kalideres** `17:00–17:30`
+  (pending, 5 Sep). `resolveBookedRanges()` sengaja tanpa filter cabang — satu dokter, satu
+  tempat. Yang salah **layarnya diam**. Fakta pendukung: 0 dari 931 hari-dokter sejak Jan
+  2026 pernah dipakai >1 cabang; jadwal lintas-cabang Dharma/Wira = template on-call.
+- **Ops sudah beres sendiri**: Della berkoordinasi — Ghita dibatalkan 14:41, HERI WIDODO
+  dipesan Cinere 17:00 pukul 14:54.
+
+### Isi gerbong (branch `fix/slot-kembar` dari main `546044d`, sudah di origin)
+1. **`gabungRentangBertindih()`** — rentang bertindih digabung sebelum slot dicetak; yang cuma
+   bersentuhan tetap dua sesi; rentang nol/terbalik **TIDAK dibuang** (⚠️ `AttendanceReconciler`
+   menilai "dokter dijadwalkan?" dari koleksi kosong/tidak — membuang = menggeser absensi;
+   prod punya Dharma Bintaro Minggu `22:00–20:00`). Versi pertamaku membuangnya — ketahuan
+   saat audit, sebelum sempat naik.
+2. **`after:start_hour`** pada jam PRAKTIK di `scheduleStore/Update` (istirahat sudah dijaga,
+   praktik kelupaan → asal baris terbalik). Efek sadar: jadwal lintas tengah malam ditolak
+   (prod nol, pencetak slot memang tak bisa).
+3. **Commit Reza `a252215`** — ditinjau baris per baris, **lulus semua pagar**, dan satu hal
+   lebih kuat dari usulan: rute staf **terpisah** `/rawreservation/slots/…` di balik AuthGuard
+   (bukan bendera di rute publik). `booked_by` = cabang · jam · nama pasien; spanduk hari
+   `other_branch_bookings` (menutup "pindah cabang nol menit"); peringatan tumpang tindih di
+   layar jadwal dokter (client-side, tak memblok). **Tanpa nomor HP.** Kotak Terisi = `<span>`
+   supaya tap HP hidup. Segmen `rawreservation` punya 14 grant di prod → lolos jebakan 302.
+4. Rapi kecil: sesi habis di rute staf → "sesi habis — muat ulang", bukan "Unexpected token <".
+5. Handoff `docs/handoff/handoff-penanda-slot-lintas-cabang.md` diluruskan: Reza sudah
+   mengerjakan; kini catatan keputusan + §10 sisa kecil.
+
+**Commit checklist Reza `15dfd1a` SENGAJA TIDAK ikut**: butuh SQL `excuse_source` yang belum
+di prod, dan menggeser cron `checklist:mark-missed` 00:10→06:15 yang terbukti jalan. Gerbong
+sendiri. Dua commitnya terpisah rapi — `a252215` duduk langsung di main, tak perlu dipecah.
+
+### Bukti
+- **46/46 unit** lokal (15 baru, tanpa DB) · **10/10 E2E di dev, 84 asersi** — persona
+  Front Office Cinere (Della) vs form publik vs tanpa sesi: kembar hilang; staf lihat
+  Kalideres·jam·nama; **string HP tak ada di keluaran**; publik nol kunci detail & nol nama;
+  tanpa sesi → 302 signin; jam terbalik ditolak & tak tersimpan; payload peringatan jadwal
+  memuat kedua cabang tanpa baris istirahat.
+- **Diadu ke data prod** (baca-saja, dua proses lama vs baru, asal trait dicetak): **3→0**
+  kombinasi berkembar · **0** jam hilang dari 166 · **0/518** hari-dokter berubah di
+  `praktikPada` (jalur absensi dokter tak tersentuh) · Dharma/Cinere/10 Sep → 6 slot.
+- Dev: `/`, `/signin`, `/reservasi` **200**; JS baru ter-serve.
+
+### Temuan lain — utang, bukan gerbong ini
+- **Label "90 hari" bohong**: loop `computeAvailableDates()` 535 hari; Dharma/Cinere 77 tanggal
+  s/d **24 Feb 2028**, cuma 13 dalam 90 hari. 12 reservasi nyata di luar 90 hari → yang salah
+  **labelnya**, jangan pendekkan jendelanya.
+- Dharma Bintaro Minggu `22:00–20:00`: nol slot, tapi absensi mencatat "praktik tanpa scan"
+  tiap Minggu. Keputusan ops (maksudnya mungkin 20:00–22:00).
+- Dua baris redundan (exception Cinere 10 Sep; Panji Sabtu `15:00–20:00`) — **tak berbahaya
+  lagi**, rapi-rapi Della kapan saja, tanpa tenggat.
+- Pindah cabang nol menit tak dipagari (butuh matriks jarak) — spanduk penggantinya yang jujur.
+- Reza (commit checklist): komentar `AttendanceRequestWorkflow` masih "cron 00:10".
+
+### Naik prod — resep
+`deploy.sh main` → **rsync `assets/` SAJA** (`public/assets/js/reservation-form.js` tersentuh;
+rsync seluruh `public/` pernah mematikan prod 6 menit) → `curl` beranda **200** + cek URL
+akhir → buka Cinere/Dharma/10 Sep: **6 kotak**, 17:00 bertanda Heri Widodo · Cinere.
+**Nol SQL, nol migration, nol urutan mengikat** (gabung membuat baris lama tak berbahaya
+walau dibiarkan; validasi cuma untuk simpanan berikutnya).
+Dev **dibiarkan** di `fix/slot-kembar` (+ composer dev) supaya bisa dilihat mata; kembalikan
+ke `feat/it-tracker` `f111832` + `--no-dev` sesudah prod.
+
+### Pelajaran
+- Satu laporan bisa dua sebab dengan dua nasib — pisahkan dulu, baru perbaiki; kalau tidak,
+  yang bukan bug ikut "diperbaiki" dan justru membuka double-booking.
+- Menggabung rentang: **jangan buang yang kosong** — ada pemanggil lain yang membaca
+  kekosongan koleksi sebagai keputusan (di sini: absensi dokter).
+- Dev tak selalu bisa mereproduksi (Dharma tak punya jadwal Cinere di dev) → E2E pakai
+  fixture dalam transaksi + persona sungguhan, dan **adu kode ke data prod tanpa deploy**.
+
+---
+
+## 2026-09-06 — ✅ NAIK PROD: tiga sebab "sistem sering error & double input"
+
+Prod `4846b95` (dari `171d5c1`, ~21:45 WIB). Backup `prod_pre_galat2002_20260906_1448.sql.gz`
+(50M, gzip diuji). **SQL enum dulu, baru deploy** — kode yang menaikkan flag
+`pulang_cepat` sebelum enumnya ada akan melempar galat di `store()`. Beranda & signin 200.
+
+### Audit ulang sebelum naik — dua yang ketemu, dua-duanya ditutup
+1. Kotak placeholder (130×130, r10) **tak sama** dengan kotak `<img>` tile (130×150, r12,
+   bingkai 3px) → baris strip melompat tingginya dan bingkai merah `.flagged` tak berlaku
+   ke placeholder. Disamakan; `.aws-tile.flagged .aws-tunda` ditambah.
+2. Ketiga halaman ber-`data-kunci-kirim` **memang** memakai `layouts.app` (tempat skripnya
+   hidup) — diperiksa, bukan diasumsikan. `timpaPulang()` menyediakan keempat kunci
+   `$hasil[...]` yang dipakai `store()`. `$descOut` terdefinisi (1177) sebelum pagar (1184).
+
+### Angka SEBELUM → SESUDAH, diukur di prod pada data nyata
+
+| Halaman | tile | `<img>` sebelum | `<img>` sesudah | placeholder | tombol |
+|---|---|---|---|---|---|
+| Pengawasan **21 Agu** (hari tersibuk) | 57 | **57** | **12** | 45 | 9 |
+| Pengawasan **hari ini** | 39 | 39 | **12** | 27 | 9 |
+| `?semua=1` (179 baris flag) | — | 39 | **12** | — | — |
+
+Kode baru ter-autoload **dari berkas prod** (`kembarBaruSaja`, `JEDA_TIMPA_DETIK`,
+`jamPulangTerjadwal`, `LABEL[pulang_cepat]`) · poller `visibilityState` & skrip
+`data-kunci-kirim` tercetak di layout · layar absen akun baku sungguhan render dengan
+`var konfirmasi` + handler `need_confirm` · `/pettycash` memuat **2** form ber-kunci
+(tambah + transfer) · kendali negatif 5 tabel **tak bergeser** (bukti 1158 · scan 1158 ·
+flag 274 · petty 397 · att_day 706).
+
+Galat non-`[2002]` sejak deploy: **nol dari aplikasi** (satu-satunya adalah `shell_exec`
+dari skrip pre-flight-ku sendiri — `shell_exec` dimatikan di hosting). `[2002]` hari ini:
+**0** — tapi ini Minggu, lalu lintas rendah; **bukan bukti**. Bacaan yang sah = hari kerja
+pertama, bandingkan dengan 31–46/hari sebelumnya.
+
+⚠️ Celah kecil yang SENGAJA dibiarkan: `timpaPulang()` tidak memanggil `evaluasiFlags()`,
+jadi pulang-timpa dari IP asing tak menaikkan `ip_asing`/`luar_seharian` baru (flag dari
+pulang pertama tetap ada di bukti yang sama). Kasusnya sempit; dicatat, bukan dikerjakan.
+
+---
+
+## 2026-09-06 — Tiga sebab "sistem sering error & double input" — DEV LULUS, prod belum
+
+Branch `fix/galat-2002-kiriman-ganda` (dari `main` `d68679f`), **tiga commit
+terpisah** supaya bisa di-revert sendiri-sendiri. Diagnosis (sudah terukur di
+prod, tidak diukur ulang): `docs/handoff/handoff-diagnosis-galat-2002-kiriman-ganda-2026-09-06.md`.
+
+| | Commit | Uji |
+|---|---|---|
+| **A** Pengawasan + poller | `5763445` | `PengawasanFotoTest` 4 · 11 |
+| **B** Absen HP masuk→pulang | `c5a553a` | `AbsenHpJedaTest` 7 · 44 |
+| **C** Petty cash kiriman ganda | `6fed3f6` | `PettyCashKembarTest` 5 · 19 |
+
+Regresi: `LayarAbsensiRenderTest` 10 · `PagarLemburLayarTest` 3 · `KoreksiAbsenTest` 16 — hijau.
+**Total 45 uji baru+regresi, 170 assertion**, per kelas.
+
+### A · Pengawasan — 49 `<img>` → 12
+
+Tiap `<img src=pengawasan/foto/N>` = satu boot Laravel + satu koneksi DB, dan
+HTTP/2 mengirim semuanya serentak. Kini **anggaran GLOBAL 12 `<img>`** di
+muatan pertama; sisanya `<span class="aws-tunda" data-src>` + tombol *"Muat N
+foto lagi"* per strip (12 per klik). Tile tetap ada semua — nama & jam terbaca,
+klik tile tetap membuka panel yang memuat fotonya sendiri.
+
+**Angka:** 49 selfie (seed = rata-rata prod) → `<img>` **49 → 12**, 37
+placeholder, 49 tile utuh. ⚠️ Hari tersibuk *dev* cuma **6 selfie** — di bawah
+anggaran, jadi pengukuran atas data dev vakum (6 → 6); yang bermakna adalah
+seed 49 di uji.
+
+Ujinya menghitung **ELEMEN** `<img>` ber-`src` ke rute foto — bukan kata. Kata
+`pengawasan/foto` sengaja tetap muncul 49× (JSON `AWS_BUKTI` + `data-src`);
+menghitung kata akan merah selamanya.
+
+Baris flag (`?semua=1`) **tidak diubah**: tak pernah merender `<img>`; fotonya
+sudah dimuat panel saat baris diklik.
+
+Poller lonceng (30 dtk) & reservasi baru (20 dtk): berhenti saat
+`document.visibilityState !== 'visible'`, lanjut saat kembali. 118 dari 574
+galat 2002 jatuh di dua poller ini.
+
+**Nol berkas di `public/assets`** (gaya inline) → prod **tak butuh rsync**.
+
+### B · Absen HP — peringatan yang bisa dilanjut, bukan penghalang
+
+1. Pulang **<5 menit** sesudah masuk → dialog: *"Kamu baru absen masuk N detik
+   lalu. Yang ini absen PULANG, bukan mengulang masuk. Lanjutkan?"* Server
+   menuntut `confirm=1` — tombol bukan pagar.
+2. Pulang lebih awal dari jam pulang aturan (**baku saja**) → **teks di dalam
+   tombol**: *"Jadwalmu sampai 17.00. Ini pulang cepat 2 jam."* Tetap hidup,
+   tetap tercatat, jadi flag **`pulang_cepat`** (enum ditambah —
+   `2026_09_06_flag_pulang_cepat.sql`, idempoten). Fleksibel: nol peringatan.
+3. Pulang yang tercatat ≤5 menit sesudah masuk boleh **DITIMPA** pulang
+   berikutnya: UPDATE bukti + scan yang ada (bukan insert kedua — reconciler
+   melipat ≤5 menit), jam & foto lama masuk `audit_log`. Pulang **normal** yang
+   sudah ada tetap ditolak.
+
+`JEDA_TIMPA_DETIK = 300`, sengaja = `$dedupMinutes` reconciler (diuji).
+
+⚠️ **Salah baca skema, ketahuan dari uji**: `jam_pulang` hidup di
+**`att_work_rule_day`** (baris hari), bukan di `att_work_rule` — tabel aturan
+tak punya kolom jam sama sekali. Helper `jamPulangTerjadwal()` dibetulkan;
+7 uji sempat *error* (Unknown column), bukan gagal logika.
+
+**4 kasus lama TIDAK disentuh** — koreksi lewat layar, keputusan Ekky.
+
+### C · Petty cash — pengaman tombol + pagar server 10 detik
+
+Pengaman tombol = atribut **`data-kunci-kirim`** pada `<form>`, ditangani satu
+skrip bersama di `layouts/app.blade.php` (tombol mati + "Menyimpan…", kiriman
+kedua dibatalkan; pulih lewat `pageshow`/15 dtk). Dipasang di **tambah &
+transfer** petty cash (yang di `:1149` memang milik modal EDIT), **pengajuan
+ROP**, **pengajuan absensi** — dua terakhir belum punya kembaran, cukup tombol.
+
+Pagar server `PettyCashTransaction::kembarBaruSaja()`: baris IDENTIK
+(`created_by + amount + description + trx_date`) ≤**10 detik** [USULAN HUB]
+→ flash **ramah** *"Pengeluaran yang sama baru saja tersimpan — tidak dicatat
+dua kali"*, bukan galat. Kembar persis ditolak, mirip boleh (pola pagar
+lembur). Di `store()` dan `transfer()` (kunci pada baris keluar).
+
+### Sengaja TIDAK dikerjakan
+
+- **Foto tanpa boot Laravel** (tautan bertanda tangan ke berkas statis) — opsi
+  struktural §1.2 diagnosis; A1 sudah menghilangkan gerombolannya.
+- **Flag `single_scan` yang sudah ada** dari 4 kasus lama — koreksi data, Ekky.
+- **Pagar server untuk ROP & pengajuan absensi** — nol kembaran dalam 14 hari.
+- **Pengaman tombol untuk Tarik Tunai / Setor Cash** — sudah ber-`disabled`
+  sampai valid; tak termasuk lingkup (tambah & transfer).
+- `[2002]` sebagai gejala hosting — sesi terpisah, sesuai kesepakatan.
+
+### Naik prod butuh
+
+**1 SQL** (`2026_09_06_flag_pulang_cepat.sql`) + deploy **PENUH** (helper &
+metode baru) + **nol rsync**. Dev dipinjam dari chat IT Tracker dan dikembalikan
+persis ke `feat/it-tracker` `f111832`, `--no-dev` dipulihkan, beranda 200.
+
+---
+
+## 2026-09-05 — ✅ NAIK PROD: koreksi absen, ambang DODO, ekspor rentang + koreksi data §A & §B
+
+Prod `e324d1b` (dari `2400896`). Backup `~/backup/prod_pre_koreksiabsen_20260905_0851.sql.gz`
+(49M, gzip diuji). Beranda & signin **200**.
+
+### Yang berubah di prod — diff potret sebelum/sesudah, tak ada yang di luar rencana
+
+| | Sebelum | Sesudah |
+|---|---|---|
+| tabel `att_day_koreksi` | belum ada | ada, 0 baris |
+| `dodo_ambang_menit` | belum ada | **0** (pagar mati = perilaku lama) |
+| Yovanka sisa cuti | **−2.0** | **0.0** |
+| Ramdan sisa cuti | 11.0 | **11.0** (memang tak boleh berubah) |
+| Alpajri | GS Pagi, terbuka | GS Pagi ditutup 4 Sep → **Fleksibel Operasional** 5 Sep |
+| Ela | tak punya aturan | **Fleksibel Kantor** sejak **2026-09-02** (scan pertamanya) |
+| Dodi | tak punya aturan | **Fleksibel Kantor** sejak **2026-09-08** (ditetapkan Ekky) |
+| `att_day` | 676 | 680 (4 hari Ela) |
+| `att_cuti_mutasi` | 42 | 48 (6 pembalik) |
+| aktif tanpa aturan | 13 | 11 |
+
+**Tak bergeser** (kendali negatif): total lembur Agustus 34.927 menit · daftar klaim
+DODO · Melani & Putri tetap `alpa` · `att_scan` · `att_request` · `users` ·
+`att_period` · alpa Agustus tetap 2 · 28 baris buku besar orang lain, 66,0 hari.
+
+### Dua cacat yang ditangkap POTRET PROD, sebelum sempat merusak
+
+**1. Aturan Alpajri ternyata `GS Pagi`, bukan `GS`.** Skrip §B mencocokkan `'GS'`
+→ **nol baris tertutup**, lalu blok berikutnya tetap menyisipkan penugasan baru.
+Alpajri akan berakhir dengan **dua aturan aktif** dan mana yang menang ditentukan
+urutan MySQL — persis cacat "baris rangkap" yang sudah menimpa 8 orang di prod
+5–6 Agu, dan **tanpa satu pun galat**. Ketahuan karena potret dibaca, bukan
+diasumsikan.
+
+**2. `DB::insert()` mengembalikan BOOLEAN, bukan jumlah baris.** Penjaga
+`harus(..., 1)` karena itu **lolos palsu** di §B (true → 1) dan **berhenti palsu**
+di §A. Akibat nyata: §A berhenti separuh jalan — Yovanka sudah terpasang, Ramdan
+belum. Diperbaiki ke `DB::affectingStatement()`, lalu dijalankan ulang (skripnya
+idempoten lewat `NOT EXISTS`, jadi Yovanka menyisipkan 0 dan Ramdan 3+1).
+⚠️ Penjaga §B yang "lulus" itu **tak membuktikan apa pun** — yang membuktikannya
+SELECT verifikasi sesudahnya, yang untungnya memang ada.
+
+### Verifikasi prod
+
+- 4 kelas baru ter-autoload **dari berkas prod** (`ReflectionClass::getFileName()`).
+- **Invarian `biasa + DODO = total`: 59 pasangan orang-bulan, 0 pelanggaran, 0
+  selisih sel-vs-orang.** Kali ini **tidak vakum** — prod punya 34.927 menit lembur
+  nyata (di dev angkanya nol, jadi sapuan dev memang tak membuktikan apa-apa).
+- Empat layar render sungguhan dengan sesi Finance: Koreksi (35.886 B) · Lembar
+  Gaji Agustus (77.771 B) · Kehadiran (179.133 B) · ekspor CSV rentang (2.192 B).
+- Backfill Ela: `att:reconcile 2026-09-02..05` → diff **tepat 4 baris**, semuanya
+  Ela, semuanya `hadir`. Nol baris orang lain bergeser.
+- `att:periksa-kejanggalan` **nihil** untuk cek 1 & 2 — pembalik `batal-*` dikenali,
+  jadi Yovanka & Ramdan **tidak** dilaporkan ulang selamanya. Sisa 1 temuan sah:
+  *Executive Pamulang* (Branch Executive, role yang catatan lama sudah sebut
+  bawaannya kosong).
+
+### ⚠️ Ambang DODO sengaja diset 0 — dan ini bukan basa-basi
+
+Kode berbawaan 420, jadi begitu deploy mendarat ambangnya **langsung aktif**.
+Diset `0` seketika. Buktinya kenapa itu penting, diukur di prod: klaim DODO
+Agustus ada **enam**, bukan dua seperti catatan lama —
+Afrina 115 · Della R 120 · **Melani 129** · **Muhamad Ikhsan 660** · Rokhmatun 60 ·
+Della R 60 = **1.144 menit**. Dengan ambang 420 hanya Ikhsan yang bertahan (jadi
+420); sisanya **nol**. DODO Agustus akan jatuh **1.144 → 420** pada bulan yang
+mungkin sudah dibayar.
+
+Dengan ambang 0, angka Agustus **sama persis** seperti sebelum deploy (DODO 1.144,
+biasa 33.783). Menaikkannya ke 420 = keputusan Finance, lewat layar Lembar Gaji,
+tanpa deploy.
+
+### ✅ AMBANG DODO DISETEL 420 oleh Della — empat pemeriksaan LULUS
+
+Della Puspita Sari (Finance) menyetelnya lewat layar Lembar Gaji pukul 17:09.
+`audit_log`: *"Ambang DODO diubah: tanpa ambang → 7 jam"*, `old_values`
+`{"ambang_menit":0}` — atas namanya, bukan akun bersama. Persis yang diminta.
+
+| Pemeriksaan | Hasil |
+|---|---|
+| Seluruh klaim DODO Agustus tetap **1.144 menit** (nol menguap) | ✅ |
+| Ikhsan pecah **420 DODO + 240 biasa** | ✅ |
+| Lima klaim lain **0 DODO**, seluruhnya (**484 menit**) jadi lembur biasa | ✅ |
+| Invarian: **0 pelanggaran**, 0 selisih sel-vs-orang | ✅ |
+
+Rincian per klaim sesudah ambang:
+
+```
+Muhamad Ikhsan    23 Agu  klaim 660 -> DODO 420 + biasa 240
+Melani Safrida    22 Agu  klaim 129 -> DODO   0 + biasa 129
+Della Raqisiah    17 Agu  klaim 120 -> DODO   0 + biasa 120
+Afrina Apriliani  10 Agu  klaim 115 -> DODO   0 + biasa 115
+Rokhmatun         25 Agu  klaim  60 -> DODO   0 + biasa  60
+Della Raqisiah    25 Agu  klaim  60 -> DODO   0 + biasa  60
+```
+
+Total lembur `att_day` Agustus **tak bergerak** (34.927 menit) — ambang hanya
+memindahkan menit antar kolom, tak pernah menghilangkannya. DODO Agustus
+1.144 → **420**, sisanya masuk lembur biasa.
+
+⚠️ **Pasangan orang-bulan kini 60, bukan 59** — dan itu BENAR, bukan regresi:
+angka 59 diukur SEBELUM backfill Ela. Ela menyumbang satu pasangan September
+(4 hari, dihitung 15:54). Agustus 31 orang + September 29 = 60.
+*Angka harapan yang dikutip dari pengukuran lama akan basi begitu data
+bertambah — periksa sebabnya sebelum menyebutnya gagal.*
+### 🔎 Lembar Gaji TAK PUNYA JALAN MASUK — ditemukan Ekky, dibetulkan
+
+Ekky membuka Kehadiran sebagai Della (Finance) dan bertanya: *"where is lembar
+gaji?"* Ternyata memang tak ada di mana pun.
+
+* Layar itu **tak ada di deret tab Finance** — tab-nya berisi 6 lainnya saja.
+* Node menunya **ADA** (`Lembar Gaji → absensi/lembar-gaji`, `abs-gaji-…`) tapi
+  **NOL role di-grant di prod**, jadi tak muncul di sidebar siapa pun.
+* Di **dev** node yang sama punya **9 grant**. Itulah kenapa ia terlihat normal
+  selama pengembangan dan tak terlihat sama sekali di produksi.
+
+Jadi sejak layar itu dibuat, satu-satunya jalan masuk adalah **mengetik URL** —
+dan aku menyuruh Ekky "buka Absensi → Lembar Gaji" tanpa memeriksa jalannya ada.
+
+**Dibetulkan dua sisi:**
+1. **Tab** `Lembar Gaji` ditambahkan, **tersaring peran**. Bukan ditampilkan ke
+   semua yang lolos `canSeeAllBranches`: kedua gerbang itu tak sama — `Admin
+   Backup` boleh melihat Kehadiran tapi sudah dicabut dari Lembar Gaji, jadi
+   menampilkan tabnya = menu tampil lalu 403. Daftarnya **ditanyakan** ke
+   `LembarGajiController::BOLEH` (kini publik), tidak disalin.
+2. **Grant node** di prod ke `BOLEH` **persis**: Finance, Head IT, IT, Konsultan
+   Finance, Konsultan IT, Super Admin, Admin General — **7 role**.
+   ⚠️ `Admin` & `Admin Backup` **sengaja tidak** diberi, meski dev memberi
+   keduanya. Kendali negatif: total grant sistem 513 → 520 (persis +7).
+
+Diverifikasi sebagai Della sungguhan: deret tab kini memuat **Lembar Gaji**, dan
+sidebar juga.
+
+#### ⚠️ Uji yang gagal karena SALAH LINGKUP, bukan salah kode
+
+Uji negatifnya ("tab tak boleh tampil untuk akun bersama") gagal — dan sempat
+kukejar sebagai cacat blade selama beberapa langkah. Dua kesalahanku:
+
+1. **Jendela debug 700 karakter** memotong tab ke-7, jadi aku menyimpulkan tabnya
+   tak dirender padahal ada. *Periksa panjang jendelanya sebelum menyimpulkan.*
+2. Ujinya menyapu **SELURUH halaman**, padahal sidebar juga memuat tautan yang
+   sama — dan grant sidebar **berbeda antar environment**. Jadi ia lulus/gagal
+   karena sebab yang sama sekali lain. Kini dibatasi ke blok deret tab saja.
+
+Justru kegagalan itu yang menyingkap perbedaan grant dev↔prod — sebab
+sesungguhnya dari pertanyaan Ekky.
+### ✅ PAGAR RECONCILE LAMPAU NAIK PROD — `2087022`
+
+Permintaan Ekky, dan sengaja **bukan** dry-run lebih dulu: *"Dry-run menolong
+orang yang sudah curiga; yang membuat kejadian ini adalah orang yang tidak
+curiga."*
+
+`att:reconcile` kini **MENOLAK** tanggal lebih tua dari `BATAS_HARI` (14)
+kecuali `--force`, dan saat menolak ia **mencetak siapa saja** yang
+penempatannya bergeser di rentang itu (`App\Services\PenempatanBergeser`).
+Penjadwal harian (kemarin+hari ini) tak tersentuh — diuji di prod, jalan normal.
+
+**Detektornya diadu dengan pengukuran Ekky sendiri, dan sempat SALAH.**
+Versi pertama menyalin penyaring `CabangBertugas` apa adanya (`kind = 'rolling'`)
+→ menemukan **3 orang**, sementara Ekky mengukur **6**. Yang terlewat — Alpajri,
+Cici, Rivanti — semuanya `kind = 'home'`. Cabang bertugas jatuh kembali ke cabang
+ASAL kalau tak ada rolling, dan baris `home` itulah jejak kapan cabang asal
+berubah; jadi penempatan Bintaro milik Alpajri, **yang melahirkan seluruh temuan
+ini**, justru yang tersaring keluar. Penyaring dibuang. Sesudahnya: **6 orang,
+9 baris — cocok persis dengan hitungan Ekky.**
+
+Pelajarannya: *detektor yang melapor KURANG jauh lebih berbahaya daripada yang
+melapor berlebih* — dan menyalin penyaring dari kelas tetangga adalah cara
+mudah untuk melaporkan kurang.
+
+Keenam nama (jangan reconcile tanggal lampau mereka sampai ada pagar — kini ada):
+Alpajri · Cici Nurjanah · Della Raqisiah · Ramdan · Rivanti Nadiana · Verini.
+
+### ✅ Alpajri 25 Agu dipulihkan — lewat layar, alasan dari Ekky
+
+`alpa → libur`, lewat POST `/absensi/koreksi` sesi Admin_Ekky, jejaknya sejajar
+dengan Melani & Putri. **Alpa Agustus kini 0.** Buku besar koreksi: 3 baris.
+
+### 🔒 Akun bersama dicabut dari gerbang Lembar Gaji
+
+`Admin` & `Admin Backup` dibuang dari `LembarGajiController::BOLEH`. Alasan Ekky:
+bukan lebar gerbangnya yang mengganggu, melainkan bahwa ambang DODO menentukan
+uang — disetel dari akun bersama, `audit_log` mencatat nama yang tak menunjuk
+siapa pun, dan jejak yang tak bisa menunjuk orang bukan jejak. Sisanya dibiarkan.
+Diverifikasi di prod: Finance/Admin General/Head IT **200**, Admin & Admin Backup
+**403**.
+
+### 📌 Ralat lanjutan
+
+- **Layar ambang DODO memang ADA** — Ekky sudah memverifikasinya live. Pencarian
+  string `dodo_ambang_menit` memang cuma menemukan `LemburDodo.php` sebab
+  pemakainya lewat konstanta.
+- **ABG hari ini 15, bukan 16** (ralat Ekky, diterima): aturan Fleksibel Kantor
+  Dodi baru berlaku **8 September**, jadi FK = 7 hari ini dan 8 hari Senin.
+  Tanggalnya memang benar — Dodi nol scan, nol att_day, mulai Senin.
+- Struktur pengelompokan tetap seperti dilaporkan: lewat `att_work_rule.tipe`,
+  bukan cabang NULL. Keduanya kebetulan berimpit sekarang.
+
+**Uji: 80 hijau, 220 assertion** (8 kelas lama + `PagarReconcileLampauTest` 6).
+### ✅ §C SELESAI — dan sebuah landasan berbahaya ikut tersingkap
+
+Alasan diberikan Ekky sendiri (Maulid; Sunter tetap buka dengan awak minimum —
+Rokhmatun asistensi dokter & Tito operasional, keduanya lembur disetujui; Melani
+& Putri diliburkan). Dijalankan lewat **POST `/absensi/koreksi`** dengan sesi
+Admin_Ekky — bukan panggilan service — jadi gerbang peran, validasi, pagar
+periode, dan penulisan jejak audit ikut terbukti. Keduanya `libur`, dan **tetap
+`libur` sesudah `att:reconcile 2026-08-25`**: inti desainnya terbukti di prod.
+
+#### ⛔⛔ REKONSILIASI TANGGAL LAMPAU MENULIS ULANG SEJARAH
+
+Reconcile 25 Agu itu juga **mengubah Alpajri dari `libur` jadi `alpa`** — hari
+yang sebelumnya benar. Rantai buktinya lengkap:
+
+* Backup memuat barisnya apa adanya: id 1692, `rule_id` 6, status **`libur`**,
+  `computed_at` 2026-08-26 06:10.
+* Sebabnya `sys_user_position` menempatkannya di **Bintaro**, dan Bintaro libur
+  Maulid (exception #7, dibuat 21 Agu, per-cabang sejak awal).
+* Penempatan itu **ditutup 1 Sep 04:47** saat restrukturisasi Konsultan.
+* Aturan kerja & pengajuannya **tak berubah** sejak 20 Agu — jadi bukan itu.
+* Reconcile 5 Sep memakai penempatan **sekarang** (tak ada) → tak ada libur
+  cabang → Selasa hari kerja → **`alpa`**.
+
+Artinya: **`att_day` dihitung dari keadaan organisasi HARI INI, bukan keadaan
+saat tanggal itu berlangsung.** Tiap reconcile atas tanggal lampau menimpa baris
+lama dengan struktur terkini — dan hari yang dulu benar bisa berubah jadi salah,
+tanpa satu pun galat.
+
+* Penjadwal harian **aman** (cuma kemarin + hari ini).
+* `att:periksa-kejanggalan` **tidak** menangkapnya — ia memeriksa cuti & aturan,
+  bukan pergeseran status.
+* **Ruang lingkupnya belum diukur.** Mengukurnya butuh dry-run (reconcile di
+  dalam transaksi lalu rollback) — belum dibuat.
+
+**Keadaan: Alpajri 25 Agu MASIH `alpa` di prod** (alpa Agustus = 1, bukan 0).
+Pemulihannya disiapkan tapi **diblokir gerbang keamanan** — tulisan prod di luar
+yang diizinkan Ekky. Menunggu keputusannya.
+
+### 📌 Dua ralat atas laporanku sendiri
+
+**1. Layar ambang DODO ITU ADA.** `grep -rn "dodo_ambang_menit"` hanya menemukan
+`app/Services/LemburDodo.php`, sebab controller/blade/rute memakai **konstanta**
+`LemburDodo::KUNCI_AMBANG` dan field `ambang_menit` — bukan string kuncinya.
+Yang hidup di prod: `LembarGajiController::setelanAmbang()`, rute POST
+`absensi/lembar-gaji/ambang`, dan blok `<details class="lg-ambang">` yang
+terbukti ter-render (77.764 byte, `value="0"`). Carilah dengan **KUNCI_AMBANG /
+ambang_menit / setelanAmbang**.
+⚠️ Gerbangnya `LembarGajiController::BOLEH` — **lebih luas** dari "hanya
+Finance/Head IT". Admin_Ekky (Admin General) boleh menyetel.
+
+**2. "ABG" itu tipe aturan `fleksibel`, bukan "tanpa cabang".** Yang bukan
+fleksibel DAN tanpa cabang masuk grup **"Belum ada cabang"**. Keduanya kebetulan
+berimpit sekarang (nol orang fleksibel yang punya cabang), tapi bukan definisi
+yang sama: sebelum 5 Sep Alpajri (GS Pagi + cabang NULL) ada di "Belum ada
+cabang", **bukan** ABG — ia masuk ABG justru karena aturannya diubah.
+Isi ABG kini **16** = Fleksibel Kantor 8 + Fleksibel 5 + Fleksibel Operasional 3
+(sebelum hari ini 13, sesuai hitungan Ekky).
+### ⏸️ §C Melani & Putri DITAHAN — sengaja, menunggu satu kalimat dari Ekky
+
+Alatnya siap dan teruji, periodenya **tidak terkunci** (satu-satunya periode
+21/07–20/08 masih `open`), jadi teknis tak ada halangan. Yang menahan: **alasannya
+tersimpan permanen di catatan yang menentukan uang, dan aku tak boleh mengarangnya.**
+
+Draf awalku menyebut "rekan se-cabang juga tercatat libur" — **itu keliru**, dan
+ketahuan saat memeriksa: Verini memang `libur` 25 Agu, tapi karena ia **rolling ke
+Cinere yang tutup**, bukan karena libur bergantian di Sunter. Fakta yang benar-benar
+terukur:
+
+- Maulid Nabi terdaftar libur **hanya** Bintaro, Cinere, Kalideres — **Sunter tidak**.
+- Sunter 25 Agu: Rokhmatun `hadir`, Tito `hadir`, Verini `libur` (rolling ke Cinere),
+  Melani & Putri `alpa`, nol scan, tanpa pengajuan apa pun.
+
+Jadi **belum ada dasar tercatat** kenapa keduanya tidak masuk. Begitu Ekky memberi
+satu kalimat alasannya, koreksinya dijalankan lewat layar.
+
+### 🔎 Temuan sampingan di prod (di luar lingkup, layak ditindak terpisah)
+
+`laravel.log` prod memuat **31–46 galat per hari**, dan **100% hari ini (40 dari
+40)** bertipe `SQLSTATE[HY000] [2002] Operation not permitted` — batas koneksi
+hosting bersama. Nol galat dari fitur baru. Ini **kronis dan sudah ada sebelum
+deploy**, tapi artinya ada pengguna yang halamannya gagal dimuat tiap hari.
+
+---
+
+## 2026-09-05 — ABSENSI: koreksi berjejak audit, ambang DODO, ekspor rentang bebas
+
+Tiga fitur dari serah-terima `docs/handoff/handoff-absensi-koreksi-2026-09-05.md`,
+plus pemeriksa harian. **Semua di dev; prod belum disentuh sama sekali.**
+
+### ⛔ Temuan yang mengubah urutan pekerjaan: perbaikan cuti hari libur TIDAK ADA di prod
+
+Serah-terima menyatakan kode "cuti tak memakan hari libur" **sudah hidup di
+prod**, sehingga yang tersisa cuma membersihkan data lama. Itu tidak benar, dan
+salahnya bukan salah baca — melainkan **pengukuran yang benar atas benda yang
+salah**:
+
+* Branch `fix/cuti-hari-libur` **nol commit** (`reflog`: "Created from
+  origin/main"). Karena itu `git merge-base --is-ancestor` terhadap prod memang
+  LULUS — yang lulus branch **kosong**, bukan perbaikannya.
+* Blob `app/Services/CutiService.php` **sama persis di seluruh branch** repo;
+  `potongDariPengajuan()` masih memotong tiap hari kalender, dan komentarnya
+  sendiri menyebut "belum melihat jadwal kerja/hari libur".
+* Perbaikan aslinya (10 berkas + 6 kelas uji, ±830 baris `app/`) masih
+  **menggantung tanpa commit** di worktree `sweettreats-dodo`.
+
+**Akibatnya:** koreksi §A tetap aman dijalankan (pembalik tak menghapus baris
+asli, jadi penjaga idempoten tak melahirkan potongan lagi), tapi ia **tidak
+menghentikan sumbernya** — pengajuan cuti berikutnya akan tetap memotong hari
+libur. Menyelamatkan kerjaan yang menggantung itu **pekerjaan tersendiri dan
+belum dikerjakan**.
+
+Pelajarannya sudah lama tercatat di proyek ini dan berulang lagi: *bentuk hasil
+palsu yang paling mahal bukan yang kacau, melainkan yang rapi dan salah.*
+**Nama branch bukan bukti isi branch.**
+
+### D1 · Koreksi absen oleh admin — `/absensi/koreksi`
+
+Sebelumnya tak ada satu pun jalan mengubah `alpa` hari LAMPAU; yang ada cuma
+koreksi cuti (saldo) dan modal karyawan untuk hari ini.
+
+**Jebakan yang ditutup:** `att_day` itu tabel **turunan** — reconciler
+meng-`upsert` kolom `status` tiap pagi 06:10. Koreksi yang ditulis langsung ke
+sana akan bertahan sore ini lalu **hilang diam-diam besok**, dan tak ada yang
+akan menghubungkan keduanya. Jadi koreksi disimpan sebagai **deklarasi**
+(`att_day_koreksi`) dan dibaca reconciler sebagai kata terakhir — pola yang sama
+dengan pengajuan yang di-ACC.
+
+* Alasan **wajib** (min 8 karakter), tersimpan bersama nama & waktu + AuditLog.
+* **Periode gaji tertutup DITOLAK** dengan menyebut nama periodenya. Angka di
+  sana sudah dibayarkan.
+* **Buku besar**: baris tak pernah dihapus; membatalkan = mencabut, dan
+  cabutannya ikut tercatat.
+* `telat_menit` dinolkan saat hari dipindah ke status tak-bekerja — kalau tidak,
+  koreksi membetulkan satu angka sambil merusak kolom Total Telat.
+
+### D2 · Ambang DODO bisa diatur — di layar Lembar Gaji
+
+Aturan Ekky: `>=` ambang → DODO sebesar ambang, sisanya lembur biasa;
+`<` ambang → **bukan DODO sama sekali**. Bawaan **7 jam**, disimpan di
+`sys_setting`, diubah Finance tanpa deploy, berjejak audit.
+
+* **Per HARI, bukan per periode.** Dua hari libur penuh tetap dua hari DODO;
+  kalau ambang dikenakan pada jumlah sebulan, hari kedua lenyap tanpa jejak.
+* **Invarian dijaga**: `biasa + DODO` tetap sama persis dengan seluruh lembur
+  di-ACC pada ambang 0/60/420/600/900 — diuji eksplisit. `LemburDodo::dasar()`
+  nol baris disentuh.
+* Jumlah sel Kehadiran == angka Lembar Gaji, juga diuji (dua layar yang
+  berselisih soal DODO adalah cacat yang paling sulit dilacak).
+
+### D3 · Ekspor CSV di layar Kehadiran, rentang tanggal bebas
+
+Ekspor lama hidup di Periode Gaji dan cuma bisa mengeluarkan periode utuh —
+"1–15 Agustus" memaksa orang **membuat periode dulu**, mengubah data supaya bisa
+membacanya. Sekarang dari–sampai bebas, mengikuti **penyaring cabang yang sedang
+aktif** (disalin ke form lewat JS, sebab penyaringan layar ini di sisi klien).
+Roster dari aturan kerja, bukan `att_day`, supaya orang tanpa data tetap tampil.
+
+### E · `att:periksa-kejanggalan` — harian 06:30, BACA-SAJA
+
+Tiga pola yang **sudah terbukti terjadi**: potongan cuti di hari libur, potongan
+kembar, karyawan aktif tanpa aturan kerja.
+
+* **Tak membetulkan apa pun** — Ramdan membuktikan kenapa: potongan janggal bisa
+  sudah tertutup koreksi manual, dan pembetulan otomatis justru melahirkan
+  **kelebihan bayar**. Tiap temuan menyebut apakah orangnya punya koreksi manual.
+* **Stempel waktu ditulis walau nol temuan**, supaya "sudah diperiksa" bisa
+  dibedakan dari "belum pernah jalan".
+* Jalan pertama di dev melaporkan 11 temuan yang semuanya benar tak punya aturan
+  (Admin*, Sales). Akun sistem **dikecualikan, bukan disembunyikan** — jumlah &
+  namanya tetap dicetak. Sisa: 1 temuan nyata.
+
+### Uji — 59 hijau, 161 assertion (dev, PER KELAS)
+
+| Kelas | Hasil |
+|---|---|
+| AmbangDodoTest | 9 · 41 |
+| KoreksiAbsenTest | 13 · 20 |
+| KehadiranEksporTest | 5 · 13 |
+| LayarAbsensiRenderTest | 4 · 15 |
+| LemburDodoTest (regresi) | 9 · 18 |
+| PagarLemburTest (regresi) | 16 · 42 |
+| PagarLemburLayarTest (regresi) | 3 · 12 |
+
+`LemburDodoTest` & `PagarLemburTest` **dipatok ke ambang 0** di setUp: keduanya
+menguji pecahan/chip, bukan ambang. Tanpa itu keduanya merah karena alasan yang
+salah.
+
+### Tiga uji merah yang ternyata salah patokan — bukan salah kode
+
+1. `Carbon\Carbon` vs `Illuminate\Support\Carbon` — **cacat sungguhan**, 9 dari
+   11 uji TypeError. Turunan tak bisa disubstitusi ke atas.
+2. Tanggal uji 2027 dipilih supaya "tak bertabrakan data nyata" → rekonsiliasi
+   **membuang baris masa depan sebagai basi**, jadi yang diuji bukan koreksinya.
+   Sekarang tanggal diambil dari `att_day` yang benar-benar ada.
+3. Persona ekspor memakai karyawan acak ber-`group_name` 'Finance' → **302**,
+   sebab AuthGuard memeriksa akses menu lewat **`group_id`**. Ganti ke akun
+   Finance sungguhan.
+
+⚠️ Sapuan invarian atas seluruh data dev **tidak membuktikan apa-apa soal angka**:
+`att_day.lembur_menit_disetujui` **nol di seluruh dev** (6 lembur di-ACC ada,
+tapi belum terekonsiliasi). 51 pasangan orang-bulan, 0 pelanggaran — vakum.
+Bukti D2 ada di `AmbangDodoTest`, yang membangun skenarionya sendiri.
+
+### Yang MENUNGGU keputusan — belum dijalankan di environment mana pun
+
+| Berkas | Isi |
+|---|---|
+| `2026_09_05_att_day_koreksi.sql` | prasyarat D1 — **sudah dijalankan di dev**, prod belum |
+| `2026_09_05_koreksi_cuti_yovanka_ramdan.sql` | §A — pembalik, bukan hapus |
+| `2026_09_05_aturan_kerja_alpajri_ela_dodi.sql` | §B — + `att:reconcile 2026-09-02 2026-09-05` untuk Ela |
+
+⚠️ **Ramdan: saldonya TETAP 11 sesudah koreksi, dan itu benar.** Yang diperbaiki
+catatannya (5 baris untuk 1 hari cuti), bukan angkanya. Kalau saldonya berubah,
+ada yang keliru.
+
+### §C Melani & Putri 25 Agu — BELUM dikerjakan
+
+Alatnya (D1) sudah ada dan teruji, tapi tindakannya menyentuh **data prod**, dan
+prod belum diizinkan. Begitu diizinkan: lewat layar `/absensi/koreksi`,
+`alpa → libur`, dengan alasan yang menyebut konfirmasi Nissa — bukan tembak DB.
+
+### Audit ulang atas kerjaan sendiri — 7 temuan, semuanya ditutup
+
+Disisir lagi sesudah selesai, mencari bug & inkonsistensi. Dua yang berarti,
+satu yang menentukan fiturnya dipakai atau diabaikan.
+
+**1. Ekspor MENGHILANGKAN ORANG.** Layar Kehadiran punya jaring-pengaman untuk
+"ada `att_day` tapi tak punya aturan kerja" (data lama) — ekspornya tidak.
+Orangnya tampil di matriks lalu lenyap dari CSV. Nol kasus di dev sekarang,
+tapi jaringnya ada di layar justru karena pernah terjadi. Disamakan.
+
+**2. Kolom "Hadir" berarti DUA hal.** Ekspor memakai `hadir+telat`; matriks di
+layar (`if/elseif` per sel) **dan** ekspor Periode Gaji memakai `hadir` saja.
+Satu kata, dua angka, di layar yang sama — tepat jenis selisih yang baru
+ketahuan sesudah dipakai rapat. Disamakan ke arti layar.
+
+**3. Pemeriksa akan melaporkan Yovanka & Ramdan SELAMANYA.** Yang paling
+menentukan. `att_cuti_mutasi` itu buku besar: koreksi §A menambah pembalik,
+**tidak menghapus** baris salahnya. Jadi begitu koreksi dijalankan, sapuan
+harian melaporkan keduanya **setiap hari**, untuk kesalahan yang sudah
+dibereskan. Pemeriksa yang mengulang temuan mati akan berhenti dibaca — dan
+yang berhenti dibaca sama saja dengan tak ada.
+Ditutup dengan konvensi `ref_id = 'batal-<id asli>'` yang **diikat dua arah**:
+konstanta `AttPeriksaKejanggalan::PREFIX_BATAL` dan catatan di kepala SQL
+koreksi yang menunjuk balik ke konstanta itu.
+
+**4 & 5. Bentuk laporan pemeriksa.** Catatan "akun sistem dikecualikan"
+tercetak dari dalam pengumpul → muncul di **atas seluruh laporan**, sebelum
+judul bagian mana pun, padahal milik bagian 3; dan **lolos dari `--diam`**.
+Sekarang pengumpul mengumpulkan, yang mencetak cuma `laporkan()`.
+
+**6. Satu dari tiga kueri** di `AttPeriksaKejanggalan` tak memakai `COLLATE`
+seperti dua saudaranya. Disamakan. (Diukur: di dev ketiganya `utf8mb4_unicode_ci`
+— FK ke `users` memang memaksanya sama, jadi ini menutup risiko environment,
+bukan cacat yang hidup.)
+
+**7. `simpan()`/`cabut()` tak atomik** — baris buku besar bisa ter-commit
+sementara hitung-ulangnya gagal: buku besar bilang "sudah dikoreksi", layar
+masih status lama, sampai penjadwal besok pagi. Dibungkus `DB::transaction`.
+
+Kendali negatif ekspor dipertegas jadi `assertStatus(403)`: "bukan 200" bisa
+lolos karena pantulan menu, bukan karena gerbang perannya bekerja. Dipastikan
+dengan membaca `AuthGuard` — ia **tak pernah** membaca `group_name`, jadi
+satu-satunya yang bisa menolak memang `canSeeAllBranches()`.
+
+**Diperiksa dan ternyata BERSIH** (supaya tak diperiksa ulang): gerbang keenam
+layar pemakai `_finance_tabs` semuanya `canSeeAllBranches` (tak ada tab tampil
+lalu 403) · `max:64` pada penyaring cabang aman (id `raw_branch` maks 36
+karakter) · rute baru ada di grup middleware yang benar · invarian DODO tetap
+terjaga dari konstruksinya (kedua pemanggil memakai pengurangan).
+
+**Uji sesudah audit: 67 hijau, 176 assertion** (+8 uji baru: `PeriksaKejanggalanTest`
+6, regresi ekspor 2).
+
+⚠️ `LemburDodoTest` sempat MERAH lagi saat dijalankan berurutan, hijau 9/9
+sendirian — **batas laju koneksi hosting dev**, kejadian ke-6 dengan pola yang
+sama. Jangan dikejar sebagai regresi.
+
+### Pagar buku besar cuti — dibangun sesudah audit (temuan ke-8)
+
+Gap #2 yang tadinya cuma "dilaporkan" ternyata lebih tajam dari dugaan awal, dan
+ditutup. Diperiksa: jatah cuti dipotong **hanya** oleh `AttendanceRequestWorkflow`
+saat pengajuan di-ACC; `KoreksiAbsen` tak pernah menyentuh `att_cuti_mutasi`.
+
+Akibatnya, kalau `cuti` bisa disetel dari layar koreksi, **satu baris Lembar Gaji
+memuat dua angka yang saling membantah**: kolom **Cuti** (dari `att_day`) naik,
+**Sisa Cuti** (dari buku besar) diam. Orangnya dapat hari cuti yang tak memakan
+jatahnya — tanpa satu pun galat.
+
+- `cuti` **satu-satunya** status ber-buku-besar (diperiksa: `sakit`/`izin`/`wfh`
+  tak punya jatah tersimpan di mana pun). Pagarnya sempit, bukan menyapu.
+- `STATUS` (cermin enum `att_day`) **dipisah** dari `STATUS_PILIHAN` (boleh dipilih).
+- Ditolak di **server**, bukan cuma disembunyikan dari dropdown.
+- Arah sebaliknya (`cuti → lain`) **tidak** diblokir — membetulkan cuti yang
+  salah tercatat itu pekerjaan sah — tapi memicu peringatan bahwa jatahnya tak
+  kembali sendiri, dan peringatan itu **ikut masuk ke jejak audit**.
+- Ketiadaannya **dijelaskan di layar**: pilihan yang hilang tanpa keterangan
+  bikin orang mengira layarnya rusak lalu cari jalan memutar ke basis data.
+
+⚠️ **Dan pagar itu sendiri sempat cacat**: pemeriksaannya kutaruh **sesudah**
+`validate()`. Karena `validate()` melempar, aturan `in:` menang duluan dan yang
+sampai ke pengguna cuma *"The selected status is invalid"* — persis pesan hampa
+yang pagar ini ada untuk menghindarinya. Pagarnya bekerja, **pesannya** yang tak
+pernah tampil. Ditangkap uji HTTP di dev, bukan dengan membaca ulang kode.
+
+### Ambang DODO itu RETROAKTIF — set 0 dulu saat deploy
+
+Lembar Gaji menghitung ulang bulan lampau tiap kali dibuka, jadi ambang 7 jam
+**mengubah bulan yang mungkin sudah dibayar**. Catatan 24–27 Agu: DODO Agustus
+prod = Afrina 115 + Della R 120 menit, **dua-duanya klaim satu hari di bawah
+7 jam** → jadi 0 DODO, pindah ke lembur biasa. Total kekal, **pembagiannya**
+bergeser — dan pembagian itulah yang dikalikan tarif berbeda.
+
+Disarankan deploy dengan `dodo_ambang_menit = 0` (perilaku persis hari ini),
+lalu Finance yang menaikkannya ke 420 sebagai keputusan sadar, lewat layar,
+tanpa deploy. Setelannya memang ada untuk itu.
+
+Checklist deploy lengkap: `docs/handoff/checklist-deploy-absensi-koreksi.md`.
+
+**Uji sesudah pagar: 72 hijau, 197 assertion**, seluruh 8 kelas lulus dalam satu
+lintasan.
+
+### Satu hal yang SENGAJA dilaporkan, bukan diperbaiki
+
+1. **Layar Kehadiran tak menandai sel yang sudah dikoreksi.** Jejaknya lengkap
+   di `/absensi/koreksi`, tapi di matriks — tempat orang sebenarnya melihat —
+   hari koreksian tampak identik dengan hari hasil hitungan. Yang membaca layar
+   melihat *fakta*, bukan *keputusan*. Perbaikannya menyentuh perender sel JS
+   di layar yang dipakai harian, jadi tak dikerjakan tanpa diminta.
+### Lingkungan
+
+Dev dipinjam dari chat IT Tracker dan **dikembalikan persis** ke `feat/it-tracker`
+`f111832` (bukan ke tip origin yang satu commit lebih maju), `--no-dev`
+dipulihkan, berkas untracked mereka utuh, beranda dev `200`. Cacah baris 6 tabel
+tak bergeser — `DatabaseTransactions`, bukan `RefreshDatabase`.
+
+Branch: `feat/absensi-koreksi`. Naik prod butuh **3 SQL + deploy PENUH** (empat
+kelas baru), **nol rsync** (gaya sengaja inline di blade).
+
+---
+
+
 ## 2026-09-02 — IT REQUEST TRACKER: pemetaan + desain + rencana build (belum dikoding)
 
 Fitur baru, belum ada satu baris kode pun. Yang selesai hari ini adalah

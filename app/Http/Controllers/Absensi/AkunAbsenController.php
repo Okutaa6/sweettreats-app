@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Absensi;
 
 use App\Http\Controllers\Absensi\AkunPengajuanController;
 use App\Http\Controllers\Controller;
+use App\Models\AttFlag;
 use App\Models\AttHpBukti;
 use App\Models\AttBranchIp;
 use App\Models\RawBranch;
@@ -58,8 +59,17 @@ class AkunAbsenController extends Controller
             ->where('single_scan', 1)->whereIn('status', ['hadir', 'telat'])
             ->exists();
 
+        // Teks "pulang cepat" DI DALAM tombol (bukan dialog, bukan penghalang):
+        // hanya kalau langkah berikutnya pulang, aturannya BAKU punya jam pulang,
+        // dan sekarang masih sebelum jam itu. Fleksibel → null → tak ada teks.
+        $pulangCepat = null;
+        if ($buktiHariIni->firstWhere('jenis', 'masuk') && ! $buktiHariIni->firstWhere('jenis', 'pulang')) {
+            $pulangCepat = $this->infoPulangCepat($userId, $workDate, $now);
+        }
+
         return view('absensi.akun.absen', [
             'buktiHariIni' => $buktiHariIni,
+            'pulangCepat'  => $pulangCepat,
             'ipCocok'      => $match ? $match->branch : null,
             'branches'     => $branches,
             'workDate'     => $workDate,
@@ -97,11 +107,45 @@ class AkunAbsenController extends Controller
         $sudahAda = AttHpBukti::where('user_id', $userId)->where('jenis', $jenis)
             ->where('taken_at', '>=', $from)->where('taken_at', '<', $to)
             ->orderBy('taken_at')->first();
-        if ($sudahAda) {
+        // ── Pulang berjarak <5 menit dari masuk: BUKAN penghalang, tapi peringatan ──
+        // Diagnosis 6 Sep 2026: sesudah masuk tercatat tombol langsung jadi
+        // "Pulang"; orang yang mengira ketukannya gagal mengetuk lagi → pulang
+        // 6–65 detik sesudah masuk (4 kasus). Reconciler melipat scan ≤5 menit
+        // jadi satu → single_scan, dan pulang sungguhan sore harinya DITOLAK.
+        // Server menuntut tanda konfirmasi (confirm=1) — tombol bukan pagar.
+        $masukHariIni = $jenis === 'pulang'
+            ? AttHpBukti::where('user_id', $userId)->where('jenis', 'masuk')
+                ->where('taken_at', '>=', $from)->where('taken_at', '<', $to)->orderBy('taken_at')->first()
+            : null;
+        $detikSejakMasuk = $masukHariIni ? $masukHariIni->taken_at->diffInSeconds(Carbon::now()) : null;
+
+        // Pulang yang tercatat ≤5 menit sesudah masuk = hampir pasti ketukan ganda.
+        // Ia boleh DITIMPA pulang berikutnya — inilah yang menutup lubang "tak bisa
+        // memperbaiki sendiri". Timpa = UPDATE baris yang ada (bukti + scan-nya),
+        // bukan insert kedua: reconciler melipat ≤5 menit, jadi baris kedua tetap
+        // akan terbaca single_scan. Jejak lamanya masuk ke audit_log.
+        $timpa = ($sudahAda && $jenis === 'pulang' && $masukHariIni
+            && abs($sudahAda->taken_at->diffInSeconds($masukHariIni->taken_at, false)) <= self::JEDA_TIMPA_DETIK)
+            ? $sudahAda : null;
+
+        if ($sudahAda && ! $timpa) {
             return response()->json([
                 'ok'    => false,
                 'pesan' => 'Kamu sudah absen ' . $jenis . ' hari ini (' . $sudahAda->taken_at->format('H.i') .
                            '). Muat ulang halaman ini ya.',
+            ], 422);
+        }
+
+        if ($jenis === 'pulang' && $detikSejakMasuk !== null && $detikSejakMasuk < self::JEDA_TIMPA_DETIK
+            && ! $request->boolean('confirm')) {
+            return response()->json([
+                'ok'           => false,
+                'need_confirm' => true,
+                'detik'        => $detikSejakMasuk,
+                // Kalimatnya SENGAJA membedakan: yang ditakutkan orang adalah
+                // "masuk-ku tadi gagal", padahal yang akan tercatat adalah PULANG.
+                'pesan'        => 'Kamu baru absen masuk ' . $detikSejakMasuk . ' detik lalu. '
+                                . 'Yang ini absen PULANG, bukan mengulang masuk. Lanjutkan?',
             ], 422);
         }
 
@@ -123,11 +167,23 @@ class AkunAbsenController extends Controller
         $device = UserDevice::findLive($request->cookie(UserDevice::COOKIE_NAME));
 
         try {
-            $hasil = $svc->absen($userId, $jenis, $fotoPath, $ip, $request->input('branch_manual'), $device, $request->userAgent());
+            $hasil = $timpa
+                ? $this->timpaPulang($timpa, $fotoPath, $ip, $request->input('branch_manual'), $device, $request->userAgent())
+                : $svc->absen($userId, $jenis, $fotoPath, $ip, $request->input('branch_manual'), $device, $request->userAgent());
         } catch (\Throwable $e) {
             @unlink(storage_path('app/' . $fotoPath));
             \Log::error('[absen-hp] gagal: ' . $e->getMessage(), ['user' => $userId]);
             return response()->json(['ok' => false, 'pesan' => 'Absen gagal tersimpan. Coba lagi ya.'], 500);
+        }
+
+        // Pulang lebih awal dari jam pulang jadwalnya (aturan BAKU saja) → flag,
+        // supaya terlihat di Pengawasan. Tetap TERCATAT — bukan penolakan.
+        if ($jenis === 'pulang') {
+            $wd = $svc->workDate(Carbon::now());
+            $jadwal = jamPulangTerjadwal($userId, Carbon::parse($wd));
+            if ($jadwal && Carbon::now()->format('H:i') < $jadwal) {
+                AttFlag::raise($userId, $wd, 'pulang_cepat', 'att_hp_bukti', $hasil['bukti_id'] ?? null);
+            }
         }
 
         $this->segarkanHariIni($userId, $svc);
@@ -142,9 +198,84 @@ class AkunAbsenController extends Controller
             'jam'    => Carbon::parse($hasil['taken_at'])->format('H.i'),
             'cabang' => $branchName,
             'cocok'  => $hasil['cocok'],
+            'ditimpa'=> (bool) $timpa,
             // flags sengaja TIDAK dikirim ke staff — review urusan SPV, bukan
             // buat bikin orang panik. Cukup nada netral kalau IP tak dikenal.
         ]);
+    }
+
+    /**
+     * Jarak masuk→pulang yang dianggap ketukan ganda, bukan pulang sungguhan.
+     * Sama dengan $dedupMinutes reconciler (5 menit): di bawah ini dua scan
+     * dilipat jadi satu, jadi "pulang" sedini ini memang tak pernah jadi pulang.
+     */
+    public const JEDA_TIMPA_DETIK = 300;
+
+    /** Info untuk teks di tombol: ['jadwal' => '17.00', 'selisih' => '2 jam'] atau null. */
+    private function infoPulangCepat(string $userId, string $workDate, Carbon $now): ?array
+    {
+        $jadwal = jamPulangTerjadwal($userId, Carbon::parse($workDate));
+        if (! $jadwal || $now->format('H:i') >= $jadwal) return null;
+
+        $menit = $now->diffInMinutes(Carbon::parse($workDate . ' ' . $jadwal));
+        $jam = intdiv($menit, 60); $sisa = $menit % 60;
+        $selisih = $jam > 0 ? ($sisa >= 30 ? $jam . ',5 jam' : $jam . ' jam') : $menit . ' menit';
+
+        return ['jadwal' => str_replace(':', '.', $jadwal), 'selisih' => $selisih];
+    }
+
+    /**
+     * Timpa pulang lama (≤5 menit sesudah masuk) dengan pulang sekarang.
+     *
+     * UPDATE bukti + scan yang ada, bukan insert kedua. Foto lama dibiarkan di
+     * disk dan pathnya dicatat di audit_log bersama jam lamanya — jejaknya
+     * tetap terbaca, cuma tak lagi jadi "pulang" di att_day.
+     */
+    private function timpaPulang(AttHpBukti $lama, string $fotoPath, string $ip, ?string $branchManual, ?UserDevice $device, ?string $ua): array
+    {
+        $now   = Carbon::now();
+        $match = AttBranchIp::matchBranch($ip);
+        $branchId = $match ? $match->raw_branch_id : $branchManual;
+        if (! $branchId) {
+            throw new \RuntimeException('Cabang tidak diketahui: IP tak terdaftar dan tidak ada pilihan manual.');
+        }
+
+        $jamLama  = $lama->taken_at->format('Y-m-d H:i:s');
+        $fotoLama = $lama->photo_path;
+
+        \Illuminate\Support\Facades\DB::transaction(function () use ($lama, $fotoPath, $ip, $branchManual, $device, $ua, $now, $match, $branchId) {
+            if ($lama->att_scan_id) {
+                \App\Models\AttScan::where('id', $lama->att_scan_id)->update([
+                    'scanned_at'    => $now->format('Y-m-d H:i:s'),
+                    'raw_branch_id' => $branchId,
+                    'hash'          => sha1('hp|' . $lama->user_id . '|' . $now->format('Y-m-d H:i:s')),
+                    'raw_row'       => json_encode(['ip' => $ip, 'jenis' => 'pulang', 'cocok' => (bool) $match, 'timpa' => true]),
+                ]);
+            }
+            $lama->update([
+                'photo_path'       => $fotoPath,
+                'ip'               => $ip,
+                'branch_id_cocok'  => $match ? $match->raw_branch_id : null,
+                'branch_id_manual' => $match ? null : $branchManual,
+                'device_id'        => $device ? $device->id : null,
+                'device_label'     => $ua ? \App\Services\DeviceAuth::labelFromUa($ua) : null,
+                'is_desktop'       => $ua ? \App\Services\DeviceAuth::isDesktopUa($ua) : false,
+                'taken_at'         => $now,
+            ]);
+        });
+
+        \App\Models\AuditLog::record('update',
+            'Absen pulang ditimpa (pulang lama ≤5 menit sesudah masuk = ketukan ganda): '
+            . $jamLama . ' → ' . $now->format('Y-m-d H:i:s') . '; foto lama ' . $fotoLama,
+            $lama, ['taken_at' => $jamLama, 'photo_path' => $fotoLama]);
+
+        return [
+            'scan_id'   => $lama->att_scan_id,
+            'bukti_id'  => $lama->id,
+            'taken_at'  => $now->format('Y-m-d H:i:s'),
+            'branch_id' => $branchId,
+            'cocok'     => (bool) $match,
+        ];
     }
 
     /**

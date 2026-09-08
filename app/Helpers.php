@@ -1190,6 +1190,53 @@ if (!function_exists('aturanKerjaFleksibel')) {
  * Kalender libur nasional (att_work_rule_exception) TIDAK dilihat di sini —
  * itu urusan mesin rekonsiliasi; fungsi ini khusus pola mingguan.
  */
+/**
+ * Jam pulang TERJADWAL orang ini pada tanggal itu, 'HH:MM' — atau null kalau
+ * tak bisa dijawab.
+ *
+ * HANYA aturan bertipe `baku`. Fleksibel/jadwal tak punya jam pulang, dan null
+ * di sini membuat layar Absen tidak menyebut "pulang cepat" sama sekali — itu
+ * perilaku yang benar untuk ketidaktahuan (keputusan Ekky 6 Sep 2026: fleksibel
+ * TIDAK diberi peringatan).
+ *
+ * Sumbernya baris hari (att_work_rule_day.jam_pulang) — satu-satunya tempat jam
+ * pulang disimpan. Tidak menyalin kalender libur: hari libur sudah dipagari
+ * hariLiburTerjadwal() di layar yang sama.
+ */
+if (!function_exists('jamPulangTerjadwal')) {
+    function jamPulangTerjadwal(string $userId, ?\Carbon\Carbon $tanggal = null): ?string
+    {
+        $t = $tanggal ?: \Carbon\Carbon::today();
+
+        try {
+            $rule = \Illuminate\Support\Facades\DB::table('att_user_rule as ur')
+                ->join('att_work_rule as wr', 'wr.id', '=', 'ur.rule_id')
+                ->where('ur.user_id', $userId)
+                ->where('ur.effective_from', '<=', $t->toDateString())
+                ->where(function ($q) use ($t) {
+                    $q->whereNull('ur.effective_to')->orWhere('ur.effective_to', '>=', $t->toDateString());
+                })
+                ->orderByDesc('ur.effective_from')
+                ->first(['wr.id', 'wr.tipe']);
+            if (! $rule || $rule->tipe !== 'baku') return null;
+
+            $hari = \Illuminate\Support\Facades\DB::table('att_work_rule_day')
+                ->where('rule_id', $rule->id)->where('day', $t->dayOfWeek)
+                ->first(['libur', 'jam_pulang']);
+            if ($hari && (int) $hari->libur === 1) return null;   // hari libur: tak ada jam pulang
+
+            // ⚠️ jam_pulang HIDUP DI BARIS HARI (att_work_rule_day), bukan di
+            // att_work_rule — tabel aturan tak punya kolom jam sama sekali.
+            // Sempat salah baca skema; ketahuan dari uji di dev (Unknown column).
+            $jam = $hari->jam_pulang ?? null;
+
+            return $jam ? substr((string) $jam, 0, 5) : null;
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+}
+
 if (!function_exists('hariLiburTerjadwal')) {
     function hariLiburTerjadwal(string $userId, ?\Carbon\Carbon $tanggal = null): ?bool
     {

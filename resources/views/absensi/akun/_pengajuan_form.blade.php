@@ -4,7 +4,7 @@
     $ajWfhUsed  = $wfhUsed ?? 0;
 @endphp
 
-<form action="{{ route('akun.pengajuan.store') }}" method="POST" enctype="multipart/form-data"
+<form action="{{ route('akun.pengajuan.store') }}" method="POST" data-kunci-kirim enctype="multipart/form-data"
       data-wfh-used="{{ $ajWfhUsed }}" class="absk-ajform">
     @csrf
     <input type="hidden" name="tipe" id="tipeHidden" value="{{ $ajTipeVal }}">

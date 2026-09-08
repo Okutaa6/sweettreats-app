@@ -125,7 +125,7 @@
             </div>
 
             {{-- ─── FORM TRANSFER ─── --}}
-            <form method="POST" action="{{ route('pettycash.transfer', ['tab' => $kind]) }}"
+            <form method="POST" action="{{ route('pettycash.transfer', ['tab' => $kind]) }}" data-kunci-kirim
                   data-tab-content="transfer" class="pc-tab-content"
                   enctype="multipart/form-data">
                 @csrf
@@ -425,7 +425,7 @@
             </div>
 
             {{-- ─── FORM PENGELUARAN DARI SOURCE INI ─── --}}
-            <form method="POST" action="{{ route('pettycash.expense', ['tab' => $kind]) }}"
+            <form method="POST" action="{{ route('pettycash.expense', ['tab' => $kind]) }}" data-kunci-kirim
                   data-tab-content="expense" class="pc-tab-content"
                   enctype="multipart/form-data"
                   hidden>

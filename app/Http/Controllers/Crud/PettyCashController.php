@@ -697,6 +697,16 @@ class PettyCashController extends Controller
                 ->with('error', 'Sumber dana yang dipilih belum punya saldo. Silakan top up dulu.');
         }
 
+        // ── Pagar kiriman ganda (sisi server; pengaman tombol bukan pagar) ──
+        // Kembar PERSIS dalam 10 detik = klik ganda. Dibalas flash RAMAH, bukan
+        // galat: dari sudut pandang orangnya, pengeluarannya memang sudah
+        // tersimpan — yang ia butuhkan adalah kepastian, bukan teguran.
+        if ($trxClass::kembarBaruSaja(session('id'), $data['amount'], $data['description'], $data['trx_date'])) {
+            return redirect()
+                ->route('pettycash', $this->preserveParams($kind))
+                ->with('success', 'Pengeluaran yang sama baru saja tersimpan — tidak dicatat dua kali.');
+        }
+
         $attachmentPath = $this->storeAttachment($request, $data['trx_date']);
 
         $trxClass::create([
@@ -1166,6 +1176,16 @@ class PettyCashController extends Controller
 
         $descOut = $verb . ' ke ' . $toSource->name   . ($note !== '' ? ' — ' . $note : '');
         $descIn  = $verb . ' dari ' . $fromSource->name . ($note !== '' ? ' — ' . $note : '');
+
+        // Pagar kiriman ganda untuk transfer: baris KELUAR identik (pembuat +
+        // nominal + keterangan + tanggal) dalam 10 detik terakhir. Keterangan
+        // transfer dibangun dari sumber & tujuan, jadi kesamaannya sudah memuat
+        // arah transfernya.
+        if ($trxClass::kembarBaruSaja(session('id'), $data['amount'], $descOut, $data['trx_date'])) {
+            return redirect()
+                ->route('pettycash', $this->preserveParams($kind))
+                ->with('success', 'Transfer yang sama baru saja tersimpan — tidak dicatat dua kali.');
+        }
 
         DB::transaction(function () use ($trxClass, $period, $data, $fromSource, $toSource, $descOut, $descIn, $ref, $attachmentPath) {
             // OUT dari source asal — attach bukti ditempel di sisi OUT

@@ -354,6 +354,31 @@ window.initReservationForm = function () {
         const total = toMinutes(t) + mins;
         return String(Math.floor(total / 60)).padStart(2,'0') + ':' + String(total % 60).padStart(2,'0');
     }
+    // Helper: escape HTML. WAJIB dipakai untuk nama pasien & nama cabang —
+    // teks bebas dari DB yang masuk ke innerHTML DAN ke atribut title.
+    function esc(s) {
+        return String(s == null ? '' : s)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    // Janji dokter ini di cabang LAIN pada tanggal yang dipilih — dari endpoint
+    // staf. Selalu kosong di endpoint publik; form pasien tak pernah dapat ini.
+    let otherBranchBookings = [];
+    // Cabang yang sedang dibuka di form — pembanding untuk "terisi di cabang LAIN".
+    let slotBranchId = '';
+
+    // "Terisi · Kalideres · 17:00–17:30 · a.n. Ghita Lestary"
+    // Nomor HP sengaja tidak ada: koordinasinya ke admin cabang, bukan ke
+    // pasien orang lain.
+    function bookedByText(b) {
+        if (!b) return 'Terisi';
+        const bits = ['Terisi'];
+        if (b.branch) bits.push(b.branch);
+        if (b.jam)    bits.push(b.jam);
+        if (b.nama)   bits.push('a.n. ' + b.nama);
+        return bits.join(' · ');
+    }
 
     // Cek apakah slot [slotStart, slotStart+totalDuration] overlap dengan range [bookedStart, bookedEnd]
     function slotWouldConflict(slotStart, bookedRanges) {
@@ -464,13 +489,40 @@ window.initReservationForm = function () {
     // ---- SLOT RENDERING ----
     function renderSlots(data) {
         allSlots = data.slots || [];
+        otherBranchBookings = data.other_branch_bookings || [];
         if (allSlots.length === 0) {
-            $('#slotsContainer').html('<span class="text-muted">Tidak ada slot tersedia untuk jadwal ini</span>');
+            // Spanduk tetap ditampilkan: dokter bisa saja tak praktik di cabang
+            // ini hari itu justru KARENA dia praktik di cabang lain.
+            $('#slotsContainer').html(
+                crossBranchBanner()
+                + '<span class="text-muted">Tidak ada slot tersedia untuk jadwal ini</span>'
+            );
             refreshWaitingState(true); // mode add: tandai penuh (no-op di edit)
             return;
         }
         reRenderSlots();
         refreshWaitingState(slotsAreFull()); // mode add (no-op di edit)
+    }
+
+    // Spanduk hari — muncul kalau dokter punya janji di cabang lain pada
+    // tanggal itu, WALAUPUN jam yang dipilih bebas. Ini yang menutup lubang
+    // "pindah cabang nol menit": jam 17:30 di sini memang kosong, tapi
+    // dokternya di Kalideres sampai 17:30. Sistem cuma mencegah jam
+    // bertabrakan, tak pernah mencegah cabang berpindah.
+    function crossBranchBanner() {
+        if (!otherBranchBookings.length) return '';
+
+        const parts = otherBranchBookings.map(function (b) {
+            return '<strong>' + esc(b.branch || 'cabang lain') + '</strong> ' + esc(b.jam)
+                 + (b.nama ? ' (a.n. ' + esc(b.nama) + ')' : '');
+        });
+
+        return '<div class="st-alert st-alert--warning" style="margin-bottom:10px;">'
+             + '<i class="fa fa-exclamation-triangle st-alert__icon"></i>'
+             + '<div class="st-alert__body">Dokter ini sudah punya janji di '
+             + parts.join(', ')
+             + ' pada tanggal yang sama. Pastikan sudah dikoordinasikan.</div>'
+             + '</div>';
     }
 
     function reRenderSlots() {
@@ -481,7 +533,8 @@ window.initReservationForm = function () {
 
         const selectedEnd = selectedStart ? addMinutes(selectedStart, totalDuration) : null;
 
-        let html = '<div class="st-slots">';
+        let html = crossBranchBanner();
+        html += '<div class="st-slots">';
 
         allSlots.forEach(function(slot) {
             let variant, extraAttr = '', label;
@@ -499,9 +552,34 @@ window.initReservationForm = function () {
                 && slotWouldConflict(slotStart, bookedRanges);
 
             if (slot.is_booked) {
-                variant   = 'st-slot--booked';
-                extraAttr = 'disabled';
-                label     = slotStart + ' <small>Terisi</small>';
+                // Slot terisi dirender <span>, BUKAN <button disabled>: tombol
+                // disabled tidak memancarkan event klik, jadi tap di HP tak
+                // akan pernah membuka detailnya. `.st-slot--booked` sudah
+                // membawa cursor:not-allowed sendiri di CSS, jadi tampilannya
+                // sama persis.
+                const detail = bookedByText(slot.booked_by);
+
+                // Tombol mati harus bilang kenapa — di badannya, bukan di balik
+                // klik. Kalau yang menahan slot ini reservasi di CABANG LAIN,
+                // nama cabang itulah yang dicetak menggantikan kata "Terisi":
+                // itu satu-satunya fakta yang mengubah tindakan admin ("telepon
+                // Kalideres"), dan muat di kotak. Nama pasien tetap di balik
+                // klik — terlalu panjang, dan tak pantas dipajang di grid.
+                // Ikon ⓘ = bahasa universal "ada keterangan", tak perlu diajari.
+                const b    = slot.booked_by || null;
+                const luar = !!(b && b.branch_id && slotBranchId
+                             && String(b.branch_id) !== String(slotBranchId));
+                // Nama cabang kosong (join tak ketemu) → jatuh ke "Terisi", jangan kotak tanpa label.
+                const kecil = (luar && b.branch) ? esc(b.branch) : 'Terisi';
+
+                html += '<span class="st-slot st-slot--booked' + (luar ? ' st-slot--booked-elsewhere' : '') + '" tabindex="0"'
+                      + ' title="' + esc(detail) + '"'
+                      + ' data-detail="' + esc(detail) + '"'
+                      + ' data-start="' + slotStart + '">'
+                      + '<i class="fa fa-info-circle st-slot__info" aria-hidden="true"></i>'
+                      + slotStart + ' <small>' + kecil + '</small>'
+                      + '</span>';
+                return; // markup-nya sudah ditulis sendiri
             } else if (slot.is_past) {
                 variant   = 'st-slot--past';
                 extraAttr = 'disabled';
@@ -529,11 +607,20 @@ window.initReservationForm = function () {
         });
 
         html += '</div>';
+
+        // Panel detail untuk HP — hover tidak ada di layar sentuh, jadi tap
+        // pada kotak Terisi menaruh keterangannya di sini.
+        html += '<div class="st-alert st-alert--info st-alert--compact" id="slotDetailPanel" style="display:none;margin-top:8px;">'
+              + '<i class="fa fa-info-circle st-alert__icon"></i>'
+              + '<div class="st-alert__body" id="slotDetailBody"></div>'
+              + '</div>';
+
         html += '<div class="st-slot-legend">'
               + '<span class="st-slot-legend-item"><span class="st-slot-legend-dot st-slot-legend-dot--available"></span>Tersedia</span>'
               + '<span class="st-slot-legend-item"><span class="st-slot-legend-dot st-slot-legend-dot--selected"></span>Dipilih</span>'
               + '<span class="st-slot-legend-item"><span class="st-slot-legend-dot st-slot-legend-dot--conflict"></span>Konflik durasi</span>'
               + '<span class="st-slot-legend-item"><span class="st-slot-legend-dot st-slot-legend-dot--booked"></span>Terisi</span>'
+              + '<span class="st-slot-legend-item text-muted"><i class="fa fa-info-circle"></i> Kotak terisi bisa diklik — lihat siapa &amp; di cabang mana</span>'
               + '</div>';
 
         $('#slotsContainer').html(html);
@@ -544,6 +631,7 @@ window.initReservationForm = function () {
         const branchId  = $('#branchSelect2').val() || $('[name="raw_branch_id"]').val();
         const date      = $('[name="date"]').val();
         const excludeId = cfg.excludeId;
+        slotBranchId    = branchId || '';
 
         if (!doctorId || !date || !branchId) {
             $('#slotsContainer').html(
@@ -563,8 +651,19 @@ window.initReservationForm = function () {
         if (totalDuration && totalDuration > 0) params.push('duration=' + encodeURIComponent(totalDuration));
         const qs = params.length ? ('?' + params.join('&')) : '';
 
-        fetch('/api/reservation/slots/' + branchId + '/' + doctorId + '/' + date + qs)
+        // Endpoint STAF (di balik AuthGuard) — bentuknya sama dengan
+        // /api/reservation/slots/... tapi ikut membawa detail booking lintas
+        // cabang. Route publik yang dipakai pasien sengaja tidak disentuh.
+        fetch('/rawreservation/slots/' + branchId + '/' + doctorId + '/' + date + qs)
             .then(function(r) {
+                // Rute ini di balik AuthGuard. Sesi yang habis TIDAK memberi 401 —
+                // ia memantul ke halaman login yang menjawab 200 berisi HTML, jadi
+                // r.ok lolos dan r.json() gagal dengan "Unexpected token <" yang
+                // tak bisa dipahami admin. Kenali pentalannya, sebutkan sebabnya.
+                var ct = (r.headers.get('content-type') || '').toLowerCase();
+                if (r.redirected || ct.indexOf('json') === -1) {
+                    throw new Error('sesi habis — muat ulang halaman, lalu login lagi');
+                }
                 if (!r.ok) throw new Error('HTTP ' + r.status);
                 return r.json();
             })
@@ -581,7 +680,7 @@ window.initReservationForm = function () {
     window.loadSlots = loadSlots; // dipanggil inline onclick
 
     // Klik slot
-    $(document).on('click.rrform', '.st-slot:not([disabled])', function() {
+    $(document).on('click.rrform', '.st-slot:not([disabled]):not(.st-slot--booked)', function() {
         selectedStart = $(this).data('start');
         const end     = addMinutes(selectedStart, totalDuration);
 
@@ -597,6 +696,17 @@ window.initReservationForm = function () {
         syncWaitingUI(false);
 
         reRenderSlots();
+    });
+
+    // Klik/tap kotak "Terisi" → tampilkan siapa & di cabang mana. Tanpa ini,
+    // slot yang ditahan reservasi cabang lain cuma menulis "Terisi" dan admin
+    // wajar mengira sistem rusak — itu persis keluhan 10 Sep.
+    $(document).on('click.rrform keydown.rrform', '.st-slot--booked', function (e) {
+        if (e.type === 'keydown' && e.key !== 'Enter' && e.key !== ' ') return;
+        if (e.type === 'keydown') e.preventDefault();
+        var detail = $(this).data('detail') || 'Terisi';
+        $('#slotDetailBody').text(detail);
+        $('#slotDetailPanel').show();
     });
 
     // Override manual waiting-list oleh user (mode add) → jangan auto-lepas lagi.

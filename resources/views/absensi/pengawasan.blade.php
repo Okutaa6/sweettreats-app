@@ -43,6 +43,7 @@
     .aws-tile-warn { position: absolute; top: 6px; right: 6px; z-index: 2; width: 24px; height: 24px; border-radius: 50%; background: #C0392B; color: #fff; display: flex; align-items: center; justify-content: center; border: 2px solid #fff; }
     .aws-tile img { width: 130px; height: 150px; object-fit: cover; border-radius: 12px; border: 3px solid transparent; background: #2e1a10; }
     .aws-tile.flagged img { border-color: #C0392B; }
+    .aws-tile.flagged .aws-tunda { border-color: #C0392B; }
     .aws-tile .nm { font-size: 13px; color: #3B1500; font-weight: 700; margin-top: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .aws-tile .jm { font-size: 12px; color: #8a7263; }
     /* baris MASUK / PULANG di kartu cabang (handoff_kehadiran §6) */
@@ -61,6 +62,9 @@
     .aws-chipst { display: inline-flex; gap: 6px; margin-bottom: 12px; }
     .aws-chip { border: 1px solid #e0d2c6; background: #fff; color: #8a7263; border-radius: 99px; padding: 5px 13px; font-size: 12.5px; font-weight: 700; text-decoration: none; }
     .aws-chip.aktif { background: #461500; border-color: #461500; color: #fff; }
+    .aws-tile .aws-tunda { display: block; width: 130px; height: 150px; border-radius: 12px; border: 3px solid transparent; background: #EFE6DC; }
+    .aws-muat { display: block; margin: 6px 0 10px; padding: 7px 12px; border: 1px solid #E7D3BE; border-radius: 9px; background: #fff; color: #5A3A22; font-weight: 700; font-size: 12.5px; cursor: pointer; }
+    .aws-muat:hover { border-color: #c9a888; }
     .aws-flag { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; background: #fff; border: 1px solid #EFE0CE; border-radius: 14px; padding: 12px 14px; margin-bottom: 10px; cursor: pointer; }
     .aws-flag:hover { border-color: #c9a888; }
     .aws-flag .ikn { width: 38px; height: 38px; border-radius: 10px; background: #fdf3e7; display: flex; align-items: center; justify-content: center; color: #B5701A; flex: 0 0 auto; }
@@ -227,6 +231,17 @@
                     Hanya yang perlu dicek
                 </button>
             </div>
+            {{-- ANGGARAN FOTO MUATAN PERTAMA — maksimal 12 <img> di seluruh halaman.
+                 Tiap <img> ke pengawasan/foto = satu boot Laravel + satu koneksi DB.
+                 Dengan HTTP/2 browser menembakkan semuanya SERENTAK (49–179 per hari),
+                 hosting bersama menolak koneksi → galat [2002] yang juga menjatuhkan
+                 halaman orang lain (diagnosis 6 Sep 2026: 272 dari 278 kegagalan
+                 ada di link=pengawasan). loading="lazy" TIDAK menolong: ia hanya
+                 menahan yang di luar layar, dan semua strip terlihat sekaligus.
+                 Sisanya dirender sebagai placeholder ber-data-src; foto dimuat saat
+                 tombol "muat lagi" ditekan — atau saat tile diklik (panel memuat
+                 fotonya sendiri dari AWS_BUKTI). --}}
+            @php $awsAnggaranFoto = 12; @endphp
             @forelse($stripPerCabang as $cabang => $items)
                 @php
                     $masuk  = $items->where('jenis', 'masuk')->values();
@@ -254,6 +269,7 @@
                     @if($masuk->isEmpty())
                         <div style="color:#8a7263;font-size:12.5px;margin-bottom:4px">Belum ada foto masuk.</div>
                     @else
+                        @php $awsTundaStrip = 0; @endphp
                         <div class="aws-strip">
                             @foreach($masuk as $b)
                                 <button type="button" class="aws-tile {{ isset($userFlagged[$b->user_id]) ? 'flagged' : '' }}"
@@ -261,12 +277,23 @@
                                     @if(isset($userFlagged[$b->user_id]))
                                         <span class="aws-tile-warn"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4L2.5 20h19L12 4z"/><path d="M12 10.5v4M12 17.2v.1"/></svg></span>
                                     @endif
-                                    <img src="{{ route('pengawasan.foto', $b->id) }}" alt="" loading="lazy">
+                                    @if($awsAnggaranFoto > 0)
+                                        @php $awsAnggaranFoto--; @endphp
+                                        <img src="{{ route('pengawasan.foto', $b->id) }}" alt="" loading="lazy">
+                                    @else
+                                        @php $awsTundaStrip++; @endphp
+                                        <span class="aws-tunda" data-src="{{ route('pengawasan.foto', $b->id) }}" aria-hidden="true"></span>
+                                    @endif
                                     <div class="nm">{{ optional($b->user)->nama }}</div>
                                     <div class="jm num">{{ $b->taken_at->format('H.i') }}</div>
                                 </button>
                             @endforeach
                         </div>
+                        @if($awsTundaStrip > 0)
+                            <button type="button" class="aws-muat" data-muat-strip>
+                                Muat {{ $awsTundaStrip }} foto lagi
+                            </button>
+                        @endif
                     @endif
 
                     {{-- baris PULANG --}}
@@ -280,6 +307,7 @@
                     @if($pulang->isEmpty())
                         <div style="color:#8a7263;font-size:12.5px">Belum ada foto pulang.</div>
                     @else
+                        @php $awsTundaStrip = 0; @endphp
                         <div class="aws-strip">
                             @foreach($pulang as $b)
                                 <button type="button" class="aws-tile {{ isset($userFlagged[$b->user_id]) ? 'flagged' : '' }}"
@@ -287,12 +315,23 @@
                                     @if(isset($userFlagged[$b->user_id]))
                                         <span class="aws-tile-warn"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4L2.5 20h19L12 4z"/><path d="M12 10.5v4M12 17.2v.1"/></svg></span>
                                     @endif
-                                    <img src="{{ route('pengawasan.foto', $b->id) }}" alt="" loading="lazy">
+                                    @if($awsAnggaranFoto > 0)
+                                        @php $awsAnggaranFoto--; @endphp
+                                        <img src="{{ route('pengawasan.foto', $b->id) }}" alt="" loading="lazy">
+                                    @else
+                                        @php $awsTundaStrip++; @endphp
+                                        <span class="aws-tunda" data-src="{{ route('pengawasan.foto', $b->id) }}" aria-hidden="true"></span>
+                                    @endif
                                     <div class="nm">{{ optional($b->user)->nama }}</div>
                                     <div class="jm num">{{ $b->taken_at->format('H.i') }}</div>
                                 </button>
                             @endforeach
                         </div>
+                        @if($awsTundaStrip > 0)
+                            <button type="button" class="aws-muat" data-muat-strip>
+                                Muat {{ $awsTundaStrip }} foto lagi
+                            </button>
+                        @endif
                     @endif
                 </div>
             @empty
@@ -725,6 +764,23 @@
 
     // posisi navigasi J/K — urutan mengikuti tombol yang terlihat di tab aktif
     var awsNavPos = { type: null, id: null };
+
+    // ── Foto tertunda: muat 12 per klik dari strip tepat di atas tombolnya.
+    //    Batas per klik sengaja sama dengan anggaran muatan pertama: satu klik
+    //    = satu gerombolan kecil, bukan 49 request sekaligus lagi. ──
+    document.querySelectorAll('[data-muat-strip]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var strip = btn.previousElementSibling;
+            var tunda = strip ? strip.querySelectorAll('.aws-tunda[data-src]') : [];
+            Array.prototype.slice.call(tunda, 0, 12).forEach(function (ph) {
+                var img = document.createElement('img');
+                img.alt = ''; img.loading = 'lazy'; img.src = ph.getAttribute('data-src');
+                ph.replaceWith(img);
+            });
+            var sisa = strip ? strip.querySelectorAll('.aws-tunda[data-src]').length : 0;
+            if (sisa > 0) btn.textContent = 'Muat ' + sisa + ' foto lagi'; else btn.remove();
+        });
+    });
 
     function awsBukaBukti(id) {
         var b = awsCari(AWS_BUKTI, id);

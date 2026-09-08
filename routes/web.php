@@ -389,6 +389,15 @@ Route::middleware([AuthGuard::class])->group(function () {
     // Ubah status follow-up lead "Pasien Baru". Deklarasi SEBELUM wildcard {id}.
     Route::patch('rawreservation/lead/{id}/status', [ReservationController::class, 'updateLeadStatus'])->name('rawreservation.lead.status');
 
+    // Slot jam versi STAF — sama seperti /api/reservation/slots/... tapi ikut
+    // membawa detail booking lintas cabang (cabang · jam · nama pasien) dan
+    // daftar janji dokter di cabang lain pada tanggal itu. Sengaja di dalam
+    // grup AuthGuard, bukan query-param di route publik: pasien di /reservasi
+    // tidak boleh melihat nama pasien lain, dan pagar itu tidak boleh
+    // bergantung pada satu `if` di route yang terbuka ke luar.
+    // Deklarasi SEBELUM wildcard {id} — kalau di bawah, `{id}` menelan 'slots'.
+    Route::get('rawreservation/slots/{branchId}/{doctorId}/{date}', [\App\Http\Controllers\Api\ReservationApiController::class, 'getTimeSlotsAdmin'])->name('rawreservation.slots');
+
     // CRUD - Reservation Import (CSV/Sheets → Staging → Promote)
     // PENTING: harus di-deklarasi SEBELUM `rawreservation/{id}` supaya
     // `/rawreservation/import` tidak ke-capture wildcard `{id}` di line bawah.
@@ -409,10 +418,16 @@ Route::middleware([AuthGuard::class])->group(function () {
     Route::post('absensi/upload/file', [AbsensiUploadController::class, 'upload'])->name('absensi.upload.file');
     Route::get('absensi/recap',        [AbsensiRecapController::class, 'index'])->name('absensi.recap');
     Route::get('absensi/kehadiran',    [\App\Http\Controllers\Absensi\AbsensiKehadiranController::class, 'index'])->name('absensi.kehadiran');
+    Route::get('absensi/kehadiran/export', [\App\Http\Controllers\Absensi\AbsensiKehadiranController::class, 'export'])->name('absensi.kehadiran.export');
+    // Koreksi absen admin (berjejak audit) — lihat App\Services\KoreksiAbsen.
+    Route::get ('absensi/koreksi',            [\App\Http\Controllers\Absensi\KoreksiAbsenController::class, 'index'])->name('absensi.koreksi');
+    Route::post('absensi/koreksi',            [\App\Http\Controllers\Absensi\KoreksiAbsenController::class, 'simpan'])->name('absensi.koreksi.simpan');
+    Route::post('absensi/koreksi/{id}/cabut', [\App\Http\Controllers\Absensi\KoreksiAbsenController::class, 'cabut'])->name('absensi.koreksi.cabut');
 
     // Lembar Gaji — rekap kehadiran/lembur per karyawan per bulan (Finance/IT/admin)
     Route::get('absensi/lembar-gaji',        [\App\Http\Controllers\Absensi\LembarGajiController::class, 'index'])->name('absensi.lembargaji');
     Route::get('absensi/lembar-gaji/export', [\App\Http\Controllers\Absensi\LembarGajiController::class, 'export'])->name('absensi.lembargaji.export');
+    Route::post('absensi/lembar-gaji/ambang', [\App\Http\Controllers\Absensi\LembarGajiController::class, 'setelanAmbang'])->name('absensi.lembargaji.ambang');
 
     // Cuti — rekap saldo + cuti bersama + koreksi + kontrak baru (Finance/IT/admin)
     Route::get ('absensi/cuti',               [\App\Http\Controllers\Absensi\CutiController::class, 'index'])->name('absensi.cuti');

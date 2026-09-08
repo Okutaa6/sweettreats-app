@@ -179,6 +179,14 @@
         .kh2-drawer { width: 100vw; }
         .kh2-dr-cell { min-height: 66px; }
     }
+    .kh2-export { margin: 12px 0 0; border: 1px solid #E7D3BE; border-radius: 11px; background: #FFFDFA; }
+    .kh2-export > summary { cursor: pointer; padding: 9px 14px; font-size: 12.5px; font-weight: 700; color: #6B4A31; }
+    .kh2-export form { padding: 0 14px 13px; display: flex; gap: 9px; align-items: center; flex-wrap: wrap; }
+    .kh2-export label { font-size: 11.5px; font-weight: 700; color: #6B4A31; }
+    .kh2-export input[type=date] { padding: 6px 9px; border: 1px solid #E7D3BE; border-radius: 8px; font: inherit; font-size: 12.5px; }
+    .kh2-exp-btn { background: linear-gradient(135deg, #6B2400, #461500); color: #fff; border: none;
+        border-radius: 9px; padding: 8px 14px; font-weight: 700; font-size: 12.5px; cursor: pointer; }
+    .kh2-exp-hint { font-size: 11.5px; color: #A9866A; }
 </style>
 @endsection
 
@@ -230,6 +238,24 @@
         </div>
     </div>
 
+    {{-- EKSPOR ber-rentang bebas. Ekspor yang lama hidup di halaman Periode Gaji
+         dan cuma bisa mengeluarkan periode utuh; HR/Finance yang ingin "1–15
+         Agustus" terpaksa membuat periode dulu — mengubah data supaya bisa
+         membacanya. Rentangnya diisi awal–akhir bulan yang sedang dilihat, dan
+         cabangnya mengikuti dropdown di atas (diisi JS saat form dikirim)
+         supaya yang terunduh sama dengan yang terlihat. --}}
+    <details class="kh2-export">
+        <summary>Ekspor CSV — pilih rentang tanggal</summary>
+        <form method="GET" action="{{ route('absensi.kehadiran.export') }}" id="khExportForm">
+            <label for="khExpFrom">Dari</label>
+            <input id="khExpFrom" type="date" name="from" required value="{{ $anchor->copy()->startOfMonth()->toDateString() }}">
+            <label for="khExpTo">Sampai</label>
+            <input id="khExpTo" type="date" name="to" required value="{{ $anchor->copy()->endOfMonth()->toDateString() }}">
+            <input type="hidden" name="branch" id="khExpBranch" value="{{ $branchFilter }}">
+            <button type="submit" class="kh2-btn kh2-exp-btn">Unduh CSV</button>
+            <span class="kh2-exp-hint" id="khExpHint"></span>
+        </form>
+    </details>
     {{-- Kartu ringkas Hadir/Telat/Alpa (klik = sorot) --}}
     <div class="kh2-chips" id="khChips"></div>
 
@@ -953,6 +979,33 @@ var KH_DATA = {
     // ── filter events ──
     document.getElementById('khQ').addEventListener('input', function (e) { S.q = e.target.value; S.pop = null; render(); });
     document.getElementById('khBranch').addEventListener('change', function (e) { S.branch = e.target.value; S.pop = null; render(); });
+
+    // Ekspor mengikuti penyaring cabang yang SEDANG aktif. Penyaringan di
+    // layar ini terjadi di sisi klien, jadi nilainya cuma hidup di S.branch —
+    // kalau tidak disalin ke form saat dikirim, tombol ekspor akan diam-diam
+    // mengunduh SEMUA cabang sementara layarnya menampilkan satu.
+    (function () {
+        var form = document.getElementById('khExportForm');
+        if (!form) return;
+        var hint = document.getElementById('khExpHint');
+        function label() {
+            if (!S.branch) return 'semua cabang';
+            var sel = document.getElementById('khBranch');
+            for (var i = 0; i < sel.options.length; i++) {
+                if (String(sel.options[i].value) === String(S.branch)) return sel.options[i].text;
+            }
+            return S.branch;
+        }
+        function sync() {
+            document.getElementById('khExpBranch').value = S.branch || '';
+            if (hint) hint.textContent = 'Mengikuti penyaring: ' + label() + '.';
+        }
+        form.addEventListener('submit', sync);
+        // juga saat dibuka, supaya isinya bisa dibaca sebelum diklik
+        var det = form.closest('details');
+        if (det) det.addEventListener('toggle', function () { if (det.open) sync(); });
+        sync();
+    })();
     document.querySelectorAll('#khViews .kh2-view-btn').forEach(function (b) {
         b.addEventListener('click', function () { S.view = b.dataset.view; S.pop = null; toggleDp(false); render(); });
     });

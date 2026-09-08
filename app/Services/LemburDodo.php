@@ -52,6 +52,58 @@ class LemburDodo
      */
     private const STATUS_DIPERIKSA = ['approved', 'pending_l1', 'pending_l2'];
 
+    /** Kunci ambang DODO di `sys_setting` — diubah Finance dari layar Lembar Gaji. */
+    public const KUNCI_AMBANG = 'dodo_ambang_menit';
+
+    /** 7 jam (keputusan Ekky 2026-09-05). Dipakai kalau setelannya belum pernah diisi. */
+    public const AMBANG_BAWAAN = 420;
+
+    /**
+     * Ambang DODO dalam menit — SATU angka yang berperan ganda:
+     *
+     *   * **batas atas**  — lebih dari ambang, sisanya jadi lembur biasa;
+     *   * **batas bawah** — kurang dari ambang, TIDAK ada DODO sama sekali.
+     *
+     * Contoh dari Ekky (2026-09-05), ambang 7 jam:
+     * 10 jam -> 7 DODO + 3 biasa · 2 jam -> 0 DODO + 2 biasa · 7 jam -> 7 DODO.
+     *
+     * Alasannya DODO itu tarif SEHARI, bukan tarif per jam: masuk di hari libur
+     * dibayar satu hari penuh, dan setengah hari tidak membeli setengah hari.
+     * Karena itu "kurang dari ambang" bukan pembulatan ke bawah — memang bukan
+     * DODO. Yang tak jadi DODO tidak menguap: ia tetap terbayar sebagai lembur
+     * biasa, sebab `biasa = total - dodo`.
+     *
+     * Disimpan di setelan, BUKAN ditanam di kode (Ekky setuju): angka ini
+     * menentukan uang dan akan berubah tanpa deploy.
+     */
+    public static function ambangMenit(): int
+    {
+        $v = \App\Models\Setting::get(self::KUNCI_AMBANG);
+
+        // Setelan kosong / bukan angka / negatif -> kembali ke bawaan. Ambang
+        // yang rusak tak boleh diam-diam berarti "nol": nol punya arti sendiri
+        // di bawah (pagar dimatikan), dan mengacaukan keduanya menggeser uang.
+        return (is_numeric($v) && (int) $v >= 0) ? (int) $v : self::AMBANG_BAWAAN;
+    }
+
+    /**
+     * Terapkan ambang pada menit DODO SATU HARI.
+     *
+     * ⚠️ Per HARI, bukan per periode. DODO adalah tarif harian: dua hari libur
+     * yang masing-masing penuh = dua hari DODO. Kalau ambangnya dikenakan pada
+     * jumlah sebulan, hari libur kedua dan seterusnya hilang tanpa jejak.
+     *
+     * Ambang 0 = pagar dimatikan (klaim diambil apa adanya) — jalan keluar
+     * kalau kebijakannya berubah, tanpa perlu deploy.
+     */
+    public static function terapkanAmbang(int $menit, ?int $ambang = null): int
+    {
+        $ambang ??= self::ambangMenit();
+        if ($ambang <= 0) return $menit;
+
+        return $menit >= $ambang ? $ambang : 0;
+    }
+
     /** Reconciler menghitung lembur HANYA pada tanggal mulainya (bukan sepanjang rentang). */
     private static function dasar(string $from, string $to)
     {
@@ -66,33 +118,50 @@ class LemburDodo
     }
 
     /**
-     * Menit DODO per orang dalam rentang.
+     * Menit DODO per orang dalam rentang — SESUDAH ambang.
+     *
+     * ⚠️ Dihitung dari peta per-hari, BUKAN dari SUM() satu kueri. Ambangnya
+     * berlaku per hari (lihat terapkanAmbang), jadi menjumlah dulu lalu
+     * mengambangkan akan memberi jawaban lain: dua hari libur penuh 7+7 jam
+     * harus jadi 14 jam DODO, bukan 7. Ini juga yang menjaga jumlah sel di
+     * layar Kehadiran selalu sama dengan angka orang itu di Lembar Gaji.
      *
      * @return array<string,int> user_id => menit
      */
     public static function menitPerOrang(string $from, string $to): array
     {
-        return self::dasar($from, $to)
-            ->groupBy('r.user_id')
-            ->select('r.user_id as uid', DB::raw('SUM(r.claimed_menit) as menit'))
-            ->pluck('menit', 'uid')
-            ->map(fn ($m) => (int) $m)->all();
+        $out = [];
+        foreach (self::menitPerHari($from, $to) as $uid => $perTanggal) {
+            $j = array_sum($perTanggal);
+            if ($j > 0) $out[$uid] = $j;
+        }
+
+        return $out;
     }
 
     /**
      * Menit DODO per orang PER TANGGAL — buat penanda di kalender dan angka di
      * baris. Dipakai layar Kehadiran, yang memang bekerja per sel tanggal.
      *
+     * Ambang sudah diterapkan di sini, sekali, supaya tak ada pemanggil yang
+     * lupa menerapkannya. Hari yang tak mencapai ambang TIDAK dimasukkan ke
+     * peta — nilainya nol, dan pemanggil membacanya lewat `?? 0`.
+     *
      * @return array<string,array<string,int>> user_id => ['Y-m-d' => menit]
      */
     public static function menitPerHari(string $from, string $to): array
     {
+        $ambang = self::ambangMenit();
+
         $peta = [];
         foreach (self::dasar($from, $to)
                     ->groupBy('r.user_id', 'r.tanggal_from')
                     ->select('r.user_id as uid', 'r.tanggal_from as tgl', DB::raw('SUM(r.claimed_menit) as menit'))
                     ->get() as $b) {
-            $peta[(string) $b->uid][substr((string) $b->tgl, 0, 10)] = (int) $b->menit;
+            $menit = self::terapkanAmbang((int) $b->menit, $ambang);
+            if ($menit <= 0) continue;
+
+            $peta[(string) $b->uid][substr((string) $b->tgl, 0, 10)] = $menit;
         }
 
         return $peta;

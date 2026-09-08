@@ -55,6 +55,24 @@ class AbsensiKehadiranController extends Controller
         }
     }
 
+    /**
+     * Kelompok baris: ABG (aturan fleksibel) / cabang asal / belum bercabang.
+     *
+     * Dipakai layar DAN ekspor. Aturannya pendek, dan justru karena pendek ia
+     * gampang disalin lalu berselisih: ekspor yang mengelompokkan beda dari
+     * layar akan memberi Finance angka yang tak cocok dengan yang dilihatnya,
+     * tanpa satu pun tanda bahwa keduanya menjawab pertanyaan berbeda.
+     *
+     * @return array{0:string,1:string}  [kunci, label]
+     */
+    private static function kelompok(bool $isFlex, ?string $homeId, $branchName): array
+    {
+        if ($isFlex) return [self::ABG_KEY, self::ABG_LABEL];
+        if ($homeId && isset($branchName[$homeId])) return [$homeId, $branchName[$homeId]];
+
+        return [self::NONE_KEY, self::NONE_LABEL];
+    }
+
     public function index(Request $request)
     {
         $this->guard();
@@ -202,13 +220,7 @@ class AbsensiKehadiranController extends Controller
             $homeId = $u->raw_branch_id ?? null;
             $isFlex = isset($flex[$u->id]);
 
-            if ($isFlex) {                                   // orang kantor fleksibel
-                $key = self::ABG_KEY;   $label = self::ABG_LABEL;
-            } elseif ($homeId && isset($branchName[$homeId])) {
-                $key = $homeId;         $label = $branchName[$homeId];
-            } else {
-                $key = self::NONE_KEY;  $label = self::NONE_LABEL;
-            }
+            [$key, $label] = self::kelompok($isFlex, $homeId, $branchName);
 
             $matrix[$u->id] = [
                 'id'      => $u->id,
@@ -344,6 +356,136 @@ class AbsensiKehadiranController extends Controller
         ));
     }
 
+    /**
+     * Ekspor CSV — RENTANG TANGGAL BEBAS, bukan terikat periode gaji.
+     *
+     * Ekspor yang sudah ada hidup di halaman Periode Gaji dan hanya bisa
+     * mengeluarkan satu periode utuh. HR/Finance yang cuma ingin "1–15 Agustus"
+     * harus membuat periode dulu — mengubah data hanya untuk bisa membacanya.
+     *
+     * ⚠️ Ikut penyaring cabang yang sedang aktif di layar. Kalau tidak, tombol
+     * ekspor akan mengeluarkan sesuatu yang berbeda dari yang sedang dilihat,
+     * dan selisih semacam itu baru ketahuan setelah dipakai rapat.
+     *
+     * Kolomnya SUPERSET dari ekspor periode; DODO dipisah dari lembur biasa
+     * dengan nama kolom yang eksplisit, mengikuti keputusan yang sama seperti
+     * Lembar Gaji (kolom yang isinya menyusut TIDAK boleh memakai nama lama).
+     */
+    public function export(Request $request)
+    {
+        $this->guard();
+
+        $data = $request->validate([
+            'from'   => 'required|date',
+            'to'     => 'required|date|after_or_equal:from',
+            'branch' => 'nullable|string|max:64',
+        ]);
+
+        $from = Carbon::parse($data['from'])->startOfDay();
+        $to   = Carbon::parse($data['to'])->startOfDay();
+
+        // Pagar kewarasan: rentang selebar tahun-tahun biasanya salah ketik
+        // tahun, dan menyapu att_day sebesar itu memperlambat semua orang.
+        if ($from->diffInDays($to) > 366) {
+            return back()->with('error', 'Rentang maksimal 366 hari — persempit tanggalnya.');
+        }
+
+        $branchFilter = $data['branch'] ?? null;
+        $branchName   = RawBranch::pluck('name', 'id');
+
+        // Roster disusun sama seperti layar: dari att_user_rule, bukan att_day
+        // — supaya orang yang di rentang ini tak punya satu pun baris TETAP
+        // muncul dengan angka nol, bukan hilang diam-diam.
+        $roster = DB::table('att_user_rule as ur')
+            ->join('att_work_rule as wr', 'wr.id', '=', 'ur.rule_id')
+            ->join('users as u', 'u.id', '=', 'ur.user_id')
+            ->leftJoin('group_path as gp', 'gp.id', '=', 'u.group_id')
+            ->where('ur.effective_from', '<=', $to->toDateString())
+            ->where(function ($q) use ($from) {
+                $q->whereNull('ur.effective_to')->orWhere('ur.effective_to', '>=', $from->toDateString());
+            })
+            ->orderBy('ur.effective_from')
+            ->orderBy('ur.id')
+            ->get(['u.id', 'u.nama', 'u.raw_branch_id', 'wr.tipe', 'gp.nama as role'])
+            ->keyBy('id');
+
+        $agg = DB::table('att_day')
+            ->whereBetween('work_date', [$from->toDateString(), $to->toDateString()])
+            ->select('user_id',
+                // ⚠️ Hadir dan Telat SALING LEPAS — sama seperti matriks di layar
+                // (`if/elseif` per sel) dan ekspor Periode Gaji. Lembar Gaji memakai
+                // arti yang lain (hadir SUDAH termasuk telat) dan menyebutkannya di
+                // labelnya. Kalau ekspor ini ikut arti Lembar Gaji, angkanya tak akan
+                // cocok dengan tabel tepat di atas tombolnya — dan tak ada satu pun
+                // tanda bahwa keduanya menjawab pertanyaan berbeda.
+                DB::raw("SUM(status = 'hadir') AS hadir"),
+                DB::raw("SUM(status = 'telat') AS telat_hari"),
+                DB::raw("SUM(telat_menit) AS telat_menit"),
+                DB::raw("SUM(lembur_menit_disetujui) AS lembur_menit"),
+                DB::raw("SUM(status = 'alpa') AS alpa"),
+                DB::raw("SUM(status = 'cuti') AS cuti"),
+                DB::raw("SUM(status = 'izin') AS izin"),
+                DB::raw("SUM(status = 'sakit') AS sakit"),
+                DB::raw("SUM(status = 'libur') AS libur"),
+                DB::raw("SUM(status = 'wfh') AS wfh"),
+                DB::raw("SUM(single_scan) AS single_scan"),
+                DB::raw("COUNT(*) AS total_hari"))
+            ->groupBy('user_id')
+            ->get()->keyBy('user_id');
+
+        // Jaring-pengaman yang sama dengan layar: ada att_day tapi orangnya tak
+        // punya aturan kerja (data lama). Tanpa ini mereka tampil di matriks tapi
+        // HILANG dari ekspor — tepat jenis selisih yang baru ketahuan sesudah
+        // angkanya dipakai rapat. Diperlakukan `baku`, sama seperti di index().
+        $orphan = $agg->keys()->diff($roster->keys());
+        if ($orphan->isNotEmpty()) {
+            foreach (DB::table('users as u')
+                ->leftJoin('group_path as gp', 'gp.id', '=', 'u.group_id')
+                ->whereIn('u.id', $orphan)
+                ->get(['u.id', 'u.nama', 'u.raw_branch_id', 'gp.nama as role']) as $o) {
+                $o->tipe = 'baku';
+                $roster->put($o->id, $o);
+            }
+        }
+
+        // DODO = pecahan dari lembur, BUKAN tambahan. Dikurangkan, tak pernah
+        // dijumlahkan — supaya "Lembur Biasa + DODO" selalu sama persis dengan
+        // seluruh lembur yang di-ACC (lihat App\Services\LemburDodo).
+        $dodo = \App\Services\LemburDodo::menitPerOrang($from->toDateString(), $to->toDateString());
+
+        $baris = [];
+        foreach ($roster as $u) {
+            [$key, $label] = self::kelompok(($u->tipe ?? null) === 'fleksibel', $u->raw_branch_id ?? null, $branchName);
+            if ($branchFilter && $branchFilter !== $key) continue;
+
+            $a = $agg[$u->id] ?? null;
+            $lemburTotal = (int) ($a->lembur_menit ?? 0);
+            $dodoMenit   = min((int) ($dodo[$u->id] ?? 0), $lemburTotal);
+
+            $baris[] = [
+                $u->nama, $u->role ?? 'Karyawan', $label,
+                (int) ($a->hadir ?? 0), (int) ($a->telat_hari ?? 0), (int) ($a->telat_menit ?? 0),
+                round(($lemburTotal - $dodoMenit) / 60, 2), round($dodoMenit / 60, 2),
+                (int) ($a->alpa ?? 0), (int) ($a->cuti ?? 0), (int) ($a->izin ?? 0),
+                (int) ($a->sakit ?? 0), (int) ($a->libur ?? 0), (int) ($a->wfh ?? 0),
+                (int) ($a->single_scan ?? 0), (int) ($a->total_hari ?? 0),
+            ];
+        }
+
+        usort($baris, fn ($x, $y) => [$x[2], $x[0]] <=> [$y[2], $y[0]]);
+
+        $nama = 'kehadiran_' . $from->toDateString() . '_sd_' . $to->toDateString() . '.csv';
+
+        return response()->streamDownload(function () use ($baris) {
+            $out = fopen('php://output', 'w');
+            fprintf($out, "\xEF\xBB\xBF");   // BOM UTF-8 biar Excel benar
+            fputcsv($out, ['Nama', 'Role', 'Cabang', 'Hadir', 'Telat (hari)', 'Telat (menit)',
+                'Lembur Biasa (jam)', 'DODO (jam)', 'Alpa', 'Cuti', 'Izin', 'Sakit', 'Libur', 'WFH',
+                'Single-scan', 'Total Hari']);
+            foreach ($baris as $b) fputcsv($out, $b);
+            fclose($out);
+        }, $nama, ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
     /**
      * Tanggal-tanggal bulan ini yang KLINIK-nya tutup bagi satu orang.
      *

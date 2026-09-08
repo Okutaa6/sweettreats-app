@@ -13,8 +13,19 @@ use Illuminate\Support\Carbon;
  */
 class AttReconcile extends Command
 {
-    protected $signature = 'att:reconcile {from : YYYY-MM-DD} {to : YYYY-MM-DD}';
+    protected $signature = 'att:reconcile {from : YYYY-MM-DD} {to : YYYY-MM-DD}
+                            {--force : hitung ulang tanggal lampau MESKI penempatan sudah bergeser}';
     protected $description = 'Rekonsiliasi att_scan → att_day (telat/alpa/hadir per user per hari)';
+
+    /**
+     * Sejauh apa ke belakang boleh dihitung ulang tanpa `--force`.
+     *
+     * Penjadwal harian memakai kemarin+hari ini, jadi ia tak pernah menyentuh
+     * pagar ini. Angkanya longgar untuk koreksi normal (backfill orang baru,
+     * pembetulan sepekan-dua) tapi menutup jangkauan ke bulan gaji yang sudah
+     * lewat — yaitu tempat pergeseran penempatan menumpuk.
+     */
+    public const BATAS_HARI = 14;
 
     public function handle(AttendanceReconciler $engine): int
     {
@@ -24,6 +35,8 @@ class AttReconcile extends Command
             $this->error('Rentang tanggal terbalik.');
             return self::FAILURE;
         }
+
+        if (! $this->pagarLampau($from, $to)) return self::FAILURE;
 
         $t0 = microtime(true);
         $res = $engine->reconcile($from, $to);
@@ -57,6 +70,63 @@ class AttReconcile extends Command
         return self::SUCCESS;
     }
 
+    /**
+     * Pagar tanggal lampau.
+     *
+     * ── Kenapa MENOLAK, bukan sekadar memperingatkan ──
+     * `att_day` dihitung dari keadaan organisasi HARI INI. Menghitung ulang
+     * tanggal lampau berarti menerapkan struktur sekarang ke masa lalu, dan
+     * hari yang dulu benar bisa berubah jadi salah tanpa satu pun galat.
+     *
+     * Peringatan hanya menolong orang yang SUDAH curiga. Yang menyebabkan
+     * kejadian 5 Sep 2026 justru orang yang tidak curiga — mengetik rentang
+     * lampau untuk keperluan lain, lalu tak pernah tahu ada hari yang bergeser.
+     * Karena itu jawabannya penolakan, dan `--force` yang harus diketik sadar.
+     * (Keputusan Ekky, 5 Sep 2026.)
+     */
+    private function pagarLampau(Carbon $from, Carbon $to): bool
+    {
+        $umur = $from->diffInDays(Carbon::today());
+        if ($umur <= self::BATAS_HARI || $this->option('force')) {
+            if ($this->option('force') && $umur > self::BATAS_HARI) {
+                $this->warn("⚠  --force: menghitung ulang tanggal {$umur} hari ke belakang. "
+                    . 'Struktur organisasi HARI INI akan diterapkan ke tanggal itu.');
+            }
+
+            return true;
+        }
+
+        $this->error("Ditolak: {$from->toDateString()} berumur {$umur} hari — lebih tua dari batas "
+            . self::BATAS_HARI . ' hari.');
+        $this->newLine();
+        $this->line('  att_day dihitung dari keadaan organisasi HARI INI, bukan keadaan saat tanggal');
+        $this->line('  itu berlangsung. Menghitung ulang rentang lampau menimpa baris lama memakai');
+        $this->line('  penempatan/cabang yang berlaku sekarang — hari yang dulu benar bisa berubah');
+        $this->line('  jadi salah, tanpa galat apa pun.');
+        $this->newLine();
+
+        $geser = \App\Services\PenempatanBergeser::dalamRentang($from->toDateString(), $to->toDateString());
+
+        if (! $geser) {
+            $this->info('  Kabar baik: TAK ADA penempatan yang bergeser di rentang ini.');
+            $this->line('  Kalau memang perlu, jalankan ulang dengan --force.');
+
+            return false;
+        }
+
+        $this->warn('  ' . count($geser) . ' penempatan BERGESER sejak rentang ini berlalu — '
+            . 'hari mereka paling mungkin berubah:');
+        $this->table(
+            ['Nama', 'Cabang', 'Jenis', 'Dari', 'Sampai', 'Sebab'],
+            array_map(fn ($g) => [$g['nama'], $g['cabang'] ?? '—', $g['jenis'], $g['dari'] ?? '—', $g['sampai'] ?? '—', $g['sebab']], $geser)
+        );
+        $this->line('  ⚠  Yang bertukar cabang paling berbahaya: hasilnya tetap terlihat masuk akal,');
+        $this->line('     jadi tak ada yang akan curiga.');
+        $this->newLine();
+        $this->line('  Kalau memang perlu, jalankan ulang dengan --force.');
+
+        return false;
+    }
     /**
      * Temuan aturan bertipe `jadwal` (dokter). SEMUA yang dilaporkan di sini
      * TIDAK menghasilkan baris att_day — jadi kalau tak dicetak, ia betul-betul

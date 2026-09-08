@@ -32,6 +32,38 @@ class PettyCashTransaction extends Model
     public const MAX_AMOUNT = 50000000;
 
     /**
+     * Jendela "kiriman ganda": baris IDENTIK (pembuat + nominal + keterangan +
+     * tanggal) yang datang dalam rentang ini sesudah yang terakhir dianggap
+     * klik ganda, bukan transaksi kedua.
+     *
+     * Diagnosis 6 Sep 2026: dua kembaran nyata berjarak 0 dan 4 detik — klik
+     * ganda, dan "halaman belum berpindah, klik lagi" (halaman tujuan berat,
+     * 2–4 detik). 10 detik [USULAN HUB] menutup keduanya dengan longgar tanpa
+     * menyentuh dua pengeluaran sungguhan yang memang serupa: kembar PERSIS
+     * ditolak, MIRIP tetap boleh — pola yang sama dengan pagar lembur.
+     */
+    public const JENDELA_KEMBAR_DETIK = 10;
+
+    /**
+     * Ada baris identik yang baru saja tersimpan oleh pembuat yang sama?
+     *
+     * Empat kunci, semuanya harus sama persis. Yang berbeda satu saja (mis.
+     * keterangan "gojek" vs "gojek pp") bukan kembar — dua pengeluaran serupa
+     * di hari yang sama itu wajar, dan pagar yang menolak orang jujur lebih
+     * mahal daripada yang lolos sesekali.
+     */
+    public static function kembarBaruSaja(?string $createdBy, $amount, string $description, string $trxDate, ?int $jendela = null): bool
+    {
+        if ($createdBy === null || $createdBy === '') return false;
+
+        return static::where('created_by', $createdBy)
+            ->where('amount', $amount)
+            ->where('description', $description)
+            ->where('trx_date', $trxDate)
+            ->where('created_at', '>=', now()->subSeconds($jendela ?? self::JENDELA_KEMBAR_DETIK))
+            ->exists();
+    }
+    /**
      * Batas waktu (jam) EDIT & HAPUS transaksi untuk USER BIASA sejak
      * created_at (kebijakan audit). Super Admin bebas tanpa batas — lihat
      * PettyCashController::abortIfBeyondEditWindow() & _table_rows.blade.php.

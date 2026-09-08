@@ -3,8 +3,11 @@
 namespace App\Http\Controllers\Absensi;
 
 use App\Http\Controllers\Controller;
+use App\Models\AuditLog;
 use App\Models\CutiPeriode;
+use App\Models\Setting;
 use App\Services\CutiService;
+use App\Services\LemburDodo;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -27,9 +30,17 @@ class LembarGajiController extends Controller
     /**
      * Samakan dgn grant SQL + halaman Cuti: Finance pemilik, IT akses penuh.
      * Konsultan Finance/IT ikut — menunya kloningan role induk (2026-08-21).
+     *
+     * ⛔ `Admin` dan `Admin Backup` SENGAJA DICABUT (Ekky, 5 Sep 2026).
+     * Keduanya AKUN BERSAMA. Yang mengganggu bukan lebar gerbangnya, melainkan
+     * bahwa ambang DODO menentukan uang: kalau disetel dari akun bersama,
+     * `audit_log` mencatat nama yang tak menunjuk siapa pun, dan jejak yang tak
+     * bisa menunjuk orang bukan jejak.
+     *
+     * Sisanya dibiarkan — role perorangan, jejaknya bermakna.
      */
-    private const BOLEH = ['Finance', 'Head IT', 'IT', 'Konsultan Finance', 'Konsultan IT',
-        'Super Admin', 'Admin General', 'Admin Backup', 'Admin'];
+    public const BOLEH = ['Finance', 'Head IT', 'IT', 'Konsultan Finance', 'Konsultan IT',
+        'Super Admin', 'Admin General'];
 
     private function guard(): void
     {
@@ -147,7 +158,12 @@ class LembarGajiController extends Controller
         [$baris, $sum, $terkunci, , , $curiga] = $this->rekap($anchor, $branch);
         $branches = DB::table('raw_branch')->orderBy('name')->get(['id', 'name']);
 
-        return view('absensi.lembar_gaji', compact('baris', 'sum', 'terkunci', 'anchor', 'branch', 'branches', 'curiga'));
+        // Ambang DODO ikut dikirim supaya layar bisa menjelaskan angkanya
+        // sendiri — lihat blok <details> di blade.
+        $ambang     = LemburDodo::ambangMenit();
+        $ambangTeks = self::jamTeks($ambang);
+
+        return view('absensi.lembar_gaji', compact('baris', 'sum', 'terkunci', 'anchor', 'branch', 'branches', 'curiga', 'ambang', 'ambangTeks'));
     }
 
     /** Ekspor CSV bulan terpilih — dibuka Finance di Excel. */
@@ -186,5 +202,50 @@ class LembarGajiController extends Controller
             }
             fclose($out);
         }, $nama, ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
+    /**
+     * Ubah ambang DODO. Ditaruh di layar ini karena inilah tempat angkanya
+     * dipakai — Finance yang memutuskan tarif, jadi Finance pula yang memegang
+     * ambangnya. Jejaknya lewat AuditLog: nilai lama DAN baru ikut tersimpan,
+     * sebab "siapa mengubah" tanpa "dari berapa" tak bisa diaudit.
+     */
+    public function setelanAmbang(Request $request)
+    {
+        $this->guard();
+
+        $data = $request->validate([
+            // 1440 = sehari penuh. Batas atas ada supaya salah ketik (mis. 4200
+            // saat maksudnya 420) tertangkap di sini, bukan di slip gaji.
+            'ambang_menit' => 'required|integer|min:0|max:1440',
+        ]);
+
+        $lama = LemburDodo::ambangMenit();
+        $baru = (int) $data['ambang_menit'];
+        if ($lama === $baru) {
+            return back()->with('success', 'Ambang DODO tidak berubah (' . self::jamTeks($baru) . ').');
+        }
+
+        Setting::put(LemburDodo::KUNCI_AMBANG, (string) $baru);
+
+        AuditLog::record('update',
+            'Ambang DODO diubah: ' . self::jamTeks($lama) . ' → ' . self::jamTeks($baru),
+            null,
+            ['ambang_menit' => $lama]
+        );
+
+        return back()->with('success', 'Ambang DODO disimpan — ' . self::jamTeks($baru)
+            . '. Angka DODO di layar dan ekspor mengikuti mulai sekarang.');
+    }
+
+    /** "420" → "7 jam"; 0 → "tanpa ambang". Dipakai pesan & jejak audit. */
+    private static function jamTeks(int $menit): string
+    {
+        if ($menit <= 0) return 'tanpa ambang';
+
+        $jam = intdiv($menit, 60);
+        $sisa = $menit % 60;
+
+        return $sisa === 0 ? "{$jam} jam" : "{$jam} jam {$sisa} menit";
     }
 }
