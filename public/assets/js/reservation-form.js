@@ -638,6 +638,14 @@ window.initReservationForm = function () {
         // cabang. Route publik yang dipakai pasien sengaja tidak disentuh.
         fetch('/rawreservation/slots/' + branchId + '/' + doctorId + '/' + date + qs)
             .then(function(r) {
+                // Rute ini di balik AuthGuard. Sesi yang habis TIDAK memberi 401 —
+                // ia memantul ke halaman login yang menjawab 200 berisi HTML, jadi
+                // r.ok lolos dan r.json() gagal dengan "Unexpected token <" yang
+                // tak bisa dipahami admin. Kenali pentalannya, sebutkan sebabnya.
+                var ct = (r.headers.get('content-type') || '').toLowerCase();
+                if (r.redirected || ct.indexOf('json') === -1) {
+                    throw new Error('sesi habis — muat ulang halaman, lalu login lagi');
+                }
                 if (!r.ok) throw new Error('HTTP ' + r.status);
                 return r.json();
             })

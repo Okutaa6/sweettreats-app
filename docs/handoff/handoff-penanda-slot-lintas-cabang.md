@@ -2,8 +2,8 @@
 
 **Untuk:** Reza
 **Dari:** sesi Claude Ekky, 8 September 2026
-**Status:** siap dikerjakan · nol keputusan yang masih menggantung
-**Perkiraan:** kecil–sedang · **nol tabel baru, nol SQL**
+**Status:** ✅ **SUDAH DIKERJAKAN Reza** — commit `a252215`, digabung ke `fix/slot-kembar` 9 Sep 2026.
+Dokumen ini kini **catatan keputusan** + daftar sisa kecil (§10). Bagian §4–§6 tetap berlaku sebagai kontrak perilaku.
 
 ---
 
@@ -19,7 +19,7 @@ Sesudah ditelusuri ke prod, itu **dua hal yang sama sekali berbeda**:
 | Gejala | Sebab sebenarnya | Status |
 |---|---|---|
 | Slot kembar (9 kotak untuk 6 jam) | Jadwal rutin Cinere `17:00–20:00` ditumpuk Hari Tambahan `17:00–18:30` | ✅ **SUDAH DIPERBAIKI** — jangan diulang |
-| "Terisi" tanpa orang | Reservasi **nyata** di **Kalideres** `17:00–17:30` a.n. Ghita Lestary | ⬅️ **ini bagianmu** |
+| "Terisi" tanpa orang | Reservasi **nyata** di **Kalideres** `17:00–17:30` a.n. Ghita Lestary | ✅ **DIKERJAKAN Reza** (`a252215`) |
 
 Yang kedua **bukan bug**. Dharma satu orang; tak bisa di Kalideres dan Cinere
 pada jam yang sama, jadi sistem benar menahan slot itu. Yang salah: **layarnya
@@ -27,7 +27,7 @@ tidak pernah bilang kenapa.** Admin membacanya sebagai sistem rusak, lalu
 laporan naik ke Ekky — padahal informasinya ada di database, cuma tak
 ditampilkan.
 
-**Itulah yang kamu bangun: membuat slot yang terisi bisa menjelaskan dirinya sendiri.**
+**Itulah yang dibangun: slot yang terisi bisa menjelaskan dirinya sendiri.** Sudah dikerjakan; bagian di bawah menjelaskan kenapa bentuknya begitu.
 
 ---
 
@@ -252,3 +252,29 @@ dulu, percaya angkanya belakangan.
 ⚠️ Uji ber-DB di dev tumbang di atas ±17 uji per proses (batas laju koneksi
 hosting bersama, `SQLSTATE[HY000] [2002]`) — **jalankan per kelas** sebelum
 menyangka ada regresi.
+
+---
+
+## 10. Hasil review gabungan (9 Sep 2026, 00:xx WIB)
+
+Commit Reza `a252215` diperiksa satu per satu terhadap §2 dan §6 — **lulus semua**,
+dan satu hal dibuat lebih kuat dari usulan: detail staf lewat **rute terpisah di
+balik AuthGuard** (`/rawreservation/slots/…`), bukan bendera opsi di rute publik.
+Segmen `rawreservation` punya 14 grant di prod, jadi lolos jebakan 302.
+
+Tiga hal yang menunjukkan ia berpikir, bukan menempel: kotak Terisi dirender
+`<span>` (tombol disabled tak memancarkan event → tap di HP mati); kolom `get()`
+eksplisit supaya `id` tiga tabel tak saling menimpa; spanduk tetap muncul saat
+slot nol (justru kasus dokter sedang di cabang lain).
+
+### Sisa kecil
+
+| # | Temuan | Keputusan |
+|---|---|---|
+| 1 | Pencarian bentrok `break` di booking pertama — bila satu slot ditahan dua reservasi, cuma satu disebut | **Diterima.** Dua reservasi dokter yang sama pada jam yang sama itu anomali, bukan kasus normal; spanduk hari menutupinya. |
+| 2 | Sesi habis → rute staf memantul ke login (200 + HTML) → `r.json()` gagal dengan "Unexpected token <" | **Sudah dirapikan** di gerbong ini: kenali `r.redirected` / non-JSON, pesan "sesi habis — muat ulang". |
+| 3 | Komentar `AttendanceRequestWorkflow` masih menyebut "cron 00:10" padahal Kernel 06:15 | Ada di commit **checklist** (`15dfd1a`), bukan gerbong ini. Rapikan saat commit itu naik. |
+
+Commit `15dfd1a` (checklist) **sengaja tidak ikut**: butuh SQL yang belum jalan di
+prod (`excuse_source`), dan menggeser cron `checklist:mark-missed` 00:10→06:15
+yang sudah terbukti jalan. Gerbong sendiri, saat Ekky siap.
