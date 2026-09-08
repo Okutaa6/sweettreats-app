@@ -249,7 +249,7 @@ class AttendanceReconciler
         // Penautan akun→dokter, dimuat SEKALI (bukan per orang per hari).
         // Kolomnya lahir bareng akun dokter; environment yang belum apply
         // SQL-nya jangan sampai bikin rekonsiliasi seluruh roster gagal.
-        $dokterUser = \Illuminate\Support\Facades\Schema::hasColumn('users', 'raw_doctor_id')
+        $dokterUser = kolomAda('users', 'raw_doctor_id') // bukan Schema::has*() — membaca information_schema, membunuh mysqld lokal (lihat kolomAda/tabelAda)
             ? DoctorSchedule::petaDokterUser()
             : [];
 
@@ -895,7 +895,7 @@ class AttendanceReconciler
     /** Periode yg SUDAH ditutup finance (att_day di rentangnya beku). */
     private function loadClosedPeriods(): array
     {
-        if (! \Illuminate\Support\Facades\Schema::hasTable('att_period')) return [];
+        if (! tabelAda('att_period')) return []; // bukan Schema::has*() — membaca information_schema, membunuh mysqld lokal (lihat kolomAda/tabelAda)
         return DB::table('att_period')->where('status', 'closed')
             ->get(['raw_branch_id', 'periode_from', 'periode_to'])->all();
     }

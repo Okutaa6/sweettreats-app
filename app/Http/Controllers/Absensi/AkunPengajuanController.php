@@ -538,7 +538,9 @@ class AkunPengajuanController extends Controller
         // Kolomnya `periode_from`/`periode_to`, dan periode bisa berlaku global
         // (raw_branch_id NULL) atau khusus satu cabang — pola yang sama dipakai
         // AttendanceReconciler::isDateLocked. Yang khusus cabang didahulukan.
-        if (\Illuminate\Support\Facades\Schema::hasTable('att_period')) {
+        // tabelAda(), bukan Schema::hasTable(): yang kedua membaca information_schema
+        // dan membunuh mysqld lokal (lihat kolomAda di Helpers) — ini jalur tiap absen HP.
+        if (tabelAda('att_period')) {
             $cabang = session('raw_branch_id') ?: null;
 
             $p = DB::table('att_period')

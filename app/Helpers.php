@@ -133,7 +133,53 @@ if (!function_exists('shellPersonalMap')) {
             'my-checklist/history' => ['Riwayat Checklist', 'fas fa-history'],
             'pengajuan'    => ['Pengajuan',      'fas fa-file-invoice-dollar'],
             'persetujuan'  => ['Persetujuan',    'fas fa-check-circle'],
+            // ⚠️ PENEMPATAN SEMENTARA — keputusan Ekky 9 Sep 2026, peluncuran SENYAP
+            // IT Request Tracker ke prod: dicapai dari drop-up profil, akses hanya
+            // IT + Executive + Konsultan (+ admin), TANPA Head departemen, supaya
+            // dibiasakan dulu sebelum diperkenalkan. IT Tracker itu KERJAAN JABATAN,
+            // tempat tetapnya SIDEBAR (peta-tema §4: menu utama = kerjaan role,
+            // drop-up = pribadi). Menaruhnya di sini otomatis MENYEMBUNYIKAN seksi
+            // "IT" dari sidebar (aturan shellMenuSections: induk yang isinya cuma
+            // personal dibuang). Yang mencabut baris ini nanti = mengembalikannya
+            // ke sidebar; tak perlu SQL apa pun.
+            'it-tracker'   => ['IT Tracker',     'fas fa-tasks'],
         ];
+    }
+}
+
+if (!function_exists('kolomAda')) {
+    /**
+     * Ada tidaknya sebuah kolom — TANPA information_schema.
+     *
+     * ⛔ `Schema::hasColumn()` / `hasTable()` membaca information_schema, dan di
+     * MariaDB lokal (tablespace lama korup, terbukti 2 Sep & 9 Sep) kueri itu
+     * MEMBUNUH mysqld — setiap render halaman yang lewat sini menjatuhkan DB
+     * lokal, sehingga uji tak pernah bisa dijalankan. `SELECT kolom LIMIT 0`
+     * menjawab pertanyaan yang sama tanpa menyentuh katalog sistem. Di dev/prod
+     * keduanya setara.
+     */
+    function kolomAda(string $tabel, string $kolom): bool
+    {
+        if (! preg_match('/^[A-Za-z0-9_]+$/', $tabel) || ! preg_match('/^[A-Za-z0-9_]+$/', $kolom)) return false;
+        try {
+            \Illuminate\Support\Facades\DB::select("SELECT `{$kolom}` FROM `{$tabel}` LIMIT 0");
+            return true;
+        } catch (\Throwable $e) {
+            return false;
+        }
+    }
+}
+
+if (!function_exists('tabelAda')) {
+    /** Ada tidaknya sebuah tabel — SHOW TABLES LIKE, bukan information_schema (lihat kolomAda). */
+    function tabelAda(string $tabel): bool
+    {
+        if (! preg_match('/^[A-Za-z0-9_]+$/', $tabel)) return false;
+        try {
+            return (bool) \Illuminate\Support\Facades\DB::select("SHOW TABLES LIKE '{$tabel}'");
+        } catch (\Throwable $e) {
+            return false;
+        }
     }
 }
 
@@ -554,7 +600,7 @@ if (!function_exists('rolePengamatIds')) {
 
         try {
             if ($adaKolom === null) {
-                $adaKolom = \Illuminate\Support\Facades\Schema::hasColumn('group_path', 'wewenang_pengajuan');
+                $adaKolom = kolomAda('group_path', 'wewenang_pengajuan'); // bukan Schema::hasColumn — lihat kolomAda()
             }
             if ($adaKolom) {
                 return \Illuminate\Support\Facades\DB::table('group_path')
@@ -1267,7 +1313,7 @@ if (!function_exists('hariLiburTerjadwal')) {
                 ->where('id', $ruleId)->value('tipe');
 
             if ($tipe === 'jadwal') {
-                $dokterId = \Illuminate\Support\Facades\Schema::hasColumn('users', 'raw_doctor_id')
+                $dokterId = kolomAda('users', 'raw_doctor_id') // bukan Schema::hasColumn — lihat kolomAda()
                     ? \Illuminate\Support\Facades\DB::table('users')->where('id', $userId)->value('raw_doctor_id')
                     : null;
                 // Belum tertaut ke dokter mana pun → jangan tebak. Null di sini
