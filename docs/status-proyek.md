@@ -39,18 +39,23 @@
 > `2400896`, tak ada lagi cabang prod terpisah. Peringatan lama "jangan deploy
 > main ke prod" **sudah TIDAK berlaku** — sekarang justru `main` yang benar.
 >
-> ✅ **Sisipan 2026-09-09c — TRACKER + KATALOG NAIK PROD SENYAP** (`d607319`,
-> prod local main; `origin/main` belum digeser — push ditolak pengklasifikasi,
-> tinggal `git push origin feat/it-tracker:main`). Kode dulu baru 10 SQL,
-> rsync `assets/` saja, 9 tabel `it_*`, 37 modul, 12 berangka pemakaian
-> (Checklist 113 · Persetujuan 100 · Petty Cash 95 · ROP 63). Diukur dengan
-> akun prod: Della/Yovanka/Admin **302 ke landing**; Robi · **Haickal** · Hari
-> · Ikhsan 200 + drop-up + sidebar tanpa seksi IT + katalog 200. **⛔ Papan
-> prod KOSONG**: `it:seed-antrian` berhenti karena **Yovan (creative@stdc.id)
-> tak punya akun prod** (baris 13 & 33) — buat akunnya atau ganti pemohon,
-> lalu jalankan ulang seeder `--env-guard=prod`. Catatan: group "Consultant"
-> (kosong) ikut ber-grant; node petty cash prod bernama "Pettycash" (seeder
-> katalog cari "Petty Cash") → fitur tetap lewat `fitur_link`.
+> ✅ **Sisipan 2026-09-09d — PAPAN PROD TERISI 34 TIKET** (02:26 WIB, chat HUB).
+> Seeder berhenti karena "Yovan" — ternyata **Yovan = Yovanka, satu orang**
+> (dev menyimpan akun lama ber-domain `stdc.id` di samping yang baru; prod
+> hanya punya yang baru). Bukan buat akun: pemohon PSV baris 13 & 33 diganti
+> `yovanka@sweettreats.id` (`69720c8`), seeder `--env-guard=prod` jalan:
+> **34/34 tiket, 34 bertaut modul, Yovanka 2 tiket, #09/#10/#19 di DEV**.
+> `origin/main` sudah digeser (prod = origin/main = `69720c8`). Belum dibuka
+> manusia — verifikasi pertama = Robi membuka drop-up.
+>
+> ✅ **Sisipan 2026-09-09c — TRACKER + KATALOG NAIK PROD SENYAP** (`d607319`).
+> Kode dulu baru 10 SQL, rsync `assets/` saja, 9 tabel `it_*`, 37 modul,
+> 12 berangka pemakaian (Checklist 113 · Persetujuan 100 · Petty Cash 95 ·
+> ROP 63). Diukur dengan akun prod: Della/Yovanka/Admin **302 ke landing**;
+> Robi · **Haickal** · Hari · Ikhsan 200 + drop-up + sidebar tanpa seksi IT +
+> katalog 200. Catatan: group "Consultant" (kosong) ikut ber-grant; node petty
+> cash prod bernama "Pettycash" (seeder katalog cari "Petty Cash") → fitur
+> tetap lewat `fitur_link`.
 > ✅ **Sisipan 2026-09-09b — TRACKER + KATALOG SIAP NAIK PROD SENYAP** (`9f2d98c`,
 > dev). **Peta berubah**: tracker tak lagi "dipakai nyata 2 minggu di dev dulu"
 > — Ekky memutuskan naik prod **tanpa pengumuman**, pintu dari **drop-up profil**

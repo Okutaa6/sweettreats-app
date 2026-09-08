@@ -6,6 +6,70 @@
 > file ini append-only.
 
 ---
+
+## 2026-09-09 — Papan IT Tracker prod TERISI 34 tiket: "Yovan" itu Yovanka (chat HUB)
+
+Chat build berhenti di tempat yang benar: `it:seed-antrian` prod gagal di baris 13
+karena pemohon **Yovan (creative@stdc.id)** tak punya akun prod, dan mereka
+menolak menebak. Ekky: *"can you fix it?"*
+
+**Yang diperiksa sebelum memilih:** prod tak punya siapa pun bernama Yovan; dev
+punya **dua** akun Head Marketing — Yovanka (`yovanka@sweettreats.id`) dan Yovan
+(`creative@stdc.id`). Memori Konsultan: `stdc.id` = **domain lama perusahaan**,
+dan catatan Alur Persetujuan: *"yovan/yovanka semuanya satu orang"*. Enam akun
+`stdc.id` di dev (Yovan/Alif/Robi/Hari/Fajri/muti) adalah akun lama orang-orang
+yang sama. Jadi **bukan buat akun baru** — itu akan melahirkan orang kedua.
+
+**Perbaikan:** PSV baris 13 & 33 → pemohon `yovanka@sweettreats.id` / Yovanka
+Rima Millennia (`69720c8`, email yang ada di dev DAN prod). Prod `git pull`,
+lalu `it:seed-antrian docs/rencana/seed-antrian-it-2026-09-04.psv --env-guard=prod`:
+
+| hasil | |
+|---|---|
+| tiket | **34/34** (TRIASE 7 · ANTRE 5 · DEV 9 · UAT 4 · GOLIVE 4 · EVALUASI 1 · DITUNDA 4) |
+| bertaut modul | 34/34 |
+| tiket Yovanka | 2 (#13 ORTHO, #33 Lead Cekat AI) |
+| #09 / #10 / #19 | **DEV** — Ekky mulai 10 Sep; `kriteria_diterima` diisi dari layar sebelum UAT |
+| `/it-tracker` tanpa login | 302 → `/signin` |
+| galat log | 0 (satu baris = panggilan seeder tanpa argumen, milikku) |
+
+`origin/main` digeser fast-forward (`4f2b1a1` → `69720c8`), jadi prod = origin/main.
+Yang belum: **dibuka manusia** — Robi membuka drop-up adalah verifikasi pertama.
+Catatan dev: re-seed dev kelak memindahkan #13/#33 dari akun lama "Yovan" ke
+Yovanka; akun lama itu boleh dimatikan.
+
+---
+
+## 2026-09-09 — Push Accurate DINYALAKAN LAGI, 12 hari tertunda terkirim (chat HUB)
+
+Ekky: *"push accurate tolong nyalain lagi, terus push datanya yang udah di pause
+ke accurate juga."* Finance sudah dikonfirmasi paham risikonya (pemetaan ulang
+akun ada di sisi Accurate). Jeda berjalan 28 Agu–8 Sep.
+
+**Yang dijalankan di prod, 01:19–01:29 WIB:** cadangan `.env`
+(`~/backup/env.prod.pra-nyala-accurate-20260908_1812`) → `ACCURATE_PUSH_ENABLED=true`
+→ `config:clear` → **`accurate:push-daily --days=15`** sekali, dengan tarikan
+Omnicare (angka `--days` diambil dari yang dicetak gerbang, bukan ditebak).
+
+| hasil | jumlah |
+|---|---|
+| dokumen baru terkirim | **51** |
+| diperbaiki (hapus-tulis-ulang) | 2 — 26 Agu Bintaro & Kalideres, data Omnicare berubah sesudah kiriman lama |
+| cocok / dilewati | 11 |
+| gagal | **0** |
+| terakhir ter-push | **2026-09-08** (sebelumnya 27 Agu) |
+
+Gerbang diverifikasi terbuka: dry-run `--days=1` sesudahnya "semua cocok (no-op)",
+cron 03:30 kembali normal. Dua hal yang tampak lubang, ternyata bukan: 31 Agu &
+7 Sep kosong karena **semua cabang tutup Senin** (5/5 aturan libur `day=1`);
+`customer/save.do` 53/53 "Sudah ada C.00001" = pemeriksaan idempoten, bukan gagal.
+
+Sekalian diverifikasi: perbaikan galat 2002 (6 Sep) terbukti — **nol 2002 pada
+7, 8, 9 Sep**. Gerbong slot kembar `35d332b` aset publiknya tersinkron. Galat
+9 Sep bukan pengguna (pemeriksa tengah malam `checklist_date`; `verif_prod.php`
+sisa chat build — hapus).
+
+---
 ## 2026-09-09 — ✅ NAIK PROD SENYAP: IT Request Tracker + Katalog Modul (`d607319`)
 
 Ekky: *"gas ke prod, aman kan?"* Naik lewat `bash deploy.sh feat/it-tracker`
