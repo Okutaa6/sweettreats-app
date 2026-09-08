@@ -627,7 +627,10 @@ body.redesign-reservasi #slotsContainer .st-slot small { display:block; font-siz
 body.redesign-reservasi #slotsContainer .st-slot--available { background:#E9F5EC; color:#2F8E55; border-color:#CFE9D6; }
 body.redesign-reservasi #slotsContainer .st-slot--available:hover { filter:brightness(.97); }
 body.redesign-reservasi #slotsContainer .st-slot--selected { background:#3A1100; color:#FFE6CC; border-color:#3A1100; }
-body.redesign-reservasi #slotsContainer .st-slot--booked { background:#FBE3DE; color:#C9897F; border-color:#F2D2CB; }
+body.redesign-reservasi #slotsContainer .st-slot--booked { background:#FBE3DE; color:#C9897F; border-color:#F2D2CB; cursor:pointer; }
+body.redesign-reservasi #slotsContainer .st-slot--booked:hover,
+body.redesign-reservasi #slotsContainer .st-slot--booked:focus-visible { color:#9A3820; border-color:#C9897F; }
+body.redesign-reservasi #slotsContainer .st-slot--booked-elsewhere small { color:#9A3820; font-weight:700; }
 body.redesign-reservasi #slotsContainer .st-slot--conflict { background:#FBEFD9; color:#9A6614; border-color:#EBD3A5; }
 body.redesign-reservasi #slotsContainer .st-slot--past { background:#F1E9DF; color:#A9967F; border-color:#E7DAC9; }
 body.redesign-reservasi #slotsContainer .st-slot--preview { background:#EFE7DE; color:#7A5B43; border-color:#E0D2C0; }
