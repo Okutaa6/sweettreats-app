@@ -569,7 +569,8 @@ window.initReservationForm = function () {
                 const b    = slot.booked_by || null;
                 const luar = !!(b && b.branch_id && slotBranchId
                              && String(b.branch_id) !== String(slotBranchId));
-                const kecil = luar ? esc(b.branch) : 'Terisi';
+                // Nama cabang kosong (join tak ketemu) → jatuh ke "Terisi", jangan kotak tanpa label.
+                const kecil = (luar && b.branch) ? esc(b.branch) : 'Terisi';
 
                 html += '<span class="st-slot st-slot--booked' + (luar ? ' st-slot--booked-elsewhere' : '') + '" tabindex="0"'
                       + ' title="' + esc(detail) + '"'
