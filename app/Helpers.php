@@ -574,24 +574,33 @@ if (!function_exists('canSeeAllBranches')) {
 }
 
 /**
- * True kalau user boleh MEMBACA layar Kehadiran (matriks karyawan × tanggal).
+ * True kalau user boleh MEMBACA rekap absensi lintas cabang — dua layar:
+ * Kehadiran (matriks karyawan × tanggal) dan Rekap Persetujuan.
  *
  * Sengaja TERPISAH dari canSeeAllBranches(), dan bukan karena kerapian.
  * canSeeAllBranches() bukan sekadar "boleh lihat semua cabang": ia juga membuka
  * Upload Data fingerprint, Mapping Karyawan, Koreksi Absen, Periode Gaji, petty
  * cash lintas cabang, dan sepuluh blade checklist. Menambahkan Executive ke sana
  * berarti memberi mereka kuasa MENGUBAH data absensi dan uang — hanya supaya bisa
- * membuka satu halaman baca.
+ * membuka halaman baca.
  *
  * Polanya bukan hal baru di proyek ini: RopService::ROLE_REKAP sudah memberi
  * Executive akses baca ke Rekap Pengeluaran dengan alasan yang persis sama,
  * tanpa melonggarkan helper global.
  *
- * Yang TIDAK ikut helper ini (tetap canSeeAllBranches): Rekap Persetujuan,
+ * ⚠️ Namanya dulu `canSeeKehadiran()` dan Rekap Persetujuan sengaja DIKECUALIKAN
+ * (9 Sep 2026). Kekecualian itu dicabut hari yang sama: Ekky ternyata memberi
+ * Executive grant `absensi/recap` di prod pada duduk yang sama dengan
+ * `absensi/kehadiran`, jadi grant itu menggantung — ada di menu, pintunya
+ * tertutup. Rutenya satu `GET`, nol aksi tulis, jadi ia memang sekelas Kehadiran.
+ * Diganti nama supaya tak jadi dusta: satu predikat untuk dua layar BACA, bukan
+ * satu predikat bernama Kehadiran yang diam-diam juga menjaga Rekap.
+ *
+ * Yang TIDAK ikut helper ini (tetap canSeeAllBranches, karena MENGUBAH data):
  * Upload Data, Mapping, Koreksi Absen, Periode Gaji, Lembar Gaji.
  */
-if (!function_exists('canSeeKehadiran')) {
-    function canSeeKehadiran(): bool
+if (!function_exists('canSeeAbsensiRekap')) {
+    function canSeeAbsensiRekap(): bool
     {
         return canSeeAllBranches() || session('group_name') === 'Executive';
     }

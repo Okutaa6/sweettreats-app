@@ -5,18 +5,21 @@
     //
     // Sampai 9 Sep 2026 seluruh strip ini dirender tanpa syarat, karena satu-satunya
     // yang bisa sampai ke sini memang canSeeAllBranches(). Begitu Executive boleh
-    // membuka Kehadiran (canSeeKehadiran), anggapan itu batal: tanpa penyaringan,
+    // membuka layar BACA (canSeeAbsensiRekap), anggapan itu batal: tanpa penyaringan,
     // Dani akan melihat tab Upload Data, Mapping, Koreksi Absen, dan Periode Gaji —
     // empat pintu yang semuanya berujung 403, dan tiga di antaranya MENGUBAH data
     // absensi. Menu yang tampil lalu menolak adalah kegagalan senyap; berkas ini
     // sudah menuliskan pelajaran itu untuk Lembar Gaji di bawah.
     $bolehLintas = canSeeAllBranches();
+    $bolehBaca   = canSeeAbsensiRekap();
 
+    // Rekap Persetujuan & Kehadiran = dua layar BACA, satu predikat. Rekap sempat
+    // dipagari $bolehLintas (9 Sep pagi); akibatnya Executive memegang grant
+    // `absensi/recap` tanpa satu pun jalan mencapainya — node sidebarnya
+    // disembunyikan karena ia tab, dan tabnya tak pernah dirender.
     $finTabs = [];
-    if ($bolehLintas) {
+    if ($bolehBaca) {
         $finTabs[] = ['label' => 'Rekap Persetujuan', 'url' => url('absensi/recap'), 'on' => str_starts_with($ap, 'absensi/recap')];
-    }
-    if (canSeeKehadiran()) {
         $finTabs[] = ['label' => 'Kehadiran', 'url' => url('absensi/kehadiran'), 'on' => str_starts_with($ap, 'absensi/kehadiran')];
     }
     if ($bolehLintas) {

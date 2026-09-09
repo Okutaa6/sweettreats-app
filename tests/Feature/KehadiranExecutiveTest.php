@@ -215,7 +215,7 @@ class KehadiranExecutiveTest extends TestCase
 
         session(['group_name' => 'Executive']);
         $this->assertFalse(canSeeAllBranches(), 'Executive tak boleh punya kuasa tulis lintas cabang');
-        $this->assertTrue(canSeeKehadiran(), 'tapi tetap boleh MEMBACA Kehadiran');
+        $this->assertTrue(canSeeAbsensiRekap(), 'tapi tetap boleh MEMBACA Kehadiran');
     }
 
     /**
@@ -241,21 +241,35 @@ class KehadiranExecutiveTest extends TestCase
 
     /**
      * PROD-ONLY, dipentaskan di sini: di prod Executive JUGA dipegangi grant
-     * 'absensi/recap'. Sesudah AuthGuard mencocokkan path penuh, gerbang itu
-     * lolos dan yang menjawab jadi pagar controller — 403, bukan lagi 302.
+     * 'absensi/recap' — diberi pada duduk yang sama dengan 'absensi/kehadiran'.
      *
-     * Dev tak bisa memperagakannya sendiri (grant itu sengaja tak disemai di
-     * sana), jadi grantnya disisipkan di dalam transaksi. Uji ini yang membuat
-     * pertanyaan terbukanya terlihat di kode, bukan cuma di catatan.
+     * Uji ini semula mengunci 403: Rekap sengaja dikecualikan dari pagar baca
+     * (9 Sep 2026 pagi). Kekecualian itu dicabut Ekky hari yang sama, karena
+     * grant yang ada tapi pintunya tertutup adalah grant menggantung — dan
+     * halamannya memang sekelas Kehadiran: satu rute GET, nol aksi tulis.
+     * Yang berubah adalah KEPUTUSANNYA, bukan ujinya dilonggarkan; buktinya
+     * dua asersi penolakan di bawah tetap berdiri.
+     *
+     * Dev tak menyemai grant itu, jadi disisipkan di dalam transaksi.
      */
-    public function test_grant_recap_executive_dijawab_403_bukan_pantulan(): void
+    public function test_grant_recap_executive_dibuka_bukan_ditolak(): void
     {
         $this->pastikanGrant($this->exec->id, 'absensi/recap');
 
         $res = $this->withSession($this->sesiExecutive())->get('/absensi/recap');
 
-        $res->assertStatus(403);
-        $this->assertNull($res->headers->get('Location'), 'bukan pantulan — pagar controller yang bicara');
+        $res->assertStatus(200);
+        $this->assertNull($res->headers->get('Location'), 'bukan pantulan — halaman sungguhan');
+    }
+
+    /** Pagar recap = pagar baca, bukan pagar lintas-cabang. Kendali negatif. */
+    public function test_recap_menolak_role_di_luar_pagar_baca(): void
+    {
+        $this->pastikanGrant($this->exec->id, 'absensi/recap');
+
+        $sesi = $this->sesiFinance();          // group_id Finance → AuthGuard pasti lolos
+        $sesi['group_name'] = 'Sales';         // yang diuji cuma pagar controller
+        $this->withSession($sesi)->get('/absensi/recap')->assertStatus(403);
     }
     // ── Deret tab: pintu tulis tak boleh tampil ────────────────────────────
 
@@ -267,8 +281,13 @@ class KehadiranExecutiveTest extends TestCase
 
         $this->assertStringContainsString('>Kehadiran<', $html, 'tab tempatnya berdiri wajib ada');
 
-        foreach (['Upload Data', 'Koreksi Absen', 'Mapping Karyawan', 'Periode Gaji', 'Rekap Persetujuan'] as $tab) {
-            $this->assertStringNotContainsString(">$tab<", $html, "tab '$tab' berujung 403 untuk Executive");
+        // Rekap Persetujuan IKUT pagar baca sejak 9 Sep 2026 — tanpa tab ini,
+        // grant 'absensi/recap' milik Executive tak punya satu pun jalan dicapai:
+        // node sidebarnya disembunyikan karena ia tab, dan tabnya tak dirender.
+        $this->assertStringContainsString('>Rekap Persetujuan<', $html, 'satu-satunya jalan Executive ke recap');
+
+        foreach (['Upload Data', 'Koreksi Absen', 'Mapping Karyawan', 'Periode Gaji'] as $tab) {
+            $this->assertStringNotContainsString(">$tab<", $html, "tab '$tab' MENGUBAH data — berujung 403 untuk Executive");
         }
     }
 
@@ -317,7 +336,11 @@ class KehadiranExecutiveTest extends TestCase
 
         $this->assertContains('absensi/kehadiran', $links, 'Dani harus melihat pintunya');
         $this->assertNotContains('absensi', $links, 'Upload Data tak boleh tampil');
-        $this->assertNotContains('absensi/recap', $links, 'Rekap Persetujuan masih 403 untuk Executive');
+        // Asersi ini TIDAK berubah walau Rekap kini boleh dibaca Executive —
+        // yang berubah alasannya. Recap disembunyikan dari sidebar karena ia TAB
+        // dari pintu Kehadiran (shellTabbedLinks), bukan karena ia menolak.
+        // Jalannya ada di deret tab; lihat test_executive_tak_melihat_tab_*.
+        $this->assertNotContains('absensi/recap', $links, 'Rekap tampil sebagai tab, bukan baris sidebar');
     }
 
     /** Aturan lama utuh: role tanpa pintu DAN tanpa kuasa lintas cabang tetap disembunyikan. */

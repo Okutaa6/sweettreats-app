@@ -24,7 +24,7 @@ use Illuminate\Support\Facades\DB;
  *   orang kantor fleksibel berkumpul di ABG. Nambah orang ke rule fleksibel =
  *   otomatis pindah ke ABG, tanpa sentuh kode.
  *
- * Guard canSeeKehadiran() — canSeeAllBranches() DITAMBAH Executive, yang perannya
+ * Guard canSeeAbsensiRekap() — canSeeAllBranches() DITAMBAH Executive, yang perannya
  * memang cuma membaca. Lihat helper itu untuk alasan kenapa Executive tidak
  * dimasukkan ke canSeeAllBranches() (helper itu juga membuka Upload fingerprint,
  * Koreksi Absen, Periode Gaji, dan petty cash).
@@ -57,7 +57,7 @@ class AbsensiKehadiranController extends Controller
 
     private function guard(): void
     {
-        if (! canSeeKehadiran()) {
+        if (! canSeeAbsensiRekap()) {
             abort(403, 'Rekap kehadiran hanya untuk Finance / Admin / Executive.');
         }
     }

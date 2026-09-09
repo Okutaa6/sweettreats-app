@@ -113,7 +113,14 @@ class AuthGuard
             return $next($request);
         }
 
-        // Akses dicocokkan dari PATH PALING SPESIFIK ke yang paling umum.
+        // Akses dicocokkan terhadap SEMUA awalan path sekaligus: 'a/b/c', 'a/b',
+        // lalu 'a'. Cukup SALAH SATU cocok — ini pemeriksaan ADA/TIDAK, bukan
+        // pemilihan node. Urutan $kandidat menggambarkan niat (spesifik dulu),
+        // tapi kuerinya `whereIn` tanpa ORDER BY, jadi baris mana yang terambil
+        // TIDAK dijamin. Aman selama hasilnya cuma dipakai `empty()` di bawah.
+        // ⛔ Kalau suatu hari $groupAccess dibaca isinya — menentukan node aktif,
+        // label, atau hak turunan — urutan itu WAJIB dipaksa dulu (ORDER BY
+        // FIELD(link, …)), kalau tidak perilakunya berubah-ubah tanpa gejala.
         //
         // Sampai 9 Sep 2026 gerbang ini hanya membandingkan SEGMEN-1 URL dengan
         // `access_path.link`. Akibatnya setiap node bertingkat — 'absensi/kehadiran',

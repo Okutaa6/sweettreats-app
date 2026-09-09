@@ -17,8 +17,14 @@ use Illuminate\Support\Carbon;
  * per item (kontrol dipindah ke tutup periode, §5.4) — halaman ini buat spot-check:
  * lihat apa yg sudah lolos, sandingkan klaim lembur vs scan (§2.11), sebelum tutup.
  *
- * Guard canSeeAllBranches (sama pola AbsensiUploadController). Route di segment(1) =
- * 'absensi' (node sudah di-grant Finance/admin), jadi tak butuh access node baru.
+ * Guard canSeeAbsensiRekap() — halaman ini BACA saja (satu rute GET, nol aksi
+ * tulis), jadi ia sekelas Kehadiran dan tak perlu canSeeAllBranches() yang juga
+ * membuka Upload/Koreksi/Periode. Executive ikut sejak 9 Sep 2026: grantnya sudah
+ * diberi di prod tapi pintunya tertutup — grant menggantung, gejala tersamar.
+ *
+ * AuthGuard meloloskan halaman ini lewat node 'absensi/recap' — sejak 9 Sep 2026
+ * gerbang itu mencocokkan PATH PENUH dulu, jadi tak lagi menuntut node segmen-1
+ * 'absensi' (Upload Data) yang justru TIDAK boleh dipegang Executive.
  *
  * Konteks: docs/rencana/rencana-rekonsiliasi-absensi.md §2.11, §5.4, Fase D.
  */
@@ -29,8 +35,8 @@ class AbsensiRecapController extends Controller
 
     private function guard(): void
     {
-        if (! canSeeAllBranches()) {
-            abort(403, 'Rekap absensi hanya untuk Finance / Admin.');
+        if (! canSeeAbsensiRekap()) {
+            abort(403, 'Rekap absensi hanya untuk Finance / Admin / Executive.');
         }
     }
 
