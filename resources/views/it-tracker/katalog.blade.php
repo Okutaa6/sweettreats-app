@@ -319,7 +319,7 @@
                     <span class="num pil">{{ $jumlah['yatim'] }} tiket terbuka</span>
                     <span class="num jumlah">{{ $jumlah['bertaut'] }} bertaut + {{ $jumlah['yatim'] }} tanpa modul = {{ $jumlah['terbuka'] }} tiket terbuka di papan</span>
                 </div>
-                <div class="ket">Belum menempel ke entri katalog mana pun — modulnya diisi Head IT saat triase (atau dari halaman tiketnya).
+                <div class="ket">Belum menempel ke entri katalog mana pun — modulnya diisi pentriase (Head IT, Executive, Konsultan IT) saat triase (atau dari halaman tiketnya).
                     Sengaja tidak ditebak dari judul: tebakan yang meleset tak terlihat siapa pun.</div>
                 <div class="daftar">
                     @foreach (array_slice($yatim, 0, 12) as $x)

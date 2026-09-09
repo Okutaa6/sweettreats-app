@@ -352,7 +352,7 @@ class ItTrackerController extends Controller
             $t->nomor . ' terkirim — antre di belakang ' . $diTangan . ' yang sudah di tangan IT.');
     }
 
-    /** Triase — HANYA Head IT (uji terima no. 12: ditolak di controller). */
+    /** Triase — Head IT, Executive, Konsultan IT (bolehTriase; keputusan Ekky 9 Sep 2026). Ditolak di controller, bukan cuma disembunyikan di layar. */
     public function triase(Request $request, int $id)
     {
         if (! $this->bolehTriase()) {
