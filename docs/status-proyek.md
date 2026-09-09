@@ -39,7 +39,7 @@
 > `2400896`, tak ada lagi cabang prod terpisah. Peringatan lama "jangan deploy
 > main ke prod" **sudah TIDAK berlaku** — sekarang justru `main` yang benar.
 >
-> ✅ **Sisipan 2026-09-09d — TRIASE DIBUKA UNTUK EXECUTIVE & KONSULTAN IT**
+> ✅ **Sisipan 2026-09-09e — TRIASE DIBUKA UNTUK EXECUTIVE & KONSULTAN IT**
 > (branch `feat/triase-executive-konsultan-it` dari main, nol SQL, prod belum).
 > Lewat predikat sempit `bolehTriase()` — `peran()` TIDAK berubah, karena
 > menaikkan Executive ke head_it justru mencabut paraf BO-nya (eksklusif
