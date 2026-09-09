@@ -315,6 +315,77 @@ PSV. Aku tidak menebak.
   pemakaian tetap terhitung lewat `fitur_link`. Sinkronkan nama di seeder
   kalau mau jalur cadangan hidup.
 ---
+## 2026-09-09 — Triase dibuka untuk Executive & Konsultan IT — tanpa menaikkan peran (dev-siap, prod belum)
+
+Keputusan Ekky 9 Sep 2026. Branch `feat/triase-executive-konsultan-it` dari
+`main` (`5d6c23c`). **Nol SQL** — kolom pencatat triase sudah ada.
+
+### Kenapa BUKAN dengan menjadikan mereka head_it
+Paraf Business Owner (`bolehParafBo`) **eksklusif** milik peran `pengawas`, dan
+Executive-lah pemegang utamanya. Menaikkan Executive ke `head_it` justru
+**mencabut hak parafnya** — gerbang ANALISIS lalu tak bisa dilewati siapa pun —
+dan orang yang sama akan memegang tombol **melewati** paraf sekaligus
+**memberi** paraf. Jadi `peran()` tidak disentuh sama sekali; yang bertambah
+satu predikat sempit:
+
+```
+bolehTriase() = peran() === 'head_it'
+                ATAU group_name ∈ ROLE_TRIASE_TAMBAHAN = ['Executive', 'Konsultan IT']
+```
+
+### Yang ikut terbuka
+Aksi `POST …/triase` (jenjang + bobot + prioritas IT) · modal triase di papan
+dan detail · pilihan **modul** di dalamnya (tiket tanpa modul memutus tautan
+katalog) · tombol "Triase" di kartu papan.
+
+### Yang tetap Head IT saja — dan layarnya ikut jujur
+Pelewatan paraf (`teruskan`) · penetapan PIC (`/pic` **dan** `pic_user_id`
+yang diselipkan ke formulir triase — ditolak **403 terang-terangan**, bukan
+diabaikan diam-diam) · formulir analisis · dependensi · evaluator · FRM-IT-02 ·
+tunda/tolak · buka-lagi. Modal untuk Executive/Konsultan IT **tidak memuat**
+bagian PIC maupun formulir Tunda/Tolak — tak ada tombol yang berujung 403.
+
+### Siapa yang mentriase — bisa ditelusuri
+Sejak sekarang "prioritas IT" bisa diisi orang di luar IT. Jejaknya sudah ada:
+`it_ticket_fase.oleh_user_id` pada langkah TRIASE→ANTRE. Detail tiket kini
+menampilkan baris **"Ditriase oleh <nama> · tanggal"** (elemen
+`itk-triase-oleh`); tiket permintaan yang belum ditriase menulis "—";
+inisiatif IT (lahir di ANTRE) tak punya baris ini.
+
+### Uji — akun SUNGGUHAN (AuthGuard membaca group_id), per kelas
+`ItTrackerTriaseExecutiveTest` **11 uji · 75 asersi hijau**: Konsultan IT
+triase → 302, TRIASE→ANTRE, pentriase tercatat & tampil · Executive triase +
+modul → 302 · Konsultan Finance / Konsultan Marketing / Admin General / Admin
+Backup → **403**, tiket tak bergeser · **Executive MASIH paraf BO di ANALISIS**
+· Executive teruskan → 403 · Executive PIC (rute & selipan) → 403 · Head IT
+(Ikhsan) triase+PIC, ganti PIC, tunda, teruskan semua tetap jalan · `peran()`
+Executive/Konsultan IT **tetap 'pengawas'** (diuji langsung) · layar Executive
+memuat modal tanpa PIC/tunda-tolak, Konsultan Finance tanpa modal, Head IT
+masih punya tunda/tolak.
+
+Regresi 16 kelas tracker: **hijau semua kecuali dua yang merah SEBELUM tugas
+ini** — dibuktikan dengan kontrol: 26 uji merah **persis sama** dengan dan
+tanpa patch (stash):
+- **Persona Finance/head** (25 uji di 9 kelas, termasuk
+  `test_head_tak_melihat_tiket_orang_lain` yang Ekky sebut): merah hanya
+  karena grant Finance/Head Marketing/Admin dicabut 9 Sep — begitu grant lokal
+  dipulihkan sementara, **semuanya hijau**, lalu dicabut lagi (lokal = cermin
+  prod). Tidak diperbaiki di sini, tidak dipakai sebagai alasan melonggarkan.
+- **`ItTrackerSeedAntrianTest`** (4 uji): PSV di `main` bertambah **34→36**
+  baris sore ini (tiket 35 & 36 dari audit 9 Sep, `fdaf8fb`/`5d6c23c`),
+  ujinya masih menghitung 34/30. Pemilik chat PSV yang menyesuaikan.
+
+Grup Konsultan tak ada di DB lokal (SQL 21 Agu gagal di `parent_id_2`) →
+disisipkan minimal secara lokal untuk uji; kelas ini **melewati diri** dengan
+pesan jelas di lingkungan tanpa grup/grant itu.
+
+### Sengaja tidak dikerjakan
+- Tunda/Tolak & buka-lagi tetap Head IT — tak ada di daftar yang dibuka.
+- Taut/lepas modul **sesudah** triase (formulir di detail) tetap Head IT —
+  yang dibuka hanya pilihan modul **saat** triase.
+- Group lama "Consultant" (0 akun) tetap tertutup.
+- Tidak menyentuh dev/prod; belum di-deploy ke mana pun. PROD menunggu kata "prod".
+---
 ## 2026-09-09 — Tracker + Katalog SIAP naik prod SENYAP: pintu drop-up, akses dipangkas (`9f2d98c`, dev)
 
 Keputusan Ekky 9 Sep 2026: IT Request Tracker + Katalog Modul **naik prod tanpa

@@ -1,15 +1,18 @@
 {{--
-    Modal triase (Head IT) — dipakai papan DAN detail tiket.
+    Modal triase — dipakai papan DAN detail tiket.
+    Sejak 9 Sep 2026 dibuka juga untuk Executive & Konsultan IT (bolehTriase),
+    tanpa menaikkan peran mereka: bagian PIC hanya tampil bila $picOpsi terisi
+    (Head IT), dan formulir Tunda/Tolak hanya bila $bolehParkir (Head IT).
 
     Dulu hanya ada di papan, sehingga Head IT yang sedang membaca satu tiket
     harus dilempar balik ke papan (`?q=nomor`) untuk mentriasenya. Formulirnya
     sama persis; yang berbeda cuma dari mana ia dibuka.
 
-    Butuh: $picOpsi. Buka lewat itkBukaTriase(id, nomor, judul, prioritasPemohon).
+    Butuh: $picOpsi, $bolehParkir. Buka lewat itkBukaTriase(id, nomor, judul, prioritasPemohon).
 --}}
 <div class="itk-modal-scrim" id="itkModalTriase" onclick="if (event.target === this) itkTutupTriase()">
     <div class="itk-modal">
-        <div class="itk-modal-hd"><b>TRIASE — DIISI IT, BUKAN PEMOHON</b><span class="itk-badge-fase">FASE 1</span>
+        <div class="itk-modal-hd"><b>TRIASE — KEPUTUSAN PENTRIASE, BUKAN PEMOHON</b><span class="itk-badge-fase">FASE 1</span>
             <button type="button" onclick="itkTutupTriase()">✕</button></div>
         <div class="itk-modal-body">
             <div>
@@ -77,6 +80,7 @@
                 </div>
                 <button type="submit" class="itk-btn itk-btn-grafit" style="width:100%">Simpan &amp; masukkan antrean</button>
             </form>
+            @if ($bolehParkir ?? false)
             <div class="itk-sekat"></div>
             <form method="post" id="itkParkirForm">
                 @csrf
@@ -89,6 +93,7 @@
                 </div>
                 <div class="itk-hint">Ditunda tetap tampil di parkiran papan dengan alasannya — ditunda bukan berarti hilang.</div>
             </form>
+            @endif
         </div>
     </div>
 </div>
@@ -100,7 +105,8 @@ function itkBukaTriase(id, nomor, judul, prioP) {
         ? 'Prioritas menurut pemohon: ' + prioP + ' — masukan, bukan keputusan. Kolomnya terpisah.'
         : '';
     document.getElementById('itkTriaseForm').action = '{{ url('it-tracker/tiket') }}/' + id + '/triase';
-    document.getElementById('itkParkirForm').action = '{{ url('it-tracker/tiket') }}/' + id + '/parkir';
+    var parkir = document.getElementById('itkParkirForm');
+    if (parkir) parkir.action = '{{ url('it-tracker/tiket') }}/' + id + '/parkir';
     document.getElementById('itkModalTriase').classList.add('buka');
 }
 function itkTutupTriase() {

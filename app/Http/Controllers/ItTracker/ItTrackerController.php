@@ -181,11 +181,14 @@ class ItTrackerController extends Controller
             'parkir'  => $parkir,
             'beban'   => $this->svc->ringkasanBeban($semuaView),
             'peran'   => $this->peran(),
+            // PIC hanya ditunjuk Head IT — pentriase lain tak melihat pilihan ini (picOpsi kosong)
             'picOpsi' => $this->peran() === 'head_it' ? $this->picOpsi() : collect(),
-            // daftar modul katalog untuk pertanyaan modul di modal triase
-            'modulOpsi' => $this->peran() === 'head_it'
+            // daftar modul katalog untuk pertanyaan modul di modal triase — ikut siapa yang boleh mentriase
+            'modulOpsi' => $this->bolehTriase()
                 ? \App\Models\ItModul::orderBy('departemen')->orderBy('nama')->get(['id', 'nama', 'departemen', 'status'])
                 : collect(),
+            'bolehTriase' => $this->bolehTriase(),
+            'bolehParkir' => $this->peran() === 'head_it',
             'filter'  => ['q' => $q, 'macet' => (bool) $request->query('macet'),
                           'sumber' => $sumber, 'jenjang' => $jenjang, 'unit' => $unit,
                           'modul' => $modul?->id, 'modulNama' => $modul?->nama],
@@ -254,6 +257,12 @@ class ItTrackerController extends Controller
             'gate'   => $gate,
             'jalur'  => PhaseEngine::pathFor($t->jenjang),
             'peran'  => $this->peran(),
+            'bolehTriase' => $this->bolehTriase(),
+            'bolehParkir' => $this->peran() === 'head_it',
+            // siapa yang mentriase — dibaca dari jejak fase (it_ticket_fase.oleh_user_id
+            // pada langkah TRIASE→ANTRE), bukan kolom baru; ditampilkan karena sejak
+            // 9 Sep 2026 prioritas IT bisa diisi orang di luar IT.
+            'triase' => $this->jejakTriase($t),
             'bolehGerak' => $this->bolehGerakkan($t),
             'picOpsi'    => $this->peran() === 'head_it' ? $this->picOpsi() : collect(),
             // nama orang IT untuk PIC temuan (FRM-IT-04) — dibaca semua peran, ditulis IT
@@ -279,7 +288,7 @@ class ItTrackerController extends Controller
             'evOpsi'        => $this->peran() === 'head_it' && $t->fase === 'EVALUASI' ? $this->pengawasOpsi() : collect(),
             // Katalog: tiket menyebut modulnya — atau menyebut bahwa ia belum punya
             'modul'     => $t->modul_id ? \App\Models\ItModul::find($t->modul_id) : null,
-            'modulOpsi' => $this->peran() === 'head_it'
+            'modulOpsi' => $this->bolehTriase()
                 ? \App\Models\ItModul::orderBy('departemen')->orderBy('nama')->get(['id', 'nama', 'departemen', 'status'])
                 : collect(),
             'form01' => optional($t->forms->firstWhere('kode', 'FRM-IT-01'))->payload ?? [],
@@ -346,7 +355,9 @@ class ItTrackerController extends Controller
     /** Triase — HANYA Head IT (uji terima no. 12: ditolak di controller). */
     public function triase(Request $request, int $id)
     {
-        $this->pastikanHeadIt('Triase hanya dilakukan Head IT.');
+        if (! $this->bolehTriase()) {
+            abort(403, 'Triase hanya dilakukan Head IT, Executive, atau Konsultan IT.');
+        }
 
         $d = $request->validate([
             'jenjang'      => 'required|in:S,M,L',
@@ -358,6 +369,13 @@ class ItTrackerController extends Controller
             // jujur kosong lebih baik daripada tebakan yang meleset tanpa terlihat.
             'modul_id'     => 'nullable|integer|exists:it_modul,id',
         ]);
+
+        // Penetapan PIC TETAP milik Head IT — pentriase lain yang mengirimnya ditolak
+        // terang-terangan, bukan diabaikan diam-diam (kiriman yang "tak berbuat apa-apa"
+        // adalah jenis kegagalan yang paling lama ketahuan).
+        if (! empty($d['pic_user_id']) && $this->peran() !== 'head_it') {
+            abort(403, 'Menunjuk PIC hanya dilakukan Head IT.');
+        }
 
         $t = ItTicket::findOrFail($id);
 
@@ -1211,6 +1229,31 @@ class ItTrackerController extends Controller
         return in_array($this->peran(), ['head_it', 'it_dev'], true);
     }
 
+    /** Predikat sempit untuk triase saja — peran() tidak berubah (lihat ItTrackerService::ROLE_TRIASE_TAMBAHAN). */
+    private function bolehTriase(): bool
+    {
+        return ItTrackerService::bolehTriase(session('group_name'));
+    }
+
+    /**
+     * Jejak triase dari riwayat fase: langkah TRIASE→ANTRE yang pertama.
+     * null kalau tiket tak pernah lewat TRIASE (inisiatif IT lahir di ANTRE) atau belum ditriase.
+     */
+    private function jejakTriase(ItTicket $t): ?array
+    {
+        $urut = $t->riwayatFase->sortBy('masuk_at')->values();
+        $iTriase = $urut->search(fn ($r) => $r->fase === 'TRIASE');
+        if ($iTriase === false) return null;
+        $antre = $urut->slice($iTriase + 1)->first(fn ($r) => $r->fase === 'ANTRE');
+        if (! $antre) return null;
+
+        $nama = $antre->oleh_user_id
+            ? \Illuminate\Support\Facades\DB::table('users')->where('id', $antre->oleh_user_id)->value('nama')
+            : null;
+
+        return ['nama' => $nama ?: '(pengguna tak dikenal)', 'at' => $antre->masuk_at];
+    }
+
     /** Kandidat PIC = orang IT (Head IT + IT), untuk triase & ganti PIC. */
     private function picOpsi()
     {
@@ -1349,10 +1392,10 @@ class ItTrackerController extends Controller
         $peran  = $this->peran();
 
         if ($t->fase === 'TRIASE') {
-            if ($peran === 'head_it') {
+            if ($this->bolehTriase()) {
                 $tombol = ['label' => 'Triase — tetapkan jenjang & prioritas', 'jenis' => 'triase'];
             } elseif ($peran === 'it_dev') {
-                $blokir = 'Hanya Head IT yang menetapkan triase';
+                $blokir = 'Triase ditetapkan Head IT, Executive, atau Konsultan IT';
             }
         } elseif ($gate && ($gate['kind'] ?? '') === 'advance' && ($gate['actor'] ?? '') === 'it' && $this->adalahIt()) {
             $boleh = $this->bolehGerakkan($t);

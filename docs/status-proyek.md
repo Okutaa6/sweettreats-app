@@ -39,6 +39,18 @@
 > `2400896`, tak ada lagi cabang prod terpisah. Peringatan lama "jangan deploy
 > main ke prod" **sudah TIDAK berlaku** — sekarang justru `main` yang benar.
 >
+> ✅ **Sisipan 2026-09-09d — TRIASE DIBUKA UNTUK EXECUTIVE & KONSULTAN IT**
+> (branch `feat/triase-executive-konsultan-it` dari main, nol SQL, prod belum).
+> Lewat predikat sempit `bolehTriase()` — `peran()` TIDAK berubah, karena
+> menaikkan Executive ke head_it justru mencabut paraf BO-nya (eksklusif
+> `pengawas`) dan menyatukan tombol melewati + memberi paraf di satu orang.
+> Terbuka: aksi triase + modal + pilihan modul. Tetap Head IT: teruskan, PIC
+> (selipan `pic_user_id` di triase → 403 terang), analisis, dependensi,
+> evaluator, FRM-IT-02, tunda/tolak. Detail tiket kini menyebut **"Ditriase
+> oleh"** dari `it_ticket_fase.oleh_user_id`. 11 uji baru hijau (akun
+> sungguhan, per kelas); 26 merah lama terbukti bukan dari patch (identik
+> dengan/tanpa stash): 25 karena grant Finance/head dicabut 9 Sep, 4 karena
+> PSV main 34→36 vs uji 34.
 > ✅ **Sisipan 2026-09-09d — PAPAN PROD TERISI 34 TIKET** (02:26 WIB, chat HUB).
 > Seeder berhenti karena "Yovan" — ternyata **Yovan = Yovanka, satu orang**
 > (dev menyimpan akun lama ber-domain `stdc.id` di samping yang baru; prod

@@ -28,6 +28,23 @@ class ItTrackerService
     /** Melihat semua tiket; ACC Go-Live (Fase 2). Konsultan = Executive (keputusan Robi). */
     public const ROLE_PENGAWAS = ['Executive', 'Consultant', 'Konsultan IT', 'Konsultan Finance', 'Konsultan Marketing', 'Admin General', 'Admin Backup', 'Admin'];
 
+    /**
+     * Boleh MENTRIASE selain Head IT — keputusan Ekky 9 Sep 2026.
+     *
+     * Sengaja BUKAN dengan memasukkan mereka ke ROLE_HEAD_IT: paraf Business
+     * Owner (bolehParafBo) eksklusif milik peran `pengawas`, dan merekalah
+     * pemegang utamanya. Menaikkan Executive ke head_it justru MENCABUT hak
+     * parafnya — gerbang ANALISIS lalu tak bisa dilewati siapa pun — dan orang
+     * yang sama akan memegang tombol MELEWATI paraf sekaligus MEMBERI paraf.
+     * Karena itu peran() tetap 'pengawas'; yang terbuka hanya satu predikat.
+     *
+     * Yang ikut terbuka: aksi triase (jenjang + bobot + prioritas IT), modal
+     * triase, pilihan modul di dalamnya. Yang TETAP head_it: pelewatan paraf,
+     * penetapan PIC, formulir analisis, dependensi, evaluator, FRM-IT-02,
+     * tunda/tolak, buka-lagi.
+     */
+    public const ROLE_TRIASE_TAMBAHAN = ['Executive', 'Konsultan IT'];
+
     public const FASE_PARKIR = ['DITUNDA', 'DITOLAK'];
 
     /**
@@ -166,6 +183,13 @@ class ItTrackerService
         if (in_array($groupName, self::ROLE_IT_DEV, true))   return 'it_dev';
         if (in_array($groupName, self::ROLE_PENGAWAS, true)) return 'pengawas';
         return 'head';
+    }
+
+    /** Siapa boleh mentriase: Head IT, atau role di ROLE_TRIASE_TAMBAHAN — tanpa mengubah peran(). */
+    public static function bolehTriase(?string $groupName): bool
+    {
+        return self::peran($groupName) === 'head_it'
+            || in_array($groupName, self::ROLE_TRIASE_TAMBAHAN, true);
     }
 
     /**

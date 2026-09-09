@@ -531,8 +531,8 @@
     </script>
 </div>
 
-{{-- Modal triase (Head IT) — partial yang SAMA dipakai halaman detail --}}
-@if ($peran === 'head_it')
+{{-- Modal triase — partial yang SAMA dipakai halaman detail; bolehTriase = Head IT + Executive + Konsultan IT --}}
+@if ($bolehTriase ?? false)
     @include('it-tracker._modal-triase')
 @endif
 @endsection

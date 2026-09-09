@@ -315,11 +315,11 @@
                                 <div class="itk-gerbang">
                                     <div class="itk-gerbang-hd"><b>GERBANG KE ANTRE</b><span class="itk-acc-fase f2">FASE 1</span></div>
                                     <ul class="itk-missing"><li>jenjang + bobot + prioritas IT terisi (lewat triase)</li></ul>
-                                    @if ($peran === 'head_it')
+                                    @if ($bolehTriase)
                                         <button type="button" class="itk-gerbang-btn"
                                             onclick="itkBukaTriase('{{ $t->id }}', '{{ $t->nomor }}', @js($t->judul), @js($t->prioritas_pemohon))">Triase — tetapkan jenjang &amp; prioritas</button>
                                     @else
-                                        <span class="itk-gerbang-btn mati">Hanya Head IT yang menetapkan triase</span>
+                                        <span class="itk-gerbang-btn mati">Triase ditetapkan Head IT, Executive, atau Konsultan IT</span>
                                     @endif
                                 </div>
                             @endif
@@ -417,11 +417,11 @@
 
         {{-- Rail kanan: aksi & info — menempel saat menggulir --}}
         <div class="itk-detail-rail">
-            @if ($gAda || ($t->fase === 'TRIASE' && $peran === 'head_it'))
+            @if ($gAda || ($t->fase === 'TRIASE' && $bolehTriase))
                 <div class="itk-side">
                     <div class="itk-side-hd"><i></i><b>LANGKAH BERIKUTNYA</b></div>
                     @if ($t->fase === 'TRIASE')
-                        {{-- triase DI SINI: Head IT yang sedang membaca tiket tak perlu dilempar balik ke papan --}}
+                        {{-- triase DI SINI: pentriase yang sedang membaca tiket tak perlu dilempar balik ke papan --}}
                         <button type="button" class="itk-gerbang-btn" style="margin-top:0;width:100%"
                             onclick="itkBukaTriase('{{ $t->id }}', '{{ $t->nomor }}', @js($t->judul), @js($t->prioritas_pemohon))">Triase — tetapkan jenjang &amp; prioritas</button>
                     @elseif ($gBtnForm)
@@ -448,6 +448,13 @@
                 </div>
                 <div class="itk-hint" style="margin:-2px 0 0">Dua kolom terpisah — masukan pemohon ≠ keputusan IT.</div>
                 <div class="itk-info-row"><b>Jenjang · bobot</b><span>{{ $t->jenjang ? $t->jenjang . ' · bobot ' . ($t->bobot ?? '—') : 'belum ditriase' }}</span></div>
+                {{-- Siapa yang mentriase — jejak it_ticket_fase (TRIASE→ANTRE). Sejak 9 Sep 2026
+                     prioritas IT bisa diisi Executive/Konsultan IT, jadi kolomnya harus bisa ditelusuri. --}}
+                @if ($triase)
+                    <div class="itk-info-row itk-triase-oleh"><b>Ditriase oleh</b><span>{{ $triase['nama'] }} · {{ $triase['at']->translatedFormat('j M H:i') }}</span></div>
+                @elseif ($t->sumber !== 'inisiatif' && ! $t->jenjang)
+                    <div class="itk-info-row itk-triase-oleh"><b>Ditriase oleh</b><span>—</span></div>
+                @endif
                 <div class="itk-info-row"><b>PIC IT</b><span>{{ $t->pic->nama ?? 'belum ditarik' }}</span></div>
                 <div class="itk-info-row"><b>Sumber</b><span>{{ $t->sumber === 'permintaan' ? 'Formulir permintaan' : ($t->sumber === 'insiden' ? 'Insiden / hotfix' : 'Inisiatif IT') }}</span></div>
                 <div class="itk-info-row"><b>Fase saat ini</b><span>{{ $aktif ? ($labelFase[$t->fase] ?? PhaseEngine::phLong($kini)) : ($labelFase[$t->fase] ?? $t->fase) }}</span></div>
@@ -543,7 +550,7 @@
         </div>
     </div>
 </div>
-@if ($peran === 'head_it' && $t->fase === 'TRIASE')
+@if ($bolehTriase && $t->fase === 'TRIASE')
     @include('it-tracker._modal-triase')
 @endif
 <script>
