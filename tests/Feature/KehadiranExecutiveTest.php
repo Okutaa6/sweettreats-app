@@ -218,6 +218,45 @@ class KehadiranExecutiveTest extends TestCase
         $this->assertTrue(canSeeKehadiran(), 'tapi tetap boleh MEMBACA Kehadiran');
     }
 
+    /**
+     * Executive tak punya cabang asal (raw_branch_id NULL). Layar ini
+     * mengelompokkan per cabang ASAL, jadi peran tanpa cabang berisiko diam-diam
+     * melihat SEBAGIAN data — dan halaman yang tampak normal dengan angka yang
+     * kurang jauh lebih berbahaya daripada halaman yang menolak terbuka.
+     */
+    public function test_executive_melihat_data_yang_sama_dengan_finance(): void
+    {
+        $baris = function (array $sesi): int {
+            $html = $this->withSession($sesi)->get('/absensi/kehadiran')
+                ->assertStatus(200)->getContent();
+            return substr_count($html, 'kh2-name');
+        };
+
+        $exec = $baris($this->sesiExecutive());
+        $fin  = $baris($this->sesiFinance());
+
+        $this->assertGreaterThan(0, $exec, 'Executive melihat halaman kosong — cek penyaringan cabang');
+        $this->assertSame($fin, $exec, 'Executive tak boleh melihat lebih sedikit baris daripada Finance');
+    }
+
+    /**
+     * PROD-ONLY, dipentaskan di sini: di prod Executive JUGA dipegangi grant
+     * 'absensi/recap'. Sesudah AuthGuard mencocokkan path penuh, gerbang itu
+     * lolos dan yang menjawab jadi pagar controller — 403, bukan lagi 302.
+     *
+     * Dev tak bisa memperagakannya sendiri (grant itu sengaja tak disemai di
+     * sana), jadi grantnya disisipkan di dalam transaksi. Uji ini yang membuat
+     * pertanyaan terbukanya terlihat di kode, bukan cuma di catatan.
+     */
+    public function test_grant_recap_executive_dijawab_403_bukan_pantulan(): void
+    {
+        $this->pastikanGrant($this->exec->id, 'absensi/recap');
+
+        $res = $this->withSession($this->sesiExecutive())->get('/absensi/recap');
+
+        $res->assertStatus(403);
+        $this->assertNull($res->headers->get('Location'), 'bukan pantulan — pagar controller yang bicara');
+    }
     // ── Deret tab: pintu tulis tak boleh tampil ────────────────────────────
 
     /** Menu yang tampil lalu menolak adalah kegagalan senyap. */
