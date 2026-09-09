@@ -7,6 +7,52 @@
 
 ---
 
+## 2026-09-09 — Rekap Persetujuan ikut pagar baca: grant Executive tak lagi menggantung (chat HUB)
+
+Audit HUB atas gerbong Kehadiran menemukan pertanyaan terbuka chat build itu
+punya jawaban yang lebih tegas dari dugaan: grant `absensi/recap` milik Executive
+**ada di prod dan tak punya SATU PUN jalan dicapai**. Bukan sekadar "tertutup" —
+node sidebarnya disembunyikan karena ia tab dari pintu Kehadiran
+(`shellTabbedLinks`), dan tabnya sendiri dipagari `canSeeAllBranches()` sehingga
+tak pernah dirender. Ekky memberi grant itu pada duduk yang sama dengan
+`absensi/kehadiran`, jadi niatnya jelas. Keputusan Ekky 9 Sep: buka.
+
+**Perubahan** (`fix/absensi-rekap-executive`, di atas `fix/kehadiran-executive`):
+
+| berkas | apa |
+|---|---|
+| `app/Helpers.php` | `canSeeKehadiran()` → **`canSeeAbsensiRekap()`** — satu predikat untuk dua layar BACA. Nama lama jadi dusta begitu ia juga menjaga Rekap. |
+| `AbsensiRecapController` | gerbang `canSeeAllBranches()` → `canSeeAbsensiRekap()`. Rutenya satu `GET`, nol aksi tulis. |
+| `_finance_tabs.blade.php` | tab Rekap pindah dari `$bolehLintas` ke `$bolehBaca` — satu-satunya jalan Executive ke halaman itu. |
+| `AuthGuard` | komentar diluruskan (lihat di bawah). |
+
+⛔ **Pintu TULIS tak bergerak**: Upload Data, Mapping, Koreksi Absen, Periode
+Gaji, Lembar Gaji tetap `canSeeAllBranches()`. Executive tetap 302/403 di sana.
+
+**Dua uji yang mengunci kekecualian lama diubah karena KEPUTUSANNYA berubah,
+bukan dilonggarkan.** Buktinya: asersi penolakan Sales tetap, keempat tab tulis
+tetap dilarang, dan ditambah kendali negatif `test_recap_menolak_role_di_luar_pagar_baca`.
+Satu uji **tidak** diubah asersinya walau tergoda: `test_menu_executive_*` tetap
+menuntut `absensi/recap` ABSEN dari sidebar — yang berubah cuma alasannya, dari
+"ia menolak" jadi "ia tab". Asersi benar karena alasan salah adalah utang.
+
+**Komentar `AuthGuard` diluruskan.** Ia mengaku mencocokkan "dari path paling
+spesifik ke yang paling umum", padahal kuerinya `whereIn` tanpa `ORDER BY` —
+urutan baris yang terambil tidak dijamin. Tak berbahaya sekarang (hasilnya cuma
+dipakai `empty()`), tapi ditandai: kalau suatu hari isi `$groupAccess` dibaca,
+urutannya WAJIB dipaksa dulu.
+
+**Uji, per kelas di dev** (dev dipinjam dari `feat/it-tracker` 1d52013 dan
+dikembalikan persis, `--no-dev` termasuk):
+KehadiranExecutive **16/16 · 108 asersi** · LayarAbsensiRender 10/10 ·
+KehadiranEkspor 7/7 · KoreksiAbsen 16/16 · PagarLemburLayar 3/3 ·
+PengawasanFoto 4/4 · AmbangDodo 9/9.
+
+Nol SQL, nol aset publik → **nol rsync**. Grant di prod sudah ada, jangan
+disentuh. Naik prod bersama gerbong Kehadiran, menunggu kata Ekky.
+
+---
+
 ## 2026-09-09 — Executive tak bisa membuka Kehadiran: DUA pagar di kode, bukan grant · LULUS DEV, prod menunggu
 
 Dani & Robi (Executive) diberi grant menu "Kehadiran" oleh Ekky 9 Sep, tapi layarnya
