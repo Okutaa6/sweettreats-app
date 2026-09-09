@@ -117,3 +117,44 @@ Ini sudah terjawab dari data, dicantumkan supaya tidak ditanyakan dua kali:
 - **Kecocokan data** — sudah diuji dengan pasien nyata. Tegar Sanfian
   (D-2509-1035): sheet mencatat pemasangan 19/9/2025 dan kontrol 8/3, 12/4,
   10/5, 7/6, 19/7; Omnicare mencatat tanggal yang sama persis.
+
+---
+
+# ✅ JAWABAN ANISA — 9 September 2026
+
+Direkam apa adanya, lalu diterjemahkan jadi aturan yang bisa dihitung.
+Yang **tercetak tebal** adalah aturan yang masuk ke brief Rahmat.
+
+| # | Jawaban Anisa | Aturan yang lahir |
+|---|---|---|
+| 1 | "seharusnya tetep aktif sampe dia selesai atau pindah ke klinik lain" | **Active BUKAN berbasis waktu.** Lama tak kontrol memicu peringatan, bukan mengubah status. |
+| 2 | "jarang kontrol itu 6 bulan 2 kali atau 3 bulan sekali" | **Jarang = <2 kunjungan dalam 6 bulan.** Ukuran FREKUENSI, bukan kebaruan. |
+| 3 | "seharusnya tetep aktif, tapi rentangnya jelas" | Pasien yang kembali tetap Active; riwayat bolongnya tetap tampak. |
+| 4 | "biasanya pindah kontrol ke cabang sweettreats lain" | **Pindah Kontrol = antar cabang kita**, bukan keluar. |
+| 5 | "selesai atau bracketnya udah di lepas, tapi ada kemungkinan juga buat dia pindah ke klinik lain… pindah pulau" | ⚠️ **"Done" mencampur dua hal**: perawatan tuntas vs kehilangan pelanggan. Perlu dipisah untuk laporan. |
+| 6 | "orang yang pasang behel dengan di endorse dari sweettreats" | **Endorser = kategori pemasaran, bukan status.** Bisa berbarengan dengan Active. |
+| 7 | "dihitung dari terakhir dia perawatan… kecuali pasien itu mau balik lagi ke cinere" | **Pemilik = cabang perawatan TERAKHIR.** Bisa diturunkan otomatis. |
+| 8 | "di pisah aja, jadi tau mana yang pernah mana yang ngga" | Cabang asal tetap melihat pasiennya yang pindah, ditandai terpisah. |
+| 9 | "di cek satu satu lewat WA… cuma seingetnya aja" | Tak ada mekanisme; inilah sebab 8 dari 12 perpindahan lolos. |
+| 10 | "enaknya bisa lihat cabang lain sih, tapi kalau biar rapih mending per cabang ga sih?" | ⚠️ **Belum diputuskan.** Catatan kami: data global, tampilan boleh per cabang. |
+| 11 | "kalau lagi free aja, ga pernah nentu, makannya sering kelewat sama lupa" | Pengisian bergantung waktu luang → tak bisa diandalkan. |
+| 12 | "satu template, tapi beda-beda sheets tiap cabang, cara isinya sama" | Lima berkas terpisah berpola sama. |
+| 13 | "kalau udah lama ga kontrol… langsung di ingetin atau follow up… di tawarin jadwal" | Tindak lanjut = ingatkan + tawarkan jadwal. Belum tercatat di mana pun. |
+| 14 | "maunya biar bisa laporan gitu sih, tapi kan susah yaa kalau manual" | Pelaporan termasuk kebutuhan, bukan tambahan. |
+| 15 | "suka lupa sama kelewat… scroll panjang banget… carinya juga susah harus ke omni… jadi ga perlu isi terus" | Empat keluhan → empat kebutuhan (brief §4). |
+| 16 | "cuma penanda aja, biar datanya ga double input, kalau dua jadi ketahuan" | **Kolom CONTROL = detektor duplikat manual.** Otomatisasi membuatnya tak perlu. |
+| 17 | "bisa, yang di catat biasanya yang paling baru, makannya data lama tuh hilang" | **Jenis bracket bisa berubah; riwayat lama hilang di sheet.** Omnicare menyimpannya. |
+| 18 | "biasanya 2 tahun sih harusnya udah selesai, tapi kadang sampe dokter bilang selesai" | Target ±2 tahun, berakhir saat dokter menyatakan selesai. |
+| 19 | "itu manual, makannya banyak yang salah" | Nomor RM di sheet tak bisa dipercaya sebagai kunci. |
+| 20 | "kadang ada yang double isinya, atau emang ngga di masukin aja" | Menjelaskan selisih 222 terukur vs 239 di sheet. |
+| 21 | "sheets itu baru di pakai tiap tahun… yang ini tuh yang 2026 dari januari sampe sekarang" | **Sheet per TAHUN.** 239 = pasien 2026, bukan sepanjang masa — ini meralat pembandingan awal kami. |
+
+## Yang masih menggantung
+
+1. **Nomor 10 belum jadi keputusan.** Satu daftar global atau per cabang?
+   Catatan kami: datanya wajib satu, tampilannya boleh dipilah.
+2. **Kepemilikan bisa berbalik tiap kunjungan** (brief §6.2) — belum ditanyakan
+   karena baru terlihat sesudah jawaban nomor 7 diukur ke data.
+3. **Nomor 15 mengandung satu kata yang perlu dipastikan**: *"maunya sih manual
+   yaaa, jadi ga perlu isi terus"*. Bagian "ga perlu isi terus" berarti
+   otomatis. Kami membacanya sebagai **otomatis**; tolong dikonfirmasi.
