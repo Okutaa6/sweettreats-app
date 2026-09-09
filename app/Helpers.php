@@ -133,7 +133,53 @@ if (!function_exists('shellPersonalMap')) {
             'my-checklist/history' => ['Riwayat Checklist', 'fas fa-history'],
             'pengajuan'    => ['Pengajuan',      'fas fa-file-invoice-dollar'],
             'persetujuan'  => ['Persetujuan',    'fas fa-check-circle'],
+            // ⚠️ PENEMPATAN SEMENTARA — keputusan Ekky 9 Sep 2026, peluncuran SENYAP
+            // IT Request Tracker ke prod: dicapai dari drop-up profil, akses hanya
+            // IT + Executive + Konsultan (+ admin), TANPA Head departemen, supaya
+            // dibiasakan dulu sebelum diperkenalkan. IT Tracker itu KERJAAN JABATAN,
+            // tempat tetapnya SIDEBAR (peta-tema §4: menu utama = kerjaan role,
+            // drop-up = pribadi). Menaruhnya di sini otomatis MENYEMBUNYIKAN seksi
+            // "IT" dari sidebar (aturan shellMenuSections: induk yang isinya cuma
+            // personal dibuang). Yang mencabut baris ini nanti = mengembalikannya
+            // ke sidebar; tak perlu SQL apa pun.
+            'it-tracker'   => ['IT Tracker',     'fas fa-tasks'],
         ];
+    }
+}
+
+if (!function_exists('kolomAda')) {
+    /**
+     * Ada tidaknya sebuah kolom — TANPA information_schema.
+     *
+     * ⛔ `Schema::hasColumn()` / `hasTable()` membaca information_schema, dan di
+     * MariaDB lokal (tablespace lama korup, terbukti 2 Sep & 9 Sep) kueri itu
+     * MEMBUNUH mysqld — setiap render halaman yang lewat sini menjatuhkan DB
+     * lokal, sehingga uji tak pernah bisa dijalankan. `SELECT kolom LIMIT 0`
+     * menjawab pertanyaan yang sama tanpa menyentuh katalog sistem. Di dev/prod
+     * keduanya setara.
+     */
+    function kolomAda(string $tabel, string $kolom): bool
+    {
+        if (! preg_match('/^[A-Za-z0-9_]+$/', $tabel) || ! preg_match('/^[A-Za-z0-9_]+$/', $kolom)) return false;
+        try {
+            \Illuminate\Support\Facades\DB::select("SELECT `{$kolom}` FROM `{$tabel}` LIMIT 0");
+            return true;
+        } catch (\Throwable $e) {
+            return false;
+        }
+    }
+}
+
+if (!function_exists('tabelAda')) {
+    /** Ada tidaknya sebuah tabel — SHOW TABLES LIKE, bukan information_schema (lihat kolomAda). */
+    function tabelAda(string $tabel): bool
+    {
+        if (! preg_match('/^[A-Za-z0-9_]+$/', $tabel)) return false;
+        try {
+            return (bool) \Illuminate\Support\Facades\DB::select("SHOW TABLES LIKE '{$tabel}'");
+        } catch (\Throwable $e) {
+            return false;
+        }
     }
 }
 
@@ -528,6 +574,39 @@ if (!function_exists('canSeeAllBranches')) {
 }
 
 /**
+ * True kalau user boleh MEMBACA rekap absensi lintas cabang — dua layar:
+ * Kehadiran (matriks karyawan × tanggal) dan Rekap Persetujuan.
+ *
+ * Sengaja TERPISAH dari canSeeAllBranches(), dan bukan karena kerapian.
+ * canSeeAllBranches() bukan sekadar "boleh lihat semua cabang": ia juga membuka
+ * Upload Data fingerprint, Mapping Karyawan, Koreksi Absen, Periode Gaji, petty
+ * cash lintas cabang, dan sepuluh blade checklist. Menambahkan Executive ke sana
+ * berarti memberi mereka kuasa MENGUBAH data absensi dan uang — hanya supaya bisa
+ * membuka halaman baca.
+ *
+ * Polanya bukan hal baru di proyek ini: RopService::ROLE_REKAP sudah memberi
+ * Executive akses baca ke Rekap Pengeluaran dengan alasan yang persis sama,
+ * tanpa melonggarkan helper global.
+ *
+ * ⚠️ Namanya dulu `canSeeKehadiran()` dan Rekap Persetujuan sengaja DIKECUALIKAN
+ * (9 Sep 2026). Kekecualian itu dicabut hari yang sama: Ekky ternyata memberi
+ * Executive grant `absensi/recap` di prod pada duduk yang sama dengan
+ * `absensi/kehadiran`, jadi grant itu menggantung — ada di menu, pintunya
+ * tertutup. Rutenya satu `GET`, nol aksi tulis, jadi ia memang sekelas Kehadiran.
+ * Diganti nama supaya tak jadi dusta: satu predikat untuk dua layar BACA, bukan
+ * satu predikat bernama Kehadiran yang diam-diam juga menjaga Rekap.
+ *
+ * Yang TIDAK ikut helper ini (tetap canSeeAllBranches, karena MENGUBAH data):
+ * Upload Data, Mapping, Koreksi Absen, Periode Gaji, Lembar Gaji.
+ */
+if (!function_exists('canSeeAbsensiRekap')) {
+    function canSeeAbsensiRekap(): bool
+    {
+        return canSeeAllBranches() || session('group_name') === 'Executive';
+    }
+}
+
+/**
  * Role yang bersifat PENGAMAT: tidak mengajukan apa pun (cuti/lembur/izin
  * MAUPUN ROP) dan tidak meng-ACC pengajuan siapa pun. Dipakai untuk role
  * konsultan.
@@ -554,7 +633,7 @@ if (!function_exists('rolePengamatIds')) {
 
         try {
             if ($adaKolom === null) {
-                $adaKolom = \Illuminate\Support\Facades\Schema::hasColumn('group_path', 'wewenang_pengajuan');
+                $adaKolom = kolomAda('group_path', 'wewenang_pengajuan'); // bukan Schema::hasColumn — lihat kolomAda()
             }
             if ($adaKolom) {
                 return \Illuminate\Support\Facades\DB::table('group_path')
@@ -1293,7 +1372,7 @@ if (!function_exists('hariLiburTerjadwal')) {
                 ->where('id', $ruleId)->value('tipe');
 
             if ($tipe === 'jadwal') {
-                $dokterId = \Illuminate\Support\Facades\Schema::hasColumn('users', 'raw_doctor_id')
+                $dokterId = kolomAda('users', 'raw_doctor_id') // bukan Schema::hasColumn — lihat kolomAda()
                     ? \Illuminate\Support\Facades\DB::table('users')->where('id', $userId)->value('raw_doctor_id')
                     : null;
                 // Belum tertaut ke dokter mana pun → jangan tebak. Null di sini

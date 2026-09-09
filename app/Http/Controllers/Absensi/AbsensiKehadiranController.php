@@ -24,7 +24,14 @@ use Illuminate\Support\Facades\DB;
  *   orang kantor fleksibel berkumpul di ABG. Nambah orang ke rule fleksibel =
  *   otomatis pindah ke ABG, tanpa sentuh kode.
  *
- * Guard canSeeAllBranches. Segment(1)='absensi' → lolos AuthGuard via node parent.
+ * Guard canSeeAbsensiRekap() — canSeeAllBranches() DITAMBAH Executive, yang perannya
+ * memang cuma membaca. Lihat helper itu untuk alasan kenapa Executive tidak
+ * dimasukkan ke canSeeAllBranches() (helper itu juga membuka Upload fingerprint,
+ * Koreksi Absen, Periode Gaji, dan petty cash).
+ *
+ * AuthGuard meloloskan halaman ini lewat node 'absensi/kehadiran' — sejak 9 Sep
+ * 2026 gerbang itu mencocokkan PATH PENUH dulu, jadi tak perlu lagi ikut memegang
+ * node segmen-1 'absensi' (Upload Data).
  */
 class AbsensiKehadiranController extends Controller
 {
@@ -50,8 +57,8 @@ class AbsensiKehadiranController extends Controller
 
     private function guard(): void
     {
-        if (! canSeeAllBranches()) {
-            abort(403, 'Rekap kehadiran hanya untuk Finance / Admin.');
+        if (! canSeeAbsensiRekap()) {
+            abort(403, 'Rekap kehadiran hanya untuk Finance / Admin / Executive.');
         }
     }
 

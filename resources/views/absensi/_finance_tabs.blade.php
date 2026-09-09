@@ -1,13 +1,33 @@
 @php
     $ap = request()->path();   // mis. 'absensi/recap'
-    $finTabs = [
-        ['label' => 'Rekap Persetujuan', 'url' => url('absensi/recap'),   'on' => str_starts_with($ap, 'absensi/recap')],
-        ['label' => 'Kehadiran',         'url' => url('absensi/kehadiran'), 'on' => str_starts_with($ap, 'absensi/kehadiran')],
-        ['label' => 'Mapping Karyawan',  'url' => url('absensi/mapping'),  'on' => str_starts_with($ap, 'absensi/mapping')],
-        ['label' => 'Upload Data',       'url' => url('absensi'),          'on' => $ap === 'absensi'],
-        ['label' => 'Koreksi Absen',     'url' => url('absensi/koreksi'),  'on' => str_starts_with($ap, 'absensi/koreksi')],
-        ['label' => 'Periode Gaji',      'url' => url('absensi/periode'),  'on' => str_starts_with($ap, 'absensi/periode')],
-    ];
+
+    // Tiap tab menanyakan pertanyaan yang SAMA dengan halaman tujuannya.
+    //
+    // Sampai 9 Sep 2026 seluruh strip ini dirender tanpa syarat, karena satu-satunya
+    // yang bisa sampai ke sini memang canSeeAllBranches(). Begitu Executive boleh
+    // membuka layar BACA (canSeeAbsensiRekap), anggapan itu batal: tanpa penyaringan,
+    // Dani akan melihat tab Upload Data, Mapping, Koreksi Absen, dan Periode Gaji —
+    // empat pintu yang semuanya berujung 403, dan tiga di antaranya MENGUBAH data
+    // absensi. Menu yang tampil lalu menolak adalah kegagalan senyap; berkas ini
+    // sudah menuliskan pelajaran itu untuk Lembar Gaji di bawah.
+    $bolehLintas = canSeeAllBranches();
+    $bolehBaca   = canSeeAbsensiRekap();
+
+    // Rekap Persetujuan & Kehadiran = dua layar BACA, satu predikat. Rekap sempat
+    // dipagari $bolehLintas (9 Sep pagi); akibatnya Executive memegang grant
+    // `absensi/recap` tanpa satu pun jalan mencapainya — node sidebarnya
+    // disembunyikan karena ia tab, dan tabnya tak pernah dirender.
+    $finTabs = [];
+    if ($bolehBaca) {
+        $finTabs[] = ['label' => 'Rekap Persetujuan', 'url' => url('absensi/recap'), 'on' => str_starts_with($ap, 'absensi/recap')];
+        $finTabs[] = ['label' => 'Kehadiran', 'url' => url('absensi/kehadiran'), 'on' => str_starts_with($ap, 'absensi/kehadiran')];
+    }
+    if ($bolehLintas) {
+        $finTabs[] = ['label' => 'Mapping Karyawan', 'url' => url('absensi/mapping'), 'on' => str_starts_with($ap, 'absensi/mapping')];
+        $finTabs[] = ['label' => 'Upload Data',      'url' => url('absensi'),         'on' => $ap === 'absensi'];
+        $finTabs[] = ['label' => 'Koreksi Absen',    'url' => url('absensi/koreksi'), 'on' => str_starts_with($ap, 'absensi/koreksi')];
+        $finTabs[] = ['label' => 'Periode Gaji',     'url' => url('absensi/periode'), 'on' => str_starts_with($ap, 'absensi/periode')];
+    }
 
     // Lembar Gaji SENGAJA disaring peran, bukan ditampilkan ke semua yang lolos
     // canSeeAllBranches. Kedua gerbang itu TIDAK sama: `Admin Backup` boleh

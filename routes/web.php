@@ -57,6 +57,8 @@ use App\Http\Controllers\Finance\RopLembarBayarController;
 use App\Http\Controllers\Finance\RopQueueController;
 use App\Http\Controllers\Finance\RopRekapController;
 use App\Http\Controllers\Rop\PengajuanController;
+use App\Http\Controllers\ItTracker\ItTrackerController;
+use App\Http\Controllers\ItTracker\KatalogController;
 
 
 Route::get('/', function () {
@@ -218,6 +220,59 @@ Route::middleware([AuthGuard::class])->group(function () {
         Route::get('/{docId}/export', [\App\Http\Controllers\Finance\KomisiDokterController::class, 'exportDetail'])->name('komisi.export.detail');
         Route::get('/{docId}/cetak', [\App\Http\Controllers\Finance\KomisiDokterController::class, 'cetak'])->name('komisi.cetak');
     })->where(['docId' => '[A-Za-z0-9_.-]+']);
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // IT Request Tracker — papan antrean IT, formulir permintaan, triase.
+    // Zona GRAFIT. Rencana: docs/rencana/rencana-it-tracker.md (§14 = build).
+    // Segmen-1 baru → WAJIB node access_path ber-link 'it-tracker'
+    // (database/sql/2026_09_02_it_tracker_access.sql) — tanpa itu RBAC
+    // memantulkan SEMUA orang ke landing (302), bukan 403.
+    // ═══════════════════════════════════════════════════════════════════════
+    Route::prefix('it-tracker')->group(function () {
+        Route::get ('/',                    [ItTrackerController::class, 'index'])->name('it-tracker.index');
+        Route::get ('/permintaan',          [ItTrackerController::class, 'permintaan'])->name('it-tracker.permintaan');
+        // Katalog Modul — halaman SAUDARA papan (rencana §14.24). Segmen-1 tetap
+        // `it-tracker`, jadi node access_path yang sudah ada tetap jadi gerbangnya.
+        Route::get ('/katalog',             [KatalogController::class, 'index'])->name('it-tracker.katalog');
+        Route::post('/katalog/modul',       [KatalogController::class, 'store'])->name('it-tracker.katalog.store');
+        Route::post('/tiket',               [ItTrackerController::class, 'store'])->name('it-tracker.store');
+        Route::get ('/tiket/{id}',          [ItTrackerController::class, 'show'])->name('it-tracker.show')->whereNumber('id');
+        Route::post('/tiket/{id}/triase',   [ItTrackerController::class, 'triase'])->name('it-tracker.triase')->whereNumber('id');
+        Route::post('/tiket/{id}/parkir',   [ItTrackerController::class, 'parkir'])->name('it-tracker.parkir')->whereNumber('id');
+        Route::post('/tiket/{id}/buka',     [ItTrackerController::class, 'bukaLagi'])->name('it-tracker.buka')->whereNumber('id');
+        Route::post('/tiket/{id}/maju',     [ItTrackerController::class, 'maju'])->name('it-tracker.maju')->whereNumber('id');
+        Route::post('/tiket/{id}/uat',      [ItTrackerController::class, 'uat'])->name('it-tracker.uat')->whereNumber('id');
+        Route::post('/tiket/{id}/catatan',  [ItTrackerController::class, 'catatan'])->name('it-tracker.catatan')->whereNumber('id');
+        Route::post('/tiket/{id}/konfirmasi', [ItTrackerController::class, 'konfirmasi'])->name('it-tracker.konfirmasi')->whereNumber('id');
+        Route::post('/tiket/{id}/pic',      [ItTrackerController::class, 'pic'])->name('it-tracker.pic')->whereNumber('id');
+        Route::post('/tiket/{id}/tarik',    [ItTrackerController::class, 'tarik'])->name('it-tracker.tarik')->whereNumber('id');
+        Route::post('/tiket/{id}/modul',    [ItTrackerController::class, 'modul'])->name('it-tracker.modul')->whereNumber('id');
+        Route::post('/tiket/{id}/pra',      [ItTrackerController::class, 'pra'])->name('it-tracker.pra')->whereNumber('id');
+        Route::post('/tiket/{id}/pasca',    [ItTrackerController::class, 'pasca'])->name('it-tracker.pasca')->whereNumber('id');
+        Route::post('/tiket/{id}/deploy',   [ItTrackerController::class, 'deploy'])->name('it-tracker.deploy')->whereNumber('id');
+        Route::post('/tiket/{id}/bo',       [ItTrackerController::class, 'businessOwner'])->name('it-tracker.bo')->whereNumber('id');
+        Route::post('/tiket/{id}/sync-git', [ItTrackerController::class, 'syncGit'])->name('it-tracker.syncgit')->whereNumber('id');
+        Route::get ('/tiket/{id}/ekspor',   [ItTrackerController::class, 'ekspor'])->name('it-tracker.ekspor')->whereNumber('id');
+        Route::post('/tiket/{id}/lampiran', [ItTrackerController::class, 'lampiran'])->name('it-tracker.lampiran')->whereNumber('id');
+        Route::post('/tiket/{id}/teruskan', [ItTrackerController::class, 'teruskan'])->name('it-tracker.teruskan')->whereNumber('id');
+        Route::post('/tiket/{id}/kemajuan', [ItTrackerController::class, 'kemajuan'])->name('it-tracker.kemajuan')->whereNumber('id');
+        // Fase 2b — empat formulir kerja (rencana §14.13)
+        Route::post('/tiket/{id}/fr',        [ItTrackerController::class, 'fr'])->name('it-tracker.fr')->whereNumber('id');
+        Route::post('/tiket/{id}/komponen',  [ItTrackerController::class, 'komponen'])->name('it-tracker.komponen')->whereNumber('id');
+        Route::post('/tiket/{id}/lingkup',   [ItTrackerController::class, 'lingkup'])->name('it-tracker.lingkup')->whereNumber('id');
+        Route::post('/tiket/{id}/dapur',     [ItTrackerController::class, 'dapur'])->name('it-tracker.dapur')->whereNumber('id');
+        Route::post('/tiket/{id}/dep',       [ItTrackerController::class, 'dep'])->name('it-tracker.dep')->whereNumber('id');
+        Route::post('/tiket/{id}/paraf',     [ItTrackerController::class, 'paraf'])->name('it-tracker.paraf')->whereNumber('id');
+        Route::post('/tiket/{id}/jenjang',   [ItTrackerController::class, 'jenjang'])->name('it-tracker.jenjang')->whereNumber('id');
+        Route::post('/tiket/{id}/tc',        [ItTrackerController::class, 'tc'])->name('it-tracker.tc')->whereNumber('id');
+        Route::post('/tiket/{id}/tc-hapus',  [ItTrackerController::class, 'tcHapus'])->name('it-tracker.tc.hapus')->whereNumber('id');
+        Route::post('/tiket/{id}/temuan',    [ItTrackerController::class, 'temuan'])->name('it-tracker.temuan')->whereNumber('id');
+        Route::post('/tiket/{id}/skenario',  [ItTrackerController::class, 'skenario'])->name('it-tracker.skenario')->whereNumber('id');
+        Route::post('/tiket/{id}/jawab',     [ItTrackerController::class, 'jawab'])->name('it-tracker.jawab')->whereNumber('id');
+        Route::post('/tiket/{id}/spawn',     [ItTrackerController::class, 'spawn'])->name('it-tracker.spawn')->whereNumber('id');
+        Route::post('/tiket/{id}/evaluasi',  [ItTrackerController::class, 'evaluasi'])->name('it-tracker.evaluasi')->whereNumber('id');
+        Route::post('/tiket/{id}/evaluator', [ItTrackerController::class, 'evaluator'])->name('it-tracker.evaluator')->whereNumber('id');
+    });
 
     // Rekonsiliasi — reservasi SweetTreats ↔ encounter Omnicare (link='reconcile')
     Route::prefix('reconcile')->group(function () {

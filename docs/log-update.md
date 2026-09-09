@@ -6,6 +6,1671 @@
 > file ini append-only.
 
 ---
+
+## 2026-09-09 — ✅ NAIK PROD: Rekap Persetujuan ikut pagar baca, grant Executive tak lagi menggantung (`e44f27c`)
+
+Audit HUB atas gerbong Kehadiran menemukan pertanyaan terbuka chat build itu
+punya jawaban yang lebih tegas dari dugaan: grant `absensi/recap` milik Executive
+**ada di prod dan tak punya SATU PUN jalan dicapai**. Bukan sekadar "tertutup" —
+node sidebarnya disembunyikan karena ia tab dari pintu Kehadiran
+(`shellTabbedLinks`), dan tabnya sendiri dipagari `canSeeAllBranches()` sehingga
+tak pernah dirender. Ekky memberi grant itu pada duduk yang sama dengan
+`absensi/kehadiran`, jadi niatnya jelas. Keputusan Ekky 9 Sep: buka.
+
+**Perubahan** (`fix/absensi-rekap-executive`, di atas `fix/kehadiran-executive`):
+
+| berkas | apa |
+|---|---|
+| `app/Helpers.php` | `canSeeKehadiran()` → **`canSeeAbsensiRekap()`** — satu predikat untuk dua layar BACA. Nama lama jadi dusta begitu ia juga menjaga Rekap. |
+| `AbsensiRecapController` | gerbang `canSeeAllBranches()` → `canSeeAbsensiRekap()`. Rutenya satu `GET`, nol aksi tulis. |
+| `_finance_tabs.blade.php` | tab Rekap pindah dari `$bolehLintas` ke `$bolehBaca` — satu-satunya jalan Executive ke halaman itu. |
+| `AuthGuard` | komentar diluruskan (lihat di bawah). |
+
+⛔ **Pintu TULIS tak bergerak**: Upload Data, Mapping, Koreksi Absen, Periode
+Gaji, Lembar Gaji tetap `canSeeAllBranches()`. Executive tetap 302/403 di sana.
+
+**Dua uji yang mengunci kekecualian lama diubah karena KEPUTUSANNYA berubah,
+bukan dilonggarkan.** Buktinya: asersi penolakan Sales tetap, keempat tab tulis
+tetap dilarang, dan ditambah kendali negatif `test_recap_menolak_role_di_luar_pagar_baca`.
+Satu uji **tidak** diubah asersinya walau tergoda: `test_menu_executive_*` tetap
+menuntut `absensi/recap` ABSEN dari sidebar — yang berubah cuma alasannya, dari
+"ia menolak" jadi "ia tab". Asersi benar karena alasan salah adalah utang.
+
+**Komentar `AuthGuard` diluruskan.** Ia mengaku mencocokkan "dari path paling
+spesifik ke yang paling umum", padahal kuerinya `whereIn` tanpa `ORDER BY` —
+urutan baris yang terambil tidak dijamin. Tak berbahaya sekarang (hasilnya cuma
+dipakai `empty()`), tapi ditandai: kalau suatu hari isi `$groupAccess` dibaca,
+urutannya WAJIB dipaksa dulu.
+
+**Uji, per kelas di dev** (dev dipinjam dari `feat/it-tracker` 1d52013 dan
+dikembalikan persis, `--no-dev` termasuk):
+KehadiranExecutive **16/16 · 108 asersi** · LayarAbsensiRender 10/10 ·
+KehadiranEkspor 7/7 · KoreksiAbsen 16/16 · PagarLemburLayar 3/3 ·
+PengawasanFoto 4/4 · AmbangDodo 9/9.
+
+**NAIK PROD 9 Sep 13:37 WIB** lewat `deploy.sh main` — titik balik `60bb857`,
+nol galat sesudahnya, beranda 200. Diverifikasi dgn data prod: pagar baca terima
+Executive/Finance/Konsultan Finance/Admin Backup, tolak Sales/Front Office/Head
+Marketing; AuthGuard Executive LOLOS di `absensi/kehadiran` & `absensi/recap`,
+MEMANTUL di `absensi`, `absensi/koreksi`, `absensi/periode`, `absensi/lembar-gaji`.
+
+Nol SQL, nol aset publik → **nol rsync**. Grant di prod sudah ada, jangan
+disentuh. Naik prod bersama gerbong Kehadiran, menunggu kata Ekky.
+
+---
+
+## 2026-09-09 — Executive tak bisa membuka Kehadiran: DUA pagar di kode, bukan grant · LULUS DEV, prod menunggu
+
+Dani & Robi (Executive) diberi grant menu "Kehadiran" oleh Ekky 9 Sep, tapi layarnya
+tetap tak terbuka. Grantnya benar; yang menahan ada **dua, di kode, dan berbeda jenis**.
+
+### Sebab 1 — AuthGuard cuma melihat SEGMEN-1 URL
+`AuthGuard` membandingkan `request->segment(1)` dengan `access_path.link`. Untuk
+`/absensi/kehadiran` yang dibandingkan cuma **`absensi`** = node **"Upload Data"**.
+Dari 6 grup pemegang grant Kehadiran, Executive **satu-satunya** yang tak punya Upload
+Data → dipantulkan. Gejalanya **menipu**: `302` ke landing, **bukan 403**, jadi terbaca
+seolah menunya rusak. Pola yang sama pernah ditambal setengah lewat `SKIP_RBAC` untuk
+`petty-cash-categories`.
+
+**Perbaikan**: cocokkan dari path **paling spesifik** ke paling umum
+(`absensi/kehadiran/export` → `absensi/kehadiran` → `absensi`), satu `whereIn`.
+Memegang segmen-1 **tetap** membuka seluruh isinya — nol role kehilangan akses.
+
+⚠️ Ini menyentuh **setiap request**, jadi radiusnya diukur di prod **sebelum** kode
+ditulis: **tepat 2 baris** yang perilakunya berubah, **dua-duanya Executive**
+(`absensi/kehadiran`, `absensi/recap`). Tak ada grup lain yang bergeser. Node
+bertingkat lain (`checklist/review`, `report/executive`, `finance/rop/rekap`) sudah
+hidup lewat segmen-1 atau `SKIP_RBAC`.
+
+### Sebab 2 — pagar controller memakai helper yang terlalu lebar
+`AbsensiKehadiranController::guard()` memakai `canSeeAllBranches()`. Helper itu bukan
+sekadar "lihat semua cabang": ia juga membuka **Upload fingerprint, Mapping, Koreksi
+Absen, Periode Gaji, petty cash lintas cabang, dan 10 blade checklist**.
+
+**Perbaikan**: helper **baru** `canSeeKehadiran()` = `canSeeAllBranches()` + `Executive`,
+dipakai **hanya** di layar Kehadiran (+ ekspornya, yang membaca data yang sama).
+`canSeeAllBranches()` **tidak disentuh** di tempat lain. Pola ini sudah ada
+preseden nyata di proyek: `RopService::ROLE_REKAP` memberi Executive akses baca Rekap
+Pengeluaran dengan alasan persis sama.
+
+⛔ Dua jalan pintas **ditolak sadar**: (a) memberi Executive grant "Upload Data" — menu
+muncul lalu 403; (b) menambah Executive ke `canSeeAllBranches()` — Dani jadi bisa
+mengunggah absen dan membuka petty cash.
+
+### Temuan di luar diagnosis — deret tab
+Halaman Kehadiran merender `_finance_tabs` **tanpa syarat**, karena selama ini yang bisa
+sampai ke sana pasti `canSeeAllBranches()`. Begitu Executive boleh masuk, anggapan itu
+batal: Dani akan melihat tab **Upload Data · Mapping · Koreksi Absen · Periode Gaji ·
+Rekap Persetujuan** — lima pintu yang semuanya 403 baginya dan **tiga di antaranya
+MENGUBAH data absensi**. Kini tiap tab menanyakan pertanyaan yang **sama** dengan halaman
+tujuannya. (Berkas itu sudah menuliskan pelajaran ini untuk Lembar Gaji sejak 5 Sep.)
+
+### Bukti
+- **13/13 uji baru** (`KehadiranExecutiveTest`, 87 asersi) di dev.
+- **Kendali negatif**: 4 berkas dikembalikan ke versi `main`, kelas yang sama →
+  **5 dari 13 merah**. Hijau-nya bukan hijau palsu.
+- Regresi: `LayarAbsensiRenderTest` **10/10** · `KehadiranEksporTest` **7/7** ·
+  `KoreksiAbsenTest` **16/16**. (Sempat 3 galat saat dua kelas digabung dalam satu
+  proses — batas koneksi dev di atas ±17 uji ber-DB, pola yang sudah tercatat. Dijalankan
+  per kelas: hijau.)
+- Menu Executive di dev, data sungguhan sesudah `access:rebuild`: sidebar merender
+  **"Absensi → absensi/kehadiran"**, dan **tak** merender Upload Data / Periode / Rekap.
+- Uji menyisipkan grantnya sendiri di dalam transaksi → jujur di environment mana pun,
+  nol jejak.
+
+### Yang SENGAJA tidak dikerjakan
+1. **`Helpers.php` aturan menu klaster absensi TIDAK diubah.** Diagnosis menduga ia perlu
+   disentuh; diperiksa ternyata **tidak**: syaratnya `$hasDoor || (klaster && !canSeeAllBranches())`,
+   dan Executive **punya** pintunya (`absensi/kehadiran`), jadi cabang pertama sudah
+   menyembunyikan tab Upload/Mapping/Recap/Periode dan meloloskan Kehadiran. Diubah pun
+   hasilnya sama. Diverifikasi dengan menu sungguhan di dev, bukan dengan membaca saja.
+2. **`absensi/recap` dibiarkan.** Executive juga dipegangi grant ini di prod, tapi
+   `AbsensiRecapController::guard()` masih `canSeeAllBranches()` → **tetap 403**. Sesudah
+   perbaikan AuthGuard, jawabannya berubah dari 302 jadi 403. **Tak ada tautan ke sana**
+   (menu menyembunyikannya, tab strip menyaringnya), jadi cuma URL yang diketik langsung.
+   Layarnya **murni baca** (satu rute GET, nol tulis) — jadi kalau memang diniatkan,
+   melebarkan `canSeeKehadiran()` ke sana itu satu baris. **Keputusan Ekky, bukan aku.**
+3. Prod belum disentuh.
+
+### Audit ulang + sapuan tampilan lintas peran (9 Sep, sore)
+
+**Uji bertambah jadi 15 / 102 asersi.** Dua yang baru menutup lubang yang tadinya
+cuma dugaan:
+
+- **Paritas data.** Executive tak punya cabang asal (`raw_branch_id` NULL) dan layar
+  ini mengelompokkan per cabang ASAL — peran tanpa cabang berisiko diam-diam melihat
+  SEBAGIAN data. Diuji: jumlah baris karyawan yang dilihat Executive **sama persis**
+  dengan Finance. (Halaman yang tampak normal dengan angka yang kurang jauh lebih
+  berbahaya daripada halaman yang menolak terbuka.)
+- **`absensi/recap` → 403, bukan pantulan.** Dev tak bisa memperagakannya (grantnya
+  sengaja tak disemai di sana), jadi grantnya disisipkan di dalam transaksi. Sekarang
+  perilaku prod itu **terbukti**, bukan diasumsikan.
+
+**Sapuan tampilan di dev — apa yang benar-benar dilihat tiap peran:**
+
+| Peran | `/absensi/kehadiran` | Deret tab yang terender |
+|---|---|---|
+| **Executive** (Robi) | **200**, 9 baris karyawan, formulir ekspor ada | **`Kehadiran`** — hanya itu |
+| **Finance** (Della) | 200 | `Rekap Persetujuan │ Kehadiran │ Mapping │ Upload Data │ Koreksi Absen │ Periode Gaji │ Lembar Gaji` |
+
+Menu samping Executive: `Absensi → absensi/kehadiran` — Upload Data, Periode, dan
+Rekap **tak** muncul. Semua pintu tulis dicoba satu per satu dan **semuanya 302 ke
+`/report`**: `/absensi`, `/absensi/koreksi`, `/absensi/periode`, `/absensi/mapping`,
+`/absensi/lembar-gaji`. Ekspor Kehadiran 200 (ekspor = membaca).
+
+**Peran lain tak kehilangan apa pun** (AuthGuard menyentuh setiap request):
+Front Office `/rawreservation` 200 · Sales `/sales-dashboard` 200 · Supervisor
+`/absensi/aturan` 200 · IT `/it-tracker` 200 & `/absensi/lembar-gaji` 200 ·
+Supervisor `/checklist/review` 200 · Executive `/report/executive` 200.
+Beranda/signin/reservasi dev **200**, log aplikasi **0 ERROR**.
+
+**Regresi per kelas:** LayarAbsensiRender 10/10 · KehadiranEkspor 7/7 · KoreksiAbsen
+16/16 · PagarLemburLayar 3/3 · PengawasanFoto 4/4.
+
+### ⚠️ Dua temuan di luar kerjaan ini
+
+1. **`ItTrackerTest::test_head_tak_melihat_tiket_orang_lain` MERAH — dan bukan karena
+   perubahan ini.** Dibuktikan: dijalankan dengan 4 berkas dikembalikan ke versi `main`,
+   gagalnya **identik** (20 uji, 1 gagal). Sebabnya **keputusan akses 9 Sep**: uji itu
+   memakai **Head Marketing**, yang grant `it-tracker`-nya dicabut hari itu juga.
+   Ujinya lebih tua dari keputusannya, jadi ia masih mengharap Head Marketing bisa
+   membuka `/it-tracker` (kini dipantulkan ke `/marketing-dashboard`).
+   → Pilihannya: perbarui ujinya mengikuti keputusan akses, **atau** tinjau ulang
+   keputusannya. **Bukan diperlonggar supaya hijau.** Milik chat IT Tracker + Ekky.
+2. **`hasMenuAccess()` cuma menemukan node 3-lapis** (`parent > sub > child`); node
+   yang hidup di kedalaman lain dijawab "tidak punya" — terjadi di hampir semua role.
+   **Sudah diketahui dan sengaja dihindari** sebelum ini (`Helpers.php:687` dan
+   `ExportController:19` menuliskannya). Satu-satunya pemakai nyata,
+   `ExecutiveReportController` (`report/executive`), kebetulan 3-lapis → tak menggigit.
+   Diperiksa, bukan diperbaiki: di luar lingkup, dan menyentuhnya tanpa perlu justru
+   menambah risiko.
+### Naik prod — resep
+Deploy **kode saja**: `deploy.sh main`. **Nol SQL, nol aset publik → nol rsync.**
+Grant Executive di prod **sudah ada, jangan disentuh**. Sesudah deploy: `curl` beranda
+200 + cek URL akhir, lalu minta Dani/Robi membuka Kehadiran.
+
+⚠️ Perubahan AuthGuard menyentuh setiap request — verifikasi sesudah deploy sebaiknya
+menyertakan satu halaman milik role lain (mis. Finance `/absensi`, Front Office
+`/rawreservation`) untuk memastikan tak ada yang kehilangan akses.
+
+---
+
+## 2026-09-09 — Papan IT Tracker prod TERISI 34 tiket: "Yovan" itu Yovanka (chat HUB)
+
+Chat build berhenti di tempat yang benar: `it:seed-antrian` prod gagal di baris 13
+karena pemohon **Yovan (creative@stdc.id)** tak punya akun prod, dan mereka
+menolak menebak. Ekky: *"can you fix it?"*
+
+**Yang diperiksa sebelum memilih:** prod tak punya siapa pun bernama Yovan; dev
+punya **dua** akun Head Marketing — Yovanka (`yovanka@sweettreats.id`) dan Yovan
+(`creative@stdc.id`). Memori Konsultan: `stdc.id` = **domain lama perusahaan**,
+dan catatan Alur Persetujuan: *"yovan/yovanka semuanya satu orang"*. Enam akun
+`stdc.id` di dev (Yovan/Alif/Robi/Hari/Fajri/muti) adalah akun lama orang-orang
+yang sama. Jadi **bukan buat akun baru** — itu akan melahirkan orang kedua.
+
+**Perbaikan:** PSV baris 13 & 33 → pemohon `yovanka@sweettreats.id` / Yovanka
+Rima Millennia (`69720c8`, email yang ada di dev DAN prod). Prod `git pull`,
+lalu `it:seed-antrian docs/rencana/seed-antrian-it-2026-09-04.psv --env-guard=prod`:
+
+| hasil | |
+|---|---|
+| tiket | **34/34** (TRIASE 7 · ANTRE 5 · DEV 9 · UAT 4 · GOLIVE 4 · EVALUASI 1 · DITUNDA 4) |
+| bertaut modul | 34/34 |
+| tiket Yovanka | 2 (#13 ORTHO, #33 Lead Cekat AI) |
+| #09 / #10 / #19 | **DEV** — Ekky mulai 10 Sep; `kriteria_diterima` diisi dari layar sebelum UAT |
+| `/it-tracker` tanpa login | 302 → `/signin` |
+| galat log | 0 (satu baris = panggilan seeder tanpa argumen, milikku) |
+
+`origin/main` digeser fast-forward (`4f2b1a1` → `69720c8`), jadi prod = origin/main.
+Yang belum: **dibuka manusia** — Robi membuka drop-up adalah verifikasi pertama.
+Catatan dev: re-seed dev kelak memindahkan #13/#33 dari akun lama "Yovan" ke
+Yovanka; akun lama itu boleh dimatikan.
+
+---
+
+## 2026-09-09 — Push Accurate DINYALAKAN LAGI, 12 hari tertunda terkirim (chat HUB)
+
+Ekky: *"push accurate tolong nyalain lagi, terus push datanya yang udah di pause
+ke accurate juga."* Finance sudah dikonfirmasi paham risikonya (pemetaan ulang
+akun ada di sisi Accurate). Jeda berjalan 28 Agu–8 Sep.
+
+**Yang dijalankan di prod, 01:19–01:29 WIB:** cadangan `.env`
+(`~/backup/env.prod.pra-nyala-accurate-20260908_1812`) → `ACCURATE_PUSH_ENABLED=true`
+→ `config:clear` → **`accurate:push-daily --days=15`** sekali, dengan tarikan
+Omnicare (angka `--days` diambil dari yang dicetak gerbang, bukan ditebak).
+
+| hasil | jumlah |
+|---|---|
+| dokumen baru terkirim | **51** |
+| diperbaiki (hapus-tulis-ulang) | 2 — 26 Agu Bintaro & Kalideres, data Omnicare berubah sesudah kiriman lama |
+| cocok / dilewati | 11 |
+| gagal | **0** |
+| terakhir ter-push | **2026-09-08** (sebelumnya 27 Agu) |
+
+Gerbang diverifikasi terbuka: dry-run `--days=1` sesudahnya "semua cocok (no-op)",
+cron 03:30 kembali normal. Dua hal yang tampak lubang, ternyata bukan: 31 Agu &
+7 Sep kosong karena **semua cabang tutup Senin** (5/5 aturan libur `day=1`);
+`customer/save.do` 53/53 "Sudah ada C.00001" = pemeriksaan idempoten, bukan gagal.
+
+Sekalian diverifikasi: perbaikan galat 2002 (6 Sep) terbukti — **nol 2002 pada
+7, 8, 9 Sep**. Gerbong slot kembar `35d332b` aset publiknya tersinkron. Galat
+9 Sep bukan pengguna (pemeriksa tengah malam `checklist_date`; `verif_prod.php`
+sisa chat build — hapus).
+
+## 2026-09-09 — ✅ NAIK PROD SENYAP: IT Request Tracker + Katalog Modul (`d607319`)
+
+Ekky: *"gas ke prod, aman kan?"* Naik lewat `bash deploy.sh feat/it-tracker`
+(ditarik ke local `main` prod, sama seperti gerbong sebelumnya; **`origin/main`
+BELUM digeser** — push ke `main` ditolak pengklasifikasi izin, tinggal
+`git push origin feat/it-tracker:main`, fast-forward murni).
+
+### Urutan yang dijalankan (kode DULU, baru SQL)
+Dibalik dari resep semula dengan sengaja: tanpa grant, kode baru tak
+menampilkan apa pun; sebaliknya grant tanpa kode memunculkan tautan IT di
+sidebar yang 404 selama jendela deploy.
+1. Cadangan: `access_path` 87 · `group_access` 520 · `group_path` 25 baris →
+   `/tmp/cadangan-akses-2026-09-09.json`; 31 berkas menu →
+   `/tmp/group_access-cadangan-2026-09-09/` (di server prod).
+2. `deploy.sh` → HEAD `d607319`; rsync **hanya** `public/assets/` (1 berkas,
+   CSS tracker); curl beranda **200 → /**.
+3. **10 SQL berurutan** lewat app (bukan mysql CLI): access (28 baris) → core →
+   2b → git_ref → seed_urut → unit_kemajuan → modul_katalog → modul_pemakaian →
+   fitur_link → **akses_sementara (6 baris dicabut)**; `access:rebuild` (25
+   berkas) + `cache:clear`. **9 tabel `it_*`** lahir.
+4. `it:seed-katalog --env-guard=prod` → **37 modul**, 51 link unik, 15 tanpa
+   menu (disengaja). `it:hitung-pemakaian` → 12 modul terukur: Checklist 113 ·
+   Persetujuan 100 · Petty Cash 95 · ROP 63 · Konten 1 · Keluhan Sistem 0;
+   25 modul tetap "—".
+
+### Terukur di prod — akun sungguhan lewat AuthGuard
+| akun | `/it-tracker` | drop-up | seksi IT sidebar | katalog |
+|---|---|---|---|---|
+| Finance (Della) | **302 → /absensi** | — | — | — |
+| Head Marketing (Yovanka) | **302 → /marketing-dashboard** | — | — | — |
+| Admin | **302 → /setgroup** | — | — | — |
+| Executive (Robi) | 200 | ADA | hilang | 200 |
+| **Konsultan Finance (Haickal)** | 200 | ADA | hilang | 200 |
+| Konsultan Marketing (Hari) | 200 | ADA | hilang | 200 |
+| Head IT (Ikhsan) | 200 | ADA | hilang | 200 |
+
+Berkas menu Finance/Head Marketing/Admin **nol** `it-tracker`. Tanpa login:
+`/it-tracker` → `/signin`. `laravel.log` **tak bertambah** sesudah deploy (dua
+galat yang ada bertanggal sebelum deploy: probe `checklist_date` 00:04 dan
+`verif_prod.php` 00:37 — berkas itu sudah tidak ada).
+
+### ⛔ BERHENTI — papan prod masih KOSONG (it_ticket 0)
+`it:seed-antrian` **menolak** di baris 13: pemohon **Yovan / creative@stdc.id
+tidak punya akun di prod** (baris 33 juga Yovan, tanpa email). Semua email &
+nama lain di PSV **ada** (Reza · Ikhsan · Admin_Nisa · Robi · Della · Anisa).
+Tak ada satu tiket pun tertulis — seeder memeriksa dulu. **Keputusan Ekky**:
+(a) buat akun Yovan di prod (ingat `effective_from`), lalu jalankan ulang
+`it:seed-antrian … --env-guard=prod`; atau (b) ganti pemohon dua baris itu di
+PSV. Aku tidak menebak.
+
+### Dua catatan kecil
+- Group lama **"Consultant"** (0 akun) ikut dapat grant dari SQL 2 Sep — tak
+  berbahaya, tapi kalau kelak diisi orang, ia langsung melihat tracker.
+- Seeder katalog tak menemukan node **"Keuangan>Petty Cash"** di prod
+  (namanya di prod **"Keuangan > Pettycash"**) → `access_id` NULL; fitur & 95×
+  pemakaian tetap terhitung lewat `fitur_link`. Sinkronkan nama di seeder
+  kalau mau jalur cadangan hidup.
+---
+## 2026-09-09 — Tracker + Katalog SIAP naik prod SENYAP: pintu drop-up, akses dipangkas (`9f2d98c`, dev)
+
+Keputusan Ekky 9 Sep 2026: IT Request Tracker + Katalog Modul **naik prod tanpa
+pengumuman**. Pintunya **drop-up profil** (bukan sidebar), yang boleh masuk
+**Konsultan + Executive + IT** (Head IT · Super Admin · Admin General · Admin
+Backup); **Head departemen TIDAK** — dulu. Dikerjakan & diukur di dev; prod
+**menunggu kata "prod"** dari Ekky.
+
+### Yang berubah
+- **Gabung `main` → `feat/it-tracker`** (`ac3e2f4`): slot kembar, galat 2002 /
+  kiriman ganda, role Konsultan ikut masuk. Konflik hanya di dua berkas docs
+  (digabung union). Dua penjaga `app.blade.php` dari 6 Sep ("Menyimpan…" +
+  poller `visibilityState`) **utuh**.
+- **Drop-up, bukan sidebar**: `'it-tracker'` masuk `shellPersonalMap()` dengan
+  komentar bertanggal **PENEMPATAN SEMENTARA** — rumah aslinya sidebar. Seksi
+  "IT" di sidebar **lenyap sendiri** karena semua daunnya kini pribadi; tak ada
+  kode yang menyembunyikannya secara khusus.
+- **SQL akses sementara** `2026_09_09_it_tracker_akses_sementara.sql`: cabut
+  grant `it-tracker` + induknya dari **Finance · Head Marketing · Admin**
+  (idempoten; di dev **6 baris**; tersisa 9 group). **Pemulihan** = jalankan
+  ulang `2026_09_02_it_tracker_access.sql`. Wajib `access:rebuild` +
+  `cache:clear` sesudahnya.
+- **PSV**: #09 · #10 · #19 **ANALISIS → DEV**, PIC Ekky, masuk 2026-09-10 09:00.
+  **FR & kriteria TIDAK ditambah** — seeder bukan wewenang untuk mengarangnya.
+- `kolomAda()` / `tabelAda()` menggantikan `Schema::hasColumn/hasTable` di
+  empat jalur yang dilewati uji (Helpers, AkunPengajuanController,
+  AttendanceReconciler, KoreksiAbsen): yang lama membaca `information_schema`
+  dan **membunuh mysqld lokal**; di dev/prod hasilnya sama persis.
+
+### Terukur di dev — akun SUNGGUHAN, lewat AuthGuard, bukan sesi rekaan
+| akun | `/it-tracker` | drop-up | seksi IT sidebar | judul tiket | katalog |
+|---|---|---|---|---|---|
+| Finance (Della) | **302 → /absensi** | — | — | — | — |
+| Head Marketing (Yovanka) | **302 → /marketing-dashboard** | — | — | — | — |
+| Executive (Robi) | 200 | ADA | hilang | **35** (tak disensor) | 200 |
+| Konsultan Marketing (Hari) | 200 | ADA | hilang | 35 | 200 |
+| Head IT (Ikhsan) | 200 | ADA | hilang | 35 | 200 |
+
+Berkas menu Finance/Head Marketing/Admin **nol** `it-tracker`. Yang ditolak
+dipantulkan ke landing (**302, bukan 403**) — tak ada jejak fitur ini bagi
+mereka. **Konsultan Finance (Haickal) hanya ada di prod** → diuji pasca-prod.
+**Seeder ulang dev: 3/3 tiket maju ke DEV, 32 tiket lain tak bergeser.**
+
+### Uji — PER KELAS, lokal (dev tak punya phpunit: vendor `--no-dev`)
+15 kelas tracker (155 uji) + PengawasanFoto + AbsenHpJeda + FiturLink +
+**PeluncuranSenyap baru (7 uji elemen, 1 dilewati: Konsultan Finance tak ada di
+lokal)** → **hijau**. Tiga merah **dijawab, bukan diubah**:
+- **AbsenHpJeda** merah karena DB lokal belum mengenal enum `pulang_cepat`
+  (SQL 6 Sep memakai `information_schema`, yang mematikan mysqld lokal) →
+  ALTER-nya dijalankan langsung → **7/7 hijau**.
+- **PettyCashKembar** 4 merah: DB lokal **tanpa node `pettycash`** dan **tanpa
+  kolom `category`** (migrasi kategori Reza tak pernah jalan di lokal). Kode
+  petty cash, AuthGuard, dan berkas ujinya **identik byte dengan main**; fitur
+  live prod sejak 6 Sep. Bukan dampak merge.
+- **PagarReconcileLampau** 4/6 hijau; dua lainnya memanggil
+  `Schema::hasTable` **dari dalam uji** → tak bisa jalan di mysqld lokal;
+  berkas identik main.
+
+### Resep prod — belum dijalankan, menunggu kata "prod"
+1. **10 SQL berurutan** (deploy.sh **tak** menjalankan SQL):
+   `2026_09_02_it_tracker_access` → `2026_09_02_it_tracker_core` →
+   `2026_09_03_it_tracker_2b` → `2026_09_03_it_tracker_git_ref` →
+   `2026_09_04_it_tracker_seed_urut` → `2026_09_05_it_tracker_unit_kemajuan` →
+   `2026_09_06_it_modul_katalog` → `2026_09_07_it_modul_pemakaian` →
+   `2026_09_08_it_modul_fitur_link` → **`2026_09_09_it_tracker_akses_sementara`**
+   → `access:rebuild` + `cache:clear`.
+2. `bash deploy.sh feat/it-tracker` (class baru → deploy penuh), lalu **rsync
+   HANYA `public/assets/`** ke `public_html/assets/` (public_html itu SALINAN;
+   rsync seluruh `public/` pernah mematikan prod 6 menit).
+3. `it:seed-katalog` → `it:seed-antrian docs/rencana/seed-antrian-it-2026-09-04.psv`
+   → `it:hitung-pemakaian`, semuanya `--env-guard=prod`.
+4. Cron 06:40 `it:sync-git` / 06:50 `it:hitung-pemakaian`: **tak memakai
+   `shell_exec`** (`disable_functions` prod mematikannya); `it:sync-git` lewat
+   Symfony Process = `proc_open`, yang **hidup** di prod; git 2.47.3 ada.
+5. `verif_prod.php` di root laravel prod **tidak ada** — nihil yang dihapus.
+6. Sesudahnya: `curl` beranda 200 + URL akhir; Robi → drop-up → papan + katalog
+   berangka pemakaian; Finance → tanpa jejak; Haickal (Konsultan Finance).
+
+### ⏭️ Sengaja TIDAK dikerjakan
+- Koreksi link **ROP (1→3)** & **Petty Cash (1→2)** — masih menunggu Ekky (§14.27).
+- `Schema::has*` lain (CustomerController, Set/UserManagement, RopCoaCatalog,
+  perintah console) **dibiarkan** — tak dilewati uji, dev/prod tak terpengaruh.
+- **Tak ada uji yang diubah**; DB lokal disamakan seperlunya (enum, node).
+- `masuk_at` 10 Sep = besok → hari tunggu tiga tiket itu 0 sampai tanggalnya lewat.
+---
+## 2026-09-08 — Fitur katalog dipetakan per LINK, bukan per node (§14.27)
+
+Ralat **spesifikasi**, bukan salah koding. Live di dev (`f111832`), **155 uji
+hijau** di 15 kelas.
+
+### Sebabnya satu kalimat
+`it_modul.access_id` menunjuk **satu node** `access_path` — padahal **menu
+mengelompokkan berdasarkan NAVIGASI** sementara **katalog berdasarkan
+KEPEMILIKAN**, dan keduanya tak selalu berimpit. Branch · Doctor · Doctor
+Service bersaudara di bawah *Reservation Data Center*, tapi parent itu juga
+memuat Reservation & Pasien milik modul lain: menunjuk parent **kelebihan**,
+menunjuk satu daun **kekurangan**.
+
+### Perbaikannya: modul memiliki sekumpulan RUTE
+Kolom baru `fitur_link` (JSON daftar `access_path.link`). Fitur = link-link itu,
+**dedup per link**.
+
+**Kenapa per link — bukan sekadar lebih lengkap, lebih JUJUR:** `rawreservation`
+muncul **4×** di menu dengan empat nama berbeda dan `report` **2×**. Menghitung
+node = menghitung **label menu**; menghitung link = menghitung **halaman**. Yang
+dijanjikan katalog kepada Executive adalah *"halaman yang bisa dibuka"*.
+
+**Bonus yang menentukan bentuk kolomnya:** `link` **stabil antar lingkungan**,
+sedangkan id node berbeda (jebakan 2026-07-24) — pemetaan ini tak perlu
+diselesaikan ulang tiap kali menu ditata ulang.
+
+### Hasil terukur di dev
+| | sebelum | sesudah |
+|---|---|---|
+| Reservasi | 1 | **2** |
+| Master Jadwal & Layanan | 1 | **3** |
+| Checklist Operasional | 3 | **4** |
+| Absensi · Konten · Pusat Akun | 8 · 6 · 6 | **tetap** 8 · 6 · 6 |
+| tanpa rute (Accurate · Omnicare · Kontak) | 0 | **tetap 0 + "tanpa menu"** |
+
+Link unik seluruh katalog **54**, dari 63 halaman unik yang ada di menu dev —
+tidak melebihi, dan tidak mendadak menyusut.
+
+### Dua keputusan kecil yang perlu dicatat
+- ⚠️ **Nama kolomnya `fitur_link`, bukan `pakai_link`** seperti usulan prompt:
+  awalan `pakai_*` di tabel ini sudah berarti **pengukuran pemakaian**.
+  Menyatukan dua konsep di satu awalan akan menyesatkan pembaca berikutnya.
+- **Jalur node dipertahankan sebagai cadangan** (modul yang belum berdaftar-link
+  tak mendadak nol) dan kini ikut **dedup per link**. Laporan seeder memakai
+  jalur yang **sama** dengan layar — laporan berjalur lain akan berselisih
+  dengan halaman dan tak ada yang tahu mana yang benar.
+
+### Sekalian: katalog menyebut lingkungannya
+Saat `APP_ENV` bukan production, halaman menulis: *"angka **dipakai N× 7 hari**
+hanya berarti di produksi — lingkungan ini tak dipakai kerja nyata, jadi wajar
+bila semuanya 0."* Tanpa itu, siapa pun yang memperagakan katalog **dari dev**
+akan menyimpulkan semua modulnya mati. Terukur di prod: Reservasi 534 · Absensi
+305 · Checklist 117 · Petty Cash 96 · ROP 33 per 7 hari.
+
+### ⏭️ Yang SENGAJA belum diubah (menunggu kata Ekky)
+Dua modul kemungkinan besar kurang hitung dengan bentuk yang **sama persis**,
+dan buktinya sudah terukur di menu — tapi di luar tiga koreksi yang diminta:
+- **ROP (Pengajuan Pengeluaran)** 1 link (`pengajuan`); menu juga punya
+  `finance/rop` (Antrian Pengajuan) dan `finance/rop/rekap` (Rekap Pengeluaran),
+  yang dokumen katalog memang sebut sebagai fiturnya → seharusnya **3**.
+- **Petty Cash** 1 link (`finance/pettycash`); ada `pettycash` (Operational
+  Expense) di cabang Report yang dokumen sebut sebagai fiturnya → **2**.
+
+Keduanya satu baris di seeder. Tak kuubah sendiri karena penetapan kepemilikan
+halaman adalah keputusan, bukan pengukuran.
+---
+## 2026-09-07 — Katalog dilengkapi: taut tiket→modul, 37 entri, dan kolom PEMAKAIAN
+
+Empat pekerjaan kecil §14.26 yang saling menopang. Live di dev (`1515bd5`),
+**147 uji hijau** di 14 kelas.
+
+### 1. Tiket bertaut modul dari berkas seed — tanpa satu pun tebakan
+`it:seed-antrian` kini membaca **kolom ke-18 (`modul`)** dan mengisi
+`it_ticket.modul_id`, dicocokkan **persis** ke `it_modul.nama`.
+⛔ Nama yang tak ada di katalog membuat perintah **BERHENTI menyebut nomor
+barisnya** — tidak membuat entri sendiri, tidak menebak dari judul, tidak
+melewati diam-diam. Alasannya sama dengan alasan menolak `modulOf()` regex:
+entri yang lahir sendiri membuat katalog berisi modul yang **tak pernah
+diputuskan siapa pun**, dan itu tak terlihat sampai angkanya dipakai mengambil
+keputusan. Kolom kosong tetap sah — tiket tanpa modul memang ada.
+
+Hasil di dev: **34 tiket seed semuanya bertaut**, dan tiket demo
+`IT-2026-031 "customer survey"` (dibuat lewat layar, tanpa `seed_urut`)
+**tetap kosong** — persis seperti yang diminta: ia bukti bahwa baris "Tanpa
+modul" bekerja, bukan cacat. Penjumlahan di layar berbunyi *"34 bertaut + 1
+tanpa modul = 35 tiket terbuka di papan"* dan **cocok** dengan cacah tabel.
+
+### 2. Katalog 37 entri
+Empat entri baru yang lahir dari tiket: **ORTHO — tracking & retensi** ·
+**Akun Dokter** (Sales) · **Project Tracker** · **Notifikasi** (IT).
+Dua entri **pindah departemen**: **Persetujuan** & **Akun Saya** dari IT ke
+**Operasional/HR** — terukur, bukan selera: `PersetujuanController` ada di
+`app/Http/Controllers/Absensi/`, dan `att_request` isinya **hanya tipe absensi**
+(lembur 258 · koreksi 25 · cuti 20 · tukar 2 · sakit 2 · izin 1), sementara
+ROP, top-up, dan checklist-reopen punya jalur persetujuan sendiri.
+Idempoten: jalan dua kali tetap **37** — 25 hidup · 3 dibangun · 9 rencana,
+jenis 21/8/2/6.
+
+### 3. Kolom PEMAKAIAN — "dipakai N× 7 hari terakhir"
+Empat kolom baru (`pakai_tabel` · `pakai_kolom` · `pakai_7hari` · `pakai_at`)
++ perintah harian **`it:hitung-pemakaian`** (06.50, sesudah `it:sync-git`).
+**12 modul** dipetakan ke tabel buktinya.
+
+**Kenapa kolom ini ada** (jangan dihapus saat menyederhanakan): dengan tiga
+angka lama, **Keluhan Sistem terlihat sempurna sehat** — Hidup, nol berjalan,
+nol utang. Padahal terukur **mati**: 3 catatan seumur hidup, terakhir 28 Juni.
+Angka pemakaian satu-satunya yang membedakan modul **tenang karena beres** dari
+modul **sunyi karena ditinggalkan** — dan yang kedua kegagalan paling mahal,
+karena tak ada yang mengeluh.
+
+**Tiga aturan yang menjaganya tetap jujur:**
+- ⛔ **"—" bukan nol.** Modul tanpa pemetaan menulis *"—" + "belum terukur"*;
+  yang terpetakan tapi sunyi menulis **"0×"** beraksen amber. Menyamakan
+  keduanya adalah kebohongan yang paling mudah dipercaya. Terbukti di dev:
+  Keluhan Sistem `0×` · Katalog Modul `—`.
+- **Angkanya disimpan** (tabel sumber sampai 146rb baris) ⇒ **`pakai_at` wajib
+  ikut tampil** (*"per 5 Sep"*). Angka tersimpan boleh, asal usianya kelihatan.
+- **Seeder menetapkan pemetaan, bukan angka; perintah hitung menulis angka,
+  bukan pemetaan.** Tabel yang hilang di suatu lingkungan dilaporkan dan
+  angkanya **dibiarkan apa adanya — tidak dinolkan**.
+
+### 4. Berkas seed 34 baris × 18 kolom
+Empat tiket **stabilisasi** di GOLIVE (Petty Cash · Checklist · Lead Cekat AI ·
+ROP), tiap-tiap membawa angka pemakaian nyata sebagai isi pertanyaan
+evaluasinya. Uji seeder menyesuaikan: 34 tiket · 30 aktif · kartu papan
+6 support / 17 fitur / 7 belum ditriase.
+
+### ⚠️ Urutan naik yang sekarang MENGIKAT
+`it:seed-katalog` **dulu**, baru `it:seed-antrian`. Kalau terbalik, seeder
+antrian berhenti di baris pertama yang bermodul — dan itu memang perilaku yang
+benar, bukan cacat.
+---
+## 2026-09-06c — Rupa katalog: satu baris CSS milik halaman lain yang menjepit chip status
+
+Ekky mengirim tiga tangkapan layar: chip **HIDUP / DIBANGUN / RENCANA** di
+legenda katalog **tumpang tindih** dengan keterangannya — di ketiga tampilan.
+Live di dev (`ee6bb13`).
+
+### Sebabnya
+Legenda katalog **menumpang kelas legenda papan** (`.itk-legenda-warna`), yang
+`i`-nya memang **kotak warna**: `width:16px; height:11px`. Chip berteks ikut
+dipaksa seukuran kotak itu, jadi tulisannya meluber ke tetangganya. Bukan salah
+markup katalog, bukan salah aturan papan — salahnya **meminjam**.
+
+⇒ Legenda katalog kini punya kelas & aturan sendiri (`.itk-kat-legenda`).
+Pelajaran ditulis di CSS-nya: **pinjam maknanya, jangan selektornya.** Kelas
+yang aturannya dibuat untuk bentuk lain akan menjepit isi yang lain — dan
+diamnya total: tak ada galat, tak ada uji merah, cuma rupa yang salah.
+
+### Dua temuan lain dari sapuan yang sama
+- **Kartu tiket yang disensor kehilangan bentuknya.** Perbaikan privasi kemarin
+  merender baris tiket departemen lain sebagai `div` (bukan tautan), sedangkan
+  seluruh gayanya ditulis untuk `a.tiket` → padding, border, dan radius hilang.
+  16 selektor `a.tiket` → `.tiket`.
+- **Layar ≤1100px, tampilan Daftar**: grid menyempit jadi 4 kolom tapi hanya
+  kolom 6–7 yang disembunyikan, jadi kolom **FITUR** jatuh ke baris berikutnya
+  dan barisnya patah. Kolom 5 ikut disembunyikan.
+
+### Sapuan pencegah (skrip audit, layak diulang tiap ronde rupa)
+1. **Kelas dipakai blade vs ada di CSS** — 282 : 282, nol yatim dua arah.
+2. **"Kotak sempit berisi tulisan"** — persis bentuk bug ini: nol temuan
+   tersisa; satu-satunya sisa adalah avatar 36px berisi satu huruf, yang memang
+   begitu.
+3. **Struktur grid vs jumlah anak** — daftar 7 kolom : 7 anak · matriks 6
+   kepala, 8 baris departemen, 32 sel, 8 sel tiket: cocok.
+4. **Bentrokan selektor keturunan** — daftar aturan yang menargetkan tag polos
+   (`i`, `span`, `b`) di bawah kelas yang dipakai katalog; inilah yang
+   menemukan sisa `a.tiket`.
+
+⚠️ Satu hal yang **tidak** kutemukan penyebabnya: garis horizontal melintang di
+tangkapan layar tampilan Daftar. Isi di atas dan di bawah garis itu berulang,
+jadi dugaanku itu jahitan tangkapan layar penuh Chrome, bukan CSS — kalau masih
+terlihat sesudah muat ulang, tolong beri tahu.
+---
+## 2026-09-06b — AUDIT Katalog Modul: 7 temuan ditutup, satu di antaranya kebocoran isi tiket
+
+Sesudah katalog naik dev, dibaca ulang seluruh kodenya, diuji **end-to-end per
+persona**, dan diperiksa layout/front-end-nya sebagai satu zona. Live di dev
+(`80a838b`), **139 uji hijau** di 13 kelas.
+
+### Temuan 1 — kebocoran isi tiket (yang paling serius)
+Panel ringkasan katalog menampilkan **judul semua tiket terbuka** kepada siapa
+pun yang boleh membuka halaman. Padahal rencana §12 melarang Head departemen
+membaca tiket departemen lain — aturan yang **sudah** dipegang detail tiket
+(403) dan panel ketergantungan FRM-IT-02 ("tiket lain (Analisis)"). Katalog
+lahir tanpa pagar itu, dan tak ada satu pun uji yang menangkapnya karena semua
+uji sebelumnya memakai peran IT/Executive.
+
+Sekarang: Head tetap melihat **angka** semua modul — beban IT memang harus
+terbaca lintas departemen — tapi judul tiket orang lain menjadi *"Tiket
+departemen lain — isinya tidak ditampilkan"*, catatan kemajuannya ikut
+disembunyikan, dan barisnya bukan tautan. **Nomor tiketnya tetap tampil** di
+daftar "Tanpa modul", supaya penjumlahan yang jadi janji halaman ini tetap bisa
+dicocokkan. Diukur di dev dengan akun Head Marketing sungguhan: **0 dari 31
+judul milik orang lain bocor**.
+
+### Temuan 2–4 — tiga kali "diam tanpa sebab"
+Ketiganya jenis kesalahan yang sama, dan gerbong "papan jujur" kemarin
+seharusnya sudah mengajarkannya: **kosong karena penyaring ≠ kosong sungguhan.**
+- **Matriks + pencarian tanpa hasil** → 32 sel titik tanpa satu kata pun.
+- **Papan `?modul=` menunjuk entri yang tak ada** (tautan basi / entri terhapus)
+  → papan kosong tanpa sebab. Kini: *"disaring modul #N yang tidak ada di
+  katalog"* + jalan keluar.
+- **Tautan "bertindak di papan"** dari modul yang punya tiket **ditunda** tidak
+  membuka parkiran, padahal *utang* menghitung yang ditunda — papan tampak
+  **kurang** dari angka yang baru saja diklik. Kini tautannya membawa `parkir=1`
+  bila modul itu memang punya yang ditunda.
+
+### Temuan 5–6 — pintu yang hilang & pintu yang memantul
+- Halaman **"Permintaan Saya" tak punya pintu ke katalog sama sekali**; Head
+  departemen yang tak punya papan jadi tak bisa mencapainya. Ditambahkan.
+- **Katalog menawarkan "Papan Antrean" ke peran Head** — pintu yang memantul,
+  karena controller mengalihkannya ke halaman permintaan. Kini ia melihat
+  "Permintaan Saya".
+
+### Temuan 7 — konsistensi rupa
+Kalimat "tak ada modul yang cocok" disamakan di tiga tampilan, dan **32 baris
+aturan CSS mati** dari ronde-ronde sebelumnya dibuang (`itk-head*`,
+`itk-jenjang`, `itk-prog`, `itk-tabjenis`, `itk-parkir-bar`,
+`itk-kemajuan-blok`, `itk-tj-baru`). Kelas `.itk-*` yang dipakai blade vs yang
+ada di CSS kini **282 : 282** — nol kelas tanpa aturan, nol aturan tanpa
+pemakai.
+
+### Diperiksa, tidak bermasalah
+- **Zona & gerbang HP**: `/it-tracker/katalog` ikut `zona-it` dan daftar gerbang
+  sopan lewat **segmen-1 yang sama** — nol tambahan yang perlu dirawat.
+- **RBAC**: segmen tetap `it-tracker`, node `access_path` yang ada jadi
+  gerbangnya (tak ada ranjau 302-senyap).
+- **Keseimbangan DOM** di 6 kombinasi halaman × persona: seimbang; CSS dimuat
+  sekali; struktur topbar sama di keempat halaman zona.
+- **Papan tanpa `?modul=` tak berubah perilakunya** (kendali negatif diuji).
+
+### Uji E2E per persona (kelas baru `ItKatalogE2ETest`, 9 perjalanan)
+Bukan uji unit: tiap metode meniru **satu orang** memakai sistem dari layar ke
+layar, dan yang diperiksa adalah **apa yang ia lihat — termasuk yang tak boleh
+ia lihat**. Della (Head Finance) mengajukan lalu melihat dampaknya · Ekky
+(Head IT) triase + modul lalu menelusuri angkanya ke papan · Ekky membuat entri
+modul baru lalu menautkannya (modul lahir dari tiket) · Reza (IT) menarik tiket
+lalu menggerakkannya · Robi (Executive) mendarat di matriks dan menyaring
+"semua laporan lintas departemen" · dan penjumlahan yang tetap cocok sesudah
+ada yang ditunda dan ada yang ditolak.
+---
+## 2026-09-06 — KATALOG MODUL: halaman saudara papan — "apa saja yang kami punya"
+
+Papan menjawab *"apa yang sedang bergerak"*. Executive bertanya hal lain —
+*"apa saja yang kami punya"* — dan sampai hari ini jawabannya cuma ada di
+kepala Head IT. Dua pertanyaan, dua halaman: **`/it-tracker/katalog`**, bukan
+tab keempat (tiga tingkat tab di papan semuanya *jenis tiket*; katalog bukan
+tiket). Live di dev (`cad5c59`), **130 uji hijau** (kelas baru 15 uji).
+
+### Yang dibangun
+- **`it_modul`** (33 entri) + **`it_ticket.modul_id`**. Tak ada kolom jumlah
+  fitur maupun jumlah tiket — keduanya **dihitung**; angka tersimpan basi
+  diam-diam, alasan yang sama dengan larangan kolom "berapa hari menunggu".
+- **Tiga tampilan × dua lensa**, semuanya lewat query string sehingga bisa
+  ditautkan dan di-bookmark: **Daftar** (padat, dipakai IT saat triase) ·
+  **Kartu** · **Matriks 8×4** yang memuat 33 modul dalam satu layar.
+- **Tampilan bawaan mengikuti peran**: Executive/Konsultan/Head mendarat di
+  **Matriks** (datang sebulan sekali, tak akan belajar navigasi), IT di
+  **Daftar**. Paket desain menandai celah ini sendiri; sekarang ditutup.
+- **Panel geser kanan** per modul: sejak · fitur · utang, daftar halaman yang
+  bisa dibuka, ringkasan tiap tiket terbuka (fase, menunggu siapa & berapa
+  hari, PIC, "sudah sampai mana"), lalu catatan & bukti data. **Esc menutup** —
+  celah kedua yang ditandai paket desain.
+- **Seeder `it:seed-katalog --env-guard=`**, idempoten by nama.
+
+### Tiga keputusan yang menentukan bentuknya
+1. **⛔ Tak ada tebakan modul dari judul.** Mockup memakai regex `modulOf()`.
+   Alasan menolaknya: **tebakan yang meleset tidak terlihat siapa pun** —
+   tiket *"Rate-limit API Omnicare"* akan tertangkap `/omnicare/` dan masuk
+   *Integrasi Omnicare* padahal mungkin milik Reservasi, lalu angka utang modul
+   itu salah selamanya tanpa ada yang tahu. `modul_id` diisi manusia saat
+   triase (boleh dikosongkan); yang kosong masuk baris **"Tanpa modul"** dengan
+   **penjumlahan eksplisit** — di dev hari ini: *"0 bertaut + 31 tanpa modul =
+   31 tiket terbuka di papan"*, dan angka itu **cocok** dengan cacah tabel.
+   Angka yang bisa dicocokkan lebih berharga daripada angka yang rapi.
+2. **Fitur diturunkan, tidak pernah diketik.** `access_id` menunjuk satu node
+   `access_path`; fiturnya = keturunan yang punya `link`, aturannya **sama
+   persis** dengan `shellCollectLeaves()` (node bercabang menyerahkan hitungan
+   ke anaknya; daun tanpa link tak dihitung karena ia memang tak pernah tampil
+   di sidebar). Terukur di dev: **Absensi 8 · Konten 6 · Pusat Akun 6**.
+   Modul tanpa menu (Accurate, Omnicare, Kontak & Percakapan, …) → `access_id`
+   NULL, 0 fitur, tertulis *"tanpa menu — berjalan di belakang"*, bukan galat.
+   Katalog yang diketik tangan basi dalam dua bulan; yang diturunkan tidak bisa.
+3. **Status bukan progres.** Label bertulis + tebal-pudarnya nama. ⛔ Saluran
+   warna papan **tidak dipakai** untuk status — panas = isi strip · oranye tepi
+   = unit usaha · putus-merah = pelewatan paraf · teks kuning = basi; kalau
+   katalog meminjamnya, artinya rusak di dua halaman sekaligus. Warna panas
+   dipakai ulang **hanya** di panel, pada strip menunggu tiap tiket, karena di
+   situ artinya memang sama. Tak ada bar persen, skor, atau grafik.
+
+### Sambungan dua arah
+Kepala papan → **Katalog Modul**, kepala katalog → **Papan Antrean**. Angka
+tiket di katalog **bisa diklik** → papan `?modul=` (parkiran ikut disaring,
+karena *utang* termasuk yang ditunda); chip di papan menyebut modulnya dan
+menyediakan jalan balik ke ringkasannya. Detail tiket menyebut *"Modul: X ›"*
+atau *"Tanpa modul katalog"*, dan Head IT bisa menautkan/melepas dari sana —
+tanpa itu, 31 tiket yang sudah lewat triase lama tak akan pernah bisa bertaut.
+
+### Yang jujur soal tanggal
+Modul hidup yang tanggalnya tak bisa dibuktikan ditulis **"belum terbukti"**
+plus penjelasan (*"tak ada tabel yang bisa membuktikan — bukan data hilang"*).
+Yang cuma perkiraan bulan (Dashboard Sales, Persetujuan, Akun Saya) ditandai
+`sejak_terbukti = 0` dan dirender sebagai bulan saja. **Tidak ada tanggal yang
+dikarang.** Penanda **WARISAN** untuk Pusat Akun diturunkan dari tahunnya
+(< 2026), bukan disimpan sebagai bendera kedua yang bisa berselisih.
+
+### Langkah berikutnya yang menunggu manusia
+31 tiket dev belum bertaut ke modul mana pun — **itu memang harus diisi Head
+IT**, bukan ditebak sistem. Sesudah ditaut, angka *berjalan/utang* per modul
+langsung hidup tanpa perawatan tambahan.
+---
+## 2026-09-05d — IT TRACKER: gerbong "papan jujur" — papan berhenti berbohong pelan-pelan
+
+Empat lubang kecil yang tak satu pun bikin galat, tapi keempatnya membuat orang
+mengambil kesimpulan salah atau menunggu orang yang tak perlu. Live di dev
+(`9d93489`), **115 uji hijau** (kelas baru `ItTrackerPapanJujurTest`, 9 uji).
+
+### 1. Kolom kosong karena FILTER ≠ kolom yang memang kosong
+Dulu keduanya terlihat persis sama. Nyalakan chip "Inisiatif IT", kolom
+Development jadi kosong — dan orang menyimpulkan *"Dev lagi sepi"*, padahal 3
+tiketnya cuma tersaring. Sekarang kolom yang kosong karena filter memakai kotak
+amber: **"0 yang cocok — 3 tiket Development ada di tab Permintaan"** plus tombol
+jalan keluar sekali klik (**Buka tab Permintaan**). Supaya ini bisa dihitung,
+controller membuat **potret sebelum filter** per fase per jenis dan menaruhnya di
+DOM (`data-raw-*`) — tab jenis disaring di klien, filter lain di server, jadi
+tanpa potret itu JS tak punya pembanding. Alasannya satu dan berurutan: sumber →
+unit → macet → pencarian → jenjang.
+
+### 2. Pencarian menjangkau parkiran
+Ketik nomor tiket yang sudah ditutup: dulu papan kosong, seolah tiketnya tak
+pernah ada — padahal jejaknya ada dan lengkap. Sekarang kueri parkiran ikut
+disaring `q`, dan papan kosong menyebut hasilnya: *"Tapi 1 tiket yang cocok ada
+di parkiran: IT-2026-012 (Selesai)"* + tombol **Buka parkiran** yang membuka
+panelnya dan menggulir ke sana. Filter LAIN sengaja **tidak** menyentuh parkiran:
+yang dicari orang di sana adalah tiketnya, bukan sudut pandang papan.
+
+### 3. Triase dari halaman detail
+Head IT yang sedang membaca satu tiket tak lagi dilempar balik ke papan lewat
+`?q=nomor` hanya untuk menekan tombol Triase. Modalnya diangkat jadi partial
+`_modal-triase.blade.php` dan dipakai **papan DAN detail** — satu formulir, dua
+pintu, tak ada salinan yang bisa menyimpang.
+
+### 4. "Tarik — aku yang kerjakan"
+Ini yang paling menahan orang: `bolehGerakkan` mengunci IT pelaksana di luar
+tiket yang bukan miliknya, sementara satu-satunya yang bisa membuka kunci itu
+(menunjuk PIC) hanya Head IT. Jadi Reza menunggu Ikhsan hanya untuk boleh mulai.
+Sekarang IT pelaksana **menunjuk dirinya sendiri** selama PIC masih kosong.
+Batasnya tegas dan diuji: tiket yang **sudah** ber-PIC tak bisa direbut
+(pemindahan tetap lewat Head IT — tak boleh ada tiket berpindah tangan
+diam-diam), tiket parkir/selesai tak bisa ditarik, non-IT ditolak **403 di
+controller**, bukan sekadar tombolnya disembunyikan.
+
+### Diperiksa di dev dengan data nyata
+Keempat alasan filter muncul dengan kalimat yang benar (7 kolom masing-masing),
+pencarian `IT-2026-012` menunjuk ke parkiran, detail tiket TRIASE memuat modalnya
+sendiri tanpa lemparan `?q=`, dan Reza melihat tombol Tarik di tiket tanpa PIC.
+
+⚠️ **Pelajaran lama terulang**: `data-fase-saring` muncul juga di JS papan, jadi
+asersi "tanpa filter tak ada kotak alasan" tersandung dan gagal palsu. Uji
+**elemennya** (`class="itk-fase-saring"`), bukan nama atributnya — sama seperti
+jebakan legenda warna yang memuat kata "tanpa paraf BO".
+---
+## 2026-09-05c — IT TRACKER: RUPA RONDE 3a — papan, detail, dan formulir disamakan dengan mockup
+
+Ekky melihat mockup r3 berdampingan dengan dev dan menemukan yang belum
+kuadopsi: **"bagian dalem ini belum ada yang berubah… banyak yang ga sesuai."**
+Ronde sebelumnya hanya mengambil bagian PAPAN; halaman detail dan formulir
+masih rupa lama. Instruksinya tegas: *"biarin deh ikutin desain aja jadi hitam
+dan layout kayak gini, baru kita improve dari sana, untuk sekarang samain aja
+dulu."* Live di dev (`ca8e148`), 106 uji hijau.
+
+### Tiga koreksi keputusan
+1. **Tab ketiga "Belum ditriase" DIBATALKAN.** Kembali dua tab, dan tiket
+   tanpa jenjang **tampil di keduanya lagi** — alasannya kuat: ia belum punya
+   jenjang, jadi belum bisa dipilihkan ke salah satu. Hitungan gandanya tidak
+   disembunyikan: badge tiap tab menghitungnya, dan catatan di kanan band
+   menyebutkan *"Belum ditriase (7) belum punya jenjang — tampil di kedua tab,
+   ikut dihitung di keduanya."* Kejujuran angka dipindah dari *memisah* ke
+   *menerangkan*.
+2. **Band tab jadi hitam persis mockup** (segmen putih di atas grafit, dengan
+   sub-judul "jenjang M · L — lewat 5 atau 7 fase").
+3. **Tombol maju di kartu jadi HIJAU** supaya beda dari tombol Triase yang
+   grafit — dua aksi berbeda tak boleh berwarna sama.
+
+### Papan
+Filter sekunder lengkap: pencarian + chip **Macet · Permintaan · Inisiatif IT
+· RB Las** (filter `unit` baru di controller) + bar hitam "Filter menyala:
+… — N dari M tiket aktif tampil" dengan tombol Matikan semua. **Parkiran
+pindah ke ATAS papan** sebagai panel lipat lewat tombol "Parkiran · N";
+tombol **"Buka lagi → Antre"** ada langsung di kartu yang ditunda, tak perlu
+masuk detail. Kepala kolom jadi grafit berangka besar + sub-judul fase
+("Requirement · triase & antre"). Kartu memakai **nomor pendek `#027`**,
+chip **pemohon · departemen**, dan tag amber BELUM DITRIASE. Panel beban
+mengganti satu tombol "lihat yang macet" dengan **satu chip per tiket macet**
+(nomor + umur) — Executive langsung tahu YANG MANA, bukan cuma berapa.
+
+### Detail — ini yang paling berubah
+Tujuh panel bertumpuk diganti **akordeon per fase**: fase lampau menyusut jadi
+**satu baris ringkasan** ("4 FR · Aplikasi, Database · diparaf Robi 22 Agu"),
+fase berjalan terbuka penuh, fase mendatang jadi baris putus-putus **"belum
+sampai · nanti diisi Della"**. **Gerbang pindah ke DALAM kartu fase berjalan**
+(lampu per syarat + tombol yang bilang kenapa) — sebelumnya ia jauh di rail
+kanan, terpisah dari formulir yang menyalakannya. Kepala tiket baru: avatar,
+pemohon · departemen, jenjang · bobot, unit, penanda TANPA PARAF BO, "Lahir
+dari", daftar fitur anak, kotak menunggu. Rel fase dapat simpul **"Selesai"**
+dan tiap simpulnya bisa diklik untuk melompat ke fasenya. Bar **❝ SUDAH
+SAMPAI MANA** naik ke paling atas kolom kiri dengan badge BASI. Di FRM-IT-02,
+**bahan rancangan naik ke atas tabel FR**.
+
+### Formulir permintaan
+Judul dan urutan field mengikuti mockup, dan **tombol kirim MATI sambil
+menyebut apa yang kurang** — "Pilih jenis permintaannya dulu", "Ceritakan
+masalahnya dulu" (pola P3, sekarang benar-benar dipakai di intake). Lampiran
+jadi drop-zone. Rail kanan "PERMINTAAN SAYA" dengan status, bar kemajuan,
+posisi antrean, dan banner bola-di-tanganmu. **Field "KERJAAN INI UNTUK"
+(unit usaha) DIPERTAHANKAN** — mockup tak punya, tapi tanpa itu tiket RB Las
+tak bisa ditandai sejak lahir.
+
+### Yang perlu diingat
+- Kelas CSS `itk-lewat-banner` **sengaja dipertahankan** di penanda pelewatan
+  paraf yang baru, walau rupanya kini dari `.itk-pintas` — kelas itu kontrak
+  uji §14.16; kalau hilang, penandanya bisa lenyap tanpa satu uji pun merah.
+- Partial FRM (`_analisis/_uji/_uat/_golive/_evaluasi`) dipakai **apa adanya**
+  di dalam akordeon; kulit panelnya dilepas lewat CSS (`.itk-acc-body >
+  .itk-panel`), isinya utuh — tak ada logika formulir yang disalin ulang.
+- Empat asersi uji menyesuaikan rupa baru (judul panel FRM-IT-03 jadi judul
+  akordeon + badge; "Lahir dari" kini teks + tautan nomor; dua tab jenis).
+---
+## 2026-09-05b — IT TRACKER: ronde desain 3 DIADOPSI — kartu dua-detik, tab ketiga, tiga tingkat tab berbeda rupa
+
+Paket `design_handoff_it_tracker p2 r3` datang dan dinilai bersama Ekky. Bukan
+diambil bulat-bulat: dua hal diputuskan Ekky sendiri, melawan usul desainer.
+Live di dev (`fed5cac`), 106 uji hijau.
+
+### Yang diambil dari r3
+- **Kartu dua-detik.** Yang membuat kartu berat ternyata bukan elemen langka
+  (dep, parent, "tanpa paraf BO" jarang muncul bersamaan) tapi yang ada di
+  **setiap** kartu. Yang turun ke detail: **badge jenjang** (mengulang tab
+  jenis yang sedang dibuka), **chip fase "Analisis · 2/5"** (mengulang
+  kolomnya — angkanya pindah kecil ke ujung strip menunggu), "N fitur di
+  dalam", "↳ dari IT-xxx", badge unit. Dan **"Masih perlu …" hanya naik ke
+  kartu kalau yang harus bertindak BUKAN IT** (mis. paraf BO) — kekurangan
+  yang IT sendiri bisa beresi cukup di detail; kalau tidak, hampir tiap kartu
+  tumbuh dua baris.
+- **Tab ketiga "Belum ditriase".** Ini memperbaiki kejanggalan yang HUB tulis
+  sendiri di brief: dulu tiket tanpa jenjang muncul di kedua tab sehingga
+  badge tak pernah berjumlah benar. Sekarang **13 + 6 + 7 = 26**, jujur tanpa
+  catatan pembelaan, dan triase jadi antrean tindakan Head IT yang berdiri
+  sendiri (tabnya bertepi amber, bukan sekadar kategori ketiga).
+- **Tiga tingkat tab, tiga rupa** — keluhan "ketiganya mirip" memang benar:
+  jenis = kartu putih · tahap = teks kecil bergaris bawah (bukan tombol pil
+  lagi) · parkiran = chip cokelat bergaris putus.
+- **Keempat wilayah tetap tampil di semua tab**, yang kosong menyebut
+  **alasannya**: *"Belum ditriase selalu ada di Masuk"*, *"Jalur Support hanya
+  Masuk → Development (2 fase)"*. Sebelumnya kolom kosong disembunyikan —
+  papan berubah bentuk tiap ganti tab dan orang kehilangan pegangan.
+- **Legenda sistem warna** di bawah papan: lima arti, lima saluran yang tak
+  saling meminjam.
+
+### Dua keputusan Ekky yang melawan usul desainer
+1. **RB Las tetap ORANYE**, bukan teal. Alasan desainer benar (oranye jatuh di
+   antara kuning dan merah panas), tapi jalan tengahnya dipakai: saluran
+   dipisah lewat **perlakuan**, bukan warna — panas selalu **isi kartu**,
+   perusahaan selalu **tepi kiri**. Badge "RB LAS" di kartu dibuang; legenda
+   yang menjelaskan.
+2. **Gaya tab jenis tetap seperti dev** (kartu putih), bukan band grafit r3.
+   Yang diambil dari r3 strukturnya, bukan rupanya — dan keduanya memang tak
+   bertabrakan.
+
+### Dua kesalahan di paket r3 yang tak diikuti
+- README-nya menulis chip *"Masih perlu …"* dibuang dari kartu kecuali
+  penunggunya bukan IT, tapi **screenshot 16 & 19 masih menampilkannya** di
+  kartu yang justru sedang di tangan IT. Yang diikuti README-nya (aturannya),
+  bukan mockup-nya.
+- Seed r3 memuat **6 tiket RB Las berjudul karangan**. Bagus untuk memperagakan
+  warnanya, tapi bukan data: di dev nyatanya **nol**.
+
+### Pelajaran uji
+Tiga asersi disesuaikan karena kontrak tampilan memang berubah (chip parent &
+badge RB LAS turun dari kartu — keduanya dijaga ulang di **detail**, bukan
+dihapus begitu saja). Satu lagi **diperketat**: asersi lama memeriksa kata
+"tanpa paraf BO" di papan, dan legenda baru kebetulan memuat kata itu —
+sejak itu ia menguji **penandanya** (`itk-lewat-chip`), bukan katanya.
+⚠️ Pola yang layak diingat: asersi berbasis kata bisa lulus/gagal palsu begitu
+ada legenda atau bantuan yang menyebut kata yang sama.
+
+## 2026-09-05 — IT TRACKER: lima revisi pasca-demo + brief desain RONDE 3
+
+Demo 5 Sep jalan, dan Ekky pulang dengan daftar. Kelimanya dibangun langsung
+dalam satu gerbong (`e288ad9`, live di dev) — lalu Ekky bertanya *"wait, di
+desain dulu kan?"*, dan jawabannya jujur: tidak, sudah terlanjur dikerjakan.
+Keputusannya: **biarkan di dev sebagai draf kerja**, dan tiga hal yang memang
+menambah bahasa visual baru diserahkan ke ronde desain 3.
+
+### Yang dibangun
+1. **Kategori unit usaha** (`it_ticket.unit`): kerjaan ini untuk **Sweet Treats
+   atau RB Las**, ditanyakan di formulir permintaan dan catat inisiatif. **Satu
+   papan** untuk keduanya (kata Ekky: *"task RB digabung, warnanya dibedain"*):
+   kartu RB Las bergaris kiri oranye + badge `RB LAS`. Sweet Treats **tidak**
+   diberi badge — menandai semuanya sama saja tak menandai apa pun.
+2. **Catatan kemajuan "sudah sampai mana"** (`kemajuan`, `kemajuan_at`,
+   `kemajuan_oleh`): ditulis Head IT atau PIC **di fase mana pun**, termasuk Go
+   Live — itulah jawaban untuk permintaan *"di Go Live diberi catatan"*. Tampil
+   di kartu papan dan paling atas di detail. Siapa & kapan ikut disimpan, dan
+   catatan yang lewat **7 hari** berubah kuning sambil menyebut umurnya:
+   catatan kemajuan tanpa tanggal berbohong pelan-pelan — kelihatan terurus
+   padahal tiga minggu basi. Kosong = catatan dihapus, bukan disimpan sebagai
+   string kosong. Tiket ditunda/ditolak menolak catatan (buka lagi dulu).
+3. **Badge nama PIC di kartu** — sebelumnya PIC cuma terlihat sesudah membuka
+   tiket.
+4. **Unggah bahan rancangan di FRM-IT-02** (mockup · alur proses · contoh
+   keluaran) lewat `RopAttachment` yang sudah ada, folder
+   `uploads/it-tracker/frm02`. Terpisah dari lampiran FRM-IT-01 (bukti masalah
+   dari pemohon) dan **sengaja tidak menggugurkan paraf BO** — ia bahan bantu,
+   bukan isi yang disetujui. Izinnya izin analisis: Head IT selagi fase ANALISIS.
+5. (Sebelumnya, hari yang sama) papan & parkiran **bertab**, badge jenjang
+   jadi **kata**.
+
+SQL `2026_09_05_it_tracker_unit_kemajuan.sql` (idempoten). Uji: kelas baru
+`ItTrackerRevisiDemoTest` 6/6 → **106 uji**.
+
+### Yang perlu diketahui tentang dev
+Dev kini **31 tiket**, bukan 30: yang ke-31 (*"customer survey"*, Admin_Nisa,
+4 Sep 10:33) **tiket asli yang lahir saat demo**. Seeder tak menyentuhnya —
+ia hanya mengurus tiket ber-`seed_urut`. ⚠️ Kelas uji seeder **ter-skip di dev**
+karena dirancang menolak jalan di DB yang sudah berisi seed; itu bukan
+kegagalan, dan di lokal ia tetap hijau.
+
+### Brief ronde 3 dikirim ke chat desain
+`docs/brief-desain/design-brief-it-tracker-ronde3.md`. Isinya berbeda watak
+dari dua ronde sebelumnya: **ronde koreksi, bukan penambahan.** Empat masalah
+yang diserahkan:
+- **Kartu papan kelebihan muatan** — satu kartu kini bisa membawa **15 elemen**,
+  semuanya lahir dari kebutuhan nyata satu per satu dan tak pernah dinilai
+  bersama-sama.
+- **Dua perusahaan dalam satu papan** — oranye masuk ke ruang warna yang sudah
+  penuh (panas menunggu, prioritas, status parkir, penanda tanpa paraf BO).
+- **Tiga sistem tab di satu layar** (jenis · tahap · status parkiran).
+- **Komponen "sudah sampai mana"** — satu-satunya elemen tanpa rujukan di r1/r2.
+
+Brief itu juga memuat **angka nyata** untuk menguji rancangan (26 kartu aktif,
+tunggu terlama 59 hari, 3 macet di luar IT) — supaya ronde 3 dinilai pada
+papan yang penuh, bukan pada lima kartu contoh.
+
+## 2026-09-04e — IT TRACKER: papan bertab — Support Request vs Feature/Modul Request, tahap jadi tab (dev)
+
+Ekky melihat papan yang sudah terisi 30 tiket dan menemukan dua hal yang
+mengganggu sekaligus: *"kanban jangan accordion tapi tab, jadi Development sama
+Internal Testing ga harus scroll sampe bawah"* dan *"yang M dan L masuk
+Feature/Modul Request, yang S masuk Support Request — jadinya ga bingung"*.
+Keduanya dikerjakan bersama karena memang satu masalah: papan menampilkan tujuh
+tahap sekaligus untuk dua jenis pekerjaan yang jalurnya berbeda. Live di dev,
+commit `66cf83b`.
+
+- **Dua tab jenis permintaan** di atas papan: **Feature / Modul Request**
+  (M 5 fase · L 7 fase) dan **Support Request** (S 2 fase). Chip filter S/M/L
+  lama **dicabut** — dua mekanisme untuk hal yang sama pasti berselisih.
+- **Tiket yang belum ditriase belum punya jenjang**, jadi ia **tampil di kedua
+  tab** dengan catatan yang mengatakannya. Konsekuensinya badge kedua tab
+  (20 + 13) tak berjumlah 26 — itu disengaja dan dijelaskan di layar, bukan
+  dibiarkan jadi teka-teki. Badge selalu = jumlah kartu yang benar-benar
+  tampil di tab itu, jadi tak pernah berselisih dengan angka kolom.
+- **Kolom dengan lebih dari satu tahap kini bertab**, bukan bertumpuk:
+  KERJAKAN (Development · Uji Internal) dan RILIS (UAT · Go Live · Evaluasi).
+  Tab kosong diredupkan; tahap pertama yang berisi terpilih sendiri. Tak ada
+  lagi menggulir sampai bawah untuk melihat Uji Internal.
+- **Di tab Support**, kolom yang memang tak dilewati jalur dua-fase
+  disembunyikan — **tapi hanya kalau benar-benar kosong**, supaya tiket S yang
+  nyasar ke fase lain tetap terlihat, bukan hilang karena aturan tata letak.
+- Semua kartu **tetap ada di DOM** (Ctrl+F dan tautan langsung tetap jalan);
+  tab hanya menyaring, dan hitungan kolom/tahap dihitung ulang tiap ganti tab.
+  Pilihan tab tersimpan di URL (`?jenis=support|fitur`) tanpa muat ulang.
+- Modal triase kini menyebut akibat pilihannya: **S → Support Request**,
+  **M/L → Feature / Modul Request** — triase jadi keputusan "papan mana",
+  bukan sekadar "berapa fase".
+- **Parkiran ikut bertab** (permintaan lanjutan Ekky): Ditunda · Ditolak ·
+  Selesai masing-masing berhitungan, bukan satu tumpukan campur; status
+  pertama yang berisi terpilih sendiri. Parkiran **ikut tab jenis** juga —
+  `jenjang` ditambahkan ke kueri parkir, karena papan dan parkiran tak boleh
+  bercerita beda. Chip "Ditunda / ditolak / selesai (N)" ikut berubah angkanya
+  dan menghilang kalau kosong.
+- **Badge S/M/L diganti kata**: **Support · Fitur · Modul**, dan yang belum
+  ditriase kini terbaca **"belum ditriase"** (kuning bergaris putus) — bukan
+  "?" yang menyembunyikan satu-satunya keadaan yang menuntut tindakan. Satu
+  sumber `ItTrackerService::jenjangLabel()` dipakai papan, parkiran, detail,
+  modal triase, dan formulir inisiatif. Detail tiket tetap menyebut hurufnya
+  di belakang kata ("Modul · L") karena huruf itu masih dipakai saat bicara.
+- Uji: +1 regresi penanda tab & parkiran (26 kartu = 6 S + 13 M/L + 7 belum
+  ditriase; 3 panel status parkiran; chip S/M/L lama benar-benar tercabut).
+  **99 uji lama tetap hijau → 100.** Diverifikasi ulang di dev dengan data
+  nyata: 26 kartu, 7 tab tahap, 3 panel parkiran, CSS baru terlayani.
+
+## 2026-09-04d — IT TRACKER: dev DIISI antrian nyata — `it:seed-antrian`, 30 tiket, "berapa hari" jujur (demo 5 Sep)
+
+Ralat §14.21 ditindaklanjuti: papan dev tidak lagi kosong. Perintah artisan
+**`it:seed-antrian {berkas.psv} --env-guard=dev`** membaca sumber kebenaran
+`docs/rencana/seed-antrian-it-2026-09-04.psv` (30 baris × 17 kolom) dan
+mengisi tracker dengan **antrian kerjaan sungguhan** — seeder yang sama nanti
+diulang di prod oleh Ekky dengan `--env-guard=prod`. Commit `521af5a`
+(`IT-2026-005`, tiket tracker sendiri).
+
+Yang membuatnya jujur, bukan sekadar terisi:
+- **`masuk_at` persis dari berkas** → satu baris `it_ticket_fase` + `created_at`.
+  "Berapa hari menunggu" dihitung dari situ: tiket 04 (input target, 7 Jul) ≈
+  59 hari **tetap dingin** karena di DEV = di tangan IT; tiket 08 (Robi, UAT
+  sejak 1 Sep) memanas begitu ≥3 hari — persis aturan papan.
+- **Tiket di ANALISIS/UAT/EVALUASI TIDAK diisi FR/paraf/skenario palsu.**
+  Lampu gerbangnya mati apa adanya — memang dibangun tanpa formulir karena
+  tracker belum ada. Demo memperlihatkan keadaan nyata, bukan panggung.
+- **Baris TRIASE (13–17, 28, 29) tanpa jenjang** — kolom jenjang/prio di berkas
+  hanya petunjuk untuk Ekky saat men-triase di depan orang.
+- **4 ditunda (12 Omnicare pembayaran · 20 Project Tracker · 21 Accurate ·
+  30 Slip gaji) lewat `parkir()`** yang sudah ada → alasan tampil, tercatat ke
+  `audit_log`, tidak dihitung aktif. Panel beban: **26 aktif · macet ≥3**.
+- **Baris 28–30 = DRAF IT** dengan penanda `[DRAF IT — belum dikonfirmasi
+  pemohon]` yang **dibiarkan** di latar → tampil di detail dan ekspor. 29
+  pemohonnya sementara (Anisa) — tertulis di latarnya sendiri.
+- Induk–anak (01 Absensi ← 02/03/26; 05 Tracker ← 26) dan ketergantungan
+  (13→11, 22→20, 24→23, 29→28, 30→09) — dua lintasan. Evaluator 01 = HR.
+
+Yang menjaga seeder dari kecelakaan:
+- **Idempoten by `seed_urut`** (kolom baru, unik; SQL `ADD COLUMN IF NOT
+  EXISTS`). Jalan 2× = 30 tiket, counter tepat 030 — nomor dari `it_counter`,
+  tak pernah hardcode. **Jalan ulang tak memundurkan** tiket yang sudah
+  bergerak di layar (fase dipertahankan, dicatat di laporan).
+- **Pemohon tak ditemukan → BERHENTI menyebut baris & nilainya** (satu baris
+  merah utuh — `error()` bawaan membungkus email panjang jadi terpotong).
+  Tak ada setengah jalan: seluruhnya satu transaksi.
+- **`--env-guard` wajib cocok** (local · dev · prod, dibaca dari host `APP_URL`
+  + `APP_ENV`); salah → DITOLAK sebelum menyentuh DB. phpunit (`testing`)
+  dipetakan ke local.
+- Uji `ItTrackerSeedAntrianTest` 8/8 memakai **berkas asli** (akun sekali-pakai
+  untuk email yang tak ada di lokal). 91 uji lama tetap hijau → **99**.
+
+Verifikasi di dev (uji sekali-pakai dengan sesi akun asli, **tanpa menyentuh
+password siapa pun**, memeriksa URL akhir + isi): Ikhsan → papan 30 kartu;
+Yovan → 302 ke Permintaanku, melihat 011 & 013; Robi → papan, melihat 008 &
+017; Della → Permintaanku 009/012/021/028 + detail & ekspor 028 memuat
+penanda DRAF. Catatan: seluruh pemohon PSV **ada di dev by email** — termasuk
+Admin_Nisa; kekhawatiran §14.21 soal itu tak terbukti.
+
+## 2026-09-04c — IT TRACKER: jalan pintas paraf BERTANDA — Head IT boleh melewati BO, tapi tercatat & terlihat (dev)
+
+Keputusan Ekky (rencana §14.16): gerbang Analisis→Development menuntut paraf
+satu Business Owner; kalau Robi/Konsultan lambat, tiket tersandera dan Head IT
+tak bisa apa-apa. Jawabannya **bukan** "Head IT boleh memparaf" — bentuknya
+**pelewatan yang tercatat**, dan perbedaan itu yang dibangun. Live di dev,
+`feat/it-tracker`.
+
+- **Pintu masuknya bukan tombol paraf.** Di bawah baris PARAF ada ringkasan
+  yang terlipat: *"Business Owner lambat merespons? Teruskan tanpa paraf BO —
+  tercatat"*; dibuka → satu kotak alasan + tombol oranye *"Teruskan tanpa
+  paraf BO"*. **Alasan wajib ≥10 karakter**; tanpa itu ditolak dengan pesan
+  yang menyebut kenapa dan bahwa alasan itulah yang tercetak di ekspor.
+- **Tersimpan terpisah**: `fr02.diteruskan = {oleh, oleh_id, at, alasan}`;
+  `fr02.paraf` **tidak pernah** diisi dari jalur ini. Lampu gerbang menyala,
+  tapi **teksnya berubah** menjadi *"diteruskan Head IT tanpa paraf BO"* —
+  supaya tak menyamar.
+- **Penanda tak bisa disembunyikan**: banner merah putus-putus di **kepala
+  tiket** (ikut sampai Go Live dan sesudahnya) **dan** di panel 02; chip
+  *"⚠ tanpa paraf BO"* di kartu papan; baris di blok C **ekspor FRM-IT-01**
+  (satu-satunya ekspor yang ada — wajib ikut saat ekspor 02/06 dibangun).
+- **BO memparaf menyusul** tetap bisa (tombolnya berlabel "(menyusul)");
+  keduanya tersimpan, banner menambah *"BO memparaf menyusul <waktu>"* —
+  paraf tidak menghapus jejak pelewatan.
+- **Konsisten T2**: mengubah isi 02 menggugurkan pelewatan bersama paraf;
+  simpan-ulang identik & catatan dapur tidak.
+- **Hanya Head IT** (Reza/BO/pemohon → 403). **Tanpa masa tunggu** — kejujuran
+  dijaga penanda, bukan penundaan.
+- **Gerbang '06' (ACC Go Live) sengaja TIDAK bisa dilewati**: satu konstanta
+  `GERBANG_BOLEH_DITERUSKAN = ['02']`; menambah '06' = satu entri, keputusan
+  Ekky nanti.
+- Uji: kelas baru `ItTrackerTeruskanTest` 8/8 (alasan wajib · 403 · penanda di
+  3 tempat + ikut ke fase berikut · gugur saat isi berubah · paraf menyusul ·
+  '06' ditolak · paraf normal tanpa penanda + tabel lama utuh); **83 uji lama
+  tetap hijau → 91**.
+
+⏳ **Belum dikerjakan (belum ada kata eksplisit Ekky)**: mencabut `Admin
+General`/`Admin Backup`/`Admin` dari `ROLE_PENGAWAS` (§14.18). Selama itu
+dibiarkan, pintu **sunyi** (memparaf sebagai Admin_Ekky) tetap terbuka di
+samping pintu **bertanda** ini — dan pintu sunyi selalu lebih menggoda.
+
+## 2026-09-04b — IT TRACKER: Lampiran FRM-IT-01 (utang §14.11) — bukti menempel di tiket, bukan di WhatsApp
+
+Utang kecil yang jatuh di sela-sela pembagian fase (rencana §14.11 no. 2): §7
+bagian B menyebut *screenshot · contoh laporan · alur proses · dokumen lain*,
+tapi tak pernah masuk §14. Padahal ini satu-satunya jalan pemohon menempelkan
+bukti masalahnya — tanpanya orang kembali mengirim gambar lewat WA, persis
+kebiasaan yang mau digantikan sistem ini. **Live di dev**, `feat/it-tracker`.
+
+- **Tanpa pengunggah baru.** `RopAttachment` (pola terbukti, 3 controller ROP)
+  diperluas mundur-kompatibel: satu metode publik `simpanBerkas(UploadedFile,
+  jenis, dasar)` + parameter folder dasar. Pemanggil ROP tak berubah (masih
+  `uploads/rop/<jenis>`, diuji); IT Tracker memakai `uploads/it-tracker/frm01/
+  YYYY/MM`. `public_path()`/`asset()` **tidak disentuh** — di prod sudah benar
+  lewat `usePublicPath`.
+- **Metadata di payload FRM-IT-01** (JSON `lampiran[] = {path, nama, mime,
+  ukuran, oleh, at}`). Tanpa tabel baru, tanpa SQL, tanpa `access:rebuild`.
+- **Siapa boleh:** pemohon saat mengisi + menambah selama tiket masih TRIASE;
+  Head IT kapan saja; yang lain 403 (otorisasi sebelum validasi). Maks 8 per
+  tiket.
+- **Batas = ROP** (5 MB/berkas, JPG/PNG/WEBP/PDF) **+ dokumen kantor**
+  (XLSX/XLS/CSV/DOCX/DOC) — "contoh laporan" hampir selalu Excel. Penolakan
+  **menyebut yang diterima** (P3): *"Lampiran 'virus.exe' tidak dikenali. Yang
+  diterima: gambar (JPG/PNG/WEBP), PDF, Excel…"*; tiket tidak lahir.
+- **Tampil di detail** (kartu: pratinjau gambar / badge XLSX-PDF, nama,
+  ukuran; formulir "Tempelkan" dengan daftar yang diterima) **dan di ekspor**
+  FRM-IT-01 (bagian LAMPIRAN: L-01.., mime · ukuran · tanggal, pratinjau
+  gambar ikut tercetak, dokumen sebagai URL) — §7 menuntut ekspor "dikenali
+  Konsultan IT & Management".
+- Bug yang ditangkap uji sebelum siapa pun melihatnya: metadata dibaca
+  **sesudah** `move()` → berkas sementara lenyap, `getSize()` melempar 500.
+- Uji: kelas baru `ItTrackerLampiranTest` 5/5 (2 berkas → detail+ekspor · jenis
+  asing ditolak dgn pesan · hak akses & bertahan lewat fase · batas jumlah ·
+  tabel lama & ROP tak berubah). **78 uji lama tetap hijau** → total 83.
+- Keterbatasan sadar: tiket insiden/inisiatif tanpa FRM-IT-01 dapat panel
+  LAMPIRAN mandiri untuk Head IT; belum ada hapus lampiran (sengaja — jejak).
+
+## 2026-09-04a — IT TRACKER 2b: audit dua arah + demo lima persona → 1 P0 macet, 20+ perbaikan (dev)
+
+Sesudah 2b naik dev, Ekky minta *"scan ulang & audit, lalu bertindak seolah user
+yang memakai — tiap persona, tiap fase, sampai flawless"*. Dua auditor membaca
+seluruh kode (logika/otorisasi vs acuan r2; blade/JS/CSS dari sudut pemakai
+tanpa pelatihan), sementara **demo lima persona lewat HTTP nyata di dev** (Della
+Head Marketing · Ekky Head IT · Reza IT/PIC · Robi Executive · Hana Konsultan,
+akun sekali-pakai) menjalani jalur M lalu L dari pengajuan sampai SELESAI —
+114 langkah, tiap langkah mencatat teks "Langkah berikutnya" yang dibaca user,
+tombol yang tersedia, dan flash.
+
+### Yang ditangkap demo, bukan audit — dan sebaliknya
+- ⛔ **P0: "Disetujui dengan Catatan" membuat tiket MACET PERMANEN di Go Live.**
+  Lampu pra-deploy "UAT disetujui" hanya menyala untuk `setuju`; Robi sudah ACC,
+  semua pra/pasca terisi, "Tutup → Selesai" tetap menolak: *"Masih perlu:
+  pra-deploy: UAT disetujui"*. Audit blade menemukannya dengan membaca; demo
+  membuktikannya dengan menabraknya. Kini `catatan` juga menyala.
+- ⛔ **P0: jawaban UAT hilang kalau pemohon langsung menekan keputusan.** Tombol
+  keputusan dulu formulir terpisah dari tanda Sesuai/Tidak. Kini SATU formulir
+  (rute `jawab` menerima `keputusan`); "Simpan jawabanku dulu" jadi opsional,
+  tombol "dengan Catatan" menyala sendiri saat catatan diketik. Untuk tiket
+  tanpa pemohon (Head IT menjawab sendiri) formulir jawab menang — dulu dua
+  form saling membungkus dan Masukan tak pernah terkirim.
+- **Paraf mengikuti isi:** BO tak bisa memparaf analisis kosong (tombol mati
+  menyebut yang kurang); simpan-ulang komponen/lingkup identik **tak lagi**
+  menggugurkan paraf (sidik isi); rail BO kini berkata *"Giliranmu: paraf …
+  baris PARAF paling bawah"* — sebelumnya Robi hanya membaca "Dianalisis IT
+  bersama Della · 0 hari" dan harus mencari sendiri.
+- Ubah jenjang → **S ditolak** di tengah Analisis (tiket S tak punya panel 02,
+  gerbangnya tetap menuntut FR+paraf = terkunci tanpa jalan keluar).
+- "Perlu Perbaikan" kini **mengarsipkan** jawaban lama (`putaranLalu`); putaran
+  berikutnya mulai bersih — "Tidak" untuk kode lama bukan jawaban kode baru.
+- Evaluator (pemohon, bukan IT) **boleh menutup tiket** di Evaluasi — copy
+  "menutup tiket adalah parafnya" dulu berujung tombol IT-only.
+- Uji internal: Enter di kotak temuan **membalik Major⇄Minor** (tombol submit
+  pertama di form) → nilai kini dikirim dulu; TC baris-hantu ber-JS (dulu satu
+  TC per simpan); kode TC tak dikenal (tab basi) ditolak, bukan lahir kembar.
+- Spawn: judul dipangkas 255 (masukan 1000 karakter → 500 telanjang),
+  `lockForUpdate` anti klik-ganda; evaluator alih wajib pemohon/Executive/
+  Konsultan aktif; otorisasi sebelum validasi di 3 rute Fase 1 (302→403);
+  formulir skenario hanya untuk Head IT/PIC (dulu tampil lalu 403); Head lain
+  tak melihat judul tiket orang lewat ketergantungan.
+- Pemakaian: penjaga "ketikan belum tersimpan" antar lima formulir FRM-IT-02;
+  label sprint "FASE 2a/2b" yang bocor ke pemohon → label kelas (A diisi
+  pemohon / B terisi sendiri / C dipikirkan bersama); ikon FA5 ganti emoji;
+  badge "Lahir dari" di kepala tiket; kolom PRIO 100px; grid runtuh <1200px.
+
+### Hasil akhir demo
+113/114 langkah lulus (satu sisanya asersi skrip yang salah, bukan sistem):
+kedua jalur M dan L tuntas sampai SELESAI, termasuk putaran "Perlu Perbaikan"
+→ konfirmasi ulang → UJI → UAT → Go Live → Evaluasi → RTL jadi tiket baru di
+Triase dengan chip "↳ dari". **78 uji hijau** (kelas baru `ItTracker2bAuditTest`
+11 regresi), lokal dan dev. Data & akun demo dibersihkan, `it_counter` direset.
+
+### Yang SENGAJA dibiarkan (butuh keputusan Ekky)
+- `ROLE_PENGAWAS` memuat Admin/Admin General/Admin Backup → akun admin bisa
+  paraf BO & ACC Go-Live. Brief bilang BO = Executive/Konsultan. Kebijakan.
+- Rail Go Live tetap "Menunggu Executive (ACC Go-Live)" walau BO sudah ACC dan
+  bolanya di IT — meniru `waitOf` r1/r2 (kontrak terkunci). Panasnya bisa
+  menyalahkan Executive untuk keterlambatan IT sendiri.
+- Gerbang ke UAT tak menuntut ≥1 skenario (kalimatnya sudah diganti "IT belum
+  menulis skenario…"); menambah lampu = mengubah kontrak gateInfo.
+- Label rail "Dianalisis IT bersama {pemohon}" (teks r2) — pemohon tak punya
+  tugas apa pun di fase itu, kata "bersama" membingungkan.
+
+## 2026-09-03d — IT TRACKER FASE 2b NAIK DEV: empat formulir kerja (FRM-IT-02 · 04 · 05 · 07)
+
+Keempat formulir dari desain ronde 2 (rencana §14.13/§14.14, paket
+`design_handoff_it_tracker r2`) selesai dan **live di dev** (`962c53d`,
+`feat/it-tracker`). Dengan ini tiket M dan L tidak lagi berhenti di gerbang
+Analisis/Uji — seluruh jalur REQ→…→EVALUASI punya rumah. **67 uji hijau**
+(unit 11+7, feature 20+18+11), dijalankan di lokal dan di server dev.
+
+### Kontrak mesin fase: aditif, dan dibuktikan
+`pathFor` / `RANK` / aturan panas **identik r1** — `PhaseEngine` tidak ditulis
+ulang, `gateInfo` hanya ditambah `checks[]` (lampu gerbang) di samping
+`missing` yang lama. Kendali negatifnya 31 uji Fase 1.
+
+⚠️ **Tiga asersi Fase 1 SADAR diubah** — dan ini perlu diveto atau
+disetujui Ekky, bukan lewat begitu saja. r1 mengharuskan *ruang lingkup*
+untuk semua jenjang dan tak mengenal paraf; r2 (§14.13 keputusan 2 & 7)
+memutuskan **M tanpa lingkup**, **paraf satu Business Owner wajib**, dan
+kalimat Major bersufiks "— menahan gerbang". Kode mengikuti acuan r2; tiga
+asersi yang mengunci r1 diperbarui dengan komentar `KONTRAK BERUBAH SADAR`
+menyebut pasalnya. Bukan "ubah uji supaya lolos" — uji yang lama mengunci
+keputusan yang sudah dicabut desainnya.
+
+### Yang dibangun
+- **FRM-IT-02 (Kelas C)** — tabel FR + Kriteria Diterima (kolom terlebar,
+  sel membesar saat diketik, Tab antar sel, Enter melompat baris), komponen
+  terdampak, ketergantungan tiket lain (chip `⛓ menunggu` di papan),
+  **02 PENUH hanya jenjang L** (server menolak lingkup untuk M; M naik ke L
+  lewat ubah jenjang — fase tidak berubah), catatan dapur IT yang ke non-IT
+  **dinyatakan ada tapi tak ditampilkan**, paraf satu Business Owner
+  (**Executive ATAU Konsultan**; Head IT mencoba → 403).
+- **Paraf bukan hiasan (T2 ronde 2):** mengubah isi 02 sesudah diparaf
+  **menghapus paraf** dan gerbang menutup lagi. Catatan dapur tidak
+  menghapus (BO tak pernah melihatnya); simpan-ulang tabel identik juga
+  tidak. Ketiganya ber-uji.
+- **FRM-IT-04 (Kelas B)** — TC-01..05 **terkunci** (lahir sendiri saat masuk
+  UJI; tak bisa dihapus/diganti nama, tapi aktual & Pass/Fail diisi dan
+  terhitung), TC tambahan bebas, temuan Major/Minor. Gerbang UJI→UAT menahan
+  selama Major terbuka dengan kalimat **menyebut jumlahnya** ("1 temuan
+  Major masih terbuka — menahan gerbang"); Minor boleh dibawa.
+- **FRM-IT-05 (Kelas A)** — IT menulis skenario dari sudut pemohon, pemohon
+  menandai Sesuai/Tidak + catatan, tiga keputusan. "Disetujui dengan
+  Catatan" wajib punya catatan → jadi butir tindak lanjut. **"Perlu
+  Perbaikan" mengembalikan ke DEV DAN mereset konfirmasi FRM-IT-03.**
+- **FRM-IT-07 (Kelas A)** — lima aspek skala 1-5, temuan Bug/Enhancement,
+  rencana tindak lanjut; evaluator = pemohon (bisa dialihkan Head IT).
+- **`spawnTicket` SATU mekanisme** untuk catatan UAT dan RTL evaluasi: tiket
+  baru lahir di **TRIASE**, pemohon sama, `lahir_dari_id`/`lahir_via`
+  tercatat (sengaja bukan `induk_id` — relasi berbeda), chip `↳ dari` di
+  papan, tautan `→ IT-2026-0xx` di RTL-nya.
+
+### Yang ditangkap uji, bukan mata
+Jawaban UAT pemohon **tak pernah tersimpan**: `foreach (($p['skenario'] ?? [])
+as &$s)` mengiterasi salinan sementara, perubahan lenyap tanpa suara —
+hanya masukan yang selamat. Uji "catatan → 2 butir" merah, itulah satu-satunya
+tanda. Diperbaiki (iterasi salinan eksplisit, tulis balik).
+
+### Ranjau lokal bertambah
+⛔ Bukan hanya `information_schema` — **`SHOW COLUMNS` / `DESCRIBE` pun
+membunuh mysqld lokal** (crash di baris itu persis, dua kali). SQL 2b memakai
+`ADD COLUMN IF NOT EXISTS` (MariaDB ≥10.2) dan pemeriksaan
+`SELECT kolom … LIMIT 0`; guard uji juga. `SHOW TABLES LIKE` tetap aman.
+
+### Visual
+Lima screenshot ronde 2 yang hilang dari paket (T1) kuganti dengan render
+nyata lima keadaan kunci (M/L Analisis, Uji, UAT pemohon, Evaluasi, papan).
+Dua ralat CSS: kolom Prio terpotong, dan kotak teks temuan tertekan sampai
+nol oleh `select` ber-`width:100%`.
+
+**Sisa:** belum merge ke main, prod belum. Pemakaian nyata dua minggu
+(§14.5) baru bisa dimulai sekarang, karena baru sekarang alurnya utuh.
+
+## 2026-09-03c — IT TRACKER FASE 2a NAIK DEV: Go Live checklist · ekspor FRM-IT-01 · it:sync-git
+
+Ketiga isi Fase 2a (rencana §14.10) selesai dan **live di dev**. Ciri
+pembedanya satu: **nol beban ketik baru** — semuanya Kelas B, terisi sendiri.
+Batas keras terhadap 2b (tabel FR, test case, temuan, skenario UAT) **tidak
+disentuh**; yang belum didesain dibiarkan belum ada.
+
+### 1. `it:sync-git` + tabel `it_git_ref` — jantung Kelas B
+
+Perintah artisan menarik commit yang menyebut nomor tiket, layar **hanya
+membaca tabel**. Tak pernah shell `git log` dari request web. Dijadwalkan
+06:40 tiap hari, plus tombol "segarkan" di layar yang memanggil perintah yang
+sama dibatasi satu nomor tiket (argumen tervalidasi, argv array — tanpa shell).
+
+Dua keputusan yang layak dicatat karena keduanya menyangkut *jejak yang
+hilang diam-diam*:
+
+- **Nomor diurai dari SUBJECT saja.** Terbukti perlu: commit Fase 1-ku sendiri
+  menyebut `IT-2026-001` di body sebagai contoh prosa — kalau body ikut dibaca,
+  commit itu jadi jejak palsu tiket 001. Tapi selisihnya **diberitahukan**
+  (*"N commit menyebut nomor hanya di BODY — tak dicatat"*), bukan dibuang
+  sunyi. Konsekuensi kebiasaan: **tulis nomor tiket di baris pertama commit.**
+- **Unik `(ticket_nomor, commit_sha)`**, sedikit lebih lebar dari §14.3 yang
+  menulis "unik pada commit_sha". Alasannya: satu commit boleh menyebut dua
+  tiket ("IT-2026-004 + IT-2026-007: satu deploy"), dan dengan unik-sha-saja
+  tiket kedua kehilangan jejak gitnya tanpa suara. Sifat idempotennya sama
+  persis (uji §14.6 no. 14 lulus).
+
+Jejak git kini **tetap terlihat sesudah Development** — saat Go Live justru di
+situ dilihat script mana yang harus dijalankan.
+
+### 2. FRM-IT-06 Go Live Checklist
+
+Bentuknya mengikuti screenshot 03 apa adanya. Yang penting bukan tampilannya:
+
+- **Dua baris pra-deploy MENYALA SENDIRI dan sengaja tak bisa diklik** — "UAT
+  disetujui" dari keputusan pemohon (FRM-IT-05), "File/script siap" dari jejak
+  git. Keduanya **tidak disalin** ke payload: sumbernya tetap data hidup,
+  supaya tak ada salinan yang basi. POST langsung ke baris otomatis ditolak.
+- Empat baris sisanya dijawab petugas deploy Ya / N-A — jawaban, bukan
+  mengetik ulang catatan.
+- **Pemeriksaan pasca Go-Live baris pertamanya `curl beranda 200 + URL akhir`**,
+  dengan peringatan tercetak di layar bahwa `laravel.log` nol galat TIDAK
+  berarti sehat. Ironisnya terbukti hari ini juga — lihat di bawah.
+- **ACC Business Owner sengaja TIDAK bisa dibubuhkan IT**, termasuk Head IT
+  (403, diuji). Paraf yang bisa dibubuhkan pelaksana sendiri bukan kendali.
+
+### 3. Ekspor FRM-IT-01
+
+Dokumen bentuk templat resmi (bukan bergaya aplikasi, supaya Konsultan
+mengenalinya), bisa dicetak/disimpan PDF. **Bagian A Identitas Pemohon tampil
+TERISI** — nama, departemen, cabang, kontak, tanggal — walau layar pengisian
+tak pernah menanyakannya. Kertas bertanya karena kertas tak tahu.
+
+### Uji
+
+43 hijau (11 unit + 20 Fase 1 + 12 Fase 2a), termasuk §14.6 no. 14-16 dan dua
+kendali negatif (cacah baris tabel lama tak berubah; tiket 30 hari di DEV tetap
+`heat=0`). Lalu alur nyata ditelusuri lewat HTTP di dev dengan 3 akun
+sekali-pakai: Yovan mengajukan → ekspor tampil terisi → tiket ke Go Live →
+checklist diisi (baris otomatis menolak diisi tangan) → Head IT coba ACC
+sendiri **403** → Robi ACC → gerbang terbuka → tiket ditutup. Data uji
+dibersihkan, counter direset.
+
+### ⚠️ Satu bug yang HANYA ketahuan di dev
+
+Tombol "segarkan jejak git" **500** karena satu baris `use ... Artisan;` tak
+ikut tertulis. Uji lokal tetap hijau — karena ia memanggil perintahnya
+langsung dan **tak pernah mem-POST rutenya**. Perintah yang benar tak menolong
+kalau tombolnya mati. Ditambal + ditambah uji rute itu sendiri.
+Dan `laravel.log` **diam** untuk 500 ini: pelajaran yang dicetak di checklist
+Go-Live hari ini berlaku untuk chat ini sendiri.
+
+Satu regresi lagi ditangkap **suite Fase 1**: sebuah `sed` global saat
+menggarap 2a ikut membatasi rail "Langkah berikutnya" ke fase DEV, sehingga
+tombol maju + daftar "masih perlu" hilang di Analisis. Uji lama yang
+menyelamatkannya — alasan bagus untuk tidak pernah memangkas suite lama.
+
+### Audit ulang + E2E per persona (sore hari yang sama) — 6 temuan lagi
+
+Diminta menyapu ulang. Yang ketemu, urut dari yang paling mahal:
+
+1. ⛔ **Kemacetan permanen di Go Live.** Baris "File/script siap" menyala dari
+   jejak git dan sengaja tak bisa diklik — jadi tiket yang memang **tak punya
+   commit ber-nomor** (perubahan konfigurasi murni, atau nomor lupa ditulis)
+   **tak akan pernah bisa ditutup**, dan tak seorang pun bisa membukanya. Kelas
+   yang sama dengan deadlock UAT di Fase 1. Kini N-A diizinkan **hanya** saat
+   sistem memang tak punya apa pun untuk ditunjukkan; "Ya" tetap haram, dan
+   begitu jejak git muncul, bukti mengalahkan pengecualian.
+2. **Ekspor FRM-IT-01 500** untuk tiket tanpa pemohon. Terjangkau nyata:
+   insiden yang latarnya diisi melahirkan FRM-IT-01 sementara pemohonnya NULL,
+   jadi tombol Ekspor muncul lalu meledak. Sebabnya `optional($p->group)` —
+   argumen fungsi dievaluasi lebih dulu, tak seperti `??` yang menekan
+   peringatan (itu sebabnya blade aman dan hanya controller yang jatuh).
+3. **Checklist Go-Live lenyap begitu tiket ditutup** — jejak audit yang justru
+   dicari Konsultan hilang tepat saat mulai dibutuhkan. Kini tetap terbaca,
+   baca-saja.
+4. **Byte non-UTF-8 → 500 telanjang** di semua teks bebas (payload JSON;
+   json_encode melempar). Browser selalu mengirim UTF-8 — titik-tengah `·`
+   sudah diadu dan lewat mulus — tapi tempelan lawas / klien non-browser tidak.
+5. **Dua sumber kebenaran** untuk "baris mana yang otomatis"; kini diturunkan
+   dari `PhaseEngine::PRA` supaya tak menganga diam-diam.
+6. **Otorisasi berjalan sesudah validasi** di tiga rute checklist — yang tak
+   berhak dapat 302 umpan-balik validasi alih-alih 403. Tulisannya memang tak
+   pernah terjadi, tapi uji izin bisa lulus palsu karena membaca 302 sebagai
+   "tertahan".
+
+**E2E per persona di dev** (Yovan · Reza · Robi · Ekky, akun sekali-pakai):
+26 pemeriksaan, memeriksa kode HTTP **dan** isi halaman. Yovan dipantulkan ke
+halamannya, melihat ringkasan beban tapi bukan tiket departemen lain, ekspor
+miliknya boleh & milik orang lain 403. Reza: triase 403, ACC 403, checklist
+tiket bukan-PIC-nya 403, tapi tiketnya sendiri tuntas. Robi: lihat semua &
+ekspor boleh, semua aksi IT 403, dan ACC Business Owner-nya berhasil. Ekky:
+seluruh alur, plus pagar fase menolak sopan (302 + pesan, DB tak berubah).
+Uji otomatis 49 hijau (11 unit + 20 Fase 1 + 18 Fase 2a).
+
+### Batas yang tetap berdiri
+
+Tiket M/L masih berhenti di **gerbang Analisis** (butuh tabel FR = 2b) dan di
+**UJI** (test case & temuan = 2b). Itu disengaja: gerbangnya tertutup dengan
+pesan yang menyebut apa yang kurang, bukan ditambal formulir darurat.
+Prod belum.
+
+---
+
+## 2026-09-03b — IT TRACKER: demo E2E 4 persona + PENUNJUKAN PIC (gerbong `2eb…`)
+
+Tindak lanjut review Ekky (screenshot HP: konten mentok kiri-kanan) + sesi
+demo end-to-end memerankan 4 pengguna di dev. Empat perbaikan naik dev:
+
+1. **Padding surface** 2px → 26px (14px di HP) — temuan Ekky.
+2. **Penunjukan PIC** — lubang alur dua-orang terakhir dari audit: tanpa ini,
+   penarik pertama otomatis jadi PIC sehingga semua tiket jadi milik Ekky dan
+   Reza terkunci selamanya (keputusan §11 no. 8 mati). Kini: modal triase
+   punya pilihan "dikerjakan siapa", Head IT bisa ganti PIC di detail, dan
+   Reza boleh MENARIK tiket yang ditunjuk miliknya dari Antre.
+3. **Keadaan papan kosong** ber-penjelasan (dulu 4 kolom kosong bisu).
+4. **Pesan gerbang untuk non-IT** — Executive di tiket GOLIVE dulu diberi tahu
+   "aksi ini milik IT" padahal yang ditunggu justru dia; kini menyebut siapa
+   yang ditunggu + berapa hari.
+
+**Demo E2E di dev (akun sekali-pakai, dibersihkan):** Yovan mengajukan M+S →
+Ekky triase (S ditunjuk ke Reza) → Reza menarik, mencatat, menutup S
+sendirian → jalur M: gerbang Analisis menolak sambil menyebut yang kurang →
+FR diisi → Ekky serahkan ke Reza via ganti-PIC → Reza konfirmasi FRM-IT-03 →
+UAT → Yovan setuju dari banner "bola di tanganmu" → GOLIVE → Robi (Executive)
+membuka detail dan mendapat penjelasan yang benar. Riwayat fase utuh di semua
+tiket. Uji lokal 31/31.
+
+**Batas Fase 1 yang disadari** (bukan bug): jalur M/L berhenti di gerbang
+Analisis tanpa UI tabel FR (02-ringkas), dan berhenti di GOLIVE tanpa
+checklist FRM-IT-06 — keduanya wilayah Fase 2; sampai itu ada, FR bisa diisi
+IT via DB/tinker atau tiket M dijalankan sebagai S.
+
+---
+
+## 2026-09-03 — IT REQUEST TRACKER FASE 1 NAIK DEV: alur nyata + uji visual LULUS
+
+Lanjutan entri di bawah. `feat/it-tracker` (`8dfd6fb`) kini **LIVE di
+dev.sweettreats.id**: 2 SQL jalan (7 tabel + grant 12 role termasuk
+Konsultan*), `access:rebuild` 22 group, beranda 200 di URL-nya sendiri,
+`/it-tracker` tanpa login memantul ke `/signin`.
+
+**Uji di dev, tiga lapis:**
+1. **phpunit 30/30 di server dev** (dev-deps dipasang sementara, dijalankan
+   per potongan <17 uji, lalu `--no-dev` dikembalikan).
+2. **Alur nyata via HTTP** dengan 3 akun uji sekali-pakai (Head IT / IT /
+   Head Marketing): Head dipantulkan ke halamannya → ajukan → `IT-2026-001`
+   terbit dengan kalimat antre; Head IT triase M → tarik → gerbang Analisis
+   MENOLAK sambil menyebut 3 field kurang → FR diisi → Development →
+   konfirmasi FRM-IT-03 → UAT; Head IT coba buka gerbang UAT → 403; pemohon
+   melihat banner "bola di tanganmu" → setuju → GOLIVE. Reza: triase 403,
+   maju tiket bukan miliknya 403, tapi insiden yang DIA catat (cukup
+   judul+jenjang, langsung Development) bisa dia beri catatan & tutup sendiri.
+   Tunda beralasan tampil di parkiran; buka-lagi tiket belum-triase kembali
+   ke TRIASE; riwayat fase utuh (6 baris, tepat 1 berjalan); audit_log terisi.
+   Semua akun & tiket uji dibersihkan, `it_counter` direset — tiket nyata
+   pertama akan bernomor IT-2026-001.
+3. **Uji visual** (screenshot headless 3 layar, kode identik dev): zona
+   grafit hidup, menu sidebar "IT → IT Tracker" tampil ber-ikon FA5, panel
+   beban terbaca 5 detik, DEV 30 hari tetap dingin sementara UAT 4 hr kuning
+   dan GOLIVE 8 hr merah, parkiran + legenda tampil. 1 temuan diperbaiki:
+   kolom kiri detail kosong tanpa penjelasan untuk tiket tanpa formulir
+   (insiden) → kini ber-placeholder (`8dfd6fb`).
+
+**Prod belum.** Berikutnya: dipakai nyata Ekky+Reza (backlog ±10 item)
+sebelum Fase 2.
+
+---
+
+## 2026-09-02 — IT REQUEST TRACKER FASE 1: DIBANGUN & LULUS UJI (lokal; dev/prod belum)
+
+Kelanjutan entri rencana di bawah — hari yang sama, chat build. **Fase 1
+selesai dikoding, diaudit 8 sudut pandang, dan lulus 30/30 uji di lokal**
+(11 unit mesin fase + 19 feature ber-DB). Branch `feat/it-tracker` (worktree
+sendiri), BELUM di-merge, BELUM naik dev/prod.
+
+**Audit pasca-build menemukan & menutup 5 jalan buntu nyata** (masing-masing
+kini punya uji regresi):
+1. Tiket **inisiatif/insiden M/L macet PERMANEN di UAT** — `pemohon_user_id`
+   NULL tak pernah lolos pembanding, tak satu akun pun bisa memutuskan.
+   Kini: tiket tanpa pemohon diputuskan Head IT.
+2. **Gerbang DEV→UJI/UAT jenjang M/L tak pernah bisa terbuka** — tak ada
+   satu pun penulis `dikonfirmasi_at`. Kini: panel FRM-IT-03 + tombol
+   "Benar, ini yang kukerjakan — konfirmasi" di detail (rute `/konfirmasi`).
+3. IT memilih "Permintaan" di form → **selalu gagal validasi** pada field yang
+   tak dirender. Kini: opsi itu dihapus — permintaan memang harus diketik
+   pemohonnya sendiri (itu tujuan sistemnya).
+4. **Insiden dipaksa mengarang prosa di tengah kebakaran** — padahal §3 bilang
+   "formulir diisi menyusul". Kini: insiden cukup judul + jenjang.
+5. `parkir()` bisa **menimpa alasan penolakan** (DITOLAK→DITUNDA→hidup lagi)
+   dan memarkir tiket SELESAI. Kini: hanya tiket aktif; tunda/tolak/buka-lagi
+   juga tercatat ke `audit_log` (alasan tunda tak hilang saat dibuka lagi).
+Plus pagar ANTRE-tanpa-jenjang (pathFor(null) jatuh ke jalur L = memotong
+triase), filter papan kini bisa digabung (dulu tiap chip menghapus filter
+lain), catatan-S dipagari ke DEV saja, dan panggilan berat papan/detail/store
+dipangkas (COUNT ber-indeks, muat relasi hanya tiket aktif).
+
+**Yang dibangun (rencana §14.5 Fase 1):**
+
+- **7 tabel** (`database/sql/2026_09_02_it_tracker_core.sql`, idempoten):
+  `it_ticket` (prioritas_pemohon ≠ prioritas_it — dua kolom, sengaja),
+  `it_ticket_fase` (riwayat fase; "berapa hari menunggu" DIHITUNG dari
+  `masuk_at`, tak pernah disimpan), `it_form` (payload JSON FRM-IT-01..07),
+  `it_fr` / `it_test_case` / `it_temuan` (dibaca gerbang — UI-nya Fase 2),
+  `it_counter` (nomor `IT-2026-001` atomik ala `rop_counter`).
+- **Mesin fase** `app/Services/ItTracker/PhaseEngine.php` — terjemahan SETIA
+  `it-store.js` handoff: `pathFor` (S/M/L → 2/5/7 fase), `waitOf` (memanas
+  3/7 hari HANYA bila penunggu di luar IT — kendali negatif: 30 hari di DEV
+  tetap heat 0, terbukti di uji), `queuePos`, `gateInfo` (tombol mati menyebut
+  field yang kurang, pola P3), `PRA`/`PASCA` Go-Live.
+- **Layar**: Papan Antrean (panel "Beban IT saat ini" 5-detik + kalimat
+  konsekuensi "antre di belakang N" + filter macet/sumber/jenjang + parkiran
+  ditunda-beralasan), Halaman Permintaan Head (form Kelas A, identitas otomatis
+  dari akun; merangkap pencatat inisiatif/insiden untuk IT), Detail tiket
+  (rel fase, FRM-IT-01 baca-saja, riwayat fase, prioritas duo, gerbang).
+  Zona GRAFIT via body-class `zona-it`; CSS `it-tracker.sweettreats.css`.
+- **Akses**: section root "IT" + node `link='it-tracker'`
+  (`2026_09_02_it_tracker_access.sql`) — segmen-1 baru, tanpa node RBAC
+  memantulkan semua orang (302). Grant: IT berdua, Executive, Konsultan*,
+  Finance (Della), Head Marketing (Yovan), admin. Gerbang tulis DI CONTROLLER:
+  triase hanya Head IT (Reza dicoba → 403, diuji), Reza hanya menggerakkan
+  tiket PIC-nya di DEV/UJI, UAT hanya pemohon, Head hanya melihat miliknya +
+  ringkasan beban.
+
+**Uji terima §14.6**: 13 dari 18 poin tertutup + 6 uji regresi audit (semua poin mesin fase, akses,
+riwayat, kendali negatif #17 — cacah `users`/`att_day`/`rop_requests`/
+`omnicare_commission` tak berubah). Sisa 5 poin = Kelas B & ekspor (#14-16)
+serta gerbang penuh berbasis formulir — itu Fase 2. `access:rebuild` sesudah
+SQL sudah dijalankan (#18).
+
+**⚠️ Temuan penting di luar fitur:** kueri massal `information_schema.tables`
+ber-`data_length` (dipakai `Schema::hasTable()` Laravel) **membunuh mysqld
+lokal** — terbukti berulang; per-tabel `SHOW TABLE STATUS` aman, bulk crash.
+Jangan pakai `hasTable()` di test/kode yang jalan di lokal; pakai
+`SHOW TABLES LIKE`. MariaDB lokal juga sempat dimatikan/dinyalakan pihak lain
+di tengah sesi (mesin dipakai bersama).
+
+**Langkah berikutnya:** review Ekky (kerja dibiarkan uncommitted di worktree
+`sweettreats-it-tracker` sesuai alur review fase) → commit → uji dev → dipakai
+nyata 2 minggu oleh Ekky+Reza sebelum Fase 2 dimulai (syarat rencana §14.5).
+
+---
+
+## 2026-09-09 — ✅ NAIK PROD: slot kembar & "Terisi" tanpa orang (`35d332b`)
+
+**Prod `35d332b`** (dari `546044d`, ~00:40 WIB). Backup `prod_pre_slot_20260908_1736.sql.gz`
+(50M, gzip diuji). `deploy.sh main` → **rsync `assets/` saja** → `index.php` public_html utuh (3
+rujukan `laravel/`). Beranda/signin/reservasi **200** dengan URL akhir benar. Diverifikasi dari kode
+yang BENAR-BENAR ter-deploy (autoload prod, bukan `/tmp`): `gabungRentangBertindih` & `otherBranchBookings`
+ada · validasi `after:start_hour` 2 tempat · rute `rawreservation.slots` terdaftar · JS/CSS baru
+ter-serve dari `public_html` · Dharma/Cinere/10 Sep **6 slot** (17:00 = Heri Widodo · Cinere) ·
+publik nol kunci detail · nol `phone` · **165 kombinasi 14 hari, 0 berkembar** · log **0 ERROR**.
+Dev dikembalikan ke `feat/it-tracker` `f111832` + `--no-dev`; 2 baris demo dihapus.
+
+**Tambahan sebelum naik (00:30)** — ACC Ekky sesudah melihat dev: fitur jangan menunggu ditemukan.
+Kotak Terisi di cabang LAIN kini **mencetak nama cabangnya** menggantikan kata "Terisi", ada **ikon ⓘ**
+di sudut, kursor `not-allowed` → `pointer` (kursor ⛔ mengajari orang bahwa tak ada apa-apa di situ).
+Klik tetap membuka nama pasien. Nama cabang kosong → jatuh ke "Terisi". Pesan WA untuk user sudah
+disiapkan di chat.
+
+---
+
+### Sebelum naik (catatan proses)
+
+Laporan 8 Sep: admin mau menambah pasien **drg. Dharma** di **Cinere 10 Sep 17:00** →
+jam kembar (9 kotak: 17:00–18:00 muncul dua kali) **dan** 17:00 "Terisi" padahal
+daftar Cinere kosong. Ditelusuri ke prod: **dua hal berbeda**, hanya satu yang bug.
+
+- **Kembar = bug.** Rutin Kamis Cinere `17:00–20:00` ditumpuk Hari Tambahan `17:00–18:30`
+  (Della, 8 Sep 13:35, alasan "dokter on call"); `computeTimeSlots()` mencetak deret per
+  rentang lalu menempelkannya. **Berulang tiap Sabtu** untuk Panji Bintaro (`10:00–20:00` +
+  `15:00–20:00` → **10 jam kembar**) tanpa pernah dilaporkan.
+- **"Terisi" = BUKAN bug.** Ghita Lestary sudah memesan Dharma di **Kalideres** `17:00–17:30`
+  (pending, 5 Sep). `resolveBookedRanges()` sengaja tanpa filter cabang — satu dokter, satu
+  tempat. Yang salah **layarnya diam**. Fakta pendukung: 0 dari 931 hari-dokter sejak Jan
+  2026 pernah dipakai >1 cabang; jadwal lintas-cabang Dharma/Wira = template on-call.
+- **Ops sudah beres sendiri**: Della berkoordinasi — Ghita dibatalkan 14:41, HERI WIDODO
+  dipesan Cinere 17:00 pukul 14:54.
+
+### Isi gerbong (branch `fix/slot-kembar` dari main `546044d`, sudah di origin)
+1. **`gabungRentangBertindih()`** — rentang bertindih digabung sebelum slot dicetak; yang cuma
+   bersentuhan tetap dua sesi; rentang nol/terbalik **TIDAK dibuang** (⚠️ `AttendanceReconciler`
+   menilai "dokter dijadwalkan?" dari koleksi kosong/tidak — membuang = menggeser absensi;
+   prod punya Dharma Bintaro Minggu `22:00–20:00`). Versi pertamaku membuangnya — ketahuan
+   saat audit, sebelum sempat naik.
+2. **`after:start_hour`** pada jam PRAKTIK di `scheduleStore/Update` (istirahat sudah dijaga,
+   praktik kelupaan → asal baris terbalik). Efek sadar: jadwal lintas tengah malam ditolak
+   (prod nol, pencetak slot memang tak bisa).
+3. **Commit Reza `a252215`** — ditinjau baris per baris, **lulus semua pagar**, dan satu hal
+   lebih kuat dari usulan: rute staf **terpisah** `/rawreservation/slots/…` di balik AuthGuard
+   (bukan bendera di rute publik). `booked_by` = cabang · jam · nama pasien; spanduk hari
+   `other_branch_bookings` (menutup "pindah cabang nol menit"); peringatan tumpang tindih di
+   layar jadwal dokter (client-side, tak memblok). **Tanpa nomor HP.** Kotak Terisi = `<span>`
+   supaya tap HP hidup. Segmen `rawreservation` punya 14 grant di prod → lolos jebakan 302.
+4. Rapi kecil: sesi habis di rute staf → "sesi habis — muat ulang", bukan "Unexpected token <".
+5. Handoff `docs/handoff/handoff-penanda-slot-lintas-cabang.md` diluruskan: Reza sudah
+   mengerjakan; kini catatan keputusan + §10 sisa kecil.
+
+**Commit checklist Reza `15dfd1a` SENGAJA TIDAK ikut**: butuh SQL `excuse_source` yang belum
+di prod, dan menggeser cron `checklist:mark-missed` 00:10→06:15 yang terbukti jalan. Gerbong
+sendiri. Dua commitnya terpisah rapi — `a252215` duduk langsung di main, tak perlu dipecah.
+
+### Bukti
+- **46/46 unit** lokal (15 baru, tanpa DB) · **10/10 E2E di dev, 84 asersi** — persona
+  Front Office Cinere (Della) vs form publik vs tanpa sesi: kembar hilang; staf lihat
+  Kalideres·jam·nama; **string HP tak ada di keluaran**; publik nol kunci detail & nol nama;
+  tanpa sesi → 302 signin; jam terbalik ditolak & tak tersimpan; payload peringatan jadwal
+  memuat kedua cabang tanpa baris istirahat.
+- **Diadu ke data prod** (baca-saja, dua proses lama vs baru, asal trait dicetak): **3→0**
+  kombinasi berkembar · **0** jam hilang dari 166 · **0/518** hari-dokter berubah di
+  `praktikPada` (jalur absensi dokter tak tersentuh) · Dharma/Cinere/10 Sep → 6 slot.
+- Dev: `/`, `/signin`, `/reservasi` **200**; JS baru ter-serve.
+
+### Temuan lain — utang, bukan gerbong ini
+- **Label "90 hari" bohong**: loop `computeAvailableDates()` 535 hari; Dharma/Cinere 77 tanggal
+  s/d **24 Feb 2028**, cuma 13 dalam 90 hari. 12 reservasi nyata di luar 90 hari → yang salah
+  **labelnya**, jangan pendekkan jendelanya.
+- Dharma Bintaro Minggu `22:00–20:00`: nol slot, tapi absensi mencatat "praktik tanpa scan"
+  tiap Minggu. Keputusan ops (maksudnya mungkin 20:00–22:00).
+- Dua baris redundan (exception Cinere 10 Sep; Panji Sabtu `15:00–20:00`) — **tak berbahaya
+  lagi**, rapi-rapi Della kapan saja, tanpa tenggat.
+- Pindah cabang nol menit tak dipagari (butuh matriks jarak) — spanduk penggantinya yang jujur.
+- Reza (commit checklist): komentar `AttendanceRequestWorkflow` masih "cron 00:10".
+
+### Audit ulang + sapuan tampilan lintas peran (9 Sep, sore)
+
+**Uji bertambah jadi 15 / 102 asersi.** Dua yang baru menutup lubang yang tadinya
+cuma dugaan:
+
+- **Paritas data.** Executive tak punya cabang asal (`raw_branch_id` NULL) dan layar
+  ini mengelompokkan per cabang ASAL — peran tanpa cabang berisiko diam-diam melihat
+  SEBAGIAN data. Diuji: jumlah baris karyawan yang dilihat Executive **sama persis**
+  dengan Finance. (Halaman yang tampak normal dengan angka yang kurang jauh lebih
+  berbahaya daripada halaman yang menolak terbuka.)
+- **`absensi/recap` → 403, bukan pantulan.** Dev tak bisa memperagakannya (grantnya
+  sengaja tak disemai di sana), jadi grantnya disisipkan di dalam transaksi. Sekarang
+  perilaku prod itu **terbukti**, bukan diasumsikan.
+
+**Sapuan tampilan di dev — apa yang benar-benar dilihat tiap peran:**
+
+| Peran | `/absensi/kehadiran` | Deret tab yang terender |
+|---|---|---|
+| **Executive** (Robi) | **200**, 9 baris karyawan, formulir ekspor ada | **`Kehadiran`** — hanya itu |
+| **Finance** (Della) | 200 | `Rekap Persetujuan │ Kehadiran │ Mapping │ Upload Data │ Koreksi Absen │ Periode Gaji │ Lembar Gaji` |
+
+Menu samping Executive: `Absensi → absensi/kehadiran` — Upload Data, Periode, dan
+Rekap **tak** muncul. Semua pintu tulis dicoba satu per satu dan **semuanya 302 ke
+`/report`**: `/absensi`, `/absensi/koreksi`, `/absensi/periode`, `/absensi/mapping`,
+`/absensi/lembar-gaji`. Ekspor Kehadiran 200 (ekspor = membaca).
+
+**Peran lain tak kehilangan apa pun** (AuthGuard menyentuh setiap request):
+Front Office `/rawreservation` 200 · Sales `/sales-dashboard` 200 · Supervisor
+`/absensi/aturan` 200 · IT `/it-tracker` 200 & `/absensi/lembar-gaji` 200 ·
+Supervisor `/checklist/review` 200 · Executive `/report/executive` 200.
+Beranda/signin/reservasi dev **200**, log aplikasi **0 ERROR**.
+
+**Regresi per kelas:** LayarAbsensiRender 10/10 · KehadiranEkspor 7/7 · KoreksiAbsen
+16/16 · PagarLemburLayar 3/3 · PengawasanFoto 4/4.
+
+### ⚠️ Dua temuan di luar kerjaan ini
+
+1. **`ItTrackerTest::test_head_tak_melihat_tiket_orang_lain` MERAH — dan bukan karena
+   perubahan ini.** Dibuktikan: dijalankan dengan 4 berkas dikembalikan ke versi `main`,
+   gagalnya **identik** (20 uji, 1 gagal). Sebabnya **keputusan akses 9 Sep**: uji itu
+   memakai **Head Marketing**, yang grant `it-tracker`-nya dicabut hari itu juga.
+   Ujinya lebih tua dari keputusannya, jadi ia masih mengharap Head Marketing bisa
+   membuka `/it-tracker` (kini dipantulkan ke `/marketing-dashboard`).
+   → Pilihannya: perbarui ujinya mengikuti keputusan akses, **atau** tinjau ulang
+   keputusannya. **Bukan diperlonggar supaya hijau.** Milik chat IT Tracker + Ekky.
+2. **`hasMenuAccess()` cuma menemukan node 3-lapis** (`parent > sub > child`); node
+   yang hidup di kedalaman lain dijawab "tidak punya" — terjadi di hampir semua role.
+   **Sudah diketahui dan sengaja dihindari** sebelum ini (`Helpers.php:687` dan
+   `ExportController:19` menuliskannya). Satu-satunya pemakai nyata,
+   `ExecutiveReportController` (`report/executive`), kebetulan 3-lapis → tak menggigit.
+   Diperiksa, bukan diperbaiki: di luar lingkup, dan menyentuhnya tanpa perlu justru
+   menambah risiko.
+### Naik prod — resep
+`deploy.sh main` → **rsync `assets/` SAJA** (`public/assets/js/reservation-form.js` tersentuh;
+rsync seluruh `public/` pernah mematikan prod 6 menit) → `curl` beranda **200** + cek URL
+akhir → buka Cinere/Dharma/10 Sep: **6 kotak**, 17:00 bertanda Heri Widodo · Cinere.
+**Nol SQL, nol migration, nol urutan mengikat** (gabung membuat baris lama tak berbahaya
+walau dibiarkan; validasi cuma untuk simpanan berikutnya).
+Dev **dibiarkan** di `fix/slot-kembar` (+ composer dev) supaya bisa dilihat mata; kembalikan
+ke `feat/it-tracker` `f111832` + `--no-dev` sesudah prod.
+
+### Pelajaran
+- Satu laporan bisa dua sebab dengan dua nasib — pisahkan dulu, baru perbaiki; kalau tidak,
+  yang bukan bug ikut "diperbaiki" dan justru membuka double-booking.
+- Menggabung rentang: **jangan buang yang kosong** — ada pemanggil lain yang membaca
+  kekosongan koleksi sebagai keputusan (di sini: absensi dokter).
+- Dev tak selalu bisa mereproduksi (Dharma tak punya jadwal Cinere di dev) → E2E pakai
+  fixture dalam transaksi + persona sungguhan, dan **adu kode ke data prod tanpa deploy**.
+
+---
+
 ## 2026-09-06 — ✅ NAIK PROD: tiga sebab "sistem sering error & double input"
 
 Prod `4846b95` (dari `171d5c1`, ~21:45 WIB). Backup `prod_pre_galat2002_20260906_1448.sql.gz`
@@ -141,6 +1806,7 @@ metode baru) + **nol rsync**. Dev dipinjam dari chat IT Tracker dan dikembalikan
 persis ke `feat/it-tracker` `f111832`, `--no-dev` dipulihkan, beranda 200.
 
 ---
+
 ## 2026-09-05 — ✅ NAIK PROD: koreksi absen, ambang DODO, ekspor rentang + koreksi data §A & §B
 
 Prod `e324d1b` (dari `2400896`). Backup `~/backup/prod_pre_koreksiabsen_20260905_0851.sql.gz`
@@ -421,6 +2087,7 @@ hosting bersama. Nol galat dari fitur baru. Ini **kronis dan sudah ada sebelum
 deploy**, tapi artinya ada pengguna yang halamannya gagal dimuat tiap hari.
 
 ---
+
 ## 2026-09-05 — ABSENSI: koreksi berjejak audit, ambang DODO, ekspor rentang bebas
 
 Tiga fitur dari serah-terima `docs/handoff/handoff-absensi-koreksi-2026-09-05.md`,

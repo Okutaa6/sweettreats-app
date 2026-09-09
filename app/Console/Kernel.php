@@ -130,6 +130,23 @@ class Kernel extends ConsoleKernel
             ->dailyAt('07:00')
             ->withoutOverlapping(15);
 
+        // IT Tracker — jejak git per tiket (Kelas B FRM-IT-03). Pagi sebelum
+        // jam kerja supaya commit semalam sudah terbaca saat papan dibuka.
+        // Layar TIDAK pernah memanggil git sendiri; ia membaca it_git_ref.
+        $schedule->command('it:sync-git')
+            ->dailyAt('06:40')
+            ->withoutOverlapping(15)
+            ->appendOutputTo(storage_path('logs/it-tracker-cron.log'));
+
+        // Katalog Modul — "dipakai N× 7 hari terakhir" (rencana §14.26).
+        // Sesudah sync git supaya keduanya jatuh di satu jendela pagi. Angkanya
+        // DISIMPAN karena tabel sumbernya besar; usianya ikut tampil di layar
+        // lewat pakai_at, jadi angka basi ketahuan basi.
+        $schedule->command('it:hitung-pemakaian --diam')
+            ->dailyAt('06:50')
+            ->withoutOverlapping(15)
+            ->appendOutputTo(storage_path('logs/it-tracker-cron.log'));
+
         // Master vendor ROP — Senin 04:10, setelah jendela sync Accurate.
         // Cuma menambah/menyegarkan nama; vendor buatan tangan tak disentuh.
         $schedule->command('rop:tarik-vendor')

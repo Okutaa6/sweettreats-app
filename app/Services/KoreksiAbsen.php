@@ -117,7 +117,7 @@ class KoreksiAbsen
         // menjatuhkan absensi semua orang — cukup berarti "belum ada koreksi".
         // Diperiksa sekali per proses, bukan per pemanggilan.
         static $ada = null;
-        $ada ??= \Illuminate\Support\Facades\Schema::hasTable('att_day_koreksi');
+        $ada ??= tabelAda('att_day_koreksi'); // bukan Schema::has*() — membaca information_schema, membunuh mysqld lokal (lihat kolomAda/tabelAda)
         if (! $ada) return [];
 
         $rows = DB::table('att_day_koreksi')

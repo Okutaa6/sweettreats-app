@@ -365,6 +365,8 @@ window.initReservationForm = function () {
     // Janji dokter ini di cabang LAIN pada tanggal yang dipilih — dari endpoint
     // staf. Selalu kosong di endpoint publik; form pasien tak pernah dapat ini.
     let otherBranchBookings = [];
+    // Cabang yang sedang dibuka di form — pembanding untuk "terisi di cabang LAIN".
+    let slotBranchId = '';
 
     // "Terisi · Kalideres · 17:00–17:30 · a.n. Ghita Lestary"
     // Nomor HP sengaja tidak ada: koordinasinya ke admin cabang, bukan ke
@@ -556,11 +558,26 @@ window.initReservationForm = function () {
                 // membawa cursor:not-allowed sendiri di CSS, jadi tampilannya
                 // sama persis.
                 const detail = bookedByText(slot.booked_by);
-                html += '<span class="st-slot st-slot--booked" tabindex="0"'
+
+                // Tombol mati harus bilang kenapa — di badannya, bukan di balik
+                // klik. Kalau yang menahan slot ini reservasi di CABANG LAIN,
+                // nama cabang itulah yang dicetak menggantikan kata "Terisi":
+                // itu satu-satunya fakta yang mengubah tindakan admin ("telepon
+                // Kalideres"), dan muat di kotak. Nama pasien tetap di balik
+                // klik — terlalu panjang, dan tak pantas dipajang di grid.
+                // Ikon ⓘ = bahasa universal "ada keterangan", tak perlu diajari.
+                const b    = slot.booked_by || null;
+                const luar = !!(b && b.branch_id && slotBranchId
+                             && String(b.branch_id) !== String(slotBranchId));
+                // Nama cabang kosong (join tak ketemu) → jatuh ke "Terisi", jangan kotak tanpa label.
+                const kecil = (luar && b.branch) ? esc(b.branch) : 'Terisi';
+
+                html += '<span class="st-slot st-slot--booked' + (luar ? ' st-slot--booked-elsewhere' : '') + '" tabindex="0"'
                       + ' title="' + esc(detail) + '"'
                       + ' data-detail="' + esc(detail) + '"'
                       + ' data-start="' + slotStart + '">'
-                      + slotStart + ' <small>Terisi</small>'
+                      + '<i class="fa fa-info-circle st-slot__info" aria-hidden="true"></i>'
+                      + slotStart + ' <small>' + kecil + '</small>'
                       + '</span>';
                 return; // markup-nya sudah ditulis sendiri
             } else if (slot.is_past) {
@@ -603,7 +620,7 @@ window.initReservationForm = function () {
               + '<span class="st-slot-legend-item"><span class="st-slot-legend-dot st-slot-legend-dot--selected"></span>Dipilih</span>'
               + '<span class="st-slot-legend-item"><span class="st-slot-legend-dot st-slot-legend-dot--conflict"></span>Konflik durasi</span>'
               + '<span class="st-slot-legend-item"><span class="st-slot-legend-dot st-slot-legend-dot--booked"></span>Terisi</span>'
-              + '<span class="st-slot-legend-item text-muted">Klik kotak <em>Terisi</em> untuk lihat siapa &amp; di cabang mana</span>'
+              + '<span class="st-slot-legend-item text-muted"><i class="fa fa-info-circle"></i> Kotak terisi bisa diklik — lihat siapa &amp; di cabang mana</span>'
               + '</div>';
 
         $('#slotsContainer').html(html);
@@ -614,6 +631,7 @@ window.initReservationForm = function () {
         const branchId  = $('#branchSelect2').val() || $('[name="raw_branch_id"]').val();
         const date      = $('[name="date"]').val();
         const excludeId = cfg.excludeId;
+        slotBranchId    = branchId || '';
 
         if (!doctorId || !date || !branchId) {
             $('#slotsContainer').html(
@@ -638,6 +656,14 @@ window.initReservationForm = function () {
         // cabang. Route publik yang dipakai pasien sengaja tidak disentuh.
         fetch('/rawreservation/slots/' + branchId + '/' + doctorId + '/' + date + qs)
             .then(function(r) {
+                // Rute ini di balik AuthGuard. Sesi yang habis TIDAK memberi 401 —
+                // ia memantul ke halaman login yang menjawab 200 berisi HTML, jadi
+                // r.ok lolos dan r.json() gagal dengan "Unexpected token <" yang
+                // tak bisa dipahami admin. Kenali pentalannya, sebutkan sebabnya.
+                var ct = (r.headers.get('content-type') || '').toLowerCase();
+                if (r.redirected || ct.indexOf('json') === -1) {
+                    throw new Error('sesi habis — muat ulang halaman, lalu login lagi');
+                }
                 if (!r.ok) throw new Error('HTTP ' + r.status);
                 return r.json();
             })

@@ -113,10 +113,39 @@ class AuthGuard
             return $next($request);
         }
 
-        // Check if user has access to the controller
+        // Akses dicocokkan terhadap SEMUA awalan path sekaligus: 'a/b/c', 'a/b',
+        // lalu 'a'. Cukup SALAH SATU cocok — ini pemeriksaan ADA/TIDAK, bukan
+        // pemilihan node. Urutan $kandidat menggambarkan niat (spesifik dulu),
+        // tapi kuerinya `whereIn` tanpa ORDER BY, jadi baris mana yang terambil
+        // TIDAK dijamin. Aman selama hasilnya cuma dipakai `empty()` di bawah.
+        // ⛔ Kalau suatu hari $groupAccess dibaca isinya — menentukan node aktif,
+        // label, atau hak turunan — urutan itu WAJIB dipaksa dulu (ORDER BY
+        // FIELD(link, …)), kalau tidak perilakunya berubah-ubah tanpa gejala.
+        //
+        // Sampai 9 Sep 2026 gerbang ini hanya membandingkan SEGMEN-1 URL dengan
+        // `access_path.link`. Akibatnya setiap node bertingkat — 'absensi/kehadiran',
+        // 'absensi/lembar-gaji', 'checklist/review', 'report/executive' — cuma bisa
+        // dibuka role yang KEBETULAN juga memegang node segmen-1-nya. Grant yang
+        // diberikan tepat sasaran justru mati: Executive diberi "Kehadiran" 9 Sep
+        // lalu tetap dipantulkan, karena tak memegang "Upload Data". Gejalanya
+        // menipu — 302 ke landing, BUKAN 403 — jadi terbaca seolah menunya rusak.
+        // Pola yang sama pernah ditambal setengah lewat SKIP_RBAC untuk
+        // 'petty-cash-categories'; ini menutupnya untuk semua node bertingkat.
+        //
+        // Memegang segmen-1 TETAP membuka seluruh isinya, jadi tak ada role yang
+        // kehilangan akses. Yang bertambah hanya: node bertingkat yang sudah
+        // di-grant kini benar-benar bisa dibuka. Diukur di prod sebelum naik —
+        // tepat 2 baris yang berubah, dua-duanya Executive.
+        $segmen   = $request->segments();
+        $kandidat = [];
+        for ($n = min(3, count($segmen)); $n >= 2; $n--) {
+            $kandidat[] = implode('/', array_slice($segmen, 0, $n));
+        }
+        $kandidat[] = $controller;
+
         $groupAccess = GroupAccess::join('access_path', 'group_access.access_id', '=', 'access_path.id')
             ->where('group_id', $group_id)
-            ->where('link', $controller)
+            ->whereIn('link', $kandidat)
             ->first();
             
         if (empty($groupAccess)) { // user doesn't have access

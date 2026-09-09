@@ -1,134 +1,167 @@
-# Design Brief — IT Request Tracker, RONDE 3 (detail tiket & papan)
+# Design Brief — IT Request Tracker, RONDE 3 (papan yang sudah terisi nyata)
 
-> Untuk claude.ai/design. **Ronde perbaikan**, bukan fitur baru. Lampirkan
-> paket ronde 2: `IT Request Tracker.dc.html`, `Sidebar.dc.html`, `it-store.js`,
-> `support.js`. Konteks: `docs/rencana/rencana-it-tracker.md` §14.13 (tujuh
-> keputusan desain **TERKUNCI** — jangan dibatalkan). Ikon **FontAwesome 5**.
+> Untuk claude.ai/design. **Lanjutan ketiga**, bukan mulai dari nol.
+> Lampirkan paket ronde 2 p2: `IT Request Tracker.dc.html`, `Sidebar.dc.html`,
+> `it-store.js`, `support.js` + 11 screenshot. Bahasa visual, zona grafit,
+> sistem badge, dan mesin fase **diteruskan apa adanya** — jangan dirancang ulang.
+> Konteks: `docs/rencana/rencana-it-tracker.md` §7, §14.13, §14.16, §14.21.
+> Ikon **FontAwesome 5** — nama khas FA6 jadi kotak kosong.
 
 ## 0. Kenapa ada ronde 3
 
-Fase 1, 2a, dan 2b sudah **dibangun dan hidup di dev** dengan **30 tiket
-antrian nyata**. Untuk pertama kalinya kita melihat layarnya dengan beban
-sungguhan, bukan seed mockup — dan dua hal langsung terasa (kata Ekky sendiri):
+Dua hal berubah sejak ronde 2, dan keduanya mengubah pekerjaan desain.
 
-1. **Halaman detail tiket terlalu panjang.** Tujuh fase ditumpuk vertikal.
-   *"Kalau sudah di Evaluation harus scroll ke ujung banget, ya ampun."*
-2. **Papan terlalu banyak ruang kosong**, dan kolom-kolomnya kurang menonjol.
+**Pertama: papannya tidak lagi kosong.** Sampai 4 Sep, semua rancangan diuji
+dengan 3–6 kartu contoh. Sekarang dev berisi **31 tiket kerjaan sungguhan**
+(26 aktif · 4 ditunda · 1 baru dari demo), dengan tanggal masuk asli — ada
+yang sudah menunggu **59 hari**. Rancangan yang enak dilihat pada 5 kartu
+belum tentu bertahan pada 26 kartu; itulah yang perlu dinilai ulang.
 
-Ronde ini **tidak menambah field, tidak mengubah alur, tidak menyentuh mesin
-fase.** Ini soal susunan dan kepadatan.
+**Kedua: ada delapan permukaan baru yang DIKODING LEBIH DULU tanpa lewat
+desain.** Ekky memintanya berturut-turut, sebagian saat demo berlangsung, dan
+HUB mengerjakannya langsung karena semuanya memakai komponen yang sudah ada.
+Semua sudah live di dev dan berjalan; **tapi tiga di antaranya sebenarnya
+menambah bahasa visual baru** dan itu keputusan desain, bukan keputusan
+koding. Brief ini menyerahkan ketiganya untuk dinilai dan dirapikan — bukan
+untuk dibangun dari nol.
 
-## 1. Angka nyata — rancang untuk sebaran INI, bukan yang dibayangkan
+⚠️ Jadi peran ronde 3 berbeda dari dua ronde sebelumnya: **ini ronde koreksi
+dan pemadatan, bukan ronde penambahan.** Kalau jawabannya "buang saja elemen
+X", itu jawaban yang sah dan disambut.
 
-Diukur di dev 4 Sep, 30 tiket:
+## 1. Yang sudah dibangun sejak ronde 2 (semua live di dev)
 
-| Fase | Isi | | Fase | Isi |
-|---|---|---|---|---|
-| Triase | **8** | | Uji Internal | **0** |
-| Antre | **4** | | UAT | **4** |
-| Analisis | **4** | | Go Live | **0** |
-| Development | **6** | | Evaluasi | **1** |
-| | | | Ditunda | **4** |
+| # | Permukaan | Status desain |
+|---|---|---|
+| 1 | **Lampiran FRM-IT-01** — kartu berkas (pratinjau gambar / badge XLSX·PDF), tampil di detail & ekspor | pakai komponen lama, aman |
+| 2 | **Jalan pintas paraf bertanda** — Head IT meneruskan gerbang Analisis tanpa paraf BO dengan alasan wajib; penanda merah bergaris putus di kepala tiket + panel 02, chip di kartu, baris di ekspor | **perlu dinilai** |
+| 3 | **Papan bertab** — 2 tab jenis permintaan (Support ‖ Feature/Modul) menggantikan chip filter S/M/L | **perlu dinilai** |
+| 4 | **Tahap jadi tab di dalam kolom** — Development ‖ Uji Internal, dan UAT ‖ Go Live ‖ Evaluasi | **perlu dinilai** |
+| 5 | **Parkiran bertab** — Ditunda ‖ Ditolak ‖ Selesai | pakai komponen no. 4 |
+| 6 | **Badge jenjang jadi kata** — Support · Fitur · Modul · "belum ditriase" (kuning) menggantikan huruf S/M/L | pakai komponen lama |
+| 7 | **Unit usaha RB Las** — kartu bergaris kiri oranye + badge `RB LAS`; Sweet Treats tanpa badge | **perlu dinilai** |
+| 8 | **Catatan kemajuan "sudah sampai mana"** — panel di detail + satu baris biru di kartu; berubah kuning + menyebut umurnya sesudah 7 hari | **perlu dinilai** |
+| 9 | **Badge nama PIC di kartu**; **unggah bahan rancangan di FRM-IT-02** | pakai komponen lama |
 
-⚠️ **Dua dari tujuh fase kosong, dan itu keadaan normal**, bukan kebetulan.
-Uji Internal hanya dilalui jenjang L; Go Live cuma dihuni beberapa hari.
-Rancangan yang memberi tiap fase kolom setinggi layar akan **selamanya**
-memperlihatkan lubang. Itu sumber "banyak empty space" yang Ekky keluhkan.
+## 2. Empat masalah desain yang sebenarnya
 
-**Sebaran panjang halaman detail** (baris blade, indikasi seberapa jauh
-scroll-nya): Analisis 315 · UAT 224 · Uji 170 · Go Live 163 · Evaluasi 189 —
-plus kerangka 390. Tiket L menampilkan **semuanya sekaligus**.
+### 2.1 Kartu papan kelebihan muatan
 
-## 2. Masalah 1 — detail tiket: maraton scroll
+Satu kartu sekarang bisa membawa **15 elemen**: nomor · sumber/pemohon ·
+badge `RB LAS` · badge jenjang · judul · chip kemajuan fase (`Analisis · 2/5`) ·
+prioritas IT · "N fitur di dalam" · "menunggu IT-xxx" · "↳ dari IT-xxx" ·
+"tanpa paraf BO" · nama PIC · baris catatan kemajuan · strip menunggu ·
+tombol aksi. Semuanya lahir dari kebutuhan nyata satu per satu, dan tak ada
+satu pun yang pernah dinilai **bersama-sama**.
 
-**Kenyataannya, dari tujuh fase hanya SATU yang sedang dikerjakan.** Sisanya:
-sudah lewat (tinggal dibaca) atau belum sampai (kosong). Sekarang ketiganya
-mendapat ruang yang sama.
+Pertanyaan untuk ronde 3: mana yang naik ke kartu, mana yang cukup di detail,
+mana yang jadi satu baris ringkas. Kartu yang harus dibaca dua detik tidak
+boleh punya 15 hal.
 
-Yang sudah ada dan **berhasil** — pertahankan:
-- **Rel fase 1–7 di atas** (lingkaran bernomor, yang lewat ✓ hijau, yang
-  sekarang gelap). Sekarang ia **hiasan**; jadikan **navigasi**.
-- **Rail kanan "Langkah berikutnya"** dengan lampu gerbang + tombol mati yang
-  menyebut kekurangannya. Ini bagian terbaik layar itu.
+### 2.2 Dua perusahaan dalam satu papan
 
-**Tantangannya:** buat fase yang sedang berjalan **langsung terlihat tanpa
-scroll**, sementara riwayat tetap bisa dibuka. Beberapa arah yang mungkin —
-pilih dan pertajam, jangan kerjakan semuanya:
-- fase lampau menyusut jadi **satu baris ringkasan** yang bisa dibuka
-  (*"✓ Analisis · selesai 22 Agu · diparaf Robi · 4 FR"*);
-- rel fase jadi **tab**: klik 5 → loncat ke UAT tanpa scroll;
-- fase yang **tidak dilewati jenjangnya** dihilangkan sama sekali — tiket **S
-  cuma punya 2 fase** (`REQ → DEV`), memperlihatkan 7 itu berbohong;
-- rail kanan **menempel (sticky)** saat menggulir.
+Ekky melayani **Sweet Treats** (klinik) dan **RB Las**. Keputusannya: satu
+papan, dibedakan warna — *"task RB digabung, warnanya dibedain"*. Yang
+terpasang sekarang: garis kiri oranye + badge oranye, dan Sweet Treats sengaja
+**tidak** ditandai sama sekali (menandai semuanya sama saja tak menandai apa pun).
 
-⚠️ **Jangan** menjadikannya wizard satu-fase-per-halaman. Nilai layar ini
-justru satu tiket = satu halaman yang bisa dibaca utuh dan **dicetak**.
+Kesulitannya: papan ini **sudah memakai warna untuk arti lain** — strip
+menunggu memanas kuning/merah bila penunggunya di luar IT, prioritas P1/P2/P3,
+status Ditunda/Ditolak/Selesai, penanda merah "tanpa paraf BO". Oranye untuk
+"perusahaan" masuk ke ruang yang penuh. Perlu keputusan sistem warna, bukan
+tambalan.
 
-## 3. Masalah 2 — papan: ruang kosong & kolom kurang menonjol
+### 2.3 Tiga sistem tab di satu layar
 
-Papan mengelompokkan tujuh fase jadi empat: **Masuk · Rancang · Kerjakan ·
-Rilis**. Dua sub-fase hampir selalu kosong (lihat §1).
+Papan sekarang punya tab jenis permintaan (atas), tab tahap (di dalam tiap
+kolom), dan tab status (di parkiran). Masing-masing menyelesaikan masalah
+nyata — Ekky sendiri yang minta, supaya Development dan Internal Testing tak
+perlu digulir sampai bawah. Tapi tiga tingkat tab di satu halaman adalah
+beban ingatan; perlu dinilai apakah hierarkinya terbaca atau justru bertumpuk.
 
-Yang perlu dipecahkan:
-- **Sub-fase kosong tak boleh memakan tinggi penuh.** Susutkan jadi strip
-  tipis, atau gabungkan, atau sembunyikan sampai terisi — pilihanmu.
-- **Kepala kolom kurang menonjol.** Ekky ingin Masuk/Rancang/Kerjakan/Rilis
-  lebih tegas sebagai empat wilayah. Angkanya sekarang badge kecil.
-- **Kartu terlalu longgar** untuk 30 tiket. Rapatkan tanpa membuang strip
-  "menunggu siapa · berapa hari" — itu jantungnya.
+⚠️ Satu keputusan yang perlu diketahui: tiket yang **belum ditriase** belum
+punya jenjang, jadi ia **muncul di kedua tab** dengan catatan yang mengatakannya.
+Akibatnya badge kedua tab (20 + 13) tidak berjumlah 26. Itu disengaja dan
+dijelaskan di layar. Kalau ada bentuk yang lebih jujur, itu sambutan baik.
 
-⛔ **Sumbu papan tetap FASE.** Keputusan ronde 1, jangan diubah.
+### 2.4 "Sudah sampai mana" — komponen yang benar-benar baru
 
-## 4. Masalah 3 — filter aktif tak terlihat (temuan 4 Sep)
+Ini satu-satunya elemen yang tak punya rujukan di paket r1/r2. Isinya satu
+kalimat dari IT ("tinggal uji di 2 cabang"), plus siapa dan kapan. Sesudah
+**7 hari** ia berubah kuning dan menyebut umurnya — karena catatan kemajuan
+tanpa tanggal berbohong pelan-pelan: kelihatan terurus padahal tiga minggu basi.
 
-Papan punya tab **Permintaan / Inisiatif IT** dan tombol **S / M / L**.
-Saat Ekky membukanya, kolom **KERJAKAN menulis 0 padahal ada 6 tiket** di
-Development — keenamnya bersumber *insiden*, dan tab "Permintaan" membuangnya.
-Angka `0` polos terbaca *"tak ada yang dikerjakan"*, padahal artinya *"tak ada
-yang cocok filter"*. Itu salah paham yang mahal di depan Executive.
+Yang perlu dirancang: bagaimana ia tampil di kartu (sekarang satu baris biru),
+di detail (sekarang panel paling atas), dan bagaimana keadaan "basi"
+ditampilkan tanpa berebut perhatian dengan strip menunggu yang juga memanas.
 
-**Yang harus dirancang:**
-1. Filter yang **aktif** terlihat aktif — jelas, bukan sekadar tombol lebih tua.
-2. Kolom yang kosong **karena filter** berbicara: *"0 yang cocok — 6 tiket
-   Development ada di tab Inisiatif IT"*, dengan jalan keluar sekali klik.
-3. Cara **mematikan semua filter** yang selalu terlihat saat ada yang menyala.
+## 3. Yang WAJIB diikuti — jangan dirancang ulang
 
-## 5. Yang WAJIB dipertahankan (jangan dirancang ulang)
+- **Mesin fase** (`it-store.js`): `pathFor`, `RANK`, `gateInfo`, aturan panas.
+  Sudah diterjemahkan ke PHP dan dikunci **106 uji**. Tampilan boleh berubah;
+  aturannya tidak.
+- **Panas hanya untuk tunggu di LUAR IT.** Tiket 59 hari di Development tetap
+  dingin. Papan ini menagih orang lain, bukan menghakimi IT sendiri.
+- **Kelas A/B/C.** Kelas B (03·04·06) **terisi sendiri** — jangan pernah
+  digambar sebagai formulir kosong untuk diketik ulang.
+- **Prioritas pemohon ≠ prioritas IT** — dua kolom terpisah, selamanya.
+- **Zona grafit** untuk seluruh area IT; palet cokelat Sweet Treats di luar itu.
+- **Ekspor FRM-IT-01** mengikuti templat resmi — bentuknya sudah benar.
 
-- **Tujuh keputusan §14.13**: kedalaman 02 otomatis · UAT di dalam detail ·
-  baris hantu tanpa tombol Tambah · catatan UAT jadi tindak lanjut · TC-01..05
-  terkunci · paraf = baris berstempel waktu · pemilih ketergantungan termasuk
-  yang ditunda.
-- **Gerbang = lampu yang menyala sendiri**, bukan checkbox. Tombol mati
-  menyebut apa yang kurang.
-- **"Menunggu siapa · berapa hari"**, memanas **hanya** bila penunggunya di
-  luar IT (≥3 kuning, ≥7 merah). Kartu 72 hari di Development **tetap dingin**
-  — itu bukan bug, itu tesisnya.
-- **Zona GRAFIT** untuk IT, shell cokelat. Badge Fase 1/2/3.
-- **`it-store.js`**: `pathFor`, `RANK`, aturan panas, `gateInfo` — semuanya
-  sudah diterjemahkan ke PHP dan lulus **99 uji**. Boleh **menambah**, jangan
-  mengubah bentuk yang ada.
+## 4. Angka nyata untuk mengukur rancangan (dev, 5 Sep)
 
-## 6. Yang diharapkan dari handoff
+| Yang diukur | Angka |
+|---|---|
+| Tiket di papan | 31 (26 aktif · 4 ditunda · 1 baru) |
+| Sebaran fase | 7 triase · 5 antre · 3 analisis · 6 development · 4 UAT · 1 evaluasi |
+| Jenis | 13 fitur/modul · 6 support · 7 belum ditriase |
+| Macet di luar IT | 3 |
+| Tunggu terlama | 59 hari (Development — sengaja tetap dingin) |
+| Orang IT | 2 (Ekky + Reza) untuk 5 cabang + RB Las |
+| Kartu terpanjang | 15 elemen |
 
-Paket seperti ronde 2, **plus dua keadaan yang selama ini tak pernah dirancang**:
-- **papan dengan 30 tiket** (sebaran §1, termasuk dua kolom kosong);
-- **detail tiket L di fase Evaluasi** — kasus terburuk scroll;
-- **detail tiket S** (hanya 2 fase) — kasus terpendek;
-- papan dengan **filter menyala** dan satu kolom kosong karenanya.
+Rancangan ronde 3 harus diuji pada angka-angka ini, bukan pada 5 kartu contoh.
 
-README yang menyebut apa yang **sengaja tidak dikerjakan** — kebiasaan ronde 1
-dan 2 yang sangat menolong.
+## 5. Yang diharapkan dari handoff
 
-## 7. Angka untuk mengukur rancangan
+Sama seperti dua ronde sebelumnya: `.dc.html` yang bisa dibaca sebagai acuan
+koding + screenshot tiap keadaan kunci. Yang **paling dibutuhkan**:
 
-- Membuka tiket yang sedang di **Evaluasi**: fase berjalan harus terlihat
-  **tanpa scroll sama sekali** di layar laptop 1080p.
-- Papan 30 tiket: keempat kepala kolom terlihat **dalam satu layar**.
-- Tinggi kartu turun **minimal 25%** tanpa kehilangan strip menunggu-siapa.
-- Tiket **S** tidak pernah memperlihatkan fase yang tak dilaluinya.
+1. **Papan pada kepadatan nyata** — 26 kartu, dengan tab jenis di Support dan
+   di Feature/Modul, termasuk keadaan "belum ditriase muncul di dua tab".
+2. **Kartu dalam beberapa varian**: paling sederhana (S di Development) sampai
+   paling ramai (L di Analisis, RB Las, ada dep + parent + tanpa paraf BO +
+   PIC + catatan kemajuan basi). Kalau kartu terramai tak terbaca dua detik,
+   tunjukkan apa yang harus turun ke detail.
+3. **Sistem warna** yang menampung: panas menunggu, prioritas, status parkir,
+   penanda pelewatan paraf, dan **unit usaha**. Satu gambar yang memperlihatkan
+   kelimanya hidup berdampingan.
+4. **Komponen "sudah sampai mana"** — di kartu dan di detail, keadaan segar
+   dan basi.
+5. **Hierarki tab** — kalau tiga tingkat terlalu banyak, usulkan
+   penggantinya. Membuang satu tingkat adalah hasil yang sah.
 
-## 8. Satu kalimat
+## 5b. Yang WAJIB ada — bentuknya bebas
 
-> Satu tiket, satu halaman — tapi yang sedang dikerjakan ada di depan mata, dan
-> yang sudah lewat cukup satu baris.
+1. Kartu papan tetap terbaca **dua detik**: nomor, judul, menunggu siapa,
+   berapa lama.
+2. Tiket **RB Las** terbaca sekilas tanpa mengalahkan strip panas.
+3. Tiket **belum ditriase** tetap paling menonjol di kolom Masuk — itu
+   satu-satunya keadaan yang menuntut tindakan Head IT hari itu.
+4. Catatan kemajuan **basi** terlihat basi, bukan sekadar ada.
+5. Parkiran tetap memperlihatkan **alasan** ditunda — ditunda bukan berarti hilang.
+6. Semua tetap terbaca di lebar **1024 px** (laptop Ekky) dan tidak rusak di
+   1280–1500 px.
+
+## 6. Satu kalimat yang menjelaskan ronde 3
+
+> Ronde 1 membuat papannya, ronde 2 membuat formulirnya, **ronde 3 merapikan
+> papan yang sekarang benar-benar penuh** — dan memutuskan apa yang harus
+> turun dari kartu supaya sisanya tetap terbaca dua detik.
+
+---
+
+**Catatan untuk chat desain:** semua yang disebut di §1 sudah berjalan di
+`https://dev.sweettreats.id/it-tracker`. Kalau rancangan ronde 3 mengubah
+sesuatu, cukup katakan mana yang diganti dan mana yang tetap — HUB yang akan
+menyesuaikan kodenya. Tidak ada yang perlu dibangun ulang dari nol.
