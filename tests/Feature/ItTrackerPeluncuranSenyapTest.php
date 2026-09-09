@@ -179,7 +179,9 @@ class ItTrackerPeluncuranSenyapTest extends TestCase
         $this->assertSame(0, $indukFinance);
 
         $this->terapkanSqlSementara();   // idempoten
-        $this->assertSame($sesudah, $pemegang());
+        // himpunan, bukan urutan: pluck() tanpa ORDER BY boleh mengembalikan urutan berbeda
+        $urut = fn (array $a) => collect($a)->sort()->values()->all();
+        $this->assertSame($urut($sesudah), $urut($pemegang()));
     }
 
     /** Finance sungguhan → 302 ke landing (bukan 403), dan menunya nol jejak IT Tracker. */

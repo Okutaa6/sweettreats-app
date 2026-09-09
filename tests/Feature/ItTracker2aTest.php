@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Symfony\Component\Process\Process;
+use Tests\Concerns\MenyemaiGrantItTracker;
 use Tests\TestCase;
 
 /**
@@ -27,6 +28,7 @@ use Tests\TestCase;
 class ItTracker2aTest extends TestCase
 {
     use DatabaseTransactions;
+    use MenyemaiGrantItTracker;
 
     private ItTrackerService $svc;
 
@@ -42,10 +44,13 @@ class ItTracker2aTest extends TestCase
 
     private function sesi(string $groupName, ?string $uid = null): array
     {
+        $gid = DB::table('group_path')->where('nama', $groupName)->value('id') ?: 'grp-uji';
+        $this->pastikanGrantItTracker($gid);   // grant disemai di dalam transaksi — uji menguji KEMAMPUAN peran, bukan siapa yang ber-grant hari ini
+
         return [
             'isLoggedIn' => true,
             'id'         => $uid ?: ('uji-' . Str::random(8)),
-            'group_id'   => DB::table('group_path')->where('nama', $groupName)->value('id') ?: 'grp-uji',
+            'group_id'   => $gid,
             'group_name' => $groupName,
             'name'       => 'Uji ' . $groupName,
             'branch_day' => date('Y-m-d'),

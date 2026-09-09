@@ -39,6 +39,17 @@
 > `2400896`, tak ada lagi cabang prod terpisah. Peringatan lama "jangan deploy
 > main ke prod" **sudah TIDAK berlaku** — sekarang justru `main` yang benar.
 >
+> ✅ **Sisipan 2026-09-09f — 18 UJI `head` MENYEMAI GRANT SENDIRI · SEEDANTRIAN
+> JALAN DI DB MANAPUN** (branch `test/it-tracker-persona-head` dari 2a0f09c,
+> kerja uji, nol kode/SQL/grant). Trait `Tests\Concerns\MenyemaiGrantItTracker`
+> dipanggil dari `sesi()` sepuluh kelas → uji menguji KEMAMPUAN peran head
+> (sensor judul, pantul ke permintaan, 403 tiket orang lain), bukan siapa yang
+> ber-grant hari ini. SeedAntrian membersihkan tiket seed DI DALAM transaksi →
+> terbukti berjalan 9 uji di DB berisi 36 seed & DB pulih persis; `barisPsv()`
+> (8283922) terbukti + diperluas (baru 9 · support 6 · fitur 17 · parkir 4 dari
+> berkas). Bonus: PemakaianTest tak lagi menimpa tiket nyata #1/#2 (seed_urut
+> 201/202, angka = selisih). Hasil: 18 merah + 9 skip → **0 merah 0 skip, 17
+> kelas, DB kosong & berseed**. Dev belum diverifikasi (Reza memakai dev).
 > ✅ **Sisipan 2026-09-09e — TRIASE DIBUKA UNTUK EXECUTIVE & KONSULTAN IT**
 > (branch `feat/triase-executive-konsultan-it` dari main, nol SQL, prod belum).
 > Lewat predikat sempit `bolehTriase()` — `peran()` TIDAK berubah, karena

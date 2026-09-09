@@ -6,6 +6,87 @@
 > file ini append-only.
 
 ---
+## 2026-09-09 — 18 uji IT Tracker berpersona `head` menyemai grantnya sendiri · SeedAntrian berjalan di DB manapun (kerja UJI, nol kode aplikasi)
+
+Branch `test/it-tracker-persona-head` dari `main` (`2a0f09c`). **Nol SQL, nol
+perubahan grant di prod, nol berkas `app/`** — uji membuktikan tak ada cacat
+kode: yang merah adalah uji yang mengunci keputusan akses LAMA.
+
+### Sebabnya
+Uji-uji itu memakai persona Finance / Head Marketing sebagai pemohon (`head`).
+Sejak Ekky mencabut ketiga grant itu 9 Sep (SQL akses sementara), persona itu
+dipantulkan AuthGuard **302 ke landing sebelum sampai ke controller** — asersi
+403/302/success-nya lalu membaca hal yang salah. Tiga cara yang DITOLAK karena
+membuang penjaga aturan penyensoran judul departemen lain: menghapus uji head,
+melonggarkan jadi "302 atau 200", mengembalikan grant di prod. Peran `head`
+kini nol penghuni di prod; yang menjaganya hanya uji ini.
+
+### Caranya
+`tests/Concerns/MenyemaiGrantItTracker.php` — trait `pastikanGrantItTracker()`
+(pola KehadiranExecutiveTest): menyemai grant node `it-tracker` + induknya
+untuk group persona **di dalam transaksi uji**, ikut rollback. Sepuluh kelas
+memanggilnya dari `sesi()`. Ujinya kini menguji **KEMAMPUAN** peran — head
+melihat angka tapi bukan judul tiket departemen lain, `/it-tracker` memantul ke
+`/it-tracker/permintaan`, detail tiket orang lain 403 — bukan menebak siapa
+yang kebetulan ber-grant hari ini.
+
+### SeedAntrian: dari "dilewati selamanya" ke "berjalan di DB manapun"
+Dulu `markTestSkipped` bila DB sudah berisi tiket seed → di dev DAN prod ia
+skip selamanya. Kini `bersihkanSeedDalamTransaksi()` menghapus tiket
+ber-`seed_urut` + turunannya (fase/form/fr/test_case/temuan; tabel `it_*`
+tanpa FK) **di dalam transaksi**, lalu rollback memulihkan DB persis.
+**Dibuktikan**: DB lokal diisi 36 tiket seed nyata → kelas berjalan **9 uji ·
+103 asersi** (bukan skip) → sesudahnya `seed=36 · fase=40 · form=42 ·
+counter=225`, identik dengan sebelum.
+`barisPsv()` (commit `8283922`) **terbukti jalan** dan diperluas: dari berkas 36
+baris ia menghitung total 36 · aktif 32 · parkir 4 · **baru 9 · support 6 ·
+fitur 17 · parkirFitur 4** mengikuti aturan seeder (TRIASE = belum berjenjang →
+"baru"; S → support; M/L → fitur) — lima angka mati terakhir (6/17/7/4/4) ikut
+diturunkan dari berkas, termasuk "tujuh belum ditriase" yang sudah menjadi
+sembilan. Akun `yovanka@sweettreats.id` ditambahkan ke daftar akun sekali-pakai
+(PSV berganti dari Yovan/creative sejak `69720c8`).
+
+### Dua temuan tambahan yang ikut ditutup
+- **ItKatalogPemakaianTest::test_taut_modul_dari_berkas** merah hanya di DB
+  berseed: PSV sementaranya memakai `seed_urut` 1 & 2 → seeder idempoten
+  **menimpa tiket nyata #1/#2** (di dalam transaksi, tak bocor) dan asersi
+  "= 2 tiket terbuka" mengandaikan papan kosong. Kini 201/202 (di luar 1..36)
+  dan angka katalog dijaga sebagai **selisih** (+1 bertaut, +1 tanpa modul),
+  dengan tiket tanpa modul disemai lebih dulu karena kalimat rekonsiliasinya
+  hanya tampil bila ada yang tanpa modul.
+- **ItTrackerPeluncuranSenyapTest** idempoten SQL dibandingkan sebagai
+  himpunan (pluck tanpa ORDER BY tak menjamin urutan).
+
+### Angka per kelas
+| kelas | SEBELUM (dev, ukuran Ekky) | SEBELUM (lokal, DB kosong) | SESUDAH (lokal, DB kosong **dan** berseed 36) |
+|---|---|---|---|
+| ItTrackerTest | 1 merah | 1 merah | 20 hijau |
+| ItTracker2aTest | 3 merah | 1 merah | 18 hijau |
+| ItTracker2bTest | 2 merah | 2 galat | 11 hijau |
+| ItTracker2bAuditTest | 3 merah | 3 merah | 11 hijau |
+| ItTrackerLampiranTest | 3 merah | 3 merah | 5 hijau |
+| ItTrackerTeruskanTest | 1 merah | 1 merah | 8 hijau |
+| ItTrackerRevisiDemoTest | 3 merah | 3 merah | 6 hijau |
+| ItTrackerPapanJujurTest | 1 merah | 1 merah | 9 hijau |
+| ItTrackerPeluncuranSenyapTest | 1 merah | 1 merah | 7 hijau |
+| ItTrackerSeedAntrianTest | **9 dilewati** | 1 merah (jalan, DB kosong) | **9 hijau, berjalan di DB berseed** |
+| ItKatalogE2ETest | — | 7 merah | 9 hijau |
+| ItKatalogPemakaianTest | — | hijau (merah di DB berseed) | 8 hijau |
+| ItPhaseEngine · 2b · KatalogModul · FiturLink · TriaseExecutive | hijau | hijau | hijau (tak disentuh) |
+
+Total: **18 merah + 9 skip (dev) / 24 merah (lokal) → 0 merah, 0 skip** di 17
+kelas, dua kondisi DB. ⚠️ ItTracker2aTest di lokal hanya 1 merah dari 3 yang
+terukur di dev — dua lainnya kemungkinan bergantung data dev; sesudah tambalan
+ketiganya hijau di lokal, verifikasi di dev menunggu Reza selesai memakai
+working copy-nya.
+
+### Sengaja tidak dikerjakan
+- Dev tidak disentuh (dipakai Reza di `test/reza-checklist-dev`); semua uji
+  lokal, per kelas.
+- Kode aplikasi tidak disentuh — tak ada cacat yang terbukti.
+- DB lokal kini berisi 36 tiket seed + akun Robi/Anisa lokal (cermin dev/prod)
+  supaya suite selalu diuji di kondisi nyata.
+---
 
 ## 2026-09-09 — ✅ NAIK PROD: triase Executive & Konsultan IT (`c61afa3`) + audit HUB atas 18 uji merah
 
