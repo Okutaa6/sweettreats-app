@@ -70,6 +70,89 @@ Sekalian diverifikasi: perbaikan galat 2002 (6 Sep) terbukti — **nol 2002 pada
 sisa chat build — hapus).
 
 ---
+## 2026-09-09 — Executive tak bisa membuka Kehadiran: DUA pagar di kode, bukan grant · LULUS DEV, prod menunggu
+
+Dani & Robi (Executive) diberi grant menu "Kehadiran" oleh Ekky 9 Sep, tapi layarnya
+tetap tak terbuka. Grantnya benar; yang menahan ada **dua, di kode, dan berbeda jenis**.
+
+### Sebab 1 — AuthGuard cuma melihat SEGMEN-1 URL
+`AuthGuard` membandingkan `request->segment(1)` dengan `access_path.link`. Untuk
+`/absensi/kehadiran` yang dibandingkan cuma **`absensi`** = node **"Upload Data"**.
+Dari 6 grup pemegang grant Kehadiran, Executive **satu-satunya** yang tak punya Upload
+Data → dipantulkan. Gejalanya **menipu**: `302` ke landing, **bukan 403**, jadi terbaca
+seolah menunya rusak. Pola yang sama pernah ditambal setengah lewat `SKIP_RBAC` untuk
+`petty-cash-categories`.
+
+**Perbaikan**: cocokkan dari path **paling spesifik** ke paling umum
+(`absensi/kehadiran/export` → `absensi/kehadiran` → `absensi`), satu `whereIn`.
+Memegang segmen-1 **tetap** membuka seluruh isinya — nol role kehilangan akses.
+
+⚠️ Ini menyentuh **setiap request**, jadi radiusnya diukur di prod **sebelum** kode
+ditulis: **tepat 2 baris** yang perilakunya berubah, **dua-duanya Executive**
+(`absensi/kehadiran`, `absensi/recap`). Tak ada grup lain yang bergeser. Node
+bertingkat lain (`checklist/review`, `report/executive`, `finance/rop/rekap`) sudah
+hidup lewat segmen-1 atau `SKIP_RBAC`.
+
+### Sebab 2 — pagar controller memakai helper yang terlalu lebar
+`AbsensiKehadiranController::guard()` memakai `canSeeAllBranches()`. Helper itu bukan
+sekadar "lihat semua cabang": ia juga membuka **Upload fingerprint, Mapping, Koreksi
+Absen, Periode Gaji, petty cash lintas cabang, dan 10 blade checklist**.
+
+**Perbaikan**: helper **baru** `canSeeKehadiran()` = `canSeeAllBranches()` + `Executive`,
+dipakai **hanya** di layar Kehadiran (+ ekspornya, yang membaca data yang sama).
+`canSeeAllBranches()` **tidak disentuh** di tempat lain. Pola ini sudah ada
+preseden nyata di proyek: `RopService::ROLE_REKAP` memberi Executive akses baca Rekap
+Pengeluaran dengan alasan persis sama.
+
+⛔ Dua jalan pintas **ditolak sadar**: (a) memberi Executive grant "Upload Data" — menu
+muncul lalu 403; (b) menambah Executive ke `canSeeAllBranches()` — Dani jadi bisa
+mengunggah absen dan membuka petty cash.
+
+### Temuan di luar diagnosis — deret tab
+Halaman Kehadiran merender `_finance_tabs` **tanpa syarat**, karena selama ini yang bisa
+sampai ke sana pasti `canSeeAllBranches()`. Begitu Executive boleh masuk, anggapan itu
+batal: Dani akan melihat tab **Upload Data · Mapping · Koreksi Absen · Periode Gaji ·
+Rekap Persetujuan** — lima pintu yang semuanya 403 baginya dan **tiga di antaranya
+MENGUBAH data absensi**. Kini tiap tab menanyakan pertanyaan yang **sama** dengan halaman
+tujuannya. (Berkas itu sudah menuliskan pelajaran ini untuk Lembar Gaji sejak 5 Sep.)
+
+### Bukti
+- **13/13 uji baru** (`KehadiranExecutiveTest`, 87 asersi) di dev.
+- **Kendali negatif**: 4 berkas dikembalikan ke versi `main`, kelas yang sama →
+  **5 dari 13 merah**. Hijau-nya bukan hijau palsu.
+- Regresi: `LayarAbsensiRenderTest` **10/10** · `KehadiranEksporTest` **7/7** ·
+  `KoreksiAbsenTest` **16/16**. (Sempat 3 galat saat dua kelas digabung dalam satu
+  proses — batas koneksi dev di atas ±17 uji ber-DB, pola yang sudah tercatat. Dijalankan
+  per kelas: hijau.)
+- Menu Executive di dev, data sungguhan sesudah `access:rebuild`: sidebar merender
+  **"Absensi → absensi/kehadiran"**, dan **tak** merender Upload Data / Periode / Rekap.
+- Uji menyisipkan grantnya sendiri di dalam transaksi → jujur di environment mana pun,
+  nol jejak.
+
+### Yang SENGAJA tidak dikerjakan
+1. **`Helpers.php` aturan menu klaster absensi TIDAK diubah.** Diagnosis menduga ia perlu
+   disentuh; diperiksa ternyata **tidak**: syaratnya `$hasDoor || (klaster && !canSeeAllBranches())`,
+   dan Executive **punya** pintunya (`absensi/kehadiran`), jadi cabang pertama sudah
+   menyembunyikan tab Upload/Mapping/Recap/Periode dan meloloskan Kehadiran. Diubah pun
+   hasilnya sama. Diverifikasi dengan menu sungguhan di dev, bukan dengan membaca saja.
+2. **`absensi/recap` dibiarkan.** Executive juga dipegangi grant ini di prod, tapi
+   `AbsensiRecapController::guard()` masih `canSeeAllBranches()` → **tetap 403**. Sesudah
+   perbaikan AuthGuard, jawabannya berubah dari 302 jadi 403. **Tak ada tautan ke sana**
+   (menu menyembunyikannya, tab strip menyaringnya), jadi cuma URL yang diketik langsung.
+   Layarnya **murni baca** (satu rute GET, nol tulis) — jadi kalau memang diniatkan,
+   melebarkan `canSeeKehadiran()` ke sana itu satu baris. **Keputusan Ekky, bukan aku.**
+3. Prod belum disentuh.
+
+### Naik prod — resep
+Deploy **kode saja**: `deploy.sh main`. **Nol SQL, nol aset publik → nol rsync.**
+Grant Executive di prod **sudah ada, jangan disentuh**. Sesudah deploy: `curl` beranda
+200 + cek URL akhir, lalu minta Dani/Robi membuka Kehadiran.
+
+⚠️ Perubahan AuthGuard menyentuh setiap request — verifikasi sesudah deploy sebaiknya
+menyertakan satu halaman milik role lain (mis. Finance `/absensi`, Front Office
+`/rawreservation`) untuk memastikan tak ada yang kehilangan akses.
+
+---
 ## 2026-09-09 — ✅ NAIK PROD SENYAP: IT Request Tracker + Katalog Modul (`d607319`)
 
 Ekky: *"gas ke prod, aman kan?"* Naik lewat `bash deploy.sh feat/it-tracker`
