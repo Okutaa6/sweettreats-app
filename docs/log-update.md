@@ -6,6 +6,60 @@
 > file ini append-only.
 
 ---
+
+## 2026-09-09 — ✅ NAIK PROD: triase Executive & Konsultan IT (`c61afa3`) + audit HUB atas 18 uji merah
+
+**Naik prod 9 Sep lewat `deploy.sh main`.** Titik balik `5d6c23c`. Nol SQL, nol
+aset publik → nol rsync. Beranda 200, `/it-tracker` memantul ke `/signin` tanpa
+login, **0 galat** sesudahnya.
+
+Diverifikasi di prod dengan data sungguhan, bukan lewat uji:
+
+| role | peran | boleh triase |
+|---|---|---|
+| Head IT · Super Admin | head_it | **ya** |
+| Executive · Konsultan IT | **pengawas** (tak berubah) | **ya** |
+| IT | it_dev | tidak |
+| Konsultan Finance · Konsultan Marketing | pengawas | tidak |
+| Admin General · Admin Backup · Admin | pengawas | tidak |
+| Finance · Head Marketing | head | tidak |
+
+Baris paling penting di tabel itu: Executive & Konsultan IT **tetap `pengawas`**,
+jadi paraf Business Owner mereka utuh. Kalau mereka dinaikkan ke `head_it`,
+paraf itu justru tercabut — `bolehParafBo` eksklusif `pengawas` — dan tombol
+MELEWATI paraf bertemu tombol MEMBERI paraf di tangan yang sama.
+
+Tetap `head_it` saja: teruskan, PIC, analisis, dependensi, evaluator,
+FRM-IT-02, tunda/tolak. `pic_user_id` yang diselipkan pentriase non-Head-IT
+ditolak 403 terang, bukan diabaikan.
+
+### Audit HUB: angka merahnya 18, bukan 26
+
+Chat build melaporkan "26 uji merah lama, 25 berpersona head, 4 di SeedAntrian".
+**25 + 4 ≠ 26.** Diukur ulang di dev (daftar grant dev sama persis dengan prod),
+tanpa branch triase sama sekali: **18 merah di 8 dari 12 kelas** —
+2a 3 · 2bAudit 3 · 2b 2 · Lampiran 3 · RevisiDemo 3 · PapanJujur, PeluncuranSenyap,
+Teruskan, ItTracker 1 masing-masing. ItPhaseEngine & 2b hijau penuh.
+SeedAntrian: **9 DILEWATI**, bukan merah.
+
+Merahnya **bukan cacat kode** — uji-uji itu mengunci keputusan akses LAMA
+(Finance/Head Marketing/Admin bisa membuka tracker) yang dicabut 9 Sep.
+Disepakati: naik dulu, tutup 18 merah sesudahnya, sebelum perubahan tracker
+berikutnya. Menutupnya BUKAN dengan melonggarkan: uji harus menyemai grantnya
+sendiri di dalam transaksi, supaya aturan penyensoran judul departemen lain
+tetap berpenjaga meski peran `head` kini nol penghuni.
+
+### Empat merah SeedAntrian itu ulah HUB sendiri
+
+Bukan "commit chat lain". Aku yang menyisipkan tiket 35 & 36 ke berkas antrean
+sore itu; ujinya mematok 34 di lima asersi dan 30 di dua asersi. Ditutup
+`8283922` dengan `barisPsv()` yang menghitung dari berkas — bukan 34 diganti 36,
+karena berkas itu memang bertambah tiap ada permintaan baru dan angka mati
+dijamin merah lagi berikutnya. ⚠️ **Belum terbukti jalan**: kelasnya menuntut
+DB tanpa tiket seed, jadi di dev/prod ia melewati diri selamanya. Perlu
+dijalankan di DB lokal yang bersih.
+
+---
 ## 2026-09-09 — Triase dibuka untuk Executive & Konsultan IT — tanpa menaikkan peran (dev-siap, prod belum)
 
 Keputusan Ekky 9 Sep 2026. Branch `feat/triase-executive-konsultan-it` dari
