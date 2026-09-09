@@ -574,6 +574,30 @@ if (!function_exists('canSeeAllBranches')) {
 }
 
 /**
+ * True kalau user boleh MEMBACA layar Kehadiran (matriks karyawan × tanggal).
+ *
+ * Sengaja TERPISAH dari canSeeAllBranches(), dan bukan karena kerapian.
+ * canSeeAllBranches() bukan sekadar "boleh lihat semua cabang": ia juga membuka
+ * Upload Data fingerprint, Mapping Karyawan, Koreksi Absen, Periode Gaji, petty
+ * cash lintas cabang, dan sepuluh blade checklist. Menambahkan Executive ke sana
+ * berarti memberi mereka kuasa MENGUBAH data absensi dan uang — hanya supaya bisa
+ * membuka satu halaman baca.
+ *
+ * Polanya bukan hal baru di proyek ini: RopService::ROLE_REKAP sudah memberi
+ * Executive akses baca ke Rekap Pengeluaran dengan alasan yang persis sama,
+ * tanpa melonggarkan helper global.
+ *
+ * Yang TIDAK ikut helper ini (tetap canSeeAllBranches): Rekap Persetujuan,
+ * Upload Data, Mapping, Koreksi Absen, Periode Gaji, Lembar Gaji.
+ */
+if (!function_exists('canSeeKehadiran')) {
+    function canSeeKehadiran(): bool
+    {
+        return canSeeAllBranches() || session('group_name') === 'Executive';
+    }
+}
+
+/**
  * Role yang bersifat PENGAMAT: tidak mengajukan apa pun (cuti/lembur/izin
  * MAUPUN ROP) dan tidak meng-ACC pengajuan siapa pun. Dipakai untuk role
  * konsultan.
