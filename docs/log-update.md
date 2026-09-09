@@ -80,6 +80,58 @@ tujuannya. (Berkas itu sudah menuliskan pelajaran ini untuk Lembar Gaji sejak 5 
    melebarkan `canSeeKehadiran()` ke sana itu satu baris. **Keputusan Ekky, bukan aku.**
 3. Prod belum disentuh.
 
+### Audit ulang + sapuan tampilan lintas peran (9 Sep, sore)
+
+**Uji bertambah jadi 15 / 102 asersi.** Dua yang baru menutup lubang yang tadinya
+cuma dugaan:
+
+- **Paritas data.** Executive tak punya cabang asal (`raw_branch_id` NULL) dan layar
+  ini mengelompokkan per cabang ASAL — peran tanpa cabang berisiko diam-diam melihat
+  SEBAGIAN data. Diuji: jumlah baris karyawan yang dilihat Executive **sama persis**
+  dengan Finance. (Halaman yang tampak normal dengan angka yang kurang jauh lebih
+  berbahaya daripada halaman yang menolak terbuka.)
+- **`absensi/recap` → 403, bukan pantulan.** Dev tak bisa memperagakannya (grantnya
+  sengaja tak disemai di sana), jadi grantnya disisipkan di dalam transaksi. Sekarang
+  perilaku prod itu **terbukti**, bukan diasumsikan.
+
+**Sapuan tampilan di dev — apa yang benar-benar dilihat tiap peran:**
+
+| Peran | `/absensi/kehadiran` | Deret tab yang terender |
+|---|---|---|
+| **Executive** (Robi) | **200**, 9 baris karyawan, formulir ekspor ada | **`Kehadiran`** — hanya itu |
+| **Finance** (Della) | 200 | `Rekap Persetujuan │ Kehadiran │ Mapping │ Upload Data │ Koreksi Absen │ Periode Gaji │ Lembar Gaji` |
+
+Menu samping Executive: `Absensi → absensi/kehadiran` — Upload Data, Periode, dan
+Rekap **tak** muncul. Semua pintu tulis dicoba satu per satu dan **semuanya 302 ke
+`/report`**: `/absensi`, `/absensi/koreksi`, `/absensi/periode`, `/absensi/mapping`,
+`/absensi/lembar-gaji`. Ekspor Kehadiran 200 (ekspor = membaca).
+
+**Peran lain tak kehilangan apa pun** (AuthGuard menyentuh setiap request):
+Front Office `/rawreservation` 200 · Sales `/sales-dashboard` 200 · Supervisor
+`/absensi/aturan` 200 · IT `/it-tracker` 200 & `/absensi/lembar-gaji` 200 ·
+Supervisor `/checklist/review` 200 · Executive `/report/executive` 200.
+Beranda/signin/reservasi dev **200**, log aplikasi **0 ERROR**.
+
+**Regresi per kelas:** LayarAbsensiRender 10/10 · KehadiranEkspor 7/7 · KoreksiAbsen
+16/16 · PagarLemburLayar 3/3 · PengawasanFoto 4/4.
+
+### ⚠️ Dua temuan di luar kerjaan ini
+
+1. **`ItTrackerTest::test_head_tak_melihat_tiket_orang_lain` MERAH — dan bukan karena
+   perubahan ini.** Dibuktikan: dijalankan dengan 4 berkas dikembalikan ke versi `main`,
+   gagalnya **identik** (20 uji, 1 gagal). Sebabnya **keputusan akses 9 Sep**: uji itu
+   memakai **Head Marketing**, yang grant `it-tracker`-nya dicabut hari itu juga.
+   Ujinya lebih tua dari keputusannya, jadi ia masih mengharap Head Marketing bisa
+   membuka `/it-tracker` (kini dipantulkan ke `/marketing-dashboard`).
+   → Pilihannya: perbarui ujinya mengikuti keputusan akses, **atau** tinjau ulang
+   keputusannya. **Bukan diperlonggar supaya hijau.** Milik chat IT Tracker + Ekky.
+2. **`hasMenuAccess()` cuma menemukan node 3-lapis** (`parent > sub > child`); node
+   yang hidup di kedalaman lain dijawab "tidak punya" — terjadi di hampir semua role.
+   **Sudah diketahui dan sengaja dihindari** sebelum ini (`Helpers.php:687` dan
+   `ExportController:19` menuliskannya). Satu-satunya pemakai nyata,
+   `ExecutiveReportController` (`report/executive`), kebetulan 3-lapis → tak menggigit.
+   Diperiksa, bukan diperbaiki: di luar lingkup, dan menyentuhnya tanpa perlu justru
+   menambah risiko.
 ### Naik prod — resep
 Deploy **kode saja**: `deploy.sh main`. **Nol SQL, nol aset publik → nol rsync.**
 Grant Executive di prod **sudah ada, jangan disentuh**. Sesudah deploy: `curl` beranda
@@ -1496,6 +1548,58 @@ sendiri. Dua commitnya terpisah rapi — `a252215` duduk langsung di main, tak p
 - Pindah cabang nol menit tak dipagari (butuh matriks jarak) — spanduk penggantinya yang jujur.
 - Reza (commit checklist): komentar `AttendanceRequestWorkflow` masih "cron 00:10".
 
+### Audit ulang + sapuan tampilan lintas peran (9 Sep, sore)
+
+**Uji bertambah jadi 15 / 102 asersi.** Dua yang baru menutup lubang yang tadinya
+cuma dugaan:
+
+- **Paritas data.** Executive tak punya cabang asal (`raw_branch_id` NULL) dan layar
+  ini mengelompokkan per cabang ASAL — peran tanpa cabang berisiko diam-diam melihat
+  SEBAGIAN data. Diuji: jumlah baris karyawan yang dilihat Executive **sama persis**
+  dengan Finance. (Halaman yang tampak normal dengan angka yang kurang jauh lebih
+  berbahaya daripada halaman yang menolak terbuka.)
+- **`absensi/recap` → 403, bukan pantulan.** Dev tak bisa memperagakannya (grantnya
+  sengaja tak disemai di sana), jadi grantnya disisipkan di dalam transaksi. Sekarang
+  perilaku prod itu **terbukti**, bukan diasumsikan.
+
+**Sapuan tampilan di dev — apa yang benar-benar dilihat tiap peran:**
+
+| Peran | `/absensi/kehadiran` | Deret tab yang terender |
+|---|---|---|
+| **Executive** (Robi) | **200**, 9 baris karyawan, formulir ekspor ada | **`Kehadiran`** — hanya itu |
+| **Finance** (Della) | 200 | `Rekap Persetujuan │ Kehadiran │ Mapping │ Upload Data │ Koreksi Absen │ Periode Gaji │ Lembar Gaji` |
+
+Menu samping Executive: `Absensi → absensi/kehadiran` — Upload Data, Periode, dan
+Rekap **tak** muncul. Semua pintu tulis dicoba satu per satu dan **semuanya 302 ke
+`/report`**: `/absensi`, `/absensi/koreksi`, `/absensi/periode`, `/absensi/mapping`,
+`/absensi/lembar-gaji`. Ekspor Kehadiran 200 (ekspor = membaca).
+
+**Peran lain tak kehilangan apa pun** (AuthGuard menyentuh setiap request):
+Front Office `/rawreservation` 200 · Sales `/sales-dashboard` 200 · Supervisor
+`/absensi/aturan` 200 · IT `/it-tracker` 200 & `/absensi/lembar-gaji` 200 ·
+Supervisor `/checklist/review` 200 · Executive `/report/executive` 200.
+Beranda/signin/reservasi dev **200**, log aplikasi **0 ERROR**.
+
+**Regresi per kelas:** LayarAbsensiRender 10/10 · KehadiranEkspor 7/7 · KoreksiAbsen
+16/16 · PagarLemburLayar 3/3 · PengawasanFoto 4/4.
+
+### ⚠️ Dua temuan di luar kerjaan ini
+
+1. **`ItTrackerTest::test_head_tak_melihat_tiket_orang_lain` MERAH — dan bukan karena
+   perubahan ini.** Dibuktikan: dijalankan dengan 4 berkas dikembalikan ke versi `main`,
+   gagalnya **identik** (20 uji, 1 gagal). Sebabnya **keputusan akses 9 Sep**: uji itu
+   memakai **Head Marketing**, yang grant `it-tracker`-nya dicabut hari itu juga.
+   Ujinya lebih tua dari keputusannya, jadi ia masih mengharap Head Marketing bisa
+   membuka `/it-tracker` (kini dipantulkan ke `/marketing-dashboard`).
+   → Pilihannya: perbarui ujinya mengikuti keputusan akses, **atau** tinjau ulang
+   keputusannya. **Bukan diperlonggar supaya hijau.** Milik chat IT Tracker + Ekky.
+2. **`hasMenuAccess()` cuma menemukan node 3-lapis** (`parent > sub > child`); node
+   yang hidup di kedalaman lain dijawab "tidak punya" — terjadi di hampir semua role.
+   **Sudah diketahui dan sengaja dihindari** sebelum ini (`Helpers.php:687` dan
+   `ExportController:19` menuliskannya). Satu-satunya pemakai nyata,
+   `ExecutiveReportController` (`report/executive`), kebetulan 3-lapis → tak menggigit.
+   Diperiksa, bukan diperbaiki: di luar lingkup, dan menyentuhnya tanpa perlu justru
+   menambah risiko.
 ### Naik prod — resep
 `deploy.sh main` → **rsync `assets/` SAJA** (`public/assets/js/reservation-form.js` tersentuh;
 rsync seluruh `public/` pernah mematikan prod 6 menit) → `curl` beranda **200** + cek URL
