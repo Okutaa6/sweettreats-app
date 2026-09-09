@@ -7,7 +7,7 @@
 
 ---
 
-## 2026-09-09 — Rekap Persetujuan ikut pagar baca: grant Executive tak lagi menggantung (chat HUB)
+## 2026-09-09 — ✅ NAIK PROD: Rekap Persetujuan ikut pagar baca, grant Executive tak lagi menggantung (`e44f27c`)
 
 Audit HUB atas gerbong Kehadiran menemukan pertanyaan terbuka chat build itu
 punya jawaban yang lebih tegas dari dugaan: grant `absensi/recap` milik Executive
@@ -47,6 +47,12 @@ dikembalikan persis, `--no-dev` termasuk):
 KehadiranExecutive **16/16 · 108 asersi** · LayarAbsensiRender 10/10 ·
 KehadiranEkspor 7/7 · KoreksiAbsen 16/16 · PagarLemburLayar 3/3 ·
 PengawasanFoto 4/4 · AmbangDodo 9/9.
+
+**NAIK PROD 9 Sep 13:37 WIB** lewat `deploy.sh main` — titik balik `60bb857`,
+nol galat sesudahnya, beranda 200. Diverifikasi dgn data prod: pagar baca terima
+Executive/Finance/Konsultan Finance/Admin Backup, tolak Sales/Front Office/Head
+Marketing; AuthGuard Executive LOLOS di `absensi/kehadiran` & `absensi/recap`,
+MEMANTUL di `absensi`, `absensi/koreksi`, `absensi/periode`, `absensi/lembar-gaji`.
 
 Nol SQL, nol aset publik → **nol rsync**. Grant di prod sudah ada, jangan
 disentuh. Naik prod bersama gerbong Kehadiran, menunggu kata Ekky.
