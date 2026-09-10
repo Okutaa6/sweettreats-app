@@ -101,7 +101,7 @@ class ItKatalogPemakaianTest extends TestCase
         $awal = ItTicket::count();
 
         $psv = $this->berkas([
-            ['1', 'Uji modul asing', 'inisiatif', '', '', '', 'S', '1', '', 'P2', 'DEV', '2026-09-01 09:00', 'aktif', '', '', '', 'uji', 'Modul Yang Tak Ada'],
+            ['201', 'Uji modul asing', 'inisiatif', '', '', '', 'S', '1', '', 'P2', 'DEV', '2026-09-01 09:00', 'aktif', '', '', '', 'uji', 'Modul Yang Tak Ada'],
         ]);
         $kode = Artisan::call('it:seed-antrian', ['berkas' => $psv, '--env-guard' => 'local']);
         $keluaran = Artisan::output();
@@ -114,27 +114,40 @@ class ItKatalogPemakaianTest extends TestCase
         $this->assertSame(37, ItModul::count(), '⛔ seeder TIDAK membuat entri katalog sendiri');
     }
 
-    /** Kolom modul terisi → modul_id tertaut; kolom kosong → tetap NULL (sah). */
+    /**
+     * Kolom modul terisi → modul_id tertaut; kolom kosong → tetap NULL (sah).
+     *
+     * Berjalan di DB manapun (dev/prod sudah berisi antrean nyata): seed_urut
+     * 201/202 di luar rentang berkas asli (1..36 per 9 Sep 2026) supaya seeder
+     * yang idempoten tak menimpa tiket sungguhan, dan angka katalog dijaga
+     * sebagai SELISIH, bukan angka mutlak untuk papan kosong. Kalimat
+     * rekonsiliasi hanya tampil bila ada tiket tanpa modul — maka yang tanpa
+     * modul disemai lebih dulu sebagai patokan.
+     */
     public function test_taut_modul_dari_berkas_dan_boleh_kosong(): void
     {
         $this->seedKatalog();
         $absensi = ItModul::where('nama', 'Absensi')->firstOrFail();
+        $baris = fn (string $urut, string $judul, string $modul) =>
+            [$urut, $judul, 'inisiatif', '', '', '', 'S', '1', '', 'P2', 'DEV', '2026-09-01 09:00', 'aktif', '', '', '', 'uji', $modul];
 
-        $psv = $this->berkas([
-            ['1', 'Uji taut modul', 'inisiatif', '', '', '', 'S', '1', '', 'P2', 'DEV', '2026-09-01 09:00', 'aktif', '', '', '', 'uji', 'Absensi'],
-            ['2', 'Uji tanpa modul', 'inisiatif', '', '', '', 'S', '1', '', 'P2', 'DEV', '2026-09-01 09:00', 'aktif', '', '', '', 'uji', ''],
-        ]);
-        $this->assertSame(0, Artisan::call('it:seed-antrian', ['berkas' => $psv, '--env-guard' => 'local']));
-
-        $satu = ItTicket::where('seed_urut', 1)->firstOrFail();
-        $dua  = ItTicket::where('seed_urut', 2)->firstOrFail();
-        $this->assertSame($absensi->id, $satu->modul_id);
+        // 1. tanpa modul → NULL, dan baris "Tanpa modul" katalog lahir/bertambah
+        $this->assertSame(0, Artisan::call('it:seed-antrian', ['berkas' => $this->berkas([$baris('202', 'Uji tanpa modul', '')]), '--env-guard' => 'local']));
+        $dua = ItTicket::where('seed_urut', 202)->firstOrFail();
         $this->assertNull($dua->modul_id, 'tiket tanpa modul memang sah — bukan ditebak');
+        $patokan = $this->jumlahKatalog();
+        $this->assertGreaterThanOrEqual(1, $patokan['yatim']);
 
-        // dan katalog menghitungnya di tempat yang benar
-        $this->withSession($this->sesi('Head IT', 'uji-headit-pk'))
-            ->get(route('it-tracker.katalog', ['tampilan' => 'daftar']))->assertOk()
-            ->assertSee('1 bertaut + 1 tanpa modul = 2 tiket terbuka di papan');
+        // 2. bermodul → tertaut, dan katalog menghitungnya di tempat yang benar
+        $this->assertSame(0, Artisan::call('it:seed-antrian', ['berkas' => $this->berkas([$baris('201', 'Uji taut modul', 'Absensi')]), '--env-guard' => 'local']));
+        $satu = ItTicket::where('seed_urut', 201)->firstOrFail();
+        $this->assertSame($absensi->id, $satu->modul_id);
+
+        $sesudah = $this->jumlahKatalog();
+        $this->assertSame($patokan['bertaut'] + 1, $sesudah['bertaut'], 'tiket bermodul menambah yang bertaut');
+        $this->assertSame($patokan['yatim'],       $sesudah['yatim'],   'baris Tanpa modul tak bertambah');
+        $this->assertSame($patokan['terbuka'] + 1, $sesudah['terbuka'], 'terbuka di papan ikut bertambah satu');
+        $this->assertSame($sesudah['terbuka'], $sesudah['bertaut'] + $sesudah['yatim'], 'penjumlahannya cocok');
     }
 
     // ── 3 & 4. kolom pemakaian ────────────────────────────────────────────
@@ -230,6 +243,16 @@ class ItKatalogPemakaianTest extends TestCase
 
     /** berkas PSV sekali-pakai: 18 kolom, dihapus di tearDown */
     private array $berkasDibuat = [];
+
+    /** Kalimat rekonsiliasi katalog "N bertaut + M tanpa modul = T tiket terbuka di papan", dibaca sebagai ELEMEN dari halaman. */
+    private function jumlahKatalog(): array
+    {
+        $html = $this->withSession($this->sesi('Head IT', 'uji-headit-pk'))
+            ->get(route('it-tracker.katalog', ['tampilan' => 'daftar']))->assertOk()->getContent();
+        $this->assertMatchesRegularExpression('/(\d+) bertaut \+ (\d+) tanpa modul = (\d+) tiket terbuka di papan/', $html);
+        preg_match('/(\d+) bertaut \+ (\d+) tanpa modul = (\d+) tiket terbuka di papan/', $html, $m);
+        return ['bertaut' => (int) $m[1], 'yatim' => (int) $m[2], 'terbuka' => (int) $m[3]];
+    }
 
     private function berkas(array $baris): string
     {

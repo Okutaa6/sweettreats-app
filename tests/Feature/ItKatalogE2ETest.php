@@ -9,6 +9,7 @@ use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Tests\Concerns\MenyemaiGrantItTracker;
 use Tests\TestCase;
 
 /**
@@ -27,6 +28,7 @@ use Tests\TestCase;
 class ItKatalogE2ETest extends TestCase
 {
     use DatabaseTransactions;
+    use MenyemaiGrantItTracker;
 
     private ItTrackerService $svc;
 
@@ -46,8 +48,11 @@ class ItKatalogE2ETest extends TestCase
 
     private function sesi(string $grup, string $uid): array
     {
+        $gid = DB::table('group_path')->where('nama', $grup)->value('id') ?: 'grp-uji';
+        $this->pastikanGrantItTracker($gid);   // grant disemai di dalam transaksi — uji menguji KEMAMPUAN peran, bukan siapa yang ber-grant hari ini
+
         return ['isLoggedIn' => true, 'id' => $uid,
-            'group_id' => DB::table('group_path')->where('nama', $grup)->value('id') ?: 'grp-uji',
+            'group_id' => $gid,
             'group_name' => $grup, 'name' => 'Uji ' . $grup,
             'branch_day' => date('Y-m-d'), 'expires_in' => time() + 3600, 'login_at' => time(), 'pa_touch' => time()];
     }

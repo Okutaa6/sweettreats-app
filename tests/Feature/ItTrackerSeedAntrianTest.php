@@ -10,6 +10,7 @@ use Carbon\Carbon;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Tests\Concerns\MenyemaiGrantItTracker;
 use Tests\TestCase;
 
 /**
@@ -21,6 +22,7 @@ use Tests\TestCase;
 class ItTrackerSeedAntrianTest extends TestCase
 {
     use DatabaseTransactions;
+    use MenyemaiGrantItTracker;
 
     private const PSV = 'docs/rencana/seed-antrian-it-2026-09-04.psv';
     private ItTrackerService $svc;
@@ -34,9 +36,12 @@ class ItTrackerSeedAntrianTest extends TestCase
         } catch (\Throwable) {
             $this->markTestSkipped('Jalankan database/sql/2026_09_04_it_tracker_seed_urut.sql dulu.');
         }
-        if (ItTicket::whereNotNull('seed_urut')->exists()) {
-            $this->markTestSkipped('DB ini sudah berisi tiket seed — uji butuh DB tanpa seed.');
-        }
+        // DB dev & prod SELALU berisi tiket seed (antrian nyata) — sampai 9 Sep 2026
+        // kelas ini melewati diri di sana, jadi tak pernah berjalan di mana pun
+        // kecuali laptop kosong. Uji yang tak pernah jalan sama tak bergunanya dengan
+        // uji yang selalu merah. Kini tiket seed (+ turunannya) dibersihkan DI DALAM
+        // transaksi uji dan di-rollback DatabaseTransactions: DB manapun pulih persis.
+        $this->bersihkanSeedDalamTransaksi();
         $this->sediakanAkun();
         // Kolom ke-18 PSV (§14.26) dicocokkan PERSIS ke it_modul.nama; kalau katalog
         // kosong, seeder memang BERHENTI. Jadi katalog disiapkan dulu — urutan yang
@@ -46,14 +51,31 @@ class ItTrackerSeedAntrianTest extends TestCase
         }
     }
 
+    /** Hapus tiket ber-seed_urut beserta turunannya — HANYA di dalam transaksi uji (tabel it_* tanpa FK, jadi manual). */
+    private function bersihkanSeedDalamTransaksi(): void
+    {
+        $ids = ItTicket::whereNotNull('seed_urut')->pluck('id');
+        if ($ids->isEmpty()) return;
+
+        foreach (['it_ticket_fase', 'it_form', 'it_fr', 'it_test_case', 'it_temuan'] as $tabel) {
+            DB::table($tabel)->whereIn('ticket_id', $ids)->delete();
+        }
+        // tiket yang lahir dari seed (RTL evaluasi / catatan UAT) kehilangan induknya, bukan ikut lenyap
+        DB::table('it_ticket')->whereIn('lahir_dari_id', $ids)->update(['lahir_dari_id' => null]);
+        DB::table('it_ticket')->whereIn('induk_id', $ids)->update(['induk_id' => null]);
+        ItTicket::whereIn('id', $ids)->delete();
+    }
+
     /** akun sekali-pakai untuk setiap email/nama di PSV yang belum ada di DB ini */
     private function sediakanAkun(): void
     {
         $peran = ['reza@sweettreats.id' => 'IT', 'ikhsan@sweettreats.id' => 'Head IT', 'robi@stdc.id' => 'Executive',
-            'creative@stdc.id' => 'Head Marketing', 'dellaps@sweettreats.id' => 'Finance', 'anisa@sweettreats.id' => 'Supervisor',
+            'creative@stdc.id' => 'Head Marketing', 'yovanka@sweettreats.id' => 'Head Marketing',
+            'dellaps@sweettreats.id' => 'Finance', 'anisa@sweettreats.id' => 'Supervisor',
             'nisasweettreats29@gmail.com' => 'Admin Backup'];
         $nama = ['reza@sweettreats.id' => 'Reza Fauzi Ramadhan', 'ikhsan@sweettreats.id' => 'Muhamad Ikhsan', 'robi@stdc.id' => 'Robi',
-            'creative@stdc.id' => 'Yovan', 'dellaps@sweettreats.id' => 'Della Puspita Sari', 'anisa@sweettreats.id' => 'Anisa Aulia',
+            'creative@stdc.id' => 'Yovan', 'yovanka@sweettreats.id' => 'Yovanka Rima Millennia',
+            'dellaps@sweettreats.id' => 'Della Puspita Sari', 'anisa@sweettreats.id' => 'Anisa Aulia',
             'nisasweettreats29@gmail.com' => 'Admin_Nisa'];
         foreach ($peran as $email => $role) {
             if (DB::table('users')->where('email', $email)->exists()) continue;
@@ -81,12 +103,23 @@ class ItTrackerSeedAntrianTest extends TestCase
     private function barisPsv(): array
     {
         $baris = array_slice(array_filter(array_map('trim', file(base_path(self::PSV)))), 1);
-        $parkir = 0;
+        $parkir = $parkirFitur = $baru = $support = $fitur = 0;
         foreach ($baris as $b) {
             $k = explode('|', $b);
-            if (($k[12] ?? '') === 'ditunda') $parkir++;
+            $jenjang = trim($k[6] ?? ''); $fase = trim($k[10] ?? ''); $status = trim($k[12] ?? '');
+            if ($status === 'ditunda') {
+                $parkir++;
+                if (in_array($jenjang, ['M', 'L'], true)) $parkirFitur++;
+                continue;
+            }
+            // penanda kartu papan mengikuti aturan seeder: TRIASE = belum berjenjang → "baru"
+            // (tampil di kedua tab); S → "support"; M/L → "fitur"
+            if ($fase === 'TRIASE')     $baru++;
+            elseif ($jenjang === 'S')  $support++;
+            else                        $fitur++;
         }
-        return ['total' => count($baris), 'aktif' => count($baris) - $parkir, 'parkir' => $parkir];
+        return ['total' => count($baris), 'aktif' => count($baris) - $parkir, 'parkir' => $parkir,
+                'baru' => $baru, 'support' => $support, 'fitur' => $fitur, 'parkirFitur' => $parkirFitur];
     }
 
     private function urut(int $n): ItTicket
@@ -96,7 +129,10 @@ class ItTrackerSeedAntrianTest extends TestCase
 
     private function sesi(string $groupName, string $uid): array
     {
-        return ['isLoggedIn' => true, 'id' => $uid, 'group_id' => DB::table('group_path')->where('nama', $groupName)->value('id') ?: 'grp-uji',
+        $gid = DB::table('group_path')->where('nama', $groupName)->value('id') ?: 'grp-uji';
+        $this->pastikanGrantItTracker($gid);   // grant disemai di dalam transaksi — uji menguji KEMAMPUAN peran, bukan siapa yang ber-grant hari ini
+
+        return ['isLoggedIn' => true, 'id' => $uid, 'group_id' => $gid,
             'group_name' => $groupName, 'name' => 'Uji', 'branch_day' => date('Y-m-d'), 'expires_in' => time() + 3600, 'login_at' => time(), 'pa_touch' => time()];
     }
 
@@ -256,9 +292,11 @@ class ItTrackerSeedAntrianTest extends TestCase
         $this->assertSame(2, substr_count($html, 'class="itk-tj" data-jenis'), 'dua tab jenis permintaan');
         $this->assertStringContainsString('tampil di kedua tab', $html);
         $this->assertStringContainsString('data-jenis="baru"', $html);
-        $this->assertSame(6, substr_count($html, 'data-kartu data-jenis="support"'), 'enam tiket S (insiden)');
-        $this->assertSame(17, substr_count($html, 'data-kartu data-jenis="fitur"'), 'tujuh belas tiket M/L (empat tiket stabilisasi §14.26 ikut)');
-        $this->assertSame(7, substr_count($html, 'data-kartu data-jenis="baru"'), 'tujuh belum ditriase');
+        $psv = $this->barisPsv();   // dihitung dari berkas, bukan dipatok (lihat barisPsv)
+        $this->assertSame($psv['support'], substr_count($html, 'data-kartu data-jenis="support"'), 'tiket S di luar triase = tab Support');
+        $this->assertSame($psv['fitur'], substr_count($html, 'data-kartu data-jenis="fitur"'), 'tiket M/L di luar triase = tab Fitur / Modul');
+        $this->assertSame($psv['baru'], substr_count($html, 'data-kartu data-jenis="baru"'), 'yang masih TRIASE = belum berjenjang, tampil di kedua tab');
+        $this->assertSame($psv['aktif'], $psv['support'] + $psv['fitur'] + $psv['baru'], 'tiga penanda menghabiskan semua kartu aktif');
 
         // tahap di dalam kolom = tab (Development · Uji Internal · UAT · Go Live · Evaluasi)
         $this->assertGreaterThanOrEqual(5, substr_count($html, 'data-ft='));
@@ -271,8 +309,8 @@ class ItTrackerSeedAntrianTest extends TestCase
 
         // parkiran juga bertab (Ditunda · Ditolak · Selesai) dan kartunya berpenanda jenis
         $this->assertSame(3, substr_count($html, 'data-pkp="'), 'tiga panel status parkiran (Ditunda · Ditolak · Selesai)');
-        $this->assertSame(4, substr_count($html, 'data-parkir data-jenis='), 'empat tiket ditunda dari seed');
-        $this->assertSame(4, substr_count($html, 'data-parkir data-jenis="fitur"'), 'keempatnya M/L');
+        $this->assertSame($psv['parkir'], substr_count($html, 'data-parkir data-jenis='), 'tiket ditunda dari seed, dihitung dari berkas');
+        $this->assertSame($psv['parkirFitur'], substr_count($html, 'data-parkir data-jenis="fitur"'), 'yang ditunda berjenjang M/L');
         $this->assertStringContainsString('data-pkp="DITOLAK"', $html);
     }
 

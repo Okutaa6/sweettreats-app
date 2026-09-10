@@ -10,6 +10,7 @@ use DomainException;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Tests\Concerns\MenyemaiGrantItTracker;
 use Tests\TestCase;
 
 /**
@@ -24,6 +25,7 @@ use Tests\TestCase;
 class ItTrackerTest extends TestCase
 {
     use DatabaseTransactions;
+    use MenyemaiGrantItTracker;
 
     private ItTrackerService $svc;
 
@@ -43,6 +45,7 @@ class ItTrackerTest extends TestCase
     private function sesi(string $groupName, ?string $uid = null): array
     {
         $gid = DB::table('group_path')->where('nama', $groupName)->value('id') ?: 'grp-uji';
+        $this->pastikanGrantItTracker($gid);   // grant disemai di dalam transaksi — uji menguji KEMAMPUAN peran, bukan siapa yang ber-grant hari ini
 
         return [
             'isLoggedIn' => true,
