@@ -5,7 +5,7 @@
     Evaluator: pemohon (default) / dialihkan Head IT ke Executive/Konsultan.
     Lima aspek skala 1-5, rata-rata terhitung. Temuan Bug/Enhancement.
     Rencana Tindak Lanjut → "Jadikan tiket" — MEKANISME YANG SAMA dengan
-    catatan UAT (spawnTicket): tiket lahir di Triase, pemohon sama, induk
+    catatan UAT (spawnTicket): tiket lahir di Penilaian awal, pemohon sama, induk
     tercatat. Inilah yang menutup lingkaran.
 
     Butuh: $t, $v, $peran, $bolehEvaluasi, $evOpsi, $wait
@@ -32,7 +32,7 @@
         {{-- evaluator --}}
         <div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap">
             <span class="itk-lbl" style="margin:0">EVALUATOR</span>
-            @if ($peran === 'head_it' && $now)
+            @if ($bolehKerjaIt && $now)
                 <form method="post" action="{{ route('it-tracker.evaluator', $t->id) }}" style="display:flex;gap:6px;align-items:center">@csrf
                     <select name="evaluator_user_id" class="itk-dep-sel" style="width:auto;border-style:solid">
                         <option value="">{{ $t->pemohon->nama ?? 'Head IT' }} (pemohon — default)</option>

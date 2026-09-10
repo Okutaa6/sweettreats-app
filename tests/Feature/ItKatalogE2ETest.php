@@ -91,7 +91,7 @@ class ItKatalogE2ETest extends TestCase
         $t = $this->ajukan($judul);
 
         $this->withSession($this->della())->get(route('it-tracker.permintaan'))->assertOk()
-            ->assertSee($judul)->assertSee('Menunggu triase IT');
+            ->assertSee($judul)->assertSee('Menunggu penilaian IT');
 
         // sebelum ditriase ia belum bertaut modul — dan katalog mengatakannya apa adanya
         $this->withSession($this->della())->get(route('it-tracker.katalog'))->assertOk()

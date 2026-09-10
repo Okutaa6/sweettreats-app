@@ -117,6 +117,8 @@ class KatalogController extends Controller
 
         return view('it-tracker.katalog', [
             'peran'     => $peran,
+            // entri modul dari layar: Head IT atau wakilnya (ItTrackerService::ROLE_WAKIL_HEAD_IT)
+            'bolehKerjaIt' => \App\Services\ItTracker\ItTrackerService::bolehKerjaHeadIt(session('group_name')),
             'tampilan'  => $tampilan,
             'lensa'     => $lensa,
             'jenisSel'  => $jenisSel,
@@ -147,7 +149,7 @@ class KatalogController extends Controller
     /** Entri modul baru — Head IT saja. Satu-satunya penulisan katalog dari layar. */
     public function store(Request $request)
     {
-        if ($this->peran() !== 'head_it') {
+        if (! \App\Services\ItTracker\ItTrackerService::bolehKerjaHeadIt(session('group_name'))) {
             abort(403, 'Menambah entri katalog hanya dilakukan Head IT.');
         }
 

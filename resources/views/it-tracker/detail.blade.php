@@ -23,7 +23,7 @@
     use App\Services\ItTracker\ItTrackerService;
 
     $adalahIt  = in_array($peran, ['head_it', 'it_dev'], true);
-    $labelFase = ['TRIASE' => 'Triase', 'ANTRE' => 'Antre', 'SELESAI' => 'Selesai', 'DITUNDA' => 'Ditunda', 'DITOLAK' => 'Ditolak'];
+    $labelFase = ['TRIASE' => \App\Services\ItTracker\PhaseEngine::TXT_TRIASE, 'ANTRE' => 'Antre', 'SELESAI' => 'Selesai', 'DITUNDA' => 'Ditunda', 'DITOLAK' => 'Ditolak'];
     $dept      = $t->pemohon?->group?->nama;
     $srcTxt    = $t->sumber === 'inisiatif' ? 'INISIATIF IT' : ($t->sumber === 'insiden' ? 'INSIDEN'
                  : mb_strtoupper(($t->pemohon->nama ?? 'PERMINTAAN') . ($dept ? ' · ' . $dept : '')));
@@ -67,7 +67,7 @@
             case 'REQ':
                 return ($t->pemohon ? 'diajukan ' . $t->pemohon->nama : ($t->sumber === 'insiden' ? 'insiden' : 'inisiatif IT'))
                     . ($t->created_at ? ' · ' . $fmtD($t->created_at) : '')
-                    . ($t->jenjang ? ' · triase: jenjang ' . $t->jenjang . ', ' . ($t->prioritas_it ?? '') : '');
+                    . ($t->jenjang ? ' · dinilai: jenjang ' . $t->jenjang . ', ' . ($t->prioritas_it ?? '') : '');
             case 'ANALISIS':
                 $F = $v['fr02'] ?? []; $n = count($F['fr'] ?? []);
                 return ($n ? $n . ' FR' : 'tanpa FR')
@@ -171,7 +171,7 @@
                 <div class="itk-card-top" style="flex-wrap:wrap;gap:8px">
                     <span class="itk-no num" style="font-size:12.5px">{{ $t->nomor }}</span>
                     <span class="itk-src {{ $t->sumber }}" style="font-size:9.5px;padding:2px 7px">{{ $srcTxt }}</span>
-                    <span class="itk-jen-chip {{ $t->jenjang ?: 'baru' }}">{{ $t->jenjang ? 'Jenjang ' . $t->jenjang . ($t->bobot ? ' · bobot ' . $t->bobot : '') : 'belum ditriase' }}</span>
+                    <span class="itk-jen-chip {{ $t->jenjang ?: 'baru' }}">{{ $t->jenjang ? 'Jenjang ' . $t->jenjang . ($t->bobot ? ' · bobot ' . $t->bobot : '') : 'belum dinilai' }}</span>
                 </div>
                 <div class="itk-detail-title">{{ $t->judul }}</div>
                 <div class="itk-detail-meta">
@@ -204,10 +204,10 @@
                 @if ($parkir)
                     <div class="itk-banner {{ $t->fase }}">
                         {{ $t->alasan_parkir }}{{ $t->fase === 'DITUNDA' ? ' — tidak sedang dikerjakan, tetap tercatat.' : '' }}
-                        @if ($t->fase === 'DITUNDA' && $peran === 'head_it')
+                        @if ($t->fase === 'DITUNDA' && $bolehKerjaIt)
                             <form method="post" action="{{ route('it-tracker.buka', $t->id) }}" style="margin-top:8px">
                                 @csrf
-                                <button type="submit" class="itk-bukalagi" style="margin:0">Buka lagi → {{ $t->jenjang ? 'Antre' : 'Triase' }}</button>
+                                <button type="submit" class="itk-bukalagi" style="margin:0">Buka lagi → {{ $t->jenjang ? 'Antre' : \App\Services\ItTracker\PhaseEngine::TXT_TRIASE }}</button>
                             </form>
                         @endif
                     </div>
@@ -314,12 +314,12 @@
                             @if ($t->fase === 'TRIASE')
                                 <div class="itk-gerbang">
                                     <div class="itk-gerbang-hd"><b>GERBANG KE ANTRE</b><span class="itk-acc-fase f2">FASE 1</span></div>
-                                    <ul class="itk-missing"><li>jenjang + bobot + prioritas IT terisi (lewat triase)</li></ul>
+                                    <ul class="itk-missing"><li>jenjang + bobot + prioritas IT terisi (lewat penilaian awal)</li></ul>
                                     @if ($bolehTriase)
                                         <button type="button" class="itk-gerbang-btn"
-                                            onclick="itkBukaTriase('{{ $t->id }}', '{{ $t->nomor }}', @js($t->judul), @js($t->prioritas_pemohon))">Triase — tetapkan jenjang &amp; prioritas</button>
+                                            onclick="itkBukaTriase('{{ $t->id }}', '{{ $t->nomor }}', @js($t->judul), @js($t->prioritas_pemohon))">Penilaian awal — tetapkan jenjang &amp; prioritas</button>
                                     @else
-                                        <span class="itk-gerbang-btn mati">Triase ditetapkan Head IT, Executive, atau Konsultan IT</span>
+                                        <span class="itk-gerbang-btn mati">Penilaian awal ditetapkan Head IT, Executive, atau Konsultan IT</span>
                                     @endif
                                 </div>
                             @endif
@@ -421,9 +421,9 @@
                 <div class="itk-side">
                     <div class="itk-side-hd"><i></i><b>LANGKAH BERIKUTNYA</b></div>
                     @if ($t->fase === 'TRIASE')
-                        {{-- triase DI SINI: pentriase yang sedang membaca tiket tak perlu dilempar balik ke papan --}}
+                        {{-- penilaian DI SINI: penilai yang sedang membaca tiket tak perlu dilempar balik ke papan --}}
                         <button type="button" class="itk-gerbang-btn" style="margin-top:0;width:100%"
-                            onclick="itkBukaTriase('{{ $t->id }}', '{{ $t->nomor }}', @js($t->judul), @js($t->prioritas_pemohon))">Triase — tetapkan jenjang &amp; prioritas</button>
+                            onclick="itkBukaTriase('{{ $t->id }}', '{{ $t->nomor }}', @js($t->judul), @js($t->prioritas_pemohon))">Penilaian awal — tetapkan jenjang &amp; prioritas</button>
                     @elseif ($gBtnForm)
                         <form method="post" action="{{ route('it-tracker.maju', $t->id) }}">
                             @csrf
@@ -447,13 +447,13 @@
                     <div class="it"><div class="lab">PRIORITAS IT</div><div class="val">{{ $t->prioritas_it ?? 'belum' }}</div></div>
                 </div>
                 <div class="itk-hint" style="margin:-2px 0 0">Dua kolom terpisah — masukan pemohon ≠ keputusan IT.</div>
-                <div class="itk-info-row"><b>Jenjang · bobot</b><span>{{ $t->jenjang ? $t->jenjang . ' · bobot ' . ($t->bobot ?? '—') : 'belum ditriase' }}</span></div>
-                {{-- Siapa yang mentriase — jejak it_ticket_fase (TRIASE→ANTRE). Sejak 9 Sep 2026
+                <div class="itk-info-row"><b>Jenjang · bobot</b><span>{{ $t->jenjang ? $t->jenjang . ' · bobot ' . ($t->bobot ?? '—') : 'belum dinilai' }}</span></div>
+                {{-- Siapa yang menilai — jejak it_ticket_fase (TRIASE→ANTRE). Sejak 9 Sep 2026
                      prioritas IT bisa diisi Executive/Konsultan IT, jadi kolomnya harus bisa ditelusuri. --}}
                 @if ($triase)
-                    <div class="itk-info-row itk-triase-oleh"><b>Ditriase oleh</b><span>{{ $triase['nama'] }} · {{ $triase['at']->translatedFormat('j M H:i') }}</span></div>
+                    <div class="itk-info-row itk-triase-oleh"><b>Dinilai oleh</b><span>{{ $triase['nama'] }} · {{ $triase['at']->translatedFormat('j M H:i') }}</span></div>
                 @elseif ($t->sumber !== 'inisiatif' && ! $t->jenjang)
-                    <div class="itk-info-row itk-triase-oleh"><b>Ditriase oleh</b><span>—</span></div>
+                    <div class="itk-info-row itk-triase-oleh"><b>Dinilai oleh</b><span>—</span></div>
                 @endif
                 <div class="itk-info-row"><b>PIC IT</b><span>{{ $t->pic->nama ?? 'belum ditarik' }}</span></div>
                 <div class="itk-info-row"><b>Sumber</b><span>{{ $t->sumber === 'permintaan' ? 'Formulir permintaan' : ($t->sumber === 'insiden' ? 'Insiden / hotfix' : 'Inisiatif IT') }}</span></div>
@@ -468,7 +468,7 @@
                         <em style="font-weight:600;color:#A99880;font-style:normal">Tanpa modul katalog</em>
                     @endif
                 </span></div>
-                @if ($peran === 'head_it' && ($modulOpsi ?? collect())->isNotEmpty())
+                @if ($bolehKerjaIt && ($modulOpsi ?? collect())->isNotEmpty())
                     <form method="post" action="{{ route('it-tracker.modul', $t->id) }}" style="display:flex;gap:8px;align-items:center">
                         @csrf
                         <select name="modul_id" class="itk-dep-sel" style="border-style:solid;flex:1">
@@ -499,7 +499,7 @@
                         <a class="itk-rail-btn" href="{{ route('it-tracker.ekspor', $t->id) }}">
                             <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4 1.5h5.5L13 5v9.5H4V1.5Z" stroke="#7A5B43" stroke-width="1.4" stroke-linejoin="round"/><path d="M9.5 1.5V5H13M6 8.5h5M6 11h5" stroke="#7A5B43" stroke-width="1.4" stroke-linecap="round"/></svg>Ekspor FRM-IT-01</a>
                     @endif
-                    @if ($peran === 'head_it' && $picOpsi->count() > 1 && ! in_array($t->fase, ['DITOLAK', 'SELESAI', 'TRIASE'], true))
+                    @if ($bolehKerjaIt && $picOpsi->count() > 1 && ! in_array($t->fase, ['DITOLAK', 'SELESAI', 'TRIASE'], true))
                         <form method="post" action="{{ route('it-tracker.pic', $t->id) }}" style="display:flex;gap:8px;align-items:center">
                             @csrf
                             <label class="itk-lbl" style="margin:0;flex:none">PIC</label>
@@ -511,7 +511,7 @@
                             <button type="submit" class="itk-btn itk-btn-putih" style="padding:6px 11px;font-size:11.5px">Simpan</button>
                         </form>
                     @endif
-                    @if ($peran === 'head_it' && ! in_array($t->fase, ['DITOLAK', 'SELESAI'], true))
+                    @if ($bolehKerjaIt && ! in_array($t->fase, ['DITOLAK', 'SELESAI'], true))
                         <details>
                             <summary class="itk-rail-btn" style="list-style:none">
                                 <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M5.5 3.5v9M10.5 3.5v9" stroke="#7A5B43" stroke-width="1.7" stroke-linecap="round"/></svg>Tunda / Tolak…</summary>

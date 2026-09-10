@@ -124,7 +124,7 @@
                                 @endforeach
                             </div>
                             {{-- prioritas_pemohon ≠ prioritas_it — dua kolom, sengaja dipisah --}}
-                            <div class="itk-hint">Prioritas akhir tetap ditetapkan IT saat triase — dua hal ini sengaja dipisah.</div>
+                            <div class="itk-hint">Prioritas akhir tetap ditetapkan IT saat penilaian awal — dua hal ini sengaja dipisah.</div>
                         </div>
                     @else
                         <div class="itk-grid2">
@@ -204,7 +204,7 @@
             @foreach ($milik as $m)
                 @php
                     $t = $m['t']; $w = $m['wait'];
-                    $stMap = ['TRIASE' => 'Menunggu triase IT', 'ANTRE' => 'Antre', 'DITUNDA' => 'Ditunda — tetap tercatat',
+                    $stMap = ['TRIASE' => 'Menunggu penilaian IT', 'ANTRE' => 'Antre', 'DITUNDA' => 'Ditunda — tetap tercatat',
                               'DITOLAK' => 'Ditolak', 'SELESAI' => 'Selesai', 'UAT' => 'Bola di tanganmu'];
                     $stCls = isset($stMap[$t->fase]) ? $t->fase : 'KERJA';
                     $stTxt = $stMap[$t->fase] ?? 'Dikerjakan IT';

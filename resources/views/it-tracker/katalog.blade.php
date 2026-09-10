@@ -147,7 +147,7 @@
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="4.6" stroke="#B79A82" stroke-width="1.5"/><path d="M10.6 10.6 14 14" stroke="#B79A82" stroke-width="1.5" stroke-linecap="round"/></svg>
             <input type="text" name="q" value="{{ $q }}" placeholder="cari modul / fitur…" style="width:200px">
         </form>
-        @if ($peran === 'head_it')
+        @if ($bolehKerjaIt)
             <button type="button" class="itk-btn itk-btn-grafit" onclick="itkBukaEntri()">＋ Entri modul</button>
         @endif
     </div>
@@ -260,7 +260,7 @@
         @endforeach
     @endif
 
-    {{-- ═══ DAFTAR (bawaan IT — paling padat, dipakai saat triase) ═══ --}}
+    {{-- ═══ DAFTAR (bawaan IT — paling padat, dipakai saat penilaian awal) ═══ --}}
     @if ($tampilan === 'daftar')
         @foreach ($groups as $g)
             <div class="itk-kat-panel">
@@ -319,7 +319,7 @@
                     <span class="num pil">{{ $jumlah['yatim'] }} tiket terbuka</span>
                     <span class="num jumlah">{{ $jumlah['bertaut'] }} bertaut + {{ $jumlah['yatim'] }} tanpa modul = {{ $jumlah['terbuka'] }} tiket terbuka di papan</span>
                 </div>
-                <div class="ket">Belum menempel ke entri katalog mana pun — modulnya diisi pentriase (Head IT, Executive, Konsultan IT) saat triase (atau dari halaman tiketnya).
+                <div class="ket">Belum menempel ke entri katalog mana pun — modulnya diisi penilai (Head IT, Executive, Konsultan IT) saat penilaian awal (atau dari halaman tiketnya).
                     Sengaja tidak ditebak dari judul: tebakan yang meleset tak terlihat siapa pun.</div>
                 <div class="daftar">
                     @foreach (array_slice($yatim, 0, 12) as $x)
@@ -452,8 +452,8 @@
     </div>
 </div>
 
-{{-- Dialog entri modul — Head IT saja (satu-satunya penulisan katalog dari layar) --}}
-@if ($peran === 'head_it')
+{{-- Dialog entri modul — Head IT atau wakilnya (satu-satunya penulisan katalog dari layar) --}}
+@if ($bolehKerjaIt)
 <div class="itk-modal-scrim" id="itkModalEntri" onclick="if (event.target === this) itkTutupEntri()">
     <div class="itk-modal">
         <div class="itk-modal-hd"><b>ENTRI MODUL BARU — DIISI HEAD IT</b>

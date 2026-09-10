@@ -45,6 +45,28 @@ class ItTrackerService
      */
     public const ROLE_TRIASE_TAMBAHAN = ['Executive', 'Konsultan IT'];
 
+    /**
+     * WAKIL Head IT — keputusan Ekky 10 Sep 2026, alasan kelangsungan kerja.
+     *
+     * Head IT tidak selalu ada. Kalau ia sakit seminggu, yang berhenti BUKAN
+     * pengembangan (IT pelaksana bisa menarik tiketnya sendiri dari Antre dan
+     * mendorongnya sampai Go Live), melainkan PENILAIAN Head IT: menulis
+     * analisis FRM-IT-02, tunda/tolak, menunjuk PIC, menaut modul, dependensi,
+     * melewati paraf Business Owner. Tanpa itu semua tiket M/L berhenti tepat
+     * di pintu Analisis.
+     *
+     * Konsultan IT memegang seluruh paket itu. Ia AMAN memegangnya karena ia
+     * bukan Business Owner: tak ada kekuasaan yang menumpuk pada satu orang.
+     * ⛔ Executive TIDAK ikut (keputusan Ekky yang sama): kalau Business Owner
+     * menulis analisis lalu memaraf analisisnya sendiri, parafnya berhenti
+     * berarti apa-apa dan sistem kehilangan satu-satunya pemeriksaan silangnya.
+     * Executive tetap memegang penilaian awal, paraf BO, dan ACC Go Live.
+     *
+     * Seperti bolehTriase(), ini predikat TERPISAH: peran() tidak disentuh, jadi
+     * Konsultan IT tetap 'pengawas' dan tidak kehilangan hak paraf BO-nya.
+     */
+    public const ROLE_WAKIL_HEAD_IT = ['Konsultan IT'];
+
     public const FASE_PARKIR = ['DITUNDA', 'DITOLAK'];
 
     /**
@@ -57,7 +79,7 @@ class ItTrackerService
 
     public static function jenjangLabel(?string $j): string
     {
-        return self::JENJANG_LABEL[$j] ?? 'belum ditriase';
+        return self::JENJANG_LABEL[$j] ?? 'belum dinilai';
     }
 
     /**
@@ -185,10 +207,17 @@ class ItTrackerService
         return 'head';
     }
 
-    /** Siapa boleh mentriase: Head IT, atau role di ROLE_TRIASE_TAMBAHAN — tanpa mengubah peran(). */
-    public static function bolehTriase(?string $groupName): bool
+    /** Siapa mengerjakan pekerjaan Head IT: Head IT sendiri, atau wakilnya (lihat ROLE_WAKIL_HEAD_IT). */
+    public static function bolehKerjaHeadIt(?string $groupName): bool
     {
         return self::peran($groupName) === 'head_it'
+            || in_array($groupName, self::ROLE_WAKIL_HEAD_IT, true);
+    }
+
+    /** Siapa boleh mentriase: Head IT, wakilnya, atau role di ROLE_TRIASE_TAMBAHAN — tanpa mengubah peran(). */
+    public static function bolehTriase(?string $groupName): bool
+    {
+        return self::bolehKerjaHeadIt($groupName)
             || in_array($groupName, self::ROLE_TRIASE_TAMBAHAN, true);
     }
 
@@ -304,20 +333,27 @@ class ItTrackerService
      * yang menarik tiket otomatis jadi PIC — semua tiket jadi milik Ekky dan
      * Reza tak pernah bisa menggerakkan apa pun (keputusan rencana §11 no. 8).
      */
-    public function triase(ItTicket $t, string $jenjang, int $bobot, string $prioritasIt, string $userId, ?string $picUserId = null): void
+    /**
+     * $keFase: tujuan sesudah dinilai. Bawaannya ANTRE — "sudah dinilai, belum ada
+     * yang memegang". Penilai yang sekaligus akan menganalisis sendiri boleh
+     * menyebut 'ANALISIS' supaya tiket tak singgah di Antre selama nol detik;
+     * riwayat fase mencatat langkahnya apa adanya, tanpa baris kosong yang
+     * masuk-keluar di detik yang sama. Pagarnya di controller (siapa & jenjang apa).
+     */
+    public function triase(ItTicket $t, string $jenjang, int $bobot, string $prioritasIt, string $userId, ?string $picUserId = null, ?string $keFase = null): void
     {
         if ($t->fase !== 'TRIASE') {
-            throw new DomainException('Tiket ini tidak sedang menunggu triase.');
+            throw new DomainException('Tiket ini tidak sedang menunggu penilaian awal.');
         }
 
-        DB::transaction(function () use ($t, $jenjang, $bobot, $prioritasIt, $userId, $picUserId) {
+        DB::transaction(function () use ($t, $jenjang, $bobot, $prioritasIt, $userId, $picUserId, $keFase) {
             $t->jenjang      = $jenjang;
             $t->bobot        = $bobot;
             $t->prioritas_it = $prioritasIt;
             if ($picUserId) {
                 $t->pic_user_id = $picUserId;
             }
-            $this->pindahFase($t, 'ANTRE', $userId);
+            $this->pindahFase($t, $keFase ?: 'ANTRE', $userId);
         });
     }
 
@@ -378,7 +414,7 @@ class ItTrackerService
         // Keadaan ini tak terjangkau lewat UI hari ini, tapi pagari di sini
         // supaya jalur kode masa depan tak bisa lewat.
         if ($t->fase === 'ANTRE' && ! $t->jenjang) {
-            throw new DomainException('Tiket ini belum ditriase — tetapkan jenjang dulu.');
+            throw new DomainException('Tiket ini belum dinilai — tetapkan jenjang dulu.');
         }
 
         $g = PhaseEngine::gateInfo($this->viewTicket($t));
@@ -789,7 +825,7 @@ class ItTrackerService
     {
         $this->pastikanDiAnalisis($t);
         if ($t->jenjang !== 'L') {
-            throw new DomainException('Ruang lingkup & desain teknis (02 penuh) hanya untuk jenjang L. Naikkan jenjang lewat triase kalau memang perlu.');
+            throw new DomainException('Ruang lingkup & desain teknis (02 penuh) hanya untuk jenjang L. Naikkan jenjangnya dulu lewat penilaian ulang kalau memang perlu.');
         }
 
         $this->tulisFr02($t, function (array $p) use ($lingkup, $luar, $desain) {
@@ -886,7 +922,7 @@ class ItTrackerService
         // tetap menuntut FR+komponen+paraf → tiket terkunci tanpa jalan keluar
         // (audit 3 Sep). Pekerjaan yang ternyata kecil: tunda → buka lagi → triase.
         if (! in_array($jenjang, ['M', 'L'], true)) {
-            throw new DomainException('Di tengah Analisis jenjang hanya bisa M atau L. Kalau ternyata pekerjaan kecil (S): tunda tiketnya, lalu buka lagi lewat triase.');
+            throw new DomainException('Di tengah Analisis jenjang hanya bisa M atau L. Kalau ternyata pekerjaan kecil (S): tunda tiketnya, lalu buka lagi lewat penilaian awal.');
         }
 
         DB::transaction(function () use ($t, $jenjang, $bobot, $prioritasIt) {

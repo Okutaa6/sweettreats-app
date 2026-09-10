@@ -1,18 +1,18 @@
 {{--
-    Modal triase — dipakai papan DAN detail tiket.
+    Modal penilaian awal (fase 'TRIASE') — dipakai papan DAN detail tiket.
     Sejak 9 Sep 2026 dibuka juga untuk Executive & Konsultan IT (bolehTriase),
     tanpa menaikkan peran mereka: bagian PIC hanya tampil bila $picOpsi terisi
     (Head IT), dan formulir Tunda/Tolak hanya bila $bolehParkir (Head IT).
 
     Dulu hanya ada di papan, sehingga Head IT yang sedang membaca satu tiket
-    harus dilempar balik ke papan (`?q=nomor`) untuk mentriasenya. Formulirnya
+    harus dilempar balik ke papan (`?q=nomor`) untuk menilainya. Formulirnya
     sama persis; yang berbeda cuma dari mana ia dibuka.
 
     Butuh: $picOpsi, $bolehParkir. Buka lewat itkBukaTriase(id, nomor, judul, prioritasPemohon).
 --}}
 <div class="itk-modal-scrim" id="itkModalTriase" onclick="if (event.target === this) itkTutupTriase()">
     <div class="itk-modal">
-        <div class="itk-modal-hd"><b>TRIASE — KEPUTUSAN PENTRIASE, BUKAN PEMOHON</b><span class="itk-badge-fase">FASE 1</span>
+        <div class="itk-modal-hd"><b>PENILAIAN AWAL — KEPUTUSAN PENILAI, BUKAN PEMOHON</b><span class="itk-badge-fase">FASE 1</span>
             <button type="button" onclick="itkTutupTriase()">✕</button></div>
         <div class="itk-modal-body">
             <div>
@@ -78,7 +78,17 @@
                         </div>
                     </div>
                 </div>
+                {{-- Dua jalan keluar, dua-duanya jujur:
+                     · Antre  = sudah dinilai, menunggu ada yang memegang (tombolnya "Tarik")
+                     · Analisis = penilainya sekaligus penganalisisnya, jadi tak perlu singgah
+                     Tombol kedua hanya untuk Head IT / wakilnya, dan MATI untuk jenjang S
+                     yang memang tak punya fase Analysis & Design. --}}
                 <button type="submit" class="itk-btn itk-btn-grafit" style="width:100%">Simpan &amp; masukkan antrean</button>
+                @if ($bolehKerjaIt ?? false)
+                    <button type="submit" name="lanjut" value="analisis" id="itkTriaseLanjut"
+                            class="itk-btn itk-btn-putih" style="width:100%;margin-top:7px">Simpan &amp; langsung mulai Analysis &amp; Design</button>
+                    <div class="itk-hint" id="itkTriaseLanjutKet">Melewati Antre — pilih ini kalau kamu yang akan menganalisisnya sekarang.</div>
+                @endif
             </form>
             @if ($bolehParkir ?? false)
             <div class="itk-sekat"></div>
@@ -109,6 +119,24 @@ function itkBukaTriase(id, nomor, judul, prioP) {
     if (parkir) parkir.action = '{{ url('it-tracker/tiket') }}/' + id + '/parkir';
     document.getElementById('itkModalTriase').classList.add('buka');
 }
+// Jenjang S tak punya fase Analysis & Design — tombolnya dimatikan DAN menyebut
+// alasannya, bukan diam-diam hilang (pola P: tombol mati bilang kenapa).
+(function () {
+    var btn = document.getElementById('itkTriaseLanjut');
+    if (! btn) return;
+    var ket = document.getElementById('itkTriaseLanjutKet');
+    document.getElementsByName('jenjang').forEach(function (r) {
+        r.addEventListener('change', function () {
+            var s = r.value === 'S' && r.checked;
+            btn.disabled = s;
+            btn.style.opacity = s ? '.45' : '';
+            btn.style.cursor = s ? 'not-allowed' : '';
+            ket.textContent = s
+                ? 'Jenjang Support tak melewati Analysis & Design — tiketnya masuk antrean, lalu ditarik saat mulai dikerjakan.'
+                : 'Melewati Antre — pilih ini kalau kamu yang akan menganalisisnya sekarang.';
+        });
+    });
+})();
 function itkTutupTriase() {
     document.getElementById('itkModalTriase').classList.remove('buka');
 }

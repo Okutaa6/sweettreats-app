@@ -247,7 +247,7 @@ class ItTrackerSeedAntrianTest extends TestCase
         $html = $this->withSession($this->sesi('Head IT', 'uji-headit-seed'))
             ->get(route('it-tracker.index'))->assertOk()
             ->assertSee('Support')->assertSee('Fitur / Modul')
-            ->assertSee('Belum ditriase')->getContent();
+            ->assertSee('Belum dinilai')->getContent();
 
         // kartu membawa jenisnya; jumlah penanda = jumlah kartu aktif (30 aktif + 4 ditunda tak di papan)
         $this->assertSame($this->barisPsv()['aktif'], substr_count($html, 'data-kartu data-jenis='));

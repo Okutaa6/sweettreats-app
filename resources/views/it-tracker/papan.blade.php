@@ -8,7 +8,7 @@
 
     Tiga tingkat tab yang berbeda rupa: (1) jenis permintaan = band grafit,
     (2) tahap di dalam kolom = teks bergaris bawah, (3) status parkiran = chip
-    cokelat bergaris putus. Tiket belum ditriase tampil di KEDUA tab jenis
+    cokelat bergaris putus. Tiket belum dinilai tampil di KEDUA tab jenis
     (keputusan Ekky 5 Sep) — badge menyebutnya, bukan menyembunyikannya.
 --}}
 @extends('layouts.app')
@@ -37,7 +37,7 @@
     $nFitur   = $semuaKartu->filter(fn ($c) => in_array($c['t']->jenjang, ['M', 'L'], true))->count();
     $nBaru    = $semuaKartu->filter(fn ($c) => ! $c['t']->jenjang)->count();
     $jenisAwal = $filter['jenjang'] === 'S' ? 'support' : 'fitur';
-    $SUB = ['MASUK' => 'Requirement · triase & antre', 'RANCANG' => 'Analysis & Design',
+    $SUB = ['MASUK' => 'Requirement · penilaian awal & antre', 'RANCANG' => 'Analysis & Design',
             'KERJAKAN' => 'Development · Internal Testing', 'RILIS' => 'UAT · Go Live · Evaluation'];
     $SHORT = ['DEV' => 'Dev', 'UJI' => 'Uji', 'UAT' => 'UAT', 'GOLIVE' => 'Go Live', 'EVALUASI' => 'Evaluasi'];
     $inisial = mb_strtoupper(mb_substr((string) session('name'), 0, 1)) ?: 'IT';
@@ -109,7 +109,7 @@
     </div>
 
     {{-- ═══ TINGKAT 1 — tab JENIS permintaan: segmen besar di band grafit ═══
-         Belum ditriase tampil di KEDUA tab (keputusan Ekky 5 Sep): ia belum punya
+         Belum dinilai tampil di KEDUA tab (keputusan Ekky 5 Sep): ia belum punya
          jenjang, jadi belum bisa dipilihkan; badge tiap tab = yang benar-benar
          tampil di tab itu, dan catatan kanan menjelaskan hitungan gandanya. --}}
     <div class="itk-tabband" id="itkTabJenis" data-jenis-awal="{{ $jenisAwal }}">
@@ -121,7 +121,7 @@
             <b>Support</b><i class="num" data-tj-n>{{ $nSupport + $nBaru }}</i>
             <span>jenjang S — Requirement → Development</span>
         </button>
-        <span class="itk-tj-note">Belum ditriase (<span class="num">{{ $nBaru }}</span>) belum punya jenjang —<br>tampil di kedua tab, ikut dihitung di keduanya.</span>
+        <span class="itk-tj-note">Belum dinilai (<span class="num">{{ $nBaru }}</span>) belum punya jenjang —<br>tampil di kedua tab, ikut dihitung di keduanya.</span>
     </div>
 
     {{-- Filter sekunder — bisa digabung; tiap chip mempertahankan yang lain --}}
@@ -197,11 +197,11 @@
                             @if ($p->alasan_parkir)
                                 <div style="font-size:12px;color:#7A5B43;margin-top:5px;line-height:1.45">{{ $p->alasan_parkir }}</div>
                             @endif
-                            @if ($p->fase === 'DITUNDA' && $peran === 'head_it')
+                            @if ($p->fase === 'DITUNDA' && $bolehKerjaIt)
                                 <form method="post" action="{{ route('it-tracker.buka', $p->id) }}" onclick="event.stopPropagation()">
                                     @csrf
-                                    {{-- yang belum pernah ditriase kembali ke Triase, bukan Antre --}}
-                                    <button type="submit" class="itk-bukalagi">Buka lagi → {{ $p->jenjang ? 'Antre' : 'Triase' }}</button>
+                                    {{-- yang belum pernah dinilai kembali ke Penilaian awal, bukan Antre --}}
+                                    <button type="submit" class="itk-bukalagi">Buka lagi → {{ $p->jenjang ? 'Antre' : \App\Services\ItTracker\PhaseEngine::TXT_TRIASE }}</button>
                                 </form>
                             @endif
                         </div>
@@ -321,7 +321,7 @@
                                         onclick="event.stopPropagation(); itkBukaTriase('{{ $t->id }}', '{{ $t->nomor }}', @js($t->judul), @js($t->prioritas_pemohon))">
                                         {{ $c['tombol']['label'] }}</button>
                                 @else
-                                    {{-- tombol maju HIJAU (keputusan Ekky 5 Sep) — beda dari Triase yang grafit --}}
+                                    {{-- tombol maju HIJAU (keputusan Ekky 5 Sep) — beda dari Penilaian awal yang grafit --}}
                                     <form method="post" action="{{ route('it-tracker.maju', $t->id) }}"
                                           onclick="event.stopPropagation()">
                                         @csrf
@@ -363,7 +363,7 @@
         <span><i class="lg-parkir"></i> parkir — <strong>hanya di parkiran</strong>, bergaris putus</span>
         <span><i class="lg-basi">❝ 12 hr</i> catatan kemajuan basi — <strong>teks kuning + umur</strong>, tanpa latar</span>
     </div>
-    <div class="itk-legenda">Badge: <strong>Fase 1</strong> = formulir + triase + papan · <strong>Fase 2</strong> = tujuh fase + gerbang ·
+    <div class="itk-legenda">Badge: <strong>Fase 1</strong> = formulir + penilaian awal + papan · <strong>Fase 2</strong> = tujuh fase + gerbang ·
         <strong>Fase 3</strong> = sambungan Project Tracker. Tiga tingkat tab: jenis (band grafit) → tahap (garis bawah di kolom) → status parkir (chip bergaris putus).</div>
 
     <script>

@@ -92,7 +92,7 @@
                     @if ($t->alasan_parkir)
                         <br><span style="color:#55534E">Catatan: {{ $t->alasan_parkir }}</span>
                     @elseif (! $diterima)
-                        <br><span style="color:#55534E">Catatan: menunggu triase IT</span>
+                        <br><span style="color:#55534E">Catatan: menunggu penilaian IT</span>
                     @else
                         <br><span style="color:#55534E">Jenjang {{ $t->jenjang }} · bobot {{ $t->bobot }} · prioritas IT {{ $t->prioritas_it }}</span>
                     @endif

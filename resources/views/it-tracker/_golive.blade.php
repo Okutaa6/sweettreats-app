@@ -25,7 +25,7 @@
     // Sesudah tiket lepas dari Go Live, panel ini jadi BACA-SAJA — layanan pun
     // menolak menulis di luar fase itu.
     $diGoLive = $t->fase === 'GOLIVE';
-    $bolehIsi = $diGoLive && ($peran === 'head_it'
+    $bolehIsi = $diGoLive && ($bolehKerjaIt
         || ($peran === 'it_dev' && $t->pic_user_id === (string) session('id')));
 @endphp
 

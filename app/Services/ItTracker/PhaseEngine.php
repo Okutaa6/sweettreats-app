@@ -20,6 +20,15 @@ use Carbon\CarbonInterface;
 class PhaseEngine
 {
     /** k = kunci fase, t = judul templat, s = label pendek */
+    /**
+     * Kata yang DIBACA ORANG untuk fase 'TRIASE'. Keputusan Ekky 10 Sep 2026:
+     * "triase" itu istilah gawat darurat, tak semua orang membacanya sebagai
+     * penilaian awal permintaan. Nilai fase di DB tetap 'TRIASE' — mengganti
+     * data hanya karena katanya berubah adalah harga yang tak perlu dibayar.
+     * ⛔ Ganti di SINI kalau katanya berubah lagi, jangan sebar ulang ke layar.
+     */
+    public const TXT_TRIASE = 'Penilaian awal';
+
     public const PH = [
         ['k' => 'REQ',      't' => 'Requirement',       's' => 'Requirement'],
         ['k' => 'ANALISIS', 't' => 'Analysis & Design', 's' => 'Analisis'],
@@ -213,7 +222,7 @@ class PhaseEngine
         $f = $t['fase'];
 
         if ($f === 'TRIASE') {
-            return ['kind' => 'triase', 'label' => 'Triase', 'actor' => 'ekky'];
+            return ['kind' => 'triase', 'label' => self::TXT_TRIASE, 'actor' => 'ekky'];
         }
 
         if ($f === 'ANTRE') {

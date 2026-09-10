@@ -182,13 +182,14 @@ class ItTrackerController extends Controller
             'beban'   => $this->svc->ringkasanBeban($semuaView),
             'peran'   => $this->peran(),
             // PIC hanya ditunjuk Head IT — pentriase lain tak melihat pilihan ini (picOpsi kosong)
-            'picOpsi' => $this->peran() === 'head_it' ? $this->picOpsi() : collect(),
+            'picOpsi' => $this->bolehKerjaHeadIt() ? $this->picOpsi() : collect(),
             // daftar modul katalog untuk pertanyaan modul di modal triase — ikut siapa yang boleh mentriase
             'modulOpsi' => $this->bolehTriase()
                 ? \App\Models\ItModul::orderBy('departemen')->orderBy('nama')->get(['id', 'nama', 'departemen', 'status'])
                 : collect(),
             'bolehTriase' => $this->bolehTriase(),
-            'bolehParkir' => $this->peran() === 'head_it',
+            'bolehParkir' => $this->bolehKerjaHeadIt(),
+            'bolehKerjaIt' => $this->bolehKerjaHeadIt(),
             'filter'  => ['q' => $q, 'macet' => (bool) $request->query('macet'),
                           'sumber' => $sumber, 'jenjang' => $jenjang, 'unit' => $unit,
                           'modul' => $modul?->id, 'modulNama' => $modul?->nama],
@@ -258,20 +259,21 @@ class ItTrackerController extends Controller
             'jalur'  => PhaseEngine::pathFor($t->jenjang),
             'peran'  => $this->peran(),
             'bolehTriase' => $this->bolehTriase(),
-            'bolehParkir' => $this->peran() === 'head_it',
+            'bolehParkir' => $this->bolehKerjaHeadIt(),
+            'bolehKerjaIt' => $this->bolehKerjaHeadIt(),
             // siapa yang mentriase — dibaca dari jejak fase (it_ticket_fase.oleh_user_id
             // pada langkah TRIASE→ANTRE), bukan kolom baru; ditampilkan karena sejak
             // 9 Sep 2026 prioritas IT bisa diisi orang di luar IT.
             'triase' => $this->jejakTriase($t),
             'bolehGerak' => $this->bolehGerakkan($t),
-            'picOpsi'    => $this->peran() === 'head_it' ? $this->picOpsi() : collect(),
+            'picOpsi'    => $this->bolehKerjaHeadIt() ? $this->picOpsi() : collect(),
             // nama orang IT untuk PIC temuan (FRM-IT-04) — dibaca semua peran, ditulis IT
             'picIt'      => $this->picOpsi(),
             // Fase 2b — siapa boleh apa di empat formulir (gerbang aslinya di controller)
-            'bolehAnalisis' => $this->peran() === 'head_it' && $t->fase === 'ANALISIS',
+            'bolehAnalisis' => $this->bolehKerjaHeadIt() && $t->fase === 'ANALISIS',
             'bolehParafBo'  => $this->peran() === 'pengawas' && $t->fase === 'ANALISIS',
             // jalan pintas bertanda: Head IT, di ANALISIS, selama belum ada paraf maupun pelewatan
-            'bolehTeruskan' => $this->peran() === 'head_it' && $t->fase === 'ANALISIS'
+            'bolehTeruskan' => $this->bolehKerjaHeadIt() && $t->fase === 'ANALISIS'
                 && empty($v['fr02']['paraf']) && empty($v['fr02']['diteruskan']),
             'bolehUji'      => $this->bolehGerakkan($t)['ok'] && $t->fase === 'UJI',
             // predikat yang SAMA dengan rute skenario() — jangan tampilkan formulir yang berujung 403
@@ -280,12 +282,12 @@ class ItTrackerController extends Controller
             'bolehLampiran' => $this->bolehLampiran($t) && $t->fase !== 'DITOLAK',
             'bolehKemajuan' => $this->bolehKemajuan($t) && isset(PhaseEngine::RANK[$t->fase]),
             'bolehEvaluasi' => $this->bolehEvaluasi($t),
-            'depOpsi'       => $this->peran() === 'head_it' && $t->fase === 'ANALISIS'
+            'depOpsi'       => $this->bolehKerjaHeadIt() && $t->fase === 'ANALISIS'
                 ? ItTicket::where('id', '!=', $t->id)->where('fase', '!=', 'DITOLAK')
                     ->orderByDesc('id')->get(['nomor', 'judul', 'fase'])
                 : collect(),
             'depTiket'      => ItTicket::whereIn('nomor', $v['deps'])->get(['nomor', 'judul', 'fase'])->keyBy('nomor'),
-            'evOpsi'        => $this->peran() === 'head_it' && $t->fase === 'EVALUASI' ? $this->pengawasOpsi() : collect(),
+            'evOpsi'        => $this->bolehKerjaHeadIt() && $t->fase === 'EVALUASI' ? $this->pengawasOpsi() : collect(),
             // Katalog: tiket menyebut modulnya — atau menyebut bahwa ia belum punya
             'modul'     => $t->modul_id ? \App\Models\ItModul::find($t->modul_id) : null,
             'modulOpsi' => $this->bolehTriase()
@@ -356,7 +358,7 @@ class ItTrackerController extends Controller
     public function triase(Request $request, int $id)
     {
         if (! $this->bolehTriase()) {
-            abort(403, 'Triase hanya dilakukan Head IT, Executive, atau Konsultan IT.');
+            abort(403, 'Penilaian awal dilakukan Head IT, Executive, atau Konsultan IT.');
         }
 
         $d = $request->validate([
@@ -368,19 +370,45 @@ class ItTrackerController extends Controller
             // BOLEH kosong: tiket tanpa modul masuk baris "Tanpa modul" di katalog;
             // jujur kosong lebih baik daripada tebakan yang meleset tanpa terlihat.
             'modul_id'     => 'nullable|integer|exists:it_modul,id',
+            // 'analisis' = penilai sekaligus penganalisisnya, jadi tiket tak perlu
+            // singgah di Antre (keputusan Ekky 10 Sep 2026). Lihat pagarnya di bawah.
+            'lanjut'       => 'nullable|in:analisis',
         ]);
 
-        // Penetapan PIC TETAP milik Head IT — pentriase lain yang mengirimnya ditolak
+        // Penetapan PIC TETAP milik Head IT / wakilnya — pentriase lain yang mengirimnya ditolak
         // terang-terangan, bukan diabaikan diam-diam (kiriman yang "tak berbuat apa-apa"
         // adalah jenis kegagalan yang paling lama ketahuan).
-        if (! empty($d['pic_user_id']) && $this->peran() !== 'head_it') {
-            abort(403, 'Menunjuk PIC hanya dilakukan Head IT.');
+        if (! empty($d['pic_user_id']) && ! $this->bolehKerjaHeadIt()) {
+            abort(403, 'Menunjuk PIC dilakukan Head IT atau wakilnya.');
         }
+
+        // ── Langsung ke Analysis & Design, tanpa singgah di Antre ──────────
+        //
+        // Antre BUKAN penundaan: ia keadaan "belum ada yang memegang" — tombolnya
+        // pun berbunyi "Tarik". Melompatinya hanya jujur kalau penilainya memang
+        // orang yang akan menganalisis sendiri, karena itu pagarnya dua:
+        //
+        //  1. hanya Head IT / wakilnya. Executive boleh menilai tapi TIDAK menulis
+        //     FRM-IT-02; kalau ia melompatkan tiket ke Analisis, papan berkata
+        //     "sedang dianalisis" padahal tak seorang pun bisa menganalisisnya.
+        //  2. hanya jenjang M/L. Jenjang S tak punya fase Analisis sama sekali —
+        //     lompatannya jatuh ke Development, dan papan akan berkata "sedang
+        //     dikerjakan" padahal belum ada pengembang yang memegangnya.
+        //
+        // ⚠️ Otorisasi MENDAHULUI aksi (uji terima 2a: 403 datang sebelum apa pun
+        // tertulis). Jenjang S bukan soal izin — penilaiannya tetap tersimpan,
+        // tiket duduk di Antre, dan pesannya menyebut kenapa.
+        $lanjut = ($d['lanjut'] ?? null) === 'analisis';
+        if ($lanjut && ! $this->bolehKerjaHeadIt()) {
+            abort(403, 'Memulai Analysis & Design dilakukan Head IT atau wakilnya.');
+        }
+        $tolakS = $lanjut && $d['jenjang'] === 'S';
+        $keFase = ($lanjut && ! $tolakS) ? 'ANALISIS' : null;
 
         $t = ItTicket::findOrFail($id);
 
         try {
-            $this->svc->triase($t, $d['jenjang'], (int) $d['bobot'], $d['prioritas_it'], $this->userId(), $d['pic_user_id'] ?? null);
+            $this->svc->triase($t, $d['jenjang'], (int) $d['bobot'], $d['prioritas_it'], $this->userId(), $d['pic_user_id'] ?? null, $keFase);
         } catch (DomainException $e) {
             return back()->with('error', $e->getMessage());
         }
@@ -391,15 +419,25 @@ class ItTrackerController extends Controller
             $modulNama = \App\Models\ItModul::find((int) $d['modul_id'])?->nama;
         }
 
-        return back()->with('success',
-            $t->nomor . ' ditriase: jenjang ' . $d['jenjang'] . ', ' . $d['prioritas_it'] . ' → Antre.'
-            . ($modulNama ? ' Modul: ' . $modulNama . '.' : ' Belum bertaut ke modul katalog.'));
+        $modulTeks = $modulNama ? ' Modul: ' . $modulNama . '.' : ' Belum bertaut ke modul katalog.';
+        $awal      = $t->nomor . ' dinilai: jenjang ' . $d['jenjang'] . ', ' . $d['prioritas_it'];
+
+        if ($tolakS) {
+            return back()->with('success', $awal . ' → Antre.' . $modulTeks
+                . ' Jenjang S tak melewati Analysis & Design; tiket menunggu di Antre sampai ada yang menariknya.');
+        }
+        if ($keFase === 'ANALISIS') {
+            return back()->with('success', $awal . ' → Analysis & Design.' . $modulTeks
+                . ' Tiket melewati Antre karena kamu yang memulainya.');
+        }
+
+        return back()->with('success', $awal . ' → Antre.' . $modulTeks);
     }
 
     /** Tunda / tolak beralasan — Head IT. */
     public function parkir(Request $request, int $id)
     {
-        $this->pastikanHeadIt('Menunda/menolak tiket hanya dilakukan Head IT.');
+        $this->pastikanHeadIt('Menunda/menolak tiket dilakukan Head IT atau wakilnya.');
 
         $d = $request->validate([
             'ke'     => 'required|in:DITUNDA,DITOLAK',
@@ -422,7 +460,7 @@ class ItTrackerController extends Controller
 
     public function bukaLagi(int $id)
     {
-        $this->pastikanHeadIt('Membuka lagi tiket hanya dilakukan Head IT.');
+        $this->pastikanHeadIt('Membuka lagi tiket dilakukan Head IT atau wakilnya.');
 
         $t = ItTicket::findOrFail($id);
 
@@ -432,7 +470,7 @@ class ItTrackerController extends Controller
             return back()->with('error', $e->getMessage());
         }
 
-        return back()->with('success', $t->nomor . ' dibuka lagi → ' . ($ke === 'ANTRE' ? 'Antre' : 'Triase') . '.');
+        return back()->with('success', $t->nomor . ' dibuka lagi → ' . ($ke === 'ANTRE' ? 'Antre' : PhaseEngine::TXT_TRIASE) . '.');
     }
 
     /** Majukan lewat gerbang. Reza: hanya tiket yang dia PIC, di DEV/UJI. */
@@ -474,7 +512,7 @@ class ItTrackerController extends Controller
         // akun pun yang lolos pembanding NULL).
         $boleh = $t->pemohon_user_id
             ? $t->pemohon_user_id === $this->userId()
-            : $this->peran() === 'head_it';
+            : $this->bolehKerjaHeadIt();
 
         if (! $boleh) {
             abort(403, $t->pemohon_user_id
@@ -826,7 +864,7 @@ class ItTrackerController extends Controller
      */
     public function teruskan(Request $request, int $id)
     {
-        $this->pastikanHeadIt('Meneruskan tanpa paraf Business Owner hanya boleh dilakukan Head IT — dan tercatat.');
+        $this->pastikanHeadIt('Meneruskan tanpa paraf Business Owner boleh dilakukan Head IT atau wakilnya — dan tercatat.');
         $t = ItTicket::findOrFail($id);
 
         // validasi SESUDAH otorisasi; pesannya menyebut kenapa (P3)
@@ -1014,7 +1052,7 @@ class ItTrackerController extends Controller
         }
 
         return back()->with('success', 'Tiket baru ' . $anak->nomor . ' lahir dari ' . $t->nomor
-            . ' (' . ($d['dari'] === 'evaluasi' ? 'Evaluasi' : 'UAT') . ') → Triase.');
+            . ' (' . ($d['dari'] === 'evaluasi' ? 'Evaluasi' : 'UAT') . ') → ' . PhaseEngine::TXT_TRIASE . '.');
     }
 
     // ── FRM-IT-07 ──
@@ -1049,7 +1087,7 @@ class ItTrackerController extends Controller
     /** Alihkan evaluator — Head IT. Kosong = kembali ke pemohon. */
     public function evaluator(Request $request, int $id)
     {
-        $this->pastikanHeadIt('Mengalihkan evaluator hanya dilakukan Head IT.');
+        $this->pastikanHeadIt('Mengalihkan evaluator dilakukan Head IT atau wakilnya.');
         $t = ItTicket::findOrFail($id);
 
         $d = $request->validate(['evaluator_user_id' => 'nullable|string|exists:users,id']);
@@ -1068,7 +1106,7 @@ class ItTrackerController extends Controller
     /** FRM-IT-02 = Kelas C, ditulis Head IT (Ekky). */
     private function pastikanAnalisis(ItTicket $t): void
     {
-        $this->pastikanHeadIt('FRM-IT-02 ditulis Head IT.');
+        $this->pastikanHeadIt('FRM-IT-02 ditulis Head IT atau wakilnya.');
         if ($t->fase !== 'ANALISIS') {
             abort(403, 'FRM-IT-02 hanya diisi saat tiket berada di fase Analisis.');
         }
@@ -1095,8 +1133,8 @@ class ItTrackerController extends Controller
         $t = ItTicket::findOrFail($id);
         if (! $this->bolehLampiran($t)) {
             abort(403, $t->pemohon_user_id === $this->userId()
-                ? 'Lampiran dari pemohon hanya bisa ditambah selama tiket masih menunggu triase — sesudah itu minta Head IT menempelkannya.'
-                : 'Lampiran ditambahkan pemohon tiket (saat menunggu triase) atau Head IT.');
+                ? 'Lampiran dari pemohon hanya bisa ditambah selama tiket masih menunggu penilaian — sesudah itu minta Head IT menempelkannya.'
+                : 'Lampiran ditambahkan pemohon tiket (saat menunggu penilaian) atau Head IT.');
         }
 
         // validasi SESUDAH otorisasi; 'lampiran' wajib di rute ini (kosong = tak ada gunanya)
@@ -1108,7 +1146,7 @@ class ItTrackerController extends Controller
         $kode = $d['kode'] ?? 'FRM-IT-01';
         // Bahan rancangan (mockup/alur/contoh keluaran) ditempel di FRM-IT-02 —
         // itu pekerjaan analisis, jadi izinnya izin analisis, bukan izin pemohon.
-        if ($kode === 'FRM-IT-02' && ! ($this->peran() === 'head_it' && $t->fase === 'ANALISIS')) {
+        if ($kode === 'FRM-IT-02' && ! ($this->bolehKerjaHeadIt() && $t->fase === 'ANALISIS')) {
             abort(403, 'Lampiran rancangan (FRM-IT-02) ditempel Head IT selagi tiket di fase Analisis.');
         }
 
@@ -1148,12 +1186,14 @@ class ItTrackerController extends Controller
 
     private function bolehKemajuan(ItTicket $t): bool
     {
-        return $this->adalahIt() && ($this->peran() === 'head_it' || $t->pic_user_id === $this->userId());
+        // wakil Head IT BUKAN anggota adalahIt() — susunannya sengaja dipisah,
+        // kalau digabung ke dalam kurung ia ikut tersaring keluar.
+        return $this->bolehKerjaHeadIt() || ($this->adalahIt() && $t->pic_user_id === $this->userId());
     }
 
     private function bolehLampiran(ItTicket $t): bool
     {
-        if ($this->peran() === 'head_it') return true;
+        if ($this->bolehKerjaHeadIt()) return true;
         return $t->pemohon_user_id && $t->pemohon_user_id === $this->userId() && $t->fase === 'TRIASE';
     }
 
@@ -1182,7 +1222,9 @@ class ItTrackerController extends Controller
     /** Skenario UAT: Head IT, atau IT yang menjadi PIC tiketnya — dipakai layar DAN rute. */
     private function bolehTulisSkenario(ItTicket $t): bool
     {
-        return $this->adalahIt() && ($this->peran() === 'head_it' || $t->pic_user_id === $this->userId());
+        // wakil Head IT BUKAN anggota adalahIt() — susunannya sengaja dipisah,
+        // kalau digabung ke dalam kurung ia ikut tersaring keluar.
+        return $this->bolehKerjaHeadIt() || ($this->adalahIt() && $t->pic_user_id === $this->userId());
     }
 
     private function bolehJawabUat(ItTicket $t): bool
@@ -1190,7 +1232,7 @@ class ItTrackerController extends Controller
         if ($t->fase !== 'UAT') return false;
         return $t->pemohon_user_id
             ? $t->pemohon_user_id === $this->userId()
-            : $this->peran() === 'head_it';
+            : $this->bolehKerjaHeadIt();
     }
 
     /** Evaluator = yang dialihkan, kalau tidak pemohon; tanpa keduanya → Head IT. */
@@ -1198,7 +1240,7 @@ class ItTrackerController extends Controller
     {
         if ($t->fase !== 'EVALUASI') return false;
         $ev = ItTrackerService::evaluatorUserId($t);
-        return $ev ? $ev === $this->userId() : $this->peran() === 'head_it';
+        return $ev ? $ev === $this->userId() : $this->bolehKerjaHeadIt();
     }
 
     /** Kandidat evaluator alih: Executive / Konsultan (pengawas) yang aktif. */
@@ -1229,6 +1271,12 @@ class ItTrackerController extends Controller
         return in_array($this->peran(), ['head_it', 'it_dev'], true);
     }
 
+    /** Pekerjaan Head IT — dikerjakan Head IT atau wakilnya (lihat ItTrackerService::ROLE_WAKIL_HEAD_IT). */
+    private function bolehKerjaHeadIt(): bool
+    {
+        return ItTrackerService::bolehKerjaHeadIt(session('group_name'));
+    }
+
     /** Predikat sempit untuk triase saja — peran() tidak berubah (lihat ItTrackerService::ROLE_TRIASE_TAMBAHAN). */
     private function bolehTriase(): bool
     {
@@ -1244,14 +1292,18 @@ class ItTrackerController extends Controller
         $urut = $t->riwayatFase->sortBy('masuk_at')->values();
         $iTriase = $urut->search(fn ($r) => $r->fase === 'TRIASE');
         if ($iTriase === false) return null;
-        $antre = $urut->slice($iTriase + 1)->first(fn ($r) => $r->fase === 'ANTRE');
-        if (! $antre) return null;
+        // Langkah PERTAMA sesudah TRIASE, apa pun fasenya — dialah yang menutup
+        // penilaian awal. Dulu baris ini mencari 'ANTRE' secara khusus; sejak tiket
+        // boleh melompat langsung ke ANALISIS (10 Sep 2026) patokan itu membuat
+        // penilainya LENYAP dari layar justru pada tiket yang dinilai paling cepat.
+        $sesudah = $urut->slice($iTriase + 1)->first();
+        if (! $sesudah) return null;
 
-        $nama = $antre->oleh_user_id
-            ? \Illuminate\Support\Facades\DB::table('users')->where('id', $antre->oleh_user_id)->value('nama')
+        $nama = $sesudah->oleh_user_id
+            ? \Illuminate\Support\Facades\DB::table('users')->where('id', $sesudah->oleh_user_id)->value('nama')
             : null;
 
-        return ['nama' => $nama ?: '(pengguna tak dikenal)', 'at' => $antre->masuk_at];
+        return ['nama' => $nama ?: '(pengguna tak dikenal)', 'at' => $sesudah->masuk_at];
     }
 
     /** Kandidat PIC = orang IT (Head IT + IT), untuk triase & ganti PIC. */
@@ -1272,7 +1324,7 @@ class ItTrackerController extends Controller
      */
     public function modul(Request $request, int $id)
     {
-        $this->pastikanHeadIt('Menautkan modul katalog hanya dilakukan Head IT.');
+        $this->pastikanHeadIt('Menautkan modul katalog dilakukan Head IT atau wakilnya.');
 
         $d = $request->validate(['modul_id' => 'nullable|integer|exists:it_modul,id']);
 
@@ -1319,7 +1371,7 @@ class ItTrackerController extends Controller
     /** Ganti/penunjukan PIC — Head IT. */
     public function pic(Request $request, int $id)
     {
-        $this->pastikanHeadIt('Menunjuk PIC hanya dilakukan Head IT.');
+        $this->pastikanHeadIt('Menunjuk PIC dilakukan Head IT atau wakilnya.');
 
         $d = $request->validate(['pic_user_id' => 'required|string|exists:users,id']);
 
@@ -1341,14 +1393,15 @@ class ItTrackerController extends Controller
     {
         $peran = $this->peran();
 
-        if ($peran === 'head_it') return;
+        if ($this->bolehKerjaHeadIt()) return;
         if ($peran === 'it_dev' && $t->pic_user_id === $this->userId()) return;
 
         abort(403, 'Checklist Go-Live diisi tim IT yang mengerjakan deployment-nya.');
     }
+    /** Gerbang pekerjaan Head IT — kini termasuk wakilnya; namanya dipertahankan supaya diff-nya terbaca. */
     private function pastikanHeadIt(string $pesan): void
     {
-        if ($this->peran() !== 'head_it') {
+        if (! $this->bolehKerjaHeadIt()) {
             abort(403, $pesan);
         }
     }
@@ -1358,7 +1411,7 @@ class ItTrackerController extends Controller
     {
         $peran = $this->peran();
 
-        if ($peran === 'head_it') {
+        if ($this->bolehKerjaHeadIt()) {
             return ['ok' => true, 'why' => ''];
         }
         if ($peran === 'it_dev') {
@@ -1393,9 +1446,9 @@ class ItTrackerController extends Controller
 
         if ($t->fase === 'TRIASE') {
             if ($this->bolehTriase()) {
-                $tombol = ['label' => 'Triase — tetapkan jenjang & prioritas', 'jenis' => 'triase'];
+                $tombol = ['label' => PhaseEngine::TXT_TRIASE . ' — tetapkan jenjang & prioritas', 'jenis' => 'triase'];
             } elseif ($peran === 'it_dev') {
-                $blokir = 'Triase ditetapkan Head IT, Executive, atau Konsultan IT';
+                $blokir = PhaseEngine::TXT_TRIASE . ' ditetapkan Head IT, Executive, atau Konsultan IT';
             }
         } elseif ($gate && ($gate['kind'] ?? '') === 'advance' && ($gate['actor'] ?? '') === 'it' && $this->adalahIt()) {
             $boleh = $this->bolehGerakkan($t);

@@ -273,7 +273,7 @@ class ItTrackerTest extends TestCase
             ->assertStatus(200)
             ->assertSee('BEBAN IT SAAT INI')
             ->assertSee($t->nomor)
-            ->assertSee('Triase — tetapkan jenjang &amp; prioritas', false);
+            ->assertSee('Penilaian awal — tetapkan jenjang &amp; prioritas', false);
     }
 
     /** Detail render: prioritas pemohon vs IT dua kolom + gerbang menyebut yang kurang. */
