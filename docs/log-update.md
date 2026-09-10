@@ -6,6 +6,91 @@
 > file ini append-only.
 
 ---
+## 2026-09-10 — Wakil Head IT · penilaian awal boleh langsung ke Analisis · kata "Triase" diganti (`c7253b6`, dev/prod belum)
+
+Branch `feat/wakil-head-it` dari `main` (`d25f97e`). **Nol SQL.** Berawal dari
+dua keluhan Ekky yang ternyata satu akar.
+
+### Keluhan 1: "konsultan sudah save, muncul pesan hijau, tapi tidak pindah ke desain"
+**Tiketnya memang berpindah.** IT-2026-013 tercatat ANTRE sejak 10 Sep 10:18:40
+atas nama Rahmat. Yang tidak bergerak adalah **stepper**, karena
+`PhaseEngine::phaseOf()` memetakan TRIASE *dan* ANTRE ke satu langkah yang sama,
+Requirement. Jadi lingkaran 1 tetap gelap walau fasenya berganti.
+
+### Keluhan 2: "aku tidak selalu ada — kalau sakit seminggu, pekerjaan berhenti?"
+Ditelusuri per langkah, dan jawabannya **bukan yang diduga**: pengembangan
+TIDAK mandek. IT pelaksana bisa menekan "Tarik — aku yang kerjakan" pada tiket
+tanpa PIC, lalu mendorongnya Antre → Dev → Uji → Go Live sendiri. Yang mandek
+adalah **penilaian Head IT**, dan puncaknya satu: tak seorang pun bisa menulis
+FRM-IT-02, sehingga **semua tiket M/L berhenti tepat di pintu Analisis**.
+
+⛔ **Karena itu "buka saja tombol majunya" tidak menolong**: gerbang Analisis
+menunggu ISI formulir, bukan izin menekan tombol. Tombolnya menyala, lampunya
+tetap merah.
+
+### Yang dibangun
+**1. Wakil Head IT** (`ROLE_WAKIL_HEAD_IT = ['Konsultan IT']` + `bolehKerjaHeadIt()`).
+Rahmat memegang seluruh paket: menulis FRM-IT-02, memajukan tiket di semua fase
+IT, tunda/tolak, buka lagi, menunjuk PIC, menaut modul, dependensi, alih
+evaluator, dan melewati paraf BO saat Robi juga tak ada. 19 gerbang di
+controller + 7 di view + entri katalog ikut memakainya.
+- `peran()` **tidak disentuh** — pola yang sama dengan `bolehTriase()` 9 Sep.
+  Konsultan IT tetap `pengawas`, jadi **hak paraf BO-nya tidak ikut tercabut**.
+- ⛔ **Executive SENGAJA tidak ikut** (diputuskan Ekky sesudah dijelaskan): kalau
+  Business Owner menulis analisis lalu memaraf analisisnya sendiri, parafnya
+  berhenti berarti apa-apa dan sistem kehilangan satu-satunya pemeriksaan
+  silangnya. Robi tetap memegang penilaian awal, paraf BO, dan ACC Go Live.
+- ⚠️ `bolehKemajuan()` & `bolehTulisSkenario()` **disusun ulang**, bukan sekadar
+  diganti namanya: wakil bukan anggota `adalahIt()`, jadi kalau predikatnya
+  dibiarkan di dalam kurung `adalahIt() && (…)` ia ikut tersaring keluar —
+  haknya hilang justru pada perintah yang sedang memberinya hak.
+
+**2. Penilaian awal boleh langsung ke Analysis & Design**, tanpa singgah di
+Antre (`ItTrackerService::triase()` menerima `$keFase`). Ekky: *"requirement
+sendiri itu udah jadi antrian."* Betul untuk M/L, dan **dua pagar** menjaga
+sisanya:
+- hanya Head IT / wakilnya. Executive boleh menilai tapi tak bisa menganalisis;
+  kalau ia melompatkan tiket, papan berkata "sedang dianalisis" tanpa penganalisis.
+- hanya M/L. **Antre bukan penundaan, ia keadaan "belum ada yang memegang"** —
+  tombolnya pun berbunyi *Tarik*. Jenjang S tak punya fase Analisis, lompatannya
+  jatuh ke Development, dan papan akan berkata "sedang dikerjakan" padahal belum
+  ada pengembangnya. S tetap ke Antre, **penilaiannya tersimpan**, pesannya
+  menyebut kenapa. Tombolnya pun mati sendiri saat radio S dipilih, dengan alasan.
+- Otorisasi **mendahului** aksi (uji terima 2a). Percobaan pertama menaruhnya
+  sesudah triase jalan; Executive dapat 302 dan tiketnya sudah bergerak sebelum
+  ditolak. Diperbaiki sebelum commit.
+
+**3. Kata "Triase" → "Penilaian awal"** di **44 tempat yang dibaca orang**, dari
+satu sumber `PhaseEngine::TXT_TRIASE`. Nilai fase `'TRIASE'` di DB, nama rute,
+nama fungsi, dan id CSS **tidak berubah** — mengganti data hanya karena katanya
+berubah itu harga yang tak perlu dibayar. Turunannya: "Menunggu penilaian IT",
+"Belum dinilai", "Dinilai oleh", "Requirement · penilaian awal & antre".
+
+### Cacat yang ditemukan uji E2E, bukan uji satuan
+`jejakTriase()` mencari langkah **ANTRE** secara khusus untuk tahu siapa yang
+menilai. Begitu tiket boleh melompat ke Analisis, baris **"Dinilai oleh" lenyap
+justru pada tiket yang dinilai paling cepat**. Kini ia mengambil langkah pertama
+sesudah TRIASE, apa pun fasenya, dan ada uji penjaganya.
+
+### Uji — per kelas
+| | hasil |
+|---|---|
+| `ItTrackerWakilHeadItTest` (baru) | **13 uji · 93 asersi hijau** |
+| E2E kernel HTTP, akun sungguhan | **33/33**, nol warning PHP, `laravel.log` +0 byte |
+| 18 kelas tracker lain | 24 merah **lama** — daftarnya IDENTIK dengan main murni (dibuktikan dengan stash) |
+
+24 merah itu utang yang sudah ditutup di branch `test/it-tracker-persona-head`
+(`a26631c`) dan **belum di-merge** — bukan dampak gerbong ini.
+
+### ⏭️ Sengaja tidak dikerjakan
+- Executive tidak diberi pekerjaan IT (keputusan Ekky di atas).
+- `tarik` tetap milik `adalahIt()` — wakil menunjuk PIC lewat rute `/pic`,
+  bukan menjadikan dirinya pengembang.
+- Stepper masih menyatukan TRIASE & ANTRE di langkah "Requirement". Jalan pintas
+  ke Analisis sudah menjawab keluhannya; memecah langkah 1 jadi dua keadaan
+  belum diminta.
+- Belum di-deploy ke dev maupun prod. PROD menunggu kata "prod".
+---
 
 ## 2026-09-09 — ✅ NAIK PROD: triase Executive & Konsultan IT (`c61afa3`) + audit HUB atas 18 uji merah
 

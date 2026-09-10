@@ -39,6 +39,22 @@
 > `2400896`, tak ada lagi cabang prod terpisah. Peringatan lama "jangan deploy
 > main ke prod" **sudah TIDAK berlaku** — sekarang justru `main` yang benar.
 >
+> ✅ **Sisipan 2026-09-10 — WAKIL HEAD IT + PENILAIAN AWAL LANGSUNG KE ANALISIS**
+> (branch `feat/wakil-head-it` dari d25f97e, `c7253b6`, nol SQL, prod belum).
+> Sebabnya kelangsungan kerja: kalau Head IT sakit seminggu yang berhenti BUKAN
+> pengembangan (IT pelaksana bisa menarik & mendorong tiketnya sendiri) tapi
+> PENILAIAN Head IT — puncaknya tak ada yang bisa menulis FRM-IT-02, jadi semua
+> tiket M/L macet di pintu Analisis. ⛔ Membuka tombol maju saja TIDAK menolong:
+> gerbangnya menunggu ISI formulir. `ROLE_WAKIL_HEAD_IT = ['Konsultan IT']` +
+> `bolehKerjaHeadIt()` menutup 19 gerbang controller + 7 view; `peran()` tetap
+> utuh jadi paraf BO Konsultan IT tak tercabut. ⛔ Executive TIDAK ikut — BO yang
+> menulis analisis lalu memaraf sendiri membuat parafnya formalitas. Penilaian
+> awal kini punya tombol kedua "langsung mulai Analysis & Design" (hanya Head
+> IT/wakil, hanya M/L; S tetap ke Antre + pesannya menyebut kenapa, karena Antre
+> = "belum ada yang memegang", bukan penundaan). Kata **"Triase" → "Penilaian
+> awal"** di 44 tempat dari satu konstanta `PhaseEngine::TXT_TRIASE`; nilai fase
+> DB & rute tak berubah. Uji: kelas baru 13 hijau + E2E 33/33; 24 merah lama
+> identik dengan main (utang branch `test/it-tracker-persona-head`, belum merge).
 > ✅ **Sisipan 2026-09-09e — TRIASE DIBUKA UNTUK EXECUTIVE & KONSULTAN IT**
 > (branch `feat/triase-executive-konsultan-it` dari main, nol SQL, prod belum).
 > Lewat predikat sempit `bolehTriase()` — `peran()` TIDAK berubah, karena
