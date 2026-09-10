@@ -82,6 +82,35 @@ sesudah TRIASE, apa pun fasenya, dan ada uji penjaganya.
 24 merah itu utang yang sudah ditutup di branch `test/it-tracker-persona-head`
 (`a26631c`) dan **belum di-merge** — bukan dampak gerbong ini.
 
+### ✅ Diverifikasi DI DEV — dev dipinjam lalu dikembalikan utuh (`7c087b7`)
+Ekky: *"kamu pinjem aja di dev dulu, nanti balikin lagi selesai test."* Dev
+sedang dipakai Reza di `test/reza-checklist-dev`, jadi keadaannya dicatat dulu,
+dipinjam, lalu dipulihkan.
+
+**Dua branch digabung lebih dulu** sesuai urutan yang disetujui:
+`test/it-tracker-persona-head` (`a26631c`, nol kode aplikasi) → `feat/wakil-head-it`.
+Konflik hanya di dua berkas docs, digabung blok-union, **kedua sisi utuh**
+(penjaga kunci: nol hilang). Sesudah gabung: **186 uji hijau di 18 kelas, nol
+merah** — 24 merah lama lenyap seperti yang diperkirakan.
+
+| di DEV, data nyata 35 tiket | hasil |
+|---|---|
+| Sapuan layar 5 persona × 33 halaman | 165 halaman · **0 bermasalah** |
+| Sapuan Konsultan IT (akun sementara, rollback) | 33 halaman · **0 bermasalah** |
+| E2E wakil Head IT lewat kernel HTTP | **33/33** |
+| Warning PHP di kode proyek | nol |
+| `laravel.log` bertambah | **0 byte** |
+
+Sapuannya menyentuh 12 kombinasi fase × jenjang, termasuk halaman **ekspor**
+yang tak tersentuh uji lain. Finance tetap 302 di seluruh 33 halaman.
+
+**DB dev tak bergeser sedikit pun** — sebelum dan sesudah E2E identik:
+`tiket=35 fase=40 form=40 fr=0 modul=37 counter=35 users=49`. Semua tulisan uji
+hidup di dalam transaksi yang di-rollback.
+
+**Dev dikembalikan utuh**: branch `test/reza-checklist-dev`, HEAD `d95f9d3`
+(cocok dengan catatan sebelum dipinjam), nol perubahan tracked, tiga untracked
+yang sama seperti semula, beranda 200, branch pinjaman dihapus dari dev.
 ### ⏭️ Sengaja tidak dikerjakan
 - Executive tidak diberi pekerjaan IT (keputusan Ekky di atas).
 - `tarik` tetap milik `adalahIt()` — wakil menunjuk PIC lewat rute `/pic`,
@@ -89,7 +118,7 @@ sesudah TRIASE, apa pun fasenya, dan ada uji penjaganya.
 - Stepper masih menyatukan TRIASE & ANTRE di langkah "Requirement". Jalan pintas
   ke Analisis sudah menjawab keluhannya; memecah langkah 1 jadi dua keadaan
   belum diminta.
-- Belum di-deploy ke dev maupun prod. PROD menunggu kata "prod".
+- ✅ Sudah diverifikasi di dev (lihat di atas) lalu dev dikembalikan. **PROD menunggu kata "prod".**
 ---
 
 ## 2026-09-09 — 18 uji IT Tracker berpersona `head` menyemai grantnya sendiri · SeedAntrian berjalan di DB manapun (kerja UJI, nol kode aplikasi)

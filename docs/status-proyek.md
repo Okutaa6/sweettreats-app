@@ -55,6 +55,10 @@
 > awal"** di 44 tempat dari satu konstanta `PhaseEngine::TXT_TRIASE`; nilai fase
 > DB & rute tak berubah. Uji: kelas baru 13 hijau + E2E 33/33; 24 merah lama
 > identik dengan main (utang branch `test/it-tracker-persona-head`, belum merge).
+> ✅ **DIVERIFIKASI DI DEV 10 Sep** (`7c087b7` = gabungan dua branch, urutan
+> disetujui Ekky): 186 uji hijau 18 kelas · sapuan 198 halaman 6 persona 0 galat ·
+> E2E 33/33 · DB dev tak bergeser (35 tiket, counter 35) · dev DIKEMBALIKAN utuh ke
+> `test/reza-checklist-dev` d95f9d3. **PROD menunggu kata "prod".**
 > ✅ **Sisipan 2026-09-09f — 18 UJI `head` MENYEMAI GRANT SENDIRI · SEEDANTRIAN
 > JALAN DI DB MANAPUN** (branch `test/it-tracker-persona-head` dari 2a0f09c,
 > kerja uji, nol kode/SQL/grant). Trait `Tests\Concerns\MenyemaiGrantItTracker`
