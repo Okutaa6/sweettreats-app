@@ -419,7 +419,11 @@ body.redesign-pasien .pxd-tl__btitle { font-size: 11px; font-weight: 800; letter
 body.redesign-pasien .pxd-tl__bcount { font-size: 11px; font-weight: 700; color: var(--px-muted); }
 body.redesign-pasien .pxd-tl__kv { display: grid; grid-template-columns: 96px 1fr; gap: 6px 14px; font-size: 13px; }
 body.redesign-pasien .pxd-tl__k { color: var(--px-muted); font-weight: 600; }
-body.redesign-pasien .pxd-tl__v { color: var(--px-text); }
+/* Catatan klinis datang per-baris (satu temuan / satu tindakan per baris).
+   `pre-line` menampilkan "\n" dari controller sebagai ganti baris sungguhan
+   TANPA perlu HTML mentah — nilainya tetap dirender `{{ }}` yang meng-escape,
+   karena teks ini berasal dari sistem luar. Spasi beruntun tetap dirapatkan. */
+body.redesign-pasien .pxd-tl__v { color: var(--px-text); white-space: pre-line; }
 body.redesign-pasien .pxd-tl__v--strong { font-weight: 700; }
 body.redesign-pasien .pxd-tl__procs { display: flex; flex-direction: column; gap: 7px; }
 body.redesign-pasien .pxd-tl__proc { display: flex; align-items: center; gap: 9px; background: #FBF6EF; border: 1px solid #F0E2D2; border-radius: 9px; padding: 9px 12px; font-size: 12.5px; color: var(--px-text); font-weight: 500; }
