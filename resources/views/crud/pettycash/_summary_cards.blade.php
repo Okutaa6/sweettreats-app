@@ -21,7 +21,6 @@
         <div class="pc-summary-card__value pc-summary-card__value--in">{{ $rupiah($summary['total_in']) }}</div>
         <div class="pc-summary-card__sub">Total uang masuk bulan ini</div>
     </div>
-
     <div class="pc-summary-card">
         <div class="pc-summary-card__top">
             <div class="pc-summary-card__label">Total cash out</div>
@@ -133,15 +132,10 @@
                     // tab Transfer & Pengeluaran di-disable dari JS.
                     $isClickable = !$isReadOnly && $sb->id;
                     $hasSaldo    = $balanceRounded > 0;
-                    // Tooltip kontekstual per kategori wallet — bantu user
-                    // discover hidden action seperti "tarik tunai" yg cuma
-                    // muncul kalau klik kartu Bank/E-Wallet.
-                    $cardTooltip = match($sb->category ?? null) {
-                        \App\Models\FundSource::CAT_CASH    => 'Klik untuk setor cash, transfer ke wallet lain, atau catat pengeluaran',
-                        \App\Models\FundSource::CAT_BANK    => 'Klik untuk tarik tunai ke Cash, transfer antar wallet, atau catat pengeluaran',
-                        \App\Models\FundSource::CAT_EWALLET => 'Klik untuk transfer ke wallet lain atau catat pengeluaran',
-                        default                              => ($hasSaldo ? 'Klik untuk kelola saldo' : 'Klik untuk top up saldo'),
-                    };
+                    // Aksi kartu wallet sekarang seragam untuk semua kategori:
+                    // Pindah Saldo + Pengeluaran. Tidak perlu tooltip berbeda
+                    // per kategori lagi.
+                    $cardTooltip = 'Klik untuk Pindah Saldo ke wallet lain atau catat Pengeluaran';
                 @endphp
                 <div class="pc-source-card pc-source-card--{{ $sb->category ?? 'unknown' }} {{ $isClickable ? 'is-clickable' : '' }}"
                      style="border-left-color: {{ $sb->brand_color ?? '#cbd5e1' }};"
@@ -186,22 +180,8 @@
                             @endif
                         </div>
                         @if($isClickable)
-                            @php
-                                $iconClass = match($sb->category ?? null) {
-                                    \App\Models\FundSource::CAT_BANK    => 'fa-money-bill-wave',
-                                    \App\Models\FundSource::CAT_CASH    => 'fa-exchange-alt',
-                                    \App\Models\FundSource::CAT_EWALLET => 'fa-exchange-alt',
-                                    default => ($hasSaldo ? 'fa-exchange-alt' : 'fa-plus'),
-                                };
-                                $iconHint = match($sb->category ?? null) {
-                                    \App\Models\FundSource::CAT_BANK    => 'Tarik tunai / Transfer / Pengeluaran',
-                                    \App\Models\FundSource::CAT_CASH    => 'Setor cash / Transfer / Pengeluaran',
-                                    \App\Models\FundSource::CAT_EWALLET => 'Transfer / Pengeluaran',
-                                    default => ($hasSaldo ? 'Transfer / Top up / Pengeluaran' : 'Top up saldo'),
-                                };
-                            @endphp
-                            <i class="fa {{ $iconClass }} pc-source-card__transfer-hint"
-                               title="{{ $iconHint }}"></i>
+                            <i class="fa fa-exchange-alt pc-source-card__transfer-hint"
+                               title="Pindah Saldo / Pengeluaran"></i>
                         @endif
                     </div>
                     <div class="pc-source-card__balance">{{ $rupiah($sb->balance) }}</div>
@@ -213,35 +193,6 @@
                             <i class="fa fa-arrow-down"></i> {{ $rupiah($sb->out) }}
                         </span>
                     </div>
-                    @php $piutang = round((float) ($sb->piutang ?? 0), 2); @endphp
-                    {{-- Hanya tampil saat kategori Pinjaman ikut difilter — biar
-                         kartu wallet tetap ringkas di tampilan normal. --}}
-                    @if($piutang > 0 && in_array('pinjaman', $summary['filter_categories'] ?? [], true))
-                        {{-- Ada uang wallet ini yang dipinjam & belum kembali.
-                             Saldo di atas = uang fisik; saldo sesungguhnya =
-                             fisik + piutang (uang yang masih milik petty cash). --}}
-                        <div class="pc-source-card__piutang" onclick="event.stopPropagation()">
-                            <div class="pc-source-card__piutang-row" title="Piutang pinjaman — uang wallet ini yang sedang dipinjam & belum kembali">
-                                <span class="pc-source-card__piutang-label" aria-label="Piutang pinjaman">
-                                    <i class="fa fa-hand-holding-usd"></i>
-                                </span>
-                                <span class="pc-source-card__piutang-val">{{ $rupiah($piutang) }}</span>
-                            </div>
-                            <div class="pc-source-card__piutang-row pc-source-card__piutang-row--real" title="Saldo sesungguhnya — saldo fisik + piutang">
-                                <span class="pc-source-card__piutang-label" aria-label="Saldo sesungguhnya">
-                                    <i class="fa fa-wallet"></i>
-                                </span>
-                                <span class="pc-source-card__piutang-val">{{ $rupiah($balanceRounded + $piutang) }}</span>
-                            </div>
-                            @if(! $isReadOnly)
-                                <button type="button" class="pc-source-card__piutang-btn"
-                                        data-pc-modal="pcModalLoanReturn"
-                                        data-loan-source="{{ $sb->id }}">
-                                    <i class="fa fa-hand-holding-usd"></i> Catat Pengembalian
-                                </button>
-                            @endif
-                        </div>
-                    @endif
                 </div>
             @endforeach
         </div>
@@ -250,7 +201,7 @@
                 <span class="pc-source-breakdown__hint-icon" aria-hidden="true">
                     <i class="fa fa-info"></i>
                 </span>
-                <span>Klik kartu wallet untuk <strong>Transfer</strong>, <strong>Tarik / Setor Tunai</strong>, atau catat <strong>Pengeluaran</strong>.</span>
+                <span>Klik kartu wallet untuk <strong>Pindah Saldo</strong> atau catat <strong>Pengeluaran</strong>.</span>
             </div>
         @endif
     </div>
@@ -417,64 +368,4 @@
 }
 .pc-btn-request-topup i { font-size: 11px; }
 
-/* ─── Piutang pinjaman per wallet ─── */
-.pc-source-card__piutang {
-    margin-top: 8px;
-    padding-top: 8px;
-    border-top: 1px dashed var(--divider-soft, #e5e7eb);
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-    cursor: default;
-}
-.pc-source-card__piutang-row {
-    display: flex;
-    align-items: center;
-    justify-content: flex-start;         /* ikon & nominal berdempetan di kiri */
-    gap: 8px;
-    font-size: 12px;
-    line-height: 1.35;
-}
-.pc-source-card__piutang-label {
-    color: #b45309;                      /* amber — uang di tangan peminjam */
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    flex: 0 0 18px;                      /* lebar tetap → nominal antar baris sejajar */
-}
-.pc-source-card__piutang-label i {
-    font-size: 13px;
-    flex: 0 0 auto;                      /* ikon tak ikut menyusut */
-}
-.pc-source-card__piutang-val {
-    color: #b45309;
-    font-weight: 700;
-    flex: 0 0 auto;
-    white-space: nowrap;                 /* 'Rp 40.000' tetap satu baris */
-    text-align: right;
-}
-.pc-source-card__piutang-row--real .pc-source-card__piutang-label {
-    color: #047857;                      /* hijau — nilai sesungguhnya */
-    font-weight: 700;
-}
-.pc-source-card__piutang-row--real .pc-source-card__piutang-val { color: #047857; }
-.pc-source-card__piutang-btn {
-    margin-top: 6px;
-    width: 100%;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    padding: 6px 10px;
-    background: #ecfdf5;
-    color: #047857;
-    border: 1px solid #a7f3d0;
-    border-radius: 7px;
-    font-size: 12px;
-    font-weight: 700;
-    cursor: pointer;
-    transition: background .15s, border-color .15s;
-}
-.pc-source-card__piutang-btn:hover { background: #d1fae5; border-color: #6ee7b7; }
-.pc-source-card__piutang-btn i { font-size: 11px; }
 </style>

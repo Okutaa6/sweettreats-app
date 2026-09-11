@@ -123,7 +123,6 @@ class TopupRequestController extends Controller
                     $req->description, // bawa dari Sales jadi description default
                     $attachmentPath,   // bukti foto dari Finance saat approve
                     (string) session('id'), // Finance jadi created_by
-                    true,                   // is_topup=1 — masuk Total Top Up
                     $data['trx_date'],
                     'REQ-' . $req->id,
                 );

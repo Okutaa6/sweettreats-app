@@ -551,8 +551,6 @@ Route::middleware([AuthGuard::class])->group(function () {
     Route::get('pettycash',                       [PettyCashController::class, 'index'])->name('pettycash');
     Route::get('pettycash/export',                [PettyCashController::class, 'export'])->name('pettycash.export');
     Route::post('pettycash/expense',              [PettyCashController::class, 'store'])->name('pettycash.expense');
-    Route::post('pettycash/loan-return',          [PettyCashController::class, 'returnLoan'])->name('pettycash.loanReturn');
-    Route::post('pettycash/topup',                [PettyCashController::class, 'topup'])->name('pettycash.topup');
     Route::post('pettycash/topup-request',        [PettyCashController::class, 'requestTopup'])->name('pettycash.requestTopup');
     Route::post('pettycash/account',              [PettyCashController::class, 'saveAccount'])->name('pettycash.account.save');
     Route::post('pettycash/opening',              [PettyCashController::class, 'setOpening'])->name('pettycash.opening');
@@ -562,6 +560,8 @@ Route::middleware([AuthGuard::class])->group(function () {
     Route::post('pettycash/source/destroy',       [PettyCashController::class, 'destroySource'])->name('pettycash.source.destroy');
     Route::post('pettycash/period/{id}/close',    [PettyCashController::class, 'close'])->name('pettycash.close');
     Route::post('pettycash/period/{id}/move',     [PettyCashController::class, 'movePeriod'])->name('pettycash.period.move');
+    // Buka jendela isi ulang saldo awal (cut-over) — Super Admin, dicek di controller.
+    Route::post('pettycash/period/{id}/reset-opening', [PettyCashController::class, 'resetOpening'])->name('pettycash.opening.reset');
 
     // Finance: dashboard monitoring + approval workflow top-up request
     Route::prefix('finance')->group(function () {
@@ -570,6 +570,8 @@ Route::middleware([AuthGuard::class])->group(function () {
         // "Riwayat" di kartu cabang. Deklarasi SEBELUM 'pettycash/request/{id}'
         // aman karena segmen 'branch' literal (tidak tabrakan wildcard).
         Route::get ('pettycash/branch/{branchId}/riwayat',  [FinanceDashboardController::class, 'branchHistory'])->name('finance.pettycash.branch-history');
+        // Export CSV jejak transaksi cabang+bulan (ikut filter kategori & pencarian).
+        Route::get ('pettycash/branch/{branchId}/riwayat/export', [FinanceDashboardController::class, 'branchHistoryExport'])->name('finance.pettycash.branch-history.export');
         // Reset jejak transaksi cabang+bulan (hard delete) — khusus Super Admin (dicek di controller).
         Route::post('pettycash/branch/{branchId}/riwayat/reset', [FinanceDashboardController::class, 'resetBranchHistory'])->name('finance.pettycash.branch-history.reset');
         // Reset riwayat review (hard delete pengajuan yang sudah di-review) — khusus Super Admin (dicek di controller).

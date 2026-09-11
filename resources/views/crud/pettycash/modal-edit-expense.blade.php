@@ -12,9 +12,16 @@
     Field di-lock (read-only display saja, dikirim hidden): trx_date, wallet.
 --}}
 @php
-    // Semua kategori (aktif + nonaktif) supaya transaksi lama yang kategorinya
-    // sudah dinonaktifkan tetap muncul & bisa dipilih ulang saat edit.
-    $editCategories = \App\Models\PettyCashTransaction::categoryMap();
+    // Dropdown hanya kategori AKTIF — kategori yang sudah dipensiunkan tak
+    // boleh dipasang ke transaksi lain. Kalau baris yang diedit KEBETULAN
+    // masih berkategori pensiunan, opsinya disisipkan on-the-fly oleh JS di
+    // index.blade.php (pakai $editLegacyCategories) supaya label aslinya tak
+    // terpaksa berubah saat disimpan ulang.
+    $editCategories = \App\Models\PettyCashTransaction::activeCategoryOptions();
+    $editLegacyCategories = array_diff_key(
+        \App\Models\PettyCashTransaction::categoryMap(),
+        $editCategories,
+    );
     $editWindowHours = \App\Models\PettyCashTransaction::EDIT_WINDOW_HOURS;
 @endphp
 <div class="pc-modal" id="pcModalEditExpense" role="dialog" aria-modal="true">
@@ -74,21 +81,13 @@
 
                 <div class="pc-form-row">
                     <label>Kategori <span class="text-danger">*</span></label>
-                    <select name="category" id="pcEditCategory" required class="pc-input">
+                    <select name="category" id="pcEditCategory" required class="pc-input"
+                            data-pc-legacy-categories="{{ json_encode($editLegacyCategories) }}">
                         <option value="">— Pilih kategori —</option>
                         @foreach($editCategories as $catKey => $catLabel)
                             <option value="{{ $catKey }}">{{ $catLabel }}</option>
                         @endforeach
                     </select>
-                </div>
-
-                {{-- Peminjam: tampil hanya saat kategori "Pinjaman" (toggle JS di
-                     index.blade.php). Server validasi required_if:category,pinjaman. --}}
-                <div class="pc-form-row" id="pcEditBorrowerField" hidden>
-                    <label>Peminjam <span class="text-danger">*</span></label>
-                    <input type="text" name="borrower_name" id="pcEditBorrower"
-                           maxlength="120" placeholder="Nama orang yang meminjam"
-                           class="pc-input">
                 </div>
 
                 <div class="pc-form-row">

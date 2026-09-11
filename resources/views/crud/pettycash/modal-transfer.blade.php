@@ -4,11 +4,11 @@
     breakdown. Source asal di-populate via JS.
 
     Punya 2 aksi (tab switcher):
-      1. Transfer ke sumber lain — dana pindah antar source, total tetap.
-      2. Tambah saldo (top up) langsung ke source ini — uang masuk dari
-         luar, source.balance bertambah. Mempersingkat alur agar user
-         tidak perlu pakai tombol global "Top up saldo" dan re-pilih
-         sumber dana.
+      1. Pindah Saldo — dana pindah ke wallet lain, total saldo tetap.
+         Satu form untuk semua arah (Cash → Bank maupun Bank → Cash);
+         dulu dipecah jadi "Mutasi" / "Deposit" / "Tarik Tunai" padahal
+         perbuatannya sama.
+      2. Pengeluaran dari wallet ini.
 
     Variables: $period, $kind, $fundSourcesGrouped (full list — semua source aktif).
 --}}
@@ -21,17 +21,18 @@
         \App\Models\FundSource::CAT_BANK    => 'Bank',
         \App\Models\FundSource::CAT_EWALLET => 'E-Wallet',
     ];
-    // ID sumber Cash (untuk fitur Tarik Tunai di modal Bank/E-Wallet —
-    // destinasinya selalu Cash). Asumsi 1 cash source per cabang.
-    $cashSourceId = optional(
-        ($fundSourcesGrouped[\App\Models\FundSource::CAT_CASH] ?? collect())->first()
-    )->id;
-    // Kategori expense — dipakai di form Pengeluaran & checkbox "sekalian
-    // pengeluaran" di Tarik Tunai. Hanya kategori aktif untuk input baru.
+    // Kategori expense untuk form Pengeluaran. Hanya kategori aktif.
     $expenseCategories = \App\Models\PettyCashTransaction::activeCategoryOptions();
+
+    // Batas tanggal = bulan periode yang sedang dibuka. Transaksi yang
+    // tanggalnya keluar dari sini akan tersimpan di periode yang salah:
+    // uangnya mengurangi saldo bulan ini, tapi barisnya tak muncul di bulan
+    // mana pun. Server memagari hal yang sama (abortIfDateOutsidePeriod).
+    $pcMonthStart = sprintf('%04d-%02d-01', (int) $period->period_year, (int) $period->period_month);
+    $pcMonthEnd   = date('Y-m-t', strtotime($pcMonthStart));
+    $pcDefaultDate = min(max(date('Y-m-d'), $pcMonthStart), $pcMonthEnd);
 @endphp
-<div class="pc-modal" id="pcModalTransfer" role="dialog" aria-modal="true"
-     data-pc-cash-source-id="{{ $cashSourceId }}">
+<div class="pc-modal" id="pcModalTransfer" role="dialog" aria-modal="true">
     <div class="pc-modal__dialog">
 
         {{-- Header (static, di luar form) --}}
@@ -112,11 +113,7 @@
             <div class="pc-tab-switcher" role="tablist">
                 <button type="button" class="pc-tab-switcher__btn is-active"
                         data-tab-target="transfer" role="tab" aria-selected="true">
-                    <i class="fa fa-exchange-alt"></i> Mutasi
-                </button>
-                <button type="button" class="pc-tab-switcher__btn"
-                        data-tab-target="topup" role="tab" aria-selected="false">
-                    <i class="fa fa-random"></i> Tambah Saldo
+                    <i class="fa fa-exchange-alt"></i> Pindah Saldo
                 </button>
                 <button type="button" class="pc-tab-switcher__btn"
                         data-tab-target="expense" role="tab" aria-selected="false">
@@ -125,9 +122,11 @@
             </div>
 
             {{-- ─── FORM TRANSFER ─── --}}
+            {{-- Pindah saldo = pergerakan internal antar wallet milik cabang
+                 sendiri, tidak ada pihak luar yang perlu dibuktikan. Jadi tidak
+                 ada upload bukti di sini (form Pengeluaran tetap ada). --}}
             <form method="POST" action="{{ route('pettycash.transfer', ['tab' => $kind]) }}" data-kunci-kirim
-                  data-tab-content="transfer" class="pc-tab-content"
-                  enctype="multipart/form-data">
+                  data-tab-content="transfer" class="pc-tab-content">
                 @csrf
                 @include('crud.pettycash._filter_hidden')
                 <input type="hidden" name="period_id" value="{{ $period->id }}">
@@ -143,7 +142,8 @@
 
                 <div class="pc-form-row">
                     <label>Tanggal</label>
-                    <input type="date" name="trx_date" value="{{ date('Y-m-d') }}" required class="pc-input">
+                    <input type="date" name="trx_date" value="{{ $pcDefaultDate }}" required class="pc-input"
+                           min="{{ $pcMonthStart }}" max="{{ $pcMonthEnd }}">
                 </div>
 
                 <div class="pc-form-row">
@@ -190,239 +190,13 @@
                     </small>
                 </div>
 
-                <div class="pc-form-row">
-                    <label>Catatan <small class="pc-muted">— opsional</small></label>
-                    <input type="text" name="description" maxlength="200"
-                           placeholder="Contoh: konsolidasi saldo"
-                           class="pc-input">
-                </div>
-
-                {{-- Bukti mutasi (struk transfer, screenshot mutasi rekening). Opsional. --}}
-                <div class="pc-form-row">
-                    <label>Bukti <small class="pc-muted">— opsional</small></label>
-                    <div class="pc-attach-zone">
-                        <input type="file" name="attachment"
-                               id="transferAttachInput"
-                               accept=".jpg,.jpeg,.png,.webp,.pdf,image/*,application/pdf"
-                               class="pc-attach-input">
-                        <label for="transferAttachInput" class="pc-attach-label">
-                            <i class="fa fa-camera"></i>
-                            <span class="pc-attach-label__main">Tap untuk pilih foto / PDF</span>
-                            <span class="pc-attach-label__hint">Maks 5 MB</span>
-                        </label>
-                        <div class="pc-attach-preview" hidden>
-                            <div class="pc-attach-preview__thumb"><i class="fa fa-file"></i></div>
-                            <div class="pc-attach-preview__meta">
-                                <div class="pc-attach-preview__name">—</div>
-                                <div class="pc-attach-preview__size">—</div>
-                            </div>
-                            <button type="button" class="pc-attach-preview__remove" title="Hapus file">
-                                <i class="fa fa-times"></i>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
                 <div class="pc-form-actions pc-form-actions--friendly">
                     <button type="submit" class="st-btn-brand pc-btn-primary-friendly">
-                        Simpan Mutasi
+                        Simpan Pindah Saldo
                     </button>
                     <button type="button" class="pc-btn-text" data-pc-modal-close>Batal</button>
                 </div>
             </form>
-
-            {{-- ─── TAB TENGAH — 2 VARIAN BERBEDA FUNGSI ───
-                 Wrapper bertanda data-tab-content="topup" (nama dipertahankan
-                 untuk kompatibilitas selector tab). Form yang ditampilkan
-                 di-swap JS berdasarkan kategori source asal:
-                   - variant=external    → "TARIK TUNAI" (untuk Bank/E-Wallet)
-                     Cairkan saldo Bank/E-Wallet jadi cash. Submit ke endpoint
-                     transfer dengan from=source ini, to=Cash. Total periode
-                     tidak berubah.
-                   - variant=from-source → "SETOR CASH" (khusus Cash)
-                     Catat uang cash langsung masuk (mis. kembalian kasbon).
-                     Submit ke endpoint topup dengan is_topup=0 — saldo Cash
-                     naik tapi tidak dihitung sebagai Top Up. --}}
-            <div data-tab-content="topup" class="pc-tab-content" hidden>
-                {{-- VARIANT 1: TARIK TUNAI (Bank / E-Wallet → Cash) --}}
-                <form method="POST" action="{{ route('pettycash.transfer', ['tab' => $kind]) }}"
-                      data-pc-topup-variant="external"
-                      id="tarikTunaiForm"
-                      enctype="multipart/form-data">
-                    @csrf
-                    @include('crud.pettycash._filter_hidden')
-                    <input type="hidden" name="period_id" value="{{ $period->id }}">
-                    <input type="hidden" name="tab" value="{{ $kind }}">
-                    @if(!session('raw_branch_id') && $period->raw_branch_id)
-                        <input type="hidden" name="branch" value="{{ $period->raw_branch_id }}">
-                    @endif
-                    {{-- from = source asal (Bank/E-Wallet), to = Cash. Diisi JS. --}}
-                    <input type="hidden" name="from_source_id" id="tarikTunaiFromSourceId">
-                    <input type="hidden" name="to_source_id"   id="tarikTunaiToSourceId">
-
-                    <div class="pc-tab-hint pc-tab-hint--withdraw" id="tarikTunaiHint">
-                        <span>Cairkan saldo wallet jadi uang fisik di Cash. Total saldo periode tetap.</span>
-                    </div>
-
-                    {{-- Panel verb preview — info penjelasan label transaksi
-                         yang akan dicatat. Default expanded supaya user tahu
-                         efek aksinya. --}}
-                    <div class="pc-verb-preview is-withdraw is-open" id="tarikTunaiVerbPreview">
-                        <button type="button" class="pc-verb-preview__head"
-                                aria-expanded="true" aria-controls="tarikTunaiVerbDesc">
-                            <span class="pc-verb-preview__hint">
-                                <i class="fa fa-info-circle"></i> Tercatat sebagai
-                            </span>
-                            <span class="pc-verb-preview__badge pc-verb-preview__badge--withdraw">TARIK TUNAI</span>
-                            <i class="fa fa-chevron-down pc-verb-preview__chevron"></i>
-                        </button>
-                        <div class="pc-verb-preview__wrap">
-                            <div class="pc-verb-preview__desc" id="tarikTunaiVerbDesc">
-                                Cairkan saldo <strong id="tarikTunaiVerbFromName">wallet ini</strong> jadi uang fisik di <strong>Cash</strong>.
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="pc-form-row">
-                        <label>Tanggal</label>
-                        <input type="date" name="trx_date" value="{{ date('Y-m-d') }}" required class="pc-input">
-                    </div>
-
-                    <div class="pc-form-row">
-                        <label>Nominal yang ditarik</label>
-                        <input type="text" inputmode="numeric"
-                               class="pc-input pc-amount-input"
-                               data-target="tarikTunaiAmount"
-                               placeholder="Rp 0">
-                        <input type="hidden" name="amount" id="tarikTunaiAmount" required>
-                        <small class="pc-muted">
-                            Saldo tersedia: Rp <span id="tarikTunaiMaxHint">0</span>
-                        </small>
-                    </div>
-
-                    <div class="pc-form-row">
-                        <label>Catatan <small class="pc-muted">— opsional</small></label>
-                        <input type="text" name="description" maxlength="200"
-                               placeholder="Contoh: untuk operasional kasir"
-                               class="pc-input">
-                    </div>
-
-                    {{-- Bukti tarik tunai (struk ATM, screenshot mutasi). Opsional. --}}
-                    <div class="pc-form-row">
-                        <label id="tarikTunaiAttachLabel">Bukti <small class="pc-muted">— opsional</small></label>
-                        <div class="pc-attach-zone">
-                            <input type="file" name="attachment"
-                                   id="tarikTunaiAttachInput"
-                                   accept=".jpg,.jpeg,.png,.webp,.pdf,image/*,application/pdf"
-                                   class="pc-attach-input">
-                            <label for="tarikTunaiAttachInput" class="pc-attach-label">
-                                <i class="fa fa-camera"></i>
-                                <span class="pc-attach-label__main">Tap untuk pilih foto / PDF</span>
-                                <span class="pc-attach-label__hint" id="tarikTunaiAttachHint">Maks 5 MB</span>
-                            </label>
-                            <div class="pc-attach-preview" hidden>
-                                <div class="pc-attach-preview__thumb"><i class="fa fa-file"></i></div>
-                                <div class="pc-attach-preview__meta">
-                                    <div class="pc-attach-preview__name">—</div>
-                                    <div class="pc-attach-preview__size">—</div>
-                                </div>
-                                <button type="button" class="pc-attach-preview__remove" title="Hapus file">
-                                    <i class="fa fa-times"></i>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="pc-form-actions pc-form-actions--friendly">
-                        <button type="submit" class="pc-btn-topup-solid pc-btn-primary-friendly" id="tarikTunaiSubmitBtn" disabled>
-                            Simpan Tarik Tunai
-                        </button>
-                        <button type="button" class="pc-btn-text" data-pc-modal-close>Batal</button>
-                    </div>
-                </form>
-
-                {{-- VARIANT 2: SETOR CASH (khusus klik kartu Cash).
-                     Form sederhana — input nominal + keterangan saja, tanpa
-                     dropdown sumber. Submit ke endpoint topup dengan
-                     is_topup=0 supaya saldo Cash naik tapi TIDAK dihitung di
-                     "Total Top Up". Use case: kembalian kasbon karyawan,
-                     koreksi cash, dll. --}}
-                <form method="POST" action="{{ route('pettycash.topup', ['tab' => $kind]) }}"
-                      data-pc-topup-variant="from-source"
-                      id="setorCashForm"
-                      enctype="multipart/form-data"
-                      hidden>
-                    @csrf
-                    @include('crud.pettycash._filter_hidden')
-                    <input type="hidden" name="period_id" value="{{ $period->id }}">
-                    <input type="hidden" name="tab" value="{{ $kind }}">
-                    @if(!session('raw_branch_id') && $period->raw_branch_id)
-                        <input type="hidden" name="branch" value="{{ $period->raw_branch_id }}">
-                    @endif
-                    <input type="hidden" name="fund_source_id" id="setorCashFundSourceId">
-                    {{-- Flag: tandai BUKAN top up. Saldo Cash bertambah,
-                         tapi tidak masuk angka "Total Top Up". --}}
-                    <input type="hidden" name="is_topup" value="0">
-
-                    <div class="pc-tab-hint pc-tab-hint--deposit">
-                        <span>Catat uang cash yang masuk langsung ke kas (mis. kembalian kasbon). Tidak dihitung sebagai Top Up.</span>
-                    </div>
-
-                    <div class="pc-form-row">
-                        <label>Tanggal</label>
-                        <input type="date" name="trx_date" value="{{ date('Y-m-d') }}" required class="pc-input">
-                    </div>
-
-                    <div class="pc-form-row">
-                        <label>Nominal</label>
-                        <input type="text" inputmode="numeric"
-                               class="pc-input pc-amount-input"
-                               data-target="setorCashAmount"
-                               placeholder="Rp 0">
-                        <input type="hidden" name="amount" id="setorCashAmount" required>
-                    </div>
-
-                    <div class="pc-form-row">
-                        <label>Catatan <small class="pc-muted">— opsional</small></label>
-                        <input type="text" name="description" maxlength="200"
-                               placeholder="Contoh: kembalian kasbon karyawan"
-                               class="pc-input">
-                    </div>
-
-                    {{-- Bukti setor cash (struk, foto uang). Opsional. --}}
-                    <div class="pc-form-row">
-                        <label>Bukti <small class="pc-muted">— opsional</small></label>
-                        <div class="pc-attach-zone">
-                            <input type="file" name="attachment"
-                                   id="setorCashAttachInput"
-                                   accept=".jpg,.jpeg,.png,.webp,.pdf,image/*,application/pdf"
-                                   class="pc-attach-input">
-                            <label for="setorCashAttachInput" class="pc-attach-label">
-                                <i class="fa fa-camera"></i>
-                                <span class="pc-attach-label__main">Tap untuk pilih foto / PDF</span>
-                                <span class="pc-attach-label__hint">Maks 5 MB</span>
-                            </label>
-                            <div class="pc-attach-preview" hidden>
-                                <div class="pc-attach-preview__thumb"><i class="fa fa-file"></i></div>
-                                <div class="pc-attach-preview__meta">
-                                    <div class="pc-attach-preview__name">—</div>
-                                    <div class="pc-attach-preview__size">—</div>
-                                </div>
-                                <button type="button" class="pc-attach-preview__remove" title="Hapus file">
-                                    <i class="fa fa-times"></i>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="pc-form-actions pc-form-actions--friendly">
-                        <button type="submit" class="pc-btn-topup-solid pc-btn-primary-friendly" id="setorCashSubmitBtn" disabled>
-                            Simpan Setoran
-                        </button>
-                        <button type="button" class="pc-btn-text" data-pc-modal-close>Batal</button>
-                    </div>
-                </form>
-            </div>
 
             {{-- ─── FORM PENGELUARAN DARI SOURCE INI ─── --}}
             <form method="POST" action="{{ route('pettycash.expense', ['tab' => $kind]) }}" data-kunci-kirim
@@ -444,7 +218,8 @@
 
                 <div class="pc-form-row">
                     <label>Tanggal</label>
-                    <input type="date" name="trx_date" value="{{ date('Y-m-d') }}" required class="pc-input">
+                    <input type="date" name="trx_date" value="{{ $pcDefaultDate }}" required class="pc-input"
+                           min="{{ $pcMonthStart }}" max="{{ $pcMonthEnd }}">
                 </div>
 
                 <div class="pc-form-row">
@@ -455,17 +230,6 @@
                             <option value="{{ $catKey }}">{{ $catLabel }}</option>
                         @endforeach
                     </select>
-                </div>
-
-                {{-- Peminjam: hanya relevan & wajib untuk kategori "Pinjaman".
-                     Disembunyikan JS untuk kategori lain (lihat index.blade.php).
-                     Server memvalidasi required_if:category,pinjaman. --}}
-                <div class="pc-form-row" data-pc-borrower-field hidden>
-                    <label>Peminjam <span class="text-danger">*</span></label>
-                    <input type="text" name="borrower_name" maxlength="120"
-                           placeholder="Nama orang yang meminjam"
-                           class="pc-input" data-pc-borrower-input>
-                    <small class="pc-muted">Dipakai untuk melacak & melunasi pinjaman ini.</small>
                 </div>
 
                 <div class="pc-form-row">
@@ -575,9 +339,7 @@
     color: #334155;
 }
 #pcModalTransfer .pc-tab-hint--transfer { background: #eff6ff; border-left-color: #3b82f6; }
-#pcModalTransfer .pc-tab-hint--withdraw { background: #ecfeff; border-left-color: #06b6d4; }
 #pcModalTransfer .pc-tab-hint--expense  { background: #fef2f2; border-left-color: #ef4444; }
-#pcModalTransfer .pc-tab-hint--deposit  { background: #fff7ed; border-left-color: #f97316; }
 
 /* Form row spacing sedikit dilonggarin */
 #pcModalTransfer .pc-form-row { margin-bottom: 16px; gap: 6px; }
@@ -609,13 +371,6 @@
     padding: 12px 14px;
     color: #0f172a;
 }
-
-/* Verb preview: matikan UX collapsible, jadikan static info card */
-#pcModalTransfer .pc-verb-preview { cursor: default; }
-#pcModalTransfer .pc-verb-preview__head { cursor: default !important; pointer-events: none; }
-#pcModalTransfer .pc-verb-preview__chevron { display: none; }
-#pcModalTransfer .pc-verb-preview__wrap { grid-template-rows: 1fr !important; }
-#pcModalTransfer .pc-verb-preview__desc { opacity: 1 !important; padding-top: 6px !important; }
 
 /* Action bar: primary button dominan (full width), Batal jadi text-link */
 .pc-form-actions--friendly {

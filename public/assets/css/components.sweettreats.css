@@ -4314,18 +4314,9 @@
 .pc-pill-category--pinjaman    { background: #ffe4e6; color: #9f1239; border-color: #fecdd3; } /* Pinjaman — rose */
 .pc-pill-category--server      { background: #cffafe; color: #155e75; border-color: #a5f3fc; } /* Server — cyan */
 .pc-pill-category--prv         { background: #e2e8f0; color: #334155; border-color: #cbd5e1; } /* PRV — slate */
-.pc-pill-category--lunas       { background: #dcfce7; color: #15803d; border-color: #bbf7d0; } /* Pinjaman Lunas — hijau (uang kembali) */
 
 /* Status pinjaman per-baris (dihitung dari pelunasan yang menunjuk ke baris
    pinjaman ini). Menempel di baris PINJAMAN cash-out. */
-.pc-pill-loan { display:inline-block; margin-left:6px; padding:2px 9px; border-radius:50px;
-    font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.4px; border:1px solid transparent; }
-.pc-pill-loan--lunas    { background:#dcfce7; color:#15803d; border-color:#bbf7d0; } /* Lunas — hijau */
-.pc-pill-loan--sebagian { background:#fef3c7; color:#92400e; border-color:#fde68a; } /* Sebagian — amber */
-.pc-pill-loan--belum    { background:#fee2e2; color:#b91c1c; border-color:#fecaca; } /* Belum lunas — merah */
-/* Nama peminjam inline — halus, tidak dominan. */
-.pc-loan-borrower { margin-left:6px; font-size:11px; color:#64748b; font-weight:600; }
-.pc-loan-borrower i { font-size:10px; opacity:0.7; margin-right:2px; }
 
 /* Chip "dicatat oleh" — muncul saat ada >1 pencatat di periode (rolling/backup)
    agar jelas siapa mencatat baris ini. Halus, netral slate. */

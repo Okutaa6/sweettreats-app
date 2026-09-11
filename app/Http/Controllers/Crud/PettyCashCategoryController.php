@@ -17,7 +17,7 @@ use Illuminate\Support\Str;
  *
  * Aturan:
  *   - `key` di-generate otomatis dari label (slug underscore) & immutable.
- *   - Kategori sistem (is_system, mis. 'pinjaman') tak boleh dinonaktifkan
+ *   - Kategori sistem (is_system) tak boleh dinonaktifkan
  *     / dihapus.
  *   - Kategori yang sudah dipakai transaksi tak boleh dihapus permanen
  *     (cukup dinonaktifkan) supaya badge riwayat lama tetap benar.

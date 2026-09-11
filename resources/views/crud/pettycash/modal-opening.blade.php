@@ -20,6 +20,17 @@
         \App\Models\FundSource::CAT_BANK    => 'Bank',
         \App\Models\FundSource::CAT_EWALLET => 'E-Wallet',
     ];
+
+    // Baris yang otomatis disiapkan saat modal dibuka = seluruh wallet AKTIF.
+    // Tujuannya supaya tidak ada wallet yang hilang gara-gara lupa ditambahkan:
+    // form ini menimpa SELURUH saldo awal, jadi wallet yang tak ikut terkirim
+    // otomatis jadi nol.
+    $prefillSourceIds = collect($fundSourcesGrouped)
+        ->flatten(1)
+        ->pluck('id')
+        ->map(fn ($id) => (string) $id)
+        ->values()
+        ->all();
 @endphp
 <div class="pc-modal" id="pcModalOpening" role="dialog" aria-modal="true">
     <div class="pc-modal__dialog pc-modal__dialog--wide">
@@ -37,7 +48,7 @@
                     <h5 class="pc-modal__title">
                         <i class="fa fa-piggy-bank" style="color:#7c2d12;"></i> Setoran Awal
                     </h5>
-                    <small class="pc-muted">Rinci budget per wallet yang sudah berjalan — tidak masuk ke tabel transaksi.</small>
+                    <small class="pc-muted">Saldo hasil hitung fisik per wallet — tidak masuk ke tabel transaksi.</small>
                 </div>
                 <button type="button" class="pc-modal__close" data-pc-modal-close aria-label="Tutup">&times;</button>
             </div>
@@ -45,7 +56,7 @@
             <div class="pc-modal__body">
                 <div class="pc-tab-hint">
                     <i class="fa fa-info-circle" style="color:#2563eb;"></i>
-                    <span><strong>Setoran Awal:</strong> tambahkan wallet yang sudah punya saldo, lalu input nominalnya. Klik <strong>+ Tambah Wallet</strong> untuk mulai. Tidak akan muncul sebagai baris transaksi.</span>
+                    <span><strong>Isi saldo tiap wallet SEKARANG</strong> dari hitung fisik &mdash; uang di laci untuk Cash, saldo rekening untuk Bank. Angka yang Anda isi akan <strong>persis sama dengan yang tampil di kartu wallet</strong>. Transaksi yang sudah tercatat <strong>tidak terhapus</strong>; sistem hanya menggeser titik awal saldonya.</span>
                 </div>
 
                 {{-- Container untuk baris yang ditambahkan user --}}
@@ -62,14 +73,14 @@
                 </button>
 
                 <div class="pc-opening-total">
-                    <span>Total saldo awal:</span>
+                    <span>Total saldo setelah disimpan:</span>
                     <strong id="pcOpeningTotalDisplay">Rp 0</strong>
                 </div>
 
                 <div class="pc-form-actions">
                     <button type="button" class="st-btn-outline-brown" data-pc-modal-close>Batal</button>
                     <button type="submit" class="pc-btn-topup-solid" id="pcOpeningSubmitBtn"
-                            data-pc-tooltip="Simpan saldo awal ke periode. Bisa di-update lagi selama belum ada transaksi & periode belum ditutup."
+                            data-pc-tooltip="Simpan. Saldo tiap wallet akan persis seperti yang diisi; transaksi yang sudah tercatat tidak terhapus. Untuk mengubahnya lagi, minta Super Admin menjalankan Migrasi Saldo."
                             disabled>
                         <i class="fa fa-save"></i> Simpan Setoran Awal
                     </button>
@@ -329,17 +340,33 @@
         if (submit) submit.disabled = validRows === 0;
     }
 
-    function addRow() {
-        if (getRows().length >= totalSources) return;
+    function addRow(presetSourceId) {
+        if (getRows().length >= totalSources) return null;
         const node = tpl.content.firstElementChild.cloneNode(true);
         rowsCont.appendChild(node);
+        const sel = node.querySelector('[data-pc-opening-source]');
+        if (presetSourceId && sel) sel.value = String(presetSourceId);
         attachRowEvents(node);
+        if (presetSourceId) syncAccountRow(node);
         refreshDropdowns();
         refreshAddBtn();
         refreshTotal();
-        // Auto-focus dropdown baru.
-        const sel = node.querySelector('[data-pc-opening-source]');
-        if (sel) sel.focus();
+        // Auto-focus dropdown baru (hanya untuk baris yang user tambah sendiri).
+        if (! presetSourceId && sel) sel.focus();
+        return node;
+    }
+
+    // Siapkan satu baris untuk SETIAP wallet aktif, dengan nominal dikosongkan.
+    // Form ini menimpa seluruh saldo awal, jadi wallet yang tidak ikut terkirim
+    // otomatis jadi nol — menyiapkan barisnya di depan mencegah saldo hilang
+    // cuma gara-gara lupa klik "Tambah Wallet". Nominal sengaja TIDAK diisi:
+    // angkanya harus datang dari hitung fisik, bukan menyalin angka sistem.
+    const PREFILL_IDS = @json($prefillSourceIds);
+    function prefillRows() {
+        getRows().forEach(r => r.remove());
+        PREFILL_IDS.forEach(function (sid) { addRow(sid); });
+        refreshAddBtn();
+        refreshTotal();
     }
 
     function removeRow(row) {
@@ -395,7 +422,9 @@
         });
     }
 
-    addBtn.addEventListener('click', addRow);
+    addBtn.addEventListener('click', function () { addRow(); });
+
+    prefillRows();
 
     // Saat submit: set name pada input amount = balances[<source_id>]
     // dan input account = accounts[<source_id>] untuk row yang valid.
@@ -422,12 +451,9 @@
     // Reset modal saat dibuka ulang.
     modal.addEventListener('click', function (e) {
         if (e.target.matches('[data-pc-modal-close]') || e.target === modal) {
-            // Bersihkan rows supaya next open clean.
-            setTimeout(function () {
-                getRows().forEach(r => r.remove());
-                refreshAddBtn();
-                refreshTotal();
-            }, 200);
+            // Kembalikan ke kondisi awal (baris wallet aktif, nominal kosong)
+            // supaya next open bersih tapi tetap siap pakai.
+            setTimeout(prefillRows, 200);
         }
     });
 })();

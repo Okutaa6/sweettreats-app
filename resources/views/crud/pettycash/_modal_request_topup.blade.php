@@ -15,11 +15,23 @@
     $activeBranch       = $activeBranch ?? null;
     $branchAccountMap   = $branchAccountMap ?? [];
     $requesterName      = $requesterName ?? '';
+    // Saldo per wallet — dipakai menampilkan saldo wallet tujuan saat
+    // bentuknya kartu diam (bukan dropdown).
+    $sourceBalances     = $sourceBalances ?? [];
     // Hanya Bank — top-up dari Finance ke cabang selalu via transfer bank.
     // Cash & E-Wallet tidak ditampilkan untuk pengajuan.
     $categoryLabels     = [
         \App\Models\FundSource::CAT_BANK => 'Bank',
     ];
+
+    // Kalau bank cabang ini cuma SATU — kondisi cabang yang sudah dimigrasi —
+    // tidak ada yang perlu dipilih, jadi langsung dipilihkan dan placeholder
+    // "Pilih wallet…" disembunyikan. Aturannya berdasar JUMLAH, bukan nama
+    // bank: cabang yang memakai BSI dapat perilaku sama tanpa satu pun nama
+    // bank tertulis di kode. Kalau banknya lebih dari satu, dropdown tetap
+    // kosong — di situ memang ada keputusan sungguhan.
+    $bankTopup       = collect($fundSourcesGrouped[\App\Models\FundSource::CAT_BANK] ?? [])->values();
+    $walletTerpilih  = $bankTopup->count() === 1 ? (int) $bankTopup->first()->id : 0;
 @endphp
 <div class="pc-modal" id="pcModalRequestTopup" role="dialog" aria-modal="true">
     <div class="pc-modal__dialog">
@@ -60,34 +72,85 @@
                            placeholder="Nama yang mengajukan">
                 </div>
 
-                {{-- Wallet tujuan — dropdown; pilih wallet → no. rekening muncul --}}
+                {{-- Wallet tujuan.
+
+                     Cabang yang sudah dimigrasi cuma punya SATU bank, jadi tak
+                     ada yang perlu dipilih: dropdown diganti kartu diam yang
+                     tinggal dibaca (nama, no. rek, saldo), dan id-nya dikirim
+                     lewat hidden input. Cabang yang masih punya >1 bank tetap
+                     dapat dropdown — di situ memang ada keputusan. --}}
                 <div class="rtu-field">
-                    <label class="rtu-label" for="rtuWallet">Wallet tujuan</label>
-                    <select name="fund_source_id" id="rtuWallet" required class="rtu-select" data-rtu-wallet>
-                        <option value="">Pilih wallet…</option>
-                        @foreach($categoryLabels as $catKey => $catLabel)
-                            @if($fundSourcesGrouped->has($catKey))
-                                <optgroup label="{{ $catLabel }}">
-                                    @foreach($fundSourcesGrouped[$catKey] as $fs)
-                                        <option value="{{ $fs->id }}"
-                                                data-account="{{ $branchAccountMap[$fs->id] ?? '' }}">
-                                            {{ $fs->name }}
-                                        </option>
-                                    @endforeach
-                                </optgroup>
-                            @endif
-                        @endforeach
-                    </select>
-                    {{-- No. rekening tujuan — terisi via JS saat wallet dipilih --}}
-                    <div class="rtu-norek" data-rtu-norek hidden>
-                        <i class="fa fa-credit-card"></i>
-                        <span class="rtu-norek__label">No. Rek</span>
-                        <span class="rtu-norek__num" data-rtu-norek-num></span>
-                        <button type="button" class="rtu-copy" data-rtu-copy title="Salin nomor rekening" aria-label="Salin nomor rekening">
-                            <i class="fa fa-copy"></i>
-                        </button>
-                    </div>
-                    <div class="rtu-hint">Finance bisa mengubah wallet saat approval.</div>
+                    <label class="rtu-label" @if(! $walletTerpilih) for="rtuWallet" @endif>Wallet tujuan</label>
+
+                    @if($walletTerpilih)
+                        @php
+                            $fsTujuan   = $bankTopup->first();
+                            $norekTuju  = $branchAccountMap[$fsTujuan->id] ?? null;
+                            $saldoTuju  = collect($sourceBalances ?? [])
+                                ->firstWhere('id', $fsTujuan->id);
+                        @endphp
+                        <input type="hidden" name="fund_source_id" value="{{ $fsTujuan->id }}">
+
+                        <div class="rtu-wallet-card">
+                            <div class="rtu-wallet-card__head">
+                                @include('crud.pettycash._fund_source_badge', [
+                                    'color' => $fsTujuan->effectiveBrandColor(),
+                                    'short' => $fsTujuan->effectiveShortLabel(),
+                                    'logo'  => $fsTujuan->logo_url,
+                                    'name'  => $fsTujuan->name,
+                                    'size'  => 'md',
+                                ])
+                                <div class="rtu-wallet-card__id">
+                                    <span class="rtu-wallet-card__name">{{ $fsTujuan->name }}</span>
+                                    @if($norekTuju)
+                                        <span class="rtu-wallet-card__norek">
+                                            No. Rek <b>{{ $norekTuju }}</b>
+                                        </span>
+                                    @else
+                                        <span class="rtu-wallet-card__norek rtu-wallet-card__norek--missing">
+                                            No. rek belum diisi untuk cabang ini
+                                        </span>
+                                    @endif
+                                </div>
+                                @if($norekTuju)
+                                    <button type="button" class="rtu-copy" data-rtu-copy
+                                            data-copy="{{ $norekTuju }}"
+                                            title="Salin nomor rekening" aria-label="Salin nomor rekening">
+                                        <i class="fa fa-copy"></i>
+                                    </button>
+                                @endif
+                            </div>
+                            <div class="rtu-wallet-card__saldo">
+                                <span>Saldo sekarang</span>
+                                <strong>Rp {{ number_format((float) ($saldoTuju->balance ?? 0), 0, ',', '.') }}</strong>
+                            </div>
+                        </div>
+                    @else
+                        <select name="fund_source_id" id="rtuWallet" required class="rtu-select" data-rtu-wallet>
+                            <option value="">Pilih wallet…</option>
+                            @foreach($categoryLabels as $catKey => $catLabel)
+                                @if($fundSourcesGrouped->has($catKey))
+                                    <optgroup label="{{ $catLabel }}">
+                                        @foreach($fundSourcesGrouped[$catKey] as $fs)
+                                            <option value="{{ $fs->id }}"
+                                                    data-account="{{ $branchAccountMap[$fs->id] ?? '' }}">
+                                                {{ $fs->name }}
+                                            </option>
+                                        @endforeach
+                                    </optgroup>
+                                @endif
+                            @endforeach
+                        </select>
+                        {{-- No. rekening tujuan — terisi via JS saat wallet dipilih --}}
+                        <div class="rtu-norek" data-rtu-norek hidden>
+                            <i class="fa fa-credit-card"></i>
+                            <span class="rtu-norek__label">No. Rek</span>
+                            <span class="rtu-norek__num" data-rtu-norek-num></span>
+                            <button type="button" class="rtu-copy" data-rtu-copy title="Salin nomor rekening" aria-label="Salin nomor rekening">
+                                <i class="fa fa-copy"></i>
+                            </button>
+                        </div>
+                    @endif
                 </div>
 
                 {{-- Nominal — input rupiah gaya pengajuan (tanpa chip cepat) --}}
@@ -211,6 +274,39 @@
     background: #fef3c7; border-color: #fde68a; color: #92400e;
 }
 #pcModalRequestTopup .rtu-norek--missing > i { color: #d97706; }
+
+/* Wallet tujuan tetap — kartu diam pengganti dropdown, dipakai saat cabang
+   cuma punya satu bank (sesudah migrasi). */
+#pcModalRequestTopup .rtu-wallet-card {
+    border: 1px solid #ead9c1; border-radius: 12px; background: #fffdfa; overflow: hidden;
+}
+#pcModalRequestTopup .rtu-wallet-card__head {
+    display: flex; align-items: center; gap: 10px; padding: 12px 14px;
+}
+#pcModalRequestTopup .rtu-wallet-card__id {
+    display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1;
+}
+#pcModalRequestTopup .rtu-wallet-card__name {
+    font-weight: 700; font-size: 15px; color: #3F1300; line-height: 1.2;
+}
+#pcModalRequestTopup .rtu-wallet-card__norek { font-size: 12px; color: #9A7256; }
+#pcModalRequestTopup .rtu-wallet-card__norek b {
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    font-weight: 700; letter-spacing: .3px; color: #5c1f00;
+}
+#pcModalRequestTopup .rtu-wallet-card__norek--missing { color: #b45309; }
+#pcModalRequestTopup .rtu-wallet-card__head .rtu-copy { margin-left: 0; }
+#pcModalRequestTopup .rtu-wallet-card__saldo {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+    padding: 9px 14px; background: #fdf9f3; border-top: 1px solid #f0e3d0;
+}
+#pcModalRequestTopup .rtu-wallet-card__saldo > span {
+    font-size: 11px; font-weight: 700; letter-spacing: .05em;
+    text-transform: uppercase; color: #9A7256;
+}
+#pcModalRequestTopup .rtu-wallet-card__saldo > strong {
+    font-size: 16px; font-weight: 800; color: #3F1300; font-variant-numeric: tabular-nums;
+}
 #pcModalRequestTopup .rtu-copy {
     display: inline-flex; align-items: center; justify-content: center;
     width: 24px; height: 24px; margin-left: auto;

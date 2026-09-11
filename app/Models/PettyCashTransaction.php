@@ -85,7 +85,6 @@ class PettyCashTransaction extends Model
         'transport'   => 'Transport',
         'bensin'      => 'Bensin',
         'operasional' => 'Operasional',
-        'pinjaman'    => 'Pinjaman',
         'server'      => 'Server',
         'prv'         => 'PRV',
     ];
@@ -146,8 +145,6 @@ class PettyCashTransaction extends Model
         'trx_date',
         'description',
         'category',
-        'borrower_name',
-        'settles_transaction_id',
         'direction',
         'amount',
         'fund_source_id',
@@ -166,7 +163,6 @@ class PettyCashTransaction extends Model
         'trx_date'       => 'date',
         'amount'         => 'decimal:2',
         'fund_source_id' => 'integer',
-        'settles_transaction_id' => 'integer',
         'is_topup'       => 'boolean',
         'is_transfer'    => 'boolean',
         'created_at'     => 'datetime',
@@ -183,24 +179,6 @@ class PettyCashTransaction extends Model
     public function fundSource()
     {
         return $this->belongsTo(FundSource::class, 'fund_source_id', 'id');
-    }
-
-    /**
-     * Baris pinjaman (cash-out) yang dilunasi oleh baris pelunasan ini.
-     * Terisi hanya pada baris pengembalian (direction='in', category='pinjaman').
-     */
-    public function settlesTransaction()
-    {
-        return $this->belongsTo(self::class, 'settles_transaction_id', 'id');
-    }
-
-    /**
-     * Semua baris pelunasan (cash-in) yang menunjuk ke pinjaman ini.
-     * Dipakai di sisi baris pinjaman untuk menghitung sudah dibayar / sisa.
-     */
-    public function settlements()
-    {
-        return $this->hasMany(self::class, 'settles_transaction_id', 'id');
     }
 
     /* ───────── Scopes ───────── */

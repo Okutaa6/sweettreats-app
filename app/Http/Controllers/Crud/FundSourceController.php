@@ -148,12 +148,32 @@ class FundSourceController extends Controller
 
     /**
      * POST /fund-sources/{id}/toggle → aktif/nonaktifkan source.
+     *
+     * Menonaktifkan wallet yang MASIH menyimpan saldo itu jebakan: wallet
+     * nonaktif hilang dari daftar wallet aktif, sehingga saldonya jatuh ke
+     * kartu "Belum dikategorikan" yang tak bisa diklik — uangnya jadi mustahil
+     * dipindahkan lewat UI, dan carry-forward membawanya ke bulan-bulan
+     * berikutnya selamanya. Jadi arah aktif → nonaktif dijaga: kosongkan dulu
+     * saldonya lewat "Pindah Saldo" di halaman Petty Cash cabang.
+     *
+     * Arah sebaliknya (mengaktifkan kembali) tidak perlu dicek.
      */
     public function toggle(Request $request, $id)
     {
         $this->guard();
 
         $fs = FundSource::findOrFail($id);
+
+        if ($fs->is_active) {
+            $stuck = $this->saldoTersangkut($fs);
+            if (! empty($stuck)) {
+                return redirect()->route('fundsource')->with('error',
+                    'Wallet "' . $fs->name . '" masih menyimpan saldo di bulan berjalan / bulan berikutnya — '
+                    . implode(' · ', $stuck)
+                    . '. Pindahkan dulu lewat "Pindah Saldo" di halaman Petty Cash cabang, baru nonaktifkan.');
+            }
+        }
+
         $fs->is_active = $fs->is_active ? 0 : 1;
         $fs->save();
 
@@ -163,6 +183,64 @@ class FundSourceController extends Controller
     }
 
     /* ───────── Helpers ───────── */
+
+    /**
+     * Daftar "cabang bulan: Rp X" di mana wallet ini masih memegang saldo,
+     * dibatasi ke periode BULAN BERJALAN & SESUDAHNYA yang belum ditutup.
+     *
+     * Sengaja pakai computeClosingPerSource() — bukan query mentah — karena
+     * itu rumus yang sama persis dipakai buildRows() & carry-forward
+     * (opening snapshot + net transaksi aktif). Jadi guard ini tidak akan
+     * pernah berbeda pendapat dengan angka yang tampil di layar.
+     *
+     * Kenapa bulan lampau TIDAK ikut dicek, walau periodenya belum ditutup:
+     *   1. Bulan lampau sudah read-only di UI (PettyCashController::index()
+     *      menyetel $isReadOnly kalau bukan bulan berjalan), jadi saldo di sana
+     *      tidak bisa bertambah maupun berkurang — itu angka historis, bukan
+     *      risiko uang tersangkut.
+     *   2. Satu-satunya jalur saldo lama merembes ke depan adalah carry-forward,
+     *      dan rantai itu putus begitu saldo awal bulan berjalan diisi ulang.
+     *   3. Kartu wallet pensiunan tetap dibangkitkan buildRows(), jadi laporan
+     *      bulan lampau tetap terbaca benar walau wallet-nya sudah nonaktif.
+     * Kalau bulan lampau ikut dicek, wallet lama tidak akan pernah bisa
+     * dinonaktifkan — periode praktis tidak pernah ditutup di sistem ini.
+     *
+     * @return string[]
+     */
+    private function saldoTersangkut(FundSource $fs): array
+    {
+        $stuck = [];
+        $now   = \Carbon\Carbon::today();
+
+        $periods = \App\Models\PettyCashPeriod::where('is_closed', 0)
+            ->where(function ($q) use ($now) {
+                $q->where('period_year', '>', $now->year)
+                  ->orWhere(function ($qq) use ($now) {
+                      $qq->where('period_year', $now->year)
+                         ->where('period_month', '>=', $now->month);
+                  });
+            })
+            ->get();
+        if ($periods->isEmpty()) {
+            return $stuck;
+        }
+
+        $branchNames = \App\Models\RawBranch::whereIn(
+            'id',
+            $periods->pluck('raw_branch_id')->filter()->unique()->values(),
+        )->pluck('name', 'id');
+
+        foreach ($periods as $p) {
+            $saldo = (float) ($p->computeClosingPerSource()[$fs->id] ?? 0.0);
+            if (abs($saldo) <= 0.005) continue;
+
+            $stuck[] = ($branchNames[$p->raw_branch_id] ?? $p->raw_branch_id)
+                . ' ' . $p->period_month . '/' . $p->period_year
+                . ': Rp ' . number_format($saldo, 0, ',', '.');
+        }
+
+        return $stuck;
+    }
 
     private function saveLogo($file, string $code): string
     {
