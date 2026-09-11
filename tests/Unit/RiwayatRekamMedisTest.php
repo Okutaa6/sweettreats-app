@@ -80,7 +80,14 @@ class RiwayatRekamMedisTest extends TestCase
         $this->assertSame(['Amoxicillin 500mg x10'], $this->rekam([['prescription' => $berulang]])->resep);
     }
 
-    /** treatment_plan_note dibaca terpisah dari diagnosa, dan <br>-nya dibersihkan. */
+    /**
+     * treatment_plan_note dibaca terpisah dari diagnosa, dan `<br>`-nya jadi
+     * GANTI BARIS — bukan spasi.
+     *
+     * ⚠️ Assertion ini dulu berbunyi 'TERAPI : SCALLING KELAS 3 RA RB' (satu
+     * spasi). Itu mengunci perilaku yang SALAH: `$clean` lama meleburkan tiap
+     * baris klinis jadi satu paragraf. Diperbaiki 2026-09-11.
+     */
     public function test_rencana_perawatan_terbaca_terpisah_dari_diagnosa(): void
     {
         $item = $this->rekam([[
@@ -89,7 +96,100 @@ class RiwayatRekamMedisTest extends TestCase
         ]]);
 
         $this->assertSame('Karies profunda', $item->diagnosa);
-        $this->assertSame('TERAPI : SCALLING KELAS 3 RA RB', $item->rencana);
+        $this->assertSame("TERAPI :\nSCALLING KELAS 3 RA RB", $item->rencana);
+    }
+
+    // ── Teks klinis: ganti-baris dipertahankan ──────────────────────────────
+
+    /** ⭐ `a<br>b` = DUA baris. Terukur 4.303 kolom (26,7%) memakai `<br>`. */
+    public function test_br_jadi_ganti_baris_bukan_spasi(): void
+    {
+        $asli = 'ligature gigi 24-23<br>reposisi button ke palatal 24-27 <br/>bikin hook di gigi 44<br />edukasi elastik';
+
+        $item = $this->rekam([['treatment_plan_note' => $asli]]);
+
+        $this->assertSame([
+            'ligature gigi 24-23',
+            'reposisi button ke palatal 24-27',
+            'bikin hook di gigi 44',
+            'edukasi elastik',
+        ], explode("\n", $item->rencana));
+    }
+
+    /**
+     * ⛔ Cacat paling berbahaya: `strip_tags` membuang `</div><div>` tanpa
+     * menyisipkan apa pun, jadi dua kata MENEMPEL — itu mengubah ARTI.
+     * "…di distal 24" + "ra ganti niti" pernah jadi "distal 24ra".
+     */
+    public function test_penutup_div_tidak_menempelkan_kata(): void
+    {
+        $item = $this->rekam([[
+            'diagnose_note' => '<div>ligature 22-11, ocs diganti baru di distal 24</div><div>ra ganti niti 0.16</div>',
+        ]]);
+
+        $this->assertStringNotContainsString('24ra', $item->diagnosa);
+        $this->assertSame([
+            'ligature 22-11, ocs diganti baru di distal 24',
+            'ra ganti niti 0.16',
+        ], explode("\n", $item->diagnosa));
+    }
+
+    /**
+     * `&nbsp;` jadi U+00A0 setelah decode, dan `trim()` PHP TIDAK membuangnya —
+     * 855 kolom (5,3%) menyisakan spasi tak terlihat di ujung.
+     */
+    public function test_nbsp_tidak_menyisakan_spasi_tak_terlihat(): void
+    {
+        $item = $this->rekam([['chief_complaint' => '&nbsp;gigi&nbsp;&nbsp;ngilu&nbsp;']]);
+
+        $this->assertSame('gigi ngilu', $item->keluhan);
+        $this->assertStringNotContainsString("\u{00A0}", $item->keluhan);
+    }
+
+    /** Tag INLINE tidak boleh memotong kalimat yang utuh (prod: i/span/ul). */
+    public function test_tag_inline_tidak_memecah_baris(): void
+    {
+        $item = $this->rekam([['objective' => 'gigi <i>36</i> goyang <span>derajat 2</span>']]);
+
+        $this->assertSame('gigi 36 goyang derajat 2', $item->objektif);
+    }
+
+    /** Rekam berbaris tunggal tampil PERSIS seperti sebelumnya. */
+    public function test_baris_tunggal_tidak_berubah(): void
+    {
+        $item = $this->rekam([['chief_complaint' => 'kontrol rutin behel']]);
+
+        $this->assertSame('kontrol rutin behel', $item->keluhan);
+        $this->assertStringNotContainsString("\n", $item->keluhan);
+    }
+
+    /** Baris kosong/tag kosong tak boleh jadi baris hampa atau label kosong. */
+    public function test_baris_kosong_dibuang(): void
+    {
+        $item = $this->rekam([['subjective' => '<br><br>nyeri<br>&nbsp;<br><div></div>']]);
+
+        $this->assertSame('nyeri', $item->subjektif);
+        $this->assertNull($this->rekam([['subjective' => '<br>&nbsp;<div></div>']])->subjektif);
+    }
+
+    /**
+     * ⛔ Teks yang BERAKHIR "..." datang apa adanya dari Omnicare (diverifikasi
+     * sampai `raw_payload`). Jangan pernah "dipulihkan" atau dipangkas.
+     */
+    public function test_titik_titik_dari_omnicare_dibiarkan_utuh(): void
+    {
+        $item = $this->rekam([['treatment_plan_note' => 'posisi kawat niti 0,12 up/low...']]);
+
+        $this->assertSame('posisi kawat niti 0,12 up/low...', $item->rencana);
+    }
+
+    /** Ringkasan kartu tetap SATU baris walau nilainya berbaris banyak. */
+    public function test_ringkasan_tetap_satu_baris(): void
+    {
+        $item = $this->rekam([['chief_complaint' => 'gigi ngilu<br>gusi bengkak']]);
+
+        $this->assertStringNotContainsString("\n", $item->summary);
+        $this->assertStringContainsString('gigi ngilu · gusi bengkak', $item->summary);
     }
 
     /**

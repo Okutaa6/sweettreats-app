@@ -496,9 +496,60 @@ class CustomerController extends Controller
      */
     private function buildRiwayat(RawCustomer $customer, \Illuminate\Support\Collection $medicalRecords): array
     {
-        $clean = fn (?string $v) => $v === null ? null : trim(
-            html_entity_decode(strip_tags(str_replace(['<br>', '<br/>', '<br />'], ' ', $v)))
-        );
+        /**
+         * Bersihkan satu kolom klinis Omnicare, DENGAN MEMPERTAHANKAN ganti-baris.
+         *
+         * Di catatan gigi tiap baris = satu temuan / satu tindakan. Versi lama
+         * mengubah `<br>` jadi SPASI, jadi empat baris klinis melebur jadi satu
+         * paragraf — terbaca seperti potongan yang disambung serampangan.
+         * Terukur di prod (16.130 kolom klinis terisi 2026): `<br>` 4.303 (26,7%).
+         *
+         * ⛔ URUTANNYA PENTING: tag pembatas baris diubah jadi "\n" SEBELUM
+         * strip_tags. Kalau dibalik, strip_tags membuang `</div><div>` tanpa
+         * menyisipkan apa pun dan dua kata MENEMPEL — itu mengubah ARTI, bukan
+         * cuma rupa: "...di distal 24</div><div>ra ganti niti" jadi "distal 24ra".
+         * Terukur 262 kolom (1,6%).
+         *
+         * Yang diubah jadi baris HANYA tag blok (br/div/p/li/tr). `<i>`, `<span>`
+         * dan `<ul>` sengaja TIDAK — itu inline/pembungkus, memecahnya justru
+         * memotong kalimat yang utuh. (Prod 2026: br 10.038 · div 1.820 ·
+         * i 6 · ul 4 · span 4.)
+         *
+         * ⚠️ `&nbsp;` jadi U+00A0 setelah html_entity_decode, dan `trim()` PHP
+         * TIDAK membuangnya (ia cuma membuang " \t\n\r\0\x0B") — 855 kolom (5,3%)
+         * menyisakan spasi tak terlihat di ujung. Karena itu pemangkasan memakai
+         * regex /u, bukan trim(): trim() dengan charlist bekerja per-BYTE dan bisa
+         * mencacah karakter multibyte di tepi teks.
+         *
+         * Hasilnya tetap STRING (baris dipisah "\n"), bukan array — supaya
+         * pasangan label+nilai di grid `.pxd-tl__kv` (96px 1fr) tetap satu span,
+         * dan blade cukup merendernya dengan `{{ }}` yang meng-escape. Ganti
+         * barisnya ditampilkan CSS `white-space: pre-line`, bukan HTML mentah.
+         */
+        $clean = function (?string $v): ?string {
+            if ($v === null) {
+                return null;
+            }
+
+            $v = preg_replace('~<\s*(?:br|/\s*(?:div|p|li|tr))\b[^>]*>~i', "\n", $v);
+            $v = strip_tags($v);
+            $v = html_entity_decode($v, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+            $baris = [];
+            foreach (preg_split('/\R/u', $v) ?: [] as $b) {
+                // Rapatkan spasi (termasuk U+00A0) lalu pangkas kedua ujungnya.
+                $b = preg_replace('~[\s\x{00A0}]+~u', ' ', $b);
+                $b = preg_replace('~^ | $~u', '', (string) $b);
+                if ($b !== '') {
+                    $baris[] = $b;
+                }
+            }
+
+            return $baris ? implode("\n", $baris) : null;
+        };
+
+        /** Ringkasan kartu itu SATU baris — ratakan ganti-baris jadi pemisah titik. */
+        $satuBaris = fn (?string $v) => $v === null ? null : str_replace("\n", ' · ', $v);
 
         /**
          * Pecah kolom Omnicare yang dipisah titik-koma (`procedures`,
@@ -564,10 +615,10 @@ class CustomerController extends Controller
             $resep     = $pecah($rec->prescription ?? null);
 
             $summaryParts = [];
-            if ($keluhan)  $summaryParts[] = 'Keluhan: ' . $keluhan;
-            if ($diagnosa) $summaryParts[] = 'Dx: ' . $diagnosa;
+            if ($keluhan)  $summaryParts[] = 'Keluhan: ' . $satuBaris($keluhan);
+            if ($diagnosa) $summaryParts[] = 'Dx: ' . $satuBaris($diagnosa);
             if (empty($summaryParts) && $rencana) {
-                $summaryParts[] = 'Rencana: ' . \Illuminate\Support\Str::limit($rencana, 90);
+                $summaryParts[] = 'Rencana: ' . \Illuminate\Support\Str::limit($satuBaris($rencana), 90);
             }
             if (empty($summaryParts) && $tindakan) {
                 $summaryParts[] = 'Kunjungan: ' . \Illuminate\Support\Str::limit(implode(' · ', $tindakan), 90);
