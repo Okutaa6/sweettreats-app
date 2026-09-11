@@ -155,9 +155,13 @@
                                 @else
                                     {{-- Rekam Medis --}}
                                     @php
-                                        $hasAnam = $it->keluhan || $it->objektif;
-                                        $hasDx   = (bool) $it->diagnosa;
-                                        $hasProc = count($it->tindakan) > 0;
+                                        $hasAnam  = $it->keluhan || $it->subjektif || $it->objektif;
+                                        // Rencana perawatan ikut blok Diagnosa: sering terisi
+                                        // justru saat diagnosanya kosong, jadi blok ini TIDAK
+                                        // boleh digantung pada $it->diagnosa saja.
+                                        $hasDx    = $it->diagnosa || $it->rencana;
+                                        $hasProc  = count($it->tindakan) > 0;
+                                        $hasResep = count($it->resep) > 0;
                                     @endphp
                                     <div class="pxd-tl__item" data-kind="rekam">
                                         <div class="pxd-tl__dot pxd-tl__dot--rekam"><i class="fa fa-notes-medical"></i></div>
@@ -183,6 +187,7 @@
                                                         <div class="pxd-tl__bhead"><div class="pxd-tl__bhead-l"><i class="fa fa-comment-medical"></i><span class="pxd-tl__btitle">ANAMNESIS &amp; PEMERIKSAAN</span></div></div>
                                                         <div class="pxd-tl__kv">
                                                             @if($it->keluhan)<span class="pxd-tl__k">Keluhan</span><span class="pxd-tl__v">{{ $it->keluhan }}</span>@endif
+                                                            @if($it->subjektif)<span class="pxd-tl__k">Subjektif</span><span class="pxd-tl__v">{{ $it->subjektif }}</span>@endif
                                                             @if($it->objektif)<span class="pxd-tl__k">Objektif</span><span class="pxd-tl__v">{{ $it->objektif }}</span>@endif
                                                         </div>
                                                     </div>
@@ -190,7 +195,10 @@
                                                 @if($hasDx)
                                                     <div>
                                                         <div class="pxd-tl__bhead"><div class="pxd-tl__bhead-l"><i class="fa fa-stethoscope"></i><span class="pxd-tl__btitle">DIAGNOSA &amp; RENCANA</span></div></div>
-                                                        <div class="pxd-tl__kv"><span class="pxd-tl__k">Diagnosa</span><span class="pxd-tl__v pxd-tl__v--strong">{{ $it->diagnosa }}</span></div>
+                                                        <div class="pxd-tl__kv">
+                                                            @if($it->diagnosa)<span class="pxd-tl__k">Diagnosa</span><span class="pxd-tl__v pxd-tl__v--strong">{{ $it->diagnosa }}</span>@endif
+                                                            @if($it->rencana)<span class="pxd-tl__k">Rencana</span><span class="pxd-tl__v">{{ $it->rencana }}</span>@endif
+                                                        </div>
                                                     </div>
                                                 @endif
                                                 @if($hasProc)
@@ -203,7 +211,21 @@
                                                         </div>
                                                     </div>
                                                 @endif
-                                                @if(!$hasAnam && !$hasDx && !$hasProc)
+                                                {{-- Resep. Kolom `prescription` sering berisi HANYA
+                                                     pemisah ";" tanpa satu pun obat — controller sudah
+                                                     menyaringnya, jadi blok ini cuma muncul kalau benar
+                                                     ada isinya (bukan sekadar "kolomnya tidak kosong"). --}}
+                                                @if($hasResep)
+                                                    <div>
+                                                        <div class="pxd-tl__bhead"><div class="pxd-tl__bhead-l"><i class="fa fa-prescription-bottle-alt"></i><span class="pxd-tl__btitle">RESEP</span></div><span class="pxd-tl__bcount">{{ count($it->resep) }} item</span></div>
+                                                        <div class="pxd-tl__procs">
+                                                            @foreach($it->resep as $obat)
+                                                                <div class="pxd-tl__proc pxd-tl__proc--resep"><i class="fa fa-pills"></i> {{ $obat }}</div>
+                                                            @endforeach
+                                                        </div>
+                                                    </div>
+                                                @endif
+                                                @if(!$hasAnam && !$hasDx && !$hasProc && !$hasResep)
                                                     <div class="pxd-tl__empty-clinical">Tidak ada catatan klinis (kontrol singkat).</div>
                                                 @endif
                                             </div>

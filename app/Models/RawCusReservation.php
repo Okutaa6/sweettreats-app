@@ -35,6 +35,10 @@ class RawCusReservation extends Model
         'lainnya_text',
         'promo_klaim',
         'promo_klaim_by',
+        'created_by',          // jejak: siapa yang MEMBUAT (updated_by = penyunting TERAKHIR)
+        'created_via',         // jejak: dari pintu mana (admin/import/import_auto/landing)
+        'cancel_reason',       // nama kolom meniru set/cancel_appt Omnicare
+        'cancel_reason_note',
     ];
 
     public $incrementing = false;
@@ -107,6 +111,49 @@ class RawCusReservation extends Model
     public function getStatusInfoAttribute()
     {
         return self::statusOptions()[$this->status] ?? self::statusOptions()[self::STATUS_PENDING];
+    }
+
+    // ── Jejak: pintu masuk reservasi (kolom `created_via`) ──────────────────
+    // Dipakai membedakan `created_by` NULL yang berarti "form publik, memang
+    // tak ada user" dari `created_by` NULL yang berarti "baris lama sebelum
+    // 2026-09-11". Tanpa ini keduanya terlihat sama dan atribusinya menyesatkan.
+    const VIA_ADMIN       = 'admin';        // ReservationController::store (jalur utama FO)
+    const VIA_IMPORT      = 'import';       // ReservationPromoter (promote staging manual)
+    const VIA_IMPORT_AUTO = 'import_auto';  // ReservationAutoProcessor (auto-promote batch)
+    const VIA_LANDING     = 'landing';      // LandingReservationController (form publik)
+
+    // ── Jejak: alasan pembatalan ────────────────────────────────────────────
+    // 652 reservasi batal tanpa satu pun alasan tercatat; kolom `keterangan`
+    // yang terisi 305 ternyata berisi catatan perawatan ("KONTROL METAL"),
+    // bukan alasan. Pilihan dibatasi supaya BISA DIHITUNG — teks bebas
+    // mengulang kegagalan yang sama.
+    //
+    // ⚠️ Slug di bawah milik KITA. Nama KOLOM-nya (`cancel_reason`,
+    // `cancel_reason_note`) meniru `set/cancel_appt` Omnicare supaya saat
+    // reservasi didorong ke sana (IT-2026-011) tinggal diteruskan; daftar NILAI
+    // yang vendor terima belum terkonfirmasi (speknya tak ada di repo). Kalau
+    // vendor punya daftar sendiri, pemetaannya cukup ditambahkan DI SINI.
+    const CANCEL_LAINNYA = 'lainnya';
+
+    public static function cancelReasonOptions(): array
+    {
+        return [
+            'pasien_berhalangan'    => 'Pasien berhalangan / ada urusan',
+            'pasien_sakit'          => 'Pasien sakit',
+            'reschedule'            => 'Dijadwalkan ulang (pindah tanggal/jam)',
+            'tidak_datang'          => 'Tidak datang tanpa kabar',
+            'tidak_dapat_dihubungi' => 'Tidak dapat dihubungi',
+            'dokter_berhalangan'    => 'Dokter berhalangan',
+            'salah_input'           => 'Salah input / duplikat',
+            self::CANCEL_LAINNYA    => 'Lainnya',
+        ];
+    }
+
+    public function getCancelReasonLabelAttribute(): ?string
+    {
+        return $this->cancel_reason
+            ? (self::cancelReasonOptions()[$this->cancel_reason] ?? $this->cancel_reason)
+            : null;
     }
 
     /**

@@ -332,13 +332,48 @@
                     <div class="rrf-grid">
                         <div class="rrf-col rrf-col--full">
                             <label class="rrf-lbl">Status Reservasi</label>
-                            <select class="form-control" name="status">
+                            <select class="form-control" name="status" id="rrfStatus"
+                                    data-cancelled="{{ \App\Models\RawCusReservation::STATUS_CANCELLED }}"
+                                    data-was="{{ $reservation->status }}">
                                 @foreach (\App\Models\RawCusReservation::statusOptions() as $key => $opt)
                                     <option value="{{ $key }}" {{ $reservation->status == $key ? 'selected' : '' }}>
                                         {{ $opt['label'] }}
                                     </option>
                                 @endforeach
                             </select>
+                        </div>
+
+                        {{-- Alasan pembatalan — muncul hanya saat status = Dibatalkan.
+                             652 reservasi batal tercatat tanpa satu pun alasan; kolom
+                             `keterangan` yang dulu dipakai ternyata berisi catatan
+                             perawatan, bukan alasan. Pilihan dibatasi supaya BISA
+                             DIHITUNG. Server tetap memagari (validateCancelReason) —
+                             tampilan ini kenyamanan, bukan pagarnya. --}}
+                        <div class="rrf-col rrf-col--full" id="rrfCancelBox"
+                             style="display:{{ $reservation->status === \App\Models\RawCusReservation::STATUS_CANCELLED ? '' : 'none' }};">
+                            <div class="rrf-cancel">
+                                <div class="rrf-cancel__head"><i class="fa fa-info-circle"></i> Alasan pembatalan</div>
+                                <label class="rrf-lbl" for="rrfCancelReason">Alasan <span class="rrf-req">*</span></label>
+                                <select class="form-control" name="cancel_reason" id="rrfCancelReason">
+                                    <option value="">- Pilih alasan -</option>
+                                    @foreach (\App\Models\RawCusReservation::cancelReasonOptions() as $key => $label)
+                                        <option value="{{ $key }}" {{ $reservation->cancel_reason === $key ? 'selected' : '' }}>{{ $label }}</option>
+                                    @endforeach
+                                </select>
+                                <label class="rrf-lbl" for="rrfCancelNote" style="margin-top:10px;">
+                                    Keterangan <small class="text-muted" id="rrfNoteHint">(opsional)</small>
+                                </label>
+                                <input type="text" class="form-control" name="cancel_reason_note" id="rrfCancelNote"
+                                       maxlength="255" placeholder="mis. minta dijadwalkan ulang minggu depan"
+                                       value="{{ $reservation->cancel_reason_note }}">
+                                @if($reservation->status === \App\Models\RawCusReservation::STATUS_CANCELLED && ! $reservation->cancel_reason)
+                                    <div class="rrf-cancel__legacy">
+                                        <i class="fa fa-history"></i>
+                                        Reservasi ini dibatalkan sebelum alasan mulai dicatat, jadi alasannya tidak diketahui.
+                                        Boleh diisi kalau Anda tahu — tidak wajib.
+                                    </div>
+                                @endif
+                            </div>
                         </div>
                         <div class="rrf-col">
                             <label class="rrf-lbl">Promo <small class="text-muted">(dari Marketing)</small></label>
@@ -560,3 +595,37 @@
             </div>
         @endif
         @endif
+
+@if($isEdit)
+{{-- Alasan pembatalan: tampil hanya saat status = Dibatalkan.
+     Ditulis polos (tanpa @push) karena _form di-inject ke drawer lewat AJAX —
+     stack @push tidak ikut ter-render di jalur itu. --}}
+<script>
+(function () {
+    var sel = document.getElementById('rrfStatus');
+    var box = document.getElementById('rrfCancelBox');
+    if (!sel || !box) return;
+
+    var CANCELLED = sel.getAttribute('data-cancelled');
+    var alasan    = document.getElementById('rrfCancelReason');
+    var hint      = document.getElementById('rrfNoteHint');
+    var note      = document.getElementById('rrfCancelNote');
+
+    function syncNote() {
+        if (!alasan || !hint || !note) return;
+        var wajib = alasan.value === 'lainnya';
+        hint.textContent = wajib ? '(wajib diisi)' : '(opsional)';
+        note.placeholder = wajib ? 'Jelaskan singkat alasannya' : 'mis. minta dijadwalkan ulang minggu depan';
+    }
+    function sync() {
+        var batal = sel.value === CANCELLED;
+        box.style.display = batal ? '' : 'none';
+        syncNote();
+    }
+
+    sel.addEventListener('change', sync);
+    if (alasan) alasan.addEventListener('change', syncNote);
+    sync();
+})();
+</script>
+@endif

@@ -269,6 +269,11 @@ class ReservationAutoProcessor
                 'created_at'       => now(),
                 'updated_at'       => now(),
                 'updated_by'       => $userId,
+                // Jejak: dibuat mesin auto-process, tapi atas perintah $userId
+                // yang menekan "Proses otomatis" — created_via yang membedakan
+                // ini dari promote satuan.
+                'created_by'       => $userId,
+                'created_via'      => RawCusReservation::VIA_IMPORT_AUTO,
             ]);
             $reservationId = $reservation->id;
 
