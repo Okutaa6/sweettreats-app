@@ -175,6 +175,12 @@ class LandingReservationController extends Controller
                     'is_waiting'      => $isWaiting,
                     'lainnya_text'    => $r['lainnya_text'],
                     'created_at'      => now(),
+                    // Form publik: TIDAK ADA user yang login. created_by sengaja
+                    // dibiarkan NULL — mengarang user id di sini akan membuat
+                    // laporan "siapa membuat booking" berbohong. Yang menjawab
+                    // "dari mana" adalah created_via.
+                    'created_by'      => null,
+                    'created_via'     => RawCusReservation::VIA_LANDING,
                 ]);
 
                 // Layanan

@@ -500,6 +500,27 @@ class CustomerController extends Controller
             html_entity_decode(strip_tags(str_replace(['<br>', '<br/>', '<br />'], ' ', $v)))
         );
 
+        /**
+         * Pecah kolom Omnicare yang dipisah titik-koma (`procedures`,
+         * `prescription`) jadi daftar item bersih.
+         *
+         * ⚠️ `prescription` SERING berisi HANYA pemisahnya — string seperti
+         * ";" atau ";   ;" tanpa satu pun obat. Tes "kolomnya tidak kosong"
+         * karena itu MENYESATKAN: di data lokal (48.464 rekam s/d 30 Jun)
+         * 45.173 baris "terisi" tapi cuma 7 yang benar-benar berisi obat.
+         * Menyaring di sini adalah satu-satunya yang memisahkan "ada resep"
+         * dari "ada tanda titik-koma".
+         *
+         * Duplikat dibuang: sumbernya kerap mengulang item yang sama berkali-kali
+         * ("Amoxicillin 500mg x10" delapan kali dalam satu baris).
+         */
+        $pecah = function (?string $v): array {
+            if ($v === null || $v === '') return [];
+            $parts = preg_split('/[;\r\n]+/', $v) ?: [];
+            $parts = array_map(fn ($p) => trim(preg_replace('/\s+/', ' ', (string) $p)), $parts);
+            return array_values(array_unique(array_filter($parts, fn ($p) => $p !== '')));
+        };
+
         // Status pill: [label, bg, color] selaras palette design handoff.
         $pillMap = [
             'pending'   => ['Menunggu Konfirmasi', '#FBE7CF', '#B5701A'],
@@ -530,14 +551,24 @@ class CustomerController extends Controller
         // ── Rekam medis (Omnicare) ──
         foreach ($medicalRecords as $rec) {
             $keluhan  = $clean($rec->chief_complaint);
-            $objektif = $clean($rec->objective);
-            $diagnosa = $clean($rec->diagnose_note) ?: $clean($rec->diagnoses);
-            $tindakan = !empty($rec->procedures)
-                ? array_values(array_filter(array_map('trim', explode(';', $rec->procedures))))
-                : [];
+            // SOAP: subjective & objective melengkapi keluhan/diagnosa yang
+            // masing-masing cuma terisi 30,0% dan 19,4%.
+            $subjektif = $clean($rec->subjective ?? null);
+            $objektif  = $clean($rec->objective);
+            $diagnosa  = $clean($rec->diagnose_note) ?: $clean($rec->diagnoses);
+            // Rencana perawatan (41,3%) — paling berguna untuk klinik ortho, dan
+            // dibaca TERPISAH dari diagnosa: isinya sering ada justru ketika
+            // diagnosanya kosong.
+            $rencana   = $clean($rec->treatment_plan_note ?? null);
+            $tindakan  = $pecah($rec->procedures ?? null);
+            $resep     = $pecah($rec->prescription ?? null);
+
             $summaryParts = [];
             if ($keluhan)  $summaryParts[] = 'Keluhan: ' . $keluhan;
             if ($diagnosa) $summaryParts[] = 'Dx: ' . $diagnosa;
+            if (empty($summaryParts) && $rencana) {
+                $summaryParts[] = 'Rencana: ' . \Illuminate\Support\Str::limit($rencana, 90);
+            }
             if (empty($summaryParts) && $tindakan) {
                 $summaryParts[] = 'Kunjungan: ' . \Illuminate\Support\Str::limit(implode(' · ', $tindakan), 90);
             }
@@ -557,10 +588,13 @@ class CustomerController extends Controller
                 'code'     => $rec->booking_code ?: $rec->record_id,
                 'doctor'   => $docDisplay,
                 'summary'  => implode(' · ', $summaryParts) ?: 'Kunjungan tanpa catatan klinis',
-                'keluhan'  => $keluhan,
-                'objektif' => $objektif,
-                'diagnosa' => $diagnosa,
-                'tindakan' => $tindakan,
+                'keluhan'   => $keluhan,
+                'subjektif' => $subjektif,
+                'objektif'  => $objektif,
+                'diagnosa'  => $diagnosa,
+                'rencana'   => $rencana,
+                'tindakan'  => $tindakan,
+                'resep'     => $resep,
             ];
         }
 

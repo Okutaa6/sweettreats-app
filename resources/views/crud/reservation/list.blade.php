@@ -997,6 +997,47 @@
     </aside>
 </div>
 
+{{-- ════════ Alasan pembatalan ════════
+     Muncul sebelum reservasi benar-benar dibatalkan — dari segmen STATUS
+     maupun tombol Batal di footer drawer. Menggantikan confirm() lama yang
+     cuma bertanya "yakin?" dan tidak menghasilkan apa pun yang bisa dihitung:
+     652 pembatalan tercatat tanpa satu pun alasan.
+     Server tetap menolak pembatalan tanpa alasan (validateCancelReason) —
+     modal ini yang membuat penolakan itu tak pernah terasa oleh staf. --}}
+<div id="rrCancelModal" class="rrcm" aria-hidden="true">
+    <div class="rrcm__scrim" data-rrcm-close></div>
+    <div class="rrcm__box" role="dialog" aria-modal="true" aria-labelledby="rrcmTitle">
+        <div class="rrcm__head">
+            <i class="fa fa-times-circle rrcm__icon"></i>
+            <div>
+                <h4 class="rrcm__title" id="rrcmTitle">Batalkan reservasi</h4>
+                <div class="rrcm__sub" id="rrcmPatient">—</div>
+            </div>
+        </div>
+        <div class="rrcm__body">
+            <label class="rrcm__lbl" for="rrcmReason">Alasan pembatalan <span class="rrcm__req">*</span></label>
+            <select class="form-control" id="rrcmReason">
+                <option value="">- Pilih alasan -</option>
+                @foreach (\App\Models\RawCusReservation::cancelReasonOptions() as $key => $label)
+                    <option value="{{ $key }}">{{ $label }}</option>
+                @endforeach
+            </select>
+            <label class="rrcm__lbl" for="rrcmNote" style="margin-top:12px;">
+                Keterangan <small id="rrcmNoteHint">(opsional)</small>
+            </label>
+            <input type="text" class="form-control" id="rrcmNote" maxlength="255"
+                   placeholder="mis. minta dijadwalkan ulang minggu depan">
+            <div class="rrcm__err" id="rrcmErr" hidden></div>
+        </div>
+        <div class="rrcm__foot">
+            <button type="button" class="rrcm__btn rrcm__btn--ghost" data-rrcm-close>Kembali</button>
+            <button type="button" class="rrcm__btn rrcm__btn--danger" id="rrcmOk">
+                <i class="fa fa-times"></i> Batalkan reservasi
+            </button>
+        </div>
+    </div>
+</div>
+
 {{-- ════════ Form Drawer (Tambah / Edit lengkap, 660px) — isi di-fetch via AJAX ════════ --}}
 <div id="rrFormDrawer" class="rr-drawer rr-drawer--form" aria-hidden="true">
     <div class="rr-drawer__scrim" data-rrform-close></div>
@@ -1692,6 +1733,10 @@ document.querySelectorAll('.st-status-select').forEach(function (sel) {
         $('#rrdTreatment').text(d.treatment || '—');
         $('#rrdKeterangan').val(d.keterangan || '');
         $('#rrdStatusSeg .rr-seg__btn').removeClass('active').filter('[data-value="' + d.status + '"]').addClass('active');
+        // Status yang tersimpan di server saat drawer dibuka — dasar untuk
+        // memutuskan apakah klik "Dibatalkan" adalah transisi baru (wajib alasan).
+        rrStatusTersimpan = d.status || null;
+        rrPasienNama = d.name || d.patient || '';
         $('#rrdKehadiranSeg .rr-seg__btn').removeClass('active').filter('[data-value="' + (d.kehadiran || '') + '"]').addClass('active');
         $('#rrdFu1Sel').val(d.fu1 || '');
         $('#rrdFuhSel').val(d.fuh || '');
@@ -1707,15 +1752,18 @@ document.querySelectorAll('.st-status-select').forEach(function (sel) {
         rrId = null;
         rrReturnTo = null;
     }
-    function rrPatch(field, value) {
+    function rrPatch(field, value, extra) {
         if (!rrId) return;
         // Capture id lokal: dipakai di success callback supaya tetap valid walau
         // drawer keburu di-close (rrClose set rrId=null) — kasus footer Konfirmasi
         // & Batal yg trigger rrClose tepat setelah rrPatch.
         var id = rrId;
+        var statusSebelum = rrStatusTersimpan; // untuk memulihkan kalau server menolak
+        var payload = { _token: RR_TOKEN, field: field, value: value };
+        if (extra) { for (var k in extra) if (extra.hasOwnProperty(k)) payload[k] = extra[k]; }
         $.ajax({
             url: '/rawreservation/' + id + '/inline', method: 'PATCH',
-            data: { _token: RR_TOKEN, field: field, value: value },
+            data: payload,
             success: function () {
                 // Sync data kalender in-memory → renderCalendar (chip) ikut fresh saat
                 // status diubah dari Detail drawer (dibuka via kalender/Day drawer).
@@ -1747,20 +1795,124 @@ document.querySelectorAll('.st-status-select').forEach(function (sel) {
                     else { $att.text('?'); }
                 }
             },
-            error: function () { alert('Gagal menyimpan, coba lagi.'); }
+            error: function (xhr) {
+                // Server menolak pembatalan tanpa alasan → kembalikan tampilan
+                // ke status sebelumnya, jangan biarkan drawer memperlihatkan
+                // "Dibatalkan" untuk perubahan yang tak pernah tersimpan.
+                var r = (xhr && xhr.responseJSON) || {};
+                if (xhr && xhr.status === 422) {
+                    // Pulihkan tampilan ke status yang BENAR-BENAR tersimpan.
+                    // rrSetStatus sudah mengecat optimistis sebelum request, jadi
+                    // tanpa ini drawer memperlihatkan "Dibatalkan" untuk perubahan
+                    // yang ditolak server.
+                    if (field === 'status') {
+                        rrStatusTersimpan = statusSebelum;
+                        rrPaintStatus(statusSebelum);
+                    }
+                    alert(r.message || 'Perubahan ditolak.');
+                    return;
+                }
+                alert('Gagal menyimpan, coba lagi.');
+            }
         });
+    }
+
+    // Status yang TERSIMPAN di server (bukan yang sekadar terlihat aktif di
+    // drawer). Dipakai membedakan "masuk ke Dibatalkan" — yang wajib beralasan —
+    // dari "sudah batal lalu disunting", dan untuk memulihkan tampilan saat
+    // server menolak.
+    var rrStatusTersimpan = null;
+    var rrPasienNama = '';
+
+    // ── Modal alasan pembatalan ─────────────────────────────────────────────
+    // Memanggil cb(alasan) hanya kalau staf benar-benar memilih alasan.
+    // Menutup modal tanpa memilih = pembatalan diurungkan, tak ada yang tersimpan.
+    function rrAskCancelReason(cb) {
+        var $m      = $('#rrCancelModal');
+        var $reason = $('#rrcmReason');
+        var $note   = $('#rrcmNote');
+        var $err    = $('#rrcmErr');
+
+        $reason.val(''); $note.val('');
+        $err.attr('hidden', true).text('');
+        $('#rrcmNoteHint').text('(opsional)');
+        $('#rrcmPatient').text(rrPasienNama || 'Reservasi ini');
+        $m.addClass('is-open').attr('aria-hidden', 'false');
+        setTimeout(function () { $reason.trigger('focus'); }, 40);
+
+        function tutup() {
+            $m.removeClass('is-open').attr('aria-hidden', 'true');
+            $(document).off('keydown.rrcm');
+            $m.off('click.rrcm');
+        }
+
+        $m.on('click.rrcm', '[data-rrcm-close]', tutup);
+        $(document).on('keydown.rrcm', function (e) { if (e.key === 'Escape') tutup(); });
+
+        // "Lainnya" tanpa penjelasan sama tak bergunanya dengan tanpa alasan —
+        // dan justru jadi pilihan tercepat buat semua orang kalau dibiarkan.
+        $m.on('change.rrcm', '#rrcmReason', function () {
+            $('#rrcmNoteHint').text($(this).val() === 'lainnya' ? '(wajib diisi)' : '(opsional)');
+            $err.attr('hidden', true);
+        });
+
+        $m.on('click.rrcm', '#rrcmOk', function () {
+            var alasan = $reason.val();
+            var note   = $.trim($note.val());
+            if (!alasan) {
+                $err.text('Pilih alasan pembatalan dulu.').removeAttr('hidden');
+                return;
+            }
+            if (alasan === 'lainnya' && !note) {
+                $err.text('Alasan "Lainnya" wajib dijelaskan singkat.').removeAttr('hidden');
+                $note.trigger('focus');
+                return;
+            }
+            tutup();
+            cb({ cancel_reason: alasan, cancel_reason_note: note });
+        });
+    }
+
+    /** Cat segmen + pill status TANPA menyimpan apa pun. */
+    function rrPaintStatus(value) {
+        var $b = $('#rrdStatusSeg .rr-seg__btn[data-value="' + value + '"]');
+        if (!$b.length) return false;
+        $('#rrdStatusSeg .rr-seg__btn').removeClass('active'); $b.addClass('active');
+        $('#rrdStatusPill').text($b.text()).css({ background: $b.data('bg') || '', color: $b.data('color') || '' });
+        return true;
     }
 
     // Helper: set status di drawer (visual + AJAX) — dipakai segmen STATUS, tombol
     // footer Konfirmasi, dan footer Batal. Sebelumnya footer pakai trigger('click')
     // indirection ke segmen — silent fail di sebagian browser; sekarang panggil
     // langsung supaya 1 jalur untuk semua entry point.
-    function rrSetStatus(value) {
-        var $b = $('#rrdStatusSeg .rr-seg__btn[data-value="' + value + '"]');
-        if (!$b.length) { console.warn('[rrSetStatus] segmen status tidak ditemukan untuk value:', value); return; }
-        $('#rrdStatusSeg .rr-seg__btn').removeClass('active'); $b.addClass('active');
-        $('#rrdStatusPill').text($b.text()).css({ background: $b.data('bg') || '', color: $b.data('color') || '' });
+    //
+    // Pindah ke "Dibatalkan" TIDAK langsung menyimpan: alasannya diminta dulu
+    // (rrAskCancelReason). Ini satu-satunya jalur status di drawer, jadi memagari
+    // di sini menutup segmen STATUS maupun tombol Batal di footer sekaligus.
+    function rrSetStatus(value, onSaved) {
+        if (!$('#rrdStatusSeg .rr-seg__btn[data-value="' + value + '"]').length) {
+            console.warn('[rrSetStatus] segmen status tidak ditemukan untuk value:', value);
+            return;
+        }
+
+        // rrPatch membaca rrStatusTersimpan saat dipanggil untuk tahu harus
+        // memulihkan ke mana bila server menolak — jadi ia dipanggil DULU,
+        // baru nilainya digeser secara optimistis.
+        if (value === RR_CANCELLED && rrStatusTersimpan !== RR_CANCELLED) {
+            rrAskCancelReason(function (alasan) {
+                rrPaintStatus(value);
+                rrPatch('status', value, alasan);
+                rrStatusTersimpan = value;
+                if (typeof onSaved === 'function') onSaved();
+            });
+            return;
+        }
+
+        rrPaintStatus(value);
         rrPatch('status', value);
+        rrStatusTersimpan = value;
+        if (typeof onSaved === 'function') onSaved();
     }
 
     $(document).on('click', '#rrdStatusSeg .rr-seg__btn', function () {
@@ -1793,7 +1945,13 @@ document.querySelectorAll('.st-status-select').forEach(function (sel) {
     // rrPatch saat pill diklik). Kalau paksa RR_CONFIRMED di sini, admin yg
     // mau tandain "Selesai"/"Waiting List" bakal ke-reset ke "Dikonfirmasi".
     $(document).on('click', '#rrdConfirm', function () { rrAfterFooterSave(); });
-    $(document).on('click', '#rrdCancel', function () { if (confirm('Batalkan reservasi ini?')) { rrSetStatus(RR_CANCELLED); rrAfterFooterSave(); } });
+    // Tombol "Batal" di footer: modal alasan menggantikan confirm() lama.
+    // Drawer baru ditutup SESUDAH tersimpan — kalau ditutup lebih dulu, staf
+    // tak pernah tahu pembatalannya ditolak.
+    $(document).on('click', '#rrdCancel', function () {
+        if (rrStatusTersimpan === RR_CANCELLED) { rrAfterFooterSave(); return; }
+        rrSetStatus(RR_CANCELLED, rrAfterFooterSave);
+    });
     $(document).on('click', '[data-rr-close]', rrClose);
     $(document).on('keydown', function (e) { if (e.key === 'Escape' && $drawer.hasClass('is-open')) rrClose(); });
 })();

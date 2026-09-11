@@ -114,6 +114,9 @@ class ReservationPromoter
                 'created_at' => now(),
                 'updated_at' => now(),
                 'updated_by' => $userId,
+                // Jejak: yang menekan tombol Promote-lah pembuatnya.
+                'created_by' => $userId,
+                'created_via' => RawCusReservation::VIA_IMPORT,
             ]);
 
             $reservationId = $reservation->id;
@@ -224,6 +227,8 @@ class ReservationPromoter
                 'created_at'          => now(),
                 'updated_at'          => now(),
                 'updated_by'          => $userId,
+                'created_by'          => $userId,
+                'created_via'         => RawCusReservation::VIA_IMPORT,
             ]);
             $reservationId = $reservation->id;
 

@@ -585,6 +585,15 @@ body.redesign-reservasi .rrf-lbl small { text-transform:none; letter-spacing:0; 
 body.redesign-reservasi #rrReservationForm .form-control { border:1px solid #E7D3BE; border-radius:11px; padding:11px 13px; font-size:13.5px; color:#3B1500; background:#fff; height:auto; }
 body.redesign-reservasi #rrReservationForm textarea.form-control { min-height:84px; resize:vertical; }
 body.redesign-reservasi #rrReservationForm .form-control:focus { border-color:#461500; box-shadow:0 0 0 .15rem rgba(70,21,0,.12); }
+/* Alasan pembatalan — blok bersyarat, muncul saat status = Dibatalkan.
+   Diberi ground merah muda supaya terbaca sebagai konsekuensi dari pilihan
+   status barusan, bukan field biasa yang tiba-tiba nongol. */
+body.redesign-reservasi .rrf-cancel { border:1px solid #F2D3CB; border-radius:13px; background:#FDF4F2; padding:14px 15px; }
+body.redesign-reservasi .rrf-cancel__head { display:flex; align-items:center; gap:8px; margin-bottom:12px; font-size:12px; font-weight:800; letter-spacing:.4px; color:#A33A29; text-transform:uppercase; }
+body.redesign-reservasi .rrf-cancel__head i { color:#C0392B; }
+body.redesign-reservasi .rrf-req { color:#C0392B; }
+body.redesign-reservasi .rrf-cancel__legacy { display:flex; gap:8px; margin-top:11px; padding:9px 11px; border-radius:9px; background:#FBF0E4; font-size:12px; line-height:1.45; color:#7B5E3F; }
+body.redesign-reservasi .rrf-cancel__legacy i { color:#B5701A; margin-top:2px; }
 /* Footer aksi (Simpan + hapus) */
 body.redesign-reservasi .rrf-foot { display:flex; gap:10px; margin-top:24px; padding-top:18px; border-top:1px solid #EDDFCE; }
 body.redesign-reservasi .rrf-foot .rrf-save { flex:1; display:inline-flex; align-items:center; justify-content:center; gap:8px; }
@@ -1030,3 +1039,34 @@ body.redesign-reservasi .st-cal-chip--cancelled .st-cal-chip__dot { background: 
    drawer (Batal/Simpan) di pojok kanan-bawah. Sembunyikan saat drawer kebuka
    (body.rr-drawer-lock — cuma aktif di halaman reservasi saat drawer terbuka). ─ */
 body.rr-drawer-lock .st-complaint-fab { display: none !important; }
+
+/* ══ Modal alasan pembatalan (#rrCancelModal) ═══════════════════════════════
+   Menggantikan confirm("Batalkan reservasi ini?") yang tak menghasilkan data.
+   Dibuat mandiri (bukan modal Bootstrap) supaya tetap muncul DI ATAS drawer
+   Detail yang z-index-nya sudah tinggi. */
+/* 1500 = di atas drawer Detail (1200), form (1300), pasien & swal (1400). */
+body.redesign-reservasi .rrcm { position: fixed; inset: 0; z-index: 1500; display: none; }
+body.redesign-reservasi .rrcm.is-open { display: block; }
+body.redesign-reservasi .rrcm__scrim { position: absolute; inset: 0; background: rgba(40, 12, 0, .45); }
+body.redesign-reservasi .rrcm__box {
+    position: relative; width: min(440px, calc(100vw - 32px));
+    margin: 12vh auto 0; background: #fff; border-radius: 16px;
+    box-shadow: 0 18px 48px rgba(40, 12, 0, .28); overflow: hidden;
+}
+body.redesign-reservasi .rrcm__head { display: flex; gap: 13px; align-items: flex-start; padding: 18px 20px 14px; border-bottom: 1px solid #F3E6D8; }
+body.redesign-reservasi .rrcm__icon { color: #C0392B; font-size: 21px; margin-top: 2px; }
+body.redesign-reservasi .rrcm__title { margin: 0 0 3px; font-size: 16px; font-weight: 800; color: #461500; }
+body.redesign-reservasi .rrcm__sub { font-size: 12.5px; color: #8A6A52; }
+body.redesign-reservasi .rrcm__body { padding: 16px 20px 18px; }
+body.redesign-reservasi .rrcm__lbl { display: block; font-size: 10.5px; font-weight: 700; letter-spacing: .5px; color: #A9866A; text-transform: uppercase; margin-bottom: 6px; }
+body.redesign-reservasi .rrcm__lbl small { text-transform: none; letter-spacing: 0; font-weight: 400; }
+body.redesign-reservasi .rrcm__req { color: #C0392B; }
+body.redesign-reservasi .rrcm__body .form-control { border: 1px solid #E7D3BE; border-radius: 11px; padding: 11px 13px; font-size: 13.5px; color: #3B1500; height: auto; }
+body.redesign-reservasi .rrcm__body .form-control:focus { border-color: #461500; box-shadow: 0 0 0 .15rem rgba(70, 21, 0, .12); }
+body.redesign-reservasi .rrcm__err { margin-top: 11px; padding: 9px 11px; border-radius: 9px; background: #FBE3DE; color: #A33A29; font-size: 12.5px; font-weight: 600; }
+body.redesign-reservasi .rrcm__foot { display: flex; gap: 10px; padding: 0 20px 20px; }
+body.redesign-reservasi .rrcm__btn { flex: 1; border: 0; border-radius: 11px; padding: 11px 14px; font-size: 13px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 7px; }
+body.redesign-reservasi .rrcm__btn--ghost { background: #F5EDE3; color: #6B4628; }
+body.redesign-reservasi .rrcm__btn--ghost:hover { background: #EDE0D1; }
+body.redesign-reservasi .rrcm__btn--danger { background: #C0392B; color: #fff; }
+body.redesign-reservasi .rrcm__btn--danger:hover { background: #A5301F; }

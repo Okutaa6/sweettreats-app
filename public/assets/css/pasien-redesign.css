@@ -424,6 +424,10 @@ body.redesign-pasien .pxd-tl__v--strong { font-weight: 700; }
 body.redesign-pasien .pxd-tl__procs { display: flex; flex-direction: column; gap: 7px; }
 body.redesign-pasien .pxd-tl__proc { display: flex; align-items: center; gap: 9px; background: #FBF6EF; border: 1px solid #F0E2D2; border-radius: 9px; padding: 9px 12px; font-size: 12.5px; color: var(--px-text); font-weight: 500; }
 body.redesign-pasien .pxd-tl__proc i { color: #2F8E55; font-size: 12px; }
+/* Resep: chip yang sama dengan tindakan, tapi ikonnya ditandai warna lain supaya
+   "yang dikerjakan" (hijau) dan "yang diresepkan" (kuning) tak tertukar saat
+   dokter memindai cepat. */
+body.redesign-pasien .pxd-tl__proc--resep i { color: #B5701A; }
 body.redesign-pasien .pxd-tl__empty-clinical { padding: 10px 0 2px; text-align: center; color: #B0A597; font-size: 12.5px; font-style: italic; }
 body.redesign-pasien .pxd-tl__empty { font-size: 13px; color: var(--px-muted); padding: 10px 0 4px; }
 

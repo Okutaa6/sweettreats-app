@@ -508,6 +508,160 @@ class ReservationController extends Controller
         return back()->withInput()->withErrors($errors);
     }
 
+    // ════════════════════════════════════════════════════════════════════════
+    // JEJAK RESERVASI — alasan batal + riwayat perubahan
+    // (docs/handoff/data-reservasi-2026-09-11.md §7.4, §7.5)
+    // ════════════════════════════════════════════════════════════════════════
+
+    /** Kolom yang perubahannya layak masuk riwayat. Sisanya derau. */
+    private const JEJAK_FIELDS = [
+        'status', 'date', 'start_hour', 'end_hour',
+        'raw_doctor_id', 'raw_branch_id', 'cancel_reason', 'cancel_reason_note',
+    ];
+
+    /**
+     * Validasi alasan batal. Dipanggil dari SEMUA layar yang bisa membatalkan
+     * (form Edit + inline) — memagari cuma satu di antaranya sama saja dengan
+     * tidak memagari: 652 pembatalan tanpa alasan lahir dari lubang seperti itu.
+     *
+     * Alasan diwajibkan hanya pada TRANSISI masuk ke `cancelled`. Menyunting
+     * ulang reservasi yang sudah batal (termasuk 652 baris lama yang alasannya
+     * tak mungkin diisi mundur) tidak dipaksa — memaksanya cuma memblokir
+     * pekerjaan lain di baris yang sama.
+     *
+     * @return array<string,string>|null  errors, atau null kalau lolos
+     */
+    private function validateCancelReason(RawCusReservation $reservation, ?string $newStatus): ?array
+    {
+        $masukBatal = $newStatus === RawCusReservation::STATUS_CANCELLED
+            && $reservation->status !== RawCusReservation::STATUS_CANCELLED;
+
+        if (! $masukBatal) {
+            return null;
+        }
+
+        $reason = trim((string) request('cancel_reason'));
+        $note   = trim((string) request('cancel_reason_note'));
+
+        if ($reason === '') {
+            return ['cancel_reason' => 'Pilih alasan pembatalan — reservasi tidak bisa dibatalkan tanpa alasan.'];
+        }
+        if (! array_key_exists($reason, RawCusReservation::cancelReasonOptions())) {
+            return ['cancel_reason' => 'Alasan pembatalan tidak dikenal.'];
+        }
+        // "Lainnya" tanpa penjelasan = sama tak terpakainya dengan tidak ada
+        // alasan sama sekali; itu justru jadi tempat sampah yang dipilih semua
+        // orang karena paling cepat.
+        if ($reason === RawCusReservation::CANCEL_LAINNYA && $note === '') {
+            return ['cancel_reason_note' => 'Alasan "Lainnya" wajib dijelaskan singkat.'];
+        }
+
+        return null;
+    }
+
+    /**
+     * Nilai kolom alasan batal untuk sebuah perpindahan status.
+     * Keluar dari `cancelled` MENGOSONGKAN alasannya — alasan batal yang
+     * menempel di reservasi yang sudah aktif lagi adalah kebohongan diam-diam.
+     */
+    private function cancelReasonPayload(RawCusReservation $reservation, ?string $newStatus): array
+    {
+        if ($newStatus !== RawCusReservation::STATUS_CANCELLED) {
+            return $reservation->cancel_reason !== null || $reservation->cancel_reason_note !== null
+                ? ['cancel_reason' => null, 'cancel_reason_note' => null]
+                : [];
+        }
+
+        $reason = trim((string) request('cancel_reason'));
+        if ($reason === '') {
+            return []; // reservasi yang memang sudah batal & tak diubah alasannya
+        }
+
+        $note = trim((string) request('cancel_reason_note'));
+        return [
+            'cancel_reason'      => $reason,
+            'cancel_reason_note' => $note !== '' ? mb_substr($note, 0, 255) : null,
+        ];
+    }
+
+    /**
+     * Catat perubahan reservasi ke `audit_log`.
+     *
+     * SENGAJA tidak bikin tabel baru: audit_log sudah punya persis kolom yang
+     * dibutuhkan (user_id, user_name, action, model_type, model_id, description,
+     * old_values, new_values, ip_address, created_at) dan sudah dipakai modul
+     * lain, jadi satu layar riwayat kelak bisa membaca semuanya sekaligus.
+     *
+     * ⚠️ Hanya perubahan SESUDAH hari fitur ini naik yang tercatat. audit_log
+     * punya nol baris reservasi — 6.400 reservasi lama tak bisa diisi mundur.
+     *
+     * Audit gagal ≠ aksi bisnis gagal (pola sama dgn AuditTrailObserver::aman):
+     * kalau insert log error, reservasinya tetap tersimpan.
+     */
+    private function catatJejak(RawCusReservation $reservation, array $sebelum, string $action = 'update'): void
+    {
+        try {
+            $berubah = [];
+            foreach (self::JEJAK_FIELDS as $f) {
+                $lama = $sebelum[$f] ?? null;
+                $baru = $reservation->getAttribute($f);
+                // date di-cast Carbon → bandingkan sebagai string supaya
+                // "2026-09-11" == Carbon(2026-09-11) tidak terbaca berubah.
+                $lamaS = $lama instanceof \DateTimeInterface ? $lama->format('Y-m-d H:i:s') : (string) $lama;
+                $baruS = $baru instanceof \DateTimeInterface ? $baru->format('Y-m-d H:i:s') : (string) $baru;
+                if ($lamaS !== $baruS) {
+                    $berubah[$f] = ['dari' => $lamaS === '' ? null : $lamaS, 'jadi' => $baruS === '' ? null : $baruS];
+                }
+            }
+
+            if ($action === 'update' && ! $berubah) {
+                return; // penyuntingan yang tak menggeser jadwal/status: bukan jejak
+            }
+
+            \App\Models\AuditLog::create([
+                'user_id'    => session('id'),
+                'user_name'  => session('name'),
+                'action'     => $action,
+                'model_type' => 'RawCusReservation',
+                'model_id'   => $reservation->getKey(),
+                'description'=> $this->jejakDeskripsi($reservation, $berubah, $action),
+                'old_values' => array_map(fn ($v) => $v['dari'], $berubah) ?: null,
+                'new_values' => array_map(fn ($v) => $v['jadi'], $berubah) ?: null,
+                'ip_address' => request()->ip(),
+                'created_at' => now(),
+            ]);
+        } catch (\Throwable $e) {
+            report($e);
+        }
+    }
+
+    /** Deskripsi awam — supaya riwayat terbaca tanpa membuka JSON-nya. */
+    private function jejakDeskripsi(RawCusReservation $reservation, array $berubah, string $action): string
+    {
+        $pasien = $reservation->customer?->name ?: 'Pasien';
+
+        if ($action === 'delete') {
+            return 'Reservasi dihapus: ' . $pasien;
+        }
+
+        $kata = [];
+        if (isset($berubah['status'])) {
+            $opts  = RawCusReservation::statusOptions();
+            $label = fn ($s) => $opts[$s]['label'] ?? ($s ?: '-');
+            $t = 'status ' . $label($berubah['status']['dari']) . ' → ' . $label($berubah['status']['jadi']);
+            if ($berubah['status']['jadi'] === RawCusReservation::STATUS_CANCELLED && $reservation->cancel_reason) {
+                $t .= ' (' . $reservation->cancel_reason_label . ')';
+            }
+            $kata[] = $t;
+        }
+        if (isset($berubah['date']))          $kata[] = 'tanggal ' . substr((string) $berubah['date']['dari'], 0, 10) . ' → ' . substr((string) $berubah['date']['jadi'], 0, 10);
+        if (isset($berubah['start_hour']))    $kata[] = 'jam ' . ($berubah['start_hour']['dari'] ?: '-') . ' → ' . ($berubah['start_hour']['jadi'] ?: '-');
+        if (isset($berubah['raw_doctor_id'])) $kata[] = 'dokter diganti';
+        if (isset($berubah['raw_branch_id'])) $kata[] = 'cabang dipindah';
+
+        return 'Reservasi ' . $pasien . ': ' . ($kata ? implode(', ', $kata) : 'diubah');
+    }
+
     public function create()
     {
         $this->abortIfViewOnly();
@@ -801,6 +955,11 @@ class ReservationController extends Controller
                 'raw_promo_id'       => request('raw_promo_id'),
                 'marketing_promo_id' => request('marketing_promo_id'),
                 'created_at'         => now(),
+                // Jejak: siapa yang MEMBUAT. `updated_by` yang sudah ada cuma
+                // menyimpan penyunting TERAKHIR, jadi selama ini pembuatnya
+                // hilang begitu orang lain menyentuh barisnya.
+                'created_by'         => session('id'),
+                'created_via'        => RawCusReservation::VIA_ADMIN,
             ]);
             $reservationId = $reservation->id;
 
@@ -1054,8 +1213,18 @@ class ReservationController extends Controller
             $newStatus = RawCusReservation::STATUS_PENDING;
         }
 
-        \Illuminate\Support\Facades\DB::transaction(function () use ($reservation, $id, $newStatus) {
-            $reservation->update([
+        // Pembatalan wajib beralasan — dari layar MANA PUN (lihat juga
+        // updateInline()). Dicek sebelum menyentuh DB.
+        if ($errors = $this->validateCancelReason($reservation, $newStatus)) {
+            return $this->validationErrorResponse($errors);
+        }
+
+        // Potret nilai lama untuk riwayat — HARUS diambil sebelum update().
+        $sebelum = $reservation->getOriginal();
+        $cancelPayload = $this->cancelReasonPayload($reservation, $newStatus);
+
+        \Illuminate\Support\Facades\DB::transaction(function () use ($reservation, $id, $newStatus, $cancelPayload) {
+            $reservation->update($cancelPayload + [
                 'raw_branch_id'   => request('raw_branch_id'),
                 'raw_customer_id' => request('raw_customer_id'),
                 'raw_doctor_id'   => request('raw_doctor_id'),
@@ -1154,6 +1323,9 @@ class ReservationController extends Controller
         // Kalau reservasi baru saja DIBATALKAN, slotnya kosong → tawarkan
         // assign pasien waiting list di dokter+tanggal yang sama. Dihitung sekali,
         // dipakai untuk response JSON (drawer) maupun redirect (page).
+        // Riwayat: satu baris audit_log kalau jadwal/status benar-benar bergeser.
+        $this->catatJejak($reservation, $sebelum);
+
         $waitlistPrompt = null;
         if (request('status') === RawCusReservation::STATUS_CANCELLED) {
             $reservation->refresh();
@@ -1244,11 +1416,33 @@ class ReservationController extends Controller
             return response()->json(['success' => false, 'message' => 'Field tidak valid'], 422);
         }
     
+        // Pembatalan wajib beralasan JUGA dari jalur inline. Jalur ini yang
+        // paling sering dipakai (drawer Detail + tombol Batal di footer), jadi
+        // memagari cuma form Edit berarti pagarnya tak pernah kena apa-apa.
+        if ($field === 'status') {
+            if ($errors = $this->validateCancelReason($reservation, (string) $value)) {
+                return response()->json([
+                    'success'       => false,
+                    'ok'            => false,
+                    'need_reason'   => $reservation->status !== RawCusReservation::STATUS_CANCELLED,
+                    'message'       => reset($errors),
+                    'errors'        => $errors,
+                ], 422);
+            }
+        }
+
+        // Potret nilai lama untuk riwayat — sebelum update().
+        $sebelum = $reservation->getOriginal();
+
         $updates = [
             $field       => $value,
             'updated_at' => now(),
             'updated_by' => session('id'),
         ];
+
+        if ($field === 'status') {
+            $updates += $this->cancelReasonPayload($reservation, (string) $value);
+        }
 
         // Saat status diubah ke Waiting List: bebaskan slot jamnya (samakan dgn
         // cara reservasi waitlist dibuat — tanpa jam, is_waiting=1) supaya jam itu
@@ -1265,6 +1459,8 @@ class ReservationController extends Controller
         }
 
         $reservation->update($updates);
+
+        $this->catatJejak($reservation, $sebelum);
 
         return response()->json(['success' => true]);
     }
@@ -1297,7 +1493,12 @@ class ReservationController extends Controller
     public function destroy($id)
     {
         $this->abortIfViewOnly();
-        $reservation = RawCusReservation::with('commission', 'services')->findOrFail($id);
+        $reservation = RawCusReservation::with('commission', 'services', 'customer')->findOrFail($id);
+
+        // Jejak dicatat SEBELUM baris hilang — sesudah delete, tak ada lagi yang
+        // bisa dibaca. Penghapusan adalah satu-satunya perubahan yang tak
+        // meninggalkan bukti apa pun di tabelnya sendiri.
+        $this->catatJejak($reservation, $reservation->getOriginal(), 'delete');
 
         \Illuminate\Support\Facades\DB::transaction(function () use ($reservation) {
             // 1. Hapus komisi yang terkait (penyebab utama error)
