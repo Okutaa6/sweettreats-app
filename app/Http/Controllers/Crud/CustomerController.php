@@ -510,6 +510,14 @@ class CustomerController extends Controller
          * cuma rupa: "...di distal 24</div><div>ra ganti niti" jadi "distal 24ra".
          * Terukur 262 kolom (1,6%).
          *
+         * ⛔ PEMBUKA **DAN** PENUTUP, jangan cuma penutup. Versi pertama
+         * perbaikan ini hanya menangkap `</div>`/`</p>`/`</li>`, sehingga
+         * `kontrol 24<div>ganti kawat</div>` tetap jadi "kontrol 24ganti kawat" —
+         * bug yang SAMA, cuma sisi lain. Ditemukan audit HUB atas 99bce72;
+         * 4 rekam prod nyata terkena dan semuanya mengubah arti
+         * (mis. "pc ra" + "pasang 37,47" jadi "pc rapasang 37,47").
+         * `\b` menjaga `<divider>` dan `<pre>` tidak ikut tertangkap.
+         *
          * Yang diubah jadi baris HANYA tag blok (br/div/p/li/tr). `<i>`, `<span>`
          * dan `<ul>` sengaja TIDAK — itu inline/pembungkus, memecahnya justru
          * memotong kalimat yang utuh. (Prod 2026: br 10.038 · div 1.820 ·
@@ -531,7 +539,7 @@ class CustomerController extends Controller
                 return null;
             }
 
-            $v = preg_replace('~<\s*(?:br|/\s*(?:div|p|li|tr))\b[^>]*>~i', "\n", $v);
+            $v = preg_replace('~<\s*/?\s*(?:br|div|p|li|tr)\b[^>]*>~i', "\n", $v);
             $v = strip_tags($v);
             $v = html_entity_decode($v, ENT_QUOTES | ENT_HTML5, 'UTF-8');
 

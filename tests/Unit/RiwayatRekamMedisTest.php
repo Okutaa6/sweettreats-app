@@ -135,6 +135,48 @@ class RiwayatRekamMedisTest extends TestCase
     }
 
     /**
+     * ⛔ Tag PEMBUKA juga harus memisahkan baris, bukan cuma penutup.
+     *
+     * Perbaikan putaran pertama (`99bce72`) hanya menangkap `</div>`/`</p>`/
+     * `</li>`, jadi `kontrol 24<div>ganti kawat</div>` MASIH menempel jadi
+     * "kontrol 24ganti kawat" — bug yang sama persis, cuma sisi lain.
+     * Ditemukan audit HUB; 4 rekam prod nyata terkena, semuanya mengubah arti.
+     *
+     * @dataProvider tagPembuka
+     */
+    public function test_tag_pembuka_juga_memisahkan_baris(string $asli, array $harap): void
+    {
+        $this->assertSame($harap, explode("\n", $this->rekam([['diagnose_note' => $asli]])->diagnosa));
+    }
+
+    public static function tagPembuka(): array
+    {
+        return [
+            'div pembuka'   => ['kontrol 24<div>ganti kawat</div>', ['kontrol 24', 'ganti kawat']],
+            'p pembuka'     => ['teks A<p>teks B</p>', ['teks A', 'teks B']],
+            'li beruntun'   => ['<li>satu<li>dua', ['satu', 'dua']],
+            'kasus prod'    => [
+                'ligature 16-15 &amp; 25-27, pc ra<div>pasang 37,47 niti rb 12</div>',
+                ['ligature 16-15 & 25-27, pc ra', 'pasang 37,47 niti rb 12'],
+            ],
+            // div bersarang tak boleh melahirkan baris kosong berlebih
+            'div bersarang' => ['<div><div>a</div><div>b</div></div>', ['a', 'b']],
+        ];
+    }
+
+    /**
+     * `\b` menjaga tag lain yang KEBETULAN berawalan sama — `<divider>` bukan
+     * `<div>`, `<pre>` bukan `<p>`. Kalau ini pecah, kalimat utuh ikut terpotong.
+     */
+    public function test_tag_berawalan_mirip_tidak_ikut_dipecah(): void
+    {
+        $item = $this->rekam([['diagnose_note' => '<divider>bukan div</divider> dan <pre>bukan p</pre>']]);
+
+        $this->assertStringNotContainsString("\n", $item->diagnosa);
+        $this->assertSame('bukan div dan bukan p', $item->diagnosa);
+    }
+
+    /**
      * `&nbsp;` jadi U+00A0 setelah decode, dan `trim()` PHP TIDAK membuangnya —
      * 855 kolom (5,3%) menyisakan spasi tak terlihat di ujung.
      */
