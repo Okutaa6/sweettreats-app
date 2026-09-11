@@ -883,10 +883,20 @@ class DigitalChecklistController extends Controller
             return back()->with('error', 'Hanya checklist berstatus Dikecualikan yang bisa dibatalkan.');
         }
 
+        // Pengecualian otomatis dari cuti/izin yang disetujui: menolak terang-
+        // terangan lebih baik daripada membiarkannya "berhasil" lalu dipasang
+        // ulang diam-diam oleh reconcile saat karyawan membuka halamannya —
+        // supervisor akan mengira sistem mengabaikan keputusannya.
+        if ($sub->isSystemExcused()) {
+            return back()->with('error', 'Pengecualian ini otomatis dari pengajuan cuti/izin yang disetujui — batalkan pengajuannya di modul Kehadiran bila keliru.');
+        }
+
         $before = ['status' => $sub->status, 'excuse_reason' => $sub->excuse_reason];
         $sub->update([
             'status'        => ChecklistSubmission::STATUS_DRAFT,
             'excuse_reason' => null,
+            'excuse_source' => ChecklistSubmission::EXCUSE_SOURCE_MANUAL,
+            'excuse_ref_id' => null,
             'updated_at'    => now(),
         ]);
         ChecklistAuditLog::write('submission', $sub->id, ChecklistAuditLog::ACTION_REOPEN,

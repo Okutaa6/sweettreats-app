@@ -219,12 +219,22 @@
                 </div>
             @elseif($isExcused)
                 <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
-                    <form method="POST" action="{{ route('checklist.review.excuse.revoke', $submission->id) }}" style="display:inline"
-                          onsubmit="return confirm('Batalkan pengecualian ini? Karyawan akan diminta mengisi checklist.');">
-                        @csrf @method('PATCH')
-                        <button type="submit" class="rvd-act" style="background:#fff;color:#C0392B;border:1.5px solid #E0A79D;border-radius:11px;padding:11px 20px;font-weight:800;font-size:13px;font-family:inherit;cursor:pointer">Batalkan Pengecualian</button>
-                    </form>
-                    <span style="font-size:12.5px;color:#9A7256">Karyawan menandai hari ini tidak perlu diisi. Batalkan bila tidak valid.</span>
+                    @if($submission->isSystemExcused())
+                        {{-- Otomatis dari cuti/izin approved. Tombol batal sengaja tidak ada:
+                             pengecualiannya akan dipasang ulang oleh reconcile, jadi yang perlu
+                             dikoreksi adalah pengajuannya, bukan checklist-nya. --}}
+                        <span style="font-size:12.5px;color:#9A7256">
+                            <i class="fas fa-lock"></i>
+                            Pengecualian otomatis dari pengajuan cuti/izin yang disetujui — koreksinya lewat modul Kehadiran.
+                        </span>
+                    @else
+                        <form method="POST" action="{{ route('checklist.review.excuse.revoke', $submission->id) }}" style="display:inline"
+                              onsubmit="return confirm('Batalkan pengecualian ini? Karyawan akan diminta mengisi checklist.');">
+                            @csrf @method('PATCH')
+                            <button type="submit" class="rvd-act" style="background:#fff;color:#C0392B;border:1.5px solid #E0A79D;border-radius:11px;padding:11px 20px;font-weight:800;font-size:13px;font-family:inherit;cursor:pointer">Batalkan Pengecualian</button>
+                        </form>
+                        <span style="font-size:12.5px;color:#9A7256">Karyawan menandai hari ini tidak perlu diisi. Batalkan bila tidak valid.</span>
+                    @endif
                 </div>
             @endif
         </div>

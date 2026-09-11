@@ -69,13 +69,15 @@ class MyChecklistController extends Controller
                 'userName'      => Users::find(session('id'))?->nama ?? 'Rekan',
                 'submission'    => null,
                 'grouped'       => collect(),
-                'today'         => Carbon::today(),
+                'today'         => checklistOperationalDate(),
                 'progress'      => ['done' => 0, 'total' => 0, 'pct' => 0],
                 'rejectedNote'  => null,
             ]);
         }
 
-        $today   = Carbon::today();
+        // "Hari ini" versi checklist: berganti jam 06:00, bukan tengah malam —
+        // sebelum jam 6 pagi yang terbuka masih checklist tanggal kemarin.
+        $today   = checklistOperationalDate();
         $minDate = $today->copy()->subDays(60);   // batas mundur navigasi/permintaan
 
         // Tanggal yang ditampilkan (default hari ini). Bisa mundur ke tanggal
@@ -136,6 +138,22 @@ class MyChecklistController extends Controller
                 $this->bootstrapItems($submission, $position->division_id, $position->raw_branch_id);
             } elseif ($submission->isEditable()) {
                 $this->reconcileItems($submission, $position->division_id, $position->raw_branch_id);
+            }
+
+            // Terapkan pengecualian dari cuti/izin/sakit approved yang menutupi
+            // tanggal ini (menghormati cuti yang disetujui SEBELUM baris ini
+            // dibuat, dan hook approval yang gagal diam-diam). Idempoten; gagal
+            // tak boleh menggagalkan render — sama polanya dengan weekForm().
+            // HANYA hari ini: tanggal lampau yang sedang "dibuka kembali" sengaja
+            // dilewati — atasan sudah memutuskan orang ini tetap harus mengisi.
+            if ($isToday) {
+                try {
+                    app(\App\Services\ChecklistExcuseService::class)
+                        ->reconcileDailyDate(session('id'), $viewDate);
+                    $submission->refresh();
+                } catch (\Throwable $e) {
+                    // biarkan — halaman tetap tampil; reconcile ulang lain kali
+                }
             }
         } else {
             $submission = ChecklistSubmission::where('user_id', session('id'))
@@ -201,6 +219,11 @@ class MyChecklistController extends Controller
             'today'        => $viewDate,      // tanggal yang ditampilkan (bisa lampau)
             'realToday'    => $today,
             'isToday'      => $isToday,
+            // Sedang di jendela 00:00–05:59: "hari ini" masih tanggal kemarin.
+            // Dipakai blade untuk memberi tahu batas 06:00, supaya tag "Hari ini"
+            // di atas tanggal kemarin tidak terbaca seperti bug.
+            'isGraceWindow'=> ! $today->isSameDay(Carbon::today()),
+            'cutoffHour'   => ChecklistSubmission::DAY_CUTOFF_HOUR,
             'isReopen'     => $isReopen,
             'reopenGrant'  => $reopenGrant,
             'reopenState'  => $reopenState,
@@ -444,9 +467,10 @@ class MyChecklistController extends Controller
 
     public function submit(Request $request)
     {
-        // Default hari ini; tanggal lampau hanya boleh bila ada grant "buka
-        // kembali" yang aktif (disetujui atasan & belum dipakai).
-        $today = Carbon::today();
+        // Default hari checklist berjalan (berganti 06:00, bukan tengah malam);
+        // tanggal lampau hanya boleh bila ada grant "buka kembali" yang aktif
+        // (disetujui atasan & belum dipakai).
+        $today = checklistOperationalDate();
         $date  = $today;
         $grant = null;
         if ($request->filled('date')) {
@@ -527,7 +551,7 @@ class MyChecklistController extends Controller
     public function reopenSelf(Request $request)
     {
         $sub = ChecklistSubmission::where('user_id', session('id'))
-            ->whereDate('submission_date', Carbon::today())
+            ->whereDate('submission_date', checklistOperationalDate())
             ->firstOrFail();
 
         if ($sub->status !== ChecklistSubmission::STATUS_REJECTED) {
@@ -555,7 +579,7 @@ class MyChecklistController extends Controller
     public function excuseToday(Request $request)
     {
         $sub = ChecklistSubmission::where('user_id', session('id'))
-            ->whereDate('submission_date', Carbon::today())
+            ->whereDate('submission_date', checklistOperationalDate())
             ->firstOrFail();
 
         if (! $sub->isEditable()) {
@@ -575,6 +599,11 @@ class MyChecklistController extends Controller
         $sub->update([
             'status'        => ChecklistSubmission::STATUS_EXCUSED,
             'excuse_reason' => $data['excuse_reason'],
+            // Tulis eksplisit, jangan andalkan default kolom: baris ini bisa saja
+            // bekas pengecualian sistem yang sudah dicabut — kalau source-nya
+            // ikut tertinggal 'system', alasan karyawan jadi tak bisa dibatalkan.
+            'excuse_source' => ChecklistSubmission::EXCUSE_SOURCE_MANUAL,
+            'excuse_ref_id' => null,
             'submitted_at'  => null,
             'updated_at'    => now(),
         ]);
@@ -609,17 +638,27 @@ class MyChecklistController extends Controller
     public function unexcuseToday(Request $request)
     {
         $sub = ChecklistSubmission::where('user_id', session('id'))
-            ->whereDate('submission_date', Carbon::today())
+            ->whereDate('submission_date', checklistOperationalDate())
             ->firstOrFail();
 
         if ($sub->status !== ChecklistSubmission::STATUS_EXCUSED) {
             return back()->with('error', 'Checklist ini tidak dalam status Dikecualikan.');
         }
 
+        // Pengecualian otomatis dari cuti/izin (source=system) TIDAK boleh
+        // dibatalkan karyawan — reconcile akan memasangnya lagi begitu halaman
+        // dibuka, jadi "pembatalan" cuma jadi ilusi. Sejajar dengan guard
+        // dayUnexcuse() pada Form Mingguan.
+        if ($sub->isSystemExcused()) {
+            return back()->with('error', 'Pengecualian ini otomatis dari cuti/izin yang disetujui — tidak bisa dibatalkan manual.');
+        }
+
         $before = ['status' => $sub->status];
         $sub->update([
             'status'        => ChecklistSubmission::STATUS_DRAFT,
             'excuse_reason' => null,
+            'excuse_source' => ChecklistSubmission::EXCUSE_SOURCE_MANUAL,
+            'excuse_ref_id' => null,
             'updated_at'    => now(),
         ]);
         ChecklistAuditLog::write('submission', $sub->id, ChecklistAuditLog::ACTION_REOPEN,
@@ -655,8 +694,12 @@ class MyChecklistController extends Controller
             'reason.min'      => 'Alasan terlalu pendek — jelaskan sedikit (min. 3 karakter).',
         ]);
 
-        $today = Carbon::today();
-        $uid   = session('id');
+        // Mingguan tetap memakai tanggal kalender; hanya alur HARIAN yang ikut
+        // batas 06:00 (kalau tidak, Senin dini hari currentWeekStart ikut mundur
+        // sepekan dan permintaan minggu lalu jadi ditolak).
+        $today      = Carbon::today();
+        $dailyToday = checklistOperationalDate();
+        $uid        = session('id');
 
         $attrs = [
             'id'            => (string) Str::uuid(),
@@ -674,13 +717,13 @@ class MyChecklistController extends Controller
                 return back()->with('error', 'Tanggal target wajib diisi.');
             }
             $date = Carbon::parse($data['target_date'])->startOfDay();
-            if (! $date->lt($today)) {
-                return back()->with('error', 'Hanya tanggal yang sudah lewat yang bisa diminta buka.');
+            if (! $date->lt($dailyToday)) {
+                return back()->with('error', 'Hanya tanggal yang sudah lewat yang bisa diminta buka — checklist kemarin masih terbuka sampai jam ' . ChecklistSubmission::DAY_CUTOFF_HOUR . ' pagi.');
             }
             if ($date->dayOfWeekIso === 1) {
                 return back()->with('error', 'Senin klinik tutup — tidak ada checklist harian untuk hari itu.');
             }
-            if ($date->lt($today->copy()->subDays(60))) {
+            if ($date->lt($dailyToday->copy()->subDays(60))) {
                 return back()->with('error', 'Maksimal 60 hari ke belakang.');
             }
             if (ChecklistReopenRequest::hasOpenRequestDaily($uid, $date)) {
@@ -1145,7 +1188,8 @@ class MyChecklistController extends Controller
     /**
      * Upload foto before/after OPSIONAL untuk 1 item Form Mingguan.
      * Hanya untuk item ber-mode before/after (task->photo_before_after, di setup
-     * hanya ditawarkan untuk GS). Slot: 'before' | 'after'. Tidak memblokir centang
+     * hanya ditawarkan untuk ChecklistDivision::PHOTO_BA_DIVISIONS). Slot:
+     * 'before' | 'after'. Tidak memblokir centang
      * dan tidak auto-menandai selesai — murni dokumentasi.
      */
     public function weekUploadBaPhoto(Request $request, string $id, string $slot)

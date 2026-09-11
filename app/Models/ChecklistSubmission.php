@@ -29,6 +29,7 @@ class ChecklistSubmission extends Model
         'id', 'user_id', 'division_id', 'raw_branch_id', 'submission_date',
         'status', 'total_tasks', 'done_tasks',
         'reviewer_user_id', 'review_notes', 'excuse_reason',
+        'excuse_source', 'excuse_ref_id',
         'submitted_at', 'reviewed_at', 'created_at', 'updated_at',
     ];
 
@@ -48,6 +49,22 @@ class ChecklistSubmission extends Model
     const STATUS_REJECTED  = 'rejected';
     const STATUS_MISSED    = 'missed';
     const STATUS_EXCUSED   = 'excused';
+
+    /**
+     * Jam tutup hari checklist. "Hari checklist" berjalan 06:00 → 06:00, bukan
+     * tengah malam: klinik sering baru beres larut, dan sebelum ini pengisian
+     * terpotong tepat saat cron 00:10 mencap "Tidak Diisi". Jadi sebelum jam 6
+     * pagi yang terbuka MASIH checklist tanggal kemarin.
+     *
+     * Dipakai lewat helper checklistOperationalDate() — jangan bandingkan jam
+     * secara manual di tempat lain.
+     */
+    const DAY_CUTOFF_HOUR = 6;
+
+    /** Pengecualian dibuat karyawan sendiri (tombol "hari ini tidak perlu diisi"). */
+    const EXCUSE_SOURCE_MANUAL = 'manual';
+    /** Pengecualian otomatis dari cuti/izin/sakit approved (ChecklistExcuseService). */
+    const EXCUSE_SOURCE_SYSTEM = 'system';
 
     public static function statusOptions(): array
     {
@@ -105,6 +122,21 @@ class ChecklistSubmission extends Model
     public function isEditable(): bool
     {
         return in_array($this->status, [self::STATUS_DRAFT, self::STATUS_REJECTED], true);
+    }
+
+    /**
+     * Pengecualian OTOMATIS dari cuti/izin/sakit yang disetujui — tak boleh
+     * dibatalkan manual (karyawan maupun supervisor): reconcile akan memasangnya
+     * lagi begitu halaman dibuka, jadi pembatalan manual cuma jadi ilusi.
+     * Cabutnya lewat menolak/mencabut pengajuannya di modul Kehadiran.
+     *
+     * Aman di DB yang belum di-apply 2026_09_03_daily_excuse_source.sql —
+     * kolomnya null → dianggap manual (perilaku lama).
+     */
+    public function isSystemExcused(): bool
+    {
+        return $this->status === self::STATUS_EXCUSED
+            && ($this->excuse_source ?? self::EXCUSE_SOURCE_MANUAL) === self::EXCUSE_SOURCE_SYSTEM;
     }
 
     public function user()

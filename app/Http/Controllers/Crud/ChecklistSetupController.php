@@ -208,8 +208,9 @@ class ChecklistSetupController extends Controller
         $this->abortIfDivisionOutOfScope($cat->division_id);
 
         // Untuk kategori mingguan, hari wajib. Untuk harian, paksa NULL.
-        // Foto hanya berlaku untuk kategori mingguan. Mode before/after khusus GS,
-        // dan mengimplikasikan requires_photo=1. weeks_of_month (rotasi bulanan)
+        // Foto hanya berlaku untuk kategori mingguan. Mode before/after hanya untuk
+        // divisi tertentu (GS & Asdent), dan mengimplikasikan requires_photo=1.
+        // weeks_of_month (rotasi bulanan)
         // hanya untuk mingguan; harian selalu NULL.
         if ($cat->isWeekly()) {
             $dayOfWeek = (int) ($data['day_of_week'] ?? 0);
@@ -252,13 +253,15 @@ class ChecklistSetupController extends Controller
 
     /**
      * Normalisasi mode foto dari input form. Mengembalikan [requires_photo, photo_before_after].
-     * - Mode before/after hanya ditawarkan untuk divisi GS.
+     * - Mode before/after hanya ditawarkan untuk divisi di ChecklistDivision::PHOTO_BA_DIVISIONS.
      * - before/after=1 mengimplikasikan requires_photo=1.
      */
     private function normalizePhotoMode(?string $divisionId, array $data): array
     {
         $requiresPhoto = (int) ($data['requires_photo'] ?? 0);
-        $beforeAfter   = ($divisionId === 'GS') ? (int) ($data['photo_before_after'] ?? 0) : 0;
+        $beforeAfter   = ChecklistDivision::supportsPhotoBeforeAfter($divisionId)
+            ? (int) ($data['photo_before_after'] ?? 0)
+            : 0;
         if ($beforeAfter) $requiresPhoto = 1;
         return [$requiresPhoto, $beforeAfter];
     }

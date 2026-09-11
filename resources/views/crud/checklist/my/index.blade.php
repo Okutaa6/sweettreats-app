@@ -901,7 +901,17 @@
                     <div class="cl-dn__center">
                         <div class="cl-dn__date">{{ $today->translatedFormat('l, d M Y') }}</div>
                         @if($isToday ?? true)
-                            <span class="cl-dn__tag">Hari ini</span>
+                            @if($isGraceWindow ?? false)
+                                {{-- Jam 00:00–05:59: yang terbuka masih checklist tanggal
+                                     KEMARIN. Tanpa keterangan ini, tag "Hari ini" di atas
+                                     tanggal kemarin terbaca seperti bug. --}}
+                                <span class="cl-dn__tag cl-dn__tag--grace">
+                                    <i class="fas fa-hourglass-half"></i>
+                                    Masih bisa diisi sampai {{ sprintf('%02d:00', $cutoffHour ?? 6) }}
+                                </span>
+                            @else
+                                <span class="cl-dn__tag">Hari ini</span>
+                            @endif
                         @else
                             <a href="{{ route('mychecklist') }}" class="cl-dn__back"><i class="fas fa-rotate-left"></i> Kembali ke hari ini</a>
                         @endif
@@ -921,6 +931,7 @@
                     .cl-dn__center { flex:1; min-width:0; text-align:center; display:flex; flex-direction:column; align-items:center; gap:3px; }
                     .cl-dn__date { font-size:13.5px; font-weight:800; color:#3B1500; line-height:1.2; }
                     .cl-dn__tag { font-size:10.5px; font-weight:800; color:#2F8E55; background:#E3F4E8; border-radius:20px; padding:2px 10px; }
+                    .cl-dn__tag--grace { color:#8A5A2B; background:#F6EEDF; display:inline-flex; align-items:center; gap:5px; }
                     .cl-dn__back { font-size:11.5px; font-weight:700; color:#8A3A12; text-decoration:none; display:inline-flex; align-items:center; gap:5px; }
                     .cl-dn__back:hover { text-decoration:underline; }
                     @media (max-width:560px){ .cl-dn__nav { padding:7px 10px; font-size:11.5px; } }
@@ -1077,13 +1088,21 @@
                         <div style="flex:1;">
                             <strong>Checklist hari ini ditandai "Dikecualikan" — tidak perlu diisi.</strong>
                             <div style="margin-top:4px;">Alasan: {{ $submission->excuse_reason }}</div>
-                            <form method="POST" action="{{ route('mychecklist.unexcuse') }}" style="margin-top:10px;"
-                                  data-confirm="Batalkan pengecualian dan isi checklist seperti biasa?">
-                                @csrf
-                                <button type="submit" class="st-btn-brand" style="font-size:12.5px; padding:6px 14px;">
-                                    <i class="fas fa-undo"></i> Batalkan, isi checklist
-                                </button>
-                            </form>
+                            @if($submission->isSystemExcused())
+                                {{-- Otomatis dari cuti/izin approved: tak ada tombol batal — reconcile
+                                     akan memasangnya lagi, jadi tombolnya cuma menipu. --}}
+                                <div style="margin-top:8px; font-size:12px; opacity:.85;">
+                                    <i class="fas fa-lock"></i> Otomatis dari pengajuan cuti/izin yang disetujui — tidak perlu dibatalkan.
+                                </div>
+                            @else
+                                <form method="POST" action="{{ route('mychecklist.unexcuse') }}" style="margin-top:10px;"
+                                      data-confirm="Batalkan pengecualian dan isi checklist seperti biasa?">
+                                    @csrf
+                                    <button type="submit" class="st-btn-brand" style="font-size:12.5px; padding:6px 14px;">
+                                        <i class="fas fa-undo"></i> Batalkan, isi checklist
+                                    </button>
+                                </form>
+                            @endif
                         </div>
                     </div>
                 @endif
@@ -1242,7 +1261,7 @@
                 {{-- ─── SUBMIT FOOTER (modern) ─── --}}
                 @if($submission->isEditable() && $grouped->isNotEmpty())
                     <form method="POST" action="{{ route('mychecklist.submit') }}"
-                          data-confirm="Submit checklist {{ ($isReopen ?? false) ? $today->translatedFormat('d M Y') : 'hari ini' }}? Setelah submit, anda tidak bisa edit lagi sampai supervisor review.">
+                          data-confirm="Submit checklist {{ (($isReopen ?? false) || ($isGraceWindow ?? false)) ? $today->translatedFormat('d M Y') : 'hari ini' }}? Setelah submit, anda tidak bisa edit lagi sampai supervisor review.">
                         @csrf
                         @if($isReopen ?? false)<input type="hidden" name="date" value="{{ $today->toDateString() }}">@endif
                         <div class="cl-mod-submit">

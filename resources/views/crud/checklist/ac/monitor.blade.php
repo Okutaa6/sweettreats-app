@@ -36,7 +36,7 @@
         </div>
 
         {{-- ─── TAB CABANG ─── --}}
-         @if(canSeeAllBranches() && $branches->count())
+         @if($branches->count())
             <div class="ac-btabs">
                  @foreach($branches as $b)
                     <a href="{{ route('checklist.ac', ['branch' => $b->id]) }}"

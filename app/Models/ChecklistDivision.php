@@ -29,6 +29,24 @@ class ChecklistDivision extends Model
     const GS     = 'GS';
     const ASDENT = 'ASDENT';
 
+    /**
+     * Divisi yang boleh memakai mode foto before/after pada tugas MINGGUAN.
+     * GS (mis. cuci AC: kotor → bersih) sejak awal; Asdent menyusul karena
+     * pekerjaan sterilisasi/preparasi ruang juga butuh bukti sebelum-sesudah.
+     *
+     * Satu-satunya sumber kebenaran — dipakai controller (validasi) DAN blade
+     * (menampilkan checkbox). Dua daftar terpisah pasti berselisih suatu hari,
+     * dan selisihnya muncul sebagai checkbox yang tampil tapi diam-diam
+     * dibuang saat disimpan.
+     */
+    const PHOTO_BA_DIVISIONS = [self::GS, self::ASDENT];
+
+    public static function supportsPhotoBeforeAfter(?string $divisionId): bool
+    {
+        return $divisionId !== null
+            && in_array($divisionId, self::PHOTO_BA_DIVISIONS, true);
+    }
+
     public function categories()
     {
         return $this->hasMany(ChecklistCategory::class, 'division_id', 'id');
