@@ -87,11 +87,32 @@ class AuthController extends Controller
                 // Dari HP, mendarat di Absensi Saya (lihat landingUntukPerangkat).
                 return redirect()->to(landingUntukPerangkat($user->landing_page, $user->group_id));
             } else {
-                return redirect()->back()->with('error', 'Email or password is incorrect')->withInput();
+                return $this->gagalMasuk();
             }
         } else {
-            return redirect()->back()->with('error', 'Email tidak terdaftar, atau akun belum aktif')->withInput();
+            return $this->gagalMasuk();
         }
+    }
+
+    /**
+     * SATU pesan untuk semua sebab gagal masuk.
+     *
+     * Dulu dua: "Email or password is incorrect" kalau sandinya salah, dan
+     * "Email tidak terdaftar, atau akun belum aktif" kalau emailnya tak ada.
+     * Bedanya itu menjawab pertanyaan yang tidak seharusnya dijawab ke orang
+     * yang belum membuktikan apa pun: **email ini terdaftar atau tidak.** Dengan
+     * itu, daftar email karyawan bisa disusun dari luar tanpa menebak satu sandi
+     * pun — dan daftar itu yang jadi bahan phishing.
+     *
+     * Kalimatnya sengaja menyebut jalan keluar: orang yang akunnya memang
+     * dinonaktifkan tidak akan berputar-putar menebak sandinya sendiri.
+     */
+    private function gagalMasuk()
+    {
+        return redirect()->back()
+            ->with('error', 'Email atau kata sandi salah. Kalau yakin sudah benar, '
+                          . 'akun kamu mungkin belum aktif — hubungi IT.')
+            ->withInput();
     }
 
     public function forgotPassword()
@@ -121,11 +142,18 @@ class AuthController extends Controller
             Users::where('email', request('email'))->update(['reset_token' => $token]);
 
             Mail::to(request('email'))->send(new ForgotPassword($user, $token));
-
-            return redirect()->route('signin')->with('success', 'New password has been sent to your email');
-        } else {
-            return redirect()->back()->with('error', 'Email not found');
         }
+
+        // Jawaban SAMA untuk email yang ada maupun tidak.
+        //
+        // Sebelumnya "Email not found" vs "New password has been sent" —
+        // halaman lupa-sandi jadi alat memeriksa email mana yang terdaftar,
+        // tanpa perlu tahu sandi siapa pun. Kalimat bersyarat ("kalau
+        // terdaftar") tetap jujur kepada pemilik akun yang sah: dia tetap
+        // menerima emailnya.
+        return redirect()->route('signin')->with('success',
+            'Kalau email itu terdaftar, tautan untuk mengatur ulang kata sandi sudah dikirim ke sana. '
+            . 'Cek juga folder spam.');
     }
 
     public function resetPassword($token)

@@ -13,6 +13,9 @@
 
     <style>
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+        /* Perangkap bot: disembunyikan lewat posisi, bukan display:none —
+           sebagian bot melewati yang display:none tapi mengisi yang "ada". */
+        .aff-jebakan { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
         body { font-family: 'Montserrat', sans-serif; color: #3a2a1a; background: linear-gradient(165deg, #fffaf5 0%, #fef0e2 50%, #fce8d4 100%); min-height: 100vh; }
         a { text-decoration: none; color: inherit; }
         .container { max-width: 780px; margin: 0 auto; padding: 0 24px; }
@@ -201,6 +204,15 @@
 
                 <form method="POST" action="{{ route('affiliate.register.process') }}" id="registerForm" novalidate>
                     @csrf
+
+                    {{-- Perangkap bot — manusia tak pernah melihat kolom ini.
+                         Namanya sengaja bukan "email"/"website" supaya autofill
+                         peramban tidak mengisinya dan menolak pendaftar sungguhan. --}}
+                    <div class="aff-jebakan" aria-hidden="true">
+                        <label for="affCatatanTambahan">Jangan diisi</label>
+                        <input type="text" name="catatan_tambahan" id="affCatatanTambahan"
+                               value="" tabindex="-1" autocomplete="off">
+                    </div>
 
                     {{-- ─── STEP 1: PILIH SCOPE ─── --}}
                     <div class="step-pane is-active" data-step-pane="1">

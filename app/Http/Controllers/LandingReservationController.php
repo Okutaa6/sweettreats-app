@@ -22,6 +22,35 @@ class LandingReservationController extends Controller
 
     public function store()
     {
+        // ── Perangkap bot ────────────────────────────────────────────────
+        // Kolom `catatan_tambahan` tersembunyi di formulir; manusia tak pernah
+        // melihatnya. Kalau terisi, pengirimnya skrip.
+        //
+        // ⚠️ DITOLAK TERANG-TERANGAN, bukan dibuang diam-diam sambil berpura-pura
+        // berhasil. Pura-pura berhasil memang lebih menyesatkan bot, tapi kalau
+        // suatu hari ada orang sungguhan yang kolomnya terisi (autofill aneh,
+        // ekstensi peramban), dia akan pulang mengira sudah punya jadwal padahal
+        // tidak ada apa-apa di sistem. Di klinik, itu ongkos yang salah tempat.
+        if (trim((string) request('catatan_tambahan')) !== '') {
+            // Dikurung sekali per jam per alamat. Ini form PUBLIK — justru yang
+            // digedor bot, dan `throttle:5,1` masih membolehkan 5 baris/menit
+            // per alamat (dari 50 alamat = 360 ribu baris sehari, semuanya di
+            // dalam batas). Yang berguna adalah TAHU bahwa ini terjadi, bukan
+            // punya satu baris untuk tiap percobaan.
+            \App\Support\PeringatanTerkurung::catat(
+                'jebakan-reservasi:' . request()->ip(),
+                'Reservasi publik ditolak — perangkap bot terisi',
+                [
+                    'asal'  => request()->ip(),
+                    'agent' => substr((string) request()->userAgent(), 0, 120),
+                ]
+            );
+
+            return back()->with('error',
+                'Formulirnya tidak bisa diproses. Muat ulang halaman ini lalu isi ulang, '
+                . 'atau hubungi kami lewat WhatsApp.')->withInput();
+        }
+
         // ── Validasi global ──────────────────────────────────────────────
         $rules = [
             'raw_branch_id'    => 'required|exists:raw_branch,id',
