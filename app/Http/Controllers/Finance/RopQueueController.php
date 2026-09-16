@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Finance;
 
 use App\Http\Controllers\Controller;
+use App\Models\RopPaymentSheetItem;
 use App\Models\RopRequest;
 use App\Services\RopAttachment;
 use App\Services\RopCoaCatalog;
@@ -21,7 +22,10 @@ use Illuminate\Http\Request;
  *   GET  finance/rop                → antrian (tab: menunggu | disetujui | riwayat)
  *   GET  finance/rop/{id}           → JSON detail untuk panel samping
  *   POST finance/rop/{id}/setujui   → ACC + tetapkan akun beban
- *   POST finance/rop/{id}/tolak     → tolak + alasan (wajib)
+ *   POST finance/rop/{id}/tolak     → tolak + alasan (wajib); dari status
+ *                                     `disetujui` endpoint yang sama dipakai
+ *                                     untuk MEMBATALKAN persetujuan
+ *                                     (RopService::TRANSISI mengizinkannya)
  *   POST finance/rop/{id}/bayar     → tandai sudah ditransfer + bukti
  *
  * Akses: segment 'finance' ada di AuthGuard::SKIP_RBAC, jadi RBAC menu tidak
@@ -179,6 +183,12 @@ class RopQueueController extends Controller
             // sama + 4 akun terakhir dipakai.
             'bahan_akun'     => $this->rop->bahanAkun($rop),
             'riwayat_vendor' => $this->riwayatVendor($rop),
+            // Keadaan lembar bayar tempat pengajuan ini duduk. Membatalkan
+            // persetujuan punya akibat DI LUAR layar ini: lembarnya mungkin sudah
+            // dicetak dan dikirim ke bos, dan sebagian isinya sudah dibayar.
+            // Ditampilkan sebagai keterangan, BUKAN pagar — Finance tetap boleh
+            // membatalkan; yang kurang selama ini cuma informasinya.
+            'lembar'         => $this->lembarTerakhir($rop),
             'jejak'          => $rop->logs()->with('actor')->get()->map(fn ($l) => [
                 'status' => RopRequest::LABEL[$l->ke_status] ?? $l->ke_status,
                 'oleh'   => $l->actor?->nama ?: 'Sistem',
@@ -244,24 +254,38 @@ class RopQueueController extends Controller
     {
         $this->guard();
 
+        // Status SEBELUM transisi. Dari `diajukan` ini penolakan biasa; dari
+        // `disetujui` ini pembatalan persetujuan yang sudah keluar — layar
+        // memakai `dari` untuk memilih kata & angka mana yang bergeser, supaya
+        // tidak menebak dari tab yang sedang dibuka. Dibaca sebelum validasi
+        // karena pesan "apa yang harus diperbaiki" salah alamat untuk
+        // pembatalan: pengajuannya tidak salah, keadaannya yang berubah.
+        $rop      = RopRequest::findOrFail($id);
+        $dari     = $rop->status;
+        $batalAcc = $dari === RopRequest::STATUS_DISETUJUI;
+
         $data = $request->validate([
             'alasan' => 'required|string|max:500',
         ], [
-            'alasan.required' => 'Alasan penolakan wajib diisi — pengaju perlu tahu apa yang harus diperbaiki.',
+            'alasan.required' => $batalAcc
+                ? 'Alasan pembatalan wajib diisi — pengaju perlu tahu kenapa persetujuannya ditarik.'
+                : 'Alasan penolakan wajib diisi — pengaju perlu tahu apa yang harus diperbaiki.',
         ]);
 
         try {
-            $rop = RopRequest::findOrFail($id);
             $this->rop->tolak($rop, $data['alasan'], (string) session('id'));
 
             if ($request->wantsJson()) {
                 return response()->json([
                     'ok'     => true,
+                    'dari'   => $dari,
                     'urung'  => ['id' => $rop->id, 'number' => $rop->number],
                     'amount' => (int) $rop->amount,
                 ]);
             }
-            return $this->kembali()->with('success', 'Pengajuan ' . $rop->number . ' ditolak. Pengaju sudah diberi tahu.');
+            return $this->kembali()->with('success', $batalAcc
+                ? 'Persetujuan ' . $rop->number . ' dibatalkan. Pengaju sudah diberi tahu dan bisa mengajukan ulang.'
+                : 'Pengajuan ' . $rop->number . ' ditolak. Pengaju sudah diberi tahu.');
         } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
             if ($request->wantsJson()) {
                 return response()->json(['error' => $e->getMessage() ?: 'Gagal menolak pengajuan.'], $e->getStatusCode() ?: 422);
@@ -332,6 +356,41 @@ class RopQueueController extends Controller
             }
             return $this->kembali()->with('error', $e->getMessage() ?: 'Gagal menandai pembayaran.');
         }
+    }
+
+    /**
+     * Lembar bayar TERAKHIR yang memuat pengajuan ini, kalau ada.
+     *
+     * Kenapa ada: membatalkan persetujuan punya akibat di luar layar antrian —
+     * lembarnya bisa saja sudah dicetak dan dikirim ke bos, dan sebagian isinya
+     * sudah ditransfer. Itu yang terjadi 16 Sep 2026 (tiga pengajuan di
+     * `BAYAR/2609/001`, lembar dikirim 3 Sep, 15 dari 18 item sudah dibayar),
+     * dan tidak ada satu pun tanda di layar yang mengatakannya.
+     *
+     * `latest('id')`, bukan `first()`: satu ROP boleh masuk lembar lebih dari
+     * sekali (UNIQUE-nya per sheet+rop, bukan per rop), dan yang relevan untuk
+     * keputusan hari ini adalah yang terbaru.
+     */
+    private function lembarTerakhir(RopRequest $rop): ?array
+    {
+        $item = RopPaymentSheetItem::where('rop_id', $rop->id)
+            ->with('sheet')->latest('id')->first();
+
+        if (! $item || ! $item->sheet) {
+            return null;
+        }
+
+        return [
+            'number'  => $item->sheet->number,
+            'dikirim' => $item->sheet->dikirim_at?->translatedFormat('d M Y'),
+            'item'    => (int) $item->sheet->jumlah_item,
+            // Berapa isi lembar itu yang uangnya SUDAH keluar — ukuran seberapa
+            // jauh lembar ini sudah berjalan di dunia nyata.
+            'dibayar' => RopPaymentSheetItem::where('sheet_id', $item->sheet_id)
+                ->whereHas('rop', fn ($q) => $q->whereIn('status', [
+                    RopRequest::STATUS_DIBAYAR, RopRequest::STATUS_SELESAI,
+                ]))->count(),
+        ];
     }
 
     /**

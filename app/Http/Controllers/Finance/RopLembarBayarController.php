@@ -366,11 +366,36 @@ class RopLembarBayarController extends Controller
                 : ['jenis' => 'pdf', 'halaman' => [], 'dari_pdf' => true, 'dipotong' => 0];
         }
 
+        // Permintaan yang persetujuannya DITARIK sesudah lembar ini dibuat.
+        // Lembar boleh dicetak ulang kapan saja: tanpa tanda, cetakan ulang
+        // tampak persis seperti tagihan yang masih berlaku dan uangnya bisa
+        // benar-benar keluar untuk permintaan yang sudah dibatalkan.
+        // Nominalnya dari SNAPSHOT `items.amount` — sumber yang sama dengan
+        // `lembar->total`, jadi selisihnya pasti bertemu.
+        $dibatalkan = [];
+        $nilaiBatal = 0.0;
+        foreach ($lembar->items as $it) {
+            if (! $it->rop || ! in_array($it->rop->status, [
+                RopRequest::STATUS_DITOLAK, RopRequest::STATUS_KADALUARSA,
+            ], true)) {
+                continue;
+            }
+            $dibatalkan[$it->rop_id] = true;
+            $nilaiBatal += (float) $it->amount;
+        }
+        $harusDibayar = (float) $lembar->total - $nilaiBatal;
+
         return view('finance.rop.lembar-bayar.cetak', [
-            'lembar'    => $lembar,
-            'lampiran'  => $lampiran,
-            'profil'    => SysProfile::select('systitle', 'sysname', 'syslogo')->first(),
-            'terbilang' => terbilang($lembar->total),
+            'lembar'     => $lembar,
+            'lampiran'   => $lampiran,
+            'profil'     => SysProfile::select('systitle', 'sysname', 'syslogo')->first(),
+            // Terbilang mengikuti angka yang BENAR-BENAR akan ditransfer. Ia
+            // pengaman kedua atas angka itu — kalau tetap membacakan total lama
+            // sesudah ada pembatalan, ia justru mengesahkan angka yang salah.
+            'terbilang'    => terbilang($harusDibayar),
+            'dibatalkan'   => $dibatalkan,
+            'nilaiBatal'   => $nilaiBatal,
+            'harusDibayar' => $harusDibayar,
         ]);
     }
 

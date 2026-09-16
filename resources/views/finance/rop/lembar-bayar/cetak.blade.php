@@ -110,6 +110,21 @@
         }
         tr.total td.jml { font-size: 15px; white-space: nowrap; }
 
+        /* Baris permintaan yang persetujuannya ditarik sesudah lembar dicetak.
+           Dipudarkan DAN dicoret DAN diberi cap — satu tanda saja bisa hilang
+           di fotokopi hitam-putih, dan ini dokumen yang menggerakkan uang. */
+        tr.batal td { color: #8A7D72; text-decoration: line-through; }
+        /* Selector berdiri sendiri: cap ini juga dipakai di kop halaman
+           lampiran, yang bukan baris tabel. */
+        .cap-batal {
+            display: inline-block; margin-left: 4px; padding: 1px 5px;
+            border: 1px solid #A0341F; border-radius: 3px;
+            color: #A0341F; font-size: 8.5px; font-weight: 800; letter-spacing: .04em;
+            text-decoration: none; white-space: nowrap;
+        }
+        tr.total--koreksi td { background: #FBEFEC; color: #A0341F; border-top: 1px solid #D8CBBC; }
+        tr.total--bayar td { background: #F1F6F1; }
+
         .terbilang {
             margin-top: 10px; padding: 9px 11px;
             background: #F7F1EA; border: 1px solid #D8CBBC; border-radius: 6px;
@@ -187,6 +202,11 @@
         $sisa = $lampiran[$it->rop_id]['dipotong'] ?? 0;
         if ($sisa > 0) $pdfTerpotong[] = ($it->rop?->number) . ' (' . $sisa . ' halaman)';
     }
+
+    // $dibatalkan / $nilaiBatal / $harusDibayar datang dari controller — uang
+    // tidak dihitung di view. TOTAL di bawah SENGAJA tidak diubah: yang sudah
+    // dikirim ke bank tidak boleh berubah angkanya di belakang, selisihnya
+    // ditulis sebagai baris baru.
 
     // Satu lampiran bisa jadi BEBERAPA halaman (PDF berhalaman banyak), jadi
     // yang dihitung halamannya, bukan itemnya.
@@ -268,9 +288,14 @@
                 $r = $item->rop;
                 $j = $lampiran[$item->rop_id]['jenis'] ?? 'kosong';
             @endphp
-            <tr>
+            <tr @if (isset($dibatalkan[$item->rop_id])) class="batal" @endif>
                 <td class="tengah num">{{ $item->urutan ?: $loop->iteration }}</td>
-                <td class="num nowrap">{{ $r?->number ?: '—' }}</td>
+                <td class="num nowrap">
+                    {{ $r?->number ?: '—' }}
+                    @if (isset($dibatalkan[$item->rop_id]))
+                        <span class="cap-batal">DIBATALKAN</span>
+                    @endif
+                </td>
                 <td>{{ $r?->costCentre?->nama ?: $r?->cost_centre }}</td>
                 {{-- Nomor rekening apa adanya — tanpa dipotong, tanpa dipecah.
                      tujuanBerlaku() = lengkapan Finance kalau ada, kalau tidak
@@ -294,11 +319,26 @@
                 <td class="kanan num jml">{{ $rupiah($lembar->total) }}</td>
                 <td></td>
             </tr>
+            @if ($dibatalkan !== [])
+                {{-- Baris tambahan, bukan koreksi ke atasnya: angka TOTAL tetap
+                     seperti yang pernah dikirim, dan yang harus dibayar ditulis
+                     terpisah supaya tak ada yang perlu menghitung sendiri. --}}
+                <tr class="total total--koreksi">
+                    <td colspan="5">Dibatalkan sesudah lembar dibuat — {{ count($dibatalkan) }} permintaan, JANGAN dibayar</td>
+                    <td class="kanan num jml">&minus;{{ $rupiah($nilaiBatal) }}</td>
+                    <td></td>
+                </tr>
+                <tr class="total total--bayar">
+                    <td colspan="5">YANG HARUS DIBAYAR</td>
+                    <td class="kanan num jml">{{ $rupiah($harusDibayar) }}</td>
+                    <td></td>
+                </tr>
+            @endif
         </tbody>
     </table>
 
     <div class="terbilang">
-        <b>Terbilang</b>
+        <b>Terbilang{{ $dibatalkan !== [] ? ' — yang harus dibayar' : '' }}</b>
         <i>{{ ucfirst($terbilang) }}</i>
     </div>
 
@@ -369,6 +409,11 @@
         <div class="lampiran-kop">
             <div>
                 <b class="num">{{ $r?->number }}</b>
+                @if (isset($dibatalkan[$item->rop_id]))
+                    {{-- Halaman lampiran sering dilihat terpisah dari daftar di
+                         depan — capnya harus ikut ke sini, bukan cuma di tabel. --}}
+                    <span class="cap-batal">DIBATALKAN — JANGAN DIBAYAR</span>
+                @endif
                 <div class="kecil">
                     {{ $item->tujuanBerlaku() }} &middot; {{ $r?->description }}
                     @if ($h['dari'] > 1)
