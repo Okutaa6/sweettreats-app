@@ -363,33 +363,18 @@ class CustomerController extends Controller
 
         // Rekam medis lengkap (Omnicare) untuk timeline Riwayat.
         // Schema guard supaya tidak crash di env yang belum punya tabelnya.
-        $pid = null;
-        $medicalRecords = collect();
-        if (Schema::hasTable('customer_omnicare_link') && Schema::hasTable('omnicare_medical_record')) {
-            $pid = DB::table('customer_omnicare_link')
-                ->where('raw_customer_id', $customer->id)->value('omnicare_pid');
-            if ($pid) {
-                $medicalRecords = DB::table('omnicare_medical_record')
-                    ->where('p_id', $pid)
-                    ->orderByDesc('date')
-                    ->orderByDesc('time_in')
-                    ->get();
-            }
-        }
+        // ⚠️ SEMUA pid, bukan satu. Omnicare menerbitkan p_id PER CABANG, jadi
+        //    pasien yang pernah berobat di dua cabang punya dua pid. `value()`
+        //    dulu memungut satu sembarang — riwayat cabang lainnya lenyap dari
+        //    halaman pasien tanpa jejak apa pun bahwa ada yang hilang.
+        $pids           = $this->pidOmnicare($customer->id);
+        $medicalRecords = $this->rekamMedisOmnicare($pids);
 
         // ── REDESIGN DETAIL: enrich data utk rail (LTV/Ringkasan/Kelengkapan) + header. ──
         // LTV/kunjungan dari Omnicare (samakan sumber dgn list: SUM net_sell_price raw,
         // distinct trx_date, MAX trx_date). Refine voucher-exclude nanti bila perlu.
-        $ltv = 0; $visits = 0; $lastVisit = null;
-        if ($pid && Schema::hasTable('omnicare_sales_detail')) {
-            $omni = DB::table('omnicare_sales_detail')
-                ->where('p_id', $pid)
-                ->selectRaw('COALESCE(SUM(net_sell_price),0) as ltv, COUNT(DISTINCT trx_date) as visits, MAX(trx_date) as last_visit')
-                ->first();
-            $ltv       = (int) ($omni->ltv ?? 0);
-            $visits    = (int) ($omni->visits ?? 0);
-            $lastVisit = $omni->last_visit ?? null;
-        }
+        ['ltv' => $ltv, 'visits' => $visits, 'last_visit' => $lastVisit]
+            = $this->ringkasanOmnicare($pids);
         $perVisit = $visits > 0 ? (int) round($ltv / $visits) : 0;
         $tier     = $ltv >= 2500000 ? 'vip' : ($ltv >= 1000000 ? 'bernilai' : 'reguler');
 
@@ -494,6 +479,69 @@ class CustomerController extends Controller
      *
      * @return array{items: array<int,object>, reservasi: int, rekam: int}
      */
+    /**
+     * SEMUA pid Omnicare milik satu pasien.
+     *
+     * ⛔ JANGAN kembalikan ke `value('omnicare_pid')`. Omnicare menerbitkan
+     *    p_id PER CABANG, jadi pasien yang berobat di dua cabang punya dua pid.
+     *    `value()` memungut satu SEMBARANG, dan riwayat cabang lainnya lenyap
+     *    dari halaman pasien tanpa jejak apa pun bahwa ada yang hilang —
+     *    seluruh gerbong multi-pid akan terlihat seperti tidak berbuat apa-apa.
+     *
+     * Dipisah dari show() supaya bisa diuji tanpa lewat route:
+     * tests/Feature/RiwayatMultiPidTest.php.
+     */
+    private function pidOmnicare(?string $customerId): array
+    {
+        if (empty($customerId) || ! Schema::hasTable('customer_omnicare_link')) {
+            return [];
+        }
+
+        return DB::table('customer_omnicare_link')
+            ->where('raw_customer_id', $customerId)
+            ->pluck('omnicare_pid')
+            ->all();
+    }
+
+    /** Rekam medis Omnicare untuk SELURUH pid pasien — terbaru dulu. */
+    private function rekamMedisOmnicare(array $pids): \Illuminate\Support\Collection
+    {
+        if (empty($pids) || ! Schema::hasTable('omnicare_medical_record')) {
+            return collect();
+        }
+
+        return DB::table('omnicare_medical_record')
+            ->whereIn('p_id', $pids)
+            ->orderByDesc('date')
+            ->orderByDesc('time_in')
+            ->get();
+    }
+
+    /**
+     * LTV / jumlah kunjungan / kunjungan terakhir, diakumulasi lintas SEMUA pid.
+     * ⚠️ `visits` memakai COUNT(DISTINCT trx_date): dua cabang di hari yang sama
+     *    tetap satu kunjungan, dan itu memang yang dimaksud.
+     *
+     * @return array{ltv:int,visits:int,last_visit:?string}
+     */
+    private function ringkasanOmnicare(array $pids): array
+    {
+        if (empty($pids) || ! Schema::hasTable('omnicare_sales_detail')) {
+            return ['ltv' => 0, 'visits' => 0, 'last_visit' => null];
+        }
+
+        $omni = DB::table('omnicare_sales_detail')
+            ->whereIn('p_id', $pids)
+            ->selectRaw('COALESCE(SUM(net_sell_price),0) as ltv, COUNT(DISTINCT trx_date) as visits, MAX(trx_date) as last_visit')
+            ->first();
+
+        return [
+            'ltv'        => (int) ($omni->ltv ?? 0),
+            'visits'     => (int) ($omni->visits ?? 0),
+            'last_visit' => $omni->last_visit ?? null,
+        ];
+    }
+
     private function buildRiwayat(RawCustomer $customer, \Illuminate\Support\Collection $medicalRecords): array
     {
         /**
