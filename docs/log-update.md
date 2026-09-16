@@ -64,6 +64,165 @@ sekarang `missed` checklist. Tiap menambah transisi status, pertanyaan wajibnya:
 **siapa yang memencetnya, dari layar mana.**
 
 ---
+## 2026-09-16 — Tombol "Batalkan persetujuan" di antrian bayar ROP (`feat/rop-batal-persetujuan`, dev/prod belum)
+
+Branch `feat/rop-batal-persetujuan` dari `main` (`23fb5b1`). **Nol SQL.**
+Sumber tugas: `docs/handoff/prompt-build-tolak-setelah-disetujui.md`.
+
+### Kejadian yang melahirkannya
+Della (Finance) minta 3 antrian bayar dibatalkan — VA-nya kedaluwarsa sebelum
+sempat ditransfer (`ROP/SUN/2609/004`, `ROP/BIN/2609/007`, `ROP/BIN/2609/008`,
+total Rp 820.290, tertahan **13 hari**). Ketiga jalan buntu:
+`bisaDibatalkan()` cuma `diajukan` · jendela `urungkan` 120 detik lewat 13 hari
+lalu · `tolak` **boleh** menurut `RopService::TRANSISI[disetujui]` — **tapi
+tidak ada tombolnya di layar mana pun.** Akhirnya dijalankan langsung di prod.
+
+### Yang dibangun
+- **Kaki drawer cabang `disetujui`** kini punya aksi sekunder
+  **"Batalkan persetujuan"** di bawah garis, lebih kecil dan tanpa latar —
+  sengaja TIDAK sejajar dengan "Tandai dibayar" (dua tombol seukuran
+  bersebelahan = undangan salah pencet saat Finance buru-buru menutup lembar).
+- **Satu blok alasan, dua arti.** Judul, contoh alasan, dan label tombolnya
+  berganti mengikuti status: dari `diajukan` = "Tolak"; dari `disetujui` =
+  "Batalkan persetujuan" + keterangan akibatnya (pengaju diberi tahu, harus
+  mengajukan ulang). Contoh alasannya ikut beda — yang membatalkan persetujuan
+  bukan "lampiran belum ada", tapi hal yang baru ketahuan SESUDAH ACC.
+- **Angka hidup diperbaiki**: membatalkan dari `disetujui` menggeser statistik
+  *Antrian bayar*, bukan *Menunggu ACC* (cabang `batal-acc` di `perbaruiAngka`).
+  Status asal dikirim server (`dari`), layar tidak menebak dari tab.
+- **Tanpa tombol "Urungkan"** untuk pembatalan — `urungkanPenolakan()` selalu
+  memulihkan ke `diajukan`, jadi urung akan mengembalikan ke status yang SALAH.
+  Pagarnya ikut dipasang di service: urung ditolak kalau penolakan berasal dari
+  `disetujui`. Penolakan biasa tetap bisa diurungkan (ada uji kendali negatif).
+- **Layar lembar bayar** menjelaskan selisihnya: "n item keluar dari lembar ini
+  sesudah dibuat" + nomor-nomornya + nominal yang benar-benar dibayar. Total di
+  kepala lembar SENGAJA tidak ikut turun — dokumen yang sudah dikirim ke bank
+  tidak boleh berubah angkanya di belakang.
+
+### Yang TIDAK dilakukan (sengaja)
+Pagar "hanya penyetuju aslinya" tidak ditambahkan: pembatalan datang belakangan,
+kadang berhari-hari, dan penyetujunya bisa sedang cuti. Yang penting tercatat
+siapa yang membatalkan — `rop_status_log.actor_id` sudah melakukannya.
+
+### Audit ulang — 6 temuan, semua sudah ditutup
+Empat dari audit sendiri, dua dari audit HUB
+(`docs/handoff/audit-hub-rop-batal-persetujuan.md`). Yang ketemu:
+
+1. ⛔ **Lembar CETAK tidak menandai item yang dibatalkan** — dan ini yang paling
+   mahal. Lembar boleh dicetak ulang kapan saja; tanpa tanda, cetakan ulang
+   sesudah pembatalan tampak persis seperti tagihan yang masih berlaku dan
+   uangnya bisa benar-benar keluar. Sebelum fitur ini keadaan itu praktis tak
+   pernah terjadi (tak ada tombolnya); fitur ini yang membuatnya rutin. Kini:
+   baris dicoret + cap **DIBATALKAN**, cap ikut ke kop halaman lampiran, dan dua
+   baris baru di bawah TOTAL (`−Rp x` dan `YANG HARUS DIBAYAR`). **TOTAL lama
+   tetap tercetak** — yang sudah dikirim ke bank tidak berubah angkanya.
+2. ⛔ **`terbilang` masih membacakan total lama.** Di dokumen yang mengeluarkan
+   uang, terbilang itu pengaman kedua atas angka yang ditransfer — kalau ia
+   membacakan angka sebelum pembatalan, ia justru MENGESAHKAN angka yang salah.
+   Kini mengikuti "yang harus dibayar", dan hitungannya pindah ke controller
+   (uang tidak dihitung di view).
+3. ⚠️ **Selisih dihitung dari nominal HIDUP, bukan snapshot lembar.**
+   `rop_payment_sheets.total` dijumlahkan dari `items.amount` saat lembar dibuat,
+   jadi pengurangnya harus dari sana juga. Bukan skenario karangan: layar lembar
+   sudah lama punya penanda "kini Rp …" persis untuk nominal yang bergeser.
+4. ⚠️ Pesan "alasan wajib diisi" menyebut *"apa yang harus diperbaiki"* — salah
+   alamat untuk pembatalan (pengajuannya tidak salah, keadaannya yang berubah).
+   Kini kontekstual. Pagar `urungkanPenolakan` juga dipindah ke belakang cek
+   kepemilikan: 403 "hanya yang menolak" jawaban yang lebih tepat untuk orang
+   lain, dan kueri log tidak dijalankan sia-sia.
+5. ⛔ **(HUB) Perbaikan #4 berhenti di layar Finance — pengaju masih dikabari
+   "Pengajuan ditolak".** Notifikasi `rop_ditolak` dikirim dengan judul & badan
+   yang sama dari `diajukan` maupun `disetujui`. Bukti prod: Anisa mengajukan
+   3 Sep, **disetujui** 3 Sep, dan 13 hari kemudian menerima "Pengajuan
+   ditolak" — padahal yang terjadi persetujuannya ditarik dan ia harus
+   **mengajukan ulang**. Badan pesan memang membawa alasannya, tapi judul yang
+   terbaca lebih dulu. Asimetrinya yang jadi cacat: layar Finance dapat kata
+   kontekstual, pengaju tidak. Kini `tolak()` memilih judul/badan dari status
+   asal — *"Persetujuan dibatalkan"* + *"…ditarik kembali. Alasan: … Silakan
+   ajukan ulang…"*. Status asal dibaca **di dalam kunci** (`pindah()` kini
+   meneruskan `$dari` ke judul/isi), bukan ditebak di luar transaksi.
+6. ⚠️ **(HUB) Drawer tidak menyebut lembar bayar tempat pengajuan itu duduk.**
+   Temuan #1 melindungi pembaca lembar; ini melindungi **pengambil keputusan**.
+   Kasus 16 Sep persis begitu: ketiganya di `BAYAR/2609/001`, lembar sudah
+   dikirim 3 Sep dan 15 dari 18 itemnya sudah dibayar — nol tanda di layar.
+   Kini satu baris di atas tombol batal: nomor lembar · dikirim kapan · berapa
+   item sudah dibayar. **Keterangan, bukan pagar** — Finance tetap boleh
+   membatalkan, yang kurang cuma informasinya.
+
+### Uji
+| berkas | hasil |
+|---|---|
+| `tests/Feature/RopBatalPersetujuanTest.php` | **20 uji · 86 asersi hijau** |
+| `tests/js/uji-drawer-rop.cjs` (baru) | **44 pemeriksaan hijau** |
+
+⛔ **Ranjau lokal yang ketemu saat menguji drawer**: `GET /finance/rop/{id}`
+memanggil `RopCoaCatalog::untukCostCentre()`, yang di dalamnya ada
+`Schema::hasTable('accurate_staging_glaccount')` — kueri `information_schema`
+**MEMATIKAN mysqld LOKAL** (aman di dev/prod). Terisolasi 16 Sep:
+`DB::table('rop_requests')->count()` jalan, lalu `Schema::hasTable` → *"server
+has gone away"* seketika. Artinya **drawer ROP tidak bisa dibuka sama sekali
+dari mesin lokal**, dan uji apa pun yang melewati `show()` akan menjatuhkan DB
+di tengah jalan. Uji keadaan lembar karena itu memanggil helpernya langsung
+(refleksi) dan rendering-nya ditutup dari sisi layar oleh harness JS [7].
+Ini utang lama yang sudah tercatat di status-proyek, **tidak disentuh dari
+gerbong ini** — cuma sekarang sebabnya terukur, bukan dugaan.
+
+Cakupan phpunit: pembatalan oleh Finance yang bukan penyetuju asli · alasan
+kosong (pesan kontekstual, jalur form & fetch) · `bisaDiajukanUlang()` + jejak
+`disetujui → ditolak` dengan actor benar · **judul & badan notifikasi yang
+sampai ke PENGAJU** (+ kendali: penolakan biasa kata-katanya tidak bergeser) ·
+`dibayar`/`selesai` menolak (409, bukan 500) · respons JSON membawa `dari` ·
+keadaan lembar bayar di drawer (ada / tidak ada / ambil yang TERBARU) · item
+lain di lembar tetap bisa ditandai dibayar · kiriman campuran tidak membayar
+sebagian · lembar cetak bercap + terbilang ikut · aritmetika pakai snapshot ·
+**kendali: lembar tanpa pembatalan tidak berubah sedikit pun** · dua uji pagar
+urungkan.
+
+`tests/js/uji-drawer-rop.cjs` = **uji JS pertama di repo ini**. Ia menjalankan
+blok `<script>` drawer APA ADANYA (diekstrak dari blade yang dikirim ke browser,
+bukan disalin) di atas DOM tiruan ±100 baris, nol dependensi:
+`node tests/js/uji-drawer-rop.cjs`. Yang ditangkapnya adalah yang tak bisa
+dijangkau phpunit — kata-kata berganti per mode, kaki drawer per status, toast
+tanpa "Urungkan" untuk pembatalan, dan angka mana yang bergeser.
+⚠️ `.cjs` bukan `.js`: `package.json` repo ini `"type": "module"`.
+
+Kendali negatif dijalankan di kedua sisi: mematikan pagar, mencopot tombol,
+menyabot cabang angka, mengembalikan `terbilang` ke total lama, dan
+mengembalikan judul notifikasi jadi statis — semuanya membuat uji yang
+bersangkutan MERAH.
+
+### ⛔ Deploy: nol SQL, TAPI ada aset — dan verifikasinya bukan kode 200
+Gerbong ini **tidak punya SQL**. Yang mudah terlewat justru ini:
+
+```
+M public/assets/css/rop.sweettreats.css
+```
+
+`public_html` prod itu **SALINAN, bukan symlink**, jadi deploy yang menyentuh
+`public/assets/**` WAJIB diikuti `rsync` yang **DIBATASI ke `assets/` saja` —
+rsync seluruh `public/` pernah **mematikan prod 6 menit** (`index.php` prod
+sengaja beda).
+
+⛔ Dan jangan verifikasi dengan kode 200 + ukuran: aset prod di-cache
+`max-age=604800` (7 hari). Tanpa rsync, penanda versi maju sementara isinya
+lama — lalu **terkunci seminggu di bawah URL yang terlihat segar**. Adu isinya:
+
+```bash
+md5sum public_html/assets/css/rop.sweettreats.css
+curl -s "https://app.sweettreats.id/assets/css/rop.sweettreats.css?v=$(date +%s)" | md5sum
+```
+
+Taruhannya bukan kosmetik: **coretan dan cap `DIBATALKAN` di lembar cetak hidup
+di CSS itu.** Kalau rsync terlewat, cetakan prod kehilangan persis pengaman yang
+temuan #1 di atas bangun — lembar tampak normal, dan uangnya keluar.
+
+### Pola yang lebih besar
+Ini kali ketiga dalam sepekan: mesin mengizinkan, manusia tak punya pintu
+(`omnicare:reconcile` tanpa pembaca layar · tautan pasien "untuk ditinjau
+manual" tanpa layar peninjauan · ini). Pertanyaan wajib tiap menambah transisi
+status: **siapa yang memencetnya, dan dari layar mana.**
+
+---
 ## 2026-09-10 — Wakil Head IT · penilaian awal boleh langsung ke Analisis · kata "Triase" diganti (`c7253b6`, dev/prod belum)
 
 Branch `feat/wakil-head-it` dari `main` (`d25f97e`). **Nol SQL.** Berawal dari
