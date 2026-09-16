@@ -6,6 +6,114 @@
 > file ini append-only.
 
 ---
+## 2026-09-16 — Gerbang masuk dikeraskan: throttle email+IP, pesan berhenti membocorkan email, perangkap bot (`hotfix/security-throttle`, dev/prod belum)
+
+Branch `hotfix/security-throttle` dari `main` (`23fb5b1`). **Nol SQL, kode-only.**
+Sumber: `docs/handoff/handoff-security-hardening.md` (§3–§5) +
+`docs/handoff/prompt-build-security-hardening.md`. Cakupan gerbong ini: **P0 + P1**.
+
+### Keadaan sebelum ini — diverifikasi ulang di baseline, bukan dari brief
+Grup middleware `web` **nol throttle** (cuma grup `api` yang punya). Akibatnya
+`POST /signin`, `/affiliate/login`, `/forgot-password`, `/reset-password` berjalan
+**tanpa pembatas percobaan sama sekali**. Portal affiliate kredensialnya **PIN 6
+digit** — sejuta kemungkinan, dan tak ada yang menghitung tebakan.
+
+### Yang dikerjakan
+- **Pembatas `masuk` dikunci EMAIL+IP, bukan IP.** Ini keputusan yang paling
+  menentukan: satu cabang keluar lewat satu IP publik (NAT), jadi pembatas
+  per-IP murni akan **mengunci sekantor gara-gara satu orang salah ketik**.
+  Dua lapis: 5/menit per identitas+IP, 60/menit per IP (menahan penyapuan
+  banyak akun, tapi jauh di atas pemakaian jujur).
+- **Portal affiliate punya lapis KETIGA** yang menempel pada nomornya saja,
+  lintas IP: 20/jam. Tanpa itu, penyerang PIN 6 digit tinggal berganti alamat
+  dan tiap alamat dapat jatah penuh lagi. Kuncinya lepas sendiri dalam sejam,
+  jadi orang iseng tidak bisa mematikan akun orang lain sampai admin turun tangan.
+- **Huruf besar/kecil dinormalkan** sebelum jadi kunci — kalau tidak, pembatasnya
+  bisa dilewati cuma dengan menekan Caps Lock.
+- **Pesan gagal masuk disatukan.** Dulu dua: *"Email or password is incorrect"*
+  vs *"Email tidak terdaftar, atau akun belum aktif"*. Bedanya menjawab
+  pertanyaan yang tidak boleh dijawab ke orang yang belum membuktikan apa pun —
+  **email ini terdaftar atau tidak** — sehingga daftar email karyawan bisa
+  disusun dari luar tanpa menebak satu sandi pun. Sekarang satu kalimat, dan
+  berbahasa Indonesia (yang lama Inggris).
+- **Lupa-sandi**: jawabannya kini sama untuk email yang ada maupun tidak
+  (*"Kalau email itu terdaftar, tautan … sudah dikirim"*), + throttle 3/10 menit.
+- **Reset-sandi** 6/menit. **Pendaftaran affiliate** 3/10 menit.
+- **`/reservasi` 20→5 per menit** (20/menit = 1.200 kiriman per jam dari satu
+  alamat) + **perangkap bot** di formulir publik reservasi & pendaftaran affiliate.
+- **Pesan terkunci berbahasa Indonesia dan menyebut lamanya menunggu** — halaman
+  429 bawaan Laravel berbahasa Inggris tanpa konteks, bagi staf klinik itu
+  terbaca seperti aplikasinya rusak.
+
+### ⚠️ Perangkap bot: ditolak terang-terangan, BUKAN dibuang diam-diam
+Pura-pura berhasil lebih menyesatkan bot, tapi kalau suatu hari kolomnya terisi
+pada orang sungguhan (autofill aneh, ekstensi peramban), dia pulang mengira
+punya jadwal padahal tak ada apa-apa di sistem. Di klinik itu ongkos yang salah
+tempat. Kolomnya dinamai `catatan_tambahan`, **bukan** `email`/`website` — nama
+yang dikenali autofill justru akan menolak pendaftar sungguhan.
+
+### ⛔ Webhook MaxChat — celahnya nyata, tapi SENGAJA belum ditutup paksa
+`if ($token && …)` berarti selama `MAXCHAT_WEBHOOK_TOKEN` kosong (keadaan prod
+hari ini), **seluruh pemeriksaan dilewati**: siapa pun yang tahu URL-nya bisa
+menulis ke `raw_contact`/`raw_chat` (12.404 kontak · 35.737 percakapan).
+Membuatnya fail-closed sekarang **akan menghentikan aliran MaxChat seketika**
+kalau tokennya belum dipasang di sisi mereka — ±859 chat/minggu berhenti masuk
+dan tak ada yang sadar sampai FO mengeluh.
+Yang dilakukan: **membuat keadaannya berbunyi** — tiap kiriman tanpa verifikasi
+meninggalkan `Log::warning` berisi alamat asal, dikurung sekali per jam per
+alamat supaya tidak menenggelamkan `laravel.log`. Perbandingan token juga
+dipindah ke `hash_equals`. **Begitu tokennya diisi di `.env` prod, pintunya
+tertutup sendiri — tanpa deploy kode lagi**, dan ada uji yang membuktikan itu.
+
+**Urutan memasangnya (prasyarat, jangan dibalik):** sepakati token dengan
+MaxChat → pasang di sisi mereka → isi `MAXCHAT_WEBHOOK_TOKEN` di `.env` prod +
+`config:clear` → pantau `raw_chat` beberapa jam; kalau berhenti tumbuh, tokennya
+tidak cocok. ⛔ Perubahan `.env` **bukan** bagian `deploy.sh`.
+
+### Yang SENGAJA tidak disentuh
+- **TrustProxies** — dan ini bukan kehati-hatian kosong: `$proxies` menentukan
+  arti `request()->ip()`, dan `request()->ip()` adalah premis **WiFi-saksi absen
+  HP** yang dipakai karyawan lima cabang tiap hari. Mengisinya saat prod TIDAK
+  di belakang proxy = `X-Forwarded-For` bisa dipalsukan = **absen dari mana saja
+  lolos sebagai "di WiFi cabang"**. Membiarkannya kosong saat prod ADA di
+  belakang proxy = semua orang terlihat satu IP. Topologinya harus **dibuktikan
+  dulu**, dan perubahannya wajib disertai uji yang menunjukkan absen HP masih
+  mengenali WiFi cabang.
+- **Throttle global di grup `web`** — ditunda sampai TrustProxies jelas.
+  Pembatas global di atas IP yang salah akan mengunci orang banyak sekaligus,
+  dan gejalanya mirip aplikasi rusak.
+- Mandat §6 (IDOR, mass-assignment, upload, SQLi, XSS, CSRF except, secrets) —
+  belum disapu di gerbong ini.
+
+### Uji
+| berkas | hasil |
+|---|---|
+| `tests/Feature/GerbangMasukTest.php` | **11 uji · 31 asersi hijau** |
+| `tests/Feature/WebhookMaxChatTest.php` | **6 uji · 7 asersi hijau** |
+
+Yang dijaga, selain "menebak sandi terhenti": **login yang BENAR masih jalan**
+(pagar yang ikut menutup pintu bagi orang bersandi benar bukan pengerasan, itu
+pemadaman), dan **orang bersandi benar tetap masuk walau rekan sekantornya
+sedang terkunci**. Uji itu memakai akun sungguhan berumur pendek yang ikut
+rollback transaksi.
+
+Kendali negatif — tiga-tiganya membuat uji yang bersangkutan MERAH:
+1. throttle dicabut dari rute → uji "terhenti sesudah lima kali" merah;
+2. kunci diganti **IP murni** → uji rekan-sekantor **dan** uji login-benar merah
+   (persis kegagalan yang dihindari desain ini);
+3. kurungan log dilepas → uji "tidak membanjiri log" merah.
+
+⚠️ `test_6` lupa-sandi menjaga **bentuk kode**, bukan perilaku — `_captcha()`
+memanggil Google lewat Guzzle yang di-`new` langsung di dalam method, jadi jalur
+HTTP-nya tak bisa diuji dari sini tanpa memalsukan jaringan. Pagar yang lebih
+lemah, ditulis begitu supaya tidak terbaca lebih kuat dari yang sebenarnya.
+
+### Deploy
+Nol SQL, **tidak** menyentuh `public/assets/**` → tidak perlu rsync.
+Prasyarat manual yang BUKAN bagian `deploy.sh`: `MAXCHAT_WEBHOOK_TOKEN` di
+`.env` prod (lihat urutan di atas).
+
+---
 ## 2026-09-16 — Dua gerbong siap prod · papan IT dirapikan · empat temuan dari audit
 
 Hari kerja HUB: nol fitur ditulis, empat gerbong diaudit, papan IT Tracker

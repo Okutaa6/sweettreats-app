@@ -39,6 +39,82 @@
 > `2400896`, tak ada lagi cabang prod terpisah. Peringatan lama "jangan deploy
 > main ke prod" **sudah TIDAK berlaku** — sekarang justru `main` yang benar.
 >
+> ✅ **Sisipan 2026-09-16b — GERBANG MASUK DIKERASKAN (P0+P1 security hardening)**
+> (branch `hotfix/security-throttle` dari `23fb5b1`, nol SQL kode-only, dev/prod
+> belum, **17 uji hijau**). Sebelum ini grup middleware `web` **nol throttle**:
+> `/signin`, `/affiliate/login`, `/forgot-password`, `/reset-password` berjalan
+> tanpa pembatas percobaan sama sekali — dan portal affiliate kredensialnya
+> **PIN 6 digit**. Sifatnya steady-state, bukan regresi baru.
+> ⛔ **Keputusan yang paling menentukan: pembatas login dikunci EMAIL+IP, bukan
+> IP.** Satu cabang keluar lewat satu IP publik (NAT), jadi pembatas per-IP murni
+> akan mengunci sekantor gara-gara satu orang salah ketik. Affiliate dapat lapis
+> ketiga yang menempel pada NOMOR (lintas IP) karena PIN 6 digit bisa ditebak
+> dengan berganti alamat.
+> Pesan gagal masuk disatukan (dulu membedakan "email tidak terdaftar" → daftar
+> email karyawan bisa disusun dari luar tanpa menebak sandi) dan lupa-sandi kini
+> menjawab bersyarat. `/reservasi` 20→5 per menit + perangkap bot di dua form
+> publik — **ditolak terang-terangan, bukan dibuang diam-diam**, supaya orang
+> sungguhan yang kena tahu jadwalnya tidak jadi.
+> ⛔ **Webhook MaxChat: celahnya NYATA tapi sengaja belum ditutup paksa.** Selama
+> `MAXCHAT_WEBHOOK_TOKEN` kosong (keadaan prod hari ini) pemeriksaan token
+> dilewati total — siapa pun yang tahu URL-nya bisa menulis ke raw_contact/raw_chat.
+> Fail-closed sekarang = menghentikan ±859 chat/minggu kalau token belum dipasang
+> di sisi MaxChat. Yang dipasang: **alarm** (Log::warning + alamat asal, dikurung
+> sekali/jam) + `hash_equals`. **Begitu token diisi di `.env` prod, pintunya
+> tertutup sendiri tanpa deploy kode** — ada ujinya. Prasyarat manual, BUKAN
+> bagian `deploy.sh`.
+> ⛔ **TrustProxies TIDAK disentuh** — `$proxies` menentukan arti `request()->ip()`,
+> dan itu premis WiFi-saksi absen HP yang dipakai lima cabang tiap hari. Isi salah
+> = absen dari mana saja lolos sebagai "di WiFi cabang". Topologi prod harus
+> dibuktikan dulu, dan perubahannya wajib disertai uji absen HP. Throttle global
+> grup `web` ikut ditunda sampai itu jelas. Mandat §6 (IDOR/mass-assignment/
+> upload/SQLi/XSS) belum disapu.
+>
+> ✅ **Sisipan 2026-09-16 — TOMBOL "BATALKAN PERSETUJUAN" DI ANTRIAN BAYAR ROP**
+> (branch `feat/rop-batal-persetujuan` dari `23fb5b1`, nol SQL, dev/prod belum,
+> 8 uji hijau). Della minta 3 antrian bayar dibatalkan karena VA-nya kedaluwarsa;
+> ketiganya **tertahan 13 hari** dan tak satu pun jalan tersedia dari layar —
+> `batal` cuma untuk `diajukan`, jendela `urungkan` 120 detik, dan `tolak` yang
+> **sudah diizinkan mesin status** tidak punya tombol di layar mana pun. Kali ini
+> pintunya dibuat: aksi sekunder di kaki drawer cabang `disetujui`, kata-katanya
+> berganti ("Batalkan persetujuan", bukan "Tolak" polos) karena artinya memang
+> lain — menarik kembali persetujuan yang sudah masuk lembar bayar.
+> ⛔ **Tanpa tombol "Urungkan"**: `urungkanPenolakan()` selalu memulihkan ke
+> `diajukan`, jadi urung akan mengembalikan ke status yang SALAH; pagarnya
+> dipasang di service, penolakan biasa tetap bisa diurungkan.
+> ⚠️ Menyentuh `public/assets/css/rop.sweettreats.css` → **deploy prod wajib
+> diikuti rsync `assets/`**. Layar lembar bayar kini menjelaskan selisih total
+> ("n item keluar dari lembar ini sesudah dibuat") — angka di kepala lembar
+> sengaja TIDAK ikut turun, itu dokumen yang sudah dikirim ke bank.
+> ⛔ **Temuan audit yang paling mahal**: lembar CETAK tidak menandai item yang
+> dibatalkan, padahal lembar boleh dicetak ulang kapan saja — cetakan ulang
+> tampak seperti tagihan yang masih berlaku dan uangnya bisa benar-benar keluar.
+> Ditutup: baris dicoret + cap DIBATALKAN (ikut ke halaman lampiran) + baris
+> `−Rp x` dan `YANG HARUS DIBAYAR`, dan **terbilang** kini mengikuti angka yang
+> benar-benar ditransfer (ia pengaman kedua — kalau membacakan total lama, ia
+> mengesahkan angka yang salah). Aritmetikanya dari SNAPSHOT `items.amount`,
+> bukan nominal ROP yang hidup.
+> ⛔ **Temuan audit HUB**: perbaikan kata-kata sempat berhenti di layar Finance —
+> pengaju masih dikabari **"Pengajuan ditolak"** untuk pembatalan 13 hari sesudah
+> ACC. Kini `RopService::tolak()` memilih judul/badan dari status asal
+> ("Persetujuan dibatalkan" + "silakan ajukan ulang"), dibaca DI DALAM kunci.
+> Drawer juga kini menyebut satu baris keadaan lembar bayar (nomor · dikirim
+> kapan · berapa item sudah dibayar) — **keterangan, bukan pagar**.
+> 🧪 Uji: **20 phpunit + 44 pemeriksaan JS**. `tests/js/uji-drawer-rop.cjs` =
+> uji JS PERTAMA di repo — menjalankan blok `<script>` drawer apa adanya di atas
+> DOM tiruan, nol dependensi (`.cjs` karena package.json `"type": "module"`).
+> ⛔ **Deploy: nol SQL tapi ADA aset.** `public/assets/css/rop.sweettreats.css`
+> berubah → rsync WAJIB, **dibatasi ke `assets/`**. Verifikasinya **bukan** kode
+> 200: aset prod di-cache 7 hari, jadi adu `md5sum public_html/assets/css/…`
+> dengan `curl …?v=$(date +%s) | md5sum`. Coretan & cap DIBATALKAN di lembar
+> cetak hidup di CSS itu — rsync terlewat = pengamannya hilang diam-diam.
+> ⛔ Ranjau lokal terukur: `GET /finance/rop/{id}` → `RopCoaCatalog` →
+> `Schema::hasTable` → **mysqld LOKAL mati**. Drawer ROP tak bisa dibuka dari
+> mesin lokal; utang lama, tidak disentuh dari gerbong ini.
+> 🔁 **Pola ketiga dalam sepekan**: mesin mengizinkan, manusia tak punya pintu.
+> Pertanyaan wajib tiap menambah transisi status: siapa yang memencetnya, dan
+> dari layar mana.
+>
 > ✅ **Sisipan 2026-09-10 — WAKIL HEAD IT + PENILAIAN AWAL LANGSUNG KE ANALISIS**
 > (branch `feat/wakil-head-it` dari d25f97e, `c7253b6`, nol SQL, prod belum).
 > Sebabnya kelangsungan kerja: kalau Head IT sakit seminggu yang berhenti BUKAN
@@ -567,8 +643,6 @@
 > disegarkan menyeluruh. Yang sudah berubah sejak itu ada di `log-update.md`
 > (entri 11, 12, dan 13 Agu). Satu hal yang paling sering ditanyakan
 > diringkas di §1a tepat di bawah.
-
----
 
 ## 0. KEADAAN 16 September 2026 — baca ini dulu
 
