@@ -1483,6 +1483,20 @@ class PettyCashController extends Controller
         $period = $periodClass::findOrFail($periodId);
         $this->abortIfBranchMismatch($request, $period);
 
+        // Jangan pernah menutup periode yang migrasi saldonya masih
+        // menggantung. Di jendela itu saldo awal sengaja diisi lawan-mutasi
+        // supaya tiap kartu berbunyi Rp 0 — jadi closing_balance juga akan
+        // jatuh tepat Rp 0, bukan karena kasnya kosong tapi karena memang
+        // dirancang begitu. Kalau dikunci, nol palsu itu terbawa jadi saldo
+        // awal bulan depan dan is_closed tidak punya jalan balik lewat UI.
+        // Kondisi yang sama dipakai $openingWindowOpen (index) & $windowOpen
+        // (setOpening).
+        if ($period->handover_at !== null && $period->opening_set_by === null) {
+            return redirect()
+                ->route('pettycash', $this->preserveParams($kind))
+                ->with('error', 'Periode belum bisa ditutup — migrasi saldo masih menunggu operator cabang mengisi saldo dari hitung fisik. Isi Setoran Awal dulu, baru periode bisa dikunci.');
+        }
+
         if (! $period->is_closed) {
             // Tutup periode = kunci total fisik kas cabang.
             $net = (float) $trxClass::netForPeriod($period->id);
@@ -1582,14 +1596,23 @@ class PettyCashController extends Controller
         $openingBefore = $period->openingPerSourceResolved();
         $totalBefore   = array_sum($openingBefore);
 
+        // Angka yang HILANG DARI LAYAR bukan $totalBefore. Kartu wallet
+        // menampilkan saldo_awal + mutasi bulan berjalan, jadi yang benar-benar
+        // dikosongkan dari pandangan operator adalah jumlah keduanya. Keduanya
+        // dipisah karena dipakai untuk hal berbeda: $totalBefore = potret kolom
+        // untuk old_values audit log (harus apa adanya), $totalTampil = angka
+        // yang disebut ke manusia.
+        $trxClass    = $this->trxClass($kind);
+        $netBefore   = $this->netPerSource($period, $trxClass);
+        $totalTampil = $totalBefore + array_sum($netBefore);
+
         // Nolkan saldo yang TAMPIL, bukan cuma kolom saldo awal. Kartu wallet
         // menampilkan saldo_awal + mutasi bulan ini, dan mutasinya sengaja
         // dipertahankan (transaksi tidak dihapus) — jadi supaya tiap kartu
         // benar-benar berbunyi Rp 0, saldo awal diisi lawan dari mutasinya.
         // Wallet tanpa transaksi cukup tidak masuk snapshot.
-        $trxClass = $this->trxClass($kind);
         $nol = [];
-        foreach ($this->netPerSource($period, $trxClass) as $sid => $net) {
+        foreach ($netBefore as $sid => $net) {
             if (abs($net) > 0.005) {
                 $nol[$sid] = -$net;
             }
@@ -1616,10 +1639,11 @@ class PettyCashController extends Controller
         \App\Models\AuditLog::record(
             'update',
             sprintf(
-                'Migrasi Saldo petty cash — %s %d/%d: Rp %s dikosongkan, menunggu diisi operator cabang dari hitung fisik%s',
+                'Migrasi Saldo petty cash — %s %d/%d: Rp %s dikosongkan dari layar (saldo awal Rp %s + mutasi bulan berjalan), menunggu diisi operator cabang dari hitung fisik%s',
                 $this->branchNameFor($period),
                 $period->period_month,
                 $period->period_year,
+                number_format($totalTampil, 0, ',', '.'),
                 number_format($totalBefore, 0, ',', '.'),
                 $namaPensiun ? '. Wallet dipensiunkan di cabang ini: ' . implode(', ', $namaPensiun) : '',
             ),
@@ -1631,7 +1655,8 @@ class PettyCashController extends Controller
         return redirect()
             ->route('pettycash', $this->preserveParams($kind))
             ->with('success', sprintf(
-                'Migrasi saldo dimulai — saldo awal Rp %s dikosongkan.%s Operator cabang sekarang bisa mengisi saldo dari hitung fisik. Transaksi tidak ada yang terhapus.',
+                'Migrasi saldo dimulai — saldo Rp %s dikosongkan (saldo awal Rp %s + mutasi bulan berjalan).%s Operator cabang sekarang bisa mengisi saldo dari hitung fisik. Transaksi tidak ada yang terhapus.',
+                number_format($totalTampil, 0, ',', '.'),
                 number_format($totalBefore, 0, ',', '.'),
                 $namaPensiun
                     ? ' Wallet ' . implode(' & ', $namaPensiun) . ' dipensiunkan untuk cabang ini (cabang lain tidak terpengaruh).'
