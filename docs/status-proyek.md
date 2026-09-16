@@ -5,7 +5,7 @@
 > Teknis & coding dikerjakan di chat Claude; file ini adalah **potret proyek**:
 > apa yang sudah, sedang, dan akan dikerjakan, plus utang yang belum dibayar.
 >
-> **Terakhir diperbarui: 2026-08-06 malam — hari besar: gabungan Reza + fitur
+> **Terakhir diperbarui: 2026-09-16 (lihat bagian 0) — catatan lama 2026-08-06 malam — hari besar: gabungan Reza + fitur
 > absensi NAIK PROD (`e28f89b`).** Berurutan: push Reza (checklist+pettycash)
 > diaudit dua penelaah → 8 temuan parah menahan prod → Reza memperbaiki
 > semuanya dan lolos uji ulang → sementara itu fitur absensi dibangun terpisah
@@ -567,6 +567,52 @@
 > disegarkan menyeluruh. Yang sudah berubah sejak itu ada di `log-update.md`
 > (entri 11, 12, dan 13 Agu). Satu hal yang paling sering ditanyakan
 > diringkas di §1a tepat di bawah.
+
+---
+
+## 0. KEADAAN 16 September 2026 — baca ini dulu
+
+> ⚠️ **Bagian di bawah nomor ini terakhir disurvei 6 Agustus 2026** (41 hari
+> lalu) dan sebagian sudah tidak berlaku. Blok ini ditulis HUB 16 Sep dari
+> pengukuran langsung ke prod. Kalau keduanya bertentangan, **percayai blok ini**.
+
+**Prod saat ini:** `23fb5b1`.
+
+### Siap naik, menunggu izin
+| gerbong | commit | catatan deploy |
+|---|---|---|
+| Penjodohan Omnicare (satu pasien banyak pid) | `42e3923` | **2 SQL manual, urutan mengikat.** Tanpa rsync. |
+| ROP — tombol Batalkan persetujuan | `868effc` | Nol SQL. **Wajib rsync dibatasi `assets/`.** |
+
+### Ditahan, dengan sebab tertulis
+- **Petty cash Reza** (`212607e`) — `close()` tanpa pagar terhadap migrasi
+  saldo yang menggantung; bisa mengunci kas cabang jadi Rp 0 permanen.
+  Matematika migrasinya sendiri lulus di 5 cabang.
+- **Akun Dokter** — menunggu jawaban Finance: dokter dibayar per tindakan atau
+  gaji. Terbuka sejak 13 Agu.
+- **Komisi dokter 70%** — menunggu ACC atas `docs/rencana/rencana-komisi-penyesuaian.md`.
+- **Security hardening** — sedang dibangun di chat build.
+
+### Sudah live tapi sempat tidak terlihat di papan
+Pusat Akun · Jatah Cuti (att_cuti_periode, tersambung Lembar Gaji) ·
+IT Request Tracker · Target input step=1. Keempatnya sudah dikoreksi di papan
+16 Sep.
+
+### Utang yang diketahui & belum dibayar
+1. ~472 tanggal lahir tertukar dari impor 12 Mei 2026 (batas bawah).
+2. Webhook MaxChat fail-open — token kosong di prod.
+3. 22 dari 87 "Tidak Diisi" jatuh di hari orang tidak bekerja; dari `missed`
+   tak ada jalan keluar di layar.
+4. `/reconcile`: 2.240 baris mengantre, `reconciled_by` 100% `system` — nol
+   manusia sejak Juni.
+5. 18 dari 37 modul belum punya alat ukur pemakaian (6 di antaranya baca-saja,
+   mustahil diukur cara sekarang).
+6. `laravel.log` prod 312 MB.
+
+**Inventaris lengkap papan IT vs kenyataan prod:**
+`docs/handoff/inventaris-it-tracker-2026-09-16.md`
+
+---
 
 ## 1a. Penggelaran akun per cabang — keadaan 13 Agu 2026
 

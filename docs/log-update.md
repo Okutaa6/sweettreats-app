@@ -6,6 +6,64 @@
 > file ini append-only.
 
 ---
+## 2026-09-16 — Dua gerbong siap prod · papan IT dirapikan · empat temuan dari audit
+
+Hari kerja HUB: nol fitur ditulis, empat gerbong diaudit, papan IT Tracker
+diadu dengan kenyataan prod.
+
+### Siap naik (belum di prod saat entri ini ditulis)
+- **Penjodohan Omnicare** (`42e3923`) — satu pasien boleh banyak pid. Omnicare
+  menerbitkan p_id per cabang, dan pemaksaan 1:1 membuat **35,7% kunjungan**
+  terbaca "tanpa reservasi" padahal reservasinya ada. Separuh penahannya ada di
+  SKEMA: `UNIQUE uq_col_customer` harus dilepas dulu, kalau tidak kodenya nol
+  efek. 77 uji hijau, tiga putaran audit. **2 SQL manual, urutan mengikat.**
+- **ROP: tombol Batalkan persetujuan** (`868effc`) — transisi `disetujui` ke
+  `ditolak` sudah diizinkan mesin sejak awal, pintunya tak pernah dibuat. 20
+  phpunit + 44 uji JS (uji JS pertama di repo ini). Menyentuh CSS, jadi **wajib
+  rsync yang dibatasi ke `assets/`**.
+
+### Dikerjakan langsung di prod
+- **3 antrian bayar ROP dibatalkan** atas permintaan Della (VA kedaluwarsa,
+  tertahan 13 hari): `ROP/SUN/2609/004`, `ROP/BIN/2609/007`, `ROP/BIN/2609/008`
+  — Rp 820.290. Jejak audit & notifikasi ke pengaju terverifikasi; antrian
+  bayar kembali 0.
+- **Papan IT Tracker** diadu satu per satu dengan prod. Empat tiket ternyata
+  barangnya sudah jalan: IT-004 (tutup), IT-018 Pusat Akun dan IT-010 Jatah
+  Cuti (ke GOLIVE). Tiga tiket di UAT diturunkan karena tak ada yang bisa
+  dicoba di prod: IT-007 ke DITUNDA (menunggu Finance), IT-006 dan IT-008 ke
+  ANTRE. **UAT kini kosong — dan itu jujur.**
+- **Katalog modul**: 7 alat ukur dipasang, dari 12 menjadi **19 modul terukur**.
+  Pengawasan Absen langsung tercatat 114 dalam 7 hari. 18 sisanya sengaja
+  dibiarkan "—": 6 modul baca-saja mustahil diukur begini (tak ada tabel yang
+  tumbuh saat orang melihat), 1 ditolak karena ukurannya menipu, 11 belum live.
+
+### Empat temuan
+1. **Impor 12 Mei 2026 menulis ~472 tanggal lahir TERTUKAR** (hari dan bulan)
+   di `raw_customer`. Terlokalisir: satu hari, 2.164 pasien dibuat dalam satu
+   menit. Kendali dipasang — April 0,1%, Juni sampai Sep 0%. Angka 472 itu
+   **batas bawah**. Omnicare-nya benar; sisi kita yang salah. Tiket terpisah.
+2. **Webhook MaxChat terbuka sekarang** — `if ($token && ...)` dengan token
+   KOSONG di prod berarti auth dilewati. Ia menulis ke `raw_contact` (12.404)
+   dan `raw_chat` (35.737). Fail-closed TIDAK boleh dinyalakan sebelum token
+   dipasang di sisi MaxChat — 859 chat per minggu akan berhenti diam-diam.
+3. **22 dari 87 "Tidak Diisi" (25%) jatuh di hari orangnya tidak bekerja** —
+   `MarkChecklistMissed` menghormati cuti yang di-ACC tapi tak pernah melihat
+   `att_day.status`. 12 di antaranya menumpuk di 25 Agu. Dan dari `missed`
+   **tak ada jalan keluar di layar mana pun**.
+4. **Petty cash Reza ditahan**: `close()` tak punya pagar terhadap migrasi
+   saldo yang menggantung. Tutup periode saat migrasi belum diisi operator
+   membuat kas terkunci Rp 0 dan terbawa ke bulan depan. Di Bintaro itu
+   Rp 2.605.200. Matematika migrasinya sendiri LULUS di 5 cabang (semua kartu
+   jatuh tepat nol).
+
+### Pola yang berulang
+Empat kali sepekan ini ditemukan bentuk yang sama: **sistem bisa melakukannya,
+manusia tak punya pintu untuk memintanya** — ROP Tolak, `/reconcile` (2.240
+baris mengantre, `reconciled_by` 100% `system`), tautan pasien ambigu, dan
+sekarang `missed` checklist. Tiap menambah transisi status, pertanyaan wajibnya:
+**siapa yang memencetnya, dari layar mana.**
+
+---
 ## 2026-09-10 — Wakil Head IT · penilaian awal boleh langsung ke Analisis · kata "Triase" diganti (`c7253b6`, dev/prod belum)
 
 Branch `feat/wakil-head-it` dari `main` (`d25f97e`). **Nol SQL.** Berawal dari
