@@ -6,6 +6,25 @@
 > file ini append-only.
 
 ---
+## 2026-09-17 — 🗂️ DIRENCANAKAN: pemberesan jadwal dokter 5 cabang (IT-2026-042, belum dikerjakan)
+
+Pemicu: lima poster jadwal praktik dokter dibandingkan dengan `raw_doctor_schedule` prod.
+Hasil: **tidak satu pun cocok** — poster = data lama (belum memuat perubahan Sep), prod =
+data baru tapi berantakan: baris akhir<awal (Bintaro Min 22:00–20:00), baris kembar
+(Vinny Kalideres Min, Panji Bintaro Sab, Rista Bintaro Sel), jam lewat tutup 20:00 (4 baris),
+dokter NONAKTIF masih berjadwal (Cut Yuliza Cinere), **drg Wira Sp.BM Selasa 10–20 di kelima
+cabang sekaligus**, pengecualian tanggal hanya dipakai Bintaro (5 baris, cabang lain 0).
+Tabel ini yang membuka slot reservasi online.
+
+Keputusan Ikhsan: **jangan langsung di prod** → jadi tiket Support **IT-2026-042**
+(ANTRE, PIC Ikhsan) + rencana `docs/rencana/rencana-pemberesan-jadwal-dokter.md`:
+lembar tinjau dari prod → cabang mengisi putusan → uji di DEV atas potret prod → cek
+reservasi mendatang di luar jam baru → terapkan di prod hari **Senin** (tutup) dengan dump
+→ poster berikutnya dibuat DARI ekspor sistem. Rencana memuat **14 pertanyaan** untuk
+Anisa/Sales (spesialis on-call boleh dibooking online?, jam tutup 19:30 vs 20:00, siapa
+"Drg. Aisyah" Cinere, siapa berwenang mengubah jadwal, fitur pengecualian tanggal).
+Belum ada yang diubah di prod. Papan: ANTRE 6 → 7.
+
 ## 2026-09-17 — ✅ NAIK PROD: empat gerbong dalam tiga jendela + checklist multi-foto (prod `1d33d9c`)
 
 Deploy malam 22:20–22:49, nol galat aplikasi, 9 login berhasil sepanjang jendela.
