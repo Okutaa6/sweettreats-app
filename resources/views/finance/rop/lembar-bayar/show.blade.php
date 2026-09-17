@@ -17,6 +17,20 @@
     $rupiah   = fn ($v) => 'Rp ' . number_format((float) $v, 0, ',', '.');
     $dibayar  = $lembar->jumlahDibayar();
     $bisaBayar = $lembar->itemBelumDibayar();
+
+    // Item yang keluar dari lembar SESUDAH lembar dibuat — persetujuannya
+    // dibatalkan, atau pengajuannya kadaluarsa. rop_payment_sheets.total itu
+    // kolom beku (dihitung sekali saat lembar dibuat) dan memang TIDAK ikut
+    // turun; tanpa keterangan ini selisihnya terbaca sebagai salah hitung.
+    $batal      = $lembar->items->filter(fn ($i) => $i->rop && in_array(
+                      $i->rop->status,
+                      [\App\Models\RopRequest::STATUS_DITOLAK, \App\Models\RopRequest::STATUS_KADALUARSA],
+                      true
+                  ));
+    // SNAPSHOT (`items.amount`), bukan `rop->amount` yang hidup — `lembar->total`
+    // juga dijumlahkan dari snapshot saat lembar dibuat, jadi pengurangannya
+    // harus dari sumber yang sama atau selisihnya melenceng.
+    $nilaiBatal = (float) $batal->sum(fn ($i) => (float) $i->amount);
 @endphp
 
 <div class="rop-fin">
@@ -56,7 +70,9 @@
         <div class="rop-fin-stat">
             <span class="rop-label">Sudah dibayar</span>
             <b class="rop-num">{{ $dibayar }} / {{ $lembar->jumlah_item }}</b>
-            <small>{{ $bisaBayar->count() }} masih menunggu uang</small>
+            <small>
+                {{ $bisaBayar->count() }} masih menunggu uang@if ($batal->isNotEmpty()), {{ $batal->count() }} dibatalkan@endif
+            </small>
         </div>
         <div class="rop-fin-stat {{ $lembar->sudahDikirim() ? '' : 'rop-fin-stat--bahaya' }}">
             <span class="rop-label">Dikirim ke bos</span>
@@ -72,6 +88,19 @@
             </small>
         </div>
     </div>
+
+    @if ($batal->isNotEmpty())
+        {{-- Selisih total dijelaskan di tempat orang melihatnya. Angka di kepala
+             lembar SENGAJA tidak ikut turun: lembar cetak yang sudah dikirim ke
+             bank itu dokumen sejarah, bukan laporan hidup. --}}
+        <div class="rop-note rop-note--kuning" style="margin-bottom:14px">
+            <b>{{ $batal->count() }} item keluar dari lembar ini sesudah dibuat</b> —
+            {{ $rupiah($nilaiBatal) }} tidak jadi dibayar
+            ({{ $batal->map(fn ($i) => $i->rop->number)->implode(', ') }}).
+            Total di atas tetap {{ $rupiah($lembar->total) }} karena itu angka yang sudah tercetak
+            dan terkirim; yang benar-benar dibayar {{ $rupiah((float) $lembar->total - $nilaiBatal) }}.
+        </div>
+    @endif
 
     {{-- Penuntun langkah (pola-interaksi P5/P6: layar mengajarkan langkah
          berikutnya, tidak menunggu orangnya hafal). Langkah yang SEDANG

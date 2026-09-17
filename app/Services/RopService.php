@@ -358,15 +358,33 @@ class RopService
         });
     }
 
+    /**
+     * Tolak — DUA arti, tergantung status asal, dan pengaju harus dapat kata
+     * yang benar untuk masing-masing:
+     *   • dari `diajukan`  → pengajuannya ditolak, ada yang perlu diperbaiki.
+     *   • dari `disetujui` → persetujuan yang sudah keluar DITARIK KEMBALI
+     *     (mis. VA kedaluwarsa). Pengajuannya sendiri tidak salah; yang perlu
+     *     ia lakukan adalah MENGAJUKAN ULANG.
+     *
+     * Judul yang terbaca lebih dulu, jadi "Pengajuan ditolak" untuk pembatalan
+     * 13 hari setelah ACC itu menyesatkan meski badan pesannya benar.
+     */
     public function tolak(RopRequest $rop, string $alasan, string $actorId): RopRequest
     {
+        $batal = fn (?string $dari) => $dari === RopRequest::STATUS_DISETUJUI;
+
         return $this->pindah($rop, RopRequest::STATUS_DITOLAK, $actorId, $alasan, [
             'reject_reason' => $alasan,
             'reviewed_by'   => $actorId,
             'reviewed_at'   => now(),
-        ], 'rop_ditolak', 'Pengajuan ditolak', function (RopRequest $r) use ($alasan) {
-            return $r->number . ' ditolak. Alasan: ' . $alasan;
-        });
+        ], 'rop_ditolak',
+            fn (RopRequest $r, ?string $dari) => $batal($dari) ? 'Persetujuan dibatalkan' : 'Pengajuan ditolak',
+            function (RopRequest $r, ?string $dari) use ($alasan, $batal) {
+                return $batal($dari)
+                    ? $r->number . ': persetujuannya ditarik kembali. Alasan: ' . $alasan
+                      . ' Silakan ajukan ulang kalau dananya masih dibutuhkan.'
+                    : $r->number . ' ditolak. Alasan: ' . $alasan;
+            });
     }
 
     /**
@@ -479,6 +497,13 @@ class RopService
      * pelakunya orang yang menolak, masih dalam jendela waktu. Jejak log
      * tidak dihapus; pengaju yang terlanjur diberi tahu "ditolak" dikoreksi
      * terang-terangan.
+     *
+     * Satu syarat tambahan: penolakan yang datang dari `disetujui` (pembatalan
+     * persetujuan) TIDAK bisa diurungkan lewat sini. Metode ini selalu memulihkan
+     * ke `diajukan`, dan reviewed_by penyetuju aslinya sudah tertimpa penolak —
+     * jadi "urungkan" akan memulihkan ke status yang SALAH sambil memalsukan siapa
+     * yang menyetujui. Karena itu layar pun tidak merender tombol Urungkan untuk
+     * pembatalan; jalur pemulihannya adalah pengaju mengajukan ulang.
      */
     public function urungkanPenolakan(RopRequest $rop, string $actorId): RopRequest
     {
@@ -494,6 +519,16 @@ class RopService
             }
             if (! $segar->reviewed_at || $segar->reviewed_at->diffInSeconds(now()) > self::DETIK_URUNG) {
                 abort(409, 'Waktu untuk mengurungkan sudah lewat.');
+            }
+            // Pagar terakhir karena yang paling mahal (satu kueri log) — dan
+            // karena 403 di atas jawaban yang lebih tepat untuk orang lain.
+            $dariStatus = RopStatusLog::where('rop_request_id', $segar->id)
+                ->where('ke_status', RopRequest::STATUS_DITOLAK)
+                ->orderByDesc('id')
+                ->value('dari_status');
+            if ($dariStatus === RopRequest::STATUS_DISETUJUI) {
+                abort(409, 'Pembatalan persetujuan tidak bisa diurungkan dari sini — '
+                         . 'minta pengaju mengajukan ulang.');
             }
 
             $segar->update([
@@ -545,6 +580,11 @@ class RopService
      *
      * $tipeNotif NULL = tidak ada notifikasi (mis. saat pengaju menutup
      * pengajuannya sendiri — tidak perlu memberi tahu dirinya sendiri).
+     *
+     * $judulNotif & $isiNotif boleh berupa callable yang menerima
+     * ($segar, $dari) — status ASAL dibaca di dalam kunci, jadi ini satu-satunya
+     * tempat yang benar untuk memilih kata. Pemanggil yang cuma butuh satu
+     * bentuk kalimat tetap boleh mengirim string / closure berparameter satu.
      */
     private function pindah(
         RopRequest $rop,
@@ -553,7 +593,7 @@ class RopService
         ?string $catatan,
         array $kolom,
         ?string $tipeNotif,
-        ?string $judulNotif,
+        string|callable|null $judulNotif,
         ?callable $isiNotif
     ): RopRequest {
         return DB::transaction(function () use ($rop, $ke, $actorId, $catatan, $kolom, $tipeNotif, $judulNotif, $isiNotif) {
@@ -571,8 +611,8 @@ class RopService
             if ($tipeNotif && $segar->requester_id) {
                 AdminNotification::notify(
                     $tipeNotif,
-                    $judulNotif,
-                    $isiNotif ? $isiNotif($segar) : null,
+                    is_callable($judulNotif) ? $judulNotif($segar, $dari) : $judulNotif,
+                    $isiNotif ? $isiNotif($segar, $dari) : null,
                     url('pengajuan/' . $segar->id),
                     null,
                     (string) $segar->requester_id,

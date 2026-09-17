@@ -318,20 +318,43 @@
         </div>
 
         {{-- Blok tolak disembunyikan sampai diminta: menolak harus tindakan
-             sadar, bukan tombol yang sejajar dengan setujui. --}}
+             sadar, bukan tombol yang sejajar dengan setujui.
+
+             SATU blok, DUA arti — judul, contoh alasan dan label tombolnya
+             diganti JS lewat siapkanBlokTolak():
+               • dari `diajukan`  → "Tolak": belum pernah disetujui.
+               • dari `disetujui` → "Batalkan persetujuan": uangnya sudah masuk
+                 lembar bayar dan mungkin sudah dikirim ke bank. Menolak di sini
+                 berarti MENARIK KEMBALI persetujuan yang sudah keluar, jadi
+                 kata-katanya tidak boleh sama. --}}
         <div class="rop-card" style="padding:14px;margin-top:12px;display:none" id="ropDTolakBlok">
             <form method="POST" id="ropTolakForm">
                 @csrf
-                <div class="rop-label" style="margin-bottom:8px">Alasan penolakan</div>
+                <div class="rop-label" style="margin-bottom:8px" id="ropDTolakJudul">Alasan penolakan</div>
+                {{-- Akibatnya ditulis di layar, bukan dibiarkan ditebak (pola P3). --}}
+                <div class="rop-note rop-note--kuning" id="ropDTolakAkibat" style="display:none;margin-bottom:10px">
+                    Persetujuan ditarik kembali dan pengaju langsung diberi tahu alasannya.
+                    Kalau dananya masih dibutuhkan, dia harus mengajukan ulang — pembatalan ini
+                    tidak bisa diurungkan dari layar.
+                </div>
                 <textarea class="rop-textarea" name="alasan" id="ropDAlasan" maxlength="500" required
                           placeholder="Pengaju perlu tahu apa yang harus diperbaiki"></textarea>
-                <div class="rop-chip-row" style="margin:8px 0">
+                <div class="rop-chip-row" style="margin:8px 0" id="ropDAlasanChipAjukan">
                     @foreach (['Anggaran periode ini sudah habis', 'Perlu penawaran pembanding',
                                'Lampiran belum ada', 'Sebaiknya lewat petty cash'] as $a)
                         <button type="button" class="rop-chip" data-rop-alasan="{{ $a }}">{{ $a }}</button>
                     @endforeach
                 </div>
-                <button class="rop-btn rop-btn--danger rop-btn--block">Kirim penolakan</button>
+                {{-- Contoh alasan cabang `disetujui` beda isinya: yang bikin
+                     persetujuan ditarik bukan "lampiran belum ada", tapi hal yang
+                     baru ketahuan SESUDAH ACC — VA kedaluwarsa, nominal berubah. --}}
+                <div class="rop-chip-row" style="margin:8px 0;display:none" id="ropDAlasanChipBatal">
+                    @foreach (['VA sudah kedaluwarsa sebelum sempat dibayar', 'Nominal atau penerima berubah',
+                               'Pembelian dibatalkan pengaju', 'Sudah dibayar lewat jalur lain'] as $a)
+                        <button type="button" class="rop-chip" data-rop-alasan="{{ $a }}">{{ $a }}</button>
+                    @endforeach
+                </div>
+                <button class="rop-btn rop-btn--danger rop-btn--block" id="ropTolakKirim">Kirim penolakan</button>
             </form>
         </div>
         </div>{{-- /#ropDIsi --}}
@@ -362,6 +385,21 @@
                 @include('rop._ikon', ['n' => 'cek'])
                 Tandai dibayar
             </button>
+            {{-- Pintu yang selama ini tidak ada. Mesin negara sudah mengizinkan
+                 disetujui → ditolak sejak awal (RopService::TRANSISI), tapi tak
+                 satu layar pun punya tombolnya: 16 Sep 2026 tiga antrian bayar
+                 tertahan 13 hari karena VA-nya kedaluwarsa dan Finance tidak
+                 punya cara membatalkannya sendiri. Aksi sekunder, bukan
+                 berdampingan seukuran dengan Tandai dibayar. --}}
+            <div class="rop-aksi-sekunder">
+                {{-- Keadaan lembar bayar tempat pengajuan ini duduk. Membatalkan
+                     punya akibat di LUAR layar ini — lembarnya mungkin sudah
+                     dikirim ke bos dan sebagian isinya sudah ditransfer. Ini
+                     keterangan, bukan pagar: Finance tetap boleh membatalkan. --}}
+                <div class="rop-drawer__hint rop-hint--lembar" id="ropDLembar" style="display:none"></div>
+                <button class="rop-btn rop-btn--kecil rop-btn--tautan" type="button" id="ropBukaBatalAcc">Batalkan persetujuan</button>
+                <div class="rop-drawer__hint" style="margin-top:4px">Pengaju diberi tahu alasannya dan perlu mengajukan ulang.</div>
+            </div>
         </div>
     </div>
 </aside>
@@ -470,7 +508,7 @@
             fetch(basis + '/' + id, { headers: { Accept: 'application/json' } })
                 .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
                 .then(function (d) {
-                    itemAktif = { id: id, number: d.number, amount: Number(d.amount) || 0 };
+                    itemAktif = { id: id, number: d.number, amount: Number(d.amount) || 0, status: d.status };
                     document.getElementById('ropDMuat').hidden = true;
                     document.getElementById('ropDIsi').hidden = false;
                     document.getElementById('ropDNomor').textContent = d.number;
@@ -555,6 +593,19 @@
                     document.getElementById('ropFootAcc').style.display   = bisaAcc ? '' : 'none';
                     document.getElementById('ropFootBayar').style.display = bisaBayar ? '' : 'none';
                     document.getElementById('ropDAkunBlok').style.display = bisaAcc ? '' : 'none';
+                    // Satu baris keadaan lembar, hanya di cabang yang bisa
+                    // membatalkan — di status lain ia cuma menambah bising.
+                    var elLembar = document.getElementById('ropDLembar');
+                    if (bisaBayar && d.lembar) {
+                        elLembar.textContent = 'Ada di lembar ' + d.lembar.number
+                            + (d.lembar.dikirim ? ' · dikirim ke bos ' + d.lembar.dikirim : ' · belum dikirim')
+                            + ' · ' + d.lembar.dibayar + ' dari ' + d.lembar.item + ' item sudah dibayar';
+                        elLembar.style.display = '';
+                    } else {
+                        elLembar.textContent = '';
+                        elLembar.style.display = 'none';
+                    }
+
                     var fb = document.getElementById('ropDrawerBayar');
                     fb.setAttribute('data-id', id);
                     fb.setAttribute('data-nomor', d.number);
@@ -563,6 +614,10 @@
                     pilihAkun('');
                     document.getElementById('ropDTolakBlok').style.display = 'none';
                     document.getElementById('ropDAlasan').value = '';   // jangan bawa alasan item sebelumnya
+                    // Mode blok alasan mengikuti status item yang baru dibuka —
+                    // kalau tidak, judul "Batalkan persetujuan" dari item
+                    // sebelumnya ikut terbawa ke pengajuan yang baru diajukan.
+                    siapkanBlokTolak(bisaBayar ? 'batal-acc' : 'tolak');
                     buka();
                 })
                 .catch(function () {
@@ -584,7 +639,30 @@
         btn.addEventListener('click', function () { bukaDetail(btn.getAttribute('data-rop-acc')); });
     });
 
-    document.getElementById('ropBukaTolak').addEventListener('click', function () {
+    /* ══ Blok alasan: satu form, dua arti ═════════════════════════════════
+       'tolak'     → dari `diajukan`, belum pernah disetujui.
+       'batal-acc' → dari `disetujui`, menarik kembali persetujuan yang sudah
+                     keluar. Dua tombol berlabel sama dengan arti berbeda itu
+                     yang harus dihindari, jadi kata-katanya ikut berganti. */
+    var modeTolak = 'tolak';
+
+    function siapkanBlokTolak(mode) {
+        modeTolak = (mode === 'batal-acc') ? 'batal-acc' : 'tolak';
+        var batal = modeTolak === 'batal-acc';
+        document.getElementById('ropDTolakJudul').textContent =
+            batal ? 'Alasan pembatalan persetujuan' : 'Alasan penolakan';
+        document.getElementById('ropDTolakAkibat').style.display = batal ? '' : 'none';
+        document.getElementById('ropDAlasan').placeholder = batal
+            ? 'Pengaju perlu tahu kenapa persetujuannya ditarik'
+            : 'Pengaju perlu tahu apa yang harus diperbaiki';
+        document.getElementById('ropDAlasanChipAjukan').style.display = batal ? 'none' : '';
+        document.getElementById('ropDAlasanChipBatal').style.display  = batal ? '' : 'none';
+        document.getElementById('ropTolakKirim').textContent =
+            batal ? 'Batalkan persetujuan' : 'Kirim penolakan';
+    }
+
+    function bukaBlokTolak(mode) {
+        siapkanBlokTolak(mode);
         var blok = document.getElementById('ropDTolakBlok');
         blok.style.display = '';
         // Fokus dulu dengan preventScroll — focus() bawaan ikut menggulung dan
@@ -593,6 +671,13 @@
         // jadi yang harus terlihat adalah bagian ATAS (textarea alasan).
         document.getElementById('ropDAlasan').focus({ preventScroll: true });
         blok.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    document.getElementById('ropBukaTolak').addEventListener('click', function () {
+        bukaBlokTolak('tolak');
+    });
+    document.getElementById('ropBukaBatalAcc').addEventListener('click', function () {
+        bukaBlokTolak('batal-acc');
     });
 
     document.querySelectorAll('[data-rop-alasan]').forEach(function (c) {
@@ -690,6 +775,13 @@
             geserAngka(document.getElementById('ropStatMenungguN'), -1);
             geserRupiah(document.getElementById('ropStatMenungguRp'), -amount);
             geserBadge('menunggu', -1);
+        } else if (aksi === 'batal-acc') {
+            // Menolak dari `disetujui` mengosongkan antrian BAYAR, bukan antrian
+            // ACC — kalau ikut cabang 'tolak', angka "Menunggu ACC" turun padahal
+            // item ini sudah lama keluar dari sana.
+            geserAngka(document.getElementById('ropStatDisetujuiN'), -1);
+            geserRupiah(document.getElementById('ropStatDisetujuiRp'), -amount);
+            geserBadge('disetujui', -1);
         } else if (aksi === 'bayar') {
             geserAngka(document.getElementById('ropStatDisetujuiN'), -1);
             geserRupiah(document.getElementById('ropStatDisetujuiRp'), -amount);
@@ -762,9 +854,23 @@
         e.preventDefault();
         var aktif = itemAktif || {};
         var tombol = this.querySelector('button[type=submit], button:not([type])');
-        kirimForm(this, tombol, 'Mengirim…', function (d) {
-            tampilkanToast(d.urung.number + ' ditolak', 'Pengaju diberi tahu alasannya.', d.urung.id);
-            setelahAksi('tolak', d.urung.id, Number(d.amount) || aktif.amount || 0, true);
+        var modeKirim = modeTolak;   // dibekukan sebelum respons: drawer bisa sudah pindah item
+        kirimForm(this, tombol, modeKirim === 'batal-acc' ? 'Membatalkan…' : 'Mengirim…', function (d) {
+            // Status ASAL datang dari server (d.dari) — layar cuma cadangan
+            // kalau respons lama belum membawanya.
+            var batal = (d.dari || (modeKirim === 'batal-acc' ? 'disetujui' : 'diajukan')) === 'disetujui';
+            if (batal) {
+                // Tanpa "Urungkan": urungkanPenolakan() mengembalikan ke
+                // `diajukan`, BUKAN ke `disetujui` — tombol yang memulihkan ke
+                // status yang salah lebih berbahaya daripada tidak ada tombol.
+                // Jalur pemulihannya: pengaju mengajukan ulang.
+                tampilkanToast('Persetujuan ' + d.urung.number + ' dibatalkan',
+                               'Pengaju diberi tahu dan bisa mengajukan ulang.', null);
+            } else {
+                tampilkanToast(d.urung.number + ' ditolak', 'Pengaju diberi tahu alasannya.', d.urung.id);
+            }
+            setelahAksi(batal ? 'batal-acc' : 'tolak', d.urung.id,
+                        Number(d.amount) || aktif.amount || 0, true);
         });
     });
 
