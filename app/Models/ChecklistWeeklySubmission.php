@@ -261,6 +261,99 @@ class ChecklistWeeklySubmission extends Model
     }
 
     /**
+     * Satu hitungan untuk SELURUH tampilan review mingguan: bar, angka besar,
+     * breakdown, badge per hari, kotak statistik. Cerminan tally() di
+     * ChecklistSubmission — "beres" = dicentang ATAU dikecualikan, dan
+     * dikecualikan di sini termasuk item yang jatuh di hari yang dikecualikan
+     * penuh (ikut aturan satisfiedCount() yang sudah ada).
+     */
+    public function tally(): array
+    {
+        return $this->tallyItems($this->items);
+    }
+
+    /** Hitungan yang sama untuk satu hari (ISO 2–7). */
+    public function dayTally(int $iso): array
+    {
+        return $this->tallyItems($this->items->where('day_of_week', $iso));
+    }
+
+    private function tallyItems($items): array
+    {
+        $excused = $this->excusedDayNumbers();
+        $checked = 0;
+        $excluded = 0;
+        $unchecked = 0;
+
+        foreach ($items as $item) {
+            if ($item->is_excepted || in_array((int) $item->day_of_week, $excused, true)) { $excluded++; continue; }
+            if ($item->is_done) { $checked++; continue; }
+            $unchecked++;
+        }
+
+        return [
+            'checked'   => $checked,
+            'excluded'  => $excluded,
+            'unchecked' => $unchecked,
+            'total'     => $checked + $excluded + $unchecked,
+            'beres'     => $checked + $excluded,
+        ];
+    }
+
+    /**
+     * Tumpukan centang di menit yang sama dalam satu hari — informasi untuk
+     * supervisor, bukan vonis. Ambangnya 2 (bukan 3 seperti harian) karena satu
+     * hari mingguan cuma berisi 2–3 tugas.
+     *
+     * @return ?array{time:string,count:int}
+     */
+    public function dayPattern(int $iso): ?array
+    {
+        $times = [];
+        foreach ($this->items->where('day_of_week', $iso) as $item) {
+            if ($item->is_excepted || ! $item->is_done || ! $item->done_at) continue;
+            $jam = $item->done_at->format('H:i');
+            $times[$jam] = ($times[$jam] ?? 0) + 1;
+        }
+
+        $cluster = null;
+        foreach ($times as $jam => $n) {
+            if ($n >= 2 && (! $cluster || $n > $cluster['count'])) {
+                $cluster = ['time' => $jam, 'count' => $n];
+            }
+        }
+
+        return $cluster;
+    }
+
+    /**
+     * Foto WAJIB yang belum diunggah, lintas seluruh minggu. Ini temuan yang
+     * paling sering terlewat karena terkubur di tengah scroll — dipakai untuk
+     * kotak statistik "Foto belum ada" dan panel "Yang perlu dilihat".
+     *
+     * @return array<int,array{iso:int,item:ChecklistWeeklySubmissionItem,which:string}>
+     */
+    public function missingPhotos(): array
+    {
+        $excused = $this->excusedDayNumbers();
+        $out = [];
+
+        foreach ($this->items as $item) {
+            $iso = (int) $item->day_of_week;
+            if ($item->is_excepted || in_array($iso, $excused, true)) continue;
+
+            if ($item->photo_before_after) {
+                if (! $item->photo_before_path) $out[] = ['iso' => $iso, 'item' => $item, 'which' => 'BEFORE'];
+                if (! $item->photo_after_path)  $out[] = ['iso' => $iso, 'item' => $item, 'which' => 'AFTER'];
+            } elseif ($item->requires_photo && ! $item->photo_path) {
+                $out[] = ['iso' => $iso, 'item' => $item, 'which' => 'FOTO'];
+            }
+        }
+
+        return $out;
+    }
+
+    /**
      * "Minggu 24 Jun – 30 Jun 2026" — display friendly.
      */
     public function weekLabel(): string

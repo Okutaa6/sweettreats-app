@@ -119,6 +119,70 @@ class ChecklistSubmission extends Model
         return (int) round(($this->satisfiedCount() / $this->total_tasks) * 100);
     }
 
+    /**
+     * Satu hitungan untuk SELURUH tampilan review: bar, angka besar, breakdown,
+     * badge per kategori, kotak statistik. Dulu daftar memakai done_tasks
+     * (44/50) sementara detail memakai satisfiedCount (50/50) untuk pengisian
+     * yang SAMA — supervisor bisa salah kira. Semua angka sekarang turun dari
+     * sini, jadi tidak bisa lagi berbeda pendapat.
+     *
+     * "beres" = dicentang ATAU dikecualikan. Item yang dicentang sekaligus
+     * dikecualikan dihitung sebagai dikecualikan (pengecualian menang), supaya
+     * checked + excluded + unchecked selalu == total.
+     */
+    public function tally(): array
+    {
+        $checked = 0;
+        $excluded = 0;
+        $unchecked = 0;
+
+        foreach ($this->items as $item) {
+            if ($item->is_excepted)  { $excluded++;  continue; }
+            if ($item->is_done)      { $checked++;   continue; }
+            $unchecked++;
+        }
+
+        $total = $checked + $excluded + $unchecked;
+
+        return [
+            'checked'   => $checked,
+            'excluded'  => $excluded,
+            'unchecked' => $unchecked,
+            'total'     => $total ?: (int) $this->total_tasks,
+            'beres'     => $checked + $excluded,
+        ];
+    }
+
+    /**
+     * Pola jam pengisian: tumpukan centang di menit yang sama (mis. 10 tugas
+     * jam 17:21 = dicentang borongan di akhir shift, bukan dikerjakan sepanjang
+     * hari). Dipakai sebagai INFORMASI di panel "Yang perlu dilihat" —
+     * bukan vonis; supervisor yang menilai.
+     *
+     * Ambang tumpukan 3 centang di menit yang sama (ikut handoff desain).
+     *
+     * @return array{times: array<string,int>, cluster: ?array{time:string,count:int}}
+     */
+    public function timePattern(): array
+    {
+        $times = [];
+
+        foreach ($this->items as $item) {
+            if ($item->is_excepted || ! $item->is_done || ! $item->done_at) continue;
+            $jam = $item->done_at->format('H:i');
+            $times[$jam] = ($times[$jam] ?? 0) + 1;
+        }
+
+        $cluster = null;
+        foreach ($times as $jam => $n) {
+            if ($n >= 3 && (! $cluster || $n > $cluster['count'])) {
+                $cluster = ['time' => $jam, 'count' => $n];
+            }
+        }
+
+        return ['times' => $times, 'cluster' => $cluster];
+    }
+
     public function isEditable(): bool
     {
         return in_array($this->status, [self::STATUS_DRAFT, self::STATUS_REJECTED], true);
