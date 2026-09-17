@@ -6,6 +6,59 @@
 > file ini append-only.
 
 ---
+## 2026-09-17 — ✅ NAIK PROD: empat gerbong dalam tiga jendela + checklist multi-foto (prod `1d33d9c`)
+
+Deploy malam 22:20–22:49, nol galat aplikasi, 9 login berhasil sepanjang jendela.
+Urutan: security sendirian → ROP + penjodohan → petty cash → checklist.
+
+### Jendela 1 — security (`99a473b`)
+Throttle `/signin` dikunci email+IP. Terbukti di prod: 5 ditolak biasa,
+**terkunci di percobaan ke-6**, identitas lain dari IP yang sama tetap masuk.
+Bukti NAT terbaik datang sendiri: Ikhsan & Reza login dari `180.252.161.180`
+berjarak **satu detik**. Webhook MaxChat masih fail-open sampai
+`MAXCHAT_WEBHOOK_TOKEN` diisi manual (sengaja — token belum disepakati vendor).
+
+### Jendela 2 — ROP (`868effc`) + penjodohan Omnicare (`42e3923`), prod `83f58eb`
+- **Cakupan DOB 48,3% → 91,4%** (6.776 tanggal lahir terisi; jalan kedua +29).
+- Tautan 14.196 → 15.139 (+943) · pasien tertaut +150 · **kunjungan tertaut
+  3.226 → 3.549 (+323)** — inti gerbongnya.
+- 442 reservasi yang dibatalkan berhenti dicap tidak hadir: **no-show 26,1% →
+  17,8%**, lalu 16,9% sesudah 917 vonis lama dinilai ulang.
+- Ramalan `--dry-run` = hasil sungguhan di ketiga perintah. Pagar #3 nol bocor
+  (`uq_col_omnicare` tetap unik).
+- Triase tautan: **598 `dob_tertukar`** (jejak impor 12 Mei) · 62 bertentangan ·
+  9 selisih sehari — ditandai, menunggu manusia.
+- ROP: lembar `BAYAR/2609/001` kini 15 dibayar Rp 16.283.545 · 3 ditolak
+  Rp 820.290; TOTAL beku tetap. rsync `assets/` diverifikasi md5.
+
+### Jendela 3 — petty cash (`42398cc`), prod `d8b7622`
+Tiga commit Reza (rekonstruksi · pagar tutup-periode · tolak hentikan-migrasi).
+2 SQL manual. Kategori pinjaman nonaktif (radius: 6 trx, Rp 168.000, terakhir
+18 Agu). **Nol dompet dipensiunkan — migrasi belum dijalankan**; Reza mulai
+18 Sep per cabang. ⚠️ Pamulang pakai Seabank & Kalideres pakai BSI (nol Cash):
+dompet yang dipertahankan ditentukan **per cabang**, bukan Cash+BCA seragam.
+
+### Jendela 4 — checklist review redesain + multi-foto (`1e0f993`), prod `1d33d9c`
+Satu tugas mingguan sampai 5 foto per slot; kolom lama jadi cermin foto pertama
+(rollback cukup revert kode). Backfill prod **1.029 foto (461/283/285), 0 gagal,
+idempoten**. Diuji end-to-end di dev **per persona** (staf GS Fajri & atasan):
+29/29 + halaman daftar — termasuk foto ke-6 ditolak, hapus foto tengah
+(sort_order berlubang dibiarkan), cermin naik saat foto pertama dihapus, IDOR
+403, kunci hari sesudah dikirim, dan render blade atasan (4 thumbnail).
+Tanpa rsync.
+
+### Papan IT Tracker disamakan
+IT-019 → GOLIVE · IT-037 → SELESAI · **IT-040 (ROP Batalkan) & IT-041 (petty
+cash rekonstruksi) dibuat** karena gerbongnya belum bertiket · IT-034 dijawab ·
+IT-038 & IT-039 → GOLIVE. UAT kini kosong — dan itu jujur.
+
+### Dua ralat HUB hari ini, tercatat supaya tidak terulang
+- `git diff main..branch` pada branch yang tertinggal menampilkan kerja main
+  sebagai "penghapusan" — hitung dari `merge-base`.
+- Harness controller di luar pipeline HTTP: metode tanpa `Request` jangan
+  diberi `Request`; `$errors` harus di-`view()->share()` meniru middleware.
+
+---
 ## 2026-09-16 — Gerbang masuk dikeraskan: throttle email+IP, pesan berhenti membocorkan email, perangkap bot (`hotfix/security-throttle`, dev/prod belum)
 
 Branch `hotfix/security-throttle` dari `main` (`23fb5b1`). **Nol SQL, kode-only.**

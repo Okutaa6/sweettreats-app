@@ -650,9 +650,9 @@
 > lalu) dan sebagian sudah tidak berlaku. Blok ini ditulis HUB 16 Sep dari
 > pengukuran langsung ke prod. Kalau keduanya bertentangan, **percayai blok ini**.
 
-**Prod saat ini:** `23fb5b1`.
+**Prod saat ini:** `1d33d9c` (17 Sep 22:49) — empat gerbong naik malam 17 Sep: security `99a473b` · ROP+penjodohan `83f58eb` · petty cash `d8b7622` · checklist multi-foto `1d33d9c`.
 
-### Siap naik, menunggu izin
+### ✅ SUDAH NAIK 17 Sep (tabel di bawah = sejarah kesiapan)
 | gerbong | commit | catatan deploy |
 |---|---|---|
 | Penjodohan Omnicare (satu pasien banyak pid) | `42e3923` | **2 SQL manual, urutan mengikat.** Tanpa rsync. |
