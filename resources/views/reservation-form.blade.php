@@ -305,6 +305,10 @@
 
         .btn-submit { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; padding: 16px; background: linear-gradient(135deg, #461500, #6b2400); color: #fff; border: none; border-radius: 14px; font-family: 'Montserrat', sans-serif; font-size: 1rem; font-weight: 800; cursor: pointer; transition: all 0.3s ease; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 12px; }
         .btn-submit:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(70,21,0,0.35); }
+        /* Perangkap bot: disembunyikan lewat posisi, BUKAN display:none —
+           sebagian bot melewati field yang display:none, tapi mengisi yang
+           "ada di halaman". Manusia tetap tidak pernah melihatnya. */
+        .rsv-jebakan { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
         .btn-submit:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
         .form-note { text-align: center; margin-top: 20px; font-size: 0.8rem; color: #8b7a6b; }
 
@@ -638,6 +642,21 @@
                                 </div>
                                 <div id="promoStatus" style="margin-top:6px;font-size:0.82rem"></div>
                             </div>
+                        </div>
+
+                        {{-- Perangkap bot (honeypot). Manusia tidak pernah melihat
+                             kolom ini, jadi kalau ia terisi, pengirimnya skrip.
+                             Dipilih daripada captcha karena tidak membebani
+                             pasien yang sedang buru-buru mendaftar dari HP.
+
+                             Namanya sengaja BUKAN "email"/"website": nama-nama itu
+                             diisi otomatis oleh autofill browser, dan itu akan
+                             menolak orang sungguhan. tabindex=-1 + aria-hidden
+                             menjauhkannya dari keyboard dan pembaca layar. --}}
+                        <div class="rsv-jebakan" aria-hidden="true">
+                            <label for="rsvCatatanTambahan">Jangan diisi</label>
+                            <input type="text" name="catatan_tambahan" id="rsvCatatanTambahan"
+                                   value="" tabindex="-1" autocomplete="off">
                         </div>
 
                         {{-- Hidden global fields untuk server (patients[] di-inject saat submit) --}}

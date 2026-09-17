@@ -72,8 +72,11 @@ Route::get('/reservasi', function () {
     return view('reservation-form', compact('branches'));
 })->name('landing.reservation');
 
+// 20/menit itu 1.200 reservasi per jam dari satu alamat — longgar untuk mesin,
+// jauh di atas apa pun yang manusia lakukan. Satu keluarga tetap muat: banyak
+// pasien dikirim dalam SATU submit (patients[]), bukan satu per satu.
 Route::post('/reservasi', [\App\Http\Controllers\LandingReservationController::class, 'store'])
-    ->middleware('throttle:20,1')
+    ->middleware('throttle:5,1')
     ->name('landing.reservation.store');
 
 // Form publik "Pasien Baru" per cabang (link disebar Cekat AI di sosmed).
@@ -96,9 +99,13 @@ Route::prefix('affiliate')->group(function () {
 
     // Public
     Route::get('login',  [$portal, 'login'])->name('affiliate.login');
-    Route::post('login', [$portal, 'loginProcess'])->name('affiliate.login.process');
+    // PIN 6 digit = kredensial terlemah di sistem ini. Pembatasnya punya lapis
+    // ketiga yang menempel pada NOMOR (lintas IP) — lihat 'masuk-affiliate'.
+    Route::post('login', [$portal, 'loginProcess'])
+        ->middleware('throttle:masuk-affiliate')->name('affiliate.login.process');
     Route::get('register',  [$portal, 'register'])->name('affiliate.register');
-    Route::post('register', [$portal, 'registerProcess'])->name('affiliate.register.process');
+    Route::post('register', [$portal, 'registerProcess'])
+        ->middleware('throttle:daftar-affiliate')->name('affiliate.register.process');
     Route::get('thank-you', [$portal, 'thankYou'])->name('affiliate.thankyou');
     Route::get('logout', [$portal, 'logout'])->name('affiliate.logout');
 
@@ -880,14 +887,21 @@ Route::middleware([AuthGuard::class])->group(function () {
 Route::middleware([IsLoggedIn::class])->group(function () {
     Route::prefix('signin')->group(function () {
         Route::get('/', [AuthController::class, 'login'])->name('signin');
-        Route::post('/', [AuthController::class, 'loginProcess'])->name('signin.process');
+        // Pembatas 'masuk' dikunci EMAIL+IP, bukan IP saja — satu cabang keluar
+        // lewat satu IP publik, jadi kunci per-IP murni akan mengunci semua
+        // orang di cabang itu gara-gara satu orang salah ketik.
+        // Definisinya di RouteServiceProvider::batasiPercobaanMasuk().
+        Route::post('/', [AuthController::class, 'loginProcess'])
+            ->middleware('throttle:masuk')->name('signin.process');
     });
 
     Route::get('forgot-password', [AuthController::class, 'forgotPassword'])->name('forgot-password');
-    Route::post('forgot-password', [AuthController::class, 'forgotPasswordProcess'])->name('forgot-password.process');
+    Route::post('forgot-password', [AuthController::class, 'forgotPasswordProcess'])
+        ->middleware('throttle:lupa-sandi')->name('forgot-password.process');
 
     Route::get('reset-password/{token}', [AuthController::class, 'resetPassword'])->name('reset-password');
-    Route::post('reset-password/{token}', [AuthController::class, 'resetPasswordProcess'])->name('reset-password.process');
+    Route::post('reset-password/{token}', [AuthController::class, 'resetPasswordProcess'])
+        ->middleware('throttle:reset-sandi')->name('reset-password.process');
 });
 
 Route::get('signout', [AuthController::class, 'logout'])->name('signout');

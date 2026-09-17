@@ -83,6 +83,26 @@ class AffiliatePortalController extends Controller
 
     public function registerProcess()
     {
+        // Perangkap bot — lihat catatan panjang di
+        // LandingReservationController::store(). Ditolak terang-terangan, bukan
+        // dibuang diam-diam: pendaftar sungguhan harus tahu kalau gagal.
+        if (trim((string) request('catatan_tambahan')) !== '') {
+            // Dikurung sekali per jam per alamat — alasan yang sama dengan
+            // LandingReservationController::store(): form publik, dan
+            // `laravel.log` prod tidak berotasi.
+            \App\Support\PeringatanTerkurung::catat(
+                'jebakan-affiliate:' . request()->ip(),
+                'Pendaftaran affiliate ditolak — perangkap bot terisi',
+                [
+                    'asal'  => request()->ip(),
+                    'agent' => substr((string) request()->userAgent(), 0, 120),
+                ]
+            );
+
+            return back()->with('error',
+                'Formulirnya tidak bisa diproses. Muat ulang halaman ini lalu isi ulang.')->withInput();
+        }
+
         $scopeKeys     = array_keys(RawAffiliate::referralScopes());
         $rewardKeys    = array_keys(RawAffiliate::rewardPrograms());
         $platformKeys  = array_keys(RawAffiliate::socialPlatforms());

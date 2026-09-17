@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Webhook;
 
 use App\Http\Controllers\Controller;
+use App\Support\PeringatanTerkurung;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -14,9 +15,57 @@ class MaxChatWebhookController extends Controller
         // Verify webhook token on all methods
         $this->middleware(function ($request, $next) {
             $token = config('services.maxchat.webhook_token');
-            if ($token && $request->header('X-Webhook-Token') !== $token) {
-                return response()->json(['error' => 'Unauthorized'], 401);
+
+            if ($token) {
+                if (! hash_equals($token, (string) $request->header('X-Webhook-Token'))) {
+                    return response()->json(['error' => 'Unauthorized'], 401);
+                }
+
+                return $next($request);
             }
+
+            /*
+             * ⛔ TOKEN BELUM DIPASANG = PINTU INI TERBUKA.
+             *
+             * `if ($token && …)` di atas artinya: selama config-nya kosong,
+             * SELURUH pemeriksaan dilewati dan siapa pun yang tahu URL-nya bisa
+             * menulis ke raw_contact/raw_chat — aliran data tersibuk kita
+             * (12.404 kontak · 35.737 percakapan, ±859 per minggu), sekaligus
+             * bahan CRM yang sedang dibangun.
+             *
+             * Ini TIDAK dijadikan fail-closed di sini, dan itu keputusan sadar:
+             * menolak tanpa token akan menghentikan aliran MaxChat seketika
+             * kalau tokennya belum dipasang di sisi MEREKA juga — dan tidak ada
+             * yang akan sadar sampai FO mengeluh chat tidak masuk.
+             *
+             * Jadi yang dilakukan sekarang: membuat keadaannya BERBUNYI. Begitu
+             * `MAXCHAT_WEBHOOK_TOKEN` diisi di .env prod, cabang di atas
+             * langsung berlaku dan pintunya tertutup — tanpa deploy kode lagi.
+             *
+             * Urutan memasangnya (jangan dibalik):
+             *   1. sepakati token dengan MaxChat, pasang di sisi mereka;
+             *   2. isi MAXCHAT_WEBHOOK_TOKEN di .env prod + config:clear;
+             *   3. pantau raw_chat beberapa jam — kalau berhenti tumbuh,
+             *      tokennya tidak cocok.
+             *
+             * Peringatannya dikurung sekali per jam per alamat asal: tanpa itu
+             * satu penyerang bisa menenggelamkan laravel.log dan justru
+             * menyembunyikan kejadian lain. Aturan kurungannya hidup di
+             * PeringatanTerkurung — satu definisi, dipakai juga oleh perangkap
+             * bot di form publik.
+             */
+            PeringatanTerkurung::catat(
+                'maxchat-tanpa-token:' . $request->ip(),
+                'Webhook MaxChat diterima TANPA verifikasi token',
+                [
+                    'asal'       => $request->ip(),
+                    'jalur'      => $request->path(),
+                    'sebab'      => 'MAXCHAT_WEBHOOK_TOKEN kosong — pemeriksaan token dilewati',
+                    'tindakan'   => 'Pasang token di sisi MaxChat lalu isi .env prod; sesudah itu pintu ini tertutup sendiri.',
+                    'user_agent' => substr((string) $request->userAgent(), 0, 120),
+                ]
+            );
+
             return $next($request);
         });
     }
