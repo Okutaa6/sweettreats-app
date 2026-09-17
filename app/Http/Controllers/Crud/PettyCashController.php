@@ -1552,13 +1552,49 @@ class PettyCashController extends Controller
 
         $mode = $request->input('mode') === 'cancel' ? 'cancel' : 'open';
 
+        // ── "Hentikan Migrasi" ──────────────────────────────────────────────
+        // Dulu blok ini hanya mengosongkan handover_at. Itu MENCABUT PAGAR
+        // tanpa memperbaiki apa yang dijaganya: saat jendela dibuka, saldo awal
+        // sengaja diisi lawan-mutasi supaya tiap kartu berbunyi Rp 0, dan angka
+        // itu tetap tinggal setelah handover_at hilang. Nol palsu tanpa penanda
+        // apa pun — sementara keempat tempat yang memakai kondisi jendela
+        // (index, setOpening, close, dan cek "sudah berjalan" di bawah) melepas
+        // jaganya sekaligus. Bulan berikutnya pun lahir Rp 0 sendiri lewat
+        // carry-forward ensurePeriod(), tanpa ada yang menekan tombol apa pun.
+        //
+        // Kenapa MENOLAK dan bukan memulihkan: mode=open sudah menimpa angka
+        // lamanya, dan wallet yang tidak punya transaksi bulan itu bahkan tidak
+        // masuk snapshot sama sekali — jadi baris periode tak lagi menyimpan
+        // bukti berapa yang hilang. Menebaknya dari kolom yang sudah dinolkan
+        // akan menulis angka salah yang terlihat sah. Pemulihan sungguhan butuh
+        // potret pra-migrasi yang disimpan saat open (kolom tersendiri); itu
+        // pekerjaan terpisah. Sampai ada, jendela ini hanya boleh ditinggalkan
+        // lewat jalan yang mengisi angka benar: Setoran Awal dari hitung fisik.
         if ($mode === 'cancel') {
-            $period->handover_at = null;
-            $period->save();
+            // Tak ada migrasi yang berjalan → tak ada yang perlu dihentikan.
+            // Dijawab ramah, bukan galat: hasilnya memang sudah seperti yang
+            // orangnya mau.
+            if ($period->handover_at === null) {
+                return redirect()
+                    ->route('pettycash', $this->preserveParams($kind))
+                    ->with('info', 'Tidak ada migrasi saldo yang sedang berjalan di periode ini.');
+            }
 
+            // Migrasi SUDAH diselesaikan operator. handover_at di sini bukan
+            // lagi penanda jendela terbuka, melainkan stempel waktu serah
+            // terima yang dibaca banner "diisi ulang oleh ... pada ...".
+            // Menghapusnya cuma membuang jejak, tanpa memperbaiki apa pun.
+            if ($period->opening_set_by !== null) {
+                return redirect()
+                    ->route('pettycash', $this->preserveParams($kind))
+                    ->with('info', 'Migrasi saldo periode ini sudah selesai — tidak ada yang perlu dihentikan.');
+            }
+
+            // Jendela masih terbuka → tolak. Sengaja tidak ada save() di
+            // seluruh jalur ini, jadi tak ada angka yang bisa bergeser.
             return redirect()
                 ->route('pettycash', $this->preserveParams($kind))
-                ->with('success', 'Migrasi saldo dihentikan.');
+                ->with('error', 'Migrasi saldo tidak bisa dihentikan di tengah jalan — saldo periode ini sedang dinolkan, dan hanya Setoran Awal yang bisa mengisinya kembali. Isi "Saldo Awal" dari hitung fisik (Super Admin juga boleh mengisikannya untuk cabang ini). Rincian saldo sebelum migrasi tersimpan di Audit Log.');
         }
 
         if ($period->handover_at !== null && $period->opening_set_by === null) {

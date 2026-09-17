@@ -75,27 +75,18 @@
                      papan kosong. Transaksi tidak disentuh. --}}
                 @if(! $period->is_closed && $isCurrentMonth)
                     @if($openingWindowOpen)
-                        {{-- Migrasi sedang berjalan — tinggal dihentikan. Wallet yang
-                             sudah terlanjur dipensiunkan TIDAK ikut kembali; itu
-                             keputusan terpisah lewat Kelola Wallet. --}}
-                        <form method="POST" action="{{ route('pettycash.opening.reset', ['id' => $period->id]) }}"
-                              style="margin:0;"
-                              onsubmit="return confirm({{ \Illuminate\Support\Js::from(
-                                  "Hentikan migrasi saldo?\n\nOperator cabang tidak lagi bisa mengisi saldo dari hitung fisik. Wallet yang sudah dipensiunkan tetap pensiun."
-                              ) }})">
-                            @csrf
-                            @include('crud.pettycash._filter_hidden')
-                            @if(!session('raw_branch_id') && $branchId)
-                                <input type="hidden" name="branch" value="{{ $branchId }}">
-                            @endif
-                            <input type="hidden" name="mode" value="cancel">
-                            <button type="submit"
-                                    class="st-btn-outline-brown"
-                                    data-pc-tooltip-pos="bottom"
-                                    data-pc-tooltip="Hentikan migrasi yang sedang berjalan — operator cabang tak lagi bisa mengisi saldo.">
-                                <i class="fa fa-times"></i> Hentikan Migrasi
-                            </button>
-                        </form>
+                        {{-- Migrasi sedang berjalan. TIDAK ada tombol hentikan:
+                             mengosongkan handover_at saja cuma mencabut pagar dan
+                             meninggalkan saldo nol palsu tanpa penanda (lihat
+                             resetOpening() mode=cancel, yang sekarang menolaknya).
+                             Jalan keluarnya satu, dan ada di banner kuning di
+                             bawah: isi Saldo Awal dari hitung fisik. --}}
+                        <span class="st-btn-outline-brown pc-btn-mati"
+                              aria-disabled="true"
+                              data-pc-tooltip-pos="bottom"
+                              data-pc-tooltip="Migrasi sedang berjalan dan tidak bisa dihentikan di tengah jalan — saldo periode ini sedang dinolkan. Selesaikan dengan mengisi Saldo Awal dari hitung fisik; Super Admin juga boleh mengisikannya untuk cabang ini. Rincian saldo sebelum migrasi tersimpan di Audit Log.">
+                            <i class="fa fa-hourglass-half"></i> Migrasi berjalan
+                        </span>
                     @else
                         <button type="button"
                                 class="st-btn-outline-brown"
@@ -202,6 +193,9 @@
             .pc-opening-window--done .pc-opening-window__icon{background:#dcfce7;color:#15803d;}
             .pc-opening-window__close{flex-shrink:0;width:28px;height:28px;border:none;background:transparent;color:inherit;opacity:.55;font-size:20px;line-height:1;border-radius:6px;cursor:pointer;transition:opacity .15s,background .15s;}
             .pc-opening-window__close:hover{opacity:1;background:rgba(0,0,0,.06);}
+            /* Penanda "Migrasi berjalan" — bentuknya tombol tapi memang tidak bisa diklik. */
+            .pc-btn-mati{opacity:.6;cursor:not-allowed;}
+            .pc-btn-mati:hover{background:#FFFFFF;border-color:#EBE3D8;color:#5C2A0A !important;transform:none;box-shadow:0 1px 2px rgba(61,26,0,.04);}
         </style>
     @endif
 
