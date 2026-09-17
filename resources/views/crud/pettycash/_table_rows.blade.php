@@ -3,7 +3,7 @@
 
     Dipakai untuk 2 sub-tab di halaman utama:
       - Tab "regular"  → top up + pengeluaran + setor cash
-      - Tab "transfer" → semua transfer composite + child rows
+      - Tab "transfer" → semua Pindah Saldo (composite + child rows)
 
     Variables:
       - $rowsInput        : collection / array baris yang dirender
@@ -29,17 +29,28 @@
 @endphp
 @forelse($rowsInput as $r)
     @php
-        $isComposite  = ! empty($r->is_composite);
-        $isTarikTunai = $r->is_transfer
-            && \Illuminate\Support\Str::startsWith((string) $r->description, 'Tarik tunai');
-        $isDeposit    = $r->is_transfer
-            && \Illuminate\Support\Str::startsWith((string) $r->description, 'Deposit');
-        $pillLabel    = $isTarikTunai ? 'tarik tunai' : ($isDeposit ? 'deposit' : 'transfer');
-        $rowId        = 'pcrow-' . ($tabKind ?? 'r') . '-' . ($r->ref_no ?: $r->id);
+        $isComposite = ! empty($r->is_composite);
+        // Satu label untuk semua perpindahan antar wallet — dulu dibaca dari
+        // awalan deskripsi ("Tarik tunai"/"Deposit"), sekarang tidak perlu
+        // karena istilahnya cuma satu.
+        $pillLabel   = 'pindah saldo';
+        $rowId       = 'pcrow-' . ($tabKind ?? 'r') . '-' . ($r->ref_no ?: $r->id);
+        // Baris nyasar: tanggalnya di luar bulan periode ini. Uangnya sudah
+        // ikut mengurangi saldo periode ini, jadi barisnya sengaja tetap
+        // ditampilkan (tidak ikut tersaring filter tanggal) dan ditandai.
+        $isOutside   = ! empty($r->outside_period);
     @endphp
-    <tr class="{{ $r->is_topup ? 'pc-row-topup' : '' }} {{ $r->is_transfer ? 'pc-row-transfer' : '' }} {{ $isComposite ? 'pc-row-composite' : '' }}"
+    <tr class="{{ $r->is_topup ? 'pc-row-topup' : '' }} {{ $r->is_transfer ? 'pc-row-transfer' : '' }} {{ $isComposite ? 'pc-row-composite' : '' }} {{ $isOutside ? 'pc-row-outside' : '' }}"
         @if($isComposite) data-pc-composite-parent="{{ $rowId }}" @endif>
-        <td class="pc-date">{{ \Carbon\Carbon::parse($r->trx_date)->translatedFormat('d M Y') }}</td>
+        <td class="pc-date">
+            {{ \Carbon\Carbon::parse($r->trx_date)->translatedFormat('d M Y') }}
+            @if($isOutside)
+                <span class="pc-outside-badge"
+                      title="Tanggalnya di luar bulan periode ini, tapi nominalnya ikut mengurangi saldo periode ini. Hapus lalu catat ulang dengan tanggal yang benar.">
+                    <i class="fa fa-exclamation-triangle"></i> luar periode
+                </span>
+            @endif
+        </td>
         <td>
             @if($isComposite && isset($r->source_to))
                 <span class="pc-source-inline pc-source-inline--pair">
@@ -90,34 +101,7 @@
             @endif
             <strong>{{ $r->description }}</strong>
             @if(!empty($r->category) && isset($categoryMap[$r->category]))
-                @php
-                    // Baris pinjaman punya 3 varian tampilan:
-                    //   - cash-in (pengembalian)             → pill "Pengembalian"
-                    //   - cash-out dengan status (loan_status) → pill "Pinjaman"
-                    //       + status LUNAS / SEBAGIAN / BELUM LUNAS + sisa
-                    //   - kategori lain                       → pill kategori biasa
-                    $isLoanReturn = $r->category === 'pinjaman' && ($r->cash_in ?? 0) > 0;
-                @endphp
-                @if($isLoanReturn)
-                    <span class="pc-pill-category pc-pill-category--lunas">Pengembalian</span>
-                @else
-                    <span class="pc-pill-category pc-pill-category--{{ $r->category }}">{{ $categoryMap[$r->category] }}</span>
-                    @if(!empty($r->loan_status))
-                        @if($r->loan_status === 'lunas')
-                            <span class="pc-pill-loan pc-pill-loan--lunas">Lunas</span>
-                        @elseif($r->loan_status === 'sebagian')
-                            <span class="pc-pill-loan pc-pill-loan--sebagian"
-                                  title="Sudah dikembalikan Rp {{ number_format($r->loan_paid, 0, ',', '.') }} dari Rp {{ number_format($r->cash_out, 0, ',', '.') }}">
-                                Sebagian · sisa Rp {{ number_format($r->loan_sisa, 0, ',', '.') }}
-                            </span>
-                        @else
-                            <span class="pc-pill-loan pc-pill-loan--belum">Belum Lunas</span>
-                        @endif
-                    @endif
-                @endif
-                @if(!empty($r->borrower_name) && ! $isLoanReturn)
-                    <span class="pc-loan-borrower"><i class="fa fa-user"></i>{{ $r->borrower_name }}</span>
-                @endif
+                <span class="pc-pill-category pc-pill-category--{{ $r->category }}">{{ $categoryMap[$r->category] }}</span>
             @endif
             @if($r->is_topup)
                 <span class="pc-pill-topup">top up</span>
@@ -135,7 +119,7 @@
                     $attachTitle = $r->is_topup
                         ? 'Lihat bukti top up'
                         : ($r->is_transfer
-                            ? 'Lihat bukti mutasi'
+                            ? 'Lihat bukti pindah saldo'
                             : 'Lihat bukti pengeluaran');
                 @endphp
                 <button type="button"
@@ -158,7 +142,7 @@
             @php
                 $delAmount = number_format(max($r->cash_in, $r->cash_out), 0, ',', '.');
                 if ($isComposite) {
-                    $delMsg = "PERHATIAN: Anda akan menghapus KEDUA sisi transfer ini "
+                    $delMsg = "PERHATIAN: Anda akan menghapus KEDUA sisi Pindah Saldo ini "
                         . "(uang keluar Rp {$delAmount} dari " . ($r->source_name ?? '-')
                         . " DAN uang masuk Rp {$delAmount} ke " . (($r->source_to->name ?? '') ?: '-')
                         . "). Saldo kedua sumber akan berubah.\n\nTransaksi akan pindah ke tab Riwayat. Lanjutkan hapus?";
@@ -199,7 +183,6 @@
                                 data-trx-amount="{{ $r->cash_out }}"
                                 data-trx-description="{{ $r->description }}"
                                 data-trx-category="{{ $r->category }}"
-                                data-trx-borrower="{{ $r->borrower_name }}"
                                 data-trx-source-id="{{ $r->source_id }}"
                                 data-trx-source-name="{{ $r->source_name }}"
                                 data-trx-attachment="{{ !empty($r->attachment_path) ? asset($r->attachment_path) : '' }}"
@@ -218,7 +201,7 @@
                                 <input type="hidden" name="branch" value="{{ $branchId }}">
                             @endif
                             <button type="submit" class="pc-icon-btn"
-                                    title="{{ $isComposite ? 'Hapus transfer (kedua sisi, ' . $windowHint . ')' : 'Hapus transaksi (' . $windowHint . ')' }}">
+                                    title="{{ $isComposite ? 'Hapus Pindah Saldo (kedua sisi, ' . $windowHint . ')' : 'Hapus transaksi (' . $windowHint . ')' }}">
                                 <i class="fa fa-trash"></i>
                             </button>
                         </form>

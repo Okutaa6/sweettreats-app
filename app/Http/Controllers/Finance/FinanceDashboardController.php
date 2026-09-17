@@ -11,6 +11,13 @@ use App\Models\TopupRequest;
 use App\Models\Users;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use PhpOffice\PhpSpreadsheet\Cell\DataType;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Border;
+use PhpOffice\PhpSpreadsheet\Style\Color;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx as XlsxWriter;
 
 /**
  * FinanceDashboardController
@@ -78,14 +85,18 @@ class FinanceDashboardController extends Controller
                 ->forPeriod($period->id)
                 ->get(['direction', 'amount', 'is_topup', 'is_transfer', 'trx_date']);
 
-            $cashIn  = 0.0;
-            $cashOut = 0.0;
+            // cashIn = SEMUA uang masuk non-transfer: top up maupun setoran
+            // non-topup (pengembalian kasbon, setor cash, koreksi). Keduanya
+            // sama-sama menggerakkan saldo, jadi kalau hanya top-up yang
+            // dihitung, closing tak akan pernah cocok dengan opening + in − out.
+            $cashIn       = 0.0;
+            $cashOut      = 0.0;
             $lastActivity = null;
             foreach ($rows as $r) {
                 if ($r->is_transfer) continue; // transfer internal — netral
                 $amt = (float) $r->amount;
                 if ($r->direction === PettyCashTransaction::DIR_IN) {
-                    if ($r->is_topup) $cashIn += $amt;
+                    $cashIn += $amt;
                 } else {
                     $cashOut += $amt;
                 }
@@ -212,12 +223,255 @@ class FinanceDashboardController extends Controller
             abort(404, 'Cabang tidak ditemukan.');
         }
 
+        [$year, $month] = $this->resolveHistoryPeriod($request);
+
+        $data       = $this->buildBranchHistory($request, $branch, $year, $month);
+        $bulanLabel = $this->bulanLabel();
+        $monthName  = $bulanLabel[$month] ?? '-';
+
+        // Navigasi bulan sebelum/sesudah.
+        $prevDate = Carbon::create($year, $month, 1)->subMonth();
+        $nextDate = Carbon::create($year, $month, 1)->addMonth();
+
+        return view('finance.pettycash.branch-history', array_merge($data, compact(
+            'branch', 'year', 'month', 'monthName', 'bulanLabel', 'prevDate', 'nextDate'
+        )));
+    }
+
+    /**
+     * GET /finance/pettycash/branch/{branchId}/riwayat/export
+     *
+     * Export jejak transaksi (pengeluaran) 1 cabang + 1 bulan ke Excel. Baris
+     * yang diexport = baris yang tampil di layar — filter kategori & pencarian
+     * ikut terbawa. Gaya workbook mengikuti export di halaman petty cash:
+     * blok info di atas, header berwarna, zebra striping, border tipis,
+     * freeze pane + auto filter, dan baris TOTAL di bawah.
+     */
+    public function branchHistoryExport(Request $request, string $branchId)
+    {
+        $this->guard();
+
+        $branch = RawBranch::find($branchId);
+        if (! $branch) {
+            abort(404, 'Cabang tidak ditemukan.');
+        }
+
+        [$year, $month] = $this->resolveHistoryPeriod($request);
+
+        $data       = $this->buildBranchHistory($request, $branch, $year, $month);
+        $bulanLabel = $this->bulanLabel();
+        $monthName  = $bulanLabel[$month] ?? '-';
+        $rows       = $data['rows'];
+
+        // Rangkum filter aktif jadi 1 baris info — biar pembaca file tahu
+        // export ini hasil saringan mana (pola sama dgn export petty cash).
+        $filterParts = [];
+        if (! empty($data['categories'])) {
+            $filterParts[] = 'Kategori: ' . implode(', ', array_map(
+                fn ($c) => $data['categoryOptions'][$c] ?? $c,
+                $data['categories'],
+            ));
+        }
+        if ($data['search'] !== '') {
+            $filterParts[] = 'Cari: "' . $data['search'] . '"';
+        }
+
+        $branchSlug = preg_replace('/[^a-z0-9]+/i', '-', strtolower((string) $branch->name));
+        $filename   = sprintf('jejak-transaksi_%s_%04d-%02d.xlsx', $branchSlug, $year, $month);
+
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Jejak Transaksi');
+
+        // ─── Info block (atas) ───
+        // Periode ditulis eksplisit sebagai STRING; kalau dibiarkan default,
+        // "September 2026" gampang ditebak Excel jadi tanggal dan tampil "Sep-26".
+        $sheet->setCellValue('A1', 'Modul');   $sheet->setCellValue('B1', 'Jejak Transaksi Petty Cash');
+        $sheet->setCellValue('A2', 'Cabang');  $sheet->setCellValue('B2', (string) $branch->name);
+        $sheet->setCellValue('A3', 'Periode');
+        $sheet->setCellValueExplicit('B3', $monthName . ' ' . $year, DataType::TYPE_STRING);
+        $sheet->setCellValue('A4', 'Filter');
+        $sheet->setCellValue('B4', empty($filterParts) ? '-' : implode(' · ', $filterParts));
+        $sheet->getStyle('A1:A4')->getFont()->setBold(true);
+
+        // ─── Header tabel (row 5) ───
+        $headerRow  = 5;
+        $headerCols = [
+            'A' => 'Tanggal',  'B' => 'Jam',    'C' => 'Keterangan', 'D' => 'Kategori',
+            'E' => 'Wallet',   'F' => 'Jumlah', 'G' => 'Status',     'H' => 'Bukti',
+            'I' => 'Dicatat oleh', 'J' => 'Diedit', 'K' => 'Ref',
+        ];
+        foreach ($headerCols as $col => $h) {
+            $sheet->setCellValue($col . $headerRow, $h);
+        }
+        $sheet->getStyle("A{$headerRow}:K{$headerRow}")->applyFromArray([
+            'font'      => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
+            'fill'      => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '2563EB']],
+            'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
+            'borders'   => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '1E40AF']]],
+        ]);
+        $sheet->getRowDimension($headerRow)->setRowHeight(22);
+
+        // ─── Data rows ───
+        $row       = $headerRow + 1;
+        $rowsTotal = 0.0;
+        foreach ($rows as $i => $r) {
+            if (! $r->deleted) {
+                $rowsTotal += (float) $r->amount;
+            }
+
+            $sheet->setCellValue("A{$row}", $r->date->format('Y-m-d'));
+            $sheet->setCellValueExplicit("B{$row}", $r->recorded_at ? $r->recorded_at->format('H:i') : '-', DataType::TYPE_STRING);
+            $sheet->setCellValue("C{$row}", (string) $r->description);
+            $sheet->setCellValue("D{$row}", (string) ($r->category_label ?: '-'));
+            $sheet->setCellValue("E{$row}", (string) $r->wallet_name);
+            $sheet->setCellValueExplicit("F{$row}", (float) $r->amount, DataType::TYPE_NUMERIC);
+            $sheet->setCellValue("G{$row}", $r->deleted ? 'Dihapus' : 'Aktif');
+            $sheet->setCellValue("H{$row}", $r->attachment_path ? 'Ada' : '-');
+            $sheet->setCellValue("I{$row}", (string) $r->by);
+            $sheet->setCellValue("J{$row}", $r->edited
+                ? (($r->edited_at ? $r->edited_at->format('Y-m-d H:i') : '-') . ' — ' . ($r->edited_by ?: '-'))
+                : '-');
+            $sheet->setCellValue("K{$row}", (string) ($r->ref_no ?: '-'));
+
+            // Baris terhapus = jejak audit: merah muda + coret supaya tak
+            // ikut terbaca sebagai pengeluaran yang sah. Sisanya zebra biasa.
+            if ($r->deleted) {
+                $sheet->getStyle("A{$row}:K{$row}")->applyFromArray([
+                    'font' => ['strikethrough' => true, 'color' => ['rgb' => '991B1B']],
+                    'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'FEE2E2']],
+                ]);
+            } elseif ($i % 2 === 1) {
+                $sheet->getStyle("A{$row}:K{$row}")->getFill()
+                    ->setFillType(Fill::FILL_SOLID)
+                    ->getStartColor()->setRGB('EFF6FF');
+            }
+            $sheet->getStyle("A{$row}:K{$row}")->getBorders()->getAllBorders()
+                ->setBorderStyle(Border::BORDER_THIN)
+                ->setColor(new Color('DBEAFE'));
+
+            // Keterangan bisa panjang — biarkan wrap, kolom lain tetap rapi.
+            $sheet->getStyle("C{$row}")->getAlignment()->setWrapText(true);
+            $sheet->getStyle("F{$row}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+            $sheet->getStyle("B{$row}:B{$row}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            $sheet->getStyle("G{$row}:H{$row}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+
+            $row++;
+        }
+
+        $lastDataRow = $row - 1;
+        $hasData     = $lastDataRow >= $headerRow + 1;
+
+        if ($hasData) {
+            $sheet->getStyle("F" . ($headerRow + 1) . ":F{$lastDataRow}")
+                ->getNumberFormat()->setFormatCode('#,##0');
+        }
+
+        // ─── Footer TOTAL ───
+        // Angka yang dijumlah = baris AKTIF yang tampil. Kalau filter menyala,
+        // total sebulan penuh ikut ditulis di bawahnya supaya tak salah baca.
+        $totalRow = ($hasData ? $lastDataRow : $headerRow) + 2;
+        $sheet->setCellValue("C{$totalRow}", empty($filterParts)
+            ? 'TOTAL PENGELUARAN (transaksi aktif)'
+            : 'TOTAL PENGELUARAN YANG DITAMPILKAN (transaksi aktif)');
+        $sheet->setCellValueExplicit("F{$totalRow}", $rowsTotal, DataType::TYPE_NUMERIC);
+        $sheet->getStyle("C{$totalRow}:K{$totalRow}")->applyFromArray([
+            'font'    => ['bold' => true],
+            'fill'    => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'DBEAFE']],
+            'borders' => ['top' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '2563EB']]],
+        ]);
+        $sheet->getStyle("F{$totalRow}")->getNumberFormat()->setFormatCode('#,##0');
+        $sheet->getStyle("F{$totalRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+
+        if (! empty($filterParts)) {
+            $noteRow = $totalRow + 1;
+            $sheet->setCellValue("C{$noteRow}", 'Total satu bulan penuh (tanpa filter)');
+            $sheet->setCellValueExplicit("F{$noteRow}", (float) $data['cashOut'], DataType::TYPE_NUMERIC);
+            $sheet->getStyle("C{$noteRow}:K{$noteRow}")->getFont()
+                ->setItalic(true)->getColor()->setRGB('475569');
+            $sheet->getStyle("F{$noteRow}")->getNumberFormat()->setFormatCode('#,##0');
+            $sheet->getStyle("F{$noteRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+        }
+
+        // Auto-width semua kolom; keterangan dikunci manual karena auto-size
+        // + wrap text bikin kolomnya melar mengikuti baris terpanjang.
+        foreach (['A', 'B', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K'] as $col) {
+            $sheet->getColumnDimension($col)->setAutoSize(true);
+        }
+        $sheet->getColumnDimension('C')->setWidth(46);
+
+        // Header tetap kelihatan saat scroll + filter bawaan Excel.
+        $sheet->freezePane('A' . ($headerRow + 1));
+        $sheet->setAutoFilter("A{$headerRow}:K{$headerRow}");
+
+        $headers = [
+            'Content-Type'        => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+            'Cache-Control'       => 'no-store, no-cache',
+        ];
+
+        return response()->stream(function () use ($spreadsheet) {
+            (new XlsxWriter($spreadsheet))->save('php://output');
+        }, 200, $headers);
+    }
+
+    /** Label bulan Indonesia [1..12] — dipakai picker & judul halaman. */
+    private function bulanLabel(): array
+    {
+        return [
+            1 => 'Januari',  2 => 'Februari', 3 => 'Maret',
+            4 => 'April',    5 => 'Mei',      6 => 'Juni',
+            7 => 'Juli',     8 => 'Agustus',  9 => 'September',
+            10 => 'Oktober', 11 => 'November', 12 => 'Desember',
+        ];
+    }
+
+    /** Baca & clamp year/month dari query string. */
+    private function resolveHistoryPeriod(Request $request): array
+    {
         $today = Carbon::today();
         $year  = (int) $request->get('year',  $today->year);
         $month = (int) $request->get('month', $today->month);
         if ($year < 2000 || $year > 2100) $year = (int) $today->year;
         if ($month < 1   || $month > 12)  $month = (int) $today->month;
 
+        return [$year, $month];
+    }
+
+    /**
+     * Kategori pilihan user dari query string (?categories[]=...), divalidasi
+     * terhadap peta kategori yang ada. Nilai tak dikenal diabaikan.
+     */
+    private function parseCategories(Request $request, array $categoryOptions): array
+    {
+        $raw = $request->get('categories', $request->get('category', []));
+        if (! is_array($raw)) {
+            $raw = ($raw === '' || $raw === null) ? [] : [(string) $raw];
+        }
+
+        $valid = [];
+        foreach ($raw as $c) {
+            $c = (string) $c;
+            if ($c !== '' && array_key_exists($c, $categoryOptions) && ! in_array($c, $valid, true)) {
+                $valid[] = $c;
+            }
+        }
+
+        return $valid;
+    }
+
+    /**
+     * Susun jejak transaksi 1 cabang + 1 bulan: ringkasan periode (opening,
+     * cash in/out, closing) + baris pengeluaran yang tampil.
+     *
+     * Filter kategori & pencarian SENGAJA tidak di-apply ke query — saldo dan
+     * summary cards harus selalu mencerminkan posisi kas sebenarnya. Filter
+     * cuma menyaring baris yang dirender (pola sama dengan halaman petty
+     * cash), jadi total di bawah tabel dipisah: $cashOut = seluruh bulan,
+     * $rowsTotal = yang tampil.
+     */
+    private function buildBranchHistory(Request $request, RawBranch $branch, int $year, int $month): array
+    {
         $period = PettyCashPeriod::ensurePeriod(
             $year,
             $month,
@@ -230,6 +484,20 @@ class FinanceDashboardController extends Controller
         $opening = ! empty($openingPerSource)
             ? array_sum($openingPerSource)
             : (float) $period->opening_balance;
+
+        // categoryOptions = peta label (aktif + nonaktif) untuk badge & export;
+        // categoryFilterOptions = isi dropdown filter, hanya kategori aktif
+        // (plus yang sedang dipilih) supaya kategori pensiunan tak muncul lagi.
+        $categoryOptions = PettyCashTransaction::categoryMap();
+        $categories      = $this->parseCategories($request, $categoryOptions);
+        $search          = trim((string) $request->get('q', ''));
+
+        $categoryFilterOptions = PettyCashTransaction::activeCategoryOptions();
+        foreach ($categories as $c) {
+            if (! array_key_exists($c, $categoryFilterOptions) && isset($categoryOptions[$c])) {
+                $categoryFilterOptions[$c] = $categoryOptions[$c];
+            }
+        }
 
         // SEMUA transaksi periode (active() TIDAK dipakai → ikut yang deleted).
         $transactions = PettyCashTransaction::forPeriod($period->id)
@@ -249,11 +517,11 @@ class FinanceDashboardController extends Controller
             : collect();
 
         // Bangun baris + saldo berjalan (hanya baris aktif menggerakkan saldo).
-        $saldo    = $opening;
-        $cashIn   = 0.0;
-        $cashOut  = 0.0;
-        $rows     = [];
-        $categoryMap = PettyCashTransaction::categoryMap();
+        $saldo     = $opening;
+        $cashIn    = 0.0;
+        $cashOut   = 0.0;
+        $rowsTotal = 0.0;
+        $rows      = [];
         foreach ($transactions as $t) {
             $isDeleted = $t->deleted_at !== null;
             $amt       = (float) $t->amount;
@@ -261,11 +529,12 @@ class FinanceDashboardController extends Controller
 
             if (! $isDeleted) {
                 $saldo += $isIn ? $amt : -$amt;
-                // Ringkasan mengikuti semantik dashboard: cash in = top up saja,
-                // cash out = pengeluaran non-transfer.
+                // Ringkasan mengikuti semantik dashboard: cash in = semua uang
+                // masuk non-transfer (top up + setoran non-topup), cash out =
+                // pengeluaran non-transfer.
                 if (! $t->is_transfer) {
                     if ($isIn) {
-                        if ($t->is_topup) $cashIn += $amt;
+                        $cashIn += $amt;
                     } else {
                         $cashOut += $amt;
                     }
@@ -278,44 +547,48 @@ class FinanceDashboardController extends Controller
             $isExpense = $t->direction === PettyCashTransaction::DIR_OUT && ! $t->is_transfer;
             if (! $isExpense) continue;
 
+            // Saringan tampilan (kategori + cari keterangan).
+            if (! empty($categories) && ! in_array((string) $t->category, $categories, true)) continue;
+            if ($search !== '' && mb_stripos((string) $t->description, $search) === false) continue;
+
+            if (! $isDeleted) {
+                $rowsTotal += $amt;
+            }
+
             $rows[] = (object) [
-                'date'           => $t->trx_date instanceof Carbon ? $t->trx_date : Carbon::parse($t->trx_date),
-                'description'    => $t->description,
-                'category_label' => $t->category ? ($categoryMap[$t->category] ?? $t->category) : null,
-                'wallet_name'    => $t->fundSource?->name ?? '-',
-                'wallet_short'   => $t->fundSource?->effectiveShortLabel() ?? '?',
-                'wallet_color'   => $t->fundSource?->effectiveBrandColor() ?? '#64748b',
-                'amount'         => $amt,
-                'by'             => $t->created_by ? ($userNames[$t->created_by] ?? '—') : '—',
-                'recorded_at'    => $t->created_at, // jam asli saat transaksi dicatat ke sistem
-                'edited'         => $t->updated_by !== null && $t->edited_at !== null,
-                'edited_at'      => $t->edited_at,
-                'edited_by'      => $t->updated_by ? ($userNames[$t->updated_by] ?? '—') : null,
-                'deleted'        => $isDeleted,
-                'ref_no'         => $t->ref_no,
+                'date'            => $t->trx_date instanceof Carbon ? $t->trx_date : Carbon::parse($t->trx_date),
+                'description'     => $t->description,
+                'category'        => $t->category,
+                'category_label'  => $t->category ? ($categoryOptions[$t->category] ?? $t->category) : null,
+                'wallet_name'     => $t->fundSource?->name ?? '-',
+                'wallet_short'    => $t->fundSource?->effectiveShortLabel() ?? '?',
+                'wallet_color'    => $t->fundSource?->effectiveBrandColor() ?? '#64748b',
+                'amount'          => $amt,
+                'by'              => $t->created_by ? ($userNames[$t->created_by] ?? '—') : '—',
+                'recorded_at'     => $t->created_at, // jam asli saat transaksi dicatat ke sistem
+                'edited'          => $t->updated_by !== null && $t->edited_at !== null,
+                'edited_at'       => $t->edited_at,
+                'edited_by'       => $t->updated_by ? ($userNames[$t->updated_by] ?? '—') : null,
+                'deleted'         => $isDeleted,
+                'ref_no'          => $t->ref_no,
+                'attachment_path' => $t->attachment_path,
             ];
         }
 
-        $closing = $saldo;
-
-        $bulanLabel = [
-            1 => 'Januari',  2 => 'Februari', 3 => 'Maret',
-            4 => 'April',    5 => 'Mei',      6 => 'Juni',
-            7 => 'Juli',     8 => 'Agustus',  9 => 'September',
-            10 => 'Oktober', 11 => 'November', 12 => 'Desember',
+        return [
+            'period'          => $period,
+            'rows'            => $rows,
+            'opening'         => $opening,
+            'closing'         => $saldo,
+            'cashIn'          => $cashIn,
+            'cashOut'         => $cashOut,
+            'rowsTotal'       => $rowsTotal,
+            'categoryOptions'       => $categoryOptions,
+            'categoryFilterOptions' => $categoryFilterOptions,
+            'categories'            => $categories,
+            'search'          => $search,
+            'hasFilter'       => ! empty($categories) || $search !== '',
         ];
-        $monthName = $bulanLabel[$month] ?? '-';
-
-        // Navigasi bulan sebelum/sesudah.
-        $prevDate = Carbon::create($year, $month, 1)->subMonth();
-        $nextDate = Carbon::create($year, $month, 1)->addMonth();
-
-        return view('finance.pettycash.branch-history', compact(
-            'branch', 'period', 'rows',
-            'opening', 'closing', 'cashIn', 'cashOut',
-            'year', 'month', 'monthName', 'bulanLabel',
-            'prevDate', 'nextDate'
-        ));
     }
 
     /**

@@ -66,6 +66,33 @@ class FundSource extends Model
         return $q->where('is_active', 1);
     }
 
+    /**
+     * Wallet yang boleh dipakai 1 cabang: aktif se-klinik DAN belum
+     * dipensiunkan untuk cabang itu.
+     *
+     * Dua saklar sengaja dipisah. `is_active` = keputusan se-klinik (wallet
+     * ini sudah tidak dipakai di mana pun). `retired_at` per cabang =
+     * peralihan ke model 2 wallet yang jalannya cabang per cabang, supaya
+     * cabang yang belum dimigrasi tetap bisa mencatat pengeluaran dari
+     * wallet lamanya. Yang manapun terpicu, wallet-nya hilang dari daftar.
+     *
+     * Wallet pensiunan TIDAK hilang dari riwayat: buildRows() tetap
+     * membangkitkan kartunya selama masih menyimpan saldo, dan transaksi
+     * lama tetap terbaca berlabel benar karena baris masternya tidak
+     * pernah dihapus.
+     */
+    public static function activeForBranch(?string $branchId)
+    {
+        $q = static::active()->orderBy('sort_order')->orderBy('name');
+
+        $retired = FundSourceBranchAccount::retiredIdsForBranch($branchId);
+        if (! empty($retired)) {
+            $q->whereNotIn('id', $retired);
+        }
+
+        return $q->get();
+    }
+
     public static function categoryLabel(?string $category): string
     {
         return [

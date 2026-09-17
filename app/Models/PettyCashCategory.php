@@ -14,7 +14,7 @@ use Illuminate\Database\Eloquent\Model;
  *   - key       : kode teknis (huruf kecil/underscore) yang disimpan di
  *                 petty_cash_transactions.category. Immutable.
  *   - label     : nama tampilan (boleh diubah).
- *   - is_system : 1 = terkunci (tak boleh hapus/nonaktif), mis. 'pinjaman'.
+ *   - is_system : 1 = terkunci (tak boleh hapus/nonaktif).
  *   - is_active : 0 = disembunyikan dari pilihan input baru; data lama aman.
  */
 class PettyCashCategory extends Model

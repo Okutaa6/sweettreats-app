@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Models\FundSource;
-use App\Models\FundSourceBranchAccount;
 use App\Models\PettyCashPeriod;
 use App\Models\PettyCashTransaction;
 
@@ -12,10 +11,9 @@ use App\Models\PettyCashTransaction;
  *
  * Single source of truth untuk membuat baris top-up petty cash.
  *
- * Dipanggil dari 2 tempat:
- *   - PettyCashController::topup() — manual top up oleh Finance/Sales
- *     yg punya akses langsung (legacy + ad-hoc).
- *   - TopupRequestController::approve() — approval flow Finance.
+ * Satu-satunya pemanggil: TopupRequestController::approve() — alur pengajuan
+ * Sales lalu approval Finance. Jalur top up manual (PettyCashController::topup)
+ * sudah dihapus; semua uang baru wajib lewat approval.
  *
  * Logika konsisten: create row petty_cash_transactions (direction=in,
  * is_topup=$isTopup, is_transfer=0). Tidak menutup periode dan tidak
@@ -32,7 +30,6 @@ class PettyCashTopupService
      * @param  string           $description  Deskripsi (default "Top up kasir").
      * @param  string|null      $attachment   Path relatif file bukti.
      * @param  string           $createdBy    UUID user pencatat (session id).
-     * @param  bool             $isTopup      true = dihitung di Total Top Up. false = setoran cash netral.
      * @param  string|null      $trxDate      Y-m-d. Default today.
      * @param  string|null      $refNo        Optional referensi (mis. "REQ-{id}").
      * @return PettyCashTransaction
@@ -44,45 +41,25 @@ class PettyCashTopupService
         ?string $description,
         ?string $attachment,
         string $createdBy,
-        bool $isTopup = true,
         ?string $trxDate = null,
         ?string $refNo = null
     ): PettyCashTransaction {
-        $defaultLabel = $isTopup ? 'Top up kasir' : 'Setor cash langsung';
-
+        // Dulu ada mode kedua (is_topup=0) untuk "Setor Cash Langsung" — uang
+        // cash masuk tanpa lewat Finance. Fitur itu dihapus: semua uang baru
+        // wajib lewat pengajuan top up. Hardcode is_topup=1 supaya baris
+        // cash-in non-topup mustahil dibuat, bukan sekadar disembunyikan UI.
         return PettyCashTransaction::create([
             'period_id'       => $period->id,
             'trx_date'        => $trxDate ?: date('Y-m-d'),
-            'description'     => $description !== null && $description !== '' ? $description : $defaultLabel,
+            'description'     => $description !== null && $description !== '' ? $description : 'Top up kasir',
             'direction'       => PettyCashTransaction::DIR_IN,
             'amount'          => $amount,
             'fund_source_id'  => $source->id,
-            'is_topup'        => $isTopup ? 1 : 0,
+            'is_topup'        => 1,
             'is_transfer'     => 0,
             'ref_no'          => $refNo,
             'attachment_path' => $attachment,
             'created_by'      => $createdBy,
         ]);
-    }
-
-    /**
-     * Simpan nomor rekening / telepon untuk pasangan (cabang, source)
-     * kalau user isi field tsb di form top-up & source-nya Bank/E-Wallet.
-     * Cash di-skip karena tidak punya nomor.
-     */
-    public function maybeUpsertAccount(
-        PettyCashPeriod $period,
-        FundSource $source,
-        ?string $accountNumber
-    ): void {
-        $acct = trim((string) $accountNumber);
-        if ($acct === '' || ! $period->raw_branch_id) return;
-        if (! in_array($source->category, [FundSource::CAT_BANK, FundSource::CAT_EWALLET], true)) return;
-
-        FundSourceBranchAccount::upsertFor(
-            (string) $period->raw_branch_id,
-            (int) $source->id,
-            $acct,
-        );
     }
 }

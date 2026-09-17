@@ -3,6 +3,18 @@
 @section('content')
 @php
     $rupiah = function ($v) { return 'Rp ' . number_format((float) $v, 0, ',', '.'); };
+
+    // Filter aktif — ikut dibawa ke navigasi bulan, export, dan tombol reset
+    // supaya pindah bulan / download tidak diam-diam membuang saringan user.
+    $categoryOptions       = $categoryOptions ?? [];
+    $categoryFilterOptions = $categoryFilterOptions ?? $categoryOptions;
+    $categories      = $categories ?? [];
+    $search          = $search ?? '';
+    $hasFilter       = $hasFilter ?? (! empty($categories) || $search !== '');
+    $filterQuery     = array_filter([
+        'q'          => $search,
+        'categories' => $categories,
+    ]);
 @endphp
 <div class="container-fluid">
 
@@ -24,7 +36,7 @@
                     </span>
                     <span class="pc-page-meta__divider"></span>
                     <span class="pc-page-meta__item">
-                        <i class="fa fa-list"></i> {{ count($rows) }} pengeluaran
+                        <i class="fa fa-list"></i> {{ count($rows) }} pengeluaran{{ $hasFilter ? ' (tersaring)' : '' }}
                     </span>
                     @if($period->is_closed)
                         <span class="pc-page-meta__divider"></span>
@@ -37,7 +49,7 @@
         </div>
         <div class="fpc-header-actions">
             {{-- Navigasi bulan --}}
-            <a href="{{ route('finance.pettycash.branch-history', ['branchId' => $branch->id, 'year' => $prevDate->year, 'month' => $prevDate->month]) }}"
+            <a href="{{ route('finance.pettycash.branch-history', array_merge(['branchId' => $branch->id, 'year' => $prevDate->year, 'month' => $prevDate->month], $filterQuery)) }}"
                class="fpc-action-btn" title="Bulan sebelumnya">
                 <i class="fa fa-chevron-left"></i>
             </a>
@@ -50,10 +62,21 @@
                     @endforeach
                 </select>
                 <input type="hidden" name="year" value="{{ $year }}">
+                {{-- Filter ikut terbawa saat ganti bulan. --}}
+                @if($search !== '')<input type="hidden" name="q" value="{{ $search }}">@endif
+                @foreach($categories as $c)
+                    <input type="hidden" name="categories[]" value="{{ $c }}">
+                @endforeach
             </form>
-            <a href="{{ route('finance.pettycash.branch-history', ['branchId' => $branch->id, 'year' => $nextDate->year, 'month' => $nextDate->month]) }}"
+            <a href="{{ route('finance.pettycash.branch-history', array_merge(['branchId' => $branch->id, 'year' => $nextDate->year, 'month' => $nextDate->month], $filterQuery)) }}"
                class="fpc-action-btn" title="Bulan berikutnya">
                 <i class="fa fa-chevron-right"></i>
+            </a>
+            {{-- Export — isinya persis baris yang tampil (filter ikut). --}}
+            <a href="{{ route('finance.pettycash.branch-history.export', array_merge(['branchId' => $branch->id, 'year' => $year, 'month' => $month], $filterQuery)) }}"
+               class="fpc-action-btn fpc-action-btn--excel"
+               title="Download jejak transaksi bulan ini ke Excel (mengikuti filter aktif)">
+                <i class="fa fa-file-excel"></i> Export Excel
             </a>
             @if(isSuperAdmin() && pettyCashResetEnabled())
                 {{-- Reset jejak transaksi cabang+bulan ini (hard delete) — hanya Super Admin, hanya di dev. --}}
@@ -101,11 +124,78 @@
             <small class="fpc-section__sub">Hanya menampilkan pengeluaran; top up &amp; transfer tak ditampilkan. Termasuk yang sudah dihapus (ditandai).</small>
         </div>
 
+        {{-- ─── FILTER: kategori (multi) + cari keterangan ───
+             GET ke halaman yang sama; bulan/tahun aktif ikut sebagai hidden.
+             Filter hanya menyaring baris tabel — kartu ringkasan di atas tetap
+             posisi kas sebenarnya untuk satu bulan penuh. --}}
+        <form method="GET"
+              action="{{ route('finance.pettycash.branch-history', ['branchId' => $branch->id]) }}"
+              class="fbh-filter">
+            <input type="hidden" name="year"  value="{{ $year }}">
+            <input type="hidden" name="month" value="{{ $month }}">
+
+            @if(! empty($categoryFilterOptions))
+                <div class="fbh-filter__field fbh-catfilter" data-fbh-catfilter>
+                    <label>Kategori</label>
+                    <button type="button" class="fbh-catfilter__toggle" data-fbh-catfilter-toggle>
+                        <span class="fbh-catfilter__summary">
+                            @if(empty($categories))
+                                Semua kategori
+                            @elseif(count($categories) === 1)
+                                {{ $categoryOptions[$categories[0]] ?? $categories[0] }}
+                            @else
+                                {{ count($categories) }} kategori dipilih
+                            @endif
+                        </span>
+                        <i class="fa fa-chevron-down"></i>
+                    </button>
+                    <div class="fbh-catfilter__panel" data-fbh-catfilter-panel hidden>
+                        @foreach($categoryFilterOptions as $catKey => $catLabel)
+                            <label class="fbh-catfilter__opt">
+                                <input type="checkbox" name="categories[]" value="{{ $catKey }}"
+                                       {{ in_array($catKey, $categories, true) ? 'checked' : '' }}>
+                                <span>{{ $catLabel }}</span>
+                            </label>
+                        @endforeach
+                        <div class="fbh-catfilter__actions">
+                            <button type="button" class="fbh-catfilter__reset" data-fbh-catfilter-reset>Reset</button>
+                            <button type="submit" class="fbh-catfilter__apply">Terapkan</button>
+                        </div>
+                    </div>
+                </div>
+            @endif
+
+            <div class="fbh-filter__field fbh-filter__field--grow">
+                <label>Cari keterangan</label>
+                <input type="text" name="q" value="{{ $search }}" placeholder="Cari keterangan...">
+            </div>
+
+            <div class="fbh-filter__actions">
+                <button type="submit" class="fbh-filter__btn fbh-filter__btn--apply" title="Terapkan filter">
+                    <i class="fa fa-search"></i>
+                </button>
+                @if($hasFilter)
+                    <a href="{{ route('finance.pettycash.branch-history', ['branchId' => $branch->id, 'year' => $year, 'month' => $month]) }}"
+                       class="fbh-filter__btn" title="Hapus semua filter">
+                        <i class="fa fa-times"></i> Reset
+                    </a>
+                @endif
+            </div>
+        </form>
+
         @if(count($rows) === 0)
             <div class="fpc-empty">
                 <div class="fpc-empty__icon"><i class="fa fa-history"></i></div>
-                <div class="fpc-empty__title">Belum ada transaksi</div>
-                <div class="fpc-empty__desc">Cabang {{ $branch->name }} belum mencatat transaksi apa pun di {{ $monthName }} {{ $year }}.</div>
+                @if($hasFilter)
+                    <div class="fpc-empty__title">Tidak ada transaksi yang cocok</div>
+                    <div class="fpc-empty__desc">
+                        Tidak ada pengeluaran di {{ $monthName }} {{ $year }} yang cocok dengan filter aktif.
+                        <a href="{{ route('finance.pettycash.branch-history', ['branchId' => $branch->id, 'year' => $year, 'month' => $month]) }}">Hapus filter</a>.
+                    </div>
+                @else
+                    <div class="fpc-empty__title">Belum ada transaksi</div>
+                    <div class="fpc-empty__desc">Cabang {{ $branch->name }} belum mencatat transaksi apa pun di {{ $monthName }} {{ $year }}.</div>
+                @endif
             </div>
         @else
             <div class="fpc-audit-card">
@@ -137,6 +227,17 @@
                                             {{ $r->description ?: '—' }}
                                             @if($r->deleted)
                                                 <span class="fbh-tag fbh-tag--deleted"><i class="fa fa-trash"></i> Dihapus</span>
+                                            @endif
+                                            @if($r->attachment_path)
+                                                {{-- Bukti pengeluaran — icon paperclip, buka lightbox.
+                                                     Sama persis dengan tabel petty cash. --}}
+                                                <button type="button"
+                                                        class="pc-attach-icon"
+                                                        data-pc-attach-url="{{ asset($r->attachment_path) }}"
+                                                        data-pc-attach-ext="{{ strtolower(pathinfo($r->attachment_path, PATHINFO_EXTENSION)) }}"
+                                                        title="Lihat bukti pengeluaran">
+                                                    <i class="fa fa-paperclip"></i>
+                                                </button>
                                             @endif
                                         </div>
                                         @if($r->ref_no)
@@ -177,8 +278,15 @@
                         </tbody>
                         <tfoot>
                             <tr class="fbh-foot">
-                                <td colspan="4">Total pengeluaran bulan ini (transaksi aktif)</td>
-                                <td class="text-right"><span class="fbh-amt fbh-amt--out">{{ $rupiah($cashOut) }}</span></td>
+                                <td colspan="4">
+                                    @if($hasFilter)
+                                        Total pengeluaran yang ditampilkan (transaksi aktif)
+                                        <div class="fbh-foot__sub">Total satu bulan penuh: {{ $rupiah($cashOut) }}</div>
+                                    @else
+                                        Total pengeluaran bulan ini (transaksi aktif)
+                                    @endif
+                                </td>
+                                <td class="text-right"><span class="fbh-amt fbh-amt--out">{{ $rupiah($hasFilter ? $rowsTotal : $cashOut) }}</span></td>
                                 <td class="fbh-col-meta"></td>
                             </tr>
                         </tfoot>
@@ -186,6 +294,36 @@
                 </div>
             </div>
         @endif
+    </div>
+</div>
+
+{{-- ─── Lightbox preview bukti pengeluaran ───
+     Markup & id sama dengan halaman petty cash (class-nya global di
+     components.sweettreats.css); handler-nya lokal di bawah karena halaman
+     ini tidak menyertakan script index petty cash. --}}
+<div class="pc-lightbox" id="pcAttachLightbox" role="dialog" aria-modal="true" hidden>
+    <div class="pc-lightbox__backdrop" data-pc-lightbox-close></div>
+    <div class="pc-lightbox__dialog">
+        <div class="pc-lightbox__header">
+            <div class="pc-lightbox__title">
+                <i class="fa fa-paperclip"></i> Bukti Pengeluaran
+            </div>
+            <div class="pc-lightbox__actions">
+                <a href="#" class="pc-lightbox__btn" id="pcAttachDownload" download title="Download file">
+                    <i class="fa fa-download"></i>
+                </a>
+                <a href="#" class="pc-lightbox__btn" id="pcAttachOpenTab" target="_blank" rel="noopener" title="Buka di tab baru">
+                    <i class="fa fa-external-link-alt"></i>
+                </a>
+                <button type="button" class="pc-lightbox__btn pc-lightbox__btn--close"
+                        data-pc-lightbox-close title="Tutup (Esc)">
+                    <i class="fa fa-times"></i>
+                </button>
+            </div>
+        </div>
+        <div class="pc-lightbox__body" id="pcAttachBody">
+            <!-- isi dinamis via JS: <img> atau <iframe> -->
+        </div>
     </div>
 </div>
 
@@ -306,5 +444,147 @@
 
 .fbh-foot td { background: #fdf6ee; font-weight: 800; color: var(--brown); border-top: 2px solid #ecd9c2 !important; font-size: 12.5px; padding: 13px 16px; }
 .fbh-foot .fbh-col-meta { border-left: 1px solid #ecd9c2; }
+.fbh-foot__sub { font-size: 11px; font-weight: 600; color: #8b6f47; margin-top: 3px; font-style: italic; }
+
+/* ── Tombol export CSV di header ── */
+.fpc-action-btn--excel { color: #15803d; border-color: #cfe8d6; }
+.fpc-action-btn--excel:hover { color: #15803d; border-color: #16a34a; background: #f0fdf4; }
+
+/* ── Tombol bukti di kolom keterangan ── */
+.fbh-row--deleted .pc-attach-icon { opacity: .6; }
+
+/* ── Filter bar ── */
+.fbh-filter {
+    display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px;
+    background: #fff; border: 1px solid var(--divider-soft); border-radius: 14px;
+    padding: 14px 16px; margin-bottom: 14px;
+}
+.fbh-filter__field { display: flex; flex-direction: column; gap: 5px; min-width: 170px; }
+.fbh-filter__field--grow { flex: 1 1 240px; }
+.fbh-filter__field > label {
+    font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px;
+    color: var(--text-muted); margin: 0;
+}
+.fbh-filter__field input[type=text] {
+    width: 100%; padding: 7px 10px; font-size: 13.5px; color: #1f2937;
+    background: #fff; border: 1px solid var(--divider-soft); border-radius: 8px;
+}
+.fbh-filter__field input[type=text]:focus { outline: none; border-color: var(--brown); box-shadow: 0 0 0 3px rgba(70,21,0,.07); }
+.fbh-filter__actions { display: flex; align-items: center; gap: 8px; }
+.fbh-filter__btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 8px 14px; border-radius: 8px; font-size: 12.5px; font-weight: 700;
+    background: #fff; border: 1px solid var(--divider-soft); color: var(--brown);
+    cursor: pointer; text-decoration: none;
+}
+.fbh-filter__btn:hover { border-color: var(--brown-2); color: var(--brown); text-decoration: none; }
+.fbh-filter__btn--apply { background: var(--brown); border-color: var(--brown); color: #fff; }
+.fbh-filter__btn--apply:hover { background: #5c1f00; color: #fff; }
+
+/* ── Dropdown kategori (multi-select) ── */
+.fbh-catfilter { position: relative; }
+.fbh-catfilter__toggle {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    width: 100%; min-width: 170px; padding: 7px 10px;
+    background: #fff; border: 1px solid var(--divider-soft); border-radius: 8px;
+    font-size: 13.5px; color: #1f2937; cursor: pointer; text-align: left;
+}
+.fbh-catfilter__toggle:hover { border-color: var(--brown-2); }
+.fbh-catfilter__toggle i { font-size: 11px; color: #6b7280; flex-shrink: 0; }
+.fbh-catfilter__summary { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fbh-catfilter__panel {
+    position: absolute; z-index: 30; top: calc(100% + 4px); left: 0; min-width: 210px;
+    max-height: 320px; overflow-y: auto;
+    background: #fff; border: 1px solid var(--divider-soft); border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.12); padding: 8px;
+    display: flex; flex-direction: column; gap: 2px;
+}
+.fbh-catfilter__opt {
+    display: flex; align-items: center; gap: 8px; padding: 7px 8px; border-radius: 6px;
+    font-size: 13.5px; color: #374151; cursor: pointer; margin: 0; font-weight: 600;
+}
+.fbh-catfilter__opt:hover { background: #fffaf2; }
+.fbh-catfilter__opt input { width: 15px; height: 15px; accent-color: var(--brown); cursor: pointer; }
+.fbh-catfilter__actions {
+    display: flex; justify-content: space-between; gap: 8px; position: sticky; bottom: -8px;
+    margin-top: 6px; padding-top: 8px; background: #fff; border-top: 1px solid var(--divider-soft);
+}
+.fbh-catfilter__reset, .fbh-catfilter__apply {
+    padding: 6px 14px; border-radius: 7px; font-size: 12.5px; font-weight: 700; cursor: pointer;
+}
+.fbh-catfilter__reset { background: #fff; border: 1px solid #cbd5e1; color: #475569; }
+.fbh-catfilter__reset:hover { background: #f1f5f9; }
+.fbh-catfilter__apply { background: var(--brown); border: 1px solid var(--brown); color: #fff; }
+.fbh-catfilter__apply:hover { background: #5c1f00; }
 </style>
+
+<script>
+(function () {
+    // Dropdown kategori: buka/tutup + reset centang.
+    document.querySelectorAll('[data-fbh-catfilter]').forEach(function (root) {
+        var toggle = root.querySelector('[data-fbh-catfilter-toggle]');
+        var panel  = root.querySelector('[data-fbh-catfilter-panel]');
+        var reset  = root.querySelector('[data-fbh-catfilter-reset]');
+        if (toggle && panel) {
+            toggle.addEventListener('click', function (e) {
+                e.stopPropagation();
+                panel.hidden = !panel.hidden;
+            });
+            document.addEventListener('click', function (e) {
+                if (! root.contains(e.target)) panel.hidden = true;
+            });
+        }
+        if (reset) {
+            reset.addEventListener('click', function () {
+                root.querySelectorAll('input[type=checkbox]').forEach(function (cb) { cb.checked = false; });
+            });
+        }
+    });
+
+    // Lightbox bukti: gambar tampil inline, selain itu (PDF) via iframe.
+    (function () {
+        var lb    = document.getElementById('pcAttachLightbox');
+        var body  = document.getElementById('pcAttachBody');
+        var dlBtn = document.getElementById('pcAttachDownload');
+        var tabBtn= document.getElementById('pcAttachOpenTab');
+        if (!lb || !body) return;
+
+        var IMG_EXTS = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
+
+        function open(url, ext) {
+            ext = (ext || '').toLowerCase();
+            var isImg = IMG_EXTS.indexOf(ext) !== -1;
+            body.innerHTML = isImg
+                ? '<img src="' + url + '" alt="bukti pengeluaran" class="pc-lightbox__img">'
+                : '<iframe src="' + url + '" class="pc-lightbox__iframe" frameborder="0"></iframe>';
+            if (dlBtn)  dlBtn.href  = url;
+            if (tabBtn) tabBtn.href = url;
+            lb.hidden = false;
+            document.body.style.overflow = 'hidden';
+        }
+        function close() {
+            lb.hidden = true;
+            body.innerHTML = '';
+            document.body.style.overflow = '';
+        }
+
+        document.addEventListener('click', function (e) {
+            var btn = e.target.closest('[data-pc-attach-url]');
+            if (btn) {
+                e.preventDefault();
+                e.stopPropagation();
+                open(btn.dataset.pcAttachUrl, btn.dataset.pcAttachExt);
+                return;
+            }
+            if (e.target.closest('[data-pc-lightbox-close]')) {
+                e.preventDefault();
+                close();
+            }
+        });
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && !lb.hidden) close();
+        });
+    })();
+})();
+</script>
 @endsection
