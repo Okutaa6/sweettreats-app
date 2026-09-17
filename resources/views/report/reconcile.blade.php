@@ -91,10 +91,13 @@
                 ['Ter-link',     $summary['linked'],   'fa-check-circle',      '#1f7a3d', 'reservasi cocok ke encounter'],
                 ['Perlu Tindakan', $summary['conflict'], 'fa-exclamation-triangle', '#c0392b', 'conflict — pilih manual'],
                 ['No-Show',      $summary['no_show'],   'fa-user-slash',        '#b8860b', 'tidak ada encounter'],
+                {{-- Pembatalan BUKAN ketidakhadiran — pasiennya memberi tahu.
+                     Dipisah supaya angka no-show berhenti kebesaran. --}}
+                ['Dibatalkan',   $summary['cancelled'] ?? 0, 'fa-calendar-times', '#6b7280', 'dibatalkan — bukan no-show'],
             ];
         @endphp
         @foreach($cards as $c)
-        <div class="col-md-4 col-sm-6 mb-2">
+        <div class="col-md-3 col-sm-6 mb-2">
             <div class="st-card" style="height:100%;">
                 <div class="st-card__body" style="padding:1.1rem 1.25rem;">
                     <div style="display:flex; align-items:center; gap:12px;">
@@ -306,6 +309,11 @@
                     @forelse($resolved as $row)
                     @php
                         $isLinked = ! empty($row->omnicare_record_id);
+                        // ⛔ Jangan samakan "tidak ter-link" dengan "tidak hadir".
+                        //    Reservasi yang DIBATALKAN juga tidak punya encounter,
+                        //    tapi pasiennya memberi tahu — mencampurnya persis
+                        //    cacat yang menaikkan angka no-show 18,2% → 26,8%.
+                        $isBatal = $row->match_method === 'cancelled';
                         $conf = $row->match_confidence;
                         [$payTxt, $payCol] = $payLabel($row->payment_status);
                     @endphp
@@ -319,6 +327,11 @@
                                              font-weight:700; background:{{ ($confColor[$conf] ?? '#888') }}1a;
                                              color:{{ $confColor[$conf] ?? '#888' }};">
                                     LINKED · {{ strtoupper($conf) }}
+                                </span>
+                            @elseif($isBatal)
+                                <span style="display:inline-block; padding:2px 9px; border-radius:20px; font-size:0.7rem;
+                                             font-weight:700; background:#6b72801a; color:#6b7280;">
+                                    DIBATALKAN
                                 </span>
                             @else
                                 <span style="display:inline-block; padding:2px 9px; border-radius:20px; font-size:0.7rem;
