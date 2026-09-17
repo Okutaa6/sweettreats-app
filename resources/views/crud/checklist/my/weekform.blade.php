@@ -379,15 +379,8 @@
     }
     .wf-task.needs-photo .wf-task__check { border-style: dashed; border-color: #A66019; }
     .wf-photo { margin-top: 10px; cursor: default; }
-    .wf-photo__actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-    .wf-photo__view {
-        border: 1px solid #E0D2C1; background: #fff; color: #5C2E15;
-        font-size: 12px; font-weight: 700; padding: 7px 14px; border-radius: 999px;
-        cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: .15s;
-    }
-    .wf-photo__view:hover { background: #FAF0E2; border-color: #A66019; }
 
-    /* Modal lihat foto */
+    /* Modal lihat foto (galeri — bisa digeser antar foto satu slot) */
     .wf-photo-modal { position: fixed; inset: 0; z-index: 1080; display: flex; align-items: center; justify-content: center; }
     .wf-photo-modal[hidden] { display: none; }
     .wf-photo-modal__backdrop { position: absolute; inset: 0; background: rgba(30,15,5,.72); }
@@ -399,57 +392,62 @@
         font-size: 15px; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,.25);
         display: flex; align-items: center; justify-content: center;
     }
-    .wf-photo__btn {
-        border: 1px dashed #D9C4A6; background: #FBF6EE; color: #8A5A2B;
-        font-size: 12px; font-weight: 700; padding: 7px 14px; border-radius: 999px;
-        cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: .15s;
+    .wf-photo-modal__nav {
+        position: absolute; top: 50%; transform: translateY(-50%);
+        width: 42px; height: 42px; border-radius: 50%; border: none;
+        background: rgba(24,8,0,.62); color: #FBEADB; font-size: 17px;
+        cursor: pointer; display: flex; align-items: center; justify-content: center;
     }
-    .wf-photo__btn:hover { background: #F5EAD9; border-color: #C9B69A; }
-    .wf-photo__remove {
-        border: 1px solid #E0D2C1; background: #fff; color: #7C2929;
-        font-size: 11.5px; font-weight: 600; padding: 6px 12px; border-radius: 999px;
-        cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: .15s;
+    .wf-photo-modal__nav:hover { background: rgba(24,8,0,.82); }
+    .wf-photo-modal__nav[hidden] { display: none; }
+    .wf-photo-modal__nav--prev { left: -18px; }
+    .wf-photo-modal__nav--next { right: -18px; }
+    .wf-photo-modal__pos {
+        position: absolute; left: 50%; bottom: -30px; transform: translateX(-50%);
+        font-size: 12px; font-weight: 700; color: #FBEADB; letter-spacing: .4px;
     }
-    .wf-photo__remove:hover { background: #FCEBEB; border-color: #A32D2D; }
+    @media (max-width: 560px) {
+        .wf-photo-modal__nav--prev { left: 4px; }
+        .wf-photo-modal__nav--next { right: 4px; }
+    }
+
+    /* ── Grid foto bukti (dipakai mode foto satuan DAN before/after) ── */
+    .wf-pgrid { display: flex; flex-wrap: wrap; gap: 7px; align-items: center; }
+    .wf-thumb {
+        position: relative; width: 62px; height: 62px; padding: 0; margin: 0;
+        border: 1px solid #E0D2C1; border-radius: 10px; overflow: hidden;
+        background: #F5EAD9; cursor: pointer; flex: 0 0 auto;
+    }
+    .wf-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .wf-thumb__del {
+        position: absolute; top: 2px; right: 2px; width: 19px; height: 19px;
+        border-radius: 50%; border: none; background: rgba(40,14,0,.72); color: #fff;
+        font-size: 9px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+        padding: 0; line-height: 1;
+    }
+    .wf-thumb__del:hover { background: #A32D2D; }
+    .wf-thumb--add {
+        /* Lebih lebar dari thumbnail biasa supaya "Tambah Foto" muat satu baris. */
+        width: auto; min-width: 84px; padding: 0 10px;
+        border: 1.5px dashed #D9C4A6; background: #FBF6EE; color: #8A5A2B;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        gap: 3px; font-size: 10px; font-weight: 700; line-height: 1.2; text-align: center;
+        white-space: nowrap; transition: .15s;
+    }
+    .wf-thumb--add:hover { background: #F5EAD9; border-color: #A66019; }
+    .wf-thumb--add i { font-size: 15px; }
+    .wf-thumb--add[hidden] { display: none; }
+    .wf-photo__foot { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 5px; }
+    .wf-photo__count { font-size: 10.5px; color: #8A5A2B; font-weight: 700; }
     .wf-photo__status { font-size: 11px; color: #6B4423; font-weight: 600; }
 
-    /* ── Foto before/after opsional (divisi GS) — pill ringkas, gambar di modal ── */
-    .wf-ba { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
-    .wf-ba__col { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-    /* Kosong → dashed netral (foto opsional, tak memblok centang — ikut handoff) */
-    .wf-ba__pill {
-        display: inline-flex; align-items: center; gap: 7px;
-        border: 1.5px dashed #DCC4A8; background: #FFFFFF; color: #9A7256;
-        font-size: 11px; font-weight: 800; padding: 7px 13px; border-radius: 20px;
-        cursor: pointer; transition: .15s; line-height: 1;
+    /* ── Foto before/after opsional (divisi GS) — dua kolom, masing-masing 5 foto ── */
+    .wf-ba { display: flex; gap: 14px; margin-top: 8px; flex-wrap: wrap; }
+    .wf-ba__col { display: flex; flex-direction: column; gap: 5px; }
+    .wf-ba__cap {
+        text-transform: uppercase; letter-spacing: .5px; font-size: 10px;
+        font-weight: 800; color: #8A5A2B;
     }
-    .wf-ba__pill:hover { background: #F5EAD9; border-color: #C9B69A; }
-    .wf-ba__pill i { font-size: 13px; }
-    .wf-ba__pill-cap { text-transform: uppercase; letter-spacing: .5px; font-size: 10px; font-weight: 800; color: #8A5A2B; }
-    /* Ada foto → tombol solid brand (jelas bisa diklik untuk lihat) */
-    .wf-ba__pill.has {
-        border-color: transparent;
-        background: linear-gradient(180deg, #6B3A1C, #4A1A05);
-        color: #FFFFFF; box-shadow: 0 2px 6px rgba(71,21,0,.28);
-    }
-    .wf-ba__pill.has i { color: #F7C77E; }
-    .wf-ba__pill.has:hover { transform: translateY(-1px); box-shadow: 0 6px 15px rgba(71,21,0,.34); }
-    .wf-ba__pill.has:active { transform: translateY(0); box-shadow: 0 2px 6px rgba(71,21,0,.28); }
-    .wf-ba__pill.has .wf-ba__pill-cap {
-        color: #FBE4BE; padding-right: 9px; margin-right: 1px;
-        border-right: 1px solid rgba(255,236,205,.30);
-    }
-    .wf-ba__pill.has > span:last-child { color: #FFFFFF; font-weight: 800; }
-    .wf-ba__tools { display: none; gap: 5px; align-items: center; }
-    .wf-ba__col.has .wf-ba__tools { display: inline-flex; }
-    .wf-ba__mini {
-        border: 1px solid #A66019; background: #FFF7EE; color: #5C2E15;
-        font-size: 11px; font-weight: 700; padding: 5px 10px; border-radius: 999px;
-        cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: .15s;
-    }
-    .wf-ba__mini:hover { background: #FAF0E2; }
-    .wf-ba__mini--del { border-color: #E0D2C1; background: #fff; color: #7C2929; padding: 5px 9px; }
-    .wf-ba__mini--del:hover { background: #FCEBEB; border-color: #A32D2D; }
     .wf-ba__status { font-size: 10.5px; color: #6B4423; font-weight: 600; }
 
     /* Kartu besar pilih jenis checklist (gaya halaman Setup) */
@@ -497,6 +495,10 @@
 @endsection
 
 @section('content')
+@php
+    // Batas foto per slot — sumbernya konstanta model, supaya UI & server tak bisa beda.
+    $fotoMax = \App\Models\ChecklistWeeklySubmissionPhoto::MAX_PER_SLOT;
+@endphp
 <div class="container-fluid">
     <div class="row">
         <div class="col-sm-12">
@@ -780,8 +782,7 @@
                                                  data-editable="{{ $dayEditable ? '1' : '0' }}"
                                                  data-requires-photo="{{ $item->requires_photo && ! $item->photo_before_after ? '1' : '0' }}"
                                                  @if($item->requires_photo && ! $item->photo_before_after)
-                                                 data-photo-upload-url="{{ route('mychecklist.weekform.item.photo.upload', $item->id) }}"
-                                                 data-photo-delete-url="{{ route('mychecklist.weekform.item.photo.delete', $item->id) }}"
+                                                 {{-- URL upload/hapus kini melekat di kotak foto & tiap thumbnail, bukan di task --}}
                                                  data-has-photo="{{ $item->photo_path ? '1' : '0' }}"
                                                  @endif>
                                                 <span class="wf-task__check"></span>
@@ -789,56 +790,89 @@
                                                     <div class="wf-task__name">
                                                         {{ $item->task_title_snapshot }}
                                                         @if($item->requires_photo && ! $item->photo_before_after)
-                                                            <span class="wf-task__badge"><i class="fas fa-camera"></i> Perlu foto</span>
+                                                            @php
+                                                                $nSingle = $item->photosFor('single')->count();
+                                                            @endphp
+                                                            <span class="wf-task__badge"><i class="fas fa-camera"></i> Perlu foto{{ $nSingle ? ' · ' . $nSingle . '/' . $fotoMax : '' }}</span>
                                                         @endif
                                                     </div>
                                                     @if($item->photo_before_after)
                                                         <div class="wf-ba" data-ba>
                                                             @foreach(['before' => 'Before', 'after' => 'After'] as $slot => $slotLabel)
-                                                                @php $baPath = $item->{'photo_' . $slot . '_path'}; @endphp
-                                                                <div class="wf-ba__col {{ $baPath ? 'has' : '' }}" data-ba-slot="{{ $slot }}"
-                                                                     data-upload-url="{{ route('mychecklist.weekform.item.baphoto.upload', ['id' => $item->id, 'slot' => $slot]) }}"
-                                                                     data-delete-url="{{ route('mychecklist.weekform.item.baphoto.delete', ['id' => $item->id, 'slot' => $slot]) }}">
+                                                                @php
+                                                                    $baPhotos = $item->photosFor($slot);
+                                                                @endphp
+                                                                <div class="wf-ba__col {{ $baPhotos->count() ? 'has' : '' }}"
+                                                                     data-ba-slot="{{ $slot }}" data-slot="{{ $slot }}"
+                                                                     data-max="{{ $fotoMax }}"
+                                                                     data-upload-url="{{ route('mychecklist.weekform.item.baphoto.upload', ['id' => $item->id, 'slot' => $slot]) }}">
+                                                                    <span class="wf-ba__cap">{{ $slotLabel }}</span>
                                                                     <input type="file" accept="image/*" capture="environment" class="wf-ba__file" hidden>
-                                                                    <button type="button" class="wf-ba__pill {{ $baPath ? 'has' : '' }}" data-ba-thumb
-                                                                            data-url="{{ $baPath ? asset($baPath) : '' }}">
-                                                                        <i class="fas fa-{{ $baPath ? 'image' : 'camera' }}" data-ba-icon></i>
-                                                                        <span class="wf-ba__pill-cap">{{ $slotLabel }}</span>
-                                                                        <span data-ba-state>@if($baPath)Lihat @else{{ $dayEditable ? 'Ambil foto' : 'Tidak ada' }}@endif</span>
-                                                                    </button>
+                                                                    <div class="wf-pgrid" data-photo-grid>
+                                                                        @foreach($baPhotos as $p)
+                                                                            <figure class="wf-thumb" data-photo-id="{{ $p->id }}" data-url="{{ asset($p->path) }}">
+                                                                                <img src="{{ asset($p->path) }}" alt="Foto {{ $slotLabel }}" loading="lazy">
+                                                                                @if($dayEditable)
+                                                                                    <button type="button" class="wf-thumb__del" data-photo-del aria-label="Hapus foto"
+                                                                                            data-delete-url="{{ route('mychecklist.weekform.photo.delete', $p->id) }}">
+                                                                                        <i class="fas fa-times"></i>
+                                                                                    </button>
+                                                                                @endif
+                                                                            </figure>
+                                                                        @endforeach
+                                                                        @if($dayEditable)
+                                                                            <button type="button" class="wf-thumb wf-thumb--add" data-photo-add
+                                                                                    @if($baPhotos->count() >= $fotoMax) hidden @endif>
+                                                                                <i class="fas fa-plus"></i><span>Tambah Foto</span>
+                                                                            </button>
+                                                                        @elseif($baPhotos->isEmpty())
+                                                                            <span class="wf-photo__count">Tidak ada foto</span>
+                                                                        @endif
+                                                                    </div>
                                                                     @if($dayEditable)
-                                                                        <div class="wf-ba__tools">
-                                                                            <button type="button" class="wf-ba__mini" data-ba-take>
-                                                                                <i class="fas fa-camera"></i> <span data-ba-label>{{ $baPath ? 'Ganti' : 'Ambil' }}</span>
-                                                                            </button>
-                                                                            <button type="button" class="wf-ba__mini wf-ba__mini--del" data-ba-remove>
-                                                                                <i class="fas fa-trash"></i>
-                                                                            </button>
+                                                                        <div class="wf-photo__foot">
+                                                                            <span class="wf-photo__count" data-photo-count>{{ $baPhotos->count() }}/{{ $fotoMax }} foto</span>
+                                                                            <span class="wf-ba__status" data-photo-status></span>
                                                                         </div>
-                                                                        <span class="wf-ba__status" data-ba-status></span>
                                                                     @endif
                                                                 </div>
                                                             @endforeach
                                                         </div>
                                                     @elseif($item->requires_photo)
-                                                        <div class="wf-photo" data-photo>
+                                                        @php
+                                                            $sPhotos = $item->photosFor('single');
+                                                        @endphp
+                                                        <div class="wf-photo" data-photo data-slot="single"
+                                                             data-max="{{ $fotoMax }}"
+                                                             data-upload-url="{{ route('mychecklist.weekform.item.photo.upload', $item->id) }}">
                                                             <input type="file" accept="image/*" capture="environment" class="wf-photo__file" hidden>
-                                                            <div class="wf-photo__actions">
-                                                                <button type="button" class="wf-photo__view" data-photo-view
-                                                                        data-url="{{ $item->photo_path ? asset($item->photo_path) : '' }}"
-                                                                        style="{{ $item->photo_path ? '' : 'display:none;' }}">
-                                                                    <i class="fas fa-image"></i> Lihat foto
-                                                                </button>
+                                                            <div class="wf-pgrid" data-photo-grid>
+                                                                @foreach($sPhotos as $p)
+                                                                    <figure class="wf-thumb" data-photo-id="{{ $p->id }}" data-url="{{ asset($p->path) }}">
+                                                                        <img src="{{ asset($p->path) }}" alt="Foto bukti" loading="lazy">
+                                                                        @if($dayEditable)
+                                                                            <button type="button" class="wf-thumb__del" data-photo-del aria-label="Hapus foto"
+                                                                                    data-delete-url="{{ route('mychecklist.weekform.photo.delete', $p->id) }}">
+                                                                                <i class="fas fa-times"></i>
+                                                                            </button>
+                                                                        @endif
+                                                                    </figure>
+                                                                @endforeach
                                                                 @if($dayEditable)
-                                                                    <button type="button" class="wf-photo__btn" data-photo-take>
-                                                                        <i class="fas fa-camera"></i> <span data-photo-label>{{ $item->photo_path ? 'Foto ulang' : 'Ambil foto' }}</span>
+                                                                    <button type="button" class="wf-thumb wf-thumb--add" data-photo-add
+                                                                            @if($sPhotos->count() >= $fotoMax) hidden @endif>
+                                                                        <i class="fas fa-plus"></i><span>Tambah Foto</span>
                                                                     </button>
-                                                                    <button type="button" class="wf-photo__remove" data-photo-remove style="{{ $item->photo_path ? '' : 'display:none;' }}">
-                                                                        <i class="fas fa-trash"></i> Hapus
-                                                                    </button>
-                                                                    <span class="wf-photo__status" data-photo-status></span>
+                                                                @elseif($sPhotos->isEmpty())
+                                                                    <span class="wf-photo__count">Tidak ada foto</span>
                                                                 @endif
                                                             </div>
+                                                            @if($dayEditable)
+                                                                <div class="wf-photo__foot">
+                                                                    <span class="wf-photo__count" data-photo-count>{{ $sPhotos->count() }}/{{ $fotoMax }} foto</span>
+                                                                    <span class="wf-photo__status" data-photo-status></span>
+                                                                </div>
+                                                            @endif
                                                         </div>
                                                     @endif
 
@@ -1112,6 +1146,9 @@
     <div class="wf-photo-modal__box">
         <button type="button" class="wf-photo-modal__close" data-modal-close aria-label="Tutup"><i class="fas fa-times"></i></button>
         <img src="" alt="Foto bukti" id="wfPhotoModalImg">
+        <button type="button" class="wf-photo-modal__nav wf-photo-modal__nav--prev" id="wfPhotoPrev" aria-label="Foto sebelumnya" hidden><i class="fas fa-chevron-left"></i></button>
+        <button type="button" class="wf-photo-modal__nav wf-photo-modal__nav--next" id="wfPhotoNext" aria-label="Foto berikutnya" hidden><i class="fas fa-chevron-right"></i></button>
+        <span class="wf-photo-modal__pos" id="wfPhotoPos"></span>
     </div>
 </div>
 
@@ -1131,41 +1168,37 @@
             toggleTask(task);
         });
 
-        // Kontrol foto tidak boleh ikut men-toggle task (stop bubbling).
-        const photoBox = task.querySelector('[data-photo]');
-        if (photoBox) {
-            photoBox.addEventListener('click', e => e.stopPropagation());
-            const fileInput = task.querySelector('.wf-photo__file');
-            const takeBtn   = task.querySelector('[data-photo-take]');
-            const removeBtn = task.querySelector('[data-photo-remove]');
-            const viewBtn   = task.querySelector('[data-photo-view]');
-            if (takeBtn && fileInput) takeBtn.addEventListener('click', () => fileInput.click());
-            if (fileInput) fileInput.addEventListener('change', () => {
-                if (fileInput.files && fileInput.files[0]) uploadPhoto(task, fileInput.files[0]);
-                fileInput.value = '';
-            });
-            if (removeBtn) removeBtn.addEventListener('click', () => removePhoto(task));
-            if (viewBtn) viewBtn.addEventListener('click', () => { if (viewBtn.dataset.url) openPhotoModal(viewBtn.dataset.url); });
-        }
+        // ── Kotak foto: mode satuan [data-photo] & kolom before/after [data-ba-slot] ──
+        // Satu jalur untuk keduanya. Klik didelegasikan di level kotak supaya
+        // thumbnail yang baru diunggah tidak perlu di-bind ulang, sekaligus
+        // menahan bubbling agar kontrol foto tak ikut men-toggle task.
+        task.querySelectorAll('[data-photo], [data-ba-slot]').forEach(box => {
+            box.addEventListener('click', e => {
+                e.stopPropagation();
 
-        // Kolom foto before/after (divisi GS) — opsional, tidak men-toggle task.
-        const editable = task.dataset.editable === '1';
-        task.querySelectorAll('[data-ba-slot]').forEach(col => {
-            col.addEventListener('click', e => e.stopPropagation());
-            const fileInput = col.querySelector('.wf-ba__file');
-            const takeBtn   = col.querySelector('[data-ba-take]');
-            const removeBtn = col.querySelector('[data-ba-remove]');
-            const thumb     = col.querySelector('[data-ba-thumb]');
-            if (takeBtn && fileInput) takeBtn.addEventListener('click', () => fileInput.click());
-            if (thumb) thumb.addEventListener('click', () => {
-                if (thumb.dataset.url) openPhotoModal(thumb.dataset.url);
-                else if (editable && fileInput) fileInput.click();
+                const del = e.target.closest('[data-photo-del]');
+                if (del) { removePhoto(del.closest('.wf-thumb')); return; }
+
+                if (e.target.closest('[data-photo-add]')) {
+                    const fi = box.querySelector('input[type=file]');
+                    if (fi) fi.click();
+                    return;
+                }
+
+                const fig = e.target.closest('.wf-thumb[data-photo-id]');
+                if (fig) {
+                    const figs = Array.from(thumbsOf(box));
+                    openGallery(figs.map(f => f.dataset.url), figs.indexOf(fig));
+                }
             });
+
+            const fileInput = box.querySelector('input[type=file]');
             if (fileInput) fileInput.addEventListener('change', () => {
-                if (fileInput.files && fileInput.files[0]) uploadBaPhoto(col, fileInput.files[0]);
-                fileInput.value = '';
+                if (fileInput.files && fileInput.files[0]) uploadPhoto(box, fileInput.files[0]);
+                fileInput.value = ''; // reset supaya file yang sama bisa dipilih lagi
             });
-            if (removeBtn) removeBtn.addEventListener('click', () => removeBaPhoto(col));
+
+            syncBox(box);
         });
 
         // ── Pengecualian per-item ──
@@ -1236,25 +1269,55 @@
         }
     });
 
-    // ── Modal lihat foto ──
-    function openPhotoModal(url) {
+    // ── Modal lihat foto (galeri: bisa digeser antar foto dalam satu slot) ──
+    let galUrls = [], galIdx = 0;
+
+    function galShow(i) {
         const modal = document.getElementById('wfPhotoModal');
         const img   = document.getElementById('wfPhotoModalImg');
-        if (! modal || ! img) return;
-        img.src = url;
+        const prev  = document.getElementById('wfPhotoPrev');
+        const next  = document.getElementById('wfPhotoNext');
+        const pos   = document.getElementById('wfPhotoPos');
+        if (! modal || ! img || ! galUrls.length) return;
+        galIdx = (i + galUrls.length) % galUrls.length; // wrap-around
+        img.src = galUrls[galIdx];
+        if (pos)  pos.textContent = galUrls.length > 1 ? (galIdx + 1) + ' / ' + galUrls.length : '';
+        if (prev) prev.hidden = galUrls.length < 2;
+        if (next) next.hidden = galUrls.length < 2;
+        // Muat duluan foto berikutnya supaya geser terasa instan.
+        if (galUrls.length > 1) new Image().src = galUrls[(galIdx + 1) % galUrls.length];
+    }
+
+    function openGallery(urls, index) {
+        const modal = document.getElementById('wfPhotoModal');
+        if (! modal || ! urls || ! urls.length) return;
+        galUrls = urls.filter(u => !! u);
+        if (! galUrls.length) return;
+        galShow(index || 0);
         modal.hidden = false;
         document.body.style.overflow = 'hidden';
     }
+
     function closePhotoModal() {
         const modal = document.getElementById('wfPhotoModal');
         const img   = document.getElementById('wfPhotoModalImg');
         if (! modal) return;
         modal.hidden = true;
         if (img) img.src = '';
+        galUrls = [];
         document.body.style.overflow = '';
     }
+
     document.querySelectorAll('[data-modal-close]').forEach(el => el.addEventListener('click', closePhotoModal));
-    document.addEventListener('keydown', e => { if (e.key === 'Escape') closePhotoModal(); });
+    document.getElementById('wfPhotoPrev')?.addEventListener('click', () => galShow(galIdx - 1));
+    document.getElementById('wfPhotoNext')?.addEventListener('click', () => galShow(galIdx + 1));
+    document.addEventListener('keydown', e => {
+        const modal = document.getElementById('wfPhotoModal');
+        if (e.key === 'Escape') { closePhotoModal(); return; }
+        if (! modal || modal.hidden || galUrls.length < 2) return;
+        if (e.key === 'ArrowLeft')  galShow(galIdx - 1);
+        if (e.key === 'ArrowRight') galShow(galIdx + 1);
+    });
 
     // Tampilkan/sembunyikan state "Dikecualikan" pada satu item (class + flag).
     function setExceptedUI(task, on, reason) {
@@ -1319,139 +1382,123 @@
         });
     }
 
-    async function uploadPhoto(task, file) {
-        const status = task.querySelector('[data-photo-status]');
+    // ── Foto bukti (maks 5 per slot) ──────────────────────────────────────────
+    // "box" = kotak foto: [data-photo] untuk mode satuan, [data-ba-slot] untuk
+    // kolom Before/After. Keduanya berisi grid thumbnail + tombol "+".
+
+    function thumbsOf(box) { return box.querySelectorAll('.wf-thumb[data-photo-id]'); }
+
+    // Satu-satunya tempat state UI kotak foto dihitung ulang — tombol "+",
+    // penghitung, dan penanda "belum ada foto" pada task.
+    function syncBox(box) {
+        const n   = thumbsOf(box).length;
+        const max = parseInt(box.dataset.max || '5', 10);
+
+        const add = box.querySelector('[data-photo-add]');
+        if (add) add.hidden = (n >= max) || box.dataset.busy === '1';
+
+        const cnt = box.querySelector('[data-photo-count]');
+        if (cnt) cnt.textContent = n >= max ? ('Maks ' + max + ' foto') : (n + '/' + max + ' foto');
+
+        box.classList.toggle('has', n > 0);
+
+        // Hanya slot tunggal yang menentukan penanda "needs-photo" di task —
+        // sama dengan kolom cermin photo_path yang dibaca server.
+        if (box.dataset.slot === 'single') {
+            const task = box.closest('[data-item-id]');
+            if (task) {
+                task.dataset.hasPhoto = n ? '1' : '0';
+                // Tugas yang dikecualikan / harinya dikecualikan tidak pernah
+                // ditandai "kurang foto" — sama dengan aturan render di server.
+                const dikecualikan = task.classList.contains('is-excepted')
+                                  || task.classList.contains('is-excused');
+                task.classList.toggle('needs-photo', n === 0 && ! dikecualikan);
+            }
+        }
+    }
+
+    // Sisipkan thumbnail baru tepat sebelum tombol "+" supaya "+" selalu terakhir.
+    function appendThumb(box, photo) {
+        const grid = box.querySelector('[data-photo-grid]');
+        if (! grid) return null;
+        const fig = document.createElement('figure');
+        fig.className = 'wf-thumb';
+        fig.dataset.photoId = photo.id;
+        fig.dataset.url     = photo.url;
+        fig.innerHTML = '<img alt="Foto bukti" loading="lazy">'
+                      + '<button type="button" class="wf-thumb__del" data-photo-del aria-label="Hapus foto"><i class="fas fa-times"></i></button>';
+        fig.querySelector('img').src = photo.url;
+        fig.querySelector('[data-photo-del]').dataset.deleteUrl = photo.deleteUrl;
+        grid.insertBefore(fig, box.querySelector('[data-photo-add]'));
+        return fig;
+    }
+
+    async function uploadPhoto(box, file) {
+        if (box.dataset.busy === '1') return;   // cegah klik beruntun menembus batas
+        box.dataset.busy = '1';
+        syncBox(box);
+
+        const status = box.querySelector('[data-photo-status]');
         const setStatus = t => { if (status) status.textContent = t; };
+
         setStatus('Mengompres…');
         let blob;
         try { blob = await resizeImage(file, 1600, 0.8); }
         catch (e) { blob = file; } // fallback: kirim asli kalau resize gagal
         const fd = new FormData();
         fd.append('photo', blob, 'foto.jpg');
+
         setStatus('Mengunggah…');
         try {
-            const res = await fetch(task.dataset.photoUploadUrl, {
+            const res = await fetch(box.dataset.uploadUrl, {
                 method: 'POST',
                 headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf },
                 body: fd,
             });
             const data = await res.json();
             if (! data.ok) throw new Error(data.error || 'Upload gagal');
-            setPhoto(task, data.url);
+
+            appendThumb(box, data.photo);
             setStatus('Foto tersimpan ✓');
             setTimeout(() => setStatus(''), 1500);
-            // Foto = bukti selesai → otomatis tandai selesai kalau belum.
-            if (! task.classList.contains('is-done')) toggleTask(task);
+
+            // Foto PERTAMA = bukti selesai → tandai selesai kalau belum.
+            // toggleTask() sifatnya flip, jadi syarat count === 1 wajib —
+            // tanpa itu foto ke-2 justru bisa membatalkan centang.
+            const task = box.closest('[data-item-id]');
+            if (box.dataset.slot === 'single' && data.count === 1
+                && task && ! task.classList.contains('is-done')) {
+                toggleTask(task);
+            }
         } catch (err) {
             setStatus('');
             alert('Gagal: ' + (err.message || err));
+        } finally {
+            box.dataset.busy = '0';
+            syncBox(box);
         }
     }
 
-    async function removePhoto(task) {
+    async function removePhoto(fig) {
+        if (! fig) return;
         if (! confirm('Hapus foto ini?')) return;
+        const box = fig.closest('[data-photo], [data-ba-slot]');
+        const btn = fig.querySelector('[data-photo-del]');
+        if (! box || ! btn) return;
         try {
-            const res = await fetch(task.dataset.photoDeleteUrl, {
+            const res = await fetch(btn.dataset.deleteUrl, {
                 method: 'DELETE',
                 headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf, 'Content-Type': 'application/json' },
             });
             const data = await res.json();
             if (! data.ok) throw new Error(data.error || 'Gagal hapus');
-            clearPhoto(task);
+            fig.remove();
+            syncBox(box);
             // Foto opsional → status centang task tidak berubah saat foto dihapus.
-            updateGlobal(data.progress);
+            if (data.progress) updateGlobal(data.progress);
         } catch (err) {
             alert('Gagal: ' + (err.message || err));
         }
-    }
-
-    function setPhoto(task, url) {
-        task.dataset.hasPhoto = '1';
-        task.classList.remove('needs-photo');
-        const viewBtn   = task.querySelector('[data-photo-view]');
-        const label     = task.querySelector('[data-photo-label]');
-        const removeBtn = task.querySelector('[data-photo-remove]');
-        if (viewBtn) { viewBtn.dataset.url = url; viewBtn.style.display = ''; }
-        if (label) label.textContent = 'Foto ulang';
-        if (removeBtn) removeBtn.style.display = '';
-    }
-
-    function clearPhoto(task) {
-        task.dataset.hasPhoto = '0';
-        task.classList.add('needs-photo');
-        const viewBtn   = task.querySelector('[data-photo-view]');
-        const label     = task.querySelector('[data-photo-label]');
-        const removeBtn = task.querySelector('[data-photo-remove]');
-        if (viewBtn) { viewBtn.dataset.url = ''; viewBtn.style.display = 'none'; }
-        if (label) label.textContent = 'Ambil foto';
-        if (removeBtn) removeBtn.style.display = 'none';
-    }
-
-    // ── Foto before/after (divisi GS): opsional, tak mengubah status task ──
-    async function uploadBaPhoto(col, file) {
-        const status = col.querySelector('[data-ba-status]');
-        const setStatus = t => { if (status) status.textContent = t; };
-        setStatus('Mengompres…');
-        let blob;
-        try { blob = await resizeImage(file, 1600, 0.8); }
-        catch (e) { blob = file; }
-        const fd = new FormData();
-        fd.append('photo', blob, 'foto.jpg');
-        setStatus('Mengunggah…');
-        try {
-            const res = await fetch(col.dataset.uploadUrl, {
-                method: 'POST',
-                headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf },
-                body: fd,
-            });
-            const data = await res.json();
-            if (! data.ok) throw new Error(data.error || 'Upload gagal');
-            setBaPhoto(col, data.url);
-            setStatus('Tersimpan ✓');
-            setTimeout(() => setStatus(''), 1500);
-        } catch (err) {
-            setStatus('');
-            alert('Gagal: ' + (err.message || err));
-        }
-    }
-
-    async function removeBaPhoto(col) {
-        if (! confirm('Hapus foto ini?')) return;
-        try {
-            const res = await fetch(col.dataset.deleteUrl, {
-                method: 'DELETE',
-                headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf, 'Content-Type': 'application/json' },
-            });
-            const data = await res.json();
-            if (! data.ok) throw new Error(data.error || 'Gagal hapus');
-            clearBaPhoto(col);
-        } catch (err) {
-            alert('Gagal: ' + (err.message || err));
-        }
-    }
-
-    function setBaPhoto(col, url) {
-        const pill  = col.querySelector('[data-ba-thumb]');
-        const icon  = col.querySelector('[data-ba-icon]');
-        const state = col.querySelector('[data-ba-state]');
-        const label = col.querySelector('[data-ba-label]');
-        col.classList.add('has');
-        if (pill)  { pill.dataset.url = url; pill.classList.add('has'); }
-        if (icon)  { icon.classList.remove('fa-camera'); icon.classList.add('fa-image'); }
-        if (state) state.textContent = 'Lihat';
-        if (label) label.textContent = 'Ganti';
-    }
-
-    function clearBaPhoto(col) {
-        const pill  = col.querySelector('[data-ba-thumb]');
-        const icon  = col.querySelector('[data-ba-icon]');
-        const state = col.querySelector('[data-ba-state]');
-        const label = col.querySelector('[data-ba-label]');
-        col.classList.remove('has');
-        if (pill)  { pill.dataset.url = ''; pill.classList.remove('has'); }
-        if (icon)  { icon.classList.remove('fa-image'); icon.classList.add('fa-camera'); }
-        if (state) state.textContent = 'Ambil foto';
-        if (label) label.textContent = 'Ambil';
     }
 
     function updateDayCounter(task) {

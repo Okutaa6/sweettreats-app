@@ -1095,11 +1095,19 @@ class DigitalChecklistController extends Controller
         // Submission asli bulan ini dalam cakupan cabang DAN divisi yang boleh
         // disupervisi — supaya riwayat divisi lain (mis. karyawan yang pernah
         // pindah role) tidak bocor ke supervisor di luar cakupannya.
+        // beres_count dihitung di DB (bukan lewat items yang di-load) supaya
+        // daftar ini tidak N+1. Angkanya WAJIB sama dengan yang dipakai halaman
+        // detail: "beres" = dicentang ATAU dikecualikan. Sebelum ini daftar
+        // memakai done_tasks (44/50) sementara detail memakai beres (50/50)
+        // untuk pengisian yang sama — supervisor bisa salah kira.
         $realSubs = ChecklistSubmission::query()
             ->where('user_id', $user)
             ->whereIn('division_id', $visible)
             ->when($branchId, fn($q) => $q->where('raw_branch_id', $branchId))
             ->whereBetween('submission_date', [$start->toDateString(), $end->toDateString()])
+            ->withCount(['items as beres_count' => fn($q) => $q->where(
+                fn($w) => $w->where('is_done', 1)->orWhere('is_excepted', 1)
+            )])
             ->get();
         $existingDates = $realSubs->keyBy(fn($s) => $s->submission_date->toDateString());
 
@@ -1837,7 +1845,9 @@ class DigitalChecklistController extends Controller
         $this->guard();
 
         $submission = ChecklistWeeklySubmission::query()
-            ->with(['user', 'reviewer', 'division', 'branch', 'items', 'dayExcuses', 'daySubmits.reviewer'])
+            // items.photos: 1 query untuk seluruh foto bukti — tanpa ini, grid
+            // thumbnail per task jadi N+1 (6 hari x belasan task).
+            ->with(['user', 'reviewer', 'division', 'branch', 'items.photos', 'dayExcuses', 'daySubmits.reviewer'])
             ->findOrFail($id);
 
         $this->abortIfBranchMismatchWeekly($submission);

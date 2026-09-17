@@ -4,6 +4,10 @@
 <style>
     .re-navbtn { width:34px; height:34px; display:inline-flex; align-items:center; justify-content:center; border-radius:50%; background:#FAF4EC; color:#5C2E15; text-decoration:none; border:1px solid #E0D2C1; transition:background .15s; }
     .re-navbtn:hover { background:#F1E4D3; color:#5C2E15; }
+    /* Tombol kembali disamakan dengan halaman detail review & daftar harian —
+       pil bertulisan, bukan panah bundar yang menempel di sebelah nama. */
+    .re-back { display:inline-flex; align-items:center; gap:8px; height:38px; padding:0 15px 0 12px; border-radius:11px; border:1px solid #E7D3BE; background:#fff; color:#5A3A22; font-size:13px; font-weight:700; text-decoration:none; transition:background .12s ease, border-color .12s ease; }
+    .re-back:hover { background:#FBF4EC; border-color:#D9C3AC; color:#5A3A22; }
     .re-btn-approve { display:inline-flex; align-items:center; gap:6px; background:#1F6E5F; color:#fff; border:none; border-radius:9px; padding:8px 13px; font-family:inherit; font-weight:800; font-size:12px; cursor:pointer; }
     .re-btn-approve:hover { filter:brightness(1.08); }
     .re-btn-eye { display:inline-flex; align-items:center; justify-content:center; width:34px; height:34px; border-radius:9px; background:#F1F7F5; color:#1F6E5F; border:1px solid #CFE6DF; text-decoration:none; }
@@ -44,9 +48,16 @@
         <div style="background:#FBE3DE;border:1px solid #EEC2B9;color:#A5382A;border-radius:12px;padding:11px 15px;font-size:12.5px;font-weight:700;margin-bottom:12px">{{ session('error') }}</div>
     @endif
 
+    {{-- KEMBALI --}}
+    <div style="margin-bottom:14px">
+        <a href="{{ route('checklist.review.weekly') }}" class="re-back">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 3.5 5.5 8l4.5 4.5" stroke="#7A5B43" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Kembali
+        </a>
+    </div>
+
     {{-- HERO: identitas karyawan --}}
     <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;background:#fff;border:1px solid #EFE0CE;border-radius:16px;padding:16px 20px;box-shadow:0 1px 2px rgba(70,21,0,.04);margin-bottom:14px">
-        <a href="{{ route('checklist.review.weekly') }}" class="re-navbtn" title="Kembali ke daftar karyawan"><i class="fas fa-arrow-left" style="font-size:13px"></i></a>
         <div style="width:46px;height:46px;border-radius:50%;background:{{ $avColor }};color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;flex-shrink:0">{{ $avInitials }}</div>
         <div style="flex:1;min-width:200px">
             <div style="font-size:19px;font-weight:800;color:#3B1500">{{ $employee->nama ?? '—' }}</div>

@@ -6,6 +6,10 @@
     .re-input:focus { outline:none; border-color:#C9962F; }
     .re-navbtn { width:34px; height:34px; display:inline-flex; align-items:center; justify-content:center; border-radius:50%; background:#FAF4EC; color:#5C2E15; text-decoration:none; border:1px solid #E0D2C1; transition:background .15s; }
     .re-navbtn:hover { background:#F1E4D3; color:#5C2E15; }
+    /* Tombol kembali disamakan dengan halaman detail review — pil bertulisan,
+       bukan panah bundar yang menempel di sebelah nama. */
+    .re-back { display:inline-flex; align-items:center; gap:8px; height:38px; padding:0 15px 0 12px; border-radius:11px; border:1px solid #E7D3BE; background:#fff; color:#5A3A22; font-size:13px; font-weight:700; text-decoration:none; transition:background .12s ease, border-color .12s ease; }
+    .re-back:hover { background:#FBF4EC; border-color:#D9C3AC; color:#5A3A22; }
     .re-btn-approve { display:inline-flex; align-items:center; gap:6px; background:#2F8E55; color:#fff; border:none; border-radius:9px; padding:8px 13px; font-family:inherit; font-weight:800; font-size:12px; cursor:pointer; }
     .re-btn-approve:hover { filter:brightness(1.06); }
     .re-btn-eye { display:inline-flex; align-items:center; justify-content:center; width:34px; height:34px; border-radius:9px; background:#FBF4EC; color:#8A5A22; border:1px solid #EADCC9; text-decoration:none; }
@@ -46,9 +50,16 @@
         <div style="background:#FBE3DE;border:1px solid #EEC2B9;color:#A5382A;border-radius:12px;padding:11px 15px;font-size:12.5px;font-weight:700;margin-bottom:12px">{{ session('error') }}</div>
     @endif
 
+    {{-- KEMBALI --}}
+    <div style="margin-bottom:14px">
+        <a href="{{ route('checklist.review', ['mode' => 'people']) }}" class="re-back">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 3.5 5.5 8l4.5 4.5" stroke="#7A5B43" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Kembali
+        </a>
+    </div>
+
     {{-- HERO: identitas karyawan --}}
     <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;background:#fff;border:1px solid #EFE0CE;border-radius:16px;padding:16px 20px;box-shadow:0 1px 2px rgba(70,21,0,.04);margin-bottom:14px">
-        <a href="{{ route('checklist.review', ['mode' => 'people']) }}" class="re-navbtn" title="Kembali ke daftar karyawan"><i class="fas fa-arrow-left" style="font-size:13px"></i></a>
         <div style="width:46px;height:46px;border-radius:50%;background:{{ $avColor }};color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;flex-shrink:0">{{ $avInitials }}</div>
         <div style="flex:1;min-width:200px">
             <div style="font-size:19px;font-weight:800;color:#3B1500">{{ $employee->nama ?? '—' }}</div>
@@ -132,8 +143,12 @@
                 <tbody>
                     @foreach($subs as $s)
                         @php
-                            $st  = $stMap[$s->status] ?? ['label' => $s->status, 'c' => '#9B8578', 'bg' => '#EFE7DE'];
-                            $pct = $s->progressPct();
+                            $st = $stMap[$s->status] ?? ['label' => $s->status, 'c' => '#9B8578', 'bg' => '#EFE7DE'];
+                            // "beres" = dicentang ATAU dikecualikan — angka yang
+                            // sama dengan halaman detail. Baris "Tidak Diisi" yang
+                            // disintesis tidak punya beres_count → jatuh ke done_tasks.
+                            $beres = $s->beres_count ?? $s->done_tasks;
+                            $pct = $s->total_tasks ? (int) round($beres / $s->total_tasks * 100) : 0;
                             $barColor = $s->status === 'excused' ? '#C7AC92' : ($pct >= 80 ? '#2F8E55' : ($pct >= 50 ? '#C9962F' : '#C0392B'));
                         @endphp
                         <tr>
@@ -146,7 +161,7 @@
                             <td>
                                 <div style="display:flex;align-items:center;gap:9px;min-width:110px">
                                     <div style="flex:1;min-width:56px;height:7px;border-radius:6px;background:#F1E6D7;overflow:hidden"><div style="height:100%;width:{{ $pct }}%;background:{{ $barColor }};border-radius:6px"></div></div>
-                                    <span style="font-size:11.5px;font-weight:800;color:#5A3A22;flex:none;font-variant-numeric:tabular-nums">{{ $s->done_tasks }}/{{ $s->total_tasks }}</span>
+                                    <span style="font-size:11.5px;font-weight:800;color:#5A3A22;flex:none;font-variant-numeric:tabular-nums">{{ $beres }}/{{ $s->total_tasks }}</span>
                                 </div>
                             </td>
                             <td>
@@ -161,9 +176,9 @@
                                             <input type="hidden" name="return_month" value="{{ $month }}">
                                             <button type="submit" class="re-btn-approve"><i class="fas fa-check" style="font-size:11px"></i> Approve</button>
                                         </form>
-                                        <a href="{{ route('checklist.review.show', $s->id) }}" class="re-btn-eye" title="Detail / Tolak"><i class="fas fa-eye"></i></a>
+                                        <a href="{{ route('checklist.review.show', ['id' => $s->id, 'return_user' => $employee->id, 'return_month' => $month]) }}" class="re-btn-eye" title="Detail / Tolak"><i class="fas fa-eye"></i></a>
                                     @elseif($s->id)
-                                        <a href="{{ route('checklist.review.show', $s->id) }}" class="re-btn-eye" title="Lihat detail"><i class="fas fa-eye"></i></a>
+                                        <a href="{{ route('checklist.review.show', ['id' => $s->id, 'return_user' => $employee->id, 'return_month' => $month]) }}" class="re-btn-eye" title="Lihat detail"><i class="fas fa-eye"></i></a>
                                     @else
                                         <span style="font-size:11px;color:#B79A82">—</span>
                                     @endif

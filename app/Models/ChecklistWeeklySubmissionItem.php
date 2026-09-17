@@ -51,4 +51,26 @@ class ChecklistWeeklySubmissionItem extends Model
     {
         return $this->belongsTo(ChecklistTask::class, 'task_id', 'id');
     }
+
+    /** Semua foto bukti item ini (semua slot), sudah terurut tampil. */
+    public function photos()
+    {
+        return $this->hasMany(ChecklistWeeklySubmissionPhoto::class, 'item_id', 'id')
+                    ->orderBy('sort_order');
+    }
+
+    /**
+     * Foto satu slot ('single' | 'before' | 'after').
+     *
+     * Sengaja menyaring KOLEKSI $this->photos (hasil eager-load), bukan
+     * $this->photos() (query builder) — view merender 6 hari × belasan task,
+     * jadi query per slot langsung jadi N+1.
+     */
+    public function photosFor(string $slot)
+    {
+        return $this->photos
+            ->where('slot', $slot)
+            ->sortBy('sort_order')
+            ->values();
+    }
 }
