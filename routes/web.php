@@ -730,11 +730,12 @@ Route::middleware([AuthGuard::class])->group(function () {
     Route::patch('my-checklist/weekform/item/{id}/note', [MyChecklistController::class, 'weekUpdateNote'])->name('mychecklist.weekform.item.note');
     Route::patch('my-checklist/weekform/item/{id}/except',   [MyChecklistController::class, 'weekExceptItem'])  ->name('mychecklist.weekform.item.except');
     Route::patch('my-checklist/weekform/item/{id}/unexcept', [MyChecklistController::class, 'weekUnexceptItem'])->name('mychecklist.weekform.item.unexcept');
+    // Foto bukti — MENAMBAH foto (maks 5 per slot), bukan menimpa yang lama.
     Route::post ('my-checklist/weekform/item/{id}/photo', [MyChecklistController::class, 'weekUploadPhoto'])->name('mychecklist.weekform.item.photo.upload');
-    Route::delete('my-checklist/weekform/item/{id}/photo',[MyChecklistController::class, 'weekDeletePhoto'])->name('mychecklist.weekform.item.photo.delete');
-    // Foto before/after opsional (khusus divisi GS) — slot: before|after.
+    // Foto before/after opsional (khusus divisi GS) — slot: before|after, jatah 5 masing-masing.
     Route::post ('my-checklist/weekform/item/{id}/ba-photo/{slot}',  [MyChecklistController::class, 'weekUploadBaPhoto'])->name('mychecklist.weekform.item.baphoto.upload');
-    Route::delete('my-checklist/weekform/item/{id}/ba-photo/{slot}', [MyChecklistController::class, 'weekDeleteBaPhoto'])->name('mychecklist.weekform.item.baphoto.delete');
+    // Hapus per FOTO (bukan per slot) — satu endpoint untuk single/before/after.
+    Route::delete('my-checklist/weekform/photo/{photoId}', [MyChecklistController::class, 'weekDeleteItemPhoto'])->name('mychecklist.weekform.photo.delete');
     // Submit per-hari (menggantikan submit mingguan sekaligus). Header otomatis
     // ter-finalize saat semua hari ber-tugas sudah dikirim/dikecualikan.
     Route::post ('my-checklist/weekform/day-submit',     [MyChecklistController::class, 'weekDaySubmit'])  ->name('mychecklist.weekform.day.submit');

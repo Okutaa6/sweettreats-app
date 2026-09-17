@@ -1837,7 +1837,9 @@ class DigitalChecklistController extends Controller
         $this->guard();
 
         $submission = ChecklistWeeklySubmission::query()
-            ->with(['user', 'reviewer', 'division', 'branch', 'items', 'dayExcuses', 'daySubmits.reviewer'])
+            // items.photos: 1 query untuk seluruh foto bukti — tanpa ini, grid
+            // thumbnail per task jadi N+1 (6 hari x belasan task).
+            ->with(['user', 'reviewer', 'division', 'branch', 'items.photos', 'dayExcuses', 'daySubmits.reviewer'])
             ->findOrFail($id);
 
         $this->abortIfBranchMismatchWeekly($submission);

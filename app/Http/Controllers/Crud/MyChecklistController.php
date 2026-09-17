@@ -15,6 +15,7 @@ use App\Models\ChecklistWeeklyDayExcuse;
 use App\Models\ChecklistWeeklyDaySubmit;
 use App\Models\ChecklistWeeklySubmission;
 use App\Models\ChecklistWeeklySubmissionItem;
+use App\Models\ChecklistWeeklySubmissionPhoto;
 use App\Models\RawBranch;
 use App\Models\UserPosition;
 use App\Models\Users;
@@ -897,6 +898,7 @@ class MyChecklistController extends Controller
         $grouped = collect();
         if ($submission) {
             $items = $submission->items()
+                ->with('photos') // 1 query untuk semua foto; tanpa ini jadi N+1 per task
                 ->orderBy('category_sort_order')
                 ->orderBy('task_sort_order')
                 ->get();
@@ -1110,7 +1112,10 @@ class MyChecklistController extends Controller
      * Upload foto bukti untuk 1 item Form Mingguan (task requires_photo).
      * File disimpan ke public/uploads/checklist-photos/{YYYY}/{Wxx}/{uuid}.{ext},
      * dipartisi per minggu ISO supaya folder tidak membludak (pola sama dengan
-     * attachment petty cash). Foto lama dihapus dulu saat foto ulang.
+     * attachment petty cash).
+     *
+     * Upload MENAMBAH foto (maks 5 per slot), bukan menimpa foto sebelumnya
+     * seperti dulu.
      */
     public function weekUploadPhoto(Request $request, string $id)
     {
@@ -1118,13 +1123,13 @@ class MyChecklistController extends Controller
         $sub  = $item->submission;
 
         if ($sub->user_id !== session('id')) abort(403);
+        if (! $item->requires_photo || $item->photo_before_after) {
+            return response()->json(['ok' => false, 'error' => 'Task ini tidak memakai foto tunggal.'], 422);
+        }
         if (! $sub->isEditable()) {
             return response()->json(['ok' => false, 'error' => 'Form mingguan sudah submitted/approved.'], 422);
         }
         if ($r = $this->weekDayLockGuard($sub, $item)) return $r;
-        if (! $item->requires_photo || $item->photo_before_after) {
-            return response()->json(['ok' => false, 'error' => 'Task ini tidak memakai foto tunggal.'], 422);
-        }
 
         $request->validate(
             ['photo' => 'required|image|mimes:jpeg,jpg,png,webp|max:8192'],
@@ -1136,61 +1141,15 @@ class MyChecklistController extends Controller
             ]
         );
 
-        // Hapus foto lama (foto ulang) supaya tidak menumpuk.
-        $this->deletePhotoFile($item->photo_path);
-
-        // Simpan file + cap tanggal/jam/nama/cabang ke gambar.
-        $path = $this->storeChecklistPhoto($request->file('photo'), $sub);
-
-        $item->update(['photo_path' => $path]);
-
-        return response()->json([
-            'ok'   => true,
-            'url'  => asset($path),
-            'path' => $path,
-        ]);
-    }
-
-    /**
-     * Hapus foto item (mau foto ulang / salah ambil). Kalau task wajib foto dan
-     * sudah tercentang, centang otomatis dibatalkan — tanpa foto tak boleh selesai.
-     */
-    public function weekDeletePhoto(Request $request, string $id)
-    {
-        $item = ChecklistWeeklySubmissionItem::with('submission')->findOrFail($id);
-        $sub  = $item->submission;
-
-        if ($sub->user_id !== session('id')) abort(403);
-        if (! $sub->isEditable()) {
-            return response()->json(['ok' => false, 'error' => 'Form mingguan sudah submitted/approved.'], 422);
-        }
-        if ($r = $this->weekDayLockGuard($sub, $item)) return $r;
-
-        $this->deletePhotoFile($item->photo_path);
-
-        // Foto opsional → menghapus foto tidak membatalkan centang.
-        $item->update(['photo_path' => null]);
-
-        $done = $sub->items()->where('is_done', 1)->count();
-        $sub->update(['done_tasks' => $done, 'updated_at' => now()]);
-        $satisfied = $sub->satisfiedCount();
-
-        return response()->json([
-            'ok'       => true,
-            'progress' => [
-                'done'  => $satisfied,
-                'total' => $sub->total_tasks,
-                'pct'   => $sub->total_tasks ? (int) round($satisfied / $sub->total_tasks * 100) : 0,
-            ],
-        ]);
+        return $this->respondPhotoUpload($item, $sub, $request->file('photo'), ChecklistWeeklySubmissionPhoto::SLOT_SINGLE);
     }
 
     /**
      * Upload foto before/after OPSIONAL untuk 1 item Form Mingguan.
      * Hanya untuk item ber-mode before/after (task->photo_before_after, di setup
      * hanya ditawarkan untuk ChecklistDivision::PHOTO_BA_DIVISIONS). Slot:
-     * 'before' | 'after'. Tidak memblokir centang
-     * dan tidak auto-menandai selesai — murni dokumentasi.
+     * 'before' | 'after', masing-masing punya jatah 5 foto sendiri. Tidak
+     * memblokir centang dan tidak auto-menandai selesai — murni dokumentasi.
      */
     public function weekUploadBaPhoto(Request $request, string $id, string $slot)
     {
@@ -1198,7 +1157,7 @@ class MyChecklistController extends Controller
         $sub  = $item->submission;
 
         if ($sub->user_id !== session('id')) abort(403);
-        if (! in_array($slot, ['before', 'after'], true)) {
+        if (! in_array($slot, [ChecklistWeeklySubmissionPhoto::SLOT_BEFORE, ChecklistWeeklySubmissionPhoto::SLOT_AFTER], true)) {
             return response()->json(['ok' => false, 'error' => 'Slot foto tidak valid.'], 422);
         }
         if (! $item->photo_before_after) {
@@ -1207,6 +1166,7 @@ class MyChecklistController extends Controller
         if (! $sub->isEditable()) {
             return response()->json(['ok' => false, 'error' => 'Form mingguan sudah submitted/approved.'], 422);
         }
+        if ($r = $this->weekDayLockGuard($sub, $item)) return $r;
 
         $request->validate(
             ['photo' => 'required|image|mimes:jpeg,jpg,png,webp|max:8192'],
@@ -1218,46 +1178,155 @@ class MyChecklistController extends Controller
             ]
         );
 
-        if ($r = $this->weekDayLockGuard($sub, $item)) return $r;
-
-        $col = "photo_{$slot}_path";
-
-        // Hapus foto lama slot ini (foto ulang) supaya tidak menumpuk.
-        $this->deletePhotoFile($item->{$col});
-
-        // Simpan file + cap tanggal/jam/nama/cabang ke gambar.
-        $path = $this->storeChecklistPhoto($request->file('photo'), $sub);
-
-        $item->update([$col => $path]);
-
-        return response()->json([
-            'ok'   => true,
-            'url'  => asset($path),
-            'path' => $path,
-            'slot' => $slot,
-        ]);
+        return $this->respondPhotoUpload($item, $sub, $request->file('photo'), $slot);
     }
 
-    /** Hapus foto before/after slot tertentu (before|after). */
-    public function weekDeleteBaPhoto(Request $request, string $id, string $slot)
+    /**
+     * Hapus SATU foto bukti berdasarkan id barisnya — berlaku untuk semua slot.
+     * Menggantikan weekDeletePhoto & weekDeleteBaPhoto lama yang menghapus
+     * "foto slot ini" (tidak bisa menunjuk foto ke-3 dari 5).
+     *
+     * Foto tetap OPSIONAL: menghapus foto tidak membatalkan centang task.
+     */
+    public function weekDeleteItemPhoto(Request $request, string $photoId)
     {
-        $item = ChecklistWeeklySubmissionItem::with('submission')->findOrFail($id);
-        $sub  = $item->submission;
+        $photo = ChecklistWeeklySubmissionPhoto::with('item.submission')->findOrFail($photoId);
+        $item  = $photo->item;
+        $sub   = $item ? $item->submission : null;
+        if (! $item || ! $sub) abort(404);
 
+        // Dicek lewat submission-nya, bukan lewat id foto yang dikirim client.
         if ($sub->user_id !== session('id')) abort(403);
-        if (! in_array($slot, ['before', 'after'], true)) {
-            return response()->json(['ok' => false, 'error' => 'Slot foto tidak valid.'], 422);
-        }
         if (! $sub->isEditable()) {
             return response()->json(['ok' => false, 'error' => 'Form mingguan sudah submitted/approved.'], 422);
         }
         if ($r = $this->weekDayLockGuard($sub, $item)) return $r;
 
-        $col = "photo_{$slot}_path";
-        $this->deletePhotoFile($item->{$col});
-        $item->update([$col => null]);
+        $slot = $photo->slot;
+        $path = $photo->path;
 
-        return response()->json(['ok' => true, 'slot' => $slot]);
+        DB::transaction(function () use ($photo, $item, $slot) {
+            DB::table('sys_checklist_weekly_submission_photo')->where('id', $photo->id)->delete();
+            // Foto berikutnya naik jadi cermin kolom lama.
+            $this->syncPhotoMirror($item, $slot);
+        });
+
+        // Unlink SESUDAH commit — kalau transaksi gagal, filenya tidak ikut hilang.
+        $this->deletePhotoFile($path);
+
+        $count = DB::table('sys_checklist_weekly_submission_photo')
+            ->where('item_id', $item->id)->where('slot', $slot)->count();
+
+        $done = $sub->items()->where('is_done', 1)->count();
+        $sub->update(['done_tasks' => $done, 'updated_at' => now()]);
+        $satisfied = $sub->satisfiedCount();
+
+        return response()->json([
+            'ok'       => true,
+            'slot'     => $slot,
+            'photo_id' => $photo->id,
+            'count'    => $count,
+            'max'      => ChecklistWeeklySubmissionPhoto::MAX_PER_SLOT,
+            'progress' => [
+                'done'  => $satisfied,
+                'total' => $sub->total_tasks,
+                'pct'   => $sub->total_tasks ? (int) round($satisfied / $sub->total_tasks * 100) : 0,
+            ],
+        ]);
+    }
+
+    /** Bungkus addItemPhoto() jadi respons JSON seragam (dipakai 2 endpoint upload). */
+    private function respondPhotoUpload(ChecklistWeeklySubmissionItem $item, ChecklistWeeklySubmission $sub, $file, string $slot)
+    {
+        try {
+            $row = $this->addItemPhoto($item, $sub, $file, $slot);
+        } catch (\RuntimeException $e) {
+            return response()->json(['ok' => false, 'error' => $e->getMessage()], 422);
+        }
+
+        return response()->json([
+            'ok'    => true,
+            'slot'  => $slot,
+            'photo' => [
+                'id'        => $row['id'],
+                'url'       => asset($row['path']),
+                'path'      => $row['path'],
+                'deleteUrl' => route('mychecklist.weekform.photo.delete', $row['id']),
+            ],
+            'count' => $row['count'],
+            'max'   => ChecklistWeeklySubmissionPhoto::MAX_PER_SLOT,
+        ]);
+    }
+
+    /**
+     * Tambah 1 foto ke slot item; kembalikan baris foto + jumlah terbaru.
+     * Melempar RuntimeException kalau slot sudah penuh.
+     *
+     * Baris item dikunci (lockForUpdate) supaya klik "+" beruntun atau dua tab
+     * tidak balapan menembus batas 5 / menabrak UNIQUE (item_id, slot, sort_order).
+     */
+    private function addItemPhoto(ChecklistWeeklySubmissionItem $item, ChecklistWeeklySubmission $sub, $file, string $slot): array
+    {
+        // Simpan file dulu (move + watermark) supaya kerja berat ada di luar transaksi.
+        $path = $this->storeChecklistPhoto($file, $sub);
+
+        try {
+            return DB::transaction(function () use ($item, $slot, $path) {
+                DB::table('sys_checklist_weekly_submission_item')
+                    ->where('id', $item->id)->lockForUpdate()->first();
+
+                $agg = DB::table('sys_checklist_weekly_submission_photo')
+                    ->where('item_id', $item->id)->where('slot', $slot)
+                    ->selectRaw('COUNT(*) AS n, COALESCE(MAX(sort_order), -1) AS mx')
+                    ->first();
+
+                $max = ChecklistWeeklySubmissionPhoto::MAX_PER_SLOT;
+                if ((int) $agg->n >= $max) {
+                    throw new \RuntimeException("Maksimal {$max} foto untuk bagian ini — hapus salah satu dulu.");
+                }
+
+                $row = [
+                    'id'         => (string) Str::uuid(),
+                    'item_id'    => $item->id,
+                    'slot'       => $slot,
+                    'path'       => $path,
+                    // Monoton naik; tidak dinomori ulang saat ada yang dihapus.
+                    'sort_order' => (int) $agg->mx + 1,
+                    'created_at' => now(),
+                ];
+                DB::table('sys_checklist_weekly_submission_photo')->insert($row);
+
+                $this->syncPhotoMirror($item, $slot);
+
+                $row['count'] = (int) $agg->n + 1;
+                return $row;
+            });
+        } catch (\Throwable $e) {
+            // Slot penuh / transaksi gagal → file yang terlanjur pindah jangan jadi sampah.
+            $this->deletePhotoFile($path);
+            throw $e;
+        }
+    }
+
+    /**
+     * Jaga kolom lama (photo_path / photo_before_path / photo_after_path) tetap
+     * berisi foto PERTAMA slot itu. Dipanggil setiap upload & hapus, jadi saat
+     * foto pertama dihapus, foto berikutnya otomatis naik jadi cermin.
+     *
+     * Kolom cermin inilah yang dibaca ChecklistWeeklySubmission::missingPhotos()
+     * dan class "needs-photo" di form — tanpa query tambahan ke tabel anak.
+     */
+    private function syncPhotoMirror(ChecklistWeeklySubmissionItem $item, string $slot): void
+    {
+        $col   = ChecklistWeeklySubmissionPhoto::mirrorColumn($slot);
+        $first = DB::table('sys_checklist_weekly_submission_photo')
+            ->where('item_id', $item->id)->where('slot', $slot)
+            ->orderBy('sort_order')->value('path');
+
+        DB::table('sys_checklist_weekly_submission_item')
+            ->where('id', $item->id)->update([$col => $first]);
+
+        $item->setAttribute($col, $first); // objek in-memory ikut sinkron
     }
 
     /** Hapus file foto dari disk kalau ada (path relatif dari public/). */
@@ -1762,14 +1831,33 @@ class MyChecklistController extends Controller
         if (! empty($taskMap)) {
             $staleItems = $sub->items()->whereNotNull('task_id')
                 ->whereNotIn('task_id', array_keys($taskMap))->get();
-            foreach ($staleItems as $it) {
-                $this->deletePhotoFile($it->photo_path);
-                $this->deletePhotoFile($it->photo_before_path);
-                $this->deletePhotoFile($it->photo_after_path);
-            }
+
             if ($staleItems->isNotEmpty()) {
+                $staleIds = $staleItems->pluck('id')->all();
+
+                // Foto di tabel anak: file + barisnya. Item dihapus lewat query
+                // builder (tanpa model event) dan skema checklist tanpa FK/CASCADE,
+                // jadi ini satu-satunya yang membersihkannya.
+                foreach (
+                    DB::table('sys_checklist_weekly_submission_photo')
+                        ->whereIn('item_id', $staleIds)->get() as $p
+                ) {
+                    $this->deletePhotoFile($p->path);
+                }
+                DB::table('sys_checklist_weekly_submission_photo')
+                    ->whereIn('item_id', $staleIds)->delete();
+
+                // Jaring pengaman untuk data pra-backfill (kolom cermin).
+                // deletePhotoFile() null-safe & cek is_file, jadi aman walau
+                // filenya sudah ikut terhapus di atas.
+                foreach ($staleItems as $it) {
+                    $this->deletePhotoFile($it->photo_path);
+                    $this->deletePhotoFile($it->photo_before_path);
+                    $this->deletePhotoFile($it->photo_after_path);
+                }
+
                 DB::table('sys_checklist_weekly_submission_item')
-                    ->whereIn('id', $staleItems->pluck('id')->all())->delete();
+                    ->whereIn('id', $staleIds)->delete();
                 $staleRemoved = true;
             }
         }
