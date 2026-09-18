@@ -1,12 +1,12 @@
 # Materi Deck — ORTHO: Peta Arah & Alur Informasi
 
-> Untuk **chat build**. Disusun HUB 18 Sep 2026 atas arahan Ikhsan (planner fitur).
-> Pembaca: **internal + Executive**, yang **sudah membaca brief** — jadi deck ini
-> **tidak mengulang masalah, angka, atau keputusan Sales**. Isinya hanya tiga hal:
-> alur fitur, ke mana informasinya mengalir, dan tahap pengembangannya.
-> **4 slide** (+ judul). Satu gagasan per slide. Visual > teks.
+> Untuk **chat build**. Disusun HUB 18 Sep 2026 atas arahan Ikhsan (planner fitur),
+> **direvisi sesudah pengukuran 18 Sep** (pasien mengikuti dokter — lihat slide 1).
+> Pembaca: **internal + Executive**, yang **sudah membaca brief** — deck ini **tidak
+> mengulang masalah, angka, atau keputusan Sales**. Hanya tiga hal: alur fitur,
+> ke mana informasinya mengalir, tahap pengembangannya. **4 slide** (+ judul).
+> Satu gagasan per slide. Slide 2 dan 3 **wajib diagram**, bukan bullet.
 > Tiket IT-2026-013 · analisis Rahmat selesai · desain & bangun Reza · arah Ikhsan.
-> Versi 14 slide yang lebih panjang ada di riwayat git (`5ea57ec`) kalau perlu.
 
 ---
 
@@ -23,24 +23,28 @@ IT-2026-013 · September 2026
 ```
  ┌──────────┐   ┌──────────┐   ┌───────────────┐   ┌──────────────┐   ┌──────────┐
  │ Omnicare │ → │  Mesin   │ → │ Daftar kerja  │ → │ Tindak lanjut│ → │ Laporan  │
- │ sync     │   │  status  │   │ FO hari ini   │   │ tercatat     │   │ retensi  │
+ │ sync     │   │  status  │   │ Sales hari ini│   │ tercatat     │   │ retensi  │
  │ harian   │   │          │   │               │   │              │   │          │
  └──────────┘   └──────────┘   └───────────────┘   └──────────────┘   └──────────┘
-  kontrol ·       Aktif ·        "hubungi 7 orang   hubungi → tawarkan   per cabang ·
-  bracket ·       perlu          ini hari ini",     jadwal → hasilnya    per dokter ·
-  lepas ·         dihubungi ·    sudah diurutkan    dicatat              tren
-  cabang          Pindah ·
-                  Selesai ·
+  kontrol ·       Aktif ·        "hubungi 7 orang   hubungi → tawarkan   per dokter ·
+  bracket ·       perlu          ini hari ini";     jadwal dokternya     per cabang ·
+  lepas ·         dihubungi ·    yang SUDAH punya   → hasilnya dicatat,  tren
+  cabang ·        Pindah ·       reservasi TIDAK    terlihat semua
+  dokter          Selesai ·      masuk daftar       cabang
                   Berhenti
 ```
 
-**Rel yang dipakai** (keputusan arah — tim mengikuti, tidak membuka ulang):
-nol pengisian manual · **satu data untuk lima cabang**, tampilan per cabang ·
-pemilik = cabang perawatan terakhir, pindah setelah **2 kunjungan berturut** ·
-**Selesai ≠ Berhenti** · status tak berbasis waktu, **peringatan** yang berbasis waktu.
+**Satu temuan baru yang menentukan relnya** (diukur 18 Sep, 2.034 pasien):
+dari pasien yang kontrol di lebih dari satu cabang, **89% bertemu dokter yang sama**
+di kedua cabang (Cinere: **95%**). Pasien tidak pindah cabang — **pasien mengikuti
+dokternya**, dan empat dokter yang berkeliling mengerjakan 46% seluruh kontrol.
 
-*Catatan pembicara:* "Berhenti" satu-satunya yang ditandai tangan — sistem tak bisa
-tahu pasien pindah kota. Sisanya turun sendiri dari data kunjungan.
+**Rel yang dipakai** (keputusan arah — tim mengikuti, tidak membuka ulang):
+- nol pengisian manual — kecuali tiga: *Berhenti*, *Endorser*, dan tanggal pemasangan yang ditebak dari transaksi ortho pertama
+- **satu data untuk lima cabang**, tampilan per cabang
+- **pasien milik dokternya** (dokter kontrol terakhir); **yang menghubungi = Sales cabang perawatan terakhir**. Cabang = informasi, bukan pemilik. 11% pasien yang ganti dokter ditangani manual dulu.
+- **Selesai ≠ Berhenti**
+- status tak berbasis waktu — **peringatan** yang berbasis waktu
 
 ---
 
@@ -49,92 +53,120 @@ tahu pasien pindah kota. Sisanya turun sendiri dari data kunjungan.
 ```
               MASUK                                    KELUAR
  ┌──────────────────────┐                  ┌──────────────────────────────┐
- │ Omnicare             │ kontrol, bracket │ Reservasi                    │
- │ rekam medis & kasir  │ ───────────────▶ │ "tawarkan jadwal" → langsung │
- └──────────────────────┘                  │  jadi booking                │
-                                 ┌──────┐  └──────────────────────────────┘
- ┌──────────────────────┐        │      │  ┌──────────────────────────────┐
- │ Reservasi            │ no-show│ORTHO │─▶│ Cekat (WhatsApp)             │
- │ pasien ortho         │ ──────▶│      │  │ pengingat otomatis, telat    │
- │ tak datang           │        │      │  │ kontrol                      │
- └──────────────────────┘        └──────┘  └──────────────────────────────┘
-                                   │ │     ┌──────────────────────────────┐
- ┌──────────────────────┐          │ └────▶│ Akun Dokter                  │
- │ Cekat (WhatsApp)     │ balasan  │       │ "pasien ortho saya"          │
- │ pasien membalas      │ ────────▶│       └──────────────────────────────┘
- └──────────────────────┘          │       ┌──────────────────────────────┐
-                                   ├──────▶│ Laporan Executive            │
-                                   │       │ retensi · bolong · selesai   │
-                                   │       └──────────────────────────────┘
-                                   │       ┌──────────────────────────────┐
-                                   └──────▶│ Marketing                    │
-                                           │ Endorser · lead pemasangan   │
+ │ Omnicare             │ kontrol, bracket,│ Reservasi                    │
+ │ rekam medis & kasir  │ dokter           │ "tawarkan jadwal" → booking  │
+ └──────────────────────┘ ───────────────▶ │  ke dokternya, cabang mana   │
+ ┌──────────────────────┐                  │  pun dia praktik             │
+ │ Jadwal Dokter        │ dokter X ada di  └──────────────────────────────┘
+ │ (lintas cabang)      │ cabang mana,     ┌──────────────────────────────┐
+ └──────────────────────┘ hari apa        │ Cekat (WhatsApp)             │
+                          ───────▶ ┌──────┐│ pengingat otomatis; balasan  │
+ ┌──────────────────────┐          │      ││ masuk ke jejak yang sama     │
+ │ Reservasi            │ reservasi│ORTHO │└──────────────────────────────┘
+ │ aktif → keluar dari  │ aktif &  │      │┌──────────────────────────────┐
+ │ daftar; no-show →    │ no-show  │      ││ Akun Dokter — INTI           │
+ │ peringatan           │ ───────▶ │      ││ "pasien ortho saya" = daftar │
+ └──────────────────────┘          └──────┘│ kerja dokter, karena pasien  │
+ ┌──────────────────────┐            │ │   │ milik dokter                 │
+ │ Cekat (WhatsApp)     │ balasan    │ │   └──────────────────────────────┘
+ │ pasien membalas      │ ─────────▶ │ │   ┌──────────────────────────────┐
+ └──────────────────────┘            │ └──▶│ Penjualan                    │
+                                     │     │ ortho sebagai LINI PRODUK:   │
+                                     │     │ pemasangan baru · kontrol    │
+                                     │     │ (pendapatan berulang) ·      │
+                                     │     │ lepas bracket · target cabang│
+                                     │     └──────────────────────────────┘
+                                     │     ┌──────────────────────────────┐
+                                     ├────▶│ Laporan Executive            │
+                                     │     │ retensi · bolong · tuntas ·  │
+                                     │     │ pendapatan berulang terlewat │
+                                     │     └──────────────────────────────┘
+                                     │     ┌──────────────────────────────┐
+                                     └────▶│ Marketing / Afiliasi         │
+                                           │ Endorser = program afiliasi  │
+                                           │ yang sudah ada; lead promo   │
                                            └──────────────────────────────┘
 ```
 
-**3 masuk · 5 keluar.** Omnicare tetap **satu arah** — kita membaca, tidak menulis balik.
+**4 masuk · 6 keluar.** Omnicare tetap **satu arah** — kita membaca, tidak menulis balik.
 
-**Cekat, bukan MaxChat**, untuk pengingat: satu jejak percakapan per pasien —
-pengingat keluar dan balasan masuk lewat kanal yang sama yang sudah dipakai FO.
+**Fitur yang ikut berubah, bukan sekadar dibaca:**
+- **Pasien** — riwayat ortho hidup di **halaman pasien**, bukan layar terpisah
+- **Dokter** — peta 37 dokter kita ↔ 53 dokter Omnicare **wajib dibuat** (nama tak bisa dicocokkan)
+- **Reservasi** — form tahu pasien ini ortho aktif: layanan & dokter terisi sendiri
+- **Penjualan** — ortho jadi lini produk dengan tiga angkanya sendiri
+
+**Cekat, bukan MaxChat**, untuk pengingat: satu jejak percakapan per pasien.
 
 ---
 
 ## SLIDE 3 — Tahapan: lihat → bertindak → otomatis → ukur
 
 ```
- FASE 1           FASE 2             FASE 3             FASE 4
- LIHAT            BERTINDAK          OTOMATIS           UKUR
- ────────────     ────────────       ────────────       ────────────
- tracking         daftar "hubungi    pengingat Cekat    laporan retensi
- otomatis;        hari ini";         ke yang telat;     per cabang &
- 5 status;        tindak lanjut      balasan masuk      dokter → Laporan
- Cinere = alat    tercatat;          jejak yang sama    Executive;
- ukur → 5 cabang  tawarkan jadwal                       Endorser & lead
-                  → reservasi
- ────────────     ────────────       ────────────       ────────────
- sheet berhenti   FO berhenti        FO berhenti        Executive tahu
- diisi            menggulir &        mengetik           berapa bolong,
-                  WA antar cabang    satu-satu          berapa kembali
+ FASE 1            FASE 2              FASE 3             FASE 4
+ LIHAT             BERTINDAK           OTOMATIS           UKUR
+ ─────────────     ─────────────       ─────────────      ─────────────
+ tracking          daftar "hubungi     pengingat Cekat    ortho di dashboard
+ otomatis per      hari ini" per       ke yang telat;     Penjualan & Laporan
+ DOKTER; 5 status; cabang; tindak      balasan masuk      Executive: retensi,
+ riwayat ortho di  lanjut tercatat,    jejak yang sama    tuntas, pendapatan
+ halaman pasien;   terlihat lintas                        berulang terlewat;
+ Cinere = alat     cabang; tawarkan                       target pemasangan
+ ukur → 5 cabang   jadwal dokternya                       per cabang
+                   → reservasi
+ ─────────────     ─────────────       ─────────────      ─────────────
+ PRASYARAT:        PRASYARAT:          PRASYARAT:         —
+ peta dokter       jadwal dokter       template WA
+ kita ↔ Omnicare   rapi (IT-042)       disetujui Meta;
+                                       webhook Cekat
+                                       terautentikasi
+ ─────────────     ─────────────       ─────────────      ─────────────
+ sheet berhenti    Sales berhenti      Sales berhenti     Executive tahu
+ diisi             menggulir & WA      mengetik           berapa bolong,
+                   antar cabang        satu-satu          berapa kembali,
+                                                          berapa rupiahnya
 ```
 
 **Syarat lulus Fase 1** (keras, terukur): mereproduksi **222** pasien Cinere +
 memunculkan **12** pindah-cabang & **60** jarang-kontrol yang sheet tak lihat.
 
-**Dua hal dimulai paralel dengan Fase 1, bukan sesudahnya:**
-- **template WhatsApp** diajukan ke Meta lewat Cekat (persetujuan berminggu-minggu)
-- **webhook Cekat terautentikasi sejak hari pertama** — jangan mewarisi webhook lama yang berjalan tanpa token
+**Dimulai sekarang, paralel dengan Fase 1** — karena jamnya bukan kita yang pegang:
+pengajuan **template WhatsApp** ke Meta lewat Cekat, dan **pembersihan jadwal dokter**
+(IT-042) yang sudah direncanakan.
 
 *Catatan pembicara:* empat utang teknis sengaja menunggu fitur ini masuk
-Development (ganti webhook → Cekat, keamanan §6, tanggal lahir tertukar, layar
-rekonsiliasi). Reza tahu keempatnya.
+Development (webhook → Cekat + autentikasi, keamanan §6, tanggal lahir tertukar,
+layar rekonsiliasi). Reza tahu keempatnya.
 
 ---
 
 ## SLIDE 4 — Sesudah ortho: pintu yang sengaja dibiarkan terbuka
 
-Fokus sekarang **ortho saja**. Tapi polanya —
-*kunjungan berulang → status otomatis → daftar hubungi → tindak lanjut tercatat* —
-**bukan pola khusus behel.**
+Fokus sekarang **ortho saja**. Tiga improvement yang sudah kelihatan tapi
+**sengaja tidak dikerjakan sekarang**:
 
-| Perawatan | "kontrol"-nya | jeda wajar |
-|---|---|---|
-| Implant | pasca-pasang | bulanan → tahunan |
-| Veneer / crown | berkala | 6 bulan |
-| Scaling rutin | kunjungan ulang | 6 bulan |
-| Saluran akar | lanjutan | mingguan |
+| Improvement | Kenapa nanti |
+|---|---|
+| **Aturan otomatis untuk 11% pasien yang ganti dokter** | Butuh 6 bulan tindak lanjut tercatat dulu untuk tahu polanya; sekarang manual |
+| **Belajar kenapa pasien berhenti** — dari catatan tindak lanjut jadi pola: dokter, cabang, jenis bracket, jarak rumah | Datanya baru lahir di Fase 2 |
+| **Pola yang sama untuk perawatan lain** — implant, veneer, scaling rutin: *kunjungan berulang → status → daftar hubungi → tindak lanjut* | Mesinnya satu; aturan jeda per perawatan |
 
 Arahan ke tim desain: **jangan kunci model ke kata "ortho"** di tempat yang tak
-perlu. Aturan jeda boleh beda per perawatan; mesinnya satu. Bukan tugas sekarang —
-supaya tidak dibongkar nanti.
+perlu, dan **jangan kunci ke cabang** — sumbunya dokter & pasien.
 
 **Yang diminta dari Executive:** restu rel di slide 1 · Cinere sebagai cabang
-pengukur · pengajuan template WhatsApp **sekarang**.
+pengukur · pengajuan template WhatsApp **sekarang** · pembersihan jadwal dokter
+dianggap bagian dari ORTHO, bukan tiket sampingan.
 
 ---
 
 ## Lampiran untuk chat build (tidak masuk slide)
 
-- Semua angka (222/12/60, 5 cabang) dari `docs/rencana/ortho-lampiran-data-2026-09-09.md`.
-  **Jangan tambah angka**, jangan tulis rupiah (belum diukur).
-- Slide 2 dan 3 adalah **diagram**, bukan bullet — itu inti deck ini.
-- Kalau harus 3 slide: gabung slide 4 ke slide 3 sebagai baris "Kemudian".
+- Angka 222/12/60 dan volume cabang: `docs/rencana/ortho-lampiran-data-2026-09-09.md`.
+  Angka 89% / 95% / 46%: pengukuran HUB 18 Sep (kontrol 2025–2026, 11.975 kunjungan,
+  2.034 pasien, 83 di >1 cabang; 74 ikut dokter; Cinere 54/57). Empat dokter
+  berkeliling: Dito, Komalawaty Sp.Ort, Nugroho Sp.Ort, Ryan.
+- **Jangan tambah angka**, jangan tulis rupiah (belum diukur — "pendapatan berulang
+  terlewat" di slide 3 adalah *yang akan diukur*, bukan angka).
+- Slide 2 dan 3 adalah **diagram**. Kalau 4 slide masih terlalu banyak: gabung
+  slide 4 ke slide 3 sebagai baris "Kemudian".

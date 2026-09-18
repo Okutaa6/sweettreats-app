@@ -6,6 +6,31 @@
 > file ini append-only.
 
 ---
+## 2026-09-18 — 🔭 ORTHO: TERUKUR — pasien mengikuti DOKTER, bukan pindah cabang; rel arah direvisi
+
+Sebelum materi deck ditulis ulang, hipotesis HUB diuji ke data (kontrol ortho
+2025–2026, 11.975 kunjungan, 2.034 pasien). Dari **83 pasien yang kontrol di
+>1 cabang, 89% bertemu dokter yang sama di kedua cabang** (66 murni + 8 campur);
+kohor Cinere **54 dari 57 (94,7%)**. Yang "diikuti": Dito 22 · Komalawaty Sp.Ort 20
+· Nugroho Sp.Ort 15 · Ryan 14 — keempatnya berkeliling dan mengerjakan **46%
+seluruh kontrol**. Kesimpulan: masalah lintas-cabang bukan pasien berpindah,
+melainkan empat dokter membawa pasiennya ke mana pun praktik.
+
+**Keputusan Ikhsan (18 Sep):** pemilik pasien = **dokter** kontrol terakhir;
+**yang menghubungi = Sales cabang perawatan terakhir** (= jawaban Anisa #7,
+tanpa ambang buatan); 11% pasien yang ganti dokter **manual dulu**, aturan
+otomatisnya jadi improvement. Ambang "2 kunjungan berturut" yang sempat
+diusulkan HUB **dibuang**. Perdebatan brief §6.2 (kepemilikan berbalik) selesai
+dengan sendirinya.
+
+Konsekuensi ke peta: peta dokter kita↔Omnicare (37↔53) jadi **prasyarat Fase 1**;
+jadwal dokter rapi (IT-042) jadi **prasyarat Fase 2** ("tawarkan jadwal" harus
+mengikuti dokter lintas cabang); Akun Dokter naik dari pelengkap jadi **inti**;
+Penjualan masuk sebagai keluaran (ortho = lini produk: pemasangan · kontrol
+berulang · lepas bracket · target cabang); pasien yang sudah punya reservasi
+**tidak masuk** daftar hubungi. Materi deck 4 slide ditulis ulang:
+`docs/handoff/materi-deck-ortho-arah-2026-09-18.md`.
+
 ## 2026-09-18 — 🧭 ORTHO: materi deck arah fitur (IT-2026-013) + paket data untuk Executive/konsultan
 
 **ORTHO.** Ikhsan menetapkan diri sebagai planner (arah), Reza desain & bangun,
