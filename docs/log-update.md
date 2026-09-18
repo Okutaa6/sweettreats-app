@@ -6,6 +6,38 @@
 > file ini append-only.
 
 ---
+## 2026-09-18 — 🧭 ORTHO: materi deck arah fitur (IT-2026-013) + paket data untuk Executive/konsultan
+
+**ORTHO.** Ikhsan menetapkan diri sebagai planner (arah), Reza desain & bangun,
+analisis Rahmat selesai. Materi deck untuk chat build ditulis:
+`docs/handoff/materi-deck-ortho-arah-2026-09-18.md` (14 slide, pembaca internal +
+Executive). Lima keputusan arah diambil tegas: nol pengisian manual · satu data
+global, tampilan per cabang · pemilik = cabang perawatan terakhir, pindah setelah
+2 kunjungan berturut · "Selesai" dan "Berhenti" dipisah · status tak berbasis
+waktu, peringatan yang berbasis waktu. Peta alur informasi: masuk dari Omnicare /
+Reservasi / Cekat, keluar ke Reservasi / Cekat / Akun Dokter / Laporan Executive /
+Marketing. Empat fase: Lihat → Bertindak → Otomatis → Ukur; Cinere alat ukur
+(harus mereproduksi 222 pasien + memunculkan 12 pindah-cabang & 60 jarang-kontrol).
+Horizon: ortho dulu, model jangan dikunci ke kata "ortho".
+
+**Keputusan baru:** pengingat otomatis lewat **Cekat, bukan MaxChat** — webhook
+akan diganti. Dua prasyarat dicatat: template WA harus disetujui Meta (diajukan
+paralel Fase 1) dan webhook Cekat wajib terautentikasi sejak hari pertama (jangan
+mewarisi fail-open MaxChat). Utang "token MaxChat" di antrean-setelah-ortho
+berubah jadi "ganti webhook ke Cekat + autentikasi".
+
+**Paket data (sebelumnya hari ini).** Executive & konsultan minta struktur + data
+untuk merancang dashboard di ChatGPT. Dibuat `paket-data-chatgpt.zip` (103 KB):
+struktur 33 tabel reservasi & report, profil per tabel (COUNT(*), rentang,
+sebaran), 33 CSV contoh 25 baris **tersamar dua lapis** (nama kolom + isi teks
+bebas — lapis pertama saja terbukti bocor lewat kolom impor mentah), 91 agregat
+dari 5 layar laporan (diverifikasi nol email/HP/NIK), + 13 jebakan data untuk
+mencegah ChatGPT mengarang. Uji di GPT pribadi: 6/6 pertanyaan jebakan lulus.
+HR/absensi sengaja dikeluarkan (agregatnya sendiri data pribadi). Dokumen:
+`paket-data-executive-untuk-chatgpt.md`, `paket-data-konsultan-dashboard.md`.
+⚠️ Ralat: jumlah baris dari `information_schema.TABLE_ROWS` meleset ~9%
+(`omnicare_sales_detail` 148.163, bukan 135.501) — yang sahih `COUNT(*)`.
+
 ## 2026-09-17 — 🗂️ DIRENCANAKAN: pemberesan jadwal dokter 5 cabang (IT-2026-042, belum dikerjakan)
 
 Pemicu: lima poster jadwal praktik dokter dibandingkan dengan `raw_doctor_schedule` prod.
