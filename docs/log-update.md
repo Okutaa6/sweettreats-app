@@ -10,8 +10,7 @@
 
 **ORTHO.** Ikhsan menetapkan diri sebagai planner (arah), Reza desain & bangun,
 analisis Rahmat selesai. Materi deck untuk chat build ditulis:
-`docs/handoff/materi-deck-ortho-arah-2026-09-18.md` (14 slide, pembaca internal +
-Executive). Lima keputusan arah diambil tegas: nol pengisian manual · satu data
+`docs/handoff/materi-deck-ortho-arah-2026-09-18.md` (dipangkas jadi 4 slide atas permintaan Ikhsan — hanya alur, peta informasi, tahapan, sesudah-ortho; pembaca sudah baca brief). Lima keputusan arah diambil tegas: nol pengisian manual · satu data
 global, tampilan per cabang · pemilik = cabang perawatan terakhir, pindah setelah
 2 kunjungan berturut · "Selesai" dan "Berhenti" dipisah · status tak berbasis
 waktu, peringatan yang berbasis waktu. Peta alur informasi: masuk dari Omnicare /
