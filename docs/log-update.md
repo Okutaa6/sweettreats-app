@@ -6,6 +6,41 @@
 > file ini append-only.
 
 ---
+## 2026-09-23 — ✅ Cuti hari libur: cherry-pick + E2E 10/10 di dev · pemetaan papan (47 tiket)
+
+Pemetaan lengkap: `docs/handoff/pemetaan-papan-it-2026-09-23.md`.
+
+**Cuti hari libur siap naik.** `origin/rilis/cuti-hari-libur` = cherry-pick
+`4c6fc98` di atas main, **merge bersih**; `AttendanceReconciler` tetap memakai
+`kolomAda()` milik main (tak mundur ke `Schema::hasColumn`).
+**E2E di dev: 10 lulus · 0 gagal** — cuti Minggu–Selasa melintasi Senin: Senin
+(libur) TIDAK terpotong, Minggu & Selasa terpotong, 2 potongan bukan 3, idempoten,
+gagal-aman untuk tanggal 3 tahun ke depan, rollback bersih. Diukur di dev:
+**8 dari 8 kandidat libur hari Senin** — cacat ini menyentuh hampir semua orang.
+
+⚠️ **Yang dipakai harness E2E, BUKAN phpunit.** phpunit tak terpasang di dev
+(`--no-dev`) dan mysqld lokal tak mau hidup sejak 17 Sep. Memasang dev-dependency
+di dev = menulis ulang `vendor/` di lingkungan bersama → ditolak. **1.627 baris
+uji formal di branch itu BELUM pernah dijalankan** — dicatat sebagai utang.
+
+**Dev dikembalikan persis** `test/reza-checklist-dev @ d95f9d3` + 6 untracked.
+Tiga berkas untracked yang menghalangi checkout dicadangkan lalu dipasang kembali.
+
+**🕳️ Lubang yang ditemukan: kerjaan siap TANPA TIKET.** Perbaikan cuti sudah
+selesai & teruji tapi nol tiket melacaknya (IT-010 itu mekanisme *jatah*, bukan
+potongan hari libur). → dibuka **IT-2026-047** (M/P1, DEV). Kelas masalah yang
+sama dengan branch menggantung: **pekerjaan hidup di luar papan.**
+
+**Yang sengaja TIDAK dipindahkan HUB** (putusan bisnis, bukan IT): IT-034 duduk
+di GOLIVE 19 hari padahal kemajuannya sudah "DIJAWAB" dan temuannya melahirkan
+IT-040 yang kini SELESAI · 5 TRIASE **tanpa PIC**, tertua **50 hari** (IT-015) ·
+judul IT-026 tak lagi menggambarkan isinya (`ROLE_PENGAWAS` tak jadi dicabut,
+dibuat `ROLE_PARAF_BO`).
+
+**Antrean naik prod:** (1) IT-047 cuti — satu-satunya yang menyentuh uang dan
+cacatnya berjalan; (2) IT-002+026 WiFi dedup, gerbong kecil sendiri. Nol SQL,
+nol rsync. rop-tabs tidak masuk antrean.
+
 ## 2026-09-23 — 🔍 Audit tiga branch terselamatkan: satu menutup cacat yang MASIH HIDUP di prod
 
 Audit lengkap: `docs/handoff/audit-hub-tiga-branch-terselamatkan-2026-09-23.md`.
