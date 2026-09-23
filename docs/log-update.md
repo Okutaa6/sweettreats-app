@@ -6,6 +6,47 @@
 > file ini append-only.
 
 ---
+## 2026-09-23 — 🧩 Role lahir setengah jadi: form 5 field, 4 tempat pengaturan (IT-048, IT-049)
+
+**Pemicu.** Pertanyaan Ikhsan: kalau tambah asdent/perawat di Kalideres, absennya
+langsung jalan? Ditelusuri, dan ternyata **sudah terjadi hari ini** — Adila Dwi
+Stefiani, Assistant Dentist Kalideres, akun 14:25. Rantainya lengkap sendiri:
+aturan `FO-Asdent` terpasang otomatis dari `group_path.att_default_rule_id`,
+posisi checklist ada, Kalideres punya 10 baris WiFi aktif. Pemetaan mesin tak
+perlu — **seluruh 1.861 scan di sistem bersumber `mobile`, nol fingerprint.**
+
+**Tapi jawabannya "tergantung role".** Role yang punya aturan default: Assistant
+Dentist & Front Office (`FO-Asdent`) · General Services (`GS`) · Coordinator
+Dentist (`Fleksibel Operasional`). **Delapan role lain tidak punya** → siapa pun
+yang dibuat dengan role itu **lenyap dari layar Kehadiran**: scan tersimpan tapi
+tak pernah jadi hari kerja. ⚠️ Role bernama **"Perawat" tidak ada** — yang setara
+Assistant Dentist.
+
+**Akarnya: role lahir setengah jadi.** Menyiapkan satu role butuh EMPAT tempat —
+Pengaturan>Role (5 field), halaman Akses terpisah (pohon 85 entri), Absensi>Aturan
+Kerja>Penugasan (`att_default_rule_id`), dan `theme` + `wewenang_pengajuan` yang
+**tak ada di form mana pun**, hanya lewat DB.
+→ **IT-2026-048** (S/P2): aturan absensi + tema + wewenang masuk form Role, dengan
+pilihan eksplisit **"Tidak diabsen"** — yang dikejar bukan "otomatis" tapi "tidak
+bisa terlupa"; mengisi otomatis dengan tebakan justru melahirkan telat & alpa
+palsu, dan itu menyentuh gaji. Akses menu SENGAJA tetap di halaman sendiri,
+disambung lewat alur.
+
+**Keputusan Ikhsan:** Sales, Branch Executive, dan Admin* memang **sengaja tidak
+diabsen** — biarkan. `ROLE_SISTEM` sudah memuat Sales/Admin*/Cabang, **tapi
+Branch Executive belum**, jadi "Executive Pamulang" masih diteriaki detektor tiap
+hari. → **IT-2026-049** (S/P3). Sepele tapi penting: detektor yang meneriakkan
+hal yang sudah diputuskan benar akan berhenti dibaca — dan saat ia menemukan
+masalah sungguhan, tak ada yang menengok.
+
+⚠️ **Jebakan yang masih hidup:** `effective_from` diisi `now()` saat akun dibuat,
+bukan hari MULAI KERJA. Untuk Adila (dibuat hari ini) perlu dipastikan tanggal
+mulai kerjanya memang hari ini — kalau tidak, reconcile 06:10 besok mencetak alpa
+palsu. Ini kebalikan kasus Bili, akar yang sama.
+
+Papan: **49 tiket** (ANTRE 13 · GOLIVE 11 · TRIASE 7 · SELESAI 6 · DITUNDA 5 ·
+DEV 4 · ANALISIS 2 · EVALUASI 1).
+
 ## 2026-09-23 — ✅ Cuti hari libur: cherry-pick + E2E 10/10 di dev · pemetaan papan (47 tiket)
 
 Pemetaan lengkap: `docs/handoff/pemetaan-papan-it-2026-09-23.md`.
