@@ -6,6 +6,35 @@
 > file ini append-only.
 
 ---
+## 2026-09-23 — 🧭 IT Tracker tak punya "urungkan" — IT-2026-045 dikembalikan, IT-2026-046 dibuka
+
+**Pemicu.** IT-2026-045 ("Jumlah KOC yang berhasil login & menghasilkan pasien")
+tertarik ke ANALISIS karena salah klik; kebutuhan datanya belum lengkap sehingga
+seharusnya duduk di ANTRE. Tidak ada jalan pulang lewat layar.
+
+**Yang ditemukan di tracker.** Aksi yang tersedia hanya `maju` — **tak ada
+mundur**, dan jenjang hanya bisa diisi lewat `triase()` yang khusus fase TRIASE.
+Jadi dua kesalahan yang sama-sama wajar (salah klik fase, salah nilai jenjang)
+dua-duanya buntu. Jalur per jenjang (`PhaseEngine::pathFor`): **S** = REQ→DEV ·
+**M** = REQ→ANALISIS→DEV→UAT→GOLIVE · **L** = +UJI +EVALUASI — jadi mengubah
+M→S sambil duduk di ANALISIS akan menaruh tiket di fase yang tak ada di jalurnya.
+
+**Tindakan.** IT-2026-045 dikembalikan ke ANTRE lewat `pindahFase()`; jejak
+`it_ticket_fase` dibiarkan utuh (ANALISIS tercatat 4 menit lalu kembali — bukan
+dihapus). **IT-2026-046** dibuka (Support, S/P2, PIC Ikhsan): satu aksi "Koreksi
+penilaian" dengan lima pagar — hanya Head IT · wajib alasan · validasi jalur
+(fase ikut mundur kalau jenjang baru tak memuatnya, diberitahu sebelum simpan) ·
+hanya selama fase ≤ DEV (sesudah UAT ada paraf & checklist golive yang akan
+berbohong) · jejak fase jangan dihapus.
+
+**Temuan sampingan yang lebih besar dari tiketnya.** Metrik yang diminta 045
+belum bisa bermakna: `raw_affiliate` **nol kolom jejak login** (hanya `pin`,
+terisi 29/132 — 103 afiliasi belum bisa login sama sekali), dan atribusi promo
+praktis kosong: `raw_customer.raw_promo_id` terisi **1 dari 15.785 (0,01%)**,
+reservasi **1 dari 6.997**, `marketing_promo_id` & `promo_klaim` **nol**. 34 KOC,
+25 punya kode promo, **0 pasien**. Dibangun sekarang, kartunya berkata "0 dari 34"
+selamanya. Tanda kehidupan: 12 KOC sudah mengunggah 73 konten.
+
 ## 2026-09-23 — 🐞 Alpa palsu Bili: DUA lubang di "nonaktifkan akun" + diagnosa "absen gagal mulu"
 
 **Laporan.** (a) Bili sudah nonaktif tapi absennya masih dihitung → alpa.
