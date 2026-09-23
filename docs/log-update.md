@@ -6,6 +6,50 @@
 > file ini append-only.
 
 ---
+## 2026-09-23 — 🔍 Audit tiga branch terselamatkan: satu menutup cacat yang MASIH HIDUP di prod
+
+Audit lengkap: `docs/handoff/audit-hub-tiga-branch-terselamatkan-2026-09-23.md`.
+
+**Pemisahan commit saat penyelamatan terbayar.** Ketiganya bentrok hanya di
+`docs/log-update.md` / `docs/status-proyek.md` — **nol bentrok di kode**. Commit
+KODE-nya (`32976fa`, `3633f82`) diuji `git merge-tree` terhadap main: **dua-duanya
+MERGE BERSIH**.
+
+⚠️ **Ralat cara mengukur.** Pengukuran pertama memakai `git diff main..branch`
+dan menghasilkan angka omong kosong (cuti tampak "−30.087 baris"). Pada branch
+basi itu menampilkan kerjaan MAIN sebagai penghapusan — jebakan yang sudah
+tercatat tapi tetap kulanggar. Angka yang benar pakai merge-base.
+
+**🔴 `fix/cuti-hari-libur` — cacatnya MASIH HIDUP.** `CutiService` di main masih
+**v1** dan komentarnya mengakui sendiri: *"setiap hari kalender dalam rentang =
+1 hari potong (belum melihat jadwal kerja/hari libur — batasan sadar)"*. Klinik
+tutup tiap Senin. Terukur prod: **6 dari 65 potongan cuti (9,2%) jatuh di Senin**
+(Ramdan 4 · Yovanka 2) — benar/salahnya tergantung aturan kerja tiap orang, dan
+itu persis yang dijawab `hariLibur()` (per ORANG, bukan per kalender).
+Branch menambah `hariLibur()`, `tanggalLiburDalamJendela()`, `dampakJatah()`,
+`potonganJanggal()` + **1.627 baris di 5 berkas uji**. Rancangannya gagal-aman:
+resolver bermasalah → perilaku lama, bukan cuti berhenti terpotong.
+⚠️ **Ralat memori HUB:** catatan "Cuti & WFH tak memakan hari libur ✅ PROD 4 Sep"
+itu sisi ABSENSI (`att_day`/reconciler); sisi POTONG JATAH (`CutiService`) belum.
+
+**🟢 `feat/wifi-dedup-role-pengawas` — layak naik.** Syarat tersulitnya lolos:
+`matchBranch()` dipakai sebagai pagar KEDUA sesudah `pemilik48Lain()`, dipanggil
+apa adanya, dan pesan tolaknya menyebut baris mana yang sudah mencakup.
+⚠️ IT-2026-026 sengaja TIDAK dikerjakan sesuai judul — `ROLE_PENGAWAS` tak jadi
+dicabut (ia menggerakkan lima hal); dibuat konstanta baru `ROLE_PARAF_BO`.
+**Judul tiketnya perlu diperbarui.**
+
+**⚪ `wip/snapshot-rop-tabs-…` — simpan, jangan merge.** Masih relevan
+(`.stx-tabs` belum ada di main, `.rop-tab` masih ada), tapi 411 commit di
+belakang; merge "bersih" cuma berarti git tak melihat bentrok baris. Bahan
+rancangan, bukan tambalan siap pasang.
+
+**Urutan disarankan:** cuti dulu (menyentuh uang), wifi-dedup menyusul sebagai
+gerbong kecil sendiri, rop-tabs tidak masuk antrean deploy. Nol SQL.
+
+**Beres-beres:** working copy bersama `sweettreats` **35 → 12** berkas kotor;
+berkas nyasar `u699999@x` dipindah ke scratchpad (tidak dihapus permanen).
+
 ## 2026-09-23 — 🧹 Sapu bersih 21 worktree: tiga kerjaan menggantung diselamatkan
 
 Sesudah wifi-dedup ketahuan menggantung 41 hari, seluruh `Downloads/sweettreats-*`
