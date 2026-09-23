@@ -6,6 +6,40 @@
 > file ini append-only.
 
 ---
+## 2026-09-23 — 🐞 Alpa palsu Bili: DUA lubang di "nonaktifkan akun" + diagnosa "absen gagal mulu"
+
+**Laporan.** (a) Bili sudah nonaktif tapi absennya masih dihitung → alpa.
+(b) Karyawan melapor absen sering gagal/error, ada tangkapan layar 405.
+
+**Sebab (a) — bug kode, bukan salah input.** `UserManagement::toggleStatus()`
+sudah menutup posisi checklist saat akun dinonaktifkan (komentarnya bahkan
+menjelaskan kenapa), tapi **tidak menutup `att_user_rule`**. Dan
+`AttendanceReconciler` memilih siapa yang diproses **dari `att_user_rule`, tak
+pernah memeriksa `users.status`** → att_day terus dicetak = alpa palsu tiap hari.
+Ternyata **dua lubang**: satu baris `sys_user_position` Bili juga tertinggal
+terbuka → cron checklist mencetak "missed" palsu. Di seluruh prod NOL akun
+nonaktif yang aturannya tertutup — mekanismenya memang belum pernah ada.
+
+**Diperbaiki di prod** (masa kerja berakhir 14 Sep; akun baru dimatikan 17 Sep —
+celah 2 hari itu sumbernya): aturan kerja & posisi ditutup 14 Sep, 7 att_day alpa
++ 2 checklist missed dihapus. Verifikasi seluruh prod: 0 · 0 · 0 · 0. Cadangan
+JSON di server. Catatan: `database/sql/2026_09_23_bili_tutup_aturan_kerja.sql`.
+
+**Sebab (b) — ketemu, dan pesannya menyesatkan.** `AuthGuard` mengembalikan
+redirect HTML ke `/signin` di SEMUA jalur sesi bermasalah, **tanpa memeriksa
+`expectsJson()`**. Layar absen HP mengirim selfie lewat `fetch()` dan hanya
+menangani 419 → saat sesi habis, `r.json()` meledak → muncul "Koneksi terputus
+sebentar" padahal koneksi baik → orang kirim ulang, berulang = "gagal mulu".
+⚠️ **405-nya sendiri BELUM bisa direproduksi.** Sudah disingkirkan: salah metode
+rute (semua halaman absen punya GET+POST), CSRF (dikirim sebagai `_token`),
+ukuran foto (batas prod 3 GB, foto ~200 KB), form POST ke rute GET-only (nihil).
+Access log tak terbaca dari shell. Butuh jam+siapa+sedang klik apa.
+
+**Tiket:** IT-2026-043 (AuthGuard balas 401+JSON) · IT-2026-044 (toggleStatus
+tutup aturan kerja + reconciler saring users.status). Keduanya Support, ANTRE.
+**Temuan sampingan:** `laravel.log` 312 MB · `Authenticate.php:15` memanggil
+`route('login')` yang tak ada (kode mati, tapi ranjau).
+
 ## 2026-09-18 — 🔭 ORTHO: TERUKUR — pasien mengikuti DOKTER, bukan pindah cabang; rel arah direvisi
 
 Sebelum materi deck ditulis ulang, hipotesis HUB diuji ke data (kontrol ortho
