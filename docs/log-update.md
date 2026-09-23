@@ -6,6 +6,39 @@
 > file ini append-only.
 
 ---
+## 2026-09-23 — 🧹 Sapu bersih 21 worktree: tiga kerjaan menggantung diselamatkan
+
+Sesudah wifi-dedup ketahuan menggantung 41 hari, seluruh `Downloads/sweettreats-*`
+disapu. Resepnya baca-saja: `git status --porcelain` (kotor?) +
+`git branch -r --contains HEAD` (ada salinan di remote?). **Kotor DAN tak ada di
+remote = kerjaan hidup di nol environment.**
+
+**21 worktree · semua punya salinan riwayat di remote · 3 kotor.** Yang diselamatkan:
+
+| Branch baru | Isi | Menggantung |
+|---|---|---|
+| `feat/wifi-dedup-role-pengawas` | 213 baris + 2 uji (ROLE_PARAF_BO) | 41 hari |
+| `fix/cuti-hari-libur` | **833 baris + 6 berkas uji** | 20 hari |
+| `wip/snapshot-rop-tabs-2026-09-23` | 123+/113− satukan `.stx-tabs` | 7 minggu |
+
+⚠️ **Yang paling berbahaya justru yang punya snapshot.** `sweettreats-dodo`
+sudah punya `wip/snapshot-dodo-2026-08-23`, tapi dicocokkan per berkas:
+**keenam berkas intinya BERBEDA**. Kerja yang berlanjut sesudah 23 Agu —
+termasuk enam berkas uji — tak punya salinan sama sekali. Snapshot basi lebih
+berbahaya daripada tak ada snapshot: ia membuat orang merasa aman.
+
+rop di-push ke nama snapshot, BUKAN `feature/rop` (origin-nya menunjuk commit
+lain). Basisnya 5 Agu dan blade yang disentuh sudah jauh berubah → pesan
+commit-nya menyebut: jangan di-merge, kerjakan ulang di atas main.
+
+**Working copy bersama `sweettreats`:** 9 berkas kode Alur Persetujuan ternyata
+**byte-identik** dengan `origin/wip/snapshot-konsultan-alur-2026-08-22` → aman,
+dibiarkan di tempat (milik chat lain). Tapi **21 dokumen analisa HUB** menganggur
+tanpa salinan git: audit penjodohan 4 ronde, audit petty cash & checklist Reza,
+audit ROP & security, runbook deploy, inventaris IT Tracker, 6 prompt build.
+Disalin & di-commit ke main (`f33edef`, 4.688 baris), diverifikasi 21/21 identik,
+lalu salinan menganggurnya dihapus. Working copy bersama: **35 → 13 berkas kotor**.
+
 ## 2026-09-23 — 🛟 Kerjaan WiFi dedup DISELAMATKAN dari worktree · Alpajri beres · pemetaan tiket Support
 
 **Pemetaan 10 tiket Support (PIC Ikhsan).** Diminta memetakan fase papan vs
