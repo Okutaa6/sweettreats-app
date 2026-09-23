@@ -6,6 +6,32 @@
 > file ini append-only.
 
 ---
+## 2026-09-23 — 🛟 Kerjaan WiFi dedup DISELAMATKAN dari worktree · Alpajri beres · pemetaan tiket Support
+
+**Pemetaan 10 tiket Support (PIC Ikhsan).** Diminta memetakan fase papan vs
+kenyataan. Hasilnya: **papan sudah akurat, nol tiket salah fase**. Yang macet
+tiga-tiganya di DEV, dan sebabnya berbeda-beda — bukan drift papan.
+
+**🔴 IT-2026-002 + IT-2026-026 — menggantung di NOL environment, 41 hari.**
+Kodenya lengkap (213 baris di 8 berkas + `WifiDedupTest` & `ParafBusinessOwnerTest`),
+termasuk `ROLE_PARAF_BO` yang menggantikan rencana lama "cabut Admin* dari
+ROLE_PENGAWAS". Tapi **belum pernah di-commit** — nol commit di depan main, hanya
+berkas kotor di worktree `sweettreats-wifi-dedup`, dan branch-nya **tak ada di
+origin**. Satu `git checkout` dari hilang; pola yang sama dengan utang cuti-hari-libur.
+→ Diselamatkan: 2 commit (`32976fa` kode+uji, `10585a7` docs) di
+`origin/feat/wifi-dedup-role-pengawas`. Sengaja dipisah supaya commit kodenya
+tetap bisa dipetik bersih kalau docs bentrok saat merge nanti. Worktree kini bersih.
+**Belum di-merge, belum deploy** — masih perlu audit.
+
+**🟢 IT-2026-003 Alpajri — SELESAI.** SQL koreksi sudah duduk di repo sejak 1 Sep
+tapi tak pernah dijalankan. Dijalankan di prod: 27 Agu `missed` → `submitted`
+76/76, tepat **1 baris** (lima syarat di WHERE menjaganya). Tiga baris lain tak
+tersentuh sebagaimana mestinya. Keputusan approve tetap di peninjau — koreksi ini
+hanya mengembalikan barisnya ke antrean tinjauan.
+⚠️ Sisa yang SENGAJA tak disentuh: 25 Agu `missed` **0/0** — hari tanpa tugas
+sama sekali tapi tetap terhitung tidak mengisi. Itu pertanyaan kebijakan yang
+menyentuh semua orang, bukan tambalan satu baris. Menunggu keputusan Ikhsan.
+
 ## 2026-09-23 — 🧭 IT Tracker tak punya "urungkan" — IT-2026-045 dikembalikan, IT-2026-046 dibuka
 
 **Pemicu.** IT-2026-045 ("Jumlah KOC yang berhasil login & menghasilkan pasien")
