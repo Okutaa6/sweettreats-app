@@ -6,6 +6,50 @@
 > file ini append-only.
 
 ---
+## 2026-09-24 (malam) — 🔬 Temuan ortho DIREVISI sesudah uji tekan: slot 10 menit vs nyata 13,5
+
+Dokumen `docs/handoff/temuan-kapasitas-ortho-2026-09-24.md` ditulis ulang sesudah
+diuji-tekan ChatGPT & Gemini, dan sesudah **dua koreksi dari Ikhsan**.
+
+**⭐ Temuan baru yang menjelaskan mekanismenya.** Sistem menyimpan durasi per
+dokter×cabang×layanan. **Andy: Kontrol Behel 10 menit** — terpendek se-jaringan
+(rekan 15–30; **Stiefani di cabang SAMA 30**). Pemasangan Behel juga 10 (default 60).
+Diukur dari `checkout_time`: jarak antar pasien **~13,5 menit**, rentang checkout
+median 301 menit, dan **27 dari 29 hari (93%) selesai lewat jam tutup 20:00**
+(7 hari ≥22:00; rekor 15 Jul checkout terakhir **00:08**).
+→ **Slot 10 menit, nyata 13,5 → molor 3,5 mnt × 22 pasien = ±77 menit menumpuk.**
+Ini aritmetika dari dua angka terukur, bukan tafsir.
+
+**Koreksi Ikhsan #1:** data durasi ADA (6 tabel) — HUB sempat bilang tidak punya.
+**Koreksi Ikhsan #2:** `backfill` BUKAN "tak pernah diputuskan" — itu data yang
+sudah ada sebelum sistem dibangun, berasal dari FO/operasional. Jadi 10 menit =
+**praktik lapangan yang terekam**, bukan kelalaian konfigurasi.
+
+**Yang diperbaiki dari uji tekan:**
+- Rasio selesai **5,7% → 7,1%** (kohor ≥18 bln, bukan potongan melintang)
+- Definisi **261 / 130 / 56** dijelaskan (sepanjang masa / jendela 21 bln / terlacak)
+- **±24 → ±17** kewajiban (median nyata 42 hari, bukan bulanan)
+- Kewajiban aktif **836 → ±533**; **250 pasien (32%) tak kontrol >90 hari** → justru
+  sasaran modul ORTHO
+- **Grain diverifikasi** 5.974 baris : 5.966 kunjungan = 1,001 → volume tidak terdistorsi
+- Dicabut: *"kalau Andy berhenti 46,6% omzet ikut"* (ramalan, bukan observasi)
+- Dibingkai ulang: *"biaya tidak jatuh ke pasien"* → Kalideres tidak lebih buruk dari
+  jaringan, dan jaringan sendiri di luar normanya
+- **Tesis diganti** (rumusan ChatGPT): bukan "kurang dokter"/"Andy overload" tapi
+  *"apakah kita nyaman tumbuh dengan model yang bergantung pada konsentrasi ini?"*
+- **Risiko salah-baca Gemini ditambahkan**: Executive menjadikan Andy standar emas
+  lalu mencambuk Ryan menyamai
+
+**§8 kesalahan HUB bertambah jadi 8**, polanya satu: menyimpulkan sebelum mengecek
+satu lapis lagi. Kesimpulan soal durasi **berbalik tiga kali dalam satu malam**.
+
+**⚠️ Insiden data:** 19:29 penyetelan durasi Andy tersentuh tak sengaja lewat layar
+Doctor — **17 dari 19 baris sub-detail terhapus**. Hanya Andy (225→208, selisih
+persis 17). Semua ada di cadangan `prod_pre_slot_20260908_1736.sql.gz`. Pemulihan
+DITUNDA: prod terdegradasi berat (respons 12–26 dtk, SSH sempat menolak, load
+42–48 di mesin 64 CPU) padahal **pemakaian akun kita 0,1%** dan DB kita 0,30 dtk
+→ bukan beban kita. Dampak sementara konservatif (default lebih panjang).
+
 ## 2026-09-24 — 📊 Kapasitas ortho: kasus Kalideres/Andy — temuan data untuk rapat IT
 
 Dokumen: `docs/handoff/temuan-kapasitas-ortho-2026-09-24.md` (INTERNAL IT).
