@@ -6,6 +6,50 @@
 > file ini append-only.
 
 ---
+## 2026-09-24 — 📊 Kapasitas ortho: kasus Kalideres/Andy — temuan data untuk rapat IT
+
+Dokumen: `docs/handoff/temuan-kapasitas-ortho-2026-09-24.md` (INTERNAL IT).
+Pemicu: Ikhsan melihat jadwal dokter + pemasukan, menduga ~80% omzet Kalideres
+bergantung 2 dokter. **Terkonfirmasi 75,2%** — paling terkonsentrasi di jaringan.
+
+**Kasus Kalideres:** hari ada Andy Rp 23,9 jt / 21,4 pasien · tanpa Andy
+Rp 4,3 jt / 5,6 pasien (**5,6×**). Rabu menyumbang **56% omzet cabang setahun**.
+Jadwal Andy: Rabu **15:00–22:00**, satu hari seminggu. Ketimpangan harian
+Kalideres **10,1×** (tertinggi; Bintaro 5,7 · Pamulang 4,2 · Sunter 4,0 · Cinere 2,8).
+
+**Buku besar ≠ paling terbebani.** Ryan buku terbesar (240 pasien) tapi
+kepadatan paling ringan (5,2/hari, 15,4 hari/bln); Andy buku 149 tapi
+**17,6 kontrol/hari** dari **3,1 hari/bln**. Variabel yang bisa digeser manajemen
+adalah HARI, bukan pasien. Fridhi di Sunter (11,5/hari) = Andy berikutnya.
+
+**🔄 Kejutan yang membalik bingkai risiko:** jarak kontrol Kalideres **48,7 hari
+(median 35)** — LEBIH RAPAT dari jaringan (54,3 / 42). Andy menyerap bebannya
+sendiri, tidak melemparkannya ke pasien. **Biayanya tidak jatuh ke pasien, ia
+jatuh ke satu orang** — risiko ORANG, bukan risiko proses.
+
+**Kewajiban menumpuk:** 21 bulan masuk **966**, keluar **130**, tumbuh bersih
+**+836**; laju naik +33/bln (2025) → +49/bln (2026). Rasio selesai **5,7%**.
+⚠️ BUKAN spiral — lama perawatan stabil ~21 bln, jarak mendatar sejak 2025.
+
+**Ortho = 48,1% omzet, seragam lima cabang** (selisih 1,8 poin) → model bisnis,
+bukan kekhasan cabang. **56% kontrol ortho dikerjakan non-Sp.Ort** — TAPI nilai
+per kontrolnya beda **28%** (Rp 449rb vs 352rb), jadi "tinggal dipindah" BUKAN
+kesimpulan.
+
+**⭐ Agenda utama IT:** dashboard beban ortho · peringatan di titik pemasangan ·
+slot ortho dipisah · sambung ke ORTHO Fase 4. **Prasyarat: IT-042 jadwal dokter
+dibereskan dulu** — hitungan kapasitas berdiri di atas tabel yang berantakan.
+Lubang yang murni milik IT: 24 agregat Laporan Executive **nol** stok kewajiban,
+**nol** jarak kontrol, **nol** rasio selesai — alatnya memang buta.
+
+**3 kesalahan HUB dicatat di §7** (internal): rumus "beban" mengandaikan kontrol
+bulanan · "ideal 30 hari" tanpa sumber (diganti norma dari data: 42% selang di
+22–35 hari) · klasifikasi spesialis dari NAMA padahal catatan lama sudah melarang.
+Pola ketiganya sama: **menyimpulkan sebelum mengukur.**
+
+Urutan: rapat IT → Nisa + kunjungan Kalideres (bawa 4 PERTANYAAN, bukan
+kesimpulan) → gabung POV lapangan → baru dokumen manajemen.
+
 ## 2026-09-23 — 🧩 Role lahir setengah jadi: form 5 field, 4 tempat pengaturan (IT-048, IT-049)
 
 **Pemicu.** Pertanyaan Ikhsan: kalau tambah asdent/perawat di Kalideres, absennya
