@@ -56,6 +56,24 @@ class AffiliatePortalController extends Controller
             'affiliate_name' => $affiliate->name,
         ]);
 
+        // Jejak login (IT-2026-045) — dipakai kartu "Aktivasi KOC" di Dashboard
+        // Marketing. Ditulis DI SINI, sesudah semua gerbang di atas lolos, jadi
+        // isinya memang "berhasil login", bukan percobaan login.
+        //
+        // Query builder, bukan $affiliate->save(): model ini $timestamps=false
+        // dan kolomnya tidak perlu masuk $fillable, jadi UPDATE-nya dijamin
+        // hanya menyentuh satu kolom ini.
+        //
+        // Dibungkus try/catch dengan sengaja: kalau kode terlanjur naik sebelum
+        // database/sql/2026_09_23_koc_last_login.sql dijalankan, KOC harus tetap
+        // bisa masuk — yang hilang cuma jejaknya, bukan aksesnya.
+        try {
+            DB::table('raw_affiliate')->where('id', $affiliate->id)
+                ->update(['last_login' => now()]);
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
         return redirect()->route('affiliate.dashboard');
     }
 

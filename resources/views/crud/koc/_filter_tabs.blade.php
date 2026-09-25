@@ -5,6 +5,9 @@
     Variable yang dibutuhkan:
       $filterTab  → 'all' | 'confirmed' | 'submitted'
       $counts     → ['all' => int, 'confirmed' => int, 'submitted' => int]
+
+    Tab di sini MENYARING daftar KOC. Pemilih tabel (List / Hasil Kode Reff)
+    ada di kartu tabel, bukan di sini — beda jenis, sengaja tidak dicampur.
 --}}
 
 <div class="koc-tab-filter">
