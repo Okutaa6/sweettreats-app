@@ -406,6 +406,10 @@
                             .rrb-card__complaint { font-size: 0.82rem; color: #5a3a20; margin-top: 10px; line-height: 1.5; background: #fff8e9; border: 1px solid rgba(178,106,0,0.18); border-left: 3px solid #b26a00; border-radius: 8px; padding: 8px 10px; }
                             .rrb-card__complaint i { color: #b26a00; margin-right: 4px; }
                             .rrb-card__label { font-weight: 700; color: #461500; }
+                            /* Chip kode promo: hijau, beda dari chip data pasien
+                               (abu), karena ini klaim pasien yang berdampak komisi. */
+                            .rrb-card__treat--promo { background: #e8f5e9 !important; color: #2e7d32 !important; border-color: rgba(46,125,50,0.25) !important; font-weight: 800; letter-spacing: 0.3px; }
+                            .rrb-card__treat--promo i { margin-right: 3px; }
                             .rr-lead-statusbar { margin-top: 10px; display: flex; align-items: center; gap: 8px; }
                             .rr-lead-statusbar label { font-size: 0.72rem; color: #8b7a6b; font-weight: 600; }
                             .rr-lead-select { flex: 1; font-size: 0.8rem; padding: 6px 10px; border: 1px solid rgba(70,21,0,0.15); border-radius: 8px; background: #fffaf5; color: #461500; font-weight: 600; cursor: pointer; }
@@ -451,6 +455,14 @@
                                             @if($lGender)<span class="rrb-card__treat">{{ $lGender }}</span>@endif
                                             @if($lAge)<span class="rrb-card__treat">{{ $lAge }}</span>@endif
                                             <span class="rrb-card__treat">{{ $lead->branch?->name ?? '—' }}</span>
+                                            {{-- Kode promo yang diisi sendiri oleh pasien di form publik.
+                                                 Ditandai beda warna supaya kelihatan ini klaim pasien,
+                                                 bukan kategori data biasa. --}}
+                                            @if($lead->promo)
+                                                <span class="rrb-card__treat rrb-card__treat--promo" title="Kode promo diisi pasien di form pendaftaran — otomatis terpilih saat Tambah Reservasi">
+                                                    <i class="fa fa-ticket-alt"></i> {{ $lead->promo->promo_code }}
+                                                </span>
+                                            @endif
                                         </div>
                                         @if($lead->catatan)
                                             <div class="rrb-card__complaint">

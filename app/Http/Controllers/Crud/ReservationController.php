@@ -350,7 +350,7 @@ class ReservationController extends Controller
         $pasienBaruCount = $isViewOnly ? 0 : (clone $leadBase)->count();
 
         $leads = $view === 'pasienbaru'
-            ? $leadBase->with('branch')
+            ? $leadBase->with(['branch', 'promo'])
                 ->when($filterSearch, function ($q) use ($filterSearch) {
                     $q->where(function ($qq) use ($filterSearch) {
                         $qq->where('name', 'like', "%{$filterSearch}%")
@@ -746,10 +746,12 @@ class ReservationController extends Controller
 
         // ── Bridge dari kartu Lead "Pasien Baru" ──
         // Dipanggil ?lead_id=X dari tab Pasien Baru → pre-fill pasien + cabang
-        // + keluhan (catatan) ke form reservasi. Pasien sudah tersimpan sejak
-        // submit form publik, jadi cukup pre-select. Idempotent via flashInput/old().
+        // + keluhan (catatan) + kode promo ke form reservasi. Pasien sudah
+        // tersimpan sejak submit form publik, jadi cukup pre-select.
+        // Idempotent via flashInput/old().
         if (($leadId = request('lead_id')) && ! request()->session()->has('_old_input')) {
-            $lead = RawCustomer::where('id', $leadId)
+            $lead = RawCustomer::with('promo')
+                ->where('id', $leadId)
                 ->where('source_app', RawCustomer::SOURCE_PASIEN_BARU)
                 ->first();
             if ($lead) {
@@ -757,11 +759,17 @@ class ReservationController extends Controller
                     'raw_customer_id' => $lead->id,
                     'raw_branch_id'   => $lead->raw_branch_id,
                     'keterangan'      => $lead->catatan,
+                    // Kode promo yang diisi pasien di form publik ikut terpilih
+                    // di dropdown "Gunakan Kode Referral". Kalau promonya sudah
+                    // dinonaktifkan, dropdown tidak memuatnya → pilihan jatuh ke
+                    // kosong, dan kodenya tetap terbaca di banner lead di atas.
+                    'raw_promo_id'    => $lead->raw_promo_id,
                 ]);
                 session()->flash('_lead_source', [
                     'name'    => $lead->name,
                     'phone'   => $lead->phone,
                     'keluhan' => $lead->catatan,
+                    'promo'   => $lead->promo?->promo_code,
                 ]);
                 $redirectParams = request()->boolean('drawer') ? ['drawer' => 1] : [];
                 return redirect()->route('rawreservation.new', $redirectParams);
