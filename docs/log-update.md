@@ -6,6 +6,82 @@
 > file ini append-only.
 
 ---
+## 2026-09-25 — 💰 Cost centre ROP: empat kantor dilebur jadi ABG (PROD) · branch Reza turun ke dev
+
+### 1. ABG — permintaan urgent Finance, NAIK PROD hari ini
+
+Dropdown **"Dibebankan ke"** di pengajuan ROP dulu berisi 5 cabang + 4 kantor
+(IT · Marketing · Finance · Kantor Pusat). Finance minta keempatnya jadi **satu:
+ABG — Anugerah Berkah Group**, perusahaan induk yang menaungi RB Las dan
+Sweet Treats Dental Clinic.
+
+**Nol perubahan kode.** Sistemnya memang sudah dirancang untuk ini: kolom
+`rop_cost_centre.aktif` berkomentar *"0 = tidak bisa dipilih lagi; riwayat nomor
+lama tetap valid"*, dan semua dropdown memakai scope `RopCostCentre::aktif()`.
+SQL: `database/sql/2026_09_25_rop_cost_centre_abg.sql`.
+
+**⛔ Yang sengaja TIDAK dilakukan: menulis ulang `rop_requests.cost_centre`.**
+Diverifikasi di prod — `rop_requests.number` berisi mis. `ROP/FIN/2608/004`,
+jadi kode cost centre **tercetak di dalam nomor** yang sudah beredar di lembar
+bayar. Mengubah kolomnya membuat nomor dan isinya bertentangan.
+
+**Yang diukur sebelum eksekusi.** 31 pengajuan memakai keempat kode (FIN 20 ·
+HQ 5 · IT 4 · MKT 2) — 30 hidup + 1 soft-deleted. **26 di antaranya belum
+selesai.** Itu angka yang memaksa baca kode, bukan menebak: validasi `aktif=1`
+ternyata **hanya** ada di `PengajuanController@store`; aksi Finance
+(setujui/tolak/bayar/urungkan) dan `@selesai` membaca `$rop->cost_centre`
+langsung, dan `RopCoaCatalog` memakai `find()` bukan scope `aktif()`.
+Diuji di prod: keempat kode lama **tetap mengembalikan 53 akun beban**, jadi
+26 pengajuan berjalan itu bisa diproses sampai tuntas.
+
+Keempatnya sudah memakai buku Accurate yang sama (`holding`), jadi ABG
+**tidak memindahkan apa pun secara akuntansi**.
+
+Dev **9 uji lulus · 0 gagal**, prod **5 uji lulus · 0 gagal**.
+
+**⚠️ Konsekuensi yang diterima sadar:** dropdown FILTER di antrean Finance
+(`RopQueueController:111`) dan rekap (`RopRekapController:59`) juga memakai
+scope `aktif()`. Riwayat 31 pengajuan tetap **terlihat**, tapi tak bisa lagi
+**disaring** per departemen. Kalau Finance butuh saat tutup buku, perbaikannya
+ubah kode: tampilkan yang nonaktif di dropdown filter saja, jangan di form.
+
+### 2. Push Reza `rsv_px_nik_kode-koc-TO_button_rsv_jadwaldrg` — LIVE DI DEV
+
+3 commit di atas main (`1b1d27d`), 14 berkas, +1385/−141:
+`5781188` tab Hasil Kode Referral + jejak login portal (IT-2026-045) ·
+`99575ad` NIK wajib 16 digit + kode promo diteruskan ke reservasi ·
+`3b89346` hapus tombol "Reservasi Sekarang" dari halaman jadwal dokter publik.
+
+SQL `2026_09_23_koc_last_login.sql` sudah dijalankan di dev — kolom `last_login`
+lahir dengan **`extra` kosong**, yaitu pagar yang Reza pasang sendiri supaya
+MariaDB tidak menempelkan `ON UPDATE CURRENT_TIMESTAMP` dan memalsukan jejak
+login. Nol `public/assets/**` → **tanpa rsync**.
+
+E2E dev: **9 lulus · 0 gagal**. Kata keadaan kosong di layar KOC berbunyi
+**"Belum tercatat"** (bukan "belum pernah login") — benar, karena SQL-nya
+sengaja tanpa backfill; Reza bahkan memisahkan **"Tak bisa login"** untuk akun
+yang ditolak.
+
+⚠️ **Utang: branch ini nol berkas uji.** Yang hijau adalah harness E2E HUB,
+bukan uji milik Reza.
+
+### 3. ⭐ Temuan sampingan: durasi Andy yang hilang MASIH ADA di dev
+
+Saat mengukur jarak dev↔prod ketemu ini: `raw_doctor_branch_detail_duration`
+di dev punya **19 baris milik Andy**, prod tinggal **2** (sisa insiden 24 Sep).
+Nilainya **cocok dengan cadangan 8 September** — jadi temuan "slot Kontrol
+Behel 10 menit" kini berdiri di atas **dua sumber terpisah**, bukan satu.
+
+⛔ **Konsekuensi langsung:** rencana "salin data ortho prod → dev" **tidak boleh
+menyertakan tabel itu** — arahnya justru terbalik, prod yang perlu dipulihkan
+dari dev. Pemulihan masih tertunda atas permintaan Ikhsan.
+
+Jalur resmi untuk menyegarkan data ortho dev sudah ditemukan: `omnicare:sync
+--start=… --end=…` (dev punya kredensial ke API vendor yang sama), sehingga
+**tak ada PII yang berpindah antar lingkungan**. Belum dijalankan — ditunda.
+
+---
+
 ## 2026-09-24 (malam) — 🔬 Temuan ortho DIREVISI sesudah uji tekan: slot 10 menit vs nyata 13,5
 
 Dokumen `docs/handoff/temuan-kapasitas-ortho-2026-09-24.md` ditulis ulang sesudah
