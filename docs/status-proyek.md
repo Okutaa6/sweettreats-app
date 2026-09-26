@@ -692,6 +692,14 @@
 | Penjodohan Omnicare (satu pasien banyak pid) | `42e3923` | **2 SQL manual, urutan mengikat.** Tanpa rsync. |
 | ROP — tombol Batalkan persetujuan | `868effc` | Nol SQL. **Wajib rsync dibatasi `assets/`.** |
 
+### Siap deploy, menunggu HUB (26 Sep)
+- **Reward KOC** (`feat/koc-reward-surplus`) — pintu "Reward sudah diberikan"
+  (Linaily terkunci di Bronze sejak 23 Sep), surplus konten terbawa, tautan
+  KOC→pasien, baris jumlah kontrol di KOC/Review Konten/SweetMates. 16 uji.
+  **1 SQL dulu**, deploy penuh tanpa rsync, lalu `koc:tautkan-pasien`.
+  Satu keputusan desain menunggu konfirmasi Ikhsan (klaim ulang tier yang sama
+  lewat siklus baru) — rincian di `log-update.md` 26 Sep.
+
 ### Ditahan, dengan sebab tertulis
 - **Petty cash Reza** (`212607e`) — `close()` tanpa pagar terhadap migrasi
   saldo yang menggantung; bisa mengunci kas cabang jadi Rp 0 permanen.

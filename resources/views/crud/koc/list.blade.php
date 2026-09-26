@@ -340,6 +340,7 @@
                                         <th width="13%" style="text-align:center;">Confirmed</th>
                                     @endif
                                     <th width="10%" style="text-align:center;">Konten</th>
+                                    <th style="text-align:center;" title="Jumlah kunjungan kontrol di Omnicare. Hanya info — bukan syarat reward.">Kontrol</th>
                                     <th style="text-align:center;">Kode Ref</th>
                                     {{-- Kolom Aktivasi, ditaruh PALING KANAN. Angka pasien
                                          TIDAK di sini — tempatnya di tabel "Hasil Kode Reff",
@@ -518,6 +519,11 @@
                                             @else
                                                 <span style="color:#bbb; font-size:11px;">—</span>
                                             @endif
+                                        </td>
+
+                                        {{-- Kontrol — dari tautan pasien yang DISIMPAN --}}
+                                        <td style="text-align:center;">
+                                            @include('crud.koc._kontrol', ['k' => $kontrol[$row->id] ?? null, 'affiliateId' => $row->id])
                                         </td>
 
                                         {{-- Kode Referral --}}

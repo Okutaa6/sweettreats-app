@@ -6,6 +6,73 @@
 > file ini append-only.
 
 ---
+## 2026-09-26 — 🔨 Reward KOC: pintu `used` + surplus terbawa + baris kontrol (branch `feat/koc-reward-surplus`, DEV/PROD BELUM)
+
+Dibangun chat build dari `docs/handoff/handoff-koc-reward-surplus-kontrol.md`.
+Keempat bagian handoff selesai; deploy diserahkan ke HUB.
+
+**§1 Pintu `claimed → used`.** Tombol **"Reward sudah diberikan"** di SweetMates
+(kolom Status, hanya muncul untuk klaim `claimed`) → modal konfirmasi yang
+membacakan nama, reward, dan jumlah konten yang akan terpakai → status `used`,
+`processed_by`, `processed_at` (kolom baru), catatan bercap waktu di `notes`.
+`claimed_at` tidak ditimpa. Hanya dari `claimed`; dua kali ditandai ditolak.
+⛔ **Sengaja tanpa pembatalan** — kalau suatu hari perlu, aksi terpisah berjejak.
+Linaily bisa dibebaskan begitu ini naik.
+
+**§2 Surplus terbawa.** Saldo = total konten approved − `SUM(consumed_content_count)`
+klaim `used` (kolom baru, diisi = syarat tier saat ditandai diberikan).
+`reward_program_started_at` **dimatikan dengan sadar**: tak dibaca (hitungan),
+tak ditulis (pindah program & approve pendaftaran), "Counter dimulai" dibuang
+dari portal; kolomnya dibiarkan di tabel. Teks portal diganti (surplus tak hangus).
+SweetMates kini memakai saldo, bukan total konten (dulu dua definisi berbeda).
+
+**⭐ Keputusan desain di luar handoff — mohon dikonfirmasi:** dulu satu tier hanya
+boleh punya SATU klaim seumur hidup. Akibatnya "turun kelas" Bronze→Silver→Bronze
+akan terkunci lagi (klaim Bronze lama menghalangi). Ditambah konsep **klaim
+siklus ini** (`RawAffiliate::cycleRewardClaim()`): klaim `used` lama jadi sejarah
+begitu ada reward tier lain yang dipakai sesudahnya. Tetap di tier yang sama
+sesudah `used` **tidak** melahirkan klaim ulang dari surplus — harus pindah
+program dulu (portal memang tak menawarkan memilih tier yang sedang aktif).
+
+**§3 Tautan KOC → pasien.** Kolom `raw_affiliate.raw_customer_id`, diisi sekali:
+`php artisan koc:tautkan-pasien` hanya mengisi yang cocok **tunggal** (HP langsung
+atau lewat jangkar `raw_contact`); ganda/kosong dibiarkan NULL. Layar baru
+`/koc/{id}/pasien` untuk manusia memilih — kandidat menampilkan tanggal lahir,
+pid Omnicare, dan jumlah kontrol per rekam (Dewi Santi: 23 vs 0 langsung terlihat),
+plus cari lewat nama. Lepas tautan = tombol eksplisit; "Simpan" tanpa pilihan ditolak.
+Nol `first()` tanpa `orderBy`.
+
+**§4 Baris kontrol** di **KOC** (kolom baru), **Review Konten** (di bawah nama:
+"N konten approved · N× kontrol, terakhir …"), dan **SweetMates**. Satu kontrol =
+satu (pid, tanggal) dengan item `%ontrol%` — dua item kontrol sekunjungan dihitung
+sekali. ⚠️ HUB mungkin menghitung per baris; kalau angka di layar lebih kecil dari
+tabel handoff, itu sebabnya. Belum tertaut → "perlu dipilih", bukan angka.
+**Hanya tampilan — bukan pagar**; ada uji yang membuktikan kontrol 0 tetap layak klaim.
+
+**Uji:** `tests/Feature/KocRewardSurplusTest.php` **16/16** (SQLite in-memory),
+meliputi 9 butir §5 handoff + kendali negatif. **Diuji balik:** mengembalikan
+hitungan lama → 4 uji surplus merah; mengembalikan "satu klaim per tier" → uji
+turun-kelas merah. Tiga layar + portal di-render ke DB lokal dalam transaksi
+yang di-rollback: semua lolos. Layar KOC index TIDAK bisa di-render lokal
+(`Schema::hasColumn` bawaan `ringkasanAktivasi()` mematikan mysqld lokal) —
+partial kolomnya di-render terpisah.
+
+**Catatan deploy (untuk HUB):**
+1. SQL dulu: `database/sql/2026_09_26_koc_reward_surplus.sql` (3 kolom + 1 index,
+   idempoten, nol backfill data). Kode tanpa kolom = portal KOC error.
+2. Deploy penuh (ada kelas baru: `KocReward`, `KocPasien`, perintah artisan).
+   Nol `public/assets/**` → **tanpa rsync**.
+3. Sesudah deploy: `php artisan koc:tautkan-pasien --dry-run`, periksa (harapan
+   HUB: 10 dari 11 berkonten tertaut, Dewi Santi ganda), lalu tanpa `--dry-run`.
+4. Ukur `git log <HEAD-prod>..main` sebelum `deploy.sh main`.
+5. Hari pertama: Ni Wayan (13 konten) memenuhi Silver seketika bila memilihnya —
+   disengaja & sudah diterima Ikhsan.
+
+**Temuan sampingan (tidak diperbaiki):** `KocController::toggleSosmedConfirmed`
+membaca `session('user_id')`, padahal login hanya mengisi `session('id')` —
+`koc_sosmed_confirmed_by` kemungkinan selalu NULL. Belum diukur di prod.
+
+---
 ## 2026-09-26 (malam) — ✅ Foto bukti WAJIB lembur & WFH NAIK PROD (`b76d69f`)
 
 Gerbong foto + penutupan berkas yatim digabung jadi **satu deploy**.

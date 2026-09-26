@@ -553,6 +553,8 @@ Route::middleware([AuthGuard::class])->group(function () {
     Route::patch('koc/{id}/behel-type', [KocController::class, 'updateBehelType'])->name('koc.update-behel-type');
     Route::patch('koc/{id}/feedback', [KocController::class, 'updateFeedback'])->name('koc.update-feedback');
     Route::get('koc/{id}/contents', [KocController::class, 'contents'])->name('koc.contents');
+    Route::get('koc/{id}/pasien', [KocController::class, 'pasien'])->name('koc.pasien');
+    Route::patch('koc/{id}/pasien', [KocController::class, 'simpanPasien'])->name('koc.pasien.simpan');
 
    // CRUD - Petty Cash (kas kecil — imprest/dana tetap)
     Route::get('pettycash',                       [PettyCashController::class, 'index'])->name('pettycash');
@@ -885,6 +887,7 @@ Route::middleware([AuthGuard::class])->group(function () {
     // KOL/KOC beserta nilai komisinya bisa dibuka SIAPA PUN tanpa login.
     // Controllernya juga tak punya penjaga sendiri.
     Route::get('sweet-mates', [SweetMatesController::class, 'index'])->name('sweetmates');
+    Route::post('sweet-mates/klaim/{id}/diberikan', [SweetMatesController::class, 'tandaiDiberikan'])->name('sweetmates.klaim.diberikan');
 });
 
 Route::middleware([IsLoggedIn::class])->group(function () {

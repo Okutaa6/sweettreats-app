@@ -7,6 +7,7 @@ use App\Models\AffiliateContent;
 use App\Models\AffiliateRewardClaim;
 use App\Models\AffiliateRewardTier;
 use App\Models\RawAffiliate;
+use App\Services\KocPasien;
 use Illuminate\Support\Str;
 
 class ContentReviewController extends Controller
@@ -81,6 +82,17 @@ class ContentReviewController extends Controller
             ->pluck('total', 'platform')
             ->toArray();
 
+        // Gambaran utuh per affiliate di halaman ini: total konten approved +
+        // jumlah kontrol (dari tautan pasien yang DISIMPAN, tak pernah ditebak).
+        $affiliatesHalaman = $contents->getCollection()->pluck('affiliate')->filter()->unique('id')->values();
+        $kontrol = app(KocPasien::class)->ringkasanKontrol($affiliatesHalaman);
+        $kontenApproved = AffiliateContent::whereIn('raw_affiliate_id', $affiliatesHalaman->pluck('id'))
+            ->where('status', AffiliateContent::STATUS_APPROVED)
+            ->selectRaw('raw_affiliate_id, COUNT(*) as total')
+            ->groupBy('raw_affiliate_id')
+            ->pluck('total', 'raw_affiliate_id')
+            ->toArray();
+
         return view('set.content-review', compact(
             'contents',
             'filterStatus',
@@ -89,7 +101,9 @@ class ContentReviewController extends Controller
             'search',
             'counts',
             'typeCounts',
-            'platformCounts'
+            'platformCounts',
+            'kontrol',
+            'kontenApproved'
         ));
     }
 
@@ -199,8 +213,8 @@ class ContentReviewController extends Controller
     /**
      * Bikin klaim 'eligible' saat konten di-approve — HARUS pakai definisi yang
      * sama dengan portal (AffiliatePortalController::rewards()):
-     *   - hitung konten lewat RawAffiliate::approvedContentCount() (menghormati
-     *     window reward_program_started_at), dan
+     *   - hitung konten lewat RawAffiliate::approvedContentCount() (saldo:
+     *     konten approved yang belum dimakan reward), dan
      *   - hanya untuk TIER YANG DIPILIH affiliate (program lock Fase 2C).
      *
      * Versi lama menghitung SEMUA konten approved tanpa window dan bikin klaim
@@ -219,11 +233,9 @@ class ContentReviewController extends Controller
 
         if ($affiliate->approvedContentCount() < $chosenTier->required_content_count) return;
 
-        $exists = AffiliateRewardClaim::where('raw_affiliate_id', $affiliate->id)
-            ->where('affiliate_reward_tier_id', $chosenTier->id)
-            ->exists();
-
-        if ($exists) return;
+        // Siklus ini sudah punya klaim → jangan lahirkan kembarannya. Klaim
+        // 'used' dari siklus LAMA tier yang sama (turun kelas) tak menghalangi.
+        if ($affiliate->cycleRewardClaim()) return;
 
         AffiliateRewardClaim::create([
             'id'                       => Str::uuid()->toString(),

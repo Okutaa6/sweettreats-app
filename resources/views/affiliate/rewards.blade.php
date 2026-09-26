@@ -201,7 +201,8 @@
                 $chosenKey      = $affiliate->reward_program;
                 $chosenTierCfg  = $affiliate->rewardTier();         // config dari rewardTiers() helper
                 $chosenTierDb   = $chosenTier;                       // dari controller (DB record)
-                $chosenClaim    = $chosenTierDb ? ($claims[$chosenTierDb->id] ?? null) : null;
+                // Klaim SIKLUS INI dari controller (cycleRewardClaim), bukan sembarang klaim tier ini.
+                $chosenClaim    = $chosenClaim ?? null;
                 $claimStatus    = $chosenClaim?->status;
             @endphp
 
@@ -247,9 +248,16 @@
                         @endif
                     </h4>
                     <p>
-                        @if($chosenKey)
+                        @if($chosenKey && $claimStatus === \App\Models\AffiliateRewardClaim::STATUS_USED)
                             Selamat! Program <strong>{{ $chosenTierCfg['name'] ?? '-' }}</strong> kamu sudah selesai diproses.
-                            Sekarang kamu boleh ambil program berikutnya — counter konten akan dimulai dari 0.
+                            Sekarang kamu boleh ambil program berikutnya —
+                            @if($approvedCount > 0)
+                                <strong>{{ $approvedCount }} konten</strong> yang belum terpakai ikut terbawa.
+                            @else
+                                mulai kirim konten lagi ya.
+                            @endif
+                        @elseif($chosenKey)
+                            Kamu masih boleh ganti target selama belum mengklaim reward. Konten approved kamu tetap terhitung.
                         @else
                             Pilih satu tier sebagai komitmen kamu. Setelah dipilih, <strong>tidak bisa diganti</strong> sampai program selesai diklaim.
                         @endif
@@ -341,13 +349,12 @@
                         </div>
 
                         @if($isChosen)
-                            {{-- Meta info: counter start date --}}
-                            @if($affiliate->reward_program_started_at)
+                            {{-- Meta info: tanggal klaim. "Counter dimulai" dibuang —
+                                 saldo kini dihitung dari konten yang belum dimakan reward,
+                                 bukan dari tanggal. --}}
+                            @if($claimStatus === \App\Models\AffiliateRewardClaim::STATUS_CLAIMED)
                                 <div class="sm-reward-meta">
-                                    <span><i class="fa-solid fa-calendar-day"></i> Counter dimulai: <strong>{{ $affiliate->reward_program_started_at->translatedFormat('d M Y') }}</strong></span>
-                                    @if($claimStatus === \App\Models\AffiliateRewardClaim::STATUS_CLAIMED)
-                                        <span><i class="fa-solid fa-paper-plane"></i> Diklaim: <strong>{{ $chosenClaim?->claimed_at?->translatedFormat('d M Y') ?? '-' }}</strong></span>
-                                    @endif
+                                    <span><i class="fa-solid fa-paper-plane"></i> Diklaim: <strong>{{ $chosenClaim?->claimed_at?->translatedFormat('d M Y') ?? '-' }}</strong></span>
                                 </div>
                             @endif
 
@@ -407,9 +414,9 @@
                 <h3><i class="fa-solid fa-info-circle"></i> Ketentuan Program</h3>
                 <ul>
                     <li>Tier dipilih di awal dan <strong>tidak bisa diubah</strong> sampai reward kamu selesai diklaim & diproses admin.</li>
-                    <li>Setelah reward selesai dipakai, kamu boleh pilih program berikutnya — counter konten dimulai dari 0 lagi.</li>
+                    <li>Setelah reward selesai dipakai, kamu boleh pilih program berikutnya.</li>
+                    <li>Setiap reward memakai konten <strong>sebanyak syarat tier-nya saja</strong> — kelebihannya ikut terbawa ke program berikutnya dan tidak hangus.</li>
                     <li>Setiap konten harus di-review dan di-approve admin untuk dihitung.</li>
-                    <li>Hanya konten yang dikirim <strong>setelah counter dimulai</strong> yang dihitung untuk program saat ini.</li>
                     <li>Mention <strong>@sweet.treats.dental</strong> di caption kontenmu supaya verifikasi lebih cepat.</li>
                 </ul>
             </div>
