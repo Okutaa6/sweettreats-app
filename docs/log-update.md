@@ -6,6 +6,65 @@
 > file ini append-only.
 
 ---
+## 2026-09-26 — 🚀 Push Reza NAIK PROD (`70de50e`) — prod ternyata tertinggal 8 hari dari main
+
+### Yang naik
+
+Branch Reza `rsv_px_nik_kode-koc-TO_button_rsv_jadwaldrg` di-merge ke main
+(`70de50e`) lalu di-deploy. Tiga commit, 14 berkas, +1385/−141:
+`5781188` tab Hasil Kode Referral + jejak login portal (IT-2026-045) ·
+`99575ad` NIK wajib 16 digit + kode promo diteruskan ke reservasi ·
+`3b89346` hapus tombol "Reservasi Sekarang" dari halaman jadwal dokter publik.
+
+### ⚠️ TEMUAN YANG MENGHENTIKAN LANGKAH: prod di `1d33d9c` (17 Sep), bukan di main
+
+`deploy.sh main` **tidak membawa 3 commit — ia membawa 20.** Pemeriksaan
+sebelum deploy dilakukan justru karena itu, dan hasilnya melegakan:
+
+- **14 dari 20 commit adalah `docs:`** — markdown, nol risiko jalan.
+- **Satu-satunya perubahan KODE di seluruh rentang = 3 commit Reza.**
+  Commit Bili (`320a49b`) dan ABG (`ac33083`) isinya SQL + docs saja.
+- **`routes/` TIDAK berubah sama sekali** → tak ada rute bersegmen-1 baru,
+  jadi tak perlu menyentuh `AuthGuard::SKIP_RBAC`.
+- **Nol `public/assets/**`** → tanpa rsync. (Yang sempat cocok di grep itu
+  *view* `resources/views/public/doctor-schedule.blade.php`, bukan aset.)
+- 3 berkas SQL di rentang: dua **sudah** dijalankan di prod sebelumnya
+  (Bili 23 Sep, ABG 25 Sep); tinggal `2026_09_23_koc_last_login.sql`.
+
+➜ **Pelajaran yang dicatat:** sebelum `deploy.sh main`, SELALU ukur
+`git log <HEAD-prod>..main` dulu. Prod bisa tertinggal berminggu-minggu, dan
+"deploy fitur kecil" bisa diam-diam membawa gerbong orang lain.
+
+### Urutan eksekusi
+
+SQL dulu (`raw_affiliate.last_login` → timestamp, null, **`Extra` kosong**),
+baru `bash deploy.sh main`. Kolom lahir dengan `Extra` kosong = pagar yang
+Reza pasang sendiri supaya MariaDB tak menempelkan `ON UPDATE CURRENT_TIMESTAMP`
+dan memalsukan jejak login.
+
+⚠️ Sebenarnya urutannya tidak wajib: Reza membungkus penulisan `last_login`
+dengan `try/catch` **dengan sengaja**, supaya kode boleh naik lebih dulu tanpa
+mengunci KOC dari portalnya — yang hilang cuma jejaknya, bukan aksesnya.
+
+### Verifikasi prod
+
+Halaman publik (diperiksa **URL akhirnya**, bukan cuma kode 200):
+beranda · `/jadwal-dokter` (tombol sudah hilang) · `/pasien-baru/bintaro`
+(ruas NIK tampil) — semua 200, 0,4–0,5 dtk, tanpa pentalan ke login.
+
+Layar bersesi: **8 uji lulus · 0 gagal.** Termasuk tulis-baca-rollback kolom
+`last_login`, dan ABG masih utuh sesudah cache dibersihkan.
+
+**Koreksi di tengah verifikasi:** kolom "Login Portal" sempat terbaca tak
+muncul. Ternyata ia hidup di tab **LIST**, bukan di tab Hasil Kode Referral —
+disengaja (komentar Reza: pemilih tabel dan tab penyaring "beda jenis, sengaja
+tidak dicampur"). Dan angka "Sudah login: 1" ternyata cocok dengan **komentar
+CSS** di baris 792, bukan baris data; DB memastikan **`last_login` 0 dari 131**.
+
+⚠️ **Utang: branch ini nol berkas uji.** Yang hijau harness E2E HUB.
+
+---
+
 ## 2026-09-25 — 💰 Cost centre ROP: empat kantor dilebur jadi ABG (PROD) · branch Reza turun ke dev
 
 ### 1. ABG — permintaan urgent Finance, NAIK PROD hari ini
