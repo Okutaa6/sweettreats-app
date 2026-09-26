@@ -35,6 +35,26 @@ class AttRequest extends Model
      */
     public const SAKIT_HARI_WAJIB_SURAT = 3;
 
+    /**
+     * Jenis yang WAJIB melampirkan foto bukti — TANPA SYARAT (keputusan
+     * Nisa/Supervisor lewat Ikhsan, 2026-09-26).
+     *
+     * Kenapa tanpa syarat, bukan "hanya kalau scan mesin tidak cocok":
+     * diukur di prod 26 Sep, 302 dari 531 klaim lembur (56,9%) dikirim tanpa
+     * foto — dan 96,6% tetap disetujui, termasuk 290 yang tanpa foto. Desain
+     * lama menyerahkan penyaringan ke approver; kenyataannya approver tidak
+     * menyaring. Yang scan-nya `nyambung` pun cuma 50% berfoto, praktis sama
+     * dengan yang `selisih` (42%) — jadi orang tidak melewatkan foto karena
+     * merasa sudah terbukti. Versi bersyarat tidak akan mengubah perilaku dan
+     * susah dijelaskan ("kenapa kemarin tidak perlu?").
+     *
+     * ⛔ `sakit` SENGAJA tidak di sini — ia punya aturannya sendiri
+     * (SAKIT_HARI_WAJIB_SURAT), dan 1–2 hari memang sengaja tanpa surat.
+     *
+     * Satu sumber kebenaran: dibaca gerbang server DAN form (blade).
+     */
+    public const TIPE_WAJIB_FOTO = ['lembur', 'wfh'];
+
     public function user()
     {
         return $this->belongsTo(Users::class, 'user_id', 'id');

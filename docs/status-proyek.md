@@ -39,6 +39,40 @@
 > `2400896`, tak ada lagi cabang prod terpisah. Peringatan lama "jangan deploy
 > main ke prod" **sudah TIDAK berlaku** — sekarang justru `main` yang benar.
 >
+> ✅ **Sisipan 2026-09-26 — FOTO BUKTI WAJIB UNTUK LEMBUR & WFH**
+> (branch `feat/foto-wajib-lembur-wfh` dari `5b3483d`, nol SQL, dev/prod belum,
+> **35 uji phpunit + 24 pemeriksaan JS hijau**). Keputusan Nisa/Supervisor lewat
+> Ikhsan; sosialisasi sudah dilakukan. Premis lama *"approver yang menilai
+> kelengkapan"* sudah diuji kenyataan dan GAGAL: 302 dari 531 klaim lembur
+> (56,9%) dikirim tanpa foto dan **96,6% tetap disetujui**. Gerbangnya di
+> SERVER, daftar jenisnya satu sumber (`AttRequest::TIPE_WAJIB_FOTO`), dan form
+> memakai pola P3 ("Lampirkan foto dulu") supaya orang tahu sebelum menekan
+> kirim — bukan dipentalkan sesudahnya.
+> ⛔ **Urutan gerbang: KEMBAR dulu, baru FOTO.** Kalau terbalik, pengirim lembur
+> kembar tanpa foto disuruh melampirkan foto, kirim ulang, lalu BARU ditolak
+> karena kembar. Ada uji + kendali negatifnya.
+> ⛔ **BUG NYATA yang ketemu & diperbaiki**: nama berkas `{user}_{time()}.{ext}`
+> bertabrakan untuk dua unggahan orang yang sama dalam SATU DETIK — di prod
+> (Linux) `rename` menimpa DIAM-DIAM, foto pengajuan lama berganti jadi foto
+> pengajuan baru tanpa gejala apa pun. Gerbong ini menaikkan peluangnya (dulu
+> ~43% lembur berfoto, sekarang 100%). Sekarang pakai `Str::random(6)`.
+> ⚠️ **Dua ranjau LOKAL yang sempat menyamar jadi kegagalan kode**: ENUM
+> `att_request.tipe` di DB lokal belum memuat `sakit`, dan tabel `sys_setting`
+> tidak ada (bikin `PagarLemburTest` 16/16 error — dibuktikan mendahului gerbong
+> ini lewat `git stash`). Keduanya dibereskan di lokal dengan DDL polos.
+> ✅ **Susulan audit HUB (ditutup)**: berkas yatim — `->move()` terjadi
+> sebelum transaksi dan berkas tak ikut rollback, jadi tiap penolakan di dalam
+> transaksi meninggalkan yatim (dan sejak foto wajib, SETIAP kiriman membawa
+> berkas). Ditutup dua lapis: pra-cek jatah WFH tanpa kunci + `@unlink` berkas
+> request itu saja di `catch`. ⛔ Cek jatah di dalam transaksi TETAP berkunci —
+> pra-cek itu tambahan, bukan pengganti.
+> ⚠️ Kendali negatif yang diperkirakan handoff TIDAK terjadi: dua lapis itu
+> saling menutupi, jadi mencabut salah satunya tetap hijau. Ditambah uji lewat
+> jalan gagal yang tak punya pra-cek (alur persetujuan belum diatur) supaya tiap
+> lapis bisa merah sendiri-sendiri.
+> ⏳ Pantau sesudah live: **jumlah pengajuan lembur per minggu**. Anjlok tajam =
+> orang berhenti mengklaim kerja yang benar-benar dilakukan, bukan tanda berhasil.
+>
 > ✅ **Sisipan 2026-09-16b — GERBANG MASUK DIKERASKAN (P0+P1 security hardening)**
 > (branch `hotfix/security-throttle` dari `23fb5b1`, nol SQL kode-only, dev/prod
 > belum, **17 uji hijau**). Sebelum ini grup middleware `web` **nol throttle**:

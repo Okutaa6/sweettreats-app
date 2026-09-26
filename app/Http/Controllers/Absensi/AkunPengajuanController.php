@@ -10,6 +10,7 @@ use App\Services\LemburKembar;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 /**
  * "Akun Saya → Ajukan" — form pengajuan absen (MOBILE, self-service).
@@ -352,8 +353,53 @@ class AkunPengajuanController extends Controller
             }
         }
 
-        // Jatah kerja dari rumah: 2 HARI per bulan (§3.3). Cek dipindah ke dalam
-        // transaksi store() supaya tak bisa dijebol dua kiriman berbarengan.
+        // FOTO BUKTI WAJIB untuk lembur & WFH (keputusan Nisa/Supervisor lewat
+        // Ikhsan, 2026-09-26). Daftar jenisnya di AttRequest::TIPE_WAJIB_FOTO —
+        // di situ juga alasannya beserta angka prod yang membatalkan premis lama.
+        //
+        // ⛔ Di SERVER, bukan cuma `required` di form: input file yang
+        // disembunyikan tetap bisa dilewati form buatan sendiri — pelajaran yang
+        // sama dengan jenisUntuk(), surat dokter sakit, dan lembur kembar.
+        //
+        // ⛔ SESUDAH gerbang kembar di atas, dan itu disengaja. Kalau gerbang ini
+        // duluan, orang yang mengirim lembur kembar TANPA foto akan disuruh
+        // melampirkan foto, mengirim ulang, lalu BARU ditolak karena kembar —
+        // dua kali kerja untuk pengajuan yang memang tidak boleh ada. "Kembar"
+        // lebih penting diketahui lebih dulu daripada "kurang foto".
+        //
+        // ⛔ Dan tetap SEBELUM foto dipindah ke storage (di bawah): kiriman yang
+        // ditolak tidak boleh meninggalkan berkas yatim di storage/app/att_request.
+        if (in_array($data['tipe'], AttRequest::TIPE_WAJIB_FOTO, true) && ! $request->hasFile('foto')) {
+            return back()->withInput()->with('error',
+                'Pengajuan ' . (self::TIPE[$data['tipe']] ?? $data['tipe'])
+                . ' wajib melampirkan foto bukti.');
+        }
+
+        // Jatah kerja dari rumah dicek DUA KALI — pola yang sama dengan lembur
+        // kembar di atas: di sini TANPA kunci supaya pesannya jelas dan berkas
+        // foto tak terlanjur tersimpan sia-sia, lalu sekali lagi DI DALAM
+        // transaksi DENGAN lockForUpdate supaya dua kiriman berbarengan tak
+        // sama-sama lolos. Yang di dalam transaksi tetap penjaga sebenarnya;
+        // ini pra-cek, bukan penggantinya.
+        //
+        // Sebelum ini jatah WFH satu-satunya jalan gagal yang TIDAK punya
+        // pra-cek: orang yang mencoba hari WFH ke-3 dalam sebulan harus
+        // melampirkan foto dulu, baru diberi tahu jatahnya habis — cacat "dua
+        // kali kerja" yang persis sama dengan yang dihindari untuk kembar.
+        //
+        // Letaknya SESUDAH gerbang foto, dan itu disengaja (kebalikan dari
+        // kasus kembar): kembar berarti pengajuannya memang tak boleh ada sama
+        // sekali, sedangkan jatah habis adalah keadaan yang lebih berguna
+        // diketahui sesudah orangnya yakin pengajuannya lengkap.
+        if ($data['tipe'] === 'wfh') {
+            try {
+                $this->pastikanJatahWfhCukup($userId, $data['tanggal_from'], $data['tanggal_to'], false);
+            } catch (\RuntimeException $e) {
+                // Kalimatnya hidup di SATU tempat (pastikanJatahWfhCukup) —
+                // jangan disalin ke sini, dua salinan pasti berbeda kelak.
+                return back()->withInput()->with('error', $e->getMessage());
+            }
+        }
 
         // lembur: sub_tipe default 'jam', hitung menit dari rentang jam kalau ada,
         // lalu sanding klaim vs scan (INFORMASI buat approver, §2.11 — bukan vonis).
@@ -372,8 +418,13 @@ class AkunPengajuanController extends Controller
                 ->checkLemburClaim($userId, $data['tanggal_from'], $claimedMenit, $subTipe);
         }
 
-        // foto bukti — wajib secara SOP untuk lembur/wfh yg tak ada scan, tapi tak
-        // dipaksa di sini (biar tak nge-block; approver yang menilai kelengkapan).
+        // foto bukti — untuk lembur & WFH sekarang DIPAKSA, gerbangnya di atas
+        // (AttRequest::TIPE_WAJIB_FOTO). Jenis lain tetap opsional.
+        //
+        // Komentar lama di sini berbunyi "tak dipaksa biar tak nge-block;
+        // approver yang menilai kelengkapan". Premis itu sudah diuji kenyataan
+        // dan gagal: per 26 Sep 2026, 302 dari 531 klaim lembur dikirim tanpa
+        // foto dan 96,6% tetap disetujui. Approver tidak menyaring.
         //
         // ⚠️ DISIMPAN DI storage/, BUKAN public/. Sejak jenis "sakit" ada, lampiran
         // ini bisa berupa SURAT DOKTER — data kesehatan. Folder public/ bisa
@@ -382,13 +433,24 @@ class AkunPengajuanController extends Controller
         // "wajah karyawan bukan aset publik" — surat dokter apalagi.
         // Berkas LAMA tetap di public/ dan tetap terbaca lewat jalur fallback di
         // berkas() — tak ada yang rusak, tapi unggahan baru tak lagi telanjang.
+        //
+        // $dir sengaja DI LUAR blok: dipakai lagi di catch untuk membersihkan
+        // berkas kalau transaksinya gagal.
+        $dir      = storage_path('app/att_request');
         $fotoName = null;
         if ($request->hasFile('foto')) {
-            $dir = storage_path('app/att_request');
             if (! is_dir($dir)) mkdir($dir, 0755, true);
             $file = $request->file('foto');
             $ext = strtolower($file->getClientOriginalExtension() ?: 'jpg');
-            $fotoName = $userId . '_' . time() . '.' . $ext;
+            // ⚠️ `time()` SAJA tidak cukup unik: dua unggahan dari orang yang
+            // sama dalam DETIK yang sama menghasilkan nama identik. Di Linux
+            // (prod) rename menimpa diam-diam — foto pengajuan lama berganti
+            // jadi foto pengajuan baru, dan tak ada gejala apa pun sampai ada
+            // yang membuka lampiran lama dan melihat bukti milik hari lain.
+            // Terpicu di uji 26 Sep (di Windows gagal keras, 500).
+            // Sejak foto WAJIB untuk lembur & WFH, tiap pengajuan membawa
+            // berkas — peluang tabrakannya naik, bukan turun.
+            $fotoName = $userId . '_' . time() . '_' . Str::random(6) . '.' . $ext;
             $file->move($dir, $fotoName);
         }
 
@@ -406,8 +468,30 @@ class AkunPengajuanController extends Controller
                 $r = $this->buatPengajuan($data, $userId, $subTipe, $claimedMenit, $scanEvidence, $verifikasi, $fotoName);
                 return (new AttendanceRequestWorkflow())->submit($r);
             });
-        } catch (\RuntimeException $e) {
-            return back()->withInput()->with('error', $e->getMessage());
+        } catch (\Throwable $e) {
+            // Berkas sudah terlanjur dipindah SEBELUM transaksi dibuka, dan
+            // berkas TIDAK ikut rollback. Tanpa pembersihan ini tiap penolakan
+            // di dalam transaksi meninggalkan berkas yatim di gudang lampiran —
+            // dan sejak foto WAJIB untuk lembur & WFH, tiap kiriman membawa
+            // berkas, jadi yang dulu sesekali kini jadi setiap kali.
+            //
+            // ⛔ HANYA berkas milik request INI ($fotoName lokal). Jangan pernah
+            // menyapu folder berdasarkan pola atau umur — di situ ada surat
+            // dokter milik orang lain.
+            if ($fotoName) {
+                @unlink($dir . '/' . $fotoName);
+            }
+
+            // ⚠️ Perilakunya SAMA seperti sebelumnya: RuntimeException jadi
+            // pesan ramah, galat lain tetap naik. Yang bertambah cuma
+            // pembersihan di atas. `throw $e` di bawah WAJIB tetap ada — tanpa
+            // itu galat sungguhan tertelan diam-diam dan orangnya cuma melihat
+            // halaman kembali tanpa penjelasan apa pun.
+            if ($e instanceof \RuntimeException) {
+                return back()->withInput()->with('error', $e->getMessage());
+            }
+
+            throw $e;
         }
 
         $pesan = $req->status === 'approved'
@@ -609,9 +693,14 @@ class AkunPengajuanController extends Controller
      * (approved maupun masih menunggu). Dipanggil DI DALAM transaksi + lock
      * supaya dua kiriman berbarengan tak sama-sama lolos.
      *
+     * $kunci=false dipakai untuk PRA-CEK di luar transaksi (lihat store()):
+     * jawabannya sama, tapi tanpa `lockForUpdate` — menahan baris di luar
+     * transaksi tak ada gunanya, dan pra-cek itu tambahan, BUKAN pengganti cek
+     * berkunci di dalam transaksi.
+     *
      * @throws \RuntimeException bila jatah bulan mana pun terlampaui.
      */
-    private function pastikanJatahWfhCukup(string $userId, string $dari, string $sampai): void
+    private function pastikanJatahWfhCukup(string $userId, string $dari, string $sampai, bool $kunci = true): void
     {
         $mulai   = Carbon::parse($dari)->startOfDay();
         $selesai = Carbon::parse($sampai)->startOfDay();
@@ -627,7 +716,7 @@ class AkunPengajuanController extends Controller
             $awal  = Carbon::createFromFormat('Y-m-d', $bulan . '-01')->startOfMonth();
             $akhir = $awal->copy()->endOfMonth();
 
-            $terpakai = $this->hariWfhTerpakai($userId, $awal, $akhir, true);
+            $terpakai = $this->hariWfhTerpakai($userId, $awal, $akhir, $kunci);
 
             if ($terpakai + $jumlahDiminta > self::WFH_JATAH_BULANAN) {
                 $sisa = max(0, self::WFH_JATAH_BULANAN - $terpakai);
