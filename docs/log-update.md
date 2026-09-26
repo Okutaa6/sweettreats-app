@@ -6,6 +6,55 @@
 > file ini append-only.
 
 ---
+## 2026-09-26 (malam) — 🎁 Reward KOC NAIK PROD (`bb74872`) — Linaily bisa dibebaskan
+
+Gerbong `feat/koc-reward-surplus`. **Cabang Reza `revisi-kolum-login-existing-koc`
+SENGAJA TIDAK ikut** (keputusan Ikhsan) — ditahan di dev. Karena itu
+`raw_affiliate.last_login` **masih bernama last_login** di prod; rename jadi
+`first_login` belum naik.
+
+**Empat hal yang naik:**
+1. **Pintu `claimed → used`** — sebelumnya TAK ADA satu baris pun di seluruh kode
+   yang menulis `used`. Linaily terkunci di Bronze sejak 23 Sep, dan layarnya
+   menyuruh "tunggu admin" padahal tak ada admin yang bisa.
+2. **Surplus konten TERBAWA** — tier makan tepat syaratnya, sisanya ikut program
+   berikutnya. Pakai hitungan (`consumed_content_count`), bukan stempel waktu.
+3. **Tautan KOC→pasien disimpan** di kolom, tak ditebak tiap render.
+4. **Baris jumlah kontrol** di KOC + Review Konten + SweetMates — TAMPILAN, bukan
+   syarat klaim.
+
+**SQL:** `2026_09_26_koc_reward_surplus.sql` — 4 kolom + 1 index, idempoten.
+Nol `public/assets/**` → tanpa rsync.
+
+**Backfill: `Diperiksa 45 · tertaut 29 · ganda 5 · tak ketemu 11`** — cocok
+persis dengan hitungan MANDIRI HUB di prod (29/5/11) dan dengan angka chat
+build. Tiga perhitungan terpisah sepakat. `--dry-run` menulis nol. Jalan kedua
+menautkan nol → idempoten. Dewi Santi dibiarkan NULL, menunggu dipilih manusia.
+
+**Verifikasi prod: 12 lulus, 0 gagal.** Gerbang uangnya diuji HIDUP di dalam
+transaksi yang dibatalkan: `status=used · makan=3 · saldo=4 · bisaPindah=ya`,
+lalu rollback bersih (klaim tetap `claimed`, `used` tetap 0, saldo kembali 7).
+Angka kontrol cocok pengukuran HUB (Linaily 6, Ni Wayan 19); Dewi berbunyi
+`perlu_dipilih` **bukan 0**; kontrol terbukti **bukan pagar** klaim.
+
+**⛔ LINAILY BELUM BEBAS.** Pintunya sudah ada, tapi seseorang harus benar-benar
+menekan "Reward sudah diberikan" di SweetMates — itu keputusan bisnis (Free
+Scaling memang sudah diberikan atau belum), bukan langkah deploy.
+
+**⏳ Ditunda sadar (Ikhsan):** pembatasan role untuk aksi "reward sudah
+diberikan". Sekarang keenam role pembuka SweetMates bisa melakukannya, termasuk
+Content Creator. Kalau nanti dibatasi: **buat konstanta baru**, jangan
+menyempitkan akses layar (preseden `RopService::ROLE_PENYETUJU`).
+
+**⚠️ Utang: nol uji JS** untuk tombol "Reward sudah diberikan". Bug "tombol mati"
+nyaris lolos ke prod dan sekarang tak ada yang menjaganya. Preseden ada:
+`tests/js/uji-form-pengajuan.cjs`.
+
+**⚠️ Ni Wayan (13 konten) akan memenuhi Silver seketika** begitu memilih program
+— konsekuensi yang sudah diterima Ikhsan, bukan kejutan.
+
+---
+
 ## 2026-09-26 (sore) — 🔍 Reward KOC: audit ulang + E2E dengan data PROD → 1 bug kritis & 1 bug data ditemukan, semua diperbaiki (branch `feat/koc-reward-surplus`, DEV/PROD BELUM)
 
 **⛔ RALAT entri di bawah ("tiga layar di-render… semua lolos").** Render HTML
