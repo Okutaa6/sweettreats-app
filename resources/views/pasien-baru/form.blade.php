@@ -48,6 +48,7 @@
         .form-group { margin-bottom: 24px; }
         .form-group label { display: block; font-size: 0.85rem; font-weight: 700; color: #461500; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
         .form-group label .required { color: #c45200; }
+        .form-group label .label-opt { font-weight: 500; font-size: 0.72rem; color: #8b7a6b; text-transform: none; letter-spacing: 0; }
         .form-control { width: 100%; padding: 14px 18px; background: #fffaf5; border: 2px solid rgba(70,21,0,0.1); border-radius: 14px; font-family: 'Montserrat', sans-serif; font-size: 0.95rem; color: #3a2a1a; transition: all 0.3s; outline: none; }
         .form-control:focus { border-color: #461500; box-shadow: 0 0 0 4px rgba(70,21,0,0.08); }
         textarea.form-control { resize: vertical; min-height: 110px; }
@@ -60,6 +61,19 @@
         .btn-submit:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(70,21,0,0.2); }
 
         .form-footnote { text-align: center; font-size: 0.78rem; color: #8b7a6b; margin-top: 18px; line-height: 1.5; }
+
+        /* Kode promo — satu kode berlaku untuk semua pasien di submit ini */
+        .promo-section { margin-top: 24px; margin-bottom: 0; }
+        .promo-row { display: flex; gap: 10px; align-items: stretch; }
+        .promo-row .form-control { flex: 1; text-transform: uppercase; letter-spacing: 0.5px; }
+        .btn-promo { flex-shrink: 0; padding: 0 24px; background: linear-gradient(135deg, #461500, #6b2400); color: #fff; border: none; border-radius: 14px; font-family: 'Montserrat', sans-serif; font-size: 0.9rem; font-weight: 800; cursor: pointer; transition: all 0.25s; }
+        .btn-promo:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 8px 18px rgba(70,21,0,0.18); }
+        .btn-promo:disabled { opacity: 0.6; cursor: default; }
+        .promo-status { display: none; margin-top: 10px; padding: 12px 16px; border-radius: 12px; font-size: 0.83rem; font-weight: 600; line-height: 1.45; }
+        .promo-status.is-shown { display: block; }
+        .promo-status--ok { background: linear-gradient(135deg,#e8f5e9,#d3ecd4); border: 1px solid #a5d6a7; color: #2e7d32; }
+        .promo-status--bad { background: #ffebee; border: 1px solid #ef9a9a; color: #c62828; }
+        .promo-status small { display: block; margin-top: 4px; font-weight: 500; opacity: 0.85; }
 
         /* Langkah 1: cek nomor */
         .phone-row { display: flex; gap: 10px; align-items: stretch; }
@@ -122,6 +136,8 @@
             .form-row { grid-template-columns: 1fr; gap: 0; }
             .phone-row { flex-direction: column; }
             .btn-check { padding: 14px; }
+            .promo-row { flex-direction: column; }
+            .btn-promo { padding: 14px; }
 
             /* Judul section: hint pindah ke baris sendiri biar rapi, ga nyangkut */
             .section-title { font-size: 0.8rem; letter-spacing: 0.3px; line-height: 1.35; }
@@ -252,6 +268,20 @@
                                                value="{{ $p['name'] ?? '' }}" placeholder="Nama sesuai identitas" maxlength="255" required>
                                     </div>
 
+                                    {{-- NIK: tanpa maxlength — NIK yang ditempel
+                                         dari KTP digital sering membawa spasi,
+                                         dan pemotongan diam-diam akan menyimpan
+                                         16 digit yang SALAH. Spasi dibuang oleh
+                                         JS di bawah, lalu dicek ulang 16 digit
+                                         di server. --}}
+                                    <div class="form-group">
+                                        <label>NIK <span class="required">*</span> <span class="label-opt">(16 digit)</span></label>
+                                        <input type="text" name="patients[{{ $idx }}][nik]" class="form-control"
+                                               value="{{ $p['nik'] ?? '' }}" inputmode="numeric" autocomplete="off"
+                                               pattern="[0-9]{16}" title="NIK harus 16 digit angka."
+                                               placeholder="16 digit NIK — wajib untuk data Satu Sehat" required>
+                                    </div>
+
                                     <div class="form-row">
                                         <div class="form-group">
                                             <label>Pasien Ini Adalah</label>
@@ -290,6 +320,21 @@
                             <i class="fa-solid fa-user-plus"></i> Tambah pasien lain di nomor ini
                         </button>
 
+                        {{-- LANGKAH 3 (opsional) — Kode promo.
+                             Satu kode untuk seluruh pasien di submit ini, sama
+                             seperti form reservasi publik (/reservasi). Tombol
+                             "Cek" hanya memberi umpan balik; kode dicocokkan
+                             ULANG di server saat submit. --}}
+                        <div class="form-group promo-section">
+                            <label for="promo_code">Kode Promo <span class="label-opt">(opsional, berlaku semua pasien)</span></label>
+                            <div class="promo-row">
+                                <input type="text" id="promo_code" name="promo_code" class="form-control"
+                                       value="{{ old('promo_code') }}" maxlength="50" autocomplete="off">
+                                <button type="button" class="btn-promo" id="btnCheckPromo">Cek</button>
+                            </div>
+                            <div class="promo-status" id="promoStatus"></div>
+                        </div>
+
                         <button type="button" class="btn-submit" id="btnReview" style="margin-top:20px;">
                             <i class="fa-brands fa-whatsapp"></i> Kirim & Tunggu Dihubungi
                         </button>
@@ -314,6 +359,14 @@
                             <label>Nama Lengkap <span class="required">*</span></label>
                             <input type="text" name="patients[__IDX__][name]" class="form-control"
                                    placeholder="Nama sesuai identitas" maxlength="255" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label>NIK <span class="required">*</span> <span class="label-opt">(16 digit)</span></label>
+                            <input type="text" name="patients[__IDX__][nik]" class="form-control"
+                                   inputmode="numeric" autocomplete="off"
+                                   pattern="[0-9]{16}" title="NIK harus 16 digit angka."
+                                   placeholder="16 digit NIK — wajib untuk data Satu Sehat" required>
                         </div>
 
                         <div class="form-row">
@@ -361,6 +414,10 @@
 
             <div class="modal__row"><span class="k">Cabang</span><span class="v">{{ $branch->name }}</span></div>
             <div class="modal__row"><span class="k">Nomor WhatsApp</span><span class="v" id="cmPhone">-</span></div>
+            <div class="modal__row" id="cmPromoRow" style="display:none;">
+                <span class="k">Kode Promo</span>
+                <span class="v" id="cmPromo">-</span>
+            </div>
 
             <div class="modal__plabel" id="cmPatientsLabel">Pasien (0)</div>
             <div id="cmPatients"></div>
@@ -419,8 +476,8 @@
                 phoneInput.value = norm;
                 phoneError.classList.remove('is-shown');
                 phoneNote.classList.add('is-shown');
-                var firstName = list.querySelector('input[name$="[name]"]');
-                if (firstName) firstName.focus();
+                var firstField = list.querySelector('input[name$="[name]"]');
+                if (firstField) firstField.focus();
             }
 
             function renumber() {
@@ -451,6 +508,16 @@
                 if (e.key === 'Enter') { e.preventDefault(); checkPhone(); }
             });
             document.getElementById('btnAddPatient').addEventListener('click', addPatient);
+            // NIK: buang apa pun yang bukan angka (spasi/titik dari KTP digital)
+            // dan potong di 16. Dipasang di list, jadi kartu pasien yang
+            // ditambah belakangan ikut terurus tanpa pasang listener lagi.
+            list.addEventListener('input', function (e) {
+                var el = e.target;
+                if (!el.name || el.name.slice(-5) !== '[nik]') return;
+                var clean = (el.value || '').replace(/[^0-9]/g, '').slice(0, 16);
+                if (clean !== el.value) el.value = clean;
+            });
+
             list.addEventListener('click', function (e) {
                 var rm = e.target.closest('[data-remove]');
                 if (!rm) return;
@@ -458,6 +525,80 @@
                 if (card) card.remove();
                 renumber();
             });
+
+            // ── Kode promo (opsional) ──
+            // Dicek ke endpoint yang sama dengan form reservasi publik
+            // (/api/promo/validate). Hasil cek HANYA umpan balik di layar:
+            // kode yang tidak dikenal tidak menahan pengiriman, karena tugas
+            // halaman ini menangkap calon pasien, bukan menghitung diskon.
+            // Server mencocokkan ulang kodenya sendiri saat submit.
+            var promoInput  = document.getElementById('promo_code');
+            var btnPromo    = document.getElementById('btnCheckPromo');
+            var promoStatus = document.getElementById('promoStatus');
+            var promoState  = { checked: false, valid: false, label: '' };
+
+            function escapeHtml(s) {
+                return String(s).replace(/[&<>"']/g, function (c) {
+                    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+                });
+            }
+            function setPromoStatus(kind, html) {
+                promoStatus.className = 'promo-status is-shown promo-status--' + kind;
+                promoStatus.innerHTML = html;
+            }
+            function resetPromoState() {
+                promoState = { checked: false, valid: false, label: '' };
+                promoStatus.className = 'promo-status';
+                promoStatus.innerHTML = '';
+            }
+            function checkPromo() {
+                var code = (promoInput.value || '').trim().toUpperCase();
+                promoInput.value = code;
+                if (!code) {
+                    resetPromoState();
+                    setPromoStatus('bad', 'Tulis kode promonya dulu, baru klik Cek.');
+                    return;
+                }
+                btnPromo.disabled = true;
+                btnPromo.textContent = 'Cek...';
+                fetch('/api/promo/validate?code=' + encodeURIComponent(code), {
+                    headers: { 'Accept': 'application/json' }
+                })
+                    .then(function (r) { return r.json(); })
+                    .then(function (res) {
+                        if (res && res.valid) {
+                            promoState = { checked: true, valid: true, label: res.message || '' };
+                            setPromoStatus('ok',
+                                '<i class="fa-solid fa-circle-check"></i> Kode <strong>' + escapeHtml(code) + '</strong> aktif — '
+                                + escapeHtml(res.message || 'promo ditemukan')
+                                + '<small>' + (res.valid_until ? 'Berlaku sampai ' + escapeHtml(res.valid_until) + '. ' : '')
+                                + 'Kode ini ikut tercatat dan dipakai Sweet Crew saat membuatkan jadwal kamu.</small>');
+                        } else {
+                            promoState = { checked: true, valid: false, label: '' };
+                            setPromoStatus('bad',
+                                '<i class="fa-solid fa-circle-xmark"></i> '
+                                + escapeHtml((res && res.message) || 'Kode promo tidak ditemukan')
+                                + '<small>Coba cek lagi penulisannya. Kamu tetap bisa mengirim tanpa kode — '
+                                + 'nanti bisa disampaikan saat Sweet Crew menghubungi.</small>');
+                        }
+                    })
+                    .catch(function () {
+                        resetPromoState();
+                        setPromoStatus('bad',
+                            '<i class="fa-solid fa-triangle-exclamation"></i> Gagal mengecek kode promo.'
+                            + '<small>Koneksi sedang bermasalah. Kirim saja — kodenya tetap kami cocokkan di sistem.</small>');
+                    })
+                    .then(function () {
+                        btnPromo.disabled = false;
+                        btnPromo.textContent = 'Cek';
+                    });
+            }
+
+            btnPromo.addEventListener('click', checkPromo);
+            promoInput.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter') { e.preventDefault(); checkPromo(); }
+            });
+            promoInput.addEventListener('input', resetPromoState);
 
             // ── Modal konfirmasi sebelum kirim ──
             var form   = document.getElementById('pasienBaruForm');
@@ -476,6 +617,28 @@
                 phoneInput.value = norm;
 
                 document.getElementById('cmPhone').textContent = norm;
+
+                // Baris promo hanya muncul kalau kodenya memang diisi. Statusnya
+                // ditulis apa adanya — termasuk saat kodenya belum/gagal dicek —
+                // supaya tidak ada yang mengira dapat diskon padahal tidak.
+                var promoRow  = document.getElementById('cmPromoRow');
+                var promoCode = (promoInput.value || '').trim().toUpperCase();
+                promoInput.value = promoCode;
+                if (promoCode) {
+                    var ket;
+                    if (promoState.checked && promoState.valid) {
+                        ket = promoState.label ? ' · ' + promoState.label : ' · aktif';
+                    } else if (promoState.checked) {
+                        ket = ' · tidak dikenal, tidak ikut tercatat';
+                    } else {
+                        ket = ' · belum dicek';
+                    }
+                    document.getElementById('cmPromo').textContent = promoCode + ket;
+                    promoRow.style.display = '';
+                } else {
+                    promoRow.style.display = 'none';
+                }
+
                 var cards = list.querySelectorAll('[data-patient]');
                 document.getElementById('cmPatientsLabel').textContent = 'Pasien (' + cards.length + ')';
 
@@ -486,6 +649,12 @@
                     var relEl = card.querySelector('select[name$="[relasi]"]');
                     var rel = relasiLabels[relEl ? relEl.value : ''] || '';
                     var kel = (card.querySelector('textarea[name$="[keluhan]"]').value || '').trim();
+                    // NIK ikut ditampilkan di konfirmasi: salah satu angka di sini
+                    // membuat pasien gagal dicocokkan di Satu Sehat, dan ini
+                    // kesempatan terakhir orangnya membetulkan sendiri.
+                    var nikEl = card.querySelector('input[name$="[nik]"]');
+                    var nik = nikEl ? (nikEl.value || '').trim() : '';
+                    if (nik) rel = rel ? rel + ' · NIK ' + nik : 'NIK ' + nik;
 
                     var row = document.createElement('div');
                     row.className = 'modal__patient';

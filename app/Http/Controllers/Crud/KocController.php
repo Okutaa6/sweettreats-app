@@ -8,7 +8,10 @@ use App\Models\RawAffiliate;
 use App\Models\RawBranch;
 use App\Models\RawDoctor;
 use App\Models\RawPromo;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 /**
@@ -24,6 +27,17 @@ use Illuminate\Support\Str;
  */
 class KocController extends Controller
 {
+    /** Nama bulan Indonesia — dipakai label periode & tanggal ringkas. */
+    private const BULAN = [1=>'Januari',2=>'Februari',3=>'Maret',4=>'April',5=>'Mei',6=>'Juni',
+        7=>'Juli',8=>'Agustus',9=>'September',10=>'Oktober',11=>'November',12=>'Desember'];
+
+    /**
+     * Batas baris tabel rincian kartu "Hasil Kode Referral".
+     * Halaman ini bukan tempat daftar panjang — lebih dari ini diarahkan ke
+     * halaman Report Referral yang memang punya filter & pagination.
+     */
+    private const KOC_DETAIL_MAKS = 25;
+
     /**
      * Halaman Daftar KOC (default index).
      * URL: /koc
@@ -32,6 +46,12 @@ class KocController extends Controller
     {
         // ─── Filter dari request ─────────────────────────────────────────
         $filterTab      = request('tab', 'all'); // 'all' | 'confirmed' | 'submitted'
+        // Tabel mana yang ditampilkan di kartu bawah — BUKAN penyaring.
+        // Sengaja parameter sendiri, terpisah dari `tab`: `tab` menyaring
+        // daftar KOC, `tampil` mengganti tabelnya. Mencampur keduanya dalam
+        // satu parameter membuat "Sudah Submit Konten" dan "Hasil Kode Reff"
+        // saling meniadakan padahal keduanya bisa berlaku bersamaan.
+        $tampil         = request('tampil') === 'hasil' ? 'hasil' : 'list';
         $filterBranch   = request('branch', 'all');
         $filterDoctor   = request('doctor', 'all');
         $filterPlatform = request('platform', 'all');
@@ -48,6 +68,11 @@ class KocController extends Controller
                 ->whereHas('contents', function ($q) {
                     $q->where('status', AffiliateContent::STATUS_APPROVED);
                 })
+                ->count(),
+            // Tab "Hasil Kode Reff" — hanya KOC yang punya kode referral aktif.
+            // KOC tanpa kode mustahil menghasilkan pasien, jadi tidak ikut.
+            'hasil'      => (clone $baseQuery)
+                ->whereHas('promos', function ($q) { $q->where('is_active', 1); })
                 ->count(),
         ];
 
@@ -83,6 +108,13 @@ class KocController extends Controller
             });
         }
 
+        // Tabel "Hasil Kode Reff" hanya memuat KOC yang PUNYA kode aktif —
+        // KOC tanpa kode mustahil menghasilkan pasien. Penyaring tab di atas
+        // (Sudah Submit / Confirmed Sosmed) tetap berlaku di atasnya.
+        if ($tampil === 'hasil') {
+            $query->whereHas('promos', function ($q) { $q->where('is_active', 1); });
+        }
+
         // Apply other filters
         if ($filterBranch !== 'all') {
             $query->where('raw_branch_id', $filterBranch);
@@ -109,6 +141,11 @@ class KocController extends Controller
             });
         }
 
+        // ─── Id KOC yang tersaring (sebelum paginate) ────────────────────
+        // Dipakai kolom Aktivasi & Hasil Kode: ringkasannya harus mencakup
+        // SELURUH hasil filter, bukan cuma halaman yang sedang dibuka.
+        $idTersaring = (clone $query)->pluck('id')->all();
+
         // ─── Eksekusi & paginate ─────────────────────────────────────────
         $kocs = $query
             ->orderBy('raw_branch_id')
@@ -123,6 +160,40 @@ class KocController extends Controller
             ? $branches->firstWhere('id', $filterBranch)
             : null;
 
+        // ─── Periode kolom "Hasil Kode Referral" (?bulan=YYYY-MM) ───────
+        // Hanya menyetir tiga kolom pasien di tabel; daftar KOC-nya sendiri
+        // tidak terpengaruh. Divalidasi regex supaya ?bulan ngawur tidak
+        // melempar exception.
+        $bulanParam = (string) request('bulan', '');
+        $periode    = preg_match('/^\d{4}-\d{2}$/', $bulanParam)
+            ? Carbon::createFromFormat('Y-m-d', $bulanParam . '-01')->startOfMonth()
+            : Carbon::now()->startOfMonth();
+        $periodeValue = $periode->format('Y-m');
+        $periodeLabel = self::BULAN[$periode->month] . ' ' . $periode->year;
+
+        $branchScope = $filterBranch !== 'all' ? [$filterBranch] : $branches->pluck('id')->all();
+        $mulai  = $periode->format('Y-m-d');
+        $sampai = $periode->copy()->endOfMonth()->format('Y-m-d');
+
+        $aktivasi = $this->ringkasanAktivasi($idTersaring);
+
+        // Hitungan pasien: dipakai tab "Hasil Kode Reff" (angka per baris +
+        // ringkasan). Tab lain tidak perlu membayarnya.
+        $hasilKoc = ($aktivasi['tersedia'] && $tampil === 'hasil')
+            ? $this->hasilKodePerKoc($idTersaring, $branchScope, $mulai, $sampai)
+            : [];
+
+        // Rincian reservasi, DIKELOMPOKKAN per KOC, hanya untuk baris yang
+        // benar-benar tampil di halaman ini — bukan seluruh hasil filter.
+        $rincianPerKoc = ($aktivasi['tersedia'] && $tampil === 'hasil')
+            ? $this->rincianPerKoc($kocs->pluck('id')->all(), $branchScope, $mulai, $sampai, $branches)
+            : [];
+
+        // Total kolom tabel — dipakai colspan baris kosong.
+        // 9 kolom lama (No..Konten) + 1 bila tab bukan 'all' (kolom Confirmed)
+        // + 5 kolom baru: Login Portal, Kode Ref, Pasien, Datang, Batal.
+        $kolomTotal = ($filterTab !== 'all' ? 10 : 9) + 5;
+
         return view('crud.koc.list', compact(
             'kocs',
             'branches',
@@ -130,12 +201,223 @@ class KocController extends Controller
             'totalCount',
             'counts',
             'filterTab',
+            'tampil',
             'filterBranch',
             'filterDoctor',
             'filterPlatform',
             'search',
-            'activeBranch'
+            'activeBranch',
+            'aktivasi',
+            'hasilKoc',
+            'rincianPerKoc',
+            'periodeValue',
+            'periodeLabel',
+            'kolomTotal'
         ));
+    }
+
+
+    // ════════════════════════════════════════════════════════════════
+    //  AKTIVASI KOC (tiket IT-2026-045)
+    //  Dua pertanyaan Marketing yang selama ini tak terjawab:
+    //    (1) berapa KOC yang sudah BERHASIL masuk portal affiliate, dan
+    //    (2) berapa KOC yang kodenya sudah menghasilkan pasien.
+    //
+    //  3-5 query, tanpa loop per-KOC. Arah JOIN digiring dari RESERVASI
+    //  (1 reservasi -> 1 promo -> 1 KOC) supaya KOC yang punya banyak kode
+    //  promo tidak terhitung berkali-kali; kalau dibalik (KOC -> promos ->
+    //  reservations, seperti tabel di halaman ini yang me-loop $row->promos)
+    //  tiap reservasi terhitung sekali PER KODE.
+    //
+    //  Periode memakai raw_cus_reservation.date (tanggal kunjungan), bukan
+    //  created_at (waktu input sales).
+    //
+    //  CATATAN GAP yang diketahui & sengaja dibiarkan: lead dari form Pasien
+    //  Baru (raw_customer.raw_promo_id) yang belum dibuatkan reservasi TIDAK
+    //  terhitung di sini. Kalau Marketing nanti minta angka lead, itu kolom
+    //  ketiga dan keputusan baru — jangan diam-diam dicampur ke dua angka ini.
+    // ════════════════════════════════════════════════════════════════
+    /**
+     * Ringkasan aktivasi login untuk sekumpulan KOC (tiket IT-2026-045).
+     *
+     * "Bisa login" = approved + aktif. KOC pending/rejected/nonaktif memang
+     * DITOLAK AffiliatePortalController::loginProcess(), jadi memasukkannya ke
+     * penyebut membuat persentase aktivasi tak pernah bisa 100%. Filter yang
+     * sama dipakai untuk `sudah` supaya sudah <= eligible dijamin — KOC yang
+     * dinonaktifkan SESUDAH pernah login tidak membuat persentase > 100%.
+     */
+    private function ringkasanAktivasi(array $kocIds): array
+    {
+        $kosong = ['tersedia' => false, 'total' => 0, 'eligible' => 0,
+            'sudah_login' => 0, 'belum_login' => 0, 'pct_login' => 0, 'login_terakhir' => null];
+
+        // Pagar deploy: tanpa ini, kode yang naik sebelum SQL-nya dijalankan
+        // membuat SELURUH halaman KOC error — bukan cuma kolom baru ini.
+        if (! Schema::hasColumn('raw_affiliate', 'last_login')) {
+            return $kosong;
+        }
+        if (! $kocIds) {
+            return array_merge($kosong, ['tersedia' => true]);
+        }
+
+        $r = DB::table('raw_affiliate')->whereIn('id', $kocIds)
+            ->selectRaw("
+                COUNT(*)                                                     AS total,
+                SUM(`registration_status` = 'approved' AND `is_active` = 1)  AS eligible,
+                SUM(`last_login` IS NOT NULL
+                    AND `registration_status` = 'approved'
+                    AND `is_active` = 1)                                     AS sudah,
+                MAX(`last_login`)                                            AS terakhir
+            ")->first();
+
+        $eligible = (int) ($r->eligible ?? 0);
+        $sudah    = (int) ($r->sudah ?? 0);
+
+        return [
+            'tersedia'       => true,
+            'total'          => (int) ($r->total ?? 0),
+            'eligible'       => $eligible,
+            'sudah_login'    => $sudah,
+            'belum_login'    => max(0, $eligible - $sudah),
+            'pct_login'      => $eligible > 0 ? (int) round($sudah / $eligible * 100) : 0,
+            'login_terakhir' => $this->tanggalPendek($r->terakhir ?? null),
+        ];
+    }
+
+    /**
+     * Hitungan pasien per KOC untuk periode terpilih — SATU query untuk semua
+     * KOC yang sedang tersaring, lalu dipetakan di PHP. Bukan per-baris (N+1).
+     *
+     * COUNT(DISTINCT raw_customer_id), bukan COUNT(*): kolomnya berlabel
+     * "Pasien", jadi satu orang yang booking dua kali dalam bulan itu tetap
+     * satu pasien. Ini juga yang membuat KOC bermulti-kode tidak terhitung
+     * berkali-kali — pelipatan terjadi di GROUP BY raw_affiliate_id.
+     *
+     * COALESCE(status,'') dipakai sebagai jaring: di skema lokal `status`
+     * NOT NULL, tapi kalau server lain ternyata nullable, bentuk polos
+     * `status <> 'cancelled'` akan MEMBUANG SENYAP baris ber-status NULL
+     * (di SQL, NULL <> 'x' bernilai NULL, bukan true).
+     */
+    private function hasilKodePerKoc(array $kocIds, array $branchIds, string $start, string $end): array
+    {
+        if (! $kocIds) return [];
+
+        $peta = [];
+        foreach ($this->kocReservationQuery($branchIds, $start, $end)
+                    ->whereIn('p.raw_affiliate_id', $kocIds)
+                    ->groupBy('p.raw_affiliate_id')
+                    ->selectRaw("
+                        p.`raw_affiliate_id` AS koc_id,
+                        COUNT(DISTINCT CASE WHEN COALESCE(r.`status`, '') <> 'cancelled'
+                                            THEN r.`raw_customer_id` END)   AS pasien,
+                        COUNT(DISTINCT CASE WHEN r.`status` = 'completed'
+                                            THEN r.`raw_customer_id` END)   AS datang,
+                        COUNT(DISTINCT CASE WHEN r.`status` = 'cancelled'
+                                            THEN r.`raw_customer_id` END)   AS batal,
+                        SUM(COALESCE(r.`status`, '') <> 'cancelled')        AS resv
+                    ")->get() as $r) {
+            $peta[$r->koc_id] = ['pasien' => (int) $r->pasien, 'datang' => (int) $r->datang,
+                'batal' => (int) $r->batal, 'resv' => (int) $r->resv];
+        }
+        return $peta;
+    }
+
+    /**
+     * Rincian reservasi per KOC — untuk dropdown tiap baris di tab
+     * "Hasil Kode Reff". Dikelompokkan berdasarkan pemilik kode.
+     *
+     * Hanya untuk $kocIds yang sedang tampil di halaman (satu halaman
+     * pagination), jadi jumlah barisnya selalu terbatas walau datanya tumbuh.
+     * Reservasi batal sengaja tidak masuk, supaya jumlah baris di dropdown
+     * cocok dengan angka kolom "Pasien".
+     */
+    private function rincianPerKoc(array $kocIds, array $branchIds, string $start, string $end, $branches): array
+    {
+        if (! $kocIds) return [];
+
+        $baris = $this->kocReservationQuery($branchIds, $start, $end)
+            ->whereIn('p.raw_affiliate_id', $kocIds)
+            ->orderByDesc('r.date')
+            ->limit(self::KOC_DETAIL_MAKS * max(1, count($kocIds)))
+            ->get(['p.raw_affiliate_id as koc_id', 'r.date', 'r.status', 'r.raw_customer_id',
+                   'r.raw_branch_id', 'r.raw_doctor_id', 'r.promo_klaim', 'p.promo_code'])
+            ->filter(fn($r) => ($r->status ?? '') !== 'cancelled')
+            ->values();
+
+        if ($baris->isEmpty()) return [];
+
+        // Nama pasien & dokter lewat lookup whereIn (kolom lawan NILAI), BUKAN
+        // JOIN (kolom lawan kolom). Nama cabang dari $branches yang sudah ada
+        // di memori. Disengaja: JOIN raw_branch.id = raw_branch_id adalah kasus
+        // #1267 yang sudah pernah menggigit di prod (collation campur), dan
+        // tabel dokter/pasien berisiko sama.
+        $namaPasien = DB::table('raw_customer')
+            ->whereIn('id', $baris->pluck('raw_customer_id')->filter()->unique()->all())
+            ->pluck('name', 'id')->all();
+        $namaDokter = [];
+        $idDokter = $baris->pluck('raw_doctor_id')->filter()->unique()->all();
+        if ($idDokter) {
+            $namaDokter = DB::table('raw_doctor')->whereIn('id', $idDokter)->pluck('name', 'id')->all();
+        }
+        $namaCabang = collect($branches)->pluck('name', 'id')->all();
+
+        $peta = [];
+        foreach ($baris as $r) {
+            $peta[$r->koc_id][] = [
+                'tanggal'      => $this->tanggalPendek($r->date, true),
+                'pasien'       => $namaPasien[$r->raw_customer_id] ?? '—',
+                'cabang'       => $namaCabang[$r->raw_branch_id] ?? '—',
+                'dokter'       => $namaDokter[$r->raw_doctor_id] ?? '—',
+                'kode'         => $r->promo_code,
+                // Status klaim voucher oleh pasien — kolom yang SAMA dengan
+                // yang dipakai halaman Report Referral (raw_cus_reservation
+                // .promo_klaim), supaya dua tempat tidak pernah memberi
+                // jawaban berbeda untuk reservasi yang sama.
+                'klaim'        => (int) ($r->promo_klaim ?? 0) === 1,
+            ];
+        }
+        return $peta;
+    }
+
+    /**
+     * Basis query reservasi ber-kode KOC — dipakai tiga kali (agregat, daftar, rincian).
+     *
+     * INNER JOIN, bukan LEFT: promo tanpa affiliate dan promo milik KOL
+     * otomatis terbuang.
+     *
+     * Kalau prod melempar #1267 (illegal mix of collations) di salah satu
+     * predikat JOIN, obatnya tambahkan COLLATE utf8mb4_bin pada KEDUA sisi
+     * predikat itu — jangan diubah jadi whereIn(subquery), karena subquery
+     * tetap perbandingan kolom lawan kolom dan bisa melempar galat yang sama.
+     */
+    private function kocReservationQuery(array $branchIds, string $start, string $end)
+    {
+        return DB::table('raw_cus_reservation as r')
+            ->join('raw_promo as p', 'p.id', '=', 'r.raw_promo_id')
+            ->join('raw_affiliate as a', fn($j) => $j->on('a.id', '=', 'p.raw_affiliate_id')
+                                                     ->where('a.type', '=', 'koc'))
+            ->whereIn('r.raw_branch_id', $branchIds)
+            // Waitlist boleh ber-`date` NULL sejak 2026_08_12 — baris itu memang
+            // tak punya bulan, jadi tak bisa masuk laporan bulanan mana pun.
+            ->whereBetween('r.date', [$start, $end]);
+    }
+
+    /**
+     * Tanggal ringkas gaya "18 Sep".
+     *
+     * @param bool $selaluTahun Paksa tahun ikut ditulis. Dipakai tabel rincian
+     *                          reservasi: di sana tanggal tanpa tahun menyesatkan
+     *                          karena periodenya bisa digeser bebas lewat filter.
+     *                          Kalau false, tahun hanya muncul bila bukan tahun ini.
+     */
+    private function tanggalPendek($ts, bool $selaluTahun = false): ?string
+    {
+        if (! $ts) return null;
+        $d = Carbon::parse($ts);
+        $label = $d->day . ' ' . substr(self::BULAN[$d->month], 0, 3);
+        return ($selaluTahun || $d->year !== (int) date('Y'))
+            ? $label . ' ' . $d->year
+            : $label;
     }
 
     /**

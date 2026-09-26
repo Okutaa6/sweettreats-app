@@ -80,6 +80,16 @@
                                 <strong style="color:#8A4B12;">Keluhan:</strong> {{ $ldSource['keluhan'] }}
                             </div>
                         @endif
+                        @if(!empty($ldSource['promo']))
+                            {{-- Kode promo diisi pasien sendiri di form publik. Sudah
+                                 ter-pilih di dropdown "Gunakan Kode Referral" di bawah;
+                                 tetap ditulis di sini supaya kelihatan asal-usulnya. --}}
+                            <div style="margin-top:7px;padding:9px 11px;background:#EAF7EC;border:1px solid #A8D5AE;border-radius:9px;font-size:0.92em;color:#1F4B26;line-height:1.45;">
+                                <i class="fa fa-ticket-alt" style="color:#2E7D32;"></i>
+                                <strong style="color:#2E7D32;">Kode promo dari pasien:</strong> {{ $ldSource['promo'] }}
+                                <span style="color:#4A7350;">— sudah dipilihkan di "Gunakan Kode Referral". Cek dulu layanannya cocok dengan scope kode ini.</span>
+                            </div>
+                        @endif
                         <div style="font-size:0.82em;margin-top:6px;color:#7A5636;">
                             Pasien &amp; cabang sudah ter-pilih otomatis. Setelah Simpan, lead hilang dari tab Pasien Cekat AI.
                         </div>

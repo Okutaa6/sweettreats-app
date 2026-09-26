@@ -576,40 +576,6 @@
             font-weight: 500;
         }
 
-        /* ===== FOOTER ===== */
-        .foot {
-            text-align: center;
-            padding: 26px 20px 40px;
-            color: #b09a86;
-            font-size: 0.8rem;
-            border-top: 1px solid rgba(70, 21, 0, 0.06);
-            margin-top: auto;
-        }
-
-        .foot strong {
-            color: #8a5a2a;
-        }
-
-        .reserve-btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            padding: 13px 28px;
-            font-size: 0.92rem;
-            font-weight: 700;
-            color: #fff;
-            text-decoration: none;
-            background: linear-gradient(180deg, #C77B3E, #6E2E0A);
-            border-radius: 999px;
-            box-shadow: 0 8px 22px rgba(87, 32, 6, 0.3);
-            transition: transform 0.15s ease, box-shadow 0.15s ease;
-        }
-
-        .reserve-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 12px 28px rgba(87, 32, 6, 0.4);
-        }
-
         /* Di layar sempit: kolom hari ditumpuk vertikal (bukan digeser). */
         @media (max-width: 760px) {
             .week-scroll {
@@ -700,32 +666,6 @@
 
             .doc-time {
                 margin-top: 6px;
-            }
-
-            /* Mobile: tombol reservasi jadi floating menempel di bawah layar. */
-            .foot {
-                position: fixed;
-                left: 0;
-                right: 0;
-                bottom: 0;
-                z-index: 50;
-                margin-top: 0;
-                padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
-                border-top: 1px solid rgba(70, 21, 0, 0.06);
-                background: rgba(255, 255, 255, 0.9);
-                backdrop-filter: blur(8px);
-                -webkit-backdrop-filter: blur(8px);
-            }
-
-            .reserve-btn {
-                display: flex;
-                justify-content: center;
-                width: 100%;
-            }
-
-            /* Ruang ekstra di bawah agar konten terakhir tak tertutup tombol floating. */
-            body {
-                padding-bottom: 84px;
             }
         }
 
@@ -905,12 +845,6 @@
                 <p>Tidak ada dokter yang cocok dengan pencarianmu.</p>
             </div>
         @endif
-
-        <footer class="foot">
-            <a class="reserve-btn" href="https://app.sweettreats.id/reservasi" target="_blank" rel="noopener">
-                <i class="fa-solid fa-calendar-check"></i> Reservasi Sekarang
-            </a>
-        </footer>
     </div>
 
     <script>

@@ -56,6 +56,9 @@ class RawAffiliate extends Model
         'reward_program_started_at' => 'datetime',
         'tanggal_approach'          => 'date',
         'followers_count'           => 'integer',
+        // Jejak login portal affiliate (IT-2026-045). Ditulis lewat query
+        // builder di AffiliatePortalController, bukan mass-assign.
+        'last_login'                => 'datetime',
     ];
 
     const REG_STATUS_PENDING  = 'pending';

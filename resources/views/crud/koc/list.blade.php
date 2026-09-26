@@ -64,14 +64,35 @@
                 </div> {{-- end .st-card__body (top card) --}}
             </div> {{-- end .st-card (top card) --}}
 
-            {{-- ═══ CARD KEDUA: Filter + Table ═══ --}}
+            {{-- ═══ CARD KEDUA: pemilih tabel + Filter + Table ═══ --}}
             <div class="st-card mt-3">
                 <div class="st-card__body" style="padding:0;">
+
+                    {{-- Pemilih TABEL — beda jenis dari tab penyaring di kartu atas:
+                         yang di atas menyaring daftar KOC, yang ini mengganti
+                         tabelnya. Parameter pun terpisah (`tampil`, bukan `tab`)
+                         supaya keduanya bisa berlaku bersamaan. --}}
+                    <div class="koc-tabel-bar">
+                        <div class="st-view-tabs">
+                            <a class="st-view-tab {{ $tampil === 'list' ? 'active' : '' }}"
+                               href="{{ route('koc', array_merge(request()->except(['tampil', 'page']), ['tampil' => 'list'])) }}">
+                                <i class="fa fa-list"></i> List
+                            </a>
+                            <a class="st-view-tab {{ $tampil === 'hasil' ? 'active' : '' }}"
+                               href="{{ route('koc', array_merge(request()->except(['tampil', 'page']), ['tampil' => 'hasil'])) }}">
+                                <i class="fa fa-ticket-alt"></i> Hasil Kode Reff
+                                <span class="koc-tabel-bar__n">{{ $counts['hasil'] }}</span>
+                            </a>
+                        </div>
+                    </div>
 
                     {{-- ─── FILTER BAR ─── --}}
                     <form method="GET" action="{{ route('koc') }}" class="st-filter-bar" style="border-bottom:1px solid #c4ebe9; padding:10px 16px;">
                         <input type="hidden" name="tab" value="{{ $filterTab }}">
                         <input type="hidden" name="branch" value="{{ $filterBranch }}">
+                        {{-- Tanpa ini, menekan Cari saat berada di tabel "Hasil Kode Reff"
+                             akan melempar balik ke tabel List. --}}
+                        <input type="hidden" name="tampil" value="{{ $tampil }}">
 
                         @if($activeBranch)
                             <span class="st-active-branch">
@@ -84,6 +105,11 @@
                             </span>
                         @endif
 
+                        {{-- Dokter & Platform hanya relevan untuk daftar KOC.
+                             Di tabel "Hasil Kode Reff" yang dicari adalah KOC-nya,
+                             jadi keduanya disembunyikan supaya filter bar tidak
+                             penuh kontrol yang tak menyetir apa pun di tabel itu. --}}
+                        @if ($tampil !== 'hasil')
                         <label>Dokter</label>
                         <select name="doctor" onchange="this.form.submit();">
                             <option value="all" {{ $filterDoctor === 'all' ? 'selected' : '' }}>Semua Dokter</option>
@@ -103,16 +129,24 @@
                                 </option>
                             @endforeach
                         </select>
+                        @endif
 
-                        <label>Cari</label>
-                        <input type="text" name="q" value="{{ $search }}" placeholder="Nama / username / phone...">
+                        @if ($tampil === 'hasil')
+                            <label title="Menyetir kolom Pasien / Datang / Batal">Periode</label>
+                            <input type="month" name="bulan" value="{{ $periodeValue }}"
+                                   title="Periode untuk kolom Pasien / Datang / Batal">
+                        @endif
+
+                        <label>{{ $tampil === 'hasil' ? 'Cari KOC' : 'Cari' }}</label>
+                        <input type="text" name="q" value="{{ $search }}"
+                               placeholder="{{ $tampil === 'hasil' ? 'Ketik nama KOC...' : 'Nama / username / phone...' }}">
 
                         <button type="submit" class="st-btn-brand">
                             <i class="fa fa-search"></i> Cari
                         </button>
 
                         @if($search || $filterDoctor !== 'all' || $filterPlatform !== 'all')
-                            <a href="{{ route('koc', ['tab' => $filterTab, 'branch' => $filterBranch]) }}" class="st-btn-outline-brown">
+                            <a href="{{ route('koc', ['tab' => $filterTab, 'branch' => $filterBranch, 'tampil' => $tampil]) }}" class="st-btn-outline-brown">
                                 <i class="fa fa-undo"></i> Reset
                             </a>
                         @endif
@@ -121,6 +155,173 @@
                             Menampilkan <strong class="st-primary">{{ $kocs->count() }}</strong> dari <strong class="st-primary">{{ $kocs->total() }}</strong> KOC
                         </div>
                     </form>
+
+                    {{-- Banner ini BUKAN ringkasan — ini peringatan operasional:
+                         kolom jejak login belum ada di server, jadi kolom Login
+                         Portal & angka pasien mustahil terisi. Sengaja tetap ada. --}}
+                    @if (! $aktivasi['tersedia'])
+                        <div class="koc-ring koc-ring--warn">
+                            <i class="fa fa-database"></i>
+                            Pencatatan login belum aktif — jalankan <code>2026_09_23_koc_last_login.sql</code>,
+                            lalu kolom Login Portal terisi sendiri.
+                        </div>
+                    @endif
+
+                    @if ($tampil === 'hasil')
+                    {{-- ═══ TAB "HASIL KODE REFF" (IT-2026-045) ═══
+                         Isinya KOC yang PUNYA kode referral aktif — KOC tanpa
+                         kode mustahil menghasilkan pasien, jadi sengaja tidak
+                         ikut supaya daftar ini tidak penuh baris nol.
+                         Tiap baris bisa dibuka untuk melihat pasien yang memakai
+                         kode itu. --}}
+                    <div class="st-table-wrap--scroll">
+                        <table class="st-table koc-h">
+                            <thead>
+                                <tr>
+                                    <th width="4%">No</th>
+                                    <th>KOC</th>
+                                    <th>Cabang</th>
+                                    <th>Kode Referral</th>
+                                    <th class="koc-kol-num">Pasien</th>
+                                    <th width="44" class="koc-h__thtog"></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @forelse($kocs as $i => $row)
+                                    @php
+                                        $h  = $hasilKoc[$row->id] ?? ['pasien' => 0, 'datang' => 0, 'batal' => 0];
+                                        $rs = $rincianPerKoc[$row->id] ?? [];
+                                    @endphp
+                                    {{-- SELURUH baris bisa diklik untuk membuka rincian —
+                                         tidak perlu tepat mengenai tombol panahnya. Tombolnya
+                                         tetap ada sebagai penanda bahwa baris ini bisa dibuka
+                                         (dan sebagai sasaran keyboard). --}}
+                                    <tr class="koc-h__row" data-target="kocdet-{{ $row->id }}">
+                                        <td>{{ $kocs->firstItem() + $i }}</td>
+                                        <td><span class="koc-h__nama">{{ $row->name }}</span></td>
+                                        <td>{{ $row->branch->name ?? '—' }}</td>
+                                        <td>
+                                            @foreach($row->promos as $promo)
+                                                <span class="koc-dt__kode">{{ $promo->promo_code }}</span>
+                                            @endforeach
+                                        </td>
+                                        <td class="koc-kol-num {{ $h['pasien'] ? '' : 'koc-nol' }}">{{ $h['pasien'] }}</td>
+                                        <td class="koc-h__tdtog">
+                                            {{-- Tombol SELALU ada, termasuk saat pasiennya nol.
+                                                 Dulu hanya dirender kalau ada pasien — akibatnya barisnya
+                                                 terlihat tidak bisa dibuka sama sekali dan orang mengira
+                                                 fiturnya hilang. Kalau kosong, isinya yang menjelaskan. --}}
+                                            <button type="button" class="koc-h__tog"
+                                                    data-target="kocdet-{{ $row->id }}"
+                                                    aria-expanded="false"
+                                                    aria-controls="kocdet-{{ $row->id }}"
+                                                    title="Lihat pasien yang memakai kode ini">
+                                                <i class="fa fa-chevron-right"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+
+                                    <tr class="koc-h__det" id="kocdet-{{ $row->id }}" hidden>
+                                        <td colspan="6">
+                                            <div class="koc-pan">
+                                                <div class="koc-pan__head">
+                                                    <span class="koc-pan__ic"><i class="fa fa-user-friends"></i></span>
+                                                    <span class="koc-pan__judul">Pasien dari kode {{ $row->name }}</span>
+                                                    <span class="koc-pan__chip">{{ count($rs) }} pasien</span>
+                                                    <span class="koc-pan__periode">{{ $periodeLabel }}</span>
+                                                </div>
+
+                                                @if (empty($rs))
+                                                    <div class="koc-pan__kosong">
+                                                        <span class="koc-pan__kosongic"><i class="fa fa-calendar-times"></i></span>
+                                                        <div>
+                                                            <b>Belum ada pasien dari kode ini</b>
+                                                            <span>Ganti <b>Periode</b> di filter atas untuk melihat bulan lain.</span>
+                                                        </div>
+                                                    </div>
+                                                @else
+                                                    {{-- Daftar rincian sengaja BUKAN <table>.
+                                                         Blok ini bersarang di dalam .st-table, dan
+                                                         .st-table thead th / tbody td memaksa background,
+                                                         color, dan border lewat !important — tabel bersarang
+                                                         apa pun akan mewarisi pita gelap + padding tabel
+                                                         induk. Dengan CSS grid, tidak ada satu pun aturan
+                                                         tabel yang bisa bocor ke sini. --}}
+                                                    <div class="koc-dtwrap">
+                                                        <div class="koc-lst" role="table"
+                                                             aria-label="Pasien dari kode {{ $row->name }}">
+                                                            <div class="koc-lst__head" role="row">
+                                                                <span role="columnheader">Tanggal</span>
+                                                                <span role="columnheader">Nama Pasien</span>
+                                                                <span role="columnheader">Cabang</span>
+                                                                <span role="columnheader">Dokter</span>
+                                                                <span role="columnheader">Kode</span>
+                                                                <span role="columnheader">Klaim</span>
+                                                            </div>
+                                                            @foreach ($rs as $d)
+                                                                <div class="koc-lst__row" role="row">
+                                                                    <span class="koc-lst__tgl" role="cell">{{ $d['tanggal'] ?? '—' }}</span>
+                                                                    <span class="koc-lst__nama" role="cell">{{ $d['pasien'] }}</span>
+                                                                    <span role="cell">{{ $d['cabang'] }}</span>
+                                                                    <span class="koc-lst__dok" role="cell">{{ $d['dokter'] }}</span>
+                                                                    <span role="cell"><span class="koc-dt__kode">{{ $d['kode'] }}</span></span>
+                                                                    <span role="cell">
+                                                                        @if ($d['klaim'])
+                                                                            <span class="st-pill st-pill--success"><i class="fa fa-check"></i> Diklaim</span>
+                                                                        @else
+                                                                            <span class="st-pill st-pill--neutral">Belum</span>
+                                                                        @endif
+                                                                    </span>
+                                                                </div>
+                                                            @endforeach
+                                                        </div>
+                                                    </div>
+                                                @endif
+                                            </div>
+                                        </td>
+                                    </tr>
+                                @empty
+                                    <tr>
+                                        <td colspan="6">
+                                            <div class="st-empty-state">
+                                                <div class="st-empty-state__icon"><i class="fa fa-ticket-alt"></i></div>
+                                                <div class="st-empty-state__title">Belum ada KOC berkode</div>
+                                                <div class="st-empty-state__desc">
+                                                    Kode referral dibuat saat pendaftaran affiliate disetujui.
+                                                    Cek tab <strong>Semua KOC</strong> untuk melihat seluruh data.
+                                                </div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {{-- ─── PAGINATION ─── --}}
+                    @if($kocs->hasPages())
+                        <div style="padding:12px 20px; border-top:1px solid #c4ebe9; background:#f4faf9;">
+                            {{ $kocs->links() }}
+                        </div>
+                    @endif
+
+                    <div class="koc-kaki">
+                        <i class="fa fa-info-circle"></i>
+                        Reservasi <b>batal</b> tidak dihitung di kolom <b>Pasien</b>.
+                        Satu pasien yang memesan dua kali dalam periode yang sama tetap dihitung satu.
+                        {{-- `return` dibawa supaya tombol Kembali di Report Referral
+                             memulangkan ke tab ini, lengkap dengan filternya. --}}
+                        <a class="koc-btn-rr"
+                           href="{{ route('report.referral', array_merge([
+                                'date_from' => $periodeValue . '-01',
+                                'date_to'   => \Carbon\Carbon::createFromFormat('Y-m-d', $periodeValue . '-01')->endOfMonth()->format('Y-m-d'),
+                                'return'    => request()->fullUrl(),
+                           ], $filterBranch !== 'all' ? ['branch_id' => $filterBranch] : [])) }}">
+                            <i class="fa fa-external-link-alt"></i> Buka Report Referral
+                        </a>
+                    </div>
+
+                    @else
 
                     {{-- ─── TABLE ─── --}}
                     <div class="st-table-wrap--scroll">
@@ -139,7 +340,12 @@
                                         <th width="13%" style="text-align:center;">Confirmed</th>
                                     @endif
                                     <th width="10%" style="text-align:center;">Konten</th>
-                                    <th width="10%" style="text-align:center;">Kode Ref</th>
+                                    <th style="text-align:center;">Kode Ref</th>
+                                    {{-- Kolom Aktivasi, ditaruh PALING KANAN. Angka pasien
+                                         TIDAK di sini — tempatnya di tabel "Hasil Kode Reff",
+                                         supaya satu tabel tidak mencampur data kumulatif
+                                         (login) dengan data berperiode (pasien). --}}
+                                    <th class="koc-kol-batas">Login Portal</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -326,10 +532,29 @@
                                                 <span style="color:#bbb; font-size:11px;">—</span>
                                             @endif
                                         </td>
+
+                                        {{-- Login Portal — dari kolom raw_affiliate.last_login.
+                                             Tidak butuh query tambahan: nilainya sudah ikut
+                                             terbawa model yang dipaginasi. --}}
+                                        <td class="koc-kol-batas">
+                                            @if (! $aktivasi['tersedia'])
+                                                <span class="koc-nol">—</span>
+                                            @elseif ($row->last_login)
+                                                {{-- Yang dibaca duluan harus KEADAANNYA ("Sudah login"),
+                                                     baru kapannya. Tanggal telanjang bikin orang harus
+                                                     menebak sendiri apa artinya kolom ini. --}}
+                                                <span class="koc-ya">Sudah login</span>
+                                                <span class="koc-lp__tgl">{{ $row->last_login->format('j M') }}@if ($row->last_login->year !== now()->year) {{ $row->last_login->year }} @endif</span>
+                                            @elseif ($row->registration_status !== 'approved' || ! $row->is_active)
+                                                <span class="koc-nol" title="Akun ini ditolak saat mencoba login">Tak bisa login</span>
+                                            @else
+                                                <span class="koc-nol">Belum tercatat</span>
+                                            @endif
+                                        </td>
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="{{ $filterTab !== 'all' ? 11 : 10 }}">
+                                        <td colspan="{{ $kolomTotal }}">
                                             <div class="st-empty-state">
                                                 <i class="fa fa-user-slash" aria-hidden="true"></i>
                                                 <div class="st-empty-state__title">
@@ -363,6 +588,17 @@
                         <div style="padding:12px 20px; border-top:1px solid #c4ebe9; background:#f4faf9;">
                             {{ $kocs->links() }}
                         </div>
+                    @endif
+
+                    @if ($aktivasi['tersedia'])
+                        <div class="koc-kaki">
+                            <i class="fa fa-info-circle"></i>
+                            Kolom <b>Login Portal</b> mulai dicatat <b>23 Sep 2026</b> — KOC yang terakhir masuk
+                            sebelum itu tertulis "Belum tercatat". Hasil kode referral ada di tab
+                            <b>Hasil Kode Reff</b>.
+                        </div>
+                    @endif
+
                     @endif
 
                 </div>
@@ -499,6 +735,177 @@
 
 @section('css')
 <style>
+
+    /* ═══ Aktivasi & Hasil Kode di tabel KOC (IT-2026-045) ═══
+       Ditaruh di blok <style> halaman ini (bukan components.sweettreats.css)
+       supaya perubahan ini tidak menambah kewajiban rsync saat naik prod.
+       Palet ikut zona Marketing (teal) sesuai docs/spec/peta-tema.md. */
+
+    /* ── Pemilih Periode di filter bar ──────────────────────────────────
+       components.sweettreats.css & theme-marketing.css hanya menata
+       `select`, `input[type=text]` dan `input[type=search]` — `input[type=month]`
+       tidak pernah kebagian, jadi ia tampil mentah (kotak siku bawaan browser)
+       di antara kontrol lain yang sudah berbentuk pil. Aturan di bawah
+       menyalin perlakuan yang sama persis, ditaruh di halaman ini supaya
+       tidak menambah kewajiban rsync saat naik prod. */
+    .st-filter-bar input[type="month"] {
+        height:36px; padding:0 12px; border:1px solid #d8ece9; border-radius:999px;
+        background:#fff; color:#0a4f4d; font-size:13px; font-weight:500; line-height:36px;
+        font-family:'Montserrat', sans-serif; box-shadow:0 1px 2px rgba(10,79,77,.04);
+        transition:border-color .18s ease, box-shadow .18s ease; cursor:pointer;
+    }
+    .st-filter-bar input[type="month"]:hover { border-color:#c4ebe9; }
+    .st-filter-bar input[type="month"]:focus {
+        border-color:#13928e; outline:none; box-shadow:0 0 0 3px rgba(19,146,142,.12);
+    }
+    /* Ikon kalender bawaan browser: disamakan warnanya, diberi jarak. */
+    .st-filter-bar input[type="month"]::-webkit-calendar-picker-indicator {
+        opacity:.55; cursor:pointer; margin-left:4px; filter:grayscale(1);
+    }
+    .st-filter-bar input[type="month"]:hover::-webkit-calendar-picker-indicator { opacity:.9; }
+    /* Buang tombol spinner bawaan yang bikin kotaknya terlihat mentah. */
+    .st-filter-bar input[type="month"]::-webkit-inner-spin-button,
+    .st-filter-bar input[type="month"]::-webkit-clear-button { display:none; }
+
+    /* Banner peringatan kalau kolom jejak login belum ada di server */
+    .koc-ring { display:flex; flex-wrap:wrap; align-items:center; gap:9px;
+        padding:11px 20px; background:#f4faf9; border-bottom:1px solid #c4ebe9;
+        font-size:12.5px; color:#33514f; }
+    .koc-ring--warn { color:#8a6d3b; background:#fbf6ec; border-bottom-color:#efe0c6; gap:8px; }
+    .koc-ring--warn i { color:#c0912f; }
+    .koc-ring--warn code { background:#fff; border:1px solid #efe0c6; border-radius:5px;
+        padding:1px 6px; font-size:11.5px; color:#6b5424; }
+
+    /* Garis tegak penanda awal tiap rumpun kolom.
+       Di <th> dipakai box-shadow inset, BUKAN border: komponen .st-table
+       memasang `border: none !important` pada thead th, jadi border apa pun
+       di sana tidak akan pernah kelihatan. */
+    .st-table thead th.koc-kol-batas { box-shadow: inset 2px 0 0 rgba(255,255,255,.45); }
+    .st-table td.koc-kol-batas { border-left:2px solid #c4ebe9; }
+    /* Label rumpun kecil, menempel di judul kolom pembuka rumpunnya */
+    .koc-kol-grp { display:block; font-size:8.5px; font-weight:700; letter-spacing:.8px;
+        opacity:.72; margin-top:2px; }
+    .st-table th.koc-kol-num, .st-table td.koc-kol-num { text-align:right;
+        font-variant-numeric:tabular-nums; font-weight:700; white-space:nowrap; }
+    .koc-ya { color:#2F8E55; font-weight:700; white-space:nowrap; }
+    .koc-nol { color:#9bb3b0; font-weight:500; }
+    /* Tanggal login terakhir — baris kecil di bawah "Sudah login" */
+    .koc-lp__tgl { display:block; font-size:10.5px; font-weight:500; color:#5a7572;
+        margin-top:2px; white-space:nowrap; }
+
+    /* Rincian per reservasi — dropdown <details> + tabel kompak (tanpa JS) */
+    .koc-drop { padding:12px 20px 0; border-top:1px solid #c4ebe9; }
+    .koc-drop > summary { cursor:pointer; list-style:none; display:flex; align-items:center; gap:8px;
+        font-size:12px; font-weight:700; color:#13928e; padding-bottom:4px; }
+    .koc-drop > summary::-webkit-details-marker { display:none; }
+    .koc-drop > summary:focus-visible { outline:2px solid #13928e; outline-offset:3px; border-radius:6px; }
+    .koc-drop__ch { transition:transform .15s ease; font-size:11px; }
+    .koc-drop[open] .koc-drop__ch { transform:rotate(90deg); }
+    .koc-drop__n { font-weight:500; color:#5a7572; }
+    .koc-dtwrap { overflow-x:auto; }
+
+    /* Daftar rincian berbasis CSS GRID, bukan <table>.
+       Alasannya struktural: blok ini hidup di dalam .st-table, yang memaksa
+       background/color/border lewat !important pada thead th & tbody td —
+       tabel bersarang pasti ikut terseret. Grid tidak tersentuh aturan itu.
+       Tiap baris memakai template kolom yang sama, jadi tetap sejajar. */
+    .koc-lst { --kol: 108px minmax(150px,1.5fr) 96px minmax(170px,1.7fr) 104px 108px;
+        min-width:772px; }
+    .koc-lst__head, .koc-lst__row { display:grid; grid-template-columns:var(--kol);
+        align-items:center; gap:12px; padding:0 16px; }
+    .koc-lst__head { height:32px; font-size:9.5px; font-weight:800; text-transform:uppercase;
+        letter-spacing:.7px; color:#5a7572; border-bottom:1px solid #e3f1ef; }
+    .koc-lst__row { min-height:40px; font-size:12.5px; color:#33514f;
+        border-bottom:1px solid #f2f9f8; }
+    .koc-lst__row:last-child { border-bottom:0; }
+    .koc-lst__row:hover { background:#fbfefe; }
+    .koc-lst__row > span { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .koc-lst__tgl { font-weight:700; color:#0a4f4d; }
+    .koc-lst__nama { font-weight:700; color:#0a4f4d; }
+    .koc-lst__dok { color:#5a7572; }
+    .koc-dt__kode { display:inline-block; font-size:10.5px; font-weight:700; color:#0a4f4d;
+        background:#e6f5f4; border:1px solid #c4ebe9; border-radius:6px; padding:1px 7px; }
+
+    /* ── Tab "Hasil Kode Reff": baris KOC yang bisa dibuka ── */
+    /* Kolom tombol paling kiri — sempit dan rata tengah */
+    .st-table.koc-h th.koc-h__thtog, .st-table.koc-h td.koc-h__tdtog {
+        width:44px; padding-left:0; padding-right:14px; text-align:center; }
+
+    /* Tombol BULAT, bukan kotak */
+    .koc-h__tog { width:26px; height:26px; border-radius:50%; border:1px solid #c4ebe9;
+        background:#fff; color:#13928e; font-size:10px; line-height:1; cursor:pointer;
+        display:inline-flex; align-items:center; justify-content:center; padding:0;
+        vertical-align:middle; transition:transform .18s ease, background .18s ease,
+        border-color .18s ease, color .18s ease; }
+    .koc-h__tog:focus-visible { outline:2px solid #13928e; outline-offset:2px; }
+    .koc-h__tog--buka { transform:rotate(90deg); background:#13928e; border-color:#13928e; color:#fff; }
+
+    /* Seluruh baris bisa diklik */
+    .st-table.koc-h tbody tr.koc-h__row { cursor:pointer; }
+    .st-table.koc-h tbody tr.koc-h__row:hover .koc-h__tog {
+        background:#e6f5f4; border-color:#13928e; }
+    .st-table.koc-h tbody tr.koc-h__row--buka:hover .koc-h__tog { background:#13928e; }
+    /* Baris yang sedang terbuka diberi penanda supaya jelas milik rincian mana */
+    .st-table.koc-h tbody tr.koc-h__row--buka td { background:#f4faf9 !important; }
+    .koc-h__nama { font-weight:700; color:#0a4f4d; }
+    /* Panel rincian yang muncul saat baris dibuka — kartu putih di atas
+       latar teal muda, supaya jelas "ini isi dari baris di atasnya". */
+    .st-table.koc-h tbody tr.koc-h__det td,
+    .st-table.koc-h tbody tr.koc-h__det:hover td { background:#eef7f6 !important; padding:0;
+        box-shadow: inset 3px 0 0 #13928e; }
+    .koc-pan { margin:12px 18px 16px; background:#fff; border:1px solid #c4ebe9;
+        border-radius:14px; box-shadow:0 1px 2px rgba(10,79,77,.05), 0 6px 18px rgba(10,79,77,.06);
+        overflow:hidden; }
+    .koc-pan__head { display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+        padding:12px 16px; border-bottom:1px solid #eef7f6; background:#fcfefe; }
+    .koc-pan__ic { width:26px; height:26px; border-radius:8px; background:#e6f5f4; color:#13928e;
+        display:inline-flex; align-items:center; justify-content:center; font-size:12px; flex:0 0 auto; }
+    .koc-pan__judul { font-size:13px; font-weight:700; color:#0a4f4d; }
+    .koc-pan__chip { font-size:11px; font-weight:800; color:#0a4f4d; background:#e6f5f4;
+        border:1px solid #c4ebe9; border-radius:20px; padding:2px 10px; }
+    .koc-pan__periode { margin-left:auto; font-size:11.5px; color:#5a7572; }
+    .koc-pan .koc-dtwrap { padding:0 0 6px; }
+
+    .koc-pan__kosong { display:flex; align-items:center; gap:12px; padding:18px 16px; }
+    .koc-pan__kosongic { width:34px; height:34px; border-radius:50%; background:#eef7f6; color:#a9c7c4;
+        display:inline-flex; align-items:center; justify-content:center; font-size:14px; flex:0 0 auto; }
+    .koc-pan__kosong b { display:block; font-size:13px; color:#0a4f4d; }
+    .koc-pan__kosong span { font-size:11.5px; color:#5a7572; }
+    .koc-pan__kosong span b { display:inline; font-size:inherit; }
+
+    /* Bar pemilih tabel (List / Hasil Kode Reff) di kartu tabel */
+    .koc-tabel-bar { display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+        padding:12px 20px; border-bottom:1px solid #c4ebe9; background:#fff; }
+
+    /* .st-view-tabs di components.sweettreats.css memakai gradien CREAM yang
+       DI-HARDCODE (#F7F1E9 → #F2EBE1) — bukan token --brown*, jadi ia tidak
+       ikut berubah saat halaman berada di zona Marketing (teal) dan warnanya
+       bertabrakan. Ditimpa di sini saja, tidak menyentuh 10 halaman lain yang
+       memakai komponen yang sama. */
+    .koc-tabel-bar .st-view-tabs { background:#f4faf9; border-color:#c4ebe9;
+        box-shadow:inset 0 1px 2px rgba(10,79,77,.04); }
+    .koc-tabel-bar .st-view-tab { color:#5a7572; }
+    .koc-tabel-bar .st-view-tab:hover { background:#e6f5f4; color:#0a4f4d; }
+    .koc-tabel-bar .st-view-tab.active { background:#13928e; color:#fff;
+        box-shadow:0 2px 6px rgba(10,79,77,.16), 0 1px 2px rgba(10,79,77,.08); }
+    .koc-tabel-bar__n { font-size:10.5px; font-weight:800; background:#e6f5f4; color:#0a4f4d;
+        border:1px solid #c4ebe9; border-radius:20px; padding:1px 8px; margin-left:2px; }
+    .st-view-tab.active .koc-tabel-bar__n { background:rgba(255,255,255,.22); border-color:transparent; color:#fff; }
+
+    .koc-kaki { padding:11px 20px; border-top:1px solid #c4ebe9; background:#fcfefe;
+        font-size:11.5px; color:#5a7572; line-height:1.6; }
+    .koc-kaki i { color:#a9c7c4; margin-right:5px; }
+    /* Tautan ke Report Referral dibuat berbentuk tombol: sebagai teks biasa
+       di tengah catatan kaki ia nyaris tak terlihat sebagai sesuatu yang bisa diklik. */
+    .koc-btn-rr { display:inline-flex; align-items:center; gap:7px; margin-left:8px;
+        height:30px; padding:0 14px; border-radius:999px; border:1px solid #13928e;
+        background:#fff; color:#0a6f6b !important; font-size:11.5px; font-weight:700;
+        text-decoration:none !important; white-space:nowrap;
+        box-shadow:0 1px 2px rgba(10,79,77,.06); transition:background .18s ease, color .18s ease; }
+    .koc-btn-rr i { color:#13928e; margin-right:0; font-size:10px; }
+    .koc-btn-rr:hover { background:#13928e; color:#fff !important; }
+    .koc-btn-rr:hover i { color:#fff; }
+    .koc-btn-rr:focus-visible { outline:2px solid #13928e; outline-offset:2px; }
     /* ─── Dokter & Perawatan inline select (sementara, Super Admin) ── */
     .koc-doctor-select,
     .koc-behel-select {
@@ -707,6 +1114,37 @@
 
 @section('js')
 <script>
+    // ─── Tab "Hasil Kode Reff": buka/tutup rincian pasien per KOC ─────
+    // Yang ditangkap adalah klik pada BARIS, bukan hanya pada tombol panahnya —
+    // jadi mengklik di mana pun pada baris itu membuka rinciannya. Tombolnya
+    // ikut terbawa karena berada di dalam baris (klik-nya menggelembung),
+    // sehingga tidak ada dua penangan yang saling membatalkan.
+    //
+    // Event delegation supaya tetap jalan berapa pun barisnya, dan memakai
+    // properti .hidden (bukan style.display) agar tidak bertabrakan dengan
+    // aturan tampilan tabel.
+    document.addEventListener('click', function (e) {
+        // Elemen interaktif di dalam baris (kalau kelak ada) tetap didahulukan,
+        // kecuali tombol panah itu sendiri.
+        if (e.target.closest('a, input, select, textarea') ) return;
+
+        var baris = e.target.closest('.koc-h__row[data-target]');
+        if (!baris) return;
+
+        var rincian = document.getElementById(baris.dataset.target);
+        if (!rincian) return;
+
+        var buka = rincian.hidden;
+        rincian.hidden = !buka;
+
+        var tombol = baris.querySelector('.koc-h__tog');
+        if (tombol) {
+            tombol.setAttribute('aria-expanded', buka ? 'true' : 'false');
+            tombol.classList.toggle('koc-h__tog--buka', buka);
+        }
+        baris.classList.toggle('koc-h__row--buka', buka);
+    });
+
     // ─── Klik row → navigasi ke halaman edit ──────────────────────────
     document.querySelectorAll('.st-table--clickable tr[data-href]').forEach(function(row) {
         row.addEventListener('click', function(e) {
