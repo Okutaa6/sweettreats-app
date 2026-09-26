@@ -6,6 +6,148 @@
 > file ini append-only.
 
 ---
+## 2026-09-26 — Foto bukti WAJIB untuk lembur & WFH (`feat/foto-wajib-lembur-wfh`, dev/prod belum)
+
+Branch `feat/foto-wajib-lembur-wfh` dari `main` (`5b3483d`). **Nol SQL.**
+Sumber: `docs/handoff/handoff-foto-wajib-lembur-wfh.md` (keputusan
+Nisa/Supervisor lewat Ikhsan; sosialisasi ke karyawan sudah dilakukan).
+
+### Yang berubah
+- **`AttRequest::TIPE_WAJIB_FOTO = ['lembur','wfh']`** — satu sumber kebenaran,
+  dibaca gerbang server DAN form. Alasannya ditulis di docblock-nya lengkap
+  dengan angka prod yang membatalkan premis lama.
+- **Gerbang di `store()`** — di server, bukan cuma `required` di form.
+- **Form**: `suratDokter()` → `aturLampiran()` (namanya sudah menyesatkan,
+  sekarang ia mengurus tiga jenis), teks lama *"(opsional — kalau lembur/kerja
+  dari rumah tanpa absen mesin…)"* diganti karena **sudah tidak benar**, dan
+  tombol kirim memakai pola P3: **"Lampirkan foto dulu"** lalu hidup sendiri
+  begitu fotonya dipilih — bukan menolak sesudah dikirim.
+- Komentar lama di `store()` yang berbunyi *"tak dipaksa biar tak nge-block;
+  approver yang menilai kelengkapan"* **diperbarui** — premis itu sudah diuji
+  kenyataan dan gagal (96,6% disetujui, termasuk 290 tanpa foto).
+
+### ⛔ Urutan gerbang: KEMBAR dulu, baru FOTO
+Sesuai saran HUB, dan alasannya diperkuat: kalau foto duluan, orang yang
+mengirim lembur kembar tanpa foto akan disuruh melampirkan foto, mengirim
+ulang, **lalu baru** ditolak karena kembar — dua kali kerja untuk pengajuan yang
+memang tidak boleh ada. Ada ujinya, dan kendali negatifnya (menukar urutan
+kedua blok membuat uji itu merah).
+
+### ⛔ BUG NYATA yang ketemu di jalan — nama berkas bertabrakan
+`$fotoName = {user}_{time()}.{ext}`. Dua unggahan **orang yang sama dalam detik
+yang sama** menghasilkan nama identik. Di Windows gagal keras (500 — itu yang
+menyingkapnya saat uji); di **Linux prod `rename` menimpa DIAM-DIAM**: foto
+pengajuan lama berganti jadi foto pengajuan baru, tanpa gejala sampai ada yang
+membuka lampiran lama dan melihat bukti milik hari lain.
+
+Gerbong ini justru **menaikkan peluangnya** — dulu ~43% lembur berfoto, sekarang
+100%. Diperbaiki dengan `Str::random(6)` pada nama berkas, + uji yang
+membuktikan dua kiriman menghasilkan DUA berkas (kendali negatif: kembalikan ke
+`time()` saja → hanya 1 berkas yang tersisa, uji merah).
+
+### Susulan: berkas yatim + pra-cek jatah WFH (audit HUB, `handoff-fix-berkas-yatim-pengajuan.md`)
+`$file->move()` terjadi **sebelum** `DB::transaction` dan berkas tidak ikut
+rollback. Tiga jalan gagal di dalam transaksi (jatah WFH · kembar cek ke-2 ·
+`submit()` mis. alur persetujuan belum diatur) dulu meninggalkan berkas yatim —
+dan **sejak foto wajib, yang dulu sesekali jadi setiap kali**. Dua perbaikan:
+
+1. **Pra-cek jatah WFH** tanpa kunci, sesudah gerbang foto, sebelum berkas
+   dipindah. `pastikanJatahWfhCukup()` dapat parameter `bool $kunci = true`
+   dan meneruskannya ke `hariWfhTerpakai()` yang memang sudah punya. Pesannya
+   dipakai lewat `$e->getMessage()` — kalimatnya tetap hidup di SATU tempat.
+   ⛔ Cek di DALAM transaksi tetap berkunci; pra-cek itu tambahan, **bukan
+   pengganti** (ada uji yang menjaga bentuknya).
+2. **`@unlink` berkas request ini saja** di `catch`, dengan `$dir` diangkat ke
+   luar blok. `catch` jadi `\Throwable` tapi perilakunya sama: `RuntimeException`
+   → pesan ramah, sisanya **tetap `throw $e`**.
+
+⛔ Tidak dibuat perintah penyapu berkas yatim, dan yang lama tidak disapu —
+prod 26 Sep terukur **0 yatim**, 239 lampiran semuanya bisa dibuka.
+
+### ⚠️ Kendali negatif yang TIDAK terjadi seperti dugaan — dan itu temuan
+Handoff memperkirakan "cabut pra-cek → uji berkas-yatim merah". **Tidak merah.**
+Sebabnya: dua lapis itu saling menutupi — tanpa pra-cek, `@unlink` yang
+membersihkan; tanpa `@unlink`, pra-cek yang mencegah berkas ditulis. Uji yang
+hanya lewat kasus jatah WFH tidak bisa membedakan keduanya, dan **uji yang tak
+bisa merah saat pagarnya dicabut bukan pagar, cuma hiasan.**
+
+➜ Ditambah uji terpisah lewat jalan gagal yang **tidak punya pra-cek**: orang
+tanpa alur persetujuan → `submit()` melempar di dalam transaksi. Sekarang
+terpisah bersih dan terukur:
+
+| sabotase | uji jatah WFH | uji workflow |
+|---|---|---|
+| cabut `@unlink` | hijau (pra-cek menahan) | **merah** |
+| cabut pra-cek | hijau (`@unlink` menahan) | — |
+| cabut **keduanya** | **merah** | **merah** |
+
+### Yang TIDAK disentuh (sesuai handoff §4)
+302 baris lembur + 6 WFH lama tanpa foto **dibiarkan** — itu sejarah, bukan
+cacat. `AttImportLembur` (command manual, `foto => null`) tidak disentuh;
+gerbang ada di `store()` jadi command itu memang tak terkena. `sakit` tetap
+dengan aturannya sendiri. Penyimpanan tetap di `storage/app/att_request`.
+
+Diverifikasi: `store()` memang satu-satunya jalur HTTP yang membuat lembur/wfh
+(tiga titik `AttRequest::create` — command impor, `simpanTukarHari`, dan
+`buatPengajuan()` yang dipanggil dari dalam transaksi `store()` sesudah gerbang),
+dan **tidak ada rute edit/update**, jadi foto tak bisa dicabut belakangan.
+
+### Uji
+| berkas | hasil |
+|---|---|
+| `tests/Feature/PagarLemburLayarTest.php` (diperluas) | **19 uji · 54 asersi hijau** |
+| `tests/Feature/PagarLemburTest.php` (tak diubah) | **16 uji · 42 asersi hijau** |
+| `tests/js/uji-form-pengajuan.cjs` (baru) | **24 pemeriksaan hijau** |
+
+Kedelapan poin uji terima handoff tertutup, tiap penolakan berpasangan dengan
+kendali positif — di jalur ini pagar yang kegalakan ongkosnya bukan daftar yang
+rapi, melainkan **orang yang berhenti mengklaim lembur yang benar-benar
+dikerjakan**. Termasuk kendali: sakit 1 hari, cuti, dan izin tetap lolos tanpa
+foto; aturan surat dokter ≥3 hari tidak bergeser.
+
+`tests/js/uji-form-pengajuan.cjs` menjalankan blok `<script>` form APA ADANYA di
+atas DOM tiruan (nol dependensi, `.cjs` karena package.json `"type": "module"`).
+Ia menutup yang tak terjangkau phpunit: label berganti, `input.required`,
+tombol P3 hidup/mati, dan **jenis lain tidak ikut terkunci**.
+
+Tujuh kendali negatif dijalankan, tiap sabotase **diverifikasi kena sasaran
+lebih dulu** sebelum hasilnya dipercaya: cabut gerbang · masukkan `sakit` ke
+daftar wajib · kembalikan nama berkas ke `time()` · tukar urutan kembar↔foto ·
+matikan pesan tombol P3 · cabut `@unlink` · cabut pra-cek + `@unlink` sekaligus.
+Satu di antaranya TIDAK merah seperti dugaan, dan itu justru yang paling
+berguna — lihat bagian kendali negatif di atas.
+
+### ⚠️ Dua ranjau LOKAL yang ketemu (bukan cacat kode, dan bukan dari gerbong ini)
+DB lokal tertinggal dari prod, dan itu sempat menyamar jadi kegagalan kode:
+- **`att_request.tipe` ENUM belum memuat `sakit`** → uji kendali sakit gagal
+  dengan *"Data truncated for column 'tipe'"*. Diperbaiki dengan `ALTER` polos.
+- **Tabel `sys_setting` tidak ada** → `PagarLemburTest` 16/16 error. Dibuktikan
+  dengan `git stash` bahwa itu mendahului gerbong ini; setelah tabelnya dibuat
+  di lokal, 16/16 hijau.
+
+### ⚠️ Pelajaran metode — merah yang menuduh kode, padahal ujinya
+Satu uji LAMA sempat merah dan sempat terbaca seperti lubang di gerbang kembar.
+Sebabnya ternyata `sed` saya sendiri yang terlalu luas: ia mengubah uji lama
+agar membuat baris pembanding untuk ORANG LAIN, sementara POST-nya atas nama
+orang aslinya — jadi memang tidak ada kembar, dan gerbang foto yang bicara.
+➜ Sesudah `sed` beruas luas pada berkas uji, **hitung ulang SEMUA kemunculannya**,
+jangan cuma yang terlihat di layar. Dan fixture uji yang dipilih dengan `first()`
+tanpa `orderBy` membuat uji hijau/merah bergantian tanpa kode berubah — dua
+tempat sudah diberi `orderBy`.
+
+### Deploy
+**Nol SQL**, nol `public/assets/**` → **tanpa rsync**. `routes/web.php` tidak
+berubah. ⚠️ Sebelum deploy prod, ukur dulu `git log <HEAD-prod>..main` —
+`deploy.sh main` membawa SELURUH main.
+
+### Risiko yang sudah diterima (handoff §7)
+Tujuh orang praktis tak pernah melampirkan foto; hari pertama aturan ini hidup
+mereka menabrak tembok. Keputusan & tanggung jawabnya di Nisa/Supervisor.
+➜ Sesudah live, lihat **jumlah pengajuan lembur per minggu**. Kalau anjlok tajam
+(bukan sekadar bergeser), itu tandanya orang berhenti mengklaim — bukan tandanya
+aturan berhasil.
+
+---
 ## 2026-09-26 (sore) — 📋 Foto bukti WAJIB untuk lembur & WFH — DISCOPE, diserahkan ke chat build
 
 Permintaan Finance/operasional lewat Ikhsan: lembur tak bisa dikirim tanpa foto.

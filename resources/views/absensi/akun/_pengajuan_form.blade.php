@@ -171,30 +171,51 @@
     // Ambangnya dibaca dari model (satu sumber angka), bukan diketik ulang di
     // sini — kalau kebijakannya berubah, tak ada dua tempat yang bisa beda.
     var SAKIT_MIN_SURAT = {{ \App\Models\AttRequest::SAKIT_HARI_WAJIB_SURAT }};
+    // Jenis yang foto buktinya WAJIB tanpa syarat — dibaca dari model, sama
+    // seperti ambang surat dokter di atas. Gerbang sungguhannya di server
+    // (AkunPengajuanController::store); yang di sini supaya orang tahu SEBELUM
+    // menekan kirim, bukan ditolak sesudahnya.
+    var TIPE_WAJIB_FOTO = @json(\App\Models\AttRequest::TIPE_WAJIB_FOTO);
     function sakitHari() {
         var a = document.getElementById('tglFrom'), b = document.getElementById('tglTo');
         if (!a || !b || !a.value || !b.value) return 1;
         var d = (new Date(b.value) - new Date(a.value)) / 86400000;
         return isNaN(d) ? 1 : Math.max(1, Math.floor(d) + 1);
     }
-    function suratDokter(t) {
+    /**
+     * Atur label & kewajiban LAMPIRAN menurut jenis pengajuan.
+     *
+     * Dulu bernama suratDokter() waktu cuma mengurus sakit; sekarang ia
+     * mengatur tiga jenis (sakit, lembur, wfh), jadi namanya ikut berubah —
+     * nama yang tertinggal di belakang isinya itu yang bikin orang berikutnya
+     * salah menebak apa yang boleh disentuh.
+     */
+    function aturLampiran(t) {
         var lbl = document.getElementById('fotoLbl'), note = document.getElementById('fotoNote');
         var input = document.getElementById('fotoInput');
         if (!lbl || !note || !input) return;
-        var wajib = (t === 'sakit') && sakitHari() >= SAKIT_MIN_SURAT;
+        var wajibFoto = TIPE_WAJIB_FOTO.indexOf(t) !== -1;
+        var wajib = ((t === 'sakit') && sakitHari() >= SAKIT_MIN_SURAT) || wajibFoto;
 
         if (t === 'sakit') {
             lbl.childNodes[0].nodeValue = wajib ? 'Surat Dokter ' : 'Foto Bukti ';
             note.textContent = wajib
                 ? '(wajib — sakit ' + sakitHari() + ' hari perlu surat dokter)'
                 : '(opsional — sakit 1–2 hari tidak perlu surat dokter)';
-            note.style.color = wajib ? '#C0392B' : '';
+        } else if (wajibFoto) {
+            // Kalimat lama "(opsional — kalau lembur/kerja dari rumah tanpa absen
+            // mesin, foto ini buktinya)" SUDAH TIDAK BENAR untuk dua jenis ini.
+            lbl.childNodes[0].nodeValue = 'Foto Bukti ';
+            note.textContent = t === 'wfh'
+                ? '(wajib — kerja dari rumah tanpa foto bukti tidak bisa dikirim)'
+                : '(wajib — lembur tanpa foto bukti tidak bisa dikirim)';
         } else {
             lbl.childNodes[0].nodeValue = 'Foto Bukti ';
-            note.textContent = '(opsional — kalau lembur/kerja dari rumah tanpa absen mesin, foto ini buktinya)';
-            note.style.color = '';
+            note.textContent = '(opsional — lampirkan kalau ada yang perlu ditunjukkan)';
         }
+        note.style.color = wajib ? '#C0392B' : '';
         input.required = wajib;
+        aturTombolKirim();
     }
     // Rentang tanggal ikut menentukan wajib-tidaknya surat, jadi label harus
     // ikut berubah saat tanggalnya digeser — bukan cuma saat jenis dipilih.
@@ -202,7 +223,7 @@
         var el = document.getElementById(id);
         if (el) el.addEventListener('change', function () {
             var t = document.getElementById('tipeHidden');
-            if (t) suratDokter(t.value);
+            if (t) aturLampiran(t.value);
         });
     });
 
@@ -230,7 +251,7 @@
         durBox.style.display = isLembur ? '' : 'none';
         wfhBlocked.style.display = (t === 'wfh' && wfhUsed >= 2) ? '' : 'none';
         wfhInfo.style.display    = (t === 'wfh' && wfhUsed < 2) ? '' : 'none';
-        suratDokter(t);
+        aturLampiran(t);
 
         // Lembur = satu hari saja: sembunyikan "Tanggal Selesai" dan samakan
         // nilainya, biar tak ada rentang yang tak akan dihormati server.
@@ -245,14 +266,38 @@
             if (isLembur) tglTo.value = tglFrom.value;
         }
 
-        var ajTeks = form.querySelector('#ajSubmitTeks');
         if (isTukar) {
             syncTukar();                       // dia sendiri yang mengatur tombol
         } else {
-            submitBtn.disabled = !t;
-            if (ajTeks) ajTeks.textContent = t ? 'Kirim Permohonan' : 'Pilih jenis dulu';
+            aturTombolKirim();
         }
         if (isLembur) calcDur();
+    }
+
+    /**
+     * Tombol kirim untuk jenis SELAIN tukar hari (tukar diurus syncTukar).
+     *
+     * Pola P3 — tombol mati yang bilang KENAPA. Untuk lembur & WFH, ditolak
+     * sesudah dikirim itu ongkos yang tak perlu: orangnya sudah mengisi jam,
+     * tanggal, keterangan, lalu dipentalkan. Lebih baik tombolnya bilang apa
+     * yang kurang selagi masih bisa dilengkapi.
+     */
+    function aturTombolKirim() {
+        if (tipeHidden.value === 'tukar') return;
+
+        var t     = tipeHidden.value;
+        var teks  = form.querySelector('#ajSubmitTeks');
+        var foto  = document.getElementById('fotoInput');
+        var pesan = null;
+
+        if (!t) {
+            pesan = 'Pilih jenis dulu';
+        } else if (TIPE_WAJIB_FOTO.indexOf(t) !== -1 && foto && !foto.files.length) {
+            pesan = 'Lampirkan foto dulu';
+        }
+
+        submitBtn.disabled = !!pesan;
+        if (teks) teks.textContent = pesan || 'Kirim Permohonan';
     }
 
     // ── Tukar hari: dua daftar tanggal yang harus seimbang ──
@@ -350,6 +395,10 @@
     var fotoInput = form.querySelector('#fotoInput'), fotoZone = form.querySelector('#fotoZone'), fotoLabel = form.querySelector('#fotoLabel');
     fotoZone.addEventListener('click', function () { fotoInput.click(); });
     fotoInput.addEventListener('change', function () {
+        // Tombol kirim ikut hidup begitu fotonya dilampirkan — tanpa ini
+        // orangnya sudah melampirkan foto tapi tombolnya tetap mati, dan itu
+        // terbaca sebagai aplikasi rusak, bukan sebagai pagar.
+        aturTombolKirim();
         if (fotoInput.files.length) { fotoZone.classList.add('has'); fotoLabel.textContent = '✓ ' + fotoInput.files[0].name; }
         else { fotoZone.classList.remove('has'); fotoLabel.textContent = 'Klik untuk lampirkan foto'; }
     });
