@@ -6,6 +6,49 @@
 > file ini append-only.
 
 ---
+## 2026-09-26 (sore) — 📋 Foto bukti WAJIB untuk lembur & WFH — DISCOPE, diserahkan ke chat build
+
+Permintaan Finance/operasional lewat Ikhsan: lembur tak bisa dikirim tanpa foto.
+Keputusan & tanggung jawab ada di **Nisa/Supervisor**; sosialisasi sudah jalan.
+Brief: `docs/handoff/handoff-foto-wajib-lembur-wfh.md`. **HUB tidak membangun** —
+ini kode fitur, jatahnya chat build.
+
+**Keputusan Ikhsan 26 Sep:** tanpa syarat (tak peduli scan cocok atau tidak) ·
+WFH ikut wajib · pengajuan lama dibiarkan apa adanya.
+
+**⭐ Temuan yang mengubah bingkainya.** Ini bukan fitur baru — SOP-nya sudah ada,
+penegakannya yang sengaja dilepas. Komentar `AkunPengajuanController:375`:
+*"wajib secara SOP untuk lembur/wfh yg tak ada scan, tapi tak dipaksa di sini
+(biar tak nge-block; approver yang menilai kelengkapan)."*
+**Premis itu sudah diuji kenyataan dan gagal:** dari 531 lembur di prod,
+**513 disetujui (96,6%)** — termasuk **290 tanpa foto**. Approver tidak menyaring.
+
+**Angka prod:** 302 dari 531 lembur (**56,9%**) tanpa foto, dan **memburuk**
+(Agustus 56% berfoto → September 34,9%). **205 klaim** ber-`verifikasi=selisih`
+(tak cocok catatan mesin) **sekaligus tanpa foto**.
+
+**⛔ Bukan soal jenis pekerjaan — terukur.** Di role yang SAMA: GS Tito 30/31 &
+Noval 24/24 vs Ramdan 1/36 & Wahyudin 1/31 · AsDent Rokhmatun 33/36 & Anggita
+19/20 vs Rizka 2/33 & Alviona 1/29 · FO Afrina 38/38 vs Verini 2/20. Cabangnya
+campur juga. → kebiasaan per ORANG, akibat aturan tak pernah ditegakkan seragam.
+
+**⛔ Foto tak berkorelasi dengan kualitas bukti:** pada klaim yang scan-nya
+`nyambung` yang berfoto cuma 50%, praktis sama dengan `selisih` (42%). Karena itu
+aturannya tanpa syarat — versi bersyarat tak akan mengubah perilaku.
+
+**Risiko dicatat & diterima:** 7 orang praktis tak pernah melampirkan; hari
+pertama mereka menabrak tembok, dan sebagian bisa berhenti mengklaim lembur yang
+benar-benar dikerjakan (kerja tak terbayar lebih buruk daripada foto hilang).
+➜ sesudah live, pantau **jumlah pengajuan lembur per minggu**; anjlok tajam =
+orang berhenti mengklaim, bukan aturan berhasil.
+
+Lingkup: nol SQL (kolom `foto` sudah ada), nol rute baru (`store()` satu-satunya
+jalur HTTP), pola tiruan = gerbang surat dokter sakit ≥3 hari, uji diperluas di
+`PagarLemburTest.php` **dengan kendali negatif** (sakit 1–2 hari & cuti/izin
+harus TETAP boleh tanpa foto).
+
+---
+
 ## 2026-09-26 — 🚀 Push Reza NAIK PROD (`70de50e`) — prod ternyata tertinggal 8 hari dari main
 
 ### Yang naik
