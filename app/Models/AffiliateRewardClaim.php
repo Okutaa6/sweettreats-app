@@ -18,13 +18,17 @@ class AffiliateRewardClaim extends Model
         'status',
         'claimed_at',
         'processed_by',
+        'processed_at',
+        'consumed_content_count',
         'notes',
         'created_at',
     ];
 
     protected $casts = [
-        'claimed_at' => 'datetime',
-        'created_at' => 'datetime',
+        'claimed_at'             => 'datetime',
+        'processed_at'           => 'datetime',
+        'created_at'             => 'datetime',
+        'consumed_content_count' => 'integer',
     ];
 
     const STATUS_ELIGIBLE = 'eligible';

@@ -8,6 +8,7 @@ use App\Models\RawAffiliate;
 use App\Models\RawBranch;
 use App\Models\RawDoctor;
 use App\Models\RawPromo;
+use App\Services\KocPasien;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -189,10 +190,17 @@ class KocController extends Controller
             ? $this->rincianPerKoc($kocs->pluck('id')->all(), $branchScope, $mulai, $sampai, $branches)
             : [];
 
+        // Jumlah kontrol per KOC (baris yang tampil saja). Dibaca dari tautan
+        // yang DISIMPAN (raw_customer_id) — tak pernah menjodohkan di sini.
+        // Hanya tampilan: kelayakan reward tetap murni dari jumlah video.
+        $kontrol = app(KocPasien::class)->ringkasanKontrol($kocs->getCollection());
+
         // Total kolom tabel — dipakai colspan baris kosong.
-        // 9 kolom lama (No..Konten) + 1 bila tab bukan 'all' (kolom Confirmed)
-        // + 5 kolom baru: Login Portal, Kode Ref, Pasien, Datang, Batal.
-        $kolomTotal = ($filterTab !== 'all' ? 10 : 9) + 5;
+        // Tabel daftar KOC: No, Nama, Cabang, Dokter, Perawatan, Platform,
+        // Contact, Feedback, Konten, Kontrol, Kode Ref, Login Portal = 12,
+        // + 1 bila tab bukan 'all' (kolom Confirmed). (Angka lama 14/15
+        // menghitung kolom tabel "Hasil Kode Reff" yang tabelnya terpisah.)
+        $kolomTotal = $filterTab !== 'all' ? 13 : 12;
 
         return view('crud.koc.list', compact(
             'kocs',
@@ -212,7 +220,8 @@ class KocController extends Controller
             'rincianPerKoc',
             'periodeValue',
             'periodeLabel',
-            'kolomTotal'
+            'kolomTotal',
+            'kontrol'
         ));
     }
 
@@ -817,5 +826,90 @@ class KocController extends Controller
             'contents'    => $contents,
             'review_url'  => route('content.review', ['affiliate_id' => $koc->id]),
         ]);
+    }
+
+    /**
+     * Layar pilih rekam pasien untuk satu KOC/KOL — tempat manusia memutus
+     * kasus yang tak bisa diputus mesin (nomor HP cocok ke dua pasien, atau
+     * tak cocok ke mana pun). Berlaku juga untuk KOL: Review Konten &
+     * SweetMates memuat keduanya.
+     * URL: GET /koc/{id}/pasien   (?q= cari pasien lewat nama / HP lain)
+     */
+    public function pasien($id, KocPasien $layanan)
+    {
+        $affiliate = RawAffiliate::with('customer')->findOrFail($id);
+
+        $kandidat = $layanan->kandidat($affiliate);
+
+        $cari = trim((string) request('q', ''));
+        $hasilCari = collect();
+        if (mb_strlen($cari) >= 3) {
+            $hasilCari = \App\Models\RawCustomer::query()
+                ->where(fn ($q) => $q->where('name', 'like', "%{$cari}%")->orWhere('phone', 'like', "%{$cari}%"))
+                ->whereNotIn('id', $kandidat->pluck('id'))
+                ->orderBy('name')
+                ->orderBy('id')
+                ->limit(30)
+                ->get();
+        }
+
+        $semuaId = $kandidat->pluck('id')
+            ->merge($hasilCari->pluck('id'))
+            ->when($affiliate->raw_customer_id, fn ($c) => $c->push($affiliate->raw_customer_id))
+            ->unique()->values()->all();
+
+        $kontrolPasien = $layanan->kontrolPerPasien($semuaId);
+        $pidPasien     = $layanan->pidPerPasien($semuaId);
+        $kembali       = $this->urlKembali();
+
+        return view('crud.koc.pasien', compact(
+            'affiliate', 'kandidat', 'hasilCari', 'cari', 'kontrolPasien', 'pidPasien', 'kembali'
+        ));
+    }
+
+    /**
+     * Simpan pilihan manusia. Melepas tautan harus lewat tombol `lepas`
+     * yang eksplisit — "Simpan" tanpa pilihan DITOLAK, bukan diartikan lepas.
+     * URL: PATCH /koc/{id}/pasien
+     */
+    public function simpanPasien(Request $request, $id, KocPasien $layanan)
+    {
+        $lepas = $request->boolean('lepas');
+        $validated = $request->validate([
+            'raw_customer_id' => ($lepas ? 'nullable' : 'required') . '|string|max:36',
+        ], [
+            'raw_customer_id.required' => 'Pilih salah satu pasien dulu.',
+        ]);
+
+        $affiliate = RawAffiliate::findOrFail($id);
+
+        try {
+            $layanan->tautkan($affiliate, $lepas ? null : $validated['raw_customer_id']);
+        } catch (\InvalidArgumentException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return redirect()->to($this->urlKembali())->with('success', $affiliate->raw_customer_id
+            ? 'Rekam pasien ' . ($affiliate->name ?: 'KOC') . ' tersimpan.'
+            : 'Tautan pasien ' . ($affiliate->name ?: 'KOC') . ' dilepas.');
+    }
+
+    /**
+     * ?return= hanya boleh URL aplikasi sendiri (cegah open redirect).
+     * Dibandingkan HOST-nya, bukan awalan string: awalan `https://app.sweettreats.id`
+     * juga cocok dengan `https://app.sweettreats.id.evil.com` dan
+     * `https://app.sweettreats.id@evil.com`.
+     */
+    private function urlKembali(): string
+    {
+        $ret   = (string) request('return', '');
+        $parts = $ret !== '' ? parse_url($ret) : false;
+
+        $aman = is_array($parts)
+            && in_array($parts['scheme'] ?? '', ['http', 'https'], true)
+            && !isset($parts['user']) && !isset($parts['pass'])
+            && strcasecmp($parts['host'] ?? '', request()->getHost()) === 0;
+
+        return $aman ? $ret : route('koc');
     }
 }

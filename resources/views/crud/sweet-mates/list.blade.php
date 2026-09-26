@@ -97,6 +97,7 @@
                                     <th width="14%">Kode Referral</th>
                                     <th width="22%">Progress Konten</th>
                                     <th width="13%" style="text-align:right;">Komisi</th>
+                                    <th width="8%" style="text-align:center;" title="Jumlah kunjungan kontrol di Omnicare. Hanya info — bukan syarat reward.">Kontrol</th>
                                     <th width="13%" style="text-align:center;">Status</th>
                                 </tr>
                             </thead>
@@ -104,7 +105,7 @@
                                 @forelse($members as $key => $row)
                                     @php
                                         $tier = $row->chosenTier();
-                                        $approvedCount = $row->approved_content_count ?? 0;
+                                        $approvedCount = $row->saldo_konten ?? 0;  // saldo: konten approved yang belum dimakan reward
                                         $required = $tier ? (int) $tier->required_content_count : 0;
                                         $percent = $required > 0 ? min(100, (int) round(($approvedCount / $required) * 100)) : 0;
                                         $achieved = $approvedCount >= $required;
@@ -139,10 +140,10 @@
                                         // Promo code (ambil yang aktif paling pertama)
                                         $activePromo = $row->promos->first();
                                         
-                                        // Status klaim
-                                        $hasClaimed = $row->rewardClaims->where('affiliate_reward_tier_id', $tier?->id)
-                                            ->whereIn('status', ['claimed', 'used'])
-                                            ->isNotEmpty();
+                                        // Status klaim SIKLUS INI (bukan sembarang klaim tier ini)
+                                        $klaim      = $row->klaim_siklus;
+                                        $klaimStatus = $klaim?->status;
+                                        $hasClaimed = in_array($klaimStatus, ['claimed', 'used'], true);
                                     @endphp
                                     
                                     <tr data-href="{{ route('rawaffiliate.edit', ['id' => $row->id, 'return' => request()->fullUrl()]) }}" style="cursor:pointer;">
@@ -211,10 +212,32 @@
                                             @endif
                                         </td>
 
+                                        {{-- Kontrol — hanya info, bukan syarat klaim --}}
+                                        <td style="text-align:center;">
+                                            @include('crud.koc._kontrol', ['k' => $kontrol[$row->id] ?? null, 'affiliateId' => $row->id])
+                                        </td>
+
                                         {{-- Status --}}
                                         <td style="text-align:center;">
-                                            @if($hasClaimed)
-                                                <span class="sm-status-badge sm-status-badge--claimed">Sudah Diklaim</span>
+                                            @if($klaimStatus === 'used')
+                                                <span class="sm-status-badge sm-status-badge--eligible"
+                                                      title="Diberikan {{ $klaim->processed_at?->format('d M Y H:i') }}{{ $klaim->processor ? ' oleh ' . $klaim->processor->nama : '' }}">
+                                                    Sudah Diberikan
+                                                </span>
+                                                <br><small style="color:#7a9290; font-size:10.5px;">{{ $klaim->processed_at?->format('j M Y') }}</small>
+                                            @elseif($klaimStatus === 'claimed')
+                                                <span class="sm-status-badge sm-status-badge--claimed">Menunggu Diberikan</span>
+                                                <br><small style="color:#7a9290; font-size:10.5px;">diklaim {{ $klaim->claimed_at?->format('j M') }}</small>
+                                                <br>
+                                                <button type="button" class="st-btn-brand sm-btn-diberikan"
+                                                        style="margin-top:6px; font-size:11px; padding:4px 10px;"
+                                                        data-url="{{ route('sweetmates.klaim.diberikan', $klaim->id) }}"
+                                                        data-nama="{{ $row->name ?: $username }}"
+                                                        data-reward="{{ $tier?->name }}{{ $tier?->reward_description ? ' — ' . $tier->reward_description : '' }}"
+                                                        data-konten="{{ $required }}"
+                                                        data-saldo="{{ $approvedCount }}">
+                                                    <i class="fa fa-check"></i> Reward sudah diberikan
+                                                </button>
                                             @elseif($achieved)
                                                 <span class="sm-status-badge sm-status-badge--eligible">Bisa Klaim</span>
                                             @else
@@ -224,7 +247,7 @@
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="7">
+                                        <td colspan="8">
                                             <div class="st-empty-state">
                                                 <i class="fas fa-trophy" aria-hidden="true"></i>
                                                 <div class="st-empty-state__title">
@@ -264,10 +287,68 @@
         </div>
     </div>
 </div>
+
+{{-- Konfirmasi "Reward sudah diberikan" — menyentuh uang, jadi nama, reward,
+     dan jumlah konten yang dimakan dibaca ulang sebelum dikirim. Tak ada
+     tombol urungkan sesudahnya (disengaja). --}}
+<div class="modal fade" id="modalDiberikan" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+        <form method="POST" id="formDiberikan">
+            @csrf
+            <div class="modal-content" style="border-radius:10px;">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fa fa-gift mr-2"></i> Tandai reward sudah diberikan</h5>
+                    <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
+                </div>
+                <div class="modal-body" style="font-size:13px;">
+                    <p style="margin-bottom:10px;">
+                        <strong data-isi="nama"></strong> menerima <strong data-isi="reward"></strong>.
+                    </p>
+                    <p style="margin-bottom:10px; color:#5a4a3c;">
+                        <strong data-isi="konten"></strong> konten approved akan terpakai. Sisanya terbawa ke program berikutnya.
+                        KOC bisa pindah program sesudah ini.
+                    </p>
+                    {{-- Konten bisa di-unapprove SESUDAH KOC mengklaim; klaim 'claimed'
+                         tetap hidup. Jangan diam-diam — tampilkan. --}}
+                    <p data-isi="saldo-kurang" style="display:none; margin-bottom:10px; padding:8px 10px; border-radius:6px; background:#fdecea; color:#a3261b;">
+                        <i class="fa fa-exclamation-circle"></i>
+                        Saldo konten approved KOC ini sekarang <strong data-isi="saldo"></strong> — kurang dari syarat.
+                        Ada konten yang dibatalkan sesudah klaim. Periksa di Review Konten sebelum memberikan reward.
+                    </p>
+                    <p style="margin-bottom:12px; color:#b2641b;">
+                        <i class="fa fa-exclamation-triangle"></i> Tidak bisa dibatalkan dari layar ini. Pastikan reward-nya memang sudah diberikan.
+                    </p>
+                    <label style="font-weight:600;">Catatan (opsional)</label>
+                    <textarea name="catatan" rows="2" maxlength="500" class="form-control" placeholder="mis. Scaling di Bintaro 26 Sep, drg. …"></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="st-btn-outline-brown" data-dismiss="modal">Batal</button>
+                    <button type="submit" class="st-btn-brand"><i class="fa fa-check"></i> Ya, sudah diberikan</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
 @endsection
 
-@section('scripts')
+@section('js')
 <script>
+    document.querySelectorAll('.sm-btn-diberikan').forEach(function(btn) {
+        btn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            var modal = document.getElementById('modalDiberikan');
+            document.getElementById('formDiberikan').action = btn.dataset.url;
+            modal.querySelector('[data-isi="nama"]').textContent   = btn.dataset.nama;
+            modal.querySelector('[data-isi="reward"]').textContent = btn.dataset.reward;
+            modal.querySelector('[data-isi="konten"]').textContent = btn.dataset.konten;
+            var kurang = parseInt(btn.dataset.saldo, 10) < parseInt(btn.dataset.konten, 10);
+            modal.querySelector('[data-isi="saldo"]').textContent = btn.dataset.saldo;
+            modal.querySelector('[data-isi="saldo-kurang"]').style.display = kurang ? '' : 'none';
+            modal.querySelector('textarea[name="catatan"]').value = '';
+            $(modal).modal('show');
+        });
+    });
+
     document.querySelectorAll('.st-table--clickable tr[data-href]').forEach(function(row) {
         row.addEventListener('click', function(e) {
             if (e.target.closest('a, button, input, label, .st-pill, .sm-tier-badge, .sm-promo-code, code')) return;

@@ -27,6 +27,7 @@ class RawAffiliate extends Model
         'raw_doc_service_id',
         'reward_program',
         'reward_program_started_at',
+        'reward_program_chosen_at',
         'pin',
         'role',
         'type',
@@ -54,6 +55,7 @@ class RawAffiliate extends Model
         'is_active'                 => 'boolean',
         'created_at'                => 'datetime',
         'reward_program_started_at' => 'datetime',
+        'reward_program_chosen_at'  => 'datetime',
         'tanggal_approach'          => 'date',
         'followers_count'           => 'integer',
         // Jejak login portal affiliate (IT-2026-045). Ditulis lewat query
@@ -316,6 +318,16 @@ class RawAffiliate extends Model
         return $this->belongsTo(RawDoctor::class, 'raw_doctor_id', 'id');
     }
 
+    /**
+     * Rekam pasien milik KOC ini. Diisi SEKALI (cocok tunggal otomatis, atau
+     * dipilih manusia) — tak pernah ditebak saat layar dibuka. Lihat
+     * App\Services\KocPasien. Sengaja tak masuk $fillable.
+     */
+    public function customer()
+    {
+        return $this->belongsTo(RawCustomer::class, 'raw_customer_id', 'id');
+    }
+
     public function docService()
     {
         return $this->belongsTo(RawDocService::class, 'raw_doc_service_id', 'id');
@@ -347,17 +359,34 @@ class RawAffiliate extends Model
     }
 
     /**
-     * Jumlah konten approved untuk PROGRAM yang sedang berjalan.
-     * Kalau reward_program_started_at di-set → hanya count konten created_at >= started_at
-     * (supaya saat affiliate switch program setelah claim, counter reset dari 0).
+     * Jumlah konten approved yang BELUM dimakan reward — saldo untuk program
+     * yang sedang berjalan.
+     *
+     *   saldo = total konten approved − SUM(consumed_content_count klaim 'used')
+     *
+     * Tiap reward memakan TEPAT sejumlah syarat tier-nya; sisanya terbawa ke
+     * program berikutnya, naik maupun turun kelas, tanpa kedaluwarsa
+     * (keputusan Ikhsan 26 Sep). Linaily: 7 konten, Bronze makan 3 → 4 terbawa.
+     *
+     * ⛔ Dulu memakai STEMPEL WAKTU (`created_at >= reward_program_started_at`).
+     *    Mekanisme itu cuma bisa bilang "semua sebelum X hangus", tak bisa
+     *    bilang "bawa 4" — dan tujuh konten Linaily lahir dalam dua menit,
+     *    jadi cutoff waktu pun tak bisa memotong di konten ke-3 dengan aman.
+     *    `reward_program_started_at` SENGAJA tak dibaca lagi di sini.
      */
     public function approvedContentCount(): int
     {
-        $q = $this->contents()->where('status', AffiliateContent::STATUS_APPROVED);
-        if ($this->reward_program_started_at) {
-            $q->where('created_at', '>=', $this->reward_program_started_at);
-        }
-        return $q->count();
+        $total = $this->contents()->where('status', AffiliateContent::STATUS_APPROVED)->count();
+
+        return max(0, $total - $this->consumedContentCount());
+    }
+
+    /** Konten yang sudah dimakan reward yang benar-benar diberikan ('used'). */
+    public function consumedContentCount(): int
+    {
+        return (int) $this->rewardClaims()
+            ->where('status', AffiliateRewardClaim::STATUS_USED)
+            ->sum('consumed_content_count');
     }
 
     public function currentTier(): ?AffiliateRewardTier
@@ -394,7 +423,58 @@ class RawAffiliate extends Model
 
         return AffiliateRewardTier::active()
             ->where('required_content_count', $rewardCfg['content_count'])
+            ->orderBy('id')   // active() sudah urut sort_order; id = pemutus seri
             ->first();
+    }
+
+    /**
+     * Klaim milik SIKLUS program yang sedang berjalan (status apa pun), atau
+     * null kalau siklus ini belum melahirkan klaim.
+     *
+     * Satu tier bisa punya lebih dari satu klaim sepanjang hidup affiliate:
+     * Bronze → Silver → Bronze melahirkan klaim Bronze kedua. Batas siklus =
+     * `reward_program_chosen_at` (diisi tiap pindah program): klaim 'used'
+     * yang diberikan SEBELUM program sekarang dipilih adalah sejarah.
+     *
+     * Akibat yang disengaja: tetap di tier yang sama sesudah reward diberikan
+     * TIDAK melahirkan klaim ulang dari surplus — harus pindah program dulu
+     * (portal memang tak menawarkan memilih tier yang sedang aktif). Pindah
+     * pergi-lalu-kembali (Bronze → Silver belum selesai → Bronze) membuka
+     * siklus baru.
+     *
+     * ⛔ Kolom ini BUKAN penyaring konten (itu kesalahan stempel waktu lama,
+     *    reward_program_started_at) — hanya penanda klaim milik siklus mana.
+     */
+    public function cycleRewardClaim(): ?AffiliateRewardClaim
+    {
+        $tier = $this->chosenTier();
+        if (!$tier) return null;
+
+        $claim = AffiliateRewardClaim::where('raw_affiliate_id', $this->id)
+            ->where('affiliate_reward_tier_id', $tier->id)
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->first();
+
+        if (!$claim || $claim->status !== AffiliateRewardClaim::STATUS_USED) {
+            return $claim;
+        }
+
+        // Klaim yang LAHIR sebelum program ini dipilih → milik siklus lama.
+        // Dibandingkan dengan created_at, BUKAN processed_at: pindah program →
+        // redirect → klaim eligible lahir bisa jatuh di DETIK YANG SAMA
+        // (kolom berketelitian detik), jadi pembanding "lahir ≥ dipilih" yang
+        // aman. Klaim siklus lama pasti lahir SEBELUM pindah, karena pindah
+        // terkunci selama klaimnya belum 'used'. (E2E data prod 26 Sep
+        // menangkap versi processed_at yang salah menganggap klaim baru lama.)
+        // Tanpa penanda (data lama) → anggap milik siklus ini: lebih aman
+        // mengunci daripada melahirkan klaim.
+        $mulai = $this->reward_program_chosen_at;
+        if ($mulai && $claim->created_at && $claim->created_at->lt($mulai)) {
+            return null;
+        }
+
+        return $claim;
     }
 
     /**
@@ -403,14 +483,12 @@ class RawAffiliate extends Model
      */
     public function activeRewardClaim(): ?AffiliateRewardClaim
     {
-        $tier = $this->chosenTier();
-        if (!$tier) return null;
+        $claim = $this->cycleRewardClaim();
 
-        return AffiliateRewardClaim::where('raw_affiliate_id', $this->id)
-            ->where('affiliate_reward_tier_id', $tier->id)
-            ->whereIn('status', [AffiliateRewardClaim::STATUS_ELIGIBLE, AffiliateRewardClaim::STATUS_CLAIMED])
-            ->orderByDesc('created_at')
-            ->first();
+        return $claim && in_array($claim->status, [
+            AffiliateRewardClaim::STATUS_ELIGIBLE,
+            AffiliateRewardClaim::STATUS_CLAIMED,
+        ], true) ? $claim : null;
     }
 
     /**
@@ -419,9 +497,8 @@ class RawAffiliate extends Model
      * atau 'claimed') — tunggu admin proses sampai 'used'. Di luar itu bebas,
      * termasuk kalau affiliate belum pernah klaim sama sekali.
      *
-     * Ganti program saat belum pernah klaim TIDAK menghanguskan progress:
-     * counter hanya di-reset kalau siklus reward sebelumnya sudah selesai
-     * (lihat AffiliatePortalController::switchRewardProgram()).
+     * Ganti program TIDAK pernah menghanguskan konten: saldo dihitung dari
+     * konten yang belum dimakan reward (lihat approvedContentCount()).
      */
     public function canSwitchProgram(): bool
     {

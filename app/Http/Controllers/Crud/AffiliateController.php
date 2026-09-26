@@ -300,10 +300,9 @@ class AffiliateController extends Controller
         $affiliate->pin                 = bcrypt(request('pin'));
         $affiliate->role                = $affiliate->role ?: 'pasien';
         $affiliate->is_active           = 1;
-        // Fase 2C: kalau behel & sudah pilih reward_program saat daftar, mulai counter sekarang.
-        if ($affiliate->reward_program && !$affiliate->reward_program_started_at) {
-            $affiliate->reward_program_started_at = now();
-        }
+        // `reward_program_started_at` SENGAJA tak diisi lagi (26 Sep 2026): saldo
+        // konten kini dihitung dari konten yang belum dimakan reward, bukan
+        // stempel waktu. Kolomnya dibiarkan di tabel, tak ada yang membacanya.
         $affiliate->save();
 
         // Voucher amount per scope: behel = 100k, non_behel = 50k

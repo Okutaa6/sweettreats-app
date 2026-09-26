@@ -206,7 +206,10 @@ class AffiliatePortalController extends Controller
 
         $promos = $affiliate->promos()->where('is_active', 1)->get();
 
+        // approvedCount = SALDO (belum dimakan reward) → progres; totalApproved = seumur hidup → statistik.
         $approvedCount   = $affiliate->approvedContentCount();
+        $totalApproved   = $affiliate->contents()->where('status', AffiliateContent::STATUS_APPROVED)->count();
+        $cycleClaim      = $affiliate->cycleRewardClaim();
         $currentTier     = $affiliate->currentTier();
         $nextTier        = $affiliate->nextTier();
         $progressPercent = $nextTier
@@ -218,7 +221,7 @@ class AffiliatePortalController extends Controller
         return view('affiliate.dashboard', compact(
             'affiliate', 'commissions', 'promos',
             'pendingTotal', 'approvedTotal', 'paidTotal',
-            'approvedCount', 'currentTier', 'nextTier', 'progressPercent', 'tiers', 'claims'
+            'approvedCount', 'currentTier', 'nextTier', 'progressPercent', 'tiers', 'claims', 'totalApproved', 'cycleClaim'
         ));
     }
 
@@ -484,9 +487,10 @@ class AffiliatePortalController extends Controller
         if (!$affiliate) return redirect()->route('affiliate.login');
 
         $approvedCount = $affiliate->approvedContentCount();
+        $totalApproved = $affiliate->contents()->where('status', AffiliateContent::STATUS_APPROVED)->count();
         $currentTier   = $affiliate->currentTier();
 
-        return view('affiliate.profile', compact('affiliate', 'approvedCount', 'currentTier'));
+        return view('affiliate.profile', compact('affiliate', 'approvedCount', 'currentTier', 'totalApproved'));
     }
 
     public function profileUpdate()
@@ -579,25 +583,25 @@ class AffiliatePortalController extends Controller
         if (!$affiliate) return redirect()->route('affiliate.login');
 
         $tiers         = AffiliateRewardTier::active()->get();
-        $approvedCount = $affiliate->approvedContentCount();          // already filtered by program_started_at
+        $approvedCount = $affiliate->approvedContentCount();          // saldo: total approved − yang sudah dimakan reward
         $claims        = $affiliate->rewardClaims()->get()->keyBy('affiliate_reward_tier_id');
 
         // Auto-create eligible claim HANYA untuk tier yang dipilih (bukan iterate semua tier).
         // Ini yang bikin program-lock bekerja: walaupun count >= 3 (Bronze), kalau pilih Silver
         // affiliate tidak bisa klaim Bronze karena tidak ada eligible record dibuat untuknya.
-        $chosenTier = $affiliate->chosenTier();
+        $chosenTier  = $affiliate->chosenTier();
+        $chosenClaim = $affiliate->cycleRewardClaim();
         if ($chosenTier
             && $approvedCount >= $chosenTier->required_content_count
-            && !$claims->has($chosenTier->id)
+            && !$chosenClaim
         ) {
-            $claim = AffiliateRewardClaim::create([
+            $chosenClaim = AffiliateRewardClaim::create([
                 'id'                       => Str::uuid()->toString(),
                 'raw_affiliate_id'         => $affiliate->id,
                 'affiliate_reward_tier_id' => $chosenTier->id,
                 'status'                   => AffiliateRewardClaim::STATUS_ELIGIBLE,
                 'created_at'               => now(),
             ]);
-            $claims->put($chosenTier->id, $claim);
         }
 
         $progress       = $affiliate->currentProgramProgress();
@@ -606,7 +610,7 @@ class AffiliatePortalController extends Controller
 
         return view('affiliate.rewards', compact(
             'affiliate', 'tiers', 'approvedCount', 'claims',
-            'chosenTier', 'progress', 'canSwitch', 'allRewardCfg'
+            'chosenTier', 'chosenClaim', 'progress', 'canSwitch', 'allRewardCfg'
         ));
     }
 
@@ -633,9 +637,9 @@ class AffiliatePortalController extends Controller
                 ->with('error', 'Kamu belum memenuhi syarat untuk reward ini. Butuh ' . $tier->required_content_count . ' konten approved.');
         }
 
-        $claim = AffiliateRewardClaim::where('raw_affiliate_id', $affiliate->id)
-            ->where('affiliate_reward_tier_id', $tier->id)
-            ->first();
+        // Klaim SIKLUS INI, bukan sembarang klaim tier ini — satu tier bisa
+        // punya klaim 'used' lama dari siklus sebelumnya (turun kelas).
+        $claim = $affiliate->cycleRewardClaim();
 
         if (!$claim) {
             $claim = AffiliateRewardClaim::create([
@@ -661,8 +665,12 @@ class AffiliatePortalController extends Controller
     }
 
     /**
-     * Switch ke program reward baru (setelah klaim sebelumnya selesai/used).
-     * Reset reward_program_started_at = now() supaya counter konten mulai dari 0.
+     * Switch ke program reward baru (setelah klaim sebelumnya selesai/used,
+     * atau selama belum ada klaim berjalan).
+     *
+     * Tak ada lagi counter yang di-reset: konten yang belum dimakan reward
+     * TERBAWA ke program baru, naik maupun turun kelas (keputusan Ikhsan
+     * 26 Sep). `reward_program_started_at` SENGAJA tak ditulis lagi.
      */
     public function switchRewardProgram()
     {
@@ -679,35 +687,20 @@ class AffiliatePortalController extends Controller
                 ->with('error', 'Tidak bisa pindah program — selesaikan dulu klaim untuk program saat ini (tunggu admin proses sampai reward "sudah dipakai").');
         }
 
-        // Counter konten HANYA di-reset kalau siklus reward sebelumnya benar-benar
-        // selesai — yaitu ada klaim berstatus 'used' di siklus yang sedang berjalan.
-        // Kalau affiliate belum pernah menyelesaikan reward, ganti tier = ganti
-        // TARGET saja: konten yang sudah approved tetap dihitung.
-        //
-        // Sebelumnya counter selalu di-reset ke now(), sehingga konten yang
-        // di-upload SEBELUM switch ikut hangus begitu di-approve belakangan
-        // (approvedContentCount() memfilter created_at >= reward_program_started_at).
-        // Ini bertentangan dengan ketentuan program: reset hanya "setelah reward
-        // selesai dipakai".
-        $sudahPakaiReward = $affiliate->rewardClaims()
-            ->where('status', AffiliateRewardClaim::STATUS_USED)
-            ->when(
-                $affiliate->reward_program_started_at,
-                fn ($q) => $q->where('created_at', '>=', $affiliate->reward_program_started_at)
-            )
-            ->exists();
-
-        $data = ['reward_program' => request('reward_program')];
-        if ($sudahPakaiReward) {
-            $data['reward_program_started_at'] = now();
-        }
-        $affiliate->update($data);
+        // reward_program_chosen_at = batas SIKLUS klaim (RawAffiliate::cycleRewardClaim),
+        // bukan penyaring konten.
+        $affiliate->update([
+            'reward_program'           => request('reward_program'),
+            'reward_program_chosen_at' => now(),
+        ]);
 
         $newCfg = RawAffiliate::rewardTiers()[request('reward_program')] ?? null;
         $nama   = $newCfg['name'] ?? 'program baru';
-        $msg    = $sudahPakaiReward
-            ? 'Program berhasil di-switch ke ' . $nama . '. Counter konten dimulai dari 0.'
-            : 'Program berhasil di-switch ke ' . $nama . '. Konten kamu yang sudah approved tetap dihitung.';
+        $saldo  = $affiliate->approvedContentCount();
+        $msg    = 'Program berhasil di-switch ke ' . $nama . '. '
+            . ($saldo > 0
+                ? $saldo . ' konten approved kamu yang belum terpakai ikut terhitung.'
+                : 'Yuk mulai kirim konten!');
 
         return redirect()->route('affiliate.rewards')->with('success', $msg);
     }

@@ -6,6 +6,138 @@
 > file ini append-only.
 
 ---
+## 2026-09-26 (sore) — 🔍 Reward KOC: audit ulang + E2E dengan data PROD → 1 bug kritis & 1 bug data ditemukan, semua diperbaiki (branch `feat/koc-reward-surplus`, DEV/PROD BELUM)
+
+**⛔ RALAT entri di bawah ("tiga layar di-render… semua lolos").** Render HTML
+tidak menjalankan JavaScript. Audit independen menemukan **tombol "Reward sudah
+diberikan" MATI TOTAL**: skripnya di `@section('scripts')`, padahal layout hanya
+`@yield('js')` — modal tak pernah terbuka, Linaily tetap terkunci. (Klik-baris
+SweetMates yang lama pun ternyata mati karena sebab sama sejak dulu; ikut hidup.)
+Kini E2E memeriksa skripnya benar-benar ada di halaman.
+
+**⛔ Bug data yang HANYA terlihat dengan data prod: Dewi Santi akan tertaut
+OTOMATIS ke rekam yang salah pilih.** Rekam keduanya tersimpan `07880405047`
+(`087880405047` kehilangan satu angka 8). Pencocokan varian persis 08/62/0062
+cuma menemukan satu → backfill menyebutnya "cocok tunggal". Kini dicocokkan
+lewat **10 digit terakhir** sesudah tanda baca dibuang; kandidat sengaja lebar
+(kelebihan = satu keputusan manusia, kekurangan = tautan salah yang diam).
+Dry-run di prod: hanya Dewi yang berubah status — 4 kasus ganda lain nomornya
+memang identik (satu nomor, beberapa rekam/keluarga), tak ada yang terjaring berlebih.
+
+**Hasil dry-run kode BARU terhadap data prod (read-only, `simpan=false`):**
+tertaut **29**, ganda **5**, tanpa HP/tak ketemu sisanya. 11 KOC berkonten:
+**10 tunggal + Dewi ganda** — persis angka HUB. Jumlah & tanggal kontrol **identik**
+dengan tabel handoff untuk kedelapan nama berangka (Ni Wayan 19/1 Sep, Zivi 9/29
+Agu, Annisa 17/22 Agu, Tri 9/26 Agu, Linaily 6/23 Sep, Maulidia 9/12 Sep, Audya
+15/19 Sep, Asyifa 9/4 Sep); Dewi "perlu dipilih" sesuai handoff. Hitung
+per-kunjungan = per-baris di prod (tak ada dua item kontrol sekunjungan).
+
+**Perbaikan lain dari audit:**
+- **Siklus klaim didesain ulang** — kolom baru `raw_affiliate.reward_program_chosen_at`
+  (diisi tiap pindah program; batas siklus, BUKAN penyaring konten). Versi
+  pertama mengunci KOC yang Bronze → Silver (belum selesai) → kembali Bronze
+  selamanya. Pembandingnya `created_at` klaim, bukan `processed_at`: E2E
+  menangkap versi `processed_at` salah menilai klaim Ni Wayan (pindah & klaim
+  jatuh di detik yang sama).
+- Pintu `used` kini menolak klaim yang bukan milik program berjalan (POST
+  rakitan ke klaim basi), dan modalnya memperingatkan bila saldo < syarat
+  (konten dibatalkan sesudah klaim).
+- Open redirect `?return=` ditutup (`app.sweettreats.id.evil.com` dan
+  `…id@evil.com` dulu lolos) — kini host dibandingkan, bukan awalan string.
+- Tautan ke rekam yang sudah dihapus/digabung → "perlu dipilih", bukan "0×".
+- Tanggal lahir `0000-00-00` (ada di prod) tampil "—", bukan "30 Nov -0001".
+- `confirm()` Lepas-tautan pakai `Js::from` (nama ber-baris-baru dulu merusak JS).
+- Portal KOC: statistik & profil = TOTAL konten; progres = SALDO ("belum
+  terpakai"); dasbor tak lagi bilang "Target tercapai" sesudah reward dipakai.
+- `chosenTier()` diberi `orderBy`; colspan tabel KOC dibetulkan; SQL: index
+  dicek terpisah dari kolomnya.
+
+**Akses (diukur prod):** 6 role pemegang `sweet-mates`/`content-review` SEMUA
+juga memegang `koc` (1 orang per role) → tautan ke layar pilih pasien tak
+memantul. ⚠️ **Belum diputuskan:** keenamnya (termasuk Content Creator) bisa
+menandai reward diberikan — pintu uang tanpa pagar role tersendiri.
+
+**Uji:** unit `KocRewardSurplusTest` **22/22** (+6 uji baru dari temuan audit).
+**E2E 218 asersi** di MySQL lokal dengan data prod (130 affiliate, 72 konten,
+klaim Linaily, 39+ rekam pasien, 1.281 baris penjualan) lewat HTTP & middleware
+sungguhan (RBAC, sesi) — semuanya dalam SATU transaksi yang di-rollback; DB lokal
+diverifikasi kembali utuh. E2E-nya berkas sementara (membaca data prod dari
+scratchpad), tidak di-commit; data prod lokal dihapus sesudahnya.
+Diuji balik: asersi "-0001" merah terhadap tampilan lama.
+
+**Deploy (menggantikan catatan di bawah):** SQL kini **4 kolom + 1 index**
+(`consumed_content_count`, `processed_at`, `raw_customer_id` + index,
+`reward_program_chosen_at`). Urutan tetap: SQL → deploy penuh (tanpa rsync) →
+`koc:tautkan-pasien --dry-run` (harap: tertaut 29, ganda 5) → tanpa `--dry-run`.
+
+---
+## 2026-09-26 — 🔨 Reward KOC: pintu `used` + surplus terbawa + baris kontrol (branch `feat/koc-reward-surplus`, DEV/PROD BELUM)
+
+Dibangun chat build dari `docs/handoff/handoff-koc-reward-surplus-kontrol.md`.
+Keempat bagian handoff selesai; deploy diserahkan ke HUB.
+
+**§1 Pintu `claimed → used`.** Tombol **"Reward sudah diberikan"** di SweetMates
+(kolom Status, hanya muncul untuk klaim `claimed`) → modal konfirmasi yang
+membacakan nama, reward, dan jumlah konten yang akan terpakai → status `used`,
+`processed_by`, `processed_at` (kolom baru), catatan bercap waktu di `notes`.
+`claimed_at` tidak ditimpa. Hanya dari `claimed`; dua kali ditandai ditolak.
+⛔ **Sengaja tanpa pembatalan** — kalau suatu hari perlu, aksi terpisah berjejak.
+Linaily bisa dibebaskan begitu ini naik.
+
+**§2 Surplus terbawa.** Saldo = total konten approved − `SUM(consumed_content_count)`
+klaim `used` (kolom baru, diisi = syarat tier saat ditandai diberikan).
+`reward_program_started_at` **dimatikan dengan sadar**: tak dibaca (hitungan),
+tak ditulis (pindah program & approve pendaftaran), "Counter dimulai" dibuang
+dari portal; kolomnya dibiarkan di tabel. Teks portal diganti (surplus tak hangus).
+SweetMates kini memakai saldo, bukan total konten (dulu dua definisi berbeda).
+
+**⭐ Keputusan desain di luar handoff — mohon dikonfirmasi:** dulu satu tier hanya
+boleh punya SATU klaim seumur hidup. Akibatnya "turun kelas" Bronze→Silver→Bronze
+akan terkunci lagi (klaim Bronze lama menghalangi). Ditambah konsep **klaim
+siklus ini** (`RawAffiliate::cycleRewardClaim()`): klaim `used` lama jadi sejarah
+begitu ada reward tier lain yang dipakai sesudahnya. Tetap di tier yang sama
+sesudah `used` **tidak** melahirkan klaim ulang dari surplus — harus pindah
+program dulu (portal memang tak menawarkan memilih tier yang sedang aktif).
+
+**§3 Tautan KOC → pasien.** Kolom `raw_affiliate.raw_customer_id`, diisi sekali:
+`php artisan koc:tautkan-pasien` hanya mengisi yang cocok **tunggal** (HP langsung
+atau lewat jangkar `raw_contact`); ganda/kosong dibiarkan NULL. Layar baru
+`/koc/{id}/pasien` untuk manusia memilih — kandidat menampilkan tanggal lahir,
+pid Omnicare, dan jumlah kontrol per rekam (Dewi Santi: 23 vs 0 langsung terlihat),
+plus cari lewat nama. Lepas tautan = tombol eksplisit; "Simpan" tanpa pilihan ditolak.
+Nol `first()` tanpa `orderBy`.
+
+**§4 Baris kontrol** di **KOC** (kolom baru), **Review Konten** (di bawah nama:
+"N konten approved · N× kontrol, terakhir …"), dan **SweetMates**. Satu kontrol =
+satu (pid, tanggal) dengan item `%ontrol%` — dua item kontrol sekunjungan dihitung
+sekali. ⚠️ HUB mungkin menghitung per baris; kalau angka di layar lebih kecil dari
+tabel handoff, itu sebabnya. Belum tertaut → "perlu dipilih", bukan angka.
+**Hanya tampilan — bukan pagar**; ada uji yang membuktikan kontrol 0 tetap layak klaim.
+
+**Uji:** `tests/Feature/KocRewardSurplusTest.php` **16/16** (SQLite in-memory),
+meliputi 9 butir §5 handoff + kendali negatif. **Diuji balik:** mengembalikan
+hitungan lama → 4 uji surplus merah; mengembalikan "satu klaim per tier" → uji
+turun-kelas merah. Tiga layar + portal di-render ke DB lokal dalam transaksi
+yang di-rollback: semua lolos. Layar KOC index TIDAK bisa di-render lokal
+(`Schema::hasColumn` bawaan `ringkasanAktivasi()` mematikan mysqld lokal) —
+partial kolomnya di-render terpisah.
+
+**Catatan deploy (untuk HUB):**
+1. SQL dulu: `database/sql/2026_09_26_koc_reward_surplus.sql` (3 kolom + 1 index,
+   idempoten, nol backfill data). Kode tanpa kolom = portal KOC error.
+2. Deploy penuh (ada kelas baru: `KocReward`, `KocPasien`, perintah artisan).
+   Nol `public/assets/**` → **tanpa rsync**.
+3. Sesudah deploy: `php artisan koc:tautkan-pasien --dry-run`, periksa (harapan
+   HUB: 10 dari 11 berkonten tertaut, Dewi Santi ganda), lalu tanpa `--dry-run`.
+4. Ukur `git log <HEAD-prod>..main` sebelum `deploy.sh main`.
+5. Hari pertama: Ni Wayan (13 konten) memenuhi Silver seketika bila memilihnya —
+   disengaja & sudah diterima Ikhsan.
+
+**Temuan sampingan (tidak diperbaiki):** `KocController::toggleSosmedConfirmed`
+membaca `session('user_id')`, padahal login hanya mengisi `session('id')` —
+`koc_sosmed_confirmed_by` kemungkinan selalu NULL. Belum diukur di prod.
+
+---
 ## 2026-09-26 (malam) — ✅ Foto bukti WAJIB lembur & WFH NAIK PROD (`b76d69f`)
 
 Gerbong foto + penutupan berkas yatim digabung jadi **satu deploy**.

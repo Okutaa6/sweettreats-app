@@ -212,6 +212,21 @@
                                                     <div class="st-muted" style="font-size:11px;">
                                                         <i class="fa fa-phone"></i> {{ $c->affiliate?->phone ?? '-' }}
                                                     </div>
+                                                    {{-- Gambaran utuh untuk yang menyetujui: sejak surplus konten
+                                                         bisa ditabung, review inilah penjaganya. Kontrol hanya info,
+                                                         BUKAN syarat reward. --}}
+                                                    @if($c->affiliate)
+                                                        @php $k = $kontrol[$c->raw_affiliate_id] ?? null; @endphp
+                                                        <div class="st-muted" style="font-size:11px;">
+                                                            <i class="fa fa-film"></i> {{ $kontenApproved[$c->raw_affiliate_id] ?? 0 }} konten approved
+                                                            · <i class="fa fa-tooth"></i>
+                                                            @if($k && $k['status'] === 'ok')
+                                                                <a href="{{ route('koc.pasien', ['id' => $c->raw_affiliate_id, 'return' => request()->fullUrl()]) }}" style="color:inherit;">{{ $k['jumlah'] }}× kontrol</a>@if($k['terakhir']), terakhir {{ \Carbon\Carbon::parse($k['terakhir'])->format('j M') }}@endif
+                                                            @else
+                                                                kontrol <a href="{{ route('koc.pasien', ['id' => $c->raw_affiliate_id, 'return' => request()->fullUrl()]) }}" style="color:#b2641b; text-decoration:underline dotted;">perlu dipilih</a>
+                                                            @endif
+                                                        </div>
+                                                    @endif
                                                 </div>
                                             </div>
                                         </td>

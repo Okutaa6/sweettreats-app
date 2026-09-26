@@ -8,6 +8,8 @@ use App\Models\AffiliateRewardClaim;
 use App\Models\RawAffiliate;
 use App\Models\RawBranch;
 use App\Models\RawCommission;
+use App\Services\KocPasien;
+use App\Services\KocReward;
 
 /**
  * SweetMatesController
@@ -65,12 +67,12 @@ class SweetMatesController extends Controller
         $counts['eligible'] = $this->countEligibleClaims();
 
         // ─── Build query untuk hasil tabel ───────────────────────────────
+        // Tak ada lagi withCount 'approved_content_count' di sini: angka itu
+        // menghitung SEMUA konten approved, padahal progress harus memakai
+        // SALDO (konten yang belum dimakan reward) — RawAffiliate::approvedContentCount().
         $query = (clone $baseQuery)
             ->with(['branch', 'promos' => function ($q) {
                 $q->where('is_active', 1);
-            }, 'rewardClaims.tier'])
-            ->withCount(['contents as approved_content_count' => function ($q) {
-                $q->where('status', AffiliateContent::STATUS_APPROVED);
             }])
             ->withSum(['commissions as total_commission' => function ($q) {
                 $q->whereNotIn('status', [RawCommission::STATUS_REJECTED]);
@@ -119,6 +121,15 @@ class SweetMatesController extends Controller
             );
         }
 
+        // ─── Saldo konten & klaim siklus ini per baris ───────────────────
+        $members->getCollection()->each(function ($m) {
+            $m->saldo_konten = $m->approvedContentCount();
+            $m->klaim_siklus = $m->cycleRewardClaim();
+        });
+
+        // Jumlah kontrol — hanya tampilan, bukan syarat klaim.
+        $kontrol = app(KocPasien::class)->ringkasanKontrol($members->getCollection());
+
         // ─── Data pendukung ──────────────────────────────────────────────
         $branches = RawBranch::orderBy('name')->get();
 
@@ -129,8 +140,36 @@ class SweetMatesController extends Controller
             'filterTier',
             'filterBranch',
             'filterType',
-            'search'
+            'search',
+            'kontrol'
         ));
+    }
+
+    /**
+     * Pintu `claimed → used`: admin menandai reward SUDAH DIBERIKAN.
+     * Menyentuh uang — terekam siapa & kapan; tak ada pembatalan senyap.
+     * URL: POST /sweet-mates/klaim/{id}/diberikan
+     */
+    public function tandaiDiberikan($id, KocReward $reward)
+    {
+        request()->validate([
+            'catatan' => 'nullable|string|max:500',
+        ]);
+
+        $userId = session('id');
+        if (!$userId) {
+            return redirect()->back()->with('error', 'Sesi tidak dikenali — silakan login ulang.');
+        }
+
+        try {
+            $claim = $reward->tandaiDiberikan($id, $userId, request('catatan'));
+        } catch (\RuntimeException $e) {
+            return redirect()->back()->with('error', $e->getMessage());
+        }
+
+        $nama = optional($claim->affiliate)->name ?: 'KOC';
+        return redirect()->back()->with('success',
+            "Reward {$nama} ditandai sudah diberikan. {$claim->consumed_content_count} konten terpakai; sisanya terbawa ke program berikutnya.");
     }
 
     /**
@@ -141,34 +180,24 @@ class SweetMatesController extends Controller
         $members = RawAffiliate::whereNotNull('reward_program')
             ->where('is_active', 1)
             ->whereIn('type', ['koc', 'kol'])
-            ->withCount(['contents as approved_content_count' => function ($q) {
-                $q->where('status', AffiliateContent::STATUS_APPROVED);
-            }])
             ->get();
 
         return $members->filter(fn($m) => $this->isEligibleForClaim($m))->count();
     }
 
     /**
-     * Cek apakah member sudah memenuhi syarat klaim (dan belum diklaim).
+     * Cek apakah member sudah memenuhi syarat klaim (dan belum diklaim) di
+     * SIKLUS INI. Saldo = konten approved yang belum dimakan reward.
      */
     private function isEligibleForClaim(RawAffiliate $member): bool
     {
         $tier = $member->chosenTier();
         if (!$tier) return false;
 
-        $count = $member->approved_content_count ?? $member->approvedContentCount();
-        if ($count < $tier->required_content_count) return false;
+        if ($member->approvedContentCount() < $tier->required_content_count) return false;
 
-        // Cek apakah sudah ada claim dengan status 'claimed' atau 'used' untuk tier ini
-        $hasActiveClaim = AffiliateRewardClaim::where('raw_affiliate_id', $member->id)
-            ->where('affiliate_reward_tier_id', $tier->id)
-            ->whereIn('status', [
-                AffiliateRewardClaim::STATUS_CLAIMED,
-                AffiliateRewardClaim::STATUS_USED,
-            ])
-            ->exists();
+        $claim = $member->cycleRewardClaim();
 
-        return !$hasActiveClaim;
+        return !$claim || $claim->status === AffiliateRewardClaim::STATUS_ELIGIBLE;
     }
 }
