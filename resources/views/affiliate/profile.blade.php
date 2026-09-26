@@ -142,7 +142,7 @@
                         </p>
                         <div class="sm-hero-actions">
                             <span class="sm-btn sm-btn-white" style="pointer-events:none;">
-                                <i class="fa-solid fa-video"></i> {{ $approvedCount }} Konten Approved
+                                <i class="fa-solid fa-video"></i> {{ $totalApproved ?? $approvedCount }} Konten Approved
                             </span>
                             @if($tier)
                                 <span class="sm-btn sm-btn-ghost" style="pointer-events:none;">

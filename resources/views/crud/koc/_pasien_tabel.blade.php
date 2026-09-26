@@ -20,7 +20,9 @@
                                {{ $affiliate->raw_customer_id === $p->id ? 'checked' : '' }}>
                     </td>
                     <td><label for="pas-{{ $p->id }}" style="margin:0; cursor:pointer; font-weight:500;">{{ $p->name }}</label></td>
-                    <td>{{ $p->tanggal_lahir ? \Carbon\Carbon::parse($p->tanggal_lahir)->format('d M Y') : '—' }}</td>
+                    {{-- prod menyimpan 0000-00-00: Carbon membacanya "30 Nov -0001" --}}
+                    @php $lahir = (string) $p->tanggal_lahir; @endphp
+                    <td>{{ $lahir !== '' && !str_starts_with($lahir, '0000') ? \Carbon\Carbon::parse($lahir)->format('d M Y') : '—' }}</td>
                     <td style="font-size:12px;">{{ $p->phone ?: '—' }}</td>
                     <td style="font-size:12px;">{{ implode(', ', $pidPasien[$p->id] ?? []) ?: '—' }}</td>
                     <td style="text-align:center;">

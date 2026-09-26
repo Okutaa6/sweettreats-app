@@ -103,7 +103,7 @@
                             <span>Progress Konten Behel Journey</span>
                             <span class="sm-progress-num">
                                 <strong>{{ $approvedCount }}</strong>
-                                <span class="sm-muted">/ {{ $targetCount }} konten approved</span>
+                                <span class="sm-muted">/ {{ $targetCount }} konten approved belum terpakai</span>
                             </span>
                         </div>
                         <div class="sm-progress-track">
@@ -113,7 +113,15 @@
                                 @endif
                             </div>
                         </div>
-                        @if($progress >= 100)
+                        @if(($cycleClaim ?? null)?->status === \App\Models\AffiliateRewardClaim::STATUS_USED)
+                            {{-- Saldo bisa ≥ target sesudah reward dipakai (surplus terbawa),
+                                 tapi tier yang sama tak bisa diklaim ulang tanpa pindah program. --}}
+                            <div class="sm-progress-note sm-progress-note-success">
+                                <i class="fa-solid fa-check-circle"></i>
+                                Reward program ini sudah dipakai. Pilih program berikutnya di halaman
+                                <a href="{{ route('affiliate.rewards') }}">Rewards</a> — konten yang belum terpakai ikut terbawa.
+                            </div>
+                        @elseif($progress >= 100)
                             <div class="sm-progress-note sm-progress-note-success">
                                 <i class="fa-solid fa-sparkles"></i>
                                 Yeay! Target konten kamu sudah tercapai. Reward akan diklaim di akhir perawatan ya!
@@ -150,7 +158,7 @@
                 <div class="sm-stat-card sm-stat-1">
                     <div class="sm-stat-icon"><i class="fa-solid fa-video"></i></div>
                     <div>
-                        <div class="sm-stat-num">{{ $approvedCount }}</div>
+                        <div class="sm-stat-num">{{ $totalApproved ?? $approvedCount }}</div>
                         <div class="sm-stat-label">Konten Approved</div>
                     </div>
                 </div>

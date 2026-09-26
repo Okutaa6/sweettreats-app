@@ -2,9 +2,9 @@
 
 namespace App\Services;
 
-use App\Http\Controllers\Concerns\ResolvesPatientContact;
 use App\Models\RawAffiliate;
 use App\Models\RawCustomer;
+use App\Support\Phone;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -25,35 +25,67 @@ use Illuminate\Support\Facades\DB;
  */
 class KocPasien
 {
-    use ResolvesPatientContact;
-
     public const TERTAUT = 'tertaut';
     public const SUDAH   = 'sudah';
     public const GANDA   = 'ganda';
     public const KOSONG  = 'kosong';
 
+    /** Digit pembanding: EKOR nomor sepanjang ini, sesudah tanda baca dibuang. */
+    public const PANJANG_EKOR = 10;
+
     /**
-     * Pasien yang nomornya sama dengan nomor KOC — langsung di raw_customer,
+     * Pasien yang nomornya "sama" dengan nomor KOC — langsung di raw_customer,
      * atau lewat jangkar raw_contact (model 1-nomor-banyak-pasien).
      * Urutannya dipaksa (nama, id) supaya daftar pilihan selalu sama.
+     *
+     * Dicocokkan lewat 10 DIGIT TERAKHIR, bukan varian persis 08/62/0062.
+     * ⛔ Varian persis TERBUKTI terlalu sempit di prod (26 Sep): rekam kedua
+     *    Dewi Santi tersimpan `07880405047` — `087880405047` yang kehilangan
+     *    satu angka. Varian persis cuma menemukan SATU rekam, dan backfill
+     *    akan menautkannya "otomatis, cocok tunggal" — padahal rekam ganda.
+     *    Di sini kandidat SENGAJA lebar: kelebihan kandidat hanya menambah
+     *    satu keputusan manusia; kekurangan kandidat = tautan salah yang diam.
      */
     public function kandidat(RawAffiliate $affiliate): Collection
     {
-        $varian = $this->phoneVariants($affiliate->phone);
-        if (empty($varian)) {
+        $ekor = $this->ekorNomor($affiliate->phone);
+        if ($ekor === null) {
             return collect();
         }
 
+        $pola = '%' . $ekor;
+
         return RawCustomer::query()
-            ->where(function ($q) use ($varian) {
-                $q->whereIn('phone', $varian)
-                  ->orWhereIn('raw_contact_id', function ($sub) use ($varian) {
-                      $sub->select('id')->from('raw_contact')->whereIn('phone', $varian);
+            ->where(function ($q) use ($pola) {
+                $q->whereRaw($this->digitSaja('phone') . ' LIKE ?', [$pola])
+                  ->orWhereIn('raw_contact_id', function ($sub) use ($pola) {
+                      $sub->select('id')->from('raw_contact')
+                          ->whereRaw($this->digitSaja('phone') . ' LIKE ?', [$pola]);
                   });
             })
             ->orderBy('name')
             ->orderBy('id')
             ->get();
+    }
+
+    /** 10 digit terakhir nomor ter-normalisasi; null kalau nomornya tak layak dicocokkan. */
+    public function ekorNomor(?string $phone): ?string
+    {
+        $norm = Phone::normalize($phone);
+        if ($norm === null) {
+            return null;
+        }
+        return substr($norm, -self::PANJANG_EKOR);
+    }
+
+    /** Ekspresi SQL kolom nomor dengan tanda baca umum dibuang (MySQL & SQLite). */
+    private function digitSaja(string $kolom): string
+    {
+        $expr = $kolom;
+        foreach (['-', ' ', '+', '.', '(', ')', ';'] as $c) {
+            $expr = "REPLACE({$expr}, '{$c}', '')";
+        }
+        return $expr;
     }
 
     /**
@@ -122,6 +154,21 @@ class KocPasien
             }
             $hasil[$a->id] = ['status' => 'ok', 'jumlah' => 0, 'terakhir' => null];
             $perPasien[$a->raw_customer_id][] = $a->id;
+        }
+
+        // Tautan ke rekam yang sudah tak ada (dihapus / digabung FO) bukan
+        // "0 kontrol" — itu tautan patah. Tampilkan "perlu dipilih".
+        $masihAda = array_flip(RawCustomer::whereIn('id', array_keys($perPasien))->pluck('id')->all());
+        foreach ($perPasien as $customerId => $affiliateIds) {
+            if (!isset($masihAda[$customerId])) {
+                foreach ($affiliateIds as $affiliateId) {
+                    $hasil[$affiliateId] = ['status' => 'perlu_dipilih', 'jumlah' => null, 'terakhir' => null];
+                }
+                unset($perPasien[$customerId]);
+            }
+        }
+        if (empty($perPasien)) {
+            return $hasil;
         }
 
         $perCustomer = $this->kontrolPerPasien(array_keys($perPasien));

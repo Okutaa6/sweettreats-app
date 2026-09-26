@@ -6,6 +6,71 @@
 > file ini append-only.
 
 ---
+## 2026-09-26 (sore) — 🔍 Reward KOC: audit ulang + E2E dengan data PROD → 1 bug kritis & 1 bug data ditemukan, semua diperbaiki (branch `feat/koc-reward-surplus`, DEV/PROD BELUM)
+
+**⛔ RALAT entri di bawah ("tiga layar di-render… semua lolos").** Render HTML
+tidak menjalankan JavaScript. Audit independen menemukan **tombol "Reward sudah
+diberikan" MATI TOTAL**: skripnya di `@section('scripts')`, padahal layout hanya
+`@yield('js')` — modal tak pernah terbuka, Linaily tetap terkunci. (Klik-baris
+SweetMates yang lama pun ternyata mati karena sebab sama sejak dulu; ikut hidup.)
+Kini E2E memeriksa skripnya benar-benar ada di halaman.
+
+**⛔ Bug data yang HANYA terlihat dengan data prod: Dewi Santi akan tertaut
+OTOMATIS ke rekam yang salah pilih.** Rekam keduanya tersimpan `07880405047`
+(`087880405047` kehilangan satu angka 8). Pencocokan varian persis 08/62/0062
+cuma menemukan satu → backfill menyebutnya "cocok tunggal". Kini dicocokkan
+lewat **10 digit terakhir** sesudah tanda baca dibuang; kandidat sengaja lebar
+(kelebihan = satu keputusan manusia, kekurangan = tautan salah yang diam).
+Dry-run di prod: hanya Dewi yang berubah status — 4 kasus ganda lain nomornya
+memang identik (satu nomor, beberapa rekam/keluarga), tak ada yang terjaring berlebih.
+
+**Hasil dry-run kode BARU terhadap data prod (read-only, `simpan=false`):**
+tertaut **29**, ganda **5**, tanpa HP/tak ketemu sisanya. 11 KOC berkonten:
+**10 tunggal + Dewi ganda** — persis angka HUB. Jumlah & tanggal kontrol **identik**
+dengan tabel handoff untuk kedelapan nama berangka (Ni Wayan 19/1 Sep, Zivi 9/29
+Agu, Annisa 17/22 Agu, Tri 9/26 Agu, Linaily 6/23 Sep, Maulidia 9/12 Sep, Audya
+15/19 Sep, Asyifa 9/4 Sep); Dewi "perlu dipilih" sesuai handoff. Hitung
+per-kunjungan = per-baris di prod (tak ada dua item kontrol sekunjungan).
+
+**Perbaikan lain dari audit:**
+- **Siklus klaim didesain ulang** — kolom baru `raw_affiliate.reward_program_chosen_at`
+  (diisi tiap pindah program; batas siklus, BUKAN penyaring konten). Versi
+  pertama mengunci KOC yang Bronze → Silver (belum selesai) → kembali Bronze
+  selamanya. Pembandingnya `created_at` klaim, bukan `processed_at`: E2E
+  menangkap versi `processed_at` salah menilai klaim Ni Wayan (pindah & klaim
+  jatuh di detik yang sama).
+- Pintu `used` kini menolak klaim yang bukan milik program berjalan (POST
+  rakitan ke klaim basi), dan modalnya memperingatkan bila saldo < syarat
+  (konten dibatalkan sesudah klaim).
+- Open redirect `?return=` ditutup (`app.sweettreats.id.evil.com` dan
+  `…id@evil.com` dulu lolos) — kini host dibandingkan, bukan awalan string.
+- Tautan ke rekam yang sudah dihapus/digabung → "perlu dipilih", bukan "0×".
+- Tanggal lahir `0000-00-00` (ada di prod) tampil "—", bukan "30 Nov -0001".
+- `confirm()` Lepas-tautan pakai `Js::from` (nama ber-baris-baru dulu merusak JS).
+- Portal KOC: statistik & profil = TOTAL konten; progres = SALDO ("belum
+  terpakai"); dasbor tak lagi bilang "Target tercapai" sesudah reward dipakai.
+- `chosenTier()` diberi `orderBy`; colspan tabel KOC dibetulkan; SQL: index
+  dicek terpisah dari kolomnya.
+
+**Akses (diukur prod):** 6 role pemegang `sweet-mates`/`content-review` SEMUA
+juga memegang `koc` (1 orang per role) → tautan ke layar pilih pasien tak
+memantul. ⚠️ **Belum diputuskan:** keenamnya (termasuk Content Creator) bisa
+menandai reward diberikan — pintu uang tanpa pagar role tersendiri.
+
+**Uji:** unit `KocRewardSurplusTest` **22/22** (+6 uji baru dari temuan audit).
+**E2E 218 asersi** di MySQL lokal dengan data prod (130 affiliate, 72 konten,
+klaim Linaily, 39+ rekam pasien, 1.281 baris penjualan) lewat HTTP & middleware
+sungguhan (RBAC, sesi) — semuanya dalam SATU transaksi yang di-rollback; DB lokal
+diverifikasi kembali utuh. E2E-nya berkas sementara (membaca data prod dari
+scratchpad), tidak di-commit; data prod lokal dihapus sesudahnya.
+Diuji balik: asersi "-0001" merah terhadap tampilan lama.
+
+**Deploy (menggantikan catatan di bawah):** SQL kini **4 kolom + 1 index**
+(`consumed_content_count`, `processed_at`, `raw_customer_id` + index,
+`reward_program_chosen_at`). Urutan tetap: SQL → deploy penuh (tanpa rsync) →
+`koc:tautkan-pasien --dry-run` (harap: tertaut 29, ganda 5) → tanpa `--dry-run`.
+
+---
 ## 2026-09-26 — 🔨 Reward KOC: pintu `used` + surplus terbawa + baris kontrol (branch `feat/koc-reward-surplus`, DEV/PROD BELUM)
 
 Dibangun chat build dari `docs/handoff/handoff-koc-reward-surplus-kontrol.md`.

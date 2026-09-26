@@ -48,7 +48,7 @@ class KocRewardSurplusTest extends TestCase
 
         DB::statement('CREATE TABLE raw_affiliate (
             id VARCHAR(36) PRIMARY KEY, name VARCHAR(255), phone VARCHAR(30), type VARCHAR(10),
-            reward_program VARCHAR(20), reward_program_started_at DATETIME, is_active TINYINT DEFAULT 1,
+            reward_program VARCHAR(20), reward_program_started_at DATETIME, reward_program_chosen_at DATETIME, is_active TINYINT DEFAULT 1,
             raw_customer_id VARCHAR(36), created_at DATETIME)');
         DB::statement('CREATE TABLE affiliate_content (
             id VARCHAR(36) PRIMARY KEY, raw_affiliate_id VARCHAR(36), status VARCHAR(20), created_at DATETIME)');
@@ -116,6 +116,21 @@ class KocRewardSurplusTest extends TestCase
     private function segar(RawAffiliate $a): RawAffiliate
     {
         return RawAffiliate::find($a->id);
+    }
+
+    /**
+     * Pindah program LEWAT CONTROLLER PORTAL SUNGGUHAN (bukan update kolom),
+     * supaya pagar canSwitchProgram() dan penanda siklus ikut teruji.
+     */
+    private function pindah(string $affiliateId, string $program): void
+    {
+        session()->forget(['error', 'success']);
+        session(['affiliate_id' => $affiliateId]);
+        request()->merge(['reward_program' => $program]);
+        app(AffiliatePortalController::class)->switchRewardProgram();
+
+        $this->assertNull(session('error'), "pindah ke {$program} ditolak: " . session('error'));
+        $this->assertSame($program, RawAffiliate::find($affiliateId)->reward_program);
     }
 
     private function privat(object $obj, string $metode, ...$args)
@@ -212,7 +227,7 @@ class KocRewardSurplusTest extends TestCase
     {
         $a = $this->koc('A', '3x', 14);
         $this->berikan($this->klaim('A', self::BRONZE, 'claimed'));
-        DB::table('raw_affiliate')->where('id', 'A')->update(['reward_program' => '12x']);
+        $this->pindah('A', '12x');
         $a = $this->segar($a);
 
         $this->assertSame(11, $a->approvedContentCount());
@@ -228,10 +243,10 @@ class KocRewardSurplusTest extends TestCase
     {
         $a = $this->koc('A', '3x', 3);
         $this->berikan($this->klaim('A', self::BRONZE, 'claimed', '2026-08-01 10:00:00'));  // siklus 1: Bronze
-        DB::table('raw_affiliate')->where('id', 'A')->update(['reward_program' => '12x']);
+        $this->pindah('A', '12x');
         $this->konten('A', 14);                                                          // 14 konten baru
         $this->berikan($this->klaim('A', self::SILVER, 'claimed', '2026-09-01 10:00:00'));  // siklus 2: Silver
-        DB::table('raw_affiliate')->where('id', 'A')->update(['reward_program' => '3x']);  // siklus 3: turun ke Bronze
+        $this->pindah('A', '3x');  // siklus 3: turun ke Bronze
         $a = $this->segar($a);
 
         $this->assertSame(2, $a->approvedContentCount(), '17 − 3 − 12 = 2 terbawa ke Bronze');
@@ -260,13 +275,71 @@ class KocRewardSurplusTest extends TestCase
         $this->assertSame('used', RawAffiliate::find('LINAILY')->cycleRewardClaim()->status);
     }
 
+    /**
+     * Temuan audit #2: Bronze used → Silver (belum selesai) → kembali Bronze.
+     * Versi pertama menganggap klaim Bronze lama masih "siklus ini" (karena ia
+     * tetap used-terakhir), jadi KOC yang cuma mau Bronze terkunci selamanya.
+     */
+    public function test_pergi_lalu_kembali_ke_tier_sama_membuka_siklus_baru(): void
+    {
+        $this->koc('A', '3x', 3);
+        $this->berikan($this->klaim('A', self::BRONZE, 'claimed'));
+        $this->pindah('A', '12x');          // Silver, tak pernah selesai
+        $this->pindah('A', '3x');           // kembali ke Bronze
+        $this->konten('A', 3);
+
+        $this->assertNull(RawAffiliate::find('A')->cycleRewardClaim(), 'klaim Bronze lama = sejarah');
+        $this->privat(new ContentReviewController(), 'syncRewardEligibility', 'A');
+        $this->assertSame('eligible', RawAffiliate::find('A')->cycleRewardClaim()?->status);
+    }
+
+    /**
+     * ⭐ Pindah program lalu klaim lahir & diberikan di DETIK YANG SAMA (alur
+     * nyata: pindah → redirect → klaim eligible lahir). Klaim itu milik siklus
+     * BARU — versi yang membandingkan processed_at menganggapnya lama dan
+     * membuka klaim kembar. Ditangkap E2E dengan data prod 26 Sep.
+     */
+    public function test_klaim_sedetik_dengan_pindah_program_milik_siklus_baru(): void
+    {
+        $this->koc('A', '3x', 3);
+        $this->berikan($this->klaim('A', self::BRONZE, 'claimed'));
+        $this->pindah('A', '12x');
+        $this->konten('A', 12);
+
+        $sekarang = now()->format('Y-m-d H:i:s');   // detik yang sama dengan reward_program_chosen_at
+        $baru = $this->klaim('A', self::SILVER, 'claimed', $sekarang);
+        $this->berikan($baru);
+
+        $siklus = RawAffiliate::find('A')->cycleRewardClaim();
+        $this->assertSame($baru, $siklus?->id);
+        $this->assertSame('used', $siklus->status);
+        $this->privat(new ContentReviewController(), 'syncRewardEligibility', 'A');
+        $this->assertSame(1, DB::table('affiliate_reward_claim')->where('affiliate_reward_tier_id', self::SILVER)->count(),
+            'tak boleh lahir klaim Silver kembar dari surplus');
+    }
+
+    /** ⭐ Pintu menolak klaim basi yang bukan milik program berjalan (POST rakitan). */
+    public function test_pintu_menolak_klaim_bukan_siklus_berjalan(): void
+    {
+        $this->koc('A', '12x', 20);
+        $basi = $this->klaim('A', self::BRONZE, 'claimed');  // Bronze, padahal program = Silver
+
+        try {
+            $this->berikan($basi);
+            $this->fail('klaim tier yang tak dipilih tak boleh memakan konten');
+        } catch (RuntimeException $e) {
+            $this->assertStringContainsString('bukan klaim program', $e->getMessage());
+        }
+        $this->assertSame(20, RawAffiliate::find('A')->approvedContentCount());
+    }
+
     /** ⭐ 6. Surplus tidak kedaluwarsa — konten setahun lalu tetap terhitung. */
     public function test_surplus_tidak_kedaluwarsa(): void
     {
         DB::table('raw_affiliate')->insert(['id' => 'A', 'name' => 'A', 'type' => 'koc', 'reward_program' => '3x', 'is_active' => 1]);
         $this->konten('A', 5, '2025-01-01 00:00:00');
         $this->berikan($this->klaim('A', self::BRONZE, 'claimed'));
-        DB::table('raw_affiliate')->where('id', 'A')->update(['reward_program' => '12x']);
+        $this->pindah('A', '12x');
 
         $this->assertSame(2, RawAffiliate::find('A')->approvedContentCount());
     }
@@ -277,7 +350,7 @@ class KocRewardSurplusTest extends TestCase
     {
         DB::table('raw_customer')->insert([
             ['id' => 'CUS-SIMATUPANG', 'name' => 'DEWI SANTI SIMATUPANG',      'phone' => '087880405047', 'tanggal_lahir' => '1991-08-26'],
-            ['id' => 'CUS-SARTIKA',    'name' => 'DEWI SANTI SARTIKA AGUSTIN', 'phone' => '6287880405047', 'tanggal_lahir' => '1991-08-26'],
+            ['id' => 'CUS-SARTIKA',    'name' => 'DEWI SANTI SARTIKA AGUSTIN', 'phone' => '07880405047',   'tanggal_lahir' => '1991-08-26'], // bentuk NYATA prod: satu angka 8 hilang,
         ]);
         DB::table('customer_omnicare_link')->insert([
             ['id' => 'L1', 'raw_customer_id' => 'CUS-SIMATUPANG', 'omnicare_pid' => 'C-2012-0059'],
@@ -398,11 +471,56 @@ class KocRewardSurplusTest extends TestCase
         $this->assertSame('eligible', $this->segar($b)->cycleRewardClaim()?->status);
     }
 
+    /** Tautan ke rekam yang sudah dihapus/digabung → "perlu dipilih", BUKAN "0×". */
+    public function test_tautan_patah_bukan_nol(): void
+    {
+        $a = $this->koc('A', null, 0);
+        DB::table('raw_affiliate')->where('id', 'A')->update(['raw_customer_id' => 'CUS-SUDAH-DIGABUNG']);
+
+        $r = (new KocPasien())->ringkasanKontrol([$this->segar($a)])['A'];
+        $this->assertSame('perlu_dipilih', $r['status']);
+        $this->assertNull($r['jumlah']);
+    }
+
+    /** ⭐ Pencocokan ekor nomor tak menjaring nomor yang benar-benar lain. */
+    public function test_ekor_nomor_tak_menjaring_nomor_lain(): void
+    {
+        DB::table('raw_customer')->insert([
+            ['id' => 'CUS-1', 'name' => 'X', 'phone' => '081234567890'],
+            ['id' => 'CUS-2', 'name' => 'Y', 'phone' => '081234567891'],   // beda digit terakhir
+            ['id' => 'CUS-3', 'name' => 'Z', 'phone' => '0812-3456-7890'], // nomor sama, berformat
+        ]);
+        $a = $this->koc('A', null, 0, '+62 812 3456 7890');
+
+        $this->assertSame(['CUS-1', 'CUS-3'], (new KocPasien())->kandidat($a)->pluck('id')->all());
+    }
+
+    /** ⭐ Open redirect (temuan audit #3): ?return= ke host lain ditolak. */
+    public function test_return_url_hanya_host_sendiri(): void
+    {
+        $uji = function (string $ret) {
+            app()->instance('request', \Illuminate\Http\Request::create('https://app.sweettreats.id/koc/X/pasien', 'GET', ['return' => $ret]));
+            return $this->privat(new \App\Http\Controllers\Crud\KocController(), 'urlKembali');
+        };
+
+        $this->assertSame('https://app.sweettreats.id/sweet-mates?tier=bronze', $uji('https://app.sweettreats.id/sweet-mates?tier=bronze'));
+        foreach ([
+            'https://app.sweettreats.id.evil.com/x',
+            'https://app.sweettreats.id@evil.com/',
+            '//evil.com/x',
+            'javascript:alert(1)',
+            'https://evil.com/?https://app.sweettreats.id',
+        ] as $jahat) {
+            $this->assertStringNotContainsString('evil', $uji($jahat), "lolos: {$jahat}");
+            $this->assertStringNotContainsString('javascript', $uji($jahat), "lolos: {$jahat}");
+        }
+    }
+
     /** Lima calon hari-pertama: Ni Wayan (13) memenuhi Silver seketika — disengaja & diterima Ikhsan. */
     public function test_ni_wayan_memenuhi_silver_seketika(): void
     {
         $niWayan = $this->koc('NI-WAYAN', null, 13);
-        DB::table('raw_affiliate')->where('id', 'NI-WAYAN')->update(['reward_program' => '12x']);
+        $this->pindah('NI-WAYAN', '12x');
 
         $this->assertTrue($this->segar($niWayan)->currentProgramProgress()['achieved']);
     }

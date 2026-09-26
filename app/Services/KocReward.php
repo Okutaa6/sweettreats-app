@@ -42,6 +42,13 @@ class KocReward
             if (!$claim->tier) {
                 throw new RuntimeException('Tier klaim ini tidak ditemukan — tak bisa menghitung konten yang dimakan.');
             }
+            // Hanya klaim program yang SEDANG BERJALAN. Klaim basi (tier yang
+            // tak lagi dipilih, sisa bug lama) tak boleh memakan konten lewat
+            // POST rakitan.
+            $siklus = $claim->affiliate?->cycleRewardClaim();
+            if (!$siklus || $siklus->id !== $claim->id) {
+                throw new RuntimeException('Klaim ini bukan klaim program yang sedang dijalani KOC — tidak diproses.');
+            }
 
             $jejak = sprintf('[%s] Reward diberikan: %s.', now()->format('Y-m-d H:i'), $claim->tier->name . ($claim->tier->reward_description ? ' — ' . $claim->tier->reward_description : ''));
             $catatan = trim((string) $catatan);

@@ -234,7 +234,8 @@
                                                         data-url="{{ route('sweetmates.klaim.diberikan', $klaim->id) }}"
                                                         data-nama="{{ $row->name ?: $username }}"
                                                         data-reward="{{ $tier?->name }}{{ $tier?->reward_description ? ' — ' . $tier->reward_description : '' }}"
-                                                        data-konten="{{ $required }}">
+                                                        data-konten="{{ $required }}"
+                                                        data-saldo="{{ $approvedCount }}">
                                                     <i class="fa fa-check"></i> Reward sudah diberikan
                                                 </button>
                                             @elseif($achieved)
@@ -307,6 +308,13 @@
                         <strong data-isi="konten"></strong> konten approved akan terpakai. Sisanya terbawa ke program berikutnya.
                         KOC bisa pindah program sesudah ini.
                     </p>
+                    {{-- Konten bisa di-unapprove SESUDAH KOC mengklaim; klaim 'claimed'
+                         tetap hidup. Jangan diam-diam — tampilkan. --}}
+                    <p data-isi="saldo-kurang" style="display:none; margin-bottom:10px; padding:8px 10px; border-radius:6px; background:#fdecea; color:#a3261b;">
+                        <i class="fa fa-exclamation-circle"></i>
+                        Saldo konten approved KOC ini sekarang <strong data-isi="saldo"></strong> — kurang dari syarat.
+                        Ada konten yang dibatalkan sesudah klaim. Periksa di Review Konten sebelum memberikan reward.
+                    </p>
                     <p style="margin-bottom:12px; color:#b2641b;">
                         <i class="fa fa-exclamation-triangle"></i> Tidak bisa dibatalkan dari layar ini. Pastikan reward-nya memang sudah diberikan.
                     </p>
@@ -323,7 +331,7 @@
 </div>
 @endsection
 
-@section('scripts')
+@section('js')
 <script>
     document.querySelectorAll('.sm-btn-diberikan').forEach(function(btn) {
         btn.addEventListener('click', function(e) {
@@ -333,6 +341,9 @@
             modal.querySelector('[data-isi="nama"]').textContent   = btn.dataset.nama;
             modal.querySelector('[data-isi="reward"]').textContent = btn.dataset.reward;
             modal.querySelector('[data-isi="konten"]').textContent = btn.dataset.konten;
+            var kurang = parseInt(btn.dataset.saldo, 10) < parseInt(btn.dataset.konten, 10);
+            modal.querySelector('[data-isi="saldo"]').textContent = btn.dataset.saldo;
+            modal.querySelector('[data-isi="saldo-kurang"]').style.display = kurang ? '' : 'none';
             modal.querySelector('textarea[name="catatan"]').value = '';
             $(modal).modal('show');
         });

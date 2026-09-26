@@ -206,7 +206,10 @@ class AffiliatePortalController extends Controller
 
         $promos = $affiliate->promos()->where('is_active', 1)->get();
 
+        // approvedCount = SALDO (belum dimakan reward) → progres; totalApproved = seumur hidup → statistik.
         $approvedCount   = $affiliate->approvedContentCount();
+        $totalApproved   = $affiliate->contents()->where('status', AffiliateContent::STATUS_APPROVED)->count();
+        $cycleClaim      = $affiliate->cycleRewardClaim();
         $currentTier     = $affiliate->currentTier();
         $nextTier        = $affiliate->nextTier();
         $progressPercent = $nextTier
@@ -218,7 +221,7 @@ class AffiliatePortalController extends Controller
         return view('affiliate.dashboard', compact(
             'affiliate', 'commissions', 'promos',
             'pendingTotal', 'approvedTotal', 'paidTotal',
-            'approvedCount', 'currentTier', 'nextTier', 'progressPercent', 'tiers', 'claims'
+            'approvedCount', 'currentTier', 'nextTier', 'progressPercent', 'tiers', 'claims', 'totalApproved', 'cycleClaim'
         ));
     }
 
@@ -484,9 +487,10 @@ class AffiliatePortalController extends Controller
         if (!$affiliate) return redirect()->route('affiliate.login');
 
         $approvedCount = $affiliate->approvedContentCount();
+        $totalApproved = $affiliate->contents()->where('status', AffiliateContent::STATUS_APPROVED)->count();
         $currentTier   = $affiliate->currentTier();
 
-        return view('affiliate.profile', compact('affiliate', 'approvedCount', 'currentTier'));
+        return view('affiliate.profile', compact('affiliate', 'approvedCount', 'currentTier', 'totalApproved'));
     }
 
     public function profileUpdate()
@@ -683,7 +687,12 @@ class AffiliatePortalController extends Controller
                 ->with('error', 'Tidak bisa pindah program — selesaikan dulu klaim untuk program saat ini (tunggu admin proses sampai reward "sudah dipakai").');
         }
 
-        $affiliate->update(['reward_program' => request('reward_program')]);
+        // reward_program_chosen_at = batas SIKLUS klaim (RawAffiliate::cycleRewardClaim),
+        // bukan penyaring konten.
+        $affiliate->update([
+            'reward_program'           => request('reward_program'),
+            'reward_program_chosen_at' => now(),
+        ]);
 
         $newCfg = RawAffiliate::rewardTiers()[request('reward_program')] ?? null;
         $nama   = $newCfg['name'] ?? 'program baru';

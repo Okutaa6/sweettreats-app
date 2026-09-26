@@ -196,10 +196,11 @@ class KocController extends Controller
         $kontrol = app(KocPasien::class)->ringkasanKontrol($kocs->getCollection());
 
         // Total kolom tabel — dipakai colspan baris kosong.
-        // 9 kolom lama (No..Konten) + 1 bila tab bukan 'all' (kolom Confirmed)
-        // + 5 kolom baru: Login Portal, Kode Ref, Pasien, Datang, Batal
-        // + 1 kolom Kontrol.
-        $kolomTotal = ($filterTab !== 'all' ? 10 : 9) + 6;
+        // Tabel daftar KOC: No, Nama, Cabang, Dokter, Perawatan, Platform,
+        // Contact, Feedback, Konten, Kontrol, Kode Ref, Login Portal = 12,
+        // + 1 bila tab bukan 'all' (kolom Confirmed). (Angka lama 14/15
+        // menghitung kolom tabel "Hasil Kode Reff" yang tabelnya terpisah.)
+        $kolomTotal = $filterTab !== 'all' ? 13 : 12;
 
         return view('crud.koc.list', compact(
             'kocs',
@@ -893,10 +894,22 @@ class KocController extends Controller
             : 'Tautan pasien ' . ($affiliate->name ?: 'KOC') . ' dilepas.');
     }
 
-    /** ?return= hanya boleh URL aplikasi sendiri (cegah open redirect). */
+    /**
+     * ?return= hanya boleh URL aplikasi sendiri (cegah open redirect).
+     * Dibandingkan HOST-nya, bukan awalan string: awalan `https://app.sweettreats.id`
+     * juga cocok dengan `https://app.sweettreats.id.evil.com` dan
+     * `https://app.sweettreats.id@evil.com`.
+     */
     private function urlKembali(): string
     {
-        $ret = (string) request('return', '');
-        return $ret !== '' && str_starts_with($ret, url('/')) ? $ret : route('koc');
+        $ret   = (string) request('return', '');
+        $parts = $ret !== '' ? parse_url($ret) : false;
+
+        $aman = is_array($parts)
+            && in_array($parts['scheme'] ?? '', ['http', 'https'], true)
+            && !isset($parts['user']) && !isset($parts['pass'])
+            && strcasecmp($parts['host'] ?? '', request()->getHost()) === 0;
+
+        return $aman ? $ret : route('koc');
     }
 }

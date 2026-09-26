@@ -31,7 +31,8 @@
             <div style="margin-top:14px; padding:12px 14px; border-radius:8px; background:#fbf6f1; border:1px solid #eadccd;">
                 @if($affiliate->customer)
                     <strong>Tertaut ke:</strong> {{ $affiliate->customer->name }}
-                    @if($affiliate->customer->tanggal_lahir) · lahir {{ \Carbon\Carbon::parse($affiliate->customer->tanggal_lahir)->format('d M Y') }} @endif
+                    @php $lahir = (string) $affiliate->customer->tanggal_lahir; @endphp
+                    @if($lahir !== '' && !str_starts_with($lahir, '0000')) · lahir {{ \Carbon\Carbon::parse($lahir)->format('d M Y') }} @endif
                     · {{ $kontrolPasien[$affiliate->raw_customer_id]['jumlah'] ?? 0 }}× kontrol
                 @elseif($affiliate->raw_customer_id)
                     <strong>Tertaut ke rekam yang sudah tidak ada</strong> ({{ $affiliate->raw_customer_id }}) — pilih ulang di bawah.
@@ -79,7 +80,7 @@
             <button type="submit" class="st-btn-brand"><i class="fa fa-check"></i> Simpan pilihan</button>
             @if($affiliate->raw_customer_id)
                 <button type="submit" name="lepas" value="1" formnovalidate class="st-btn-outline-brown"
-                        onclick="return confirm('Lepas tautan pasien untuk {{ addslashes($affiliate->name) }}? Baris kontrol akan kembali berbunyi \'perlu dipilih\'.');">
+                        onclick="return confirm({{ \Illuminate\Support\Js::from('Lepas tautan pasien untuk ' . ($affiliate->name ?: 'KOC ini') . "? Baris kontrol akan kembali berbunyi 'perlu dipilih'.") }});">
                     <i class="fa fa-unlink"></i> Lepas tautan
                 </button>
             @endif

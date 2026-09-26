@@ -23,7 +23,8 @@
 --   2. affiliate_reward_claim.processed_at TIMESTAMP NULL
 --      KAPAN reward diberikan. `claimed_at` tetap = kapan KOC meminta,
 --      tidak ditimpa. `processed_by` (sudah ada) = siapa.
---   3. raw_affiliate.raw_customer_id VARCHAR(36) NULL + index
+--   3. raw_affiliate.raw_customer_id VARCHAR(36) NULL + index (dicek terpisah)
+--   4. raw_affiliate.reward_program_chosen_at TIMESTAMP NULL — batas siklus klaim
 --      Tautan KOC → rekam pasien, diisi SEKALI. Backfill BUKAN di file ini:
 --      jalankan `php artisan koc:tautkan-pasien --dry-run` lalu tanpa
 --      --dry-run SESUDAH deploy kode. Perintah itu hanya mengisi yang cocok
@@ -77,15 +78,48 @@ SET @exist := (
 SET @sql := IF(@exist = 0,
     "ALTER TABLE `raw_affiliate`
         ADD COLUMN `raw_customer_id` VARCHAR(36) NULL DEFAULT NULL
-            COMMENT 'Rekam pasien KOC. Diisi sekali: otomatis bila HP cocok tunggal, selain itu dipilih manusia. NULL = perlu dipilih.',
-        ADD INDEX `idx_raw_affiliate_customer` (`raw_customer_id`)",
+            COMMENT 'Rekam pasien KOC. Diisi sekali: otomatis bila HP cocok tunggal, selain itu dipilih manusia. NULL = perlu dipilih.'",
     "SELECT 'raw_affiliate.raw_customer_id already exists, skipping' AS info"
 );
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
+-- 3b. index raw_customer_id — dicek TERPISAH dari kolomnya, supaya kolom
+--     yang sudah ada tanpa index tetap mendapat index.
+SET @exist := (
+    SELECT COUNT(*) FROM INFORMATION_SCHEMA.STATISTICS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME   = 'raw_affiliate'
+       AND INDEX_NAME   = 'idx_raw_affiliate_customer'
+);
+SET @sql := IF(@exist = 0,
+    "ALTER TABLE `raw_affiliate` ADD INDEX `idx_raw_affiliate_customer` (`raw_customer_id`)",
+    "SELECT 'idx_raw_affiliate_customer already exists, skipping' AS info"
+);
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- 4. raw_affiliate.reward_program_chosen_at
+--    Batas SIKLUS klaim, diisi tiap KOC pindah program. Klaim 'used' yang
+--    diberikan sebelum program sekarang dipilih = sejarah → Bronze → Silver
+--    → Bronze bisa melahirkan klaim Bronze baru. ⛔ BUKAN penyaring konten
+--    (itu kesalahan reward_program_started_at). NULL (semua baris lama) =
+--    klaim terakhir dianggap milik siklus berjalan — sikap aman (mengunci).
+SET @exist := (
+    SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME   = 'raw_affiliate'
+       AND COLUMN_NAME  = 'reward_program_chosen_at'
+);
+SET @sql := IF(@exist = 0,
+    "ALTER TABLE `raw_affiliate`
+        ADD COLUMN `reward_program_chosen_at` TIMESTAMP NULL DEFAULT NULL
+            COMMENT 'Kapan reward_program terakhir dipilih lewat pindah program. Batas siklus klaim, BUKAN penyaring konten.'",
+    "SELECT 'raw_affiliate.reward_program_chosen_at already exists, skipping' AS info"
+);
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
 -- =====================================================================
--- VERIFIKASI (jangan dilewati) — harus 3 baris.
---   processed_at: EXTRA harus KOSONG. Kalau berisi 'on update
+-- VERIFIKASI (jangan dilewati) — harus 4 baris.
+--   processed_at & reward_program_chosen_at: EXTRA harus KOSONG. Kalau berisi 'on update
 --   CURRENT_TIMESTAMP', tiap save() klaim memalsukan waktu pemberian:
 --     ALTER TABLE `affiliate_reward_claim` MODIFY `processed_at` TIMESTAMP NULL DEFAULT NULL;
 -- =====================================================================
@@ -93,7 +127,7 @@ PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 --   FROM INFORMATION_SCHEMA.COLUMNS
 --  WHERE TABLE_SCHEMA = DATABASE()
 --    AND ((TABLE_NAME = 'affiliate_reward_claim' AND COLUMN_NAME IN ('consumed_content_count','processed_at'))
---      OR (TABLE_NAME = 'raw_affiliate' AND COLUMN_NAME = 'raw_customer_id'));
+--      OR (TABLE_NAME = 'raw_affiliate' AND COLUMN_NAME IN ('raw_customer_id','reward_program_chosen_at')));
 
 -- =====================================================================
 -- LOKAL SAJA (mysqld lokal mati oleh INFORMATION_SCHEMA) — ALTER polos:
@@ -102,5 +136,6 @@ PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 --   ADD COLUMN `processed_at` TIMESTAMP NULL DEFAULT NULL;
 -- ALTER TABLE `raw_affiliate`
 --   ADD COLUMN `raw_customer_id` VARCHAR(36) NULL DEFAULT NULL,
+--   ADD COLUMN `reward_program_chosen_at` TIMESTAMP NULL DEFAULT NULL,
 --   ADD INDEX `idx_raw_affiliate_customer` (`raw_customer_id`);
 -- =====================================================================

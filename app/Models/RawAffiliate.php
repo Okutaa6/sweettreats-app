@@ -27,6 +27,7 @@ class RawAffiliate extends Model
         'raw_doc_service_id',
         'reward_program',
         'reward_program_started_at',
+        'reward_program_chosen_at',
         'pin',
         'role',
         'type',
@@ -54,6 +55,7 @@ class RawAffiliate extends Model
         'is_active'                 => 'boolean',
         'created_at'                => 'datetime',
         'reward_program_started_at' => 'datetime',
+        'reward_program_chosen_at'  => 'datetime',
         'tanggal_approach'          => 'date',
         'followers_count'           => 'integer',
         // Jejak login portal affiliate (IT-2026-045). Ditulis lewat query
@@ -421,6 +423,7 @@ class RawAffiliate extends Model
 
         return AffiliateRewardTier::active()
             ->where('required_content_count', $rewardCfg['content_count'])
+            ->orderBy('id')   // active() sudah urut sort_order; id = pemutus seri
             ->first();
     }
 
@@ -429,15 +432,18 @@ class RawAffiliate extends Model
      * null kalau siklus ini belum melahirkan klaim.
      *
      * Satu tier bisa punya lebih dari satu klaim sepanjang hidup affiliate:
-     * Bronze → Silver → Bronze (turun kelas) melahirkan klaim Bronze kedua.
-     * Klaim 'used' terbaru untuk tier pilihan dianggap MASIH milik siklus ini
-     * hanya kalau ia juga klaim 'used' terbaru secara keseluruhan — artinya
-     * affiliate belum pindah program sesudah reward itu diberikan. Kalau
-     * sesudahnya ada reward tier lain yang dipakai, affiliate sudah kembali ke
-     * tier ini lewat siklus baru, dan klaim lama itu sejarah.
+     * Bronze → Silver → Bronze melahirkan klaim Bronze kedua. Batas siklus =
+     * `reward_program_chosen_at` (diisi tiap pindah program): klaim 'used'
+     * yang diberikan SEBELUM program sekarang dipilih adalah sejarah.
      *
-     * Akibat yang disengaja: tak bisa klaim ulang tier yang sama tanpa pindah
-     * program dulu (portal memang tak menawarkan pilih tier yang sedang aktif).
+     * Akibat yang disengaja: tetap di tier yang sama sesudah reward diberikan
+     * TIDAK melahirkan klaim ulang dari surplus — harus pindah program dulu
+     * (portal memang tak menawarkan memilih tier yang sedang aktif). Pindah
+     * pergi-lalu-kembali (Bronze → Silver belum selesai → Bronze) membuka
+     * siklus baru.
+     *
+     * ⛔ Kolom ini BUKAN penyaring konten (itu kesalahan stempel waktu lama,
+     *    reward_program_started_at) — hanya penanda klaim milik siklus mana.
      */
     public function cycleRewardClaim(): ?AffiliateRewardClaim
     {
@@ -454,14 +460,21 @@ class RawAffiliate extends Model
             return $claim;
         }
 
-        $usedTerakhir = AffiliateRewardClaim::where('raw_affiliate_id', $this->id)
-            ->where('status', AffiliateRewardClaim::STATUS_USED)
-            ->orderByDesc('processed_at')
-            ->orderByDesc('created_at')
-            ->orderByDesc('id')
-            ->first();
+        // Klaim yang LAHIR sebelum program ini dipilih → milik siklus lama.
+        // Dibandingkan dengan created_at, BUKAN processed_at: pindah program →
+        // redirect → klaim eligible lahir bisa jatuh di DETIK YANG SAMA
+        // (kolom berketelitian detik), jadi pembanding "lahir ≥ dipilih" yang
+        // aman. Klaim siklus lama pasti lahir SEBELUM pindah, karena pindah
+        // terkunci selama klaimnya belum 'used'. (E2E data prod 26 Sep
+        // menangkap versi processed_at yang salah menganggap klaim baru lama.)
+        // Tanpa penanda (data lama) → anggap milik siklus ini: lebih aman
+        // mengunci daripada melahirkan klaim.
+        $mulai = $this->reward_program_chosen_at;
+        if ($mulai && $claim->created_at && $claim->created_at->lt($mulai)) {
+            return null;
+        }
 
-        return $usedTerakhir && $usedTerakhir->id === $claim->id ? $claim : null;
+        return $claim;
     }
 
     /**
