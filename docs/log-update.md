@@ -6,6 +6,62 @@
 > file ini append-only.
 
 ---
+## 2026-09-26 (malam) — ✅ Foto bukti WAJIB lembur & WFH NAIK PROD (`b76d69f`)
+
+Gerbong foto + penutupan berkas yatim digabung jadi **satu deploy**.
+Nol SQL · nol `public/assets/**` → tanpa rsync · `routes/` tak tersentuh.
+Diukur sebelum deploy: 5 commit di rentang `70de50e..b76d69f`, **3 di antaranya
+`docs:`**; yang menyentuh kode berjalan cuma 3 berkas.
+
+**Verifikasi PROD — 5 lulus, dan yang paling meyakinkan diuji HIDUP.** Kiriman
+lembur tanpa foto dikirim betulan lewat `store()` di dalam transaksi yang pasti
+di-rollback: ditolak dengan *"Pengajuan Lembur wajib melampirkan foto bukti."*,
+dan **nol baris + nol berkas lahir** (att_request 636→636, lampiran 228→228).
+Konstanta `TIPE_WAJIB_FOTO` terpasang, `sakit` tidak ikut terkunci, form
+menyiarkan daftarnya ke JS. Halaman publik 200, URL akhir tak memantul.
+
+**⭐ Chat build membetulkan brief HUB.** Brief memperkirakan "cabut pra-cek →
+uji berkas-yatim merah". **Tidak merah** — dua lapis (pra-cek jatah WFH dan
+`@unlink`) saling menutupi, jadi satu kasus uji tak bisa membedakannya. Mereka
+menambah jalur gagal kedua (`submit()` melempar karena orang tanpa alur
+persetujuan) supaya tiap lapis bisa merah sendiri. Uji yang tak bisa merah saat
+pagarnya dicabut memang bukan pagar. Ditambah `test_yatim_cek_jatah_di_dalam
+_transaksi_masih_berkunci` — uji bentuk yang menahan orang di kemudian hari
+menghapus cek berkunci dengan alasan "kan sudah ada pra-cek".
+
+**Uji:** `PagarLemburLayarTest` 13→19 · `PagarLemburTest` 16/16 tak diubah
+(bukti pagar lama tak tergeser) · harness JS 24 pemeriksaan.
+⚠️ **HUB menjalankan ulang harness JS (24/24 hijau); phpunit TIDAK diverifikasi
+HUB** (mysqld lokal mati) — dicatat sebagai klaim chat build, bukan fakta.
+
+**⚠️ Utang kecil:** HTML statis `_pengajuan_form.blade.php:124` masih memuat
+kalimat lama *"(opsional — kalau lembur/kerja dari rumah tanpa absen mesin…)"*.
+**Teks mati** — `sync()` di baris 439 memanggil `aturLampiran()` saat halaman
+dimuat, jadi selalu tertimpa sebelum terbaca. Rapikan kapan saja berkas itu
+disentuh lagi; bukan alasan menahan deploy.
+
+### ⭐ PATOKAN PEMANTAUAN (pengajuan lembur+WFH per pekan, sebelum aturan hidup)
+
+| pekan mulai | pengajuan | berfoto |
+|---|---|---|
+| 2026-08-10 | 32 | 75% |
+| 2026-08-17 | 96 | 50% |
+| 2026-08-31 | 76 | 42% |
+| 2026-09-14 | 109 | 29% |
+| **2026-09-21** | **76** | **28%** |
+
+Volume normal **±76–109/pekan**. ⛔ Kalau pekan depan **anjlok jauh di bawah
+±76**, itu tandanya orang berhenti mengklaim lembur yang benar-benar dikerjakan
+— **bukan** tandanya aturan berhasil. Kerja tak terbayar lebih mahal daripada
+foto yang hilang. Risiko ini sudah disampaikan ke Ikhsan dan diterima sadar;
+keputusan & tanggung jawab ada di Nisa/Supervisor.
+
+**⚠️ Pengumuman WhatsApp BELUM dikirim padahal aturannya SUDAH HIDUP.** Lembur
+dikirim malam hari — yang kena pertama adalah orang yang malam ini benar-benar
+lembur. Pesan siap kirim ada di chat HUB; kirim segera, jangan tunggu besok.
+
+---
+
 ## 2026-09-26 — Foto bukti WAJIB untuk lembur & WFH (`feat/foto-wajib-lembur-wfh`, dev/prod belum)
 
 Branch `feat/foto-wajib-lembur-wfh` dari `main` (`5b3483d`). **Nol SQL.**
