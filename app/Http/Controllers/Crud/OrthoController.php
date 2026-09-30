@@ -1115,11 +1115,39 @@ class OrthoController extends Controller
             }
         }
 
-        // Role lintas cabang boleh memilih lewat ?utama=; sisanya jatuh ke
-        // cabang pertama supaya halaman tetap punya pijakan, bukan kosong
-        // tanpa penjelasan.
+        /*
+         * SIAPA YANG SAMPAI DI SINI: hanya orang yang TIDAK punya cabang.
+         * Yang punya `raw_branch_id` sudah pulang di blok atas, dan `?utama=`
+         * bahkan tidak pernah dilirik untuk mereka — itu pagar yang menahan
+         * Sales/Front Office menembus ke cabang lain lewat URL. Jangan
+         * dilonggarkan.
+         *
+         * ⚠ TIDAK ADA pemeriksaan role di sini, dan itu DISENGAJA.
+         *
+         * Versi sebelumnya menuntut canSeeAllBranches(). Akibatnya orang tanpa
+         * cabang yang tidak masuk daftar itu — Admin, Head IT, IT, Supervisor —
+         * dipaku ke cabang PERTAMA (Bintaro, 927 kasus) dan pemilihnya tidak
+         * dirender sama sekali. Tanpa galat, tanpa penjelasan: mereka melihat
+         * satu dari lima cabang dan mengira itu seluruh datanya. Tiga dari
+         * empat orang itu justru yang menguji modul ini.
+         *
+         * Membuka pemilih untuk mereka BUKAN pelonggaran akses: mereka sudah
+         * melihat satu cabang penuh: yang berubah cuma cabang MANA, bukan boleh
+         * atau tidaknya melihat. Halamannya sendiri sudah dijaga RBAC menu.
+         *
+         * Dan sengaja BUKAN daftar role baru: daftar akan basi lagi begitu ada
+         * role berikutnya tanpa cabang, dan jebakan yang sama terpasang ulang.
+         * Menambahkannya ke canSeeAllBranches() lebih buruk lagi — konstanta itu
+         * dipakai 47 tempat dan ikut membuka unggah sidik jari, koreksi absen,
+         * periode gaji, dan petty cash lintas cabang.
+         *
+         * Keadaan pinggir yang ikut benar: user yang PUNYA raw_branch_id tapi
+         * cabangnya belum dipetakan ke omnicare_place_id juga mendarat di sini.
+         * Ia memang tidak punya cabang DI MODUL INI, jadi memilih adalah
+         * jawaban yang benar — bukan kelalaian.
+         */
         $diminta = (string) request('utama', '');
-        if (canSeeAllBranches() && $this->branches->ada($diminta)) {
+        if ($this->branches->ada($diminta)) {
             return [$diminta, false, $this->branches->nama($diminta)];
         }
 
@@ -1129,8 +1157,11 @@ class OrthoController extends Controller
         //   dan user tanpa cabang (Super Admin) kena 403 di drawer detail.
         $pertama = array_key_first($this->branches->all());
 
+        // terkunci = false: lihat catatan di atas. Yang sampai ke sini tidak
+        // punya cabang, jadi mengunci mereka ke cabang pertama berarti memaku
+        // orang ke tempat yang bukan miliknya, tanpa jalan keluar.
         return $pertama === null
             ? [null, false, '—']
-            : [(string) $pertama, ! canSeeAllBranches(), $this->branches->nama((string) $pertama)];
+            : [(string) $pertama, false, $this->branches->nama((string) $pertama)];
     }
 }
