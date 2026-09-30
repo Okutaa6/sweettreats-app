@@ -367,8 +367,38 @@ class ReservationController extends Controller
                 ->withQueryString()
             : null;
 
+        /*
+         * Penanda "Ortho" di kolom Pasien: reservasi yang punya baris
+         * ort_control, yaitu yang lahir dari Tracking Pasien Ortho.
+         *
+         * ⚠ Dikumpulkan lewat whereIn atas id HALAMAN INI saja, bukan JOIN.
+         *   Di prod collation ort_* dan raw_* beda keluarga, dan JOIN lintas
+         *   keluarga meledak #1267. Membandingkan kolom dengan daftar literal
+         *   aman karena literalnya ikut collation kolomnya.
+         *
+         * Seluruhnya dibungkus supaya halaman Reservasi tidak pernah gagal
+         * hanya karena modul ortho belum di-deploy di suatu environment.
+         */
+        $ortoIds = [];
+        try {
+            if (\Illuminate\Support\Facades\Schema::hasTable('ort_control') && $reservations) {
+                $idHalaman = collect($reservations->items())->pluck('id')->filter()->all();
+                if ($idHalaman) {
+                    $ortoIds = array_flip(
+                        \Illuminate\Support\Facades\DB::table('ort_control')
+                            ->whereIn('reservation_id', $idHalaman)
+                            ->pluck('reservation_id')
+                            ->all()
+                    );
+                }
+            }
+        } catch (\Throwable $e) {
+            $ortoIds = [];
+        }
+
         return view('crud.reservation.list', compact(
             'reservations',
+            'ortoIds',
             'leads',
             'pasienBaruCount',
             'filterSearch',
@@ -776,6 +806,102 @@ class ReservationController extends Controller
             }
         }
 
+        // ── Bridge dari Tracking Ortho ──
+        // Dipanggil ?ort_control_id=X dari lembar "Buat Reservasi" di modul
+        // Ortho. Pasien, cabang, dan tanggal kontrolnya sudah diketahui, jadi
+        // form ini dibuka ter-isi — Sales tinggal memilih jam, dokter, dan
+        // layanan. Hidden `ort_control_id` ikut ter-submit; store() memakainya
+        // untuk menautkan reservasi balik ke baris ortho-nya.
+        //
+        // Idempotent lewat flashInput/old(), pola sama dengan dua bridge di atas.
+        if (($ortControlId = request('ort_control_id')) && ! request()->session()->has('_old_input')) {
+            $ortOk = \Illuminate\Support\Facades\Schema::hasTable('ort_control')
+                  && \Illuminate\Support\Facades\Schema::hasTable('ort_case');
+
+            $ortCtl = $ortOk ? \App\Models\OrtControl::find($ortControlId) : null;
+            $ortCase = $ortCtl ? \App\Models\OrtCase::find($ortCtl->ort_case_id) : null;
+
+            // Tanpa raw_customer_id, form tidak bisa di-prefill pasiennya —
+            // biarkan terbuka kosong daripada setengah terisi dan menyesatkan.
+            if ($ortCase && $ortCase->raw_customer_id) {
+                $ortBranchId = app(\App\Services\Ortho\OrtBranches::class)->branchId((string) $ortCtl->place_id);
+
+                // ort_case.doctor_ref_id itu kode Omnicare, BUKAN raw_doctor.id.
+                // Dioper mentah, form menerima dokter yang tidak ada, lalu JS-nya
+                // menyimpulkan "dokter ini tidak bertugas di cabang itu" dan
+                // MENGOSONGKAN pilihan cabang — prefill-nya malah bikin rusak.
+                //
+                // Jembatannya raw_doctor.omnicare_doc_id. Brief Lampiran A
+                // melarang tegas mencocokkan dokter lewat NAMA ("sudah terbukti
+                // nyasar ke rekam dokter lain"), jadi kode itu yang dipakai
+                // lebih dulu; nama cuma cadangan untuk dokter yang kolom
+                // omnicare_doc_id-nya belum terisi.
+                //
+                // ⚠ Kandidatnya SELALU jamak, tidak pernah ->value('id') dari
+                //   baris pertama. raw_doctor bisa punya beberapa baris bernama
+                //   sama (lokal: 2), dan versi lama mengambil yang pertama lalu
+                //   menguji baris ITU — kalau yang pertama kebetulan baris yang
+                //   salah, kolom dokter dikosongkan diam-diam padahal ada baris
+                //   lain bernama sama yang memang bertugas di sana. Jadwal
+                //   cabang dipakai untuk MEMILIH di antara kandidat, bukan
+                //   untuk memveto satu tebakan.
+                $ortDoctorId = null;
+                if ($ortBranchId) {
+                    // Pilih dokter yang benar-benar bertugas di cabang itu, dari
+                    // sekumpulan kandidat. Mengembalikan null kalau tak satu pun
+                    // bertugas — lebih baik kolomnya kosong daripada terisi
+                    // dokter yang tidak praktek di sana.
+                    $yangBertugas = fn ($ids) => $ids->isEmpty() ? null
+                        : RawDoctorSchedule::where('raw_branch_id', $ortBranchId)
+                            ->whereIn('raw_doctor_id', $ids)
+                            ->value('raw_doctor_id');
+
+                    if ($ortCase->doctor_ref_id) {
+                        $ortDoctorId = $yangBertugas(
+                            RawDoctor::where('omnicare_doc_id', $ortCase->doctor_ref_id)->pluck('id')
+                        );
+                    }
+
+                    // Cadangan dijalankan kalau jalur kode tidak MENGHASILKAN
+                    // dokter — bukan cuma kalau kandidatnya kosong. Kode bisa
+                    // menunjuk baris raw_doctor yang ada tapi tak punya jadwal
+                    // di cabang itu (lokal: baris seed dummy Komisi Dokter);
+                    // berhenti di situ berarti membuang dokter asli yang
+                    // bernama sama dan memang praktek di sana.
+                    if (! $ortDoctorId && $ortCase->doctor_name) {
+                        $ortDoctorId = $yangBertugas(
+                            RawDoctor::where('name', trim($ortCase->doctor_name))->pluck('id')
+                        );
+                    }
+                }
+
+                session()->flashInput([
+                    'raw_customer_id' => $ortCase->raw_customer_id,
+                    'raw_branch_id'   => $ortBranchId,
+                    'raw_doctor_id'   => $ortDoctorId,
+                    'date'            => request('tanggal') ?: optional($ortCtl->sch_date)->toDateString(),
+                    'keterangan'      => trim('Kontrol ortho ke-' . $ortCtl->seq
+                                          . ($ortCase->bracket_type ? ' · ' . $ortCase->bracket_type : '')
+                                          . ($ortCase->bracket_arch ? ' · ' . $ortCase->bracket_arch : '')
+                                          . (request('catatan') ? ' · ' . trim((string) request('catatan')) : '')),
+                    'ort_control_id'  => $ortCtl->id,
+                ]);
+
+                session()->flash('_ortho_source', [
+                    'nama'    => $ortCase->patient_name,
+                    'pid'     => $ortCase->omnicare_pid,
+                    'seq'     => $ortCtl->seq,
+                    'jadwal'  => optional($ortCtl->sch_date)->translatedFormat("j M 'y"),
+                    'dokter'  => $ortCase->doctor_name,
+                    'bracket' => $ortCase->bracket_type,
+                ]);
+
+                $redirectParams = request()->boolean('drawer') ? ['drawer' => 1] : [];
+                return redirect()->route('rawreservation.new', $redirectParams);
+            }
+        }
+
+
         $sessionBranch = session('raw_branch_id');
 
         // Fallback Database
@@ -1070,6 +1196,55 @@ class ReservationController extends Controller
                         ->increment('promoted_rows');
                 });
                 $stagingBatchId = $staging->batch_id;
+            }
+        }
+
+        // ── Bridge balik ke Tracking Ortho ──
+        // Menautkan reservasi yang baru dibuat ke baris ort_control asalnya.
+        //
+        // ⚠ DIBUNGKUS try/catch DENGAN SENGAJA: reservasi TIDAK BOLEH gagal
+        //   gara-gara tautan ortho gagal. Modul Reservasi dipakai tiap hari
+        //   oleh semua cabang; modul Ortho baru satu cabang. Kalau tabel
+        //   ort_control belum ada di environment ini (SQL-nya manual), atau
+        //   barisnya keburu dihapus, reservasinya tetap sah — cuma tautannya
+        //   yang hilang, dan itu bisa diperbaiki belakangan.
+        $ortControlId = request('ort_control_id');
+        if ($ortControlId && $reservationId) {
+            try {
+                if (\Illuminate\Support\Facades\Schema::hasTable('ort_control')) {
+                    $ortCtl = \App\Models\OrtControl::find($ortControlId);
+
+                    // Hanya kontrol yang masih terbuka dan belum punya reservasi.
+                    // Tanpa penjaga ini, submit ulang form akan menimpa tautan
+                    // yang sudah benar dengan reservasi kedua.
+                    // Cabang reservasi WAJIB sama dengan cabang pemegang kontrol.
+                    // Tanpa ini, reservasi Cinere bisa tertaut ke kontrol Bintaro
+                    // — lewat POST langsung, atau sekadar salah pilih cabang di
+                    // form. Yang tertaut salah lebih berbahaya daripada yang
+                    // tidak tertaut sama sekali: kolom Reservasi jadi berbohong.
+                    $ortBranchOk = $ortCtl && app(\App\Services\Ortho\OrtBranches::class)
+                        ->branchId((string) $ortCtl->place_id) === request('raw_branch_id');
+
+                    if ($ortCtl && $ortBranchOk && $ortCtl->closed_at === null && ! $ortCtl->reservation_id) {
+                        $ortCtl->fill([
+                            'reservation_id' => $reservationId,
+                            'rsv_date'       => request('date') ?: null,
+                            'rsv_status'     => (int) request('is_waiting', 0) === 1
+                                ? \App\Models\RawCusReservation::STATUS_WAITLIST
+                                : \App\Models\RawCusReservation::STATUS_PENDING,
+                            'rsv_synced_at'  => now(),
+                            'updated_by'     => session('id'),
+                        ])->save();
+
+                        app(\App\Services\Ortho\OrtRollup::class)->refresh($ortCtl->ort_case_id);
+                    }
+                }
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('Tautan ortho gagal, reservasi tetap dibuat', [
+                    'reservation_id' => $reservationId,
+                    'ort_control_id' => $ortControlId,
+                    'error'          => $e->getMessage(),
+                ]);
             }
         }
 

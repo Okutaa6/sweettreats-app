@@ -1,0 +1,1385 @@
+/* ════════════════════════════════════════════════════════════════════════════
+   Tracking Pasien Ortho — zona COKELAT (operasional)
+
+   Prefix .ort- untuk semua yang khas halaman ini. Yang sudah ada di
+   components.sweettreats.css (.st-card, .st-pill, .st-empty, .st-page-head,
+   .st-filter-chips, .st-breadcrumb) DIPAKAI ULANG, tidak ditulis ulang.
+
+   Tiga aturan tema yang dipegang berkas ini:
+     • Cokelat hanya untuk chrome — header tabel, tab aktif, tombol primer.
+       Haram mewarnai permukaan besar.
+     • Merah #C0392B khusus makna negatif. Bukan aksen.
+     • Gradient header tabel dipasang di BARIS header, sel header transparan.
+       Kalau per sel, gradient me-restart dan tabelnya jadi belang.
+   ════════════════════════════════════════════════════════════════════════════ */
+
+.ort {
+  --ort-ink:      #2E1000;
+  --ort-ink2:     #402009;
+  --ort-ink3:     #5F4229;
+  --ort-muted:    #8A6A50;
+  --ort-line:     #EFE0CE;
+  --ort-line2:    #E7D3BE;
+  --ort-row:      #F4EADD;
+  --ort-sunken:   #FCF7F0;
+  --ort-strip:    #FAF1E6;
+  --ort-hover:    #FBF4EC;
+  --ort-brand1:   #5A2410;
+  --ort-brand2:   #3A1100;
+  --ort-btn1:     #6B2400;
+  --ort-btn2:     #461500;
+  --ort-onbrand:  #FBEADB;
+  --ort-accent:   #C9962F;
+  --ort-ok:       #2F8E55;  --ort-ok-bg:    #E3F4E8;
+  --ort-warn:     #B5701A;  --ort-warn-bg:  #FBEFD9;
+  --ort-bad:      #C0392B;  --ort-bad-bg:   #FBE3DE;
+  --ort-info:     #3F6BAF;  --ort-info-bg:  #E4ECFB;
+  --ort-neu:      #7E5F46;  --ort-neu-bg:   #F1E9DF;
+  --ort-wa:       #2C8C63;  --ort-wa-line:  #BFE3CD;
+  --ort-transfer: #6B2400;  --ort-transfer-bg: #F6EBE1;
+}
+
+.ort .tabular,
+.ort .ort-num { font-variant-numeric: tabular-nums; }
+
+/* ── Kartu ringkas ──────────────────────────────────────────────────────── */
+.ort-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 13px;
+  margin-top: 13px;
+}
+.ort-card {
+  display: block;
+  background: #fff;
+  border: 1px solid var(--ort-line);
+  border-radius: 16px;
+  padding: 14px 16px 15px;
+  box-shadow: 0 1px 2px rgba(70, 21, 0, .04);
+  text-decoration: none;
+  transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease;
+}
+.ort-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(70, 21, 0, .09);
+  text-decoration: none;
+}
+.ort-card.is-active { border: 1.5px solid var(--ort-btn1); background: #FDF6EF; }
+.ort-card__top { display: flex; align-items: center; gap: 9px; }
+.ort-card__icon {
+  width: 26px; height: 26px; flex: none; border-radius: 9px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; background: var(--ort-neu-bg); color: var(--ort-ink3);
+}
+.ort-card__label { font-size: 12px; font-weight: 700; color: var(--ort-ink2); flex: 1; }
+.ort-card__chev  { color: var(--ort-muted); font-size: 11px; }
+.ort-card__num   { font-size: 27px; font-weight: 800; line-height: 1.15; margin-top: 6px; color: var(--ort-ink); }
+.ort-card__sub   { font-size: 11px; color: var(--ort-muted); margin-top: 2px; line-height: 1.45; }
+.ort-card--warn .ort-card__icon { background: var(--ort-warn-bg); color: var(--ort-warn); }
+.ort-card--warn .ort-card__num  { color: var(--ort-warn); }
+
+/* ── Tab cabang ─────────────────────────────────────────────────────────── */
+.ort-branchtabs { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 15px 0 0; }
+.ort-btab {
+  display: inline-flex; align-items: center; gap: 7px;
+  background: #fff; border: 1px solid var(--ort-line2); border-radius: 11px;
+  padding: 7px 13px; font-size: 12.5px; font-weight: 700;
+  color: var(--ort-ink2); text-decoration: none; white-space: nowrap;
+}
+.ort-btab:hover { border-color: var(--ort-muted); text-decoration: none; color: var(--ort-ink); }
+.ort-btab.is-active { background: linear-gradient(135deg, var(--ort-btn1), var(--ort-btn2)); border-color: transparent; color: var(--ort-onbrand); }
+.ort-btab__star { color: var(--ort-accent); font-size: 10px; }
+.ort-btab.is-active .ort-btab__star { color: #F2C46B; }
+.ort-btab__count {
+  font-size: 10.5px; font-weight: 800; border-radius: 7px; padding: 1px 6px;
+  background: var(--ort-neu-bg); color: var(--ort-ink3);
+}
+.ort-btab.is-active .ort-btab__count { background: rgba(255, 255, 255, .18); color: var(--ort-onbrand); }
+.ort-branchtabs__hint { font-size: 11.5px; color: var(--ort-muted); }
+
+/* ── Cabang lain yang dilipat ──────────────────────────────────────────────
+   Membuka MENDATAR, bukan ke bawah: strip ini duduk di satu baris bersama tab
+   cabang sendiri, dan membuka ke bawah akan mendorong seluruh halaman.
+
+   Dua lapis, dan pembagian kerjanya penting:
+     __wrap  = grid satu kolom, 0fr → 1fr. INI yang beranimasi.
+     __more  = flex berisi tab-tabnya. INI yang memotong.
+
+   ⚠ Kenapa grid, bukan `max-width` 0 → N. Sudah dicoba dan SALAH terasa:
+     max-width butuh angka pagar (1200px) sementara isi sebenarnya cuma ~750px,
+     jadi lebarnya menyentuh batas isi di sekitar sepertiga durasi dan sisa
+     waktunya mati — strip menyentak terbuka, lalu tab-tabnya baru menyusul
+     memudar. `0fr → 1fr` melebar persis seukuran isinya, jadi durasinya
+     terpakai penuh dan opasitasnya sejalan. Bonus: nol angka ajaib, tetap
+     benar untuk 1 maupun 4 cabang.
+
+   ⚠ padding/margin vertikal di __more itu WAJIB, bukan hiasan: overflow:hidden
+     memotong apa pun yang keluar kotak, dan .ort-btab:hover mengangkat tab 1px
+     sambil memberi box-shadow (lihat blok "Hover tab cabang" di bawah). Tanpa
+     ruang ini, bayangan hover terpotong rata tepi wadah. Margin negatifnya
+     mengembalikan posisi supaya tata letak tidak bergeser.
+
+   ⚠ visibility ikut dimatikan saat tertutup. Lebar 0 TIDAK mengeluarkan tautan
+     dari urutan Tab keyboard maupun pembaca layar — tanpa ini Sales yang
+     menekan Tab akan mendarat di tab cabang yang tak terlihat. Ditunda sampai
+     transisinya selesai (0s linear .32s) supaya tidak lenyap seketika saat
+     menutup. */
+.ort-branchtabs__wrap {
+  display: grid; grid-template-columns: 0fr;
+  opacity: 0; visibility: hidden;
+  transition: grid-template-columns .32s cubic-bezier(.22, .61, .36, 1),
+              opacity .2s ease,
+              visibility 0s linear .32s;
+}
+.ort-branchtabs.is-open .ort-branchtabs__wrap {
+  grid-template-columns: 1fr; opacity: 1; visibility: visible;
+  /* Opasitas ditunda sedikit: tanpa jeda, tab "berkedip" muncul sebelum
+     ruangnya selesai terbuka. */
+  transition: grid-template-columns .32s cubic-bezier(.22, .61, .36, 1),
+              opacity .24s ease .06s,
+              visibility 0s;
+}
+
+.ort-branchtabs__more {
+  display: flex; align-items: center; gap: 8px;
+  min-width: 0; overflow: hidden;
+  padding: 6px 0; margin: -6px 0;
+}
+/* Tanpa ini tab-tabnya MENGEMPIS mengikuti kolom yang menyempit, bukan
+   terpotong — hasilnya teks berdesakan, bukan strip yang menutup. */
+.ort-branchtabs__more > * { flex: none; }
+
+/* Keadaan awal dipasang JS sesudah CSS siap. Tanpa mematikan transisi lebih
+   dulu, strip yang diingat "terbuka" akan terlihat melar sendiri tiap halaman
+   dimuat. Kelas ini dilepas satu frame kemudian. */
+.ort-branchtabs.is-preload .ort-branchtabs__wrap { transition: none; }
+
+/* Tombol pembukanya memakai gaya .ort-btab yang sama supaya terbaca sebagai
+   bagian dari strip, bukan komponen asing — tapi bukan tautan, jadi reset
+   bawaan <button> perlu ditulis. */
+.ort-btab--more {
+  cursor: pointer; font-family: inherit;
+  color: var(--ort-ink3);
+}
+.ort-btab__eye  { color: var(--ort-muted); font-size: 11.5px; }
+.ort-btab__chev {
+  font-size: 9px; color: var(--ort-muted);
+  transition: transform .32s cubic-bezier(.22, .61, .36, 1);
+}
+.ort-btab--more:hover .ort-btab__eye,
+.ort-btab--more:hover .ort-btab__chev { color: var(--ort-btn1); }
+.ort-branchtabs.is-open .ort-btab__chev { transform: rotate(180deg); }
+
+/* ── Sub-tab kegentingan ────────────────────────────────────────────────── */
+.ort-utabs {
+  display: inline-flex; gap: 4px; flex-wrap: wrap;
+  background: #fff; border: 1px solid #EADCC9; border-radius: 14px; padding: 5px; margin-top: 11px;
+}
+.ort-utab {
+  display: inline-flex; align-items: center; gap: 7px;
+  border-radius: 10px; padding: 7px 13px;
+  font-size: 12.5px; font-weight: 700; color: var(--ort-ink3); text-decoration: none;
+}
+.ort-utab:hover { background: var(--ort-hover); text-decoration: none; color: var(--ort-ink); }
+.ort-utab.is-active { background: linear-gradient(135deg, var(--ort-btn1), var(--ort-btn2)); color: var(--ort-onbrand); }
+.ort-utab__dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+.ort-utab__n { font-size: 10.5px; font-weight: 800; opacity: .75; }
+.ort-utab.is-active .ort-utab__n { opacity: .9; }
+
+/* ── Tabel daftar kerja ─────────────────────────────────────────────────── */
+.ort-tablewrap { overflow-x: auto; }
+.ort-grid {
+  display: grid;
+  grid-template-columns: minmax(200px, 1.5fr) 128px 112px 96px 112px 132px 190px 30px;
+  gap: 10px;
+  align-items: center;
+  min-width: 1010px;
+}
+.ort-thead {
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  background: linear-gradient(120deg, var(--ort-brand1), var(--ort-brand2));
+  padding: 11px 14px;
+  position: sticky; top: 0; z-index: 2;
+}
+.ort-thead .ort-grid > div {
+  font-size: 9.5px; font-weight: 800; letter-spacing: .55px;
+  text-transform: uppercase; color: var(--ort-onbrand);
+}
+.ort-tr {
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--ort-row);
+  border-left: 3px solid transparent;
+}
+.ort-tr:hover { background: var(--ort-hover); }
+.ort-tr--warn { border-left-color: var(--ort-warn); }
+.ort-tr--bad  { border-left-color: var(--ort-bad); }
+.ort-tr--open { background: var(--ort-sunken); }
+
+.ort-name { font-size: 13.5px; font-weight: 700; color: var(--ort-ink); line-height: 1.3; }
+.ort-meta { font-size: 10.5px; font-weight: 500; color: var(--ort-muted); margin-top: 2px; line-height: 1.4; }
+.ort-cell { font-size: 12.5px; font-weight: 500; color: var(--ort-ink2); }
+.ort-cell--sub { font-size: 10.5px; font-weight: 500; color: var(--ort-muted); display: block; margin-top: 1px; }
+.ort-x { color: var(--ort-muted); font-weight: 600; font-size: 12.5px; }
+.ort-late { color: var(--ort-bad); font-weight: 700; }
+.ort-late .ort-cell--sub { color: var(--ort-bad); }
+
+/* Tanggal usulan: bergaris putus-putus sampai dikonfirmasi manusia. */
+.ort-proposal {
+  border-bottom: 1.5px dashed var(--ort-warn);
+  padding-bottom: 1px; cursor: pointer;
+}
+
+/* Tanggal reservasi yang dibatalkan. */
+.ort-struck { text-decoration: line-through; color: var(--ort-muted); }
+
+/* Telepon + WhatsApp di bawah nama. */
+.ort-wa { color: var(--ort-wa); font-size: 11px; font-weight: 600; text-decoration: none; }
+.ort-wa:hover { text-decoration: underline; color: var(--ort-wa); }
+.ort-wa--bad { color: var(--ort-warn); }
+
+/* ── Kepala kelompok (Terlewat / Minggu ini / tingkat antrean) ──────────── */
+.ort-group {
+  display: flex; align-items: center; gap: 9px;
+  background: var(--ort-strip); padding: 8px 14px;
+  border-bottom: 1px solid var(--ort-row);
+}
+.ort-group__dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+.ort-group__label { font-size: 11.5px; font-weight: 800; color: var(--ort-ink2); }
+.ort-group__n {
+  font-size: 10.5px; font-weight: 800; border-radius: 7px; padding: 1px 7px;
+  background: #fff; color: var(--ort-ink3); border: 1px solid var(--ort-line);
+}
+.ort-group__hint { font-size: 11px; color: var(--ort-muted); }
+
+/* ── Chip status ────────────────────────────────────────────────────────── */
+.ort-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 10px; font-weight: 800; border-radius: 8px; padding: 4px 8px;
+  white-space: nowrap;
+}
+.ort-chip--menunggu  { background: var(--ort-neu-bg);  color: var(--ort-neu); }
+.ort-chip--usulan    { background: var(--ort-neu-bg);  color: var(--ort-ink3); }
+.ort-chip--fu        { background: var(--ort-info-bg); color: var(--ort-info); }
+.ort-chip--rsv       { background: var(--ort-info-bg); color: var(--ort-info); }
+.ort-chip--hadir     { background: var(--ort-ok-bg);   color: var(--ort-ok); }
+.ort-chip--absen     { background: var(--ort-warn-bg); color: var(--ort-warn); }
+/* Perawatan sudah ditutup — netral, bukan hijau "hadir" dan bukan peringatan. */
+.ort-chip--selesai   { background: #EFE7DC; color: #7C5B41; }
+.ort-chip--telat     { background: var(--ort-warn-bg); color: var(--ort-warn); }
+.ort-chip--telatlama { background: var(--ort-bad-bg);  color: var(--ort-bad); }
+.ort-chip--batal     { background: var(--ort-bad-bg);  color: var(--ort-bad); }
+.ort-chip--transfer  { background: var(--ort-transfer-bg); color: var(--ort-transfer); }
+
+/* ── Tombol tindakan ────────────────────────────────────────────────────── */
+.ort-actions { display: flex; align-items: center; gap: 7px; }
+.ort-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  background: linear-gradient(135deg, var(--ort-btn1), var(--ort-btn2));
+  color: var(--ort-onbrand); border: none; border-radius: 10px;
+  padding: 8px 12px; font-size: 11.5px; font-weight: 800;
+  font-family: inherit; cursor: pointer; white-space: nowrap; text-decoration: none;
+  box-shadow: 0 4px 12px rgba(20, 20, 18, .18);
+}
+.ort-btn:hover { color: var(--ort-onbrand); text-decoration: none; filter: brightness(1.08); }
+.ort-btn--wa {
+  background: #fff; color: var(--ort-wa); border: 1px solid var(--ort-wa-line);
+  box-shadow: none; width: 30px; height: 30px; padding: 0; flex: none;
+}
+.ort-btn--wa:hover { color: var(--ort-wa); background: #EAF6EE; }
+.ort-btn--mati {
+  background: var(--ort-neu-bg); color: #A28D78; box-shadow: none; cursor: not-allowed;
+}
+.ort-dash { color: var(--ort-muted); font-size: 13px; }
+
+/* Keadaan "tidak ada tugas" di kolom Tindakan Berikutnya. Sengaja BUKAN
+   tombol dan bukan strip: tombol mengundang klik yang tidak ada gunanya,
+   strip tidak memberi tahu apa-apa. Bobotnya jauh di bawah tombol asli
+   supaya baris yang benar-benar butuh dikerjakan tetap yang paling menonjol. */
+.ort-nodo {
+  display: inline-flex; align-items: center; gap: 6px; flex: 1;
+  font-size: 12px; font-weight: 600; color: var(--ort-muted);
+  white-space: nowrap; min-width: 0;
+}
+.ort-nodo i { font-size: 11px; opacity: .85; flex: none; }
+
+/* Teksnya dibungkus sendiri, dan itu WAJIB — bukan kerapian.
+   `.ort-nodo` adalah inline-flex, dan text-overflow tidak berlaku pada
+   wadah flex: teks telanjang di dalamnya jadi flex item anonim yang meluber
+   begitu saja tanpa dipotong. Kolom Tindakan Berikutnya lebarnya terkunci
+   190px (lihat .ort-grid), sisa 151px sesudah tombol WhatsApp — label yang
+   lebih panjang dari itu dulu MENGALIR KE BAWAH tombolnya, terbaca seperti
+   teks tertimpa. Dengan pembungkus ini ia terpotong rapi ber-elipsis, dan
+   kalimat utuhnya tetap ada di title. */
+.ort-nodo__t { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.ort-nodo--warn { color: var(--ort-warn); font-weight: 700; }
+
+/* Tombol pembuka baris. */
+.ort-toggle {
+  width: 28px; height: 28px; border-radius: 50%; flex: none;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: #F4E7D6; color: var(--ort-btn1); border: none;
+  font-size: 11px; cursor: pointer; transition: transform .15s ease;
+}
+/* Sorot BARISNYA, bukan cuma lingkaran 28px di ujungnya: begitu kursor
+   mengenai baris mana pun, toggle-nya langsung memakai rupa keadaan terbuka —
+   cokelat penuh, panah krem. Seluruh baris jadi terasa satu sasaran klik.
+
+   JANGAN kembali ke cincin box-shadow (`0 0 0 4px rgba(107,36,0,.09)`):
+   halo itu terbaca sebagai kotak cokelat KEDUA di sekeliling panah, seolah
+   tombolnya punya pembungkus sendiri. */
+.ort-tr:hover .ort-toggle,
+.ort-toggle:hover {
+  background: var(--ort-btn1);
+  color: var(--ort-onbrand);
+}
+
+/* Fokus papan ketik tetap punya cincin — itu memang harus terlihat jelas,
+   dan tidak pernah muncul karena kursor lewat. */
+.ort-toggle:focus-visible {
+  outline: 2px solid var(--ort-btn1);
+  outline-offset: 2px;
+}
+.ort-toggle.is-open { background: var(--ort-btn1); color: var(--ort-onbrand); transform: rotate(180deg); }
+
+/* ── Baris yang dibuka ──────────────────────────────────────────────────── */
+.ort-expand {
+  background: var(--ort-sunken);
+  border-bottom: 1px solid var(--ort-row);
+  padding: 15px 18px 17px;
+  display: grid; grid-template-columns: 1.15fr 1fr; gap: 22px;
+}
+.ort-expand__title {
+  font-size: 10px; font-weight: 800; letter-spacing: .6px;
+  text-transform: uppercase; color: var(--ort-muted); margin-bottom: 10px;
+}
+.ort-facts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 18px; }
+.ort-fact__k { font-size: 10.5px; color: var(--ort-muted); }
+.ort-fact__v { font-size: 12.5px; font-weight: 700; color: var(--ort-ink); margin-top: 1px; }
+.ort-expand__btns { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+.ort-obtn {
+  display: inline-flex; align-items: center; gap: 7px;
+  background: #fff; border: 1px solid var(--ort-line2); border-radius: 10px;
+  padding: 8px 12px; font-size: 11.5px; font-weight: 700;
+  color: var(--ort-ink2); text-decoration: none; cursor: pointer; font-family: inherit;
+}
+.ort-obtn:hover { border-color: var(--ort-muted); color: var(--ort-ink); text-decoration: none; }
+.ort-obtn--warn { color: var(--ort-warn); border-color: #EBD3A5; }
+
+.ort-mini { display: flex; flex-direction: column; gap: 7px; }
+.ort-mini__row {
+  display: flex; align-items: center; gap: 10px;
+  background: #fff; border: 1px solid var(--ort-line); border-radius: 10px;
+  padding: 9px 12px; font-size: 11.5px; color: var(--ort-ink2);
+}
+.ort-mini__n { font-weight: 800; color: var(--ort-muted); flex: none; }
+.ort-mini__d { font-weight: 700; color: var(--ort-ink); flex: none; }
+.ort-mini__x { color: var(--ort-muted); flex: 1; }
+
+/* ── Kaki tabel ─────────────────────────────────────────────────────────── */
+.ort-foot {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  flex-wrap: wrap; padding: 11px 15px;
+  background: var(--ort-sunken); border-top: 1px solid var(--ort-line);
+  font-size: 11.5px; color: var(--ort-ink3);
+}
+.ort-meta-line {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  flex-wrap: wrap; margin: 13px 0 0; font-size: 12px; color: var(--ort-ink3);
+}
+
+/* ── Spanduk hari pertama ───────────────────────────────────────────────── */
+.ort-banner {
+  display: flex; align-items: flex-start; gap: 13px;
+  background: var(--ort-warn-bg); border: 1px solid #EBD3A5;
+  border-radius: 14px; padding: 15px 17px; margin-top: 13px;
+}
+.ort-banner__icon { color: var(--ort-warn); font-size: 16px; flex: none; margin-top: 1px; }
+.ort-banner__title { font-size: 13.5px; font-weight: 800; color: var(--ort-ink); }
+.ort-banner__text { font-size: 12.5px; color: var(--ort-ink2); margin-top: 4px; line-height: 1.6; }
+
+/* ── Strip "tertinggal di cabang lain" ──────────────────────────────────── */
+.ort-left-behind {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  flex-wrap: wrap; background: #FDF6F4; padding: 9px 14px 12px;
+  border-bottom: 1px solid var(--ort-row); border-left: 3px solid var(--ort-bad);
+  font-size: 11.5px; font-weight: 700; color: var(--ort-bad);
+}
+
+/* ── Tempel di HP ───────────────────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .ort-cards { grid-template-columns: 1fr; }
+  .ort-expand { grid-template-columns: 1fr; gap: 16px; }
+  .ort-facts { grid-template-columns: 1fr; }
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   Penyesuaian ke DESIGN-BRIEF.md — nilai diambil persis dari sana.
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* ── Baris tab atas + aksi kanan (§5) ───────────────────────────────────── */
+.ort-toprow {
+  display: flex; align-items: flex-end; gap: 10px;
+  border-bottom: 1px solid var(--ort-line2); margin-top: 4px;
+}
+.ort-topact { display: flex; align-items: center; gap: 10px; padding-bottom: 8px; }
+.ort-obtn.is-on {
+  background: var(--ort-btn1); border-color: var(--ort-btn1); color: var(--ort-onbrand);
+}
+.ort-obtn__n {
+  background: var(--ort-accent); color: #fff;
+  font-size: 10.5px; font-weight: 800; border-radius: 20px; padding: 1px 7px;
+}
+
+/* ── Chip filter aktif (§6). Cabang TIDAK pernah jadi chip di sini. ─────── */
+.ort-chips { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 11px; }
+.ort-chips__label { font-size: 11.5px; font-weight: 800; color: var(--ort-muted); }
+.ort-chipf {
+  display: inline-flex; align-items: center; gap: 7px;
+  background: #F4E7D6; color: var(--ort-ink3);
+  font-size: 12px; font-weight: 700; border-radius: 20px; padding: 5px 10px;
+  text-decoration: none;
+}
+.ort-chipf:hover { text-decoration: none; color: var(--ort-ink); }
+.ort-chipf i { font-size: 9px; color: #9A7B62; }
+
+/* ── Panel filter (§6) ──────────────────────────────────────────────────── */
+.ort-filter {
+  background: #fff; border: 1px solid var(--ort-line); border-radius: 16px;
+  padding: 15px 18px; margin-top: 12px;
+}
+.ort-filter__r1 { display: grid; grid-template-columns: 1.6fr 1.2fr 1fr; gap: 12px; }
+.ort-filter__r2 { display: grid; grid-template-columns: 1fr 1fr 2fr; gap: 12px; margin-top: 11px; }
+.ort-filter__act { display: flex; align-items: flex-end; justify-content: flex-end; gap: 9px; }
+.ort-lbl {
+  display: block; font-size: 10.5px; font-weight: 800; letter-spacing: .55px;
+  text-transform: uppercase; color: var(--ort-muted); margin-bottom: 6px;
+}
+.ort-inp {
+  width: 100%; border: 1px solid var(--ort-line2); border-radius: 11px;
+  padding: 9px 12px; font-size: 13px; font-family: inherit;
+  background: #fff; color: var(--ort-ink);
+}
+.ort-inp:focus { outline: none; border-color: var(--ort-accent); }
+.ort-search { position: relative; display: block; }
+.ort-search i {
+  position: absolute; left: 13px; top: 50%; transform: translateY(-50%);
+  font-size: 13px; color: #B79A82; pointer-events: none;
+}
+.ort-search .ort-inp { padding-left: 36px; }
+
+/* ── Baris sub-tab + hint kanan (§9.1) ──────────────────────────────────── */
+.ort-urow { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.ort-urow__hint { font-size: 12px; color: var(--ort-faint, #7C5B41); }
+.ort-utab__n {
+  background: #F1E4D3; color: #8A6A50; opacity: 1;
+  border-radius: 20px; padding: 1px 7px;
+}
+.ort-utab__n.is-bad { background: var(--ort-bad-bg); color: var(--ort-bad); }
+.ort-utab.is-active .ort-utab__n { background: rgba(255, 255, 255, .2); color: var(--ort-onbrand); }
+
+/* ── Badge kecil di kolom PASIEN (§2) ───────────────────────────────────── */
+.ort-badges { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+.ort-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 10px; font-weight: 800; border-radius: 6px; padding: 2px 7px;
+}
+.ort-badge--transfer { background: var(--ort-transfer-bg); color: var(--ort-transfer); border: 1px solid #E4C7AC; }
+.ort-badge--walkin   { background: #EAF6EE; color: #5A7A63; border: 1px solid var(--ort-wa-line); }
+
+/* ── Sel tabel (§9.3) ───────────────────────────────────────────────────── */
+.ort-clamp2 {
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden; line-height: 1.35;
+}
+.ort-fu { color: var(--ort-info); font-weight: 700; }
+
+/* .ort-fucell / .ort-fu__x DIHAPUS. Kancing batal sempat dipasang di kolom
+   Follow-up dan hasilnya menumpuk dengan kolom Reservasi di sebelahnya.
+   Jalan pulangnya pindah ke panel baris sebagai tombol berlabel penuh —
+   lihat _baris_terbuka.blade.php. */
+.ort-sub-amber { color: var(--ort-warn) !important; font-weight: 700; }
+.ort-sub-red   { color: var(--ort-bad) !important; font-weight: 700; }
+.ort-struck    { color: #9B8875; }
+.ort-waitlist {
+  display: inline-block; background: var(--ort-warn-bg); color: var(--ort-warn);
+  font-size: 11px; font-weight: 800; border-radius: 7px; padding: 3px 8px;
+}
+.ort-dash { color: #A08361; font-size: 13px; }
+
+/* Baris usulan dan baris penutupnya dibaca sebagai SATU blok, jadi baris di
+   atas melepas border bawahnya. */
+/* Baris yang punya pita penutup melepas garis bawahnya DAN merapatkan
+   padding bawahnya, supaya pita di bawahnya terbaca menempel — bukan
+   melayang di tengah-tengah. */
+.ort-tr--nb { border-bottom: none; padding-bottom: 7px; }
+
+/* Pita penutup usulan — BAGIAN BAWAH dari baris di atasnya, bukan baris
+   tersendiri.
+
+   Versi lama tidak diberi latar sama sekali, jadi ia mewarisi krem kartu
+   dan terbaca sebagai pita pemisah yang mengambang di antara dua pasien:
+   pembacanya tidak bisa tahu ini milik nama yang di atas atau yang di
+   bawah. Tiga hal yang menyatukannya sekarang, dan ketiganya perlu:
+     1. latar putih yang sama persis dengan baris di atas;
+     2. setrip kegentingan 3px yang diteruskan dari baris itu, jadi
+        pasangan baris+pita punya satu tepi kiri;
+     3. siku ↳ yang menunjuk balik ke atas.
+   Tepi kirinya (3px setrip + 18px padding) sengaja disamakan dengan
+   .ort-tr supaya siku itu jatuh persis di bawah nama pasien. */
+.ort-done {
+  display: flex; align-items: center; gap: 7px; flex-wrap: wrap;
+  background: #fff;
+  border-left: 3px solid transparent;
+  border-bottom: 1px solid var(--ort-row);
+  padding: 0 14px 12px 18px;
+  font-size: 11.5px; font-weight: 600; color: var(--ort-ok);
+}
+/* Siku penghubung DIGAMBAR, bukan glyph. Percobaan pertama memakai U+21B3
+   dan hasilnya buruk: di Plus Jakarta Sans glyph itu tipis dan kecil, lebih
+   terbaca sebagai salah ketik daripada sebagai penunjuk. Dua garis border
+   selalu tajam, tebalnya bisa diatur, dan tingginya bisa dipanjangkan ke
+   atas supaya siku benar-benar menyentuh baris pemiliknya. */
+.ort-done::before {
+  content: "";
+  flex: none;
+  align-self: flex-start;
+  width: 8px; height: 14px;
+  margin-top: -10px;                     /* naik menembus jarak ke baris atas */
+  border-left: 1.5px solid var(--ort-line2);
+  border-bottom: 1.5px solid var(--ort-line2);
+  border-bottom-left-radius: 4px;
+}
+.ort-tr--warn + .ort-done { border-left-color: var(--ort-warn); }
+.ort-tr--bad  + .ort-done { border-left-color: var(--ort-bad); }
+
+/* Sorotan berlaku untuk PASANGANNYA, bukan masing-masing sendiri —
+   kalau cuma separuh yang menyala, keduanya justru terbaca terpisah lagi.
+   :has() untuk arah sebaliknya; kalau peramban tidak mendukung, yang
+   hilang cuma sorotan, bukan keterbacaannya. */
+.ort-tr:hover + .ort-done,
+.ort-done:hover { background: var(--ort-hover); }
+.ort-tr--nb:has(+ .ort-done:hover) { background: var(--ort-hover); }
+
+.ort-done--amber { color: var(--ort-warn); }
+.ort-done__note { font-size: 10.5px; font-weight: 500; color: var(--ort-muted); }
+
+/* ── Tombol WhatsApp berdiri sendiri (§3) ───────────────────────────────── */
+.ort-btn--wa {
+  width: 30px; height: 30px; flex: none; border-radius: 9px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: #fff; border: 1px solid var(--ort-wa-line); color: var(--ort-wa);
+  font-size: 12px; text-decoration: none;
+}
+.ort-btn--wa:hover { background: #EAF6EE; color: var(--ort-wa); text-decoration: none; }
+.ort-btn--wa-bad {
+  background: #FAF2E9; border: 1px dashed var(--ort-line2); color: var(--ort-warn);
+}
+
+/* ── Tombol peraga tarikan malam (§9.2) ─────────────────────────────────── */
+/* .ort-demo DIHAPUS bersama pita kaki tab List: tombol "Simulasikan tarikan
+   malam ini" itu peraga sisa serah-terima desain, tidak pernah tersambung
+   ke apa pun. */
+
+/* ── Strip paginasi (§9.2) ──────────────────────────────────────────────── */
+.ort-pagin {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  flex-wrap: wrap; background: #fff;
+  border-top: 1px solid var(--ort-row); padding: 12px 18px;
+}
+.ort-pagin__info { font-size: 12px; color: var(--ort-ink3); }
+.ort-pagin__nav { display: flex; align-items: center; gap: 6px; }
+.ort-pagin__btn {
+  width: 32px; height: 32px; border-radius: 9px;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 12.5px; font-weight: 800; text-decoration: none;
+  background: #fff; border: 1px solid var(--ort-line2); color: var(--ort-ink3);
+}
+.ort-pagin__btn:hover { text-decoration: none; color: var(--ort-ink); border-color: var(--ort-muted); }
+.ort-pagin__btn.is-active {
+  background: var(--ort-btn1); border-color: var(--ort-btn1); color: var(--ort-onbrand);
+}
+.ort-pagin__btn.is-off { background: #F6EEE4; border-color: #EFE3D5; color: #AE9781; }
+
+@media (max-width: 880px) {
+  .ort-filter__r1, .ort-filter__r2 { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 560px) {
+  .ort-filter__r1, .ort-filter__r2 { grid-template-columns: 1fr; }
+}
+
+/* ── Perbaikan hasil melihat render sendiri (bukan dari teks brief) ─────── */
+
+/* Tabel sempat melebar melewati tepi konten: min-width di dalam grid mendorong
+   kartunya, bukan menggulir di dalamnya. Kartu harus memotong, isinya menggulir. */
+.ort .st-card { overflow: hidden; }
+.ort-tablewrap { overflow-x: auto; max-width: 100%; }
+
+/* Hint sub-tab sempat menempel tepi kanan. */
+.ort-urow { margin-top: 11px; }
+.ort-urow__hint { padding-right: 2px; white-space: nowrap; }
+.ort-utabs { margin-top: 0; }
+
+/* Baris tab atas berdiri sendiri sekarang kepala halaman dibuang. */
+.ort-toprow { margin-top: 0; }
+
+/* Nama dokter sempat terpotong di tengah kata. */
+.ort-clamp2 { word-break: normal; overflow-wrap: anywhere; }
+
+/* ── Adu langsung dengan screenshot 02, bukan dengan teksnya ────────────── */
+
+/* Chip status di prototipe adalah PIL penuh (radius 20), bukan kotak membulat.
+   Ini yang paling terasa bedanya saat dua layar ditumpuk. */
+.ort-chip {
+  border-radius: 20px;
+  padding: 4px 9px;
+  font-size: 10.5px;
+  line-height: 1.35;
+}
+
+/* Header tabel: 10.5px dengan spasi huruf .6 seperti prototipe, bukan 9.5/.55 */
+.ort-thead .ort-grid > div { font-size: 10.5px; letter-spacing: .6px; }
+.ort-thead { padding: 0 14px; min-height: 40px; }
+
+/* Ubin ikon kartu 1 & 3 memakai krem, bukan abu-netral. */
+.ort-card__icon { background: #F4E7D6; color: var(--ort-btn1); }
+.ort-card--warn .ort-card__icon { background: var(--ort-warn-bg); color: var(--ort-warn); }
+
+/* Baris sedikit lebih lega — prototipe bernapas lebih longgar. */
+.ort-tr { padding: 13px 14px; }
+
+/* Pil hitungan sub-tab Terlewat memang harus merah saat >0. */
+.ort-utab__n.is-bad { background: #FBE3DE !important; color: #C0392B !important; }
+
+/* ════════════════════════════════════════════════════════════════════════════
+   Drawer detail — brief §14 / screenshot 15 & 10
+   ════════════════════════════════════════════════════════════════════════════ */
+.ort-scrim {
+  position: fixed; inset: 0; background: rgba(40, 12, 0, .42); z-index: 40;
+  animation: ortFade .18s ease;
+}
+.ort-drawer {
+  position: fixed; top: 0; right: 0; bottom: 0;
+  width: 760px; max-width: 96vw; z-index: 41;
+  background: #FBF5EE; display: flex; flex-direction: column;
+  box-shadow: -12px 0 40px rgba(40, 12, 0, .28);
+  animation: ortDrawerIn .26s cubic-bezier(.2, .8, .2, 1);
+}
+@keyframes ortDrawerIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
+@keyframes ortFade     { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .ort-drawer, .ort-scrim { animation: none; } }
+
+/* Kepala gelap: setiap baris BERDIRI SENDIRI — tidak ada yang mengambang. */
+.ort-drawer__head {
+  position: relative;
+  background: linear-gradient(120deg, var(--ort-brand1), var(--ort-brand2));
+  color: var(--ort-onbrand); padding: 18px 58px 20px 22px;
+  display: flex; flex-direction: column; gap: 7px;
+}
+.ort-drawer__close {
+  position: absolute; top: 16px; right: 16px; width: 32px; height: 32px;
+  border-radius: 9px; background: rgba(255, 255, 255, .12); color: var(--ort-onbrand);
+  display: flex; align-items: center; justify-content: center; font-size: 14px; text-decoration: none;
+}
+.ort-drawer__close:hover { background: rgba(255, 255, 255, .2); color: #fff; text-decoration: none; }
+.ort-drawer__kicker { font-size: 11px; font-weight: 700; letter-spacing: .7px; color: #D6A878; text-transform: uppercase; }
+.ort-drawer__namerow { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; row-gap: 8px; margin-top: 2px; }
+.ort-drawer__name { font-size: 23px; font-weight: 800; line-height: 1.3; color: var(--ort-onbrand); }
+.ort-drawer__transfer {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--ort-transfer-bg); color: var(--ort-transfer);
+  font-size: 11.5px; font-weight: 800; padding: 5px 11px; border-radius: 20px; white-space: nowrap;
+}
+.ort-drawer__phone a { color: #7BE0A2; font-size: 13px; font-weight: 700; text-decoration: none; }
+.ort-drawer__phone a:hover { text-decoration: underline; color: #9FEDBB; }
+.ort-drawer__phone .is-bad { color: #E0B089; font-size: 13px; font-weight: 700; }
+.ort-drawer__meta { font-size: 12.5px; font-weight: 600; color: #E0BFA6; }
+.ort-drawer__meta--dim { color: #C7A488; font-weight: 500; }
+.ort-drawer__btns { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+.ort-drawer__btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  /* `background` dan `font-family` WAJIB disebut di sini walau terlihat mubazir:
+     tombol ini dipakai sebagai <a> DAN sebagai <button>. Tanpa `background`,
+     <button> memakai buttonface bawaan peramban (abu-abu terang) dan tampil
+     sebagai blok pucat di atas kepala drawer yang gelap; tanpa `font-family`,
+     <a> jatuh ke Poppins sementara <button> ke font halaman. Keduanya TIDAK
+     boleh ditaruh di `button.ort-drawer__btn` — selektor itu (0,1,1) menang
+     atas modifier --solid (0,1,0) dan membatalkan latarnya. */
+  background: transparent; font-family: inherit; text-decoration: none;
+  border: 1px solid rgba(255, 255, 255, .18); border-radius: 10px;
+  padding: 9px 14px; font-size: 12.5px; font-weight: 700; color: #E0BFA6; cursor: pointer;
+}
+.ort-drawer__btn--solid { background: rgba(255, 255, 255, .14); border-color: rgba(255, 255, 255, .2); color: var(--ort-onbrand); }
+
+.ort-drawer__body { flex: 1; overflow-y: auto; padding: 16px 22px 26px; display: flex; flex-direction: column; gap: 14px; }
+
+/* Tiga KPI kecil */
+.ort-kpi { display: grid; grid-template-columns: repeat(3, 1fr); gap: 11px; }
+.ort-kpi__card { background: #fff; border: 1px solid var(--ort-line); border-radius: 14px; padding: 13px 15px; }
+.ort-kpi__lbl { font-size: 10.5px; font-weight: 800; letter-spacing: .55px; text-transform: uppercase; color: var(--ort-muted); }
+.ort-kpi__val { font-size: 22px; font-weight: 800; color: var(--ort-ink); line-height: 1.15; margin-top: 4px; }
+.ort-kpi__sub { font-size: 11px; color: var(--ort-muted); margin-top: 2px; }
+
+/* Matriks kontrol */
+.ort-matrix { background: #fff; border: 1px solid var(--ort-line); border-radius: 16px; overflow: hidden; }
+.ort-matrix__head { background: linear-gradient(120deg, var(--ort-brand1), var(--ort-brand2)); padding: 11px 14px; }
+.ort-matrix__head .ort-matrix__grid > div {
+  font-size: 10.5px; font-weight: 800; letter-spacing: .6px; text-transform: uppercase; color: var(--ort-onbrand);
+}
+.ort-matrix__grid {
+  display: grid; grid-template-columns: 34px 92px 86px 104px 92px 118px 126px 150px;
+  gap: 8px; align-items: center; min-width: 700px;
+}
+.ort-matrix__row { padding: 11px 14px; border-bottom: 1px solid var(--ort-row); font-size: 12.5px; color: var(--ort-ink2); overflow-x: auto; }
+.ort-matrix__row.is-open { background: var(--ort-hover); border-left: 3px solid var(--ort-accent); padding-left: 11px; }
+.ort-matrix__n { font-weight: 800; color: var(--ort-muted); }
+.ort-matrix__aksi { display: flex; align-items: center; gap: 6px; }
+.ort-matrix__empty { padding: 20px 14px; font-size: 12.5px; color: var(--ort-muted); text-align: center; }
+
+/* Pemisah transfer — baris sendiri di antara dua kontrol */
+.ort-matrix__sep {
+  display: flex; align-items: center; gap: 10px; padding: 6px 14px;
+  background: var(--ort-sunken); font-size: 10.5px; font-weight: 800; color: var(--ort-transfer);
+}
+.ort-matrix__sep::before, .ort-matrix__sep::after { content: ""; flex: 1; height: 1px; background: #EBD9C6; }
+.ort-matrix__sep span { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+
+/* Kolom DATANG: hijau + ikon unduh = "diisi mesin" */
+.ort-visit { color: var(--ort-ok); font-weight: 600; display: inline-flex; align-items: center; gap: 5px; }
+.ort-visit i { font-size: 9px; color: #8FB79C; }
+
+.ort-btn--sm { padding: 6px 10px; font-size: 11px; box-shadow: none; }
+.ort-absen {
+  width: 28px; height: 28px; border-radius: 8px; flex: none;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid #EBD3A5; color: var(--ort-warn); background: #fff; font-weight: 800; cursor: pointer;
+}
+
+/* Kartu kaki: "Jadwalkan kontrol berikutnya" (bisa-ubah) */
+.ort-next {
+  display: flex; align-items: center; gap: 16px;
+  background: #FDF8F2; border: 1.5px dashed #DFC5A6; border-radius: 16px; padding: 15px 18px;
+}
+.ort-next__title { font-size: 13.5px; font-weight: 800; color: var(--ort-ink); }
+.ort-next__hint { font-size: 12px; color: var(--ort-ink3); margin-top: 3px; line-height: 1.55; max-width: 430px; }
+
+/* Kartu kaki: "Dipegang <Cabang>" (lihat-saja) */
+.ort-held {
+  display: flex; align-items: center; gap: 14px;
+  background: var(--ort-transfer-bg); border: 1px solid #E4C7AC; border-radius: 16px; padding: 15px 18px;
+}
+.ort-held__icon {
+  width: 32px; height: 32px; flex: none; border-radius: 10px; background: #fff;
+  display: flex; align-items: center; justify-content: center; color: var(--ort-transfer); font-size: 13px;
+}
+.ort-held__title { font-size: 13.5px; font-weight: 800; color: var(--ort-ink); }
+.ort-held__text { font-size: 12px; color: var(--ort-transfer); margin-top: 3px; line-height: 1.55; }
+/* Varian perawatan SELESAI: bentuk sama (keadaan tanpa tugas), warna netral —
+   bukan cokelat-transfer "dipegang cabang lain" dan bukan hijau "hadir". */
+.ort-held--selesai { background: #EFE7DC; border-color: #E3D5C3; }
+.ort-held--selesai .ort-held__icon { color: #7C5B41; }
+.ort-held--selesai .ort-held__text { color: #7C5B41; }
+
+@media (max-width: 880px) { .ort-kpi { grid-template-columns: 1fr; } }
+
+/* Matriks menggulir sebagai SATU blok — header dan baris bergerak bersama,
+   supaya kolom AKSI tidak lenyap sendirian di baris. */
+.ort-matrix__scroll { overflow-x: auto; }
+.ort-matrix__row { overflow-x: visible; }
+.ort-matrix__grid { min-width: 858px; }
+
+/* ════════════════════════════════════════════════════════════════════════════
+   Tab Pasien Ortho — brief §13 / screenshot 13 & 14
+   ════════════════════════════════════════════════════════════════════════════ */
+.ort-roster-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 13px; }
+.ort-roster-head__n { font-size: 12.5px; color: #7C5B41; }
+/* Sisi kanan kepala roster: dua pemilah (Aktif|Selesai, Daftar|Kartu) berdampingan. */
+.ort-roster-head__r { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ort-seg { display: inline-flex; gap: 3px; background: #fff; border: 1px solid #EADCC9; border-radius: 12px; padding: 3px; }
+.ort-seg a { border-radius: 9px; padding: 6px 13px; font-size: 12px; font-weight: 700; color: #9A7256; text-decoration: none; }
+.ort-seg a:hover { color: var(--ort-ink); text-decoration: none; }
+.ort-seg a.is-active { background: var(--ort-btn1); color: var(--ort-onbrand); }
+
+/* Daftar */
+.ort-rgrid {
+  display: grid; grid-template-columns: minmax(180px, 1.4fr) 108px minmax(120px, 1fr) 104px 196px 128px 92px 22px;
+  gap: 10px; align-items: center; min-width: 1080px;
+}
+.ort-pill-br {
+  display: inline-flex; align-items: center; gap: 5px; font-size: 10.5px; font-weight: 800;
+  border-radius: 20px; padding: 3px 9px; background: var(--ort-neu-bg); color: var(--ort-ink3); margin-right: 4px;
+}
+.ort-pill-br--other { background: var(--ort-transfer-bg); color: var(--ort-transfer); }
+.ort-pill-br--other::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: var(--ort-transfer); }
+.ort-datepill { display: inline-block; font-size: 11px; font-weight: 800; border-radius: 20px; padding: 3px 9px; }
+
+/* Kartu */
+.ort-cardgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; margin-top: 13px; }
+.ort-pcard {
+  display: block; background: #fff; border: 1px solid var(--ort-line); border-top: 3px solid transparent;
+  border-radius: 16px; overflow: hidden; text-decoration: none; color: inherit;
+  transition: transform .12s ease, box-shadow .12s ease;
+}
+.ort-pcard:hover { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(70, 21, 0, .09); text-decoration: none; color: inherit; }
+.ort-pcard--warn { border-top-color: var(--ort-warn); }
+.ort-pcard--bad  { border-top-color: var(--ort-bad); }
+.ort-pcard__head { display: flex; align-items: flex-start; gap: 12px; padding: 15px 16px 13px; }
+.ort-avatar {
+  width: 40px; height: 40px; flex: none; border-radius: 50%;
+  background: linear-gradient(135deg, #7A3415, #5A2410); color: #FFE6CC;
+  display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 800;
+}
+.ort-pcard__name { font-size: 14.5px; font-weight: 800; color: var(--ort-ink); line-height: 1.25; }
+.ort-pcard__meta { font-size: 11px; color: var(--ort-muted); margin-top: 2px; }
+.ort-stat { margin: 0 16px; border: 1px solid #F0E2D2; border-radius: 12px; background: var(--ort-sunken); display: grid; grid-template-columns: 1fr 1fr 1fr; }
+.ort-stat > div { padding: 10px 12px; }
+.ort-stat > div + div { border-left: 1px solid #F0E2D2; }
+.ort-stat__k { font-size: 9.5px; font-weight: 800; letter-spacing: .5px; text-transform: uppercase; color: var(--ort-muted); }
+.ort-stat__v { font-size: 13px; font-weight: 800; color: var(--ort-ink); margin-top: 3px; }
+.ort-bar { height: 4px; border-radius: 4px; background: #EFE3D5; margin-top: 6px; overflow: hidden; }
+.ort-bar > i { display: block; height: 100%; background: var(--ort-ok); }
+.ort-bar--low > i { background: #E8A33D; }
+.ort-pcard__br { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 12px 16px 0; font-size: 11px; color: #9A7256; }
+.ort-pcard__foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 14px; padding: 12px 16px; border-top: 1px solid var(--ort-row); font-size: 12px; font-weight: 600; color: var(--ort-ink2); }
+.ort-pcard__foot b { color: #8A3A12; font-weight: 800; }
+
+/* ════════════════════════════════════════════════════════════════════════════
+   Tab Kalender — brief §12 / screenshot 11 & 12
+   ════════════════════════════════════════════════════════════════════════════ */
+.ort-cal-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 15px 20px; }
+.ort-cal-nav { display: flex; align-items: center; gap: 10px; }
+.ort-cal-btn {
+  width: 34px; height: 34px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center;
+  background: #fff; border: 1px solid var(--ort-line2); color: var(--ort-ink2); font-size: 12px; text-decoration: none;
+}
+.ort-cal-btn:hover { border-color: var(--ort-muted); color: var(--ort-ink); text-decoration: none; }
+.ort-cal-month { font-size: 17px; font-weight: 800; color: var(--ort-ink); min-width: 158px; text-align: center; }
+.ort-cal-dow {
+  display: grid; grid-template-columns: repeat(7, 1fr);
+  background: linear-gradient(120deg, var(--ort-brand1), var(--ort-brand2));
+}
+.ort-cal-dow > div { padding: 10px; text-align: center; font-size: 10.5px; font-weight: 800; letter-spacing: .5px; text-transform: uppercase; color: var(--ort-onbrand); }
+.ort-cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); }
+.ort-cal-cell {
+  min-height: 104px; padding: 7px 8px; border: 1px solid #F0E2D2; border-top: none; border-left: none;
+  background: #fff; display: flex; flex-direction: column; gap: 3px; text-decoration: none; color: inherit;
+}
+.ort-cal-cell:nth-child(7n) { border-right: none; }
+a.ort-cal-cell:hover { background: var(--ort-hover); text-decoration: none; color: inherit; }
+.ort-cal-cell.is-out { background: #FAF4EC; }
+.ort-cal-cell.is-out .ort-cal-date { color: #C7AE96; }
+.ort-cal-cell.is-late { background: var(--ort-bad-bg); }
+.ort-cal-cell.is-today { box-shadow: inset 0 0 0 2px var(--ort-accent); }
+.ort-cal-date { text-align: right; font-size: 12.5px; font-weight: 700; color: var(--ort-ink2); }
+.ort-cal-cell.is-today .ort-cal-date span {
+  display: inline-flex; width: 22px; height: 22px; border-radius: 50%; align-items: center; justify-content: center;
+  background: var(--ort-brand2); color: #FFE6CC;
+}
+.ort-cal-chip {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 800;
+  border-radius: 6px; padding: 3px 7px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
+}
+.ort-cal-chip i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex: none; }
+.ort-cal-more { font-size: 10px; font-weight: 700; color: var(--ort-muted); padding-left: 2px; }
+.ort-cal-legend { display: flex; gap: 16px; flex-wrap: wrap; padding: 13px 20px; font-size: 11.5px; color: var(--ort-ink3); }
+.ort-cal-legend span { display: inline-flex; align-items: center; gap: 7px; }
+.ort-legend-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; background: currentColor; }
+
+/* Drawer harian */
+.ort-drawer--hari { width: 540px; }
+.ort-daycard {
+  display: block; background: #fff; border: 1px solid #F0E2D2; border-left: 3px solid transparent;
+  border-radius: 14px; padding: 15px 18px 14px; text-decoration: none; color: inherit;
+}
+.ort-daycard:hover { border-color: #D9B99A; box-shadow: 0 3px 10px rgba(70, 21, 0, .08); text-decoration: none; color: inherit; }
+.ort-daycard.is-warn { border-left-color: #E8842B; }
+.ort-daycard.is-bad  { border-left-color: var(--ort-bad); }
+.ort-daycard__top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.ort-daycard__name { font-size: 15px; font-weight: 800; color: var(--ort-ink); }
+.ort-daycard__mid { display: flex; align-items: center; gap: 10px; margin-top: 9px; flex-wrap: wrap; }
+.ort-timepill { display: inline-block; background: #F4E7D6; color: var(--ort-ink); font-size: 12.5px; font-weight: 700; border-radius: 8px; padding: 5px 10px; }
+.ort-timepill--none { background: var(--ort-warn-bg); color: var(--ort-warn); }
+.ort-daycard__doc { font-size: 12.5px; color: #9A7256; }
+.ort-daycard__sub { font-size: 12.5px; font-weight: 600; color: var(--ort-ink2); margin-top: 8px; }
+
+/* Matriks drawer: track PROPORSIONAL supaya delapan kolom (termasuk AKSI)
+   muat di badan drawer 716px tanpa gulir mendatar. Track piksel tetap dari
+   brief (858px total) lebih lebar dari drawernya sendiri. */
+.ort-matrix__grid {
+  grid-template-columns: 28px 1fr 1fr 1fr 1fr 1fr 1.15fr 1.35fr;
+  min-width: 0; gap: 6px;
+}
+.ort-matrix__scroll { overflow-x: visible; }
+.ort-matrix__row, .ort-matrix__head { padding-left: 12px; padding-right: 12px; }
+.ort-matrix__row.is-open { padding-left: 9px; }
+
+/* Header kolom tab Pasien Ortho memakai grid sendiri (.ort-rgrid) — gaya
+   kapital+spasi huruf harus ikut berlaku di sana. */
+.ort-thead .ort-rgrid > div {
+  font-size: 10.5px; font-weight: 800; letter-spacing: .6px;
+  text-transform: uppercase; color: var(--ort-onbrand);
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   Side sheet (§15) · drawer Tambah (§16) · spanduk hari pertama (§18)
+   ════════════════════════════════════════════════════════════════════════════ */
+.ort-scrim--sheet { background: rgba(40, 12, 0, .34); z-index: 48; }
+.ort-sheet {
+  position: fixed; top: 0; right: 0; bottom: 0; width: 410px; max-width: 96vw; z-index: 49;
+  background: #FBF5EE; display: flex; flex-direction: column;
+  box-shadow: -12px 0 40px rgba(40, 12, 0, .28); animation: ortDrawerIn .26s cubic-bezier(.2, .8, .2, 1);
+}
+.ort-sheet__head {
+  position: relative; background: linear-gradient(120deg, var(--ort-brand1), var(--ort-brand2));
+  color: var(--ort-onbrand); padding: 17px 20px; display: flex; flex-direction: column; gap: 5px;
+}
+.ort-sheet__title { font-size: 18px; font-weight: 800; color: var(--ort-onbrand); }
+.ort-sheet__body { flex: 1; overflow-y: auto; padding: 18px 20px; display: flex; flex-direction: column; gap: 14px; }
+.ort-sheet__foot { display: flex; gap: 9px; padding: 14px 20px 18px; background: var(--ort-sunken); border-top: 1px solid var(--ort-line); }
+.ort-hint { font-size: 11px; color: #9A7256; margin-top: 6px; line-height: 1.5; }
+.ort-infobox { background: #fff; border: 1px solid var(--ort-line); border-radius: 12px; padding: 13px 15px; font-size: 12.5px; color: var(--ort-ink2); line-height: 1.55; }
+.ort-infobox__k { font-size: 11px; font-weight: 800; letter-spacing: .5px; text-transform: uppercase; color: var(--ort-muted); margin-bottom: 5px; }
+.ort-infobox__link { display: inline-block; margin-top: 8px; font-size: 12px; font-weight: 800; color: #8A3A12; text-decoration: none; }
+.ort-infobox--brown { display: flex; gap: 10px; background: var(--ort-transfer-bg); border-color: #E4C7AC; color: var(--ort-transfer); font-weight: 600; }
+.ort-infobox--brown i { margin-top: 2px; }
+.ort-checkcard {
+  display: flex; align-items: flex-start; gap: 10px; background: #fff; border: 1px solid var(--ort-line);
+  border-radius: 12px; padding: 12px 14px; font-size: 12.5px; font-weight: 600; color: var(--ort-ink); cursor: pointer;
+}
+.ort-checkcard input { position: absolute; opacity: 0; width: 0; height: 0; }
+.ort-checkcard__box {
+  width: 19px; height: 19px; flex: none; border-radius: 6px; border: 1.5px solid var(--ort-line2);
+  display: inline-flex; align-items: center; justify-content: center; font-size: 10px; color: transparent; margin-top: 1px;
+}
+.ort-checkcard input:checked + .ort-checkcard__box { background: var(--ort-btn1); border-color: var(--ort-btn1); color: #FFEAD6; }
+
+.ort-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.ort-divider { height: 1px; background: #EBD9C6; }
+.ort-nested { background: #fff; border: 1px solid var(--ort-line); border-radius: 14px; padding: 14px 16px; }
+.ort-link-sm { display: inline-block; margin-top: 8px; font-size: 12px; font-weight: 800; color: #8A3A12; text-decoration: underline; }
+.ort-segbig { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.ort-segbig label { position: relative; }
+.ort-segbig input { position: absolute; opacity: 0; width: 0; height: 0; }
+.ort-segbig span {
+  display: block; text-align: center; padding: 10px 8px; border-radius: 10px;
+  background: #fff; border: 1px solid var(--ort-line2); font-size: 12.5px; font-weight: 700; color: var(--ort-ink2); cursor: pointer;
+}
+.ort-segbig input:checked + span { background: var(--ort-brand2); border-color: var(--ort-brand2); color: #FFE6CC; }
+
+.ort-results { background: #fff; border: 1px solid var(--ort-line); border-radius: 12px; margin-top: 6px; overflow: hidden; }
+.ort-result {
+  display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; padding: 10px 12px;
+  background: none; border: none; border-bottom: 1px solid var(--ort-row); font-family: inherit; font-size: 13px; font-weight: 700; color: var(--ort-ink); cursor: pointer;
+}
+.ort-result:hover { background: var(--ort-hover); }
+.ort-result--none { color: var(--ort-muted); font-weight: 600; cursor: default; }
+.ort-result__ini { width: 26px; height: 26px; border-radius: 50%; background: #F4E7D6; color: var(--ort-btn1); display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; flex: none; }
+.ort-picked { display: flex; align-items: center; gap: 10px; background: #EAF6EE; border: 1.5px solid #9FD4B0; border-radius: 12px; padding: 10px 12px; margin-top: 8px; }
+.ort-picked__x { width: 26px; height: 26px; border-radius: 8px; border: none; background: #fff; color: var(--ort-muted); cursor: pointer; }
+.ort-rmrow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; background: var(--ort-sunken); border: 1px solid var(--ort-line); border-radius: 11px; padding: 10px 12px; margin-top: 8px; font-size: 13px; font-weight: 800; color: var(--ort-ink); }
+.ort-rmwarn { display: flex; gap: 10px; background: var(--ort-warn-bg); border: 1px solid #EBD3A5; border-radius: 11px; padding: 11px 13px; margin-top: 8px; font-size: 12px; font-weight: 700; color: var(--ort-transfer); line-height: 1.5; }
+.ort-rmwarn i { color: var(--ort-warn); margin-top: 2px; }
+.ort-rmwarn a { color: #8A3A12; font-weight: 800; }
+
+.ort-banner__icon {
+  width: 28px; height: 28px; flex: none; border-radius: 9px; background: #F6E0B8;
+  display: flex; align-items: center; justify-content: center; color: var(--ort-warn); font-size: 12px; margin-top: 2px;
+}
+.ort-banner__title { color: var(--ort-transfer); }
+.ort-banner__text { max-width: 760px; }
+
+/* ════════════════════════════════════════════════════════════════════════════
+   Perbaikan hasil adu langsung dengan potongan screenshot
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* Baris tabel PUTIH. Sebelumnya tidak diberi latar sama sekali sehingga
+   mewarisi warna kartu — terlihat krem, bukan putih seperti di prototipe.
+   Yang berlatar cuma baris yang SEDANG DIBUKA (#FCF7F0). */
+.ort-tr { background: #fff; padding: 11px 14px; }
+.ort-tr:hover { background: var(--ort-hover); }
+.ort-tr--open { background: var(--ort-sunken); }
+
+/* ── Segmented control 3 arah di panel (§9.4) ───────────────────────────── */
+.ort-mini-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+.ort-miniseg { display: inline-flex; gap: 3px; background: #fff; border: 1px solid #EADCC9; border-radius: 10px; padding: 3px; }
+.ort-miniseg button {
+  border: none; background: none; border-radius: 8px; padding: 5px 10px;
+  font-family: inherit; font-size: 11px; font-weight: 700; color: #9A7256; cursor: pointer; white-space: nowrap;
+}
+.ort-miniseg button:hover { color: var(--ort-ink); }
+.ort-miniseg button.is-active { background: var(--ort-btn1); color: var(--ort-onbrand); }
+
+/* Baris riwayat: geometri persis brief §9.4 */
+.ort-mini__row {
+  display: flex; align-items: center; gap: 10px;
+  background: #fff; border: 1px solid #F0E2D2; border-radius: 10px; padding: 7px 11px;
+  font-size: 11.5px; color: var(--ort-ink3); text-decoration: none;
+}
+.ort-mini__n { font-size: 11px; font-weight: 800; color: var(--ort-muted); width: 22px; flex: none; }
+.ort-mini__d { font-size: 12px; font-weight: 700; color: var(--ort-ink); width: 78px; flex: none; }
+.ort-mini__x { flex: 1; min-width: 0; }
+.ort-mini__go { color: var(--ort-wa); font-size: 12px; flex: none; }
+.ort-mini__go--rsv { color: #8A3A12; font-size: 11px; }
+
+/* Baris yang bisa diklik (tampilan Follow-up & Tanggal reservasi) */
+.ort-mini__row.is-link { cursor: pointer; }
+.ort-mini__row.is-link:hover { border-color: #D9B99A; box-shadow: 0 3px 10px rgba(70, 21, 0, .08); }
+
+/* ── Padding halaman ────────────────────────────────────────────────────
+   shell-menu.sweettreats.css:153 menyetel:
+     body[data-theme] .app-main .page-content { padding: 0 }
+   jadi tiap halaman WAJIB memberi paddingnya sendiri — tanpa ini kartu dan
+   tabel menempel tepi viewport dan sudut membulat kartunya terpotong.
+
+   Halaman ini TIDAK memakai kelas .page-content sendiri: layouts/app.blade.php
+   baris 144 sudah membungkus @yield('content') dengan div itu. Menambahkannya
+   lagi di view membuat dua .page-content bersarang — itu yang bikin padding
+   terlihat kacau dan sisi kanan menempel tepi.
+   Nilainya dari brief §4: padding 16px 26px 26px, gap 13px. */
+.ort {
+  padding: 16px 26px 26px;
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+}
+
+/* Jarak antar blok sudah diurus `gap` di atas — margin-top per blok jadi
+   dobel. Dinolkan supaya ritmenya seragam. */
+.ort > .st-card,
+.ort > .ort-cards,
+.ort > .ort-branchtabs,
+.ort > .ort-urow,
+.ort > .ort-chips,
+.ort > .ort-filter,
+.ort > .ort-banner,
+.ort > .ort-roster-head,
+.ort > .ort-cardgrid { margin-top: 0; }
+
+/* Baris tab atas menempel ke kartu di bawahnya kalau gap-nya ikut 13px —
+   beri sedikit ruang supaya garis bawah tab terbaca sebagai pemisah. */
+.ort > .ort-toprow { margin-bottom: 2px; }
+
+/* ── Hover tab cabang ───────────────────────────────────────────────────
+   Sebelumnya hover cuma mengubah border-color dan warna teks — di atas pil
+   putih berlatar krem, perubahan itu praktis tak terlihat, jadi terasa
+   "tidak aktif". Sekarang latar, garis, dan posisinya ikut bergerak. */
+.ort-btab {
+  transition: background .12s ease, border-color .12s ease, color .12s ease,
+              transform .12s ease, box-shadow .12s ease;
+}
+.ort-btab:hover {
+  background: var(--ort-transfer-bg);   /* #F6EBE1 — cokelat muda */
+  border-color: #E4C7AC;
+  color: var(--ort-btn1);               /* teks cokelat tua */
+  transform: translateY(-1px);
+  box-shadow: 0 3px 10px rgba(70, 21, 0, .10);
+}
+.ort-btab:hover .ort-btab__star  { color: var(--ort-btn1); }
+.ort-btab:hover .ort-btab__count { background: #E4C7AC; color: var(--ort-btn1); }
+
+/* Tab yang sedang aktif tetap memberi umpan balik, tapi tidak berubah warna
+   supaya tidak tertukar dengan tab tidak aktif.
+
+   ⚠ Gradien dan warna teksnya WAJIB disebut ulang di sini. Ini niat lama yang
+     tidak pernah benar-benar berlaku: .ort-btab:hover di atas punya
+     kekhususan yang SAMA dengan .ort-btab.is-active (0,2,0) tapi ditulis
+     belakangan, jadi ia menang — latar krem muda menimpa gradien cokelat.
+     Akibatnya tab aktif berubah pucat saat disentuh kursor, dan angkanya
+     (berwarna nyaris putih #FBEADB) lenyap di atas krem #F6EBE1. Terlihat
+     seperti badge-nya hilang, padahal cuma tak terbaca.
+     .ort-btab.is-active:hover berkekhususan 0,3,0 — menang tanpa !important. */
+.ort-btab.is-active:hover {
+  background: linear-gradient(135deg, var(--ort-btn1), var(--ort-btn2));
+  border-color: transparent;
+  color: var(--ort-onbrand);
+  transform: translateY(-1px);
+  filter: brightness(1.12);
+  box-shadow: 0 4px 12px rgba(20, 20, 18, .22);
+}
+.ort-btab.is-active:hover .ort-btab__star { color: #F2C46B; }
+.ort-btab.is-active:hover .ort-btab__count { background: rgba(255, 255, 255, .28); color: var(--ort-onbrand); }
+
+/* Sub-tab kegentingan dan toggle Daftar/Kartu: alasan yang sama. */
+.ort-utab, .ort-seg a { transition: background .12s ease, color .12s ease; }
+
+/* Hover sub-tab kegentingan dan toggle Daftar/Kartu memakai cokelat muda yang
+   sama — krem `--ort-hover` terlalu dekat dengan latar halaman untuk terbaca
+   sebagai umpan balik. */
+.ort-utab:hover:not(.is-active) {
+  background: var(--ort-transfer-bg);
+  color: var(--ort-btn1);
+}
+.ort-utab:hover:not(.is-active) .ort-utab__n { background: #E4C7AC; color: var(--ort-btn1); }
+.ort-seg a:hover:not(.is-active) {
+  background: var(--ort-transfer-bg);
+  color: var(--ort-btn1);
+}
+
+/* ── Perbaikan: header tabel sejajar dengan barisnya ──────────────────────
+   .ort-thead memakai display:flex (untuk memusatkan teks secara vertikal),
+   sehingga .ort-grid di dalamnya jadi flex item yang MENCIUT ke min-width-nya
+   (1010px) — sementara .ort-grid di .ort-tr adalah block yang melar penuh.
+   Akibatnya seluruh judul kolom bergeser ke kiri dan tidak lagi berada di
+   atas datanya. flex:1 memaksa grid header memakai lebar yang sama. */
+.ort-thead > .ort-grid,
+.ort-thead > .ort-rgrid { flex: 1 1 auto; }
+
+/* Lebar kolom antrean penjadwalan & tab cabang lain — dipindah ke sini dari
+   inline style supaya header dan baris mustahil melenceng lagi. */
+.ort-grid--antrean {
+  grid-template-columns: minmax(190px, 1.4fr) 128px 136px 146px 96px 136px 214px;
+  min-width: 1110px;
+}
+.ort-grid--lintas {
+  grid-template-columns: minmax(210px, 1.5fr) 128px 158px 168px 150px 34px;
+  min-width: 900px;
+}
+
+/* ── Drawer dibuka tanpa memuat ulang halaman ────────────────────────────
+   Animasi ortDrawerIn sebenarnya sudah ada sejak awal, tapi tidak pernah
+   terlihat: drawer datang lewat navigasi halaman penuh, jadi browser
+   mengecat ulang seluruh halaman dan luncurannya tenggelam di reload.
+   Sekarang panelnya disuntikkan ke #ortDrawerHost lewat fetch, jadi
+   animasinya benar-benar jalan. Blok di bawah menambah animasi KELUAR —
+   tanpa ini drawer hilang mendadak waktu ditutup. */
+.ort-drawer.is-closing { animation: ortDrawerOut .2s cubic-bezier(.4, 0, 1, 1) forwards; }
+.ort-scrim.is-closing  { animation: ortFadeOut .2s ease forwards; }
+@keyframes ortDrawerOut { from { transform: translateX(0); } to { transform: translateX(100%); } }
+@keyframes ortFadeOut   { from { opacity: 1; } to { opacity: 0; } }
+
+/* Catatan: TIDAK ada kelas overflow:hidden di sini, dan jangan ditambahkan.
+   Sidebar aplikasi position:sticky — mengunci gulir lewat overflow membuatnya
+   terjun sejauh posisi gulir dan menggeser halaman selebar scrollbar. Kuncinya
+   ditangani di list.blade.php dengan menahan peristiwa wheel/touchmove. */
+
+/* Garis tipis di puncak halaman selama panel diambil — umpan balik untuk
+   jeda 100–300 ms, supaya klik tidak terasa menggantung. */
+.ort-loadbar {
+  position: fixed; top: 0; left: 0; height: 2px; width: 100%;
+  background: var(--ort-accent); transform-origin: 0 50%;
+  animation: ortLoadbar 1.1s ease-out forwards; z-index: 60;
+}
+@keyframes ortLoadbar { from { transform: scaleX(0); } to { transform: scaleX(.92); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .ort-drawer.is-closing, .ort-scrim.is-closing, .ort-loadbar { animation: none; }
+  /* Strip cabang lain buka/tutup seketika — visibility tetap ikut berganti,
+     jadi urutan Tab keyboard tetap benar. */
+  .ort-branchtabs__wrap, .ort-btab__chev { transition: none; }
+}
+
+/* ── Aksi tulis yang belum dibangun (Tahap 3) ────────────────────────────
+   Semuanya dulu memakai gaya tombol HIDUP. Itu memakan waktu orang: tombol
+   "Catat Follow-up" tampak siap dipakai, diklik, tidak terjadi apa-apa —
+   malah barisnya ikut terbuka karena kliknya menjalar ke baris. Sampai aksi
+   tulisnya ada, kendali ini harus TERLIHAT mati. */
+.ort-btn--mati,
+.ort-obtn--mati,
+.ort-drawer__btn--mati {
+  background: var(--ort-neu-bg) !important;
+  border-color: var(--ort-line2) !important;
+  color: #A28D78 !important;
+  box-shadow: none !important;
+  cursor: not-allowed;
+}
+.ort-drawer__btn--mati { background: rgba(251, 234, 219, .14) !important; color: #C7AE96 !important; }
+
+/* ── Toast + Urungkan (brief §11 & §17) ──────────────────────────────────
+   Menggantikan dialog "Anda yakin?": aksi langsung jadi, lalu diberi jalan
+   pulang selama 8 detik. Ditempel di bawah-tengah supaya tidak menutupi
+   kolom Tindakan Berikutnya di kanan — di situlah mata Sales berada. */
+.ort-toast {
+  position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%);
+  z-index: 70; display: flex; align-items: center; gap: 12px;
+  background: linear-gradient(120deg, var(--ort-brand1), var(--ort-brand2));
+  color: var(--ort-onbrand); border-radius: 13px;
+  padding: 12px 14px 12px 16px; font-size: 12.5px; font-weight: 600;
+  box-shadow: 0 10px 30px rgba(40, 12, 0, .32);
+  animation: ortToastIn .22s cubic-bezier(.2, .8, .2, 1);
+}
+.ort-toast.is-out { animation: ortToastOut .24s ease forwards; }
+.ort-toast i { color: #9FEDBB; font-size: 13px; }
+.ort-toast form { margin: 0; }
+.ort-toast__undo {
+  background: rgba(251, 234, 219, .16); border: 1px solid rgba(251, 234, 219, .3);
+  color: var(--ort-onbrand); border-radius: 9px; padding: 6px 12px;
+  font-size: 12px; font-weight: 800; font-family: inherit; cursor: pointer;
+}
+.ort-toast__undo:hover { background: rgba(251, 234, 219, .28); }
+.ort-toast__x {
+  background: none; border: none; color: #E0BFA6; font-size: 17px;
+  line-height: 1; cursor: pointer; padding: 0 2px; font-family: inherit;
+}
+@keyframes ortToastIn  { from { opacity: 0; transform: translate(-50%, 14px); }
+                         to   { opacity: 1; transform: translate(-50%, 0); } }
+@keyframes ortToastOut { from { opacity: 1; transform: translate(-50%, 0); }
+                         to   { opacity: 0; transform: translate(-50%, 14px); } }
+@media (prefers-reduced-motion: reduce) { .ort-toast, .ort-toast.is-out { animation: none; } }
+
+/* Tombol aksi baris: <button> harus setara <a class="ort-btn"> di atasnya. */
+button.ort-btn { border: none; font-family: inherit; cursor: pointer; }
+
+/* Isi rangka drawer selagi panelnya diambil dari server. */
+.ort-memuat {
+  flex: 1; display: flex; align-items: center; justify-content: center; gap: 9px;
+  color: var(--ort-muted); font-size: 12.5px; font-weight: 600;
+}
+
+/* ── Isi drawer & lembar jangan diciutkan ────────────────────────────────
+   .ort-drawer__body dan .ort-sheet__body adalah kolom flex dengan
+   overflow-y:auto. Anak flex secara bawaan boleh MENCIUT (flex-shrink:1),
+   jadi saat isinya lebih tinggi dari drawer, kartu-kartunya dipadatkan
+   sampai muat — bukan drawernya yang menggulir. Digabung dengan
+   .ort-matrix{overflow:hidden}, baris kontrol ke-5 dan seterusnya terpotong
+   diam-diam: tidak terlihat, tidak bisa digulir, tanpa satu pun tanda.
+   flex-shrink:0 membuat tiap blok memakai tinggi aslinya, sehingga
+   overflow-y:auto pada body benar-benar bekerja. */
+.ort-drawer__body > *,
+.ort-sheet__body > * { flex-shrink: 0; }
+
+/* ── Tabel daftar kerja dilonggarkan ─────────────────────────────────────
+   Di zoom 100% barisnya terbaca padat: teks 12,5px, jarak antar kolom 10px,
+   dan padding baris 11px — angka yang aman di layar sempit tapi sesak di
+   layar kerja Sales yang lebar.
+
+   ⚠ Blok ini WAJIB berada di akhir berkas. Ada tiga deklarasi padding untuk
+     .ort-tr (baris 137, 487, 821) dan yang terakhir menang — itu sebabnya
+     aturan "Baris sedikit lebih lega" di baris 487 selama ini tidak pernah
+     terlihat efeknya. Menambah aturan di tengah berkas hanya akan mengulang
+     kesalahan yang sama.
+
+   Lebar kolom DOKTER dinaikkan 128 → 146px karena nama dokter panjang
+   ("drg. Rachmad Farulian Nasution") selalu pecah dua baris dan itulah yang
+   paling bikin baris terlihat berdesakan. Tambahan lebarnya diambil dari
+   kolom PASIEN yang punya 1,5fr dan selalu berlebih. */
+.ort-grid {
+  grid-template-columns: minmax(186px, 1.5fr) 146px 112px 96px 112px 132px 190px 30px;
+  gap: 13px;
+  min-width: 1080px;
+}
+
+.ort-tr    { padding: 16px 18px; }
+.ort-thead { padding: 0 18px; min-height: 46px; }
+
+.ort-name  { font-size: 14px;   line-height: 1.35; }
+.ort-meta  { font-size: 11px;   line-height: 1.45; margin-top: 3px; }
+.ort-cell  { font-size: 13px;   line-height: 1.45; }
+.ort-cell--sub { font-size: 11px; margin-top: 2px; }
+
+.ort-chip    { padding: 5px 10px; font-size: 11px; }
+.ort-actions { gap: 9px; }
+
+/* Antrean & tab cabang lain ikut dilonggarkan — sumber lebarnya sendiri,
+   jadi harus disebut lagi kalau tidak mau tetap rapat. */
+.ort-grid--antrean {
+  grid-template-columns: minmax(190px, 1.4fr) 146px 136px 146px 96px 136px 214px;
+  min-width: 1140px;
+}
+.ort-grid--lintas {
+  grid-template-columns: minmax(210px, 1.5fr) 146px 158px 168px 150px 34px;
+  min-width: 940px;
+}
+
+/* Roster Pasien Ortho memakai grid-nya sendiri — ikut dilonggarkan supaya
+   tidak terasa lebih rapat dari tab List di sebelahnya. */
+.ort-rgrid { gap: 13px; min-width: 1120px; }
+
+/* Header harus punya garis kiri transparan selebar garis kegentingan di baris
+   (.ort-tr { border-left: 3px }). Tanpa ini kotak isi header 3px lebih lebar
+   dari kotak isi baris, dan kolom PERTAMA selalu meleset 3px ke kiri — cukup
+   untuk terbaca "agak miring" tanpa pernah jelas kenapa. */
+.ort-thead { border-left: 3px solid transparent; }
+
+/* Lebar minimum disetel supaya muat di layar 1440 (ruang isi ±1125px).
+   Lebih dari itu, tabelnya menggulir mendatar di laptop — kelonggaran yang
+   dibayar dengan geser kanan-kiri bukan kelonggaran. */
+.ort-grid--antrean {
+  /* Kolom RIWAYAT (162) dan AKSI (232) disetel dari LEBAR ISINYA yang terukur,
+     bukan dikira-kira: chip "0 kontrol dalam 6 bulan" butuh 158px dan tombol
+     "Jadwalkan kontrol" + WA + chevron butuh 228px. Jalur yang lebih sempit
+     dari isinya tidak memampatkan isi — isinya yang meluber keluar jalur, dan
+     tabelnya diam-diam menggulir mendatar bahkan di layar 1920. */
+  grid-template-columns: minmax(156px, 1.4fr) 124px 126px 162px 84px 124px 232px;
+  min-width: 1086px;   /* + padding baris 18+18 + garis 3 = 1125, pas di layar 1440 */
+}
+.ort-rgrid { min-width: 1050px; }
+
+/* Pesan gagal di dalam lembar — layouts.notif merender di halaman belakang
+   yang tertutup scrim, jadi tidak akan pernah terlihat dari sini. */
+.ort-sheet__galat {
+  display: flex; align-items: flex-start; gap: 9px;
+  background: var(--ort-bad-bg); border: 1px solid #F0C9C0; border-radius: 12px;
+  padding: 11px 13px; font-size: 12px; font-weight: 600; line-height: 1.5;
+  color: #8E2A1E;
+}
+.ort-sheet__galat i { color: var(--ort-bad); font-size: 13px; margin-top: 1px; }
+
+/* ── Pita navigasi: tab tingkat atas + sub-tab kegentingan sebaris ───────
+   Tab dipindah turun ke sini dari kepala halaman supaya duduk tepat di atas
+   isi yang diubahnya. Dua kelompok tab dalam satu baris, jadi keduanya harus
+   jelas terpisah: tab utama bergaris bawah (gaya .st-tabs aplikasi), sub-tab
+   kegentingan berbentuk pil. */
+.ort-navrow {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 18px; flex-wrap: wrap; margin-top: 13px;
+}
+/* Tab utama memakai komponen bersama .st-view-tabs — wadah berbingkai dengan
+   pil aktif, bukan garis bawah. Tambalan perataan -1px yang dulu ada di sini
+   sudah TIDAK diperlukan: penyebabnya garis bawah 3px pada gaya tab lama, dan
+   gaya itu sudah tidak dipakai. */
+/* `margin-left: auto`, bukan cuma `justify-content: space-between` di induk:
+   di tab Kalender dan Pasien Ortho pita ini cuma punya SATU anak, dan
+   space-between menempelkan anak tunggal ke kiri. Tab utama harus tetap di
+   kanan di ketiga tab — kalau ikut berpindah, ia terbaca seperti tab yang
+   berbeda tiap kali halaman ganti. */
+.ort-navrow__tabs { flex: none; margin-left: auto; }
+/* Slot kiri pita navigasi. Isinya berbeda tiap tab (sub-tab kegentingan /
+   pindah bulan / jumlah pasien + Daftar-Kartu), jadi aturannya sengaja
+   umum: satu baris rata kiri, boleh membungkus kalau layar sempit. */
+.ort-navrow__kiri {
+  display: flex; align-items: center; gap: 12px;
+  flex-wrap: wrap; justify-content: flex-start; min-width: 0;
+}
+
+/* Baris atas kini hanya berisi aksi kanan — rata kanan, tanpa sisa ruang
+   kosong di kiri tempat tab dulu berada. */
+.ort-toprow--aksi { justify-content: flex-end; }
+
+/* Wadah tab disamakan dengan tab List/Kalender di modul Reservasi
+   (reservasi-redesign.css:117) — nilainya disalin dari sana, bukan dikira-kira:
+   latar #FBF3E9 (krem hangat, BUKAN putih) dan bingkai #EFE0CE. Kebetulan yang
+   membantu: #EFE0CE itu persis --ort-line milik modul ini, jadi tidak ada warna
+   asing yang masuk.
+
+   Komponen bersama .st-view-tabs sendiri memakai #F7F1E9 — hampir sewarna
+   dengan ground modul ini (#F4ECE2), sehingga wadahnya lenyap dan tab terlihat
+   mengambang. Itu sebabnya perlu diangkat di sini, persis seperti modul
+   Reservasi mengangkatnya untuk latarnya sendiri. */
+.ort-navrow__tabs.st-view-tabs {
+  background: #FBF3E9;
+  border: 1px solid var(--ort-line);
+  border-radius: 12px;
+  padding: 5px;
+}
+
+/* Tab tak aktif, hover, dan pil aktif — juga mengikuti modul Reservasi.
+   Hover di sana TIDAK cokelat penuh (itu perilaku komponen bersama),
+   melainkan semburat tipis; lebih tenang untuk tab yang sering dilewati
+   kursor. Pil aktif memakai gradien tombol modul ini (--ort-btn1/2), yang
+   nilainya sama dengan gradien di Reservasi. */
+.ort-navrow__tabs .st-view-tab {
+  color: var(--ort-ink3);
+  font-weight: 600;
+  border-radius: 9px;
+}
+.ort-navrow__tabs .st-view-tab:hover {
+  background: rgba(107, 36, 0, .10);
+  color: var(--ort-btn1);
+}
+.ort-navrow__tabs .st-view-tab.active,
+.ort-navrow__tabs .st-view-tab.active:hover {
+  background: linear-gradient(135deg, var(--ort-btn1), var(--ort-btn2));
+  color: #fff;
+  box-shadow: 0 4px 12px -4px rgba(70, 21, 0, .45);
+}

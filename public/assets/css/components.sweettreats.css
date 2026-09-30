@@ -542,6 +542,15 @@
     border-color: var(--st-completed-border);
 }
 
+/* Penanda reservasi yang lahir dari Tracking Pasien Ortho.
+   Warnanya sengaja cokelat — zona operasional modul ortho — supaya tidak
+   bersaing dengan hijau "Baru" yang berarti hal lain sama sekali. */
+.st-pill--ortho {
+    background: #F6EADC;
+    color: #6B2400;
+    border-color: #E4C7AC;
+}
+
 .st-pill--warning {
     background: var(--st-pending-bg);
     color: var(--st-pending-text);

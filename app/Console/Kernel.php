@@ -66,6 +66,27 @@ class Kernel extends ConsoleKernel
             ->runInBackground()
             ->appendOutputTo(storage_path('logs/omnicare-cron.log'));
 
+        // Tracking Ortho: tarikan malam — daily 04:00.
+        //
+        // ⚠ URUTAN PENTING. Perintah ini MEMBACA omnicare_sales_detail, jadi ia
+        //   harus jalan SETELAH omnicare:sync (02:00, lock sampai 120 menit)
+        //   benar-benar selesai. 04:00 memberi jarak aman dari seluruh rantai
+        //   Omnicare (sync 02:00 → match 02:45 → reconcile 03:00) tanpa
+        //   menyentuh jam kerja.
+        //
+        // Jendela 14 hari (bawaan perintah), bukan semalam: rekam medis kadang
+        // telat masuk. Aman diulang — ort_control.omnicare_trx_id UNIQUE
+        // menolak transaksi yang sudah pernah ditarik, jadi menjalankan ulang
+        // tidak pernah menggandakan kunjungan.
+        //
+        // Mesin hanya mengisi FAKTA (kunjungan). Ketidakhadiran TIDAK pernah
+        // disimpulkan otomatis — itu ditutup manusia dari halaman.
+        $schedule->command('ort:pull-visits')
+            ->dailyAt('04:00')
+            ->withoutOverlapping(60)
+            ->runInBackground()
+            ->appendOutputTo(storage_path('logs/ortho-cron.log'));
+
         // Accurate push — daily 03:30. Sync sendiri window 14 hari (sales/
         // payments/commission), audit fresh-vs-pushed per hari per cabang,
         // repair yang berubah (late entries), push yang baru. Idempoten penuh

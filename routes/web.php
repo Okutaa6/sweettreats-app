@@ -281,6 +281,68 @@ Route::middleware([AuthGuard::class])->group(function () {
         Route::post('/tiket/{id}/evaluator', [ItTrackerController::class, 'evaluator'])->name('it-tracker.evaluator')->whereNumber('id');
     });
 
+    // Tracking Pasien Ortho — menggantikan Google Sheets per cabang yang dipakai
+    // Sales untuk menagih pasien behel kembali kontrol.
+    //
+    // Segmen URL sendiri, BUKAN di bawah 'finance'/'report': kedua segmen itu ada
+    // di AuthGuard::SKIP_RBAC sehingga halaman di bawahnya tidak dijaga RBAC menu.
+    // Dengan segmen sendiri, node access_path ber-link 'tracking-ortho' menjadi
+    // gerbang akses yang sebenarnya (pola sama dengan /komisi-dokter).
+    Route::prefix('tracking-ortho')->group(function () {
+        $c = \App\Http\Controllers\Crud\OrthoController::class;
+
+        Route::get('/', [$c, 'index'])->name('ortho.index');
+
+        // ⚠ Rute LITERAL wajib didaftarkan sebelum wildcard {caseId}, kalau tidak
+        //   '/baru' dan '/kontrol/...' akan ditelan sebagai id kasus.
+        // (Aksi tulis lain menyusul di tahap berikutnya — lihat rencana Tahap 3–6.)
+        Route::post('kontrol/{id}/follow-up', [$c, 'catatFollowUp'])
+            ->where('id', '[A-Za-z0-9-]{36}')
+            ->name('ortho.followup');
+
+        Route::post('kontrol/{id}/batal-follow-up', [$c, 'batalFollowUp'])
+            ->where('id', '[A-Za-z0-9-]{36}')
+            ->name('ortho.batalfollowup');
+
+        Route::post('kontrol/{id}/konfirmasi', [$c, 'konfirmasiJadwal'])
+            ->where('id', '[A-Za-z0-9-]{36}')
+            ->name('ortho.konfirmasi');
+
+        Route::post('kontrol/{id}/geser', [$c, 'geserUsulan'])
+            ->where('id', '[A-Za-z0-9-]{36}')
+            ->name('ortho.geser');
+
+        Route::post('kontrol/{id}/tidak-hadir', [$c, 'tandaiTidakHadir'])
+            ->where('id', '[A-Za-z0-9-]{36}')
+            ->name('ortho.tidakhadir');
+
+        Route::post('kasus/{caseId}/jadwalkan', [$c, 'jadwalkanKontrol'])
+            ->where('caseId', '[A-Za-z0-9-]{36}')
+            ->name('ortho.jadwalkan');
+
+        Route::post('kasus/{caseId}/pindahkan', [$c, 'pindahkan'])
+            ->where('caseId', '[A-Za-z0-9-]{36}')
+            ->name('ortho.pindahkan');
+
+        Route::post('kasus/{caseId}/ingatkan', [$c, 'ingatkan'])
+            ->where('caseId', '[A-Za-z0-9-]{36}')
+            ->name('ortho.ingatkan');
+
+        Route::post('kasus/{caseId}/selesai', [$c, 'tandaiSelesai'])
+            ->where('caseId', '[A-Za-z0-9-]{36}')
+            ->name('ortho.selesai');
+
+        Route::post('urungkan/{token}', [$c, 'urungkan'])
+            ->where('token', '[A-Za-z0-9]{32}')
+            ->name('ortho.urungkan');
+
+        // Pembatas pola dipasang di RUTE-nya, bukan di ->where() setelah ->group():
+        // yang belakangan tidak berlaku apa-apa (registrar sudah selesai mendaftar).
+        Route::get('/{caseId}', [$c, 'drawerDetail'])
+            ->where('caseId', '[A-Za-z0-9-]{36}')
+            ->name('ortho.detail');
+    });
+
     // Rekonsiliasi — reservasi SweetTreats ↔ encounter Omnicare (link='reconcile')
     Route::prefix('reconcile')->group(function () {
         Route::get('/', [\App\Http\Controllers\ReconciliationController::class, 'index'])->name('reconcile.index');

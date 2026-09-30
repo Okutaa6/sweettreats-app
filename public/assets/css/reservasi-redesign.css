@@ -397,7 +397,13 @@ body.redesign-reservasi .st-day-sort--active:active {
 /* Sel Pasien: nama di atas, telepon (click-to-WA) di bawah */
 body.redesign-reservasi .st-pasien-cell .st-primary { display: block; }
 body.redesign-reservasi .st-pasien-phone {
-    display: inline-flex; align-items: center; gap: 5px; margin-top: 3px;
+    /* `flex`, bukan `inline-flex`: kotak setingkat-blok selalu memulai baris
+       baru, jadi telepon tetap di bawah nama dan pill-nya — tidak ikut naik
+       saat kebetulan ada sisa ruang (mis. saat pill "Ortho" lebih pendek).
+       `width: fit-content` menjaga garis bawah hover tetap seukuran teksnya,
+       tidak melebar sepanjang sel. */
+    display: flex; width: fit-content;
+    align-items: center; gap: 5px; margin-top: 3px;
     font-size: 12px; color: #2C8C63; font-weight: 600; text-decoration: none;
     font-variant-numeric: tabular-nums;
 }
