@@ -268,6 +268,11 @@ class OrthoController extends Controller
             'placeId'       => $placeId,
             'namaCabang'    => $namaCabang,
             'terkunci'      => $terkunci,
+            // Isi pemilih cabang utama. Dihitung HANYA untuk role lintas cabang
+            // — user yang terkunci ke satu cabang tidak pernah melihat pemilih
+            // itu, jadi tidak perlu membayar kuerinya. resolveBranch() sudah
+            // menerima ?utama= sejak awal; yang belum ada cuma kontrolnya.
+            'hitungPerCabang' => $terkunci ? [] : $this->q->hitungPerCabang(),
             'tab'           => $tab,
             'urgensi'       => $urgensi,
             'kartuAktif'    => $kartuAktif,

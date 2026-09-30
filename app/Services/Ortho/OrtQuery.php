@@ -568,6 +568,33 @@ class OrtQuery
     // TAB CABANG LAIN — lihat-saja
     // ════════════════════════════════════════════════════════════════════
 
+    /**
+     * Pasien behel aktif per cabang — untuk pemilih cabang utama.
+     *
+     * Hanya dipanggil untuk role lintas cabang (Super Admin, Admin General,
+     * Admin Backup, Finance). User yang terkunci ke satu cabang tidak pernah
+     * membayar kueri ini: dropdown-nya memang tidak dirender.
+     *
+     * Dilayani prefix (status, owner_place_id) dari idx_ort_case_roster.
+     *
+     * @return array<string,int> place_id => jumlah
+     */
+    public function hitungPerCabang(): array
+    {
+        $rows = DB::table('ort_case')
+            ->select('owner_place_id', DB::raw('COUNT(*) AS n'))
+            ->where('status', OrtCase::STATUS_AKTIF)
+            ->groupBy('owner_place_id')
+            ->get();
+
+        $hasil = [];
+        foreach ($rows as $r) {
+            $hasil[(string) $r->owner_place_id] = (int) $r->n;
+        }
+
+        return $hasil;
+    }
+
     /** Berapa pasien kami yang dipegang tiap cabang lain — badge di tab cabang. */
     public function hitungPerCabangLain(string $homePlaceId): array
     {

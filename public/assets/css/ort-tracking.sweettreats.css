@@ -154,6 +154,44 @@
    dimuat. Kelas ini dilepas satu frame kemudian. */
 .ort-branchtabs.is-preload .ort-branchtabs__wrap { transition: none; }
 
+/* ── Pemilih cabang utama (role lintas cabang) ─────────────────────────────
+   Pil berbintang jadi tombol dropdown. Hanya dirender untuk akun yang boleh
+   melihat semua cabang; Sales yang terkunci tetap mendapat pil biasa, supaya
+   tidak ada afordansi klik yang ujungnya ditolak server. */
+.ort-btabpick { position: relative; }
+.ort-btab--pick { cursor: pointer; font-family: inherit; }
+.ort-btab__caret {
+  font-size: 9px; margin-left: 1px; opacity: .75;
+  transition: transform .18s ease;
+}
+.ort-btabpick.is-open .ort-btab__caret { transform: rotate(180deg); }
+
+.ort-btabpick__menu {
+  position: absolute; top: calc(100% + 6px); left: 0; min-width: 232px;
+  background: #fff; border: 1px solid var(--ort-line2); border-radius: 14px;
+  padding: 6px; box-shadow: 0 12px 30px rgba(70, 21, 0, .14);
+  /* Di atas isi halaman & kepala tabel yang sticky (z-index 2), tapi DI BAWAH
+     scrim/drawer (40/41) — kalau tidak, menunya mengambang di atas drawer yang
+     sedang dibaca. */
+  z-index: 20;
+}
+.ort-btabpick__head {
+  font-size: 10.5px; font-weight: 800; letter-spacing: .5px; text-transform: uppercase;
+  color: var(--ort-muted); padding: 6px 10px 7px;
+}
+.ort-btabpick__item {
+  display: flex; align-items: center; gap: 9px;
+  padding: 8px 10px; border-radius: 10px;
+  font-size: 12.5px; font-weight: 700; color: var(--ort-ink2); text-decoration: none;
+}
+.ort-btabpick__item:hover { background: var(--ort-hover); color: var(--ort-btn1); text-decoration: none; }
+.ort-btabpick__item.is-active { background: var(--ort-transfer-bg); color: var(--ort-btn1); }
+.ort-btabpick__nama { flex: 1; min-width: 0; }
+/* Bintang cuma menyala di cabang yang SEDANG dilihat — penanda "Anda di sini",
+   bukan hiasan di tiap baris. */
+.ort-btabpick__star { font-size: 9px; color: transparent; }
+.ort-btabpick__item.is-active .ort-btabpick__star { color: var(--ort-accent); }
+
 /* Tombol pembukanya memakai gaya .ort-btab yang sama supaya terbaca sebagai
    bagian dari strip, bukan komponen asing — tapi bukan tautan, jadi reset
    bawaan <button> perlu ditulis. */
