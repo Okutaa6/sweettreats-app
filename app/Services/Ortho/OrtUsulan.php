@@ -77,8 +77,9 @@ class OrtUsulan
     /**
      * @return array{tanggal: ?string, sebab: ?string, basis: ?string, basis_n: int}
      *         tanggal null + sebab terisi = sengaja TIDAK diusulkan.
-     *         basis 'irama'   = titik awalnya irama pasien sendiri
-     *         basis 'default' = pasien belum punya cukup riwayat, dipakai +30
+     *         basis 'irama_rapat'   = irama pasien RAPAT, usulan layak sekali klik
+     *         basis 'irama_longgar' = ada irama tapi sebarannya lebar — tebakan
+     *         basis 'default'       = riwayat belum cukup, dipakai +30
      *         basis_n         = dari berapa selang irama itu dihitung
      */
     public function untuk(OrtCase $kasus, CarbonInterface $kunjungan, string $placeId): array
@@ -127,7 +128,17 @@ class OrtUsulan
             min(OrtCase::IRAMA_MAX_HARI, $irama['median'])
         );
 
-        $basis   = $maju === null ? 'default' : 'irama';
+        /*
+         * Tingkat keyakinan, bukan sekadar "pakai irama atau tidak".
+         *
+         * Terukur di prod: irama mengalahkan +30 (meleset 14 hari lawan 22,
+         * menang 86%), TAPI irama pun meleset 14 hari dan hanya 24% pasien
+         * yang iramanya rapat. Untuk 76% sisanya tanggal ini tebakan dua
+         * minggu — dan layar memakai tingkat ini untuk memutuskan apakah
+         * pantas menawarkan tombol sekali klik atau justru menyuruh menelepon
+         * dulu.
+         */
+        $basis   = $maju === null ? OrtCase::BASIS_DEFAULT : $irama['basis'];
         $basisN  = $irama['selang'];
         $tanggal = OrtControl::tanggalUsulan($kunjungan, $hariIni, $maju);
 
@@ -169,6 +180,68 @@ class OrtUsulan
     }
 
     // ════════════════════════════════════════════════════════════════════════
+
+    /**
+     * Tanggal-tanggal sah berikutnya untuk pasien ini — bahan PEMILIH, bukan
+     * keputusan.
+     *
+     * Inilah mesin pagar yang sama persis dengan yang melahirkan usulan,
+     * dibuka supaya Sales bisa memilih sendiri saat menelepon. Konsekuensinya
+     * yang paling berharga: pemilihnya **tidak pernah bisa menawarkan hari
+     * mustahil**. Kalau klinik tutup, dokternya tidak praktik, atau harinya
+     * sudah penuh, tanggal itu tidak pernah sampai ke layar — tanpa satu pun
+     * aturan kedua yang bisa melenceng diam-diam dari aturan pertama.
+     *
+     * Dipanggil saat merender lembar panggilan, jadi sengaja TIDAK mencatat
+     * kuota terpakai: menawarkan bukan memesan. Yang mencatat kuota hanyalah
+     * untuk(), saat usulan benar-benar lahir.
+     *
+     * @param  string|null  $tanggalSendiri  tanggal yang SUDAH dipegang baris
+     *         yang sedang dijadwal ulang. Pagar kapasitas dilewati khusus untuk
+     *         tanggal itu — kalau tidak, baris itu terhitung melawan kuotanya
+     *         sendiri dan tanggal yang sedang dipakainya justru hilang dari
+     *         daftar pilihan. Pasien yang bilang "tanggal usulan itu saja
+     *         cocok" lalu tidak menemukannya di layar.
+     *
+     * @return list<string> tanggal Y-m-d, menaik. [] = tidak ada yang sah
+     *                      (dokter tak terpetakan, atau enam minggu penuh)
+     */
+    public function hariSahBerikutnya(
+        OrtCase $kasus,
+        CarbonInterface $dari,
+        string $placeId,
+        int $jumlah = 6,
+        ?string $tanggalSendiri = null
+    ): array {
+        $hariPraktik = $this->hariPraktikDokter($kasus, $placeId);
+        if ($hariPraktik === []) {
+            return [];
+        }
+
+        $hasil   = [];
+        $tanggal = Carbon::instance($dari)->startOfDay();
+
+        for ($i = 0; $i < self::JELAJAH_HARI && count($hasil) < $jumlah; $i++, $tanggal = $tanggal->copy()->addDay()) {
+            if (in_array($tanggal->dayOfWeekIso, self::HARI_TUTUP, true)) {
+                continue;
+            }
+            if (! in_array($tanggal->dayOfWeekIso, $hariPraktik, true)) {
+                continue;
+            }
+            $hari = $tanggal->toDateString();
+
+            // Pagar kapasitas, KECUALI untuk tanggal yang memang sudah dipegang
+            // baris ini. Hari penuh bukan alasan menyembunyikan tanggal yang
+            // tidak akan menambah beban sama sekali.
+            if ($hari !== $tanggalSendiri && $this->penuh($placeId, $tanggal)) {
+                continue;
+            }
+
+            $hasil[] = $hari;
+        }
+
+        return $hasil;
+    }
 
     /**
      * Irama pasien ini, dihitung dari kunjungan yang SUDAH tercatat.

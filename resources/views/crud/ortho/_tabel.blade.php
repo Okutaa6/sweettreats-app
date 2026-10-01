@@ -27,6 +27,7 @@
         'follow_up'      => 'Catat Follow-up',
         'buat_reservasi' => 'Buat Reservasi',
         'konfirmasi'     => 'Konfirmasi jadwal',
+    'pilih_tanggal'  => 'Pilih tanggal',
     ];
 @endphp
 
@@ -79,8 +80,16 @@
                 // bukan dari chipnya — baris "Reservasi batal" yang 39 hari lewat
                 // tetap harus beraksen merah dan terhitung di ">14 hari".
                 $key = match (true) {
-                    $r->rsv_status === 'cancelled' => 'reservasi_batal',
+                    /* ⬇ Usulan DI ATAS reservasi batal, supaya chip dan tombol
+                         tidak lagi berbeda pendapat tentang baris yang sama.
+                         Dulu baris ber-is_proposal=1 DAN rsv_status='cancelled'
+                         berchip "Reservasi batal" sementara tombolnya berbunyi
+                         "Konfirmasi jadwal" — dua match dengan urutan berbeda.
+                         Yang benar adalah usulan: selama jadwalnya belum
+                         disepakati, reservasi yang batal itu milik siklus
+                         sebelumnya dan bukan tugas yang menunggu. */
                     (bool) $r->is_proposal         => 'usulan',
+                    $r->rsv_status === 'cancelled' => 'reservasi_batal',
                     /* ⬇ Sengaja DI ATAS $telat. Begitu pasien punya janji yang
                          belum lewat, "Terlewat 7 hari" salah baca: jadwalnya
                          memang lewat, tapi sudah ada penanganannya, dan Sales
@@ -105,9 +114,28 @@
                     [$chipTeks, $chipKelas] = $chipLabel[$key];
                 }
 
-                // Tangga tindakan: tepat satu tombol, selalu anak tangga berikutnya.
+                /* Tangga tindakan: tepat satu tombol, selalu anak tangga
+                   berikutnya. Aturan "satu tindakan per baris" tidak berubah —
+                   yang berubah tindakan MANA yang jadi anak tangga pertama di
+                   baris usulan.
+
+                   Dulu baris usulan SELALU berbunyi "Konfirmasi jadwal", dan
+                   karena arm itu yang pertama, tombol Follow-up mustahil muncul
+                   di sana. Sales dipaksa menyetujui tanggal lebih dulu, baru
+                   boleh menelepon. Terbalik dari lapangan: panggilan untuk
+                   MENANYAKAN kapan pasien bisa datang justru mendahului
+                   penentuan tanggalnya.
+
+                   Dan tanggal itu, untuk 76% pasien, tebakan dua minggu —
+                   terukur di prod. Sekali klik hanya pantas untuk pasien yang
+                   iramanya memang rapat. */
+                $basisBaris = $r->sch_basis ?? null;
+                $usulanKuat = $basisBaris === \App\Models\OrtCase::BASIS_RAPAT;
+
                 $aksi = match (true) {
-                    (bool) $r->is_proposal                                 => 'konfirmasi',
+                    (bool) $r->is_proposal && $usulanKuat                  => 'konfirmasi',
+                    (bool) $r->is_proposal && ! $r->fu_date                => 'follow_up',
+                    (bool) $r->is_proposal                                 => 'pilih_tanggal',
                     ! $r->fu_date                                          => 'follow_up',
                     ! $r->reservation_id || $r->rsv_status === 'cancelled' => 'buat_reservasi',
                     default                                                => null,
@@ -160,42 +188,54 @@
                     {{-- JADWAL --}}
                     <div class="ort-cell {{ $telat ? 'ort-late' : '' }}">
                         @if ($r->is_proposal)
-                            <a href="{{ $tautan(['sheet' => 'geser', 'kontrol' => $r->id]) }}"
-                               class="ort-proposal tabular" onclick="event.stopPropagation()"
-                               title="Usulan sistem — klik untuk menggeser tanggalnya">{{ \Carbon\Carbon::parse($r->sch_date)->translatedFormat("j M 'y") }}</a>
                             @php
                                 /* Penanda KEYAKINAN usulan.
-                                   Dulu baris ini selalu berbunyi "+30 hari" — kalimat
-                                   yang sejak Tahap C tidak lagi benar, dan sebelumnya
-                                   pun menyembunyikan hal yang paling ingin diketahui
-                                   Sales sebelum menelepon: usulan ini ditebak dari
-                                   apa? Usulan dari 12 selang kunjungan dan usulan
-                                   dari nol riwayat terlihat persis sama di layar,
-                                   padahal yang satu pantas disebut di telepon dan
-                                   yang satu sebaiknya ditanyakan dulu ke pasien.
+
+                                   Ukurannya sekarang SEBARAN irama, bukan banyaknya
+                                   selang. Versi pertama memakai `$basisN >= 6` dan itu
+                                   salah ukur: pasien berselang 20·90·25·110 punya lebih
+                                   banyak selang daripada pasien 28·28·28, tapi iramanya
+                                   jauh lebih tidak bisa ditebak — jadi yang liar justru
+                                   dinilai paling meyakinkan.
+
+                                   Terukur di prod: cuma 24% pasien yang iramanya rapat.
+                                   Untuk 76% sisanya tanggal ini tebakan dua minggu, dan
+                                   tampilannya harus mengatakan begitu: diberi awalan ~
+                                   dan didampingi fakta yang menolong panggilan telepon.
+
                                    sch_basis NULL = baris lama dari sebelum Tahap C;
-                                   waktu itu memang +30, jadi label itu tetap jujur. */
+                                   waktu itu memang +30, dan label itu tetap jujur. */
                                 $basis  = $r->sch_basis ?? null;
                                 $basisN = (int) ($r->sch_basis_n ?? 0);
-                                $kuat   = $basis === 'irama' && $basisN >= 6;
+                                $kuat   = $basis === \App\Models\OrtCase::BASIS_RAPAT;
 
-                                /* Angkanya dibaca dari irama pasien, BUKAN dari selisih
-                                   sch_date dengan baris ini: baris usulan belum punya
-                                   visit_date, jadi selisihnya nol. */
+                                /* Angkanya dari irama pasien, BUKAN dari selisih sch_date
+                                   dengan baris ini: baris usulan belum punya visit_date,
+                                   jadi selisihnya nol. */
                                 $iramaHari = (int) ($r->median_gap_days ?? 0);
+                                $sebarPct  = $r->gap_spread_pct ?? null;
 
-                                [$usulanTeks, $usulanJudul] = $basis === 'irama'
-                                    ? [
-                                        $iramaHari ? 'irama ' . $iramaHari . ' hari' : 'irama pasien',
-                                        'Dihitung dari irama pasien ini sendiri, ' . $basisN . ' selang kunjungan.'
-                                            . ($kuat ? ' Riwayatnya panjang — usulan ini boleh disebut langsung ke pasien.'
-                                                     : ' Riwayatnya masih pendek — tawarkan sebagai usulan, jangan sebagai kepastian.'),
-                                    ]
-                                    : [
-                                        '+30 hari',
-                                        'Pasien ini belum punya cukup riwayat untuk punya irama, jadi dipakai jarak baku 30 hari. Tanyakan tanggalnya ke pasien.',
-                                    ];
+                                [$usulanTeks, $usulanJudul] = match (true) {
+                                    $kuat => [
+                                        'irama ' . $iramaHari . ' hari',
+                                        'Irama pasien ini rapat (' . $basisN . ' selang, sebaran ' . $sebarPct . '% dari mediannya). '
+                                            . 'Tanggal ini boleh disebut langsung ke pasien.',
+                                    ],
+                                    $basis === \App\Models\OrtCase::BASIS_LONGGAR => [
+                                        $iramaHari ? 'ancar-ancar · biasanya ' . $iramaHari . ' hari' : 'ancar-ancar',
+                                        'Pasien ini kontrolnya tidak teratur (sebaran ' . $sebarPct . '% dari mediannya), '
+                                            . 'jadi tanggal ini tebakan. Tanyakan dulu lewat telepon.',
+                                    ],
+                                    default => [
+                                        'ancar-ancar · jarak baku 30 hari',
+                                        'Riwayatnya belum cukup untuk tahu kebiasaan pasien ini, jadi dipakai jarak baku 30 hari. Tanyakan tanggalnya ke pasien.',
+                                    ],
+                                };
                             @endphp
+                            <a href="{{ $tautan(['sheet' => $kuat ? 'geser' : 'panggil', 'kontrol' => $r->id]) }}"
+                               class="ort-proposal tabular {{ $kuat ? '' : 'ort-proposal--kira' }}"
+                               onclick="event.stopPropagation()"
+                               title="{{ $usulanJudul }}">{{ $kuat ? '' : '~ ' }}{{ \Carbon\Carbon::parse($r->sch_date)->translatedFormat("j M 'y") }}</a>
                             <span class="ort-cell--sub {{ $kuat ? 'ort-sub-yakin' : 'ort-sub-amber' }}"
                                   title="{{ $usulanJudul }}">usulan · {{ $usulanTeks }}</span>
                         @else
@@ -268,16 +308,30 @@
                                  berbeda, dan menggabungkannya memaksa WhatsApp terbuka
                                  setiap kali Sales cuma ingin menandai. Tombol WhatsApp
                                  bundar di sebelah kanan tetap jadi jalan menghubungi. --}}
-                            <form method="POST" action="{{ route('ortho.followup', $r->id) }}"
-                                  style="flex:1;display:flex;" onclick="event.stopPropagation()">
-                                @csrf
-                                <button type="submit" class="ort-btn" style="flex:1;"
-                                        title="Catat bahwa pasien ini sudah di-follow-up hari ini">{{ $tombolLabel[$aksi] }}</button>
-                            </form>
-                        @elseif ($aksi)
-                            <span class="ort-btn ort-btn--mati" style="flex:1;" aria-disabled="true"
-                                  title="Aksi tulis menyusul (Tahap 3)"
-                                  onclick="event.stopPropagation()">{{ $tombolLabel[$aksi] }}</span>
+                            @if ($r->is_proposal)
+                                {{-- Baris USULAN: membuka lembar, bukan langsung simpan.
+                                     Panggilannya memang untuk MENANYAKAN kapan pasien
+                                     bisa datang, jadi lembarnya menawarkan hari praktik
+                                     dokter sekaligus — satu panggilan, satu penulisan.
+                                     Tanggalnya boleh dikosongkan: "belum dapat tanggal"
+                                     itu hasil yang sah, bukan kegagalan. --}}
+                                <a href="{{ $tautan(['sheet' => 'panggil', 'kontrol' => $r->id]) }}"
+                                   class="ort-btn" style="flex:1;" onclick="event.stopPropagation()"
+                                   title="Telepon pasien, lalu catat hasilnya — termasuk tanggal yang disepakati kalau pasien menyebutnya">{{ $tombolLabel[$aksi] }}</a>
+                            @else
+                                <form method="POST" action="{{ route('ortho.followup', $r->id) }}"
+                                      style="flex:1;display:flex;" onclick="event.stopPropagation()">
+                                    @csrf
+                                    <button type="submit" class="ort-btn" style="flex:1;"
+                                            title="Catat bahwa pasien ini sudah di-follow-up hari ini">{{ $tombolLabel[$aksi] }}</button>
+                                </form>
+                            @endif
+                        @elseif ($aksi === 'pilih_tanggal')
+                            {{-- Sudah ditelepon, tanggalnya belum dipasang. Lembar yang
+                                 sama, dengan hari praktik dokter yang sungguh tersedia. --}}
+                            <a href="{{ $tautan(['sheet' => 'panggil', 'kontrol' => $r->id]) }}"
+                               class="ort-btn" style="flex:1;" onclick="event.stopPropagation()"
+                               title="Pasang tanggal yang sudah disepakati dengan pasien">{{ $tombolLabel[$aksi] }}</a>
                         @elseif ($rsvLewat)
                             {{-- Reservasinya lewat tapi kunjungannya belum masuk.
                                  Ini BUKAN "tidak ada tugas" — janjinya meleset, dan

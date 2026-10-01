@@ -230,7 +230,7 @@ class OrthoController extends Controller
         ];
 
         // Side sheet (§15): jenisnya dari ?sheet=, subjeknya dari ?kontrol= atau ?kasus=.
-        $sheet = in_array($request->query('sheet'), ['reservasi', 'pindahkan', 'geser', 'jadwalkan'], true)
+        $sheet = in_array($request->query('sheet'), ['reservasi', 'pindahkan', 'geser', 'jadwalkan', 'panggil'], true)
             ? $request->query('sheet') : null;
         $sheetKontrol = $sheetKasus = null;
         if ($sheet) {
@@ -495,7 +495,29 @@ class OrthoController extends Controller
         $data = $request->validate([
             'kanal'   => 'nullable|in:wa,telepon,langsung,lainnya',
             'tanggal' => 'nullable|date|before_or_equal:today',
+
+            /*
+             * Tanggal yang DISEPAKATI pasien di telepon — beda dari `tanggal`
+             * di atas, yang adalah tanggal follow-up-nya sendiri.
+             *
+             * Opsional dengan sengaja. Menelepon lalu tidak mendapat tanggal
+             * adalah hasil yang sah: pasien sedang di luar kota, minta
+             * ditelepon lagi pekan depan. Mewajibkannya akan mendorong Sales
+             * mengarang tanggal supaya formnya mau ditutup — dan karangan itu
+             * masuk ke daftar kerja sebagai janji.
+             *
+             * Dua medan karena lembarnya menawarkan dua jalan: chip hari
+             * praktik dokter, atau isian tanggal bebas. Yang bebas hanya
+             * dipakai kalau chip-nya tidak dipilih.
+             */
+            'sch_tanggal'      => 'nullable|date|after_or_equal:today',
+            'sch_tanggal_lain' => 'nullable|date|after_or_equal:today',
         ]);
+
+        // ?? bukan ?: — validate() TIDAK memasukkan kunci yang tidak dikirim
+        // sama sekali, jadi $data['sch_tanggal'] bisa tidak ada, bukan sekadar
+        // kosong. Lembar ini memang mengirim salah satu saja.
+        $schBaru = ($data['sch_tanggal'] ?? null) ?: ($data['sch_tanggal_lain'] ?? null);
 
         $sebelum = [
             'fu_date'    => optional($ctl->fu_date)->toDateString(),
@@ -503,15 +525,43 @@ class OrthoController extends Controller
             'fu_by'      => $ctl->fu_by,
         ];
 
-        $ctl->fill([
+        $isian = [
             'fu_date'    => $data['tanggal'] ?? now()->toDateString(),
             'fu_channel' => $data['kanal'] ?? 'wa',
             'fu_by'      => session('name') ?: 'Sales',
             'updated_by' => session('id'),
-        ])->save();
+        ];
 
-        return $this->selesai($ctl, $sebelum,
-            'Follow-up dicatat ' . $ctl->fu_date->translatedFormat('j M') . '.');
+        /*
+         * Satu panggilan, satu penulisan.
+         *
+         * Kalau pasien menyebut tanggal, jadwalnya dipasang di penyimpanan yang
+         * SAMA — bukan tindakan kedua. Begitu tanggalnya datang dari pasien, ia
+         * bukan usulan mesin lagi, jadi is_proposal dilepas dan sumbernya jadi
+         * 'manual'; persis yang dilakukan geserUsulan(). Keadaan sebelumnya ikut
+         * direkam supaya satu Urungkan memulihkan KEDUANYA — kalau tidak,
+         * mengurungkan follow-up meninggalkan jadwal yang sudah telanjur
+         * dikonfirmasi, dan itu lebih membingungkan daripada tidak ada Urungkan.
+         */
+        if ($schBaru !== null) {
+            $sebelum['sch_date']    = optional($ctl->sch_date)->toDateString();
+            $sebelum['is_proposal'] = (int) $ctl->is_proposal;
+            $sebelum['sch_source']  = $ctl->sch_source;
+
+            $isian['sch_date']    = $schBaru;
+            $isian['is_proposal'] = 0;
+            $isian['sch_source']  = OrtControl::SCH_MANUAL;
+        }
+
+        $ctl->fill($isian)->save();
+
+        $pesan = 'Follow-up dicatat ' . $ctl->fu_date->translatedFormat('j M') . '.';
+        if ($schBaru !== null) {
+            $pesan = 'Follow-up dicatat, jadwal dipasang '
+                   . $ctl->sch_date->translatedFormat("j M 'y") . '.';
+        }
+
+        return $this->selesai($ctl, $sebelum, $pesan);
     }
 
     /**

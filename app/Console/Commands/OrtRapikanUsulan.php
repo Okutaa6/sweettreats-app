@@ -113,7 +113,8 @@ class OrtRapikanUsulan extends Command
         $this->info('Memeriksa ulang usulan jadwal' . ($cabang ? ' · cabang ' . $cabang : ' · semua cabang'));
         $this->newLine();
 
-        $n = ['diperiksa' => 0, 'tetap' => 0, 'digeser' => 0, 'dihapus' => 0, 'tanpa_kunjungan' => 0];
+        $n = ['diperiksa' => 0, 'tetap' => 0, 'dasar' => 0, 'digeser' => 0,
+              'dihapus' => 0, 'tanpa_kunjungan' => 0];
         $sebab   = [];
         $contoh  = [];
         $batas   = max(0, (int) $this->option('contoh'));
@@ -165,7 +166,40 @@ class OrtRapikanUsulan extends Command
                 $lama    = $ctl->sch_date?->toDateString();
 
                 if ($putusan['tanggal'] === $lama) {
-                    $n['tetap']++;
+                    /*
+                     * Tanggalnya sudah sah — tapi DASARNYA bisa saja usang.
+                     *
+                     * Saat ukuran keyakinan berganti (dari banyaknya selang ke
+                     * sebaran irama), baris lama tetap menyimpan nilai lama
+                     * meski tanggalnya kebetulan masih benar. Kalau perintah ini
+                     * cuma memeriksa tanggal, nilai usang itu tinggal selamanya
+                     * dan layar menilai keyakinannya dengan ukuran yang sudah
+                     * ditinggalkan — diam-diam, tanpa satu pun baris berubah.
+                     */
+                    $dasarBeda = $ctl->sch_basis !== $putusan['basis']
+                              || (int) $ctl->sch_basis_n !== (int) $putusan['basis_n'];
+
+                    if (! $dasarBeda) {
+                        $n['tetap']++;
+
+                        continue;
+                    }
+
+                    $n['dasar']++;
+                    $kunci = 'dasar diperbarui';
+                    $sebab[$kunci] = ($sebab[$kunci] ?? 0) + 1;
+
+                    if (count($contoh) < $batas) {
+                        $contoh[] = [$c->patient_name, $lama, $lama, ($ctl->sch_basis ?? '—') . ' → ' . $putusan['basis']];
+                    }
+
+                    if ($tulis) {
+                        $ctl->fill([
+                            'sch_basis'   => $putusan['basis'],
+                            'sch_basis_n' => $putusan['basis_n'],
+                            'updated_by'  => self::PENULIS,
+                        ])->save();
+                    }
 
                     continue;
                 }
@@ -227,6 +261,7 @@ class OrtRapikanUsulan extends Command
         $this->table(['Hasil', 'Usulan'], [
             ['Usulan terbuka diperiksa', $n['diperiksa']],
             ['→ sudah sah, dibiarkan', $n['tetap']],
+            ['→ tanggal tetap, dasarnya diperbarui', $n['dasar']],
             ['→ digeser ke tanggal sah', $n['digeser']],
             ['→ dihapus (tidak ada tanggal sah)', $n['dihapus']],
             ['→ belum punya kunjungan, dilewati', $n['tanpa_kunjungan']],

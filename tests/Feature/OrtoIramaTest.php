@@ -236,7 +236,10 @@ class OrtoIramaTest extends TestCase
             $u->sch_date->toDateString(),
             'Irama pasien 28 hari, jadi titik awalnya hari ini + 28 — bukan + 30.'
         );
-        $this->assertSame('irama', $u->sch_basis);
+        // Selang 28 hari yang selalu sama persis: tingkatnya RAPAT. Tingkat
+        // keyakinannya sendiri diuji di OrtoTingkatIramaTest; di sini yang
+        // penting cuma bahwa dasarnya memang irama, bukan jarak baku.
+        $this->assertSame(OrtCase::BASIS_RAPAT, $u->sch_basis);
         $this->assertSame(3, (int) $u->sch_basis_n, 'Empat kunjungan berarti tiga selang.');
     }
 
@@ -303,8 +306,10 @@ class OrtoIramaTest extends TestCase
 
         $this->tarik();
 
-        $this->assertSame('irama', $this->usulan($kasus)?->sch_basis,
-            'Kolom kosong tidak boleh membuat sistem jatuh ke +30 — iramanya dihitung ulang.');
+        $this->assertNotSame(
+            OrtCase::BASIS_DEFAULT, $this->usulan($kasus)?->sch_basis,
+            'Kolom kosong tidak boleh membuat sistem jatuh ke +30 — iramanya dihitung ulang.'
+        );
     }
 
     // ── Yang disimpan untuk ditampilkan ─────────────────────────────────────

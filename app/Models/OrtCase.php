@@ -51,7 +51,7 @@ class OrtCase extends Model
         'owner_place_id', 'open_control_id', 'next_sch_date', 'next_is_proposal',
         'last_visit_date', 'last_visit_place_id',
         'control_count', 'visit_count', 'visit_count_180d',
-        'avg_gap_days', 'median_gap_days',
+        'avg_gap_days', 'median_gap_days', 'gap_spread_pct',
         'branches_visited', 'rollup_at',
         'seed_source', 'note', 'created_by', 'updated_by',
     ];
@@ -68,6 +68,7 @@ class OrtCase extends Model
         'visit_count_180d' => 'integer',
         'avg_gap_days'     => 'integer',
         'median_gap_days'  => 'integer',
+        'gap_spread_pct'   => 'integer',
         'rollup_at'        => 'datetime',
     ];
 
@@ -107,6 +108,31 @@ class OrtCase extends Model
     public const IRAMA_MAX_HARI = 60;
 
     /**
+     * Ambang irama RAPAT: sebaran selang, dalam persen median.
+     *
+     * Rumusnya (max − min) / median <= 0,5, dari handoff HUB 1 Okt, dan sudah
+     * diukur di prod: hanya **24%** pasien yang memenuhinya. Angka itu yang
+     * mengikat seluruh rancangan — untuk 76% sisanya, tanggal yang kita hitung
+     * adalah tebakan dua minggu dan tidak pantas ditawarkan lewat tombol
+     * sekali klik.
+     *
+     * ⚠ JANGAN memakai banyaknya selang (`sch_basis_n`) sebagai pengganti.
+     *   Itu mengukur banyaknya data, bukan konsistensinya: pasien berselang
+     *   20·90·25·110 punya LEBIH BANYAK selang daripada pasien 28·28·28, tapi
+     *   iramanya jauh lebih tidak bisa ditebak. Ukuran lama justru menilai
+     *   yang liar sebagai yang paling meyakinkan.
+     */
+    public const IRAMA_RAPAT_PCT = 50;
+
+    /** Butuh berapa selang sebelum sebuah irama boleh disebut RAPAT. */
+    public const IRAMA_RAPAT_MIN_SELANG = 3;
+
+    /** Tingkat keyakinan irama — nilai yang disimpan di ort_control.sch_basis. */
+    public const BASIS_RAPAT   = 'irama_rapat';
+    public const BASIS_LONGGAR = 'irama_longgar';
+    public const BASIS_DEFAULT = 'default';
+
+    /**
      * MEDIAN selang antar kunjungan — irama pasien.
      *
      * Median, bukan rata-rata, dan itu bukan selera. `avg_gap_days` yang
@@ -118,8 +144,14 @@ class OrtCase extends Model
      * ke kolom untuk ditampilkan, OrtUsulan menghitungnya segar saat
      * mengusulkan tanggal. Karena itu rumusnya tinggal di sini, satu salinan.
      *
+     * Yang dikembalikan termasuk SEBARANNYA. Versi pertama fungsi ini
+     * membuang array selangnya begitu median diambil, dan akibatnya tidak ada
+     * satu pun tempat di repo yang bisa membedakan pasien rajin tiap 30 hari
+     * dari pasien 20·90·25·110 yang mediannya kebetulan mirip.
+     *
      * @param  iterable<CarbonInterface|string>  $tanggal  kunjungan, urut menaik
-     * @return array{median: ?int, selang: int}  median null = belum cukup selang
+     * @return array{median: ?int, selang: int, min: ?int, max: ?int, sebar: ?int, basis: string}
+     *         median null = belum cukup selang · sebar = persen median
      */
     public static function irama(iterable $tanggal): array
     {
@@ -150,15 +182,38 @@ class OrtCase extends Model
 
         $n = count($hari);
         if ($n < self::IRAMA_MIN_SELANG) {
-            return ['median' => null, 'selang' => $n];
+            return [
+                'median' => null, 'selang' => $n,
+                'min' => null, 'max' => null, 'sebar' => null,
+                'basis' => self::BASIS_DEFAULT,
+            ];
         }
 
         sort($hari);
-        $median = $n % 2
+        $median = (int) ($n % 2
             ? $hari[intdiv($n, 2)]
-            : (int) round(($hari[$n / 2 - 1] + $hari[$n / 2]) / 2);
+            : round(($hari[$n / 2 - 1] + $hari[$n / 2]) / 2));
 
-        return ['median' => (int) $median, 'selang' => $n];
+        $min = (int) $hari[0];
+        $max = (int) $hari[$n - 1];
+
+        // Sebaran dalam PERSEN median, dibulatkan. Disimpan sebagai persen
+        // supaya tidak butuh kolom pecahan dan tetap terbaca orang saat
+        // dikueri tangan: 0 = selalu sama persis, 50 = batas rapat, 300 = liar.
+        $sebar = $median > 0 ? (int) round(($max - $min) / $median * 100) : null;
+
+        $rapat = $n >= self::IRAMA_RAPAT_MIN_SELANG
+              && $sebar !== null
+              && $sebar <= self::IRAMA_RAPAT_PCT;
+
+        return [
+            'median' => $median,
+            'selang' => $n,
+            'min'    => $min,
+            'max'    => $max,
+            'sebar'  => $sebar,
+            'basis'  => $rapat ? self::BASIS_RAPAT : self::BASIS_LONGGAR,
+        ];
     }
 
     // ── Relasi. Dipakai lewat with(); JANGAN ->join() ke luar keluarga ort_*

@@ -71,10 +71,17 @@
                          menghilang. --}}
                     @if ($r->median_gap_days)
                         <span class="tabular">{{ $r->median_gap_days }}</span> hari
+                        {{-- Yang menolong Sales bukan angkanya saja, melainkan
+                             seberapa bisa dipegang. Pasien 20/90/25/110 dan pasien
+                             28/28/28 bisa punya median yang mirip, tapi cuma satu
+                             yang tanggalnya pantas disebut di telepon. --}}
+                        @if ($r->gap_spread_pct !== null && $r->gap_spread_pct <= \App\Models\OrtCase::IRAMA_RAPAT_PCT)
+                            <span class="ort-fact__dim" title="Selangnya konsisten (sebaran {{ $r->gap_spread_pct }}% dari median) — tanggal usulan untuk pasien ini bisa dipegang.">· teratur</span>
+                        @elseif ($r->gap_spread_pct !== null)
+                            <span class="ort-fact__dim" title="Selangnya jauh berbeda-beda (sebaran {{ $r->gap_spread_pct }}% dari median) — tanyakan tanggalnya lewat telepon, jangan dipegang dari angka ini.">· tidak teratur</span>
+                        @endif
                         @if ($r->avg_gap_days && $r->avg_gap_days !== $r->median_gap_days)
                             <span class="ort-fact__dim">(rata-rata {{ $r->avg_gap_days }})</span>
-                        @else
-                            <span class="ort-fact__dim">(target 30)</span>
                         @endif
                     @else
                         belum cukup kunjungan

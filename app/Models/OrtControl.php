@@ -207,12 +207,28 @@ class OrtControl extends Model
     /**
      * Anak tangga berikutnya — inilah satu-satunya tombol di kolom tindakan.
      * NULL = tidak ada yang bisa dikerjakan (kontrol sudah tertutup).
+     *
+     * ⚠ KEMBARAN. Tangga yang sama dihitung ulang di _tabel.blade.php supaya
+     *   daftar tidak perlu memuat model per baris. Keduanya WAJIB sama persis;
+     *   kalau yang satu berubah, yang lain ikut — kalau tidak, tombol di
+     *   drawer dan tombol di baris akan berbeda untuk kontrol yang sama.
+     *
+     * Baris USULAN tidak lagi otomatis berbunyi "Konfirmasi jadwal". Sekali
+     * klik hanya pantas kalau irama pasiennya rapat; untuk sisanya (76% di
+     * prod) tanggalnya tebakan dua minggu, jadi anak tangga pertamanya
+     * menelepon — persis urutan di lapangan.
      */
     public function tindakanBerikutnya(): ?string
     {
-        if (! $this->isTerbuka())  return null;
-        if ($this->is_proposal)    return 'konfirmasi';
-        if (! $this->fu_date)      return 'follow_up';
+        if (! $this->isTerbuka()) return null;
+
+        if ($this->is_proposal) {
+            if ($this->sch_basis === OrtCase::BASIS_RAPAT) return 'konfirmasi';
+
+            return $this->fu_date ? 'pilih_tanggal' : 'follow_up';
+        }
+
+        if (! $this->fu_date) return 'follow_up';
         if (! $this->reservation_id || $this->rsv_status === 'cancelled') return 'buat_reservasi';
 
         return null; // sudah ada reservasi — tinggal menunggu pasien datang

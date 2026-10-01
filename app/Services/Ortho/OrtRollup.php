@@ -15,7 +15,8 @@ use Illuminate\Support\Facades\DB;
  * ⚠ KELAS INI SATU-SATUNYA YANG BOLEH MENULIS KOLOM ROLLUP.
  *   owner_place_id · open_control_id · next_sch_date · next_is_proposal ·
  *   last_visit_date · last_visit_place_id · control_count · visit_count ·
- *   visit_count_180d · avg_gap_days · median_gap_days · branches_visited ·
+ *   visit_count_180d · avg_gap_days · median_gap_days · gap_spread_pct ·
+ *   branches_visited ·
  *   rollup_at
  *
  * Kolom itu turunan yang disimpan. Alasannya bukan kecepatan render, tapi
@@ -74,6 +75,10 @@ class OrtRollup
 
         $batas180 = Carbon::today()->subDays(OrtCase::HILANG_HARI);
 
+        // Satu panggilan, dipakai dua kolom di bawah. Rumusnya di OrtCase
+        // supaya OrtUsulan menghitung angka yang sama persis saat mengusulkan.
+        $irama = OrtCase::irama($kunjungan->pluck('visit_date'));
+
         $case->forceFill([
             'owner_place_id'      => $owner,
             'open_control_id'     => $terbuka?->id,
@@ -90,7 +95,12 @@ class OrtRollup
             // Irama pasien. Rumusnya tinggal di OrtCase::irama() karena
             // OrtUsulan menghitung angka yang sama saat mengusulkan tanggal,
             // dan keduanya tidak boleh pernah berbeda.
-            'median_gap_days'     => OrtCase::irama($kunjungan->pluck('visit_date'))['median'],
+            'median_gap_days'     => $irama['median'],
+            // Sebaran selang — ini yang memisahkan "rajin tiap 30 hari" dari
+            // "20/90/25/110 yang mediannya kebetulan mirip". Tanpanya layar
+            // menilai keyakinan dari BANYAKNYA selang, dan yang liar justru
+            // terbaca paling meyakinkan.
+            'gap_spread_pct'      => $irama['sebar'],
             'branches_visited'    => $this->cabangDidatangi($controls),
             'rollup_at'           => now(),
         ])->save();
@@ -240,7 +250,7 @@ class OrtRollup
                     // terjadi cuma layar diam-diam berhenti menampilkan irama
                     // dan berbunyi "belum cukup kunjungan" untuk semua pasien.
                     // --verify adalah satu-satunya tempat itu bisa ketahuan.
-                    'median_gap_days',
+                    'median_gap_days', 'gap_spread_pct',
                 ]);
 
                 $this->refresh($c->id);

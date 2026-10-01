@@ -359,6 +359,7 @@ class OrtQuery
             'k.bracket_type', 'k.bracket_arch', 'k.doctor_name', 'k.doctor_ref_id',
             'k.install_date', 'k.install_place_id', 'k.owner_place_id',
             'k.visit_count', 'k.control_count', 'k.avg_gap_days', 'k.median_gap_days',
+            'k.gap_spread_pct',
             'k.last_visit_date', 'k.install_is_estimated',
         ])
             ->orderBy('c.sch_date')
