@@ -2,7 +2,9 @@
 
 namespace App\Models;
 
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Carbon;
 
 /**
  * OrtCase — satu baris = satu episode perawatan behel.
@@ -42,18 +44,21 @@ class OrtCase extends Model
     protected $fillable = [
         'id',
         'omnicare_pid', 'raw_customer_id', 'patient_name', 'patient_phone',
-        'install_date', 'install_place_id', 'bracket_type', 'bracket_arch',
+        'install_date', 'install_place_id', 'install_is_estimated',
+        'bracket_type', 'bracket_arch',
         'doctor_ref_id', 'doctor_name',
         'status', 'finished_at',
         'owner_place_id', 'open_control_id', 'next_sch_date', 'next_is_proposal',
         'last_visit_date', 'last_visit_place_id',
-        'control_count', 'visit_count', 'visit_count_180d', 'avg_gap_days',
+        'control_count', 'visit_count', 'visit_count_180d',
+        'avg_gap_days', 'median_gap_days',
         'branches_visited', 'rollup_at',
         'seed_source', 'note', 'created_by', 'updated_by',
     ];
 
     protected $casts = [
-        'install_date'     => 'date',
+        'install_date'         => 'date',
+        'install_is_estimated' => 'boolean',
         'finished_at'      => 'date',
         'next_sch_date'    => 'date',
         'last_visit_date'  => 'date',
@@ -62,6 +67,7 @@ class OrtCase extends Model
         'visit_count'      => 'integer',
         'visit_count_180d' => 'integer',
         'avg_gap_days'     => 'integer',
+        'median_gap_days'  => 'integer',
         'rollup_at'        => 'datetime',
     ];
 
@@ -77,6 +83,83 @@ class OrtCase extends Model
 
     /** Target jarak antar kontrol (hari). Wajar 28–45. */
     public const TARGET_GAP = 30;
+
+    /**
+     * Berapa SELANG minimum sebelum irama pasien boleh dipercaya.
+     *
+     * Dua selang berarti tiga kunjungan. Di bawah itu "median" cuma satu
+     * angka tunggal yang menyamar jadi statistik — satu kunjungan yang
+     * kebetulan telat sudah menentukan seluruh jadwal pasien ke depan.
+     */
+    public const IRAMA_MIN_SELANG = 2;
+
+    /**
+     * Batas waras irama (hari). Di luar ini yang terukur bukan irama.
+     *
+     * Bawah 21: kontrol ortho di bawah tiga minggu tidak lazim; biasanya itu
+     * kunjungan perbaikan bracket lepas yang kebetulan terekam sebagai
+     * kontrol. Atas 60: selang dua bulan ke atas bukan irama melainkan
+     * kelalaian — meneruskannya berarti sistem ikut melembagakan
+     * keterlambatan pasien alih-alih menjadwalkannya kembali.
+     */
+    public const IRAMA_MIN_HARI = 21;
+
+    public const IRAMA_MAX_HARI = 60;
+
+    /**
+     * MEDIAN selang antar kunjungan — irama pasien.
+     *
+     * Median, bukan rata-rata, dan itu bukan selera. `avg_gap_days` yang
+     * sudah ada tertarik pencilan: satu kali pasien hilang 8 bulan lalu
+     * kembali sudah cukup menggeser rata-ratanya puluhan hari, dan dari situ
+     * seluruh usulan berikutnya ikut melar. Median tidak bergeming.
+     *
+     * Dipakai DUA tempat yang harus selalu sepakat — OrtRollup menyimpannya
+     * ke kolom untuk ditampilkan, OrtUsulan menghitungnya segar saat
+     * mengusulkan tanggal. Karena itu rumusnya tinggal di sini, satu salinan.
+     *
+     * @param  iterable<CarbonInterface|string>  $tanggal  kunjungan, urut menaik
+     * @return array{median: ?int, selang: int}  median null = belum cukup selang
+     */
+    public static function irama(iterable $tanggal): array
+    {
+        $hari    = [];
+        $sebelum = null;
+
+        foreach ($tanggal as $t) {
+            if ($t === null) {
+                continue;
+            }
+
+            $kini = $t instanceof CarbonInterface
+                ? Carbon::instance($t)->startOfDay()
+                : Carbon::parse($t)->startOfDay();
+
+            if ($sebelum !== null) {
+                $selisih = $sebelum->diffInDays($kini);
+                // Dua kunjungan di hari yang sama bukan selang — itu satu
+                // kunjungan yang terekam dua kali, atau kontrol + perbaikan
+                // bracket yang lepas di hari yang sama.
+                if ($selisih > 0) {
+                    $hari[] = $selisih;
+                }
+            }
+
+            $sebelum = $kini;
+        }
+
+        $n = count($hari);
+        if ($n < self::IRAMA_MIN_SELANG) {
+            return ['median' => null, 'selang' => $n];
+        }
+
+        sort($hari);
+        $median = $n % 2
+            ? $hari[intdiv($n, 2)]
+            : (int) round(($hari[$n / 2 - 1] + $hari[$n / 2]) / 2);
+
+        return ['median' => (int) $median, 'selang' => $n];
+    }
 
     // ── Relasi. Dipakai lewat with(); JANGAN ->join() ke luar keluarga ort_*
     //    (collation prod campur, lihat header berkas SQL).

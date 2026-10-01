@@ -15,7 +15,8 @@ use Illuminate\Support\Facades\DB;
  * ⚠ KELAS INI SATU-SATUNYA YANG BOLEH MENULIS KOLOM ROLLUP.
  *   owner_place_id · open_control_id · next_sch_date · next_is_proposal ·
  *   last_visit_date · last_visit_place_id · control_count · visit_count ·
- *   visit_count_180d · avg_gap_days · branches_visited · rollup_at
+ *   visit_count_180d · avg_gap_days · median_gap_days · branches_visited ·
+ *   rollup_at
  *
  * Kolom itu turunan yang disimpan. Alasannya bukan kecepatan render, tapi
  * karena tiganya dipakai sebagai PENYARING — open_control_id IS NULL memilih
@@ -86,6 +87,10 @@ class OrtRollup
                                          fn ($c) => $c->visit_date->gte($batas180)
                                      )->count(),
             'avg_gap_days'        => $this->rataJarak($kunjungan),
+            // Irama pasien. Rumusnya tinggal di OrtCase::irama() karena
+            // OrtUsulan menghitung angka yang sama saat mengusulkan tanggal,
+            // dan keduanya tidak boleh pernah berbeda.
+            'median_gap_days'     => OrtCase::irama($kunjungan->pluck('visit_date'))['median'],
             'branches_visited'    => $this->cabangDidatangi($controls),
             'rollup_at'           => now(),
         ])->save();
@@ -227,6 +232,15 @@ class OrtRollup
                 $sebelum = $c->only([
                     'owner_place_id', 'open_control_id', 'control_count',
                     'visit_count', 'visit_count_180d',
+                    // median_gap_days ikut diperiksa karena ia punya satu cara
+                    // gagal yang sangat sunyi: sesudah SQL Tahap C dijalankan
+                    // tapi `ort:rollup` TIDAK, kolomnya NULL untuk semua orang.
+                    // Usulan jadwalnya tetap benar (OrtUsulan menghitung segar),
+                    // jadi tidak ada yang rusak dan tidak ada galat — yang
+                    // terjadi cuma layar diam-diam berhenti menampilkan irama
+                    // dan berbunyi "belum cukup kunjungan" untuk semua pasien.
+                    // --verify adalah satu-satunya tempat itu bisa ketahuan.
+                    'median_gap_days',
                 ]);
 
                 $this->refresh($c->id);

@@ -163,7 +163,41 @@
                             <a href="{{ $tautan(['sheet' => 'geser', 'kontrol' => $r->id]) }}"
                                class="ort-proposal tabular" onclick="event.stopPropagation()"
                                title="Usulan sistem — klik untuk menggeser tanggalnya">{{ \Carbon\Carbon::parse($r->sch_date)->translatedFormat("j M 'y") }}</a>
-                            <span class="ort-cell--sub ort-sub-amber">usulan · +30 hari</span>
+                            @php
+                                /* Penanda KEYAKINAN usulan.
+                                   Dulu baris ini selalu berbunyi "+30 hari" — kalimat
+                                   yang sejak Tahap C tidak lagi benar, dan sebelumnya
+                                   pun menyembunyikan hal yang paling ingin diketahui
+                                   Sales sebelum menelepon: usulan ini ditebak dari
+                                   apa? Usulan dari 12 selang kunjungan dan usulan
+                                   dari nol riwayat terlihat persis sama di layar,
+                                   padahal yang satu pantas disebut di telepon dan
+                                   yang satu sebaiknya ditanyakan dulu ke pasien.
+                                   sch_basis NULL = baris lama dari sebelum Tahap C;
+                                   waktu itu memang +30, jadi label itu tetap jujur. */
+                                $basis  = $r->sch_basis ?? null;
+                                $basisN = (int) ($r->sch_basis_n ?? 0);
+                                $kuat   = $basis === 'irama' && $basisN >= 6;
+
+                                /* Angkanya dibaca dari irama pasien, BUKAN dari selisih
+                                   sch_date dengan baris ini: baris usulan belum punya
+                                   visit_date, jadi selisihnya nol. */
+                                $iramaHari = (int) ($r->median_gap_days ?? 0);
+
+                                [$usulanTeks, $usulanJudul] = $basis === 'irama'
+                                    ? [
+                                        $iramaHari ? 'irama ' . $iramaHari . ' hari' : 'irama pasien',
+                                        'Dihitung dari irama pasien ini sendiri, ' . $basisN . ' selang kunjungan.'
+                                            . ($kuat ? ' Riwayatnya panjang — usulan ini boleh disebut langsung ke pasien.'
+                                                     : ' Riwayatnya masih pendek — tawarkan sebagai usulan, jangan sebagai kepastian.'),
+                                    ]
+                                    : [
+                                        '+30 hari',
+                                        'Pasien ini belum punya cukup riwayat untuk punya irama, jadi dipakai jarak baku 30 hari. Tanyakan tanggalnya ke pasien.',
+                                    ];
+                            @endphp
+                            <span class="ort-cell--sub {{ $kuat ? 'ort-sub-yakin' : 'ort-sub-amber' }}"
+                                  title="{{ $usulanJudul }}">usulan · {{ $usulanTeks }}</span>
                         @else
                             <span class="tabular">{{ \Carbon\Carbon::parse($r->sch_date)->translatedFormat("j M 'y") }}</span>
                             @if ($telat)

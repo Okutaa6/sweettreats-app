@@ -43,7 +43,7 @@ class OrtControl extends Model
 
     protected $fillable = [
         'id', 'ort_case_id', 'seq', 'place_id', 'is_proposal',
-        'sch_date', 'sch_source', 'sch_note',
+        'sch_date', 'sch_source', 'sch_note', 'sch_basis', 'sch_basis_n',
         'fu_date', 'fu_channel', 'fu_by',
         'reservation_id', 'rsv_date', 'rsv_status', 'rsv_synced_at',
         'visit_date', 'visit_source', 'visit_confidence',
@@ -104,11 +104,18 @@ class OrtControl extends Model
      * pasien sebelum tanggalnya tiba. Validasi input manual (OrthoController)
      * dan atribut `min` pada pemilih tanggal (_sheet) memakai batas yang sama.
      */
-    public static function tanggalUsulan(CarbonInterface $kunjungan, ?CarbonInterface $hariIni = null): Carbon
-    {
+    public static function tanggalUsulan(
+        CarbonInterface $kunjungan,
+        ?CarbonInterface $hariIni = null,
+        ?int $majuHari = null
+    ): Carbon {
         $hariIni = $hariIni ? Carbon::instance($hariIni)->startOfDay() : Carbon::today();
 
-        $usul   = Carbon::instance($kunjungan)->startOfDay()->addDays(self::USULAN_MAJU_HARI);
+        // $majuHari = irama pasien sendiri (Tahap C). Null berarti pasien itu
+        // belum punya cukup riwayat untuk punya irama, dan kita jatuh ke +30 —
+        // bukan menebak. Lantai MIN_MAJU_HARI di bawah berlaku untuk keduanya.
+        $usul   = Carbon::instance($kunjungan)->startOfDay()
+            ->addDays($majuHari ?? self::USULAN_MAJU_HARI);
         $paling = $hariIni->copy()->addDays(self::MIN_MAJU_HARI);
 
         return $usul->lt($paling) ? $paling : $usul;

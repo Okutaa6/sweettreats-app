@@ -46,6 +46,22 @@
                                'Reservasi batal', 'Usulan jadwal', 'Transfer'] as $s)
                         <option value="{{ $s }}" {{ request('status') === $s ? 'selected' : '' }}>{{ $s }}</option>
                     @endforeach
+
+                    {{-- Saringan kerja harian, dipisah garis karena menjawab
+                         pertanyaan yang beda: bukan "baris ini statusnya apa"
+                         melainkan "apa yang harus saya kerjakan sekarang".
+                         "Saya FU hari ini" hanya muncul kalau sesinya memang
+                         punya nama — tanpa itu saringannya tidak punya arti. --}}
+                    <optgroup label="Kerja hari ini">
+                        <option value="Belum pernah di-FU" {{ request('status') === 'Belum pernah di-FU' ? 'selected' : '' }}>
+                            Belum pernah di-FU
+                        </option>
+                        @if (filled(session('name')))
+                            <option value="Saya FU hari ini" {{ request('status') === 'Saya FU hari ini' ? 'selected' : '' }}>
+                                Saya FU hari ini
+                            </option>
+                        @endif
+                    </optgroup>
                 </select>
             </div>
         </div>

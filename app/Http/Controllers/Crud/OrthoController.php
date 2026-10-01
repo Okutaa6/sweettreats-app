@@ -11,6 +11,7 @@ use App\Services\Ortho\OrtBranches;
 use App\Services\Ortho\OrtQuery;
 use App\Services\Ortho\OrtRollup;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -218,6 +219,12 @@ class OrthoController extends Controller
             'q'      => $request->query('q'),
             'dokter' => $request->query('dokter'),
             'status' => $request->query('status'),
+            // Bukan masukan pengguna: dipakai saringan "Saya FU hari ini"
+            // untuk mencocokkan ort_control.fu_by. Sengaja dibuang lagi dari
+            // konteks di bawah supaya tidak terhitung sebagai filter aktif —
+            // kalau ikut, panel filter terbuka terus dan chip "Reset" muncul
+            // di halaman yang sebetulnya tidak difilter apa pun.
+            'saya'   => session('name'),
             'dari'   => $request->query('dari'),
             'sampai' => $request->query('sampai'),
         ];
@@ -284,7 +291,7 @@ class OrthoController extends Controller
             'hanyaLihat'    => $cabangDilihat !== null,
             'peta'          => $this->branches->all(),
             'perCabangLain' => $perCabangLain,
-            'filter'        => array_filter($filter),
+            'filter'        => array_filter(Arr::except($filter, ['saya'])),
             'kartu'         => $kartuRingkas,
             'dokterPilihan' => $this->q->dokterDiCabang($placeId),
             'hariIni'       => $this->q->hariIni(),
@@ -325,7 +332,7 @@ class OrthoController extends Controller
             $rawat = $request->query('rawat') === 'selesai' ? 'selesai' : 'aktif';
 
             return $ctx + [
-                'baris'         => $this->q->roster($lihatPlace, $filter, 10, $rawat === 'selesai' ? 'semua' : $urgensi, $asalPasien, $rawat),
+                'baris'         => $this->q->roster($lihatPlace, $filter, OrtQuery::PER_HAL, $rawat === 'selesai' ? 'semua' : $urgensi, $asalPasien, $rawat),
                 'hitungUrgensi' => $this->q->hitungUrgensiKasus($lihatPlace, $filter, $asalPasien),
                 'hitungRoster'  => $this->q->hitungRoster($lihatPlace, $filter, $asalPasien),
                 'tampil'        => $request->query('tampil') === 'kartu' ? 'kartu' : 'daftar',
@@ -335,7 +342,7 @@ class OrthoController extends Controller
 
         // ── Tab cabang lain: lihat-saja, kolomnya berbeda dari tab sendiri.
         if ($cabangDilihat !== null) {
-            $baris = $this->q->diCabangLain($placeId, $cabangDilihat, 10, $urgensi, $filter);
+            $baris = $this->q->diCabangLain($placeId, $cabangDilihat, OrtQuery::PER_HAL, $urgensi, $filter);
 
             return $ctx + [
                 'baris'         => $baris,
@@ -351,7 +358,7 @@ class OrthoController extends Controller
 
         // ── Kartu ke-3 dipilih: tabel diganti antrean penjadwalan.
         if ($kartuAktif === 'backlog') {
-            $baris = $this->q->antrean($placeId, $filter, 10, $urgensi);
+            $baris = $this->q->antrean($placeId, $filter, OrtQuery::PER_HAL, $urgensi);
 
             return $ctx + [
                 'baris'         => $baris,

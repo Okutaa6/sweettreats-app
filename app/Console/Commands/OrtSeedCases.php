@@ -464,6 +464,11 @@ class OrtSeedCases extends Command
                 'owner_place_id'   => $ep['place'],
                 'seed_source'      => self::SUMBER,
                 'created_by'       => self::PENULIS,
+                // Bendera yang bisa dikueri. `note` di bawah TETAP ditulis:
+                // ia menyebut SEJAK KAPAN cermin dibaca — konteks yang tidak
+                // muat di sebuah boolean, dan satu-satunya tempat angka itu
+                // tercatat per baris.
+                'install_is_estimated' => $ep['perkiraan'] ? 1 : 0,
                 'note'             => $ep['perkiraan'] ? sprintf(
                     'Tanggal pasang DIPERKIRAKAN dari kunjungan ortho pertama yang terlihat '
                     . 'di rekam medis sejak %s; pemasangan sebenarnya mungkin lebih lama.',

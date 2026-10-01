@@ -1445,3 +1445,25 @@ button.ort-btn { border: none; font-family: inherit; cursor: pointer; }
 /* Badan spanduk — menggantikan style sebaris flex:1;min-width:0 yang dulu
    ditulis langsung di markup (konvensi proyek: tak ada style sebaris). */
 .ort-banner__body { flex: 1; min-width: 0; }
+
+/* ── Tahap C: menandai yang DIPERKIRAKAN dan yang DIYAKINI ──────────────────
+   Dua hal yang sebelumnya tampil sama persis dengan fakta, dan itu yang
+   membuatnya menyesatkan. Keduanya sengaja dibuat kecil dan tidak berwarna
+   merah: ini bukan galat, cuma derajat keyakinan yang berbeda. */
+
+/* Tanda "±" di depan tanggal pasang yang bukan fakta melainkan perkiraan.
+   Dibuat sedikit lebih redup dari teksnya supaya terbaca sebagai keterangan,
+   bukan sebagai bagian dari tanggalnya. */
+.ort-kira {
+  color: var(--ort-muted);
+  font-weight: 700;
+  cursor: help;
+}
+
+/* Usulan yang lahir dari irama panjang (6 selang kunjungan ke atas). Hijau
+   tenang, bukan amber: amber di kolom ini berarti "periksa dulu", dan usulan
+   seperti ini justru yang TIDAK perlu diperiksa lagi. */
+.ort-sub-yakin { color: var(--ort-ok) !important; font-weight: 700; }
+
+/* Angka pembanding kecil di panel baris (rata-rata di samping median). */
+.ort-fact__dim { font-weight: 500; color: var(--ort-muted); }

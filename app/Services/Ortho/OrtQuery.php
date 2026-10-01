@@ -28,6 +28,17 @@ use Illuminate\Support\Facades\DB;
  */
 class OrtQuery
 {
+    /**
+     * Baris per halaman.
+     *
+     * Dulu 10, dan itu angka prototipe yang tak pernah diuji ke data
+     * sungguhan: Bintaro punya 959 kasus aktif, jadi 10 berarti 96 halaman.
+     * Mencari satu pasien lewat tombol "berikutnya" bukan pekerjaan yang bisa
+     * diminta dari siapa pun. 50 membuatnya 20 halaman, dan baris ortho itu
+     * ramping — satu nama, satu tanggal, tiga kolom status.
+     */
+    public const PER_HAL = 50;
+
     public function __construct(private OrtBranches $branches)
     {
     }
@@ -168,6 +179,30 @@ class OrtQuery
                 'Menunggu'        => $q->whereNull('c.fu_date')->whereNull('c.reservation_id')
                                        ->where('c.is_proposal', 0)->where('c.sch_date', '>=', $hariIni),
                 'Sudah di-FU'     => $q->whereNotNull('c.fu_date')->whereNull('c.reservation_id'),
+
+                /*
+                 * Dua saringan KERJA HARIAN. Yang di atas menjawab "siapa yang
+                 * sudah ditangani"; dua ini menjawab pertanyaan yang sebetulnya
+                 * ditanyakan tiap pagi dan tiap sore.
+                 *
+                 * "Belum pernah di-FU" sengaja TIDAK memeriksa sch_date, beda
+                 * dari "Menunggu" di atas yang membuang pasien terlewat. Yang
+                 * terlewat justru yang paling perlu ditelepon — membuangnya
+                 * dari daftar panggilan adalah persis cara pasien hilang.
+                 *
+                 * "Saya FU hari ini" mencocokkan fu_by ke nama penggunanya.
+                 * fu_by memang nama tampilan, bukan id — jadi dua orang
+                 * bernama sama akan saling melihat pekerjaan. Itu diterima:
+                 * saringan ini untuk meninjau pekerjaan sendiri, bukan pagar
+                 * akses, dan datanya toh sudah terlihat seluruhnya di kolom FU.
+                 */
+                'Belum pernah di-FU' => $q->whereNull('c.fu_date'),
+                'Saya FU hari ini'   => filled($filter['saya'] ?? null)
+                    ? $q->where('c.fu_date', $hariIni)->where('c.fu_by', $filter['saya'])
+                    // Tanpa nama pengguna, saringan ini tidak punya arti. Lebih
+                    // jujur mengosongkan daftar daripada diam-diam menampilkan
+                    // follow-up orang lain sebagai pekerjaan sendiri.
+                    : $q->whereRaw('1 = 0'),
                 'Ada reservasi'   => $q->whereNotNull('c.reservation_id')
                                        ->where(fn ($w) => $w->whereNull('c.rsv_status')->orWhere('c.rsv_status', '<>', 'cancelled')),
                 'Terlewat'        => $q->where('c.sch_date', '<', $hariIni),
@@ -310,19 +345,21 @@ class OrtQuery
     }
 
     /** Halaman daftar kerja. 10 baris/halaman, terlewat di paling atas. */
-    public function daftar(string $placeId, string $urgensi = 'semua', array $filter = [], int $perPage = 10, ?string $asal = null)
+    public function daftar(string $placeId, string $urgensi = 'semua', array $filter = [], int $perPage = self::PER_HAL, ?string $asal = null)
     {
         $q = $this->terapkanUrgensi($this->dasar($placeId, $filter, $asal), $urgensi);
 
         return $q->select([
             'c.id', 'c.ort_case_id', 'c.seq', 'c.place_id', 'c.is_proposal',
-            'c.sch_date', 'c.sch_source', 'c.fu_date', 'c.fu_by',
+            'c.sch_date', 'c.sch_source', 'c.sch_basis', 'c.sch_basis_n',
+            'c.fu_date', 'c.fu_by',
             'c.reservation_id', 'c.rsv_date', 'c.rsv_status',
             'c.visit_date', 'c.unscheduled', 'c.outcome', 'c.closed_at',
             'k.patient_name', 'k.patient_phone', 'k.omnicare_pid',
             'k.bracket_type', 'k.bracket_arch', 'k.doctor_name', 'k.doctor_ref_id',
             'k.install_date', 'k.install_place_id', 'k.owner_place_id',
-            'k.visit_count', 'k.control_count', 'k.avg_gap_days', 'k.last_visit_date',
+            'k.visit_count', 'k.control_count', 'k.avg_gap_days', 'k.median_gap_days',
+            'k.last_visit_date', 'k.install_is_estimated',
         ])
             ->orderBy('c.sch_date')
             ->orderBy('k.patient_name')
@@ -455,7 +492,7 @@ class OrtQuery
      * Pasien yang belum punya kontrol terbuka, terurut paling lama menghilang.
      * Satu range scan di idx_ort_case_backlog — nol subquery, nol anti-join.
      */
-    public function antrean(string $placeId, array $filter = [], int $perPage = 10, string $tingkat = 'semua')
+    public function antrean(string $placeId, array $filter = [], int $perPage = self::PER_HAL, string $tingkat = 'semua')
     {
         $q = $this->terapkanTingkatAntrean(
             $this->saringAntrean(
@@ -680,7 +717,7 @@ class OrtQuery
      * kunci cabang — penyaringnya bukan "cabang aktif", melainkan "pasien yang
      * cabang pasangnya kita, tapi penagihnya bukan".
      */
-    public function diCabangLain(string $homePlaceId, string $tujuanPlaceId, int $perPage = 10, string $urgensi = 'semua', array $filter = [])
+    public function diCabangLain(string $homePlaceId, string $tujuanPlaceId, int $perPage = self::PER_HAL, string $urgensi = 'semua', array $filter = [])
     {
         $q = $this->terapkanUrgensiKasus(
             $this->dasarKasus($tujuanPlaceId, $filter, $homePlaceId),
@@ -750,7 +787,7 @@ class OrtQuery
      * idx_ort_case_roster; kontrol terbuka di-eager-load supaya kartu bisa
      * menampilkan chip status tanpa N+1.
      */
-    public function roster(string $placeId, array $filter = [], int $perPage = 10, string $urgensi = 'semua', ?string $asal = null, string $rawat = 'aktif')
+    public function roster(string $placeId, array $filter = [], int $perPage = self::PER_HAL, string $urgensi = 'semua', ?string $asal = null, string $rawat = 'aktif')
     {
         $q = $this->terapkanUrgensiKasus(
             $this->dasarKasus($placeId, $filter, $asal, $rawat)->with('openControl'),

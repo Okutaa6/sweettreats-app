@@ -490,6 +490,14 @@ class OrtPullVisits extends Command
                 'is_proposal' => 1,
                 'sch_date'    => $putusan['tanggal'],
                 'sch_source'  => OrtControl::SCH_SISTEM,
+                // Dasar usulan disimpan, bukan dihitung ulang saat dibaca.
+                // Layar memakainya untuk membedakan usulan dari 12 selang
+                // kunjungan dengan usulan dari 2 — keduanya "usulan sistem",
+                // tapi hanya satu yang pantas dipercaya tanpa dilihat lagi.
+                // Kalau diturunkan saat render, angkanya ikut berubah tiap
+                // kunjungan baru masuk dan usulan lama jadi mengaku-aku.
+                'sch_basis'   => $putusan['basis'],
+                'sch_basis_n' => $putusan['basis_n'],
                 'created_by'  => 'sistem',
             ]);
             $usulan = 1;

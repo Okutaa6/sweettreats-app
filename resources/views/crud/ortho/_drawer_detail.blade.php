@@ -133,9 +133,25 @@
             @if ($c->doctor_name) · {{ $c->doctor_name }} @endif
         </div>
 
-        <div class="ort-drawer__meta ort-drawer__meta--dim">
-            Pasang {{ $c->install_date?->translatedFormat("j M 'y") }} di {{ $namaIns }} · berjalan {{ $lamaTeks }}
-        </div>
+        {{-- 45,7% tanggal pasang di prod itu PERKIRAAN dari kunjungan ortho
+             pertama yang terlihat di rekam medis, bukan dari baris pemasangan
+             (brief §6.1: 132 nama item pemasangan berbeda). Sebelumnya
+             keduanya ditulis sama persis, jadi drawer mengatakan "berjalan 57
+             bulan" dengan yakin untuk pasien yang sebetulnya cuma "terakhir
+             terlihat 5 tahun lalu". Yang perkiraan sekarang diberi ± dan
+             "minimal" — arah melesetnya selalu sama: pemasangan sebenarnya
+             LEBIH LAMA, tidak pernah lebih baru. --}}
+        @if ($c->install_is_estimated)
+            <div class="ort-drawer__meta ort-drawer__meta--dim"
+                 title="Tanggal pasang tidak ditemukan di rekam medis. Yang dipakai adalah kunjungan ortho paling awal yang terlihat, jadi pemasangan sebenarnya bisa lebih lama dari ini.">
+                Pasang <span class="ort-kira">± {{ $c->install_date?->translatedFormat("j M 'y") }}</span>
+                di {{ $namaIns }} · berjalan minimal {{ $lamaTeks }}
+            </div>
+        @else
+            <div class="ort-drawer__meta ort-drawer__meta--dim">
+                Pasang {{ $c->install_date?->translatedFormat("j M 'y") }} di {{ $namaIns }} · berjalan {{ $lamaTeks }}
+            </div>
+        @endif
 
         @if ($detailSelesai)
             <div class="ort-drawer__meta ort-drawer__meta--dim">
@@ -176,10 +192,24 @@
                 <div class="ort-kpi__val tabular">{{ $hadir }}/{{ $selesaiN }}</div>
                 <div class="ort-kpi__sub">{{ $pctHadir !== null ? $pctHadir . '% hadir' : 'belum ada yang ditutup' }}</div>
             </div>
+            {{-- Median di depan, rata-rata jadi pembanding kecil. Rata-rata
+                 tertarik pencilan: satu kali pasien hilang 8 bulan lalu kembali
+                 sudah cukup menggeser angkanya puluhan hari, dan angka itulah
+                 yang dulu dibaca Sales sebagai "irama pasien ini". Rata-rata
+                 tidak dibuang — saat keduanya berjauhan, justru selisihnya yang
+                 memberi tahu bahwa pasien ini pernah menghilang. --}}
             <div class="ort-kpi__card">
-                <div class="ort-kpi__lbl">Jarak rata-rata</div>
-                <div class="ort-kpi__val tabular">{{ $c->avg_gap_days ? $c->avg_gap_days . ' hari' : '—' }}</div>
-                <div class="ort-kpi__sub">target 30 hari</div>
+                <div class="ort-kpi__lbl">Irama kontrol</div>
+                <div class="ort-kpi__val tabular">{{ $c->median_gap_days ? $c->median_gap_days . ' hari' : '—' }}</div>
+                <div class="ort-kpi__sub">
+                    @if ($c->median_gap_days && $c->avg_gap_days && $c->avg_gap_days !== $c->median_gap_days)
+                        rata-rata <span class="tabular">{{ $c->avg_gap_days }}</span> hari
+                    @elseif ($c->median_gap_days)
+                        target 30 hari
+                    @else
+                        belum cukup kunjungan
+                    @endif
+                </div>
             </div>
         </div>
 

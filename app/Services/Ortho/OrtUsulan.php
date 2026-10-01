@@ -75,8 +75,11 @@ class OrtUsulan
     }
 
     /**
-     * @return array{tanggal: ?string, sebab: ?string}
+     * @return array{tanggal: ?string, sebab: ?string, basis: ?string, basis_n: int}
      *         tanggal null + sebab terisi = sengaja TIDAK diusulkan.
+     *         basis 'irama'   = titik awalnya irama pasien sendiri
+     *         basis 'default' = pasien belum punya cukup riwayat, dipakai +30
+     *         basis_n         = dari berapa selang irama itu dihitung
      */
     public function untuk(OrtCase $kasus, CarbonInterface $kunjungan, string $placeId): array
     {
@@ -94,18 +97,39 @@ class OrtUsulan
          * terlama-dulu.
          */
         if (Carbon::instance($kunjungan)->startOfDay()->diffInDays($hariIni, false) > OrtCase::HILANG_HARI) {
-            return ['tanggal' => null, 'sebab' => 'hilang'];
+            return ['tanggal' => null, 'sebab' => 'hilang', 'basis' => null, 'basis_n' => 0];
         }
 
         /*
-         * Titik awal — sinyal LUNAK, masih kunjungan + 30.
+         * Titik awal — sinyal LUNAK: IRAMA PASIEN ITU SENDIRI (Tahap C).
          *
-         * Irama pasien sendiri terbukti lebih baik (meleset 14 hari lawan 22,
-         * menang 86% kasus), tapi itu Tahap C. Sengaja tidak dicampur ke
-         * perbaikan yang menghalangi deploy: pagar keras di bawah ini yang
-         * mencegah janji mustahil, dan itu harus bisa diuji sendirian.
+         * Terukur di prod: +30 untuk semua orang meleset 22 hari dari
+         * kunjungan yang benar-benar terjadi; irama pasien meleset 14 dan
+         * menang di 86% kasus. Masuk akal — pasien yang terbiasa datang tiap
+         * 26 hari tidak berubah jadi pasien 30 hari karena angka itu bulat.
+         *
+         * Dua pagar menjaga "irama" tetap berarti irama:
+         *   • butuh minimal IRAMA_MIN_SELANG selang, kalau tidak jatuh ke +30.
+         *     Satu selang bukan irama, itu satu kebetulan.
+         *   • dijepit ke [IRAMA_MIN_HARI, IRAMA_MAX_HARI]. Pasien yang pernah
+         *     hilang lalu kembali punya selang ratusan hari; meneruskannya
+         *     berarti menjadwalkan ulang kelalaian, bukan kontrol.
+         *
+         * Dihitung SEGAR di sini, bukan dibaca dari kolom median_gap_days.
+         * Saat tarikan malam berjalan, kunjungan yang baru saja ditulis sudah
+         * masuk hitungan ini, sedangkan kolomnya baru disegarkan OrtRollup
+         * sesudah seluruh kasus selesai diproses — selisih satu kunjungan yang
+         * justru kunjungan terpenting.
          */
-        $tanggal = OrtControl::tanggalUsulan($kunjungan, $hariIni);
+        $irama = $this->iramaPasien($kasus);
+        $maju  = $irama['median'] === null ? null : max(
+            OrtCase::IRAMA_MIN_HARI,
+            min(OrtCase::IRAMA_MAX_HARI, $irama['median'])
+        );
+
+        $basis   = $maju === null ? 'default' : 'irama';
+        $basisN  = $irama['selang'];
+        $tanggal = OrtControl::tanggalUsulan($kunjungan, $hariIni, $maju);
 
         /*
          * Dokter tak terpetakan atau tak punya jadwal di cabang ini berarti
@@ -115,7 +139,7 @@ class OrtUsulan
          */
         $hariPraktik = $this->hariPraktikDokter($kasus, $placeId);
         if ($hariPraktik === []) {
-            return ['tanggal' => null, 'sebab' => 'dokter_tak_terjadwal'];
+            return ['tanggal' => null, 'sebab' => 'dokter_tak_terjadwal', 'basis' => null, 'basis_n' => 0];
         }
 
         for ($i = 0; $i < self::JELAJAH_HARI; $i++, $tanggal = $tanggal->copy()->addDay()) {
@@ -131,15 +155,39 @@ class OrtUsulan
 
             $this->catatTerpakai($placeId, $tanggal);
 
-            return ['tanggal' => $tanggal->toDateString(), 'sebab' => null];
+            return [
+                'tanggal' => $tanggal->toDateString(),
+                'sebab'   => null,
+                'basis'   => $basis,
+                'basis_n' => $basisN,
+            ];
         }
 
         // Enam minggu dijelajahi, nol hari sah. Lebih jujur menyerah daripada
         // memaksakan tanggal yang melanggar pagar.
-        return ['tanggal' => null, 'sebab' => 'tak_ada_slot'];
+        return ['tanggal' => null, 'sebab' => 'tak_ada_slot', 'basis' => null, 'basis_n' => 0];
     }
 
     // ════════════════════════════════════════════════════════════════════════
+
+    /**
+     * Irama pasien ini, dihitung dari kunjungan yang SUDAH tercatat.
+     *
+     * Rumusnya sengaja tidak tinggal di sini: OrtRollup menyimpan angka yang
+     * sama ke kolom median_gap_days untuk ditampilkan, dan dua salinan rumus
+     * median adalah dua kesempatan untuk berbeda tanpa ada yang sadar.
+     *
+     * @return array{median: ?int, selang: int}
+     */
+    private function iramaPasien(OrtCase $kasus): array
+    {
+        $tanggal = OrtControl::where('ort_case_id', $kasus->id)
+            ->whereNotNull('visit_date')
+            ->orderBy('visit_date')
+            ->pluck('visit_date');
+
+        return OrtCase::irama($tanggal);
+    }
 
     /**
      * Hari-hari (ISO) dokter kasus ini praktik di cabang itu.

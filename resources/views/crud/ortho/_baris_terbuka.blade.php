@@ -50,7 +50,9 @@
             </div>
             <div>
                 <div class="ort-fact__k">Pasang behel</div>
-                <div class="ort-fact__v">
+                <div class="ort-fact__v"
+                     @if ($r->install_is_estimated ?? false) title="Tanggal pasang tidak ditemukan di rekam medis. Yang dipakai kunjungan ortho paling awal yang terlihat, jadi pemasangan sebenarnya bisa lebih lama." @endif>
+                    @if ($r->install_is_estimated ?? false)<span class="ort-kira">±</span> @endif
                     {{ \Carbon\Carbon::parse($r->install_date)->translatedFormat("j M 'y") }}
                     di {{ $peta[$r->install_place_id]['nama'] ?? $r->install_place_id }}
                 </div>
@@ -60,13 +62,22 @@
                 <div class="ort-fact__v">{{ $kehadiran }}</div>
             </div>
             <div>
-                <div class="ort-fact__k">Jarak rata-rata</div>
+                <div class="ort-fact__k">Irama kontrol</div>
                 <div class="ort-fact__v">
-                    @if ($r->avg_gap_days)
-                        <span class="tabular">{{ $r->avg_gap_days }}</span> hari
-                        <span style="font-weight:500;color:#A9866A;">(target 30)</span>
+                    {{-- Median, bukan rata-rata: rata-rata tertarik pencilan, dan satu
+                         kali pasien hilang lalu kembali sudah cukup melarkan angkanya
+                         puluhan hari. Rata-rata tetap ditampilkan saat berbeda —
+                         selisih keduanya justru yang memberi tahu pasien ini pernah
+                         menghilang. --}}
+                    @if ($r->median_gap_days)
+                        <span class="tabular">{{ $r->median_gap_days }}</span> hari
+                        @if ($r->avg_gap_days && $r->avg_gap_days !== $r->median_gap_days)
+                            <span class="ort-fact__dim">(rata-rata {{ $r->avg_gap_days }})</span>
+                        @else
+                            <span class="ort-fact__dim">(target 30)</span>
+                        @endif
                     @else
-                        belum bisa dihitung
+                        belum cukup kunjungan
                     @endif
                 </div>
             </div>
