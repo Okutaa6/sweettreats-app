@@ -479,15 +479,27 @@ class OrtQuery
      * Ambangnya sama persis dengan OrtCase::isHilang(): belum pernah datang,
      * atau kunjungan terakhirnya lebih dari 180 hari lalu.
      */
+    /**
+     * ⚠ Ketiganya harus SALING LEPAS dan menutupi semuanya — angka sub-tab
+     *   dijumlahkan dari sini, dan kalau ada yang tumpang tindih, "Semua"
+     *   tidak sama dengan jumlah ketiganya. Pembacanya akan menyalahkan
+     *   kuerinya, bukan ambangnya.
+     */
     private function terapkanTingkatAntrean($q, string $tingkat)
     {
-        $ambang = $this->hariIni()->copy()->subDays(OrtCase::HILANG_HARI)->toDateString();
+        $hilangSejak = $this->hariIni()->copy()->subDays(OrtCase::HILANG_HARI)->toDateString();
+        $baruSejak   = $this->hariIni()->copy()->subDays(OrtCase::TARGET_GAP)->toDateString();
 
         return match ($tingkat) {
             'hilang' => $q->where(fn ($w) => $w->whereNull('last_visit_date')
-                                               ->orWhere('last_visit_date', '<', $ambang)),
+                                               ->orWhere('last_visit_date', '<', $hilangSejak)),
+            // Baru datang tapi tak punya jadwal berikutnya — hampir selalu
+            // karena OrtUsulan sengaja tidak mengusulkan tanggal.
+            'baru'   => $q->whereNotNull('last_visit_date')
+                          ->where('last_visit_date', '>=', $baruSejak),
             'jarang' => $q->whereNotNull('last_visit_date')
-                          ->where('last_visit_date', '>=', $ambang),
+                          ->where('last_visit_date', '>=', $hilangSejak)
+                          ->where('last_visit_date', '<', $baruSejak),
             default  => $q,
         };
     }
@@ -507,6 +519,7 @@ class OrtQuery
             'semua'  => $dasar()->count(),
             'hilang' => $this->terapkanTingkatAntrean($dasar(), 'hilang')->count(),
             'jarang' => $this->terapkanTingkatAntrean($dasar(), 'jarang')->count(),
+            'baru'   => $this->terapkanTingkatAntrean($dasar(), 'baru')->count(),
         ];
     }
 
@@ -535,14 +548,34 @@ class OrtQuery
      * Pecah antrean jadi dua tingkat kegentingan, urutan tetap.
      * Ambangnya definisi Sales sendiri, bukan karangan sistem.
      */
+    /**
+     * Tiga kelompok, dan yang KETIGA sempat dihapus lalu kembali.
+     *
+     * Revisi 3 membuangnya ("Baru selesai kontrol — tinggal dijadwalkan")
+     * dengan alasan yang waktu itu benar: barisnya akan tinggal di tab List
+     * sebagai usulan, jadi tak perlu tempat kedua. Begitu OrtUsulan boleh
+     * memutuskan TIDAK mengusulkan — karena dokternya tak terjadwal, harinya
+     * penuh, atau klinik tutup — alasan itu gugur. Tanpa kelompok ini, pasien
+     * yang baru selesai kontrol lenyap dari layar tanpa penjelasan: persis
+     * keluhan yang Revisi 3 justru lahir untuk memperbaikinya.
+     *
+     * Urutannya sengaja: yang paling lama tak terlihat di atas.
+     */
     public function kelompokkanAntrean($baris): array
     {
         $hilang = [];
         $jarang = [];
+        $baru   = [];
+
+        $batasBaru = $this->hariIni()->copy()->subDays(OrtCase::TARGET_GAP);
 
         foreach ($baris as $c) {
             if ($c->isHilang()) {
                 $hilang[] = $c;
+            } elseif ($c->last_visit_date && $c->last_visit_date->gte($batasBaru)) {
+                // Baru saja datang, tapi tak punya jadwal berikutnya — hampir
+                // selalu karena usulannya sengaja tidak dibuat.
+                $baru[] = $c;
             } else {
                 $jarang[] = $c;
             }
@@ -560,6 +593,12 @@ class OrtQuery
                 'hint'  => 'definisi Sales',
                 'warna' => '#B5701A',
                 'baris' => $jarang,
+            ],
+            'baru' => [
+                'label' => 'Baru selesai kontrol — tinggal dijadwalkan',
+                'hint'  => 'sistem tidak mengusulkan tanggal: dokternya belum terjadwal, harinya penuh, atau klinik tutup',
+                'warna' => '#2F8E55',
+                'baris' => $baru,
             ],
         ];
     }

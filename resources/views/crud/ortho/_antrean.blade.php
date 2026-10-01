@@ -61,10 +61,22 @@
                     $hari   = $c->last_visit_date ? $c->last_visit_date->diffInDays($hariIni) : null;
                     $bulan  = $hari !== null ? (int) floor($hari / 30) : null;
                     $merah  = $key === 'hilang';
+                    $baru   = $key === 'baru';
                     $wa     = \App\Support\Phone::toWa($c->patient_phone);
+
+                    // Chip mengikuti KELOMPOKNYA, bukan menebak sendiri. Dulu
+                    // binernya cuma hilang/jarang, jadi begitu kelompok ketiga
+                    // kembali, pasien "baru selesai kontrol" berchip "Jarang
+                    // kontrol" — bertentangan dengan judul di atasnya sendiri.
+                    [$chipTeks, $chipKelas] = match (true) {
+                        $merah => [$bulan !== null ? 'Hilang ' . $bulan . ' bulan' : 'Belum pernah datang',
+                                   'ort-chip--telatlama'],
+                        $baru  => ['Baru selesai kontrol', 'ort-chip--hadir'],
+                        default => ['Jarang kontrol', 'ort-chip--telat'],
+                    };
                 @endphp
 
-                <div class="ort-tr {{ $merah ? 'ort-tr--bad' : 'ort-tr--warn' }}"
+                <div class="ort-tr {{ $merah ? 'ort-tr--bad' : ($baru ? '' : 'ort-tr--warn') }}"
                      data-ort-row="{{ $c->id }}">
                     <div class="ort-grid ort-grid--antrean">
 
@@ -111,11 +123,7 @@
                         <div class="ort-cell">{{ $peta[$c->owner_place_id]['nama'] ?? $c->owner_place_id }}</div>
 
                         <div>
-                            <span class="ort-chip {{ $merah ? 'ort-chip--telatlama' : 'ort-chip--telat' }}">
-                                {{ $merah
-                                    ? ($bulan !== null ? 'Hilang ' . $bulan . ' bulan' : 'Belum pernah datang')
-                                    : 'Jarang kontrol' }}
-                            </span>
+                            <span class="ort-chip {{ $chipKelas }}">{{ $chipTeks }}</span>
                         </div>
 
                         <div class="ort-actions">

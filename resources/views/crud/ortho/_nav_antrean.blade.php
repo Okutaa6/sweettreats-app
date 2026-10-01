@@ -17,6 +17,7 @@
         'semua'  => ['Semua',                    null],
         'hilang' => ['Hilang lebih dari 6 bulan', '#C0392B'],
         'jarang' => ['Jarang kontrol',            '#B5701A'],
+        'baru'   => ['Baru selesai kontrol',      '#2F8E55'],
     ];
     $jelasSemua = 'Semua pasien yang belum punya jadwal kontrol';
 @endphp

@@ -46,7 +46,7 @@ class OrthoController extends Controller
     private const TABS = ['list', 'kalender', 'pasien'];
 
     /** Kamus `urgensi` saat antrean penjadwalan yang ditampilkan. */
-    private const URGENSI_ANTREAN = ['semua', 'hilang', 'jarang'];
+    private const URGENSI_ANTREAN = ['semua', 'hilang', 'jarang', 'baru'];
 
     /** Sub-tab kegentingan di dalam tab List. */
     private const URGENSI = ['semua', 'terlewat', 'hari-ini', 'minggu-ini', 'mendatang'];

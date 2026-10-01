@@ -7,6 +7,7 @@ use App\Models\OrtControl;
 use App\Services\Ortho\OrtBranches;
 use App\Services\Ortho\OrtItemRules;
 use App\Services\Ortho\OrtRollup;
+use App\Services\Ortho\OrtUsulan;
 use App\Services\Ortho\OrtVisits;
 use Illuminate\Console\Command;
 use Illuminate\Support\Carbon;
@@ -51,10 +52,15 @@ use Illuminate\Support\Str;
  *    baris tersendiri ber-tanda 'dugaan' dan unscheduled=1, TAPI jadwal yang
  *    terbuka TIDAK disentuh — menutup jadwal diam-diam berdasarkan tebakan
  *    adalah cara tercepat membuat Sales berhenti percaya halaman ini.
- * 5. Sesudah jadwal ditutup Hadir, lahirkan usulan berikutnya (+30 hari,
- *    is_proposal=1, sch_source='sistem'). Manusia yang mengonfirmasinya.
- *    Tanggalnya dijepit OrtControl::tanggalUsulan() supaya tidak pernah lahir
- *    sudah terlewat saat rekam medisnya masuk terlambat.
+ * 5. Sesudah jadwal ditutup Hadir, lahirkan usulan berikutnya — TAPI hanya
+ *    kalau ada tanggal yang lolos seluruh pagar keras (klinik buka, dokternya
+ *    praktik, harinya belum penuh). Keputusan itu milik OrtUsulan; perintah
+ *    ini tidak lagi menghitung tanggal sendiri.
+ *
+ *    ⚠ Kalau tidak ada tanggal yang sah, usulan TIDAK dibuat dan pasiennya
+ *      mendarat di kartu "Belum punya jadwal" kelompok "Baru selesai kontrol".
+ *      Usulan yang mustahil lebih mahal daripada tak ada usulan — Sales
+ *      menelepon, menyebut tanggal, lalu tahu dokternya libur.
  * 6. Item "Lepas Bracket" menutup KASUS-nya (status=selesai). Item
  *    "Bracket Metal Lepas" TIDAK — lihat OrtItemRules.
  * 7. Segarkan rollup semua kasus aktif di cabang itu, bukan hanya yang
@@ -85,7 +91,9 @@ class OrtPullVisits extends Command
                             {--cabang= : batasi ke satu place_id}
                             {--dry-run : hitung dan laporkan, JANGAN menulis apa pun}
                             {--daftar-item : cetak setiap nama item ortho + klasifikasinya, lalu keluar}
-                            {--uji-aturan : jalankan fixture OrtItemRules, lalu keluar}';
+                            {--uji-aturan : jalankan fixture OrtItemRules, lalu keluar}
+                            {--tanpa-usulan : isi FAKTA kunjungan saja, jangan lahirkan usulan jadwal}
+                            {--ambang= : timpa ambang pasien per cabang per hari (default: dari beban nyata)}';
 
     protected $description = 'Tarikan malam: isi kolom Datang dari cermin rekam medis';
 
@@ -97,6 +105,7 @@ class OrtPullVisits extends Command
         private OrtItemRules $rules,
         private OrtRollup $rollup,
         private OrtVisits $visits,
+        private OrtUsulan $usulan,
     ) {
         parent::__construct();
     }
@@ -150,6 +159,14 @@ class OrtPullVisits extends Command
 
         $kering = (bool) $this->option('dry-run');
 
+        // --ambang= menimpa ambang yang diturunkan dari beban nyata. Dibuat di
+        // sini, bukan lewat container: nilainya baru diketahui saat perintah
+        // berjalan. Satu instance untuk seluruh jalannya, supaya cache beban
+        // dan hitungan "sudah terpakai hari ini" dipakai bersama lintas cabang.
+        if ($this->option('ambang') !== null) {
+            $this->usulan = new OrtUsulan(max(1, (int) $this->option('ambang')));
+        }
+
         $this->info(sprintf(
             '%s %s → %s · %d cabang',
             $kering ? 'DRY-RUN (tidak menulis):' : 'Tarikan malam:',
@@ -158,7 +175,8 @@ class OrtPullVisits extends Command
         $this->newLine();
 
         $total = ['kunjungan' => 0, 'cocok' => 0, 'dugaan' => 0, 'lewati' => 0, 'lewati_tgl' => 0,
-                  'usulan' => 0, 'selesai' => 0, 'tanpa_kasus' => 0, 'kasus_selesai' => 0, 'pid_kosong' => 0];
+                  'usulan' => 0, 'selesai' => 0, 'tanpa_kasus' => 0, 'kasus_selesai' => 0, 'pid_kosong' => 0,
+                  'tanpa_usulan' => 0];
 
         foreach ($places as $place) {
             $hasil = $this->prosesCabang($place, $sejak, $sampai, $kering);
@@ -178,6 +196,7 @@ class OrtPullVisits extends Command
             ['→ kasusnya sudah selesai',        $total['kasus_selesai']],
             ['→ rekam medis tanpa nomor pasien', $total['pid_kosong']],
             ['Usulan jadwal baru dibuat',      $total['usulan']],
+            ['→ sengaja TANPA usulan',          $total['tanpa_usulan']],
             ['Kasus ditandai selesai',         $total['selesai']],
         ]);
 
@@ -237,7 +256,8 @@ class OrtPullVisits extends Command
     private function prosesCabang(string $place, Carbon $sejak, Carbon $sampai, bool $kering): array
     {
         $n = ['kunjungan' => 0, 'cocok' => 0, 'dugaan' => 0, 'lewati' => 0, 'lewati_tgl' => 0,
-              'usulan' => 0, 'selesai' => 0, 'tanpa_kasus' => 0, 'kasus_selesai' => 0, 'pid_kosong' => 0];
+              'usulan' => 0, 'selesai' => 0, 'tanpa_kasus' => 0, 'kasus_selesai' => 0, 'pid_kosong' => 0,
+              'tanpa_usulan' => 0];
 
         $kunjungan = $this->kumpulkanKunjungan($place, $sejak, $sampai);
         if (! $kunjungan) {
@@ -284,8 +304,9 @@ class OrtPullVisits extends Command
 
             $hasil = $this->terapkan($c, $v, $place, $kering);
             $n[$hasil['jenis']]++;
-            $n['usulan']  += $hasil['usulan'];
-            $n['selesai'] += $hasil['selesai'];
+            $n['usulan']       += $hasil['usulan'];
+            $n['selesai']      += $hasil['selesai'];
+            $n['tanpa_usulan'] += $hasil['tanpa_usulan'];
 
             $tersentuh[$c->id] = true;
         }
@@ -335,7 +356,7 @@ class OrtPullVisits extends Command
         // adalah jaring terakhir; memeriksanya di sini membuat laporan jujur
         // (terhitung "dilewati", bukan gagal menulis).
         if (OrtControl::where('omnicare_trx_id', $v['trx_id'])->exists()) {
-            return ['jenis' => 'lewati', 'usulan' => 0, 'selesai' => 0];
+            return ['jenis' => 'lewati', 'usulan' => 0, 'selesai' => 0, 'tanpa_usulan' => 0];
         }
 
         // Pagar KEDUA: satu kasus, satu tanggal, satu kunjungan. Pagar trx di
@@ -346,7 +367,7 @@ class OrtPullVisits extends Command
         // kehadiran 2/1, dan tak ada error yang memberi tahu siapa pun.
         // Memakai idx_ort_control_visit (ort_case_id, visit_date).
         if (OrtControl::where('ort_case_id', $c->id)->where('visit_date', $v['tanggal'])->exists()) {
-            return ['jenis' => 'lewati_tgl', 'usulan' => 0, 'selesai' => 0];
+            return ['jenis' => 'lewati_tgl', 'usulan' => 0, 'selesai' => 0, 'tanpa_usulan' => 0];
         }
 
         $tglKunjungan = Carbon::parse($v['tanggal']);
@@ -367,16 +388,18 @@ class OrtPullVisits extends Command
 
         $usulan = 0;
         $selesai = 0;
+        $tanpaUsulan = 0;
 
         if ($kering) {
             return [
-                'jenis'   => $cocok ? 'cocok' : 'dugaan',
-                'usulan'  => $cocok && ! $v['lepas'] ? 1 : 0,
-                'selesai' => $v['lepas'] ? 1 : 0,
+                'jenis'        => $cocok ? 'cocok' : 'dugaan',
+                'usulan'       => $cocok && ! $v['lepas'] ? 1 : 0,
+                'selesai'      => $v['lepas'] ? 1 : 0,
+                'tanpa_usulan' => 0,
             ];
         }
 
-        DB::transaction(function () use ($c, $v, $place, $terbuka, $cocok, $tglKunjungan, &$usulan, &$selesai) {
+        DB::transaction(function () use ($c, $v, $place, $terbuka, $cocok, $tglKunjungan, &$usulan, &$selesai, &$tanpaUsulan) {
             if ($cocok) {
                 // Jadwal yang memang ditunggu — tutup sebagai Hadir.
                 $terbuka->fill([
@@ -435,25 +458,45 @@ class OrtPullVisits extends Command
 
             // Usulan jadwal berikutnya — hanya kalau tidak ada lagi yang terbuka.
             $masihAda = OrtControl::where('ort_case_id', $c->id)->whereNull('closed_at')->exists();
-            if (! $masihAda) {
-                OrtControl::create([
-                    'id'          => (string) Str::uuid(),
-                    'ort_case_id' => $c->id,
-                    'seq'         => (int) OrtControl::where('ort_case_id', $c->id)->max('seq') + 1,
-                    'place_id'    => $place,
-                    'is_proposal' => 1,
-                    // Kunjungan + 30, TAPI tidak pernah lahir sudah terlewat.
-                    // Rekam medis yang masuk terlambat dulu melahirkan usulan
-                    // bertanggal masa lalu — lihat OrtControl::tanggalUsulan().
-                    'sch_date'    => OrtControl::tanggalUsulan($tglKunjungan)->toDateString(),
-                    'sch_source'  => OrtControl::SCH_SISTEM,
-                    'created_by'  => 'sistem',
-                ]);
-                $usulan = 1;
+            if ($masihAda) {
+                return;
             }
+
+            // --tanpa-usulan: tarikan mundur pertama di prod hanya mengisi
+            // FAKTA. Tanpa bendera ini, menarik riwayat berbulan-bulan
+            // menumpuk ribuan usulan di tanggal yang sama dan Sales membuka
+            // layar berisi ratusan tombol "Konfirmasi jadwal" sekali-klik.
+            if ($this->option('tanpa-usulan')) {
+                $tanpaUsulan = 1;
+
+                return;
+            }
+
+            // Tanggalnya diputuskan OrtUsulan — termasuk keputusan untuk TIDAK
+            // mengusulkan sama sekali. Nol aturan tanggal tersisa di sini.
+            $putusan = $this->usulan->untuk($c, $tglKunjungan, $place);
+
+            if ($putusan['tanggal'] === null) {
+                $tanpaUsulan = 1;
+
+                return;
+            }
+
+            OrtControl::create([
+                'id'          => (string) Str::uuid(),
+                'ort_case_id' => $c->id,
+                'seq'         => (int) OrtControl::where('ort_case_id', $c->id)->max('seq') + 1,
+                'place_id'    => $place,
+                'is_proposal' => 1,
+                'sch_date'    => $putusan['tanggal'],
+                'sch_source'  => OrtControl::SCH_SISTEM,
+                'created_by'  => 'sistem',
+            ]);
+            $usulan = 1;
         });
 
-        return ['jenis' => $cocok ? 'cocok' : 'dugaan', 'usulan' => $usulan, 'selesai' => $selesai];
+        return ['jenis' => $cocok ? 'cocok' : 'dugaan', 'usulan' => $usulan,
+                'selesai' => $selesai, 'tanpa_usulan' => $tanpaUsulan];
     }
 
     // ════════════════════════════════════════════════════════════════════════
