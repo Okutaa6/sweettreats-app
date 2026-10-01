@@ -92,8 +92,7 @@ class OrtPullVisits extends Command
                             {--dry-run : hitung dan laporkan, JANGAN menulis apa pun}
                             {--daftar-item : cetak setiap nama item ortho + klasifikasinya, lalu keluar}
                             {--uji-aturan : jalankan fixture OrtItemRules, lalu keluar}
-                            {--tanpa-usulan : isi FAKTA kunjungan saja, jangan lahirkan usulan jadwal}
-                            {--ambang= : timpa ambang pasien per cabang per hari (default: dari beban nyata)}';
+                            {--tanpa-usulan : isi FAKTA kunjungan saja, jangan lahirkan jatuh tempo}';
 
     protected $description = 'Tarikan malam: isi kolom Datang dari cermin rekam medis';
 
@@ -158,14 +157,6 @@ class OrtPullVisits extends Command
         }
 
         $kering = (bool) $this->option('dry-run');
-
-        // --ambang= menimpa ambang yang diturunkan dari beban nyata. Dibuat di
-        // sini, bukan lewat container: nilainya baru diketahui saat perintah
-        // berjalan. Satu instance untuk seluruh jalannya, supaya cache beban
-        // dan hitungan "sudah terpakai hari ini" dipakai bersama lintas cabang.
-        if ($this->option('ambang') !== null) {
-            $this->usulan = new OrtUsulan(max(1, (int) $this->option('ambang')));
-        }
 
         $this->info(sprintf(
             '%s %s → %s · %d cabang',

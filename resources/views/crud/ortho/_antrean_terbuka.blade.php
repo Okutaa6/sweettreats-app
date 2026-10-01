@@ -109,7 +109,10 @@
                         (bool) $m->visit_date          => ['Hadir', 'hadir'],
                         $m->outcome === 'tidak_hadir'  => ['Tidak hadir', 'absen'],
                         $m->rsv_status === 'cancelled' => ['Reservasi batal', 'batal'],
-                        (bool) $m->is_proposal         => ['Usulan jadwal', 'usulan'],
+                        /* Chip 'usulan' dibuang: kolom Jadwal adalah jatuh
+                           tempo, jadi tanggal yang dihitung sistem bukan sebuah
+                           STATUS tersendiri. Garis putus-putus di tanggalnya
+                           yang menandai asal-usulnya. */
                         (bool) $m->reservation_id      => ['Ada reservasi', 'rsv'],
                         (bool) $m->fu_date             => ['Sudah di-FU', 'fu'],
                         default                        => ['Menunggu', 'menunggu'],

@@ -70,12 +70,25 @@ class OrtQuery
         $r = DB::table('ort_control')
             ->whereNull('closed_at')
             ->where('place_id', $placeId)
+            /*
+             * ⚠ `is_proposal = 0` DIBUANG dari dua hitungan terlewat.
+             *
+             * Kolom Jadwal adalah jatuh tempo, dan jatuh tempo yang lewat
+             * berarti pasien telat — siapa pun yang menuliskan tanggalnya.
+             * Selama pengecualian ini ada, kartu Terlewat nyaris selalu nol
+             * sekalipun puluhan pasien tertinggal berbulan-bulan, karena
+             * hampir semua baris terbuka memang is_proposal = 1.
+             *
+             * Dua hitungan pertama TETAP mengecualikannya, dan itu disengaja:
+             * "Jadwal minggu ini · N sudah reservasi · N belum" bercerita
+             * tentang pekerjaan memesan, bukan tentang keterlambatan.
+             */
             ->selectRaw(
                 'COALESCE(SUM(sch_date BETWEEN ? AND ? AND is_proposal = 0), 0) AS minggu_ini,'
                 . ' COALESCE(SUM(sch_date BETWEEN ? AND ? AND is_proposal = 0'
                 . '   AND reservation_id IS NOT NULL AND COALESCE(rsv_status, "") <> "cancelled"), 0) AS sudah_rsv,'
-                . ' COALESCE(SUM(sch_date < ? AND is_proposal = 0), 0) AS terlewat,'
-                . ' COALESCE(SUM(sch_date < ? AND is_proposal = 0), 0) AS terlewat_lama',
+                . ' COALESCE(SUM(sch_date < ?), 0) AS terlewat,'
+                . ' COALESCE(SUM(sch_date < ?), 0) AS terlewat_lama',
                 [$hariIni, $plus6, $hariIni, $plus6, $hariIni, $lewat14]
             )
             ->first();
@@ -112,8 +125,8 @@ class OrtQuery
             ->selectRaw(
                 'COUNT(*) AS semua,'
                 . ' COALESCE(SUM(c.sch_date < ?), 0) AS terlewat,'
-                . ' COALESCE(SUM(c.sch_date = ? AND c.is_proposal = 0), 0) AS hari_ini,'
-                . ' COALESCE(SUM(c.sch_date BETWEEN ? AND ? AND c.is_proposal = 0), 0) AS minggu_ini,'
+                . ' COALESCE(SUM(c.sch_date = ?), 0) AS hari_ini,'
+                . ' COALESCE(SUM(c.sch_date BETWEEN ? AND ?), 0) AS minggu_ini,'
                 . ' COALESCE(SUM(c.sch_date > ?), 0) AS mendatang',
                 [$hariIni, $hariIni, $hariIni, $plus6, $plus6]
             )
@@ -177,7 +190,7 @@ class OrtQuery
             $hariIni = $this->hariIni()->toDateString();
             match ($filter['status']) {
                 'Menunggu'        => $q->whereNull('c.fu_date')->whereNull('c.reservation_id')
-                                       ->where('c.is_proposal', 0)->where('c.sch_date', '>=', $hariIni),
+                                       ->where('c.sch_date', '>=', $hariIni),
                 'Sudah di-FU'     => $q->whereNotNull('c.fu_date')->whereNull('c.reservation_id'),
 
                 /*
@@ -207,7 +220,10 @@ class OrtQuery
                                        ->where(fn ($w) => $w->whereNull('c.rsv_status')->orWhere('c.rsv_status', '<>', 'cancelled')),
                 'Terlewat'        => $q->where('c.sch_date', '<', $hariIni),
                 'Reservasi batal' => $q->where('c.rsv_status', 'cancelled'),
-                'Usulan jadwal'   => $q->where('c.is_proposal', 1),
+                // Bukan lagi sebuah STATUS — hampir semua baris terbuka memang
+                // tanggalnya dihitung sistem. Tetap berguna sebagai saringan:
+                // "mana yang belum pernah disentuh tangan sama sekali".
+                'Belum disentuh tangan' => $q->where('c.is_proposal', 1),
                 'Transfer'        => $q->whereColumn('c.place_id', '<>', 'k.install_place_id'),
                 default           => null,
             };
@@ -232,8 +248,8 @@ class OrtQuery
 
         return match ($urgensi) {
             'terlewat'   => $q->where('c.sch_date', '<', $hariIni),
-            'hari-ini'   => $q->where('c.sch_date', '=', $hariIni)->where('c.is_proposal', 0),
-            'minggu-ini' => $q->whereBetween('c.sch_date', [$hariIni, $plus6])->where('c.is_proposal', 0),
+            'hari-ini'   => $q->where('c.sch_date', '=', $hariIni),
+            'minggu-ini' => $q->whereBetween('c.sch_date', [$hariIni, $plus6]),
             'mendatang'  => $q->where('c.sch_date', '>', $plus6),
             default      => $q,
         };
@@ -258,8 +274,8 @@ class OrtQuery
 
         return match ($urgensi) {
             'terlewat'   => $q->where('next_sch_date', '<', $hariIni),
-            'hari-ini'   => $q->where('next_sch_date', '=', $hariIni)->where('next_is_proposal', 0),
-            'minggu-ini' => $q->whereBetween('next_sch_date', [$hariIni, $plus6])->where('next_is_proposal', 0),
+            'hari-ini'   => $q->where('next_sch_date', '=', $hariIni),
+            'minggu-ini' => $q->whereBetween('next_sch_date', [$hariIni, $plus6]),
             'mendatang'  => $q->where('next_sch_date', '>', $plus6),
             default      => $q,
         };
@@ -282,8 +298,8 @@ class OrtQuery
             ->selectRaw(
                 'COUNT(*) AS semua,'
                 . ' COALESCE(SUM(next_sch_date < ?), 0) AS terlewat,'
-                . ' COALESCE(SUM(next_sch_date = ? AND next_is_proposal = 0), 0) AS hari_ini,'
-                . ' COALESCE(SUM(next_sch_date BETWEEN ? AND ? AND next_is_proposal = 0), 0) AS minggu_ini,'
+                . ' COALESCE(SUM(next_sch_date = ?), 0) AS hari_ini,'
+                . ' COALESCE(SUM(next_sch_date BETWEEN ? AND ?), 0) AS minggu_ini,'
                 . ' COALESCE(SUM(next_sch_date > ?), 0) AS mendatang',
                 [$hariIni, $hariIni, $hariIni, $plus6, $plus6]
             )
@@ -867,10 +883,14 @@ class OrtQuery
         $hariIni = $this->hariIni()->toDateString();
         $plus6   = $this->hariIni()->copy()->addDays(6)->toDateString();
 
+        // ⚠ `! $r->is_proposal` dibuang dari 'hari-ini' dan 'minggu-ini'.
+        //   Kalender ini papan BEBAN KERJA, dan beban itu ada entah tanggalnya
+        //   dihitung sistem atau digeser tangan. Dulu keranjangnya menghitung
+        //   satu populasi sementara gridnya menggambar populasi lain.
         $keranjang = fn ($r, string $u) => match ($u) {
             'terlewat'   => $r->sch_date < $hariIni,
-            'hari-ini'   => $r->sch_date === $hariIni && ! $r->is_proposal,
-            'minggu-ini' => $r->sch_date >= $hariIni && $r->sch_date <= $plus6 && ! $r->is_proposal,
+            'hari-ini'   => $r->sch_date === $hariIni,
+            'minggu-ini' => $r->sch_date >= $hariIni && $r->sch_date <= $plus6,
             'mendatang'  => $r->sch_date > $plus6,
             default      => true,
         };

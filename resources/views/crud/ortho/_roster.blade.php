@@ -23,7 +23,7 @@
         \App\Models\OrtCase::STATUS_PINDAH_KLINIK => 'Pindah klinik',
     ];
     $chipLabel = [
-        'menunggu' => ['Menunggu', 'menunggu'], 'usulan' => ['Usulan jadwal', 'usulan'],
+        'menunggu' => ['Menunggu', 'menunggu'],
         'sudah_fu' => ['Sudah di-FU', 'fu'],     'ada_reservasi' => ['Ada reservasi', 'rsv'],
         'reservasi_batal' => ['Reservasi batal', 'batal'],
         'terlewat' => ['Terlewat', 'telat'],     'terlewat_parah' => ['Terlewat', 'telatlama'],

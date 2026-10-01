@@ -28,7 +28,6 @@
         'pindahkan'  => ['Pindahkan pasien',     'Pindahkan ' . \Illuminate\Support\Str::title($c->patient_name), 'Pindahkan'],
         'geser'      => ['Geser usulan',         'Geser tanggal usulan',                  'Simpan usulan'],
         'jadwalkan'  => ['Jadwal baru',          'Jadwalkan kontrol berikutnya',          'Simpan jadwal'],
-        'panggil'    => ['Follow-up',            'Telepon ' . \Illuminate\Support\Str::title($c->patient_name), 'Simpan'],
     };
 
     $hariIniStr = $hariIni->toDateString();
@@ -47,25 +46,6 @@
         : $hariIni->copy()->addDays(3);
     $lamaSejak = $c->last_visit_date ? $c->last_visit_date->diffInDays($hariIni) : null;
 
-    /* Hari praktik dokter yang SUNGGUH tersedia — keluaran mesin pagar yang
-       sama persis dengan yang melahirkan usulan (OrtUsulan). Karena itu
-       pemilih ini tidak pernah bisa menawarkan hari mustahil: klinik tutup,
-       dokternya libur, atau harinya penuh tidak akan pernah sampai ke sini.
-
-       [] berarti hari praktik dokternya TIDAK DIKETAHUI (belum terpetakan ke
-       raw_doctor). Saat itu terjadi, lembarnya jujur mengatakannya dan hanya
-       menyisakan isian tanggal bebas — bukan menampilkan daftar kosong. */
-    $hariDokter = $sheet === 'panggil'
-        ? app(\App\Services\Ortho\OrtUsulan::class)->hariSahBerikutnya(
-            $c,
-            $c->last_visit_date
-                ? max($c->last_visit_date->copy()->addDays($majuHari), $hariIni->copy()->addDays(\App\Models\OrtControl::MIN_MAJU_HARI))
-                : $hariIni->copy()->addDays(\App\Models\OrtControl::MIN_MAJU_HARI),
-            (string) $c->owner_place_id,
-            6,
-            optional($k?->sch_date)->toDateString()
-        )
-        : [];
 @endphp
 
 <a href="{{ $tutup }}" class="ort-scrim ort-scrim--sheet" aria-label="Tutup"></a>
@@ -95,12 +75,6 @@
             @csrf
     @elseif ($sheet === 'jadwalkan')
         <form id="ortSheetForm" method="POST" action="{{ route('ortho.jadwalkan', $c->id) }}" class="ort-sheet__body">
-            @csrf
-    @elseif ($sheet === 'panggil' && $k)
-        {{-- Satu panggilan, satu penulisan. Form ini mencatat follow-up DAN,
-             kalau pasien menyebut tanggal, memasang jadwalnya sekaligus —
-             jalur tulisnya catatFollowUp() yang sudah ada, bukan rute baru. --}}
-        <form id="ortSheetForm" method="POST" action="{{ route('ortho.followup', $k->id) }}" class="ort-sheet__body">
             @csrf
     @elseif ($sheet === 'geser' && $k)
         {{-- Menggeser SEKALIGUS mengonfirmasi: begitu Sales mengetik tanggal
@@ -200,77 +174,6 @@
                 </div>
             </div>
 
-        @elseif ($sheet === 'panggil')
-            {{-- Fakta yang menolong panggilan telepon, bukan hiasan. Sales
-                 sedang memegang gagang telepon: yang dibutuhkan cuma kapan
-                 pasien ini biasanya datang dan kapan terakhir terlihat. --}}
-            <div class="ort-callfacts">
-                @if ($c->median_gap_days)
-                    <span>Biasanya kontrol tiap <strong class="tabular">{{ $c->median_gap_days }}</strong> hari</span>
-                @else
-                    <span>Riwayatnya belum cukup untuk tahu kebiasaannya</span>
-                @endif
-                @if ($c->last_visit_date)
-                    <span>· terakhir datang {{ $c->last_visit_date->translatedFormat("j M 'y") }}</span>
-                @endif
-            </div>
-
-            <div>
-                <label class="ort-lbl">Dihubungi lewat</label>
-                <div class="ort-kanal">
-                    @foreach (['wa' => 'WhatsApp', 'telepon' => 'Telepon', 'langsung' => 'Langsung'] as $nilai => $label)
-                        <label class="ort-kanal__opt">
-                            <input type="radio" name="kanal" value="{{ $nilai }}" {{ $nilai === 'wa' ? 'checked' : '' }}>
-                            <span>{{ $label }}</span>
-                        </label>
-                    @endforeach
-                </div>
-            </div>
-
-            <div>
-                <label class="ort-lbl">Pasien bisa datang</label>
-
-                @if ($hariDokter)
-                    {{-- Chip-chip ini keluaran mesin pagar, jadi tidak satu pun
-                         bisa jatuh di hari klinik tutup, hari dokternya libur,
-                         atau hari yang sudah penuh. Yang ditawarkan ke pasien
-                         lewat telepon pasti bisa ditepati. --}}
-                    <div class="ort-hari">
-                        @foreach ($hariDokter as $tgl)
-                            @php $d = \Carbon\Carbon::parse($tgl); @endphp
-                            <label class="ort-hari__opt">
-                                <input type="radio" name="sch_tanggal" value="{{ $tgl }}">
-                                <span>
-                                    <span class="ort-hari__dow">{{ $d->translatedFormat('D') }}</span>
-                                    <span class="ort-hari__tgl tabular">{{ $d->translatedFormat('j M') }}</span>
-                                </span>
-                            </label>
-                        @endforeach
-                    </div>
-                    <div class="ort-hint">
-                        Hanya hari {{ $c->doctor_name ?: 'dokter' }} praktik di {{ $namaOwn }} yang ditampilkan.
-                    </div>
-                @else
-                    <div class="ort-hint">
-                        Hari praktik {{ $c->doctor_name ?: 'dokter pasien ini' }} belum terpetakan di sistem,
-                        jadi tanggalnya tidak bisa ditawarkan otomatis. Isi sendiri di bawah kalau
-                        pasien sudah menyebut tanggal.
-                    </div>
-                @endif
-
-                <label class="ort-lbl" style="margin-top:10px;">Atau tanggal lain</label>
-                <input type="date" name="sch_tanggal_lain" class="ort-inp" min="{{ $minTgl }}">
-
-                {{-- Jalan keluar yang jujur. Menelepon lalu TIDAK mendapat
-                     tanggal adalah hasil yang sah — pasien sedang di luar kota,
-                     minta ditelepon lagi pekan depan. Tanpa pilihan ini, Sales
-                     terdorong mengarang tanggal supaya formnya mau ditutup. --}}
-                <div class="ort-hint">
-                    Kosongkan keduanya kalau pasien belum bisa menyebut tanggal —
-                    follow-up tetap tercatat dan usulannya dibiarkan apa adanya.
-                </div>
-            </div>
-
         @elseif ($sheet === 'geser')
             <div>
                 <label class="ort-lbl">Tanggal usulan</label>
@@ -327,7 +230,7 @@
     </form>
 
     <div class="ort-sheet__foot">
-        @if (in_array($sheet, ['jadwalkan', 'pindahkan'], true) || (in_array($sheet, ['reservasi', 'geser', 'panggil'], true) && $k))
+        @if (in_array($sheet, ['jadwalkan', 'pindahkan'], true) || (in_array($sheet, ['reservasi', 'geser'], true) && $k))
             {{-- Di luar <form>, jadi disambungkan lewat atribut form="". --}}
             <button type="submit" form="ortSheetForm" class="ort-btn"
                     style="flex:1;justify-content:center;padding:12px;">{{ $judul[2] }}</button>

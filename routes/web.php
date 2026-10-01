@@ -304,10 +304,6 @@ Route::middleware([AuthGuard::class])->group(function () {
             ->where('id', '[A-Za-z0-9-]{36}')
             ->name('ortho.batalfollowup');
 
-        Route::post('kontrol/{id}/konfirmasi', [$c, 'konfirmasiJadwal'])
-            ->where('id', '[A-Za-z0-9-]{36}')
-            ->name('ortho.konfirmasi');
-
         Route::post('kontrol/{id}/geser', [$c, 'geserUsulan'])
             ->where('id', '[A-Za-z0-9-]{36}')
             ->name('ortho.geser');

@@ -15,29 +15,32 @@ use Illuminate\Support\Str;
 use Tests\TestCase;
 
 /**
- * Tracking Ortho — pagar mesin usulan jadwal.
+ * Tracking Ortho — siapa yang SENGAJA tidak diberi jatuh tempo, dan ke mana
+ * mereka pergi.
  *
- * TEMUAN YANG MELAHIRKAN BERKAS INI (audit HUB, 1 Okt 2026). Tarikan mundur di
- * data prod penuh melahirkan 1.154 usulan, 651 di antaranya pada SATU tanggal
- * yang sama. Sebabnya aturan "kunjungan + 30, dijepit supaya tidak lahir
- * terlewat": saat menarik riwayat berbulan-bulan, setiap pasien yang +30-nya
- * sudah lewat dijepit ke tanggal dekat yang sama.
+ * ⚠ BERKAS INI DULU MENJAGA EMPAT PAGAR JADWAL: klinik tutup Senin, hari
+ *   praktik dokter, kapasitas cabang, dan pasien hilang. Tiga yang pertama
+ *   sudah DIBUANG bersama pagarnya, dan ujinya ikut dibuang — bukan
+ *   dilonggarkan diam-diam.
  *
- * Yang membuatnya mahal bukan kerapiannya. Tanggal itu hari Minggu, dan
- * drg. Andy — satu-satunya dokter ortho Kalideres — cuma praktik Rabu. Jadi
- * 117 usulan Kalideres mendarat di hari yang mustahil: Sales menelepon pasien,
- * menyebut tanggal, lalu tahu dokternya libur.
+ * Alasannya: kolom Jadwal adalah JATUH TEMPO, bukan janji. Tidak ada slot yang
+ * dipesan dan tidak ada pasien yang diberi tahu, jadi tidak ada yang bisa
+ * mustahil. Ketersediaan dokter diperiksa saat MEMESAN, oleh modul Reservasi.
+ * Dan penumpukan 651 yang melahirkan pagar-pagar itu ternyata datang dari
+ * LANTAI MIN_MAJU_HARI, bukan dari ketiadaan pagar — tanpa lantai dan tanpa
+ * pagar kapasitas, 34 pasien tersebar di 29 tanggal berbeda.
  *
- * Yang dijaga di sini adalah PAGAR KERAS — hal-hal yang membuat janji jadi
- * mustahil, bukan sekadar meleset:
- *   • klinik tutup Senin (terukur prod: reservasi 0, kunjungan ortho 0)
- *   • dokternya tidak praktik di hari itu
- *   • harinya sudah penuh
- * dan satu aturan produk: pasien hilang >6 bulan tidak diusulkan tanggal.
+ * Yang TERSISA di sini satu aturan produk, dan ia bukan soal tanggal melainkan
+ * soal beban kerja:
  *
- * ⚠ MINGGU BUKAN hari tutup — justru tersibuk ketiga di prod. Uji ini sengaja
- *   TIDAK melarang Minggu; dugaan "akhir pekan tutup" sempat hampir dipakai
- *   berdasarkan 13 baris jadwal di DB lokal, dan itu keliru.
+ *   • pasien hilang lebih dari 6 bulan tidak diberi jatuh tempo sama sekali.
+ *     Dari 927 pasien Bintaro, 495 hilang lebih dari itu; memberi mereka
+ *     tanggal berarti membanjiri daftar harian dengan nama yang tidak akan
+ *     datang.
+ *
+ * Plus dua hal yang menjaga keputusan itu tidak merugikan siapa pun: bendera
+ * `--tanpa-usulan` untuk tarikan mundur pertama, dan jaminan bahwa pasien yang
+ * tidak diberi jatuh tempo TETAP TERLIHAT di antrean penjadwalan.
  *
  * Fixture-nya dibuat sendiri (dokter + jadwal praktik + kasus + cermin), karena
  * DB pengembangan tidak punya dokter ortho ber-jadwal sama sekali. Semuanya
@@ -142,91 +145,8 @@ class OrtoUsulanPagarTest extends TestCase
         return OrtControl::whereIn('ort_case_id', $ids)->where('is_proposal', 1)->get();
     }
 
-    // ── Pagar keras ─────────────────────────────────────────────────────────
+    // ── Pagar yang tersisa ─────────────────────────────────────
 
-    /** ⭐ Pagar yang paling kasatmata: Senin klinik tutup. */
-    public function test_usulan_tidak_pernah_jatuh_hari_senin(): void
-    {
-        // Praktik SETIAP hari — jadi kalau Senin muncul, yang melanggar
-        // pasti pagar klinik-tutup, bukan jadwal dokter.
-        $this->dokterPraktikHari([1, 2, 3, 4, 5, 6, 7]);
-
-        // Sebar tanggal kunjungan supaya +30-nya mendarat di macam-macam hari.
-        for ($i = 0; $i < 14; $i++) {
-            $this->pasien(Carbon::today()->subDays(20 + $i)->toDateString(), $this->doctorRef);
-        }
-        $this->tarik();
-
-        $senin = $this->usulan()->filter(fn ($u) => $u->sch_date->dayOfWeekIso === 1);
-
-        $this->assertTrue($this->usulan()->isNotEmpty(), 'Harus ada usulan yang lahir.');
-        $this->assertCount(0, $senin, 'Klinik tutup Senin — nol usulan boleh jatuh di sana.');
-    }
-
-    /** ⭐ Usulan tidak boleh jatuh di hari dokternya tidak praktik. */
-    public function test_usulan_hanya_di_hari_praktik_dokter(): void
-    {
-        $this->dokterPraktikHari([3]);   // Rabu saja — kasus drg. Andy
-
-        for ($i = 0; $i < 10; $i++) {
-            $this->pasien(Carbon::today()->subDays(20 + $i)->toDateString(), $this->doctorRef);
-        }
-        $this->tarik();
-
-        $usulan = $this->usulan();
-        $this->assertTrue($usulan->isNotEmpty(), 'Dokter berjadwal Rabu harus tetap dapat usulan.');
-
-        foreach ($usulan as $u) {
-            $this->assertSame(
-                3, $u->sch_date->dayOfWeekIso,
-                "Usulan {$u->sch_date->toDateString()} jatuh di hari dokternya tidak praktik."
-            );
-        }
-    }
-
-    /** ⭐ Dokter tak terpetakan = hari praktiknya TIDAK DIKETAHUI → jangan menebak. */
-    public function test_dokter_tak_terjadwal_tidak_diusulkan(): void
-    {
-        // Sengaja tanpa raw_doctor / raw_doctor_schedule.
-        $this->pasien(Carbon::today()->subDays(20)->toDateString(), 'DOC-TIDAK-ADA');
-        $this->pasien(Carbon::today()->subDays(21)->toDateString(), null);
-        $this->tarik();
-
-        $this->assertCount(
-            0, $this->usulan(),
-            'Hari praktik tak diketahui → tidak boleh ada tanggal yang ditebak.'
-        );
-    }
-
-    /** ⭐ Inilah yang mencegah 651 usulan di satu tanggal. */
-    public function test_tidak_melebihi_ambang_per_cabang_per_tanggal(): void
-    {
-        $this->dokterPraktikHari([1, 2, 3, 4, 5, 6, 7]);
-
-        $ambang = 3;
-        // 20 pasien yang tanggal kunjungannya SAMA — tanpa pagar, +30-nya
-        // mendarat di satu tanggal yang sama persis. Ini peragaan ulang
-        // kerusakannya dalam bentuk kecil.
-        $sama = Carbon::today()->subDays(25)->toDateString();
-        for ($i = 0; $i < 20; $i++) {
-            $this->pasien($sama, $this->doctorRef);
-        }
-        $this->tarik(['--ambang' => $ambang]);
-
-        $perTanggal = $this->usulan()->groupBy(fn ($u) => $u->sch_date->toDateString())
-            ->map->count();
-
-        $this->assertTrue($perTanggal->isNotEmpty(), 'Harus ada usulan yang lahir.');
-        foreach ($perTanggal as $tanggal => $n) {
-            $this->assertLessThanOrEqual(
-                $ambang, $n,
-                "Tanggal {$tanggal} memuat {$n} usulan, melebihi ambang {$ambang}."
-            );
-        }
-        $this->assertGreaterThan(1, $perTanggal->count(), 'Usulannya harus MENYEBAR, bukan menumpuk.');
-    }
-
-    /** Pasien hilang >6 bulan: tempatnya di antrean, bukan di daftar kerja. */
     public function test_pasien_hilang_tidak_diusulkan(): void
     {
         $this->dokterPraktikHari([1, 2, 3, 4, 5, 6, 7]);
@@ -278,15 +198,4 @@ class OrtoUsulanPagarTest extends TestCase
         );
     }
 
-    // ── Kendali negatif ─────────────────────────────────────────────────────
-
-    /**
-     * ⚠ Minggu TERSIBUK KETIGA di prod. Kalau uji ini merah, berarti ada yang
-     *   menambahkan Minggu ke HARI_TUTUP — dan itu memotong hari kerja nyata.
-     */
-    public function test_minggu_bukan_hari_tutup(): void
-    {
-        $this->assertNotContains(7, OrtUsulan::HARI_TUTUP, 'Minggu bukan hari tutup klinik.');
-        $this->assertSame([1], OrtUsulan::HARI_TUTUP, 'Yang tutup hanya Senin, terukur di prod.');
-    }
 }

@@ -17,7 +17,6 @@
 @php
     $chipLabel = [
         'menunggu'        => ['Menunggu',        'menunggu'],
-        'usulan'          => ['Usulan jadwal',   'usulan'],
         'sudah_fu'        => ['Sudah di-FU',     'fu'],
         'ada_reservasi'   => ['Ada reservasi',   'rsv'],
         'reservasi_batal' => ['Reservasi batal', 'batal'],
@@ -26,8 +25,6 @@
     $tombolLabel = [
         'follow_up'      => 'Catat Follow-up',
         'buat_reservasi' => 'Buat Reservasi',
-        'konfirmasi'     => 'Konfirmasi jadwal',
-    'pilih_tanggal'  => 'Pilih tanggal',
     ];
 @endphp
 
@@ -38,7 +35,13 @@
             <div class="ort-grid">
                 <div>Pasien</div>
                 <div>Dokter</div>
-                <div>Jadwal</div>
+                {{-- Satu kalimat yang menutup ambiguitas paling mahal di modul ini:
+                     kolom ini PENGINGAT, bukan janji. Tanpa penjelasan ini,
+                     tanggal di sini pernah dibaca sebagai kesepakatan dengan
+                     pasien, dan dari salah baca itu lahir jepitan yang
+                     menyembunyikan 26 dari 39 pasien terlambat. --}}
+                <div title="Kapan pasien ini sudah waktunya kontrol, dihitung dari kontrol terakhir ditambah irama kontrolnya. Ini pengingat, bukan janji — janji yang sudah disepakati ada di kolom Reservasi."
+                     style="cursor:help;">Jadwal</div>
                 <div>Follow-up</div>
                 <div>Reservasi</div>
                 <div>Status</div>
@@ -80,15 +83,15 @@
                 // bukan dari chipnya — baris "Reservasi batal" yang 39 hari lewat
                 // tetap harus beraksen merah dan terhitung di ">14 hari".
                 $key = match (true) {
-                    /* ⬇ Usulan DI ATAS reservasi batal, supaya chip dan tombol
-                         tidak lagi berbeda pendapat tentang baris yang sama.
-                         Dulu baris ber-is_proposal=1 DAN rsv_status='cancelled'
-                         berchip "Reservasi batal" sementara tombolnya berbunyi
-                         "Konfirmasi jadwal" — dua match dengan urutan berbeda.
-                         Yang benar adalah usulan: selama jadwalnya belum
-                         disepakati, reservasi yang batal itu milik siklus
-                         sebelumnya dan bukan tugas yang menunggu. */
-                    (bool) $r->is_proposal         => 'usulan',
+                    /* ⬇ Chip 'usulan' DIBUANG dari tangga ini.
+
+                         Dulu ia berdiri paling atas, jadi jatuh tempo yang sudah
+                         lewat tetap berbunyi "Usulan jadwal" alih-alih "Terlewat".
+                         Kolom Jadwal adalah jatuh tempo, dan jatuh tempo yang
+                         lewat berarti pasien telat — siapa pun yang menuliskan
+                         tanggalnya. Bersama lantai MIN_MAJU_HARI yang juga sudah
+                         dibuang, chip inilah lapis kedua yang menyembunyikan 26
+                         dari 39 pasien terlambat di DB pengembangan. */
                     $r->rsv_status === 'cancelled' => 'reservasi_batal',
                     /* ⬇ Sengaja DI ATAS $telat. Begitu pasien punya janji yang
                          belum lewat, "Terlewat 7 hari" salah baca: jadwalnya
@@ -115,27 +118,15 @@
                 }
 
                 /* Tangga tindakan: tepat satu tombol, selalu anak tangga
-                   berikutnya. Aturan "satu tindakan per baris" tidak berubah —
-                   yang berubah tindakan MANA yang jadi anak tangga pertama di
-                   baris usulan.
+                   berikutnya. KEMBARAN OrtControl::tindakanBerikutnya() —
+                   keduanya wajib sama persis.
 
-                   Dulu baris usulan SELALU berbunyi "Konfirmasi jadwal", dan
-                   karena arm itu yang pertama, tombol Follow-up mustahil muncul
-                   di sana. Sales dipaksa menyetujui tanggal lebih dulu, baru
-                   boleh menelepon. Terbalik dari lapangan: panggilan untuk
-                   MENANYAKAN kapan pasien bisa datang justru mendahului
-                   penentuan tanggalnya.
-
-                   Dan tanggal itu, untuk 76% pasien, tebakan dua minggu —
-                   terukur di prod. Sekali klik hanya pantas untuk pasien yang
-                   iramanya memang rapat. */
-                $basisBaris = $r->sch_basis ?? null;
-                $usulanKuat = $basisBaris === \App\Models\OrtCase::BASIS_RAPAT;
-
+                   "Konfirmasi jadwal" dibuang. Tidak ada yang perlu
+                   dikonfirmasi dari sebuah pengingat: menyetujui tanggal jatuh
+                   tempo tidak mengubah apa pun dan tidak memberi tahu pasien.
+                   Kesepakatan yang sebenarnya tercatat saat reservasi dibuat,
+                   dan itu anak tangga kedua di bawah. */
                 $aksi = match (true) {
-                    (bool) $r->is_proposal && $usulanKuat                  => 'konfirmasi',
-                    (bool) $r->is_proposal && ! $r->fu_date                => 'follow_up',
-                    (bool) $r->is_proposal                                 => 'pilih_tanggal',
                     ! $r->fu_date                                          => 'follow_up',
                     ! $r->reservation_id || $r->rsv_status === 'cancelled' => 'buat_reservasi',
                     default                                                => null,
@@ -189,55 +180,54 @@
                     <div class="ort-cell {{ $telat ? 'ort-late' : '' }}">
                         @if ($r->is_proposal)
                             @php
-                                /* Penanda KEYAKINAN usulan.
+                                /* Seberapa bisa dipegang tanggal jatuh tempo ini.
 
-                                   Ukurannya sekarang SEBARAN irama, bukan banyaknya
-                                   selang. Versi pertama memakai `$basisN >= 6` dan itu
-                                   salah ukur: pasien berselang 20·90·25·110 punya lebih
-                                   banyak selang daripada pasien 28·28·28, tapi iramanya
-                                   jauh lebih tidak bisa ditebak — jadi yang liar justru
-                                   dinilai paling meyakinkan.
+                                   Ukurannya SEBARAN irama, bukan banyaknya selang.
+                                   Versi pertama memakai `$basisN >= 6` dan itu salah
+                                   ukur: pasien berselang 20·90·25·110 punya lebih
+                                   banyak selang daripada pasien 28·28·28, tapi
+                                   iramanya jauh lebih tidak bisa ditebak — yang liar
+                                   justru dinilai paling meyakinkan.
 
-                                   Terukur di prod: cuma 24% pasien yang iramanya rapat.
-                                   Untuk 76% sisanya tanggal ini tebakan dua minggu, dan
-                                   tampilannya harus mengatakan begitu: diberi awalan ~
-                                   dan didampingi fakta yang menolong panggilan telepon.
+                                   Ini KETERANGAN, bukan gerbang tombol. Tombolnya
+                                   sama untuk semua baris; yang berbeda cuma seberapa
+                                   yakin Sales boleh menyebut tanggal ini di telepon.
 
-                                   sch_basis NULL = baris lama dari sebelum Tahap C;
-                                   waktu itu memang +30, dan label itu tetap jujur. */
+                                   sch_basis NULL = baris lama dari sebelum irama
+                                   dipakai; waktu itu memang +30, dan label itu tetap
+                                   jujur. */
                                 $basis  = $r->sch_basis ?? null;
-                                $basisN = (int) ($r->sch_basis_n ?? 0);
                                 $kuat   = $basis === \App\Models\OrtCase::BASIS_RAPAT;
 
-                                /* Angkanya dari irama pasien, BUKAN dari selisih sch_date
-                                   dengan baris ini: baris usulan belum punya visit_date,
-                                   jadi selisihnya nol. */
+                                /* Angkanya dari irama pasien, BUKAN dari selisih
+                                   sch_date dengan baris ini: baris ini belum punya
+                                   visit_date, jadi selisihnya nol. */
                                 $iramaHari = (int) ($r->median_gap_days ?? 0);
                                 $sebarPct  = $r->gap_spread_pct ?? null;
 
                                 [$usulanTeks, $usulanJudul] = match (true) {
                                     $kuat => [
-                                        'irama ' . $iramaHari . ' hari',
-                                        'Irama pasien ini rapat (' . $basisN . ' selang, sebaran ' . $sebarPct . '% dari mediannya). '
-                                            . 'Tanggal ini boleh disebut langsung ke pasien.',
+                                        'tiap ' . $iramaHari . ' hari, teratur',
+                                        'Pasien ini kontrolnya teratur (sebaran ' . $sebarPct . '% dari mediannya), '
+                                            . 'jadi jatuh tempo ini bisa dipegang.',
                                     ],
                                     $basis === \App\Models\OrtCase::BASIS_LONGGAR => [
-                                        $iramaHari ? 'ancar-ancar · biasanya ' . $iramaHari . ' hari' : 'ancar-ancar',
+                                        $iramaHari ? 'biasanya ' . $iramaHari . ' hari, tidak teratur' : 'tidak teratur',
                                         'Pasien ini kontrolnya tidak teratur (sebaran ' . $sebarPct . '% dari mediannya), '
-                                            . 'jadi tanggal ini tebakan. Tanyakan dulu lewat telepon.',
+                                            . 'jadi jatuh tempo ini perkiraan kasar. Tanyakan lewat telepon.',
                                     ],
                                     default => [
-                                        'ancar-ancar · jarak baku 30 hari',
-                                        'Riwayatnya belum cukup untuk tahu kebiasaan pasien ini, jadi dipakai jarak baku 30 hari. Tanyakan tanggalnya ke pasien.',
+                                        'jarak baku 30 hari',
+                                        'Riwayatnya belum cukup untuk tahu kebiasaan pasien ini, jadi dipakai jarak baku 30 hari.',
                                     ],
                                 };
                             @endphp
-                            <a href="{{ $tautan(['sheet' => $kuat ? 'geser' : 'panggil', 'kontrol' => $r->id]) }}"
+                            <a href="{{ $tautan(['sheet' => 'geser', 'kontrol' => $r->id]) }}"
                                class="ort-proposal tabular {{ $kuat ? '' : 'ort-proposal--kira' }}"
                                onclick="event.stopPropagation()"
-                               title="{{ $usulanJudul }}">{{ $kuat ? '' : '~ ' }}{{ \Carbon\Carbon::parse($r->sch_date)->translatedFormat("j M 'y") }}</a>
+                               title="{{ $usulanJudul }} — klik untuk menggeser pengingatnya.">{{ \Carbon\Carbon::parse($r->sch_date)->translatedFormat("j M 'y") }}</a>
                             <span class="ort-cell--sub {{ $kuat ? 'ort-sub-yakin' : 'ort-sub-amber' }}"
-                                  title="{{ $usulanJudul }}">usulan · {{ $usulanTeks }}</span>
+                                  title="{{ $usulanJudul }}">jatuh tempo · {{ $usulanTeks }}</span>
                         @else
                             <span class="tabular">{{ \Carbon\Carbon::parse($r->sch_date)->translatedFormat("j M 'y") }}</span>
                             @if ($telat)
@@ -286,16 +276,7 @@
 
                     {{-- TINDAKAN BERIKUTNYA — tepat satu tombol + WhatsApp --}}
                     <div class="ort-actions">
-                        @if ($aksi === 'konfirmasi')
-                            {{-- Sekali klik. Menggeser tanggalnya tetap lewat lembar Geser,
-                                 yang dibuka dari tanggal bergaris putus-putus di kolom JADWAL. --}}
-                            <form method="POST" action="{{ route('ortho.konfirmasi', $r->id) }}"
-                                  style="flex:1;display:flex;" onclick="event.stopPropagation()">
-                                @csrf
-                                <button type="submit" class="ort-btn" style="flex:1;"
-                                        title="Setujui usulan {{ \Carbon\Carbon::parse($r->sch_date)->translatedFormat("j M 'y") }}">{{ $tombolLabel[$aksi] }}</button>
-                            </form>
-                        @elseif ($aksi === 'buat_reservasi')
+                        @if ($aksi === 'buat_reservasi')
                             <a href="{{ $tautan(['sheet' => 'reservasi', 'kontrol' => $r->id]) }}"
                                class="ort-btn" style="flex:1;" onclick="event.stopPropagation()">{{ $tombolLabel[$aksi] }}</a>
                         @elseif ($aksi === 'follow_up')
@@ -308,30 +289,12 @@
                                  berbeda, dan menggabungkannya memaksa WhatsApp terbuka
                                  setiap kali Sales cuma ingin menandai. Tombol WhatsApp
                                  bundar di sebelah kanan tetap jadi jalan menghubungi. --}}
-                            @if ($r->is_proposal)
-                                {{-- Baris USULAN: membuka lembar, bukan langsung simpan.
-                                     Panggilannya memang untuk MENANYAKAN kapan pasien
-                                     bisa datang, jadi lembarnya menawarkan hari praktik
-                                     dokter sekaligus — satu panggilan, satu penulisan.
-                                     Tanggalnya boleh dikosongkan: "belum dapat tanggal"
-                                     itu hasil yang sah, bukan kegagalan. --}}
-                                <a href="{{ $tautan(['sheet' => 'panggil', 'kontrol' => $r->id]) }}"
-                                   class="ort-btn" style="flex:1;" onclick="event.stopPropagation()"
-                                   title="Telepon pasien, lalu catat hasilnya — termasuk tanggal yang disepakati kalau pasien menyebutnya">{{ $tombolLabel[$aksi] }}</a>
-                            @else
-                                <form method="POST" action="{{ route('ortho.followup', $r->id) }}"
-                                      style="flex:1;display:flex;" onclick="event.stopPropagation()">
-                                    @csrf
-                                    <button type="submit" class="ort-btn" style="flex:1;"
-                                            title="Catat bahwa pasien ini sudah di-follow-up hari ini">{{ $tombolLabel[$aksi] }}</button>
-                                </form>
-                            @endif
-                        @elseif ($aksi === 'pilih_tanggal')
-                            {{-- Sudah ditelepon, tanggalnya belum dipasang. Lembar yang
-                                 sama, dengan hari praktik dokter yang sungguh tersedia. --}}
-                            <a href="{{ $tautan(['sheet' => 'panggil', 'kontrol' => $r->id]) }}"
-                               class="ort-btn" style="flex:1;" onclick="event.stopPropagation()"
-                               title="Pasang tanggal yang sudah disepakati dengan pasien">{{ $tombolLabel[$aksi] }}</a>
+                            <form method="POST" action="{{ route('ortho.followup', $r->id) }}"
+                                  style="flex:1;display:flex;" onclick="event.stopPropagation()">
+                                @csrf
+                                <button type="submit" class="ort-btn" style="flex:1;"
+                                        title="Catat bahwa pasien ini sudah di-follow-up hari ini">{{ $tombolLabel[$aksi] }}</button>
+                            </form>
                         @elseif ($rsvLewat)
                             {{-- Reservasinya lewat tapi kunjungannya belum masuk.
                                  Ini BUKAN "tidak ada tugas" — janjinya meleset, dan

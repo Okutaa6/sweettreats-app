@@ -152,7 +152,6 @@ class OrtoTingkatIramaTest extends TestCase
             '--sejak'  => Carbon::today()->toDateString(),
             '--sampai' => Carbon::today()->toDateString(),
             '--cabang' => $this->placeId,
-            '--ambang' => 9999,
         ]);
     }
 
@@ -272,7 +271,7 @@ class OrtoTingkatIramaTest extends TestCase
         $u->forceFill(['sch_basis' => 'irama'])->save();
 
         Artisan::call('ort:rapikan-usulan', [
-            '--cabang' => $this->placeId, '--ambang' => 9999, '--commit' => true,
+            '--cabang' => $this->placeId, '--commit' => true,
         ]);
 
         $this->assertSame(

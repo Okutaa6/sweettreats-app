@@ -41,10 +41,10 @@ use Tests\TestCase;
  *     saat render — kalau diturunkan, usulan lama ikut berubah pengakuannya
  *     tiap ada kunjungan baru.
  *
- * Pagar KERAS (Senin tutup, hari praktik dokter, kapasitas) bukan urusan
- * berkas ini — itu OrtoUsulanPagarTest. Di sini pagar-pagar itu sengaja
- * dibuat selonggar mungkin (dokter praktik tiap hari, --ambang besar) supaya
- * yang terukur benar-benar titik awalnya.
+ * ⚠ Pagar jadwal (Senin tutup, hari praktik dokter, kapasitas) sudah DIBUANG
+ *   dari mesin usulan: kolom Jadwal adalah jatuh tempo, bukan janji. Jadi
+ *   tanggal yang dihitung di sini tidak pernah digeser lagi oleh apa pun, dan
+ *   uji di bawah bisa menyebut tanggalnya persis.
  */
 class OrtoIramaTest extends TestCase
 {
@@ -156,31 +156,12 @@ class OrtoIramaTest extends TestCase
             '--sejak'  => Carbon::today()->toDateString(),
             '--sampai' => Carbon::today()->toDateString(),
             '--cabang' => $this->placeId,
-            '--ambang' => 9999,
         ]);
     }
 
     private function usulan(OrtCase $kasus): ?OrtControl
     {
         return OrtControl::where('ort_case_id', $kasus->id)->where('is_proposal', 1)->first();
-    }
-
-    /**
-     * Tanggal sah pertama pada/sesudah $dari.
-     *
-     * Hanya pagar Senin yang ditiru di sini, dan itu disengaja: pagar dokter
-     * dilumpuhkan (praktik tiap hari) dan pagar kapasitas dilonggarkan
-     * (--ambang 9999), jadi Senin satu-satunya yang masih bisa menggeser.
-     * Pagar-pagar itu sendiri diuji di OrtoUsulanPagarTest, bukan di sini.
-     */
-    private function hariSah(Carbon $dari): string
-    {
-        $t = $dari->copy();
-        while ($t->dayOfWeekIso === 1) {
-            $t->addDay();
-        }
-
-        return $t->toDateString();
     }
 
     // ── Rumus iramanya sendiri ──────────────────────────────────────────────
@@ -232,7 +213,7 @@ class OrtoIramaTest extends TestCase
         $u = $this->usulan($kasus);
         $this->assertNotNull($u, 'Usulan harus lahir.');
         $this->assertSame(
-            $this->hariSah(Carbon::today()->addDays(28)),
+            Carbon::today()->addDays(28)->toDateString(),
             $u->sch_date->toDateString(),
             'Irama pasien 28 hari, jadi titik awalnya hari ini + 28 — bukan + 30.'
         );
@@ -253,7 +234,7 @@ class OrtoIramaTest extends TestCase
         $u = $this->usulan($kasus);
         $this->assertNotNull($u);
         $this->assertSame(
-            $this->hariSah(Carbon::today()->addDays(OrtControl::USULAN_MAJU_HARI)),
+            Carbon::today()->addDays(OrtControl::USULAN_MAJU_HARI)->toDateString(),
             $u->sch_date->toDateString(),
             'Satu selang saja → jatuh ke jarak baku 30 hari.'
         );
@@ -270,7 +251,7 @@ class OrtoIramaTest extends TestCase
         $u = $this->usulan($kasus);
         $this->assertNotNull($u);
         $this->assertSame(
-            $this->hariSah(Carbon::today()->addDays(OrtCase::IRAMA_MAX_HARI)),
+            Carbon::today()->addDays(OrtCase::IRAMA_MAX_HARI)->toDateString(),
             $u->sch_date->toDateString(),
             'Selang 120 hari bukan irama melainkan kelalaian — dijepit di ' . OrtCase::IRAMA_MAX_HARI . ' hari.'
         );
@@ -285,7 +266,7 @@ class OrtoIramaTest extends TestCase
         $u = $this->usulan($kasus);
         $this->assertNotNull($u);
         $this->assertSame(
-            $this->hariSah(Carbon::today()->addDays(OrtCase::IRAMA_MIN_HARI)),
+            Carbon::today()->addDays(OrtCase::IRAMA_MIN_HARI)->toDateString(),
             $u->sch_date->toDateString(),
             'Selang 10 hari biasanya perbaikan bracket lepas, bukan kontrol — dijepit di ' . OrtCase::IRAMA_MIN_HARI . '.'
         );

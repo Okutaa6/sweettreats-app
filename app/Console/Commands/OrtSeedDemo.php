@@ -268,10 +268,10 @@ class OrtSeedDemo extends Command
             'reservasi_batal'  => $hariIni->copy()->subDays(random_int(16, 39)),
             'hari_ini'         => $hariIni->copy(),
             'menumpuk'         => $hariIni->copy()->addDay(),
-            // Aturan domain 16 ("jadwal tidak boleh lahir sudah terlewat")
-            // hidup di OrtControl::tanggalUsulan(), bukan disalin ke sini —
-            // salinan keempatlah yang dulu bikin tarikan malam menyimpang.
-            'usulan'           => OrtControl::tanggalUsulan($tanggal, $hariIni),
+            // Jatuh tempo dihitung OrtControl::tanggalUsulan(), bukan disalin
+            // ke sini — salinan keempatlah yang dulu bikin tarikan malam
+            // menyimpang. Hasilnya BOLEH di masa lalu: itu arti "Terlewat".
+            'usulan'           => OrtControl::tanggalUsulan($tanggal),
             default            => $hariIni->copy()->addDays(random_int(2, 20)),
         };
 

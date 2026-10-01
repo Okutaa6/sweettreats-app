@@ -76,49 +76,61 @@ class OrtControl extends Model
     public const OUT_DIJADWAL_ULANG = 'dijadwal_ulang';
     public const OUT_BATAL          = 'batal';
 
-    /** Usulan berikutnya = kunjungan terakhir + ini. Tapi lihat MIN_MAJU. */
+    /** Jatuh tempo berikutnya = kunjungan terakhir + ini, kalau irama belum diketahui. */
     public const USULAN_MAJU_HARI = 30;
 
     /**
-     * Jadwal tidak boleh lahir sudah terlewat. Kalau kunjungan terakhirnya
-     * sudah lama sekali, usulan dihitung dari HARI INI + 3, bukan dari
-     * kunjungan terakhir + 30.
+     * Jeda minimum untuk tanggal yang DIKETIK Sales.
+     *
+     * ⚠ Sengaja TIDAK berlaku untuk jatuh tempo yang dihitung sistem. Dulu
+     *   berlaku untuk keduanya, dan itu kekeliruan yang mahal — lihat
+     *   tanggalUsulan() di bawah.
+     *
+     * Untuk tanggal yang diketik, jeda ini masuk akal: Sales butuh waktu
+     * mengabari pasien sebelum tanggalnya tiba. Dipakai OrthoController
+     * (geser & jadwalkan) dan atribut `min` pada pemilih tanggal di _sheet.
      */
     public const MIN_MAJU_HARI = 3;
 
     /**
-     * Tanggal usulan kontrol berikutnya: kunjungan + 30, TAPI tidak pernah
-     * lebih dekat dari hari ini + MIN_MAJU_HARI.
+     * TANGGAL JATUH TEMPO kontrol berikutnya: kunjungan terakhir + irama
+     * pasien, atau + 30 hari kalau riwayatnya belum cukup.
      *
-     * KENAPA JADI SATU FUNGSI. Aturan ini dulu disalin di empat tempat, dan
-     * satu di antaranya — justru yang paling sering jalan, tarikan malam —
-     * lupa menyalin separuhnya. Akibatnya nyata: rekam medis kadang masuk
-     * terlambat berminggu-minggu (brief menyebut sampai 40 hari), dan usulan
-     * yang lahir malam itu tanggalnya SUDAH LEWAT. Paginya Sales melihat
-     * "Terlewat 10 hari" pada jadwal yang umurnya baru beberapa jam, di baris
-     * yang bahkan belum pernah disepakati siapa pun. Lebih buruk lagi,
-     * usulan yang lahir terlewat langsung naik ke puncak daftar kerja dan
-     * mendesak pasien yang benar-benar tertinggal.
+     * ────────────────────────────────────────────────────────────────────
+     * BOLEH JATUH DI MASA LALU. ITU BUKAN CACAT, ITU JAWABANNYA.
+     * ────────────────────────────────────────────────────────────────────
+     * Kolom Jadwal adalah PENGINGAT, bukan janji — brief kamus istilah:
+     * "SCH · Jadwal · tanggal pasien SEHARUSNYA datang kontrol". Janji yang
+     * sesungguhnya hidup di kolom Reservasi (`rsv_date`), lengkap dengan
+     * jam, dokter, dan aturan anti-bentrok milik modul Reservasi.
      *
-     * Jeda minimum itu bukan angka teknis: Sales butuh waktu mengabari
-     * pasien sebelum tanggalnya tiba. Validasi input manual (OrthoController)
-     * dan atribut `min` pada pemilih tanggal (_sheet) memakai batas yang sama.
+     * Fungsi ini dulu melantai ke `hari ini + MIN_MAJU_HARI`, dengan alasan
+     * "jadwal tidak boleh lahir sudah terlewat". Alasan itu benar untuk
+     * JANJI dan salah untuk JATUH TEMPO: pasien yang kontrol terakhirnya 200
+     * hari lalu memang sudah telat 170 hari, dan itulah yang perlu dilihat
+     * Sales. Diukur di DB pengembangan, 26 dari 39 pasien aktif jatuh
+     * temponya sudah lewat, rata-rata 43 hari — semuanya tersembunyi oleh
+     * lantai itu.
+     *
+     * Dan lantai itu pula yang melahirkan 651 usulan di satu tanggal yang
+     * dilaporkan audit HUB: saat menarik riwayat mundur berbulan-bulan,
+     * SETIAP pasien yang jatuh temponya sudah lewat dijepit ke tanggal dekat
+     * yang sama. Tanpa lantai, jatuh tempo menyebar sendiri karena
+     * diturunkan dari kunjungan terakhir masing-masing pasien — terukur: 34
+     * pasien di 29 tanggal berbeda, paling padat 2 orang sehari, tanpa pagar
+     * kapasitas apa pun.
      */
-    public static function tanggalUsulan(
-        CarbonInterface $kunjungan,
-        ?CarbonInterface $hariIni = null,
-        ?int $majuHari = null
-    ): Carbon {
-        $hariIni = $hariIni ? Carbon::instance($hariIni)->startOfDay() : Carbon::today();
-
-        // $majuHari = irama pasien sendiri (Tahap C). Null berarti pasien itu
-        // belum punya cukup riwayat untuk punya irama, dan kita jatuh ke +30 —
-        // bukan menebak. Lantai MIN_MAJU_HARI di bawah berlaku untuk keduanya.
-        $usul   = Carbon::instance($kunjungan)->startOfDay()
+    public static function tanggalUsulan(CarbonInterface $kunjungan, ?int $majuHari = null): Carbon
+    {
+        // $majuHari = irama pasien sendiri. Null berarti riwayatnya belum
+        // cukup untuk punya irama, dan kita jatuh ke +30 — bukan menebak.
+        //
+        // ⚠ Parameter $hariIni DIBUANG, bukan diabaikan diam-diam. Jatuh
+        //   tempo tidak lagi bergantung pada hari ini sama sekali, dan
+        //   parameter yang ada tapi tidak berpengaruh adalah undangan untuk
+        //   mengira lantainya masih bekerja.
+        return Carbon::instance($kunjungan)->startOfDay()
             ->addDays($majuHari ?? self::USULAN_MAJU_HARI);
-        $paling = $hariIni->copy()->addDays(self::MIN_MAJU_HARI);
-
-        return $usul->lt($paling) ? $paling : $usul;
     }
 
     /** Ambang derajat keterlambatan. */
@@ -192,8 +204,21 @@ class OrtControl extends Model
         if ($this->visit_date)                        return 'hadir';
         if ($this->outcome === self::OUT_TIDAK_HADIR) return 'tidak_hadir';
         if ($this->rsv_status === 'cancelled')        return 'reservasi_batal';
-        if ($this->is_proposal)                       return 'usulan';
 
+        /*
+         * ⚠ Baris `is_proposal => 'usulan'` DIBUANG dari sini.
+         *
+         * Dulu ia berdiri di atas pemeriksaan terlewat, jadi jatuh tempo yang
+         * sudah lewat tetap berchip "Usulan jadwal" alih-alih "Terlewat".
+         * Itu masuk akal selama tanggalnya dianggap janji yang belum
+         * disepakati — tapi kolom Jadwal adalah PENGINGAT, dan pengingat yang
+         * lewat artinya pasien telat, siapa pun yang menuliskan tanggalnya.
+         *
+         * Bersama lantai MIN_MAJU_HARI yang juga sudah dibuang, inilah lapis
+         * kedua yang menyembunyikan 26 dari 39 pasien terlambat di DB
+         * pengembangan: yang satu mendorong tanggalnya ke masa depan, yang
+         * satu lagi membungkam chip-nya.
+         */
         $telat = $this->hariTerlewat($hariIni);
         if ($telat > self::TERLEWAT_PARAH_HARI) return 'terlewat_parah';
         if ($telat > 0)                         return 'terlewat';
@@ -213,20 +238,16 @@ class OrtControl extends Model
      *   kalau yang satu berubah, yang lain ikut — kalau tidak, tombol di
      *   drawer dan tombol di baris akan berbeda untuk kontrol yang sama.
      *
-     * Baris USULAN tidak lagi otomatis berbunyi "Konfirmasi jadwal". Sekali
-     * klik hanya pantas kalau irama pasiennya rapat; untuk sisanya (76% di
-     * prod) tanggalnya tebakan dua minggu, jadi anak tangga pertamanya
-     * menelepon — persis urutan di lapangan.
+     * "Konfirmasi jadwal" DIBUANG. Tidak ada yang perlu dikonfirmasi dari
+     * sebuah pengingat: kolom Jadwal menjawab "kapan pasien ini seharusnya
+     * datang", dan menyetujuinya tidak mengubah apa pun maupun memberi tahu
+     * pasien. Kesepakatan yang sebenarnya tercatat saat reservasi dibuat.
+     *
+     * Tangganya kembali seperti brief: telepon dulu, lalu pesankan.
      */
     public function tindakanBerikutnya(): ?string
     {
         if (! $this->isTerbuka()) return null;
-
-        if ($this->is_proposal) {
-            if ($this->sch_basis === OrtCase::BASIS_RAPAT) return 'konfirmasi';
-
-            return $this->fu_date ? 'pilih_tanggal' : 'follow_up';
-        }
 
         if (! $this->fu_date) return 'follow_up';
         if (! $this->reservation_id || $this->rsv_status === 'cancelled') return 'buat_reservasi';

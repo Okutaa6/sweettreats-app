@@ -13,69 +13,62 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Memeriksa ulang USULAN JADWAL yang sudah telanjur ada, lawan pagar hari ini.
+ * Menghitung ulang TANGGAL JATUH TEMPO yang sudah telanjur tersimpan.
  *
  * ────────────────────────────────────────────────────────────────────────────
  * KENAPA PERINTAH INI ADA
  * ────────────────────────────────────────────────────────────────────────────
- * Tahap A memasang pagar keras di OrtUsulan: klinik tutup Senin, dokternya
- * harus praktik hari itu, harinya belum penuh, dan dokter yang tidak terpetakan
- * berarti TIDAK ADA usulan sama sekali.
+ * Jatuh tempo dihitung SEKALI, saat kunjungan masuk. Dan hanya saat itu.
+ * Baris yang sudah duduk di tabel tidak pernah dihitung ulang oleh siapa pun,
+ * jadi setiap kali aturannya berubah, baris lama tetap menyimpan hasil aturan
+ * lama — rapi, masuk akal, dan diam-diam salah.
  *
- * Pagar itu bekerja SAAT USULAN DIBUAT. Dan hanya saat itu.
+ * Sudah terjadi dua kali. Pertama saat pagar usulan dipasang: 651 usulan yang
+ * lahir di satu tanggal sebelum pagar ada tetap duduk di sana. Kedua saat
+ * lantai `MIN_MAJU_HARI` dibuang: setiap jatuh tempo yang pernah didorong ke
+ * `hari ini + 3` masih memegang tanggal dorongan itu, dan pasien yang
+ * sebenarnya telat berbulan-bulan tetap tampil punya tanggal di masa depan.
  *
- * Baris yang sudah telanjur ada di tabel tidak pernah diperiksa lagi oleh
- * siapa pun. Jadi 651 usulan yang lahir di satu tanggal yang sama sebelum
- * pagar dipasang tetap duduk di sana, rapi, dengan tombol "Konfirmasi jadwal"
- * yang sekali klik — termasuk 117 usulan Kalideres di hari drg. Andy tidak
- * praktik. Memperbaiki mesinnya menghentikan pendarahan; ia tidak membersihkan
- * lukanya.
- *
- * Ditemukan 1 Okt 2026 dengan cara paling sederhana: membuka halamannya dan
- * melihat satu usulan jatuh hari MINGGU untuk dokter yang bahkan tidak ada di
- * tabel raw_doctor. Usulan itu lahir pukul 11:49; pagarnya baru ada pukul
- * 15:08. Mesin yang benar tidak membatalkan apa yang sudah ditulis mesin lama.
+ * Memperbaiki mesinnya menghentikan pendarahan; ia tidak membersihkan lukanya.
  *
  * ────────────────────────────────────────────────────────────────────────────
- * APA YANG DILAKUKAN TERHADAP TIAP USULAN
+ * APA YANG DILAKUKAN TERHADAP TIAP BARIS
  * ────────────────────────────────────────────────────────────────────────────
  * OrtUsulan ditanya ulang, dengan pertanyaan yang sama persis seperti saat
- * tarikan malam: "untuk pasien ini, dengan kunjungan terakhirnya, hari ini,
- * tanggal berapa?" Lalu:
+ * tarikan malam: "untuk pasien ini, dengan kunjungan terakhirnya, jatuh
+ * temponya kapan?" Lalu:
  *
- *   • jawabannya TANGGAL yang berbeda  → usulannya DIGESER ke sana
- *   • jawabannya TIDAK ADA USULAN      → barisnya DIHAPUS
- *   • tanggalnya sudah sah              → dibiarkan, tidak disentuh
+ *   • jawabannya TANGGAL yang berbeda → tanggalnya DIPERBARUI
+ *   • jawabannya TIDAK ADA            → barisnya DIHAPUS (pasien hilang > 6 bln)
+ *   • tanggalnya sudah benar          → dasarnya saja yang disegarkan
  *
- * ⚠ MENGHAPUS, bukan menandai. Dan itu memang aman: `is_proposal = 1` berarti
- *   tebakan sistem yang BELUM disepakati siapa pun. Begitu Sales menekan
- *   "Konfirmasi jadwal", barisnya jadi is_proposal = 0 dan perintah ini tidak
- *   akan pernah menyentuhnya lagi. Tidak ada fakta yang hilang.
+ * ⚠ Hasilnya BOLEH mundur ke masa lalu, dan untuk pasien yang tertinggal
+ *   memang begitulah seharusnya. Itu bukan kemunduran, itu kebenaran yang
+ *   selama ini tertutup.
  *
- * ⚠ Dan pasiennya TIDAK ikut hilang dari layar. Kasus tanpa jadwal terbuka
- *   muncul di kartu "Belum punya jadwal" — kelompok ketiga antrean memang
- *   dikembalikan di Tahap A persis untuk keadaan ini. Yang berubah cuma: ia
- *   berpindah dari daftar kerja (dengan tanggal yang mustahil) ke antrean
- *   penjadwalan (tanpa tanggal, menunggu Sales). Itu yang jujur.
+ * ⚠ MENGHAPUS, bukan menandai. Aman karena `is_proposal = 1` berarti tanggal
+ *   yang dihitung sistem, bukan yang digeser tangan — begitu Sales menyentuh
+ *   tanggalnya, barisnya jadi is_proposal = 0 dan perintah ini tidak akan
+ *   pernah menyentuhnya lagi. Tidak ada fakta yang hilang.
  *
- * Yang TIDAK pernah disentuh: baris ber-is_proposal = 0 (jadwal yang sudah
- * disepakati), baris yang sudah punya visit_date, dan baris yang sudah
- * tertutup. Perintah ini hanya berurusan dengan tebakan yang belum disepakati.
+ * ⚠ Dan pasiennya TIDAK ikut hilang dari layar: kasus tanpa jadwal terbuka
+ *   muncul di kartu "Belum punya jadwal".
+ *
+ * Yang TIDAK pernah disentuh: baris ber-is_proposal = 0, baris yang sudah
+ * punya visit_date, dan baris yang sudah tertutup.
  *
  * ────────────────────────────────────────────────────────────────────────────
  * Menulis BUTUH `--commit`. Tanpa itu: memindai, melaporkan, lalu berhenti.
- * Aman diulang — sesudah dijalankan sekali, jalanan kedua tidak menemukan apa
- * pun untuk dikerjakan.
+ * Aman diulang — jalanan kedua tidak menemukan apa pun untuk dikerjakan.
  */
 class OrtRapikanUsulan extends Command
 {
     protected $signature = 'ort:rapikan-usulan
                             {--cabang= : batasi ke satu omnicare place_id}
-                            {--ambang= : timpa ambang kapasitas per cabang-hari}
                             {--commit : TULIS perubahannya. Tanpa ini cuma pratinjau}
                             {--contoh=10 : berapa baris contoh dicetak}';
 
-    protected $description = 'Periksa ulang usulan jadwal yang sudah ada lawan pagar OrtUsulan; geser atau hapus yang mustahil';
+    protected $description = 'Hitung ulang tanggal jatuh tempo kontrol yang sudah tersimpan';
 
     private const PENULIS = 'ort:rapikan-usulan';
 
@@ -97,10 +90,6 @@ class OrtRapikanUsulan extends Command
             }
         }
 
-        if ($this->option('ambang') !== null) {
-            $this->usulan = new OrtUsulan(max(1, (int) $this->option('ambang')));
-        }
-
         $tulis  = (bool) $this->option('commit');
         $cabang = $this->option('cabang') ? (string) $this->option('cabang') : null;
 
@@ -110,7 +99,7 @@ class OrtRapikanUsulan extends Command
             return self::FAILURE;
         }
 
-        $this->info('Memeriksa ulang usulan jadwal' . ($cabang ? ' · cabang ' . $cabang : ' · semua cabang'));
+        $this->info('Menghitung ulang jatuh tempo' . ($cabang ? ' · cabang ' . $cabang : ' · semua cabang'));
         $this->newLine();
 
         $n = ['diperiksa' => 0, 'tetap' => 0, 'dasar' => 0, 'digeser' => 0,
@@ -259,11 +248,11 @@ class OrtRapikanUsulan extends Command
     private function laporkan(array $n, array $sebab, array $contoh, bool $tulis): void
     {
         $this->table(['Hasil', 'Usulan'], [
-            ['Usulan terbuka diperiksa', $n['diperiksa']],
-            ['→ sudah sah, dibiarkan', $n['tetap']],
+            ['Jatuh tempo diperiksa', $n['diperiksa']],
+            ['→ sudah benar, dibiarkan', $n['tetap']],
             ['→ tanggal tetap, dasarnya diperbarui', $n['dasar']],
-            ['→ digeser ke tanggal sah', $n['digeser']],
-            ['→ dihapus (tidak ada tanggal sah)', $n['dihapus']],
+            ['→ tanggalnya diperbarui', $n['digeser']],
+            ['→ dihapus (pasien hilang > 6 bulan)', $n['dihapus']],
             ['→ belum punya kunjungan, dilewati', $n['tanpa_kunjungan']],
         ]);
 

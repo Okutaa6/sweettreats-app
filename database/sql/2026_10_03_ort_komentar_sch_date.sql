@@ -1,0 +1,57 @@
+-- =====================================================================
+-- Tracking Ortho — beri komentar pada `ort_control.sch_date` — 2026-10-03
+-- IDEMPOTENT (MODIFY COLUMN dengan definisi yang sama persis; menjalankannya
+-- berulang menghasilkan keadaan yang identik).
+-- Jalankan di DB `sweettreats` (lokal) / `u695655413_app_sweettreat` (prod).
+--
+-- ---------------------------------------------------------------------
+-- Konteks
+-- ---------------------------------------------------------------------
+-- `sch_date` adalah satu-satunya kolom di blok SCH yang tidak punya COMMENT,
+-- dan ketiadaan satu kalimat itu memakan waktu berhari-hari.
+--
+-- Brief sudah menyatakannya di kamus istilah: "SCH · Jadwal · tanggal pasien
+-- SEHARUSNYA datang kontrol", berpasangan dengan "RSV · Reservasi · kosong =
+-- pasien belum booking". Tapi karena kolomnya sendiri diam, implementasinya
+-- pelan-pelan menyimpang jadi TANGGAL JANJI: dijepit supaya tidak pernah
+-- jatuh di masa lalu, dipagar hari praktik dokter dan kapasitas cabang, lalu
+-- ditawarkan lewat tombol "Konfirmasi jadwal" sekali klik.
+--
+-- Akibatnya keterlambatan tersembunyi. Diukur di DB pengembangan: 26 dari 39
+-- pasien aktif jatuh temponya sudah lewat, rata-rata 43 hari, terlama 279 —
+-- dan tidak satu pun terlihat di layar. Penumpukan 651 usulan di satu tanggal
+-- yang dilaporkan audit HUB juga lahir dari jepitan yang sama.
+--
+-- Komentar ini menutup lubangnya: kolom yang menyatakan dirinya sendiri tidak
+-- bisa ditafsirkan ulang diam-diam oleh orang berikutnya.
+--
+-- ---------------------------------------------------------------------
+-- Yang dilakukan skrip ini
+-- ---------------------------------------------------------------------
+--   Menambahkan COMMENT pada ort_control.sch_date. Tipe, NULL-ability, dan
+--   default TIDAK berubah sama sekali — `date NOT NULL`, persis seperti di
+--   2026_09_23_ort_tracking_schema.sql.
+--
+-- ---------------------------------------------------------------------
+-- Yang SENGAJA TIDAK dilakukan
+-- ---------------------------------------------------------------------
+--   - TIDAK menyentuh data. Nol baris berubah.
+--   - TIDAK menyentuh `rsv_date` — komentarnya sudah benar dan sudah ada.
+--   - TIDAK menambah kolom "pasien sudah tahu tanggal ini atau belum".
+--     Pertanyaan itu nyata dan hari ini tidak terjawab (`is_proposal = 0`
+--     dipasang juga oleh jalur yang tidak melibatkan pasien sama sekali),
+--     tapi jawabannya lebih dekat ke kolom Reservasi, dan menambah kolom
+--     ketiga untuk itu adalah keputusan rancangan tersendiri.
+-- =====================================================================
+
+ALTER TABLE `ort_control`
+  MODIFY COLUMN `sch_date` date NOT NULL
+  COMMENT 'Jatuh tempo kontrol: tanggal pasien SEHARUSNYA datang. TARGET, bukan janji — janji ada di rsv_date / raw_cus_reservation. BOLEH < CURDATE(), dan itulah arti Terlewat';
+
+-- Verifikasi:
+--   SELECT COLUMN_NAME, COLUMN_COMMENT
+--     FROM information_schema.COLUMNS
+--    WHERE TABLE_SCHEMA = DATABASE()
+--      AND TABLE_NAME = 'ort_control'
+--      AND COLUMN_NAME IN ('sch_date', 'rsv_date');
+-- =====================================================================

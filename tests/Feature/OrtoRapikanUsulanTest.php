@@ -91,8 +91,12 @@ class OrtoRapikanUsulanTest extends TestCase
      * Pasien dengan satu kunjungan lampau yang sudah tertutup, plus satu baris
      * terbuka di $schDate yang sifatnya ditentukan $kontrolUbah.
      */
-    private function pasien(string $schDate, ?string $doctorRef, array $kontrolUbah = []): OrtControl
-    {
+    private function pasien(
+        string $schDate,
+        ?string $doctorRef,
+        array $kontrolUbah = [],
+        int $kunjunganLalu = 20
+    ): OrtControl {
         $pid     = self::TANDA . '-' . Str::random(6);
         $hariIni = Carbon::today();
 
@@ -106,7 +110,7 @@ class OrtoRapikanUsulanTest extends TestCase
         ]);
 
         // Kunjungan terakhir: titik berangkat perhitungan ulang.
-        $tglKunjungan = $hariIni->copy()->subDays(20)->toDateString();
+        $tglKunjungan = $hariIni->copy()->subDays($kunjunganLalu)->toDateString();
         OrtControl::create([
             'id' => (string) Str::uuid(), 'ort_case_id' => $kasus->id, 'seq' => 1,
             'place_id' => $this->placeId, 'is_proposal' => 0,
@@ -139,46 +143,80 @@ class OrtoRapikanUsulanTest extends TestCase
     {
         Artisan::call('ort:rapikan-usulan', array_filter([
             '--cabang' => $this->placeId,
-            '--ambang' => 9999,
             '--commit' => $commit ?: null,
         ]));
     }
 
     // ── Yang memang harus dirapikan ─────────────────────────────────────────
 
-    /** ⭐ Usulan di hari klinik tutup digeser ke hari yang sah. */
-    public function test_usulan_hari_senin_digeser(): void
+    /**
+     * ⭐ Tanggal yang salah dihitung ulang dari kunjungan terakhir.
+     *
+     * Inilah pekerjaan utama perintah ini sesudah lantai MIN_MAJU_HARI dibuang:
+     * baris lama memegang tanggal yang pernah didorong ke "hari ini + 3", dan
+     * pasien yang sebenarnya telat berbulan-bulan tampil punya tanggal di masa
+     * depan. Di sini barisnya sengaja diberi tanggal ngawur jauh di depan.
+     */
+    public function test_tanggal_ngawur_dihitung_ulang_dari_kunjungan_terakhir(): void
     {
         $this->dokterPraktikTiapHari();
-        $ctl = $this->pasien($this->seninBerikutnya(), $this->doctorRef);
 
-        $this->assertSame(1, Carbon::parse($ctl->sch_date)->dayOfWeekIso, 'Prasyarat: memang hari Senin.');
+        // Kunjungan terakhir 20 hari lalu (bawaan fixture), tapi barisnya
+        // memegang tanggal 90 hari ke depan — persis pola baris warisan.
+        $ctl = $this->pasien(Carbon::today()->addDays(90)->toDateString(), $this->doctorRef);
 
         $this->jalankan();
 
         $baru = $ctl->fresh();
-        $this->assertNotNull($baru, 'Dokternya praktik, jadi mestinya digeser — bukan dihapus.');
-        $this->assertNotSame(
-            1, $baru->sch_date->dayOfWeekIso,
-            'Senin klinik tutup — usulan tidak boleh tetap di sana.'
+        $this->assertNotNull($baru, 'Pasiennya masih aktif — dihitung ulang, bukan dihapus.');
+
+        $harap = OrtControl::tanggalUsulan(
+            Carbon::today()->subDays(20),
+            $baru->case->median_gap_days
+                ? max(OrtCase::IRAMA_MIN_HARI, min(OrtCase::IRAMA_MAX_HARI, $baru->case->median_gap_days))
+                : null
+        )->toDateString();
+
+        $this->assertSame(
+            $harap, $baru->sch_date->toDateString(),
+            'Jatuh tempo = kunjungan terakhir + irama, bukan tanggal warisan.'
         );
     }
 
-    /** ⭐ Dokter yang tidak terpetakan: usulannya DIHAPUS, tidak ditebak. */
-    public function test_usulan_dokter_tak_terpetakan_dihapus(): void
+    /**
+     * ⭐ Pasien yang hilang lebih dari 6 bulan: barisnya DIHAPUS.
+     *
+     * Satu-satunya sebab penghapusan yang tersisa. Dulu dokter yang tidak
+     * terpetakan juga menghapus baris; pagar itu sudah dibuang bersama pagar
+     * jadwal lainnya — ketersediaan dokter urusan modul Reservasi, bukan
+     * urusan pengingat.
+     */
+    public function test_pasien_hilang_lebih_enam_bulan_dihapus(): void
     {
-        $ctl = $this->pasien(Carbon::today()->addDays(10)->toDateString(), 'NIHIL-DOC');
+        $this->dokterPraktikTiapHari();
+        $ctl = $this->pasien(
+            Carbon::today()->addDays(10)->toDateString(),
+            $this->doctorRef,
+            [],
+            kunjunganLalu: OrtCase::HILANG_HARI + 30
+        );
 
         $this->jalankan();
 
-        $this->assertNull($ctl->fresh(), 'Hari praktiknya tidak diketahui — menebak lebih mahal daripada diam.');
+        $this->assertNull($ctl->fresh(), 'Pasien yang hilang berbulan-bulan tidak diberi jatuh tempo.');
     }
 
     /** Pasiennya tidak ikut hilang: ia pindah ke antrean "Belum punya jadwal". */
-    public function test_pasien_yang_usulannya_dihapus_tetap_terlihat(): void
+    public function test_pasien_yang_barisnya_dihapus_tetap_terlihat(): void
     {
-        $ctl    = $this->pasien(Carbon::today()->addDays(10)->toDateString(), 'NIHIL-DOC');
-        $kasus  = $ctl->case;
+        $this->dokterPraktikTiapHari();
+        $ctl   = $this->pasien(
+            Carbon::today()->addDays(10)->toDateString(),
+            $this->doctorRef,
+            [],
+            kunjunganLalu: OrtCase::HILANG_HARI + 30
+        );
+        $kasus = $ctl->case;
 
         $this->jalankan();
 
@@ -266,13 +304,12 @@ class OrtoRapikanUsulanTest extends TestCase
         $this->jalankan();
 
         $baru = $ctl->fresh();
-        $this->assertContains($baru->sch_basis, ['irama', 'default'], 'Dasar usulan harus terisi, bukan dibiarkan NULL.');
+        $this->assertContains(
+            $baru->sch_basis,
+            [OrtCase::BASIS_RAPAT, OrtCase::BASIS_LONGGAR, OrtCase::BASIS_DEFAULT],
+            'Dasar jatuh tempo harus terisi, bukan dibiarkan NULL.'
+        );
         $this->assertSame('ort:rapikan-usulan', $baru->updated_by, 'Jejak siapa yang mengubah harus tertinggal.');
     }
 
-    /** Pagar yang sama persis dengan mesin usulan — bukan salinan aturan kedua. */
-    public function test_memakai_pagar_yang_sama_dengan_mesin_usulan(): void
-    {
-        $this->assertSame([1], OrtUsulan::HARI_TUTUP, 'Kalau hari tutup berubah, perintah ini ikut berubah sendiri.');
-    }
 }

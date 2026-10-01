@@ -62,7 +62,7 @@
         : '—';
 
     $chip = [
-        'menunggu' => ['Menunggu', 'menunggu'], 'usulan' => ['Usulan jadwal', 'usulan'],
+        'menunggu' => ['Menunggu', 'menunggu'],
         'sudah_fu' => ['Sudah di-FU', 'fu'],     'ada_reservasi' => ['Ada reservasi', 'rsv'],
         'hadir' => ['Hadir', 'hadir'],           'tidak_hadir' => ['Tidak hadir', 'absen'],
         'reservasi_batal' => ['Reservasi batal', 'batal'],
@@ -232,7 +232,7 @@
                         $chipTeks = 'Terlewat ' . $k->hariTerlewat($hariIni) . ' hari';
                     }
                     $aksi = ($detailLihat || $detailSelesai) ? null : $k->tindakanBerikutnya();
-                    $labelAksi = ['follow_up' => 'Catat Follow-up', 'buat_reservasi' => 'Buat Reservasi', 'konfirmasi' => 'Konfirmasi jadwal'];
+                    $labelAksi = ['follow_up' => 'Catat Follow-up', 'buat_reservasi' => 'Buat Reservasi'];
                 @endphp
 
                 {{-- Pemisah transfer: hanya saat cabang BERUBAH dari baris sebelumnya. --}}
@@ -289,11 +289,6 @@
                                 <span class="ort-dash" title="{{ $labelTutup }} — tidak ada tugas lagi">—</span>
                             @elseif ($detailLihat)
                                 <span class="ort-dash" title="Dipegang {{ $namaOwn }} — {{ $namaCabang }} tidak bisa mengubah">—</span>
-                            @elseif ($aksi === 'konfirmasi')
-                                <form method="POST" action="{{ route('ortho.konfirmasi', $k->id) }}" style="display:inline-flex;">
-                                    @csrf
-                                    <button type="submit" class="ort-btn ort-btn--sm">{{ $labelAksi[$aksi] }}</button>
-                                </form>
                             @elseif ($aksi === 'follow_up')
                                 {{-- Aksi yang sama dengan tombol di baris List — jangan
                                      dibiarkan mati di sini, bikin bingung. --}}

@@ -43,7 +43,7 @@
                 <select name="status" class="ort-inp">
                     <option value="">Semua status</option>
                     @foreach (['Menunggu', 'Sudah di-FU', 'Ada reservasi', 'Terlewat',
-                               'Reservasi batal', 'Usulan jadwal', 'Transfer'] as $s)
+                               'Reservasi batal', 'Belum disentuh tangan', 'Transfer'] as $s)
                         <option value="{{ $s }}" {{ request('status') === $s ? 'selected' : '' }}>{{ $s }}</option>
                     @endforeach
 

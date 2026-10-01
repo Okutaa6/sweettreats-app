@@ -230,7 +230,7 @@ class OrthoController extends Controller
         ];
 
         // Side sheet (§15): jenisnya dari ?sheet=, subjeknya dari ?kontrol= atau ?kasus=.
-        $sheet = in_array($request->query('sheet'), ['reservasi', 'pindahkan', 'geser', 'jadwalkan', 'panggil'], true)
+        $sheet = in_array($request->query('sheet'), ['reservasi', 'pindahkan', 'geser', 'jadwalkan'], true)
             ? $request->query('sheet') : null;
         $sheetKontrol = $sheetKasus = null;
         if ($sheet) {
@@ -605,43 +605,6 @@ class OrthoController extends Controller
         ])->save();
 
         return $this->selesai($ctl, $sebelum, 'Follow-up dibatalkan.');
-    }
-
-    /**
-     * Konfirmasi usulan jadwal — design brief §10.
-     *
-     * Usulan lahir dari mesin (tarikan malam, +30 hari). Konfirmasi adalah
-     * tanda bahwa MANUSIA sudah menyepakatinya dengan pasien, jadi sch_source
-     * ikut pindah dari 'sistem' ke 'manual'. Sekali klik, tanpa dialog —
-     * tanggalnya sendiri tetap bisa digeser lewat lembar Geser.
-     */
-    public function konfirmasiJadwal(Request $request, string $id)
-    {
-        abort_unless(Schema::hasTable('ort_control'), 404);
-
-        $ctl = OrtControl::findOrFail($id);
-        $this->pastikanMilikCabang($ctl);
-
-        if ($ctl->closed_at !== null) {
-            return back()->with('error', 'Kontrol ini sudah ditutup.');
-        }
-        if (! $ctl->is_proposal) {
-            return back()->with('error', 'Jadwal ini bukan usulan — tidak ada yang perlu dikonfirmasi.');
-        }
-
-        $sebelum = [
-            'is_proposal' => (int) $ctl->is_proposal,
-            'sch_source'  => $ctl->sch_source,
-        ];
-
-        $ctl->fill([
-            'is_proposal' => 0,
-            'sch_source'  => OrtControl::SCH_MANUAL,
-            'updated_by'  => session('id'),
-        ])->save();
-
-        return $this->selesai($ctl, $sebelum,
-            'Jadwal ' . $ctl->sch_date->translatedFormat('j M') . ' dikonfirmasi.');
     }
 
     /**

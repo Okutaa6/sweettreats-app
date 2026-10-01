@@ -36,7 +36,6 @@
                 $chip  = match (true) {
                     $batal => ['Reservasi batal', 'batal'],
                     $telat => ['Terlewat', 'telatlama'],
-                    (bool) $r->is_proposal => ['Usulan jadwal', 'usulan'],
                     $adaRsv => ['Ada reservasi', 'rsv'],
                     (bool) $r->fu_date => ['Sudah di-FU', 'fu'],
                     default => ['Menunggu', 'menunggu'],

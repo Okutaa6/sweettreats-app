@@ -132,7 +132,7 @@ Istilah lain:
 
 | Istilah di UI | Artinya |
 |---|---|
-| **Jadwal kontrol** | Satu baris = satu janji kontrol. Bernomor urut per pasien (#1, #2, …) |
+| **Jadwal kontrol** | Satu baris = satu siklus kontrol. Bernomor urut per pasien (#1, #2, …). ⚠ Tanggalnya JATUH TEMPO, bukan janji — kata "janji" dipakai khusus untuk Reservasi |
 | **Terlewat** | Tanggal jadwal sudah lewat, pasien belum datang dan belum ditandai tidak hadir |
 | **Jarang kontrol** | Kurang dari 2 kunjungan dalam 6 bulan. **Definisi Sales sendiri**, bukan karangan sistem |
 | **Hilang** | Kontrol terakhir lebih dari 6 bulan lalu |
