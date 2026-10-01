@@ -32,8 +32,17 @@
 
     $hariIniStr = $hariIni->toDateString();
     $minTgl     = $hariIni->copy()->addDays(\App\Models\OrtControl::MIN_MAJU_HARI)->toDateString();
+    /* Irama pasien ini sendiri, sama seperti yang dipakai mesin usulan
+       (Tahap C). Angka 30 tetap jadi cadangan untuk pasien yang riwayatnya
+       belum cukup — dan saat itu terjadi, teks bantuan di bawah mengatakannya
+       apa adanya alih-alih mengaku tahu. */
+    $iramaHari = $c->median_gap_days
+        ? max(\App\Models\OrtCase::IRAMA_MIN_HARI, min(\App\Models\OrtCase::IRAMA_MAX_HARI, $c->median_gap_days))
+        : null;
+    $majuHari  = $iramaHari ?? \App\Models\OrtControl::USULAN_MAJU_HARI;
+
     $defaultBaru = $c->last_visit_date
-        ? max($c->last_visit_date->copy()->addDays(30), $hariIni->copy()->addDays(3))
+        ? max($c->last_visit_date->copy()->addDays($majuHari), $hariIni->copy()->addDays(3))
         : $hariIni->copy()->addDays(3);
     $lamaSejak = $c->last_visit_date ? $c->last_visit_date->diffInDays($hariIni) : null;
 @endphp
@@ -176,7 +185,18 @@
                 @endphp
                 <input type="date" name="tanggal" class="ort-inp" required
                        value="{{ $geserDefault }}" min="{{ $minTgl }}">
-                <div class="ort-hint">Geser usulan sistem ke tanggal yang sudah disepakati dengan pasien — jarak wajar 28–45 hari.</div>
+                {{-- Angka pembandingnya irama pasien INI, bukan rentang baku.
+                     "Jarak wajar 28-45 hari" benar sebagai rata-rata klinik tapi
+                     tidak membantu di layar ini: yang perlu diketahui Sales saat
+                     menggeser adalah kebiasaan orang yang sedang ditelepon. --}}
+                <div class="ort-hint">
+                    Geser usulan sistem ke tanggal yang sudah disepakati dengan pasien.
+                    @if ($iramaHari)
+                        Pasien ini biasanya kontrol tiap <span class="tabular">{{ $iramaHari }}</span> hari.
+                    @else
+                        Riwayatnya belum cukup untuk tahu kebiasaannya — jarak wajar 28–45 hari.
+                    @endif
+                </div>
             </div>
             <div>
                 <label class="ort-lbl">Catatan (opsional)</label>
@@ -192,7 +212,11 @@
                     @if ($lamaSejak !== null && $lamaSejak > 60)
                         Kontrol terakhir {{ $lamaSejak }} hari lalu — dijadwalkan dari hari ini, bukan dari kontrol terakhir.
                     @else
-                        30 hari dari kontrol terakhir · jarak wajar 28–45 hari
+                        @if ($iramaHari)
+                            <span class="tabular">{{ $iramaHari }}</span> hari dari kontrol terakhir · irama pasien ini
+                        @else
+                            30 hari dari kontrol terakhir · riwayatnya belum cukup untuk tahu kebiasaannya
+                        @endif
                     @endif
                 </div>
             </div>
