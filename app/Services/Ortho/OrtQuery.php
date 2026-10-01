@@ -634,6 +634,28 @@ class OrtQuery
         return $hasil;
     }
 
+    /**
+     * Kolom mana yang BELUM PERNAH terisi sama sekali di cabang ini.
+     *
+     * Brief §kamus menetapkan `X` dipertahankan apa adanya — "sel kosong
+     * terasa seperti data hilang, X terasa seperti fakta", dan per baris itu
+     * memang benar. Yang menyesatkan keadaan lain: saat SELURUH kolom berisi X,
+     * ia berhenti terbaca sebagai "belum terjadi" dan mulai terbaca sebagai
+     * "Sales tidak bekerja". Padahal Sales sudah menelepon puluhan orang —
+     * catatannya saja yang masih di Google Sheets.
+     *
+     * Jadi X tetap, dan keadaannya yang dijelaskan sekali di atas tabel.
+     *
+     * @return array{fu: bool, rsv: bool} true = belum pernah ada isinya
+     */
+    public function kolomBelumDipakai(string $placeId): array
+    {
+        $ada = fn (string $kolom) => OrtControl::where('place_id', $placeId)
+            ->whereNotNull($kolom)->exists();
+
+        return ['fu' => ! $ada('fu_date'), 'rsv' => ! $ada('reservation_id')];
+    }
+
     /** Berapa pasien kami yang dipegang tiap cabang lain — badge di tab cabang. */
     public function hitungPerCabangLain(string $homePlaceId): array
     {

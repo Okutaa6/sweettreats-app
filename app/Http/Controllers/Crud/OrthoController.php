@@ -273,6 +273,10 @@ class OrthoController extends Controller
             // itu, jadi tidak perlu membayar kuerinya. resolveBranch() sudah
             // menerima ?utama= sejak awal; yang belum ada cuma kontrolnya.
             'hitungPerCabang' => $terkunci ? [] : $this->q->hitungPerCabang(),
+            // Dipakai banner "kolom ini belum pernah dipakai" — lihat
+            // OrtQuery::kolomBelumDipakai(). Dua EXISTS, dilayani
+            // idx_ort_control_worklist; murah dan cuma di tab List.
+            'kolomKosong'     => $tab === 'list' ? $this->q->kolomBelumDipakai($placeId) : ['fu' => false, 'rsv' => false],
             'tab'           => $tab,
             'urgensi'       => $urgensi,
             'kartuAktif'    => $kartuAktif,

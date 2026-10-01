@@ -105,7 +105,7 @@
     @if (($hariPertama ?? false) && $tab === 'list' && ! $hanyaLihat)
         <div class="ort-banner">
             <span class="ort-banner__icon"><i class="fas fa-exclamation-triangle"></i></span>
-            <div style="flex:1;min-width:0;">
+            <div class="ort-banner__body">
                 <div class="ort-banner__title">Hari pertama — pasien sudah dimuat, jadwalnya belum ada</div>
                 <div class="ort-banner__text">
                     <span class="tabular">{{ number_format($kartu['aktif'], 0, ',', '.') }}</span> pasien behel di
@@ -115,6 +115,40 @@
                 </div>
             </div>
             <a href="{{ $tautan(['kartu' => 'backlog', 'tab' => null]) }}" class="ort-btn">Buka antrean penjadwalan</a>
+        </div>
+    @endif
+
+    {{-- Kolom yang BELUM PERNAH terisi sama sekali.
+
+         X per baris itu fakta dan sengaja dipertahankan (brief kamus istilah).
+         Tapi saat SELURUH kolom berisi X, ia berhenti terbaca "belum terjadi"
+         dan mulai terbaca "Sales tidak bekerja" — padahal Sales sudah
+         menelepon puluhan orang, catatannya saja yang masih di Google Sheets.
+         Jadi X tetap, keadaannya yang dijelaskan sekali di sini. Hilang
+         sendiri begitu kolomnya mulai terisi. --}}
+    @if ($tab === 'list' && ! $hanyaLihat && (($kolomKosong['fu'] ?? false) || ($kolomKosong['rsv'] ?? false)))
+        @php
+            $kosong = array_values(array_filter([
+                ($kolomKosong['fu'] ?? false)  ? 'Follow-up' : null,
+                ($kolomKosong['rsv'] ?? false) ? 'Reservasi' : null,
+            ]));
+        @endphp
+        <div class="ort-banner ort-banner--info">
+            <span class="ort-banner__icon"><i class="far fa-clock"></i></span>
+            <div class="ort-banner__body">
+                <div class="ort-banner__title">
+                    Kolom {{ implode(' dan ', $kosong) }} belum pernah dipakai di {{ $namaCabang }}
+                </div>
+                <div class="ort-banner__text">
+                    Semua barisnya berisi <span class="ort-x">X</span>, dan itu berarti
+                    <em>belum tercatat di sistem</em> — bukan belum dikerjakan. Follow-up yang selama ini
+                    dicatat di Google Sheets tidak ikut terbawa.
+                    @if ($kolomKosong['rsv'] ?? false)
+                        Reservasi yang sudah ada bisa ditautkan sekali jalan oleh tim IT
+                        (<code>ort:tautkan-reservasi</code>).
+                    @endif
+                </div>
+            </div>
         </div>
     @endif
 

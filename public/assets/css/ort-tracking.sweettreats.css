@@ -1421,3 +1421,27 @@ button.ort-btn { border: none; font-family: inherit; cursor: pointer; }
   color: #fff;
   box-shadow: 0 4px 12px -4px rgba(70, 21, 0, .45);
 }
+
+/* ── Spanduk PENJELAS (bukan peringatan) ────────────────────────────────────
+   .ort-banner polos berwarna amber karena lahir untuk "Hari pertama", yang
+   memang mendesak. Spanduk "kolom ini belum pernah dipakai" kebalikannya:
+   ia menenangkan — memberi tahu bahwa sekolom penuh X itu wajar, bukan tanda
+   ada yang gagal. Diberi warna netral supaya tidak ikut berteriak.
+   Ditaruh di akhir berkas supaya menang atas penimpaan .ort-banner__icon
+   di blok "adu screenshot" di atas. */
+.ort-banner--info {
+  background: var(--ort-neu-bg);
+  border-color: var(--ort-line2);
+}
+.ort-banner--info .ort-banner__icon { background: #E6DACE; color: var(--ort-neu); }
+.ort-banner--info .ort-banner__title { color: var(--ort-ink); }
+
+/* Nama perintah artisan di dalam spanduk — dibaca tim IT, bukan Sales. */
+.ort-banner code {
+  font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+  font-size: 11.5px; background: #fff; border: 1px solid var(--ort-line);
+  border-radius: 6px; padding: 1px 6px; color: var(--ort-ink2);
+}
+/* Badan spanduk — menggantikan style sebaris flex:1;min-width:0 yang dulu
+   ditulis langsung di markup (konvensi proyek: tak ada style sebaris). */
+.ort-banner__body { flex: 1; min-width: 0; }
