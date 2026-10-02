@@ -28,6 +28,12 @@
         'pindahkan'  => ['Pindahkan pasien',     'Pindahkan ' . \Illuminate\Support\Str::title($c->patient_name), 'Pindahkan'],
         'geser'      => ['Geser usulan',         'Geser tanggal usulan',                  'Simpan usulan'],
         'jadwalkan'  => ['Jadwal baru',          'Jadwalkan kontrol berikutnya',          'Simpan jadwal'],
+        /* Varian ke-5 (4 Okt 2026). Dulu "Catat Follow-up" sekali klik tanpa
+           form — mencatat tanggal + kanal bawaan WA, HASILNYA tidak pernah
+           tercatat. Sekarang lembar: hasil (pilihan tetap), kanal, tanggal,
+           catatan. Mewarisi submit realtime, toast, dan Urungkan 90 detik
+           dari mesin lembar yang sama. */
+        'follow-up'  => ['Catat follow-up',      'Catat hasil follow-up',                 'Simpan follow-up'],
     };
 
     $hariIniStr = $hariIni->toDateString();
@@ -75,6 +81,12 @@
             @csrf
     @elseif ($sheet === 'jadwalkan')
         <form id="ortSheetForm" method="POST" action="{{ route('ortho.jadwalkan', $c->id) }}" class="ort-sheet__body">
+            @csrf
+    @elseif ($sheet === 'follow-up' && $k)
+        {{-- Action-nya berakhiran /follow-up, jadi tercegat POLA di list.blade.php:
+             submit lewat fetch, tabel ditukar, toast muncul, lembar ditutup —
+             tanpa muat ulang. Tanpa JS tetap bekerja sebagai form biasa. --}}
+        <form id="ortSheetForm" method="POST" action="{{ route('ortho.followup', $k->id) }}" class="ort-sheet__body">
             @csrf
     @elseif ($sheet === 'geser' && $k)
         {{-- Menggeser SEKALIGUS mengonfirmasi: begitu Sales mengetik tanggal
@@ -282,6 +294,49 @@
                 <input type="text" name="catatan" maxlength="255" class="ort-inp" placeholder="mis. pasien minta setelah tanggal gajian">
             </div>
 
+        @elseif ($sheet === 'follow-up')
+            <div>
+                <label class="ort-lbl">Hasil</label>
+                {{-- Pilihan tetap, bukan teks bebas: supaya "berapa pasien tidak
+                     respon bulan ini" bisa dijawab. Kamusnya satu-satunya di
+                     OrtControl::FU_HASIL — jangan ditulis ulang di sini. --}}
+                <select name="hasil" class="ort-inp" required>
+                    <option value="">Pilih hasil...</option>
+                    @foreach (\App\Models\OrtControl::FU_HASIL as $val => $label)
+                        <option value="{{ $val }}" {{ old('hasil') === $val ? 'selected' : '' }}>{{ $label }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div class="ort-2col">
+                <div>
+                    <label class="ort-lbl">Kanal</label>
+                    <select name="kanal" class="ort-inp">
+                        <option value="wa">WhatsApp</option>
+                        <option value="telepon">Telepon</option>
+                        <option value="langsung">Langsung (di klinik)</option>
+                        <option value="lainnya">Lainnya</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="ort-lbl">Tanggal</label>
+                    {{-- max = hari ini: follow-up dicatat SESUDAH terjadi, bukan direncanakan. --}}
+                    <input type="date" name="tanggal" class="ort-inp"
+                           value="{{ $hariIniStr }}" max="{{ $hariIniStr }}">
+                </div>
+            </div>
+            <div>
+                <label class="ort-lbl">Catatan (opsional)</label>
+                <input type="text" name="catatan" maxlength="255" class="ort-inp"
+                       placeholder="mis. minta dihubungi lagi minggu depan sore">
+            </div>
+            <div class="ort-infobox">
+                <i class="fas fa-info-circle"></i>
+                <div>
+                    Mencatat follow-up tidak membuat reservasi. Kalau pasien setuju tanggal,
+                    anak tangga berikutnya adalah <b>Buat Reservasi</b> — tombolnya muncul
+                    sendiri sesudah ini tersimpan.
+                </div>
+            </div>
         @else {{-- jadwalkan --}}
             <div>
                 <label class="ort-lbl">Tanggal kontrol berikutnya</label>
@@ -308,7 +363,7 @@
     </form>
 
     <div class="ort-sheet__foot">
-        @if (in_array($sheet, ['jadwalkan', 'pindahkan'], true) || (in_array($sheet, ['reservasi', 'geser'], true) && $k))
+        @if (in_array($sheet, ['jadwalkan', 'pindahkan'], true) || (in_array($sheet, ['reservasi', 'geser', 'follow-up'], true) && $k))
             {{-- Di luar <form>, jadi disambungkan lewat atribut form="". --}}
             <button type="submit" form="ortSheetForm" class="ort-btn"
                     style="flex:1;justify-content:center;padding:12px;">{{ $judul[2] }}</button>

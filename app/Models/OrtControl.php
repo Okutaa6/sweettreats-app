@@ -44,7 +44,7 @@ class OrtControl extends Model
     protected $fillable = [
         'id', 'ort_case_id', 'seq', 'place_id', 'is_proposal',
         'sch_date', 'sch_source', 'sch_note', 'sch_basis', 'sch_basis_n',
-        'fu_date', 'fu_channel', 'fu_by',
+        'fu_date', 'fu_channel', 'fu_by', 'fu_result', 'fu_note',
         'reservation_id', 'rsv_date', 'rsv_status', 'rsv_synced_at',
         'visit_date', 'visit_source', 'visit_confidence',
         'omnicare_trx_id', 'omnicare_encounter_id', 'visit_filled_at', 'unscheduled',
@@ -75,6 +75,28 @@ class OrtControl extends Model
     public const OUT_TIDAK_HADIR    = 'tidak_hadir';
     public const OUT_DIJADWAL_ULANG = 'dijadwal_ulang';
     public const OUT_BATAL          = 'batal';
+
+    /**
+     * HASIL follow-up — apa yang terjadi saat Sales menghubungi pasien.
+     * Sampai 4 Okt 2026 hanya tanggal/kanal/siapa yang tersimpan; HASILNYA
+     * tidak dicatat sama sekali, jadi "berapa pasien tidak respon bulan ini"
+     * tidak pernah terjawab. Pilihan tetap supaya bisa dihitung; catatan
+     * bebas (fu_note) menampung yang tidak masuk kategori.
+     */
+    public const FU_DIHUBUNGI         = 'dihubungi';
+    public const FU_TIDAK_RESPON      = 'tidak_respon';
+    public const FU_MINTA_JADWAL_ULANG = 'minta_jadwal_ulang';
+    public const FU_MENOLAK           = 'menolak';
+    public const FU_SALAH_NOMOR       = 'salah_nomor';
+
+    /** Kunci → label layar. Satu-satunya sumber untuk dropdown dan tampilan. */
+    public const FU_HASIL = [
+        self::FU_DIHUBUNGI          => 'Sudah dihubungi, bersedia',
+        self::FU_TIDAK_RESPON       => 'Tidak respon',
+        self::FU_MINTA_JADWAL_ULANG => 'Minta jadwal ulang',
+        self::FU_MENOLAK            => 'Menolak / berhenti',
+        self::FU_SALAH_NOMOR        => 'Salah nomor',
+    ];
 
     /** Jatuh tempo berikutnya = kunjungan terakhir + ini, kalau irama belum diketahui. */
     public const USULAN_MAJU_HARI = 30;

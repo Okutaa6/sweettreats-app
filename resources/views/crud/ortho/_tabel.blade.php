@@ -271,12 +271,14 @@
                                  berbeda, dan menggabungkannya memaksa WhatsApp terbuka
                                  setiap kali Sales cuma ingin menandai. Tombol WhatsApp
                                  bundar di sebelah kanan tetap jadi jalan menghubungi. --}}
-                            <form method="POST" action="{{ route('ortho.followup', $r->id) }}"
-                                  style="flex:1;display:flex;" onclick="event.stopPropagation()">
-                                @csrf
-                                <button type="submit" class="ort-btn" style="flex:1;"
-                                        title="Catat bahwa pasien ini sudah di-follow-up hari ini">{{ $tombolLabel[$aksi] }}</button>
-                            </form>
+                            {{-- Sejak 4 Okt 2026 bukan lagi submit sekali klik: membuka
+                                 lembar ?sheet=follow-up yang mencatat HASIL (pilihan tetap),
+                                 kanal, tanggal, dan catatan. Pola yang sama dengan Buat
+                                 Reservasi di atas — jenis() di list.blade.php mengenali
+                                 href ini sebagai lembar. --}}
+                            <a href="{{ $tautan(['sheet' => 'follow-up', 'kontrol' => $r->id]) }}"
+                               class="ort-btn" style="flex:1;" onclick="event.stopPropagation()"
+                               title="Catat hasil follow-up pasien ini">{{ $tombolLabel[$aksi] }}</a>
                         @elseif ($rsvLewat)
                             {{-- Reservasinya lewat tapi kunjungannya belum masuk.
                                  Ini BUKAN "tidak ada tugas" — janjinya meleset, dan

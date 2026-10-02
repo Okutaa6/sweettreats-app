@@ -21,7 +21,7 @@ Halaman kerja harian Sales untuk menagih pasien behel supaya kontrol. Ia
 **membaca** cermin rekam medis Omnicare dan **menulis** hanya ke tabel `ort_*`
 miliknya sendiri. Satu arah; tidak pernah menulis balik ke Omnicare.
 
-Deploy = unggah berkas → **7 SQL** → `access:rebuild` → **6 perintah isi data**
+Deploy = unggah berkas → **8 SQL** → `access:rebuild` → **6 perintah isi data**
 → rsync aset. Tidak ada `composer install`, tidak ada dependensi baru, tidak ada
 langkah build.
 
@@ -58,6 +58,7 @@ berkasnya.
 | 4 | `2026_10_02_ort_sebaran_irama.sql` | `gap_spread_pct` |
 | 5 | `2026_10_03_ort_komentar_sch_date.sql` | hanya `COMMENT` pada `sch_date` |
 | 6 | `2026_10_04_ort_komentar_unscheduled.sql` | hanya `COMMENT` pada `unscheduled` — meluruskan "datang tanpa reservasi" jadi "tidak cocok dengan jadwal mana pun"; sistem memang tidak tahu soal reservasi |
+| 7 | `2026_10_05_ort_hasil_followup.sql` | `fu_result` + `fu_note` di `ort_control` — HASIL follow-up (dihubungi · tidak respon · minta jadwal ulang · menolak · salah nomor) + catatan bebas. Tanpa backfill: follow-up lama memang tidak punya hasil |
 
 ### ⚠ Sesudah berkas #2, SEGERA:
 

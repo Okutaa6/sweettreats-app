@@ -188,7 +188,7 @@ Catat Follow-up  →  Buat Reservasi  →  (tidak ada tombol)
 
 | Anak tangga | Perilaku |
 |---|---|
-| **Catat Follow-up** | Sekali klik, tanpa dialog. Baris berubah **di tempat** — halaman tidak dimuat ulang. Bisa diurungkan 90 detik |
+| **Catat Follow-up** | *(sejak 4 Okt 2026)* Membuka lembar: **hasil** (pilihan tetap — dihubungi · tidak respon · minta jadwal ulang · menolak · salah nomor), kanal, tanggal, catatan bebas. Dulu sekali klik tanpa dialog, dan hasilnya tidak pernah tercatat. Tetap **tanpa muat ulang** — tabel ditukar, lembar ditutup sendiri — dan bisa diurungkan 90 detik (hasil + catatan ikut dipulihkan) |
 | **Buat Reservasi** | Membuka lembar berisi hari praktik dokter pasien ini, lengkap jam dan seberapa penuh |
 | **Menunggu pasien** | Tidak ada tombol. Kolom Datang terisi sendiri dari rekam medis tiap malam |
 
@@ -218,7 +218,7 @@ hilang** dari layar — mereka berpindah dari daftar kerja ke antrean.
 
 ---
 
-## 8. Empat lembar
+## 8. Lima lembar
 
 Semua aksi yang butuh masukan dibuka sebagai **side sheet**, bukan halaman baru.
 
@@ -228,6 +228,7 @@ Semua aksi yang butuh masukan dibuka sebagai **side sheet**, bukan halaman baru.
 | **Geser pengingat** | Mengubah kapan pasien dianggap jatuh tempo. Dibuka dari panel baris, bukan dari kolom Jadwal |
 | **Jadwalkan kontrol** | Memberi jatuh tempo pertama kepada pasien dari antrean |
 | **Pindahkan ke cabang lain** | Transfer, dengan **alasan wajib** |
+| **Catat Follow-up** *(4 Okt 2026)* | Hasil (pilihan tetap), kanal, tanggal (maks hari ini), catatan bebas. Form-nya mengarah ke `/follow-up`, jadi tercegat mesin submit realtime: tabel ditukar, toast muncul, lembar ditutup — tanpa muat ulang |
 
 ### Pemilih hari memakai mesin modul Reservasi
 
@@ -351,7 +352,7 @@ tidak ada pesan galat, halamannya terbuka normal.
 
 1. **Prasyarat** — audit collation prod. SELECT saja. Kalau mengembalikan
    baris, DDL tidak boleh jalan apa adanya.
-2. **Skema** — 7 berkas SQL, lalu `php artisan access:rebuild`. Lupa berarti
+2. **Skema** — 8 berkas SQL, lalu `php artisan access:rebuild`. Lupa berarti
    **404 di semua halaman**.
 3. **Isi data** — 6 perintah berurutan. Lupa `ort:rollup` berarti irama kosong
    untuk semua pasien.

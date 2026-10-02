@@ -226,9 +226,9 @@ jadwal**.
 
 | | |
 |---|---|
-| Validasi | `kanal` → `nullable\|in:wa,telepon,langsung,lainnya` · `tanggal` → `nullable\|date\|before_or_equal:today` · `sch_tanggal` dan `sch_tanggal_lain` → `nullable\|date\|after_or_equal:today` |
+| Validasi | `kanal` → `nullable\|in:wa,telepon,langsung,lainnya` · `tanggal` → `nullable\|date\|before_or_equal:today` · **`hasil` → `nullable\|in:` lima kunci `OrtControl::FU_HASIL`** · **`catatan` → `nullable\|string\|max:255`** · `sch_tanggal` dan `sch_tanggal_lain` → `nullable\|date\|after_or_equal:today` |
 | Pagar | tabel ada → 404 · `findOrFail` · `pastikanMilikCabang` → 403 · `closed_at !== null` → *"Kontrol ini sudah ditutup — follow-up tidak bisa dicatat."* |
-| Kolom ditulis | `fu_date` (default hari ini) · `fu_channel` (default `wa`) · `fu_by` = `session('name') ?: 'Sales'` · `updated_by` |
+| Kolom ditulis | `fu_date` (default hari ini) · `fu_channel` (default `wa`) · `fu_by` = `session('name') ?: 'Sales'` · **`fu_result`** (`?? null` — tidak dikirim = NULL, bukan dikarang) · **`fu_note`** (di-trim) · `updated_by` |
 | Kalau jadwal ikut dikirim | + `sch_date` · `is_proposal = 0` · `sch_source = SCH_MANUAL` |
 | Urungkan | ✅ — dan kalau jadwal ikut dipasang, **satu Urungkan memulihkan keduanya** |
 | Realtime | ✅ dicegat JS, fragmen `tabel` menggantikan isi tabel |
@@ -948,7 +948,7 @@ rancangannya. Reservasi `confirmed` tidak berarti pasien datang.
 | `_kalender` (110) | Grid 42 sel, maks 3 chip + "+N lainnya". **Satu-satunya tempat yang masih memakai tanggal kalender** |
 | `_drawer_hari` (66) | Kepala berisi "N jadwal · N sudah reservasi · N belum" |
 | `_drawer_detail` (424) | Kepala gelap + 3 KPI + matriks 8 kolom dengan pemisah transfer + kartu kaki **empat keadaan** |
-| `_sheet` (317) | **Satu berkas empat isi**: `reservasi` · `pindahkan` · `geser` · `jadwalkan` |
+| `_sheet` | **Satu berkas lima isi**: `reservasi` · `pindahkan` · `geser` · `jadwalkan` · `follow-up` *(sejak 4 Okt 2026 — hasil, kanal, tanggal, catatan; menggantikan tombol sekali klik)* |
 | `_drawer_tambah` (188) | **PROTOTIPE** — `onsubmit="return false"`, tombol `ort-btn--mati`. Pintunya sudah dicabut dari `list.blade.php` |
 | `_frag_tabel` (33) | Blok galat + `_toast` + `_tabel`. Urutan toast-sebelum-tabel disengaja |
 | `_toast` (51) | `$idToast` unik per toast |

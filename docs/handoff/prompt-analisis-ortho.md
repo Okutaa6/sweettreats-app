@@ -222,7 +222,7 @@ Yang bisa dilakukan:
 
 | Aksi | Hasilnya |
 |---|---|
-| **Catat Follow-up** | mencatat bahwa pasien sudah dihubungi (telepon/WA/langsung), boleh sekaligus memasang tanggal |
+| **Catat Follow-up** | membuka lembar: **hasil** (dihubungi · tidak respon · minta jadwal ulang · menolak · salah nomor), kanal, tanggal, catatan bebas — boleh sekaligus memasang tanggal. Sejak 4 Okt 2026; sebelumnya sekali klik dan hasilnya tidak pernah tercatat |
 | **Buat Reservasi** | membuka lembar pemesanan |
 | Buka baris (⌄) | panel ringkas: 8 fakta pasien + 4 kontrol terakhir |
 | Klik nama | drawer riwayat lengkap |
@@ -277,9 +277,9 @@ Riwayat lengkap: 3 KPI, matriks kontrol 8 kolom dengan pemisah saat pasien
 berpindah cabang, dan kartu kaki yang berubah empat keadaan (bisa dijadwalkan /
 dipegang cabang lain / perawatan selesai / dsb).
 
-### Empat lembar samping (410px)
+### Lima lembar samping (410px)
 
-`reservasi` · `pindahkan` · `geser` · `jadwalkan`. Satu berkas, empat isi.
+`reservasi` · `pindahkan` · `geser` · `jadwalkan` · `follow-up`. Satu berkas, lima isi.
 
 Lembar **Buat Reservasi** menampilkan **hari praktik dokter pasien itu** lengkap
 jam dan seberapa penuh. Hari yang penuh **tetap ditampilkan** (dinonaktifkan),

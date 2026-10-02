@@ -230,7 +230,7 @@ class OrthoController extends Controller
         ];
 
         // Side sheet (§15): jenisnya dari ?sheet=, subjeknya dari ?kontrol= atau ?kasus=.
-        $sheet = in_array($request->query('sheet'), ['reservasi', 'pindahkan', 'geser', 'jadwalkan'], true)
+        $sheet = in_array($request->query('sheet'), ['reservasi', 'pindahkan', 'geser', 'jadwalkan', 'follow-up'], true)
             ? $request->query('sheet') : null;
         $sheetKontrol = $sheetKasus = null;
         if ($sheet) {
@@ -497,6 +497,15 @@ class OrthoController extends Controller
             'tanggal' => 'nullable|date|before_or_equal:today',
 
             /*
+             * HASIL follow-up (4 Okt 2026). Nullable supaya jalur lama (POST
+             * tanpa form, mis. dari uji) tetap sah — tapi kalau dikirim, wajib
+             * salah satu kunci OrtControl::FU_HASIL, bukan teks bebas. Teks
+             * bebasnya di `catatan`.
+             */
+            'hasil'   => 'nullable|in:' . implode(',', array_keys(OrtControl::FU_HASIL)),
+            'catatan' => 'nullable|string|max:255',
+
+            /*
              * Tanggal yang DISEPAKATI pasien di telepon — beda dari `tanggal`
              * di atas, yang adalah tanggal follow-up-nya sendiri.
              *
@@ -523,12 +532,20 @@ class OrthoController extends Controller
             'fu_date'    => optional($ctl->fu_date)->toDateString(),
             'fu_channel' => $ctl->fu_channel,
             'fu_by'      => $ctl->fu_by,
+            // Potret Urungkan WAJIB memuat keduanya — kalau tidak, Urungkan
+            // memulihkan tanggal tapi meninggalkan hasil yang salah.
+            'fu_result'  => $ctl->fu_result,
+            'fu_note'    => $ctl->fu_note,
         ];
 
         $isian = [
             'fu_date'    => $data['tanggal'] ?? now()->toDateString(),
             'fu_channel' => $data['kanal'] ?? 'wa',
             'fu_by'      => session('name') ?: 'Sales',
+            // ?? bukan ?: — kunci tidak ada bila tidak dikirim (jalur lama).
+            // Kalau dikirim kosong, biarkan kosong: jangan mengarang hasil.
+            'fu_result'  => $data['hasil'] ?? null,
+            'fu_note'    => filled($data['catatan'] ?? null) ? trim($data['catatan']) : null,
             'updated_by' => session('id'),
         ];
 
@@ -595,12 +612,18 @@ class OrthoController extends Controller
             'fu_date'    => optional($ctl->fu_date)->toDateString(),
             'fu_channel' => $ctl->fu_channel,
             'fu_by'      => $ctl->fu_by,
+            'fu_result'  => $ctl->fu_result,
+            'fu_note'    => $ctl->fu_note,
         ];
 
+        // Hasil dan catatan ikut dikosongkan: membatalkan follow-up berarti
+        // "panggilan itu tidak dihitung", termasuk apa pun yang dicatat darinya.
         $ctl->fill([
             'fu_date'    => null,
             'fu_channel' => null,
             'fu_by'      => null,
+            'fu_result'  => null,
+            'fu_note'    => null,
             'updated_by' => session('id'),
         ])->save();
 

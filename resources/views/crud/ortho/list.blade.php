@@ -312,7 +312,7 @@
     /* Jenis lapisan dibaca dari URL-nya — satu tempat, dipakai klik maupun
        tombol Kembali. */
     function jenis(href) {
-        if (/[?&]sheet=(reservasi|pindahkan|geser|jadwalkan)/.test(href)) return 'sheet';
+        if (/[?&]sheet=(reservasi|pindahkan|geser|jadwalkan|follow-up)/.test(href)) return 'sheet';
         if (/[?&]tambah=1/.test(href)) return 'tambah';
         if (/[?&]hari=\d{4}-\d{2}-\d{2}/.test(href)) return 'hari';
         if (POLA_DETAIL.test(href)) return 'drawer';
@@ -439,6 +439,10 @@
             tutup(hostD, urlList, dorong);
         }
     }
+    /* Diekspos untuk IIFE submit di bawah: lembar Catat Follow-up mengirim
+       lewat fetch, lalu sesudah tabel ditukar lembarnya harus ditutup —
+       dan penutupnya hidup di sini, bukan di sana. */
+    window.ortTutupTeratas = tutupTeratas;
 
     /* ── Klik tautan mana pun di halaman ───────────────────────────────────
        Fase CAPTURE, bukan bubbling. Tombol aksi di baris memakai
@@ -548,7 +552,15 @@
         }).then(function (res) {
             // opaqueredirect = 302 yang sengaja tidak diikuti: itu jalur sukses.
             if (res.type !== 'opaqueredirect' && !res.ok) throw new Error('gagal');
-            return segarkan();
+            return segarkan().then(function () {
+                /* Kalau form-nya datang dari lembar (Catat Follow-up sejak
+                   4 Okt 2026), lembarnya ditutup SESUDAH tabel ditukar —
+                   bukan sebelum, supaya kalau segarkan() gagal, lembar
+                   masih terbuka dan jatuh ke f.submit() di catch. */
+                if (window.ortTutupTeratas && document.querySelector('#ortSheetHost .ort-sheet')) {
+                    window.ortTutupTeratas(true);
+                }
+            });
         }).catch(function () {
             delete f.dataset.sibuk;
             if (tombol) { tombol.disabled = false; tombol.classList.remove('is-sibuk'); }

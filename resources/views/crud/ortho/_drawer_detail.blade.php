@@ -306,11 +306,12 @@
                             @elseif ($aksi === 'follow_up')
                                 {{-- Aksi yang sama dengan tombol di baris List — jangan
                                      dibiarkan mati di sini, bikin bingung. --}}
-                                <form method="POST" action="{{ route('ortho.followup', $k->id) }}" style="display:inline-flex;">
-                                    @csrf
-                                    <button type="submit" class="ort-btn ort-btn--sm"
-                                            title="Catat follow-up hari ini lewat WhatsApp">{{ $labelAksi[$aksi] }}</button>
-                                </form>
+                                {{-- Sejak 4 Okt 2026 membuka lembar hasil follow-up, bukan
+                                     submit sekali klik — sama dengan tombol di baris List.
+                                     Lembar ditumpuk di atas drawer ini (host terpisah). --}}
+                                <a href="{{ route('ortho.detail', $c->id) }}?{{ http_build_query(array_merge($qs, ['sheet' => 'follow-up', 'kontrol' => $k->id])) }}"
+                                   class="ort-btn ort-btn--sm"
+                                   title="Catat hasil follow-up pasien ini">{{ $labelAksi[$aksi] }}</a>
                             @elseif ($aksi === 'buat_reservasi')
                                 {{-- Sama dengan tombol di baris List: membuka lembar
                                      reservasi, yang lalu mengoper ke form Reservasi. --}}
