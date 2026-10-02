@@ -145,6 +145,49 @@ class OrtoPemilihCabangTest extends TestCase
         return str_contains($html, 'ort-btab ort-btab--pick');
     }
 
+    /**
+     * Kelompok "di cabang lain" — tombol pembuka DAN pil cabangnya harus berada
+     * di dalam SATU pembungkus `.ort-btablain`, sementara pil cabang utama
+     * tetap di luar.
+     *
+     * ⚠ Diperiksa lewat DOM, bukan cocok-string. Urutan atribut dan baris baru
+     *   yang ditinggalkan Blade membuat regex hijau/merah untuk alasan yang
+     *   bukan strukturnya.
+     *
+     * @return array{dalam:int, tombol:bool, utamaDiLuar:int}|null
+     */
+    private function strukturKelompok(string $html): ?array
+    {
+        $d = new \DOMDocument();
+        libxml_use_internal_errors(true);
+        $d->loadHTML('<?xml encoding="utf-8"?>' . $html);
+        libxml_clear_errors();
+
+        $x = new \DOMXPath($d);
+        $bungkus = $x->query("//span[@class='ort-btablain']")->item(0);
+        if (! $bungkus) {
+            return null;
+        }
+        $strip = $x->query("//div[contains(@class,'ort-branchtabs')]")->item(0);
+
+        /* ⚠ JANGAN contains(@class,'ort-btab'): ia juga cocok dengan
+           `ort-btabpick` DAN `ort-btablain` — dua pembungkus, bukan pil. Yang
+           dihitung di sini elemennya langsung: <a> pil cabang di dalam, dan
+           penanda cabang utama (bintang / tombol dropdown) di luar. */
+        return [
+            'dalam'  => $x->query(".//a[contains(@class,'ort-btab ')]", $bungkus)->length,
+            'tombol' => $x->query(".//button[contains(@class,'ort-btab--more')]", $bungkus)->length === 1,
+            // Cabang utama: pil berbintang (user terkunci) atau tombol dropdown
+            // (role lintas cabang). Keduanya WAJIB di luar pembungkus.
+            'utamaDiDalam' => $x->query(
+                ".//*[contains(@class,'ort-btab__star') or contains(@class,'ort-btab--pick')]", $bungkus
+            )->length,
+            'utamaDiLuar'  => $x->query(
+                "//*[contains(@class,'ort-btab__star') or contains(@class,'ort-btab--pick')]"
+            )->length,
+        ];
+    }
+
     /** @return array{0:string,1:string} [place_id, nama] cabang ke-$i */
     private function cabangKe(int $i): array
     {
@@ -276,4 +319,48 @@ class OrtoPemilihCabangTest extends TestCase
             "canSeeAllBranches() untuk {$role} berubah — perbaikan pemilih cabang ortho tidak boleh menyentuh konstanta ini."
         );
     }
+
+    // ── Kelompok "di cabang lain" ───────────────────────────────────────────
+
+    /**
+     * ⭐ Tombol pembuka dan cabang-cabangnya satu kesatuan.
+     *
+     * Sebelum 5 Okt 2026 ketiganya pil sejajar di flex row yang sama dengan pil
+     * cabang utama — saat strip dibuka, "Sunter/Cinere/Pamulang" terbaca setara
+     * dengan "Bintaro", padahal mereka milik tombol di kirinya dan isinya
+     * lihat-saja.
+     */
+    public function test_cabang_lain_dibungkus_jadi_satu_kelompok(): void
+    {
+        $html = $this->withSession($this->sesi('Supervisor'))
+            ->get('/tracking-ortho?' . http_build_query(['utama' => $this->cabangKe(0)[0]]))
+            ->assertOk()->getContent();
+
+        $s = $this->strukturKelompok($html);
+        if ($s === null) {
+            $this->markTestSkipped('Cabang utama ini tidak punya pasien di cabang lain — stripnya memang tidak dirender.');
+        }
+
+        $this->assertTrue($s['tombol'], 'Tombol pembuka wajib DI DALAM pembungkus.');
+        $this->assertGreaterThan(0, $s['dalam'], 'Pil cabang lain wajib DI DALAM pembungkus.');
+    }
+
+    /** Pil cabang utama TIDAK ikut terbungkus — ia bukan bagian kelompok ini. */
+    public function test_cabang_utama_tetap_di_luar_kelompok(): void
+    {
+        $html = $this->withSession($this->sesi('Supervisor'))
+            ->get('/tracking-ortho?' . http_build_query(['utama' => $this->cabangKe(0)[0]]))
+            ->assertOk()->getContent();
+
+        $s = $this->strukturKelompok($html);
+        if ($s === null) {
+            $this->markTestSkipped('Cabang utama ini tidak punya pasien di cabang lain.');
+        }
+
+        $this->assertSame(0, $s['utamaDiDalam'],
+            'Cabang utama TIDAK boleh ikut terbungkus — ia bukan bagian kelompok "di cabang lain".');
+        $this->assertGreaterThan(0, $s['utamaDiLuar'],
+            'Prasyarat: penanda cabang utama (bintang / dropdown) memang dirender.');
+    }
 }
+

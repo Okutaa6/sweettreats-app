@@ -130,6 +130,40 @@
      menekan Tab akan mendarat di tab cabang yang tak terlihat. Ditunda sampai
      transisinya selesai (0s linear .32s) supaya tidak lenyap seketika saat
      menutup. */
+/* ── Kelompok "di cabang lain" ────────────────────────────────────────────
+   Tombol pembuka + cabang-cabangnya dibaca SATU kesatuan. Sebelum ini
+   ketiganya pil sejajar di flex row yang sama dengan pil cabang utama, jadi
+   saat strip dibuka "Sunter/Cinere/Pamulang" terbaca setara dengan "Bintaro"
+   — padahal mereka milik tombol di kirinya, dan isinya lihat-saja.
+
+   Mengikuti kosakata yang sudah ada di berkas ini: .ort-utabs juga wadah
+   berbingkai radius 14 berisi pil radius 10. Bukan pola baru.
+
+   ⚠ Wadahnya HANYA terlihat saat terbuka. Saat tertutup ia transparan dan
+     tanpa padding, jadi bentuknya persis satu pil seperti dulu — kalau ikut
+     terlihat saat tertutup, ia jadi bingkai ganda mengelilingi satu tombol. */
+.ort-btablain {
+  display: inline-flex; align-items: center; gap: 8px;
+  border: 1px solid transparent; border-radius: 14px;
+  padding: 0; background: transparent;
+  transition: background .24s ease .06s, border-color .24s ease .06s,
+              padding .32s cubic-bezier(.22, .61, .36, 1);
+}
+.ort-branchtabs.is-open .ort-btablain {
+  background: var(--ort-strip);
+  border-color: var(--ort-line);
+  padding: 5px;
+}
+/* Tombol pembuka jadi LABEL kelompok saat terbuka: bingkainya dilepas supaya
+   tidak ada kotak di dalam kotak, dan latarnya putih supaya tetap terbaca
+   sebagai tombol di atas permukaan wadah yang krem. */
+.ort-branchtabs.is-open .ort-btablain .ort-btab--more {
+  border-color: transparent;
+  background: #fff;
+}
+/* Saat tertutup, pil-pil di dalamnya tidak boleh menyisakan ruang. */
+.ort-btablain .ort-branchtabs__wrap { align-self: stretch; }
+
 .ort-branchtabs__wrap {
   display: grid; grid-template-columns: 0fr;
   opacity: 0; visibility: hidden;

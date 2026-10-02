@@ -304,6 +304,8 @@ panel baris) · `.ort-segbig` (radio-sebagai-tombol 3 kolom di drawer Tambah).
 
 | Kelas | Guna |
 |---|---|
+| `.ort-btablain` | **Pembungkus kelompok** *(5 Okt 2026)*: tombol pembuka + pil cabangnya jadi satu kesatuan. Transparan saat tertutup — bentuknya persis satu pil seperti dulu; saat terbuka dapat latar `--ort-strip`, bingkai `--ort-line`, radius 14, padding 5. Mengikuti kosakata `.ort-utabs` yang sudah ada, bukan pola baru. Pil cabang **utama** sengaja di luar |
+| `.ort-branchtabs.is-open .ort-btab--more` | Tombol pembuka jadi **label kelompok**: bingkainya dilepas supaya tidak ada kotak di dalam kotak, latarnya putih supaya tetap terbaca sebagai tombol di atas permukaan krem |
 | `.ort-branchtabs__wrap` | Lapis **beranimasi**: `grid-template-columns: 0fr → 1fr` .32s + opacity .2s + `visibility 0s linear .32s` |
 | `.ort-branchtabs__more` | Lapis **pemotong**: `overflow:hidden`, padding/margin ±6px memberi ruang shadow hover |
 | `.ort-branchtabs__more > *` | `flex:none` — tab terpotong, bukan mengempis |

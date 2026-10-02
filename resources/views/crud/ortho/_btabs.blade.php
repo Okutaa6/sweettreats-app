@@ -85,6 +85,17 @@
         @endif
 
         @if (! empty($perCabangLain))
+            {{-- Pembungkus: tombol pembuka + cabang-cabangnya dibaca SATU
+                 kesatuan. Tanpa ini ketiganya pil sejajar di flex row yang sama
+                 dengan pil cabang utama, jadi saat strip dibuka "Sunter",
+                 "Cinere", "Pamulang" terbaca setara dengan "Bintaro" — padahal
+                 mereka milik tombol di sebelah kirinya, dan isinya lihat-saja.
+
+                 Wadahnya hanya terlihat saat TERBUKA (lihat .ort-btablain di
+                 CSS). Saat tertutup, bentuknya persis satu pil seperti dulu —
+                 kalau wadahnya ikut terlihat saat tertutup, ia jadi bingkai
+                 ganda mengelilingi satu tombol. --}}
+            <span class="ort-btablain">
             <button type="button" class="ort-btab ort-btab--more"
                     data-ort-btabs-toggle
                     aria-expanded="{{ $paksaBuka ? 'true' : 'false' }}"
@@ -125,6 +136,7 @@
                     </span>
                 </div>
             </div>
+            </span>
         @endif
     </div>
 
