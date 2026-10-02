@@ -13,5 +13,21 @@
     beberapa kolom sekaligus di _tabel.blade.php. Menirunya di JS berarti dua
     sumber kebenaran yang pasti melenceng suatu hari.
 --}}
+{{-- Galat HARUS ikut dirender di sini.
+
+     layouts.notif hidup di kerangka halaman, dan kerangka itu tidak pernah
+     dimuat lagi saat aksi dikirim lewat fetch. Jadi aksi yang DITOLAK server
+     (mis. kontrol sudah ditutup lebih dulu oleh tarikan malam) dulu berakhir
+     tanpa satu pun tanda di layar: tabelnya dirender ulang, isinya sama,
+     dan Sales mengira kliknya tidak terbaca lalu mengklik lagi. --}}
+@if (session('error'))
+    <div class="ort-toast ort-toast--galat" role="alert" data-ort-toast="galat">
+        <i class="fas fa-exclamation-circle"></i>
+        <span>{{ session('error') }}</span>
+        <button type="button" class="ort-toast__x" aria-label="Tutup"
+                onclick="this.closest('.ort-toast').remove()">&times;</button>
+    </div>
+@endif
+
 @include('crud.ortho._toast')
 @include('crud.ortho._tabel')

@@ -1514,3 +1514,14 @@ button.ort-btn { border: none; font-family: inherit; cursor: pointer; }
   font-size: 12.5px; color: var(--ort-ink2); line-height: 1.5;
 }
 .ort-callfacts strong { color: var(--ort-ink); font-weight: 800; }
+
+/* Toast GALAT — hanya lahir di fragmen (aksi lewat fetch). Di muat-ulang
+   penuh, galat tetap ditangani layouts.notif seperti biasa; merendernya di
+   kedua tempat akan membuatnya tampil dua kali. */
+.ort-toast--galat { background: var(--ort-bad); }
+.ort-toast--galat i { color: #fff; }
+
+/* Tombol yang sedang menunggu jawaban server. Bukan sekadar disabled:
+   tanpa penanda, tombol yang mati terbaca seperti tombol rusak. */
+.ort-btn.is-sibuk,
+.ort-obtn.is-sibuk { opacity: .6; cursor: progress; }

@@ -499,7 +499,7 @@
 </script>
 
 <script>
-/* ── Batalkan follow-up tanpa memuat ulang halaman ─────────────────────────
+/* ── Aksi tulis di baris, tanpa memuat ulang halaman ─────────────────────────
    Pendengarnya di KERANGKA halaman, bukan di _tabel: tabelnya sendiri yang
    nanti ditukar, jadi pendengar yang menempel di sana akan ikut hilang.
    Delegasi di document + fase capture, sejalan dengan penyadap tautan di atas.
@@ -511,7 +511,15 @@
    Tanpa JS (atau kalau jaringan gagal) form-nya terkirim seperti biasa dan
    halaman dimuat ulang — jalur lama tidak pernah dicabut. */
 (function () {
-    var POLA = /\/batal-follow-up$/;
+    /* Tiga aksi, dan ketiganya harus ikut supaya alurnya tidak pincang:
+       mencatat follow-up, membatalkannya, dan Urungkan di toast. Dulu hanya
+       yang tengah — jadi MEMBATALKAN tinggal di tempat sementara MENCATAT
+       melompat ke atas halaman, padahal yang terakhir itu justru tombol yang
+       ditekan puluhan kali sehari.
+
+       `batal-follow-up` ikut tertangkap pola yang sama karena ia memang
+       berakhiran `follow-up` juga, dan memang harus berperilaku sama. */
+    var POLA = /\/(batal-)?follow-up$|\/urungkan\/[A-Za-z0-9]{32}$/;
 
     document.addEventListener('submit', function (e) {
         var f = e.target;
@@ -522,8 +530,11 @@
         if (f.dataset.sibuk) return;          // klik ganda
         f.dataset.sibuk = '1';
 
+        /* Tombol dimatikan DAN diberi tanda sibuk. Tombol yang cuma mati
+           terbaca seperti tombol rusak; penandanya yang bilang "sedang
+           menunggu jawaban", bukan "tidak bisa ditekan". */
         var tombol = f.querySelector('button');
-        if (tombol) tombol.disabled = true;
+        if (tombol) { tombol.disabled = true; tombol.classList.add('is-sibuk'); }
 
         /* redirect:'manual' WAJIB. Kalau redirect-nya diikuti, permintaan itu
            yang memakan flash session, dan toast-nya tidak pernah sampai ke
@@ -540,7 +551,7 @@
             return segarkan();
         }).catch(function () {
             delete f.dataset.sibuk;
-            if (tombol) tombol.disabled = false;
+            if (tombol) { tombol.disabled = false; tombol.classList.remove('is-sibuk'); }
             f.submit();                        // jatuh ke cara lama
         });
     }, true);
