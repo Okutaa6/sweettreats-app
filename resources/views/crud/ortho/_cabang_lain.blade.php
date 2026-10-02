@@ -95,11 +95,11 @@
 
                     <div class="ort-cell {{ $telatBerikut > 0 ? 'ort-late' : '' }}">
                         @if ($c->next_sch_date)
-                            <span class="tabular">{{ $c->next_sch_date->translatedFormat("j M 'y") }}</span>
+                            <span>{{ \App\Models\OrtControl::perkiraanJatuhTempo($c->next_sch_date, $hariIni) }}</span>
                             @if ($telatBerikut > 0)
                                 <span class="ort-cell--sub tabular">{{ $telatBerikut }} hari lalu</span>
                             @else
-                                <span class="ort-cell--sub">{{ $c->next_is_proposal ? 'usulan' : 'menunggu' }}</span>
+                                <span class="ort-cell--sub">{{ $c->next_is_proposal ? 'dihitung sistem' : 'menunggu' }}</span>
                             @endif
                         @else
                             <span class="ort-x">belum dijadwalkan</span>

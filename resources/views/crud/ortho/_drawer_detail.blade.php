@@ -77,9 +77,14 @@
             'tombol' => 'Jadwalkan kontrol #1', 'aktif' => true,
             'hint'   => 'Pasien ini dimuat dari rekam medis dan belum pernah dijadwalkan. Tentukan tanggal kontrol pertamanya.',
         ],
+        /* Dulu berbunyi "Sistem mengusulkan 28 Okt '26 — Konfirmasi kalau sudah
+           disepakati". Dua hal salah di situ: tombol Konfirmasi sudah dibuang,
+           dan tanggalnya tebakan yang tidak pantas disebut sepasti itu. */
         $terbuka && $terbuka->is_proposal => [
-            'tombol' => 'Konfirmasi jadwal #' . $terbuka->seq, 'aktif' => true,
-            'hint'   => 'Sistem mengusulkan ' . $terbuka->sch_date->translatedFormat("j M 'y") . ' — 30 hari setelah kontrol #' . ($terbuka->seq - 1) . '. Konfirmasi kalau sudah disepakati dengan pasien, atau geser tanggalnya dari baris di tab List.',
+            'tombol' => 'Jadwalkan kontrol #' . $seqBerikut, 'aktif' => false,
+            'hint'   => 'Kontrol #' . $terbuka->seq . ' jatuh tempo '
+                      . \Illuminate\Support\Str::lcfirst(\App\Models\OrtControl::perkiraanJatuhTempo($terbuka->sch_date, $hariIni))
+                      . ' — dihitung dari kontrol sebelumnya. Tanggal pastinya ditentukan saat membuat reservasi, dari hari praktik dokternya.',
         ],
         (bool) $terbuka => [
             'tombol' => 'Jadwalkan kontrol #' . $seqBerikut, 'aktif' => false,
@@ -249,8 +254,17 @@
                     <div class="ort-matrix__grid">
                         <div class="ort-matrix__n tabular">{{ $k->seq }}</div>
 
+                        {{-- Kontrol yang sudah TERTUTUP menampilkan tanggalnya apa
+                             adanya: itu riwayat, dan riwayat memang bertanggal.
+                             Hanya baris yang masih terbuka yang tanggalnya hasil
+                             hitungan, dan ia memakai kalimat perkiraan yang sama
+                             dengan kolom Jadwal di tab List. --}}
                         <div class="tabular {{ $k->is_proposal ? 'ort-proposal' : '' }}">
-                            {{ $k->sch_date->translatedFormat("j M 'y") }}
+                            @if ($k->isTerbuka() && $k->is_proposal)
+                                {{ \App\Models\OrtControl::perkiraanJatuhTempo($k->sch_date, $hariIni) }}
+                            @else
+                                {{ $k->sch_date->translatedFormat("j M 'y") }}
+                            @endif
                         </div>
 
                         <div class="tabular">{{ $k->fu_date ? $k->fu_date->translatedFormat('j M') : '' }}

@@ -231,7 +231,9 @@
                      data-href-fu="{{ $waRow ? 'https://wa.me/' . $wa : '' }}"
                      data-href-rsv="{{ $m->rsv_date ? route('rawreservation', ['date_from' => $m->rsv_date->toDateString(), 'date_to' => $m->rsv_date->toDateString()]) : '' }}">
                     <span class="ort-mini__n">#{{ $m->seq }}</span>
-                    <span class="ort-mini__d tabular">{{ $m->sch_date->translatedFormat("j M 'y") }}</span>
+                    {{-- Riwayat bertanggal, yang terbuka jadi perkiraan — aturan
+                         yang sama dengan kolom Jadwal di tab List. --}}
+                    <span class="ort-mini__d tabular">@if ($m->isTerbuka() && $m->is_proposal){{ \App\Models\OrtControl::perkiraanJatuhTempo($m->sch_date, $hariIni) }}@else{{ $m->sch_date->translatedFormat("j M 'y") }}@endif</span>
 
                     <span class="ort-mini__x" data-v="semua">{{ $dAll }}</span>
                     <span class="ort-mini__x" data-v="fu" hidden>{{ $dFu }}</span>

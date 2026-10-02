@@ -176,21 +176,28 @@
                     {{-- DOKTER --}}
                     <div class="ort-cell ort-clamp2" title="{{ $r->doctor_name }}">{{ $r->doctor_name ?: '—' }}</div>
 
-                    {{-- JADWAL — tanggal jatuh tempo, TEKS POLOS.
+                    {{-- JADWAL — PERKIRAAN, bukan tanggal.
 
-                         Kolom ini lebarnya 112px. Dulu ia memuat tanggal yang
-                         bisa diklik, garis putus-putus, DAN dua baris keterangan
-                         irama — semuanya membungkus dan saling berdesakan.
-                         Keterangan iramanya tidak hilang: ia ada di panel baris
-                         (tanda ⌄), di tempat yang punya ruang untuk membacanya.
+                         Tanggalnya tebakan: irama pasien sendiri meleset 14 hari
+                         (terukur prod), dan tanggal sungguhannya baru ditentukan
+                         saat Sales menelepon lalu menawarkan hari praktik dokter.
+                         Menuliskan "28 Okt '26" memberi ketepatan yang tidak kita
+                         punya — dan Sales menyebutkannya ke pasien.
 
-                         Tidak ada tombol di sini lagi. Satu kolom satu pekerjaan:
-                         kolom ini menjawab KAPAN, kolom Tindakan menjawab APA. --}}
+                         Satuannya mengikuti yang memang dipakai Sales: sheet lama
+                         mereka punya 30 kolom BULAN, dan ukuran yang mereka
+                         tetapkan sendiri "kurang dari 2 kunjungan dalam 6 bulan".
+
+                         Yang sudah lewat berbunyi "Sudah waktunya" saja — chip
+                         Status di sebelah kanan yang membawa seberapa telatnya.
+                         Dua kolom tidak boleh mengatakan hal yang sama.
+
+                         ⚠ Tanggalnya sendiri TIDAK hilang: ia tetap mengurutkan
+                           daftar, memilah sub-tab, mengisi kartu, dan jadi default
+                           saat lembar Buat Reservasi dibuka. --}}
                     <div class="ort-cell {{ $telat ? 'ort-late' : '' }}">
-                        <span class="tabular">{{ \Carbon\Carbon::parse($r->sch_date)->translatedFormat("j M 'y") }}</span>
-                        @if ($telat)
-                            <span class="ort-cell--sub tabular">{{ $hariLewat }} hari lalu</span>
-                        @endif
+                        {{ \App\Models\OrtControl::perkiraanJatuhTempo(
+                            \Carbon\Carbon::parse($r->sch_date), $hariIni) }}
                     </div>
 
                     {{-- FOLLOW-UP --}}

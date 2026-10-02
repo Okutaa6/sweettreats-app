@@ -120,7 +120,9 @@
                 @endphp
                 <div class="ort-mini__row">
                     <span class="ort-mini__n">#{{ $m->seq }}</span>
-                    <span class="ort-mini__d tabular">{{ $m->sch_date->translatedFormat("j M 'y") }}</span>
+                    {{-- Riwayat bertanggal, yang terbuka jadi perkiraan — aturan
+                         yang sama dengan kolom Jadwal di tab List. --}}
+                    <span class="ort-mini__d tabular">@if ($m->isTerbuka() && $m->is_proposal){{ \App\Models\OrtControl::perkiraanJatuhTempo($m->sch_date, $hariIni) }}@else{{ $m->sch_date->translatedFormat("j M 'y") }}@endif</span>
                     <span class="ort-mini__x">
                         FU {{ $m->fu_date ? $m->fu_date->translatedFormat('j M') : 'X' }} ·
                         RSV {{ $m->rsv_date ? $m->rsv_date->translatedFormat('j M') : 'X' }} ·

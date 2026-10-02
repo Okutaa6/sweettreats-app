@@ -4,6 +4,18 @@
     Grid bulanan berisi JADWAL KONTROL (sch_date), bukan kunjungan. Gunanya
     melihat beban minggu depan dan menyisir yang terlewat.
 
+    ⚠ SATU-SATUNYA TEMPAT YANG MASIH MENEMPATKAN PASIEN DI TANGGAL TERTENTU,
+      dan itu disengaja. Di tab List, kolom Jadwal sudah berhenti menyebut
+      tanggal dan berganti perkiraan ("± Nov", "Pekan ini") karena tanggalnya
+      tebakan — irama pasien sendiri meleset 14 hari, dan tanggal pastinya baru
+      lahir saat reservasi dibuat.
+
+      Di sini tanggal tetap dipakai karena papan ini memang alat MENGHITUNG
+      BEBAN: "berapa orang jatuh tempo minggu depan". Mengganti kotak tanggal
+      dengan perkiraan membuat gridnya kehilangan seluruh gunanya. Yang dilihat
+      di sini sebaran, bukan janji — dan perbedaan itu yang membuatnya tetap
+      jujur meski bertanggal.
+
     Yang harus terasa:
       • Tanggal yang punya jadwal TERLEWAT diberi latar merah muda — supaya
         langsung kelihatan saat menggulir bulan ke belakang.

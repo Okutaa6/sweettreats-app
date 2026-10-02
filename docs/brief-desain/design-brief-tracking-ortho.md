@@ -289,7 +289,7 @@ sempat didesain bagus, pilih yang ini.
    |---|---|
    | **Pasien** | Nama tebal. Baris kecil di bawahnya: no. RM · jenis bracket · "kontrol ke-4" |
    | **Dokter** | Nama dokter ortho |
-   | **Jadwal** | Tanggal ("12 Jan 27"). Kalau terlewat: tanggal merah + baris kecil "6 hari lalu" |
+   | **Jadwal** | ⚠ DIUBAH 2 Okt 2026: bukan tanggal, melainkan PERKIRAAN — "Pekan ini", "± 3 pekan lagi", "± Nov", dan "Sudah waktunya" untuk yang terlewat. Tanggalnya tebakan (irama pasien meleset 14 hari) dan tanggal pastinya baru lahir saat reservasi dibuat; seberapa telatnya dibawa chip Status |
    | **Follow-up** | Tanggal + ikon kanal kecil (WA / telepon). Belum ada → **`X` muted** |
    | **Reservasi** | Tanggal + chip status kecil. Belum ada → tombol mungil `Buat Reservasi`. Waitlist tanpa tanggal → tulis **"Waitlist"**, jangan `X` |
    | **Datang** | Tanggal. Belum ada → **`X` muted** |

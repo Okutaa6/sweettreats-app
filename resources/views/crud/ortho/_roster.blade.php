@@ -118,7 +118,7 @@
                         @else
                             <div class="ort-stat__k">Berikutnya</div>
                             <div class="ort-stat__v tabular" style="color:{{ $warnaBerikut }}">
-                                {{ $c->next_sch_date ? $c->next_sch_date->translatedFormat("j M 'y") : '—' }}
+                                {{ $c->next_sch_date ? \App\Models\OrtControl::perkiraanJatuhTempo($c->next_sch_date, $hariIni) : '—' }}
                             </div>
                         @endif
                     </div>
@@ -215,8 +215,8 @@
                                 @endif
                                 <span class="ort-cell--sub">{{ $sTeks }}</span>
                             @elseif ($c->next_sch_date)
-                                <span class="ort-datepill tabular" style="background:{{ $bg }};color:{{ $fg }};">
-                                    {{ $c->next_sch_date->translatedFormat('j M') }}
+                                <span class="ort-datepill" style="background:{{ $bg }};color:{{ $fg }};">
+                                    {{ \App\Models\OrtControl::perkiraanJatuhTempo($c->next_sch_date, $hariIni) }}
                                 </span>
                                 @if ($telat > 0)
                                     <span class="ort-cell--sub ort-sub-red tabular">Terlewat {{ $telat }} hari</span>

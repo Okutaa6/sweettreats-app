@@ -133,6 +133,52 @@ class OrtControl extends Model
             ->addDays($majuHari ?? self::USULAN_MAJU_HARI);
     }
 
+    /**
+     * Jatuh tempo diterjemahkan jadi PERKIRAAN yang bisa diucapkan — bukan
+     * tanggal kalender.
+     *
+     * ─────────────────────────────────────────────────────────────────────
+     * KENAPA BUKAN TANGGAL
+     * ─────────────────────────────────────────────────────────────────────
+     * Tanggalnya tebakan: irama pasien sendiri pun meleset 14 hari (terukur
+     * prod), dan tanggal sungguhannya baru ditentukan saat Sales menelepon dan
+     * menawarkan hari praktik dokter. Menuliskan "28 Okt '26" memberi
+     * ketepatan yang tidak kita punya, dan Sales menyebutkannya ke pasien.
+     *
+     * Satuannya mengikuti yang MEMANG dipakai Sales hari ini: sheet mereka
+     * punya 30 kolom BULAN, dan ukuran yang mereka tetapkan sendiri "kurang
+     * dari 2 kunjungan dalam 6 bulan". Jadi jauh = bulan, dekat = pekan.
+     *
+     * ⚠ Yang sudah lewat TIDAK mengulang chip Status. Chip sudah berbunyi
+     *   "Terlewat 6 hari"; kolom ini cuma menjawab "kapan kira-kira waktunya",
+     *   jadi untuk mereka jawabannya "Sudah waktunya" dan titik.
+     *
+     * Murni fungsi tanggal — tanpa kueri, tanpa model — supaya tabel, drawer,
+     * dan uji memakai kalimat yang sama persis. Pola yang sama dengan
+     * OrtCase::irama().
+     */
+    public static function perkiraanJatuhTempo(CarbonInterface $tempo, ?CarbonInterface $hariIni = null): string
+    {
+        $tempo   = Carbon::instance($tempo)->startOfDay();
+        $hariIni = $hariIni ? Carbon::instance($hariIni)->startOfDay() : Carbon::today();
+
+        $selisih = $hariIni->diffInDays($tempo, false);
+
+        if ($selisih < 0)  { return 'Sudah waktunya'; }
+        if ($selisih === 0) { return 'Hari ini'; }
+        if ($selisih <= 6)  { return 'Pekan ini'; }
+
+        if ($selisih <= 27) {
+            return '± ' . max(1, (int) round($selisih / 7)) . ' pekan lagi';
+        }
+
+        // Tahun ikut ditulis hanya kalau beda tahun — "± Jan" di bulan Desember
+        // bisa dibaca Januari yang baru lewat.
+        return '± ' . $tempo->translatedFormat(
+            $tempo->year === $hariIni->year ? 'M' : "M 'y"
+        );
+    }
+
     /** Ambang derajat keterlambatan. */
     public const TERLEWAT_PARAH_HARI = 14;
 
