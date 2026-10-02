@@ -123,15 +123,22 @@ diberi tahu** saat jatuh tempo dihitung. Jadi tidak ada yang bisa "mustahil".
 Jatuh tempo **boleh jatuh di hari Minggu, boleh jatuh di masa lalu** — kalau
 pasien memang sudah waktunya kontrol tiga minggu lalu, itu faktanya.
 
-### Dan kolomnya tidak menampilkan tanggal
+### Kolomnya menampilkan tanggal — tapi ditandai
 
-Kolom Jadwal berbunyi:
+Kolom Jadwal berbunyi `31 Agt '26`, dengan **garis putus amber** selama
+tanggalnya masih hitungan mesin, dan perkiraannya (`Sudah waktunya`,
+`± 3 pekan lagi`) di tooltip.
 
-```
-Sudah waktunya  ·  Hari ini  ·  Pekan ini  ·  ± 3 pekan lagi  ·  ± Nov
-```
+⚠ Antara 2–5 Okt 2026 kolom ini sempat menampilkan **perkiraan saja**, lalu
+dibatalkan. Alasan membatalkannya penting kalau kamu hendak menyarankannya
+lagi: perkiraan memberi masa depan **empat tingkat** tapi masa lalu cuma
+**satu ember** ("Sudah waktunya"), sementara daftar diurutkan dari jatuh tempo
+terdekat — jadi semua yang terlambat menumpuk di paling atas dan di situ
+kehilangan pembeda. Terukur: enam baris teratas semuanya "Sudah waktunya",
+padahal yang satu telat 32 hari dan lima sisanya 2–3 hari.
 
-**Bukan** `2026-11-14`. Alasannya tiga:
+Tiga alasan di bawah ini **masih berlaku** sebagai pembatas — ia menjelaskan
+kenapa tanggalnya ditandai sebagai hitungan, bukan dipajang sebagai janji:
 
 1. Spreadsheet Sales **tidak punya kolom tanggal kontrol berikutnya** — jadi
    satuan itu tidak pernah dipakai di lapangan.

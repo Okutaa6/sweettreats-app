@@ -282,7 +282,7 @@
                     <span class="ort-mini__n">#{{ $m->seq }}</span>
                     {{-- Riwayat bertanggal, yang terbuka jadi perkiraan — aturan
                          yang sama dengan kolom Jadwal di tab List. --}}
-                    <span class="ort-mini__d tabular">@if ($m->isTerbuka() && $m->is_proposal){{ \App\Models\OrtControl::perkiraanJatuhTempo($m->sch_date, $hariIni) }}@else{{ $m->sch_date->translatedFormat("j M 'y") }}@endif</span>
+                    <span class="ort-mini__d tabular" @if ($m->isTerbuka() && $m->is_proposal)title="{{ \App\Models\OrtControl::perkiraanJatuhTempo($m->sch_date, $hariIni) }} · dihitung sistem"@endif>{{ $m->sch_date->translatedFormat("j M 'y") }}</span>
 
                     <span class="ort-mini__x" data-v="semua">{{ $dAll }}</span>
                     <span class="ort-mini__x" data-v="fu" hidden>{{ $dFu }}</span>

@@ -126,27 +126,45 @@ cabang, teks instruksi "klik baris untuk…", emoji, dan dialog konfirmasi.
 
 ---
 
-## 4. Kolom Jadwal — perkiraan, bukan tanggal
+## 4. Kolom Jadwal — tanggal jatuh tempo
 
-Kolom ini **tidak menampilkan tanggal kalender**. Tanggalnya tebakan: irama
-pasien sendiri meleset 14 hari, dan tanggal pastinya baru lahir saat reservasi
-dibuat. Menulis "28 Okt '26" memberi ketepatan yang tidak kita punya — dan
-Sales menyebutkannya ke pasien di telepon.
+Kolom ini menampilkan **tanggal**: `31 Agt '26`. Perkiraannya pindah ke tooltip.
 
-| Jatuh tempo | Kolom berbunyi |
+### Sempat jadi perkiraan, lalu dibatalkan — dan ini alasannya
+
+Antara 2–5 Okt 2026 kolom ini berbunyi `Sudah waktunya` · `Hari ini` ·
+`Pekan ini` · `± 3 pekan lagi` · `± Nov`, supaya tidak memberi ketepatan yang
+memang tidak kita punya. Niatnya benar, efeknya di layar kerja tidak:
+
+> masa depan dapat **empat tingkat**, tapi masa lalu cuma **satu ember**.
+
+Daftar diurutkan dari jatuh tempo terdekat, jadi semua yang terlambat menumpuk
+di paling atas — tepat di situ mereka kehilangan pembeda. Terukur di DB
+pengembangan:
+
+| Pasien | Kolom berbunyi | Sebenarnya telat |
+|---|---|---|
+| ANDIKA ISMONO | Sudah waktunya | **32 hari** |
+| Agies Aulia | Sudah waktunya | 3 hari |
+| LIA FITRIANI | Sudah waktunya | 2 hari |
+| tiga lainnya | Sudah waktunya | 2 hari |
+
+Enam belas kali lebih genting, tampil sama persis. **Itu penyakit yang sama
+dengan lantai `MIN_MAJU_HARI` yang sudah dicabut** — yang satu meratakan
+*datanya*, yang satu lagi meratakan *tampilannya*.
+
+Tanggal membedakan sendiri tanpa perlu tingkatan: `31 Agt` di atas `30 Sep`
+langsung terbaca jauh lebih tertinggal.
+
+### Kejujurannya dipindah, bukan dibuang
+
+| Penanda | Artinya |
 |---|---|
-| sudah lewat | `Sudah waktunya` |
-| hari ini | `Hari ini` |
-| 1–6 hari lagi | `Pekan ini` |
-| 7–27 hari lagi | `± N pekan lagi` |
-| 28 hari ke atas | `± Nov` (tahun ikut kalau beda tahun) |
+| Garis putus amber (`.ort-proposal`) | tanggalnya masih hitungan mesin, belum disentuh Sales. Hilang begitu Sales menggesernya |
+| Tooltip | kalimat perkiraannya — "Sudah waktunya", "± 3 pekan lagi" — tetap terbaca tanpa memakan lebar kolom 112px |
+| Merah (`.ort-late`) | sudah lewat jatuh tempo |
 
-Satuannya mengikuti yang memang dipakai Sales: sheet lama mereka punya **30
-kolom bulan**, dan ukuran yang mereka tetapkan sendiri "kurang dari 2 kunjungan
-dalam 6 bulan".
-
-Yang sudah lewat berbunyi "Sudah waktunya" saja — seberapa telatnya dibawa chip
-Status. Dua kolom tidak boleh mengatakan hal yang sama.
+Seberapa telatnya tetap dibawa chip Status, bukan diulang di kolom ini.
 
 ⚠ **Tanggalnya tidak dibuang, ia berhenti dipajang.** `sch_date` tetap
 mengurutkan daftar, memilah sub-tab, mengisi kartu, dan jadi default saat
@@ -335,7 +353,7 @@ perubahan turun dari sana.
 
 | Dulu | Sekarang |
 |---|---|
-| Tanggal "12 Jan '27" di kolom Jadwal | Perkiraan: Pekan ini · ± Nov · Sudah waktunya |
+| Tanggal "12 Jan '27" di kolom Jadwal | Tetap tanggal — tapi bergaris putus selama masih hitungan mesin, dan perkiraannya di tooltip |
 | Konfirmasi jadwal → Follow-up → Buat Reservasi | Catat Follow-up → Buat Reservasi |
 | Jatuh tempo tidak boleh di masa lalu | Boleh, dan itu arti "Terlewat" |
 | Jarak baku 30 hari untuk semua | Irama pasien sendiri, dijepit 21–60 hari |

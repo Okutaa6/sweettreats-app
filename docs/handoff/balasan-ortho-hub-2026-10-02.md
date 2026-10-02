@@ -134,6 +134,24 @@ Telepon dulu, baru pesankan — persis urutan di lapangan.
 
 ## 4. Kolom Jadwal berhenti menyebut tanggal
 
+> ⚠ **DIBATALKAN 5 Okt 2026 — tiga hari sesudah surat ini dikirim.**
+>
+> Bagian di bawah ini **sudah tidak berlaku**, tapi dibiarkan utuh karena ia
+> catatan apa yang kami sampaikan ke Anda saat itu.
+>
+> Yang membatalkannya: perkiraan memberi masa depan empat tingkat tapi masa
+> lalu cuma satu ember ("Sudah waktunya"). Daftar diurutkan dari jatuh tempo
+> terdekat, jadi semua yang terlambat menumpuk di atas — dan di situ persis
+> mereka kehilangan pembeda. Enam baris teratas semuanya "Sudah waktunya",
+> padahal yang satu telat 32 hari dan lima sisanya 2–3 hari.
+>
+> Itu penyakit yang sama dengan lantai `MIN_MAJU_HARI` yang kami laporkan di
+> §2: yang satu meratakan datanya, yang satu lagi meratakan tampilannya.
+>
+> Kolomnya kembali menampilkan **tanggal**, dengan garis putus amber selama
+> masih hitungan mesin dan perkiraannya di tooltip. Keadaan terkini ada di
+> `docs/brief-desain/brief-tracking-ortho-berjalan.md` §4.
+
 Di luar yang Anda minta, dan asalnya dari membaca ulang brief konsultan
 IT-2026-013 beserta berkas data Sales:
 

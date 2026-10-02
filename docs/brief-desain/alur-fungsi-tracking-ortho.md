@@ -813,8 +813,8 @@ jawabannya, bukan cacat.** Lantai lama menyembunyikan 26 dari 39 pasien
 terlambat dan melahirkan 651 usulan di satu tanggal. Parameter `$hariIni`
 **dibuang**, bukan diabaikan diam-diam.
 
-**`perkiraanJatuhTempo($tempo, ?$hariIni)` static** — jantung keputusan "kolom
-Jadwal berhenti menyebut tanggal". Murni fungsi tanggal, nol kueri:
+**`perkiraanJatuhTempo($tempo, ?$hariIni)` static** — murni fungsi tanggal, nol
+kueri:
 
 ```
 selisih < 0   → "Sudah waktunya"
@@ -823,6 +823,16 @@ selisih ≤ 6   → "Pekan ini"
 selisih ≤ 27  → "± N pekan lagi"
 lainnya       → "± Nov"  /  "± Jan '27" kalau menyeberang tahun
 ```
+
+⚠ **Sejak 5 Okt 2026 hasilnya tidak lagi dipajang sebagai isi kolom** — kolom
+Jadwal kembali menampilkan **tanggal**, dan kalimat ini pindah ke `title`.
+Sebabnya: masa depan dapat empat tingkat tapi masa lalu cuma satu ember
+("Sudah waktunya"), sementara daftar diurutkan dari jatuh tempo terdekat —
+jadi semua yang terlambat menumpuk di atas dan kehilangan pembeda. Pasien telat
+32 hari tampil sama persis dengan yang telat 2 hari.
+
+Fungsinya **tetap dipakai** (enam tooltip), jadi uji satuannya tidak menjaga
+kode mati.
 
 **`statusKey()`** — sembilan keadaan, urutan: `hadir` → `tidak_hadir` →
 `reservasi_batal` → `terlewat_parah` (>14) → `terlewat` → `ada_reservasi` →

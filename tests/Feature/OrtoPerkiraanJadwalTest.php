@@ -123,10 +123,15 @@ class OrtoPerkiraanJadwalTest extends TestCase
     /** Isi setiap sel kolom JADWAL di tabel daftar kerja. */
     private function selJadwal(string $html): array
     {
-        /* ⚠ `class="ort-cell "` — Blade meninggalkan SPASI EKOR saat kelas
-           ort-late tidak ikut. Regex yang tidak mentoleransinya cuma menangkap
-           baris yang terlambat, dan ujinya hijau untuk alasan yang salah. */
-        preg_match_all('~<div class="ort-cell[^"]*">\s*([^<]+?)\s*</div>~', $html, $m);
+        /* Ditangkap lewat penanda `data-ort-jadwal`, bukan lewat bentuk HTML-nya.
+           Versi lama mencocokkan `<div class="ort-cell">teks</div>` dan ikut
+           menyapu sel Dokter/Follow-up/Reservasi; ia juga putus total begitu sel
+           Jadwal punya elemen anak — "tidak ketemu" lalu terbaca sama dengan
+           "isinya salah".
+
+           ⚠ Mengembalikan HTML DALAM sel, bukan teks polos: kelas penanda
+             (ort-proposal) dan atribut title ikut diperiksa uji di bawah. */
+        preg_match_all('~<div class="ort-cell[^"]*" data-ort-jadwal>(.*?)</div>~s', $html, $m);
 
         return array_map('trim', $m[1]);
     }
@@ -180,7 +185,22 @@ class OrtoPerkiraanJadwalTest extends TestCase
     // ── Yang dilihat di layar ───────────────────────────────────────────────
 
     /** ⭐ KENDALI UTAMA: nol tanggal kalender di kolom Jadwal. */
-    public function test_kolom_jadwal_tidak_memuat_tanggal_kalender(): void
+    /**
+     * ⭐ DIBALIK 5 Okt 2026 — dulu uji ini menuntut kolom Jadwal TIDAK memuat
+     * tanggal. Sekarang justru wajib memuatnya.
+     *
+     * Yang membatalkan keputusan lama bukan selera, melainkan efeknya di layar
+     * kerja: perkiraan memberi masa depan EMPAT tingkat (Hari ini · Pekan ini ·
+     * ± N pekan lagi · ± Nov) tapi masa lalu cuma SATU ember, "Sudah waktunya".
+     * Daftar diurutkan dari jatuh tempo terdekat, jadi semua yang terlambat
+     * menumpuk di paling atas — tepat di situ mereka kehilangan pembeda.
+     * Terukur di DB pengembangan: enam baris teratas semuanya "Sudah waktunya",
+     * padahal yang satu telat 32 hari dan lima sisanya 2–3 hari.
+     *
+     * Itu penyakit yang sama dengan lantai MIN_MAJU_HARI yang sudah dicabut —
+     * yang satu meratakan DATANYA, yang satu lagi meratakan TAMPILANNYA.
+     */
+    public function test_kolom_jadwal_memuat_tanggal_kalender(): void
     {
         $this->pasien(45);
         $this->pasien(10);
@@ -191,22 +211,49 @@ class OrtoPerkiraanJadwalTest extends TestCase
         $this->assertNotEmpty($sel, 'Prasyarat: barisnya memang terender.');
 
         foreach ($sel as $isi) {
-            $this->assertDoesNotMatchRegularExpression(
-                "~\d{1,2}\s+\w{3}\s+'\d{2}~u", $isi,
-                "Kolom Jadwal masih memuat tanggal kalender: {$isi}"
+            $this->assertMatchesRegularExpression(
+                "~\d{1,2}\s+\w{3}\s+&#039;\d{2}~u", $isi,
+                "Kolom Jadwal wajib memuat tanggal kalender, yang ada: {$isi}"
             );
         }
     }
 
-    public function test_kolom_jadwal_memuat_kalimat_perkiraan(): void
+    /**
+     * Tanggal yang masih hitungan mesin tetap ditandai — kejujurannya dipindah,
+     * bukan dibuang. Begitu Sales menyentuhnya (is_proposal = 0), tandanya hilang.
+     */
+    public function test_tanggal_hitungan_mesin_ditandai(): void
+    {
+        $this->pasien(45, ['is_proposal' => 1]);
+        $this->pasien(44, ['is_proposal' => 0]);
+
+        $html = $this->halaman(['q' => self::TANDA]);
+        $sel  = $this->selJadwal($html);
+
+        $this->assertCount(2, $sel, 'Prasyarat: dua baris terender.');
+        $this->assertSame(
+            1,
+            count(array_filter($sel, fn ($x) => str_contains($x, 'ort-proposal'))),
+            'Tepat satu sel bergaris putus — hanya yang is_proposal.'
+        );
+    }
+
+    /**
+     * Kalimat perkiraan TIDAK dibuang — ia pindah ke tooltip. Jadi "kira-kira
+     * kapan" tetap terbaca tanpa memakan lebar kolom 112px, dan rumusnya
+     * (`perkiraanJatuhTempo`) tetap punya pemakai sehingga uji satuan di atas
+     * tidak menjaga kode mati.
+     */
+    public function test_kalimat_perkiraan_pindah_ke_tooltip(): void
     {
         $this->pasien(45);
 
         $sel = $this->selJadwal($this->halaman(['q' => self::TANDA]));
 
+        $this->assertNotEmpty($sel, 'Prasyarat: barisnya memang terender.');
         $this->assertNotEmpty(
-            array_filter($sel, fn ($x) => str_starts_with($x, '±')),
-            'Harus ada sel berisi perkiraan. Yang ada: ' . implode(' | ', $sel)
+            array_filter($sel, fn ($x) => str_contains($x, 'title="±')),
+            'Perkiraan harus ada di atribut title. Yang ada: ' . implode(' | ', $sel)
         );
     }
 

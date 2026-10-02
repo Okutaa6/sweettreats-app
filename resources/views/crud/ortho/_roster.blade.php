@@ -118,7 +118,12 @@
                         @else
                             <div class="ort-stat__k">Berikutnya</div>
                             <div class="ort-stat__v tabular" style="color:{{ $warnaBerikut }}">
-                                {{ $c->next_sch_date ? \App\Models\OrtControl::perkiraanJatuhTempo($c->next_sch_date, $hariIni) : '—' }}
+                                @if ($c->next_sch_date)
+                                    {{-- Tanggal (5 Okt 2026) — perkiraannya di tooltip. --}}
+                                    <span title="{{ \App\Models\OrtControl::perkiraanJatuhTempo($c->next_sch_date, $hariIni) }}">{{ $c->next_sch_date->translatedFormat("j M 'y") }}</span>
+                                @else
+                                    —
+                                @endif
                             </div>
                         @endif
                     </div>
@@ -215,8 +220,9 @@
                                 @endif
                                 <span class="ort-cell--sub">{{ $sTeks }}</span>
                             @elseif ($c->next_sch_date)
-                                <span class="ort-datepill" style="background:{{ $bg }};color:{{ $fg }};">
-                                    {{ \App\Models\OrtControl::perkiraanJatuhTempo($c->next_sch_date, $hariIni) }}
+                                <span class="ort-datepill tabular" style="background:{{ $bg }};color:{{ $fg }};"
+                                      title="{{ \App\Models\OrtControl::perkiraanJatuhTempo($c->next_sch_date, $hariIni) }}">
+                                    {{ $c->next_sch_date->translatedFormat("j M 'y") }}
                                 </span>
                                 @if ($telat > 0)
                                     <span class="ort-cell--sub ort-sub-red tabular">Terlewat {{ $telat }} hari</span>

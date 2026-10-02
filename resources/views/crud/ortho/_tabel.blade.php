@@ -194,28 +194,44 @@
                     {{-- DOKTER --}}
                     <div class="ort-cell ort-clamp2" title="{{ $r->doctor_name }}">{{ $r->doctor_name ?: '—' }}</div>
 
-                    {{-- JADWAL — PERKIRAAN, bukan tanggal.
+                    {{-- JADWAL — TANGGAL jatuh tempo (keputusan Reza, 5 Okt 2026).
 
-                         Tanggalnya tebakan: irama pasien sendiri meleset 14 hari
-                         (terukur prod), dan tanggal sungguhannya baru ditentukan
-                         saat Sales menelepon lalu menawarkan hari praktik dokter.
-                         Menuliskan "28 Okt '26" memberi ketepatan yang tidak kita
-                         punya — dan Sales menyebutkannya ke pasien.
+                         Sempat ditampilkan sebagai PERKIRAAN ("Pekan ini",
+                         "± 3 pekan lagi", "Sudah waktunya") supaya tidak memberi
+                         ketepatan yang tidak kita punya. Itu dibatalkan karena
+                         efeknya di layar kerja justru merusak:
 
-                         Satuannya mengikuti yang memang dipakai Sales: sheet lama
-                         mereka punya 30 kolom BULAN, dan ukuran yang mereka
-                         tetapkan sendiri "kurang dari 2 kunjungan dalam 6 bulan".
+                           masa depan dapat EMPAT tingkat — Hari ini, Pekan ini,
+                           ± N pekan lagi, ± Nov — tapi masa lalu cuma SATU ember,
+                           "Sudah waktunya".
 
-                         Yang sudah lewat berbunyi "Sudah waktunya" saja — chip
-                         Status di sebelah kanan yang membawa seberapa telatnya.
-                         Dua kolom tidak boleh mengatakan hal yang sama.
+                         Daftar ini diurutkan dari jatuh tempo terdekat, jadi semua
+                         yang terlambat menumpuk di paling atas — dan di situ
+                         persis mereka kehilangan pembeda. Terukur di DB ini:
+                         enam baris teratas semuanya berbunyi "Sudah waktunya",
+                         padahal yang satu telat 32 hari dan lima sisanya 2–3 hari.
+                         Enam belas kali lebih genting, tampil sama persis.
 
-                         ⚠ Tanggalnya sendiri TIDAK hilang: ia tetap mengurutkan
-                           daftar, memilah sub-tab, mengisi kartu, dan jadi default
-                           saat lembar Buat Reservasi dibuka. --}}
-                    <div class="ort-cell {{ $telat ? 'ort-late' : '' }}">
-                        {{ \App\Models\OrtControl::perkiraanJatuhTempo(
-                            \Carbon\Carbon::parse($r->sch_date), $hariIni) }}
+                         Itu penyakit yang sama dengan lantai MIN_MAJU_HARI yang
+                         sudah dicabut: urutan kegentingan hilang tepat di baris
+                         yang paling perlu dibedakan. Yang satu meratakan DATANYA,
+                         yang satu lagi meratakan TAMPILANNYA.
+
+                         Tanggal membedakan sendiri tanpa perlu tingkatan.
+
+                         ⚠ Kejujurannya dipindah, bukan dibuang:
+                           · `.ort-proposal` — garis putus amber untuk tanggal yang
+                             masih hitungan mesin (is_proposal). Begitu Sales
+                             menyentuhnya, garis itu hilang.
+                           · tooltip membawa kalimat perkiraannya, jadi "kira-kira
+                             kapan" tetap terbaca tanpa memakan lebar kolom. --}}
+                    {{-- data-ort-jadwal: penanda untuk uji. Sebelumnya uji menangkap
+                         sel ini lewat regex `<div class="ort-cell">teks</div>` yang
+                         putus begitu selnya punya elemen anak — dan "tidak ketemu"
+                         terbaca sama dengan "isinya salah". --}}
+                    <div class="ort-cell {{ $telat ? 'ort-late' : '' }}" data-ort-jadwal>
+                        <span class="tabular {{ $r->is_proposal ? 'ort-proposal' : '' }}"
+                              title="{{ \App\Models\OrtControl::perkiraanJatuhTempo(\Carbon\Carbon::parse($r->sch_date), $hariIni) }}{{ $r->is_proposal ? ' · dihitung sistem, belum disentuh Sales' : '' }}">{{ \Carbon\Carbon::parse($r->sch_date)->translatedFormat("j M 'y") }}</span>
                     </div>
 
                     {{-- FOLLOW-UP --}}

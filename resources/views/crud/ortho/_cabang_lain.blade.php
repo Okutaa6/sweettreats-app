@@ -95,7 +95,10 @@
 
                     <div class="ort-cell {{ $telatBerikut > 0 ? 'ort-late' : '' }}">
                         @if ($c->next_sch_date)
-                            <span>{{ \App\Models\OrtControl::perkiraanJatuhTempo($c->next_sch_date, $hariIni) }}</span>
+                            {{-- Tanggal, sama dengan kolom Jadwal di tab List (5 Okt 2026).
+                                 Perkiraannya pindah ke tooltip. --}}
+                            <span class="tabular"
+                                  title="{{ \App\Models\OrtControl::perkiraanJatuhTempo($c->next_sch_date, $hariIni) }}">{{ $c->next_sch_date->translatedFormat("j M 'y") }}</span>
                             @if ($telatBerikut > 0)
                                 <span class="ort-cell--sub tabular">{{ $telatBerikut }} hari lalu</span>
                             @else

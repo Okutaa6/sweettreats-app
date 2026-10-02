@@ -83,7 +83,8 @@
         $terbuka && $terbuka->is_proposal => [
             'tombol' => 'Jadwalkan kontrol #' . $seqBerikut, 'aktif' => false,
             'hint'   => 'Kontrol #' . $terbuka->seq . ' jatuh tempo '
-                      . \Illuminate\Support\Str::lcfirst(\App\Models\OrtControl::perkiraanJatuhTempo($terbuka->sch_date, $hariIni))
+                      . $terbuka->sch_date->translatedFormat("j M 'y")
+                      . ' (' . \Illuminate\Support\Str::lcfirst(\App\Models\OrtControl::perkiraanJatuhTempo($terbuka->sch_date, $hariIni)) . ')'
                       . ' — dihitung dari kontrol sebelumnya. Tanggal pastinya ditentukan saat membuat reservasi, dari hari praktik dokternya.',
         ],
         (bool) $terbuka => [
@@ -259,12 +260,12 @@
                              Hanya baris yang masih terbuka yang tanggalnya hasil
                              hitungan, dan ia memakai kalimat perkiraan yang sama
                              dengan kolom Jadwal di tab List. --}}
-                        <div class="tabular {{ $k->is_proposal ? 'ort-proposal' : '' }}">
-                            @if ($k->isTerbuka() && $k->is_proposal)
-                                {{ \App\Models\OrtControl::perkiraanJatuhTempo($k->sch_date, $hariIni) }}
-                            @else
-                                {{ $k->sch_date->translatedFormat("j M 'y") }}
-                            @endif
+                        {{-- Selalu tanggal (5 Okt 2026) — sebelumnya baris usulan
+                             memakai kalimat perkiraan, jadi satu matriks mencampur
+                             dua satuan dan baris-barisnya tidak bisa dibandingkan. --}}
+                        <div class="tabular {{ $k->is_proposal ? 'ort-proposal' : '' }}"
+                             @if ($k->isTerbuka() && $k->is_proposal) title="{{ \App\Models\OrtControl::perkiraanJatuhTempo($k->sch_date, $hariIni) }} · dihitung sistem, belum disentuh Sales" @endif>
+                            {{ $k->sch_date->translatedFormat("j M 'y") }}
                         </div>
 
                         <div class="tabular">{{ $k->fu_date ? $k->fu_date->translatedFormat('j M') : '' }}
