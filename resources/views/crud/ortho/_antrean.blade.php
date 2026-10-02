@@ -162,7 +162,7 @@
         <span class="tabular">{{ $baris->total() }} dari {{ $kartu['aktif'] }} pasien ortho aktif</span>
     </div>
 
-    @include('crud.ortho._paginasi', ['data' => $baris, 'satuan' => 'pasien'])
+    @include('crud.ortho._paginasi', ['data' => $baris, 'satuan' => 'pasien', 'perHal' => $perHal])
 </div>
 
 <script>

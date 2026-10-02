@@ -183,5 +183,5 @@
          baris tab cabang di atas ("pasien <kita> yang sedang dipegang di sana
          — hanya bisa dilihat"), dan hitungan "N perlu diingatkan" hampir
          selalu 0 sehingga cuma jadi baris kosong di bawah tabel. --}}
-    @include('crud.ortho._paginasi', ['data' => $baris, 'satuan' => 'pasien'])
+    @include('crud.ortho._paginasi', ['data' => $baris, 'satuan' => 'pasien', 'perHal' => $perHal])
 </div>

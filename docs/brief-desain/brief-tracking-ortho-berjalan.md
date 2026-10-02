@@ -98,14 +98,16 @@ Tab cabang lain muncul untuk pasien kita yang sedang dipegang cabang lain —
 
 ## 3. Tabel daftar kerja
 
-Tujuh kolom dan satu tombol buka. **50 baris per halaman** (dulu 10; Bintaro
-959 kasus berarti 96 halaman).
+Tujuh kolom dan satu tombol buka. **50 baris per halaman** — bisa diubah ke
+10 / 25 / 100 lewat pemilih di kaki tabel, dan pemilihnya berlaku di kelima
+daftar, bukan cuma tab ini. Bawaannya dulu 10, dan 959 kasus Bintaro berarti
+96 halaman.
 
 | Kolom | Isi |
 |---|---|
 | **Pasien** | Nama tebal, lalu telepon yang bisa diklik ke WhatsApp. Badge transfer / "Tanpa jadwal tercatat" kalau ada — yang kedua berarti kunjungan tidak cocok dengan jadwal mana pun di sistem, **bukan** pasien tidak memesan (sistem tidak tahu itu). **Tanpa nomor RM** — itu hanya di panel yang dibuka |
 | **Dokter** | Nama dokter ortho pasien ini |
-| **Jadwal** | Perkiraan kapan jatuh tempo. **Tidak pernah tanggal kalender** — lihat §4 |
+| **Jadwal** | Tanggal jatuh tempo. Bergaris putus selama masih hitungan mesin — lihat §4 |
 | **Follow-up** | Tanggal Sales menghubungi. Belum ada → `X` |
 | **Reservasi** | Tanggal janji. Dibatalkan → tanggal dicoret + teks merah. Waitlist tanpa tanggal → tulis "Waitlist", jangan `X` |
 | **Status** | Chip, lihat §5 |
@@ -166,13 +168,11 @@ langsung terbaca jauh lebih tertinggal.
 
 Seberapa telatnya tetap dibawa chip Status, bukan diulang di kolom ini.
 
-⚠ **Tanggalnya tidak dibuang, ia berhenti dipajang.** `sch_date` tetap
-mengurutkan daftar, memilah sub-tab, mengisi kartu, dan jadi default saat
-lembar Buat Reservasi dibuka. Sesudah ini, satu-satunya tanggal di tabel adalah
-tanggal **nyata**: kolom Follow-up dan kolom Reservasi.
+`sch_date` juga tetap mengurutkan daftar, memilah sub-tab, mengisi kartu, dan
+jadi default saat lembar Buat Reservasi dibuka.
 
-Rumusnya: `OrtControl::perkiraanJatuhTempo()` — fungsi statis murni, satu
-salinan, dipakai tabel, drawer, dan uji.
+Rumus perkiraannya: `OrtControl::perkiraanJatuhTempo()` — fungsi statis murni,
+satu salinan, sekarang dipakai enam tooltip.
 
 ---
 

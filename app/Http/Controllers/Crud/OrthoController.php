@@ -229,6 +229,22 @@ class OrthoController extends Controller
             'sampai' => $request->query('sampai'),
         ];
 
+        /*
+         * Jumlah baris per halaman. Pola dan pilihannya sama dengan modul
+         * Reservasi (ReservationController:45) supaya dua halaman tidak terasa
+         * punya aturan sendiri-sendiri.
+         *
+         * ⚠ WHITELIST, bukan (int) mentah. `?per_page=99999` akan menarik
+         *   seluruh tabel dalam satu kueri — 1.639 baris di prod — dan itu
+         *   cara halaman ini mati pelan-pelan tanpa ada yang melapor.
+         *
+         * Bawaannya tetap PER_HAL (50). Ia naik dari 10 atas permintaan audit
+         * HUB: 959 kasus Bintaro jadi 96 halaman.
+         */
+        $perHal = in_array((int) $request->query('per_page'), [10, 25, 50, 100], true)
+            ? (int) $request->query('per_page')
+            : OrtQuery::PER_HAL;
+
         // Side sheet (§15): jenisnya dari ?sheet=, subjeknya dari ?kontrol= atau ?kasus=.
         $sheet = in_array($request->query('sheet'), ['reservasi', 'pindahkan', 'geser', 'jadwalkan', 'follow-up'], true)
             ? $request->query('sheet') : null;
@@ -295,6 +311,8 @@ class OrthoController extends Controller
             'kartu'         => $kartuRingkas,
             'dokterPilihan' => $this->q->dokterDiCabang($placeId),
             'hariIni'       => $this->q->hariIni(),
+            // Dipakai _paginasi untuk menandai pilihan yang sedang aktif.
+            'perHal'        => $perHal,
             'detail'        => null,
         ];
 
@@ -332,7 +350,7 @@ class OrthoController extends Controller
             $rawat = $request->query('rawat') === 'selesai' ? 'selesai' : 'aktif';
 
             return $ctx + [
-                'baris'         => $this->q->roster($lihatPlace, $filter, OrtQuery::PER_HAL, $rawat === 'selesai' ? 'semua' : $urgensi, $asalPasien, $rawat),
+                'baris'         => $this->q->roster($lihatPlace, $filter, $perHal, $rawat === 'selesai' ? 'semua' : $urgensi, $asalPasien, $rawat),
                 'hitungUrgensi' => $this->q->hitungUrgensiKasus($lihatPlace, $filter, $asalPasien),
                 'hitungRoster'  => $this->q->hitungRoster($lihatPlace, $filter, $asalPasien),
                 'tampil'        => $request->query('tampil') === 'kartu' ? 'kartu' : 'daftar',
@@ -342,7 +360,7 @@ class OrthoController extends Controller
 
         // ── Tab cabang lain: lihat-saja, kolomnya berbeda dari tab sendiri.
         if ($cabangDilihat !== null) {
-            $baris = $this->q->diCabangLain($placeId, $cabangDilihat, OrtQuery::PER_HAL, $urgensi, $filter);
+            $baris = $this->q->diCabangLain($placeId, $cabangDilihat, $perHal, $urgensi, $filter);
 
             return $ctx + [
                 'baris'         => $baris,
@@ -358,7 +376,7 @@ class OrthoController extends Controller
 
         // ── Kartu ke-3 dipilih: tabel diganti antrean penjadwalan.
         if ($kartuAktif === 'backlog') {
-            $baris = $this->q->antrean($placeId, $filter, OrtQuery::PER_HAL, $urgensi);
+            $baris = $this->q->antrean($placeId, $filter, $perHal, $urgensi);
 
             return $ctx + [
                 'baris'         => $baris,
@@ -380,7 +398,7 @@ class OrthoController extends Controller
             $urgensi = 'minggu-ini';
         }
 
-        $baris   = $this->q->daftar($placeId, $urgensi, $filter);
+        $baris   = $this->q->daftar($placeId, $urgensi, $filter, $perHal);
         $caseIds = collect($baris->items())->pluck('ort_case_id')->unique()->all();
 
         /*

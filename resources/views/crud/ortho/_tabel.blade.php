@@ -384,7 +384,7 @@
          peraga sisa serah-terima desain: tidak pernah punya form maupun route,
          jadi mengkliknya tak melakukan apa-apa. Tarikan malam yang sebenarnya
          dijadwalkan di Kernel pukul 04.00. --}}
-    @include('crud.ortho._paginasi', ['data' => $baris, 'satuan' => 'jadwal'])
+    @include('crud.ortho._paginasi', ['data' => $baris, 'satuan' => 'jadwal', 'perHal' => $perHal])
 </div>
 
 <script>

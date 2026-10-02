@@ -213,7 +213,7 @@ lebar isi nyata, bukan dikira-kira (komentar CSS:1342).
 | `.ort-tr--nb` | Baris berpita penutup: buang border-bottom |
 | `.ort-badge` · `--transfer` · `--walkin` | Badge di bawah nama. ⚠ `--walkin` kini bertuliskan **"Tanpa jadwal tercatat"**, bukan "Datang tanpa reservasi" — nama kelasnya dipertahankan, teksnya diluruskan: `unscheduled` berarti kunjungan tidak cocok dengan jadwal mana pun di sistem, bukan pasien tidak memesan |
 | `.ort-group` + `__dot` `__label` `__n` `__hint` | Kepala kelompok, latar strip |
-| `.ort-pagin` + `__btn` `__info` `__nav` | Paginasi 50 baris |
+| `.ort-pagin` + `__btn` `__info` `__nav` | Paginasi. Kakinya juga memuat `.st-perpage` — komponen **bersama** dari `components.sweettreats.css:1339`, dipakai apa adanya; token warnanya global, bukan `--ort-*`, jadi tetap benar di dalam scope `.ort` |
 
 ---
 

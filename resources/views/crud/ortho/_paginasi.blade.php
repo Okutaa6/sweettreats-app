@@ -7,6 +7,7 @@
 
     $data   — paginator
     $satuan — kata di belakang angka: "jadwal" / "pasien"
+    $perHal — jumlah baris yang sedang dipakai, untuk menandai pilihan aktif
 --}}
 @if ($data->total() > 0)
 <div class="ort-pagin">
@@ -14,6 +15,29 @@
         Menampilkan
         <span class="tabular">{{ $data->firstItem() }}–{{ $data->lastItem() }}</span>
         dari <span class="tabular">{{ $data->total() }}</span> {{ $satuan }}
+
+        {{-- Pemilih jumlah baris. Komponen BERSAMA `.st-perpage`
+             (components.sweettreats.css:1339), pilihan dan polanya sama dengan
+             modul Reservasi (ReservationController:45) — dua halaman tidak
+             boleh terasa punya aturan sendiri-sendiri.
+
+             ⚠ URL-nya dibangun closure $tautan, BUKAN request()->all():
+               · $tautan membuang `page`, jadi mengubah jumlah baris kembali ke
+                 halaman 1. Tanpa itu, orang di halaman 7 memilih "100" lalu
+                 mendarat di halaman kosong.
+               · ia juga membuang `frag`, jadi pemilih ini tidak pernah
+                 mengirim siapa pun ke fragmen telanjang. --}}
+        <span class="st-perpage" style="margin-left:14px;">
+            <span>Tampilkan</span>
+            <select onchange="window.location.href = this.value;"
+                    aria-label="Jumlah {{ $satuan }} per halaman">
+                @foreach ([10, 25, 50, 100] as $pp)
+                    <option value="{{ $tautan(['per_page' => $pp]) }}"
+                            @selected(($perHal ?? 50) === $pp)>{{ $pp }}</option>
+                @endforeach
+            </select>
+            <span>{{ $satuan }} per halaman</span>
+        </span>
     </span>
 
     @if ($data->hasPages())

@@ -163,7 +163,7 @@
     </div>
 
     <div class="st-card" style="margin-top:14px;">
-        @include('crud.ortho._paginasi', ['data' => $baris, 'satuan' => 'pasien'])
+        @include('crud.ortho._paginasi', ['data' => $baris, 'satuan' => 'pasien', 'perHal' => $perHal])
     </div>
 
 @else
@@ -240,7 +240,7 @@
             @endforelse
         </div>
 
-        @include('crud.ortho._paginasi', ['data' => $baris, 'satuan' => 'pasien'])
+        @include('crud.ortho._paginasi', ['data' => $baris, 'satuan' => 'pasien', 'perHal' => $perHal])
     </div>
 
 @endif

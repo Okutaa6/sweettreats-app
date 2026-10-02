@@ -423,7 +423,10 @@ Aksi berbasis kasus memeriksa `owner_place_id` inline.
 
 ### 6.1 `OrtQuery` — 981 baris, 24 metode publik, nol tulis
 
-`PER_HAL = 50` (dulu 10 → 96 halaman untuk 959 kasus Bintaro).
+`PER_HAL = 50` — **bawaan**, dulu 10 → 96 halaman untuk 959 kasus Bintaro.
+Sejak 5 Okt 2026 bisa diatur lewat `?per_page=` (whitelist `[10, 25, 50, 100]`,
+pola dan pilihan sama dengan modul Reservasi). Nilai di luar whitelist jatuh
+ke bawaan — `?per_page=99999` akan menarik 1.639 baris prod dalam satu kueri.
 
 **Hitungan:** `kartu` (tiga kartu dalam **dua** kueri) · `hitungUrgensi` (basis
 `ort_control.sch_date`) · `hitungUrgensiKasus` (basis `ort_case.next_sch_date`,

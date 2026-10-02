@@ -216,7 +216,8 @@ halaman kedua.
 
 ### 6.1 Daftar kerja *(bawaan)*
 
-Layar utama. Tabel 8 kolom, **50 baris per halaman**, jatuh tempo terdekat di
+Layar utama. Tabel 8 kolom, **50 baris per halaman** (bisa diubah ke 10/25/100
+lewat pemilih di kaki tabel), jatuh tempo terdekat di
 atas:
 
 ```
