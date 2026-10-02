@@ -255,7 +255,7 @@
                                     : null;
                                 $fuTip = 'Dicatat ' . \Carbon\Carbon::parse($r->fu_date)->translatedFormat("j M 'y")
                                        . ' oleh ' . ($r->fu_by ?: 'Sales')
-                                       . ($r->fu_channel ? ' · ' . ucfirst($r->fu_channel) : '')
+                                       . ($r->fu_channel ? ' · ' . (\App\Models\OrtControl::FU_KANAL[$r->fu_channel] ?? $r->fu_channel) : '')
                                        . ($fuHasil ? ' · ' . $fuHasil : '')
                                        . ($r->fu_note ? ' — ' . $r->fu_note : '')
                                        . ($bolehBatalFu ? ' · untuk membatalkan, buka panel baris dengan tanda ⌄ di ujung kanan' : '');

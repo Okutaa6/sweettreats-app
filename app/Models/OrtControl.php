@@ -89,6 +89,18 @@ class OrtControl extends Model
     public const FU_MENOLAK           = 'menolak';
     public const FU_SALAH_NOMOR       = 'salah_nomor';
 
+    /**
+     * Label kanal untuk layar. `ucfirst('wa')` berbunyi "Wa" — terbaca seperti
+     * salah ketik. Lembar tidak lagi menanyakan kanal (5 Okt 2026), jadi kamus
+     * ini melayani baris LAMA; yang tidak dikenal ditampilkan apa adanya.
+     */
+    public const FU_KANAL = [
+        'wa'       => 'WhatsApp',
+        'telepon'  => 'Telepon',
+        'langsung' => 'Langsung',
+        'lainnya'  => 'Lainnya',
+    ];
+
     /** Kunci → label layar. Satu-satunya sumber untuk dropdown dan tampilan. */
     public const FU_HASIL = [
         self::FU_DIHUBUNGI          => 'Sudah dihubungi, bersedia',

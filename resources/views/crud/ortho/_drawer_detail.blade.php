@@ -277,7 +277,7 @@
                                 : null;
                             $kTip = $k->fu_date
                                 ? trim(($k->fu_by ? 'oleh ' . $k->fu_by : '')
-                                    . ($k->fu_channel ? ' · ' . ucfirst($k->fu_channel) : '')
+                                    . ($k->fu_channel ? ' · ' . (\App\Models\OrtControl::FU_KANAL[$k->fu_channel] ?? $k->fu_channel) : '')
                                     . ($kHasil ? ' · ' . $kHasil : '')
                                     . ($k->fu_note ? ' — ' . $k->fu_note : ''), ' ·')
                                 : '';

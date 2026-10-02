@@ -246,7 +246,7 @@ Semua aksi yang butuh masukan dibuka sebagai **side sheet**, bukan halaman baru.
 | **Geser pengingat** | Mengubah kapan pasien dianggap jatuh tempo. Dibuka dari panel baris, bukan dari kolom Jadwal |
 | **Jadwalkan kontrol** | Memberi jatuh tempo pertama kepada pasien dari antrean |
 | **Pindahkan ke cabang lain** | Transfer, dengan **alasan wajib** |
-| **Catat Follow-up** *(4 Okt 2026)* | Hasil (pilihan tetap), tanggal (maks hari ini), catatan bebas. Dropdown **kanal dibuang 5 Okt** — ia meminta satu keputusan lagi lalu tidak pernah ditampilkan; panel baris malah menulis "WhatsApp" di-hardcode apa pun pilihannya. Form-nya mengarah ke `/follow-up`, jadi tercegat mesin submit realtime: tabel ditukar, toast muncul, lembar ditutup — tanpa muat ulang |
+| **Catat Follow-up** *(4 Okt 2026)* | Hasil (pilihan tetap), tanggal (maks hari ini), catatan bebas. Hasilnya **ditampilkan** di teks baris panel dan tooltip tabel/matriks — tapi **chip tetap seragam "Sudah di-FU"**: chip menjawab satu pertanyaan saja, sudah ditelepon atau belum, dan chip panjang seperti "Sudah dihubungi, bersedia" mendorong baris jadi dua baris. Dropdown **kanal dibuang 5 Okt** — ia meminta satu keputusan lagi lalu tidak pernah ditampilkan; panel baris malah menulis "WhatsApp" di-hardcode apa pun pilihannya. Form-nya mengarah ke `/follow-up`, jadi tercegat mesin submit realtime: tabel ditukar, toast muncul, lembar ditutup — tanpa muat ulang |
 
 ### Pemilih hari memakai mesin modul Reservasi
 

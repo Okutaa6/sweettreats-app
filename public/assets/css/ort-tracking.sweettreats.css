@@ -1120,7 +1120,21 @@ a.ort-cal-cell:hover { background: var(--ort-hover); text-decoration: none; colo
 }
 .ort-mini__n { font-size: 11px; font-weight: 800; color: var(--ort-muted); width: 22px; flex: none; }
 .ort-mini__d { font-size: 12px; font-weight: 700; color: var(--ort-ink); width: 78px; flex: none; }
-.ort-mini__x { flex: 1; min-width: 0; }
+/* ⚠ SATU BARIS, dipotong elipsis — teks lengkapnya di `title`.
+   Sejak hasil follow-up ikut ditampilkan, baris ini bisa berbunyi
+   "FU 2 Okt '26 · oleh admin · Sudah dihubungi, bersedia" dan membungkus jadi
+   dua baris; tinggi barisnya lalu tidak seragam dan daftarnya terbaca
+   berantakan.
+
+   ⚠ Warnanya --ort-ink3, BUKAN --ort-muted. Muted (#8A6A50) terlalu tipis
+     untuk teks yang memang harus dibaca — ia pantas untuk label, bukan isi.
+     Berlaku di ketiga tab (Semua / Follow-up / Tanggal reservasi) karena
+     ketiganya memakai span yang sama. */
+.ort-mini__x {
+  flex: 1; min-width: 0;
+  color: var(--ort-ink3);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 .ort-mini__go { color: var(--ort-wa); font-size: 12px; flex: none; }
 .ort-mini__go--rsv { color: #8A3A12; font-size: 11px; }
 

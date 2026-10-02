@@ -237,25 +237,24 @@
                         ? (\App\Models\OrtControl::FU_HASIL[$m->fu_result] ?? $m->fu_result)
                         : null;
 
+                    $kanalFu = $m->fu_channel
+                        ? (\App\Models\OrtControl::FU_KANAL[$m->fu_channel] ?? $m->fu_channel)
+                        : null;
+
                     $dFu = $m->fu_date
                         ? 'FU ' . $m->fu_date->translatedFormat("j M 'y")
                           . ($m->fu_by ? ' · oleh ' . $m->fu_by : '')
-                          . ($m->fu_channel ? ' · ' . ucfirst($m->fu_channel) : '')
+                          . ($kanalFu ? ' · ' . $kanalFu : '')
                           . ($hasilFu ? ' · ' . $hasilFu : '')
                         : 'Belum ada follow-up';
 
-                    /* Chip ikut membedakan: "tidak respon" dan "salah nomor" bukan
-                       pekerjaan yang sama dengan "sudah dihubungi, bersedia". */
-                    $sFu = match (true) {
-                        ! $m->fu_date => ['Belum di-FU', 'menunggu'],
-                        in_array($m->fu_result, [
-                            \App\Models\OrtControl::FU_TIDAK_RESPON,
-                            \App\Models\OrtControl::FU_SALAH_NOMOR,
-                        ], true) => [$hasilFu, 'telat'],
-                        $m->fu_result === \App\Models\OrtControl::FU_MENOLAK => [$hasilFu, 'batal'],
-                        $hasilFu !== null => [$hasilFu, 'fu'],
-                        default => ['Sudah di-FU', 'fu'],
-                    };
+                    /* Chip tetap SERAGAM "Sudah di-FU" (keputusan Reza, 5 Okt 2026).
+                       Sempat dibuat berbeda-beda per hasil, dan hasilnya chip
+                       panjang seperti "Sudah dihubungi, bersedia" mendorong baris
+                       jadi dua baris — padahal pertanyaan yang dijawab chip itu
+                       cuma satu: sudah ditelepon atau belum. Hasilnya sudah
+                       terbaca di teks baris dan di tooltip. */
+                    $sFu = $m->fu_date ? ['Sudah di-FU', 'fu'] : ['Belum di-FU', 'menunggu'];
 
                     /*
                      * ── Tampilan "Tanggal reservasi"
@@ -310,7 +309,10 @@
                 {{-- Satu baris DOM, tiga isi. Menukar tampilan cuma mengganti
                      kelas induknya — tidak ada render ulang, tidak ada kedipan. --}}
                 <div class="ort-mini__row" data-ort-minirow
-                     @if ($m->fu_note) title="Catatan follow-up: {{ $m->fu_note }}" @endif
+                     {{-- Teks baris dipotong elipsis (.ort-mini__x), jadi versi
+                          utuhnya WAJIB ada di title — termasuk catatan bebas yang
+                          memang tidak pernah muat di satu baris. --}}
+                     title="{{ trim($dAll . ($m->fu_note ? ' — catatan: ' . $m->fu_note : '')) }}"
                      data-href-fu="{{ $waRow ? 'https://wa.me/' . $wa : '' }}"
                      data-href-rsv="{{ $m->rsv_date ? route('rawreservation', ['date_from' => $m->rsv_date->toDateString(), 'date_to' => $m->rsv_date->toDateString()]) : '' }}">
                     <span class="ort-mini__n">#{{ $m->seq }}</span>

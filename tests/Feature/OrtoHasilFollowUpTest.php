@@ -281,22 +281,54 @@ class OrtoHasilFollowUpTest extends TestCase
         $this->assertFalse((bool) $ctl->fresh()->fu_date === false, 'Prasyarat: barisnya memang ber-follow-up.');
     }
 
-    /** Kanal TIDAK boleh dikarang. Dulu panel baris menulis "WhatsApp" di-hardcode. */
+    /**
+     * Kanal TIDAK boleh dikarang. Dulu panel baris menulis "WhatsApp"
+     * di-hardcode, apa pun nilainya.
+     *
+     * ⚠ Diperiksa DI DALAM baris pasien uji saja, bukan di seluruh halaman:
+     *   baris lain di DB ini memang berkanal 'wa' dan sekarang BENAR
+     *   menampilkan "WhatsApp". Menyapu seluruh halaman membuat uji ini merah
+     *   untuk alasan yang justru menandakan fiturnya bekerja.
+     */
     public function test_kanal_tidak_dikarang(): void
     {
-        $this->kontrol([
+        $ctl = $this->kontrol([
             'fu_date'    => Carbon::today()->toDateString(),
             'fu_by'      => 'Andini',
             'fu_channel' => 'telepon',
             'fu_result'  => OrtControl::FU_DIHUBUNGI,
         ]);
+        $pid = $ctl->case->omnicare_pid;
 
         $html = $this->withSession($this->sesi)
-            ->get('/tracking-ortho?' . http_build_query($this->utama()))
+            ->get('/tracking-ortho?' . http_build_query($this->utama() + ['q' => $pid]))
             ->assertOk()->getContent();
 
+        $this->assertStringContainsString($pid, $html, 'Prasyarat: baris ujinya memang tersaring.');
+        $this->assertStringContainsString('Telepon', $html,
+            'Kanal yang tersimpan wajib ditampilkan apa adanya.');
         $this->assertStringNotContainsString('· WhatsApp', $html,
             'Kanalnya "telepon" — layar tidak boleh menulis WhatsApp.');
+    }
+
+    /** Chip tetap SERAGAM "Sudah di-FU" — hasilnya terbaca di teks, bukan di chip. */
+    public function test_chip_tetap_seragam_apa_pun_hasilnya(): void
+    {
+        $ctl = $this->kontrol([
+            'fu_date'   => Carbon::today()->toDateString(),
+            'fu_by'     => 'Andini',
+            'fu_result' => OrtControl::FU_TIDAK_RESPON,
+        ]);
+        $pid = $ctl->case->omnicare_pid;
+
+        $html = $this->withSession($this->sesi)
+            ->get('/tracking-ortho?' . http_build_query($this->utama() + ['q' => $pid]))
+            ->assertOk()->getContent();
+
+        $this->assertStringContainsString('Sudah di-FU', $html,
+            'Chip menjawab satu pertanyaan saja: sudah ditelepon atau belum.');
+        $this->assertStringNotContainsString('ort-chip--telat">Tidak respon', $html,
+            'Hasil TIDAK boleh jadi teks chip — chip panjang mendorong baris jadi dua baris.');
     }
 
     /** Lembar tidak lagi menanyakan kanal, dan controller tidak menebaknya. */
