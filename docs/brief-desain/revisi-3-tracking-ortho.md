@@ -1,5 +1,20 @@
 # Permintaan Revisi 3 — Tracking Pasien Ortho
 
+> ⚠ **SEBAGIAN DOKUMEN INI SUDAH TIDAK BERLAKU (2 Okt 2026).** Dibiarkan apa
+> adanya dengan sengaja: ia menjelaskan KENAPA rancangannya pernah begitu, dan
+> penjelasan itu yang hilang kalau ditulis ulang.
+>
+> Yang sudah dicabut:
+> - **Tombol "Konfirmasi jadwal" tidak ada lagi.** Premis dokumen ini — tanggal
+>   kontrol berikutnya adalah kesepakatan dokter dan pasien di kursi perawatan —
+>   dikoreksi Ikhsan 1 Okt: SALES yang menentukan, dokter hanya menyarankan
+>   lisan. Tangga tombolnya kini dua anak: Catat Follow-up → Buat Reservasi.
+> - **Kolom Jadwal tidak lagi menampilkan tanggal**, melainkan perkiraan
+>   ("Pekan ini", "± Nov", "Sudah waktunya").
+>
+> Duduk perkaranya di `docs/handoff/balasan-ortho-hub-2026-10-02.md`.
+> Langkah deploy di `docs/deploy/deploy-ortho.md`.
+
 **Untuk:** tim desain · **Dari:** Ekky · **Tanggal:** 17 September 2026
 **Menanggapi:** handoff Revisi 2 (termasuk pembaruan nama cabang ditulis penuh)
 

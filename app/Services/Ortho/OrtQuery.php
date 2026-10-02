@@ -607,11 +607,18 @@ class OrtQuery
      *
      * Revisi 3 membuangnya ("Baru selesai kontrol — tinggal dijadwalkan")
      * dengan alasan yang waktu itu benar: barisnya akan tinggal di tab List
-     * sebagai usulan, jadi tak perlu tempat kedua. Begitu OrtUsulan boleh
-     * memutuskan TIDAK mengusulkan — karena dokternya tak terjadwal, harinya
-     * penuh, atau klinik tutup — alasan itu gugur. Tanpa kelompok ini, pasien
-     * yang baru selesai kontrol lenyap dari layar tanpa penjelasan: persis
-     * keluhan yang Revisi 3 justru lahir untuk memperbaikinya.
+     * sebagai usulan, jadi tak perlu tempat kedua. Begitu sistem boleh
+     * memutuskan TIDAK memberi jatuh tempo, alasan itu gugur. Tanpa kelompok
+     * ini, pasien yang baru selesai kontrol lenyap dari layar tanpa
+     * penjelasan: persis keluhan yang Revisi 3 justru lahir untuk
+     * memperbaikinya.
+     *
+     * ⚠ SEBABNYA TINGGAL SATU, dan komentar ini pernah menyebut tiga.
+     *   Versi sebelumnya berbunyi "karena dokternya tak terjadwal, harinya
+     *   penuh, atau klinik tutup" — ketiga pagar itu sudah dibuang bersama
+     *   lantai MIN_MAJU_HARI, jadi tak satu pun bisa terjadi lagi. Satu-satunya
+     *   sebab yang tersisa: pasien hilang lebih dari OrtCase::HILANG_HARI, dan
+     *   itu keputusan beban kerja, bukan pagar jadwal.
      *
      * Urutannya sengaja: yang paling lama tak terlihat di atas.
      */
@@ -627,8 +634,9 @@ class OrtQuery
             if ($c->isHilang()) {
                 $hilang[] = $c;
             } elseif ($c->last_visit_date && $c->last_visit_date->gte($batasBaru)) {
-                // Baru saja datang, tapi tak punya jadwal berikutnya — hampir
-                // selalu karena usulannya sengaja tidak dibuat.
+                // Baru saja datang, tapi belum punya jatuh tempo berikutnya —
+                // biasanya karena tarikannya dijalankan dengan --tanpa-usulan,
+                // atau karena baris jatuh temponya dihapus ort:rapikan-usulan.
                 $baru[] = $c;
             } else {
                 $jarang[] = $c;
@@ -650,7 +658,7 @@ class OrtQuery
             ],
             'baru' => [
                 'label' => 'Baru selesai kontrol — tinggal dijadwalkan',
-                'hint'  => 'sistem tidak mengusulkan tanggal: dokternya belum terjadwal, harinya penuh, atau klinik tutup',
+                'hint'  => 'belum punya jatuh tempo berikutnya',
                 'warna' => '#2F8E55',
                 'baris' => $baru,
             ],
