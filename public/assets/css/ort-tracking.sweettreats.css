@@ -1132,7 +1132,13 @@ a.ort-cal-cell:hover { background: var(--ort-hover); text-decoration: none; colo
      ketiganya memakai span yang sama. */
 .ort-mini__x {
   flex: 1; min-width: 0;
-  color: var(--ort-ink3);
+  /* ⚠ Warna SAJA tidak cukup. Percobaan pertama cuma menggelapkan muted →
+     ink3, dan di 11,5px dengan bobot 400 ia tetap terbaca tipis — tetangganya
+     (tanggal, .ort-mini__d) berbobot 700, jadi kontras bobotnya yang membuat
+     baris ini terlihat pudar, bukan hue-nya. Digelapkan ke ink2 DAN dinaikkan
+     ke 500: masih di bawah tanggal, tapi berhenti terlihat seperti teks mati. */
+  color: var(--ort-ink2);
+  font-weight: 500;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .ort-mini__go { color: var(--ort-wa); font-size: 12px; flex: none; }

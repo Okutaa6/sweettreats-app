@@ -626,8 +626,12 @@ salah dikutip, semuanya diputuskan 5 Okt 2026:
   berbunyi *"FU 2 Okt '26 · oleh admin · Sudah dihubungi, bersedia"* dan
   membungkus jadi dua baris — tinggi barisnya lalu tidak seragam. Versi
   utuhnya ada di `title`, termasuk catatan bebas.
-- **Warnanya `--ort-ink3`, bukan `--ort-muted`.** Muted `#8A6A50` terlalu
-  tipis untuk teks yang memang harus dibaca; ia pantas untuk label, bukan isi.
+- **Warna `--ort-ink2` DAN bobot 500.** Percobaan pertama cuma menggelapkan
+  `--ort-muted` → `--ort-ink3`, dan di 11,5px dengan bobot 400 ia tetap terbaca
+  tipis. Yang membuatnya pudar ternyata **kontras bobot**, bukan hue: tetangga
+  di baris yang sama berbobot 700 (`__d`) dan 800 (`__n`). Hierarkinya sekarang
+  800 · 700 · **500** — teksnya masih di bawah tanggal, tapi berhenti terlihat
+  seperti teks mati.
 - Berlaku di **ketiga tab** (Semua · Follow-up · Tanggal reservasi) karena
   ketiganya memakai span yang sama — satu baris DOM, tiga isi.
 | `.ort-banner__icon/__title/__text` | 2 set (436-438, 1023-1028) | **1023-1028** |
