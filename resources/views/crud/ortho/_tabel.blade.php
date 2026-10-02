@@ -167,7 +167,15 @@
                                     </span>
                                 @endif
                                 @if ($r->unscheduled)
-                                    <span class="ort-badge ort-badge--walkin">Datang tanpa reservasi</span>
+                                    {{-- `unscheduled` = kunjungan ini tidak cocok dengan baris
+                                         jadwal mana pun di sistem kita. Ia TIDAK mengatakan apa
+                                         pun soal reservasi — reservasi hidup di tabel lain
+                                         (`raw_cus_reservation`, milik Sweet Treats, bukan
+                                         Omnicare) dan hampir seluruhnya belum pernah dijodohkan.
+                                         Teks lama "Datang tanpa reservasi" mengaku tahu hal yang
+                                         tidak kita ketahui. --}}
+                                    <span class="ort-badge ort-badge--walkin"
+                                          title="Kunjungan ini tidak cocok dengan jadwal mana pun di sistem. Bukan berarti pasien tidak memesan.">Tanpa jadwal tercatat</span>
                                 @endif
                             </div>
                         @endif

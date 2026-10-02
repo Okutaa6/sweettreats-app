@@ -202,7 +202,30 @@
                         : 'Belum ada follow-up';
                     $sFu = $m->fu_date ? ['Sudah di-FU', 'fu'] : ['Belum di-FU', 'menunggu'];
 
-                    // ── Tampilan "Tanggal reservasi"
+                    /*
+                     * ── Tampilan "Tanggal reservasi"
+                     *
+                     * ⚠ URUTANNYA MENENTUKAN. `rsv_date` WAJIB diperiksa SEBELUM
+                     *   `unscheduled`. Dulu kebalikannya, dan akibatnya baris walk-in
+                     *   yang berhasil ditautkan `ort:tautkan-reservasi` tetap berbunyi
+                     *   "datang tanpa reservasi" — menyembunyikan tanggal yang baru
+                     *   saja diisi, karena perintah itu tidak mereset `unscheduled`.
+                     *   Tabel utama (_tabel.blade.php) memakai urutan yang benar sejak
+                     *   awal, jadi dua layar berbeda pendapat tentang baris yang sama.
+                     *
+                     * ⚠ KITA TIDAK TAHU apakah pasien punya reservasi atau tidak.
+                     *   Reservasi hidup di `raw_cus_reservation` — tabel Sweet Treats,
+                     *   BUKAN dari Omnicare. Omnicare cuma tahu pasien DATANG.
+                     *   `unscheduled = 1` artinya "kunjungan ini tidak cocok dengan
+                     *   baris jadwal mana pun di sistem kita", bukan "pasien datang
+                     *   tanpa memesan". Teks lama mengaku tahu yang kedua, lengkap
+                     *   dengan chip HIJAU seolah fakta terverifikasi.
+                     *
+                     *   Selama `ort:tautkan-reservasi --commit` belum dijalankan,
+                     *   `reservation_id` kosong untuk hampir semua baris (0 dari
+                     *   35.317 di prod). "Belum pernah dicek" tidak boleh ditampilkan
+                     *   seperti "sudah dicek, hasilnya nihil".
+                     */
                     if ($m->rsv_status === 'cancelled') {
                         $dRsv = ($m->rsv_date ? $m->rsv_date->translatedFormat("j M 'y") : '—')
                               . ' · dibatalkan' . ($m->rsv_synced_at ? ' ' . $m->rsv_synced_at->translatedFormat('j M') : '');
@@ -210,15 +233,19 @@
                     } elseif ($m->reservation_id && ! $m->rsv_date) {
                         $dRsv = 'Masuk daftar tunggu';
                         $sRsv = ['Waitlist', 'telat'];
-                    } elseif ($m->unscheduled && $m->visit_date) {
-                        $dRsv = 'Datang langsung ' . $m->visit_date->translatedFormat("j M 'y") . ' tanpa reservasi';
-                        $sRsv = ['Tanpa reservasi', 'hadir'];
                     } elseif ($m->rsv_date) {
                         $dRsv = $m->rsv_date->translatedFormat("j M 'y") . ' · ' . $cabang;
                         $sRsv = $m->visit_date ? ['Datang', 'hadir']
                               : ($m->closed_at ? ['Terlewat', 'telat'] : ['Terjadwal', 'rsv']);
+                    } elseif ($m->unscheduled && $m->visit_date) {
+                        $dRsv = 'Datang ' . $m->visit_date->translatedFormat("j M 'y")
+                              . ' — tidak ada jadwal tercatat';
+                        $sRsv = ['Tanpa jadwal', 'menunggu'];
+                    } elseif ($m->isTerbuka()) {
+                        $dRsv = 'Belum ada reservasi';
+                        $sRsv = ['Belum dipesan', 'menunggu'];
                     } else {
-                        $dRsv = 'Tidak ada reservasi';
+                        $dRsv = 'Tidak tertaut reservasi';
                         $sRsv = ['—', 'menunggu'];
                     }
 

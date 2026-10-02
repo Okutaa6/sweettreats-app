@@ -285,7 +285,7 @@
                         <div class="tabular">
                             @if ($k->visit_date)
                                 <span class="ort-visit"
-                                      title="Terisi otomatis dari rekam medis, {{ $k->visit_filled_at?->translatedFormat('j M H:i') ?? '—' }}{{ $k->unscheduled ? ' · pasien datang tanpa reservasi' : '' }}">
+                                      title="Terisi otomatis dari rekam medis, {{ $k->visit_filled_at?->translatedFormat('j M H:i') ?? '—' }}{{ $k->unscheduled ? ' · tidak cocok dengan jadwal mana pun di sistem' : '' }}">
                                     {{ $k->visit_date->translatedFormat('j M') }}
                                     <i class="fas fa-download"></i>
                                 </span>

@@ -106,7 +106,7 @@ masing-masing).
 - `manifest-prod.md` — **daftar isi migrasi prod**: 30 SQL + 19 migration +
   langkah manual + inventaris cabang GitHub (mana yang ikut, mana yang tidak).
 - `deploy-coordination.md` — koordinasi deploy antar branch/orang.
-- `deploy-ortho.md` — runbook Tracking Ortho: 6 SQL + `access:rebuild` + 6
+- `deploy-ortho.md` — runbook Tracking Ortho: 7 SQL + `access:rebuild` + 6
   perintah isi data, berurutan. **Dua kegagalannya sunyi** (lupa
   `access:rebuild` → 404 di SEMUA halaman; lupa `ort:rollup` → irama kosong
   untuk semua pasien, tanpa pesan galat).

@@ -103,7 +103,7 @@ Tujuh kolom dan satu tombol buka. **50 baris per halaman** (dulu 10; Bintaro
 
 | Kolom | Isi |
 |---|---|
-| **Pasien** | Nama tebal, lalu telepon yang bisa diklik ke WhatsApp. Badge transfer / "Datang tanpa reservasi" kalau ada. **Tanpa nomor RM** — itu hanya di panel yang dibuka |
+| **Pasien** | Nama tebal, lalu telepon yang bisa diklik ke WhatsApp. Badge transfer / "Tanpa jadwal tercatat" kalau ada — yang kedua berarti kunjungan tidak cocok dengan jadwal mana pun di sistem, **bukan** pasien tidak memesan (sistem tidak tahu itu). **Tanpa nomor RM** — itu hanya di panel yang dibuka |
 | **Dokter** | Nama dokter ortho pasien ini |
 | **Jadwal** | Perkiraan kapan jatuh tempo. **Tidak pernah tanggal kalender** — lihat §4 |
 | **Follow-up** | Tanggal Sales menghubungi. Belum ada → `X` |
@@ -350,7 +350,7 @@ tidak ada pesan galat, halamannya terbuka normal.
 
 1. **Prasyarat** — audit collation prod. SELECT saja. Kalau mengembalikan
    baris, DDL tidak boleh jalan apa adanya.
-2. **Skema** — 6 berkas SQL, lalu `php artisan access:rebuild`. Lupa berarti
+2. **Skema** — 7 berkas SQL, lalu `php artisan access:rebuild`. Lupa berarti
    **404 di semua halaman**.
 3. **Isi data** — 6 perintah berurutan. Lupa `ort:rollup` berarti irama kosong
    untuk semua pasien.

@@ -211,7 +211,7 @@ lebar isi nyata, bukan dikira-kira (komentar CSS:1342).
 | `.ort-tr--warn` · `--bad` | Terlambat / terlambat parah: garis kiri amber / merah |
 | `.ort-tr--open` | Baris yang dibuka: latar sunken |
 | `.ort-tr--nb` | Baris berpita penutup: buang border-bottom |
-| `.ort-badge` · `--transfer` · `--walkin` | Badge di bawah nama |
+| `.ort-badge` · `--transfer` · `--walkin` | Badge di bawah nama. ⚠ `--walkin` kini bertuliskan **"Tanpa jadwal tercatat"**, bukan "Datang tanpa reservasi" — nama kelasnya dipertahankan, teksnya diluruskan: `unscheduled` berarti kunjungan tidak cocok dengan jadwal mana pun di sistem, bukan pasien tidak memesan |
 | `.ort-group` + `__dot` `__label` `__n` `__hint` | Kepala kelompok, latar strip |
 | `.ort-pagin` + `__btn` `__info` `__nav` | Paginasi 50 baris |
 

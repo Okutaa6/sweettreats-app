@@ -1,0 +1,60 @@
+-- =====================================================================
+-- Tracking Ortho — luruskan COMMENT `ort_control.unscheduled` — 2026-10-04
+-- IDEMPOTENT (MODIFY COLUMN dengan definisi yang sama persis; menjalankannya
+-- berulang menghasilkan keadaan yang identik).
+-- Jalankan di DB `sweettreats` (lokal) / `u695655413_app_sweettreat` (prod).
+--
+-- ---------------------------------------------------------------------
+-- Konteks
+-- ---------------------------------------------------------------------
+-- Reza menunjukkan panel baris pasien: kontrol #10 berbunyi "Datang langsung
+-- 27 Jun '26 tanpa reservasi" dengan chip hijau, dan bertanya tanggal
+-- reservasi itu diambil dari mana. Menelusurinya membongkar bahwa klaim
+-- "tanpa reservasi" hidup di LIMA tempat — panel baris, badge tabel, tooltip
+-- drawer, pita penutup di OrtQuery, dan COMMENT kolom ini — dan kelimanya
+-- mengaku tahu hal yang tidak diketahui sistem.
+--
+-- `unscheduled = 1` dipasang `ort:pull-visits` ketika sebuah kunjungan di
+-- cermin rekam medis TIDAK COCOK dengan baris jadwal mana pun di ort_control.
+-- Itu saja. Ia tidak tahu apakah pasien memesan: reservasi hidup di
+-- `raw_cus_reservation` — tabel Sweet Treats sendiri, bukan dari Omnicare —
+-- dan hampir seluruhnya belum pernah dijodohkan ke ort_control
+-- (`reservation_id` terisi 0 dari 35.317 baris di prod, diukur
+-- OrtTautkanReservasi). "Belum pernah dicek" tidak boleh dibaca sebagai
+-- "sudah dicek, hasilnya nihil".
+--
+-- COMMENT kolom adalah satu-satunya dari lima tempat itu yang dibaca orang
+-- SEBELUM menulis kode. Kalau ia tetap berbunyi "Datang tanpa reservasi",
+-- orang berikutnya akan menulis ulang klaim yang sama dengan niat baik.
+--
+-- ---------------------------------------------------------------------
+-- Yang dilakukan skrip ini
+-- ---------------------------------------------------------------------
+--   Mengganti COMMENT pada ort_control.unscheduled. Tipe, NULL-ability, dan
+--   default TIDAK berubah sama sekali — `tinyint(1) NOT NULL DEFAULT 0`,
+--   persis seperti di 2026_09_23_ort_tracking_schema.sql.
+--
+-- ---------------------------------------------------------------------
+-- Yang SENGAJA TIDAK dilakukan
+-- ---------------------------------------------------------------------
+--   - TIDAK menyentuh data. Nol baris berubah; nilai unscheduled tetap.
+--   - TIDAK mengganti nama kolomnya. `unscheduled` sudah dirujuk di 4 view,
+--     2 command, dan 1 service; nama itu benar — yang salah cuma komentarnya.
+--   - TIDAK mereset unscheduled saat baris ditautkan `ort:tautkan-reservasi`.
+--     Keduanya bisa benar sekaligus: kunjungan memang tidak punya baris
+--     jadwal DAN belakangan ketemu reservasinya. View sudah memeriksa
+--     rsv_date lebih dulu, jadi tautannya menang tanpa perlu menghapus fakta.
+-- =====================================================================
+
+ALTER TABLE `ort_control`
+  MODIFY COLUMN `unscheduled` tinyint(1) NOT NULL DEFAULT 0
+  COMMENT '1 = kunjungan ini tidak cocok dengan baris jadwal mana pun di sistem saat ditarik. BUKAN "pasien datang tanpa reservasi" — sistem tidak tahu itu; reservasi ada di raw_cus_reservation dan diperiksa lewat rsv_date. Keterangan, bukan kesalahan';
+
+-- Verifikasi:
+--   SELECT COLUMN_NAME, COLUMN_TYPE, IS_NULLABLE, COLUMN_DEFAULT, COLUMN_COMMENT
+--     FROM information_schema.COLUMNS
+--    WHERE TABLE_SCHEMA = DATABASE()
+--      AND TABLE_NAME = 'ort_control'
+--      AND COLUMN_NAME = 'unscheduled';
+-- Harus: tinyint(1) · NO · 0 · komentar di atas.
+-- =====================================================================

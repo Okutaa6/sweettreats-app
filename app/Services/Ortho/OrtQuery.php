@@ -464,7 +464,12 @@ class OrtQuery
                     : 'kontrol #' . $prev->seq . ' selesai — hadir ' . optional($prev->visit_date)->translatedFormat('j M'),
                 'catatan' => match (true) {
                     $absen                                       => 'ditandai manual oleh Sales',
-                    (bool) $prev->unscheduled                    => 'datang tanpa reservasi · terisi sendiri dari rekam medis',
+                    /* `unscheduled` = kunjungan ini tidak cocok dengan baris jadwal
+                       mana pun di sistem. Ia TIDAK tahu apakah pasien memesan —
+                       reservasi hidup di raw_cus_reservation dan hampir seluruhnya
+                       belum dijodohkan. Teks lama "datang tanpa reservasi" mengaku
+                       tahu hal itu. Satu dari lima tempat klaim yang sama hidup. */
+                    (bool) $prev->unscheduled                    => 'tidak ada jadwal tercatat · terisi sendiri dari rekam medis',
                     $prev->visit_source === 'rekam_medis'        => 'terisi sendiri dari rekam medis',
                     default                                      => 'ditandai manual oleh Sales',
                 },
