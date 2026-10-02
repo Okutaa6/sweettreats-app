@@ -52,6 +52,45 @@ use Illuminate\Support\Facades\Schema;
  * Menulis BUTUH `--commit`. Tanpa itu: memindai, melaporkan, lalu berhenti.
  * Pengaman yang harus diingat untuk dinyalakan adalah pengaman yang suatu hari
  * lupa dinyalakan.
+ *
+ * ───────────────────────────────────
+ * TIGA JENIS BARIS, TIGA ATURAN — sejak 2026-10-04
+ * ───────────────────────────────────
+ * Versi pertama hanya menyentuh baris ber-`visit_date`. Itu melewati persis
+ * baris yang dilihat Sales di tab List: kontrol TERBUKA yang punya reservasi
+ * mendatang (dibuat dari modul Reservasi biasa, jadi Observer tidak pernah
+ * menemukannya) — dan baris `tidak_hadir`, tempat reservasi yang meleset atau
+ * dibatalkan justru berada. Akibatnya tab "Tanggal reservasi" berbunyi
+ * "Tidak ada reservasi" untuk hampir semua orang, padahal reservasinya ada.
+ *
+ *   RIWAYAT    visit_date terisi      jangkar visit_date ± toleransi
+ *                                     (aturan asli, TIDAK berubah)
+ *   TIDAK HADIR outcome=tidak_hadir,  jangkar sch_date ± toleransi — janji
+ *              visit_date kosong      yang meleset; status apa pun, termasuk
+ *                                     cancelled, karena itulah ceritanya
+ *   TERBUKA    closed_at kosong       reservasi MENDATANG (≥ hari ini, sampai
+ *                                     HORIZON_TERBUKA hari) milik pasien itu.
+ *                                     Tanpa jendela toleransi: satu kasus
+ *                                     hanya punya satu kontrol terbuka, jadi
+ *                                     "pasien ini punya reservasi mendatang"
+ *                                     sudah tidak ambigu. Cancelled DIBUANG —
+ *                                     kalau satu-satunya yang mendatang sudah
+ *                                     batal, biarkan kosong supaya Sales
+ *                                     melihat "Belum ada reservasi" dan
+ *                                     memesankan lagi. Waitlist (date NULL)
+ *                                     IKUT, diurutkan paling belakang.
+ *
+ * ⚠ Untuk TERBUKA, reservasi berlayanan behel/ortho DIUTAMAKAN, tidak
+ *   DIWAJIBKAN. Jembatan prefill dari Tracking Ortho tidak memilih layanan
+ *   (hanya mengisi keterangan "Kontrol ortho ke-N"), jadi mewajibkannya akan
+ *   melewatkan reservasi yang justru lahir dari modul ini sendiri. Yang
+ *   dicegah cuma ini: pasien ortho memesan scaling bulan depan dan booking
+ *   itu tersambar jadi "reservasi kontrol" — maka bila ada dua calon, yang
+ *   berlayanan behel menang.
+ *
+ * ⚠ `--sejak`/`--sampai` hanya berlaku untuk RIWAYAT (menyaring visit_date).
+ *   Dua jenis lain tidak punya visit_date; menyaringnya lewat opsi itu akan
+ *   diam-diam mengosongkan hasilnya.
  */
 class OrtTautkanReservasi extends Command
 {
@@ -67,6 +106,29 @@ class OrtTautkanReservasi extends Command
 
     /** Jejak, supaya bisa dibedakan dari tautan buatan Observer. */
     private const PENULIS = 'ort:tautkan-reservasi';
+
+    /**
+     * Seberapa jauh ke depan reservasi masih dianggap "untuk kontrol terbuka
+     * ini". 120 hari = dua kali IRAMA_MAX_HARI (60): cukup untuk pasien yang
+     * memesan jauh-jauh hari, cukup sempit untuk tidak menyambar booking tahun
+     * depan yang bukan urusan kontrol sekarang.
+     */
+    private const HORIZON_TERBUKA = 120;
+
+    /**
+     * Penanda layanan ortho di `raw_doc_service.name` — dipakai hanya untuk
+     * MENGUTAMAKAN, bukan menyaring (lihat kepala berkas). Nama master lokal:
+     * "Kontrol Behel", "Pemasangan Behel".
+     */
+    private const POLA_LAYANAN_ORTHO = '/behel|ortho|orto|bracket|braces/i';
+
+    /** Jenis sapuan — menentukan jangkar tanggal dan aturan pemilihan. */
+    private const RIWAYAT     = 'riwayat';
+    private const TIDAK_HADIR = 'tidak_hadir';
+    private const TERBUKA     = 'terbuka';
+
+    /** id reservasi yang punya layanan ortho, diisi per gelombang. */
+    private array $berlayananOrtho = [];
 
     private array $n = [];
 
@@ -95,6 +157,10 @@ class OrtTautkanReservasi extends Command
 
         $this->n = array_fill_keys([
             'diperiksa', 'tanpa_customer', 'tanpa_calon', 'tertaut', 'bentrok',
+            // dua jenis baris baru dihitung TERPISAH supaya angka cakupan
+            // riwayat (yang dibandingkan ke 91% prod) tidak terencerkan.
+            'tidakhadir_diperiksa', 'tidakhadir_tertaut',
+            'terbuka_diperiksa',    'terbuka_tertaut',
         ], 0);
 
         $this->info(sprintf(
@@ -115,34 +181,78 @@ class OrtTautkanReservasi extends Command
 
     private function sapu(bool $tulis, int $toleransi): void
     {
-        $q = DB::table('ort_control as c')
-            ->join('ort_case as k', 'k.id', '=', 'c.ort_case_id')   // sekeluarga — aman
-            ->whereNotNull('c.visit_date')
-            ->whereNull('c.reservation_id');
+        // Tiga sapuan, satu mesin. Urutannya disengaja: RIWAYAT dulu supaya
+        // reservasi lama "diklaim" oleh kunjungan yang memang memakainya,
+        // baru TIDAK HADIR, baru TERBUKA — yang mendatang tidak mungkin
+        // bersaing dengan dua jenis pertama, tapi $terpakai tetap menjaganya.
+        foreach ([self::RIWAYAT, self::TIDAK_HADIR, self::TERBUKA] as $jenis) {
+            $q = DB::table('ort_control as c')
+                ->join('ort_case as k', 'k.id', '=', 'c.ort_case_id')   // sekeluarga — aman
+                ->whereNull('c.reservation_id');
 
-        if ($this->option('cabang')) {
-            $q->where('c.place_id', (string) $this->option('cabang'));
-        }
-        if ($this->option('sejak')) {
-            $q->where('c.visit_date', '>=', Carbon::parse($this->option('sejak'))->toDateString());
-        }
-        if ($this->option('sampai')) {
-            $q->where('c.visit_date', '<=', Carbon::parse($this->option('sampai'))->toDateString());
-        }
+            switch ($jenis) {
+                case self::RIWAYAT:
+                    $q->whereNotNull('c.visit_date');
+                    // --sejak/--sampai HANYA di sini: dua jenis lain tidak punya
+                    // visit_date, menyaringnya akan mengosongkan hasil diam-diam.
+                    if ($this->option('sejak')) {
+                        $q->where('c.visit_date', '>=', Carbon::parse($this->option('sejak'))->toDateString());
+                    }
+                    if ($this->option('sampai')) {
+                        $q->where('c.visit_date', '<=', Carbon::parse($this->option('sampai'))->toDateString());
+                    }
+                    $q->orderBy('c.ort_case_id')->orderBy('c.visit_date');
+                    break;
 
-        // Digarap per gelombang: identitas dan reservasi diambil sekali untuk
-        // ratusan kontrol, bukan dua kueri per baris.
-        $q->orderBy('c.ort_case_id')->orderBy('c.visit_date')
-            ->select('c.id', 'c.ort_case_id', 'c.place_id', 'c.visit_date',
-                     'k.omnicare_pid', 'k.raw_customer_id')
-            ->chunk(300, function ($baris) use ($tulis, $toleransi) {
-                $this->olahGelombang($baris, $tulis, $toleransi);
-            });
+                case self::TIDAK_HADIR:
+                    $q->whereNull('c.visit_date')
+                      ->where('c.outcome', OrtControl::OUT_TIDAK_HADIR)
+                      ->orderBy('c.ort_case_id')->orderBy('c.sch_date');
+                    break;
+
+                case self::TERBUKA:
+                    $q->whereNull('c.closed_at')
+                      ->orderBy('c.ort_case_id')->orderBy('c.sch_date');
+                    break;
+            }
+
+            if ($this->option('cabang')) {
+                $q->where('c.place_id', (string) $this->option('cabang'));
+            }
+
+            // Digarap per gelombang: identitas dan reservasi diambil sekali untuk
+            // ratusan kontrol, bukan dua kueri per baris.
+            $q->select('c.id', 'c.ort_case_id', 'c.place_id', 'c.visit_date', 'c.sch_date',
+                       'k.omnicare_pid', 'k.raw_customer_id')
+              ->chunk(300, function ($baris) use ($tulis, $toleransi, $jenis) {
+                  $this->olahGelombang($baris, $tulis, $toleransi, $jenis);
+              });
+        }
     }
 
-    private function olahGelombang($baris, bool $tulis, int $toleransi): void
+    /** Tanggal jangkar satu baris menurut jenis sapuannya (Y-m-d). */
+    private function jangkar(object $r, string $jenis): string
     {
-        $this->n['diperiksa'] += count($baris);
+        return match ($jenis) {
+            self::RIWAYAT     => substr((string) $r->visit_date, 0, 10),
+            self::TIDAK_HADIR => substr((string) $r->sch_date, 0, 10),
+            self::TERBUKA     => Carbon::today()->toDateString(),
+        };
+    }
+
+    private function olahGelombang($baris, bool $tulis, int $toleransi, string $jenis = self::RIWAYAT): void
+    {
+        $kDiperiksa = match ($jenis) {
+            self::RIWAYAT     => 'diperiksa',
+            self::TIDAK_HADIR => 'tidakhadir_diperiksa',
+            self::TERBUKA     => 'terbuka_diperiksa',
+        };
+        $kTertaut = match ($jenis) {
+            self::RIWAYAT     => 'tertaut',
+            self::TIDAK_HADIR => 'tidakhadir_tertaut',
+            self::TERBUKA     => 'terbuka_tertaut',
+        };
+        $this->n[$kDiperiksa] += count($baris);
 
         // ── Identitas: raw_customer_id, dengan cadangan lewat tautan ────────
         // ort_case.raw_customer_id diisi penyemai, tapi tautan bisa lahir
@@ -180,15 +290,51 @@ class OrtTautkanReservasi extends Command
             return;
         }
 
-        $tgl    = collect($baris)->pluck('visit_date')->filter()->map(fn ($d) => substr((string) $d, 0, 10));
-        $sejak  = Carbon::parse($tgl->min())->subDays($toleransi)->toDateString();
-        $sampai = Carbon::parse($tgl->max())->addDays($toleransi)->toDateString();
+        // Jendela tanggal mengikuti jangkar jenis ini. TERBUKA: dari hari ini
+        // sampai HORIZON_TERBUKA ke depan; waitlist (date NULL) ikut diambil
+        // karena "sudah dimasukkan daftar tunggu" adalah tautan yang sah.
+        $tgl = collect($baris)->map(fn ($r) => $this->jangkar($r, $jenis));
+        if ($jenis === self::TERBUKA) {
+            $sejak  = Carbon::today()->toDateString();
+            $sampai = Carbon::today()->addDays(self::HORIZON_TERBUKA)->toDateString();
+        } else {
+            $sejak  = Carbon::parse($tgl->min())->subDays($toleransi)->toDateString();
+            $sampai = Carbon::parse($tgl->max())->addDays($toleransi)->toDateString();
+        }
 
-        $rsv = DB::table('raw_cus_reservation')
+        $rsvQ = DB::table('raw_cus_reservation')
             ->whereIn('raw_customer_id', $custIds)
-            ->whereBetween('date', [$sejak, $sampai])
-            ->get(['id', 'raw_customer_id', 'raw_branch_id', 'date', 'status'])
+            ->where(function ($w) use ($sejak, $sampai, $jenis) {
+                $w->whereBetween('date', [$sejak, $sampai]);
+                if ($jenis === self::TERBUKA) {
+                    $w->orWhereNull('date');   // waitlist
+                }
+            });
+        if ($jenis === self::TERBUKA) {
+            // Yang sudah batal bukan "reservasi mendatang". Biarkan kosong
+            // supaya Sales melihat "Belum ada reservasi" dan memesankan lagi.
+            $rsvQ->where('status', '<>', 'cancelled');
+        }
+        $rsv = $rsvQ->get(['id', 'raw_customer_id', 'raw_branch_id', 'date', 'status'])
             ->groupBy('raw_customer_id');
+
+        // Layanan ortho — untuk MENGUTAMAKAN calon di jenis TERBUKA. Dua
+        // whereIn dengan literal PHP, bukan JOIN (collation prod campur).
+        $this->berlayananOrtho = [];
+        $rsvIds = $rsv->flatten(1)->pluck('id')->map(fn ($v) => (string) $v)->all();
+        if ($jenis === self::TERBUKA && $rsvIds
+            && Schema::hasTable('raw_cus_res_service') && Schema::hasTable('raw_doc_service')) {
+            $layananOrtho = DB::table('raw_doc_service')->pluck('name', 'id')
+                ->filter(fn ($nama) => preg_match(self::POLA_LAYANAN_ORTHO, (string) $nama))
+                ->keys()->map(fn ($v) => (string) $v)->all();
+            if ($layananOrtho) {
+                $this->berlayananOrtho = DB::table('raw_cus_res_service')
+                    ->whereIn('raw_cus_reservation_id', $rsvIds)
+                    ->whereIn('raw_doc_service_id', $layananOrtho)
+                    ->pluck('raw_cus_reservation_id')
+                    ->map(fn ($v) => (string) $v)->flip()->all();
+            }
+        }
 
         // Reservasi yang SUDAH menempel di kontrol lain tidak boleh dipakai lagi.
         $sudahDipakai = DB::table('ort_control')
@@ -204,11 +350,13 @@ class OrtTautkanReservasi extends Command
                 continue;
             }
 
-            $pilih = $this->calonTerbaik(
+            $jangkar = $this->jangkar($r, $jenis);
+            $pilih   = $this->calonTerbaik(
                 $rsv->get($pelanggan[$r->id], collect()),
-                substr((string) $r->visit_date, 0, 10),
+                $jangkar,
                 (string) $r->place_id,
-                $toleransi
+                $toleransi,
+                $jenis
             );
 
             if (! $pilih) {
@@ -217,13 +365,15 @@ class OrtTautkanReservasi extends Command
             }
 
             $this->terpakai[(string) $pilih->id] = true;
-            $this->n['tertaut']++;
+            $this->n[$kTertaut]++;
 
             if (count($this->contoh) < (int) $this->option('contoh')) {
+                $tglRsv = filled($pilih->date) ? substr((string) $pilih->date, 0, 10) : null;
                 $this->contoh[] = [
-                    substr((string) $r->visit_date, 0, 10),
-                    substr((string) $pilih->date, 0, 10),
-                    (int) Carbon::parse($pilih->date)->diffInDays(Carbon::parse($r->visit_date), false),
+                    $jenis,
+                    $jangkar,
+                    $tglRsv ?? 'waitlist',
+                    $tglRsv ? (int) Carbon::parse($tglRsv)->diffInDays(Carbon::parse($jangkar), false) : '—',
                     $pilih->status,
                     (string) $pilih->raw_branch_id === (string) $this->branches->branchId($r->place_id) ? 'sama' : 'beda',
                 ];
@@ -254,15 +404,22 @@ class OrtTautkanReservasi extends Command
      * nyata (104 orang di prod), dan membuang reservasi mereka karena
      * cabangnya beda sama saja mengulang lubang yang sedang kita tambal.
      */
-    private function calonTerbaik($calon, string $visitDate, string $placeId, int $toleransi)
+    private function calonTerbaik($calon, string $jangkar, string $placeId, int $toleransi, string $jenis = self::RIWAYAT)
     {
         $branchId = $this->branches->branchId($placeId);
-        $datang   = Carbon::parse($visitDate);
+        $acuan    = Carbon::parse($jangkar);
 
-        $layak = $calon
-            ->reject(fn ($r) => isset($this->terpakai[(string) $r->id]))
-            ->filter(fn ($r) => filled($r->date)
-                && abs(Carbon::parse($r->date)->diffInDays($datang)) <= $toleransi);
+        $belumDipakai = $calon->reject(fn ($r) => isset($this->terpakai[(string) $r->id]));
+
+        if ($jenis === self::TERBUKA) {
+            // Mendatang (≥ hari ini) atau waitlist tanpa tanggal. Jendela atas
+            // (HORIZON_TERBUKA) dan pembuangan `cancelled` sudah di kueri.
+            $layak = $belumDipakai->filter(fn ($r) => ! filled($r->date)
+                || ! Carbon::parse($r->date)->lt($acuan));
+        } else {
+            $layak = $belumDipakai->filter(fn ($r) => filled($r->date)
+                && abs(Carbon::parse($r->date)->diffInDays($acuan)) <= $toleransi);
+        }
 
         if ($layak->isEmpty()) {
             return null;
@@ -272,8 +429,13 @@ class OrtTautkanReservasi extends Command
             $this->n['bentrok']++;
         }
 
+        // Urutan TERBUKA: layanan ortho dulu (bukan syarat — lihat kepala
+        // berkas), lalu yang bertanggal sebelum waitlist, lalu yang terdekat,
+        // cabang sama, id. Jenis lain: terdekat, cabang sama, id — tak berubah.
         return $layak->sortBy(fn ($r) => [
-            abs(Carbon::parse($r->date)->diffInDays($datang)),
+            $jenis === self::TERBUKA && ! isset($this->berlayananOrtho[(string) $r->id]) ? 1 : 0,
+            $jenis === self::TERBUKA && ! filled($r->date) ? 1 : 0,
+            filled($r->date) ? abs(Carbon::parse($r->date)->diffInDays($acuan)) : PHP_INT_MAX,
             (string) $r->raw_branch_id === (string) $branchId ? 0 : 1,
             (string) $r->id,
         ])->first();
@@ -288,18 +450,23 @@ class OrtTautkanReservasi extends Command
         if ($this->contoh) {
             $this->line('Contoh pasangan — PERIKSA TANGAN sebelum --commit:');
             $this->table(
-                ['Datang', 'Janji reservasi', 'Selisih hari', 'Status', 'Cabang'],
+                ['Jenis', 'Jangkar', 'Janji reservasi', 'Selisih hari', 'Status', 'Cabang'],
                 $this->contoh
             );
             $this->newLine();
         }
 
+        $v = $tulis ? 'tertaut' : 'akan ditaut';
         $this->table(['Hasil', 'Jumlah'], [
-            ['Kontrol berkunjungan diperiksa',      $n['diperiksa']],
-            [$tulis ? 'Tertaut' : 'Akan ditaut',    $n['tertaut']],
-            ['→ pasien belum tertaut raw_customer', $n['tanpa_customer']],
-            ['→ tidak ada reservasi di rentangnya', $n['tanpa_calon']],
-            ['Lebih dari satu calon (dipilih terdekat)', $n['bentrok']],
+            ['RIWAYAT — kontrol berkunjungan diperiksa',     $n['diperiksa']],
+            ["  → {$v} (jangkar visit_date ±toleransi)",      $n['tertaut']],
+            ['TIDAK HADIR — diperiksa',                      $n['tidakhadir_diperiksa']],
+            ["  → {$v} (jangkar sch_date ±toleransi)",        $n['tidakhadir_tertaut']],
+            ['TERBUKA — kontrol terbuka diperiksa',          $n['terbuka_diperiksa']],
+            ["  → {$v} (reservasi mendatang / waitlist)",     $n['terbuka_tertaut']],
+            ['→ pasien belum tertaut raw_customer',          $n['tanpa_customer']],
+            ['→ tidak ada calon yang cocok',                 $n['tanpa_calon']],
+            ['Lebih dari satu calon (dipilih menurut aturan)', $n['bentrok']],
         ]);
 
         if ($n['diperiksa'] > 0) {

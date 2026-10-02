@@ -106,8 +106,14 @@ php artisan ort:rapikan-usulan                 # pratinjau
 php artisan ort:rapikan-usulan --commit
 
 # 3.5  Tautkan reservasi yang sudah ada — pratinjau dulu
-php artisan ort:tautkan-reservasi
+php artisan ort:tautkan-reservasi            # pratinjau — periksa tabel "Contoh pasangan"
 php artisan ort:tautkan-reservasi --commit
+# Sejak 2026-10-04 perintah ini menyapu TIGA jenis baris, bukan satu:
+#   RIWAYAT (visit_date ±3 hari) · TIDAK HADIR (sch_date ±3 hari, termasuk
+#   reservasi batal) · TERBUKA (reservasi mendatang ≤120 hari / waitlist,
+#   batal dibuang, layanan behel diutamakan). Angka "Cakupan: N%" HANYA
+#   mengukur RIWAYAT — itulah yang dibandingkan ke 91% prod.
+#   --sejak/--sampai hanya menyaring RIWAYAT.
 ```
 
 ### Kenapa 3.2 pakai `--tanpa-usulan`

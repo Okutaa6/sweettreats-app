@@ -121,6 +121,158 @@ class OrtoTautReservasiTest extends TestCase
         Artisan::call('ort:tautkan-reservasi', array_merge(['--cabang' => $this->placeId], $opsi));
     }
 
+    // ── Perkakas untuk dua jenis baris baru (2026-10-04) ───────────────────
+
+    private function kasus(?string $customerId): OrtCase
+    {
+        return OrtCase::create([
+            'id' => (string) Str::uuid(), 'seed_source' => self::TANDA,
+            'omnicare_pid' => self::TANDA . '-' . Str::random(6),
+            'patient_name' => 'Uji Taut', 'raw_customer_id' => $customerId,
+            'owner_place_id' => $this->placeId, 'install_place_id' => $this->placeId,
+            'install_date' => Carbon::today()->subDays(300)->toDateString(),
+            'status' => OrtCase::STATUS_AKTIF,
+            'control_count' => 0, 'visit_count' => 0, 'visit_count_180d' => 0,
+        ]);
+    }
+
+    /** Kontrol TERBUKA — yang dilihat Sales di tab List. Jatuh tempo hari ini. */
+    private function terbuka(?string $customerId): OrtControl
+    {
+        return OrtControl::create([
+            'id' => (string) Str::uuid(), 'ort_case_id' => $this->kasus($customerId)->id, 'seq' => 1,
+            'place_id' => $this->placeId, 'is_proposal' => 0,
+            'sch_date' => Carbon::today()->toDateString(),
+            'sch_source' => OrtControl::SCH_MANUAL, 'created_by' => 'uji',
+        ]);
+    }
+
+    /** Kontrol ditutup TIDAK HADIR pada jadwal $schDate — tanpa visit_date. */
+    private function tidakHadir(string $schDate, ?string $customerId): OrtControl
+    {
+        return OrtControl::create([
+            'id' => (string) Str::uuid(), 'ort_case_id' => $this->kasus($customerId)->id, 'seq' => 1,
+            'place_id' => $this->placeId, 'is_proposal' => 0,
+            'sch_date' => $schDate, 'sch_source' => OrtControl::SCH_MANUAL,
+            'outcome' => OrtControl::OUT_TIDAK_HADIR,
+            'closed_at' => now(), 'closed_by' => 'uji', 'created_by' => 'uji',
+        ]);
+    }
+
+    /** Tempelkan layanan "Kontrol Behel" ke sebuah reservasi; skip kalau master-nya tidak ada. */
+    private function layananBehel(string $reservasiId): void
+    {
+        $svc = DB::table('raw_doc_service')->where('name', 'like', '%Behel%')->value('id');
+        if (! $svc) {
+            $this->markTestSkipped('raw_doc_service tidak punya layanan ber-"Behel" di DB ini.');
+        }
+        DB::table('raw_cus_res_service')->insert([
+            'id' => (string) Str::uuid(), 'raw_cus_reservation_id' => $reservasiId,
+            'raw_doc_service_id' => $svc, 'quantity' => 1,
+        ]);
+    }
+
+    // ── TERBUKA: reservasi mendatang ────────────────────────────────────────
+
+    /**
+     * ⭐ INTI MASALAH 2. Kontrol terbuka + reservasi minggu depan dari modul
+     * Reservasi biasa → dulu TIDAK PERNAH tertaut, dan Sales melihat
+     * "Belum ada reservasi" padahal sudah dipesan.
+     */
+    public function test_kontrol_terbuka_tertaut_ke_reservasi_mendatang(): void
+    {
+        $cust = $this->pelanggan();
+        $ctl  = $this->terbuka($cust);
+        $rsv  = $this->reservasi($cust, Carbon::today()->addDays(9)->toDateString());
+
+        $this->jalankan(['--commit' => true]);
+
+        $ctl->refresh();
+        $this->assertSame($rsv, $ctl->reservation_id, 'Kontrol terbuka harus menemukan reservasi mendatangnya.');
+        $this->assertSame(Carbon::today()->addDays(9)->toDateString(), $ctl->rsv_date->toDateString());
+    }
+
+    /** Reservasi yang sudah batal BUKAN reservasi mendatang — biarkan kosong. */
+    public function test_kontrol_terbuka_mengabaikan_reservasi_batal(): void
+    {
+        $cust = $this->pelanggan();
+        $ctl  = $this->terbuka($cust);
+        $this->reservasi($cust, Carbon::today()->addDays(5)->toDateString(), 'cancelled');
+
+        $this->jalankan(['--commit' => true]);
+
+        $this->assertNull($ctl->refresh()->reservation_id,
+            'Kalau satu-satunya yang mendatang sudah batal, Sales harus melihat "Belum ada reservasi".');
+    }
+
+    /** Reservasi yang sudah LEWAT bukan calon untuk kontrol terbuka. */
+    public function test_kontrol_terbuka_mengabaikan_reservasi_lampau(): void
+    {
+        $cust = $this->pelanggan();
+        $ctl  = $this->terbuka($cust);
+        $this->reservasi($cust, Carbon::today()->subDays(4)->toDateString());
+
+        $this->jalankan(['--commit' => true]);
+
+        $this->assertNull($ctl->refresh()->reservation_id);
+    }
+
+    /**
+     * Pasien ortho memesan scaling bulan depan DAN kontrol behel minggu depan:
+     * yang berlayanan behel menang — meski scaling-nya tidak lebih jauh.
+     */
+    public function test_kontrol_terbuka_mengutamakan_layanan_behel(): void
+    {
+        $cust   = $this->pelanggan();
+        $ctl    = $this->terbuka($cust);
+        $lain   = $this->reservasi($cust, Carbon::today()->addDays(3)->toDateString());   // lebih dekat, tanpa layanan
+        $behel  = $this->reservasi($cust, Carbon::today()->addDays(10)->toDateString());
+        $this->layananBehel($behel);
+
+        $this->jalankan(['--commit' => true]);
+
+        $this->assertSame($behel, $ctl->refresh()->reservation_id,
+            'Layanan behel harus mengalahkan kedekatan tanggal untuk kontrol terbuka.');
+        $this->assertNotSame($lain, $ctl->reservation_id);
+    }
+
+    // ── TIDAK HADIR: janji yang meleset ─────────────────────────────────────
+
+    /** Baris tidak_hadir menemukan reservasinya lewat sch_date, termasuk yang batal. */
+    public function test_tidak_hadir_tertaut_lewat_sch_date_meski_batal(): void
+    {
+        $cust = $this->pelanggan();
+        $jad  = Carbon::today()->subDays(15)->toDateString();
+        $ctl  = $this->tidakHadir($jad, $cust);
+        $rsv  = $this->reservasi($cust, Carbon::parse($jad)->addDay()->toDateString(), 'cancelled');
+
+        $this->jalankan(['--commit' => true]);
+
+        $ctl->refresh();
+        $this->assertSame($rsv, $ctl->reservation_id, 'Janji yang meleset justru ceritanya ada di reservasi batal.');
+        $this->assertSame('cancelled', $ctl->rsv_status);
+    }
+
+    /** Satu reservasi tetap satu kontrol — riwayat mengklaim duluan, terbuka tidak merebut. */
+    public function test_terbuka_tidak_merebut_reservasi_milik_riwayat(): void
+    {
+        $cust = $this->pelanggan();
+        $tgl  = Carbon::today()->toDateString();                   // hari ini: masuk jendela RIWAYAT dan TERBUKA
+        $hist = $this->kunjungan($tgl, $cust);
+        $rsv  = $this->reservasi($cust, $tgl);
+        $buka = OrtControl::create([                               // kontrol terbuka di kasus yang SAMA
+            'id' => (string) Str::uuid(), 'ort_case_id' => $hist->ort_case_id, 'seq' => 2,
+            'place_id' => $this->placeId, 'is_proposal' => 0,
+            'sch_date' => Carbon::today()->addDays(30)->toDateString(),
+            'sch_source' => OrtControl::SCH_MANUAL, 'created_by' => 'uji',
+        ]);
+
+        $this->jalankan(['--commit' => true]);
+
+        $this->assertSame($rsv, $hist->refresh()->reservation_id, 'Riwayat disapu lebih dulu dan mengklaim reservasinya.');
+        $this->assertNull($buka->refresh()->reservation_id, 'Kontrol terbuka tidak boleh merebut reservasi yang sudah dipakai.');
+    }
+
     // ── Penjodohan dasar ────────────────────────────────────────────────────
 
     public function test_tanggal_sama_persis_tertaut(): void

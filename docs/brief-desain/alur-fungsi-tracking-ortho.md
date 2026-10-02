@@ -663,8 +663,43 @@ baris itu **kebal selamanya**.
 Dicocokkan ke `raw_cus_reservation.date` (tanggal **janji**), **bukan**
 `created_at`. Toleransi `--toleransi=3` hari.
 
-`calonTerbaik()` deterministik: (1) selisih hari terkecil, (2) cabang sama,
-(3) `id` sebagai pemecah seri.
+**Sejak 4 Okt 2026 menyapu TIGA jenis baris**, bukan satu. Versi pertama hanya
+menyentuh baris ber-`visit_date` — dan itu melewati persis baris yang dilihat
+Sales di tab List: kontrol terbuka yang reservasinya dibuat dari modul
+Reservasi biasa (Observer tidak pernah menemukannya), serta baris
+`tidak_hadir` tempat reservasi yang meleset/batal justru berada.
+
+| Jenis | Saringan | Jangkar | Aturan khusus |
+|---|---|---|---|
+| **Riwayat** | `visit_date` terisi | `visit_date` ± toleransi | tidak berubah; `--sejak`/`--sampai` hanya berlaku di sini |
+| **Tidak hadir** | `outcome = tidak_hadir`, `visit_date` kosong | `sch_date` ± toleransi | status apa pun ikut, **termasuk `cancelled`** — itulah ceritanya |
+| **Terbuka** | `closed_at` kosong | hari ini … +`HORIZON_TERBUKA` (120 hari) | `cancelled` **dibuang**; waitlist (`date` NULL) ikut, diurutkan terakhir; **layanan behel diutamakan, tidak diwajibkan** |
+
+Kenapa terbuka tanpa jendela toleransi: satu kasus hanya punya satu kontrol
+terbuka, jadi "pasien ini punya reservasi mendatang" sudah tidak ambigu.
+Memaksakan ±3 hari dari `sch_date` justru melewatkan hampir semuanya — Sales
+memesan kapan pasien setuju, bukan tepat di jatuh tempo.
+
+Kenapa layanan behel tidak diwajibkan: jembatan prefill dari Tracking Ortho
+**tidak memilih layanan** (hanya mengisi keterangan "Kontrol ortho ke-N").
+Mewajibkannya akan melewatkan reservasi yang lahir dari modul ini sendiri.
+Yang dicegah cuma satu: pasien ortho memesan scaling bulan depan dan booking
+itu tersambar jadi "reservasi kontrol" — bila ada dua calon, yang berlayanan
+behel menang. Penanda: `raw_doc_service.name` cocok `/behel|ortho|orto|bracket|braces/i`,
+diperiksa lewat dua `whereIn` berliteral PHP, bukan JOIN.
+
+Urutan sapuan disengaja: riwayat → tidak hadir → terbuka, supaya reservasi
+lama diklaim kunjungan yang memang memakainya sebelum kontrol terbuka
+sempat melihatnya. `$terpakai` tetap menjaga "satu reservasi satu kontrol"
+lintas ketiganya.
+
+Angka **"Cakupan: N%"** di laporan **hanya mengukur riwayat** — itulah yang
+dibandingkan ke 91% prod. Dua jenis lain dilaporkan terpisah supaya tidak
+mengencerkannya.
+
+`calonTerbaik()` deterministik — riwayat & tidak hadir: (1) selisih hari
+terkecil, (2) cabang sama, (3) `id`. Terbuka: (0) berlayanan behel dulu,
+(0b) bertanggal sebelum waitlist, lalu (1)–(3) yang sama.
 
 ⚠ Cabang jadi penimbang **kedua**, bukan syarat — pasien lintas cabang nyata
 (104 orang di prod).
