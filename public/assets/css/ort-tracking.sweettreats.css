@@ -139,29 +139,53 @@
    Mengikuti kosakata yang sudah ada di berkas ini: .ort-utabs juga wadah
    berbingkai radius 14 berisi pil radius 10. Bukan pola baru.
 
-   ⚠ Wadahnya HANYA terlihat saat terbuka. Saat tertutup ia transparan dan
-     tanpa padding, jadi bentuknya persis satu pil seperti dulu — kalau ikut
-     terlihat saat tertutup, ia jadi bingkai ganda mengelilingi satu tombol. */
+   ⚠ Wadahnya HANYA terlihat saat terbuka — saat tertutup latar dan bingkainya
+     transparan, jadi bentuknya persis satu pil seperti dulu. Kalau ikut
+     terlihat saat tertutup, ia jadi bingkai ganda mengelilingi satu tombol.
+     Padding-nya TETAP ADA di kedua keadaan; alasannya di bawah. */
 .ort-btablain {
   display: inline-flex; align-items: center; gap: 8px;
   border: 1px solid transparent; border-radius: 14px;
-  padding: 0; background: transparent;
-  transition: background .24s ease .06s, border-color .24s ease .06s,
-              padding .32s cubic-bezier(.22, .61, .36, 1);
-}
-.ort-branchtabs.is-open .ort-btablain {
-  background: var(--ort-strip);
-  border-color: var(--ort-line);
+  background: transparent;
+
+  /* ⚠ padding dan border ADA SEJAK AWAL, lalu DIKOMPENSASI margin negatif
+     vertikal. Versi pertama memasang padding hanya saat terbuka, dan itu
+     membuat seluruh baris tumbuh 12px tiap kali strip dibuka — seisi halaman
+     di bawahnya tersentak turun. Dengan padding tetap + margin -6px (5px
+     padding + 1px border), tinggi tata letaknya TIDAK PERNAH berubah: yang
+     beranimasi cuma warna. */
   padding: 5px;
+  margin: -6px 0;
+  transition: background .24s ease .06s, border-color .24s ease .06s;
 }
-/* Tombol pembuka jadi LABEL kelompok saat terbuka: bingkainya dilepas supaya
-   tidak ada kotak di dalam kotak, dan latarnya putih supaya tetap terbaca
-   sebagai tombol di atas permukaan wadah yang krem. */
-.ort-branchtabs.is-open .ort-btablain .ort-btab--more {
-  border-color: transparent;
+
+/* ⚠ Wadahnya PUTIH, bukan --ort-strip. Strip (#FAF1E6) nyaris identik dengan
+   latar halaman (#FBF3E9) — wadahnya ada tapi tidak terlihat sama sekali.
+   Putih + bingkai #EADCC9 adalah resep yang sama dengan .ort-utabs, dan di
+   sana ia memang terbaca di atas krem. */
+.ort-branchtabs.is-open .ort-btablain {
   background: #fff;
+  border-color: #EADCC9;
 }
-/* Saat tertutup, pil-pil di dalamnya tidak boleh menyisakan ruang. */
+
+/* Isi kelompok jadi DATAR saat wadahnya muncul — pil putih berbingkai di atas
+   wadah putih akan terbaca sebagai kotak di dalam kotak. Pola persis
+   .ort-utab: tanpa latar dan tanpa bingkai sampai disentuh. */
+.ort-branchtabs.is-open .ort-btablain .ort-btab {
+  background: transparent;
+  border-color: transparent;
+}
+.ort-branchtabs.is-open .ort-btablain .ort-btab:hover {
+  background: var(--ort-transfer-bg);
+  border-color: transparent;
+}
+/* Yang sedang dibuka tetap cokelat penuh — spesifisitas 0,4,0 supaya menang
+   atas dua aturan datar di atas. */
+.ort-branchtabs.is-open .ort-btablain .ort-btab.is-active {
+  background: linear-gradient(135deg, var(--ort-btn1), var(--ort-btn2));
+  border-color: transparent;
+}
+
 .ort-btablain .ort-branchtabs__wrap { align-self: stretch; }
 
 .ort-branchtabs__wrap {
