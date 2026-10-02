@@ -244,4 +244,79 @@ class OrtoHasilFollowUpTest extends TestCase
             'Form sekali klik untuk baris ini tidak boleh ada lagi di tabel.'
         );
     }
+
+    // ── 7. HASILNYA DITAMPILKAN ─────────────────────────────────────────────
+
+    /**
+     * ⭐ Uji yang seharusnya ada sejak awal.
+     *
+     * Commit pertama fitur ini membangun penyimpanannya, ujinya, dan
+     * dokumennya — lalu LUPA menampilkannya. Hasil, catatan, dan kanal
+     * tersimpan rapi di DB dan tidak pernah terlihat di satu layar pun; panel
+     * baris malah menulis "· WhatsApp" di-hardcode apa pun kanalnya. Ujinya
+     * hijau karena cuma memeriksa kolom DB, bukan apa yang dilihat Sales.
+     *
+     * Reza yang menemukannya: "ga penting deh ada ini soalnya ga ditampilkan juga".
+     */
+    public function test_hasil_catatan_dan_kanal_benar_benar_tampil(): void
+    {
+        $ctl = $this->kontrol([
+            'fu_date'    => Carbon::today()->toDateString(),
+            'fu_by'      => 'Andini',
+            'fu_channel' => 'telepon',
+            'fu_result'  => OrtControl::FU_MINTA_JADWAL_ULANG,
+            'fu_note'    => 'minta dihubungi lagi Kamis sore',
+        ]);
+
+        $html = $this->withSession($this->sesi)
+            ->get('/tracking-ortho?' . http_build_query($this->utama()))
+            ->assertOk()->getContent();
+
+        $this->assertStringContainsString(OrtControl::FU_HASIL[OrtControl::FU_MINTA_JADWAL_ULANG], $html,
+            'Hasil follow-up WAJIB terlihat — menyimpannya tanpa menampilkannya sama saja membuangnya.');
+        $this->assertStringContainsString('minta dihubungi lagi Kamis sore', $html,
+            'Catatan follow-up wajib terbaca, setidaknya di tooltip.');
+        $this->assertStringContainsString('Telepon', $html,
+            'Kanal yang tersimpan wajib ditampilkan apa adanya.');
+        $this->assertFalse((bool) $ctl->fresh()->fu_date === false, 'Prasyarat: barisnya memang ber-follow-up.');
+    }
+
+    /** Kanal TIDAK boleh dikarang. Dulu panel baris menulis "WhatsApp" di-hardcode. */
+    public function test_kanal_tidak_dikarang(): void
+    {
+        $this->kontrol([
+            'fu_date'    => Carbon::today()->toDateString(),
+            'fu_by'      => 'Andini',
+            'fu_channel' => 'telepon',
+            'fu_result'  => OrtControl::FU_DIHUBUNGI,
+        ]);
+
+        $html = $this->withSession($this->sesi)
+            ->get('/tracking-ortho?' . http_build_query($this->utama()))
+            ->assertOk()->getContent();
+
+        $this->assertStringNotContainsString('· WhatsApp', $html,
+            'Kanalnya "telepon" — layar tidak boleh menulis WhatsApp.');
+    }
+
+    /** Lembar tidak lagi menanyakan kanal, dan controller tidak menebaknya. */
+    public function test_lembar_tanpa_dropdown_kanal_dan_tidak_menebak(): void
+    {
+        $ctl = $this->kontrol();
+
+        $html = $this->withSession($this->sesi)
+            ->get('/tracking-ortho?' . http_build_query($this->utama() + ['sheet' => 'follow-up', 'kontrol' => $ctl->id]))
+            ->assertOk()->getContent();
+
+        $this->assertStringNotContainsString('name="kanal"', $html,
+            'Dropdown kanal sudah dibuang — ia meminta keputusan lalu tidak pernah dipakai.');
+
+        $this->withSession($this->sesi)
+            ->post('/tracking-ortho/kontrol/' . $ctl->id . '/follow-up', ['hasil' => OrtControl::FU_DIHUBUNGI])
+            ->assertRedirect();
+
+        $this->assertNull($ctl->refresh()->fu_channel,
+            "Tidak dikirim = NULL. Menebak 'wa' artinya mengarang data yang tidak pernah ditanyakan.");
+    }
 }
+

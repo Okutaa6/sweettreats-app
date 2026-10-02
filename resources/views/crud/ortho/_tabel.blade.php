@@ -242,10 +242,33 @@
                                  Reservasi, jadi kancing tambahan terbaca menumpuk. Jalan
                                  pulangnya ada di panel baris (tanda ⌄), dan tooltip di
                                  bawah ini yang menunjukkan jalannya. --}}
-                            <span class="ort-fu"
-                                  title="Dicatat {{ \Carbon\Carbon::parse($r->fu_date)->translatedFormat("j M 'y") }} oleh {{ $r->fu_by ?: 'Sales' }} · WhatsApp{{ $bolehBatalFu ? ' — untuk membatalkan, buka panel baris dengan tanda ⌄ di ujung kanan' : '' }}">
+                            @php
+                                /* ⚠ `· WhatsApp` dulu DI-HARDCODE di sini, padahal
+                                   kanalnya bisa apa saja. Dropdown kanal sudah
+                                   dibuang (5 Okt 2026); yang tersisa ditampilkan
+                                   hanya kalau barisnya memang punya nilainya.
+                                   HASIL follow-up ikut masuk tooltip — kolomnya
+                                   112px, tidak muat teks, tapi menyimpannya tanpa
+                                   pernah menampilkannya sama saja membuangnya. */
+                                $fuHasil = $r->fu_result
+                                    ? (\App\Models\OrtControl::FU_HASIL[$r->fu_result] ?? $r->fu_result)
+                                    : null;
+                                $fuTip = 'Dicatat ' . \Carbon\Carbon::parse($r->fu_date)->translatedFormat("j M 'y")
+                                       . ' oleh ' . ($r->fu_by ?: 'Sales')
+                                       . ($r->fu_channel ? ' · ' . ucfirst($r->fu_channel) : '')
+                                       . ($fuHasil ? ' · ' . $fuHasil : '')
+                                       . ($r->fu_note ? ' — ' . $r->fu_note : '')
+                                       . ($bolehBatalFu ? ' · untuk membatalkan, buka panel baris dengan tanda ⌄ di ujung kanan' : '');
+                            @endphp
+                            <span class="ort-fu" title="{{ $fuTip }}">
                                 <i class="far fa-comment"></i>
                                 <span class="tabular">{{ \Carbon\Carbon::parse($r->fu_date)->translatedFormat('j M') }}</span>
+                                {{-- Titik kecil menandai baris yang hasilnya BUKAN
+                                     "sudah dihubungi, bersedia" — supaya Sales tahu
+                                     ada sesuatu di tooltip tanpa harus menyapu semua. --}}
+                                @if ($fuHasil && $r->fu_result !== \App\Models\OrtControl::FU_DIHUBUNGI)
+                                    <i class="fas fa-circle" style="font-size:4px;vertical-align:middle;"></i>
+                                @endif
                             </span>
                         @else
                             <span class="ort-x">X</span>

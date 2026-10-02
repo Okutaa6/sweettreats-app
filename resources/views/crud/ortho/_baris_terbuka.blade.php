@@ -217,12 +217,45 @@
                           . ' · RSV ' . ($m->rsv_date ? $m->rsv_date->translatedFormat('j M') : 'X')
                           . ' · ' . $cabang;
 
-                    // ── Tampilan "Follow-up"
+                    /*
+                     * ── Tampilan "Follow-up"
+                     *
+                     * ⚠ Dulu baris ini menulis '· WhatsApp' DI-HARDCODE — apa pun
+                     *   kanal yang dipilih Sales. Jadi form menanyakannya, lalu
+                     *   layar mengarangnya sendiri. Dropdown kanalnya sudah dibuang
+                     *   (5 Okt 2026); yang tersisa ditampilkan hanya kalau baris itu
+                     *   memang punya nilainya.
+                     *
+                     * HASIL follow-up ikut ditampilkan di sini. Sebelumnya ia
+                     *   tersimpan rapi di DB dan tidak pernah terlihat di satu layar
+                     *   pun — form meminta tiga keputusan lalu membuang ketiganya.
+                     *
+                     * Catatan bebas masuk ke `title`, bukan ke teks: baris mini ini
+                     *   satu baris dan catatan 255 karakter akan merusaknya.
+                     */
+                    $hasilFu = $m->fu_result
+                        ? (\App\Models\OrtControl::FU_HASIL[$m->fu_result] ?? $m->fu_result)
+                        : null;
+
                     $dFu = $m->fu_date
                         ? 'FU ' . $m->fu_date->translatedFormat("j M 'y")
-                          . ($m->fu_by ? ' · oleh ' . $m->fu_by : '') . ' · WhatsApp'
+                          . ($m->fu_by ? ' · oleh ' . $m->fu_by : '')
+                          . ($m->fu_channel ? ' · ' . ucfirst($m->fu_channel) : '')
+                          . ($hasilFu ? ' · ' . $hasilFu : '')
                         : 'Belum ada follow-up';
-                    $sFu = $m->fu_date ? ['Sudah di-FU', 'fu'] : ['Belum di-FU', 'menunggu'];
+
+                    /* Chip ikut membedakan: "tidak respon" dan "salah nomor" bukan
+                       pekerjaan yang sama dengan "sudah dihubungi, bersedia". */
+                    $sFu = match (true) {
+                        ! $m->fu_date => ['Belum di-FU', 'menunggu'],
+                        in_array($m->fu_result, [
+                            \App\Models\OrtControl::FU_TIDAK_RESPON,
+                            \App\Models\OrtControl::FU_SALAH_NOMOR,
+                        ], true) => [$hasilFu, 'telat'],
+                        $m->fu_result === \App\Models\OrtControl::FU_MENOLAK => [$hasilFu, 'batal'],
+                        $hasilFu !== null => [$hasilFu, 'fu'],
+                        default => ['Sudah di-FU', 'fu'],
+                    };
 
                     /*
                      * ── Tampilan "Tanggal reservasi"
@@ -277,6 +310,7 @@
                 {{-- Satu baris DOM, tiga isi. Menukar tampilan cuma mengganti
                      kelas induknya — tidak ada render ulang, tidak ada kedipan. --}}
                 <div class="ort-mini__row" data-ort-minirow
+                     @if ($m->fu_note) title="Catatan follow-up: {{ $m->fu_note }}" @endif
                      data-href-fu="{{ $waRow ? 'https://wa.me/' . $wa : '' }}"
                      data-href-rsv="{{ $m->rsv_date ? route('rawreservation', ['date_from' => $m->rsv_date->toDateString(), 'date_to' => $m->rsv_date->toDateString()]) : '' }}">
                     <span class="ort-mini__n">#{{ $m->seq }}</span>

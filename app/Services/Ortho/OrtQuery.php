@@ -383,7 +383,10 @@ class OrtQuery
         return $q->select([
             'c.id', 'c.ort_case_id', 'c.seq', 'c.place_id', 'c.is_proposal',
             'c.sch_date', 'c.sch_source', 'c.sch_basis', 'c.sch_basis_n',
-            'c.fu_date', 'c.fu_by',
+            // fu_channel/result/note ikut: tabel memakai query builder (stdClass),
+            // jadi kolom yang tidak di-select melempar "Undefined property" —
+            // bukan null diam-diam. Sudah kena saat hasil FU mulai ditampilkan.
+            'c.fu_date', 'c.fu_by', 'c.fu_channel', 'c.fu_result', 'c.fu_note',
             'c.reservation_id', 'c.rsv_date', 'c.rsv_status',
             'c.visit_date', 'c.unscheduled', 'c.outcome', 'c.closed_at',
             'k.patient_name', 'k.patient_phone', 'k.omnicare_pid',

@@ -558,7 +558,11 @@ class OrthoController extends Controller
 
         $isian = [
             'fu_date'    => $data['tanggal'] ?? now()->toDateString(),
-            'fu_channel' => $data['kanal'] ?? 'wa',
+            /* Lembar tidak lagi menanyakan kanal (5 Okt 2026) — jadi JANGAN
+               menebak 'wa'. Kolomnya dipertahankan untuk baris lama dan untuk
+               pemanggil yang masih mengirimnya; yang tidak mengirim dapat NULL,
+               dan layar menampilkan kanal hanya kalau ia memang ada. */
+            'fu_channel' => $data['kanal'] ?? null,
             'fu_by'      => session('name') ?: 'Sales',
             // ?? bukan ?: — kunci tidak ada bila tidak dikirim (jalur lama).
             // Kalau dikirim kosong, biarkan kosong: jangan mengarang hasil.

@@ -228,7 +228,7 @@ jadwal**.
 |---|---|
 | Validasi | `kanal` → `nullable\|in:wa,telepon,langsung,lainnya` · `tanggal` → `nullable\|date\|before_or_equal:today` · **`hasil` → `nullable\|in:` lima kunci `OrtControl::FU_HASIL`** · **`catatan` → `nullable\|string\|max:255`** · `sch_tanggal` dan `sch_tanggal_lain` → `nullable\|date\|after_or_equal:today` |
 | Pagar | tabel ada → 404 · `findOrFail` · `pastikanMilikCabang` → 403 · `closed_at !== null` → *"Kontrol ini sudah ditutup — follow-up tidak bisa dicatat."* |
-| Kolom ditulis | `fu_date` (default hari ini) · `fu_channel` (default `wa`) · `fu_by` = `session('name') ?: 'Sales'` · **`fu_result`** (`?? null` — tidak dikirim = NULL, bukan dikarang) · **`fu_note`** (di-trim) · `updated_by` |
+| Kolom ditulis | `fu_date` (default hari ini) · `fu_channel` (**`?? null` sejak 5 Okt 2026** — lembar tidak lagi menanyakannya, jadi tidak ditebak `wa`) · `fu_by` = `session('name') ?: 'Sales'` · **`fu_result`** (`?? null` — tidak dikirim = NULL, bukan dikarang) · **`fu_note`** (di-trim) · `updated_by` |
 | Kalau jadwal ikut dikirim | + `sch_date` · `is_proposal = 0` · `sch_source = SCH_MANUAL` |
 | Urungkan | ✅ — dan kalau jadwal ikut dipasang, **satu Urungkan memulihkan keduanya** |
 | Realtime | ✅ dicegat JS, fragmen `tabel` menggantikan isi tabel |

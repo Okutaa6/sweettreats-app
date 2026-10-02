@@ -268,7 +268,25 @@
                             {{ $k->sch_date->translatedFormat("j M 'y") }}
                         </div>
 
-                        <div class="tabular">{{ $k->fu_date ? $k->fu_date->translatedFormat('j M') : '' }}
+                        {{-- Hasil follow-up masuk tooltip: kolom matriks sempit
+                             (1fr dari delapan), tapi menyimpannya tanpa pernah
+                             menampilkannya sama saja membuangnya. --}}
+                        @php
+                            $kHasil = $k->fu_result
+                                ? (\App\Models\OrtControl::FU_HASIL[$k->fu_result] ?? $k->fu_result)
+                                : null;
+                            $kTip = $k->fu_date
+                                ? trim(($k->fu_by ? 'oleh ' . $k->fu_by : '')
+                                    . ($k->fu_channel ? ' · ' . ucfirst($k->fu_channel) : '')
+                                    . ($kHasil ? ' · ' . $kHasil : '')
+                                    . ($k->fu_note ? ' — ' . $k->fu_note : ''), ' ·')
+                                : '';
+                        @endphp
+                        <div class="tabular" @if ($kTip) title="{{ $kTip }}" @endif>
+                            {{ $k->fu_date ? $k->fu_date->translatedFormat('j M') : '' }}
+                            @if ($k->fu_date && $kHasil && $k->fu_result !== \App\Models\OrtControl::FU_DIHUBUNGI)
+                                <i class="fas fa-circle" style="font-size:4px;vertical-align:middle;"></i>
+                            @endif
                             @unless ($k->fu_date)<span class="ort-x">X</span>@endunless</div>
 
                         <div class="tabular">

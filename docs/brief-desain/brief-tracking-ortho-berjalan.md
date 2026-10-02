@@ -206,7 +206,7 @@ Catat Follow-up  →  Buat Reservasi  →  (tidak ada tombol)
 
 | Anak tangga | Perilaku |
 |---|---|
-| **Catat Follow-up** | *(sejak 4 Okt 2026)* Membuka lembar: **hasil** (pilihan tetap — dihubungi · tidak respon · minta jadwal ulang · menolak · salah nomor), kanal, tanggal, catatan bebas. Dulu sekali klik tanpa dialog, dan hasilnya tidak pernah tercatat. Tetap **tanpa muat ulang** — tabel ditukar, lembar ditutup sendiri — dan bisa diurungkan 90 detik (hasil + catatan ikut dipulihkan) |
+| **Catat Follow-up** | *(sejak 4 Okt 2026)* Membuka lembar: **hasil** (pilihan tetap — dihubungi · tidak respon · minta jadwal ulang · menolak · salah nomor), tanggal, catatan bebas. Dulu sekali klik tanpa dialog, dan hasilnya tidak pernah tercatat. Tetap **tanpa muat ulang** — tabel ditukar, lembar ditutup sendiri — dan bisa diurungkan 90 detik (hasil + catatan ikut dipulihkan) |
 | **Buat Reservasi** | Membuka lembar berisi hari praktik dokter pasien ini, lengkap jam dan seberapa penuh |
 | **Menunggu pasien** | Tidak ada tombol. Kolom Datang terisi sendiri dari rekam medis tiap malam |
 
@@ -246,7 +246,7 @@ Semua aksi yang butuh masukan dibuka sebagai **side sheet**, bukan halaman baru.
 | **Geser pengingat** | Mengubah kapan pasien dianggap jatuh tempo. Dibuka dari panel baris, bukan dari kolom Jadwal |
 | **Jadwalkan kontrol** | Memberi jatuh tempo pertama kepada pasien dari antrean |
 | **Pindahkan ke cabang lain** | Transfer, dengan **alasan wajib** |
-| **Catat Follow-up** *(4 Okt 2026)* | Hasil (pilihan tetap), kanal, tanggal (maks hari ini), catatan bebas. Form-nya mengarah ke `/follow-up`, jadi tercegat mesin submit realtime: tabel ditukar, toast muncul, lembar ditutup — tanpa muat ulang |
+| **Catat Follow-up** *(4 Okt 2026)* | Hasil (pilihan tetap), tanggal (maks hari ini), catatan bebas. Dropdown **kanal dibuang 5 Okt** — ia meminta satu keputusan lagi lalu tidak pernah ditampilkan; panel baris malah menulis "WhatsApp" di-hardcode apa pun pilihannya. Form-nya mengarah ke `/follow-up`, jadi tercegat mesin submit realtime: tabel ditukar, toast muncul, lembar ditutup — tanpa muat ulang |
 
 ### Pemilih hari memakai mesin modul Reservasi
 

@@ -230,7 +230,7 @@ Yang bisa dilakukan:
 
 | Aksi | Hasilnya |
 |---|---|
-| **Catat Follow-up** | membuka lembar: **hasil** (dihubungi · tidak respon · minta jadwal ulang · menolak · salah nomor), kanal, tanggal, catatan bebas — boleh sekaligus memasang tanggal. Sejak 4 Okt 2026; sebelumnya sekali klik dan hasilnya tidak pernah tercatat |
+| **Catat Follow-up** | membuka lembar: **hasil** (dihubungi · tidak respon · minta jadwal ulang · menolak · salah nomor), tanggal, catatan bebas — dan hasilnya **ditampilkan** di panel baris, chip, serta tooltip tabel dan matriks — boleh sekaligus memasang tanggal. Sejak 4 Okt 2026; sebelumnya sekali klik dan hasilnya tidak pernah tercatat |
 | **Buat Reservasi** | membuka lembar pemesanan |
 | Buka baris (⌄) | panel ringkas: 8 fakta pasien + 4 kontrol terakhir |
 | Klik nama | drawer riwayat lengkap |

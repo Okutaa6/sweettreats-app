@@ -29,10 +29,11 @@
         'geser'      => ['Geser usulan',         'Geser tanggal usulan',                  'Simpan usulan'],
         'jadwalkan'  => ['Jadwal baru',          'Jadwalkan kontrol berikutnya',          'Simpan jadwal'],
         /* Varian ke-5 (4 Okt 2026). Dulu "Catat Follow-up" sekali klik tanpa
-           form — mencatat tanggal + kanal bawaan WA, HASILNYA tidak pernah
-           tercatat. Sekarang lembar: hasil (pilihan tetap), kanal, tanggal,
-           catatan. Mewarisi submit realtime, toast, dan Urungkan 90 detik
-           dari mesin lembar yang sama. */
+           form — mencatat tanggal saja, HASILNYA tidak pernah tercatat.
+           Sekarang: hasil (pilihan tetap), tanggal, catatan. Mewarisi submit
+           realtime, toast, dan Urungkan 90 detik dari mesin lembar yang sama.
+           Dropdown kanal sempat ada lalu dibuang 5 Okt — lihat alasannya di
+           badan lembarnya. */
         'follow-up'  => ['Catat follow-up',      'Catat hasil follow-up',                 'Simpan follow-up'],
     };
 
@@ -307,22 +308,16 @@
                     @endforeach
                 </select>
             </div>
-            <div class="ort-2col">
-                <div>
-                    <label class="ort-lbl">Kanal</label>
-                    <select name="kanal" class="ort-inp">
-                        <option value="wa">WhatsApp</option>
-                        <option value="telepon">Telepon</option>
-                        <option value="langsung">Langsung (di klinik)</option>
-                        <option value="lainnya">Lainnya</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="ort-lbl">Tanggal</label>
-                    {{-- max = hari ini: follow-up dicatat SESUDAH terjadi, bukan direncanakan. --}}
-                    <input type="date" name="tanggal" class="ort-inp"
-                           value="{{ $hariIniStr }}" max="{{ $hariIniStr }}">
-                </div>
+            {{-- Dropdown KANAL dibuang 5 Okt 2026. Ia meminta satu keputusan lagi
+                 dari Sales lalu tidak pernah menampilkannya di mana pun — panel
+                 baris malah menulis "WhatsApp" di-hardcode, apa pun yang dipilih.
+                 Kolom fu_channel dipertahankan untuk baris lama; yang baru
+                 dibiarkan NULL, bukan ditebak 'wa'. --}}
+            <div>
+                <label class="ort-lbl">Tanggal</label>
+                {{-- max = hari ini: follow-up dicatat SESUDAH terjadi, bukan direncanakan. --}}
+                <input type="date" name="tanggal" class="ort-inp"
+                       value="{{ $hariIniStr }}" max="{{ $hariIniStr }}">
             </div>
             <div>
                 <label class="ort-lbl">Catatan (opsional)</label>
