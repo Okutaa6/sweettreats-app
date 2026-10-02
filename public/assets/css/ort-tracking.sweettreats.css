@@ -1473,3 +1473,44 @@ button.ort-btn { border: none; font-family: inherit; cursor: pointer; }
    yang dihitung sistem; yang ini lebih redup lagi, supaya terbaca sebagai
    perkiraan kasar alih-alih angka yang bisa disebut di telepon. */
 .ort-proposal--kira { color: var(--ort-muted); font-weight: 700; }
+
+/* ── Pemilih hari praktik dokter (lembar Buat Reservasi) ────────────────────
+   Sales sedang memegang gagang telepon dan perlu menjawab satu pertanyaan:
+   "dokternya ada hari apa, dan masih muat?" Tiga kolom, sejajar, terbaca
+   sekali lirik — bukan kotak tanggal kosong yang menyuruh menebak. */
+.ort-hdok { display: flex; flex-direction: column; gap: 6px; }
+
+.ort-hdok__row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 10px; align-items: center;
+  width: 100%; padding: 10px 12px; cursor: pointer; text-align: left;
+  border: 1.5px solid var(--ort-line2); border-radius: 11px; background: #fff;
+  font: inherit;
+  transition: border-color .12s ease, background .12s ease;
+}
+.ort-hdok__row:hover:not(:disabled) { border-color: var(--ort-btn1); background: var(--ort-hover); }
+.ort-hdok__row.is-pilih { border-color: var(--ort-ok); background: var(--ort-ok-bg); }
+.ort-hdok__row:focus-visible { outline: 2px solid var(--ort-accent); outline-offset: 2px; }
+
+.ort-hdok__hari { font-size: 13px; font-weight: 800; color: var(--ort-ink); }
+.ort-hdok__jam  { font-size: 12px; color: var(--ort-ink3); }
+.ort-hdok__isi  { font-size: 11.5px; font-weight: 700; color: var(--ort-muted); min-width: 48px; text-align: right; }
+
+/* Hari penuh tetap DITAMPILKAN, bukan disembunyikan. Sales yang menelepon
+   perlu tahu "Rabu penuh" supaya bisa menawarkan Sabtu — daftar yang diam-diam
+   melewati hari penuh membuat pasien bertanya "kenapa tidak Rabu?" dan Sales
+   tidak punya jawaban. */
+.ort-hdok__row:disabled { cursor: not-allowed; background: var(--ort-sunken); border-color: var(--ort-line); }
+.ort-hdok__row:disabled .ort-hdok__hari,
+.ort-hdok__row:disabled .ort-hdok__jam { color: var(--ort-muted); }
+.ort-hdok__row:disabled .ort-hdok__isi { color: var(--ort-bad); }
+
+/* Baris fakta pembuka di kepala lembar (dokter · cabang · irama pasien). */
+.ort-callfacts {
+  display: flex; flex-wrap: wrap; gap: 4px 6px;
+  background: var(--ort-sunken); border: 1px solid var(--ort-line);
+  border-radius: 11px; padding: 10px 12px;
+  font-size: 12.5px; color: var(--ort-ink2); line-height: 1.5;
+}
+.ort-callfacts strong { color: var(--ort-ink); font-weight: 800; }

@@ -102,6 +102,17 @@
             <a href="{{ $tautanDetail($r->ort_case_id) }}" class="ort-obtn">
                 Buka detail pasien <i class="fas fa-chevron-right" style="font-size:9px;"></i>
             </a>
+            {{-- Menggeser PENGINGAT. Pindah ke sini dari kolom Jadwal, yang
+                 dulu tanggalnya sendiri jadi tautan: di lebar 112px, tanggal
+                 bergaris putus-putus plus dua baris keterangan membuat kolom
+                 itu berdesakan. Di sini ada ruang untuk menamainya terang. --}}
+            @if ($r->is_proposal)
+                <a href="{{ $tautan(['sheet' => 'geser', 'kontrol' => $r->id]) }}" class="ort-obtn"
+                   onclick="event.stopPropagation()"
+                   title="Ubah kapan pasien ini dianggap jatuh tempo kontrol. Ini pengingat, bukan janji — janjinya dibuat lewat Buat Reservasi.">
+                    <i class="far fa-calendar-alt"></i> Geser pengingat
+                </a>
+            @endif
             <a href="{{ $tautan(['sheet' => 'pindahkan', 'kasus' => $r->ort_case_id]) }}" class="ort-obtn"
                style="color:#6B2400;border-color:#E4C7AC;" onclick="event.stopPropagation()">
                 <i class="fas fa-exchange-alt"></i> Pindahkan ke cabang lain

@@ -176,63 +176,20 @@
                     {{-- DOKTER --}}
                     <div class="ort-cell ort-clamp2" title="{{ $r->doctor_name }}">{{ $r->doctor_name ?: '—' }}</div>
 
-                    {{-- JADWAL --}}
+                    {{-- JADWAL — tanggal jatuh tempo, TEKS POLOS.
+
+                         Kolom ini lebarnya 112px. Dulu ia memuat tanggal yang
+                         bisa diklik, garis putus-putus, DAN dua baris keterangan
+                         irama — semuanya membungkus dan saling berdesakan.
+                         Keterangan iramanya tidak hilang: ia ada di panel baris
+                         (tanda ⌄), di tempat yang punya ruang untuk membacanya.
+
+                         Tidak ada tombol di sini lagi. Satu kolom satu pekerjaan:
+                         kolom ini menjawab KAPAN, kolom Tindakan menjawab APA. --}}
                     <div class="ort-cell {{ $telat ? 'ort-late' : '' }}">
-                        @if ($r->is_proposal)
-                            @php
-                                /* Seberapa bisa dipegang tanggal jatuh tempo ini.
-
-                                   Ukurannya SEBARAN irama, bukan banyaknya selang.
-                                   Versi pertama memakai `$basisN >= 6` dan itu salah
-                                   ukur: pasien berselang 20·90·25·110 punya lebih
-                                   banyak selang daripada pasien 28·28·28, tapi
-                                   iramanya jauh lebih tidak bisa ditebak — yang liar
-                                   justru dinilai paling meyakinkan.
-
-                                   Ini KETERANGAN, bukan gerbang tombol. Tombolnya
-                                   sama untuk semua baris; yang berbeda cuma seberapa
-                                   yakin Sales boleh menyebut tanggal ini di telepon.
-
-                                   sch_basis NULL = baris lama dari sebelum irama
-                                   dipakai; waktu itu memang +30, dan label itu tetap
-                                   jujur. */
-                                $basis  = $r->sch_basis ?? null;
-                                $kuat   = $basis === \App\Models\OrtCase::BASIS_RAPAT;
-
-                                /* Angkanya dari irama pasien, BUKAN dari selisih
-                                   sch_date dengan baris ini: baris ini belum punya
-                                   visit_date, jadi selisihnya nol. */
-                                $iramaHari = (int) ($r->median_gap_days ?? 0);
-                                $sebarPct  = $r->gap_spread_pct ?? null;
-
-                                [$usulanTeks, $usulanJudul] = match (true) {
-                                    $kuat => [
-                                        'tiap ' . $iramaHari . ' hari, teratur',
-                                        'Pasien ini kontrolnya teratur (sebaran ' . $sebarPct . '% dari mediannya), '
-                                            . 'jadi jatuh tempo ini bisa dipegang.',
-                                    ],
-                                    $basis === \App\Models\OrtCase::BASIS_LONGGAR => [
-                                        $iramaHari ? 'biasanya ' . $iramaHari . ' hari, tidak teratur' : 'tidak teratur',
-                                        'Pasien ini kontrolnya tidak teratur (sebaran ' . $sebarPct . '% dari mediannya), '
-                                            . 'jadi jatuh tempo ini perkiraan kasar. Tanyakan lewat telepon.',
-                                    ],
-                                    default => [
-                                        'jarak baku 30 hari',
-                                        'Riwayatnya belum cukup untuk tahu kebiasaan pasien ini, jadi dipakai jarak baku 30 hari.',
-                                    ],
-                                };
-                            @endphp
-                            <a href="{{ $tautan(['sheet' => 'geser', 'kontrol' => $r->id]) }}"
-                               class="ort-proposal tabular {{ $kuat ? '' : 'ort-proposal--kira' }}"
-                               onclick="event.stopPropagation()"
-                               title="{{ $usulanJudul }} — klik untuk menggeser pengingatnya.">{{ \Carbon\Carbon::parse($r->sch_date)->translatedFormat("j M 'y") }}</a>
-                            <span class="ort-cell--sub {{ $kuat ? 'ort-sub-yakin' : 'ort-sub-amber' }}"
-                                  title="{{ $usulanJudul }}">jatuh tempo · {{ $usulanTeks }}</span>
-                        @else
-                            <span class="tabular">{{ \Carbon\Carbon::parse($r->sch_date)->translatedFormat("j M 'y") }}</span>
-                            @if ($telat)
-                                <span class="ort-cell--sub tabular">{{ $hariLewat }} hari lalu</span>
-                            @endif
+                        <span class="tabular">{{ \Carbon\Carbon::parse($r->sch_date)->translatedFormat("j M 'y") }}</span>
+                        @if ($telat)
+                            <span class="ort-cell--sub tabular">{{ $hariLewat }} hari lalu</span>
                         @endif
                     </div>
 

@@ -96,42 +96,116 @@
         @endif
 
         @if ($sheet === 'reservasi')
+            @php
+                /* Hari praktik dokter pasien INI, beserta jam dan seberapa
+                   penuh. Dihitung mesin slot milik modul Reservasi (trait
+                   ResolvesDoctorAvailability) — bukan rumus kedua di sini,
+                   supaya angkanya tidak pernah berbeda dari grid slot yang
+                   akan dilihat Sales satu layar kemudian.
+
+                   ⚠ Dua dari tiga kasus di DB pengembangan dokternya TIDAK
+                     terpetakan. Jadi daftar kosong bukan keadaan pinggiran:
+                     lembarnya wajib tetap berguna, dan alasannya dikatakan. */
+                $jd     = app(\App\Services\Ortho\OrtJadwalDokter::class);
+                $jadwal = $jd->untuk($c, (string) $c->owner_place_id, $hariIni);
+                $alasan = $jd->penjelasan($jadwal['sebab'], $jadwal['dokter']);
+
+                $rsvDefault = $k?->sch_date && $k->sch_date->lt($hariIni)
+                    ? $hariIniStr
+                    : $k?->sch_date?->toDateString();
+            @endphp
+
+            <div class="ort-callfacts">
+                @if ($jadwal['dokter'])
+                    <span>{{ $jadwal['dokter'] }} · {{ $namaOwn }}</span>
+                @else
+                    <span>{{ $namaOwn }}</span>
+                @endif
+                @if ($c->median_gap_days)
+                    <span>· pasien ini biasanya kontrol tiap <strong class="tabular">{{ $c->median_gap_days }}</strong> hari</span>
+                @endif
+            </div>
+
+            @if ($jadwal['hari'])
+                <div>
+                    <label class="ort-lbl">Hari praktik dokter</label>
+                    {{-- Keluaran mesin slot Reservasi: jam sudah dipotong
+                         istirahat, cuti, dan pengecualian per tanggal. --}}
+                    <div class="ort-hdok">
+                        @foreach ($jadwal['hari'] as $h)
+                            @php $d = \Carbon\Carbon::parse($h['tanggal']); @endphp
+                            <button type="button"
+                                    class="ort-hdok__row {{ $h['penuh'] ? 'is-penuh' : '' }}"
+                                    data-ort-tgl="{{ $h['tanggal'] }}"
+                                    {{ $h['penuh'] ? 'disabled' : '' }}
+                                    title="{{ $h['penuh'] ? 'Semua slot hari ini sudah terisi' : 'Pilih hari ini, jam persisnya dipilih di form Reservasi' }}">
+                                <span class="ort-hdok__hari">{{ $d->translatedFormat('D, j M') }}</span>
+                                <span class="ort-hdok__jam tabular">{{ $h['jam'] ?? '—' }}</span>
+                                <span class="ort-hdok__isi tabular">
+                                    @if ($h['penuh'])
+                                        penuh
+                                    @elseif ($h['total'] > 0)
+                                        {{ $h['terisi'] }}/{{ $h['total'] }}
+                                    @else
+                                        —
+                                    @endif
+                                </span>
+                            </button>
+                        @endforeach
+                    </div>
+                </div>
+            @elseif ($alasan)
+                <div class="ort-hint">{{ $alasan }} Isi tanggalnya sendiri di bawah.</div>
+            @endif
+
             <div>
                 <label class="ort-lbl">Tanggal reservasi</label>
-                @php
-                    /* Jadwal yang sudah terlewat tidak bisa dipesan mundur. Kalau
-                       value < min, input-nya TIDAK SAH dan form diam saja saat
-                       dikirim — tanpa pesan apa pun. Jadi default dimajukan ke
-                       hari ini, dan alasannya ditulis di bawah kolom. */
-                    $rsvDefault = $k?->sch_date && $k->sch_date->lt($hariIni)
-                        ? $hariIniStr
-                        : $k?->sch_date?->toDateString();
-                    $rsvMundur = $k?->sch_date && $k->sch_date->lt($hariIni);
-                @endphp
                 <input type="date" name="tanggal" class="ort-inp" required
-                       value="{{ $rsvDefault }}" min="{{ $hariIniStr }}">
+                       data-ort-tgl-input value="{{ $rsvDefault }}" min="{{ $hariIniStr }}">
                 <div class="ort-hint">
-                    @if ($rsvMundur)
-                        Jadwalnya {{ $k->sch_date->translatedFormat("j M 'y") }} — sudah terlewat,
+                    @if ($k?->sch_date && $k->sch_date->lt($hariIni))
+                        Jatuh temponya {{ $k->sch_date->translatedFormat("j M 'y") }} — sudah terlewat,
                         jadi default dimajukan ke hari ini.
                     @else
-                        Default mengikuti tanggal jadwal {{ $k?->sch_date?->translatedFormat("j M 'y") }}
+                        Default mengikuti jatuh tempo {{ $k?->sch_date?->translatedFormat("j M 'y") }}
                     @endif
                 </div>
             </div>
+
             <div class="ort-infobox">
-                <div class="ort-infobox__k">Dibuat di modul Reservasi</div>
+                <div class="ort-infobox__k">Jamnya dipilih di modul Reservasi</div>
                 <div>
-                    Jam, dokter, dan layanannya dipilih di form Reservasi yang sudah ada — form itu
-                    terbuka ter-isi nama {{ \Illuminate\Support\Str::title($c->patient_name) }}, cabang,
-                    dan tanggal di atas. Slot bentrok ditolak di sana, bukan di sini.
+                    Form Reservasi terbuka ter-isi nama {{ \Illuminate\Support\Str::title($c->patient_name) }},
+                    cabang, dokter, dan tanggal di atas. Grid slot jam ada di sana, lengkap dengan
+                    slot yang sudah terisi — dan aturan anti-bentrok juga dijaga di sana, bukan di sini.
                 </div>
-                <a href="{{ route('rawreservation') }}" class="ort-infobox__link">Buka modul Reservasi ›</a>
             </div>
+
             <div>
                 <label class="ort-lbl">Catatan (opsional)</label>
                 <input type="text" name="catatan" class="ort-inp" placeholder="mis. minta jadwal sore" maxlength="120">
             </div>
+
+            {{-- Pemilih hari cuma MENGISI kotak tanggal di atas, bukan medan
+                 tersendiri. Jadi tanpa JavaScript lembarnya tetap bekerja
+                 penuh: kotak tanggalnya sudah terisi default dan bisa diketik.
+                 Itu juga sebabnya tidak ada nama medan baru yang harus
+                 dimengerti ReservationController. --}}
+            <script>
+            (function () {
+                var kotak = document.querySelector('[data-ort-tgl-input]');
+                if (!kotak) return;
+                document.querySelectorAll('[data-ort-tgl]').forEach(function (b) {
+                    b.addEventListener('click', function () {
+                        kotak.value = b.getAttribute('data-ort-tgl');
+                        document.querySelectorAll('[data-ort-tgl]').forEach(function (x) {
+                            x.classList.remove('is-pilih');
+                        });
+                        b.classList.add('is-pilih');
+                    });
+                });
+            })();
+            </script>
 
         @elseif ($sheet === 'pindahkan')
             <div>
