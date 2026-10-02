@@ -82,6 +82,20 @@ PHP/SQL menunjuk ke sini (mis. `docs/rencana/rencana-rekonsiliasi-absensi.md §5
 Brief layar yang **belum dieksekusi**. Yang sudah jadi halamannya dipindah ke
 `arsip/brief-selesai/`.
 
+
+⚠ **Pengecualian: berkas ortho di sini TIDAK menunggu dikerjakan** — modulnya
+sudah jadi. Tiga berkas menggambarkan keadaan SEKARANG dan saling menunjuk:
+
+- `brief-tracking-ortho-berjalan.md` — apa yang dilihat Sales di layar
+- `design-system-tracking-ortho.md` — 30 token, 273 kelas, 4 grid, responsif,
+  animasi, kelas yatim, dan daftar aturan yang ada tapi tidak berlaku
+- `alur-fungsi-tracking-ortho.md` — 11 rute, 11 aksi, 8 service, 6 perintah,
+  4 model, observer, 23 view, 11 blok JavaScript; tiap fungsi disertai validasi,
+  pagar, kolom yang ditulis, dan bisa/tidaknya diurungkan
+
+`design-brief-tracking-ortho.md` dan `revisi-3-*` disimpan sebagai riwayat
+rancangan, sebagian isinya sudah tidak berlaku (lihat blok peringatan di kepala
+masing-masing).
 - `design-brief-cuti.md` — layar Cuti Finance (rekap + cuti bersama).
 - `design-brief-rop.md` — 4 layar Pengajuan/ROP (form + riwayat pengaju
   cokelat; antrian + rekap Finance burgundy). Satu layar per sesi.
@@ -92,6 +106,10 @@ Brief layar yang **belum dieksekusi**. Yang sudah jadi halamannya dipindah ke
 - `manifest-prod.md` — **daftar isi migrasi prod**: 30 SQL + 19 migration +
   langkah manual + inventaris cabang GitHub (mana yang ikut, mana yang tidak).
 - `deploy-coordination.md` — koordinasi deploy antar branch/orang.
+- `deploy-ortho.md` — runbook Tracking Ortho: 6 SQL + `access:rebuild` + 6
+  perintah isi data, berurutan. **Dua kegagalannya sunyi** (lupa
+  `access:rebuild` → 404 di SEMUA halaman; lupa `ort:rollup` → irama kosong
+  untuk semua pasien, tanpa pesan galat).
 - `cekat-DEPLOY.md`, `omnicare-DEPLOY.md` — deploy integrasi vendor.
 - `test-flow-deploy-prod.md` / `.html` — alur uji sebelum naik prod.
 
