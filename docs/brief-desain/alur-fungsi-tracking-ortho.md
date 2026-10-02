@@ -730,7 +730,19 @@ menghapus keempat tabel `ort_*` berurutan.
 (null **atau** > 180) · `isJarangKontrol()` (`visit_count_180d < 2`) ·
 `branchesVisited()`
 
-⚠ Relasi dipakai lewat `with()`. **Jangan `->join()`** ke luar keluarga `ort_*`.
+**Lima relasi:**
+
+| Relasi | Jenis | Catatan |
+|---|---|---|
+| `controls()` | `hasMany` | + `orderBy('seq')` — urutan kontrol selalu dari nomor urut, bukan tanggal |
+| `openControl()` | `belongsTo` | via **`open_control_id`** — kolom cache, bukan subquery. Inilah yang dipakai roster dan `scopeBelumPunyaJadwal()` |
+| `transfers()` | `hasMany` | + `orderBy('transfer_date')` |
+| `reminders()` | `hasMany` | + `orderByDesc('reminded_at')` — terbaru di atas |
+| `customer()` | `belongsTo` | `RawCustomer` — **satu-satunya relasi ke luar keluarga `ort_*`** |
+
+⚠ Relasi dipakai lewat `with()`. **Jangan `->join()`** ke luar keluarga `ort_*`
+— termasuk `customer()`; ia aman sebagai `with()` karena Eloquent memecahnya
+jadi `whereIn`, tapi di-`join()` ia kena `#1267` di prod.
 
 ### `OrtControl`
 
@@ -775,6 +787,26 @@ persis**. Kalau salah satu diubah, yang lain ikut.
 
 **Scope:** `terbuka` · `diCabang` · `daftarKerja` (ikut index
 `idx_ort_control_worklist`) · `terlewat`
+
+**Dua relasi:** `case()` → `belongsTo OrtCase` · `reservation()` →
+`belongsTo RawCusReservation` via `reservation_id`.
+
+**Dua turunan lain:**
+
+| Metode | Guna |
+|---|---|
+| `isTerbuka()` | `closed_at === null`. Dipakai `tindakanBerikutnya()` sebagai gerbang pertama |
+| `hariTerlewat($hariIni = null)` | Selisih hari dari `sch_date`, **tidak pernah negatif** |
+
+⚠ `hariTerlewat()` mengembalikan **0 untuk tiga keadaan berbeda**: sudah
+ditutup · `sch_date` masih null · belum terlewat. Itu disengaja — layar hanya
+perlu tahu "terlambat berapa hari", dan nilai negatif akan memaksa setiap
+pemanggil mengecek tandanya. Kalau butuh membedakan ketiganya, pakai
+`isTerbuka()` dan `sch_date` langsung.
+
+⚠ `$hariIni` di sini di-`Carbon::parse()`, **bukan** bertipe `CarbonInterface`
+seperti di `tanggalUsulan()`/`perkiraanJatuhTempo()` — jadi ia menerima string.
+Jangan ikut pola ini untuk metode baru.
 
 ### `OrtTransfer` · `OrtReminder`
 
