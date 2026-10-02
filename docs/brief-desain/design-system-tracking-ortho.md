@@ -1,6 +1,6 @@
 # Design System — Tracking Pasien Ortho
 
-**2 Oktober 2026 · `public/assets/css/ort-tracking.sweettreats.css` · 1.527 baris · 273 selector · 30 token · 7 keyframes · 7 blok `@media` · 23 view**
+**2 Oktober 2026 · `public/assets/css/ort-tracking.sweettreats.css` · 1.533 baris · 273 selector · 31 token · 7 keyframes · 7 blok `@media` · 23 view**
 
 > Teman berkas ini: `brief-tracking-ortho-berjalan.md` (apa yang ditampilkan)
 > dan `alur-fungsi-tracking-ortho.md` (apa yang terjadi saat ditekan).
@@ -14,7 +14,7 @@
 2. **Merah `#C0392B` khusus makna negatif.** Bukan aksen.
 3. **Gradient dipasang di BARIS header, bukan per sel.** Kalau per sel,
    gradient-nya me-restart dan tabelnya jadi belang. Berlaku untuk `.ort-thead`
-   (CSS:236) dan `.ort-cal-dow` (CSS:896).
+   (CSS:242) dan `.ort-cal-dow` (CSS:902).
 
 ---
 
@@ -41,9 +41,9 @@ baris yang disentuh.
 
 ---
 
-## 2. Token — 30 custom property
+## 2. Token — 31 custom property
 
-Semua di **selector `.ort`** (CSS:16–40), nol di `:root`.
+Semua di **selector `.ort`** (CSS:16–46), nol di `:root`.
 
 ```css
 .ort {
@@ -72,6 +72,7 @@ Semua di **selector `.ort`** (CSS:16–40), nol di `:root`.
   --ort-neu:      #7E5F46;  --ort-neu-bg:      #F1E9DF;
   --ort-wa:       #2C8C63;  --ort-wa-line:     #BFE3CD;
   --ort-transfer: #6B2400;  --ort-transfer-bg: #F6EBE1;
+  --ort-faint:    #7C5B41;  /* "sudah lewat / sudah beres" — 5 pemakai */
 }
 ```
 
@@ -92,18 +93,31 @@ membentenginya di tiga tempat:
 | `list.blade.php:581-589` | `querySelector('.ort').appendChild(toastBaru)` + komentar *"Sudah kena sekali — jangan dipindah ke body lagi."* Toast pernah tampil putih pucat karena di-append ke `<body>` |
 | `list.blade.php:334` | Loadbar `(document.querySelector('.ort') \|\| document.body)` — fallback-nya berarti loadbar emas jadi tak berwarna kalau `.ort` tidak ada |
 
-### ⚠ Token yang dirujuk tapi tidak pernah didefinisikan
+### `--ort-faint` — dulu hantu, sekarang token ke-31
 
-`--ort-faint` dipakai di CSS:512 (`.ort-urow__hint`) tapi tidak ada di blok
-token mana pun. Selalu jatuh ke fallback `#7C5B41`. Entah definisikan, entah
-buang `var()`-nya.
+Sampai 2 Okt 2026 ia dirujuk `var(--ort-faint, #7C5B41)` di `.ort-urow__hint`
+tapi **tidak pernah didefinisikan** — selalu jatuh ke fallback. Sementara itu
+nilai `#7C5B41` yang sama di-hardcode di **empat tempat lain**.
+
+Sekarang satu definisi, lima pemakai:
+
+| Pemakai | Guna |
+|---|---|
+| `.ort-urow__hint` | hint di baris sub-tab |
+| `.ort-chip--selesai` | chip "selesai" |
+| `.ort-held--selesai .ort-held__icon` / `__text` | kartu kaki perawatan selesai |
+| `.ort-roster-head__n` | hitungan pasien di kepala roster |
+
+Semuanya bermakna sama: **"sudah lewat / sudah beres"** — lebih tenang dari
+`--ort-ink3`, lebih gelap dari `--ort-muted`. Warnanya di layar tidak berubah
+sedikit pun; yang berubah cuma satu tempat mengaturnya.
 
 ### `.ort` dideklarasikan 2× dengan peran beda
 
 | Baris | Peran |
 |---|---|
 | CSS:16 | Pembawa token saja |
-| CSS:1078 | Layout halaman: `padding: 16px 26px 26px; display:flex; flex-direction:column; gap:13px` |
+| CSS:1084 | Layout halaman: `padding: 16px 26px 26px; display:flex; flex-direction:column; gap:13px` |
 
 Keduanya harus ikut kalau selectornya diganti nama.
 
@@ -119,18 +133,18 @@ Hanya oleh halaman ortho, dengan cache-busting `filemtime`
 
 | Kelas | Guna |
 |---|---|
-| `.ort .tabular` (CSS:42) | `tabular-nums` — **inilah yang dipakai view**, 68 kemunculan |
-| `.ort .ort-num` (CSS:43) | Alias yang sama — **YATIM, 0 pemakaian**. Buang `, .ort-num` |
-| `.ort-name` | Nama pasien 14px/700, line-height 1.35 (final CSS:1303) |
-| `.ort-cell` · `--sub` | Sel 13px / sub-teks 11px block (final CSS:1305-1306) |
+| `.ort .tabular` (CSS:48) | `tabular-nums` — **inilah yang dipakai view**, 68 kemunculan |
+| `.ort .ort-num` (CSS:49) | Alias yang sama — **YATIM, 0 pemakaian**. Buang `, .ort-num` |
+| `.ort-name` | Nama pasien 14px/700, line-height 1.35 (final CSS:1309) |
+| `.ort-cell` · `--sub` | Sel 13px / sub-teks 11px block (final CSS:1311-1312) |
 | `.ort-clamp2` | `-webkit-line-clamp:2` + `overflow-wrap: anywhere` supaya nama dokter tidak terpotong tengah kata |
 | `.ort-lbl` | Label form uppercase 10.5px/800 ls .55 |
-| Judul kolom | 10.5px/800 uppercase ls .6 (final CSS:680) |
+| Judul kolom | 10.5px/800 uppercase ls .6 (final CSS:686) |
 
 Tidak ada webfont — font sistem.
 
 ⚠ `text-overflow: ellipsis` **tidak bekerja** pada container `inline-flex`. Itu
-sebabnya `.ort-nodo__t` (CSS:353) ada: pembungkus teks **wajib**, bukan
+sebabnya `.ort-nodo__t` (CSS:359) ada: pembungkus teks **wajib**, bukan
 kerapian. Kolomnya terkunci 190px.
 
 ---
@@ -167,14 +181,14 @@ ditulis.
 
 | Grid | Kolom final | min-width | Baris menang |
 |---|---|---|---|
-| `.ort-grid` | `minmax(186px,1.5fr) 146px 112px 96px 112px 132px 190px 30px` | **1080px** | CSS:1294 |
-| `.ort-grid--antrean` | `minmax(156px,1.4fr) 124px 126px 162px 84px 124px 232px` | **1086px** | CSS:1335 |
-| `.ort-grid--lintas` | `minmax(210px,1.5fr) 146px 158px 168px 150px 34px` | **940px** | CSS:1317 |
-| `.ort-rgrid` | `minmax(180px,1.4fr) 108px minmax(120px,1fr) 104px 196px 128px 92px 22px` | **1050px** | CSS:1344 |
+| `.ort-grid` | `minmax(186px,1.5fr) 146px 112px 96px 112px 132px 190px 30px` | **1080px** | CSS:1300 |
+| `.ort-grid--antrean` | `minmax(156px,1.4fr) 124px 126px 162px 84px 124px 232px` | **1086px** | CSS:1341 |
+| `.ort-grid--lintas` | `minmax(210px,1.5fr) 146px 158px 168px 150px 34px` | **940px** | CSS:1323 |
+| `.ort-rgrid` | `minmax(180px,1.4fr) 108px minmax(120px,1fr) 104px 196px 128px 92px 22px` | **1050px** | CSS:1350 |
 
 `min-width` disetel agar muat di layar 1440 (ruang isi ±1125px) — alasannya di
-komentar CSS:1332. Lebar RIWAYAT 162 dan AKSI 232 pada `--antrean` diukur dari
-lebar isi nyata, bukan dikira-kira (komentar CSS:1336).
+komentar CSS:1338. Lebar RIWAYAT 162 dan AKSI 232 pada `--antrean` diukur dari
+lebar isi nyata, bukan dikira-kira (komentar CSS:1342).
 
 ### Isi kolomnya
 
@@ -210,7 +224,7 @@ di atasnya** — latar putih yang sama, padding `0 14px 12px 18px`.
 
 | Bagian | Catatan |
 |---|---|
-| `.ort-done::before` (CSS:582) | Siku ↳ **digambar dari dua border**, bukan glyph `U+21B3`. `margin-top:-10px` menembus ke baris atas |
+| `.ort-done::before` (CSS:588) | Siku ↳ **digambar dari dua border**, bukan glyph `U+21B3`. `margin-top:-10px` menembus ke baris atas |
 | `.ort-tr--warn + .ort-done` | Meneruskan setrip kegentingan 3px supaya tidak terputus |
 | `.ort-tr:hover + .ort-done` dan `.ort-done:hover` | Sorotan berlaku untuk **pasangannya** — baris dan pita satu objek bagi pengguna |
 
@@ -218,7 +232,7 @@ di atasnya** — latar putih yang sama, padding `0 14px 12px 18px`.
 
 ## 8. Chip status — 11 modifier, 7 pasangan warna
 
-Basis `.ort-chip` final: pil radius 20, padding `5px 10px`, 11px (CSS:1308).
+Basis `.ort-chip` final: pil radius 20, padding `5px 10px`, 11px (CSS:1314).
 
 | Kelas | Latar | Teks |
 |---|---|---|
@@ -260,7 +274,7 @@ Chip filter aktif berbeda: `.ort-chips` · `.ort-chips__label` · `.ort-chipf`.
 | `button.ort-btn` | Reset `<button>`: border none, `font-family: inherit` — wajib karena dipakai sebagai `<a>` **dan** `<button>` |
 | `.ort-btn--sm` | Padding 6/10, tanpa shadow |
 | `.ort-btn.is-sibuk` | Menunggu server: `opacity:.6; cursor:progress` |
-| `.ort-btn--mati` | Disabled, semua `!important` (CSS:1215) |
+| `.ort-btn--mati` | Disabled, semua `!important` (CSS:1221) |
 | `.ort-btn--wa` · `--wa-bad` | 30×30 hijau WhatsApp; varian nomor bermasalah pakai border **dashed** amber |
 | `.ort-obtn` · `--warn` · `.is-on` · `__n` | Sekunder bergaris; `.is-on` jadi btn1 penuh; `__n` badge hitungan |
 | `.ort-drawer__btn` · `--solid` | Di kepala drawer; `background` + `font-family` wajib eksplisit |
@@ -271,7 +285,7 @@ Chip filter aktif berbeda: `.ort-chips` · `.ort-chips__label` · `.ort-chipf`.
 | `.ort-dash` | Strip `—` untuk baris tanpa aksi |
 
 ⚠ `.ort-tr:hover .ort-toggle` membuat seluruh baris jadi satu sasaran: toggle
-langsung cokelat penuh. **Jangan kembalikan ke cincin box-shadow** (CSS:370).
+langsung cokelat penuh. **Jangan kembalikan ke cincin box-shadow** (CSS:376).
 
 ### Segmented control — tiga ukuran
 
@@ -295,7 +309,7 @@ panel baris) · `.ort-segbig` (radio-sebagai-tombol 3 kolom di drawer Tambah).
 ⚠ Dipilih `0fr → 1fr` alih-alih `max-width: 0 → N` karena melebar **persis
 seukuran isi, tanpa angka ajaib**. Versi `max-width` selesai di sekitar
 sepertiga durasi karena isinya 750px sementara plafonnya 1200px (komentar
-CSS:108-114).
+CSS:114-120).
 
 ---
 
@@ -312,7 +326,7 @@ CSS:108-114).
 Keduanya memakai `max-width: 96vw`, **bukan breakpoint**.
 
 ⚠ `.ort-drawer__body > *` dan `.ort-sheet__body > *` wajib `flex-shrink: 0`
-(CSS:1276-1277). Tanpa itu kartu dipadatkan dan baris ke-5 matriks **terpotong
+(CSS:1282-1283). Tanpa itu kartu dipadatkan dan baris ke-5 matriks **terpotong
 diam-diam**.
 
 ⚠ `.ort-sheet__galat` ada karena `layouts.notif` merender galat di halaman
@@ -332,8 +346,8 @@ kaki **empat keadaan**:
 | `.ort-held--selesai` | Bentuk sama, warna **netral** `#EFE7DC` — bukan cokelat-transfer, bukan hijau-hadir |
 
 ⚠ `.ort-matrix__grid` final **proporsional** `28px 1fr 1fr 1fr 1fr 1fr 1.15fr
-1.35fr` dengan `min-width:0` (CSS:947), dan `__scroll` berubah dari `auto` jadi
-**`visible`** (CSS:951) — supaya 8 kolom muat di badan drawer 716px tanpa gulir
+1.35fr` dengan `min-width:0` (CSS:953), dan `__scroll` berubah dari `auto` jadi
+**`visible`** (CSS:957) — supaya 8 kolom muat di badan drawer 716px tanpa gulir
 sama sekali.
 
 ⚠ `.ort-matrix__sep` menggambar dua garis 1px lewat `::before`/`::after` yang
@@ -367,7 +381,7 @@ z-index 70, gradien brand, radius 13.
 kanan.
 
 ⚠ `ortToastIn` harus mengulang `translate(-50%, …)` di setiap keyframe, karena
-`transform` menimpa `translateX(-50%)` dari CSS:1231.
+`transform` menimpa `translateX(-50%)` dari CSS:1237.
 
 Toast hidup **8 detik** di layar; Urungkan berlaku **90 detik** di server.
 Setiap toast punya `data-ort-toast="<acak>"` supaya timer toast lama tidak
@@ -392,10 +406,11 @@ keyboard, pembaca layar, dan "pilih salah satu" jadi gratis dari peramban.
 latar sunken, teks muted, dan "penuh" berwarna merah bad. Sales perlu tahu bahwa
 harinya ada tapi habis.
 
-⚠ **Hook mati:** `_sheet.blade.php:138` memasang kelas `is-penuh`, tapi
-`.is-penuh` **tidak pernah didefinisikan** di CSS mana pun. Seluruh gaya "penuh"
-datang dari `:disabled` (CSS:1504). Buang kelasnya, atau definisikan kalau mau
-dipakai tanpa `disabled`.
+⚠ Seluruh gaya "penuh" datang dari **`:disabled`** (CSS:1510), bukan dari kelas.
+`_sheet.blade.php` sempat memasang `is-penuh` yang tidak pernah ada di CSS mana
+pun — hook mati itu sudah dibuang 2 Okt 2026, dan alasannya ditulis di komentar
+Blade-nya supaya tidak dipasang lagi. Kalau suatu saat butuh menandai "penuh"
+**tanpa** menonaktifkan tombolnya, kelas itu harus didefinisikan dulu di CSS.
 
 `.ort-callfacts` — baris fakta pembuka kepala lembar (dokter · cabang · irama),
 latar sunken.
@@ -411,10 +426,10 @@ latar sunken.
 | `__icon` `__title` `__text` `__body` | Ubin 28px, judul 13.5px/800 warna transfer, teks `max-width:760px` |
 | `.ort-banner code` | Nama perintah artisan monospace 11.5px — dibaca tim IT |
 
-⚠ `--info` sengaja ditaruh di **akhir berkas** (CSS:1432) supaya menang atas
+⚠ `--info` sengaja ditaruh di **akhir berkas** (CSS:1438) supaya menang atas
 penimpaan `__icon` di blok sebelumnya.
 
-⚠ `.ort-banner__body` (CSS:1447) ada khusus untuk mengganti style sebaris —
+⚠ `.ort-banner__body` (CSS:1453) ada khusus untuk mengganti style sebaris —
 konvensi proyek: tidak ada inline style.
 
 Dua pemakaian: spanduk mendesak (`list.blade.php:106`) dan spanduk "kolom ini
@@ -477,7 +492,7 @@ belum pernah dipakai" (`list.blade.php:136`).
 diperkecil — 52px terbuang di layar sempit. Target modul ini desktop dan tablet,
 jadi belum jadi masalah; catat kalau nanti dipakai di HP.
 
-⚠ `max-width: 880px` muncul **dua kali** di blok terpisah (CSS:643 dan 822).
+⚠ `max-width: 880px` muncul **dua kali** di blok terpisah (CSS:649 dan 822).
 Boleh digabung.
 
 ---
@@ -497,7 +512,7 @@ Transisi penting di luar keyframes: `.ort-branchtabs__wrap` (.32s) · `.ort-card
 a` (.12s) · `.ort-toggle` (.15s) · `.ort-btab__caret` (.18s) ·
 `.ort-btab__chev` (.32s) · `.ort-hdok__row` (.12s).
 
-⚠ Tiga blok `prefers-reduced-motion` tersebar di CSS:709, 1203, dan 1256 —
+⚠ Tiga blok `prefers-reduced-motion` tersebar di CSS:715, 1203, dan 1256 —
 kandidat digabung. Di blok 1203, `visibility` **tetap** berganti walaupun
 transisinya mati, supaya urutan Tab keyboard tetap benar.
 
@@ -514,7 +529,7 @@ Dari `components.sweettreats.css`, **tidak ditulis ulang**:
 | `.st-card__body` | 3× |
 | `.st-empty` | 3× |
 | `.st-empty__icon` | 2× |
-| `.st-view-tabs` · `.st-view-tab` | tab tampilan, diangkat lokal di CSS:1397-1423 |
+| `.st-view-tabs` · `.st-view-tab` | tab tampilan, diangkat lokal di CSS:1403-1429 |
 
 Penimpaan lokal: `.ort .st-card { overflow:hidden }` (tabel di dalamnya yang
 menggulir) dan `.ort > .st-card { margin-top: 0 }` (supaya `gap` tidak dobel).
@@ -538,15 +553,18 @@ hijau "Baru" yang berarti hal lain. Jadi ia satu-satunya tempat modul ini
 Daftar yang akurat: **`.st-card`, `.st-card__body`, `.st-empty` (+`__icon`,
 `__title`), `.st-view-tabs`, `.st-view-tab`.**
 
-### ⚠ Bug nyata: `.st-empty__text` tidak ada
+### `.st-empty__desc` — dulu salah tulis `__text`
 
-Dipakai **5×** (`list.blade.php:205`, `_kosong.blade.php` 4×), tapi
-`components.sweettreats.css:936` mendefinisikan `.st-empty__desc` — bukan
-`__text`. Lima teks keadaan-kosong saat ini tampil **tanpa gaya**.
+Lima keadaan-kosong (`list.blade.php` 1×, `_kosong.blade.php` 4×) memakai
+`.st-empty__text`, padahal `components.sweettreats.css:936` mendefinisikan
+`.st-empty__desc`. Kelas yang tidak ada tidak mengatur apa pun, jadi kelima teks
+itu tampil dengan ukuran dan warna bawaan — bukan 12px redup seperti keadaan
+kosong di modul lain.
 
-Perbaikannya ada dua jalan dan **keduanya menyentuh berkas di luar modul ini**,
-jadi menunggu izin: ganti kelas di view ortho jadi `__desc`, atau tambahkan
-`__text` sebagai alias di `components.sweettreats.css`.
+Diperbaiki 2 Okt 2026 dengan **mengganti kelas di view ortho**, bukan menambah
+alias di CSS bersama. Alasannya: `__desc` sudah dipakai modul lain, dan menambah
+nama kedua untuk hal yang sama membuat yang menyusul harus menebak mana yang
+benar. Perbaikan ini tidak menyentuh satu pun berkas di luar modul ortho.
 
 ---
 
@@ -568,7 +586,7 @@ Tujuh kelas didefinisikan tapi nol pemakaian di seluruh repo:
 markup**, bukan sisa — jangan hapus tanpa memutuskan fiturnya dulu.
 
 Tiga kelas lain sudah dihapus dan tinggal komentar alasan penghapusannya
-(`.ort-demo` CSS:619, `.ort-fucell` dan `.ort-fu__x` CSS:536) — biarkan
+(`.ort-demo` CSS:625, `.ort-fucell` dan `.ort-fu__x` CSS:542) — biarkan
 komentarnya.
 
 ---
@@ -580,7 +598,7 @@ yang pertama akan salah.** Yang menang selalu yang terakhir di berkas:
 
 | Kelas | Deklarasi | Menang |
 |---|---|---|
-| `.ort-tr` padding | 4× (248, 688, 1037, 1300) | **1300** — komentar CSS:1284 sendiri memperingatkan "blok ini WAJIB di akhir berkas" |
+| `.ort-tr` padding | 4× (248, 688, 1037, 1300) | **1300** — komentar CSS:1290 sendiri memperingatkan "blok ini WAJIB di akhir berkas" |
 | `.ort-grid--antrean` | 3× (1168, 1313, 1335) | **1335** |
 | `.ort-matrix__grid` | 3× (768, 828, 947) | **947** |
 | `.ort-chip` | 3× (295, 672, 1308) | **1308** |

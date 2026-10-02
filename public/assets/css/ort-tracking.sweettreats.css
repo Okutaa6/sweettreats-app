@@ -37,6 +37,12 @@
   --ort-neu:      #7E5F46;  --ort-neu-bg:   #F1E9DF;
   --ort-wa:       #2C8C63;  --ort-wa-line:  #BFE3CD;
   --ort-transfer: #6B2400;  --ort-transfer-bg: #F6EBE1;
+
+  /* Cokelat redup untuk teks "sudah lewat / sudah beres" — lebih tenang dari
+     --ort-ink3, lebih gelap dari --ort-muted. Dulu dirujuk `var(--ort-faint,
+     #7C5B41)` di .ort-urow__hint padahal tidak pernah didefinisikan, sementara
+     nilainya sendiri di-hardcode di 4 tempat lain. Satu definisi, enam pemakai. */
+  --ort-faint:    #7C5B41;
 }
 
 .ort .tabular,
@@ -304,7 +310,7 @@
 .ort-chip--hadir     { background: var(--ort-ok-bg);   color: var(--ort-ok); }
 .ort-chip--absen     { background: var(--ort-warn-bg); color: var(--ort-warn); }
 /* Perawatan sudah ditutup — netral, bukan hijau "hadir" dan bukan peringatan. */
-.ort-chip--selesai   { background: #EFE7DC; color: #7C5B41; }
+.ort-chip--selesai   { background: #EFE7DC; color: var(--ort-faint); }
 .ort-chip--telat     { background: var(--ort-warn-bg); color: var(--ort-warn); }
 .ort-chip--telatlama { background: var(--ort-bad-bg);  color: var(--ort-bad); }
 .ort-chip--batal     { background: var(--ort-bad-bg);  color: var(--ort-bad); }
@@ -509,7 +515,7 @@
 
 /* ── Baris sub-tab + hint kanan (§9.1) ──────────────────────────────────── */
 .ort-urow { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-.ort-urow__hint { font-size: 12px; color: var(--ort-faint, #7C5B41); }
+.ort-urow__hint { font-size: 12px; color: var(--ort-faint); }
 .ort-utab__n {
   background: #F1E4D3; color: #8A6A50; opacity: 1;
   border-radius: 20px; padding: 1px 7px;
@@ -816,8 +822,8 @@
 /* Varian perawatan SELESAI: bentuk sama (keadaan tanpa tugas), warna netral —
    bukan cokelat-transfer "dipegang cabang lain" dan bukan hijau "hadir". */
 .ort-held--selesai { background: #EFE7DC; border-color: #E3D5C3; }
-.ort-held--selesai .ort-held__icon { color: #7C5B41; }
-.ort-held--selesai .ort-held__text { color: #7C5B41; }
+.ort-held--selesai .ort-held__icon { color: var(--ort-faint); }
+.ort-held--selesai .ort-held__text { color: var(--ort-faint); }
 
 @media (max-width: 880px) { .ort-kpi { grid-template-columns: 1fr; } }
 
@@ -831,7 +837,7 @@
    Tab Pasien Ortho — brief §13 / screenshot 13 & 14
    ════════════════════════════════════════════════════════════════════════════ */
 .ort-roster-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 13px; }
-.ort-roster-head__n { font-size: 12.5px; color: #7C5B41; }
+.ort-roster-head__n { font-size: 12.5px; color: var(--ort-faint); }
 /* Sisi kanan kepala roster: dua pemilah (Aktif|Selesai, Daftar|Kartu) berdampingan. */
 .ort-roster-head__r { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .ort-seg { display: inline-flex; gap: 3px; background: #fff; border: 1px solid #EADCC9; border-radius: 12px; padding: 3px; }

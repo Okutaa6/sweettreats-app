@@ -134,8 +134,12 @@
                     <div class="ort-hdok">
                         @foreach ($jadwal['hari'] as $h)
                             @php $d = \Carbon\Carbon::parse($h['tanggal']); @endphp
+                            {{-- Hari penuh ditandai `disabled` saja. Kelas `is-penuh` pernah
+                                 dipasang di sini tapi tidak pernah ada di CSS — seluruh gaya
+                                 "penuh" datang dari `:disabled` (ort-tracking:1504). Hook mati
+                                 itu dibuang supaya tidak ada yang mengira ia mengatur sesuatu. --}}
                             <button type="button"
-                                    class="ort-hdok__row {{ $h['penuh'] ? 'is-penuh' : '' }}"
+                                    class="ort-hdok__row"
                                     data-ort-tgl="{{ $h['tanggal'] }}"
                                     {{ $h['penuh'] ? 'disabled' : '' }}
                                     title="{{ $h['penuh'] ? 'Semua slot hari ini sudah terisi' : 'Pilih hari ini, jam persisnya dipilih di form Reservasi' }}">

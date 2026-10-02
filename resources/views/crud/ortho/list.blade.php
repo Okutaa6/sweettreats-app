@@ -202,7 +202,7 @@
                 <div class="st-empty">
                     <div class="st-empty__icon"><i class="fas {{ $tabs[$tab]['ikon'] }}"></i></div>
                     <div class="st-empty__title">Tab {{ $tabs[$tab]['label'] }} menyusul</div>
-                    <div class="st-empty__text">
+                    <div class="st-empty__desc">
                         Tab List sudah berjalan penuh — daftar kerja harian, antrean
                         penjadwalan, dan tab cabang lain semuanya sudah bisa dipakai.
                     </div>
