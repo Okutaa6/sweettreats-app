@@ -219,6 +219,21 @@ class OrtQuery
                 'Ada reservasi'   => $q->whereNotNull('c.reservation_id')
                                        ->where(fn ($w) => $w->whereNull('c.rsv_status')->orWhere('c.rsv_status', '<>', 'cancelled')),
                 'Terlewat'        => $q->where('c.sch_date', '<', $hariIni),
+                /*
+                 * "Terlewat 2× atau lebih" = sudah SIKLUS_ESKALASI interval
+                 * lewat sejak kunjungan terakhir — bukan ambang hari. Pasien
+                 * berinterval 21 hari yang telat 45 hari sudah dua siklus;
+                 * pasien berinterval 60 hari dengan telat yang sama baru
+                 * setengah. Hitungannya di SQL supaya menumpang
+                 * idx_ort_case_backlog (memuat last_visit_date), dan jepitan
+                 * LEAST/GREATEST-nya WAJIB sama dengan OrtCase::intervalKontrol().
+                 */
+                'Terlewat 2× atau lebih' => $q->whereNotNull('k.last_visit_date')
+                    ->whereRaw(
+                        'DATEDIFF(?, k.last_visit_date) >= ? * LEAST(?, GREATEST(?, COALESCE(k.median_gap_days, ?)))',
+                        [$hariIni, OrtCase::SIKLUS_ESKALASI, OrtCase::IRAMA_MAX_HARI,
+                         OrtCase::IRAMA_MIN_HARI, OrtControl::USULAN_MAJU_HARI]
+                    ),
                 'Reservasi batal' => $q->where('c.rsv_status', 'cancelled'),
                 // Bukan lagi sebuah STATUS — hampir semua baris terbuka memang
                 // tanggalnya dihitung sistem. Tetap berguna sebagai saringan:

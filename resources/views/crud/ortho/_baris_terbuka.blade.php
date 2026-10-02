@@ -61,6 +61,28 @@
                 <div class="ort-fact__k">Kehadiran</div>
                 <div class="ort-fact__v">{{ $kehadiran }}</div>
             </div>
+            @php
+                /* Siklus terlewat = floor((hari ini − kunjungan terakhir) ÷ interval).
+                   Interval = median irama dijepit 21–60, cadangan 30 — rumus yang
+                   sama dengan jatuh tempo. Dihitung di sini, bukan disimpan:
+                   nilainya bergeser tiap hari walau datanya diam. */
+                $siklusTerlewat = \App\Models\OrtCase::hitungSiklusTerlewat(
+                    $r->last_visit_date, $r->median_gap_days !== null ? (int) $r->median_gap_days : null, $hariIni
+                );
+            @endphp
+            <div>
+                <div class="ort-fact__k">Siklus terlewat</div>
+                <div class="ort-fact__v">
+                    @if ($siklusTerlewat >= \App\Models\OrtCase::SIKLUS_ESKALASI)
+                        <span class="ort-sub-red tabular">{{ $siklusTerlewat }}</span> siklus
+                        <span class="ort-fact__dim" title="Sudah {{ $siklusTerlewat }} interval kontrol lewat sejak kunjungan terakhir — perlu pendekatan berbeda, bukan sekadar telepon ulang">· eskalasi</span>
+                    @elseif ($siklusTerlewat === 1)
+                        <span class="tabular">1</span> siklus
+                    @else
+                        <span class="ort-x">—</span>
+                    @endif
+                </div>
+            </div>
             <div>
                 <div class="ort-fact__k">Irama kontrol</div>
                 <div class="ort-fact__v">

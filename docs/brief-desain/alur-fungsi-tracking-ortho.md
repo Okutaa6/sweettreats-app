@@ -446,6 +446,7 @@ Aksi berbasis kasus memeriksa `owner_place_id` inline.
 | `kalender()` | Hitungan sub-tab dihitung dari **baris grid yang sama** dengan yang dirender |
 | `hari()` | Jam lewat `whereIn` ke `raw_cus_reservation`, **tanpa join**, dilindungi `Schema::hasTable` |
 | Saringan harian | Optgroup "Kerja hari ini": *Belum pernah di-FU*, *Saya FU hari ini* |
+| Saringan ke-10 *(4 Okt 2026)* | *Terlewat 2× atau lebih* — dihitung **siklus**, bukan hari, langsung di SQL supaya menumpang `idx_ort_case_backlog`: `DATEDIFF(hari_ini, k.last_visit_date) >= 2 × LEAST(60, GREATEST(21, COALESCE(k.median_gap_days, 30)))`. Jepitannya wajib sama dengan `OrtCase::intervalKontrol()` |
 
 ⚠ `'Saya FU hari ini'` memakai `$filter['saya']` yang berasal dari
 `session('name')`, bukan dari masukan pengguna. Kalau kosong, kueri jadi
@@ -742,6 +743,19 @@ menghapus keempat tabel `ort_*` berurutan.
 | `IRAMA_MIN_HARI` / `IRAMA_MAX_HARI` | 21 / 60 |
 | `IRAMA_RAPAT_PCT` | 50 — hanya 24% pasien prod memenuhinya |
 | `IRAMA_RAPAT_MIN_SELANG` | 3 |
+| `SIKLUS_ESKALASI` | 2 — mulai berapa siklus terlewat pasien dianggap perlu pendekatan berbeda |
+
+**Dua statis untuk siklus terlewat** *(4 Okt 2026)*:
+
+| Metode | Guna |
+|---|---|
+| `intervalKontrol(?int $median)` | median dijepit `[IRAMA_MIN_HARI, IRAMA_MAX_HARI]`, cadangan `USULAN_MAJU_HARI` — **persis** jepitan `OrtUsulan`, dan padanan SQL-nya `LEAST(60, GREATEST(21, COALESCE(k.median_gap_days, 30)))` di `OrtQuery::dasar()`. Ubah satu, ubah dua-duanya |
+| `hitungSiklusTerlewat(?string $lastVisit, ?int $median, $hariIni)` | `floor((hari ini − kunjungan terakhir) ÷ interval)`; 0 kalau belum pernah datang atau belum satu interval lewat. Statis supaya bisa dipanggil Blade atas `stdClass` query builder |
+
+⚠ **Sengaja bukan kolom rollup.** Nilainya berubah tiap hari walau datanya
+diam — penyakit `visit_count_180d` yang memaksa tarikan malam menyegarkan
+semua kasus aktif tiap cabang hanya karena waktu berjalan. Dua masukannya
+sudah tersimpan; ini aritmetika murni, nol kueri, tidak pernah basi.
 | `BASIS_RAPAT` / `BASIS_LONGGAR` / `BASIS_DEFAULT` | `irama_rapat` · `irama_longgar` · `default` |
 
 **`irama(iterable $tanggal)` static** →
@@ -763,7 +777,8 @@ menghapus keempat tabel `ort_*` berurutan.
 
 **Turunan:** `isTertaut()` · `hariSejakKunjunganTerakhir()` · `isHilang()`
 (null **atau** > 180) · `isJarangKontrol()` (`visit_count_180d < 2`) ·
-`branchesVisited()`
+`branchesVisited()` · `siklusTerlewat()` (mendelegasi ke statis
+`hitungSiklusTerlewat()` — satu rumus, bukan dua)
 
 **Lima relasi:**
 

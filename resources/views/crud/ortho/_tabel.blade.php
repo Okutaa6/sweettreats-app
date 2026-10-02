@@ -109,6 +109,16 @@
                 if ($key === 'telat' || $key === 'telatlama') {
                     $chipTeks  = 'Terlewat ' . $hariLewat . ' hari';
                     $chipKelas = $key;
+                    /* Siklus terlewat ≥ SIKLUS_ESKALASI ikut disebut: "Terlewat 45
+                       hari" terbaca sama untuk pasien berinterval 21 (sudah 2 siklus)
+                       dan 60 (belum satu). Rumusnya statis di OrtCase — $r di sini
+                       stdClass dari query builder, bukan model. */
+                    $siklus = \App\Models\OrtCase::hitungSiklusTerlewat(
+                        $r->last_visit_date, $r->median_gap_days !== null ? (int) $r->median_gap_days : null, $hariIniStr
+                    );
+                    if ($siklus >= \App\Models\OrtCase::SIKLUS_ESKALASI) {
+                        $chipTeks .= ' · ' . $siklus . ' siklus';
+                    }
                 } elseif ($key === 'ada_reservasi' && $r->rsv_date === $hariIniStr) {
                     // Hari-H lebih berguna daripada label umum.
                     $chipTeks  = 'Reservasi hari ini';

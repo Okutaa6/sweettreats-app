@@ -245,6 +245,12 @@ Basis `.ort-chip` final: pil radius 20, padding `5px 10px`, 11px (CSS:1314).
 | `--selesai` | `#EFE7DC` | `#7C5B41` |
 | `--telat` | warn-bg | warn |
 | `--telatlama` | bad-bg | bad |
+
+⚠ Sejak 4 Okt 2026 teks chip `--telat`/`--telatlama` bisa berbunyi
+**"Terlewat N hari · K siklus"** bila sudah ≥ 2 siklus kontrol lewat. **Tidak
+ada kelas baru** — hanya teksnya yang bertambah; warnanya tetap mengikuti
+ambang hari. Siklus dihitung `OrtCase::hitungSiklusTerlewat()` dari kolom yang
+sudah ada di baris, bukan dari kueri tambahan.
 | `--batal` | bad-bg | bad |
 | `--transfer` | transfer-bg | transfer |
 

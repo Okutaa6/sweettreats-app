@@ -42,7 +42,10 @@
                 <label class="ort-lbl">Status</label>
                 <select name="status" class="ort-inp">
                     <option value="">Semua status</option>
-                    @foreach (['Menunggu', 'Sudah di-FU', 'Ada reservasi', 'Terlewat',
+                    {{-- "Terlewat 2× atau lebih" dihitung SIKLUS, bukan hari: pasien
+                         berinterval 21 hari yang telat 45 hari sudah dua siklus, yang
+                         berinterval 60 belum satu. Terjemahannya di OrtQuery::dasar(). --}}
+                    @foreach (['Menunggu', 'Sudah di-FU', 'Ada reservasi', 'Terlewat', 'Terlewat 2× atau lebih',
                                'Reservasi batal', 'Belum disentuh tangan', 'Transfer'] as $s)
                         <option value="{{ $s }}" {{ request('status') === $s ? 'selected' : '' }}>{{ $s }}</option>
                     @endforeach

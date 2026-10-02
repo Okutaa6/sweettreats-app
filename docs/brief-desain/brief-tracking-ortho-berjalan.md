@@ -168,6 +168,7 @@ salinan, dipakai tabel, drawer, dan uji.
 | **Reservasi batal** | Janjinya dibatalkan — harus langsung ketahuan |
 | **Terlewat N hari** | Dihitung dari umur baris |
 | **Terlewat N hari** (parah) | Lewat dari 14 hari; barisnya diberi garis merah di tepi kiri |
+| **Terlewat N hari · K siklus** | *(4 Okt 2026)* Ditambahkan kalau sudah ≥ 2 **siklus** kontrol lewat sejak kunjungan terakhir — bukan ambang hari. "Terlewat 45 hari" terbaca sama untuk pasien berinterval 21 (sudah 2 siklus) dan 60 (belum satu); siklus yang membedakannya. Panel baris memberi fakta "Siklus terlewat · eskalasi", dan saringan status punya pilihan "Terlewat 2× atau lebih" |
 
 ⚠ **Chip "Usulan jadwal" sudah dibuang.** Ia dulu berdiri paling atas, jadi
 jatuh tempo yang sudah lewat tetap berbunyi "Usulan jadwal" alih-alih

@@ -301,6 +301,72 @@ class OrtCase extends Model
         return $this->visit_count_180d < self::JARANG_MIN_VISIT;
     }
 
+    /**
+     * Mulai berapa siklus terlewat pasien dianggap perlu pendekatan berbeda
+     * (prompt 4 Okt 2026: "Terlewat 2x atau lebih — perlu eskalasi").
+     */
+    public const SIKLUS_ESKALASI = 2;
+
+    /**
+     * Interval kontrol yang dipakai untuk menghitung jatuh tempo pasien ini —
+     * median iramanya dijepit [IRAMA_MIN_HARI, IRAMA_MAX_HARI], atau cadangan
+     * +30 kalau belum punya irama. PERSIS jepitan yang dipakai OrtUsulan, dan
+     * padanan SQL-nya di OrtQuery::dasar():
+     *   LEAST(60, GREATEST(21, COALESCE(k.median_gap_days, 30)))
+     * Kalau salah satu diubah, yang lain WAJIB ikut.
+     */
+    public static function intervalKontrol(?int $medianGapDays): int
+    {
+        if ($medianGapDays === null || $medianGapDays <= 0) {
+            return OrtControl::USULAN_MAJU_HARI;
+        }
+
+        return min(self::IRAMA_MAX_HARI, max(self::IRAMA_MIN_HARI, $medianGapDays));
+    }
+
+    /**
+     * Berapa siklus kontrol yang sudah terlewati sejak kunjungan terakhir.
+     *
+     *   siklus = floor((hari ini − last_visit_date) ÷ interval)
+     *
+     * 0 = belum satu interval pun lewat (atau belum pernah datang — pasien
+     * tanpa kunjungan sudah punya kelompoknya sendiri di antrean "hilang").
+     *
+     * ⚠ SENGAJA bukan kolom rollup. Nilainya berubah tiap hari walau datanya
+     *   tidak berubah — persis penyakit visit_count_180d yang memaksa tarikan
+     *   malam menyegarkan semua kasus aktif tiap cabang hanya karena waktu
+     *   berjalan. Kedua masukannya sudah tersimpan, jadi ini aritmetika murni:
+     *   nol kueri, nol kolom, tidak pernah basi.
+     *
+     * Statis supaya bisa dipanggil dari Blade atas baris query-builder
+     * (stdClass, bukan model) — satu rumus untuk tabel, panel, dan model.
+     */
+    public static function hitungSiklusTerlewat(?string $lastVisitDate, ?int $medianGapDays, $hariIni = null): int
+    {
+        if (! filled($lastVisitDate)) {
+            return 0;
+        }
+
+        $acuan = $hariIni ? \Carbon\Carbon::parse($hariIni) : \Carbon\Carbon::today();
+        $hari  = \Carbon\Carbon::parse(substr((string) $lastVisitDate, 0, 10))
+            ->diffInDays($acuan->startOfDay(), false);
+
+        if ($hari <= 0) {
+            return 0;
+        }
+
+        return intdiv($hari, self::intervalKontrol($medianGapDays));
+    }
+
+    public function siklusTerlewat($hariIni = null): int
+    {
+        return self::hitungSiklusTerlewat(
+            $this->last_visit_date?->toDateString(),
+            $this->median_gap_days !== null ? (int) $this->median_gap_days : null,
+            $hariIni
+        );
+    }
+
     /** Daftar place_id cabang yang pernah didatangi, dari kolom CSV cache. */
     public function branchesVisited(): array
     {
