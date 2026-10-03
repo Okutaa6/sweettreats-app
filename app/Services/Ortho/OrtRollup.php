@@ -79,6 +79,9 @@ class OrtRollup
         // supaya OrtUsulan menghitung angka yang sama persis saat mengusulkan.
         $irama = OrtCase::irama($kunjungan->pluck('visit_date'));
 
+        // Dokter yang TERAKHIR menangani — lihat dokterTerkini() di bawah.
+        $dok = $this->dokterTerkini($case, $controls);
+
         $case->forceFill([
             'owner_place_id'      => $owner,
             'open_control_id'     => $terbuka?->id,
@@ -102,8 +105,120 @@ class OrtRollup
             // terbaca paling meyakinkan.
             'gap_spread_pct'      => $irama['sebar'],
             'branches_visited'    => $this->cabangDidatangi($controls),
+            // Kolom Dokter. Keduanya ditulis BERSAMAAN atau tidak sama sekali —
+            // kode tanpa nama membuat layar kosong, nama tanpa kode membuat
+            // hari praktiknya tidak bisa dicari.
+            'doctor_ref_id'       => $dok['ref'],
+            'doctor_name'         => $dok['nama'],
             'rollup_at'           => now(),
         ])->save();
+    }
+
+    /**
+     * Siapa yang TERAKHIR menangani pasien ini.
+     *
+     * ────────────────────────────────────────────────────────────────────────
+     * KENAPA DI SINI, DAN KENAPA HANYA DI SINI
+     * ────────────────────────────────────────────────────────────────────────
+     * prompt_jadwal_kontrol.md: "Dokter TIDAK BOLEH diambil dari field statis
+     * di master pasien. Dokter = dokter yang terakhir menangani pasien...
+     * Bikin logika ini di satu tempat, jangan diulang di banyak file."
+     *
+     * Sebelum ini `ort_case.doctor_name` adalah snapshot dari kunjungan PERTAMA
+     * yang menyebut item ortho (OrtSeedCases) dan tidak pernah disegarkan. Jadi
+     * layar menyebut dokter yang MEMASANG bracket — dan ketika pasien dioper,
+     * Sales menelepon dengan nama dokter yang salah.
+     *
+     * refresh() dipanggil dari SEMUA jalur tulis modul ini, jadi ini satu-satunya
+     * tempat yang pasti terlewati semuanya. Menaruhnya di controller berarti
+     * tarikan malam melewatkannya, dan sebaliknya.
+     *
+     * ⚠ Kalau tidak ada satu pun calon yang lebih baru, snapshot yang ada
+     *   DIPERTAHANKAN. Mengosongkannya akan membuang satu-satunya dokter yang
+     *   diketahui hanya karena belum ada kunjungan tercatat.
+     *
+     * ⚠ Nol JOIN lintas keluarga tabel — collation prod campur
+     *   (2026_09_24_ort_audit_collation_prod.sql). Semua lewat whereIn dengan
+     *   literal PHP.
+     *
+     * Phase 2 menambah satu calon lagi di sini: hasil transfer manual
+     * (ort_transfer.to_doctor_ref_id), bertanggal transfer_date. Bentuk daftar
+     * calon di bawah memang disiapkan untuk itu — "yang paling baru menang"
+     * tetap aturannya.
+     *
+     * @return array{ref: ?string, nama: ?string}
+     */
+    private function dokterTerkini(OrtCase $case, $controls): array
+    {
+        $calon = [];
+
+        // ── Calon 1: dokter kunjungan terakhir yang tercatat ────────────────
+        foreach ($controls as $c) {
+            if (filled($c->visit_date) && filled($c->doctor_ref_id)) {
+                $calon[] = [
+                    'tgl'  => Carbon::parse($c->visit_date)->toDateString(),
+                    // Peringkat EKSPLISIT, bukan mengandalkan urutan sisip:
+                    // kunjungan menang atas reservasi pada tanggal yang seri.
+                    'rank' => 1,
+                    'ref'  => (string) $c->doctor_ref_id,
+                    'nama' => $c->doctor_name,
+                ];
+            }
+        }
+
+        // ── Calon 2: dokter reservasi terakhir ──────────────────────────────
+        // Reservasi hidup di raw_cus_reservation dan menyimpan raw_doctor.id,
+        // BUKAN kode Omnicare. Jembatannya raw_doctor.omnicare_doc_id, dan
+        // tanpa kode itu calonnya dibuang: nama saja tidak cukup untuk mencari
+        // hari praktik, dan brief melarang mencocokkan dokter lewat nama.
+        $rsvIds = $controls->pluck('reservation_id')->filter()->map(fn ($v) => (string) $v)->unique()->values()->all();
+
+        if ($rsvIds && Schema::hasTable('raw_cus_reservation')) {
+            $rsv = DB::table('raw_cus_reservation')
+                ->whereIn('id', $rsvIds)
+                ->whereNotNull('raw_doctor_id')
+                ->get(['raw_doctor_id', 'date']);
+
+            $docIds = $rsv->pluck('raw_doctor_id')->filter()->map(fn ($v) => (string) $v)->unique()->values()->all();
+
+            $peta = $docIds && Schema::hasTable('raw_doctor')
+                ? DB::table('raw_doctor')->whereIn('id', $docIds)
+                    ->whereNotNull('omnicare_doc_id')
+                    ->get(['id', 'name', 'omnicare_doc_id'])
+                    ->keyBy('id')
+                : collect();
+
+            foreach ($rsv as $r) {
+                $d = $peta->get((string) $r->raw_doctor_id);
+                if (! $d || ! filled($r->date)) {
+                    continue;
+                }
+                $calon[] = [
+                    'tgl'  => Carbon::parse($r->date)->toDateString(),
+                    'rank' => 0,
+                    'ref'  => (string) $d->omnicare_doc_id,
+                    'nama' => $d->name,
+                ];
+            }
+        }
+
+        if (! $calon) {
+            return ['ref' => $case->doctor_ref_id, 'nama' => $case->doctor_name];
+        }
+
+        /*
+         * Yang paling baru menang; pada tanggal yang SERI, kunjungan menang
+         * atas reservasi — kunjungan adalah KENYATAAN, reservasi baru RENCANA.
+         *
+         * ⚠ Serinya dipecah kolom `rank`, BUKAN urutan penambahan. usort()
+         *   stabil sejak PHP 8.0, jadi mengandalkan urutan sisip justru memberi
+         *   hasil KEBALIKANNYA: end() mengambil elemen terakhir, dan reservasi
+         *   ditambahkan sesudah kunjungan. Sudah kena sekali.
+         */
+        usort($calon, fn ($a, $b) => [$a['tgl'], $a['rank']] <=> [$b['tgl'], $b['rank']]);
+        $menang = end($calon);
+
+        return ['ref' => $menang['ref'], 'nama' => $menang['nama']];
     }
 
     /** Hitung ulang semua kasus aktif. Dipakai tarikan malam & `ort:rollup`. */

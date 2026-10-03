@@ -290,9 +290,18 @@
 
 /* ── Tabel daftar kerja ─────────────────────────────────────────────────── */
 .ort-tablewrap { overflow-x: auto; }
+/* Tujuh kolom, turun dari delapan — prompt_jadwal_kontrol.md Phase 1:
+   Pasien · Dokter · Last Visit · Jadwal Dokter · Follow Up · Reservasi · ∅
+   Kolom Status (132px) dan Tindakan berikutnya (190px) dibuang dari tabel dan
+   isinya PINDAH ke panel baris; 322px yang dibebaskan itu persis yang dibutuhkan
+   Jadwal Dokter untuk memuat tiga pil tanggal tanpa menaikkan min-width.
+
+   ⚠ Kelas ini dideklarasikan DUA KALI — di sini, dan lagi di ekor berkas
+     (cari "Baris sedikit lebih lega"). Yang di ekor MENANG. Mengubah hanya
+     salah satunya adalah kesalahan yang sudah pernah terjadi di berkas ini. */
 .ort-grid {
   display: grid;
-  grid-template-columns: minmax(200px, 1.5fr) 128px 112px 96px 112px 132px 190px 30px;
+  grid-template-columns: minmax(186px, 1.5fr) 128px 150px minmax(190px, 1.1fr) 132px 118px 30px;
   gap: 10px;
   align-items: center;
   min-width: 1010px;
@@ -916,6 +925,88 @@
 .ort-pill-br--other::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: var(--ort-transfer); }
 .ort-datepill { display: inline-block; font-size: 11px; font-weight: 800; border-radius: 20px; padding: 3px 9px; }
 
+/* ════════════════════════════════════════════════════════════════════════════
+   Kolom "Jadwal Dokter" — hari praktik dokter pasien, berwarna menurut isi
+   ════════════════════════════════════════════════════════════════════════════
+   Ambangnya BUKAN di sini: OrtJadwalDokter::AMBANG_HAMPIR_PENUH_PCT yang
+   memutuskan, dan kelas-kelas ini cuma mewarnai keputusannya. Ambang yang
+   hidup di CSS adalah ambang yang akan bercabang dua begitu panel baris ikut
+   mewarnai hal yang sama.
+
+   Keempatnya memakai token yang sudah ada — kecuali satu, dan itu perlu
+   dicatat: `--ort-faint` TIDAK punya pasangan `-bg` (lihat definisi token di
+   kepala berkas). Latar pudar di modul ini literal #EFE7DC, dipakai juga oleh
+   .ort-chip--selesai dan .ort-held--selesai. Dipakai ulang di sini supaya
+   "pudar" berarti satu hal di seluruh modul, bukan tiga nuansa mirip. */
+.ort-dokhari { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+.ort-datepill--ok    { background: var(--ort-ok-bg);   color: var(--ort-ok); }
+.ort-datepill--warn  { background: var(--ort-warn-bg); color: var(--ort-warn); }
+.ort-datepill--bad   { background: var(--ort-bad-bg);  color: var(--ort-bad); }
+.ort-datepill--faint { background: #EFE7DC;            color: var(--ort-faint); }
+
+/* Hari cuti: dirender, tidak dihilangkan. Sel yang diam-diam melewati Kamis
+   membuat Sales mengira datanya rusak. */
+.ort-datepill--faint.is-cuti { text-decoration: line-through; text-decoration-thickness: 1px; }
+
+.ort-dokhari__more {
+  font-size: 10.5px; font-weight: 700; color: var(--ort-muted); cursor: help;
+}
+
+/* Sebab kosong — empat kalimat berbeda, bukan satu "-". `tak_terpetakan`
+   diperbaiki tim IT dan `tak_praktik` diperbaiki operasional; satu teks untuk
+   keduanya mengirim orang mengejar perbaikan yang salah. */
+.ort-dokhari__sebab {
+  display: inline-block; font-size: 10.5px; font-weight: 600;
+  color: var(--ort-faint); background: #EFE7DC;
+  border-radius: 8px; padding: 3px 8px; cursor: help;
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* Belum masuk H-3: bukan masalah, cuma belum waktunya. Tidak diberi latar
+   supaya tidak terbaca sebagai keadaan yang perlu ditindak. */
+.ort-dokhari__belum { font-size: 11.5px; color: var(--ort-muted); }
+
+/* ════════════════════════════════════════════════════════════════════════════
+   Kolom "Last Visit" — tanggal + umur, badge menurut jatuh tempo PASIEN ITU
+   ════════════════════════════════════════════════════════════════════════════
+   Ambang 30/50 yang diminta prompt lahir sendiri di sini saat irama pasien 30
+   hari; yang berirama 45 hari tidak lagi ditandai merah palsu. Rumusnya di
+   OrtCase::nadaLastVisit(). */
+.ort-lv { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.ort-lv__tgl { font-size: 12.5px; font-weight: 700; color: var(--ort-ink); }
+.ort-lv__umur {
+  display: inline-block; align-self: flex-start;
+  font-size: 10.5px; font-weight: 800; border-radius: 20px; padding: 2px 8px;
+}
+.ort-lv__umur--ok    { background: var(--ort-ok-bg);   color: var(--ort-ok); }
+.ort-lv__umur--warn  { background: var(--ort-warn-bg); color: var(--ort-warn); }
+.ort-lv__umur--bad   { background: var(--ort-bad-bg);  color: var(--ort-bad); }
+.ort-lv__umur--faint { background: #EFE7DC;            color: var(--ort-faint); }
+
+/* Jatuh tempo, pindah ke sini sebagai sub-baris sesudah kolom "Jadwal" dibuang.
+   ⚠ Ia adalah KUNCI URUT yang terlihat — tanpanya Sales melihat baris berurutan
+     tanpa petunjuk mengapa. Dan tooltipnya ("pengingat, bukan janji") disebut
+     di _tabel.blade.php sebagai penutup ambiguitas termahal di modul ini. */
+.ort-lv__due { font-size: 10.5px; color: var(--ort-muted); cursor: help; }
+
+/* ════════════════════════════════════════════════════════════════════════════
+   Penilaian Sales: Active / Inactive
+   ════════════════════════════════════════════════════════════════════════════ */
+.ort-chip--inactive { background: #EFE7DC; color: var(--ort-faint); }
+
+/* Badge hitungan di kepala daftar. Bukan hiasan: dengan 50 baris per halaman,
+   400 pasien Inactive berarti delapan halaman terakhir yang tidak akan pernah
+   dibuka siapa pun. Angka yang bisa diklik inilah yang membedakan "diurutkan
+   ke bawah" dari "disembunyikan". */
+.ort-salesbadge {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 11.5px; font-weight: 700; color: var(--ort-faint);
+  background: #EFE7DC; border: 1px solid #E3D5C3;
+  border-radius: 20px; padding: 4px 11px; text-decoration: none;
+}
+.ort-salesbadge:hover { border-color: var(--ort-muted); color: var(--ort-ink2); text-decoration: none; }
+.ort-salesbadge.is-on { background: var(--ort-warn-bg); color: var(--ort-warn); border-color: #E8C9A6; }
+
 /* Kartu */
 .ort-cardgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; margin-top: 13px; }
 .ort-pcard {
@@ -1376,9 +1467,11 @@ button.ort-btn { border: none; font-family: inherit; cursor: pointer; }
    paling bikin baris terlihat berdesakan. Tambahan lebarnya diambil dari
    kolom PASIEN yang punya 1,5fr dan selalu berlebih. */
 .ort-grid {
-  grid-template-columns: minmax(186px, 1.5fr) 146px 112px 96px 112px 132px 190px 30px;
+  grid-template-columns: minmax(186px, 1.5fr) 146px 150px minmax(190px, 1.1fr) 132px 118px 30px;
   gap: 13px;
-  min-width: 1080px;
+  /* Turun dari 1080px: tujuh track menuntut lebih sedikit lebar tetap daripada
+     delapan, dan tablet 1024px jadi terpakai tanpa gulir mendatar. */
+  min-width: 1044px;
 }
 
 .ort-tr    { padding: 16px 18px; }

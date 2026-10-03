@@ -328,6 +328,12 @@ Route::middleware([AuthGuard::class])->group(function () {
             ->where('caseId', '[A-Za-z0-9-]{36}')
             ->name('ortho.selesai');
 
+        // Penilaian Sales "Active / Inactive" — sumbu TERPISAH dari status
+        // klinis di atas. Lihat OrthoController::salesAktif().
+        Route::post('kasus/{caseId}/sales-aktif', [$c, 'salesAktif'])
+            ->where('caseId', '[A-Za-z0-9-]{36}')
+            ->name('ortho.salesaktif');
+
         Route::post('urungkan/{token}', [$c, 'urungkan'])
             ->where('token', '[A-Za-z0-9]{32}')
             ->name('ortho.urungkan');

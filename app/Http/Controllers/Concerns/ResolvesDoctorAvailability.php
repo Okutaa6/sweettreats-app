@@ -19,6 +19,75 @@ use Illuminate\Support\Facades\DB;
  */
 trait ResolvesDoctorAvailability
 {
+    /*
+     * ══════════════════════════════════════════════════════════════════════
+     * JALUR PRA-MUAT — opsional, default MATI
+     * ══════════════════════════════════════════════════════════════════════
+     * Metode compute* di bawah dirancang untuk SATU dokter di SATU tanggal.
+     * Itu benar untuk form reservasi, tapi layar yang menampilkan hari praktik
+     * untuk 50 baris sekaligus (tabel Tracking Ortho) membayar ~27 kueri per
+     * baris — ~1.350 untuk satu muat halaman.
+     *
+     * Properti di bawah membiarkan pemanggil MENITIPKAN data yang sudah ia
+     * ambil sendiri dalam beberapa kueri agregat, sehingga metode ini berhenti
+     * menanyai DB per-tanggal.
+     *
+     * ⚠ Yang diangkat hanya I/O-nya, BUKAN aritmetikanya. subtractBreaks(),
+     *   langkah slot, pengelompokan sesi, dan available_count/total_count
+     *   tidak disentuh — jadi angka yang keluar tetap identik dengan yang
+     *   dilihat grid slot Reservasi. Repo ini sudah punya tiga rumus kapasitas
+     *   yang saling berbeda; menambah yang keempat adalah cara membuat dua
+     *   layar berbeda pendapat untuk hari yang sama.
+     *
+     * ⚠ Semuanya DEFAULT null = perilaku lama, kueri seperti biasa. Tujuh
+     *   pemanggil trait ini (ReservationApiController, ApiCekatController,
+     *   ReservationController, LandingReservationController,
+     *   ReservationAutoProcessor, OrtUsulan, OrtJadwalDokter::untuk) tidak
+     *   mengisinya, jadi tidak satu baris pun perilakunya berubah.
+     *
+     * Pengisinya: OrtJadwalDokter::untukBanyak().
+     */
+
+    /** @var array<string, \Illuminate\Support\Collection>|null "dokter|cabang" => semua baris jadwal (work+break, semua hari) */
+    protected ?array $praMuatJadwal = null;
+
+    /** @var array<string, \Illuminate\Support\Collection>|null dokter => baris cuti {start_date, end_date} */
+    protected ?array $praMuatCuti = null;
+
+    /** @var array<string, \Illuminate\Support\Collection>|null "dokter|cabang" => baris pengecualian per tanggal */
+    protected ?array $praMuatPengecualian = null;
+
+    /** @var array<string, array>|null "dokter|tanggal" => [['start'=>'H:i','end'=>'H:i'], …] */
+    protected ?array $praMuatTerpesan = null;
+
+    /**
+     * Batasi penjelajahan computeAvailableDates() ke ['dari','sampai'].
+     * Tanpa ini ia memutar 535 hari — benar untuk form reservasi yang memang
+     * menawarkan setahun ke depan, pemborosan untuk satu sel tabel.
+     *
+     * @var array{dari:string,sampai:string}|null
+     */
+    protected ?array $praMuatJendela = null;
+
+    /**
+     * Kembalikan juga tanggal yang DITUTUP cuti, bertanda, alih-alih
+     * membuangnya diam-diam.
+     *
+     * Kenapa ini ada di trait dan bukan di pemanggil: aturan cutinya berlapis
+     * — 'replace' menang penuh dan menembus cuti, 'add' membuka hari walau
+     * dokter cuti, cuti hanya berlaku kalau tidak ada 'replace'. Menyalin
+     * aturan itu ke luar akan melahirkan sumber kebenaran kedua, dan begitu
+     * salah satu lapis keliru, satu layar akan bilang "cuti" untuk hari yang
+     * layar lain tampilkan terbuka.
+     */
+    protected bool $praMuatSertakanTertutup = false;
+
+    /** Kunci gabungan yang dipakai peta pra-muat. */
+    private function praKunci($a, $b): string
+    {
+        return (string) $a . '|' . (string) $b;
+    }
+
     /**
      * Tanggal tersedia 90 hari ke depan (min 1 Mei tahun ini), sudah
      * memperhitungkan recurring schedule, exception, dan cuti dokter.
@@ -29,24 +98,34 @@ trait ResolvesDoctorAvailability
     {
         // Hanya hari yang punya WORK row yang dianggap "praktik" — hari yang
         // cuma berisi baris istirahat tidak boleh muncul sebagai bookable date.
-        $scheduleDays = RawDoctorSchedule::where('raw_branch_id', $branchId)
-            ->where('raw_doctor_id', $doctorId)
-            ->where('type', '!=', RawDoctorSchedule::TYPE_BREAK)
-            ->pluck('day')
-            ->unique()
-            ->toArray();
+        $praJadwal = $this->praMuatJadwal[$this->praKunci($doctorId, $branchId)] ?? null;
+
+        $scheduleDays = $praJadwal !== null
+            ? $praJadwal->where('type', '!=', RawDoctorSchedule::TYPE_BREAK)
+                        ->pluck('day')->unique()->values()->toArray()
+            : RawDoctorSchedule::where('raw_branch_id', $branchId)
+                ->where('raw_doctor_id', $doctorId)
+                ->where('type', '!=', RawDoctorSchedule::TYPE_BREAK)
+                ->pluck('day')
+                ->unique()
+                ->toArray();
 
         // Ambil semua cuti dokter
-        $leaves = DB::table('raw_doctor_leave')
-            ->where('raw_doctor_id', $doctorId)
-            ->get(['start_date', 'end_date']);
+        $leaves = $this->praMuatCuti[(string) $doctorId]
+            ?? DB::table('raw_doctor_leave')
+                ->where('raw_doctor_id', $doctorId)
+                ->get(['start_date', 'end_date']);
 
         $exceptions = collect();
         if (config('features.flexible_scheduling')) {
-            $exceptions = RawDoctorScheduleException::where('raw_doctor_id', $doctorId)
-                ->where('raw_branch_id', $branchId)
-                ->whereIn('type', ['add', 'replace'])
-                ->pluck('type', 'date');
+            $praKecuali = $this->praMuatPengecualian[$this->praKunci($doctorId, $branchId)] ?? null;
+
+            $exceptions = $praKecuali !== null
+                ? $praKecuali->whereIn('type', ['add', 'replace'])->pluck('type', 'date')
+                : RawDoctorScheduleException::where('raw_doctor_id', $doctorId)
+                    ->where('raw_branch_id', $branchId)
+                    ->whereIn('type', ['add', 'replace'])
+                    ->pluck('type', 'date');
         }
 
         $dayNames = [1 => 'Senin', 2 => 'Selasa', 3 => 'Rabu', 4 => 'Kamis', 5 => 'Jumat', 6 => 'Sabtu', 7 => 'Minggu'];
@@ -56,7 +135,15 @@ trait ResolvesDoctorAvailability
         $minDate = Carbon::create(Carbon::today()->year, 5, 1);
         $startDate = Carbon::today()->max($minDate);
 
-        for ($i = 0; $i < 535; $i++) {
+        // Jendela sempit (dipakai sel tabel): mulai dari 'dari' dan berhenti
+        // di 'sampai', bukan memutar 535 hari untuk mengambil tiga tanggal.
+        $jumlahHari = 535;
+        if ($this->praMuatJendela !== null) {
+            $startDate  = Carbon::parse($this->praMuatJendela['dari'])->startOfDay();
+            $jumlahHari = $startDate->diffInDays(Carbon::parse($this->praMuatJendela['sampai'])) + 1;
+        }
+
+        for ($i = 0; $i < $jumlahHari; $i++) {
             $date = $startDate->copy()->addDays($i);
             $dayOfWeek = $date->dayOfWeekIso; // 1=Senin ... 7=Minggu
             $dateStr = $date->format('Y-m-d');
@@ -72,22 +159,32 @@ trait ResolvesDoctorAvailability
             // Jam Berbeda) di tanggal yang sama tetap menang — dokter secara
             // eksplisit membuka/mengubah tanggal itu. Jadi cuti hanya dipakai
             // kalau TIDAK ada exception (konsisten dgn resolveWorkingRanges()).
+            $isOnLeave = false;
             if (!$hasException) {
-                $isOnLeave = false;
                 foreach ($leaves as $leave) {
                     if ($date->between(Carbon::parse($leave->start_date), Carbon::parse($leave->end_date))) {
                         $isOnLeave = true;
                         break;
                     }
                 }
-                if ($isOnLeave) continue;
+                // Perilaku lama: hari cuti tidak pernah lahir. Pemanggil yang
+                // minta sertakanTertutup mendapatkannya bertanda, supaya
+                // layarnya bisa bilang "Kamis cuti" alih-alih menghilangkan
+                // Kamis tanpa penjelasan.
+                if ($isOnLeave && ! $this->praMuatSertakanTertutup) continue;
             }
 
-            $dates[] = [
+            $baris = [
                 'date'  => $dateStr,
                 'label' => $dayNames[$dayOfWeek] . ', ' . $date->format('d M Y'),
                 'day'   => $dayOfWeek,
             ];
+
+            if ($this->praMuatSertakanTertutup) {
+                $baris['tertutup'] = $isOnLeave ? 'cuti' : null;
+            }
+
+            $dates[] = $baris;
         }
 
         return $dates;
@@ -147,7 +244,9 @@ trait ResolvesDoctorAvailability
         $duration = $this->resolveDuration($doctorId, $serviceId, $explicitDuration ?: null, $branchId, $detailId);
 
         // === 3. Reservasi yang udah ada di tanggal ini ===
-        $bookedRanges = $this->resolveBookedRanges($doctorId, $date, $reservationTable, $excludeId);
+        // Satu-satunya pemanggil yang mengizinkan pra-muat: perhitungan slot
+        // hanya melihat `start`/`end`, tidak pernah kolom detail.
+        $bookedRanges = $this->resolveBookedRanges($doctorId, $date, $reservationTable, $excludeId, true);
 
         // === 4. Generate slot ===
         $slots = [];
@@ -349,11 +448,15 @@ trait ResolvesDoctorAvailability
         // Work range di-subtract dengan break range supaya jam istirahat tidak
         // masuk pool slot bookable — otomatis efektif di admin CRUD & public
         // /reservasi karena keduanya lewat computeTimeSlots() → sini.
-        $rows = RawDoctorSchedule::where('raw_branch_id', $branchId)
-            ->where('raw_doctor_id', $doctorId)
-            ->where('day', $dayOfWeek)
-            ->orderBy('start_hour')
-            ->get();
+        $praJadwal = $this->praMuatJadwal[$this->praKunci($doctorId, $branchId)] ?? null;
+
+        $rows = $praJadwal !== null
+            ? $praJadwal->where('day', $dayOfWeek)->sortBy('start_hour')->values()
+            : RawDoctorSchedule::where('raw_branch_id', $branchId)
+                ->where('raw_doctor_id', $doctorId)
+                ->where('day', $dayOfWeek)
+                ->orderBy('start_hour')
+                ->get();
 
         $workRows  = $rows->where('type', '!=', RawDoctorSchedule::TYPE_BREAK);
         $breakRows = $rows->where('type', RawDoctorSchedule::TYPE_BREAK);
@@ -369,20 +472,36 @@ trait ResolvesDoctorAvailability
         // REGULER, tapi tidak membatalkan exception: 'replace' menang penuh
         // (ganti jam & tembus cuti), dan 'add' (Hari Tambahan) tetap dibuka
         // walau dokter cuti / hari itu biasanya libur.
-        $onLeave = DB::table('raw_doctor_leave')
-            ->where('raw_doctor_id', $doctorId)
-            ->where('start_date', '<=', $date)
-            ->where('end_date', '>=', $date)
-            ->exists();
+        $praCuti = $this->praMuatCuti[(string) $doctorId] ?? null;
+
+        if ($praCuti !== null) {
+            $onLeave = $praCuti->contains(
+                fn ($l) => (string) $l->start_date <= (string) $date
+                        && (string) $l->end_date   >= (string) $date
+            );
+        } else {
+            $onLeave = DB::table('raw_doctor_leave')
+                ->where('raw_doctor_id', $doctorId)
+                ->where('start_date', '<=', $date)
+                ->where('end_date', '>=', $date)
+                ->exists();
+        }
 
         $replaceRanges = collect();
         $addRanges     = collect();
 
         if (config('features.flexible_scheduling')) {
-            $exceptions = RawDoctorScheduleException::where('raw_doctor_id', $doctorId)
-                ->where('raw_branch_id', $branchId)
-                ->where('date', $date)
-                ->get();
+            $praKecuali = $this->praMuatPengecualian[$this->praKunci($doctorId, $branchId)] ?? null;
+
+            $exceptions = $praKecuali !== null
+                ? $praKecuali->filter(
+                      fn ($e) => \Carbon\Carbon::parse($e->date)->toDateString()
+                               === \Carbon\Carbon::parse($date)->toDateString()
+                  )->values()
+                : RawDoctorScheduleException::where('raw_doctor_id', $doctorId)
+                    ->where('raw_branch_id', $branchId)
+                    ->where('date', $date)
+                    ->get();
 
             $replaceRanges = $exceptions->where('type', RawDoctorScheduleException::TYPE_REPLACE)
                 ->map(fn($e) => ['start_hour' => $e->start_hour, 'end_hour' => $e->end_hour]);
@@ -544,8 +663,39 @@ trait ResolvesDoctorAvailability
      *
      * @return array<int,array{start:string,end:string,branch_id:mixed,branch:?string,patient:?string}>
      */
-    protected function resolveBookedRanges($doctorId, $date, string $reservationTable = 'raw_cus_reservation', $excludeId = null): array
-    {
+    protected function resolveBookedRanges(
+        $doctorId,
+        $date,
+        string $reservationTable = 'raw_cus_reservation',
+        $excludeId = null,
+        bool $bolehPraMuat = false
+    ): array {
+        /*
+         * Jalur pra-muat — lihat properti $praMuat* di kepala trait.
+         *
+         * ⚠ Bawaannya MENOLAK, dan arah itu disengaja. Metode ini
+         *   mengembalikan LIMA kunci (start · end · branch_id · branch ·
+         *   patient), sedangkan pra-muat hanya menyediakan dua yang pertama —
+         *   cukup untuk menghitung slot, tidak cukup untuk spanduk "dokter ini
+         *   juga di cabang lain" maupun detail booking.
+         *
+         *   Kalau bawaannya mengizinkan, pemanggil baru yang lupa akan
+         *   mendapat array tanpa kunci `branch`/`patient` dan layarnya kosong
+         *   tanpa pesan galat. Dengan menolak lebih dulu, yang terjadi paling
+         *   buruk adalah satu kueri tambahan — arah gagal yang benar.
+         *
+         * Dua syarat lain: pra-muat diambil dari 'raw_cus_reservation' dan
+         * tidak mengecualikan baris apa pun, jadi sandbox yang mengirim
+         * 'raw_cus_reservation_dev' dan jalur edit yang mengecualikan dirinya
+         * sendiri WAJIB tetap menanyai DB.
+         */
+        if ($bolehPraMuat
+            && $this->praMuatTerpesan !== null
+            && $excludeId === null
+            && $reservationTable === 'raw_cus_reservation') {
+            return $this->praMuatTerpesan[$this->praKunci($doctorId, $date)] ?? [];
+        }
+
         return DB::table($reservationTable . ' as r')
             ->leftJoin('raw_branch as b', 'r.raw_branch_id', '=', 'b.id')
             ->leftJoin('raw_customer as c', 'r.raw_customer_id', '=', 'c.id')

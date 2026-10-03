@@ -184,6 +184,24 @@ class OrtQuery
             $q->where('k.doctor_ref_id', $filter['dokter']);
         }
 
+        /*
+         * Saringan "Status Pasien" dari prompt_jadwal_kontrol.md: Semua /
+         * Active / Inactive. Kunci TERPISAH (`rutin`) dari saringan `status`
+         * di bawah, dan itu disengaja — prompt memintanya "bekerja bareng
+         * filter lain yang sudah ada, jangan hapus filter lama".
+         *
+         * ⚠ Bawaannya SEMUA, dan tidak ada cabang yang memasang
+         *   `where sales_active = 1`. "Inactive" artinya TURUN KE BAWAH, bukan
+         *   hilang — lihat OrtCase::SALES_PASIF.
+         */
+        if (filled($filter['rutin'] ?? null)) {
+            match ($filter['rutin']) {
+                'Active'   => $q->where('k.sales_active', OrtCase::SALES_AKTIF),
+                'Inactive' => $q->where('k.sales_active', OrtCase::SALES_PASIF),
+                default    => null,
+            };
+        }
+
         // Filter Status memakai bahasa layar (brief §6), diterjemahkan ke kolom.
         // "Terlewat" dan "Transfer" bukan nilai tersimpan — keduanya turunan.
         if (filled($filter['status'] ?? null)) {
@@ -347,6 +365,16 @@ class OrtQuery
     {
         $q = OrtCase::dipegang($placeId);
 
+        // Sumbu yang sama seperti di dasar(). Tanpa kolom prefiks karena ini
+        // kueri Eloquent atas satu tabel.
+        if (filled($filter['rutin'] ?? null)) {
+            match ($filter['rutin']) {
+                'Active'   => $q->where('sales_active', OrtCase::SALES_AKTIF),
+                'Inactive' => $q->where('sales_active', OrtCase::SALES_PASIF),
+                default    => null,
+            };
+        }
+
         if ($rawat === 'aktif') {
             $q->where('status', OrtCase::STATUS_AKTIF);
         } elseif ($rawat === 'selesai') {
@@ -380,7 +408,7 @@ class OrtQuery
     {
         $q = $this->terapkanUrgensi($this->dasar($placeId, $filter, $asal), $urgensi);
 
-        return $q->select([
+        $q->select([
             'c.id', 'c.ort_case_id', 'c.seq', 'c.place_id', 'c.is_proposal',
             'c.sch_date', 'c.sch_source', 'c.sch_basis', 'c.sch_basis_n',
             // fu_channel/result/note ikut: tabel memakai query builder (stdClass),
@@ -395,11 +423,110 @@ class OrtQuery
             'k.visit_count', 'k.control_count', 'k.avg_gap_days', 'k.median_gap_days',
             'k.gap_spread_pct',
             'k.last_visit_date', 'k.install_is_estimated',
-        ])
-            ->orderBy('c.sch_date')
+            // Penilaian Sales — dipakai urutan di bawah, chip Inactive, dan
+            // tombol toggle di panel baris. Tanpa ini "Undefined property",
+            // bukan null diam-diam.
+            'k.sales_active',
+        ]);
+
+        /*
+         * ────────────────────────────────────────────────────────────────────
+         * URUTAN BARIS
+         * ────────────────────────────────────────────────────────────────────
+         * prompt_jadwal_kontrol.md: "Pasien Active selalu di atas, Inactive
+         * selalu di paling bawah (tetap tampil). Di dalam grup Active,
+         * urutkan dari yang paling mendesak."
+         *
+         * Dua permintaan itu bertabrakan dengan aturan yang sudah tertulis di
+         * _tabel.blade.php:13-15 — "'Semua' hanya DIURUTKAN Terlewat → Hari
+         * ini/Minggu ini → Mendatang". Keduanya tidak bisa menang di tab yang
+         * sama, jadi dibagi menurut tab:
+         *
+         *   tab "Semua"  → sch_date tetap kunci utama. Aturan brief utuh, dan
+         *                  bacaan kronologisnya tidak hilang.
+         *   sub-tab lain → rentang tanggalnya SUDAH diikat terapkanUrgensi(),
+         *                  jadi urutan tanggal tidak memberi informasi apa pun
+         *                  lagi di sana. Di situlah kemendesakan dipakai.
+         *
+         * sales_active dan pemecah seri berlaku di SEMUA tab.
+         */
+        $q->orderByDesc('k.sales_active');
+
+        if ($urgensi !== 'semua') {
+            /*
+             * Mendesak = SIKLUS TERLEWAT sebagai pecahan, bukan selisih hari.
+             * Pasien berinterval 21 hari yang telat 10 hari (1,48 siklus)
+             * lebih mendesak daripada pasien berinterval 60 hari yang telat 10
+             * hari (1,17 siklus) — padahal "telat"-nya sama. Mengurutkan
+             * dengan selisih hari akan menyamakan keduanya.
+             *
+             * Pecahan, BUKAN intdiv: pasien 1,9 siklus harus berdiri di atas
+             * pasien 1,1 siklus, bukan sama-sama "1".
+             *
+             * ⚠ Jepitan LEAST/GREATEST-nya WAJIB sama dengan
+             *   OrtCase::intervalKontrol(). Kalau salah satu diubah, yang lain
+             *   ikut — sumpah dua-arah itu ditulis di OrtCase.php.
+             *
+             * ⚠ Ini EKSPRESI, jadi tidak bisa dilayani index, dan
+             *   idx_ort_control_worklist berhenti MEMBERI urutan — LIMIT tidak
+             *   lagi berhenti dini. Pada <=1.000 baris terbuka per cabang itu
+             *   filesort di memori, di bawah 10 ms. Linear terhadap jumlah
+             *   kasus aktif per cabang, bukan aman tanpa syarat.
+             *
+             * NULL last_visit_date naik ke ATAS: bracket terpasang tanpa satu
+             * pun kunjungan tercatat adalah keadaan terburuk di himpunan ini,
+             * dan OrtCase::isHilang() sudah memperlakukan NULL sebagai hilang.
+             * Tanpa baris ini, DESC akan menerjunkannya ke dasar grup Active —
+             * tepat ke tempat yang paling salah.
+             */
+            $q->orderByRaw('k.last_visit_date IS NOT NULL')
+                ->orderByRaw(
+                    'DATEDIFF(?, k.last_visit_date)'
+                    . ' / LEAST(?, GREATEST(?, COALESCE(k.median_gap_days, ?))) DESC',
+                    [$this->hariIni()->toDateString(), OrtCase::IRAMA_MAX_HARI,
+                     OrtCase::IRAMA_MIN_HARI, OrtControl::USULAN_MAJU_HARI]
+                );
+        }
+
+        return $q->orderBy('c.sch_date')
             ->orderBy('k.patient_name')
+            // Pemecah seri UNIK, dan ini memperbaiki bug yang sudah ada:
+            // sch_date + patient_name tidak unik, jadi baris bisa berpindah
+            // halaman antar klik tanpa ada yang berubah.
+            ->orderBy('c.id')
             ->paginate($perPage)
             ->withQueryString();
+    }
+
+    /**
+     * Dua angka untuk badge "· N Inactive, di bawah" di kaki/kepala daftar.
+     *
+     * ⚠ Kenapa badge ini WAJIB ada, bukan hiasan: dengan 50 baris per halaman,
+     *   400 pasien Inactive berarti delapan halaman terakhir yang isinya
+     *   Inactive semua — dan tidak ada yang akan membukanya. Mengurutkan
+     *   mereka ke bawah menyembunyikan mereka dengan cara yang terasa
+     *   disengaja. Tanpa angka yang bisa diklik, fitur ini adalah tombol
+     *   "sembunyikan pasien" yang tidak diberi label demikian.
+     *
+     * Dihitung atas populasi yang SAMA dengan yang dirender (cabang, urgensi,
+     * pencarian, dokter, status) TAPI tanpa saringan `rutin` itu sendiri —
+     * kalau tidak, angkanya berbohong terhadap daftar di bawahnya.
+     *
+     * @return array{aktif:int, pasif:int}
+     */
+    public function hitungSalesAktif(string $placeId, string $urgensi = 'semua', array $filter = [], ?string $asal = null): array
+    {
+        unset($filter['rutin']);
+
+        $baris = $this->terapkanUrgensi($this->dasar($placeId, $filter, $asal), $urgensi)
+            ->select('k.sales_active', DB::raw('COUNT(*) AS n'))
+            ->groupBy('k.sales_active')
+            ->pluck('n', 'sales_active');
+
+        return [
+            'aktif' => (int) ($baris[OrtCase::SALES_AKTIF] ?? 0),
+            'pasif' => (int) ($baris[OrtCase::SALES_PASIF] ?? 0),
+        ];
     }
 
     /**

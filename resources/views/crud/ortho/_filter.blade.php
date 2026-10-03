@@ -38,6 +38,28 @@
                 </select>
             </div>
 
+            {{-- Status PASIEN — sumbu Sales, dan sengaja berdiri sebelum
+                 "Status" di sebelahnya supaya bedanya terbaca lebih dulu.
+
+                 Keduanya bekerja BARENG, bukan saling menggantikan: prompt
+                 memintanya begitu ("Filter ini bekerja bareng filter lain yang
+                 sudah ada, jangan hapus filter lama"). Jadi "Inactive" +
+                 "Terlewat" adalah pertanyaan yang sah — siapa yang sudah
+                 dilepas padahal masih terlambat.
+
+                 ⚠ Bawaannya Semua, dan pilihan Inactive TIDAK menghilangkan
+                   siapa pun dari daftar normal — ia cuma menyaring. Baris
+                   Inactive selalu ikut tampil di "Semua", turun ke bawah. --}}
+            <div>
+                <label class="ort-lbl">Status Pasien</label>
+                <select name="rutin" class="ort-inp">
+                    <option value="">Semua</option>
+                    @foreach (['Active', 'Inactive'] as $rs)
+                        <option value="{{ $rs }}" {{ request('rutin') === $rs ? 'selected' : '' }}>{{ $rs }}</option>
+                    @endforeach
+                </select>
+            </div>
+
             <div>
                 <label class="ort-lbl">Status</label>
                 <select name="status" class="ort-inp">

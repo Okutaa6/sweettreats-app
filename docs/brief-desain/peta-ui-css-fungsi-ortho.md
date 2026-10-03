@@ -123,8 +123,11 @@ follow-up orang lain.
 
 ## 6. Tabel daftar kerja — kolom per kolom
 
-Grid final: `minmax(186px,1.5fr) 146px 112px 96px 112px 132px 190px 30px`,
-`min-width: 1080px` (CSS:1300). Pembungkus gulir `.ort-tablewrap` adalah
+Grid final (3 Okt 2026, TUJUH track):
+`minmax(186px,1.5fr) 146px 150px minmax(190px,1.1fr) 132px 118px 30px`,
+`min-width: 1044px` (CSS:1470 — deklarasi yang MENANG; yang di CSS:304 adalah
+dasarnya, dan keduanya wajib diubah bersamaan).
+Pembungkus gulir `.ort-tablewrap` adalah
 **satu-satunya** mekanisme responsifnya — kolomnya tidak pernah berubah.
 
 | # | Kolom | Kelas CSS | Fungsi / kolom DB |
@@ -133,13 +136,23 @@ Grid final: `minmax(186px,1.5fr) 146px 112px 96px 112px 132px 190px 30px`,
 | | telepon → WhatsApp | `.ort-wa` · `--bad` | `Phone::toWa()` — `--bad` kalau nomor tidak valid |
 | | badge transfer | `.ort-badge--transfer` | `OrtQuery::masukDari()` |
 | | badge tanpa jadwal | `.ort-badge--walkin` | `unscheduled` ⚠ **bukan** "tanpa reservasi" |
-| 2 | **Dokter** | `.ort-cell.ort-clamp2` | `doctor_name` |
-| 3 | **Jadwal** | `.ort-cell[data-ort-jadwal]` · `.ort-proposal` · `.ort-late` | `sch_date` · `is_proposal` · tooltip `perkiraanJatuhTempo()` |
-| 4 | **Follow-up** | `.ort-fu` · `.ort-x` | `fu_date` · tooltip memuat `fu_by` `fu_channel` `fu_result` `fu_note` |
-| 5 | **Reservasi** | `.ort-struck` · `.ort-waitlist` · `.ort-x` | `rsv_date` · `rsv_status` · `reservation_id` |
-| 6 | **Status** | `.ort-chip--*` (11 varian) | `OrtControl::statusKey()` + `hitungSiklusTerlewat()` |
-| 7 | **Tindakan berikutnya** | `.ort-btn` · `.ort-nodo` · `.ort-dash` | `$aksi` — **kembaran** `tindakanBerikutnya()` |
-| 8 | toggle | `.ort-toggle` | JS `buka()` |
+| | badge eskalasi | `.ort-badge--transfer` | `OrtCase::hitungSiklusTerlewat()` ≥ `SIKLUS_ESKALASI` |
+| | chip Inactive | `.ort-chip--inactive` | `sales_active = 0` |
+| 2 | **Dokter** | `.ort-cell.ort-clamp2` | `doctor_name` — **DINAMIS**, dipilih `OrtRollup::dokterTerkini()` |
+| 3 | **Last Visit** | `.ort-lv` · `__tgl` · `__umur--{ok,warn,bad,faint}` · `__due` | `last_visit_date` + `OrtCase::nadaLastVisit()`; sub-baris `sch_date` + tooltip `perkiraanJatuhTempo()` |
+| 4 | **Jadwal Dokter** | `.ort-dokhari` · `.ort-datepill--{ok,warn,bad,faint}` · `__sebab` · `__more` · `__belum` | `OrtJadwalDokter::untukBanyak()` — gerbang H-3 `OrtCase::HARI_PRAKTIK_MUNCUL` |
+| 5 | **Follow Up** | `.ort-actions` · `.ort-btn` · `.ort-nodo` · `.ort-btn--wa` | TOMBOL; mati kalau `fu_date = hari ini`. Tooltip memuat `fu_by` `fu_channel` `fu_result` `fu_note` |
+| 6 | **Reservasi** | `.ort-btn` · `.ort-struck` · `.ort-waitlist` · `.ort-cell--sub` | TOMBOL ke jembatan `?ort_control_id`, atau `rsv_date`/`rsv_status` kalau sudah ada |
+| 7 | toggle | `.ort-toggle` | JS `buka()` |
+
+⚠ **Tiga kolom lama tidak ada lagi, dan ini ke mana perginya** (3 Okt 2026,
+prompt_jadwal_kontrol.md Phase 1):
+
+| Dulu | Sekarang |
+|---|---|
+| **Jadwal** (jatuh tempo) | sub-baris `.ort-lv__due` di dalam Last Visit — **beserta tooltipnya**, yang berkasnya sendiri sebut penutup ambiguitas termahal di modul ini |
+| **Status** (chip) | panel baris (`.ort-chips` di `_baris_terbuka`), dioper dari `_tabel` supaya rumusnya tetap satu. Kecuali **eskalasi**, yang tetap badge di baris tertutup |
+| **Tindakan berikutnya** | melebur ke kolom 5 dan 6 — prompt memang menetapkan keduanya sebagai TOMBOL, jadi `$aksi` yang memilih satu tombol untuk keduanya **dibuang**: pasien yang sudah punya reservasi tetap boleh ditelepon |
 
 ### Baris dan kelompok
 

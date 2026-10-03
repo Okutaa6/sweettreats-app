@@ -82,7 +82,14 @@ class OrtoPerkiraanJadwalTest extends TestCase
             'owner_place_id' => $this->placeId, 'install_place_id' => $this->placeId,
             'install_date' => $hariIni->copy()->subDays(400)->toDateString(),
             'status' => OrtCase::STATUS_AKTIF,
-            'control_count' => 0, 'visit_count' => 0, 'visit_count_180d' => 0,
+            /* Kunjungan terakhir + irama. Ditambahkan 3 Okt 2026 bersama kolom
+               "Last Visit": tanpa keduanya fixture ini mewakili keadaan yang
+               nyaris tidak ada di data nyata (bracket terpasang 400 hari, nol
+               kunjungan tercatat), dan selnya berbunyi "belum pernah datang"
+               alih-alih menampilkan tanggal yang justru sedang diuji. */
+            'last_visit_date' => $hariIni->copy()->subDays(30)->toDateString(),
+            'median_gap_days' => 30,
+            'control_count' => 1, 'visit_count' => 1, 'visit_count_180d' => 1,
         ]);
 
         return OrtControl::create(array_merge([
@@ -120,18 +127,27 @@ class OrtoPerkiraanJadwalTest extends TestCase
         ])->get($url)->assertOk()->getContent();
     }
 
-    /** Isi setiap sel kolom JADWAL di tabel daftar kerja. */
+    /**
+     * Isi sel yang membawa tanggal JATUH TEMPO.
+     *
+     * Sejak 3 Okt 2026 ia bukan kolom tersendiri lagi: tujuh kolom
+     * (prompt_jadwal_kontrol.md Phase 1) menggantikan "Jadwal" dengan
+     * "Last Visit", dan jatuh tempo turun jadi SUB-BARIS di dalamnya. Yang
+     * diuji di berkas ini tidak berubah — tanggalnya tetap harus ada, tetap
+     * ditandai kalau masih hitungan mesin, dan kalimat perkiraannya tetap di
+     * tooltip.
+     *
+     * ⚠ Ditangkap lewat penanda `data-ort-jadwal`, dan KELASNYA tidak ikut
+     *   dicocokkan — versi lama memaku `class="ort-cell"` lalu ikut mati saat
+     *   kelasnya berganti jadi `ort-lv`, dan "tidak ketemu" terbaca sama dengan
+     *   "isinya salah".
+     *
+     * ⚠ Mengembalikan HTML DALAM sel, bukan teks polos: kelas penanda
+     *   (ort-proposal) dan atribut title ikut diperiksa uji di bawah.
+     */
     private function selJadwal(string $html): array
     {
-        /* Ditangkap lewat penanda `data-ort-jadwal`, bukan lewat bentuk HTML-nya.
-           Versi lama mencocokkan `<div class="ort-cell">teks</div>` dan ikut
-           menyapu sel Dokter/Follow-up/Reservasi; ia juga putus total begitu sel
-           Jadwal punya elemen anak — "tidak ketemu" lalu terbaca sama dengan
-           "isinya salah".
-
-           ⚠ Mengembalikan HTML DALAM sel, bukan teks polos: kelas penanda
-             (ort-proposal) dan atribut title ikut diperiksa uji di bawah. */
-        preg_match_all('~<div class="ort-cell[^"]*" data-ort-jadwal>(.*?)</div>~s', $html, $m);
+        preg_match_all('~<div class="[^"]*" data-ort-jadwal>(.*?)</div>~s', $html, $m);
 
         return array_map('trim', $m[1]);
     }
@@ -213,9 +229,36 @@ class OrtoPerkiraanJadwalTest extends TestCase
         foreach ($sel as $isi) {
             $this->assertMatchesRegularExpression(
                 "~\d{1,2}\s+\w{3}\s+&#039;\d{2}~u", $isi,
-                "Kolom Jadwal wajib memuat tanggal kalender, yang ada: {$isi}"
+                "Sel wajib memuat tanggal kalender, yang ada: {$isi}"
+            );
+
+            // Dan TIDAK boleh kembali ke ember tunggal yang dulu meratakan
+            // semua keterlambatan jadi satu bunyi.
+            $this->assertStringNotContainsString(
+                '>Sudah waktunya<', $isi,
+                'Kembali ke frasa tunggal: keterlambatan 2 hari dan 32 hari tampil sama lagi.'
             );
         }
+    }
+
+    /**
+     * ⭐ Kolom Last Visit membawa UMUR kunjungan, berbadge menurut jatuh tempo
+     * pasien itu sendiri — bukan ambang tetap.
+     *
+     * prompt_jadwal_kontrol.md minta hijau <=30 / kuning 31–50 / merah >50.
+     * Pada pasien berirama 30 hari rumus OrtCase::nadaLastVisit() menghasilkan
+     * tepat kedua angka itu; yang berirama 45 hari tidak lagi ditandai MERAH
+     * PALSU justru saat ia tepat waktu. Uji satuannya di OrtoBadgeLastVisitTest.
+     */
+    public function test_last_visit_membawa_umur_dan_badge(): void
+    {
+        $this->pasien(10);
+
+        $sel = $this->selJadwal($this->halaman(['q' => self::TANDA]));
+
+        $this->assertNotEmpty($sel, 'Prasyarat: barisnya memang terender.');
+        $this->assertStringContainsString('30 hari', $sel[0], 'Umur kunjungan terakhir harus terbaca.');
+        $this->assertStringContainsString('ort-lv__umur--', $sel[0], 'Umur harus berbadge warna.');
     }
 
     /**
@@ -263,17 +306,57 @@ class OrtoPerkiraanJadwalTest extends TestCase
      * Follow-up dan Reservasi mencatat hal yang sudah benar-benar terjadi atau
      * sudah benar-benar dipesan — keduanya tetap bertanggal.
      */
-    public function test_tanggal_follow_up_tetap_tampil(): void
+    public function test_follow_up_hari_ini_mematikan_tombolnya(): void
     {
         $this->pasien(10, [
             'fu_date' => Carbon::today()->toDateString(),
             'fu_channel' => 'wa', 'fu_by' => 'Uji Sales',
         ]);
 
+        $html = $this->halaman(['q' => self::TANDA]);
+
+        /* Kolom Follow Up sekarang TOMBOL, bukan tampilan tanggal — prompt
+           menetapkannya begitu ("Bentuk: button"). Jadi yang dijaga bukan lagi
+           kelas `ort-fu` (sudah tidak ada), melainkan KEADAANNYA: sudah
+           ditelepon hari ini berarti tombolnya mati. */
+        /* ⚠ Penandanya `ort-nodo__t">Sudah di-FU`, bukan teks "Sudah di-FU"
+           telanjang. Teks yang sama juga dipakai chip STATUS di panel baris,
+           jadi mencocokkan teksnya saja akan hijau walau tombolnya salah —
+           dan uji pasangannya di bawah justru MERAH karena chip itu. */
         $this->assertStringContainsString(
-            'ort-fu', $this->halaman(['q' => self::TANDA]),
-            'Tanggal follow-up itu fakta dan harus tetap terlihat.'
+            'ort-nodo__t">Sudah di-FU', $html,
+            'Pasien yang sudah di-FU hari ini harus terlihat begitu, bukan diberi tombol hijau lagi.'
         );
+
+        // Tanggal dan pencatatnya tidak boleh ikut hilang — keduanya fakta.
+        // Lebarnya tidak cukup untuk teks, jadi tempatnya tooltip.
+        $this->assertStringContainsString('oleh Uji Sales', $html, 'Pencatat follow-up hilang dari layar.');
+    }
+
+    /**
+     * ⭐ Dan besoknya tombolnya hijau lagi — TANPA cron.
+     *
+     * prompt_jadwal_kontrol.md: "Besok harinya button otomatis hijau lagi...
+     * Jangan pakai cron reset, cukup cek tanggal." Keadaannya memang dibaca
+     * dari perbandingan tanggal, jadi follow-up KEMARIN tidak mematikan tombol
+     * hari ini.
+     */
+    public function test_follow_up_kemarin_tidak_mematikan_tombol(): void
+    {
+        $this->pasien(10, [
+            'fu_date' => Carbon::today()->subDay()->toDateString(),
+            'fu_by'   => 'Uji Sales',
+        ]);
+
+        $html = $this->halaman(['q' => self::TANDA]);
+
+        // Penanda TOMBOL, bukan teks telanjang — chip Status di panel baris
+        // berbunyi "Sudah di-FU" juga, dan baris ini memang punya chip itu.
+        $this->assertStringNotContainsString(
+            'ort-nodo__t">Sudah di-FU', $html,
+            'Follow-up kemarin masih mematikan tombol hari ini — tombolnya tidak pernah hijau lagi.'
+        );
+        $this->assertStringContainsString('>Follow Up</a>', $html, 'Tombol Follow Up harus bisa diklik lagi.');
     }
 
     // ── Yang TIDAK boleh ikut berubah ───────────────────────────────────────

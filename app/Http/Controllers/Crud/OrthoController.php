@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Crud;
 use App\Http\Controllers\Controller;
 use App\Models\OrtCase;
 use App\Models\OrtControl;
+use App\Models\OrtFollowUp;
 use App\Models\OrtReminder;
 use App\Models\OrtTransfer;
 use App\Services\Ortho\OrtBranches;
@@ -219,6 +220,11 @@ class OrthoController extends Controller
             'q'      => $request->query('q'),
             'dokter' => $request->query('dokter'),
             'status' => $request->query('status'),
+            /* Saringan "Status Pasien" dari prompt: Semua / Active / Inactive.
+               Kunci TERPISAH dari 'status' di atas — prompt memintanya bekerja
+               BARENG filter yang sudah ada, bukan menggantikannya. Nilai di luar
+               kedua kata itu diabaikan OrtQuery, jadi ?rutin=ngawur = Semua. */
+            'rutin'  => $request->query('rutin'),
             // Bukan masukan pengguna: dipakai saringan "Saya FU hari ini"
             // untuk mencocokkan ort_control.fu_by. Sengaja dibuang lagi dari
             // konteks di bawah supaya tidak terhitung sebagai filter aktif —
@@ -402,6 +408,16 @@ class OrthoController extends Controller
         $caseIds = collect($baris->items())->pluck('ort_case_id')->unique()->all();
 
         /*
+         * Hari praktik dokter untuk SELURUH halaman dalam 5 kueri — bukan 27
+         * per baris. Dipanggil di sini, bukan di Blade, karena satu panggilan
+         * per halaman itulah seluruh pokok rancangannya; memanggilnya dari
+         * dalam @foreach mengembalikan N+1 yang sudah dibayar mahal untuk
+         * dihapus. Lihat OrtJadwalDokter::untukBanyak().
+         */
+        $jadwalDokter = app(\App\Services\Ortho\OrtJadwalDokter::class)
+            ->untukBanyak($baris->items(), $placeId, $this->q->hariIni());
+
+        /*
          * array_merge, BUKAN `+`. Operator `+` MEMPERTAHANKAN nilai kiri untuk
          * kunci yang sudah ada, dan konteksList() sudah menyetel 'urgensi'.
          * Akibatnya penyetelan ulang di atas ("kartu Terlewat berarti sub-tab
@@ -417,6 +433,16 @@ class OrthoController extends Controller
             'riwayat'       => $this->q->kontrolTerakhir($caseIds),
             'masukDari'     => $this->q->masukDari($caseIds, $placeId),
             'usulanSelesai' => $this->q->usulanSelesai($baris->items()),
+            // Hari praktik per pasien — dikunci ort_case_id. Baris yang belum
+            // masuk H-3 TIDAK ada di map ini (bukan entri kosong), jadi Blade
+            // bisa membedakan "belum waktunya" dari "sudah waktunya tapi tidak
+            // ada dokternya".
+            'jadwalDokter'  => $jadwalDokter,
+            /* Dua angka untuk badge "· N Inactive, di bawah". Tanpa badge ini,
+               mengurutkan Inactive ke dasar sama dengan menyembunyikannya:
+               dengan 50 baris per halaman, 400 Inactive berarti delapan halaman
+               terakhir yang tidak akan pernah dibuka siapa pun. */
+            'salesHitung'   => $this->q->hitungSalesAktif($placeId, $urgensi, $filter),
         ]);
     }
 
@@ -594,13 +620,18 @@ class OrthoController extends Controller
 
         $ctl->fill($isian)->save();
 
+        // ── Riwayat: satu baris per PASIEN per HARI ──────────────────────────
+        // ort_control cuma menyimpan follow-up TERAKHIR, jadi tanpa ini daftar
+        // bernomor yang diminta prompt tidak punya sumber. Lihat OrtFollowUp.
+        $undoRiwayat = $this->tulisRiwayatFollowUp($ctl, $isian);
+
         $pesan = 'Follow-up dicatat ' . $ctl->fu_date->translatedFormat('j M') . '.';
         if ($schBaru !== null) {
             $pesan = 'Follow-up dicatat, jadwal dipasang '
                    . $ctl->sch_date->translatedFormat("j M 'y") . '.';
         }
 
-        return $this->selesai($ctl, $sebelum, $pesan);
+        return $this->selesai($ctl, $sebelum, $pesan, $undoRiwayat);
     }
 
     /**
@@ -638,6 +669,17 @@ class OrthoController extends Controller
             'fu_note'    => $ctl->fu_note,
         ];
 
+        /*
+         * Baris riwayatnya ikut dibuang — dan ini bukan pilihan sepele.
+         * "Panggilan itu tidak dihitung" harus berarti hal yang SAMA di kedua
+         * tempat; kalau ort_control dikosongkan tapi ort_followup dibiarkan,
+         * tombolnya kembali hijau sementara riwayat masih mengaku pasien
+         * ditelepon hari itu. Dua layar, dua jawaban, untuk satu pertanyaan.
+         *
+         * Keadaannya direkam dulu supaya Urungkan memulihkan barisnya utuh.
+         */
+        $undoRiwayat = $this->hapusRiwayatFollowUp($ctl, (string) $sebelum['fu_date']);
+
         // Hasil dan catatan ikut dikosongkan: membatalkan follow-up berarti
         // "panggilan itu tidak dihitung", termasuk apa pun yang dicatat darinya.
         $ctl->fill([
@@ -649,7 +691,7 @@ class OrthoController extends Controller
             'updated_by' => session('id'),
         ])->save();
 
-        return $this->selesai($ctl, $sebelum, 'Follow-up dibatalkan.');
+        return $this->selesai($ctl, $sebelum, 'Follow-up dibatalkan.', $undoRiwayat);
     }
 
     /**
@@ -815,13 +857,13 @@ class OrthoController extends Controller
      * Ekor yang sama untuk setiap aksi tulis pada satu kontrol: segarkan
      * rollup, simpan keadaan sebelumnya, kembalikan toast + token Urungkan.
      */
-    private function selesai(OrtControl $ctl, ?array $sebelum, string $pesan)
+    private function selesai(OrtControl $ctl, ?array $sebelum, string $pesan, array $tambahan = [])
     {
         $this->rollup->refresh($ctl->ort_case_id);
 
         return $this->toast($pesan, $this->simpanUrungkan($ctl->ort_case_id, [
             'kontrol' => ['id' => $ctl->id, 'sebelum' => $sebelum],
-        ]));
+        ] + $tambahan));
     }
 
     /**
@@ -1118,6 +1160,30 @@ class OrthoController extends Controller
             }
         }
 
+        /*
+         * Baris riwayat follow-up. Tiga bentuk, dan ketiganya perlu:
+         *   sebelum === null → barisnya BARU dibuat aksi itu, hapus
+         *   sebelum = array  → barisnya sudah ada lalu diperbarui, kembalikan
+         *   (tanpa id)       → tidak ada riwayat yang tersentuh
+         * Bentuk kedua terjadi saat Sales mencatat follow-up KEDUA di hari yang
+         * sama: UNIQUE (ort_case_id, fu_date) melarang baris kedua, jadi yang
+         * lama diperbarui — dan Urungkan harus memulihkan nilai lamanya, bukan
+         * menghapus barisnya.
+         */
+        if ($r = ($simpan['fuRiwayat'] ?? null)) {
+            if ($r['sebelum'] === null) {
+                OrtFollowUp::where('id', $r['id'])->delete();
+            } else {
+                $baris = OrtFollowUp::find($r['id']);
+                if ($baris) {
+                    $baris->fill($r['sebelum'])->save();
+                } else {
+                    // Dihapus oleh batalFollowUp — bangun ulang dari potretnya.
+                    OrtFollowUp::create($r['sebelum'] + ['id' => $r['id']]);
+                }
+            }
+        }
+
         if ($kolom = ($simpan['kasusKolom'] ?? null)) {
             $case = OrtCase::find($simpan['kasus']);
             if ($case) {
@@ -1132,6 +1198,160 @@ class OrthoController extends Controller
         $this->rollup->refresh($simpan['kasus']);
 
         return back()->with('ort_toast', 'Dikembalikan seperti semula.');
+    }
+
+    /**
+     * Tulis satu baris riwayat follow-up untuk (pasien, hari ini).
+     *
+     * UNIQUE (ort_case_id, fu_date) di DB melarang dua baris per hari — itu
+     * aturan prompt ("UNIQUE pasien+tanggal"), dan ia sekaligus yang membuat
+     * tombol hijau lagi besok tanpa cron. Jadi follow-up kedua di hari yang
+     * sama MEMPERBARUI baris yang ada, bukan menambah.
+     *
+     * ⚠ Dibungkus Schema::hasTable: SQL modul ini dijalankan manual, jadi ada
+     *   jendela di mana kodenya sudah naik tapi tabelnya belum ada. Follow-up
+     *   tetap harus bisa dicatat di jendela itu — kehilangan riwayatnya jauh
+     *   lebih murah daripada tombolnya mati 500.
+     *
+     * @param  array<string,mixed>  $isian  nilai yang baru ditulis ke ort_control
+     * @return array  muatan Urungkan — [] kalau tidak ada yang tersentuh
+     */
+    private function tulisRiwayatFollowUp(OrtControl $ctl, array $isian): array
+    {
+        if (! Schema::hasTable('ort_followup')) {
+            return [];
+        }
+
+        $tgl = optional($ctl->fu_date)->toDateString();
+        if (! $tgl) {
+            return [];
+        }
+
+        $nilai = [
+            'ort_case_id'    => $ctl->ort_case_id,
+            'ort_control_id' => $ctl->id,
+            'place_id'       => (string) $ctl->place_id,
+            'fu_date'        => $tgl,
+            'fu_channel'     => $isian['fu_channel'] ?? null,
+            'fu_result'      => $isian['fu_result'] ?? null,
+            'fu_note'        => $isian['fu_note'] ?? null,
+            'fu_by'          => $isian['fu_by'] ?? null,
+            'created_by'     => session('id'),
+        ];
+
+        $ada = OrtFollowUp::where('ort_case_id', $ctl->ort_case_id)
+            ->where('fu_date', $tgl)
+            ->first();
+
+        if ($ada) {
+            $sebelum = [
+                'ort_control_id' => $ada->ort_control_id,
+                'place_id'       => $ada->place_id,
+                'fu_channel'     => $ada->fu_channel,
+                'fu_result'      => $ada->fu_result,
+                'fu_note'        => $ada->fu_note,
+                'fu_by'          => $ada->fu_by,
+            ];
+            $ada->fill($nilai)->save();
+
+            return ['fuRiwayat' => ['id' => $ada->id, 'sebelum' => $sebelum]];
+        }
+
+        $id = (string) Str::uuid();
+        OrtFollowUp::create($nilai + ['id' => $id, 'created_at' => now()]);
+
+        return ['fuRiwayat' => ['id' => $id, 'sebelum' => null]];
+    }
+
+    /** Buang baris riwayat satu hari, dengan potret untuk Urungkan. */
+    private function hapusRiwayatFollowUp(OrtControl $ctl, string $tanggal): array
+    {
+        if (! Schema::hasTable('ort_followup') || $tanggal === '') {
+            return [];
+        }
+
+        $baris = OrtFollowUp::where('ort_case_id', $ctl->ort_case_id)
+            ->where('fu_date', $tanggal)
+            ->first();
+
+        if (! $baris) {
+            return [];
+        }
+
+        $potret = [
+            'ort_case_id'    => $baris->ort_case_id,
+            'ort_control_id' => $baris->ort_control_id,
+            'place_id'       => $baris->place_id,
+            'fu_date'        => $tanggal,
+            'fu_channel'     => $baris->fu_channel,
+            'fu_result'      => $baris->fu_result,
+            'fu_note'        => $baris->fu_note,
+            'fu_by'          => $baris->fu_by,
+            'created_by'     => $baris->created_by,
+        ];
+
+        $id = $baris->id;
+        $baris->delete();
+
+        return ['fuRiwayat' => ['id' => $id, 'sebelum' => $potret]];
+    }
+
+    /**
+     * Tandai pasien Active / Inactive — penilaian Sales, bukan fakta klinis.
+     *
+     * ────────────────────────────────────────────────────────────────────────
+     * KENAPA KOLOMNYA SENDIRI, BUKAN `status`
+     * ────────────────────────────────────────────────────────────────────────
+     * `ort_case.status` diisi MESIN: OrtPullVisits menandai 'selesai' begitu
+     * bracket terdeteksi lepas dari rekam medis. Kalau penilaian Sales
+     * ditumpangkan ke sana, tarikan malam akan menimpa keputusan manusia tanpa
+     * jejak — dan pasien yang sengaja dilepas kembali sendiri tiap malam.
+     *
+     * Gerbangnya KEPEMILIKAN CABANG, bukan role. Modul ini sengaja nol
+     * pemeriksaan role; alasannya ditulis panjang di resolveBranch().
+     */
+    public function salesAktif(Request $request, string $caseId)
+    {
+        abort_unless(Schema::hasTable('ort_case'), 404);
+
+        $case = OrtCase::findOrFail($caseId);
+        [$placeId] = $this->resolveBranch();
+        abort_unless((string) $case->owner_place_id === (string) $placeId, 403);
+
+        $data = $request->validate([
+            'aktif'   => 'required|in:0,1',
+            'catatan' => 'nullable|string|max:255',
+        ]);
+
+        $mau = (int) $data['aktif'] === OrtCase::SALES_AKTIF;
+
+        if ((bool) $case->sales_active === $mau) {
+            return back()->with('error', 'Pasien ini sudah ' . ($mau ? 'Active' : 'Inactive') . '.');
+        }
+
+        $sebelum = [
+            'sales_active'      => (int) $case->sales_active,
+            'sales_active_at'   => optional($case->sales_active_at)->toDateTimeString(),
+            'sales_active_by'   => $case->sales_active_by,
+            'sales_active_note' => $case->sales_active_note,
+        ];
+
+        $case->fill([
+            'sales_active'      => $mau ? OrtCase::SALES_AKTIF : OrtCase::SALES_PASIF,
+            'sales_active_at'   => now(),
+            'sales_active_by'   => session('name') ?: 'Sales',
+            'sales_active_note' => filled($data['catatan'] ?? null) ? trim($data['catatan']) : null,
+            'updated_by'        => session('id'),
+        ])->save();
+
+        $pesan = $mau
+            ? 'Pasien ditandai Active — kembali masuk urutan kerja.'
+            : 'Pasien ditandai Inactive — turun ke bawah daftar, tetap ditampilkan.';
+
+        return $this->toast($pesan, $this->simpanUrungkan($case->id, [
+            'kasus'      => $case->id,
+            'kasusKolom' => $sebelum,
+        ]));
     }
 
     /**

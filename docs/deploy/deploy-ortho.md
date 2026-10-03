@@ -21,7 +21,7 @@ Halaman kerja harian Sales untuk menagih pasien behel supaya kontrol. Ia
 **membaca** cermin rekam medis Omnicare dan **menulis** hanya ke tabel `ort_*`
 miliknya sendiri. Satu arah; tidak pernah menulis balik ke Omnicare.
 
-Deploy = unggah berkas → **8 SQL** → `access:rebuild` → **6 perintah isi data**
+Deploy = unggah berkas → **11 SQL** → `access:rebuild` → **7 perintah isi data**
 → rsync aset. Tidak ada `composer install`, tidak ada dependensi baru, tidak ada
 langkah build.
 
@@ -59,6 +59,12 @@ berkasnya.
 | 5 | `2026_10_03_ort_komentar_sch_date.sql` | hanya `COMMENT` pada `sch_date` |
 | 6 | `2026_10_04_ort_komentar_unscheduled.sql` | hanya `COMMENT` pada `unscheduled` — meluruskan "datang tanpa reservasi" jadi "tidak cocok dengan jadwal mana pun"; sistem memang tidak tahu soal reservasi |
 | 7 | `2026_10_05_ort_hasil_followup.sql` | `fu_result` + `fu_note` di `ort_control` — HASIL follow-up (dihubungi · tidak respon · minta jadwal ulang · menolak · salah nomor) + catatan bebas. Tanpa backfill: follow-up lama memang tidak punya hasil |
+| 8 | `2026_10_06_ort_dokter_per_kontrol.sql` | `doctor_ref_id` + `doctor_name` di `ort_control` — dokter per KUNJUNGAN. Dari sini kolom "Dokter" jadi dinamis dan riwayat kontrol dapat nama dokter per baris. **Butuh langkah isi data tambahan** — lihat 3.7 |
+| 9 | `2026_10_06_ort_case_sales_active.sql` | `sales_active` + tiga kolom jejak di `ort_case`, plus `idx_ort_case_sales`. Penilaian Sales "Active/Inactive" — **sumbu TERPISAH dari `status`**, yang itu fakta klinis dan diisi mesin. Semua baris lama jadi Active |
+| 10 | `2026_10_07_ort_riwayat_followup.sql` | tabel baru `ort_followup` — satu baris per pasien per hari, UNIQUE (`ort_case_id`, `fu_date`). **Tanpa backfill, dan itu disengaja**: `ort_control.fu_date` hanya menyimpan follow-up TERAKHIR, jadi memasukkannya sebagai satu-satunya baris akan membuat pasien yang ditelepon enam kali terlihat ditelepon sekali |
+
+⚠ Nomor 11 adalah `2026_09_24_ort_audit_collation_prod.sql` di bagian 1 —
+SELECT saja, dijalankan paling awal. Itu sebabnya ringkasannya berbunyi 11.
 
 ### ⚠ Sesudah berkas #2, SEGERA:
 
@@ -79,8 +85,20 @@ SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS
  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME LIKE 'ort_%'
    AND CONSTRAINT_TYPE = 'FOREIGN KEY';
 
--- harus ada: idx_ort_control_worklist, idx_ort_case_backlog
+-- harus ada: idx_ort_control_worklist, idx_ort_case_backlog, idx_ort_case_sales
 SHOW INDEX FROM ort_control; SHOW INDEX FROM ort_case;
+
+-- Kolom Oktober gelombang kedua — harus 7 baris
+SELECT TABLE_NAME, COLUMN_NAME FROM information_schema.COLUMNS
+ WHERE TABLE_SCHEMA = DATABASE()
+   AND ((TABLE_NAME = 'ort_control' AND COLUMN_NAME IN ('doctor_ref_id','doctor_name'))
+     OR (TABLE_NAME = 'ort_case' AND COLUMN_NAME LIKE 'sales_active%'))
+ ORDER BY TABLE_NAME, ORDINAL_POSITION;
+
+-- Tabel riwayat follow-up ada, dan UNIQUE-nya terpasang
+SELECT INDEX_NAME, NON_UNIQUE FROM information_schema.STATISTICS
+ WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'ort_followup'
+   AND INDEX_NAME = 'uq_ort_followup_hari';
 ```
 
 ❌ **`2026_09_29_ort_cermin_tiruan.sql` TIDAK dijalankan di prod.** Ia penyemai
@@ -135,6 +153,32 @@ Pemeriksa kesehatannya:
 
 ```bash
 php artisan ort:rollup --verify     # keluar bukan-nol kalau ada yang melenceng
+```
+
+### 3.7 — Dokter dinamis: segarkan snapshot (BARU, 2026-10-06)
+
+```
+php artisan ort:pull-visits      # mengisi doctor_ref_id per kontrol
+php artisan ort:rollup           # memilih "yang terakhir menangani"
+```
+
+⚠ **Kegagalan SUNYI yang ketiga.** Sesudah SQL #8, kolom `ort_control`-nya ada
+tapi masih NULL semua — jadi `OrtRollup` tidak menemukan satu calon pun dan
+**mempertahankan snapshot lama**. Halamannya terbuka normal, kolom Dokter
+terisi, dan tidak ada pesan galat apa pun; yang ditampilkan cuma dokter yang
+MEMASANG bracket, bukan yang sedang menangani. Persis keadaan yang SQL itu
+dibuat untuk diperbaiki.
+
+Dua perintah di atas yang mengisinya. `ort:pull-visits` menulis dokter ke tiap
+kontrol yang punya kunjungan; `ort:rollup` lalu memilih yang paling baru di
+antara kunjungan dan reservasi.
+
+Verifikasi — kedua angka harus naik dari nol:
+
+```sql
+SELECT COUNT(*) AS kunjungan,
+       SUM(doctor_ref_id IS NOT NULL) AS ada_dokter
+  FROM ort_control WHERE visit_date IS NOT NULL;
 ```
 
 ### Verifikasi isi data

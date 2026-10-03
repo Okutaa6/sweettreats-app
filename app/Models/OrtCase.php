@@ -48,6 +48,7 @@ class OrtCase extends Model
         'bracket_type', 'bracket_arch',
         'doctor_ref_id', 'doctor_name',
         'status', 'finished_at',
+        'sales_active', 'sales_active_at', 'sales_active_by', 'sales_active_note',
         'owner_place_id', 'open_control_id', 'next_sch_date', 'next_is_proposal',
         'last_visit_date', 'last_visit_place_id',
         'control_count', 'visit_count', 'visit_count_180d',
@@ -70,6 +71,8 @@ class OrtCase extends Model
         'median_gap_days'  => 'integer',
         'gap_spread_pct'   => 'integer',
         'rollup_at'        => 'datetime',
+        'sales_active'     => 'boolean',
+        'sales_active_at'  => 'datetime',
     ];
 
     /** Status episode. Perawatan berhenti hanya lewat salah satu dari ini. */
@@ -81,6 +84,65 @@ class OrtCase extends Model
     /** Ambang "Hilang" dan "Jarang kontrol" — definisi Sales, jangan diubah diam-diam. */
     public const HILANG_HARI      = 180;
     public const JARANG_MIN_VISIT = 2;
+
+    /*
+     * ════════════════════════════════════════════════════════════════════════
+     * PENILAIAN SALES — sumbu KEDUA, bukan pengganti `status`
+     * ════════════════════════════════════════════════════════════════════════
+     * `status` di atas adalah FAKTA KLINIS dan diisi MESIN: OrtPullVisits
+     * menandai 'selesai' begitu bracket terdeteksi lepas dari rekam medis.
+     * Dua konstanta di bawah adalah PENILAIAN MANUSIA — "pasien ini masih
+     * dikejar kontrolnya" vs "sudah menghilang, lepas dulu".
+     *
+     * ⚠ Jangan pernah menumpangkannya ke `status`. Tarikan malam akan menimpa
+     *   keputusan Sales tanpa jejak, dan pasien yang sengaja dilepas kembali
+     *   sendiri tiap malam.
+     *
+     * ⚠ Dan jangan pernah menambahkan `WHERE sales_active = 1` ke daftar
+     *   kerja. "Inactive" artinya TURUN KE BAWAH, bukan hilang — itu
+     *   permintaan eksplisit prompt_jadwal_kontrol.md.
+     *
+     * tinyint di DB, bukan enum, supaya bucket ketiga ("ditunda", "titip
+     * cabang lain") tidak butuh ALTER TABLE di prod. Kamusnya di sini.
+     */
+    public const SALES_AKTIF = 1;   // "Active"   — masih dikejar
+    public const SALES_PASIF = 0;   // "Inactive" — sudah jarang/menghilang
+
+    /**
+     * Mulai H berapa sebelum jatuh tempo kolom "Jadwal Dokter" terisi.
+     * prompt_jadwal_kontrol.md: "baru muncul isinya kalau hari ini sudah masuk
+     * H-3 sebelum tanggal jatuh tempo kontrol, atau sudah lewat jatuh tempo."
+     *
+     * ⚠ Ini penghemat TAMPILAN, bukan penghemat kueri. Gerbang ini juga benar
+     *   untuk semua baris yang sudah lewat jatuh tempo, jadi di sub-tab
+     *   Terlewat 100% baris lolos. Yang menekan kuerinya adalah pra-muat di
+     *   OrtJadwalDokter::untukBanyak(), bukan konstanta ini.
+     */
+    public const HARI_PRAKTIK_MUNCUL = 3;
+
+    /*
+     * ════════════════════════════════════════════════════════════════════════
+     * Badge umur kunjungan di kolom "Last Visit"
+     * ════════════════════════════════════════════════════════════════════════
+     * Diukur dalam hari SESUDAH jatuh tempo pasien ini — bukan dari angka
+     * tetap. prompt_jadwal_kontrol.md meminta hijau <=30 / kuning 31–50 /
+     * merah >50, dan pada pasien berirama 30 hari kedua konstanta di bawah
+     * menghasilkan tepat 30 dan 50. Bedanya: pasien yang dokternya minta
+     * 45 hari tidak lagi ditandai merah palsu saat ia justru tepat waktu.
+     *
+     *   lewat = (hari ini − last_visit_date) − intervalKontrol(median)
+     *   lewat <= 0            → hijau
+     *   1 .. BADGE_MERAH      → kuning
+     *   > BADGE_MERAH         → merah
+     *
+     * ⚠ BADGE_MERAH_LEWAT = 20 SENGAJA berbeda dari
+     *   OrtControl::TERLEWAT_PARAH_HARI = 14. Jangkarnya lain: yang itu
+     *   mengukur dari sch_date (tanggal yang DIJADWALKAN), yang ini dari
+     *   last_visit_date (kunjungan TERAKHIR). Jangan "menyatukan" keduanya —
+     *   satu perubahan akan menggeser dua layar yang mengukur hal berbeda.
+     */
+    public const BADGE_KUNING_LEWAT = 0;
+    public const BADGE_MERAH_LEWAT  = 20;
 
     /** Target jarak antar kontrol (hari). Wajar 28–45. */
     public const TARGET_GAP = 30;
@@ -322,6 +384,47 @@ class OrtCase extends Model
         }
 
         return min(self::IRAMA_MAX_HARI, max(self::IRAMA_MIN_HARI, $medianGapDays));
+    }
+
+    /**
+     * Berapa hari pasien ini LEWAT dari jatuh temponya. Negatif = belum jatuh
+     * tempo. null = belum pernah berkunjung, jadi tidak ada dasar menghitung.
+     *
+     * Statis supaya bisa dipanggil dari Blade atas baris query-builder
+     * (stdClass, bukan model) — satu rumus untuk tabel, panel, dan model.
+     */
+    public static function hariLewatJatuhTempo(?string $lastVisitDate, ?int $medianGapDays, $hariIni = null): ?int
+    {
+        if (! filled($lastVisitDate)) {
+            return null;
+        }
+
+        $hariIni = $hariIni
+            ? \Illuminate\Support\Carbon::parse($hariIni)->startOfDay()
+            : \Illuminate\Support\Carbon::today();
+
+        $umur = \Illuminate\Support\Carbon::parse($lastVisitDate)->startOfDay()->diffInDays($hariIni, false);
+
+        return (int) $umur - self::intervalKontrol($medianGapDays);
+    }
+
+    /**
+     * Nada badge "Last Visit": ok | warn | bad | faint.
+     * faint = belum pernah berkunjung — bukan hijau, karena itu bukan kabar baik.
+     */
+    public static function nadaLastVisit(?string $lastVisitDate, ?int $medianGapDays, $hariIni = null): string
+    {
+        $lewat = self::hariLewatJatuhTempo($lastVisitDate, $medianGapDays, $hariIni);
+
+        if ($lewat === null) {
+            return 'faint';
+        }
+
+        return match (true) {
+            $lewat <= self::BADGE_KUNING_LEWAT => 'ok',
+            $lewat <= self::BADGE_MERAH_LEWAT  => 'warn',
+            default                            => 'bad',
+        };
     }
 
     /**

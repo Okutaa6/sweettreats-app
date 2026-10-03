@@ -47,7 +47,11 @@ class OrtControl extends Model
         'fu_date', 'fu_channel', 'fu_by', 'fu_result', 'fu_note',
         'reservation_id', 'rsv_date', 'rsv_status', 'rsv_synced_at',
         'visit_date', 'visit_source', 'visit_confidence',
-        'omnicare_trx_id', 'omnicare_encounter_id', 'visit_filled_at', 'unscheduled',
+        'omnicare_trx_id', 'omnicare_encounter_id',
+        // Dokter yang menangani KUNJUNGAN ini — diisi tarikan malam. Dari sini
+        // OrtRollup memilih "siapa yang terakhir menangani" untuk kolom Dokter,
+        // dan riwayat kontrol mendapat nama dokter per barisnya.
+        'doctor_ref_id', 'doctor_name', 'visit_filled_at', 'unscheduled',
         'outcome', 'closed_at', 'closed_by',
         'created_by', 'updated_by',
     ];

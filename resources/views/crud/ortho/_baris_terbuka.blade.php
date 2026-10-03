@@ -28,6 +28,43 @@
     <div>
         <div class="ort-expand__title">Ringkas pasien</div>
 
+        {{-- Chip STATUS, pindah dari kolom tabel yang dibuang (tujuh kolom,
+             prompt Phase 1). Dioper dari _tabel, bukan dihitung ulang di sini:
+             satu rumus, supaya baris tertutup dan panelnya tidak pernah berbeda
+             pendapat tentang keadaan yang sama.
+
+             ⚠ Kecuali tanda eskalasi (≥2 siklus) yang TETAP tampil sebagai badge
+               di baris tertutup. Itu satu-satunya isi kolom Status yang tidak
+               bisa disimpulkan dari enam kolom lain, dan ia persis hal yang modul
+               ini dibangun untuk menampakkan — satu klik lebih jauh = tak terlihat. --}}
+        @isset($chipTeks)
+            <div class="ort-chips" style="margin-top:0;margin-bottom:11px;">
+                <span class="ort-chip ort-chip--{{ $chipKelas }}">{{ $chipTeks }}</span>
+
+                {{-- Penilaian Sales — SUMBU LAIN dari chip di sebelahnya.
+                     Chip itu keadaan jadwal (menunggu/terlewat/ada reservasi);
+                     yang ini keputusan manusia tentang apakah pasien masih
+                     dikejar. Keduanya berdampingan supaya bedanya terbaca. --}}
+                @if (isset($r->sales_active))
+                    <form method="POST" action="{{ route('ortho.salesaktif', $r->ort_case_id) }}"
+                          style="display:inline;" onclick="event.stopPropagation()"
+                          onsubmit="return confirm(@js($r->sales_active
+                              ? 'Tandai pasien ini Inactive? Ia tetap tampil di daftar, tapi turun ke paling bawah.'
+                              : 'Tandai pasien ini Active? Ia kembali masuk urutan kerja normal.'))">
+                        @csrf
+                        <input type="hidden" name="aktif" value="{{ $r->sales_active ? 0 : 1 }}">
+                        <button type="submit" class="ort-chipf"
+                                title="{{ $r->sales_active
+                                    ? 'Pasien masih dikejar kontrolnya. Klik untuk menandai Inactive — ia tetap ditampilkan, hanya turun ke bawah daftar.'
+                                    : 'Pasien ditandai Inactive. Klik untuk mengembalikannya ke urutan kerja normal.' }}">
+                            <i class="fas {{ $r->sales_active ? 'fa-user-check' : 'fa-user-clock' }}"></i>
+                            {{ $r->sales_active ? 'Active' : 'Inactive' }}
+                        </button>
+                    </form>
+                @endif
+            </div>
+        @endisset
+
         <div class="ort-facts">
             <div>
                 <div class="ort-fact__k">No. rekam medis</div>

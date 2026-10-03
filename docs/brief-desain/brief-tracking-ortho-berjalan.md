@@ -39,6 +39,38 @@ akhirnya saja.
 | Kelompok **"di cabang lain" dibungkus** | Pil cabangnya terbaca setara dengan cabang utama — §2 |
 | Teks baris riwayat **ditebalkan** | Yang membuatnya pudar ternyata kontras bobot (400 di antara 700 dan 800), bukan warnanya |
 
+### Gelombang kedua — 3 Okt 2026, dari `prompt_jadwal_kontrol.md`
+
+Tabelnya **dirombak**, bukan disesuaikan: delapan kolom jadi tujuh.
+
+| Yang berubah | Kenapa |
+|---|---|
+| Kolom **Last Visit** menggantikan Jadwal | Permintaan prompt. Ambang badge-nya relatif terhadap irama pasien, bukan 30/50 tetap — pada irama 30 hari hasilnya PERSIS 30/50, tapi pasien berirama 45 hari tidak lagi ditandai merah palsu saat ia justru tepat waktu |
+| Kolom **Jadwal Dokter** baru | Sales menelepon sambil menebak "Rabu bisa, Bu?". Hari praktik + seberapa penuh, 7 hari bergulir |
+| **Dokter jadi dinamis** | `doctor_name` dulu snapshot kunjungan PERTAMA dan tidak pernah disegarkan — layar menyebut dokter yang MEMASANG bracket. Pasien yang dioper ditelepon dengan nama dokter yang salah |
+| **Active / Inactive** — kolom sendiri | Penilaian Sales, bukan fakta klinis. Ditumpangkan ke `status`, tarikan malam akan menimpa keputusan manusia tanpa jejak tiap malam |
+| **Riwayat follow-up** bertabel sendiri | `ort_control.fu_date` menyimpan yang TERAKHIR saja; telepon kedua menimpa yang pertama, jadi "berapa kali ditelepon bulan ini" tidak punya jawaban |
+| Kolom 5 & 6 jadi **TOMBOL** | Prompt menetapkannya begitu. Akibatnya `$aksi` yang memilih satu tombol untuk keduanya dibuang — pasien yang sudah punya reservasi tetap boleh ditelepon |
+| **Badge hitungan Inactive** ditambah | Tidak diminta prompt. Tanpa ia, 400 Inactive berarti delapan halaman terakhir yang tak pernah dibuka — "diurutkan ke bawah" jadi sama dengan "disembunyikan" |
+| Urutan: **rasio siklus** di sub-tab | "Telat 10 hari" berbeda artinya untuk irama 21 dan 60. Tab "Semua" tetap kronologis supaya aturan brief tidak dilanggar |
+| Pemecah seri **`c.id`** | Memperbaiki bug yang sudah ada: `sch_date` + nama tidak unik, jadi baris berpindah halaman antar klik |
+
+**Tiga hal yang diminta prompt tapi SUDAH ada** — nol pekerjaan: kolom Nama +
+telepon, tombol kecil WA, dan jembatan ke modul Reservasi (dua arah, lengkap
+dengan tulis-balik `reservation_id`).
+
+**Dua hal yang prompt minta tapi DITOLAK**, dan alasannya aturan repo, bukan
+selera: tiga `migration` dengan `down()` (CLAUDE.md melarangnya mutlak — jadi
+tiga berkas `database/sql/` idempotent), dan gerbang per-role untuk tombol
+(modul ini sengaja nol pemeriksaan role; gerbangnya kepemilikan cabang).
+
+⚠ **Satu cacat rancangan yang perlu diingat:** gerbang H-3 pada kolom Jadwal
+Dokter BUKAN penghemat kueri. "Hari ini ≥ H-3 sebelum jatuh tempo" juga benar
+untuk setiap baris yang jatuh temponya sudah lewat, jadi di sub-tab Terlewat
+100% baris lolos. Yang menekan kuerinya dari ~1.350 jadi **5 (datar)** adalah
+pra-muat di `OrtJadwalDokter::untukBanyak()` — diukur: 10, 50, dan 100 baris
+sama-sama 5 kueri.
+
 ---
 
 ## 1. Dasar yang mengikat

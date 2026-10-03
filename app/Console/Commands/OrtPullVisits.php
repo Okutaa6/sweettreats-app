@@ -404,6 +404,12 @@ class OrtPullVisits extends Command
                     'visit_confidence'      => 'pasti',
                     'omnicare_trx_id'       => $v['trx_id'],
                     'omnicare_encounter_id' => $v['encounter'],
+                    // Dokter yang benar-benar menangani kunjungan ini. Sampai
+                    // kolomnya ada, nilai ini ditarik tiap malam lalu dibuang —
+                    // dan kolom "Dokter" di layar tetap menampilkan dokter yang
+                    // MEMASANG bracket, bukan yang sedang menangani.
+                    'doctor_ref_id'         => $v['doc_reff'] ?? null,
+                    'doctor_name'           => $v['dokter'] ?? null,
                     'visit_filled_at'       => now(),
                     'outcome'               => OrtControl::OUT_HADIR,
                     'closed_at'             => now(),
@@ -427,6 +433,8 @@ class OrtPullVisits extends Command
                     'visit_confidence'      => 'dugaan',
                     'omnicare_trx_id'       => $v['trx_id'],
                     'omnicare_encounter_id' => $v['encounter'],
+                    'doctor_ref_id'         => $v['doc_reff'] ?? null,
+                    'doctor_name'           => $v['dokter'] ?? null,
                     'visit_filled_at'       => now(),
                     'unscheduled'           => 1,
                     'outcome'               => OrtControl::OUT_HADIR,

@@ -182,7 +182,7 @@ ditulis.
 
 | Grid | Kolom final | min-width | Baris menang |
 |---|---|---|---|
-| `.ort-grid` | `minmax(186px,1.5fr) 146px 112px 96px 112px 132px 190px 30px` | **1080px** | CSS:1300 |
+| `.ort-grid` | `minmax(186px,1.5fr) 146px 150px minmax(190px,1.1fr) 132px 118px 30px` | **1044px** | CSS:1470 |
 | `.ort-grid--antrean` | `minmax(156px,1.4fr) 124px 126px 162px 84px 124px 232px` | **1086px** | CSS:1341 |
 | `.ort-grid--lintas` | `minmax(210px,1.5fr) 146px 158px 168px 150px 34px` | **940px** | CSS:1323 |
 | `.ort-rgrid` | `minmax(180px,1.4fr) 108px minmax(120px,1fr) 104px 196px 128px 92px 22px` | **1050px** | CSS:1350 |
