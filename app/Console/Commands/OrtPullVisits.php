@@ -92,7 +92,8 @@ class OrtPullVisits extends Command
                             {--dry-run : hitung dan laporkan, JANGAN menulis apa pun}
                             {--daftar-item : cetak setiap nama item ortho + klasifikasinya, lalu keluar}
                             {--uji-aturan : jalankan fixture OrtItemRules, lalu keluar}
-                            {--tanpa-usulan : isi FAKTA kunjungan saja, jangan lahirkan jatuh tempo}';
+                            {--tanpa-usulan : isi FAKTA kunjungan saja, jangan lahirkan jatuh tempo}
+                            {--isi-dokter : SEKALI JALAN — isi doctor_ref_id kontrol lama dari cermin, lalu keluar}';
 
     protected $description = 'Tarikan malam: isi kolom Datang dari cermin rekam medis';
 
@@ -109,10 +110,187 @@ class OrtPullVisits extends Command
         parent::__construct();
     }
 
+    /**
+     * SEKALI JALAN: isi `ort_control.doctor_ref_id` + `doctor_name` untuk
+     * kunjungan yang SUDAH tercatat.
+     *
+     * ────────────────────────────────────────────────────────────────────────
+     * KENAPA INI PERLU ADA SENDIRI
+     * ────────────────────────────────────────────────────────────────────────
+     * Tarikan malam mengisi kedua kolom itu hanya untuk kunjungan yang ia tulis
+     * SAAT ITU. Kunjungan yang sudah tercatat sebelum kolomnya ada tetap NULL —
+     * dan diukur di DB pengembangan itu 133 dari 133.
+     *
+     * Akibatnya persis kegagalan sunyi yang paling mahal di modul ini:
+     * OrtRollup tidak menemukan satu calon pun, lalu MEMPERTAHANKAN snapshot
+     * lama. Halaman terbuka normal, kolom Dokter terisi, nol pesan galat — dan
+     * yang ditampilkan tetap dokter yang MEMASANG bracket. Fitur "dokter
+     * dinamis" jadi mati total di seluruh data yang sudah ada, yaitu semuanya.
+     *
+     * ⚠ Saya sempat menulis di runbook bahwa `ort:pull-visits` biasa sudah
+     *   cukup. Itu salah, dan salahnya baru ketahuan saat diukur.
+     *
+     * ────────────────────────────────────────────────────────────────────────
+     * KUNCI PENCOCOKANNYA
+     * ────────────────────────────────────────────────────────────────────────
+     * `omnicare_trx_id` terdengar seperti kunci yang benar, tapi hanya terisi
+     * di 32 dari 133 baris — kontrol hasil penyemaian tidak menyimpannya. Yang
+     * selalu ada adalah kunci dedup cermin itu sendiri:
+     *
+     *     ort_case.omnicare_pid | ort_control.visit_date | ort_control.place_id
+     *
+     * Dan dokternya diambil lewat OrtVisits::kumpulkan(), BUKAN dengan
+     * mengambil baris cermin pertama yang ketemu — kumpulkan() memilih WAKIL
+     * deterministik menurut prioritas item. Memakai jalan lain berarti backfill
+     * ini bisa memilih dokter yang berbeda dari yang akan dipilih tarikan malam
+     * untuk kunjungan yang sama, dan selisihnya tidak akan pernah terlihat.
+     *
+     * ⚠ Nol JOIN lintas keluarga tabel (collation prod campur). Cermin dibaca
+     *   terpisah, pencocokannya di PHP.
+     *
+     * Dibaca per BULAN supaya jejak memorinya tetap datar di prod: kunci dedup
+     * (pid, tanggal, cabang) tidak pernah melintasi bulan, jadi memotongnya
+     * per bulan tidak mengubah hasil.
+     */
+    private function isiDokterLama(): int
+    {
+        foreach (['ort_case', 'ort_control', 'omnicare_sales_detail'] as $t) {
+            if (! Schema::hasTable($t)) {
+                $this->error("Tabel {$t} belum ada.");
+
+                return self::FAILURE;
+            }
+        }
+        if (! Schema::hasColumn('ort_control', 'doctor_ref_id')) {
+            $this->error('Jalankan database/sql/2026_10_06_ort_dokter_per_kontrol.sql dulu.');
+
+            return self::FAILURE;
+        }
+
+        $kering = (bool) $this->option('dry-run');
+        $places = $this->option('cabang')
+            ? [(string) $this->option('cabang')]
+            : array_map('strval', array_keys($this->branches->all()));
+
+        // ── Kontrol yang perlu diisi, beserta kunci cerminnya ───────────────
+        $perlu = [];   // "pid|tanggal|place" => list<ort_control.id>
+        $jml   = 0;
+
+        DB::table('ort_control as c')
+            ->join('ort_case as k', 'k.id', '=', 'c.ort_case_id')
+            ->whereNotNull('c.visit_date')
+            ->whereNull('c.doctor_ref_id')
+            ->whereNotNull('k.omnicare_pid')
+            ->whereIn('c.place_id', $places)
+            ->orderBy('c.id')
+            ->select(['c.id', 'c.visit_date', 'c.place_id', 'k.omnicare_pid'])
+            ->chunk(2000, function ($baris) use (&$perlu, &$jml) {
+                foreach ($baris as $r) {
+                    $kunci = (string) $r->omnicare_pid
+                           . '|' . substr((string) $r->visit_date, 0, 10)
+                           . '|' . (string) $r->place_id;
+                    $perlu[$kunci][] = (string) $r->id;
+                    $jml++;
+                }
+            });
+
+        if (! $perlu) {
+            $this->info('Tidak ada kontrol berkunjungan yang kosong dokternya. Tidak ada yang perlu dikerjakan.');
+
+            return self::SUCCESS;
+        }
+
+        $tanggal = [];
+        foreach (array_keys($perlu) as $k) {
+            $tanggal[] = explode('|', $k)[1];
+        }
+        $sejak  = Carbon::parse(min($tanggal))->startOfMonth();
+        $sampai = Carbon::parse(max($tanggal))->endOfMonth();
+
+        $this->line(sprintf(
+            'Mencari dokter untuk %d kontrol (%d kunjungan unik), %s s/d %s.',
+            $jml, count($perlu), $sejak->toDateString(), $sampai->toDateString()
+        ));
+
+        // ── Sapu cermin per bulan ───────────────────────────────────────────
+        $ketemu = [];   // "pid|tanggal|place" => ['doc_reff' => ?, 'dokter' => ?]
+        $bulan  = $sejak->copy();
+
+        while ($bulan->lte($sampai)) {
+            $a = $bulan->copy()->startOfMonth();
+            $b = $bulan->copy()->endOfMonth();
+
+            foreach ($this->visits->kumpulkan(
+                $this->visits->kueri($places, $a->toDateString(), $b->toDateString())->get()
+            ) as $v) {
+                $kunci = $v['pid'] . '|' . $v['tanggal'] . '|' . $v['place'];
+                if (isset($perlu[$kunci]) && filled($v['doc_reff'] ?? null)) {
+                    $ketemu[$kunci] = ['doc_reff' => $v['doc_reff'], 'dokter' => $v['dokter']];
+                }
+            }
+
+            $bulan->addMonth();
+        }
+
+        // ── Tulis ───────────────────────────────────────────────────────────
+        $ditulis = 0;
+        $kasus   = [];
+
+        foreach ($ketemu as $kunci => $d) {
+            foreach ($perlu[$kunci] as $ctlId) {
+                if (! $kering) {
+                    DB::table('ort_control')->where('id', $ctlId)->update([
+                        'doctor_ref_id' => $d['doc_reff'],
+                        'doctor_name'   => $d['dokter'],
+                        'updated_by'    => 'sistem',
+                    ]);
+                }
+                $ditulis++;
+            }
+        }
+
+        $kurang = $jml - $ditulis;
+
+        $this->newLine();
+        $this->table(['Hasil', 'Jumlah'], [
+            ['Kontrol berkunjungan tanpa dokter', $jml],
+            ['Dokternya ketemu di cermin',        $ditulis],
+            ['Tidak ketemu — lihat catatan',      $kurang],
+        ]);
+
+        if ($kurang > 0) {
+            $this->warn(
+                'Yang tidak ketemu BUKAN kegagalan skrip. Tiga sebabnya yang sah: '
+                . 'barisnya diperkirakan penyemai dari tanggal lain; cerminnya memang '
+                . 'tidak punya doc_reff_id di baris itu; atau kunjungannya dicatat '
+                . 'manual. Dokternya tetap NULL, dan itu jujur.'
+            );
+        }
+
+        if ($kering) {
+            $this->warn('--dry-run: nol baris ditulis.');
+
+            return self::SUCCESS;
+        }
+
+        // Rollup WAJIB sesudahnya: kolom per-kontrol itu baru bahan, dan yang
+        // dibaca layar adalah hasil pemilihannya di ort_case.
+        $this->newLine();
+        $this->line('Menghitung ulang ringkasan supaya kolom Dokter ikut berubah…');
+        $n = $this->rollup->refreshSemua();
+        $this->info($n . ' kasus aktif disegarkan.');
+
+        return self::SUCCESS;
+    }
+
     public function handle(): int
     {
         if ($this->option('uji-aturan')) {
             return $this->ujiAturan();
+        }
+
+        if ($this->option('isi-dokter')) {
+            return $this->isiDokterLama();
         }
 
         $sejak  = $this->tanggal('sejak',  now()->subDays(14));

@@ -158,28 +158,50 @@ php artisan ort:rollup --verify     # keluar bukan-nol kalau ada yang melenceng
 ### 3.7 — Dokter dinamis: segarkan snapshot (BARU, 2026-10-06)
 
 ```
-php artisan ort:pull-visits      # mengisi doctor_ref_id per kontrol
-php artisan ort:rollup           # memilih "yang terakhir menangani"
+php artisan ort:pull-visits --isi-dokter --dry-run    # lihat cakupannya dulu
+php artisan ort:pull-visits --isi-dokter              # tulis + rollup sekalian
 ```
 
 ⚠ **Kegagalan SUNYI yang ketiga.** Sesudah SQL #8, kolom `ort_control`-nya ada
 tapi masih NULL semua — jadi `OrtRollup` tidak menemukan satu calon pun dan
 **mempertahankan snapshot lama**. Halamannya terbuka normal, kolom Dokter
-terisi, dan tidak ada pesan galat apa pun; yang ditampilkan cuma dokter yang
-MEMASANG bracket, bukan yang sedang menangani. Persis keadaan yang SQL itu
-dibuat untuk diperbaiki.
+terisi, dan tidak ada pesan galat apa pun; yang ditampilkan tetap dokter yang
+MEMASANG bracket. Fitur "dokter dinamis" mati total di seluruh data yang sudah
+ada — yaitu semuanya.
 
-Dua perintah di atas yang mengisinya. `ort:pull-visits` menulis dokter ke tiap
-kontrol yang punya kunjungan; `ort:rollup` lalu memilih yang paling baru di
-antara kunjungan dan reservasi.
+⚠⚠ **DAN `ort:pull-visits` BIASA TIDAK MENYEMBUHKANNYA.** Versi pertama bagian
+ini menyuruh menjalankan `ort:pull-visits` lalu `ort:rollup`; itu **salah**, dan
+salahnya baru ketahuan saat diukur. Tarikan malam hanya mengisi dokter untuk
+kunjungan yang ia tulis SAAT ITU; kunjungan yang sudah tercatat tetap NULL.
+Diukur di lokal: sesudah `ort:pull-visits` biasa, hasilnya tetap **0 dari 133**.
 
-Verifikasi — kedua angka harus naik dari nol:
+Yang menyembuhkannya `--isi-dokter`. Ia mencocokkan kontrol lama ke cermin lewat
+kunci dedup `(omnicare_pid, visit_date, place_id)` — **bukan** `omnicare_trx_id`,
+yang hanya terisi di 32 dari 133 baris karena kontrol hasil penyemaian tidak
+menyimpannya. Dokternya diambil lewat `OrtVisits::kumpulkan()` yang sama dengan
+tarikan malam, jadi keduanya tidak mungkin memilih dokter berbeda untuk
+kunjungan yang sama. Rollup dijalankan otomatis di ujungnya.
+
+Aman diulang: baris yang sudah terisi dilewati (`WHERE doctor_ref_id IS NULL`).
+
+Verifikasi — angkanya harus naik dari nol:
 
 ```sql
 SELECT COUNT(*) AS kunjungan,
        SUM(doctor_ref_id IS NOT NULL) AS ada_dokter
   FROM ort_control WHERE visit_date IS NOT NULL;
 ```
+
+⚠ **Cakupannya di prod TIDAK bisa diperkirakan dari lokal.** Di lokal hanya 24
+dari 128 yang ketemu, dan itu bukan cacat skrip: `omnicare_sales_detail` lokal
+cuma **40 baris** karena ia cermin TIRUAN
+(`2026_09_29_ort_cermin_tiruan.sql`). Prod punya 19 bulan data sungguhan, jadi
+jalankan `--dry-run` lebih dulu dan baca angkanya di sana.
+
+Yang tetap NULL sesudah ini tidak perlu dikejar: sebabnya sah — tanggalnya
+diperkirakan penyemai, cerminnya memang tanpa `doc_reff_id`, atau kunjungannya
+dicatat manual. Untuk baris itu `OrtRollup` mempertahankan snapshot pasang, dan
+itu jawaban paling jujur yang tersedia.
 
 ### Verifikasi isi data
 
