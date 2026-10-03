@@ -1,6 +1,6 @@
 # Brief Desain — Tracking Pasien Ortho (versi BERJALAN)
 
-**2 Oktober 2026 · tiket IT-2026-013 · audiens: Sales, IT, HUB**
+**3 Oktober 2026 · tiket IT-2026-013 · audiens: Sales, IT, HUB**
 
 > Dokumen ini menggambarkan modul **sebagaimana ia berdiri sekarang**, bukan
 > sebagaimana pernah dirancang. Ia menggantikan `revisi-3-tracking-ortho.md`
@@ -17,6 +17,26 @@
 Halaman kerja harian Sales untuk menagih pasien behel supaya kontrol.
 Menggantikan Google Sheets per cabang yang angkanya saling berbeda.
 Lima cabang · 1.639 pasien.
+
+---
+
+## 0. Yang berubah sejak 2 Okt
+
+Sembilan hal, dan **empat di antaranya membatalkan keputusan saya sendiri** —
+dicatat apa adanya karena alasan pembatalannya yang berguna, bukan hasil
+akhirnya saja.
+
+| Yang berubah | Kenapa |
+|---|---|
+| Kolom Jadwal **kembali jadi tanggal** | Perkiraan memberi masa depan empat tingkat tapi masa lalu satu ember; semua yang terlambat menumpuk di atas dan kehilangan pembeda — §4 |
+| Tab "Tanggal reservasi" **berhenti mengaku tahu** | Klaim "tanpa reservasi" hidup di lima tempat, padahal sistem memang tidak tahu — §3 |
+| `ort:tautkan-reservasi` **menyapu tiga jenis baris** | Versi lama melewati persis baris yang dilihat Sales — §10 |
+| **Siklus terlewat** menggantikan ambang hari untuk eskalasi | "Telat 45 hari" berarti dua hal berbeda untuk pasien berinterval 21 dan 60 — §5 |
+| **Hasil follow-up** dicatat, dan **ditampilkan** | Versi pertamanya menyimpan tanpa menampilkan — form meminta tiga keputusan lalu membuang ketiganya — §6 |
+| Dropdown **kanal dibuang** | Ia meminta satu keputusan lagi lalu tidak pernah dipakai di layar mana pun |
+| **Jumlah baris per halaman bisa diatur** | 10 · 25 · 50 · 100, bawaan tetap 50 — §3 |
+| Kelompok **"di cabang lain" dibungkus** | Pil cabangnya terbaca setara dengan cabang utama — §2 |
+| Teks baris riwayat **ditebalkan** | Yang membuatnya pudar ternyata kontras bobot (400 di antara 700 dan 800), bukan warnanya |
 
 ---
 
@@ -93,6 +113,17 @@ Sub-tab kegentingan di dalam tab List: `semua` · `terlewat` · `hari-ini` ·
 
 Tab cabang lain muncul untuk pasien kita yang sedang dipegang cabang lain —
 **lihat-saja**, tanpa tombol tulis.
+
+Tombol pembukanya dan pil cabang yang muncul saat dibuka **dibungkus jadi satu
+kelompok** (3 Okt 2026). Sebelumnya ketiganya pil sejajar di baris yang sama
+dengan pil cabang utama, jadi "Sunter / Cinere / Pamulang" terbaca setara
+dengan "Bintaro" — padahal mereka milik tombol di kirinya dan isinya
+lihat-saja. Pil cabang **utama sengaja tetap di luar** kelompok itu.
+
+⚠ Wadahnya hanya terlihat saat terbuka, dan **tinggi barisnya tidak pernah
+berubah** saat dibuka-tutup — padding-nya tetap ada di kedua keadaan lalu
+dikompensasi margin negatif. Versi pertama memasang padding hanya saat
+terbuka, dan seisi halaman di bawahnya tersentak turun 12px tiap kali.
 
 ---
 
@@ -322,8 +353,29 @@ sementara rekam medis adalah bukti transaksi yang terjadi.
 | `ort:pull-visits` | Tarikan malam. `--tanpa-usulan` untuk tarikan mundur pertama |
 | `ort:rollup` | Hitung ulang ringkasan. `--verify` memeriksa tanpa menulis |
 | `ort:rapikan-usulan` | Hitung ulang jatuh tempo yang sudah tersimpan |
-| `ort:tautkan-reservasi` | Jodohkan reservasi lama. Dicocokkan ke tanggal **janji**, bukan tanggal pesan |
+| `ort:tautkan-reservasi` | Jodohkan reservasi lama. Dicocokkan ke tanggal **janji**, bukan tanggal pesan. Menyapu **tiga jenis baris** — lihat di bawah |
 | `ort:seed-demo` | Data peraga. **Lokal saja** |
+
+#### Kenapa penjodohan reservasi menyapu tiga jenis baris
+
+Kolom Reservasi sempat berbunyi "tidak ada" untuk hampir semua orang, dan
+sebabnya bukan tanggal yang rusak: **`reservation_id` terisi 0 dari 35.317
+baris di prod.** Reservasi hidup di tabel Sweet Treats sendiri
+(`raw_cus_reservation`) — **bukan dari Omnicare** — dan belum pernah
+dijodohkan ke kontrol ortho.
+
+Alat penjodohnya ada, tapi versi pertamanya hanya menyentuh baris yang sudah
+punya kunjungan — melewati persis baris yang dilihat Sales tiap hari:
+
+| Jenis baris | Dijodohkan lewat |
+|---|---|
+| **Riwayat** (sudah ada kunjungan) | tanggal datang ± 3 hari |
+| **Tidak hadir** (ditutup, tanpa kunjungan) | tanggal jadwal ± 3 hari — termasuk reservasi yang **dibatalkan**, karena justru di situ ceritanya |
+| **Kontrol terbuka** | reservasi **mendatang** milik pasien itu, sampai 120 hari ke depan. Yang sudah batal dibuang; layanan behel diutamakan |
+
+⚠ Angka **"Cakupan: N%"** di laporannya hanya mengukur jenis **riwayat** —
+itulah yang dibandingkan ke 91% prod. Dua jenis lain dilaporkan terpisah supaya
+tidak mengencerkannya.
 
 ---
 
