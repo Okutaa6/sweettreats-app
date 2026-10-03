@@ -4,6 +4,7 @@
 
 > Teman berkas ini: `brief-tracking-ortho-berjalan.md` (apa yang ditampilkan)
 > dan `alur-fungsi-tracking-ortho.md` (apa yang terjadi saat ditekan).
+> - `peta-ui-css-fungsi-ortho.md` — peta elemen ⇄ CSS ⇄ fungsi, satu-banding-satu
 
 ---
 

@@ -89,6 +89,10 @@ sudah jadi. Tiga berkas menggambarkan keadaan SEKARANG dan saling menunjuk:
 - `brief-tracking-ortho-berjalan.md` — apa yang dilihat Sales di layar
 - `design-system-tracking-ortho.md` — 30 token, 273 kelas, 4 grid, responsif,
   animasi, kelas yatim, dan daftar aturan yang ada tapi tidak berlaku
+- `peta-ui-css-fungsi-ortho.md` — **pemetaan satu-banding-satu**: tiap elemen
+  di layar beserta kelas CSS yang menggambarnya dan fungsi/kolom yang
+  mengisinya. Dipakai saat mengubah satu elemen dan ingin tahu apa lagi
+  yang ikut kena
 - `alur-fungsi-tracking-ortho.md` — 11 rute, 11 aksi, 8 service, 6 perintah,
   4 model, observer, 23 view, 11 blok JavaScript; tiap fungsi disertai validasi,
   pagar, kolom yang ditulis, dan bisa/tidaknya diurungkan

@@ -10,6 +10,7 @@
 > Teman berkas ini:
 > - `design-system-tracking-ortho.md` — token, komponen, dan kelas CSS
 > - `alur-fungsi-tracking-ortho.md` — tiap rute, aksi, service, perintah, dan
+> - `peta-ui-css-fungsi-ortho.md` — peta elemen ⇄ CSS ⇄ fungsi, satu-banding-satu
 >   blok JavaScript beserta validasi, pagar, dan kolom yang ditulisnya
 > - `../deploy/deploy-ortho.md` — langkah naik prod
 > - `../handoff/balasan-ortho-hub-2026-10-02.md` — apa yang berubah sesudah audit HUB
