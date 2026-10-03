@@ -140,7 +140,7 @@ Pembungkus gulir `.ort-tablewrap` adalah
 | | chip Inactive | `.ort-chip--inactive` | `sales_active = 0` |
 | 2 | **Dokter** | `.ort-cell.ort-clamp2` | `doctor_name` — **DINAMIS**, dipilih `OrtRollup::dokterTerkini()` |
 | 3 | **Last Visit** | `.ort-lv` · `__tgl` · `__umur--{ok,warn,bad,faint}` · `__due` | `last_visit_date` + `OrtCase::nadaLastVisit()`; sub-baris `sch_date` + tooltip `perkiraanJatuhTempo()` |
-| 4 | **Jadwal Dokter** | `.ort-dokhari` · `.ort-datepill--{ok,warn,bad,faint}` · `__sebab` · `__more` · `__belum` | `OrtJadwalDokter::untukBanyak()` — gerbang H-3 `OrtCase::HARI_PRAKTIK_MUNCUL` |
+| 4 | **Jadwal Dokter** | `.ort-dok` · `__d--{ok,warn,bad,cuti}` · `__sep` `__sebab` `__more` `__belum` | `OrtJadwalDokter::untukBanyak()` — gerbang H-3 `OrtCase::HARI_PRAKTIK_MUNCUL` |
 | 5 | **Follow Up** | `.ort-actions` · `.ort-btn` · `.ort-nodo` · `.ort-btn--wa` | TOMBOL; mati kalau `fu_date = hari ini`. Tooltip memuat `fu_by` `fu_channel` `fu_result` `fu_note` |
 | 6 | **Reservasi** | `.ort-btn` · `.ort-struck` · `.ort-waitlist` · `.ort-cell--sub` | TOMBOL ke jembatan `?ort_control_id`, atau `rsv_date`/`rsv_status` kalau sudah ada |
 | 7 | toggle | `.ort-toggle` | JS `buka()` |
@@ -150,7 +150,7 @@ prompt_jadwal_kontrol.md Phase 1):
 
 | Dulu | Sekarang |
 |---|---|
-| **Jadwal** (jatuh tempo) | sub-baris `.ort-lv__due` di dalam Last Visit — **beserta tooltipnya**, yang berkasnya sendiri sebut penutup ambiguitas termahal di modul ini |
+| **Jadwal** (jatuh tempo) | TOOLTIP pada tanggal Last Visit — **beserta kalimat "pengingat, bukan janji"**, yang berkasnya sendiri sebut penutup ambiguitas termahal di modul ini. Sebab urutannya dijawab satu kalimat di `.ort-tbar__hint` di atas tabel, sekali untuk seluruh tabel |
 | **Status** (chip) | panel baris (`.ort-chips` di `_baris_terbuka`), dioper dari `_tabel` supaya rumusnya tetap satu. Kecuali **eskalasi**, yang tetap badge di baris tertutup |
 | **Tindakan berikutnya** | melebur ke kolom 5 dan 6 — prompt memang menetapkan keduanya sebagai TOMBOL, jadi `$aksi` yang memilih satu tombol untuk keduanya **dibuang**: pasien yang sudah punya reservasi tetap boleh ditelepon |
 
@@ -170,43 +170,48 @@ prompt_jadwal_kontrol.md Phase 1):
 
 ---
 
-## 7. Panel baris yang dibuka
+## 7. Panel baris yang dibuka — TIGA KOLOM
+
+Bentuk dari prompt_jadwal_kontrol.md Phase 2, dipasang 3 Okt 2026. Menggantikan
+panel dua kolom lama (delapan fakta + garis waktu mini bersegmented tiga arah).
 
 | Elemen | Kelas CSS | Fungsi / kolom |
 |---|---|---|
-| Panel | `.ort-expand` + `__title` `__btns` | — |
-| Delapan fakta | `.ort-facts` · `.ort-fact__k` `__v` `__dim` | lihat di bawah |
-| Garis waktu mini | `.ort-mini` + `__row` `__n` `__d` `__x` `__go` | `OrtQuery::kontrolTerakhir($ids, 4)` |
-| Segmented 3 arah | `.ort-miniseg` | JS `pakaiTampilan()` — **nol permintaan server** |
+| Pembungkus | `.ort-expand` → `.ort-p2` | — |
+| Kepala kolom | `.ort-p2__head` + `__n` (hitungan) | — |
+| Badan kolom | `.ort-p2__body` | — |
+| Bidang profil | `.ort-p2f` + `__k` `__v` | `omnicare_pid` · `bracket_*` · `install_date` |
+| Daftar bernomor | `.ort-nlist` + `__i` `__n` `__t` `__dim` `__kosong` | lihat di bawah |
+| Pemilah Active/Inactive | `.ort-seg` + `__b.is-on` | `POST ortho.salesaktif` → `sales_active` |
+| Kaki aksi | `.ort-p2__kaki` + `__kaki-k` | lima aksi, lihat §14 |
 
-### Delapan fakta, satu per satu
+### Tiga kolom, tiga pertanyaan
 
-| Fakta | Kelas | Sumber |
+| Kolom | Isi | Sumber |
 |---|---|---|
-| No. rekam medis | `.ort-fact__v` | `omnicare_pid` |
-| Nomor HP | `.ort-fact__v` | `patient_phone` |
-| Bracket · rahang | | `bracket_type` · `bracket_arch` |
-| Dokter ortho | | `doctor_name` |
-| Pasang behel | `.ort-kira` kalau diperkirakan | `install_date` · `install_is_estimated` |
-| Kehadiran | | `visit_count` / `control_count` |
-| **Siklus terlewat** | `.ort-sub-red` + `.ort-fact__dim` | `OrtCase::hitungSiklusTerlewat()` — **tidak disimpan** |
-| Irama kontrol | `.ort-fact__dim` | `median_gap_days` · `gap_spread_pct` · `avg_gap_days` |
-| Kontrol terakhir datang | | `last_visit_date` |
+| **Profile** | No. Rekam Medis · Bracket·Rahang · Tanggal Pasang Behel (`.ort-kira` kalau diperkirakan) · chip Status jadwal · Transfer Pasien · pemilah Active/Inactive | kolom `ort_case` |
+| **Kontrol** | ringkasan pola (kehadiran · irama · sebaran · siklus terlewat), lalu daftar bernomor `tanggal, cabang, dokter` + keadaan reservasi | `OrtQuery::riwayatKontrol($ids, 8)` |
+| **Follow Up** | daftar bernomor `tanggal, oleh siapa` + hasil + catatan | `OrtQuery::riwayatFollowUp($ids, 8)` |
 
-### Satu baris DOM, tiga isi
+### Ke mana isi panel lama pergi
 
-`.ort-mini__x` dirender **sekali**, lalu JS mengganti mana yang `hidden`:
+| Dulu | Sekarang |
+|---|---|
+| Delapan fakta (`.ort-facts`) | tiga di Profile; kehadiran/irama/siklus jadi ringkasan pola di kepala kolom Kontrol |
+| Garis waktu mini + segmented 3 arah (`.ort-mini*`, `.ort-miniseg`) | **dibubarkan** — tampilan "Follow-up" jadi kolom FOLLOW UP (lebih baik: per pasien per hari, bukan per kontrol), tampilan "Tanggal reservasi" jadi sub-baris `data-ort-rsv` di tiap butir kolom KONTROL |
+| Teks keadaan reservasi, disusun di Blade | **`OrtControl::keadaanReservasi()`** — satu metode, satu kosakata |
 
-| Tampilan | Isi | Sumber |
-|---|---|---|
-| Semua | `#N · tgl · FU/RSV · cabang` | gabungan |
-| Follow-up | `FU <tgl> · oleh <nama> · <kanal> · <hasil>` | `fu_*` + `FU_KANAL` + `FU_HASIL` |
-| Tanggal reservasi | `<tgl> · <cabang>` / "Belum ada reservasi" | `rsv_date` · `reservation_id` · `unscheduled` |
+⚠ Pemindahan terakhir itu yang paling menentukan. Klaim soal reservasi pernah
+hidup di EMPAT tempat dan ketiganya berbeda pendapat tentang baris yang sama;
+sekarang layar mana pun yang ingin menyebutnya memanggil satu metode. Urutan
+cabangnya mengikat: `rsv_date` diperiksa **sebelum** `unscheduled`, dan baris
+yang belum pernah dijodohkan berbunyi "Tidak tertaut reservasi" — bukan "tidak
+ada reservasi", karena yang kedua mengaku tahu hal yang tidak diketahui.
 
-⚠ `.ort-mini__x` — **satu baris, dipotong elipsis**, warna `--ort-ink2`,
-**bobot 500**. Bobot itu yang menentukan keterbacaannya: tetangganya di baris
-yang sama berbobot 700 (`__d`) dan 800 (`__n`), jadi 400 terbaca pudar
-berapa pun gelap warnanya.
+⚠ Lima aksi yang TIDAK ada di rancangan tiga kolom tetap dipertahankan di
+`.ort-p2__kaki`: Buka detail pasien · Geser pengingat · Transfer · Batalkan
+follow-up · Tandai tidak hadir. Tiga yang terakhir tidak punya jalan lain di
+seluruh layar — membuangnya membuat tiga keputusan sah jadi mustahil, diam-diam.
 
 ⚠ Urutan cabang di tampilan reservasi **menentukan**: `rsv_date` wajib
 diperiksa **sebelum** `unscheduled`, kalau tidak baris yang sudah ditautkan

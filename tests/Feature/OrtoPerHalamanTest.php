@@ -130,9 +130,21 @@ class OrtoPerHalamanTest extends TestCase
      *   `value` dan `selected` ke dua baris, jadi mencocokkan string
      *   `per_page=50" selected` akan gagal untuk alasan yang bukan bugnya.
      */
+    /**
+     * ⚠ DIPERSEMPIT ke dalam `.st-perpage` (3 Okt 2026). Sejak bilah atas tabel
+     *   punya pemilih "Status Pasien", halaman ini memuat DUA <select> yang
+     *   sama-sama ber-<option> URL — dan URL pemilih Status Pasien ikut membawa
+     *   `per_page` (memang harus: berpindah mode tidak boleh mereset jumlah
+     *   baris). Regex lama menangkap yang mana pun lebih dulu, lalu melaporkan
+     *   `per_page=99999` sebagai "pilihan aktif" padahal itu URL, bukan pilihan.
+     */
     private function perHalAktif(string $html): ?int
     {
-        if (preg_match('~<option value="[^"]*per_page=(\d+)"\s+selected~', $html, $m)) {
+        if (! preg_match('~class="st-perpage".*?</select>~s', $html, $blok)) {
+            return null;
+        }
+
+        if (preg_match('~<option value="[^"]*per_page=(\d+)"\s+selected~', $blok[0], $m)) {
             return (int) $m[1];
         }
 
@@ -142,7 +154,12 @@ class OrtoPerHalamanTest extends TestCase
     /** Seluruh URL di dalam pemilih, sudah di-decode. @return list<string> */
     private function urlPemilih(string $html): array
     {
-        preg_match_all('~<option value="([^"]*per_page=[^"]*)"~', $html, $m);
+        // Dipersempit dengan alasan yang sama seperti perHalAktif() di atas.
+        if (! preg_match('~class="st-perpage".*?</select>~s', $html, $blok)) {
+            return [];
+        }
+
+        preg_match_all('~<option value="([^"]*per_page=[^"]*)"~', $blok[0], $m);
 
         return array_map('html_entity_decode', $m[1]);
     }

@@ -459,7 +459,12 @@
   background: var(--ort-sunken);
   border-bottom: 1px solid var(--ort-row);
   padding: 15px 18px 17px;
-  display: grid; grid-template-columns: 1.15fr 1fr; gap: 22px;
+}
+
+/* Tablet: tiga kolom jadi satu lajur, bukan terjepit. */
+@media (max-width: 1100px) {
+  .ort-p2 { grid-template-columns: 1fr; }
+  .ort-p2__col + .ort-p2__col { border-left: none; border-top: 1px solid var(--ort-row); }
 }
 .ort-expand__title {
   font-size: 10px; font-weight: 800; letter-spacing: .6px;
@@ -928,43 +933,57 @@
 /* ════════════════════════════════════════════════════════════════════════════
    Kolom "Jadwal Dokter" — hari praktik dokter pasien, berwarna menurut isi
    ════════════════════════════════════════════════════════════════════════════
+   TEKS BERKOMA, bukan pil berlatar (revisi 3 Okt 2026 — menyesuaikan desain).
+   Pil memberi tiga tanggal bobot visual setara tombol di sebelahnya, dan di
+   baris yang padat itu membuat mata berhenti di tempat yang salah. Sebagai
+   teks berwarna, warnanya tetap terbaca tapi bobotnya kembali ke tempatnya.
+
    Ambangnya BUKAN di sini: OrtJadwalDokter::AMBANG_HAMPIR_PENUH_PCT yang
    memutuskan, dan kelas-kelas ini cuma mewarnai keputusannya. Ambang yang
    hidup di CSS adalah ambang yang akan bercabang dua begitu panel baris ikut
    mewarnai hal yang sama.
 
-   Keempatnya memakai token yang sudah ada — kecuali satu, dan itu perlu
-   dicatat: `--ort-faint` TIDAK punya pasangan `-bg` (lihat definisi token di
-   kepala berkas). Latar pudar di modul ini literal #EFE7DC, dipakai juga oleh
-   .ort-chip--selesai dan .ort-held--selesai. Dipakai ulang di sini supaya
-   "pudar" berarti satu hal di seluruh modul, bukan tiga nuansa mirip. */
-.ort-dokhari { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
-.ort-datepill--ok    { background: var(--ort-ok-bg);   color: var(--ort-ok); }
-.ort-datepill--warn  { background: var(--ort-warn-bg); color: var(--ort-warn); }
-.ort-datepill--bad   { background: var(--ort-bad-bg);  color: var(--ort-bad); }
-.ort-datepill--faint { background: #EFE7DC;            color: var(--ort-faint); }
+   ⚠ Varian .ort-datepill--* yang dulu di sini SUDAH DIBUANG, tapi .ort-datepill
+     BASE-nya tetap ada: ia dipakai _roster.blade.php (dua tempat). */
+.ort-dok { font-size: 12px; font-weight: 700; line-height: 1.55; }
+.ort-dok__sep { color: var(--ort-muted); font-weight: 500; }
+.ort-dok__d--ok   { color: var(--ort-ok); }
+.ort-dok__d--warn { color: var(--ort-warn); }
+.ort-dok__d--bad  { color: var(--ort-bad); }
 
-/* Hari cuti: dirender, tidak dihilangkan. Sel yang diam-diam melewati Kamis
-   membuat Sales mengira datanya rusak. */
-.ort-datepill--faint.is-cuti { text-decoration: line-through; text-decoration-thickness: 1px; }
-
-.ort-dokhari__more {
-  font-size: 10.5px; font-weight: 700; color: var(--ort-muted); cursor: help;
+/* Hari cuti: DIRENDER lalu dicoret, tidak dihilangkan. Sel yang diam-diam
+   melewati Kamis membuat Sales mengira datanya rusak — coretan menjawab
+   "kenapa Kamis tidak ada" di tempat, tanpa perlu bertanya ke tim IT. */
+.ort-dok__d--cuti {
+  color: var(--ort-muted); font-weight: 600;
+  text-decoration: line-through; text-decoration-thickness: 1px;
 }
+
+.ort-dok__more { font-size: 11px; font-weight: 700; color: var(--ort-muted); cursor: help; }
 
 /* Sebab kosong — empat kalimat berbeda, bukan satu "-". `tak_terpetakan`
    diperbaiki tim IT dan `tak_praktik` diperbaiki operasional; satu teks untuk
-   keduanya mengirim orang mengejar perbaikan yang salah. */
-.ort-dokhari__sebab {
-  display: inline-block; font-size: 10.5px; font-weight: 600;
-  color: var(--ort-faint); background: #EFE7DC;
-  border-radius: 8px; padding: 3px 8px; cursor: help;
-  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+   keduanya mengirim orang mengejar perbaikan yang salah.
+   Teks polos tanpa latar: ini KETERANGAN, bukan keadaan yang perlu ditindak
+   hari ini, dan latar membuatnya terbaca seperti lencana peringatan. */
+.ort-dok__sebab {
+  display: block; font-size: 11.5px; font-weight: 500; color: var(--ort-muted);
+  cursor: help; max-width: 100%;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 
-/* Belum masuk H-3: bukan masalah, cuma belum waktunya. Tidak diberi latar
-   supaya tidak terbaca sebagai keadaan yang perlu ditindak. */
-.ort-dokhari__belum { font-size: 11.5px; color: var(--ort-muted); }
+/* Belum masuk H-3: bukan masalah, cuma belum waktunya. */
+.ort-dok__belum { font-size: 12.5px; color: var(--ort-muted); }
+
+/* Keterangan warna di kaki tabel. Tanpa ini, empat warna di kolom Jadwal
+   Dokter adalah sandi yang cuma dimengerti orang yang ikut rapat. */
+.ort-legenda {
+  display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+  padding: 12px 18px; border-top: 1px solid var(--ort-row);
+  font-size: 11.5px; color: var(--ort-ink3); background: var(--ort-sunken);
+}
+.ort-legenda__k { font-weight: 800; color: var(--ort-ink2); }
+.ort-legenda span { display: inline-flex; align-items: center; gap: 7px; }
 
 /* ════════════════════════════════════════════════════════════════════════════
    Kolom "Last Visit" — tanggal + umur, badge menurut jatuh tempo PASIEN ITU
@@ -983,11 +1002,14 @@
 .ort-lv__umur--bad   { background: var(--ort-bad-bg);  color: var(--ort-bad); }
 .ort-lv__umur--faint { background: #EFE7DC;            color: var(--ort-faint); }
 
-/* Jatuh tempo, pindah ke sini sebagai sub-baris sesudah kolom "Jadwal" dibuang.
-   ⚠ Ia adalah KUNCI URUT yang terlihat — tanpanya Sales melihat baris berurutan
-     tanpa petunjuk mengapa. Dan tooltipnya ("pengingat, bukan janji") disebut
-     di _tabel.blade.php sebagai penutup ambiguitas termahal di modul ini. */
-.ort-lv__due { font-size: 10.5px; color: var(--ort-muted); cursor: help; }
+/* Jatuh tempo TIDAK lagi punya baris sendiri di sel (revisi 3 Okt 2026).
+   Ia pindah ke tooltip tanggal Last Visit, dan "kenapa urutannya begini"
+   dijawab satu kalimat di atas tabel (.ort-tbar__hint) — satu kalimat untuk
+   seluruh tabel lebih terbaca daripada satu tanggal kecil di tiap baris.
+   ⚠ Kalimat "pengingat, bukan janji" IKUT PINDAH ke tooltip itu. Ia disebut
+     di _tabel.blade.php sebagai penutup ambiguitas termahal di modul ini, dan
+     tidak boleh hilang hanya karena barisnya hilang. */
+.ort-lv__tgl[title] { cursor: help; }
 
 /* ════════════════════════════════════════════════════════════════════════════
    Penilaian Sales: Active / Inactive
@@ -1006,6 +1028,131 @@
 }
 .ort-salesbadge:hover { border-color: var(--ort-muted); color: var(--ort-ink2); text-decoration: none; }
 .ort-salesbadge.is-on { background: var(--ort-warn-bg); color: var(--ort-warn); border-color: #E8C9A6; }
+
+/* ════════════════════════════════════════════════════════════════════════════
+   Tombol kolom Follow Up & Reservasi
+   ════════════════════════════════════════════════════════════════════════════
+   Dua tombol SETARA di dua kolom, bukan satu tombol yang berganti-ganti. Itu
+   konsekuensi langsung dari prompt yang menetapkan keduanya sebagai kolom
+   tombol: pasien yang sudah punya reservasi tetap boleh ditelepon. */
+.ort-btn--go {
+  background: linear-gradient(135deg, #2F8E55, #1F6B3E);
+  box-shadow: 0 4px 12px rgba(31, 107, 62, .22);
+  width: 100%;
+}
+.ort-btn--go:hover { filter: brightness(1.06); }
+
+/* Sudah ditelepon hari ini. Abu dan tidak bisa diklik — TAPI tetap berbentuk
+   tombol dan tetap selebar aslinya, supaya kolomnya tidak berkedut antar baris
+   dan matanya langsung tahu baris ini sudah beres. Besok ia hijau lagi, dan
+   itu dibaca dari tanggal — tanpa cron. */
+.ort-btn--diam {
+  background: var(--ort-neu-bg); color: #A28D78; box-shadow: none;
+  cursor: default; width: 100%;
+}
+.ort-btn--diam:hover { color: #A28D78; filter: none; }
+
+/* Tombol bundar di samping Follow Up. Sengaja NETRAL, bukan hijau WhatsApp:
+   di sebelah tombol hijau besar, dua hijau bersebelahan membuat keduanya
+   saling menurunkan bobot. Ikonnya yang membawa arti. */
+.ort-btn--bulat {
+  background: #fff; color: var(--ort-ink2); border: 1px solid var(--ort-line2);
+  box-shadow: none; width: 32px; height: 32px; padding: 0; flex: none; border-radius: 50%;
+}
+.ort-btn--bulat:hover { background: #EAF6EE; color: var(--ort-wa); border-color: var(--ort-wa-line); }
+.ort-btn--bulat.is-bad { color: var(--ort-warn); border-color: #E8C9A6; cursor: not-allowed; }
+.ort-btn--bulat.is-bad:hover { background: #fff; color: var(--ort-warn); }
+
+/* Reservasi: cokelat penuh, sekolom sendiri. */
+.ort-btn--rsv { width: 100%; }
+
+/* ════════════════════════════════════════════════════════════════════════════
+   Bilah di atas tabel — sebab urutan + saringan Status Pasien
+   ════════════════════════════════════════════════════════════════════════════
+   Kalimat sebab urutan ada di sini, BUKAN di tiap baris. Satu kalimat untuk
+   seluruh tabel menjawab "kenapa urutannya begini" sekali; tanggal jatuh tempo
+   kecil di 50 baris menjawabnya 50 kali dan tetap tidak terbaca. */
+.ort-tbar {
+  display: flex; align-items: center; justify-content: flex-end;
+  gap: 12px; flex-wrap: wrap; margin-top: 13px;
+}
+.ort-tbar__hint { font-size: 11.5px; color: var(--ort-muted); }
+.ort-tbar__lbl {
+  font-size: 10px; font-weight: 800; letter-spacing: .55px;
+  text-transform: uppercase; color: var(--ort-ink2);
+}
+.ort-tbar select {
+  font: inherit; font-size: 12px; font-weight: 600; color: var(--ort-ink);
+  background: #fff; border: 1px solid var(--ort-line2); border-radius: 10px;
+  padding: 7px 11px; cursor: pointer; min-width: 112px;
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   PANEL BARIS — tiga kolom: Profile · Kontrol · Follow Up
+   ════════════════════════════════════════════════════════════════════════════
+   Bentuk yang diminta prompt_jadwal_kontrol.md Phase 2. Tiga kolom menjawab
+   tiga pertanyaan yang berbeda dan tidak saling menggantikan: siapa pasien ini,
+   pola kedatangannya bagaimana, dan sudah berapa kali dikejar. */
+.ort-p2 {
+  display: grid; grid-template-columns: minmax(260px, 1fr) minmax(280px, 1.2fr) minmax(240px, 1fr);
+  background: #fff; border: 1px solid var(--ort-line);
+  border-radius: 14px; overflow: hidden;
+}
+.ort-p2__col { display: flex; flex-direction: column; min-width: 0; }
+.ort-p2__col + .ort-p2__col { border-left: 1px solid var(--ort-row); }
+.ort-p2__head {
+  display: flex; align-items: center; gap: 9px;
+  background: linear-gradient(120deg, var(--ort-brand1), var(--ort-brand2));
+  color: var(--ort-onbrand); padding: 10px 16px;
+  font-size: 10px; font-weight: 800; letter-spacing: .6px; text-transform: uppercase;
+}
+.ort-p2__n {
+  background: rgba(251, 234, 219, .2); border-radius: 20px;
+  padding: 1px 8px; font-size: 9.5px; font-weight: 800;
+}
+.ort-p2__body { padding: 15px 16px 16px; flex: 1; }
+
+/* Profil: label kecil di atas nilai tebal. */
+.ort-p2f + .ort-p2f { margin-top: 13px; }
+.ort-p2f__k { font-size: 10.5px; font-weight: 500; color: var(--ort-muted); }
+.ort-p2f__v { font-size: 13px; font-weight: 800; color: var(--ort-ink); margin-top: 2px; }
+.ort-p2__hr { border: 0; border-top: 1px solid var(--ort-row); margin: 15px 0; }
+
+/* Daftar bernomor — bentuk persis yang diminta prompt. */
+.ort-nlist { display: flex; flex-direction: column; }
+.ort-nlist__i {
+  display: flex; gap: 11px; padding: 10px 0;
+  font-size: 12.5px; font-weight: 600; color: var(--ort-ink2); line-height: 1.45;
+}
+.ort-nlist__i + .ort-nlist__i { border-top: 1px solid var(--ort-row); }
+.ort-nlist__n { font-weight: 800; color: var(--ort-ink); flex: none; min-width: 15px; }
+.ort-nlist__t { min-width: 0; }
+.ort-nlist__dim { font-weight: 500; color: var(--ort-muted); }
+.ort-nlist__kosong { font-size: 12px; color: var(--ort-muted); padding: 4px 0; }
+
+/* Pemilah Active | Inactive. Dua tombol yang terlihat sebagai SATU kendali:
+   keadaannya jadi terbaca tanpa harus menebak mana yang sedang berlaku. */
+.ort-seg { display: inline-flex; background: var(--ort-neu-bg); border-radius: 11px; padding: 3px; gap: 3px; }
+.ort-seg__b {
+  border: none; background: transparent; font: inherit;
+  font-size: 11.5px; font-weight: 800; color: var(--ort-muted);
+  padding: 7px 15px; border-radius: 9px; cursor: pointer; white-space: nowrap;
+}
+.ort-seg__b:hover { color: var(--ort-ink2); }
+.ort-seg__b.is-on {
+  background: linear-gradient(135deg, var(--ort-btn1), var(--ort-btn2));
+  color: var(--ort-onbrand); cursor: default;
+}
+
+/* Aksi lain yang TIDAK ada di rancangan tiga kolom tapi tidak boleh hilang —
+   tandai tidak hadir, batalkan follow-up, pindahkan cabang. Ditaruh di kaki
+   panel, bukan dibuang: ketiganya tidak punya jalan lain di seluruh layar. */
+.ort-p2__kaki {
+  display: flex; align-items: center; gap: 9px; flex-wrap: wrap;
+  padding: 12px 16px; border-top: 1px solid var(--ort-row);
+  background: var(--ort-sunken); grid-column: 1 / -1;
+}
+.ort-p2__kaki-k { font-size: 10.5px; font-weight: 700; color: var(--ort-muted); margin-right: 2px; }
 
 /* Kartu */
 .ort-cardgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; margin-top: 13px; }

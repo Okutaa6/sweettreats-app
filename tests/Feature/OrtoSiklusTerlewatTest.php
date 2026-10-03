@@ -146,8 +146,15 @@ class OrtoSiklusTerlewatTest extends TestCase
 
         $this->assertMatchesRegularExpression('/Terlewat \d+ hari · 2 siklus/', $html,
             'Chip Terlewat harus menyebut jumlah siklus saat ≥ ' . OrtCase::SIKLUS_ESKALASI . '.');
-        $this->assertStringContainsString('· eskalasi', $html,
-            'Panel baris harus menandai eskalasi.');
+        /* Tandanya pindah 3 Okt 2026. Dulu "· eskalasi" di daftar fakta panel;
+           sekarang DUA tempat, dan keduanya lebih terbaca: ringkasan pola di
+           kepala kolom KONTROL, plus badge di kolom Nama yang terlihat TANPA
+           membuka panel — itu yang penting, karena baris inilah yang paling
+           perlu ditangani lebih dulu. */
+        $this->assertStringContainsString('terlewat 2 siklus', $html,
+            'Ringkasan pola di kolom Kontrol harus menandai eskalasi.');
+        $this->assertStringContainsString('Terlewat 2 siklus', $html,
+            'Badge di kolom Nama harus menandai eskalasi tanpa perlu membuka panel.');
     }
 
     public function test_layar_diam_saat_belum_eskalasi(): void

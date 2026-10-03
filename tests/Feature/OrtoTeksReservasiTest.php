@@ -177,9 +177,15 @@ class OrtoTeksReservasiTest extends TestCase
 
         // `{{ }}` meng-escape tanda petik jadi &#039; — cocokkan ke HTML yang
         // benar-benar ter-render, bukan ke teks PHP-nya.
-        $this->assertStringContainsString(
-            'data-v="rsv" hidden>17 Mar &#039;21 · ', $html,
-            'Baris yang sudah tertaut harus menampilkan TANGGAL reservasinya di tab "Tanggal reservasi".'
+        /* Pembawanya berganti 3 Okt 2026: garis waktu mini tiga tampilan
+           (data-v="rsv") digantikan kolom KONTROL di panel tiga kolom, dan
+           keadaan reservasi jadi sub-baris ber-penanda `data-ort-rsv`.
+           Yang DIJAGA tidak berubah sedikit pun — baris walk-in yang sudah
+           tertaut wajib menampilkan tanggal reservasinya, bukan tetap
+           berbunyi "tanpa jadwal". */
+        $this->assertMatchesRegularExpression(
+            '/data-ort-rsv>\s*17 Mar &#039;21 ·/', $html,
+            'Baris yang sudah tertaut harus menampilkan TANGGAL reservasinya di kolom Kontrol.'
         );
     }
 
@@ -245,7 +251,7 @@ class OrtoTeksReservasiTest extends TestCase
         $list   = $this->halaman();
         $drawer = $this->drawer($k);
 
-        $this->assertStringContainsString('data-v="rsv" hidden>21 Nov &#039;21 · ', $list,
+        $this->assertMatchesRegularExpression('/data-ort-rsv>\s*21 Nov &#039;21 ·/', $list,
             'Panel baris: tanggal reservasi tampil.');
         // Matriks drawer merender tiap tanggal di barisnya sendiri, berindentasi —
         // jadi `>21 Nov<` tidak pernah bersebelahan. Regex menoleransi whitespace.

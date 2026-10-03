@@ -651,6 +651,99 @@ class OrtQuery
         return $hasil;
     }
 
+    /**
+     * Riwayat KUNJUNGAN per pasien — kolom "Kontrol" di panel baris.
+     *
+     * prompt_jadwal_kontrol.md (Phase 2) meminta bentuknya persis:
+     *     1. 4 Okt 2026, Sunter, drg. Nama Dokter
+     *     2. 1 Sep 2026, Bintaro, drg. Nama Dokter
+     *
+     * ⚠ Memuat SEMUA kontrol, bukan hanya yang dikunjungi — dan itu keputusan
+     *   yang sempat salah sekali. Versi pertama menyaring `visit_date IS NOT
+     *   NULL` supaya daftarnya murni "riwayat datang". Akibatnya kontrol
+     *   TERBUKA hilang dari panel, dan bersamanya hilang pula satu-satunya
+     *   tempat layar ini berkata "Belum ada reservasi" — tugas Sales yang
+     *   paling sering. Kontrol yang belum dikunjungi memakai `sch_date` dan
+     *   keadaannya dikatakan apa adanya, jadi tidak ada yang terbaca sebagai
+     *   kunjungan yang tidak pernah terjadi.
+     *
+     * Nama dokternya per-baris, datang dari ort_control.doctor_ref_id yang
+     * diisi tarikan malam. Baris lama yang belum sempat diisi backfill
+     * (`ort:pull-visits --isi-dokter`) mengembalikan null, dan layar menulis
+     * "—" di situ — bukan menyalin dokter kasus, yang akan membuat semua baris
+     * terlihat ditangani orang yang sama padahal tidak diketahui.
+     *
+     * Satu kueri untuk SELURUH halaman, dipotong di PHP. Alasannya sama dengan
+     * kontrolTerakhir(): "N terbaru per grup" butuh window function yang tidak
+     * portabel atau derived table yang tidak ter-index.
+     *
+     * @return array<string, list<\App\Models\OrtControl>>  ort_case_id => kontrol, TERBARU DI ATAS
+     */
+    public function riwayatKontrol(array $caseIds, int $n = 8): array
+    {
+        if (empty($caseIds)) {
+            return [];
+        }
+
+        // Diurutkan pada tanggal yang BERLAKU untuk baris itu: tanggal datang
+        // kalau sudah datang, tanggal jadwal kalau belum. Mengurutkan pada
+        // visit_date saja akan menerjunkan semua kontrol terbuka ke dasar,
+        // padahal justru itu yang paling perlu dilihat lebih dulu.
+        $semua = OrtControl::whereIn('ort_case_id', $caseIds)
+            ->orderBy('ort_case_id')
+            ->orderByRaw('COALESCE(visit_date, sch_date) DESC')
+            ->orderByDesc('seq')
+            ->get();
+
+        $hasil = [];
+        foreach ($semua as $c) {
+            $hasil[$c->ort_case_id] ??= [];
+            if (count($hasil[$c->ort_case_id]) < $n) {
+                $hasil[$c->ort_case_id][] = $c;
+            }
+        }
+
+        return $hasil;
+    }
+
+    /**
+     * Riwayat FOLLOW-UP per pasien — kolom "Follow Up" di panel baris.
+     *
+     *     1. 30 Sep 2026, oleh Nama Sales
+     *     2. 1 Sep 2026, oleh Nama Sales
+     *
+     * Sumbernya ort_followup, satu baris per pasien per hari. Sebelum tabel itu
+     * ada, daftar ini tidak punya bahan sama sekali: ort_control.fu_date cuma
+     * menyimpan follow-up TERAKHIR.
+     *
+     * ⚠ Dibungkus Schema::hasTable — SQL modul ini dijalankan manual, jadi ada
+     *   jendela di mana kodenya sudah naik tapi tabelnya belum ada. Panelnya
+     *   tetap harus terbuka di jendela itu; kolomnya kosong, bukan 500.
+     *
+     * @return array<string, list<\App\Models\OrtFollowUp>>  ort_case_id => follow-up, TERBARU DI ATAS
+     */
+    public function riwayatFollowUp(array $caseIds, int $n = 8): array
+    {
+        if (empty($caseIds) || ! \Illuminate\Support\Facades\Schema::hasTable('ort_followup')) {
+            return [];
+        }
+
+        $semua = \App\Models\OrtFollowUp::whereIn('ort_case_id', $caseIds)
+            ->orderBy('ort_case_id')
+            ->orderByDesc('fu_date')
+            ->get();
+
+        $hasil = [];
+        foreach ($semua as $f) {
+            $hasil[$f->ort_case_id] ??= [];
+            if (count($hasil[$f->ort_case_id]) < $n) {
+                $hasil[$f->ort_case_id][] = $f;
+            }
+        }
+
+        return $hasil;
+    }
+
     // ════════════════════════════════════════════════════════════════════
     // ANTREAN PENJADWALAN — kartu ke-3
     // ════════════════════════════════════════════════════════════════════

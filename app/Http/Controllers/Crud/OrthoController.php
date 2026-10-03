@@ -443,6 +443,10 @@ class OrthoController extends Controller
                dengan 50 baris per halaman, 400 Inactive berarti delapan halaman
                terakhir yang tidak akan pernah dibuka siapa pun. */
             'salesHitung'   => $this->q->hitungSalesAktif($placeId, $urgensi, $filter),
+            // Dua daftar bernomor di panel baris (Phase 2). Diambil SEKALI untuk
+            // seluruh halaman, bukan per baris — pola yang sama dengan $riwayat.
+            'riwayatVisit'  => $this->q->riwayatKontrol($caseIds),
+            'riwayatFu'     => $this->q->riwayatFollowUp($caseIds),
         ]);
     }
 

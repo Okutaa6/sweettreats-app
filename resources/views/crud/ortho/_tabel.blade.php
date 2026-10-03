@@ -24,34 +24,37 @@
 
 @endphp
 
-{{-- Badge hitungan Inactive — bukan hiasan, dan ini perlu dikatakan terang:
-     dengan 50 baris per halaman, 400 pasien Inactive berarti delapan halaman
-     terakhir yang isinya Inactive semua, dan tidak ada yang akan membukanya.
-     Mengurutkan mereka ke dasar MENYEMBUNYIKAN mereka dengan cara yang terasa
-     disengaja. Angka yang bisa diklik inilah yang membedakan "diurutkan ke
-     bawah" dari "dihilangkan".
+{{-- Bilah di atas tabel: KENAPA urutannya begini, lalu saringan Status Pasien.
 
-     Diletakkan DI ATAS tabel, bukan di kaki: kalau ia ada di bawah, ia hanya
-     terbaca oleh orang yang sudah menggulir sampai ke tempat yang justru
-     masalahnya tidak pernah digulir. --}}
-@if (($salesHitung['pasif'] ?? 0) > 0)
-    <div style="margin-top:13px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-        <a href="{{ $tautan(['rutin' => request('rutin') === 'Inactive' ? null : 'Inactive']) }}"
-           class="ort-salesbadge {{ request('rutin') === 'Inactive' ? 'is-on' : '' }}">
-            <i class="fas fa-user-clock"></i>
-            {{ $salesHitung['pasif'] }} Inactive
-            <span style="font-weight:600;">{{ request('rutin') === 'Inactive' ? '· sedang disaring, klik untuk lepas' : '· di bawah daftar, klik untuk lihat' }}</span>
-        </a>
-        @if (request('rutin') === 'Active')
-            <a href="{{ $tautan(['rutin' => null]) }}" class="ort-salesbadge is-on">
-                <i class="fas fa-user-check"></i> {{ $salesHitung['aktif'] }} Active
-                <span style="font-weight:600;">· klik untuk lepas saringan</span>
-            </a>
-        @endif
-    </div>
-@endif
+     Kalimat sebabnya di sini — sekali untuk seluruh tabel — bukan tanggal
+     jatuh tempo kecil di tiap baris. Yang kedua menjawab pertanyaan yang sama
+     lima puluh kali dan tetap tidak terbaca.
 
-<div class="st-card" style="margin-top:13px;" data-ort-tabel>
+     ⚠ Kalimatnya IKUT TAB. Tab "Semua" memang diurutkan jatuh tempo terdekat
+       (aturan brief di kepala berkas ini), sub-tab yang lain diurutkan
+       kemendesakan. Satu kalimat tetap untuk keduanya akan salah di salah
+       satunya, dan salah dengan percaya diri. --}}
+<div class="ort-tbar">
+    <span class="ort-tbar__hint">
+        Active di atas ·
+        {{ ($urgensi ?? 'semua') === 'semua' ? 'jatuh tempo terdekat dulu' : 'paling lama tidak kontrol dulu' }}
+    </span>
+
+    <span class="ort-tbar__lbl">Status Pasien</span>
+    {{-- Navigasi langsung, bukan bagian form filter: ini SAKLAR MODE, dan
+         menaruhnya di dalam panel filter yang terlipat membuat orang tidak
+         pernah menemukannya. $tautan membuang `page`, jadi memilih Inactive
+         tidak mendaratkan orang di halaman 7 yang kosong. --}}
+    <select onchange="window.location.href = this.value;"
+            title="Inactive tetap ditampilkan di pilihan Semua — ia hanya turun ke bawah daftar.">
+        @foreach (['' => 'Semua', 'Active' => 'Active', 'Inactive' => 'Inactive'] as $nilai => $label)
+            <option value="{{ $tautan(['rutin' => $nilai ?: null]) }}"
+                    @selected((string) request('rutin') === (string) $nilai)>{{ $label }}</option>
+        @endforeach
+    </select>
+</div>
+
+<div class="st-card" style="margin-top:9px;" data-ort-tabel>
     <div class="ort-tablewrap">
 
         <div class="ort-thead">
@@ -74,7 +77,7 @@
                  enam kolom lain, dan ia persis hal yang modul ini dibangun untuk
                  menampakkan — satu klik lebih jauh berarti tidak terlihat. --}}
             <div class="ort-grid">
-                <div>Pasien</div>
+                <div>Nama</div>
                 <div>Dokter</div>
                 <div>Last Visit</div>
                 {{-- Satu kalimat yang menutup ambiguitas paling mahal di modul ini:
@@ -90,6 +93,8 @@
                 <div></div>
             </div>
         </div>
+
+        @php $pitaPasif = false; @endphp
 
         @forelse ($baris as $r)
             @php
@@ -182,7 +187,30 @@
                 $wa      = \App\Support\Phone::toWa($r->patient_phone);
                 $masuk   = $masukDari[$r->ort_case_id] ?? null;
                 $selesai = $usulanSelesai[$r->id] ?? null;
+
+                /* Dihitung DI SINI, sebelum markup barisnya — pita pemisah
+                   "Inactive" di bawah perlu tahu keadaan ini sebelum <div>
+                   barisnya dibuka. */
+                $pasif = isset($r->sales_active) && ! $r->sales_active;
             @endphp
+
+            {{-- Pita pemisah, muncul SEKALI tepat sebelum baris Inactive pertama.
+                 Urutan sudah menaruh mereka di bawah; pita ini yang membuat
+                 turunnya terbaca sebagai keputusan, bukan seperti daftar yang
+                 tiba-tiba berubah sifat di tengah. Tanpa penanda, pembaca yang
+                 menggulir hanya melihat baris-baris yang anehnya sangat
+                 terlambat dan menyimpulkan datanya rusak. --}}
+            @if ($pasif && ! $pitaPasif)
+                @php $pitaPasif = true; @endphp
+                <div class="ort-group" style="background:var(--ort-strip);">
+                    <span class="ort-group__dot" style="background:var(--ort-faint);"></span>
+                    <span class="ort-group__label">Inactive</span>
+                    @if (($salesHitung['pasif'] ?? 0) > 0)
+                        <span class="ort-group__n">{{ $salesHitung['pasif'] }}</span>
+                    @endif
+                    <span class="ort-group__hint">jarang kontrol atau menghilang · ditandai manual · tetap ditampilkan</span>
+                </div>
+            @endif
 
             <div class="ort-tr {{ $parah ? 'ort-tr--bad' : ($telat ? 'ort-tr--warn' : '') }}
                         {{ $selesai ? 'ort-tr--nb' : '' }}"
@@ -220,7 +248,6 @@
                                 $hariIniStr
                             );
                             $eskalasi = $siklusBaris >= \App\Models\OrtCase::SIKLUS_ESKALASI;
-                            $pasif    = isset($r->sales_active) && ! $r->sales_active;
                         @endphp
 
                         @if ($masuk || $r->unscheduled || $eskalasi || $pasif)
@@ -318,21 +345,29 @@
                                 : null;
                         @endphp
 
+                        @php
+                            /* Jatuh tempo pindah ke SINI (tooltip), bukan baris sendiri.
+                               Kalimat "pengingat, bukan janji" ikut pindah — berkas ini
+                               sendiri menyebutnya penutup ambiguitas termahal di modul
+                               ini, jadi ia tidak boleh hilang bersama barisnya. */
+                            $tipJatuhTempo = 'Jatuh tempo '
+                                . \Carbon\Carbon::parse($r->sch_date)->translatedFormat("j M 'y")
+                                . ' · ' . \App\Models\OrtControl::perkiraanJatuhTempo(\Carbon\Carbon::parse($r->sch_date), $hariIni)
+                                . ' — ini PENGINGAT, bukan janji. Janji yang sudah disepakati ada di kolom Reservasi.'
+                                . ($r->is_proposal ? ' · tanggalnya masih hitungan sistem, belum disentuh Sales.' : '');
+                        @endphp
+
                         @if ($r->last_visit_date)
-                            <span class="ort-lv__tgl tabular">{{ \Carbon\Carbon::parse($r->last_visit_date)->translatedFormat("j M 'y") }}</span>
+                            <span class="ort-lv__tgl tabular {{ $r->is_proposal ? 'ort-proposal' : '' }}"
+                                  title="{{ $tipJatuhTempo }}">{{ \Carbon\Carbon::parse($r->last_visit_date)->translatedFormat("j M Y") }}</span>
                             <span class="ort-lv__umur ort-lv__umur--{{ $lvNada }} tabular">{{ $lvUmur }} hari</span>
                         @else
                             {{-- Bracket terpasang, nol kunjungan tercatat. Bukan kabar
                                  baik, jadi bukan hijau — dan ia naik ke ATAS urutan
                                  kegentingan, bukan turun. --}}
-                            <span class="ort-lv__tgl">belum pernah datang</span>
+                            <span class="ort-lv__tgl" title="{{ $tipJatuhTempo }}">belum pernah datang</span>
                             <span class="ort-lv__umur ort-lv__umur--faint">tak ada dasar</span>
                         @endif
-
-                        <span class="ort-lv__due {{ $telat ? 'ort-sub-red' : '' }}"
-                              title="{{ \App\Models\OrtControl::perkiraanJatuhTempo(\Carbon\Carbon::parse($r->sch_date), $hariIni) }} — ini PENGINGAT, bukan janji. Janji yang sudah disepakati ada di kolom Reservasi.{{ $r->is_proposal ? ' · dihitung sistem, belum disentuh Sales' : '' }}">
-                            jatuh tempo <span class="tabular {{ $r->is_proposal ? 'ort-proposal' : '' }}">{{ \Carbon\Carbon::parse($r->sch_date)->translatedFormat("j M") }}</span>
-                        </span>
                     </div>
 
                     {{-- JADWAL DOKTER — hari praktik dokter pasien ini, 7 hari ke depan.
@@ -350,7 +385,7 @@
                         @php $jd = $jadwalDokter[$r->ort_case_id] ?? null; @endphp
 
                         @if ($jd === null)
-                            <span class="ort-dokhari__belum"
+                            <span class="ort-dok__belum"
                                   title="Hari praktik dokter muncul mulai H-{{ \App\Models\OrtCase::HARI_PRAKTIK_MUNCUL }} sebelum jatuh tempo kontrol.">—</span>
                         @elseif ($jd['sebab'])
                             {{-- Empat sebab, empat kalimat. `tak_terpetakan` diperbaiki
@@ -361,28 +396,37 @@
                                  terlihat tiap hari alih-alih tersembunyi di balik "-". --}}
                             @php
                                 $sebabTeks = [
-                                    'tanpa_dokter'       => 'belum ada dokter',
-                                    'tak_terpetakan'     => 'dokter belum terpetakan',
-                                    'tak_praktik'        => 'tidak praktik di sini',
-                                    'tak_ada_hari_pekan' => 'tak ada hari pekan ini',
+                                    'tanpa_dokter'       => 'Belum ada dokter',
+                                    'tak_terpetakan'     => 'Dokter belum terpetakan',
+                                    'tak_praktik'        => 'Belum ada jadwal praktik',
+                                    'tak_ada_hari_pekan' => 'Tak ada hari pekan ini',
                                 ][$jd['sebab']] ?? $jd['sebab'];
                             @endphp
-                            <span class="ort-dokhari__sebab"
+                            <span class="ort-dok__sebab"
                                   title="{{ app(\App\Services\Ortho\OrtJadwalDokter::class)->penjelasan($jd['sebab'], $jd['dokter']) }}">{{ $sebabTeks }}</span>
                         @else
-                            <div class="ort-dokhari">
-                                @foreach (array_slice($jd['hari'], 0, \App\Services\Ortho\OrtJadwalDokter::PIL_MAKS) as $h)
-                                    <span class="ort-datepill ort-datepill--{{ $h['nada'] }} {{ $h['cuti'] ? 'is-cuti' : '' }} tabular"
+                            {{-- Teks berkoma, bukan pil berlatar. Tiga pil memberi
+                                 tanggal bobot visual setara tombol di sebelahnya, dan
+                                 di baris padat itu menghentikan mata di tempat yang
+                                 salah. Warnanya tetap, bobotnya kembali ke tempatnya. --}}
+                            @php $pil = array_slice($jd['hari'], 0, \App\Services\Ortho\OrtJadwalDokter::PIL_MAKS); @endphp
+                            <div class="ort-dok tabular">
+                                {{-- Koma MENEMPEL di ujung tanggal sebelumnya, bukan di
+                                     baris sendiri: Blade mengubah pergantian baris jadi
+                                     spasi, dan versi pertama merender "4 Okt , 5 Okt"
+                                     dengan spasi menggantung sebelum koma. --}}
+                                @foreach ($pil as $i => $h)
+                                    <span class="ort-dok__d--{{ $h['cuti'] ? 'cuti' : $h['nada'] }}"
                                           title="{{ $h['cuti']
-                                              ? $jd['dokter'] . ' cuti ' . \Carbon\Carbon::parse($h['tanggal'])->translatedFormat('j M')
+                                              ? ($jd['dokter'] ?: 'Dokter ini') . ' cuti ' . \Carbon\Carbon::parse($h['tanggal'])->translatedFormat('j M')
                                               : $namaCabang . ' · ' . ($h['total'] > 0
                                                   ? 'sisa ' . ($h['total'] - $h['terisi']) . ' dari ' . $h['total'] . ' slot'
                                                   : 'slot belum terbentuk')
-                                                . ($h['jam'] ? ' · ' . $h['jam'] : '') }}">{{ \Carbon\Carbon::parse($h['tanggal'])->translatedFormat('j M') }}</span>
+                                                . ($h['jam'] ? ' · ' . $h['jam'] : '') }}">{{ \Carbon\Carbon::parse($h['tanggal'])->translatedFormat('j M') }}</span>@if (! $loop->last || count($jd['hari']) > \App\Services\Ortho\OrtJadwalDokter::PIL_MAKS)<span class="ort-dok__sep">,</span>@endif
                                 @endforeach
 
                                 @if (count($jd['hari']) > \App\Services\Ortho\OrtJadwalDokter::PIL_MAKS)
-                                    <span class="ort-dokhari__more"
+                                    <span class="ort-dok__more"
                                           title="{{ collect(array_slice($jd['hari'], \App\Services\Ortho\OrtJadwalDokter::PIL_MAKS))->map(fn ($h) => \Carbon\Carbon::parse($h['tanggal'])->translatedFormat('j M') . ($h['cuti'] ? ' (cuti)' : ''))->implode(' · ') }}">+{{ count($jd['hari']) - \App\Services\Ortho\OrtJadwalDokter::PIL_MAKS }}</span>
                                 @endif
                             </div>
@@ -432,11 +476,13 @@
                         @endphp
 
                         @if ($fuHariIni)
-                            {{-- Sudah ditelepon hari ini. Abu dan tidak bisa diklik —
-                                 bukan disembunyikan, karena tanggalnya tetap informasi. --}}
-                            <span class="ort-nodo" style="flex:1;" title="{{ $fuTip }}">
-                                <i class="far fa-comment"></i>
-                                <span class="ort-nodo__t">Sudah di-FU</span>
+                            {{-- Sudah ditelepon hari ini: abu, tidak bisa diklik, TAPI
+                                 tetap berbentuk dan selebar tombol aslinya — supaya
+                                 kolomnya tidak berkedut antar baris dan mata langsung
+                                 tahu baris ini sudah beres. Besok hijau lagi, dibaca
+                                 dari tanggal, tanpa cron. --}}
+                            <span class="ort-btn ort-btn--diam" title="{{ $fuTip }}">
+                                Sudah FU hari ini
                                 @if ($fuHasil && $r->fu_result !== \App\Models\OrtControl::FU_DIHUBUNGI)
                                     {{-- Titik kecil menandai hasil yang BUKAN "bersedia",
                                          supaya Sales tahu ada sesuatu di tooltip tanpa
@@ -446,7 +492,7 @@
                             </span>
                         @else
                             <a href="{{ $tautan(['sheet' => 'follow-up', 'kontrol' => $r->id]) }}"
-                               class="ort-btn" style="flex:1;" onclick="event.stopPropagation()"
+                               class="ort-btn ort-btn--go" onclick="event.stopPropagation()"
                                title="{{ $r->fu_date
                                    ? 'Terakhir di-FU ' . \Carbon\Carbon::parse($r->fu_date)->translatedFormat("j M 'y") . ' — catat follow-up hari ini'
                                    : 'Catat hasil follow-up pasien ini' }}">Follow Up</a>
@@ -461,10 +507,10 @@
                              otomatis tercatat sebagai follow up." --}}
                         @if ($wa)
                             <a href="https://wa.me/{{ $wa }}" target="_blank" rel="noopener"
-                               class="ort-btn--wa" title="Buka WhatsApp {{ $r->patient_name }}"
+                               class="ort-btn ort-btn--bulat" title="Buka WhatsApp {{ $r->patient_name }}"
                                onclick="event.stopPropagation()"><i class="fab fa-whatsapp"></i></a>
                         @else
-                            <span class="ort-btn--wa ort-btn--wa-bad"
+                            <span class="ort-btn ort-btn--bulat is-bad"
                                   title="Nomor tidak valid, tidak bisa dibuka di WhatsApp"><i class="fas fa-exclamation-triangle"></i></span>
                         @endif
                     </div>
@@ -485,8 +531,9 @@
                             {{-- Reservasi batal = tugasnya kembali. Tombolnya muncul
                                  lagi — reservasi batal berarti tugasnya kembali. --}}
                             <a href="{{ $tautan(['sheet' => 'reservasi', 'kontrol' => $r->id]) }}"
-                               class="ort-btn ort-btn--mini" onclick="event.stopPropagation()"
-                               title="Buat reservasi pengganti">Reservasi</a>
+                               class="ort-btn ort-btn--rsv ort-btn--sm" onclick="event.stopPropagation()"
+                               style="margin-top:6px;"
+                               title="Buat reservasi pengganti"><i class="far fa-calendar-alt"></i> Reservasi</a>
                         @elseif ($rsvWaitlist)
                             <span class="ort-waitlist">Waitlist</span>
                             <span class="ort-cell--sub"
@@ -505,8 +552,8 @@
                             <span class="ort-cell--sub">{{ $r->rsv_status === 'confirmed' ? 'dikonfirmasi' : 'menunggu' }}</span>
                         @else
                             <a href="{{ $tautan(['sheet' => 'reservasi', 'kontrol' => $r->id]) }}"
-                               class="ort-btn" onclick="event.stopPropagation()"
-                               title="Buka form Reservasi dengan data pasien ini sudah terisi">Reservasi</a>
+                               class="ort-btn ort-btn--rsv" onclick="event.stopPropagation()"
+                               title="Buka form Reservasi dengan data pasien ini sudah terisi"><i class="far fa-calendar-alt"></i> Reservasi</a>
                         @endif
                     </div>
 
@@ -538,7 +585,13 @@
                  _tabel dan bukan di panel supaya rumusnya tetap satu: baris
                  tertutup "Terlewat 32 hari" dan panelnya tidak boleh pernah
                  berbeda pendapat. --}}
-            @include('crud.ortho._baris_terbuka', ['r' => $r, 'wa' => $wa, 'telat' => $telat, 'bolehBatalFu' => $bolehBatalFu, 'chipTeks' => $chipTeks, 'chipKelas' => $chipKelas])
+            @include('crud.ortho._baris_terbuka', [
+                'r' => $r, 'wa' => $wa, 'telat' => $telat, 'bolehBatalFu' => $bolehBatalFu,
+                'chipTeks' => $chipTeks, 'chipKelas' => $chipKelas,
+                // Dioper EKSPLISIT, tidak diandalkan dari scope induk: panel ini
+                // juga dirender lewat fragmen, dan di sana scope-nya tidak sama.
+                'riwayatVisit' => $riwayatVisit ?? [], 'riwayatFu' => $riwayatFu ?? [],
+            ])
 
         @empty
             <div style="padding:14px 0;">
@@ -548,11 +601,23 @@
 
     </div>
 
-    {{-- Pita kaki dibuang. Kalimatnya menerangkan cara kerja mesin, bukan
-         keadaan daftar ini — dan "Simulasikan tarikan malam ini" cuma <span>
-         peraga sisa serah-terima desain: tidak pernah punya form maupun route,
-         jadi mengkliknya tak melakukan apa-apa. Tarikan malam yang sebenarnya
-         dijadwalkan di Kernel pukul 04.00. --}}
+    {{-- Keterangan warna kolom Jadwal Dokter. Tanpa ini, empat warna di sana
+         adalah sandi yang cuma dimengerti orang yang ikut rapat desainnya.
+
+         ⚠ "Simulasikan tarikan malam ini" dari lembar rancangan SENGAJA tidak
+           dibuat. Di rancangan ia cuma <span> peraga — tanpa form, tanpa route.
+           Membuatnya sungguhan berarti menaruh tombol yang MENULIS data rekam
+           medis di halaman kerja harian Sales; tarikan malam yang sebenarnya
+           dijadwalkan di Kernel pukul 04.00, dan kalau perlu dipicu manual,
+           tempatnya baris perintah, bukan sini. --}}
+    <div class="ort-legenda">
+        <span class="ort-legenda__k">Jadwal dokter:</span>
+        <span><i class="ort-legend-dot" style="background:var(--ort-ok);"></i> Masih kosong</span>
+        <span><i class="ort-legend-dot" style="background:var(--ort-warn);"></i> Hampir penuh</span>
+        <span><i class="ort-legend-dot" style="background:var(--ort-bad);"></i> Penuh</span>
+        <span><i class="ort-legend-dot" style="background:var(--ort-muted);"></i> Dokter cuti</span>
+    </div>
+
     @include('crud.ortho._paginasi', ['data' => $baris, 'satuan' => 'jadwal', 'perHal' => $perHal])
 </div>
 

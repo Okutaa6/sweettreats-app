@@ -64,6 +64,31 @@ selera: tiga `migration` dengan `down()` (CLAUDE.md melarangnya mutlak — jadi
 tiga berkas `database/sql/` idempotent), dan gerbang per-role untuk tombol
 (modul ini sengaja nol pemeriksaan role; gerbangnya kepemilikan cabang).
 
+### Gelombang ketiga — 3 Okt 2026, menyesuaikan lembar rancangan
+
+Tampilan Phase 1 direvisi dan Phase 2 dipasang, mengikuti lembar rancangan yang
+Reza berikan.
+
+| Yang berubah | Kenapa |
+|---|---|
+| Jadwal Dokter: pil → **teks berkoma** | Tiga pil berlatar memberi tanggal bobot visual setara tombol di sebelahnya; di baris padat itu menghentikan mata di tempat yang salah |
+| Hari cuti **dicoret**, bukan dihilangkan | Sel yang diam-diam melewati Kamis membuat Sales mengira datanya rusak |
+| **Legenda warna** di kaki tabel | Empat warna tanpa keterangan adalah sandi yang cuma dimengerti yang ikut rapat |
+| Follow Up jadi **tombol hijau**, "Sudah FU hari ini" abu | Keadaan baris terbaca dari bentuk, bukan dari membaca teks |
+| Sub-baris jatuh tempo **dibuang** → tooltip | Sebab urutan dijawab satu kalimat di atas tabel; tanggal kecil di 50 baris menjawabnya 50 kali dan tetap tidak terbaca |
+| Saringan Status Pasien **pindah ke atas tabel** | Ia saklar MODE, bukan detail saringan — di dalam panel terlipat orang tidak pernah menemukannya. Yang di panel filter dibuang supaya tidak ada dua kendali untuk satu parameter |
+| Badge Inactive → **pita pemisah** inline | Berdiri tepat sebelum baris Inactive pertama, jadi turunnya terbaca sebagai keputusan |
+| Panel baris jadi **tiga kolom** | Phase 2: Profile · Kontrol · Follow Up |
+
+⚠ **Satu regresi yang sempat saya buat dan harus dicatat.** Membubarkan garis
+waktu mini ikut menghapus teks keadaan reservasi — dan bersamanya jaminan yang
+dibangun sesi sebelumnya: "Tidak tertaut reservasi" (belum dicek) tidak boleh
+terbaca seperti "tidak ada reservasi". Drawer TIDAK menutupinya; di sana
+kolomnya cuma `X`, yang justru keadaan ambigu yang jaminan itu lahir untuk
+mencegah. Diperbaiki dengan memindahkannya ke `OrtControl::keadaanReservasi()`
+— satu metode, dipanggil kolom KONTROL — yang sekaligus menyembuhkan penyakit
+aslinya: klaim yang sama pernah hidup di empat tempat dan berbeda pendapat.
+
 ⚠ **Satu cacat rancangan yang perlu diingat:** gerbang H-3 pada kolom Jadwal
 Dokter BUKAN penghemat kueri. "Hari ini ≥ H-3 sebelum jatuh tempo" juga benar
 untuk setiap baris yang jatuh temponya sudah lewat, jadi di sub-tab Terlewat

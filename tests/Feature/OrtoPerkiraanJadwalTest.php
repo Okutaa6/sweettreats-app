@@ -294,9 +294,18 @@ class OrtoPerkiraanJadwalTest extends TestCase
         $sel = $this->selJadwal($this->halaman(['q' => self::TANDA]));
 
         $this->assertNotEmpty($sel, 'Prasyarat: barisnya memang terender.');
+        /* Tooltipnya kini DIAWALI tanggal jatuh tempo lalu kalimat perkiraan
+           ("Jatuh tempo 17 Nov '26 · ± Nov — ini PENGINGAT, bukan janji..."),
+           karena jatuh tempo tidak lagi punya baris sendiri di sel. Yang
+           dijaga tetap sama: kalimat perkiraannya ADA di title, jadi rumus
+           perkiraanJatuhTempo() tidak menjaga kode mati. */
         $this->assertNotEmpty(
-            array_filter($sel, fn ($x) => str_contains($x, 'title="±')),
+            array_filter($sel, fn ($x) => (bool) preg_match('/title="[^"]*· ±/', $x)),
             'Perkiraan harus ada di atribut title. Yang ada: ' . implode(' | ', $sel)
+        );
+        $this->assertNotEmpty(
+            array_filter($sel, fn ($x) => str_contains($x, 'PENGINGAT, bukan janji')),
+            'Kalimat penutup ambiguitas itu wajib ikut pindah ke tooltip, bukan hilang.'
         );
     }
 
@@ -323,10 +332,15 @@ class OrtoPerkiraanJadwalTest extends TestCase
            telanjang. Teks yang sama juga dipakai chip STATUS di panel baris,
            jadi mencocokkan teksnya saja akan hijau walau tombolnya salah —
            dan uji pasangannya di bawah justru MERAH karena chip itu. */
+        /* Penandanya `ort-btn--diam` — kolom Follow Up kini TOMBOL yang
+           berubah jadi abu, bukan teks `.ort-nodo`. Dicocokkan ke kelasnya,
+           bukan ke teks telanjang: "Sudah FU hari ini" juga bisa muncul di
+           tempat lain, dan uji pasangannya di bawah justru merah karenanya. */
         $this->assertStringContainsString(
-            'ort-nodo__t">Sudah di-FU', $html,
+            'ort-btn--diam', $html,
             'Pasien yang sudah di-FU hari ini harus terlihat begitu, bukan diberi tombol hijau lagi.'
         );
+        $this->assertStringContainsString('Sudah FU hari ini', $html);
 
         // Tanggal dan pencatatnya tidak boleh ikut hilang — keduanya fakta.
         // Lebarnya tidak cukup untuk teks, jadi tempatnya tooltip.
@@ -353,7 +367,7 @@ class OrtoPerkiraanJadwalTest extends TestCase
         // Penanda TOMBOL, bukan teks telanjang — chip Status di panel baris
         // berbunyi "Sudah di-FU" juga, dan baris ini memang punya chip itu.
         $this->assertStringNotContainsString(
-            'ort-nodo__t">Sudah di-FU', $html,
+            'ort-btn--diam', $html,
             'Follow-up kemarin masih mematikan tombol hari ini — tombolnya tidak pernah hijau lagi.'
         );
         $this->assertStringContainsString('>Follow Up</a>', $html, 'Tombol Follow Up harus bisa diklik lagi.');

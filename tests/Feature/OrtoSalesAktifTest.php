@@ -360,16 +360,42 @@ class OrtoSalesAktifTest extends TestCase
 
         $html = $this->halaman();
 
-        $this->assertStringContainsString('ort-salesbadge', $html, 'Badge hitungan Inactive tidak terender.');
-        $this->assertStringContainsString('1 Inactive', $html);
+        /* Pembawanya berganti 3 Okt 2026: badge mengambang di atas tabel
+           digantikan PITA PEMISAH yang berdiri tepat sebelum baris Inactive
+           pertama. Alasannya sama dengan sebelumnya dan tidak melemah —
+           turunnya mereka ke bawah harus terbaca sebagai keputusan, bukan
+           seperti daftar yang tiba-tiba berubah sifat di tengah. */
+        $this->assertStringContainsString('ort-group__hint', $html, 'Pita pemisah Inactive tidak terender.');
+        $this->assertStringContainsString(
+            'jarang kontrol atau menghilang', $html,
+            'Pita harus menerangkan apa arti Inactive, bukan cuma melabelinya.'
+        );
+        $this->assertStringContainsString('ort-chip--inactive', $html, 'Baris Inactive harus ber-chip di kolom Nama.');
     }
 
-    /** Tanpa pasien Inactive, badge-nya tidak perlu ada. */
-    public function test_badge_hilang_kalau_tidak_ada_inactive(): void
+    /** Tanpa pasien Inactive, pita pemisahnya tidak perlu ada. */
+    public function test_pita_hilang_kalau_tidak_ada_inactive(): void
     {
         $this->pasien('A1', 40, 30, true);
 
-        $this->assertStringNotContainsString('ort-salesbadge', $this->halaman());
+        $html = $this->halaman();
+
+        $this->assertStringNotContainsString('jarang kontrol atau menghilang', $html);
+        $this->assertStringNotContainsString('ort-chip--inactive', $html);
+    }
+
+    /** ⭐ Dan pita itu muncul SEKALI saja, bukan di tiap baris Inactive. */
+    public function test_pita_muncul_sekali_saja(): void
+    {
+        $this->pasien('A1', 40, 30, true);
+        foreach (['P1', 'P2', 'P3'] as $n) {
+            $this->pasien($n, 40, 30, false);
+        }
+
+        $this->assertSame(
+            1, substr_count($this->halaman(), 'jarang kontrol atau menghilang'),
+            'Pita pemisah harus berdiri sekali, tepat sebelum baris Inactive pertama.'
+        );
     }
 
     // ════════════════════════════════════════════════════════════════════════

@@ -261,6 +261,79 @@ class OrtControl extends Model
 
     // ── Turunan untuk tampilan
 
+    /**
+     * Apa yang kita KETAHUI tentang reservasi kontrol ini — satu rumah.
+     *
+     * ────────────────────────────────────────────────────────────────────────
+     * KENAPA INI METODE, BUKAN LAGI BLOK `@php` DI BLADE
+     * ────────────────────────────────────────────────────────────────────────
+     * Klaim yang sama pernah hidup di EMPAT tempat — panel baris, badge tabel,
+     * tooltip drawer, dan COMMENT kolom di DB — lalu ketiganya berbeda pendapat
+     * tentang baris yang sama. Satu metode, satu kosakata; layar mana pun yang
+     * ingin menyebut keadaan reservasi memanggil ini, bukan menyusun kalimatnya
+     * sendiri.
+     *
+     * ⚠ URUTAN CABANGNYA MENGIKAT. `rsv_date` diperiksa SEBELUM `unscheduled`.
+     *   Dulu kebalikannya, dan akibatnya baris walk-in yang berhasil ditautkan
+     *   `ort:tautkan-reservasi` tetap berbunyi "tanpa reservasi" — menyembunyikan
+     *   tanggal yang baru saja diisi, karena perintah itu tidak mereset
+     *   `unscheduled`.
+     *
+     * ⚠ KITA TIDAK TAHU apakah pasien punya reservasi atau tidak. Reservasi
+     *   hidup di `raw_cus_reservation` — tabel Sweet Treats, BUKAN Omnicare.
+     *   Omnicare cuma tahu pasien DATANG. `unscheduled = 1` artinya "kunjungan
+     *   ini tidak cocok dengan baris jadwal mana pun di sistem kita", BUKAN
+     *   "pasien datang tanpa memesan".
+     *
+     *   Selama `ort:tautkan-reservasi --commit` belum dijalankan,
+     *   `reservation_id` kosong untuk hampir semua baris (0 dari 35.317 di
+     *   prod). "Belum pernah dicek" tidak boleh ditampilkan seperti "sudah
+     *   dicek, hasilnya nihil" — itulah kenapa cabang terakhir berbunyi
+     *   "Tidak tertaut reservasi" dan bukan "Tidak ada reservasi".
+     *
+     * @return array{teks: string, label: string, nada: string}
+     */
+    public function keadaanReservasi(?string $namaCabang = null): array
+    {
+        if ($this->rsv_status === 'cancelled') {
+            return [
+                'teks'  => ($this->rsv_date ? $this->rsv_date->translatedFormat("j M 'y") : '—')
+                         . ' · dibatalkan'
+                         . ($this->rsv_synced_at ? ' ' . $this->rsv_synced_at->translatedFormat('j M') : ''),
+                'label' => 'Batal',
+                'nada'  => 'batal',
+            ];
+        }
+
+        if ($this->reservation_id && ! $this->rsv_date) {
+            return ['teks' => 'Masuk daftar tunggu', 'label' => 'Waitlist', 'nada' => 'telat'];
+        }
+
+        if ($this->rsv_date) {
+            return [
+                'teks'  => $this->rsv_date->translatedFormat("j M 'y")
+                         . ($namaCabang ? ' · ' . $namaCabang : ''),
+                'label' => $this->visit_date ? 'Datang' : ($this->closed_at ? 'Terlewat' : 'Terjadwal'),
+                'nada'  => $this->visit_date ? 'hadir' : ($this->closed_at ? 'telat' : 'rsv'),
+            ];
+        }
+
+        if ($this->unscheduled && $this->visit_date) {
+            return [
+                'teks'  => 'Datang ' . $this->visit_date->translatedFormat("j M 'y")
+                         . ' — tidak ada jadwal tercatat',
+                'label' => 'Tanpa jadwal',
+                'nada'  => 'menunggu',
+            ];
+        }
+
+        if ($this->isTerbuka()) {
+            return ['teks' => 'Belum ada reservasi', 'label' => 'Belum dipesan', 'nada' => 'menunggu'];
+        }
+
+        return ['teks' => 'Tidak tertaut reservasi', 'label' => '—', 'nada' => 'menunggu'];
+    }
+
     public function isTerbuka(): bool
     {
         return $this->closed_at === null;
