@@ -264,6 +264,17 @@ class OrtoPerkiraanJadwalTest extends TestCase
     /**
      * Tanggal yang masih hitungan mesin tetap ditandai — kejujurannya dipindah,
      * bukan dibuang. Begitu Sales menyentuhnya (is_proposal = 0), tandanya hilang.
+     *
+     * ⚠ PEMBAWANYA BERGANTI 6 Okt 2026, dan penyebabnya kesalahan nyata.
+     *   Garis putus `.ort-proposal` sempat tertempel pada tanggal LAST VISIT —
+     *   terbawa saat kolom Jadwal dilebur ke sana. Itu kebalikan artinya:
+     *   `is_proposal` menerangkan `sch_date` (usulan mesin), sedangkan
+     *   last_visit_date adalah KUNJUNGAN YANG SUDAH TERJADI, diisi dari rekam
+     *   medis. Fakta keras jadi ditandai seolah tebakan.
+     *
+     *   Garisnya dicabut dari tabel. Penandanya tetap hidup di DUA tempat yang
+     *   benar, dan keduanya diuji di bawah: tooltip di tabel, dan garis putus
+     *   di matriks drawer — di sana ia menempel pada sch_date, tempatnya.
      */
     public function test_tanggal_hitungan_mesin_ditandai(): void
     {
@@ -274,10 +285,17 @@ class OrtoPerkiraanJadwalTest extends TestCase
         $sel  = $this->selJadwal($html);
 
         $this->assertCount(2, $sel, 'Prasyarat: dua baris terender.');
+
         $this->assertSame(
             1,
-            count(array_filter($sel, fn ($x) => str_contains($x, 'ort-proposal'))),
-            'Tepat satu sel bergaris putus — hanya yang is_proposal.'
+            count(array_filter($sel, fn ($x) => str_contains($x, 'masih hitungan sistem'))),
+            'Tepat satu sel menyebutnya di tooltip — hanya yang is_proposal.'
+        );
+
+        $this->assertStringNotContainsString(
+            'ort-proposal', $html,
+            'Garis putus TIDAK boleh kembali ke tabel: yang tampil di sana tanggal '
+            . 'kunjungan, dan menandainya sebagai usulan mesin adalah kebalikan artinya.'
         );
     }
 

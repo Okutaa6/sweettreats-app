@@ -312,12 +312,12 @@
 
                          Tanggal membedakan sendiri tanpa perlu tingkatan.
 
-                         ⚠ Kejujurannya dipindah, bukan dibuang:
-                           · `.ort-proposal` — garis putus amber untuk tanggal yang
-                             masih hitungan mesin (is_proposal). Begitu Sales
-                             menyentuhnya, garis itu hilang.
-                           · tooltip membawa kalimat perkiraannya, jadi "kira-kira
-                             kapan" tetap terbaca tanpa memakan lebar kolom. --}}
+                         ⚠ Kejujurannya dipindah, bukan dibuang — tapi SELURUHNYA ke
+                           tooltip, termasuk penanda "masih hitungan mesin". Garis
+                           putus `.ort-proposal` TIDAK dipakai di kolom ini: ia
+                           menerangkan sch_date, dan yang tampil di sini
+                           last_visit_date. Menempelkannya ke tanggal kunjungan
+                           membuat fakta keras terbaca sebagai tebakan mesin. --}}
                     {{-- data-ort-jadwal: penanda untuk uji. Sebelumnya uji menangkap
                          sel ini lewat regex `<div class="ort-cell">teks</div>` yang
                          putus begitu selnya punya elemen anak — dan "tidak ketemu"
@@ -358,7 +358,20 @@
                         @endphp
 
                         @if ($r->last_visit_date)
-                            <span class="ort-lv__tgl tabular {{ $r->is_proposal ? 'ort-proposal' : '' }}"
+                            {{-- ⚠ TANPA `.ort-proposal`, dan itu koreksi 6 Okt 2026.
+                                 Garis putus amber itu berarti "tanggal ini masih
+                                 hitungan mesin, belum disentuh Sales" — sifat milik
+                                 `sch_date`, bukan milik tanggal ini. `last_visit_date`
+                                 adalah KUNJUNGAN YANG SUDAH TERJADI, diisi tarikan
+                                 malam dari rekam medis; ia tidak pernah jadi usulan.
+
+                                 Kelasnya ikut terbawa saat kolom Jadwal dilebur ke
+                                 sini, dan akibatnya fakta keras ditandai seolah tebakan
+                                 mesin — persis kebalikan artinya. Penanda usulan tetap
+                                 hidup di tempat yang benar: matriks drawer, pada
+                                 kolom sch_date-nya. Di sini ia cukup disebut di
+                                 tooltip. --}}
+                            <span class="ort-lv__tgl tabular"
                                   title="{{ $tipJatuhTempo }}">{{ \Carbon\Carbon::parse($r->last_visit_date)->translatedFormat("j M Y") }}</span>
                             <span class="ort-lv__umur ort-lv__umur--{{ $lvNada }} tabular">{{ $lvUmur }} hari</span>
                         @else
