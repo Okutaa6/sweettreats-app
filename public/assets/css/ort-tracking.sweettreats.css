@@ -301,7 +301,7 @@
      salah satunya adalah kesalahan yang sudah pernah terjadi di berkas ini. */
 .ort-grid {
   display: grid;
-  grid-template-columns: minmax(186px, 1.5fr) 128px 150px minmax(190px, 1.1fr) 132px 118px 30px;
+  grid-template-columns: minmax(186px, 1.5fr) 128px 150px minmax(166px, 1.1fr) 186px 118px 30px;
   gap: 10px;
   align-items: center;
   min-width: 1010px;
@@ -1035,10 +1035,18 @@
    Dua tombol SETARA di dua kolom, bukan satu tombol yang berganti-ganti. Itu
    konsekuensi langsung dari prompt yang menetapkan keduanya sebagai kolom
    tombol: pasien yang sudah punya reservasi tetap boleh ditelepon. */
+/* ⚠ `flex: 1; min-width: 0`, BUKAN `width: 100%`.
+     Keduanya terlihat sama selama labelnya pendek, lalu berbeda tajam begitu
+     labelnya panjang: `width: 100%` menetapkan lebar dasar sebesar seluruh
+     kolom, dan karena `.ort-btn` ber-`white-space: nowrap` dengan `min-width:
+     auto` bawaan flex, tombol tidak bisa menyusut di bawah lebar teksnya —
+     yang meluber keluar kolom justru tetangganya, tombol bundar WhatsApp yang
+     `flex: none`. `min-width: 0` mencabut lantai itu, jadi kalaupun suatu hari
+     labelnya lebih panjang lagi, yang mengalah adalah tombolnya sendiri. */
 .ort-btn--go {
   background: linear-gradient(135deg, #2F8E55, #1F6B3E);
   box-shadow: 0 4px 12px rgba(31, 107, 62, .22);
-  width: 100%;
+  flex: 1; min-width: 0;
 }
 .ort-btn--go:hover { filter: brightness(1.06); }
 
@@ -1048,20 +1056,31 @@
    itu dibaca dari tanggal — tanpa cron. */
 .ort-btn--diam {
   background: var(--ort-neu-bg); color: #A28D78; box-shadow: none;
-  cursor: default; width: 100%;
+  cursor: default; flex: 1; min-width: 0;
+}
+
+/* Jaring pengaman terakhir: kalau toh tidak muat, yang terpotong adalah
+   LABELNYA — bukan tombol WhatsApp yang hilang dari layar tanpa jejak.
+   Kalimat utuhnya tetap ada di title.
+
+   ⚠ Ellipsis-nya di ANAK, bukan di tombolnya. `text-overflow` tidak berlaku
+     pada wadah flex, dan memaksa tombolnya jadi `display: block` membuatnya
+     ~2px lebih tinggi dari tombol hijau di baris sebelah — persis kolom
+     berkedut yang tombol ini dibuat untuk mencegahnya. */
+.ort-btn--diam > span {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
 }
 .ort-btn--diam:hover { color: #A28D78; filter: none; }
 
-/* Tombol bundar di samping Follow Up. Sengaja NETRAL, bukan hijau WhatsApp:
-   di sebelah tombol hijau besar, dua hijau bersebelahan membuat keduanya
-   saling menurunkan bobot. Ikonnya yang membawa arti. */
-.ort-btn--bulat {
-  background: #fff; color: var(--ort-ink2); border: 1px solid var(--ort-line2);
-  box-shadow: none; width: 32px; height: 32px; padding: 0; flex: none; border-radius: 50%;
-}
-.ort-btn--bulat:hover { background: #EAF6EE; color: var(--ort-wa); border-color: var(--ort-wa-line); }
-.ort-btn--bulat.is-bad { color: var(--ort-warn); border-color: #E8C9A6; cursor: not-allowed; }
-.ort-btn--bulat.is-bad:hover { background: #fff; color: var(--ort-warn); }
+/* ⚠ TIDAK ada kelas tombol WhatsApp baru di sini, dan itu disengaja.
+   Sempat ada `.ort-btn--bulat` — bundar, garis netral, ikon cokelat — dengan
+   alasan "dua hijau bersebelahan saling menurunkan bobot". Dibatalkan 6 Okt
+   2026 atas permintaan Reza: yang dipakai kembali `.ort-btn--wa` yang SUDAH
+   ADA di berkas ini (persegi membulat 9px, ikon dan garis hijau WhatsApp).
+
+   Pelajarannya bukan soal selera: kelas baru itu menimpa kelas yang sudah
+   melakukan hal yang sama, dan selama satu commit modul ini punya dua tombol
+   WhatsApp berbeda rupa untuk fungsi yang sama. Cari dulu yang sudah ada. */
 
 /* Reservasi: cokelat penuh, sekolom sendiri. */
 .ort-btn--rsv { width: 100%; }
@@ -1614,11 +1633,21 @@ button.ort-btn { border: none; font-family: inherit; cursor: pointer; }
    paling bikin baris terlihat berdesakan. Tambahan lebarnya diambil dari
    kolom PASIEN yang punya 1,5fr dan selalu berlebih. */
 .ort-grid {
-  grid-template-columns: minmax(186px, 1.5fr) 146px 150px minmax(190px, 1.1fr) 132px 118px 30px;
+  grid-template-columns: minmax(186px, 1.5fr) 146px 150px minmax(166px, 1.1fr) 186px 118px 30px;
   gap: 13px;
   /* Turun dari 1080px: tujuh track menuntut lebih sedikit lebar tetap daripada
-     delapan, dan tablet 1024px jadi terpakai tanpa gulir mendatar. */
-  min-width: 1044px;
+     delapan, dan tablet 1024px jadi terpakai tanpa gulir mendatar.
+
+     ⚠ Kolom FOLLOW UP 186px, bukan 132px, dan angka itu bukan selera: label
+       keadaannya berganti panjang. "Follow Up" muat di 132px; "Sudah FU hari
+       ini" tidak — dan karena tombol bundar WhatsApp di sebelahnya `flex: none`,
+       yang terdorong keluar kolom justru tombol itu. Lebarnya dihitung dari
+       label TERPANJANG (±138px) + gap 9px + bundar 32px.
+
+       Selisihnya diambil dari JADWAL DOKTER (190 → 166px min), yang memang
+       melar: ia ber-`1.1fr`, jadi di layar lebar tetap lega, dan isinya paling
+       panjang ("19 Jan, 20 Jan, 23 Jan") masih muat di 166px. */
+  min-width: 1060px;
 }
 
 .ort-tr    { padding: 16px 18px; }

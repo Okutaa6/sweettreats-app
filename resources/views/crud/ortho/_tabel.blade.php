@@ -482,7 +482,10 @@
                                  tahu baris ini sudah beres. Besok hijau lagi, dibaca
                                  dari tanggal, tanpa cron. --}}
                             <span class="ort-btn ort-btn--diam" title="{{ $fuTip }}">
-                                Sudah FU hari ini
+                                {{-- Label dibungkus <span> supaya ellipsis-nya punya
+                                     sasaran: text-overflow tidak berlaku pada wadah
+                                     flex, dan `.ort-btn` itu inline-flex. --}}
+                                <span>Sudah FU hari ini</span>
                                 @if ($fuHasil && $r->fu_result !== \App\Models\OrtControl::FU_DIHUBUNGI)
                                     {{-- Titik kecil menandai hasil yang BUKAN "bersedia",
                                          supaya Sales tahu ada sesuatu di tooltip tanpa
@@ -507,10 +510,10 @@
                              otomatis tercatat sebagai follow up." --}}
                         @if ($wa)
                             <a href="https://wa.me/{{ $wa }}" target="_blank" rel="noopener"
-                               class="ort-btn ort-btn--bulat" title="Buka WhatsApp {{ $r->patient_name }}"
+                               class="ort-btn--wa" title="Buka WhatsApp {{ $r->patient_name }}"
                                onclick="event.stopPropagation()"><i class="fab fa-whatsapp"></i></a>
                         @else
-                            <span class="ort-btn ort-btn--bulat is-bad"
+                            <span class="ort-btn--wa ort-btn--wa-bad"
                                   title="Nomor tidak valid, tidak bisa dibuka di WhatsApp"><i class="fas fa-exclamation-triangle"></i></span>
                         @endif
                     </div>
