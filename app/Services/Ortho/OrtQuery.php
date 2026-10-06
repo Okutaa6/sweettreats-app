@@ -437,22 +437,34 @@ class OrtQuery
          * selalu di paling bawah (tetap tampil). Di dalam grup Active,
          * urutkan dari yang paling mendesak."
          *
-         * Dua permintaan itu bertabrakan dengan aturan yang sudah tertulis di
-         * _tabel.blade.php:13-15 — "'Semua' hanya DIURUTKAN Terlewat → Hari
-         * ini/Minggu ini → Mendatang". Keduanya tidak bisa menang di tab yang
-         * sama, jadi dibagi menurut tab:
+         * ⚠ BERLAKU DI SEMUA TAB sejak 6 Okt 2026, termasuk "Semua".
          *
-         *   tab "Semua"  → sch_date tetap kunci utama. Aturan brief utuh, dan
-         *                  bacaan kronologisnya tidak hilang.
-         *   sub-tab lain → rentang tanggalnya SUDAH diikat terapkanUrgensi(),
-         *                  jadi urutan tanggal tidak memberi informasi apa pun
-         *                  lagi di sana. Di situlah kemendesakan dipakai.
+         * Sebelumnya tab "Semua" diurutkan `sch_date` demi aturan yang tertulis
+         * di _tabel.blade.php — "'Semua' hanya DIURUTKAN Terlewat → Hari
+         * ini/Minggu ini → Mendatang". Itu dibatalkan karena efeknya di layar,
+         * dan Reza yang menunjukkannya: daftarnya terbaca seperti diurutkan
+         * ABJAD.
          *
-         * sales_active dan pemecah seri berlaku di SEMUA tab.
+         * Ia tidak salah lihat. Sejak kolom "Jadwal" dilebur ke Last Visit,
+         * `sch_date` TIDAK LAGI TAMPIL di layar — jadi kunci urut utamanya
+         * tidak terlihat, dan yang tersisa sebagai pola yang bisa dibaca mata
+         * justru pemecah serinya: nama. Terukur di cabang Bintaro, empat baris
+         * berbagi jatuh tempo 30 Sep dan berbaris LIA · RAAYA · SITI DHIYA ·
+         * SITI HALIMATU — alfabetis sempurna, tanpa sebab yang kelihatan.
+         *
+         * Obatnya bukan mengembalikan kolomnya, tapi mengurutkan pada apa yang
+         * MEMANG TERLIHAT: badge umur di kolom Last Visit. Sesudah ini warna
+         * badge menurun rapi dari merah ke kuning ke hijau dari atas ke bawah,
+         * dan urutannya menerangkan dirinya sendiri tanpa kolom tambahan.
+         *
+         * Aturan "tidak dikelompokkan" di _tabel.blade.php TIDAK dilanggar —
+         * yang berubah kunci urutnya, bukan ada/tidaknya kepala kelompok.
+         *
+         * sales_active dan pemecah seri berlaku di semua tab.
          */
         $q->orderByDesc('k.sales_active');
 
-        if ($urgensi !== 'semua') {
+        {
             /*
              * Mendesak = SIKLUS TERLEWAT sebagai pecahan, bukan selisih hari.
              * Pasien berinterval 21 hari yang telat 10 hari (1,48 siklus)
@@ -488,6 +500,9 @@ class OrtQuery
                 );
         }
 
+        /* `sch_date` turun jadi PEMECAH SERI, bukan kunci utama. Ia tetap
+           berguna di situ: dua pasien dengan kemendesakan sama persis diurutkan
+           oleh jatuh temponya, bukan oleh abjad. */
         return $q->orderBy('c.sch_date')
             ->orderBy('k.patient_name')
             // Pemecah seri UNIK, dan ini memperbaiki bug yang sudah ada:

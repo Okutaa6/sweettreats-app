@@ -233,22 +233,53 @@ class OrtoSalesAktifTest extends TestCase
     }
 
     /**
-     * Tab "Semua" tetap kronologis — aturan yang tertulis di _tabel.blade.php
-     * ("'Semua' hanya DIURUTKAN Terlewat → Hari ini/Minggu ini → Mendatang").
-     * Rasio siklus dipakai di SUB-TAB, di mana rentang tanggalnya sudah diikat
-     * sehingga urutan tanggal tidak memberi informasi apa pun lagi.
+     * ⭐ DIBALIK 6 Okt 2026: tab "Semua" ikut diurutkan KEMENDESAKAN, bukan
+     * `sch_date`.
+     *
+     * Reza melaporkan daftarnya terbaca seperti diurutkan ABJAD, dan ia tidak
+     * salah lihat: sejak kolom "Jadwal" dilebur ke Last Visit, `sch_date` tidak
+     * lagi tampil — jadi kunci urut utamanya tak terlihat, dan yang tersisa
+     * sebagai pola yang bisa dibaca mata justru pemecah serinya, nama. Empat
+     * baris di Bintaro berbagi jatuh tempo 30 Sep dan berbaris alfabetis.
+     *
+     * ⚠ FIXTURE-NYA SENGAJA DIBUAT AGAR DUA URUTAN ITU BERBEDA. Versi lama uji
+     *   ini memakai pasangan yang kebetulan menghasilkan urutan SAMA di kedua
+     *   aturan — jadi ia tetap hijau sesudah perilakunya berubah, sambil
+     *   namanya menjanjikan hal yang sudah tidak benar. Uji yang lulus karena
+     *   kebetulan lebih berbahaya daripada uji yang merah.
+     *
+     *     Lama  : umur 100, irama 60 → sch_date hari-40, rasio 1,67
+     *     Rapat : umur  50, irama 21 → sch_date hari-29, rasio 2,38
+     *
+     *   Urut tanggal → "Lama" dulu. Urut kemendesakan → "Rapat" dulu.
      */
-    public function test_tab_semua_tetap_berurut_tanggal(): void
+    public function test_tab_semua_diurutkan_kemendesakan_bukan_tanggal(): void
     {
-        // Irama rapat & telat sedikit (sch_date lebih baru) vs irama longgar
-        // & telat banyak (sch_date lebih lama).
-        $this->pasien('SchBaru', 25, 21, true);
-        $this->pasien('SchLama', 120, 60, true);
+        $this->pasien('TempoLama', 100, 60, true);
+        $this->pasien('IramaRapat', 50, 21, true);
 
         $nama = $this->urutanNama('semua');
 
         $this->assertCount(2, $nama);
-        $this->assertStringContainsString('SchLama', $nama[0], 'Tab Semua: sch_date paling lama di atas.');
+        $this->assertStringContainsString(
+            'IramaRapat', $nama[0],
+            'Tab Semua harus mendahulukan yang paling mendesak menurut iramanya, '
+            . 'bukan yang jatuh temponya paling lama.'
+        );
+        $this->assertStringContainsString('TempoLama', $nama[1]);
+    }
+
+    /** Dan sub-tab memakai aturan yang SAMA — tidak ada lagi dua aturan. */
+    public function test_sub_tab_memakai_urutan_yang_sama(): void
+    {
+        $this->pasien('TempoLama', 100, 60, true);
+        $this->pasien('IramaRapat', 50, 21, true);
+
+        $this->assertSame(
+            $this->urutanNama('semua'), $this->urutanNama('terlewat'),
+            'Satu aturan urut untuk semua tab — dua aturan adalah cara daftar yang sama '
+            . 'terbaca berbeda tergantung tab mana yang sedang dibuka.'
+        );
     }
 
     // ════════════════════════════════════════════════════════════════════════

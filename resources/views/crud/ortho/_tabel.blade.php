@@ -10,9 +10,14 @@
         baris: nama · WhatsApp+telepon · badge (opsional). RM hanya muncul di
         panel yang dibuka, antrean, tab cabang lain, dan drawer.
       • TIDAK ADA teks instruksi "Klik baris untuk buka ringkas…".
-      • TIDAK ADA kepala kelompok di tab List — "Semua" hanya DIURUTKAN
-        Terlewat → Hari ini/Minggu ini → Mendatang, bukan dikelompokkan.
-        Kepala kelompok hanya ada di antrean penjadwalan (§10).
+      • TIDAK ADA kepala kelompok di tab List — daftarnya DIURUTKAN, bukan
+        dikelompokkan. Kepala kelompok hanya ada di antrean penjadwalan (§10)
+        dan satu pita pemisah Inactive di kaki daftar.
+        ⚠ Kunci urutnya berubah 6 Okt 2026: dulu `sch_date` (Terlewat → Hari
+          ini → Mendatang), sekarang KEMENDESAKAN relatif terhadap irama tiap
+          pasien. Sebabnya ada di OrtQuery::daftar() — singkatnya, sejak
+          `sch_date` tidak lagi punya kolom, mengurutkan padanya membuat
+          daftar terbaca seperti diurutkan abjad.
 --}}
 @php
     $chipLabel = [
@@ -34,24 +39,19 @@
        (aturan brief di kepala berkas ini), sub-tab yang lain diurutkan
        kemendesakan. Satu kalimat tetap untuk keduanya akan salah di salah
        satunya, dan salah dengan percaya diri. --}}
-<div class="ort-tbar">
-    <span class="ort-tbar__hint">
-        Active di atas ·
-        {{ ($urgensi ?? 'semua') === 'semua' ? 'jatuh tempo terdekat dulu' : 'paling lama tidak kontrol dulu' }}
-    </span>
+{{-- Satu kalimat: KENAPA urutannya begini. Sekali untuk seluruh tabel, bukan
+     tanggal kecil di tiap baris — yang kedua menjawab pertanyaan yang sama lima
+     puluh kali dan tetap tidak terbaca.
 
-    <span class="ort-tbar__lbl">Status Pasien</span>
-    {{-- Navigasi langsung, bukan bagian form filter: ini SAKLAR MODE, dan
-         menaruhnya di dalam panel filter yang terlipat membuat orang tidak
-         pernah menemukannya. $tautan membuang `page`, jadi memilih Inactive
-         tidak mendaratkan orang di halaman 7 yang kosong. --}}
-    <select onchange="window.location.href = this.value;"
-            title="Inactive tetap ditampilkan di pilihan Semua — ia hanya turun ke bawah daftar.">
-        @foreach (['' => 'Semua', 'Active' => 'Active', 'Inactive' => 'Inactive'] as $nilai => $label)
-            <option value="{{ $tautan(['rutin' => $nilai ?: null]) }}"
-                    @selected((string) request('rutin') === (string) $nilai)>{{ $label }}</option>
-        @endforeach
-    </select>
+     Kalimatnya kini SAMA untuk semua tab, karena kunci urutnya memang sudah
+     sama (lihat OrtQuery::daftar()). Sebelumnya ia bercabang, dan cabang itu
+     ikut dibuang bersama urutan lamanya.
+
+     ⚠ Saringan "Status Pasien" sempat berdiri di sini lalu DIKEMBALIKAN ke
+       panel filter 6 Okt 2026 atas permintaan Reza — satu tempat untuk semua
+       saringan. --}}
+<div class="ort-tbar">
+    <span class="ort-tbar__hint">Active di atas · paling mendesak menurut irama pasiennya dulu</span>
 </div>
 
 <div class="st-card" style="margin-top:9px;" data-ort-tabel>

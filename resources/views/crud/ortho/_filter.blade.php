@@ -38,16 +38,32 @@
                 </select>
             </div>
 
-            {{-- Saringan "Status Pasien" TIDAK di sini, dan itu disengaja.
-                 Ia saklar MODE, bukan detail saringan — tempatnya di bilah atas
-                 tabel (.ort-tbar di _tabel.blade.php), terlihat tanpa harus
-                 membuka panel ini. Menaruhnya di dua tempat berarti dua kendali
-                 untuk satu parameter, dan yang satu akan terlupa diperbarui.
+            {{-- Status PASIEN — penilaian Sales, sumbu LAIN dari "Status" di
+                 sebelahnya yang menerangkan keadaan jadwal.
 
-                 Keduanya tetap bekerja BARENG seperti diminta prompt: `rutin`
-                 dan `status` kunci terpisah di OrtQuery, jadi "Inactive" +
-                 "Terlewat" adalah pertanyaan yang sah — siapa yang sudah
-                 dilepas padahal masih terlambat. --}}
+                 Sempat dipindah ke bilah atas tabel (5 Okt) lalu DIKEMBALIKAN
+                 ke sini 6 Okt atas permintaan Reza: satu tempat untuk semua
+                 saringan lebih mudah dicari daripada saklar yang berdiri
+                 sendiri di atas tabel.
+
+                 Keduanya bekerja BARENG, bukan saling menggantikan — `rutin`
+                 dan `status` kunci terpisah di OrtQuery. Jadi "Inactive" +
+                 "Terlewat" adalah pertanyaan yang sah: siapa yang sudah dilepas
+                 padahal masih terlambat.
+
+                 ⚠ Bawaannya Semua, dan memilih Semua TIDAK menyembunyikan
+                   siapa pun — baris Inactive selalu ikut tampil, turun ke bawah
+                   di balik pita pemisahnya. --}}
+            <div>
+                <label class="ort-lbl">Status Pasien</label>
+                <select name="rutin" class="ort-inp">
+                    <option value="">Semua</option>
+                    @foreach (['Active', 'Inactive'] as $rs)
+                        <option value="{{ $rs }}" {{ request('rutin') === $rs ? 'selected' : '' }}>{{ $rs }}</option>
+                    @endforeach
+                </select>
+            </div>
+
             <div>
                 <label class="ort-lbl">Status</label>
                 <select name="status" class="ort-inp">
