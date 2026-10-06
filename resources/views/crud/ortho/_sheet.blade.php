@@ -296,23 +296,27 @@
             </div>
 
         @elseif ($sheet === 'follow-up')
-            <div>
-                <label class="ort-lbl">Hasil</label>
-                {{-- Pilihan tetap, bukan teks bebas: supaya "berapa pasien tidak
-                     respon bulan ini" bisa dijawab. Kamusnya satu-satunya di
-                     OrtControl::FU_HASIL — jangan ditulis ulang di sini. --}}
-                <select name="hasil" class="ort-inp" required>
-                    <option value="">Pilih hasil...</option>
-                    @foreach (\App\Models\OrtControl::FU_HASIL as $val => $label)
-                        <option value="{{ $val }}" {{ old('hasil') === $val ? 'selected' : '' }}>{{ $label }}</option>
-                    @endforeach
-                </select>
-            </div>
-            {{-- Dropdown KANAL dibuang 5 Okt 2026. Ia meminta satu keputusan lagi
-                 dari Sales lalu tidak pernah menampilkannya di mana pun — panel
-                 baris malah menulis "WhatsApp" di-hardcode, apa pun yang dipilih.
-                 Kolom fu_channel dipertahankan untuk baris lama; yang baru
-                 dibiarkan NULL, bukan ditebak 'wa'. --}}
+            {{-- DUA dropdown sudah dibuang dari lembar ini, dan sebabnya sama:
+                 masing-masing meminta satu keputusan lagi dari Sales yang
+                 menelepon puluhan pasien sehari.
+
+                 · KANAL  — dibuang 5 Okt 2026. Ia tidak pernah ditampilkan di
+                   mana pun; panel baris malah menulis "WhatsApp" di-hardcode,
+                   apa pun yang dipilih.
+                 · HASIL  — dibuang 6 Okt 2026 atas permintaan Reza. Lembarnya
+                   tinggal tanggal + catatan bebas.
+
+                 ⚠ HARGANYA, supaya tidak lupa: `fu_result` adalah satu-satunya
+                   tempat sistem membedakan pasien MENOLAK dari pasien TIDAK
+                   DIANGKAT. Tanpa pilihan tetap, "berapa pasien tidak respon
+                   bulan ini" hanya bisa dijawab dengan membaca catatan satu per
+                   satu. Kalau pertanyaan itu kelak ditanyakan, dropdown ini yang
+                   dikembalikan — kolom, kamus (OrtControl::FU_HASIL), dan jalur
+                   simpannya SENGAJA DIPERTAHANKAN utuh supaya itu cuma soal
+                   mengembalikan satu blok ini.
+
+                 Baris lama yang sudah punya hasil tetap menampilkannya di tabel
+                 dan di panel; yang baru NULL, bukan ditebak. --}}
             <div>
                 <label class="ort-lbl">Tanggal</label>
                 {{-- max = hari ini: follow-up dicatat SESUDAH terjadi, bukan direncanakan. --}}

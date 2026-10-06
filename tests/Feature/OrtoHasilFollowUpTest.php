@@ -205,7 +205,22 @@ class OrtoHasilFollowUpTest extends TestCase
 
     // ── 5 & 6. Layar ────────────────────────────────────────────────────────
 
-    public function test_lembar_merender_lima_pilihan_dan_mengarah_ke_follow_up(): void
+    /**
+     * ⚠ DIBALIK 6 Okt 2026 atas permintaan Reza: dropdown HASIL dibuang dari
+     *   lembar, menyisakan tanggal + catatan bebas. Uji ini dulu menuntut lima
+     *   pilihannya terender; sekarang ia menjaga kebalikannya, supaya dropdown
+     *   itu tidak kembali diam-diam.
+     *
+     *   HARGANYA tetap dicatat di sini, bukan dilupakan: `fu_result` adalah
+     *   satu-satunya tempat sistem membedakan pasien MENOLAK dari pasien TIDAK
+     *   DIANGKAT. Tanpa pilihan tetap, "berapa pasien tidak respon bulan ini"
+     *   cuma bisa dijawab dengan membaca catatan satu per satu.
+     *
+     *   Jalur simpannya SENGAJA dibiarkan utuh — lihat uji-uji di atas yang
+     *   masih mem-POST `hasil` dan tetap hijau. Mengembalikan fiturnya berarti
+     *   mengembalikan satu blok Blade, bukan membangun ulang.
+     */
+    public function test_lembar_tanpa_dropdown_hasil_dan_mengarah_ke_follow_up(): void
     {
         $ctl = $this->kontrol();
 
@@ -213,16 +228,39 @@ class OrtoHasilFollowUpTest extends TestCase
             ->get('/tracking-ortho?' . http_build_query($this->utama() + ['sheet' => 'follow-up', 'kontrol' => $ctl->id]))
             ->assertOk()->getContent();
 
-        foreach (OrtControl::FU_HASIL as $val => $label) {
-            $this->assertStringContainsString('value="' . $val . '"', $html, "Pilihan '{$val}' harus ada di lembar.");
-        }
+        $this->assertStringNotContainsString(
+            'name="hasil"', $html,
+            'Dropdown Hasil sudah dibuang dari lembar — kalau ia kembali, itu harus disengaja.'
+        );
+
         $this->assertMatchesRegularExpression(
             '~<form id="ortSheetForm" method="POST" action="[^"]*/kontrol/' . preg_quote($ctl->id, '~') . '/follow-up"~',
             $html,
             'Form lembar harus mengarah ke /follow-up supaya tercegat POLA submit realtime.'
         );
-        $this->assertStringContainsString('name="hasil"', $html);
-        $this->assertStringContainsString('name="catatan"', $html);
+        $this->assertStringContainsString('name="catatan"', $html, 'Catatan bebas kini satu-satunya isian isi.');
+        $this->assertStringContainsString('name="tanggal"', $html);
+    }
+
+    /**
+     * Kamus dan jalur simpannya tetap hidup walau lembarnya tidak lagi
+     * menawarkannya — itu yang membuat pembatalan ini murah untuk dibatalkan.
+     */
+    public function test_jalur_simpan_hasil_tetap_ada_walau_lembarnya_tidak(): void
+    {
+        $this->assertCount(5, OrtControl::FU_HASIL, 'Kamus lima hasil tetap utuh.');
+
+        $ctl = $this->kontrol();
+
+        $this->withSession($this->sesi)
+            ->from('/tracking-ortho?' . http_build_query($this->utama()))
+            ->post('/tracking-ortho/kontrol/' . $ctl->id . '/follow-up', ['hasil' => OrtControl::FU_MENOLAK])
+            ->assertRedirect();
+
+        $this->assertSame(
+            OrtControl::FU_MENOLAK, $ctl->refresh()->fu_result,
+            'Pemanggil yang MASIH mengirim hasil (mis. impor Sheets) tetap tersimpan.'
+        );
     }
 
     public function test_tabel_membuka_lembar_bukan_submit_sekali_klik(): void
