@@ -178,6 +178,7 @@
                 </div>
 
                 @if (count($kunjungan))
+                    <div class="ort-nlist__urut">terbaru di atas · # = kontrol ke-berapa</div>
                     <div class="ort-nlist">
                         @foreach ($kunjungan as $i => $k)
                             @php
@@ -189,7 +190,18 @@
                                 $kRsv = $k->keadaanReservasi($kCabang);
                             @endphp
                             <div class="ort-nlist__i">
-                                <span class="ort-nlist__n tabular">{{ $i + 1 }}.</span>
+                                {{-- ⚠ Nomornya `seq`, BUKAN urutan baris. Versi pertama
+                                     menomori 1·2·3 dari atas, dan karena daftarnya
+                                     terbaru-di-atas, kontrol PERTAMA pasien muncul
+                                     sebagai "3" — terbaca persis terbalik: seolah itu
+                                     kontrol terakhirnya. Reza membacanya begitu, dan
+                                     wajar.
+
+                                     `ort_control.seq` memang sudah "Nomor # di layar,
+                                     per kasus" (lihat COMMENT kolomnya), dan matriks
+                                     drawer sudah merendernya begitu sejak awal. Panel
+                                     ini sempat mengarang penomoran kedua. --}}
+                                <span class="ort-nlist__n tabular">#{{ $k->seq }}</span>
                                 <span class="ort-nlist__t">
                                     <span class="tabular">{{ ($k->visit_date ?: $k->sch_date)->translatedFormat('j M Y') }}</span>,
                                     {{ $kCabang }},
@@ -237,6 +249,11 @@
             </div>
             <div class="ort-p2__body">
                 @if (count($fuRiwayat))
+                    {{-- Follow-up tidak punya `seq` — penomorannya memang posisi.
+                         Karena itu urutannya DIKATAKAN, tidak diserahkan ke tebakan:
+                         penomoran yang menurun dari atas gampang terbaca sebagai
+                         kronologi, dan di kolom sebelah salah baca itu sudah terjadi. --}}
+                    <div class="ort-nlist__urut">terbaru di atas</div>
                     <div class="ort-nlist">
                         @foreach ($fuRiwayat as $i => $f)
                             <div class="ort-nlist__i">
