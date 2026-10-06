@@ -59,6 +59,17 @@
     );
 
     $pasifPanel = isset($r->sales_active) && ! $r->sales_active;
+
+    /* LIHAT-SAJA untuk pasien yang cabang pasangnya kita tapi sedang DIPEGANG
+       cabang lain (tab "Pasien di cabang lain"). Diputuskan di controller —
+       lihat OrthoController::panelBaris() — karena gerbangnya sama dengan yang
+       memutuskan panel ini boleh dibuka sama sekali.
+
+       ⚠ Tombolnya TIDAK DIRENDER, bukan dinonaktifkan. Tombol mati tetap
+         mengundang klik, dan setiap endpoint tulis modul ini toh menjawab 403
+         (pastikanMilikCabang / abort_unless owner) — jadi satu-satunya hasil
+         yang mungkin adalah Sales mencoba lalu ditolak tanpa penjelasan. */
+    $lihatSaja = $hanyaLihat ?? false;
 @endphp
 
 <div class="ort-expand" data-ort-expand="{{ $r->id }}" hidden>
@@ -125,15 +136,20 @@
 
                 {{-- Transfer: memindahkan kepemilikan pasien. Lembarnya yang
                      sudah ada (sheet=pindahkan) meminta cabang tujuan, alasan,
-                     dan pilihan "sekali saja di sana". --}}
-                <a href="{{ $tautan(['sheet' => 'pindahkan', 'kasus' => $r->ort_case_id]) }}"
-                   class="ort-obtn" style="color:#6B2400;border-color:#E4C7AC;"
-                   onclick="event.stopPropagation()"
-                   title="Pindahkan pasien ini ke cabang lain — alasannya wajib, supaya perpindahannya bisa ditelusuri belakangan.">
-                    <i class="fas fa-exchange-alt"></i> Transfer Pasien
-                </a>
+                     dan pilihan "sekali saja di sana".
 
-                <div class="ort-p2f" style="margin-top:15px;">
+                     Tidak dirender dalam mode lihat-saja: memindahkan pasien yang
+                     sedang dipegang cabang lain bukan keputusan cabang ini. --}}
+                @unless ($lihatSaja)
+                    <a href="{{ $tautan(['sheet' => 'pindahkan', 'kasus' => $r->ort_case_id]) }}"
+                       class="ort-obtn" style="color:#6B2400;border-color:#E4C7AC;"
+                       onclick="event.stopPropagation()"
+                       title="Pindahkan pasien ini ke cabang lain — alasannya wajib, supaya perpindahannya bisa ditelusuri belakangan.">
+                        <i class="fas fa-exchange-alt"></i> Transfer Pasien
+                    </a>
+                @endunless
+
+                <div class="ort-p2f" @unless ($lihatSaja) style="margin-top:15px;" @endunless>
                     <div class="ort-p2f__k">Status kontrol</div>
                     {{-- ⚠ SUMBU LAIN dari chip "Status jadwal" di atas. Chip itu
                          keadaan jadwalnya (menunggu / terlewat / ada reservasi);
@@ -141,6 +157,16 @@
                          dikejar. Dan keduanya juga bukan `ort_case.status`, yang
                          fakta klinis dan diisi tarikan malam. Tiga sumbu, tiga
                          tempat, sengaja tidak dilebur. --}}
+                    @if ($lihatSaja)
+                        {{-- Keadaannya tetap DIKATAKAN, cuma tidak bisa diubah.
+                             Menyembunyikannya sama sekali akan membuat pembaca
+                             mengira pasien ini tidak punya status — padahal
+                             punya, dan itu keputusan cabang pemegangnya. --}}
+                        <div class="ort-p2f__v" style="margin-top:3px;">
+                            {{ $pasifPanel ? 'Inactive' : 'Active' }}
+                            <span class="ort-nlist__dim" style="font-weight:500;">· ditentukan cabang pemegang</span>
+                        </div>
+                    @else
                     <div class="ort-seg" style="margin-top:6px;" onclick="event.stopPropagation()">
                         @foreach ([1 => 'Active', 0 => 'Inactive'] as $nilai => $label)
                             @if ((int) ! $pasifPanel === $nilai)
@@ -164,6 +190,7 @@
                             @endif
                         @endforeach
                     </div>
+                    @endif
                 </div>
             </div>
         </div>
@@ -389,15 +416,28 @@
 
         {{-- ════════ KAKI — aksi yang tidak punya tempat lain ═══════════ --}}
         <div class="ort-p2__kaki" onclick="event.stopPropagation()">
-            <span class="ort-p2__kaki-k">Aksi lain</span>
+            <span class="ort-p2__kaki-k">{{ $lihatSaja ? 'Lihat saja' : 'Aksi lain' }}</span>
 
+            {{-- Satu-satunya yang tetap ada dalam mode lihat-saja: ia navigasi,
+                 bukan tulisan. Drawer detail punya gerbangnya sendiri yang sama. --}}
             <a href="{{ $tautanDetail($r->ort_case_id) }}" class="ort-obtn">
                 Buka detail pasien <i class="fas fa-chevron-right" style="font-size:9px;"></i>
             </a>
 
+            @if ($lihatSaja)
+                <span class="ort-nlist__dim" style="font-size:11px;">
+                    Pasien ini sedang dipegang cabang lain — tindakannya ada di sana.
+                </span>
+            @endif
+
             {{-- Menggeser PENGINGAT, bukan janji. Tanggal jatuh tempo tidak
                  pernah diberitahukan ke pasien; yang disepakati hidup di
                  kolom Reservasi. --}}
+            {{-- `$r->id` ikut disyaratkan: panel bisa dibangun dari KASUS yang
+                 belum punya kontrol terbuka (barisKasus pakai LEFT JOIN), dan
+                 ketiga aksi di bawah semuanya ber-route pada id KONTROL. Tanpa
+                 pagar ini route() meledak dengan "Missing parameter: id". --}}
+            @unless ($lihatSaja || ! $r->id)
             @if ($r->is_proposal)
                 <a href="{{ $tautan(['sheet' => 'geser', 'kontrol' => $r->id]) }}" class="ort-obtn"
                    title="Ubah kapan pasien ini dianggap jatuh tempo kontrol. Ini pengingat, bukan janji — janjinya dibuat lewat Reservasi.">
@@ -433,6 +473,7 @@
                     </button>
                 </form>
             @endif
+            @endunless
         </div>
     </div>
 </div>

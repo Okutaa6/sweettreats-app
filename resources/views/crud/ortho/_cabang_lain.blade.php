@@ -52,7 +52,13 @@
                     ? $c->next_sch_date->diffInDays($hariIni) : 0;
             @endphp
 
+            {{-- `data-ort-row` membuat barisnya bisa diklik untuk membuka panel —
+                 pendengarnya di _js_panel, partial yang sama dengan daftar kerja.
+                 Kuncinya id KASUS: di tab ini banyak pasien belum punya kontrol
+                 terbuka sama sekali ("belum dijadwalkan"), jadi id kontrol tidak
+                 selalu tersedia. --}}
             <div class="ort-tr {{ $tinggal ? 'ort-tr--bad ort-tr--nb' : '' }}"
+                 data-ort-row="{{ $c->id }}"
                  style="{{ $tinggal ? 'background:#FDF6F4;' : '' }}">
                 <div class="ort-grid ort-grid--lintas">
 
@@ -117,9 +123,12 @@
                         <span class="ort-cell--sub">sejak pindah</span>
                     </div>
 
-                    <div>
-                        <a href="{{ $tautanDetail($c->id) }}" class="ort-toggle" title="Lihat detail pasien">
-                            <i class="fas fa-chevron-right"></i></a>
+                    <div style="display:flex;justify-content:center;">
+                        {{-- Dulu tautan ke drawer. Sekarang pembuka panel — isinya
+                             sama dengan daftar kerja tapi LIHAT SAJA, dan "Buka
+                             detail pasien" tetap tersedia di kaki panel. --}}
+                        <button type="button" class="ort-toggle" data-ort-toggle="{{ $c->id }}"
+                                title="Ringkas pasien, riwayat kontrol, dan riwayat follow-up — lihat saja, pasien ini sedang dipegang {{ $namaTujuan }}"><i class="fas fa-chevron-down"></i></button>
                     </div>
 
                 </div>
@@ -169,6 +178,13 @@
                 </div>
             @endif
 
+            {{-- Cangkang panel — isinya dimuat saat barisnya dibuka
+                 (?frag=panel&kasus=...). Gerbangnya di OrthoController::panelBaris():
+                 pasien ini boleh DILIHAT karena cabang pasangnya kita, dan panel
+                 yang dikembalikan sudah bermode lihat-saja. --}}
+            <div class="ort-expand" data-ort-expand="{{ $c->id }}"
+                 data-ort-kasus="{{ $c->id }}" data-ort-kosong hidden></div>
+
         @empty
             <div style="padding:8px 0;">
                 <div class="st-empty">
@@ -184,4 +200,6 @@
          — hanya bisa dilihat"), dan hitungan "N perlu diingatkan" hampir
          selalu 0 sehingga cuma jadi baris kosong di bawah tabel. --}}
     @include('crud.ortho._paginasi', ['data' => $baris, 'satuan' => 'pasien', 'perHal' => $perHal])
+
+@include('crud.ortho._js_panel')
 </div>

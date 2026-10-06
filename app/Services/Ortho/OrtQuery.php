@@ -663,7 +663,12 @@ class OrtQuery
     public static function kolomBaris(): array
     {
         return [
-            'c.id', 'c.ort_case_id', 'c.seq', 'c.place_id', 'c.is_proposal',
+            // ⚠ `k.id as ort_case_id`, BUKAN `c.ort_case_id`. Di dasar() keduanya
+            //   nilainya identik (join-nya memang pada kolom itu), tapi
+            //   barisKasus() memakai LEFT JOIN — dan di sana `c.ort_case_id`
+            //   jadi NULL untuk pasien yang belum punya kontrol terbuka,
+            //   sementara panel butuh id kasusnya untuk mengambil riwayat.
+            'c.id', 'k.id as ort_case_id', 'c.seq', 'c.place_id', 'c.is_proposal',
             'c.sch_date', 'c.sch_source', 'c.sch_basis', 'c.sch_basis_n',
             'c.fu_date', 'c.fu_by', 'c.fu_channel', 'c.fu_result', 'c.fu_note',
             'c.reservation_id', 'c.rsv_date', 'c.rsv_status',
@@ -689,6 +694,36 @@ class OrtQuery
     {
         return $this->dasar($placeId)
             ->where('c.id', $controlId)
+            ->select(self::kolomBaris())
+            ->first();
+    }
+
+    /**
+     * SATU baris panel yang dibangun dari KASUS, bukan dari kontrol.
+     *
+     * ────────────────────────────────────────────────────────────────────────
+     * KENAPA ADA DUA JALAN KE PANEL YANG SAMA
+     * ────────────────────────────────────────────────────────────────────────
+     * Daftar kerja menampilkan KONTROL TERBUKA — satu baris = satu kontrol, dan
+     * satuBaris() cukup. Tab "Pasien di cabang lain" menampilkan KASUS, dan
+     * kasus di sana sering BELUM punya kontrol terbuka sama sekali ("belum
+     * dijadwalkan" di layar). Mencari panelnya lewat id kontrol berarti
+     * pasien-pasien itu tidak pernah bisa dibuka.
+     *
+     * LEFT JOIN, jadi kolom kontrol bernilai NULL kalau memang belum ada.
+     * Panel sudah tahan terhadap itu: $telat jadi false, $bolehBatalFu jadi
+     * false, dan Profile + kedua riwayat semuanya berasal dari kasus.
+     *
+     * ⚠ TANPA gerbang cabang — sengaja. Pemanggilnya yang memutuskan, karena
+     *   aturannya di sini BEDA dari daftar kerja: pasien yang sedang dipegang
+     *   cabang lain boleh DILIHAT selama cabang pasangnya kita. Lihat
+     *   OrthoController::panelBaris().
+     */
+    public function barisKasus(string $caseId): ?object
+    {
+        return DB::table('ort_case as k')
+            ->leftJoin('ort_control as c', 'c.id', '=', 'k.open_control_id')
+            ->where('k.id', $caseId)
             ->select(self::kolomBaris())
             ->first();
     }

@@ -163,7 +163,9 @@ class OrtoTahapCHalamanTest extends TestCase
      */
     private function panel(OrtControl $ctl): string
     {
-        return $this->halaman(['frag' => 'panel', 'kontrol' => $ctl->id]);
+        // Kuncinya KASUS, bukan kontrol: panel juga melayani pasien yang belum
+        // punya kontrol terbuka (tab "Pasien di cabang lain").
+        return $this->halaman(['frag' => 'panel', 'kasus' => $ctl->ort_case_id]);
     }
 
     // ── 1 · Tanda perkiraan ─────────────────────────────────────────────────

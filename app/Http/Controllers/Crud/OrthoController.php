@@ -173,19 +173,62 @@ class OrthoController extends Controller
      */
     private function panelBaris(array $ctx)
     {
-        $id = request()->query('kontrol');
-        abort_unless($id && Schema::hasTable('ort_control'), 404);
+        abort_unless(Schema::hasTable('ort_control'), 404);
 
-        $r = $this->q->satuBaris((string) ($ctx['placeId'] ?? ''), (string) $id);
+        $placeId = (string) ($ctx['placeId'] ?? '');
+        $kasusId = (string) request()->query('kasus', '');
+        abort_unless($kasusId !== '', 404);
+
+        /*
+         * ⚠ GERBANGNYA DUA LAPIS, dan lapis keduanya memang lebih longgar —
+         *   itu disengaja, bukan kelalaian.
+         *
+         *   · Pasien yang kita PEGANG  → boleh dilihat dan diubah.
+         *   · Pasien yang cabang pasangnya KITA tapi sedang dipegang cabang
+         *     lain → boleh DILIHAT saja. Itu seluruh isi tab "Pasien di cabang
+         *     lain", dan tanpa lapis ini panelnya tidak pernah bisa dibuka di
+         *     sana.
+         *   · Selain itu → 404. Panel tidak boleh jadi celah membaca pasien
+         *     cabang orang.
+         *
+         *   Aturan yang sama persis sudah dipakai drawerDetail(); dua layar
+         *   yang menampilkan pasien yang sama tidak boleh punya dua aturan.
+         */
+        $case = OrtCase::find($kasusId);
+        abort_unless($case, 404);
+
+        $milikKita  = (string) $case->owner_place_id   === $placeId;
+        $pernahKita = (string) $case->install_place_id === $placeId;
+        abort_unless($milikKita || $pernahKita, 403);
+
+        $r = $this->q->barisKasus($kasusId);
         abort_unless($r, 404);
 
-        $ids = [$r->ort_case_id];
+        $ids = [$kasusId];
 
-        return response()->view('crud.ortho._baris_terbuka', $ctx + $this->penautFragmen() + [
+        /* ⚠ array_merge, BUKAN operator `+`. $ctx SUDAH memuat 'hanyaLihat'
+           (konteks halaman: benar hanya saat tab cabang lain sedang dibuka), dan
+           `+` mempertahankan nilai KIRI untuk kunci yang sama — jadi override di
+           bawah tidak pernah sampai, panel dirender dengan tombol tulis lengkap,
+           lalu MELEDAK di route('ortho.tidakhadir', null) untuk pasien yang belum
+           punya kontrol terbuka.
+
+           Jebakan yang sama persis sudah menggigit di OrtJadwalDokter::untuk()
+           sesi ini juga. Di berkas ini `+` dipakai di banyak tempat dengan sadar;
+           yang TIDAK boleh adalah memakainya saat sengaja menimpa. */
+        return response()->view('crud.ortho._baris_terbuka', array_merge($ctx, $this->penautFragmen(), [
             'r'            => $r,
             'riwayatVisit' => $this->q->riwayatKontrol($ids),
             'riwayatFu'    => $this->q->riwayatFollowUp($ids),
-        ]);
+            /*
+             * Panel pasien yang sedang dipegang cabang lain = LIHAT SAJA.
+             * Tombolnya tidak cuma dinonaktifkan, tapi TIDAK DIRENDER: tombol
+             * mati tetap mengundang klik, dan setiap endpoint tulis di modul ini
+             * toh akan menjawab 403 — jadi satu-satunya hasilnya adalah Sales
+             * mencoba lalu ditolak tanpa penjelasan.
+             */
+            'hanyaLihat'   => ! $milikKita,
+        ]));
     }
 
     /**

@@ -255,6 +255,8 @@ class OrtoSiklusTerlewatTest extends TestCase
     /** Isi panel baris — dimuat tersendiri sejak panel jadi lazy. */
     private function panel(OrtCase $kasus): string
     {
-        return $this->halaman(['frag' => 'panel', 'kontrol' => $this->idBaris($kasus)]);
+        // Kuncinya KASUS, bukan kontrol: panel juga melayani pasien yang belum
+        // punya kontrol terbuka (tab "Pasien di cabang lain").
+        return $this->halaman(['frag' => 'panel', 'kasus' => $kasus->id]);
     }
 }

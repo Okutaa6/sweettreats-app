@@ -163,17 +163,16 @@ class OrtoTeksReservasiTest extends TestCase
      * DOM sebesar itu tiap kali follow-up disimpan terasa seperti memuat ulang
      * halaman.
      *
-     * Diminta lewat kontrol yang masih TERBUKA — itu baris yang mewakili pasien
-     * di daftar kerja — dan isinya memuat seluruh riwayat kontrol kasus itu,
-     * termasuk yang sudah ditutup.
+     * Diminta lewat id KASUS: panel juga melayani pasien yang belum punya
+     * kontrol terbuka sama sekali (tab "Pasien di cabang lain"), jadi kunci
+     * kontrol tidak selalu tersedia. Isinya memuat seluruh riwayat kontrol
+     * kasus itu, termasuk yang sudah ditutup.
      */
     private function panel(OrtCase $kasus): string
     {
-        $terbuka = OrtControl::where('ort_case_id', $kasus->id)->whereNull('closed_at')->firstOrFail();
-
         return $this->withSession($this->sesi())
             ->get('/tracking-ortho?' . http_build_query([
-                'utama' => $this->placeId, 'frag' => 'panel', 'kontrol' => $terbuka->id,
+                'utama' => $this->placeId, 'frag' => 'panel', 'kasus' => $kasus->id,
             ]))->assertOk()->getContent();
     }
 
