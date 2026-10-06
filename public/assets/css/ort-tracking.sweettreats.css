@@ -1791,7 +1791,10 @@ button.ort-btn { border: none; font-family: inherit; cursor: pointer; }
 
 /* Baris atas kini hanya berisi aksi kanan — rata kanan, tanpa sisa ruang
    kosong di kiri tempat tab dulu berada. */
-.ort-toprow--aksi { justify-content: flex-end; }
+/* Filter rata KIRI (6 Okt 2026, permintaan Reza) — sebelumnya flex-end.
+   Ia berdiri sendiri di atas baris tab cabang, dan di tepi kanan ia berjauhan
+   dari tombolnya sendiri: panel filter yang dibukanya terbentang dari kiri. */
+.ort-toprow--aksi { justify-content: flex-start; }
 
 /* Wadah tab disamakan dengan tab List/Kalender di modul Reservasi
    (reservasi-redesign.css:117) — nilainya disalin dari sana, bukan dikira-kira:

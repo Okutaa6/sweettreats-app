@@ -70,7 +70,8 @@
     @include('layouts.notif')
     @include('crud.ortho._toast')
 
-    {{-- ── Aksi kanan. Tab tingkat atas TIDAK di sini — lihat _navrow,
+    {{-- ── Aksi halaman, rata KIRI di atas baris tab cabang. Tab tingkat
+         atas TIDAK di sini — lihat _navrow,
          yang duduk tepat di atas isi tab supaya dekat dengan yang diubahnya. --}}
     <div class="ort-toprow ort-toprow--aksi">
         <div class="ort-topact">
