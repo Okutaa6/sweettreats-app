@@ -172,7 +172,11 @@
         <div class="ort-p2__col">
             <div class="ort-p2__head">
                 Kontrol
-                @if (count($kunjungan))<span class="ort-p2__n tabular">{{ count($kunjungan) }}</span>@endif
+                {{-- Angka di kepala ini jumlah SEBENARNYA (kolom rollup), bukan
+                     jumlah yang terambil. Daftarnya dipotong 20 terbaru dan
+                     bergulir; menampilkan "20" untuk pasien yang punya 26
+                     kontrol akan terbaca seperti enam kontrolnya hilang. --}}
+                @if (($r->control_count ?? 0) > 0)<span class="ort-p2__n tabular">{{ $r->control_count }}</span>@endif
             </div>
             <div class="ort-p2__body">
 
@@ -302,6 +306,14 @@
                             </div>
                         @endforeach
                     </div>
+
+                    @if (($r->control_count ?? 0) > count($kunjungan))
+                        {{-- Dikatakan, bukan dibiarkan ditebak: daftar yang
+                             terpotong diam-diam terbaca seperti data yang hilang. --}}
+                        <div class="ort-nlist__urut" style="margin:7px 0 0;">
+                            menampilkan {{ count($kunjungan) }} terbaru dari {{ $r->control_count }}
+                        </div>
+                    @endif
                 @else
                     <div class="ort-nlist__kosong">Belum ada kontrol yang tercatat.</div>
                 @endif

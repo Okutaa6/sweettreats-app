@@ -715,13 +715,18 @@ class OrtQuery
      * "—" di situ — bukan menyalin dokter kasus, yang akan membuat semua baris
      * terlihat ditangani orang yang sama padahal tidak diketahui.
      *
+     * ⚠ Batasnya 20, naik dari 8 (6 Okt 2026). Daftar ini kini bergulir di
+     *   dalam kolomnya — lima butir terlihat, sisanya digulir — jadi batas 8
+     *   membuat gulirnya nyaris tak berguna. Panel dimuat belakangan dan
+     *   ukurannya 13 KB, jadi dua belas butir tambahan itu murah.
+     *
      * Satu kueri untuk SELURUH halaman, dipotong di PHP. Alasannya sama dengan
      * kontrolTerakhir(): "N terbaru per grup" butuh window function yang tidak
      * portabel atau derived table yang tidak ter-index.
      *
      * @return array<string, list<\App\Models\OrtControl>>  ort_case_id => kontrol, TERBARU DI ATAS
      */
-    public function riwayatKontrol(array $caseIds, int $n = 8): array
+    public function riwayatKontrol(array $caseIds, int $n = 20): array
     {
         if (empty($caseIds)) {
             return [];
@@ -764,7 +769,7 @@ class OrtQuery
      *
      * @return array<string, list<\App\Models\OrtFollowUp>>  ort_case_id => follow-up, TERBARU DI ATAS
      */
-    public function riwayatFollowUp(array $caseIds, int $n = 8): array
+    public function riwayatFollowUp(array $caseIds, int $n = 20): array
     {
         if (empty($caseIds) || ! \Illuminate\Support\Facades\Schema::hasTable('ort_followup')) {
             return [];

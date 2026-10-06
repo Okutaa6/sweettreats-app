@@ -1133,8 +1133,35 @@
 .ort-p2f__v { font-size: 13px; font-weight: 800; color: var(--ort-ink); margin-top: 2px; }
 .ort-p2__hr { border: 0; border-top: 1px solid var(--ort-row); margin: 15px 0; }
 
-/* Daftar bernomor — bentuk persis yang diminta prompt. */
-.ort-nlist { display: flex; flex-direction: column; }
+/* Daftar bernomor — bentuk persis yang diminta prompt.
+
+   ⚠ Dibatasi LIMA butir lalu bergulir (6 Okt 2026). Pasien ortho berjalan
+     18-24 bulan dengan kontrol tiap ~30 hari, jadi riwayatnya rutin menembus
+     belasan butir — dan panel yang tingginya ikut riwayat membuat tiga
+     kolomnya jadi tiga tinggi yang berbeda-beda, lalu mendorong baris di
+     bawahnya jauh ke bawah layar.
+
+     Tingginya dihitung dari butir TERTUTUP: padding 10+10 + teks ~18px = 38px,
+     plus garis pemisah 1px antar butir. Lima butir = 5x38 + 4 = 194px.
+
+     Berlaku untuk KEDUA kolom, bukan cuma Kontrol. Keduanya komponen yang sama
+     dengan masalah yang sama — dan membatasi satu saja justru mengembalikan
+     ketimpangan tinggi yang mau dihindari, cuma dari sisi sebelah. */
+.ort-nlist {
+  display: flex; flex-direction: column;
+  max-height: 194px; overflow-y: auto;
+  /* Ruang untuk bilah gulir supaya teks tidak tertempel ke tepinya. */
+  padding-right: 4px;
+}
+
+/* Bilah gulirnya DIBUAT TERLIHAT. Bawaan Windows menyembunyikannya sampai
+   disentuh, dan daftar yang terpotong tanpa tanda terbaca seperti daftar yang
+   memang cuma segitu — persis salah baca yang dihindari. */
+.ort-nlist::-webkit-scrollbar { width: 6px; }
+.ort-nlist::-webkit-scrollbar-track { background: var(--ort-row); border-radius: 6px; }
+.ort-nlist::-webkit-scrollbar-thumb { background: #D9C3AC; border-radius: 6px; }
+.ort-nlist::-webkit-scrollbar-thumb:hover { background: var(--ort-muted); }
+.ort-nlist { scrollbar-width: thin; scrollbar-color: #D9C3AC var(--ort-row); }
 .ort-nlist__i {
   display: flex; gap: 11px; padding: 10px 0;
   font-size: 12.5px; font-weight: 600; color: var(--ort-ink2); line-height: 1.45;
