@@ -1115,15 +1115,30 @@
 }
 .ort-p2__col { display: flex; flex-direction: column; min-width: 0; }
 .ort-p2__col + .ort-p2__col { border-left: 1px solid var(--ort-row); }
+/* ⚠ SENGAJA BUKAN gradien cokelat yang sama dengan .ort-thead.
+   Versi pertama memakainya persis, dan akibatnya dua kepala berbobot sama
+   bertumpuk di layar: kepala tabel di atas, kepala panel beberapa piksel di
+   bawahnya, keduanya sama gelap dan sama tegas. Mata jadi harus memutuskan
+   sendiri mana yang mengepalai apa.
+
+   Kepala panel itu SUB-kepala — ia mengepalai kolom di dalam satu baris, bukan
+   seluruh tabel. Jadi ia turun satu tingkat: permukaan krem dengan tinta
+   cokelat, bukan cokelat penuh dengan tinta krem. Huruf, jarak, dan spasi
+   antarhurufnya dipertahankan supaya keduanya tetap terbaca sekeluarga. */
 .ort-p2__head {
   display: flex; align-items: center; gap: 9px;
-  background: linear-gradient(120deg, var(--ort-brand1), var(--ort-brand2));
-  color: var(--ort-onbrand); padding: 10px 16px;
+  background: var(--ort-strip);
+  color: var(--ort-ink2);
+  border-bottom: 1px solid var(--ort-line);
+  padding: 10px 16px;
   font-size: 10px; font-weight: 800; letter-spacing: .6px; text-transform: uppercase;
 }
+
+/* Hitungan ikut dibalik: pil gelap di kepala terang. Ia tetap jadi angka yang
+   paling cepat ditemukan di kolomnya tanpa membuat seluruh bilahnya gelap. */
 .ort-p2__n {
-  background: rgba(251, 234, 219, .2); border-radius: 20px;
-  padding: 1px 8px; font-size: 9.5px; font-weight: 800;
+  background: var(--ort-btn1); color: var(--ort-onbrand);
+  border-radius: 20px; padding: 2px 8px; font-size: 9.5px; font-weight: 800;
 }
 .ort-p2__body { padding: 15px 16px 16px; flex: 1; }
 
