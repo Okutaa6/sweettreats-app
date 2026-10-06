@@ -139,11 +139,18 @@ class OrtoTeksReservasiTest extends TestCase
         ];
     }
 
-    /** Halaman List — memuat panel baris (_baris_terbuka) untuk tiap pasien. */
-    private function halaman(): string
+    /**
+     * Halaman List — memuat panel baris (_baris_terbuka) untuk tiap pasien.
+     *
+     * ⚠ `$saring` WAJIB dipakai oleh assertion NEGATIF. Tanpa saringan, halaman
+     *   ini memuat seluruh pasien cabang itu — termasuk pasien DB lokal yang
+     *   memang punya reservasi — jadi "tombolnya tidak ada" akan merah karena
+     *   baris orang lain. Sudah kena sekali.
+     */
+    private function halaman(array $saring = []): string
     {
         return $this->withSession($this->sesi())
-            ->get('/tracking-ortho?' . http_build_query(['utama' => $this->placeId]))
+            ->get('/tracking-ortho?' . http_build_query(['utama' => $this->placeId] + $saring))
             ->assertOk()->getContent();
     }
 
@@ -261,6 +268,69 @@ class OrtoTeksReservasiTest extends TestCase
             'Drawer detail: kolom Reservasi menampilkan tanggal yang sama.');
         $this->assertMatchesRegularExpression('/>\s*23 Nov\s*</', $drawer,
             'Drawer detail: kolom Datang tetap menampilkan tanggal kunjungan.');
+    }
+
+    // ── Tautan ke modul Reservasi ───────────────────────────────────────────
+
+    /**
+     * ⭐ Tombol di lipatan butir kontrol menunjuk SATU reservasi persis.
+     *
+     * `?reservation_id=` menyaring daftar Reservasi ke baris itu
+     * (ReservationController:128). Versi lama modul ini mengirim
+     * date_from/date_to — itu mendaratkan Sales di SELURUH reservasi hari itu
+     * dan menyuruhnya mencari sendiri.
+     */
+    public function test_tautan_reservasi_menunjuk_satu_baris(): void
+    {
+        $k   = $this->pasien();
+        $rsv = 'uji-rsv-' . Str::random(8);
+        $this->tertutup($k, 2, '2021-05-04', [
+            'reservation_id' => $rsv, 'rsv_date' => '2021-05-04', 'rsv_status' => 'confirmed',
+        ]);
+
+        $html = $this->halaman();
+
+        $this->assertStringContainsString(
+            'reservation_id=' . $rsv, $html,
+            'Tombol harus membawa reservation_id, bukan rentang tanggal.'
+        );
+        $this->assertStringContainsString('Buka di Reservasi', $html);
+    }
+
+    /**
+     * ⭐ WAITLIST wajib membawa `view=waitlist`, dan ini kegagalan SUNYI kalau
+     * terlewat: tab bawaan 'list' sengaja MENGECUALIKAN status waitlist
+     * (ReservationController, "Tab waitlist segregation"), jadi tautan tanpa
+     * parameter ini mendarat di daftar KOSONG — terbaca seperti reservasinya
+     * hilang, padahal ia ada dan sehat.
+     */
+    public function test_tautan_waitlist_membawa_tabnya(): void
+    {
+        $k   = $this->pasien();
+        $rsv = 'uji-rsv-' . Str::random(8);
+        $this->tertutup($k, 2, '2021-06-08', [
+            'reservation_id' => $rsv, 'rsv_date' => null,
+            'rsv_status' => \App\Models\RawCusReservation::STATUS_WAITLIST,
+        ]);
+
+        $html = $this->halaman();
+
+        $this->assertMatchesRegularExpression(
+            '~reservation_id=' . preg_quote($rsv, '~') . '[^"]*view=waitlist~', $html,
+            'Tautan waitlist tanpa view=waitlist mendarat di daftar kosong.'
+        );
+    }
+
+    /** Kontrol tanpa reservasi tidak diberi tombol — tidak ada yang bisa dibuka. */
+    public function test_tanpa_reservasi_tanpa_tombol(): void
+    {
+        $k = $this->pasien();
+        $this->tertutup($k, 2, '2021-08-17');
+
+        // Disaring ke pasien uji ini saja — lihat catatan di halaman().
+        $this->assertStringNotContainsString(
+            'Buka di Reservasi', $this->halaman(['q' => self::TANDA])
+        );
     }
 
     /** Tooltip di drawer detail ikut jujur — klaim keempat yang ditemukan. */

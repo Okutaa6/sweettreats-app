@@ -661,30 +661,21 @@
         }
     }
 
-    /* ── Segmented control 3 arah di panel yang dibuka ──────────────────────
-       Menukar tampilan hanya mengganti elemen mana yang tersembunyi — tidak ada
-       permintaan ke server, tidak ada render ulang. Pilihannya diingat per
-       baris supaya Sales yang terbiasa satu tampilan tidak memilih ulang. */
-    function pakaiTampilan(id, v) {
-        var mini = document.querySelector('[data-ort-mini="' + id + '"]');
-        var seg  = document.querySelector('[data-ort-seg="' + id + '"]');
-        if (!mini || !seg) return;
+    /* ── Lipatan per butir riwayat kontrol ──────────────────────────────────
+       Tiap butir menyimpan keadaan reservasinya sendiri. Dilipat supaya daftar
+       kembali terbaca sebagai riwayat: di pasien lama, lima baris "Tidak
+       tertaut reservasi" yang berdiri terbuka membuat kolomnya dua kali lebih
+       tinggi tanpa menambah satu pun informasi baru.
 
-        seg.querySelectorAll('button').forEach(function (b) {
-            b.classList.toggle('is-active', b.dataset.v === v);
-        });
-
-        mini.querySelectorAll('[data-v]').forEach(function (el) {
-            el.hidden = el.dataset.v !== v;
-        });
-
-        mini.querySelectorAll('[data-ort-minirow]').forEach(function (row) {
-            var href = v === 'fu' ? row.dataset.hrefFu : (v === 'rsv' ? row.dataset.hrefRsv : '');
-            row.classList.toggle('is-link', !!href);
-            row.dataset.aktif = href || '';
-        });
-
-        try { sessionStorage.setItem('ortMiniView', v); } catch (e) {}
+       ⚠ MENUMPUK, tidak saling menutup. Beda dari panel baris di atas yang
+         memang eksklusif: di sini Sales sering membandingkan dua kontrol, dan
+         menutup yang satu begitu yang lain dibuka membuat perbandingan itu
+         mustahil. */
+    function lipat(id, tombol) {
+        var isi = document.querySelector('[data-ort-kpanel="' + id + '"]');
+        if (!isi) return;
+        isi.hidden = !isi.hidden;
+        tombol.classList.toggle('is-open', !isi.hidden);
     }
 
     /* ── Pendaftaran listener: SEKALI saja, saat halaman dimuat ─────────────
@@ -702,31 +693,16 @@
         });
     });
 
-    document.querySelectorAll('[data-ort-seg]').forEach(function (seg) {
-        seg.addEventListener('click', function (e) {
-            var b = e.target.closest('button[data-v]');
-            if (!b) return;
+    document.querySelectorAll('[data-ort-kdetail]').forEach(function (b) {
+        b.addEventListener('click', function (e) {
+            /* Panel baris BUKAN anak dari [data-ort-row] (ia dirender sebagai
+               saudara sesudahnya), jadi klik di sini sebetulnya tidak pernah
+               sampai ke pembuka baris. stopPropagation tetap dipasang sebagai
+               pagar: begitu suatu hari strukturnya berubah, tanpa ini membuka
+               satu butir akan MENUTUP seluruh panelnya. */
             e.stopPropagation();
-            pakaiTampilan(seg.dataset.ortSeg, b.dataset.v);
+            lipat(b.dataset.ortKdetail, b);
         });
     });
-
-    document.querySelectorAll('[data-ort-mini]').forEach(function (mini) {
-        mini.addEventListener('click', function (e) {
-            var row = e.target.closest('[data-ort-minirow]');
-            if (!row || !row.dataset.aktif) return;
-            e.stopPropagation();
-            window.open(row.dataset.aktif, '_blank', 'noopener');
-        });
-    });
-
-    /* Kembalikan tampilan terakhir yang dipilih Sales. */
-    var ingat = null;
-    try { ingat = sessionStorage.getItem('ortMiniView'); } catch (e) {}
-    if (ingat && ingat !== 'semua') {
-        document.querySelectorAll('[data-ort-seg]').forEach(function (seg) {
-            pakaiTampilan(seg.dataset.ortSeg, ingat);
-        });
-    }
 })();
 </script>

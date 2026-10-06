@@ -1156,6 +1156,26 @@
 }
 .ort-nlist__t { min-width: 0; }
 .ort-nlist__dim { font-weight: 500; color: var(--ort-muted); }
+
+/* Kepala butir: teks di kiri, tombol lipat di kanan. */
+.ort-nlist__judul { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.ort-nlist__tgl {
+  flex: none; width: 20px; height: 20px; padding: 0; margin-top: -1px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: transparent; border: 1px solid var(--ort-line2); border-radius: 6px;
+  color: var(--ort-muted); font-size: 8px; cursor: pointer;
+  transition: transform .14s ease;
+}
+.ort-nlist__tgl:hover { color: var(--ort-ink2); border-color: var(--ort-muted); }
+.ort-nlist__tgl.is-open { transform: rotate(180deg); background: var(--ort-neu-bg); color: var(--ort-ink2); }
+
+/* Isi lipatan. Garis putus membedakannya dari pemisah antar butir yang padat. */
+.ort-nlist__d {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 8px;
+  margin-top: 7px; padding-top: 7px; border-top: 1px dashed var(--ort-line2);
+  font-size: 11.5px;
+}
+.ort-obtn--xs { padding: 5px 9px; font-size: 10.5px; gap: 5px; }
 .ort-nlist__kosong { font-size: 12px; color: var(--ort-muted); padding: 4px 0; }
 
 /* Pemilah Active | Inactive. Dua tombol yang terlihat sebagai SATU kendali:

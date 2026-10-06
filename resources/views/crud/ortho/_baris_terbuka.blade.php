@@ -188,6 +188,23 @@
                                    sama pernah hidup di empat tempat lalu berbeda pendapat tentang
                                    baris yang sama. */
                                 $kRsv = $k->keadaanReservasi($kCabang);
+
+                                /* Tautan ke RESERVASI PASIEN ITU, bukan sekadar ke tanggalnya.
+                                   `?reservation_id=` menyaring daftar Reservasi ke satu baris
+                                   persis (ReservationController:128). Versi lama modul ini
+                                   mengirim date_from/date_to — itu mendaratkan Sales di SELURUH
+                                   reservasi hari itu dan menyuruhnya mencari sendiri.
+
+                                   ⚠ Waitlist butuh `view=waitlist`: tab bawaan 'list' sengaja
+                                     MENGECUALIKAN status itu, jadi tanpa parameter ini tautannya
+                                     mendarat di daftar kosong — tampak seperti reservasinya hilang. */
+                                $kRsvUrl = $k->reservation_id
+                                    ? route('rawreservation', array_filter([
+                                        'reservation_id' => $k->reservation_id,
+                                        'view' => $k->rsv_status === \App\Models\RawCusReservation::STATUS_WAITLIST
+                                            ? 'waitlist' : null,
+                                      ]))
+                                    : null;
                             @endphp
                             <div class="ort-nlist__i">
                                 {{-- ⚠ Nomornya `seq`, BUKAN urutan baris. Versi pertama
@@ -203,33 +220,63 @@
                                      ini sempat mengarang penomoran kedua. --}}
                                 <span class="ort-nlist__n tabular">#{{ $k->seq }}</span>
                                 <span class="ort-nlist__t">
-                                    <span class="tabular">{{ ($k->visit_date ?: $k->sch_date)->translatedFormat('j M Y') }}</span>,
-                                    {{ $kCabang }},
-                                    {{-- Dokter PER KUNJUNGAN, bukan dokter kasus. Baris
-                                         yang belum sempat diisi backfill
-                                         (`ort:pull-visits --isi-dokter`) menulis "—":
-                                         menyalin dokter kasus ke sini akan membuat semua
-                                         baris terlihat ditangani orang yang sama padahal
-                                         tidak diketahui. --}}
-                                    @if ($k->doctor_name)
-                                        {{ $k->doctor_name }}
-                                    @else
-                                        <span class="ort-nlist__dim"
-                                              title="Dokter kunjungan ini belum tercatat. Jalankan `php artisan ort:pull-visits --isi-dokter` untuk mengisinya dari rekam medis.">—</span>
-                                    @endif
+                                    <span class="ort-nlist__judul">
+                                        <span>
+                                            <span class="tabular">{{ ($k->visit_date ?: $k->sch_date)->translatedFormat('j M Y') }}</span>,
+                                            {{ $kCabang }},
+                                            {{-- Dokter PER KUNJUNGAN, bukan dokter kasus. Baris
+                                                 yang belum sempat diisi backfill
+                                                 (`ort:pull-visits --isi-dokter`) menulis "—":
+                                                 menyalin dokter kasus ke sini akan membuat semua
+                                                 baris terlihat ditangani orang yang sama padahal
+                                                 tidak diketahui. --}}
+                                            @if ($k->doctor_name)
+                                                {{ $k->doctor_name }}
+                                            @else
+                                                <span class="ort-nlist__dim"
+                                                      title="Dokter kunjungan ini belum tercatat. Jalankan `php artisan ort:pull-visits --isi-dokter` untuk mengisinya dari rekam medis.">—</span>
+                                            @endif
+                                        </span>
 
-                                    {{-- Keadaan reservasi, apa adanya. Baris yang belum
-                                         pernah dijodohkan berbunyi "Tidak tertaut
-                                         reservasi" — BUKAN "tidak ada reservasi":
-                                         reservasi hidup di tabel Sweet Treats sendiri dan
-                                         hampir seluruhnya belum pernah dicek, jadi klaim
-                                         kedua mengaku tahu yang tidak diketahui. --}}
-                                    <div class="ort-nlist__dim" style="font-size:11.5px;" data-ort-rsv>
-                                        @unless ($k->visit_date)
-                                            <span class="ort-chip ort-chip--{{ $kRsv['nada'] }}"
-                                                  style="margin-right:5px;">{{ $kRsv['label'] }}</span>
-                                        @endunless
-                                        {{ $kRsv['teks'] }}
+                                        <button type="button" class="ort-nlist__tgl"
+                                                data-ort-kdetail="{{ $k->id }}"
+                                                title="Lihat keadaan reservasi kontrol ini"><i class="fas fa-chevron-down"></i></button>
+                                    </span>
+
+                                    {{-- Dilipat sejak 6 Okt 2026 atas permintaan Reza.
+                                         Sebelumnya keadaan reservasi berdiri terbuka di tiap
+                                         butir, dan di pasien lama daftarnya jadi dua kali lebih
+                                         tinggi oleh keterangan yang sama berulang-ulang
+                                         ("Tidak tertaut reservasi" × 5). Dilipat, daftarnya
+                                         kembali terbaca sebagai riwayat; yang butuh detail
+                                         membukanya satu per satu. --}}
+                                    <div class="ort-nlist__d" data-ort-kpanel="{{ $k->id }}" hidden>
+                                        {{-- Keadaan reservasi, apa adanya. Baris yang belum
+                                             pernah dijodohkan berbunyi "Tidak tertaut
+                                             reservasi" — BUKAN "tidak ada reservasi":
+                                             reservasi hidup di tabel Sweet Treats sendiri dan
+                                             hampir seluruhnya belum pernah dicek, jadi klaim
+                                             kedua mengaku tahu yang tidak diketahui. --}}
+                                        <div class="ort-nlist__dim" data-ort-rsv>
+                                            @unless ($k->visit_date)
+                                                <span class="ort-chip ort-chip--{{ $kRsv['nada'] }}"
+                                                      style="margin-right:5px;">{{ $kRsv['label'] }}</span>
+                                            @endunless
+                                            {{ $kRsv['teks'] }}
+                                        </div>
+
+                                        @if ($kRsvUrl)
+                                            {{-- Tab baru, bukan pindah halaman: Sales sedang di
+                                                 tengah daftar kerja dengan saringan dan halaman
+                                                 tertentu, dan menukarnya berarti ia harus
+                                                 membangun ulang keadaan itu saat kembali. --}}
+                                            <a href="{{ $kRsvUrl }}" target="_blank" rel="noopener"
+                                               class="ort-obtn ort-obtn--xs" onclick="event.stopPropagation()"
+                                               title="Buka reservasi pasien ini di modul Reservasi">
+                                                <i class="far fa-calendar-alt"></i> Buka di Reservasi
+                                                <i class="fas fa-external-link-alt" style="font-size:8px;"></i>
+                                            </a>
+                                        @endif
                                     </div>
                                 </span>
                             </div>
