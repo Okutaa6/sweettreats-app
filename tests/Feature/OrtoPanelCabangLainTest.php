@@ -261,6 +261,40 @@ class OrtoPanelCabangLainTest extends TestCase
     // Tab-nya sendiri
     // ════════════════════════════════════════════════════════════════════════
 
+    /**
+     * ⭐ Keempat tab utama terbuka. Tanpa uji ini, tab "Belum punya jadwal"
+     * sempat 500 TANPA ketahuan: antrean naik dari kartu jadi tab, dan penjaga
+     * lama `if ($tab !== 'list') $kartuAktif = null;` membatalkan tab barunya
+     * sendiri — konteks antrean tidak pernah dibangun, _antrean dirender tanpa
+     * $kelompok. Suite tetap hijau karena tidak satu pun uji membuka tab itu.
+     */
+    public function test_keempat_tab_terbuka(): void
+    {
+        $this->pasien($this->kita, $this->kita);
+
+        foreach (['list', 'antrean', 'kalender', 'pasien'] as $tab) {
+            $this->withSession($this->sesi)
+                ->get('/tracking-ortho?' . http_build_query(['utama' => $this->kita, 'tab' => $tab]))
+                ->assertOk();
+        }
+    }
+
+    /** Dan kartu ringkasnya memang sudah tidak dirender di mana pun. */
+    public function test_kartu_ringkas_sudah_tidak_ada(): void
+    {
+        $html = $this->withSession($this->sesi)
+            ->get('/tracking-ortho?' . http_build_query(['utama' => $this->kita]))
+            ->assertOk()->getContent();
+
+        $this->assertStringNotContainsString('ort-card__icon', $html, 'Kartu ringkas sudah dibuang dari layar.');
+
+        /* ⚠ ANGKANYA tidak ikut dibuang: _btabs memakai $kartu['aktif'] sebagai
+           hitungan pasien di tab cabang, dan spanduk "hari pertama" memakai
+           ketiganya. Dua kali saat membuangnya saya salah menyimpulkan angka itu
+           "cuma untuk kartu". */
+        $this->assertStringContainsString('ort-btab__count', $html, 'Hitungan pasien di tab cabang tetap ada.');
+    }
+
     /** Barisnya bisa diklik dan membawa cangkang panel beserta skripnya. */
     public function test_tab_cabang_lain_punya_cangkang_dan_skrip(): void
     {

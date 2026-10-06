@@ -48,42 +48,6 @@
 .ort .tabular,
 .ort .ort-num { font-variant-numeric: tabular-nums; }
 
-/* ── Kartu ringkas ──────────────────────────────────────────────────────── */
-.ort-cards {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 13px;
-  margin-top: 13px;
-}
-.ort-card {
-  display: block;
-  background: #fff;
-  border: 1px solid var(--ort-line);
-  border-radius: 16px;
-  padding: 14px 16px 15px;
-  box-shadow: 0 1px 2px rgba(70, 21, 0, .04);
-  text-decoration: none;
-  transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease;
-}
-.ort-card:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 8px 20px rgba(70, 21, 0, .09);
-  text-decoration: none;
-}
-.ort-card.is-active { border: 1.5px solid var(--ort-btn1); background: #FDF6EF; }
-.ort-card__top { display: flex; align-items: center; gap: 9px; }
-.ort-card__icon {
-  width: 26px; height: 26px; flex: none; border-radius: 9px;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 12px; background: var(--ort-neu-bg); color: var(--ort-ink3);
-}
-.ort-card__label { font-size: 12px; font-weight: 700; color: var(--ort-ink2); flex: 1; }
-.ort-card__chev  { color: var(--ort-muted); font-size: 11px; }
-.ort-card__num   { font-size: 27px; font-weight: 800; line-height: 1.15; margin-top: 6px; color: var(--ort-ink); }
-.ort-card__sub   { font-size: 11px; color: var(--ort-muted); margin-top: 2px; line-height: 1.45; }
-.ort-card--warn .ort-card__icon { background: var(--ort-warn-bg); color: var(--ort-warn); }
-.ort-card--warn .ort-card__num  { color: var(--ort-warn); }
-
 /* ── Tab cabang ─────────────────────────────────────────────────────────── */
 .ort-branchtabs { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 15px 0 0; }
 .ort-btab {
@@ -525,7 +489,6 @@
 
 /* ── Tempel di HP ───────────────────────────────────────────────────────── */
 @media (max-width: 900px) {
-  .ort-cards { grid-template-columns: 1fr; }
   .ort-expand { grid-template-columns: 1fr; gap: 16px; }
   .ort-facts { grid-template-columns: 1fr; }
 }
@@ -757,10 +720,6 @@
 /* Header tabel: 10.5px dengan spasi huruf .6 seperti prototipe, bukan 9.5/.55 */
 .ort-thead .ort-grid > div { font-size: 10.5px; letter-spacing: .6px; }
 .ort-thead { padding: 0 14px; min-height: 40px; }
-
-/* Ubin ikon kartu 1 & 3 memakai krem, bukan abu-netral. */
-.ort-card__icon { background: #F4E7D6; color: var(--ort-btn1); }
-.ort-card--warn .ort-card__icon { background: var(--ort-warn-bg); color: var(--ort-warn); }
 
 /* Baris sedikit lebih lega — prototipe bernapas lebih longgar. */
 .ort-tr { padding: 13px 14px; }
@@ -1524,7 +1483,6 @@ a.ort-cal-cell:hover { background: var(--ort-hover); text-decoration: none; colo
 /* Jarak antar blok sudah diurus `gap` di atas — margin-top per blok jadi
    dobel. Dinolkan supaya ritmenya seragam. */
 .ort > .st-card,
-.ort > .ort-cards,
 .ort > .ort-branchtabs,
 .ort > .ort-urow,
 .ort > .ort-chips,

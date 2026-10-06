@@ -8,8 +8,10 @@
 --}}
 <div class="ort-filter" data-ort-filter-panel {{ empty($filter) ? 'hidden' : '' }}>
     <form method="GET" action="{{ route('ortho.index') }}">
-        {{-- Pertahankan konteks yang bukan filter. --}}
-        @foreach (['tab', 'urgensi', 'cabang', 'kartu'] as $bawa)
+        {{-- Pertahankan konteks yang bukan filter. ('kartu' dikeluarkan 6 Okt
+             2026 — sudah tidak dibaca controller sejak antrean jadi tab, jadi
+             membawanya cuma menumpuk parameter mati di URL hasil pencarian.) --}}
+        @foreach (['tab', 'urgensi', 'cabang'] as $bawa)
             @if (request($bawa))
                 <input type="hidden" name="{{ $bawa }}" value="{{ request($bawa) }}">
             @endif

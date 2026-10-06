@@ -115,7 +115,7 @@
             <div class="ort-branchtabs__wrap" id="ort-btabs-lain">
                 <div class="ort-branchtabs__more">
                     @foreach ($perCabangLain as $pid => $n)
-                        <a href="{{ $tautan(['cabang' => $pid, 'kartu' => null, 'urgensi' => null]) }}"
+                        <a href="{{ $tautan(['cabang' => $pid, 'urgensi' => null]) }}"
                            {{-- (string) wajib: PHP mengubah kunci array numerik '29958'
                                 jadi int, dan int === string selalu false — tanpa cast, tab
                                 cabang lain TIDAK PERNAH dapat kelas is-active, jadi tidak

@@ -45,7 +45,10 @@ use Illuminate\Support\Str;
 class OrthoController extends Controller
 {
     /** Tab tingkat atas. Divalidasi supaya query string tidak bisa mengarang tab. */
-    private const TABS = ['list', 'kalender', 'pasien'];
+    /* 'antrean' masuk 6 Okt 2026, naik dari kartu ketiga. Urutannya sengaja
+       mengikuti urutan di layar — daftar kerja dulu, lalu yang belum punya
+       jadwal, baru dua tab telaah. */
+    private const TABS = ['list', 'antrean', 'kalender', 'pasien'];
 
     /** Kamus `urgensi` saat antrean penjadwalan yang ditampilkan. */
     private const URGENSI_ANTREAN = ['semua', 'hilang', 'jarang', 'baru'];
@@ -118,9 +121,10 @@ class OrthoController extends Controller
             // Tabel daftar kerja, untuk memperbarui di tempat tanpa memuat
             // ulang halaman. Hanya sah di daftar kerja biasa — antrean
             // penjadwalan dan tab cabang lain merender partial yang berbeda.
+            // ⚠ Syarat `kartuAktif !== 'backlog'` dibuang 6 Okt 2026: antrean
+            //   kini tab tersendiri, jadi `tab === 'list'` sudah mengecualikannya.
             'tabel'  => ['crud.ortho._frag_tabel', fn () => ($ctx['tab'] ?? '') === 'list'
-                && ! ($ctx['hanyaLihat'] ?? false)
-                && ($ctx['kartuAktif'] ?? null) !== 'backlog'],
+                && ! ($ctx['hanyaLihat'] ?? false)],
 
             // Panel satu baris, dimuat saat barisnya dibuka. Lihat panelBaris().
             'panel'  => ['crud.ortho._baris_terbuka', fn () => true],
@@ -261,28 +265,27 @@ class OrthoController extends Controller
     {
         $tab = in_array($request->query('tab'), self::TABS, true) ? $request->query('tab') : 'list';
 
-        // Kartu ke-3 mengganti tabel dengan antrean penjadwalan, bukan menyaringnya.
-        $kartuAktif = $request->query('kartu');
-        $kartuAktif = in_array($kartuAktif, ['minggu-ini', 'terlewat', 'backlog'], true) ? $kartuAktif : null;
+        /* Antrean penjadwalan dulu dipilih lewat KARTU ketiga ("Belum punya
+           jadwal"); sejak 6 Okt 2026 ia TAB tersendiri.
 
-        /*
-         * Kartu ringkas menyaring DAFTAR KERJA — tidak lebih.
-         *
-         * Tab Kalender disusun per tanggal dan tab Pasien Ortho per orang;
-         * tidak satu pun dari keduanya disaring oleh `kartu`. Membiarkannya
-         * hidup di sana menimbulkan halaman yang bertengkar dengan dirinya
-         * sendiri: `?tab=pasien&kartu=backlog` mengganti pita kiri jadi sub-tab
-         * ANTREAN, sementara isi halamannya tetap roster — dan semua angka di
-         * sub-tab itu nol, karena hitungAntrean memang tidak pernah dihitung
-         * untuk cabang kode tab Pasien.
-         *
-         * Kartu-kartunya sendiri sekarang selalu memulangkan ke tab List
-         * (lihat _cards.blade.php), jadi menekan kartu tetap bekerja dari tab
-         * mana pun — ia memindahkan Anda ke tempat yang memang menyaringnya.
-         */
-        if ($tab !== 'list') {
-            $kartuAktif = null;
-        }
+           Dua sisa parameter kartu — 'minggu-ini' dan 'terlewat' — ikut dibuang
+           karena keduanya cuma menyetel $urgensi ke nilai yang sub-tab di bawah
+           tabel sudah menyediakan: dua jalan ke keadaan yang sama, dan yang satu
+           tidak punya penanda aktif di layar.
+
+           `kartuAktif` dipertahankan sebagai NAMA di konteks supaya tiga pemakai
+           lain ($modeAntrean di list.blade, syarat fragmen tabel, dan pemilihan
+           kamus urgensi) tidak perlu diubah serentak — nilainya kini diturunkan
+           dari tab, bukan dari query sendiri.
+
+           ⚠ Penjaga `if ($tab !== 'list') $kartuAktif = null;` DIBUANG bersamaan,
+             dan itu wajib: ia ditulis saat `kartu` masih sumbu TERPISAH dari
+             `tab` (untuk mencegah ?tab=pasien&kartu=backlog yang bertengkar
+             dengan dirinya sendiri). Sekarang kartuAktif justru LAHIR dari tab,
+             jadi penjaga itu membatalkan dirinya sendiri — tab antrean
+             mengembalikan null, konteks antrean tidak pernah dibangun, dan
+             _antrean dirender tanpa $kelompok. Sudah kena sekali. */
+        $kartuAktif = $tab === 'antrean' ? 'backlog' : null;
 
         /*
          * `urgensi` punya DUA kamus, tergantung yang sedang ditampilkan.
@@ -358,6 +361,16 @@ class OrthoController extends Controller
             }
         }
 
+        /* ⚠ TETAP DIPANGGIL walau kartunya sudah dibuang dari layar (6 Okt
+           2026), dan itu bukan sisa yang terlupa: angka yang sama dipakai
+           `hariPertama` di bawah — spanduk yang muncul saat SELURUH pasien
+           aktif belum punya jadwal, yaitu keadaan tepat sesudah data ditarik
+           pertama kali — DAN oleh hitungan pasien di tab cabang (_btabs
+           memakai $kartu['aktif']).
+
+           Dua kali saat membuang kartunya saya salah menyimpulkan angka ini
+           "cuma untuk kartu"; ia dipakai tiga tempat, dan dua di antaranya
+           tetap tampil. Dicatat supaya pembacaan ketiga tidak mengulanginya. */
         $kartuRingkas = $this->q->kartu($placeId);
 
         /*
@@ -384,6 +397,9 @@ class OrthoController extends Controller
             'tambah'       => (bool) $request->query('tambah'),
             // Hari pertama: ada pasien, tapi TIDAK ADA satu pun yang punya jadwal.
             'hariPertama'  => $kartuRingkas['aktif'] > 0 && $kartuRingkas['backlog'] === $kartuRingkas['aktif'],
+            // Kartunya dibuang dari layar, ANGKANYA tidak: _btabs memakai
+            // $kartu['aktif'] sebagai hitungan pasien di tab cabang.
+            'kartu'        => $kartuRingkas,
             'placeId'       => $placeId,
             'namaCabang'    => $namaCabang,
             'terkunci'      => $terkunci,
@@ -404,7 +420,6 @@ class OrthoController extends Controller
             'peta'          => $this->branches->all(),
             'perCabangLain' => $perCabangLain,
             'filter'        => array_filter(Arr::except($filter, ['saya'])),
-            'kartu'         => $kartuRingkas,
             'dokterPilihan' => $this->q->dokterDiCabang($placeId),
             'hariIni'       => $this->q->hariIni(),
             // Dipakai _paginasi untuk menandai pilihan yang sedang aktif.
@@ -470,7 +485,7 @@ class OrthoController extends Controller
             ];
         }
 
-        // ── Kartu ke-3 dipilih: tabel diganti antrean penjadwalan.
+        // ── Tab "Belum punya jadwal": tabel diganti antrean penjadwalan.
         if ($kartuAktif === 'backlog') {
             $baris = $this->q->antrean($placeId, $filter, $perHal, $urgensi);
 
@@ -487,13 +502,12 @@ class OrthoController extends Controller
             ];
         }
 
-        // ── Daftar kerja harian.
-        if ($kartuAktif === 'terlewat') {
-            $urgensi = 'terlewat';
-        } elseif ($kartuAktif === 'minggu-ini') {
-            $urgensi = 'minggu-ini';
-        }
-
+        /* ── Daftar kerja harian.
+           Di sini dulu ada dua cabang lagi: kartu "Terlewat" dan "Minggu ini"
+           menyetel $urgensi. Keduanya mati bersama kartunya — dan memang pantas
+           mati, karena sub-tab di bawah tabel menyetel $urgensi yang SAMA lewat
+           ?urgensi=, lengkap dengan penanda "sedang dibuka" yang tidak pernah
+           dipunyai kartunya. */
         $baris   = $this->q->daftar($placeId, $urgensi, $filter, $perHal);
         $caseIds = collect($baris->items())->pluck('ort_case_id')->unique()->all();
 

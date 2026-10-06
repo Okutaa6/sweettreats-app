@@ -23,10 +23,15 @@
 
 @section('content')
 @php
+    /* "Belum punya jadwal" naik dari KARTU jadi TAB (6 Okt 2026). Ia memang
+       sepadan dengan ketiganya — satu populasi tersendiri dengan kolom, urutan,
+       dan aksi sendiri — bukan sekadar saringan atas daftar kerja, dan sebagai
+       kartu ia tidak pernah punya penanda "sedang dibuka" yang jelas. */
     $tabs = [
-        'list'     => ['label' => 'List',         'ikon' => 'fa-list-ul'],
-        'kalender' => ['label' => 'Kalender',     'ikon' => 'fa-calendar-alt'],
-        'pasien'   => ['label' => 'Pasien Ortho', 'ikon' => 'fa-user-friends'],
+        'list'     => ['label' => 'List',               'ikon' => 'fa-list-ul'],
+        'antrean'  => ['label' => 'Belum punya jadwal', 'ikon' => 'fa-clock'],
+        'kalender' => ['label' => 'Kalender',           'ikon' => 'fa-calendar-alt'],
+        'pasien'   => ['label' => 'Pasien Ortho',       'ikon' => 'fa-user-friends'],
     ];
 
     $urgensiTabs = [
@@ -54,7 +59,7 @@
     };
 
     $adaFilter   = ! empty($filter);
-    $modeAntrean = ($kartuAktif ?? null) === 'backlog';
+    $modeAntrean = $tab === 'antrean';
     $modeSelesai = $tab === 'pasien' && ($rawat ?? 'aktif') === 'selesai';
 
     $labelFilter = ['q' => 'Cari', 'dokter' => 'Dokter', 'dari' => 'Dari', 'sampai' => 'Sampai'];
@@ -114,7 +119,7 @@
                     ada di "Belum punya jadwal", terurut dari yang paling genting.
                 </div>
             </div>
-            <a href="{{ $tautan(['kartu' => 'backlog', 'tab' => null]) }}" class="ort-btn">Buka antrean penjadwalan</a>
+            <a href="{{ $tautan(['tab' => 'antrean']) }}" class="ort-btn">Buka antrean penjadwalan</a>
         </div>
     @endif
 
@@ -162,7 +167,14 @@
          Kecualinya cuma antrean penjadwalan: isinya justru pasien yang
          BELUM punya jadwal, jadi menyaringnya per rentang tanggal tidak
          berarti apa-apa. --}}
-    @include('crud.ortho._cards', ['tautan' => $tautan])
+    {{-- Kartu ringkas (Jadwal minggu ini · Terlewat · Belum punya jadwal)
+         DIBUANG 6 Okt 2026 atas permintaan Reza.
+
+         Yang dibawanya tidak hilang: hitungan "Terlewat" dan "Minggu ini" ada
+         di sub-tab tepat di atas tabel — tempat yang sekaligus MENYARING, bukan
+         cuma memberi tahu — dan "Belum punya jadwal" naik jadi tab tersendiri.
+
+         Ketiganya dulu memaksa tiga kueri hitung tiap muat halaman. --}}
     @include('crud.ortho._btabs')
     {{-- Sisi kiri pita. Daftar kerja memakai sub-tab tanggal; antrean
          penjadwalan memakai tingkat kegentingannya sendiri. Bentuk dan
@@ -176,7 +188,14 @@
         'kiri' => $modeAntrean ? 'crud.ortho._nav_antrean' : ($modeSelesai ? null : 'crud.ortho._nav_urgensi'),
     ])
 
-    @if ($tab === 'pasien')
+    @if ($tab === 'antrean')
+
+        {{-- Antrean penjadwalan: pasien tanpa kontrol terbuka. Isinya partial
+             yang sama seperti saat ia masih dipilih lewat kartu — yang berubah
+             cuma cara memilihnya. --}}
+        @include('crud.ortho._antrean')
+
+    @elseif ($tab === 'pasien')
 
         @include('crud.ortho._roster', ['tautan' => $tautan])
 

@@ -34,7 +34,7 @@
          aplikasi berubah suatu hari, halaman ini ikut tanpa disentuh. --}}
     <div class="st-view-tabs ort-navrow__tabs">
         @foreach ($tabs as $key => $t)
-            <a href="{{ $tautan(['tab' => $key, 'urgensi' => null, 'cabang' => null, 'kartu' => null, 'rawat' => null]) }}"
+            <a href="{{ $tautan(['tab' => $key, 'urgensi' => null, 'cabang' => null, 'rawat' => null]) }}"
                class="st-view-tab {{ $tab === $key ? 'active' : '' }}">
                 <i class="fas {{ $t['ikon'] }}"></i> {{ $t['label'] }}
             </a>

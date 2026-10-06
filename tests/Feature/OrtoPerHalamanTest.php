@@ -272,7 +272,11 @@ class OrtoPerHalamanTest extends TestCase
     {
         $this->semai(3);
 
-        foreach ([['tab' => 'pasien'], ['kartu' => 'backlog']] as $query) {
+        /* ⚠ `['kartu' => 'backlog']` sampai 6 Okt 2026 — parameter itu sudah
+           tidak memilih apa pun sejak antrean penjadwalan naik jadi TAB, jadi
+           uji ini diam-diam berhenti memeriksa antrean dan memeriksa daftar
+           kerja dua kali. Hijau, dan tidak menjaga apa-apa. */
+        foreach ([['tab' => 'pasien'], ['tab' => 'antrean']] as $query) {
             $this->assertStringContainsString(
                 'data per halaman', str_replace(['jadwal per halaman', 'pasien per halaman'], 'data per halaman',
                     $this->halaman($query)),

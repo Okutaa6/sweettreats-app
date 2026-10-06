@@ -28,7 +28,7 @@
             $n       = $hitungUrgensi[$key] ?? 0;
             $merahkn = $key === 'terlewat' && $n > 0 && $urgensi !== $key;
         @endphp
-        <a href="{{ $tautan(['urgensi' => $key, 'kartu' => null]) }}"
+        <a href="{{ $tautan(['urgensi' => $key]) }}"
            class="ort-utab {{ $urgensi === $key ? 'is-active' : '' }}"
            @if ($key === 'semua') title="{{ $jelasSemua }}" @endif>
             @if ($warna)
