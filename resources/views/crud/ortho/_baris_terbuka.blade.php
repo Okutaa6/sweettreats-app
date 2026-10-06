@@ -186,15 +186,20 @@
                      hubungannya dengan daftar ini. --}}
                 <div class="ort-nlist__urut">
                     {{ $kehadiran }}
-                    @if ($r->median_gap_days)
-                        · irama {{ $r->median_gap_days }} hari
-                        @if ($r->gap_spread_pct !== null)
-                            <span title="{{ $r->gap_spread_pct > \App\Models\OrtCase::IRAMA_RAPAT_PCT
-                                ? 'Selangnya jauh berbeda-beda (sebaran ' . $r->gap_spread_pct . '% dari median) — tanyakan tanggalnya lewat telepon, jangan dipegang dari angka ini.'
-                                : 'Selangnya konsisten (sebaran ' . $r->gap_spread_pct . '% dari median) — tanggal usulan untuk pasien ini bisa dipegang.' }}"
-                                  style="cursor:help;">· {{ $r->gap_spread_pct > \App\Models\OrtCase::IRAMA_RAPAT_PCT ? 'tidak teratur' : 'teratur' }}</span>
-                        @endif
-                    @endif
+                    {{-- "irama N hari · teratur" DIBUANG dari baris ini 6 Okt 2026
+                         atas permintaan Reza.
+
+                         ⚠ Angkanya sendiri TIDAK dibuang dan tidak boleh dibuang:
+                           median_gap_days menggerakkan hampir seluruh modul —
+                           ambang warna badge Last Visit, urutan daftar, gerbang
+                           H-3 kolom Jadwal Dokter, dan tanggal usulan. Yang hilang
+                           cuma tampilannya di sini.
+
+                         Ia tetap terbaca di drawer detail (KPI "Irama kontrol",
+                         _drawer_detail:208) lengkap dengan sebaran dan
+                         keterangannya, jadi pertanyaan "pasien ini iramanya
+                         berapa" masih punya jawaban di layar — satu klik lebih
+                         jauh, di tempat yang memang untuk menelaah satu pasien. --}}
                     @if ($siklusTerlewat >= \App\Models\OrtCase::SIKLUS_ESKALASI)
                         · <span style="color:var(--ort-bad);font-weight:700;"
                                 title="Sudah {{ $siklusTerlewat }} interval kontrol lewat sejak kunjungan terakhir — perlu pendekatan berbeda, bukan sekadar telepon ulang.">terlewat {{ $siklusTerlewat }} siklus</span>
