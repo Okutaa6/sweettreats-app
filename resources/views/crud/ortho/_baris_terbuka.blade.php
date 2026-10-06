@@ -184,7 +184,7 @@
                      di atas daftar yang membentuknya. Di panel lama ketiganya
                      tersebar di antara delapan fakta lain dan kehilangan
                      hubungannya dengan daftar ini. --}}
-                <div class="ort-nlist__dim" style="margin-bottom:10px;font-size:11.5px;">
+                <div class="ort-nlist__urut">
                     {{ $kehadiran }}
                     @if ($r->median_gap_days)
                         · irama {{ $r->median_gap_days }} hari
@@ -199,10 +199,20 @@
                         · <span style="color:var(--ort-bad);font-weight:700;"
                                 title="Sudah {{ $siklusTerlewat }} interval kontrol lewat sejak kunjungan terakhir — perlu pendekatan berbeda, bukan sekadar telepon ulang.">terlewat {{ $siklusTerlewat }} siklus</span>
                     @endif
+                    {{-- Digabung ke baris yang sama (6 Okt 2026). Dua baris redup
+                         bertumpuk membuat butir pertama ketiga kolom tidak pernah
+                         sejajar, dan itu yang paling kelihatan di panel tiga kolom.
+
+                         "# = kontrol ke-berapa" turun jadi tooltip: sesudah
+                         nomornya memakai `seq`, deretnya menurun 6·5·4·3·2·1 dari
+                         atas — itu sudah menunjukkan sendiri bahwa ia bukan urutan
+                         baris. Kalimatnya tetap ada untuk yang ragu. --}}
+                    @if (count($kunjungan))
+                        <span title="Nomornya kontrol ke-berapa pasien ini, bukan urutan baris — daftarnya terbaru di atas.">· terbaru di atas</span>
+                    @endif
                 </div>
 
                 @if (count($kunjungan))
-                    <div class="ort-nlist__urut">terbaru di atas · # = kontrol ke-berapa</div>
                     <div class="ort-nlist">
                         @foreach ($kunjungan as $i => $k)
                             @php

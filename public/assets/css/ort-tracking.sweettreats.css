@@ -1150,27 +1150,49 @@
 .ort-nlist {
   display: flex; flex-direction: column;
   max-height: 194px; overflow-y: auto;
-  /* Ruang untuk bilah gulir supaya teks tidak tertempel ke tepinya. */
-  padding-right: 4px;
+  /* Gutter DISEDIAKAN tetap, bukan padding yang selalu ada: daftar pendek
+     tidak ikut tergeser 4px hanya karena yang panjang membutuhkannya, jadi
+     ketiga kolom tetap rata kiri satu sama lain. */
+  scrollbar-gutter: stable;
+  padding-right: 2px;
 }
 
-/* Bilah gulirnya DIBUAT TERLIHAT. Bawaan Windows menyembunyikannya sampai
-   disentuh, dan daftar yang terpotong tanpa tanda terbaca seperti daftar yang
-   memang cuma segitu — persis salah baca yang dihindari. */
-.ort-nlist::-webkit-scrollbar { width: 6px; }
-.ort-nlist::-webkit-scrollbar-track { background: var(--ort-row); border-radius: 6px; }
-.ort-nlist::-webkit-scrollbar-thumb { background: #D9C3AC; border-radius: 6px; }
-.ort-nlist::-webkit-scrollbar-thumb:hover { background: var(--ort-muted); }
-.ort-nlist { scrollbar-width: thin; scrollbar-color: #D9C3AC var(--ort-row); }
+/* Bilah gulir TERLIHAT tapi tenang. Terlihat karena daftar yang terpotong
+   tanpa tanda terbaca seperti daftar yang memang cuma segitu — itu sebabnya
+   ia tidak diserahkan ke bawaan Windows yang menyembunyikannya sampai
+   disentuh. Tenang karena ia keterangan, bukan isi: tracknya transparan
+   (versi pertama memberinya latar penuh dan hasilnya sebatang palang gelap
+   setinggi kolom, lebih menonjol dari riwayat yang seharusnya dibaca). */
+.ort-nlist::-webkit-scrollbar { width: 5px; }
+.ort-nlist::-webkit-scrollbar-track { background: transparent; }
+.ort-nlist::-webkit-scrollbar-thumb { background: #E2D2BE; border-radius: 6px; }
+.ort-nlist::-webkit-scrollbar-thumb:hover { background: #C9AE93; }
+.ort-nlist { scrollbar-width: thin; scrollbar-color: #E2D2BE transparent; }
 .ort-nlist__i {
-  display: flex; gap: 11px; padding: 10px 0;
+  display: flex; gap: 10px; padding: 9px 0;
   font-size: 12.5px; font-weight: 600; color: var(--ort-ink2); line-height: 1.45;
 }
+.ort-nlist__i:first-child { padding-top: 2px; }
 .ort-nlist__i + .ort-nlist__i { border-top: 1px solid var(--ort-row); }
-/* `#12` butuh lebih dari 15px — nomornya `seq`, dan pasien lama bisa punya
-   belasan kontrol. Terlalu sempit membuat kolom teks di sebelahnya bergeser
-   dari baris ke baris. */
-.ort-nlist__n { font-weight: 800; color: var(--ort-ink); flex: none; min-width: 26px; }
+
+/* Nomor = INDEKS, bukan isi. Ia sempat setebal dan segelap tanggalnya, dan di
+   daftar enam butir dua hal berbobot sama bersaing jadi titik baca pertama —
+   padahal yang dicari orang tanggalnya. Sekarang ia mundur satu tingkat.
+
+   ⚠ `#12` butuh lebih dari 15px (nomornya `seq`, pasien lama bisa punya
+     belasan kontrol), dan rata KANAN supaya satuan `#6` dan puluhan `#12`
+     berbaris pada digit terakhirnya, bukan pada pagarnya. */
+.ort-nlist__n {
+  font-weight: 700; color: var(--ort-muted);
+  flex: none; min-width: 26px; text-align: right;
+}
+
+/* ⚠ `flex: 1` WAJIB, dan ketiadaannya adalah bug tata letak yang sebenarnya:
+     tanpa itu span ini menyusut ke lebar teksnya, `justify-content:
+     space-between` di .ort-nlist__judul tidak punya ruang untuk dibagi, dan
+     tombol lipat menempel di ujung kalimat — berpindah-pindah tiap baris
+     mengikuti panjang nama cabang dan dokter alih-alih berbaris di tepi. */
+.ort-nlist__t { flex: 1; min-width: 0; }
 
 /* Urutan daftar DIKATAKAN, tidak diserahkan ke tebakan. */
 /* Keadaan panel yang sedang/gagal memuat. Panel dimuat saat barisnya dibuka,
@@ -1180,23 +1202,25 @@
   background: #fff; border: 1px solid var(--ort-line); border-radius: 14px;
 }
 
+/* SATU baris keterangan per kolom, bukan dua. Dua baris redup bertumpuk di
+   atas daftar membuat butir pertama ketiga kolom tidak pernah sejajar — dan
+   ketidaksejajaran itu yang paling kelihatan di panel tiga kolom. */
 .ort-nlist__urut {
-  font-size: 10.5px; font-weight: 600; color: var(--ort-muted);
-  margin-bottom: 6px;
+  font-size: 11px; font-weight: 500; color: var(--ort-muted);
+  margin-bottom: 9px; line-height: 1.5;
 }
-.ort-nlist__t { min-width: 0; }
 .ort-nlist__dim { font-weight: 500; color: var(--ort-muted); }
 
 /* Kepala butir: teks di kiri, tombol lipat di kanan. */
 .ort-nlist__judul { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
 .ort-nlist__tgl {
-  flex: none; width: 20px; height: 20px; padding: 0; margin-top: -1px;
+  flex: none; width: 22px; height: 22px; padding: 0; margin-top: -1px;
   display: inline-flex; align-items: center; justify-content: center;
-  background: transparent; border: 1px solid var(--ort-line2); border-radius: 6px;
-  color: var(--ort-muted); font-size: 8px; cursor: pointer;
-  transition: transform .14s ease;
+  background: #fff; border: 1px solid var(--ort-line2); border-radius: 7px;
+  color: var(--ort-muted); font-size: 9px; cursor: pointer;
+  transition: transform .14s ease, background .14s ease, border-color .14s ease;
 }
-.ort-nlist__tgl:hover { color: var(--ort-ink2); border-color: var(--ort-muted); }
+.ort-nlist__tgl:hover { background: var(--ort-hover); color: var(--ort-ink2); border-color: var(--ort-muted); }
 .ort-nlist__tgl.is-open { transform: rotate(180deg); background: var(--ort-neu-bg); color: var(--ort-ink2); }
 
 /* Isi lipatan. Garis putus membedakannya dari pemisah antar butir yang padat. */
