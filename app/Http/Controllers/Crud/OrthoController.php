@@ -121,10 +121,18 @@ class OrthoController extends Controller
             'tabel'  => ['crud.ortho._frag_tabel', fn () => ($ctx['tab'] ?? '') === 'list'
                 && ! ($ctx['hanyaLihat'] ?? false)
                 && ($ctx['kartuAktif'] ?? null) !== 'backlog'],
+
+            // Panel satu baris, dimuat saat barisnya dibuka. Lihat panelBaris().
+            'panel'  => ['crud.ortho._baris_terbuka', fn () => true],
         ];
 
         if (! isset($daftar[$frag])) {
             return null;
+        }
+
+        // Panel punya konteksnya sendiri — bukan konteks halaman.
+        if ($frag === 'panel') {
+            return $this->panelBaris($ctx);
         }
 
         [$view, $syarat] = $daftar[$frag];
@@ -138,6 +146,45 @@ class OrthoController extends Controller
         // sendiri — tanpa ini state kosong di _tabel salah kalimat.
         return response()->view($view, $ctx + $this->penautFragmen() + [
             'adaFilter' => ! empty($ctx['filter'] ?? []),
+        ]);
+    }
+
+    /**
+     * Fragmen panel SATU baris — dimuat saat barisnya dibuka, bukan di muka.
+     *
+     * ────────────────────────────────────────────────────────────────────────
+     * KENAPA LAZY
+     * ────────────────────────────────────────────────────────────────────────
+     * prompt_jadwal_kontrol.md (Phase 2) memintanya sejak awal: "Data detail
+     * di-load via AJAX saat dibuka (lazy load), supaya list utama tetap
+     * ringan." Versi pertama panel tiga kolom mengabaikannya dan merender
+     * panel untuk SETIAP baris.
+     *
+     * Harganya terukur, dan Reza yang menemukannya lewat gejalanya: menyimpan
+     * follow-up terasa "seperti memuat ulang halaman". Sebabnya memang itu —
+     * fragmen tabel yang ditukar JS berukuran 454 KB, dan 95% DI ANTARANYA
+     * (23 panel × 18,7 KB) adalah panel yang paling banyak SATU yang pernah
+     * terbuka. Menukar DOM sebesar itu memang tidak bisa terasa ringan.
+     *
+     * ⚠ Gerbangnya `OrtQuery::satuBaris()`, yang memakai `dasar()` — sudah
+     *   terkunci ke cabang ini. Kontrol milik cabang lain mengembalikan null
+     *   dan jalur ini menjawab 404. Panel tidak boleh jadi celah membaca
+     *   pasien cabang orang.
+     */
+    private function panelBaris(array $ctx)
+    {
+        $id = request()->query('kontrol');
+        abort_unless($id && Schema::hasTable('ort_control'), 404);
+
+        $r = $this->q->satuBaris((string) ($ctx['placeId'] ?? ''), (string) $id);
+        abort_unless($r, 404);
+
+        $ids = [$r->ort_case_id];
+
+        return response()->view('crud.ortho._baris_terbuka', $ctx + $this->penautFragmen() + [
+            'r'            => $r,
+            'riwayatVisit' => $this->q->riwayatKontrol($ids),
+            'riwayatFu'    => $this->q->riwayatFollowUp($ids),
         ]);
     }
 

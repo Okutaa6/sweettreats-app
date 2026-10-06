@@ -32,6 +32,19 @@
       panel ini dirender untuk SETIAP baris, termasuk yang tidak pernah dibuka.
 --}}
 @php
+    /* ⚠ Panel ini dirender DUA JALAN: di-@include dari _tabel (dulu), dan
+       sejak 6 Okt 2026 sebagai fragmen tersendiri saat barisnya dibuka.
+       Karena itu ia tidak boleh bergantung pada apa pun yang lahir di loop
+       _tabel — semuanya dihitung ulang di sini dari $r.
+
+       Rumusnya SENGAJA kembar dengan _tabel untuk tiga nilai di bawah. Kembar
+       itu diterima karena ketiganya satu baris dan diturunkan dari kolom yang
+       sama; yang TIDAK boleh kembar adalah kalimat (lihat
+       OrtControl::keadaanReservasi). */
+    $telat        = $telat        ?? (! $r->closed_at && $r->sch_date < $hariIni->toDateString());
+    $wa           = $wa           ?? \App\Support\Phone::toWa($r->patient_phone);
+    $bolehBatalFu = $bolehBatalFu ?? ($r->fu_date && (! $r->reservation_id || $r->rsv_status === 'cancelled'));
+
     $kunjungan = ($riwayatVisit ?? [])[$r->ort_case_id] ?? [];
     $fuRiwayat = ($riwayatFu ?? [])[$r->ort_case_id] ?? [];
 
@@ -92,14 +105,21 @@
                     </div>
                 </div>
 
-                @isset($chipTeks)
-                    <div class="ort-p2f">
-                        <div class="ort-p2f__k">Status jadwal</div>
-                        <div style="margin-top:4px;">
-                            <span class="ort-chip ort-chip--{{ $chipKelas }}">{{ $chipTeks }}</span>
-                        </div>
-                    </div>
-                @endisset
+                {{-- Chip "Status jadwal" DIBUANG 6 Okt 2026. Dua alasan, dan
+                     keduanya nyata:
+
+                     · Ia sudah tidak menambah apa-apa. Isinya (menunggu /
+                       sudah di-FU / ada reservasi / terlewat N hari) kini
+                       terbaca langsung dari tiga kolom tabel yang memang
+                       menampilkan ketiganya. Itu sebabnya rancangan tiga kolom
+                       tidak memuatnya sejak awal.
+                     · Ia satu-satunya yang memaksa panel ini bergantung pada
+                       nilai yang lahir di loop _tabel — dan ketergantungan itu
+                       yang membuat panel tidak bisa dimuat sendiri.
+
+                     Tanda ESKALASI tidak ikut hilang: ia tetap badge di kolom
+                     Nama (terlihat TANPA membuka panel) dan tetap disebut di
+                     ringkasan pola kolom Kontrol di bawah. --}}
 
                 <hr class="ort-p2__hr">
 

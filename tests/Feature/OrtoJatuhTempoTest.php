@@ -238,6 +238,10 @@ class OrtoJatuhTempoTest extends TestCase
 
         $html = $this->halaman(['q' => self::TANDA]);
 
+        /* Pembawanya berganti 6 Okt 2026: chip Status dibuang bersama kolomnya,
+           dan "Terlewat N hari" pindah ke tooltip tanggal Last Visit. Yang
+           DIJAGA tidak berubah — keterlambatan terhadap jatuh tempo wajib
+           terbaca, dan tetap diukur dari sch_date, bukan dari umur kunjungan. */
         $this->assertStringContainsString('Terlewat 30 hari', $html);
         $this->assertStringNotContainsString(
             'Usulan jadwal', $html,

@@ -408,26 +408,7 @@ class OrtQuery
     {
         $q = $this->terapkanUrgensi($this->dasar($placeId, $filter, $asal), $urgensi);
 
-        $q->select([
-            'c.id', 'c.ort_case_id', 'c.seq', 'c.place_id', 'c.is_proposal',
-            'c.sch_date', 'c.sch_source', 'c.sch_basis', 'c.sch_basis_n',
-            // fu_channel/result/note ikut: tabel memakai query builder (stdClass),
-            // jadi kolom yang tidak di-select melempar "Undefined property" —
-            // bukan null diam-diam. Sudah kena saat hasil FU mulai ditampilkan.
-            'c.fu_date', 'c.fu_by', 'c.fu_channel', 'c.fu_result', 'c.fu_note',
-            'c.reservation_id', 'c.rsv_date', 'c.rsv_status',
-            'c.visit_date', 'c.unscheduled', 'c.outcome', 'c.closed_at',
-            'k.patient_name', 'k.patient_phone', 'k.omnicare_pid',
-            'k.bracket_type', 'k.bracket_arch', 'k.doctor_name', 'k.doctor_ref_id',
-            'k.install_date', 'k.install_place_id', 'k.owner_place_id',
-            'k.visit_count', 'k.control_count', 'k.avg_gap_days', 'k.median_gap_days',
-            'k.gap_spread_pct',
-            'k.last_visit_date', 'k.install_is_estimated',
-            // Penilaian Sales — dipakai urutan di bawah, chip Inactive, dan
-            // tombol toggle di panel baris. Tanpa ini "Undefined property",
-            // bukan null diam-diam.
-            'k.sales_active',
-        ]);
+        $q->select(self::kolomBaris());
 
         /*
          * ────────────────────────────────────────────────────────────────────
@@ -664,6 +645,52 @@ class OrtQuery
         }
 
         return $hasil;
+    }
+
+    /**
+     * Kolom yang dibawa SATU BARIS daftar kerja — satu sumber, dua pemakai.
+     *
+     * ⚠ Baris daftar ini stdClass dari query builder, BUKAN model: kolom yang
+     *   tidak ikut di-select melempar "Undefined property", bukan null
+     *   diam-diam. Sudah kena saat hasil follow-up mulai ditampilkan.
+     *
+     * Dipisah jadi metode 6 Okt 2026 karena panel baris kini dimuat sendiri
+     * (lazy), dan panel yang di-select berbeda dari tabelnya akan menampilkan
+     * fakta yang berbeda untuk baris yang sama.
+     *
+     * @return list<string>
+     */
+    public static function kolomBaris(): array
+    {
+        return [
+            'c.id', 'c.ort_case_id', 'c.seq', 'c.place_id', 'c.is_proposal',
+            'c.sch_date', 'c.sch_source', 'c.sch_basis', 'c.sch_basis_n',
+            'c.fu_date', 'c.fu_by', 'c.fu_channel', 'c.fu_result', 'c.fu_note',
+            'c.reservation_id', 'c.rsv_date', 'c.rsv_status',
+            'c.visit_date', 'c.unscheduled', 'c.outcome', 'c.closed_at',
+            'k.patient_name', 'k.patient_phone', 'k.omnicare_pid',
+            'k.bracket_type', 'k.bracket_arch', 'k.doctor_name', 'k.doctor_ref_id',
+            'k.install_date', 'k.install_place_id', 'k.owner_place_id',
+            'k.visit_count', 'k.control_count', 'k.avg_gap_days', 'k.median_gap_days',
+            'k.gap_spread_pct',
+            'k.last_visit_date', 'k.install_is_estimated',
+            'k.sales_active',
+        ];
+    }
+
+    /**
+     * SATU baris daftar kerja — bahan panel yang dimuat belakangan.
+     *
+     * Gerbangnya sama dengan daftar(): `dasar()` sudah mengunci ke cabang ini,
+     * jadi kontrol milik cabang lain mengembalikan null dan pemanggilnya
+     * menjawab 404. Panel tidak boleh jadi celah membaca pasien orang.
+     */
+    public function satuBaris(string $placeId, string $controlId): ?object
+    {
+        return $this->dasar($placeId)
+            ->where('c.id', $controlId)
+            ->select(self::kolomBaris())
+            ->first();
     }
 
     /**

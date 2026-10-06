@@ -116,11 +116,25 @@ class OrtoPerHalamanTest extends TestCase
     }
 
     /** Berapa baris pasien uji yang benar-benar terender. */
+    /**
+     * ⚠ Dihitung dari penanda BARIS (`data-ort-row`), bukan dari nomor rekam
+     *   medis di teksnya. Versi lama mencocokkan "UJI-PERHAL-xxxxxx" dan itu
+     *   rapuh karena dua hal yang baru ketahuan 6 Okt 2026:
+     *
+     *     · kolom Nama merender `Str::title($r->patient_name)`, jadi tandanya
+     *       berubah jadi "Uji-Perhal-..." dan regex peka-huruf meleset;
+     *     · yang selama ini menyelamatkannya adalah PID MENTAH di panel baris
+     *       — dan panel itu kini dimuat belakangan (lazy), jadi ia tidak ada
+     *       lagi di HTML halaman.
+     *
+     *   Penanda baris tidak punya dua kelemahan itu, dan ia memang yang
+     *   mendefinisikan "satu baris".
+     */
     private function jumlahBaris(string $html): int
     {
-        preg_match_all('/' . preg_quote(self::TANDA, '/') . '-\w{6}/', $html, $m);
+        preg_match_all('~data-ort-row="([^"]+)"~', $html, $m);
 
-        return count(array_unique($m[0]));
+        return count(array_unique($m[1]));
     }
 
     /**

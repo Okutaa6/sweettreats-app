@@ -130,31 +130,37 @@ class OrtoSiklusTerlewatTest extends TestCase
         $tiga = $this->pasien(70, 10);   // jepit 21 → 3 → masuk
 
         $html  = $this->halaman(['status' => 'Terlewat 2× atau lebih']);
-        $lolos = $this->pidTampil($html);
+        $lolos = $this->barisTampil($html);
 
-        $this->assertContains($dua->omnicare_pid,  $lolos, '2 siklus harus lolos saringan.');
-        $this->assertContains($tiga->omnicare_pid, $lolos, '3 siklus (median dijepit ke 21) harus lolos.');
-        $this->assertNotContains($satu->omnicare_pid, $lolos, '1 siklus TIDAK boleh lolos — ambangnya siklus, bukan hari.');
+        $this->assertContains($this->idBaris($dua),  $lolos, '2 siklus harus lolos saringan.');
+        $this->assertContains($this->idBaris($tiga), $lolos, '3 siklus (median dijepit ke 21) harus lolos.');
+        $this->assertNotContains($this->idBaris($satu), $lolos, '1 siklus TIDAK boleh lolos — ambangnya siklus, bukan hari.');
     }
 
     /** Chip tabel menyebut siklus hanya saat ≥ eskalasi; panel baris memberi tanda "eskalasi". */
     public function test_layar_menyebut_siklus_saat_eskalasi(): void
     {
-        $this->pasien(70, 30);   // 2 siklus, jadwal sudah lewat → chip "Terlewat … · 2 siklus"
+        $k = $this->pasien(70, 30);   // 2 siklus, jadwal sudah lewat
 
         $html = $this->halaman();
 
+        /* Chip Status sudah dibuang bersama kolomnya (6 Okt 2026); kalimat
+           "Terlewat N hari · N siklus" pindah ke TOOLTIP tanggal Last Visit.
+           Yang dijaga tidak berubah: jumlah siklus wajib disebut saat sudah
+           mencapai ambang eskalasi. */
         $this->assertMatchesRegularExpression('/Terlewat \d+ hari · 2 siklus/', $html,
-            'Chip Terlewat harus menyebut jumlah siklus saat ≥ ' . OrtCase::SIKLUS_ESKALASI . '.');
+            'Tooltip jatuh tempo harus menyebut jumlah siklus saat ≥ ' . OrtCase::SIKLUS_ESKALASI . '.');
         /* Tandanya pindah 3 Okt 2026. Dulu "· eskalasi" di daftar fakta panel;
            sekarang DUA tempat, dan keduanya lebih terbaca: ringkasan pola di
            kepala kolom KONTROL, plus badge di kolom Nama yang terlihat TANPA
            membuka panel — itu yang penting, karena baris inilah yang paling
            perlu ditangani lebih dulu. */
-        $this->assertStringContainsString('terlewat 2 siklus', $html,
-            'Ringkasan pola di kolom Kontrol harus menandai eskalasi.');
         $this->assertStringContainsString('Terlewat 2 siklus', $html,
             'Badge di kolom Nama harus menandai eskalasi tanpa perlu membuka panel.');
+
+        // Ringkasan pola hidup di panel, dan panel dimuat belakangan.
+        $this->assertStringContainsString('terlewat 2 siklus', $this->panel($k),
+            'Ringkasan pola di kolom Kontrol harus menandai eskalasi.');
     }
 
     public function test_layar_diam_saat_belum_eskalasi(): void
@@ -222,10 +228,33 @@ class OrtoSiklusTerlewatTest extends TestCase
     }
 
     /** Nomor RM pasien uji yang tampil — nama dipotong .ort-clamp2, RM tidak. */
-    private function pidTampil(string $html): array
+    /**
+     * Baris SIAPA yang tampil — dikenali dari penanda barisnya.
+     *
+     * ⚠ Dulu ini memungut nomor rekam medis dari teks halaman. Itu berhenti
+     *   bekerja 6 Okt 2026 karena dua hal sekaligus: kolom Nama merender
+     *   `Str::title($r->patient_name)` sehingga tandanya berubah huruf, dan
+     *   PID mentah yang selama ini menyelamatkannya hidup di panel baris —
+     *   panel yang kini dimuat belakangan dan tidak lagi ada di HTML halaman.
+     *
+     * @return list<string> id kontrol
+     */
+    private function barisTampil(string $html): array
     {
-        preg_match_all('/' . preg_quote(self::TANDA, '/') . '-\w{6}/', $html, $m);
+        preg_match_all('~data-ort-row="([^"]+)"~', $html, $m);
 
-        return array_values(array_unique($m[0]));
+        return array_values(array_unique($m[1]));
+    }
+
+    /** Id kontrol yang mewakili pasien ini di daftar kerja. */
+    private function idBaris(OrtCase $kasus): string
+    {
+        return (string) OrtControl::where('ort_case_id', $kasus->id)->whereNull('closed_at')->value('id');
+    }
+
+    /** Isi panel baris — dimuat tersendiri sejak panel jadi lazy. */
+    private function panel(OrtCase $kasus): string
+    {
+        return $this->halaman(['frag' => 'panel', 'kontrol' => $this->idBaris($kasus)]);
     }
 }

@@ -1150,6 +1150,13 @@
 .ort-nlist__n { font-weight: 800; color: var(--ort-ink); flex: none; min-width: 26px; }
 
 /* Urutan daftar DIKATAKAN, tidak diserahkan ke tebakan. */
+/* Keadaan panel yang sedang/gagal memuat. Panel dimuat saat barisnya dibuka,
+   jadi ada jeda — dan jeda tanpa kabar terbaca seperti baris yang rusak. */
+.ort-p2__memuat {
+  padding: 18px; font-size: 12px; color: var(--ort-muted);
+  background: #fff; border: 1px solid var(--ort-line); border-radius: 14px;
+}
+
 .ort-nlist__urut {
   font-size: 10.5px; font-weight: 600; color: var(--ort-muted);
   margin-bottom: 6px;

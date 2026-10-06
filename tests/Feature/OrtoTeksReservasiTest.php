@@ -154,6 +154,29 @@ class OrtoTeksReservasiTest extends TestCase
             ->assertOk()->getContent();
     }
 
+    /**
+     * Isi PANEL baris pasien ini — diambil tersendiri sejak 6 Okt 2026.
+     *
+     * Panel tidak lagi ikut dirender di halaman daftar: ia dimuat saat barisnya
+     * dibuka (?frag=panel). Alasannya terukur — 95% dari fragmen tabel 454 KB
+     * adalah 23 panel yang paling banyak SATU yang pernah terbuka, dan menukar
+     * DOM sebesar itu tiap kali follow-up disimpan terasa seperti memuat ulang
+     * halaman.
+     *
+     * Diminta lewat kontrol yang masih TERBUKA — itu baris yang mewakili pasien
+     * di daftar kerja — dan isinya memuat seluruh riwayat kontrol kasus itu,
+     * termasuk yang sudah ditutup.
+     */
+    private function panel(OrtCase $kasus): string
+    {
+        $terbuka = OrtControl::where('ort_case_id', $kasus->id)->whereNull('closed_at')->firstOrFail();
+
+        return $this->withSession($this->sesi())
+            ->get('/tracking-ortho?' . http_build_query([
+                'utama' => $this->placeId, 'frag' => 'panel', 'kontrol' => $terbuka->id,
+            ]))->assertOk()->getContent();
+    }
+
     /** Drawer detail — memuat matriks (_drawer_detail) seluruh kontrol kasus itu. */
     private function drawer(OrtCase $kasus): string
     {
@@ -180,7 +203,7 @@ class OrtoTeksReservasiTest extends TestCase
             'rsv_date' => '2021-03-17', 'rsv_status' => 'confirmed',
         ]);
 
-        $html = $this->halaman();
+        $html = $this->panel($k);
 
         // `{{ }}` meng-escape tanda petik jadi &#039; — cocokkan ke HTML yang
         // benar-benar ter-render, bukan ke teks PHP-nya.
@@ -202,7 +225,7 @@ class OrtoTeksReservasiTest extends TestCase
         $k = $this->pasien();
         $this->tertutup($k, 2, '2021-07-02', ['unscheduled' => 1]);
 
-        $html = $this->halaman();
+        $html = $this->panel($k);
 
         $this->assertStringContainsString(
             'Datang 2 Jul &#039;21 — tidak ada jadwal tercatat', $html,
@@ -217,9 +240,9 @@ class OrtoTeksReservasiTest extends TestCase
     /** Kontrol terbuka tanpa reservasi: ini tugas Sales, teksnya harus bisa ditindak. */
     public function test_terbuka_tanpa_reservasi_berbunyi_belum(): void
     {
-        $this->pasien();
+        $k = $this->pasien();
 
-        $html = $this->halaman();
+        $html = $this->panel($k);
 
         $this->assertStringContainsString('Belum ada reservasi', $html);
         $this->assertStringContainsString('Belum dipesan', $html);
@@ -231,7 +254,7 @@ class OrtoTeksReservasiTest extends TestCase
         $k = $this->pasien();
         $this->tertutup($k, 2, '2021-09-14');
 
-        $html = $this->halaman();
+        $html = $this->panel($k);
 
         $this->assertStringContainsString(
             'Tidak tertaut reservasi', $html,
@@ -255,7 +278,7 @@ class OrtoTeksReservasiTest extends TestCase
             'rsv_date' => '2021-11-21', 'rsv_status' => 'confirmed',
         ]);
 
-        $list   = $this->halaman();
+        $list   = $this->panel($k);
         $drawer = $this->drawer($k);
 
         $this->assertMatchesRegularExpression('/data-ort-rsv>\s*21 Nov &#039;21 ·/', $list,
@@ -288,7 +311,7 @@ class OrtoTeksReservasiTest extends TestCase
             'reservation_id' => $rsv, 'rsv_date' => '2021-05-04', 'rsv_status' => 'confirmed',
         ]);
 
-        $html = $this->halaman();
+        $html = $this->panel($k);
 
         $this->assertStringContainsString(
             'reservation_id=' . $rsv, $html,
@@ -313,7 +336,7 @@ class OrtoTeksReservasiTest extends TestCase
             'rsv_status' => \App\Models\RawCusReservation::STATUS_WAITLIST,
         ]);
 
-        $html = $this->halaman();
+        $html = $this->panel($k);
 
         $this->assertMatchesRegularExpression(
             '~reservation_id=' . preg_quote($rsv, '~') . '[^"]*view=waitlist~', $html,
@@ -328,9 +351,7 @@ class OrtoTeksReservasiTest extends TestCase
         $this->tertutup($k, 2, '2021-08-17');
 
         // Disaring ke pasien uji ini saja — lihat catatan di halaman().
-        $this->assertStringNotContainsString(
-            'Buka di Reservasi', $this->halaman(['q' => self::TANDA])
-        );
+        $this->assertStringNotContainsString('Buka di Reservasi', $this->panel($k));
     }
 
     /** Tooltip di drawer detail ikut jujur — klaim keempat yang ditemukan. */

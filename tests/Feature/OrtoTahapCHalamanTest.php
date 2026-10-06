@@ -132,11 +132,38 @@ class OrtoTahapCHalamanTest extends TestCase
      *
      * @return list<string>
      */
+    /**
+     * Berapa BARIS yang lolos saringan.
+     *
+     * ⚠ Dihitung dari penanda baris, bukan dari nomor rekam medis di teksnya.
+     *   Versi lama mencocokkan "UJI-TAHAPC-xxxxxx" dan itu rapuh karena dua
+     *   hal yang baru ketahuan 6 Okt 2026: kolom Nama merender
+     *   `Str::title($r->patient_name)` sehingga tandanya berubah jadi
+     *   "Uji-Tahapc-...", dan yang selama ini menyelamatkannya adalah PID
+     *   MENTAH di panel baris — panel yang kini dimuat belakangan.
+     */
     private function namaTampil(string $html): array
     {
-        preg_match_all('/' . self::TANDA . '-\w{6}/', $html, $m);
+        preg_match_all('~data-ort-row="([^"]+)"~', $html, $m);
 
-        return array_values(array_unique($m[0]));
+        return array_values(array_unique($m[1]));
+    }
+
+    /**
+     * Isi panel baris — DIAMBIL TERSENDIRI sejak 6 Okt 2026.
+     *
+     * Panel tidak lagi ikut dirender di halaman daftar: ia dimuat saat
+     * barisnya dibuka (?frag=panel). Alasannya terukur — 95% dari fragmen
+     * tabel 454 KB adalah 23 panel yang paling banyak SATU yang pernah
+     * terbuka, dan menukar DOM sebesar itu tiap kali follow-up disimpan
+     * terasa seperti memuat ulang halaman.
+     *
+     * Jadi assertion tentang ISI panel harus menanyakan panelnya, bukan
+     * halamannya.
+     */
+    private function panel(OrtControl $ctl): string
+    {
+        return $this->halaman(['frag' => 'panel', 'kontrol' => $ctl->id]);
     }
 
     // ── 1 · Tanda perkiraan ─────────────────────────────────────────────────
@@ -144,10 +171,12 @@ class OrtoTahapCHalamanTest extends TestCase
     /** ⭐ Muncul untuk yang diperkirakan. */
     public function test_tanda_perkiraan_muncul_untuk_tanggal_yang_ditebak(): void
     {
-        $this->pasien(['install_is_estimated' => 1]);
+        $ctl = $this->pasien(['install_is_estimated' => 1]);
 
+        // Penanda ± hidup di kolom Profile panel, dan panel kini dimuat
+        // belakangan — lihat catatan di panel().
         $this->assertStringContainsString(
-            'ort-kira', $this->halaman(['q' => self::TANDA]),
+            'ort-kira', $this->panel($ctl),
             'Tanggal pasang yang cuma perkiraan harus ditandai.'
         );
     }
@@ -155,10 +184,14 @@ class OrtoTahapCHalamanTest extends TestCase
     /** ⭐ Dan TIDAK muncul untuk yang pasti — ini sisi yang mudah terlewat. */
     public function test_tanda_perkiraan_tidak_muncul_untuk_tanggal_pasti(): void
     {
-        $this->pasien(['install_is_estimated' => 0]);
+        $ctl = $this->pasien(['install_is_estimated' => 0]);
 
+        /* ⚠ Menanyakan PANEL-nya, bukan halamannya. Sejak panel dimuat
+           belakangan, `ort-kira` memang tidak pernah ada di HTML halaman —
+           jadi versi lama uji ini akan HIJAU apa pun isi datanya, dan berhenti
+           menjaga sisi yang justru paling mudah terlewat. */
         $this->assertStringNotContainsString(
-            'ort-kira', $this->halaman(['q' => self::TANDA]),
+            'ort-kira', $this->panel($ctl),
             'Tanda yang muncul di semua baris tidak memberi tahu apa pun.'
         );
     }

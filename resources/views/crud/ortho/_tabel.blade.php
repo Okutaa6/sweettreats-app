@@ -19,16 +19,6 @@
           `sch_date` tidak lagi punya kolom, mengurutkan padanya membuat
           daftar terbaca seperti diurutkan abjad.
 --}}
-@php
-    $chipLabel = [
-        'menunggu'        => ['Menunggu',        'menunggu'],
-        'sudah_fu'        => ['Sudah di-FU',     'fu'],
-        'ada_reservasi'   => ['Ada reservasi',   'rsv'],
-        'reservasi_batal' => ['Reservasi batal', 'batal'],
-    ];
-
-@endphp
-
 {{-- Bilah di atas tabel: KENAPA urutannya begini, lalu saringan Status Pasien.
 
      Kalimat sebabnya di sini — sekali untuk seluruh tabel — bukan tanggal
@@ -125,53 +115,24 @@
                    tidak bisa berbeda pendapat. */
                 $bolehBatalFu = $r->fu_date && (! $r->reservation_id || $r->rsv_status === 'cancelled');
 
-                // Status DIHITUNG. Derajat keterlambatan datang dari UMUR baris,
-                // bukan dari chipnya — baris "Reservasi batal" yang 39 hari lewat
-                // tetap harus beraksen merah dan terhitung di ">14 hari".
-                $key = match (true) {
-                    /* ⬇ Chip 'usulan' DIBUANG dari tangga ini.
+                /* Chip STATUS dibuang seluruhnya 6 Okt 2026.
 
-                         Dulu ia berdiri paling atas, jadi jatuh tempo yang sudah
-                         lewat tetap berbunyi "Usulan jadwal" alih-alih "Terlewat".
-                         Kolom Jadwal adalah jatuh tempo, dan jatuh tempo yang
-                         lewat berarti pasien telat — siapa pun yang menuliskan
-                         tanggalnya. Bersama lantai MIN_MAJU_HARI yang juga sudah
-                         dibuang, chip inilah lapis kedua yang menyembunyikan 26
-                         dari 39 pasien terlambat di DB pengembangan. */
-                    $r->rsv_status === 'cancelled' => 'reservasi_batal',
-                    /* ⬇ Sengaja DI ATAS $telat. Begitu pasien punya janji yang
-                         belum lewat, "Terlewat 7 hari" salah baca: jadwalnya
-                         memang lewat, tapi sudah ada penanganannya, dan Sales
-                         tidak punya tugas apa pun atas baris ini. Reservasi yang
-                         tanggalnya SUDAH lewat sengaja tidak ikut — ia jatuh ke
-                         $telat di bawah, karena janjinya meleset. */
-                    $rsvMenangani                  => 'ada_reservasi',
-                    $telat                         => $parah ? 'telatlama' : 'telat',
-                    (bool) $r->reservation_id      => 'ada_reservasi',
-                    (bool) $r->fu_date             => 'sudah_fu',
-                    default                        => 'menunggu',
-                };
+                   Kolomnya hilang 3 Okt (tujuh kolom), lalu chip-nya pindah ke
+                   panel baris, lalu panel itu dibuat berdiri sendiri supaya bisa
+                   dimuat belakangan — dan chip ini satu-satunya yang mengikatnya
+                   ke loop ini. Jadi ia dibuang, bukan dipindah lagi.
 
-                if ($key === 'telat' || $key === 'telatlama') {
-                    $chipTeks  = 'Terlewat ' . $hariLewat . ' hari';
-                    $chipKelas = $key;
-                    /* Siklus terlewat ≥ SIKLUS_ESKALASI ikut disebut: "Terlewat 45
-                       hari" terbaca sama untuk pasien berinterval 21 (sudah 2 siklus)
-                       dan 60 (belum satu). Rumusnya statis di OrtCase — $r di sini
-                       stdClass dari query builder, bukan model. */
-                    $siklus = \App\Models\OrtCase::hitungSiklusTerlewat(
-                        $r->last_visit_date, $r->median_gap_days !== null ? (int) $r->median_gap_days : null, $hariIniStr
-                    );
-                    if ($siklus >= \App\Models\OrtCase::SIKLUS_ESKALASI) {
-                        $chipTeks .= ' · ' . $siklus . ' siklus';
-                    }
-                } elseif ($key === 'ada_reservasi' && $r->rsv_date === $hariIniStr) {
-                    // Hari-H lebih berguna daripada label umum.
-                    $chipTeks  = 'Reservasi hari ini';
-                    $chipKelas = 'rsv';
-                } else {
-                    [$chipTeks, $chipKelas] = $chipLabel[$key];
-                }
+                   ⚠ Yang DIBAWANYA tidak ikut hilang, dan itu yang penting:
+                     · "Terlewat N hari" → tooltip tanggal Last Visit, diukur
+                       dari sch_date seperti semula;
+                     · "N siklus" (eskalasi) → badge di kolom Nama, terlihat
+                       TANPA membuka apa pun, plus ringkasan pola di panel;
+                     · "Sudah di-FU" → kolom Follow Up, yang memang tombolnya;
+                     · "Ada reservasi" / "Reservasi batal" → kolom Reservasi.
+
+                   Selama satu commit ia dihitung di sini tanpa pernah dirender.
+                   Itu persis bentuk kode mati yang paling mahal: ia terlihat
+                   seperti sedang menjaga sesuatu. */
 
                 /* Tangga tindakan DIBUANG dari sini (3 Okt 2026).
                    Dulu ia memilih SATU tombol untuk kolom "Tindakan berikutnya".
@@ -350,9 +311,21 @@
                                Kalimat "pengingat, bukan janji" ikut pindah — berkas ini
                                sendiri menyebutnya penutup ambiguitas termahal di modul
                                ini, jadi ia tidak boleh hilang bersama barisnya. */
+                            /* ⚠ "Terlewat N hari" DIUKUR DARI sch_date, bukan dari
+                               umur kunjungan di badge. Keduanya sering sama angka —
+                               jatuh tempo memang biasanya last_visit + irama — tapi
+                               berbeda begitu Sales menggeser tanggalnya sendiri, dan
+                               yang dijanjikan kalimat ini adalah yang pertama.
+
+                               Ia dulu chip di kolom Status. Kolom itu dibuang, dan
+                               untuk satu commit kalimatnya ikut hilang dari layar
+                               sementara kodenya masih menghitungnya diam-diam. */
                             $tipJatuhTempo = 'Jatuh tempo '
                                 . \Carbon\Carbon::parse($r->sch_date)->translatedFormat("j M 'y")
                                 . ' · ' . \App\Models\OrtControl::perkiraanJatuhTempo(\Carbon\Carbon::parse($r->sch_date), $hariIni)
+                                . ($telat ? ' · Terlewat ' . $hariLewat . ' hari' : '')
+                                . ($telat && $siklusBaris >= \App\Models\OrtCase::SIKLUS_ESKALASI
+                                    ? ' · ' . $siklusBaris . ' siklus' : '')
                                 . ' — ini PENGINGAT, bukan janji. Janji yang sudah disepakati ada di kolom Reservasi.'
                                 . ($r->is_proposal ? ' · tanggalnya masih hitungan sistem, belum disentuh Sales.' : '');
                         @endphp
@@ -596,18 +569,21 @@
                 </div>
             @endif
 
-            {{-- chipTeks/chipKelas dioper ke panel karena kolom STATUS sudah
-                 dibuang dari tabel (tujuh kolom, prompt Phase 1). Dihitung di
-                 _tabel dan bukan di panel supaya rumusnya tetap satu: baris
-                 tertutup "Terlewat 32 hari" dan panelnya tidak boleh pernah
-                 berbeda pendapat. --}}
-            @include('crud.ortho._baris_terbuka', [
-                'r' => $r, 'wa' => $wa, 'telat' => $telat, 'bolehBatalFu' => $bolehBatalFu,
-                'chipTeks' => $chipTeks, 'chipKelas' => $chipKelas,
-                // Dioper EKSPLISIT, tidak diandalkan dari scope induk: panel ini
-                // juga dirender lewat fragmen, dan di sana scope-nya tidak sama.
-                'riwayatVisit' => $riwayatVisit ?? [], 'riwayatFu' => $riwayatFu ?? [],
-            ])
+            {{-- CANGKANG KOSONG. Panelnya dimuat saat barisnya dibuka
+                 (?frag=panel&kontrol=<id>), bukan dirender di muka.
+
+                 prompt_jadwal_kontrol.md Phase 2 memintanya sejak awal — "Data
+                 detail di-load via AJAX saat dibuka (lazy load), supaya list
+                 utama tetap ringan" — dan versi pertama panel tiga kolom
+                 mengabaikannya.
+
+                 ⚠ Harganya terukur: fragmen tabel yang ditukar JS tiap kali
+                   follow-up disimpan berukuran 454 KB, dan 95% DI ANTARANYA
+                   (23 panel × 18,7 KB) adalah panel yang paling banyak SATU
+                   yang pernah terbuka. Menukar DOM sebesar itu memang tidak
+                   bisa terasa ringan — dan itulah "kok seperti memuat ulang
+                   halaman" yang dilaporkan. --}}
+            <div class="ort-expand" data-ort-expand="{{ $r->id }}" data-ort-kosong hidden></div>
 
         @empty
             <div style="padding:14px 0;">
@@ -653,12 +629,55 @@
         document.querySelectorAll('[data-ort-row]').forEach(function (t) { t.classList.remove('ort-tr--open'); });
         document.querySelectorAll('[data-ort-toggle]').forEach(function (b) { b.classList.remove('is-open'); });
 
-        panel.hidden = !jadiBuka;
-        if (jadiBuka) {
-            dari.classList.add('ort-tr--open');
-            var tombol = dari.querySelector('[data-ort-toggle]');
-            if (tombol) tombol.classList.add('is-open');
-        }
+        if (!jadiBuka) return;                 // ini penutupan — tidak perlu memuat apa pun
+
+        dari.classList.add('ort-tr--open');
+        var tombol = dari.querySelector('[data-ort-toggle]');
+        if (tombol) tombol.classList.add('is-open');
+
+        /* Isi panel dimuat SEKALI, saat pertama kali dibuka. Sesudah itu ia
+           tinggal di DOM dan membuka ulang tidak menyentuh jaringan.
+
+           ⚠ Cangkangnya ditampilkan LEBIH DULU, sebelum jawabannya datang.
+             Menunggu sampai isinya siap membuat baris terasa tidak merespons
+             klik; dengan cangkang tampil, yang terlihat adalah panel yang
+             sedang mengisi dirinya. */
+        panel.hidden = false;
+
+        if (!panel.hasAttribute('data-ort-kosong')) return;
+        if (panel.dataset.ortSibuk) return;    // klik ganda saat masih memuat
+        panel.dataset.ortSibuk = '1';
+
+        panel.innerHTML = '<div class="ort-p2__memuat">Memuat…</div>';
+
+        var url = new URL(window.location.href);
+        url.searchParams.set('frag', 'panel');
+        url.searchParams.set('kontrol', id);
+        url.searchParams.delete('sheet');
+        url.searchParams.delete('kasus');
+        url.searchParams.delete('page');
+
+        fetch(url.toString(), {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            credentials: 'same-origin',
+        }).then(function (r) {
+            if (!r.ok) throw new Error('panel gagal');
+            return r.text();
+        }).then(function (html) {
+            var kotak = document.createElement('div');
+            kotak.innerHTML = html;
+            var isi = kotak.querySelector('[data-ort-expand]');
+            if (!isi) throw new Error('panel kosong');
+
+            panel.innerHTML = isi.innerHTML;
+            panel.removeAttribute('data-ort-kosong');
+            delete panel.dataset.ortSibuk;
+        }).catch(function () {
+            /* Gagal memuat TIDAK boleh meninggalkan panel kosong tanpa kabar.
+               Cangkangnya dikembalikan supaya klik berikutnya mencoba lagi. */
+            panel.innerHTML = '<div class="ort-p2__memuat">Gagal memuat ringkas pasien. Klik barisnya lagi untuk mencoba ulang.</div>';
+            delete panel.dataset.ortSibuk;
+        });
     }
 
     /* ── Lipatan per butir riwayat kontrol ──────────────────────────────────
