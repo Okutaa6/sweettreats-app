@@ -29,22 +29,7 @@
        (aturan brief di kepala berkas ini), sub-tab yang lain diurutkan
        kemendesakan. Satu kalimat tetap untuk keduanya akan salah di salah
        satunya, dan salah dengan percaya diri. --}}
-{{-- Satu kalimat: KENAPA urutannya begini. Sekali untuk seluruh tabel, bukan
-     tanggal kecil di tiap baris — yang kedua menjawab pertanyaan yang sama lima
-     puluh kali dan tetap tidak terbaca.
-
-     Kalimatnya kini SAMA untuk semua tab, karena kunci urutnya memang sudah
-     sama (lihat OrtQuery::daftar()). Sebelumnya ia bercabang, dan cabang itu
-     ikut dibuang bersama urutan lamanya.
-
-     ⚠ Saringan "Status Pasien" sempat berdiri di sini lalu DIKEMBALIKAN ke
-       panel filter 6 Okt 2026 atas permintaan Reza — satu tempat untuk semua
-       saringan. --}}
-<div class="ort-tbar">
-    <span class="ort-tbar__hint">Active di atas · paling mendesak menurut irama pasiennya dulu</span>
-</div>
-
-<div class="st-card" style="margin-top:9px;" data-ort-tabel>
+<div class="st-card" style="margin-top:13px;" data-ort-tabel>
     <div class="ort-tablewrap">
 
         <div class="ort-thead">

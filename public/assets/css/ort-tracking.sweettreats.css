@@ -1003,12 +1003,17 @@
 .ort-lv__umur--faint { background: #EFE7DC;            color: var(--ort-faint); }
 
 /* Jatuh tempo TIDAK lagi punya baris sendiri di sel (revisi 3 Okt 2026).
-   Ia pindah ke tooltip tanggal Last Visit, dan "kenapa urutannya begini"
-   dijawab satu kalimat di atas tabel (.ort-tbar__hint) — satu kalimat untuk
-   seluruh tabel lebih terbaca daripada satu tanggal kecil di tiap baris.
-   ⚠ Kalimat "pengingat, bukan janji" IKUT PINDAH ke tooltip itu. Ia disebut
-     di _tabel.blade.php sebagai penutup ambiguitas termahal di modul ini, dan
-     tidak boleh hilang hanya karena barisnya hilang. */
+   Ia pindah seluruhnya ke TOOLTIP tanggal Last Visit, bersama tiga hal lain
+   yang dulu punya tempatnya sendiri di layar: kalimat perkiraan, "Terlewat N
+   hari" (dari chip Status yang dibuang), dan penanda "masih hitungan sistem".
+
+   ⚠ Kalimat "pengingat, bukan janji" IKUT di situ. Ia disebut di
+     _tabel.blade.php sebagai penutup ambiguitas termahal di modul ini, dan
+     tidak boleh hilang hanya karena barisnya hilang.
+
+   "Kenapa urutannya begini" tidak dijawab kalimat apa pun lagi (bilah atas
+   dibuang 6 Okt) — warna badge di kolom ini yang menjawabnya, menurun dari
+   merah ke hijau dari atas ke bawah. */
 .ort-lv__tgl[title] { cursor: help; }
 
 /* ════════════════════════════════════════════════════════════════════════════
@@ -1085,26 +1090,17 @@
 /* Reservasi: cokelat penuh, sekolom sendiri. */
 .ort-btn--rsv { width: 100%; }
 
-/* ════════════════════════════════════════════════════════════════════════════
-   Bilah di atas tabel — sebab urutan + saringan Status Pasien
-   ════════════════════════════════════════════════════════════════════════════
-   Kalimat sebab urutan ada di sini, BUKAN di tiap baris. Satu kalimat untuk
-   seluruh tabel menjawab "kenapa urutannya begini" sekali; tanggal jatuh tempo
-   kecil di 50 baris menjawabnya 50 kali dan tetap tidak terbaca. */
-.ort-tbar {
-  display: flex; align-items: center; justify-content: flex-end;
-  gap: 12px; flex-wrap: wrap; margin-top: 13px;
-}
-.ort-tbar__hint { font-size: 11.5px; color: var(--ort-muted); }
-.ort-tbar__lbl {
-  font-size: 10px; font-weight: 800; letter-spacing: .55px;
-  text-transform: uppercase; color: var(--ort-ink2);
-}
-.ort-tbar select {
-  font: inherit; font-size: 12px; font-weight: 600; color: var(--ort-ink);
-  background: #fff; border: 1px solid var(--ort-line2); border-radius: 10px;
-  padding: 7px 11px; cursor: pointer; min-width: 112px;
-}
+/* ⚠ Bilah di atas tabel (.ort-tbar) DIBUANG 6 Okt 2026.
+
+   Ia pernah memuat dua hal, dan keduanya pergi ke tempat yang lebih baik:
+   saringan "Status Pasien" kembali ke panel filter bersama saringan lain, dan
+   kalimat "Active di atas · paling mendesak…" dibuang atas permintaan Reza.
+
+   Kalimat itu tidak diganti, dan memang tidak perlu: sejak urutannya pindah ke
+   kemendesakan, warna badge di kolom Last Visit menurun rapi dari merah ke
+   kuning ke hijau dari atas ke bawah. Urutannya menerangkan dirinya sendiri —
+   itu justru alasan urutannya diubah. Kalimat yang mengulang apa yang sudah
+   terlihat cuma menambah satu baris untuk dilewati mata. */
 
 /* ════════════════════════════════════════════════════════════════════════════
    PANEL BARIS — tiga kolom: Profile · Kontrol · Follow Up
