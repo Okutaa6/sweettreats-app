@@ -13,17 +13,18 @@
     Satu tindakan saja: Jadwalkan kontrol. Begitu dijadwalkan, barisnya keluar
     dari antrean ini dan masuk alur normal — antreannya mengecil sendiri.
 --}}
-<div class="ort-meta-line">
-    <span>
-        <i class="far fa-clock" style="color:#A9866A;"></i>
-        Antrean penjadwalan ·
-        <strong class="tabular">{{ $baris->total() }}</strong> pasien belum punya jadwal ·
-        paling genting di atas
-    </span>
-    <span style="color:#9A7256;">Satu tindakan per baris: tentukan tanggal kontrolnya</span>
-</div>
+{{-- Pita keterangan ("Antrean penjadwalan · N pasien belum punya jadwal ·
+     paling genting di atas" + "Satu tindakan per baris") DIBUANG 7 Okt 2026
+     atas permintaan Reza.
 
-<div class="st-card" style="margin-top:10px;">
+     Ketiga klaimnya sudah dikatakan layar itu sendiri: namanya ada di tab yang
+     sedang menyala, urutannya terbaca dari chip kegentingan yang menurun, dan
+     tindakan satu-satunya adalah satu-satunya tombol di tiap baris.
+
+     Hitungannya TIDAK ikut hilang: kaki tabel sudah menyebut "N dari M pasien
+     ortho aktif" — angka yang sama, dengan pembanding yang pita ini tidak
+     punya. --}}
+<div class="st-card" style="margin-top:13px;">
     <div class="ort-tablewrap">
 
         <div class="ort-thead">
