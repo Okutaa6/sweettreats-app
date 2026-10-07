@@ -1235,12 +1235,19 @@
 }
 /* Baris berlabel di dalam lipatan: sumbernya di kiri, isinya di kanan.
 
-   Lebar label DIKUNCI 74px supaya "Rekam medis" dan "Reservasi" berbaris pada
-   tepi yang sama — itu seluruh gunanya. Dibiarkan mengikuti isi, keduanya
-   mulai di kolom berbeda dan tidak lagi terbaca sebagai dua hal sejenis. */
+   Lebar label DIKUNCI supaya "Rekam medis" dan "Reservasi" berbaris pada tepi
+   yang sama — itu seluruh gunanya. Dibiarkan mengikuti isi, keduanya mulai di
+   kolom berbeda dan tidak lagi terbaca sebagai dua hal sejenis.
+
+   ⚠ min-width + nowrap, BUKAN width mati. Versi pertama memakai `width: 74px`
+     dan "REKAM MEDIS" — 11 huruf kapital dengan jarak huruf — tidak muat, jadi
+     ia membungkus jadi dua baris sementara "RESERVASI" tetap satu. Dua label
+     yang seharusnya sejenis berakhir setinggi berbeda. Dengan min-width,
+     kolomnya tetap rata untuk label pendek tapi masih bisa melar kalau suatu
+     hari ada label yang lebih panjang lagi. */
 .ort-nlist__f { display: flex; align-items: baseline; gap: 8px; width: 100%; }
 .ort-nlist__fk {
-  flex: none; width: 74px;
+  flex: none; min-width: 88px; white-space: nowrap;
   font-size: 10px; font-weight: 800; color: var(--ort-muted);
   text-transform: uppercase; letter-spacing: .4px;
 }
