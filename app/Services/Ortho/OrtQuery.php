@@ -596,24 +596,40 @@ class OrtQuery
                 continue;
             }
 
-            $absen = $prev->outcome === OrtControl::OUT_TIDAK_HADIR;
+            /* ⭐ KLAIMNYA DIAMBIL DARI MODEL, tidak disusun di sini lagi
+               (7 Okt 2026). Sampai hari itu method ini menyusun kalimat
+               kehadirannya sendiri — "satu dari lima tempat klaim yang sama
+               hidup", kata komentarnya sendiri — dan ia BERBOHONG untuk satu
+               bentuk data yang sudah ada di DB lokal (2 baris, outcome
+               'batal'): kontrol tertutup tanpa kunjungan jatuh ke cabang
+               "hadir" lalu dicetak sebagai
+
+                   "kontrol #5 selesai — hadir "      ← tanggal kosong
+
+               sementara panel untuk baris YANG SAMA bilang "ditutup tanpa
+               kunjungan tercatat". Dua layar, dua jawaban, satu halaman. */
+            $kj    = $prev->keadaanKunjungan();
+            $absen = $kj['nada'] === 'absen';
+
+            /* Yang disusun di sini tinggal BENTUKNYA, bukan klaimnya: kata
+               kerja di depan, lalu kalimat model apa adanya.
+
+               ⚠ Nada 'menunggu' di sini SELALU berarti "ditutup tanpa
+                 kunjungan" — keadaan terbuka tidak mungkin sampai ke sini
+                 karena kueri di atas sudah whereNotNull('closed_at'). Untuk
+                 keadaan itu labelnya ('Ditutup') sama dengan kata kerjanya,
+                 jadi labelnya tidak ikut dirangkai supaya tidak berbunyi
+                 "ditutup — ditutup tanpa kunjungan tercatat". */
+            $frasa = $kj['nada'] === 'menunggu'
+                ? $kj['teks']
+                : trim(mb_strtolower($kj['label']) . ' ' . $kj['teks']);
 
             $hasil[$r->id] = [
                 'absen'   => $absen,
-                'teks'    => $absen
-                    ? 'kontrol #' . $prev->seq . ' ditutup — tidak hadir ' . $prev->sch_date->translatedFormat('j M')
-                    : 'kontrol #' . $prev->seq . ' selesai — hadir ' . optional($prev->visit_date)->translatedFormat('j M'),
-                'catatan' => match (true) {
-                    $absen                                       => 'ditandai manual oleh Sales',
-                    /* `unscheduled` = kunjungan ini tidak cocok dengan baris jadwal
-                       mana pun di sistem. Ia TIDAK tahu apakah pasien memesan —
-                       reservasi hidup di raw_cus_reservation dan hampir seluruhnya
-                       belum dijodohkan. Teks lama "datang tanpa reservasi" mengaku
-                       tahu hal itu. Satu dari lima tempat klaim yang sama hidup. */
-                    (bool) $prev->unscheduled                    => 'tidak ada jadwal tercatat · terisi sendiri dari rekam medis',
-                    $prev->visit_source === 'rekam_medis'        => 'terisi sendiri dari rekam medis',
-                    default                                      => 'ditandai manual oleh Sales',
-                },
+                'teks'    => 'kontrol #' . $prev->seq
+                           . ($kj['nada'] === 'hadir' ? ' selesai' : ' ditutup')
+                           . ' — ' . $frasa,
+                'catatan' => $kj['catatan'],
             ];
         }
 
@@ -711,8 +727,21 @@ class OrtQuery
      * pasien-pasien itu tidak pernah bisa dibuka.
      *
      * LEFT JOIN, jadi kolom kontrol bernilai NULL kalau memang belum ada.
-     * Panel sudah tahan terhadap itu: $telat jadi false, $bolehBatalFu jadi
-     * false, dan Profile + kedua riwayat semuanya berasal dari kasus.
+     *
+     * ⚠ Kalimat di sini sampai 7 Okt 2026 berbunyi "Panel sudah tahan terhadap
+     *   itu: $telat jadi false, $bolehBatalFu jadi false". Itu SALAH, dan
+     *   salahnya berbahaya karena ia jadi alasan tertulis kenapa panel dianggap
+     *   aman: di PHP 8, `null < '2026-10-07'` memulangkan TRUE, jadi $telat
+     *   justru true untuk SETIAP baris antrean.
+     *
+     *   Yang sebenarnya menahan panel adalah pagar
+     *   `@unless ($lihatSaja || ! $r->id)` di kaki _baris_terbuka.blade.php —
+     *   ia yang menutup ketiga route() ber-id kontrol. Rumus $telat-nya sendiri
+     *   sudah dibuat jujur di hari yang sama, tapi JANGAN cabut pagar itu:
+     *   kolom kontrol yang NULL bukan cuma soal $telat.
+     *
+     * Profile + kedua riwayat semuanya berasal dari kasus, jadi panel tetap
+     * berisi untuk pasien yang belum punya jadwal.
      *
      * ⚠ TANPA gerbang cabang — sengaja. Pemanggilnya yang memutuskan, karena
      *   aturannya di sini BEDA dari daftar kerja: pasien yang sedang dipegang

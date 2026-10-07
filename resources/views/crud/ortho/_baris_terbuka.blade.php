@@ -37,18 +37,32 @@
       panel ini dirender untuk SETIAP baris, termasuk yang tidak pernah dibuka.
 --}}
 @php
-    /* ⚠ Panel ini dirender DUA JALAN: di-@include dari _tabel (dulu), dan
-       sejak 6 Okt 2026 sebagai fragmen tersendiri saat barisnya dibuka.
-       Karena itu ia tidak boleh bergantung pada apa pun yang lahir di loop
-       _tabel — semuanya dihitung ulang di sini dari $r.
+    /* Panel ini dirender HANYA sebagai fragmen tersendiri saat barisnya dibuka
+       (?frag=panel&kasus=…, lihat OrthoController::panelBaris). Jalur
+       @include-dari-_tabel sudah tidak ada sejak 6 Okt 2026 — itu sebabnya pola
+       `$x = $x ?? …` ikut dibuang: cabang kirinya tidak pernah menang.
 
-       Rumusnya SENGAJA kembar dengan _tabel untuk tiga nilai di bawah. Kembar
-       itu diterima karena ketiganya satu baris dan diturunkan dari kolom yang
-       sama; yang TIDAK boleh kembar adalah kalimat (lihat
-       OrtControl::keadaanReservasi). */
-    $telat        = $telat        ?? (! $r->closed_at && $r->sch_date < $hariIni->toDateString());
-    $wa           = $wa           ?? \App\Support\Phone::toWa($r->patient_phone);
-    $bolehBatalFu = $bolehBatalFu ?? ($r->fu_date && (! $r->reservation_id || $r->rsv_status === 'cancelled'));
+       ⚠ `$r->sch_date !== null` WAJIB disebut, dan itu bukan kehati-hatian
+         berlebihan. Pasien di tab "Belum punya jadwal" tidak punya kontrol
+         terbuka sama sekali, dan barisKasus() memakai LEFT JOIN — jadi SELURUH
+         kolom kontrol NULL. Di PHP 8, `null < '2026-10-07'` memulangkan TRUE
+         (NULL dicor jadi ''), sehingga versi lama rumus ini menandai SETIAP
+         baris antrean sebagai "terlewat".
+
+         Hari ini itu tak berakibat karena satu-satunya pembaca $telat ada di
+         dalam pagar `@unless ($lihatSaja || ! $r->id)` di kaki panel. Tapi
+         komentar di OrtQuery::barisKasus() sempat menyatakan panel aman JUSTRU
+         karena "$telat jadi false" — klaim yang salah, dan yang akan menuntun
+         orang berikutnya mencabut pagar itu lalu mendapat
+         route('ortho.tidakhadir', null). Sekarang klaim itu benar.
+
+       ⚠ $wa dan $bolehBatalFu DIBUANG dari sini 7 Okt 2026: nol pembaca di
+         berkas ini. $wa memang dihitung di _tabel/_antrean/_drawer_detail, tapi
+         masing-masing menghitungnya sendiri; $bolehBatalFu mati bersama tombol
+         "Batalkan follow-up". */
+    $telat = ! $r->closed_at
+        && $r->sch_date !== null
+        && $r->sch_date < $hariIni->toDateString();
 
     $kunjungan = ($riwayatVisit ?? [])[$r->ort_case_id] ?? [];
     $fuRiwayat = ($riwayatFu ?? [])[$r->ort_case_id] ?? [];

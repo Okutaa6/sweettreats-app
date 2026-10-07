@@ -234,6 +234,30 @@
                 @php
                     $key = $k->statusKey($hariIni);
                     [$chipTeks, $chipKelas] = $chip[$key] ?? ['—', 'menunggu'];
+
+                    /* ⚠ Kontrol yang SUDAH DITUTUP tidak boleh berchip
+                       "Menunggu" — ia tidak menunggu apa pun lagi.
+
+                       Jalurnya: statusKey() memakai hariTerlewat(), dan
+                       hariTerlewat() memulangkan 0 begitu `! isTerbuka()`.
+                       Jadi kontrol tertutup tanpa outcome dan tanpa visit_date
+                       (bentuk nyata — `outcome='batal'`, hasil penjadwalan
+                       ulang) jatuh terus sampai `return 'menunggu'`. Drawer
+                       bilang "Menunggu", panel bilang "Ditutup".
+
+                       Dibetulkan lewat keadaanKunjungan(), bukan dengan
+                       menambah kunci ke-10 di statusKey(): docblock-nya
+                       mengunci sembilan keadaan ke brief desain.
+
+                       ⚠ Dan HANYA cabang 'menunggu' yang dialihkan. Mengalihkan
+                         SEMUA kontrol tertutup akan menukar chip "Reservasi
+                         batal" yang sudah benar jadi "Ditutup" — kehilangan
+                         yang tidak diminta siapa pun. */
+                    if ($key === 'menunggu' && ! $k->isTerbuka()) {
+                        $kj = $k->keadaanKunjungan();
+                        [$chipTeks, $chipKelas] = [$kj['label'], $kj['nada']];
+                    }
+
                     if (str_starts_with($key, 'terlewat')) {
                         $chipTeks = 'Terlewat ' . $k->hariTerlewat($hariIni) . ' hari';
                     }

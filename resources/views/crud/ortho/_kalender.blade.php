@@ -146,9 +146,33 @@
         @endfor
     </div>
 
+    {{-- Legenda ini DIBETULKAN 7 Okt 2026, dan ia salah ke dua arah sekaligus.
+
+         Ia memasang 'hadir' => 'Hadir' dan 'absen' => 'Tidak hadir' — dua
+         keadaan yang MUSTAHIL muncul di grid ini: $warnaChip di kepala berkas
+         tidak punya kedua kunci itu, dan OrtQuery::kalender() menyaring
+         `closed_at IS NULL` sehingga kunjungan tak pernah masuk. Sementara tiga
+         keadaan yang BENAR-BENAR muncul — usulan, batal, telat — tidak
+         didaftarkan sama sekali.
+
+         Legenda yang menjanjikan warna yang tak pernah ada lebih buruk daripada
+         tidak ada legenda: ia membuat orang menunggu sesuatu yang tidak akan
+         datang, lalu mengira datanya yang salah.
+
+         ⚠ Kuncinya WAJIB cocok dengan nilai $warnaChip (kepala berkas ini),
+           bukan dengan statusKey(). Keduanya kamus yang berbeda. Labelnya
+           disamakan dengan _drawer_hari.blade.php:37-41 supaya satu keadaan
+           tidak punya dua nama di dua layar. --}}
     <div class="ort-cal-legend">
-        @foreach (['menunggu' => 'Menunggu', 'fu' => 'Sudah di-FU', 'rsv' => 'Ada reservasi',
-                   'hadir' => 'Hadir', 'absen' => 'Tidak hadir', 'telatlama' => 'Terlewat'] as $k => $l)
+        @foreach ([
+            'menunggu'  => 'Menunggu',
+            'usulan'    => 'Usulan jadwal',
+            'fu'        => 'Sudah di-FU',
+            'rsv'       => 'Ada reservasi',
+            'batal'     => 'Reservasi batal',
+            'telat'     => 'Terlewat',
+            'telatlama' => 'Terlewat lebih dari 14 hari',
+        ] as $k => $l)
             <span><i class="ort-legend-dot ort-chip--{{ $k }}"></i>{{ $l }}</span>
         @endforeach
     </div>

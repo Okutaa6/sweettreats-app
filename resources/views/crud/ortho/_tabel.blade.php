@@ -94,11 +94,16 @@
                 $rsvLewat     = $rsvAktif && $r->rsv_date && $r->rsv_date <  $hariIniStr;
                 $rsvWaitlist  = $rsvAktif && ! $r->rsv_date;
 
-                /* Follow-up hanya boleh dibatalkan selama reservasinya BELUM
-                   jadi — lihat alasannya di _baris_terbuka. Dihitung di sini
-                   supaya tooltip tanggal, tooltip tanda ⌄, dan tombol di panel
-                   tidak bisa berbeda pendapat. */
-                $bolehBatalFu = $r->fu_date && (! $r->reservation_id || $r->rsv_status === 'cancelled');
+                /* $bolehBatalFu DIBUANG 7 Okt 2026. Ia dihitung di sini "supaya
+                   tooltip tanggal, tooltip tanda ⌄, dan tombol di panel tidak
+                   bisa berbeda pendapat" — dan ketiga pembaca itu sudah tidak
+                   ada: dua tooltipnya dibersihkan dan tombolnya dibuang bersama
+                   "Batalkan follow-up".
+
+                   Dibuang, bukan dibiarkan, karena komentar di bawah tentang
+                   chip STATUS sudah menamai bentuk ini sendiri: kode mati yang
+                   paling mahal adalah yang terlihat seperti sedang menjaga
+                   sesuatu. */
 
                 /* Chip STATUS dibuang seluruhnya 6 Okt 2026.
 

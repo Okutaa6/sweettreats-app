@@ -349,6 +349,13 @@ class OrtControl extends Model
      *   Blade. Klaim yang sama pernah hidup di lima tempat lalu berbeda
      *   pendapat tentang baris yang sama.
      *
+     * ⚠ DUA KONSUMEN sejak 7 Okt 2026, dan itu mengubah cara `teks` ditulis:
+     *   lipatan panel merendernya di sebelah chip `label`, sementara pita
+     *   `.ort-done` (lewat OrtQuery::usulanSelesai()) merangkainya jadi satu
+     *   kalimat "kontrol #N selesai — <label> <teks>". Karena itu `teks`
+     *   TIDAK BOLEH mengulang isi `label`-nya sendiri — kalau ia mengulang,
+     *   pita berbunyi "ditutup ditutup tanpa kunjungan".
+     *
      * @return array{teks:string,label:string,nada:string,catatan:string}
      */
     public function keadaanKunjungan(): array
@@ -368,17 +375,31 @@ class OrtControl extends Model
 
                    ⚠ Cabang kedua SENGAJA tetap panjang, dan ia satu-satunya
                      tempat label barisnya dikoreksi: kunjungan yang ditandai
-                     Sales justru TIDAK datang dari rekam medis. Jarang, tapi
-                     saat terjadi, kalimat inilah yang mencegah salah baca. */
-                'catatan' => $this->visit_source === 'rekam_medis'
-                    ? 'terisi sendiri'
-                    : 'ditandai manual oleh Sales, bukan dari rekam medis',
+                     Sales justru TIDAK datang dari rekam medis. Jarang —
+                     nyatanya NOL baris di DB lokal, semua penulis visit_source
+                     mengisi 'rekam_medis' — tapi dibiarkan hidup karena
+                     penandaan manual memang mungkin, dan saat terjadi kalimat
+                     inilah yang mencegah salah baca.
+
+                   `unscheduled` ikut disebut di sini, bukan dibuang: ia fakta
+                   sisi KUNJUNGAN ("datang tapi tidak cocok dengan baris jadwal
+                   mana pun"), dan sebelum 7 Okt 2026 kalimat itu cuma hidup di
+                   usulanSelesai(). Memindahkannya ke sini yang membuat pita dan
+                   panel berhenti bisa berbeda pendapat. */
+                'catatan' => ($this->unscheduled ? 'tidak ada jadwal tercatat · ' : '')
+                    . ($this->visit_source === 'rekam_medis'
+                        ? 'terisi sendiri'
+                        : 'ditandai manual oleh Sales, bukan dari rekam medis'),
             ];
         }
 
         if ($this->outcome === self::OUT_TIDAK_HADIR) {
             return [
-                'teks'    => $this->sch_date ? 'jatuh tempo ' . $this->sch_date->translatedFormat("j M 'y") : '',
+                /* Tanggalnya saja, tanpa awalan "jatuh tempo" — label di
+                   sebelahnya sudah berbunyi "Tidak hadir", dan pita merangkainya
+                   jadi "ditutup — tidak hadir 1 Okt '26". Dengan awalan itu
+                   pita berbunyi "tidak hadir jatuh tempo 1 Okt". */
+                'teks'    => $this->sch_date ? $this->sch_date->translatedFormat("j M 'y") : '',
                 'label'   => 'Tidak hadir',
                 'nada'    => 'absen',
                 'catatan' => 'ditandai manual oleh Sales',
@@ -404,10 +425,19 @@ class OrtControl extends Model
         }
 
         /* Ditutup tanpa kunjungan dan tanpa ditandai tidak hadir — biasanya
-           hasil penjadwalan ulang. Dikatakan apa adanya; menebaknya "tidak
-           hadir" akan menuduh pasien untuk sesuatu yang tidak tercatat. */
+           hasil penjadwalan ulang, dan di DB lokal sudah ada 2 baris berbentuk
+           begini (outcome 'batal'). Dikatakan apa adanya; menebaknya "tidak
+           hadir" akan menuduh pasien untuk sesuatu yang tidak tercatat.
+
+           ⚠ INI keadaan yang dulu membuat pita `.ort-done` berbohong: ia
+             menyusun kalimatnya sendiri dan jatuh ke cabang "hadir", lalu
+             mencetak "kontrol #5 selesai — hadir " dengan tanggal KOSONG,
+             sementara panel bilang "ditutup tanpa kunjungan tercatat".
+
+           `teks` tidak mengulang kata "ditutup" — labelnya sudah
+           mengatakannya, dan pita merangkai keduanya. */
         return [
-            'teks'    => 'ditutup tanpa kunjungan tercatat',
+            'teks'    => 'tanpa kunjungan tercatat',
             'label'   => 'Ditutup',
             'nada'    => 'menunggu',
             'catatan' => '',

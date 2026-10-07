@@ -22,9 +22,14 @@
         \App\Models\OrtCase::STATUS_PUTUS         => 'Putus',
         \App\Models\OrtCase::STATUS_PINDAH_KLINIK => 'Pindah klinik',
     ];
+    /* ⚠ 'hadir' dan 'tidak_hadir' DITAMBAHKAN 7 Okt 2026. Keduanya bisa
+       dipulangkan statusKey(), dan tanpa barisnya di sini mereka jatuh ke
+       default ['Menunggu','menunggu'] di bawah — pasien yang baru saja datang
+       terbaca "Menunggu". Labelnya disamakan dengan _drawer_detail.blade.php. */
     $chipLabel = [
         'menunggu' => ['Menunggu', 'menunggu'],
         'sudah_fu' => ['Sudah di-FU', 'fu'],     'ada_reservasi' => ['Ada reservasi', 'rsv'],
+        'hadir' => ['Hadir', 'hadir'],           'tidak_hadir' => ['Tidak hadir', 'absen'],
         'reservasi_batal' => ['Reservasi batal', 'batal'],
         'terlewat' => ['Terlewat', 'telat'],     'terlewat_parah' => ['Terlewat', 'telatlama'],
     ];
@@ -41,6 +46,21 @@
         }
         $key = $o->statusKey($hariIni);
         [$teks, $kelas] = $chipLabel[$key] ?? ['Menunggu', 'menunggu'];
+
+        /* ⚠ openControl() itu belongsTo('open_control_id') TANPA saringan
+           `closed_at IS NULL` — jadi pointer ini bisa menunjuk kontrol yang
+           SUDAH ditutup selama rollup belum menyusul (jendela antara
+           tandaiTidakHadir / OrtPullVisits menutup kontrol dan refresh rollup
+           berjalan). Di jendela itu roster berkata "Menunggu" untuk pasien yang
+           panelnya bilang "Ditutup".
+
+           Sama seperti di _drawer_detail: HANYA cabang 'menunggu' yang
+           dialihkan, supaya chip "Reservasi batal" yang sudah benar tidak ikut
+           tertukar. */
+        if ($key === 'menunggu' && ! $o->isTerbuka()) {
+            $kj = $o->keadaanKunjungan();
+            [$teks, $kelas] = [$kj['label'], $kj['nada']];
+        }
         $telat = $o->hariTerlewat($hariIni);
         if ($telat > 0) {
             $teks = 'Terlewat ' . $telat . ' hari';
