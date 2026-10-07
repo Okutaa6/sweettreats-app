@@ -87,15 +87,44 @@
        tertaut reservasi" yang berdiri terbuka membuat kolomnya dua kali lebih
        tinggi tanpa menambah satu pun informasi baru.
 
-       ⚠ MENUMPUK, tidak saling menutup. Beda dari panel baris di atas yang
-         memang eksklusif: di sini Sales sering membandingkan dua kontrol, dan
-         menutup yang satu begitu yang lain dibuka membuat perbandingan itu
-         mustahil. */
+       EKSKLUSIF — membuka satu menutup yang lain, sama seperti panel baris di
+       atasnya.
+
+       ⚠ Ini KEBALIKAN dari keputusan awal, dan dibalik sadar (7 Okt 2026,
+         permintaan Reza). Alasan lama: "Sales sering membandingkan dua kontrol,
+         menutup yang satu membuat perbandingan itu mustahil." Alasan itu
+         ternyata salah menebak cara pakainya — yang dibandingkan orang adalah
+         TANGGAL dan dokternya, dan ketiganya sudah berdiri berdampingan di
+         baris judul tanpa perlu dibuka sama sekali. Yang dilipat cuma keadaan
+         reservasi, dan itu ditengok satu per satu.
+
+         Harganya nyata dan diterima: membandingkan dua keadaan reservasi
+         sekaligus kini tidak bisa. Kalau suatu hari itu yang dibutuhkan,
+         jawabannya bukan mengembalikan tumpukan ini melainkan menampilkan
+         kolom reservasi di baris judulnya. */
     function lipat(id, tombol) {
         var isi = document.querySelector('[data-ort-kpanel="' + id + '"]');
         if (!isi) return;
-        isi.hidden = !isi.hidden;
-        tombol.classList.toggle('is-open', !isi.hidden);
+
+        /* Dicatat SEBELUM sapuan di bawah menutup semuanya — termasuk butir
+           ini sendiri. Tanpa itu, mengklik butir yang sedang terbuka akan
+           menutup lalu membukanya lagi, dan tombolnya tidak pernah bisa
+           dipakai untuk menutup. */
+        var jadiBuka = isi.hidden;
+
+        document.querySelectorAll('[data-ort-kpanel]').forEach(function (p) { p.hidden = true; });
+
+        /* Tombolnya disapu lewat KELAS, bukan lewat penandanya. Bukan selera:
+           pagar di OrtoTeksReservasiTest melarang penanda itu muncul di
+           querySelectorAll mana pun di berkas ini — justru supaya tidak ada
+           yang kembali memasang pendengar dengan sapuan sekali-jalan, yang
+           pernah membuat seluruh lipatan ini mati. Sapuan STATUS seperti di
+           sini tidak apa-apa, tapi pagarnya sengaja tidak dibuat pintar
+           membedakan keduanya: yang tumpul tidak bisa ditipu. */
+        document.querySelectorAll('.ort-nlist__tgl').forEach(function (b) { b.classList.remove('is-open'); });
+
+        isi.hidden = !jadiBuka;
+        tombol.classList.toggle('is-open', jadiBuka);
     }
 
     /* ── Pendaftaran listener ───────────────────────────────────────────────
