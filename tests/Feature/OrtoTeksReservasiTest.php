@@ -262,6 +262,65 @@ class OrtoTeksReservasiTest extends TestCase
     }
 
     /**
+     * ⭐ Lipatan butir kontrol HARUS memakai delegasi, bukan sapuan sekali-jalan.
+     *
+     * Uji tepat di atas membuktikan kalimatnya sudah dirender server dengan
+     * benar. Ia TETAP tidak pernah terlihat selama sehari penuh, karena tombol
+     * yang membukanya tidak punya pendengar sama sekali:
+     *
+     *   querySelectorAll('[data-ort-kdetail]')  ← menyapu DOM sekali, saat muat
+     *
+     * sementara tombol-tombol itu baru lahir dari fetch di buka(), jauh
+     * sesudahnya — panel baris dimuat belakangan sejak 6 Okt 2026. Yang terlihat
+     * Reza: chevron yang bisa diklik tapi tidak melakukan apa pun, dan
+     * kesimpulan wajar bahwa kontrol tanpa reservasi memang tidak punya isi.
+     *
+     * ⚠ Tidak ada uji Feature yang bisa menangkap ini lewat HTML: server
+     *   merender keduanya dengan sempurna, yang putus cuma pengikatnya di
+     *   peramban. Jadi pagarnya memang menyasar POLA SUMBERNYA — tidak lazim di
+     *   repo ini, dan disengaja.
+     */
+    public function test_lipatan_kontrol_memakai_delegasi(): void
+    {
+        $js = file_get_contents(resource_path('views/crud/ortho/_js_panel.blade.php'));
+
+        $this->assertStringNotContainsString(
+            "querySelectorAll('[data-ort-kdetail]')", $js,
+            'Sapuan sekali-jalan tidak pernah menemukan tombol yang lahir dari fetch.'
+        );
+        $this->assertStringContainsString(
+            "document.addEventListener('click'", $js,
+            'Pendengarnya harus didelegasikan ke document supaya menjangkau simpul yang datang belakangan.'
+        );
+
+        /* Dan pagar sekali-pasangnya. Berkas ini ikut tertukar tiap fragmen
+           tabel diperbarui, jadi tanpa penanda ini pendengar document menumpuk
+           dan satu klik memanggil lipat() dua kali — membuka lalu langsung
+           menutup. Gejalanya identik dengan bug yang baru saja diperbaiki. */
+        $this->assertStringContainsString(
+            'ortKdetailPasang', $js,
+            'Pendengar document wajib dipagari supaya tidak terpasang dua kali.'
+        );
+    }
+
+    /**
+     * Dan panelnya memang TIDAK membawa skrip itu — inilah sebab delegasinya
+     * wajib, dinyatakan sebagai fakta yang bisa pecah, bukan asumsi.
+     */
+    public function test_fragmen_panel_tidak_membawa_skripnya(): void
+    {
+        $k = $this->pasien();
+        $this->tertutup($k, 2, '2021-09-14');
+
+        $html = $this->panel($k);
+
+        $this->assertStringContainsString('data-ort-kdetail', $html,
+            'Panel membawa tombol lipatannya.');
+        $this->assertStringNotContainsString('ortKdetailPasang', $html,
+            'Tapi tidak membawa skrip yang memasang pendengarnya.');
+    }
+
+    /**
      * Dua layar harus sepakat tentang baris yang sama.
      *
      * Panel baris (List) dan matriks drawer detail membaca kolom yang sama.

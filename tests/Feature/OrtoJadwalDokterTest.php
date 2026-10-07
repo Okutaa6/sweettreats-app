@@ -71,6 +71,35 @@ class OrtoJadwalDokterTest extends TestCase
 
         $this->placeId  = (string) array_key_first($peta);
         $this->branchId = (string) $peta[$this->placeId]['branch_id'];
+
+        /* ⭐ JAM DIBEKUKAN, dan ini bukan kerapian — kelas ini sebelumnya
+           PECAH tiap hari Rabu.
+
+           Dokter uji di sini praktik hari Rabu saja, dan hariBerikutnya(3)
+           mencari Rabu terdekat MULAI BESOK. Jendela yang dipakai layanannya
+           dimulai HARI INI (OrtJadwalDokter::JENDELA_TABEL_HARI — Sales
+           menelepon hari ini dan memesan dari hari ini). Jadi begitu hari
+           berjalan jatuh di hari Rabu, penolong uji menunjuk Rabu minggu depan
+           sementara $hari[0] menunjuk hari ini: dua tanggal berbeda untuk hal
+           yang sama, dan dua uji merah.
+
+           Lolos selama berbulan-bulan hanya karena belum pernah dijalankan
+           pada hari Rabu — persis jenis uji yang hijau sampai ia tiba-tiba
+           tidak, di hari yang tidak ada hubungannya dengan kode yang diubah.
+           (Kejadian 7 Okt 2026, saat yang dikerjakan justru berkas JS.)
+
+           Senin dipilih supaya jendela 7 harinya memuat TEPAT SATU hari Rabu,
+           dan Rabu itu di masa depan — kalau hari ini sendiri yang dipakai,
+           slot yang jamnya sudah lewat ikut terpotong dan jumlah "terisi"
+           berubah-ubah mengikuti jam berapa suite dijalankan. */
+        Carbon::setTestNow(Carbon::parse('2026-10-05 09:00:00'));   // Senin
+    }
+
+    protected function tearDown(): void
+    {
+        Carbon::setTestNow();
+
+        parent::tearDown();
     }
 
     // ── Perkakas ────────────────────────────────────────────────────────────
@@ -115,7 +144,14 @@ class OrtoJadwalDokterTest extends TestCase
         ]);
     }
 
-    /** Tanggal terdekat (mulai besok) yang jatuh di hari ISO tertentu. */
+    /**
+     * Tanggal terdekat (mulai BESOK) yang jatuh di hari ISO tertentu.
+     *
+     * ⚠ "Mulai besok" sengaja berbeda dari jendela layanannya, yang mulai hari
+     *   ini. Perbedaan itu aman HANYA karena jam dibekukan di setUp() ke hari
+     *   Senin; tanpa itu, dijalankan di hari yang sama dengan hari praktik
+     *   dokter uji, penolong ini menunjuk minggu depan.
+     */
     private function hariBerikutnya(int $iso): Carbon
     {
         $t = Carbon::today()->addDay();

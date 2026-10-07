@@ -98,10 +98,18 @@
         tombol.classList.toggle('is-open', !isi.hidden);
     }
 
-    /* ── Pendaftaran listener: SEKALI saja, saat halaman dimuat ─────────────
-       ⚠ Jangan pindahkan blok ini ke dalam buka(). Kalau dipanggil tiap baris
+    /* ── Pendaftaran listener ───────────────────────────────────────────────
+       DUA blok di bawah menyapu DOM sekali, saat skrip ini dijalankan. Itu sah
+       UNTUK KEDUANYA karena sasarannya — baris tabel — sudah ada di HTML yang
+       membawa skrip ini, dan ikut tertukar bersamanya tiap fragmen diperbarui.
+
+       ⚠ Jangan pindahkan keduanya ke dalam buka(). Kalau dipanggil tiap baris
        dibuka, listener-nya menumpuk (satu klik = banyak handler) dan pemulihan
-       tampilan terakhir di bawah tidak pernah jalan. Sudah pernah kejadian. */
+       tampilan terakhir di bawah tidak pernah jalan. Sudah pernah kejadian.
+
+       ⚠ Dan jangan menambah blok ketiga dengan pola yang sama untuk apa pun
+       yang hidup DI DALAM panel baris: isi panel datang dari fetch, lama
+       sesudah sapuan ini selesai. Lihat lipatan per butir di bawahnya. */
     document.querySelectorAll('[data-ort-row]').forEach(function (row) {
         row.addEventListener('click', function () { buka(row.dataset.ortRow, row); });
     });
@@ -113,8 +121,34 @@
         });
     });
 
-    document.querySelectorAll('[data-ort-kdetail]').forEach(function (b) {
-        b.addEventListener('click', function (e) {
+    /* ── Lipatan per butir: DIDELEGASIKAN ke document, bukan dipasang per
+          tombol. ──────────────────────────────────────────────────────────
+
+       ⚠ Versi pertama menyapu penandanya dengan querySelectorAll seperti dua
+         blok di atas, dan itu MATI TOTAL begitu panel baris jadi dimuat
+         belakangan (6 Okt 2026): tombol chevron-nya lahir dari fetch di buka(),
+         jauh sesudah blok ini selesai menyapu DOM, jadi tidak satu pun dari
+         mereka pernah mendapat pendengar. Yang terlihat di layar: chevron yang
+         bisa diklik tapi tidak melakukan apa-apa — persis seperti kontrol yang
+         tidak punya reservasi, padahal keterangannya ada dan siap ditampilkan.
+
+       ⚠ Dan pagar sekali-pasangnya WAJIB. Berkas ini di-include dari partial
+         TABEL (tanpa tanda "at" — ditulis di komentar JS, Blade TETAP
+         mengompilasinya jadi directive dan halamannya ParseError; sudah kena),
+         dan JS menukar fragmen tabel tiap follow-up disimpan lalu
+         menjalankan ulang <script> di dalamnya. Pendengar pada SIMPUL yang
+         ikut tertukar mati bersama simpulnya — tapi pendengar pada `document`
+         tidak: tanpa pagar ini, tukar fragmen kedua membuat satu klik
+         memanggil lipat() dua kali, yang membuka lalu langsung menutup
+         kembali. Gejalanya sama persis dengan bug yang baru saja diperbaiki. */
+    if (!document.documentElement.dataset.ortKdetailPasang) {
+        document.documentElement.dataset.ortKdetailPasang = '1';
+
+        document.addEventListener('click', function (e) {
+            var b = e.target && e.target.closest
+                ? e.target.closest('[data-ort-kdetail]') : null;
+            if (!b) return;
+
             /* Panel baris BUKAN anak dari [data-ort-row] (ia dirender sebagai
                saudara sesudahnya), jadi klik di sini sebetulnya tidak pernah
                sampai ke pembuka baris. stopPropagation tetap dipasang sebagai
@@ -123,6 +157,6 @@
             e.stopPropagation();
             lipat(b.dataset.ortKdetail, b);
         });
-    });
+    }
 })();
 </script>
