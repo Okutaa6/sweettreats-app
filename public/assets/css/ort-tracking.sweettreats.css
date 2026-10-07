@@ -1281,7 +1281,12 @@
 /* ════════════════════════════════════════════════════════════════════════════
    Tab Kalender — brief §12 / screenshot 11 & 12
    ════════════════════════════════════════════════════════════════════════════ */
-.ort-cal-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 15px 20px; }
+/* "Hari Ini" duduk DI SAMPING pil pindah bulan, bukan terlempar ke tepi kanan
+   (7 Okt 2026, permintaan Reza) — sebelumnya `justify-content: space-between`.
+   Keduanya memang satu kelompok: ketiganya mengubah hal yang sama, tanggal
+   yang sedang dilihat. Dipisahkan selebar layar, tombol itu terbaca seperti
+   tindakan lain yang kebetulan ada di baris yang sama. */
+.ort-cal-bar { display: flex; align-items: center; gap: 12px; padding: 15px 20px; }
 /* --- Pindah bulan: SATU pil putih berisi panah-bulan-panah ----------------
    Bentuk disamakan dengan navigasi kalender halaman Kehadiran (.kh2-nav* di
    absensi/kehadiran.blade.php), 7 Okt 2026. Kelasnya tidak dipakai ulang
