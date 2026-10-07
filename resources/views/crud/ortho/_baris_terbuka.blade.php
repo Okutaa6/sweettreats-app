@@ -91,7 +91,16 @@
     $lihatSaja = $hanyaLihat ?? false;
 @endphp
 
-<div class="ort-expand" data-ort-expand="{{ $r->id }}" hidden>
+{{-- Pembungkus ini TIDAK pernah masuk DOM: _js_panel mencari
+     [data-ort-expand] di jawaban lalu menyalin innerHTML-nya saja ke cangkang
+     yang sudah ada di halaman. Jadi penandanya cuma kait pencarian.
+
+     ⚠ Tetap pakai ort_case_id, bukan $r->id. Untuk pasien tanpa kontrol
+       terbuka — seluruh tab "Belum punya jadwal" — $r->id itu NULL hasil LEFT
+       JOIN, sehingga versi lama mengirim `data-ort-expand=""`. Ia selamat cuma
+       karena pencariannya mencocokkan KEBERADAAN atribut; selamat karena
+       kebetulan bukan alasan untuk membiarkannya. --}}
+<div class="ort-expand" data-ort-expand="{{ $r->ort_case_id }}" hidden>
     <div class="ort-p2">
 
         {{-- ════════ PROFILE ════════════════════════════════════════════ --}}

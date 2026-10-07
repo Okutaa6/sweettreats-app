@@ -699,20 +699,11 @@ class OrtQuery
         ];
     }
 
-    /**
-     * SATU baris daftar kerja — bahan panel yang dimuat belakangan.
-     *
-     * Gerbangnya sama dengan daftar(): `dasar()` sudah mengunci ke cabang ini,
-     * jadi kontrol milik cabang lain mengembalikan null dan pemanggilnya
-     * menjawab 404. Panel tidak boleh jadi celah membaca pasien orang.
-     */
-    public function satuBaris(string $placeId, string $controlId): ?object
-    {
-        return $this->dasar($placeId)
-            ->where('c.id', $controlId)
-            ->select(self::kolomBaris())
-            ->first();
-    }
+    /* satuBaris(string $placeId, string $controlId) DIBUANG 7 Okt 2026.
+       Ia mencari panel lewat id KONTROL, dan itu sudah tidak bisa dipakai sejak
+       panel dikunci ke id KASUS — pasien tanpa kontrol terbuka (seluruh tab
+       "Belum punya jadwal") tidak akan pernah ditemukannya. Penggantinya
+       barisKasus() di bawah, dengan LEFT JOIN. Nol pemanggil saat dibuang. */
 
     /**
      * SATU baris panel yang dibangun dari KASUS, bukan dari kontrol.

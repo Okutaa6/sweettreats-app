@@ -295,6 +295,19 @@ class OrtControl extends Model
      */
     public function keadaanReservasi(?string $namaCabang = null): array
     {
+        /* ⚠ DUA label di bawah TIDAK PERNAH TAMPIL hari ini, dan itu bukan kode
+           mati — bukan juga kebetulan yang aman.
+
+           Satu-satunya pemanggil (_baris_terbuka.blade.php) merender chip-nya
+           `@unless ($k->visit_date)`, jadi setiap cabang yang MENSYARATKAN
+           visit_date terisi kehilangan label dan nadanya: 'Datang'/'hadir'
+           (cabang rsv_date) dan 'Tanpa jadwal' (cabang unscheduled). Yang
+           terpakai dari keduanya cuma `teks`-nya.
+
+           Dibiarkan hidup, bukan dibuang: begitu ada yang merender chip ini
+           tanpa syarat — dan itu perubahan satu baris di Blade — keduanya
+           langsung benar. Menghapusnya berarti mengganti perilaku benar yang
+           sedang tertidur dengan lubang yang menunggu. */
         if ($this->rsv_status === 'cancelled') {
             return [
                 'teks'  => ($this->rsv_date ? $this->rsv_date->translatedFormat("j M 'y") : '—')

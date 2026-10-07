@@ -170,10 +170,12 @@ class OrthoController extends Controller
      * (23 panel × 18,7 KB) adalah panel yang paling banyak SATU yang pernah
      * terbuka. Menukar DOM sebesar itu memang tidak bisa terasa ringan.
      *
-     * ⚠ Gerbangnya `OrtQuery::satuBaris()`, yang memakai `dasar()` — sudah
-     *   terkunci ke cabang ini. Kontrol milik cabang lain mengembalikan null
-     *   dan jalur ini menjawab 404. Panel tidak boleh jadi celah membaca
-     *   pasien cabang orang.
+     * ⚠ GERBANGNYA ADA DI METHOD INI, bukan di kuerinya. `barisKasus()`
+     *   sengaja TANPA saringan cabang — aturannya di sini memang beda dari
+     *   daftar kerja: pasien yang sedang dipegang cabang lain boleh DILIHAT
+     *   selama cabang pasangnya kita. Jadi dua lapis di bawah ($milikKita /
+     *   $pernahKita, lalu 403) itulah satu-satunya yang menahan panel jadi
+     *   celah membaca pasien cabang orang. Jangan dipindahkan ke kuerinya.
      */
     private function panelBaris(array $ctx)
     {
