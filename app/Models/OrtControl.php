@@ -334,6 +334,68 @@ class OrtControl extends Model
         return ['teks' => 'Tidak tertaut reservasi', 'label' => '—', 'nada' => 'menunggu'];
     }
 
+    /**
+     * Keadaan KUNJUNGAN — apa yang benar-benar tercatat, dari rekam medis.
+     *
+     * Pasangan keadaanReservasi(), dan sengaja dipisah darinya: yang satu
+     * JANJI (kapan pasien dipesankan), yang satu KENYATAAN (kapan ia datang).
+     * Keduanya sering bertanggal sama dan sering tidak, dan sebelum 7 Okt 2026
+     * layar cuma menampilkan yang pertama — sehingga "30 Sep" di judul butir
+     * (yang datang dari visit_date) dan "Terjadwal 30 Sep" di lipatannya
+     * terbaca seperti satu fakta yang diulang, padahal dua fakta dari dua
+     * sumber yang kebetulan cocok.
+     *
+     * ⚠ Seperti keadaanReservasi(), kalimatnya disusun DI SINI dan bukan di
+     *   Blade. Klaim yang sama pernah hidup di lima tempat lalu berbeda
+     *   pendapat tentang baris yang sama.
+     *
+     * @return array{teks:string,label:string,nada:string,catatan:string}
+     */
+    public function keadaanKunjungan(): array
+    {
+        if ($this->visit_date) {
+            return [
+                'teks'    => $this->visit_date->translatedFormat("j M 'y"),
+                'label'   => 'Hadir',
+                'nada'    => 'hadir',
+                /* Dari MANA angkanya, bukan sekadar angkanya. Tarikan malam dan
+                   penandaan manual Sales punya tingkat kepercayaan berbeda, dan
+                   satu-satunya tempat perbedaan itu bisa dilihat adalah di sini. */
+                'catatan' => $this->visit_source === 'rekam_medis'
+                    ? 'terisi sendiri dari rekam medis'
+                    : 'ditandai manual oleh Sales',
+            ];
+        }
+
+        if ($this->outcome === self::OUT_TIDAK_HADIR) {
+            return [
+                'teks'    => $this->sch_date ? 'jatuh tempo ' . $this->sch_date->translatedFormat("j M 'y") : '',
+                'label'   => 'Tidak hadir',
+                'nada'    => 'absen',
+                'catatan' => 'ditandai manual oleh Sales',
+            ];
+        }
+
+        if ($this->isTerbuka()) {
+            return [
+                'teks'    => 'belum ada kunjungan tercatat',
+                'label'   => 'Menunggu',
+                'nada'    => 'menunggu',
+                'catatan' => 'terisi sendiri tiap malam dari rekam medis',
+            ];
+        }
+
+        /* Ditutup tanpa kunjungan dan tanpa ditandai tidak hadir — biasanya
+           hasil penjadwalan ulang. Dikatakan apa adanya; menebaknya "tidak
+           hadir" akan menuduh pasien untuk sesuatu yang tidak tercatat. */
+        return [
+            'teks'    => 'ditutup tanpa kunjungan tercatat',
+            'label'   => 'Ditutup',
+            'nada'    => 'menunggu',
+            'catatan' => '',
+        ];
+    }
+
     public function isTerbuka(): bool
     {
         return $this->closed_at === null;

@@ -262,6 +262,57 @@ class OrtoTeksReservasiTest extends TestCase
     }
 
     /**
+     * ⭐ DUA sumber dinyatakan terpisah: rekam medis dan reservasi.
+     *
+     * Fixture ini sengaja memberi tanggal yang BERBEDA — pasien dipesankan
+     * 21 Nov tapi baru datang 23 Nov. Itu bentuk yang membuat penggabungan
+     * lama berbahaya: sampai 7 Okt 2026 lipatan ini cuma menyebut reservasi,
+     * sementara tanggal di baris judul di atasnya datang dari visit_date. Saat
+     * keduanya kebetulan sama, layar terbaca seperti mengulang satu fakta;
+     * saat berbeda — seperti di sini — tidak ada petunjuk sama sekali mana
+     * yang mana, dan selisih dua hari itu persis yang ingin dilihat Sales.
+     */
+    public function test_lipatan_memisahkan_kunjungan_dari_reservasi(): void
+    {
+        $k = $this->pasien();
+        $this->tertutup($k, 2, '2021-11-23', [
+            'reservation_id' => 'uji-rsv-' . Str::random(6),
+            'rsv_date' => '2021-11-21', 'rsv_status' => 'confirmed',
+        ]);
+
+        $html = $this->panel($k);
+
+        $this->assertStringContainsString('>Rekam medis</span>', $html,
+            'Barisnya diberi label sumbernya, bukan dibiarkan ditebak.');
+
+        $this->assertMatchesRegularExpression(
+            '~ort-chip--hadir[^>]*>Hadir</span>\s*23 Nov~', $html,
+            'Baris rekam medis menyebut tanggal KUNJUNGAN (23 Nov).'
+        );
+        $this->assertMatchesRegularExpression(
+            '~data-ort-rsv>\s*21 Nov~', $html,
+            'Baris reservasi menyebut tanggal RESERVASI (21 Nov) — bukan tanggal kunjungan.'
+        );
+
+        /* Dari MANA angkanya, bukan sekadar angkanya: tarikan malam dan
+           penandaan manual Sales punya tingkat kepercayaan berbeda, dan ini
+           satu-satunya tempat perbedaan itu terlihat. */
+        $this->assertStringContainsString('terisi sendiri dari rekam medis', $html,
+            'Sumber angka kunjungan ikut dikatakan.');
+    }
+
+    /** Kontrol yang masih terbuka berkata belum ada kunjungan — bukan diam. */
+    public function test_kontrol_terbuka_berkata_belum_ada_kunjungan(): void
+    {
+        $k = $this->pasien();
+
+        $html = $this->panel($k);
+
+        $this->assertStringContainsString('belum ada kunjungan tercatat', $html,
+            'Kolom kosong tanpa kalimat terbaca seperti data yang hilang.');
+    }
+
+    /**
      * ⭐ Lipatan butir kontrol HARUS memakai delegasi, bukan sapuan sekali-jalan.
      *
      * Uji tepat di atas membuktikan kalimatnya sudah dirender server dengan

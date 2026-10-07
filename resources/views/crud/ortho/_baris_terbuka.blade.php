@@ -253,7 +253,8 @@
                                    Kalimatnya TIDAK disusun di sini, dan itu pokoknya: klaim yang
                                    sama pernah hidup di empat tempat lalu berbeda pendapat tentang
                                    baris yang sama. */
-                                $kRsv = $k->keadaanReservasi($kCabang);
+                                $kRsv   = $k->keadaanReservasi($kCabang);
+                                $kVisit = $k->keadaanKunjungan();
 
                                 /* Tautan ke RESERVASI PASIEN ITU, bukan sekadar ke tanggalnya.
                                    `?reservation_id=` menyaring daftar Reservasi ke satu baris
@@ -317,18 +318,49 @@
                                          kembali terbaca sebagai riwayat; yang butuh detail
                                          membukanya satu per satu. --}}
                                     <div class="ort-nlist__d" data-ort-kpanel="{{ $k->id }}" hidden>
-                                        {{-- Keadaan reservasi, apa adanya. Baris yang belum
-                                             pernah dijodohkan berbunyi "Tidak tertaut
-                                             reservasi" — BUKAN "tidak ada reservasi":
+                                        {{-- DUA baris, DUA sumber (7 Okt 2026, permintaan Reza).
+
+                                             Sebelumnya lipatan ini cuma menyebut reservasi,
+                                             sementara tanggal di baris judul di atasnya datang
+                                             dari visit_date. Keduanya sering sama — dan saat
+                                             sama, layar terbaca seperti mengulang satu fakta;
+                                             saat BEDA, tidak ada petunjuk mana yang mana.
+
+                                             Memisahkannya menjawab pertanyaan yang memang
+                                             berbeda: "pasiennya datang belum?" (rekam medis)
+                                             dan "dia dipesankan kapan?" (reservasi). --}}
+                                        <div class="ort-nlist__f">
+                                            <span class="ort-nlist__fk">Rekam medis</span>
+                                            <span class="ort-nlist__fv">
+                                                <span class="ort-chip ort-chip--{{ $kVisit['nada'] }}"
+                                                      style="margin-right:5px;">{{ $kVisit['label'] }}</span>
+                                                {{ $kVisit['teks'] }}
+                                                @if ($kVisit['catatan'])
+                                                    <span class="ort-nlist__dim">· {{ $kVisit['catatan'] }}</span>
+                                                @endif
+                                            </span>
+                                        </div>
+
+                                        {{-- Baris yang belum pernah dijodohkan berbunyi "Tidak
+                                             tertaut reservasi" — BUKAN "tidak ada reservasi":
                                              reservasi hidup di tabel Sweet Treats sendiri dan
                                              hampir seluruhnya belum pernah dicek, jadi klaim
-                                             kedua mengaku tahu yang tidak diketahui. --}}
-                                        <div class="ort-nlist__dim" data-ort-rsv>
-                                            @unless ($k->visit_date)
-                                                <span class="ort-chip ort-chip--{{ $kRsv['nada'] }}"
-                                                      style="margin-right:5px;">{{ $kRsv['label'] }}</span>
-                                            @endunless
-                                            {{ $kRsv['teks'] }}
+                                             kedua mengaku tahu yang tidak diketahui.
+
+                                             ⚠ data-ort-rsv tetap menempel PERSIS di depan
+                                               chip-dan-teksnya. OrtoTeksReservasiTest mencocokkan
+                                               penanda itu diikuti langsung oleh tanggalnya;
+                                               menyisipkan apa pun di antaranya memutus uji yang
+                                               menjaga kedua layar tetap sepakat. --}}
+                                        <div class="ort-nlist__f">
+                                            <span class="ort-nlist__fk">Reservasi</span>
+                                            <span class="ort-nlist__fv ort-nlist__dim" data-ort-rsv>
+                                                @unless ($k->visit_date)
+                                                    <span class="ort-chip ort-chip--{{ $kRsv['nada'] }}"
+                                                          style="margin-right:5px;">{{ $kRsv['label'] }}</span>
+                                                @endunless
+                                                {{ $kRsv['teks'] }}
+                                            </span>
                                         </div>
 
                                         @if ($kRsvUrl)
