@@ -21,11 +21,16 @@
         dan sekarang berdiri tepat di atas daftar kunjungan yang membentuknya.
       · Chip status jadwal → bidang di kolom Profile.
 
-    ⚠ Dan lima AKSI yang tidak ada di rancangan tiga kolom tetap dipertahankan
-      di kaki panel — bukan karena enggan membuang, tapi karena "Tandai tidak
-      hadir", "Batalkan follow-up", dan "Geser pengingat" TIDAK PUNYA JALAN LAIN
-      di seluruh layar. Membuangnya berarti membuat tiga keputusan sah jadi
-      mustahil, diam-diam.
+    ⚠ AKSI yang tidak ada di rancangan tiga kolom tetap dipertahankan di kaki
+      panel — bukan karena enggan membuang, tapi karena "Tandai tidak hadir" dan
+      "Geser pengingat" TIDAK PUNYA JALAN LAIN di seluruh layar. Membuangnya
+      berarti membuat dua keputusan sah jadi mustahil, diam-diam.
+
+      "Batalkan follow-up" dulu yang ketiga, dan sudah dibuang 7 Okt 2026 atas
+      permintaan Reza — dengan konsekuensi yang sama persis seperti yang
+      diperingatkan kalimat di atas, kecuali satu hal yang meringankannya:
+      Urungkan di toast masih menangkap 90 detik pertama. Lihat catatan di
+      tempat tombolnya dulu berdiri.
 
     ⚠ Riwayatnya datang dari $riwayatVisit / $riwayatFu yang dihitung SEKALI
       untuk seluruh halaman di controller. Jangan memanggil kueri dari sini —
@@ -512,15 +517,20 @@
                  adalah anak tangga MENUJU reservasi, jadi mencabutnya sesudah
                  reservasi ada membuat tangga itu mundur tanpa alasan. Kalau
                  reservasinya dibatalkan, tombol ini muncul lagi sendiri. --}}
-            @if ($bolehBatalFu ?? false)
-                <form method="POST" action="{{ route('ortho.batalfollowup', $r->id) }}" style="display:inline-flex;">
-                    @csrf
-                    <button type="submit" class="ort-obtn"
-                            title="Hapus catatan follow-up {{ \Carbon\Carbon::parse($r->fu_date)->translatedFormat('j M') }} — baris riwayatnya ikut dibuang, dan tombol baris kembali hijau">
-                        <i class="fas fa-undo" style="font-size:10px;"></i> Batalkan follow-up
-                    </button>
-                </form>
-            @endif
+            {{-- Tombol "Batalkan follow-up" DIBUANG 7 Okt 2026 atas permintaan
+                 Reza.
+
+                 ⚠ Yang hilang hanya pembatalan TERLAMBAT. Urungkan di toast
+                   masih berlaku 90 detik sesudah follow-up dicatat
+                   (OrthoController::simpanUrungkan), dan itu menangkap
+                   kesalahan yang paling sering: salah klik baris.
+
+                 ⚠ Sesudah 90 detik itu lewat, TIDAK ADA lagi jalan di layar.
+                   Endpoint-nya sengaja dibiarkan hidup — route
+                   ortho.batalfollowup, OrthoController::batalFollowUp(), dan
+                   ujinya — supaya tombolnya bisa dikembalikan dengan satu blok
+                   Blade kalau ternyata dibutuhkan, tanpa membangun ulang sisi
+                   servernya. --}}
 
             @if ($r->reservation_id || $telat)
                 <form method="POST" action="{{ route('ortho.tidakhadir', $r->id) }}" style="display:inline-flex;">

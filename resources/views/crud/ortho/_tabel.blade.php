@@ -442,7 +442,15 @@
                                   . ($r->fu_channel ? ' · ' . (\App\Models\OrtControl::FU_KANAL[$r->fu_channel] ?? $r->fu_channel) : '')
                                   . ($fuHasil ? ' · ' . $fuHasil : '')
                                   . ($r->fu_note ? ' — ' . $r->fu_note : '')
-                                  . ($bolehBatalFu ? ' · untuk membatalkan, buka panel baris dengan tanda ⌄' : '')
+                                  /* Kalimat "· untuk membatalkan, buka panel baris dengan
+                                     tanda ⌄" DIBUANG 7 Okt 2026 bersama tombolnya. Tooltip
+                                     yang menunjuk ke tombol yang sudah tidak ada lebih buruk
+                                     daripada tooltip yang diam: ia mengirim orang mencari.
+
+                                     ⚠ Komentar PHP, BUKAN {{-- --}}. Baris ini di tengah
+                                       rangkaian ekspresi di dalam @php; komentar Blade
+                                       memutus rantai `.` dan membuat SELURUH halaman
+                                       ParseError. Sudah kena, 52 uji merah sekaligus. */
                                 : null;
                         @endphp
 
@@ -534,7 +542,7 @@
                     {{-- Toggle bundar --}}
                     <div style="display:flex;justify-content:center;">
                         <button type="button" class="ort-toggle" data-ort-toggle="{{ $r->id }}"
-                                title="Ringkas pasien, 4 kontrol terakhir, dan aksi lain — pindahkan cabang, tandai tidak hadir{{ $bolehBatalFu ? ', batalkan follow-up' : '' }}"><i class="fas fa-chevron-down"></i></button>
+                                title="Ringkas pasien, 4 kontrol terakhir, dan aksi lain — pindahkan cabang, tandai tidak hadir"><i class="fas fa-chevron-down"></i></button>
                     </div>
                 </div>
             </div>
