@@ -644,6 +644,24 @@
 .ort-done--amber { color: var(--ort-warn); }
 .ort-done__note { font-size: 10.5px; font-weight: 500; color: var(--ort-muted); }
 
+/* Tombol tutup. Didorong ke tepi kanan dengan margin-left:auto, bukan dengan
+   menambah pembungkus — .ort-done sudah flex.
+
+   Warnanya dimulai dari --ort-line2 (setenang garis pemisah): pita ini
+   keterangan yang lewat, dan silang yang mencolok akan menarik mata lebih kuat
+   daripada kalimat yang seharusnya dibaca. */
+.ort-done__x {
+  margin-left: auto; flex: none;
+  background: none; border: none; padding: 0 2px;
+  color: var(--ort-line2); font-size: 16px; line-height: 1;
+  font-family: inherit; cursor: pointer; transition: color .12s ease;
+}
+.ort-done__x:hover { color: var(--ort-muted); }
+
+/* ⚠ WAJIB. .ort-done itu display:flex, dan flex MENGALAHKAN [hidden] bawaan
+     peramban — tanpa baris ini, pita yang di-hidden lewat JS tetap tampil. */
+.ort-done[hidden] { display: none; }
+
 /* ── Tombol WhatsApp berdiri sendiri (§3) ───────────────────────────────── */
 .ort-btn--wa {
   width: 30px; height: 30px; flex: none; border-radius: 9px;

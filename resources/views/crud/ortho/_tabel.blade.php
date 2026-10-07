@@ -547,10 +547,20 @@
                      mata, tapi ini pengaman kalau baris di atasnya kebetulan
                      tergulir keluar layar. --}}
                 <div class="ort-done {{ $selesai['absen'] ? 'ort-done--amber' : '' }}"
+                     data-ort-done="{{ $r->id }}"
                      title="{{ \Illuminate\Support\Str::title($r->patient_name) }} — {{ $selesai['teks'] }}{{ $selesai['catatan'] ? ' · ' . $selesai['catatan'] : '' }}">
                     <i class="fas {{ $selesai['absen'] ? 'fa-exclamation-circle' : 'fa-check' }}"></i>
                     <span>{{ $selesai['teks'] }}</span>
                     <span class="ort-done__note">{{ $selesai['catatan'] }}</span>
+
+                    {{-- Tutup (7 Okt 2026, permintaan Reza). Ingatannya di
+                         localStorage, bukan di DB: ini pengakuan "sudah saya
+                         baca" milik satu orang di satu peramban, bukan fakta
+                         tentang pasiennya — menyimpannya di ort_control akan
+                         membuat satu Sales menyembunyikan keterangan dari
+                         seluruh cabang. Lihat skrip di kaki berkas ini. --}}
+                    <button type="button" class="ort-done__x" data-ort-done-x="{{ $r->id }}"
+                            title="Sembunyikan keterangan ini" aria-label="Sembunyikan keterangan ini">&times;</button>
                 </div>
             @endif
 
@@ -610,3 +620,77 @@
      terbawa saat JS menukar fragmen tabel dan baris barunya tetap punya
      pendengar. --}}
 @include('crud.ortho._js_panel')
+
+<script>
+/* ── Sembunyikan pita "kontrol #N selesai" ──────────────────────────────────
+   Ingatannya di localStorage, BUKAN di DB. Yang disimpan bukan fakta tentang
+   pasien melainkan pengakuan "sudah saya baca" milik satu orang; ditaruh di
+   ort_control, satu Sales akan menyembunyikan keterangan itu dari seluruh
+   cabang. Harganya: tidak ikut berpindah peramban, dan itu memang benar.
+
+   ⚠ Pengikatnya querySelectorAll biasa, dan di sini itu SAH — beda dari
+     lipatan di panel baris, yang wajib didelegasikan. Tombol-tombol ini hidup
+     di markup TABEL, berkas yang sama yang membawa skrip ini, jadi keduanya
+     ikut tertukar bersamaan tiap fragmen diperbarui dan sapuan ini selalu
+     menemukan tombol yang baru.
+
+   ⚠ TIDAK ADA satu pun literal `data-ort-...="` di skrip ini, dan itu WAJIB
+     dijaga. OrtoPerHalamanTest dan OrtoTahapCHalamanTest mencacah
+     penanda baris di SELURUH halaman untuk menghitung baris; versi pertama
+     skrip ini menyusun pemilihnya sebagai string dan membuat ketujuh uji itu
+     merah — bukan karena barisnya salah, tapi karena mereka ikut menghitung
+     kalimat di dalam skrip. Makanya barisnya dicari lewat
+     previousElementSibling, bukan lewat id.
+
+     Dan ya: KOMENTAR INI pun tidak boleh menyebut penandanya lengkap dengan
+     tanda sama-dengan dan kutip. Komentar JS ikut terkirim ke halaman, jadi
+     menyebutnya di sini mengulang bug yang sama persis — sudah kena.
+
+   ⚠ Kelas ort-tr--nb WAJIB ikut dilepas dari baris di atasnya. Kelas itu
+     membuang garis bawah baris DAN memangkas padding-nya menjadi 7px, justru
+     karena pita ini menempel di bawahnya. Disembunyikan tanpa melepasnya,
+     barisnya berakhir tanpa garis dan lebih pendek dari tetangganya. */
+(function () {
+    var KUNCI = 'ort-done-sembunyi';
+    var BATAS = 400;              /* kunci lama dibuang; id kontrol tak pernah dipakai ulang */
+
+    /* localStorage bisa MELEMPAR, bukan cuma kosong: mode privat Safari dan
+       peramban yang memblokir data situs. Fitur ini boleh gagal diam-diam —
+       yang terjadi cuma pita tetap tampil. */
+    function baca() {
+        try { return JSON.parse(localStorage.getItem(KUNCI) || '[]'); } catch (e) { return []; }
+    }
+    function tulis(daftar) {
+        try { localStorage.setItem(KUNCI, JSON.stringify(daftar.slice(-BATAS))); } catch (e) {}
+    }
+
+    function sembunyikan(pita) {
+        if (!pita) return;
+        pita.hidden = true;
+
+        /* Pita selalu dirender TEPAT sesudah barisnya — lihat markup di atas.
+           Dicek kelasnya, bukan dipercaya begitu saja. */
+        var baris = pita.previousElementSibling;
+        if (baris) baris.classList.remove('ort-tr--nb');
+    }
+
+    var tersimpan = baca();
+
+    document.querySelectorAll('[data-ort-done]').forEach(function (pita) {
+        if (tersimpan.indexOf(pita.dataset.ortDone) !== -1) sembunyikan(pita);
+    });
+
+    document.querySelectorAll('[data-ort-done-x]').forEach(function (b) {
+        b.addEventListener('click', function (e) {
+            e.stopPropagation();
+
+            var pita = b.closest('[data-ort-done]');
+            sembunyikan(pita);
+
+            var id = b.dataset.ortDoneX;
+            var daftar = baca();
+            if (daftar.indexOf(id) === -1) { daftar.push(id); tulis(daftar); }
+        });
+    });
+})();
+</script>
