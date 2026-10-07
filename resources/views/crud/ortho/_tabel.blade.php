@@ -594,22 +594,23 @@
 
     </div>
 
-    {{-- Keterangan warna kolom Jadwal Dokter. Tanpa ini, empat warna di sana
-         adalah sandi yang cuma dimengerti orang yang ikut rapat desainnya.
+    {{-- Keterangan warna kolom Jadwal Dokter DIBUANG 7 Okt 2026 atas permintaan
+         Reza. Empat warnanya kini hanya diterangkan tooltip tiap pilnya
+         ("Sunter · sisa 2 dari 10 slot"), yang memang lebih tepat: ia menyebut
+         angka baris ITU, bukan arti warnanya secara umum.
 
-         ⚠ "Simulasikan tarikan malam ini" dari lembar rancangan SENGAJA tidak
-           dibuat. Di rancangan ia cuma <span> peraga — tanpa form, tanpa route.
-           Membuatnya sungguhan berarti menaruh tombol yang MENULIS data rekam
-           medis di halaman kerja harian Sales; tarikan malam yang sebenarnya
-           dijadwalkan di Kernel pukul 04.00, dan kalau perlu dipicu manual,
-           tempatnya baris perintah, bukan sini. --}}
-    <div class="ort-legenda">
-        <span class="ort-legenda__k">Jadwal dokter:</span>
-        <span><i class="ort-legend-dot" style="background:var(--ort-ok);"></i> Masih kosong</span>
-        <span><i class="ort-legend-dot" style="background:var(--ort-warn);"></i> Hampir penuh</span>
-        <span><i class="ort-legend-dot" style="background:var(--ort-bad);"></i> Penuh</span>
-        <span><i class="ort-legend-dot" style="background:var(--ort-muted);"></i> Dokter cuti</span>
-    </div>
+         ⚠ DUA keputusan lama ikut tersimpan di sini supaya tidak hilang
+           bersama blok yang dibuang:
+
+           1. "Simulasikan tarikan malam ini" dari lembar rancangan SENGAJA
+              tidak pernah dibuat. Di rancangan ia cuma span peraga — tanpa
+              form, tanpa route. Membuatnya sungguhan berarti menaruh tombol
+              yang MENULIS data rekam medis di halaman kerja harian Sales;
+              tarikan malam yang sebenarnya dijadwalkan di Kernel pukul 04.00,
+              dan kalau perlu dipicu manual, tempatnya baris perintah.
+
+           2. .ort-legend-dot TIDAK ikut dihapus dari CSS — tab Kalender
+              memakainya untuk legendanya sendiri, yang tetap ada. --}}
 
     @include('crud.ortho._paginasi', ['data' => $baris, 'satuan' => 'jadwal', 'perHal' => $perHal])
 </div>
