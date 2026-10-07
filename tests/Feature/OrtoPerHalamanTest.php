@@ -132,6 +132,19 @@ class OrtoPerHalamanTest extends TestCase
      */
     private function jumlahBaris(string $html): int
     {
+        /* ⚠ <script> DIBUANG lebih dulu, dan ini bukan kehati-hatian berlebihan.
+
+             Skrip di modul ini menyusun pemilihnya sebagai STRING, dan begitu
+             salah satunya menyebut penanda baris secara harfiah, pencacah ini
+             menghitung satu baris hantu per halaman. Sudah kejadian 7 Okt 2026:
+             satu literal di _tabel membuat sembilan uji merah sekaligus, lalu
+             satu KOMENTAR di dalam skrip yang sama mengulanginya — komentar JS
+             ikut terkirim ke halaman.
+
+             Skripnya sudah ditulis ulang tanpa literal itu; pembuang ini yang
+             membuat uji berhenti bergantung pada janji itu dipegang. */
+        $html = preg_replace('~<script.*?</script>~s', '', $html);
+
         preg_match_all('~data-ort-row="([^"]+)"~', $html, $m);
 
         return count(array_unique($m[1]));

@@ -357,6 +357,65 @@ class OrtoTeksReservasiTest extends TestCase
     }
 
     /**
+     * ⭐ Lipatan butir EKSKLUSIF: membuka satu menutup yang lain.
+     *
+     * Dibalik sadar 7 Okt 2026 dari perilaku menumpuk. Dijaga di sini karena
+     * tidak ada uji Feature yang bisa mengklik: server merender kelima butir
+     * sama saja, yang berubah hanya apa yang terjadi di peramban.
+     *
+     * ⚠ Yang paling mudah rusak BUKAN sapuannya, melainkan URUTANNYA.
+     *   `jadiBuka` wajib dicatat SEBELUM sapuan menutup semuanya — termasuk
+     *   butir yang sedang diklik. Terbalik, mengklik butir yang sedang terbuka
+     *   akan menutup lalu membukanya lagi, dan tombolnya tidak pernah bisa
+     *   dipakai untuk menutup.
+     */
+    public function test_lipatan_butir_eksklusif(): void
+    {
+        $js = file_get_contents(resource_path('views/crud/ortho/_js_panel.blade.php'));
+
+        $this->assertStringContainsString(
+            "querySelectorAll('[data-ort-kpanel]')", $js,
+            'Membuka satu butir harus menutup yang lain.'
+        );
+
+        $posCatat  = strpos($js, 'var jadiBuka = isi.hidden;');
+        $posSapuan = strpos($js, "querySelectorAll('[data-ort-kpanel]')");
+
+        $this->assertNotFalse($posCatat, 'Keadaan butir wajib dicatat sebelum disapu.');
+        $this->assertLessThan(
+            $posSapuan, $posCatat,
+            'jadiBuka dicatat SESUDAH sapuan — tombolnya jadi tidak bisa menutup.'
+        );
+    }
+
+    /**
+     * ⭐ Seluruh baris butir jadi sasaran klik, bukan cuma chevron 22px.
+     *
+     * Dan klik dari DALAM lipatan dikecualikan — tanpa itu, membaca keadaan
+     * reservasi yang baru dibuka langsung menutupnya kembali.
+     */
+    public function test_baris_butir_jadi_sasaran_klik(): void
+    {
+        $js = file_get_contents(resource_path('views/crud/ortho/_js_panel.blade.php'));
+
+        $this->assertStringContainsString("closest('.ort-nlist__i')", $js,
+            'Seluruh baris butir harus memicu lipatannya.');
+        $this->assertStringContainsString("closest('.ort-nlist__d')", $js,
+            'Klik dari dalam lipatan harus dikecualikan, kalau tidak ia menutup dirinya sendiri.');
+
+        /* Dan hover/kursornya disaring ke butir yang PUNYA lipatan. .ort-nlist__i
+           dipakai dua daftar — riwayat Kontrol punya chevron, riwayat Follow Up
+           tidak. Dipasang polos, butir Follow Up terlihat bisa diklik lalu tidak
+           melakukan apa pun. */
+        $css = file_get_contents(public_path('assets/css/ort-tracking.sweettreats.css'));
+
+        $this->assertStringContainsString(
+            '.ort-nlist__i:has(.ort-nlist__tgl) { cursor: pointer; }', $css,
+            'Kursor tangan hanya untuk butir yang benar-benar bisa dibuka.'
+        );
+    }
+
+    /**
      * Dan panelnya memang TIDAK membawa skrip itu — inilah sebab delegasinya
      * wajib, dinyatakan sebagai fakta yang bisa pecah, bukan asumsi.
      */
@@ -428,7 +487,17 @@ class OrtoTeksReservasiTest extends TestCase
             'reservation_id=' . $rsv, $html,
             'Tombol harus membawa reservation_id, bukan rentang tanggal.'
         );
-        $this->assertStringContainsString('Buka di Reservasi', $html);
+        /* ⚠ Yang diuji AFORDANSNYA, bukan kalimatnya. Sejak 7 Okt 2026 tombol
+             ini ikon tanpa teks: "Buka di Reservasi" cuma hidup di aria-label
+             dan title. Mencocokkan kalimatnya saja berarti uji ini tetap hijau
+             walau <a>-nya dihapus dan tinggal title yang tersisa — tidak ada
+             lagi yang bisa diklik, dan tak satu pun uji merah. */
+        $this->assertMatchesRegularExpression(
+            '~<a[^>]+class="ort-rsvgo"~', $html,
+            'Harus ada TAUTAN yang bisa diklik, bukan sekadar kalimat di atribut.'
+        );
+        $this->assertStringContainsString('aria-label="Buka di Reservasi"', $html,
+            'Dan tautan ikon wajib punya nama — tanpa itu pembaca layar tidak melihat apa pun.');
     }
 
     /**
@@ -461,8 +530,11 @@ class OrtoTeksReservasiTest extends TestCase
         $k = $this->pasien();
         $this->tertutup($k, 2, '2021-08-17');
 
-        // Disaring ke pasien uji ini saja — lihat catatan di halaman().
-        $this->assertStringNotContainsString('Buka di Reservasi', $this->panel($k));
+        /* Disaring ke pasien uji ini saja — lihat catatan di halaman().
+           Dicocokkan ke KELAS tombolnya, sepasang dengan uji di atas: kalimatnya
+           kini hidup di atribut, jadi ketiadaan kalimat bukan lagi bukti
+           ketiadaan tombol. */
+        $this->assertStringNotContainsString('ort-rsvgo', $this->panel($k));
     }
 
     /** Tooltip di drawer detail ikut jujur — klaim keempat yang ditemukan. */

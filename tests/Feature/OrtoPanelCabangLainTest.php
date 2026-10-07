@@ -219,8 +219,13 @@ class OrtoPanelCabangLainTest extends TestCase
             'Transfer Pasien'     => 'memindahkan pasien yang dipegang cabang lain bukan keputusan cabang ini',
             'ort-seg__b'          => 'pemilah Active/Inactive',
             'Tandai tidak hadir'  => 'menutup kontrol milik cabang lain',
-            'Batalkan follow-up'  => 'membatalkan follow-up cabang lain',
             'Geser pengingat'     => 'menggeser jadwal cabang lain',
+            /* ⚠ 'Batalkan follow-up' DIKELUARKAN 7 Okt 2026. Tombolnya dibuang
+                 untuk SEMUA ORANG, jadi baris ini berhenti menguji mode
+                 lihat-saja dan mulai lulus secara trivial — ia tidak bisa merah
+                 apa pun yang terjadi. Pagar yang tidak bisa gagal lebih buruk
+                 daripada tidak ada pagar: ia membuat daftar ini terlihat lebih
+                 lengkap dari yang sebenarnya dijaga. */
         ] as $jejak => $kenapa) {
             $this->assertStringNotContainsString($jejak, $html, "Harus disembunyikan — {$kenapa}.");
         }
@@ -342,8 +347,17 @@ class OrtoPanelCabangLainTest extends TestCase
         $this->assertStringContainsString('data-ort-kosong', $html, 'Cangkang panel harus ada di tiap baris.');
         $this->assertStringContainsString('data-ort-kasus', $html, 'Cangkang dikunci id KASUS, bukan kontrol.');
         $this->assertStringContainsString('data-ort-toggle', $html, 'Tombol pembuka panel harus ada.');
+        /* ⚠ Penandanya DIGANTI 7 Okt 2026. Versi lama mencari 'data-ort-kpanel'
+             di HTML HALAMAN — dan penanda itu hidup di dalam PANEL, yang kini
+             dimuat belakangan, jadi ia tidak pernah ada di halaman. Yang
+             sebenarnya cocok cuma literal selektor di sumber JS: maksudnya
+             kebetulan masih terpenuhi, tapi ganti selektor itu jadi variabel dan
+             uji ini merah tanpa satu pun perilaku yang rusak.
+
+             'ortKdetailPasang' adalah pagar sekali-pasang di _js_panel — penanda
+             yang memang hanya ada kalau skripnya ikut terkirim. */
         $this->assertStringContainsString(
-            'data-ort-kpanel', $html,
+            'ortKdetailPasang', $html,
             'Skrip panel (_js_panel) harus ikut terbawa — tanpanya barisnya tidak bisa dibuka sama sekali.'
         );
     }
