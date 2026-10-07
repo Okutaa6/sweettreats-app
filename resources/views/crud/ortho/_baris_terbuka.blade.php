@@ -328,18 +328,14 @@
 
                                              Memisahkannya menjawab pertanyaan yang memang
                                              berbeda: "pasiennya datang belum?" (rekam medis)
-                                             dan "dia dipesankan kapan?" (reservasi). --}}
-                                        <div class="ort-nlist__f">
-                                            <span class="ort-nlist__fk">Rekam medis</span>
-                                            <span class="ort-nlist__fv">
-                                                <span class="ort-chip ort-chip--{{ $kVisit['nada'] }}"
-                                                      style="margin-right:5px;">{{ $kVisit['label'] }}</span>
-                                                {{ $kVisit['teks'] }}
-                                                @if ($kVisit['catatan'])
-                                                    <span class="ort-nlist__dim">· {{ $kVisit['catatan'] }}</span>
-                                                @endif
-                                            </span>
-                                        </div>
+                                             dan "dia dipesankan kapan?" (reservasi).
+
+                                             ⚠ RESERVASI di atas, rekam medis di bawah — urutan
+                                               ini diminta dan bukan kebetulan: tombol "Buka di
+                                               Reservasi" berdiri tepat di bawah blok ini, jadi
+                                               menaruh barisnya paling jauh dari tombolnya
+                                               memaksa mata melompati satu baris yang tidak ada
+                                               hubungannya. --}}
 
                                         {{-- Baris yang belum pernah dijodohkan berbunyi "Tidak
                                              tertaut reservasi" — BUKAN "tidak ada reservasi":
@@ -360,6 +356,18 @@
                                                           style="margin-right:5px;">{{ $kRsv['label'] }}</span>
                                                 @endunless
                                                 {{ $kRsv['teks'] }}
+                                            </span>
+                                        </div>
+
+                                        <div class="ort-nlist__f">
+                                            <span class="ort-nlist__fk">Rekam medis</span>
+                                            <span class="ort-nlist__fv">
+                                                <span class="ort-chip ort-chip--{{ $kVisit['nada'] }}"
+                                                      style="margin-right:5px;">{{ $kVisit['label'] }}</span>
+                                                {{ $kVisit['teks'] }}
+                                                @if ($kVisit['catatan'])
+                                                    <span class="ort-nlist__dim">· {{ $kVisit['catatan'] }}</span>
+                                                @endif
                                             </span>
                                         </div>
 

@@ -381,7 +381,16 @@ class OrtControl extends Model
                 'teks'    => 'belum ada kunjungan tercatat',
                 'label'   => 'Menunggu',
                 'nada'    => 'menunggu',
-                'catatan' => 'terisi sendiri tiap malam dari rekam medis',
+                /* Catatan SENGAJA kosong. Sempat berbunyi "terisi sendiri tiap
+                   malam dari rekam medis" dan itu dibuang 7 Okt 2026: barisnya
+                   sudah berlabel REKAM MEDIS tepat di sebelah kiri, jadi
+                   kalimat itu mengulang label sambil memaksa barisnya
+                   membungkus jadi dua baris.
+
+                   Berbeda dengan dua keadaan di atas, yang catatannya justru
+                   MEMBEDAKAN — "terisi sendiri" vs "ditandai manual oleh
+                   Sales" — dan itu tidak bisa ditebak dari labelnya. */
+                'catatan' => '',
             ];
         }
 
