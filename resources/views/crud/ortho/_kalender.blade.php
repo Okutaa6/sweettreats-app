@@ -33,6 +33,14 @@
     $next   = $bulan->copy()->addMonth()->format('Y-m');
     $namaHari = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
 
+    /* Ditulis tangan, sama seperti $namaHari di atasnya, BUKAN
+       translatedFormat('M') — berkas ini sudah memilih jalan itu untuk nama
+       hari, dan dua sumber nama bulan di satu halaman pasti berbeda suatu
+       hari. Yang ditiru pemilih di halaman Kehadiran, jadi singkatannya
+       disamakan dengan yang dipakai di sana. */
+    $namaBulan = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
+                  'Jul', 'Agt', 'Sep', 'Okt', 'Nov', 'Des'];
+
     $warnaChip = [
         'menunggu' => 'menunggu', 'usulan' => 'usulan', 'sudah_fu' => 'fu', 'ada_reservasi' => 'rsv',
         'reservasi_batal' => 'batal', 'terlewat' => 'telat', 'terlewat_parah' => 'telatlama',
@@ -57,13 +65,50 @@
     {{-- Pindah bulan tinggal DI DALAM kartu kalender, bukan di pita
          navigasi: pita sudah dipakai sub-tab kegentingan yang berlaku
          di semua tab, dan bulan hanya berarti untuk kalender. --}}
+    {{-- Bentuknya disamakan dengan navigasi kalender halaman Kehadiran
+         (7 Okt 2026, permintaan Reza): satu pil putih berisi panah-bulan-panah,
+         label bulannya sendiri sebuah tombol yang membuka pemilih 12 bulan.
+
+         ⚠ Kelas .kh2-* di sana TIDAK dipakai ulang, dan itu bukan pilihan:
+           CSS-nya hidup di dalam blok style halaman itu sendiri, jadi tidak
+           pernah ikut terkirim ke halaman ini. Yang disalin bentuknya; nilainya
+           diambil dari token --ort-* supaya tetap satu keluarga warna dengan
+           tabelnya.
+
+         ⚠ Pemilihnya TAUTAN biasa, bukan grid yang dibangun JS seperti aslinya.
+           Kalender ini dirender server dan sudah punya ?bulan= — JS cuma
+           membuka-tutup panelnya, jadi tanpa JS pun navigasinya tetap jalan. --}}
     <div class="ort-cal-bar">
         <div class="ort-cal-nav">
             <a href="{{ $tautan(['bulan' => $prev, 'hari' => null]) }}" class="ort-cal-btn" title="Bulan sebelumnya"><i class="fas fa-chevron-left"></i></a>
-            <span class="ort-cal-month">{{ $bulan->translatedFormat('F Y') }}</span>
+
+            <button type="button" class="ort-cal-month" data-ort-bulan
+                    aria-expanded="false" aria-haspopup="true" title="Pilih bulan">
+                {{ $bulan->translatedFormat('F Y') }}
+                <i class="fas fa-chevron-down ort-cal-month__v"></i>
+            </button>
+
             <a href="{{ $tautan(['bulan' => $next, 'hari' => null]) }}" class="ort-cal-btn" title="Bulan berikutnya"><i class="fas fa-chevron-right"></i></a>
+
+            <div class="ort-cal-dp" data-ort-bulan-panel hidden>
+                {{-- Tahunnya LABEL, bukan pemilih — sama dengan aslinya. Pindah
+                     tahun tetap bisa lewat panah bulan, yang memang melintasi
+                     batas Desember-Januari. --}}
+                <div class="ort-cal-dp__th tabular">{{ $bulan->year }}</div>
+
+                <div class="ort-cal-dp__grid">
+                    @foreach ($namaBulan as $i => $nb)
+                        @php $ym = sprintf('%04d-%02d', $bulan->year, $i + 1); @endphp
+                        <a href="{{ $tautan(['bulan' => $ym, 'hari' => null]) }}"
+                           class="ort-cal-dp__m {{ $bulan->month === $i + 1 ? 'is-on' : '' }}">{{ $nb }}</a>
+                    @endforeach
+                </div>
+
+                <a href="{{ $tautan(['bulan' => null, 'hari' => null]) }}" class="ort-cal-dp__kini">Lompat ke hari ini</a>
+            </div>
         </div>
-        <a href="{{ $tautan(['bulan' => null, 'hari' => null]) }}" class="ort-btn"><i class="fas fa-crosshairs"></i> Hari Ini</a>
+
+        <a href="{{ $tautan(['bulan' => null, 'hari' => null]) }}" class="ort-btn"><i class="fas fa-dot-circle"></i> Hari Ini</a>
     </div>
 
     <div class="ort-cal-dow">
@@ -108,3 +153,36 @@
         @endforeach
     </div>
 </div>
+
+<script>
+/* Buka-tutup pemilih bulan. Mengikuti pola [data-ort-filter] di _filter.blade
+   - satu pendengar, tanpa pustaka.
+
+   Yang ditambah dibanding pola itu: menutup saat klik di luar dan saat Escape.
+   Panel ini MENGAMBANG di atas grid kalender, jadi dibiarkan terbuka ia
+   menutupi tanggal - sementara panel filter mendorong isi ke bawah dan tidak
+   pernah menghalangi apa pun. */
+(function () {
+    var tombol = document.querySelector('[data-ort-bulan]');
+    var panel  = document.querySelector('[data-ort-bulan-panel]');
+    if (!tombol || !panel) return;
+
+    function setel(buka) {
+        panel.hidden = !buka;
+        tombol.setAttribute('aria-expanded', buka ? 'true' : 'false');
+    }
+
+    tombol.addEventListener('click', function (e) {
+        e.stopPropagation();
+        setel(panel.hidden);
+    });
+
+    document.addEventListener('click', function (e) {
+        if (!panel.hidden && !panel.contains(e.target)) setel(false);
+    });
+
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && !panel.hidden) { setel(false); tombol.focus(); }
+    });
+})();
+</script>

@@ -1264,13 +1264,64 @@
    Tab Kalender — brief §12 / screenshot 11 & 12
    ════════════════════════════════════════════════════════════════════════════ */
 .ort-cal-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 15px 20px; }
-.ort-cal-nav { display: flex; align-items: center; gap: 10px; }
-.ort-cal-btn {
-  width: 34px; height: 34px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center;
-  background: #fff; border: 1px solid var(--ort-line2); color: var(--ort-ink2); font-size: 12px; text-decoration: none;
+/* --- Pindah bulan: SATU pil putih berisi panah-bulan-panah ----------------
+   Bentuk disamakan dengan navigasi kalender halaman Kehadiran (.kh2-nav* di
+   absensi/kehadiran.blade.php), 7 Okt 2026. Kelasnya tidak dipakai ulang
+   karena CSS-nya inline di halaman itu dan tidak pernah sampai ke sini; yang
+   disalin bentuknya, warnanya dari token modul ini. Sebelumnya: dua kotak
+   putih terpisah mengapit teks polos. */
+.ort-cal-nav {
+  position: relative;                 /* jangkar pemilih bulan di bawahnya */
+  display: flex; align-items: center; gap: 2px;
+  background: #fff; border: 1px solid var(--ort-line2);
+  border-radius: 14px; padding: 4px;
 }
-.ort-cal-btn:hover { border-color: var(--ort-muted); color: var(--ort-ink); text-decoration: none; }
-.ort-cal-month { font-size: 17px; font-weight: 800; color: var(--ort-ink); min-width: 158px; text-align: center; }
+.ort-cal-btn {
+  width: 32px; height: 32px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center;
+  background: transparent; border: none; color: var(--ort-ink2); font-size: 12px; text-decoration: none;
+  cursor: pointer; transition: background .12s ease, color .12s ease;
+}
+.ort-cal-btn:hover { background: var(--ort-hover); color: var(--ort-ink); text-decoration: none; }
+
+/* Label bulan kini TOMBOL, bukan span. min-width dipertahankan: tanpa itu
+   kedua panah bergeser tiap bulan berganti nama ("Mei" vs "September"). */
+.ort-cal-month {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-width: 158px; padding: 5px 10px; border-radius: 10px;
+  background: transparent; border: none; font-family: inherit; cursor: pointer;
+  font-size: 17px; font-weight: 800; color: var(--ort-ink); text-align: center;
+  transition: background .12s ease;
+}
+.ort-cal-month:hover { background: var(--ort-hover); }
+.ort-cal-month__v { font-size: 10px; color: var(--ort-muted); transition: transform .15s ease; }
+.ort-cal-month[aria-expanded="true"] .ort-cal-month__v { transform: rotate(180deg); }
+
+/* Pemilih 12 bulan. MENGAMBANG di atas grid - makanya skripnya menutup saat
+   klik di luar, beda dari panel filter yang mendorong isi ke bawah. */
+.ort-cal-dp {
+  position: absolute; top: calc(100% + 7px); left: 0; z-index: 30;
+  width: 270px; padding: 13px;
+  background: #fff; border: 1px solid var(--ort-line); border-radius: 16px;
+  box-shadow: 0 14px 34px rgba(70, 21, 0, .14);
+}
+.ort-cal-dp__th { font-size: 12px; font-weight: 800; color: var(--ort-muted); margin-bottom: 10px; }
+.ort-cal-dp__grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; }
+.ort-cal-dp__m {
+  display: flex; align-items: center; justify-content: center; height: 34px;
+  border-radius: 10px; background: var(--ort-sunken); border: 1px solid var(--ort-line);
+  font-size: 12px; font-weight: 700; color: var(--ort-ink2); text-decoration: none;
+}
+.ort-cal-dp__m:hover { background: var(--ort-hover); border-color: var(--ort-line2); color: var(--ort-ink); text-decoration: none; }
+.ort-cal-dp__m.is-on {
+  background: linear-gradient(135deg, var(--ort-btn1), var(--ort-btn2));
+  border-color: var(--ort-btn1); color: var(--ort-onbrand);
+}
+.ort-cal-dp__kini {
+  display: block; margin-top: 11px; padding: 10px; border-radius: 11px;
+  background: var(--ort-strip); border: 1px solid var(--ort-line);
+  text-align: center; font-size: 12px; font-weight: 700; color: var(--ort-btn1); text-decoration: none;
+}
+.ort-cal-dp__kini:hover { background: var(--ort-hover); color: var(--ort-btn1); text-decoration: none; }
 .ort-cal-dow {
   display: grid; grid-template-columns: repeat(7, 1fr);
   background: linear-gradient(120deg, var(--ort-brand1), var(--ort-brand2));
