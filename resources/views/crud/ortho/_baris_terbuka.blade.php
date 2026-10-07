@@ -198,9 +198,14 @@
         {{-- ════════ KONTROL ════════════════════════════════════════════ --}}
         <div class="ort-p2__col">
             <div class="ort-p2__head">
-                Kontrol
-                {{-- Angka di kepala ini jumlah SEBENARNYA (kolom rollup), bukan
-                     jumlah yang terambil. Daftarnya dipotong 20 terbaru dan
+                {{-- "dan Reservasi" ditambahkan 7 Okt 2026: sejak lipatan tiap
+                     butir menyatakan DUA sumber, kolom ini tidak lagi cuma
+                     tentang kontrol. Judul yang tidak menyebut setengah isinya
+                     membuat setengah itu tidak dicari orang. --}}
+                Kontrol dan Reservasi
+                {{-- Angka di kepala ini jumlah KONTROL yang sebenarnya (kolom
+                     rollup), bukan jumlah reservasi dan bukan jumlah yang
+                     terambil. Daftarnya dipotong 20 terbaru dan
                      bergulir; menampilkan "20" untuk pasien yang punya 26
                      kontrol akan terbaca seperti enam kontrolnya hilang. --}}
                 @if (($r->control_count ?? 0) > 0)<span class="ort-p2__n tabular">{{ $r->control_count }}</span>@endif
