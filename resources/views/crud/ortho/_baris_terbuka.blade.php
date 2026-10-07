@@ -362,6 +362,32 @@
                                                 @endunless
                                                 {{ $kRsv['teks'] }}
                                             </span>
+
+                                            {{-- Pintu ke modul Reservasi, kini IKON saja dan
+                                                 duduk di ujung baris yang diterangkannya
+                                                 (7 Okt 2026, permintaan Reza). Sebelumnya ia
+                                                 tombol berteks penuh yang berdiri sendiri di
+                                                 bawah kedua baris — lebar, dan jauh dari
+                                                 kalimat yang menjadi alasannya ada.
+
+                                                 ⚠ Teksnya TIDAK hilang, pindah ke aria-label.
+                                                   Tombol ikon tanpa nama tidak terbaca pembaca
+                                                   layar, dan dua uji memang mencocokkan kalimat
+                                                   itu — keduanya tetap hijau justru karena
+                                                   namanya masih ada, bukan karena kebetulan.
+
+                                                 Tab baru, bukan pindah halaman: Sales sedang di
+                                                 tengah daftar kerja dengan saringan dan halaman
+                                                 tertentu, dan menukarnya berarti ia harus
+                                                 membangun ulang keadaan itu saat kembali. --}}
+                                            @if ($kRsvUrl)
+                                                <a href="{{ $kRsvUrl }}" target="_blank" rel="noopener"
+                                                   class="ort-rsvgo" onclick="event.stopPropagation()"
+                                                   aria-label="Buka di Reservasi"
+                                                   title="Buka di Reservasi — reservasi pasien ini, di tab baru">
+                                                    <i class="fas fa-external-link-alt"></i>
+                                                </a>
+                                            @endif
                                         </div>
 
                                         <div class="ort-nlist__f">
@@ -375,19 +401,6 @@
                                                 @endif
                                             </span>
                                         </div>
-
-                                        @if ($kRsvUrl)
-                                            {{-- Tab baru, bukan pindah halaman: Sales sedang di
-                                                 tengah daftar kerja dengan saringan dan halaman
-                                                 tertentu, dan menukarnya berarti ia harus
-                                                 membangun ulang keadaan itu saat kembali. --}}
-                                            <a href="{{ $kRsvUrl }}" target="_blank" rel="noopener"
-                                               class="ort-obtn ort-obtn--xs" onclick="event.stopPropagation()"
-                                               title="Buka reservasi pasien ini di modul Reservasi">
-                                                <i class="far fa-calendar-alt"></i> Buka di Reservasi
-                                                <i class="fas fa-external-link-alt" style="font-size:8px;"></i>
-                                            </a>
-                                        @endif
                                     </div>
                                 </span>
                             </div>
