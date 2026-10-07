@@ -1159,6 +1159,12 @@
      ketiga kolom tetap rata kiri satu sama lain. */
   scrollbar-gutter: stable;
   padding-right: 2px;
+
+  /* ⚠ WAJIB sejak butirnya memakai margin mendatar NEGATIF untuk melebarkan
+     sasaran kliknya. `overflow-y: auto` membuat overflow-x ikut jadi `auto`
+     (bawaannya `visible`), jadi tanpa baris ini margin itu memunculkan bilah
+     gulir MENDATAR di kolom yang isinya cuma teks membungkus. */
+  overflow-x: hidden;
 }
 
 /* Bilah gulir TERLIHAT tapi tenang. Terlihat karena daftar yang terpotong
@@ -1173,9 +1179,35 @@
 .ort-nlist::-webkit-scrollbar-thumb:hover { background: #C9AE93; }
 .ort-nlist { scrollbar-width: thin; scrollbar-color: #E2D2BE transparent; }
 .ort-nlist__i {
-  display: flex; gap: 10px; padding: 9px 0;
+  display: flex; gap: 10px; padding: 9px 7px; margin: 0 -7px;
   font-size: 12.5px; font-weight: 600; color: var(--ort-ink2); line-height: 1.45;
+  border-radius: 9px;
+  transition: background .12s ease;
 }
+
+/* Seluruh baris butir adalah sasaran klik, bukan cuma chevron 22px di ujungnya
+   — lihat pendengarnya di _js_panel.blade.php. Karena itu ia harus TERLIHAT
+   bisa diklik: kursor berubah, latarnya menyala saat disentuh.
+
+   ⚠ Disaring `:has(.ort-nlist__tgl)`, BUKAN dipasang ke semua .ort-nlist__i.
+     Kelas itu dipakai DUA daftar: riwayat Kontrol yang punya lipatan, dan
+     riwayat Follow Up yang tidak. Dipasang polos, butir Follow Up ikut
+     berkursor tangan dan menyala saat disentuh lalu tidak melakukan apa pun
+     saat diklik — janji yang tidak ditepati, dan justru jenis cacat yang
+     paling melelahkan karena tidak pernah terlihat seperti bug. */
+.ort-nlist__i:has(.ort-nlist__tgl) { cursor: pointer; }
+.ort-nlist__i:has(.ort-nlist__tgl):hover { background: var(--ort-hover); }
+
+/* ⚠ Tapi TIDAK saat yang disentuh isi lipatannya sendiri. Di sana kursornya
+     sedang membaca, bukan hendak mengklik — dan menyalakan seluruh blok di
+     bawah kursor yang diam membuatnya terlihat seperti akan melakukan sesuatu.
+     Klik dari dalam lipatan juga memang diabaikan pendengarnya. */
+.ort-nlist__i:has(.ort-nlist__d:hover) { background: transparent; }
+.ort-nlist__d { cursor: default; }
+
+/* Butir yang sedang terbuka tetap bertanda walau kursor sudah pergi. Berguna
+   sejak lipatannya eksklusif: hanya satu yang terbuka, dan inilah yang mana. */
+.ort-nlist__i:has(.ort-nlist__tgl.is-open) { background: var(--ort-sunken); }
 .ort-nlist__i:first-child { padding-top: 2px; }
 .ort-nlist__i + .ort-nlist__i { border-top: 1px solid var(--ort-row); }
 

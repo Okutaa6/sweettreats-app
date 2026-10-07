@@ -174,17 +174,37 @@
         document.documentElement.dataset.ortKdetailPasang = '1';
 
         document.addEventListener('click', function (e) {
-            var b = e.target && e.target.closest
-                ? e.target.closest('[data-ort-kdetail]') : null;
-            if (!b) return;
+            if (!e.target || !e.target.closest) return;
 
             /* Panel baris BUKAN anak dari [data-ort-row] (ia dirender sebagai
                saudara sesudahnya), jadi klik di sini sebetulnya tidak pernah
                sampai ke pembuka baris. stopPropagation tetap dipasang sebagai
                pagar: begitu suatu hari strukturnya berubah, tanpa ini membuka
                satu butir akan MENUTUP seluruh panelnya. */
+            var b = e.target.closest('[data-ort-kdetail]');
+            if (b) {
+                e.stopPropagation();
+                lipat(b.dataset.ortKdetail, b);
+                return;
+            }
+
+            /* SELURUH BARIS butir ikut membuka, bukan cuma chevron-nya
+               (7 Okt 2026, permintaan Reza). Sasaran klik 22px di ujung kanan
+               terlalu kecil untuk daftar yang memang dibuka-tutup terus.
+
+               ⚠ Klik yang berasal DARI DALAM lipatannya sendiri dikecualikan.
+                 Tanpa itu, membaca keadaan reservasi yang baru saja dibuka —
+                 atau menyeret teksnya — langsung menutup lipatan itu kembali.
+                 Tautan "Buka di Reservasi" memang sudah stopPropagation
+                 sendiri, tapi chip dan teks di sekitarnya tidak. */
+            var butir = e.target.closest('.ort-nlist__i');
+            if (!butir || e.target.closest('.ort-nlist__d')) return;
+
+            var tombol = butir.querySelector('.ort-nlist__tgl');
+            if (!tombol) return;
+
             e.stopPropagation();
-            lipat(b.dataset.ortKdetail, b);
+            lipat(tombol.dataset.ortKdetail, tombol);
         });
     }
 })();
