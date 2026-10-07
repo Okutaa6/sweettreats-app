@@ -651,19 +651,24 @@
    yang ditutupnya), dan warnanya --ort-line2 — setenang garis pemisah. Niatnya
    supaya tidak mencolok; hasilnya tidak terlihat sama sekali.
 
-   Sekarang ia tetap tenang, tapi tenang sebagai BENDA: lingkaran kecil berisi
-   krem dengan tepi, bukan glif pudar mengambang. Merah baru muncul saat
-   disentuh — itu saat yang tepat untuk mengatakan "ini membuang sesuatu". */
+   Sekarang ia MERAH sejak diam, bukan cuma saat disentuh. Dua percobaan
+   sebelumnya gagal karena alasan yang sama: krem di atas pita putih nyaris
+   tidak berbeda dari latarnya, dan silang yang tidak terlihat sama saja dengan
+   tidak ada. Merah di sini juga jujur — ia memang membuang sesuatu dari layar.
+
+   Isi muda + tepi dan glif penuh: cukup untuk tertangkap mata sekilas, tanpa
+   menjadi benda paling mencolok di baris yang isinya justru kabar baik
+   ("kontrol selesai"). Saat disentuh ia membalik jadi merah penuh. */
 .ort-done__x {
   flex: none; margin-left: 4px;
   width: 20px; height: 20px; padding: 0;
   display: inline-flex; align-items: center; justify-content: center;
-  background: var(--ort-row); border: 1px solid var(--ort-line); border-radius: 50%;
-  color: var(--ort-ink3); font-size: 14px; line-height: 1;
+  background: var(--ort-bad-bg); border: 1px solid var(--ort-bad); border-radius: 50%;
+  color: var(--ort-bad); font-size: 14px; font-weight: 700; line-height: 1;
   font-family: inherit; cursor: pointer;
-  transition: background .12s ease, border-color .12s ease, color .12s ease;
+  transition: background .12s ease, color .12s ease;
 }
-.ort-done__x:hover { background: var(--ort-bad-bg); border-color: var(--ort-bad); color: var(--ort-bad); }
+.ort-done__x:hover { background: var(--ort-bad); color: #fff; }
 
 /* ⚠ WAJIB. .ort-done itu display:flex, dan flex MENGALAHKAN [hidden] bawaan
      peramban — tanpa baris ini, pita yang di-hidden lewat JS tetap tampil. */
