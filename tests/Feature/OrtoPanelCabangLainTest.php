@@ -262,6 +262,41 @@ class OrtoPanelCabangLainTest extends TestCase
     // ════════════════════════════════════════════════════════════════════════
 
     /**
+     * ⭐ Tab "Belum punya jadwal" memakai PANEL YANG SAMA dengan tab Jadwal
+     *   Kontrol — cangkang kosong + skrip bersama, bukan panel sendiri.
+     *
+     * Sampai 7 Okt 2026 tab itu punya _antrean_terbuka.blade.php sendiri: dua
+     * kolom, sementara tab sebelah sudah tiga. Dua tampilan untuk pasien yang
+     * sama, berbeda cuma karena kebetulan jalur kodenya berbeda — dan setiap
+     * perbaikan panel sejak itu (lipatan per butir, dua sumber, delegasi
+     * pendengarnya) tidak pernah sampai ke sana.
+     *
+     * Uji ini menahan perpisahan itu terjadi lagi.
+     */
+    public function test_antrean_memakai_panel_yang_sama(): void
+    {
+        $k = $this->pasien($this->kita, $this->kita, adaKontrolTerbuka: false);
+
+        $html = $this->withSession($this->sesi)
+            ->get('/tracking-ortho?' . http_build_query(['utama' => $this->kita, 'tab' => 'antrean']))
+            ->assertOk()->getContent();
+
+        $this->assertStringContainsString('data-ort-kasus="' . $k->id . '"', $html,
+            'Barisnya membawa cangkang panel berkunci KASUS.');
+        $this->assertStringContainsString('data-ort-kosong', $html,
+            'Cangkangnya kosong — isinya diambil saat dibuka, bukan dirender di muka.');
+        $this->assertStringContainsString('ortKdetailPasang', $html,
+            'Dan skrip panel BERSAMA ikut terkirim, bukan salinan milik tab ini sendiri.');
+
+        /* Isinya memang panel tiga kolom yang sama. Judul kolom tengahnya
+           menyebut keduanya sejak lipatannya menyatakan dua sumber. */
+        $panel = $this->panel($this->kita, $k->id)->assertOk()->getContent();
+
+        $this->assertStringContainsString('Kontrol dan Reservasi', $panel);
+        $this->assertStringContainsString('Follow Up', $panel);
+    }
+
+    /**
      * ⭐ Keempat tab utama terbuka. Tanpa uji ini, tab "Belum punya jadwal"
      * sempat 500 TANPA ketahuan: antrean naik dari kartu jadi tab, dan penjaga
      * lama `if ($tab !== 'list') $kartuAktif = null;` membatalkan tab barunya

@@ -493,12 +493,14 @@ class OrthoController extends Controller
                 'baris'         => $baris,
                 'kelompok'      => $this->q->kelompokkanAntrean($baris->items()),
                 'hitungAntrean' => $this->q->hitungAntrean($placeId, $filter),
-                // Panel baris antrean menampilkan 4 kontrol terakhir, sama
-                // seperti panel di daftar kerja. Diambil sekali untuk seluruh
-                // halaman, bukan per baris.
-                'riwayat'       => $this->q->kontrolTerakhir(
-                    collect($baris->items())->pluck('id')->all()
-                ),
+                /* `riwayat` (kontrolTerakhir) DIBUANG 7 Okt 2026. Ia memberi 4
+                   kontrol terakhir untuk panel antrean — panel yang kini tidak
+                   dirender di muka lagi: tab ini memakai panel bersama yang
+                   dimuat saat barisnya dibuka, dan panel itu mengambil
+                   riwayatnya sendiri lewat panelBaris().
+
+                   Satu kueri per muat halaman untuk data yang tidak lagi
+                   dipakai siapa pun. */
             ];
         }
 

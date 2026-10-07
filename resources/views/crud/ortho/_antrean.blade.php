@@ -146,7 +146,22 @@
                     </div>
                 </div>
 
-                @include('crud.ortho._antrean_terbuka', ['c' => $c])
+                {{-- CANGKANG KOSONG, diisi saat barisnya dibuka
+                     (?frag=panel&kasus=<id>) — persis seperti tab Jadwal
+                     Kontrol, dan sejak 7 Okt 2026 memakai PANEL YANG SAMA.
+
+                     Sebelumnya tab ini punya panel sendiri (_antrean_terbuka,
+                     dua kolom) sementara tab sebelah sudah tiga kolom. Dua
+                     tampilan untuk pasien yang sama, berbeda cuma karena
+                     kebetulan jalur kodenya berbeda.
+
+                     ⚠ Kuncinya $c->id, dan di tab ini itu memang ID KASUS —
+                       antrean() mengembalikan OrtCase, bukan baris kontrol.
+                       Itu pula sebabnya penyatuan ini bisa semurah ini:
+                       barisKasus() memang dicari lewat kasus, dengan LEFT JOIN
+                       ke kontrol terbuka yang di sini selalu NULL. --}}
+                <div class="ort-expand" data-ort-expand="{{ $c->id }}"
+                     data-ort-kasus="{{ $c->id }}" data-ort-kosong hidden></div>
             @endforeach
         @endforeach
 
@@ -166,40 +181,10 @@
     @include('crud.ortho._paginasi', ['data' => $baris, 'satuan' => 'pasien', 'perHal' => $perHal])
 </div>
 
-<script>
-/* Buka/tutup panel ringkas — perilaku sama dengan tabel daftar kerja, tapi
-   skripnya berdiri sendiri karena _tabel.blade.php tidak dirender di mode
-   antrean. Sengaja tidak dijadikan satu berkas bersama: keduanya cuma
-   ~20 baris, dan menyatukannya berarti satu berkas lagi yang harus dimuat
-   di halaman yang tidak memakainya. */
-(function () {
-    function buka(id, dari) {
-        var panel = document.querySelector('[data-ort-expand="' + id + '"]');
-        if (!panel) return;
-        var jadiBuka = panel.hasAttribute('hidden');
+{{-- Skrip panel & lipatan: partial BERSAMA, sama dengan dua tab lain.
 
-        document.querySelectorAll('[data-ort-expand]').forEach(function (p) { p.hidden = true; });
-        document.querySelectorAll('[data-ort-row]').forEach(function (t) { t.classList.remove('ort-tr--open'); });
-        document.querySelectorAll('[data-ort-toggle]').forEach(function (b) { b.classList.remove('is-open'); });
-
-        panel.hidden = !jadiBuka;
-        if (jadiBuka) {
-            dari.classList.add('ort-tr--open');
-            var tombol = dari.querySelector('[data-ort-toggle]');
-            if (tombol) tombol.classList.add('is-open');
-        }
-    }
-
-    document.querySelectorAll('[data-ort-row]').forEach(function (row) {
-        row.addEventListener('click', function () { buka(row.dataset.ortRow, row); });
-    });
-
-    document.querySelectorAll('[data-ort-toggle]').forEach(function (b) {
-        b.addEventListener('click', function (e) {
-            e.stopPropagation();
-            var row = b.closest('[data-ort-row]');
-            if (row) buka(b.dataset.ortToggle, row);
-        });
-    });
-})();
-</script>
+     Dulu tab ini membawa salinannya sendiri dengan alasan "keduanya cuma ~20
+     baris". Alasan itu gugur begitu panelnya dimuat belakangan: salinan itu
+     tidak pernah ikut diperbarui, jadi lipatan per-butir di kolom Kontrol —
+     termasuk perbaikan delegasi 7 Okt 2026 — tidak pernah sampai ke sini. --}}
+@include('crud.ortho._js_panel')
