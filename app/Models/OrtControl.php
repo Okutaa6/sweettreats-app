@@ -360,10 +360,19 @@ class OrtControl extends Model
                 'nada'    => 'hadir',
                 /* Dari MANA angkanya, bukan sekadar angkanya. Tarikan malam dan
                    penandaan manual Sales punya tingkat kepercayaan berbeda, dan
-                   satu-satunya tempat perbedaan itu bisa dilihat adalah di sini. */
+                   satu-satunya tempat perbedaan itu bisa dilihat adalah di sini.
+
+                   ⚠ Cabang pertama dipendekkan jadi "terisi sendiri" (7 Okt
+                     2026). Barisnya kini berlabel "DARI REKAM MEDIS", jadi
+                     "terisi sendiri dari rekam medis" mengulang labelnya.
+
+                   ⚠ Cabang kedua SENGAJA tetap panjang, dan ia satu-satunya
+                     tempat label barisnya dikoreksi: kunjungan yang ditandai
+                     Sales justru TIDAK datang dari rekam medis. Jarang, tapi
+                     saat terjadi, kalimat inilah yang mencegah salah baca. */
                 'catatan' => $this->visit_source === 'rekam_medis'
-                    ? 'terisi sendiri dari rekam medis'
-                    : 'ditandai manual oleh Sales',
+                    ? 'terisi sendiri'
+                    : 'ditandai manual oleh Sales, bukan dari rekam medis',
             ];
         }
 

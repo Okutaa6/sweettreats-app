@@ -354,7 +354,7 @@
                                                menyisipkan apa pun di antaranya memutus uji yang
                                                menjaga kedua layar tetap sepakat. --}}
                                         <div class="ort-nlist__f">
-                                            <span class="ort-nlist__fk">Reservasi</span>
+                                            <span class="ort-nlist__fk">Status reservasi</span>
                                             <span class="ort-nlist__fv ort-nlist__dim" data-ort-rsv>
                                                 @unless ($k->visit_date)
                                                     <span class="ort-chip ort-chip--{{ $kRsv['nada'] }}"
@@ -365,7 +365,7 @@
                                         </div>
 
                                         <div class="ort-nlist__f">
-                                            <span class="ort-nlist__fk">Rekam medis</span>
+                                            <span class="ort-nlist__fk">Dari rekam medis</span>
                                             <span class="ort-nlist__fv">
                                                 <span class="ort-chip ort-chip--{{ $kVisit['nada'] }}"
                                                       style="margin-right:5px;">{{ $kVisit['label'] }}</span>

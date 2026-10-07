@@ -282,7 +282,7 @@ class OrtoTeksReservasiTest extends TestCase
 
         $html = $this->panel($k);
 
-        $this->assertStringContainsString('>Rekam medis</span>', $html,
+        $this->assertStringContainsString('>Dari rekam medis</span>', $html,
             'Barisnya diberi label sumbernya, bukan dibiarkan ditebak.');
 
         $this->assertMatchesRegularExpression(
@@ -297,7 +297,9 @@ class OrtoTeksReservasiTest extends TestCase
         /* Dari MANA angkanya, bukan sekadar angkanya: tarikan malam dan
            penandaan manual Sales punya tingkat kepercayaan berbeda, dan ini
            satu-satunya tempat perbedaan itu terlihat. */
-        $this->assertStringContainsString('terisi sendiri dari rekam medis', $html,
+        /* "terisi sendiri" saja — label barisnya sudah menyebut "dari rekam
+           medis", dan mengulangnya memaksa barisnya membungkus. */
+        $this->assertStringContainsString('terisi sendiri', $html,
             'Sumber angka kunjungan ikut dikatakan.');
     }
 

@@ -1279,7 +1279,7 @@
      hari ada label yang lebih panjang lagi. */
 .ort-nlist__f { display: flex; align-items: baseline; gap: 8px; width: 100%; }
 .ort-nlist__fk {
-  flex: none; min-width: 88px; white-space: nowrap;
+  flex: none; min-width: 118px; white-space: nowrap;
   font-size: 10px; font-weight: 800; color: var(--ort-muted);
   text-transform: uppercase; letter-spacing: .4px;
 }
