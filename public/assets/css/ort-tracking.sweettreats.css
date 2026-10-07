@@ -1186,7 +1186,19 @@
      saat diklik — janji yang tidak ditepati, dan justru jenis cacat yang
      paling melelahkan karena tidak pernah terlihat seperti bug. */
 .ort-nlist__i:has(.ort-nlist__tgl) { cursor: pointer; }
-.ort-nlist__i:has(.ort-nlist__tgl):hover { background: var(--ort-hover); }
+
+/* --ort-row, BUKAN --ort-hover. Percobaan pertama memakai --ort-hover (#FBF4EC)
+   dan di atas kartu putih selisihnya cuma beberapa persen kecerahan — terbaca
+   seperti layar yang berkedip, bukan seperti baris yang sedang ditunjuk. */
+.ort-nlist__i:has(.ort-nlist__tgl):hover { background: var(--ort-row); }
+
+/* Dan chevron-nya ikut MENYALA saat kursor ada di barisnya, bukan hanya saat
+   kursor tepat di atas tombol 22px itu. Sejak seluruh baris jadi sasaran klik,
+   tombol yang tetap pucat sementara barisnya menyala mengatakan hal yang
+   salah: seolah yang bisa diklik cuma dia. */
+.ort-nlist__i:has(.ort-nlist__tgl):hover .ort-nlist__tgl {
+  background: var(--ort-btn1); border-color: var(--ort-btn1); color: var(--ort-onbrand);
+}
 
 /* ⚠ Tapi TIDAK saat yang disentuh isi lipatannya sendiri. Di sana kursornya
      sedang membaca, bukan hendak mengklik — dan menyalakan seluruh blok di
@@ -1244,10 +1256,18 @@
   display: inline-flex; align-items: center; justify-content: center;
   background: #fff; border: 1px solid var(--ort-line2); border-radius: 7px;
   color: var(--ort-muted); font-size: 9px; cursor: pointer;
-  transition: transform .14s ease, background .14s ease, border-color .14s ease;
+  transition: transform .14s ease, background .14s ease, border-color .14s ease, color .14s ease;
 }
-.ort-nlist__tgl:hover { background: var(--ort-hover); color: var(--ort-ink2); border-color: var(--ort-muted); }
-.ort-nlist__tgl.is-open { transform: rotate(180deg); background: var(--ort-neu-bg); color: var(--ort-ink2); }
+.ort-nlist__tgl:hover { background: var(--ort-btn1); border-color: var(--ort-btn1); color: var(--ort-onbrand); }
+
+/* Butir yang sedang terbuka: chevron berbalik DAN berwarna penuh. Sejak
+   lipatannya eksklusif, inilah satu-satunya penanda mana yang sedang dibuka
+   saat kursor sudah pergi — --ort-neu-bg yang dipakai sebelumnya terlalu dekat
+   dengan latar butirnya sendiri untuk dipakai sebagai penanda. */
+.ort-nlist__tgl.is-open {
+  transform: rotate(180deg);
+  background: var(--ort-btn1); border-color: var(--ort-btn1); color: var(--ort-onbrand);
+}
 
 /* Isi lipatan. Garis putus membedakannya dari pemisah antar butir yang padat. */
 .ort-nlist__d {
