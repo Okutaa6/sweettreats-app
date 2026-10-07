@@ -28,7 +28,11 @@
        dan aksi sendiri — bukan sekadar saringan atas daftar kerja, dan sebagai
        kartu ia tidak pernah punya penanda "sedang dibuka" yang jelas. */
     $tabs = [
-        'list'     => ['label' => 'List',               'ikon' => 'fa-list-ul'],
+        /* KUNCInya tetap 'list' — ia hidup di ?tab=, di self::TABS milik
+           controller, dan di belasan uji. Yang diganti cuma labelnya (7 Okt
+           2026): "List" tidak menyebut isi apa pun, sementara tiga tab
+           tetangganya semua menyebut isinya. */
+        'list'     => ['label' => 'Jadwal Kontrol',     'ikon' => 'fa-list-ul'],
         'antrean'  => ['label' => 'Belum punya jadwal', 'ikon' => 'fa-clock'],
         'kalender' => ['label' => 'Kalender',           'ikon' => 'fa-calendar-alt'],
         'pasien'   => ['label' => 'Pasien Ortho',       'ikon' => 'fa-user-friends'],
